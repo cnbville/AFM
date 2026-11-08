@@ -1126,7 +1126,7 @@ fn fill_roster(w: &mut World, d: Date) -> bool {
             let i = street_or_new(w, pos);
             let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
             let price = money::minimum(year, credited);
-            if money::cap_books(year) && space(w, t, year) < price {
+            if money::cap_books(year) && !super::front_office::cap_lifted(w, t) && space(w, t, year) < price {
                 market::clear_room(w, t, d, false, price, false);
                 if space(w, t, year) < price && healthy >= dress {
                     break;
@@ -1675,6 +1675,15 @@ fn camp(w: &mut World, d: Date) {
     }
     let focus = w.focus_by_person();
     let defer = !w.options.yearly_growth;
+    // The league's typical staff and strength head (minor bug 302), so the
+    // strength staff's share moves growth around the league's average.
+    let heads: Vec<f64> =
+        w.clubs.iter().map(|c| 10.0 + 10.0 * super::people::Support::z(c.support.strength.rating)).collect();
+    let (t_coach, t_strength) = {
+        let live: Vec<usize> = (0..w.nfl.len()).filter(|&t| super::franchise::active_in(w, t, year)).collect();
+        let n = live.len().max(1) as f64;
+        (live.iter().map(|&t| w.nfl[t].coaching).sum::<f64>() / n, live.iter().map(|&t| heads[t]).sum::<f64>() / n)
+    };
     for i in pros {
         let (team, status, first, new_team, payday) = {
             let c = w.people[i].pro.as_ref().unwrap();
@@ -1695,6 +1704,16 @@ fn camp(w: &mut World, d: Date) {
                     PlayingTime::Backup
                 }
             }
+        };
+        // Strength, speed and conditioning (minor bug 302): the strength
+        // staff takes 0.4 of the staff's pull there, as a college position
+        // coach's share of technique.
+        let (physical_coaching, strength_dev) = match team {
+            Some(t) => {
+                let dev = heads[t] - t_strength;
+                (Some(0.6 * w.nfl[t].coaching + 0.4 * (t_coach + dev)), dev)
+            }
+            None => (None, 0.0),
         };
         let (coaching, situation) = match team {
             Some(t) => {
@@ -1734,6 +1753,13 @@ fn camp(w: &mut World, d: Date) {
             let (ph, me) = super::people::support_ctx(support, &p.player.personality);
             (super::people::morale(p, room), ph, me)
         };
+        // Growth from results: last season's results close; a pro on a
+        // team plays this season on the engine, when the NFL's games do
+        // (`nfl_year::engine_games`): a stand-in season keeps the yearly
+        // step's snaps.
+        let closing = w.results.ledgers.remove(&w.people[i].player.id);
+        let nfl_engine = w.options.engine_from.is_none_or(|from| w.year >= from) && !w.clubs.is_empty();
+        let results = (w.options.results.on && team.is_some() && nfl_engine).then_some(w.options.results);
         let p = &mut w.people[i];
         let mut adjustment = 0.0;
         if team.is_some() && (first || new_team) && role != PlayingTime::Unsigned {
@@ -1783,12 +1809,30 @@ fn camp(w: &mut World, d: Date) {
             morale,
             physical,
             medical,
+            physical_coaching,
+            strength_dev,
             focus: focus.get(&i).copied(),
             defer,
+            results,
             ..crate::development::SeasonContext::new(Level::NFL, clamp(coaching, 1.0, 20.0), role)
         };
+        if let Some(l) = &closing {
+            crate::results::close(&mut p.player, l);
+        }
+        crate::results::settle_reps(&mut p.player, closing.as_ref());
+        // A season whose snaps didn't land in season is read at this
+        // opening, spring snaps with it (`develop_season`).
+        let read_late = crate::development::reads_late(&p.player, Level::NFL);
         crate::training::close_year(&mut p.player, ctx.focus);
         let report = crate::development::develop_season(&mut p.player, &ctx, &mut p.rng);
+        // His spring snaps (OTAs, minicamp) land now as reps of the new
+        // year, as they added to last season's snaps before.
+        let spring_landed = if results.is_some() && spring > 0.0 && !p.player.position.is_specialist() && !read_late {
+            crate::training::reps_land(&mut p.player, 0.0, spring, ctx.focus);
+            Some(spring)
+        } else {
+            None
+        };
         if let Some(log) = w.wlog.as_deref().filter(|_| w.recording) {
             crate::world::wlog::why::growth(log, (w.year, w.today), p.player.id, &ctx, [None; 3], &report);
         }
@@ -1805,6 +1849,15 @@ fn camp(w: &mut World, d: Date) {
         c.spring_snaps = 0.0;
         c.preseason = (0.0, 0.0);
         c.season_mut(year).team = team;
+        // The season's ledger: last season's rolled into his past, his
+        // spring snaps landed.
+        let id = w.people[i].player.id;
+        let mut l = closing.unwrap_or_default();
+        l.roll(year);
+        l.reps = spring_landed.unwrap_or(0.0) as f32;
+        if spring_landed.is_some() || !l.past.is_empty() {
+            w.results.ledgers.insert(id, l);
+        }
     }
     let _ = d;
 }
@@ -2226,7 +2279,7 @@ fn heal_week(w: &mut World) {
             && let Some(t) = team
             && crate::world::front_office::seat_head_club(w, t)
             && !crate::world::front_office::reserve::you_decide(w, i)
-            && (pup || w.clubs[t].ir_used < games::ir_returns_on(w))
+            && (pup || w.clubs[t].ir_used < games::ir_returns_on(w) || crate::world::front_office::roster_lifted(w, t))
         {
             let d = w.today;
             back_from_reserve(w, i, t, pup, d);
@@ -2283,7 +2336,7 @@ pub(crate) fn heal_day(w: &mut World, d: Date, y: &crate::calendar::YearDates) {
         // Your club's healed player waits for your word (minor bug 73), off
         // the PUP list too; nothing moves him without you.
         if crate::world::front_office::reserve::you_decide(w, i) {
-            if returns {
+            if returns || crate::world::front_office::roster_lifted(w, t) {
                 crate::world::front_office::reserve::healed(w, i);
             }
             continue;
@@ -2312,7 +2365,9 @@ fn back_from_reserve(w: &mut World, i: usize, t: usize, pup: bool, d: Date) {
     let c = w.people[i].pro.as_mut().unwrap();
     c.status = Status::Roster;
     c.pup = false;
-    let over = count(w, t, Status::Roster) > w.rules.nfl_roster as usize;
+    // Sandbox mode's roster limits: your club keeps everyone.
+    let over =
+        count(w, t, Status::Roster) > w.rules.nfl_roster as usize && !crate::world::front_office::roster_lifted(w, t);
     if over {
         // Room for him: the team lets its lowest-rated healthy player at the deepest spot go.
         let cut = w.clubs[t]

@@ -107,6 +107,10 @@ pub fn search<'a>(w: &'a World, j: usize, spec: &Spec) -> Found<'a> {
                     && p.college.is_some_and(|c| w.programs[c].division == Division::JUCO)
             }
             "portal" => p.stage == Stage::College && p.cal.portal.is_some() && p.college != Some(j),
+            // Still unsigned after February's signing day (lane B): seniors,
+            // prep school and junior college players who can sign on a late
+            // signing day until summer enrollment.
+            "late" => desk::late_recruit(p),
             _ => {
                 matches!(p.stage, Stage::HighSchool | Stage::PrepSchool)
                     && p.class_of == class
@@ -235,6 +239,8 @@ pub fn find(w: &World, j: usize, args: &Value) -> Reply {
         "classes": [sign, sign + 1, sign + 2],
         "class_words": class_words(w, f.class),
         "level": spec.level,
+        // The late signing days still to come, while late recruits look (lane B).
+        "late": desk::late_days(w).map(|(next, last)| json!({ "next": short(next), "last": short(last) })),
         "home": w.states.get(pr.state).map(|s| s.code.clone()),
         "states": w.states.iter().map(|s| s.code.clone()).collect::<Vec<_>>(),
         "update": update,

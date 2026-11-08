@@ -61,6 +61,16 @@ const BANKS: &[&str] = &[
     include_str!("../../../data/lines/dialogue.txt"),
     // The fans (people topic 9; the fan lane, then 13f).
     include_str!("../../../data/lines/fans.txt"),
+    // The line bank run (Cain 2026-11-07): one file per family, written
+    // through the Batches API and checked by tools/linebank.
+    include_str!("../../../data/lines/talks_run.txt"),
+    include_str!("../../../data/lines/gameday_run.txt"),
+    include_str!("../../../data/lines/staff_run.txt"),
+    include_str!("../../../data/lines/recruit_run.txt"),
+    include_str!("../../../data/lines/ad_run.txt"),
+    include_str!("../../../data/lines/agents_run.txt"),
+    include_str!("../../../data/lines/room_run.txt"),
+    include_str!("../../../data/lines/boosters_run.txt"),
 ];
 
 #[derive(Clone, Debug)]
@@ -186,6 +196,11 @@ impl Bank {
 
     pub fn has(&self, key: &str) -> bool {
         self.by_key.contains_key(key)
+    }
+
+    /// How many versions of a part this speaker can say with these facts.
+    pub fn fitting(&self, key: &str, who: &Speaker, facts: &Facts) -> usize {
+        self.by_key.get(key).map_or(0, |fr| fr.iter().filter(|f| f.fits(who, facts)).count())
     }
 
     /// Every version of every part, counted out: how many different lines
@@ -406,6 +421,20 @@ impl Speaker {
         }
         if p.player.personality.competitiveness >= 14.0 {
             tags.push("competitor");
+        }
+        // Who talks back in your office (Cain 2026-11-05, "Yes, tag them"):
+        // a high school player never; a college player only with a big ego,
+        // a hot temper and little trust in his coach; an NFL ego or temper
+        // keeps its edge. Low trust is under 0.4, below where a new coach
+        // starts (about 0.5; proposed, not confirmed).
+        const BRASH_TRUST: f32 = 0.4;
+        let brash = match tags[1] {
+            "nfl" => hi(Trait::Ego) || hi(Trait::Temper),
+            "college" => hi(Trait::Ego) && hi(Trait::Temper) && p.trust < BRASH_TRUST,
+            _ => false,
+        };
+        if brash {
+            tags.push("brash");
         }
         Self::position(&mut tags, p.player.position);
         // Where he is in his career, so a line about a senior year, a
@@ -657,13 +686,22 @@ impl Facts {
     }
 }
 
-/// Writes lines: the bank, a seeded stream and the speakers' memories.
+/// How many times each version has been said to you, from anyone (the
+/// listener-wide rest, line bank run question 4, Cain 2026-11-07): a
+/// wording waits until every other wording of its part the speaker can say
+/// has been heard as often. Kept for the whole career, one entry a version
+/// you have heard (the bank's size at most).
+pub type Heard = std::collections::BTreeMap<u32, u16>;
+
+/// Writes lines: the bank, a seeded stream and the memories (what each
+/// speaker has said to you, and what you've heard from anyone).
 /// It takes the memories out of the world while it writes (`take`) and puts
 /// them back when done (`put`), so the world stays readable in between.
 pub struct Pen {
     pub rng: Rng,
     today: Date,
     said: Vec<(u64, Vec<(u32, Date)>)>,
+    heard: Heard,
     /// Your words: what {coach_he} and the like say when the facts don't
     /// name the coach (a line said to you speaks of you).
     you: Pro,
@@ -673,24 +711,84 @@ pub struct Pen {
 /// a full season (D3, Cain 2026-10-27).
 pub const REST_DAYS: i32 = 365;
 
+/// The pick (D3 and the listener-wide rest): among the versions that fit,
+/// the ones this speaker hasn't said to you in a season come first; of
+/// those, the ones you've heard least often from anyone; and among them a
+/// version written for his kind of voice, or for this moment, is likelier
+/// than a general one. If he has said every version that fits this season,
+/// the one he said longest ago.
+fn choose<'a>(
+    ok: &[&'a Frag],
+    last: impl Fn(u32) -> Option<Date>,
+    times: impl Fn(u32) -> u32,
+    today: Date,
+    rng: &mut Rng,
+) -> &'a Frag {
+    let last: Vec<Option<Date>> = ok.iter().map(|f| last(f.id)).collect();
+    let fresh: Vec<usize> = (0..ok.len()).filter(|&k| last[k].is_none_or(|d| d.days_to(today) >= REST_DAYS)).collect();
+    if fresh.is_empty() {
+        let k = (0..ok.len()).min_by_key(|&k| (last[k], k)).unwrap_or(0);
+        return ok[k];
+    }
+    let n: Vec<u32> = fresh.iter().map(|&k| times(ok[k].id)).collect();
+    let least = n.iter().copied().min().unwrap_or(0);
+    let tier: Vec<&Frag> = fresh.iter().zip(&n).filter(|x| *x.1 == least).map(|x| ok[*x.0]).collect();
+    let weights: Vec<(usize, f64)> =
+        tier.iter().enumerate().map(|(k, f)| (k, 1.0 + 0.8 * (f.need.len() + f.when.len()) as f64)).collect();
+    tier[rng.weighted(&weights)]
+}
+
+/// When this speaker last said this version to you, in a memory.
+fn said_last(said: &[(u64, Vec<(u32, Date)>)], key: u64, id: u32) -> Option<Date> {
+    said.iter().find(|x| x.0 == key).and_then(|x| x.1.iter().find(|e| e.0 == id)).map(|e| e.1)
+}
+
+/// Remembers a version said to you today: by its speaker (for a season)
+/// and once more heard from anyone (for good).
+fn remember_in(said: &mut Vec<(u64, Vec<(u32, Date)>)>, heard: &mut Heard, key: u64, id: u32, today: Date) {
+    match said.iter_mut().find(|x| x.0 == key) {
+        Some(x) => {
+            x.1.retain(|&(i, d)| i != id && d.days_to(today) < REST_DAYS);
+            x.1.push((id, today));
+        }
+        None => said.push((key, vec![(id, today)])),
+    }
+    let n = heard.entry(id).or_insert(0);
+    *n = n.saturating_add(1);
+}
+
 impl Pen {
     pub fn take(w: &mut World, seed: u64) -> Pen {
+        let you = crate::world::pronoun::you(w);
+        let today = w.today;
+        Pen { you, ..Pen::take_from(&mut w.folk, today, seed) }
+    }
+
+    /// `take` from a people store of its own on its own day (the proofs).
+    pub fn take_from(f: &mut super::Folk, today: Date, seed: u64) -> Pen {
         Pen {
             rng: Rng::new((seed ^ seed >> 32) as u32 ^ 0x5A1D_0000),
-            today: w.today,
-            said: std::mem::take(&mut w.folk.said_on),
-            you: crate::world::pronoun::you(w),
+            today,
+            said: std::mem::take(&mut f.said_on),
+            heard: std::mem::take(&mut f.heard),
+            you: Pro::HE,
         }
     }
 
     /// A pen with no memories (tests, and lines nobody hears twice).
     pub fn loose(seed: u64) -> Pen {
-        Pen { rng: Rng::new((seed ^ seed >> 32) as u32 ^ 0x5A1D_0000), today: Date(0), said: Vec::new(), you: Pro::HE }
+        Pen {
+            rng: Rng::new((seed ^ seed >> 32) as u32 ^ 0x5A1D_0000),
+            today: Date(0),
+            said: Vec::new(),
+            heard: Heard::new(),
+            you: Pro::HE,
+        }
     }
 
     /// A pen with its own memories on its own day (the repeat proof).
     pub fn on(seed: u64, today: Date, said: Vec<(u64, Vec<(u32, Date)>)>) -> Pen {
-        Pen { rng: Rng::new((seed ^ seed >> 32) as u32 ^ 0x5A1D_0000), today, said, you: Pro::HE }
+        Pen { rng: Rng::new((seed ^ seed >> 32) as u32 ^ 0x5A1D_0000), today, said, heard: Heard::new(), you: Pro::HE }
     }
 
     /// Moves the pen's day on (the repeat proof writes a season with one pen).
@@ -703,28 +801,23 @@ impl Pen {
         self.said
     }
 
-    /// Puts the speakers' memories back in the world. Speakers who have
-    /// said nothing to you for a season are forgotten.
-    pub fn put(mut self, w: &mut World) {
+    /// How often you've heard each version, from anyone (the proofs).
+    pub fn heard(&self) -> &Heard {
+        &self.heard
+    }
+
+    /// Puts the memories back in the world. Speakers who have said nothing
+    /// to you for a season are forgotten; what you've heard is kept.
+    pub fn put(self, w: &mut World) {
+        self.put_into(&mut w.folk);
+    }
+
+    /// `put` into a people store of its own (the proofs).
+    pub fn put_into(mut self, f: &mut super::Folk) {
         let today = self.today;
         self.said.retain(|x| x.1.iter().any(|&(_, d)| d.days_to(today) < REST_DAYS));
-        w.folk.said_on = self.said;
-    }
-
-    /// When this speaker last said this version to you.
-    fn last_said(&self, key: u64, id: u32) -> Option<Date> {
-        self.said.iter().find(|x| x.0 == key).and_then(|x| x.1.iter().find(|e| e.0 == id)).map(|e| e.1)
-    }
-
-    fn remember(&mut self, key: u64, id: u32) {
-        let today = self.today;
-        match self.said.iter_mut().find(|x| x.0 == key) {
-            Some(x) => {
-                x.1.retain(|&(i, d)| i != id && d.days_to(today) < REST_DAYS);
-                x.1.push((id, today));
-            }
-            None => self.said.push((key, vec![(id, today)])),
-        }
+        f.said_on = self.said;
+        f.heard = self.heard;
     }
 
     /// How many versions of this part the speaker could say today that he
@@ -734,7 +827,7 @@ impl Pen {
         frags
             .iter()
             .filter(|f| f.fits(who, facts))
-            .filter(|f| self.last_said(who.key, f.id).is_none_or(|d| d.days_to(self.today) >= REST_DAYS))
+            .filter(|f| said_last(&self.said, who.key, f.id).is_none_or(|d| d.days_to(self.today) >= REST_DAYS))
             .count()
     }
 
@@ -747,27 +840,15 @@ impl Pen {
         if ok.is_empty() {
             return None;
         }
-        let today = self.today;
-        let last: Vec<Option<Date>> = ok.iter().map(|f| self.last_said(who.key, f.id)).collect();
-        let fresh: Vec<&Frag> = ok
-            .iter()
-            .zip(&last)
-            .filter(|(_, l)| l.is_none_or(|d| d.days_to(today) >= REST_DAYS))
-            .map(|(f, _)| *f)
-            .collect();
-        let f = if fresh.is_empty() {
-            // Everything he can say has been said this season: the version
-            // he said longest ago.
-            let k = (0..ok.len()).min_by_key(|&k| (last[k], k)).unwrap_or(0);
-            ok[k]
-        } else {
-            // A version written for his kind of voice, or for this moment,
-            // is likelier than a general one.
-            let weights: Vec<(usize, f64)> =
-                fresh.iter().enumerate().map(|(k, f)| (k, 1.0 + 0.8 * (f.need.len() + f.when.len()) as f64)).collect();
-            fresh[self.rng.weighted(&weights)]
-        };
-        self.remember(who.key, f.id);
+        let (said, heard) = (&self.said, &self.heard);
+        let f = choose(
+            &ok,
+            |id| said_last(said, who.key, id),
+            |id| heard.get(&id).copied().unwrap_or(0) as u32,
+            self.today,
+            &mut self.rng,
+        );
+        remember_in(&mut self.said, &mut self.heard, who.key, f.id, self.today);
         Some(fill(&f.text, facts, &mut self.rng, self.you))
     }
 
@@ -782,6 +863,192 @@ impl Pen {
                 None => (false, *k),
             };
             if opt && !self.rng.chance(0.55) {
+                continue;
+            }
+            if let Some(s) = self.part(k, who, facts) {
+                out.push(s);
+            }
+        }
+        tidy(&out.join(" "))
+    }
+}
+
+/// One line a screen showed you: (its seed, the speaker, the part, the
+/// version).
+type ShownLine = (u64, u64, u32, u32);
+
+/// The lines screens showed you today (minor bug 314): the game day room
+/// and its preview, the sideline words and the paper's quote read the
+/// world without changing it, so what they pick waits in `waiting` until
+/// the game's call ends; `remember_shown` then keeps it in `lines` and
+/// remembers it as said to you. The same moment shows the same words all
+/// day; a new day starts the list again.
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct Shown {
+    pub day: Date,
+    pub lines: Vec<ShownLine>,
+    #[serde(skip)]
+    waiting: Waiting,
+}
+
+/// Lines picked by a screen and not yet remembered.
+#[derive(Debug, Default)]
+struct Waiting(std::sync::Mutex<Vec<ShownLine>>);
+
+impl Clone for Waiting {
+    fn clone(&self) -> Waiting {
+        Waiting(std::sync::Mutex::new(self.0.lock().map(|v| v.clone()).unwrap_or_default()))
+    }
+}
+
+impl Shown {
+    fn waiting(&self) -> Vec<ShownLine> {
+        self.waiting.0.lock().map(|v| v.clone()).unwrap_or_default()
+    }
+
+    fn wait(&self, l: ShownLine) {
+        if let Ok(mut v) = self.waiting.0.lock() {
+            // A screen nobody remembers (a test, a tool) never grows it
+            // past a day's worth.
+            if v.len() >= 4096 {
+                v.remove(0);
+            }
+            v.push(l);
+        }
+    }
+}
+
+/// Remembers the lines the screens showed you since the last call (the
+/// game runs it after every command): each as said to you today by its
+/// speaker, and heard once more. A line you read on a screen counts as
+/// heard.
+pub fn remember_shown(w: &mut World) {
+    let today = w.today;
+    remember_shown_in(&mut w.folk, today);
+}
+
+/// `remember_shown` over a people store of its own (the proofs).
+pub fn remember_shown_in(f: &mut super::Folk, today: Date) {
+    let waiting = std::mem::take(f.shown.waiting.0.get_mut().unwrap_or_else(|e| e.into_inner()));
+    if f.shown.day != today {
+        f.shown.day = today;
+        f.shown.lines.clear();
+    }
+    for l in waiting {
+        match f.shown.lines.iter_mut().find(|x| (x.0, x.1, x.2) == (l.0, l.1, l.2)) {
+            Some(x) if x.3 == l.3 => continue,
+            // The version shown earlier no longer fits (its facts moved):
+            // the new one is what the screen shows from now on.
+            Some(x) => x.3 = l.3,
+            None => f.shown.lines.push(l),
+        }
+        remember_in(&mut f.said_on, &mut f.heard, l.1, l.3, today);
+    }
+}
+
+/// A part's key as a number, for the lines a screen showed.
+fn part_id(key: &str) -> u32 {
+    version_id(key, "")
+}
+
+/// A pen for a screen that reads the world without changing it (the game
+/// day room and its preview, the sideline, the paper's quote; minor bug
+/// 314). It picks the way `Pen` does, with the world's memories and with
+/// what the screens showed earlier today, and the same seed gives the same
+/// words all day. What it picks is remembered after the game's call
+/// (`remember_shown`).
+pub struct Look<'w> {
+    folk: &'w super::Folk,
+    today: Date,
+    seed: u64,
+    you: Pro,
+}
+
+impl<'w> Look<'w> {
+    pub fn new(w: &'w World, seed: u64) -> Look<'w> {
+        Look { folk: &w.folk, today: w.today, seed, you: crate::world::pronoun::you(w) }
+    }
+
+    /// A look over a people store of its own (the proofs).
+    pub fn over(folk: &'w super::Folk, today: Date, seed: u64) -> Look<'w> {
+        Look { folk, today, seed, you: Pro::HE }
+    }
+
+    /// Its own stream for one part, so a part's words don't depend on which
+    /// parts came before it.
+    fn rng(&self, who: &Speaker, part: u32, salt: u32) -> Rng {
+        let s = self.seed ^ who.key.rotate_left(17) ^ (part as u64) << 11 ^ salt as u64;
+        Rng::new((s ^ s >> 32) as u32 ^ 0x100C_0000)
+    }
+
+    /// How many versions of this part the speaker could say today that he
+    /// hasn't said to you this season (a line shown since the last call
+    /// counts as said).
+    pub fn fresh(&self, key: &str, who: &Speaker, facts: &Facts) -> usize {
+        let Some(frags) = bank().by_key.get(key) else { return 0 };
+        let waiting = self.folk.shown.waiting();
+        frags
+            .iter()
+            .filter(|f| f.fits(who, facts))
+            .filter(|f| !waiting.iter().any(|l| l.1 == who.key && l.3 == f.id))
+            .filter(|f| said_last(&self.folk.said_on, who.key, f.id).is_none_or(|d| d.days_to(self.today) >= REST_DAYS))
+            .count()
+    }
+
+    /// One part for this speaker, as `Pen::part`.
+    pub fn part(&self, key: &str, who: &Speaker, facts: &Facts) -> Option<String> {
+        let frags = bank().by_key.get(key)?;
+        let ok: Vec<&Frag> = frags.iter().filter(|f| f.fits(who, facts)).collect();
+        if ok.is_empty() {
+            return None;
+        }
+        let part = part_id(key);
+        let shown = &self.folk.shown;
+        let waiting = shown.waiting();
+        let today = shown.day == self.today;
+        let same = |l: &&ShownLine| (l.0, l.1, l.2) == (self.seed, who.key, part);
+        let before =
+            waiting.iter().find(same).or_else(|| if today { shown.lines.iter().find(same) } else { None }).map(|l| l.3);
+        let f = match before.and_then(|id| ok.iter().find(|f| f.id == id)) {
+            Some(f) => *f,
+            None => {
+                // Lines shown since the last call count as said already.
+                let said = &self.folk.said_on;
+                let heard = &self.folk.heard;
+                let f = choose(
+                    &ok,
+                    |id| {
+                        if waiting.iter().any(|l| l.1 == who.key && l.3 == id) {
+                            Some(self.today)
+                        } else {
+                            said_last(said, who.key, id)
+                        }
+                    },
+                    |id| {
+                        heard.get(&id).copied().unwrap_or(0) as u32
+                            + waiting.iter().filter(|l| l.3 == id).count() as u32
+                    },
+                    self.today,
+                    &mut self.rng(who, part, 0),
+                );
+                shown.wait((self.seed, who.key, part, f.id));
+                f
+            }
+        };
+        Some(fill(&f.text, facts, &mut self.rng(who, part, f.id), self.you))
+    }
+
+    /// A whole line from several parts, as `Pen::line` (`?` marks a part
+    /// said about half the time, the same half all day).
+    pub fn line(&self, keys: &[&str], who: &Speaker, facts: &Facts) -> String {
+        let mut out: Vec<String> = Vec::new();
+        for k in keys {
+            let (opt, k) = match k.strip_prefix('?') {
+                Some(r) => (true, r),
+                None => (false, *k),
+            };
+            if opt && !self.rng(who, part_id(k), 0x0BE7).chance(0.55) {
                 continue;
             }
             if let Some(s) = self.part(k, who, facts) {

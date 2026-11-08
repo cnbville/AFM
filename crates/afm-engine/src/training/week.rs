@@ -377,9 +377,10 @@ pub(crate) fn monday(w: &mut World, d: Date) {
     let style_of = |c: Option<usize>| c.map_or_else(Style::default, |c| w.coaches[c].style());
     let mask = |g: &[Date]| g.iter().fold(0u8, |m, x| m | 1 << d.days_to(*x).clamp(0, 6));
     let mut keys: Vec<Key> = Vec::new();
+    // Each team's key read on all cores, in team order (world speed lane).
     let prog_key: Vec<Key> = w
         .programs
-        .iter()
+        .par_iter()
         .enumerate()
         .map(|(c, p)| Key {
             tier: 1,
@@ -400,7 +401,8 @@ pub(crate) fn monday(w: &mut World, d: Date) {
         .collect();
     let school_key: Vec<Key> = w
         .high_schools
-        .iter()
+        .par_iter()
+        .with_min_len(256)
         .map(|h| Key {
             tier: 0,
             unit: h.state as u16,
@@ -656,6 +658,19 @@ pub(crate) fn monday(w: &mut World, d: Date) {
     // for specialists, the week's mobility work. Not for a player hurt
     // already or absent from a voluntary week.
     let hurt_seed = w.options.seed ^ d.0 as u32 ^ 0x1A7E;
+    // Each program's strength staff guard on muscle strains and backs
+    // (minor bug 303), against its division's typical head.
+    let typical: Vec<f64> = (0..crate::world::data::DIVISION_COUNT)
+        .map(|k| {
+            let d = w.programs.iter().find(|g| g.division as usize == k).map(|g| g.division);
+            d.map_or(10.0, |d| crate::world::season::typical_strength(w, d))
+        })
+        .collect();
+    let guards: Vec<f64> = w
+        .programs
+        .iter()
+        .map(|g| crate::game::sim::strength_guard(crate::world::season::strength_head(g), typical[g.division as usize]))
+        .collect();
     let others_hurt = &w.training.others_hurt;
     let new_hurt: Vec<(crate::calendar::Moment, u32, Date, crate::game::sim::InjuryKind)> = w
         .people
@@ -689,11 +704,14 @@ pub(crate) fn monday(w: &mut World, d: Date) {
                 exposure,
                 spike,
             ) * (0.77 + 0.23 * tw.limber);
+            let guard = if tier == Tier::College { guards[team] } else { 1.0 };
+            let soft = super::seat::soft_tissue(spike) * tw.limber;
+            let chance = chance * super::seat::practice_guarded(tw.contact, soft, guard);
             let mut rng = crate::rng::Rng::new(hurt_seed ^ id.wrapping_mul(0x9E37_79B1));
             if !rng.chance(chance) {
                 return None;
             }
-            let kind = super::seat::practice_kind(&mut rng, tw.contact, super::seat::soft_tissue(spike) * tw.limber);
+            let kind = super::seat::guarded_practice_kind(&mut rng, tw.contact, soft, guard);
             let weeks = crate::game::sim::injury_weeks(kind, &mut rng) * (1.3 - 0.03 * p.player.game.recovery);
             let days = (weeks * 7.0).round().max(1.0) as i32;
             // A day the team practiced (the six-part day: it shows when

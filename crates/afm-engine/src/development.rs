@@ -66,6 +66,21 @@ pub struct SeasonContext {
     /// (`training::land`), instead of all at once. Attributes that have
     /// stopped growing or decline this year still settle at once.
     pub defer: bool,
+    /// The coaching mix for his physical attributes (minor bug 302), on the
+    /// same 1-20 scale as `coaching`: the strength staff takes the position
+    /// coach's share there. None where no strength staff works with him
+    /// (high school, a year away): `coaching` stands.
+    pub physical_coaching: Option<f64>,
+    /// His strength head's rating against the level's typical one (rating
+    /// points): taken out of `physical` for growth, since the strength staff
+    /// now counts through `physical_coaching`.
+    pub strength_dev: f64,
+    /// Growth from results (`results`): Some when his season plays on the
+    /// engine with results on. His snaps then land in the week he plays
+    /// them (the year opens at a backup's rate for the skills training
+    /// lands), and with `Dice::Replaced` the hidden dice on the skills
+    /// results test give way to results, their average kept.
+    pub results: Option<crate::results::Mode>,
 }
 
 impl SeasonContext {
@@ -88,6 +103,9 @@ impl SeasonContext {
             medical: 0.0,
             focus: None,
             defer: false,
+            physical_coaching: None,
+            strength_dev: 0.0,
+            results: None,
         }
     }
 }
@@ -98,6 +116,8 @@ impl SeasonContext {
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct GrowthCtx {
     pub coaching_boost: f64,
+    /// Coaching as it sticks for the physical attributes (minor bug 302).
+    pub physical_boost: f64,
     pub snaps_mult: f64,
     pub work_mult: f64,
     pub form: f64,
@@ -109,6 +129,10 @@ pub(crate) struct GrowthCtx {
     pub redshirt: bool,
     pub focus: Option<Attr>,
     pub focus_take: f64,
+    /// The skills results test when results replace the dice (item 14),
+    /// and the year's form for them: the dice's average.
+    pub tested: u128,
+    pub form_tested: f64,
 }
 
 impl GrowthCtx {
@@ -116,7 +140,8 @@ impl GrowthCtx {
     /// year (the yearly step's rate, unchanged).
     pub fn rate(&self, key: Attr, age_factor: f64) -> f64 {
         let profile = &ATTRIBUTE_PROFILES[key.index()];
-        let coaching = self.coaching_boost.powf(profile.coachability);
+        let boost = if profile.group == AttributeGroup::Physical { self.physical_boost } else { self.coaching_boost };
+        let coaching = boost.powf(profile.coachability);
         let snaps = self.snaps_mult.powf(profile.experience);
         let redshirt_lift = if self.redshirt && profile.group == AttributeGroup::Physical { 1.35 } else { 1.0 };
         // College staffs teach the technique and the reads high school never did, so the raw catch up there.
@@ -127,6 +152,7 @@ impl GrowthCtx {
         } else {
             1.0
         };
+        let form = if crate::results::is_tested(self.tested, key) { self.form_tested } else { self.form };
         let focus_mult = match self.focus {
             Some(f) if f == key => 1.0 + 0.5 * self.focus_take,
             Some(f) if key.profile().group == f.profile().group => 1.0 - 0.035 * self.focus_take,
@@ -138,7 +164,7 @@ impl GrowthCtx {
                 * coaching
                 * snaps
                 * self.work_mult
-                * self.form
+                * form
                 * self.growth_multiplier
                 * redshirt_lift
                 * hs_lag
@@ -317,6 +343,30 @@ fn playing_time_growth(pt: PlayingTime) -> f64 {
     }
 }
 
+/// The rate a year opens at when his snaps land in season (growth from
+/// results): a backup's with no snaps yet; a redshirt, practice squad or
+/// unsigned year keeps its own.
+/// Whether last season at this level is read at this opening, as before
+/// growth from results: its snaps didn't land in season (`Train` flags bit
+/// 3, kept through `close_year` and cleared by `results::settle_reps` when
+/// none landed). A first season at a level has nothing to read.
+pub(crate) fn reads_late(p: &Player, level: Level) -> bool {
+    p.train.year.flags & 8 == 0 && p.history.last().is_some_and(|h| h.level == level)
+}
+
+pub(crate) fn reps_base(pt: PlayingTime) -> f64 {
+    match pt {
+        PlayingTime::Redshirt | PlayingTime::PracticeSquad | PlayingTime::Unsigned => playing_time_growth(pt),
+        _ => snaps_growth(0.0),
+    }
+}
+
+/// The year's rate against its base after a share of a starter's season
+/// of snaps, as the yearly step's snaps would give it.
+pub(crate) fn reps_ratio(share: f64) -> f64 {
+    snaps_growth(share) / snaps_growth(0.0)
+}
+
 /// High school practice, weight rooms and strength staffs are a fraction of
 /// college ones, so recruits arrive rawer than their talent: technique and the
 /// mental game lag most, and the strength linemen need comes in college. Speed
@@ -432,6 +482,10 @@ pub struct GrowthWhy {
     /// Ceiling points earned by veteran learning (summed).
     pub veteran_learned: f64,
     pub coaching_boost: f64,
+    /// The strength staff's boost on the physical attributes' growth, and
+    /// its extra move on their ceilings (minor bug 302).
+    pub physical_boost: f64,
+    pub drive_physical: f64,
     pub snaps_mult: f64,
     pub work_mult: f64,
     pub morale_mult: f64,
@@ -512,17 +566,34 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // --- Injuries: the main source of setbacks -------------------------------
     let mut growth_multiplier = 1.0;
     let mut snaps_factor = 1.0;
+    let guarded = crate::game::sim::guarded_mix(
+        &crate::game::sim::GAME_INJURIES,
+        crate::game::sim::strength_guard(10.0 + ctx.strength_dev, 10.0),
+    )
+    .1;
     let injury_chance = level_injury_rate(ctx.level)
         * position.profile().injury_risk
         * (0.55 + player.injury_proneness * 0.045)
         // A suspended or dismissed player is at most at practice, like a redshirt.
-        * if ctx.trouble.is_some() || no_games { 0.5 } else if pt == PlayingTime::Starter { 1.15 } else { 0.9 };
+        * if ctx.trouble.is_some() || no_games { 0.5 } else if pt == PlayingTime::Starter { 1.15 } else { 0.9 }
+        // His strength staff's guard on muscle strains and backs (minor bug
+        // 303), on their share of the game mix.
+        * guarded;
     why.injury_chance = injury_chance;
     if rng.chance(injury_chance) {
         let roll = rng.next();
-        let severity = if roll < 0.62 {
+        // Strains and backs are minor or moderate, so the guard leaves the
+        // major injury's chance where it was: its share of the roll moves
+        // against the guard and minor and moderate split the rest 62:27.
+        let (minor, moderate) = if guarded == 1.0 {
+            (0.62, 0.89)
+        } else {
+            let major = (0.11 / guarded).min(1.0);
+            ((1.0 - major) * 0.62 / 0.89, 1.0 - major)
+        };
+        let severity = if roll < minor {
             Ev::MinorInjury
-        } else if roll < 0.89 {
+        } else if roll < moderate {
             Ev::ModerateInjury
         } else {
             Ev::MajorInjury
@@ -737,6 +808,50 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         events.add(Ev::Stagnation);
         form *= 0.3;
     }
+    // Item 14 (growth from results, A/B tested): with results replacing the
+    // dice, the skills results test take the dice's average instead of the
+    // year's draw: the mean form, the mean slump loss and the mean breakout
+    // lift, so a player who barely plays grows as he does today, without
+    // the surprise. A lost season, trouble and injuries stay as they are.
+    let replace =
+        ctx.trouble.is_none() && matches!(ctx.results, Some(m) if m.on && m.dice == crate::results::Dice::Replaced);
+    let tested = if replace { crate::results::tested(position, ctx.level) } else { 0 };
+    let mut form_tested = form;
+    let mut lift_mean = 0.0;
+    if replace {
+        let base = (0.125f64).exp() * (1.0 - 0.15 * dip) * (1.0 + 0.12 * situation * youth);
+        if events.has(Ev::LostSeason) {
+            form_tested = base * 0.4;
+        } else {
+            let pb = if !no_games && snaps_factor >= 0.65 { breakout_chance } else { 0.0 };
+            let pl = (1.0 - pb) * lost_season_chance;
+            let ps = (1.0 - pb) * (1.0 - lost_season_chance) * if no_games { 0.0 } else { slump_chance };
+            let pst = (1.0 - pb)
+                * (1.0 - lost_season_chance)
+                * (1.0 - if no_games { 0.0 } else { slump_chance })
+                * stagnation_chance;
+            let kept = (1.0 - pl).max(1e-6);
+            let none = 1.0 - pb - pl - ps - pst;
+            form_tested = base * (pb * 2.2 + ps * 0.6 + pst * 0.3 + none) / kept;
+            let size = if player.position.is_specialist() { 0.5 } else { 1.0 };
+            let slump_mean = ps / kept * 4.0 * size;
+            for key in Attr::ALL {
+                if crate::results::is_tested(tested, key) && key.profile().group != AttributeGroup::Physical {
+                    late_loss.set(key, slump_mean);
+                }
+            }
+            if potential_before - overall_before < 6.0 {
+                let age_mult = if age <= 23.0 {
+                    1.0
+                } else if age <= 27.0 {
+                    0.6
+                } else {
+                    0.35
+                };
+                lift_mean = pb / kept * 5.0 * age_mult * 0.9;
+            }
+        }
+    }
 
     // --- Weight gain (fix list 4.4) ----------------------------------------------
     // Bad weight from a lax diet and offseason: it costs speed and quickness,
@@ -791,6 +906,10 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // fall after that. Direction is driven by personality, coaching and snaps;
     // luck plays a smaller part.
     let plasticity = potential_plasticity(player.age);
+    // Strength, speed and conditioning are the strength staff's (minor bug
+    // 302): its mix replaces the position coach's share for the physical
+    // attributes, here on their ceilings and below on their growth.
+    let physical_coaching = ctx.physical_coaching.map_or(ctx.coaching, |c| clamp(c, 1.0, 20.0));
     if plasticity > 0.0 {
         // A young pro sitting behind a veteran still practises against NFL players
         // with an NFL staff: unlike a buried college backup, his ceiling doesn't sag.
@@ -805,6 +924,14 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             * snaps_factor;
         let luck = rng.normal(0.0, 0.9);
         let drive = work + coachability + coaching + surroundings + playing - setback + luck;
+        // The physical attributes' drive reads the strength staff's mix in
+        // place of the teaching mix (minor bug 302).
+        let coachability_p =
+            ((personality.coachability - 10.0) / 10.0) * 0.25 * ((physical_coaching - 10.0) / 10.0 + 0.5);
+        let coaching_p = ((physical_coaching - 10.0) / 10.0) * 0.35;
+        // Grouped so equal mixes give exactly 0 (no strength staff: as before).
+        let physical_extra = ((coachability_p - coachability) + (coaching_p - coaching)) * 1.7 * plasticity;
+        why.drive_physical = physical_extra;
         why.plasticity = plasticity;
         why.drive = drive;
         why.drive_work = work;
@@ -823,6 +950,9 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         for key in Attr::ALL {
             let physical = key.profile().group == AttributeGroup::Physical;
             let mut d = shared + rng.normal(0.0, 1.2 * plasticity);
+            if physical {
+                d += physical_extra;
+            }
             if spurt && physical {
                 d += rng.range(2.0, 6.0) * if key == Attr::Strength { 1.3 } else { 0.8 };
             }
@@ -865,12 +995,22 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             player.attributes.add(key, learned * 0.8);
         }
     }
-    if breakout_lift > 0.0 {
+    if breakout_lift > 0.0 || lift_mean > 0.0 {
         for key in Attr::ALL {
             if weight(position, key) == 0.0 || (stalled && key.profile().group == AttributeGroup::Physical) {
                 continue;
             }
-            player.ceilings.set(key, (player.ceilings.get(key) + breakout_lift * rng.range(0.6, 1.2)).min(MAX_RATING));
+            // A tested skill takes the dice's average lift (item 14).
+            let add = if crate::results::is_tested(tested, key) {
+                lift_mean
+            } else if breakout_lift > 0.0 {
+                breakout_lift * rng.range(0.6, 1.2)
+            } else {
+                0.0
+            };
+            if add > 0.0 {
+                player.ceilings.set(key, (player.ceilings.get(key) + add).min(MAX_RATING));
+            }
         }
     }
 
@@ -889,12 +1029,16 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // gives -1.5 to 1.5; it was cut at 1, so the room added nothing to a
     // player already at his limit).
     let morale_mult = 1.0 + 0.10 * clamp(ctx.morale, -1.5, 1.5);
-    let physical_mult = 1.0 + 0.08 * clamp(ctx.physical, -1.0, 1.0);
+    // The strength staff's mix for the physical attributes (minor bug 302),
+    // and its part of `physical` comes out so it counts once.
+    let physical_boost = 1.0 + (0.75 + physical_coaching * 0.025 - 1.0) * coachability_lean;
+    let physical_mult = 1.0 + 0.08 * clamp(ctx.physical - 0.06 * ctx.strength_dev, -1.0, 1.0);
     let mut settling = [false; ATTRIBUTE_COUNT];
     // The plan's focus (section 6b topic 5; proposed, not confirmed: the
     // share each other skill gives up so the year's total stays about even).
     let focus_take = clamp(0.6 + 0.02 * personality.coachability, 0.6, 1.0);
     why.coaching_boost = coaching_boost;
+    why.physical_boost = physical_boost;
     why.snaps_mult = snaps_mult;
     why.work_mult = work_mult;
     why.morale_mult = morale_mult;
@@ -902,6 +1046,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     why.focus_take = focus_take;
     let g = GrowthCtx {
         coaching_boost,
+        physical_boost,
         snaps_mult,
         work_mult,
         form,
@@ -913,6 +1058,8 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         redshirt: pt == PlayingTime::Redshirt,
         focus: ctx.focus,
         focus_take,
+        tested,
+        form_tested,
     };
     // Speed and burst come with the body (S4): what his growing body has
     // reached by the end of the year, he has.
@@ -972,7 +1119,22 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     }
     if ctx.defer {
         let old = player.train;
-        player.train = crate::training::Train::open(&g, player.age, development_age, player.position, old.load);
+        // Snaps land in the week he plays them (growth from results, item
+        // 1): the year opens at a backup's rate and each game's snaps add
+        // their part (`results::reps`), instead of last season's snaps
+        // read a year late. The skills that settle here keep the old read.
+        // Kickers, punters and snappers take no snaps to land: their role
+        // decides, as before (minor bug 264). A season whose snaps never
+        // landed in season (results off, a team on the stand-in, unsigned
+        // at camp, an older save; `results::settle_reps`) is read here as
+        // before, once, and this one's land as he plays.
+        let in_season = ctx.results.is_some_and(|m| m.on) && !position.is_specialist();
+        let mut gt = g;
+        if in_season && !reads_late(player, ctx.level) {
+            gt.snaps_mult = reps_base(pt) * (0.7 + 0.3 * snaps_factor) * level_growth(ctx.level);
+        }
+        player.train = crate::training::Train::open(&gt, player.age, development_age, player.position, old.load);
+        player.train.open_results(in_season, replace, ctx.level, form_tested * growth_multiplier);
         player.train.grade = old.grade;
         player.train.prep = old.prep;
         player.train.rust = old.rust;
@@ -1145,6 +1307,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         team: None,
         depth: None,
         situation: OptF64::NONE,
+        results: OptF64::NONE,
     });
     player.age += 1;
     // The day's body stays where it was: a year of age moves out of `grow`.

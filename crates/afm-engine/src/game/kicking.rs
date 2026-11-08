@@ -444,7 +444,13 @@ pub fn punt(
         }
         return res;
     }
-    let max = leg(punter, Attr::PuntPower, 17.0, 0.215, cond, along) + 14.0 + rng.normal(0.0, 4.5);
+    // Punt Power: 0.14 yard a point about his level's typical punter, who
+    // kicks as far as he did at 0.215 a point (minor bug 282: at 0.215 a ±15
+    // swing moved the net punt 1.28 times real regulars' spread, at 0.14
+    // 0.90; proposed, not confirmed).
+    let per = 0.14;
+    let typ = super::synthetic::typical(rules.level, crate::positions::Position::P, Attr::PuntPower);
+    let max = leg(punter, Attr::PuntPower, 17.0 + (0.215 - per) * typ, per, cond, along) + 14.0 + rng.normal(0.0, 4.5);
     // Placement: from midfield he aims inside the 10 rather than the end zone.
     let dist_goal = from + 15.0;
     // Your plan's punt (update 2, G18): the coffin corner from their 45 in,

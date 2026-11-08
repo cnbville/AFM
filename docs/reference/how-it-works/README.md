@@ -25,6 +25,7 @@ These pages describe what the code does on `main`, not what the design docs plan
 | [people.md](people.md) | Personality, morale, relationships, chemistry, talks, life off the field, media, fame and Aura, ethnicity by position and level |
 | [new-teams.md](new-teams.md) | NFL expansion and the expansion draft, colleges starting football and their build year, new high schools and their zones, ground zero starts |
 | [saves.md](saves.md) | Save and world files: what is in them, the two formats, how saving and loading use every core |
+| [sandbox.md](sandbox.md) | Sandbox mode: the test switch that lifts your own limits (film, your week, staff, NIL, money, recruiting rules, rosters, the cap, practice, no-fire) and the jump to a date |
 | [logos.md](logos.md) | Logo packs you install: matching pictures to teams, eras, your own logo per save, where logos show, the jerseys |
 | [help.md](help.md) | The Handbook's pages and live examples, the "?" on each screen, the guided first week, first-time notes, the Help setting |
 | [world-log.md](world-log.md) | The world log beside each world and save: what it keeps, every why, snapshots, sizes, how to read it |

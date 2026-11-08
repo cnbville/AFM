@@ -295,6 +295,13 @@ pub struct Folk {
     /// each one; a version rests a full season (topic 5, part 5; D3). Saves
     /// from before D3 kept `said` without days: it is dropped on load.
     pub said_on: Vec<(u64, Vec<(u32, crate::calendar::Date)>)>,
+    /// How many times you've heard each line version, from anyone: a
+    /// wording waits until every other wording of its part has been heard
+    /// as often (line bank run question 4). Saves from before it start
+    /// empty.
+    pub heard: voice::Heard,
+    /// The lines screens showed you today (minor bug 314).
+    pub shown: voice::Shown,
     pub rules: rules::Rulebook,
     pub cases: Vec<rules::Violation>,
     pub goals: Vec<boss::Goal>,
@@ -369,6 +376,10 @@ pub fn ensure_base(w: &mut World) {
 pub fn after_load(w: &mut World) {
     ensure_base(w);
     staffing::ensure(w);
+    // A save from before minor bug 326 may owe past the limit.
+    for x in &mut w.folk.network.contacts {
+        x.shift(0);
+    }
     if w.seat.is_some() && w.folk.mine.team.is_none() {
         // A save from before this build: you're at your job already, so
         // the people start from where you are without the first weeks.

@@ -47,6 +47,9 @@ fn what_happened(h: &afm_engine::player::SeasonRecord) -> String {
             E::WeightGain => "bad weight",
             E::Complacent => "lost his drive",
             E::PoorCoaching => "poor coaching",
+            E::BigGame => "a big game",
+            E::BigSeason => "his play lifted him",
+            E::RoughSeason => "his play pulled him down",
         };
         v.push(s.to_string());
     }

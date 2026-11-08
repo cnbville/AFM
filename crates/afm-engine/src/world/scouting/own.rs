@@ -209,7 +209,15 @@ pub fn sign(w: &mut World, k: usize, place: Option<u8>) -> Result<String, String
         None => {
             let (areas, nats) = scout_sizes(w, t);
             let extra = r.hires.iter().filter(|h| h.0 == 255).count();
-            if w.clubs[t].scouts.len() + extra >= areas + nats + 2 {
+            // Sandbox mode's money switch: the owner pays for every post,
+            // up to the places a file can name (0-249; 250 and up are the
+            // GM, the coaches and the events).
+            let cap = if w.sandbox(crate::world::sandbox::Switch::Money) {
+                crate::world::pro::scouts::GM as usize
+            } else {
+                areas + nats + 2
+            };
+            if w.clubs[t].scouts.len() + extra >= cap {
                 return Err("Your owner won't pay for another post.".into());
             }
             255
@@ -424,7 +432,7 @@ pub fn personnel_market(w: &World) -> Vec<Hire> {
             let past = (0..stops)
                 .filter_map(|_| others.get(rng.int(0, others.len().max(1) as i32 - 1) as usize).copied())
                 .collect();
-            let p = clamp(0.35 + 0.025 * (judge as f64 - 10.0), 0.1, 0.7);
+            let p = scouts::held_chance(judge);
             let reads = (years * 4).min(60) as u16;
             let held = (0..reads).filter(|_| rng.chance(p)).count() as u16;
             let job = match k % 6 {
@@ -494,6 +502,8 @@ pub fn hire_personnel(w: &mut World, key: u64) -> Result<String, String> {
     let h = personnel_market(w).into_iter().find(|h| h.key == key).ok_or("He has taken another job.")?;
     take_personnel(w, prog);
     let cap = readers::keyed_personnel(w, prog).len().max(1) + 1;
+    // Sandbox mode's money switch: every post you want is paid for.
+    let cap = if w.sandbox(crate::world::sandbox::Switch::Money) { usize::MAX } else { cap };
     let own = &mut w.scouting.own.personnel;
     let name = h.name.clone();
     let job = PERSONNEL_JOBS[h.job as usize];
@@ -697,6 +707,10 @@ pub fn trip_day(w: &World, id: u32, kind: TripKind) -> Result<Date, String> {
             let season = w.dates.season;
             let (lf, ls) = super::dept::eval_limits(season, super::dept::service_academy(&w.programs[pj]));
             let (_, uf, us) = w.scouting.dept.eval_days;
+            // Sandbox mode: contact rules lifted, any week's Friday or
+            // Thursday; staff time lifted, the evaluation days never run out.
+            let lift = w.sandbox(crate::world::sandbox::Switch::ContactRules);
+            let free = w.sandbox(crate::world::sandbox::Switch::StaffTime);
             let wanted = if kind == TripKind::Game { Weekday::Fri } else { Weekday::Thu };
             for k in 1..=21 {
                 let d = today.add(k);
@@ -706,13 +720,17 @@ pub fn trip_day(w: &World, id: u32, kind: TripKind) -> Result<Date, String> {
                 let period = crate::calendar::recruiting_period(&w.dates, d);
                 let fall = period == Period::Evaluation && matches!(d.parts().1, 9..=11);
                 let spring = matches!(d.parts().1, 4 | 5) && matches!(period, Period::Contact | Period::Evaluation);
-                if fall && uf < lf {
+                // Checked against the count the trip is charged to
+                // (`take_trips`): September to November the fall's days,
+                // the rest of the year the spring's.
+                let room = if matches!(d.parts().1, 9..=11) { uf < lf } else { us < ls };
+                if (fall || (lift && !spring)) && (free || room) {
                     return Ok(d);
                 }
-                if spring && kind == TripKind::Practice && us < ls {
+                if spring && (kind == TripKind::Practice || lift) && (free || us < ls) {
                     // The 2008 rule: head coaches stay home in the spring
                     // evaluation period.
-                    if is_head(w) && d.year() >= 2008 {
+                    if !lift && is_head(w) && d.year() >= 2008 {
                         return Err(
                             "Since 2008 a head coach can't go out in the spring evaluation period: send an assistant."
                                 .into(),
@@ -783,9 +801,10 @@ pub fn film_left(w: &World) -> f32 {
     (film_budget(w) - used).max(0.0)
 }
 
-/// What watching him takes, and the look it is: a recruit's reel and a
-/// full game, about an hour; a college player's three games, every snap
-/// of his, two and a half; a pro's cut-ups, two.
+/// What watching him takes, and the look it is: a quick cut-up of his
+/// snaps at every level, 20 seconds a snap and twenty minutes at most
+/// (lane 9, SK53; minor bug 318). The full cut-up opens from his file in
+/// the film room.
 pub fn film_cost(w: &World, id: u32) -> Result<(Kind, f32, &'static str), String> {
     let i = super::place(w, id).ok_or("No such player.")?;
     let p = &w.people[i];
@@ -809,7 +828,8 @@ pub fn film_cost(w: &World, id: u32) -> Result<(Kind, f32, &'static str), String
     }
 }
 
-/// A quick cut-up's hours (lane 9, SK53): twenty minutes.
+/// A quick cut-up's hours at most (lane 9, SK53): twenty minutes, 20
+/// seconds a snap (minor bug 318).
 pub const QUICK: f32 = super::film::session::QUICK_MIN / 60.0;
 
 /// Why you can't watch his film yourself now, if you can't: you watched
@@ -820,7 +840,10 @@ pub fn film_blocked(w: &World, id: u32) -> Option<String> {
     let (kind, _, _) = film_cost(w, id).ok()?;
     let d = w.today;
     if w.scouting.dept.looks.get(&id).is_some_and(|v| v.iter().any(|l| l.who == you && l.date == d && l.kind == kind)) {
-        return Some("You watched him today already: the next look is another day's tape.".into());
+        return Some(
+            "You watched him today already: a watch again in the film room plays the snaps of his you haven't seen."
+                .into(),
+        );
     }
     if w.scouting.film.open.is_some() {
         return Some("Finish the cut-up you have open in the film room first.".into());

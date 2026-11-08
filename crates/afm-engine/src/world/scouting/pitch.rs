@@ -97,11 +97,13 @@ pub fn pitch(w: &mut World, id: u32) -> Result<String, String> {
         return Err("Out of state: his family would have to move, and nobody moves for that.".into());
     }
     let season = w.dates.season;
+    // Sandbox mode's contact rules: no count of families a year.
+    let lift = w.sandbox(crate::world::sandbox::Switch::ContactRules);
     let list = &w.scouting.pitches.list;
     if list.iter().any(|x| x.id == id && !x.done) {
         return Err("You've made your pitch to his family already.".into());
     }
-    if list.iter().filter(|x| x.date >= Date::ymd(season, 1, 1).add(-150)).count() >= PER_SEASON {
+    if !lift && list.iter().filter(|x| x.date >= Date::ymd(season, 1, 1).add(-150)).count() >= PER_SEASON {
         return Err(format!("{PER_SEASON} families this year already: any more and people talk."));
     }
     let c = chance(w, h, i);

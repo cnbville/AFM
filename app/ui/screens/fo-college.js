@@ -11,6 +11,7 @@ Object.assign(I, {
   find: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/>',
   visit: '<path d="M3 21h18M5 21V10l7-5 7 5v11M10 21v-5h4v5"/>',
   portal: '<path d="M4 12h12M12 7l5 5-5 5M20 4v16"/>',
+  walkon: '<circle cx="12" cy="7" r="3.2"/><path d="M6 21v-3.5c0-2.8 2.7-4.8 6-4.8s6 2 6 4.8V21M16.5 4.5l3 3M19.5 4.5l-3 3"/>',
   nil: '<circle cx="12" cy="12" r="8.5"/><path d="M14.8 9.2c-.6-.9-1.6-1.3-2.8-1.3-1.6 0-2.8.8-2.8 2.1 0 3 5.8 1.5 5.8 4.3 0 1.3-1.3 2.2-3 2.2-1.3 0-2.4-.5-3-1.4M12 6.5v11"/>',
 });
 // The board holds the plain Recruiting table's job, and the watch, portal
@@ -22,14 +23,17 @@ foNavAdd("college", [
   ["visits_desk", "Visits", "visit"],
   ["portal_desk", "Transfer portal", "portal"],
   ["nil_desk", "NIL", "nil"],
+  ["walkons_desk", "Walk-ons", "walkon"],
 ]);
 Object.assign(CRUMBS, {
   recruit_board: "Recruiting board",
   recruit_find: "Find recruits",
   recruit_file: "Recruit's file",
+  portal_file: "Transfer's file",
   visits_desk: "Visits",
   portal_desk: "Transfer portal",
   nil_desk: "NIL",
+  walkons_desk: "Walk-ons",
 });
 
 // The old one-table Recruiting screen stays for the high school seat; a
@@ -90,6 +94,16 @@ function fcTiles(list) {
   return `<div class="st-tiles fc-tiles">${list.map(([v, t, go]) => `<div${go ? ` class="fc-tile" data-go="${go[0]}"${Object.entries(go[1] || {}).map(([k, x]) => ` data-${k}="${esc(x)}"`).join("")}` : ""}><b>${esc(v)}</b><small>${esc(t)}</small></div>`).join("")}</div>`;
 }
 // Who runs a duty: you, or your staff (with what they do), and the switch.
+// A portal offer's money from its row: both boxes, a blank one no money.
+function fcPortalMoney(id) {
+  const val = (key) => { const inp = document.querySelector(`[data-fcin="${key}"][data-id="${id}"]`); return inp && inp.value !== "" ? Math.max(0, Number(inp.value)) * 1000 : null; };
+  const a = { id };
+  const nil = val("pnil"), coll = val("pcollp");
+  if (nil != null) a.nil = nil;
+  if (coll != null) a.coll = coll;
+  return a;
+}
+
 function fcDuty(duties, key) {
   const d = duties.list.find((x) => x.key === key);
   if (!d) return "";
@@ -298,6 +312,13 @@ async function fcTargets(x, k) {
 // A player's first answer to your money (N1): his mood in a word, then
 // what he or his family said. His decision still comes in its own time.
 const FC_MOOD_TONE = { thrilled: "good", pleased: "good", fine: "", wants_more: "gold", insulted: "fc-bad" };
+// How close your offer is to what he needs to decide now (the satisfaction
+// bar), as your staff reads it: a bar and words, never his number.
+function fcBarMeter(b) {
+  if (!b) return "";
+  return `<div class="fc-barm" title="Your staff's read of how far your offer is from what he needs to commit now. Clear it and he says yes on the spot."><div class="st-meter thin"><span>What he needs</span><span class="t"><i style="width:${Math.round(b.m * 100)}%"></i></span><b></b></div><small class="sub">${fcDot(fcTone(b.tone))}${esc(b.words)}</small></div>`;
+}
+
 function fcAnswer(a) {
   if (!a) return "";
   return `<div class="fc-answer"><span class="st-pill ${FC_MOOD_TONE[a.mood] || ""}">${esc(a.word)}</span><span>${esc(a.text)}</span><small>${esc(a.date)}</small></div>`;
@@ -328,7 +349,7 @@ function fcFile(f, ctx, compact) {
   const mid = `<div class="fc-mid">
       <div class="fc-block"><div class="fc-h"><span class="st-label">Your staff's read</span>${compact ? fcLink("recruit_file", "Open his full file", { id: f.id }) : playerLink(f.id, "His player page")}</div>${read}</div>
       <div class="fc-block"><div class="fc-h"><span class="st-label">His interest in ${esc(ctx.team.name)}</span>${fcLink("recruit_race", "The race, month by month", { id: f.id })}</div>
-        <div class="fc-interest ${fcTone(f.tone)}">${fcDot(fcTone(f.tone))}<b>${esc(f.interest)}</b></div><p class="sub">${esc(f.reason)}</p></div>
+        <div class="fc-interest ${fcTone(f.tone)}">${fcDot(fcTone(f.tone))}<b>${esc(f.interest)}</b></div><p class="sub">${esc(f.reason)}</p>${fcBarMeter(f.bar)}</div>
       <div class="fc-block"><div class="fc-h"><span class="st-label">His top schools</span><small class="sub">${f.schools_n > 1 ? `${f.schools_n} schools after him · ` : ""}as your staff hears it</small></div><div class="fc-schools">${schools}</div></div>
       <div class="fc-next"><span class="st-label">Next contact</span><span>${nextLine}</span></div>
     </div>`;
@@ -371,27 +392,31 @@ function fcActions(f) {
   }
   let nil = "";
   if (f.nil_era && !closed) {
-    // Your own number for him, whoever runs NIL (minor bug 59). From July
-    // 2025 it is the school's revenue share, and the collective adds its
-    // own deal through NIL Go (B18).
-    const own = f.two_pots && f.collective_own >= 1000 ? ` The collective adds its own deal, about ${money(f.collective_own)}, once NIL Go clears it.` : "";
+    // Every NIL dollar is yours (Cain, 2026-11-07): your number for him,
+    // whoever runs the board. From July 2025 two boxes, the school's
+    // revenue share and the collective's deal, which NIL Go reviews (B18).
     // NIL is optional on an offer (Cain, 2026-11-06): with no number your
     // offer is the scholarship. The going rate reads only his public stars
     // and your money, never what he is really worth.
     const kind = `${f.stars ? `a ${f.stars}★` : "an unranked"} ${f.pos}`;
-    const market = `Schools like yours usually pay ${kind} about ${money(f.usual)}${f.two_pots ? " from the revenue share" : ""}.`;
-    if (f.board_yours) {
-      const state = f.nil != null
-        ? `You promised ${money(f.nil)} a year${f.two_pots ? " from the revenue share" : ""}.${own}`
-        : f.two_pots ? `No revenue share promised: your offer is the scholarship.${own}` : "No NIL promised: your offer is the scholarship alone.";
-      nil = `<div class="fc-nil"><span class="st-label">${f.two_pots ? "Revenue-share promise" : "NIL promise"} <small>optional</small></span>
-        <div class="fc-nilrow"><label class="fc-moneyin">$<input type="number" min="0" step="5" value="${f.nil != null ? Math.round(f.nil / 1000) : ""}" placeholder="none" data-fcin="promise" data-id="${f.id}">thousand a year</label><button class="st-btn small primary" data-fc="promise" data-id="${f.id}">Promise</button></div>
-        <small class="sub">${state} ${market} The going rate for his position tops out near ${money(f.nil_max)}, but only your ${f.two_pots ? "revenue share" : "budget"} limits you: ${money(f.budget.left)} left this year.</small>
+    const two = f.two_pots;
+    const k = (x) => (x != null ? Math.round(x / 1000) : "");
+    const promised = f.nil != null || f.nil_coll != null;
+    // A blank box is no money, whoever made the offer: your coordinator
+    // never names money (Cain, 2026-11-08). The going rate is only a guide.
+    const box = (label, key, val) => `<label class="fc-moneyin">${two ? `<span class="fc-pot">${label}</span>` : ""}$<input type="number" min="0" step="5" value="${k(val)}" placeholder="none" data-fcin="${key}" data-id="${f.id}">thousand a year</label>`;
+    const state = promised
+      ? two ? `You promised ${money(f.nil || 0)} of revenue share and a ${money(f.nil_coll || 0)} collective deal a year.` : `You promised ${money(f.nil)} a year.`
+      : "No money promised: your offer is the scholarship alone.";
+    const market = two
+      ? `The going rate for ${kind} at a school like yours: about ${money(f.usual)} of revenue share and a ${money(f.usual_coll)} collective deal, which NIL Go clears up to his range.`
+      : `Schools like yours usually pay ${kind} about ${money(f.usual)}.`;
+    const left = two ? `${money(f.budget.left)} left in the revenue share and ${money(f.budget.coll_left)} in the collective` : `${money(f.budget.left)} left this year`;
+    nil = `<div class="fc-nil"><span class="st-label">NIL promise <small>optional</small></span>
+        <div class="fc-nilrow">${box("Revenue share", "promise", f.nil)}${two ? box("Collective deal", "pcoll", f.nil_coll) : ""}<button class="st-btn small primary" data-fc="promise" data-id="${f.id}">Promise</button></div>
+        <small class="sub">${state} ${market} The going rate for his position tops out near ${money(f.nil_max)}, but only your money limits you: ${left}.</small>
         ${fcAnswer(f.answer)}
-        ${f.nil != null ? `<button class="st-btn small glass" data-fc="promiseclear" data-id="${f.id}">Take the promise back</button>` : ""}</div>`;
-    } else {
-      nil = `<div class="fc-nil"><span class="st-label">NIL</span><small class="sub">Your coordinator's offers carry the usual money: ${f.two_pots ? `the school's revenue share for ${kind} is about ${money(f.usual)} a year.${own}` : `your collective pays ${kind} about ${money(f.usual)} a year.`}</small>${fcAnswer(f.answer)}</div>`;
-    }
+        ${promised ? `<button class="st-btn small glass" data-fc="promiseclear" data-id="${f.id}">Take the promise back</button>` : ""}</div>`;
   }
   return `<div class="fc-block"><div class="fc-h"><span class="st-label">Your moves</span></div><div class="fc-acts">${b.join("")}</div>${nil}</div>`;
 }
@@ -498,6 +523,86 @@ screens.recruit_file = async (a) => {
   </div></div>`;
 };
 
+// ---------- a transfer's file ----------
+// The recruit's file for a portal entrant (portal recruiting, Cain
+// 2026-11-07): the same layout and moves a high school recruit has, on the
+// portal's clock. Call him, offer, promise a role, host him on campus or
+// see him at home; he says yes the day your offer clears what he needs.
+function fcPortalMoves(f) {
+  const b = [];
+  // A blank box is no money; the tip gives a typical transfer's share.
+  const box = (key, val, usual, what) => `<label class="fc-moneyin" title="${esc(`${what}. A typical transfer's share here: about ${money(usual)} a year`)}">$<input type="number" min="0" step="5" value="${val != null ? Math.round(val / 1000) : ""}" placeholder="none" data-fcin="${key}" data-id="${f.id}">thousand a year</label>`;
+  const nilIn = f.nil_era ? box("pnil", f.nil, f.usual, f.two_pots ? "Revenue share" : "NIL") + (f.two_pots ? box("pcollp", f.coll, f.coll_usual, "Collective deal, reviewed by NIL Go") : "") : "";
+  if (f.committed) {
+    b.push(`<p class="sub">${fcDot("good")}He told you yes on ${esc(f.committed)}. He signs tonight.</p>`);
+  } else if (f.shopping) {
+    b.push(`<button class="st-btn small primary" data-fc="pcall" data-id="${f.id}" ${f.called_today ? 'disabled title="You called him today"' : 'title="You or his position coach on the phone: what you sell him, and a promise if you make one"'}>${f.called_today ? "Called today" : "Call him"}</button>`);
+    if (f.offered) b.push(`<button class="st-btn small glass" data-fc="ppull" data-id="${f.id}">Pull the offer</button>`);
+  }
+  let pay = "";
+  if (f.shopping && !f.committed && f.nil_era) {
+    const what = f.two_pots ? "revenue share" : "NIL";
+    pay = `<div class="fc-nil"><span class="st-label">Your offer <small>${what} a year, optional</small></span>
+      <div class="fc-nilrow">${nilIn}<button class="st-btn small ${f.offered ? "glass" : "primary"}" data-fc="poffer" data-id="${f.id}">${f.offered ? "Change it" : "Offer"}</button></div>
+      <small class="sub">${f.nil != null || f.coll != null ? (f.two_pots ? `You offered ${money(f.nil || 0)} of revenue share and a ${money(f.coll || 0)} collective deal a year.` : `You offered ${money(f.nil)} a year.`) : f.offered ? "Your offer is the place alone: no money." : "A blank box is no money."} About ${money(f.usual)} is usual from a budget like yours, only a guide; ${money(f.budget.left)} left this year.</small>${fcAnswer(f.answer)}</div>`;
+  } else if (f.shopping && !f.committed) {
+    b.push(`<button class="st-btn small ${f.offered ? "glass" : "primary"}" data-fc="poffer" data-id="${f.id}">${f.offered ? "Offer stands" : "Offer a place"}</button>`);
+  }
+  const promise = f.promise
+    ? `<p class="sub">You promised ${esc(f.promise.words.toLowerCase())} on ${esc(f.promise.date)}. Once he's yours it's on your word: kept, he trusts you; broken, he and his friends remember.</p>`
+    : f.shopping ? `<p class="sub">A promise of a role is made in a call or a sit-down.</p>` : "";
+  return `<div class="fc-block"><div class="fc-h"><span class="st-label">Your moves</span></div><div class="fc-acts">${b.join("")}</div>${pay}${promise}</div>`;
+}
+function fcPortalVisits(f) {
+  if (!f.shopping || f.committed) return "";
+  const rows = f.options
+    .map((o) => {
+      if (o.set) return `<div class="fc-vopt"><b>${esc(o.name)}</b><span class="fc-vset"><span class="fc-vdone">${fcDot("good")}Set for ${esc(o.set.date)}</span><button class="st-btn small glass" data-fc="pvcancel" data-id="${f.id}" data-kind="${o.key}">Call off</button></span></div>`;
+      if (!o.days.length) return `<div class="fc-vopt"><b>${esc(o.name)}</b><small class="sub">${esc(o.why || "Not while he shops.")}</small></div>`;
+      return `<div class="fc-vopt"><b>${esc(o.name)}</b><span class="fc-vset"><select data-fcsel="pv-${f.id}-${o.key}">${o.days.map((d) => `<option value="${d.d}">${esc(d.date)}${d.word ? " · " + esc(d.word.replace(/ period$/, "")) : ""}</option>`).join("")}</select><button class="st-btn small glass" data-fc="pvisit" data-id="${f.id}" data-kind="${o.key}">Invite</button></span></div>`;
+    })
+    .join("");
+  return `<div class="fc-block"><div class="fc-h"><span class="st-label">Plan a visit</span><small class="sub">24 to 48 hours, before he decides</small></div><div class="fc-vopts">${rows}</div></div>`;
+}
+screens.portal_file = async (a) => {
+  const f = await api("portal_file", { id: a.id });
+  const [c1, c2] = f.colors || ["#444", "#222"];
+  const schools = f.schools.length
+    ? f.schools.map((s) => `<div class="fc-school ${s.yours ? "yours" : ""}"><span class="fc-n">${s.n}</span>${mark(s.team, 28)}<span><b>${teamLink(s.team)}</b><small>${esc(s.status)}</small></span>${s.pill ? `<span class="st-pill good">${esc(s.pill)}</span>` : ""}</div>`).join("")
+    : `<div class="empty">${f.shopping ? "Nobody has a place for him yet." : "He isn't shopping."}</div>`;
+  const read = `<div class="fc-read"><div><span class="l7-pair">${range(f.read, null, { p: f.id, k: "ovr" })}${yourRange(f.yours)}</span></div><div><b>${fcPot(f.pot)}</b>${f.pot ? `<small class="sub">How sure: ${esc(words(f.pot.sure))}</small>` : ""}</div></div>
+    <small class="sub">Read by ${esc(f.reader)}${f.reader_role ? `, your ${esc(f.reader_role)}` : ""}, from his college tape.</small>`;
+  const next = (f.visits || []).find((v) => v.state === "Set");
+  const left = `<div class="st-room fc-idroom" style="--accent:${c1};--accent-2:${c2}"><i></i><i></i><i></i>
+      <div class="fc-id">
+        <div class="st-label">${esc(f.status)}</div>
+        <h2>${playerLink(f.id, f.name, "Recruiting")}</h2>
+        <div><b>${f.from ? teamLink(f.from) : ""}</b>${f.division ? ` <small>${esc(f.division)}</small>` : ""}<div class="fc-town">${esc(f.town)} · ${esc(f.cls)}</div></div>
+        <div class="fc-pills"><span class="st-pill">${esc(f.pos)}</span><span class="st-pill">${f.stars ? `${f.stars}★ out of high school` : "Unranked"}</span>${f.role ? `<span class="st-pill">${esc(f.role)}</span>` : ""}${f.sits ? '<span class="st-pill gold">Sits a year with you</span>' : ""}</div>
+        <dl class="fc-idkv">${f.why ? `<dt>Why he left</dt><dd>${esc(fcCap(f.why))}</dd>` : ""}${f.entered ? `<dt>Entered</dt><dd>${esc(f.entered)}</dd>` : ""}${f.decide ? `<dt>Decides</dt><dd>${esc(f.decide)}${f.days != null ? ` · ${esc(fcIn(f.days))}` : ""}</dd>` : ""}<dt>From campus</dt><dd>${Math.round(f.miles)} miles from home</dd></dl>
+        <div class="fc-meas"><b class="st-cond">${esc(f.ht)}</b><span>Height</span><b class="st-cond">${esc(f.wt)}</b><span>Weight, lbs</span><b class="st-cond">${f.left}</b><span>${f.left === 1 ? "Season left" : "Seasons left"}</span></div>
+      </div></div>`;
+  const mid = `<div class="fc-mid">
+      <div class="fc-block"><div class="fc-h"><span class="st-label">Your staff's read</span>${playerLink(f.id, "His player page")}</div>${read}</div>
+      ${f.interest ? `<div class="fc-block"><div class="fc-h"><span class="st-label">His interest in your program</span></div><div class="fc-interest ${fcTone(f.tone)}">${fcDot(fcTone(f.tone))}<b>${esc(f.interest)}</b></div><p class="sub">${esc(f.reason)}</p>${fcBarMeter(f.bar)}</div>` : ""}
+      <div class="fc-block"><div class="fc-h"><span class="st-label">His top schools</span><small class="sub">${f.schools_n > 1 ? `${f.schools_n} schools after him · ` : ""}as your staff hears it</small></div><div class="fc-schools">${schools}</div></div>
+      <div class="fc-next"><span class="st-label">Next contact</span><span>${next ? `<b>${esc(next.date)}</b> · ${esc(next.kind)}` : f.shopping ? "Nothing set: a call is open any day" : "Nothing set"}</span></div>
+    </div>`;
+  const right = `<div class="fc-right">${fcPortalMoves(f)}${fcPortalVisits(f)}</div>`;
+  const talks = f.talks.length
+    ? `<div class="items">${f.talks.map((t) => `<div class="item"><span class="when">${esc(t.date)}</span><span><b>${esc(t.place)}</b> · sold ${esc(t.pitch.toLowerCase())}<br><small class="sub">${esc(t.how)}</small></span></div>`).join("")}</div>`
+    : '<div class="empty">You haven\'t talked to him yet. Every staff with a place for him has called.</div>';
+  const visits = f.visits.length
+    ? `<div class="items">${f.visits.map((v) => `<div class="item"><span class="when">${esc(v.date)}</span><span><b>${esc(v.kind)}</b> · ${esc(v.state)}${v.note ? `<br><small class="sub">${esc(v.note)}</small>` : ""}</span></div>`).join("")}</div>`
+    : '<div class="empty">He hasn\'t been on your campus.</div>';
+  const go = fcGoto([["portal_desk", "Transfer portal"], ["player", "His player page", { id: f.id }], ["nil_desk", "NIL"], ["depth", "Depth chart"]]);
+  return `<div class="film"><div class="pad fc-pad">
+    <div class="fc-bar"><div><div class="st-label">Transfer portal${f.from ? ` · from ${esc(f.from.name)}` : ""}</div><div class="h1">${esc(f.name)}</div></div>${go}</div>
+    <section class="fc-file warm">${left}${mid}${right}</section>
+    <div class="grid3"><div class="panel"><h2>Your talks <small>the latest at each place counts</small></h2>${talks}</div><div class="panel"><h2>Visits <small>with your program</small></h2>${visits}</div><div class="panel"><h2>How a transfer decides</h2><p class="sub">He weighs the same things a recruit's family does, for himself: playing time against who's ahead of him, the money, the school, home, the staff, his shot at the league and winning. Every staff with a place for him calls; his finalists host him. When one school clearly gives him what he needs, he stops shopping and says yes, often days before his date.</p></div></div>
+  </div></div>`;
+};
+
 // Finding recruits is its own screen now: screens/find.js (update 2, lane 7).
 
 // ---------- visits ----------
@@ -590,12 +695,17 @@ screens.portal_desk = async () => {
   const leaving = x.roster.filter((r) => r.rank <= 1).length;
   const panel = `<h2>The portal <small>where it stands today</small></h2>${fcTiles([[String(x.in_portal), "In the portal"], [String(x.targets.filter((t) => !t.settled).length), "Your targets"], [String(leaving), "Yours at risk"], [String(x.talks), "Talks held"]])}`;
   const tabs = [["entrants", "Entrants", x.shown], ["targets", "Your targets", x.targets.length], ["roster", "Your roster", x.roster.length], ["whispers", "Quiet words", x.whispers.length]];
-  const nilIn = (r) => (x.nil_era ? `<label class="fc-moneyin small">$<input type="number" min="0" step="5" value="${r.nil != null ? Math.round(r.nil / 1000) : ""}" placeholder="${Math.round(r.usual / 1000)}" data-fcin="pnil" data-id="${r.id}">k</label>` : "");
+  // Every NIL dollar is yours (Cain, 2026-11-07): a blank box is no money,
+  // and from July 2025 the collective's deal is a second box (B18). The
+  // going rate is in the box's tip.
+  const k1 = (v) => (v != null ? Math.round(v / 1000) : "");
+  const nilBox = (r, key, val, usual, what) => `<label class="fc-moneyin small" title="${esc(`${what}. A typical transfer's share here: about ${money(usual)} a year`)}">$<input type="number" min="0" step="5" value="${k1(val)}" data-was="${k1(val)}" placeholder="none" data-fcin="${key}" data-id="${r.id}">k</label>`;
+  const nilIn = (r) => (x.nil_era ? nilBox(r, "pnil", r.nil, r.usual, x.house ? "Revenue share" : "NIL") + (x.house ? nilBox(r, "pcollp", r.coll, r.coll_usual, "Collective deal, reviewed by NIL Go") : "") : "");
   let body = "";
   if (k.tab === "entrants") {
     const POS = ["QB", "RB", "WR", "TE", "OT", "IOL", "EDGE", "DT", "LB", "CB", "S", "K", "P", "LS"];
     const cols = [
-      { k: "name", t: "Player", l: true, f: (r) => `${playerLink(r.id, r.name, "Recruiting")}${r.contacted ? ' <span class="st-pill" title="You reached out before he entered">Talked</span>' : ""}` },
+      { k: "name", t: "Player", l: true, f: (r) => `${fcLink("portal_file", r.name, { id: r.id })}${r.contacted ? ' <span class="st-pill" title="You reached out before he entered">Talked</span>' : ""}` },
       { k: "pos", t: "Pos", l: true },
       { k: "from", t: "From", l: true, v: (r) => r.from.name, f: (r) => `${teamLink(r.from)} <small class="sub">${esc(r.division)}</small>` },
       { k: "division", t: "Div", l: true, hide: true },
@@ -607,7 +717,7 @@ screens.portal_desk = async () => {
       { k: "why", t: "Why he left", l: true, wrap: true, div: true },
       { k: "days", t: "Decides", tip: "When he means to choose", f: (r) => `<span title="${esc(fcIn(r.days))}">${esc(String(r.decide || "").replace(/ \d{4}$/, ""))}</span>` },
       { k: "sits", t: "", l: true, v: (r) => (r.sits ? 1 : 0), f: (r) => (r.sits ? '<span class="st-pill gold" title="He would sit out a season with you">Sits a year</span>' : "") },
-      { k: "offered", t: "Your offer", l: true, div: true, v: (r) => (r.offered ? 1 : 0), f: (r) => (r.offered ? `<span class="fc-rowacts"><span class="st-pill good">Offered</span>${nilIn(r)}<button class="st-btn small glass" data-fc="ppull" data-id="${r.id}">Pull</button></span>` : `<span class="fc-rowacts">${nilIn(r)}<button class="st-btn small primary" data-fc="poffer" data-id="${r.id}">Offer</button></span>`) },
+      { k: "offered", t: "Your offer", l: true, div: true, v: (r) => (r.offered ? 1 : 0), f: (r) => (r.committed ? '<span class="st-pill good">Told you yes</span>' : r.offered ? `<span class="fc-rowacts"><span class="st-pill good">Offered</span>${nilIn(r)}<button class="st-btn small primary" data-fc="poffer" data-id="${r.id}" data-fcsave hidden>Change</button><button class="st-btn small glass" data-fc="ppull" data-id="${r.id}">Pull</button></span>` : `<span class="fc-rowacts">${nilIn(r)}<button class="st-btn small primary" data-fc="poffer" data-id="${r.id}">Offer</button></span>`) },
     ];
     const posSel = `<select class="fc-select" data-fcf2="pos"><option value="ALL">Every position</option>${POS.map((p) => `<option ${k.pos === p ? "selected" : ""}>${p}</option>`).join("")}</select>`;
     const divs = [["ALL", "Every division"], ["FBS", "FBS"], ["FCS", "FCS"], ["D2", "D2"], ["NAIA", "NAIA"], ["D3", "D3"], ["JUCO", "JUCO"]];
@@ -615,15 +725,17 @@ screens.portal_desk = async () => {
       ${table("fcportal", cols, x.entrants, { sort: null, empty: open ? "Nobody in the portal matches." : "The portal is closed: entrants come when a window opens.", groups: [{ t: "Player", span: 7 }, { t: "Your staff", span: 2, div: true }, { t: "His move", span: 3, div: true }, { t: "Yours", span: 1, div: true }] })}`;
   } else if (k.tab === "targets") {
     body = table("fcptargets", [
-      { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name, "Recruiting") },
+      { k: "name", t: "Player", l: true, f: (r) => fcLink("portal_file", r.name, { id: r.id }) },
       { k: "pos", t: "Pos", l: true },
       { k: "from", t: "From", l: true, v: (r) => r.from.name, f: (r) => teamLink(r.from) },
-      { k: "status", t: "Where it stands", l: true, div: true },
+      { k: "status", t: "Where it stands", l: true, div: true, f: (r) => `${esc(r.committed ? `Committed to you, ${r.committed}` : r.status)}${r.promise ? `<br><small class="sub">Promised: ${esc(r.promise.toLowerCase())}</small>` : ""}` },
+      { k: "interest", t: "His interest", l: true, v: (r) => (r.interest ? r.interest.words : ""), f: (r) => (r.interest ? `${fcDot(fcTone(r.interest.tone))}${esc(r.interest.words)}` : '<span class="muted">-</span>') },
+      { k: "next", t: "Next contact", l: true, f: (r) => esc(r.next || "-") },
       { k: "offered", t: "Offered", l: true, f: (r) => esc(r.offered || "-") },
-      { k: "nil", t: "NIL", f: (r) => (r.nil != null ? money(r.nil) : '<span class="muted">usual</span>') },
+      { k: "nil", t: "NIL", tip: "Your offer's money a year: revenue share, and the collective's deal from July 2025", v: (r) => (r.nil || 0) + (r.coll || 0), f: (r) => (r.nil != null || r.coll != null ? money((r.nil || 0) + (r.coll || 0)) + (r.coll ? ` <small class="sub">${money(r.coll)} collective</small>` : "") : '<span class="muted">none</span>') },
       { k: "answer", t: "His answer", l: true, wrap: true, v: (r) => (r.answer ? r.answer.word : ""), f: (r) => (r.answer ? `<span class="st-pill ${FC_MOOD_TONE[r.answer.mood] || ""}">${esc(r.answer.word)}</span> <small class="sub">${esc(r.answer.text)}</small>` : '<span class="muted">-</span>') },
       { k: "decide", t: "Decides", l: true, f: (r) => esc(r.decide || "-") },
-      { k: "act", t: "", l: true, f: (r) => (r.settled ? "" : `<button class="st-btn small glass" data-fc="pforget" data-id="${r.id}">Forget him</button>`) },
+      { k: "act", t: "", l: true, f: (r) => (r.settled || r.committed ? "" : `<button class="st-btn small glass" data-fc="pforget" data-id="${r.id}">Forget him</button>`) },
     ], x.targets, { empty: "No targets yet. Offer an entrant, or reach out quietly to a player with whispers about him." });
   } else if (k.tab === "roster") {
     body = `<p class="sub">Your players by how likely they are to leave, in your staff's words. A talk sways a player the way your relationships with players do: a good one keeps him, a poor one can push him.</p>
@@ -679,72 +791,151 @@ screens.nil_desk = async () => {
   <div class="pad fc-pad"><div class="fc-bar"><span></span>${fcGoto([["roster", "Squad"], ["portal_desk", "Transfer portal"], ["recruit_board", "Recruiting board"]])}</div>
     <div class="panel"><div class="empty">The NCAA's amateur rules hold: scholarships, cost of attendance and nothing more. NIL opens on July 1, 2021.</div></div></div></div>`;
   }
-  const deals = fcSum(x.rows.map((r) => ({ v: r.deal != null ? r.deal : 0 })), "v");
+  // Every NIL dollar is yours (Cain, 2026-11-07): you set each player's
+  // revenue share and, from July 2025, his collective deal too, which NIL Go
+  // reviews (B18). Each deal stands until you change it; a blank box is $0
+  // and pays nothing.
+  const two = x.house;
   const m = (v) => (v === 0 ? "$0" : money(v));
-  // Two pots from July 2025 (B18): the school's revenue share is yours to
-  // set; the collective pays its own deals, each through NIL Go.
-  const out = `<div class="item"><span>Roster deals</span><b>${m(b.roster)}</b></div>
-      <div class="item"><span>Promised to recruits</span><b>${m(b.recruits)}</b></div>
-      <div class="item"><span>Offered in the portal</span><b>${m(b.portal)}</b></div>
-      <div class="item tot"><span>Left</span><b class="${b.left < 0 ? "fc-over" : ""}">${m(b.left)}</b></div>`;
-  const ledger = x.house
-    ? `<div class="st-ledger fc-ledger"><div><span class="st-label">The school's revenue share · yours to set</span>
-      <div class="item tot"><span>This year</span><b>${m(b.revenue_share)}</b></div>${out}</div>
-    <div><span class="st-label">The collective · its own deals</span>
-      <div class="item"><span>From boosters this year</span><b>${m(b.collective)}</b></div>
-      <div class="item"><span>Its split to your roster, as NIL Go cleared it</span><b>${m(b.collective_roster)}</b></div>
-      <div class="item tot"><span>NIL Go wouldn't clear</span><b>${m(b.nil_go_held)}</b></div></div></div>`
+  const pays = (r) => (r.deal || 0) + (two ? r.coll || 0 : 0);
+  const blanks = x.rows.filter((r) => pays(r) <= 0).length;
+  const set = fcSum(x.rows.map((r) => ({ v: pays(r) })), "v");
+  const out = (roster, recruits, portal, left, label) => `<div class="item"><span>${label}</span><b>${m(roster)}</b></div>
+      <div class="item"><span>Promised to recruits</span><b>${m(recruits)}</b></div>
+      <div class="item"><span>Offered in the portal</span><b>${m(portal)}</b></div>
+      <div class="item tot"><span>Left</span><b class="${left < 0 ? "fc-over" : ""}">${m(left)}</b></div>`;
+  const ledger = two
+    ? `<div class="st-ledger fc-ledger"><div><span class="st-label">Revenue share · you set it</span>
+      <div class="item tot"><span>This year</span><b>${m(b.revenue_share)}</b></div>${out(b.roster, b.recruits, b.portal, b.left, "Your roster deals")}</div>
+    <div><span class="st-label">Collective deal · you set it</span>
+      <div class="item tot"><span>From boosters this year</span><b>${m(b.collective)}</b></div>${out(b.coll_roster, b.coll_recruits, b.coll_portal, b.coll_left, "Your roster deals")}
+      <div class="item"><span>NIL Go clears of your roster deals</span><b>${m(b.collective_roster)}</b></div>
+      <div class="item"><span>NIL Go holds back</span><b>${m(b.nil_go_held)}</b></div></div></div>`
     : `<div class="st-ledger fc-ledger"><div><span class="st-label">Money in</span>
       <div class="item"><span>Collective</span><b>${m(b.collective)}</b></div>
       <div class="item tot"><span>This year</span><b>${m(b.total)}</b></div></div>
-    <div><span class="st-label">Money out</span>${out}</div></div>`;
-  const panel = `<h2>Money year ${x.year}-${String(x.year + 1).slice(2)} <small>paid ${esc(x.pay_day)}</small></h2>${fcTiles([[m(b.yours), x.house ? "Revenue share" : "Budget"], [m(b.left), "Left"], [String(x.rows.filter((r) => r.deal != null).length), "Deals set"], ...(x.house ? [[m(b.collective_roster), "Collective's deals"]] : []), [x.trend, "Boosters"], ...aid])}`;
+    <div><span class="st-label">Money out · you set it</span>${out(b.roster, b.recruits, b.portal, b.left, "Your roster deals")}</div></div>`;
+  const tiles = two
+    ? [[m(b.revenue_share), "Revenue share"], [m(b.left), "Revenue share left"], [m(b.collective), "Collective, from boosters"], [m(b.coll_left), "Collective left"], [String(blanks), "Blank"]]
+    : [[m(b.yours), "Budget"], [m(b.left), "Left"], [String(blanks), "Blank"]];
+  const panel = `<h2>Money year ${x.year}-${String(x.year + 1).slice(2)} <small>paid ${esc(x.pay_day)} · you set every player's money</small></h2>${fcTiles([...tiles, [x.trend, "Boosters"], ...aid])}`;
+  const k1 = (v) => (v ? Math.round(v / 1000) : "");
+  const box = (r, key, v) => `<label class="fc-moneyin small">$<input type="number" min="0" step="5" value="${k1(v)}" data-was="${k1(v)}" placeholder="none" data-fcin="${key}" data-id="${r.id}">k</label>`;
+  // Nothing is sent while you type (Cain, 2026-11-08): Set, or Enter, sends the row.
+  const setBtn = (r) => `<button class="st-btn small primary" data-fc="dealset" data-id="${r.id}" data-fcsave hidden>Set</button>`;
+  const going = (v) => (v ? `<span class="muted">${money(v)}</span>` : '<span class="muted">-</span>');
   const cols = [
     { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name) },
     { k: "pos", t: "Pos", l: true },
     { k: "cls", t: "Class", l: true, v: (r) => classRank(r.cls) },
     { k: "left", t: "Yrs left" },
     { k: "role", t: "Role", l: true, v: (r) => r.role || "", f: (r) => esc(r.role || "-") },
-    { k: "read", t: "Read", div: true, v: (r) => mid(r.read), f: (r) => range(r.read, null, { p: r.id, k: "ovr" }) },
+    { k: "read", t: "Read", v: (r) => mid(r.read), f: (r) => range(r.read, null, { p: r.id, k: "ovr" }) },
     { k: "now", t: "Paid last year", div: true, f: (r) => (r.now ? money(r.now) : '<span class="muted">-</span>') },
-    { k: "brand", t: "His own deals", tip: "Brand and ad money he earns himself, apart from the collective (a public estimate for the year)", v: (r) => r.brand || 0, f: (r) => (r.brand ? money(r.brand) : '<span class="muted">-</span>') },
+    { k: "brand", t: "His own deals", tip: "Brand and ad money he earns himself, apart from yours (a public estimate for the year)", v: (r) => r.brand || 0, f: (r) => (r.brand ? money(r.brand) : '<span class="muted">-</span>') },
     { k: "followers", t: "Followers", tip: "Social media followers, every platform", v: (r) => r.followers || 0, f: (r) => (r.followers ? fcFollow(r.followers) : '<span class="muted">-</span>') },
     { k: "camera", t: "On camera", l: true, hide: true, tip: "His position coach's word for how he comes across in front of a camera", f: (r) => `<span class="sub">${esc(r.camera || "")}</span>` },
-    ...(x.house ? [{ k: "own", t: "Collective's own", div: true, tip: "The collective's own deal with him this money year, as NIL Go clears it: past the top of his range it isn't cleared, and the collective resubmits at the top", v: (r) => r.own || 0, f: (r) => (r.own ? money(r.own) : '<span class="muted">-</span>') + (r.held ? ` <span class="st-pill gold" title="NIL Go wouldn't clear ${esc(money(r.held))} more">NIL Go</span>` : "") }] : []),
-    { k: "usual", t: x.house ? "School's usual" : "Collective's split", div: true, tip: x.house ? "The usual revenue-share split for a player in his role" : "", f: (r) => (r.usual ? money(r.usual) : '<span class="muted">-</span>') },
-    { k: "deal", t: x.house ? "Your revenue share" : "Your deal", div: true, v: (r) => (r.deal != null ? r.deal : -1), f: (r) => `<label class="fc-moneyin small">$<input type="number" min="0" step="5" value="${r.deal != null ? Math.round(r.deal / 1000) : ""}" placeholder="${Math.round(r.usual / 1000)}" data-fcin="deal" data-id="${r.id}">k</label>` },
-    { k: "answer", t: "His answer", l: true, tip: "His first word on the deal you set", v: (r) => (r.answer ? r.answer.word : ""), f: (r) => (r.answer ? `<span class="st-pill ${FC_MOOD_TONE[r.answer.mood] || ""}" title="${esc(r.answer.text)}">${esc(r.answer.word)}</span>` : '<span class="muted">-</span>') },
+    { k: "usual", t: "Going rate", div: true, tip: "What players in his role usually get from the school's revenue share: only a guide", f: (r) => going(r.usual) },
+    { k: "deal", t: "Yours", v: (r) => r.deal || 0, f: (r) => box(r, "deal", r.deal) + setBtn(r) },
+    ...(two
+      ? [
+          { k: "coll_usual", t: "Going rate", div: true, tip: "What players in his role usually get from the collective, as NIL Go clears it: only a guide", f: (r) => going(r.coll_usual) },
+          { k: "coll", t: "Yours", v: (r) => r.coll || 0, f: (r) => box(r, "dcoll", r.coll) + setBtn(r) },
+          { k: "cleared", t: "NIL Go", l: true, tip: "What NIL Go clears of your collective deal: past the top of his range it holds the rest back, and it isn't paid this year", v: (r) => r.cleared || 0, f: (r) => (!r.coll ? '<span class="muted">-</span>' : r.cleared + 1 < r.coll ? `<span class="st-pill gold" title="${esc(`NIL Go clears ${money(r.cleared)} of your ${money(r.coll)}; ${money(r.coll - r.cleared)} isn't paid`)}">${money(r.cleared)}</span>` : '<span class="st-pill good">Cleared</span>') },
+        ]
+      : []),
+    { k: "answer", t: "His answer", l: true, div: true, tip: "His first word on the numbers you set", v: (r) => (r.answer ? r.answer.word : ""), f: (r) => (r.answer ? `<span class="st-pill ${FC_MOOD_TONE[r.answer.mood] || ""}" title="${esc(r.answer.text)}">${esc(r.answer.word)}</span>` : '<span class="muted">-</span>') },
   ];
+  const groups = [
+    { t: "Him", span: 6 },
+    { t: "For reference", span: 4, div: true },
+    { t: two ? "Revenue share" : "Your deal", who: two ? "you set it, the school pays" : "you set it, the collective pays", span: 2, div: true },
+    ...(two ? [{ t: "Collective deal", who: "you set it, boosters pay, NIL Go reviews", span: 3, div: true }] : []),
+    { t: "His answer", span: 1, div: true },
+  ];
+  const parts = (p) => (two && p.coll ? ` <small class="sub">${money(p.school || 0)} + ${money(p.coll)} collective</small>` : "");
   const promised = x.promised.length
-    ? x.promised.map((p) => `<div class="item"><span class="when">${money(p.nil)}</span><span>${playerLink(p.id, p.name, "Recruiting")} <small class="sub">· ${esc(p.pos)} · ${p.stars ? p.stars + "★" : "unrated"}${p.standing === "committed" ? " · committed" : p.standing === "signed" ? " · signed" : ""}</small></span></div>`).join("")
+    ? x.promised.map((p) => `<div class="item"><span class="when">${money(p.nil)}</span><span>${playerLink(p.id, p.name, "Recruiting")} <small class="sub">· ${esc(p.pos)} · ${p.stars ? p.stars + "★" : "unrated"}${p.standing === "committed" ? " · committed" : p.standing === "signed" ? " · signed" : ""}</small>${parts(p)}</span></div>`).join("")
     : '<div class="empty">No promises to recruits. Set one in a recruit\'s file.</div>';
   const portal = x.portal.length
-    ? x.portal.map((p) => `<div class="item"><span class="when">${money(p.nil)}</span><span>${playerLink(p.id, p.name, "Recruiting")} <small class="sub">· ${esc(p.pos)} from ${teamLink(p.from)}</small></span></div>`).join("")
+    ? x.portal.map((p) => `<div class="item"><span class="when">${money(p.nil)}</span><span>${playerLink(p.id, p.name, "Recruiting")} <small class="sub">· ${esc(p.pos)} from ${teamLink(p.from)}</small>${parts(p)}</span></div>`).join("")
     : '<div class="empty">No portal offers carry money.</div>';
   const hist = x.history.length
     ? `<div class="tbl warm"><table><thead><tr><th class="l">Season</th><th>NIL budget</th><th>From boosters</th></tr></thead><tbody>${x.history.map((h) => `<tr><td class="l">${h.season}</td><td>${m(h.budget)}</td><td>${m(h.boosters)}</td></tr>`).join("")}</tbody></table></div>`
     : '<div class="empty">No seasons yet.</div>';
-  const buttons = x.yours
-    ? `<div class="fc-acts"><button class="st-btn small glass" data-fc="nilusual">${x.house ? "Use the school's usual split" : "Use the collective's split"}</button><button class="st-btn small glass" data-fc="nilclear">Clear every deal</button></div>`
-    : "";
-  const deal = x.house
-    ? x.yours
-      ? `<p class="sub">Set each player's revenue share for the money year in thousands: the school pays it, under the House cap. The collective pays its own deals beside it, and NIL Go clears each one only within the range players like him are paid. A player paid well under his worth hears about it, and the portal is a phone call away. Each answers when you set his number. ${money(deals)} set so far.</p>`
-      : `<p class="sub">Your staff pays the school's usual revenue-share split, and the collective pays its own deals through NIL Go. A revenue share you set for a player is his number instead (SC6); one paid well under his worth hears about it. ${money(deals)} set so far.</p>`
-    : x.yours
-      ? `<p class="sub">Set each player's deal for the money year in thousands. A player left without one gets nothing from the collective; one paid well under his worth hears about it, and the portal is a phone call away. Each answers when you set his number. ${money(deals)} set so far.</p>`
-      : `<p class="sub">Your collective pays the usual split. A deal you set for a player is his number instead (SC6); one paid well under his worth hears about it. ${money(deals)} set so far.</p>`;
-  return `<div class="film">${fcHero({ label: `${teamLink(x.team)} · Money`, title: "NIL", line: `<span>${x.house ? "Revenue sharing and the collective" : "The collective"}${x.big_booster ? " · a big booster behind it" : ""}</span>`, sub: esc(x.trend_line), panel })}
+  const cards = two
+    ? `<div class="fc-nilcards"><div class="fc-nilcard"><b>Revenue share · you set it</b><span>The school pays it, under the House cap. Your number is his number.</span></div>
+      <div class="fc-nilcard"><b>Collective deal · you set it</b><span>The boosters pay it. NIL Go reviews every deal and holds back whatever is past the range for a player like him.</span></div>
+      <div class="fc-nilcard"><b>His own deals · for reference</b><span>Brand and ad money he earns himself. Not money you pay.</span></div></div>`
+    : `<div class="fc-nilcards"><div class="fc-nilcard"><b>Your deal · you set it</b><span>The collective pays it. Your number is his number.</span></div>
+      <div class="fc-nilcard"><b>His own deals · for reference</b><span>Brand and ad money he earns himself. Not money you pay.</span></div></div>`;
+  const buttons = `<div class="fc-acts"><button class="st-btn small glass" data-fc="nilusual">Fill blanks with the going rate</button><button class="st-btn small glass" data-fc="nilclear">Clear every deal</button></div>`;
+  const deal = `<p class="sub">A blank box pays nothing, and nothing is ever filled in for you. The going rate beside each box is only a guide: what players in his role usually get. Type a number and press Set or Enter. Every deal stands from one money year to the next until you change it, in thousands a year. A player paid well under his worth hears about it, and the portal is a phone call away; each answers when you set his number. ${m(set)} set in all.</p>`;
+  return `<div class="film">${fcHero({ label: `${teamLink(x.team)} · Money`, title: "NIL", line: `<span>${two ? "Revenue sharing and the collective" : "The collective"}${x.big_booster ? " · a big booster behind it" : ""}</span>`, sub: esc(x.trend_line), panel })}
   <div class="pad fc-pad">
     <div class="fc-bar"><div class="st-label">The roster's deals</div>${fcGoto([["roster", "Squad"], ["portal_desk", "Transfer portal"], ["recruit_board", "Recruiting board"], ["depth", "Depth chart"]])}</div>
-    ${x.yours ? "" : fcDuty(x.duties, "nil")}
+    ${cards}
     <div class="fc-nilgrid"><div class="panel"><h2>Where the money goes <small>this money year</small></h2>${ledger}</div>
       <div class="panel"><h2>Promised to recruits <small>paid once they enroll</small></h2><div class="items">${promised}</div></div>
       <div class="panel"><h2>Portal offers <small>paid if he comes</small></h2><div class="items">${portal}</div></div>
       <div class="panel"><h2>The collective by year</h2>${hist}</div></div>
     <div class="fc-bar"><div class="st-label">Every player's deal</div>${buttons}</div>
     ${deal}
-    ${table("fcnil", cols, x.rows, { sort: "now", groupBy: null })}
+    ${table("fcnil", cols, x.rows, { sort: "now", groupBy: null, groups })}
+  </div></div>`;
+};
+
+// ---------- walk-ons: scholarships and the open tryout ----------
+// Your walk-ons, the scholarship call on each, and the open tryout for the
+// students on campus between summer enrollment and the first weeks of fall
+// camp (lane B of the Jan 1 start). The ranges are your staff's read from
+// one day of drills.
+screens.walkons_desk = async () => {
+  const x = await api("walkons_desk");
+  setColors(x.team.colors);
+  const t = x.tryout;
+  const aid = x.aid.none
+    ? ["None", x.aid.none]
+    : x.aid.whole
+      ? [`${x.squad.n}/${x.squad.cap}`, "Roster places · any can carry aid"]
+      : [`${x.aid.on}/${x.aid.limit}`, "On scholarship"];
+  const earned = x.rows.filter((r) => r.earned).length;
+  const panel = `<h2>Season ${x.season} <small>walk-ons and aid</small></h2>${fcTiles([aid, [String(x.rows.length), "Walk-ons"], [String(earned), "In the two-deep"], [x.squad.whole ? `${x.squad.n}/${x.squad.cap}` : `${x.squad.n}`, x.squad.whole ? "House roster limit" : `On the squad · room to ${x.squad.cap}`]])}`;
+  const cols = [
+    { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name) },
+    { k: "pos", t: "Pos", l: true },
+    { k: "cls", t: "Class", l: true, v: (r) => classRank(r.cls) },
+    { k: "role", t: "Role", l: true, v: (r) => (r.earned ? 1 : 0), f: (r) => `${r.earned ? fcDot("good") : ""}${esc(r.role || "-")}` },
+    { k: "read", t: "Read", div: true, v: (r) => mid(r.read), f: (r) => range(r.read, null, { p: r.id, k: "ovr" }) },
+    { k: "words", t: "Scholarship", l: true, wrap: true, f: (r) => `<span class="sub">${esc(r.words)}</span>` },
+    { k: "act", t: "", l: true, f: (r) => (r.can ? `<button class="st-btn small primary" data-fc="woaward" data-id="${r.id}" data-name="${esc(r.name)}" data-words="${esc(r.words)}">Put him on scholarship</button>` : "") },
+  ];
+  const mine = x.rows.length
+    ? table("fcwo", cols, x.rows, { sort: "role", groupBy: null })
+    : `<div class="panel"><div class="empty">No walk-ons on the roster.${t.can ? " The open tryout below is the way to add one." : ""}</div></div>`;
+  const came = t.came.length
+    ? table("fcwot", [
+        { k: "name", t: "Student", l: true, f: (r) => playerLink(r.id, r.name, "Recruiting") },
+        { k: "pos", t: "Pos", l: true },
+        { k: "from", t: "From", l: true, f: (r) => `${esc(r.from || "-")}${r.juco ? ' <span class="st-pill">JUCO</span>' : ""}` },
+        { k: "state", t: "Home", l: true },
+        { k: "ht", t: "Ht", l: true },
+        { k: "wt", t: "Wt" },
+        { k: "forty", t: "40", tip: "Hand-timed on the day", f: (r) => (r.forty ? r.forty.toFixed(2) : "-") },
+        { k: "grade", t: "Read", div: true, tip: "Your staff's read from one day of drills: wide, and wider with a weaker eye", v: (r) => (r.low + r.high) / 2, f: (r) => `<b>${r.low}-${r.high}</b> <small class="sub">${esc(r.reader)}</small>` },
+        { k: "act", t: "", l: true, f: (r) => (r.kept ? `${fcDot("good")}Kept` : r.gone ? '<span class="muted">Gone</span>' : `<button class="st-btn small glass" data-fc="wokeep" data-id="${r.id}">Keep him</button>`) },
+      ], t.came, { sort: "grade", groupBy: null })
+    : "";
+  const tryout = t.held
+    ? `<div class="panel"><h2>The open tryout <small>held ${esc(t.held)} · ${fcPlural(t.came.length, "student")} came</small></h2><p class="sub">Keep any you want as walk-ons: no aid, a place on the squad, and the chance to earn a scholarship later. Each one kept takes a roster place.</p>${came || '<div class="empty">Nobody came out.</div>'}</div>`
+    : `<div class="panel"><h2>The open tryout <small>${esc(t.from)} to ${esc(t.to)}</small></h2>
+      <p class="sub">Once a season, students already on campus try out for your staff: a forty, the drills, a day's look. Up to ${t.looks} come out. Your position coaches read them; nobody has a file.</p>
+      ${t.can ? '<div class="fc-acts"><button class="st-btn small primary" data-fc="wohold">Hold the tryout</button></div>' : `<div class="empty">${esc(t.why || "")}</div>`}</div>`;
+  return `<div class="film">${fcHero({ label: `${teamLink(x.team)} · Roster`, title: "Walk-ons", line: "<span>Scholarships for the walk-ons who earn one, and the open tryout</span>", panel })}
+  <div class="pad fc-pad">
+    <div class="fc-bar"><div class="st-label">Your walk-ons</div>${fcGoto([["roster", "Squad"], ["depth", "Depth chart"], ["nil_desk", "NIL"], ["recruit_find", "Find recruits"]])}</div>
+    ${mine}
+    ${tryout}
   </div></div>`;
 };
 
@@ -752,10 +943,22 @@ screens.nil_desk = async () => {
 // Captured before the frame's own handler, so a button in a row acts and
 // never opens the row's first link.
 async function fcDo(cmd, args, msg) {
+  // Money boxes typed in but not sent yet, in other rows, survive the redraw.
+  const sent = args && args.id != null ? String(args.id) : null;
+  const dirty = [...document.querySelectorAll("input[data-was]")]
+    .filter((i) => i.value !== i.dataset.was && i.dataset.id !== sent)
+    .map((i) => [i.dataset.fcin, i.dataset.id, i.value]);
   try {
     const r = await api(cmd, args);
     toast(msg || (r && r.text) || "Done.");
-    render($(".view") && $(".view").scrollTop);
+    await render($(".view") && $(".view").scrollTop);
+    for (const [k, id, v] of dirty) {
+      const i = document.querySelector(`input[data-fcin="${k}"][data-id="${id}"]`);
+      if (i) {
+        i.value = v;
+        i.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    }
     return r;
   } catch (e) {
     toast(e.message || String(e));
@@ -838,8 +1041,15 @@ document.addEventListener(
       case "prio": fcDo("recruit_priority", { id, on: d.on === "1" }); break;
       case "move": fcDo("recruit_move", { id, to: Number(d.to) }); break;
       case "promise": {
-        const inp = el.closest(".fc-nilrow").querySelector('[data-fcin="promise"]');
-        fcDo("recruit_promise", inp.value === "" ? { id } : { id, nil: Math.max(0, Number(inp.value)) * 1000 });
+        // Both boxes go together: a blank one is no money in that pot.
+        const row = el.closest(".fc-nilrow");
+        const inp = (key) => row.querySelector(`[data-fcin="${key}"]`);
+        const val = (key) => { const i = inp(key); return i && i.value !== "" ? Math.max(0, Number(i.value)) * 1000 : null; };
+        const nil = val("promise"), coll = val("pcoll");
+        const a = { id };
+        if (nil != null) a.nil = nil;
+        if (coll != null) a.coll = coll;
+        fcDo("recruit_promise", a);
         break;
       }
       case "promiseclear": fcDo("recruit_promise", { id }); break;
@@ -853,30 +1063,71 @@ document.addEventListener(
       case "vcancel": fcDo("visit_cancel", { id, kind: d.kind }); break;
       case "duty": fcDo("college_duty", { duty: d.duty, owner: d.owner }); break;
       case "fill": fcDo("college_fill", { on: d.on === "1" }); break;
-      case "poffer": {
-        const inp = document.querySelector(`[data-fcin="pnil"][data-id="${id}"]`);
-        const v = inp && inp.value !== "" ? Number(inp.value) * 1000 : null;
-        fcDo("portal_offer", v != null ? { id, nil: v } : { id });
+      case "poffer": fcDo("portal_offer", fcPortalMoney(id)); break;
+      case "ppull": fcDo("portal_pull", { id }); break;
+      case "pcall":
+        try {
+          const r = await api("portal_call", { id });
+          go("people_scene", { id: r.scene });
+        } catch (e) {
+          toast(e.message || String(e));
+        }
+        break;
+      case "pvisit": {
+        const sel = document.querySelector(`[data-fcsel="pv-${id}-${d.kind}"]`);
+        if (!sel) break;
+        const r = await fcDo("portal_visit_set", { id, kind: d.kind, date: Number(sel.value) });
+        if (r && r.declined) toast(r.text);
         break;
       }
-      case "ppull": fcDo("portal_pull", { id }); break;
+      case "pvcancel": fcDo("portal_visit_cancel", { id, kind: d.kind }); break;
       case "pforget": fcDo("portal_forget", { id }); break;
       case "pcontact":
         if (await sure(`Reach out to ${d.name}?`, "He isn't in the portal: a call now is tampering. It may sway him your way; about one call in eight gets out, and his coach and the press hear about it.", "Make the call")) fcDo("portal_contact", { id });
         break;
       case "talk": fcDo("keep_talk", { id }); break;
+      case "dealset": {
+        // The row's changed boxes, a blank one a deal of nothing.
+        const row = el.closest("tr");
+        if (!row) break;
+        const a = { id };
+        for (const [key, arg] of [["deal", "amount"], ["dcoll", "coll"]]) {
+          const i = row.querySelector(`[data-fcin="${key}"]`);
+          if (i && i.value !== i.dataset.was) a[arg] = i.value === "" ? 0 : Math.max(0, Number(i.value)) * 1000;
+        }
+        if (a.amount != null || a.coll != null) fcDo("nil_set", a);
+        break;
+      }
       case "nilusual": fcDo("nil_usual", {}); break;
-      case "nilclear": if (await sure("Clear every deal?", "Every player on the roster goes back to no deal until you set one.", "Clear them")) fcDo("nil_clear", {}); break;
+      case "woaward": if (await sure(`Put ${d.name} on scholarship?`, d.words, "Put him on scholarship")) fcDo("college_scholarship", { id }); break;
+      case "wohold": fcDo("tryout_hold", {}); break;
+      case "wokeep": fcDo("tryout_keep", { id }); break;
+      case "nilclear": if (await sure("Clear every deal?", "Every box on the roster goes to $0. A blank box pays nothing on July 1 until you set it.", "Clear them")) fcDo("nil_clear", {}); break;
     }
   },
   true,
 );
-// Enter in a recruit's NIL box presses its Promise button.
+// Enter in a money box presses its button: Promise, Set or the portal offer.
 document.addEventListener("keydown", (ev) => {
-  if (ev.key === "Enter" && ev.target.dataset && ev.target.dataset.fcin === "promise") ev.target.closest(".fc-nilrow").querySelector('[data-fc="promise"]').click();
+  const key = ev.key === "Enter" && ev.target.dataset && ev.target.dataset.fcin;
+  if (!key) return;
+  const near = (sel) => { const r = ev.target.closest(".fc-nilrow, tr, .fc-rowacts"); return r && r.querySelector(sel); };
+  const btn = key === "promise" || key === "pcoll" ? near('[data-fc="promise"]') : key === "deal" || key === "dcoll" ? near('[data-fc="dealset"]') : key === "pnil" || key === "pcollp" ? near('[data-fc="poffer"]') : null;
+  if (btn) { ev.preventDefault(); btn.click(); }
 });
-// Rows of the full board open the recruit's file; the desk's selects and
-// the other money boxes save on change.
+// A money box you change shows its row's Set or Change button; nothing is
+// sent until you press it (Cain, 2026-11-08: clearing a box sent $0 mid-typing).
+document.addEventListener("input", (ev) => {
+  const t = ev.target;
+  if (!t.dataset || t.dataset.was == null) return;
+  // The button beside the box: on the NIL desk each pot's cell has its own
+  // (either sends the whole row), on the portal the row's Change.
+  const cell = t.closest(".fc-rowacts, td");
+  const btn = cell && cell.querySelector("[data-fcsave]");
+  if (!btn) return;
+  btn.hidden = ![...cell.querySelectorAll("input[data-was]")].some((i) => i.value !== i.dataset.was);
+});
+// The desk's selects save on change.
 document.addEventListener("change", (ev) => {
   const t = ev.target;
   if (!t.dataset) return;
@@ -896,12 +1147,5 @@ document.addEventListener("change", (ev) => {
     fcDo("recruit_area", t.value === "" ? { state: t.dataset.fcarea } : { state: t.dataset.fcarea, coach: Number(t.value) }, t.value === "" ? "Back to the staff's own split." : "Area set.");
     return;
   }
-  const id = Number(t.dataset.id);
-  const v = t.value === "" ? null : Math.max(0, Number(t.value)) * 1000;
-  if (t.dataset.fcin === "deal" && v != null) fcDo("nil_set", { id, amount: v });
-  if (t.dataset.fcin === "pnil") {
-    // A portal offer's money: re-sent with the offer, or saved on it if out.
-    const off = t.closest("td") && t.closest("td").querySelector('[data-fc="ppull"]');
-    if (off) fcDo("portal_offer", v == null ? { id } : { id, nil: v });
-  }
+  // The money boxes send nothing on their own: Set, Change or Enter does.
 });

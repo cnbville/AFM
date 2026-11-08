@@ -838,16 +838,11 @@ pub(crate) fn spared(w: &mut World, c: usize, why: &str) -> bool {
 }
 
 impl World {
-    /// Turns the no-fire override on or off (Settings). The first time it
-    /// goes on, the career is marked for good.
+    /// Turns the no-fire override on or off (Settings). It is one of
+    /// sandbox mode's switches: turning it on turns sandbox mode on. The
+    /// first time it goes on, the career is marked for good.
     pub fn set_no_fire(&mut self, on: bool) {
-        let today = self.today;
-        if let Some(k) = self.career.as_mut() {
-            k.no_fire = on;
-            if on && k.no_fire_since.is_none() {
-                k.no_fire_since = Some(today);
-            }
-        }
+        self.set_sandbox_switch(crate::world::sandbox::Switch::NoFire, on);
     }
 }
 

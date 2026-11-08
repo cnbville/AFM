@@ -256,6 +256,92 @@ pub fn team_from_ratings(name: &str, level: Level, list: &[RatedPlayer], scheme:
     finish_team(name, level, raw, &mut rng, seed, scheme).0
 }
 
+/// The typical dressed player at each position at each level: his mean
+/// rating in every attribute and his mean height, weight and arm length,
+/// measured once on 64 synthetic teams a level (the rosters `trait_norm` was
+/// measured on). A read added for a within-level slope (the A/B tests,
+/// minor bugs 274-289) reads a player against this, so the level's typical
+/// player plays as before and only how much players differ changes: a read
+/// centred on NFL players moved FBS passing 0.35 yards an attempt and NFL
+/// sacks 0.2 a team game.
+struct Typical {
+    attrs: Vec<[f64; crate::attributes::ATTRIBUTE_COUNT]>,
+    body: Vec<(f64, f64, f64)>,
+    /// The mean hitter read of the men listed at free and strong safety
+    /// (`scrimmage::hitter`): staffs list the hitter at strong safety, so
+    /// he reads about +1 at the NFL and the free safety about -0.2.
+    hit: [f64; 2],
+}
+
+static TYPICAL: std::sync::LazyLock<Vec<Typical>> = std::sync::LazyLock::new(|| {
+    [Level::HS, Level::FBS, Level::FCS, Level::SmallCollege, Level::NFL]
+        .into_iter()
+        .map(|level| {
+            let league = synthetic_league(level, 64, 0x7E_1CA1);
+            let mut attrs = vec![[60.0; crate::attributes::ATTRIBUTE_COUNT]; POSITION_COUNT];
+            let mut body = vec![(73.0, 230.0, 31.5); POSITION_COUNT];
+            for pos in Position::ALL {
+                let men: Vec<&GamePlayer> =
+                    league.iter().flat_map(|t| t.players.iter()).filter(|p| p.position == pos).collect();
+                if men.is_empty() {
+                    let (h, w, a) = crate::links::combine_mean(pos);
+                    body[pos.index()] = (h, w, a);
+                    continue;
+                }
+                let n = men.len() as f64;
+                for a in Attr::ALL {
+                    attrs[pos.index()][a.index()] = men.iter().map(|p| p.a(a)).sum::<f64>() / n;
+                }
+                body[pos.index()] = (
+                    men.iter().map(|p| p.height).sum::<f64>() / n,
+                    men.iter().map(|p| p.weight).sum::<f64>() / n,
+                    men.iter().map(|p| p.arm).sum::<f64>() / n,
+                );
+            }
+            let s = Position::S.index();
+            let mut hit = [0.0; 2];
+            for (k, spot) in [crate::spots::Spot::FS, crate::spots::Spot::SS].into_iter().enumerate() {
+                let men: Vec<f64> = league
+                    .iter()
+                    .flat_map(|t| t.players.iter())
+                    .filter(|p| p.position == Position::S && p.spot == spot)
+                    .map(|p| super::scrimmage::hit_read(p, &|a| attrs[s][a.index()], body[s].1))
+                    .collect();
+                hit[k] = if men.is_empty() { 0.0 } else { men.iter().sum::<f64>() / men.len() as f64 };
+            }
+            Typical { attrs, body, hit }
+        })
+        .collect()
+});
+
+fn level_slot(level: Level) -> usize {
+    match level {
+        Level::HS => 0,
+        Level::FBS => 1,
+        Level::FCS => 2,
+        Level::SmallCollege => 3,
+        Level::NFL => 4,
+    }
+}
+
+/// The typical rating in `a` of a player at `pos` at `level`.
+pub fn typical(level: Level, pos: Position, a: Attr) -> f64 {
+    TYPICAL[level_slot(level)].attrs[pos.index()][a.index()]
+}
+
+/// The typical height, weight and arm length (inches, pounds, inches) of a
+/// player at `pos` at `level`.
+pub fn typical_body(level: Level, pos: Position) -> (f64, f64, f64) {
+    TYPICAL[level_slot(level)].body[pos.index()]
+}
+
+/// The mean hitter read of the men a level's staffs list at free safety
+/// (`Spot::FS`) or strong safety (anything else), so a read can sit about
+/// the job's typical man.
+pub fn typical_hitter(level: Level, spot: crate::spots::Spot) -> f64 {
+    TYPICAL[level_slot(level)].hit[if spot == crate::spots::Spot::FS { 0 } else { 1 }]
+}
+
 /// A league's worth of synthetic teams with a spread of quality and schemes.
 pub fn synthetic_league(level: Level, n: usize, seed: u32) -> Vec<GameTeam> {
     synthetic_league_people(level, n, seed).into_iter().map(|t| t.0).collect()

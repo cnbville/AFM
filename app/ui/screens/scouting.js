@@ -346,14 +346,18 @@ screens.scouting = async () => {
   let body = "";
   if (tab.t === "Staff") {
     const opts = (p) => `<select class="sc-sel" data-act="sc-assign" data-who="${p.code}"><option value="none">No assignment: his own judgment</option>${d.assign_targets.map((t) => `<option value="${esc(t.key)}" ${p.assignment === t.words ? "selected" : ""}>${esc(t.words)}</option>`).join("")}${p.assignment && !d.assign_targets.some((t) => t.words === p.assignment) ? `<option selected>${esc(p.assignment)}</option>` : ""}</select>`;
-    const rec = (r) => (r.held + r.high + r.low ? `<span title="From your look-backs">Held up ${r.held} · too high ${r.high} · too low ${r.low}</span>` : '<span class="muted">No record here yet</span>');
+    const track = "Track record: the players he graded for you, checked three years on against how they turned out. Right means he had the player close to where he ended up in his class (12 places at the top of a 300-man draft board, a third of his rank further down, the same share of a recruiting class). Too high or too low is a miss. A typical scout is right on about 4 in 10; ranking them at random gets 3 in 10.";
+    const rec = (r) => {
+      const n = r.held + r.high + r.low;
+      return n ? `<span title="${esc(track)}">Right on <b>${r.held}</b> of ${n} (${Math.round((100 * r.held) / n)}%) · ${r.high} too high · ${r.low} too low</span>` : '<span class="muted">No record here yet</span>';
+    };
     body = table("sc-people", [
       { k: "name", t: "Name", l: true, f: (p) => (p.extra && p.extra.coach != null ? `<a class="link name" data-go="coach" data-id="${p.extra.coach}">${esc(p.name)}</a>` : `<b>${esc(p.name)}</b>`) },
       { k: "job", t: "Job", l: true },
       { k: "area", t: nfl ? "Covers" : "Area", l: true, wrap: true, v: (p) => (p.extra && p.extra.area) || "", f: (p) => esc((p.extra && p.extra.area) || "") || '<span class="muted">-</span>' },
       { k: "looks", t: "Looks this year", div: true },
       { k: "assignment", t: "Assignment", l: true, div: true, v: (p) => p.assignment || "", f: opts },
-      { k: "record", t: "Look-backs", l: true, v: (p) => p.record.held - p.record.high - p.record.low, f: (p) => rec(p.record) },
+      { k: "record", t: "Track record", tip: track, l: true, v: (p) => p.record.held - p.record.high - p.record.low, f: (p) => rec(p.record) },
     ], d.people, { empty: "Nobody reads players for you yet." });
   } else if (tab.t === "Instructions") {
     const main = d.instructions.filter((i) => !/^focus/.test(i.key));
@@ -561,7 +565,7 @@ screens.predraft = async () => {
   const top = x.board.rows.filter((r) => !r.taken).slice(0, 80);
   // Each list adds a player from your board here (the board's side panel does too).
   const addRow = (l) => {
-    if (l.rows.length >= l.cap) return `<p class="sub">The list is full: take someone off to add another.</p>`;
+    if (!l.lifted && l.rows.length >= l.cap) return `<p class="sub">The list is full: take someone off to add another.</p>`;
     const pool = x.board.rows.filter((r) => !r.taken && !(r.lists || []).includes(l.k)).slice(0, 150);
     return pool.length ? `<div class="sc-row2"><select class="sc-sel" data-sc-add="${l.k}" aria-label="Add to ${esc(l.name.toLowerCase())}">${pool.map((r) => `<option value="${r.id}">${r.rank}. ${esc(r.name)} · ${esc(r.pos)} · ${esc(r.school)}</option>`).join("")}</select><button class="st-btn small glass" data-act="sc-listadd" data-list="${l.k}">Add</button></div>` : "";
   };
@@ -986,10 +990,10 @@ PLAYER_TABS.push({
 function scFilmNow(f) {
   const n = f.film_now;
   const left = `${n.left.toFixed(1)} h left`;
-  // The film room opens either way: a full cut-up snap by snap, or quick
-  // (twenty minutes), today, on your own hours. When the quick look can't
-  // run, the button says why before you click.
-  const why = n.blocked ? (/today/.test(n.blocked) ? "watched today" : /resting/.test(n.blocked) ? "resting" : /open/.test(n.blocked) ? "cut-up open" : "hours spent") : `20 min · ${left}`;
-  const title = n.blocked ? n.blocked : `You watch his tape yourself, today, in the film room: a cut-up snap by snap or quick (20 minutes). ${n.left.toFixed(1)} of your ${n.week.toFixed(0)} film hours left this week. Read by your own eye.`;
+  // The film room opens either way: a full cut-up studied, or quick (20
+  // seconds a snap, up to twenty minutes), today, on your own hours. When
+  // the quick look can't run, the button says why before you click.
+  const why = n.blocked ? (/today/.test(n.blocked) ? "watched today" : /resting/.test(n.blocked) ? "resting" : /open/.test(n.blocked) ? "cut-up open" : "hours spent") : `up to 20 min · ${left}`;
+  const title = n.blocked ? n.blocked : `You watch his tape yourself, today, in the film room: a cut-up studied, or quick (20 seconds a snap, up to 20 minutes). ${n.left.toFixed(1)} of your ${n.week.toFixed(0)} film hours left this week. Read by your own eye.`;
   return `<button class="st-btn l7-film" data-go="film" data-id="${f.id}" title="${esc(title)}">Watch his film now <small>${why}</small></button>`;
 }

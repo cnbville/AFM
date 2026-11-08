@@ -549,10 +549,24 @@ pub(crate) fn sign(w: &mut World, rng: &mut Rng, t: usize, role: Role, budget: f
     hire(rng, year, role, budget)
 }
 
+/// The chance one of his settled reads held up, by his eye (minor bug
+/// 332). Measured on the real drafts of 2000-2015 under the look-back's own
+/// rule (`lookback.rs`, `verdict`; outcome by weighted career AV, nflverse
+/// `draft_picks`): the draft order itself, all 32 war rooms together, holds
+/// 47%, a board ranked at random 30%, and boards noisier than the draft
+/// order 39-45%. Real clubs' drafting barely differs (Massey and Thaler
+/// 2013: the first man taken at a position outplays the next one only about
+/// 53% of the time). So a typical eye holds about 44%, the
+/// poorest about 37%, still above chance, the best about 52%, just past the
+/// consensus.
+pub fn held_chance(judge: u8) -> f64 {
+    clamp(0.44 + 0.008 * (judge as f64 - 10.0), 0.32, 0.52)
+}
+
 /// An AI club's scouts' look-backs (SK8): each year about six of his
 /// reads settle, held up more often the sharper his eye.
 fn ai_lookbacks(s: &mut Scout, rng: &mut Rng) {
-    let p = clamp(0.35 + 0.025 * (s.judge as f64 - 10.0), 0.1, 0.7);
+    let p = held_chance(s.judge);
     for _ in 0..6 {
         if rng.chance(p) {
             s.held = s.held.saturating_add(1);
@@ -1637,16 +1651,22 @@ pub(crate) fn combine(w: &mut World, invited: &[usize]) {
         list.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
         // Your war room's own interview list goes first.
         let mine = super::super::scouting::predraft::seat_list(w, t, super::super::scouting::predraft::LIST_INTERVIEW);
+        let mut take = interviews;
         if !mine.is_empty() {
             let pick: Vec<usize> =
                 mine.iter().filter_map(|id| invited.iter().copied().find(|&i| w.people[i].player.id == *id)).collect();
+            // Sandbox mode's contact rules: every name on your list is
+            // interviewed (only your club has a list).
+            if w.sandbox(crate::world::sandbox::Switch::ContactRules) {
+                take = take.max(pick.len());
+            }
             list.retain(|x| !pick.contains(&x.0));
             for (k, i) in pick.into_iter().enumerate() {
                 list.insert(k, (i, 0.0));
             }
         }
         let d = director(&w.clubs[t].scouts);
-        for &(i, _) in list.iter().take(interviews) {
+        for &(i, _) in list.iter().take(take) {
             file(w, t, i, d, LookKind::Interview, date);
         }
     }
@@ -1665,7 +1685,10 @@ pub(crate) fn pro_day(w: &mut World, program: usize, date: Date) {
         return;
     }
     let workouts = !crate::calendar::anchors::cancelled("combine workouts", w.dates.season);
+    // Found on all cores, in person order (world speed lane).
     let here: Vec<usize> = (0..w.people.len())
+        .into_par_iter()
+        .with_min_len(4096)
         .filter(|&i| {
             let p = &w.people[i];
             p.stage == Stage::Declared && p.college.is_some_and(|c| w.programs[c].id == program)
@@ -1762,7 +1785,10 @@ pub(crate) fn spring(w: &mut World) {
         let visits: Vec<usize> = if mine.is_empty() {
             list.iter().skip(from).take(30).map(|x| x.0).collect()
         } else {
-            mine.iter().filter_map(|&id| super::super::scouting::place(w, id)).take(30).collect()
+            // Sandbox mode's contact rules: every visit on your list (only
+            // your club has one).
+            let cap = if w.sandbox(crate::world::sandbox::Switch::ContactRules) { usize::MAX } else { 30 };
+            mine.iter().filter_map(|&id| super::super::scouting::place(w, id)).take(cap).collect()
         };
         for i in visits {
             // A top prospect's camp turns some visits down (the club's

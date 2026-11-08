@@ -29,7 +29,7 @@ pub mod work;
 
 use crate::attributes::{Attr, AttributeGroup, Category};
 use crate::development::{GrowthCtx, declines, grow_share, growth_age_factor};
-use crate::player::Player;
+use crate::player::{Level, Player};
 use crate::positions::{Position, overall_for};
 use crate::rng::{Rng, clamp};
 
@@ -107,6 +107,18 @@ pub struct GrowthYear {
     pub physical: u8,
     /// The year's form times its injuries: v / 4000.
     pub form: u16,
+    /// Coaching as it sticks to his physical attributes (minor bug 302):
+    /// 0.5 + v / 250; 0 in an older save, which reads `coach`.
+    #[serde(default)]
+    pub pcoach: u8,
+    /// Growth from results: the form of the skills results test when
+    /// results replace the dice (item 14), against the year's `form`, as
+    /// 2^((v - 128) / 32) (a byte, so the store stays 40 bytes: 1/16 to 16
+    /// times, steps of 2%). Flags bit 3: snaps land in season; bit 4:
+    /// results replace the dice; bits 5-7: the level the year opened at
+    /// (`Level as u8`).
+    #[serde(default)]
+    pub form_tested: u8,
 }
 
 /// A player's training store (section 6b, about 34 bytes): the year's
@@ -169,6 +181,8 @@ impl Train {
                 morale: q(g.morale_mult, 0.8, 600.0),
                 physical: q(g.physical_mult, 0.9, 1200.0),
                 form: clamp((g.form * g.growth_multiplier * 4000.0).round(), 0.0, 65535.0) as u16,
+                pcoach: q(g.physical_boost, 0.5, 250.0).max(1),
+                form_tested: 0,
             },
             covered: [0; FAMILIES],
             due: [0; FAMILIES],
@@ -183,6 +197,25 @@ impl Train {
 
     pub fn pending(&self) -> bool {
         self.year.age > 0
+    }
+
+    /// Growth from results at the year's open: whether his snaps land in
+    /// season, whether results replace the dice on the skills they test,
+    /// the level, and those skills' form (times the year's injuries).
+    pub(crate) fn open_results(&mut self, in_season: bool, replace: bool, level: Level, form_tested: f64) {
+        self.year.flags = self.year.flags & 7 | (in_season as u8) << 3 | (replace as u8) << 4 | (level as u8) << 5;
+        let form = self.year.form as f64 / 4000.0;
+        let ratio = if replace && form > 1e-6 { form_tested / form } else { 1.0 };
+        self.year.form_tested = clamp((128.0 + 32.0 * ratio.max(1e-9).log2()).round(), 0.0, 255.0) as u8;
+    }
+
+    /// His snaps land in the week he plays them this year.
+    pub fn reps_in_season(&self) -> bool {
+        self.pending() && self.year.flags & 8 != 0
+    }
+
+    fn level(&self) -> Level {
+        [Level::HS, Level::FBS, Level::FCS, Level::SmallCollege, Level::NFL][((self.year.flags >> 5) as usize).min(4)]
     }
 
     /// The share of each family's year the calendar has reached, 0-1.
@@ -212,6 +245,7 @@ impl Train {
         let y = &self.year;
         GrowthCtx {
             coaching_boost: 0.5 + y.coach as f64 / 250.0,
+            physical_boost: 0.5 + if y.pcoach == 0 { y.coach } else { y.pcoach } as f64 / 250.0,
             snaps_mult: y.snaps as f64 / 200.0,
             work_mult: 0.75 + work_ethic * 0.025,
             form: y.form as f64 / 4000.0,
@@ -223,6 +257,8 @@ impl Train {
             redshirt: y.flags & 4 != 0,
             focus,
             focus_take: clamp(0.6 + 0.02 * coachability, 0.6, 1.0),
+            tested: if y.flags & 16 != 0 { crate::results::tested(self.position(), self.level()) } else { 0 },
+            form_tested: y.form as f64 / 4000.0 * ((y.form_tested as f64 - 128.0) / 32.0).exp2(),
         }
     }
 
@@ -286,6 +322,41 @@ pub fn land_after(
     p.overall() - before
 }
 
+/// Lands what a game's snaps add to the year (growth from results, item
+/// 1): with `before` of a starter's season already landed and `share`
+/// more, each skill training lands takes the part of its year the rise
+/// in the snaps' rate gives (`development::reps_ratio` raised to the
+/// skill's experience weight, as the yearly step's snaps). Returns the
+/// overall gained. Only a year opened with snaps landing in season.
+pub fn reps_land(p: &mut Player, before: f64, share: f64, focus: Option<Attr>) -> f64 {
+    if !p.train.reps_in_season() || share <= 0.0 {
+        return 0.0;
+    }
+    let start = p.overall();
+    // His plan's focus counts on this part of the year as on the rest.
+    let g = p.train.ctx(p.personality.work_ethic, focus, p.personality.coachability);
+    let dev_age = p.train.development_age();
+    let (r0, r1) = (crate::development::reps_ratio(before), crate::development::reps_ratio(before + share));
+    let (mut attrs, mut ceil) = (p.attributes, p.ceilings);
+    for a in Attr::ALL {
+        if !deferred(p, a) {
+            continue;
+        }
+        let e = a.profile().experience;
+        let extra = r1.powf(e) - r0.powf(e);
+        if extra <= 0.0 {
+            continue;
+        }
+        let af = growth_age_factor(dev_age, a.profile().growth_window);
+        let rate = g.rate(a, af);
+        let done = p.train.landed(family_of(a));
+        grow_share(&mut attrs, &mut ceil, a, rate, extra, done, 0.0);
+    }
+    p.attributes = attrs;
+    p.ceilings = ceil;
+    p.overall() - start
+}
+
 /// Adds the calendar's reach this week to each family (capped at the
 /// whole year), and returns the part of `base` still inside the year.
 pub fn cover(t: &mut Train, base: &[f64; FAMILIES]) -> [f64; FAMILIES] {
@@ -336,7 +407,11 @@ pub fn close_year(p: &mut Player, focus: Option<Attr>) {
     let done: [f64; FAMILIES] = std::array::from_fn(|f| p.train.landed(Family::ALL[f]));
     land_after(p, &rest, &done, focus, 0xC105E);
     let (load, prep, rust) = (p.train.load, p.train.prep, p.train.rust);
-    p.train = Train { load, prep, rust, ..Train::default() };
+    // Whether the year's snaps landed in season (flags bit 3) stays for
+    // the next opening: a year that didn't (results off, unsigned at camp,
+    // an older save) has its snaps read there instead.
+    let year = GrowthYear { flags: p.train.year.flags & 8, ..GrowthYear::default() };
+    p.train = Train { load, prep, rust, year, ..Train::default() };
     let now = p.overall();
     if let Some(h) = p.history.last_mut() {
         h.overall = now;
