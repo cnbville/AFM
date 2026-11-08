@@ -454,6 +454,39 @@ I'm on campus all day and I hear football in every hallway. Tell me what to say 
 Do you have everything you want from my office? If not, now's the time to say so. ~ ad college warm
 Last season ended {last_record}. I'm not going to compare. I just want to know whether this group knows it's different. ~ college patient
 What does the team need from this office that it isn't getting? ~ ad college
+Where do we stand after {record}, and what do you need from me?
+Give me the real picture at {record}, not the one you'd give a reporter.
+You know this building better than anyone. Walk me through where we are at {record}. ~ warm
+Quick question first: are we good enough to finish the year strong?
+Some people in this town have already written off the second half. I'm not one of them. Are you?
+If you could change one thing about the first half, what would it be?
+Reed, sit down. Let's talk about the team and nothing else for twenty minutes.
+Our fans are patient until they aren't. Where does {record} put us on that scale?
+Let's go line by line through the roster. You start, I'll listen.
+Give me the number that matters most to you right now and tell me why.
+I'm curious how you're sleeping this week, and then I want the football update.
+Where are we on health, and where are we on the schedule ahead? Both matter at {record}.
+A lot of people are asking me whether this is the year. What do I tell them?
+Start with the thing that scares you most about the back half of the season.
+Tell me where the locker room is at. Not the press release version, the real one.
+The board wants a short update on the team. I'll give them whatever you give me.
+We're {record} and I'd like to know whether you still believe in the plan.
+What's the one player you've been surprised by this year, for better or worse?
+Let me hear your assessment before I form my own. That's how I like to work.
+With {record} on the board, what does a successful second half look like to you?
+Some folks think we need to make a change. I'd rather hear from you first what you think needs changing.
+How are the players handling all the outside noise right now?
+Every game we lose costs us more than a game. Help me understand how you're managing that.
+Let's get specific. Which three things do you need fixed before the next game?
+I'd like to know the team is getting better each week, not just hanging on.
+You have my full support, Coach, but I need more than optimism at {record}.
+Tell me what keeps you up at night about this roster.
+Be straight with me. Is this group capable of more than {record}?
+We're at the halfway point. Where do we go from here?
+Do the players believe in what the staff is teaching, or are they just going through the motions?
+I'd like a plan for the second half, not just a list of problems. What's the plan?
+How much of this season is bad luck and how much is us? I need an honest split.
+The money people want to know if this season is a loss. I'd like you to tell me it isn't.
 
 @key boss.review.bad
 The film doesn't lie, and neither do I. It was a poor year. ~ blunt
@@ -714,6 +747,85 @@ If the team can't get better with the resources I've given you, I need to know t
 The league doesn't hand out second chances to anybody. We need to use the first one. ~ nfl
 We're going to look at this season for a long time. I'd like to know what we'll see. ~ nfl
 I trust you more than most. That doesn't mean I trust this year's record. ~ nfl warm
+I can't defend what this season looked like. Walk me through it.
+The kids are going to remember this fall. The question is what we teach them from it.
+Nobody in this building thinks the year went the way we drew it up.
+Start with the film. Tell me where it came apart first.
+Friday nights were quiet this fall, and the quiet is what I keep hearing about. ~ hs principal
+We set those goals together, and I'd like to know which ones we gave up on first.
+You know the number on that sheet is a problem. I'd rather we fix it than explain it.
+The families in {town} have been patient. I'm not sure how much longer they'll be.
+Give me the honest version of what went wrong in the locker room. Not the press release.
+I'm not looking for someone to blame. I want someone who will own the next steps.
+Every team that wins in this league had a bad stretch like this. We didn't climb out of ours.
+Tell me the three things that changed between September and November.
+The school board is going to want numbers. I'd like you to bring the plan, not the excuses. ~ hs principal
+Our donors don't come to meetings to hear about heart. They want to see results.
+Some of that team looked like it had quit by October. Did it?
+I want the offseason calendar on my desk this week, every workout, every camp, every film session.
+Half the seniors came to see me about their futures. I didn't have good answers. ~ hs principal warm
+We're short on wins and short on answers. I'd like to fix at least one of those before spring.
+Do you still believe this roster can compete? I need the honest answer.
+Let's start with what we can control: discipline, preparation, and effort in the fourth quarter.
+The alumni association is asking pointed questions. I'd like to be able to answer them. ~ ad college
+You told me you had a plan. Show me where it broke.
+That was a hard year to watch from the stands and an even harder one from this office.
+The fans have been loyal. Loyalty doesn't pay for a bad product forever.
+This is the part of the job nobody enjoys. Let's do it anyway.
+Let's talk about the coaching staff first, then the players. Start there.
+Our conference rivals have been polite. That's the worst kind of quiet. ~ ad
+Our players are better than their record. That's the frustrating part, and it's also the hopeful part.
+I'd like to know what you'd change if you could redo one game.
+The administration has been supportive, but support has limits. We're close to them.
+I need a plan that doesn't depend on the portal to save us. ~ ad college nil
+Let's stop pretending the defense was fine. It wasn't.
+Every goal we missed was a goal we agreed on. That's what stings.
+You've got a lot of talent in that building. Let's find out why it didn't show up.
+I've been patient with the staff, and I'm running out of patience with the results.
+The fans are tired of hearing next year is the year. So am I.
+Let's go through the depth chart together. I'd like to see where we were thin.
+This season cost us credibility with some people I need on our side. Let's earn it back.
+You're the one who has to stand in front of the team in January. Make sure you have a plan. ~ hs principal
+I don't think anybody in the building is happy. That's where we start.
+We'll go through the film week by week. I'd like you to narrate it.
+This is a hard number to explain to a community that loves this team.
+I don't need a speech. I need a fix.
+People in {town} came out all year. We have to give them a reason to come back.
+We have to be honest about the discipline problems. Penalties cost us more than we admit.
+The players deserve a coach who can tell them what went wrong. Be that coach.
+We ended the season with more questions than answers. Let's fix that first.
+Our academic numbers were solid, but that doesn't make up for the scoreboard. ~ ad college
+Every other program in the conference seems to have figured out their path. We haven't. ~ ad
+I'd like the staff review done by the end of the month. No extensions.
+I need you to be honest about whether this staff is the right group.
+We lost too many winnable games. That tells me something about preparation.
+You've got my support, but support doesn't win football games.
+We need to win back the locker room and the stands in the same offseason.
+The players trust you, I think. I need to know if they trust the plan.
+The results were a clear signal. Let's read it carefully.
+I know you put in the hours. The hours need to start showing up in the wins.
+We talked about a turnaround. We didn't see one. Tell me why not.
+There's a lot of disappointment in this building. I share it.
+We need a stronger finish next year than the one we just had.
+The team looked unprepared in too many second halves. Tell me what changed at halftime.
+I'd like to see a clear path from this season to the next. Right now I can't see it.
+The people who count on this program are looking for a reason to believe. Give them one.
+We have to use the offseason better than we used the season. ~ college
+Let's not hide from the numbers. They're bad, and we both know it.
+This wasn't the year we planned for. We have to plan the next one better.
+I expected more fight from this team, and I saw too little of it.
+We'll need to make some hard calls this winter. I'd like you to lead them.
+The team's record doesn't reflect the talent we brought in. That's a coaching question.
+Let's agree on what went wrong before we argue about what goes right next season.
+The coaching staff owes this team a serious look at what didn't work.
+Our donors are asking about results, not promises. Let's give them results.
+We're going to have to earn back trust, and that starts with honesty about this year.
+I'll be watching the spring practices closely. I need to see the changes you promised.
+What's your plan for the defense? I'd like to hear it in detail.
+We didn't finish the year the way we started it, and that's on all of us.
+A losing season can drain a whole community. Let's start refilling that well.
+The results don't match the effort I saw. Help me understand the gap.
+We need a clean sheet this winter. Let's make sure the plan is clean too.
 
 @key boss.review.good
 I read every goal twice. Then I stopped reading and started smiling. ~ warm
@@ -1036,6 +1148,25 @@ Your goals were hard. You met {met}. That's the kind of year I'd want in a coach
 There's a lot of noise in this league. You stayed quiet and won games. ~ nfl
 I'd like to see more of this next year. Hit me with the plan when you're ready. ~ nfl owner impatient
 Let's keep the band together for another run. ~ nfl owner
+You've got a plan that held up, Coach. ~ hs principal
+Most of the list is checked, and the rest is close enough to chase. ~ cold
+Sit down, {coach}. Let's look at what worked before we forget it.
+The field looked organized from the first snap, and the classrooms did too. ~ hs principal
+You gave me a clean report to take home this winter. Thank you.
+{met} goals met. The staff can be proud of that, and so can you.
+Not a fluke, not a lucky schedule. You built this and it showed. ~ blunt
+I told the trustees I'd know a good coach when I saw one. I saw one. ~ ad college ego
+The Friday crowds were loud enough to rattle the press box glass. ~ hs south
+Let's enjoy this one for a minute. Then we'll set the next target.
+You kept your word to me all year, and that's rare in this business. ~ owner
+The students who wouldn't come to games now ask me about the score. ~ principal warm
+I enjoyed this season from start to finish, and I'll say so to anyone who asks.
+Out here the radio talks about us now, and the callers sound happy. ~ west
+You did what the books said a good program should do. ~ blunt hs
+I'll put your name in the booster newsletter this month. Get ready for handshakes. ~ ad college warm
+Good season, Coach. My office is open all winter if you need anything.
+That's the kind of year where people say my name right at the grocery store. ~ hs ego
+Let's build on this without changing what worked. ~ patient smooth
 
 @key boss.review.mixed
 The film shows a team that grew up, but the sheet shows only part of it.
@@ -1354,6 +1485,35 @@ Get me through this review and into the offseason. I think better when there's a
 Half is a number I can work with. It's not one I can brag about.
 Tell me what you'd need from me. More money, more time, more patience? ~ nfl owner
 I've seen worse sheets. I've also seen far better ones, and so has every owner in the league. ~ nfl owner
+Honestly, mixed doesn't cover it. Let's go through it.
+Half the sheet got checked, and the other half is still sitting there staring at us. ~ hs
+Some goals met and some not. Tell me which misses keep you up at night. ~ college
+Well, {met} is on the board. What we do with the rest is the real conversation.
+Let's not dress this up. A season half-built is still a season we have to answer for. ~ nfl blunt
+{met} goals, and a lot of questions attached to the others.
+I've been asked about this year more than I'd like. I want to answer with a plan, not a shrug. ~ ad college
+A year of two faces. I'd like to see one face next fall. ~ patient
+Some weeks you had this place believing. Other weeks you had them wondering. Let's sort out why.
+You worked hard enough to reach {met}. Now I want to see the harder work that gets the rest. ~ principal hs warm
+The scoreboard tells a split story and I'd like us to tell a whole one.
+I'm not going to rip you apart, and I'm not going to pat you on the back and send you home.
+Partial credit is still credit, but it doesn't keep the lights on. ~ nfl
+I'd call it a year we got some things right and a few we need to face.
+The coaching staff did some good work, but the results didn't line up with the effort. ~ college
+Half the room liked what they saw, and half wanted more. I'm somewhere in the middle, and I don't like it. ~ owner
+We made progress in the places you pointed to. The gaps are where I want the conversation to go.
+I'll give you a fair shot next year. Make sure the goals are clear enough that nobody's guessing. ~ principal patient
+You got some of what we asked for. Some of it I'm still waiting on.
+The community wants a team to be proud of. We gave them flashes. Flashes don't carry a whole season. ~ principal hs
+Let's spend today on the missed goals, not the met ones. The met ones can wait.
+This was a year we could have pushed harder. I'd like to hear where you think the push should have come from. ~ college cold
+I wanted a clean sheet, and I got a mixed one. That's the honest version.
+A split decision. I don't love split decisions. ~ blunt
+I've seen plenty of programs live in this gray area for years. I don't want us there. ~ nfl impatient
+{met} goals met. The rest is what I need to see over the winter.
+We're closer than we were, but the gap between good and great still shows. ~ smooth
+I think you're capable of more, and I think this year showed that and didn't prove it. ~ warm
+The players did what they could, most weeks. That leaves a question for the staff. ~ hs cold
 
 @key interview.ask.past
 What's the one loss you still think about? I want to hear how you carry it. ~ warm
@@ -1610,6 +1770,156 @@ Give me the story of a game you'd have done differently with a second chance. ~ 
 Talk me through the worst Sunday you've had on a sideline. ~ nfl
 Walk me through a season you'd call a failure and why. ~ nfl
 You say you're a developer of talent. Name three players you developed. ~ nfl gm
+Where did your last team struggle most, and what did you do about it? ~ nfl
+Name a player who never got his due from you, and tell us why. ~ nfl
+What did the first losing season at your last stop do to your staff? ~ nfl
+Give us the story of a coach you fired and whether you'd do it again. ~ nfl gm
+Which of your players do you think about most when you're alone? ~ warm
+Did you ever make a staff hire you regret within the first month? ~ meddler
+Explain the worst recruiting cycle of your career and what it taught you. ~ college ad
+Any time a family questioned your decisions, how did you handle that? ~ hs principal
+When did you last admit to a player that you'd made the wrong call? ~ patient
+Give me a season that started badly and how you got it turned around. ~ nfl
+How do you keep a locker room together when a team is falling apart? ~ hot
+Name the year you learned the most about yourself, and what you learned. ~ patient
+Looking at your last team, what was the one thing you should have fixed sooner? ~ nfl
+What was the hardest lesson your last job taught you about the people around you? ~ smooth
+Who would you call first if we asked for a reference you wouldn't mind hearing from? ~ warm
+Tell us about a play that cost you a game and what it said about your preparation. ~ nfl
+What's something you did for a player's family that no one ever knew about? ~ warm
+Have you ever kept a coach on staff who shouldn't have been there? ~ meddler
+I want to hear about a loss that made you change how you practice. ~ nfl
+Describe the first time you had to cut a player you'd recruited yourself. ~ college
+When a season goes bad, who do you look at first in the mirror? ~ nfl cold
+Tell me about the biggest staff argument you lost, and what you learned from it. ~ nfl gm
+Walk me through the year you were most tempted to quit, and why you stayed. ~ patient
+Which of your former players would we be surprised to hear say something good about you? ~ blunt
+When did a player you believed in let you down, and what did you do next? ~ nfl warm
+Describe a time a young assistant pushed back on you and turned out to be right. ~ nfl
+I'd like your honest view on the coach who was hardest on you. ~ hot
+Tell us about a season where your plan worked on paper and failed on the field. ~ smooth
+Give me an example of a player you helped on his worst day. ~ college warm
+What did losing your starter for the season teach you about your depth? ~ nfl
+Have you ever been on the wrong side of a coaching exit? How did it go? ~ nfl gm
+When did you last get something wrong with the media, and how did you fix it? ~ smooth college
+Show me one way you've grown since your last head coaching job. ~ patient
+Which parts of your past should I be checking with someone who isn't your friend? ~ cold
+What did the worst season cost you personally? ~ warm
+Give me a good example of a time you sent a player home and it was the right call. ~ hs principal
+Tell me how many of your old staff still work in the game, and why that matters to you. ~ nfl gm
+Describe the last time your team quit on you and what you did about it. ~ hs hot
+Name a player you should have benched sooner. Why didn't you? ~ meddler blunt
+Who on your old staff still picks up the phone when you call? ~ warm modern
+Give me the failure you've dined out on the longest. ~ smooth
+Did a player ever tell you that you were wrong to his face? What did you do? ~ nfl gm patient
+Show us a kid who came in a mess and left ready for the next level. ~ college warm
+How much of your last winning season came down to one bad fourth-down call? ~ cold
+Tell us about a booster who thought he ran your program. How did that end? ~ college ad blunt
+Where did your old players end up after they left you, and whose doing was it? ~ nfl warm
+Your reputation says you're hard on young players. Is that a fair read? ~ hs hot
+Explain the worst gameday decision you ever signed off on. ~ nfl blunt
+If your old players had a group chat about you, what would it say? ~ modern warm
+What did you do after the worst Friday night loss of your career? ~ hs patient
+How often do your former players say you were right about them? ~ nfl smooth
+What part of your early career would you hide if you could? ~ cold
+Walk us through the year you had a locker room full of grudges and got through it. ~ nfl
+Did you ever lose a recruit because of how you talked about his family? ~ college hot
+How many of your old assistants were wrong about you, and how many were right? ~ nfl gm smooth
+I need to know if you've ever been fired and why. Be direct. ~ blunt
+Tell me about the most money you ever wasted on a bad hire. ~ nfl owner tight
+What's the best coaching decision you ever made that nobody noticed? ~ nfl warm
+Describe the day you had to tell a senior his career was over at your school. ~ hs warm
+Give an example of you apologizing to an assistant on your staff. ~ she patient
+Would your old quarterback call you a liar? Why or why not? ~ nfl blunt
+Name a program you left that's better off without you. ~ cold
+What did you learn from your worst month in charge, and who taught you? ~ nfl warm
+Did a player ever quit on you mid-season? Walk us through it. ~ college
+I'm sure you've had a player go off the rails. How did you bring him back? ~ warm
+Tell me one thing your players would say you did that cost them. ~ nfl
+Did you ever fail a kid academically and then regret it? ~ hs principal
+Who was the hardest person you ever had to fire in your program? ~ nfl gm
+What did your last defensive coordinator tell you about your calls? ~ nfl meddler
+Give me a time you were the calmest person on the sideline in a crisis. ~ nfl patient smooth
+How did your old players feel about your practice schedule, honestly? ~ nfl blunt
+Name a call you made in a playoff game that you regret. ~ nfl hot
+What would your former players say about how you handled their injuries? ~ nfl warm
+Tell us about a time a rival coach beat you and what you did afterward. ~ college
+What have you done with the athletes who were headed nowhere when they came to you? ~ hs warm
+When did you last admit to your staff that you didn't have the answer? ~ she patient
+How many teams have you rebuilt, and how many did you leave worse than you found them? ~ nfl smooth
+We're hiring someone who can lose without quitting. Show us you can. ~ nfl cold
+How do your old players talk about your temper? ~ hot
+Did you ever trust a player who let you down? What did you do then? ~ patient
+What did your last team's trainers say about your handling of injuries? ~ nfl
+What do the parents of the kids you coached say when they see you now? ~ hs warm
+Name one thing you did for a player's future that nobody thanked you for. ~ warm
+Tell us about the worst team you ever inherited and what you did with it. ~ smooth
+I'd like to know the name of the person who was hardest on you, and why. ~ meddler
+Over the years, which assistant ever told you no, and was he right? ~ nfl
+Shoot straight with us, and skip the press-release version of your worst loss. ~ blunt
+Who did you hurt along the way, and did you make it right?
+Those old film sessions with your staff, did they ever get heated? Tell me about the worst one. ~ hot
+Our board will ask who you answer to. Who was that for you at your last stop? ~ college president
+Give me one place your reputation outruns your record, and tell me which one is accurate. ~ smooth
+The money you've managed in the past, did it come back to bite you? ~ tight college
+Tell us about a player you pushed too hard and what it cost him. ~ hs
+We can't hire a man who only remembers his wins. Tell us the losses you still count. ~ cold
+When did you last go back and apologize to someone from your past? ~ she patient
+What did the last two losses at your old place teach you about your own game plan? ~ nfl meddler
+Talk us through the moment you realized the job was bigger than you. ~ old
+How do you keep a bad season from poisoning the next recruiting class? ~ hs ad
+Give me the one coach from your past who'd say you cost him a job. ~ blunt
+How much did your past bosses trust you with the budget, honestly? ~ ad tight
+I'd like to know which of your losses still makes you angry, and at whom. ~ hot
+Did a player ever go public against you? Walk me through it. ~ nfl warm
+What would your best player at your last stop say about the way you lost? ~ nfl
+Go on, give us one loss you should have seen coming. ~ nfl impatient
+You've seen plenty of rebuilds. Which one were you proudest of, and why? ~ nfl gm
+Did you ever have a booster who didn't trust your judgment? How did you handle him? ~ ad college cold
+How many of your former players stayed in football, and what do you think you gave them? ~ warm college
+Walk the panel through your first season at your last high school, the good and the bad. ~ hs
+Which of your Friday night losses did you learn the most from? ~ hs
+What's the hardest talk you've had with a parent about a player's playing time? ~ hs
+Tell us about a junior who was better in his senior year because you stayed on him. ~ hs warm
+Who did you answer to when the booster club and the school disagreed? ~ hs ad
+What did your last principal say about your classroom results? ~ hs principal
+Walk us through the worst preseason you ever ran at a high school. ~ hs
+Describe a senior you couldn't get through to, and what you tried. ~ hs patient
+We're hiring for culture. What did you do when your program's culture went sour? ~ hs
+Tell us about the worst game plan you ever gave a varsity team. ~ hs blunt
+What's a rule you enforced that cost you a starter, and were you right? ~ hs principal
+What did you change in the program after your toughest season? ~ hs smooth
+What's your record on getting kids into college? Give us the real numbers. ~ hs principal
+Who was the hardest player you ever coached in your first varsity year? ~ hs
+Give us the story of the worst bus ride of your career. ~ hs
+Tell us about the time your offense fell apart in the first half. ~ hs blunt
+What did the community say about your team when you lost to the rival? ~ hs
+When did you have to ask a kid to step away from the team for the good of the program? ~ hs principal patient
+Describe a time you disagreed with an assistant coach in front of players. ~ hs
+What did your last school's board ask you to change? Did you change it? ~ hs ad
+Did you ever push a kid to a position he didn't want? How did it turn out? ~ hs
+Give us an example of a practice you cancelled and what came of it. ~ hs
+When did you realize your system wasn't working at the high school level? ~ hs patient
+Walk us through a loss where the other team's coaching was the difference. ~ hs
+Give us a story about a kid whose family taught you something about his game. ~ hs warm
+What was your worst conduct issue with a player and how did it end? ~ hs principal
+Where did your teams fall short in the weight room, and what did you fix? ~ hs
+Describe a season you were proud of even though you lost. ~ hs warm
+Give me the game you'd take back if you could coach it again. ~ hs
+Who in your last community would vouch for you when the season went bad? ~ hs warm
+What was the hardest year of your high school coaching career, and what got you through it? ~ hs patient
+Walk us through your worst recruiting weekend and what you'd fix about it. ~ college
+Give us the story of the walk-on you believed in when nobody else did. ~ college warm
+When did your staff disagree with you about a scholarship decision, and who was right? ~ college meddler
+I want to hear about a year your team had to rebuild from nothing. What did you do first? ~ college patient
+Describe a player you pushed out of your program and whether you'd do it again. ~ college cold
+Did you ever turn down a recruit who later became a star somewhere else? ~ college
+Show us a time your collective and your staff pulled in different directions. ~ college nil
+How did you handle a senior who was out of eligibility mid-season? ~ college
+Give me one time your NIL budget didn't match what your team needed. How did you adjust? ~ college nil
+When did you last lose a recruit you should have landed, and why? ~ college ad
+How did your players handle the first season after a coordinator left? ~ college
+Walk us through the year you were under the most pressure from your conference's fans. ~ college hot
 
 @key interview.ask.plan
 Walk me through how you'd build this roster in your first two years.
@@ -1937,6 +2247,89 @@ Convince me you can win here without spending like the big boys. ~ tight preside
 I want a plan I'd be comfortable explaining to the board. ~ patient ad
 If you had to give up one thing to make this plan work, what would it be? ~ smooth college
 I've got money and opinions. How do they fit in your plan? ~ ego booster
+Walk the room through year one, then year four, and tell us which one you'd defend. ~ smooth ad college
+Do you have a plan, or do you have a feeling? ~ hot ad
+I'd want the plan on paper before the press conference. Can you give us that? ~ old college
+Where do you put the time, film or the practice field? ~ meddler hs
+My staff is loud about the offense. What's your side of it? ~ meddler owner
+Lay out your priorities for the next three seasons. ~ patient president college
+Who on this team is already a starter in your head? ~ college
+Start with the freshmen and tell me what they'll look like by October. ~ hs warm
+You've got a budget. Show me how the plan fits inside it. ~ tight ad college
+Tell me about the plan the way you'd tell a kid who just got cut. ~ warm hs
+Would you rather be right slowly or wrong quickly? ~ blunt college
+I'll say it plainly: we don't have time for a long vision. What's the fall look like? ~ impatient owner
+If the first recruiting class falls apart, what's the backup plan? ~ college nil
+Give us the plan that keeps the seniors happy and the freshmen hungry. ~ hs
+Who on the roster do you trust with a bigger role right now? ~ college
+What do you want the kids to say about this program after they've left? ~ hs warm principal
+Walk me through the first morning you're in the building. ~ college
+If you were in my chair, which part of this plan would worry you most? ~ smooth ad
+Tell me about the plan for our running game, and don't hide behind passing numbers. ~ college
+How would you get the seniors to buy in without making them feel old? ~ hs
+A plan that depends on luck isn't a plan. Where's the luck in yours? ~ cold college
+I'd rather hear a plan that starts small and grows. Is that yours? ~ patient hs
+What's your take on keeping a team together when the portal is always open? ~ college nil modern
+Give me the plan for the spring, the summer and the first game, in order. ~ college
+How do you build a locker room that doesn't split into cliques? ~ college
+You're asking us to bet on you. What's the plan that makes the bet worth it? ~ ego college
+How quickly can your offense be ready to run what you want? ~ hs
+Who in this building will have to change the most under your plan? ~ meddler college
+Give us an honest number for year one, and what you'd need to hit it. ~ blunt president
+What does your practice schedule look like when school comes first? ~ hs principal
+Our conference is full of coaches with money. Where does your edge come from? ~ college tight
+How would you handle a senior who doesn't want to change his game? ~ hs cold
+I need to hear about your plan for our academic support, not just the scoreboard. ~ president college
+If you had to pick one player to build around, who would you choose and why? ~ college
+Tell me how you'd manage the staff's egos while you run the plan. ~ smooth college
+Tell me what you plan to change about the way we use our weight room. ~ hs
+Paint the picture of a Saturday in November under your plan. ~ college warm
+I expect loyalty from my people, and I'll expect it from you too. How does your plan show it? ~ ego ad
+What does a bad year look like in your plan, and what do you learn from it? ~ patient president
+I hate to be the one to say it, but our plan has to start with the basics. What are yours? ~ blunt hs
+How would you turn this roster from a bunch of talented kids into a team? ~ hs
+I'll be honest with you: the plan has to make sense to a parent in the bleachers. ~ hs warm
+Tell me how you'd spend the first budget you control. ~ tight owner
+Keep it short. What do we do in the next six weeks? ~ impatient college
+What kind of coach does your plan need the players to be? ~ hs
+Walk me through what you'd tell a kid who transfers after one bad season. ~ hs warm
+Walk the panel through your first ninety days, and what you'd want to see by spring. ~ gm nfl
+Where does the culture start, in your plan, and who carries it? ~ hs
+Our town loves its Friday nights, so how does your plan respect that? ~ hs midwest
+Lay out the plan for the first year without the jargon. ~ principal hs
+I need to know what the kids get out of this besides wins. ~ principal hs warm
+When the good players get recruited away, what does your plan do next? ~ college nil
+I'd like a plan that starts in the weight room and ends on Saturday. Is that yours? ~ college
+Give me the plan you'd want to defend in front of a skeptical board. ~ principal hs cold
+What would the first offseason look like if we had to cut the budget? ~ tight ad
+If the freshmen struggle early, what do you do to keep the room together? ~ hs
+Tell me how your plan keeps the staff from fighting over the playbook. ~ meddler college
+Who on your staff has to be right for this plan to work? ~ gm nfl
+Do you think we can win a title within three years, and what would that cost us? ~ ego owner nfl
+I'd like to see your plan on paper before we talk money. Can you do that? ~ tight owner nfl
+We depend on the community for everything. How does your plan give back to it? ~ warm principal hs
+If you come in and ask for patience, what do we get in return? ~ patient ad
+What do you do first when the depth chart is a mess? ~ college
+Where does academic support go in a plan that's built for wins right away? ~ president college
+Tell us how your plan handles a team that's good on paper and fragile in practice. ~ college
+Show me how the plan changes if the best kid we have gets hurt in August. ~ hs
+What gives your plan the best chance of working in our conference? ~ college
+How much of your plan depends on the offense and how much on the defense?
+Which part of the plan would you cut first if money gets tight? ~ tight college
+We need a long view, but we also need a Saturday or two. How do you do both? ~ college
+Tell me what the first recruiting class looks like under your plan. ~ college nil
+What would you change about how we scout the other teams? ~ college
+Who do you bring with you, and who do you let go? ~ gm nfl
+I want a coach who builds men, not just players. Show me your plan for that. ~ principal hs warm
+Give me the single biggest reason your plan works in this place and not another. ~ president college
+We're going to ask a lot of you. What do you ask of the players in return? ~ college
+What does your plan look like in the first winter, before anybody plays a snap? ~ college
+How does your plan handle a losing streak in the middle of the season? ~ nfl
+If we say yes today, what do you need from us in January? ~ ad college
+Do you plan to keep the current defense or start over? ~ hs
+I'd like the plan to make sense to a parent who has never watched a game. Can you do that? ~ hs principal
+Where's the luck in your plan, and where's the work? ~ blunt college
+How do you measure progress in your plan before the wins start coming? ~ college
 
 @key interview.ask.staff
 Tell me how you pick people. I've hired a lot of coaches in my day. ~ ego
@@ -2308,6 +2701,53 @@ Can you hire a strength coach we can actually afford? ~ hs ad
 Who handles the JV team under you? ~ hs
 How do you feel about hiring a coach who isn't certified yet? ~ hs principal
 How do you keep assistants from posting things I'd have to answer for? ~ hs ad modern
+Honest question, are the coaches you want the ones who'll say no to you? ~ blunt
+We can't afford a staff member who doesn't pull his weight. What's your plan for that? ~ hs tight
+Will you keep the assistants who've already built relationships with our kids? ~ hs warm
+Tell me about the assistant who's been with you the longest. ~ college warm
+My budget won't stretch to a full staff. Which two coaches matter most to you? ~ hs ad tight
+Walk me through who you'd hire first if the money were tight. ~ college tight patient
+Who on your staff would be the first to tell you the truth about a bad play? ~ nfl gm blunt
+A good staff survives a losing season. Has yours done that before? ~ nfl owner
+Which of your assistants would I see at the school board meeting? ~ hs principal
+What do you want your coordinators to be known for, and who are they? ~ college smooth
+If I hire you, does that mean I'm hiring the coaches you bring too? ~ nfl owner gm
+You'll inherit some people here. Who would you keep and who would you move on? ~ college ad blunt
+Tell me which assistant you'd hate to lose, and I'll believe you know this business. ~ college warm
+A coach with no staff is a coach with no plan. What does yours look like? ~ hs impatient
+Do you believe in a big staff or a small one that works hard? ~ hs patient
+Name the assistant who'd tell the kids the hard truth, and say it kindly. ~ hs principal warm
+Would you hire someone with a rough past if he could really coach? ~ college ad blunt
+Who would you call first to find a defensive coordinator who can handle a big stage? ~ college smooth
+Whose advice do you trust more than your own when it comes to hiring? ~ college
+I'd like a staff that treats the janitor and the bus driver with respect. Yours? ~ hs principal warm
+Are you looking for a yes man or a coach who'll disagree with you to your face? ~ nfl gm blunt
+Who are the coaches you plan to bring to the school, and when can we meet them? ~ hs ad
+Our assistants will be teachers in the building, so who do you have in mind? ~ hs principal
+Walk me through the three coaches you'd want in the building first. ~ hs
+Which of your coaches would be the first one to call a parent back? ~ hs principal warm
+Are your assistants going to be here before the bell and still here after study hall? ~ hs principal
+Who have you already talked to about a job here? ~ hs meddler
+My guess is you'd bring in a few trusted men from the last job. Is that right? ~ hs blunt
+Give me the name of an assistant who's already coached a Friday night game in a town like ours. ~ hs
+Who on your staff can scout the local feeder schools without us paying for it? ~ hs tight
+How much does a good assistant here cost us, and what does he do all day? ~ hs ad tight
+What's your plan for a varsity coach who gets pulled into the JV schedule? ~ hs
+Would you be comfortable with a coach who only works the summer? ~ hs
+Who can coach the sophomores and keep them out of trouble? ~ hs principal
+Tell me how many of your assistants already live in this school district. ~ hs midwest
+How do you bring a new assistant up to speed in August? ~ hs patient
+Who on your staff can cover the weight room while the rest of us are in film? ~ hs
+Would any of your assistants be willing to teach a class during the school year? ~ hs principal
+If one of your coaches gets a call from a college, how do you keep him? ~ hs
+Who would be the first coach a freshman meets on his first day? ~ hs warm
+I'm short on money for coaches. Which two do you absolutely need? ~ hs ad tight
+Do you have a defensive coach who knows how to teach a gap to a fifteen-year-old? ~ hs
+Tell me which of your coaches grew up in a town this size. ~ hs texas
+Are you going to keep a coach who's been here for years even if the staff changes? ~ hs warm
+Who keeps the players' academic files straight among your assistants? ~ hs principal
+Which assistant would sit with a kid after a bad grade report? ~ hs principal warm
+What is your line on assistants who coach other sports on the side? ~ hs ad
 
 @key interview.react.bad
 I'll be straight with you, that answer lost me. ~ blunt

@@ -110,6 +110,10 @@ pub struct WeekPlan {
     pub draws: Option<bool>,
 }
 
+/// An NFL club taken in season (`World::nfl_takeover`): the club, its
+/// interim and its won-lost-tied record the day you took it.
+pub(crate) type NflTakeover = (usize, Option<usize>, (u32, u32, u32));
+
 impl World {
     /// Your team's index in the world at its level, and the level.
     pub fn seat_team(&self) -> Option<(Level, usize)> {
@@ -122,11 +126,89 @@ impl World {
         Some((s.level, t))
     }
 
+    /// The interim coaching your team's games still to play this season
+    /// (the Jan 1 start, Cain 2026-11-08): the staff that got the team
+    /// here prepares and calls them, the results go on his record, and you
+    /// run everything else from day one. At a college he is the coach on
+    /// the sideline (`Program::sideline`, set the day the man you replaced
+    /// left); at an NFL club the coordinator the takeover named.
+    pub fn seat_interim(&self) -> Option<usize> {
+        let (level, t) = self.seat_team()?;
+        let you = self.career.as_ref()?.coach;
+        match level {
+            Level::College => {
+                let cs = self.college.as_ref()?;
+                if !cs.started || cs.finished || !cs.games.iter().any(|g| g.involves(t) && g.played.is_none()) {
+                    return None;
+                }
+                self.programs[t].sideline.filter(|&c| c != you)
+            }
+            Level::Nfl => {
+                let (x, c, _) = self.nfl_takeover()?;
+                if x != t || self.nfl[t].head_coach != Some(you) {
+                    return None;
+                }
+                let s = self.nfl_season.as_ref()?;
+                let alive = s.started
+                    && s.champion.is_none()
+                    && self.today <= self.dates.super_bowl
+                    && (!s.booked || s.alive.iter().any(|a| a.contains(&t)));
+                if alive { c } else { None }
+            }
+            _ => None,
+        }
+    }
+
+    /// Your NFL club taken in season this football year (the Jan 1 start):
+    /// the club, its interim (none when it had no coordinator) and its
+    /// record the day you took it.
+    pub(crate) fn nfl_takeover(&self) -> Option<NflTakeover> {
+        let tk = self.folk.takeover.as_ref()?;
+        let Some(super::folk::Team::Nfl(t)) = tk.team else { return None };
+        if tk.started.is_none_or(|d| d < self.dates.start) {
+            return None;
+        }
+        Some((t, tk.interim, tk.nfl_at?))
+    }
+
+    /// The coach on a club's sideline at the season's end: the interim at
+    /// your club when he finished it (a Super Bowl run is his), else its
+    /// head coach.
+    pub(crate) fn nfl_sideline(&self, t: usize) -> Option<usize> {
+        match self.nfl_takeover() {
+            Some((x, Some(c), _)) if x == t => Some(c),
+            _ => self.nfl[t].head_coach,
+        }
+    }
+
+    /// The coach a club's season row goes to in the books: the coach of
+    /// most of its games, as the record books credit it (minor bug 124's
+    /// rule), so the man you replaced keeps a season he coached most of.
+    pub(crate) fn nfl_book_coach(&self, t: usize) -> Option<usize> {
+        let Some((x, c, at)) = self.nfl_takeover().filter(|x| x.0 == t) else { return self.nfl[t].head_coach };
+        let s = self.nfl_season.as_ref();
+        let games = s.map_or(0, |s| s.wins[x] + s.losses[x] + s.ties[x]);
+        let before = at.0 + at.1 + at.2;
+        let old = self.folk.takeover.as_ref().and_then(|tk| tk.old_coach);
+        if games > 0 && 2 * before >= games { old.or(c) } else { c.or(self.nfl[t].head_coach) }
+    }
+
+    /// The head coach an NFL club plays under: the interim at yours while
+    /// he has its games.
+    pub(crate) fn nfl_head(&self, t: usize) -> Option<usize> {
+        if self.seat_club(t)
+            && let Some(c) = self.seat_interim()
+        {
+            return Some(c);
+        }
+        self.nfl[t].head_coach
+    }
+
     /// Your game today as the day will play it, if you have one on the
-    /// engine (section 9).
+    /// engine (section 9). Under an interim it is his game, not yours.
     pub fn seat_setup_today(&self) -> Option<SeatSetup> {
         // Booked already: today's game is over.
-        if self.seat_kept_on(self.today).is_some() {
+        if self.seat_kept_on(self.today).is_some() || self.seat_interim().is_some() {
             return None;
         }
         let (level, t) = self.seat_team()?;

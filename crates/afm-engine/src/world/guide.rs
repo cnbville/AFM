@@ -174,16 +174,20 @@ fn firm_side(g: &mut Guidelines, offense: bool) {
 /// An NFL club's guidelines this season.
 pub(crate) fn club_guidelines(w: &World, t: usize) -> Guidelines {
     let tm = &w.nfl[t];
-    let oc = super::season::play_caller(w, tm.oc, tm.head_coach, true).or(tm.head_coach);
-    let dc = super::season::play_caller(w, tm.dc, tm.head_coach, false).or(tm.head_coach);
-    team_guidelines(w, tm.head_coach, oc, dc, Level::Nfl, w.seat_club(t))
+    // The interim's games at your club are his (the Jan 1 start).
+    let head = w.nfl_head(t);
+    let oc = super::season::play_caller(w, tm.oc, head, true).or(head);
+    let dc = super::season::play_caller(w, tm.dc, head, false).or(head);
+    team_guidelines(w, head, oc, dc, Level::Nfl, w.seat_club(t) && w.seat_interim().is_none())
 }
 
 /// A college program's guidelines this season.
 pub(crate) fn program_guidelines(w: &World, prog: &super::program::Program) -> Guidelines {
-    let oc = super::season::play_caller(w, prog.oc, prog.head_coach, true).or(prog.head_coach);
-    let dc = super::season::play_caller(w, prog.dc, prog.head_coach, false).or(prog.head_coach);
-    team_guidelines(w, prog.head_coach, oc, dc, Level::College, w.seat_program(prog.id))
+    // The coach on the sideline: an interim after his coach left in season.
+    let head = prog.sideline.or(prog.head_coach);
+    let oc = super::season::play_caller(w, prog.oc, head, true).or(head);
+    let dc = super::season::play_caller(w, prog.dc, head, false).or(head);
+    team_guidelines(w, head, oc, dc, Level::College, w.seat_program(prog.id) && w.seat_interim().is_none())
 }
 
 /// What a guideline adds to a system's worth in the spring install, in

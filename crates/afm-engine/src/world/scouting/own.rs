@@ -806,26 +806,16 @@ pub fn film_left(w: &World) -> f32 {
 /// (lane 9, SK53; minor bug 318). The full cut-up opens from his file in
 /// the film room.
 pub fn film_cost(w: &World, id: u32) -> Result<(Kind, f32, &'static str), String> {
+    use super::film::tape::Source;
     let i = super::place(w, id).ok_or("No such player.")?;
-    let p = &w.people[i];
-    let f = super::footage::footage(w, i);
-    match p.stage {
-        Stage::HighSchool | Stage::PrepSchool if f.snaps > 0.0 || f.reels => {
-            Ok((Kind::HsFilm, QUICK, "a cut-up of his snaps"))
-        }
-        Stage::HighSchool | Stage::PrepSchool => {
-            Err("There's no film of him yet: he hasn't played a high school game.".into())
-        }
-        Stage::College | Stage::Declared if f.snaps > 0.0 => Ok((Kind::CollegeFilm, QUICK, "a cut-up of his snaps")),
-        Stage::College | Stage::Declared => Err("He hasn't played a college snap: there's nothing to watch.".into()),
-        Stage::Pro
-            if p.pro.as_ref().and_then(|c| c.team.or(c.teams.last().copied())).is_some_and(|t| t < w.nfl.len()) =>
-        {
-            Ok((Kind::ProFilm, QUICK, "a cut-up of his snaps"))
-        }
-        Stage::Pro => Err("He hasn't been with an NFL club: there's no pro tape of him.".into()),
-        _ => Err("There's no film of him.".into()),
-    }
+    // His tape is the team whose games hold his last snaps: a transfer's
+    // old team, a redshirt's high school (minor bug 353).
+    Ok(match super::film::tape::source(w, i)? {
+        Source::School(_) => (Kind::HsFilm, QUICK, "a cut-up of his snaps"),
+        Source::OldSchool(..) => (Kind::HsFilm, QUICK, "a cut-up of his high school snaps"),
+        Source::Program(_) => (Kind::CollegeFilm, QUICK, "a cut-up of his snaps"),
+        Source::Club(_) => (Kind::ProFilm, QUICK, "a cut-up of his snaps"),
+    })
 }
 
 /// A quick cut-up's hours at most (lane 9, SK53): twenty minutes, 20

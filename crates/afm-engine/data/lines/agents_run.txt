@@ -311,6 +311,29 @@ It's close to a conversation, not to a deal. ~ straight
 I owe {name} a better number than this. ~ straight small
 What you sent isn't where he needs it. ~ straight
 Apart, but workable. Let's get it done. ~ straight calm
+Not yet on the total, and the guarantee is still soft. ~ straight
+Where the money sits right now, {name} can't come across. ~ straight
+Let's get on the same sheet. Right now we're on different ones.
+Your opening and our ask sit a long way apart.
+The gap is in the back end of the deal, so start there.
+Hard pass at that number, Coach. Come back with a real figure. ~ hot
+We can't get {name} to the table on that one.
+Nothing about this lands near where he's valued.
+Stack the money differently and we might find something. ~ slick
+The shape of this deal is off before we even get to the total.
+Sorry, the structure and the dollars both miss. ~ straight
+I'll say it gently: this doesn't move {name} at all.
+That's a sincere offer, just not the one he's looking for.
+Strong effort, weak number. We're apart. ~ straight
+Quick answer: no. Give me a better one. ~ straight
+Come back with a real first-year number and we'll talk.
+Another round and we can see what's real. Right now we're apart. ~ calm
+I want to close this, but not at that price.
+The total is short and the back half is worse. ~ straight
+There's too much distance here for a handshake. ~ calm
+If you want {name} signed, you'll need to climb a lot more. ~ straight
+The bones of this are right, but the number's not. ~ straight
+That offer gets us a polite no and nothing else. ~ slick
 
 @key agent.claim.bluff
 Teams are calling, and some of them are above where you are. Closer to {money} a year.
@@ -3615,6 +3638,59 @@ A little more, and I might be able to sell it. ~ slick
 I expected a real number. This isn't one. ~ hot
 Short by a bit, that's all. Let's close it up. ~ calm
 Not there yet. Show me you want him. ~ slick
+Not where he needs to be, and the market knows it. ~ straight
+Thin, Coach. Think about what the other clubs are offering. ~ slick
+Let's be straight: {money} leaves {name} short of his real value. ~ straight
+Keep the structure and fix the total, and we'll make a deal. ~ slick
+Short in the guarantees, short in the yearly, short overall. ~ straight
+Not the number I expected from a club that wants him. ~ hot
+That figure won't stand up when we set it next to the comps. ~ big
+I've been doing this long enough to know a short number when I see one. ~ straight
+My guy knows his worth, and that's not it. ~ hot
+Nice try on the first year, but the back end is where it falls apart. ~ slick
+That sits well under the top of the market for his position. ~ straight
+I'd be doing {name} a disservice to take that. ~ small
+Let's hit pause until there's a figure that fits {name}. ~ calm
+The arithmetic doesn't work for us at that level. ~ straight
+Short, and that's not a bluff, it's my honest read. ~ straight
+Give me more movement and I'll give you a real conversation. ~ slick
+That doesn't meet what he's asking for, and I won't pretend it does. ~ straight
+Our side wants to see real progress before any sign-off. ~ straight
+Short on cash, short on guarantees, and I'd call it short on respect. ~ hot
+The total is light and the structure can't carry it. ~ straight
+We'll need the yearly number to go up before this moves. ~ straight
+Right now that's a short offer on a player this good. ~ straight
+I'd like to help you get there, but the figure has to change. ~ calm
+Not enough for a player of his caliber. ~ straight
+Let's stop circling. The number has to go up. ~ hot
+I like how you've organized it. The money still doesn't work. ~ slick
+We're short by enough that I'd rather hear your next offer than discuss this one. ~ straight
+Good structure, weak number. We can fix one of those. ~ slick
+That one's light, and I'm not going to pretend otherwise. ~ straight
+We won't get there from that starting point. ~ calm
+The number needs more meat on it before {name} even looks. ~ slick
+Straight up, that number leaves {name} short of where he should be.
+Respectfully, the figure falls short of what this market pays a player like {name}. ~ straight
+Plainly put, that is under our number and I won't pretend otherwise. ~ straight
+Your guarantees are thin and the yearly is thinner. Move both. ~ straight
+The number misses. That's it, no spin. ~ straight calm
+We can talk, but not at that total. ~ straight
+If you want the truth, that's where the market starts, not where it ends. ~ straight
+Look at the comps, Coach, then look at this. It's under. ~ straight big
+No games from me. That isn't enough for {name}. ~ straight
+The structure is fine and the dollars are not. Fix the dollars. ~ straight
+Our bottom line for {name} starts higher than that. ~ straight
+I'll say it once, clean: that falls short. ~ straight
+You're close enough to talk, and far enough that I'm saying no for now. ~ straight calm
+Not personal. The number is light for {name}. ~ straight
+Let's be honest about where we stand. We're apart, and that's a real gap. ~ straight
+That's under the figure I can take to {name} with a straight face. ~ straight
+I respect the offer. It's short, and I'd be failing him to say otherwise. ~ straight small
+The total is light and I'm not going to sugarcoat it. ~ straight
+If I'm straight with you, this is a first step and not a finish line. ~ straight calm
+A cleaner number is what gets this moving. This one doesn't. ~ straight
+I'd tell {name} exactly the same thing: the money is short. ~ straight small
+Plain numbers, plain answer. It falls short. ~ straight
 
 @key agent.yes
 That number works. {name} will hold until the next market day, but you're in great shape. ~ calm

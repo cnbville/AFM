@@ -466,7 +466,12 @@ fn brief(w: &World, id: u32, ask: Option<&str>) -> Reply {
         "id": id,
         "name": p.name,
         "pos": p.player.position.name(),
-        "meta": school_line(w, p),
+        // Where his tape comes from when it isn't his team today (minor
+        // bug 353): a transfer's old team, a redshirt's high school.
+        "meta": match tape::source_words(w, i) {
+            Some(src) => format!("{} · {src}", school_line(w, p)),
+            None => school_line(w, p),
+        },
         "film": film,
         "ours": ours,
         "why_not": sc::own::film_cost(w, id).err(),
