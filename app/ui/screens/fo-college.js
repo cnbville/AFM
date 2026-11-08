@@ -771,7 +771,7 @@ screens.walkons_desk = async () => {
     { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name) },
     { k: "pos", t: "Pos", l: true },
     { k: "cls", t: "Class", l: true, v: (r) => classRank(r.cls) },
-    { k: "role", t: "Role", l: true, v: (r) => (r.earned ? 0 : 1), f: (r) => `${r.earned ? fcDot("good") : ""}${esc(r.role || "-")}` },
+    { k: "role", t: "Role", l: true, v: (r) => (r.earned ? 1 : 0), f: (r) => `${r.earned ? fcDot("good") : ""}${esc(r.role || "-")}` },
     { k: "read", t: "Read", div: true, v: (r) => mid(r.read), f: (r) => range(r.read, null, { p: r.id, k: "ovr" }) },
     { k: "words", t: "Scholarship", l: true, wrap: true, f: (r) => `<span class="sub">${esc(r.words)}</span>` },
     { k: "act", t: "", l: true, f: (r) => (r.can ? `<button class="st-btn small primary" data-fc="woaward" data-id="${r.id}" data-name="${esc(r.name)}" data-words="${esc(r.words)}">Put him on scholarship</button>` : "") },

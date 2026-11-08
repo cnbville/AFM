@@ -46,6 +46,15 @@ const SHOWS_UP: f64 = 0.35;
 /// where no limit counts them (proposed, not confirmed: about 15%).
 const SQUAD_OVER: f64 = 1.15;
 
+/// A walk-on who played his way into the two-deep here last season: his
+/// last role counts only from a season at this program, not his high
+/// school's or another college's.
+pub fn in_two_deep(w: &World, i: usize, j: usize) -> bool {
+    let p = &w.people[i];
+    matches!(p.last_role, Some(PlayingTime::Starter | PlayingTime::Rotation))
+        && p.college_staff.last().is_some_and(|s| s.1 == w.programs[j].id)
+}
+
 /// The days you can hold your tryout: from summer enrollment, when the
 /// students who never signed are on campus, to about the first week of
 /// fall classes, three weeks into camp (proposed, not confirmed; real
@@ -116,9 +125,18 @@ pub fn scholarship_words(w: &World, id: u32) -> Result<String, String> {
         return Err("He's in the portal.".into());
     }
     let (on_aid, limit) = aid_room(w, j)?;
-    let whole = ncaa::whole_roster_limit(&w.programs[j], w.dates.season);
+    let season = w.dates.season;
+    let whole = ncaa::whole_roster_limit(&w.programs[j], season);
     if !whole && on_aid >= limit {
         return Err(format!("All {limit} of your scholarships are taken."));
+    }
+    // A designated walk-on of the House settlement sits outside the limit
+    // only while he pays his own way: on aid he counts against it.
+    if whole && !rec::takes_a_place(p, true, season) {
+        let (n, cap, _) = squad_room(w, j);
+        if n >= cap {
+            return Err(format!("Your roster is at the {cap}-player limit: on aid he would count against it."));
+        }
     }
     let left = if whole {
         format!("Under the House limit every one of your {limit} places can carry aid; {on_aid} do now.")
@@ -148,6 +166,7 @@ pub fn award(w: &mut World, id: u32) -> Result<String, String> {
         p.note(format!("Earned a scholarship at {name} at {age}: his head coach put the former walk-on on aid."));
         (p.name.clone(), p.player.position, p.last_role == Some(PlayingTime::Starter))
     };
+    let starter = starter && in_two_deep(w, i, j);
     w.log.walk_on_scholarships += 1;
     if fbs && starter {
         let text = format!("{name} puts former walk-on {who} ({pos}) on scholarship.");
@@ -178,6 +197,9 @@ pub fn tryout_rule(w: &World) -> Result<usize, String> {
             from.pretty(),
             to.pretty()
         ));
+    }
+    if w.late_signing.is_some() {
+        return Err("The last late signing day closes at office hours today: hold your tryout after it.".into());
     }
     if w.front_office.college.tryout.as_ref().is_some_and(|t| t.season == w.dates.season) {
         return Err("You held this year's tryout already.".into());
@@ -268,6 +290,10 @@ pub fn keep(w: &mut World, id: u32) -> Result<String, String> {
     }
     if t.kept.contains(&id) {
         return Err("He's on your team already.".into());
+    }
+    let (_, to) = window(w);
+    if w.today > to {
+        return Err(format!("The tryout's students had to be kept by {}.", to.pretty()));
     }
     let (n, cap, whole) = squad_room(w, j);
     if n >= cap {

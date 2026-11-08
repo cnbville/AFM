@@ -124,3 +124,26 @@ fn portal_entrants_follow_their_places_through_the_compact() {
     crate::world::recruiting::remap_people(&mut w, &map);
     assert_eq!(w.portal_pending, vec![4, 7]);
 }
+
+#[test]
+fn a_walk_on_role_counts_only_from_a_season_here() {
+    let mut w = seat("college");
+    let p = your_program(&w);
+    w.add_class_aged(19);
+    let i = kids(&w, 1)[0];
+    let year = w.year;
+    {
+        let q = &mut w.people[i];
+        q.stage = Stage::College;
+        q.college = Some(p);
+        q.walk_on = true;
+        // A high school starter who walked on in June.
+        q.last_role = Some(PlayingTime::Starter);
+        q.college_staff.clear();
+    }
+    w.programs[p].roster.push(i);
+    assert!(!walk_ons::in_two_deep(&w, i, p), "his high school role doesn't count");
+    let id = w.programs[p].id;
+    w.people[i].college_staff.push((year - 1, id, None, None));
+    assert!(walk_ons::in_two_deep(&w, i, p), "a season here does");
+}

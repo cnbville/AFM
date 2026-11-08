@@ -1877,8 +1877,9 @@ fn walk_ons(w: &World, j: usize) -> Reply {
             continue;
         }
         let words = walk::scholarship_words(w, p.player.id);
-        let role = p.last_role;
-        let earned = matches!(role, Some(PlayingTime::Starter | PlayingTime::Rotation));
+        let here = p.college_staff.last().is_some_and(|s| s.1 == prog.id);
+        let role = p.last_role.filter(|_| here);
+        let earned = walk::in_two_deep(w, i, j);
         let read = reads::overall(w, i);
         rows.push((
             if earned { 0 } else { 1 },
@@ -1903,8 +1904,9 @@ fn walk_ons(w: &World, j: usize) -> Reply {
                     let p = &w.people[i];
                     let (ht, wt) = afm_engine::world::scouting::file::listed(&p.player);
                     let kept = t.kept.contains(&r.id);
+                    // His junior college: the last school on his path before yours.
                     let from_school = if p.juco {
-                        p.college.map(|c| w.program_name(c).to_string())
+                        p.path.iter().rev().find(|&&c| c != j).map(|&c| w.program_name(c).to_string())
                     } else {
                         Some(w.school_name(p.hs).to_string())
                     };
