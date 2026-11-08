@@ -4,7 +4,7 @@ AFM (American Football Manager) is an ultra-realistic American football manageme
 
 ## The format
 
-- One version per line: the words, then optionally ` ~ ` (space, tilde, space) and its tags. For example: `I'll take that, Coach. Thank you. ~ humble`
+- One version per line: the words, then optionally ` ~ ` (space, tilde, space) and its tags, separated by spaces, never commas. For example: `I'll take that, Coach. Thank you. ~ humble` or `Rough day, Coach. ~ college walkon`
 - Plain spoken words in one or two sentences, ending with full punctuation. No quote marks, no dashes of any kind (use a comma or a period), no emoji, no swearing beyond a rare damn or hell, no stage directions.
 - `[a|b]` or `[a|b|c]` picks one wording when the line is said. At most one line in ten has a choice, at most two choices a line, never nested, each wording complete on its own.
 - `{fact}` is filled in by the game. Use only the facts your part lists, spelled exactly. A line with a fact the game doesn't give is never said.
@@ -17,6 +17,7 @@ Tags decide who may say a line. A plain tag means the speaker must have it; `!ta
 - A line that names something only one level has must carry that level: high school (Friday nights, varsity, JV, offers, recruiters, official visits, 7-on-7, core GPA, a principal, the school board), college (scholarship, walk-on, redshirt, NIL, revenue share, the collective, the portal, campus, the NCAA, a bowl, Saturdays, the draft as a future), the NFL (contract, guarantees, the cap, the practice squad, the 53, the inactive list, waivers, OTAs, minicamp, free agency, the franchise tag, the GM, the owner, Sundays). Words for school (class, grades, eligibility, study hall) fit high school and college, never the NFL.
 - A tag must be true of everyone who carries it. `ol` is tackles, guards and centers ("up front", "my man", "pass pro"); `dl` is edges and interior tackles; `db` is corners and safeties ("the back end", "coverage"); `kicker` is kickers and punters ("my leg", "operation time"). A personality tag (`hot`, `quiet`, `ego`...) means the line must sound like that person.
 - Tags that never meet on one speaker can't share a line: two levels, two regions, two positions, `hot` and `calm`, `young` and `vet`, a high school class year with an NFL stage.
+- Class years: a high school player is a `freshman`, `sophomore`, `junior` or `senior`. A college player is only ever tagged `freshman` (his first season) or `senior` (his fourth or later), so never put `sophomore` or `junior` with `college`.
 - Region tags (`texas`, `south`, `midwest`, `northeast`, `west`) are where he grew up: a light touch ("back home", a turn of phrase), never dialect spelling or caricature. Texans also count as `south`.
 - Careers are played from 2026 on, so phones, texts, group chats, posting, film on a tablet, NIL, revenue sharing and the portal all exist. Still tag them: `modern` for phones, texts, DMs, posting, social media; `nil` for NIL, revenue share, collectives and the portal. Never `pre2000` or `pre2010`.
 - When-checks (`fact=value`, only where your part lists them) make a line wait for its moment: `lead=down` is said only when you're behind, `!moment=halftime` never at halftime. Use them when the words need the moment, never just to have them.

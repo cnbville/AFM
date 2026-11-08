@@ -37,10 +37,12 @@ MODEL = 'claude-sonnet-5-5'
 BASE_URL = 'https://api.anthropic.com'      # set, because ANTHROPIC_BASE_URL is set on thread machines
 KEY_VAR = 'AFM_LINEBANK_KEY'
 PRICE_IN, PRICE_OUT = 1.00, 5.00            # $ per million tokens, Sonnet 5.5 through the Batches API (half price)
-PER_REQ = 150                               # versions asked in one request (one part per request)
-MAX_TOKENS = 5000                           # 150 versions are about 3,300 tokens
+PER_REQ = 120                               # versions asked in one request (one part per request)
+MAX_TOKENS = 6000                           # 120 versions are about 3,000 tokens, and the model may think first
+OUT_PER_LINE = 31                           # output tokens per version asked, thinking included (pilot: 30.2)
 SHOW = 600                                  # at most this many existing versions shown per request
-CHECK_PER_REQ = 400                         # lines one checker request reads
+CHECK_PER_REQ = 250                         # lines one checker request reads
+CHECK_MAX_TOKENS = 4000                     # its notes and its answer (pilot: at most 850 for 184 lines)
 CHARS_PER_TOKEN = 2.7                       # until a batch measures it (the cost model says 3.0)
 DONE_SHARE = 0.02                           # a part is full within 2% of its target
 DEFAULT_STATE = '/mnt/project-files/afm/line-bank-api/run'
@@ -109,9 +111,14 @@ class State:
         return out
 
     def add_pool(self, key, lines):
+        """Add lines to a part's pool, skipping any already there (a step
+        redone after a stop adds nothing twice): the number added."""
+        have = set(self.pool().get(key, []))
+        new = [x for x in lines if x not in have]
         with open(os.path.join(self.dir, 'pool', key + '.txt'), 'a') as fo:
-            for x in lines:
+            for x in new:
                 fo.write(x + '\n')
+        return len(new)
 
     def log(self, msg):
         line = time.strftime('%Y-%m-%d %H:%M:%S UTC ', time.gmtime()) + msg
@@ -178,7 +185,7 @@ def part_card(key):
     return '\n'.join(lines)
 
 
-def user_prompt(key, n, angle, shown):
+def user_prompt(key, n, angle, shown, used=()):
     out = [part_card(key), '', f"This request's angle: {angle}. Keep the part's meaning first.", '']
     if shown:
         out.append(f'Versions this part already has ({len(shown)} shown; never repeat, echo or lightly reword '
@@ -186,6 +193,9 @@ def user_prompt(key, n, angle, shown):
         out += shown
     else:
         out.append('This part has no versions yet.')
+    if used:
+        out += ['', 'Openings this part has nearly used up (start your lines some other way): '
+                + '; '.join(used) + '.']
     out += ['', f'Write {n} new versions of {key}. One per line: the words, then " ~ " and its tags when it has '
             'any. Nothing else: no numbers, no headings, no blank lines, no notes.']
     return '\n'.join(out)
@@ -201,8 +211,10 @@ def checker_prompt(key, lines):
     fam = open(os.path.join(BRIEFS, PARTS[key].family + '.md')).read()
     out = [fam.strip(), '', part_card(key), '', 'The lines to check:']
     out += [f'{i + 1}. {x}' for i, x in enumerate(lines)]
-    out += ['', 'Answer with one line per line that breaks a rule: its number, a colon and the rule in a few '
-            'words. Nothing else. If every line is fine, answer: none']
+    out += ['', 'Work through the lines first if you want to. Then end your answer with a line that says only '
+            f'{FLAGS} and, under it, one line for each line that breaks a rule: its number, a colon and the '
+            'rule in a few words. Never list a line you found fine, and write nothing after that list. If '
+            f'every line is fine, end with: {FLAGS} none']
     return '\n'.join(out)
 
 
@@ -247,19 +259,45 @@ def shown_for(key, have, rnd, r):
     return rng.sample(have, SHOW)
 
 
-def build_requests(st, plan, rnd):
+def opening(line):
+    """A line's two-word opening as written ("Okay, I", "I'm"), as check.py
+    counts it."""
+    words = B.split(line)[0].split()
+    for i in range(1, min(4, len(words)) + 1):
+        if len(B.norm(' '.join(words[:i])).split()) >= 2:
+            return ' '.join(words[:i]).rstrip(',.;:!?')
+    return ' '.join(words)
+
+
+def used_openings(have, n_old, target):
+    """The openings at half of check.py's cap or more in a part (the bank's
+    versions and the pool), most used first, so the writer steers around
+    them. The cap is check.py's: (the bank's versions + the target) / 20."""
+    cap = max(3, math.ceil((n_old + target) / K.START_SHARE))
+    first = {}
+    count = collections.Counter()
+    for x in have:
+        s = K.start_of(B.split(x)[0])
+        count[s] += 1
+        first.setdefault(s, x)
+    return [opening(first[s]) for s, c in count.most_common(30) if c >= cap / 2]
+
+
+def build_requests(st, plan, rnd, targets):
     old = B.bank(skip=set(FILES.values()))
     pool = st.pool()
     reqs, meta = [], {}
     for cid, key, n, angle in plan:
         have = [t + (' ~ ' + ' '.join(g) if g else '') for t, g, _ in old.get(key, [])] + pool.get(key, [])
+        used = used_openings(have, len(old.get(key, [])), targets.get(key, 0))
         params = {
             'model': MODEL,
             'max_tokens': MAX_TOKENS,
             # The lowest thinking setting on Sonnet 5.5 ("disabled" is a 400).
             'thinking': {'type': 'between_tools'},
             'system': system_prompt(PARTS[key].family),
-            'messages': [{'role': 'user', 'content': user_prompt(key, n, angle, shown_for(key, have, rnd, cid))}],
+            'messages': [{'role': 'user', 'content': user_prompt(key, n, angle, shown_for(key, have, rnd, cid),
+                                                                 used)}],
         }
         reqs.append({'custom_id': cid, 'params': params})
         meta[cid] = {'key': key, 'n': n, 'angle': angle}
@@ -276,7 +314,7 @@ def estimate(st, reqs):
     writing to its token limit."""
     cpt = st.s['chars_in'] / st.s['tokens_in'] * 0.95 if st.s['tokens_in'] > 50000 else CHARS_PER_TOKEN
     tin = sum(chars(r) for r in reqs) / cpt
-    likely_out = sum(min(r['params']['max_tokens'], 26 * meta_n(r) + 120) for r in reqs)
+    likely_out = sum(min(r['params']['max_tokens'], OUT_PER_LINE * meta_n(r) + 150) for r in reqs)
     worst_out = sum(r['params']['max_tokens'] for r in reqs)
     return cost(tin, likely_out), cost(tin, worst_out)
 
@@ -321,9 +359,10 @@ def wait(c, st, bid):
 
 
 def collect(c, st, bid):
-    """{custom_id: text} for a finished batch, its usage added to the spend."""
+    """Save a finished batch's replies (replies/<id>.jsonl) and add its usage
+    to the spend, once: the spend and `ended` are saved together."""
     rec = st.s['batches'][bid]
-    texts, tin, tout, bad = {}, 0, 0, collections.Counter()
+    n, tin, tout, bad = 0, 0, 0, collections.Counter()
     with open(os.path.join(st.dir, 'replies', bid + '.jsonl'), 'w') as fo:
         for r in c.messages.batches.results(bid):
             res = r.result
@@ -335,13 +374,21 @@ def collect(c, st, bid):
             tin += (u.input_tokens or 0) + (getattr(u, 'cache_creation_input_tokens', 0) or 0) \
                 + (getattr(u, 'cache_read_input_tokens', 0) or 0)
             tout += u.output_tokens or 0
+            text = '\n'.join(b.text for b in m.content if b.type == 'text')
+            use = True
             if m.stop_reason == 'refusal':
                 bad['refusal'] += 1
-                continue
-            text = '\n'.join(b.text for b in m.content if b.type == 'text')
-            texts[r.custom_id] = text
+                use = False
+            elif m.stop_reason == 'max_tokens':
+                bad['cut'] += 1
+                if rec['kind'] == 'write':
+                    # The last line may have lost its end or its tags.
+                    text = text.rsplit('\n', 1)[0] if '\n' in text else ''
+                elif 'FLAGS:' not in text:
+                    use = False         # a checker cut off before its answer
+            n += use
             fo.write(json.dumps({'id': r.custom_id, 'stop': m.stop_reason, 'in': u.input_tokens,
-                                 'out': u.output_tokens, 'text': text}) + '\n')
+                                 'out': u.output_tokens, 'use': use, 'text': text}) + '\n')
     spent = cost(tin, tout)
     st.s['spent'] += spent
     st.s['tokens_in'] += tin
@@ -349,19 +396,30 @@ def collect(c, st, bid):
     st.s['chars_in'] += rec['chars']
     rec.update({'ended': True, 'cost': spent, 'tokens_in': tin, 'tokens_out': tout, 'failed': dict(bad)})
     st.save()
-    st.log(f'batch {bid} ended: {len(texts)} replies, {dict(bad) or "no failures"}, ${spent:.2f} '
+    st.log(f'batch {bid} ended: {n} replies used, {dict(bad) or "no failures"}, ${spent:.2f} '
            f'(spent ${st.s["spent"]:.2f})')
-    return texts
 
 
-def code_check(st, rec, texts, targets):
-    """Every reply line through check.py: {key: [kept lines]}, drops logged."""
+def replies(st, bid):
+    """{custom_id: text} of a collected batch, from its saved replies."""
+    out = {}
+    path = os.path.join(st.dir, 'replies', bid + '.jsonl')
+    for ln in open(path) if os.path.exists(path) else ():
+        d = json.loads(ln)
+        if d.get('use', True):
+            out[d['id']] = d['text']
+    return out
+
+
+def code_check(st, rec, bid, texts, targets):
+    """Every reply line through check.py: ({key: [kept lines]}, lines written).
+    Drops go to dropped/<id>-code.tsv, written whole each time."""
     ck = K.Checker(keys=sorted({m['key'] for m in rec['meta'].values()}), pool=st.pool(), target=targets)
     kept = collections.defaultdict(list)
     why = collections.Counter()
     written = 0
-    with open(os.path.join(st.dir, 'dropped', f'round{rec["round"]}-code.tsv'), 'a') as fo:
-        for cid, text in texts.items():
+    with open(os.path.join(st.dir, 'dropped', f'{bid}-code.tsv'), 'w') as fo:
+        for cid, text in sorted(texts.items()):
             key = rec['meta'][cid]['key']
             for raw in text.splitlines():
                 if not K.clean(raw):
@@ -374,16 +432,43 @@ def code_check(st, rec, texts, targets):
                 else:
                     kept[key].append(line)
     n = sum(len(v) for v in kept.values())
-    st.s['written'] += written
-    st.s['kept_code'] += n
-    st.save()
     st.log(f'code check: {n} of {written} lines kept; top drops {why.most_common(6)}')
-    return kept
+    return dict(kept), written
 
 
-def model_check(c, st, kept, rnd, cap):
-    """One checker pass (Sonnet 5.5 reads every kept line once): flagged
-    lines are dropped, the rest join the pool."""
+FLAGS = 'FLAGS:'
+NUMBERED = re.compile(r'\s*[*_`>-]*\s*(\d+)\s*[:.)-]\s*(.*?)[*_`\s]*$')
+FINE = re.compile(r"(?<!not )\b(fine|ok|okay|no issue|no problem|not flagged|skip|skipped)\W*$", re.I)
+
+
+def checker_flags(text, n):
+    """{index: rule} of the lines a checker reply flags, or None when it gave
+    no answer. Only its answer counts: the lines after its last FLAGS:, or, in
+    a reply without one, its last numbered list (a reply may think aloud
+    first, numbering lines it then finds fine)."""
+    if not text.strip():
+        return None
+    i = text.rfind(FLAGS)
+    body = text[i + len(FLAGS):] if i >= 0 else text
+    blocks = [[]]
+    for ln in body.splitlines():
+        g = NUMBERED.match(ln)
+        if g:
+            blocks[-1].append(g)
+        elif ln.strip() and blocks[-1] and i < 0:
+            blocks.append([])
+    found = [b for b in blocks if b]
+    bad = {}
+    for g in (found[-1] if found else []):
+        k, rule = int(g.group(1)), g.group(2).strip()
+        if 1 <= k <= n and not FINE.search(rule):
+            bad[k - 1] = rule
+    return bad
+
+
+def check_submit(c, st, kept, rnd, cap):
+    """One checker batch over a write batch's kept lines (Sonnet 5.5 reads
+    every line once): its id, or None when there is nothing to check."""
     reqs, meta = [], {}
     i = 0
     for key, lines in sorted(kept.items()):
@@ -392,44 +477,99 @@ def model_check(c, st, kept, rnd, cap):
             cid = f'c{rnd}-{i:05d}'
             i += 1
             reqs.append({'custom_id': cid, 'params': {
-                'model': MODEL, 'max_tokens': 3000, 'thinking': {'type': 'between_tools'},
+                'model': MODEL, 'max_tokens': CHECK_MAX_TOKENS, 'thinking': {'type': 'between_tools'},
                 'system': checker_system(),
                 'messages': [{'role': 'user', 'content': checker_prompt(key, chunk)}]}})
             meta[cid] = {'key': key, 'lines': chunk, 'n': len(chunk)}
     if not reqs:
-        return {}
+        return None
     fitted = fit_cap(st, reqs, cap)
     if len(fitted) < len(reqs):
-        st.log(f'the cap leaves room to check {len(fitted)} of {len(reqs)} chunks; the rest wait unchecked')
-        reqs = fitted
-        meta = {r['custom_id']: meta[r['custom_id']] for r in reqs}
-    if not reqs:
-        return {}
-    bid = submit(c, st, reqs, meta, 'check', rnd)
-    wait(c, st, bid)
-    texts = collect(c, st, bid)
+        st.log(f'the cap leaves room to check {len(fitted)} of {len(reqs)} chunks; the rest are dropped unchecked')
+        meta = {r['custom_id']: meta[r['custom_id']] for r in fitted}
+    if not fitted:
+        return None
+    return submit(c, st, fitted, meta, 'check', rnd)
+
+
+def check_results(st, rec, bid, texts):
+    """({key: [lines that pass]}, flagged, unanswered) of a checker batch.
+    Flags go to dropped/<id>-checker.tsv, written whole each time."""
     out = collections.defaultdict(list)
-    flagged = 0
-    with open(os.path.join(st.dir, 'dropped', f'round{rnd}-checker.tsv'), 'a') as fo:
-        for cid, m in meta.items():
-            if cid not in texts:
-                continue            # no answer: these lines wait for the next pass
-            bad = {}
-            for ln in texts[cid].splitlines():
-                g = re.match(r'\s*(\d+)\s*[:.)-]\s*(.*)', ln)
-                if g and 1 <= int(g.group(1)) <= m['n']:
-                    bad[int(g.group(1)) - 1] = g.group(2).strip()
+    flagged = waiting = 0
+    with open(os.path.join(st.dir, 'dropped', f'{bid}-checker.tsv'), 'w') as fo:
+        for cid, m in sorted(rec['meta'].items()):
+            bad = checker_flags(texts.get(cid, ''), m['n'])
+            if bad is None:
+                waiting += m['n']       # no answer (failed, refused or cut): dropped, refilled later
+                continue
             for j, line in enumerate(m['lines']):
                 if j in bad:
                     flagged += 1
                     fo.write(f'{m["key"]}\t{bad[j]}\t{line}\n')
                 else:
                     out[m['key']].append(line)
-    n = sum(len(v) for v in out.values())
+    return dict(out), flagged, waiting
+
+
+# ---------------------------------------------------------------------------
+# Steps. Each one saves what it did before the next starts, so a run that
+# stops anywhere (a machine restart, a crash) picks up at the step it was on
+# and loses nothing it paid for: write batch -> its replies -> the code
+# check -> the checker batch -> its replies -> the pool.
+
+def kept_path(st, bid):
+    return os.path.join(st.dir, 'kept', bid + '.json')
+
+
+def write_done(st, rec):
+    return 'check' in rec and (rec['check'] is None or st.s['batches'][rec['check']].get('pooled'))
+
+
+def finish_write(c, st, bid, targets, cap):
+    """Take a write batch from wherever it stopped to the pool."""
+    rec = st.s['batches'][bid]
+    if not rec['ended']:
+        wait(c, st, bid)
+        collect(c, st, bid)
+    if not rec.get('coded'):
+        kept, written = code_check(st, rec, bid, replies(st, bid), targets)
+        os.makedirs(os.path.join(st.dir, 'kept'), exist_ok=True)
+        tmp = kept_path(st, bid) + '.tmp'
+        json.dump(kept, open(tmp, 'w'))
+        os.replace(tmp, kept_path(st, bid))
+        st.s['written'] += written
+        st.s['kept_code'] += sum(len(v) for v in kept.values())
+        rec['coded'] = True
+        st.save()
+    if 'check' not in rec:
+        kept = json.load(open(kept_path(st, bid)))
+        rec['check'] = check_submit(c, st, kept, rec['round'], cap)
+        st.save()
+    if rec['check']:
+        finish_check(c, st, rec['check'], targets)
+
+
+def finish_check(c, st, bid, targets):
+    rec = st.s['batches'][bid]
+    if rec.get('pooled'):
+        return
+    if not rec['ended']:
+        wait(c, st, bid)
+        collect(c, st, bid)
+    good, flagged, waiting = check_results(st, rec, bid, replies(st, bid))
+    added = 0
+    pool = st.pool()
+    for key, lines in sorted(good.items()):
+        have = set(pool.get(key, []))
+        new = [x for x in lines if x not in have]          # a redone step: only what isn't there yet
+        added += st.add_pool(key, new[:max(0, targets.get(key, 0) - len(have))])
+    n = sum(len(v) for v in good.values())
     st.s['kept'] += n
+    rec['pooled'] = True
     st.save()
-    st.log(f'checker pass: {flagged} flagged, {n} kept')
-    return out
+    st.log(f'checker pass: {flagged} flagged, {n} kept, {added} added to the pool'
+           + (f', {waiting} without an answer' if waiting else ''))
 
 
 # ---------------------------------------------------------------------------
@@ -453,7 +593,7 @@ def rounds(c, st, targets, args):
         if not plan:
             st.log('every part is full')
             return True
-        reqs, meta = build_requests(st, plan, rnd)
+        reqs, meta = build_requests(st, plan, rnd, targets)
         fitted = fit_cap(st, reqs, args.cap - 2.0)      # room left for the checker pass
         if not fitted:
             st.log(f'stopped at the cap: ${st.s["spent"]:.2f} spent of ${args.cap:.2f}')
@@ -464,13 +604,7 @@ def rounds(c, st, targets, args):
         st.s['round'] = rnd
         st.save()
         bid = submit(c, st, fitted, meta, 'write', rnd)
-        wait(c, st, bid)
-        texts = collect(c, st, bid)
-        kept = code_check(st, st.s['batches'][bid], texts, targets)
-        good = model_check(c, st, kept, rnd, args.cap)
-        for key, lines in good.items():
-            room = targets.get(key, 0) - len(st.pool().get(key, []))
-            st.add_pool(key, lines[:max(0, room)])
+        finish_write(c, st, bid, targets, args.cap)
         report(st, targets)
         if len(fitted) < len(reqs):
             st.log(f'stopped at the cap: ${st.s["spent"]:.2f} spent of ${args.cap:.2f}')
@@ -479,21 +613,12 @@ def rounds(c, st, targets, args):
 
 
 def resume(c, st, targets, args):
-    """A batch that was in flight when the run stopped: finish it first."""
-    for bid, rec in list(st.s['batches'].items()):
-        if rec['ended']:
-            continue
-        st.log(f'resuming {rec["kind"]} batch {bid}')
-        wait(c, st, bid)
-        texts = collect(c, st, bid)
-        if rec['kind'] == 'write':
-            kept = code_check(st, rec, texts, targets)
-            good = model_check(c, st, kept, rec['round'], args.cap)
-            for key, lines in good.items():
-                room = targets.get(key, 0) - len(st.pool().get(key, []))
-                st.add_pool(key, lines[:max(0, room)])
-        else:
-            st.log('a checker batch was in flight: its lines are checked again next round')
+    """Work the run stopped in the middle of (a batch in flight, lines not yet
+    checked or pooled): finish it first, oldest first."""
+    for bid, rec in sorted(st.s['batches'].items(), key=lambda x: (x[1]['round'], x[1]['kind'] != 'write')):
+        if rec['kind'] == 'write' and not write_done(st, rec):
+            st.log(f'resuming write batch {bid} (round {rec["round"]})')
+            finish_write(c, st, bid, targets, args.cap)
 
 
 def report(st, targets):
@@ -560,7 +685,7 @@ def main():
     if args.cmd == 'dry':
         targets = targets_for(args.pilot)
         plan = plan_round(st, targets, args.per_part, keep_rate(st), st.s['round'] + 1)
-        reqs, _ = build_requests(st, plan, st.s['round'] + 1)
+        reqs, _ = build_requests(st, plan, st.s['round'] + 1, targets)
         likely, worst = estimate(st, reqs)
         print(f'round {st.s["round"] + 1}: {len(reqs)} requests for {len({p[1] for p in plan})} parts, '
               f'{sum(p[2] for p in plan):,} versions asked, likely ${likely:.2f}, at most ${worst:.2f}')

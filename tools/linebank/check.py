@@ -337,6 +337,10 @@ def clean(raw):
         return ''
     if s.startswith('`') and s.endswith('`'):
         s = s.strip('`').strip()
+    if ' ~ ' in s:
+        # Tags written with commas ("~ college, walkon") are the same tags.
+        t, g = s.rsplit(' ~ ', 1)
+        s = t.rstrip() + ' ~ ' + ' '.join(g.replace(',', ' ').replace(';', ' ').split())
     return s
 
 
