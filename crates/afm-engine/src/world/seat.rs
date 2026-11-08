@@ -1047,6 +1047,7 @@ impl World {
             no_fire: false,
             no_fire_since: None,
             spared: Vec::new(),
+            sandbox: Default::default(),
         });
         let home = employer.and_then(|e| super::front_office::market::state_of(self, e));
         if let Some(c) = self.career.as_mut() {
@@ -1145,6 +1146,11 @@ pub struct Career {
     /// world's reason ("fired", "not retained when his contract ran out").
     #[serde(default)]
     pub spared: Vec<(Date, String, String)>,
+    /// Sandbox mode (Settings, a test switch): each lifted switch takes one
+    /// of your own limits away while it is on (`sandbox.rs`). A career from
+    /// before it loads with it off.
+    #[serde(default)]
+    pub sandbox: super::sandbox::Sandbox,
 }
 
 /// One player's kept reads, oldest season first.
@@ -1432,6 +1438,8 @@ impl World {
         // Your designed plays become concepts again (section 6b).
         self.training.register_designs();
         super::folk::after_load(self);
+        // A save that had the no-fire override on: sandbox mode with that switch.
+        super::sandbox::after_load(self);
         super::storylines::after_load(self);
         // A world file from before the poll and award voters gets them now.
         super::voters::ensure(self);
@@ -1464,6 +1472,10 @@ impl World {
             c.family.mood = 0.62;
         }
         super::finance::after_load(self);
+        // NIL is always yours (Cain 2026-11-07): a desk from before is
+        // brought up to the new rules once, and every player of yours gets
+        // a deal.
+        super::front_office::college::after_load(self);
         self.batch6_dates_after_load();
     }
 

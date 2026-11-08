@@ -1531,7 +1531,12 @@ fn year_marks(w: &World, t: TeamRef) -> Vec<(Date, Vec<&'static str>, String, St
                 add(y.spring_game, &["training", "gameplan"], "Spring game", "The end of spring practice");
                 add(y.fall_camp, &["training", "development"], "Fall camp", "Growth lands; the depth chart forms");
                 add(y.selection_day, &["gameplan", "calendar"], "Selection day", "The playoff and bowls are set");
-                add(y.money_year, &["portal", "contracts"], "The new budget year", "NIL and the program's money reset");
+                add(
+                    y.money_year,
+                    &["portal", "contracts"],
+                    "The new budget year",
+                    "Your NIL deals pay again (each stands until you change it)",
+                );
             }
             TeamRef::Nfl(_) | TeamRef::Other(_) => {
                 add(y.tag_window_open, &["contracts"], "Tag window opens", "Franchise and transition tags");

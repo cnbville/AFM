@@ -4,8 +4,8 @@
 use super::legacy::seat;
 use crate::calendar::Date;
 use crate::world::front_office::college::{
-    MoneyKind, Mood, budget, collective_deals, offer, race, reaction, set_deal, set_promise, stage_board, usual_deals,
-    weighed_offer,
+    MoneyKind, Mood, budget, clear_deals, collective_deals, deal_of, fill_deals, offer, race, reaction, set_deal,
+    set_promise, set_usual_deals, stage_board, usual_deals, weighed_offer,
 };
 use crate::world::front_office::{Duty, Owner};
 use crate::world::recruiting as rec;
@@ -69,11 +69,11 @@ fn the_school_pays_its_share_and_nil_go_reads_the_collectives() {
     let money = 4.0 * top;
     // Before NIL Go opened (June 11, 2025) it is all the collective's, and
     // nothing reviews it.
-    let (s, c) = rec::pots(prog, Date::ymd(2025, 6, 1), money, top);
+    let (s, c) = rec::pots(prog, Date::ymd(2025, 6, 1), money, top, false);
     assert_eq!((s, c), (0.0, money));
     // After, the school's 12 of 20 million is its own; the collective's part
     // is cleared to his top.
-    let (s, c) = rec::pots(prog, w.today, money, top);
+    let (s, c) = rec::pots(prog, w.today, money, top, false);
     assert!((s - 0.6 * money).abs() < 1.0, "{s}");
     assert!((c - top).abs() < 1.0, "{c} against {top}");
 }
@@ -81,6 +81,10 @@ fn the_school_pays_its_share_and_nil_go_reads_the_collectives() {
 #[test]
 fn your_money_is_the_schools_revenue_share() {
     let (mut w, j) = college(true);
+    let (id, usual) = usual_deals(&w, j)[0];
+    // Every player of yours starts on the going rate (Cain 2026-11-07:
+    // every NIL dollar is yours, so nobody is left to a split).
+    fill_deals(&mut w);
     let b = budget(&w, j);
     assert!(b.two_pots);
     assert!((b.yours - 12.0e6).abs() < 1.0, "the school's pot is yours: {}", b.yours);
@@ -88,18 +92,106 @@ fn your_money_is_the_schools_revenue_share() {
     assert!(b.collective_roster > 0.0 && b.collective_roster <= 0.6 * 8.0e6 + 1.0, "{}", b.collective_roster);
     let own = collective_deals(&w, j);
     assert_eq!(own.len(), usual_deals(&w, j).len(), "a collective deal for every player");
-    let (id, usual) = usual_deals(&w, j)[0];
-    assert!(set_deal(&mut w, id, 12.5e6).is_err(), "more than the school's pot");
-    set_deal(&mut w, id, 1.0e6).unwrap();
-    // With NIL at your staff his usual share is what the deal replaces.
-    let replaced =
-        if w.front_office.owner(crate::world::front_office::Duty::Nil) == crate::world::front_office::Owner::You {
-            0.0
-        } else {
-            usual
-        };
+    let (had, _) = deal_of(&w, id).expect("a deal for every player");
+    assert!((had - usual).abs() <= 250.0, "the going rate to $500: {had} against {usual}");
+    assert!(set_deal(&mut w, id, Some(12.5e6), None).is_err(), "more than the school's pot");
+    set_deal(&mut w, id, Some(1.0e6), None).unwrap();
     let left = budget(&w, j).left;
-    assert!((left - (b.left - 1.0e6 + replaced)).abs() < 1.0, "a deal comes out of the revenue share: {left}");
+    assert!((left - (b.left - 1.0e6 + had)).abs() < 1.0, "a deal comes out of the revenue share: {left}");
+}
+
+/// NIL is always yours (Cain 2026-11-07): there is no staff to hand it to,
+/// your deals stand from one money year to the next, a $0 box pays nothing
+/// until you fill it, and the collective deal is yours to set too.
+#[test]
+fn every_nil_dollar_is_yours_and_your_deals_stand() {
+    use crate::world::front_office::{Duty, Owner};
+    let (mut w, j) = college(true);
+    w.front_office.set_owner(Duty::Nil, Owner::Staff);
+    assert_eq!(w.front_office.owner(Duty::Nil), Owner::You);
+    fill_deals(&mut w);
+    let (id, usual) = usual_deals(&w, j).into_iter().max_by(|a, b| a.1.total_cmp(&b.1)).unwrap();
+    // A collective deal of yours, cleared by NIL Go.
+    let b = budget(&w, j);
+    let (_, old_c) = deal_of(&w, id).unwrap();
+    set_deal(&mut w, id, None, Some(50_000.0)).unwrap();
+    assert_eq!(deal_of(&w, id).unwrap().1, 50_000.0);
+    let moved = b.coll_left - budget(&w, j).coll_left;
+    assert!((moved - (50_000.0 - old_c)).abs() < 1.0, "the collective's pot pays it: {moved}");
+    assert!(set_deal(&mut w, id, None, Some(1.0e9)).is_err(), "more than the collective has");
+    // A new money year keeps every deal.
+    let before = w.front_office.college.deals.clone();
+    w.today = Date::ymd(2026, 8, 1);
+    fill_deals(&mut w);
+    assert_eq!(deal_of(&w, id).unwrap().1, 50_000.0, "your deal stands");
+    for d in &before {
+        assert!(w.front_office.college.deals.contains(d), "{d:?}");
+    }
+    // Clear every deal: each box is $0 and pays nothing until filled.
+    let n = clear_deals(&mut w).unwrap();
+    assert!(n > 0);
+    assert_eq!(deal_of(&w, id), Some((0.0, 0.0)));
+    fill_deals(&mut w);
+    assert_eq!(deal_of(&w, id), Some((0.0, 0.0)), "a $0 box is a deal of nothing, not a blank");
+    // Fill blanks puts the going rate back in every empty box.
+    let (filled, blank) = set_usual_deals(&mut w).unwrap();
+    assert!(filled > 0 && filled <= blank, "{filled} of {blank}");
+    let now = usual_deals(&w, j).into_iter().find(|d| d.0 == id).unwrap().1;
+    assert!((deal_of(&w, id).unwrap().0 - now).abs() <= 250.0 && usual > 0.0);
+}
+
+/// From the review of Cain's 2026-11-07 change: a recruit who signed
+/// before you took over starts on the old staff's money, a screen's read
+/// writes nothing, a player who leaves loses his deals, and a desk from
+/// before is brought up once on load.
+#[test]
+fn inherited_signees_old_desks_and_screens_keep_their_money() {
+    use crate::world::front_office::college::{NIL_REV, after_load, deals_now, deals_year};
+    let (mut w, j) = college(true);
+    // He signed with the program before your desk existed.
+    let class = rec::next_class(&w);
+    let k = w.people.iter().position(|p| p.stage == Stage::HighSchool && p.class_of == class).unwrap();
+    let signee = w.people[k].player.id;
+    w.people[k].cal.signed = Some(crate::world::Signed {
+        program: j,
+        walk_on: false,
+        date: w.today,
+        early_enrollee: false,
+        flipped: false,
+        committed: None,
+    });
+    fill_deals(&mut w);
+    let had = w.front_office.college.signed.iter().find(|x| x.0 == signee).copied();
+    assert!(had.is_some_and(|x| x.1 + x.2 > 0.0), "the old staff's usual money: {had:?}");
+    assert_eq!(w.front_office.college.nil_rev, NIL_REV, "a new desk is on the new rules");
+    // A screen's read: a player without a deal shows the one he starts on,
+    // and nothing is written.
+    let (id, _) = usual_deals(&w, j)[0];
+    w.front_office.college.deals.retain(|d| d.0 != id);
+    w.front_office.college.coll_deals.retain(|d| d.0 != id);
+    let before = serde_json::to_string(&w.front_office).unwrap();
+    let (s, c) = deals_now(&w, j).unwrap();
+    assert!(s.contains_key(&id) && c.contains_key(&id));
+    assert!(budget(&w, j).roster > 0.0);
+    assert_eq!(serde_json::to_string(&w.front_office).unwrap(), before, "a read never writes");
+    // A desk from before: last money year's deals lapse to the going rate.
+    fill_deals(&mut w);
+    w.front_office.college.nil_rev = 0;
+    w.front_office.college.deals_year = deals_year(&w) - 1;
+    for d in w.front_office.college.deals.iter_mut() {
+        d.1 = 1.0;
+    }
+    after_load(&mut w);
+    assert_eq!(w.front_office.college.nil_rev, NIL_REV);
+    assert!(w.front_office.college.deals.iter().all(|d| d.1 != 1.0), "lapsed deals start on the going rate");
+    after_load(&mut w);
+    // A player who leaves loses his deals.
+    let i = w.people.iter().position(|p| p.player.id == id).unwrap();
+    let x = (0..w.programs.len()).find(|&x| x != j && w.programs[x].division == w.programs[j].division).unwrap();
+    w.people[i].college = Some(x);
+    w.rebuild_rosters();
+    fill_deals(&mut w);
+    assert!(deal_of(&w, id).is_none(), "{:?}", deal_of(&w, id));
 }
 
 /// Stands the clock at your next section's first minute without playing
@@ -124,7 +216,7 @@ fn deal_answers(house: bool) {
     let i = w.people.iter().position(|p| p.player.id == id).unwrap();
     let lean = w.people[i].cal.lean;
     // The six-part day: he answers at your next section.
-    let text = set_deal(&mut w, id, 0.0).unwrap();
+    let text = set_deal(&mut w, id, Some(0.0), None).unwrap();
     assert!(text.contains("He'll get back to you by"), "{text}");
     assert!(reaction(&w, id, MoneyKind::Deal).is_none(), "no answer before its hour");
     let now = (w.today, w.played);
@@ -132,7 +224,7 @@ fn deal_answers(house: bool) {
     let r = reaction(&w, id, MoneyKind::Deal).expect("an answer");
     assert!(matches!(r.mood, Mood::WantsMore | Mood::Insulted), "{:?}: {}", r.mood, r.text);
     (w.today, w.played) = now;
-    set_deal(&mut w, id, 3.0 * usual).unwrap();
+    set_deal(&mut w, id, Some(3.0 * usual), None).unwrap();
     to_next_section(&mut w);
     let r = reaction(&w, id, MoneyKind::Deal).unwrap();
     assert_eq!(r.mood, Mood::Thrilled, "{}", r.text);
@@ -155,7 +247,7 @@ fn promise_answers(house: bool) {
     let usual = rec::usual_nil_offer(&w, j, i);
     assert!(usual > 1_000.0, "{usual}");
     let commit = w.people[i].cal.commit;
-    let text = set_promise(&mut w, id, Some(10.0 * usual + 1.0e6)).unwrap();
+    let text = set_promise(&mut w, id, Some(10.0 * usual + 1.0e6), None).unwrap();
     assert!(text.contains("He'll get back to you by"), "{text}");
     assert!(reaction(&w, id, MoneyKind::Promise).is_none(), "no answer before its hour");
     let now = (w.today, w.played);
@@ -170,7 +262,7 @@ fn promise_answers(house: bool) {
     w.programs[x].collective.budget = 20.0e6;
     w.programs[x].collective.school = 12.0e6;
     w.people[i].cal.offers.push(x);
-    set_promise(&mut w, id, Some(0.0)).unwrap();
+    set_promise(&mut w, id, Some(0.0), None).unwrap();
     to_next_section(&mut w);
     let r = reaction(&w, id, MoneyKind::Promise).unwrap();
     assert!(matches!(r.mood, Mood::WantsMore | Mood::Insulted), "{:?}: {}", r.mood, r.text);
@@ -209,29 +301,37 @@ fn lone_offer(house: bool) {
     let (school, collective) = rec::usual_nil_parts(&w, j, i);
     assert!(school + collective > 1_000.0, "a four-star's usual money: {school} + {collective}");
     offer(&mut w, id).unwrap();
-    // No number: the scholarship alone, with the collective's own deal
-    // beside it in two pots.
-    let own = if house { collective } else { 0.0 };
-    assert!((weighed_offer(&w, j, id) - own).abs() < 1.0, "{} against {own}", weighed_offer(&w, j, id));
+    // No number: the scholarship alone (every NIL dollar is yours, Cain
+    // 2026-11-07: a blank box is no money).
+    assert!(weighed_offer(&w, j, id).abs() < 1.0, "{}", weighed_offer(&w, j, id));
     let b = stage_board(&w).unwrap();
     let o = b.offers.iter().find(|o| o.person == i).expect("the offer goes out");
-    assert!(o.nil.is_some_and(|x| (x - own).abs() < 1.0), "{:?}", o.nil);
+    assert!(o.nil.is_some_and(|x| x.abs() < 1.0), "{:?}", o.nil);
     // His only offer leads his list, whatever the money.
     assert_eq!(race(&w, id).first().map(|r| r.0), Some(j));
-    // With nobody else paying, nothing from you is no lowball (and the
-    // collective's own deal is money he didn't have).
-    set_promise(&mut w, id, Some(0.0)).unwrap();
+    // With nobody else paying, nothing from you is no lowball.
+    set_promise(&mut w, id, Some(0.0), None).unwrap();
     to_next_section(&mut w);
     let r = reaction(&w, id, MoneyKind::Promise).expect("an answer");
-    assert_eq!(r.mood, if house { Mood::Pleased } else { Mood::Fine }, "{}", r.text);
+    assert_eq!(r.mood, Mood::Fine, "{}", r.text);
     assert!(r.text.contains("No other school"), "{}", r.text);
     // A number is what he weighs.
-    set_promise(&mut w, id, Some(50_000.0)).unwrap();
-    assert!((weighed_offer(&w, j, id) - 50_000.0 - own).abs() < 1.0);
+    set_promise(&mut w, id, Some(50_000.0), None).unwrap();
+    assert!((weighed_offer(&w, j, id) - 50_000.0).abs() < 1.0);
     to_next_section(&mut w);
     assert_eq!(reaction(&w, id, MoneyKind::Promise).unwrap().mood, Mood::Pleased);
+    // In two pots your collective deal adds what NIL Go clears of it; before,
+    // there is one number.
+    if house {
+        set_promise(&mut w, id, Some(50_000.0), Some(collective.max(10_000.0))).unwrap();
+        let top = rec::nil_go_top_recruit(&w.people[i]);
+        let c = rec::nil_go(w.today, collective.max(10_000.0), top);
+        assert!((weighed_offer(&w, j, id) - 50_000.0 - c).abs() < 1.0, "{} against {c}", weighed_offer(&w, j, id));
+    } else {
+        assert!(set_promise(&mut w, id, Some(50_000.0), Some(10_000.0)).is_err(), "one pot before July 2025");
+    }
     // With your coordinator on the board his offers carry the usual money.
-    set_promise(&mut w, id, None).unwrap();
+    set_promise(&mut w, id, None, None).unwrap();
     w.front_office.set_owner(Duty::Board, Owner::Staff);
     let usual = rec::usual_nil_offer(&w, j, i);
     assert!((weighed_offer(&w, j, id) - usual).abs() < 1.0, "{} against {usual}", weighed_offer(&w, j, id));

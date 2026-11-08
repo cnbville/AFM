@@ -103,6 +103,8 @@
 .pg-mk.big { width: 40px; height: 40px; font-size: 13px; margin: 0; border-radius: 7px; }
 .pg-tag { font-size: 10px; font-weight: 700; letter-spacing: .06em; color: var(--pg-fg3); border: 1px solid #333943; border-radius: 4px; padding: 1px 5px; margin-left: 8px; }
 .pg-tag.pro { color: var(--pg-amber); border-color: rgba(240, 180, 76, .4); }
+/* A career that used sandbox mode (Settings, a test switch). */
+.pg-sandbox { font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--pg-amber); border: 1px solid rgba(240, 180, 76, .45); border-radius: 4px; padding: 1px 5px; margin-left: 8px; vertical-align: 1px; }
 .pg-bar { display: inline-block; width: 46px; height: 5px; border-radius: 3px; background: #2a2f37; position: relative; overflow: hidden; vertical-align: middle; margin-right: 8px; }
 .pg-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--pg-amber); }
 .pg-filehead { display: flex; gap: 12px; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--pg-line); }

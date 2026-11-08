@@ -66,6 +66,7 @@ pub mod pronoun;
 pub mod records;
 pub(crate) mod recruiting;
 pub mod road_marks;
+pub mod sandbox;
 pub mod schedule;
 pub mod scouting;
 pub(crate) mod season;
@@ -1345,15 +1346,18 @@ impl World {
         let rows = data::COLLEGES.iter().map(|r| (r, false)).chain(data::DROPPED_COLLEGES.iter().map(|r| (r, true)));
         for (row, dropped) in rows {
             let id = programs.len();
-            let mut probe = program::program_from_row(id, row, seed, &mut Rng::new(0));
+            let today = data::HISTORY_LAST + 1;
+            let mut probe = program::program_from_row(id, row, today, seed, &mut Rng::new(0));
             probe.set_history(dropped);
-            let status = (first.max(data::HISTORY_FIRST)..=data::HISTORY_LAST + 1).find_map(|y| probe.real_status(y));
+            let status = (first.max(data::HISTORY_FIRST)..=today).find_map(|y| probe.real_status(y).map(|s| (y, s)));
             let mut start = row.clone();
-            if let Some((d, c)) = status {
+            let mut since = today;
+            if let Some((y, (d, c))) = status {
                 start.division = d;
                 start.conference = c;
+                since = y;
             }
-            let mut p = program::program_from_row(id, &start, seed, &mut rng);
+            let mut p = program::program_from_row(id, &start, since, seed, &mut rng);
             p.base = probe.base.clone();
             p.set_history(dropped);
             programs.push(p);
@@ -1367,7 +1371,7 @@ impl World {
             if programs.iter().any(|p| p.real_name == row.name) {
                 continue;
             }
-            let mut p = program::program_from_row(programs.len(), row, seed, &mut cand_rng);
+            let mut p = program::program_from_row(programs.len(), row, data::HISTORY_LAST + 1, seed, &mut cand_rng);
             p.set_history(true);
             programs.push(p);
         }
@@ -1566,6 +1570,12 @@ impl World {
     /// stopped on.
     pub fn holiday_to(&mut self, until: crate::calendar::Date) -> crate::calendar::Date {
         clock::holiday_to(self, until)
+    }
+
+    /// Sandbox mode's jump (a test tool): every day to `until` played as
+    /// Continue plays it, staff running things, no early stop.
+    pub fn jump_to(&mut self, until: crate::calendar::Date) -> crate::calendar::Date {
+        clock::jump_to(self, until)
     }
 
     /// The college season's ranking releases so far: (day, poll, top 25).

@@ -690,6 +690,8 @@ pub fn status(w: &World) -> Value {
         "season": w.year,
         "mine": mine(w).map(|t| team_brief(w, t)),
         "you": w.career.as_ref().map(|c| c.you.name.clone()),
+        // Sandbox mode (Settings, a test switch): the frame's badge.
+        "sandbox": w.career.as_ref().is_some_and(|c| c.sandbox.on),
         "seat": crate::lane_frontoffice::setup::seat_json(w),
         "next": next,
         "pinned": pinned(w).into_iter().chain(crate::lane_core::desk::pinned(w)).collect::<Vec<_>>(),
