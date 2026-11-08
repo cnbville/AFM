@@ -109,9 +109,10 @@ pub enum Read {
     FinesseRush,
     /// Block shedding: run-block reps won as the defender.
     Shed,
-    /// Man coverage: completions allowed over expected in man.
+    /// Man coverage: completions allowed in man, against what an open man
+    /// catches at the throw's depth and pressure.
     ManCover,
-    /// Zone coverage: completions allowed over expected in zone.
+    /// Zone coverage: the same in zone.
     ZoneCover,
     /// Tackling: missed tackles per tackle attempt.
     Tackle,
@@ -433,7 +434,12 @@ fn pass_trials(r: &PlayRecord, level: Level, put: &mut impl FnMut(u32, Read, f64
         }
     }
     if let Some(d) = r.defender {
-        put(d, if r.coverage_man { Read::ManCover } else { Read::ZoneCover }, -over, 0.0);
+        // The separation is his doing, so his read is the catch against
+        // what the throw's depth and pressure give an open man (minor bug
+        // 283: against the receiver's separation it left out most of what
+        // coverage does).
+        let open = r.complete as u8 as f64 - expected_completion_at(level, air, 2.0, r.pressured);
+        put(d, if r.coverage_man { Read::ManCover } else { Read::ZoneCover }, -open, 0.0);
     }
 }
 
