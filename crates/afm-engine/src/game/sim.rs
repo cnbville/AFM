@@ -40,6 +40,33 @@ fn headings() -> &'static [(f64, f64); 15] {
     })
 }
 
+/// The vision cone's test `c.acos() < half` (`Sim::sees`), the same answer
+/// for every `c` and `half`, with the arc cosine worked out only when the
+/// angle is within a hair of `half` (world speed lane). For 0 <= c < 1,
+/// asin(c) = c + c^3/6 + sum a_n c^(2n+1) with every a_n > 0 and a_n at
+/// most 3/40 from n = 2 on, so acos(c) is at most pi/2 - c - c^3/6 and at
+/// least that less 0.08 c^5/(1 - c^2); and acos(c) > pi/2 for c < 0. The
+/// 1e-9 margins are millions of times the rounding in these few steps
+/// (under 1e-15) and the library arc cosine's error (about an ulp, 2e-16),
+/// so wherever a bound decides, `c.acos() < half` decides the same. A NaN
+/// `c` gives false either way.
+#[inline]
+fn acos_lt(c: f64, half: f64) -> bool {
+    if c >= 0.0 {
+        let c2 = c * c;
+        let up = std::f64::consts::FRAC_PI_2 - (c + c2 * c * (1.0 / 6.0));
+        if up < half - 1e-9 {
+            return true;
+        }
+        if c < 0.9 && up - 0.08 * c2 * c2 * c / (1.0 - c2) > half + 1e-9 {
+            return false;
+        }
+    } else if half < 1.57 {
+        return false;
+    }
+    c.acos() < half
+}
+
 /// Weather and setting for one game (topic 4).
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Conditions {
@@ -193,6 +220,11 @@ pub struct Agent {
     pub pos: V2,
     pub vel: V2,
     pub face: V2,
+    /// His velocity with its length (`Agent::vel_len`), as last worked out:
+    /// the same velocity has the same length, so it is not worked out again
+    /// (world speed lane). Not saved.
+    #[serde(skip)]
+    pub vel_memo: (V2, f64),
     pub vmax: f64,
     pub accel: f64,
     /// Sprint time constant: speed builds as 1 - e^(-t/tau).
@@ -294,6 +326,7 @@ impl Agent {
             pos,
             vel: V2::default(),
             face: v2(if side == 0 { 1.0 } else { -1.0 }, 0.0),
+            vel_memo: (V2::default(), 0.0),
             vmax,
             accel: gp.accel() * (1.0 - 0.1 * tired),
             tau: gp.sprint_tau() * (1.0 + 0.1 * tired),
@@ -341,6 +374,7 @@ impl Agent {
             pos: self.pos,
             vel: self.vel,
             face: self.face,
+            vel_memo: self.vel_memo,
             vmax: self.vmax,
             accel: self.accel,
             tau: self.tau,
@@ -380,16 +414,33 @@ impl Agent {
         self.accel * (1.2 + 0.7 * self.cut)
     }
 
+    /// `vel.len()`: from the memo while the velocity is the one it was
+    /// worked out for (equal coordinates give the same squares and root; a
+    /// NaN never matches).
+    #[inline]
+    pub fn vel_len(&self) -> f64 {
+        if self.vel == self.vel_memo.0 { self.vel_memo.1 } else { self.vel.len() }
+    }
+
     /// Speed up, slow down and cut toward the wanted velocity, within
     /// his acceleration, sprint curve and agility.
     pub fn steer(&mut self, want: V2) {
         let a = self;
         let v = a.vel;
-        let speed = v.len();
+        let speed = a.vel_len();
         let mut want = want;
-        let wl = want.len();
-        if wl > a.vmax {
-            want = want.scale(a.vmax / wl);
+        // `want.len()` is the root of this sum. Well under his top speed
+        // squared (vmax * vmax is rounded up half an ulp at most, and
+        // 0.999_999 takes far more back off) the root is under his top speed
+        // too, so the cap below can't act and the root isn't needed (world
+        // speed lane).
+        let wq = want.x * want.x + want.y * want.y;
+        let slow = a.vmax > 1.0 && wq < a.vmax * a.vmax * 0.999_999;
+        if !slow {
+            let wl = wq.sqrt();
+            if wl > a.vmax {
+                want = want.scale(a.vmax / wl);
+            }
         }
         let dv = want - v;
         let dir = if speed > 0.3 { v.scale(1.0 / speed) } else { dv.norm() };
@@ -402,12 +453,23 @@ impl Agent {
         let pl = perp.len();
         // Bend (Dynamic Links): a tight turn at speed, where a cut loses
         // the most.
-        let side = a.accel * a.cut * DT * (1.0 + 0.25 * (1.0 - speed / a.vmax) + 0.04 * a.bend * speed / a.vmax);
+        let t1 = speed / a.vmax;
+        let turn = 1.0 + 0.25 * (1.0 - t1);
+        // Bend's part, ((0.04 * bend) * speed) / vmax, is a zero for a man
+        // without the link while t1 is finite (a finite speed over a top
+        // speed that is neither zero nor NaN), and a zero added to `turn`
+        // (never -0) leaves it as it is: worked out only with the link
+        // (world speed lane).
+        let turn = if a.bend == 0.0 && t1.is_finite() { turn } else { turn + 0.04 * a.bend * speed / a.vmax };
+        let side = a.accel * a.cut * DT * turn;
         let perp_c = if pl > side { perp.scale(side / pl) } else { perp };
         a.vel = v + dir.scale(par_c) + perp_c;
         let s = a.vel.len();
         if s > a.vmax {
             a.vel = a.vel.scale(a.vmax / s);
+        } else {
+            // His speed as worked out, for the next look at it.
+            a.vel_memo = (a.vel, s);
         }
         a.work += DT * 0.35 * (0.2 + 0.8 * s / 9.0);
         if s > a.top {
@@ -910,11 +972,20 @@ pub struct Sim<'a> {
     /// Each agent's tendencies this play (`Sim::tend`), worked out on first
     /// use: everything they read is fixed for the play. NaN until then.
     pub(crate) tend_memo: [[std::cell::Cell<f64>; crate::tendencies::TEND_COUNT]; MAX_AGENTS],
+    /// Each agent's tackling reach from his arms and from Length
+    /// (`Sim::reach_extra`), worked out on first use: they read only his
+    /// player, the same all play. None until then.
+    pub(crate) reach_memo: [std::cell::Cell<Option<(f64, f64)>>; MAX_AGENTS],
 }
 
 /// A new play's empty tendency memo (`Sim::tend_memo`).
 pub(crate) fn tend_memo() -> [[std::cell::Cell<f64>; crate::tendencies::TEND_COUNT]; MAX_AGENTS] {
     [const { [const { std::cell::Cell::new(f64::NAN) }; crate::tendencies::TEND_COUNT] }; MAX_AGENTS]
+}
+
+/// A new play's empty reach memo (`Sim::reach_memo`).
+pub(crate) fn reach_memo() -> [std::cell::Cell<Option<(f64, f64)>>; MAX_AGENTS] {
+    [const { std::cell::Cell::new(None) }; MAX_AGENTS]
 }
 
 /// How much a run block's outcome leans on the strength gap per point.
@@ -1058,6 +1129,23 @@ pub fn gauss(rng: &mut Rng) -> f64 {
     rng.normal(0.0, 1.0)
 }
 
+/// The separation scan's one-yard bands (`Sim::advance`), along the field
+/// and across it, from `BAND_OFF` yards behind the zero line, with a spare
+/// band at each end.
+const BANDS_X: usize = 176;
+const BANDS_Y: usize = 96;
+const BAND_OFF: f64 = 24.0;
+
+/// A coordinate's band: shifted by `BAND_OFF`, truncated and held to
+/// 1..=n-2 (a NaN goes to band 1, and a NaN spot never pushes anyone). It
+/// never falls as the coordinate grows, so spots two or more bands apart
+/// are more than a yard apart (less rounding of about 1e-13), where the
+/// scan's `d.dot(d) > 0.65` always skips them (world speed lane).
+#[inline]
+fn band(v: f64, n: usize) -> usize {
+    ((v + BAND_OFF) as i64).clamp(1, n as i64 - 2) as usize
+}
+
 /// One tick of a player's own movement (`Sim::advance`): it reads and
 /// changes only him.
 #[inline]
@@ -1066,8 +1154,18 @@ fn step(a: &mut Agent, t: f64) {
         a.vel = a.vel.scale(0.5);
     }
     a.pos = a.pos + a.vel.scale(DT);
-    if a.vel.len() > 1.0 && t >= a.face_lock {
-        a.face = a.vel.norm();
+    // His speed: from the memo when steer left it, and kept for the next
+    // steer (the same number as vel.len(); world speed lane).
+    let l = if a.vel == a.vel_memo.0 {
+        a.vel_memo.1
+    } else {
+        let l = a.vel.len();
+        a.vel_memo = (a.vel, l);
+        l
+    };
+    if l > 1.0 && t >= a.face_lock {
+        // vel.norm() with a length over 1: the same two divisions.
+        a.face = v2(a.vel.x / l, a.vel.y / l);
     }
 }
 
@@ -1226,7 +1324,10 @@ impl<'a> Sim<'a> {
         if d.len() < 2.0 {
             return true;
         }
-        let ang = a.face.angle_between(d);
+        // The cosine `angle_between` took the arc cosine of: the cone is
+        // tested on it (`acos_lt`, the same answer as the angle against
+        // `half`; world speed lane).
+        let cos = a.face.norm().dot(d.norm()).clamp(-1.0, 1.0);
         let read = if matches!(a.job, Job::Passer) {
             Attr::PocketPresence
         } else if self.carrier() == Some(i) {
@@ -1235,7 +1336,7 @@ impl<'a> Sim<'a> {
             Attr::PlayRecognition
         };
         let half = 1.2 + 0.006 * (a.a(read) - 50.0);
-        ang < half
+        acos_lt(cos, half)
     }
 
     /// Closest distance between two agents over the last tick, so players
@@ -1277,18 +1378,21 @@ impl<'a> Sim<'a> {
             return;
         }
         // Bodies don't pass through each other: free players slide around
-        // engaged pairs and teammates. A compact copy, so the pair scan stays
-        // in cache: each side's obstacles (its own players and anyone
-        // engaged), in index order, made in the pass that moves each player
-        // (it reads only his own new spot and state, so it is the same as a
-        // second pass). `at` is where a player sits in his own side's list: a
-        // mover is there once, and his scan leaves that entry out (the same
-        // players in the same order as testing each one against him).
+        // engaged pairs and teammates. A compact copy, made in the pass that
+        // moves each player (it reads only his own new spot and state, so it
+        // is the same as a second pass): each side's obstacles (its own
+        // players and anyone engaged) as bits, and each obstacle's bit in
+        // his one-yard band along the field and across it (`band`). A mover
+        // tests only the obstacles in the three bands around him each way,
+        // lowest index first: the same men in the same order as his side's
+        // whole list, less men two bands or more away, whom the test skipped
+        // (clearly apart) without touching anything (world speed lane).
         let mut pos = [V2::default(); MAX_AGENTS];
         let mut mover = [false; MAX_AGENTS];
-        let mut obst = [[0u8; MAX_AGENTS]; 2];
-        let mut n_obst = [0usize; 2];
-        let mut at = [0u8; MAX_AGENTS];
+        let mut own = [0u32; 2];
+        let mut bx = [0u32; BANDS_X];
+        let mut by = [0u32; BANDS_Y];
+        let mut cell = [(0u8, 0u8); MAX_AGENTS];
         for (j, a) in self.agents.iter_mut().enumerate() {
             step(a, t);
             pos[j] = a.pos;
@@ -1297,15 +1401,16 @@ impl<'a> Sim<'a> {
             if Some(j) == carrier {
                 continue;
             }
-            for (s, list) in obst.iter_mut().enumerate() {
+            let bit = 1u32 << j;
+            for (s, m) in own.iter_mut().enumerate() {
                 if engaged || a.side == s {
-                    if a.side == s {
-                        at[j] = n_obst[s] as u8;
-                    }
-                    list[n_obst[s]] = j as u8;
-                    n_obst[s] += 1;
+                    *m |= bit;
                 }
             }
+            let (cx, cy) = (band(a.pos.x, BANDS_X), band(a.pos.y, BANDS_Y));
+            cell[j] = (cx as u8, cy as u8);
+            bx[cx] |= bit;
+            by[cy] |= bit;
         }
         for i in 0..n {
             if !mover[i] {
@@ -1313,28 +1418,40 @@ impl<'a> Sim<'a> {
             }
             let side = self.agents[i].side;
             let pi = pos[i];
+            let bit = 1u32 << i;
+            let (cx, cy) = (cell[i].0 as usize, cell[i].1 as usize);
+            let near = (bx[cx - 1] | bx[cx] | bx[cx + 1]) & (by[cy - 1] | by[cy] | by[cy + 1]);
+            // His side's obstacles near him, himself left out.
+            let mut m = own[side] & near & !bit;
             let mut push = V2::default();
-            let list = &obst[side][..n_obst[side]];
-            let k = at[i] as usize;
-            let mut add = |j: u8| {
-                let d = pi - pos[j as usize];
+            let mut moved = false;
+            while m != 0 {
+                let j = m.trailing_zeros() as usize;
+                m &= m - 1;
+                let d = pi - pos[j];
                 // Clearly apart (well past 0.8 yards): no square root needed.
                 if d.dot(d) > 0.65 {
-                    return;
+                    continue;
                 }
                 let l = d.len();
                 if l < 0.8 && l > 1e-6 {
                     push = push + d.scale((0.8 - l) / l * 0.5);
+                    moved = true;
                 }
-            };
-            for &j in &list[..k] {
-                add(j);
-            }
-            for &j in &list[k + 1..] {
-                add(j);
             }
             pos[i] = pi + push.scale(self.agents[i].traffic());
             self.agents[i].pos = pos[i];
+            if moved {
+                // His bands follow him for the movers after him. Unpushed,
+                // his spot keeps its value (or turns NaN, which pushes no
+                // one), so his bands stay right.
+                let (nx, ny) = (band(pos[i].x, BANDS_X), band(pos[i].y, BANDS_Y));
+                bx[cx] &= !bit;
+                by[cy] &= !bit;
+                bx[nx] |= bit;
+                by[ny] |= bit;
+                cell[i] = (nx as u8, ny as u8);
+            }
         }
     }
 
@@ -1438,7 +1555,7 @@ impl<'a> Sim<'a> {
             }
             return;
         }
-        let mv = if pass { self.pick_move(b, d) } else { Move::Power };
+        let (mv, picked) = if pass { self.pick_move(b, d) } else { (Move::Power, None) };
         if pass && self.record.is_some() {
             self.notes.rush_moves.push((self.agents[d].id, mv));
         }
@@ -1533,7 +1650,10 @@ impl<'a> Sim<'a> {
             grab_checked: false,
             shed_at: None,
             countered: false,
-            edge_memo: None,
+            // The pick's edge is the number the first `update_blocks` tick
+            // would work out: no helper yet, the same blocker, move and arc,
+            // and nothing it reads changes in a play (world speed lane).
+            edge_memo: picked.map(|v| (b, None, mv, edge_rusher, v)),
         });
         self.agents[b].engaged = Some(k);
         self.agents[d].engaged = Some(k);
@@ -1560,17 +1680,21 @@ impl<'a> Sim<'a> {
         }
     }
 
-    fn pick_move(&mut self, b: usize, d: usize) -> Move {
-        let mut best = (Move::Speed, f64::NEG_INFINITY);
+    /// The rusher's move, and that move's edge (`rush_power` less
+    /// `block_power`, as `update_blocks` works it out) when one scored above
+    /// minus infinity: the same draws and the same pick as before (world
+    /// speed lane).
+    fn pick_move(&mut self, b: usize, d: usize) -> (Move, Option<f64>) {
+        let mut best = (Move::Speed, f64::NEG_INFINITY, None);
         for mv in [Move::Speed, Move::Power, Move::Finesse] {
             let edge = self.rush_power(d, mv) - self.block_power(b, mv, true);
             // Smart rushers pick the right move more often.
             let noise = (11.0 - 0.09 * self.agents[d].a(Attr::FootballIq)).max(2.0) * gauss(self.rng);
             if edge + noise > best.1 {
-                best = (mv, edge + noise);
+                best = (mv, edge + noise, Some(edge));
             }
         }
-        best.0
+        (best.0, best.2)
     }
 
     /// Rusher strength for a move, on the rating scale. A speed rush is
@@ -1773,12 +1897,18 @@ impl<'a> Sim<'a> {
                     0.85,
                 );
                 if self.rng.chance(plan) {
-                    let mv = self.pick_move(b, d);
-                    if mv != e.mv && self.rush_power(d, mv) - self.block_power(b, mv, true) > edge {
-                        self.eng[k].mv = mv;
-                        edge = self.rush_power(d, mv) - self.block_power(b, mv, true);
-                        if self.record.is_some() {
-                            self.notes.rush_moves.push((self.agents[d].id, mv));
+                    let (mv, picked) = self.pick_move(b, d);
+                    if mv != e.mv {
+                        // The edge the pick worked out for it: the same
+                        // number, as only draws came between (world speed
+                        // lane).
+                        let to = picked.unwrap_or_else(|| self.rush_power(d, mv) - self.block_power(b, mv, true));
+                        if to > edge {
+                            self.eng[k].mv = mv;
+                            edge = to;
+                            if self.record.is_some() {
+                                self.notes.rush_moves.push((self.agents[d].id, mv));
+                            }
                         }
                     }
                 }
@@ -1832,12 +1962,14 @@ impl<'a> Sim<'a> {
             // sealed fights off it to make the play (shed and tackle), the
             // harder the more leverage he has. A second-level man sees him
             // coming from farther and fights harder.
+            // A sealed block (stored at exactly -1) is tested first: both
+            // tests are pure, and it skips the root (world speed lane).
             let second = (self.agents[d].pos.x - self.los) * self.goal > 1.5;
             if !e.pass
                 && !reading
                 && let Some(c) = carrier
-                && self.agents[c].pos.dist(self.agents[d].pos) < if second { SHED_SECOND_RANGE } else { 2.2 }
                 && e.w > -1.0
+                && self.agents[c].pos.dist(self.agents[d].pos) < if second { SHED_SECOND_RANGE } else { 2.2 }
             {
                 if second {
                     mu += 2.0 * SHED_SECOND * (0.5 + e.w).max(0.2);
@@ -2069,7 +2201,6 @@ impl<'a> Sim<'a> {
         // Contact willingness at the sideline: with a tackler closing, one
         // who avoids contact steps out; one who seeks it turns up.
         let contact = self.lean(c, Tend::Contact);
-        let mut best = (f64::NEG_INFINITY, v2(goal, 0.0));
         // A patient back reads the crease cleanly while he waits.
         let noise = (1.0 - 0.008 * vision).max(0.2) * if pressing { 1.0 - 0.35 * patient } else { 1.0 };
         // The defenders he reckons with, and how free each is: the same
@@ -2089,6 +2220,9 @@ impl<'a> Sim<'a> {
             };
             1.2 + 0.006 * (me.a(read) - 50.0)
         };
+        // The nearest defender he reckons with (`seen` index): his share is
+        // summed first when a heading may be dropped (only a bound).
+        let (mut nearest, mut near_d) = (usize::MAX, f64::INFINITY);
         for d in self.agents.iter() {
             if d.side == me.side || !d.up(t) {
                 continue;
@@ -2100,10 +2234,11 @@ impl<'a> Sim<'a> {
             // Defenders behind him or far away count only if he can see them
             // (`sees`, on the distance already known: past 3 yards nothing is
             // felt, and the cone is only looked at where it decides; the same
-            // steps on the same numbers).
+            // steps on the same numbers, the arc cosine only near the cone's
+            // edge, `acos_lt`).
             if dist > 3.0 && dist > sight * 0.5 {
                 let rel = d.pos - me.pos;
-                let sees = face_n.dot(v2(rel.x / dist, rel.y / dist)).clamp(-1.0, 1.0).acos() < half;
+                let sees = acos_lt(face_n.dot(v2(rel.x / dist, rel.y / dist)).clamp(-1.0, 1.0), half);
                 if !sees {
                     continue;
                 }
@@ -2113,6 +2248,9 @@ impl<'a> Sim<'a> {
                 Some(w) => 0.15 + 0.35 * ((w + 1.0) / 2.0),
                 None => 1.0,
             };
+            if dist < near_d {
+                (near_d, nearest) = (dist, n_seen);
+            }
             seen[n_seen] = (d.pos, d.vmax, reach);
             n_seen += 1;
         }
@@ -2187,21 +2325,22 @@ impl<'a> Sim<'a> {
             *j = gauss(self.rng);
         }
         let dir_of = |k: usize| v2(goal * heads[k].0, heads[k].1);
-        // How soon the defenders he reckons with get to the spot 3.5 yards
-        // out on heading k.
-        let threat_at = |k: usize| {
-            let p = me.pos + dir_of(k).scale(look);
-            let mut threat = 0.0;
-            for &(pos, vmax, reach) in &seen[..n_seen] {
-                let td = (pos.dist(p) - 1.0).max(0.0) / vmax + 0.15;
-                let lead = t_me - td;
-                threat += reach * (lead / 0.35).exp().min(6.0);
-            }
-            threat
-        };
-        // Heading k's score at a threat; with `at_most`, the most it can be
-        // at any threat of 0 or more (the sideline at its lowest).
-        let score_at = |k: usize, threat: f64, at_most: bool| {
+        // Heading k's score but its threat, worked out once: the same steps
+        // on the same numbers as scoring it whole (world speed lane).
+        struct Part {
+            /// The spot 3.5 yards out.
+            p: V2,
+            gain: f64,
+            /// The sideline's cost, and with a tackler closing.
+            open: f64,
+            closing: f64,
+            keep: f64,
+            lateral: f64,
+            off_lane: f64,
+            noise: f64,
+            pull: Option<f64>,
+        }
+        let parts: [Part; 15] = std::array::from_fn(|k| {
             let dir = dir_of(k);
             let p = me.pos + dir.scale(look);
             let gain = dir.x * goal;
@@ -2212,59 +2351,120 @@ impl<'a> Sim<'a> {
             let mut closing = open;
             closing -= 10.0 * step * outward.max(0.0);
             closing += 1.5 * contact.max(0.0) * outward.max(0.0);
-            let sideline = if at_most {
-                if near_edge && closing < open { closing } else { open }
-            } else if near_edge && threat > 0.3 {
-                closing
-            } else {
-                open
-            };
             let lateral = dir.y.abs() * 0.9 * bounce;
             // In his lane to the line.
             let off_lane = lane.map_or(0.0, |y| 2.0 * ((p.y - y).abs() - 1.5).max(0.0));
             // He commits to a path: changing course costs speed, so the
             // heading he is on gets a bonus once he is moving.
             let keep = if vel_len > 2.0 { 0.9 * dir.dot(vel_n) } else { 0.0 };
-            let mut score = 1.5 * gain - 1.1 * threat - sideline + keep + lateral - off_lane + noise * jolt[k] * 0.6;
-            if let Some((m, wanted)) = pull {
-                score += m * dir.dot(wanted);
+            let shake = noise * jolt[k] * 0.6;
+            let tug = pull.map(|(m, wanted)| m * dir.dot(wanted));
+            Part { p, gain, open, closing, keep, lateral, off_lane, noise: shake, pull: tug }
+        });
+        // Its score at a threat and a sideline: the same sum in the same
+        // order.
+        let score_of = |h: &Part, threat: f64, sideline: f64| {
+            let mut score = 1.5 * h.gain - 1.1 * threat - sideline + h.keep + h.lateral - h.off_lane + h.noise;
+            if let Some(v) = h.pull {
+                score += v;
             }
             score
         };
-        // While every reach is 0 or more (a pass block won past -1.86 makes
-        // one negative) every threat is too, so a heading scores at most its
-        // cap: one whose cap can't beat a score already worked out is never
-        // picked, and its threat is not summed. The heading with the
-        // highest cap is worked out first; a NaN cap never skips. The pick
-        // is the same heading as scoring them all.
+        let sideline = |h: &Part, threat: f64| if near_edge && threat > 0.3 { h.closing } else { h.open };
+        // The sideline at its lowest, at any threat.
+        let lowest = |h: &Part| if near_edge && h.closing < h.open { h.closing } else { h.open };
+        // One defender's share of the threat at spot p: how soon he gets
+        // there against the runner.
+        let term = |&(pos, vmax, reach): &(V2, f64, f64), p: V2| {
+            let td = (pos.dist(p) - 1.0).max(0.0) / vmax + 0.15;
+            let lead = t_me - td;
+            reach * (lead / 0.35).exp().min(6.0)
+        };
+        let seen = &seen[..n_seen];
+        // Would heading k at score v be the pick over the best so far:
+        // higher, or as high at a lower index (scored in heading order, the
+        // first of equal scores won).
+        let wins = |v: f64, k: usize, best: (f64, Option<usize>)| {
+            v > best.0 || (v == best.0 && best.1.is_some_and(|b| k < b))
+        };
+        let mut best: (f64, Option<usize>) = (f64::NEG_INFINITY, None);
+        // Each heading's cap: its score at threat 0 with the sideline at its
+        // lowest. While every reach is 0 or more (a pass block won past
+        // -1.86 makes one negative) every threat term is too, so no heading
+        // scores above its cap, nor above its score on any of its threat's
+        // terms summed in order, nor on any one term alone (each sum only
+        // grows).
         let mut caps = [f64::NAN; 15];
-        let mut top_k = None;
-        if seen[..n_seen].iter().all(|s| s.2 >= 0.0) {
-            let mut top = f64::NEG_INFINITY;
-            for (k, cap) in caps.iter_mut().enumerate() {
-                *cap = score_at(k, 0.0, true);
-                if *cap > top {
-                    top = *cap;
-                    top_k = Some(k);
-                }
+        if seen.iter().all(|s| s.2 >= 0.0) {
+            for (cap, h) in caps.iter_mut().zip(&parts) {
+                *cap = score_of(h, 0.0, lowest(h));
             }
         }
-        let first = top_k.map(|k| (k, score_at(k, threat_at(k), false)));
-        for (k, &cap) in caps.iter().enumerate() {
-            let score = match first {
-                Some((f, s)) if f == k => s,
-                _ => {
-                    if first.is_some_and(|(_, s)| cap < s) || cap <= best.0 {
-                        continue;
+        if caps.iter().any(|x| x.is_nan()) {
+            // No caps: every heading scored in heading order, as before.
+            for (k, h) in parts.iter().enumerate() {
+                let mut threat = 0.0;
+                for s in seen {
+                    threat += term(s, h.p);
+                }
+                let score = score_of(h, threat, sideline(h, threat));
+                if score > best.0 {
+                    best = (score, Some(k));
+                }
+            }
+        } else {
+            // Highest cap first. A heading whose cap can't win is never
+            // scored, and once the highest cap left can't, none can; one
+            // whose score on part of its threat (the nearest defender's
+            // share alone, then its terms in order) can't win is dropped.
+            // The pick is the same heading as scoring them all (world speed
+            // lane).
+            loop {
+                let (mut k, mut cap) = (usize::MAX, f64::NEG_INFINITY);
+                for (j, &cj) in caps.iter().enumerate() {
+                    if cj > cap {
+                        (k, cap) = (j, cj);
                     }
-                    score_at(k, threat_at(k), false)
                 }
-            };
-            if score > best.0 {
-                best = (score, dir_of(k));
+                if k == usize::MAX || !wins(cap, k, best) {
+                    break;
+                }
+                caps[k] = f64::NEG_INFINITY;
+                let h = &parts[k];
+                let low = lowest(h);
+                // Out: his score at this much of the threat, the sideline at
+                // its lowest, can't win (a NaN never drops him).
+                let out = |threat: f64| {
+                    let most = score_of(h, threat, low);
+                    best.1.is_some() && !most.is_nan() && !wins(most, k, best)
+                };
+                let first_share = seen.get(nearest).map(|s| term(s, h.p));
+                if let Some(v) = first_share
+                    && out(v)
+                {
+                    continue;
+                }
+                let mut threat = 0.0;
+                let mut dropped = false;
+                for (m, s) in seen.iter().enumerate() {
+                    threat += match first_share {
+                        Some(v) if m == nearest => v,
+                        _ => term(s, h.p),
+                    };
+                    if out(threat) {
+                        dropped = true;
+                        break;
+                    }
+                }
+                if !dropped {
+                    let score = score_of(h, threat, sideline(h, threat));
+                    if wins(score, k, best) {
+                        best = (score, Some(k));
+                    }
+                }
             }
         }
-        let dir = best.1;
+        let dir = best.1.map_or(v2(goal, 0.0), dir_of);
         // With the ball in one arm he runs a little under his top speed.
         let pace = if pressing { speed.min(self.agents[c].vmax * 0.95) } else { self.agents[c].vmax * 0.95 };
         self.steer(c, dir.scale(pace));
@@ -2285,8 +2485,35 @@ impl<'a> Sim<'a> {
         let a = &self.agents[i];
         let cp = self.agents[c].pos;
         let cv = self.agents[c].vel;
-        let iq = 0.5 * a.a(Attr::PlayRecognition) + 0.5 * a.a(Attr::Pursuit);
         let dist = a.pos.dist(cp);
+        // In front of the runner and close, he breaks down and squares up:
+        // he shuffles to where the runner will cross his spot and comes
+        // forward under control, so the runner has to beat him with a move
+        // (topic 2.2). Good tacklers keep more speed doing it. Tested first:
+        // it reads none of the intercept below, which is pure, so that is
+        // worked out only when he chases (world speed lane).
+        let ahead = (a.pos.x - cp.x) * self.goal;
+        if ahead > 0.4 && ahead < 5.0 && dist < 6.0 && cap >= 1.0 {
+            // Breaking down is footwork and feel, not the tackle itself
+            // (dynasty item 1: tackling now decides only the finish).
+            let feet = 0.5 * a.a(Attr::Agility) + 0.3 * a.a(Attr::Tackling) + 0.2 * a.a(Attr::Pursuit);
+            let fwd = clamp(1.5 + 0.04 * (feet - 50.0), 0.8, 3.5);
+            // An alley or gap fit holds his depth: at his floor he squares
+            // up there and lets the runner come to him (minor bug 164).
+            let fwd = match floor {
+                Some(f) if (a.pos.x - f) * self.goal <= 0.0 => 0.0,
+                _ => fwd,
+            };
+            let run_x = (cv.x * self.goal).max(0.5);
+            let t_meet = ahead / (run_x + fwd);
+            let y_aim = clamp(cp.y + cv.y * t_meet, 0.5, width() - 0.5);
+            let me = a.pos;
+            let lateral = clamp((y_aim - me.y) * 4.0, -a.vmax, a.vmax);
+            let want = v2(-self.goal * fwd, lateral);
+            self.steer(i, want);
+            return;
+        }
+        let iq = 0.5 * a.a(Attr::PlayRecognition) + 0.5 * a.a(Attr::Pursuit);
         // The intercept point: where he can meet the runner at full speed.
         // Smart pursuers take most of that angle, others aim short of it.
         let rel = cp - a.pos;
@@ -2314,35 +2541,16 @@ impl<'a> Sim<'a> {
         {
             target.x = f;
         }
-        // In front of the runner and close, he breaks down and squares up:
-        // he shuffles to where the runner will cross his spot and comes
-        // forward under control, so the runner has to beat him with a move
-        // (topic 2.2). Good tacklers keep more speed doing it.
-        let ahead = (a.pos.x - cp.x) * self.goal;
-        if ahead > 0.4 && ahead < 5.0 && dist < 6.0 && cap >= 1.0 {
-            // Breaking down is footwork and feel, not the tackle itself
-            // (dynasty item 1: tackling now decides only the finish).
-            let feet = 0.5 * a.a(Attr::Agility) + 0.3 * a.a(Attr::Tackling) + 0.2 * a.a(Attr::Pursuit);
-            let fwd = clamp(1.5 + 0.04 * (feet - 50.0), 0.8, 3.5);
-            // An alley or gap fit holds his depth: at his floor he squares
-            // up there and lets the runner come to him (minor bug 164).
-            let fwd = match floor {
-                Some(f) if (a.pos.x - f) * self.goal <= 0.0 => 0.0,
-                _ => fwd,
-            };
-            let run_x = (cv.x * self.goal).max(0.5);
-            let t_meet = ahead / (run_x + fwd);
-            let y_aim = clamp(cp.y + cv.y * t_meet, 0.5, width() - 0.5);
-            let me = a.pos;
-            let lateral = clamp((y_aim - me.y) * 4.0, -a.vmax, a.vmax);
-            let want = v2(-self.goal * fwd, lateral);
-            self.steer(i, want);
-            return;
-        }
-        let motor = self.teams[a.side][a.p].trait20(Attr::Motor, self.level);
-        // A player out of the play with a low motor stops chasing.
+        // A player out of the play with a low motor stops chasing (his
+        // motor is read only then; world speed lane).
         let behind = (a.pos.x - cp.x) * self.goal < -4.0 && dist > 8.0;
-        let mut effort = if behind && motor < 9.0 { 0.8 + 0.02 * motor } else { 1.0 };
+        let mut effort = 1.0;
+        if behind {
+            let motor = self.teams[a.side][a.p].trait20(Attr::Motor, self.level);
+            if motor < 9.0 {
+                effort = 0.8 + 0.02 * motor;
+            }
+        }
         // Facing the runner up close he breaks down to make the tackle
         // instead of flying past; good tacklers keep more speed.
         let facing = (a.pos.x - cp.x) * self.goal > 0.0;
@@ -2363,35 +2571,47 @@ impl<'a> Sim<'a> {
     /// strength and help decide how far the runner falls forward.
     pub fn tackles(&mut self, c: usize) {
         let t = self.t;
+        // The carrier as the scan reads him: nothing in it moves him (it
+        // writes only defenders' last tries), so read once (world speed
+        // lane).
+        let (c_side, c_pos, c_vel) = (self.agents[c].side, self.agents[c].pos, self.agents[c].vel);
+        // In space (past the line, no bodies around) a free man can dive.
+        let in_space = (c_pos.x - self.los) * self.goal > 3.0;
         // Arm's length standing; a free man can lunge or dive a bit farther
         // at a worse chance (see first_hit).
         let mut new_tacklers = Vec::new();
         for i in 0..self.agents.len() {
             let d = &self.agents[i];
-            if d.side == self.agents[c].side || !d.up(t) || self.fight.contains(&i) {
+            // His last try is tested first: every test before a draw is
+            // pure, so their order changes nothing.
+            if d.side == c_side || !d.up(t) || self.fight.contains(&i) || t - d.last_try < 0.7 {
                 continue;
             }
-            // In space (past the line, no bodies around) a free man can dive.
-            let in_space = (self.agents[c].pos.x - self.los) * self.goal > 3.0;
             let free_reach = if d.engaged.is_none() && in_space { self.open_reach } else { 1.6 };
             // A sure tackler wraps from farther (wrap range and dives).
             let wrap = if free_reach > 1.6 { clamp(0.01 * (d.a(Attr::Tackling) - 60.0), -0.4, 0.4) } else { 0.0 };
             // Length (Dynamic Links): the long arms add tackling reach, about
-            // what five tackling points' wrap range gives.
-            // Real linebackers' arms add no run tackles (bug 308): theirs
-            // show as a surer finish instead (`body_tackle`).
-            let arm_reach = if self.player(i).position == crate::positions::Position::LB { 0.0 } else { 0.03 };
-            let reach = free_reach
-                + wrap
-                + arm_reach * (self.player(i).arm - 32.0)
-                + 0.05 * self.player(i).links.share(&[crate::links::Link::Length]);
+            // what five tackling points' wrap range gives (`reach_extra`).
+            let (arms, length) = self.reach_extra(i);
+            let reach = free_reach + wrap + arms + length;
             // Closest approach over the last tick, so fast players can't
             // pass through each other between two samples.
-            let rel = d.pos - self.agents[c].pos;
-            let rv = (d.vel - self.agents[c].vel).scale(DT);
-            let back = if rv.len() > 1e-6 { clamp(rel.dot(rv) / rv.dot(rv), 0.0, 1.0) } else { 0.0 };
+            let rel = d.pos - c_pos;
+            let rv = (d.vel - c_vel).scale(DT);
+            let rv_len = rv.len();
+            // Clearly out of reach all tick: his spot is past reach plus the
+            // tick's closing by a micro-yard, so the closest approach is too
+            // (far past rounding): skipped before the division and the root,
+            // as the test below would skip him. A spot that isn't finite
+            // takes the test below.
+            let q = rel.dot(rel);
+            let far = reach + rv_len + 1e-6;
+            if q.is_finite() && q > far * far {
+                continue;
+            }
+            let back = if rv_len > 1e-6 { clamp(rel.dot(rv) / rv.dot(rv), 0.0, 1.0) } else { 0.0 };
             let dist = (rel - rv.scale(back)).len();
-            if dist > reach || t - d.last_try < 0.7 {
+            if dist > reach {
                 continue;
             }
             // A blocked defender can reach out with an arm while engaged.
@@ -2433,6 +2653,26 @@ impl<'a> Sim<'a> {
         if !self.fight.is_empty() {
             self.fight_tick(c);
         }
+    }
+
+    /// Agent `i`'s tackling reach from his body and his links, as (long
+    /// arms, Length). Real linebackers' arms add no run tackles (bug 308):
+    /// theirs show as a surer finish instead (`body_tackle`). Both read only
+    /// his player, fixed all play, so they are worked out once a play (world
+    /// speed lane).
+    fn reach_extra(&self, i: usize) -> (f64, f64) {
+        let fresh = || {
+            let g = self.player(i);
+            let arm_reach = if g.position == crate::positions::Position::LB { 0.0 } else { 0.03 };
+            (arm_reach * (g.arm - 32.0), 0.05 * g.links.share(&[crate::links::Link::Length]))
+        };
+        let Some(cell) = self.reach_memo.get(i) else { return fresh() };
+        if let Some(v) = cell.get() {
+            return v;
+        }
+        let v = fresh();
+        cell.set(Some(v));
+        v
     }
 
     /// A tackler's body in his finish, in tackling points over his level's

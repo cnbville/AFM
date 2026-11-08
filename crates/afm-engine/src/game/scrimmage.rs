@@ -409,7 +409,9 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     let mut sim = Sim {
         teams: s.teams,
         agents,
-        eng: Vec::new(),
+        // Room for a snap's blocks in one allocation: capacity changes no
+        // value or index (world speed lane).
+        eng: Vec::with_capacity(16),
         ball: Ball::Held(0),
         t: 0.0,
         los,
@@ -441,6 +443,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         level: s.rules.level,
         mood: super::sim::Mood { line: Some(s.los + s.togo), snap_y: s.ball_y, ..s.mood },
         tend_memo: super::sim::tend_memo(),
+        reach_memo: super::sim::reach_memo(),
     };
     // The CFL's fifth receiver reads as the tight end in a set without one.
     let find = |r: ORole| {
