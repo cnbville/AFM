@@ -144,13 +144,21 @@ fn money_k(k: u32) -> String {
 
 fn record(held: u32, high: u32, low: u32) -> Value {
     let n = held + high + low;
-    json!({ "held": held, "high": high, "low": low, "n": n, "words": if n == 0 { "No look-backs yet".to_string() } else { format!("{held} of {n} held up") } })
+    json!({ "held": held, "high": high, "low": low, "n": n, "words": track_words(held, n) })
 }
 
 /// A record from his past jobs: how many of his settled reads held up.
 fn career(held: u32, missed: u32) -> Value {
     let n = held + missed;
-    json!({ "held": held, "high": 0, "low": 0, "n": n, "missed": missed, "words": if n == 0 { "No look-backs yet".to_string() } else { format!("{held} of {n} held up") } })
+    json!({ "held": held, "high": 0, "low": 0, "n": n, "missed": missed, "words": track_words(held, n) })
+}
+
+/// A track record in words: players he graded, checked three years on.
+fn track_words(held: u32, n: u32) -> String {
+    match (100 * held + n / 2).checked_div(n) {
+        Some(pct) => format!("Right on {held} of {n} ({pct}%)"),
+        None => "No record yet".into(),
+    }
 }
 
 fn contacts_words(c: f32) -> &'static str {
@@ -329,7 +337,7 @@ fn nfl_desk(w: &World, t: usize) -> Value {
         let (h, hi, lo) = lookback::record_of(&w.scouting.records, k as u32);
         row["record"] = record(h, hi, lo);
         let n = (s.held + s.missed) as u32;
-        row["before"] = json!((n > 0).then(|| format!("{} of {n} held up before", s.held)));
+        row["before"] = json!((n > 0).then(|| format!("Over his career: right on {} of {n}", s.held)));
     };
     let staff: Vec<Value> = club
         .scouts

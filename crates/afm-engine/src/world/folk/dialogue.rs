@@ -14,7 +14,7 @@ use super::cast::{self, Role as CastRole};
 use super::scene::{self, Kind, Pick, Scene, Who};
 use super::voice::{Facts, Pen, Speaker};
 use crate::calendar::{Date, Event, Kind as CalKind, Level, Loudness, Weekday};
-use crate::player::Trait;
+use crate::player::{PlayingTime, Trait};
 use crate::world::coach::{Employer, Role};
 use crate::world::program::GradeCat;
 use crate::world::{Stage, World};
@@ -124,12 +124,17 @@ fn wants(p: &crate::world::Person) -> [f64; 7] {
 /// the head coach himself: how long he has been there, and how he is with
 /// people.
 fn backing(w: &World, i: usize, j: usize) -> [f64; 7] {
+    // What the school really offers him: yours only what you promised.
+    let nil = crate::world::recruiting::offer_money(w, j, i);
+    let floor = 0.6 * w.programs[j].grades[GradeCat::Nil as usize] / 100.0;
+    backing_with(w, i, j, (nil / 1.0e6).powf(0.6).min(1.0).max(floor))
+}
+
+/// `backing` with the money pitch's own backing (0-1) given.
+fn backing_with(w: &World, i: usize, j: usize, money: f64) -> [f64; 7] {
     let p = &w.people[i];
     let prog = &w.programs[j];
     let g = |c: GradeCat| prog.grades[c as usize] / 100.0;
-    // What the school really offers him: yours only what you promised.
-    let nil = crate::world::recruiting::offer_money(w, j, i);
-    let money = (nil / 1.0e6).powf(0.6).min(1.0).max(0.6 * g(GradeCat::Nil));
     let near = crate::world::recruiting::closeness(crate::world::geo::miles(p.home_state, prog.state));
     let family = prog.head_coach.map_or(0.3, |c| {
         let years = w.coaches[c].job.map_or(0, |jb| (w.year - jb.since).max(0)) as f64;
@@ -152,8 +157,12 @@ fn backing(w: &World, i: usize, j: usize) -> [f64; 7] {
 /// people. Overselling a weak point costs a little; listening first helps.
 pub(crate) fn home_lean(w: &World, i: usize, j: usize, pitch: usize, coach: Option<usize>, listened: bool) -> f32 {
     let p = &w.people[i];
-    let fit = wants(p)[pitch];
-    let back = backing(w, i, j)[pitch];
+    pitch_lean(w, wants(p)[pitch], backing(w, i, j)[pitch], coach, listened)
+}
+
+/// A pitch's pull from what he weighs (`fit`, 1.0 as much as the rest) and
+/// what the school can back up (`back`, 0-1), read by the man making it.
+fn pitch_lean(w: &World, fit: f64, back: f64, coach: Option<usize>, listened: bool) -> f32 {
     let a = coach.map(|c| *w.coaches[c].ability());
     let skill =
         (0.6 + 0.04 * a.map_or(0.0, |a| a.recruiting - 10.0) + 0.03 * a.map_or(0.0, |a| a.relationships - 10.0))
@@ -359,6 +368,419 @@ fn visit_hand(w: &mut World, s: &mut Scene) {
     keep_lean(w, i, j, lean);
     s.handed = Some(c.map_or("your staff".to_string(), |c| w.coaches[c].name.clone()));
     s.outcome.push(format!("He sold {}.", PITCHES[k].1.to_lowercase()));
+}
+
+// ---------------------------------------------------------------------------
+// D7b: a transfer's call, home visit and campus talk (portal recruiting,
+// Cain 2026-11-07: "there is no reason why I shouldn't have the same
+// options with a portal player that I have with an HS player"). The same
+// pitches read the same way as a living room's, on the transfer's own
+// wants (in the portal he decides for himself) and on what the program
+// would really give him: the role he'd have there and the money. Every
+// program that wants him calls (real practice: within hours of his name
+// going into the database), and his finalists host him on campus; yours
+// are the calls and visits you make. Sizes are Claude's picks (proposed,
+// not confirmed).
+
+/// Where a transfer talk happens (a scene's `f[1]`).
+pub(crate) const ON_PHONE: f32 = 0.0;
+pub(crate) const AT_HOME: f32 = 1.0;
+pub(crate) const ON_CAMPUS: f32 = 2.0;
+
+/// A phone call lands half as hard as a sit-down (proposed, not confirmed).
+pub(crate) const PHONE: f64 = 0.5;
+
+/// A promise's pull at its fullest, in appeal points: a starting job, a
+/// real role (proposed, not confirmed: a starting job about the size of
+/// a sold official visit and a good living room together, as real
+/// transfers, quarterbacks above all, choose on the job they're promised).
+const PROMISE_PULL: [f64; 2] = [0.06, 0.035];
+
+/// A transfer's weight on each pitch, as `wants` reads a family's: his own
+/// wants, and the man he'd play for, more to one who left because his
+/// coach did.
+fn transfer_wants(p: &crate::world::Person) -> [f64; 7] {
+    let x = p.family.own_wants;
+    let v = [x.playing_time, x.money, x.academics, x.close_to_home, x.development, x.prestige];
+    let s: f64 = v.iter().sum::<f64>().max(1e-9);
+    let v = v.map(|a| 6.0 * a / s);
+    let coach_left = p.cal.portal.is_some_and(|e| e.why == "coaching change");
+    let coach = 0.5 + if coach_left { 0.3 } else { 0.0 };
+    [v[0], v[1], v[2], v[3], coach, v[4], v[5]]
+}
+
+/// What the role he'd have backs a playing-time pitch with.
+fn role_backing(role: PlayingTime) -> f64 {
+    match role {
+        PlayingTime::Starter => 0.95,
+        PlayingTime::Rotation => 0.6,
+        _ => 0.25,
+    }
+}
+
+/// What a program can back each pitch up with for a transfer: the role
+/// he'd have there, the money it would pay him, the rest as for a recruit.
+fn transfer_backing(w: &World, i: usize, j: usize, role: PlayingTime, nil: f64) -> [f64; 7] {
+    let mut b = backing_with(w, i, j, (nil.max(0.0) / 1.0e6).powf(0.6).min(1.0));
+    b[0] = role_backing(role);
+    b
+}
+
+/// How a pitch lands with a transfer, in appeal points (`pitch_lean`).
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn transfer_lean(
+    w: &World,
+    i: usize,
+    j: usize,
+    pitch: usize,
+    coach: Option<usize>,
+    listened: bool,
+    role: PlayingTime,
+    nil: f64,
+) -> f32 {
+    let fit = transfer_wants(&w.people[i])[pitch];
+    let back = transfer_backing(w, i, j, role, nil)[pitch];
+    pitch_lean(w, fit, back, coach, listened)
+}
+
+/// A staff's own pick for a transfer, as `coach_pitch` picks for a family.
+#[allow(clippy::too_many_arguments)]
+fn transfer_pitch(
+    w: &World,
+    i: usize,
+    j: usize,
+    coach: Option<usize>,
+    role: PlayingTime,
+    nil: f64,
+    seed: u64,
+) -> usize {
+    let wt = transfer_wants(&w.people[i]);
+    let back = transfer_backing(w, i, j, role, nil);
+    let r = coach.map_or(10.0, |c| w.coaches[c].ability().recruiting);
+    let sd = 0.6 * (1.6 - 0.06 * r).max(0.2);
+    (0..PITCHES.len())
+        .max_by(|&a, &b| {
+            let s = |k: usize| wt[k] * (0.3 + 0.7 * back[k]) + sd * crate::game::talk::normal(seed, k as u64);
+            s(a).total_cmp(&s(b))
+        })
+        .unwrap_or(0)
+}
+
+/// The man who calls a transfer for a staff: his position coach, else the
+/// head coach.
+fn caller(w: &World, i: usize, j: usize) -> Option<usize> {
+    let group = crate::world::coach::Group::of(w.people[i].player.position);
+    w.programs[j].position_coaches[group as usize].or(w.programs[j].head_coach)
+}
+
+fn talk_seed(w: &World, i: usize, j: usize, salt: u64) -> u64 {
+    w.options.seed as u64 ^ (w.people[i].player.id as u64) << 20 ^ (j as u64) << 44 ^ salt
+}
+
+/// A staff's call to a transfer it wants: every AI staff's, and yours when
+/// your staff works the portal (a phone call, `PHONE`).
+pub(crate) fn staff_call(w: &World, i: usize, j: usize, role: PlayingTime, nil: f64) -> f64 {
+    let c = caller(w, i, j);
+    let k = transfer_pitch(w, i, j, c, role, nil, talk_seed(w, i, j, 0xCA11));
+    PHONE * transfer_lean(w, i, j, k, c, false, role, nil) as f64
+}
+
+/// A finalist's head coach with him at the end of his campus visit.
+pub(crate) fn staff_campus(w: &World, i: usize, j: usize, role: PlayingTime, nil: f64) -> f64 {
+    let c = w.programs[j].head_coach;
+    let k = transfer_pitch(w, i, j, c, role, nil, talk_seed(w, i, j, 0xCA5E));
+    transfer_lean(w, i, j, k, c, false, role, nil) as f64
+}
+
+/// Your promise of a role to a transfer (0 a starting job, 1 a real role):
+/// its pull at his decision and how far he believes it, 0-1. It pulls by
+/// what playing time means to him and what it adds to the role he'd have
+/// with you anyway; he believes it by your name for keeping your word
+/// (straight with players), how you are with people, and, for a starting
+/// job, how close his play is to the starter's he'd have to beat (`bar`,
+/// both read at your level).
+pub(crate) fn promise_pull(
+    w: &World,
+    i: usize,
+    kind: u8,
+    role: PlayingTime,
+    perf: f64,
+    bar: Option<f64>,
+) -> (f64, f64) {
+    let pt = transfer_wants(&w.people[i])[0];
+    let k = (kind as usize).min(1);
+    let adds = match (k, role) {
+        (0, PlayingTime::Starter) => 0.15,
+        (0, PlayingTime::Rotation) => 0.6,
+        (0, _) => 1.0,
+        (_, PlayingTime::Starter) => 0.0,
+        (_, PlayingTime::Rotation) => 0.2,
+        _ => 0.6,
+    };
+    let rel = you(w).map_or(10.0, |c| w.coaches[c].ability().relationships);
+    let name = (0.55 + 0.3 * w.folk.mine.straight as f64 + 0.02 * (rel - 10.0)).clamp(0.2, 1.0);
+    let plausible = match bar {
+        Some(b) if k == 0 => (1.0 - 0.06 * (b - perf).max(0.0)).clamp(0.3, 1.0),
+        _ => 1.0,
+    };
+    let belief = name * plausible;
+    (PROMISE_PULL[k] * pt * adds * belief, belief)
+}
+
+/// Your talk with a transfer is set: a call now, a sit-down at his home or
+/// at the end of his campus visit on its day.
+pub(crate) fn transfer_talk(w: &mut World, id: u32, j: usize, d: Date, at: f32) -> u32 {
+    let Some(i) = super::person(w, id) else { return 0 };
+    let name = w.people[i].name.clone();
+    let from = w.people[i].college.map(|c| w.program_name(c).to_string()).unwrap_or_default();
+    let (kind, title, place) = if at == ON_CAMPUS {
+        (
+            Kind::PortalVisit,
+            format!("Official visit: {name}"),
+            format!("Your office, the end of {}'s visit", first_of(&name)),
+        )
+    } else if at == AT_HOME {
+        (
+            Kind::PortalVisit,
+            format!("Home visit: {name}"),
+            format!("The {} family's living room, {}", last_name(&name), w.high_schools[w.people[i].hs].town.clone()),
+        )
+    } else {
+        (Kind::PortalCall, format!("A call to {name}"), format!("On the phone with {} of {from}", first_of(&name)))
+    };
+    let mut s = Scene::new(kind, d, title);
+    s.place = place;
+    s.a = id as u64;
+    s.b = j as u64;
+    s.f[1] = at;
+    s.stops = at != ON_PHONE;
+    s.who = vec![Who::Player(id)];
+    scene::add(w, s)
+}
+
+/// A transfer's visit called off takes its talk with it (the talk at
+/// that place on that day).
+pub(crate) fn transfer_visit_off(w: &mut World, id: u32, d: Date, at: f32, why: &str) {
+    for s in w
+        .folk
+        .scenes
+        .iter_mut()
+        .filter(|s| s.kind == Kind::PortalVisit && s.a == id as u64 && s.date == d && s.f[1] == at && !s.done)
+    {
+        s.outcome.push(why.to_string());
+        s.handed = Some("nobody".into());
+        s.end();
+    }
+}
+
+fn first_of(n: &str) -> &str {
+    n.split_whitespace().next().unwrap_or(n)
+}
+
+/// What a transfer weighs most, then second (`PITCHES` indexes): what your
+/// staff hears once it has talked to him.
+pub fn transfer_weighs(w: &World, i: usize) -> (usize, usize) {
+    transfer_top(&w.people[i])
+}
+
+fn transfer_top(p: &crate::world::Person) -> (usize, usize) {
+    let wt = transfer_wants(p);
+    let mut k: Vec<usize> = (0..PITCHES.len()).collect();
+    k.sort_by(|&a, &b| wt[b].total_cmp(&wt[a]));
+    (k[0], k[1])
+}
+
+fn transfer_open(w: &mut World, s: &mut Scene) {
+    let Some(i) = super::person(w, s.a as u32) else { return s.end() };
+    let p = &w.people[i];
+    if p.cal.portal.is_none() {
+        s.outcome.push("He has made his choice: there is nothing left to talk about.".into());
+        return s.end();
+    }
+    let kid = super::player_link(w, i);
+    let (top, _) = transfer_top(p);
+    let sp = Speaker::player(w, i);
+    let f = Facts::new().with("name", first_of(&p.name).to_string());
+    let ask = line(w, s, 1, &format!("portal.ask.{}", PITCHES[top].0), &sp, &f);
+    s.narrate(if s.f[1] == ON_CAMPUS {
+        format!(
+            "{kid} sits across your desk at the end of his visit. He has seen the place; now he wants straight answers."
+        )
+    } else if s.f[1] == AT_HOME {
+        format!("{kid} sits across from you in his family's living room. He does the talking.")
+    } else {
+        format!("{kid} picks up. Every staff with a place for him has called today.")
+    });
+    s.them("Him", ask, None);
+    transfer_picks(s);
+    s.pick(
+        709,
+        "\"Before I sell you anything, tell me what you're looking for.\"",
+        "Listen",
+        "warm",
+        "He tells you what he weighs.",
+    );
+}
+
+/// Your pitches to a transfer, said to him (the same seven a family hears).
+fn transfer_picks(s: &mut Scene) {
+    let say = [
+        "\"You'll play here. Look at who's ahead of you.\"",
+        "\"Let's talk about what we can pay you.\"",
+        "\"Your credits come with you. You'll finish your degree here.\"",
+        "\"Your family can be at every game. It's a short drive.\"",
+        "\"You'll have a staff that has your back. Ask my players.\"",
+        "\"We'll get you ready for the draft. Here's the plan.\"",
+        "\"You'll play for something here.\"",
+    ];
+    for (k, t) in say.iter().enumerate() {
+        s.pick(701 + k as u32, *t, PITCHES[k].1, "warm", "");
+    }
+}
+
+fn promise_picks(s: &mut Scene) {
+    s.pick(
+        711,
+        "\"You'll start for us. You have my word.\"",
+        "Promise a starting job",
+        "firm",
+        "Checked after his first game with you.",
+    );
+    s.pick(
+        712,
+        "\"You'll have a real role, every week.\"",
+        "Promise a real role",
+        "warm",
+        "Checked at the season's end.",
+    );
+    s.pick(719, "\"Think it over. Call me anytime.\"", "Leave it there", "calm", "");
+}
+
+fn transfer_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
+    let id = s.a as u32;
+    let j = s.b as usize;
+    let Some(i) = super::person(w, id) else { return s.end() };
+    // A talk left open past his decision has nothing left to settle.
+    if w.people[i].cal.portal.is_none() {
+        s.outcome.push("He has made his choice: there is nothing left to talk about.".into());
+        return s.end();
+    }
+    let sp = Speaker::player(w, i);
+    let me = scene::your_name(w);
+    match code {
+        709 => {
+            let (a, b) = transfer_top(&w.people[i]);
+            let f = Facts::new().with("first", PITCHES[a].1.to_lowercase()).with("second", PITCHES[b].1.to_lowercase());
+            let t = line(w, s, 2, "portal.tell", &sp, &f);
+            s.you(&me, "Before I sell you anything, tell me what you're looking for.");
+            s.them("Him", t, Some(format!("{} first, then {}.", PITCHES[a].1, PITCHES[b].1.to_lowercase())));
+            s.c = 1;
+            s.picks.clear();
+            transfer_picks(s);
+        }
+        711 | 712 => {
+            let kind = (code - 711) as u8;
+            s.you(&me, picked.label.trim_matches('"'));
+            let Some(read) = crate::world::front_office::portal::promise(w, id, kind) else {
+                s.outcome
+                    .push("Your staff has no place for him to promise: the roster is full, or he can't come.".into());
+                return finish_transfer(w, s, id);
+            };
+            let key = match read {
+                (_, _, PlayingTime::Starter) if kind == 0 => "knows",
+                (_, b, _) if b >= 0.6 => "believes",
+                _ => "doubts",
+            };
+            let t = line(w, s, 4, &format!("portal.promise.{key}"), &sp, &Facts::new());
+            s.them("Him", t, None);
+            s.outcome.push(
+                match key {
+                    "knows" => "He knows he'd start anyway: the promise adds little, and it binds you.",
+                    "believes" => "He believes you. It's the promise he wanted to hear.",
+                    _ => "He's heard promises before. He isn't sure he believes yours.",
+                }
+                .to_string(),
+            );
+            s.outcome
+                .push(format!("You promised {}.", if kind == 0 { "him a starting job" } else { "him a real role" }));
+            finish_transfer(w, s, id);
+        }
+        719 => {
+            s.you(&me, picked.label.trim_matches('"'));
+            finish_transfer(w, s, id);
+        }
+        _ => {
+            let k = (code.saturating_sub(701) as usize).min(PITCHES.len() - 1);
+            s.you(&me, picked.label.trim_matches('"'));
+            let (role, nil) = crate::world::front_office::portal::place(w, i, j);
+            let mut lean = transfer_lean(w, i, j, k, you(w), s.c == 1, role, nil);
+            if s.f[1] == ON_PHONE {
+                lean *= PHONE as f32;
+            }
+            crate::world::front_office::portal::talked(w, id, s.f[1], lean, PITCHES[k].1);
+            let mood = if lean > 0.006 {
+                "good"
+            } else if lean > 0.0 {
+                "flat"
+            } else {
+                "bad"
+            };
+            let react = line(w, s, 3, &format!("portal.react.{mood}"), &sp, &Facts::new());
+            s.them("Him", react, None);
+            s.outcome.push(
+                match mood {
+                    "good" => "He leans your way a little. It was what he wanted to hear.",
+                    "flat" => "It landed, but it isn't what he weighs most.",
+                    _ => "It cooled him: he doesn't believe you can back it up, or it isn't what he cares about.",
+                }
+                .to_string(),
+            );
+            s.c = 2;
+            s.picks.clear();
+            if crate::world::front_office::portal::promised(w, id).is_none() {
+                promise_picks(s);
+            } else {
+                finish_transfer(w, s, id);
+            }
+        }
+    }
+}
+
+fn finish_transfer(w: &mut World, s: &mut Scene, id: u32) {
+    s.end();
+    if let Some(t) = crate::world::front_office::portal::after_talk(w, id) {
+        s.outcome.push(t);
+    }
+}
+
+fn transfer_hand(w: &mut World, s: &mut Scene) {
+    let id = s.a as u32;
+    let j = s.b as usize;
+    let Some(i) = super::person(w, id) else { return };
+    // You made your pitch and left before a promise: it stands, and
+    // nobody promises for you.
+    if s.c == 2 {
+        s.handed = Some("nobody".into());
+        s.outcome.push("Your pitch stands. Nobody made him a promise for you.".into());
+        if let Some(t) = crate::world::front_office::portal::after_talk(w, id) {
+            s.outcome.push(t);
+        }
+        return;
+    }
+    // Your position coach for his spot makes the call or the pitch.
+    let c = caller(w, i, j);
+    let (role, nil) = crate::world::front_office::portal::place(w, i, j);
+    let k = transfer_pitch(w, i, j, c, role, nil, s.id as u64 ^ 0x7071);
+    let mut lean = transfer_lean(w, i, j, k, c, false, role, nil);
+    if s.f[1] == ON_PHONE {
+        lean *= PHONE as f32;
+    }
+    crate::world::front_office::portal::talked(w, id, s.f[1], lean, PITCHES[k].1);
+    s.handed = Some(c.map_or("your staff".to_string(), |c| w.coaches[c].name.clone()));
+    s.outcome.push(format!("He sold {}.", PITCHES[k].1.to_lowercase()));
+    if let Some(t) = crate::world::front_office::portal::after_talk(w, id) {
+        s.outcome.push(t);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1461,6 +1883,7 @@ pub fn agent_says(w: &mut World, i: usize, part: &str, facts: &Facts, plain: Str
 pub(crate) fn open(w: &mut World, s: &mut Scene) {
     match s.kind {
         Kind::HomeVisit => visit_open(w, s),
+        Kind::PortalCall | Kind::PortalVisit => transfer_open(w, s),
         Kind::CollegeCall => call_open(w, s),
         Kind::JobInterview => interview_open(w, s),
         Kind::StaffMeeting => meeting_open(w, s),
@@ -1472,6 +1895,7 @@ pub(crate) fn open(w: &mut World, s: &mut Scene) {
 pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     match s.kind {
         Kind::HomeVisit => visit_answer(w, s, code, picked),
+        Kind::PortalCall | Kind::PortalVisit => transfer_answer(w, s, code, picked),
         Kind::CollegeCall => call_answer(w, s, code, picked),
         Kind::JobInterview => interview_answer(w, s, code),
         Kind::StaffMeeting => meeting_answer(w, s, code, picked),
@@ -1483,6 +1907,7 @@ pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
 pub(crate) fn hand(w: &mut World, s: &mut Scene) {
     match s.kind {
         Kind::HomeVisit => visit_hand(w, s),
+        Kind::PortalCall | Kind::PortalVisit => transfer_hand(w, s),
         Kind::CollegeCall => {
             s.handed = Some("your voicemail".into());
             s.outcome.push("You never called back. They'll go on the film.".into());

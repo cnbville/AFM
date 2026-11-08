@@ -35,11 +35,15 @@ const evLk = (act, data, html, cls = "") => `<button class="ev-btn ${cls}" data-
 const evCard = (label, body, cls = "") => `<section class="ev-card ${cls}"><div class="st-label">${esc(label)}</div>${body}</section>`;
 const evEmpty = (t) => `<p class="ev-empty">${esc(t)}</p>`;
 const evFileLink = (p) => (p ? `<a class="link name" data-go="scout" data-id="${p.id}">${esc(p.name)}</a>` : "");
+// A staffer's track record: the players he graded, checked three years on
+// against how they turned out (the look-back).
+const EV_TRACK = "Track record: the players he graded, checked three years on against how they turned out. Right means he had the player close to where he ended up in his class (12 places at the top of a 300-man draft board, a third of his rank further down). Too high or too low is a miss. A typical scout is right on about 4 in 10; ranking them at random gets 3 in 10.";
 const evRec = (r) => {
-  if (!r || !r.n) return `<span class="ev-dim">No look-backs yet</span>`;
-  const miss = r.missed != null ? [`${r.missed} missed`] : [r.high ? `${r.high} too high` : "", r.low ? `${r.low} too low` : ""];
-  return `<span class="ev-rec"><b>${r.held}</b> of ${r.n} held${miss.filter(Boolean).map((m) => ` · ${m}`).join("")}</span>`;
+  if (!r || !r.n) return `<span class="ev-dim" title="${esc(EV_TRACK)}">No record yet</span>`;
+  const miss = r.missed != null ? [] : [r.high ? `${r.high} too high` : "", r.low ? `${r.low} too low` : ""];
+  return `<span class="ev-rec" title="${esc(EV_TRACK)}">Right on <b>${r.held}</b> of ${r.n} (${Math.round((100 * r.held) / r.n)}%)${miss.filter(Boolean).map((m) => ` · ${m}`).join("")}</span>`;
 };
+const evTrackTh = `<th title="${esc(EV_TRACK)}">Track record</th>`;
 // A staff range as a soft band on the 40-99 scale (or another).
 const evBand = (lo, hi, cls = "", min = 40, max = 99) => {
   const x = (v) => Math.max(0, Math.min(100, ((v - min) / (max - min)) * 100));
@@ -89,7 +93,7 @@ function evScoutRow(s, extra) {
 }
 function evScouts(x) {
   const n = x.nfl;
-  const head = `<thead><tr><th>Scout</th><th class="num">Age</th><th>Contacts</th><th>Look-backs</th><th class="num">Pay</th><th class="num">Market</th>`;
+  const head = `<thead><tr><th>Scout</th><th class="num">Age</th><th>Contacts</th>${evTrackTh}<th class="num">Pay</th><th class="num">Market</th>`;
   let review = "";
   if (n.review) {
     const rows = n.review.scouts.map((s) => evScoutRow(s, `<td><div class="ev-seg">${n.review.calls.map((c) => evLk("evcall", { place: s.place, call: c.key }, esc(c.words), s.call === c.key ? "on" : "")).join("")}</div></td>`)).join("");
@@ -113,7 +117,7 @@ function evService(x) {
   return `<div class="ev-grid">
     ${evCard("Your scouting service", `<h2 class="ev-h2">${esc(s.words)}</h2><p class="ev-dim">About two-thirds of clubs belong to National or BLESTO: ${esc(s.fee)} and a scout lent for part of the fall. The service grades every rising senior in the spring (1.0 to 9.0; 7.0 and up is about round one) and your fall calls start from its list. Outside the services your scouts travel more on the money saved.</p>
       <div class="ev-seg">${opts}</div>${s.next ? `<p class="ev-note">From after the draft: ${esc(s.next)}.</p>` : ""}`)}
-    ${evCard("Your analytics staff", a.has ? `<h2 class="ev-h2">${esc(a.name)}</h2><p class="ev-dim">Reads his numbers (production, age, testing, against his level), not his tape. Its own order of each class is kept for its look-back.</p><div class="ev-big">${evRec(a.record)}</div>` : evEmpty("No analytics department reads college numbers yet (clubs from 2003)."))}
+    ${evCard("Your analytics staff", a.has ? `<h2 class="ev-h2">${esc(a.name)}</h2><p class="ev-dim">Reads his numbers (production, age, testing, against his level), not his tape. Its own order of each class is kept and checked three years on against how the players turned out.</p><div class="ev-big">${evRec(a.record)}</div>` : evEmpty("No analytics department reads college numbers yet (clubs from 2003)."))}
   </div>`;
 }
 
@@ -161,7 +165,7 @@ function evPersonnel(x) {
     ? `<table class="tbl ev-tbl"><thead><tr><th>Name</th><th>Job</th><th class="num">Since</th><th></th></tr></thead><tbody>${c.personnel.map((p) => `<tr><td><b>${esc(p.name)}</b></td><td>${esc(p.job)}</td><td class="num">${p.since}</td><td>${evLk("evletgo", { post: p.post }, "Let go")}</td></tr>`).join("")}</tbody></table>`
     : evEmpty("No personnel staff yet.");
   const market = c.personnel_market.length
-    ? `<table class="tbl ev-tbl"><thead><tr><th>Name</th><th>Job</th><th class="num">Age</th><th>Programs</th><th>Look-backs</th><th></th></tr></thead><tbody>${c.personnel_market.map((h) => `<tr><td><b>${esc(h.name)}</b></td><td>${esc(h.job)}</td><td class="num">${h.age}</td><td class="ev-dim">${h.past.map((t) => teamLink(t)).join(", ") || "—"}</td><td>${evRec(h.record)}</td><td>${evLk("evhire", { key: h.key }, "Hire")}</td></tr>`).join("")}</tbody></table>`
+    ? `<table class="tbl ev-tbl"><thead><tr><th>Name</th><th>Job</th><th class="num">Age</th><th>Programs</th>${evTrackTh}<th></th></tr></thead><tbody>${c.personnel_market.map((h) => `<tr><td><b>${esc(h.name)}</b></td><td>${esc(h.job)}</td><td class="num">${h.age}</td><td class="ev-dim">${h.past.map((t) => teamLink(t)).join(", ") || "—"}</td><td>${evRec(h.record)}</td><td>${evLk("evhire", { key: h.key }, "Hire")}</td></tr>`).join("")}</tbody></table>`
     : evEmpty("Nobody is looking this year.");
   return `${evCard("Your personnel staff", `<p class="ev-dim">They evaluate film and work on campus; only the on-field coaches go out.</p>${staff}`, "wide")}${evCard("Personnel people looking for work", market, "wide")}`;
 }

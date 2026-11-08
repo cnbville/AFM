@@ -45,6 +45,10 @@ pub struct Graded {
     /// own look-back record.
     #[serde(default)]
     pub numbers: Option<u32>,
+    /// How many he was ranked among: the draft board's 300, or your signed
+    /// class (minor bug 333). 0 in an older save until `after_load`.
+    #[serde(default)]
+    pub size: u16,
 }
 
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -90,17 +94,41 @@ impl Verdict {
     }
 }
 
+/// The draft board's length.
+pub const BOARD: u16 = 300;
+
 /// A graded player's verdict, by the same out-on-a-limb distance the board
-/// uses (12 places or a third of the rank).
+/// uses (12 places or 35% of the rank). In a recruiting class the 12 places
+/// shrink with the class (12 of 300 is the top 4%): a 12-place floor in a
+/// class of 20 called almost any order right, 82% for a random one against
+/// 31% on the board; scaled, a random class order holds 28% (minor bug 333).
 pub fn verdict(g: &Graded) -> Verdict {
     let Some(out) = g.outcome else { return Verdict::Open };
     if g.looks < 3 {
         return Verdict::NoFairRead;
     }
-    match super::board::limb(g.ours as usize - 1, Some(out as usize - 1)) {
-        1 => Verdict::TooLow,
-        -1 => Verdict::TooHigh,
-        _ => Verdict::Held,
+    let r = g.ours as i64;
+    let d = out as i64 - r;
+    let n = if g.size == 0 { BOARD } else { g.size.min(BOARD) };
+    let floor = (12.0 * n as f64 / BOARD as f64).round().max(1.0);
+    if d.unsigned_abs() as f64 >= floor.max((r as f64 * 0.35).round()) {
+        if d > 0 { Verdict::TooLow } else { Verdict::TooHigh }
+    } else {
+        Verdict::Held
+    }
+}
+
+/// An older save's classes learn their size (minor bug 333).
+pub(crate) fn fill_sizes(r: &mut Records) {
+    for g in r.drafts.iter_mut().filter(|g| g.size == 0) {
+        g.size = BOARD;
+    }
+    let mut by_year: HashMap<i32, u16> = HashMap::new();
+    for g in &r.classes {
+        *by_year.entry(g.year).or_default() += 1;
+    }
+    for g in r.classes.iter_mut().filter(|g| g.size == 0) {
+        g.size = by_year[&g.year];
     }
 }
 
@@ -154,6 +182,7 @@ pub(crate) fn snapshot(w: &mut World, grades: &HashMap<u32, f64>, public: &HashM
             looks,
             outcome: None,
             numbers: None,
+            size: BOARD,
         });
     }
     // SK6: the analytics staff's own order of the same players, from its
@@ -237,7 +266,12 @@ fn record_class(w: &mut World, prog: usize) {
             looks,
             outcome: None,
             numbers: None,
+            size: 0,
         });
+    }
+    let size = out.len() as u16;
+    for g in &mut out {
+        g.size = size;
     }
     // The services' order of the same class (by stars, then the national rank).
     let mut by_public: Vec<(u8, usize)> = v.iter().map(|&(_, i)| (w.people[i].stars, i)).collect();
