@@ -4421,6 +4421,20 @@ pub(crate) fn signing_stage(w: &mut World, stage: SignStage, season: i32) {
 /// day until summer enrollment, and enrollment day itself, the recruits
 /// still looking sign where a place has opened, by February's matching.
 /// The counts go in this football year's log.
+impl LateSigning {
+    /// Whether a late recruit decides from this late day on (lane B): each
+    /// takes his own week between signing day and summer enrollment, from
+    /// one key, the way real spring decisions come as aid packages land
+    /// (the Division III deposit day is May 1, junior college classes
+    /// fill in summer). Spread evenly, proposed, not confirmed: on one
+    /// day, seed 74's whole late class signed the first Wednesday.
+    fn ready(&self, p: &Person, today: Date, seed: u64) -> bool {
+        let weeks = (self.from.days_to(self.last) / 7).max(1) as f64;
+        let week = 1.0 + (key_uniform(seed ^ 0x1A7E_5EED, p.player.id as u64) * weeks).floor();
+        self.from.days_to(today) as f64 >= 7.0 * week - 6.0
+    }
+}
+
 pub(crate) fn late_signing_day(w: &mut World) {
     let Some(l) = &w.late_signing else { return };
     let d = w.today;
@@ -4708,11 +4722,13 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             && p.college.is_some_and(|c| w.programs[c].division == Division::JUCO)
             && p.college_seasons + p.cal.count_pending as u32 >= 1;
         if late_day {
-            // A late day weighs only the recruits still looking (lane B).
+            // A late day weighs only the recruits still looking (lane B),
+            // each from his own week on.
             if p.cal.late
                 && unsigned
                 && p.cal.portal.is_none()
                 && matches!(p.stage, Stage::HighSchool | Stage::PrepSchool | Stage::College)
+                && (last_day || late_norms.as_ref().is_some_and(|l| l.ready(p, today, seed)))
             {
                 candidates.push(i);
             }
