@@ -105,3 +105,65 @@ fn shows_only_a_vague_outlook_sharper_with_better_scouts() {
     assert!(good_hints > 0);
     assert_eq!(bad_hints, 0, "no hints below accuracy {HINT_MIN_ACCURACY}");
 }
+
+/// Minor bugs 332 and 333: a look-back means the same on the draft board and
+/// in a recruiting class (a random order holds about 3 in 10 in both), the
+/// board's rule is still the out-on-a-limb distance, and an AI scout's record
+/// sits between chance and a little past the real draft order (47%).
+#[test]
+fn look_backs_hold_at_real_rates() {
+    use crate::world::pro::scouts::held_chance;
+    use crate::world::scouting::board::limb;
+    use crate::world::scouting::lookback::{BOARD, Graded, Verdict, verdict};
+    let graded = |ours: u32, outcome: u32, size: u16| Graded {
+        year: 2026,
+        id: ours,
+        name: String::new(),
+        pos: crate::positions::Position::WR,
+        ours,
+        public: None,
+        pick: None,
+        team: None,
+        lead: None,
+        looks: 5,
+        outcome: Some(outcome),
+        numbers: None,
+        size,
+    };
+    // The board keeps its rule exactly.
+    for ours in 1..=300u32 {
+        for out in [1u32, ours.saturating_sub(13).max(1), ours, ours + 11, ours + 12, 300] {
+            let old = match limb(ours as usize - 1, Some(out.min(300) as usize - 1)) {
+                1 => Verdict::TooLow,
+                -1 => Verdict::TooHigh,
+                _ => Verdict::Held,
+            };
+            assert_eq!(verdict(&graded(ours, out.min(300), BOARD)), old, "rank {ours}, outcome {out}");
+        }
+    }
+    // A random order: the share that holds, board and class alike.
+    let mut rng = Rng::new("lookback");
+    let mut luck = |n: u16| {
+        let (mut held, mut all) = (0u32, 0u32);
+        for _ in 0..400 {
+            let mut out: Vec<u32> = (1..=n as u32).collect();
+            for k in (1..out.len()).rev() {
+                out.swap(k, rng.int(0, k as i32) as usize);
+            }
+            for (k, &o) in out.iter().enumerate() {
+                held += (verdict(&graded(k as u32 + 1, o, n)) == Verdict::Held) as u32;
+                all += 1;
+            }
+        }
+        held as f64 / all as f64
+    };
+    let (board, class) = (luck(300), luck(20));
+    assert!((0.27..0.35).contains(&board), "a random board holds {board:.3}");
+    assert!((0.24..0.34).contains(&class), "a random class of 20 holds {class:.3}");
+    // An AI scout's chance: above chance at the worst eye, rising with it,
+    // the best just past the real draft order.
+    for j in 1..20u8 {
+        assert!(held_chance(j + 1) > held_chance(j));
+    }
+    assert!(held_chance(1) > 0.33 && held_chance(10) > 0.42 && held_chance(10) < 0.46 && held_chance(20) < 0.53);
+}
