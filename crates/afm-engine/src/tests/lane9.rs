@@ -734,12 +734,17 @@ fn your_tape_shares_your_eye_and_more_never_widens_a_read() {
     });
     assert!(more, "another cut-up of him");
     no_wider(&two, &own(&w, id), "another watch");
-    // One of yours: your practices read him every week; his tape joins
-    // them and never widens them.
+    // Two watches the same day: one look in his file, one copy in your
+    // club's.
     let t = match staff {
         readers::Staff::Club(t) => t,
         _ => unreachable!("an NFL seat"),
     };
+    let hc = crate::world::pro::scouts::HC;
+    let copies = w.clubs[t].files.get(&id).map_or(0, |f| f.iter().filter(|l| l.who == hc && l.date == w.today).count());
+    assert_eq!(copies, 1, "two watches the same day, one copy");
+    // One of yours: your practices read him every week; his tape joins
+    // them and never widens them.
     let roster: Vec<u32> = w.clubs[t]
         .roster
         .iter()
@@ -756,7 +761,6 @@ fn your_tape_shares_your_eye_and_more_never_widens_a_read() {
             no_wider(&before, &after, "your own man's tape");
             // The club's file keeps a copy of that watch the same day under
             // the head coach's code: one watch counts once.
-            let hc = crate::world::pro::scouts::HC;
             let file = w.clubs[t].files.get(&id).cloned().unwrap_or_default();
             assert!(file.iter().any(|l| l.who == hc && l.date == w.today), "the club's copy of your watch");
             w.clubs[t].files.get_mut(&id).unwrap().retain(|l| !(l.who == hc && l.date == w.today));
@@ -775,18 +779,64 @@ fn your_tape_shares_your_eye_and_more_never_widens_a_read() {
             // A workout you asked for: filed under the head coach's code,
             // with the club's copy, yesterday, when you also practised him.
             // It counts once, whatever else you did with him that day.
+            // Each act files its own copy, as the trips, the workouts you
+            // ask for and the film room do (`dept::club_copy`).
+            let act = |w: &mut World, who: u32, kind: sc::Kind, lk: LookKind, d: crate::calendar::Date| {
+                if sc::dept::add(w, id, who, kind, d) {
+                    sc::dept::club_copy(w, t, id, lk, d);
+                }
+            };
+            let board = |w: &mut World, kind: LookKind, d: crate::calendar::Date| {
+                w.clubs[t].files.get_mut(&id).unwrap().push(crate::world::pro::scouts::Look { who: hc, kind, date: d });
+            };
             let yesterday = w.today.add(-1);
-            sc::dept::add(&mut w, id, hc as u32, sc::Kind::Workout, yesterday);
-            sc::dept::club_look(&mut w, t, id, hc, LookKind::Coach, yesterday);
+            act(&mut w, hc as u32, sc::Kind::Workout, LookKind::Coach, yesterday);
+            act(&mut w, hc as u32, sc::Kind::Workout, LookKind::Coach, yesterday);
             assert_eq!(looks(&w), n + 2, "the asked workout counts once");
             let worked = own(&w, id);
             no_wider(&spring, &worked, "an asked workout");
             // The board's film study filed the same day, beside the
             // workout's copy: an act of its own.
-            let study = crate::world::pro::scouts::Look { who: hc, kind: LookKind::Coach, date: yesterday };
-            w.clubs[t].files.get_mut(&id).unwrap().push(study);
+            board(&mut w, LookKind::Coach, yesterday);
             assert_eq!(looks(&w), n + 3, "the board's study beside your workout");
-            no_wider(&worked, &own(&w, id), "the board's study beside your workout");
+            let studied = own(&w, id);
+            no_wider(&worked, &studied, "the board's study beside your workout");
+            // The board's look first (a specialist's pro day at dawn), then
+            // your trip to it: both count.
+            let me = readers::COACH + readers::you(&w).unwrap() as u32;
+            let pro_day = w.today.add(-2);
+            board(&mut w, LookKind::Coach, pro_day);
+            assert_eq!(looks(&w), n + 4, "the board's pro-day look");
+            let boards = own(&w, id);
+            act(&mut w, me, sc::Kind::ProDay, LookKind::Coach, pro_day);
+            assert_eq!(looks(&w), n + 5, "your trip beside the board's look");
+            let tripped = own(&w, id);
+            no_wider(&boards, &tripped, "your trip beside the board's look");
+            // Two acts of yours the same Tuesday (an asked workout and a
+            // workout trip), then the board's study that day: three looks.
+            let tuesday = w.today.add(-3);
+            act(&mut w, hc as u32, sc::Kind::Workout, LookKind::Coach, tuesday);
+            act(&mut w, me, sc::Kind::Workout, LookKind::Coach, tuesday);
+            assert_eq!(looks(&w), n + 7, "two acts the same day");
+            let two_acts = own(&w, id);
+            no_wider(&tripped, &two_acts, "two acts the same day");
+            board(&mut w, LookKind::Coach, tuesday);
+            assert_eq!(looks(&w), n + 8, "the board's study beside two acts of yours");
+            let all = own(&w, id);
+            no_wider(&two_acts, &all, "the board's study beside two acts of yours");
+            // A save from before this: a watch from the stands filed a film
+            // copy on the day you closed it, with no other look of yours
+            // that day. It counts once: its stands report is the look.
+            use crate::world::scouting::film::Target;
+            let closed = w.today.add(-4);
+            let report = w.scouting.film.reports.iter().rev().find(|r| r.target == Target::Player(id));
+            let mut stands = report.expect("your watch's report").clone();
+            (stands.mode, stands.date) = (session::Mode::Live, closed);
+            w.scouting.film.reports.push(stands);
+            assert_eq!(looks(&w), n + 8, "a report from the stands is no look of its own");
+            board(&mut w, LookKind::Film, closed);
+            assert_eq!(looks(&w), n + 8, "an old save's copy of a watch from the stands");
+            assert_eq!(own(&w, id), all, "an old save's copy of a watch from the stands");
             done = true;
             break;
         }

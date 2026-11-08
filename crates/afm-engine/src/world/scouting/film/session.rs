@@ -1404,26 +1404,18 @@ fn finish(w: &mut World, s: Session, verdict: Option<u8>, read_says: bool) -> St
                 let kind = film_kind(w, i);
                 // From the stands the trip already put the game in his
                 // file; tape is a film look under your name.
-                if let Some(you) = you
-                    && s.mode != Mode::Live
-                {
-                    super::super::dept::add(w, id, you, kind, d);
-                }
+                let new = match you {
+                    Some(you) if s.mode != Mode::Live => super::super::dept::add(w, id, you, kind, d),
+                    _ => false,
+                };
                 super::queue::watched(w, id);
-                // The club's file keeps a copy for the board (from the
-                // stands, the trip's copy is already there).
-                if let Some(Staff::Club(c)) = readers::seat_staff(w)
+                // The club's file keeps a copy of a new look for the board
+                // (from the stands, the trip's copy is already there).
+                if new
+                    && let Some(Staff::Club(c)) = readers::seat_staff(w)
                     && w.nfl.get(c).and_then(|x| x.head_coach) == readers::you(w)
-                    && s.mode != Mode::Live
                 {
-                    super::super::dept::club_look(
-                        w,
-                        c,
-                        id,
-                        crate::world::pro::scouts::HC,
-                        crate::world::pro::scouts::LookKind::Film,
-                        d,
-                    );
+                    super::super::dept::club_copy(w, c, id, crate::world::pro::scouts::LookKind::Film, d);
                 }
                 if let Some(r) = &s.coach
                     && let Some(c) = r.coach
@@ -1437,7 +1429,9 @@ fn finish(w: &mut World, s: Session, verdict: Option<u8>, read_says: bool) -> St
                             };
                             super::super::dept::club_look(w, t, id, role, crate::world::pro::scouts::LookKind::Film, d);
                         }
-                        _ => super::super::dept::add(w, id, COACH + c as u32, kind, d),
+                        _ => {
+                            super::super::dept::add(w, id, COACH + c as u32, kind, d);
+                        }
                     }
                 }
                 w.scouting.dept.asks.retain(|a| a.0 != id || a.1 != super::super::Kind::Film);

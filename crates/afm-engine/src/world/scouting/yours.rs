@@ -123,8 +123,16 @@ pub fn own_read_with(
         _ => &[][..],
     };
     // The club's copies: under the head coach's code, one for each look of
-    // yours that day it copies (two of the same kind that day are two acts:
-    // an asked workout and the board's film study on the same Tuesday).
+    // yours that day it copies (each new look files its own,
+    // `dept::club_copy`, so the board's own looks that day count: its film
+    // study, a specialist's pro day). In a save from before this, a watch
+    // from the stands filed a film copy on the day you closed it: its
+    // report is the look it copies.
+    let stands = |d: crate::calendar::Date| {
+        use super::film::{Target, session::Mode};
+        let fr = &w.scouting.film;
+        fr.reports.iter().filter(|r| r.mode == Mode::Live && r.target == Target::Player(id) && r.date == d).count()
+    };
     let mut left: Vec<(Kind, crate::calendar::Date, usize)> = Vec::new();
     let mut copy = |l: &file::Evidence| {
         let code = codes[l.reader];
@@ -137,7 +145,8 @@ pub fn own_read_with(
         let k = match left.iter().position(|x| x.0 == l.kind && x.1 == l.date) {
             Some(k) => k,
             None => {
-                let acts = seat.iter().filter(|s| s.date == l.date && job(s.who) && copies(l.kind, s.kind)).count();
+                let acts = seat.iter().filter(|s| s.date == l.date && job(s.who) && copies(l.kind, s.kind)).count()
+                    + if l.kind == Kind::Film { stands(l.date) } else { 0 };
                 left.push((l.kind, l.date, acts));
                 left.len() - 1
             }
@@ -253,7 +262,7 @@ pub fn own_read_with(
 /// The club file's copy of a look of yours (minor bug 352): the kind the
 /// club's file gives it beside the look under your name the same day (the
 /// film room's watches and the hunt's games as film, a trip or an asked
-/// workout as a coach's or an all-star look: `dept::club_look`; a watch
+/// workout as a coach's or an all-star look: `dept::club_copy`; a watch
 /// from the stands at a game or an all-star week also as film in a save
 /// from before this).
 fn copies(club: Kind, yours: Kind) -> bool {

@@ -165,13 +165,15 @@ pub fn service_academy(prog: &crate::world::program::Program) -> bool {
     matches!(prog.real_name.as_str(), "Army" | "Navy" | "Air Force")
 }
 
-/// Adds a look for your seat (deduplicated by day, kind and person).
-pub fn add(w: &mut World, id: u32, who: u32, kind: Kind, date: Date) {
+/// Adds a look for your seat (deduplicated by day, kind and person): false
+/// when it was there already.
+pub fn add(w: &mut World, id: u32, who: u32, kind: Kind, date: Date) -> bool {
     let v = w.scouting.dept.looks.entry(id).or_default();
     if v.iter().any(|l| l.who == who && l.kind == kind && l.date == date) {
-        return;
+        return false;
     }
     v.push(SeatLook { who, kind, date });
+    true
 }
 
 /// Your college program's board: the recruits it looks at (topic 15): the
@@ -329,7 +331,11 @@ fn asks_day(w: &mut World, staff: Staff, d: Date) {
         match (club, kind_now) {
             // The board reads the club's own file: these go there too (a
             // recheck reaches the board through `medical_cost`).
-            (Some(t), Kind::Workout) => club_look(w, t, id, HC, L::Coach, d),
+            (Some(t), Kind::Workout) => {
+                if add(w, id, who, kind_now, d) {
+                    club_copy(w, t, id, L::Coach, d);
+                }
+            }
             (Some(t), Kind::School) => club_look(w, t, id, who as u8, L::School, d),
             (Some(t), Kind::Film) if who < 250 => club_look(w, t, id, who as u8, L::Film, d),
             (Some(t), Kind::CrossCheck) => club_look(w, t, id, who as u8, L::CrossCheck, d),
@@ -477,6 +483,17 @@ pub(crate) fn club_look(w: &mut World, t: usize, id: u32, who: u8, kind: crate::
         if !f.iter().any(|l| l.who == who && l.kind == kind && l.date == d) {
             f.push(crate::world::pro::scouts::Look { who, kind, date: d });
         }
+    }
+}
+
+/// The club file's copy of a new look of yours as its head coach, for the
+/// board (minor bug 352): one for each new look in your seat's file, beside
+/// the board's own looks that day (its film study, a specialist's pro day),
+/// so your own read drops one copy for each look of yours (`yours.rs`).
+pub(crate) fn club_copy(w: &mut World, t: usize, id: u32, kind: crate::world::pro::scouts::LookKind, d: Date) {
+    if let Some(c) = w.clubs.get_mut(t) {
+        let who = crate::world::pro::scouts::HC;
+        c.files.entry(id).or_default().push(crate::world::pro::scouts::Look { who, kind, date: d });
     }
 }
 
