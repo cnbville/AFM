@@ -346,14 +346,18 @@ screens.scouting = async () => {
   let body = "";
   if (tab.t === "Staff") {
     const opts = (p) => `<select class="sc-sel" data-act="sc-assign" data-who="${p.code}"><option value="none">No assignment: his own judgment</option>${d.assign_targets.map((t) => `<option value="${esc(t.key)}" ${p.assignment === t.words ? "selected" : ""}>${esc(t.words)}</option>`).join("")}${p.assignment && !d.assign_targets.some((t) => t.words === p.assignment) ? `<option selected>${esc(p.assignment)}</option>` : ""}</select>`;
-    const rec = (r) => (r.held + r.high + r.low ? `<span title="From your look-backs">Held up ${r.held} · too high ${r.high} · too low ${r.low}</span>` : '<span class="muted">No record here yet</span>');
+    const track = "Track record: the players he graded for you, checked three years on against how they turned out. Right means he had the player close to where he ended up in his class (12 places at the top of a 300-man draft board, a third of his rank further down, the same share of a recruiting class). Too high or too low is a miss. A typical scout is right on about 4 in 10; ranking them at random gets 3 in 10.";
+    const rec = (r) => {
+      const n = r.held + r.high + r.low;
+      return n ? `<span title="${esc(track)}">Right on <b>${r.held}</b> of ${n} (${Math.round((100 * r.held) / n)}%) · ${r.high} too high · ${r.low} too low</span>` : '<span class="muted">No record here yet</span>';
+    };
     body = table("sc-people", [
       { k: "name", t: "Name", l: true, f: (p) => (p.extra && p.extra.coach != null ? `<a class="link name" data-go="coach" data-id="${p.extra.coach}">${esc(p.name)}</a>` : `<b>${esc(p.name)}</b>`) },
       { k: "job", t: "Job", l: true },
       { k: "area", t: nfl ? "Covers" : "Area", l: true, wrap: true, v: (p) => (p.extra && p.extra.area) || "", f: (p) => esc((p.extra && p.extra.area) || "") || '<span class="muted">-</span>' },
       { k: "looks", t: "Looks this year", div: true },
       { k: "assignment", t: "Assignment", l: true, div: true, v: (p) => p.assignment || "", f: opts },
-      { k: "record", t: "Look-backs", l: true, v: (p) => p.record.held - p.record.high - p.record.low, f: (p) => rec(p.record) },
+      { k: "record", t: "Track record", tip: track, l: true, v: (p) => p.record.held - p.record.high - p.record.low, f: (p) => rec(p.record) },
     ], d.people, { empty: "Nobody reads players for you yet." });
   } else if (tab.t === "Instructions") {
     const main = d.instructions.filter((i) => !/^focus/.test(i.key));

@@ -549,10 +549,24 @@ pub(crate) fn sign(w: &mut World, rng: &mut Rng, t: usize, role: Role, budget: f
     hire(rng, year, role, budget)
 }
 
+/// The chance one of his settled reads held up, by his eye (minor bug
+/// 332). Measured on the real drafts of 2000-2015 under the look-back's own
+/// rule (`lookback.rs`, `verdict`; outcome by weighted career AV, nflverse
+/// `draft_picks`): the draft order itself, all 32 war rooms together, holds
+/// 47%, a board ranked at random 30%, and boards noisier than the draft
+/// order 39-45%. Real clubs' drafting barely differs (Massey and Thaler
+/// 2013: the first man taken at a position outplays the next one only about
+/// 53% of the time). So a typical eye holds about 44%, the
+/// poorest about 37%, still above chance, the best about 52%, just past the
+/// consensus.
+pub fn held_chance(judge: u8) -> f64 {
+    clamp(0.44 + 0.008 * (judge as f64 - 10.0), 0.32, 0.52)
+}
+
 /// An AI club's scouts' look-backs (SK8): each year about six of his
 /// reads settle, held up more often the sharper his eye.
 fn ai_lookbacks(s: &mut Scout, rng: &mut Rng) {
-    let p = clamp(0.35 + 0.025 * (s.judge as f64 - 10.0), 0.1, 0.7);
+    let p = held_chance(s.judge);
     for _ in 0..6 {
         if rng.chance(p) {
             s.held = s.held.saturating_add(1);
