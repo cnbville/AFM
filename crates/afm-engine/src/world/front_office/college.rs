@@ -2438,8 +2438,14 @@ fn splits(w: &World, j: usize) -> Vec<(u32, f64, f64, f64)> {
                 return (w.people[i].player.id, budget * value(i) / total.max(1e-9), 0.0, 0.0);
             }
             // The school spreads its share over the roster (minor bug 336).
+            // Your going rate hands out 0.6 of it the same way: your offers
+            // to signees and transfers and the hunt's reserve come out of
+            // the same pot in the year (`budget`), so the rest stays for
+            // them (proposed, not confirmed). The AI pays its whole share
+            // on July 1.
             let (school, meant) =
                 rec::july_split(money, s, (rec::share_value(&w.people[i]), shares), (value(i), total));
+            let school = school * rec::NIL_ROSTER;
             let coll = if free { meant } else { rec::nil_go(w.today, meant, rec::nil_go_top(&w.people[i], value(i))) };
             (w.people[i].player.id, school, coll, meant - coll)
         })

@@ -9168,7 +9168,9 @@ pub(crate) fn nil_payouts(w: &mut World) {
                 for &i in &roster {
                     let p = &mut w.people[i];
                     let (school, coll, _) = split(p);
-                    let fair = school + coll;
+                    // Your going rate's revenue share is 0.6 of the AI's
+                    // (`fo::college::splits`): the rest is for your offers.
+                    let fair = school * if two { NIL_ROSTER } else { 1.0 } + coll;
                     // Your revenue share and your collective deal, which NIL
                     // Go clears to the top of his range (B18); before two
                     // pots one deal. A player with no deal gets nothing.
