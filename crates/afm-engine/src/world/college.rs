@@ -2340,22 +2340,26 @@ pub(crate) fn selection_day(w: &mut World) {
         }
     }
     let n_bowls = games.iter().filter(|g| matches!(g.kind, GameKind::Bowl(_))).count();
-    let field_text = brackets.first().map_or(String::new(), |b| {
+    // The top four seeds, in seed order.
+    let top: Vec<usize> = brackets.first().map_or(Vec::new(), |b| {
         let mut top: Vec<(usize, usize)> = b.seed.iter().filter(|(_, s)| **s <= 4).map(|(&t, &s)| (s, t)).collect();
         top.sort();
-        let teams: Vec<&str> = top.iter().map(|&(_, t)| w.programs[t].real_name.as_str()).collect();
+        top.into_iter().map(|(_, t)| t).collect()
+    });
+    let field_text = brackets.first().map_or(String::new(), |b| {
+        let teams: Vec<&str> = top.iter().map(|&t| w.programs[t].real_name.as_str()).collect();
         format!(" The playoff field is set ({} teams; top seeds {}).", b.seed.len(), teams.join(", "))
     });
     // Nothing to announce while the world spins up and rosters fill.
     if n_bowls > 0 || !brackets.is_empty() {
         let text = format!("Selection day: {n_bowls} bowls filled.{field_text}");
         let mut e = Event::new(w.today, CalLevel::College, Kind::Date, Loudness::Big, text);
-        for b in brackets.first().iter() {
-            for (&t, &seed) in b.seed.iter() {
-                if seed <= 4 {
-                    e = e.school_link(t, &w.programs[t].real_name);
-                }
-            }
+        // Linked in the line's own order, so a name inside an earlier one is
+        // already taken: "Texas" after "Texas A&M" links the second (the
+        // seeds' map order once let "Texas" take "Texas A&M"'s place, a
+        // different link on every run of one seed).
+        for &t in &top {
+            e = e.school_link(t, &w.programs[t].real_name);
         }
         w.calendar.post(e);
     }
