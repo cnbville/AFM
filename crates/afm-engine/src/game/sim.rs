@@ -2386,9 +2386,8 @@ impl<'a> Sim<'a> {
         // Would heading k at score v be the pick over the best so far:
         // higher, or as high at a lower index (scored in heading order, the
         // first of equal scores won).
-        let wins = |v: f64, k: usize, best: (f64, Option<usize>)| {
-            v > best.0 || (v == best.0 && best.1.is_some_and(|b| k < b))
-        };
+        let wins =
+            |v: f64, k: usize, best: (f64, Option<usize>)| v > best.0 || (v == best.0 && best.1.is_some_and(|b| k < b));
         let mut best: (f64, Option<usize>) = (f64::NEG_INFINITY, None);
         // Each heading's cap: its score at threat 0 with the sideline at its
         // lowest. While every reach is 0 or more (a pass block won past
