@@ -335,6 +335,14 @@ pub static THROW_SD: [std::sync::atomic::AtomicU64; 6] = [const { std::sync::ato
 /// `AFM_QBSTATS`).
 pub static BATTED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
+thread_local! {
+    /// The trails of `run_snap` (each player's spot and velocity at every
+    /// tick), kept on this thread between snaps and emptied at each one's
+    /// start: only their room is reused, so a snap allocates none of them.
+    static TRAILS: std::cell::Cell<(Vec<Vec<V2>>, Vec<Vec<V2>>)> =
+        const { std::cell::Cell::new((Vec::new(), Vec::new())) };
+}
+
 /// Run a snap.
 pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     let los = s.los;
@@ -971,9 +979,15 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     // ------------------------------------------------------------- the play
     let max_t = 14.0;
     // One buffer per player, each with its own room (vec![x; n] clones
-    // the empty vector without its capacity).
-    let mut trail: Vec<Vec<V2>> = (0..sim.agents.len()).map(|_| Vec::with_capacity(144)).collect();
-    let mut vel_trail: Vec<Vec<V2>> = (0..sim.agents.len()).map(|_| Vec::with_capacity(144)).collect();
+    // the empty vector without its capacity). They come from the last snap
+    // on this thread (`TRAILS`) and are emptied here, so every snap starts
+    // with one empty buffer per player, as before.
+    let (mut trail, mut vel_trail) = TRAILS.take();
+    for tr in [&mut trail, &mut vel_trail] {
+        tr.truncate(sim.agents.len());
+        tr.iter_mut().for_each(Vec::clear);
+        tr.resize_with(sim.agents.len(), || Vec::with_capacity(144));
+    }
     let mut throw_start: Option<f64> = None;
     let mut catch_x = los;
     let mut thrown_from = los;
@@ -1223,16 +1237,17 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                         None => {
                             // Find the most dangerous free rusher near him, or help.
                             let me = sim.agents[i].pos;
-                            let threat = (off_n..sim.agents.len())
-                                .filter(|&d| {
+                            let threat = min_key(
+                                (off_n..sim.agents.len()).filter(|&d| {
                                     let a = &sim.agents[d];
                                     a.up(t)
                                         && matches!(a.job, Job::Rush { .. })
                                         && a.engaged.is_none()
                                         && a.pos.dist(me) < 4.5
                                         && sim.can_square(i, d, q)
-                                })
-                                .min_by(|&a, &b| sim.agents[a].pos.dist(q).total_cmp(&sim.agents[b].pos.dist(q)));
+                                }),
+                                |d| sim.agents[d].pos.dist(q),
+                            );
                             if let Some(d) = threat {
                                 sim.agents[i].job = Job::PassBlock { target: Some(d) };
                             } else {
@@ -1318,12 +1333,13 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                             // Climb to the nearest unblocked defender ahead of the ball.
                             let me = sim.agents[i].pos;
                             let ballx = c.map(|c| sim.agents[c].pos.x).unwrap_or(los);
-                            let near = (off_n..sim.agents.len())
-                                .filter(|&d| {
+                            let near = min_key(
+                                (off_n..sim.agents.len()).filter(|&d| {
                                     let a = &sim.agents[d];
                                     a.up(t) && a.engaged.is_none() && a.pos.dist(me) < 6.0 && a.pos.x > ballx - 1.0
-                                })
-                                .min_by(|&a, &b| sim.agents[a].pos.dist(me).total_cmp(&sim.agents[b].pos.dist(me)));
+                                }),
+                                |d| sim.agents[d].pos.dist(me),
+                            );
                             match near {
                                 Some(d) if t > 0.3 => {
                                     sim.agents[i].job = Job::RunBlock { target: Some(d), pull: false }
@@ -1577,6 +1593,9 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             sim.trace();
         }
     }
+    // The trails are not read after the play: their buffers go back for
+    // the next snap on this thread.
+    TRAILS.set((trail, vel_trail));
     if !sim.dead {
         // Time ran out on the sim (a long scramble): down where he is.
         sim.dead = true;
@@ -2949,9 +2968,7 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, 
     } else if settle {
         // Sit down in space: drift away from the nearest defender.
         let me = sim.agents[i].pos;
-        let near = (0..sim.agents.len())
-            .filter(|&d| sim.agents[d].side == 1)
-            .min_by(|&a, &b| sim.agents[a].pos.dist(me).total_cmp(&sim.agents[b].pos.dist(me)));
+        let near = min_key((0..sim.agents.len()).filter(|&d| sim.agents[d].side == 1), |d| sim.agents[d].pos.dist(me));
         // Route savvy: a smart route runner finds the hole and sits in it.
         let savvy = 0.6 * sim.agents[i].a(Attr::RouteRunning) + 0.4 * sim.agents[i].a(Attr::FootballIq);
         let room = 1.5 * clamp(1.0 + 0.015 * (savvy - 60.0), 0.6, 1.4);
@@ -2992,6 +3009,29 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap, 
 /// (7.04) held.
 fn feet_in(p: V2) -> V2 {
     v2(clamp(p.x, back_line() + 0.3, end_line() - 0.3), clamp(p.y, 0.3, width() - 0.3))
+}
+
+/// The first of the items with the smallest key (by `total_cmp`): the same
+/// pick as `min_by(|a, b| key(a).total_cmp(&key(b)))`, but each key is
+/// worked out once (min_by works the running best's out again at every
+/// step), and none when there is only one item, as with min_by. The keys
+/// are pure, so a kept key is the same as one worked out again.
+#[inline]
+fn min_key(mut items: impl Iterator<Item = usize>, key: impl Fn(usize) -> f64) -> Option<usize> {
+    let mut best = items.next()?;
+    let Some(x) = items.next() else { return Some(best) };
+    let mut bk = key(best);
+    let k = key(x);
+    if bk.total_cmp(&k).is_gt() {
+        (best, bk) = (x, k);
+    }
+    for x in items {
+        let k = key(x);
+        if bk.total_cmp(&k).is_gt() {
+            (best, bk) = (x, k);
+        }
+    }
+    Some(best)
 }
 
 /// A wide receiver's or tight end's release off the line (minor bug 135):
@@ -3050,13 +3090,22 @@ fn route_step(a: &Agent, pts: &[V2], next: usize, settle: bool, rr_typ: f64) -> 
     } else if next + 1 < pts.len() {
         // A sharp break needs him to gear down first; good route runners
         // carry more speed through it.
-        let into = (target - a.pos).norm();
-        let out = (pts[next + 1] - target).norm();
-        let turn = into.dot(out).clamp(-1.0, 1.0).acos();
-        let corner =
-            vmax * (1.0 - (0.62 - 0.004 * (rr - 50.0) - BREAK_RR * (rr - rr_typ)) * (turn / 1.57).min(1.4)).max(0.15);
-        let limit = (corner * corner + 2.0 * brake * 0.9 * (dist - 0.5).max(0.0)).sqrt();
-        (vmax * urg).min(limit)
+        let room = 2.0 * brake * 0.9 * (dist - 0.5).max(0.0);
+        let full = vmax * urg;
+        // Far enough from the break to brake down for any corner: the limit
+        // is at least room's root, so it can't bind and the turn isn't
+        // worked out (the same speed, bit for bit).
+        if room.sqrt() >= full {
+            full
+        } else {
+            let into = (target - a.pos).norm();
+            let out = (pts[next + 1] - target).norm();
+            let turn = into.dot(out).clamp(-1.0, 1.0).acos();
+            let corner = vmax
+                * (1.0 - (0.62 - 0.004 * (rr - 50.0) - BREAK_RR * (rr - rr_typ)) * (turn / 1.57).min(1.4)).max(0.15);
+            let limit = (corner * corner + room).sqrt();
+            full.min(limit)
+        }
     } else {
         vmax * urg
     };
@@ -3121,19 +3170,21 @@ pub(crate) fn escort(sim: &mut Sim, i: usize) {
     let side = sim.agents[i].side;
     // The man to block: a free pursuer near the ball, or one coming at it
     // from in front of the runner (a return wall picks them up early).
-    let threat = (0..sim.agents.len())
-        .filter(|&d| sim.agents[d].side != side && sim.agents[d].up(sim.t) && sim.agents[d].engaged.is_none())
-        // Before the screen is caught the rushers are let through; the
-        // blockers look for the second level.
-        .filter(|&d| {
-            !pre || (sim.agents[d].smell || !matches!(sim.agents[d].job, Job::Rush { .. }))
-                && sim.agents[d].pos.dist(me) < 4.0
-        })
-        .filter(|&d| {
-            let dp = sim.agents[d].pos;
-            dp.dist(cp) < 10.0 || (dp.x - cp.x) * sim.goal > 0.0 && dp.dist(cp) < 30.0 && dp.dist(me) < 12.0
-        })
-        .min_by(|&a, &b| sim.agents[a].pos.dist(me).total_cmp(&sim.agents[b].pos.dist(me)));
+    let threat = min_key(
+        (0..sim.agents.len())
+            .filter(|&d| sim.agents[d].side != side && sim.agents[d].up(sim.t) && sim.agents[d].engaged.is_none())
+            // Before the screen is caught the rushers are let through; the
+            // blockers look for the second level.
+            .filter(|&d| {
+                !pre || (sim.agents[d].smell || !matches!(sim.agents[d].job, Job::Rush { .. }))
+                    && sim.agents[d].pos.dist(me) < 4.0
+            })
+            .filter(|&d| {
+                let dp = sim.agents[d].pos;
+                dp.dist(cp) < 10.0 || (dp.x - cp.x) * sim.goal > 0.0 && dp.dist(cp) < 30.0 && dp.dist(me) < 12.0
+            }),
+        |d| sim.agents[d].pos.dist(me),
+    );
     match threat {
         Some(d) if sim.closest(i, d) < 1.3 && sim.lands_block(i, d) => {
             // Blocks from behind are illegal.
@@ -3619,7 +3670,13 @@ fn quarterback(
         (1.6 - 0.017 * pro(iq_seen)).max(0.2) * (1.0 + 0.6 * panic) * (1.0 - 0.15 * (s.tac.pre_read - PRE_READ))
             + if s.tac.fooled { 0.2 } else { 0.0 };
     let mut best: Option<(usize, f64, V2, f64)> = None;
-    for &r in if screen { &[][..] } else { &cand[..] } {
+    // Each read's window this tick, by his place in `cand`. Nothing on the
+    // field moves between here and the checkdown and the throw below (only
+    // the random stream and the pass's notes change, and `window` reads
+    // neither), so they reuse it instead of playing the route forward again.
+    let mut wins: [Option<(f64, V2, f64)>; 8] = [None; 8];
+    let looked: &[usize] = if screen { &[] } else { &cand };
+    for (k, &r) in looked.iter().enumerate() {
         if !sim.agents[r].up(t) || matches!(sim.agents[r].job, Job::PassBlock { .. } | Job::RunBlock { .. }) {
             continue;
         }
@@ -3629,6 +3686,9 @@ fn quarterback(
             continue;
         }
         let (w, p, flight) = window(sim, qb, r);
+        if let Some(slot) = wins.get_mut(k) {
+            *slot = Some((w, p, flight));
+        }
         // A covered big receiver can still be open up high (D2): a jump
         // ball or a back-shoulder throw where only he can reach it.
         let size = size_window(sim, qb, r, p, w, s);
@@ -3722,7 +3782,7 @@ fn quarterback(
     if best.is_none() && (t > ck_at || urgent) && !screen {
         let force = t > clock + 0.5 - 0.4 * sling.max(0.0) || urgent && soon < 0.5;
         let mut ck: Option<(usize, f64, V2, f64)> = None;
-        for &r in &cand {
+        for (k, &r) in cand.iter().enumerate() {
             if !sim.agents[r].up(t) || !matches!(sim.agents[r].job, Job::Route { .. }) {
                 continue;
             }
@@ -3736,7 +3796,9 @@ fn quarterback(
             // neither, he holds it: a scramble, a throwaway or a sack, as
             // real dropbacks end about 15% of the time (proposed, not
             // confirmed: it took anyone within 7 yards and 2.5 yards beaten).
-            let (w, p, flight) = window(sim, qb, r);
+            // The reads above worked his window out this tick (the same
+            // value: nothing has moved since).
+            let (w, p, flight) = wins.get(k).copied().flatten().unwrap_or_else(|| window(sim, qb, r));
             if if force { w < -1.2 } else { (p.x - s.los) * sim.goal > 7.0 || w < 0.3 } {
                 continue;
             }
@@ -3812,7 +3874,10 @@ fn quarterback(
             return None;
         }
         if sim.agents[r].up(t) {
-            let (_, p, flight) = window(sim, qb, r);
+            // His window from the reads this tick when he is one of them
+            // (the same value), else worked out now.
+            let kept = cand.iter().position(|&x| x == r).and_then(|k| wins.get(k).copied().flatten());
+            let (_, p, flight) = kept.unwrap_or_else(|| window(sim, qb, r));
             return Some(throw(sim, ps, qb, r, p, flight, pressure, s));
         }
         ps.commit = None;
@@ -3937,12 +4002,15 @@ fn window(sim: &Sim, qb: usize, r: usize) -> (f64, V2, f64) {
     let speed = 16.5 + 0.13 * power;
     let mut p = ra.pos;
     let mut flight = 0.0;
-    let mut ahead = Predict::new(sim, r);
+    // The look-ahead's spots go in this thread's buffer from the last call
+    // (`PREDICT_SPOTS`), emptied first: only its room is reused.
+    let mut ahead = Predict::new(sim, r, PREDICT_SPOTS.take());
     for _ in 0..3 {
         let dist = q.dist(p);
         flight = 0.28 + dist / (speed * (1.0 - 0.005 * (dist - 20.0).max(0.0)));
         p = ahead.at(flight);
     }
+    PREDICT_SPOTS.set(ahead.spots);
     let mut w = f64::INFINITY;
     for d in 0..sim.agents.len() {
         let a = &sim.agents[d];
@@ -4042,6 +4110,12 @@ fn size_window(sim: &Sim, qb: usize, r: usize, p: V2, w: f64, s: &Snap) -> f64 {
     (0.07 * (adv - 2.0)).min(1.2) * sense * hands
 }
 
+thread_local! {
+    /// `Predict`'s spots, kept on this thread between `window` calls and
+    /// emptied at each one: only the room is reused.
+    static PREDICT_SPOTS: std::cell::Cell<Vec<V2>> = const { std::cell::Cell::new(Vec::new()) };
+}
+
 /// Where a receiver will be: the quarterback knows his route and how his
 /// man runs it, so he plays the route forward with the receiver's own
 /// speed, acceleration and cutting. The route is played forward once and
@@ -4059,11 +4133,15 @@ struct Predict<'s> {
 }
 
 impl<'s> Predict<'s> {
-    fn new(sim: &'s Sim<'s>, r: usize) -> Predict<'s> {
+    /// `spots` is a buffer to reuse: it is emptied, then holds his spot
+    /// now, as `vec![a.pos]` did.
+    fn new(sim: &'s Sim<'s>, r: usize, mut spots: Vec<V2>) -> Predict<'s> {
         let src = &sim.agents[r];
         let next = if let Job::Route { next, .. } = &src.job { *next } else { 0 };
         let a = src.without_job();
-        Predict { sim, r, next, stopped: false, spots: vec![a.pos], a }
+        spots.clear();
+        spots.push(a.pos);
+        Predict { sim, r, next, stopped: false, spots, a }
     }
 
     fn at(&mut self, dt: f64) -> V2 {
@@ -4430,15 +4508,20 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
         let a = &sim.agents[d];
         a.engaged.is_some_and(|k| sim.eng[k].pass && sim.eng[k].w > 0.45) && a.pos.dist(me) < 1.2
     };
+    let qv = sim.agents[qb].vel;
+    // Closest approach over the last tick, as with tackles. It is worked
+    // out only for an up defender past his last try and off a block: every
+    // test is pure, so testing the cheap ones first gives the same answer.
+    let free = |a: &Agent| {
+        let rel = a.pos - me;
+        let rv = (a.vel - qv).scale(DT);
+        let back = if rv.len() > 1e-6 { clamp(rel.dot(rv) / rv.dot(rv), 0.0, 1.0) } else { 0.0 };
+        (rel - rv.scale(back)).len() < 1.25
+    };
     let mut tacklers: Vec<usize> = (0..sim.agents.len())
         .filter(|&d| {
             let a = &sim.agents[d];
-            // Closest approach over the last tick, as with tackles.
-            let rel = a.pos - me;
-            let rv = (a.vel - sim.agents[qb].vel).scale(DT);
-            let back = if rv.len() > 1e-6 { clamp(rel.dot(rv) / rv.dot(rv), 0.0, 1.0) } else { 0.0 };
-            let free = a.engaged.is_none() && (rel - rv.scale(back)).len() < 1.25;
-            a.side == 1 && a.up(t) && (free || through(d)) && t - a.last_try > 0.6
+            a.side == 1 && a.up(t) && t - a.last_try > 0.6 && ((a.engaged.is_none() && free(a)) || through(d))
         })
         .collect();
     if tacklers.is_empty() {
@@ -5001,8 +5084,12 @@ fn cover_inner(
         Job::Zone { spot, deep, width, matched } => {
             let me = sim.agents[i].pos;
             let q = sim.agents[qb].pos;
-            // Threats in his area that he can see.
-            let mut threats: Vec<usize> = Vec::new();
+            // Threats in his area that he can see, on the stack (a list only
+            // past 32, which an offense never has): the same men in the same
+            // order as the list they used to go in.
+            let mut threat_buf = [0usize; 32];
+            let mut n_threats = 0usize;
+            let mut spill: Vec<usize> = Vec::new();
             for r in 0..sim.agents.len() {
                 let a = &sim.agents[r];
                 if a.side != 0 || !matches!(a.job, Job::Route { .. }) {
@@ -5017,10 +5104,21 @@ fn cover_inner(
                 // A deep defender running with a man feels him over his shoulder.
                 // An underneath defender feels a route going behind him (he
                 // reads the release and hears the call) when it is close.
-                if in_zone && (sim.sees(i, a.pos) || (deep || a.pos.x > me.x) && a.pos.dist(me) < 10.0) {
-                    threats.push(r);
+                // The felt test goes first: both tests are pure, and it often
+                // spares the vision cone's arc cosine.
+                if in_zone && ((deep || a.pos.x > me.x) && a.pos.dist(me) < 10.0 || sim.sees(i, a.pos)) {
+                    if n_threats < threat_buf.len() {
+                        threat_buf[n_threats] = r;
+                        n_threats += 1;
+                    } else {
+                        if spill.is_empty() {
+                            spill.extend_from_slice(&threat_buf);
+                        }
+                        spill.push(r);
+                    }
                 }
             }
+            let threats: &[usize] = if spill.is_empty() { &threat_buf[..n_threats] } else { &spill };
             // A sharp defender reads the quarterback's eyes; a looked-off one bites.
             let eyes = pass.as_ref().and_then(|p| p.reads.get(p.read).copied());
             // Pattern reading in zone (zone coverage with recognition) sets
