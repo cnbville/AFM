@@ -8,7 +8,7 @@
 //! same for every team.
 
 use super::Team;
-use super::voice::{Facts, Pen, Speaker};
+use super::voice::{Facts, Look, Speaker};
 use crate::calendar::{Date, Weekday};
 use crate::game::GameTeam;
 use crate::game::talk::{Day, Move, Pick, Record, Unit};
@@ -276,7 +276,7 @@ pub fn talk_line(w: &World, pick: &Pick, cx: &LineCx) -> String {
     let mut who = Speaker::you(w);
     who.tags.push(pick.tone.key());
     let f = line_facts(pick, cx);
-    let mut pen = Pen::loose(cx.seed);
+    let pen = Look::new(w, cx.seed);
     let open = format!("gameday.open.{}", pick.tone.key());
     let point = format!("gameday.{}", pick.mv.key());
     let close = format!("?gameday.close.{}", pick.tone.key());
@@ -288,7 +288,7 @@ pub fn talk_line(w: &World, pick: &Pick, cx: &LineCx) -> String {
 pub fn captain_lines(w: &World, i: usize, cx: &LineCx) -> Vec<String> {
     let who = Speaker::player(w, i);
     let f = line_facts(&Pick::default(), cx);
-    let mut pen = Pen::loose(cx.seed ^ 0xCA97_A100);
+    let pen = Look::new(w, cx.seed ^ 0xCA97_A100);
     [
         "gameday.captain.open",
         "gameday.captain.own",
@@ -308,7 +308,7 @@ pub fn quote_line(w: &World, id: u32, unit: Unit, us: &str, day: Date) -> Option
     let who = Speaker::player(w, i);
     let mut f = Facts::new();
     f.set("us", us.to_string()).set("unit", unit_words(unit));
-    let mut pen = Pen::loose(0x0E07_E000 ^ day.0 as u64 ^ (id as u64) << 20);
+    let pen = Look::new(w, 0x0E07_E000 ^ day.0 as u64 ^ (id as u64) << 20);
     pen.part("gameday.quote", &who, &f).map(|s| super::voice::tidy(&s))
 }
 
@@ -331,7 +331,7 @@ pub fn word_line(w: &World, pick: &Pick, mistake: crate::game::talk::Mistake, fi
     who.tags.push(pick.tone.key());
     let mut f = Facts::new();
     f.set("player", first.to_string()).set("mistake", mistake.key());
-    let mut pen = Pen::loose(seed);
+    let pen = Look::new(w, seed);
     pen.line(&[&format!("gameday.word.{}", pick.mv.key())], &who, &f)
 }
 
@@ -344,6 +344,6 @@ pub fn staff_line(w: &World, c: usize, kind: &str, player: Option<&str>, seed: u
     if let Some(p) = player {
         f.set("player", p.to_string());
     }
-    let mut pen = Pen::loose(seed ^ c as u64);
+    let pen = Look::new(w, seed ^ c as u64);
     pen.part(&format!("gameday.staff.{kind}"), &who, &f).map(|s| super::voice::tidy(&s))
 }

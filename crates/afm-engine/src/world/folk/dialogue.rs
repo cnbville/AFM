@@ -1437,15 +1437,19 @@ fn agent_speaker(w: &World, a: usize) -> Speaker {
 /// the part (in range, apart, a bluff) and the numbers; the words are his,
 /// from his honesty and temper. A bluff from an honest man comes out
 /// forced; a slick one's comes out smooth, and vague all the same. With no
-/// agent, or no line, the plain words stand.
-pub fn agent_says(w: &World, i: usize, part: &str, facts: &Facts, plain: String) -> String {
+/// agent, or no line, the plain words stand. He remembers what he has said
+/// to you, as everyone in the talks does (minor bug 314).
+pub fn agent_says(w: &mut World, i: usize, part: &str, facts: &Facts, plain: String) -> String {
     let Some(a) = w.people[i].pro.as_ref().and_then(|c| c.agent).filter(|&a| a < w.market.agents.len()) else {
         return plain;
     };
     let who = agent_speaker(w, a);
     let salt = part.bytes().fold(0u64, |h, b| h.wrapping_mul(31).wrapping_add(b as u64));
-    let mut pen = Pen::loose(w.today.0 as u64 ^ (w.people[i].player.id as u64) << 24 ^ salt << 40);
-    match pen.part(&format!("agent.{part}"), &who, facts).map(|x| super::voice::tidy(&x)) {
+    let seed = w.today.0 as u64 ^ (w.people[i].player.id as u64) << 24 ^ salt << 40;
+    let mut pen = Pen::take(w, seed);
+    let said = pen.part(&format!("agent.{part}"), &who, facts).map(|x| super::voice::tidy(&x));
+    pen.put(w);
+    match said {
         Some(t) if !t.is_empty() => format!("\"{t}\""),
         _ => plain,
     }
