@@ -209,7 +209,15 @@ pub fn sign(w: &mut World, k: usize, place: Option<u8>) -> Result<String, String
         None => {
             let (areas, nats) = scout_sizes(w, t);
             let extra = r.hires.iter().filter(|h| h.0 == 255).count();
-            if w.clubs[t].scouts.len() + extra >= areas + nats + 2 {
+            // Sandbox mode's money switch: the owner pays for every post,
+            // up to the places a file can name (0-249; 250 and up are the
+            // GM, the coaches and the events).
+            let cap = if w.sandbox(crate::world::sandbox::Switch::Money) {
+                crate::world::pro::scouts::GM as usize
+            } else {
+                areas + nats + 2
+            };
+            if w.clubs[t].scouts.len() + extra >= cap {
                 return Err("Your owner won't pay for another post.".into());
             }
             255
@@ -494,6 +502,8 @@ pub fn hire_personnel(w: &mut World, key: u64) -> Result<String, String> {
     let h = personnel_market(w).into_iter().find(|h| h.key == key).ok_or("He has taken another job.")?;
     take_personnel(w, prog);
     let cap = readers::keyed_personnel(w, prog).len().max(1) + 1;
+    // Sandbox mode's money switch: every post you want is paid for.
+    let cap = if w.sandbox(crate::world::sandbox::Switch::Money) { usize::MAX } else { cap };
     let own = &mut w.scouting.own.personnel;
     let name = h.name.clone();
     let job = PERSONNEL_JOBS[h.job as usize];
@@ -697,6 +707,10 @@ pub fn trip_day(w: &World, id: u32, kind: TripKind) -> Result<Date, String> {
             let season = w.dates.season;
             let (lf, ls) = super::dept::eval_limits(season, super::dept::service_academy(&w.programs[pj]));
             let (_, uf, us) = w.scouting.dept.eval_days;
+            // Sandbox mode: contact rules lifted, any week's Friday or
+            // Thursday; staff time lifted, the evaluation days never run out.
+            let lift = w.sandbox(crate::world::sandbox::Switch::ContactRules);
+            let free = w.sandbox(crate::world::sandbox::Switch::StaffTime);
             let wanted = if kind == TripKind::Game { Weekday::Fri } else { Weekday::Thu };
             for k in 1..=21 {
                 let d = today.add(k);
@@ -706,13 +720,17 @@ pub fn trip_day(w: &World, id: u32, kind: TripKind) -> Result<Date, String> {
                 let period = crate::calendar::recruiting_period(&w.dates, d);
                 let fall = period == Period::Evaluation && matches!(d.parts().1, 9..=11);
                 let spring = matches!(d.parts().1, 4 | 5) && matches!(period, Period::Contact | Period::Evaluation);
-                if fall && uf < lf {
+                // Checked against the count the trip is charged to
+                // (`take_trips`): September to November the fall's days,
+                // the rest of the year the spring's.
+                let room = if matches!(d.parts().1, 9..=11) { uf < lf } else { us < ls };
+                if (fall || (lift && !spring)) && (free || room) {
                     return Ok(d);
                 }
-                if spring && kind == TripKind::Practice && us < ls {
+                if spring && (kind == TripKind::Practice || lift) && (free || us < ls) {
                     // The 2008 rule: head coaches stay home in the spring
                     // evaluation period.
-                    if is_head(w) && d.year() >= 2008 {
+                    if !lift && is_head(w) && d.year() >= 2008 {
                         return Err(
                             "Since 2008 a head coach can't go out in the spring evaluation period: send an assistant."
                                 .into(),

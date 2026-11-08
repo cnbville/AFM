@@ -241,7 +241,12 @@ pub fn visit_open(w: &mut World, id: u32) -> Result<String, String> {
         name: name.clone(),
         kind,
         date: w.today,
-        minutes_left: VISIT_MIN,
+        // Sandbox mode's hours switch: time for every choice on offer.
+        minutes_left: if w.sandbox(crate::world::sandbox::Switch::YourHours) {
+            choices(kind).iter().map(|c| c.minutes).sum::<u16>().max(VISIT_MIN)
+        } else {
+            VISIT_MIN
+        },
         place: choices(kind)[0].place.to_string(),
         done: Vec::new(),
         watchers,
@@ -269,7 +274,7 @@ pub fn visit_choose(w: &mut World, key: &str) -> Result<String, String> {
         w.scouting.film.there.visit = Some(v);
         return Err("There isn't time left for that.".into());
     }
-    v.minutes_left -= c.minutes;
+    v.minutes_left = v.minutes_left.saturating_sub(c.minutes);
     v.place = c.place.to_string();
     let line = show(w, v.id, key);
     v.done.push((key.to_string(), c.place.to_string(), line.clone()));

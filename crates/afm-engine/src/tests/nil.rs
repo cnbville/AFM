@@ -69,11 +69,11 @@ fn the_school_pays_its_share_and_nil_go_reads_the_collectives() {
     let money = 4.0 * top;
     // Before NIL Go opened (June 11, 2025) it is all the collective's, and
     // nothing reviews it.
-    let (s, c) = rec::pots(prog, Date::ymd(2025, 6, 1), money, top);
+    let (s, c) = rec::pots(prog, Date::ymd(2025, 6, 1), money, top, false);
     assert_eq!((s, c), (0.0, money));
     // After, the school's 12 of 20 million is its own; the collective's part
     // is cleared to his top.
-    let (s, c) = rec::pots(prog, w.today, money, top);
+    let (s, c) = rec::pots(prog, w.today, money, top, false);
     assert!((s - 0.6 * money).abs() < 1.0, "{s}");
     assert!((c - top).abs() < 1.0, "{c} against {top}");
 }

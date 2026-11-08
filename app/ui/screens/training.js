@@ -687,7 +687,7 @@ function weekTab(x) {
     : !x.head ? "The head coach runs practice: you see his week, and you plan your own players on the Players tab."
     : x.yours ? (x.pushed ? "Your week, saved outside the rules: a staff member or a player could report it." : "Your week.") : "Your staff's week for this block, from their style. Change any period and the staff keeps the rest.";
   const fitted = x.fitted && x.fitted.length ? ` Your staff changed ${x.fitted.length === 1 ? "one thing" : x.fitted.length + " things"} to keep it inside the rules: ${x.fitted.join(" ")}` : "";
-  const breaches = x.breaches.length ? `<div class="panel tr-breach"><h2>Outside the rules <small>${x.breaches.length}</small></h2><div class="items">${x.breaches.map((b) => `<div class="item"><span class="when">${esc(b.day || "Week")}</span><span>${esc(b.text)}</span></div>`).join("")}</div></div>` : "";
+  const breaches = x.breaches.length ? `<div class="panel tr-breach"><h2>Outside the rules <small>${x.breaches.length}${x.rules_lifted ? " · sandbox mode: it runs as written, no case" : ""}</small></h2><div class="items">${x.breaches.map((b) => `<div class="item"><span class="when">${esc(b.day || "Week")}</span><span>${esc(b.text)}</span></div>`).join("")}</div></div>` : "";
   const head = `<div class="tw-head"><div class="tw-hl"><div class="tw-h1">${esc(x.title)}</div><div class="tw-sub">${esc(x.sub)}</div>
     <div class="tw-rule"><a class="link" data-act="tr-wrule">The rules this week</a> ${esc(x.rule || "")}</div>
     <div class="tw-note">${esc(note + fitted)}</div>${chips}</div>${twYear(x)}</div>`;

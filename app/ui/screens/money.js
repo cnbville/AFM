@@ -215,7 +215,7 @@ function mnHs(x, b, tab) {
     const pct = s.equipment ? Math.min(100, ((s.basics + s.bought) / s.equipment) * 100) : 0;
     const items = b.purchases.map((p) => {
       const done = (s.done || []).includes(p.key);
-      const can = !done && s.left >= p.price;
+      const can = !done && (s.unlimited || s.left >= p.price);
       return `<div class="mn-buy ${done ? "done" : ""}"><div><b>${esc(p.name)}</b><small>${esc(p.what)}</small></div><span class="mn-price">${mn$(p.price)}</span>${done ? '<span class="tag gold">Bought</span>' : `<button class="st-btn small ${can ? "primary" : "glass"}" data-act="mnhs" data-what="buy" data-key="${p.key}" ${can ? "" : "disabled"}>Buy</button>`}</div>`;
     }).join("");
     const ask = s.asked ? '<span class="tag soft">Asked this year</span>' : '<button class="st-btn small glass" data-act="mnhs" data-what="district">Ask the district for more</button>';

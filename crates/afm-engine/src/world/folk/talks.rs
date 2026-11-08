@@ -558,15 +558,25 @@ fn week_start(d: Date) -> Date {
     d
 }
 
-/// Hours left this week.
+/// Hours left this week (all of them, every week, with sandbox mode's
+/// hours switch).
 pub fn hours_left(w: &World) -> f32 {
+    if w.sandbox(crate::world::sandbox::Switch::YourHours) {
+        return week_budget(w);
+    }
     let used = if w.folk.mine.week == Some(week_start(w.today)) { w.folk.mine.hours } else { 0.0 };
     (week_budget(w) - used).max(0.0)
 }
 
 /// Charges people time that has to be spent (a trip, a meeting you held),
 /// past the week's budget if need be.
+///
+/// With sandbox mode's hours switch nothing is charged, so the week is
+/// still true when the switch goes off.
 pub fn charge(w: &mut World, hours: f32) {
+    if w.sandbox(crate::world::sandbox::Switch::YourHours) {
+        return;
+    }
     let wk = week_start(w.today);
     if w.folk.mine.week != Some(wk) {
         w.folk.mine.week = Some(wk);
@@ -575,8 +585,12 @@ pub fn charge(w: &mut World, hours: f32) {
     w.folk.mine.hours += hours;
 }
 
-/// Spends people time; false when the week is full.
+/// Spends people time; false when the week is full. Always true, and
+/// nothing charged, with sandbox mode's hours switch.
 pub fn spend(w: &mut World, hours: f32) -> bool {
+    if w.sandbox(crate::world::sandbox::Switch::YourHours) {
+        return true;
+    }
     let wk = week_start(w.today);
     if w.folk.mine.week != Some(wk) {
         w.folk.mine.week = Some(wk);

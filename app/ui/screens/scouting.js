@@ -561,7 +561,7 @@ screens.predraft = async () => {
   const top = x.board.rows.filter((r) => !r.taken).slice(0, 80);
   // Each list adds a player from your board here (the board's side panel does too).
   const addRow = (l) => {
-    if (l.rows.length >= l.cap) return `<p class="sub">The list is full: take someone off to add another.</p>`;
+    if (!l.lifted && l.rows.length >= l.cap) return `<p class="sub">The list is full: take someone off to add another.</p>`;
     const pool = x.board.rows.filter((r) => !r.taken && !(r.lists || []).includes(l.k)).slice(0, 150);
     return pool.length ? `<div class="sc-row2"><select class="sc-sel" data-sc-add="${l.k}" aria-label="Add to ${esc(l.name.toLowerCase())}">${pool.map((r) => `<option value="${r.id}">${r.rank}. ${esc(r.name)} · ${esc(r.pos)} · ${esc(r.school)}</option>`).join("")}</select><button class="st-btn small glass" data-act="sc-listadd" data-list="${l.k}">Add</button></div>` : "";
   };

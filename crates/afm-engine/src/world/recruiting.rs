@@ -1882,11 +1882,19 @@ pub(crate) fn draft_end(
             .collect()
     } else {
         let limit = w.rules.nfl_offseason as usize;
+        // Sandbox mode's roster limits: every call your war room makes has
+        // room on your club (AI clubs keep the 90).
+        let seat_calls =
+            seat_rush.as_ref().filter(|s| super::front_office::roster_lifted(w, s.0)).map(|s| (s.0, s.1.len()));
         let mut room: Vec<usize> = (0..w.nfl.len())
             .map(|t| {
                 if t < w.clubs.len() && super::franchise::active_in(w, t, draft_year) {
                     // The picks are on the roster already.
-                    limit.saturating_sub(w.clubs[t].roster.len())
+                    let r = limit.saturating_sub(w.clubs[t].roster.len());
+                    match seat_calls {
+                        Some((st, n)) if st == t => r.max(n),
+                        _ => r,
+                    }
                 } else {
                     0
                 }
@@ -4119,8 +4127,17 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
         let mut new: Vec<(usize, Visit)> = Vec::new();
         if official_day && official_visit_allowed(season, d, p.class_of, junior_officials) {
             // The official you set and he accepted holds one of his five.
-            let taken = p.cal.visits.iter().filter(|v| v.2 == Visit::Official).count()
-                + usize::from(planned.as_ref().is_some_and(|(_, ids)| ids.contains(&p.player.id)));
+            // Counted by school: sandbox mode's contact rules can give your
+            // program more than one, and they hold a single place.
+            let vs = &p.cal.visits;
+            let taken = (0..vs.len())
+                .filter(|&k| {
+                    vs[k].2 == Visit::Official && !vs[..k].iter().any(|u| u.0 == vs[k].0 && u.2 == Visit::Official)
+                })
+                .count()
+                + usize::from(planned.as_ref().is_some_and(|(pj, ids)| {
+                    ids.contains(&p.player.id) && !vs.iter().any(|u| u.0 == *pj && u.2 == Visit::Official)
+                }));
             let yours_set = |j: usize| planned.as_ref().is_some_and(|(pj, ids)| *pj == j && ids.contains(&p.player.id));
             let next = p.cal.offers.iter().find(|&&j| {
                 Some(j) != vj
@@ -5186,6 +5203,9 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     let mut promise: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
     if let Some(m) = &mine {
         let j = m.program;
+        // Sandbox mode's roster limits (a test switch): your offers sign
+        // past your class plan, the yearly signee cap and the roster limit.
+        let lift_roster = w.sandbox(super::sandbox::Switch::RosterLimits);
         let k_of: std::collections::HashMap<usize, usize> =
             pool.iter().enumerate().map(|(k, r)| (r.person, k)).collect();
         let mut mb: Vec<Board> = vec![Vec::new(); POSITION_COUNT];
@@ -5227,10 +5247,13 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     .iter()
                     .filter(|e| w.people[pool[e.0].person].cal.commit.is_some_and(|c| c.0 == j && !c.2))
                     .count();
-                plans[j].scholarship[i] = own_at[i].min(need.max(held));
+                plans[j].scholarship[i] = if lift_roster { own_at[i] } else { own_at[i].min(need.max(held)) };
             }
         }
         boards[j] = mb;
+        if lift_roster {
+            plans[j].slots = plans[j].slots.max(pool.len());
+        }
     }
     let mj = mine.as_ref().map(|m| m.program);
     let fill = mine.as_ref().is_some_and(|m| m.fill);
@@ -5352,6 +5375,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             reach[j] && money + BUY_RANKS <= standing
         })
         .collect();
+    let go_free = nil_go_free(w);
     let offer_for = |j: usize, k: usize, rank: f64| -> f64 {
         let prog = &programs[j];
         // Your promise, where you made one (lane 10).
@@ -5380,7 +5404,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             usual
         };
         // From July 2025 the collective's part goes through NIL Go (B18).
-        cleared(prog, w.today, money, nil_go_top_recruit(p)) + super::ncaa::booster_cash(prog, pool[k].person)
+        cleared(prog, w.today, money, nil_go_top_recruit(p), go_free == Some(j))
+            + super::ncaa::booster_cash(prog, pool[k].person)
     };
     // The next offer a staff makes: (position, walk-on spot).
     let next_offer = |j: usize,
@@ -5550,6 +5575,10 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 // rest of his allowance goes to the schools he likes best.
                 let mut official: Vec<usize> =
                     p.cal.visits.iter().filter(|v| v.2 == super::Visit::Official).map(|v| v.0).collect();
+                // One place a school: sandbox mode's contact rules can give
+                // your program more than one official.
+                official.sort_unstable();
+                official.dedup();
                 for x in liked.iter() {
                     if official.len() >= officials {
                         break;
@@ -5818,8 +5847,13 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                         super::ncaa::position_nil_max(seat.pos)
                     };
                     // The raise's collective part goes through NIL Go too (B18).
-                    let raised =
-                        cleared(prog, w.today, (offer * 1.5).min(cap).min(top.max(offer)), nil_go_top_recruit(p));
+                    let raised = cleared(
+                        prog,
+                        w.today,
+                        (offer * 1.5).min(cap).min(top.max(offer)),
+                        nil_go_top_recruit(p),
+                        go_free == Some(j),
+                    );
                     let ru = utility_fit(&pool_fits[k], p, &wants, prog, year, raised, 1.0 - rank, home_w[k])
                         + fx.ties
                         + fit;
@@ -6552,10 +6586,17 @@ pub(crate) fn enroll(w: &mut World, early: bool) {
             for i in fresh {
                 let v = nil_value(&w.people[i], div, &medians);
                 // The collective's part through NIL Go (B18).
+                // Sandbox mode's NIL Go switch: your collective's deals
+                // clear in full.
+                let free = nil_go_free(w) == Some(j);
                 let money = match fo::college::deal_of(w, w.people[i].player.id).filter(|_| mine == Some(j)) {
-                    Some((s, c)) if super::ncaa::two_pots(today) => s + nil_go(today, c, nil_go_top(&w.people[i], v)),
+                    Some((s, c)) if super::ncaa::two_pots(today) => {
+                        s + if free { c } else { nil_go(today, c, nil_go_top(&w.people[i], v)) }
+                    }
                     Some((s, _)) => s,
-                    None => cleared(&w.programs[j], today, budget * v / pool.max(1e-9), nil_go_top(&w.people[i], v)),
+                    None => {
+                        cleared(&w.programs[j], today, budget * v / pool.max(1e-9), nil_go_top(&w.people[i], v), free)
+                    }
                 };
                 let p = &mut w.people[i];
                 if money > 250_000.0 {
@@ -7555,6 +7596,9 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
     // rosters already, so only the day's own add to it (the market's `adds`
     // keeps the whole cycle's, for its cap of ten).
     let counted = counted_rosters(w, season);
+    let go_free = nil_go_free(w);
+    // Sandbox mode's roster limits: your offers land past your roster limit.
+    let lift_portal = w.sandbox(super::sandbox::Switch::RosterLimits);
     let mut today_adds = vec![0usize; pn];
     let seed = w.options.seed as u64 ^ ((market.label as u64) << 24) ^ 0xFA11;
     // The day's landings (person, program), applied to the rosters in
@@ -7650,7 +7694,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                 {
                     let o = m.offers.get(&wr.people[i].player.id)?;
                     let limit = super::ncaa::roster_limits(&wr.programs[j], season).0;
-                    if j == c || counted[j] + today_adds[j] >= limit {
+                    if j == c || (!lift_portal && counted[j] + today_adds[j] >= limit) {
                         return None;
                     }
                     // His old head coach's new school takes him at any level (minor bug 86).
@@ -7678,7 +7722,10 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                         (None, None) => 0.0,
                         (x, c) if super::ncaa::two_pots(wr.today) => {
                             let v = nil_weight(Some(role), p.player.position, recruiting_stars(p), perf - median(d));
-                            x.unwrap_or(0.0) + nil_go(wr.today, c.unwrap_or(0.0), nil_go_top(p, v))
+                            let c = c.unwrap_or(0.0);
+                            // Sandbox mode's NIL Go switch: your deal clears in full.
+                            x.unwrap_or(0.0)
+                                + if go_free == Some(j) { c } else { nil_go(wr.today, c, nil_go_top(p, v)) }
                         }
                         (x, c) => x.unwrap_or(0.0) + c.unwrap_or(0.0),
                     };
@@ -7747,7 +7794,8 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                 }
                 let p = &wr.people[i];
                 let role = role_at(ahead, slots);
-                let (school, coll) = portal_nil(&wr.programs[j], mk.pool(j), p, role, perf - median(d), wr.today);
+                let (school, coll) =
+                    portal_nil(&wr.programs[j], mk.pool(j), p, role, perf - median(d), wr.today, go_free == Some(j));
                 let nil = (school + coll) * super::legacy::college::split_q(wr, j, 1);
                 let u = utility(&norms, p, &p.family.own_wants, &wr.programs[j], wr.year, nil, 0.6, 1.0)
                     + mk.view.fit(j, i, p.player.position, &p.family.own_wants, perf, 3, 0.0, early_weight(p.stars))
@@ -7995,18 +8043,33 @@ pub(crate) fn nil_go(today: Date, deal: f64, top: f64) -> f64 {
 /// deal as NIL Go clears it. The split follows the program's money: its
 /// school pot over its whole budget. Before July 2025 it is all the
 /// collective's, and nothing reviews it.
-pub(crate) fn pots(prog: &Program, today: Date, money: f64, top: f64) -> (f64, f64) {
+/// `free`: sandbox mode's NIL Go switch on your program (`nil_go_free`),
+/// where NIL Go clears the collective's part in full.
+pub(crate) fn pots(prog: &Program, today: Date, money: f64, top: f64, free: bool) -> (f64, f64) {
     let total = prog.collective.budget;
     let s = if total > 0.0 { (super::ncaa::school_pot(prog, today) / total).clamp(0.0, 1.0) } else { 0.0 };
     let school = money * s;
-    (school, nil_go(today, money - school, top))
+    (school, if free { money - school } else { nil_go(today, money - school, top) })
 }
 
 /// The money a player gets from a program's usual offer once NIL Go has
 /// read the collective's part (B18).
-pub(crate) fn cleared(prog: &Program, today: Date, money: f64, top: f64) -> f64 {
-    let (s, c) = pots(prog, today, money, top);
+pub(crate) fn cleared(prog: &Program, today: Date, money: f64, top: f64, free: bool) -> f64 {
+    let (s, c) = pots(prog, today, money, top, free);
     s + c
+}
+
+/// Sandbox mode's NIL Go switch (a test switch): your program, whose
+/// collective's deals NIL Go clears in full; None otherwise. Every other
+/// program's deals go through NIL Go as always.
+pub(crate) fn nil_go_free(w: &World) -> Option<usize> {
+    if w.sandbox(super::sandbox::Switch::NilGo) { fo::program(w) } else { None }
+}
+
+/// NIL Go on one of program `j`'s collective deals (`nil_go`), or the whole
+/// deal for your program under sandbox mode's NIL Go switch.
+pub(crate) fn nil_go_at(w: &World, j: usize, deal: f64, top: f64) -> f64 {
+    if nil_go_free(w) == Some(j) { deal } else { nil_go(w.today, deal, top) }
 }
 
 /// Starters' median play by division and position, the bar a player's NIL
@@ -8072,11 +8135,19 @@ fn nil_pool(
 /// his stars, and moved by how he played against the level's starters at
 /// his position (`nil_weight`). A starting quarterback who played well
 /// draws seven figures at a big program; a backup lineman a few thousand.
-fn portal_nil(prog: &Program, pool: f64, p: &Person, role: PlayingTime, edge: f64, today: Date) -> (f64, f64) {
+fn portal_nil(
+    prog: &Program,
+    pool: f64,
+    p: &Person,
+    role: PlayingTime,
+    edge: f64,
+    today: Date,
+    free: bool,
+) -> (f64, f64) {
     let v = nil_weight(Some(role), p.player.position, recruiting_stars(p), edge);
     let pool = if pool > 0.0 { pool } else { 12.0 };
     // In two pots from July 2025, the collective's part through NIL Go (B18).
-    pots(prog, today, prog.collective.budget * 0.6 * v / (pool + v), nil_go_top(p, v))
+    pots(prog, today, prog.collective.budget * 0.6 * v / (pool + v), nil_go_top(p, v), free)
 }
 
 /// The collective's usual portal money for an entrant at program `j`, the
@@ -8099,7 +8170,7 @@ pub(crate) fn portal_usual(w: &World, j: usize, i: usize) -> (f64, f64) {
     };
     let role = p.last_role.unwrap_or(PlayingTime::Rotation);
     let q = super::legacy::college::split_q(w, j, 1);
-    let (school, coll) = portal_nil(&w.programs[j], pool, p, role, edge, w.today);
+    let (school, coll) = portal_nil(&w.programs[j], pool, p, role, edge, w.today, nil_go_free(w) == Some(j));
     (school * q, coll * q)
 }
 
@@ -8134,6 +8205,7 @@ pub(crate) fn nil_payouts(w: &mut World) {
     // Your collective's deals NIL Go held back: (players, dollars).
     let mut held = (0usize, 0.0f64);
     let medians = nil_medians(w);
+    let go_free = nil_go_free(w);
     for j in 0..pn {
         let budget = w.programs[j].collective.budget * 0.6 * super::legacy::college::split_q(w, j, 0);
         let roster = w.programs[j].roster.clone();
@@ -8156,7 +8228,7 @@ pub(crate) fn nil_payouts(w: &mut World) {
         let split = |p: &Person| {
             let x = worth(p);
             let school = x * s;
-            let coll = nil_go(today, x - school, nil_go_top(p, value(p)));
+            let coll = if go_free == Some(j) { x - school } else { nil_go(today, x - school, nil_go_top(p, value(p))) };
             (school, coll, x - school - coll)
         };
         let mut paid: Vec<(f64, usize)> = match deals.as_ref().filter(|d| d.0 == j) {
@@ -8175,7 +8247,14 @@ pub(crate) fn nil_payouts(w: &mut World) {
                     // pots one deal. A player with no deal gets nothing.
                     let id = p.player.id;
                     let written = if two { d.2.get(&id).copied().unwrap_or(0.0) } else { 0.0 };
-                    let paid = if two { nil_go(today, written, nil_go_top(p, value(p))) } else { 0.0 };
+                    // Sandbox mode's NIL Go switch: your deals clear in full.
+                    let paid = if !two {
+                        0.0
+                    } else if go_free == Some(j) {
+                        written
+                    } else {
+                        nil_go(today, written, nil_go_top(p, value(p)))
+                    };
                     if written - paid > 0.5 {
                         held.0 += 1;
                         held.1 += written - paid;
@@ -8269,7 +8348,7 @@ pub(crate) fn usual_nil_parts(w: &World, j: usize, i: usize) -> (f64, f64) {
     let money = (position_nil(p.player.position) * talent * pay)
         .min(prog.collective.budget * 0.6 * 0.25 * q)
         .min(super::ncaa::position_nil_max(p.player.position));
-    pots(prog, w.today, money, nil_go_top_recruit(p))
+    pots(prog, w.today, money, nil_go_top_recruit(p), nil_go_free(w) == Some(j))
 }
 
 /// The NIL money a recruit weighs from program `j` today: from your own
