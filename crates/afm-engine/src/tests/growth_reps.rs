@@ -356,6 +356,10 @@ fn held_year(p: &Player, k: u64, in_season: bool) -> f64 {
     ctx.defer = true;
     ctx.snaps = Some(0.85);
     ctx.results = in_season.then_some(Mode::default());
+    // Last season's snaps landed as he played them too.
+    if in_season {
+        q.train.year.flags |= 8;
+    }
     let before = q.overall();
     develop_season(&mut q, &ctx, &mut Rng::new(format!("held-{k}").as_str()));
     let mut l = Ledger::default();
@@ -365,7 +369,7 @@ fn held_year(p: &Player, k: u64, in_season: bool) -> f64 {
         land(&mut q, &s, None, b);
         if (2..8).contains(&b) {
             for _ in 0..2 {
-                results::reps(&mut q, &mut l, per, Level::FBS, 0.0);
+                results::reps(&mut q, &mut l, per, Level::FBS, 0.0, None);
             }
         }
     }
@@ -380,6 +384,31 @@ fn snaps_landed_in_season_give_a_starters_year() {
     let off = mean(&ps.iter().enumerate().map(|(k, p)| held_year(p, k as u64, false)).collect::<Vec<_>>());
     eprintln!("a starter's held year: snaps in season {on:+.2}, read from last season {off:+.2}");
     assert!((on - off).abs() < 0.12, "the same snaps grow him the same");
+}
+
+#[test]
+fn snaps_that_never_landed_are_read_once_and_kickers_keep_their_role() {
+    // The rate a year opens at, as the store keeps it.
+    let opened = |p: &Player, pos: Position, landed: bool, results: bool| -> u8 {
+        let mut q = p.clone();
+        q.position = pos;
+        q.train.year.flags = if landed { 8 } else { 0 };
+        let mut ctx = context_for(22);
+        ctx.level = Level::FBS;
+        ctx.defer = true;
+        ctx.snaps = (!pos.is_specialist()).then_some(0.85);
+        ctx.results = results.then_some(Mode::default());
+        develop_season(&mut q, &ctx, &mut Rng::new("opened"));
+        q.train.year.snaps
+    };
+    let p = passer(1);
+    // A season played with results off (or unsigned at camp, or an older
+    // save) is read at the opening, as before: its snaps count once.
+    assert_eq!(opened(&p, Position::QB, false, true), opened(&p, Position::QB, false, false));
+    // A season whose snaps landed as he played opens at a backup's rate.
+    assert!(opened(&p, Position::QB, true, true) < opened(&p, Position::QB, false, false));
+    // A kicker takes no snaps to land: his role decides (minor bug 264).
+    assert_eq!(opened(&p, Position::K, true, true), opened(&p, Position::K, true, false));
 }
 
 #[test]

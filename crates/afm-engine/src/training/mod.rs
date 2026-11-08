@@ -112,10 +112,11 @@ pub struct GrowthYear {
     #[serde(default)]
     pub pcoach: u8,
     /// Growth from results: the form of the skills results test when
-    /// results replace the dice (item 14), against the year's `form`, v /
-    /// 64 (a byte, so the store stays 40 bytes). Flags bit 3: snaps land
-    /// in season; bit 4: results replace the dice; bits 5-7: the level the
-    /// year opened at (`Level as u8`).
+    /// results replace the dice (item 14), against the year's `form`, as
+    /// 2^((v - 128) / 32) (a byte, so the store stays 40 bytes: 1/16 to 16
+    /// times, steps of 2%). Flags bit 3: snaps land in season; bit 4:
+    /// results replace the dice; bits 5-7: the level the year opened at
+    /// (`Level as u8`).
     #[serde(default)]
     pub form_tested: u8,
 }
@@ -205,7 +206,7 @@ impl Train {
         self.year.flags = self.year.flags & 7 | (in_season as u8) << 3 | (replace as u8) << 4 | (level as u8) << 5;
         let form = self.year.form as f64 / 4000.0;
         let ratio = if replace && form > 1e-6 { form_tested / form } else { 1.0 };
-        self.year.form_tested = clamp((ratio * 64.0).round(), 0.0, 255.0) as u8;
+        self.year.form_tested = clamp((128.0 + 32.0 * ratio.max(1e-9).log2()).round(), 0.0, 255.0) as u8;
     }
 
     /// His snaps land in the week he plays them this year.
@@ -257,7 +258,7 @@ impl Train {
             focus,
             focus_take: clamp(0.6 + 0.02 * coachability, 0.6, 1.0),
             tested: if y.flags & 16 != 0 { crate::results::tested(self.position(), self.level()) } else { 0 },
-            form_tested: y.form as f64 / 4000.0 * y.form_tested as f64 / 64.0,
+            form_tested: y.form as f64 / 4000.0 * ((y.form_tested as f64 - 128.0) / 32.0).exp2(),
         }
     }
 
@@ -327,12 +328,13 @@ pub fn land_after(
 /// in the snaps' rate gives (`development::reps_ratio` raised to the
 /// skill's experience weight, as the yearly step's snaps). Returns the
 /// overall gained. Only a year opened with snaps landing in season.
-pub fn reps_land(p: &mut Player, before: f64, share: f64) -> f64 {
+pub fn reps_land(p: &mut Player, before: f64, share: f64, focus: Option<Attr>) -> f64 {
     if !p.train.reps_in_season() || share <= 0.0 {
         return 0.0;
     }
     let start = p.overall();
-    let g = p.train.ctx(p.personality.work_ethic, None, p.personality.coachability);
+    // His plan's focus counts on this part of the year as on the rest.
+    let g = p.train.ctx(p.personality.work_ethic, focus, p.personality.coachability);
     let dev_age = p.train.development_age();
     let (r0, r1) = (crate::development::reps_ratio(before), crate::development::reps_ratio(before + share));
     let (mut attrs, mut ceil) = (p.attributes, p.ceilings);
@@ -405,7 +407,11 @@ pub fn close_year(p: &mut Player, focus: Option<Attr>) {
     let done: [f64; FAMILIES] = std::array::from_fn(|f| p.train.landed(Family::ALL[f]));
     land_after(p, &rest, &done, focus, 0xC105E);
     let (load, prep, rust) = (p.train.load, p.train.prep, p.train.rust);
-    p.train = Train { load, prep, rust, ..Train::default() };
+    // Whether the year's snaps landed in season (flags bit 3) stays for
+    // the next opening: a year that didn't (results off, unsigned at camp,
+    // an older save) has its snaps read there instead.
+    let year = GrowthYear { flags: p.train.year.flags & 8, ..GrowthYear::default() };
+    p.train = Train { load, prep, rust, year, ..Train::default() };
     let now = p.overall();
     if let Some(h) = p.history.last_mut() {
         h.overall = now;

@@ -714,9 +714,23 @@ pub struct Entry {
     /// Rating points already moved this season.
     pub applied: f32,
     /// The league's centre on the read at his last game (`Book::centre`):
-    /// his season is read as `s / n - c`.
+    /// his season's games are read against it.
     #[serde(default)]
     pub c: f32,
+    /// Of `n`, the practice trials (item 16), read against practice's own
+    /// centre at his last practice (`cp`).
+    #[serde(default)]
+    pub np: f32,
+    #[serde(default)]
+    pub cp: f32,
+}
+
+impl Entry {
+    /// The season's summed shown level over his rating, each trial read
+    /// against its own league's latest centre (games and practice apart).
+    pub fn centred(&self) -> f64 {
+        self.s as f64 - (self.n - self.np) as f64 * self.c as f64 - self.np as f64 * self.cp as f64
+    }
 }
 
 /// A read's past seasons for a player: how many, and the sum of each
@@ -761,7 +775,7 @@ impl Ledger {
             };
             let x = &mut past[i];
             x.seasons = x.seasons.saturating_add(1);
-            x.s += e.s / e.n - e.c;
+            x.s += (e.centred() / e.n as f64) as f32;
             x.n += e.n;
         }
         *self = Ledger { year, past, ..Ledger::default() };
@@ -789,10 +803,7 @@ impl Ledger {
 
     /// The season's shown level over his rating for a read, and its trials.
     pub fn shown(&self, read: Read) -> Option<(f64, f64)> {
-        self.reads
-            .iter()
-            .find(|e| e.read == read as u8)
-            .map(|e| (e.s as f64 / e.n.max(1e-6) as f64 - e.c as f64, e.n as f64))
+        self.reads.iter().find(|e| e.read == read as u8).map(|e| (e.centred() / e.n.max(1e-6) as f64, e.n as f64))
     }
 }
 
@@ -818,6 +829,9 @@ pub struct Moved {
     pub overall: f64,
     /// The read that moved most, and by how many rating points.
     pub read: Option<(Read, f64)>,
+    /// The read that rose most, and by how many rating points (a big game
+    /// is named on this, whatever else fell).
+    pub up: Option<(Read, f64)>,
 }
 
 /// Moves his skills after a game. The season so far decides each skill's
@@ -841,6 +855,7 @@ pub fn apply_in(
 ) -> Moved {
     let before = p.overall();
     let mut top: Option<(Read, f64)> = None;
+    let mut up: Option<(Read, f64)> = None;
     for &(read, n, s) in &m.reads {
         let k = match l.reads.iter().position(|e| e.read == read as u8) {
             Some(k) => k,
@@ -853,14 +868,21 @@ pub fn apply_in(
         let e = &mut l.reads[k];
         e.n += n;
         e.s += s;
-        e.c = centre(read) as f32;
-        let t = target(level, read, p.position, e.n as f64, e.s as f64 - e.n as f64 * e.c as f64, own, mode);
-        let d = t - e.applied as f64;
-        e.applied = t as f32;
+        if m.practice {
+            e.np += n;
+            e.cp = centre(read) as f32;
+        } else {
+            e.c = centre(read) as f32;
+        }
+        let t = target(level, read, p.position, e.n as f64, e.centred(), own, mode);
         let a = read.attr();
         let was = p.attributes.get(a);
-        let now = clamp(was + d, MIN_RATING, MAX_RATING);
+        let now = clamp(was + t - e.applied as f64, MIN_RATING, MAX_RATING);
         p.attributes.set(a, now);
+        // What really moved (a rating at the scale's end moves less), so a
+        // later fall in the target takes back only what was given.
+        let d = now - was;
+        e.applied += d as f32;
         // At his top, a move takes his top with it, either way; below it,
         // it is growth early or late that the yearly step evens out. A
         // ceiling that only rose kept every lucky season at the top and
@@ -871,24 +893,27 @@ pub fn apply_in(
         if top.is_none_or(|(_, v)| d.abs() > v.abs()) {
             top = Some((read, d));
         }
+        if d > 0.0 && up.is_none_or(|(_, v)| d > v) {
+            up = Some((read, d));
+        }
     }
     let moved = p.overall() - before;
     l.total += moved as f32;
-    let skill = top.map_or(0.0, |t| t.1);
+    let rise = up.map_or(0.0, |t| t.1);
     if !m.practice {
         l.games += 1;
-        if skill.abs() > l.best.abs() as f64 {
-            l.best = skill as f32;
-            l.best_read = top.map_or(0, |t| t.0 as u8);
+        if rise > l.best as f64 {
+            l.best = rise as f32;
+            l.best_read = up.map_or(0, |t| t.0 as u8);
         }
     }
     if let Some(h) = p.history.last_mut() {
         h.results = crate::player::OptF64::some(l.total as f64);
-        if skill >= BIG_GAME && !m.practice {
+        if rise >= BIG_GAME && !m.practice {
             h.events.add(crate::player::DevelopmentEvent::BigGame);
         }
     }
-    Moved { overall: if m.practice { 0.0 } else { moved }, read: top }
+    Moved { overall: if m.practice { 0.0 } else { moved }, read: top, up }
 }
 
 /// The skills results test for a position at a level: the dice item 14
@@ -922,12 +947,12 @@ pub fn season_snaps(level: Level) -> f64 {
 /// season, weighted by the opponent, moves the year's rate from a
 /// backup's toward a starter's as the yearly step's snaps did. Only a year
 /// opened with snaps landing in season takes it.
-pub fn reps(p: &mut Player, l: &mut Ledger, snaps: u32, level: Level, opp: f64) -> f64 {
+pub fn reps(p: &mut Player, l: &mut Ledger, snaps: u32, level: Level, opp: f64, focus: Option<Attr>) -> f64 {
     if snaps == 0 || p.position.is_specialist() {
         return 0.0;
     }
     let d = snaps as f64 / season_snaps(level) * opp_weight(opp);
-    let gained = crate::training::reps_land(p, l.reps as f64, d);
+    let gained = crate::training::reps_land(p, l.reps as f64, d, focus);
     l.reps += d as f32;
     gained
 }
@@ -1058,6 +1083,10 @@ pub(crate) fn world_game(
             let (i, team) = person(id)?;
             (w.people.get(i)?.player.id == id).then_some((id, i, team, m))
         })
+        // Practice counts only in a season his checkpoint has opened (its
+        // ledger this year): spring practice before it would roll last
+        // season's ledger early and be closed as if it were the season.
+        .filter(|(id, _, _, m)| !m.practice || w.results.ledgers.get(id).is_some_and(|l| l.year == year))
         .collect();
     men.sort_by_key(|x| x.0);
     // The league's season first, this game in it; then each man's season
@@ -1070,6 +1099,7 @@ pub(crate) fn world_game(
         }
     }
     for (id, i, team, m) in men {
+        let focus = w.focus_of(id);
         let q = &w.people[i].player;
         let cs: Vec<(Read, f64)> = m
             .reads
@@ -1083,8 +1113,8 @@ pub(crate) fn world_game(
             l.roll(year);
         }
         let moved = apply_in(p, l, &m, level, &mode, &centre);
-        reps(p, l, m.snaps, level, m.opp as f64);
-        if let (Some(t), Some((r, d))) = (team, moved.read)
+        reps(p, l, m.snaps, level, m.opp as f64, focus);
+        if let (Some(t), Some((r, d))) = (team, moved.up)
             && d >= BIG_GAME
             && !m.practice
         {

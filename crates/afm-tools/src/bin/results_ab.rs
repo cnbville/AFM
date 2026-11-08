@@ -305,7 +305,7 @@ fn season(c: &mut Career, role: PlayingTime, age: u32, seed: u32, mode: Option<M
                         }
                     }
                 }
-                results::reps(p, ledger, snaps_game, level, z);
+                results::reps(p, ledger, snaps_game, level, z, None);
             }
             gi += 1;
         }

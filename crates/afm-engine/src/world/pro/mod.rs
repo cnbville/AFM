@@ -1754,9 +1754,12 @@ fn camp(w: &mut World, d: Date) {
             (super::people::morale(p, room), ph, me)
         };
         // Growth from results: last season's results close; a pro on a
-        // team plays this season on the engine.
+        // team plays this season on the engine, when the NFL's games do
+        // (`nfl_year::engine_games`): a stand-in season keeps the yearly
+        // step's snaps.
         let closing = w.results.ledgers.remove(&w.people[i].player.id);
-        let results = (w.options.results.on && team.is_some()).then_some(w.options.results);
+        let nfl_engine = w.options.engine_from.is_none_or(|from| w.year >= from) && !w.clubs.is_empty();
+        let results = (w.options.results.on && team.is_some() && nfl_engine).then_some(w.options.results);
         let p = &mut w.people[i];
         let mut adjustment = 0.0;
         if team.is_some() && (first || new_team) && role != PlayingTime::Unsigned {
@@ -1816,12 +1819,15 @@ fn camp(w: &mut World, d: Date) {
         if let Some(l) = &closing {
             crate::results::close(&mut p.player, l);
         }
+        // A season whose snaps didn't land in season is read at this
+        // opening, spring snaps with it (`develop_season`).
+        let read_late = p.player.train.year.flags & 8 == 0 && ctx.snaps.is_some();
         crate::training::close_year(&mut p.player, ctx.focus);
         let report = crate::development::develop_season(&mut p.player, &ctx, &mut p.rng);
         // His spring snaps (OTAs, minicamp) land now as reps of the new
         // year, as they added to last season's snaps before.
-        let spring_landed = if results.is_some() && spring > 0.0 && !p.player.position.is_specialist() {
-            crate::training::reps_land(&mut p.player, 0.0, spring);
+        let spring_landed = if results.is_some() && spring > 0.0 && !p.player.position.is_specialist() && !read_late {
+            crate::training::reps_land(&mut p.player, 0.0, spring, ctx.focus);
             Some(spring)
         } else {
             None
