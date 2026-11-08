@@ -302,6 +302,7 @@ pub(crate) fn summer_roads(w: &mut super::World) {
                     date: today,
                     early_enrollee: false,
                     flipped: false,
+                    committed: None,
                 });
                 let name = &w.programs[c].real_name;
                 p.note(format!("Home from {} at {age}, he joined {name}, which had held his place.", a.kind.name()));

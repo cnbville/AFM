@@ -103,6 +103,25 @@ pub fn nfl_pay_index(year: i32) -> f64 {
     interp(&[(1984, 0.06), (1990, 0.09), (2000, 0.25), (2010, 0.5), (2020, 0.85), (2024, 1.0)], year, 0.04)
 }
 
+/// A club's commercial business beyond its market, stadium and pull
+/// (minor bug 270): Dallas's own sponsorship, hospitality and merchandise
+/// arms. Forbes has the Cowboys first in revenue every year since the
+/// mid-2000s, $1.234B in 2024 against a $719M average club; the market,
+/// stadium and pull alone gave the shipped seed 41 world's Dallas $872M in
+/// 2024, second to the Giants. Its local money × `DALLAS_EDGE` at full,
+/// sized on that 2024 figure; it grows from the club's own sponsor deals
+/// of 1995 to full at AT&T Stadium's opening in 2009 (the ramp proposed,
+/// not confirmed). Every other club reads 1, its spread left to the
+/// market, stadium and pull.
+pub fn commercial(t: usize, year: i32) -> f64 {
+    if t != DALLAS {
+        return 1.0;
+    }
+    1.0 + (DALLAS_EDGE - 1.0) * ((year - 1995) as f64 / 14.0).clamp(0.0, 1.0)
+}
+const DALLAS: usize = 8;
+pub const DALLAS_EDGE: f64 = 1.8;
+
 /// A franchise's national pull (Forbes revenue ranks and TV ratings over
 /// the decades), 0-1, in `league::NFL_TEAM_NAMES` order. Proposed, not
 /// confirmed.
@@ -687,6 +706,18 @@ mod tests {
         }
         assert_eq!(stint(18, 2016).unwrap().name, "Los Angeles Memorial Coliseum");
         assert_eq!(stint(3, 2026).unwrap().opened, 2026);
+    }
+
+    /// Minor bug 270: Dallas's own commercial business, from 1995 to full
+    /// at its new stadium; nobody else has one.
+    #[test]
+    fn only_dallas_has_a_commercial_edge() {
+        assert_eq!(crate::league::NFL_TEAM_NAMES[DALLAS], "Dallas Cowboys");
+        assert_eq!(commercial(DALLAS, 1994), 1.0);
+        assert!(commercial(DALLAS, 2002) > 1.0 && commercial(DALLAS, 2002) < DALLAS_EDGE);
+        assert_eq!(commercial(DALLAS, 2009), DALLAS_EDGE);
+        assert_eq!(commercial(DALLAS, 2040), DALLAS_EDGE);
+        assert!((0..40).filter(|&t| t != DALLAS).all(|t| commercial(t, 2024) == 1.0));
     }
 
     #[test]

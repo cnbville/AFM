@@ -356,7 +356,8 @@ fn camp_redshirts_sit_unless_their_position_is_short() {
 fn a_camp_redshirt_who_plays_has_a_season_on_his_row() {
     // F1: before 2018 any game costs the year and the season was a
     // backup's; from 2018 four games or fewer keep it and the row stays a
-    // redshirt row. His play and an injury's missed games show either way.
+    // redshirt row. His play shows either way, and his games missed are the
+    // ones counted game by game (minor bug 315), never a roll.
     use crate::player::{DevelopmentEvent as Ev, Level, PlayingTime as Pt};
     for (season, played, burned) in [(2016, 7, true), (2019, 3, false), (2019, 6, true)] {
         let (mut w, c) = college_world(season);
@@ -371,7 +372,7 @@ fn a_camp_redshirt_who_plays_has_a_season_on_his_row() {
         crate::development::develop_season(&mut p.player, &ctx, &mut p.rng);
         let row = p.player.history.last_mut().unwrap();
         row.events.add(Ev::MajorInjury);
-        row.games_missed = 0;
+        row.games_missed = 2;
         let age = row.age;
         p.last_role = Some(Pt::Redshirt);
         p.redshirt_used = true;
@@ -387,7 +388,7 @@ fn a_camp_redshirt_who_plays_has_a_season_on_his_row() {
         assert!(row.performance.is_some(), "{season}");
         assert_eq!(row.playing_time, if burned { Pt::Backup } else { Pt::Redshirt });
         assert_eq!(p.redshirt_used, !burned);
-        assert!((1..=12 - played).contains(&row.games_missed), "{} games missed", row.games_missed);
+        assert_eq!(row.games_missed, 2, "the games counted stand");
         let note = p.notes.last().unwrap();
         assert!(note.contains(&format!("at {age}")), "{note}");
         assert!(w.people[1].redshirt_used && w.people[1].college_seasons == 0);

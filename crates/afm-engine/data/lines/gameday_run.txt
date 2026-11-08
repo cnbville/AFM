@@ -764,6 +764,33 @@ Boys, what do we play like when it's cold and ugly? ~ midwest
 Y'all ready to go play some football? ~ south
 What would you tell your family about this game? ~ northeast
 What will you remember about this one in ten years? ~ college subject=seniors
+Who's got the back of the guy beside him when the noise gets loud? ~ hs warm
+Can we agree the second half starts with us, not the scoreboard? ~ college moment=halftime
+Who here is going to be the first guy to hit the ground running? ~ hs fiery moment=pregame
+What's the one thing you'd fix in your own game today? ~ nfl calm
+Are the young guys hearing this from the vets, or just from me? ~ nfl subject=seniors
+Which of you is ready to make his name in this one? ~ college fiery
+Be real with me, how many of you actually watched their tape? ~ hs firm subject=plan
+What's it going to take for us to win the battle in the trenches? ~ nfl subject=plan
+Is everybody here going to finish, or are we going to fade? ~ college firm moment=halftime
+We're up at the break. Who's going to tell the guys to stay locked in? ~ hs moment=halftime lead=up
+Did we come here to play hard, or did we come to watch? ~ hs firm
+Who here wants to be the one who gets {them} talking after the game? ~ college subject=them rival=yes
+Who's had a rough week and still shows up with his head on straight? ~ nfl warm
+Walk me through the first call. Who's got it locked in? ~ hs calm moment=pregame subject=plan
+Who here has ever played a game with the whole town watching? ~ hs warm
+What do you want the crowd to feel when we take the field? ~ nfl moment=pregame
+Who among you will be the first to take a hit and bounce up? ~ nfl fiery
+Who's ready to earn the next snap? ~ nfl fiery
+Who knows what the other team's coach is going to do on third down? ~ college subject=plan
+What did you learn from your last rep that you can use right now? ~ nfl calm
+Are you ready to play for each other or for yourself? ~ college warm subject=us
+Who here is willing to take a hit for the guy next to him? ~ hs firm
+How do we want our defense to feel when they walk off? ~ nfl subject=plan
+Whose name do you want the scouts to remember after this one? ~ nfl subject=stakes fiery
+Who here came in this year to prove the doubters wrong? ~ hs firm
+Who has the confidence to call a play in the huddle today? ~ college subject=plan
+Who in here is going to stop talking and start doing? ~ firm moment=halftime
 
 @key gameday.captain
 Nobody in this building says it better than {captain}. Listen up. ~ nfl warm
@@ -3889,6 +3916,73 @@ Snappers don't get speeches, so I'll keep it short. ~ snapper
 Quarterback room is quiet, so let me say it. ~ qb quiet
 Defense, lock in. We got {them} today. ~ defense
 Offense, lock in. This is about {them}. ~ offense
+Give me one second, guys. ~ hs
+Look at the man beside you. ~ nfl pro
+Hey, we're running out soon, so listen. ~ moment=pregame
+Real quick, I'll be fast. ~ calm
+Offense, bring it close and hear me. ~ offense
+Brothers, stay tight for a minute. ~ loyal
+Captain here. Eyes on me. ~ nfl leader
+Everybody lean in, I'm gonna say it short. ~ hs
+Heads up, we've got a job. ~ pro
+We're close to the field, so hear me out. ~ moment=pregame
+Helmets on, eyes up, listen. ~ hs
+Everybody down here by me. ~ leader
+Let's keep it real and keep it simple. ~ humble
+Not a long one from me, guys. ~ quiet
+Me and this group, nothing else matters. ~ loyal
+Hey, it's our turn now. Listen. ~ hs
+I'll say what needs saying and then go to work. ~ nfl pro
+D-line, circle up on me. ~ dl
+Secondary, come lock arms with me. ~ db
+Teammates, I'm talking to every last one of you. ~ leader
+Special teams, one more word from me. ~ special
+Five seconds of quiet, please. ~ hs calm
+Let's go out and be what we practiced. ~ pro
+Sit tight and hear me out. ~ hs steady
+Who's ready to bang? Me too. ~ hot
+Last one before we run out. ~ moment=pregame
+It's halftime, so get in close. ~ moment=halftime
+We're tied, so nobody panic. ~ lead=level moment=halftime
+Bring it in tight and stay tight. ~ hs
+Everybody get set and listen. ~ leader
+The tunnel's ready, guys. Hear me. ~ nfl moment=pregame
+Let's bring the energy and keep it. ~ loose
+Freshman here, quick word. ~ freshman hs
+Walk-on here, and I'm proud to be in this room. ~ walkon college humble
+Just keep your head down and work with me. ~ humble
+Me and you, one unit, let's go. ~ loyal
+Redshirt, nothing to lose, let's go. ~ redshirt college
+Let's remember why we came here. ~ college
+Ballers, all eyes on me. ~ hs
+One more time, shoulders in. ~ leader
+A few words from one of your own. ~ hs humble
+Seniors and juniors, you're leading this. Listen. ~ hs
+This is college ball, so let's play like it. ~ college
+Okay, halftime's on us. ~ moment=halftime
+Boys, let's get our heads right. ~ hs
+Tailbacks, bring it close. ~ rb
+Wideouts, come on in. ~ wr
+Fellas, we've got a long one ahead. Listen. ~ nfl
+Think about the next play and nothing else. ~ pro
+We're here, so let's go get it done. ~ calm
+Let's line up right and stick together. ~ hs
+Our name's on the line, so lock in. ~ college
+Quick words from a guy who loves this group. ~ loyal
+Do it for the guy next to you. ~ loyal
+Off the bench or first team, same job. Listen. ~ nfl
+Let's go be a team out there. ~ hs
+Alright, you guys know me, so listen. ~ leader
+Quiet focus, then loud football. ~ calm
+Settle in, we've practiced for this. ~ steady
+Got one thing for you before the lights come on. ~ moment=pregame
+Hear this from a guy who's been there. ~ vet
+Got my back, I got yours. ~ loyal
+One unit, one job, let's go. ~ pro
+Playing for one another starts right now. ~ loyal
+Hey, hey, look over here. ~ hs
+Set your feet, breathe, and listen. ~ calm
+Hey guys, got a second? ~ young
 
 @key gameday.captain.own
 I'm young, I know. I'm not scared of this. ~ young
@@ -4348,6 +4442,335 @@ Out west, we play fast. I'll play fast. ~ west
 I know last week hurt. I'll fix my part. ~ last=loss offense
 This is a rivalry game. I'm ready. ~ rival=yes
 We're down at the half. I'm going harder. ~ lead=down moment=halftime
+Scholarship or not, nobody out-hustles me in this program. ~ college competitor
+The walk-on guys in this room know what it takes. Let's show it. ~ college walkon
+Those weight room mornings were for this. Let's make them count. ~ college
+Redshirt year is over and I'm not wasting it. ~ college redshirt
+Every rep I took in practice was getting me ready for this stage. ~ college
+My NIL deal doesn't play a single snap for me. You do. ~ college nil
+Transferred in for a fresh start, and I'm not going back. ~ college transfer
+Saturdays in this stadium are what I came here for. ~ college
+Freshman year and I already feel like I belong. Follow me. ~ college freshman
+Conference game, and I'm laying it all out for the guys beside me. ~ college
+The collective believed in us, so let's give them a show. ~ college nil
+Three months of conditioning, and today I finally use it. ~ college
+I'm not the biggest guy on this team, but I'm the hungriest. ~ college competitor
+Every time I got cut from a depth chart, I came back stronger. ~ college
+Study hall kept me eligible, and now the field gets my full focus. ~ college
+Back in the film room, I saw what they were doing. Let's go beat it. ~ college
+We're the team that came here to build something, so build it now. ~ college
+I put everything into this program when nobody was watching. ~ college loyal
+Sophomore or not, I'm starting to own this offense. ~ college
+Coach trusts me in this spot, so I'm going to earn every snap. ~ college
+I fought for a shot at this campus, and I'm making it count. ~ college
+My old team cut me. This team kept me. I'm playing for that. ~ college transfer
+I'm not here for the highlights, I'm here for the win. ~ college
+Two years of waiting for this moment, and it's finally here. ~ college
+Home crowd on Saturday. I'm going to make them proud. ~ college
+Doesn't matter what the rankings say about us. We know what we've got. ~ college
+I've been studying film at the library all week. I know what's coming. ~ college
+If I make a mistake, I'll be the first one to own it. ~ college leader
+The conference race starts now. Let's get our first win in it. ~ college
+Freshman or not, I came here to play, and I'm going to play. ~ college freshman
+Long road to get here, and it's been worth every step. ~ college
+Nobody in this locker room wants to go home with a loss. Let's go. ~ college competitor
+Freshman year pressure is real, and I'm ready for it. ~ college freshman
+Campus pride runs deep, so let's wear it on the field. ~ college loyal
+Second-half adjustments came from the coaches, but the effort is ours. ~ college moment=halftime
+Nobody handed me this job on campus. I earned it in the weight room. ~ college
+Redshirt season was hard, but it made me hungrier than ever. ~ college redshirt
+Our offense has been waiting for a game like this. So have I. ~ college offense
+My job is to set the edge and hold it. ~ nfl rusher steady
+Pass pro is my whole week, and the guys beside me know it. ~ nfl ol humble
+Nobody on that practice squad is working harder than I am. ~ nfl psquad pro
+Rookie year, so I keep my mouth shut and my notebook open. ~ nfl rookie quiet
+The playbook is thick, and I've read every page of it twice. ~ nfl pro steady
+Cut-down day is coming, so I play every rep like it's the last one. ~ nfl psquad steady
+Don't ask me about my contract today. Ask me about the coverage. ~ nfl pro
+They didn't draft me to sit on the bench. I'll keep proving it. ~ nfl firstround competitor
+I know my keys, I know my splits, and I know where the ball is going. ~ nfl pro
+Every OTA I took seriously, so nobody has to remind me now. ~ nfl pro steady
+Rookie or not, I'm not running a play I haven't drilled a hundred times. ~ nfl rookie pro
+Undrafted kids, you hear me? Your time comes if you stay ready. ~ nfl undrafted leader
+We don't win on Sunday because of one guy. Everybody does their job. ~ nfl leader humble
+Wherever you line me up, I know the job. Just get me the call. ~ nfl pro
+The fans want stats. I want the stop. Those are different things. ~ nfl defense
+I'm not the flashy one. I'm the one who's always where he's supposed to be. ~ nfl quiet steady
+My knees are sore and my head is clear. That's a good combination. ~ nfl vet calm
+Every practice rep was live in my head. Today it's live on the field. ~ nfl pro
+Eighteen years of football and I still treat Sunday like it's my first. ~ nfl vet loyal
+My agent can handle the money talk. I'll handle the snaps. ~ nfl greedy
+Watch the tape later and you'll see my feet were set on every play. ~ nfl pro
+Take the ball from me and you'd better hold on tight. ~ nfl rb competitor
+My first season here, and I'm not asking for permission. ~ nfl rookie brash
+Nobody on this side gets a free release today. I'm telling everybody. ~ nfl db competitor
+Practice squad, active roster, doesn't matter. I play like I'm the starter. ~ nfl psquad steady
+I'm a vet who doesn't need the speech. Just tell me the call. ~ nfl vet quiet
+The game slows down for guys who've done the work. I've done the work. ~ nfl pro calm
+I'm not the most talented guy in this building. I'm the most prepared. ~ nfl humble pro
+Hit the hole, get it to the second level, and stay on your feet. ~ nfl rb pro
+Undrafted and making a roster in this league is a miracle. I'm not wasting it. ~ nfl undrafted humble
+Guard my back and I'll guard yours. That's how this works. ~ nfl loyal defense
+I've got a chip on my shoulder and a bad habit of letting it show. ~ nfl hot
+Twelve years in and I still take the film home every week. ~ nfl vet pro
+Give me the ball on the goal line. I know exactly what to do with it. ~ nfl rb competitor
+Film study is where I'm strongest. Ask me anything about these routes. ~ nfl wr pro
+The line gets the credit, but I'm the one who has to hold it up. ~ nfl ol humble
+Five years, and I still carry the same notebook from my first camp. ~ nfl vet loyal
+Nobody gave me the snaps. I took them in practice until they gave in. ~ nfl competitor
+Everybody wants to talk about the quarterback. I'm the reason he can. ~ nfl ol humble
+I play with a lot of anger, and I aim it at the other team. ~ nfl hot
+Blocking is the job nobody claps for. I'm going to do it anyway, all afternoon. ~ nfl te humble
+Stay off the edge, keep the ball in front, and let the rush come to us. ~ nfl pro
+I know the cover, I know the rules, and I know how to make a tackle. ~ nfl db pro
+Eyes up, feet moving, and I'm not leaving a gap. ~ dl steady
+Put the first call in my ear and I'll run it clean. ~ qb pro
+Every hit I take goes to the guy beside me. ~ loyal
+Keep your head on a swivel, I'll be the one shouting the calls. ~ lb leader
+The seniors set the tone, and I'm following them tonight. ~ hs young
+A week of practice is sitting in my legs right now. ~ pro
+Play the whistle to the whistle, nothing less from me. ~ competitor
+Slow the pace down and stay where you belong. ~ calm
+Tap my shoulder if you need the ball, and I'll deliver. ~ skill
+Grip it, rip it, and I'll finish what I start. ~ rb hot
+Nothing fancy from me, just the simple job every snap. ~ humble
+If we get stuck, I'll get us moving again. ~ leader
+Pads are on, my head's clear, let's go to work. ~ steady
+I spent all summer getting here, so I'm not slowing down. ~ junior hs
+Let the defense have the ball back, I'll handle the rest. ~ db
+My unit moves as one, so watch the man beside me. ~ ol lineman
+My hands are glued to the ball from the first snap. ~ wr
+Stay with the rhythm, and the rest takes care of itself. ~ te
+Trust your technique and every play will break our way. ~ defense
+Count the sets, stay square, and I'll be right there. ~ ol
+I'll pick my spot and hit it hard, same as in practice. ~ db hot
+My legs feel fresh, so this is the half I earn it. ~ moment=halftime
+Every punt I'm tracking goes right back to our side. ~ special leader
+We'll win the battle at the line, and everyone else follows. ~ lineman
+I'll keep the sideline calm, so you guys can play loose. ~ leader
+I like our chances when we keep it simple. ~ hs
+This loss from last week is still on my mind, so I'm playing for it. ~ last=loss hs
+Pass pro is my job and I'm not missing a snap of it. ~ ol humble
+We're even at the half, so it's about who wants it more. ~ lead=level competitor
+Ball security is on my list, and I won't drop it. ~ rb
+I'm not chasing headlines, I'm chasing the W. ~ hs humble
+I'll flush the pocket and find a throwing lane. ~ qb
+The hard hits happen in the middle, and I'm built for that. ~ lb competitor
+I'm keeping my head down and my feet moving. ~ steady
+I'll take the first hit so you can make the second. ~ leader
+I won't say much, I'll just run the play right. ~ quiet
+Whatever the call, I'm executing it cleanly. ~ calm
+I'll keep my eyes on my man and nothing else. ~ cover
+Good week of work, now let's show it on Friday. ~ hs
+The first ball thrown my way, I'm catching it. ~ nfl wr
+My lane is set, my reads are clear, we're going. ~ rb steady
+My legs are loose and my head is right, let's play. ~ hs
+I'll take the open field the second I see it. ~ skill competitor
+We're going to hold the line and the rest falls in place. ~ dl
+My reads are sharp today, so trust the call. ~ qb hs
+Five of us moving together is how we win this. ~ ol leader
+I'm not sitting this one out, I'm going to get after it. ~ nfl competitor
+Nobody's going to outwork me today, that's a promise. ~ competitor
+Nothing rattles me, I'm steady as they come. ~ steady
+Quiet guy, loud heart. You'll hear it in my effort. ~ quiet
+Get the ball to me early and I'll make it count. ~ ego skill
+Honestly, I don't need the spotlight, just the win. ~ humble
+Put me on the edge and watch the quarterback sweat. ~ rusher ego
+Let's stay loose out there, we play better when we're having fun. ~ loose
+Young legs, old head, same effort on every single rep. ~ young
+Every rep this week was at full speed, so trust it. ~ pro
+Lost last week, and it still stings, so we fix it tonight. ~ last=loss
+Freshman year is a lot to take in, but I'm ready. ~ freshman
+Season one with the pros, nothing to hide, just hungry. ~ nfl rookie
+Undrafted kid still playing like it's a tryout. ~ undrafted nfl competitor
+Rivalry night means I'm wound tight, and that's the fuel. ~ rival=yes hot
+Junior year, and I've got something to show you all. ~ junior hs
+Texas kid, I come to work and I don't talk about it. ~ texas humble
+Back in the Midwest, nobody let up, and I'm not starting now. ~ midwest
+Kicker here, I'm ready and clear-headed, give me the chance. ~ kicker steady
+Snap's going to be clean, count on that every time. ~ snapper
+Special teams is mine, and I'll make every kick count. ~ special
+Second half, I'm locked in and coming out swinging. ~ moment=halftime competitor
+Tied up at the break, and I'm not nervous about that at all. ~ lead=level calm
+Up at the half, we don't coast, we keep attacking. ~ lead=up competitor
+Rival game, so bring the noise, I'm ready to match it. ~ rival=yes hot
+I'll take the hits and give them back when I can. ~ dl hot
+Every block I throw is for the guy running behind me. ~ ol lineman
+I'll cover my man like it's my last snap. ~ cover competitor
+I'm the one who stops the run, and I'm not moving. ~ lb competitor
+Need a big play from somebody? Look my way, I'm there. ~ leader
+My hands are soft and ready, so throw it my way. ~ wr
+Tight end work is dirty, and I like it that way. ~ te humble
+Route tree's on my mind, every break, every cut. ~ wr pro
+Protect the football and find the open man, that's the job. ~ qb steady
+I'll call the cadence, and we go as one unit. ~ qb leader
+Set the edge and keep my gap, that's the whole assignment. ~ dl pro
+Coming off the edge with nothing but speed on my mind. ~ rusher
+Hit the hole hard and make the linebackers pay for it. ~ rb hot
+Patience at the line, then I'll explode through the gap. ~ dl calm
+Pocket's mine to protect, and nobody's getting through it. ~ ol competitor
+Back end is locked, so nobody gets over the top today. ~ db competitor
+Fast feet and quick eyes, I'm reading the play as it happens. ~ db steady
+Spent the whole week in the film room for this one. ~ pro hs
+Late night in the weight room paid off, I'm ready. ~ hs
+Veteran here, I don't waste reps and I don't waste words. ~ vet quiet
+Redshirt year is done, and I'm hungry to show what I've got. ~ redshirt college
+Transferred here to win, and I'll give everything I've got. ~ transfer college
+Quiet kid, but when the whistle blows, you'll see me. ~ quiet
+Can't afford mistakes, so I'm playing every snap clean. ~ pro steady
+Pro habits, same routine, same focus, every single game. ~ pro
+Not a talker, just a grinder, so I'll show you out there. ~ quiet competitor
+Loose mind, sharp eyes, ready to make the play. ~ loose calm
+Coach, I'll follow the game plan exactly, no freelancing. ~ humble
+Watch me get open, then throw it, I'll make the catch. ~ wr ego
+Collective backing us up, so let's go earn it on the field. ~ nil college
+Portal days are over, now I'm just here to play hard. ~ transfer nil
+Nobody's taking my reps this week. ~ hs competitor
+Fourth quarter's mine. Watch what I do. ~ nfl competitor
+Put me on the edge and I'll hold it. Every time. ~ dl steady
+Tell me the call and I'll get everybody set. ~ lb leader
+My feet are set and my head's clear. Let's go. ~ kicker calm
+Seniors, we go out together. Follow me to the end. ~ hs senior leader
+Back deep, no fear, I'm ready to make the tackle. ~ db steady
+Keep your eyes on me and I'll point you the right way. ~ leader
+First play, I'll be right where I belong. ~ young hs
+Got my head on a swivel. Nothing sneaks up on me. ~ db calm
+Quiet guys get the job done. I'm one of them. ~ quiet
+Give me one shot at the edge and I'll finish it. ~ rusher competitor
+I'm the one who makes the call up front. Stick with me. ~ ol leader
+I want to be the guy who makes the big catch when it matters. ~ wr ego
+Every snap is a fight, and I'm ready to fight. ~ competitor
+Coach gave me the plan. I'm executing it, nothing more. ~ pro
+I'm not taking a play off for anybody. ~ nfl competitor
+Tough in the trenches, that's where I belong. ~ lineman
+Three-and-out is not happening on my watch. ~ qb competitor
+I'm loud on the sideline and quiet in the huddle. You'll hear me when it matters. ~ nfl
+Nobody's going to make me look bad today. I'll see to that. ~ hs
+I never complain about my role. I just do what I'm asked. ~ humble
+My eyes stay on the ball and my hands stay on the target. ~ wr
+I'm not the fastest, but I'll be the hardest working out there. ~ humble
+You're going to see plenty of me today. That's a promise. ~ hs ego
+My hands are soft and my feet are quick. Get me the ball. ~ te
+They can scheme all they want. I'll be where I need to be. ~ nfl steady
+Every ball thrown my way gets caught. Every one. ~ wr competitor
+I know the cadence. I know the snap. Trust me and go. ~ snapper
+This is the most pressure I've been under. Good, I want it. ~ young
+Pass rush is my specialty. Let's see what they can do about it. ~ dl ego
+Long season, short memory. Let's go. ~ nfl loose
+If the defense needs a stop, I'm the guy to give it. ~ db leader
+Pretty simple. Protect the QB and let the offense do its thing. ~ ol humble
+Stay low, hit hard, get up quick. That's my game. ~ lb
+I put in the reps all summer. This is the payoff. ~ hs
+I'll take a hit to make a play. It's worth it. ~ rb humble
+Long snap, clean ball. I'll make sure of it. ~ snapper steady
+Field goal unit, I'm ready to nail it. Give me the chance. ~ kicker
+My arm is hot and my timing is good. Let me throw. ~ qb calm
+Let's put the ball in my hands and see what happens. ~ rb ego
+Keep your heads up and keep moving forward. ~ leader
+Kickoff coverage is my area. I'll be the first one down. ~ special competitor
+Whatever you need, I'm there to do it. ~ humble
+No cheap shots, no dirty play. Just clean football. ~ pro
+Can't wait to show my family who I am out there. ~ hs
+We ran this drill a hundred times. Now we run it for real. ~ nfl pro
+If you need a lift, grab my jersey. I'm right here. ~ leader
+One snap at a time. Doesn't matter who's watching. ~ calm
+Take the hit, keep your feet moving. That's how it's done. ~ rb steady
+I've worked my whole career to earn this spot. ~ nfl vet
+Team's counting on me to hold the line. I'll hold it. ~ dl loyal
+Let me get the first look and I'll take it deep. ~ wr ego
+Our defense has been hungry all week, and I am too. ~ competitor
+I know my role and I know how to play it. ~ humble
+You'll see my name on the stat sheet. That's the plan. ~ greedy
+Nothing I do is loud. It just works. ~ quiet
+Keep the pocket clean, I'll make the read. ~ qb pro
+My block is my job. A good block wins the play. ~ ol
+I play with a chip on my shoulder every single snap. ~ competitor
+Brother, you know my game. Just get the ball to me. ~ nfl loyal
+This is my moment, and I'm taking it. ~ hs
+They're going to find me in the flat again and again. ~ te
+I've been hit a thousand times. One more won't stop me. ~ vet
+I'll bring the energy, you bring the effort. ~ hs loose
+Everybody counts on the long snapper, so I'm going to be perfect. ~ snapper
+My speed is my weapon. Let's use it. ~ wr
+Head down, feet moving, and I'm going to reach the goal line. ~ rb
+Get me one matchup and I'll make it count. ~ ego
+When the pressure's on, I calm down. That's when I'm best. ~ calm
+Stay quiet, stay focused, and let the work speak. ~ quiet
+My mistakes are behind me. Now I'm all in. ~ last=loss
+We're down a score, and I'm the one who's going to fix it. ~ lead=down competitor
+We're tied now, and I'm ready to take the lead. ~ lead=level
+My team counts on me for all four quarters. I'll give them four. ~ nfl loyal
+Watching the film keeps me sharp. ~ nfl pro
+Freshman, so I learn fast and keep my mouth shut. ~ college freshman quiet
+Give me the ball and I'll find the crease. ~ rb steady
+Protect the edge and I'll make the stop. ~ dl competitor
+My hands are steady, so put it right on me. ~ wr calm
+Snaps are my job, and I'll never miss one. ~ snapper
+Got my eyes on the quarterback, and nothing gets by me. ~ lb leader
+Nobody's out-hustling me on special teams today. ~ special competitor
+Let the defense tell me what they need. I'll give it. ~ defense humble
+My arm's warm and my reads are on. Watch it go. ~ qb steady
+Scholarship money won't fix a bad game. Only my work will. ~ college
+I'll cover the middle and keep it closed. ~ lb cover
+Every week I come in to work, no matter what the headlines say. ~ nfl pro
+Practice squad to this moment, and I'm not wasting a rep. ~ nfl psquad
+Man, I love this game too much to play it halfway. ~ hs loyal
+Whatever you need from the line, I'll give you the best of it. ~ ol humble
+Let them come at me, I'm not going anywhere. ~ dl hot
+Got a rep for hitting hard, and I'm about to earn it. ~ lb hot
+Nobody can match my first step out here. Nobody. ~ db competitor
+I'm ready to take whatever the coaches ask me to take. ~ humble
+One ball at a time, and I'm going to catch every one. ~ wr steady
+Freshman year, but I've been studying the playbook every night. ~ freshman
+I'll protect the football like it's my own pride. ~ rb competitor
+I'm not the star here. I'm the guy who blocks for the star. ~ te humble
+Mistakes happen. I'll cut mine out and move on. ~ steady
+Gave my body to this team for years, and I'm going to keep doing it. ~ college loyal
+Every rep in practice was for this exact moment. ~ hs
+Be patient with me. I'll make the play when it comes. ~ rookie
+My feet are set, and the ball will be right there. ~ kicker
+Nobody's gonna see me coming on the blitz. Not one time. ~ nfl lb
+Eyes on the target and nothing else. ~ db pro
+Coach, I'll adjust in the second half. I've got this. ~ moment=halftime
+Team's been through a lot, and I'm going to carry some of that weight. ~ leader
+I'd never ask a teammate to do something I wouldn't do first. ~ leader
+Hard work in the offseason, and now it's time to show it. ~ nfl pro
+Gave everything I had at camp. Same effort starts now. ~ nfl steady
+Let them see the fire in my eyes. I'm not holding back. ~ hot
+Calm as a lake before the snap, then I'll let it fly. ~ calm
+Got my eyes on the snap, nothing else. ~ ol pro
+Rep the work all week, and bring it out on the field. ~ pro
+Hard feet, quick hands, and nobody's getting past me. ~ dl competitor
+The offense trusts me to hold the pocket, so I'm holding it. ~ ol leader
+Give me a lane and I'll make the rest happen. ~ rb ego
+Hold me to my assignment and I'll hold up my end. ~ lineman
+Something about this {them} game gets me going every year. ~ hs rival=yes hot
+Just play it right, every rep, every play. That's all. ~ quiet
+We won last week, but I'm not getting comfortable. ~ last=win humble
+Rookie or not, I know the call and I know my job. ~ nfl rookie
+Look for me on the back end, I'll be there. ~ db steady
+Snap's where it all starts, so I'm making mine perfect. ~ snapper
+My job is to get the ball out clean and let the rest happen. ~ qb pro
+Freshman year, sure, but I'm not sitting in the back. ~ college freshman
+Keep the pass rush honest and I'll finish the job. ~ rusher
+Spent the summer getting stronger for this. Now I'm using it. ~ college
+Our bench is deep, and I'm proud to be part of it. ~ loyal humble
+Give me the call and I'll get everybody lined up. ~ lb leader
+My hands are big, my focus is tight. Throw it my way. ~ wr
+Doesn't matter who's on the other side, I'm going to beat them. ~ nfl competitor
+Pull me if I'm off, I'll take it. ~ humble
+Hit the lane hard, then get up and hit it again. ~ rb competitor
+You'll see the stop in my feet before you see it on the stat sheet. ~ lb steady
+Nobody on this team plays scared. Not one of us. ~ hs competitor
+Cover the man, watch the eyes, break on the ball. Simple. ~ db pro
+Get the ball to me early and I'll make the team pay. ~ skill ego
+Walk-on or not, I'm going to earn my minutes out there. ~ college walkon
+Those are my boys in the trenches. They don't move, and neither do I. ~ ol loyal
+Dropping back, reading the field, and firing it when it's open. ~ qb steady
+I won't blink when the ball's snapped. Watch me go. ~ nfl dl
+I've got range and my leg's loose. Get me on the field. ~ kicker
+Being a captain means showing up first, so I'll be the first one out there. ~ leader
+Freshman, but the gameplan is in my head. ~ freshman college
 
 @key gameday.captain.us
 Look left. Look right. These are your guys.
@@ -12154,6 +12577,126 @@ It's a long season, and today is where we start taking it seriously. ~ nfl
 This isn't college, and nobody's coming to save you. Listen. ~ nfl
 Veterans, show them how it's done. Rookies, watch and learn. Eyes up. ~ nfl
 Don't think about the money. Think about the guy next to you. Look at me. ~ nfl
+Every one of you is going out there, so look at me before you do. ~ hs
+Nothing happens in this game without you, so eyes up now.
+Let's go, right now, no waiting around. ~ moment=pregame
+Grab that towel, grab your breath, and hear me. ~ college moment=halftime
+You want to be a pro? Then start acting like one right now. ~ nfl
+We've got a job to do and I won't accept anything less. ~ nfl moment=pregame
+Come in close, everybody, shoulder to shoulder. ~ hs
+Every one of you needs to hear this, so pay attention. ~ hs
+You want the fans to scream? Then make them scream. ~ nfl moment=pregame
+Here comes the real fight, so grab your gear and listen. ~ nfl moment=pregame
+The clock's running, and I need your full attention.
+Let's stop talking and start playing hard. Listen.
+Bring every ounce of what you've got out to that field. ~ nfl moment=pregame
+We're tied and I'm fired up, so get in here. ~ moment=halftime lead=level
+The coaches have done their part, now it's your turn. Eyes up. ~ hs moment=pregame
+Nobody in here is going to hide tonight. Look at me. ~ hs
+You have one half left to write your story. Hear me. ~ college moment=halftime
+Everyone on this team has a role, and I need you to play it. ~ hs
+This is the rivalry game, and everybody knows it. ~ college rival=yes moment=pregame
+Show me the fire I know you've got. Right now.
+Hey, I'm not done, and neither is this team. ~ moment=halftime lead=down
+Let's go, right now, every one of you. Hands in. ~ hs
+Friday night is ours and nobody else's. Eyes up. ~ hs
+Varsity jerseys mean something in this town. Stand up straight. ~ hs
+You got a tie at the half, and that's a joke. Look at me. ~ hs moment=halftime lead=level
+The bleachers are packed and the band is warming up. Now it's your turn. ~ hs moment=pregame
+Sophomores and seniors, I need you yelling right now. ~ hs
+Coaches don't win Friday nights, you do. Listen. ~ hs
+Put the helmets on and the excuses away. Now. ~ hs
+That's a real rivalry out there and everyone knows it. ~ hs rival=yes moment=pregame
+Down at the half in front of our own crowd? Not okay. ~ hs moment=halftime lead=down
+I want to hear your voices across that field before kickoff. ~ hs moment=pregame
+Grab your teammate's jersey and look at him. Now look at me. ~ hs
+Nobody's counting the points yet, so start counting tackles. ~ hs moment=halftime
+Stop worrying about the stands and start playing for the guy next to you. ~ hs
+We're tied and the crowd is going crazy. Use it. ~ hs moment=halftime lead=level
+Friday lights are on and it's time to show what you've got. ~ hs moment=pregame
+Look at the kid on your left, then the one on your right. Listen. ~ hs
+Our town's been waiting all year for this game. Don't let them down. ~ hs moment=pregame
+Get your energy right and your heads right. ~ hs moment=pregame
+You've worked since June for this half. Show it. ~ hs moment=halftime
+Stop looking at the scoreboard and look at me. ~ hs
+We're winning, but high school games turn fast. Stay sharp. ~ hs moment=halftime lead=up
+Friday night is the one night everyone in town shows up. Let's give them a show. ~ hs moment=pregame
+Varsity means you show up when it's hard. Listen up. ~ hs
+Everyone who ever played for this school is hoping you get this one. ~ hs moment=pregame
+That's not how we practice and that's not how we play. Hear me. ~ hs moment=halftime lead=down
+You've got a lot of people cheering for you. Give them something to cheer about. ~ hs
+We're behind, but the game isn't over. Get up and move. ~ hs moment=halftime lead=down
+Look at your hands. Look at the ball. Look at me. ~ hs
+The coaches have done their job. Now it's yours. ~ hs moment=pregame
+Quiet now. I'm about to talk loud. ~ hs
+Every one of you has a reason to play hard tonight. Find yours. ~ hs
+Put the phones away and focus on the field. ~ hs modern
+This is what high school football is about. Earn it. ~ hs
+Stop talking and start hitting. ~ hs
+Freshmen, JV, varsity, I don't care. Every one of you is in this together. ~ hs
+We're up at the half, but don't let the crowd fool you. ~ hs moment=halftime lead=up
+The guys who sweated through summer workouts are counting on you tonight. ~ hs
+Friday's not over until the clock says so. Stay locked in. ~ hs moment=halftime
+Hold your heads up and your chins up. ~ hs
+This town doesn't get many nights like this one. Make it special. ~ hs moment=pregame
+The student section is loud and I want you louder. ~ hs
+Look at me. We need your full attention for the next two quarters. ~ hs moment=halftime
+We've got some work to do in the second half, so listen up. ~ hs moment=halftime lead=down
+Everyone on the bench is ready, and that's what I need from you. ~ hs
+Let's bring some pride back to this school tonight. ~ hs moment=pregame
+You're not just playing for yourselves, you're playing for the whole school. ~ hs
+Time to earn the right to be on this field. Go get it. ~ hs
+Hey, eyes up. The game's about to start. ~ hs moment=pregame
+Our rivals are out there talking big. Let them talk. We'll answer on the field. ~ hs rival=yes moment=pregame
+Last week we fell short, and we aren't doing that again. ~ hs last=loss
+Stop worrying about your stats and worry about the team. ~ hs
+We've come too far to fold now. Keep pushing. ~ hs moment=halftime lead=level
+Quiet down and hear the crowd. That's your motivation. ~ hs moment=pregame
+Get your helmets on and your eyes up, we're not done yet. ~ college
+Nobody in that stadium is here to watch us sit down. Get up. ~ college
+Scholarships are on the line, and so is your name in this program. Listen. ~ college
+Walk-ons and starters, I need every one of you on your feet right now. ~ college
+Our fans paid for tickets, so give them a team worth watching. ~ college
+The conference table doesn't care about excuses. Neither do I. ~ college
+Every redshirt in this room wants a Saturday like this. Earn it. ~ college
+I didn't sign up for a half of soft football, and neither did you. ~ college moment=halftime
+Hear that crowd? That's our program calling you out. Answer it. ~ college moment=pregame
+The portal can't take this game from you. Only you can. ~ college nil
+The NIL money doesn't count for anything once you're on the field. Listen. ~ college nil
+Our collective wants a win, and so do I. Give it to them. ~ college nil
+Revenue share means nothing if we don't show up today. Eyes up. ~ college nil
+Every staffer in this building worked late for this one. Honor them. ~ college
+This is the bowl race, and every snap counts toward it. Listen. ~ college moment=pregame
+Wins last week mean nothing if we don't finish this one. ~ college last=win
+Every Saturday from here on is about the next one. Start with this one. ~ college
+Our rival is across the field, and they've been talking all week. Let them talk. ~ college rival=yes
+That rival is looking at us right now. Don't blink. ~ college rival=yes
+A rivalry game is a stage, and we're not stepping off it. ~ college rival=yes moment=pregame
+Campus, alumni, boosters, all watching. Make them proud. ~ college
+Alumni came back for this, so let's play like they remember us. ~ college
+Our trainers, our equipment staff, our strength coaches, all of them want this win. Listen. ~ college
+Nobody in that locker room owes you respect. Earn it. ~ college
+I'm tired of hearing about potential. Show me results. ~ college
+The student section is loud enough. Now it's your turn. ~ college moment=pregame
+Our offense has to answer the crowd, and our defense has to make them quiet. ~ college
+Practice made us ready, now it's time to play like it. ~ college
+Our depth chart is only as good as the guy behind you. Listen. ~ college
+I'm proud of how you've practiced, now go prove it. ~ college
+Last week is over, so let's write something new here. ~ college last=loss moment=pregame
+A win today sets up the next month. Make it count. ~ college moment=pregame
+Every snap today goes on tape for the next recruit. Act like it. ~ college
+Hear me out before we step on that field. ~ college
+Get your heads up and your eyes on me right now. ~ college
+Nobody in this stadium wants to see us sit back. Listen. ~ college
+Every guy in this room earned a spot on this roster. Show it. ~ college
+Those cleats are heavy with a season in them. Lift your chin. ~ college
+Scholarship or walk-on, the chinstrap feels the same. Listen up. ~ college
+You don't get to pretend you're ready. You either are or you aren't. ~ college
+Pads on, helmets tight, and nobody leaves this room quiet. ~ college
+Every rep in that weight room is about to show up on the field. Remember it. ~ college
+I've heard every excuse this week, and I don't want to hear another. ~ college
+This isn't a practice field and it isn't a scrimmage. Get locked in. ~ college
+Walk-ons, you earned those spots the hard way. Show the room. ~ college
 
 @key gameday.open.firm
 Gentlemen, this is the job. ~ nfl
@@ -14477,6 +15020,41 @@ I see a team that doesn't flinch under pressure. ~ moment=halftime fiery
 Nothing's wrong with what you're doing. Keep going. ~ moment=halftime calm lead=down
 You're a joy to coach, and I mean that. ~ warm
 I'd put this group's work ethic up against anyone's. ~ firm
+The seniors have carried this group, and the freshmen are picking it up fast. ~ hs subject=seniors calm
+Friday nights in this town are the best because of guys like you. ~ hs warm
+Back home, folks raise their kids to work without asking for credit. You do that. ~ texas warm
+Down here, a team that stays together through a bad stretch earns respect. You did. ~ south firm
+Out West, we like players who stay humble and work hard, and this room does both. ~ west calm
+Our film room was full of you guys all week. That's the difference. ~ hs subject=plan
+You've treated this team like it matters, and I notice every day. ~ college warm
+Good teams are loud in practice and quiet in the moment. You're both. ~ calm
+The coaches talked about you all week, and every word was a good one. ~ college warm
+You take coaching without fighting it. That's rare at this level. ~ college calm
+The whole program has grown because of you guys, and I'll say it again. ~ college subject=us warm
+This is the best depth I've had on a roster, and you made it happen. ~ college subject=us
+Class got done, practice got done, and the film got watched. That's a complete week. ~ hs subject=us
+{player} brought energy to every walkthrough. Let's bring it tonight. ~ hs subject=one warm
+Your sideline discipline this week has been excellent. Keep it simple. ~ nfl subject=plan calm
+You made the install fast and the reps clean. That's pro football. ~ nfl subject=plan firm
+The vets taught the rookies the hard way, and it worked. Respect. ~ nfl subject=seniors
+Every position group has taken ownership of its job. That's how a team wins. ~ nfl subject=us
+You didn't need me to tell you how good you are. You showed up anyway. ~ nfl calm
+Our meetings were sharp and our practices were sharper. ~ nfl subject=plan
+The young guys have stopped looking around and started looking forward. ~ nfl subject=seniors calm
+Nobody in this room needs a pep talk. You've got the work to back you up. ~ nfl calm subject=us
+We stayed on task all week, and it's going to show in the first quarter. ~ nfl subject=plan moment=pregame
+Hard-earned confidence sits in this room. Use it. ~ calm subject=us
+I've coached a lot of teams, and this one knows how to finish a hard day. ~ subject=us firm
+The coaching staff leans on you because you make hard calls look easy. ~ college subject=us warm
+{player} took every rep seriously this week. That's what I want to see. ~ subject=one firm
+Let's go out and play for the guys who never got the glory. ~ subject=stakes warm
+Your lunch-pail work all year is why this team has a chance. ~ subject=us firm
+You've been the difference in every drill. Keep being that. ~ fiery
+Good first half. Don't change anything, and don't stop talking to each other. ~ moment=halftime lead=up calm
+We're even at the break. Nobody here is panicking, and that's the right attitude. ~ moment=halftime lead=level calm
+Even at the half, I like where your heads are. Second half is ours. ~ moment=halftime lead=level warm
+You don't need a fancy speech at the break. You need your technique. ~ moment=halftime firm
+Good adjustments in that half, and you executed them right away. ~ moment=halftime subject=plan
 
 @key gameday.promise
 Show me in practice and the film will show it on Sundays. That's how snaps get handed out here. ~ nfl firm subject=us
@@ -15798,6 +16376,213 @@ I think {us} is overrated, and so is the {unit}. ~ nfl brash ego
 The {unit} is fast on paper. Paper doesn't tackle. ~ nfl
 I plan to let my play speak. The {unit} will hear it loud and clear. ~ nfl quiet steady
 I'm still young, and I'm still hungry. The {unit} has no idea what's coming. ~ college young ego
+Nobody in that {unit} has beaten me in a footrace yet. ~ hs wr ego
+They ran a lot of fancy stuff on film. None of it fooled me.
+Back home, a kid who talks like this gets a nickname. {us} can call me whatever they want. ~ college south ego
+Give me the ball on third and four and watch the {unit} sweat. ~ nfl rb competitor
+Didn't come here to make friends with the {unit}. Came here to win. ~ college ego
+Stat sheets don't lie. Check the {unit} numbers, then check mine. ~ college ego
+I've studied everybody on the {unit}. They don't have a single surprise. ~ nfl pro calm
+If {us} wants to play tough, I'll be waiting. ~ college hot
+Put me in one-on-one with anybody on {us}. I'll win every time. ~ college db ego
+Honestly, the {unit} looks like they've been practicing for the wrong game. ~ nfl
+Been waiting my whole life for a game like this. {us} is a good enough reason to show up. ~ hs competitor
+Four quarters against the {unit} is a long day. I'll make sure they feel every minute. ~ college lineman
+I don't get intimidated by good teams. I get intimidated by good plays, and I plan to make some. ~ college
+Their {unit} thinks they can slow us down. We'll find out in the first quarter. ~ college offense
+I play every snap like it's the last one. The {unit} should respect that. ~ nfl competitor
+Everyone in our locker room knows the {unit} is beatable. I plan to prove it. ~ nfl leader
+The cover guys on {us} don't scare me. I've beaten better. ~ nfl wr ego
+They keep talking about the {unit} like it's a wall. Walls get knocked down. ~ college lineman
+Pressure is what I thrive on. The {unit} is going to feel it all afternoon. ~ nfl dl hot
+I've got a bad attitude toward losing, and {us} is about to get the best of it. ~ college hot
+They say the {unit} is a veteran group. Veterans get tired. ~ nfl vet ego
+Rookies get a lot of pressure. I'm not feeling any of it against the {unit}. ~ nfl rookie calm
+Not much to say about {us}. We'll let the film do it. ~ nfl quiet
+Every kick is a chance to make a point. I plan to make one on {us}. ~ college kicker
+Nobody on {us} has the foot speed to keep up with me. ~ college skill ego
+Our guards don't take breaks. The {unit} will find out how much that matters. ~ college ol
+If you're going to talk about the {unit}, make sure you talk about my tackles too. ~ nfl ol
+People tell me to be patient with the {unit}. I've been patient long enough. ~ college hot
+I'll be the first guy off the bus and the last guy off the field against {us}. ~ college leader
+They're going to need a lot of help to stop my route tree. ~ nfl wr ego
+The {unit} doesn't play defense like it's supposed to. We'll show them how. ~ nfl brash
+We're going to take the ball early and not give it back to the {unit}. ~ college offense
+This is my first big game as a freshman. The {unit} is going to get the first look at me. ~ college freshman competitor
+I put in the extra work all summer, and the {unit} is going to feel it. ~ college senior
+The {unit} is strong up the middle. We're going to attack the edges. ~ nfl rb pro
+We're going to make {us} wish they stayed home. ~ college hot ego
+You can put my name next to {us} all week. It won't change the result. ~ college ego
+Nobody on the {unit} has seen the new wrinkles we've been running in practice. ~ college pro
+Watched the tape with my position coach and we both laughed at the {unit}. ~ nfl pro
+My leg is warm and my head is clear. The {unit} can keep their pressure. ~ college kicker calm
+Redshirt season was long. Now every snap against the {unit} feels like a reward. ~ college redshirt
+Our corners have heard all about the {unit}'s receivers. They're ready to prove it's overhyped. ~ college db
+Coach keeps telling me to chill about {us}. I'll chill after the final whistle. ~ college hot
+Give the {unit} credit for showing up to practice. Credit's about all they'll get Saturday. ~ college humble
+Every fan in the stadium will see my number on Friday night. The {unit} is going to remember it. ~ hs ego
+The {unit} plays hard. Hard isn't enough for what we're bringing. ~ nfl competitor
+Our front seven is a problem for the {unit}. Nobody on that offense has solved it yet. ~ college defense
+Quiet week for me. I'm saving every word for the snap against the {unit}. ~ college quiet competitor
+I know exactly what {us} wants to do. We've spent all week making sure it won't work. ~ nfl pro
+Give me the ball in space and I'll make the {unit} look like they're standing still. ~ college rb ego
+Born and raised in Texas, I learned to talk less and win more. {us} is about to see that. ~ college texas humble
+Most people sleep on the {unit}. I'll wake them up with a big hit in the first quarter. ~ college lb
+We don't need trick plays to beat {us}. Straight football is enough. ~ college steady
+Once the bright lights come on I'm at my best. The {unit} can watch it happen. ~ college competitor
+Nobody on the {unit} has ever seen a defense like ours. That's a good thing for us. ~ nfl defense
+I'll be honest, I don't like their {unit}. That's not a secret. ~ college hot
+We're hungry and we're tired of being underestimated. The {unit} is going to feel it. ~ nfl competitor
+I've been waiting a whole season for a shot at the {unit}. Finally, I get it. ~ college senior
+Our backfield doesn't stop for anybody. ~ college rb
+Nobody on that depth chart scares my guys. ~ hs ego
+The {unit} gets one good quarter. Maybe. ~ nfl ego brash
+Don't pick them to win. They won't. ~ college ego
+Every snap is a fight with the {unit}. ~ college ol
+Take notes, {unit}. You'll need them. ~ college ego
+Their {unit} will be looking for us all day. ~ college
+Show me the {unit} doing something new. I'll wait. ~ nfl brash
+My teammates think the {unit} is a joke. I'm inclined to agree. ~ college loose ego
+The {unit} can have the first quarter. I want the last three. ~ college competitor
+If {us} wants a fight, we'll give them one. ~ college hot
+The {unit} won't get the same look twice. ~ nfl pro
+Our guys signed up to beat teams like {us}. ~ nfl
+Every drill this week was aimed at the {unit}. ~ college pro
+The {unit} is gonna need a second game plan. ~ hs
+Speed kills. The {unit} will find out. ~ college wr
+Taking {us} apart by the fourth quarter. ~ college
+The {unit} is deep. We're deeper. ~ college
+If the {unit} blitzes, we'll make them pay. ~ college qb
+Veteran legs for a veteran game. ~ nfl vet
+I want the {unit} to know I'm coming. Loud. ~ college ego
+Guard play decides this one. Ours is better. ~ college ol
+I'll take on anyone the {unit} puts in front of me. ~ college lineman
+Quit talking about the {unit}, start watching them. ~ nfl pro
+Two drives in, the {unit} will start doubting. ~ college
+They can say what they want. We have the plan. ~ college steady
+A lot of pressure on the {unit}. They'll feel it. ~ college dl
+Their {unit} is fine. Fine loses to good. ~ nfl pro
+Let's see if the {unit} wants to tackle for a full game. ~ college rb
+Make the {unit} chase us all afternoon. ~ college ego
+We're not afraid of their crowd or the {unit}. ~ college
+Jump ball on their {unit}, I'm winning it. ~ college wr
+The {unit} plays harder when nobody's watching. Guess who's watching. ~ college hot
+I want the {unit} to sweat before kickoff. ~ college hot
+Stop talking about {us} and start watching film. ~ nfl brash
+Our sack numbers will go up against the {unit}. Watch. ~ nfl rusher
+We'll stay disciplined. The {unit} won't. ~ college steady
+Let the {unit} think about it all week. ~ nfl ego
+Our defense won't let {us} breathe. ~ nfl defense
+Give me the ball on third down and I'll find a way. ~ college rb
+Quarterback is a thinking job, and I think faster than anyone on the {unit}. ~ college qb ego
+Let them watch our film. It won't help the {unit}. ~ college ego
+Our speed on the perimeter is going to stretch {us} thin. ~ college wr
+Friday night in this town means something. {us} is about to find that out. ~ hs loyal
+Kicking out here feels normal. The {unit} can keep the noise coming. ~ college kicker calm
+I've been studying the {unit} since spring. Nothing they do surprises me. ~ nfl pro
+My cover skills are the best in the conference. The {unit} can test them if it wants. ~ college db ego
+I play with a lot of fire, and the {unit} is going to get burned by it. ~ college hot
+The {unit} has no answer for our pass rush this season. ~ nfl rusher
+Our tight ends beat linebackers all day. The {unit} should expect that. ~ college te
+Back home, we talk less and hit more. The {unit} will find out. ~ college south
+Veteran legs, rookie hunger. That's what the {unit} has to deal with. ~ nfl vet
+If the {unit} keeps guessing, we'll keep scoring. Simple math. ~ college offense
+I don't pay attention to hype. I pay attention to the tape. The {unit} doesn't look great. ~ nfl pro
+They'll put a safety on me, and I'll beat him too. ~ college wr ego
+Snapping the ball is about rhythm, and our rhythm is better than the {unit}'s. ~ college snapper
+I've got a few tricks saved up for the {unit}. They'll hate every one of them. ~ nfl rb ego
+Friday nights are for proving people wrong. Let's start with {us}. ~ hs
+We're playing with a lot of pride, and the {unit} can't match that. ~ college
+Some folks in this town think {us} is a tougher team. Good luck to them. ~ hs ego
+I want the biggest guy on the {unit} lined up across from me all game. ~ nfl ol
+The {unit} can't pick up what we're running. We'll keep it that way. ~ college offense
+My guys in the trenches win this game before anyone notices. ~ college lineman
+When they say the {unit} is the best in the division, I laugh. Our offense is better. ~ nfl offense
+Hot start or not, I'll be ready when the {unit} tries to stop us. ~ college
+I think I'm the best player in this matchup. Send the {unit} my regards. ~ nfl wr ego
+Our secondary covers everything. The {unit} is in trouble if it throws. ~ nfl cover db
+We'll find the mismatch on the {unit} by the second quarter. Watch. ~ college te
+We're going to make the {unit} play on our schedule. ~ college ego
+Every rep I've taken is for games like this. The {unit} is about to pay the price. ~ college competitor
+I hate losing in practice and I hate losing on Saturdays. The {unit} better be ready. ~ college hot
+Kicking is a mental game, and I'm mentally ready for the {unit}. ~ nfl kicker calm
+The {unit} is good. We're better. I'm not going to pretend otherwise.
+Our linemen work all week to make these plays. The {unit} will find that out fast. ~ nfl ol
+Walking into {us} is like walking into a wall. We'll see how their wall holds. ~ college ego
+Let's see the {unit} try to contain what we do on the edge. ~ college rusher
+Scoring against {us} shouldn't be hard, and it won't be. ~ nfl offense
+I'll take an early hit if it gets me going against the {unit}. ~ college rb
+My plan is simple: stay healthy, stay sharp, and make the {unit} pay. ~ nfl steady
+Some people think {us} can win in the trenches. We'll see who's tired by the fourth quarter. ~ college ol
+When the {unit} blitzes, I'll be the one picking it up. ~ nfl rb
+Big games don't make me nervous. The {unit} doesn't change that. ~ college calm
+We're going to run the ball until the {unit} begs for mercy. ~ college offense ego
+Tell {us} to get some rest. We'll be wearing them down all day. ~ college
+This is my first big stage, and I'm going to enjoy the {unit} losing to us. ~ college young
+Our tight ends block like linemen. The {unit} won't see that coming. ~ hs te
+Nobody on the {unit} wants to be my matchup. Too bad. ~ nfl wr ego
+When we're running, the {unit} can't stop us from scoring. ~ college rb
+On the line, I don't care what anyone thinks. The {unit} is going to feel my hands. ~ college ol
+Our line wins in the trenches, no question. ~ college ol
+Every corner on that schedule has heard my name by now. ~ college wr ego
+Put the ball in my hands and count the yards. ~ college rb
+They built a plan around stopping us, and it won't hold. ~ nfl pro
+Honestly, I'm more worried about the traffic than {us}. ~ college loose
+Straight-up football is what beats teams like {us}, and we have plenty of it. ~ college steady
+That defense has a reputation. Reputations don't tackle anyone. ~ nfl ego
+My pass rush has been waiting all week for the {unit} to slip. ~ nfl rusher
+I grew up in the Midwest, where a game like this is a week of work. ~ college midwest
+Just tell the {unit} to brace for four quarters of me. ~ nfl wr ego
+We have a few things planned for the {unit} that they haven't seen. ~ college offense
+Every practice rep this week was built for the {unit}, and that's all I'm saying. ~ college pro
+Watch our front seven make the {unit} earn every yard. ~ nfl defense
+I'll get through the {unit} and get the job done, same as always. ~ college senior humble
+Fourth quarter is when I get dangerous, and the {unit} will find that out. ~ nfl competitor
+I want the {unit} to know I'm not going to be the quiet one this week. ~ college loose
+Honest, the {unit} is nothing special. We'll see if they disagree after the first drive. ~ college hot
+Every drop I've got is saved for the {unit}. ~ nfl wr
+Playing in the South, you learn that a game like this is personal. ~ college south
+I'm going to make the {unit} hate Sundays. ~ nfl competitor
+I want the matchup against the {unit}. Let the film tell the rest. ~ nfl
+Tell the {unit} to learn the snap count, because I'll be jumping it. ~ college dl
+Redshirt or not, I'm ready to take the {unit} apart. ~ college redshirt
+I'll take a hit to make a play on the {unit}. Worth it every time. ~ college rb
+Our secondary will be all over {us} once they get comfortable. ~ college db
+They've got tough-looking guys, but we're going to see who's tougher. ~ college hot
+I've spent my whole summer getting ready for this one, and the {unit} is the main event. ~ nfl pro
+Just two words for the {unit}: good luck. ~ college ego
+We'll see if the {unit} can stay in front of us for a full game. ~ college offense
+Ask any defensive back who's tried to cover me. They'll tell you it's not fun. ~ nfl wr
+Our running game was built to chew up teams like {us}. ~ college rb
+We're going to set the tone early. The {unit} can respond if it wants. ~ nfl leader
+Got a new wrinkle for the {unit} this week. They'll see it when it's too late. ~ college pro
+I lead by example, and right now the example is beating the {unit}. ~ college leader
+I don't know what the {unit} has been doing all year, but I know what we've been doing. Working. ~ nfl steady
+They're going to need more than one guy to slow me down. ~ college ego
+Win the trenches and the rest follows. That's the {unit}'s problem. ~ nfl ol
+I'll be on the field for the first snap and the last. The {unit} has to deal with me the whole time. ~ nfl competitor
+Honestly, the {unit} hasn't faced anything like what we bring. ~ nfl ego
+Our tight ends will eat the {unit} alive on the middle of the field. ~ college te offense
+Their {unit} is going to spend the whole week studying tape of me. Good luck. ~ college ego
+Give the {unit} a hint about what's coming, and they'll still be late. ~ nfl pro
+Some guys dream about beating the {unit}. I'm just going to do it on Saturday. ~ college calm
+I plan to put the {unit} on its heels from the opening drive. ~ college offense
+Every film session I watch, the {unit} keeps giving up the same look. ~ nfl pro
+The {unit} can't stop what it can't see, and they won't see it. ~ nfl qb
+My teammates say I'm loud. I say I'm right, and the {unit} will see it by halftime. ~ college hot
+I've beaten better, and the {unit} is no exception. ~ nfl vet
+Give my guys a week and the {unit} won't recognize its own plays. ~ college offense
+Friday night lights are a dream come true, and {us} is just part of the scenery. ~ hs
+We'll be physical with {us} for four quarters and they'll be exhausted. ~ college ol
+Their safety plays too high. Our receivers are going to live behind him. ~ college wr
+Honest truth, the {unit} is on my mind every single day. ~ college hot
+The coaching staff built this whole week around beating the {unit}. ~ college pro
+Our linebackers fly sideline to sideline, and the {unit} won't outrun them. ~ college lb
+My leg is the best in this conference, and the {unit} will have to prove otherwise. ~ college kicker ego
+We study the {unit} with a purpose, and they don't study us at all. ~ nfl pro
+Our tackles have been dominating every practice, and the {unit} will be next. ~ nfl ol
+Coach says we don't respect any opponent too much. The {unit} still doesn't scare me. ~ college pro
+The {unit} is going to find out what a real pass rush looks like. ~ nfl rusher competitor
 
 @key gameday.straight
 We're professionals. Show up and do the job you're paid for. ~ nfl subject=us
@@ -18919,6 +19704,52 @@ I coach hard because you can play. Now play.
 Coaches see everything. I saw that. Fix it.
 Quit apologizing and start executing.
 Kid, you've got to be smarter. ~ hs
+Get it back in your head, {player}, then get it back on the field.
+Hold the line, {player}. Hold it and stop giving them ground. ~ fiery
+Hey, slow down and read the coverage before you commit. ~ mistake=interception
+Our guys out there need you to be steady. Be steady. ~ firm
+Clean up the footwork and get set before the snap. ~ nfl firm
+Hands high and tucked, every single carry. ~ mistake=fumble firm
+Practice never looks like that, so why does the game? ~ hs
+Eleven guys have one job on that play, and yours was the one we lost. ~ nfl firm mistake=blown
+Cut the mistakes and cut them now, {player}. ~ mistake=pattern fiery
+Back home they'd call that a bad rep, {player}. Pull it together. ~ south firm
+Watch the flag, watch the whistle, watch your feet. ~ mistake=killed firm
+Stop trying to make the big play and make the right one. ~ nfl fiery
+You aren't helping the guys beside you like that. ~ college firm
+The drive was ours, {player}, and that flag gave it back. ~ mistake=killed fiery
+Run the play you were given. Not the one you wanted. ~ firm
+We put in the film work, so why are you guessing out there? ~ nfl fiery
+Come on, {player}! Hustle back to the huddle and reset! ~ fiery
+Be disciplined with your hands and your feet. ~ mistake=extended
+Your teammates are worn out from covering for you. ~ college
+You cost us a stop, {player}, and that stop mattered. ~ mistake=blown firm
+Hold your ground, {player}. Don't surrender it. ~ mistake=extended fiery
+Know the situation before you line up, {player}. ~ hs firm
+That's a fumble waiting to happen. Secure it. ~ mistake=fumble
+Quit throwing into traffic, {player}. ~ mistake=interception fiery
+A coach can't fix a player who won't listen, so listen. ~ college firm
+Play with your head up. Stop looking at the ground. ~ mistake=fumble
+Your assignment was right in front of you. ~ mistake=blown firm
+Check your alignment before the ball moves. ~ mistake=extended firm
+Burn that clip into your brain and don't repeat it. ~ firm
+You didn't just lose a yard, {player}. You lost the drive. ~ mistake=killed
+Ball out, two hands, every time. ~ mistake=fumble fiery
+The scheme is fine. The player was not. ~ firm
+Track the ball, not the receiver's shoulders. ~ mistake=interception
+Our ball security stinks today, {player}. Fix it. ~ mistake=fumble
+Quit reaching and play with your feet. ~ mistake=extended firm
+Your mistake put the offense in a hole. Dig out. ~ mistake=killed
+Get off the field if you can't follow the play call. ~ college fiery
+That's a mental error and mental errors are on you. ~ nfl firm
+You threw a bad read, {player}. Learn it. ~ mistake=interception
+Catch the ball, then turn it upfield. Simple. ~ mistake=fumble firm
+Kill the penalty, {player}, and get back to playing. ~ mistake=killed fiery
+You dropped your eyes and lost the whole play. ~ mistake=pattern firm
+Dumb penalty, {player}. Get your hands under control. ~ mistake=extended
+Sprint to the ball, {player}. Sprint. ~ nfl fiery
+Trust your training, {player}. It's there, use it. ~ firm
+Hey, that's a play we run in our sleep. Run it now. ~ hs firm
 
 @key gameday.word.listen
 Talk to me, {player}. What did you see pre-snap? ~ nfl
@@ -19556,6 +20387,161 @@ Give me a second, {player}. What was going through your head?
 Was it the look they gave you, or something else?
 Was it the speed of the play, or the look?
 Did you see the defender before you let it go? ~ mistake=interception
+Walk me through what you were reading there, {player}. ~ calm
+Take a second with it. Then give me what you saw. ~ calm
+What's your side of that snap? I'm not going anywhere.
+Let's start with your feet. Where were they? ~ nfl
+Hey, {player}, what did the guy across from you do? ~ hs
+Give me your first thought, not the one you'd say on film. ~ nfl
+Help me see what you saw, because I missed it. ~ calm
+Somewhere in there something broke. Where do you think it was? ~ college
+Tell me what the hands were doing before the whistle. ~ nfl
+Did the defender show you one thing and do another? ~ college
+Was the snap count what you heard, {player}? ~ mistake=blown
+You can be straight with me. What happened on that one? ~ calm
+What was the next thing you were going to do? ~ nfl
+Did the timing feel off, or did you just get there late? ~ hs
+Start from when the ball hit your hands. ~ nfl mistake=fumble
+Who were you supposed to be with on that play? ~ college mistake=blown
+What did the tackle do to you that you didn't expect? ~ nfl
+Tell me the moment you knew it went wrong. ~ calm
+I'll wait for it, {player}. Tell me when you're ready. ~ calm
+What's the thing that stuck with you about that rep? ~ college
+Did you get a clean look at the safety? ~ nfl mistake=interception
+Where was your weight when the hit came? ~ mistake=fumble
+Did the rhythm break for you, or did you break it? ~ nfl mistake=pattern
+You had a plan. What was it, and where did it fall apart? ~ college
+Think about it for a second, then tell me. ~ calm
+Did you feel the rush before you saw it? ~ nfl mistake=blown
+What were you thinking when you saw the flag come? ~ hs mistake=extended
+I want the play in your words, {player}. Go. ~ calm
+Okay, what got in your head on that one? ~ hs
+Which one of those things did you have control of? ~ nfl mistake=pattern
+Was the cadence throwing you off today? ~ mistake=blown
+Did you hesitate, or did the play just happen too fast? ~ calm
+What made you trust that read? ~ nfl mistake=interception
+Walk me back to where you first knew something was wrong.
+Start with the snap and go on from there, {player}.
+You look like you're carrying that one. Set it down and tell me.
+Who did you see first when the ball went your way?
+Talk to me. I'll take whatever you give me.
+What was your key on that one? ~ nfl
+Your eyes went somewhere. Where were they?
+Give me the play from your side of the ball.
+Was the timing off, or did you just miss it?
+Anything about that look you didn't expect?
+I can see you're thinking about it. Let it out.
+What went through your mind as the flag came out? ~ mistake=killed
+Did the defender do something you didn't see coming?
+Okay, {player}. From the top, what did you see?
+How much of that was the call, and how much was you?
+Was that the first time you'd seen that look?
+Is the speed of the game looking different up close? ~ college
+Your guy beat you clean. What happened there? ~ mistake=blown
+Was there a read you wanted to make and didn't?
+You see something different on film later? Tell me now.
+Walk me through what your hands were doing.
+Were you holding him, or did he pull you off? ~ mistake=extended
+That was a tough spot. What did you have in mind?
+Where was the help supposed to come from?
+I trust your instincts, {player}. What did they say on that one?
+Just the facts, {player}. What was your read?
+Did you feel anything wrong with the call from the start? ~ mistake=blown
+What's your honest read on that rep?
+Was there a second where you knew it was going wrong?
+What felt off on your side of the ball? ~ hs
+Did you get tangled up with anyone there?
+Are you getting enough sleep, {player}? Is that part of it? ~ mistake=pattern
+Take a minute. Then tell me what you noticed.
+What was it like from your position?
+What was the call in your ear when you lined up?
+Did you have a clear picture of where he'd go?
+Was it your mistake or the setup's? Tell me honestly.
+Are your legs gone, or is it your head? ~ mistake=pattern
+You're not the first one this happened to. What did you see?
+Give me the one thing that went wrong, {player}.
+Where did you feel the pressure first, {player}? ~ calm
+Let's hear the snap from your end, {player}. ~ calm
+What made you stop on that route? ~ calm mistake=interception
+I'd like your version before I say a word. ~ calm
+You can tell me the ugly part. What happened? ~ calm
+What was the look you didn't expect before the snap? ~ calm nfl
+Give me the first thing you noticed when the play went wrong. ~ calm
+Did the defender get leverage on you, or did you give it up? ~ calm nfl mistake=killed
+What was the call in your ear, {player}? ~ calm mistake=blown
+Did the contact come early or late for you? ~ calm mistake=extended
+Where did your weight go on that rep? ~ calm nfl
+I'd rather hear your side before the film. What was it? ~ calm
+You don't need to explain it pretty, {player}. Just tell me. ~ calm
+Was the timing off between you and the quarterback? ~ calm mistake=interception nfl
+Did the snap count throw you, or was it the defense? ~ calm mistake=blown
+Where was your eyes when the ball came out? ~ calm mistake=fumble
+What's your read on the cornerback there, {player}? ~ calm mistake=interception
+Was the penalty something you did, or something he did to you? ~ calm mistake=extended
+What were you hoping would happen on that snap? ~ calm
+Did you feel rushed getting set? ~ calm
+Talk to me about the coverage shell you saw. ~ calm college
+I'm here to listen, {player}. Start wherever it feels right. ~ calm
+What went wrong with your footwork on that one? ~ calm
+Did the receiver's route break the way you expected? ~ calm mistake=interception
+Did you get the snap clean, {player}? ~ calm
+Where did the ball slip out of your control? ~ calm mistake=fumble
+What's the one moment you keep replaying? ~ calm
+I'm going to listen all the way through. Go ahead. ~ calm
+Did the hit come from a side you weren't watching? ~ calm mistake=fumble
+Let's go back to the huddle. What did you hear? ~ calm mistake=blown
+What got into your head before that throw? ~ calm mistake=interception
+Give me the honest version of that snap, {player}. ~ calm
+What made you hesitate there, {player}? ~ calm
+How did your last rep feel compared to that one? ~ calm
+Did the play call sit right with you before the snap? ~ calm
+Where'd your eyes go when the ball hit the ground? ~ hs mistake=fumble
+Give me your side of that rep, {player}. ~ hs
+The whistle went and you were still in the play. What happened? ~ hs mistake=extended
+Take a breath, then show me with your hands where you were. ~ hs
+Was that a read you made, or a read you guessed? ~ hs
+I'll take your word for it. What did you see? ~ hs
+Was the snap count what you were expecting? ~ hs mistake=blown
+What made you commit so early on that one? ~ hs mistake=interception
+Did the noise in the stands mess with your count? ~ hs
+I want the honest version, {player}. What did you see? ~ hs
+Did you lose your footing, or did your guy just beat you? ~ hs mistake=extended
+What were you thinking when that flag came in? ~ hs mistake=killed
+You've got my attention. What went wrong for you? ~ hs
+Is there a part of the call you didn't understand? ~ hs
+Did the play look the way we drew it up? ~ hs
+Talk to me about your feet on that rep. ~ hs
+What was the cadence like from where you stood? ~ hs mistake=blown
+Where did your read go wrong, {player}? ~ hs mistake=interception
+Give me the short version of what happened there. ~ hs
+Was it the call, or was it the way they lined up? ~ hs
+What's your gut telling you about that play? ~ hs
+Talk to me about where you were on that snap. ~ hs
+Did the pressure surprise you or did you expect it? ~ hs
+Was that the play you wanted to run? ~ hs
+Did the formation tip you off? ~ hs mistake=blown
+Can you tell me what you were looking at? ~ hs
+Is anything about the play bothering you? ~ hs
+Let me hear your take, {player}. ~ hs
+Were you thinking too much on that play? ~ hs
+I can work with whatever you tell me. What happened? ~ hs
+What's the one thing you'd do differently on that rep? ~ hs
+Walk me through the first two seconds of that play. ~ hs
+Was it your read or was it theirs? ~ hs mistake=interception
+I'm asking so I can help, not to pile on. What happened? ~ hs
+Walk me through the reps leading up to that one, {player}. ~ college
+Which read did you trust there, {player}? ~ college
+Take a second. What were your feet telling you? ~ college
+Did the scheme look like what we showed you this week? ~ college
+Something felt wrong before the snap, didn't it? ~ college
+You had a clean look in practice. What's different now? ~ college
+I want the play from your eyes, not from the sideline. ~ college
+Was the penalty on your feet or your hands? ~ college mistake=killed
+Who did you think had your back on that one? ~ college mistake=blown
+Was your assignment clear to you before the play? ~ college mistake=blown
+Where did the flag hit you, and what did you do after? ~ college mistake=killed
+Was it the pace, or was it the look? Be honest with me. ~ college
+What's your best guess on why that rep went sideways? ~ college
 
 @key gameday.word.praise
 Shake it off, {player}. Your next snap matters more. ~ nfl
@@ -20257,6 +21243,105 @@ Northeast grit, {player}. Take the shot and give it back. ~ northeast
 Let's go, {player}. I know what you're made of. ~ you
 Stick with your technique and everything else takes care of itself. ~ nfl
 Every kid on this team wants the ball back for you. Let's go. ~ hs mistake=killed
+Breathe, {player}. Shake it off. Next snap.
+Hold your head up. I still want you out there.
+Walk it back, {player}. I'm right here with you.
+We'll fix that on film. For now, play loose.
+Keep your feet moving, {player}. The next one's yours.
+One fumble doesn't outweigh a season of work. ~ nfl
+Stay with me, {player}. We need you locked in.
+Use that sting. Make them pay on the next one.
+You're still the guy I'm counting on today.
+Chin up. Plenty of football left.
+Nobody's giving up on you here. Go play.
+Eyes forward. The scoreboard can wait.
+Trust the preparation. It's still in there.
+That's one play. Win the next one for the guys next to you.
+I know you're better than that rep. Show me.
+Keep your motor going, {player}. It's what we need.
+You've bounced back before. Do it again.
+That's a teaching moment, not a verdict. Go.
+Stay aggressive. Just cleaner next time.
+Quit looking at the mistake and look at the next play.
+Reset your head and go find your rhythm.
+The team's still with you. Go earn it back.
+Hey, you're fine. Big play coming, I can feel it.
+The guys need your energy, {player}. Bring it.
+Fix the grip, trust the drill, go again. ~ college mistake=fumble
+This is a game of next plays, {player}. Make one.
+Remember the work you put in this week. It's still there.
+I'm not worried about the last one, only the next.
+Stay confident. That's how you make the next play.
+Our whole sideline believes in you, {player}.
+Take a breath. The next play is the one I'm watching.
+You've made a lot of good plays already. Add one more.
+Don't let one miss keep you down all game.
+I'm proud of how hard you're competing. Keep it up.
+Reset, refocus, and finish strong. You can do it.
+Everybody messes up. The good ones come back. ~ hs
+Your teammates are counting on you right now.
+Go back out there and make it right.
+You're a playmaker, {player}. Make one now.
+That was a tough break. Shake it off and get ready.
+We need your hands and your head, so get them both back.
+Keep your chin up, {player}. Shake it off and come back ready. ~ warm
+Hey, {player}, one play won't change how I see you. Go get the next one.
+Forget it, {player}. The next snap is all that matters right now.
+Hold your head high. We still need your best out there. ~ hs
+Good players answer their mistakes. Show me your answer, {player}. ~ nfl
+Every guy out there has a rough play. The good ones bounce back quickly. ~ nfl
+I'll take your fight over anything else. Just tighten it up. ~ college mistake=extended
+Hey, {player}, look at me. I still want you on the field. ~ warm
+That's the cost of playing hard. Let's clean it up on the next one.
+Your work all week tells me who you are. Go play like that. ~ nfl
+Don't carry that one with you, {player}. Leave it on the turf.
+You're still the guy I want with the ball. Go show me again. ~ college mistake=fumble
+Shake the dust off, {player}. The next play is yours. ~ hs
+I know you hate that, and I like that you hate it. Now let it go. ~ nfl
+We'll get that corrected on the next series. Stay with it, {player}.
+Your effort's never been the issue, {player}. Stay in it. ~ hs
+Good hustle, {player}. Keep attacking, just be smarter with it. ~ college mistake=extended
+Breathe, {player}. You've made a hundred plays like the one coming up. ~ nfl
+I trust your hands and your instincts. Keep both sharp. ~ college mistake=fumble
+Take a second, then find your guys. They're counting on you. ~ hs
+Stay patient, {player}. Your next opportunity is right around the corner.
+This is where you show your character. I know what you've got. ~ college
+That's a rep you can learn from. Learn it and move on. ~ nfl
+I see you working through it, {player}. That's what I want. ~ hs
+You were going hard, and that's the player I want. Just clean up the detail. ~ nfl mistake=extended
+Keep your eyes forward, {player}. The next drive belongs to you.
+Next time your number's called, make it a big one. ~ nfl
+Learn from it in the film room. For now, go be the player I need. ~ college
+I know you can do this. Show everybody the way you practice. ~ hs
+We need your energy on the next series, {player}. Bring it.
+Let the mistake go and play the way you've been working all season. ~ nfl
+Clear your head, {player}. You know the play, and you know your job.
+It's okay to be frustrated. Use that frustration to play harder. ~ nfl
+Get back to the basics, {player}. Those are what make you dangerous. ~ nfl
+I've seen you come back from worse, {player}. Do it again.
+Hey, you've got to keep going. We need every bit of you. ~ college
+You'll have another chance right away. Be ready for it, {player}.
+One bad read doesn't change my faith in you. Trust your eyes next time. ~ college mistake=interception
+Next play, {player}. Give it everything you've got.
+Hey, {player}, the ball will find you again. Stay ready. ~ hs
+Forget the flag, {player}. Your next one is coming. ~ hs mistake=extended
+Hold on, {player}. We still need your legs out there. ~ hs
+Good hustle, {player}. Let's clean up the next one together. ~ hs
+Our whole bench is pulling for you right now. Go. ~ hs
+Easy, {player}. One snap doesn't tell the story of your year. ~ hs
+Be patient, {player}. Your next chance is right around the corner. ~ hs
+Stay low, stay loud, {player}. That's what I want to see. ~ hs
+Shake it off, {player}. The whole town is still cheering for you. ~ hs
+Stay loose, {player}. The next one's a clean slate. ~ hs
+I'd rather you swing for it than sit back. Keep swinging. ~ hs mistake=interception
+Think about the next snap, {player}, not the last one. ~ hs
+Your work in practice shows who you are, {player}. Go show it again. ~ hs
+Nobody's worried about you, {player}. Go get it back. ~ hs
+Take a breath, {player}. You've got this one in you. ~ hs
+Next play, {player}. Give me your best effort. ~ hs
+Forget the scoreboard, {player}. Just do your job right now. ~ hs
+Bounce back, {player}. Your teammates are counting on you. ~ hs
+Reset your feet, {player}. The next one's coming. ~ hs
 
 @key gameday.word.straight
 Eyes up, {player}. You know what you saw. ~ nfl
@@ -21772,3 +22857,77 @@ I'm done explaining it. Do it right.
 You heard me. Go play.
 Not good enough, {player}. Get right.
 Do not make me say it twice.
+Your next rep tells me what you're made of, {player}. Show me.
+Focus on the snap in front of you, {player}. Nothing else matters right now. ~ hs
+Clean it up, {player}, or sit next to me. ~ college
+Hold your gap, {player}. Stay where the play is supposed to go. ~ hs mistake=blown
+Another flag like that gives them life. Watch your hands. ~ nfl mistake=extended
+Hang onto the ball, {player}. Get your arms around it every time. ~ mistake=fumble
+Good players don't repeat that. Be a good player, {player}. ~ hs
+I won't cover for that again, {player}. Make it right. ~ nfl mistake=blown
+Lock in, {player}. There's no reason to make the same mistake twice. ~ hs
+You hurt us on that play, {player}. Make the next one count. ~ college
+This league has no patience for that. Correct it or get out. ~ nfl
+Keep your head in the play, {player}, or I'll find you a seat. ~ west
+You're giving them easy points, {player}. Stop it right now. ~ nfl mistake=blown
+Pull it together, {player}. Next snap is your chance to answer. ~ college
+Eyes up, {player}. Grab the ball and keep it tight. ~ hs mistake=fumble
+Your flag gave them a fresh set of downs. Be smarter, {player}. ~ hs mistake=extended
+Second-team reps are one mistake away, {player}. Think about that. ~ hs
+Varsity is earned every Friday, {player}. Keep earning it. ~ hs
+Our parents pay to watch clean football. Give them some. ~ hs
+Hold your gap, {player}. The back will find the hole you leave. ~ hs mistake=blown
+You owe your linemates better than that. Clean it up. ~ hs
+This is a team sport, {player}. Your mistake sits on everybody. ~ hs
+One more snap like that and the JV kid goes in for you. ~ hs
+Ball security or bench time, {player}. Pick one. ~ hs mistake=fumble
+Think about your assignment before the snap, {player}. Not after. ~ hs mistake=blown
+Your seniors are counting on you to finish strong. Don't let them down. ~ hs
+Stay on your side, {player}. Keep your hands inside. ~ hs mistake=extended
+Those little mistakes are stacking up fast, {player}. Stop them now. ~ hs mistake=pattern
+We win this town's respect with clean football. Show it. ~ hs
+I told you about that all week, {player}. Listen this time. ~ hs mistake=blown
+Stay with your man, {player}. Don't give up the big play. ~ hs mistake=blown
+Their recruiters are watching, {player}. Show them better. ~ hs
+Pay attention to the cadence and get off the ball right. ~ hs
+That flag killed our momentum on a Friday night. Don't repeat it. ~ hs mistake=killed
+Keep your head in the game, {player}. We need you locked in. ~ hs
+We've got a play for that, and you didn't run it. Fix it. ~ hs mistake=blown
+One more and you're watching from the bench, {player}. ~ hs
+Fix your eyes on the target, {player}. Don't drift. ~ hs mistake=interception
+Get your hands up and make the play. ~ hs
+Don't let them flip the field on you, {player}. Stop the flag. ~ hs mistake=extended
+Hustle back on defense, {player}. Don't give up the easy score. ~ hs mistake=blown
+You can't hand them free yards and keep your spot. ~ hs mistake=extended
+Your teammates have been working all week. Don't waste it. ~ hs
+Focus on your job and trust your teammates to do theirs. ~ hs
+Stay tight to the football, {player}. Every single carry. ~ hs mistake=fumble
+That mistake cost us the drive, {player}. Shake it off and reset. ~ hs mistake=killed
+Pay attention in the huddle, {player}. Know the call before the snap. ~ hs mistake=blown
+We don't need heroics, {player}. We need you doing your job. ~ hs
+Take the easy completion, {player}. Don't force it into coverage. ~ hs mistake=interception
+This is varsity, {player}. The margin is smaller than that. ~ hs mistake=pattern
+Keep your feet moving, {player}, and stay square to the line. ~ hs mistake=extended
+That is the kind of play that loses us the district. ~ hs mistake=killed
+Your name is on the depth chart for a reason. Earn it back. ~ hs
+We need you sharp in the fourth quarter, {player}. Start now. ~ hs
+Break down on every tackle, {player}. Don't lunge at the ball. ~ hs mistake=blown
+Think about the crowd on Friday night. Give them a clean drive. ~ hs
+Your snap count was off, and we paid for it. Fix it. ~ hs mistake=blown
+Hit your landmark, {player}, and trust your depth. ~ hs mistake=blown
+Keep the chain moving, {player}. Don't let them get a free first down. ~ hs mistake=extended
+You're better than that, {player}. Show me on the next play. ~ hs
+Stay alert on the snap, {player}. They're watching for that gap. ~ hs mistake=blown
+Hold the ball higher, {player}. The defense is looking for it. ~ hs mistake=fumble
+Your teammates on the sideline are counting on you, {player}. ~ hs
+We worked on that exact drill all week, {player}. Do it right. ~ hs
+Stop the penalties, {player}. We can't play from behind all night. ~ hs mistake=pattern
+Read the safety before you throw, {player}. Don't gamble. ~ hs mistake=interception
+Clean up your technique and play under control. ~ hs
+We need you on the field in crunch time, {player}. Be ready. ~ hs
+One more lapse like that and I'll make the change. ~ hs
+Come on, {player}, play with your head, not just your heart. ~ hs
+We're one play from a better night, {player}. Make it. ~ hs
+Keep your eyes on the ball every snap, {player}. No excuses. ~ hs mistake=fumble
+Go back to basics, {player}. Stance, first step, finish. ~ hs mistake=blown
+We can't have guys hurting us from the inside, {player}. Fix it. ~ hs mistake=pattern

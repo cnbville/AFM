@@ -710,17 +710,11 @@ pub fn prestige_of(p: &Program, coach_rep: f64, conference: f64) -> f64 {
 /// (the MAC in Florida and Georgia, note 4; the Big Ten in Florida, Georgia
 /// and Texas).
 pub fn rebuild_footprint(p: &mut Program, overflow: &[f64; 51], year: i32) {
-    let rel = p.prestige_rel;
-    // How far past its region a level recruits (minor bug 246): the
-    // country for FBS's national names, a little at FCS, junior colleges as
-    // before, almost nothing below.
-    let national_reach = match p.division {
-        Division::FBS => clamp((rel - NATIONAL_FROM) / (1.0 - NATIONAL_FROM), 0.0, 1.0).powi(2),
-        Division::FCS => 0.3 * clamp((rel - NATIONAL_FROM) / (1.0 - NATIONAL_FROM), 0.0, 1.0).powi(2),
-        Division::JUCO => 0.36 * rel.powi(3),
-        Division::D2 | Division::NAIA => 0.01 * rel.powi(3),
-        Division::D3 => 0.005 * rel.powi(3),
-    };
+    let national_reach = national_reach(p);
+    // An academic name or an academy reads the whole country alike for the
+    // students it can admit (minor bug 256): the pool is national, not the
+    // talent-rich states' spare players.
+    let academic = ACADEMIC_NATIONAL * academic_reach(p);
     let overflow_reach = match p.division {
         Division::FBS if p.power_conference(year) => SPILL_POWER,
         Division::FBS => SPILL_FBS,
@@ -730,11 +724,59 @@ pub fn rebuild_footprint(p: &mut Program, overflow: &[f64; 51], year: i32) {
     let miles = campus_miles(p);
     let local = region(p);
     for s in 0..51 {
-        let national = 0.35 * national_reach * (NATIONAL_FLOOR + (1.0 - NATIONAL_FLOOR) * overflow[s]);
+        let national = (0.35 * national_reach * (NATIONAL_FLOOR + (1.0 - NATIONAL_FLOOR) * overflow[s])).max(academic);
         let spill = overflow_reach * overflow[s] * (1.0 - miles[s] / SPILL_MILES).max(0.0);
         p.footprint[s] = clamp(local[s].max(national).max(spill) + 0.6 * p.pipeline[s], 0.0, 1.0);
     }
 }
+
+/// How far past its region a level recruits, 0-1 (minor bug 246): the
+/// country for FBS's national names, a little at FCS, junior colleges as
+/// before, almost nothing below.
+pub fn national_reach(p: &Program) -> f64 {
+    let rel = p.prestige_rel;
+    match p.division {
+        Division::FBS => clamp((rel - NATIONAL_FROM) / (1.0 - NATIONAL_FROM), 0.0, 1.0).powi(2),
+        Division::FCS => 0.3 * clamp((rel - NATIONAL_FROM) / (1.0 - NATIONAL_FROM), 0.0, 1.0).powi(2),
+        Division::JUCO => 0.36 * rel.powi(3),
+        Division::D2 | Division::NAIA => 0.01 * rel.powi(3),
+        Division::D3 => 0.005 * rel.powi(3),
+    }
+}
+
+/// The service academies: every recruit is nominated from his own
+/// congressional district, so they draw from the whole country.
+pub const SERVICE_ACADEMIES: [&str; 3] = ["Army", "Navy", "Air Force"];
+
+/// How far a school reads the country for recruits who clear its own
+/// admissions bar, 0-1 (minor bug 256): the service academies all of it,
+/// a strict academic school by its bar, from nothing at
+/// `ACADEMIC_REACH_FROM` to all of it at Stanford's 3.6 (Northwestern and
+/// the Ivies 0.88, Duke, Vanderbilt, Rice and Notre Dame 0.75, California,
+/// UCLA and Tulane 0.5, Michigan and Boston College 0.25). Their staffs
+/// work a national list of players they can admit, since few near them
+/// qualify. Before, the footprint read only prestige, the region and the
+/// overflow states, so real players from 500 miles or more against the
+/// world's (seed 64) ran Army 77% against 24, Navy 58 against 15, Stanford
+/// 65 against 32, Boston College 59 against 34 and Duke 39 against 19
+/// (2025 rosters). Proposed, not confirmed.
+pub fn academic_reach(p: &Program) -> f64 {
+    if SERVICE_ACADEMIES.contains(&p.real_name.as_str()) {
+        return 1.0;
+    }
+    if p.admissions_bar <= 0.0 {
+        return 0.0;
+    }
+    clamp((p.admissions_bar - ACADEMIC_REACH_FROM) / (3.6 - ACADEMIC_REACH_FROM), 0.0, 1.0)
+}
+
+/// The admissions bar a national academic reach starts from (minor bug
+/// 256). Proposed, not confirmed.
+pub const ACADEMIC_REACH_FROM: f64 = 2.8;
+/// The footprint a full academic reach gives in every state (minor bug
+/// 256), the size of the biggest brand's national reach in the talent-rich
+/// states. Proposed, not confirmed.
+pub const ACADEMIC_NATIONAL: f64 = 0.35;
 
 /// A national brand recruits everywhere; a small school knows its own area.
 /// Reach follows how big a name it is at its own level.

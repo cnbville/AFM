@@ -1134,6 +1134,10 @@ impl World {
     /// The order the engine plays for your team: yours where your job
     /// controls it.
     pub(crate) fn seat_order(&self) -> Vec<(Position, Vec<u32>)> {
+        // The interim's games use the last staff's chart (the Jan 1 start).
+        if self.seat_interim().is_some() {
+            return Vec::new();
+        }
         if self.seat_head() {
             return self.seat_depth.clone();
         }

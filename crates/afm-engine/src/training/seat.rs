@@ -2344,6 +2344,10 @@ impl World {
     /// chart, packages and plan (after you change them).
     pub fn refresh_seat_team(&mut self) {
         let Some(c) = self.seat.filter(|s| s.level == Cal::College).and_then(|s| s.program) else { return };
+        // The interim's games are his staff's (the Jan 1 start).
+        if self.seat_interim().is_some() {
+            return;
+        }
         if self.training.design_ids.len() != self.training.designs.len() {
             self.training.register_designs();
         }

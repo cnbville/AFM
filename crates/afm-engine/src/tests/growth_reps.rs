@@ -333,6 +333,46 @@ fn a_man_judged_against_his_own_normal_stops_rising() {
 }
 
 #[test]
+fn a_great_season_holds_when_he_then_plays_to_his_ratings() {
+    // Minor bug 351: an edge's great season (8 over his ratings), then
+    // five seasons exactly at the ratings it gave him. His normal took in
+    // part of the great one, but a season at his ratings is judged
+    // against them: he keeps all of it. A season under them still pulls
+    // him down by what it showed, not more.
+    let a = Read::FinesseRush.attr();
+    let mut p = player_at(Position::EDGE, 3);
+    p.attributes.set(a, 70.0);
+    let f = results::fit(Level::NFL, Read::FinesseRush, Position::EDGE);
+    assert!(f.on() && f.tp > 0.0, "the fit reads an edge's finesse rush and his own part");
+    let n = f.season;
+    let season =
+        |k: f64| Man { reads: vec![(Read::FinesseRush, n as f32, (n * k) as f32)], snaps: 60, ..Man::default() };
+    let mut q = p.clone();
+    let mut l = Ledger::default();
+    l.roll(0);
+    results::apply(&mut q, &mut l, &season(8.0), Level::NFL, &Mode::default());
+    let great = q.attributes.get(a) - p.attributes.get(a);
+    assert!(great > 1.0, "the great season lifts him: {great}");
+    for year in 1..6 {
+        l.roll(year);
+        assert!(l.own(Level::NFL, Read::FinesseRush, Position::EDGE) > 0.0, "his normal holds part of it");
+        results::apply(&mut q, &mut l, &season(0.0), Level::NFL, &Mode::default());
+    }
+    let kept = q.attributes.get(a) - p.attributes.get(a);
+    assert!((kept - great).abs() < 1e-6, "five seasons at his ratings keep it: {great} then {kept}");
+    // A season 4 under his ratings: the same pull as a man with no past.
+    l.roll(6);
+    let before = q.attributes.get(a);
+    results::apply(&mut q, &mut l, &season(-4.0), Level::NFL, &Mode::default());
+    let mut fresh = p.clone();
+    let mut l0 = Ledger::default();
+    l0.roll(0);
+    results::apply(&mut fresh, &mut l0, &season(-4.0), Level::NFL, &Mode::default());
+    let (down, alone) = (q.attributes.get(a) - before, fresh.attributes.get(a) - p.attributes.get(a));
+    assert!(down < 0.0 && (down - alone).abs() < 1e-6, "a season under his ratings pulls {down}, alone {alone}");
+}
+
+#[test]
 fn results_on_top_keep_todays_dice() {
     for k in 0..40 {
         let p = passer(k);
