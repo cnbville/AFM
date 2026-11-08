@@ -8062,25 +8062,57 @@ fn offer_star_nil(stars: u8) -> f64 {
 /// real 66.5%). A rotation player is worth this share of a starter in his
 /// spot, a backup next to nothing; a newcomer with no college season is
 /// paid on his stars, as the market read him; play against the level's
-/// starters moves it about 5% a point (all proposed, not confirmed).
+/// starters moves it about 3% a point (all proposed, not confirmed; minor
+/// bug 335 took the play step from 5%, which alone spread Power 4 starters'
+/// pay 2.2x from the 25th to the 90th percentile, against a real 1.7-2.2x
+/// for all of it: The NIL Standard's 2026 starters, interior line
+/// $424-787K, corners $476-802K, backs $458K-1M).
 const NIL_ROTATION: f64 = 0.25;
 const NIL_DEPTH: f64 = 0.02;
 const NIL_FRESHMAN: f64 = 0.2;
-const NIL_PLAY: f64 = 0.05;
+const NIL_PLAY: f64 = 0.03;
+
+/// How much his recruiting stars still price a player once he has played a
+/// college season (minor bug 335): the market reads his college play, so
+/// his stars count as `star_nil`^0.2 (a 3-star 0.79 of a 4-star, a 2-star
+/// 0.60), where the square root before (0.55 and 0.28) gave Power 4
+/// starters a 3.6x spread from their stars alone and paid the top tenth of
+/// starting interior linemen $2.4M+ against a real $787K (The NIL
+/// Standard's 2026 valuations of Power 4 starters: P25 $424K, median
+/// $525K, P90 $787K; the College Sports Commission's 2025-26 pay, Power 4
+/// offensive linemen paid at all: P90 $726K). Fitted to those figures.
+const NIL_STARS_PLAYED: f64 = 0.2;
+
+/// An interior lineman's market against a tackle's (minor bug 335): Power 4
+/// starters' 2026 medians $525K and $907K (The NIL Standard); ESPN's 2025
+/// and 2026 surveys put guards and centers at $200-700K and tackles at
+/// $600K-1.3M. The going rates (`position_nil`) read one line range.
+const NIL_IOL: f64 = 0.58;
+
+/// A defensive tackle's market against an edge rusher's (minor bug 335):
+/// tackles' typical 2026 starter $500K-1M (ESPN's survey, The NIL
+/// Standard), their average $500-700K (247Sports), against an edge
+/// rusher's median $929K (The NIL Standard): 0.65-0.81, the middle 0.73.
+const NIL_DT: f64 = 0.73;
 
 /// A player's weight in his collective's payroll (what `nil_payouts` splits
 /// a budget by on 1 July): his role there (None: no college season yet),
 /// his position's going rate, his stars and how he played against the
 /// level's starters at his spot (`edge`, points).
-fn nil_weight(role: Option<PlayingTime>, pos: Position, stars: u8, edge: f64) -> f64 {
-    let market = position_nil(pos) / position_nil(Position::WR);
+pub(crate) fn nil_weight(role: Option<PlayingTime>, pos: Position, stars: u8, edge: f64) -> f64 {
+    let line = match pos {
+        Position::IOL => NIL_IOL,
+        Position::DT => NIL_DT,
+        _ => 1.0,
+    };
+    let market = line * position_nil(pos) / position_nil(Position::WR);
     let w = match role {
         None => return NIL_FRESHMAN * star_nil(stars) * market,
         Some(PlayingTime::Starter) => 1.0,
         Some(PlayingTime::Rotation) => NIL_ROTATION,
         _ => NIL_DEPTH,
     };
-    w * star_nil(stars).sqrt() * market * (NIL_PLAY * edge.clamp(-15.0, 15.0)).exp()
+    w * star_nil(stars).powf(NIL_STARS_PLAYED) * market * (NIL_PLAY * edge.clamp(-15.0, 15.0)).exp()
 }
 
 /// What NIL Go's range adds for each follower he has (B18): the same $1.20

@@ -88,6 +88,12 @@ impl Game {
     /// errors in plain words.
     pub fn call(&mut self, cmd: &str, args: &Value) -> Reply {
         let r = self.run(cmd, args);
+        // The lines a screen showed you are heard: the same moment keeps
+        // its words all day, and the next game day reaches for new ones
+        // (minor bug 314).
+        if let Some(w) = self.world.as_mut() {
+            afm_engine::world::folk::voice::remember_shown(w);
+        }
         // The guided week's tasks tick when their change is made (H12).
         if r.is_ok() {
             lane_handbook::after_call(self, cmd);

@@ -801,9 +801,10 @@ pub fn film_left(w: &World) -> f32 {
     (film_budget(w) - used).max(0.0)
 }
 
-/// What watching him takes, and the look it is: a recruit's reel and a
-/// full game, about an hour; a college player's three games, every snap
-/// of his, two and a half; a pro's cut-ups, two.
+/// What watching him takes, and the look it is: a quick cut-up of his
+/// snaps at every level, 20 seconds a snap and twenty minutes at most
+/// (lane 9, SK53; minor bug 318). The full cut-up opens from his file in
+/// the film room.
 pub fn film_cost(w: &World, id: u32) -> Result<(Kind, f32, &'static str), String> {
     let i = super::place(w, id).ok_or("No such player.")?;
     let p = &w.people[i];
@@ -827,7 +828,8 @@ pub fn film_cost(w: &World, id: u32) -> Result<(Kind, f32, &'static str), String
     }
 }
 
-/// A quick cut-up's hours (lane 9, SK53): twenty minutes.
+/// A quick cut-up's hours at most (lane 9, SK53): twenty minutes, 20
+/// seconds a snap (minor bug 318).
 pub const QUICK: f32 = super::film::session::QUICK_MIN / 60.0;
 
 /// Why you can't watch his film yourself now, if you can't: you watched
@@ -838,7 +840,10 @@ pub fn film_blocked(w: &World, id: u32) -> Option<String> {
     let (kind, _, _) = film_cost(w, id).ok()?;
     let d = w.today;
     if w.scouting.dept.looks.get(&id).is_some_and(|v| v.iter().any(|l| l.who == you && l.date == d && l.kind == kind)) {
-        return Some("You watched him today already: the next look is another day's tape.".into());
+        return Some(
+            "You watched him today already: a watch again in the film room plays the snaps of his you haven't seen."
+                .into(),
+        );
     }
     if w.scouting.film.open.is_some() {
         return Some("Finish the cut-up you have open in the film room first.".into());
