@@ -11,6 +11,7 @@
 //! misreads of `file::sees`). Your own players are in your practices every
 //! week (`readers::own_roster`), so your read of them is your own.
 
+use super::Kind;
 use super::file::{self, FileRead, Link};
 use super::readers::{self, Staff};
 use crate::rng::clamp;
@@ -117,15 +118,18 @@ pub fn own_read_with(
             return None;
         }
         let n = lk.len();
-        let f = file::read(
-            w,
-            i,
-            std::slice::from_ref(&rd),
-            &lk,
-            &readers::norms(w, i),
-            readers::medical_rating(w, staff),
-            Some(w.today),
-        );
+        let read = |lk: &[file::Evidence]| {
+            file::read(
+                w,
+                i,
+                std::slice::from_ref(&rd),
+                lk,
+                &readers::norms(w, i),
+                readers::medical_rating(w, staff),
+                Some(w.today),
+            )
+        };
+        let f = read(&lk);
         // Only what your own eye saw counts as yours: a shared measurement
         // isn't in your looks. What your tape can't show is a wide guess.
         let mut attrs = f.per_reader.first().cloned().unwrap_or_default();
@@ -135,15 +139,37 @@ pub fn own_read_with(
                 attrs[k] = Some((a.centre, a.sd));
             }
         }
-        Some((f.now, attrs, n))
+        // Your eye on his tape apart from your other looks (minor bug 352):
+        // your eye's lasting misjudgment rides on all your tape, and the
+        // catches join the tape it carries, not what you saw in person.
+        let (mut tape, mut others) = (Vec::new(), Vec::new());
+        if lk.iter().any(|l| on_tape(l.kind)) {
+            let yours_of = |f: file::FileRead| f.per_reader.into_iter().next().unwrap_or_default();
+            let rest: Vec<file::Evidence> = lk.iter().filter(|l| !on_tape(l.kind)).copied().collect();
+            if rest.is_empty() {
+                tape = f.per_reader.first().cloned().unwrap_or_default();
+            } else {
+                let tapes: Vec<file::Evidence> = lk.iter().filter(|l| on_tape(l.kind)).copied().collect();
+                tape = yours_of(read(&tapes));
+                others = yours_of(read(&rest));
+            }
+            tape.resize(crate::attributes::ATTRIBUTE_COUNT, None);
+            others.resize(crate::attributes::ATTRIBUTE_COUNT, None);
+        }
+        Some((f.now, attrs, n, tape, others))
     });
     let first = staff_read.and_then(|f| impression(w, id, f));
+    let (mut tape, mut others) = (Vec::new(), Vec::new());
     let mut out = match (mine, first) {
-        (Some((now, attrs, n)), Some(imp)) => {
+        (Some((now, attrs, n, t, o)), Some(imp)) => {
+            (tape, others) = (t, o);
             let (a, b) = (1.0 / (imp.1 * imp.1), 1.0 / (now.1 * now.1).max(0.25));
             Some(OwnRead { now: ((imp.0 * a + now.0 * b) / (a + b), (1.0 / (a + b)).sqrt()), attrs, looks: n })
         }
-        (Some((now, attrs, n)), None) => Some(OwnRead { now, attrs, looks: n }),
+        (Some((now, attrs, n, t, o)), None) => {
+            (tape, others) = (t, o);
+            Some(OwnRead { now, attrs, looks: n })
+        }
         (None, Some(imp)) => {
             Some(OwnRead { now: imp, attrs: vec![None; crate::attributes::ATTRIBUTE_COUNT], looks: 0 })
         }
@@ -151,9 +177,21 @@ pub fn own_read_with(
     };
     // Lane 9 (SK43): what your own eye caught on his film.
     if let Some(r) = out.as_mut() {
-        super::film::sharpen_with(w, id, w.people[i].player.position, &mut r.now, &mut r.attrs, extra);
+        super::film::sharpen_with(w, id, w.people[i].player.position, &mut r.now, &mut r.attrs, &tape, &others, extra);
     }
     out
+}
+
+/// Your eye on his tape (minor bug 352): a film look of yours (the film
+/// room files one under your name for each watch, and as a head coach in
+/// your club's file too; the hunt's games; old film), a cross-check, a
+/// director's or a GM's look. They carry your eye's lasting misjudgment
+/// of him, as your catches do (`film::sharpen_with`).
+fn on_tape(k: Kind) -> bool {
+    matches!(
+        k,
+        Kind::Film | Kind::CrossCheck | Kind::Director | Kind::Gm | Kind::HsFilm | Kind::CollegeFilm | Kind::ProFilm
+    )
 }
 
 /// Your film looks of a player: one a game of his you have watched

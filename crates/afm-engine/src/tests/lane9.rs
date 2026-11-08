@@ -603,9 +603,143 @@ fn your_eye_settles_near_him_not_on_him() {
     assert!(c.1 < lean + 0.1, "settled at it: sd {}", c.1);
     assert!((c.0 - truth - lean).abs() < 0.05, "near him, where your eye leans");
     // The eye's lean is part of every catch of a session, the same for a
-    // man's trait whenever you look, and an elite eye's is smaller.
-    const { assert!(fm::EYE_LEAN > 0.0 && fm::EYE_LEAN < 1.0) };
+    // man's trait whenever you look; an elite eye's is under a point, an
+    // ordinary eye's three to five (minor bug 352), widest on what film
+    // hides best.
+    let (elite, ordinary) = (fm::lean_sd(20.0, a), fm::lean_sd(10.0, a));
+    assert!(elite < 1.0 && (3.0..5.0).contains(&ordinary), "lean: a 20 eye {elite}, a 10 eye {ordinary}");
+    assert!(fm::lean_sd(10.0, crate::attributes::Attr::PlayRecognition) > ordinary, "widest on what film hides");
     assert_eq!(fm::eye_lean(&w, id, a), fm::eye_lean(&w, id, a));
+}
+
+/// Cain 2026-11-08 ("Bigger gap"): after a season of his tape a 10 eye's
+/// read of a trait stays near ±4 and a 20 eye's near ±1 (minor bug 352).
+#[test]
+fn a_weak_eye_stays_wide_after_a_season_of_tape() {
+    let mut w = nfl_world();
+    let id = pros(&w)[0];
+    let a = crate::attributes::Attr::Composure;
+    let truth = w.people[sc::place(&w, id).unwrap()].player.attributes.get(a);
+    let read = |w: &mut World, eye: f64| {
+        let sharp = sc::file::sharp(eye);
+        w.scouting.film.catches.retain(|c| c.id != id);
+        // Twelve games, twenty catches of the trait in each.
+        for k in 0..240u64 {
+            w.scouting.film.catches.push(fm::Catch {
+                id,
+                attr: a.index() as u8,
+                v: (truth + if k % 2 == 0 { 1.0 } else { -1.0 }) as f32,
+                sd: (3.5 * sharp) as f32,
+                date: w.today,
+                by: 0,
+                key: (k + 1) << 8 | 1,
+                lean: fm::lean_sd(eye, a) as f32,
+                game: (k % 12 + 1) << 8 | 3,
+                form: (fm::GAME_SD * sharp) as f32,
+            });
+        }
+        fm::catches_of(w, id)[a.index()].unwrap().1
+    };
+    let (elite, ordinary, weak) = (read(&mut w, 20.0), read(&mut w, 10.0), read(&mut w, 5.0));
+    assert!((0.9..1.1).contains(&elite), "a 20 eye after a season: sd {elite}");
+    assert!((3.8..4.3).contains(&ordinary), "a 10 eye after a season: sd {ordinary}");
+    assert!(weak > ordinary + 2.0, "a 5 eye wider still: sd {weak}");
+}
+
+/// Your eye on his tape is one read (minor bug 352): your film looks of
+/// him and your eye's catches share your eye's lasting misjudgment, so
+/// your read of a trait your eye caught never gets past it; and more of
+/// anything never widens a read: another watch, a trait your eye catches
+/// for the first time, or tape of one of your own players beside your
+/// practices.
+#[test]
+fn your_tape_shares_your_eye_and_more_never_widens_a_read() {
+    use crate::attributes::{ATTRIBUTE_COUNT, Attr};
+    use crate::world::scouting::{file, yours};
+    let mut w = nfl_world();
+    let staff = readers::seat_staff(&w).unwrap();
+    let own = |w: &World, id: u32| {
+        let sr = readers::read(w, staff, id);
+        yours::own_read(w, staff, id, sr.as_ref().map(|x| &x.2)).expect("your read").attrs
+    };
+    let no_wider = |was: &[Option<(f64, f64)>], now: &[Option<(f64, f64)>], what: &str| {
+        for k in 0..ATTRIBUTE_COUNT {
+            if let (Some(b), Some(a)) = (was[k], now[k]) {
+                assert!(a.1 <= b.1 + 1e-9, "{what}: {} went from sd {} to {}", Attr::ALL[k].label(), b.1, a.1);
+            }
+        }
+    };
+    // Another club's man nobody has seen: a watch of his tape.
+    let fresh: Vec<u32> = pros(&w).into_iter().filter(|&id| readers::read(&w, staff, id).is_none()).collect();
+    let id = fresh
+        .into_iter()
+        .find(|&id| session::open_player(&mut w, id, tape::Cut::BestOpponent, session::Mode::Full, None).is_ok())
+        .expect("a man nobody has seen, with tape");
+    session::run_through(&mut w).unwrap();
+    let one = own(&w, id);
+    let i = sc::place(&w, id).unwrap();
+    let pos = w.people[i].player.position;
+    let e = session::eye(&w, pos);
+    // A trait your eye caught reads no closer than its misjudgment.
+    let mut caught = [false; ATTRIBUTE_COUNT];
+    for c in w.scouting.film.catches.iter().filter(|c| c.id == id && c.by == 0) {
+        caught[c.attr as usize] = true;
+    }
+    assert!(caught.iter().filter(|&&c| c).count() >= 5, "traits your eye caught");
+    for a in Attr::ALL.into_iter().filter(|a| caught[a.index()]) {
+        let r = one[a.index()].unwrap();
+        assert!(r.1 >= fm::lean_sd(e, a) - 1e-9, "{}: sd {} under the eye's {}", a.label(), r.1, fm::lean_sd(e, a));
+    }
+    // The first catch of a trait the tape read but your eye hadn't caught.
+    let a = Attr::ALL
+        .into_iter()
+        .find(|a| !caught[a.index()] && one[a.index()].is_some() && file::sees(sc::Kind::ProFilm, *a).is_some())
+        .expect("a trait the tape read and your eye hadn't caught");
+    let truth = w.people[i].player.attributes.get(a);
+    w.scouting.film.catches.push(fm::Catch {
+        id,
+        attr: a.index() as u8,
+        v: (truth + 2.0) as f32,
+        sd: 8.0,
+        date: w.today,
+        by: 0,
+        key: 0x3520_0001,
+        lean: fm::lean_sd(e, a) as f32,
+        game: 0x3520_0003,
+        form: (fm::GAME_SD * file::sharp(e)) as f32,
+    });
+    let two = own(&w, id);
+    no_wider(&one, &two, "a first catch");
+    // Another watch, the same day.
+    let more = tape::Cut::ALL.into_iter().any(|cut| {
+        session::open_player(&mut w, id, cut, session::Mode::Full, None).is_ok() && session::run_through(&mut w).is_ok()
+    });
+    assert!(more, "another cut-up of him");
+    no_wider(&two, &own(&w, id), "another watch");
+    // One of yours: your practices read him every week; his tape joins
+    // them and never widens them.
+    let t = match staff {
+        readers::Staff::Club(t) => t,
+        _ => unreachable!("an NFL seat"),
+    };
+    let roster: Vec<u32> = w.clubs[t]
+        .roster
+        .iter()
+        .map(|&i| &w.people[i].player)
+        .filter(|p| !p.position.is_specialist())
+        .map(|p| p.id)
+        .collect();
+    let mut done = false;
+    for id in roster {
+        let before = own(&w, id);
+        if session::open_player(&mut w, id, tape::Cut::BestOpponent, session::Mode::Full, None).is_ok() {
+            session::run_through(&mut w).unwrap();
+            no_wider(&before, &own(&w, id), "your own man's tape");
+            done = true;
+            break;
+        }
+    }
+    assert!(done, "one of yours with tape");
 }
 
 #[test]

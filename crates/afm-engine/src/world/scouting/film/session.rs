@@ -896,7 +896,7 @@ fn put(w: &mut World, s: Session) {
 
 /// Your eye on this session's player (SK43, SK63): your evaluation, what
 /// your hours at his position taught you, less a long day's tiredness.
-fn eye(w: &World, pos: Position) -> f64 {
+pub(crate) fn eye(w: &World, pos: Position) -> f64 {
     let base = super::super::yours::your_eye(w).unwrap_or(10.0);
     base + super::time::position_edge(w, pos)
 }
@@ -1780,9 +1780,9 @@ pub fn caught(w: &World, s: &Session) -> Vec<Catch> {
     let t = super::time::tiredness(w);
     let p = &w.people[i];
     let sd_c = (3.5 * file::sharp(e) * (1.0 + 0.3 * t)) as f32;
-    // Your eye's lasting misjudgment (minor bug 320): the same in every
-    // catch of a trait, so tape narrows toward it, not to the truth.
-    let floor = super::EYE_LEAN * 3.5 * file::sharp(e);
+    // Your eye's lasting misjudgment (minor bugs 320 and 352): the same in
+    // every catch of a trait, so tape narrows toward it, not to the truth.
+    let floor = |a: Attr| super::lean_sd(e, a);
     // What one game shows of him is that game (minor bug 338): the same
     // in every catch of it, so a read firms up over games, not snaps.
     let form = super::GAME_SD * file::sharp(e);
@@ -1804,12 +1804,12 @@ pub fn caught(w: &World, s: &Session) -> Vec<Catch> {
                 catches.push(Catch {
                     id,
                     attr: a.index() as u8,
-                    v: (truth + noise * sd_c as f64 + floor * super::eye_lean(w, id, a) + game_look(a)) as f32,
+                    v: (truth + noise * sd_c as f64 + floor(a) * super::eye_lean(w, id, a) + game_look(a)) as f32,
                     sd: sd_c,
                     date: d,
                     by: 0,
                     key: sk,
-                    lean: floor as f32,
+                    lean: floor(a) as f32,
                     game: gk,
                     form: form as f32,
                 });
@@ -1825,13 +1825,13 @@ pub fn caught(w: &World, s: &Session) -> Vec<Catch> {
             catches.push(Catch {
                 id,
                 attr: a.index() as u8,
-                v: (truth + 4.0 * snap.grade as f64 + 6.0 * noise + floor * super::eye_lean(w, id, a) + game_look(a))
+                v: (truth + 4.0 * snap.grade as f64 + 6.0 * noise + floor(a) * super::eye_lean(w, id, a) + game_look(a))
                     as f32,
                 sd: 8.0,
                 date: d,
                 by: 0,
                 key: sk ^ 0x2E5,
-                lean: floor as f32,
+                lean: floor(a) as f32,
                 game: gk,
                 form: form as f32,
             });

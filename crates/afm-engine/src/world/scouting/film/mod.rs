@@ -72,9 +72,10 @@ pub struct Catch {
 /// 338, proposed, not confirmed). He has better and worse games, and an
 /// opponent and a game plan show some of him and hide some, so a scout
 /// watches three to five games before he trusts a read: one game's 200
-/// catches can't read him much better than one game can. An ordinary eye
-/// reads a well-shown trait within about 3.5 after a game, 2.3 after four
-/// and 2 after a season; an elite eye within 2.1, 1.4 and 1.2.
+/// catches can't read him much better than one game can. With your eye's
+/// lasting misjudgment (`lean_sd`), an elite eye reads a well-shown trait
+/// within about 2 after a game, 1.2 after four and 1 after a season; an
+/// ordinary eye within about 4.9, 4.2 and 4, its blind spots for good.
 pub const GAME_SD: f64 = 3.0;
 
 /// One game's (or one day's) key for its catches of a man: `Catch::game`.
@@ -83,13 +84,25 @@ pub(crate) fn game_key(label: &str, season: i32) -> u64 {
     (h ^ (season as u64) << 40 ^ 0x6A3E) | 1
 }
 
-/// Your eye's lasting misjudgment as a share of one catch's misread (minor
-/// bug 320, proposed, not confirmed): an elite eye's reads of a trait
-/// settle within about a point of him, an ordinary eye's within about two,
-/// however much tape it watches. Without it any eye read anyone exactly
-/// after a few hours. An analyst's numbers carry none (SK57: tape with a
-/// top analyst beside you can take your read all the way).
-pub const EYE_LEAN: f64 = 0.5;
+/// Your eye's lasting misjudgment of a trait for an ordinary eye, in rating
+/// points, before the trait's own weight (minor bug 320; sized by minor bug
+/// 352, Cain 2026-11-08 "Bigger gap": a 10 eye stays near ±4 after a season
+/// of his tape, a 20 near ±1). It holds however much tape the eye watches:
+/// without it any eye read anyone exactly after a few hours. An analyst's
+/// numbers carry none (SK57: tape with a top analyst beside you can take
+/// your read all the way).
+pub const EYE_LEAN: f64 = 3.5;
+
+/// Your eye's lasting misjudgment of a trait, its sd in rating points:
+/// `EYE_LEAN` × (0.85 + 0.6 × how hard film makes the trait to see,
+/// `words::subtle`) × sharp(eye)³, so it falls steeply as the eye rises: a
+/// 20 eye 0.73 to 0.96, a 15 eye 1.7 to 2.3, a 10 eye 3.4 to 4.4, a 5 eye
+/// 5.9 to 7.7 (results traits such as arm strength and speed to technique
+/// and mental ones such as play recognition and footwork). Proposed, not
+/// confirmed: the cube and the trait weights.
+pub fn lean_sd(eye: f64, a: Attr) -> f64 {
+    EYE_LEAN * (0.85 + 0.6 * words::subtle(a)) * super::file::sharp(eye).max(0.0).powi(3)
+}
 
 /// Your eye's lasting misjudgment of one man's trait, in its sd (a
 /// standard normal keyed by you, him and the trait): the same on tape and
@@ -347,6 +360,38 @@ pub fn catches_of(w: &World, id: u32) -> Vec<Option<(f64, f64)>> {
 
 /// The same with catches not yet saved (a session in progress).
 pub fn catches_with(w: &World, id: u32, extra: &[Catch]) -> Vec<Option<(f64, f64)>> {
+    split_with(w, id, extra).into_iter().map(|s| s.and_then(|s| s.read())).collect()
+}
+
+/// One trait's film read in its parts (minor bug 352): your eye's centre,
+/// the part of its variance more tape shrinks and its lasting lean (an sd,
+/// `Catch::lean`); your analyst's centre and variance; his real number
+/// once the read is exact.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct Split {
+    eye: Option<(f64, f64, f64)>,
+    analyst: Option<(f64, f64)>,
+    exact: Option<f64>,
+}
+
+impl Split {
+    /// The read on its own: the two parts by inverse variance, your eye's
+    /// with its lean kept in.
+    fn read(&self) -> Option<(f64, f64)> {
+        if let Some(t) = self.exact {
+            return Some((t, 0.0));
+        }
+        let (mut s, mut wt) = (0.0, 0.0);
+        for (c, v) in self.eye.map(|(c, v, l)| (c, v + l * l)).into_iter().chain(self.analyst) {
+            s += c / v;
+            wt += 1.0 / v;
+        }
+        (wt > 0.0).then(|| (s / wt, (1.0 / wt).sqrt()))
+    }
+}
+
+/// Each trait's film read in its parts (`Split`).
+pub(crate) fn split_with(w: &World, id: u32, extra: &[Catch]) -> Vec<Option<Split>> {
     let today = w.today;
     let stored = &w.scouting.film.catches;
     let fresh = extra.iter().filter(|c| !stored.iter().any(|o| same(o, c)));
@@ -360,9 +405,9 @@ pub fn catches_with(w: &World, id: u32, extra: &[Catch]) -> Vec<Option<(f64, f64
     for cs in his.chunk_by(|a, b| a.attr == b.attr) {
         let k = cs[0].attr as usize;
         let fresh = cs.iter().map(|c| c.date.days_to(today)).min().unwrap_or(i32::MAX);
-        // Each eye's read: its games' centre, its sd with its lasting lean
-        // kept in; the two combined by inverse variance.
-        let (mut s, mut wt) = (0.0, 0.0);
+        // Each eye's read: its games' centre, its variance and its lasting
+        // lean.
+        let mut sp = Split::default();
         for eye in cs.chunk_by(|a, b| a.by.min(1) == b.by.min(1)) {
             let (mut es, mut ew, mut el) = (0.0, 0.0, 0.0);
             // Each look widened by its age: he changes.
@@ -375,61 +420,99 @@ pub fn catches_with(w: &World, id: u32, extra: &[Catch]) -> Vec<Option<(f64, f64
                 continue;
             }
             let lean = el / ew;
-            let var = 1.0 / ew + lean * lean;
-            s += es / ew / var;
-            wt += 1.0 / var;
+            if eye[0].by == 0 {
+                sp.eye = Some((es / ew, 1.0 / ew, lean));
+            } else {
+                sp.analyst = Some((es / ew, 1.0 / ew + lean * lean));
+            }
         }
-        if wt <= 0.0 {
-            continue;
-        }
-        let sd = (1.0 / wt).sqrt();
-        out[k] = if sd <= 0.5
+        let Some((_, sd)) = sp.read() else { continue };
+        if sd <= 0.5
             && fresh <= 30
             && let Some(i) = i
         {
-            Some((w.people[i].player.attributes.get(Attr::ALL[k]), 0.0))
-        } else {
-            Some((s / wt, sd))
-        };
+            sp.exact = Some(w.people[i].player.attributes.get(Attr::ALL[k]));
+        }
+        out[k] = Some(sp);
     }
     out
 }
 
-/// Your film catches folded into your own read (SK43): each attribute by
-/// inverse variance with what your looks read, and the overall narrowed
-/// by how much of his position's weight the tape has pinned down.
+/// Your film catches folded into your own read, with none of your looks
+/// on tape: see `sharpen_with`.
 pub fn sharpen(w: &World, id: u32, pos: Position, now: &mut (f64, f64), attrs: &mut Vec<Option<(f64, f64)>>) {
-    sharpen_with(w, id, pos, now, attrs, &[]);
+    sharpen_with(w, id, pos, now, attrs, &[], &[], &[]);
 }
 
-/// The same with catches not yet saved.
+/// Your eye's catches folded into your own read (SK43), trait by trait,
+/// and the overall narrowed by how much of his position's weight they
+/// pinned down. Your eye on his tape is one read (minor bug 352): what
+/// your film looks of him read of the trait (`tape`: the film room's, the
+/// hunt's games, old film) and your eye's catches share your eye's lasting
+/// misjudgment of him, so more tape narrows toward it and never past it.
+/// Before, the two joined as if apart and averaged it away, so a weak eye
+/// read nearly as close as a strong one. What your other looks read
+/// (`others`: practices, games in person, camps, visits) and your
+/// analyst's points join it apart, so more of anything never widens a
+/// read. An empty `tape`: none of your looks is on tape, and `attrs` is
+/// what your other looks read.
+#[allow(clippy::too_many_arguments)]
 pub fn sharpen_with(
     w: &World,
     id: u32,
     pos: Position,
     now: &mut (f64, f64),
     attrs: &mut Vec<Option<(f64, f64)>>,
+    tape: &[Option<(f64, f64)>],
+    others: &[Option<(f64, f64)>],
     extra: &[Catch],
 ) {
-    let film = catches_with(w, id, extra);
-    if film.iter().all(Option::is_none) {
+    let film = split_with(w, id, extra);
+    if film.iter().all(Option::is_none) && tape.iter().all(Option::is_none) {
         return;
     }
+    let e = session::eye(w, pos);
     attrs.resize(ATTRIBUTE_COUNT, None);
     let (mut shift, mut cov, mut total) = (0.0, 0.0, 0.0);
     for a in Attr::ALL {
         let wt = weight(pos, a);
         total += wt;
         let k = a.index();
-        let Some(f) = film[k] else { continue };
+        let sp = film[k];
+        let t = tape.get(k).copied().flatten();
+        if sp.is_none() && t.is_none() {
+            continue;
+        }
         let before = attrs[k];
-        let after = match before {
-            _ if f.1 == 0.0 => f,
-            Some(b) => {
-                let (x, y) = (1.0 / (b.1 * b.1).max(0.01), 1.0 / (f.1 * f.1));
-                ((b.0 * x + f.0 * y) / (x + y), (1.0 / (x + y)).sqrt())
+        let after = if let Some(x) = sp.and_then(|s| s.exact) {
+            (x, 0.0)
+        } else {
+            let z = eye_lean(w, id, a);
+            let lt = lean_sd(e, a);
+            // Your eye on his tape: the file's film read moved by your
+            // eye's misjudgment, joined with your catches that carry it.
+            let eye = match (t, sp.and_then(|s| s.eye)) {
+                (Some((ct, st)), Some((ce, ve, le))) => {
+                    let (x, y) = (1.0 / (st * st).max(0.01), 1.0 / ve.max(1e-6));
+                    let lean = (x * lt + y * le) / (x + y);
+                    Some((((ct + lt * z) * x + ce * y) / (x + y), lean * lean + 1.0 / (x + y)))
+                }
+                (Some((ct, st)), None) => Some((ct + lt * z, st * st + lt * lt)),
+                (None, Some((ce, ve, le))) => Some((ce, ve + le * le)),
+                (None, None) => None,
+            };
+            let other = if tape.is_empty() { before } else { others.get(k).copied().flatten() };
+            let (mut s, mut wsum) = (0.0, 0.0);
+            for (c, v) in
+                eye.into_iter().chain(other.map(|(c, sd)| (c, (sd * sd).max(0.01)))).chain(sp.and_then(|s| s.analyst))
+            {
+                s += c / v;
+                wsum += 1.0 / v;
             }
-            None => f,
+            if wsum <= 0.0 {
+                continue;
+            }
+            ((s / wsum).clamp(1.0, 99.0), (1.0 / wsum).sqrt())
         };
         if let Some(b) = before {
             shift += wt * (after.0 - b.0);
