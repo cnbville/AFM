@@ -916,6 +916,54 @@ Still off:
 - **As recruited, a long-armed edge's pressures end in a sack too often** (+2.2 pts of sacks a pressure an inch, real raw +0.66), though pure arms are at real (+0.68, real +0.65).
 - **FBS sacks rose to 2.20 a team game** (main 2.11, real 2.00): the finish reads FBS edges' Tackling and Pursuit, about 54, a little over 60 for the best.
 
+## Ratings that move their own stats: the rest of minor bug 283 (2026-11-08)
+
+Minor bug 283 (from the A/B tests' spread check): on main Decisions, Football IQ and Play Recognition moved picks and sacks 0.01 to 0.12 of real starters' spread and EPA not at all (Decisions the wrong way), Short Accuracy moved completion 0.05, and Man and Zone Coverage moved the catch rate allowed 0.01 to 0.09. Growth from results reads those stats, so it barely rewarded passers, receivers and the secondary. Every size below is proposed, not confirmed, fitted with `ab_check` (NFL, +15 against -15, 2,000 games an arm, real held equal) to land in the agreed band of 0.1 to 1.0 of the spread, with `match_check` holding each level's totals.
+
+- **The typical starter.** Every new slope sits about his level's typical starter at his position, the mean of the men the depth charts start on the 64 synthetic teams (`synthetic::typical_starter`). Starters rate above the dressed average: about the dressed man the steeper slopes lifted every starting secondary and passer, and picks ran 2.6% a throw against 2.3%.
+- **Decisions** (`DECISIONS_TRUST`, `READ_DECIDE`, `MISREAD_EYES`, `MISREAD_LANE`, `PLACE_READ`, `GIVE_UP_DECIDE`, `THROW_AWAY_DECIDE`): his read of the field is 0.7 Decisions and 0.3 Play Recognition (half each before). A poor reader sees more room than there is: he misses the man sitting in his lane (1 yard of window a 10 points) and the defender reading his eyes (0.3 s); a good one sees it as it is and so trusts a tighter window (0.06 less room a point; the old +0.02, more room for the better man, made him throw short and hold it into sacks, and EPA a dropback fell). With a defender within 4 yards of the spot a good reader puts the ball away from him (1 yard a 10 points). His clock no longer shortens with Decisions within a level.
+- **Football IQ** (`BLITZ_ID`, `BLITZ_ID_LOOK`, `GIVE_UP_IQ`): a passer who knows the pressure sees the free rusher 0.1 s sooner a 10 points (0.6 Football IQ, 0.4 Play Recognition) and gets rid of it.
+- **Accuracy** (`AIM_SHORT`, `AIM_MEDIUM`, `AIM_DEEP`, `AIM_BASE`): the miss falls 2%, 2.5% and 1.4% a point of accuracy about the typical starter at short, medium and deep depth (main had 0.5% a point), sized on real starters' spread by depth (nflverse 2023-24: completion under 10 air yards p5 68.7% to p95 77.8%, 10-19 45.5% to 65.0%, 20+ 26.9% to 49.3%). A wider spread of passers costs more catches than it gains, so the base came down from 1.3 to 1.25 to hold each level's completion.
+- **Coverage** (`MAN_LAG_MC`, `ZONE_LAG`, `BALL_COVER`, `MAN_FEEL`, `BREAKUP_COVER`): the man defender's lag is 0.03 s a point of Man Coverage (0.02 before, with no 0.1 s floor); the zone defender's 0.012 s a point of his zone read (0.004, floor 0.1 to 0.05); a better cover man breaks on the ball 0.15 s sooner a 10 points of his job's coverage; a man defender with his back turned feels the throw 0.25 s before his man's hands go up (man coverage was completed 67-68% of the time in the NFL against about 57% real; now 66%, with the aim base holding the league); the breakup reads his job's coverage at 0.012 a point.
+- **Where picks come from** (`FRONT_PICK` 0.27, was 0.22; `TIP_PICK` 0.065, was 0.13): FTN charting (NFL 2023-24) has 87% of picks on throws it calls interception-worthy, 53% of those picked and 0.33% of the rest. The engine picked a ball off a receiver's hands as often as one thrown to a defender in front of it, so a careful passer saved few picks.
+- **The coverage read in growth from results** (`results::pass_trials`): the catch on his man against what an open man catches at that depth and pressure; it was against the receiver's separation, which leaves out most of what coverage does.
+
+The A/B rows after the fix (NFL, +15 against -15, 2,000 games an arm; the share is of real starters' p5 to p95):
+
+| Rating | Stat | Main | Now |
+|---|---|---|---|
+| Decisions | picks an attempt | -0.15 pts (0.12) | -0.32 pts (0.26) |
+| Decisions | sacks a dropback | +0.17 pts (the wrong way) | -0.22 pts (0.04, the right way) |
+| Decisions | EPA a dropback | -0.008 | +0.021 |
+| Decisions | completion / intended air yards | | +1.65 pts / -0.56 |
+| Play Recognition | picks an attempt / EPA | -0.04 (no clear effect) / +0.005 | -0.49 pts (0.39) / +0.011 |
+| Football IQ | sacks a dropback | +0.05 (no clear effect) | -0.89 pts (0.15) |
+| Short Accuracy | completion (under 10 air yards) | 0.05 of the spread | +3.19 pts (0.40); +4.71 under 10 air yards |
+| Medium Accuracy | completion (10-19) | | +4.25 pts (0.54); +5.26 at 10-19 |
+| Deep Accuracy | completion (20+) | | +3.38 pts (0.43); +11.8 at 20+ |
+| Corner Man Coverage | catch rate / yards a target allowed | 0.01-0.09 | -2.31 pts (0.15) / -0.38 (0.23) |
+| Corner Zone Coverage | catch rate / yards a target allowed | | -8.99 pts (0.58) / -1.33 (0.79) |
+| Linebacker Zone Coverage | catch rate allowed | | -6.48 pts (0.50) |
+| Safety Zone Coverage | catch rate allowed | | -8.11 pts (0.62) |
+
+League totals on synthetic rosters (`match_check`, 1,000 games a level; main in brackets): NFL 24.9 points (25.0), completion 65.2% (65.6%, real 64.5%), 7.33 yards an attempt (7.33), picks 2.3% (2.3%), dropback EPA 0.098 (0.103); FBS 22.6 (22.5), 60.5% (60.4%, real 60.6%), 7.28 (7.33), 1.9% (2.0%); high school 18.0 (17.2), 55.7% (56.0%), 6.45 (6.42), 1.6% (1.9%).
+
+
+Growth from results after the refit (`results_fit -- 2000`, then `results_ab 20000 1`):
+
+- **Reads on** (`Fit::on`: b > 0 with t of 4 or more): high school 17 reads, FBS 20, FCS 20, small colleges 20, the NFL 19 (13, 13, 17, 13 and 14 before), on 31 to 35 read-and-position rows a level (27 to 31). Rows near t 4 flip between refits: refit again after merging main (the NFL clock of minor bug 254 and the kickers' season form of 334 changed every game), the NFL's linebacker zone coverage (t 4.7 to 3.5), receivers' separation and high school backs' ball security went off and the NFL's backs' hands and tight ends' separation came on. The passers' intermediate, deep and pressure reads and the man and zone coverage reads came on.
+- **Regulars in the fit** are men who play half their side's snaps a game or more, with the snaps a side counted from the team's own plays. It was 0.6 of a full-season starter's snaps a game, which no FCS or small-college back reached, so their reads had no spread among regulars and stayed off.
+- **What results do to growth** (`results_ab 20000 1`, arm B, results on top of the dice and pulling down, against the game reps lane's run on main): results move a season's overall by 0.07 points sd (0.07); a starter's season moves his top skill +0.91 and -0.93 at the 90th and 10th percentiles (±0.93); a named big game in 15.5% of starter seasons (16.1%), a big season in 8.5% (8.6%), a rough one in 8.8% (8.7%); growth a season by level and role within 0.03 points of the dice alone (the 21 top programs' redshirt passers 0.12).
+- **The NFL's short throws in `results_ab`**: completion over expected spreads 0.047 across NFL starter seasons (0.033 before, real 0.037) and carries 0.74 into the next season (0.48, real 0.23). In the fit's own regulars Short Accuracy alone spreads it 1.1 points (`b` 0.0016 a point times `sk` 6.6, real about 1.4 true), so the extra most likely comes from `results_ab`'s synthetic careers, whose starters spread their ratings wider than the depth charts' regulars, and from the other passing ratings that now move it too.
+- **Practice**: neither `results_fit` nor `results_ab` plays practice; `Mode.practice` is read only by the world's practice days (`training/practice.rs`), so these numbers are the same with practice on or off. The practice world check runs on this code in the game reps lane.
+
+Still off:
+
+- **Linebacker Man Coverage** still shows no clear effect on the catch rate allowed (+0.09 pts, ±0.85), though it moves yards a target (-0.45, 0.24 of the spread): a linebacker's man is mostly a back or tight end on short routes, where the lag matters little.
+- **Time to throw** barely moves with Decisions, Play Recognition or Football IQ (0.01-0.06 of the spread), and sacks with Decisions and Play Recognition (0.03-0.04).
+- **High school picks** fell from 1.9% to 1.6%: high school balls off receivers' hands were a larger share of its picks, and those are rarer now. FBS picks were already short of real (0.60 a team game against 0.80).
+- **The Decisions read in growth from results stays off**: picks are too rare for one season of games to show his rating (t under 2 at every level in `results_fit`), though the A/B shows it.
+
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).
 - `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl2022|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, college only; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams.

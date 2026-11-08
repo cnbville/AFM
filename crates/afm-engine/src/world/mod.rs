@@ -1394,6 +1394,7 @@ impl World {
         // Boise State starts in Division I-AA and grows. Programs that
         // dropped football since 1984 play their real years.
         let first = options.start_year - options.history_years as i32 - SPIN_UP_YEARS as i32;
+        let recorded_from = first + SPIN_UP_YEARS as i32;
         let rows = data::COLLEGES.iter().map(|r| (r, false)).chain(data::DROPPED_COLLEGES.iter().map(|r| (r, true)));
         for (row, dropped) in rows {
             let id = programs.len();
@@ -1411,6 +1412,13 @@ impl World {
             let mut p = program::program_from_row(id, &start, since, seed, &mut rng);
             p.base = probe.base.clone();
             p.set_history(dropped);
+            // Its title count holds the real titles until the world's own
+            // record begins (minor bug 295): the spin-up seasons aren't
+            // recorded, so their real titles stand in, and a world with more
+            // than 42 years of history doesn't count its recorded seasons
+            // twice. Tradition keeps the titles before it starts.
+            p.titles_before = data::titles_before(&row.name, recorded_from);
+            p.titles = p.titles_before.iter().sum();
             // Its facilities from its real buildings as they stood that
             // season, not from its seats (facilities lane item 1).
             if let Some(f) = buildings::number(&p, since) {
