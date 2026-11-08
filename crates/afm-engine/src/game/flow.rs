@@ -3933,6 +3933,7 @@ impl<'a> Game<'a> {
         r.fumbled = res.notes.fumbled;
         r.blocks = res.notes.blocks.clone();
         r.rush_wins = res.notes.rush_wins.clone();
+        r.rush_moves = res.notes.rush_moves.clone();
         r.line = res.notes.chart.clone();
         r.tend = res.notes.tend;
         r.busts = res.notes.busts.clone();

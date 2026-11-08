@@ -310,6 +310,10 @@ fn watch(w: &mut World, id: u32, attrs: &[Attr], salt: u64) -> Vec<String> {
     let e = your_eye(w);
     let d = w.today;
     let sd = (3.0 * file::sharp(e)) as f32;
+    // What one day shows of him is that day (minor bug 338), the same in
+    // every catch of it: in person as on tape.
+    let form = super::GAME_SD * file::sharp(e);
+    let day = super::game_key("there", d.0);
     let mut lines = Vec::new();
     let mark = words::level_mark(w.people[i].stage);
     for (k, &a) in attrs.iter().enumerate() {
@@ -320,14 +324,20 @@ fn watch(w: &mut World, id: u32, attrs: &[Attr], salt: u64) -> Vec<String> {
         }
         let truth = w.people[i].player.attributes.get(a);
         let noise = key_normal(w.options.seed as u64 ^ salt ^ 0x5EE ^ (d.0 as u64) << 24, id as u64 ^ (k as u64) << 40);
+        // Your eye's lasting misjudgment of him rides along (minor bug 320).
+        let lean = super::EYE_LEAN * sd as f64;
+        let looked = form * key_normal(w.options.seed as u64 ^ 0x6A3E ^ day, id as u64 ^ (a.index() as u64) << 50);
         w.scouting.film.catches.push(Catch {
             id,
             attr: a.index() as u8,
-            v: (truth + noise * sd as f64) as f32,
+            v: (truth + noise * sd as f64 + lean * super::eye_lean(w, id, a) + looked) as f32,
             sd,
             date: d,
             by: 0,
             key: 0,
+            lean: lean as f32,
+            game: day,
+            form: form as f32,
         });
         lines.push(words::cue(a, words::band(truth, mark)).to_string());
     }
