@@ -11,7 +11,7 @@ use afm_engine::player::PlayingTime;
 use afm_engine::positions::Position;
 use afm_engine::world::background::Decider;
 use afm_engine::world::front_office::college::{self as desk, Source, Standing, VisitKind, VisitState};
-use afm_engine::world::front_office::{Duty, Owner, chain, dollars};
+use afm_engine::world::front_office::{Duty, Owner, chain, dollars, walk_ons as walk};
 use afm_engine::world::program::NilTrend;
 use afm_engine::world::{Person, Stage, Visit, World, geo, ncaa};
 use serde_json::{Value, json};
@@ -29,6 +29,7 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "visit_options" => with_args(game, args, visit_choice),
         "portal_desk" => with_args(game, args, portal),
         "nil_desk" => with(game, nil),
+        "walkons_desk" => with(game, walk_ons),
         "recruit_chain" => with(game, chain_view),
         "chain_sign" | "chain_decline" | "chain_sign_all" | "chain_back" => chain_act(game, cmd, args),
         "recruit_add"
@@ -53,7 +54,10 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         | "nil_clear"
         | "college_duty"
         | "college_fill"
-        | "college_cut" => act(game, cmd, args),
+        | "college_cut"
+        | "college_scholarship"
+        | "tryout_hold"
+        | "tryout_keep" => act(game, cmd, args),
         _ => return None,
     };
     Some(reply)
@@ -175,6 +179,9 @@ fn act(game: &mut Game, cmd: &str, args: &Value) -> Reply {
         "portal_contact" => desk::portal_contact(w, id_arg(args)?)?,
         "keep_talk" => desk::keep_talk(w, id_arg(args)?)?,
         "college_cut" => desk::cut(w, id_arg(args)?)?,
+        "college_scholarship" => walk::award(w, id_arg(args)?)?,
+        "tryout_hold" => walk::hold_tryout(w)?,
+        "tryout_keep" => walk::keep(w, id_arg(args)?)?,
         "nil_set" => desk::set_deal(w, id_arg(args)?, money_arg(args, "amount").ok_or("Missing amount.")?)?,
         "nil_usual" => {
             let n = desk::set_usual_deals(w)?;
@@ -1851,5 +1858,85 @@ fn nil(w: &World, j: usize) -> Reply {
         "big_booster": prog.collective.big_booster.is_some(),
         "history": history,
         "duties": duties(w, j),
+    }))
+}
+
+/// Your walk-ons (lane B): who walks on, the scholarships and roster room
+/// you have, the walk-ons your staff thinks earned aid, and your open
+/// tryout: when you can hold it, who came out with your staff's grade and
+/// 40 time, and who you kept.
+fn walk_ons(w: &World, j: usize) -> Reply {
+    let season = w.dates.season;
+    let prog = &w.programs[j];
+    let aid = walk::aid_room(w, j);
+    let (squad, cap, whole) = walk::squad_room(w, j);
+    let mut rows: Vec<(u8, f64, Value)> = Vec::new();
+    for &i in &prog.roster {
+        let p = &w.people[i];
+        if p.stage != Stage::College || p.college != Some(j) || !p.walk_on {
+            continue;
+        }
+        let words = walk::scholarship_words(w, p.player.id);
+        let role = p.last_role;
+        let earned = matches!(role, Some(PlayingTime::Starter | PlayingTime::Rotation));
+        let read = reads::overall(w, i);
+        rows.push((
+            if earned { 0 } else { 1 },
+            reads::centre(w, i).unwrap_or(0.0),
+            json!({
+                "id": p.player.id, "name": p.name, "pos": p.player.position.name(), "cls": views::class_text(w, p),
+                "role": role.map(views::role_words), "read": read.json(), "yours": reads::mine(w, i).json(),
+                "earned": earned, "can": words.is_ok(), "words": words.unwrap_or_else(|e| e),
+                "since": p.path.first().map(|&c| c == j).unwrap_or(false),
+            }),
+        ));
+    }
+    rows.sort_by(|a, b| a.0.cmp(&b.0).then(b.1.total_cmp(&a.1)));
+    let (from, to) = walk::window(w);
+    let held = w.front_office.college.tryout.as_ref().filter(|t| t.season == season);
+    let came: Vec<Value> = held
+        .map(|t| {
+            t.came
+                .iter()
+                .filter_map(|r| {
+                    let i = views::person_index(w, r.id)?;
+                    let p = &w.people[i];
+                    let (ht, wt) = afm_engine::world::scouting::file::listed(&p.player);
+                    let kept = t.kept.contains(&r.id);
+                    let from_school = if p.juco {
+                        p.college.map(|c| w.program_name(c).to_string())
+                    } else {
+                        Some(w.school_name(p.hs).to_string())
+                    };
+                    Some(json!({
+                        "id": r.id, "name": p.name, "pos": p.player.position.name(),
+                        "from": from_school, "juco": p.juco,
+                        "state": w.states.get(p.home_state).map(|s| s.code.clone()),
+                        "ht": ht, "wt": wt, "forty": (r.forty as f64 * 100.0).round() / 100.0,
+                        "low": r.low.round() as i32, "high": r.high.round() as i32,
+                        "kept": kept, "gone": !kept && p.stage != Stage::Done,
+                        "reader": reader_name(w, j, p.player.position),
+                    }))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let rule = walk::tryout_rule(w);
+    Ok(json!({
+        "team": brief(w, j),
+        "season": season,
+        "aid": match &aid {
+            Ok((on, limit)) => json!({ "on": on, "limit": limit, "whole": whole }),
+            Err(e) => json!({ "none": e }),
+        },
+        "squad": { "n": squad, "cap": cap, "whole": whole },
+        "rows": rows.into_iter().map(|r| r.2).collect::<Vec<_>>(),
+        "tryout": {
+            "from": short_date(from), "to": short_date(to),
+            "can": rule.is_ok(), "why": rule.err(),
+            "held": held.map(|t| short_date(t.date)),
+            "came": came,
+            "looks": walk::TRYOUT_LOOKS,
+        },
     }))
 }

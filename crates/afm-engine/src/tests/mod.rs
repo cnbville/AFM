@@ -43,6 +43,7 @@ mod split_build;
 mod stories;
 mod storylines;
 mod tactics;
+mod roster_moves;
 mod talks_matter;
 mod tallies;
 mod tendencies;

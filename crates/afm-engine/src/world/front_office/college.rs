@@ -208,6 +208,8 @@ pub struct CollegeDesk {
     /// costs you nothing with the recruits or their coaches. None on a
     /// desk from before the fresh start existed.
     pub fresh_until: Option<Date>,
+    /// Your open tryout this season (lane B): who came out and who you kept.
+    pub tryout: Option<super::walk_ons::Tryout>,
 }
 
 /// How long a new head coach's fresh start lasts, the day he takes over
@@ -613,6 +615,7 @@ fn roll_class(w: &mut World, j: usize) {
             let p = &people[i];
             is_juco_recruit(p)
                 || (matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) && p.class_of >= next)
+                || late_recruit(p)
                 || t.seen != standing(p, j)
         })
     });
@@ -1375,10 +1378,27 @@ pub fn recruitable(w: &World, i: usize) -> Result<(), String> {
     if hs && p.class_of > sign_year + 2 {
         return Err("Too young: staffs recruit from the sophomore class up.".into());
     }
-    if hs && p.class_of < sign_year {
+    if hs && p.class_of < sign_year && !late_recruit(p) {
         return Err("His class has signed.".into());
     }
     Ok(())
+}
+
+/// A recruit nobody signed in February who is still looking (lane B): he
+/// can sign on a late signing day until summer enrollment.
+pub fn late_recruit(p: &crate::world::Person) -> bool {
+    p.cal.late && p.cal.signed.is_none() && matches!(p.stage, Stage::HighSchool | Stage::PrepSchool | Stage::College)
+}
+
+/// The late signing days still to come (lane B): the next one and the
+/// last, summer enrollment, while the late recruits are looking.
+pub fn late_days(w: &World) -> Option<(Date, Date)> {
+    let l = w.late_signing.as_ref()?;
+    let mut d = w.today.add(1).max(l.from.add(1));
+    while d < l.last && d.weekday() != crate::calendar::Weekday::Wed {
+        d = d.add(1);
+    }
+    Some((d.min(l.last), l.last))
 }
 
 pub fn add(w: &mut World, id: u32) -> Result<String, String> {

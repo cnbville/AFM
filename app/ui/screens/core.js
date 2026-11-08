@@ -820,6 +820,7 @@ async function runMove(m, who, at) {
       return;
     }
     case "cut": if (await sure(`Cut ${name}?`, m.words, "Cut him")) moveDo("college_cut", { id }); return;
+    case "scholarship": if (await sure(`Put ${name} on scholarship?`, m.words, "Put him on scholarship")) moveDo("college_scholarship", { id }); return;
     case "portal": return go("portal_desk", { id });
     case "offer": return moveDo("recruit_offer", { id });
     case "pull": if (await sure(...pullWords(m.free))) moveDo("recruit_pull", { id }); return;
@@ -868,7 +869,7 @@ async function depthStep(id, dir) {
 // The moves on a menu, in the order the game gives them.
 function moveItems(moves, who, at) {
   // After the menu's own click has closed it, so a choice it opens stays.
-  return moves.map((m) => ({ label: m.t + (["talk", "ask", "stay_go", "raise", "ir", "ir_back", "cut", "redshirt", "hire", "fire"].includes(m.k) ? "…" : ""), run: () => setTimeout(() => runMove(m, who, at), 0) }));
+  return moves.map((m) => ({ label: m.t + (["talk", "ask", "stay_go", "raise", "ir", "ir_back", "cut", "scholarship", "redshirt", "hire", "fire"].includes(m.k) ? "…" : ""), run: () => setTimeout(() => runMove(m, who, at), 0) }));
 }
 // The hover card's three moves for the screen you're on (topic 17 rule 4).
 const PEEK_MOVES = {
