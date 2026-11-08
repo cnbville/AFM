@@ -805,3 +805,100 @@ fn a_tape_played_through_puts_your_read_on_the_record() {
     let r = w.scouting.film.reports.iter().rev().find(|x| x.target == r.target && x.date == r.date).unwrap();
     assert_eq!(r.settled.is_some(), v < 2, "a yes or a no is checked three years on, not sure is not");
 }
+
+/// Minor bug 353: a portal player with no college snap had no film, and a
+/// transfer's tape was his new team's. Every college team films its
+/// games, so a transfer's tape is his last college team's until he plays
+/// for his new one, and a college player who hasn't played a college
+/// snap (a redshirt, a transfer who sat) is read off his high school tape.
+#[test]
+fn a_transfer_has_his_old_team_s_tape_and_a_redshirt_his_high_school_s() {
+    use crate::world::records::{STAT_COUNT, SeasonRecord, Stat, StatSet};
+    use sc::Kind;
+    let mut w = World::empty(WorldOptions { scale: 0.002, history_years: 0, ..Default::default() });
+    // A high school senior with a team, made a redshirt at a college.
+    let i = (0..w.people.len())
+        .filter(|&i| w.people[i].stage == Stage::HighSchool)
+        .find(|&i| crate::world::hs_year::film_team(&w, w.people[i].hs).is_some())
+        .expect("a high school player with a team");
+    let (h, id, pos) = (w.people[i].hs, w.people[i].player.id, w.people[i].player.position);
+    let (a, b) = (0, 1);
+    {
+        let p = &mut w.people[i];
+        p.stage = Stage::College;
+        p.college = Some(b);
+        p.college_snaps = 0;
+        p.hs_lines.clear();
+    }
+    // No college snap and no high school line: nothing to watch.
+    assert!(sc::own::film_cost(&w, id).is_err_and(|e| e.contains("college snap")));
+    // His high school season is his tape, three games of his school's.
+    let year = w.year as i16 - 1;
+    let line = crate::world::hs_year::HsLine {
+        year,
+        school: h as u32,
+        pos,
+        games: 10,
+        s: [0; crate::world::hs_year::HS_STAT_COUNT],
+    };
+    w.people[i].hs_lines.push(line);
+    assert_eq!(tape::source(&w, i), Ok(tape::Source::OldSchool(h, year)));
+    let (kind, _, _) = sc::own::film_cost(&w, id).expect("his high school tape");
+    assert_eq!(kind, Kind::HsFilm);
+    assert_eq!(session::film_kind(&w, i), Kind::HsFilm);
+    assert_eq!(tape::sets(&w, i), 3);
+    assert!(tape::source_words(&w, i).is_some_and(|s| s.contains("high school tape")));
+    let t = tape::player_tape(&w, id).expect("his high school tape plays");
+    assert!(!t.snaps.is_empty());
+    assert!(t.games.iter().all(|g| g.label.starts_with(&format!("High school {year}, Wk "))), "{:?}", t.games[0].label);
+    // From the stands it is tonight's college game: none to watch yet.
+    assert!(tape::live_tape(&w, id).is_err());
+    // A transfer: his snaps are at his old team, so the tape is theirs.
+    let mut s = [0f32; STAT_COUNT];
+    s[Stat::SnapsDef as usize] = 640.0;
+    s[Stat::SnapsOff as usize] = 0.0;
+    let r = SeasonRecord {
+        id,
+        year,
+        division: w.programs[a].division,
+        pos,
+        program: a as u16,
+        games: 12,
+        footprint: 0,
+        sos: 0.0,
+        s: StatSet::from(s),
+    };
+    w.stats.by_player.entry(id).or_default().push(w.stats.seasons.len() as u32);
+    w.stats.seasons.push(r);
+    assert_eq!(tape::source(&w, i), Ok(tape::Source::Program(a)));
+    let (kind, _, _) = sc::own::film_cost(&w, id).expect("his college tape");
+    assert_eq!(kind, Kind::CollegeFilm);
+    assert_eq!(session::film_kind(&w, i), Kind::CollegeFilm);
+    assert_eq!(tape::sets(&w, i), session::TAPE_SETS);
+    let words = tape::source_words(&w, i).unwrap_or_default();
+    assert!(words.contains(w.program_name(a)), "{words}");
+    // At his old team the tape is just his team's, as it always was.
+    w.people[i].college = Some(a);
+    assert_eq!(tape::source(&w, i), Ok(tape::Source::Program(a)));
+    assert!(tape::source_words(&w, i).is_none());
+    // Your own player always has tape: your staff films every practice,
+    // whatever he has played (Cain 2026-11-08).
+    let k = w.stats.by_player.get_mut(&id).unwrap();
+    k.clear();
+    w.people[i].hs_lines.clear();
+    assert!(sc::own::film_cost(&w, id).is_err());
+    let teaching = vec![12.0; crate::world::coach::GROUP_COUNT];
+    let you: You = serde_json::from_value(serde_json::json!({
+        "name": "Test Coach", "age": 45, "ethnicity": "White", "home_state": 0, "ex_pro": false, "reputation": 60.0,
+        "teaching": teaching, "scheme": 12.0, "game_management": 12.0,
+        "motivation": 12.0, "discipline": 12.0, "recruiting": 12.0, "network": 12.0, "relationships": 12.0,
+        "style": { "risk": 10.0, "freedom": 10.0, "physical": 10.0, "ball_hunting": 10.0, "mould": 10.0 },
+        "yours": { "play_calling": 12.0, "adaptation": 12.0, "evaluation": 12.0, "negotiating": 12.0 }
+    }))
+    .unwrap();
+    w.start_career(&you, Job::College(a), 7);
+    let i = sc::place(&w, id).unwrap();
+    assert!(session::is_ours(&w, id));
+    assert_eq!(tape::source(&w, i), Ok(tape::Source::Program(a)));
+    assert_eq!(sc::own::film_cost(&w, id).map(|x| x.0), Ok(Kind::CollegeFilm));
+}

@@ -2024,6 +2024,14 @@ fn portal_file(w: &World, j: usize, args: &Value) -> Reply {
         "talks": talks, "visits": visits, "options": options,
         "nil_era": ncaa::nil_era(w.year), "two_pots": ncaa::two_pots(today), "budget": budget_json(w, j),
         "portal_yours": w.front_office.owner(Duty::Portal) == Owner::You,
+        // Your own film session on him (minor bug 353), as on a recruit's
+        // file: its hours, or why not today, and whose tape it is.
+        "film_now": afm_engine::world::scouting::own::film_cost(w, id).ok().map(|(_, h, _)| json!({
+            "hours": h,
+            "left": afm_engine::world::scouting::own::film_left(w),
+            "blocked": afm_engine::world::scouting::own::film_blocked(w, id),
+            "source": afm_engine::world::scouting::film::tape::source_words(w, i),
+        })),
     });
     if let (Value::Object(v), Value::Object(more)) = (&mut v, more) {
         v.extend(more);
