@@ -115,7 +115,15 @@ fn area_credit(w: &World) -> f64 {
 /// harder you sold him.
 pub(crate) fn day(w: &mut World, d: Date) {
     let (_, m, day) = d.parts();
-    if !(m == 9 && day == 1) || school(w).is_none() {
+    if !(m == 9 && day == 1) {
+        return;
+    }
+    // Keep ten years of calls, at every seat: a college or NFL coach's word
+    // to a college staff is a call too (minor bug 324), settled only while
+    // you coach a high school.
+    let cut = d.add(-3650);
+    w.scouting.hs.promoted.retain(|x| x.date >= cut);
+    if school(w).is_none() {
         return;
     }
     let places = super::places(w);
@@ -139,7 +147,4 @@ pub(crate) fn day(w: &mut World, d: Date) {
         let now = credibility(w, c);
         w.scouting.hs.credibility.insert(c, (now + delta).clamp(0.05, 0.95) as f32);
     }
-    // Keep ten years of calls.
-    let cut = d.add(-3650);
-    w.scouting.hs.promoted.retain(|x| x.date >= cut);
 }

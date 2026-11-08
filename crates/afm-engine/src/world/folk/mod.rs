@@ -369,6 +369,10 @@ pub fn ensure_base(w: &mut World) {
 pub fn after_load(w: &mut World) {
     ensure_base(w);
     staffing::ensure(w);
+    // A save from before minor bug 326 may owe past the limit.
+    for x in &mut w.folk.network.contacts {
+        x.shift(0);
+    }
     if w.seat.is_some() && w.folk.mine.team.is_none() {
         // A save from before this build: you're at your job already, so
         // the people start from where you are without the first weeks.
