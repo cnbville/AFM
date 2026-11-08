@@ -478,11 +478,11 @@ pub(crate) fn line(w: &mut World, s: &Story, what: BeatKind, extra: Option<&str>
         use rayon::prelude::*;
         open.par_iter()
             .chain(ended.par_iter())
-            .filter(|o| kin(*o))
+            .filter(|o| kin(o))
             .flat_map_iter(|o| told_lines(o, s.season, now))
             .collect()
     } else {
-        open.iter().chain(ended).filter(|o| kin(*o)).flat_map(|o| told_lines(o, s.season, now)).collect()
+        open.iter().chain(ended).filter(|o| kin(o)).flat_map(|o| told_lines(o, s.season, now)).collect()
     };
     let said: Vec<&str> = s
         .beats

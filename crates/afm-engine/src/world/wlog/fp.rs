@@ -328,7 +328,7 @@ macro_rules! not_a_struct {
     };
 }
 
-impl<'a> Serializer for &'a mut Fields {
+impl Serializer for &mut Fields {
     type Ok = ();
     type Error = Never;
     type SerializeSeq = ser::Impossible<(), Never>;
