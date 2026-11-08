@@ -175,7 +175,11 @@ fn moves_potential_both_ways_and_mostly_before_24() {
     let mut rng = Rng::new("drift");
     let mut teen = Vec::new();
     let mut late = Vec::new();
-    for mut p in prospects(1500, "drift", 2.0) {
+    // 6,000 prospects: the share whose ceiling falls 5+ by 18 sits near
+    // 5.7% (4.5-6.9% over ten seeds of 1,500), so 1,500 put it within one
+    // draw's noise of the 5% bar; a change to any position's generator
+    // reshuffled it under (the safety and linebacker leanings, 2026-11-08).
+    for mut p in prospects(6000, "drift", 2.0) {
         let p14 = p.potential();
         career(&mut p, &mut rng, 18, |_| {});
         teen.push(p.potential() - p14);
