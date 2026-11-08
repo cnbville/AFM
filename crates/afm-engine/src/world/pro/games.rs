@@ -642,6 +642,15 @@ pub(crate) fn record(
 ) {
     let year = w.year;
     w.keep_seat_game(crate::calendar::Level::Nfl, teams, &r.stats, r.replay.as_deref(), &r.talks);
+    // Growth from results: his plays move his skills, his snaps land.
+    if w.options.results.on {
+        use crate::world::stories::TeamKey;
+        let ev = crate::results::evidence(crate::player::Level::NFL, &r.stats, [&sides[0].team, &sides[1].team]);
+        let ids: HashMap<u32, (usize, Option<TeamKey>)> = (0..2)
+            .flat_map(|s| sides[s].who.iter().map(move |(&id, &(i, _))| (id, (i, Some(TeamKey::Nfl(teams[s] as u16))))))
+            .collect();
+        crate::results::world_game(w, crate::player::Level::NFL, ev, &|id| ids.get(&id).copied());
+    }
     // The league's numbers for the game boards (lane 9), by season.
     let season = w.nfl_season.as_ref().map_or(year, |s| s.year);
     crate::world::charts::add_game(w, season, crate::world::charts::NFL, &r.stats);

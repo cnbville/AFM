@@ -857,12 +857,29 @@ fn play_games(w: &mut World, date: Date, now: impl Fn(&Game) -> bool) {
         Vec::new()
     }
     .into_iter();
+    // Growth from results: each game's evidence, worked out on all cores.
+    let mut to_results = if w.options.results.on {
+        outcomes
+            .par_iter()
+            .zip(jobs.par_iter())
+            .zip(levels.par_iter())
+            .map(|((r, j), &level)| {
+                let r = r.as_ref()?;
+                let (a, b) = j.teams.as_ref()?;
+                Some((level, crate::results::evidence(level, &r.stats, [a, b])))
+            })
+            .collect()
+    } else {
+        Vec::new()
+    }
+    .into_iter();
     let first_date = cs.games.iter().map(|g| g.date).min().unwrap_or(date);
     let mut logged: Vec<(usize, serde_json::Value, Option<Vec<u8>>)> = Vec::new();
     for (j, r) in jobs.into_iter().zip(outcomes) {
         let k = j.k;
         let log_part = to_log.next().flatten();
         let tally_part = to_tally.next().flatten();
+        let results_part = to_results.next().flatten();
         let mut played = j.played;
         let (home, away, division, kind, conference) = {
             let g = &w.college.as_ref().unwrap().games[k];
@@ -904,6 +921,16 @@ fn play_games(w: &mut World, date: Date, now: impl Fn(&Game) -> bool) {
             let side = [home, away].iter().position(|&t| seat == Some(super::folk::Team::College(t)));
             let med = [home, away].map(|t| super::people::Support::z(w.programs[t].support.medical.rating));
             crate::training::seat::game_injuries(w, date, &r.injuries, med, side);
+            // Growth from results: his plays move his skills, his snaps land.
+            if let Some((level, ev)) = results_part {
+                let mut ids: HashMap<u32, (usize, Option<super::stories::TeamKey>)> = HashMap::new();
+                for t in [home, away] {
+                    for &i in &w.programs[t].roster {
+                        ids.insert(w.people[i].player.id, (i, Some(super::stories::TeamKey::College(t as u32))));
+                    }
+                }
+                crate::results::world_game(w, level, ev, &|id| ids.get(&id).copied());
+            }
         }
         let cs = w.college.as_mut().unwrap();
         // Records.

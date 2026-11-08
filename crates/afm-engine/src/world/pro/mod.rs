@@ -1753,6 +1753,13 @@ fn camp(w: &mut World, d: Date) {
             let (ph, me) = super::people::support_ctx(support, &p.player.personality);
             (super::people::morale(p, room), ph, me)
         };
+        // Growth from results: last season's results close; a pro on a
+        // team plays this season on the engine, when the NFL's games do
+        // (`nfl_year::engine_games`): a stand-in season keeps the yearly
+        // step's snaps.
+        let closing = w.results.ledgers.remove(&w.people[i].player.id);
+        let nfl_engine = w.options.engine_from.is_none_or(|from| w.year >= from) && !w.clubs.is_empty();
+        let results = (w.options.results.on && team.is_some() && nfl_engine).then_some(w.options.results);
         let p = &mut w.people[i];
         let mut adjustment = 0.0;
         if team.is_some() && (first || new_team) && role != PlayingTime::Unsigned {
@@ -1806,10 +1813,26 @@ fn camp(w: &mut World, d: Date) {
             strength_dev,
             focus: focus.get(&i).copied(),
             defer,
+            results,
             ..crate::development::SeasonContext::new(Level::NFL, clamp(coaching, 1.0, 20.0), role)
         };
+        if let Some(l) = &closing {
+            crate::results::close(&mut p.player, l);
+        }
+        crate::results::settle_reps(&mut p.player, closing.as_ref());
+        // A season whose snaps didn't land in season is read at this
+        // opening, spring snaps with it (`develop_season`).
+        let read_late = crate::development::reads_late(&p.player, Level::NFL);
         crate::training::close_year(&mut p.player, ctx.focus);
         let report = crate::development::develop_season(&mut p.player, &ctx, &mut p.rng);
+        // His spring snaps (OTAs, minicamp) land now as reps of the new
+        // year, as they added to last season's snaps before.
+        let spring_landed = if results.is_some() && spring > 0.0 && !p.player.position.is_specialist() && !read_late {
+            crate::training::reps_land(&mut p.player, 0.0, spring, ctx.focus);
+            Some(spring)
+        } else {
+            None
+        };
         if let Some(log) = w.wlog.as_deref().filter(|_| w.recording) {
             crate::world::wlog::why::growth(log, (w.year, w.today), p.player.id, &ctx, [None; 3], &report);
         }
@@ -1826,6 +1849,15 @@ fn camp(w: &mut World, d: Date) {
         c.spring_snaps = 0.0;
         c.preseason = (0.0, 0.0);
         c.season_mut(year).team = team;
+        // The season's ledger: last season's rolled into his past, his
+        // spring snaps landed.
+        let id = w.people[i].player.id;
+        let mut l = closing.unwrap_or_default();
+        l.roll(year);
+        l.reps = spring_landed.unwrap_or(0.0) as f32;
+        if spring_landed.is_some() || !l.past.is_empty() {
+            w.results.ledgers.insert(id, l);
+        }
     }
     let _ = d;
 }

@@ -136,6 +136,11 @@ pub struct WorldOptions {
     /// choice 1), to measure one against the other.
     #[serde(default)]
     pub yearly_growth: bool,
+    /// Growth from results (`crate::results::Mode`): results move skills
+    /// after each game and snaps land the week they are played, with the
+    /// A/B test's switches (items 14-16).
+    #[serde(default)]
+    pub results: crate::results::Mode,
 }
 
 impl Default for WorldOptions {
@@ -151,6 +156,7 @@ impl Default for WorldOptions {
             hs_engine_years: Some(12),
             keep_game_log: false,
             yearly_growth: false,
+            results: crate::results::Mode::default(),
         }
     }
 }
@@ -1030,6 +1036,10 @@ pub struct World {
     /// games, points for, points against); the last twenty seasons.
     #[serde(default)]
     pub nfl_units: Vec<(i32, u8, u8, u16, u16)>,
+    /// Growth from results: each player's season of results since his
+    /// last checkpoint (`crate::results`).
+    #[serde(default)]
+    pub results: crate::results::Book,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -1499,6 +1509,7 @@ impl World {
             new_teams: Default::default(),
             hunt: Default::default(),
             nfl_units: Vec::new(),
+            results: crate::results::Book::default(),
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);
