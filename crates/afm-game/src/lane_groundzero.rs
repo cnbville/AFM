@@ -38,11 +38,13 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "gz_pitch" => game.wm().and_then(|w| {
             let h = my_new_school(w).ok_or("Your school isn't opening this year.")?;
             let id = args.get("id").and_then(Value::as_u64).ok_or("Missing the player.")? as u32;
+            // Sandbox mode's contact rules: no count of home visits.
+            let lift = w.sandbox(afm_engine::world::sandbox::Switch::ContactRules);
             let n = w.new_teams.schools.iter_mut().find(|n| n.school == h).ok_or("No such school.")?;
             if n.zoned {
                 return Err("The families have chosen: the school has opened.".into());
             }
-            if n.pitched.len() >= PITCHES && !n.pitched.contains(&id) {
+            if !lift && n.pitched.len() >= PITCHES && !n.pitched.contains(&id) {
                 return Err(format!("You have made your {PITCHES} home visits."));
             }
             if !n.pitched.contains(&id) {

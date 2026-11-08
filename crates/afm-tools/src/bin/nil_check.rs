@@ -9,6 +9,7 @@
 //!        transfer's NIL deal the day he lands (minor bug 335), by level,
 //!        position and role, and each July's payday by position for starters.
 
+use afm_engine::positions::Position;
 use afm_engine::world::data::Division;
 use afm_engine::world::{Stage, World, WorldOptions};
 use std::path::Path;
@@ -491,5 +492,36 @@ fn offers(w: &World, year: i32) {
             })
             .collect();
         println!("{g}: {}", line.join("; "));
+        // A class's mean signed offer at the ten richest programs of the
+        // group (real 2026, top Power 4: about $85-253K a recruit, On3's
+        // valuations via SI), and its quarterbacks (real P4 QB signees
+        // $100-300K, five-star QBs $750K-1M).
+        let mut rich: Vec<usize> = (0..w.programs.len()).filter(|&j| group(w, j) == Some(g)).collect();
+        rich.sort_by(|&a, &b| w.programs[b].collective.budget.total_cmp(&w.programs[a].collective.budget));
+        let class = |j: usize| -> Vec<(Position, u8, f64)> {
+            w.programs[j].era.offers.iter().filter(|o| o.0 == year - 1).map(|o| (o.1, o.2, o.3)).collect()
+        };
+        let tops: Vec<String> = rich
+            .iter()
+            .take(10)
+            .map(|&j| {
+                let c = class(j);
+                let mean = c.iter().map(|x| x.2).sum::<f64>() / c.len().max(1) as f64;
+                format!("{} {} ({})", w.program_name(j), m(mean), c.len())
+            })
+            .collect();
+        println!("  class means, ten richest: {}", tops.join(", "));
+        let qbs: Vec<(u8, f64)> =
+            rich.iter().flat_map(|&j| class(j)).filter(|x| x.0 == Position::QB).map(|x| (x.1, x.2)).collect();
+        let mean = |v: Vec<f64>| v.iter().sum::<f64>() / v.len().max(1) as f64;
+        let five: Vec<f64> = qbs.iter().filter(|x| x.0 >= 5).map(|x| x.1).collect();
+        let rest: Vec<f64> = qbs.iter().filter(|x| x.0 < 5).map(|x| x.1).collect();
+        println!(
+            "  quarterbacks: five-stars {} mean {}, others {} mean {}",
+            five.len(),
+            m(mean(five.clone())),
+            rest.len(),
+            m(mean(rest.clone()))
+        );
     }
 }

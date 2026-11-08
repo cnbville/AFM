@@ -738,6 +738,8 @@ pub fn give_feeder(w: &mut World, name: &str, what: &str) -> Result<String, Stri
             w.legacy.hs.feeders.push(plan);
         }
     }
+    // Sandbox mode's money switch: the boosters' $2,500 isn't charged.
+    let free = w.sandbox(crate::world::sandbox::Switch::Money);
     let Some(x) = w.legacy.hs.feeders.iter_mut().find(|x| x.name == name) else {
         return Err("No such feeder.".into());
     };
@@ -750,12 +752,14 @@ pub fn give_feeder(w: &mut World, name: &str, what: &str) -> Result<String, Stri
             if x.equipment {
                 return Ok(format!("{name} already has your equipment."));
             }
-            if w.front_office.school.boosters.balance < 2_500.0 {
+            if !free && w.front_office.school.boosters.balance < 2_500.0 {
                 return Err("The booster club doesn't have $2,500.".into());
             }
-            w.front_office.school.boosters.balance -= 2_500.0;
-            let today = w.today;
-            w.front_office.school.boosters.ledger.push((today, format!("Equipment for {name}"), -2_500.0));
+            if !free {
+                w.front_office.school.boosters.balance -= 2_500.0;
+                let today = w.today;
+                w.front_office.school.boosters.ledger.push((today, format!("Equipment for {name}"), -2_500.0));
+            }
             let x = w.legacy.hs.feeders.iter_mut().find(|x| x.name == name).expect("feeder");
             x.equipment = true;
         }

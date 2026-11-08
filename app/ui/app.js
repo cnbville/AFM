@@ -361,7 +361,7 @@ function frame(content, crumb) {
   const next = st.next && st.next[0];
   return `<div class="frame">
     <aside class="side">
-      <div class="brand">${me ? mark(me) : '<span class="st-mark">AFM</span>'}<div><b>${esc(me ? me.name : "AFM")}</b><small>${esc(st.you ? "Coach " + st.you : "American Football Manager")}</small></div></div>
+      <div class="brand">${me ? mark(me) : '<span class="st-mark">AFM</span>'}<div><b>${esc(me ? me.name : "AFM")}</b><small>${esc(st.you ? "Coach " + st.you : "American Football Manager")}</small>${st.sandbox ? '<button class="st-pill gold sb-badge" data-nav="settings" title="Sandbox mode is on: your own limits are lifted (Settings)">Sandbox</button>' : ""}</div></div>
       <nav class="navs">${navHtml}</nav>
       <div class="foot">
         <button class="nav save" data-act="save" title="Save game (⌘S)">${icon("save")}<span>Save</span></button>

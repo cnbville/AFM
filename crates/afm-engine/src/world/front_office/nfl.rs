@@ -409,14 +409,18 @@ fn check(w: &World, t: usize, i: usize, p: &Proposal, kind: TalkKind) -> Result<
         return Err("The signing bonus is part of the guarantee: it can't be larger.".into());
     }
     let limit = super::roster::roster_limit(w);
-    if matches!(kind, TalkKind::FreeAgent | TalkKind::OfferSheet) && pro::count(w, t, Status::Roster) >= limit {
+    if matches!(kind, TalkKind::FreeAgent | TalkKind::OfferSheet)
+        && !super::roster_lifted(w, t)
+        && pro::count(w, t, Status::Roster) >= limit
+    {
         return Err(format!("Your roster is full ({limit}): release someone first."));
     }
     if p.void_years > 0 && !void_years_allowed(year) {
         return Err("Void years aren't used in this era.".into());
     }
-    // Year one's cap number must fit (an extension's new money starts next year).
-    if money::capped(year) {
+    // Year one's cap number must fit (an extension's new money starts next
+    // year), unless sandbox mode lifted your cap.
+    if money::capped(year) && !super::cap_lifted(w, t) {
         let start = if kind == TalkKind::Extension { year + 1 } else { year };
         let age = w.people[i].player.age;
         let deal = money::build(t, money::Kind::Veteran, start, &p.terms(start, age));
@@ -818,10 +822,13 @@ pub(crate) fn seat_offer(
     })?;
     let p = talk.offer?;
     let year = w.year;
-    if pro::count(w, t, Status::Roster) >= super::roster::roster_limit(w) {
+    if !super::roster_lifted(w, t) && pro::count(w, t, Status::Roster) >= super::roster::roster_limit(w) {
         return None;
     }
-    if money::capped(year) && pro::cap_room(w, t, year) - committed.get(t).copied().unwrap_or(0.0) < p.apy * 0.75 {
+    if money::capped(year)
+        && !super::cap_lifted(w, t)
+        && pro::cap_room(w, t, year) - committed.get(t).copied().unwrap_or(0.0) < p.apy * 0.75
+    {
         return None;
     }
     let o = p.offer(t);
@@ -991,7 +998,7 @@ pub fn tag(w: &mut World, id: u32, what: &str) -> Result<String, String> {
         _ => f,
     };
     let voids = pro::void_ahead(w, i);
-    if money::capped(year) && pro::cap_room(w, t, year) < price + voids {
+    if money::capped(year) && !super::cap_lifted(w, t) && pro::cap_room(w, t, year) < price + voids {
         return Err(if voids > 0.0 {
             format!(
                 "The tag counts {} the moment it's placed, and his old deal's void years land {} more on this year's cap with it: you are {} short. Clear room on the cap sheet first.",
@@ -1097,7 +1104,7 @@ pub fn tender(w: &mut World, id: u32, level: &str) -> Result<String, String> {
         )
     };
     let voids = pro::void_ahead(w, i);
-    if money::capped(year) && pro::cap_room(w, t, year) < deal_price + voids {
+    if money::capped(year) && !super::cap_lifted(w, t) && pro::cap_room(w, t, year) < deal_price + voids {
         return Err(format!(
             "The tender counts {} the moment it's placed{}: you are {} short. Clear room on the cap sheet first.",
             super::dollars(deal_price),
@@ -1239,6 +1246,7 @@ pub fn restructure(w: &mut World, id: u32, voids: u32) -> Result<String, String>
     let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
     let keep = money::minimum(year, credited);
     let voids = if void_years_allowed(year) { voids.min(4) } else { 0 };
+    let lifted = super::cap_lifted(w, t);
     let c = w.people[i].pro.as_mut().ok_or("No such pro.")?;
     if c.team != Some(t) {
         return Err("He isn't yours.".into());
@@ -1253,7 +1261,9 @@ pub fn restructure(w: &mut World, id: u32, voids: u32) -> Result<String, String>
     if saved < 100_000.0 {
         return Err("There's little base salary above the minimum to convert.".into());
     }
-    if trial.years.iter().any(|y| y.year > year && y.cap_hit() > money::price_cap(y.year) * money::CAP_HIT_MAX) {
+    if !lifted
+        && trial.years.iter().any(|y| y.year > year && y.cap_hit() > money::price_cap(y.year) * money::CAP_HIT_MAX)
+    {
         return Err("That would push a later year's cap number past anything a club has carried.".into());
     }
     *k = trial;
@@ -1314,7 +1324,7 @@ pub fn visit(w: &mut World, id: u32) -> Result<String, String> {
     if negotiable(w, i) != Some(TalkKind::FreeAgent) {
         return Err("He isn't a free agent you can bring in.".into());
     }
-    if w.today < w.dates.league_year.date {
+    if w.today < w.dates.league_year.date && !w.sandbox(crate::world::sandbox::Switch::ContactRules) {
         return Err("Visits wait for the new league year; the negotiating window allows talks only.".into());
     }
     if visited_recently(w, id) {

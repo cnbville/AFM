@@ -396,12 +396,15 @@ pub fn buy(w: &mut World, key: &str) -> Result<String, String> {
     let year = w.year;
     let cost = (p.price * hs_index(year)) as f32;
     let today = w.today;
+    // Sandbox mode's money switch: past what is left (the book still
+    // counts it; July 1 starts the next year clean).
+    let free = w.sandbox(crate::world::sandbox::Switch::Money);
     let seat = w.finance.seat_hs.as_mut().ok_or("Only a high school head coach spends the equipment budget.")?;
     if seat.done.iter().any(|k| k == key) {
         return Err(format!("{}: already bought this year.", p.name));
     }
     let left = equipment_left(seat);
-    if left < cost {
+    if !free && left < cost {
         return Err(format!(
             "The equipment budget has {} left after the year's basics; this costs {}. Ask the district, or put it on the booster club's wish list.",
             dollars(left.max(0.0) as f64),
@@ -471,6 +474,7 @@ pub fn seat_json(w: &World) -> Option<serde_json::Value> {
         "basics": (seat.equipment * RUNNING_SHARE).round(),
         "bought": seat.bought.round(),
         "left": equipment_left(seat).round(),
+        "unlimited": w.sandbox(crate::world::sandbox::Switch::Money),
         "asked": seat.asked == w.year,
         "done": seat.done,
         "running": seat.running.iter().map(|r| serde_json::json!({ "key": r.key, "name": names(&r.key), "ends": r.ends.pretty() })).collect::<Vec<_>>(),
