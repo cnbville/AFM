@@ -218,6 +218,9 @@ pub struct CollegeDesk {
     /// The money year the deals were last set for (its July); deals stand
     /// from year to year, so it only dates them.
     pub deals_year: i32,
+    /// The NIL rules this desk was brought up to (`NIL_REV`; 0 on a desk
+    /// from before).
+    pub nil_rev: u8,
     /// Your players already reported in the portal this year.
     pub left: Vec<u32>,
     /// The class signing next when the board was last rolled over.
@@ -450,28 +453,72 @@ pub(crate) fn stay_talks(w: &World) -> Option<(usize, HashMap<u32, f64>, bool)> 
     Some((j, talks, staff))
 }
 
+/// Each player's deal in one pot: id to dollars a year.
+pub type Deals = HashMap<u32, f64>;
+
+/// The NIL rules a desk was last brought up to: 1 is Cain's 2026-11-07
+/// change (every NIL dollar is yours, deals that stand, the collective's
+/// deal yours to set). A desk from before is brought up once on load
+/// (`after_load`).
+pub const NIL_REV: u8 = 1;
+
+/// Whether the desk pays program `j`'s players: your own program while you
+/// are its head coach.
+fn pays(w: &World, j: usize) -> bool {
+    w.front_office.college.program == Some(j) && super::program(w) == Some(j)
+}
+
 /// Your NIL deals: (program, each player's revenue share (the whole deal
 /// before two pots), each player's collective deal as you wrote it). NIL is
 /// always yours (Cain 2026-11-07), so July 1 pays your players by these;
 /// `fill_deals` gives every arrival his first.
-pub(crate) fn roster_deals(w: &World) -> Option<(usize, HashMap<u32, f64>, HashMap<u32, f64>)> {
+pub(crate) fn roster_deals(w: &World) -> Option<(usize, Deals, Deals)> {
     let j = super::program(w)?;
-    let desk = &w.front_office.college;
-    if desk.program != Some(j) {
+    if !pays(w, j) {
         return None;
     }
+    let desk = &w.front_office.college;
     Some((j, desk.deals.iter().copied().collect(), desk.coll_deals.iter().copied().collect()))
 }
 
-/// Every player of yours without a deal gets one, pot by pot, so nobody is
-/// left to a split (Cain 2026-11-07: every NIL dollar is yours): a recruit
-/// who signed with you starts on what he signed for, a transfer you offered
-/// on your offer, and anyone else on the going rate, the usual split: the
-/// contracts you inherit at a new job, the collective's deals in a save
-/// from before (where your staff ran NIL), a walk-on, a transfer your
-/// staff brought in. Rounded to $500. Proposed, not confirmed.
-pub fn fill_deals(w: &mut World) {
-    let Some(j) = ready(w) else { return };
+/// Your deals as July 1 would pay them today, for a screen: the ones set,
+/// and for a player without one the deal `fill_deals` will give him. None
+/// for a program the desk doesn't pay.
+pub fn deals_now(w: &World, j: usize) -> Option<(Deals, Deals)> {
+    if !pays(w, j) {
+        return None;
+    }
+    let desk = &w.front_office.college;
+    let mut school: Deals = desk.deals.iter().copied().collect();
+    let mut coll: Deals = desk.coll_deals.iter().copied().collect();
+    for (id, s, c) in first_deals(w, j) {
+        if let Some(x) = s {
+            school.insert(id, x);
+        }
+        if let Some(x) = c {
+            coll.insert(id, x);
+        }
+    }
+    Some((school, coll))
+}
+
+/// $500 steps for a going rate; the collective's rounds down when NIL Go
+/// holds some of it back, so the going rate never sits above his range.
+fn round_rate(x: f64) -> f64 {
+    (x / 500.0).round() * 500.0
+}
+fn round_coll(x: f64, held: f64) -> f64 {
+    if held > 0.5 { (x / 500.0).floor() * 500.0 } else { round_rate(x) }
+}
+
+/// Each player of yours without a deal in a pot, with the deal he starts
+/// on there (`fill_deals`): (id, revenue share if missing, collective deal
+/// if missing). A recruit who signed with you starts on what he signed
+/// for, a transfer you offered on your offer (nothing with no number), and
+/// anyone else on the going rate, the usual split: the contracts you
+/// inherit at a new job, a walk-on, a transfer your staff brought in.
+/// Rounded to $500. Proposed, not confirmed.
+fn first_deals(w: &World, j: usize) -> Vec<(u32, Option<f64>, Option<f64>)> {
     let two = ncaa::two_pots(w.today);
     let desk = &w.front_office.college;
     let school: std::collections::HashSet<u32> = desk.deals.iter().map(|d| d.0).collect();
@@ -485,36 +532,72 @@ pub fn fill_deals(w: &mut World) {
         .filter(|x| x.1 || x.2)
         .collect();
     if missing.is_empty() {
-        return;
+        return Vec::new();
     }
-    let usual: HashMap<u32, (f64, f64)> = splits(w, j).into_iter().map(|x| (x.0, (x.1, x.2))).collect();
-    let round = |x: f64| (x / 500.0).round() * 500.0;
+    let usual: HashMap<u32, (f64, f64, f64)> = splits(w, j).into_iter().map(|x| (x.0, (x.1, x.2, x.3))).collect();
+    missing
+        .into_iter()
+        .map(|(id, s, c)| {
+            let (ys, yc) = if let Some(x) = desk.signed.iter().find(|x| x.0 == id) {
+                (x.1, x.2)
+            } else if let Some(t) = desk.portal.iter().find(|t| t.id == id && t.offered.is_some()) {
+                (t.nil.unwrap_or(0.0), t.nil_coll.unwrap_or(0.0))
+            } else {
+                let u = usual.get(&id).copied().unwrap_or((0.0, 0.0, 0.0));
+                (round_rate(u.0), round_coll(u.1, u.2))
+            };
+            // Before two pots it is one deal.
+            let (ys, yc) = if two { (ys, yc) } else { (ys + yc, 0.0) };
+            (id, s.then_some(ys), c.then_some(yc))
+        })
+        .collect()
+}
+
+/// Every player of yours without a deal gets one, pot by pot, so nobody is
+/// left to a split (Cain 2026-11-07: every NIL dollar is yours; the deal
+/// each starts on is `first_deals`). A player who left loses his deals (a
+/// man who comes back starts again), and a signee's numbers wait only
+/// while he is signed with you.
+pub fn fill_deals(w: &mut World) {
+    let Some(j) = ready(w) else { return };
+    let roster: std::collections::HashSet<u32> = w.programs[j]
+        .roster
+        .iter()
+        .map(|&i| &w.people[i])
+        .filter(|p| p.stage == Stage::College && p.college == Some(j))
+        .map(|p| p.player.id)
+        .collect();
+    // A signee's entry waits while he is signed with you or until he is on
+    // the roster with his deal.
+    let waiting: Vec<u32> =
+        w.front_office.college.signed.iter().map(|x| x.0).filter(|id| !roster.contains(id)).collect();
+    let at = indices(w, &waiting);
+    let stale: std::collections::HashSet<u32> = waiting
+        .into_iter()
+        .filter(|id| !at.get(id).is_some_and(|&i| w.people[i].cal.signed.is_some_and(|s| s.program == j)))
+        .collect();
+    let first = first_deals(w, j);
     let desk = &mut w.front_office.college;
-    for (id, s, c) in missing {
-        let signed = desk.signed.iter().position(|x| x.0 == id).map(|k| desk.signed.remove(k));
-        let (ys, yc) = if let Some(x) = signed {
-            (x.1, x.2)
-        } else if let Some(t) = desk.portal.iter().find(|t| t.id == id && t.offered.is_some()) {
-            (t.nil.unwrap_or(0.0), t.nil_coll.unwrap_or(0.0))
-        } else {
-            let u = usual.get(&id).copied().unwrap_or((0.0, 0.0));
-            (round(u.0), round(u.1))
-        };
-        // Before two pots it is one deal.
-        let (ys, yc) = if two { (ys, yc) } else { (ys + yc, 0.0) };
-        if s {
-            desk.deals.push((id, ys));
+    desk.deals.retain(|d| roster.contains(&d.0));
+    desk.coll_deals.retain(|d| roster.contains(&d.0));
+    desk.signed.retain(|x| !stale.contains(&x.0));
+    for (id, s, c) in first {
+        if let Some(x) = s {
+            desk.deals.push((id, x));
         }
-        if c {
-            desk.coll_deals.push((id, yc));
+        if let Some(x) = c {
+            desk.coll_deals.push((id, x));
         }
     }
+    desk.signed.retain(|x| !roster.contains(&x.0));
 }
 
 /// What a recruit who signs with you signed for, kept until he arrives
-/// (`fill_deals`): your numbers, nothing with the board yours and no
-/// number, your coordinator's usual offer with it his.
-fn record_signed(w: &mut World, j: usize) {
+/// (`fill_deals`): your numbers; with none, nothing while the board is
+/// yours (the stage weighed none), and the usual offer where your staff
+/// made it: the board at your staff, or an offer your coordinator made at
+/// this very stage (`coordinator`).
+fn record_signed(w: &mut World, j: usize, coordinator: &[u32]) {
     let board_yours = mine(w, Duty::Board).is_some();
     let ids: Vec<u32> = w
         .front_office
@@ -536,12 +619,90 @@ fn record_signed(w: &mut World, j: usize) {
         }
         let (s, c) = match promised(t) {
             Some(x) => x,
-            None if board_yours && t.by != Source::Coordinator => (0.0, 0.0),
+            None if board_yours && !coordinator.contains(&t.id) => (0.0, 0.0),
             None => usual_parts(w, j, t.id),
         };
         add.push((t.id, s, c));
     }
     w.front_office.college.signed.extend(add);
+}
+
+/// A desk from before Cain's 2026-11-07 change, brought up once on load:
+/// the deals of a money year that has paid lapsed under the old rules, so
+/// those players start on the going rate; a signee waiting to enroll keeps
+/// the money he signed for (your numbers, else the usual split the old
+/// rules paid him); in two pots an open offer that weighed the collective's
+/// usual deal beside your number (or alone, with no number and the board
+/// yours) gets it written in its collective box, and an open portal offer
+/// with no number gets the usual portal money it carried. Then every player
+/// gets his deal. Nothing for a world without a college seat.
+pub(crate) fn after_load(w: &mut World) {
+    if w.front_office.college.nil_rev >= NIL_REV {
+        return;
+    }
+    let Some(j) = super::program(w) else { return };
+    if w.front_office.college.program != Some(j) {
+        return;
+    }
+    let two = ncaa::two_pots(w.today);
+    let paid_year = deals_year(w);
+    let board_yours = mine(w, Duty::Board).is_some();
+    let ids: Vec<u32> = w
+        .front_office
+        .college
+        .board
+        .iter()
+        .map(|t| t.id)
+        .chain(w.front_office.college.portal.iter().map(|t| t.id))
+        .collect();
+    let at = indices(w, &ids);
+    let mut signees: Vec<(u32, f64, f64)> = Vec::new();
+    let mut coll_usual: Vec<(u32, f64)> = Vec::new();
+    for t in w.front_office.college.board.iter().filter(|t| t.offered.is_some() && t.pulled.is_none()) {
+        let Some(&i) = at.get(&t.id) else { continue };
+        let (s, c) = usual_parts(w, j, t.id);
+        if w.people[i].cal.signed.is_some_and(|x| x.program == j && !x.walk_on) {
+            let (ys, yc) = promised(t).unwrap_or((round_rate(s), round_rate(c)));
+            signees.push((t.id, ys, yc));
+        } else if two && (t.nil.is_some() || board_yours) && t.nil_coll.is_none() {
+            coll_usual.push((t.id, round_rate(c)));
+        }
+    }
+    let mut portal: Vec<(u32, f64, f64)> = Vec::new();
+    for t in w.front_office.college.portal.iter().filter(|t| t.offered.is_some() && !t.settled) {
+        let Some(&i) = at.get(&t.id) else { continue };
+        if t.nil.is_none() && t.nil_coll.is_none() {
+            let (s, c) = rec::portal_usual(w, j, i);
+            portal.push((t.id, round_rate(s), round_rate(c)));
+        }
+    }
+    let desk = &mut w.front_office.college;
+    if desk.deals_year < paid_year {
+        desk.deals.clear();
+        desk.coll_deals.clear();
+    }
+    for (id, s, c) in signees {
+        if !desk.signed.iter().any(|x| x.0 == id) {
+            desk.signed.push((id, s, c));
+        }
+    }
+    for (id, c) in coll_usual {
+        if let Some(t) = desk.board.iter_mut().find(|t| t.id == id) {
+            t.nil = Some(t.nil.unwrap_or(0.0));
+            t.nil_coll = Some(c);
+        }
+    }
+    for (id, s, c) in portal {
+        if let Some(t) = desk.portal.iter_mut().find(|t| t.id == id) {
+            if two {
+                (t.nil, t.nil_coll) = (Some(s), Some(c));
+            } else {
+                t.nil = Some(s + c);
+            }
+        }
+    }
+    desk.nil_rev = NIL_REV;
+    fill_deals(w);
 }
 
 /// A player's deal: (revenue share, collective deal as written).
@@ -635,7 +796,7 @@ pub(crate) fn after_stage(w: &mut World, j: usize, coordinator: &[u32], final_da
         }
     }
     // What each signee signed for becomes his deal when he arrives.
-    record_signed(w, j);
+    record_signed(w, j, coordinator);
     // The stage's commitments and signatures reach you the same day.
     scan_board(w, j, today);
 }
@@ -713,7 +874,7 @@ pub fn ready(w: &mut World) -> Option<usize> {
         // A new job: a new desk, set up from the staff's work there, and a
         // fresh start to go through the board you inherit.
         let fresh_until = Some(w.today.add(FRESH_DAYS - 1));
-        w.front_office.college = CollegeDesk { program: Some(j), fresh_until, ..Default::default() };
+        w.front_office.college = CollegeDesk { program: Some(j), fresh_until, nil_rev: NIL_REV, ..Default::default() };
     }
     if !w.front_office.college.seeded {
         seed(w, j);
@@ -770,7 +931,22 @@ pub fn seed(w: &mut World, j: usize) {
         found.push((rank, 5 - recruiting_stars(p).min(5), early.unwrap_or(today), p.player.id));
     }
     found.sort();
+    // A recruit who signed before you took over signed for the old staff's
+    // usual money: that is his first deal when he arrives (`fill_deals`).
+    let pre: Vec<(u32, f64, f64)> = found
+        .iter()
+        .filter(|f| f.0 == 0)
+        .map(|f| {
+            let (s, c) = usual_parts(w, j, f.3);
+            (f.3, round_rate(s), round_rate(c))
+        })
+        .collect();
     let desk = &mut w.front_office.college;
+    for x in pre {
+        if !desk.signed.iter().any(|y| y.0 == x.0) {
+            desk.signed.push(x);
+        }
+    }
     for (_, _, when, id) in found {
         if desk.board.iter().any(|t| t.id == id) {
             continue;
@@ -2026,39 +2202,61 @@ pub fn budget(w: &World, j: usize) -> Budget {
     let desk = &w.front_office.college;
     // The deals of players still on the roster; deals stand from year to
     // year (`fill_deals`).
-    let on: HashMap<u32, usize> = prog
+    let roster_ids: Vec<(u32, usize)> = prog
         .roster
         .iter()
         .copied()
         .filter(|&i| w.people[i].stage == crate::world::Stage::College && w.people[i].college == Some(j))
         .map(|i| (w.people[i].player.id, i))
         .collect();
-    let mine_here = desk.program == Some(j);
-    let sum = |v: &[(u32, f64)]| -> f64 {
-        if mine_here { v.iter().filter(|d| on.contains_key(&d.0)).map(|d| d.1).sum() } else { 0.0 }
-    };
-    let roster = sum(&desk.deals);
-    let coll_roster = if two_pots { sum(&desk.coll_deals) } else { 0.0 };
-    // NIL Go on your collective deals (B18).
+    let on: HashMap<u32, usize> = roster_ids.iter().copied().collect();
+    // Your deals as July 1 would pay them (a player without one counts on
+    // the deal he starts on); a program the desk doesn't pay counts none of
+    // its own and the collective's split stands beside it.
+    let now = deals_now(w, j);
+    let mine_here = now.is_some();
+    let (school_now, coll_now) = now.unwrap_or_default();
+    // Summed in roster order, so the totals never depend on a map's order.
+    let sum = |v: &Deals| -> f64 { roster_ids.iter().filter_map(|x| v.get(&x.0)).sum() };
+    let roster = sum(&school_now);
+    let coll_roster = if two_pots { sum(&coll_now) } else { 0.0 };
+    // NIL Go on your collective deals (B18), or on the usual split.
     let (mut cleared, mut held) = (0.0, 0.0);
-    if two_pots && mine_here && !desk.coll_deals.is_empty() {
+    if two_pots && mine_here && !coll_now.is_empty() {
         let medians = rec::nil_medians(w);
-        for &(id, x) in &desk.coll_deals {
-            let Some(&i) = on.get(&id) else { continue };
+        for &(id, i) in &roster_ids {
+            let Some(&x) = coll_now.get(&id) else { continue };
             let p = &w.people[i];
             let c = rec::nil_go(w.today, x, rec::nil_go_top(p, rec::nil_value(p, prog.division, &medians)));
             cleared += c;
             held += x - c;
         }
+    } else if two_pots && !mine_here {
+        for x in splits(w, j) {
+            cleared += x.2;
+            held += x.3;
+        }
     }
     // A signee's numbers count from his signature until he arrives.
     let signed: std::collections::HashSet<u32> = desk.signed.iter().map(|x| x.0).collect();
-    let live = || desk.board.iter().filter(|t| t.offered.is_some() && t.pulled.is_none() && !signed.contains(&t.id));
+    let live = || {
+        desk.board
+            .iter()
+            .filter(|t| t.offered.is_some() && t.pulled.is_none() && !signed.contains(&t.id) && !on.contains_key(&t.id))
+    };
     let waiting = || desk.signed.iter().filter(|x| !on.contains_key(&x.0));
-    let recruits = live().filter_map(|t| t.nil).sum::<f64>() + waiting().map(|x| x.1).sum::<f64>();
-    let coll_recruits = live().filter_map(|t| t.nil_coll).sum::<f64>() + waiting().map(|x| x.2).sum::<f64>();
-    let portal = desk.portal.iter().filter(|t| t.offered.is_some() && !t.settled).filter_map(|t| t.nil).sum();
-    let coll_portal = desk.portal.iter().filter(|t| t.offered.is_some() && !t.settled).filter_map(|t| t.nil_coll).sum();
+    let out = || desk.portal.iter().filter(|t| t.offered.is_some() && !t.settled);
+    // Your board and portal are only your own program's.
+    let (recruits, coll_recruits, portal, coll_portal) = if mine_here {
+        (
+            live().filter_map(|t| t.nil).sum::<f64>() + waiting().map(|x| x.1).sum::<f64>(),
+            live().filter_map(|t| t.nil_coll).sum::<f64>() + waiting().map(|x| x.2).sum::<f64>(),
+            out().filter_map(|t| t.nil).sum::<f64>(),
+            out().filter_map(|t| t.nil_coll).sum::<f64>(),
+        )
+    } else {
+        (0.0, 0.0, 0.0, 0.0)
+    };
     let hunt = crate::world::hunt::reserve(w, j);
     let yours = if two_pots { revenue_share } else { total };
     let collective = (total - revenue_share).max(0.0);
@@ -2138,22 +2336,30 @@ pub fn set_deal(w: &mut World, id: u32, school: Option<f64>, coll: Option<f64>) 
 }
 
 /// Fills every empty box with the going rate, the usual split rounded to
-/// $500: a player with no money in a pot, or $0, gets the usual. The boxes
-/// filled. No answers: nobody was singled out.
-pub fn set_usual_deals(w: &mut World) -> Result<usize, String> {
+/// $500: a player with no money in a pot, or $0, gets the usual where it is
+/// $500 or more and the pot's money left covers it. (boxes filled, empty
+/// boxes there were). No answers: nobody was singled out.
+pub fn set_usual_deals(w: &mut World) -> Result<(usize, usize), String> {
     let j = super::program(w).ok_or("You have no college job.")?;
-    ready(w);
+    fill_deals(w);
     let two = ncaa::two_pots(w.today);
-    let mut n = 0;
-    for (id, s, c, _) in splits(w, j) {
+    let (mut filled, mut blank) = (0, 0);
+    for (id, s, c, held) in splits(w, j) {
         let (have_s, have_c) = deal_of(w, id).unwrap_or((0.0, 0.0));
-        let fill_s = (have_s <= 0.0 && s >= 500.0).then(|| (s / 500.0).round() * 500.0);
-        let fill_c = (two && have_c <= 0.0 && c >= 500.0).then(|| (c / 500.0).round() * 500.0);
-        if (fill_s.is_some() || fill_c.is_some()) && put_deal(w, id, fill_s, fill_c).is_ok() {
-            n += fill_s.is_some() as usize + fill_c.is_some() as usize;
+        if have_s <= 0.0 {
+            blank += 1;
+            if s >= 500.0 && put_deal(w, id, Some(round_rate(s)), None).is_ok() {
+                filled += 1;
+            }
+        }
+        if two && have_c <= 0.0 {
+            blank += 1;
+            if c >= 500.0 && put_deal(w, id, None, Some(round_coll(c, held))).is_ok() {
+                filled += 1;
+            }
         }
     }
-    Ok(n)
+    Ok((filled, blank))
 }
 
 /// Every deal on your roster set to nothing, both pots: the players paid
@@ -3013,9 +3219,10 @@ pub fn usual_parts(w: &World, j: usize, id: u32) -> (f64, f64) {
 }
 
 /// The NIL money a recruit weighs from program `j` today: from yours what
-/// you promise as he weighs it (with the collective's own deal in two pots,
-/// B18), nothing but the scholarship without a number while the board is
-/// yours; from any other school its usual offer.
+/// you promise as he weighs it (in two pots your revenue share and what NIL
+/// Go would clear of your collective deal, B18), nothing but the
+/// scholarship without a number while the board is yours; from any other
+/// school its usual offer.
 pub fn weighed_offer(w: &World, j: usize, id: u32) -> f64 {
     let Some(i) = super::index_of(w, id) else { return 0.0 };
     rec::offer_money(w, j, i)

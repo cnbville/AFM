@@ -276,13 +276,14 @@ fn college(w: &World, j: usize) -> Reply {
     let money_year = desk::deals_year(w);
     let era = ncaa::nil_era(w.today.year()) || w.today >= Date::ymd(ncaa::NIL_START, 6, 1);
     let b = desk::budget(w, j);
-    let fo = &w.front_office.college;
-    // Your program's deals stand until you change them (every NIL dollar
-    // is yours, Cain 2026-11-07); a blank or $0 box pays nothing. Another
-    // program's roster shows its usual split.
-    let yours = fo.program == Some(j);
-    let set: std::collections::HashMap<u32, f64> =
-        if yours { fo.deals.iter().copied().collect() } else { Default::default() };
+    // Your program's deals as July 1 pays them, while you are its head
+    // coach: each stands until you change it (every NIL dollar is yours,
+    // Cain 2026-11-07), and a blank or $0 box pays nothing. Any other
+    // roster (another program, or yours from an assistant's seat) shows its
+    // head coach's usual split.
+    let now = desk::deals_now(w, j);
+    let yours = now.is_some();
+    let set: std::collections::HashMap<u32, f64> = now.map(|x| x.0).unwrap_or_default();
     let usual: std::collections::HashMap<u32, f64> = desk::usual_deals(w, j).into_iter().collect();
     let use_set = yours;
     let suggested = false;

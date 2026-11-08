@@ -1453,10 +1453,10 @@ impl World {
             c.family.mood = 0.62;
         }
         super::finance::after_load(self);
-        // NIL is always yours (Cain 2026-11-07): a save from before, where
-        // your staff could run it, gives every player of yours a deal now,
-        // at the going rate unless one is set.
-        super::front_office::college::fill_deals(self);
+        // NIL is always yours (Cain 2026-11-07): a desk from before is
+        // brought up to the new rules once, and every player of yours gets
+        // a deal.
+        super::front_office::college::after_load(self);
         self.batch6_dates_after_load();
     }
 

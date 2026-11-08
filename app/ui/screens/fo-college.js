@@ -390,9 +390,12 @@ function fcActions(f) {
     const kind = `${f.stars ? `a ${f.stars}★` : "an unranked"} ${f.pos}`;
     const two = f.two_pots;
     const k = (x) => (x != null ? Math.round(x / 1000) : "");
-    const blank = f.board_yours ? "none" : null;
-    const box = (label, key, val, usual) => `<label class="fc-moneyin">${two ? `<span class="fc-pot">${label}</span>` : ""}$<input type="number" min="0" step="5" value="${k(val)}" placeholder="${blank || k(usual)}" data-fcin="${key}" data-id="${f.id}">thousand a year</label>`;
     const promised = f.nil != null || f.nil_coll != null;
+    // A blank box is no money, except on your coordinator's board before
+    // you name a number: there his offer carries the going rate, which the
+    // boxes show in grey (and a blank box beside a number keeps it).
+    const blank = f.board_yours || promised ? "none" : null;
+    const box = (label, key, val, usual) => `<label class="fc-moneyin">${two ? `<span class="fc-pot">${label}</span>` : ""}$<input type="number" min="0" step="5" value="${k(val)}" placeholder="${blank || k(usual)}" data-usual="${blank ? 0 : Math.round(usual || 0)}" data-fcin="${key}" data-id="${f.id}">thousand a year</label>`;
     const state = promised
       ? two ? `You promised ${money(f.nil || 0)} of revenue share and a ${money(f.nil_coll || 0)} collective deal a year.` : `You promised ${money(f.nil)} a year.`
       : f.board_yours ? "No money promised: your offer is the scholarship alone." : "No number of yours: your coordinator's offer carries the going rate.";
@@ -607,7 +610,7 @@ screens.portal_desk = async () => {
   // and from July 2025 the collective's deal is a second box (B18). The
   // going rate is in the box's tip.
   const k1 = (v) => (v != null ? Math.round(v / 1000) : "");
-  const nilBox = (r, key, val, usual, what) => `<label class="fc-moneyin small" title="${esc(`${what}. The going rate for him: about ${money(usual)} a year`)}">$<input type="number" min="0" step="5" value="${k1(val)}" placeholder="none" data-fcin="${key}" data-id="${r.id}">k</label>`;
+  const nilBox = (r, key, val, usual, what) => `<label class="fc-moneyin small" title="${esc(`${what}. A typical transfer's share here: about ${money(usual)} a year`)}">$<input type="number" min="0" step="5" value="${k1(val)}" placeholder="none" data-fcin="${key}" data-id="${r.id}">k</label>`;
   const nilIn = (r) => (x.nil_era ? nilBox(r, "pnil", r.nil, r.usual, x.house ? "Revenue share" : "NIL") + (x.house ? nilBox(r, "pcollp", r.coll, r.coll_usual, "Collective deal, reviewed by NIL Go") : "") : "");
   let body = "";
   if (k.tab === "entrants") {
@@ -881,8 +884,14 @@ document.addEventListener(
       case "promise": {
         // Both boxes go together: a blank one is no money in that pot.
         const row = el.closest(".fc-nilrow");
-        const val = (key) => { const inp = row.querySelector(`[data-fcin="${key}"]`); return inp && inp.value !== "" ? Math.max(0, Number(inp.value)) * 1000 : null; };
-        const nil = val("promise"), coll = val("pcoll");
+        const inp = (key) => row.querySelector(`[data-fcin="${key}"]`);
+        const val = (key) => { const i = inp(key); return i && i.value !== "" ? Math.max(0, Number(i.value)) * 1000 : null; };
+        // A grey going rate beside a number you type is kept (your
+        // coordinator's board), so what the box shows is what he gets.
+        const shown = (key) => { const i = inp(key); return i && Number(i.dataset.usual) > 0 ? Number(i.dataset.usual) : null; };
+        let nil = val("promise"), coll = val("pcoll");
+        if (nil != null && coll == null && inp("pcoll")) coll = shown("pcoll");
+        else if (coll != null && nil == null) nil = shown("promise");
         const a = { id };
         if (nil != null) a.nil = nil;
         if (coll != null) a.coll = coll;

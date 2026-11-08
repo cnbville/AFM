@@ -76,16 +76,12 @@ fn chain_act(game: &mut Game, cmd: &str, args: &Value) -> Reply {
 fn with(game: &mut Game, f: fn(&World, usize) -> Reply) -> Reply {
     let w = game.world.as_mut().ok_or("No world is loaded.")?;
     desk::ready(w);
-    // Every player of yours has a deal before a screen shows them (a job
-    // just taken, a save from before).
-    desk::fill_deals(w);
     f(w, program(w)?)
 }
 
 fn with_args(game: &mut Game, args: &Value, f: fn(&World, usize, &Value) -> Reply) -> Reply {
     let w = game.world.as_mut().ok_or("No world is loaded.")?;
     desk::ready(w);
-    desk::fill_deals(w);
     f(w, program(w)?, args)
 }
 
@@ -181,13 +177,18 @@ fn act(game: &mut Game, cmd: &str, args: &Value) -> Reply {
         "college_cut" => desk::cut(w, id_arg(args)?)?,
         "nil_set" => desk::set_deal(w, id_arg(args)?, money_arg(args, "amount"), money_arg(args, "coll"))?,
         "nil_usual" => {
-            let n = desk::set_usual_deals(w)?;
-            if n == 0 {
+            let (n, blank) = desk::set_usual_deals(w)?;
+            let noun = afm_engine::world::folk::noun;
+            if blank == 0 {
                 "Every box already has a number.".into()
+            } else if n == blank {
+                format!("{n} empty {} filled at the going rate. Adjust any of them.", noun(n, "box"))
             } else {
+                let rest = blank - n;
                 format!(
-                    "{n} empty {} filled at the going rate. Adjust any of them.",
-                    afm_engine::world::folk::noun(n, "box")
+                    "{n} of {blank} empty boxes filled at the going rate. {rest} {} still {} nothing: the going rate is under $500, or the pot has too little left.",
+                    noun(rest, "box"),
+                    if rest == 1 { "pays" } else { "pay" }
                 )
             }
         }
@@ -1792,10 +1793,10 @@ fn nil(w: &World, j: usize) -> Reply {
     // Go clears it (B18).
     let usual: HashMap<u32, f64> = desk::usual_deals(w, j).into_iter().collect();
     let own: HashMap<u32, f64> = desk::collective_deals(w, j).into_iter().map(|x| (x.0, x.1)).collect();
-    // Your deals: every NIL dollar is yours, and each stands until you
-    // change it (Cain 2026-11-07).
-    let deals: HashMap<u32, f64> = d.deals.iter().copied().collect();
-    let coll: HashMap<u32, f64> = d.coll_deals.iter().copied().collect();
+    // Your deals as July 1 would pay them: every NIL dollar is yours, and
+    // each stands until you change it (Cain 2026-11-07); a player without
+    // one shows the deal he starts on.
+    let (deals, coll) = desk::deals_now(w, j).unwrap_or_default();
     let mut rows: Vec<Value> = Vec::new();
     for &i in &w.programs[j].roster {
         let p = &w.people[i];
@@ -1821,17 +1822,33 @@ fn nil(w: &World, j: usize) -> Reply {
         }));
     }
     let money = |a: Option<f64>, b: Option<f64>| a.unwrap_or(0.0) + b.unwrap_or(0.0);
-    let ids: Vec<u32> = d.board.iter().filter(|t| t.nil.is_some() || t.nil_coll.is_some()).map(|t| t.id).collect();
+    // Promised to recruits as the ledger counts it: the open promises, and
+    // each signee's numbers until he arrives (what he signed for).
+    let on: std::collections::HashSet<u32> = rows.iter().filter_map(|r| r["id"].as_u64()).map(|x| x as u32).collect();
+    let waiting: std::collections::HashSet<u32> = d.signed.iter().filter(|x| !on.contains(&x.0)).map(|x| x.0).collect();
+    let ids: Vec<u32> = d
+        .board
+        .iter()
+        .filter(|t| t.nil.is_some() || t.nil_coll.is_some())
+        .map(|t| t.id)
+        .chain(d.signed.iter().map(|x| x.0))
+        .collect();
     let at = index_map(w, &ids);
-    let promised: Vec<Value> = d
+    let mut promised: Vec<Value> = d
         .board
         .iter()
         .filter(|t| (t.nil.is_some() || t.nil_coll.is_some()) && t.offered.is_some() && t.pulled.is_none())
+        .filter(|t| !d.signed.iter().any(|x| x.0 == t.id) && !on.contains(&t.id))
         .filter_map(|t| {
             let p = &w.people[*at.get(&t.id)?];
             Some(json!({ "id": t.id, "name": p.name, "pos": p.player.position.name(), "stars": stars_of(p), "nil": money(t.nil, t.nil_coll), "school": t.nil, "coll": t.nil_coll, "standing": standing_key(desk::standing(p, j)) }))
         })
         .collect();
+    for x in d.signed.iter().filter(|x| waiting.contains(&x.0)) {
+        let Some(&i) = at.get(&x.0) else { continue };
+        let p = &w.people[i];
+        promised.push(json!({ "id": x.0, "name": p.name, "pos": p.player.position.name(), "stars": stars_of(p), "nil": x.1 + x.2, "school": x.1, "coll": (x.2 > 0.0).then_some(x.2), "standing": "signed" }));
+    }
     let ids: Vec<u32> = d.portal.iter().filter(|t| t.nil.is_some() || t.nil_coll.is_some()).map(|t| t.id).collect();
     let at = index_map(w, &ids);
     let portal: Vec<Value> = d

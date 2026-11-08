@@ -134,10 +134,58 @@ fn every_nil_dollar_is_yours_and_your_deals_stand() {
     fill_deals(&mut w);
     assert_eq!(deal_of(&w, id), Some((0.0, 0.0)), "a $0 box is a deal of nothing, not a blank");
     // Fill blanks puts the going rate back in every empty box.
-    let filled = set_usual_deals(&mut w).unwrap();
-    assert!(filled > 0, "{filled}");
+    let (filled, blank) = set_usual_deals(&mut w).unwrap();
+    assert!(filled > 0 && filled <= blank, "{filled} of {blank}");
     let now = usual_deals(&w, j).into_iter().find(|d| d.0 == id).unwrap().1;
     assert!((deal_of(&w, id).unwrap().0 - now).abs() <= 250.0 && usual > 0.0);
+}
+
+/// From the review of Cain's 2026-11-07 change: a recruit who signed
+/// before you took over starts on the old staff's money, a screen's read
+/// writes nothing, a player who leaves loses his deals, and a desk from
+/// before is brought up once on load.
+#[test]
+fn inherited_signees_old_desks_and_screens_keep_their_money() {
+    use crate::world::front_office::college::{NIL_REV, after_load, deals_now, deals_year};
+    let (mut w, j) = college(true);
+    // He signed with the program before your desk existed.
+    let class = rec::next_class(&w);
+    let k = w.people.iter().position(|p| p.stage == Stage::HighSchool && p.class_of == class).unwrap();
+    let signee = w.people[k].player.id;
+    w.people[k].cal.signed =
+        Some(crate::world::Signed { program: j, walk_on: false, date: w.today, early_enrollee: false, flipped: false });
+    fill_deals(&mut w);
+    let had = w.front_office.college.signed.iter().find(|x| x.0 == signee).copied();
+    assert!(had.is_some_and(|x| x.1 + x.2 > 0.0), "the old staff's usual money: {had:?}");
+    assert_eq!(w.front_office.college.nil_rev, NIL_REV, "a new desk is on the new rules");
+    // A screen's read: a player without a deal shows the one he starts on,
+    // and nothing is written.
+    let (id, _) = usual_deals(&w, j)[0];
+    w.front_office.college.deals.retain(|d| d.0 != id);
+    w.front_office.college.coll_deals.retain(|d| d.0 != id);
+    let before = serde_json::to_string(&w.front_office).unwrap();
+    let (s, c) = deals_now(&w, j).unwrap();
+    assert!(s.contains_key(&id) && c.contains_key(&id));
+    assert!(budget(&w, j).roster > 0.0);
+    assert_eq!(serde_json::to_string(&w.front_office).unwrap(), before, "a read never writes");
+    // A desk from before: last money year's deals lapse to the going rate.
+    fill_deals(&mut w);
+    w.front_office.college.nil_rev = 0;
+    w.front_office.college.deals_year = deals_year(&w) - 1;
+    for d in w.front_office.college.deals.iter_mut() {
+        d.1 = 1.0;
+    }
+    after_load(&mut w);
+    assert_eq!(w.front_office.college.nil_rev, NIL_REV);
+    assert!(w.front_office.college.deals.iter().all(|d| d.1 != 1.0), "lapsed deals start on the going rate");
+    after_load(&mut w);
+    // A player who leaves loses his deals.
+    let i = w.people.iter().position(|p| p.player.id == id).unwrap();
+    let x = (0..w.programs.len()).find(|&x| x != j && w.programs[x].division == w.programs[j].division).unwrap();
+    w.people[i].college = Some(x);
+    w.rebuild_rosters();
+    fill_deals(&mut w);
+    assert!(deal_of(&w, id).is_none(), "{:?}", deal_of(&w, id));
 }
 
 /// Stands the clock at your next section's first minute without playing
