@@ -156,6 +156,10 @@ struct Side<'a> {
     /// Per player, the spots he knows (bits of `Spot`): his listed spots,
     /// and the spot he worked at in this week's practice (fix list 3.3).
     familiar: Vec<u32>,
+    /// The job each linebacker, corner and safety is named to this week
+    /// (L1, C1): yours from your board's order, else the staff's pick.
+    /// On game day a named man plays his job; the engine doesn't re-sort.
+    job: Vec<Option<Spot>>,
     /// Snaps played this game, and the most he may play (update 2, G17:
     /// a snap limit back from injury; u16::MAX none).
     snaps: Vec<u16>,
@@ -199,6 +203,13 @@ struct Side<'a> {
     worded: Vec<u8>,
 }
 
+/// Blitz rate added per 10 lb of named linebacker and of named corner
+/// weight on the field over the level's typical men (L1, C1: real NFL
+/// defenses blitz 1.1 pts more per 10 lb of linebacker and 2 pts per 10 lb
+/// of corner; with the blitzer choice reading weight too, the engine lands
+/// at +1.0 a 10 lb of linebacker). Capped at 6 pts; proposed, not confirmed.
+const BLITZ_LEAN: f64 = 0.02;
+
 impl<'a> Side<'a> {
     fn new(team: &'a GameTeam, margin: f64, timeouts: u8) -> Side<'a> {
         let n = team.players.len();
@@ -208,6 +219,7 @@ impl<'a> Side<'a> {
         // spot by Saturday. A coach keeps a man where he knows the job
         // unless moving him is clearly better.
         let mut familiar: Vec<u32> = team.players.iter().map(|p| p.spots_played | p.spot.bit()).collect();
+        let mut job: Vec<Option<Spot>> = vec![None; n];
         // A left-handed starter's blind side is his right (`spots::blind_side`).
         let lefty = depth.list(Position::QB).first().is_some_and(|&i| team.players[i].left_handed);
         for pos in Position::ALL {
@@ -216,6 +228,15 @@ impl<'a> Side<'a> {
                 continue;
             }
             let list: Vec<usize> = depth.list(pos).iter().take(spots.len()).copied().collect();
+            // Your order names the jobs (L1): the board's slots by depth
+            // order, kept as you set them.
+            if spots::named_jobs(pos) && team.order.iter().any(|(p, _)| *p == pos) {
+                for (&i, &sp) in list.iter().zip(spots::board_jobs(pos)) {
+                    job[i] = Some(sp);
+                    familiar[i] |= sp.bit();
+                }
+                continue;
+            }
             let value = |i: usize, sp: Spot| {
                 let p = &team.players[i];
                 let cost = if familiar[i] & sp.bit() != 0 { 0.0 } else { fill_in(sp, p.spot) };
@@ -225,6 +246,9 @@ impl<'a> Side<'a> {
             for (k, i) in order.into_iter().enumerate() {
                 if let Some(i) = i {
                     familiar[i] |= spots[k].bit();
+                    if spots::named_jobs(pos) {
+                        job[i] = Some(spots[k]);
+                    }
                 }
             }
         }
@@ -243,6 +267,7 @@ impl<'a> Side<'a> {
             benched: vec![false; n],
             frozen: false,
             familiar,
+            job,
             snaps: vec![0; n],
             base_only: team.players.iter().map(|p| team.prep.base_only.contains(&p.id)).collect(),
             rot: team
@@ -378,6 +403,52 @@ impl<'a> Side<'a> {
         if self.familiar[i] & sp.bit() != 0 { 0.0 } else { fill_in(sp, self.team.players[i].spot) }
     }
 
+    /// His safeties' hitter read (S-A): the mean over the men named to the
+    /// safety jobs who can play.
+    fn safety_hitter(&self, level: Level) -> f64 {
+        let v: Vec<f64> = (0..self.team.players.len())
+            .filter(|&i| matches!(self.job[i], Some(Spot::FS | Spot::SS)) && !self.out[i])
+            .map(|i| super::scrimmage::hitter(level, &self.team.players[i]))
+            .collect();
+        // Read against the level's typical pair, so a typical FS and SS
+        // call the safeties' shells as before.
+        let typ = 0.5
+            * (super::synthetic::typical_hitter(level, Spot::FS) + super::synthetic::typical_hitter(level, Spot::SS));
+        if v.is_empty() { 0.0 } else { v.iter().sum::<f64>() / v.len() as f64 - typ }
+    }
+
+    /// The blitz lean from the weight of his named linebackers and corners
+    /// over his level's typical men (L1, C1), in blitz-rate points.
+    fn blitz_lean(&self, level: Level) -> f64 {
+        let mean = |pos: Position| {
+            let v: Vec<f64> = (0..self.team.players.len())
+                .filter(|&i| self.job[i].is_some_and(|s| s.position() == pos) && !self.out[i])
+                .map(|i| self.team.players[i].weight)
+                .collect();
+            if v.is_empty() {
+                0.0
+            } else {
+                (v.iter().sum::<f64>() / v.len() as f64 - super::synthetic::typical_body(level, pos).1) / 10.0
+            }
+        };
+        clamp(BLITZ_LEAN * (mean(Position::LB) + mean(Position::CB)), -0.06, 0.06)
+    }
+
+    /// How new he is to a job, 0-1 (L1): nothing at a spot he has been
+    /// listed at; else what he lacks of it (the fill-in cost over 3: a Will
+    /// at Sam a half, a safety at linebacker all of it), 0.6 of that once
+    /// he has worked there in this week's practice. It goes when his staff
+    /// lists him there (each spring in college, at training camp in the
+    /// NFL; your named jobs are listed too).
+    fn new_to_job(&self, i: usize, sp: Spot) -> f64 {
+        let p = &self.team.players[i];
+        if p.spots_played & sp.bit() != 0 || p.spot == sp {
+            return 0.0;
+        }
+        let lacks = (fill_in(sp, p.spot) / 3.0).min(1.0);
+        lacks * if self.familiar[i] & sp.bit() != 0 { 0.6 } else { 1.0 }
+    }
+
     /// What he gives at a spot this snap.
     fn at_spot(&self, i: usize, sp: Spot) -> f64 {
         self.team.players[i].spot_r[sp.index()] - self.unfamiliar(i, sp)
@@ -471,10 +542,27 @@ impl<'a> Side<'a> {
     /// Picks at a position with your package's men first (a safety you
     /// listed as the nickel plays there).
     fn pick_pref(&self, pos: Position, n: usize, used: &mut Vec<usize>, board: Option<u8>) -> Vec<usize> {
-        let Some(b) = board else { return self.pick(pos, n, used) };
-        let Some(ids) = self.team.prep.package(b) else { return self.pick(pos, n, used) };
+        let mut out: Vec<usize> = self.pick_package(pos, n, used, board).into_iter().map(|x| x.1).collect();
+        if out.len() < n {
+            out.extend(self.pick(pos, n - out.len(), used));
+        }
+        out
+    }
+
+    /// Your package's men at a position for a board, each with the slot
+    /// you put him in (its label on the board), in slot order; nothing
+    /// when you set no package.
+    fn pick_package(
+        &self,
+        pos: Position,
+        n: usize,
+        used: &mut Vec<usize>,
+        board: Option<u8>,
+    ) -> Vec<(&'static str, usize)> {
+        let Some(b) = board else { return Vec::new() };
+        let Some(ids) = self.team.prep.package(b) else { return Vec::new() };
         let slots = crate::training::seat::Board::ALL.get(b as usize).map_or(&[][..], |x| x.slots());
-        let mut out = Vec::new();
+        let mut out: Vec<(&'static str, usize)> = Vec::new();
         // Package depth (G15): the slot's second and third man when the
         // first can't go.
         let backs = self.team.prep.backups.iter().find(|(x, _)| *x == b).map_or(&[][..], |(_, v)| v.as_slice());
@@ -485,18 +573,71 @@ impl<'a> Side<'a> {
             let first = [id, backs.get(2 * k).copied().unwrap_or(0), backs.get(2 * k + 1).copied().unwrap_or(0)];
             let pick = first.into_iter().filter(|&id| id != 0).find_map(|id| {
                 self.team.players.iter().position(|p| p.id == id).filter(|&i| {
-                    !self.out[i] && !self.benched[i] && !self.held(i) && !used.contains(&i) && !out.contains(&i)
+                    !self.out[i]
+                        && !self.benched[i]
+                        && !self.held(i)
+                        && !used.contains(&i)
+                        && !out.iter().any(|x| x.1 == i)
                 })
             });
             if let Some(i) = pick {
-                out.push(i);
+                out.push((slots[k].0, i));
                 used.push(i);
             }
         }
-        if out.len() < n {
-            out.extend(self.pick(pos, n - out.len(), used));
-        }
         out
+    }
+
+    /// The men at a named-job position (linebackers, corners, safeties;
+    /// L1, C1) for the slots this call puts on the field: your package's
+    /// men in the slots you gave them, then each job's named man while he
+    /// is fresh, then the staff's next men by fit for what is left. Nobody
+    /// named is re-sorted.
+    fn pick_jobs(&self, pos: Position, want: &[DSlot], used: &mut Vec<usize>, board: Option<u8>) -> Vec<Option<usize>> {
+        let mut at: Vec<Option<usize>> = vec![None; want.len()];
+        let mut loose: Vec<usize> = Vec::new();
+        for (label, i) in self.pick_package(pos, want.len(), used, board) {
+            match (0..want.len()).find(|&k| at[k].is_none() && board_slot(label, want[k])) {
+                Some(k) => at[k] = Some(i),
+                None => loose.push(i),
+            }
+        }
+        // The named men, the jobs the defense can't do without first.
+        let th = if self.frozen { 0.0 } else { self.threshold(pos) };
+        let mut order: Vec<usize> = (0..want.len()).collect();
+        order.sort_by_key(|&k| job_priority(want[k]));
+        for k in order {
+            if at[k].is_some() {
+                continue;
+            }
+            let sp = dslot_spot(want[k]);
+            let named = (0..self.team.players.len()).find(|&i| {
+                self.job[i] == Some(sp)
+                    && !self.out[i]
+                    && !self.benched[i]
+                    && !self.held(i)
+                    && !used.contains(&i)
+                    && !loose.contains(&i)
+                    && !at.contains(&Some(i))
+                    && (self.energy[i] >= th || self.rot[i] == 1)
+            });
+            if let Some(i) = named {
+                at[k] = Some(i);
+                used.push(i);
+            }
+        }
+        let open: Vec<usize> = (0..want.len()).filter(|&k| at[k].is_none()).collect();
+        if !open.is_empty() {
+            let need = open.len().saturating_sub(loose.len());
+            let mut got = loose;
+            got.extend(self.pick(pos, need, used));
+            let spots: Vec<Spot> = open.iter().map(|&k| dslot_spot(want[k])).collect();
+            let fit = best_order(&got, &spots, &|i, sp| self.at_spot(i, sp));
+            for (j, i) in fit.into_iter().enumerate() {
+                at[open[j]] = i;
+            }
+        }
+        at
     }
 
     /// The punt team's gunners (speed update S10): the two backups who play
@@ -3163,6 +3304,14 @@ impl<'a> Game<'a> {
                 DefPersonnel::GoalLine => Some(2),
                 _ => None,
             };
+            if spots::named_jobs(pos) {
+                for (k, i) in d.pick_jobs(pos, &want, &mut dused, board).into_iter().enumerate() {
+                    if let Some(i) = i {
+                        def.push((want[k], i));
+                    }
+                }
+                continue;
+            }
             let got = d.pick_pref(pos, want.len(), &mut dused, board);
             let spots: Vec<Spot> = want.iter().map(|&s| dslot_spot(s)).collect();
             let order = best_order(&got, &spots, &|i, sp| d.at_spot(i, sp));
@@ -3406,7 +3555,9 @@ impl<'a> Game<'a> {
             }
         }
         let qb_watch = qb.map_or(0.0, |i| qb_spy(&self.sides[o].team.players[i]));
-        let mut dctx = calling::DefCtx { qb_run: qb_watch, ..Default::default() };
+        let hitter = self.sides[1 - o].safety_hitter(self.rules().level);
+        let heavy = self.sides[1 - o].blitz_lean(self.rules().level);
+        let mut dctx = calling::DefCtx { qb_run: qb_watch, hitter, heavy, ..Default::default() };
         // Our call words in their hands (update 2, G5): someone who left
         // with them reads the call like a tell.
         let leak = self.sides[o].team.prep.leak[0];
@@ -3665,13 +3816,16 @@ impl<'a> Game<'a> {
             .map(|((e, p), f)| e + p.lift + f)
             .collect();
         // A man at a spot he doesn't know plays below his rating there (3.3);
-        // the punt units' jobs are their own.
+        // the punt units' jobs are their own. A man new to his job reads
+        // later and busts more until he is listed there (L1).
+        let mut new_job = vec![0f32; self.sides[d].team.players.len()];
         if fake.is_none() {
             for &(rl, i) in &off {
                 hurt_edge_o[i] -= self.sides[o].unfamiliar(i, orole_spot(rl));
             }
             for &(sl, i) in &def {
                 hurt_edge_d[i] -= self.sides[d].unfamiliar(i, dslot_spot(sl));
+                new_job[i] = self.sides[d].new_to_job(i, dslot_spot(sl)) as f32;
             }
         }
         // An emergency (3.6): a man from another position group, when his
@@ -3737,6 +3891,7 @@ impl<'a> Game<'a> {
             edge: [&hurt_edge_o, &hurt_edge_d],
             pulse: [&self.sides[o].pulse, &self.sides[d].pulse],
             hurt: [&self.sides[o].hurt, &self.sides[d].hurt],
+            new_job: &new_job,
             trust: [&self.sides[o].trust, &self.sides[d].trust],
             call,
             dcall,
@@ -4949,7 +5104,13 @@ impl<'a> Game<'a> {
     fn def_options(&self, sit: &Situation, call: &OffCall, staff_call: &DefCall, qb_run: f64) -> Vec<DefCall> {
         let d = 1 - self.poss;
         let staff = self.sides[d].team.staff;
-        let dctx = calling::DefCtx { qb_run, tip: 0.0 };
+        let level = self.rules().level;
+        let dctx = calling::DefCtx {
+            qb_run,
+            tip: 0.0,
+            hitter: self.sides[d].safety_hitter(level),
+            heavy: self.sides[d].blitz_lean(level),
+        };
         let base = (self.s.seed as u32) ^ self.n.wrapping_mul(0x7FEB_352D) ^ 0x0DEF_0BEE;
         let mut seen: Vec<(DefCall, usize)> = vec![(*staff_call, 1)];
         for j in 0..40u32 {
@@ -5763,6 +5924,38 @@ fn orole_spot(r: ORole) -> Spot {
     }
 }
 
+/// Whether a package board's slot (its label) is this defensive slot.
+fn board_slot(label: &str, d: DSlot) -> bool {
+    match label {
+        "MIKE" => d == DSlot::Mike,
+        "WILL" => d == DSlot::Will,
+        "SAM" => d == DSlot::Sam,
+        "CB" => matches!(d, DSlot::CBL | DSlot::CBR),
+        "NICKEL" => d == DSlot::NCB,
+        "DIME" => d == DSlot::DCB,
+        "FS" => d == DSlot::FS,
+        "SS" => d == DSlot::SS,
+        _ => false,
+    }
+}
+
+/// Which job a defense fills first from its named men when a man is
+/// short: the Mike before the Will before the Sam, the outside corners
+/// before the nickel, the strong safety before the free.
+fn job_priority(d: DSlot) -> u8 {
+    match d {
+        DSlot::Mike => 0,
+        DSlot::Will => 1,
+        DSlot::Sam => 2,
+        DSlot::CBL | DSlot::CBR => 0,
+        DSlot::NCB => 1,
+        DSlot::DCB => 2,
+        DSlot::SS => 0,
+        DSlot::FS => 1,
+        _ => 3,
+    }
+}
+
 /// The depth-chart spot a defensive slot asks for.
 fn dslot_spot(s: DSlot) -> Spot {
     match s {
@@ -5770,7 +5963,8 @@ fn dslot_spot(s: DSlot) -> Spot {
         DSlot::DTL | DSlot::DTR => Spot::DT,
         DSlot::NT => Spot::NT,
         DSlot::Mike => Spot::MLB,
-        DSlot::Sam | DSlot::Will => Spot::OLB,
+        DSlot::Sam => Spot::SAM,
+        DSlot::Will => Spot::OLB,
         DSlot::CBL | DSlot::CBR => Spot::CB,
         DSlot::NCB | DSlot::DCB => Spot::NB,
         DSlot::FS => Spot::FS,
