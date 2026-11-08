@@ -368,16 +368,21 @@ function fcFile(f, ctx, compact) {
   return `<section class="fc-file warm">${left}${mid}${right}</section><div class="grid3">${family}${history || '<div class="panel"><h2>Visits and contacts</h2><div class="empty">He hasn\'t been on your campus yet.</div></div>'}${early || '<div class="panel"><h2>His offers in order</h2><div class="empty">No offers yet.</div></div>'}</div>`;
 }
 
+// Your own film session on him (bug 82): today, on your own film hours;
+// when you can't, the button says why. A transfer's tape is his last
+// college team's games, a redshirt's his high school's (minor bug 353).
+function fcFilmBtn(f) {
+  const fn = f.film_now;
+  const why = fn && fn.blocked ? (/today/.test(fn.blocked) ? "watched today" : /resting/.test(fn.blocked) ? "resting" : /open/.test(fn.blocked) ? "cut-up open" : "hours spent") : fn ? `${fn.left.toFixed(1)} h left` : "";
+  const title = fn && fn.blocked ? fn.blocked : `Watch his film yourself, today, in the film room, on your own film hours: read by your own eye${fn && fn.source ? `. The tape is ${fn.source}.` : ""}`;
+  return `<button class="st-btn small glass l7-film" data-go="film" data-id="${f.id}" title="${esc(title)}">Watch his film now${why ? ` <small>${why}</small>` : ""}</button>`;
+}
+
 // The buttons for a recruit: board, offer, your own time, his NIL number.
 function fcActions(f) {
   const b = [];
   const closed = ["signed", "enrolled", "signed_elsewhere", "gone"].includes(f.standing);
-  const fn = f.film_now;
-  if (!["signed", "enrolled", "gone"].includes(f.standing)) {
-    const why = fn && fn.blocked ? (/today/.test(fn.blocked) ? "watched today" : /resting/.test(fn.blocked) ? "resting" : /open/.test(fn.blocked) ? "cut-up open" : "hours spent") : fn ? `${fn.left.toFixed(1)} h left` : "";
-    const title = fn && fn.blocked ? fn.blocked : "Watch his film yourself, today, in the film room, on your own film hours: read by your own eye";
-    b.push(`<button class="st-btn small glass l7-film" data-go="film" data-id="${f.id}" title="${esc(title)}">Watch his film now${why ? ` <small>${why}</small>` : ""}</button>`);
-  }
+  if (!["signed", "enrolled", "gone"].includes(f.standing)) b.push(fcFilmBtn(f));
   if (!f.board_yours) {
     b.push(`<p class="sub">Your coordinator runs the board: his offers and order stand until you take it back.</p>`);
   } else if (!closed) {
@@ -530,6 +535,8 @@ screens.recruit_file = async (a) => {
 // see him at home; he says yes the day your offer clears what he needs.
 function fcPortalMoves(f) {
   const b = [];
+  // His tape (minor bug 353): a transfer's last college team's games.
+  if (f.film_now) b.push(fcFilmBtn(f));
   // A blank box is no money; the tip gives a typical transfer's share. In
   // two pots each box names its pot (Cain, 2026-11-08: "which is which?").
   const box = (key, val, usual, what) => `<label class="fc-moneyin" title="${esc(`${what}. A typical transfer's share here: about ${money(usual)} a year`)}">${f.two_pots ? `<span class="fc-pot">${key === "pcollp" ? "Collective deal" : "Revenue share"}</span>` : ""}$<input type="number" min="0" step="5" value="${val != null ? Math.round(val / 1000) : ""}" placeholder="none" data-fcin="${key}" data-id="${f.id}">thousand a year</label>`;
