@@ -402,6 +402,83 @@ I'm with you either way. I'd just keep it calm today. ~ loyal
 I'll stand next to you on whatever you say. I think they need less. ~ loyal
 A game like this gets noticed. Keep them composed and it'll look sharp on tape. ~ climber
 Win this one clean and everybody sees it. No dumb penalties. ~ climber
+Coach, the room's running hot. Bring it down before you walk in. ~ hs
+Easy on the volume. Let them see you calm and they'll settle. ~ calm
+Too many of them are fired up at once. Pick one message and keep it short.
+Keep your voice low. They'll lean in and quiet down for you. ~ warm
+Their hearts are racing. Slow your pace and theirs will follow.
+Save the big talk for the fourth quarter. They've already spent it. ~ nfl
+Nobody needs more adrenaline. Give them the plan and sit down. ~ strict
+The energy in there is real, just aimed at the walls. Redirect it.
+Honestly, a few words and a steady look will do more than any speech. ~ calm
+Coach, the young guys are vibrating. Ask them to sit a minute first. ~ hs
+This is good energy turning sloppy. Tighten it up before kickoff. ~ college
+Bring them down a notch and they'll play with their heads. ~ nfl
+I'd keep it simple. Two points, then get them on the field. ~ hs
+The room smells like a fight waiting to start. Cool it, Coach. ~ hot
+Settle them. They're going to run out of gas before halftime at this clip. ~ college
+Let them come to you. Right now they're all talking at once. ~ calm
+Too much noise, not enough focus. Ask for silence and they'll give it. ~ hs cold
+They're hungry, and hungry can mean reckless. Keep them disciplined. ~ strict
+Wound up tight, the whole group. A quiet word lets the pressure out. ~ warm
+I'd give them one clear assignment. Too much feeling and no direction. ~ college
+You don't have to pump them up. They're there. Just steady the rest. ~ nfl
+Some of them look ready to tackle the bus. Ease them off. ~ hs
+We need composure more than fire today. Tell them that plainly. ~ college
+Pull the cord on the noise, Coach. Silence makes them listen. ~ midwest
+They're loose and jumpy. A calm plan keeps them from breaking. ~ nfl calm
+I'd talk about the first call and nothing more. They're overheating. ~ hs
+Some guys are going to swing before the whistle if we're not careful. ~ hot
+Quiet confidence, Coach. That's what this room needs right now. ~ calm
+This group runs on adrenaline and crashes fast. Pace them. ~ young
+Ease up, Coach. Let them breathe and find their own rhythm. ~ warm
+It's pouring out of them already. Stop the flow and point it at the play. ~ college
+Keep the message steady. Anything bigger spills over the lip. ~ nfl
+I think a little less speech and more breathing. They're ready to snap. ~ hs
+Too much juice and not much control. Give them a handle. ~ college
+Let them burn off some nerves, then bring them back to the plan. ~ hs
+The room is full of young legs and bigger mouths. Calm them. ~ hs
+There's a lot of talk and not much listening. Be the one who listens. ~ calm
+Keep it cool, Coach. The loud room will make the mistakes for us. ~ college
+Their energy is sky high. We win by keeping it level. ~ nfl
+Too many guys trying to be the hero. Remind them it's eleven players. ~ nfl
+They'll tear the field up if you let them. Don't. ~ hs
+Keep your words few and plain. They'll hang on each one. ~ strict
+I'd ask for a quiet minute before you say anything at all. ~ hs cold
+Let them see the fire behind your eyes, not in your voice. ~ calm
+They need a reset more than a rally. Give them one. ~ nfl
+The room's buzzing too loud for someone who needs to be sharp. ~ college
+Keep the speech under a minute. Anything longer and they'll explode. ~ hs
+This is the kind of energy that makes missed blocks. Slow it. ~ college
+I can see the adrenaline in their hands. Let them shake it out first. ~ hs
+Tell them to hold the fire until the whistle. Then let it loose. ~ college
+Give them a breath before you give them a plan. ~ warm
+The noise in there is a lot of nerves wearing a mask. Speak softly. ~ hs
+I'm worried about the early mistakes. The room's too hot. ~ college
+Simple words, Coach. They can't handle a long sermon right now. ~ young
+Their adrenaline is high and their focus is low. Balance it. ~ college
+Let them yell their hearts out in the tunnel. Then settle them on the field. ~ hs
+Their chatter is loud, and loud chatter costs penalties. ~ strict
+It's a tense room. A calm word from you will cool it fast. ~ calm
+Bring the tempo down and they'll stop tripping over themselves. ~ college
+The room's crackling. Slow it down before a spark gets someone hurt. ~ hot
+Keep the room low, Coach. Quiet heads play better than loud ones. ~ calm
+Pull back on the volume a notch before you walk in. ~ hs
+Out west we'd call that a bonfire. Put a lid on it before kickoff. ~ west
+Let them roar in the tunnel, then settle them on the field. ~ hs
+Ease off the fire, Coach. A steady voice wins this one. ~ calm
+This room is pure adrenaline. Give them a single clear assignment. ~ nfl
+Texas boys get wound up like this in big games. Slow it down. ~ texas
+Nerves and noise are filling the room. A calm word clears it. ~ calm
+Honestly, the loudest guys are the ones who'll jump first. Settle them. ~ hs
+We win this with patience, and this room has none. ~ college
+Keep your voice level and they'll match it. Raise it and they'll spike. ~ hs calm
+A few of these guys are ready to fight anybody in a helmet. Cool it. ~ hot
+Bring them down before the anthem or they'll burn out by the half. ~ college
+The room's humming too hot for a clean first drive. Settle it. ~ nfl
+Easy, Coach. They're already charged, and charged teams jump offsides. ~ college
+Give them the plan, then get out of the way. They're too wound up to take more. ~ nfl
+I'd have them sit and breathe before you say a word. ~ hs cold
 
 @key gameday.staff.captain
 Let {player} take it. They need to hear it from him.
@@ -787,6 +864,100 @@ It's their game today. Let their voice be the one they hear.
 I wouldn't talk long. Hand it over and let them go.
 Let him say it his way. It'll land harder than any plan of ours.
 A lot of those guys would run through a wall for {player}. Ask him to talk.
+Give the room a minute to {player} before you open.
+Coach, my read is {player} should go first.
+Hear him out first, then take it back.
+Every head turns to {player} right now. Use that.
+Hold the floor a second and let {player} step in.
+The guys respect {player}. Start there. ~ hs
+Before the speech, get {player} to say a word.
+They lean forward when {player} talks. Use it. ~ college
+I'd pass the talk to {player} and keep my part short.
+Something tells me {player} can say it better today.
+You can say it, but they want it from {player}.
+{player} has the locker room. Ride that for a bit. ~ nfl
+Maybe the message from {player} beats anything we plan.
+Honest read: they'll take it from {player} before us. ~ college
+Let him set the tone. You just back it up.
+{player} gets the quiet in the room. Give him that. ~ hs calm
+Pass the chance to {player} while the room is still loose.
+Coach, {player} speaks the way they talk. Let him go. ~ college young
+Say a sentence, then hand it to {player}.
+That room hangs on what {player} says next.
+{player} can cut through the noise in there. Let him try. ~ hs hot
+Right now the team needs {player} more than a speech. ~ nfl
+I'd send {player} up first, then you close it out. ~ college strict
+It'll land harder coming from {player} than from the staff.
+They trust {player} to tell the truth. Let him tell it. ~ hs loyal
+Put {player} in front of the group and step back.
+A quick word from {player} might settle the whole room. ~ college calm
+{player} has the respect of that room. Use it while it lasts.
+Let him speak long enough to set the tone. ~ hs
+My vote goes to {player} first. Then we talk.
+Watch {player}, Coach. He's ready to say what they need. ~ hs
+The room tightens when {player} stands up. Let him stand. ~ college
+Give {player} the spotlight before the lights go on. ~ nfl
+That kid can reach the back rows. Let {player} go first. ~ college
+Step back and let {player} claim the room.
+He knows how these guys think. Hand him the mic. ~ nfl expro
+{player} will make them listen. That's what we need. ~ hs
+Feels right to let {player} lead today. ~ young
+Let {player}'s words hang in the room before we add ours.
+Coach, {player} will say the right thing. Trust that.
+My read says {player} should carry this one. ~ college loyal
+Sit back, Coach. {player} has this room. ~ nfl calm
+He's got the room in his hands, so let him run it. ~ hs
+We can stand back and watch {player} work. ~ college
+Let {player} talk, Coach. Then you tie it together.
+Everybody's waiting to hear from {player} right now. ~ hs
+Trust {player}, Coach. He knows what the room needs. ~ college loyal
+Our plan fits better when {player} sets it up.
+Give {player} the floor before you talk about the plan. ~ college
+They trust {player} to be honest. Use it. ~ college warm
+Put {player} out front and see how the room changes. ~ hs hot
+I think {player} can get them there before we do. ~ nfl climber
+Calm read, Coach. {player} can settle this room better than we can. ~ calm
+Your last word would sound like a plan. His sounds like the truth. ~ calm
+Captains earn it, and {player} has. Give him the first minute. ~ climber
+We've got your back, Coach, but {player} should open. ~ loyal
+They've heard every word from us. Put {player} up there. ~ old
+Old lesson, Coach: the captain keeps the room honest. Let {player} do it. ~ old
+I'm young enough to remember how a captain's word hit me. Give {player} the floor. ~ young
+Look how the younger guys watch {player}. Let him speak first. ~ young
+Coach, a tight room needs a voice from inside it. Let {player} go. ~ expro
+I've been on a sideline like this. Let the captain talk. ~ expro
+Discipline's already in this room. {player} can speak to it. Let him. ~ strict
+Two sharp sentences from {player}, then get them out. That's the plan. ~ strict
+They're tight with {player}. He'll say it warm, and they'll hear it. ~ warm
+Your message is clear, Coach. Use {player}'s voice to carry it. ~ cold
+Stand back and let {player} start. It's his group. ~ she
+Coach, let {player} lead it. They'll hear him over our noise. ~ she
+Give {player} the floor, Coach. He sees what the room needs. ~ nfl
+Quick read: {player} speaks, you close. That order sticks. ~ hs
+He's the one they're looking at. Let him talk, Coach. ~ hs hot
+I won't take the room today. Give it to {player}. ~ hs loyal
+That captain's been building this group all year. Let him tell them. ~ college
+Your call, Coach, but {player} should go first. ~ nfl
+Give {player} his shot at it. It'll stick better that way. ~ college
+They respect him, and they'll listen when he speaks. ~ hs
+When {player} speaks, the room holds still. Give him that. ~ hs calm
+You're coaching them all week. Today let {player} coach them. ~ college cold
+Honestly, {player} can get through to them. Go ahead. ~ midwest
+They'll trust a captain before they trust a sheet of paper. Let {player} speak. ~ hs
+Bring {player} up before you speak, Coach. ~ hs
+Could be {player}'s day to take the mic. ~ college
+Trust the captain on this one. He knows where the room is at. ~ nfl
+Give {player} the first minute and then close it out. ~ hs
+Most of them will tune you out, but they'll stop for {player}. ~ hs calm
+My read: {player} goes first, then you finish. ~ college she
+Our kids are a little rattled. {player} could steady them. ~ hs warm
+Hand {player} the room and step back. He'll do fine. ~ nfl
+Your words are good, but {player} will make them stick. ~ college
+Get {player} up there while the room is still listening. ~ hs hot
+Back where I grew up, the captain talked before the coach did. Try it. ~ hs south
+Give {player} a shot to say the important part. ~ hs young
+A teammate's voice beats a clipboard every time. ~ college old
+Put {player} first and keep your part short. ~ strict
 
 @key gameday.staff.flat
 No juice in there today.
@@ -1184,6 +1355,87 @@ Vets are just sitting there. Nobody's pushing anyone. ~ nfl
 Back home we'd call that a dead crowd. Same feel in that room. ~ south
 Honestly, it reminds me of a room back in Texas that never woke up. ~ texas
 Rough one. Not a lot of grit in that room right now. ~ northeast
+Nobody's bringing fire in there yet, Coach.
+Vets are quiet, and the young guys are copying them. ~ nfl
+Not one of them is bouncing or chirping, Coach. ~ hs
+That bunch looks like it's already in the second half.
+Guys are zoned out, Coach. Pull them back in. ~ college
+Reckon the long week finally caught up to them. ~ hs south
+Slow room, slow eyes. You'll see it when you walk in.
+Not a sound from the back row. Flat as a parking lot. ~ hs
+Dull is the word for it, Coach. ~ nfl
+Heads are down and the walk-throughs have been too long. ~ hs
+I'd cut the pregame talk short and make it count. They're flat.
+Guys look like they want the day to be over already. ~ college
+Nobody's laughing, nobody's yelling. Just breathing. ~ hs
+Lifeless in there, and the vets set that tone. ~ nfl strict
+Eyes glassy, shoulders slumped. That's the room. ~ hs
+Our older guys aren't pulling anyone up. Flat from top to bottom. ~ college
+There's no snap in that room, Coach. Give them a jolt.
+They're present, but nothing is firing. ~ nfl
+Room's gone quiet like a library. Not what we need. ~ college
+They're going through motions. Make them mean it.
+I'd be surprised if they're awake by the first whistle the way they look now. ~ hs
+Some of the freshmen look like they're waiting to be told they can breathe. ~ college young
+No edge, no grit. Give them a reason to show it.
+Room's quiet and it's the wrong kind of quiet. ~ nfl
+That room needs a voice, and it's not going to come from the players. ~ hs
+The kids are sleepy, and nobody's pushing them awake. ~ hs
+The starters look like they already lost. Fix that. ~ nfl hot
+Flat room. The walk-ons are following the lead of guys who aren't talking either. ~ college
+Nobody's yelling, nobody's bouncing. It's a funeral in there. ~ hs
+They've got no bite right now, Coach. Find some.
+Our guys are scrolling their phones like it's a study hall. ~ college modern
+Room's heavy, and the vets look like they're sleepwalking. ~ nfl
+It's quiet in a way that worries me. Nobody's even nervous. ~ hs
+They don't look hungry, Coach. They look tired.
+Lazy eyes and sleepy mouths in there. Give them a jolt. ~ hs
+A dead room before kickoff is a long afternoon. Wake them up. ~ nfl
+Flat as a pancake in there. ~ hs south
+They're sitting like they've already decided it's a bad day. ~ college
+The room's quiet and nobody's pushing anybody. That's not like this group. ~ hs
+Veterans have gone quiet, and the young ones have nobody to follow. ~ nfl young
+Flat, Coach. Hit them with something specific and real.
+Coach, I can see it in their eyes. Nobody's up yet. ~ hs
+Not a word from the back row. We're sleepwalking into this one. ~ college
+The guys are cooked before we've started. Let's change that. ~ nfl hot
+Flat across the board, Coach. The seniors look like they're somewhere else. ~ college
+Quiet isn't the same as ready, and this group is just quiet. ~ hs
+Expect nothing from the bench today unless you push them to give it. ~ nfl cold
+Half the offense is staring at the floor and the other half is staring at the clock. ~ college
+Tell them something true about this season. Nobody's feeling it yet. ~ hs warm
+The energy didn't make it through the tunnel today. ~ nfl
+Room's got a heavy feel to it, like nobody slept. ~ hs
+Some of them look like they're carrying a load from school all week. ~ hs
+This feels like a practice squad room, not a game-day room. ~ nfl
+The seniors are the ones who should be loud right now, and they aren't. ~ college strict
+There's nothing wrong with them. There's just nothing going on. ~ hs calm
+Man, I'd rather see them angry than this. ~ hs hot
+A few of them are bobbing their heads to nothing. That's about it. ~ college modern
+Flat, Coach, and it's the kind that comes from doubt more than tiredness. ~ nfl
+The front seven is quiet. Usually they're the loudest group in the building. ~ college
+Vets have done the work and are waiting for the whistle. That's all they've got. ~ nfl calm
+Not one player has asked about the matchup. That tells me plenty. ~ college
+A flat room now means a flat quarter later. You've seen it. ~ college old
+Every guy in there is in his own head right now. ~ hs
+This room needs a jolt of something real, not just a rah-rah speech. ~ college
+Coach, I'd say the flat part out loud. They know it's there. ~ college loyal
+Heads are low and so is the noise. It's a bad combo. ~ hs
+I've seen a flat room turn around with one good word. Pick the right one. ~ college calm
+Nobody's joking, nobody's bouncing. Fix that first. ~ nfl
+The walk-ons are staring at the scholarship guys and nobody's talking. ~ college
+Whatever is in the air, it isn't game day. ~ college
+If they're this flat in the pregame, it'll show up on the first series. ~ nfl climber
+Something's off, and the room knows it. ~ hs warm
+They'll go through the motions and the other team will smell it. ~ college
+That room's quiet in a bad way. Don't ignore it. ~ nfl strict
+Not much fight, not much fear, and not much fun. ~ hs
+Flat. Not beaten, just flat. There's a difference and it matters. ~ college calm
+Our guys look like they're waiting on a ride home. ~ hs
+You might have to be the one who makes noise in there, Coach. ~ nfl hot
+If we don't wake them up, the first drive will do it for us. ~ hs
+Too much silence in there, Coach. Break it.
+Kids are sitting there like they're waiting to hear a grade. ~ hs
 
 @key gameday.staff.good
 They're locked in, Coach. Keep it short.
@@ -2071,6 +2323,75 @@ Hear it for yourself, then look at their eyes. You'll see.
 We'd better find the real thing in there fast.
 They clap and they holler and I still don't feel anybody leaning in.
 Plenty of Friday night swagger. I don't see the preparation to match. ~ hs
+Quiet room, Coach. The talk is loud and the eyes are somewhere else. ~ hs
+Ask them to explain the first call. If they stall, the noise is cover. ~ nfl strict
+Watched {player} stretch and he was miles away. ~ college
+Loud before kickoff, empty by the second series. Plan for that. ~ nfl expro
+All the energy is up front and none of it is coming from the back. ~ college
+Nobody mentioned the assignment in there. Just the crowd and the hype. ~ hs
+Pull the captains aside first. If they sound hollow, the whole room will.
+Good volume, no weight behind it. Something to fix before we walk out. ~ college calm
+The chant is loud, but the stance drill was sloppy. Make them redo it. ~ hs strict
+Same speech they've heard all year, just louder. It isn't landing. ~ nfl
+It's the sound of a team hoping it's ready. ~ hs
+Lot of fire in the pregame, not much in the eyes. ~ she
+Real readiness is quiet and a little ugly. This is polished noise. ~ nfl
+The loud guys are the ones I'd watch. They're covering. ~ college
+They believe the crowd will carry them. That's not a plan. ~ hs
+Ask me, the room feels like a rehearsal nobody took seriously. ~ college
+The energy is borrowed from the stands, Coach. It won't last. ~ hs
+I'd rather hear a little nervousness than this fake calm. ~ college calm
+Walked past the room and heard a lot of nothing. ~ nfl
+They've got the swagger of a team that's already won. We haven't. ~ college
+They're repeating the mantra and not the adjustments. ~ nfl strict
+Too many guys looking at their phones, too few looking at each other. ~ hs modern
+Nice pep, but I can see the stare isn't there. ~ college
+It feels like a bluff they're hoping we don't call. ~ nfl hot
+Crowd's loud, locker room's quiet in the wrong way. ~ college
+They're sounding ready on the surface and dropping the ball underneath. ~ nfl
+I'd tighten the talk and make them show it in the stance. ~ hs
+The chatter's up, the assignments are hazy. Fix that first. ~ college
+You could hear the chant from the hall. You couldn't hear a single call. ~ nfl
+Half the room is nodding and not listening. ~ college
+The volume's there. The conviction's leaking out the back. ~ hs she
+Sounds like a team that practiced its speeches all week. ~ college
+They've been told they're ready so many times they believe it. I don't. ~ nfl
+Watch the eyes, Coach. The noise is up and the focus is down. ~ college
+The room's full of swagger and short on trust in each other. ~ nfl
+That's a loud group with a quiet plan, and I don't like the quiet part. ~ college
+I'd go in and check their feet, not their mouths. ~ hs
+Too much talk about the crowd, not enough about the blitz. ~ college
+Lot of talk about going out and winning, not about how. ~ hs
+They're cheering for each other and forgetting the job. ~ college
+The room is hollow, and a good speech won't fix hollow. ~ nfl expro
+There's energy, but it's sitting on top of nothing. ~ college
+Every one of them said they were ready. Not one of them looked it. ~ hs
+Plenty of fire on the sideline and not a lot in the huddle. ~ college
+That room is making a lot of promises it hasn't checked. ~ nfl
+It's the loudest I've heard them, and I've heard nothing solid. ~ college calm
+Nobody's really looking at anybody in there. ~ hs
+Sounds good from the hallway, empty from the door. ~ nfl
+They're saying the right words and skipping the reps behind them. ~ nfl strict
+Too much posturing and not enough preparing. ~ hs
+Don't let them mistake the noise for a game plan. ~ college
+Nobody's nervous out loud and the quiet ones look scared. ~ college calm
+It sounds like confidence and feels like a sales pitch. ~ college
+I'd say it to their faces, they're faking it and they know. ~ hs hot
+The locker room is loud, the unit meetings were quiet. That's the tell. ~ nfl
+Plenty of noise from the young guys, none from the leaders. ~ college young
+Hold them to the first snap, not the first chant. ~ hs
+It's a room that wants the feeling without earning it. ~ nfl
+Every chant ends the same way, nobody pushing past it. ~ college
+I don't feel the weight in the room, just the volume. ~ nfl
+There's a difference between hype and readiness, and this is hype. ~ college
+Talk is free, Coach. They're spending it all before the snap. ~ hs
+The room hears the words, not the message. ~ nfl
+Quieter than I'd like, and the quiet is the honest part. ~ college calm
+The swagger is real on the outside. The homework isn't. ~ hs
+They need to feel the stakes, not the noise. ~ nfl
+Sounds like a team on a poster, not one on the field. ~ college
+I'd pull the energy down and aim it at the first series. ~ hs calm
+Everyone's loud and nobody's specific. ~ college
 
 @key gameday.staff.tight
 They're tight, Coach. Give them something to breathe on. ~ college
@@ -3232,6 +3553,124 @@ The week before a rivalry game, I tell my players to treat it like any other. Th
 Every recruit gets a scholarship letter and a plan. I won't give him one without the other. ~ college
 I'll sit in a living room until the grandparents are comfortable. That's the job in this part of the country. ~ college south warm
 My weak spot is patience with agents and handlers. I'm working on it, because they're part of the game now. ~ college nil hot
+Thanks for the chance to sit with you. Let's see if we fit.
+Honest answers are my specialty, so ask me anything. ~ calm
+Give me one season in your room and you'll see the difference. ~ climber
+Doubt me all you want. The tape will settle it. ~ hot
+A good staff is a family that argues, and I'm ready to do both. ~ loyal warm
+Teaching sophomores how to read a defense is what gets me out of bed. ~ hs
+You'll see my players ready before the coaches arrive. ~ strict
+Ask my last head coach about my sideline composure. He'll still be shaking his head. ~ calm nfl
+Our practice schedule is the first thing I'd want to see. ~ college
+Retention is my pitch, not recruiting. I keep kids in the room. ~ college
+Nobody in this league gets a free ride. I work for every snap of my own. ~ nfl expro
+Small talk isn't my strength, but the film room is. ~ cold
+I want a head coach I can learn from every single day. ~ young climber
+What separates a good {role} from a great one is who he trusts. I'd like to earn that from you. ~ loyal
+Let's start with what your players lack. I'll show you how I'd fix it.
+A player who's scared to make a mistake won't make a play. I try to take that fear away. ~ warm
+I like to get to the practice field early, so the staff has time to talk before the players show up. ~ calm
+My old players send me their kids to coach. That's the best reference I can give you. ~ old warm
+Back in the Midwest, nobody needed a fancy title. You just showed up on time and did the work. ~ midwest
+Nothing in my room runs on autopilot. Every rep has a reason.
+Your staff will never have to wonder where I stand. I'll say it in the meeting. ~ cold
+My first job out of school was at a small high school in the South. That's where I learned to coach with nothing. ~ south hs
+Recruits want to know you'll be around. I'm around. ~ college warm
+My career started in the Northeast, where you learn fast or you leave. I stayed. ~ northeast loyal
+If you hire me, you're getting a coach who's already learned from your system. I've been studying it for years. ~ nfl climber
+Nobody works harder on the game than I do. That's the one promise I keep.
+I treat a freshman with a clipboard like a future head coach. ~ hs warm
+A young kid should be able to walk into my office and ask anything. That's my policy. ~ warm hs
+I can't tell you how many players have called me after they got cut. That's the part of the job no one sees. ~ nfl warm
+Ten years on the sideline taught me patience. Give me the chance and you'll see it. ~ calm
+Our staff meetings run long because I want every voice heard. That's how you find the answer. ~ warm
+Mentors like Coach Harlan showed me how to teach without yelling. I'm still learning that lesson. ~ calm texas
+My old boss called me a bulldog. I still take that as a compliment on a practice field. ~ hot
+Every rookie I've mentored asks me the same question on day one, and I answer it the same way. ~ nfl young
+The kids in our program call me coach, and they still text me years later. That matters more than any title. ~ hs warm modern
+I came up through the grind at {came_up} and I'd like to bring that work ethic here. ~ climber
+Let me tell you what I'd fix first. The tempo in the middle of practice. Kids lose focus after the second period.
+People call me easy to work for, but I hold a high bar. Players respect that more than any pat on the back. ~ warm strict
+Recruiting is my strength. I know how to sit at a kitchen table and make a family feel heard. ~ college south
+In the NFL, every snap is a contract situation. I coach my players to focus on the play in front of them. ~ nfl calm
+Scheme is a tool. The real job is finding the right player for each role and getting him to believe in it. ~ expro
+I got into the business because my own coach saw something in me. I want to be that person for someone else. ~ hs warm
+The NIL world is noisy, but the best recruits still want to know who will coach them. I'm ready to be that answer. ~ college nil modern
+I don't judge a coach by his press clippings. I judge him by how his players hold up in the fourth quarter. ~ calm old
+Give me a practice schedule and I'll tell you where the time is being wasted. That's my first job in any building.
+I want to be a coordinator someday, but right now I want to be the best assistant you've ever had. ~ loyal climber
+Coaching young kids taught me how to explain a complicated idea in one sentence. That skill works at every level. ~ hs
+Tell me where your {role} room is weakest right now. I'll tell you if I'm the fix.
+Let's skip the small talk and get to the tape. That's where we'll know if this works.
+You'll hear plenty of promises this week. Mine is simpler: I'll show up, teach hard and tell you the truth.
+A {role} who can't explain his plan in one minute hasn't really got one. Mine fits on a card.
+Down South, you learn that a good coach knows every parent by first name. I still do that. ~ south hs
+Nobody in my room gets a free pass, and nobody gets buried for a mistake he's still learning. ~ strict warm
+This job is a step toward what I want to be doing in five years, and I'd work every day to earn it. ~ climber
+Our staff meetings start at six. I'd rather be early and leave early than be late to anything. ~ college strict
+Out in the West, you coach everybody because nobody else is coming. That habit stuck with me. ~ west
+I'll never say a player is a bust in front of another player. That's a line I hold, even when he's earned the criticism. ~ college
+My first season as a {role} would be about fundamentals, then install, then the rest. In that order, every week.
+I started out as a volunteer coach with no pay, and I'd happily go back to that if it meant learning the game again. ~ young
+I'd like to know what kind of player you want in your {role} room before I say what I'd do with him. ~ nfl
+I want to earn the right to coach this group, and I'll do it one meeting at a time.
+A lot of coaches talk about culture. I'd rather show you one practice and let you decide. ~ calm
+Give me a roster and a week, and I'll tell you which two players will matter most in October.
+I'd rather be the coach your players respect than the one they like. In my experience, that lasts longer.
+A player's first question to me is always whether I'll be straight with him. I answer that before anything else.
+I learned to recruit in the Midwest by sitting in a lot of living rooms and listening more than I talked. ~ college midwest
+Let's talk about the first week of camp. That's where I'd set the standard for the whole season.
+My weakness is patience with a player who won't work. I'm getting better, but I'm still not there. ~ hot
+The tape shows what a player does. The conversation shows why. I'd want both before I make a call. ~ nfl calm
+I can teach a freshman to read a defense by midseason. That's the part of the job I like most. ~ hs
+Being loyal to a head coach is a choice I make every day, and I've made it for every boss I've had. ~ loyal
+The walk-on who grinds all spring is the reason I got into coaching. I'd make that kid feel like a scholarship player. ~ college warm
+I'd rather hear what's wrong in the room from you than from the press. Tell me straight and I'll fix it.
+Every player in my room learns the call sheet by heart. Nobody's asking the sideline what to do.
+Give me the depth chart and tell me who's hungry. Those are the guys I'd build around.
+In the Midwest, we measure a coach by what he does in February, not September. That's when I'd be at my best. ~ midwest
+My first conversation with every player is about who he wants to be, then we work backward from there.
+A {role} has to be a teacher, a scout and a babysitter at times. I'm comfortable with all three.
+I'd like to be the person in this building who knows every guy's name, middle name and favorite meal.
+My phone's on from six in the morning until my players are in bed. If they need me, they'll find me. ~ modern warm
+I know how to run a meeting that starts on time and ends with everybody knowing their job. ~ strict
+Hire me, and you'll never have to ask whether I've looked at the film. I've already looked.
+I like to think of myself as the bridge between the head coach and the room. Both sides should trust me.
+When a veteran is struggling, I sit him down before the position meeting, not in front of it. ~ nfl
+Ninety-day plan is ready, but I'd rather you hear it across a table than read it cold. ~ hs
+Coach, a season in this building starts with honest answers, so let me give you mine. ~ college
+Rural kids don't hear from many coaches who stayed around, so I'm the one who stayed. ~ hs loyal midwest
+Recruiting a boy from a small town means sitting in his family's kitchen and making them believe you. I've done that for years. ~ college south
+Thirty years of Friday nights taught me the head coach is only as good as his staff's honesty. ~ hs old
+My first question for your room is who's been taking the reps nobody sees. ~ college
+Ask any kid who played for me what I'm like and he'll say I'm too loud, then tell you I was right. ~ hs hot
+I built a film library for our school from nothing, so I know how to make a small program look professional. ~ hs
+The phone is where kids learn the game now, so I post the teaching clips every night and answer every question. ~ hs modern
+Back home the coach is the man who shows up at the funeral and the fish fry alike. I want to be that man here. ~ hs south
+Coaching in the NFL means knowing a player's cap number is a daily conversation, so I try to keep the conversation honest. ~ nfl
+Give me a backup who knows his job and I'll give you a team that survives the injury report. ~ nfl
+The portal sends kids through my room in a year, so I've learned to coach the one who's here now. ~ college nil
+My first move would be to watch every JV snap from the press box and write down the kids who love the game. ~ hs
+This is a good program with good kids, and I'd like to make the staff as good as the kids. ~ hs
+The kids want to be coached hard, and they're grateful when you do it right. That's the whole secret. ~ hs warm
+Our film sessions run on a screen I bought myself. The kids know I'm serious when I spend my own money. ~ hs
+A dozen high school coaches have called me this year asking for advice on their own rooms. I don't mind that at all. ~ hs
+The kids hear my voice in the hallway before they see me, and they know I'm watching. ~ hs strict
+Coach, my experience is in the trenches and in the living rooms, and I'd like to bring both to your staff. ~ college
+Our district has a tough budget, and I've learned to coach with a broom in one hand and a whistle in the other. ~ hs
+I have a rule about parents: I talk to them after the game, never during. ~ hs
+In the NFL, a coach's real job is keeping twenty-five men sane through a long season. I've learned how to do that. ~ nfl calm
+My kids think I'm too tough on them until they see the scoreboard. Then they say thank you. ~ hs
+My phone stays on, and I answer the kids who text me at midnight about a play they missed. ~ hs modern warm
+The young kids in my room are my favorite. They ask questions and then they actually use the answers. ~ hs young
+I know what it's like to recruit a kid whose family is working two jobs. I'll always respect the choice they make. ~ college south
+Our booster club is tight, and I'd like to help it stay that way. Good coaches know how to work with the community. ~ hs loyal
+Practice is where the program lives, so I plan every rep before the kids get off the bus. ~ hs
+My kids get a grade card every two weeks and they know I'm reading it. ~ hs strict
+The NFL is a business and I know it, but a good room still feels like a family. ~ nfl warm
+Let me tell you how I'd handle the first conversation with a player who's struggling. ~ nfl
+Coach, I want this job because I think your program needs somebody who'll keep the standard high, even when it's hard. ~ college
+The film room is where I'm happiest, and I bring a stack of notes to every meeting. ~ nfl calm
 
 @key staffmeet.case.pass
 Our protection held all day. I want to let him throw.
@@ -3652,6 +4091,60 @@ The defense keeps sending the same blitz and we keep running into it. Hot reads 
 I want to pick on one corner until they send help. Then pick on whoever's left.
 We're a play or two from big things, and I think those plays are in the air.
 My vote is to open it up. If it fails, you can blame me. But I don't think it will.
+Our best matchup is on the outside, so let's pound it there early. ~ nfl
+Second down is where we die, so throw on it and stay out of third and long. ~ hs
+Their nickel is smaller than our slot guys, and that's a problem for them. Let's exploit it.
+Take the first snap and throw it. A quick completion sets the tone for the whole half. ~ college
+Quick slants on first down make their linebackers run sideways all day. ~ hs
+The tape shows their corners bail on every snap. Give me the deep sideline and we'll see.
+A balanced attack is nice, but right now it's lopsided, and I'd tilt it toward the air.
+Nobody wants to tackle a slot receiver in space. Put him in space more.
+Every time we move the pocket, the throw is there. Let's design more of that.
+Their front seven is playing rush lanes, so the quick out is wide open. Keep calling it. ~ nfl
+Our tight ends have been blocking more than catching. That's a waste of a weapon. ~ college
+I'd like to see us throw a little before the third quarter, not after the defense has settled in. ~ nfl
+If the free safety stays in the middle, the sideline is ours. Let's keep testing it.
+Our backs can catch. Let them run routes out of the backfield and see what the linebackers do.
+Passing early wears down their pass rush before the fourth quarter. It's a long-game move. ~ college
+Our wideout is bigger than their corner. I'd like to go to him on fade routes all game. ~ nfl
+The defense is tired, and a quick throw keeps them on the field. Let's keep them out there. ~ hs
+They've been jumping our hitch routes all game. Let's go back to it and hit the one behind it.
+We can keep the drive alive by throwing on third and four. Their zone has a hole there. ~ nfl
+The middle of the field is wide open against two-high. Let's stop taking the easy outside throws.
+Their corners are small. Fade routes all afternoon and we'll score. ~ college hot
+I know we're conservative on first down, but the numbers say we should be attacking. ~ nfl calm
+Let's build the script around the passing game for the first quarter and see how they react. ~ nfl
+Their nickel corner is playing off the line, so let's throw the quick game and make him tackle. ~ hs
+Our protection can handle their four-man rush. Let's call the seven-step drops and find out.
+Two-minute offense is where we score. Let's install some of it for the first half, too. ~ nfl
+The zone coverage is leaving a hole between the linebackers. Put our tight end there every time.
+Let the quarterback audible to the pass when he sees a light box. That's free yards. ~ college
+The back end is soft against our double-stacks. Let's test them with more of those.
+I'd rather fail throwing than fail running into a wall. At least the throw gives us a chance. ~ college hot
+We need more explosive plays, and explosive plays come through the air. Let's push deep more. ~ nfl
+The defense is biting on play action, so let's use it on the first snap and see what they do. ~ college
+We are running into the same stacked box and expecting it to change. Throw and stop asking.
+Our running backs are a weapon as receivers. Let's get them out in the flat more often. ~ hs
+Sprint outs and bootlegs would help our quarterback avoid that pressure. Let's move him more. ~ college
+They play one-high against us on first down, so the safety has to choose. Take the throw over his head.
+Our guys are better in space than in the trenches, so let's throw them into space and let them go. ~ hs
+I'm asking you to trust me on the first three series. Throw, throw, and then we'll talk. ~ nfl loyal
+Their pass rush is short-handed on the edge, so let's get the ball out before the pocket collapses. ~ college
+A few more screens would wear down their linebackers and make them hesitate. Let's try it.
+Our receivers are better than their corners in press coverage. Let's keep attacking them on the line. ~ nfl
+If we throw early, their linebackers have to play the pass, and then the run lanes open up late. ~ hs
+The defense is cheating up on every snap. Give me one go route and I'll show you what it does. ~ hot
+We can throw on second and short without giving anything away. It keeps us out of trouble. ~ college
+The defense is using the same coverage every time we bunch. Let's exploit that with the crossers.
+A few more deep shots on first down would keep their safeties honest all day. ~ nfl
+Their defensive backs are young and jumpy. Let's use hitch routes and see who blinks.
+The middle linebacker is always a step late on the seam. Let's test it again and again. ~ college
+We can get our best guys open in the flat with simple motion. Let's use it more on early downs.
+Our tackles can handle a three-man rush, so let's keep the quarterback in shorter drops. ~ nfl
+We're not getting our slot guy the ball, and he's the best route runner we have. That's on us. ~ hs
+Let me take a shot at their weak corner every game until they prove he's fine. ~ nfl hot
+I'd like to see a few more empty sets to spread out their front and get our backs in space. ~ college
+The safety has been biting on play action all year. Let's use it when we need a big play. ~ nfl
 
 @key staffmeet.case.pressure
 Let me dial up the pressure. Their protection leaks when we send an extra body.
@@ -4085,6 +4578,51 @@ I want to see our guys fly to the quarterback. Right now they're waiting, and wa
 We can't win by being the second-best at the same game. We need to be the team that surprises them with pressure.
 I'm asking for a little more freedom to bring pressure, not a complete overhaul. Small adjustments, big impact.
 Our four can't win by themselves. Bring a linebacker and the quarterback speeds up.
+Our front can win one-on-ones if we stop asking them to do it alone. ~ hs
+Your quarterbacks are reading the same two looks every week. Give them a third. ~ hs
+Make the other coach nervous before halftime with a late pressure off the nickel. ~ hs
+The kids come off the bus ready to hit somebody, so let them start the game blitzing. ~ hs warm
+Our corners are good enough to play press, which gives the rush a reason to bring heat. ~ college
+Sit back and their tight end sits open over the middle. Bring the backer and he's gone. ~ college
+More simulated pressure on passing downs keeps the protection guessing who's free. ~ college
+You don't get turnovers from waiting. Send one more on first down and see what it does. ~ college
+Fire zones on early downs would cost them tempo and their timing for the rest of the drive. ~ college
+Our backers are athletic and playing too deep. Let them get downhill on the snap. ~ college
+I'd like to show a heavy front and drop out late. The quarterback will see a mess. ~ nfl
+If I can show six at the line and rotate two out, the protection has to pick somebody. ~ nfl
+Our rush has been alone against six blockers too often. Give them two extra men to force the decision. ~ nfl
+Let me bring the nickel from the slot on first down and make them declare their protection early. ~ nfl
+We have pass rush talent up front that isn't getting home. A corner or safety from the edge would fix that. ~ nfl
+I want a package where the backer and the end swap gaps. They won't pick up the switch in time. ~ nfl
+Late safety rotation with a pressure off the field side keeps the quarterback thinking about two things. ~ nfl
+Teams in this league beat you with quick timing, so mix in a blitz that arrives before the first read. ~ nfl
+I'll keep the corners in man and let the safety come off the top. It's simple, and it's loud. ~ nfl
+Sending five from the same side confuses protection rules, and they hate that. Let's give them a few. ~ nfl expro
+A quarterback who has to think about the rush throws worse. Let me make him think all game. ~ nfl
+Late pressure is the difference between an average defense and one that forces punts. I'd like to try it. ~ nfl
+I know we're conservative with the call. I'm asking for one aggressive package per half on third down. ~ nfl warm
+Plain truth: the offense can't block what they can't see. Let's show more and then bring it. ~ nfl
+Three blitzes from different spots means the protection has to guess right every time. ~ nfl calm
+Mix pressure and coverage on the same look so the quarterback has no clean read. ~ calm
+Let me send a corner off the edge once a series. Nobody sees it, and nobody blocks it. ~ hot
+A single well-timed fire zone on third and medium will make their sideline nervous. ~ old
+It isn't reckless if the call is sound. This one is, and I'd like to put it in. ~ strict
+Pressure is what the film is asking for. We've been leaving the quarterback comfortable for three quarters. ~ nfl
+Our front has the talent, Coach, but they can't win alone. Send a fifth and watch the protection scramble. ~ college
+Let me roll the dice on a couple of fire zones. Their backs are slow to check the blitz, and the window is there. ~ nfl calm
+Down by a score, we can't afford to wait for the rush to show up. Bring heat on first down and keep their tempo honest. ~ hs
+Every quarterback we faced this year had a clean platform. Break the platform and the timing goes with it. ~ college
+The corners are holding up fine for three seconds. Give me a way to make it two and they'll be picking up pieces. ~ nfl
+Texas teams don't sit back in a pressure spot, and our kids know it. Give me a package and they'll hit him on purpose. ~ texas hs
+Coach, I want a few looks that make the center's life miserable. A simulated pressure and a late A-gap blitz will do it. ~ college
+A little more aggression on third and long, and they stop converting. Let me run it for a half and report back. ~ hs
+Old-school, but a hungry rusher off the edge changes the way a quarterback thinks. Let me put one on him. ~ old
+The kids are asking why we're sitting in zone so much. I'd like to have an answer for them, and it's pressure. ~ hs warm
+I'm not asking for a riskier defense. I'm asking for one that makes them uncomfortable from the first snap. ~ nfl
+Late pressure on the boundary is where their quick game lives. Bring the nickel and see if the protection finds him. ~ college calm
+Our backers are fast enough to be in the rush, and we keep dropping them. Free them up on passing downs. ~ nfl
+Give me a chance to mix pressure in on second and long. That's where they've been picking us apart. ~ college climber
+One heavy look off the field and a safety off the edge is the kind of wrinkle that rattles a veteran. Let me show them that. ~ nfl expro
 
 @key staffmeet.case.run
 I want the ball in our backs' hands more. The line is moving people and we're not cashing in. ~ college
@@ -4399,6 +4937,155 @@ The portal changed how I think about this. Our backs are good, but if we don't u
 Our collective money paid for a good line. The best way to honor that is to run behind them. ~ college nil
 Our quarterback has a following online and that's great, but wins come from carries. Let's lean on the run. ~ college modern
 We watched the tablet film for an hour. The run game jumps off the screen. We have to call it more. ~ modern
+Our offensive line is physical enough to win the battle up front, and the run game has to reflect that. ~ college
+Look at third and short. Every time we throw there we're gambling. Run it and convert. ~ college
+Give our backs the early carries and let the defense feel the weight of the ball. ~ college
+The tempo offense works best when we're moving the chains on the ground. Let's make that the foundation. ~ college
+If we want a physical identity in the SEC, we run it first and make the other side prove it can stop us. ~ college
+Our backs have the vision and patience to make the zone read work. Let's commit to it for a full half. ~ college
+I'd rather grind for four yards on first down than gamble for ten on a fade. The run keeps us on schedule. ~ college
+Our wide receivers block well on the perimeter, so the outside zone plays are there. Let's use them. ~ college
+Playing the clock is simple in college football. Run it, let the defense breathe, and keep the score close. ~ college
+A good run game takes pressure off the young quarterback. He can grow into the offense while the line handles the hard yards. ~ college
+Our power package has been effective in short yardage. Let's use it on every third and two. ~ college
+We have bigger tackles than most of the teams we'll face. Let them move the line of scrimmage. ~ college
+Defenses are still sitting back on the pass. We should punish them with the run every chance we get. ~ college
+When we run it well, our play-action looks like a real threat. Let's make the defense respect it. ~ college
+The better we are at running, the easier our play-action becomes. The run has to come first. ~ college
+We're not going to beat the best teams by throwing it forty times. Let's run it and see how they respond. ~ college
+The run game gives our quarterback confidence. He reads the defense better when he knows we'll hand it off. ~ college
+When we run out of the shotgun, the defense has to play honest. That opens the whole offense. ~ college
+Our backs are athletic but they're also physical. Let's use that combination in the run game. ~ college
+Every time we establish the run, the passing game gets easier. We need to make that our starting point. ~ college
+Our tight end can handle a lot of blocking duty. Let's line him up tight and run behind him. ~ college
+If we want to win close games in this league, the ground game has to be our best weapon in the fourth quarter. ~ college
+A heavy run package in the red zone is how we score touchdowns instead of kicking field goals. Let's do it. ~ college
+I'd rather run for four and set up third and short than throw and risk a turnover. Let's stay disciplined. ~ college
+The fullback and tight end give us an extra blocker against any front. Let's use that size. ~ college
+If we can run it early, the defense has to commit to stopping the run, and our play-action becomes dangerous. ~ college
+In this conference, a strong run game is what separates the good teams from the great ones. ~ college
+A patient run game keeps the clock moving and the defense on the field. That's how we win in the fourth quarter. ~ college
+Let's build the offense on the power run. It's been reliable, and it fits what this line does best. ~ college
+Our tackles are big, but we keep asking them to pass set. Give them some drive blocks and see the difference. ~ nfl
+Every team in this league has a cover two plan. The run game is how we break it. ~ nfl
+I'd like to see twenty-five carries against a light box before we decide anything. ~ nfl
+The defense keeps sitting back and daring us to throw. Stop accepting that dare. ~ nfl
+Put the offense in a run-heavy look on early downs and let the quarterback play off play-action. ~ nfl
+Third and one is a run every time. We've been throwing it and watching it fail. ~ nfl
+Our guards are pulling clean and the backs are hitting the hole fast. That's a real plan. ~ nfl
+If we win the line of scrimmage we control the pace. Let's do that with the ground game. ~ nfl
+We have to stop living on quick slants. A committed run game forces them to play honest. ~ nfl
+Our play-action only works if they believe the run. Make them believe it for a full half. ~ nfl
+Run it on first down until the defense has to bring a safety up. Then the top opens. ~ nfl
+I can live with a three-yard gain if the next play is a play-action shot over the top. ~ nfl
+The run game is how we protect our young quarterback from the pass rush. Keep the ball moving. ~ nfl
+Our front seven is finally playing gap-sound. An efficient run game gives them more rest. ~ nfl
+We have a back who can hit the crease on any play. Let's give him the football and get out of his way. ~ nfl
+Shorten the game for their offense. Run the ball, burn the clock, and let our defense get a breather. ~ nfl
+Our backs can catch too, so the run game also helps the screen. It's all connected. ~ nfl
+Use the tight end on the line, get a fullback in there, and bully them at the point. ~ nfl
+If we can get four yards on first down, the play calls get easier for everyone. ~ nfl
+Give the back twenty touches in the first half and see if the defense can hold up. ~ nfl
+We're not going to get cute with our quarterback. A run-first plan protects him and wins football games. ~ nfl
+Every drive should start with a run. Once the box is tired, the play-action works on its own. ~ nfl
+Let's use the run to set the tempo and let the defense come to us for once. ~ nfl
+Keep the running back fresh with a rotation and still give him the bulk of the carries. ~ nfl
+Stop trying to beat them deep every series. Grind them down and take the lead late. ~ nfl
+Winning the time of possession is a defensive strategy, and right now we're giving that away. ~ nfl
+If the wind is coming across the field, we don't need to throw. Run the ball and let them wait. ~ nfl
+Let's line up in heavy sets and run it right at their linebackers. Physical football wins in this league. ~ nfl
+Our second-level blockers are doing their jobs. Let's build more plays around them.
+Give me a commitment on early downs and I'll make the rest of the offense work around it. ~ coach climber
+The best offenses I've been around always had a clear answer on first down. Ours should be the run.
+Our tackles hold up well one-on-one, so let's let them pull and create some space for the backs.
+Heavy sets give us a physical edge in short yardage. Let's use the personnel we have and stop guessing.
+I want the backs to get into a rhythm early. Once they do, the play-action takes care of itself. ~ coach
+If we get the second half started with a steady run, they have no answer. We haven't tried it yet.
+We have speed on the outside and size inside. A run-first plan lets both show up on the same drive.
+I want a clear identity on offense. Run it first, then let everything else open up from there.
+Our line is the strength of this team. Let's stop hiding them behind the quarterback and let them work.
+I know the defense wants us to throw it. That's exactly why we should run it.
+The clock is our friend when we run it. Let's use it and keep their offense off the field.
+Let's run it in the second half the way we did in the first. That kind of consistency wins.
+Give the line a few more chances to finish plays and I think they'll surprise us.
+Run it until the defense has to show us a new look. Right now they don't need one.
+Our passing game can be more effective once the run has them honest. That's the order I'd like to see.
+The best answer on third and short is a strong run on first down. We haven't been setting that up.
+If we commit to the run, our quarterback gets easier throws and fewer hits. It's a simple gain.
+Let's commit to a run-heavy plan for one half and evaluate it at the break.
+We should be looking at our run game in every quarter, not just when we're ahead. Stay on it.
+Let's build our short-yardage plan around the run and stop hoping the pass will work on third and one.
+A balanced attack is nice. A committed run game is better. Let's start there and find the balance.
+I want the defense to wonder every snap whether we're going to hand it off. That uncertainty helps us.
+Our tempo is great when we have a rhythm running the ball. Let's go back to feeding it and see.
+Let's build a schedule of run plays in the first quarter and see how the front responds.
+I'd like to see us stick with the run through some rough stretches. That's where we'll learn who we are.
+A strong ground game protects us from turnovers. Fewer throws means fewer chances for mistakes.
+We have the blockers. Now we need the nerve to call it on every down it's available. ~ coach hot
+Two tight ends, a fullback, and power right at them. ~ college
+A tired front gives up big plays late in the game. ~ hs
+I want a run identity on early downs for a full month. ~ coach climber
+Sell the run on first down and the rest of the playbook opens. ~ nfl
+Power, counter, zone. Mix them and make their front think. ~ college
+Keep the run in the call sheet even when we fall behind. That's when it matters most. ~ nfl
+Ten carries before the first pass would tell us a lot about this defense. ~ hs
+The run game makes the rest of our plan easier to call. Fewer panicked decisions on third down. ~ college calm
+Zone or gap, I don't care. I just want us to run it until somebody proves they can stop it. ~ nfl
+Run it on first down until they prove they can stop it. ~ hs
+High school defenses bite on play-action, so give them the run look first. ~ hs
+Our tackles can move a varsity front, so pull them and get our guards on the second level. ~ hs
+Friday night crowds love a back who gets his hands on the ball twenty times. Let's give them that. ~ hs
+Our kids block better than they throw, so let's build the offense around what they do well. ~ hs
+The defense is cheating up to stop the pass. Make them pay with a sweep behind a pulling guard. ~ hs
+Coaches in this conference run zone defenses that sit back. A downhill run game punishes that. ~ hs
+I want our fullback in the backfield on every short-yardage down. He's a real weapon when we use him. ~ hs
+We keep abandoning the run after one bad gain. A committed plan would have us chewing up clock by the half. ~ hs
+Our line is the best group we've had in years. Let's stop hiding them and run behind them every series. ~ hs
+Inside zone is simple enough for JV kids to learn in a week. Once they have it, we'll run it all night. ~ hs
+Their safeties play too deep against us. Hand it off to the back and make the linebackers come up. ~ hs
+Our backs have the feet, and our blockers have the attitude. Let's put the football in their hands and go. ~ hs
+Let's run it on first down in the second quarter and see whether their defensive coordinator adjusts. ~ hs
+A good run game makes the Friday night crowd stand up. Trust me, they'd rather see that than a four-pass drive. ~ hs
+Our passing game is still growing. The run game is ready now, so let's start there. ~ hs
+Let's put the ball in the back's hands on a counter and see whether the linebackers can read it. ~ hs
+We give up sacks every time we drop back for four seconds. Give the quarterback an easier day and run it. ~ hs
+Their front is small. Power right at the guard and we'll move the line of scrimmage every snap. ~ hs
+Our tackles are good enough to win one-on-one blocks, so let's use them to open holes. ~ hs
+JV kids want touches too. Run the ball, let everybody play, and build confidence for varsity. ~ hs
+I want us to set the tone with the run before the first pass. That's a team that plays with discipline. ~ hs strict
+Our backs are physical enough to break tackles, and our line is physical enough to give them room. Use both. ~ hs
+We need to get the clock working for us. Run the ball, keep their offense on the bench, and win the fourth quarter. ~ hs
+I want two straight runs before anyone starts talking about a pass. That's how we build a rhythm. ~ hs
+A solid ground game keeps the defense honest. They can't sit back and wait for us to throw. ~ hs
+Our guards pull well, and the backs have learned the cutback lane. Let's make that our money play. ~ hs
+I know the kids want to throw it, but we win when we run it. Let's remind them of that. ~ hs
+Their linebackers are fast but they're undersized. Run the ball right at them and see how they hold up. ~ hs
+Our line practices harder than anybody. Let's reward them with a run game that shows what they can do. ~ hs
+A downhill run game is the surest way to get the crowd and the team going at the same time. ~ hs
+Our kids believe in the run game. They practice it with real intent. That kind of belief wins Friday nights. ~ hs warm
+We're not going to win throwing it deep every drive. Let's grind it out and wait for our moment. ~ hs
+We get in trouble when the quarterback has to make a play on third and long. Run it on first down. ~ hs
+A good run game makes our quarterback look smarter. He reads the defense better when he knows we'll hand it off. ~ hs
+I'd like to see us commit to the run for a full half and evaluate it at the break. ~ hs calm
+Our pass protection is fine, but the run game is what keeps the drive alive. Feed it. ~ hs
+We're a physical school with a physical crowd. Let's give them a physical offense to cheer for. ~ hs
+We have a back who can take the ball and make something out of nothing. Give him the chance. ~ hs
+A ground game forces the defense to commit a safety into the box. That opens everything else up. ~ hs
+Run behind the strength of our line, then throw off it. That order works for us. ~ hs
+I want a run game we can count on in the rain and the cold. That's when games get decided here. ~ hs
+My vote is for more runs in the first half. Let's see what the defense does when they expect the pass. ~ hs
+Our blockers are finally in sync. That's rare at this level, so let's use it while it lasts. ~ hs
+A strong ground game gives us the cushion we need for a late field goal or a clock-killing drive. ~ hs
+I'd rather win by running it than lose by throwing it into double coverage. Let's play to our strengths. ~ hs
+The back is hitting the hole with real aggression. Let's call the same play until they stop it. ~ hs
+Our backs have better vision than the defenders can handle. Let them read the hole and go. ~ hs
+We've got the athletes to run a spread, but our best offense is a grinding ground game. ~ hs
+When our line gets a push, the whole team plays with more energy. Let's give them that feeling early. ~ hs
+I think the boys would buy into a run-first plan faster than a pass-first one. They want to be physical. ~ hs
+A solid run game gives our young receivers time to develop. Let's not rush them into full-field reads. ~ hs
+Our backs are fresh and our linemen are hungry. Let's get the ball on the ground in the second half. ~ hs
+We don't need a trick play. Power right, power left, and let the fullback clear the way. ~ hs
+A team that can run it on command never has to panic on third down. That's the kind of offense I want. ~ hs
 
 @key staffmeet.case.zone
 Zone keeps our eyes on the quarterback. Man has them eyeing receivers all game.
@@ -4760,6 +5447,124 @@ Where I'm from, you win games by not beating yourself. Zone is how a defense sta
 Our front is built to rush and our corners are built to play zone. Make them fit, Coach. ~ coach
 Give me a month of zone. If we're not better I'll go back to man and never bring it up again. ~ coach calm
 It would keep my corners healthy too. Less running with the speedsters means fewer pulled hamstrings. ~ coach nfl warm
+Zone is the honest answer until the corners prove otherwise. ~ nfl
+Cover 4 lets our safeties see the whole field, and that matters more than a fast corner. ~ college
+My kids tackle like wolves in space. Give them zone and let them chase from the middle. ~ hs
+Nobody in our conference runs the fade on early downs. Spend those snaps in quarters and make them drive. ~ college
+Sitting deep is not surrender when the rush is getting home. Zone lets the front do its job. ~ nfl
+Rotate a safety down and show two-high before the snap. The quarterback will hesitate. ~ college
+Their tight end beat our linebacker twice in man. Let the linebacker drop into the hook and read him. ~ nfl
+Four-man rush with seven in zone is the call I trust. It lets us stop the big play every snap. ~ hs
+Our kids are proud, and proud kids want to play the ball, not the man. Zone gives them that. ~ hs warm
+Pattern matching is our best weapon on third and long. Let's build the week around it. ~ nfl
+My corners are asked to win alone every snap. In zone, they're asked to win with help. ~ nfl warm
+We've been beaten by the quick slant in man every week. Sit under it in zone and tackle at the sticks. ~ college
+If we want to stop the seam, we need the middle linebacker deep in zone. Let's try it. ~ nfl
+Zone with a spy on the quarterback is the thing this offense hasn't seen from us yet. ~ college
+We're going to be patient in zone and let the clock work for us. That's a winning formula. ~ coach calm
+I'd rather the kids make a tackle they can see than chase a shadow in man. Zone it is. ~ hs
+The trend in this league is spread looks and quick throws. Zone is built for that. ~ nfl modern
+We lose the battle when we're turning our backs to the ball. Zone keeps eyes forward. ~ college strict
+The corners look slow when they're left alone. In zone the help makes them look fast. ~ hs
+Put our best cover guy in the middle of the zone and let him read everything. ~ nfl
+I'm not hiding from man. I'm picking the coverage that fits who we have on the field. ~ coach calm
+Our front has the pressure, and zone gives it time to work. Man robs us of that. ~ nfl
+Teams hit us deep on play action because we bite in man. Sit the safeties in zone and they don't bite. ~ college
+Our backs are fast enough to close on zone throws. In man they're always a step behind. ~ nfl
+I want zone to be the base look and man to be the change-up. That's how we beat this league. ~ nfl
+I'll give the corners the simplest job I can. Zone keeps them in their lane and keeps them confident. ~ hs warm
+We need more eyes on the quarterback and fewer hips to chase. Zone is the way. ~ coach
+Their best wideout runs the same route against every man look. Zone takes that route away. ~ nfl
+Play zone and make the other coordinator earn every first down the hard way. ~ coach hot
+A zone that rotates late will make their quarterback hold it too long. That's when we get sacks. ~ nfl
+Put more safeties in the middle of the field and the deep balls go away. ~ college
+We can't cover their big target in man. Two defenders in zone can handle him. ~ nfl
+Our kids are great tacklers in space. Let me use that and stop asking them to be corners. ~ hs
+Our defense is only as good as its weakest matchup. Zone removes most of those matchups. ~ coach
+Zone is cheap in the film room and cheap on the field. We spend less time fixing busts. ~ nfl
+Let me change the look on every fourth snap so their quarterback can't settle. Zone gives me that flexibility. ~ college
+If the corners stop sprinting backward, the linebackers can rally and the offense has to earn it. ~ coach
+The junior college kids need zone to learn fundamentals, then we add man later. ~ college
+Let me teach it fully this week and we'll see what the kids can do with it. ~ hs
+Let me try zone on third down and see what changes. I think they'll struggle with the picture. ~ nfl
+Cover 2 takes the sideline off the table and makes them throw inside. Our linebackers are ready for that. ~ college
+A safety in the middle of the field is the cheapest insurance we can buy. Zone gives us that. ~ nfl
+The guys are asking for it. They want to see the ball. I think we give it to them. ~ hs warm
+Their run game gets going when we're in man, because the safeties are late. Zone keeps them honest. ~ college
+Our kids pursue well in zone. They see the ball, they break, and they hit. ~ hs
+Let's make the quarterback look at seven defenders on every throw. Zone does that.
+Man coverage works only with good corners. We don't have those yet, so zone it is for now. ~ nfl
+We have three guys who can play zone well and one who can't play man. Zone uses all of them. ~ nfl
+Zone with good communication is hard to beat. I want us loud and organized. ~ coach strict
+We keep getting shredded on the seam. A two-high look with the linebacker dropping solves it. ~ nfl
+Teams are beating our man with rub routes, and zone takes the rubs out of the picture. ~ coach
+Their quarterback is great off the play-action, and zone takes away the first read that fakes him. ~ nfl
+Our corners aren't built to run the whole field. Zone lets them cover their zone and go home. ~ hs
+We want to be hard to play against, and zone is the hardest coverage to pick apart. ~ nfl
+Man gets exposed when the receivers move. Zone is what's left when the picture gets complicated. ~ college
+Our safeties make plays when they can see the quarterback. Zone gives them that view. ~ nfl
+If we can get the ball out of their hands in three seconds, zone with a quick rush is perfect. ~ hs
+Zone takes time and a lot of practice to master. We have the time, so let's do it. ~ coach calm
+I'd rather lose in zone for a while than keep losing in man. At least I can fix the zone. ~ nfl hot
+We're getting picked clean on pick plays. Zone clears the space and the picks don't work. ~ nfl
+The defense that wins in this league is the one that makes offenses play in front of them. Zone does that. ~ coach
+Let's play more zone and let the offense come to us. That's how we'll win the turnover battle. ~ nfl
+Let me spin the coverage at the snap and keep their quarterback thinking. Zone gives me that freedom. ~ coach
+The players trust a zone system when they see the whole field, and I think that's what they need. ~ nfl warm
+Teams with fast slot receivers have carved us up in man. Zone lets the linebackers handle them. ~ college
+It's a simple plan: more zone, more eyes, more tackles. I can coach that. ~ hs
+Mixing zone and man every series is how we keep the quarterback from setting his feet. ~ nfl
+Give me the zone and I'll show you the difference in the fourth quarter. ~ hs
+Our safeties are too deep on the post. Sit them in zone and the quarterback has nowhere to go. ~ nfl modern
+If the kids can see the football they make plays. Zone puts them in position to do that. ~ hs
+Every guy in this room has played man for years. Zone is the change they need. ~ college
+My corners need a break from chasing. Zone gives them one. ~ nfl warm
+Teams are beating our man concepts with simple rubs. Zone makes those rubs useless. ~ nfl
+Our linebackers read the quarterback well. Zone uses that and frees the corners to close.
+Zone calls get everyone looking at the ball. That's how we create turnovers.
+Pattern matching in zone gives the corners a clear read. I'd build the week around it. ~ nfl
+We can't win one-on-one against these receivers. Zone takes the one-on-one out of it.
+The coaches who've been around longest know zone is the foundation. Let's build there. ~ old
+Our corners are pressing at the line and getting beat. Play zone and they can back off.
+I'm not pitching a complete overhaul. More zone on early downs and I think we stop the bleeding. ~ coach
+Teams keep finding the seam against our man. Let's put a linebacker in it with zone.
+We're missing tackles because guys are chasing. Zone lets them stay home and wrap up.
+It isn't about being conservative. It's about being sound when the big plays come. ~ college
+We have the depth to play zone for four quarters. Man wears our guys down. ~ college
+The players believe in zone. I can feel it in the room. Let's give them the chance to prove it.
+Quarterbacks in this league love to find the matchup they like. Zone takes that away.
+Zone gives the linebackers a chance to show what they can do in coverage. ~ nfl
+If we put more eyes on the quarterback, we'll force the bad throw. That's the goal.
+Play zone with disguise, and the offense spends its time guessing instead of executing. ~ nfl
+Our corners are getting beat deep one-on-one. Zone lets us double the vertical threats.
+Zone keeps the field in front of us, and that's where our tacklers are strongest. ~ hs
+We keep giving up the post because our man corners turn their backs. Zone solves that. ~ modern
+I'll take responsibility for the change. Zone is the right call for this roster. ~ loyal
+Quarters with the safeties rotating down would stop the hitch and the slant right now. ~ college
+Let's play less man and more zone, starting with the next series and every series after it.
+Man puts our safeties in the box too often. Zone brings them back over the top where they belong.
+Quick throws beat our man coverage every week. Zone gives the defenders a chance to break.
+I believe we can make this defense the hardest to throw against with more zone. ~ nfl climber
+The receivers are getting open by a step in man. In zone they have to earn every inch.
+More zone on early downs makes the offense work for every first down. I like that.
+Let's give our corners some help. Zone takes the middle of the field away from them.
+Our secondary plays hard but it's not catching up. Zone keeps them in the picture.
+The quarterbacks here know our man tendencies. Mixing zone gives them something new to see.
+Coach, I think we need a few more zone calls to slow down their best receiver. He's too much in man.
+Zone puts a deep safety on the big play and a linebacker on the short throw. That's balance.
+Let's get off the island. Our corners need partners, and zone provides them.
+We win more games when we keep the offense in front of us. Zone is how we do it.
+Zone frees our best athletes to make plays on the ball instead of covering a player shadow. ~ nfl
+We've practiced zone all week and our communication is better. That's the proof I'd show you.
+The big plays are coming because nobody's sure who has the deep half. Zone clears that up.
+Zone with more pressure keeps the quarterback from sitting in the pocket and finding his guy. ~ nfl
+We have big linebackers who can run. Put them in zone and they'll be all over the middle.
+Eyes on the quarterback, feet in the zone, and break on the throw. That's what I want to see.
+Man has been a headache this year. Let's try zone and see if it calms things down.
+Our corners need to trust the safeties behind them. Zone is the way to build that trust.
+Zone looks softer on paper but it's tighter on tape. I'd like us to show it. ~ nfl
+Our starters are tired by the fourth quarter. Zone lets them break on the ball instead of running with receivers. ~ college
+Let me run more zone and show the staff what our kids can do when they can see the play.
 
 @key staffmeet.reply.half
 That works for me, Coach. We'll split it.
@@ -5221,6 +6026,24 @@ The cap and the roster limit what I can do anyway. This is fine. ~ nfl calm
 The veterans will hear it as a tweak, not a rewrite. I'll sell it that way. ~ nfl expro
 Not what I pitched, but the group can handle it. I'll start there. ~ nfl young
 Stuff like this takes patience. I'll be patient. ~ nfl old calm
+Fine, let's split it and see what the tape says. ~ nfl calm
+Good. I'll take the piece you gave me and build from there.
+Half of my plan with your say-so on the rest. I'll run it. ~ nfl loyal
+Okay, the middle road. Let's get the first reps in.
+Sounds like a plan the kids can actually absorb. ~ hs calm
+Not the whole plan, but enough to put a real look on the field. ~ college
+Sure, we'll give it a go and check the results in the film room. ~ college
+Good, that's something we can install this week.
+Meeting halfway is fine. I'll keep my notes for the next round. ~ nfl climber
+Understood. I'll run the half and hold the rest for later. ~ hs strict
+You picked the piece that matters most, and I'll coach that part hard. ~ nfl
+Okay, a partial win beats a long argument. Let's go.
+Half the install now, the rest after we've seen some tape. ~ college calm
+Fair call. I'll break it down so the young guys can run it cleanly. ~ hs young
+I'll take the half, and the tape will make the case for more. ~ nfl climber
+Alright, half it is. I'll go sell it to the room. ~ nfl loyal
+Good. A compromise we can actually execute beats a perfect one we can't. ~ hs expro
+Half works for this group. I'll teach it in small pieces. ~ hs calm
 
 @key staffmeet.reply.no
 Your call. I'll make it work.
@@ -5956,3 +6779,220 @@ I'm with you. Let's see it through.
 Sounds good. I'll make it work for us.
 Thanks for trusting me with it. I'll be ready.
 Thanks, Coach. I'll bring what I learned in the league to these kids. ~ hs expro
+Understood, Coach. Your read on the protection makes sense to me. ~ college
+Okay, I'll get the recruiting staff in the loop on the change. ~ college
+Makes sense. I'll write up the new pass rules for the walk-ons. ~ college
+Good. I'll get the depth chart updated before the dinner meeting. ~ college
+Got it. I'll get the position coaches to film the new looks. ~ college
+Alright, I'll talk to the defensive line coach and get him on it. ~ college
+That fits what we've seen on tape. I'll start the work now. ~ college
+Understood. I'll tell the room the plan came from you. ~ college
+Yes, let's do it. I'll call the offensive coordinator now. ~ college
+Good. I'll sit with the film guys and build the tape cutups. ~ college
+Makes sense, Coach. I'll get the scout cards printed for the staff. ~ college
+Okay. I'll keep the walk-throughs short so the legs stay fresh. ~ college
+That's the right adjustment. I'll have the install packet to you soon. ~ college
+Alright. I'll run the new blitz looks in the next scrimmage. ~ college
+Sounds right. I'll go over the adjustments with the linebackers. ~ college
+Good. I'll set up a meeting with the strength staff about the change. ~ college
+Okay. I'll get the defensive backs drilling the new technique. ~ college
+That's clear to me now. I'll write the new calls on the wristband. ~ college
+Good. I'll coordinate with the operations staff on the schedule. ~ college
+You've got my full support on it. I'll make the install happen. ~ college loyal
+Sure thing. I'll have the adjusted script ready by evening. ~ college
+Makes sense. I'll talk to the quarterbacks about the new reads. ~ college
+Okay. I'll make sure the scout team runs it the way we want. ~ college
+Good call, Coach. I'll get the special teams unit on it. ~ college
+Understood. I'll get the adjustments into the playbook today. ~ college
+Yes, Coach. I'll keep the room focused on the one change. ~ college calm
+Right. I'll set up film time for the new coverage look. ~ college
+I'm with you. I'll make sure the grad assistants know the plan. ~ college
+Good. I'll walk through the new tempo rules with the offense. ~ college
+Okay. I'll get the defensive staff together for a quick review. ~ college
+Fine. I'll get the new install posted on the staff drive. ~ college modern
+Makes sense. I'll pull the situational tape for the meeting. ~ college
+Sounds good, Coach. I'll get the new calls drilled tomorrow. ~ college
+Yes. I'll start on the adjustments for the next game plan. ~ college
+Good. I'll let the position coaches know before the meeting. ~ college
+Got it, Coach. I'll talk to the running backs about the change. ~ college
+Alright. I'll work the new looks into the scrimmage plan. ~ college
+You made the right call. I'll make sure it runs clean. ~ college
+Okay. I'll let the staff know the decision before practice. ~ college
+Sure. I'll brief the coaches on the new rules right after this. ~ college
+Good call. I'll go over the matchups with the secondary coach. ~ college
+Alright. I'll coordinate the reps so everybody gets enough work. ~ college
+Got it. I'll keep the staff talk short and keep it on the plan. ~ college cold
+Makes sense. I'll get the offense on the new formation tomorrow. ~ college
+Okay. I'll start tagging the film for the new pressure looks. ~ college
+That's fine. I'll get the coaches to review the new script together. ~ college
+Right. I'll set up a call with the video staff about the cutups. ~ college
+Good. I'll get the recruiters briefed on the scheme change. ~ college
+Alright, I'll talk to the coordinators and get everyone aligned. ~ college
+You're right about the tempo. I'll adjust the practice schedule. ~ college
+Okay. I'll make sure the young guys get extra reps in the new look. ~ college young
+Sounds good. I'll get the graduate assistants on the new install. ~ college
+Good. I'll have the adjusted plan on the whiteboard before dinner. ~ college
+Understood. I'll make the change and keep the staff sharp. ~ college
+Makes sense to me. I'll have the defense ready for the new looks. ~ college
+Yes, I'll do it. I'll brief the staff on the new plan now. ~ college
+Got it, Coach. I'll run the new third-down calls tomorrow. ~ college
+Okay. I'll put the adjustments in the game plan and circle back. ~ college
+Good. I'll get the video crew to cut the new looks by morning. ~ college modern
+Sure thing. I'll run it past the strength coach before practice. ~ college
+Right. I'll work the new coverage into the walk-through script. ~ college
+Yes. I'll get the staff going on the adjustments right away. ~ college
+Okay, I'll present the plan to the defense at the morning meeting. ~ college
+Sounds right. I'll talk to the tight ends about the new routes. ~ college
+Good. I'll get it posted to the staff thread so everyone sees it. ~ college modern
+Understood. I'll brief the coordinators and get the install rolling. ~ college
+Alright. I'll make sure the scout team is ready for the new look. ~ college
+Understood. I'll brief the offensive staff at the morning meeting. ~ nfl
+Good. The veterans will pick it up quickly, so I'll start there. ~ nfl
+Alright. I'll cut the install down to the core calls for the starters. ~ nfl
+Good. I'll sit down with the coordinators and map out the reps. ~ nfl
+Understood. I'll get the rookies on the look during the walkthrough. ~ nfl
+Okay. I'll run it past the quality control staff before we install it. ~ nfl
+Thanks, Coach. I'll make sure the scout team runs it just like the next opponent. ~ nfl
+Good call. I'll flag the two spots where it could break down in the meeting. ~ nfl
+Appreciate you trusting the read on this. I'll get it in front of the room. ~ nfl
+Alright. I'll have the special teams coordinator on board by morning. ~ nfl
+Good. I'll put the adjustment in the call sheet for the next team meeting. ~ nfl
+Understood. I'll let the position coaches handle the teaching in their rooms. ~ nfl
+Yes. I'll spend the extra hours breaking down the tape so it's clean. ~ nfl climber
+Okay, I'll start the install during the first walkthrough period. ~ nfl
+Fine by me. I'll pull the veterans in and explain the why. ~ nfl
+Understood. I'll make the change without disrupting the rest of the game plan. ~ nfl
+Alright. I'll schedule a short install block before the next practice. ~ nfl
+Thanks. I'll get the quarterback in the room and go over the new reads. ~ nfl
+Yes. I'll make sure the protections match the new look. ~ nfl
+Good. I'll let the staff know the change is locked in. ~ nfl
+Okay. I'll get the defensive backs their assignments on the card. ~ nfl
+Understood. I'll have the cut-ups ready for the players to study. ~ nfl modern
+Good. I'll run it at full speed in the next session so nobody is surprised. ~ nfl
+Alright. I'll put it on the practice plan and see how it holds up. ~ nfl
+Yes, Coach. I'll adjust the install and keep it simple for the group. ~ nfl
+Perfect. I'll pass it along to the strength staff for the tempo changes. ~ nfl
+Understood. I'll put the pressure rules in writing for the staff. ~ nfl
+Good. I'll get it to the video department so the clips are ready. ~ nfl modern
+Fine. I'll check with the offensive line coach on the protections first. ~ nfl
+Alright. I'll walk the room through the adjustment before the next meeting. ~ nfl
+Thanks, Coach. I'll get the rest of the staff to buy in too. ~ nfl
+Good. I'll keep the install tight so the players don't overload. ~ nfl calm
+Understood. I'll have the coverage rules printed for the walkthrough. ~ nfl
+Alright. I'll talk with the GM's office about the depth chart changes. ~ nfl
+Appreciate it. I'll get the film staff to cut the examples quickly. ~ nfl modern
+Good call. I'll get the rookies and practice squad up to speed too. ~ nfl
+Understood. I'll break the install into three parts for the week. ~ nfl
+Thanks. I'll bring the details to the room before the morning walkthrough. ~ nfl
+Alright, Coach. I'll make it the first thing we install tomorrow. ~ nfl
+Yes. I'll make sure every position room knows its piece of it. ~ nfl
+Good. I'll get the special teams package ready to match. ~ nfl
+Understood. I'll write up the two-minute version too. ~ nfl
+Appreciate it. I'll get the install card to every player by morning. ~ nfl modern
+Alright. I'll talk to the running backs about the new fits. ~ nfl
+Yes. I'll walk the coordinators through the changes in the meeting. ~ nfl
+Understood. I'll make sure the veterans get their reps first. ~ nfl
+Fine by me. I'll cut the rest of the tape and get it done. ~ nfl
+Good. I'll bring the staff the cut-ups before the walkthrough. ~ nfl
+Alright. I'll get the coverage concepts up on the board for the room. ~ nfl
+Understood. I'll make the tweaks to the protection calls and send them over. ~ nfl
+Good. I'll have the adjustment locked before we leave for the day. ~ nfl
+Appreciate it. I'll make sure the depth chart reflects the change. ~ nfl
+Fine. I'll get it in the next team meeting and walk everyone through it. ~ nfl
+Thanks, Coach. I'll stay on top of the install every step of the way. ~ nfl
+Alright, I'm on it. The room will have it by tomorrow. ~ nfl
+Yes. I'll get the tempo adjustments written out for the offense. ~ nfl
+Thanks. I'll have the adjustment ready before the team walkthrough. ~ nfl
+Fine. I'll put the new look in the weekly install packet. ~ nfl
+Alright. I'll make the first call on it and report back. ~ nfl
+Yes. I'll brief the defense on the new fronts before practice. ~ nfl
+Thanks, Coach. I'll get it sorted before the practice week starts. ~ nfl
+Fine. I'll bring the staff up to speed by the end of the day. ~ nfl
+Sounds right to me. Let's get it on the field.
+Good. Get me the install schedule by morning and we're set.
+Agreed. I'll walk the room through the change before lunch.
+Okay, we're going with it. I'll brief the position coaches now.
+Yep, that's the call. I'll get the cards printed today.
+I hear you. Let's make it stick in practice this week.
+Fine. Give me a few hours and I'll have something to show you.
+Right, let's do it. I'll put it on the whiteboard in the morning.
+Good call. I'll get the scout team running it first.
+Alright, I'm behind it. I'll handle the coaches who are skeptical.
+That's the one I'd pick too. I'll get it locked in.
+Appreciate you taking my read seriously. I'll get to work.
+Yes, let's go with it. I'll get the quarterbacks up to speed first.
+Works. I'll keep the reps tight so it doesn't slow us down.
+Makes sense. I'll pull the depth chart and map out the rotations.
+Got it. I'll brief the special teams guys before the day's over.
+Glad you agree. I'll make the install clean and simple.
+Fair enough. I'll get it in front of the room tomorrow.
+Okay, that's the plan. I'll get the staff moving on it.
+Good thinking. I'll make the call sheet reflect it right away.
+Perfect. I'll make sure the reps are balanced across both units.
+That's what I was hoping for. I'll have the notes ready by noon.
+Agreed. I'll start the install with the first-team offense.
+Sounds like a plan. I'll put it on the practice script.
+That works for me. I'll get the cutups ready for the film room.
+Right call. I'll get it going with the defensive backs first.
+Fine by me. I'll tell the room it's settled.
+All right, I'll let the staff know we're moving forward.
+Yes. I'll get the install schedule to you by end of day.
+That's the right move. I'll get the reps started now.
+Okay, we're on it. I'll put the new package in this week.
+Agreed, Coach. I'll get the staff briefed before practice.
+Sounds smart. I'll build the install around our strengths.
+Got it. I'll put the new concept into the walkthrough.
+Fine. I'll make it work with what we have on the roster.
+Good, let's make it happen. I'll get the staff on board today.
+Right. I'll make the adjustment and send it up to you.
+Understood. We'll run it in the walkthrough and fix what breaks.
+Makes sense to me. I'll give the young guys extra reps on it.
+Good, that settles it. I'll get the position groups going.
+Got it, Coach. I'll make sure the depth chart reflects it.
+Fine. I'll make sure the coaches explain it the same way.
+Agreed. I'll make the install quick so we don't lose tempo.
+That helps. I'll start building the scout cards now.
+Yes. I'll keep the staff focused on executing it cleanly.
+Sounds right. I'll get the cards and the playsheet done.
+Alright, that's settled. I'll run it past the strength staff.
+Got you. I'll make sure every position coach has it.
+Makes sense. I'll put it into the walkthrough script today.
+Yes. I'll start the install with the younger players first.
+Good. We'll test it in the scrimmage and adjust from there.
+Right. I'll get the reps set and the timing sorted.
+Yes. I'll brief the defensive line on their part this week.
+Agreed. I'll get the install into the morning meeting.
+Got it. I'll get everything printed and ready to hand out.
+Good plan. I'll get the offensive staff to buy in fast.
+Yes, Coach. I'll get the install started right away.
+Fine. We'll get it in the rotation and see how it grows.
+That works. I'll get the special teams unit on it too.
+Yes. I'll have the install done before the next walkthrough.
+Right. I'll make sure the coaches are all teaching it the same.
+Agreed. I'll let the staff know and start the work.
+Got it. I'll keep the team focused on the changes.
+Makes sense. I'll get the reps going in the next period.
+Yes. I'll put the new package on the call sheet right now.
+Right. I'll get it on paper and into the staff's hands.
+Good. We'll take it one piece at a time and get it right.
+Got you, Coach. I'll get the group together and walk them through it.
+Appreciate the call on the protection. We'll cover it in the install.
+Thanks for the trust, Coach. I'll make it our next install priority.
+Makes sense to me. I'll walk the room through it before lunch.
+Solid. Let's see what the second group does with it first.
+Right call, Coach. Nobody on this staff will second-guess it.
+Thanks, Coach. My guys have been asking for exactly this. ~ college hot
+Fine by me. I'll brief the linebackers at the team meeting. ~ nfl
+Agreed. I'll get the kids reps on it before the scrimmage. ~ hs
+That settles it, Coach. I'm putting the new reads on the board now. ~ nfl
+Understood. We'll get it in the film room before the next meeting. ~ college modern
+Good, we're aligned. I'll get the young linebackers in extra work. ~ college young
+That's the right adjustment. I'll tell the offensive line coach today. ~ nfl
+Thanks. I'll make the change to the blitz package before practice. ~ hs calm
+Fine. I'll get the special teams coverage sheet revised by dinner.
+Right. I'll hand the install packet to the position coaches first thing. ~ nfl
+Sounds good. I'll get the veterans on board before anybody else. ~ nfl cold
+Good thinking. I'll pull the situational reps for the staff meeting. ~ college
+Yes, Coach. I'll get the new third-down looks in the walkthrough tomorrow. ~ college
+Done. I'll let the strength staff know about the tempo change too. ~ nfl
+Alright, that's the plan. I'll get everybody moving on it now.

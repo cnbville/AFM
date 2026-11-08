@@ -194,3 +194,8 @@ button.hb8-q.hb8-q:hover { filter: brightness(1.08); }
 .hb8-setup .pg-btn.on { box-shadow: inset 0 0 0 1.5px #f1be48; color: #f1be48; }
 
 @media (max-width: 1360px) { .hb8-hows { grid-template-columns: 1fr; } .hb8-lvs { grid-template-columns: 1fr; } }
+
+/* The interim on your sideline (the Jan 1 start): home and game day. */
+.hb8-int { background: var(--hb8-panel); border-radius: 24px; box-shadow: inset 0 0 0 1px var(--sl-gold-ring); padding: 16px 22px 12px; }
+.hb8-int h2 a { color: inherit; }
+.hb8-int-list { margin: 4px 0 6px; padding-left: 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 4px 18px; font-size: 12.5px; color: var(--sl-dim); }

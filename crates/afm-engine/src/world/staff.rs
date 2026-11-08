@@ -357,6 +357,10 @@ pub(crate) fn leave(w: &mut World, coach: usize, why: &'static str) {
                     let stays = matches!(why, "retired" | "stepped away, burned out");
                     w.programs[p].sideline = if stays { Some(coach) } else { interim(w, p) };
                 }
+            } else if w.programs[p].sideline == Some(coach) {
+                // The interim himself gone (let go at the takeover, or hired
+                // away): the next best of the staff takes the games.
+                w.programs[p].sideline = interim(w, p);
             }
         }
         Employer::Nfl(t) => {
@@ -364,6 +368,17 @@ pub(crate) fn leave(w: &mut World, coach: usize, why: &'static str) {
             for slot in [&mut team.head_coach, &mut team.oc, &mut team.dc] {
                 if *slot == Some(coach) {
                     *slot = None;
+                }
+            }
+            // Your club's interim gone (the Jan 1 start): the other
+            // coordinator takes the games, or you do with none.
+            let mine = |tk: &super::folk::takeover::Takeover| {
+                tk.team == Some(super::folk::Team::Nfl(t)) && tk.interim == Some(coach)
+            };
+            if w.folk.takeover.as_ref().is_some_and(mine) {
+                let next = super::folk::takeover::nfl_coordinator(w, t);
+                if let Some(tk) = w.folk.takeover.as_mut() {
+                    tk.interim = next;
                 }
             }
         }
@@ -2331,6 +2346,47 @@ pub(crate) fn credit_head(w: &mut World, c: usize, p: usize, wins: u32, losses: 
     }
 }
 
+/// The games the man you replaced coached this season, when you take his
+/// job before it ends (the Jan 1 start): his in the record book, the day
+/// he leaves; the interim gets the rest when the season ends. A college
+/// whose coach already left (an interim on the sideline) keeps its credit.
+fn credit_before_takeover(w: &mut World, e: Employer, c: usize) {
+    match e {
+        Employer::College(p) => {
+            let (stage, recording) = (w.programs[p].prestige_rel, w.recording);
+            let Some(cs) = w.college.as_mut() else { return };
+            if !cs.started || cs.finished || w.programs[p].sideline.is_some() {
+                return;
+            }
+            let t = &cs.results[p];
+            let (cw, cl) = cs.credited[p];
+            let (dw, dl) = (t.wins.saturating_sub(cw), t.losses.saturating_sub(cl));
+            // A title his team already won (December's conference title
+            // game, a lower division's final) is his too.
+            let title = t.best_title();
+            cs.credited[p] = (t.wins, t.losses);
+            if title != super::coach::TitleKind::None {
+                cs.title_credited.push((p, title));
+            }
+            credit_head(w, c, p, dw, dl, (title != super::coach::TitleKind::None) as u32);
+            if recording && title != super::coach::TitleKind::None {
+                w.coaches[c].title_reputation(title, true, stage);
+            }
+        }
+        Employer::Nfl(t) => {
+            let Some(s) = w.nfl_season.as_ref() else { return };
+            if !s.started || s.booked {
+                return;
+            }
+            let (wins, losses) = (s.wins[t], s.losses[t]);
+            let coach = &mut w.coaches[c];
+            coach.wins += wins;
+            coach.losses += losses;
+        }
+        _ => {}
+    }
+}
+
 /// The interim head coach: the staff's best-regarded coordinator, else its
 /// best-regarded position coach.
 pub(crate) fn interim(w: &World, p: usize) -> Option<usize> {
@@ -3428,6 +3484,9 @@ pub fn take_seat_as(w: &mut World, you: &super::seat::You, employer: Option<Empl
     if let Some(e) = employer
         && let Some(c) = holder(w, e, role)
     {
+        if role == Role::HeadCoach {
+            credit_before_takeover(w, e, c);
+        }
         leave(w, c, if role == Role::HeadCoach { "fired" } else { "let go by the new staff" });
     }
     let id = w.coaches.len();

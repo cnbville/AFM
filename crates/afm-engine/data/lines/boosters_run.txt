@@ -95,6 +95,19 @@ I'm told the equipment room is where the real work happens. I'd like a peek. ~ c
 Seat me with the families on the field before games. They're the best part of Saturday. ~ college warm
 When you walk off at halftime, I want to be near the tunnel. I like seeing the faces. ~ hs
 Give me the same access the owner gets. We're basically the same family now. ~ kin nfl ego
+Put my name on the roster of people who can walk in. That's all I want. ~ hs
+The plane on the road trips, a seat up front, and my word that I'll keep my mouth shut. ~ college
+Sideline credentials for the playoff run, and the same for every friend I bring. ~ college ego
+Friday nights, I'd like a spot on the home sideline where the coordinator can hear me holler. ~ hs
+My family's been coming to this stadium since the old wooden bleachers. Let us stand where we used to. ~ kin nfl
+I want the walk in with the team before home games. Just the parking lot, then I'm gone. ~ hs
+The chain crew's spot by the forty is where I'd like to stand. Clear view, quiet crowd. ~ hs
+A chair in the back of the coaches' box for the big games. Headphones, no talking. ~ college cold
+Friday nights, I'm asking for one spot on the home sideline. Nothing more. ~ hs
+The sideline pass for the big games is my only ask, and I'll stay behind the bench. ~ hs
+Put my name on the gate list for the scrimmage, and a folding chair by the fence. ~ hs
+Tell the principal I'm not meddling, I just want to see the varsity from close up. ~ hs principal
+My restaurant sponsors the band, so I'd like a spot near the band on game night. ~ hs smooth
 
 @key booster.want.building
 Our press box is a shed on stilts. Build a real one, put my name on the door, and I'll cover the bill. ~ hs
@@ -187,6 +200,30 @@ A facility with my name on it doesn't just honor me. It honors everybody who wor
 If you're going to lean on me for money, let it be for something permanent. A building, not a banquet. ~ college tight
 New building, new recruits, new money. I've seen it work. I'll get it going if you say the word. ~ college smooth
 Some collectives pay for players. Mine will pay for the place they play. ~ college nil
+Put my name on the next one, Coach, and I'll cover most of the rest. ~ hs
+Tell the board the money's ready. All I need is the name on the plaque. ~ college
+A new weight room in this town would be something to see. Let me build it and sign my name to it. ~ hs texas
+You'll have trouble finding a bigger fan than me. Put my name on the field house and I'll be a bigger one. ~ hs warm
+The old facility committee sat on their hands for ten years. Let me get the next building moving. ~ college impatient
+Every program in this league has a donor wall. I'd like the one at ours to start with my name. ~ college
+The players sleep better when the trainers have a real room. Put my name on it and I'll sleep better too. ~ hs warm
+A lot of folks give to a scholarship fund. I'd rather give to a building people can walk into. ~ college
+My name on a cornerstone is all I ask for the new facility. Simple as that. ~ hs blunt
+Get me the architect's name and the site plan. My name gets the front wall. ~ college smooth
+The new indoor has to be in the plan before the next budget vote. I'll cover it if mine is on it. ~ college
+Build it and I'll stand at the dedication in a suit. My name on the sign, and I'll cut the ribbon. ~ hs
+A proper press box for the Friday crowd, and a name plate on the door. I'll write the check. ~ hs texas
+My family has been in this town for three generations. A field house with our name on it makes sense to me. ~ hs warm
+You want a new practice facility, I want my name on it. We can both be happy. ~ college smooth
+Let's get the shovels in the ground before the next recruiting class signs. My name goes on the front. ~ college impatient
+Donors give to what they can see. I want my name on the part of the building fans see first. ~ college ego
+Think about the kids coming through here in twenty years, reading my name on a brick. That's my gift. ~ hs warm
+A new locker room with a real shower for every kid. My name can go on the door. ~ hs
+The coaches' offices should overlook the practice field, and the name over the door should be mine. ~ college
+The team room needs better lighting, better chairs and better air. Put my name on the wall and I'll pay for all three. ~ hs
+My company can build the whole facility, cost price, if the name goes on the front door. ~ college smooth
+One building, with my name, in the spot where everybody parks. That's all I'm asking. ~ hs
+You don't need a committee for this. You need a yes from me and a name from you. ~ college impatient
 
 @key booster.want.clean
 The booster club writes checks for new uniforms. It won't write one to fix a recruiting violation. ~ hs
@@ -288,6 +325,16 @@ I know what happens when a booster oversteps. Tell me where the line is, and I'l
 One failed class, one missed test, one rule bent, and someone's eligibility is gone. Stay on top of it. ~ college
 Win by whatever scheme you like. Just let the compliance office sleep at night. ~ college
 I'll back almost any decision you make as long as it's clean. ~ college
+Pay the compliance staff whatever they ask, then tell me it's handled. ~ college tight
+Tell the parents what you'd tell me. Honest answers keep the ugly rumors away. ~ hs warm
+Nothing gets handed to a player that doesn't come through the proper office first. ~ college nil
+A kid should earn his scholarship in the classroom just as much as on the field. ~ college
+Lose honest and I'll still show up at Friday's game. Lose dirty and don't bother calling. ~ hs cold
+Those fancy NIL collectives need a leash, and you'd better hold it. ~ college nil
+Make the staff sign off in writing every time they meet a prospect's family. ~ college
+You can recruit hard without anybody asking whether it was legal. Keep it that way. ~ college
+The family's lawyers are on speed dial. Use them before the league office calls you. ~ nfl
+Any gift to a kid goes through the athletic department, every time. Nothing in a pocket. ~ college
 
 @key booster.want.hires
 Hire a head JV coach who can teach, not just coach. These boys need both. ~ hs
@@ -506,6 +553,21 @@ I don't need a speech from the players. I need ten seconds of them in a jersey s
 The cost of keeping this roster together is only going up. I'd like to chip in now. ~ nil college
 You don't have to love it. You just have to let me ask your guys. ~ nil cold college
 Listen, I've got a budget and a deadline. Your players have the faces. Let's talk. ~ nil impatient college
+Whoever sells the most jerseys at the spring game gets the first ad slot. Let's see who that is. ~ nil college
+My roofing company could use a few big men in hard hats. Your O-line already looks the part. ~ nil college
+Players love free shoes, free meals and free cameras. I'd like to give them all three. ~ nil college
+Give me the quarterback and the running back in one ad. The kids who sell the offense sell the car. ~ nil college
+Before your first big recruiting weekend, I'd like to make sure every visitor sees my name next to yours. ~ nil college
+Put your varsity kids on my banner, and they'll get a fair check for their time. ~ nil hs
+My dealership would love a lineman in a shoot this summer. Within the rules, Coach. ~ nil hs
+Your senior class is a good product. Let me put them in my window and pay them for it. ~ nil hs
+Give me the captains. They're the faces the parents already trust, and that's worth money to me. ~ nil hs
+A player who talks well on camera is worth more to my ads than one who runs fast. ~ nil hs modern
+Our store can cover fuel for a few players to attend our summer clinic. Their picture goes on the flyer. ~ nil hs
+Keep your sophomores out of the spotlight a while longer. I'll take the seniors and the juniors who are ready. ~ nil hs patient
+Let me make a short video with your running back. Two minutes, one product, and a fair fee. ~ nil hs modern
+We don't need a famous face, just a kid who looks like he belongs behind our counter. ~ nil hs
+I'm not looking for a star. I want the one player every mom in {town} already likes. ~ nil hs warm
 
 @key booster.want.oldschool
 Everybody at {old_school} gets a look from this program, even the kids on the JV. ~ hs
@@ -601,6 +663,31 @@ Want me to set up a meeting with the {old_school} coach? I'll do it this week. ~
 Let me look at your board once a month, and I'll tell you if {old_school} is where it should be. ~ college meddler
 I could call the {old_school} athletic director right now. Just say the word. ~ college meddler
 I'm not going to yell. But if {old_school} gets ignored again, somebody will hear about it. ~ college hot
+Get the {old_school} kid into a visit before the other coaches get there. ~ hs hot
+Walk into {old_school} on a weeknight and eat with the staff. People remember that. ~ hs warm
+{old_school} sends a few good ones every year and I'd love to see them stay in this state. ~ college
+Build a bridge to the {old_school} coach and keep it standing. He'll send you his best. ~ college smooth
+Put the {old_school} seniors on your official visit list. Don't make me ask twice. ~ hs
+A pair of {old_school} linemen would fix our depth in two seasons. Go get them. ~ college
+I've been in that gym at {old_school} for forty years. The kids there still play like they mean it. ~ hs old
+Get the {old_school} quarterback in front of your staff this summer. Let them judge him. ~ hs
+Let the {old_school} kids come to a home game and see the stadium with their own eyes. ~ hs warm
+If you can't get to {old_school} yourself, send somebody who knows the place. ~ college meddler
+There are too many good kids in {old_school}'s hallways who never get a look from us. ~ hs
+Put your strongest assistant on the {old_school} recruiting list. He'll bring the kids in. ~ college
+{old_school} is a place where kids work before school and after. I want those kids. ~ hs
+I'd like at least a visit or two from the {old_school} seniors before the season starts. ~ hs impatient
+Tell the {old_school} staff we're serious this time. Then prove it. ~ hs blunt
+Those {old_school} boys are good for the locker room. Rare, that kind of attitude. ~ college warm
+We need a player from {old_school} who can make an impact right away. Find him.
+Ask the {old_school} coach who he trusts most. That's the kid to call. ~ college smooth
+Every {old_school} alum I know wants to see us do better in the state. Help them. ~ college warm
+Send an assistant to {old_school} each month, not once a season. Consistency wins there. ~ hs patient
+A quarterback from {old_school} with a real arm would change our whole offense. Go find him. ~ college
+{old_school} has a tradition of toughness. Recruit that tradition, not just the stat line. ~ college
+Don't let the {old_school} class of next year slip away to a bigger program. ~ hs hot
+Stop by {old_school} during the Friday practice and see who's working. That's all I need. ~ hs
+My old teammates from {old_school} would love to meet the staff. Set it up. ~ old warm
 
 @key booster.want.player
 Ownership gets a vote on the active roster, and I'd like the kid from the fourth round to have it. ~ nfl kin
@@ -779,6 +866,39 @@ We can talk about a new weight room, a new scoreboard, whatever you need. First 
 I want to see a whole season where they never once get the last laugh.
 It's been too long since the front office could say we owned the series. Fix that. ~ nfl
 Nothing else you do in your first year will get talked about as long as that game.
+Folks in {town} still talk about that game the day after it's played. ~ hs
+Put the rivalry week on the calendar before anything else gets penciled in.
+Y'all can lose to anybody else and I'll shrug. Not {rival}. ~ south
+Every alumni dinner comes down to one question: did we get {rival}? ~ college
+A winning season with a loss to {rival} still tastes like ash. ~ college
+There's a reason the whole county buys the same paper the morning after {rivalry}.
+Lose to anybody else and I'll send a fruit basket. Lose to {rival} and I'll send a lawyer. ~ smooth
+That rivalry lives in people's kitchens here. Win it and the table talk changes for a year. ~ midwest
+You can keep your bowl tickets. I'd trade them for one win over {rival}. ~ college
+In {town} you're measured by the scoreboard in one game. That game is {rivalry}.
+Beat {rival} at home and let the fans stay until the lights go out.
+Start the week of {rivalry} with the old film. The players need to see what losing feels like.
+A win over {rival} gets the clubhouse talking through the offseason. ~ nfl
+Every guy who played in that series remembers his first win over {rival}. Let's get ours.
+You'll hear more about {rival} from the mailman than from your own staff. Ignore him and win anyway. ~ midwest
+The fans don't care about yards. They care about the final score against {rival}.
+The series stands at {series}. I'd like to be the one who puts a better number on the board. ~ college
+Coaches come and go in this town. The ones who beat {rival} get a street named after them.
+You'll feel the weight of that game in every hallway at the school. Learn to carry it. ~ hs
+A loss to {rival} takes three weeks off my life. A win takes three weeks back. ~ old
+Win the rivalry and I'll let your staff pick the menu for the banquet. ~ warm
+I want our band to outplay theirs and the scoreboard to agree. ~ hs
+The guys who played in {rivalry} get invited back to talk. I want the next group to have a story to tell. ~ college
+Every alumnus who comes back for homecoming asks one question first: did we get {rival}? ~ hs
+Beat {rival} and the booster barbecue turns into a block party. ~ hs warm
+The rivalry game is the one time all year the school board stops arguing and starts cheering. ~ hs
+We've got three generations of fans in our section. I'd like them all screaming for the same result. ~ hs
+Only the college angle is requested, so every line carries `college` (or the role `booster` with college). Facts used: {rival}, {rivalry}, {series}, {town}, {want}, {team}, {year}, {you}, {coach}, {coach_he}, {coach_sir}.
+Your {rival} game is the one that sells tickets in {town}, and it's the one the donors ask about first. ~ college
+Beat {rival} in {rivalry} and the recruits in this state will know our name by signing day. ~ college
+The collective has a lot of money for a program that wins {rivalry}. Make that money easy to keep giving. ~ college nil
+Every booster dinner in {town} gets quieter the week before {rivalry}. Win it and the room loosens up. ~ college
+A win over {rival} means more to our alumni than a bowl bid. Ask anybody who drove back for homecoming. ~ college
 
 @key booster.want.winnow
 Friday nights decide how this town feels about you. Win the first few. ~ hs

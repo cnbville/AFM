@@ -27,7 +27,9 @@
 //!   luck add in this engine (`Fit::weight`, credibility from the engine's
 //!   own spreads: small samples and noisy stats count less), times the
 //!   share of a starter's season he has played (he grows snap by snap). A
-//!   star who plays exactly to his ratings holds. Results above his
+//!   star who plays exactly to his ratings holds, whatever his past
+//!   seasons showed: his normal only takes in a season's move, never turns
+//!   a season at his ratings into a pull-down (minor bug 351). Results above his
 //!   ceiling lift him past it and the ceiling moves up with him.
 //! - Snaps against stronger teams count more: 10% per standard deviation
 //!   of opponent strength, at most 20% either way (item 5).
@@ -792,7 +794,8 @@ impl Ledger {
     /// luck (`Fit::tp` against what a season adds). A man whose make-up
     /// (his body, his mix of skills) always beats or trails his ratings
     /// is judged against that, so it doesn't lift or sink him every year;
-    /// a first season at it has none.
+    /// a first season at it has none. It only takes in a season's move
+    /// (`target`): it never pulls down a season at his ratings.
     pub fn own(&self, level: Level, read: Read, pos: Position) -> f64 {
         let Some(x) = self.past.iter().find(|x| x.read == read as u8).filter(|x| x.seasons > 0) else {
             return 0.0;
@@ -818,12 +821,23 @@ impl Ledger {
 /// (`Fit::weight`), the share of a starter's season it has seen (so he
 /// grows snap by snap and one big game moves him only its part), and the
 /// rate scale.
+///
+/// He is judged against his ratings; his normal only takes in a season's
+/// move, between none of it and all of it (minor bug 351). The engine
+/// plays him at his ratings as results moved them, so a season at them
+/// shows nothing over his rating: read against a normal that past luck
+/// left above 0, every such season would pull him down, and a great
+/// season would turn into a loss over the following years. A make-up that
+/// always beats his ratings still lifts him less each season, and a
+/// season below his ratings still pulls him down by what it showed.
 pub fn target(level: Level, read: Read, pos: Position, n: f64, s: f64, own: f64, mode: &Mode) -> f64 {
     let f = fit(level, read, pos);
     if n <= 0.0 || f.season <= 0.0 {
         return 0.0;
     }
-    let t = mode.scale * (s / n - own) * f.weight(n, mode.change) * (n / f.season).min(1.0);
+    let shown = s / n;
+    let own = own.clamp(shown.min(0.0), shown.max(0.0));
+    let t = mode.scale * (shown - own) * f.weight(n, mode.change) * (n / f.season).min(1.0);
     let t = if mode.pull_down { t } else { t.max(0.0) };
     clamp(t, -CAP, CAP)
 }

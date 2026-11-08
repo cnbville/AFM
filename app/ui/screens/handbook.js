@@ -220,10 +220,10 @@ function hb8Card(c) {
     return `<div class="hb8-task ${t.done ? "done" : ""} ${t.today ? "today" : ""}">${mark}<span class="hb8-tday">${esc(t.day.replace(/ \d{4}$/, ""))}</span><div class="hb8-tt"><b>${esc(t.title)}${t.today && !t.done ? '<small class="hb8-today">Today</small>' : ""}</b><span>${esc(t.text)}</span></div>${act}</div>`;
   }).join("");
   return `<section class="sl hb8 hb8-card" aria-label="Getting started">
-    <div class="hb8-ch"><div><div class="st-label">Getting started · your first week</div><h2>${esc(c.title)}</h2><p>${esc(c.from)}</p></div>
+    <div class="hb8-ch"><div><div class="st-label">${esc(c.label || "Getting started · your first week")}</div><h2>${esc(c.title)}</h2><p>${esc(c.from)}</p></div>
       <div class="hb8-cnt"><b><em>${c.done}</em> of ${c.of} done</b><div class="hb8-bar">${bar}</div></div></div>
     <div class="hb8-tasks">${rows}</div>
-    <div class="hb8-cf"><span>Do them in any order. Each one ticks itself off when you've done it, and the card goes away when all ${c.of} are done.</span><span>Help: <b>${esc(c.help)}</b> · ${linkTo("settings", {}, "Settings")}</span></div>
+    <div class="hb8-cf"><span>${esc(c.foot || `Do them in any order. Each one ticks itself off when you've done it, and the card goes away when all ${c.of} are done.`)}</span><span>Help: <b>${esc(c.help)}</b> · ${linkTo("settings", {}, "Settings")}</span></div>
   </section>`;
 }
 {
@@ -238,6 +238,36 @@ function hb8Card(c) {
     // On top of Home for the first week, the hero below it.
     return `<div class="pad hb8-cardpad">${hb8Card(c)}</div>${html}`;
   };
+}
+
+// ---------- the interim on your sideline (the Jan 1 start) ----------
+// A team still playing when you took it plays its last games under an
+// interim: the staff that got it there prepares and calls them, and you run
+// everything else. Home and game day say so.
+function hbInterim(x, big) {
+  const next = x.next ? `${x.next.home ? "vs" : "at"} ${esc((x.next.opp && x.next.opp.name) || "")}${x.next.date ? `, ${esc(x.next.date)}` : ""}${x.next.name ? ` · ${esc(x.next.name)}` : ""}` : "";
+  const yours = big ? `<ul class="hb8-int-list">${x.yours.map((y) => `<li>${esc(y)}</li>`).join("")}</ul>` : "";
+  return `<section class="sl hb8 hb8-int" aria-label="Interim on the sideline">
+    <div class="hb8-ch"><div><div class="st-label">Interim on the sideline${next ? ` · next: ${next}` : ""}</div>
+      <h2>${linkTo("coach", { id: x.id }, x.name)} coaches the games left</h2><p>${esc(x.text)}</p></div></div>
+    ${big ? `<div class="hb8-cf"><span>What is yours from today:</span><span></span></div>${yours}` : ""}
+  </section>`;
+}
+{
+  const home1 = screens.home;
+  screens.home = async (a) => {
+    const html = await home1(a);
+    if (typeof html !== "string" || !S.status || !S.status.interim) return html;
+    return `<div class="pad hb8-cardpad">${hbInterim(S.status.interim, false)}</div>${html}`;
+  };
+  const gd0 = screens.gameday;
+  if (gd0) {
+    screens.gameday = async (a) => {
+      const html = await gd0(a);
+      if (typeof html !== "string" || !S.status || !S.status.interim) return html;
+      return `<div class="pad hb8-cardpad">${hbInterim(S.status.interim, true)}</div>${html}`;
+    };
+  }
 }
 
 // ---------- the Help setting (H15) ----------

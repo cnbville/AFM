@@ -31,6 +31,21 @@ type Lineup = (Vec<(ORole, usize)>, Vec<(DSlot, usize)>);
 /// set) and the referee's ready signal starts a stopped clock again
 /// (proposed, not confirmed).
 const BALL_SPOTTED: f64 = 7.0;
+/// Seconds the NFL game clock runs past the end of a play that stops it,
+/// before the official's signal stops it (minor bug 254). The engine's
+/// incompletions took 3.7 s of game clock snap to snap and its touchdowns
+/// 4.2, against nflverse's 5.0 and 5.9 (2021-25), so a stopped play was
+/// followed by the next snap 12.6 s later in normal time (real 15.2), 6.0
+/// late in a half (8.4) and 4.1 in the two-minute drill (5.4), and teams ran
+/// 63.4 plays a game (61.9). With it: 4.95 s after an incompletion, 5.4 in
+/// the two-minute drill, 14.0 and 7.4 in normal and late time (short still
+/// because too few plays end out of bounds, the route and run paths of
+/// minor bug 253 and S6.2), 61.9 plays a team game and 23.6 points (24.5
+/// before, real 22.5), `match_check nfl 2000`. College and high school keep
+/// none: their plays a team game were already at real (FBS 66.0, real 66.6;
+/// 64.2 with it) and no snap-to-snap data says otherwise. Proposed, not
+/// confirmed.
+const NFL_WHISTLE: f64 = 1.3;
 
 /// A man's game-to-game form, rating points of sd at Consistency 10 (minor
 /// bug 287; proposed, not confirmed).
@@ -138,7 +153,16 @@ pub struct GameResult {
 struct Side<'a> {
     team: &'a GameTeam,
     depth: Depth,
+    /// Each position's depth list rated at that position, in list order.
+    /// The game's players and depth chart never change, so `pick` reads
+    /// these instead of working each rating out again (world speed lane).
+    rated: [Vec<f64>; crate::positions::POSITION_COUNT],
     energy: Vec<f64>,
+    /// Lungs (Dynamic Links), read once a game: each man's recovery factor
+    /// between plays, and his wind (stamina plus the link's edge). His
+    /// attributes and links never change during a game.
+    lungs: Vec<f64>,
+    wind: Vec<f64>,
     edge: Vec<f64>,
     /// His form today in rating points (minor bug 287): drawn once a game,
     /// its spread falling with his hidden Consistency.
@@ -252,10 +276,18 @@ impl<'a> Side<'a> {
                 }
             }
         }
+        let mut rated: [Vec<f64>; crate::positions::POSITION_COUNT] = Default::default();
+        for pos in Position::ALL {
+            rated[pos.index()] = depth.list(pos).iter().map(|&i| team.players[i].overall_at(pos)).collect();
+        }
+        let lung = [crate::links::Link::Lungs];
         Side {
             team,
             depth,
+            rated,
             energy: vec![team.prep.fresh.clamp(0.5, 1.0); n],
+            lungs: team.players.iter().map(|p| 1.0 + 0.1 * p.links.share(&lung)).collect(),
+            wind: team.players.iter().map(|p| p.a(Attr::Stamina) + p.links.edge(&lung)).collect(),
             edge: vec![0.0; n],
             form: vec![0.0; n],
             trust: team.players.iter().map(|p| p.trust).collect(),
@@ -689,17 +721,20 @@ impl<'a> Side<'a> {
     }
 
     fn pick(&self, pos: Position, n: usize, used: &mut Vec<usize>) -> Vec<usize> {
-        let list: Vec<usize> = self
+        // Each man with his rating here, read once a game (`rated`): the
+        // same numbers `rating` gives.
+        let list: Vec<(usize, f64)> = self
             .depth
             .list(pos)
             .iter()
             .copied()
-            .filter(|&i| !self.out[i] && !used.contains(&i) && !self.benched[i] && !self.held(i))
+            .zip(self.rated[pos.index()].iter().copied())
+            .filter(|&(i, _)| !self.out[i] && !used.contains(&i) && !self.benched[i] && !self.held(i))
             .collect();
         let th = if self.frozen { 0.0 } else { self.threshold(pos) };
         let mut out = Vec::new();
         let mut skipped = Vec::new();
-        for &i in &list {
+        for &(i, ri) in &list {
             if out.len() == n {
                 break;
             }
@@ -714,12 +749,8 @@ impl<'a> Side<'a> {
                 // misses), 53% in FBS, and a star 15 points better about 82%
                 // (real stars about 80-85%; proposed, not confirmed).
                 let allow = 60.0 * (th - self.energy[i]);
-                let next = list.iter().copied().find(|&j| {
-                    j != i
-                        && !out.contains(&j)
-                        && !skipped.contains(&j)
-                        && self.energy[j] >= th
-                        && self.rating(j, pos) >= self.rating(i, pos) - allow
+                let next = list.iter().copied().find(|&(j, rj)| {
+                    j != i && !out.contains(&j) && !skipped.contains(&j) && self.energy[j] >= th && rj >= ri - allow
                 });
                 if next.is_some() {
                     skipped.push(i);
@@ -742,10 +773,14 @@ impl<'a> Side<'a> {
         let in_group = |i: usize| spots::group(self.team.players[i].position) == group;
         while out.len() < n {
             let free = |i: usize| !self.out[i] && !used.contains(&i) && !out.contains(&i);
+            // Each man rated once, not on every comparison: the same
+            // numbers, so `max_by` keeps the same man.
             let best = |f: &dyn Fn(usize) -> bool| {
                 all.clone()
                     .filter(|&i| free(i) && f(i))
-                    .max_by(|&a, &b| self.rating(a, pos).total_cmp(&self.rating(b, pos)))
+                    .map(|i| (i, self.rating(i, pos)))
+                    .max_by(|a, b| a.1.total_cmp(&b.1))
+                    .map(|x| x.0)
             };
             // The week's plan holds until the group runs out: a man at his
             // snap limit, kept to base downs or resting his series comes
@@ -2437,6 +2472,7 @@ impl<'a> Game<'a> {
             protect,
             dist,
             pressure,
+            kicking::season_form(ps[k].id, self.s.year),
             &self.s.cond,
             along,
             self.s.rules.level,
@@ -3788,13 +3824,16 @@ impl<'a> Game<'a> {
         if def_script {
             self.sides[d].scripted[1] += 1;
         }
-        let labels: Vec<(u32, String)> = off
+        // The labels are fixed text, so they are borrowed, not copied; the
+        // fallback is written only when no label matches (the same text).
+        let labels: Vec<(u32, &'static str)> = off
             .iter()
-            .map(|&(rl, i)| (self.sides[o].team.players[i].id, scrimmage::orole_label(rl).to_string()))
-            .chain(def.iter().map(|&(s, i)| (self.sides[d].team.players[i].id, s.label().to_string())))
+            .map(|&(rl, i)| (self.sides[o].team.players[i].id, scrimmage::orole_label(rl)))
+            .chain(def.iter().map(|&(s, i)| (self.sides[d].team.players[i].id, s.label())))
             .collect();
-        let label =
-            |id: u32| labels.iter().find(|l| l.0 == id).map(|l| format!("{} #{}", l.1, id)).unwrap_or(format!("#{id}"));
+        let label = |id: u32| {
+            labels.iter().find(|l| l.0 == id).map(|l| format!("{} #{}", l.1, id)).unwrap_or_else(|| format!("#{id}"))
+        };
         // A man playing hurt loses what his injury limits (update 3, F7:
         // `sim::hampered`, read in `run_snap`), not a flat cut.
         // The words the staff gives before this snap (yours were given at
@@ -3931,20 +3970,32 @@ impl<'a> Game<'a> {
         // Fatigue (topic 6).
         for &(side, p, work) in &res.work {
             let team = if side == 0 { o } else { d };
-            // Lungs (Dynamic Links): five stamina points of wind.
-            let gp = &self.sides[team].team.players[p];
-            let st = gp.a(Attr::Stamina) + gp.links.edge(&[crate::links::Link::Lungs]);
+            // Lungs (Dynamic Links): five stamina points of wind (`wind`,
+            // read once a game).
+            let st = self.sides[team].wind[p];
             let wear = 1.0 + self.s.wear[team];
             self.sides[team].energy[p] = (self.sides[team].energy[p] - 0.041 * drain(st, work) * wear).max(0.25);
         }
+        let pace = self.pace;
         for t in [o, d] {
-            let on: Vec<usize> =
-                if t == o { off.iter().map(|x| x.1).collect() } else { def.iter().map(|x| x.1).collect() };
-            for i in 0..self.sides[t].energy.len() {
-                // Lungs: he gets his wind back sooner (a full link a tenth faster).
-                let lungs = 1.0 + 0.1 * self.sides[t].team.players[i].links.share(&[crate::links::Link::Lungs]);
-                let rec = self.pace * lungs * if on.contains(&i) { RECOVER_ON_FIELD } else { RECOVER_ON_BENCH };
-                self.sides[t].energy[i] = (self.sides[t].energy[i] + rec).min(1.0);
+            let side = &mut self.sides[t];
+            // Who is on the field, marked by index: the same answer as
+            // searching the lineup for each man.
+            let mut on = vec![false; side.energy.len()];
+            if t == o {
+                for x in &off {
+                    on[x.1] = true;
+                }
+            } else {
+                for x in &def {
+                    on[x.1] = true;
+                }
+            }
+            for i in 0..side.energy.len() {
+                // Lungs: he gets his wind back sooner (a full link a tenth
+                // faster; `lungs`, read once a game).
+                let rec = pace * side.lungs[i] * if on[i] { RECOVER_ON_FIELD } else { RECOVER_ON_BENCH };
+                side.energy[i] = (side.energy[i] + rec).min(1.0);
             }
         }
         self.apply_injuries(&res.notes.injuries, [o, d]);
@@ -4305,6 +4356,13 @@ impl<'a> Game<'a> {
         // A penalty on a play that would have left the clock running: it
         // starts on the ready signal once the penalty is marked off, with
         // the shorter play clock, except late in a half.
+        // The clock stops on the official's signal, a beat after the ball
+        // is dead (minor bug 254). It never takes a quarter's last second:
+        // in the final minutes the replay official puts back time the
+        // clock ran after a dead ball.
+        if stop && nfl {
+            self.tick(NFL_WHISTLE.min((self.clock - 1.0).max(0.0)));
+        }
         let play_stops = matches!(res.result, R::Incomplete | R::Spike) || (res.out_of_bounds && !nfl);
         if accepted_pen && !late && !play_stops {
             ready = Some(self.rules().play_clock - ADMIN_PLAY_CLOCK);

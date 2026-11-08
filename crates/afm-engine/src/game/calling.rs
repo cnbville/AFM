@@ -496,8 +496,37 @@ pub fn sheet_designs(prep: &super::roster::Prep) -> [Option<(u16, Personnel, Bac
 }
 
 fn weigh<T: Copy>(rng: &mut Rng, items: &[(T, f64)]) -> T {
-    let pos: Vec<(T, f64)> = items.iter().copied().filter(|x| x.1 > 0.0).collect();
-    rng.weighted(&pos)
+    // Rng::weighted over only the positive weights, without copying them
+    // out: the same sum, the same draw and the same walk.
+    let total: f64 = items.iter().filter(|x| x.1 > 0.0).map(|(_, w)| w).sum();
+    let mut roll = rng.next() * total;
+    let mut last = None;
+    for &(item, w) in items.iter().filter(|x| x.1 > 0.0) {
+        roll -= w;
+        if roll < 0.0 {
+            return item;
+        }
+        last = Some(item);
+    }
+    last.expect("weigh: no positive weight")
+}
+
+/// What a memo is keyed on: the situation's slot in the caller's own list,
+/// then only what the weights read of the snap.
+type ConceptKey = (usize, bool, bool, Option<Personnel>);
+type RunKey = (usize, bool, bool, bool);
+type CoverageKey = (usize, usize, Personnel, DefPersonnel);
+
+/// The weights a play caller has already worked out for a snap like this
+/// one (the coordinators' draft at kickoff calls thousands of snaps from
+/// one memory in a few situations). A memo holds for one staff, memory and
+/// context only. It keeps the weights as they were worked out, so a call
+/// draws from the same list with or without it.
+#[derive(Default)]
+pub struct CallMemo {
+    concepts: Vec<(ConceptKey, Vec<(usize, f64)>)>,
+    runs: Vec<(RunKey, Vec<(RunConcept, f64)>)>,
+    coverages: Vec<(CoverageKey, [(Coverage, f64); COVERAGE_COUNT])>,
 }
 
 /// How far into the modern game the season is (topic 9.1): motion, RPOs
@@ -519,6 +548,20 @@ fn trust(skill: f64) -> f64 {
 
 /// The offensive call.
 pub fn call_offense(staff: &Staff, mem: &Memory, sit: &Situation, ctx: &OffCtx, rng: &mut Rng) -> OffCall {
+    call_offense_memo(staff, mem, sit, ctx, rng, None)
+}
+
+/// The offensive call with a memo of the weights already worked out for
+/// this staff, memory and context (`CallMemo`), and this snap's slot in
+/// the caller's list of situations.
+pub fn call_offense_memo(
+    staff: &Staff,
+    mem: &Memory,
+    sit: &Situation,
+    ctx: &OffCtx,
+    rng: &mut Rng,
+    memo: Option<(&mut CallMemo, usize)>,
+) -> OffCall {
     let c = &staff.offense;
     let scheme = staff.off_scheme;
     let year = staff.year;
@@ -622,7 +665,7 @@ pub fn call_offense(staff: &Staff, mem: &Memory, sit: &Situation, ctx: &OffCtx, 
     }
     formation.motion = pick_motion(scheme, &formation, pass, year, ctx, rng);
     let mut call = if pass {
-        let concept = pick_concept(staff, mem, sit, &formation, ctx, rng);
+        let concept = pick_concept(staff, mem, sit, &formation, ctx, rng, memo);
         // A designed play runs from the set it was drawn in.
         if let Some(&(_, _, b, set)) = ctx.designs.iter().flatten().find(|d| d.0 as usize == concept) {
             formation.backfield = b;
@@ -656,7 +699,7 @@ pub fn call_offense(staff: &Staff, mem: &Memory, sit: &Situation, ctx: &OffCtx, 
         if formation.set == Set::Empty {
             formation.set = Set::Trips;
         }
-        let rc = pick_run(staff, mem, sit, &mut formation, ctx, short, rng);
+        let rc = pick_run(staff, mem, sit, &mut formation, ctx, short, rng, memo);
         // A jet sweep goes the way the motion man runs: across, away from
         // where he lined up.
         let dir = if rc == RunConcept::JetSweep || rc == RunConcept::Counter || rng.chance(0.3) {
@@ -880,6 +923,7 @@ fn pick_motion(scheme: OffScheme, f: &Formation, pass: bool, year: i32, ctx: &Of
 const RUN_OUT_PASS: f64 = 0.22;
 const CONCEDED_PASS: f64 = 0.45;
 
+#[allow(clippy::too_many_arguments)]
 fn pick_run(
     staff: &Staff,
     mem: &Memory,
@@ -888,14 +932,47 @@ fn pick_run(
     ctx: &OffCtx,
     short: bool,
     rng: &mut Rng,
+    memo: Option<(&mut CallMemo, usize)>,
 ) -> RunConcept {
     use RunConcept::*;
-    let scheme = staff.off_scheme;
-    let c = &staff.offense;
     let backfield = f.backfield;
     if short && rng.chance(0.25) && backfield == Backfield::UnderCenter {
         return Sneak;
     }
+    let rc = match memo {
+        None => weigh(rng, &run_weights(staff, mem, f, ctx, short)),
+        Some((m, slot)) => {
+            // The weights read the formation only for the gun, a fullback's
+            // personnel and jet motion; `short` comes from the situation.
+            let fb = ctx.has_fb && matches!(f.personnel, Personnel::P21 | Personnel::P22);
+            let key = (slot, backfield != Backfield::UnderCenter, fb, f.motion == Motion::Jet);
+            let k = match m.runs.iter().position(|x| x.0 == key) {
+                Some(k) => k,
+                None => {
+                    m.runs.push((key, run_weights(staff, mem, f, ctx, short)));
+                    m.runs.len() - 1
+                }
+            };
+            weigh(rng, &m.runs[k].1)
+        }
+    };
+    // A jet sweep needs the jet motion; a sneak or QB power is called from
+    // the gun or under center as it comes.
+    if rc == JetSweep {
+        f.motion = Motion::Jet;
+    }
+    let _ = sit;
+    rc
+}
+
+/// Each run concept's weight on this snap, before `weigh` draws from them.
+/// It draws nothing and reads only the staff, memory, context, `short` and
+/// the formation's gun, personnel and motion.
+fn run_weights(staff: &Staff, mem: &Memory, f: &Formation, ctx: &OffCtx, short: bool) -> Vec<(RunConcept, f64)> {
+    use RunConcept::*;
+    let scheme = staff.off_scheme;
+    let c = &staff.offense;
+    let backfield = f.backfield;
     let gun = backfield != Backfield::UnderCenter;
     let fb = ctx.has_fb && matches!(f.personnel, Personnel::P21 | Personnel::P22);
     let qb = ctx.qb_run;
@@ -990,14 +1067,7 @@ fn pick_run(
         let today = if n >= 3.0 { sum / n } else { 0.0 };
         x.1 *= (tr * 1.5 * ev + ad * 0.8 * today).exp();
     }
-    let rc = weigh(rng, &w);
-    // A jet sweep needs the jet motion; a sneak or QB power is called from
-    // the gun or under center as it comes.
-    if rc == JetSweep {
-        f.motion = Motion::Jet;
-    }
-    let _ = sit;
-    rc
+    w
 }
 
 /// The pass half of an RPO (topic 1): real college spread offenses tag a
@@ -1058,7 +1128,36 @@ fn sticks_depth(c: &PassConcept) -> f64 {
         .fold(0.0, f64::max)
 }
 
-fn pick_concept(staff: &Staff, mem: &Memory, sit: &Situation, f: &Formation, ctx: &OffCtx, rng: &mut Rng) -> usize {
+fn pick_concept(
+    staff: &Staff,
+    mem: &Memory,
+    sit: &Situation,
+    f: &Formation,
+    ctx: &OffCtx,
+    rng: &mut Rng,
+    memo: Option<(&mut CallMemo, usize)>,
+) -> usize {
+    let Some((m, slot)) = memo else {
+        return weigh(rng, &concept_weights(staff, mem, sit, f, ctx));
+    };
+    // The weights read the formation only for a boot from the gun, an empty
+    // set and, with designs on the sheet, the personnel.
+    let designs = ctx.designs.iter().any(|d| d.is_some());
+    let key = (slot, f.backfield == Backfield::Shotgun, f.set == Set::Empty, designs.then_some(f.personnel));
+    let k = match m.concepts.iter().position(|x| x.0 == key) {
+        Some(k) => k,
+        None => {
+            m.concepts.push((key, concept_weights(staff, mem, sit, f, ctx)));
+            m.concepts.len() - 1
+        }
+    };
+    weigh(rng, &m.concepts[k].1)
+}
+
+/// Each pass concept's weight on this snap, before `weigh` draws from them.
+/// It draws nothing and reads only the staff, memory, situation, context
+/// and the formation's backfield, set and (for designs) personnel.
+fn concept_weights(staff: &Staff, mem: &Memory, sit: &Situation, f: &Formation, ctx: &OffCtx) -> Vec<(usize, f64)> {
     let c = &staff.offense;
     let scheme = staff.off_scheme;
     let long = sit.togo >= 8.0 && sit.down >= 2;
@@ -1078,7 +1177,7 @@ fn pick_concept(staff: &Staff, mem: &Memory, sit: &Situation, f: &Formation, ctx
     // without the scheme's favorite lean.
     let designs =
         ctx.designs.iter().flatten().filter(|d| d.1 == f.personnel).map(|d| (d.0 as usize, pass_concept(d.0 as usize)));
-    let w: Vec<(usize, f64)> = PASS_CONCEPTS
+    PASS_CONCEPTS
         .iter()
         .enumerate()
         .chain(designs)
@@ -1202,8 +1301,7 @@ fn pick_concept(staff: &Staff, mem: &Memory, sit: &Situation, f: &Formation, ctx
             }
             (i, w.max(0.01))
         })
-        .collect();
-    weigh(rng, &w)
+        .collect()
 }
 
 /// Football knowledge: what each concept gains against each look, measured
@@ -1341,13 +1439,21 @@ fn expected_values(mem: &Memory, sharp: f64) -> Vec<f64> {
         .collect()
 }
 
+/// The pass concepts a coverage is weighed against: every library concept
+/// but the RPO halves. Worked out once: the table and the library never
+/// change, so it is the same list on every call (world speed lane).
+fn live_concepts() -> &'static [usize] {
+    static LIVE: std::sync::OnceLock<Vec<usize>> = std::sync::OnceLock::new();
+    LIVE.get_or_init(|| (0..call_values().len()).filter(|&i| !is_rpo_half(pass_concept(i))).collect())
+}
+
 /// What each coverage gives up (four rushers) against the pass concepts a
 /// defensive coordinator expects. A sharp one trusts what he has seen; a
 /// poor one assumes every concept is as likely.
 fn coverage_values(mem: &Memory, sharp: f64) -> [f64; COVERAGE_COUNT] {
     let t = call_values();
     let seen: f64 = mem.opp_concepts.iter().sum();
-    let live: Vec<usize> = (0..t.len()).filter(|&i| !is_rpo_half(pass_concept(i))).collect();
+    let live = live_concepts();
     let n = live.len() as f64;
     let mut out = [0.0; COVERAGE_COUNT];
     for (k, o) in out.iter_mut().enumerate() {
@@ -1448,6 +1554,21 @@ pub fn call_defense(
     ctx: &DefCtx,
     rng: &mut Rng,
 ) -> DefCall {
+    call_defense_memo(staff, mem, sit, off, ctx, rng, None)
+}
+
+/// The defensive call with a memo of the coverage weights already worked
+/// out for this staff, memory and context (`CallMemo`), and this snap's
+/// slot in the caller's list of situations.
+pub fn call_defense_memo(
+    staff: &Staff,
+    mem: &Memory,
+    sit: &Situation,
+    off: &Formation,
+    ctx: &DefCtx,
+    rng: &mut Rng,
+    memo: Option<(&mut CallMemo, usize)>,
+) -> DefCall {
     let c: &Caller = &staff.defense;
     let wr = off.personnel.wide_receivers();
     let long = sit.togo >= 8.0 && sit.down >= 2;
@@ -1478,29 +1599,35 @@ pub fn call_defense(
             _ => DefPersonnel::Base,
         }
     };
-    // The coordinator's family of coverages, then the situation.
-    let base = shell_mix(staff.shell);
     let sharp = c.adaptation / 20.0;
-    let opp_pass = (mem.opp_pass + 2.0) / (mem.opp_plays + 4.0);
-    // Deep hurt reads this game's plays only: prep snaps carry no deep
-    // results (update 3, F33).
-    let deep_hurting = if mem.opp_game_plays > 6.0 { (mem.opp_deep_epa / mem.opp_game_plays).max(0.0) } else { 0.0 };
-    let run_hurting = if mem.opp_runs > 5.0 { (mem.opp_run_epa / mem.opp_runs).max(0.0) } else { 0.0 };
     // What the defense believes the offense will do from this look (topic
     // 7.2): a run tell brings the safety down, a pass tell keeps two high.
     let (p_run, sure) = mem.belief(off.look());
     let read = (c.reading + c.adaptation) / 40.0;
     // `belief` is already centred on their usual run share (update 3, F31).
     let lean_run = if ctx.tip != 0.0 { -0.5 * ctx.tip * read.max(0.6) } else { p_run * sure * read };
-    // What each coverage gives up against the passes this coordinator
-    // expects (topic 2): a sharp one leans away from the coverages they
-    // beat.
-    let given = coverage_values(mem, read);
-    let mean = given.iter().sum::<f64>() / COVERAGE_COUNT as f64;
-    let tr = trust(c.reading);
-    let w: Vec<(Coverage, f64)> = base
-        .iter()
-        .map(|&(cov, w)| {
+    // Garbage time: the leading defense keeps everything in front of it
+    // (two-high, fewer man looks, no Cover 0) instead of hunting stops.
+    let ease = sit.def_ease;
+    // The coordinator's family of coverages, then the situation. Worked
+    // out in one place so a memo can keep it: it draws nothing and reads
+    // only the staff, memory, situation, context, the look, their
+    // personnel and ours.
+    let weights = || -> [(Coverage, f64); COVERAGE_COUNT] {
+        let base = shell_mix(staff.shell);
+        let opp_pass = (mem.opp_pass + 2.0) / (mem.opp_plays + 4.0);
+        // Deep hurt reads this game's plays only: prep snaps carry no deep
+        // results (update 3, F33).
+        let deep_hurting =
+            if mem.opp_game_plays > 6.0 { (mem.opp_deep_epa / mem.opp_game_plays).max(0.0) } else { 0.0 };
+        let run_hurting = if mem.opp_runs > 5.0 { (mem.opp_run_epa / mem.opp_runs).max(0.0) } else { 0.0 };
+        // What each coverage gives up against the passes this coordinator
+        // expects (topic 2): a sharp one leans away from the coverages they
+        // beat.
+        let given = coverage_values(mem, read);
+        let mean = given.iter().sum::<f64>() / COVERAGE_COUNT as f64;
+        let tr = trust(c.reading);
+        let w = base.map(|(cov, w)| {
             let mut w = w * (-tr * (given[cov as usize] - mean)).exp();
             if cov.high() == 2 {
                 w *= if long {
@@ -1544,33 +1671,27 @@ pub fn call_defense(
                 w *= 0.3;
             }
             (cov, w)
-        })
-        .collect();
-    // The head coach's man-coverage share (update 2, G2): the coordinator
-    // moves his man share toward it by its firmness and keeps the shape
-    // the down gives him.
-    let mut w = w;
-    if let Some((want, k)) = staff.guide.man.pull() {
-        super::guide::steer_man(&mut w, k * (want - super::guide::habit_man(staff.shell)));
-    }
-    // Your answer to this group (G16): the coordinator plays close to it.
-    if let Some(m) = answer.man {
-        let all: f64 = w.iter().map(|x| x.1).sum();
-        let now = w.iter().filter(|x| x.0.is_man()).map(|x| x.1).sum::<f64>() / all.max(1e-9);
-        super::guide::steer_man(&mut w, 0.7 * (m as f64 - now));
-    }
-    // A line in your plan (G20): a safety down against their run.
-    if mem.plan.box_up {
-        for x in w.iter_mut().filter(|x| x.0.high() == 2) {
-            x.1 *= 0.6;
+        });
+        // The head coach's man-coverage share (update 2, G2): the coordinator
+        // moves his man share toward it by its firmness and keeps the shape
+        // the down gives him.
+        let mut w = w;
+        if let Some((want, k)) = staff.guide.man.pull() {
+            super::guide::steer_man(&mut w, k * (want - super::guide::habit_man(staff.shell)));
         }
-    }
-    // Garbage time: the leading defense keeps everything in front of it
-    // (two-high, fewer man looks, no Cover 0) instead of hunting stops.
-    let ease = sit.def_ease;
-    let w: Vec<(Coverage, f64)> = w
-        .into_iter()
-        .map(|(cov, x)| {
+        // Your answer to this group (G16): the coordinator plays close to it.
+        if let Some(m) = answer.man {
+            let all: f64 = w.iter().map(|x| x.1).sum();
+            let now = w.iter().filter(|x| x.0.is_man()).map(|x| x.1).sum::<f64>() / all.max(1e-9);
+            super::guide::steer_man(&mut w, 0.7 * (m as f64 - now));
+        }
+        // A line in your plan (G20): a safety down against their run.
+        if mem.plan.box_up {
+            for x in w.iter_mut().filter(|x| x.0.high() == 2) {
+                x.1 *= 0.6;
+            }
+        }
+        w.map(|(cov, x)| {
             let mut x = x;
             if cov == Coverage::Cover0 {
                 x *= 1.0 - ease;
@@ -1582,8 +1703,23 @@ pub fn call_defense(
             }
             (cov, x)
         })
-        .collect();
-    let coverage = weigh(rng, &w);
+    };
+    let coverage = match memo {
+        None => weigh(rng, &weights()),
+        Some((m, slot)) => {
+            // The weights read the formation only for its look (the belief)
+            // and its personnel (your answer to it).
+            let key = (slot, off.look(), off.personnel, personnel);
+            let k = match m.coverages.iter().position(|x| x.0 == key) {
+                Some(k) => k,
+                None => {
+                    m.coverages.push((key, weights()));
+                    m.coverages.len() - 1
+                }
+            };
+            weigh(rng, &m.coverages[k].1)
+        }
+    };
     // Heavier linebackers and corners get sent more (L1, C1: the same real
     // defense blitzes 1.1 pts more per 10 lb of linebacker weight on the
     // field and 2 pts more per 10 lb of corner weight).
@@ -1677,14 +1813,14 @@ fn pick_front(
     let heavy = matches!(off.personnel, Personnel::P12 | Personnel::P21 | Personnel::P22 | Personnel::P13);
     let short = sit.togo <= 2.0;
     let pass_down = sit.down >= 2 && sit.togo >= 7.0;
-    let mut w: Vec<(FrontLook, f64)> = match staff.front {
-        Front::FourThree => vec![
+    let mut w: [(FrontLook, f64); 4] = match staff.front {
+        Front::FourThree => [
             (FrontLook::Over, 4.0),
             (FrontLook::Under, 3.0),
             (FrontLook::Wide, if pass_down { 3.0 } else { 1.0 }),
             (FrontLook::Bear, if heavy || short { 1.5 } else { 0.3 }),
         ],
-        Front::ThreeFour => vec![
+        Front::ThreeFour => [
             (FrontLook::Odd, 4.0),
             (FrontLook::Tite, 3.0),
             (FrontLook::Under, 1.0),

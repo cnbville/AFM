@@ -24,7 +24,7 @@ pub const WORLDS_REPO: &str = "cnbville/afm-worlds";
 /// What a job has done so far.
 #[derive(Clone, Default, Serialize)]
 pub struct Job {
-    /// "build" or "download".
+    /// "build", "download" or "play" (a library world played on to Jan 1).
     pub kind: String,
     /// The world's name in the library.
     pub name: String,
@@ -53,8 +53,11 @@ pub fn stop(shared: &Shared) -> Value {
     set(shared, |j| {
         if !j.finished {
             j.stopping = true;
-            j.text =
-                if j.kind == "build" { "Stopping after the season it is on…".into() } else { "Stopping…".into() };
+            j.text = match j.kind.as_str() {
+                "build" => "Stopping after the season it is on…".into(),
+                "play" => "Stopping after the day it is on…".into(),
+                _ => "Stopping…".into(),
+            };
         }
     });
     status(shared)
@@ -105,6 +108,19 @@ pub fn world_name(seed: u32, years: u32) -> String {
     if years == 30 { format!("world-{start}-seed{seed}") } else { format!("world-{start}-seed{seed}-{years}y") }
 }
 
+/// A world the builder makes: its seed and years, fictional, and stopped
+/// on Jan 1 or not.
+fn built_name(seed: u32, years: u32, fictional: bool, jan1: bool) -> String {
+    let name = world_name(seed, years) + if fictional { "-fictional" } else { "" };
+    if jan1 { jan1_name(&name, WorldOptions::default().start_year) } else { name }
+}
+
+/// A world's name once it stands on Jan 1 (built so, or played on from
+/// the morning after the Super Bowl): `-jan` and the year.
+pub fn jan1_name(stem: &str, year: i32) -> String {
+    format!("{stem}-jan{year}")
+}
+
 /// Builds a full world and writes it into `worlds`, calling `each` after
 /// every season (the 12 spin-up seasons first, then the history) with the
 /// seasons done and the season's year, then once
@@ -117,29 +133,40 @@ pub fn build_world_file(
     scale: f64,
     each: impl FnMut(u32, i32) -> bool,
 ) -> Result<PathBuf, String> {
-    build_world_file_named(worlds, seed, years, scale, false, each)
+    build_world_file_named(worlds, seed, years, scale, false, false, each)
 }
 
 /// The same, with every name fictional when `fictional` (lane 10): the
-/// colleges, the high schools, the NFL's nicknames and the conferences.
+/// colleges, the high schools, the NFL's nicknames and the conferences;
+/// its last history season stopped on Jan 1 of the start year when `jan1`
+/// (the Jan 1 start), else the morning after the Super Bowl.
 pub fn build_world_file_named(
     worlds: &Path,
     seed: u32,
     years: u32,
     scale: f64,
     fictional: bool,
+    jan1: bool,
     mut each: impl FnMut(u32, i32) -> bool,
 ) -> Result<PathBuf, String> {
-    let name = world_name(seed, years) + if fictional { "-fictional" } else { "" };
+    let name = built_name(seed, years, fictional, jan1);
     let to = worlds.join(format!("{name}.afmworld"));
     let mut seasons = 0;
     let names = if fictional { NameMode::Fictional } else { NameMode::Real };
-    let opts =
-        WorldOptions { seed, history_years: years, scale, names, fictional_league: fictional, ..Default::default() };
+    let opts = WorldOptions {
+        seed,
+        history_years: years,
+        scale,
+        names,
+        fictional_league: fictional,
+        stop_jan1: jan1,
+        ..Default::default()
+    };
     let (log_part, data_part, mut w) = begin(worlds, &name, opts)?;
     let done = w.play_history(|w, _| {
         seasons += 1;
-        each(seasons, w.year - 1)
+        // A Jan 1 world's last season stands in its own year on Jan 1.
+        each(seasons, if w.options.stop_jan1 && w.history_left() == 0 { w.year } else { w.year - 1 })
     });
     if !done {
         drop(w);
@@ -196,11 +223,12 @@ pub fn build_world_in_parts(
     seed: u32,
     years: u32,
     scale: f64,
+    jan1: bool,
     mut pause: impl FnMut(&World) -> bool,
 ) -> Result<Part, String> {
-    let name = world_name(seed, years);
+    let name = built_name(seed, years, false, jan1);
     let to = worlds.join(format!("{name}.afmworld"));
-    let opts = WorldOptions { seed, history_years: years, scale, ..Default::default() };
+    let opts = WorldOptions { seed, history_years: years, scale, stop_jan1: jan1, ..Default::default() };
     let logged = crate::world_log::on();
     let (log_part, data_part, mut w) = begin(worlds, &name, opts)?;
     if !w.play_history(|w, _| !(pause(w) && !logged && w.history_left() > 0)) {
@@ -263,13 +291,126 @@ fn write_built(mut w: World, to: &Path, log_part: &Path, data_part: &Path) -> Re
     Ok(to.to_path_buf())
 }
 
+/// The world a play-on just wrote, kept in memory for the open that comes
+/// next (a full world takes over a minute to read back): its file and the
+/// world. Any other open drops it.
+static HANDOFF: Mutex<Option<(PathBuf, World)>> = Mutex::new(None);
+
+/// The world the play-on left for `path`, if that is the file being
+/// opened; any other kept world goes, so two never sit in memory.
+pub fn take_handoff(path: &Path) -> Option<World> {
+    let mut g = HANDOFF.lock().ok()?;
+    let (p, w) = g.take()?;
+    (p == path).then_some(w)
+}
+
+/// The Jan 1 start (Cain 2026-11-08: "why would that be a question?"): a
+/// library world stopped the morning after the Super Bowl plays on, once,
+/// through its season to the morning of Jan 1, and stays in the library as
+/// its own world (`name-jan2027`): that season becomes its history's last
+/// and the next one a career's first. Its tallies are linked from the first
+/// world's, its season's own beside them. No career is in it, so every
+/// career from it starts fresh that morning. The game drops the world it
+/// has open once this starts, so only one sits in memory. Returns the new
+/// world's name. One already in the library is written over (the screens
+/// use it instead while it is newer than the world it came from).
+pub fn play_on(shared: &Shared, worlds: &Path, src: &Path) -> Result<String, String> {
+    let meta = files::read_meta(src).map_err(|e| format!("Could not read {}: {e}", src.display()))?;
+    if !meta["career"].is_null() {
+        return Err("Only a library world plays on to Jan 1.".into());
+    }
+    let stem = src.file_stem().and_then(|s| s.to_str()).ok_or("Not a world file.")?.to_string();
+    let date = meta["world_date"].as_str().unwrap_or_default();
+    let year: i32 = date.get(..4).and_then(|y| y.parse().ok()).ok_or("The world's date can't be read.")?;
+    if date.get(5..7) == Some("01") {
+        return Err("This world already stands on Jan 1.".into());
+    }
+    let name = jan1_name(&stem, year + 1);
+    start(shared, "play", &name, "Opening the world…")?;
+    let (shared, worlds, src) = (shared.clone(), worlds.to_path_buf(), src.to_path_buf());
+    std::thread::spawn(move || {
+        let t = Instant::now();
+        let r = play_on_file(&shared, &worlds, &src, &name, t);
+        finish(&shared, t, r);
+    });
+    Ok(jan1_name(&stem, year + 1))
+}
+
+fn play_on_file(shared: &Shared, worlds: &Path, src: &Path, name: &str, t: Instant) -> Result<PathBuf, String> {
+    let to = worlds.join(format!("{name}.afmworld"));
+    let mut w = files::read_world(src).map_err(|e| format!("Could not open {}: {e}", src.display()))?;
+    if w.history_left() > 0 || w.options.stop_jan1 || w.year != w.options.start_year {
+        return Err("Only a built world standing after signing day plays on to Jan 1.".into());
+    }
+    // The season it plays becomes the history's last, stopped on Jan 1: a
+    // career's first season is the next one (the card's years and the
+    // high school engine's years move with it).
+    w.options.start_year += 1;
+    w.options.history_years += 1;
+    if let Some(n) = w.options.hs_engine_years.as_mut() {
+        *n += 1;
+    }
+    w.options.stop_jan1 = true;
+    let jan1 = w.jan1();
+    // The season's tallies go to a part folder that starts as links to the
+    // first world's (a season file is never changed once written).
+    let data_part = worlds.join(format!("{name}.{}.part", afm_engine::world::tally::EXT));
+    let from = crate::tallies::beside(src);
+    if from.is_dir() {
+        crate::tallies::mirror(&from, &data_part).map_err(|e| format!("Could not link the tallies: {e}"))?;
+    }
+    w.attach_tallies(&data_part).map_err(|e| format!("Could not open the tallies: {e}"))?;
+    let first = w.today;
+    let days = first.days_to(jan1).max(1) as f64;
+    let done = w.play_on_to(jan1, |w| {
+        set(shared, |j| {
+            j.seconds = t.elapsed().as_secs_f64();
+            if !j.stopping {
+                j.done = 0.95 * first.days_to(w.today) as f64 / days;
+                j.text = format!("{} played", views_day(w.today));
+            }
+        });
+        !stopping(shared)
+    });
+    if !done {
+        drop(w);
+        let _ = std::fs::remove_dir_all(&data_part);
+        return Err(STOPPED.into());
+    }
+    set(shared, |j| {
+        j.done = 0.98;
+        j.text = "Writing the world file…".into();
+    });
+    w.detach_tallies();
+    let to_data = crate::tallies::beside(&to);
+    if to_data.exists() {
+        std::fs::remove_dir_all(&to_data).map_err(|e| format!("Could not replace the tallies: {e}"))?;
+    }
+    std::fs::rename(&data_part, &to_data).map_err(|e| format!("Could not write the tallies: {e}"))?;
+    let part = to.with_extension("afmworld.part");
+    let commit = crate::world_log::commit();
+    afm_engine::save::write_world(&w, &part, commit, &files::now_utc(), Some(crate::cards::card(&w)))
+        .and_then(|_| std::fs::rename(&part, &to))
+        .map_err(|e| format!("Could not write the world: {e}"))?;
+    if let Ok(mut g) = HANDOFF.lock() {
+        *g = Some((to.clone(), w));
+    }
+    Ok(to)
+}
+
+/// "Fri 30 Oct" for the job's line.
+fn views_day(d: afm_engine::calendar::Date) -> String {
+    afm_engine::world::sections::day_text(d)
+}
+
 /// Builds a full world on this machine, beside the game, into the library.
 /// A 30-year world takes hours and about 6.5 GB of memory at its peak.
 pub fn build(shared: &Shared, worlds: &Path, seed: u32, years: u32, scale: f64) -> Result<String, String> {
-    build_named(shared, worlds, seed, years, scale, false)
+    build_named(shared, worlds, seed, years, scale, false, false)
 }
 
-/// `build`, with every name fictional when `fictional`.
+/// `build`, with every name fictional when `fictional`, stopped on Jan 1
+/// when `jan1`.
 pub fn build_named(
     shared: &Shared,
     worlds: &Path,
@@ -277,8 +418,9 @@ pub fn build_named(
     years: u32,
     scale: f64,
     fictional: bool,
+    jan1: bool,
 ) -> Result<String, String> {
-    let name = world_name(seed, years) + if fictional { "-fictional" } else { "" };
+    let name = built_name(seed, years, fictional, jan1);
     start(shared, "build", &name, "Starting the history…")?;
     let (shared, worlds) = (shared.clone(), worlds.to_path_buf());
     std::thread::spawn(move || {
@@ -288,7 +430,7 @@ pub fn build_named(
         let all = SPIN_UP_YEARS + years;
         let slow = years.min(12);
         let weight = |n: u32| n.min(all - slow) as f64 + 6.0 * n.saturating_sub(all - slow) as f64;
-        let r = build_world_file_named(&worlds, seed, years, scale, fictional, |n, year| {
+        let r = build_world_file_named(&worlds, seed, years, scale, fictional, jan1, |n, year| {
             set(&shared, |j| {
                 j.seconds = t.elapsed().as_secs_f64();
                 if n == 0 {
@@ -296,7 +438,11 @@ pub fn build_named(
                     j.text = "Writing the world file…".into();
                 } else if !j.stopping {
                     j.done = 0.95 * weight(n) / weight(all);
-                    j.text = format!("Season {year} done ({n} of {all})");
+                    j.text = if jan1 && n == all {
+                        format!("Season {year} played to Jan 1, {}", year + 1)
+                    } else {
+                        format!("Season {year} done ({n} of {all})")
+                    };
                 }
             });
             !stopping(&shared)

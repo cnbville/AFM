@@ -1,7 +1,9 @@
 //! Builds a full world as a world file, the way the game's "Build a world"
 //! button does: `afm_world <seed> <years> <folder> [scale]`. The "Build a
 //! world" workflow runs it to publish worlds on the worlds page; a scale
-//! under 1 makes a smaller world for checks.
+//! under 1 makes a smaller world for checks. `AFM_STOP=jan1` stops its last
+//! history season on Jan 1 of the start year, the day before the January
+//! portal (the Jan 1 start), instead of the morning after the Super Bowl.
 //!
 //! With `AFM_PAUSE_AFTER=<minutes>` (over 0, and the world log off) the build stops
 //! at the first season's end after that many minutes and writes the world
@@ -41,19 +43,21 @@ fn main() {
     let prints = std::env::var_os("AFM_PRINTS").map(std::path::PathBuf::from);
     let mut printing = 0.0;
     let pause = |w: &afm_engine::world::World| {
+        let jan1 = w.options.stop_jan1 && w.history_left() == 0;
+        let year = if jan1 { w.year } else { w.year - 1 };
         if let Some(to) = &prints {
             let p = Instant::now();
             let line: Vec<String> = afm_engine::world::wlog::fp::field_prints(w)
                 .iter()
                 .map(|(k, v, l)| format!("{k}={v:016x}/{l:016x}"))
                 .collect();
-            let line = format!("{} {}\n", w.year - 1, line.join(" "));
+            let line = format!("{year} {}\n", line.join(" "));
             let mut f = std::fs::OpenOptions::new().create(true).append(true).open(to).expect("AFM_PRINTS file");
             std::io::Write::write_all(&mut f, line.as_bytes()).expect("AFM_PRINTS write");
             printing += p.elapsed().as_secs_f64();
         }
         let s = t.elapsed().as_secs_f64() - printing;
-        eprintln!("season {} done, {s:.0}s, {} left", w.year - 1, w.history_left());
+        eprintln!("season {year} {}, {s:.0}s, {} left", if jan1 { "to Jan 1" } else { "done" }, w.history_left());
         pause_after.is_some_and(|p| s >= p)
     };
     // `afm_world prints <world file>`: the store prints of a written world.
@@ -73,7 +77,10 @@ fn main() {
         let years = a.get(2).and_then(|s| s.parse().ok()).unwrap_or(30);
         let dir = std::path::PathBuf::from(a.get(3).map_or(".", String::as_str));
         let scale = a.get(4).and_then(|s| s.parse().ok()).unwrap_or(1.0);
-        jobs::build_world_in_parts(&dir, seed, years, scale, pause)
+        // AFM_STOP=jan1 stops the history on Jan 1 of the start year (the
+        // Jan 1 start); empty or feb9 the morning after the Super Bowl.
+        let jan1 = std::env::var("AFM_STOP").is_ok_and(|v| v.trim() == "jan1");
+        jobs::build_world_in_parts(&dir, seed, years, scale, jan1, pause)
     };
     match part.unwrap_or_else(|e| panic!("{e}")) {
         Part::Done(to) => eprintln!("{} written in {:.0}s", to.display(), t.elapsed().as_secs_f64()),
