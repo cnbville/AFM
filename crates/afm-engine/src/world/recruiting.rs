@@ -5582,6 +5582,14 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             if m.fill && own_at[i] < need {
                 let theirs: Vec<(usize, f64, bool)> =
                     boards[j][i].iter().copied().filter(|e| !mb[i].iter().any(|x| x.0 == e.0)).collect();
+                // Your coordinator's offers name no money: only you do (Cain
+                // 2026-11-08), so each carries your number where you set one
+                // (as he will be paid it) and is the scholarship alone where
+                // you didn't.
+                for e in &theirs {
+                    let x = fo::college::money_from(w, j, pool[e.0].person).unwrap_or(0.0);
+                    promise.entry(e.0).or_insert(x);
+                }
                 coordinator.extend(theirs.iter().map(|e| e.0));
                 mb[i].extend(theirs);
             } else {
@@ -6999,6 +7007,9 @@ pub(crate) fn enroll(w: &mut World, early: bool) {
                         s + if free { c } else { nil_go(today, c, nil_go_top(&w.people[i], v)) }
                     }
                     Some((s, _)) => s,
+                    // Yours with no deal: the game names no money for you
+                    // (Cain 2026-11-08), as July 1 pays him nothing.
+                    None if mine == Some(j) => 0.0,
                     None => {
                         cleared(&w.programs[j], today, budget * v / pool.max(1e-9), nil_go_top(&w.people[i], v), free)
                     }
@@ -8105,6 +8116,8 @@ fn suitors(
     // limit, and NIL Go clears your collective's deals in full.
     let lift = w.sandbox(super::sandbox::Switch::RosterLimits);
     let go_free = nil_go_free(w);
+    // Your program: every NIL dollar there is yours (Cain 2026-11-08).
+    let yours = fo::college::paying(w);
     let wr: &World = w;
     (0..pn)
         .into_par_iter()
@@ -8200,7 +8213,10 @@ fn suitors(
             let role = role_at(ahead, slots);
             let (school, coll) =
                 portal_nil(&wr.programs[j], mk.pool(j), p, role, perf - median(d), wr.today, go_free == Some(j));
-            let nil = (school + coll) * super::legacy::college::split_q(wr, j, 1);
+            // Your staff working the portal for you names no money: only
+            // you do (Cain 2026-11-08, "I want the only offering control"),
+            // so a man it brings in weighs the place alone.
+            let nil = if yours == Some(j) { 0.0 } else { (school + coll) * super::legacy::college::split_q(wr, j, 1) };
             // Its staff calls him within hours of his name going in (portal
             // recruiting): his position coach's pitch, as yours makes it.
             let u = utility(norms, p, &p.family.own_wants, &wr.programs[j], wr.year, nil, 0.6, 1.0)
