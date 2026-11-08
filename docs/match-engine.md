@@ -862,17 +862,17 @@ The freak check (`freak_check`, new): ten seasons of 32 synthetic NFL teams on c
 
 | | main 82 | after 82 | main 83 | after 83 | real |
 |---|---|---|---|---|---|
-| under 250 lb, top 10% / all | 10.6% / 7.7% | 12.6% / 7.8% | 17.0% / 6.4% | 11.4% / 6.1% | 18% / 19% |
-| 290 lb or more, top 10% / all | 5.8% / 10.6% | 10.7% / 10.7% | 0% / 17.0% | 1.0% / 17.2% | |
-| arms under 33 in, top 10% / all | 67.3% / 67.4% | 68.0% / 66.9% | 81.1% / 68.1% | 81.9% / 68.4% | 32% / 24% |
-| 6-5 or taller, top 10% / all | 10.6% / 18.7% | 10.7% / 18.8% | 12.3% / 20.6% | 5.7% / 20.9% | 21% / 29% |
-| best sack season | 21 | 27 | 20 | 31 | 22.5 and 23 |
-| sacks a season, top 1% / 5% | 16 / 11 | 22 / 16 | 17 / 12 | 21 / 15 | |
-| the freak's median rank in pressures (best) | top 6.5% (0.2%) | top 3.0% (0.2%) | top 22% (5.6%) | top 33% (1.6%) | with the best |
-| the freak's sacks a season | 6-18 | 12-23 | 6-15 | 5-20 | |
-| sacks a pressure, all edges | 22.2% | 27.6% | 22.2% | 27.8% | 27.3% |
+| under 250 lb, top 10% / all | 10.6% / 7.7% | 11.7% / 7.8% | 17.0% / 6.4% | 13.3% / 6.2% | 18% / 19% |
+| 290 lb or more, top 10% / all | 5.8% / 10.6% | 11.7% / 10.7% | 0% / 17.0% | 0% / 17.1% | |
+| arms under 33 in, top 10% / all | 67.3% / 67.4% | 69.9% / 66.9% | 81.1% / 68.1% | 83.8% / 68.5% | 32% / 24% |
+| 6-5 or taller, top 10% / all | 10.6% / 18.7% | 11.7% / 18.7% | 12.3% / 20.6% | 4.8% / 20.8% | 21% / 29% |
+| best sack season | 21 | 27 | 20 | 29 | 22.5 and 23 |
+| sacks a season, top 1% / 5% | 16 / 11 | 22 / 15 | 17 / 12 | 22 / 16 | |
+| the freak's median rank in pressures (best) | top 6.5% (0.2%) | top 2.5% (0.1%) | top 22% (5.6%) | top 31% (3.3%) | with the best |
+| the freak's sacks a season | 6-18 | 11-23 | 6-15 | 5-20 | |
+| sacks a pressure, all edges | 22.2% | 27.4% | 22.2% | 28.1% | 27.3% |
 
-Light and short-armed edges hold at least their share of the top seasons, and nothing caps the freak: on seed 82 he is a top 3% rusher most years with 12-23 sacks, more than on main. The seed 83 freak has lower Acceleration, Flexibility and Speed (88, 79, 80); his pressures rank lower than on main, his sacks higher. One man's rank swings a lot from season to season (top 2% to top 60% for the same ratings), so a median over ten seasons moves about 10 points from noise. The synthetic league's bodies come from the combine, so its shares of light (7%) and short-armed (67%) edges differ from real regulars'; the check is the top share against the league's own.
+Light and short-armed edges hold at least their share of the top seasons, and nothing caps the freak: on seed 82 he is a top 2.5% rusher most years with 11-23 sacks, more than on main. The seed 83 freak has lower Acceleration, Flexibility and Speed (88, 79, 80); his pressures rank lower than on main, his sacks higher. One man's rank swings a lot from season to season (top 2% to top 60% for the same ratings), so a median over ten seasons moves about 10 points from noise. The synthetic league's bodies come from the combine, so its shares of light (7%) and short-armed (67%) edges differ from real regulars'; the check is the top share against the league's own.
 
 2,000 `match_check` games a seed, NFL averaged over seeds 82-85 (main dd9ac18 and this lane merged with it; real NFL from nflverse 2021-25, PFR for pressure; FBS from cfbfastR 2022-24):
 
@@ -881,15 +881,15 @@ Light and short-armed edges hold at least their share of the top seasons, and no
 | NFL sacks a team game | 1.90 | 2.39 | 2.41 |
 | NFL sack rate a dropback | 5.2% | 6.6% | 6.8% |
 | NFL pressure rate (PFR's count) | 23.3% | 23.8% | 22.2% |
-| NFL sacks a pressure | 0.216 | 0.265 | 0.283 |
+| NFL sacks a pressure | 0.216 | 0.266 | 0.283 |
 | NFL time to throw | 2.48 s | 2.46 s | 2.71 s |
-| NFL points a team game / sd | 23.6 / 10.71 | 23.1 / 10.83 | 22.5 / 9.9 |
-| NFL completion % / yards an attempt | 66.4% / 7.32 | 66.4% / 7.34 | 64.5% / 7.05 |
-| NFL interceptions a team game | 0.73 | 0.72 | 0.76 |
+| NFL points a team game / sd | 23.6 / 10.71 | 23.1 / 10.77 | 22.5 / 9.9 |
+| NFL completion % / yards an attempt | 66.4% / 7.32 | 66.5% / 7.34 | 64.5% / 7.05 |
+| NFL interceptions a team game | 0.73 | 0.71 | 0.76 |
 | NFL scramble rate | 4.6% | 4.3% | 4.9% |
 | FBS sacks a team game (seed 82) | 2.11 | 2.20 | 2.00 |
-| FBS points a team game | 22.9 | 22.8 | 27.0 |
-| High school sacks / sack rate / points (seed 82) | 2.39 / 10.2% / 17.5 | 2.48 / 10.7% / 17.4 | |
+| FBS points a team game | 22.9 | 22.6 | 27.0 |
+| High school sacks / sack rate / points (seed 82) | 2.39 / 10.2% / 17.5 | 2.46 / 10.6% / 17.4 | |
 
 The A/B rows at the NFL (`ab_check`, 4,000 games an arm, seed 82, on the lane before main was merged in, the arm row after; pure moves the body or drill with ratings fixed, against real held equal on draft slot; as recruited uses the generator's athletes at the same overall, against real raw):
 
@@ -911,8 +911,8 @@ The combination grids (2,000 games a cell): a heavy edge's arms now add sacks a 
 Still off:
 
 - **The split, weight, 3-cone and shuttle still move pressures 2-4 times real** (bugs 286 and 328). Each fix that closed them took the quick, light edges out of the top seasons, which Cain's rule puts first. The cause is wider: an edge's skills (Finesse Rush, Hand Use) move his pressures less than his athleticism, and a speed win needs the feet because NFL passers throw quickly (2.46 s a dropback, real 2.71). A rush craft lane would weigh the skills up and the feet down together, holding the freak check.
-- **The best sack seasons reach 27-31** (real 22.5 and 23; the top 1% of seasons 21-22 sacks), most of them heavy power rushers. Sacks a team game at the NFL sit at real, so the tail, not the level, is long. The synthetic league plays fixed depth charts, with no rotation by body.
-- **Tall edges are under their share of the top seasons** (6-11% of the top, 19-21% of all; real 21% of 29%; main 11-12%).
+- **The best sack seasons reach 27-29** (real 22.5 and 23; the top 1% of seasons 22 sacks), most of them heavy power rushers. Sacks a team game at the NFL sit at real, so the tail, not the level, is long. The synthetic league plays fixed depth charts, with no rotation by body.
+- **Tall edges are under their share of the top seasons** (5-12% of the top, 19-21% of all; real 21% of 29%; main 11-12%).
 - **As recruited, a long-armed edge's pressures end in a sack too often** (+2.2 pts of sacks a pressure an inch, real raw +0.66), though pure arms are at real (+0.68, real +0.65).
 - **FBS sacks rose to 2.20 a team game** (main 2.11, real 2.00): the finish reads FBS edges' Tackling and Pursuit, about 54, a little over 60 for the best.
 

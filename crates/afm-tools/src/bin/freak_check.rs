@@ -78,16 +78,20 @@ fn main() {
     };
     // The freak: team 0's best edge, 6-0 and 240 lb, with top Strength,
     // Agility and Finesse Rush (his other ratings and his arms his own).
-    let k = (0..teams[0].players.len())
-        .filter(|&i| teams[0].players[i].position == Position::EDGE)
+    // He is built from the league's own man at that spot, so his wingspan,
+    // hands and recovery are his (in `drawn` mode too, where the drawn
+    // man's would otherwise sit beside another man's body).
+    let src = &base[0].team.players;
+    let k = (0..src.len())
+        .filter(|&i| src[i].position == Position::EDGE)
         .max_by(|&x, &y| {
-            let o = |i: usize| overall_for(Position::EDGE, &teams[0].players[i].attrs);
+            let o = |i: usize| overall_for(Position::EDGE, &src[i].attrs);
             o(x).total_cmp(&o(y))
         })
         .expect("an edge");
     let person = {
         let mut p = base[0].people[k].clone();
-        p.attributes = teams[0].players[k].attrs;
+        p.attributes = src[k].attrs;
         p
     };
     let knobs = [
@@ -97,7 +101,9 @@ fn main() {
         Knob::Rating(Attr::Agility, 99.0),
         Knob::Rating(Attr::FinesseRush, 99.0),
     ];
-    change_one(&mut teams[0].players[k], &person, &knobs, level);
+    let mut gp = src[k].clone();
+    change_one(&mut gp, &person, &knobs, level);
+    teams[0].players[k] = gp;
     let freak = teams[0].players[k].id;
     eprintln!(
         "freak_check: {seasons} seasons, seed {seed}, {}; the freak is id {freak} ({:.0} in, {:.0} lb, arm {:.2})",
