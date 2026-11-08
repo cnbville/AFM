@@ -876,6 +876,15 @@ The A/B rows after the fix (NFL, +15 against -15, 2,000 games an arm; the share 
 
 League totals on synthetic rosters (`match_check`, 1,000 games a level; main in brackets): NFL 24.9 points (25.0), completion 65.2% (65.6%, real 64.5%), 7.33 yards an attempt (7.33), picks 2.3% (2.3%), dropback EPA 0.098 (0.103); FBS 22.6 (22.5), 60.5% (60.4%, real 60.6%), 7.28 (7.33), 1.9% (2.0%); high school 18.0 (17.2), 55.7% (56.0%), 6.45 (6.42), 1.6% (1.9%).
 
+
+Growth from results after the refit (`results_fit -- 2000`, then `results_ab 20000 1`):
+
+- **Reads on** (`Fit::on`: b > 0 with t of 4 or more): high school 18 reads, FBS 20, FCS 20, small colleges 20, the NFL 19 (13, 13, 17, 13 and 14 before), on 32 to 35 read-and-position rows a level (27 to 31). The passers' intermediate, deep and pressure reads and the man and zone coverage reads came on.
+- **Regulars in the fit** are men who play half their side's snaps a game or more, with the snaps a side counted from the team's own plays. It was 0.6 of a full-season starter's snaps a game, which no FCS or small-college back reached, so their reads had no spread among regulars and stayed off.
+- **What results do to growth** (`results_ab 20000 1`, arm B, results on top of the dice and pulling down, against the game reps lane's run on main): results move a season's overall by 0.07 points sd (0.07); a starter's season moves his top skill ±0.95 at the 90th and 10th percentiles (±0.93); a named big game in 16.6% of starter seasons (16.1%), a big season in 9.1% (8.6%), a rough one in 9.4% (8.7%); growth a season by level and role within 0.03 points of the dice alone.
+- **The NFL's short throws in `results_ab`**: completion over expected spreads 0.047 across NFL starter seasons (0.033 before, real 0.037) and carries 0.69 into the next season (0.47, real 0.23). In the fit's own regulars Short Accuracy alone spreads it 1.2 points (`b` 0.00176 a point times `sk` 7.0, real about 1.4 true), so the extra is `results_ab`'s synthetic careers, whose starters spread their ratings wider than the depth charts' regulars, and the other passing ratings that now move it too.
+- **Practice**: neither `results_fit` nor `results_ab` plays practice; `Mode.practice` is read only by the world's practice days (`training/practice.rs`), so these numbers are the same with practice on or off. The practice world check runs on this code in the game reps lane.
+
 Still off:
 
 - **Linebacker Man Coverage** still shows no clear effect on the catch rate allowed (+0.09 pts, ±0.85), though it moves yards a target (-0.45, 0.24 of the spread): a linebacker's man is mostly a back or tight end on short routes, where the lag matters little.
