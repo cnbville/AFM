@@ -156,8 +156,13 @@ fn a_starter_weighs_his_role_before_following_a_friend() {
     let (mut w, _, v) = room(3);
     let (left, starter, backup) = (v[0], v[1], v[2]);
     let d = w.dates.portal_open.add(1);
-    w.people[left].cal.portal =
-        Some(PortalEntry { entered: d.add(-1), decide_by: d.add(30), why: "a friend left", held: false, looking: false });
+    w.people[left].cal.portal = Some(PortalEntry {
+        entered: d.add(-1),
+        decide_by: d.add(30),
+        why: "a friend left",
+        held: false,
+        looking: false,
+    });
     w.people[starter].last_role = Some(PlayingTime::Starter);
     w.people[backup].last_role = Some(PlayingTime::Backup);
     let il = id(&w, left);

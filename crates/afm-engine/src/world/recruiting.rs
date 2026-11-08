@@ -7629,8 +7629,13 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
             let extra = (5.0 * key_uniform(seed ^ 0xE8, id)).floor() as i32;
             held.push(Held { person: i, program: c, window_day: entered_on, extra, decide_in, why, bar });
             // On hold: no day yet, and no decision due until he is released.
-            w.people[i].cal.portal =
-                Some(super::PortalEntry { entered: HELD, decide_by: HELD, why: why.reason(), held: true, looking: false });
+            w.people[i].cal.portal = Some(super::PortalEntry {
+                entered: HELD,
+                decide_by: HELD,
+                why: why.reason(),
+                held: true,
+                looking: false,
+            });
             continue;
         }
         // Your own player asks to see you first and decides on his day.

@@ -89,7 +89,8 @@ fn main() {
             }
         }
         if d == y.fall_camp {
-            cur.pending_at_camp = w.people.iter().filter(|p| p.stage == Stage::College && p.cal.portal.is_some()).count();
+            cur.pending_at_camp =
+                w.people.iter().filter(|p| p.stage == Stage::College && p.cal.portal.is_some()).count();
             cur.squads = w
                 .programs
                 .iter()
