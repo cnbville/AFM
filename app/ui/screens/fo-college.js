@@ -530,8 +530,9 @@ screens.recruit_file = async (a) => {
 // see him at home; he says yes the day your offer clears what he needs.
 function fcPortalMoves(f) {
   const b = [];
-  // A blank box is no money; the tip gives a typical transfer's share.
-  const box = (key, val, usual, what) => `<label class="fc-moneyin" title="${esc(`${what}. A typical transfer's share here: about ${money(usual)} a year`)}">$<input type="number" min="0" step="5" value="${val != null ? Math.round(val / 1000) : ""}" placeholder="none" data-fcin="${key}" data-id="${f.id}">thousand a year</label>`;
+  // A blank box is no money; the tip gives a typical transfer's share. In
+  // two pots each box names its pot (Cain, 2026-11-08: "which is which?").
+  const box = (key, val, usual, what) => `<label class="fc-moneyin" title="${esc(`${what}. A typical transfer's share here: about ${money(usual)} a year`)}">${f.two_pots ? `<span class="fc-pot">${key === "pcollp" ? "Collective deal" : "Revenue share"}</span>` : ""}$<input type="number" min="0" step="5" value="${val != null ? Math.round(val / 1000) : ""}" placeholder="none" data-fcin="${key}" data-id="${f.id}">thousand a year</label>`;
   const nilIn = f.nil_era ? box("pnil", f.nil, f.usual, f.two_pots ? "Revenue share" : "NIL") + (f.two_pots ? box("pcollp", f.coll, f.coll_usual, "Collective deal, reviewed by NIL Go") : "") : "";
   if (f.committed) {
     b.push(`<p class="sub">${fcDot("good")}He told you yes on ${esc(f.committed)}. He signs tonight.</p>`);
@@ -699,7 +700,8 @@ screens.portal_desk = async () => {
   // and from July 2025 the collective's deal is a second box (B18). The
   // going rate is in the box's tip.
   const k1 = (v) => (v != null ? Math.round(v / 1000) : "");
-  const nilBox = (r, key, val, usual, what) => `<label class="fc-moneyin small" title="${esc(`${what}. A typical transfer's share here: about ${money(usual)} a year`)}">$<input type="number" min="0" step="5" value="${k1(val)}" data-was="${k1(val)}" placeholder="none" data-fcin="${key}" data-id="${r.id}">k</label>`;
+  // In two pots each box names its pot (Cain, 2026-11-08: "which is which?").
+  const nilBox = (r, key, val, usual, what) => `<label class="fc-moneyin small" title="${esc(`${what}. A typical transfer's share here: about ${money(usual)} a year`)}">${x.house ? `<span class="fc-pot">${key === "pcollp" ? "Collective" : "Share"}</span>` : ""}$<input type="number" min="0" step="5" value="${k1(val)}" data-was="${k1(val)}" placeholder="none" data-fcin="${key}" data-id="${r.id}">k</label>`;
   const nilIn = (r) => (x.nil_era ? nilBox(r, "pnil", r.nil, r.usual, x.house ? "Revenue share" : "NIL") + (x.house ? nilBox(r, "pcollp", r.coll, r.coll_usual, "Collective deal, reviewed by NIL Go") : "") : "");
   let body = "";
   if (k.tab === "entrants") {
@@ -836,11 +838,11 @@ screens.nil_desk = async () => {
     { k: "followers", t: "Followers", tip: "Social media followers, every platform", v: (r) => r.followers || 0, f: (r) => (r.followers ? fcFollow(r.followers) : '<span class="muted">-</span>') },
     { k: "camera", t: "On camera", l: true, hide: true, tip: "His position coach's word for how he comes across in front of a camera", f: (r) => `<span class="sub">${esc(r.camera || "")}</span>` },
     { k: "usual", t: "Going rate", div: true, tip: "What players in his role usually get from the school's revenue share: only a guide", f: (r) => going(r.usual) },
-    { k: "deal", t: "Yours", v: (r) => r.deal || 0, f: (r) => box(r, "deal", r.deal) + setBtn(r) },
+    { k: "deal", t: two ? "Your share" : "Yours", v: (r) => r.deal || 0, f: (r) => box(r, "deal", r.deal) + setBtn(r) },
     ...(two
       ? [
           { k: "coll_usual", t: "Going rate", div: true, tip: "What players in his role usually get from the collective, as NIL Go clears it: only a guide", f: (r) => going(r.coll_usual) },
-          { k: "coll", t: "Yours", v: (r) => r.coll || 0, f: (r) => box(r, "dcoll", r.coll) + setBtn(r) },
+          { k: "coll", t: "Your collective", v: (r) => r.coll || 0, f: (r) => box(r, "dcoll", r.coll) + setBtn(r) },
           { k: "cleared", t: "NIL Go", l: true, tip: "What NIL Go clears of your collective deal: past the top of his range it holds the rest back, and it isn't paid this year", v: (r) => r.cleared || 0, f: (r) => (!r.coll ? '<span class="muted">-</span>' : r.cleared + 1 < r.coll ? `<span class="st-pill gold" title="${esc(`NIL Go clears ${money(r.cleared)} of your ${money(r.coll)}; ${money(r.coll - r.cleared)} isn't paid`)}">${money(r.cleared)}</span>` : '<span class="st-pill good">Cleared</span>') },
         ]
       : []),
