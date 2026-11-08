@@ -3,7 +3,8 @@
 # a release tagged name-commit, then its tallies and its log: the "Build a
 # world" workflow's world job runs it, or the finish job when the world was
 # built over two machines (NB13). Needs GH_TOKEN (WORLDS_TOKEN), SEED, YEARS
-# and SHA; writes tag=... to GITHUB_OUTPUT.
+# and SHA (STOP=jan1 for a world that stops on Jan 1); writes tag=... to
+# GITHUB_OUTPUT.
 #
 # The world goes up first, so a step that fails after it never costs the
 # world. A release file may be at most 2 GB, so a bigger world goes up in
@@ -28,8 +29,10 @@ fi
 short=$(echo "$SHA" | cut -c1-7)
 tag="${f%.afmworld}-$short"
 # shellcheck disable=SC2086
+when=""
+if [ "${STOP:-}" = "jan1" ]; then when=", stops on Jan 1"; fi
 gh release create "$tag" $up --repo "$repo" \
-  --title "Seed $SEED, $YEARS years of history (game $short)" \
+  --title "Seed $SEED, $YEARS years of history$when (game $short)" \
   --notes "Built $(date -u +%Y-%m-%d) by the AFM game at commit $SHA. The world reader's book is the .afmbook.zst file (unzstd it, joining parts first)."
 rm -f "$f".[0-9][0-9][0-9]
 echo "tag=$tag" >> "$GITHUB_OUTPUT"
