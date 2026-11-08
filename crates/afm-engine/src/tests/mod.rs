@@ -37,6 +37,7 @@ mod no_fire;
 mod pipeline;
 mod placement;
 mod polls;
+mod portal_recruiting;
 mod portal_talks;
 mod ratings;
 mod roster_moves;

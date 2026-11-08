@@ -406,6 +406,8 @@ pub(crate) fn after_load(w: &mut crate::world::World) {
     services::catch_up(w);
     // A save from before minor bug 248 takes over its program's file.
     dept::inherit(w);
+    // A save from before minor bug 333: each class's size for its look-back.
+    lookback::fill_sizes(&mut w.scouting.records);
 }
 
 /// After the draft and the rush: the public's mocks scored, your class kept

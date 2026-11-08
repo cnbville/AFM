@@ -141,6 +141,144 @@ Nah. That's not it. ~ himself
 Everybody says that. ~ himself
 
 # ---------------------------------------------------------------------------
+# D7b: a transfer in the portal, on the phone, at home or at the end of his
+# campus visit. He decides for himself, and he has been through this once.
+
+@key portal.ask.playing
+Coach, I'm in the portal for one reason. I want to play.
+Who's starting at my spot right now, and why would that change?
+I sat last year. I'm not sitting again.
+Every school's telling me I'll start. Prove it.
+Where am I on your depth chart the day I walk in?
+I've got film. You've seen it. Do I start for you or not?
+I'm not looking to compete for a backup job, coach.
+How many snaps are we talking, really?
+
+@key portal.ask.nil
+Let's be real. What's the number?
+I've got numbers from other schools already. Where's yours?
+I've got bills, coach. What does the deal look like?
+The money matters this time. I'm not going to lie to you.
+What's the collective doing for transfers at my spot?
+My agent says the market's moving. Where do you stand?
+Is that a real number, or a maybe?
+I need to know what I'm walking into, money-wise.
+
+@key portal.ask.school
+I want my degree, coach. Do my credits come with me?
+How many of my hours transfer? That's my first question.
+I'm close to graduating. I'm not starting over.
+What does your place do for a guy like me in class?
+I need to finish school. Football ends.
+Will I still graduate on time if I come?
+What would I study there? Is it real?
+My mom wants to know about the degree first.
+
+@key portal.ask.distance
+I want to be closer to home this time.
+My family hasn't seen me play in two years.
+How far is it from my house?
+I need to be somewhere my people can drive to.
+Being that far away last time wore on me.
+My grandmother's sick. Being close matters right now.
+I'm done being on the other side of the country.
+Can my family get to your games?
+
+@key portal.ask.family
+I left because of how they treated me. How do you treat guys?
+My coach left. I want to know you'll be there.
+Who's going to be in my corner when it gets hard?
+Will you still be there next year?
+I need a staff I can trust this time.
+What kind of locker room do you have?
+I want somebody to coach me, not just use me.
+Tell me about the man I'd be playing for.
+
+@key portal.ask.development
+I've got one shot left at the league. Can you get me there?
+Who's my position coach, and who's he sent to the draft?
+I need film that gets me drafted. Can you give me that?
+What would you change about my game?
+I didn't get better where I was. Will I get better with you?
+The scouts need to see me against good teams. Will they?
+Who's the last transfer you got drafted?
+I want to be coached hard. Can you do that?
+
+@key portal.ask.winning
+I want to win something before I'm done.
+I want to play in big games, coach.
+Are you a playoff team or not?
+I've been on a losing team. I'm not doing that again.
+Do you play for a title, really?
+I want a ring. Can I get one there?
+Who've you beaten lately?
+I want to play on TV, on Saturdays that matter.
+
+@key portal.tell
+Real talk? {first}. Then {second}.
+It's {first} first, coach. {second} after that.
+{first}. That's the big one. {second} too.
+I'll keep it simple: {first} and {second}.
+Get {first} right and we'll talk about {second}.
+For me it's {first}. Then {second}.
+{first}, then {second}. Nothing else really matters.
+Honestly, {first}. {second} is close.
+
+@key portal.react.good
+Okay. That's what I needed to hear.
+Now we're talking, coach.
+Nobody else put it like that.
+That means something to me.
+Okay. I'm listening now.
+For real? That's what I want.
+I like that. I like that a lot.
+That's the first straight answer I've gotten.
+
+@key portal.react.flat
+Okay. I hear you.
+Everybody's saying that, coach.
+Cool. What else?
+I'll think about it.
+That's fine. That's not really my thing.
+Mm. Okay.
+Yeah, I hear you.
+Okay, coach.
+
+@key portal.react.bad
+Coach, the last school told me the same thing.
+That's not what I asked.
+With respect, I don't buy that.
+I looked it up. That isn't true.
+That's not what I'm looking for.
+Nah. That's not it.
+I've heard that before, and it wasn't true then.
+I think we're done with that part.
+
+@key portal.promise.knows
+I appreciate it, coach. I kind of figured I would.
+I saw your depth chart. I'd start anyway, but thank you.
+I'll hold you to it. Shouldn't be hard.
+Good. That's how I read it too.
+Then we see it the same way.
+I know. That's why you were on my list.
+
+@key portal.promise.believes
+You mean that? Okay. I believe you.
+That's what I wanted to hear. I'll hold you to it.
+Nobody else would say it out loud. That means a lot.
+Okay. Shake on it?
+I'm going to remember you said that, coach.
+Then I think you've got me.
+
+@key portal.promise.doubts
+Coach, I've heard that before.
+Everybody says that in December.
+I'll believe it when I see the depth chart.
+My last coach told me the same thing.
+Promises are easy on the phone.
+Okay. We'll see.
+
+# ---------------------------------------------------------------------------
 # D9: a college staff calls the high school coach about a player.
 
 @key hscall.ask.football

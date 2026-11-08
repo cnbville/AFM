@@ -821,7 +821,16 @@ async function runMove(m, who, at) {
     }
     case "cut": if (await sure(`Cut ${name}?`, m.words, "Cut him")) moveDo("college_cut", { id }); return;
     case "scholarship": if (await sure(`Put ${name} on scholarship?`, m.words, "Put him on scholarship")) moveDo("college_scholarship", { id }); return;
-    case "portal": return go("portal_desk", { id });
+    case "portal": return go("portal_file", { id });
+    case "pcall": {
+      try {
+        const r = await api("portal_call", { id });
+        return go("people_scene", { id: r.scene });
+      } catch (e) {
+        return toast(e.message || String(e));
+      }
+    }
+    case "poffer": return moveDo("portal_offer", { id });
     case "offer": return moveDo("recruit_offer", { id });
     case "pull": if (await sure(...pullWords(m.free))) moveDo("recruit_pull", { id }); return;
     case "board": return moveDo("recruit_add", { id });
@@ -877,7 +886,7 @@ const PEEK_MOVES = {
   roster: ["talk", "dev", "depth"],
   training: ["dev", "talk", "depth"],
   recruit_board: ["offer", "pull", "board", "file"], recruiting: ["offer", "pull", "board", "file"], visits_desk: ["file", "offer", "pull"], recruit_find: ["offer", "pull", "board", "file"],
-  portal_desk: ["portal", "keep", "talk"], nil_desk: ["file", "talk"],
+  portal_desk: ["portal", "pcall", "poffer", "keep", "talk"], portal_file: ["pcall", "poffer"], nil_desk: ["file", "talk"],
   fo_market: ["deal", "visit", "scout"], fo_expiring: ["deal", "talk"], fo_cap: ["restructure", "release", "deal"], fo_moves: ["release", "ir", "ir_back"], fo_trades: ["trade", "block", "scout"],
   squads: ["squad", "talk"], colleges_calling: ["call", "recruiting", "talk"],
 };

@@ -64,6 +64,11 @@ pub enum Kind {
     StaffMeeting,
     /// A timed combine interview (D8).
     CombineTalk,
+    /// Your call to a transfer in the portal (portal recruiting).
+    PortalCall,
+    /// Your sit-down with a transfer: at his home, or at the end of his
+    /// campus visit.
+    PortalVisit,
     /// A December signee asks to be let out of his signing once his head
     /// coach is gone (Jan 1 start).
     SigneeRelease,
@@ -115,6 +120,8 @@ impl Kind {
             Kind::JobInterview => "Job interview",
             Kind::StaffMeeting => "Weekly staff meeting",
             Kind::CombineTalk => "Combine interview",
+            Kind::PortalCall => "A call to a transfer",
+            Kind::PortalVisit => "Transfer visit",
             Kind::SigneeRelease => "A signee asks out",
         }
     }
@@ -461,7 +468,12 @@ fn log_scene(w: &mut World, s: &Scene) {
         Kind::Discipline | Kind::Ritual => "rules",
         Kind::ReachOut | Kind::Trip | Kind::JobCall | Kind::Backchannel => "network",
         Kind::Story => "press",
-        Kind::HomeVisit | Kind::CollegeCall | Kind::CombineTalk | Kind::SigneeRelease => "recruiting",
+        Kind::HomeVisit
+        | Kind::CollegeCall
+        | Kind::CombineTalk
+        | Kind::PortalCall
+        | Kind::PortalVisit
+        | Kind::SigneeRelease => "recruiting",
         Kind::JobInterview => "network",
         Kind::StaffMeeting => "staff",
         _ => "place",
@@ -482,9 +494,13 @@ fn dispatch_open(w: &mut World, s: &mut Scene) {
         Kind::StarPower | Kind::SecondOpinion | Kind::Family => super::life::open(w, s),
         Kind::Story => crate::world::storylines::moves::open(w, s),
         Kind::Backchannel => super::backchannel::open(w, s),
-        Kind::HomeVisit | Kind::CollegeCall | Kind::JobInterview | Kind::StaffMeeting | Kind::CombineTalk => {
-            super::dialogue::open(w, s)
-        }
+        Kind::HomeVisit
+        | Kind::CollegeCall
+        | Kind::JobInterview
+        | Kind::StaffMeeting
+        | Kind::CombineTalk
+        | Kind::PortalCall
+        | Kind::PortalVisit => super::dialogue::open(w, s),
         _ => super::takeover::open(w, s),
     }
 }
@@ -502,9 +518,13 @@ fn dispatch_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         Kind::StarPower | Kind::SecondOpinion | Kind::Family => super::life::answer(w, s, code, picked),
         Kind::Story => crate::world::storylines::moves::answer(w, s, code, picked),
         Kind::Backchannel => super::backchannel::answer(w, s, code, picked),
-        Kind::HomeVisit | Kind::CollegeCall | Kind::JobInterview | Kind::StaffMeeting | Kind::CombineTalk => {
-            super::dialogue::answer(w, s, code, picked)
-        }
+        Kind::HomeVisit
+        | Kind::CollegeCall
+        | Kind::JobInterview
+        | Kind::StaffMeeting
+        | Kind::CombineTalk
+        | Kind::PortalCall
+        | Kind::PortalVisit => super::dialogue::answer(w, s, code, picked),
         _ => super::takeover::answer(w, s, code, picked),
     }
 }
@@ -522,9 +542,13 @@ fn dispatch_hand(w: &mut World, s: &mut Scene) {
         Kind::StarPower | Kind::SecondOpinion | Kind::Family => super::life::hand(w, s),
         Kind::Story => crate::world::storylines::moves::hand(w, s),
         Kind::Backchannel => super::backchannel::hand(w, s),
-        Kind::HomeVisit | Kind::CollegeCall | Kind::JobInterview | Kind::StaffMeeting | Kind::CombineTalk => {
-            super::dialogue::hand(w, s)
-        }
+        Kind::HomeVisit
+        | Kind::CollegeCall
+        | Kind::JobInterview
+        | Kind::StaffMeeting
+        | Kind::CombineTalk
+        | Kind::PortalCall
+        | Kind::PortalVisit => super::dialogue::hand(w, s),
         _ => super::takeover::hand(w, s),
     }
 }
