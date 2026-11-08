@@ -151,7 +151,72 @@ struct TaskDef {
     keys: u16,
 }
 
-const TASKS: [TaskDef; 17] = [
+const TASKS: [TaskDef; 23] = [
+    // The winter rush's own (the Jan 1 start, Cain 2026-11-08): the staff
+    // first, then the roster before the portal. The meetings tick
+    // themselves off once held or handed to your staff.
+    TaskDef {
+        key: "keep",
+        title: "Keep or let go: the old staff",
+        go: "people",
+        button: "Open your meetings",
+        look: &[],
+        cmds: &[],
+        page: "people",
+        keys: mail::STAFF,
+    },
+    TaskDef {
+        key: "hire",
+        title: "Hire your staff",
+        go: "staff",
+        button: "Open your staff",
+        look: &[],
+        // Done once every opening is filled (`done_by_scenes`), not at the
+        // first offer.
+        cmds: &[],
+        page: "people",
+        keys: mail::STAFF,
+    },
+    TaskDef {
+        key: "team",
+        title: "Your first team meeting",
+        go: "people",
+        button: "Open your meetings",
+        look: &[],
+        cmds: &[],
+        page: "people",
+        keys: mail::PLAYERS,
+    },
+    TaskDef {
+        key: "flight",
+        title: "Who might leave",
+        go: "people",
+        button: "Open your meetings",
+        look: &[],
+        cmds: &[],
+        page: "portal",
+        keys: mail::PLAYERS,
+    },
+    TaskDef {
+        key: "signees",
+        title: "Your signees and commits",
+        go: "recruit_board",
+        button: "Open the recruiting board",
+        look: &[],
+        cmds: &[],
+        page: "recruiting",
+        keys: mail::RECRUITING,
+    },
+    TaskDef {
+        key: "nil",
+        title: "NIL money for the portal",
+        go: "nil_desk",
+        button: "Open the NIL desk",
+        look: &["nil_desk"],
+        cmds: &[],
+        page: "portal",
+        keys: mail::MONEY,
+    },
     TaskDef {
         key: "depth",
         title: "The depth chart",
@@ -331,9 +396,142 @@ fn def(key: &str) -> Option<&'static TaskDef> {
     TASKS.iter().find(|d| d.key == key)
 }
 
+/// The winter rush's first day at your job (the day of its first
+/// meeting), when the takeover is one.
+fn rush_first(w: &World) -> Option<Date> {
+    let tk = w.folk.takeover.as_ref().filter(|t| t.rush)?;
+    w.folk.scenes.iter().filter(|s| tk.scenes.contains(&s.id)).map(|s| s.date).min()
+}
+
+/// The winter rush's list (the Jan 1 start, Cain 2026-11-08: "maintain a
+/// logical and clear view of what needs to be done in the first few
+/// days"), in order: your staff on day one (keep or let go each holdover,
+/// hire for the openings, the first team meeting), the roster before the
+/// window on day two (who might leave, the signees and commits, the NIL
+/// money, the portal), then the chart. At an NFL club still playing, the
+/// cap and the roster come on day two; at a high school the players
+/// wait for the first school day.
+fn rush_plan(w: &World, t: TeamRef, first: Date) -> Vec<Task> {
+    let window = afm_engine::world::front_office::college::next_window(w).map(|x| x.0);
+    let after = window.filter(|&d| d > first.add(1)).unwrap_or(first.add(2));
+    let mut school = first.add(2);
+    while matches!(school.weekday(), afm_engine::calendar::Weekday::Sat | afm_engine::calendar::Weekday::Sun) {
+        school = school.add(1);
+    }
+    let team_day = w
+        .folk
+        .takeover
+        .as_ref()
+        .and_then(|tk| {
+            w.folk
+                .scenes
+                .iter()
+                .find(|s| tk.scenes.contains(&s.id) && s.kind == afm_engine::world::folk::scene::Kind::TeamMeeting)
+        })
+        .map_or(first, |s| s.date);
+    let list: Vec<(&str, Date)> = match t {
+        TeamRef::College(_) => vec![
+            ("keep", first),
+            ("hire", first),
+            ("team", team_day),
+            ("flight", first.add(1)),
+            ("signees", first.add(1)),
+            ("nil", first.add(1)),
+            ("portal", first.add(1)),
+            ("depth", after),
+        ],
+        TeamRef::Nfl(_) => vec![
+            ("keep", first),
+            ("hire", first),
+            ("flight", first.add(1)),
+            ("cap", first.add(1)),
+            ("cut", first.add(2)),
+            ("depth", first.add(2)),
+        ],
+        TeamRef::HighSchool(_) => vec![
+            ("keep", first),
+            ("twoway", first.add(1)),
+            ("limits", first.add(1)),
+            ("team", school),
+            ("depth", school),
+            ("friday", school.add(1)),
+        ],
+        TeamRef::Other(_) => return Vec::new(),
+    };
+    list.into_iter().map(|(key, day)| Task { key: key.to_string(), day, done: false }).collect()
+}
+
+/// Whether the rush list is yours now.
+fn rushing(w: &World, wk: &Week) -> bool {
+    rush_first(w).is_some() && wk.tasks.first().is_some_and(|t| t.key == "keep")
+}
+
+/// A rush task done by what happened: its meetings held or handed to your
+/// staff, and for hiring, every opening filled once the holdover calls
+/// are made.
+fn done_by_scenes(w: &World, key: &str) -> bool {
+    use afm_engine::world::folk::scene::Kind;
+    let Some(tk) = w.folk.takeover.as_ref() else { return false };
+    let mine = |k: &[Kind]| {
+        let v: Vec<&afm_engine::world::folk::scene::Scene> =
+            w.folk.scenes.iter().filter(|s| tk.scenes.contains(&s.id) && k.contains(&s.kind)).collect();
+        !v.is_empty() && v.iter().all(|s| s.done)
+    };
+    match key {
+        "keep" => mine(&[Kind::Holdover]),
+        "team" => mine(&[Kind::TeamMeeting]),
+        "flight" => mine(&[Kind::FlightRisks]),
+        "signees" => {
+            let open = w.folk.scenes.iter().any(|s| {
+                tk.scenes.contains(&s.id) && matches!(s.kind, Kind::SigneeRelease | Kind::Recruiting) && !s.done
+            });
+            !open && mine(&[Kind::Recruiting])
+        }
+        "hire" => mine(&[Kind::Holdover]) && openings(w) == 0,
+        _ => false,
+    }
+}
+
+/// Open jobs on your staff: the coordinators and position coaches nobody
+/// holds.
+fn openings(w: &World) -> usize {
+    match views::mine(w) {
+        Some(TeamRef::College(p)) => {
+            let prog = &w.programs[p];
+            prog.oc.is_none() as usize
+                + prog.dc.is_none() as usize
+                + prog.position_coaches.iter().filter(|c| c.is_none()).count()
+        }
+        Some(TeamRef::Nfl(t)) => w.nfl[t].oc.is_none() as usize + w.nfl[t].dc.is_none() as usize,
+        _ => 0,
+    }
+}
+
+/// Ticks the rush tasks their meetings or hires have done.
+fn tick_scenes(w: &mut World) {
+    let keys: Vec<String> = match w.career.as_ref().and_then(|c| c.help.week.as_ref()) {
+        Some(wk) if rushing(w, wk) => {
+            wk.tasks.iter().filter(|t| !t.done && done_by_scenes(w, &t.key)).map(|t| t.key.clone()).collect()
+        }
+        _ => return,
+    };
+    if let Some(wk) = week_mut(w) {
+        for t in wk.tasks.iter_mut().filter(|t| keys.contains(&t.key)) {
+            t.done = true;
+        }
+    }
+}
+
 /// The week's six tasks, one a day: the depth chart, the game plan and the
-/// training week, then the level's own (H12).
-fn plan(_w: &World, t: TeamRef, start: Date) -> Vec<Task> {
+/// training week, then the level's own (H12). A job taken in the winter
+/// rush gets the rush's ordered list instead.
+fn plan(w: &World, t: TeamRef, start: Date) -> Vec<Task> {
+    if let Some(first) = rush_first(w) {
+        let v = rush_plan(w, t, first.max(start));
+        if !v.is_empty() {
+            return v;
+        }
+    }
     let cfl = matches!(t, TeamRef::Other(f) if afm_engine::world::pro::other::league_of(f) == afm_engine::world::pro::other::CFL);
     // Another league's club has no training week or NFL cutdown in the
     // game: its roster takes the third day (minor bug B41).
@@ -376,6 +574,7 @@ pub fn after_call(g: &mut Game, cmd: &str) {
         && w.career.as_ref().is_some_and(|c| c.help.week.is_some())
     {
         tick(w, |d| d.cmds.contains(&cmd));
+        tick_scenes(w);
     }
 }
 
@@ -455,12 +654,39 @@ fn starters_back(w: &World, t: TeamRef) -> (usize, usize) {
 }
 
 /// What a task's mail and card say: its one-line ask and why now.
+/// Your takeover's meetings of a kind, by their day and hour.
+fn meetings(w: &World, kinds: &[afm_engine::world::folk::scene::Kind]) -> Vec<(Date, u16, String)> {
+    let Some(tk) = w.folk.takeover.as_ref() else { return Vec::new() };
+    let mut v: Vec<(Date, u16, String)> = w
+        .folk
+        .scenes
+        .iter()
+        .filter(|s| tk.scenes.contains(&s.id) && kinds.contains(&s.kind))
+        .map(|s| (s.date, s.minute.unwrap_or(8 * 60), s.title.clone()))
+        .collect();
+    v.sort_by_key(|x| (x.0, x.1));
+    v
+}
+
+/// "9 AM", "12:30 PM".
+fn hour(m: u16) -> String {
+    afm_engine::calendar::zone::short_clock(m)
+}
+
 fn task_text(w: &World, t: TeamRef, key: &str) -> (String, String) {
+    use afm_engine::world::folk::scene::Kind;
     let today = w.today;
     let ys = YearDates::new(season_of(today));
     let next_ys = YearDates::new(season_of(today) + 1);
     let (back, size) = starters_back(w, t);
     match key {
+        "depth" if w.seat_interim().is_some() => (
+            format!(
+                "Look over the chart the last staff left: {} from last season are on a roster of {size}. The interim plays it in the games left; yours starts after them.",
+                noun(back, "starter", "starters")
+            ),
+            "Spring practice starts from your chart.".into(),
+        ),
         "depth" => (
             format!(
                 "Look over the chart the last staff left: {} from last season are on a roster of {size}.",
@@ -468,6 +694,116 @@ fn task_text(w: &World, t: TeamRef, key: &str) -> (String, String) {
             ),
             "Every lineup call this week starts from it.".into(),
         ),
+        "keep" => {
+            let list: Vec<String> = meetings(w, &[Kind::Holdover])
+                .into_iter()
+                .map(|(_, m, title)| {
+                    let who = title
+                        .strip_prefix("Meeting the ")
+                        .map(|r| format!("the {r}"))
+                        .or_else(|| title.strip_prefix("The holdover ").map(|r| format!("the {r}")))
+                        .unwrap_or_else(|| title.to_lowercase());
+                    format!("{who} at {}", hour(m))
+                })
+                .collect();
+            let line = if list.is_empty() {
+                "Decide whom of the last staff you keep.".to_string()
+            } else {
+                let mut l = list.join(", ");
+                if let Some(c) = l.get(..1) {
+                    l = c.to_uppercase() + &l[1..];
+                }
+                format!("{l}.")
+            };
+            (
+                format!("{line} Each one you let go is an opening."),
+                "Your staff coaches the spring; the calls come first.".into(),
+            )
+        }
+        "hire" => {
+            let n = openings(w);
+            let open =
+                if n == 0 { "no openings yet".to_string() } else { format!("{} open now", noun(n, "job", "jobs")) };
+            (
+                format!(
+                    "Interview and make offers for every opening ({open}). An interview takes two hours, and your first week holds 40 hours of people time."
+                ),
+                "Hires made now coach the spring and recruit the next class.".into(),
+            )
+        }
+        "team" => {
+            let at = meetings(w, &[Kind::TeamMeeting]).into_iter().next();
+            let when = at.map_or(String::new(), |(d, m, _)| {
+                if d == today {
+                    format!("Tonight at {}: ", hour(m))
+                } else {
+                    format!("{}, {}: ", date_text(d), hour(m))
+                }
+            });
+            (
+                format!(
+                    "{when}the room hears you before the window opens. Each player takes it by his personality and his ties to the last staff."
+                ),
+                "First impressions set every player's trust in you.".into(),
+            )
+        }
+        "flight" => {
+            let at = meetings(w, &[Kind::FlightRisks]).into_iter().next();
+            let when = at.map_or(String::new(), |(_, m, _)| format!(" at {}", hour(m)));
+            // The college transfer windows; an NFL roster has none.
+            let college = matches!(t, TeamRef::College(_));
+            let window =
+                afm_engine::world::front_office::college::next_window(w).filter(|_| college).map(|(a, b, name)| {
+                    let what = if name == "Coaching change window" {
+                        "Your coaching-change window"
+                    } else {
+                        "The winter window"
+                    };
+                    format!(" {what} opens {} and runs to {}.", date_text(a), date_text(b))
+                });
+            (
+                format!(
+                    "Your staff lists the flight risks{when}.{} Players who want out ask to see you first.",
+                    window.unwrap_or_default()
+                ),
+                "A word from you before the window opens keeps more of them.".into(),
+            )
+        }
+        "signees" => {
+            let TeamRef::College(p) = t else { return (String::new(), String::new()) };
+            let (signed, asked, early, committed) = afm_engine::world::folk::takeover::class_counts(w, p);
+            let asked_line = match asked {
+                0 => "Nobody has asked to be let out of his signing.".to_string(),
+                n => format!(
+                    "{} to talk about a release; the calls come in the evening.",
+                    noun(n, "signee has asked", "signees have asked")
+                ),
+            };
+            (
+                format!(
+                    "{signed} signed with the last staff ({early} enroll in January) and {committed} are still committed. {asked_line} The rest of the class signs {}.",
+                    date_text(ys.signing_day.max(today))
+                ),
+                "Since the NLI ended, a school usually lets go a signee whose head coach left.".into(),
+            )
+        }
+        "nil" => {
+            let lunch = meetings(w, &[Kind::Booster]).into_iter().next();
+            let when = lunch.map_or(String::new(), |(d, m, title)| {
+                format!(
+                    " {} at {}{}.",
+                    title,
+                    hour(m),
+                    if d == today { String::new() } else { format!(", {}", date_text(d)) }
+                )
+            });
+            (
+                format!(
+                    "What your collective still has this year decides whom you can bring in from the portal and whom you can keep.{when}"
+                ),
+                "Portal players sign within days of the window opening.".into(),
+            )
+        }
         "plan" => (
             "Pick the offense and defense you want; the coordinators build the playbook from it.".into(),
             "Installs take time, and the staff wants to start teaching it.".into(),
@@ -708,10 +1044,26 @@ fn started(w: &World) -> Value {
         })
         .collect();
     let first = h.jobs <= 1;
+    let rush = rushing(w, wk);
     json!({
         "show": true,
-        "title": format!("Your first week at {}", views::team_name(w, me)),
-        "from": format!("From {from}, your {role}: one task a day in your inbox."),
+        "rush": rush,
+        "label": if rush { "Getting started · your first days" } else { "Getting started · your first week" },
+        "title": if rush {
+            format!("Your first days at {}", views::team_name(w, me))
+        } else {
+            format!("Your first week at {}", views::team_name(w, me))
+        },
+        "from": if rush {
+            format!("From {from}, your {role}: what has to happen first, in order. Your staff first, then the roster.")
+        } else {
+            format!("From {from}, your {role}: one task a day in your inbox.")
+        },
+        "foot": if rush {
+            "In order: your staff first, then the roster before the portal. Each one ticks itself off when you've done it; your staff takes any meeting you skip."
+        } else {
+            "Do them in any order. Each one ticks itself off when you've done it, and the card goes away when they are all done."
+        },
         "done": done, "of": wk.tasks.len(),
         "day": wk.start.days_to(today) + 1,
         "help": if first { "Full" } else { "Full, kept on at this job" },
@@ -745,6 +1097,7 @@ pub fn after_days(w: &mut World) {
             tasks,
         });
     }
+    tick_scenes(w);
     let mails = {
         let w: &World = w;
         let mut out = week_mail(w, me);
@@ -777,6 +1130,7 @@ fn week_mail(w: &World, me: TeamRef) -> Vec<(afm_engine::world::desk::Mail, Opti
     // mail shows once its stamp has come).
     let start = w.career.as_ref().map(|c| c.started);
     let now = w.local_now();
+    let rush = rushing(w, wk);
     wk.tasks
         .iter()
         .enumerate()
@@ -798,10 +1152,10 @@ fn week_mail(w: &World, me: TeamRef) -> Vec<(afm_engine::world::desk::Mail, Opti
                 d.title.to_string(),
             );
             m.org_team = Some(team_code(me));
-            let opener = if k == 0 {
-                format!("{dear}, welcome. I'll send you one thing a day this week, the things I'd want to know on day one in your chair.")
-            } else {
-                format!("{dear},")
+            let opener = match (k, rush) {
+                (0, true) => format!("{dear}, welcome. Here is what has to happen first, in order: your staff today, then the roster before the portal. I'll send each one as its time comes."),
+                (0, false) => format!("{dear}, welcome. I'll send you one thing a day this week, the things I'd want to know on day one in your chair."),
+                _ => format!("{dear},"),
             };
             m.body = vec![
                 opener,
@@ -815,7 +1169,11 @@ fn week_mail(w: &World, me: TeamRef) -> Vec<(afm_engine::world::desk::Mail, Opti
                     page_title(d.page)
                 ),
             ];
-            m.sign = "Day ".to_string() + &(k + 1).to_string() + " of 6";
+            m.sign = if rush {
+                format!("{} of {}", k + 1, wk.tasks.len())
+            } else {
+                "Day ".to_string() + &(k + 1).to_string() + " of 6"
+            };
             m.keys = d.keys | mail::JOB;
             Some((m, None))
         })

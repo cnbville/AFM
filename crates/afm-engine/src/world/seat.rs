@@ -569,6 +569,11 @@ impl World {
             }
             // Only this football year's season: after the Super Bowl the
             // season held is last year's, its bowl games his predecessor's.
+            // Games under another coach on the sideline (an interim, the Jan
+            // 1 start) are his.
+            Some(Employer::College(p)) if self.programs.get(p).and_then(|x| x.sideline).is_some_and(|s| s != c) => {
+                (0, 0)
+            }
             Some(Employer::College(p)) => self
                 .college
                 .as_ref()
@@ -578,7 +583,13 @@ impl World {
             Some(Employer::Nfl(t)) => match self.nfl_season.as_ref() {
                 Some(s) if !s.booked => {
                     let (wn, l, _) = self.nfl_record(t);
-                    (wn, l)
+                    // Your club taken in season: the games before you came are
+                    // the man you replaced's, the ones since the interim's.
+                    match self.nfl_takeover().filter(|x| x.0 == t) {
+                        Some((_, Some(_), _)) => (0, 0),
+                        Some((_, None, at)) => (wn.saturating_sub(at.0), l.saturating_sub(at.1)),
+                        None => (wn, l),
+                    }
                 }
                 _ => (0, 0),
             },

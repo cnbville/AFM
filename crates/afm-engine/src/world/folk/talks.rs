@@ -543,6 +543,12 @@ pub(crate) fn reapply(w: &mut World, read: &[usize]) {
 /// Hours of people time a week beyond film and the game plan (proposed,
 /// not confirmed): ten in season, sixteen out of it.
 pub fn week_budget(w: &World) -> f32 {
+    // The winter rush's first seven days are one long arrival week (Jan 1
+    // start): forty hours of people time, interviews included (proposed,
+    // not confirmed).
+    if super::takeover::rush_week(w).is_some() {
+        return 40.0;
+    }
     let in_season = match Team::seat(w).map(|t| t.level()) {
         Some(Level::Nfl) => w.today >= w.dates.nfl_kickoff && w.today <= w.dates.super_bowl,
         _ => w.today >= w.dates.fall_camp && w.today <= w.dates.bowl_season.1,
@@ -558,16 +564,22 @@ fn week_start(d: Date) -> Date {
     d
 }
 
+/// The week your people time is counted in: the arrival week from its
+/// first day, else the week from Monday.
+fn week_of(w: &World) -> Date {
+    super::takeover::rush_week(w).unwrap_or_else(|| week_start(w.today))
+}
+
 /// Hours left this week.
 pub fn hours_left(w: &World) -> f32 {
-    let used = if w.folk.mine.week == Some(week_start(w.today)) { w.folk.mine.hours } else { 0.0 };
+    let used = if w.folk.mine.week == Some(week_of(w)) { w.folk.mine.hours } else { 0.0 };
     (week_budget(w) - used).max(0.0)
 }
 
 /// Charges people time that has to be spent (a trip, a meeting you held),
 /// past the week's budget if need be.
 pub fn charge(w: &mut World, hours: f32) {
-    let wk = week_start(w.today);
+    let wk = week_of(w);
     if w.folk.mine.week != Some(wk) {
         w.folk.mine.week = Some(wk);
         w.folk.mine.hours = 0.0;
@@ -577,7 +589,7 @@ pub fn charge(w: &mut World, hours: f32) {
 
 /// Spends people time; false when the week is full.
 pub fn spend(w: &mut World, hours: f32) -> bool {
-    let wk = week_start(w.today);
+    let wk = week_of(w);
     if w.folk.mine.week != Some(wk) {
         w.folk.mine.week = Some(wk);
         w.folk.mine.hours = 0.0;

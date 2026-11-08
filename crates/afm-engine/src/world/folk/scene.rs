@@ -64,6 +64,9 @@ pub enum Kind {
     StaffMeeting,
     /// A timed combine interview (D8).
     CombineTalk,
+    /// A December signee asks to be let out of his signing once his head
+    /// coach is gone (Jan 1 start).
+    SigneeRelease,
 }
 
 impl Kind {
@@ -112,6 +115,7 @@ impl Kind {
             Kind::JobInterview => "Job interview",
             Kind::StaffMeeting => "Weekly staff meeting",
             Kind::CombineTalk => "Combine interview",
+            Kind::SigneeRelease => "A signee asks out",
         }
     }
 }
@@ -457,7 +461,7 @@ fn log_scene(w: &mut World, s: &Scene) {
         Kind::Discipline | Kind::Ritual => "rules",
         Kind::ReachOut | Kind::Trip | Kind::JobCall | Kind::Backchannel => "network",
         Kind::Story => "press",
-        Kind::HomeVisit | Kind::CollegeCall | Kind::CombineTalk => "recruiting",
+        Kind::HomeVisit | Kind::CollegeCall | Kind::CombineTalk | Kind::SigneeRelease => "recruiting",
         Kind::JobInterview => "network",
         Kind::StaffMeeting => "staff",
         _ => "place",

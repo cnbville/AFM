@@ -19,6 +19,7 @@ mod growth_reps;
 mod hiring;
 mod hs_playoffs;
 mod hunt;
+mod jan1;
 mod kick_units;
 mod lane7;
 mod lane9;

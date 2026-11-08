@@ -187,6 +187,10 @@ pub(crate) struct CollegeSeason {
     pub finished: bool,
     /// Regular-season wins and losses already credited to head coaches.
     pub credited: Vec<(u32, u32)>,
+    /// Titles already credited to a head coach who left before the season
+    /// ended (the Jan 1 start): the program and the title.
+    #[serde(default)]
+    pub title_credited: Vec<(usize, TitleKind)>,
     /// Award winners: (award, player id, program).
     #[serde(deserialize_with = "crate::save::leaked")]
     pub awards: Vec<(&'static str, u32, usize)>,
@@ -299,6 +303,7 @@ pub(crate) fn new_season(w: &World) -> CollegeSeason {
         champions: [None; DIVISION_COUNT],
         finished: false,
         credited: vec![(0, 0); np],
+        title_credited: Vec::new(),
         awards: Vec::new(),
         bowl_teams: HashSet::new(),
         series,
@@ -3196,6 +3201,7 @@ pub(crate) fn finish(w: &mut World) {
     let cs = w.college.as_ref().unwrap();
     let results = cs.results.clone();
     let credited = cs.credited.clone();
+    let title_credited = cs.title_credited.clone();
     let champions = cs.champions;
     if w.recording {
         for p in 0..w.programs.len() {
@@ -3229,12 +3235,15 @@ pub(crate) fn finish(w: &mut World) {
             // retiring coach who stayed, or the interim.
             let head = prog.sideline.or(prog.head_coach);
             let staff = staff_of(prog, head);
+            // A title the man who left was already credited with stays his.
+            let best = t.best_title();
+            let best = if title_credited.contains(&(p, best)) { TitleKind::None } else { best };
             for (c, is_head) in staff {
                 if is_head {
-                    let title = (t.best_title() != TitleKind::None) as u32;
+                    let title = (best != TitleKind::None) as u32;
                     super::staff::credit_head(w, c, p, t.wins.saturating_sub(cw), t.losses.saturating_sub(cl), title);
                 }
-                w.coaches[c].title_reputation(t.best_title(), is_head, stage);
+                w.coaches[c].title_reputation(best, is_head, stage);
             }
         }
         for prog in w.programs.iter_mut() {
@@ -3865,6 +3874,18 @@ pub(crate) fn lean_checkpoint(w: &mut World, check: LeanCheck) {
                     lean_push(p, date, "homesick, far from home", 1.12);
                 }
             });
+            // A signee you held to his signing after his coach left (Jan 1
+            // start) arrives leaning out (proposed, not confirmed).
+            let held = w.folk.takeover.as_mut().map(|t| std::mem::take(&mut t.held)).unwrap_or_default();
+            for id in held {
+                if let Some(i) = super::folk::person(w, id)
+                    && w.people[i].stage == Stage::College
+                {
+                    let p = &mut w.people[i];
+                    p.cal.lean = (p.cal.lean + 0.02).min(0.95);
+                    lean_push(p, date, "held to his signing after his coach left", 1.8);
+                }
+            }
         }
         LeanCheck::MidSeason => {
             let Some(cs) = w.college.as_ref() else { return };

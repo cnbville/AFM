@@ -350,6 +350,7 @@ fn a_high_schooler_earns_only_where_his_state_lets_him() {
             date: w.today,
             early_enrollee: false,
             flipped: false,
+            committed: None,
         });
     };
     signed(&mut w, ks);

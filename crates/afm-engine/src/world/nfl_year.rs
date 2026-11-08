@@ -2659,15 +2659,20 @@ fn black_monday(w: &mut World, d: Date) {
         return;
     }
     let s = s.clone();
-    // The season's book, under the coach who finished it.
+    // Your club taken in season (the Jan 1 start): its interim finished
+    // the season and gets the games since you took it (you, with no
+    // interim); the man you replaced got his the day he left.
+    let took = w.nfl_takeover();
+    // The season's book, under the coach of most of its games.
     for t in (0..n).filter(|&t| s.active[t]) {
+        let coach = w.nfl_book_coach(t);
         w.nfl_seasons.push(NflTeamSeason {
             year: s.year,
             team: t,
             wins: s.wins[t],
             losses: s.losses[t],
             ties: s.ties[t],
-            coach: w.nfl[t].head_coach,
+            coach,
             round: 0,
         });
     }
@@ -2681,7 +2686,13 @@ fn black_monday(w: &mut World, d: Date) {
             team.win_share.remove(0);
         }
         let (hc, oc, dc) = (team.head_coach, team.oc, team.dc);
-        if let Some(h) = hc {
+        if let Some((_, c, at)) = took.filter(|x| x.0 == t) {
+            if let Some(c) = c.or(hc) {
+                let coach = &mut w.coaches[c];
+                coach.wins += s.wins[t].saturating_sub(at.0);
+                coach.losses += s.losses[t].saturating_sub(at.1);
+            }
+        } else if let Some(h) = hc {
             let coach = &mut w.coaches[h];
             coach.wins += s.wins[t];
             coach.losses += s.losses[t];
@@ -2983,14 +2994,15 @@ fn order_from(s: &NflSeason) -> Vec<usize> {
 fn super_bowl_book(w: &mut World, champ: usize, loser: usize, d: Date) {
     let year = w.year;
     for (t, title) in [(champ, TitleKind::National), (loser, TitleKind::Conference)] {
-        let (hc, oc, dc) = (w.nfl[t].head_coach, w.nfl[t].oc, w.nfl[t].dc);
+        // The interim's run at your club is his (the Jan 1 start).
+        let (hc, oc, dc) = (w.nfl_sideline(t), w.nfl[t].oc, w.nfl[t].dc);
         if let Some(h) = hc {
             let coach = &mut w.coaches[h];
             coach.titles += 1;
             coach.career_titles += 1;
             coach.title_reputation(title, true, 1.0);
         }
-        for c in [oc, dc].into_iter().flatten() {
+        for c in [oc, dc].into_iter().flatten().filter(|&c| Some(c) != hc) {
             w.coaches[c].title_reputation(title, false, 1.0);
         }
     }
@@ -3005,7 +3017,7 @@ fn super_bowl_book(w: &mut World, champ: usize, loser: usize, d: Date) {
             .club_link(loser, w.nfl[loser].name),
     );
     if w.recording {
-        let head = w.nfl[champ].head_coach;
+        let head = w.nfl_sideline(champ);
         let coach = head.map_or(String::new(), |h| format!(" under head coach {}", w.coaches[h].name));
         let mut item = NewsItem {
             date: Some(d),

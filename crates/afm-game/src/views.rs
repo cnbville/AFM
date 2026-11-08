@@ -703,6 +703,35 @@ pub fn status(w: &World) -> Value {
         "stories_need": crate::lane_storylines::need_count(w),
         // A team in its year before the first game (lane 10, SK68).
         "ground": crate::lane_groundzero::status(w),
+        // The interim coaching your team's last games (the Jan 1 start).
+        "interim": interim(w),
+    })
+}
+
+/// The interim on your sideline while your team still has games this
+/// season (the Jan 1 start): who he is, his job on the staff, the next game
+/// and what is yours meanwhile.
+pub fn interim(w: &World) -> Value {
+    let Some(c) = w.seat_interim() else { return Value::Null };
+    let coach = &w.coaches[c];
+    let role = coach.job.map_or("assistant".to_string(), |j| j.role.name().to_string());
+    let next = mine(w).and_then(|t| next_game(w, t));
+    json!({
+        "id": c,
+        "name": coach.name,
+        "role": role,
+        "next": next,
+        "text": format!(
+            "{}, the {role}, is the interim head coach for the games left this season. The staff that got the team here prepares them and calls them: their depth chart, their plan, their play calls. The results go on his record, not yours.",
+            coach.name
+        ),
+        "yours": [
+            "Your staff: keep, let go, interview, hire",
+            "The flight risks and their one-on-ones",
+            "Your signees, commits and recruiting board",
+            "The portal and NIL offers",
+            "From the team's last game: the depth chart, practice and the game plan",
+        ],
     })
 }
 
