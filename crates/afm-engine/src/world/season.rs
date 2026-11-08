@@ -4,6 +4,8 @@
 //! won by comparing the two teams' starters as they played that year (form,
 //! slumps and breakouts included), plus home field and luck.
 
+use std::collections::HashMap;
+
 use rayon::prelude::*;
 
 use super::background;
@@ -258,12 +260,16 @@ pub(crate) fn reconsider_positions(w: &mut World, who: &[bool]) {
         }
     }
     let mut rooms = vec![[0u32; POSITION_COUNT]; counted.len()];
-    for p in w.people.iter() {
-        if let Some(t) = team(p)
-            && counted[t]
-        {
-            rooms[t][p.player.position.index()] += 1;
-        }
+    // Everyone on a counted team found on all cores, then counted (world
+    // speed lane: whole counts, so the order they come in never matters).
+    let hits: Vec<(usize, usize)> = w
+        .people
+        .par_iter()
+        .with_min_len(4096)
+        .filter_map(|p| team(p).filter(|&t| counted[t]).map(|t| (t, p.player.position.index())))
+        .collect();
+    for (t, k) in hits {
+        rooms[t][k] += 1;
     }
     let mut made: Vec<(usize, Position)> = Vec::with_capacity(moves.len());
     for (i, to) in moves {
@@ -502,6 +508,74 @@ pub(crate) fn your_order(
 /// confirmed). An every-down starter on the engine plays about this many.
 pub(crate) const HS_STARTER_SNAPS: u32 = 550;
 
+/// The camp step's injury on a season the engine plays (minor bug 315).
+/// The yearly step rolls an injury at fall camp with the games it costs
+/// (`develop_season`: minor 0-2, moderate 2-6, major half the season or
+/// more) and wrote them on the row, but nothing kept him out of a game for
+/// it, so a row could say "an injury, missed 4 games" for a man who played
+/// all twelve, while what really kept men out (game and practice injuries)
+/// never reached the row. Now the row counts every game his team plays
+/// while he is out hurt, game by game, as an NFL row does (minor bug 96,
+/// where the engine's and practice's injuries alone give the real 1.2 games
+/// a season), so the roll's games start again at none. A minor or moderate
+/// roll keeps its cost to the year's growth and leaves the row's label to
+/// the real injuries (`mark_real_injury`). A major one is a real one: it
+/// costs half his growth and a year's rehab, so he sits its games, out from
+/// camp until the day after `last`, the last of his team's games he misses,
+/// with a torn ACL or a broken bone on a keyed draw (proposed, not
+/// confirmed).
+pub(crate) fn camp_injury(w: &mut World, i: usize, last: Option<crate::calendar::Date>, yours: bool) {
+    use crate::game::sim::InjuryKind as K;
+    use crate::player::DevelopmentEvent as Ev;
+    let today = w.today;
+    let seed = w.options.seed as u64 ^ 0xCA3F ^ (w.year as u64) << 20;
+    let p = &mut w.people[i];
+    let id = p.player.id;
+    let Some(h) = p.player.history.last_mut() else { return };
+    let games = std::mem::take(&mut h.games_missed);
+    if !h.events.has(Ev::MajorInjury) {
+        h.events.remove(Ev::MinorInjury);
+        h.events.remove(Ev::ModerateInjury);
+        return;
+    }
+    let (Some(last), true) = (last, games > 0) else { return };
+    let kind = if key_uniform(seed, id as u64) < 0.7 { K::Acl } else { K::Fracture };
+    let back = last.add(1);
+    let t = &mut w.training;
+    if yours {
+        t.hurt.retain(|x| x.id != id || x.until <= today);
+        t.hurt.push(crate::training::seat::Hurt {
+            id,
+            kind: Some(kind),
+            from: today,
+            until: back,
+            how: "fall camp".into(),
+        });
+    } else {
+        let e = t.others_hurt.entry(id).or_insert((back, Some(kind)));
+        if back > e.0 {
+            *e = (back, Some(kind));
+        }
+    }
+}
+
+/// The season row's injury from what really kept him out (minor bug 315):
+/// a man who missed games to a game or practice injury gets it on his row,
+/// a minor one for one or two games, otherwise an injury. A major injury is
+/// the yearly step's alone (it takes growth and burst and is rehabbed next
+/// year), so a game's torn ACL reads as an injury with its games missed.
+pub(crate) fn mark_real_injury(h: &mut crate::player::SeasonRecord) {
+    use crate::player::DevelopmentEvent as Ev;
+    if h.games_missed == 0
+        || h.events.has(Ev::MinorInjury)
+        || h.events.has(Ev::ModerateInjury)
+        || h.events.has(Ev::MajorInjury)
+    {
+        return;
+    }
+    h.events.add(if h.games_missed <= 2 { Ev::MinorInjury } else { Ev::ModerateInjury });
+}
+
 /// Whether a season leaves his next step to his depth chart role (minor
 /// bug 247): a redshirt or sit-out year with `redshirt_games` games or
 /// fewer (college four, the redshirt rule; high school none, a transfer's
@@ -655,6 +729,19 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
     // The world log (R2): each step's why, written as it runs.
     let log = w.wlog.as_deref().filter(|_| w.recording);
     let when = (w.year, w.today);
+    // Growth from results: the season ahead plays on the engine (results
+    // on) or not, and each player's last season of results closes here.
+    let mode = w.options.results;
+    let college_engine = mode.on && w.options.engine_from.is_none_or(|from| w.year >= from);
+    let hs_engine = mode.on && super::hs_year::hs_on_engine(w, w.year);
+    let closing: HashMap<u32, crate::results::Ledger> = {
+        let ids: std::collections::HashSet<u32> =
+            role_of.iter().enumerate().filter(|(_, r)| r.is_some()).map(|(i, _)| w.people[i].player.id).collect();
+        let all = std::mem::take(&mut w.results.ledgers);
+        let (mine, rest): (HashMap<_, _>, HashMap<_, _>) = all.into_iter().partition(|(id, _)| ids.contains(id));
+        w.results.ledgers = rest;
+        mine
+    };
     let (people, schools, programs, coaches) = (&mut w.people, &w.high_schools, &w.programs, &w.coaches);
     people.par_iter_mut().zip(role_of.par_iter()).enumerate().for_each(|(i, (p, role))| {
         let Some(role) = *role else { return };
@@ -835,8 +922,19 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             focus: focus.get(&i).copied(),
             defer,
             snaps,
+            results: match p.stage {
+                Stage::College if college_engine => Some(mode),
+                Stage::HighSchool if hs_engine => Some(mode),
+                _ => None,
+            },
             ..SeasonContext::new(level, clamp(coaching, 1.0, 20.0), role)
         };
+        // Last season's results name its row (growth from results).
+        if let Some(l) = closing.get(&p.player.id) {
+            crate::results::close(&mut p.player, l);
+        }
+        let id = p.player.id;
+        crate::results::settle_reps(&mut p.player, closing.get(&id));
         // Last year's growth that the calendar never reached lands first
         // (section 6b topic 12), so this row starts where he really is.
         crate::training::close_year(&mut p.player, ctx.focus);
@@ -902,6 +1000,11 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             p.stage = Stage::Done;
         }
     });
+    // Each closed ledger starts the new season, its reads kept as his past.
+    for (id, mut l) in closing {
+        l.roll(w.year);
+        w.results.ledgers.insert(id, l);
+    }
     // The year's college trouble rate, counted before the dismissed leave.
     for (i, p) in w.people.iter().enumerate() {
         if role_of[i].is_some() && p.player.history.last().is_some_and(|h| h.level.is_college()) {

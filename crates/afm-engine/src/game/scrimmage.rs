@@ -267,6 +267,9 @@ pub struct SnapResult {
     pub throw_away: bool,
     pub drop: bool,
     pub pressured: bool,
+    /// He threw on the move (rolling out, off his spot): the throw his
+    /// throw-on-the-move rating places (growth from results reads it).
+    pub moving: bool,
     pub hit: bool,
     pub blitz: bool,
     pub play_action: bool,
@@ -299,6 +302,8 @@ struct Pass {
     /// The lineman who got a hand up and batted the ball at the line, and
     /// where the throw was meant to go (its air yards count as thrown).
     batted: Option<(usize, V2)>,
+    /// He was moving when he let it go (`throw`).
+    moving: bool,
     /// The receiver he chose because of a size mismatch (D2): a jump ball
     /// or a back-shoulder throw put high, where only his man can reach.
     jump_r: Option<usize>,
@@ -463,6 +468,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         throw_away: false,
         drop: false,
         pressured: false,
+        moving: false,
         hit: false,
         blitz: s.dcall.pressure.extra() > 0,
         play_action: false,
@@ -777,6 +783,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 commit: None,
                 why: 0,
                 batted: None,
+                moving: false,
                 jump_r: None,
                 jump_ball: false,
                 ball_h: 0.0,
@@ -1133,6 +1140,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                                     commit: None,
                                     why: 0,
                                     batted: None,
+                                    moving: false,
                                     jump_r: None,
                                     jump_ball: false,
                                     ball_h: 0.0,
@@ -1589,6 +1597,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     if let Some(ps) = p {
         res.time_to_throw = ps.thrown.unwrap_or(sim.t);
         res.pressured = ps.pressured_at.is_some();
+        res.moving = ps.moving && ps.thrown.is_some();
         res.hit = ps.hit;
         if ps.thrown.is_none() && !ps.scramble && res.result != Result::Scramble {
             res.result = Result::Sack;
@@ -4160,6 +4169,7 @@ fn throw(
     // wide-open quick outs sailed out of bounds).
     target.y = clamp(target.y, 1.5, width() - 1.5);
     let moving = sim.agents[qb].vel.len() > 3.0;
+    ps.moving = moving;
     let poise = sim.agents[qb].a(Attr::Composure);
     // Error grows gently as accuracy falls: real completion rates drop only a
     // few points from the NFL to college and high school, where receivers

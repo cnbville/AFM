@@ -377,9 +377,10 @@ pub(crate) fn monday(w: &mut World, d: Date) {
     let style_of = |c: Option<usize>| c.map_or_else(Style::default, |c| w.coaches[c].style());
     let mask = |g: &[Date]| g.iter().fold(0u8, |m, x| m | 1 << d.days_to(*x).clamp(0, 6));
     let mut keys: Vec<Key> = Vec::new();
+    // Each team's key read on all cores, in team order (world speed lane).
     let prog_key: Vec<Key> = w
         .programs
-        .iter()
+        .par_iter()
         .enumerate()
         .map(|(c, p)| Key {
             tier: 1,
@@ -400,7 +401,8 @@ pub(crate) fn monday(w: &mut World, d: Date) {
         .collect();
     let school_key: Vec<Key> = w
         .high_schools
-        .iter()
+        .par_iter()
+        .with_min_len(256)
         .map(|h| Key {
             tier: 0,
             unit: h.state as u16,

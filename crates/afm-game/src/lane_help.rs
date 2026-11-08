@@ -416,6 +416,9 @@ fn reasons(w: &World, i: usize, a: Attr, kept_wt: u16) -> Vec<String> {
                 E::Complacent => Some("He lost some of his drive".to_string()),
                 E::WeightGain => Some("He put on bad weight".to_string()),
                 E::Suspended => Some("He sat out the season".to_string()),
+                E::BigGame => Some("A big game: what he showed on the field lifted him".to_string()),
+                E::BigSeason => Some("His play on the field lifted him through the season".to_string()),
+                E::RoughSeason => Some("His play on the field pulled him down this season".to_string()),
                 _ => None,
             };
             v.extend(s);

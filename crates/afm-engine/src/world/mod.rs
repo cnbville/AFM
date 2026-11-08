@@ -136,6 +136,11 @@ pub struct WorldOptions {
     /// choice 1), to measure one against the other.
     #[serde(default)]
     pub yearly_growth: bool,
+    /// Growth from results (`crate::results::Mode`): results move skills
+    /// after each game and snaps land the week they are played, with the
+    /// A/B test's switches (items 14-16).
+    #[serde(default)]
+    pub results: crate::results::Mode,
 }
 
 impl Default for WorldOptions {
@@ -151,6 +156,7 @@ impl Default for WorldOptions {
             hs_engine_years: Some(12),
             keep_game_log: false,
             yearly_growth: false,
+            results: crate::results::Mode::default(),
         }
     }
 }
@@ -793,6 +799,10 @@ pub struct World {
     /// name indexes between stops (`World::rename`). Not saved.
     #[serde(skip)]
     pub names_changed: u64,
+    /// The coaches walked by the hiring searches (world speed lane): see
+    /// `staff::LiveCoaches`. Not saved.
+    #[serde(skip)]
+    pub(crate) live_coaches: staff::LiveCoaches,
     /// Trial tooling, see `WorldOptions::keep_game_log`.
     /// Trial tooling only: not saved (`save.rs`).
     #[serde(skip)]
@@ -1026,6 +1036,10 @@ pub struct World {
     /// games, points for, points against); the last twenty seasons.
     #[serde(default)]
     pub nfl_units: Vec<(i32, u8, u8, u16, u16)>,
+    /// Growth from results: each player's season of results since his
+    /// last checkpoint (`crate::results`).
+    #[serde(default)]
+    pub results: crate::results::Book,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -1151,6 +1165,15 @@ pub struct CalendarLog {
     pub college_rolled: u32,
     #[serde(default)]
     pub college_trouble: u32,
+    /// Blue chips' verbal commitments March to November (4 and 5 stars on
+    /// the services' read), and theirs broken before signing (reopened,
+    /// pulled, flipped, fallen through): the real figure is the top 100's
+    /// (minor bug 270: the check read every level's, where most late
+    /// commitments by lower recruits never break).
+    #[serde(default)]
+    pub blue_verbal: u32,
+    #[serde(default)]
+    pub blue_broken: u32,
 }
 
 /// Where the manager works (N58): his level, and his NFL team, college
@@ -1432,6 +1455,7 @@ impl World {
             today: dates.start,
             played: 0,
             names_changed: 0,
+            live_coaches: Default::default(),
             rules: changes.rules(year),
             dates,
             prev_dates: None,
@@ -1494,6 +1518,7 @@ impl World {
             new_teams: Default::default(),
             hunt: Default::default(),
             nfl_units: Vec::new(),
+            results: crate::results::Book::default(),
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);

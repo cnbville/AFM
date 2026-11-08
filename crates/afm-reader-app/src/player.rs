@@ -14,7 +14,7 @@ use crate::book::{Book, Filters, json_sql, q};
 use crate::pages::{day_text, fmt, num};
 
 /// The bits of a season's `events` (`player::DevelopmentEvent`, in order).
-pub const EVENTS: [&str; 17] = [
+pub const EVENTS: [&str; 20] = [
     "growth spurt",
     "body stalled",
     "breakout",
@@ -32,6 +32,9 @@ pub const EVENTS: [&str; 17] = [
     "bad weight",
     "complacent after a payday",
     "poor coaching",
+    "the game of his season",
+    "a breakout from his results",
+    "a rough season by his results",
 ];
 
 /// A season's events in words.

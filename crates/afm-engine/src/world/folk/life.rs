@@ -241,7 +241,6 @@ fn players_week(w: &mut World, d: Date) {
     let seat = Team::seat(w);
     let mut mine: Vec<usize> = seat.map_or(Vec::new(), |t| t.roster(w));
     mine.sort_unstable();
-    let mut hits: Vec<(usize, Event)> = Vec::new();
     let all = [
         Event::Birth,
         Event::Wedding,
@@ -252,24 +251,30 @@ fn players_week(w: &mut World, d: Date) {
         Event::Community,
         Event::Homesick,
     ];
-    for i in 0..w.people.len() {
-        let p = &w.people[i];
-        let pro = p.stage == Stage::Pro && p.pro.as_ref().is_some_and(|c| c.team.is_some());
-        if !pro && mine.binary_search(&i).is_err() {
-            continue;
-        }
-        let id = p.player.id as u64;
-        for (k, &e) in all.iter().enumerate() {
-            if e == Event::Wedding && !offseason {
-                continue;
+    // Keyed rolls: found on all cores, in person order (world speed lane).
+    use rayon::prelude::*;
+    let hits: Vec<(usize, Event)> = (0..w.people.len())
+        .into_par_iter()
+        .with_min_len(4096)
+        .filter_map(|i| {
+            let p = &w.people[i];
+            let pro = p.stage == Stage::Pro && p.pro.as_ref().is_some_and(|c| c.team.is_some());
+            if !pro && mine.binary_search(&i).is_err() {
+                return None;
             }
-            let c = chance(e, p.player.age, pro) / 52.0;
-            if c > 0.0 && super::roll(w, 0x11FE ^ (d.0 as u64) << 8 ^ k as u64, id) < c {
-                hits.push((i, e));
-                break;
+            let id = p.player.id as u64;
+            for (k, &e) in all.iter().enumerate() {
+                if e == Event::Wedding && !offseason {
+                    continue;
+                }
+                let c = chance(e, p.player.age, pro) / 52.0;
+                if c > 0.0 && super::roll(w, 0x11FE ^ (d.0 as u64) << 8 ^ k as u64, id) < c {
+                    return Some((i, e));
+                }
             }
-        }
-    }
+            None
+        })
+        .collect();
     let year = w.year;
     for (i, e) in hits {
         let line = format!("At {} he {}.", w.people[i].player.age, e.words());
@@ -333,41 +338,47 @@ fn players_week(w: &mut World, d: Date) {
 /// about 1% of head coaches a year).
 fn coaches_week(w: &mut World, d: Date) {
     let you = w.career.as_ref().map(|c| c.coach);
-    let mut hits: Vec<(usize, u8)> = Vec::new();
-    for c in 0..w.coaches.len() {
-        let co = &w.coaches[c];
-        let Some(job) = co.job else { continue };
-        if Some(c) == you {
-            continue;
-        }
-        let head = job.role == crate::world::coach::Role::HeadCoach;
-        if !head
-            && !matches!(
-                job.role,
-                crate::world::coach::Role::OffensiveCoordinator | crate::world::coach::Role::DefensiveCoordinator
-            )
-        {
-            continue;
-        }
-        let stress = co.recent.last().map_or(0.0, |r| (-r).max(0.0))
-            + if co.wins + co.losses > 0 && co.losses > co.wins { 0.2 } else { 0.0 };
-        let age = co.age as f64;
-        let base = 0.004
-            + 0.0006 * (age - 45.0).max(0.0)
-            + 0.006 * stress
-            + 0.002 * (co.personality.temper - 10.0).max(0.0) / 10.0;
-        if super::roll(w, 0xC0A1 ^ d.0 as u64, c as u64) < base / 52.0 {
-            let u = super::roll(w, 0xC0A2 ^ d.0 as u64, c as u64);
-            let kind = if u < 0.55 {
-                0
-            } else if u < 0.9 {
-                1
-            } else {
-                2
-            };
-            hits.push((c, kind));
-        }
-    }
+    // Keyed rolls: found on all cores, in coach order (world speed lane).
+    use rayon::prelude::*;
+    let hits: Vec<(usize, u8)> = (0..w.coaches.len())
+        .into_par_iter()
+        .with_min_len(1024)
+        .filter_map(|c| {
+            let co = &w.coaches[c];
+            let job = co.job?;
+            if Some(c) == you {
+                return None;
+            }
+            let head = job.role == crate::world::coach::Role::HeadCoach;
+            if !head
+                && !matches!(
+                    job.role,
+                    crate::world::coach::Role::OffensiveCoordinator | crate::world::coach::Role::DefensiveCoordinator
+                )
+            {
+                return None;
+            }
+            let stress = co.recent.last().map_or(0.0, |r| (-r).max(0.0))
+                + if co.wins + co.losses > 0 && co.losses > co.wins { 0.2 } else { 0.0 };
+            let age = co.age as f64;
+            let base = 0.004
+                + 0.0006 * (age - 45.0).max(0.0)
+                + 0.006 * stress
+                + 0.002 * (co.personality.temper - 10.0).max(0.0) / 10.0;
+            if super::roll(w, 0xC0A1 ^ d.0 as u64, c as u64) < base / 52.0 {
+                let u = super::roll(w, 0xC0A2 ^ d.0 as u64, c as u64);
+                let kind = if u < 0.55 {
+                    0
+                } else if u < 0.9 {
+                    1
+                } else {
+                    2
+                };
+                return Some((c, kind));
+            }
+            None
+        })
+        .collect();
     let year = w.year;
     for (c, kind) in hits {
         let age = w.coaches[c].age;

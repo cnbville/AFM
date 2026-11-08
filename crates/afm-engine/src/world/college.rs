@@ -314,7 +314,9 @@ pub(crate) fn new_season(w: &World) -> CollegeSeason {
 /// starting spot (what preseason polls and media days read).
 pub(crate) fn projected_strength(w: &World, prog: usize) -> f64 {
     let p = &w.programs[prog];
-    let mut by_pos: HashMap<crate::positions::Position, Vec<f64>> = HashMap::new();
+    // By position in position order: the sum runs the same way on every
+    // run (a hash map's order changed its last bits from run to run).
+    let mut by_pos: BTreeMap<crate::positions::Position, Vec<f64>> = BTreeMap::new();
     for &i in &p.roster {
         let q = &w.people[i];
         if q.stage == Stage::College && !q.player.position.is_specialist() {
@@ -357,6 +359,32 @@ pub(crate) fn start(w: &mut World) {
         }
     }
     season::develop(w, &roles);
+    // On a season the engine plays his row counts the games he really
+    // misses hurt, game by game, and a major camp injury keeps him out of
+    // the games it costs (minor bug 315).
+    if w.college.as_ref().is_some_and(|c| c.on_engine) {
+        let seat = super::folk::Team::seat(w);
+        let mut dates: HashMap<usize, Vec<Date>> = HashMap::new();
+        for g in &w.college.as_ref().unwrap().games {
+            if g.kind == GameKind::Regular {
+                dates.entry(g.home).or_default().push(g.date);
+                dates.entry(g.away).or_default().push(g.date);
+            }
+        }
+        for v in dates.values_mut() {
+            v.sort_unstable();
+        }
+        for &(i, _) in &roles {
+            let p = &w.people[i];
+            let (Some(c), Some(h)) = (p.college, p.player.history.last()) else { continue };
+            if p.stage != Stage::College || !h.level.is_college() {
+                continue;
+            }
+            let n = (h.games_missed as usize).max(1);
+            let last = dates.get(&c).and_then(|v| v.get(n - 1).or(v.last())).copied();
+            season::camp_injury(w, i, last, seat == Some(super::folk::Team::College(c)));
+        }
+    }
     season::record_lineups(w);
     let results = season::college_results(w);
     // Last season's tape still gets studied, at less weight (topic 7.7); a
@@ -533,53 +561,60 @@ fn camp_redshirt(p: &super::Person) -> bool {
 /// redshirt).
 pub(crate) fn held_redshirts(w: &World, cs: &CollegeSeason) -> HashSet<u32> {
     let four = w.rules.four_game_redshirt;
-    let mut held = HashSet::new();
-    for prog in &w.programs {
-        // Five years to play five (S11): every year counts, so nobody is
-        // held out to save one.
-        if super::eligibility::five_in_five(w.year, prog.division) {
-            continue;
-        }
-        let mut able = [0usize; crate::positions::POSITION_COUNT];
-        let mut planned: Vec<(crate::positions::Position, f64, u32)> = Vec::new();
-        for &i in &prog.roster {
-            let p = &w.people[i];
-            if p.stage != Stage::College || cs.out.contains_key(&p.player.id) {
-                continue;
+    // Each program on its own, on all cores (world speed lane): the set is
+    // the same whatever the order.
+    let held: Vec<Vec<u32>> = w
+        .programs
+        .par_iter()
+        .map(|prog| {
+            let mut held = Vec::new();
+            // Five years to play five (S11): every year counts, so nobody is
+            // held out to save one.
+            if super::eligibility::five_in_five(w.year, prog.division) {
+                return held;
             }
-            if camp_redshirt(p) {
-                planned.push((p.player.position, p.player.overall(), p.player.id));
-            } else {
-                able[p.player.position.index()] += 1;
+            let mut able = [0usize; crate::positions::POSITION_COUNT];
+            let mut planned: Vec<(crate::positions::Position, f64, u32)> = Vec::new();
+            for &i in &prog.roster {
+                let p = &w.people[i];
+                if p.stage != Stage::College || cs.out.contains_key(&p.player.id) {
+                    continue;
+                }
+                if camp_redshirt(p) {
+                    planned.push((p.player.position, p.player.overall(), p.player.id));
+                } else {
+                    able[p.player.position.index()] += 1;
+                }
             }
-        }
-        if planned.is_empty() {
-            continue;
-        }
-        // First those who cost nothing today: the year already counts (any
-        // game before 2018, five or more from 2018), or games are left
-        // under the four-game rule.
-        let mut rest = Vec::new();
-        for (pos, ov, id) in planned {
-            let games = cs.snaps.get(&id).map_or(0, |s| s.1);
-            let gone = games > 0 && (!four || games > 4);
-            if gone || (four && games < 4) {
-                able[pos.index()] += 1;
-            } else {
-                rest.push((pos, ov, id));
+            if planned.is_empty() {
+                return held;
             }
-        }
-        // Then the best of the rest, only while the position is short.
-        rest.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.2.cmp(&b.2)));
-        for (pos, _, id) in rest {
-            if able[pos.index()] < season::two_deep(pos) {
-                able[pos.index()] += 1;
-            } else {
-                held.insert(id);
+            // First those who cost nothing today: the year already counts (any
+            // game before 2018, five or more from 2018), or games are left
+            // under the four-game rule.
+            let mut rest = Vec::new();
+            for (pos, ov, id) in planned {
+                let games = cs.snaps.get(&id).map_or(0, |s| s.1);
+                let gone = games > 0 && (!four || games > 4);
+                if gone || (four && games < 4) {
+                    able[pos.index()] += 1;
+                } else {
+                    rest.push((pos, ov, id));
+                }
             }
-        }
-    }
-    held
+            // Then the best of the rest, only while the position is short.
+            rest.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.2.cmp(&b.2)));
+            for (pos, _, id) in rest {
+                if able[pos.index()] < season::two_deep(pos) {
+                    able[pos.index()] += 1;
+                } else {
+                    held.push(id);
+                }
+            }
+            held
+        })
+        .collect();
+    held.into_iter().flatten().collect()
 }
 
 /// The day's college games.
@@ -695,9 +730,13 @@ fn play_games(w: &mut World, date: Date, now: impl Fn(&Game) -> bool) {
         neutral: bool,
         teams: Option<(GameTeam, GameTeam)>,
         context: [crate::game::garbage::Context; 2],
+        /// Each side's players out hurt at kickoff (minor bug 315): their
+        /// season rows count the game as missed.
+        hurt: [Vec<u32>; 2],
     }
+    // Each game's setup only reads the world: on all cores, in order.
     let jobs: Vec<Job> = idx
-        .iter()
+        .par_iter()
         .map(|&k| {
             let g = &cs.games[k];
             let (mut venue, played, _) = conditions(w, g, k);
@@ -729,9 +768,14 @@ fn play_games(w: &mut World, date: Date, now: impl Fn(&Game) -> bool) {
             };
             let context = [(g.home, g.away), (g.away, g.home)]
                 .map(|(me, opp)| season::game_context(&cs.coaches, g.division, &cs.results, me, opp));
+            let mut hurt: [Vec<u32>; 2] = Default::default();
             let teams = if cs.on_engine {
                 match (cs.teams.get(g.home).and_then(|t| t.as_ref()), cs.teams.get(g.away).and_then(|t| t.as_ref())) {
                     (Some(a), Some(b)) => {
+                        for (side, t) in [a, b].into_iter().enumerate() {
+                            hurt[side] =
+                                t.players.iter().map(|p| p.id).filter(|&id| w.training.hurt_out(id, date)).collect();
+                        }
                         let (mut a, mut b) = (strip(a, g.home), strip(b, g.away));
                         a.day = game_day(w, g, g.home, &context[0], &a);
                         b.day = game_day(w, g, g.away, &context[1], &b);
@@ -742,7 +786,7 @@ fn play_games(w: &mut World, date: Date, now: impl Fn(&Game) -> bool) {
             } else {
                 None
             };
-            Job { k, venue, played, neutral: g.site.is_some(), teams, context }
+            Job { k, venue, played, neutral: g.site.is_some(), teams, context, hurt }
         })
         .collect();
     let levels: Vec<crate::player::Level> = jobs
@@ -847,12 +891,30 @@ fn play_games(w: &mut World, date: Date, now: impl Fn(&Game) -> bool) {
         Vec::new()
     }
     .into_iter();
+    // Growth from results: each game's evidence, worked out on all cores.
+    let mut to_results = if w.options.results.on {
+        outcomes
+            .par_iter()
+            .zip(jobs.par_iter())
+            .zip(levels.par_iter())
+            .map(|((r, j), &level)| {
+                let r = r.as_ref()?;
+                let (a, b) = j.teams.as_ref()?;
+                Some((level, crate::results::evidence(level, &r.stats, [a, b])))
+            })
+            .collect()
+    } else {
+        Vec::new()
+    }
+    .into_iter();
     let first_date = cs.games.iter().map(|g| g.date).min().unwrap_or(date);
     let mut logged: Vec<(usize, serde_json::Value, Option<Vec<u8>>)> = Vec::new();
+    let mut on_field: Vec<usize> = Vec::new();
     for (j, r) in jobs.into_iter().zip(outcomes) {
         let k = j.k;
         let log_part = to_log.next().flatten();
         let tally_part = to_tally.next().flatten();
+        let results_part = to_results.next().flatten();
         let mut played = j.played;
         let (home, away, division, kind, conference) = {
             let g = &w.college.as_ref().unwrap().games[k];
@@ -889,11 +951,27 @@ fn play_games(w: &mut World, date: Date, now: impl Fn(&Game) -> bool) {
             if div == w.programs[away].division {
                 super::charts::add_game(w, year, super::charts::college_key(div), &r.stats);
             }
+            // Who missed it hurt (minor bug 315), and the teams whose roles
+            // follow their game-day charts (minor bug 316).
+            for id in j.hurt.iter().flatten() {
+                missed_game(w, *id);
+            }
+            on_field.extend([home, away]);
             // Injuries outlast the game (update 3, A1).
             let seat = super::folk::Team::seat(w);
             let side = [home, away].iter().position(|&t| seat == Some(super::folk::Team::College(t)));
             let med = [home, away].map(|t| super::people::Support::z(w.programs[t].support.medical.rating));
             crate::training::seat::game_injuries(w, date, &r.injuries, med, side);
+            // Growth from results: his plays move his skills, his snaps land.
+            if let Some((level, ev)) = results_part {
+                let mut ids: HashMap<u32, (usize, Option<super::stories::TeamKey>)> = HashMap::new();
+                for t in [home, away] {
+                    for &i in &w.programs[t].roster {
+                        ids.insert(w.people[i].player.id, (i, Some(super::stories::TeamKey::College(t as u32))));
+                    }
+                }
+                crate::results::world_game(w, level, ev, &|id| ids.get(&id).copied());
+            }
         }
         let cs = w.college.as_mut().unwrap();
         // Records.
@@ -1084,6 +1162,7 @@ fn play_games(w: &mut World, date: Date, now: impl Fn(&Game) -> bool) {
         };
         super::stories::college_game(w, k, r.as_ref().map(|r| &r.stats), pre);
     }
+    follow_chart(w, date, &on_field);
     // The gate, the guarantees and the lines settled (later extras topic 1, C8).
     super::finance::college::played(w, &idx);
     // The game log's rows, with the crowd and the gate now known.
@@ -1339,7 +1418,9 @@ pub(crate) fn ranking(w: &World, division: Division) -> Vec<(usize, f64)> {
             };
             next.insert(t, v);
         }
-        let mean = next.values().sum::<f64>() / next.len().max(1) as f64;
+        // Summed in program order, the same on every run (in the map's
+        // order its last bits changed from run to run).
+        let mean = members.iter().map(|t| next[t]).sum::<f64>() / members.len().max(1) as f64;
         for v in next.values_mut() {
             *v -= mean;
         }
@@ -2332,22 +2413,26 @@ pub(crate) fn selection_day(w: &mut World) {
         }
     }
     let n_bowls = games.iter().filter(|g| matches!(g.kind, GameKind::Bowl(_))).count();
-    let field_text = brackets.first().map_or(String::new(), |b| {
+    // The top four seeds, in seed order.
+    let top: Vec<usize> = brackets.first().map_or(Vec::new(), |b| {
         let mut top: Vec<(usize, usize)> = b.seed.iter().filter(|(_, s)| **s <= 4).map(|(&t, &s)| (s, t)).collect();
         top.sort();
-        let teams: Vec<&str> = top.iter().map(|&(_, t)| w.programs[t].real_name.as_str()).collect();
+        top.into_iter().map(|(_, t)| t).collect()
+    });
+    let field_text = brackets.first().map_or(String::new(), |b| {
+        let teams: Vec<&str> = top.iter().map(|&t| w.programs[t].real_name.as_str()).collect();
         format!(" The playoff field is set ({} teams; top seeds {}).", b.seed.len(), teams.join(", "))
     });
     // Nothing to announce while the world spins up and rosters fill.
     if n_bowls > 0 || !brackets.is_empty() {
         let text = format!("Selection day: {n_bowls} bowls filled.{field_text}");
         let mut e = Event::new(w.today, CalLevel::College, Kind::Date, Loudness::Big, text);
-        for b in brackets.first().iter() {
-            for (&t, &seed) in b.seed.iter() {
-                if seed <= 4 {
-                    e = e.school_link(t, &w.programs[t].real_name);
-                }
-            }
+        // Linked in the line's own order, so a name inside an earlier one is
+        // already taken: "Texas" after "Texas A&M" links the second (the
+        // seeds' map order once let "Texas" take "Texas A&M"'s place, a
+        // different link on every run of one seed).
+        for &t in &top {
+            e = e.school_link(t, &w.programs[t].real_name);
         }
         w.calendar.post(e);
     }
@@ -3323,6 +3408,9 @@ pub(crate) fn finish(w: &mut World) {
         // on the field keeps his camp role when he was out hurt; otherwise
         // (benched, or sitting out a transfer or academic year) he was a
         // backup (proposed, not confirmed).
+        if on_engine && let Some(h) = p.player.history.last_mut().filter(|h| h.level.is_college()) {
+            season::mark_real_injury(h);
+        }
         let team = played_for(p, year).and_then(|c| team_games.get(c).copied()).unwrap_or(games);
         let started = starts.get(&p.player.id).copied().unwrap_or(0);
         let was_hurt = hurt.contains(&p.player.id);
@@ -3397,6 +3485,83 @@ fn engine_share(w: &World, snaps: &HashMap<u32, (u32, u32)>, year: i32) -> Vec<O
             (e > 0 && 2 * e >= all).then(|| all as f64 / e as f64)
         })
         .collect()
+}
+
+/// A game his team played while he was out hurt (minor bug 315): his
+/// college row counts it, as an NFL row counts its games game by game
+/// (minor bug 96), so his row's games missed and the injury on it are the
+/// ones that kept him out (`season::camp_injury`, `mark_real_injury`).
+fn missed_game(w: &mut World, id: u32) {
+    let Some(i) = super::folk::person(w, id) else { return };
+    let p = &mut w.people[i];
+    if p.stage != Stage::College {
+        return;
+    }
+    if let Some(h) = p.player.history.last_mut().filter(|h| h.level.is_college()) {
+        h.games_missed += 1;
+    }
+}
+
+/// The role each player holds through the season (minor bug 316): the
+/// game-day chart's, read after every game day from his starts and snaps so
+/// far, as the season's row reads them at the end (`real_role`). Fall camp
+/// sets the role from the staff's camp ranking, which holds first- and
+/// second-year players back; the game-day chart ranks by rating and
+/// practice alone and plays someone else for about a quarter of camp
+/// starters, so mood, captains, talks, the press and promises read the
+/// chart's role now, not camp's, from the first game. A man who has not
+/// played keeps his role while he is out hurt, suspended, sitting by a team
+/// rule or out for another reason, and is a backup otherwise; redshirts and
+/// kicking spots keep theirs (the redshirt rules settle a redshirt's).
+fn follow_chart(w: &mut World, date: Date, teams: &[usize]) {
+    if teams.is_empty() {
+        return;
+    }
+    let cs = w.college.as_ref().unwrap();
+    let mut set: Vec<(usize, PlayingTime)> = Vec::new();
+    let mut seen: HashSet<usize> = HashSet::new();
+    for &t in teams {
+        if !seen.insert(t) {
+            continue;
+        }
+        let roster = &w.programs[t].roster;
+        let played = |i: usize| cs.snaps.get(&w.people[i].player.id).copied().unwrap_or((0, 0));
+        let team_games = roster.iter().map(|&i| played(i).1).max().unwrap_or(0);
+        if team_games == 0 {
+            continue;
+        }
+        for &i in roster {
+            let p = &w.people[i];
+            if p.stage != Stage::College
+                || p.player.position.is_specialist()
+                || p.last_role.is_none_or(|r| matches!(r, PlayingTime::Redshirt | PlayingTime::Unsigned))
+                || p.player.history.last().is_none_or(|h| !h.level.is_college())
+            {
+                continue;
+            }
+            let id = p.player.id;
+            let (snaps, games) = played(i);
+            let role = if games > 0 {
+                let started = cs.starts.get(&id).copied().unwrap_or(0);
+                let share = snaps as f64 * 12.0 / (team_games as f64 * season::SEASON_SNAPS as f64);
+                real_role(started, games, team_games, share)
+            } else if w.training.hurt_out(id, date)
+                || cs.out.contains_key(&id)
+                || super::folk::rules::sitting(w, id, date)
+                || p.cal.trouble
+            {
+                continue;
+            } else {
+                PlayingTime::Backup
+            };
+            if p.last_role != Some(role) {
+                set.push((i, role));
+            }
+        }
+    }
+    for (i, role) in set {
+        w.people[i].last_role = Some(role);
+    }
 }
 
 /// Each team's games on the engine: the most any of its players played.
@@ -3531,7 +3696,7 @@ pub(crate) fn settle_eligibility(w: &mut World) {
                     "Played in {played} {games} at {age} and kept his redshirt year under the four-game rule."
                 ));
             }
-            played_as_redshirt(p, played, team, burned && !hardship, seed);
+            played_as_redshirt(p, burned && !hardship, seed);
             continue;
         }
         p.cal.count_pending = false;
@@ -3582,16 +3747,16 @@ pub(crate) fn settle_eligibility(w: &mut World) {
 
 /// A camp redshirt who got into games (F1): his season row counts them.
 /// His growth stays the year his staff planned at camp (practice and the
-/// weight room); the row shows his play over the games he got, the form of
-/// his year and the games an injury cost him, as the yearly step reads a
-/// backup's season. When the year counts against his eligibility it was a
+/// weight room); the row shows his play over the games he got and the form
+/// of his year, as the yearly step reads a backup's season (his games missed
+/// are counted game by game, minor bug 315). When the year counts against his eligibility it was a
 /// backup's season, and his row and role say so. A redshirt kept under the
-/// four-game rule (2018 on, four games or fewer) gets the same play, form
-/// and games missed, but his row and role stay a redshirt's: a year of four
+/// four-game rule (2018 on, four games or fewer) gets the same play and
+/// form, but his row and role stay a redshirt's: a year of four
 /// games or fewer is a redshirt year in real football, and the role feeds
 /// the staff's roster read and the portal's role records (proposed, not
 /// confirmed: F1's text said the row says backup).
-fn played_as_redshirt(p: &mut super::Person, played: u32, team_games: u32, burned: bool, seed: u64) {
+fn played_as_redshirt(p: &mut super::Person, burned: bool, seed: u64) {
     use crate::player::DevelopmentEvent as Ev;
     let id = p.player.id as u64;
     let Some(h) = p.player.history.last_mut() else { return };
@@ -3627,23 +3792,6 @@ fn played_as_redshirt(p: &mut super::Person, played: u32, team_games: u32, burne
     let perf = clamp((camp + h.overall) / 2.0 + play, crate::attributes::MIN_RATING, crate::attributes::MAX_RATING);
     h.performance = Some(perf).into();
     p.last_performance = Some(perf);
-    // An injury this year cost him games he could have played (the yearly
-    // step's ranges), at most the games his team played without him.
-    if h.games_missed == 0 {
-        let u = key_uniform(seed ^ 0x1A, id);
-        let games = crate::development::season_games(h.level) as f64;
-        let missed = if h.events.has(Ev::MajorInjury) {
-            let least = (games * 0.5).round();
-            least + (games - least + 1.0) * u
-        } else if h.events.has(Ev::ModerateInjury) {
-            2.0 + 5.0 * u
-        } else if h.events.has(Ev::MinorInjury) {
-            3.0 * u
-        } else {
-            0.0
-        };
-        h.games_missed = (missed.floor() as u32).min(team_games.saturating_sub(played));
-    }
 }
 
 /// The lean to leave at which a benched veteran takes the redshirt trick: a
@@ -3764,7 +3912,9 @@ pub(crate) const COACH_GONE: &str = "his head coach is gone";
 pub(crate) fn coach_gone(w: &mut World, prog: usize) {
     let factor = crate::career::PIPELINE.portal_entry.coaching_change;
     let today = w.today;
-    for p in w.people.iter_mut() {
+    // Each player's own lean: any order gives the same world (world speed
+    // lane).
+    w.people.par_iter_mut().with_min_len(4096).for_each(|p| {
         if p.stage == Stage::College
             && p.college == Some(prog)
             && p.cal.lean > 0.0
@@ -3772,7 +3922,7 @@ pub(crate) fn coach_gone(w: &mut World, prog: usize) {
         {
             lean_push(p, today, COACH_GONE, factor);
         }
-    }
+    });
 }
 
 /// Reads and moves each college player's lean toward leaving (T3). The base

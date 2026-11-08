@@ -78,8 +78,11 @@ impl<'de> serde::Deserialize<'de> for Blob {
 
 /// Records gathered into frames: pushed in key order, sealed every
 /// `FRAME_RAW` bytes. What a season's open store keeps in memory and what a
-/// close writes.
-#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+/// close writes. A sealed frame waits unpacked until `WAITING` of them are
+/// sealed, then they are packed on all cores together (world speed lane):
+/// each frame packs alone, so the bytes are the same as packing each at
+/// once, and a store written or read always holds them packed.
+#[derive(Clone, Debug, Default, serde::Deserialize)]
 pub struct Frames {
     pub frames: Vec<Frame>,
     #[serde(default)]
@@ -92,6 +95,40 @@ pub struct Frames {
     count: u32,
     #[serde(default)]
     level: i32,
+    /// Sealed frames not packed yet: their bytes are the raw records.
+    #[serde(skip)]
+    waiting: Vec<Frame>,
+}
+
+/// Sealed frames packed together (`Frames`).
+const WAITING: usize = 8;
+
+/// Frames as they are written: every sealed frame packed.
+#[derive(serde::Serialize)]
+#[serde(rename = "Frames")]
+struct Written<'a> {
+    frames: &'a Vec<Frame>,
+    raw: &'a Blob,
+    first: u64,
+    last: u64,
+    count: u32,
+    level: i32,
+}
+
+impl serde::Serialize for Frames {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        let packed;
+        let f = if self.waiting.is_empty() {
+            self
+        } else {
+            let mut c = self.clone();
+            c.pack();
+            packed = c;
+            &packed
+        };
+        Written { frames: &f.frames, raw: &f.raw, first: f.first, last: f.last, count: f.count, level: f.level }
+            .serialize(s)
+    }
 }
 
 impl Frames {
@@ -115,21 +152,31 @@ impl Frames {
         }
     }
 
-    /// Packs the records waiting into a frame.
+    /// Closes the records waiting into a frame (packed with the next ones).
     pub fn seal(&mut self) {
         if self.count == 0 {
             return;
         }
-        let level = if self.level == 0 { LEVEL_OPEN } else { self.level };
-        let bytes = zstd::bulk::compress(&self.raw.0, level).unwrap_or_default();
-        self.frames.push(Frame { first: self.first, last: self.last, count: self.count, bytes: Blob(bytes) });
-        self.raw.0.clear();
-        self.raw.0.shrink_to_fit();
+        let raw = std::mem::take(&mut self.raw.0);
+        self.waiting.push(Frame { first: self.first, last: self.last, count: self.count, bytes: Blob(raw) });
         self.count = 0;
+        if self.waiting.len() >= WAITING {
+            self.pack();
+        }
+    }
+
+    /// Packs the sealed frames still waiting, on all cores.
+    fn pack(&mut self) {
+        use rayon::prelude::*;
+        let level = if self.level == 0 { LEVEL_OPEN } else { self.level };
+        self.waiting.par_iter_mut().for_each(|f| {
+            f.bytes.0 = zstd::bulk::compress(&f.bytes.0, level).unwrap_or_default();
+        });
+        self.frames.append(&mut self.waiting);
     }
 
     pub fn records(&self) -> u64 {
-        self.frames.iter().map(|f| f.count as u64).sum::<u64>() + self.count as u64
+        self.frames.iter().chain(&self.waiting).map(|f| f.count as u64).sum::<u64>() + self.count as u64
     }
 
     pub fn is_empty(&self) -> bool {
@@ -143,6 +190,9 @@ impl Frames {
                 walk(&raw, &mut f);
             }
         }
+        for fr in &self.waiting {
+            walk(&fr.bytes.0, &mut f);
+        }
         walk(&self.raw.0, &mut f);
     }
 
@@ -150,27 +200,31 @@ impl Frames {
     /// can hold them.
     pub fn get_many(&self, keys: &[u64], mut f: impl FnMut(u64, &[u8])) {
         let want: std::collections::HashSet<u64> = keys.iter().copied().collect();
-        for fr in &self.frames {
-            if keys.iter().any(|&k| fr.first <= k && k <= fr.last)
-                && let Ok(raw) = unpack(&fr.bytes.0)
-            {
-                walk(&raw, &mut |k, r| {
-                    if want.contains(&k) {
-                        f(k, r)
-                    }
-                });
-            }
-        }
-        walk(&self.raw.0, &mut |k, r| {
+        let holds = |fr: &Frame| keys.iter().any(|&k| fr.first <= k && k <= fr.last);
+        let mut each = |k: u64, r: &[u8]| {
             if want.contains(&k) {
                 f(k, r)
             }
-        });
+        };
+        for fr in &self.frames {
+            if holds(fr)
+                && let Ok(raw) = unpack(&fr.bytes.0)
+            {
+                walk(&raw, &mut each);
+            }
+        }
+        for fr in &self.waiting {
+            if holds(fr) {
+                walk(&fr.bytes.0, &mut each);
+            }
+        }
+        walk(&self.raw.0, &mut each);
     }
 
     /// The whole file's bytes.
     pub fn file_bytes(mut self, kind: &str, season: i32) -> Vec<u8> {
         self.seal();
+        self.pack();
         let head = serde_json::to_vec(&Header { kind: kind.into(), season, records: self.records() }).unwrap();
         let mut out = Vec::new();
         out.extend_from_slice(MAGIC);

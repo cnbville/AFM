@@ -157,15 +157,17 @@ fn hs_transfer_day(y: &YearDates) -> Date {
 /// Bodies grow by the date (update 3, A16): each person's years past his
 /// whole-year age today, from his birthday.
 fn grow_bodies(w: &mut World, d: Date) {
+    use rayon::prelude::*;
     let unknown = crate::calendar::born::unknown();
-    for p in &mut w.people {
+    // Each person on his own, on all cores (world speed lane).
+    w.people.par_iter_mut().with_min_len(4096).for_each(|p| {
         p.player.grow = if p.born == unknown {
             0.0
         } else {
             let years = f64::from(d.0 - p.born.0) / 365.2425;
             (years - f64::from(p.player.age)).clamp(0.0, 2.0) as f32
         };
-    }
+    });
 }
 
 /// The world's steps at their Eastern hours (the six-part day, player
@@ -945,6 +947,9 @@ fn rollover(w: &mut World) {
     w.prev_dates = Some(std::mem::replace(&mut w.dates, dates));
     print_profile(w.year);
     w.year = next;
+    // Growth from results: a ledger two seasons old belongs to a player
+    // who left football.
+    w.results.sweep(w.year);
 }
 
 /// February signing day, then the year-end book for `season`: program
