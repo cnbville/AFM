@@ -710,6 +710,14 @@ pub struct Params {
     pub kickoff: f32,
     #[serde(default)]
     pub indoor: bool,
+    /// The season, for what changes by year: a kicker's season form
+    /// (`kicking::season_form`) and the era's rules (celebrations). 0 reads
+    /// as today's rules and a year-0 form. Without it your game's morning
+    /// build, your live games and their replays played every kicker at a
+    /// form that isn't his season's, so a game the staff coached from the
+    /// morning's build was not the one the day kept (minor bug 364).
+    #[serde(default)]
+    pub year: i32,
 }
 
 impl Params {
@@ -726,6 +734,7 @@ impl Params {
             cold_unused: s.cold_unused,
             kickoff: s.kickoff,
             indoor: s.indoor,
+            year: s.year,
         }
     }
     pub fn setup<'a>(&self, home: &'a GameTeam, away: &'a GameTeam) -> GameSetup<'a> {
@@ -740,6 +749,7 @@ impl Params {
         s.cold_unused = self.cold_unused;
         s.kickoff = self.kickoff;
         s.indoor = self.indoor;
+        s.year = self.year;
         s
     }
 }

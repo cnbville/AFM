@@ -1640,9 +1640,12 @@ fn stakes_of(w: &World, idx: &[usize]) -> (Vec<StakeUpdate>, Vec<StakeNote>) {
                 let r = &cs.results[t];
                 r.games() >= 7 && r.losses <= 2 && ranked(t).is_some_and(|x| x <= 15)
             };
-            if (g.kind == GameKind::ConferenceTitle && (contender(g.home) || contender(g.away)))
+            // Once: your game's morning reads the stakes again over the
+            // dawn's, and a second tag made it louder (minor bug 365).
+            if ((g.kind == GameKind::ConferenceTitle && (contender(g.home) || contender(g.away)))
                 || matches!(g.kind, GameKind::Playoff(_) | GameKind::Title)
-                || (g.kind == GameKind::Regular && contender(g.home) && contender(g.away))
+                || (g.kind == GameKind::Regular && contender(g.home) && contender(g.away)))
+                && !tags.contains(&Tag::PlayoffSpot)
             {
                 tags.push(Tag::PlayoffSpot);
             }
