@@ -815,12 +815,19 @@ fn a_tape_played_through_puts_your_read_on_the_record() {
 fn a_transfer_has_his_old_team_s_tape_and_a_redshirt_his_high_school_s() {
     use crate::world::records::{STAT_COUNT, SeasonRecord, Stat, StatSet};
     use sc::Kind;
-    let mut w = World::empty(WorldOptions { scale: 0.002, history_years: 0, ..Default::default() });
-    // A high school senior with a team, made a redshirt at a college.
+    // Enough schools that a state has opponents of his school's size.
+    let mut w = World::empty(WorldOptions { scale: 0.01, history_years: 0, ..Default::default() });
+    for age in [15, 16, 17] {
+        w.add_class_aged(age);
+    }
+    w.rebuild_rosters();
+    // A high school player whose school's tape plays (his team and
+    // opponents of his size in his state), made a redshirt at a college.
     let i = (0..w.people.len())
-        .filter(|&i| w.people[i].stage == Stage::HighSchool)
-        .find(|&i| crate::world::hs_year::film_team(&w, w.people[i].hs).is_some())
-        .expect("a high school player with a team");
+        .filter(|&i| w.people[i].stage == Stage::HighSchool && !w.people[i].player.position.is_specialist())
+        .take(60)
+        .find(|&i| tape::player_tape(&w, w.people[i].player.id).is_ok())
+        .expect("a high school player with tape");
     let (h, id, pos) = (w.people[i].hs, w.people[i].player.id, w.people[i].player.position);
     let (a, b) = (0, 1);
     {
