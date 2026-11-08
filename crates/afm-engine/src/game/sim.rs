@@ -41,13 +41,15 @@ fn headings() -> &'static [(f64, f64); 15] {
 }
 
 /// The vision cone's test `c.acos() < half` (`Sim::sees`), the same answer
-/// for every `c` and `half`, with the arc cosine worked out only when the
-/// angle is within a hair of `half` (world speed lane). For 0 <= c < 1,
-/// asin(c) = c + c^3/6 + sum a_n c^(2n+1) with every a_n > 0 and a_n at
-/// most 3/40 from n = 2 on, so acos(c) is at most pi/2 - c - c^3/6 and at
-/// least that less 0.08 c^5/(1 - c^2); and acos(c) > pi/2 for c < 0. The
-/// 1e-9 margins are millions of times the rounding in these few steps
-/// (under 1e-15) and the library arc cosine's error (about an ulp, 2e-16),
+/// for every `c` from -1 to 1 (both callers clamp it there; past 1 the
+/// upper bound below would not hold) or NaN, and every `half`, with the arc
+/// cosine worked out only when the angle is within a hair of `half` (world
+/// speed lane). For 0 <= c <= 1, asin(c) = c + c^3/6 + sum a_n c^(2n+1)
+/// with every a_n > 0 and a_n at most 3/40 from n = 2 on, so acos(c) is at
+/// most pi/2 - c - c^3/6 and, for c under 1, at least that less the tail
+/// bound 0.08 c^5/(1 - c^2); and acos(c) > pi/2 for c < 0. The 1e-9 margins are
+/// millions of times the rounding in these few steps (under 1e-15) and the
+/// library arc cosine's error (about an ulp, 2e-16),
 /// so wherever a bound decides, `c.acos() < half` decides the same. A NaN
 /// `c` gives false either way.
 #[inline]
@@ -2602,11 +2604,14 @@ impl<'a> Sim<'a> {
             // Clearly out of reach all tick: his spot is past reach plus the
             // tick's closing by a micro-yard, so the closest approach is too
             // (far past rounding): skipped before the division and the root,
-            // as the test below would skip him. A spot that isn't finite
-            // takes the test below.
+            // as the test below would skip him. Only within 1000 yards: then
+            // far is under 1000 too, so either reach is negative (the test
+            // below skips every finite closest approach) or reach and the
+            // closing are under 1000 and the rounding is under 1e-11, for
+            // any input. A spot that isn't finite takes the test below.
             let q = rel.dot(rel);
             let far = reach + rv_len + 1e-6;
-            if q.is_finite() && q > far * far {
+            if q < 1e6 && q > far * far {
                 continue;
             }
             let back = if rv_len > 1e-6 { clamp(rel.dot(rv) / rv.dot(rv), 0.0, 1.0) } else { 0.0 };
