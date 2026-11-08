@@ -3772,7 +3772,9 @@ pub(crate) const COACH_GONE: &str = "his head coach is gone";
 pub(crate) fn coach_gone(w: &mut World, prog: usize) {
     let factor = crate::career::PIPELINE.portal_entry.coaching_change;
     let today = w.today;
-    for p in w.people.iter_mut() {
+    // Each player's own lean: any order gives the same world (world speed
+    // lane).
+    w.people.par_iter_mut().with_min_len(4096).for_each(|p| {
         if p.stage == Stage::College
             && p.college == Some(prog)
             && p.cal.lean > 0.0
@@ -3780,7 +3782,7 @@ pub(crate) fn coach_gone(w: &mut World, prog: usize) {
         {
             lean_push(p, today, COACH_GONE, factor);
         }
-    }
+    });
 }
 
 /// Reads and moves each college player's lean toward leaving (T3). The base

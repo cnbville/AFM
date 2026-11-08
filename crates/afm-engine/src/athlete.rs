@@ -604,7 +604,10 @@ pub fn place_class(players: &mut [&mut Player], eye: Eye) {
     let n = players.len() as f64;
     let total_share: f64 = Position::ALL.iter().map(|&p| roster_need(p)).sum();
     let target: Vec<f64> = Position::ALL.iter().map(|&p| roster_need(p) / total_share * n).collect();
-    let fit: Vec<[f64; POSITION_COUNT]> = players.iter().map(|p| fits(p, eye)).collect();
+    // Each read is keyed by the player and the staff: on all cores, in
+    // order (world speed lane).
+    use rayon::prelude::*;
+    let fit: Vec<[f64; POSITION_COUNT]> = players.par_iter().with_min_len(64).map(|p| fits(p, eye)).collect();
     let best: Vec<f64> = fit.iter().map(|f| PLACED.iter().map(|q| f[q.index()]).fold(f64::MIN, f64::max)).collect();
     let mut order: Vec<usize> = (0..players.len()).collect();
     order.sort_by(|&a, &b| best[b].total_cmp(&best[a]));

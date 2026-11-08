@@ -208,7 +208,11 @@ fn desk_grade_with(w: &World, desk: &Desk, i: usize, week: i32, f: &super::foota
 /// and before January the seniors with a read.
 pub fn prospects(w: &World) -> Vec<usize> {
     let dy = draft_year(w);
+    // Found on all cores, in person order (world speed lane).
+    use rayon::prelude::*;
     (0..w.people.len())
+        .into_par_iter()
+        .with_min_len(4096)
         .filter(|&i| {
             let p = &w.people[i];
             p.cal.draft_read.is_some()

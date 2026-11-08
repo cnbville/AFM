@@ -30,13 +30,18 @@ pub(crate) fn high_school_transfers(w: &mut World) {
     let year = w.year;
     w.rebuild_rosters();
     // Standouts by state: rising sophomores to seniors in the top 3% of their age.
-    let n = w.people.len();
     let mut by_state: Vec<Vec<usize>> = vec![Vec::new(); 51];
-    for i in 0..n {
-        let p = &w.people[i];
-        if p.stage == Stage::HighSchool && (15..=17).contains(&p.school_age()) {
-            by_state[p.home_state].push(i);
-        }
+    // Found on all cores, then listed in person order (world speed lane).
+    let found: Vec<(usize, usize)> = w
+        .people
+        .par_iter()
+        .enumerate()
+        .with_min_len(4096)
+        .filter(|(_, p)| p.stage == Stage::HighSchool && (15..=17).contains(&p.school_age()))
+        .map(|(i, p)| (p.home_state, i))
+        .collect();
+    for (s, i) in found {
+        by_state[s].push(i);
     }
     let mut moves: Vec<(usize, usize, bool, bool)> = Vec::new();
     // The private powers' hunts this year (SK67): player id to school.
@@ -186,12 +191,21 @@ pub(crate) fn high_school_transfers(w: &mut World) {
     // Boarding away from home costs homesick kids (topic 4): one who wants
     // to be near home may go back after a year (proposed, not confirmed: up
     // to 30% a year for the most homesick).
-    for i in 0..n {
+    // The boarders found on all cores: each one's own move changes no one
+    // else's place on the list (world speed lane).
+    let boarders: Vec<usize> = (0..w.people.len())
+        .into_par_iter()
+        .with_min_len(4096)
+        .filter(|&i| {
+            let p = &w.people[i];
+            !(p.stage != Stage::HighSchool
+                || p.school_age() > 17
+                || !boarding(&w.high_schools[p.hs])
+                || moved.contains(&i))
+        })
+        .collect();
+    for i in boarders {
         let p = &w.people[i];
-        if p.stage != Stage::HighSchool || p.school_age() > 17 || !boarding(&w.high_schools[p.hs]) || moved.contains(&i)
-        {
-            continue;
-        }
         let homesick = clamp((p.family.own_wants.close_to_home - 0.12) * 2.5, 0.0, 0.3);
         if p.home_state == w.high_schools[p.hs].state || !w.rng.chance(homesick) {
             continue;
@@ -211,17 +225,24 @@ pub(crate) fn high_school_transfers(w: &mut World) {
         p.note(format!("Homesick at {age}, he left {from_name} and came home to play for {to_name}."));
     }
     // Crowded powerhouse depth charts push some kids out again for playing time.
-    for i in 0..n {
+    // The backups at powerhouses found on all cores, in person order; the
+    // world's stream is drawn for each in turn as before (world speed lane).
+    let buried: Vec<usize> = (0..w.people.len())
+        .into_par_iter()
+        .with_min_len(4096)
+        .filter(|&i| {
+            let p = &w.people[i];
+            !(p.stage != Stage::HighSchool
+                || !(16..=17).contains(&p.player.age)
+                || p.last_role != Some(PlayingTime::Backup)
+                || moved.contains(&i))
+                && w.high_schools[p.hs].is_powerhouse()
+        })
+        .collect();
+    for i in buried {
         let p = &w.people[i];
-        if p.stage != Stage::HighSchool
-            || !(16..=17).contains(&p.player.age)
-            || p.last_role != Some(PlayingTime::Backup)
-            || moved.contains(&i)
-        {
-            continue;
-        }
         let cur = &w.high_schools[p.hs];
-        if !cur.is_powerhouse() || !w.rng.chance(0.12) {
+        if !w.rng.chance(0.12) {
             continue;
         }
         // A boarder buried at the academy goes home to play.
@@ -246,10 +267,11 @@ pub(crate) fn high_school_transfers(w: &mut World) {
         let age = p.player.age;
         p.note(format!("At {age}, buried on {from_name}'s depth chart, he transferred to {to_name} to play."));
     }
-    // Reclassifying: a few repeat a year or finish early to time their college entry.
-    for p in w.people.iter_mut() {
+    // Reclassifying: a few repeat a year or finish early to time their
+    // college entry. Each on his own stream, so on all cores.
+    w.people.par_iter_mut().with_min_len(4096).for_each(|p| {
         if p.stage != Stage::HighSchool || p.school_age() != 16 {
-            continue;
+            return;
         }
         let r = p.rng.next();
         if r < 0.004 && p.player.overall() > 52.0 {
@@ -260,7 +282,7 @@ pub(crate) fn high_school_transfers(w: &mut World) {
             p.class_of += 1;
             p.note("Reclassified to repeat a year of high school.");
         }
-    }
+    });
     let _ = year;
 }
 
@@ -292,24 +314,39 @@ fn boarding_intake(
     }
     let seed = w.options.seed as u64 ^ 0xB0A2_0000 ^ ((w.year as u64) << 32);
     // The board by school age: every state's standouts of that age.
+    // Each state's standouts found on all cores, then boarded in state
+    // order (world speed lane).
+    let per_state: Vec<Vec<Vec<usize>>> = by_state
+        .par_iter()
+        .map(|list| {
+            ages.clone()
+                .map(|age| {
+                    let mut ovr: Vec<f64> = list
+                        .iter()
+                        .filter(|&&i| w.people[i].school_age() == age)
+                        .map(|&i| w.people[i].player.overall())
+                        .collect();
+                    if ovr.is_empty() {
+                        return Vec::new();
+                    }
+                    ovr.sort_by(|a, b| b.total_cmp(a));
+                    let bar = ovr[(ovr.len() as f64 * 0.03) as usize];
+                    list.iter()
+                        .copied()
+                        .filter(|&i| {
+                            let p = &w.people[i];
+                            let cur = &w.high_schools[p.hs];
+                            p.school_age() == age && p.player.overall() >= bar && !cur.is_powerhouse() && !boarding(cur)
+                        })
+                        .collect()
+                })
+                .collect()
+        })
+        .collect();
     let mut board: Vec<Vec<usize>> = vec![Vec::new(); ages.clone().count()];
-    for list in by_state {
-        for (k, age) in ages.clone().enumerate() {
-            let mut ovr: Vec<f64> = list
-                .iter()
-                .filter(|&&i| w.people[i].school_age() == age)
-                .map(|&i| w.people[i].player.overall())
-                .collect();
-            if ovr.is_empty() {
-                continue;
-            }
-            ovr.sort_by(|a, b| b.total_cmp(a));
-            let bar = ovr[(ovr.len() as f64 * 0.03) as usize];
-            board[k].extend(list.iter().copied().filter(|&i| {
-                let p = &w.people[i];
-                let cur = &w.high_schools[p.hs];
-                p.school_age() == age && p.player.overall() >= bar && !cur.is_powerhouse() && !boarding(cur)
-            }));
+    for lists in per_state {
+        for (k, v) in lists.into_iter().enumerate() {
+            board[k].extend(v);
         }
     }
     for &t in &academies {
@@ -993,7 +1030,23 @@ pub(crate) fn declarations(w: &mut World, phase: Declare) {
     let advisory = Date::ymd(year, 12, 16);
     let seed = w.options.seed as u64 ^ ((year as u64) << 16) ^ 0xDEC1;
     let mut events: Vec<(usize, String, Loudness, u32, String)> = Vec::new();
-    for i in 0..w.people.len() {
+    // Who the walk can act on, found on all cores: each choice changes only
+    // the player himself, so no one else's place on the list (world speed
+    // lane).
+    let cands: Vec<usize> = (0..w.people.len())
+        .into_par_iter()
+        .with_min_len(4096)
+        .filter(|&i| {
+            let p = &w.people[i];
+            match phase {
+                Declare::Soft | Declare::Deadline => {
+                    p.stage == Stage::College && p.cal.portal.is_none() && p.college.is_some()
+                }
+                Declare::Withdraw => p.stage == Stage::Declared,
+            }
+        })
+        .collect();
+    for i in cands {
         let p = &w.people[i];
         match phase {
             Declare::Soft | Declare::Deadline => {
@@ -1157,13 +1210,12 @@ pub(crate) fn combine_invites(w: &mut World) {
     super::pro::scouts::underclassmen(w);
     // Last year's invites are done with: a pro is never invited again (trial
     // 9: the flag stayed on, so veterans "tested among the best" every year).
-    for p in w.people.iter_mut() {
-        p.cal.combine_invite = false;
-    }
+    w.people.par_iter_mut().with_min_len(4096).for_each(|p| p.cal.combine_invite = false);
     let mut pool: Vec<(f64, usize)> = w
         .people
-        .iter()
+        .par_iter()
         .enumerate()
+        .with_min_len(4096)
         .filter(|(_, p)| p.stage == Stage::Declared)
         .filter_map(|(i, p)| p.cal.draft_read.map(|r| (r.score, i)))
         .collect();
@@ -2425,9 +2477,10 @@ pub(crate) fn takes_a_place(p: &Person, whole_roster: bool, season: i32) -> bool
 /// December had no room until its seniors left in January, and the good
 /// transfers it would have taken went to the FCS).
 fn counted_rosters(w: &World, season: i32) -> Vec<usize> {
+    // Whole counts, worked out on all cores (world speed lane).
     let mut n: Vec<usize> = w
         .programs
-        .iter()
+        .par_iter()
         .enumerate()
         .map(|(j, prog)| {
             let whole = super::ncaa::whole_roster_limit(prog, season);
@@ -2444,22 +2497,28 @@ fn counted_rosters(w: &World, season: i32) -> Vec<usize> {
                 .count()
         })
         .collect();
-    for p in w.people.iter() {
-        // A signee not yet enrolled, counted at his new school (a junior
-        // college mover is still on his old roster, not counted there).
-        let Some(s) = p.cal.signed else { continue };
-        if p.college == Some(s.program) {
-            continue;
-        }
-        let Some(prog) = w.programs.get(s.program) else { continue };
-        let counted = match (super::ncaa::whole_roster_limit(prog, season), s.walk_on) {
-            (_, false) => true,
-            (true, true) => p.class_of > super::ncaa::HOUSE_START,
-            (false, true) => p.player.position.is_specialist(),
-        };
-        if counted {
-            n[s.program] += 1;
-        }
+    let signees: Vec<usize> = w
+        .people
+        .par_iter()
+        .with_min_len(4096)
+        .filter_map(|p| {
+            // A signee not yet enrolled, counted at his new school (a junior
+            // college mover is still on his old roster, not counted there).
+            let s = p.cal.signed?;
+            if p.college == Some(s.program) {
+                return None;
+            }
+            let prog = w.programs.get(s.program)?;
+            let counted = match (super::ncaa::whole_roster_limit(prog, season), s.walk_on) {
+                (_, false) => true,
+                (true, true) => p.class_of > super::ncaa::HOUSE_START,
+                (false, true) => p.player.position.is_specialist(),
+            };
+            counted.then_some(s.program)
+        })
+        .collect();
+    for j in signees {
+        n[j] += 1;
     }
     n
 }
@@ -3714,10 +3773,12 @@ pub(crate) fn early_offers(w: &mut World, d: Date, class_of: i32, pass: usize) {
     let most = most * era;
     // Film first: only the top of the class gets a look.
     let played = hs_played(w);
+    // Read on all cores, in person order (world speed lane).
     let mut class: Vec<(f64, usize)> = w
         .people
-        .iter()
+        .par_iter()
         .enumerate()
+        .with_min_len(4096)
         .filter(|(_, p)| p.stage == Stage::HighSchool && p.class_of == class_of && p.cal.signed.is_none())
         .map(|(i, p)| (film_raw(p, &played), i))
         .collect();
@@ -4043,11 +4104,15 @@ struct VisitDay<'a> {
     home_tomorrow: &'a std::collections::HashSet<usize>,
 }
 
+/// A recruit's day of visits (`plan_visits`): the offers whose official
+/// visit he would take, then his other visits.
+type VisitPlan = (Vec<usize>, Vec<(usize, super::Visit)>);
+
 /// One recruit's visits today (`recruiting_day`): the offers whose official
 /// visit he would take, in order, before the school cap is counted (none
 /// unless his roll and his own cap say he takes one), and his other visits
 /// in the order they go in. None when he has no day.
-fn plan_visits(w: &World, i: usize, c: &VisitDay) -> Option<(Vec<usize>, Vec<(usize, super::Visit)>)> {
+fn plan_visits(w: &World, i: usize, c: &VisitDay) -> Option<VisitPlan> {
     use super::Visit;
     let VisitDay {
         d,
@@ -4238,12 +4303,12 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
         home_tomorrow: &home_tomorrow,
     };
     let world: &World = w;
-    let plans: Vec<(usize, Vec<usize>, Vec<(usize, Visit)>)> = (0..w.people.len())
+    let plans: Vec<(usize, VisitPlan)> = (0..w.people.len())
         .into_par_iter()
         .with_min_len(4096)
-        .filter_map(|i| plan_visits(world, i, &day).map(|(official, rest)| (i, official, rest)))
+        .filter_map(|i| plan_visits(world, i, &day).map(|plan| (i, plan)))
         .collect();
-    for (i, official, rest) in plans {
+    for (i, (official, rest)) in plans {
         let mut new: Vec<(usize, Visit)> = Vec::new();
         if let Some(&j) = official
             .iter()
@@ -4522,15 +4587,22 @@ pub(crate) fn rate_underclass(w: &mut World, class_of: i32, d: Date, reach: [f64
     let mut pos_stats: [(f64, f64, f64); POSITION_COUNT] = [(0.0, 0.0, 0.0); POSITION_COUNT];
     let mut members: Vec<usize> = Vec::new();
     let played = hs_played(w);
-    for (i, p) in w.people.iter().enumerate() {
-        if p.stage == Stage::HighSchool && p.class_of == class_of && p.cal.signed.is_none() {
-            let f = film_raw(p, &played);
-            let s = &mut pos_stats[p.player.position.index()];
-            s.0 += 1.0;
-            s.1 += f;
-            s.2 += f * f;
-            members.push(i);
-        }
+    // The class's film read on all cores, then summed in person order, so
+    // the sums are the same as one walk (world speed lane).
+    let films: Vec<(usize, usize, f64)> = w
+        .people
+        .par_iter()
+        .enumerate()
+        .with_min_len(4096)
+        .filter(|(_, p)| p.stage == Stage::HighSchool && p.class_of == class_of && p.cal.signed.is_none())
+        .map(|(i, p)| (i, p.player.position.index(), film_raw(p, &played)))
+        .collect();
+    for (i, k, f) in films {
+        let s = &mut pos_stats[k];
+        s.0 += 1.0;
+        s.1 += f;
+        s.2 += f * f;
+        members.push(i);
     }
     if members.len() < 10 {
         return;
@@ -4558,7 +4630,8 @@ pub(crate) fn rate_underclass(w: &mut World, class_of: i32, d: Date, reach: [f64
     // Who they look at: the top of the class on film, and every kid a
     // college offered, the state honored, the camps ranked or they rated
     // before.
-    let mut by_film: Vec<(f64, usize)> = members.iter().map(|&i| (film_of(&w.people[i]), i)).collect();
+    let mut by_film: Vec<(f64, usize)> =
+        members.par_iter().with_min_len(256).map(|&i| (film_of(&w.people[i]), i)).collect();
     by_film.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
     let top = ((by_film.len() as f64) * 0.08).ceil() as usize;
     let mut looked: Vec<usize> = by_film.iter().take(top).map(|x| x.1).collect();
@@ -4862,7 +4935,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         // see a kid's measurables only once he has tested at their camps,
         // so they fall behind on a physical freak (D3). They also read his
         // offer list (minor bug 17).
-        let sheets: Vec<f64> = pool.iter().map(|r| offer_sheet(&w.programs, &w.people[r.person], year)).collect();
+        let sheets: Vec<f64> =
+            pool.par_iter().with_min_len(256).map(|r| offer_sheet(&w.programs, &w.people[r.person], year)).collect();
         let score: Vec<f64> = pool
             .iter()
             .zip(&sheets)
@@ -4941,13 +5015,21 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     }
     // Committed and signed blue-chips pull their high school teammates (T5.3).
     let mut friends: std::collections::HashMap<usize, Vec<usize>> = std::collections::HashMap::new();
-    for p in w.people.iter() {
-        if p.stars >= 4 && p.stage == Stage::HighSchool && p.class_of == sign_year {
-            let j = p.cal.signed.map(|s| s.program).or(p.cal.commit.map(|c| c.0));
-            if let Some(j) = j {
-                friends.entry(p.hs).or_default().push(j);
+    // Found on all cores, then listed in person order (world speed lane).
+    let pulls: Vec<(usize, usize)> = w
+        .people
+        .par_iter()
+        .with_min_len(4096)
+        .filter_map(|p| {
+            if p.stars >= 4 && p.stage == Stage::HighSchool && p.class_of == sign_year {
+                p.cal.signed.map(|s| s.program).or(p.cal.commit.map(|c| c.0)).map(|j| (p.hs, j))
+            } else {
+                None
             }
-        }
+        })
+        .collect();
+    for (hs, j) in pulls {
+        friends.entry(hs).or_default().push(j);
     }
     let junior_officials = w.changes.rules(year).junior_officials;
 
@@ -5067,12 +5149,16 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     let own_mins = w.scouting.own.minimums.clone();
     let read = RosterRead { stage };
     let mut signed_by: Vec<Vec<usize>> = vec![Vec::new(); programs.len()];
-    for (i, p) in w.people.iter().enumerate() {
-        if let Some(s) = p.cal.signed
-            && p.stage != Stage::College
-        {
-            signed_by[s.program].push(i);
-        }
+    // Found on all cores, then listed in person order (world speed lane).
+    let signees: Vec<(usize, usize)> = w
+        .people
+        .par_iter()
+        .enumerate()
+        .with_min_len(4096)
+        .filter_map(|(i, p)| p.cal.signed.filter(|_| p.stage != Stage::College).map(|s| (s.program, i)))
+        .collect();
+    for (j, i) in signees {
+        signed_by[j].push(i);
     }
     let mut plans: Vec<ClassPlan> = programs
         .par_iter()
@@ -7982,11 +8068,12 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
             let at = roster.partition_point(|&x| x < i);
             roster.insert(at, i);
         }
-        // Anyone no longer on a college roster (gone, declared, moved) drops off.
+        // Anyone no longer on a college roster (gone, declared, moved) drops
+        // off: each program's own list, so on all cores.
         let people = &w.people;
-        for (j, prog) in w.programs.iter_mut().enumerate() {
+        w.programs.par_iter_mut().enumerate().for_each(|(j, prog)| {
             prog.roster.retain(|&i| people[i].stage == Stage::College && people[i].college == Some(j));
-        }
+        });
     }
 }
 
