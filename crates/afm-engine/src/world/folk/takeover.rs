@@ -46,6 +46,19 @@ pub struct Takeover {
     /// and +1 oversold or -1 undersold.
     pub claims: Vec<(String, u32, i8)>,
     pub checked: bool,
+    /// The winter rush (Jan 1 start, Cain 2026-11-08): a job taken between
+    /// rivalry week and national signing day packs the welcome meetings
+    /// into your first two days, the staff calls first.
+    pub rush: bool,
+    /// An NFL club still playing when you took it: the coordinator who
+    /// coaches its last games, and its record the day you took it (the
+    /// man you replaced keeps those games, the interim the rest).
+    pub interim: Option<usize>,
+    pub nfl_at: Option<(u32, u32, u32)>,
+    /// December signees who asked to be let out, and the ones you held to
+    /// their signing (they lean toward the portal from their first fall).
+    pub asked_out: Vec<u32>,
+    pub held: Vec<u32>,
 }
 
 /// The day the arrival's scenes are scheduled from: offsets skip Sundays.
@@ -80,19 +93,36 @@ pub fn begin(w: &mut World) {
     w.folk.goals.clear();
     w.folk.asks.clear();
     w.folk.cases.clear();
-    w.folk.takeover = Some(Takeover { team: Some(team), started: Some(d0), old_coach: old, fit, ..Default::default() });
+    let rush = rush_due(w, team, d0);
+    w.folk.takeover =
+        Some(Takeover { team: Some(team), started: Some(d0), old_coach: old, fit, rush, ..Default::default() });
     first_impressions(w, team, old, fit);
     if let Team::College(p) = team {
         coach_change_window(w, p, d0);
     }
-    let plan = schedule(w, team, d0);
+    if let Team::Nfl(t) = team {
+        nfl_interim(w, t);
+    }
+    // The rush's first day is today when its first meeting (7 AM your
+    // time) is still ahead, else tomorrow.
+    let now = w.local_now();
+    let first = if now.date < d0 || (now.date == d0 && now.minute < 7 * 60) { d0 } else { d0.add(1) };
+    let plan: Vec<(Date, Option<u16>, Kind, u64, String, String)> = if rush {
+        rush_schedule(w, team, first)
+            .into_iter()
+            .map(|(k, m, kind, a, t, pl)| (first.add(k), Some(m), kind, a, t, pl))
+            .collect()
+    } else {
+        schedule(w, team, d0).into_iter().map(|(k, kind, a, t, pl)| (day_at(d0, k), None, kind, a, t, pl)).collect()
+    };
     let mut ids = Vec::new();
     w.folk.hush = true;
-    for (k, kind, a, title, place) in plan {
-        let mut s = Scene::new(kind, day_at(d0, k), title);
+    for (day, minute, kind, a, title, place) in plan {
+        let mut s = Scene::new(kind, day, title);
         s.place = place;
         s.a = a;
         s.team = Some(team);
+        s.minute = minute;
         if matches!(kind, Kind::Booster)
             && let Some(c) = booster_of(w, &s, team)
         {
@@ -104,15 +134,37 @@ pub fn begin(w: &mut World) {
     if let Some(t) = w.folk.takeover.as_mut() {
         t.scenes = ids;
     }
-    let name = team.name(w);
-    super::note(
-        w,
-        "you",
-        "You".into(),
-        format!("You took the job at {}. The first two weeks are meetings.", team.link(w)),
-        None,
-    );
-    let _ = name;
+    // December signees whose head coach is gone may ask to be let out.
+    if let Team::College(p) = team {
+        signee_calls(w, p, first.add(1));
+    }
+    let text = if rush {
+        format!(
+            "You took the job at {}. The welcome meetings fill your first two days: the staff first, then the roster before the portal.",
+            team.link(w)
+        )
+    } else {
+        format!("You took the job at {}. The first two weeks are meetings.", team.link(w))
+    };
+    super::note(w, "you", "You".into(), text, None);
+}
+
+/// The winter rush (Jan 1 start, Cain 2026-11-08: "stuff all the welcome
+/// meetings into the day", Jan 1 and Jan 2 busy): a college, NFL or high
+/// school job taken between rivalry week and national signing day, while
+/// the portal, the signees and the hiring all wait on you. Other times the
+/// arrival keeps its two weeks (proposed, not confirmed).
+pub fn rush_due(w: &World, team: Team, d0: Date) -> bool {
+    !matches!(team, Team::Other(_)) && d0 >= w.dates.rivalry_week && d0 <= w.dates.signing_day
+}
+
+/// Whether the arrival is the winter rush and still in its first week:
+/// the week's people time is the arrival's own (40 hours, proposed, not
+/// confirmed), from its first day.
+pub(crate) fn rush_week(w: &World) -> Option<Date> {
+    let t = w.folk.takeover.as_ref().filter(|t| t.rush)?;
+    let d = t.started?;
+    (w.today >= d && w.today < d.add(7)).then_some(d)
 }
 
 /// T-B: your hire opens the coaching-change transfer window for your
@@ -489,6 +541,385 @@ fn schedule(w: &World, team: Team, _d0: Date) -> Vec<(i32, Kind, u64, String, St
     v
 }
 
+/// Whether your team plays on world day `d` (its game is the interim's).
+fn plays_on(w: &World, team: Team, d: Date) -> bool {
+    match team {
+        Team::College(p) => {
+            w.college_fixtures(Some(p)).into_iter().any(|f| f.date == d && f.score.is_none() && !f.cancelled)
+        }
+        Team::Nfl(t) => crate::world::nfl_year::seat_fixture_on(w, t, d).is_some(),
+        _ => false,
+    }
+}
+
+/// The winter rush's meetings (Cain 2026-11-08): (day from the first,
+/// your local minute, kind, subject, title, place). Day one is your staff
+/// and the room: the athletic director's goals, then each holdover
+/// coordinator and the position coaches, keep or let go, before the press
+/// conference, the state of the team and the first team meeting; the
+/// gaps are yours for interviews. Day two is the roster before the window:
+/// the trainer, who might leave, the leaders, the commits, the collective,
+/// the rest of the reports and the plan. The hours are proposed, not
+/// confirmed.
+fn rush_schedule(w: &World, team: Team, first: Date) -> Vec<(i32, u16, Kind, u64, String, String)> {
+    let mut v: Vec<(i32, u16, Kind, u64, String, String)> = Vec::new();
+    let h = |hh: u16, mm: u16| hh * 60 + mm;
+    let name = team.name(w);
+    let town = team.town(w);
+    match team {
+        Team::College(p) => {
+            let building = football_building(w, p);
+            v.push((
+                0,
+                h(7, 0),
+                Kind::HireReaction,
+                0,
+                "How the world took your hire".into(),
+                "Your new office".into(),
+            ));
+            v.push((
+                0,
+                h(8, 0),
+                Kind::BossFirst,
+                0,
+                "The athletic director's goals".into(),
+                "The athletic director's office".into(),
+            ));
+            let mut at = h(9, 0);
+            for (c, role) in facts::assistants(w, team).iter().filter(|x| {
+                matches!(
+                    x.1,
+                    crate::world::coach::Role::OffensiveCoordinator | crate::world::coach::Role::DefensiveCoordinator
+                )
+            }) {
+                v.push((
+                    0,
+                    at,
+                    Kind::Holdover,
+                    *c as u64,
+                    format!("Meeting the {}", role.name()),
+                    format!("{building}, your office"),
+                ));
+                at += 60;
+            }
+            v.push((
+                0,
+                at,
+                Kind::Holdover,
+                u64::MAX,
+                "The holdover position coaches".into(),
+                format!("{building}, the staff room"),
+            ));
+            v.push((
+                0,
+                h(14, 0),
+                Kind::PressIntro,
+                0,
+                format!("Introduced as {name}'s head coach"),
+                format!("{building}, the media room"),
+            ));
+            v.push((
+                0,
+                h(15, 30),
+                Kind::StaffReport,
+                0,
+                "The state of the team".into(),
+                format!("{building}, the staff room, film on"),
+            ));
+            // A team that plays today meets you the evening after its game.
+            let (k, m) = if plays_on(w, team, first) { (1, h(18, 0)) } else { (0, h(19, 30)) };
+            v.push((
+                k,
+                m,
+                Kind::TeamMeeting,
+                0,
+                format!("Your first team meeting at {name}"),
+                format!("{building}, the team room"),
+            ));
+            v.push((1, h(7, 0), Kind::Trainer, 0, "The trainer's report".into(), "The training room".into()));
+            v.push((1, h(8, 0), Kind::FlightRisks, 0, "Who might leave".into(), "Your office".into()));
+            v.push((
+                1,
+                h(9, 30),
+                Kind::Leaders,
+                0,
+                "The captains and the room".into(),
+                "Your office, one at a time".into(),
+            ));
+            v.push((
+                1,
+                h(11, 0),
+                Kind::Recruiting,
+                0,
+                "Commits who wobble".into(),
+                "The recruiting office, phones out".into(),
+            ));
+            let n = cast::slots(w, team, Role::Booster).min(5);
+            for k in 0..n {
+                let (day, m) = match k {
+                    0 => (1, h(12, 30)),
+                    1 | 2 => (1, h(19, 0)),
+                    _ => (k as i32 - 1, h(19, 0)),
+                };
+                v.push((day, m, Kind::Booster, k as u64, String::new(), String::new()));
+            }
+            v.push((
+                1,
+                h(14, 0),
+                Kind::Academic,
+                0,
+                "The academic and conduct report".into(),
+                "The academic center".into(),
+            ));
+            v.push((1, h(15, 0), Kind::Media, 0, "The beat reporters".into(), "The communications office".into()));
+            v.push((1, h(16, 0), Kind::Tour, 0, format!("The tour of {name}"), format!("Around {town}")));
+            v.push((
+                1,
+                h(17, 0),
+                Kind::Plan,
+                0,
+                "The first weeks' plan".into(),
+                "Your office, the operations director".into(),
+            ));
+        }
+        Team::Nfl(_) => {
+            v.push((
+                0,
+                h(7, 0),
+                Kind::HireReaction,
+                0,
+                "How the world took your hire".into(),
+                "Your new office".into(),
+            ));
+            v.push((
+                0,
+                h(8, 0),
+                Kind::BossFirst,
+                0,
+                "The owner's goals".into(),
+                "The owner's suite at the facility".into(),
+            ));
+            v.push((
+                0,
+                h(9, 0),
+                Kind::Gm,
+                0,
+                "Sitting down with the general manager".into(),
+                "The general manager's office".into(),
+            ));
+            let mut at = h(10, 0);
+            for (c, role) in &facts::assistants(w, team) {
+                v.push((
+                    0,
+                    at,
+                    Kind::Holdover,
+                    *c as u64,
+                    format!("Meeting the {}", role.name()),
+                    "Your office".into(),
+                ));
+                at += 60;
+            }
+            v.push((
+                0,
+                h(14, 0),
+                Kind::PressIntro,
+                0,
+                format!("Introduced as the {name}' head coach"),
+                "The facility's auditorium".into(),
+            ));
+            v.push((
+                0,
+                h(15, 30),
+                Kind::StaffReport,
+                0,
+                "The roster review with the pro scouts".into(),
+                "The draft room, film on".into(),
+            ));
+            v.push((1, h(7, 0), Kind::Trainer, 0, "The trainer's report".into(), "The training room".into()));
+            v.push((
+                1,
+                h(8, 0),
+                Kind::Academic,
+                0,
+                "The conduct report".into(),
+                "The security director's office".into(),
+            ));
+            v.push((
+                1,
+                h(9, 30),
+                Kind::Leaders,
+                0,
+                "Calling the team's leaders".into(),
+                "Your office, on the phone".into(),
+            ));
+            v.push((
+                1,
+                h(11, 0),
+                Kind::FlightRisks,
+                0,
+                "Who might want out".into(),
+                "The general manager's office".into(),
+            ));
+            v.push((1, h(12, 30), Kind::Booster, 0, String::new(), String::new()));
+            v.push((1, h(15, 0), Kind::Media, 0, "The beat reporters".into(), "The communications office".into()));
+            v.push((1, h(16, 0), Kind::Tour, 0, format!("The {name} up close"), "The facility and the stadium".into()));
+            v.push((
+                1,
+                h(17, 0),
+                Kind::Plan,
+                0,
+                "The calendar to the draft".into(),
+                "The general manager and the cap manager".into(),
+            ));
+            // The first full team meeting waits for the offseason program
+            // (the interim has the room while the season lasts).
+            let next = if first > w.dates.offseason_new_coach {
+                crate::calendar::anchors::YearDates::new(w.dates.season + 1).offseason_new_coach
+            } else {
+                w.dates.offseason_new_coach
+            };
+            v.push((
+                first.days_to(next).max(9),
+                h(9, 0),
+                Kind::TeamMeeting,
+                0,
+                "Your first team meeting".into(),
+                "The team auditorium, the first day of the offseason program".into(),
+            ));
+        }
+        Team::High(_) => {
+            let school = name.clone();
+            v.push((
+                0,
+                h(7, 0),
+                Kind::HireReaction,
+                0,
+                "How the town took your hire".into(),
+                "The front office".into(),
+            ));
+            v.push((
+                0,
+                h(8, 0),
+                Kind::BossFirst,
+                0,
+                "The principal and the athletic director".into(),
+                format!("{school}, the principal's office"),
+            ));
+            v.push((
+                0,
+                h(9, 30),
+                Kind::Holdover,
+                u64::MAX,
+                "The holdover staff".into(),
+                format!("{school}, the coaches' office"),
+            ));
+            v.push((
+                0,
+                h(11, 0),
+                Kind::OldCoach,
+                0,
+                "The old coach, down the hall".into(),
+                format!("{school}, his classroom"),
+            ));
+            v.push((
+                0,
+                h(14, 0),
+                Kind::StaffReport,
+                0,
+                "The state of the team".into(),
+                "The coaches' office, last fall's film on".into(),
+            ));
+            v.push((
+                0,
+                h(15, 30),
+                Kind::PressIntro,
+                0,
+                "The local paper's interview".into(),
+                format!("{school}, the field house"),
+            ));
+            v.push((1, h(8, 0), Kind::Leaders, 0, "The seniors who lead".into(), "The weight room".into()));
+            v.push((1, h(9, 30), Kind::Academic, 0, "Grades and eligibility".into(), "The counselor's office".into()));
+            v.push((1, h(11, 0), Kind::Trainer, 0, "Who's hurt".into(), "The training room".into()));
+            v.push((1, h(13, 0), Kind::FlightRisks, 0, "Who might transfer".into(), "The coaches' office".into()));
+            v.push((1, h(15, 0), Kind::Booster, 100, String::new(), String::new()));
+            let n = cast::slots(w, team, Role::Booster).min(2);
+            for k in 0..n {
+                v.push((1, h(16, 0) + 60 * k as u16, Kind::Booster, k as u64, String::new(), String::new()));
+            }
+            v.push((1, h(18, 0), Kind::Media, 0, "Who covers you".into(), "The front office".into()));
+            v.push((
+                1,
+                h(18, 30),
+                Kind::Plan,
+                0,
+                "The plan to the season".into(),
+                "The athletic director's office".into(),
+            ));
+            // The players and their parents wait for the first school day.
+            let mut back = first.add(2);
+            while matches!(back.weekday(), Weekday::Sat | Weekday::Sun) {
+                back = back.add(1);
+            }
+            let k = first.days_to(back);
+            v.push((
+                k,
+                h(13, 30),
+                Kind::TeamMeeting,
+                0,
+                "Your first athletics period".into(),
+                format!("{school}, the field house, sixth period"),
+            ));
+            v.push((k, h(19, 0), Kind::Parents, 0, "The parents' meeting".into(), format!("{school}, the cafeteria")));
+            v.push((
+                k + 1,
+                h(15, 30),
+                Kind::Feeder,
+                0,
+                "The feeder tour".into(),
+                format!("The middle schools and the youth league around {town}"),
+            ));
+        }
+        Team::Other(_) => {}
+    }
+    v.sort_by_key(|x| (x.0, x.1));
+    v
+}
+
+/// An NFL club you took with games still to play (the Jan 1 start): its
+/// best-regarded coordinator coaches them as the interim, as Odell Haggins
+/// and every in-season interim did; you take the rest. The man you
+/// replaced keeps the games already played (credited the day he left).
+/// Its record the day you took it is kept either way. Only a head coach's
+/// arrival: an assistant joins under the head coach who has the games.
+fn nfl_interim(w: &mut World, t: usize) {
+    if !w.career.as_ref().is_some_and(|c| c.role.is_none()) {
+        return;
+    }
+    let Some(s) = w.nfl_season.as_ref() else { return };
+    let alive = s.started
+        && s.champion.is_none()
+        && s.active.get(t).copied().unwrap_or(false)
+        && (!s.booked || s.alive.iter().any(|a| a.contains(&t)));
+    if !alive {
+        return;
+    }
+    let at = (s.wins[t], s.losses[t], s.ties[t]);
+    let best = nfl_coordinator(w, t);
+    if let Some(tk) = w.folk.takeover.as_mut() {
+        tk.interim = best;
+        tk.nfl_at = Some(at);
+    }
+}
+
+/// The club's best-regarded coordinator, the interim's job.
+pub(crate) fn nfl_coordinator(w: &World, t: usize) -> Option<usize> {
+    let team = &w.nfl[t];
+    [team.oc, team.dc]
+        .into_iter()
+        .flatten()
+        .max_by(|&a, &b| w.coaches[a].reputation.total_cmp(&w.coaches[b].reputation))
+}
+
 fn football_building(w: &World, p: usize) -> String {
     let prog = &w.programs[p];
     if prog.facilities > 0.6 { "The football building".into() } else { "The football offices".into() }
@@ -520,6 +951,7 @@ pub(crate) fn open(w: &mut World, s: &mut Scene) {
         Kind::Feeder => feeder(w, s, team),
         Kind::OldCoach => old_coach_open(w, s, team),
         Kind::Gm => gm_open(w, s, team),
+        Kind::SigneeRelease => signee_open(w, s, team),
         _ => {
             s.narrate("Nothing on the agenda.");
             s.end();
@@ -542,6 +974,7 @@ pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         Kind::FlightRisks => flight_answer(w, s, team, code),
         Kind::Recruiting => recruiting_answer(w, s, team, code),
         Kind::Gm => gm_answer(w, s, team, code),
+        Kind::SigneeRelease => signee_answer(w, s, team, code),
         Kind::Leaders | Kind::Academic | Kind::Trainer | Kind::StaffReport => report_answer(w, s, team, code),
         _ => {
             // Reports: reading them is the whole meeting.
@@ -605,6 +1038,7 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
         Kind::Gm => {
             s.outcome.push("The general manager ran the meeting on his own terms and left you his notes.".into());
         }
+        Kind::SigneeRelease => signee_hand(w, s, team, &who),
         _ => {
             if s.outcome.is_empty() {
                 s.outcome.push(format!("{who} took it and left you the notes."));
@@ -618,7 +1052,7 @@ fn staff_hand(w: &World, team: Team, kind: Kind) -> String {
     let get = |r: Role| cast::has(w, team, r).then(|| cast::get(w, CastRef::new(team, r, 0)));
     let c = match (team, kind) {
         (Team::College(_), Kind::Booster | Kind::Media | Kind::Tour) => get(Role::ChiefOfStaff).or(get(Role::Ops)),
-        (Team::College(_), Kind::Recruiting) => get(Role::Personnel).or(get(Role::Ops)),
+        (Team::College(_), Kind::Recruiting | Kind::SigneeRelease) => get(Role::Personnel).or(get(Role::Ops)),
         (Team::Nfl(_), _) => get(Role::ChiefOfStaff).or(get(Role::Gm)),
         (Team::High(_), _) => get(Role::SchoolAd),
         _ => get(Role::Ops),
@@ -2092,6 +2526,253 @@ fn recruiting_calls(w: &mut World, team: Team, all_you: bool) -> usize {
     }
     w.folk.commit_calls = Some((p, today, all_you));
     n
+}
+
+// ---------------------------------------------------------------------------
+// The Jan 1 start: December signees who ask out once their head coach is
+// gone. Since the NLI ended a school usually lets such a signee go; you can
+// let him go, make your pitch on a visit, or hold him to his signing
+// (proposed, not confirmed).
+
+/// Files a call from each of your signees who asks out, in the evening of
+/// `day` (four a night, from 8:30), and keeps their names in the takeover.
+fn signee_calls(w: &mut World, p: usize, day: Date) {
+    let d = w.today;
+    // Only a head coach's arrival, with this cycle's class signed and
+    // signing day still ahead.
+    let head = w.career.as_ref().is_some_and(|c| c.role.is_none());
+    if !head || !crate::world::recruiting::signees_waiting(w, d) {
+        return;
+    }
+    let seed = w.options.seed as u64 ^ (d.0 as u64) << 16 ^ 0xDEC0;
+    let mut asks: Vec<usize> = (0..w.people.len())
+        .filter(|&i| {
+            let pp = &w.people[i];
+            matches!(pp.stage, Stage::HighSchool | Stage::PrepSchool)
+                && pp.cal.signed.is_some_and(|x| x.program == p && !x.walk_on)
+                && crate::world::recruiting::signee_asks(pp, p, d, seed)
+        })
+        .collect();
+    asks.sort_by(|&a, &b| w.people[b].stars.cmp(&w.people[a].stars));
+    let mut ids = Vec::new();
+    let mut who = Vec::new();
+    w.folk.hush = true;
+    for (k, &i) in asks.iter().enumerate() {
+        let id = w.people[i].player.id;
+        let mut s = Scene::new(
+            Kind::SigneeRelease,
+            day.add((k / 4) as i32),
+            format!("{} asks to be let out of his signing", w.people[i].name),
+        );
+        s.place = "A call, his family on the line".into();
+        s.a = id as u64;
+        s.team = Some(Team::College(p));
+        s.minute = Some(20 * 60 + 30 + 30 * (k % 4) as u16);
+        s.who.push(Who::Player(id));
+        ids.push(scene::add(w, s));
+        who.push(id);
+    }
+    w.folk.hush = false;
+    // The calls go in among the meetings, by their hour.
+    let Some(mut list) = w.folk.takeover.as_ref().map(|t| t.scenes.clone()) else { return };
+    list.extend(ids);
+    list.sort_by_key(|id| w.folk.scenes.iter().find(|s| s.id == *id).map(|s| (s.date, s.minute.unwrap_or(0))));
+    if let Some(t) = w.folk.takeover.as_mut() {
+        t.scenes = list;
+        t.asked_out = who;
+    }
+}
+
+/// Your December class as it stands: signed, asked out, early enrollees
+/// and the commits still to sign.
+pub fn class_counts(w: &World, p: usize) -> (usize, usize, usize, usize) {
+    let asked = w.folk.takeover.as_ref().map_or(0, |t| t.asked_out.len());
+    let (mut signed, mut early, mut committed) = (0, 0, 0);
+    for pp in &w.people {
+        if !matches!(pp.stage, Stage::HighSchool | Stage::PrepSchool) {
+            continue;
+        }
+        if let Some(x) = pp.cal.signed.filter(|x| x.program == p) {
+            signed += 1;
+            early += x.early_enrollee as usize;
+        } else if pp.cal.commit.is_some_and(|c| c.0 == p) {
+            committed += 1;
+        }
+    }
+    (signed, asked, early, committed)
+}
+
+fn signee_of(w: &World, s: &Scene, p: usize) -> Option<usize> {
+    let i = super::person(w, s.a as u32)?;
+    w.people[i].cal.signed.is_some_and(|x| x.program == p).then_some(i)
+}
+
+fn signee_open(w: &mut World, s: &mut Scene, team: Team) {
+    let Team::College(p) = team else {
+        s.end();
+        return;
+    };
+    let Some(i) = signee_of(w, s, p) else {
+        s.narrate("By the time you called back, his signing was settled.");
+        s.end();
+        return;
+    };
+    let tie = crate::world::recruiting::signee_tie(&w.people[i], p, w.today);
+    let pp = &w.people[i];
+    let name = pp.name.clone();
+    let first = name.split_whitespace().next().unwrap_or("He").to_string();
+    let stars = crate::world::recruiting::recruiting_stars(pp);
+    let signed = pp.cal.signed.map(|x| x.date.pretty()).unwrap_or_default();
+    let others: Vec<String> =
+        pp.cal.offers.iter().filter(|&&o| o != p).take(2).map(|&o| w.program_name(o).to_string()).collect();
+    let old = w.folk.takeover.as_ref().and_then(|t| t.old_coach).map(|o| {
+        let n = &w.coaches[o].name;
+        n.split_whitespace().last().unwrap_or(n).to_string()
+    });
+    s.narrate(format!(
+        "{} calls with his family on the line: {}, {}, signed {} with the last staff.",
+        player_link(w, i),
+        pp.player.position.name(),
+        "★".repeat(stars as usize),
+        signed
+    ));
+    let line = match &old {
+        Some(o) if tie >= 0.45 => format!(
+            "Coach, nothing against you. I signed with Coach {o} and his staff, and they're gone. We want to look around again before February."
+        ),
+        Some(o) => format!(
+            "Coach, I just want to be sure. Coach {o} is gone and everybody who recruited me with him. Can I look around before February?"
+        ),
+        None => "Coach, everybody who recruited me is gone. We want to look around again before February.".to_string(),
+    };
+    s.them(&first, line, None);
+    let read = if tie >= 0.6 {
+        "he means it; a plan might not be enough"
+    } else if tie >= 0.35 {
+        "he means it, but he'd listen to a plan"
+    } else {
+        "he's nervous more than gone; the right plan keeps him"
+    };
+    let tie_word = if tie >= 0.6 {
+        "strong"
+    } else if tie >= 0.35 {
+        "real"
+    } else {
+        "thin"
+    };
+    s.narrate(format!(
+        "His tie to the last staff: {tie_word}. {} Your staff's read: {read}.",
+        if others.is_empty() {
+            "Nobody else has called yet.".to_string()
+        } else {
+            format!("Who else is calling: {}.", others.join(", "))
+        }
+    ));
+    s.pick(
+        70,
+        "Let him go, and wish him well.",
+        "Respect",
+        "warm",
+        "His signing ends today; he can sign anywhere on signing day. Families talk: other signees hear you were fair.",
+    );
+    s.pick(
+        71,
+        "Ask him to visit before he decides.",
+        "Pitch",
+        "calm",
+        "Your name, the plan for his position and the coach you hire for it, against his reasons. He may stay.",
+    );
+    s.pick(
+        72,
+        "Hold him to his signing.",
+        "Hard line",
+        "firm",
+        "He enrolls, but he arrives trusting you little and leans toward the portal from his first fall.",
+    );
+}
+
+fn signee_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
+    let Team::College(p) = team else {
+        s.end();
+        return;
+    };
+    let Some(i) = signee_of(w, s, p) else {
+        s.end();
+        return;
+    };
+    let you = w.career.as_ref().map_or(0, |c| c.coach) as u32;
+    let school = w.program_name(p).to_string();
+    let name = w.people[i].name.clone();
+    match code {
+        70 => {
+            crate::world::recruiting::release_signee(w, i, &school);
+            classmates_hear(w, p, 0.03);
+            s.outcome.push(format!("You let {name} out of his signing. The other families heard you were fair."));
+        }
+        71 => {
+            super::talks::charge(w, 3.0);
+            let tie = crate::world::recruiting::signee_tie(&w.people[i], p, w.today) as f32;
+            let fit = w.folk.takeover.as_ref().map_or(0.0, |t| t.fit);
+            let rec = w.career.as_ref().map_or(10.0, |c| c.you.recruiting) as f32;
+            let stars = crate::world::recruiting::recruiting_stars(&w.people[i]) as f32;
+            let stay =
+                (0.42 + 0.2 * fit + 0.02 * (rec - 10.0) - 0.35 * tie - 0.05 * (stars - 3.0)).clamp(0.08, 0.8) as f64;
+            let roll = crate::world::season::key_uniform(w.options.seed as u64 ^ 0x5197, w.people[i].player.id as u64);
+            if roll < stay {
+                let pp = &mut w.people[i];
+                pp.trust_in = you;
+                pp.trust = 0.5;
+                s.outcome.push(format!(
+                    "{name} came in, heard the plan and stayed signed. His chance was about {:.0} in 100.",
+                    stay * 100.0
+                ));
+            } else {
+                crate::world::recruiting::release_signee(w, i, &school);
+                classmates_hear(w, p, 0.02);
+                s.outcome.push(format!(
+                    "{name} visited, listened and still asked out; you let him go. His chance of staying was about {:.0} in 100.",
+                    stay * 100.0
+                ));
+            }
+        }
+        _ => {
+            let id = w.people[i].player.id;
+            let pp = &mut w.people[i];
+            pp.trust_in = you;
+            pp.trust = 0.15;
+            if let Some(t) = w.folk.takeover.as_mut() {
+                t.held.push(id);
+            }
+            classmates_hear(w, p, -0.03);
+            s.outcome.push(format!(
+                "You held {name} to his signing. He'll enroll, but he doesn't trust you, and the other families noticed."
+            ));
+        }
+    }
+    s.end();
+}
+
+fn signee_hand(w: &mut World, s: &mut Scene, team: Team, who: &str) {
+    let Team::College(p) = team else { return };
+    let Some(i) = signee_of(w, s, p) else { return };
+    let school = w.program_name(p).to_string();
+    let name = w.people[i].name.clone();
+    crate::world::recruiting::release_signee(w, i, &school);
+    s.outcome.push(format!("{who} took the call and let {name} out of his signing, as schools usually do."));
+}
+
+/// The other signees hear how you handled one of theirs.
+fn classmates_hear(w: &mut World, p: usize, by: f32) {
+    let you = w.career.as_ref().map_or(0, |c| c.coach) as u32;
+    for pp in w.people.iter_mut() {
+        if matches!(pp.stage, Stage::HighSchool | Stage::PrepSchool) && pp.cal.signed.is_some_and(|x| x.program == p) {
+            if pp.trust_in != you {
+                pp.trust_in = you;
+                pp.trust = 0.5;
+            }
+            pp.trust = (pp.trust + by).clamp(0.0, 1.0);
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

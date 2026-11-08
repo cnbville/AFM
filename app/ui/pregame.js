@@ -43,6 +43,25 @@ function worldTitle(x) {
   const m = x && x.meta;
   return m ? `World ${m.start_year}` : (x && x.name) || "A world";
 }
+// The Jan 1 start (Cain 2026-11-08): a world stands on Jan 1 (built so or
+// played on), or on the morning after the Super Bowl.
+const WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+function worldYear(x) {
+  return Number(String((x && x.meta && x.meta.world_date) || "").slice(0, 4)) || null;
+}
+function isJan1World(x) {
+  return !!(x && ((x.card && x.card.world && x.card.world.jan1) || String((x.meta && x.meta.world_date) || "").slice(5, 7) === "01"));
+}
+function jan1Text(y) {
+  return `${WD[new Date(Date.UTC(y, 0, 1)).getUTCDay()]} 1 Jan ${y}`;
+}
+// The library's Jan 1 world played on from this one, if it is there and
+// newer than this build of it (a newer download plays on again).
+function jan1Twin(worlds, x) {
+  const y = worldYear(x);
+  const built = (o) => String((o && o.meta && o.meta.written) || "");
+  return y && x ? worlds.find((o) => o.name === `${x.name}-jan${y + 1}` && built(o) >= built(x)) || null : null;
+}
 function bar(share) {
   return `<span class="pg-bar"><i style="width:${Math.round(Math.max(0, Math.min(1, share)) * 100)}%"></i></span>`;
 }
@@ -269,9 +288,12 @@ async function stepWorld(st) {
   const champ = (list) => (list && list.length ? `${esc(list[0][0])} <span class="pg-dim">${esc(list[0][1])}</span>` : '<span class="pg-dim">-</span>');
   const rows = worlds.map((x) => {
     const w = x.card && x.card.world, m = x.meta || {};
+    const jan = isJan1World(x);
+    const base = jan ? worlds.find((o) => x.name === `${o.name}-jan${(worldYear(o) || 0) + 1}`) : null;
     const years = w ? `${yrs(w.history_years)}, ${w.first}-${w.last}` : m.history_years ? yrs(m.history_years) : "";
+    const tag = jan ? ` <span class="pg-tag">${base ? "PLAYED ON" : "JAN 1"}</span>` : "";
     return `<tr data-pg="pick-world" data-path="${esc(x.path)}" class="${x.path === st.world ? "sel" : ""}">
-      <td><b>${esc(worldTitle(x))}</b> <span class="pg-dim">· seed ${esc(m.seed)}</span></td><td>${esc(years)}</td><td>${esc(w ? w.starts : m.world_date || "")}</td>
+      <td><b>${esc(worldTitle(x))}</b> <span class="pg-dim">· seed ${esc(m.seed)}</span>${tag}</td><td>${esc(years)}</td><td>${esc(w ? w.starts : m.world_date || "")}</td>
       <td>${w ? champ(w.sb) : '<span class="pg-dim">read when it first opens</span>'}</td><td>${w ? champ(w.nc) : ""}</td>
       <td class="n">${esc(size(x.mb))}</td><td class="n">${esc(builtText(m.written))}</td></tr>`;
   });
@@ -292,13 +314,36 @@ async function stepWorld(st) {
   const progress = job ? buildPanel(job) : "";
   const offline = !PG.online && PG.offline ? `<div class="pg-empty" title="${esc(PG.offline)}">The worlds to download can't be listed right now, so only the worlds on this computer show.</div>` : "";
   const names = wc ? wc.names : st.world === "test" && S.status && S.status.names ? String(S.status.names).toLowerCase() : "real";
+  // When you start (the Jan 1 start): Jan 1, the day before the January
+  // portal, or the morning after the Super Bowl.
+  st.start ??= "jan1";
+  const selJan = isJan1World(sel), twin = sel && !selJan ? jan1Twin(worlds, sel) : null;
+  const yr = worldYear(sel);
+  const janDay = selJan ? (wc ? wc.starts : jan1Text(yr || 2027)) : yr ? jan1Text(yr + 1) : "Jan 1";
+  const start = st.world === "test" || !sel ? null : selJan ? "jan1" : st.start;
+  const playOn = !!(sel && !selJan && start === "jan1" && !twin);
+  const janNote = selJan ? "This world stands on Jan 1: every career from it starts that morning."
+    : twin ? `Played on once already: your career starts at once from ${worldTitle(twin)}, ${janDay}.`
+    : `This world plays on to ${janDay} once, about 10 to 15 minutes, and stays in your library as its own world.`;
+  const startPanel = start ? `<div class="pg-panel pg-start"><div class="pg-ph"><span>When you start</span></div>
+      <div class="pg-starts">
+        <button class="pg-startc ${start === "jan1" ? "on" : ""}" data-pg="pick-start" data-v="jan1" aria-pressed="${start === "jan1"}"><b>January 1 · before the portal</b>
+          <span>You take the job the day before the January window. Jan 1 and 2 are your welcome meetings: keep or let go the old staff, hire yours, meet the team, then the flight risks, your signees and the portal. A team still in the playoff plays its last games under an interim; you run everything else.</span>
+          <em>${esc(janNote)}</em></button>
+        <button class="pg-startc ${start === "feb9" ? "on" : ""}" data-pg="pick-start" data-v="feb9" aria-pressed="${start === "feb9"}" ${selJan ? "disabled" : ""}><b>February 9 · after signing day</b>
+          <span>The morning after the Super Bowl. The class is signed and the January window is shut: you start from the roster the last staff left. Your meetings spread over two weeks.</span>
+          <em>${selJan ? "This world is past it." : "Starts at once on this world."}</em></button>
+      </div></div>` : "";
+  const startsOn = start === "jan1" ? janDay : wc ? wc.starts : sel && sel.meta ? sel.meta.world_date : "";
+  const firstSeason = start === "jan1" ? (selJan ? yr : (yr || 2026) + 1) : yr;
   const body = `<div class="pg-body"><div class="pg-col">
       <div class="pg-panel"><div class="pg-ph"><span>World library <small>· ${worlds.length} world${worlds.length === 1 ? "" : "s"}</small></span>
         <span class="pg-acts">${isMac() ? '<button class="pg-btn s" data-pg="import">Import a world folder…</button><button class="pg-btn s" data-pg="import" data-file="1">Import a world file…</button>' : '<button class="pg-btn s" data-pg="import">Import from a path…</button>'}<button class="pg-btn s" data-pg="build">Build a new world</button></span></div>
-        ${rows.length ? `<div class="pg-tbl" data-keep="worlds"><table><thead><tr><th>World</th><th>History</th><th>Starts</th><th>Super Bowl champions</th><th>National champions</th><th class="n">Size</th><th class="n">Built</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`
+        ${rows.length ? `<div class="pg-tbl" data-keep="worlds"><table><thead><tr><th>World</th><th>History</th><th>Stands on</th><th>Super Bowl champions</th><th>National champions</th><th class="n">Size</th><th class="n">Built</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`
           : `<div class="pg-empty">Your library is empty. Download a ready-built world below, import a world folder, or build one.</div>`}
         ${progress}${offline}
       </div>
+      ${startPanel}
       ${story ? `<div class="pg-panel"><div class="pg-ph"><span>The world's story ${wc ? `<small>· what ${esc(yrs(wc.history_years))} left behind</small>` : ""}</span>${sel ? '<span class="pg-acts"><button class="pg-btn s" data-pg="delete-world">Delete this world…</button></span>' : ""}</div>${story}</div>` : ""}
     </div>
     <aside class="pg-aside">
@@ -308,23 +353,25 @@ async function stepWorld(st) {
           ? "The real NFL clubs, real colleges and their real conferences. Towns are real; high schools, players and coaches are generated either way. A world's names are set when it is built: Build a new world offers fictional names."
           : "Every college, conference and NFL club carries a made-up name. The towns, the cities the clubs play in and the bowls stay real; high schools, players and coaches are generated either way."}</p></div></div>
       <div class="pg-panel"><div class="pg-ph"><span>Your new career</span></div>
-        <div class="pg-kv"><span>World</span><span>${esc(st.world === "test" ? "Test world" : sel ? worldTitle(sel) : "-")}</span><span>Names</span><span>${names === "real" ? "Real names" : "Fictional names"}</span>
-        <span>You</span><span class="pg-dim">step 2</span><span>Background</span><span class="pg-dim">step 3</span><span>Job</span><span class="pg-dim">step 6</span></div></div>
+        <div class="pg-kv"><span>World</span><span>${esc(st.world === "test" ? "Test world" : sel ? `${worldTitle(sel)} · seed ${sel.meta ? sel.meta.seed : ""}` : "-")}</span><span>Names</span><span>${names === "real" ? "Real names" : "Fictional names"}</span>
+        ${start ? `<span>You start</span><span>${esc(startsOn)}</span><span>Your first season</span><span>${esc(firstSeason || "")}</span>` : ""}
+        <span>You</span><span class="pg-dim">step 2</span><span>Background</span><span class="pg-dim">step 3</span><span>Job</span><span class="pg-dim">step 6</span></div>
+        ${start === "jan1" ? '<p class="pg-note">A college team still in the playoff on Jan 1 plays its last games under an interim head coach. You run everything else from day one.</p>' : ""}</div>
     </aside></div>`;
   return setupPage(st, {
     title: "Choose your world",
-    lede: "Each world is a whole football country with its history behind it, stopped on the morning after the Super Bowl. Every career you start from it plays out fresh from that morning.",
+    lede: "Each world is a whole football country with its history behind it. Pick the world, then the day you take the job: every career you start from it plays out fresh from that morning.",
     body,
-    sum: esc(st.world === "test" ? "Test world" : sel ? `${worldTitle(sel)} · ${names === "real" ? "Real names" : "Fictional names"}` : "Pick a world"),
-    next: "Next: You",
-    nextOk: !!st.world,
+    sum: esc(st.world === "test" ? "Test world" : sel ? `${worldTitle(sel)} · seed ${sel.meta ? sel.meta.seed : ""} · from ${startsOn}` : "Pick a world"),
+    next: playOn ? "Play on to Jan 1, then: You" : "Next: You",
+    nextOk: !!st.world && !(job && !job.finished && job.kind === "play"),
   });
 }
 
 function buildPanel(j) {
   const pct = Math.round((j.done || 0) * 100);
   const min = Math.round((j.seconds || 0) / 60);
-  const what = j.finished ? (j.error ? "Stopped" : "Ready") : j.kind === "build" ? "Building" : "Downloading";
+  const what = j.finished ? (j.error ? "Stopped" : "Ready") : j.kind === "build" ? "Building" : j.kind === "play" ? "Playing on to Jan 1" : "Downloading";
   const stop = j.finished || j.stopping ? "" : `<button class="pg-btn s" data-pg="jobstop">Stop</button>`;
   return `<div class="pg-pad" id="pg-job" style="border-top:1px solid var(--pg-line)"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><b>${esc(what)} · ${esc(j.name)} <span class="pg-dim">${pct}% · ${min} min</span></b>${stop}</div>
     <div class="pg-meter"><i style="width:${pct}%"></i></div><p class="pg-note" ${j.error ? 'style="color:#ff9c90"' : ""}>${esc(j.error || j.text)}</p></div>`;
@@ -337,7 +384,17 @@ function watchBuild() {
     try { j = await api("job"); } catch (e) { return; }
     const el = $("#pg-job");
     if (el && j) el.outerHTML = buildPanel(j);
-    if (!j || j.finished) { clearInterval(PG.jobPoll); PG.online = null; PG.onlineAsked = false; render(); }
+    if (!j || j.finished) {
+      clearInterval(PG.jobPoll); PG.online = null; PG.onlineAsked = false;
+      // The world played on to Jan 1: open it and go on to step 2.
+      const st = setupState();
+      if (j && j.kind === "play" && !j.error && j.path && st.pendingPlay === j.name) {
+        st.pendingPlay = null;
+        st.world = j.path;
+        if (await openWorldFor(st)) return toStep(st, 2);
+      } else if (j && j.kind === "play" && st.pendingPlay === j.name) st.pendingPlay = null;
+      render();
+    }
   }, 2000);
 }
 
@@ -1139,6 +1196,38 @@ async function stepGround(st) {
 }
 
 // ---------- actions ----------
+// Leaving the World step (Next or a step chip). The Jan 1 start on a world
+// that stands on Feb 9 takes its Jan 1 twin when the library has it, else
+// plays it on once first and goes on when that is done (watchBuild).
+async function worldForStart(st) {
+  if (!st.world) return false;
+  if (st.pendingPlay) {
+    let j = null;
+    try { j = await api("job"); } catch (e) { /* no job */ }
+    if (j && j.kind === "play" && !j.finished) { toast("The world is still playing on to Jan 1."); return false; }
+    // It finished while you were away from this step: its world, or a fresh try.
+    const done = j && j.kind === "play" && !j.error && j.path && j.name === st.pendingPlay;
+    st.pendingPlay = null;
+    if (done) { st.world = j.path; return openWorldFor(st); }
+  }
+  const wl = (PG.lib && PG.lib.worlds) || [];
+  const sel = wl.find((x) => x.path === st.world);
+  if (sel && !isJan1World(sel) && (st.start ?? "jan1") === "jan1") {
+    const twin = jan1Twin(wl, sel);
+    if (twin) st.world = twin.path;
+    else {
+      if ($("#busy") || !(await leaveCareer())) return false;
+      try {
+        const r = await api("play_on", { path: sel.path });
+        st.pendingPlay = r.name; st.loaded = null; PG.loaded = null; S.status = null;
+        toast("Playing the world on to Jan 1: about 10 to 15 minutes. Your career goes on from there.");
+        render();
+      } catch (e) { toast(e.message); }
+      return false;
+    }
+  }
+  return openWorldFor(st);
+}
 async function openWorldFor(st) {
   if (st.world === "test") return true;
   if (st.loaded === st.world && S.status && !S.status.you) return true;
@@ -1284,15 +1373,16 @@ document.addEventListener("click", async (ev) => {
       break;
     }
     // The new career.
-    case "step": if (st) { const k = Number(d.k); if (k > 1 && !(await openWorldFor(st))) break; toStep(st, k); } break;
+    case "step": if (st) { const k = Number(d.k); if (k > 1 && !(await (st.step === 1 ? worldForStart(st) : openWorldFor(st)))) break; toStep(st, k); } break;
     case "next": {
       if (!st) break;
-      if (st.step === 1) { if (!st.world || !(await openWorldFor(st))) break; }
+      if (st.step === 1 && !(await worldForStart(st))) break;
       if (st.step === 2 && (!st.first.trim() || !st.last.trim())) { st.tried = true; toast("Give your first and last name first."); render(); break; }
       toStep(st, st.step + 1);
       break;
     }
     case "pick-world": st.world = d.path; render(); break;
+    case "pick-start": st.start = d.v; render(); break;
     case "delete-world": {
       const w = st && PG.lib && PG.lib.worlds.find((x) => x.path === st.world);
       if (!w) break;
@@ -1322,12 +1412,13 @@ document.addEventListener("click", async (ev) => {
         <div class="pg-grid two" style="padding:0"><div class="pg-f"><label>Kind</label><select name="kind"><option value="full">A full world</option><option value="test">A test world (about 2 minutes)</option></select></div>
         <div class="pg-f"><label>Seed</label><input name="seed" value="${seed}"></div><div class="pg-f"><label>Years of history (full)</label><input name="years" value="30"></div>
         <div class="pg-f"><label>Size (test)</label><select name="scale"><option value="0.03">3%</option><option value="0.1">10%</option></select></div>
-        <div class="pg-f" style="grid-column:1/-1"><label>Names</label><select name="names"><option value="real">Real names: the real clubs, colleges and conferences</option><option value="fictional">Fictional names: made-up colleges, conferences and NFL clubs in the real cities</option></select></div></div>`, "Build", (f) => ({ kind: f.elements.kind.value, seed: Number(f.elements.seed.value) || seed, years: Number(f.elements.years.value) || 30, scale: Number(f.elements.scale.value) || 0.03, names: f.elements.names.value }));
+        <div class="pg-f" style="grid-column:1/-1"><label>Names</label><select name="names"><option value="real">Real names: the real clubs, colleges and conferences</option><option value="fictional">Fictional names: made-up colleges, conferences and NFL clubs in the real cities</option></select></div>
+        <div class="pg-f" style="grid-column:1/-1"><label>Where it stops (full)</label><select name="stop"><option value="jan1">Jan 1, the day before the January portal</option><option value="feb9">The morning after the Super Bowl</option></select></div></div>`, "Build", (f) => ({ kind: f.elements.kind.value, seed: Number(f.elements.seed.value) || seed, years: Number(f.elements.years.value) || 30, scale: Number(f.elements.scale.value) || 0.03, names: f.elements.names.value, stop: f.elements.stop.value }));
       f.elements.kind.focus();
       const v = await answer;
       if (!v) break;
       if (v.kind === "full") {
-        try { await api("build_world_file", { seed: v.seed, history_years: Math.max(1, Math.min(60, v.years)), names: v.names }); render(); } catch (e) { toast(e.message); }
+        try { await api("build_world_file", { seed: v.seed, history_years: Math.max(1, Math.min(60, v.years)), names: v.names, stop: v.stop }); render(); } catch (e) { toast(e.message); }
         break;
       }
       if ($("#busy") || !(await leaveCareer())) break;

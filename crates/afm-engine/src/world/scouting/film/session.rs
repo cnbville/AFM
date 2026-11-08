@@ -354,7 +354,8 @@ pub fn bar(w: &World) -> f32 {
 }
 
 /// The questions on offer for a player (SK47), the default first: where
-/// your own read is widest, where your staff disagree most, and the rest.
+/// your own read has the most left to learn (widest above your eye's
+/// floor), where your staff disagree most, and the rest.
 pub fn questions(w: &World, id: u32) -> Vec<Question> {
     let Some(i) = super::super::place(w, id) else { return Vec::new() };
     let pos = w.people[i].player.position;
@@ -392,9 +393,23 @@ pub fn questions(w: &World, id: u32) -> Vec<Question> {
         attrs: a.attrs.iter().map(|x| x.index() as u8).collect(),
         bar: b,
     };
+    // How far your read sits above your eye's floor there: what more of
+    // his tape can still teach you (minor bug 352: each trait has its own
+    // floor, so the subtlest question isn't always the widest).
+    let steady = lasting_eye(w, pos);
+    let room = |a: &words::Ask| -> f64 {
+        wide(a) - a.attrs.iter().map(|&x| super::lean_sd(steady, x)).sum::<f64>() / a.attrs.len().max(1) as f64
+    };
     let mut out = Vec::new();
-    if let Some(a) = asks.iter().max_by(|x, y| wide(x).total_cmp(&wide(y))) {
-        out.push(make(a, "Your own read is widest here: you haven't seen it yourself.".into()));
+    if let Some(a) = asks.iter().max_by(|x, y| room(x).total_cmp(&room(y))) {
+        let seen =
+            own.as_ref().is_some_and(|r| a.attrs.iter().any(|x| r.attrs.get(x.index()).copied().flatten().is_some()));
+        let why = if seen {
+            "Your own read has the most left to learn here."
+        } else {
+            "Your own read is widest here: you haven't seen it yourself."
+        };
+        out.push(make(a, why.into()));
     }
     if let Some(a) = asks.iter().filter(|a| split(a) >= 3.0).max_by(|x, y| split(x).total_cmp(&split(y)))
         && !out.iter().any(|q| q.key == a.key)
@@ -901,6 +916,14 @@ fn eye(w: &World, pos: Position) -> f64 {
     base + super::time::position_edge(w, pos)
 }
 
+/// Your eye at rest on his position (minor bug 352): your evaluation and
+/// what your hours there taught it, without the weeks' wear. It sizes your
+/// lasting misjudgment of him (`lean_sd`), which a tired week doesn't move.
+pub(crate) fn lasting_eye(w: &World, pos: Position) -> f64 {
+    let base = super::super::yours::your_eye(w).unwrap_or(10.0);
+    base + super::time::hours_edge(w, pos)
+}
+
 fn roll(s: &Session, w: &World, snap: usize, k: usize, salt: u64) -> f64 {
     let id = match s.target {
         Target::Player(id) => id as u64,
@@ -1381,23 +1404,18 @@ fn finish(w: &mut World, s: Session, verdict: Option<u8>, read_says: bool) -> St
                 let kind = film_kind(w, i);
                 // From the stands the trip already put the game in his
                 // file; tape is a film look under your name.
-                if let Some(you) = you
-                    && s.mode != Mode::Live
-                {
-                    super::super::dept::add(w, id, you, kind, d);
-                }
+                let new = match you {
+                    Some(you) if s.mode != Mode::Live => super::super::dept::add(w, id, you, kind, d),
+                    _ => false,
+                };
                 super::queue::watched(w, id);
-                if let Some(Staff::Club(c)) = readers::seat_staff(w)
+                // The club's file keeps a copy of a new look for the board
+                // (from the stands, the trip's copy is already there).
+                if new
+                    && let Some(Staff::Club(c)) = readers::seat_staff(w)
                     && w.nfl.get(c).and_then(|x| x.head_coach) == readers::you(w)
                 {
-                    super::super::dept::club_look(
-                        w,
-                        c,
-                        id,
-                        crate::world::pro::scouts::HC,
-                        crate::world::pro::scouts::LookKind::Film,
-                        d,
-                    );
+                    super::super::dept::club_copy(w, c, id, crate::world::pro::scouts::LookKind::Film, d);
                 }
                 if let Some(r) = &s.coach
                     && let Some(c) = r.coach
@@ -1411,7 +1429,9 @@ fn finish(w: &mut World, s: Session, verdict: Option<u8>, read_says: bool) -> St
                             };
                             super::super::dept::club_look(w, t, id, role, crate::world::pro::scouts::LookKind::Film, d);
                         }
-                        _ => super::super::dept::add(w, id, COACH + c as u32, kind, d),
+                        _ => {
+                            super::super::dept::add(w, id, COACH + c as u32, kind, d);
+                        }
                     }
                 }
                 w.scouting.dept.asks.retain(|a| a.0 != id || a.1 != super::super::Kind::Film);
@@ -1788,9 +1808,10 @@ pub fn caught(w: &World, s: &Session) -> Vec<Catch> {
     let t = super::time::tiredness(w);
     let p = &w.people[i];
     let sd_c = (3.5 * file::sharp(e) * (1.0 + 0.3 * t)) as f32;
-    // Your eye's lasting misjudgment (minor bug 320): the same in every
-    // catch of a trait, so tape narrows toward it, not to the truth.
-    let floor = super::EYE_LEAN * 3.5 * file::sharp(e);
+    // Your eye's lasting misjudgment (minor bugs 320 and 352): the same in
+    // every catch of a trait, so tape narrows toward it, not to the truth.
+    let steady = lasting_eye(w, s.pos);
+    let floor = |a: Attr| super::lean_sd(steady, a);
     // What one game shows of him is that game (minor bug 338): the same
     // in every catch of it, so a read firms up over games, not snaps.
     let form = super::GAME_SD * file::sharp(e);
@@ -1812,12 +1833,12 @@ pub fn caught(w: &World, s: &Session) -> Vec<Catch> {
                 catches.push(Catch {
                     id,
                     attr: a.index() as u8,
-                    v: (truth + noise * sd_c as f64 + floor * super::eye_lean(w, id, a) + game_look(a)) as f32,
+                    v: (truth + noise * sd_c as f64 + floor(a) * super::eye_lean(w, id, a) + game_look(a)) as f32,
                     sd: sd_c,
                     date: d,
                     by: 0,
                     key: sk,
-                    lean: floor as f32,
+                    lean: floor(a) as f32,
                     game: gk,
                     form: form as f32,
                 });
@@ -1833,13 +1854,13 @@ pub fn caught(w: &World, s: &Session) -> Vec<Catch> {
             catches.push(Catch {
                 id,
                 attr: a.index() as u8,
-                v: (truth + 4.0 * snap.grade as f64 + 6.0 * noise + floor * super::eye_lean(w, id, a) + game_look(a))
+                v: (truth + 4.0 * snap.grade as f64 + 6.0 * noise + floor(a) * super::eye_lean(w, id, a) + game_look(a))
                     as f32,
                 sd: 8.0,
                 date: d,
                 by: 0,
                 key: sk ^ 0x2E5,
-                lean: floor as f32,
+                lean: floor(a) as f32,
                 game: gk,
                 form: form as f32,
             });

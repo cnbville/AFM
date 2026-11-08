@@ -451,10 +451,13 @@ fn coach_awards(w: &mut World, d: Date) {
     let active: Vec<usize> = (0..n).filter(|&t| s.active.get(t).copied().unwrap_or(true)).collect();
     let league = active.iter().map(|&t| pf[t] / games(t)).sum::<f64>() / active.len().max(1) as f64;
     let mut picks: Vec<(&str, usize, usize)> = Vec::new();
+    // A club whose head coach left before the season ended (the Jan 1
+    // start) has no coach to vote for.
+    let taken = w.nfl_takeover().map(|x| x.0);
     if let Some(t) = active
         .iter()
         .copied()
-        .filter(|&t| w.nfl[t].head_coach.is_some())
+        .filter(|&t| w.nfl[t].head_coach.is_some() && taken != Some(t))
         .max_by(|&a, &b| (beat(a) + 0.3 * share(a)).total_cmp(&(beat(b) + 0.3 * share(b))))
     {
         picks.push(("Coach of the Year", w.nfl[t].head_coach.unwrap(), t));

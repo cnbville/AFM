@@ -314,6 +314,7 @@ fn watch(w: &mut World, id: u32, attrs: &[Attr], salt: u64) -> Vec<String> {
     // every catch of it: in person as on tape.
     let form = super::GAME_SD * file::sharp(e);
     let day = super::game_key("there", d.0);
+    let steady = super::session::lasting_eye(w, w.people[i].player.position);
     let mut lines = Vec::new();
     let mark = words::level_mark(w.people[i].stage);
     for (k, &a) in attrs.iter().enumerate() {
@@ -324,8 +325,9 @@ fn watch(w: &mut World, id: u32, attrs: &[Attr], salt: u64) -> Vec<String> {
         }
         let truth = w.people[i].player.attributes.get(a);
         let noise = key_normal(w.options.seed as u64 ^ salt ^ 0x5EE ^ (d.0 as u64) << 24, id as u64 ^ (k as u64) << 40);
-        // Your eye's lasting misjudgment of him rides along (minor bug 320).
-        let lean = super::EYE_LEAN * sd as f64;
+        // Your eye's lasting misjudgment of him rides along (minor bugs 320
+        // and 352), the same as on tape: your eye at rest on his position.
+        let lean = super::lean_sd(steady, a);
         let looked = form * key_normal(w.options.seed as u64 ^ 0x6A3E ^ day, id as u64 ^ (a.index() as u64) << 50);
         w.scouting.film.catches.push(Catch {
             id,

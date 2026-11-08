@@ -674,13 +674,13 @@ fn watch(w: &mut World, d: Date) {
     }
     let seen = sc::film::time::spend(w, hours, Some(pos)).is_ok();
     if seen && let Some(you) = me(w) {
-        sc::dept::add(w, id, you, kind, d);
-        // At a club, the head coach's look goes in the club's file too.
-        if s == Seat::Club
+        // At a club, the head coach's new look goes in the club's file too.
+        if sc::dept::add(w, id, you, kind, d)
+            && s == Seat::Club
             && let Some(Staff::Club(c)) = readers::seat_staff(w)
             && w.nfl.get(c).and_then(|x| x.head_coach) == readers::you(w)
         {
-            sc::dept::club_look(w, c, id, crate::world::pro::scouts::HC, crate::world::pro::scouts::LookKind::Film, d);
+            sc::dept::club_copy(w, c, id, crate::world::pro::scouts::LookKind::Film, d);
         }
     }
     let h = w.hunt.yours.as_mut().unwrap();
