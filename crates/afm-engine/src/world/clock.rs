@@ -1152,6 +1152,23 @@ fn huge_for(seat: Option<super::Seat>, e: &Event) -> bool {
     e.loud == Loudness::Huge && (!e.regular || cares(seat, e))
 }
 
+/// Sandbox mode's jump to a date (a test tool): every day to `until`
+/// plays exactly as Continue plays it, your staff running what you leave
+/// (a live draft on the way included, as a whole day finishes it), with no
+/// stop for huge moments; then the clock stands at the first stop of
+/// `until`. Returns the day it stopped on.
+pub fn jump_to(w: &mut World, until: Date) -> Date {
+    while w.today < until {
+        advance_day(w);
+    }
+    if super::scouting::live::holds(w) {
+        return w.today;
+    }
+    let (d, m) = w.next_stop();
+    run_to(w, d, m);
+    w.today
+}
+
 /// T10: holiday mode to a chosen date. Staff run things and the sections
 /// pass without stopping (topic 9); it comes back early for a huge moment,
 /// at the section stop after it. Returns the day it stopped on: the first

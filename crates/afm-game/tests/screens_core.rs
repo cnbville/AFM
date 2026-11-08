@@ -165,6 +165,33 @@ fn the_desk_files_answers_and_clears_its_mail() {
     ok(&mut g, "save", json!({ "name": "no-fire test" }));
     let lib = ok(&mut g, "library", json!({}));
     assert!(lib["saves"].as_array().unwrap().iter().any(|s| s["meta"]["no_fire"].is_string()), "{lib}");
+
+    // Sandbox mode (Settings, a test switch; no-fire is one of its
+    // switches): the no-fire turn above marked the career, every other
+    // switch waits; on, the frame shows it; the jump plays days; the save's
+    // header carries the mark to Load game.
+    let sb = ok(&mut g, "sandbox", json!({}));
+    assert!(sb["career"] == true && sb["on"] == true && sb["since"].is_string(), "{sb}");
+    let lifted =
+        |sb: &Value, k: &str| sb["switches"].as_array().unwrap().iter().any(|s| s["key"] == k && s["lifted"] == true);
+    assert!(!lifted(&sb, "film_hours") && !lifted(&sb, "no_fire"), "{sb}");
+    let sb = ok(&mut g, "sandbox_switch", json!({ "key": "film_hours", "on": true }));
+    assert!(sb["on"] == true && lifted(&sb, "film_hours") && !lifted(&sb, "nil_budget"), "{sb}");
+    assert!(g.call("sandbox_switch", &json!({ "key": "nothing", "on": true })).is_err());
+    assert_eq!(ok(&mut g, "status", json!({}))["sandbox"], true);
+    let before = ok(&mut g, "sandbox", json!({}))["today"].as_str().unwrap().to_string();
+    let r = ok(&mut g, "sandbox_jump", json!({ "days": 3 }));
+    assert!(r["days"].as_i64().unwrap() >= 3, "{r}");
+    let after = ok(&mut g, "sandbox", json!({}))["today"].as_str().unwrap().to_string();
+    assert!(after > before, "{before} -> {after}");
+    assert!(g.call("sandbox_jump", &json!({ "until": before })).is_err(), "not into the past");
+    ok(&mut g, "save", json!({ "name": "sandbox test" }));
+    let lib = ok(&mut g, "library", json!({}));
+    assert!(lib["saves"].as_array().unwrap().iter().any(|s| s["meta"]["sandbox"].is_string()), "{lib}");
+    let sb = ok(&mut g, "sandbox_set", json!({ "on": false }));
+    assert!(sb["on"] == false && sb["since"].is_string(), "the mark stays: {sb}");
+    assert!(g.call("sandbox_jump", &json!({ "days": 3 })).is_err(), "the jump needs sandbox mode on");
+    assert_eq!(ok(&mut g, "status", json!({}))["sandbox"], false);
     let _ = std::fs::remove_dir_all(dir);
 }
 

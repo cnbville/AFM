@@ -524,6 +524,13 @@ html.reading .frame { filter: blur(10px) saturate(.8); transform: scale(.985); t
 .setrow small { color: var(--fg3); font-size: 12px; }
 .setrow > .seg { flex-shrink: 0; }
 .setrow input[type="range"] { width: 200px; accent-color: var(--accent); }
+/* Sandbox mode (Settings, a test switch) */
+.panel.sandbox.on { box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--gold) 45%, transparent); }
+.sb-group { margin: 16px 0 2px; }
+.sb-switches[aria-disabled="true"] .setrow { opacity: .55; }
+.sb-jump { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+.sb-badge { margin-top: 4px; border: 0; font: inherit; font-size: 11px; font-weight: 800; letter-spacing: .04em; cursor: pointer; }
+.sb-title { display: inline-flex; gap: 8px; align-items: center; }
 .keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px 22px; }
 .keys > div { display: flex; gap: 12px; align-items: center; font-size: 13px; }
 .keys kbd { min-width: 110px; text-align: center; }

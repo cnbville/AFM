@@ -21,6 +21,7 @@ pub mod tables;
 
 use afm_engine::calendar::Weekday;
 use afm_engine::world::World;
+use afm_engine::world::sandbox::Switch;
 use serde_json::{Value, json};
 
 use crate::{Game, Reply};
@@ -135,15 +136,101 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "career_page" => Ok(pages::career_page(w)),
         "team_page" => crate::views::TeamRef::from_args(w, args).map(|t| pages::team_page(w, t)),
         "linked" => Ok(pages::linked(w, args)),
-        // The no-fire override (Settings, a test switch).
+        // The no-fire override (Settings, a test switch; one of sandbox
+        // mode's switches).
         "no_fire" => Ok(no_fire(w)),
         "no_fire_set" => {
             w.set_no_fire(args.get("on").and_then(Value::as_bool).unwrap_or(false));
             Ok(no_fire(w))
         }
+        // Sandbox mode (Settings, a test switch): on or off, one switch,
+        // and the jump to a date.
+        "sandbox" => Ok(sandbox(w)),
+        "sandbox_set" => {
+            if w.career.is_none() {
+                Err("Start a career first.".into())
+            } else {
+                w.set_sandbox(args.get("on").and_then(Value::as_bool).unwrap_or(false));
+                Ok(sandbox(w))
+            }
+        }
+        "sandbox_switch" => {
+            let key = args.get("key").and_then(Value::as_str).unwrap_or("");
+            match Switch::from_key(key) {
+                None => Err(format!("No sandbox switch called {key}.")),
+                Some(_) if w.career.is_none() => Err("Start a career first.".into()),
+                Some(s) => {
+                    w.set_sandbox_switch(s, args.get("on").and_then(Value::as_bool).unwrap_or(false));
+                    Ok(sandbox(w))
+                }
+            }
+        }
+        "sandbox_jump" => sandbox_jump(w, args),
         _ => return None,
     };
     Some(r)
+}
+
+/// Sandbox mode as Settings shows it: on or off, the day it first went on
+/// (the career's mark), each switch by group with whether it is lifted,
+/// and today's date for the jump.
+fn sandbox(w: &World) -> Value {
+    let b = w.career.as_ref().map(|k| &k.sandbox);
+    let switches: Vec<Value> = Switch::ALL
+        .iter()
+        .map(|&s| {
+            json!({
+                "key": s.key(),
+                "label": s.label(),
+                "what": s.what(),
+                "group": s.group(),
+                "lifted": b.is_some_and(|b| b.picked(s)),
+            })
+        })
+        .collect();
+    json!({
+        "career": b.is_some(),
+        "on": b.is_some_and(|b| b.on),
+        "since": b.and_then(|b| b.since).map(crate::views::date_text),
+        "switches": switches,
+        "today": w.today.to_string(),
+        "jump_max": JUMP_MAX,
+    })
+}
+
+/// The longest jump, in days: two years.
+const JUMP_MAX: i32 = 730;
+
+/// Sandbox mode's jump to a date (`until`, "YYYY-MM-DD", or `days`): every
+/// day plays as Continue plays it and your staff runs what you leave.
+fn sandbox_jump(w: &mut World, args: &Value) -> Result<Value, String> {
+    if !w.career.as_ref().is_some_and(|k| k.sandbox.on) {
+        return Err("Turn sandbox mode on in Settings to jump ahead.".into());
+    }
+    let until = match (args.get("until").and_then(Value::as_str), args.get("days").and_then(Value::as_i64)) {
+        (Some(s), _) => {
+            let mut it = s.trim().splitn(3, '-').map(|x| x.parse::<u32>());
+            match (it.next(), it.next(), it.next()) {
+                (Some(Ok(y)), Some(Ok(m)), Some(Ok(d))) if (1..=12).contains(&m) && (1..=31).contains(&d) => {
+                    afm_engine::calendar::Date::ymd(y as i32, m, d)
+                }
+                _ => return Err("Pick a day to jump to.".into()),
+            }
+        }
+        (None, Some(n)) => w.today.add(n as i32),
+        _ => return Err("Pick a day to jump to.".into()),
+    };
+    let days = until.0 - w.today.0;
+    if days <= 0 {
+        return Err("Pick a day after today.".into());
+    }
+    if days > JUMP_MAX {
+        return Err(format!("Jump at most {} days (two years) at a time.", JUMP_MAX));
+    }
+    let (from, filed) = (w.now(), crate::views::desk_ids(w));
+    w.jump_to(until);
+    after_days(w);
+    Ok(crate::views::stopped(w, from, &filed))
 }
 
 /// The no-fire override as Settings shows it: on or off, the day it was

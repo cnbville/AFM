@@ -1429,6 +1429,14 @@ pub struct DefCtx {
     /// pass, -1 a run, 0 nothing read.
     #[serde(default)]
     pub tip: f64,
+    /// His safeties' hitter read (S-A, `scrimmage::hitter`), the mean of
+    /// the two: a staff with a thumper rotates him down more.
+    #[serde(default)]
+    pub hitter: f64,
+    /// The blitz lean from his linebackers' and corners' weight on the
+    /// field (L1, C1), in blitz-rate points.
+    #[serde(default)]
+    pub heavy: f64,
 }
 
 /// The defensive call.
@@ -1509,6 +1517,12 @@ pub fn call_defense(
                 w *= 1.0 + sharp * run_hurting * 2.5;
                 w *= (1.0 + 2.0 * lean_run).max(0.2);
             }
+            // A hitter at safety rotates down into the box more, a rangy
+            // pair stays two high more (S-A; proposed, not confirmed).
+            // 0.15 a point of his read: about +0.07 men in the box per
+            // 10 lb of safety on the field, as real.
+            let k = 0.15 * ctx.hitter;
+            w *= if cov.high() == 2 { (-k).exp() } else { k.exp() };
             if cov == Coverage::Cover0 {
                 w *= if short || sit.yardline_100 <= 10.0 {
                     2.5
@@ -1570,7 +1584,10 @@ pub fn call_defense(
         })
         .collect();
     let coverage = weigh(rng, &w);
-    let mut blitz = 0.24 + 0.012 * (c.aggressiveness - 10.0) - 0.2 * ease;
+    // Heavier linebackers and corners get sent more (L1, C1: the same real
+    // defense blitzes 1.1 pts more per 10 lb of linebacker weight on the
+    // field and 2 pts more per 10 lb of corner weight).
+    let mut blitz = 0.24 + 0.012 * (c.aggressiveness - 10.0) - 0.2 * ease + ctx.heavy;
     if sit.down == 3 && (4.0..=9.0).contains(&sit.togo) {
         blitz += 0.1;
     }

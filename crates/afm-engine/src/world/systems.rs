@@ -567,17 +567,63 @@ fn roster_value(w: &World, prog: &super::program::Program) -> [f64; 11] {
 /// fullback. A spot once listed stays familiar to him.
 pub(crate) fn set_spots(w: &mut World) {
     let mut moves: Vec<(usize, crate::spots::Spot)> = Vec::new();
-    for prog in &w.programs {
+    for (k, prog) in w.programs.iter().enumerate() {
         if !prog.plays(w.year) {
             continue;
         }
         let ids: Vec<usize> = prog.roster.iter().copied().filter(|&i| w.people[i].stage == Stage::College).collect();
         let players: Vec<&Player> = ids.iter().map(|&i| &w.people[i].player).collect();
         let spots = crate::spots::choose_spots(&players);
+        let mine = w.seat_program(k);
         moves.extend(ids.into_iter().zip(spots));
+        if mine {
+            named_jobs(w, &mut moves);
+        }
     }
+    apply_spots(w, moves);
+}
+
+/// Training camp in the NFL (L1): each staff lists its spots as the
+/// college staffs do each spring, so a man moved to a new job learns it
+/// over a camp, your club's named jobs included.
+pub(crate) fn set_club_spots(w: &mut World) {
+    let mut moves: Vec<(usize, crate::spots::Spot)> = Vec::new();
+    for (k, club) in w.clubs.iter().enumerate() {
+        let ids: Vec<usize> = club.roster.clone();
+        if ids.is_empty() {
+            continue;
+        }
+        let players: Vec<&Player> = ids.iter().map(|&i| &w.people[i].player).collect();
+        let spots = crate::spots::choose_spots(&players);
+        moves.extend(ids.into_iter().zip(spots));
+        if w.seat_club(k) {
+            named_jobs(w, &mut moves);
+        }
+    }
+    apply_spots(w, moves);
+}
+
+/// Your board's named jobs (linebackers, corners, safeties) replace your
+/// staff's for the men you named: a man named at another position's job
+/// learns it without leaving his own position's spot.
+fn named_jobs(w: &World, moves: &mut [(usize, crate::spots::Spot)]) {
+    for (pos, ids) in &w.seat_depth {
+        for (&id, &job) in ids.iter().zip(crate::spots::board_jobs(*pos)) {
+            if let Some(m) = moves.iter_mut().find(|m| w.people[m.0].player.id == id) {
+                m.1 = job;
+            }
+        }
+    }
+}
+
+fn apply_spots(w: &mut World, moves: Vec<(usize, crate::spots::Spot)>) {
     for (i, s) in moves {
-        crate::spots::set_spot(&mut w.people[i].player, s);
+        let p = &mut w.people[i].player;
+        if s.position() == p.position {
+            crate::spots::set_spot(p, s);
+        } else {
+            p.spots_played |= s.bit();
+        }
     }
 }
 

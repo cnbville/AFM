@@ -72,6 +72,8 @@
 .fm-q-top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; flex-wrap: wrap; }
 .fm-q-top b { font-size: 16px; }
 .fm-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.fm-moved { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px 16px; }
+.fm-mv { display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; align-items: baseline; font-size: 13.5px; padding: 4px 0; border-top: 1px solid var(--hair); }
 .fm-say { font-size: 13.5px; font-style: italic; }
 
 /* ---------- your film year ---------- */

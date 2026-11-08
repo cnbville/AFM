@@ -94,6 +94,54 @@ fn he_opens_by_saying_why_he_came() {
     let b = crate::world::folk::voice::bank();
     let ours = ["sour", "good", "flat"]
         .iter()
-        .any(|m| b.versions(&format!("talk.open.portal.{m}")).iter().any(|v| v.0 == said));
+        .any(|m| b.versions(&format!("talk.open.portal.{m}")).iter().any(|v| could_say(v.0, &said)));
     assert!(ours, "his opening isn't a portal line: {said}");
+}
+
+/// Whether a line as said could be this version: one wording of each
+/// `[a|b]` choice, and each `{fact}` filled with anything.
+fn could_say(version: &str, said: &str) -> bool {
+    let mut forms = vec![String::new()];
+    let mut rest = version;
+    while let (Some(a), Some(z)) = (rest.find('['), rest.find(']')) {
+        let (head, opts) = (&rest[..a], &rest[a + 1..z]);
+        forms = forms.iter().flat_map(|f| opts.split('|').map(move |o| format!("{f}{head}{o}"))).collect();
+        rest = &rest[z + 1..];
+    }
+    let said = said.to_lowercase();
+    forms.iter().any(|f| {
+        let f = format!("{f}{rest}").to_lowercase();
+        let lits: Vec<&str> = f
+            .split('{')
+            .enumerate()
+            .map(|(k, x)| if k == 0 { x } else { x.split_once('}').map_or(x, |y| y.1) })
+            .collect();
+        let (first, last) = (lits[0], lits[lits.len() - 1]);
+        if lits.len() == 1 {
+            return said == first;
+        }
+        if !said.starts_with(first) || !said.ends_with(last) || said.len() < first.len() + last.len() {
+            return false;
+        }
+        let mut at = first.len();
+        for l in &lits[1..lits.len() - 1] {
+            match said[at..].find(l) {
+                Some(p) => at += p + l.len(),
+                None => return false,
+            }
+        }
+        at + last.len() <= said.len()
+    })
+}
+
+#[test]
+fn a_said_line_is_read_back_to_its_version() {
+    assert!(could_say(
+        "I'm thinking about walking away from this {team} team.",
+        "I'm thinking about walking away from this Air Force team."
+    ));
+    assert!(could_say("[Look|Listen], {coach}. I'm out.", "Listen, Coach. I'm out."));
+    assert!(could_say("I want to stay.", "I want to stay."));
+    assert!(!could_say("I want to stay.", "I want to go."));
+    assert!(!could_say("Leaving {team} is hard.", "Staying at Air Force is hard."));
 }

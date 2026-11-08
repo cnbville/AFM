@@ -134,25 +134,61 @@ function frHome(x) {
 function frBrief(b) {
   title(b.name, "Film room");
   const head = { date: "", left: b.left, budget: b.budget, today: 0, eye_word: "", eye_pct: 100 };
-  if (!b.film) {
-    return `<div class="pad sl fm"><header class="fm-head"><div><div class="st-label">Film room</div><h1 class="fm-h1">${esc(b.name)}</h1><p class="fm-sub">${esc(b.meta)}</p></div></header>${frCard("No tape", `<p class="fm-dim">${esc(b.why_not || "There's no film of him.")}</p>`)}</div>`;
+  if (!b.film || b.tape_err) {
+    return `<div class="pad sl fm"><header class="fm-head"><div><div class="st-label">Film room</div><h1 class="fm-h1">${esc(b.name)}</h1><p class="fm-sub">${esc(b.meta)}</p></div></header>${frCard("No tape", `<p class="fm-dim">${esc(b.tape_err || b.why_not || "There's no film of him.")}</p>`)}</div>`;
   }
   const pickQ = keep("frq:" + b.id, {});
   if (!pickQ.q && b.questions[0]) pickQ.q = b.questions[0].key;
-  if (!pickQ.cut || !b.cuts.some((c) => c.key === pickQ.cut)) pickQ.cut = b.cuts[0].key;
+  // No cut-up picked for this question yet: the one that shows its
+  // ratings best (minor bug 322).
+  if (!pickQ.cut || !b.cuts.some((c) => c.key === pickQ.cut)) pickQ.cut = frBestCut(b.cuts);
   const q = b.questions.find((x) => x.key === pickQ.q) || b.questions[0];
-  const qs = b.questions.map((x) => `<button class="st-btn small ${x.key === (q && q.key) ? "on" : "glass"}" data-act="frpickq" data-id="${b.id}" data-q="${esc(x.key)}">${esc(x.text)}</button>`).join("");
-  const cuts = b.cuts.map((c) => `<button class="st-btn small ${c.key === pickQ.cut ? "on" : "glass"}" data-act="frpickcut" data-id="${b.id}" data-cut="${c.key}"${c.ask ? ` data-ask="${esc(c.ask)}"` : ""}>${esc(c.label)}</button>`).join("");
-  const mins = (b.full_snaps || 6) * b.snap_min;
+  const qs = b.questions.map((x) => `<button class="st-btn small ${x.key === (q && q.key) ? "on" : "glass"}" data-act="frpickq" data-id="${b.id}" data-q="${esc(x.key)}" title="${esc((x.rates || []).join(", "))}">${esc(x.text)}</button>`).join("");
+  const cut = b.cuts.find((c) => c.key === pickQ.cut) || b.cuts[0];
+  const cuts = b.cuts.map((c) => `<button class="st-btn small ${c.key === cut.key ? "on" : "glass"}" data-act="frpickcut" data-id="${b.id}" data-cut="${c.key}"${c.ask ? ` data-ask="${esc(c.ask)}"` : ""}>${esc(c.label)}<small>${c.snaps}</small></button>`).join("");
+  // What the cut-up holds now: its snaps, how many are new to you, the
+  // games, and how many show each rating the question reads.
+  const n = cut.snaps || 0;
+  // A full tape runs back a half-seen moment on about nine snaps in ten
+  // (measured 2026-11-08: about 57 seconds a snap all told).
+  const full = Math.max(1, Math.round(n * (b.snap_min + (b.full_through ? 0.9 * b.runback_min : 0))));
+  const quick = Math.max(1, Math.round(n * (b.quick_snap_min || 1 / 3)));
+  const fresh = cut.fresh === n ? "all new to you" : cut.fresh === 0 ? "every one watched before" : `${cut.fresh} new to you`;
+  // A game is one look of him (minor bug 338): say when its games are ones
+  // you have watched for this question.
+  const ng = cut.new_games == null ? cut.games.length : cut.new_games;
+  const gamesNew = cut.games.length && ng < cut.games.length ? ` (${ng ? `${ng} of its ${cut.games.length} games new to you` : "games you have watched"})` : "";
+  const shows = (cut.shows || []).map((x) => `<span${x.n ? "" : ' class="fm-amber"'}>${esc(x.name)} on ${x.n}</span>`).join(" · ");
+  const holds = n
+    ? `<p class="fm-q"><b>${n} of his snaps</b>, ${fresh}${cut.games.length ? ` · ${esc(cut.games.join(", "))}${gamesNew}` : ""}</p>${shows ? `<p class="fm-q">Snaps that show what the question reads: ${shows}</p>` : ""}`
+    : `<p class="fm-warn">None of his snaps on this cut-up. Pick another.</p>`;
+  const rates = q && q.rates && q.rates.length ? `<p class="fm-q">It reads your ratings of him on <b>${esc(q.rates.join(", "))}</b>. Each snap that shows one can narrow it.</p>` : "";
   return `<div class="pad sl fm">
     <header class="fm-head"><div><div class="st-label">Film room · his tape</div><h1 class="fm-h1">${esc(b.name)}</h1><p class="fm-sub">${esc(b.meta)}</p></div>
       <div class="fm-tops"><div class="fm-top"><span class="st-label">Film time left this week</span><b>${frH(b.left)}</b>${frBar(b.budget ? (b.left / b.budget) * 100 : 0)}<small>of ${frH(b.budget)}</small></div></div></header>
     <div class="fm-cols"><div class="fm-main">
-      ${frCard("The question to settle", `<div class="fm-big">${esc(q ? q.text : "What does his tape say?")}</div><p class="fm-dim">${esc(q ? q.why : "")}</p><div class="fm-seg wrap">${qs}</div>`)}
-      ${frCard(`The cut-up · about ${mins} min`, `<div class="fm-seg wrap">${cuts}</div>
-        <p class="fm-dim">${b.full_snaps || 6} of his snaps, played on the engine from his real team against real opponents. Each is three stills: the snap, the moment that decides it, the end.${b.full_through ? ` The full tape plays straight through with your coach in the room: no stops to call a snap, a half-seen moment run back while your hours last (${b.runback_min} min each), and the report lands in his file on the same click. The quick watch skims the same snaps: a first look only, with no coach.` : ""}</p>
-        <div class="fm-seg">${frBtn("fropen", { id: b.id, mode: "full" }, b.full_through ? `▶ Watch the full tape · about ${mins} min` : "Watch it snap by snap", "primary")}${frBtn("fropen", { id: b.id, mode: "quick" }, `Watch it quick · ${b.quick_min} min`)}<button class="st-btn small glass" data-go="film">Back to the queue</button></div>`)}
+      ${frCard("The question to settle", `<div class="fm-big">${esc(q ? q.text : "What does his tape say?")}</div><p class="fm-dim">${esc(q ? q.why : "")}</p>${rates}<div class="fm-seg wrap">${qs}</div>`)}
+      ${frCard(n ? `The cut-up · about ${full} min` : "The cut-up", `<div class="fm-seg wrap">${cuts}</div>${holds}
+        <p class="fm-dim">Played on the engine from his real team against real opponents. Each snap is three stills: the snap, the moment that decides it, the end. ${b.ours ? "A watch again plays only snaps you haven't seen." : "Each game of his is one look of him, so a game you haven't watched tells you more than more of one you have: a watch again plays snaps you haven't seen, from his next games once you have watched these."}${b.full_through ? ` The full tape plays straight through with your coach in the room: ${Math.round(b.snap_min * 60)} seconds a snap, a half-seen moment run back while your hours last (${Math.round(b.runback_min * 60)} seconds each), and the report lands in his file on the same click. The quick watch plays the same snaps once at game speed (${Math.round((b.quick_snap_min || 1 / 3) * 60)} seconds each): a first look only, with no coach.` : ""}</p>
+        <div class="fm-seg">${n ? `${frBtn("fropen", { id: b.id, mode: "full" }, b.full_through ? `▶ Watch the full tape · about ${full} min` : "Watch it snap by snap", "primary")}${frBtn("fropen", { id: b.id, mode: "quick" }, `Watch it quick · about ${quick} min`)}` : ""}<button class="st-btn small glass" data-go="film">Back to the queue</button></div>`)}
     </div><div class="fm-side">${frReads(b.reads, null)}</div></div></div>`;
+}
+
+// The cut-up that shows a question best: one with snaps new to you, then
+// the most games you haven't watched for it (a game is one look of him,
+// minor bug 338), then the most snaps of its rarest rating, then of all.
+function frBestCut(cuts) {
+  const score = (c) => {
+    const ns = (c.shows || []).map((x) => x.n);
+    const ng = c.new_games == null ? (c.games || []).length : c.new_games;
+    return [c.fresh > 0 ? 1 : 0, ng, ns.length ? Math.min(...ns) : 0, ns.reduce((t, x) => t + x, 0), c.snaps || 0];
+  };
+  const best = cuts.slice().sort((a, b) => {
+    const x = score(a), y = score(b);
+    for (let k = 0; k < x.length; k++) if (x[k] !== y[k]) return y[k] - x[k];
+    return 0;
+  })[0];
+  return best ? best.key : undefined;
 }
 
 function frReads(r, speed) {
@@ -286,7 +322,7 @@ function frSession(s) {
   const stills = frStills(sn, `${s.name}:${s.cut}:${s.at}:${s.step}`);
   let action = "";
   if (s.step === 0) {
-    action = `<div class="fm-seg">${frBtn("frplay", {}, `▶ Play the snap${s.mode === "full" ? ` · ${s.snap_min} min` : ""}`, "primary")}<span class="fm-dim">${s.mode === "live" ? "From the stands: no replays tonight." : "The tape stops before the moment on about one snap in three."}</span></div>`;
+    action = `<div class="fm-seg">${frBtn("frplay", {}, `▶ Play the snap${s.mode === "full" ? ` · ${Math.round(s.snap_min * 60)} s` : ""}`, "primary")}<span class="fm-dim">${s.mode === "live" ? "From the stands: no replays tonight." : "The tape stops before the moment on about one snap in three."}</span></div>`;
   } else if (s.step === 1 && sn.call) {
     action = `<div class="fm-call"><div class="st-label">The tape stops. Call it.</div><div class="fm-big">${esc(sn.call.q)}</div><div class="fm-seg wrap">${sn.call.opts.map((o, k) => frBtn("frcall", { pick: k }, esc(o))).join("")}</div></div>`;
   } else if (s.step === 2) {
@@ -296,7 +332,7 @@ function frSession(s) {
     parts.push(`<div class="fm-tile"><div class="st-label">Charted</div>${esc(sn.chart)}</div>`);
     if (sn.caught.length) parts.push(`<div class="fm-tile gold"><div class="st-label">Your eye caught</div>${sn.caught.map((c) => `<div>${esc(c)}</div>`).join("")}</div>`);
     if (sn.after) parts.push(`<p class="fm-cap"><b>After the whistle.</b> ${esc(sn.after)}</p>`);
-    if (sn.half) parts.push(`<div class="fm-half"><i>${esc(sn.half)}</i><div class="fm-seg">${frBtn("frrunback", {}, `Run it back · ${s.runback_min} min`)}${frBtn("frmoveon", {}, "Move on")}</div></div>`);
+    if (sn.half) parts.push(`<div class="fm-half"><i>${esc(sn.half)}</i><div class="fm-seg">${frBtn("frrunback", {}, `Run it back · ${Math.round(s.runback_min * 60)} s`)}${frBtn("frmoveon", {}, "Move on")}</div></div>`);
     if (sn.replayed) parts.push(`<div class="fm-tile gold"><div class="st-label">Caught on the replay</div>${esc(sn.replayed)}</div>`);
     if (sn.moved) parts.push(`<p class="fm-dim">You moved on. Whatever it was, you didn't see it.</p>`);
     if (sn.tired && sn.slipped) parts.push(`<p class="fm-amber">Tired eyes: ${frH(s.today)} of film today. Something on this snap may have slipped by.</p>`);
@@ -335,17 +371,40 @@ function frReport(x) {
     <header class="fm-head"><div><div class="st-label">Film report · ${esc(r.date)}</div><h1 class="fm-h1">${r.id != null ? frWho(r.id, r.name) : esc(r.name)}</h1><p class="fm-sub">${esc(r.ask || "")}</p></div></header>
     ${x.said ? `<p class="fm-note">${esc(x.said)}</p>` : ""}
     <div class="fm-cells">
-      ${r.verdict ? frCell("On the record", r.verdict, r.settled != null ? (r.settled ? "held up three years on" : "missed, three years on") : "") : ""}
+      ${r.verdict ? frCell("On the record", r.verdict, r.settled != null ? (r.settled ? "held up three years on" : "missed, three years on") : r.verdict === "Not sure" ? "" : "checked three years on") : ""}
       ${r.coach ? frCell(`${r.coach.split(" ").pop()}'s answer`, r.coach_answer || "—", r.coach) : ""}
       ${r.calls[1] ? frCell("Your calls", `${r.calls[0]} of ${r.calls[1]}`, "with your coach in the room") : ""}
-      ${frCell("Saved to his file", `${r.watched} snaps`, `${r.minutes} min, under your name`)}
+      ${frCell("Saved to his file", `${r.watched} snaps`, `${r.mode === "live" ? "his game from the stands" : `${r.minutes} min`}, under your name`)}
       ${frCell("Carried forward", r.carried.length ? r.carried.join(", ") : "Nothing", "tags for the interview room and the board")}
       ${r.analyst ? frCell("The analyst's view", r.analyst, r.numbers) : ""}
     </div>
+    ${frMoved(r)}
     ${r.notes && r.notes.length ? frCard("What your eye caught", fmTraits(r)) : r.caught.length ? frCard("What your eye caught", r.caught.map((c) => `<div class="fm-tile">${esc(c)}</div>`).join("")) : ""}
     ${r.hints.length ? frCard("Into the game plan", `<p class="fm-dim">${r.hints.length} hint${r.hints.length === 1 ? "" : "s"} went into your plan. See game day.</p>`) : ""}
     ${kept}
     <div class="fm-seg">${r.id != null ? `${frBtn("fragain", { id: r.id, cut: r.cut, ask: r.ask_key || "", mode: frMode(r.mode) }, frMode(r.mode) === "quick" ? `▶ Watch again quick${r.mode === "quick" ? ` · ${r.minutes} min` : ""}` : "▶ Watch again", "primary")}<button class="st-btn small glass" data-go="film" data-id="${r.id}">Other cut-ups</button>` : ""}<button class="st-btn small glass" data-go="film">Back to the film room</button>${r.id != null ? `<button class="st-btn small glass" data-go="scout" data-id="${r.id}">His file</button>` : ""}</div></div>`;
+}
+
+// What the tape gave you (minor bug 322): each of your ratings of him the
+// session narrowed, before and after.
+function frMoved(r) {
+  if (r.id == null || r.team || r.fresh == null) return "";
+  const m = r.moved || [];
+  const rg = (x) => (x ? (x[0] === x[1] ? `${x[0]}` : `${x[0]}-${x[1]}`) : "not read");
+  const first = m.filter((x) => !x.before).length;
+  const parts = [];
+  if (m.length - first) parts.push(`${m.length - first} of your ratings narrowed`);
+  if (first) parts.push(`${first} read for the first time`);
+  return frCard(
+    `What the tape gave you · ${parts.length ? parts.join(", ") : "nothing narrowed"}`,
+    m.length
+      ? `<div class="fm-moved">${m.map((x) => `<div class="fm-mv"><b>${esc(x.name)}</b><span class="fm-dim">${rg(x.before)}</span><span class="fm-dim">→</span><b class="fm-gold">${rg(x.after)}</b></div>`).join("")}</div>`
+      : r.fresh === 0
+        ? `<p class="fm-dim">Nothing narrowed: you had watched every one of these snaps before, and the same snap shows the same thing. A watch again plays snaps you haven't seen first.</p>`
+        : r.new_games === 0
+          ? `<p class="fm-dim">Nothing narrowed: these were games of his you had watched already, and a game shows what it shows of him. His other games would tell you more.</p>`
+          : `<p class="fm-dim">Nothing narrowed: your eye already reads what these games show as close as it can.${r.analyst ? " Your analyst's points can still pin a rating down, over more of his games." : ""}</p>`
+  );
 }
 
 // ---------- being there ----------
@@ -424,7 +483,8 @@ Object.assign(CORE_MORE, {
   frethic: (el) => frDo(el, "film_ethic", { value: Number(el.dataset.v) }),
   frskip: (el) => frDo(el, "film_queue_skip", { k: Number(el.dataset.k) }),
   frqmove: (el) => frDo(el, "film_queue_move", { k: Number(el.dataset.k), up: el.dataset.up === "1" }),
-  frpickq: (el) => { keep("frq:" + el.dataset.id, {}).q = el.dataset.q; refresh(el); },
+  // A question picks the cut-up that shows it best (minor bug 322).
+  frpickq: (el) => { const k = keep("frq:" + el.dataset.id, {}); k.q = el.dataset.q; delete k.cut; refresh(el); },
   // A cut-up made for a question asks it: "Against press and man" asks
   // whether he can play press.
   frpickcut: (el) => {

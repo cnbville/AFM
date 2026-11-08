@@ -28,6 +28,16 @@ fn seat_team(w: &World) -> Option<Team> {
     })
 }
 
+/// The captain a captain's talk goes to: the one you named, or, when the
+/// pick names anyone else (the player the staff's pick was about, a captain
+/// not dressed), the first captain, the one who speaks at kickoff
+/// (`talk::room`).
+fn captain_for(team: &GameTeam, cx: &Ctx, who: u32) -> u32 {
+    let caps = talk::captains(team, cx.day);
+    let id = |i: &usize| team.players[*i].id;
+    caps.iter().map(id).find(|&c| c == who).or_else(|| caps.first().map(id)).unwrap_or(0)
+}
+
 fn pick_of(a: &Value, base: Pick) -> Pick {
     let s = |k: &str| a.get(k).and_then(Value::as_str);
     Pick {
@@ -385,7 +395,17 @@ fn room_json(
 
 /// Who the room listens to: each captain's voice and yours, how far each
 /// carries, and what the captain you'd hand it to would say.
-fn captains_json(w: &World, team: &GameTeam, cx: &Ctx, names: &Names, lcx: &gametalk::LineCx) -> Value {
+/// `says`: the captain whose words the screen shows (you handed him the
+/// room and he has spoken). Only his lines are drawn, since what a screen
+/// draws counts as said and heard (minor bug 314).
+fn captains_json(
+    w: &World,
+    team: &GameTeam,
+    cx: &Ctx,
+    names: &Names,
+    lcx: &gametalk::LineCx,
+    says: Option<u32>,
+) -> Value {
     let wt = talk::weights(team);
     let n: f64 = wt.iter().sum::<f64>().max(1.0);
     let caps = talk::captains(team, cx.day);
@@ -409,6 +429,7 @@ fn captains_json(w: &World, team: &GameTeam, cx: &Ctx, names: &Names, lcx: &game
                 "His own unit"
             };
             let says = views::person_index(w, c.id)
+                .filter(|_| says == Some(c.id))
                 .map(|k| gametalk::captain_lines(w, k, lcx))
                 .unwrap_or_default();
             json!({
@@ -542,8 +563,8 @@ pub(super) fn room(w: &World, a: &Value) -> Reply {
     let staff_pick = talk::coach_pick(team, &cx, s.params.seed ^ 0x7A1C_0000 ^ ((side as u64) << 40));
     let base = said.unwrap_or(staff_pick);
     let mut pick = pick_of(a, base);
-    if pick.mv == Move::Captain && pick.who == 0 {
-        pick.who = talk::captains(team, cx.day).first().map_or(0, |&i| team.players[i].id);
+    if pick.mv == Move::Captain {
+        pick.who = captain_for(team, &cx, pick.who);
     }
     if pick.subject == Subject::One && pick.who == 0 {
         pick.who = team.day.hurt.unwrap_or(0);
@@ -605,7 +626,8 @@ pub(super) fn room(w: &World, a: &Value) -> Reply {
     v["week"] = week_json(team);
     v["hurt"] = json!(hurt_json(w, team));
     v["clock"] = clock_json(next.as_ref().and_then(|n| n.kick_min), level);
-    v["captains"] = captains_json(w, team, &cx, &names, &lcx);
+    let says = (said.is_some() && pick.mv == Move::Captain).then_some(pick.who);
+    v["captains"] = captains_json(w, team, &cx, &names, &lcx, says);
     v["ones"] = json!(ones);
     v["dressed"] = json!(team.players.len());
     v["options"] = options_json(team, &cx);
@@ -660,8 +682,8 @@ fn halftime_room(
     let names = super::names(w, &refs);
     let staff_pick = talk::coach_pick(team, &cx, l.game.params.seed ^ 0x7A1C_0000 ^ ((mine as u64) << 40) ^ (1 << 44));
     let mut pick = pick_of(a, p.talked.unwrap_or(staff_pick));
-    if pick.mv == Move::Captain && pick.who == 0 {
-        pick.who = talk::captains(team, cx.day).first().map_or(0, |&i| team.players[i].id);
+    if pick.mv == Move::Captain {
+        pick.who = captain_for(team, &cx, pick.who);
     }
     let nm = |id: u32| names.get(&id).map(|x| first(&x.0));
     let lcx = gametalk::LineCx {
@@ -688,7 +710,8 @@ fn halftime_room(
         CalLevel::Other => 15,
         _ => 20,
     });
-    v["captains"] = captains_json(w, team, &cx, &names, &lcx);
+    let says = (p.talked.is_some() && pick.mv == Move::Captain).then_some(pick.who);
+    v["captains"] = captains_json(w, team, &cx, &names, &lcx, says);
     v["options"] = options_json(team, &cx);
     v["week"] = week_json(team);
     Ok(v)
@@ -705,9 +728,9 @@ pub(super) fn say(w: &mut World, a: &Value) -> Reply {
     let team = if side == 0 { &s.home } else { &s.away };
     let nothing = a.get("nothing").and_then(Value::as_bool).unwrap_or(false);
     let mut pick = if nothing { Pick { mv: Move::Nothing, ..Pick::default() } } else { pick_of(a, Pick::default()) };
-    if pick.mv == Move::Captain && pick.who == 0 {
+    if pick.mv == Move::Captain {
         let cx = talk::ctx(team, s.params.rules.level, s.params.playoff, &s.params.context[side], Moment::Pregame);
-        pick.who = talk::captains(team, cx.day).first().map_or(0, |&i| team.players[i].id);
+        pick.who = captain_for(team, &cx, pick.who);
     }
     if a.get("undo").and_then(Value::as_bool).unwrap_or(false) {
         w.gameday.pregame = None;
@@ -736,10 +759,15 @@ pub(super) fn words_json(w: &World, offers: &[WordOffer], names: &Names) -> Vec<
     let Some(l) = w.live.as_ref() else { return Vec::new() };
     let mine = l.game.ctl.team;
     let team = if mine == 0 { &l.game.home } else { &l.game.away };
+    // The card shows one player at a time, the first, and what a screen
+    // draws counts as said and heard (minor bug 314), so only his words
+    // are drawn. The others get theirs when their card comes up.
+    let mut drawn = false;
     offers
         .iter()
         .filter_map(|o| {
             let p = team.players.iter().find(|p| p.id == o.id)?;
+            let shows = !std::mem::replace(&mut drawn, true);
             let cx = talk::ctx(
                 team,
                 l.game.params.rules.level,
@@ -770,7 +798,7 @@ pub(super) fn words_json(w: &World, offers: &[WordOffer], names: &Names) -> Vec<
                     json!({
                         "pick": pick_json(pk),
                         "label": format!("{} · {}", pk.mv.name(), pk.tone.name()),
-                        "line": gametalk::word_line(w, pk, o.mistake, &f, seed ^ k as u64),
+                        "line": if shows { gametalk::word_line(w, pk, o.mistake, &f, seed ^ k as u64) } else { String::new() },
                         "read": read,
                         "staff": *pk == Pick { subject: Subject::One, who: o.id, ..o.staff },
                     })
@@ -858,4 +886,28 @@ pub(crate) fn record_json(w: &World, rec: &Record, mine: Option<usize>, names: &
         .collect();
     let _ = w;
     json!({ "rooms": rooms, "words": words })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use afm_engine::game::OffScheme;
+    use afm_engine::game::garbage::Context;
+    use afm_engine::game::synthetic::synthetic_team;
+    use afm_engine::player::Level;
+
+    /// A captain's talk goes to a captain: the one you named, or the first
+    /// one when the pick names anyone else (so the screen shows the words of
+    /// the captain who speaks at kickoff).
+    #[test]
+    fn a_captains_talk_goes_to_a_captain() {
+        let team = synthetic_team("Iowa", Level::FBS, 0.5, OffScheme::WestCoast, 7);
+        let cx = talk::ctx(&team, Level::FBS, false, &Context::default(), Moment::Pregame);
+        let caps: Vec<u32> = talk::captains(&team, cx.day).iter().map(|&i| team.players[i].id).collect();
+        assert_eq!(caps.len(), 2);
+        assert_eq!(captain_for(&team, &cx, caps[1]), caps[1]);
+        let other = team.players.iter().map(|p| p.id).find(|id| !caps.contains(id)).unwrap();
+        assert_eq!(captain_for(&team, &cx, other), caps[0]);
+        assert_eq!(captain_for(&team, &cx, 0), caps[0]);
+    }
 }
