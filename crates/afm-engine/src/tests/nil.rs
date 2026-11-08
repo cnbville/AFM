@@ -495,3 +495,26 @@ fn an_old_world_file_takes_the_limited_states_off_and_fills_the_deals() {
     fame::hs_nil_after_load(&mut w);
     assert_eq!(w.people[i].brand, 1234.0);
 }
+
+/// Minor bug 335: once he has played college ball the market prices a
+/// player on his play more than his recruiting stars, and the interior
+/// line on both sides earns less than the tackles and edge rushers.
+#[test]
+fn a_college_players_pay_reads_his_play_and_the_interior_line_costs_less() {
+    use crate::player::PlayingTime::Starter;
+    use crate::positions::Position as P;
+    let w = |pos, stars, edge| rec::nil_weight(Some(Starter), pos, stars, edge);
+    // Stars fade: a two-star starter is 0.6 of a four-star at the same play
+    // (the square root before gave 0.28); a freshman keeps the full read.
+    let r = w(P::WR, 2, 0.0) / w(P::WR, 4, 0.0);
+    assert!((r - 0.08f64.powf(0.2)).abs() < 1e-9, "{r}");
+    let fresh = rec::nil_weight(None, P::WR, 2, 0.0) / rec::nil_weight(None, P::WR, 4, 0.0);
+    assert!((fresh - 0.08).abs() < 1e-9, "{fresh}");
+    // Ten points of play over the level's starters: 3% a point.
+    let up = w(P::CB, 3, 10.0) / w(P::CB, 3, 0.0);
+    assert!((up - 0.3f64.exp()).abs() < 1e-9, "{up}");
+    // The interior line: guards and centers 0.58 of an offensive tackle,
+    // defensive tackles 0.73 of an edge rusher.
+    assert!((w(P::IOL, 3, 0.0) / w(P::OT, 3, 0.0) - 0.58).abs() < 1e-9);
+    assert!((w(P::DT, 3, 0.0) / w(P::EDGE, 3, 0.0) - 0.73).abs() < 1e-9);
+}
