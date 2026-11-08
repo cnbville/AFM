@@ -176,7 +176,10 @@ pub fn rows(w: &World, season: i32, teams: &[(u64, &TeamSeason)]) -> Vec<UnitRow
             }
         }
     }
-    out.sort_by_key(|r| (r.coach, r.unit, r.team));
+    // By the file's own key (coach, unit, level, team), whole: the file's
+    // frames want rising keys, and a coach with a college and an NFL team
+    // of one number in a season tied before (the pools' hash order).
+    out.sort_by_key(key);
     out
 }
 

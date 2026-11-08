@@ -988,20 +988,28 @@ fn players(w: &mut World, d: Date, teams: &[TeamKey]) {
             _ => {}
         }
     }
-    look.sort_unstable();
+    use rayon::prelude::*;
+    look.par_sort_unstable();
     look.dedup();
-    let mut seen: Vec<u32> = Vec::with_capacity(look.len());
+    // Each player's flags read on all cores (world speed lane): a player's
+    // flags touch only his own entry, so reading them all first and
+    // applying the changes in roster order is the same as one walk.
+    let world: &World = w;
+    let changed: Vec<(usize, u32, u8, u8)> = look
+        .par_iter()
+        .with_min_len(1024)
+        .filter_map(|&i| {
+            let id = pid(world, i);
+            let now = flags_now(world, i, d);
+            let stored = world.storylines.watch.flags.get(&id).copied().unwrap_or(0);
+            (now != stored & !F_PORTAL).then_some((i, id, now, stored))
+        })
+        .collect();
+    let mut seen: Vec<u32> = look.iter().map(|&i| pid(w, i)).collect();
     let mut rises: Vec<(usize, u8)> = Vec::new();
     let mut falls: Vec<(u32, u8)> = Vec::new();
-    for &i in &look {
-        let id = pid(w, i);
-        seen.push(id);
-        let now = flags_now(w, i, d);
-        let stored = w.storylines.watch.flags.get(&id).copied().unwrap_or(0);
+    for (i, id, now, stored) in changed {
         let old = stored & !F_PORTAL;
-        if now == old {
-            continue;
-        }
         if now & !old != 0 {
             rises.push((i, now & !old));
         }

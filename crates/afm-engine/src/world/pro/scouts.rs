@@ -1685,7 +1685,10 @@ pub(crate) fn pro_day(w: &mut World, program: usize, date: Date) {
         return;
     }
     let workouts = !crate::calendar::anchors::cancelled("combine workouts", w.dates.season);
+    // Found on all cores, in person order (world speed lane).
     let here: Vec<usize> = (0..w.people.len())
+        .into_par_iter()
+        .with_min_len(4096)
         .filter(|&i| {
             let p = &w.people[i];
             p.stage == Stage::Declared && p.college.is_some_and(|c| w.programs[c].id == program)

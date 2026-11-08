@@ -33,7 +33,7 @@ use std::thread::JoinHandle;
 
 use serde::{Deserialize, Serialize};
 
-pub(crate) mod fp;
+pub mod fp;
 pub(crate) mod games;
 pub(crate) mod lean;
 mod narrow;
