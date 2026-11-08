@@ -405,6 +405,12 @@ pub struct SeatTraining {
     /// and F13): id, back on (the day he can play again), what it is.
     #[serde(default)]
     pub others_hurt: std::collections::BTreeMap<u32, (Date, Option<InjuryKind>)>,
+    /// A day every entry of `others_hurt` is back after (the day of its
+    /// last sweep), or None when unsure: a sweep up to that day would
+    /// remove nothing, so it is skipped (world speed lane). Working memory
+    /// only, never saved.
+    #[serde(skip)]
+    pub others_floor: Option<Date>,
     pub notes: Vec<Note>,
     pub log: Vec<WeekLog>,
     pub reports: Vec<Report>,
@@ -1527,8 +1533,11 @@ pub(crate) fn game_injuries(
     medical: [f64; 2],
     seat: Option<usize>,
 ) {
-    if w.training.others_hurt.len() > 20_000 {
+    // Everyone listed is back after the floor, so on or before it a sweep
+    // would keep every entry: it is skipped, and the list is the same.
+    if w.training.others_hurt.len() > 20_000 && w.training.others_floor.is_none_or(|f| date > f) {
         w.training.others_hurt.retain(|_, x| x.0 > date);
+        w.training.others_floor = Some(date);
     }
     for (team, inj) in injuries {
         if inj.plays_on || *team > 1 {
@@ -1557,6 +1566,10 @@ pub(crate) fn game_injuries(
                 format!("[[p:{}|{name}]] was hurt in the game ({}): out {long}.", inj.id, inj.kind.name()),
             );
         } else {
+            // A man back on or before the floor: it no longer holds.
+            if w.training.others_floor.is_some_and(|f| back <= f) {
+                w.training.others_floor = None;
+            }
             let e = w.training.others_hurt.entry(inj.id).or_insert((back, Some(inj.kind)));
             if back > e.0 {
                 *e = (back, Some(inj.kind));
