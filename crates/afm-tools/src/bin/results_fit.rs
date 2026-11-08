@@ -318,7 +318,15 @@ fn main() {
         }
         let season_snaps = results::season_snaps(level);
         let season_games = afm_engine::development::season_games(level) as f64;
-        println!("\n{level:?}: {games} games; team strength {sm:.2} (sd {ss:.2})");
+        // A team's snaps a game on one side, measured on these games (22
+        // men on the field for each snap of each side). A regular plays at
+        // least half of them. It was 0.6 of a starter's season over the
+        // level's games, which at the 11-game levels asked 63-69% of the
+        // snaps: FCS and small colleges had no regular back, so no spread
+        // among regulars, and their back reads stayed off whatever their t.
+        let total: u64 = snaps.values().map(|&(s, _)| s as u64).sum();
+        let per_side = total as f64 / (44.0 * games as f64);
+        println!("\n{level:?}: {games} games; team strength {sm:.2} (sd {ss:.2}); {per_side:.1} snaps a side");
         println!(
             "  {:<22} {:<4} {:>7} {:>8} {:>9} {:>6} {:>7} {:>7} {:>7} {:>7} {:>5} {:>6} {:>4}",
             "read", "pos", "trials", "mean", "b/pt", "t(b)", "sd", "season", "tau pt", "his pt", "sk", "keeps", "on"
@@ -341,8 +349,8 @@ fn main() {
                 let d = w[NV];
                 let e = if ctx { w[NV + 1] } else { 0.0 };
                 let c0 = mean(rs.iter().map(|r| r.cx as f64));
-                // Volume: trials per snap of the men who played most of
-                // their team's snaps, times a starter's season (kickers
+                // Volume: trials per snap of the men who played half their
+                // team's snaps or more, times a starter's season (kickers
                 // and punters: trials per game they kicked in). Their
                 // skill as it stood, for its spread among regulars.
                 let mut by: HashMap<u32, usize> = HashMap::new();
@@ -357,7 +365,7 @@ fn main() {
                     let regular = if specialist {
                         g as f64 >= 0.25 * games as f64 / 16.0
                     } else {
-                        g > 0 && s as f64 / g as f64 >= 0.6 * season_snaps / season_games
+                        g > 0 && s as f64 / g as f64 >= 0.5 * per_side
                     };
                     if !regular {
                         continue;

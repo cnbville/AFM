@@ -36,6 +36,16 @@ const MIX_SD: f64 = 0.7211;
 /// a read on every stat, it should just be wide"). Confirmed 2026-11-05.
 pub const GUESS_SD: f64 = 12.0;
 
+/// The file's wide guess at an attribute his tape can't show: the
+/// overall's own guess (keyed by him and the attribute's category), shown
+/// at `GUESS_SD` times his visibility. The same whatever the looks.
+pub fn guess(w: &World, i: usize, a: Attr) -> (f64, f64) {
+    let p = &w.people[i];
+    let vis = visibility(w, i);
+    let v = 9.0 * vis * key_normal(0x9A10 ^ (cat_index(a.category()) as u64) << 40, p.player.id as u64);
+    (clamp(p.player.attributes.get(a) + v, 1.0, 99.0), GUESS_SD * vis)
+}
+
 /// How sharp a rating makes a read (10 is 1.0, 20 is 0.6, 1 is 1.36).
 pub fn sharp(r: f64) -> f64 {
     1.4 - 0.04 * r
@@ -558,20 +568,44 @@ pub fn read(
     medical_rating: f64,
     today: Option<Date>,
 ) -> FileRead {
+    read_in(w, i, readers, looks, None, norms, medical_rating, today)
+}
+
+/// `read` of some of a file's looks, his tape seen as the whole file sees
+/// it (`context`: what it was seen against, a reel only or not), so your
+/// tape read apart from your other looks still knows you saw him in
+/// person (minor bug 352).
+#[allow(clippy::too_many_arguments)]
+pub fn read_in(
+    w: &World,
+    i: usize,
+    readers: &[Reader],
+    looks: &[Evidence],
+    context: Option<&[Evidence]>,
+    norms: &Norms,
+    medical_rating: f64,
+    today: Option<Date>,
+) -> FileRead {
     let p = &w.people[i];
     let id = p.player.id as u64;
     let pos = p.player.position;
     let vis = visibility(w, i);
-    let looks: Vec<Evidence> = looks
-        .iter()
-        .copied()
-        .filter(|l| today.is_none_or(|t| l.date.add(readers[l.reader].lag(l.kind, p.player.id, l.date)) <= t))
-        .collect();
+    let written = |looks: &[Evidence]| -> Vec<Evidence> {
+        looks
+            .iter()
+            .copied()
+            .filter(|l| today.is_none_or(|t| l.date.add(readers[l.reader].lag(l.kind, p.player.id, l.date)) <= t))
+            .collect()
+    };
+    let looks = written(looks);
     // What his tape holds (SK1-SK6): how far film narrows him, the skills
     // his role never tested, and the shared leans every staff reads.
     let foot = super::footage::footage(w, i);
     let film_f = super::footage::film_factor(&foot);
-    let (seen_vs_good, reel_only) = tape_flags(&looks);
+    let (seen_vs_good, reel_only) = match context {
+        Some(c) => tape_flags(&written(c)),
+        None => tape_flags(&looks),
+    };
     // Each reader's looks that see each attribute: count and best base sd.
     let n_r = readers.len();
     let mut count = vec![[0u8; ATTRIBUTE_COUNT]; n_r];
@@ -727,9 +761,8 @@ pub fn read(
             // His tape is in the file but can't show this (a skill his
             // role never tested, or what film never shows): the overall's
             // own wide guess below, shown wider, never a blank.
-            let v = 9.0 * vis * key_normal(0x9A10 ^ (cat_index(cat) as u64) << 40, id);
-            attrs[k] =
-                AttrRead { centre: clamp(truth + v, 1.0, 99.0), sd: GUESS_SD * vis, guess: true, ..Default::default() };
+            let (centre, sd) = guess(w, i, a);
+            attrs[k] = AttrRead { centre, sd, guess: true, ..Default::default() };
         }
     }
     // The overall now: what nobody saw comes from the services' word only

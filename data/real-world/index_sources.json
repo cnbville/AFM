@@ -145,6 +145,42 @@
     "T13"
    ]
   },
+  "college_start_records.csv": {
+   "source": "Wikipedia standings templates of the 1979-1983 seasons (NCAA Division I-A, I-AA, II, III, NAIA Divisions I and II) and team season articles (URL per row); scripts/college_past.py",
+   "years": "1979-1983",
+   "level": "college",
+   "status": "sourced",
+   "holes": "no junior college records (no standings on Wikipedia); Division II, III and NAIA programs with no 1979-83 row, most of which had no team then",
+   "areas": [
+    "C1",
+    "C2"
+   ]
+  },
+  "college_titles.csv": {
+   "source": "Wikipedia: the FBS major selectors' table by year, the NCAA I-AA/FCS, Division II and III, NAIA and NJCAA champions (URL per row); scripts/college_past.py",
+   "years": "1869-2025",
+   "level": "college",
+   "status": "sourced",
+   "holes": "small-college polls before 1973 and black college national titles left out (not national titles in the record books); vacated titles left out",
+   "areas": [
+    "C1",
+    "C2",
+    "C5",
+    "C13"
+   ]
+  },
+  "college_seats.csv": {
+   "source": "Wikipedia stadium articles (infobox capacity history and dated lines) and team articles, read per school (URL per row)",
+   "years": "1984-2025",
+   "level": "college",
+   "status": "sourced",
+   "holes": "seasons the pages do not settle are left out (1,740 seasons a program played, over 106 programs; the last known seats carry on); no rows for 8 FCS programs, 87 Division II programs, dropped programs, or Division III, NAIA and junior colleges (they keep today's seats)",
+   "areas": [
+    "C1",
+    "C2",
+    "C14"
+   ]
+  },
   "tendency_spreads.json": {
    "source": "nflverse-data releases (https://github.com/nflverse/nflverse-data/releases): play-by-play, Next Gen Stats, PFR advanced defense",
    "years": "2016-2025",

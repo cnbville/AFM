@@ -880,9 +880,10 @@ fn take_trips(w: &mut World, d: Date) {
             w.scouting.own.trips[k].done = true;
             continue;
         };
-        super::dept::add(w, t.id, who, look, d);
-        // An NFL club's board reads its own file.
-        if let Some(Staff::Club(c)) = staff
+        let new = super::dept::add(w, t.id, who, look, d);
+        // An NFL club's board reads its own file: a copy of each new look.
+        if new
+            && let Some(Staff::Club(c)) = staff
             && who == you
             && w.nfl.get(c).and_then(|x| x.head_coach) == readers::you(w)
         {
@@ -891,7 +892,7 @@ fn take_trips(w: &mut World, d: Date) {
                 Kind::AllStar => scouts::LookKind::AllStar,
                 _ => scouts::LookKind::Coach,
             };
-            super::dept::club_look(w, c, t.id, scouts::HC, lk, d);
+            super::dept::club_copy(w, c, t.id, lk, d);
         }
         if let Some(Staff::Program(_)) = staff
             && matches!(t.kind, TripKind::Game | TripKind::Practice)
