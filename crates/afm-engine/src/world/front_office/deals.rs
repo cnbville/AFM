@@ -239,6 +239,15 @@ fn check(w: &World, me: usize, p: &Proposal, at: &std::collections::HashMap<u32,
             if c.contract.as_ref().is_none_or(|k| k.team != t || k.last_year() < w.year) {
                 return Err(format!("{} has no contract to trade.", w.people[i].name));
             }
+            // Your own player's clause (minor bug 327): he waives it only to
+            // go to a better club, the test `evaluate` puts to the other
+            // club's man. Here it covers an answered call too.
+            if t == me && waives_not(w, i, me, o) {
+                return Err(format!(
+                    "{} has a no-trade clause and won't waive it to go to the {}.",
+                    w.people[i].name, w.nfl[o].name
+                ));
+            }
         }
         for pk in &side.picks {
             if !owns(w, t, pk) {
@@ -293,6 +302,13 @@ fn check(w: &World, me: usize, p: &Proposal, at: &std::collections::HashMap<u32,
     Ok(())
 }
 
+/// A player with a no-trade clause at club `from` who won't waive it to go
+/// to club `to`: he waives it only for a club two points stronger.
+fn waives_not(w: &World, i: usize, from: usize, to: usize) -> bool {
+    w.people[i].pro.as_ref().and_then(|c| c.contract.as_ref()).is_some_and(|k| k.no_trade)
+        && w.nfl[to].strength() < w.nfl[from].strength() + 2.0
+}
+
 fn ids(p: &Proposal) -> Vec<u32> {
     p.give.players.iter().chain(p.get.players.iter()).copied().collect()
 }
@@ -325,9 +341,7 @@ pub fn evaluate(w: &World, p: &Proposal) -> Result<Answer, String> {
     // No-trade clauses: a player can waive his for a better club.
     for id in &p.get.players {
         let i = at[id];
-        if w.people[i].pro.as_ref().and_then(|c| c.contract.as_ref()).is_some_and(|k| k.no_trade)
-            && w.nfl[me].strength() < w.nfl[o].strength() + 2.0
-        {
+        if waives_not(w, i, o, me) {
             return Ok(Answer {
                 accept: false,
                 text: format!("{} has a no-trade clause and won't waive it to come to you.", w.people[i].name),
@@ -420,7 +434,11 @@ pub fn propose(w: &mut World, p: &Proposal) -> Result<Answer, String> {
 /// Executes a trade between your club and another: players move with
 /// their contracts, the seller keeps each player's bonus on its cap, picks
 /// change hands, a conditional pick goes on the books.
-pub(crate) fn execute(w: &mut World, me: usize, p: &Proposal) {
+///
+/// Private on purpose: every trade of yours goes through `propose` or an
+/// answered call, so the other GM's yes and both caps always hold (minor
+/// bug 323: the cutdown swap called this directly).
+fn execute(w: &mut World, me: usize, p: &Proposal) {
     let d = w.today;
     let year = w.year;
     let june1 = pro::after_june1(w, d);
@@ -559,7 +577,9 @@ pub fn shop(w: &mut World, id: u32) -> Result<Vec<(usize, Vec<Pick>, f64)>, Stri
     let year = w.year;
     let mut out = Vec::new();
     for o in crate::world::franchise::active_teams_in(w, year) {
-        if o == me {
+        // A club he won't waive his no-trade clause for can't take him
+        // (minor bug 327).
+        if o == me || waives_not(w, i, me, o) {
             continue;
         }
         let worth = player_points(w, o, i) - margin(w, o, me);
