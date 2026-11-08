@@ -112,11 +112,12 @@ pub struct GrowthYear {
     #[serde(default)]
     pub pcoach: u8,
     /// Growth from results: the form of the skills results test when
-    /// results replace the dice (item 14), v / 4000. Flags bit 3: snaps
-    /// land in season; bit 4: results replace the dice; bits 5-7: the
-    /// level the year opened at (`Level as u8`).
+    /// results replace the dice (item 14), against the year's `form`, v /
+    /// 64 (a byte, so the store stays 40 bytes). Flags bit 3: snaps land
+    /// in season; bit 4: results replace the dice; bits 5-7: the level the
+    /// year opened at (`Level as u8`).
     #[serde(default)]
-    pub form_tested: u16,
+    pub form_tested: u8,
 }
 
 /// A player's training store (section 6b, about 34 bytes): the year's
@@ -202,7 +203,9 @@ impl Train {
     /// the level, and those skills' form (times the year's injuries).
     pub(crate) fn open_results(&mut self, in_season: bool, replace: bool, level: Level, form_tested: f64) {
         self.year.flags = self.year.flags & 7 | (in_season as u8) << 3 | (replace as u8) << 4 | (level as u8) << 5;
-        self.year.form_tested = clamp((form_tested * 4000.0).round(), 0.0, 65535.0) as u16;
+        let form = self.year.form as f64 / 4000.0;
+        let ratio = if replace && form > 1e-6 { form_tested / form } else { 1.0 };
+        self.year.form_tested = clamp((ratio * 64.0).round(), 0.0, 255.0) as u8;
     }
 
     /// His snaps land in the week he plays them this year.
@@ -254,7 +257,7 @@ impl Train {
             focus,
             focus_take: clamp(0.6 + 0.02 * coachability, 0.6, 1.0),
             tested: if y.flags & 16 != 0 { crate::results::tested(self.position(), self.level()) } else { 0 },
-            form_tested: y.form_tested as f64 / 4000.0,
+            form_tested: y.form as f64 / 4000.0 * y.form_tested as f64 / 64.0,
         }
     }
 

@@ -694,14 +694,14 @@ pub const CHANGE: f64 = 3.0;
 pub const AT_TOP: f64 = 0.5;
 /// A game whose results move one skill this many rating points up is
 /// named on his season row and in the news (the "mini explosion"; about
-/// one starter's season in seven has one in the A/B; proposed, not
-/// confirmed).
-pub const BIG_GAME: f64 = 1.0;
+/// one starter's season in seven has one in the A/B, the 86th percentile
+/// of a starter's best game; proposed, not confirmed).
+pub const BIG_GAME: f64 = 0.3;
 /// A season whose results move one skill this many points either way
 /// names the season: a breakout from results, or a slump (about one
-/// starter's season in ten each way in the A/B, one in twenty-five of all
-/// seasons; proposed, not confirmed).
-pub const BIG_SEASON: f64 = 3.0;
+/// starter's season in ten each way in the A/B, his season's top move at
+/// the 90th and 10th percentiles; proposed, not confirmed).
+pub const BIG_SEASON: f64 = 1.0;
 
 /// One read's season so far.
 #[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]

@@ -23,7 +23,8 @@ use rayon::prelude::*;
 
 /// The arms: A today, B-E items 14 and 15, then per-snap rates.
 fn arms() -> Vec<(&'static str, Option<Mode>)> {
-    let m = |dice, pull_down, scale| Some(Mode { on: true, dice, pull_down, practice: false, scale, ..Mode::default() });
+    let m =
+        |dice, pull_down, scale| Some(Mode { on: true, dice, pull_down, practice: false, scale, ..Mode::default() });
     vec![
         ("A today", None),
         ("B on top, pull down", m(Dice::Kept, true, 1.0)),
