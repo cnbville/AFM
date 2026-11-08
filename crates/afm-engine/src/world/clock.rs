@@ -157,15 +157,17 @@ fn hs_transfer_day(y: &YearDates) -> Date {
 /// Bodies grow by the date (update 3, A16): each person's years past his
 /// whole-year age today, from his birthday.
 fn grow_bodies(w: &mut World, d: Date) {
+    use rayon::prelude::*;
     let unknown = crate::calendar::born::unknown();
-    for p in &mut w.people {
+    // Each person on his own, on all cores (world speed lane).
+    w.people.par_iter_mut().with_min_len(4096).for_each(|p| {
         p.player.grow = if p.born == unknown {
             0.0
         } else {
             let years = f64::from(d.0 - p.born.0) / 365.2425;
             (years - f64::from(p.player.age)).clamp(0.0, 2.0) as f32
         };
-    }
+    });
 }
 
 /// The world's steps at their Eastern hours (the six-part day, player

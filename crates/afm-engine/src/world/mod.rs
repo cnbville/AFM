@@ -799,6 +799,10 @@ pub struct World {
     /// name indexes between stops (`World::rename`). Not saved.
     #[serde(skip)]
     pub names_changed: u64,
+    /// The coaches walked by the hiring searches (world speed lane): see
+    /// `staff::LiveCoaches`. Not saved.
+    #[serde(skip)]
+    pub(crate) live_coaches: staff::LiveCoaches,
     /// Trial tooling, see `WorldOptions::keep_game_log`.
     /// Trial tooling only: not saved (`save.rs`).
     #[serde(skip)]
@@ -1442,6 +1446,7 @@ impl World {
             today: dates.start,
             played: 0,
             names_changed: 0,
+            live_coaches: Default::default(),
             rules: changes.rules(year),
             dates,
             prev_dates: None,

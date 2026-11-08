@@ -332,7 +332,11 @@ pub(crate) fn seat_battles(
     }
     let by_id: HashMap<u32, usize> = st.roster.iter().map(|&i| (w.people[i].player.id, i)).collect();
     let mut week: Vec<(u32, u8, u32)> = Vec::new();
-    for (&id, &(sum, n)) in &b.lines {
+    // In id order: the season's grades list keeps the same order on every
+    // run (a hash map's order changed it).
+    let mut lines: Vec<(u32, (f64, u32))> = b.lines.iter().map(|(&id, &v)| (id, v)).collect();
+    lines.sort_unstable_by_key(|x| x.0);
+    for (id, (sum, n)) in lines {
         let Some(&i) = by_id.get(&id) else { continue };
         let p = &mut w.people[i];
         let g = seen(grade(sum, n), &p.player, p.mood);

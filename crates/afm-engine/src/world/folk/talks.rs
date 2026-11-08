@@ -515,9 +515,12 @@ pub fn mood_event(w: &mut World, id: u32, why: Reason, delta: f32) {
 /// What is left of his dated reasons today: each fades by a quarter a month.
 pub fn residual(w: &World, id: u32) -> f32 {
     let today = w.today;
-    w.folk.moods.iter().find(|x| x.0 == id).map_or(0.0, |x| {
-        x.1.iter().map(|&(d, _, v)| v as f32 / 100.0 * 0.75f32.powf(d.days_to(today).max(0) as f32 / 30.0)).sum()
-    })
+    w.folk.moods.iter().find(|x| x.0 == id).map_or(0.0, |x| felt(&x.1, today))
+}
+
+/// What's left today of a person's dated reasons, summed (`residual`).
+fn felt(notes: &[super::MoodNote], today: Date) -> f32 {
+    notes.iter().map(|&(d, _, v)| v as f32 / 100.0 * 0.75f32.powf(d.days_to(today).max(0) as f32 / 30.0)).sum()
 }
 
 /// His dated reasons still felt, newest first, in words.
@@ -543,7 +546,18 @@ pub(crate) fn reapply(w: &mut World, read: &[usize]) {
     if w.folk.moods.is_empty() || read.is_empty() {
         return;
     }
-    let ids: Vec<(u32, f32)> = w.folk.moods.iter().map(|x| (x.0, residual(w, x.0))).collect();
+    // Each entry's residual as `residual` reads it (the first entry with
+    // its id), found through an index instead of a search per entry and
+    // summed on all cores (world speed lane: the same sums).
+    use rayon::prelude::*;
+    let today = w.today;
+    let moods = &w.folk.moods;
+    let mut first: std::collections::HashMap<u32, usize> = std::collections::HashMap::with_capacity(moods.len());
+    for (k, x) in moods.iter().enumerate() {
+        first.entry(x.0).or_insert(k);
+    }
+    let ids: Vec<(u32, f32)> =
+        moods.par_iter().with_min_len(256).map(|x| (x.0, felt(&moods[first[&x.0]].1, today))).collect();
     for (id, r) in ids {
         if r.abs() < 0.01 {
             continue;
