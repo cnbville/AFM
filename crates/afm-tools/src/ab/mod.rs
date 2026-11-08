@@ -128,6 +128,11 @@ pub enum Knob {
     /// Swap him for a player the generator draws at his position, with this
     /// body number inside the range, at his overall.
     Recruit(Part, f64, f64),
+    /// List him at this job on his team's board (the depth order names the
+    /// jobs, linebacker L1); the best such man at his own spot takes it.
+    Board(Spot),
+    /// He has played this job before, so it is not new to him.
+    Knows(Spot),
 }
 
 /// Who a change reaches: positions, and optionally only one spot (the
@@ -302,7 +307,8 @@ fn change(gp: &mut GamePlayer, person: &Player, knobs: &[Knob], level: Level) {
             }
             Knob::Tend(t, v) => gp.tend.set(t, v),
             Knob::Consistency(v) => gp.traits.consistency = v,
-            Knob::Link(..) => {}
+            Knob::Link(..) | Knob::Board(_) => {}
+            Knob::Knows(s) => gp.spots_played |= s.bit(),
             Knob::Recruit(part, lo, hi) => {
                 if let Some(p) = recruit(gp, part, lo, hi, level) {
                     let fresh = GamePlayer::from_player(&p, gp.knowledge, gp.experience);
@@ -331,7 +337,7 @@ fn change(gp: &mut GamePlayer, person: &Player, knobs: &[Knob], level: Level) {
         gp.height = b.height;
         gp.weight = b.weight;
         gp.arm = b.arm;
-        gp.spot_r = Spot::ALL.map(|s| spot_rating(s, &at, b.weight));
+        gp.spot_r = Spot::ALL.map(|s| spot_rating(s, &at, b.weight, b.height));
         gp.links = afm_engine::links::measure(gp.position, &b, &at, person.game.recovery);
     }
     for k in knobs {
@@ -350,16 +356,49 @@ pub fn teams_for(base: &[Squad], arm: &Arm, level: Level) -> Vec<GameTeam> {
             if arm.mine && ti != 0 {
                 return t;
             }
+            let mut boarded = Vec::new();
             for (k, gp) in t.players.iter_mut().enumerate() {
                 for (who, knobs) in &arm.groups {
                     if who.has(gp) {
                         change(gp, &sq.people[k], knobs, level);
+                        boarded.extend(
+                            knobs.iter().filter_map(|n| if let Knob::Board(s) = n { Some((k, *s)) } else { None }),
+                        );
                     }
                 }
             }
+            set_board(&mut t, &boarded);
             t
         })
         .collect()
+}
+
+/// The board for men listed at a job (`Knob::Board`): each job in the
+/// board's order goes to the best man listed there, else the best man
+/// whose own spot it is, then the rest of the position by rating.
+fn set_board(t: &mut GameTeam, boarded: &[(usize, Spot)]) {
+    let Some(&(k0, _)) = boarded.first() else { return };
+    let pos = t.players[k0].position;
+    let own = |i: usize| t.players[i].spot_r[t.players[i].spot.index()];
+    let mut used: Vec<usize> = Vec::new();
+    for &job in afm_engine::spots::board_jobs(pos) {
+        let best = |pick: &dyn Fn(usize) -> bool, used: &[usize]| {
+            (0..t.players.len())
+                .filter(|&i| t.players[i].position == pos && !used.contains(&i) && pick(i))
+                .max_by(|&a, &b| own(a).total_cmp(&own(b)))
+        };
+        let i = best(&|i| boarded.iter().any(|&(k, s)| k == i && s == job), &used)
+            .or_else(|| best(&|i| t.players[i].spot == job && !boarded.iter().any(|&(k, _)| k == i), &used))
+            .or_else(|| best(&|i| !boarded.iter().any(|&(k, _)| k == i), &used));
+        used.extend(i);
+    }
+    let mut rest: Vec<usize> =
+        (0..t.players.len()).filter(|&i| t.players[i].position == pos && !used.contains(&i)).collect();
+    rest.sort_by(|&a, &b| own(b).total_cmp(&own(a)));
+    used.extend(rest);
+    let ids: Vec<u32> = used.iter().map(|&i| t.players[i].id).collect();
+    t.order.retain(|(p, _)| *p != pos);
+    t.order.push((pos, ids));
 }
 
 /// The ids a test watches: its changed group on every team (or team 0).
@@ -1298,6 +1337,11 @@ pub fn stats() -> Vec<Stat> {
             Pct,
             |r, c| if run(r) && c.my_def(r) && c.on(r) > 0.0 { rc(bf(r.epa > 0.0), 1.0) } else { Z }
         ),
+        play!("def_box", "men in the box on runs", Num, |r, c| if run(r) && c.my_def(r) && c.on(r) > 0.0 {
+            rc(r.box_count as f64, 1.0)
+        } else {
+            Z
+        }),
         play!("def_cmp", "completion allowed an attempt", Pct, |r, c| if attempt(r) && c.my_def(r) && c.on(r) > 0.0 {
             rc(bf(r.complete), 1.0)
         } else {

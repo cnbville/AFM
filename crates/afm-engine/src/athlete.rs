@@ -399,6 +399,11 @@ pub(crate) fn create(rng: &mut Rng, talent: f64) -> (Attributes, Body, Position,
             }
         }
     }
+    // His body ties to his leanings at safety and linebacker (safety
+    // proposal D, linebacker L3; Cain's yes 2026-11-07): a heavier man leans
+    // to hitting (and a slower linebacker too), a lighter or faster one to
+    // range and coverage, at the same overall.
+    body_lean(&mut base, natural, talent, fw, roll, speed_share);
     let mut ceilings = Attributes::default();
     for a in Attr::ALL {
         ceilings.set(a, clamp(base.get(a) + rng.normal(0.0, 4.0), MIN_RATING, MAX_RATING));
@@ -435,9 +440,74 @@ pub(crate) fn create(rng: &mut Rng, talent: f64) -> (Attributes, Body, Position,
     }
     let (dh, dw) = talent_size(talent);
     let height = clamp(fh + dh, 64.0, 82.0);
-    let weight = clamp(fw + dw, 140.0, 380.0);
+    let weight = lb_weight(natural, clamp(fw + dw, 140.0, 380.0));
     let body = Body::grown(height, weight, rng);
     (ceilings, body, natural, compete)
+}
+
+/// A linebacker plays near the combine's weight (bug 310): a frame far off
+/// it carries less of the gap, so a heavy, slow linebacker isn't a
+/// defensive end's body.
+fn lb_weight(natural: Position, w: f64) -> f64 {
+    if natural != Position::LB {
+        return w;
+    }
+    let wm = combine_size(Position::LB).2;
+    wm + LB_WEIGHT_SPREAD * (w - wm)
+}
+
+/// The share of a linebacker frame's distance from the combine's weight he
+/// keeps: half brings the generator's spread from 20 lb to 9 (real 10), its
+/// heavy men (over 245) from 259 to 250 lb (real 253) and its slow ones
+/// (over 4.82) from 253 to 242 (real 245). Proposed, not confirmed.
+const LB_WEIGHT_SPREAD: f64 = 0.5;
+
+/// Rating points moved from range to hitting per ten pounds over the
+/// combine's weight: safeties 2, linebackers 3, and 1.5 more per sd of a
+/// linebacker's speed roll under the mean (D, L3). Proposed, not confirmed:
+/// sized so the generator's heavy and slow men match the real raw slopes on
+/// run tackles, stops and catch rate allowed.
+const LEAN_S: f64 = 2.0;
+const LEAN_LB: f64 = 3.0;
+const LEAN_LB_SLOW: f64 = 1.5;
+
+/// The body-to-leaning tie at safety and linebacker (D, L3): rating points
+/// moved from range to hitting per ten pounds over the combine's weight at
+/// his position (and per sd of speed roll under the mean at linebacker),
+/// with his overall there kept at his talent.
+fn body_lean(base: &mut Attributes, natural: Position, talent: f64, fw: f64, roll: f64, speed_share: f64) {
+    let (hit, range): (&[Attr], &[Attr]) = match natural {
+        Position::S => (
+            &[Attr::Tackling, Attr::Strength, Attr::Physicality],
+            &[Attr::ZoneCoverage, Attr::ManCoverage, Attr::Pursuit],
+        ),
+        Position::LB => (
+            &[Attr::Tackling, Attr::BlockShedding, Attr::Strength],
+            &[Attr::ZoneCoverage, Attr::ManCoverage, Attr::Pursuit],
+        ),
+        _ => return,
+    };
+    let w = lb_weight(natural, clamp(fw + talent_size(talent).1, 140.0, 380.0));
+    let z = (w - combine_size(natural).2) / 10.0;
+    let x = match natural {
+        Position::S => LEAN_S * z,
+        _ => LEAN_LB * z - LEAN_LB_SLOW * roll,
+    };
+    let x = clamp(x, -12.0, 12.0);
+    for &a in hit {
+        base.add(a, x);
+    }
+    for &a in range {
+        base.add(a, -x);
+    }
+    if speed_share < 1.0 {
+        let short = (talent - overall_for(natural, base)) / (1.0 - speed_share);
+        for a in Attr::ALL {
+            if weight(natural, a) > 0.0 && !matches!(a, Attr::Speed | Attr::Acceleration) {
+                base.add(a, short);
+            }
+        }
+    }
 }
 
 /// How sharp a staff's eye for a player's real position is, 0-1: a high
@@ -536,7 +606,7 @@ pub fn set_position(p: &mut Player, pos: Position) {
         .copied()
         .filter(|&s| s != crate::spots::Spot::FB)
         .max_by(|&a, &b| {
-            let r = |s| crate::spots::spot_rating(s, &p.attributes, p.body.weight);
+            let r = |s| crate::spots::spot_rating(s, &p.attributes, p.body.weight, p.body.height);
             r(a).total_cmp(&r(b))
         })
         .unwrap_or(crate::spots::spots_of(pos)[0]);

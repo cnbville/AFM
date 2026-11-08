@@ -11,6 +11,7 @@ Object.assign(I, {
   find: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/>',
   visit: '<path d="M3 21h18M5 21V10l7-5 7 5v11M10 21v-5h4v5"/>',
   portal: '<path d="M4 12h12M12 7l5 5-5 5M20 4v16"/>',
+  walkon: '<circle cx="12" cy="7" r="3.2"/><path d="M6 21v-3.5c0-2.8 2.7-4.8 6-4.8s6 2 6 4.8V21M16.5 4.5l3 3M19.5 4.5l-3 3"/>',
   nil: '<circle cx="12" cy="12" r="8.5"/><path d="M14.8 9.2c-.6-.9-1.6-1.3-2.8-1.3-1.6 0-2.8.8-2.8 2.1 0 3 5.8 1.5 5.8 4.3 0 1.3-1.3 2.2-3 2.2-1.3 0-2.4-.5-3-1.4M12 6.5v11"/>',
 });
 // The board holds the plain Recruiting table's job, and the watch, portal
@@ -22,6 +23,7 @@ foNavAdd("college", [
   ["visits_desk", "Visits", "visit"],
   ["portal_desk", "Transfer portal", "portal"],
   ["nil_desk", "NIL", "nil"],
+  ["walkons_desk", "Walk-ons", "walkon"],
 ]);
 Object.assign(CRUMBS, {
   recruit_board: "Recruiting board",
@@ -30,6 +32,7 @@ Object.assign(CRUMBS, {
   visits_desk: "Visits",
   portal_desk: "Transfer portal",
   nil_desk: "NIL",
+  walkons_desk: "Walk-ons",
 });
 
 // The old one-table Recruiting screen stays for the high school seat; a
@@ -792,6 +795,60 @@ screens.nil_desk = async () => {
   </div></div>`;
 };
 
+// ---------- walk-ons: scholarships and the open tryout ----------
+// Your walk-ons, the scholarship call on each, and the open tryout for the
+// students on campus between summer enrollment and the first weeks of fall
+// camp (lane B of the Jan 1 start). The ranges are your staff's read from
+// one day of drills.
+screens.walkons_desk = async () => {
+  const x = await api("walkons_desk");
+  setColors(x.team.colors);
+  const t = x.tryout;
+  const aid = x.aid.none
+    ? ["None", x.aid.none]
+    : x.aid.whole
+      ? [`${x.squad.n}/${x.squad.cap}`, "Roster places · any can carry aid"]
+      : [`${x.aid.on}/${x.aid.limit}`, "On scholarship"];
+  const earned = x.rows.filter((r) => r.earned).length;
+  const panel = `<h2>Season ${x.season} <small>walk-ons and aid</small></h2>${fcTiles([aid, [String(x.rows.length), "Walk-ons"], [String(earned), "In the two-deep"], [x.squad.whole ? `${x.squad.n}/${x.squad.cap}` : `${x.squad.n}`, x.squad.whole ? "House roster limit" : `On the squad · room to ${x.squad.cap}`]])}`;
+  const cols = [
+    { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name) },
+    { k: "pos", t: "Pos", l: true },
+    { k: "cls", t: "Class", l: true, v: (r) => classRank(r.cls) },
+    { k: "role", t: "Role", l: true, v: (r) => (r.earned ? 1 : 0), f: (r) => `${r.earned ? fcDot("good") : ""}${esc(r.role || "-")}` },
+    { k: "read", t: "Read", div: true, v: (r) => mid(r.read), f: (r) => range(r.read, null, { p: r.id, k: "ovr" }) },
+    { k: "words", t: "Scholarship", l: true, wrap: true, f: (r) => `<span class="sub">${esc(r.words)}</span>` },
+    { k: "act", t: "", l: true, f: (r) => (r.can ? `<button class="st-btn small primary" data-fc="woaward" data-id="${r.id}" data-name="${esc(r.name)}" data-words="${esc(r.words)}">Put him on scholarship</button>` : "") },
+  ];
+  const mine = x.rows.length
+    ? table("fcwo", cols, x.rows, { sort: "role", groupBy: null })
+    : `<div class="panel"><div class="empty">No walk-ons on the roster.${t.can ? " The open tryout below is the way to add one." : ""}</div></div>`;
+  const came = t.came.length
+    ? table("fcwot", [
+        { k: "name", t: "Student", l: true, f: (r) => playerLink(r.id, r.name, "Recruiting") },
+        { k: "pos", t: "Pos", l: true },
+        { k: "from", t: "From", l: true, f: (r) => `${esc(r.from || "-")}${r.juco ? ' <span class="st-pill">JUCO</span>' : ""}` },
+        { k: "state", t: "Home", l: true },
+        { k: "ht", t: "Ht", l: true },
+        { k: "wt", t: "Wt" },
+        { k: "forty", t: "40", tip: "Hand-timed on the day", f: (r) => (r.forty ? r.forty.toFixed(2) : "-") },
+        { k: "grade", t: "Read", div: true, tip: "Your staff's read from one day of drills: wide, and wider with a weaker eye", v: (r) => (r.low + r.high) / 2, f: (r) => `<b>${r.low}-${r.high}</b> <small class="sub">${esc(r.reader)}</small>` },
+        { k: "act", t: "", l: true, f: (r) => (r.kept ? `${fcDot("good")}Kept` : r.gone ? '<span class="muted">Gone</span>' : `<button class="st-btn small glass" data-fc="wokeep" data-id="${r.id}">Keep him</button>`) },
+      ], t.came, { sort: "grade", groupBy: null })
+    : "";
+  const tryout = t.held
+    ? `<div class="panel"><h2>The open tryout <small>held ${esc(t.held)} · ${fcPlural(t.came.length, "student")} came</small></h2><p class="sub">Keep any you want as walk-ons: no aid, a place on the squad, and the chance to earn a scholarship later. Each one kept takes a roster place.</p>${came || '<div class="empty">Nobody came out.</div>'}</div>`
+    : `<div class="panel"><h2>The open tryout <small>${esc(t.from)} to ${esc(t.to)}</small></h2>
+      <p class="sub">Once a season, students already on campus try out for your staff: a forty, the drills, a day's look. Up to ${t.looks} come out. Your position coaches read them; nobody has a file.</p>
+      ${t.can ? '<div class="fc-acts"><button class="st-btn small primary" data-fc="wohold">Hold the tryout</button></div>' : `<div class="empty">${esc(t.why || "")}</div>`}</div>`;
+  return `<div class="film">${fcHero({ label: `${teamLink(x.team)} · Roster`, title: "Walk-ons", line: "<span>Scholarships for the walk-ons who earn one, and the open tryout</span>", panel })}
+  <div class="pad fc-pad">
+    <div class="fc-bar"><div class="st-label">Your walk-ons</div>${fcGoto([["roster", "Squad"], ["depth", "Depth chart"], ["nil_desk", "NIL"], ["recruit_find", "Find recruits"]])}</div>
+    ${mine}
+    ${tryout}
+  </div></div>`;
+};
+
 // ---------- the desk's clicks and edits ----------
 // Captured before the frame's own handler, so a button in a row acts and
 // never opens the row's first link.
@@ -917,6 +974,9 @@ document.addEventListener(
         break;
       case "talk": fcDo("keep_talk", { id }); break;
       case "nilusual": fcDo("nil_usual", {}); break;
+      case "woaward": if (await sure(`Put ${d.name} on scholarship?`, d.words, "Put him on scholarship")) fcDo("college_scholarship", { id }); break;
+      case "wohold": fcDo("tryout_hold", {}); break;
+      case "wokeep": fcDo("tryout_keep", { id }); break;
       case "nilclear": if (await sure("Clear every deal?", "Every box on the roster goes to $0. A blank box pays nothing on July 1 until you set it.", "Clear them")) fcDo("nil_clear", {}); break;
     }
   },

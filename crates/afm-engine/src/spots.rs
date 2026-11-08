@@ -35,9 +35,13 @@ pub enum Spot {
     K,
     P,
     LS,
+    /// The strong-side linebacker (linebacker proposal L1, 2026-11-07): his
+    /// own job beside the Will (`OLB`), added last so saved spots keep
+    /// their bits.
+    SAM,
 }
 
-pub const SPOT_COUNT: usize = 21;
+pub const SPOT_COUNT: usize = 22;
 
 impl Spot {
     pub const ALL: [Spot; SPOT_COUNT] = [
@@ -62,6 +66,7 @@ impl Spot {
         Spot::K,
         Spot::P,
         Spot::LS,
+        Spot::SAM,
     ];
 
     #[inline]
@@ -72,7 +77,7 @@ impl Spot {
     pub fn name(self) -> &'static str {
         [
             "QB", "RB", "FB", "WR", "TE", "LT", "RT", "G", "C", "EDGE", "DT", "NT", "MLB", "OLB", "CB", "NB", "FS",
-            "SS", "K", "P", "LS",
+            "SS", "K", "P", "LS", "SAM",
         ][self as usize]
     }
 
@@ -88,7 +93,7 @@ impl Spot {
             Spot::G | Spot::C => P::IOL,
             Spot::EDGE => P::EDGE,
             Spot::DT | Spot::NT => P::DT,
-            Spot::MLB | Spot::OLB => P::LB,
+            Spot::MLB | Spot::OLB | Spot::SAM => P::LB,
             Spot::CB | Spot::NB => P::CB,
             Spot::FS | Spot::SS => P::S,
             Spot::K => P::K,
@@ -115,7 +120,7 @@ pub fn spots_of(pos: Position) -> &'static [Spot] {
         P::IOL => &[Spot::G, Spot::C],
         P::EDGE => &[Spot::EDGE],
         P::DT => &[Spot::DT, Spot::NT],
-        P::LB => &[Spot::MLB, Spot::OLB],
+        P::LB => &[Spot::MLB, Spot::OLB, Spot::SAM],
         P::CB => &[Spot::CB, Spot::NB],
         P::S => &[Spot::FS, Spot::SS],
         P::K => &[Spot::K],
@@ -169,7 +174,18 @@ fn lean(spot: Spot) -> &'static [(Attr, f64)] {
         Spot::MLB => {
             &[(PlayRecognition, 0.3), (FootballIq, 0.25), (Communication, 0.15), (Tackling, 0.15), (Traffic, 0.15)]
         }
-        Spot::OLB => &[(Speed, 0.35), (ZoneCoverage, 0.25), (Blitzing, 0.2), (Pursuit, 0.2)],
+        // The Will: range and coverage, the first linebacker to blitz.
+        Spot::OLB => &[(Speed, 0.35), (Pursuit, 0.25), (ZoneCoverage, 0.25), (Blitzing, 0.15)],
+        // The Sam (L1, proposed, not confirmed): he takes on the tight end
+        // and the lead blocker and rushes off the edge.
+        Spot::SAM => &[
+            (Strength, 0.2),
+            (BlockShedding, 0.2),
+            (ManCoverage, 0.15),
+            (Tackling, 0.15),
+            (Pursuit, 0.15),
+            (Blitzing, 0.15),
+        ],
         Spot::CB => &[(Speed, 0.35), (ManCoverage, 0.35), (Press, 0.15), (Jumping, 0.15)],
         Spot::NB => &[
             (Agility, 0.35),
@@ -191,14 +207,44 @@ fn lean(spot: Spot) -> &'static [(Attr, f64)] {
 /// group's other spot.
 const LEAN: f64 = 0.35;
 
-fn lean_value(spot: Spot, a: &Attributes, weight: f64) -> f64 {
-    let v: f64 = lean(spot).iter().map(|&(x, w)| a.get(x) * w).sum();
-    // A nose tackle's size: 330 pounds counts like a 90.
-    if spot == Spot::NT { 0.8 * v + 0.2 * ((weight - 240.0) / 1.0).clamp(20.0, 99.0) } else { v }
+/// Rating points of Speed a pound of body costs at the same Speed rating:
+/// the forty's weight term over its speed term (`body::forty`, 0.0033 /
+/// 0.0124, Speed's 0.75 share), so the read below is his true speed.
+const SPEED_PER_LB: f64 = 0.0033 / (0.0124 * 0.75);
+
+/// A staff reads the body as one input when it names a job (linebacker L1,
+/// corner C1, safety A; Cain 2026-11-07: the coach picks, nothing forces
+/// it): his true speed where the job asks for range (the Will, the outside
+/// corner, the free safety), his size where it asks him to take on blocks
+/// and hit (the Sam, the strong safety, the slot corner who blitzes and
+/// tackles), height outside where the deep balls go. Each lean's Speed is
+/// read as true speed about the job's typical weight. The sizes are
+/// proposed, not confirmed; the real check is the AI's picks across a
+/// league (`ab_check`, the job rows).
+fn lean_value(spot: Spot, a: &Attributes, weight: f64, height: f64) -> f64 {
+    let pivot = match spot {
+        Spot::OLB | Spot::SAM | Spot::MLB => 235.0,
+        Spot::CB | Spot::NB => 195.0,
+        Spot::FS | Spot::SS => 207.0,
+        _ => weight,
+    };
+    let v: f64 = lean(spot)
+        .iter()
+        .map(|&(x, w)| w * if x == Speed { a.get(x) - SPEED_PER_LB * (weight - pivot) } else { a.get(x) })
+        .sum();
+    let size = |per_lb: f64| (50.0 + per_lb * (weight - pivot)).clamp(1.0, 99.0);
+    match spot {
+        // A nose tackle's size: 330 pounds counts like a 90.
+        Spot::NT => 0.8 * v + 0.2 * ((weight - 240.0) / 1.0).clamp(20.0, 99.0),
+        Spot::SAM | Spot::SS => 0.85 * v + 0.15 * size(2.5),
+        Spot::NB => 0.9 * v + 0.1 * size(2.5),
+        Spot::CB => 0.9 * v + 0.1 * (50.0 + 6.0 * (height - 71.0)).clamp(1.0, 99.0),
+        _ => v,
+    }
 }
 
 /// His rating at a spot, in the position's rating points.
-pub fn spot_rating(spot: Spot, a: &Attributes, weight: f64) -> f64 {
+pub fn spot_rating(spot: Spot, a: &Attributes, weight: f64, height: f64) -> f64 {
     match spot {
         // The fullback is a blocker who catches: half a tight end's game,
         // half lead blocking.
@@ -218,8 +264,8 @@ pub fn spot_rating(spot: Spot, a: &Attributes, weight: f64) -> f64 {
             if sibs.is_empty() || lean(spot).is_empty() {
                 return base;
             }
-            let other = sibs.iter().map(|&s| lean_value(s, a, weight)).sum::<f64>() / sibs.len() as f64;
-            base + LEAN * (lean_value(spot, a, weight) - other) / 2.0
+            let other = sibs.iter().map(|&s| lean_value(s, a, weight, height)).sum::<f64>() / sibs.len() as f64;
+            base + LEAN * (lean_value(spot, a, weight, height) - other) / 2.0
         }
     }
 }
@@ -233,6 +279,9 @@ pub fn fill_in(spot: Spot, from: Spot) -> f64 {
     match (spot, from) {
         (Spot::DT, Spot::NT) | (Spot::NT, Spot::DT) => 0.0,
         (Spot::FS, Spot::SS) | (Spot::SS, Spot::FS) => 1.5,
+        // The Sam and the Will share the outside backer's reads; the Sam
+        // takes on the tight end and the edge (proposed, not confirmed).
+        (Spot::SAM, Spot::OLB) | (Spot::OLB, Spot::SAM) => 1.5,
         (Spot::C, _) => 6.0,
         (Spot::MLB, _) => 4.0,
         (Spot::QB | Spot::K | Spot::P | Spot::LS, _) => 8.0,
@@ -247,11 +296,31 @@ pub fn starter_spots(pos: Position) -> &'static [Spot] {
         P::OT => &[Spot::LT, Spot::RT],
         P::IOL => &[Spot::C, Spot::G, Spot::G],
         P::DT => &[Spot::DT, Spot::NT],
-        P::LB => &[Spot::MLB, Spot::OLB, Spot::OLB],
+        P::LB => &[Spot::MLB, Spot::SAM, Spot::OLB],
         P::CB => &[Spot::CB, Spot::CB, Spot::NB],
         P::S => &[Spot::FS, Spot::SS],
         _ => &[],
     }
+}
+
+/// The jobs your base board names, by depth order (section 8's Defense
+/// board: SAM, MIKE, WILL; the two corners, then the third corner as the
+/// nickel; FS, SS). Your order names the job; the engine keeps it
+/// (linebacker L1, 2026-11-07).
+pub fn board_jobs(pos: Position) -> &'static [Spot] {
+    use Position as P;
+    match pos {
+        P::LB => &[Spot::SAM, Spot::MLB, Spot::OLB],
+        P::CB => &[Spot::CB, Spot::CB, Spot::NB],
+        P::S => &[Spot::FS, Spot::SS],
+        _ => &[],
+    }
+}
+
+/// The positions whose men are named to a job on the depth chart and kept
+/// there on game day (L1, C1): linebackers, corners, safeties.
+pub fn named_jobs(pos: Position) -> bool {
+    !board_jobs(pos).is_empty()
 }
 
 /// The spot whose demands a man at `spot` faces: with a left-handed
@@ -279,7 +348,7 @@ pub fn choose_spots(players: &[&Player]) -> Vec<Spot> {
         .filter(|p| p.position == Position::QB)
         .max_by(|a, b| a.overall().total_cmp(&b.overall()))
         .is_some_and(|q| q.body.left_handed);
-    let r = |p: &Player, s: Spot| spot_rating(blind_side(s, lefty), &p.attributes, p.body.weight);
+    let r = |p: &Player, s: Spot| spot_rating(blind_side(s, lefty), &p.attributes, p.body.weight, p.body.height);
     for pos in Position::ALL {
         let mut idx: Vec<usize> = (0..players.len()).filter(|&i| players[i].position == pos).collect();
         if idx.is_empty() {

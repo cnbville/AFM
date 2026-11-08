@@ -46,6 +46,7 @@ pub struct GamePlayer {
     /// rating at every spot (fix list topic 3).
     pub spot: Spot,
     pub spots_played: u32,
+    #[serde(deserialize_with = "spot_r_any")]
     pub spot_r: [f64; SPOT_COUNT],
     /// His tendencies (`docs/design/tendencies.md`) and his coach's
     /// instructions to him.
@@ -96,6 +97,20 @@ fn no_prep() -> f32 {
     1.0
 }
 
+/// A saved game roster's spot ratings, from before the Sam was its own
+/// spot (21 of them): the Sam reads as the Will until the next refresh.
+fn spot_r_any<'de, D: serde::Deserializer<'de>>(d: D) -> Result<[f64; SPOT_COUNT], D::Error> {
+    let v: Vec<f64> = serde::Deserialize::deserialize(d)?;
+    let mut out = [0.0; SPOT_COUNT];
+    for (k, x) in v.iter().take(SPOT_COUNT).enumerate() {
+        out[k] = *x;
+    }
+    if v.len() <= Spot::SAM.index() {
+        out[Spot::SAM.index()] = out[Spot::OLB.index()];
+    }
+    Ok(out)
+}
+
 /// A player's game-day prep factor from his latest week's word.
 fn prep_of(p: &Player) -> f32 {
     crate::training::prep::game_factor(crate::training::prep::latest(&p.train)) as f32
@@ -128,7 +143,7 @@ impl GamePlayer {
             trust: 0.5,
             spot: p.spot,
             spots_played: p.spots_played | p.spot.bit(),
-            spot_r: Spot::ALL.map(|s| spot_rating(s, &p.attributes, b.weight)),
+            spot_r: Spot::ALL.map(|s| spot_rating(s, &p.attributes, b.weight, b.height)),
             tend: p.tend,
             orders: Default::default(),
             chem: TYPICAL_CHEM,
@@ -149,7 +164,7 @@ impl GamePlayer {
         self.height = b.height;
         self.weight = b.weight;
         self.arm = b.arm;
-        self.spot_r = Spot::ALL.map(|s| spot_rating(s, &p.attributes, b.weight));
+        self.spot_r = Spot::ALL.map(|s| spot_rating(s, &p.attributes, b.weight, b.height));
         self.tend = p.tend;
         self.impression = crate::training::impression(&p.train);
         self.prep = prep_of(p);
