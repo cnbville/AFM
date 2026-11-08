@@ -1165,6 +1165,15 @@ pub struct CalendarLog {
     pub college_rolled: u32,
     #[serde(default)]
     pub college_trouble: u32,
+    /// Blue chips' verbal commitments March to November (4 and 5 stars on
+    /// the services' read), and theirs broken before signing (reopened,
+    /// pulled, flipped, fallen through): the real figure is the top 100's
+    /// (minor bug 270: the check read every level's, where most late
+    /// commitments by lower recruits never break).
+    #[serde(default)]
+    pub blue_verbal: u32,
+    #[serde(default)]
+    pub blue_broken: u32,
 }
 
 /// Where the manager works (N58): his level, and his NFL team, college
