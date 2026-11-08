@@ -81,6 +81,31 @@ fn your_depth_chart_sets_the_roles_on_your_team() {
 }
 
 #[test]
+fn a_seasons_row_says_what_he_really_played() {
+    use crate::world::college::real_role;
+    use PlayingTime::*;
+    // Cain 2026-11-07: the camp ranking started a receiver who caught one
+    // ball in ten games; his snaps came on special teams.
+    assert_eq!(real_role(0, 10, 13, 0.03), Backup);
+    // Started every game, or most of them.
+    assert_eq!(real_role(13, 13, 13, 0.95), Starter);
+    assert_eq!(real_role(7, 12, 13, 0.6), Starter);
+    // Won the job at midseason: six starts in twelve games.
+    assert_eq!(real_role(6, 12, 12, 0.45), Starter);
+    // A starter hurt in the opener, and one hurt after four starts.
+    assert_eq!(real_role(1, 1, 12, 0.05), Starter);
+    assert_eq!(real_role(4, 4, 12, 0.3), Starter);
+    // A third receiver the first snap's personnel left off: heavy snaps.
+    assert_eq!(real_role(2, 13, 13, 0.62), Starter);
+    // A backup who filled in for two starts in three games played.
+    assert_eq!(real_role(2, 3, 13, 0.18), Backup);
+    // A starter benched after five starts who kept playing.
+    assert_eq!(real_role(5, 12, 12, 0.4), Rotation);
+    // A rotation lineman: never started, a third of the snaps.
+    assert_eq!(real_role(0, 12, 12, 0.35), Rotation);
+}
+
+#[test]
 fn a_season_off_leaves_the_step_to_the_role() {
     use PlayingTime::*;
     // College: a planned redshirt keeps the year with four games or fewer.

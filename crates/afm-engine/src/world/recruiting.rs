@@ -7570,6 +7570,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         // Someone who left college meanwhile is out of the market.
         let Some(c) = w.people[i].college else {
             w.people[i].cal.portal = None;
+            super::folk::backchannel::settled(w, w.people[i].player.id);
             continue;
         };
         let from = w.programs[c].division;
@@ -7601,6 +7602,9 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         let perf = perf_of(&w.people[i]);
         let serious = market.serious.contains(&i);
         w.people[i].cal.portal = None;
+        // A placement is read on this, his decision day, then spent (minor
+        // bug 325: the Monday cleanup dropped it at entry, before the day).
+        super::folk::backchannel::settled(w, id);
         // His old head coach's new school (minor bug 86), asked once.
         let followed = w.coach_follows.iter().find(|f| f.0 == id).map(|f| f.1);
         w.coach_follows.retain(|f| f.0 != id);
