@@ -314,7 +314,9 @@ pub(crate) fn new_season(w: &World) -> CollegeSeason {
 /// starting spot (what preseason polls and media days read).
 pub(crate) fn projected_strength(w: &World, prog: usize) -> f64 {
     let p = &w.programs[prog];
-    let mut by_pos: HashMap<crate::positions::Position, Vec<f64>> = HashMap::new();
+    // By position in position order: the sum runs the same way on every
+    // run (a hash map's order changed its last bits from run to run).
+    let mut by_pos: BTreeMap<crate::positions::Position, Vec<f64>> = BTreeMap::new();
     for &i in &p.roster {
         let q = &w.people[i];
         if q.stage == Stage::College && !q.player.position.is_specialist() {
@@ -1347,7 +1349,9 @@ pub(crate) fn ranking(w: &World, division: Division) -> Vec<(usize, f64)> {
             };
             next.insert(t, v);
         }
-        let mean = next.values().sum::<f64>() / next.len().max(1) as f64;
+        // Summed in program order, the same on every run (in the map's
+        // order its last bits changed from run to run).
+        let mean = members.iter().map(|t| next[t]).sum::<f64>() / members.len().max(1) as f64;
         for v in next.values_mut() {
             *v -= mean;
         }
