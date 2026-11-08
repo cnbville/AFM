@@ -976,6 +976,9 @@ pub fn visit_rule(w: &World, i: usize, kind: VisitKind, d: Date) -> Option<Strin
         return Some("He has signed: no more visits.".into());
     }
     let period = recruiting_period(y, d);
+    // Sandbox mode's contact rules (a test switch): any period, no visit
+    // counts. Who may visit when (the class signing next) still holds.
+    let lift = w.sandbox(crate::world::sandbox::Switch::ContactRules);
     let sign_year = rec::next_class(w);
     let senior = p.class_of <= sign_year;
     let taken = |v: Visit| p.cal.visits.iter().filter(|x| x.2 == v).count();
@@ -992,7 +995,7 @@ pub fn visit_rule(w: &World, i: usize, kind: VisitKind, d: Date) -> Option<Strin
             if d.weekday() != Weekday::Fri {
                 return Some("An official visit is a weekend: it starts on a Friday.".into());
             }
-            if !period.official_visits() {
+            if !lift && !period.official_visits() {
                 return Some(format!("No official visits in a {}.", period.name()));
             }
             let junior_officials = w.changes.rules(y.season).junior_officials;
@@ -1005,10 +1008,11 @@ pub fn visit_rule(w: &World, i: usize, kind: VisitKind, d: Date) -> Option<Strin
                     "Seniors take official visits from September 1.".to_string()
                 });
             }
-            if p.cal.visits.iter().any(|v| v.0 == j && v.2 == Visit::Official) || planned(kind) > 0 {
+            if !lift && (p.cal.visits.iter().any(|v| v.0 == j && v.2 == Visit::Official) || planned(kind) > 0) {
                 return Some("One official visit to a school, by NCAA rule.".into());
             }
-            if let Some(cap) = rec::official_cap(d)
+            if !lift
+                && let Some(cap) = rec::official_cap(d)
                 && taken(Visit::Official) + planned(kind) >= cap
             {
                 return Some("He has used his five official visits.".into());
@@ -1016,7 +1020,8 @@ pub fn visit_rule(w: &World, i: usize, kind: VisitKind, d: Date) -> Option<Strin
             if (9..=11).contains(&d.month()) && !home_saturdays(w, j).contains(&d.add(1)) {
                 return Some("In the fall an official visit is built around a home game.".into());
             }
-            if w.programs[j].division == Division::FBS
+            if !lift
+                && w.programs[j].division == Division::FBS
                 && let Some((cap, start)) = rec::school_official_cap(d)
             {
                 let set = w
@@ -1034,7 +1039,7 @@ pub fn visit_rule(w: &World, i: usize, kind: VisitKind, d: Date) -> Option<Strin
             }
         }
         VisitKind::Unofficial => {
-            if !period.unofficial_visits() {
+            if !lift && !period.unofficial_visits() {
                 return Some("No visits at all in a dead period.".into());
             }
             if d.weekday() != Weekday::Sat {
@@ -1048,21 +1053,21 @@ pub fn visit_rule(w: &World, i: usize, kind: VisitKind, d: Date) -> Option<Strin
             }
         }
         VisitKind::Home => {
-            if period != Period::Contact {
+            if !lift && period != Period::Contact {
                 return Some(format!("Home visits only in a contact period (this is a {}).", period.name()));
             }
-            if !senior {
+            if !lift && !senior {
                 return Some("The head coach visits seniors at home.".into());
             }
             if d.weekday() == Weekday::Sun {
                 return Some("Not on a Sunday.".into());
             }
-            if p.cal.visits.iter().any(|v| v.0 == j && v.2 == Visit::Home) || planned(kind) > 0 {
+            if !lift && (p.cal.visits.iter().any(|v| v.0 == j && v.2 == Visit::Home) || planned(kind) > 0) {
                 return Some("One home visit by the head coach in the cycle.".into());
             }
         }
         VisitKind::DropIn => {
-            if period != Period::Evaluation {
+            if !lift && period != Period::Evaluation {
                 return Some(format!(
                     "Coaches watch practice only in an evaluation period (this is a {}).",
                     period.name()
@@ -1071,7 +1076,7 @@ pub fn visit_rule(w: &World, i: usize, kind: VisitKind, d: Date) -> Option<Strin
             if d.weekday() != Weekday::Fri {
                 return Some("Your coaches drop in on Fridays, game day at his school.".into());
             }
-            if p.class_of > sign_year + 1 {
+            if !lift && p.class_of > sign_year + 1 {
                 return Some("Your coaches watch juniors and seniors.".into());
             }
             if planned(kind) > 0 {
@@ -1139,7 +1144,8 @@ fn answer(w: &World, i: usize, j: usize, kind: VisitKind, d: Date) -> Result<Str
             // His official visits left: the NCAA's five to June 2023; since
             // then no limit, but his weekends hold about five.
             let used = p.cal.visits.iter().filter(|v| v.2 == Visit::Official).count();
-            let capped = rec::official_cap(d).is_some();
+            // Sandbox mode's contact rules: no cap on his official visits.
+            let capped = rec::official_cap(d).is_some() && !w.sandbox(crate::world::sandbox::Switch::ContactRules);
             let left = rec::OFFICIAL_VISITS.saturating_sub(used).max(usize::from(!capped));
             let unvisited_ahead =
                 ahead.iter().filter(|&&x| !p.cal.visits.iter().any(|v| v.0 == x && v.2 == Visit::Official)).count();
@@ -1246,19 +1252,25 @@ fn run_visits(w: &mut World, j: usize, d: Date) {
             continue;
         };
         // The rules of the day (a signature or a closed window ends it).
+        // Sandbox mode's contact rules lift the window and the counts.
+        let lift = w.sandbox(crate::world::sandbox::Switch::ContactRules);
         let p = &w.people[i];
         let off = if p.cal.signed.is_some() {
             Some("He signed before the day came.".to_string())
         } else if !matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) && !is_juco_recruit(p) {
             Some("He is no longer a recruit.".to_string())
-        } else if !recruiting_period(&w.dates, d).unofficial_visits() {
+        } else if !lift && !recruiting_period(&w.dates, d).unofficial_visits() {
             Some("A dead period closed it.".to_string())
-        } else if kind == VisitKind::Official && p.cal.visits.iter().any(|v| v.0 == j && v.2 == Visit::Official) {
+        } else if !lift
+            && kind == VisitKind::Official
+            && p.cal.visits.iter().any(|v| v.0 == j && v.2 == Visit::Official)
+        {
             // One official visit to a school, and five in all to June 2023
             // (the rules re-checked on the day: your staff may have booked
             // one; SC6).
             Some("He already took his official visit to you.".to_string())
-        } else if kind == VisitKind::Official
+        } else if !lift
+            && kind == VisitKind::Official
             && rec::official_cap(d)
                 .is_some_and(|cap| p.cal.visits.iter().filter(|v| v.2 == Visit::Official).count() >= cap)
         {
@@ -1433,7 +1445,8 @@ pub const PRIORITY_MAX: usize = 35;
 pub fn set_priority(w: &mut World, id: u32, on: bool) -> Result<String, String> {
     need(w, Duty::Board)?;
     let n = w.front_office.college.board.iter().filter(|t| t.priority && t.id != id).count();
-    if on && n >= PRIORITY_MAX {
+    // Sandbox mode's hours switch: your own time for every target.
+    if on && n >= PRIORITY_MAX && !w.sandbox(crate::world::sandbox::Switch::YourHours) {
         return Err(format!("You can give your own time to {PRIORITY_MAX} targets at most."));
     }
     let t = w.front_office.college.board.iter_mut().find(|t| t.id == id).ok_or("He isn't on your board.")?;
@@ -1772,7 +1785,7 @@ pub fn set_promise(w: &mut World, id: u32, nil: Option<f64>) -> Result<String, S
     // Your hunt draws on what you set aside for him (SK67).
     let banked = if crate::world::hunt::is_yours(w, id) { b.hunt } else { 0.0 };
     if let Some(x) = nil
-        && x - current > b.left + banked + 1.0
+        && !b.fits(x - current - banked)
     {
         return Err(format!("That's more than the {} left in your NIL budget.", dollars(b.left.max(0.0))));
     }
@@ -1824,6 +1837,17 @@ pub struct Budget {
     /// Set aside for your hunt and not yet promised to him (SK67).
     pub hunt: f64,
     pub left: f64,
+    /// Sandbox mode's NIL budget switch (a test switch) on your program:
+    /// you can offer past `left` and the revenue-sharing cap; `left` stays
+    /// the true figure and goes below nothing.
+    pub unlimited: bool,
+}
+
+impl Budget {
+    /// Does `more` new money fit? Always, with the budget lifted.
+    pub fn fits(&self, more: f64) -> bool {
+        self.unlimited || more <= self.left + 1.0
+    }
 }
 
 pub fn budget(w: &World, j: usize) -> Budget {
@@ -1870,6 +1894,7 @@ pub fn budget(w: &World, j: usize) -> Budget {
         portal,
         hunt,
         left: yours - roster - recruits - portal - hunt,
+        unlimited: super::program(w) == Some(j) && w.sandbox(crate::world::sandbox::Switch::NilBudget),
     }
 }
 
@@ -1896,6 +1921,8 @@ fn splits(w: &World, j: usize) -> Vec<(u32, f64, f64, f64)> {
     } else {
         0.0
     };
+    // Sandbox mode's NIL Go switch: nothing held back from your roster.
+    let free = rec::nil_go_free(w) == Some(j);
     roster
         .iter()
         .map(|&i| {
@@ -1904,7 +1931,11 @@ fn splits(w: &World, j: usize) -> Vec<(u32, f64, f64, f64)> {
                 return (w.people[i].player.id, x, 0.0, 0.0);
             }
             let school = x * s;
-            let coll = rec::nil_go(w.today, x - school, rec::nil_go_top(&w.people[i], value(i)));
+            let coll = if free {
+                x - school
+            } else {
+                rec::nil_go(w.today, x - school, rec::nil_go_top(&w.people[i], value(i)))
+            };
             (w.people[i].player.id, school, coll, x - school - coll)
         })
         .collect()
@@ -1956,7 +1987,7 @@ fn put_deal(w: &mut World, id: u32, amount: f64) -> Result<(usize, usize, i32), 
     let usual = if staff { usual_deals(w, j).into_iter().find(|d| d.0 == id).map_or(0.0, |d| d.1) } else { 0.0 };
     let old = w.front_office.college.deals.iter().find(|d| d.0 == id).map_or(usual, |d| d.1);
     let b = budget(w, j);
-    if amount - old > b.left + 1.0 {
+    if !b.fits(amount - old) {
         return Err(format!("That's more than the {} left in your NIL budget.", dollars(b.left.max(0.0))));
     }
     let desk = &mut w.front_office.college;
@@ -2344,7 +2375,7 @@ pub fn portal_offer(w: &mut World, id: u32, nil: Option<f64>) -> Result<String, 
         let b = budget(w, j);
         let old =
             w.front_office.college.portal.iter().find(|t| t.id == id && !t.settled).and_then(|t| t.nil).unwrap_or(0.0);
-        if x - old > b.left + 1.0 {
+        if !b.fits(x - old) {
             return Err(format!("That's more than the {} left in your NIL budget.", dollars(b.left.max(0.0))));
         }
     }

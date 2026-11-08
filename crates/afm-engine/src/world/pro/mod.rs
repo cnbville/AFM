@@ -1126,7 +1126,7 @@ fn fill_roster(w: &mut World, d: Date) -> bool {
             let i = street_or_new(w, pos);
             let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
             let price = money::minimum(year, credited);
-            if money::cap_books(year) && space(w, t, year) < price {
+            if money::cap_books(year) && !super::front_office::cap_lifted(w, t) && space(w, t, year) < price {
                 market::clear_room(w, t, d, false, price, false);
                 if space(w, t, year) < price && healthy >= dress {
                     break;
@@ -2226,7 +2226,7 @@ fn heal_week(w: &mut World) {
             && let Some(t) = team
             && crate::world::front_office::seat_head_club(w, t)
             && !crate::world::front_office::reserve::you_decide(w, i)
-            && (pup || w.clubs[t].ir_used < games::ir_returns_on(w))
+            && (pup || w.clubs[t].ir_used < games::ir_returns_on(w) || crate::world::front_office::roster_lifted(w, t))
         {
             let d = w.today;
             back_from_reserve(w, i, t, pup, d);
@@ -2283,7 +2283,7 @@ pub(crate) fn heal_day(w: &mut World, d: Date, y: &crate::calendar::YearDates) {
         // Your club's healed player waits for your word (minor bug 73), off
         // the PUP list too; nothing moves him without you.
         if crate::world::front_office::reserve::you_decide(w, i) {
-            if returns {
+            if returns || crate::world::front_office::roster_lifted(w, t) {
                 crate::world::front_office::reserve::healed(w, i);
             }
             continue;
@@ -2312,7 +2312,9 @@ fn back_from_reserve(w: &mut World, i: usize, t: usize, pup: bool, d: Date) {
     let c = w.people[i].pro.as_mut().unwrap();
     c.status = Status::Roster;
     c.pup = false;
-    let over = count(w, t, Status::Roster) > w.rules.nfl_roster as usize;
+    // Sandbox mode's roster limits: your club keeps everyone.
+    let over =
+        count(w, t, Status::Roster) > w.rules.nfl_roster as usize && !crate::world::front_office::roster_lifted(w, t);
     if over {
         // Room for him: the team lets its lowest-rated healthy player at the deepest spot go.
         let cut = w.clubs[t]

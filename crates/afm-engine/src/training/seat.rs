@@ -837,6 +837,9 @@ pub struct PlannedWeek {
     pub yours: bool,
     /// Run as you wrote it, past the rules (topic 3).
     pub pushed: bool,
+    /// Sandbox mode's practice rules lift this week: it is yours and you
+    /// are the head coach, so it runs as written and opens no case.
+    pub lifted: bool,
 }
 
 pub fn planned(w: &World, st: &SeatTeam, monday: Date) -> PlannedWeek {
@@ -857,13 +860,19 @@ pub fn planned(w: &World, st: &SeatTeam, monday: Date) -> PlannedWeek {
         }
     };
     let before = wk.clone();
-    if !pushed {
+    // Sandbox mode's practice rules (a test switch): your own week or
+    // template runs as written, like a pushed week, and nobody looks into
+    // it. Your staff's default week and a head coach's week you only assist
+    // in keep the rules.
+    let lifted = yours && w.seat_head() && w.sandbox(crate::world::sandbox::Switch::PracticeRules);
+    let free = pushed || lifted;
+    if !free {
         fit(&mut wk, &bk);
     }
     // A state's heat rule cuts a hot day's practice to an hour (update 3,
     // F9); a week run past the rules ignores it.
     let mut heat_cut = (0u8, [0.0; 7]);
-    if !pushed
+    if !free
         && st.tier == Tier::High
         && st.heat
         && let Some(h) = w.seat_school()
@@ -896,7 +905,7 @@ pub fn planned(w: &World, st: &SeatTeam, monday: Date) -> PlannedWeek {
         }
         _ => Counts::default(),
     };
-    if !pushed {
+    if !free {
         super::plan::fit_block(&mut wk, &used, &lim);
     }
     let mut fitted = Vec::new();
@@ -919,7 +928,7 @@ pub fn planned(w: &World, st: &SeatTeam, monday: Date) -> PlannedWeek {
         super::week::staff_week(st.tier, &st.frame, monday, &games, bowl, st.state, st.heat, &|s| neutral(st.tier, s));
     let weather = practice_weather(w, st, monday, &wk);
     weather_cuts(&mut wk, &weather);
-    PlannedWeek { monday, weather, block, slot, books: bk, week: wk, neutral: nk, fitted, games, yours, pushed }
+    PlannedWeek { monday, weather, block, slot, books: bk, week: wk, neutral: nk, fitted, games, yours, pushed, lifted }
 }
 
 /// Saves a template for a slot after checking it against the slot's rules
@@ -933,7 +942,9 @@ pub fn save_template(w: &mut World, slot: Slot, t: Template) -> Result<(), Vec<B
     if slot == Slot::Game {
         probe.days[6].game = true;
     }
-    let breaches = check_week(&bk, &probe);
+    // Sandbox mode's practice rules: any template saves.
+    let breaches =
+        if w.sandbox(crate::world::sandbox::Switch::PracticeRules) { Vec::new() } else { check_week(&bk, &probe) };
     if !breaches.is_empty() {
         return Err(breaches);
     }
@@ -964,6 +975,10 @@ pub fn save_this_week(w: &mut World, monday: Date, wk: Week, push: bool) -> Resu
         let mut c = used;
         c.add_week(&wk);
         breaches.extend(c.over(&block_limits(st.tier, block, s)).into_iter().map(|t| Breach { day: None, text: t }));
+    }
+    // Sandbox mode's practice rules: the week saves as your own, not pushed.
+    if w.sandbox(crate::world::sandbox::Switch::PracticeRules) {
+        breaches.clear();
     }
     if !breaches.is_empty() && !push {
         return Err(breaches);
@@ -1698,7 +1713,12 @@ fn heat_week(w: &mut World, st: &SeatTeam, d: Date, pw: &PlannedWeek, seed: u64,
 
 /// A week practised past the rules (topic 3): found out the real ways, and
 /// punished as real leagues punish it.
+///
+/// Never with sandbox mode's practice rules on.
 fn practice_case(w: &mut World, st: &SeatTeam, d: Date, pw: &PlannedWeek, hurt: bool, seed: u64) {
+    if pw.lifted {
+        return;
+    }
     let mut what: Vec<String> = check_week(&pw.books, &pw.week).into_iter().map(|b| b.text).collect();
     if let Some((b, s, c)) = w.training.counts
         && b == pw.block

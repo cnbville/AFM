@@ -66,6 +66,7 @@ pub mod pronoun;
 pub mod records;
 pub(crate) mod recruiting;
 pub mod road_marks;
+pub mod sandbox;
 pub mod schedule;
 pub mod scouting;
 pub(crate) mod season;
@@ -1514,6 +1515,12 @@ impl World {
     /// stopped on.
     pub fn holiday_to(&mut self, until: crate::calendar::Date) -> crate::calendar::Date {
         clock::holiday_to(self, until)
+    }
+
+    /// Sandbox mode's jump (a test tool): every day to `until` played as
+    /// Continue plays it, staff running things, no early stop.
+    pub fn jump_to(&mut self, until: crate::calendar::Date) -> crate::calendar::Date {
+        clock::jump_to(self, until)
     }
 
     /// The college season's ranking releases so far: (day, poll, top 25).

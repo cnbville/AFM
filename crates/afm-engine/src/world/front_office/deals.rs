@@ -274,6 +274,11 @@ fn check(w: &World, me: usize, p: &Proposal, at: &std::collections::HashMap<u32,
     if money::capped(year) {
         let june1 = pro::after_june1(w, w.today);
         for (t, out, inn) in [(me, &p.give, &p.get), (o, &p.get, &p.give)] {
+            // Sandbox mode's cap switch lifts your side only: the other GM
+            // stays under his cap.
+            if t == me && super::cap_lifted(w, t) {
+                continue;
+            }
             let mut delta = 0.0;
             // The seller keeps the pay it has handed out; the buyer takes the
             // rest (bug 123).

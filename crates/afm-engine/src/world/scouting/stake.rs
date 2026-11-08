@@ -65,11 +65,12 @@ pub fn stake(w: &mut World, id: u32, public: bool) -> Result<String, String> {
             if nfl { "Only a draft prospect: a college player or a declared one." } else { "Only a recruit." }.into()
         );
     }
+    let free = w.sandbox(crate::world::sandbox::Switch::StaffTime);
     let list = &w.scouting.stakes.list;
     if list.iter().any(|s| s.id == id && !s.done) {
         return Err("Your name is on him already.".into());
     }
-    if list.iter().filter(|s| !s.done).count() >= OPEN_MAX {
+    if !free && list.iter().filter(|s| !s.done).count() >= OPEN_MAX {
         return Err(format!("You have {OPEN_MAX} open calls: a name staked on everyone means nothing."));
     }
     let division = seat.program.map(|j| w.programs[j].division);

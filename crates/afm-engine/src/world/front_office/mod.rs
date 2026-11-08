@@ -267,6 +267,17 @@ pub(crate) fn club(w: &World) -> Option<usize> {
     w.seat.filter(|s| s.level == Level::Nfl && w.seat_head()).and_then(|s| s.nfl_team)
 }
 
+/// Sandbox mode's salary cap switch (a test switch) on club `t`: true
+/// only for your club, so every other club stays under its cap.
+pub(crate) fn cap_lifted(w: &World, t: usize) -> bool {
+    club(w) == Some(t) && w.sandbox(super::sandbox::Switch::SalaryCap)
+}
+
+/// Sandbox mode's roster limits switch on club `t`: true only for yours.
+pub(crate) fn roster_lifted(w: &World, t: usize) -> bool {
+    club(w) == Some(t) && w.sandbox(super::sandbox::Switch::RosterLimits)
+}
+
 /// Your college program, if you hold one.
 pub(crate) fn program(w: &World) -> Option<usize> {
     w.career.as_ref()?;
