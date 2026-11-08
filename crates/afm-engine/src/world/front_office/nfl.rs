@@ -640,7 +640,7 @@ fn free_now(w: &World, i: usize) -> bool {
 /// interest that isn't there (the market's bluff, topic 3). Your
 /// negotiating reads it the way the AI GM's skill does in `bluff`.
 fn agent_claim(
-    w: &World,
+    w: &mut World,
     i: usize,
     t: usize,
     kind: TalkKind,
@@ -649,6 +649,7 @@ fn agent_claim(
 ) -> (Option<String>, Option<String>) {
     let Some(a) = w.people[i].pro.as_ref().and_then(|c| c.agent) else { return (None, None) };
     let agent = &w.market.agents[a];
+    let (honesty, rel) = (agent.honesty, agent.rel.get(t).copied().unwrap_or(0.0));
     let id = w.people[i].player.id as u64;
     let day = w.today.0 as u64;
     if s >= 1.0 {
@@ -665,7 +666,7 @@ fn agent_claim(
         Vec::new()
     };
     let best = rivals.iter().max_by(|a, b| a.1.total_cmp(&b.1)).copied();
-    let bluffs = super::key(w, 0xB1A0 ^ day, id) > 1.0 - (1.0 - agent.honesty) * 0.8;
+    let bluffs = super::key(w, 0xB1A0 ^ day, id) > 1.0 - (1.0 - honesty) * 0.8;
     let name = w.people[i].name.clone();
     let (part, f, plain, true_claim) = match (kind, best, bluffs) {
         (TalkKind::FreeAgent, Some((o, apy)), _) => {
@@ -694,7 +695,6 @@ fn agent_claim(
     let text = crate::world::folk::dialogue::agent_says(w, i, part, &f, plain);
     // Your read: right more often the better you negotiate and the more
     // you know this agent (his history with your club).
-    let rel = agent.rel.get(t).copied().unwrap_or(0.0);
     let skill = negotiating(w);
     let read_p = clamp(0.45 + 0.03 * (skill - 10.0) + 0.15 * rel.abs(), 0.2, 0.95);
     let right = super::key(w, 0xB1A1 ^ day, id) < read_p;

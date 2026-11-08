@@ -1,0 +1,3 @@
+# The line bank run: agents (Cain 2026-11-07, "yes on all"). Written through the
+# Message Batches API and checked by tools/linebank (check.py and one model
+# pass); merged here by `run.py merge`. Format in src/world/folk/voice.rs.
