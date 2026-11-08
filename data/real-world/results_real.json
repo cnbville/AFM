@@ -1,0 +1,221 @@
+{
+ "source": "nflverse regular seasons 2018-2025 (FTN 2022+)",
+ "reads": {
+  "ShortThrow": {
+   "stat": "CPOE, air yards -99..10",
+   "r": 0.225,
+   "pairs": 195,
+   "qualify": 100,
+   "V": 267.4,
+   "sd": 0.0371,
+   "seasons": 315
+  },
+  "MediumThrow": {
+   "stat": "CPOE, air yards 10..20",
+   "r": 0.269,
+   "pairs": 159,
+   "qualify": 50,
+   "V": 94.9,
+   "sd": 0.0663,
+   "seasons": 254
+  },
+  "DeepThrow": {
+   "stat": "CPOE, air yards 20..99",
+   "r": 0.145,
+   "pairs": 149,
+   "qualify": 30,
+   "V": 54.2,
+   "sd": 0.0724,
+   "seasons": 245
+  },
+  "Picks": {
+   "stat": "-INT per attempt",
+   "r": 0.212,
+   "pairs": 179,
+   "qualify": 200,
+   "V": 448.6,
+   "sd": 0.0083,
+   "seasons": 278
+  },
+  "Hands": {
+   "stat": "receiver catch rate over expected (complete - cp)",
+   "r": 0.289,
+   "pairs": 590,
+   "qualify": 50,
+   "V": 87.5,
+   "sd": 0.0585,
+   "seasons": 1046
+  },
+  "Tracking": {
+   "stat": "receiver catch rate over expected, air 20+",
+   "r": 0.06,
+   "pairs": 178,
+   "qualify": 15,
+   "V": 21.5,
+   "sd": 0.1122,
+   "seasons": 355
+  },
+  "Security": {
+   "stat": "-fumbles per touch",
+   "r": 0.273,
+   "pairs": 179,
+   "qualify": 150,
+   "V": 235.9,
+   "sd": 0.0069,
+   "seasons": 321
+  },
+  "ShortKick": {
+   "stat": "FG under 40 and XP made over the league's rate at the yard",
+   "r": 0.154,
+   "pairs": 159,
+   "qualify": 30,
+   "V": 52.4,
+   "sd": 0.0342,
+   "seasons": 241
+  },
+  "LongKick": {
+   "stat": "FG 40+ made over the league's rate at the yard",
+   "r": 0.055,
+   "pairs": 145,
+   "qualify": 10,
+   "V": 15.7,
+   "sd": 0.1208,
+   "seasons": 227
+  },
+  "Placement": {
+   "stat": "punts inside the 20 over the league's rate from that spot",
+   "r": 0.102,
+   "pairs": 183,
+   "qualify": 30,
+   "V": 63.2,
+   "sd": 0.0582,
+   "seasons": 254
+  },
+  "MovingThrow": {
+   "stat": "CPOE out of the pocket (FTN, 2022+)",
+   "r": -0.064,
+   "pairs": 59,
+   "qualify": 25,
+   "V": 50.2,
+   "sd": 0.0688,
+   "seasons": 122
+  },
+  "Contested": {
+   "stat": "receiver catch rate over expected on contested balls (FTN, 2022+)",
+   "r": -0.044,
+   "pairs": 124,
+   "qualify": 12,
+   "V": 19.7,
+   "sd": 0.1384,
+   "seasons": 271
+  },
+  "Pocket": {
+   "stat": "share of pressures that are hurries or hits, not sacks (PFR)",
+   "r": 0.33,
+   "pairs": 163,
+   "qualify": 60,
+   "V": 114.0,
+   "sd": 0.0759,
+   "seasons": 261
+  },
+  "Broken": {
+   "stat": "broken tackles per carry (PFR)",
+   "r": 0.209,
+   "pairs": 229,
+   "qualify": 100,
+   "V": 181.6,
+   "sd": 0.0301,
+   "seasons": 402
+  },
+  "LegDrive": {
+   "stat": "yards after contact per carry (PFR)",
+   "r": 0.39,
+   "pairs": 229,
+   "qualify": 100,
+   "V": 181.6,
+   "sd": 0.4275,
+   "seasons": 402
+  },
+  "Tackle": {
+   "stat": "-missed tackles per attempt (PFR)",
+   "r": 0.287,
+   "pairs": 1722,
+   "qualify": 40,
+   "V": 72.5,
+   "sd": 0.0443,
+   "seasons": 3019
+  },
+  "ManCover": {
+   "stat": "-completions allowed per target (PFR; man and zone together)",
+   "r": 0.456,
+   "pairs": 830,
+   "qualify": 40,
+   "V": 63.5,
+   "sd": 0.0892,
+   "seasons": 1557
+  },
+  "ZoneCover": {
+   "stat": "-completions allowed per target (PFR; man and zone together)",
+   "r": 0.456,
+   "pairs": 830,
+   "qualify": 40,
+   "V": 63.5,
+   "sd": 0.0892,
+   "seasons": 1557
+  },
+  "PowerRush": {
+   "stat": "pressures per defensive snap, edge and interior rushers (PFR; moves together)",
+   "r": 0.611,
+   "pairs": 340,
+   "qualify": 300,
+   "V": 524.7,
+   "sd": 0.0132,
+   "seasons": 948
+  },
+  "FinesseRush": {
+   "stat": "pressures per defensive snap, edge and interior rushers (PFR; moves together)",
+   "r": 0.611,
+   "pairs": 340,
+   "qualify": 300,
+   "V": 524.7,
+   "sd": 0.0132,
+   "seasons": 948
+  },
+  "Vision": {
+   "stat": "rush yards over expected per carry (NGS)",
+   "r": 0.227,
+   "pairs": 229,
+   "qualify": 100,
+   "V": 182.6,
+   "sd": 0.5665,
+   "seasons": 394
+  },
+  "Separation": {
+   "stat": "average separation at the catch point (NGS)",
+   "r": 0.586,
+   "pairs": 689,
+   "qualify": 50,
+   "V": 90.2,
+   "sd": 0.5034,
+   "seasons": 1150
+  },
+  "AfterCatch": {
+   "stat": "YAC over expected per reception (NGS)",
+   "r": 0.414,
+   "pairs": 520,
+   "qualify": 40,
+   "V": 65.3,
+   "sd": 0.8389,
+   "seasons": 891
+  }
+ },
+ "gaps": {
+  "Poise": "no free pressure flag on throws (FTN charts none); proposed 0.35",
+  "Release": "no free press or jam charting; proposed 0.35",
+  "PassBlock": "pressures allowed per pass block are PFF's; proposed 0.35",
+  "RunBlock": "run block wins are PFF's or ESPN's; proposed 0.35",
+  "Anchor": "no free power-rush charting; proposed 0.35",
+  "Shed": "no free run-block-shed charting; proposed 0.35",
+  "Recognition": "run stops per run snap need snap participation by play; proposed 0.35"
+ }
+}

@@ -368,16 +368,21 @@ function fcFile(f, ctx, compact) {
   return `<section class="fc-file warm">${left}${mid}${right}</section><div class="grid3">${family}${history || '<div class="panel"><h2>Visits and contacts</h2><div class="empty">He hasn\'t been on your campus yet.</div></div>'}${early || '<div class="panel"><h2>His offers in order</h2><div class="empty">No offers yet.</div></div>'}</div>`;
 }
 
+// Your own film session on him (bug 82): today, on your own film hours;
+// when you can't, the button says why. A transfer's tape is his last
+// college team's games, a redshirt's his high school's (minor bug 353).
+function fcFilmBtn(f) {
+  const fn = f.film_now;
+  const why = fn && fn.blocked ? (/today/.test(fn.blocked) ? "watched today" : /resting/.test(fn.blocked) ? "resting" : /open/.test(fn.blocked) ? "cut-up open" : "hours spent") : fn ? `${fn.left.toFixed(1)} h left` : "";
+  const title = fn && fn.blocked ? fn.blocked : `Watch his film yourself, today, in the film room, on your own film hours: read by your own eye${fn && fn.source ? `. The tape is ${fn.source}.` : ""}`;
+  return `<button class="st-btn small glass l7-film" data-go="film" data-id="${f.id}" title="${esc(title)}">Watch his film now${why ? ` <small>${why}</small>` : ""}</button>`;
+}
+
 // The buttons for a recruit: board, offer, your own time, his NIL number.
 function fcActions(f) {
   const b = [];
   const closed = ["signed", "enrolled", "signed_elsewhere", "gone"].includes(f.standing);
-  const fn = f.film_now;
-  if (!["signed", "enrolled", "gone"].includes(f.standing)) {
-    const why = fn && fn.blocked ? (/today/.test(fn.blocked) ? "watched today" : /resting/.test(fn.blocked) ? "resting" : /open/.test(fn.blocked) ? "cut-up open" : "hours spent") : fn ? `${fn.left.toFixed(1)} h left` : "";
-    const title = fn && fn.blocked ? fn.blocked : "Watch his film yourself, today, in the film room, on your own film hours: read by your own eye";
-    b.push(`<button class="st-btn small glass l7-film" data-go="film" data-id="${f.id}" title="${esc(title)}">Watch his film now${why ? ` <small>${why}</small>` : ""}</button>`);
-  }
+  if (!["signed", "enrolled", "gone"].includes(f.standing)) b.push(fcFilmBtn(f));
   if (!f.board_yours) {
     b.push(`<p class="sub">Your coordinator runs the board: his offers and order stand until you take it back.</p>`);
   } else if (!closed) {
@@ -402,20 +407,18 @@ function fcActions(f) {
     const two = f.two_pots;
     const k = (x) => (x != null ? Math.round(x / 1000) : "");
     const promised = f.nil != null || f.nil_coll != null;
-    // A blank box is no money, except on your coordinator's board before
-    // you name a number: there his offer carries the going rate, which the
-    // boxes show in grey (and a blank box beside a number keeps it).
-    const blank = f.board_yours || promised ? "none" : null;
-    const box = (label, key, val, usual) => `<label class="fc-moneyin">${two ? `<span class="fc-pot">${label}</span>` : ""}$<input type="number" min="0" step="5" value="${k(val)}" placeholder="${blank || k(usual)}" data-usual="${blank ? 0 : Math.round(usual || 0)}" data-fcin="${key}" data-id="${f.id}">thousand a year</label>`;
+    // A blank box is no money, whoever made the offer: your coordinator
+    // never names money (Cain, 2026-11-08). The going rate is only a guide.
+    const box = (label, key, val) => `<label class="fc-moneyin">${two ? `<span class="fc-pot">${label}</span>` : ""}$<input type="number" min="0" step="5" value="${k(val)}" placeholder="none" data-fcin="${key}" data-id="${f.id}">thousand a year</label>`;
     const state = promised
       ? two ? `You promised ${money(f.nil || 0)} of revenue share and a ${money(f.nil_coll || 0)} collective deal a year.` : `You promised ${money(f.nil)} a year.`
-      : f.board_yours ? "No money promised: your offer is the scholarship alone." : "No number of yours: your coordinator's offer carries the going rate.";
+      : "No money promised: your offer is the scholarship alone.";
     const market = two
       ? `The going rate for ${kind} at a school like yours: about ${money(f.usual)} of revenue share and a ${money(f.usual_coll)} collective deal, which NIL Go clears up to his range.`
       : `Schools like yours usually pay ${kind} about ${money(f.usual)}.`;
     const left = two ? `${money(f.budget.left)} left in the revenue share and ${money(f.budget.coll_left)} in the collective` : `${money(f.budget.left)} left this year`;
     nil = `<div class="fc-nil"><span class="st-label">NIL promise <small>optional</small></span>
-        <div class="fc-nilrow">${box("Revenue share", "promise", f.nil, f.usual)}${two ? box("Collective deal", "pcoll", f.nil_coll, f.usual_coll) : ""}<button class="st-btn small primary" data-fc="promise" data-id="${f.id}">Promise</button></div>
+        <div class="fc-nilrow">${box("Revenue share", "promise", f.nil)}${two ? box("Collective deal", "pcoll", f.nil_coll) : ""}<button class="st-btn small primary" data-fc="promise" data-id="${f.id}">Promise</button></div>
         <small class="sub">${state} ${market} The going rate for his position tops out near ${money(f.nil_max)}, but only your money limits you: ${left}.</small>
         ${fcAnswer(f.answer)}
         ${promised ? `<button class="st-btn small glass" data-fc="promiseclear" data-id="${f.id}">Take the promise back</button>` : ""}</div>`;
@@ -532,8 +535,11 @@ screens.recruit_file = async (a) => {
 // see him at home; he says yes the day your offer clears what he needs.
 function fcPortalMoves(f) {
   const b = [];
-  // A blank box is no money; the tip gives a typical transfer's share.
-  const box = (key, val, usual, what) => `<label class="fc-moneyin" title="${esc(`${what}. A typical transfer's share here: about ${money(usual)} a year`)}">$<input type="number" min="0" step="5" value="${val != null ? Math.round(val / 1000) : ""}" placeholder="none" data-fcin="${key}" data-id="${f.id}">thousand a year</label>`;
+  // His tape (minor bug 353): a transfer's last college team's games.
+  if (f.film_now) b.push(fcFilmBtn(f));
+  // A blank box is no money; the tip gives a typical transfer's share. In
+  // two pots each box names its pot (Cain, 2026-11-08: "which is which?").
+  const box = (key, val, usual, what) => `<label class="fc-moneyin" title="${esc(`${what}. A typical transfer's share here: about ${money(usual)} a year`)}">${f.two_pots ? `<span class="fc-pot">${key === "pcollp" ? "Collective deal" : "Revenue share"}</span>` : ""}$<input type="number" min="0" step="5" value="${val != null ? Math.round(val / 1000) : ""}" placeholder="none" data-fcin="${key}" data-id="${f.id}">thousand a year</label>`;
   const nilIn = f.nil_era ? box("pnil", f.nil, f.usual, f.two_pots ? "Revenue share" : "NIL") + (f.two_pots ? box("pcollp", f.coll, f.coll_usual, "Collective deal, reviewed by NIL Go") : "") : "";
   if (f.committed) {
     b.push(`<p class="sub">${fcDot("good")}He told you yes on ${esc(f.committed)}. He signs tonight.</p>`);
@@ -546,7 +552,7 @@ function fcPortalMoves(f) {
     const what = f.two_pots ? "revenue share" : "NIL";
     pay = `<div class="fc-nil"><span class="st-label">Your offer <small>${what} a year, optional</small></span>
       <div class="fc-nilrow">${nilIn}<button class="st-btn small ${f.offered ? "glass" : "primary"}" data-fc="poffer" data-id="${f.id}">${f.offered ? "Change it" : "Offer"}</button></div>
-      <small class="sub">${f.nil != null ? `You offered ${money(f.nil)} a year.` : f.offered ? "Your offer carries the usual money." : "Empty is the usual money."} About ${money(f.usual)} is usual from a budget like yours; ${money(f.budget.left)} left this year.</small>${fcAnswer(f.answer)}</div>`;
+      <small class="sub">${f.nil != null || f.coll != null ? (f.two_pots ? `You offered ${money(f.nil || 0)} of revenue share and a ${money(f.coll || 0)} collective deal a year.` : `You offered ${money(f.nil)} a year.`) : f.offered ? "Your offer is the place alone: no money." : "A blank box is no money."} About ${money(f.usual)} is usual from a budget like yours, only a guide; ${money(f.budget.left)} left this year.</small>${fcAnswer(f.answer)}</div>`;
   } else if (f.shopping && !f.committed) {
     b.push(`<button class="st-btn small ${f.offered ? "glass" : "primary"}" data-fc="poffer" data-id="${f.id}">${f.offered ? "Offer stands" : "Offer a place"}</button>`);
   }
@@ -701,7 +707,8 @@ screens.portal_desk = async () => {
   // and from July 2025 the collective's deal is a second box (B18). The
   // going rate is in the box's tip.
   const k1 = (v) => (v != null ? Math.round(v / 1000) : "");
-  const nilBox = (r, key, val, usual, what) => `<label class="fc-moneyin small" title="${esc(`${what}. A typical transfer's share here: about ${money(usual)} a year`)}">$<input type="number" min="0" step="5" value="${k1(val)}" placeholder="none" data-fcin="${key}" data-id="${r.id}">k</label>`;
+  // In two pots each box names its pot (Cain, 2026-11-08: "which is which?").
+  const nilBox = (r, key, val, usual, what) => `<label class="fc-moneyin small" title="${esc(`${what}. A typical transfer's share here: about ${money(usual)} a year`)}">${x.house ? `<span class="fc-pot">${key === "pcollp" ? "Collective" : "Share"}</span>` : ""}$<input type="number" min="0" step="5" value="${k1(val)}" data-was="${k1(val)}" placeholder="none" data-fcin="${key}" data-id="${r.id}">k</label>`;
   const nilIn = (r) => (x.nil_era ? nilBox(r, "pnil", r.nil, r.usual, x.house ? "Revenue share" : "NIL") + (x.house ? nilBox(r, "pcollp", r.coll, r.coll_usual, "Collective deal, reviewed by NIL Go") : "") : "");
   let body = "";
   if (k.tab === "entrants") {
@@ -719,7 +726,7 @@ screens.portal_desk = async () => {
       { k: "why", t: "Why he left", l: true, wrap: true, div: true },
       { k: "days", t: "Decides", tip: "When he means to choose", f: (r) => `<span title="${esc(fcIn(r.days))}">${esc(String(r.decide || "").replace(/ \d{4}$/, ""))}</span>` },
       { k: "sits", t: "", l: true, v: (r) => (r.sits ? 1 : 0), f: (r) => (r.sits ? '<span class="st-pill gold" title="He would sit out a season with you">Sits a year</span>' : "") },
-      { k: "offered", t: "Your offer", l: true, div: true, v: (r) => (r.offered ? 1 : 0), f: (r) => (r.committed ? '<span class="st-pill good">Told you yes</span>' : r.offered ? `<span class="fc-rowacts"><span class="st-pill good">Offered</span>${nilIn(r)}<button class="st-btn small glass" data-fc="ppull" data-id="${r.id}">Pull</button></span>` : `<span class="fc-rowacts">${nilIn(r)}<button class="st-btn small primary" data-fc="poffer" data-id="${r.id}">Offer</button></span>`) },
+      { k: "offered", t: "Your offer", l: true, div: true, v: (r) => (r.offered ? 1 : 0), f: (r) => (r.committed ? '<span class="st-pill good">Told you yes</span>' : r.offered ? `<span class="fc-rowacts"><span class="st-pill good">Offered</span>${nilIn(r)}<button class="st-btn small primary" data-fc="poffer" data-id="${r.id}" data-fcsave hidden>Change</button><button class="st-btn small glass" data-fc="ppull" data-id="${r.id}">Pull</button></span>` : `<span class="fc-rowacts">${nilIn(r)}<button class="st-btn small primary" data-fc="poffer" data-id="${r.id}">Offer</button></span>`) },
     ];
     const posSel = `<select class="fc-select" data-fcf2="pos"><option value="ALL">Every position</option>${POS.map((p) => `<option ${k.pos === p ? "selected" : ""}>${p}</option>`).join("")}</select>`;
     const divs = [["ALL", "Every division"], ["FBS", "FBS"], ["FCS", "FCS"], ["D2", "D2"], ["NAIA", "NAIA"], ["D3", "D3"], ["JUCO", "JUCO"]];
@@ -822,7 +829,9 @@ screens.nil_desk = async () => {
     : [[m(b.yours), "Budget"], [m(b.left), "Left"], [String(blanks), "Blank"]];
   const panel = `<h2>Money year ${x.year}-${String(x.year + 1).slice(2)} <small>paid ${esc(x.pay_day)} · you set every player's money</small></h2>${fcTiles([...tiles, [x.trend, "Boosters"], ...aid])}`;
   const k1 = (v) => (v ? Math.round(v / 1000) : "");
-  const box = (r, key, v) => `<label class="fc-moneyin small">$<input type="number" min="0" step="5" value="${k1(v)}" placeholder="none" data-fcin="${key}" data-id="${r.id}">k</label>`;
+  const box = (r, key, v) => `<label class="fc-moneyin small">$<input type="number" min="0" step="5" value="${k1(v)}" data-was="${k1(v)}" placeholder="none" data-fcin="${key}" data-id="${r.id}">k</label>`;
+  // Nothing is sent while you type (Cain, 2026-11-08): Set, or Enter, sends the row.
+  const setBtn = (r) => `<button class="st-btn small primary" data-fc="dealset" data-id="${r.id}" data-fcsave hidden>Set</button>`;
   const going = (v) => (v ? `<span class="muted">${money(v)}</span>` : '<span class="muted">-</span>');
   const cols = [
     { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name) },
@@ -836,11 +845,11 @@ screens.nil_desk = async () => {
     { k: "followers", t: "Followers", tip: "Social media followers, every platform", v: (r) => r.followers || 0, f: (r) => (r.followers ? fcFollow(r.followers) : '<span class="muted">-</span>') },
     { k: "camera", t: "On camera", l: true, hide: true, tip: "His position coach's word for how he comes across in front of a camera", f: (r) => `<span class="sub">${esc(r.camera || "")}</span>` },
     { k: "usual", t: "Going rate", div: true, tip: "What players in his role usually get from the school's revenue share: only a guide", f: (r) => going(r.usual) },
-    { k: "deal", t: "Yours", v: (r) => r.deal || 0, f: (r) => box(r, "deal", r.deal) },
+    { k: "deal", t: two ? "Your share" : "Yours", v: (r) => r.deal || 0, f: (r) => box(r, "deal", r.deal) + setBtn(r) },
     ...(two
       ? [
           { k: "coll_usual", t: "Going rate", div: true, tip: "What players in his role usually get from the collective, as NIL Go clears it: only a guide", f: (r) => going(r.coll_usual) },
-          { k: "coll", t: "Yours", v: (r) => r.coll || 0, f: (r) => box(r, "dcoll", r.coll) },
+          { k: "coll", t: "Your collective", v: (r) => r.coll || 0, f: (r) => box(r, "dcoll", r.coll) + setBtn(r) },
           { k: "cleared", t: "NIL Go", l: true, tip: "What NIL Go clears of your collective deal: past the top of his range it holds the rest back, and it isn't paid this year", v: (r) => r.cleared || 0, f: (r) => (!r.coll ? '<span class="muted">-</span>' : r.cleared + 1 < r.coll ? `<span class="st-pill gold" title="${esc(`NIL Go clears ${money(r.cleared)} of your ${money(r.coll)}; ${money(r.coll - r.cleared)} isn't paid`)}">${money(r.cleared)}</span>` : '<span class="st-pill good">Cleared</span>') },
         ]
       : []),
@@ -870,7 +879,7 @@ screens.nil_desk = async () => {
     : `<div class="fc-nilcards"><div class="fc-nilcard"><b>Your deal · you set it</b><span>The collective pays it. Your number is his number.</span></div>
       <div class="fc-nilcard"><b>His own deals · for reference</b><span>Brand and ad money he earns himself. Not money you pay.</span></div></div>`;
   const buttons = `<div class="fc-acts"><button class="st-btn small glass" data-fc="nilusual">Fill blanks with the going rate</button><button class="st-btn small glass" data-fc="nilclear">Clear every deal</button></div>`;
-  const deal = `<p class="sub">A blank box pays nothing. The going rate beside each box is only a guide: what players in his role usually get. Every deal stands from one money year to the next until you change it, in thousands a year. A player paid well under his worth hears about it, and the portal is a phone call away; each answers when you set his number. ${m(set)} set in all.</p>`;
+  const deal = `<p class="sub">A blank box pays nothing, and nothing is ever filled in for you. The going rate beside each box is only a guide: what players in his role usually get. Type a number and press Set or Enter. Every deal stands from one money year to the next until you change it, in thousands a year. A player paid well under his worth hears about it, and the portal is a phone call away; each answers when you set his number. ${m(set)} set in all.</p>`;
   return `<div class="film">${fcHero({ label: `${teamLink(x.team)} · Money`, title: "NIL", line: `<span>${two ? "Revenue sharing and the collective" : "The collective"}${x.big_booster ? " · a big booster behind it" : ""}</span>`, sub: esc(x.trend_line), panel })}
   <div class="pad fc-pad">
     <div class="fc-bar"><div class="st-label">The roster's deals</div>${fcGoto([["roster", "Squad"], ["portal_desk", "Transfer portal"], ["recruit_board", "Recruiting board"], ["depth", "Depth chart"]])}</div>
@@ -943,10 +952,22 @@ screens.walkons_desk = async () => {
 // Captured before the frame's own handler, so a button in a row acts and
 // never opens the row's first link.
 async function fcDo(cmd, args, msg) {
+  // Money boxes typed in but not sent yet, in other rows, survive the redraw.
+  const sent = args && args.id != null ? String(args.id) : null;
+  const dirty = [...document.querySelectorAll("input[data-was]")]
+    .filter((i) => i.value !== i.dataset.was && i.dataset.id !== sent)
+    .map((i) => [i.dataset.fcin, i.dataset.id, i.value]);
   try {
     const r = await api(cmd, args);
     toast(msg || (r && r.text) || "Done.");
-    render($(".view") && $(".view").scrollTop);
+    await render($(".view") && $(".view").scrollTop);
+    for (const [k, id, v] of dirty) {
+      const i = document.querySelector(`input[data-fcin="${k}"][data-id="${id}"]`);
+      if (i) {
+        i.value = v;
+        i.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    }
     return r;
   } catch (e) {
     toast(e.message || String(e));
@@ -1033,12 +1054,7 @@ document.addEventListener(
         const row = el.closest(".fc-nilrow");
         const inp = (key) => row.querySelector(`[data-fcin="${key}"]`);
         const val = (key) => { const i = inp(key); return i && i.value !== "" ? Math.max(0, Number(i.value)) * 1000 : null; };
-        // A grey going rate beside a number you type is kept (your
-        // coordinator's board), so what the box shows is what he gets.
-        const shown = (key) => { const i = inp(key); return i && Number(i.dataset.usual) > 0 ? Number(i.dataset.usual) : null; };
-        let nil = val("promise"), coll = val("pcoll");
-        if (nil != null && coll == null && inp("pcoll")) coll = shown("pcoll");
-        else if (coll != null && nil == null) nil = shown("promise");
+        const nil = val("promise"), coll = val("pcoll");
         const a = { id };
         if (nil != null) a.nil = nil;
         if (coll != null) a.coll = coll;
@@ -1079,6 +1095,18 @@ document.addEventListener(
         if (await sure(`Reach out to ${d.name}?`, "He isn't in the portal: a call now is tampering. It may sway him your way; about one call in eight gets out, and his coach and the press hear about it.", "Make the call")) fcDo("portal_contact", { id });
         break;
       case "talk": fcDo("keep_talk", { id }); break;
+      case "dealset": {
+        // The row's changed boxes, a blank one a deal of nothing.
+        const row = el.closest("tr");
+        if (!row) break;
+        const a = { id };
+        for (const [key, arg] of [["deal", "amount"], ["dcoll", "coll"]]) {
+          const i = row.querySelector(`[data-fcin="${key}"]`);
+          if (i && i.value !== i.dataset.was) a[arg] = i.value === "" ? 0 : Math.max(0, Number(i.value)) * 1000;
+        }
+        if (a.amount != null || a.coll != null) fcDo("nil_set", a);
+        break;
+      }
       case "nilusual": fcDo("nil_usual", {}); break;
       case "woaward": if (await sure(`Put ${d.name} on scholarship?`, d.words, "Put him on scholarship")) fcDo("college_scholarship", { id }); break;
       case "wohold": fcDo("tryout_hold", {}); break;
@@ -1088,12 +1116,27 @@ document.addEventListener(
   },
   true,
 );
-// Enter in a recruit's NIL box presses its Promise button.
+// Enter in a money box presses its button: Promise, Set or the portal offer.
 document.addEventListener("keydown", (ev) => {
-  if (ev.key === "Enter" && ev.target.dataset && (ev.target.dataset.fcin === "promise" || ev.target.dataset.fcin === "pcoll")) ev.target.closest(".fc-nilrow").querySelector('[data-fc="promise"]').click();
+  const key = ev.key === "Enter" && ev.target.dataset && ev.target.dataset.fcin;
+  if (!key) return;
+  const near = (sel) => { const r = ev.target.closest(".fc-nilrow, tr, .fc-rowacts"); return r && r.querySelector(sel); };
+  const btn = key === "promise" || key === "pcoll" ? near('[data-fc="promise"]') : key === "deal" || key === "dcoll" ? near('[data-fc="dealset"]') : key === "pnil" || key === "pcollp" ? near('[data-fc="poffer"]') : null;
+  if (btn) { ev.preventDefault(); btn.click(); }
 });
-// Rows of the full board open the recruit's file; the desk's selects and
-// the other money boxes save on change.
+// A money box you change shows its row's Set or Change button; nothing is
+// sent until you press it (Cain, 2026-11-08: clearing a box sent $0 mid-typing).
+document.addEventListener("input", (ev) => {
+  const t = ev.target;
+  if (!t.dataset || t.dataset.was == null) return;
+  // The button beside the box: on the NIL desk each pot's cell has its own
+  // (either sends the whole row), on the portal the row's Change.
+  const cell = t.closest(".fc-rowacts, td");
+  const btn = cell && cell.querySelector("[data-fcsave]");
+  if (!btn) return;
+  btn.hidden = ![...cell.querySelectorAll("input[data-was]")].some((i) => i.value !== i.dataset.was);
+});
+// The desk's selects save on change.
 document.addEventListener("change", (ev) => {
   const t = ev.target;
   if (!t.dataset) return;
@@ -1113,15 +1156,5 @@ document.addEventListener("change", (ev) => {
     fcDo("recruit_area", t.value === "" ? { state: t.dataset.fcarea } : { state: t.dataset.fcarea, coach: Number(t.value) }, t.value === "" ? "Back to the staff's own split." : "Area set.");
     return;
   }
-  const id = Number(t.dataset.id);
-  const v = t.value === "" ? null : Math.max(0, Number(t.value)) * 1000;
-  // A blank box is a deal of nothing (Cain, 2026-11-07): what it shows is
-  // what July 1 pays.
-  if (t.dataset.fcin === "deal") fcDo("nil_set", { id, amount: v == null ? 0 : v });
-  if (t.dataset.fcin === "dcoll") fcDo("nil_set", { id, coll: v == null ? 0 : v });
-  if (t.dataset.fcin === "pnil" || t.dataset.fcin === "pcollp") {
-    // A portal offer's money: re-sent with the offer, or saved on it if out.
-    const off = t.closest("td") && t.closest("td").querySelector('[data-fc="ppull"]');
-    if (off) fcDo("portal_offer", fcPortalMoney(id));
-  }
+  // The money boxes send nothing on their own: Set, Change or Enter does.
 });

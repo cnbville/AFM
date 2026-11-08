@@ -188,6 +188,8 @@ fn world_part(w: &World) -> Value {
         "last": last,
         "names": if o.names == NameMode::Fictional { "fictional" } else { "real" },
         "starts": views::date_text(w.today),
+        // Stands on Jan 1, the day before the January portal (the Jan 1 start).
+        "jan1": w.options.stop_jan1,
         "nc": nc.iter().take(6).map(|(t, n)| json!([t, n])).collect::<Vec<_>>(),
         "sb": sbc.iter().take(6).map(|(t, n)| json!([t, n])).collect::<Vec<_>>(),
         "story": story.iter().map(|(a, b)| json!([a, b])).collect::<Vec<_>>(),

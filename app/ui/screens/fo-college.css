@@ -226,3 +226,6 @@
 .fc-fresh b { font-weight: 700; }
 .fc-fresh .fc-acts { flex: none; }
 .fc-barm { margin-top: 10px; display: grid; gap: 4px; }
+
+/* A money row's Set or Change button shows once a box is edited. */
+.st-btn[data-fcsave][hidden] { display: none; }

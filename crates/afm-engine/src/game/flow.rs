@@ -31,6 +31,21 @@ type Lineup = (Vec<(ORole, usize)>, Vec<(DSlot, usize)>);
 /// set) and the referee's ready signal starts a stopped clock again
 /// (proposed, not confirmed).
 const BALL_SPOTTED: f64 = 7.0;
+/// Seconds the NFL game clock runs past the end of a play that stops it,
+/// before the official's signal stops it (minor bug 254). The engine's
+/// incompletions took 3.7 s of game clock snap to snap and its touchdowns
+/// 4.2, against nflverse's 5.0 and 5.9 (2021-25), so a stopped play was
+/// followed by the next snap 12.6 s later in normal time (real 15.2), 6.0
+/// late in a half (8.4) and 4.1 in the two-minute drill (5.4), and teams ran
+/// 63.4 plays a game (61.9). With it: 4.95 s after an incompletion, 5.4 in
+/// the two-minute drill, 14.0 and 7.4 in normal and late time (short still
+/// because too few plays end out of bounds, the route and run paths of
+/// minor bug 253 and S6.2), 61.9 plays a team game and 23.6 points (24.5
+/// before, real 22.5), `match_check nfl 2000`. College and high school keep
+/// none: their plays a team game were already at real (FBS 66.0, real 66.6;
+/// 64.2 with it) and no snap-to-snap data says otherwise. Proposed, not
+/// confirmed.
+const NFL_WHISTLE: f64 = 1.3;
 
 /// A man's game-to-game form, rating points of sd at Consistency 10 (minor
 /// bug 287; proposed, not confirmed).
@@ -2457,6 +2472,7 @@ impl<'a> Game<'a> {
             protect,
             dist,
             pressure,
+            kicking::season_form(ps[k].id, self.s.year),
             &self.s.cond,
             along,
             self.s.rules.level,
@@ -4104,6 +4120,7 @@ impl<'a> Game<'a> {
         r.throw_away = res.throw_away;
         r.drop = res.drop;
         r.pressured = res.pressured;
+        r.moving = res.moving;
         r.out_of_bounds = res.out_of_bounds;
         r.pbu = res.pbu;
         r.tacklers = res.notes.tacklers.clone();
@@ -4339,6 +4356,13 @@ impl<'a> Game<'a> {
         // A penalty on a play that would have left the clock running: it
         // starts on the ready signal once the penalty is marked off, with
         // the shorter play clock, except late in a half.
+        // The clock stops on the official's signal, a beat after the ball
+        // is dead (minor bug 254). It never takes a quarter's last second:
+        // in the final minutes the replay official puts back time the
+        // clock ran after a dead ball.
+        if stop && nfl {
+            self.tick(NFL_WHISTLE.min((self.clock - 1.0).max(0.0)));
+        }
         let play_stops = matches!(res.result, R::Incomplete | R::Spike) || (res.out_of_bounds && !nfl);
         if accepted_pen && !late && !play_stops {
             ready = Some(self.rules().play_clock - ADMIN_PLAY_CLOCK);

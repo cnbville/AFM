@@ -152,33 +152,57 @@ fn inherited_signees_old_desks_and_screens_keep_their_money() {
     let class = rec::next_class(&w);
     let k = w.people.iter().position(|p| p.stage == Stage::HighSchool && p.class_of == class).unwrap();
     let signee = w.people[k].player.id;
-    w.people[k].cal.signed =
-        Some(crate::world::Signed { program: j, walk_on: false, date: w.today, early_enrollee: false, flipped: false });
+    w.people[k].cal.signed = Some(crate::world::Signed {
+        program: j,
+        walk_on: false,
+        date: w.today,
+        early_enrollee: false,
+        flipped: false,
+        committed: None,
+    });
     fill_deals(&mut w);
     let had = w.front_office.college.signed.iter().find(|x| x.0 == signee).copied();
     assert!(had.is_some_and(|x| x.1 + x.2 > 0.0), "the old staff's usual money: {had:?}");
     assert_eq!(w.front_office.college.nil_rev, NIL_REV, "a new desk is on the new rules");
-    // A screen's read: a player without a deal shows the one he starts on,
-    // and nothing is written.
-    let (id, _) = usual_deals(&w, j)[0];
+    // The roster you inherit keeps the old staff's deals.
+    let (id, usual) = usual_deals(&w, j).into_iter().max_by(|a, b| a.1.total_cmp(&b.1)).unwrap();
+    assert!(
+        usual > 0.0 && (deal_of(&w, id).unwrap().0 - usual).abs() <= 250.0,
+        "{:?} against {usual}",
+        deal_of(&w, id)
+    );
+    // A player without a deal has none: nothing is filled in for you, on a
+    // screen or on July 1 (Cain 2026-11-08), and a read writes nothing.
     w.front_office.college.deals.retain(|d| d.0 != id);
     w.front_office.college.coll_deals.retain(|d| d.0 != id);
     let before = serde_json::to_string(&w.front_office).unwrap();
     let (s, c) = deals_now(&w, j).unwrap();
-    assert!(s.contains_key(&id) && c.contains_key(&id));
+    assert!(!s.contains_key(&id) && !c.contains_key(&id), "no going rate is filled in");
     assert!(budget(&w, j).roster > 0.0);
     assert_eq!(serde_json::to_string(&w.front_office).unwrap(), before, "a read never writes");
-    // A desk from before: last money year's deals lapse to the going rate.
     fill_deals(&mut w);
+    assert!(deal_of(&w, id).is_none(), "nor on the day: {:?}", deal_of(&w, id));
+    // A desk from before: the deals you set stand at their numbers, whatever
+    // money year they were for, and nobody gets the going rate.
     w.front_office.college.nil_rev = 0;
     w.front_office.college.deals_year = deals_year(&w) - 1;
     for d in w.front_office.college.deals.iter_mut() {
         d.1 = 1.0;
     }
+    let set = w.front_office.college.deals.len();
+    let said = |w: &World, what: &str| w.calendar.on(w.today).iter().filter(|e| e.text.contains(what)).count();
     after_load(&mut w);
     assert_eq!(w.front_office.college.nil_rev, NIL_REV);
-    assert!(w.front_office.college.deals.iter().all(|d| d.1 != 1.0), "lapsed deals start on the going rate");
+    assert_eq!(w.front_office.college.deals.len(), set, "nobody is filled in");
+    assert!(w.front_office.college.deals.iter().all(|d| d.1 == 1.0), "your deals stand");
+    assert!(deal_of(&w, id).is_none());
+    assert_eq!(said(&w, "no deal yet"), 1, "the inbox says who has no deal");
     after_load(&mut w);
+    // A desk the last version brought up keeps its deals and hears why.
+    w.front_office.college.nil_rev = 1;
+    after_load(&mut w);
+    assert_eq!(w.front_office.college.deals.len(), set);
+    assert_eq!(said(&w, "The last version put the going rate"), 1);
     // A player who leaves loses his deals.
     let i = w.people.iter().position(|p| p.player.id == id).unwrap();
     let x = (0..w.programs.len()).find(|&x| x != j && w.programs[x].division == w.programs[j].division).unwrap();
@@ -186,6 +210,50 @@ fn inherited_signees_old_desks_and_screens_keep_their_money() {
     w.rebuild_rosters();
     fill_deals(&mut w);
     assert!(deal_of(&w, id).is_none(), "{:?}", deal_of(&w, id));
+}
+
+/// Cain's answers (2026-11-08): the game never names money for you. A man
+/// who joins later has no deal until you set one, and a recruit your
+/// coordinator offered signs for nothing, his offer having named none.
+#[test]
+fn nothing_is_filled_in_for_you() {
+    use crate::world::front_office::college::after_stage;
+    let (mut w, j) = college(true);
+    fill_deals(&mut w);
+    let i = w.people.iter().position(|p| p.stage == Stage::Pro).unwrap();
+    let id = w.people[i].player.id;
+    let p = &mut w.people[i];
+    p.stage = Stage::College;
+    p.pro = None;
+    p.college = Some(j);
+    p.college_seasons = 1;
+    w.rebuild_rosters();
+    fill_deals(&mut w);
+    assert!(deal_of(&w, id).is_none(), "{:?}", deal_of(&w, id));
+    assert!(budget(&w, j).roster > 0.0, "the roster you inherited keeps its deals");
+    let class = rec::next_class(&w);
+    let k = w
+        .people
+        .iter()
+        .position(|p| {
+            p.stage == Stage::HighSchool
+                && p.class_of == class
+                && !w.front_office.college.board.iter().any(|t| t.id == p.player.id)
+        })
+        .unwrap();
+    let rid = w.people[k].player.id;
+    w.people[k].cal.signed = Some(crate::world::Signed {
+        program: j,
+        walk_on: false,
+        date: w.today,
+        early_enrollee: false,
+        flipped: false,
+        committed: None,
+    });
+    after_stage(&mut w, j, &[rid], false);
+    let t = w.front_office.college.board.iter().find(|t| t.id == rid).expect("on your board as his");
+    assert!(t.nil.is_none() && t.nil_coll.is_none());
+    assert_eq!(w.front_office.college.signed.iter().find(|x| x.0 == rid).map(|x| (x.1, x.2)), Some((0.0, 0.0)));
 }
 
 /// Stands the clock at your next section's first minute without playing
@@ -324,12 +392,13 @@ fn lone_offer(house: bool) {
     } else {
         assert!(set_promise(&mut w, id, Some(50_000.0), Some(10_000.0)).is_err(), "one pot before July 2025");
     }
-    // With your coordinator on the board his offers carry the usual money.
+    // With your coordinator on the board his offers name no money either:
+    // only you do (Cain 2026-11-08, "I want the only offering control").
     set_promise(&mut w, id, None, None).unwrap();
     w.front_office.set_owner(Duty::Board, Owner::Staff);
-    let usual = rec::usual_nil_offer(&w, j, i);
-    assert!((weighed_offer(&w, j, id) - usual).abs() < 1.0, "{} against {usual}", weighed_offer(&w, j, id));
-    assert!(stage_board(&w).unwrap().offers.iter().find(|o| o.person == i).unwrap().nil.is_none());
+    assert!(weighed_offer(&w, j, id).abs() < 1.0, "{}", weighed_offer(&w, j, id));
+    let o = stage_board(&w).unwrap().offers.into_iter().find(|o| o.person == i).unwrap();
+    assert!(o.nil.is_some_and(|x| x.abs() < 1.0), "{:?}", o.nil);
 }
 
 #[test]
@@ -444,6 +513,7 @@ fn a_high_schooler_earns_only_where_his_state_lets_him() {
             date: w.today,
             early_enrollee: false,
             flipped: false,
+            committed: None,
         });
     };
     signed(&mut w, ks);
@@ -517,4 +587,32 @@ fn a_college_players_pay_reads_his_play_and_the_interior_line_costs_less() {
     // defensive tackles 0.73 of an edge rusher.
     assert!((w(P::IOL, 3, 0.0) / w(P::OT, 3, 0.0) - 0.58).abs() < 1e-9);
     assert!((w(P::DT, 3, 0.0) / w(P::EDGE, 3, 0.0) - 0.73).abs() < 1e-9);
+}
+
+/// Minor bug 336: in two pots the school spreads its whole revenue share
+/// over the roster by role and position, and the collective pays its
+/// roster share by its own weights.
+#[test]
+fn the_school_spreads_its_whole_share_by_role_and_position() {
+    use crate::player::PlayingTime as R;
+    use crate::positions::Position as P;
+    // $20M a year, 60% the school's: a player holding 1/50 of the school's
+    // weights and 1/20 of the collective's.
+    let (school, coll) = rec::july_split(20.0e6, 0.6, (1.0, 50.0), (1.0, 20.0));
+    assert!((school - 12.0e6 / 50.0).abs() < 1.0, "{school}");
+    assert!((coll - 8.0e6 * rec::NIL_ROSTER / 20.0).abs() < 1.0, "{coll}");
+    // Before two pots it is all the collective's.
+    let (school, coll) = rec::july_split(20.0e6, 0.0, (1.0, 50.0), (1.0, 20.0));
+    assert_eq!(school, 0.0);
+    assert!((coll - 20.0e6 * rec::NIL_ROSTER / 20.0).abs() < 1.0, "{coll}");
+    // Quarterbacks first, then the lines, then receivers; specialists last.
+    let w = |r, p| rec::share_weight(Some(r), p);
+    assert!(w(R::Starter, P::QB) > w(R::Starter, P::DT) && w(R::Starter, P::DT) > w(R::Starter, P::OT));
+    assert!(w(R::Starter, P::OT) > w(R::Starter, P::WR) && w(R::Starter, P::WR) > w(R::Starter, P::TE));
+    assert!(w(R::Starter, P::TE) > w(R::Starter, P::K));
+    // A starter over a rotation player over a backup; a backup still holds
+    // a real part (real schools pay most of the roster).
+    assert!(w(R::Starter, P::WR) > w(R::Rotation, P::WR) && w(R::Rotation, P::WR) > w(R::Backup, P::WR));
+    assert!(w(R::Backup, P::WR) >= 0.3 * w(R::Starter, P::WR));
+    assert_eq!(rec::share_weight(None, P::WR), w(R::Backup, P::WR));
 }

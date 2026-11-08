@@ -238,15 +238,7 @@ pub(crate) fn practice_at(w: &mut World, d: Date, t: u16) {
         std::mem::take(&mut w.training.others_pending).into_iter().partition(|x| due(x.0));
     w.training.others_pending = keep;
     for (_, id, back, kind) in others {
-        // A man back on or before the sweep floor (`game_injuries`): it no
-        // longer holds.
-        if w.training.others_floor.is_some_and(|f| back <= f) {
-            w.training.others_floor = None;
-        }
-        let e = w.training.others_hurt.entry(id).or_insert((back, Some(kind)));
-        if back > e.0 {
-            *e = (back, Some(kind));
-        }
+        w.training.note_other_hurt(id, back, kind);
     }
     let sessions = nfl_sessions(w, d);
     let mut by_share: Vec<(f64, Vec<usize>)> = Vec::new();

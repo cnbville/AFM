@@ -162,7 +162,9 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
     };
     let (top_off, top_def) = (fam_top(true), fam_top(false));
     let has_film = club.film.off_snaps >= 40.0;
-    let (seat, rel) = (w.seat_club(t), crate::world::season::coach_relationships(w, w.nfl[t].head_coach));
+    // The interim at your club while he has its games (the Jan 1 start).
+    let head = w.nfl_head(t);
+    let (seat, rel) = (w.seat_club(t), crate::world::season::coach_relationships(w, head));
     let mut who = HashMap::new();
     let mut players: Vec<GamePlayer> = Vec::with_capacity(list.len());
     for &(i, starter) in &list {
@@ -212,9 +214,9 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
         .count();
     let tm = &w.nfl[t];
     let ab = |c: Option<usize>| c.map(|c| *w.coaches[c].ability());
-    let hc = ab(tm.head_coach);
+    let hc = ab(head);
     let caller = |c: Option<usize>, slot: usize| {
-        let who = c.or(tm.head_coach);
+        let who = c.or(head);
         let a = ab(c).or(hc);
         let temper = who.map_or(10.0, |c| w.coaches[c].personality.ambition);
         let know = who.map_or(0.8, |c| w.coaches[c].systems.know[slot]);
@@ -242,14 +244,14 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
     // Film study: the coordinators' eye and the quality-control staff; an
     // NFL budget buys a full one, a cheap owner a little less (proposed,
     // not confirmed).
-    let eye = |c: Option<usize>| ab(c.or(tm.head_coach)).map_or(10.0, |a| a.scheme);
+    let eye = |c: Option<usize>| ab(c.or(head)).map_or(10.0, |a| a.scheme);
     // Section 6 topic 10: the analytics and quality-control head's work
     // takes the budget's place.
     let analytics = crate::world::people::Support::z(club.support.analytics.rating);
     let budget = clamp(0.85 + 0.15 * analytics, 0.7, 1.0);
     let film_study = clamp(0.35 * (eye(tm.oc) + eye(tm.dc)) + 7.0 * budget, 1.0, 20.0);
-    let oc_call = crate::world::season::play_caller(w, tm.oc, tm.head_coach, true);
-    let dc_call = crate::world::season::play_caller(w, tm.dc, tm.head_coach, false);
+    let oc_call = crate::world::season::play_caller(w, tm.oc, head, true);
+    let dc_call = crate::world::season::play_caller(w, tm.dc, head, false);
     let dc = dc_call;
     let aware = players.iter().map(|p| p.a(Attr::FootballIq)).sum::<f64>() / players.len().max(1) as f64;
     let install = {
@@ -270,22 +272,22 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
             front: inst.front(),
             shell: inst.shell(),
             playbook: 1.0,
-            sportsmanship: tm.head_coach.map_or(10.0, |c| w.coaches[c].sportsmanship),
+            sportsmanship: head.map_or(10.0, |c| w.coaches[c].sportsmanship),
             nickel: dc.map_or(0.9, |c| clamp(0.9 + 0.06 * key_normal(0x41C8, c as u64), 0.6, 0.99)),
             year: w.year,
             film_study,
             install,
-            style: tm.head_coach.map_or_else(Default::default, |c| w.coaches[c].style()),
+            style: head.map_or_else(Default::default, |c| w.coaches[c].style()),
             guide: Default::default(),
             motivation: hc.map_or(10.0, |a| a.motivation),
-            temper: tm.head_coach.map_or(10.0, |c| w.coaches[c].personality.temper),
+            temper: head.map_or(10.0, |c| w.coaches[c].personality.temper),
         },
     );
     // The head coach's guidelines (update 2, G2).
     let g = crate::world::guide::club_guidelines(w, t);
-    crate::world::guide::apply(w, &mut team, g, oc_call.or(tm.head_coach), dc_call.or(tm.head_coach));
+    crate::world::guide::apply(w, &mut team, g, oc_call.or(head), dc_call.or(head));
     team.give_orders(crate::player::Level::NFL);
-    if w.seat_club(t) {
+    if w.seat_club(t) && w.seat_interim().is_none() {
         team.order = w.seat_order();
         crate::training::seat::sit_hurt(w, &mut team);
         crate::training::seat::prepare(w, &mut team);
@@ -642,6 +644,15 @@ pub(crate) fn record(
 ) {
     let year = w.year;
     w.keep_seat_game(crate::calendar::Level::Nfl, teams, &r.stats, r.replay.as_deref(), &r.talks);
+    // Growth from results: his plays move his skills, his snaps land.
+    if w.options.results.on {
+        use crate::world::stories::TeamKey;
+        let ev = crate::results::evidence(crate::player::Level::NFL, &r.stats, [&sides[0].team, &sides[1].team]);
+        let ids: HashMap<u32, (usize, Option<TeamKey>)> = (0..2)
+            .flat_map(|s| sides[s].who.iter().map(move |(&id, &(i, _))| (id, (i, Some(TeamKey::Nfl(teams[s] as u16))))))
+            .collect();
+        crate::results::world_game(w, crate::player::Level::NFL, ev, &|id| ids.get(&id).copied());
+    }
     // The league's numbers for the game boards (lane 9), by season.
     let season = w.nfl_season.as_ref().map_or(year, |s| s.year);
     crate::world::charts::add_game(w, season, crate::world::charts::NFL, &r.stats);

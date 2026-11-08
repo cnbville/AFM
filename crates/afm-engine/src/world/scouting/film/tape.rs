@@ -249,28 +249,133 @@ fn college_level(w: &World, c: usize) -> crate::player::Level {
     }
 }
 
-/// His team as it dresses today, with him in it and starting at his spot.
-fn his_team(w: &World, i: usize) -> Option<(GameTeam, crate::player::Level, Kin)> {
+/// Where a player's film comes from: the team whose games hold his last
+/// snaps (minor bug 353). Every college team films its games and staffs
+/// trade the film, so a transfer's tape is his last college team's games
+/// until he plays for his new one, as a free agent's is his last club's;
+/// a college player who hasn't played a college snap (a redshirt, a
+/// transfer who sat) is read off the high school tape he was recruited on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Source {
+    /// His high school's games (a recruit's games, or his reel).
+    School(usize),
+    /// A college team's games: this season's once he has played in one,
+    /// else those of his last season with snaps.
+    Program(usize),
+    /// A college player with no college snap: his last high school
+    /// season (the school and the year).
+    OldSchool(usize, i16),
+    /// An NFL club's games: a free agent's last club's.
+    Club(usize),
+}
+
+/// His team today: his high school, his college team, his NFL club.
+fn current(w: &World, i: usize) -> Option<Source> {
+    let p = &w.people[i];
+    match p.stage {
+        Stage::HighSchool | Stage::PrepSchool => Some(Source::School(p.hs)),
+        Stage::College | Stage::Declared => p.college.filter(|&c| c < w.programs.len()).map(Source::Program),
+        Stage::Pro => p.pro.as_ref().and_then(|c| c.team).filter(|&t| t < w.nfl.len()).map(Source::Club),
+        _ => None,
+    }
+}
+
+/// His film's source, or why there is no film of him.
+pub fn source(w: &World, i: usize) -> Result<Source, String> {
+    use crate::world::records::Stat;
     let p = &w.people[i];
     let id = p.player.id;
-    let (mut team, level, kin) = match p.stage {
-        Stage::HighSchool | Stage::PrepSchool => {
-            let (t, _) = crate::world::hs_year::film_team(w, p.hs)?;
-            (t, crate::player::Level::HS, Kin::School(p.hs))
+    // Your own players: your staff films every practice, so there is
+    // always tape of him with you, whatever he has played (Cain
+    // 2026-11-08, minor bug 353).
+    if super::session::is_ours(w, id)
+        && let Some(s) = current(w, i)
+    {
+        return Ok(s);
+    }
+    let f = super::super::footage::footage(w, i);
+    match p.stage {
+        Stage::HighSchool | Stage::PrepSchool if f.snaps <= 0.0 && !f.reels => {
+            Err("There's no film of him yet: he hasn't played a high school game.".into())
         }
+        Stage::HighSchool | Stage::PrepSchool => Ok(Source::School(p.hs)),
         Stage::College | Stage::Declared => {
-            let c = p.college?;
+            // This season's games, once he has been on the field in one
+            // (the book takes a season's snaps only when it is over).
+            let now = w.college.as_ref().and_then(|cs| cs.snaps.get(&id)).is_some_and(|s| s.0 > 0);
+            if let Some(c) = p.college.filter(|_| now) {
+                return Ok(Source::Program(c));
+            }
+            if f.snaps > 0.0 {
+                // The team of his last season with snaps: a transfer's old
+                // team until he plays for his new one.
+                let last = w
+                    .stats
+                    .career(id)
+                    .into_iter()
+                    .rev()
+                    .find(|r| r.get(Stat::SnapsOff) + r.get(Stat::SnapsDef) + r.get(Stat::SnapsSt) > 0.0)
+                    .map(|r| r.program as usize);
+                return last
+                    .or(p.college)
+                    .filter(|&c| c < w.programs.len())
+                    .map(Source::Program)
+                    .ok_or_else(|| "His team's film isn't to be had just now.".into());
+            }
+            match p.hs_lines.iter().rev().find(|l| l.games > 0 && (l.school as usize) < w.high_schools.len()) {
+                Some(l) => Ok(Source::OldSchool(l.school as usize, l.year)),
+                None => Err("He hasn't played a college snap: there's nothing to watch.".into()),
+            }
+        }
+        Stage::Pro => match p.pro.as_ref().and_then(|c| c.team.or(c.teams.last().copied())) {
+            // A free agent's tape is his last club's.
+            Some(t) if t < w.nfl.len() => Ok(Source::Club(t)),
+            _ => Err("He hasn't been with an NFL club: there's no pro tape of him.".into()),
+        },
+        _ => Err("There's no film of him.".into()),
+    }
+}
+
+/// From the stands (SK32) it is tonight's game: his team today, whoever
+/// he played for before, once he has played a college snap.
+fn live_source(w: &World, i: usize) -> Result<Source, String> {
+    let p = &w.people[i];
+    match source(w, i)? {
+        Source::Program(_) => {
+            p.college.map(Source::Program).ok_or_else(|| "His team's film isn't to be had just now.".into())
+        }
+        Source::OldSchool(..) => Err("He hasn't played a college snap: there's nothing to watch.".into()),
+        s => Ok(s),
+    }
+}
+
+/// What the brief says about where his tape comes from, when it isn't his
+/// team today: a transfer's old team, or a college player's high school.
+pub fn source_words(w: &World, i: usize) -> Option<String> {
+    let p = &w.people[i];
+    match source(w, i).ok()? {
+        Source::Program(c) if p.college != Some(c) => Some(format!("his tape with {}", w.program_name(c))),
+        Source::OldSchool(h, year) => {
+            Some(format!("his high school tape ({}, {year}): he hasn't played a college snap", w.school_name(h)))
+        }
+        _ => None,
+    }
+}
+
+/// His team in the film's source as it dresses today, with him in it and
+/// starting at his spot.
+fn his_team(w: &World, i: usize, src: Source) -> Option<(GameTeam, crate::player::Level, Kin)> {
+    let p = &w.people[i];
+    let id = p.player.id;
+    let (mut team, level, kin) = match src {
+        Source::School(h) | Source::OldSchool(h, _) => {
+            let (t, _) = crate::world::hs_year::film_team(w, h)?;
+            (t, crate::player::Level::HS, Kin::School(h))
+        }
+        Source::Program(c) => {
             (crate::world::season::game_team(w, &w.programs[c])?, college_level(w, c), Kin::Program(c))
         }
-        Stage::Pro => {
-            // A free agent's tape is his last club's.
-            let t = p.pro.as_ref().and_then(|c| c.team.or(c.teams.last().copied()))?;
-            if t >= w.nfl.len() {
-                return None;
-            }
-            (crate::world::pro::games::game_side(w, t)?.team, crate::player::Level::NFL, Kin::Club(t))
-        }
-        _ => return None,
+        Source::Club(t) => (crate::world::pro::games::game_side(w, t)?.team, crate::player::Level::NFL, Kin::Club(t)),
     };
     // He starts on his own tape: the men listed ahead of him at his spot
     // sit (his tape is his snaps).
@@ -360,9 +465,10 @@ pub fn player_tape_set(w: &World, id: u32, set: u8) -> Result<Tape, String> {
 
 /// How many sets of three games his season's film holds: a high school
 /// season's nine, a college or NFL season's twelve.
-pub fn sets(p: &crate::world::Person) -> u8 {
-    match p.stage {
-        Stage::HighSchool | Stage::PrepSchool => 3,
+pub fn sets(w: &World, i: usize) -> u8 {
+    match source(w, i) {
+        Ok(Source::School(_) | Source::OldSchool(..)) => 3,
+        Err(_) if matches!(w.people[i].stage, Stage::HighSchool | Stage::PrepSchool) => 3,
         _ => super::session::TAPE_SETS,
     }
 }
@@ -381,18 +487,11 @@ pub fn live_tape(w: &World, id: u32) -> Result<Tape, String> {
 fn tape_of(w: &World, id: u32, live: Option<crate::calendar::Date>, set: u8) -> Result<Tape, String> {
     let i = super::super::place(w, id).ok_or("No such player.")?;
     let p = &w.people[i];
-    let f = super::super::footage::footage(w, i);
-    match p.stage {
-        Stage::HighSchool | Stage::PrepSchool if f.snaps <= 0.0 && !f.reels => {
-            return Err("There's no film of him yet: he hasn't played a high school game.".into());
-        }
-        Stage::College | Stage::Declared if f.snaps <= 0.0 => {
-            return Err("He hasn't played a college snap: there's nothing to watch.".into());
-        }
-        Stage::HighSchool | Stage::PrepSchool | Stage::College | Stage::Declared | Stage::Pro => {}
-        _ => return Err("There's no film of him.".into()),
-    }
-    let (team, level, kin) = his_team(w, i).ok_or("His team's film isn't to be had just now.")?;
+    let src = if live.is_some() { live_source(w, i)? } else { source(w, i)? };
+    // Your own player before your first kept game with him: his practice
+    // tape, team periods against the looks of teams of his level.
+    let practice = live.is_none() && super::session::is_ours(w, id);
+    let (team, level, kin) = his_team(w, i, src).ok_or("His team's film isn't to be had just now.")?;
     let season = w.dates.season;
     let salt = match live {
         Some(d) => 0x11FE_0000 ^ (id as u64) << 20 ^ (d.0 as u64) << 40,
@@ -425,9 +524,14 @@ fn tape_of(w: &World, id: u32, live: Option<crate::calendar::Date>, set: u8) -> 
         let res = play_game(&s);
         let side = if home { 0 } else { 1 };
         let look = Look { hash: s.rules.hash as f32, name: &|id| name_of(w, id) };
-        let label = match live {
-            Some(d) => format!("{} {} {}", d.pretty(), if home { "vs" } else { "at" }, name),
-            None => format!("{} {} {}", week_word(k), if home { "vs" } else { "at" }, name),
+        let label = match (live, src) {
+            (Some(d), _) => format!("{} {} {}", d.pretty(), if home { "vs" } else { "at" }, name),
+            (None, _) if practice => format!("Practice {}, {name}'s looks", 3 * set as usize + k + 1),
+            // A college player's high school tape says so.
+            (None, Source::OldSchool(_, year)) => {
+                format!("High school {year}, {} {} {}", week_word(k), if home { "vs" } else { "at" }, name)
+            }
+            (None, _) => format!("{} {} {}", week_word(k), if home { "vs" } else { "at" }, name),
         };
         tape.games.push(Game { label, strength: strength(opp) });
         collect(&mut tape, k as u8, p, side, [h, a], &res, p.stage, &look);
@@ -465,7 +569,8 @@ pub fn our_tape(w: &World, id: u32) -> Result<Tape, String> {
         collect(&mut tape, gi, p, side, [&rs.home, &rs.away], &res, p.stage, &look);
     }
     if tape.snaps.is_empty() {
-        // Before your first kept game: the practice tape is his own tape.
+        // Before your first kept game with him, or when he sat them: his
+        // practice tape (`tape_of`, labelled "Practice").
         return player_tape(w, id);
     }
     Ok(tape)

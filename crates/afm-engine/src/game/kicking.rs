@@ -87,6 +87,27 @@ fn leg(kicker: &GamePlayer, power: Attr, base: f64, per: f64, cond: &Conditions,
     d
 }
 
+/// A kicker's form for a season (minor bug 334): his miss spread that year
+/// against his usual, a keyed draw on his id and the season, about 12% up
+/// or down at one standard deviation. Real kickers' seasons swing far more
+/// than their skill does: their make rate over the league's under 40 yards
+/// carries 0.15 from one season to the next, and 0.06 from 40 yards on
+/// (nflverse 2018-25, `results_real.json`). Without it the shipped seed 41
+/// world carried 0.37 under 40 (2021-25, kickers with 30 or more tries and
+/// extra points), its spread 0.028 against real's 0.034. A 12% swing adds
+/// about 0.022 to a season's make rate at a short kick's 2.1 standard
+/// deviations of aim, which works out to about 0.23 and 0.036 (worked from
+/// the world's season rows, not yet seen in a new world). The mean is held.
+/// Proposed, not confirmed.
+pub fn season_form(id: u32, year: i32) -> f64 {
+    let z = crate::world::season::key_normal(0x4B1C_F0E3 ^ ((year as u64) << 20), id as u64);
+    (KICK_FORM_SD * z - KICK_FORM_SD * KICK_FORM_SD / 2.0).exp()
+}
+
+/// The spread of a kicker's season form, in the log of his miss spread
+/// ([`season_form`]). Proposed, not confirmed.
+pub const KICK_FORM_SD: f64 = 0.12;
+
 /// Composure under pressure (topic 7): how much a big moment widens his miss.
 fn pressure_factor(kicker: &GamePlayer, pressure: f64, level: Level) -> f64 {
     let c = kicker.composure(level);
@@ -104,7 +125,7 @@ pub struct FieldGoal {
 
 /// A field goal or extra point try from `distance` yards (spot of the hold
 /// plus ten for the end zone). `pressure` is 0-1: the game on the line, an
-/// icing timeout, a playoff.
+/// icing timeout, a playoff. `form` is his season's form ([`season_form`]).
 #[allow(clippy::too_many_arguments)]
 pub fn field_goal(
     kicker: &GamePlayer,
@@ -114,6 +135,7 @@ pub fn field_goal(
     protect: f64,
     distance: f64,
     pressure: f64,
+    form: f64,
     cond: &Conditions,
     along: f64,
     level: Level,
@@ -151,6 +173,7 @@ pub fn field_goal(
     let mut sd = (2.4 + 0.014 * (distance - 30.0)) * (1.82 - 0.0105 * acc).max(0.55);
     sd *= 1.18 - 0.018 * kicker.traits.consistency;
     sd *= pressure_factor(kicker, pressure, level);
+    sd *= form;
     if bad_snap || bad_hold {
         sd *= 1.6;
     }

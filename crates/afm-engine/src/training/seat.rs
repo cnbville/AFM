@@ -703,6 +703,20 @@ impl SeatTraining {
         self.others_hurt.get(&id).copied().filter(|x| x.0 > d)
     }
 
+    /// Another team's player hurt until `back`: the later of two days
+    /// stands. A day on or before the sweep floor (`game_injuries`) means the
+    /// floor no longer holds. Every writer of `others_hurt` comes through
+    /// here, so the floor stays true (world speed lane).
+    pub(crate) fn note_other_hurt(&mut self, id: u32, back: Date, kind: InjuryKind) {
+        if self.others_floor.is_some_and(|f| back <= f) {
+            self.others_floor = None;
+        }
+        let e = self.others_hurt.entry(id).or_insert((back, Some(kind)));
+        if back > e.0 {
+            *e = (back, Some(kind));
+        }
+    }
+
     /// Arrived in the last two weeks (a save from before reads nobody as new).
     pub fn is_new(&self, id: u32, d: Date) -> bool {
         !self.arrived.is_empty() && self.arrived.iter().find(|a| a.0 == id).is_none_or(|a| a.1 > d.add(-14))
@@ -1566,14 +1580,7 @@ pub(crate) fn game_injuries(
                 format!("[[p:{}|{name}]] was hurt in the game ({}): out {long}.", inj.id, inj.kind.name()),
             );
         } else {
-            // A man back on or before the floor: it no longer holds.
-            if w.training.others_floor.is_some_and(|f| back <= f) {
-                w.training.others_floor = None;
-            }
-            let e = w.training.others_hurt.entry(inj.id).or_insert((back, Some(inj.kind)));
-            if back > e.0 {
-                *e = (back, Some(inj.kind));
-            }
+            w.training.note_other_hurt(inj.id, back, inj.kind);
         }
     }
 }
@@ -2357,6 +2364,10 @@ impl World {
     /// chart, packages and plan (after you change them).
     pub fn refresh_seat_team(&mut self) {
         let Some(c) = self.seat.filter(|s| s.level == Cal::College).and_then(|s| s.program) else { return };
+        // The interim's games are his staff's (the Jan 1 start).
+        if self.seat_interim().is_some() {
+            return;
+        }
         if self.training.design_ids.len() != self.training.designs.len() {
             self.training.register_designs();
         }
