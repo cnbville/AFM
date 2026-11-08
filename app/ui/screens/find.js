@@ -325,7 +325,8 @@ function frBuilder(x, st, seat) {
   const POS = ["QB", "RB", "WR", "TE", "OT", "IOL", "EDGE", "DT", "LB", "CB", "S", "K", "P", "LS"];
   const GROUPS = ["OL", "DL", "DB", "Specialists", "Offense", "Defense"];
   const classes = x.classes.map((c) => [c, seat === "nfl" ? `${c} draft` : `Class of ${c}`]);
-  const levels = seat === "nfl" ? [["all", "Every level"], ["fbs", "FBS"], ["fcs", "FCS"], ["small", "Division II and below"]] : [["hs", "High school"], ["juco", "Junior college"], ["portal", "Portal"]];
+  // After February's signing day the recruits nobody signed are still looking until summer enrollment (lane B).
+  const levels = seat === "nfl" ? [["all", "Every level"], ["fbs", "FBS"], ["fcs", "FCS"], ["small", "Division II and below"]] : [["hs", "High school"], ["juco", "Junior college"], ["portal", "Portal"], ...(x.late || x.level === "late" ? [["late", "Still unsigned"]] : [])];
   const opt = (p) => `<option${st.pos === p ? " selected" : ""}>${p}</option>`;
   const pos = `<select class="fr-sel" data-act="fr-f" data-f="pos" aria-label="Position" title="${FR_POS_HINT}"><option value="ALL">Every position</option><optgroup label="Positions">${POS.map(opt).join("")}</optgroup><optgroup label="Groups">${GROUPS.map(opt).join("")}</optgroup></select>`;
   const place = seat === "nfl"
@@ -341,6 +342,7 @@ function frBuilder(x, st, seat) {
     <div class="fr-row fr-split"><div class="fr-row"><span class="fr-k">How sure</span>${frSeg("fr-sure", [["any", "Any read"], ["fair", "Fair or narrow"], ["narrow", "Narrow only"]], x.sure, "How sure")}
       <span class="fr-k">Not seen</span>${frSeg("fr-unseen", [["1", "Include"], ["0", "Leave out"]], x.unseen_on ? "1" : "0", "Not seen")}</div>
       <div class="fr-row"><span class="fr-k">Saved searches</span>${saved}<button class="fr-chipbtn" data-act="fr-save">Save this search</button></div></div>
+    ${x.level === "late" ? `<div class="fr-mini">${x.late ? esc(`Seniors, prep school and junior college players nobody signed in February. They sign where a place opens on the late signing days, each Wednesday: the next is ${x.late.next}, the last on summer enrollment day, ${x.late.last}. Offer from their files as in the fall.`) : "The late signing days are over: whoever was still unsigned at summer enrollment went to prep school, a junior college or stopped playing."}</div>` : ""}
     <div class="fr-mini">${esc(x.filter_words ? `The search as the game reads it: ${x.filter_words}.` : "No filters.")} A saved search tells you in the inbox when a new ${seat === "nfl" ? "prospect" : "kid"} matches: ${seat === "nfl" ? "after rivalry week, the conference title games, the title game, the Senior Bowl, the combine and the last pro days" : "after a services update, your camp, or the high school all-star games"}.</div>
   </div>`;
 }

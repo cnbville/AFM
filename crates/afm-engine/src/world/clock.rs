@@ -447,6 +447,8 @@ fn dawn(w: &mut World, d: Date, y: &YearDates) {
     if d == y.fall_camp {
         // Last offseason's coaching changes are done with.
         w.late_windows.clear();
+        // Entrants still without a school decide now (minor bug 337).
+        recruiting::portal_camp(w);
         w.coach_follows.clear();
         recruiting::camp_walk_ons(w);
         timed("college start", || college::start(w));
@@ -498,11 +500,18 @@ fn office(w: &mut World, d: Date, y: &YearDates) {
             timed("portal open", || recruiting::portal_open(w, PortalWindow::Graduate, Date::ymd(w.year, 6, 30)));
         }
     }
+    // The late signing days (lane B): the recruits nobody signed in
+    // February keep looking until summer enrollment, before it enrolls.
+    if w.late_signing.is_some() {
+        timed("sign late", || recruiting::late_signing_day(w));
+    }
     if d == y.summer_enrollment {
         // Walk-on tryouts and finds at the colleges in their build year (SK68).
         super::new_teams::college::tryouts(w);
         super::eligibility::summer_roads(w);
         recruiting::enroll(w, false);
+        // The freshmen are on campus: the entrants still shopping see them.
+        recruiting::refresh_market(w);
     }
     if d == hs_transfer_day(y) {
         hs_nil_states(w);
@@ -943,8 +952,8 @@ fn rollover(w: &mut World) {
 /// February signing day, then the year-end book for `season`: program
 /// prestige, grades and NIL, life events, and everyone who left is archived.
 fn signing_day_and_book(w: &mut World, season: i32) {
-    // Anyone still weighing his portal options decides now.
-    recruiting::portal_day(w, true);
+    // Portal entrants still weighing their options keep shopping past
+    // signing day (minor bug 337): real entrants have no deadline.
     recruiting::signing_stage(w, recruiting::SignStage::Final, season);
     recruiting::class_rankings_news(w, season + 1, "National signing day");
     let keep = w.year;
@@ -962,6 +971,8 @@ fn signing_day_and_book(w: &mut World, season: i32) {
     super::wlog::book(w, season);
     w.compact();
     w.rebuild_rosters();
+    // The entrants still shopping see the rosters as the book left them.
+    recruiting::refresh_market(w);
     w.year = keep;
 }
 

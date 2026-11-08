@@ -2353,6 +2353,10 @@ fn tryout_sticks(d: Division) -> f64 {
 pub(crate) fn camp_walk_ons(w: &mut World) {
     let season = w.year;
     w.rebuild_rosters();
+    // Your program's walk-ons are your call (lane B): your staff names the
+    // ones who earned it, and you hold your own tryout.
+    let mine = fo::program(w);
+    let mut word: Option<(usize, Vec<usize>, usize)> = None;
     let mut awards: Vec<(usize, usize)> = Vec::new();
     for (j, prog) in w.programs.iter().enumerate() {
         let no_aid = prog.division == Division::D3 || super::ncaa::aid(prog, season) != super::ncaa::Aid::Athletic;
@@ -2371,10 +2375,8 @@ pub(crate) fn camp_walk_ons(w: &mut World) {
             .iter()
             .copied()
             .filter(|i| college(i))
-            .filter(|&i| {
-                let p = &w.people[i];
-                p.walk_on && matches!(p.last_role, Some(PlayingTime::Starter | PlayingTime::Rotation))
-            })
+            // His role from a season here, not his high school's (lane B).
+            .filter(|&i| w.people[i].walk_on && fo::walk_ons::in_two_deep(w, i, j))
             .map(|i| (w.people[i].last_performance.unwrap_or(w.people[i].player.overall()), i))
             .collect();
         cands.sort_by(|a, b| b.0.total_cmp(&a.0));
@@ -2384,6 +2386,7 @@ pub(crate) fn camp_walk_ons(w: &mut World) {
         let snap = |i: usize| w.people[i].player.position == Position::LS;
         let mut snapper_on_aid = prog.roster.iter().any(|&i| college(&i) && !w.people[i].walk_on && snap(i));
         let mut given = 0;
+        let mut earned = Vec::new();
         for &(_, i) in &cands {
             if given == free {
                 break;
@@ -2394,9 +2397,18 @@ pub(crate) fn camp_walk_ons(w: &mut World) {
                 }
                 snapper_on_aid = true;
             }
-            awards.push((j, i));
+            earned.push(i);
             given += 1;
         }
+        if Some(j) == mine {
+            let whole = super::ncaa::whole_roster_limit(prog, season);
+            word = Some((j, earned, if whole { usize::MAX } else { free }));
+        } else {
+            awards.extend(earned.into_iter().map(|i| (j, i)));
+        }
+    }
+    if let Some((_, earned, free)) = word {
+        fo::walk_ons::camp_word(w, &earned, free);
     }
     for (j, i) in awards {
         let name = w.programs[j].real_name.clone();
@@ -2432,7 +2444,7 @@ pub(crate) fn camp_walk_ons(w: &mut World) {
     let seed = w.options.seed as u64 ^ (season as u64) << 20 ^ 0x7A1C;
     for j in 0..w.programs.len() {
         let prog = &w.programs[j];
-        if !prog.plays(season) || key_uniform(seed, j as u64) >= tryout_sticks(prog.division) {
+        if !prog.plays(season) || key_uniform(seed, j as u64) >= tryout_sticks(prog.division) || Some(j) == mine {
             continue;
         }
         let Some((_, i)) = by_state[prog.state].first().copied() else { continue };
@@ -2617,7 +2629,7 @@ fn leaving(
 fn gone(p: &Person, d: Division, sign_year: i32, bars: Option<(f64, f64)>, read: RosterRead) -> (f64, f64) {
     let seasons = p.college_seasons + read.pending(p);
     // By February the entrants have left; those still here are staying.
-    let declared = read.stage != SignStage::Final;
+    let declared = !matches!(read.stage, SignStage::Final | SignStage::Late(_));
     let next = leaving(
         p,
         d,
@@ -2679,7 +2691,9 @@ fn class_plan(
     let whole_roster = super::ncaa::whole_roster_limit(prog, sign_year);
     for &i in &prog.roster {
         let p = &people[i];
-        if p.stage != Stage::College {
+        // A player in the portal is leaving: since entrants keep shopping
+        // after signing day (minor bug 337), his place is open to the class.
+        if p.stage != Stage::College || p.cal.portal.is_some() {
             continue;
         }
         let (k, wo) = (p.player.position.index(), p.walk_on as usize);
@@ -4396,6 +4410,52 @@ pub(crate) enum SignStage {
     Early,
     JanuaryEnrollees,
     Final,
+    /// A late signing day after February's (lane B): each Wednesday until
+    /// summer enrollment, the recruits still looking sign where a place has
+    /// opened; `true` on enrollment day itself, the last, when whoever is
+    /// still unsigned goes to prep school, a junior college or stops.
+    Late(bool),
+}
+
+/// The late signing days after February's signing day (lane B, the Jan 1
+/// start): the class still signing, its last day (summer enrollment) and
+/// the film read signing day made, so a late recruit is read as he was
+/// then, against his whole class.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub(crate) struct LateSigning {
+    pub(crate) sign_year: i32,
+    /// February's signing day, and summer enrollment, the last late day.
+    pub(crate) from: Date,
+    pub(crate) last: Date,
+    pos: Vec<(f64, f64)>,
+    all: (f64, f64),
+}
+
+/// Whether a recruit nobody signed in February keeps looking for a place
+/// until summer enrollment (lane B): a senior, prep school or junior
+/// college player some staff had on its board or offered. Everyone else
+/// stops at signing day, as before, so the late pool stays the size of the
+/// real late market (proposed, not confirmed).
+fn keeps_looking(on_board: bool, offered: bool) -> bool {
+    on_board || offered
+}
+
+fn month_name(m: u32) -> &'static str {
+    const M: [&str; 12] = [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+    ];
+    M[(m.clamp(1, 12) - 1) as usize]
 }
 
 /// When a recruit makes up his mind (T5.2), from his personality and family:
@@ -4525,6 +4585,40 @@ pub(crate) fn signing_stage(w: &mut World, stage: SignStage, season: i32) {
     if let Some(k) = past {
         std::mem::swap(&mut w.log, &mut w.log_history[k]);
         w.calendar.filing = None;
+    }
+}
+
+/// A late signing day (lane B): each Wednesday after February's signing
+/// day until summer enrollment, and enrollment day itself, the recruits
+/// still looking sign where a place has opened, by February's matching.
+/// The counts go in this football year's log.
+impl LateSigning {
+    /// Whether a late recruit decides from this late day on (lane B): each
+    /// takes his own week between signing day and summer enrollment, from
+    /// one key, the way real spring decisions come as aid packages land
+    /// (the Division III deposit day is May 1, junior college classes
+    /// fill in summer). Spread evenly, proposed, not confirmed: on one
+    /// day, seed 74's whole late class signed the first Wednesday.
+    fn ready(&self, p: &Person, today: Date, seed: u64) -> bool {
+        let weeks = (self.from.days_to(self.last) / 7).max(1) as f64;
+        let week = 1.0 + (key_uniform(seed ^ 0x1A7E_5EED, p.player.id as u64) * weeks).floor();
+        self.from.days_to(today) as f64 >= 7.0 * week - 6.0
+    }
+}
+
+pub(crate) fn late_signing_day(w: &mut World) {
+    let Some(l) = &w.late_signing else { return };
+    let d = w.today;
+    let (from, last, sign_year) = (l.from, l.last, l.sign_year);
+    // Enrollment day closes the search, or the first day after it if a
+    // world reaches it some other way.
+    let closing = d >= last;
+    if d <= from || (!closing && d.weekday() != crate::calendar::Weekday::Wed) {
+        return;
+    }
+    run_signing_stage(w, SignStage::Late(closing), sign_year - 1);
+    if closing {
+        w.late_signing = None;
     }
 }
 
@@ -4768,6 +4862,15 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     // The stage that rates the whole class and records its stars.
     let rating = matches!(stage, SignStage::Early | SignStage::JanuaryEnrollees);
     let summer = matches!(stage, SignStage::Summer(_));
+    // A late signing day (lane B) runs February's matching on the recruits
+    // still looking; only its last day closes their search.
+    let late_day = matches!(stage, SignStage::Late(_));
+    let last_day = stage == SignStage::Late(true);
+    let final_like = stage == SignStage::Final || late_day;
+    let late_norms = if late_day { w.late_signing.clone() } else { None };
+    if late_day && late_norms.is_none() {
+        return;
+    }
     let seed = w.options.seed as u64 ^ (sign_year as u64) << 20;
     // Your desk (lane 10): your board's offers, your visits and your NIL
     // promises. Your recruits decide on them by the same code as on any
@@ -4789,15 +4892,31 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         .filter_map(|i| {
             let p = &world.people[i];
             let unsigned = p.cal.signed.is_none();
-            let in_class = p.stage == Stage::HighSchool && p.class_of <= sign_year;
+            // The late pool belongs to its own class's late days, never the
+            // next class's waves (lane B); a late day still counts it in its
+            // class for the fastest kids' floors.
+            let in_class = p.stage == Stage::HighSchool && p.class_of <= sign_year && (late_day || !p.cal.late);
             let senior = in_class && unsigned;
             let prep = p.stage == Stage::PrepSchool && unsigned && stage == SignStage::Final;
+            // A junior college player still in the portal decides there
+            // (minor bug 337), not as a mover.
             let juco = p.stage == Stage::College
                 && unsigned
+                && p.cal.portal.is_none()
                 && !matches!(stage, SignStage::Summer(_))
                 && p.college.is_some_and(|c| world.programs[c].division == Division::JUCO)
                 && p.college_seasons + p.cal.count_pending as u32 >= 1;
-            let candidate = senior || prep || juco;
+            let candidate = if late_day {
+                // A late day weighs only the recruits still looking (lane B),
+                // each from his own week on.
+                p.cal.late
+                    && unsigned
+                    && p.cal.portal.is_none()
+                    && matches!(p.stage, Stage::HighSchool | Stage::PrepSchool | Stage::College)
+                    && (last_day || late_norms.as_ref().is_some_and(|l| l.ready(p, today, seed)))
+            } else {
+                senior || prep || juco
+            };
             // Film is aligned against the whole class, signed or not.
             let film = in_class.then(|| film_raw(p, &played));
             (candidate || film.is_some()).then_some((i, candidate, film))
@@ -4815,9 +4934,12 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         }
     }
     if candidates.is_empty() {
+        if last_day {
+            w.late_signing = None;
+        }
         return;
     }
-    let pos_mean_sd: Vec<(f64, f64)> = pos_stats
+    let mut pos_mean_sd: Vec<(f64, f64)> = pos_stats
         .iter()
         .map(|&(k, s, s2)| {
             if k < 2.0 {
@@ -4828,11 +4950,25 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             }
         })
         .collect();
-    let all_mean_sd = {
+    let mut all_mean_sd = {
         let (k, s, s2) = pos_stats.iter().fold((0.0, 0.0, 0.0), |a, b| (a.0 + b.0, a.1 + b.1, a.2 + b.2));
         let m = s / k.max(1.0);
         (m, ((s2 / k.max(1.0) - m * m).max(1.0)).sqrt())
     };
+    // A late day reads film against the whole class, as signing day did.
+    if let Some(n) = &late_norms {
+        pos_mean_sd = n.pos.clone();
+        all_mean_sd = n.all;
+    }
+    if stage == SignStage::Final {
+        w.late_signing = Some(LateSigning {
+            sign_year,
+            from: today,
+            last: crate::calendar::YearDates::new(sign_year).summer_enrollment,
+            pos: pos_mean_sd.clone(),
+            all: all_mean_sd,
+        });
+    }
     // Your calls to colleges as a high school coach (section 7, topic 16).
     // SK13: a head coach seen at his games puts a name on the map.
     let seen_trips = super::scouting::own::seen_lift(w);
@@ -4911,6 +5047,12 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     let world_seed = w.options.seed as u64;
     let persons = super::pick_mut(&mut w.people, pool.iter().map(|r| r.person));
     persons.into_par_iter().zip(pool.par_iter_mut()).for_each(|(p, r)| {
+        // After signing day the services have stopped looking (lane B):
+        // a late recruit keeps their last read.
+        if late_day && let Some(prev) = p.cal.service_read {
+            r.projection = prev;
+            return;
+        }
         let rep = scout_player(&p.player, ScoutOptions { accuracy: 12.0, level: Level::HS }, &mut p.rng);
         // What the services misread about a kid stays misread look after
         // look (A12): their errors are shared and lasting, not fresh noise
@@ -5156,7 +5298,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         .iter()
         .map(|g| matches!(g.division, Division::FBS | Division::FCS) && !g.power_conference(year))
         .collect();
-    let late = matches!(stage, SignStage::JanuaryEnrollees | SignStage::Final);
+    let late = matches!(stage, SignStage::JanuaryEnrollees | SignStage::Final | SignStage::Late(_));
     let coaches = &w.coaches;
     // Each staff's class plan per position (fix list 1.1, 1.2, 1.6).
     let habit_seed = w.options.seed as u64;
@@ -5611,7 +5753,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             let sch_open = (sch_room && taken_at[j][i][0] < plan.scholarship[i]) || star;
             // Under the House limit, a walk-on place at a regular position
             // opens only in the final period, once the portal has had its turn.
-            let late = stage == SignStage::Final || !plan.whole_roster || pos.is_specialist();
+            let late = final_like || !plan.whole_roster || pos.is_specialist();
             let walk_on_open = late && plan.walk_on_open(i, taken_walk_on[j], taken_at[j][i]);
             if !sch_open && !walk_on_open {
                 continue;
@@ -6200,7 +6342,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     // small-college place now weighs the walk-on place against it, the
     // scholarship he would give up included, as in the main signing, and
     // takes whichever he values more (the common preferred walk-on story).
-    if stage == SignStage::Final {
+    // The late signing days do the same for the places that open (lane B).
+    if final_like {
         let division_one = |j: usize| matches!(programs[j].division, Division::FBS | Division::FCS);
         let mut by_state: Vec<Vec<usize>> = vec![Vec::new(); w.states.len()];
         for (k, r) in pool.iter().enumerate() {
@@ -6267,6 +6410,18 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     }
 
     dbg_lap("deferred acceptance");
+    // Who some staff had on its board on signing day (lane B): the ones
+    // nobody signed keep looking.
+    let on_board: Vec<bool> = if stage == SignStage::Final {
+        let mut v = vec![false; pool.len()];
+        for b in boards.iter().flatten().flatten() {
+            v[b.0] = true;
+        }
+        v
+    } else {
+        Vec::new()
+    };
+    let mut late_pool = 0u32;
     // The offers your coordinator made where you left him the spot (lane 10).
     let coordinator_offers: Vec<u32> = match mj {
         Some(j) => coordinator
@@ -6328,7 +6483,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     && key_uniform(seed ^ 0xEE, p.player.id as u64)
                         < early_enrollee_chance(sign_year, recruiting_stars(p), r.gpa, division.unwrap_or(Division::D2))
             }
-            SignStage::Final => true,
+            SignStage::Final | SignStage::Late(_) => true,
         };
         if !now {
             continue;
@@ -6368,7 +6523,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         );
     }
     // Who offered: the visits of the coming weeks go to these (T5).
-    if stage != SignStage::Final {
+    if !final_like {
         for (k, r) in pool.iter().enumerate() {
             let mut list = offers[k].clone();
             // The schools that offered him early still have him (part B 34).
@@ -6447,16 +6602,19 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                         w.recruiting_log.five_stars.push((sign_year, j));
                     }
                 }
-                if stage == SignStage::Final {
+                if late_day {
+                    // A late signing (lane B): its own count, walk-ons included.
+                    w.log.signed_after[division as usize][r.juco_mover as usize] += 1;
+                } else if stage == SignStage::Final {
                     w.log.signed_late += 1;
                 } else {
                     w.log.signed_early += 1;
                 }
                 // Walk-ons sign no letter or scholarship agreement.
-                if !walk_on {
+                if !walk_on && !late_day {
                     w.log.signed_by_division[division as usize][(stage == SignStage::Final) as usize] += 1;
                 }
-                if committed.is_none() {
+                if committed.is_none() && !late_day {
                     w.log.commits += 1;
                     w.log.commits_by_month[month] += 1;
                 }
@@ -6526,9 +6684,11 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     }
                     _ => services,
                 };
+                let late_when = format!(" in {}, after signing day", month_name(today.month()));
                 let when = match stage {
                     SignStage::Early => " in the early signing period",
                     SignStage::JanuaryEnrollees => " as a January enrollee",
+                    SignStage::Late(_) => late_when.as_str(),
                     _ if esp_era => " on February signing day",
                     _ => "",
                 };
@@ -6609,6 +6769,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 let flipped = p.cal.commit.is_some_and(|c| c.0 != j);
                 p.cal.signed = Some(super::Signed { program: j, walk_on, date: today, early_enrollee, flipped });
                 p.cal.commit = None;
+                p.cal.late = false;
                 // His high school coach gets the credit for sending him up.
                 let (hs, group) = (p.hs, super::coach::Group::of(p.player.position));
                 let up = match w.programs[j].division {
@@ -6639,12 +6800,38 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 }
             }
             None => {
+                // A late day that isn't the last: he keeps looking (lane B).
+                if late_day && !last_day {
+                    continue;
+                }
                 if committed.is_some() {
                     w.log.decommits += 1;
                 }
                 let fell_through = committed.map(|c| w.program_name(c).to_string());
+                // Unsigned on signing day with a staff that had him on its
+                // board or offered: he keeps looking until summer
+                // enrollment (lane B). A junior college player with a year
+                // left there stays as before.
+                let finishing = !r.juco_mover || sign_year - w.people[i].class_of >= 2;
+                let offered = !offers[k].is_empty()
+                    || !w.people[i].cal.offers.is_empty()
+                    || !w.people[i].cal.early_offers.is_empty();
+                if stage == SignStage::Final && finishing && keeps_looking(on_board[k], offered) {
+                    let p = &mut w.people[i];
+                    p.cal.commit = None;
+                    p.cal.late = true;
+                    if let Some(school) = &fell_through {
+                        let age = p.row_age();
+                        p.note(format!(
+                            "His commitment to {school} fell through on signing day at {age}, and he kept looking for a place."
+                        ));
+                    }
+                    late_pool += 1;
+                    continue;
+                }
                 let p = &mut w.people[i];
                 p.cal.commit = None;
+                p.cal.late = false;
                 if r.juco_mover {
                     if sign_year - p.class_of >= 2 {
                         p.stage = Stage::Done;
@@ -6695,17 +6882,31 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             }
         }
     }
-    if stage == SignStage::Final {
-        // Seniors nobody signed simply finish high school.
+    if stage == SignStage::Final || last_day {
+        // Seniors nobody signed simply finish high school; on signing day
+        // the ones still looking keep going until summer enrollment (lane B).
         for p in w.people.iter_mut() {
-            if p.stage == Stage::HighSchool && p.class_of <= sign_year && p.cal.signed.is_none() {
+            if p.stage == Stage::HighSchool
+                && p.class_of <= sign_year
+                && p.cal.signed.is_none()
+                && (last_day || !p.cal.late)
+            {
                 p.stage = Stage::Done;
+            }
+            if last_day {
+                p.cal.late = false;
             }
         }
     }
+    if stage == SignStage::Final {
+        w.log.late_pool += late_pool;
+    }
+    if last_day {
+        w.late_signing = None;
+    }
     let _ = n;
     if let Some(j) = mj {
-        fo::college::after_stage(w, j, &coordinator_offers, stage == SignStage::Final);
+        fo::college::after_stage(w, j, &coordinator_offers, final_like);
     }
 }
 
@@ -6876,9 +7077,23 @@ pub(crate) struct PortalMarket {
     /// Entrants from teams still alive for the title, on hold until their
     /// season is over (T3).
     held: Vec<Held>,
+    /// Open starting spots the cycle's transfers filled who didn't start
+    /// where they came from: a fresh read of the rosters doesn't count
+    /// them as returning starters, so they stay filled (minor bug 337).
+    #[serde(default)]
+    filled: Vec<[usize; POSITION_COUNT]>,
 }
 
 impl PortalMarket {
+    /// The open starting spots less those the cycle's transfers filled.
+    fn keep_filled(&mut self) {
+        for (o, f) in self.open.iter_mut().zip(&self.filled) {
+            for k in 0..POSITION_COUNT {
+                o[k] = o[k].saturating_sub(f[k]);
+            }
+        }
+    }
+
     /// A program's NIL payroll weight (none kept in an older file's market).
     fn pool(&self, j: usize) -> f64 {
         self.nil_pool.get(j).copied().unwrap_or(0.0)
@@ -7062,7 +7277,7 @@ fn enter_portal(w: &mut World, i: usize, c: usize, entered: Date, decide_by: Dat
         });
     }
     let p = &mut w.people[i];
-    p.cal.portal = Some(super::PortalEntry { entered, decide_by, why: why.reason(), held: false });
+    p.cal.portal = Some(super::PortalEntry { entered, decide_by, why: why.reason(), held: false, looking: false });
     // His NIL deal ends when he enters (T3).
     if p.nil_income > 0.0 {
         p.nil_income = 0.0;
@@ -7584,7 +7799,10 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
     }
     // Dates: stars and standouts enter on the first days and decide fast.
     let len = today.days_to(close).max(0) as f64;
-    let leaving: std::collections::HashSet<usize> = entrants.iter().map(|e| e.0).collect();
+    // This window's entrants, and an earlier window's still looking (minor
+    // bug 337): both are leaving their programs.
+    let mut leaving: std::collections::HashSet<usize> = entrants.iter().map(|e| e.0).collect();
+    leaving.extend(w.people.iter().enumerate().filter(|(_, p)| p.cal.portal.is_some()).map(|(i, _)| i));
     let mut by_day: std::collections::BTreeMap<Date, u32> = std::collections::BTreeMap::new();
     let mut serious = std::collections::HashSet::new();
     let mut events = Vec::new();
@@ -7647,8 +7865,13 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
             let extra = (5.0 * key_uniform(seed ^ 0xE8, id)).floor() as i32;
             held.push(Held { person: i, program: c, window_day: entered_on, extra, decide_in, why, bar });
             // On hold: no day yet, and no decision due until he is released.
-            w.people[i].cal.portal =
-                Some(super::PortalEntry { entered: HELD, decide_by: HELD, why: why.reason(), held: true });
+            w.people[i].cal.portal = Some(super::PortalEntry {
+                entered: HELD,
+                decide_by: HELD,
+                why: why.reason(),
+                held: true,
+                looking: false,
+            });
             continue;
         }
         // Your own player asks to see you first and decides on his day.
@@ -7683,6 +7906,54 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
     w.calendar.post(Event::new(today, CalLevel::College, Kind::Window, loud, text).rule("NCAA: transfer window"));
     // The market every entrant shops in.
     let pn = w.programs.len();
+    let MarketRooms { open, backups_best, depth, view, nil_pool } = market_rooms(w, &leaving);
+    let mut market = PortalMarket {
+        label,
+        season: label + 1,
+        serious,
+        medians,
+        floors,
+        open,
+        backups_best,
+        depth,
+        adds: vec![0; pn],
+        nil_pool,
+        view,
+        held,
+        filled: vec![[0; POSITION_COUNT]; pn],
+    };
+    // Entrants from an earlier window still deciding keep their place in
+    // line, and playoff entrants stay on hold.
+    if let Some(old) = w.portal_market.take() {
+        market.adds = old.adds;
+        market.held.extend(old.held);
+        // An earlier entrant still shopping keeps his record, and the
+        // spots the cycle's transfers filled stay filled (minor bug 337).
+        market.serious.extend(old.serious);
+        if old.filled.len() == pn {
+            market.filled = old.filled;
+            market.keep_filled();
+        }
+    }
+    w.portal_market = Some(market);
+    let asked: std::collections::HashSet<usize> = ask.iter().map(|x| x.0).collect();
+    w.portal_pending.extend(entrants.iter().map(|e| e.0).filter(|i| !asked.contains(i)));
+    ask_first(w, ask);
+}
+
+/// Every program's room in the portal market, without the players leaving
+/// (`leaving`): its open starting spots, its best backups, its depth by
+/// play and its roster view and NIL pool.
+struct MarketRooms {
+    open: Vec<[usize; POSITION_COUNT]>,
+    backups_best: Vec<[f64; POSITION_COUNT]>,
+    depth: Vec<Vec<Vec<f64>>>,
+    view: RosterView,
+    nil_pool: Vec<f64>,
+}
+
+fn market_rooms(w: &World, leaving: &std::collections::HashSet<usize>) -> MarketRooms {
+    let pn = w.programs.len();
     let perf_of = |p: &Person| p.last_performance.unwrap_or(p.player.overall());
     let mut open = vec![[0usize; POSITION_COUNT]; pn];
     let mut backups_best = vec![[f64::NEG_INFINITY; POSITION_COUNT]; pn];
@@ -7704,33 +7975,54 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
             depth[j][pos.index()].sort_by(|a, b| b.total_cmp(a));
         }
     }
-    let view = RosterView::new(&w.programs, &w.people, &leaving);
+    let view = RosterView::new(&w.programs, &w.people, leaving);
     let nil_medians = nil_medians(w);
-    let nil_pool: Vec<f64> = (0..pn).map(|j| nil_pool(w, j, &leaving, &nil_medians)).collect();
-    let mut market = PortalMarket {
-        label,
-        season: label + 1,
-        serious,
-        medians,
-        floors,
-        open,
-        backups_best,
-        depth,
-        adds: vec![0; pn],
-        nil_pool,
-        view,
-        held,
-    };
-    // Entrants from an earlier window still deciding keep their place in
-    // line, and playoff entrants stay on hold.
-    if let Some(old) = w.portal_market.take() {
-        market.adds = old.adds;
-        market.held.extend(old.held);
+    let nil_pool: Vec<f64> = (0..pn).map(|j| nil_pool(w, j, leaving, &nil_medians)).collect();
+    MarketRooms { open, backups_best, depth, view, nil_pool }
+}
+
+/// The portal market read again from today's rosters (minor bug 337):
+/// entrants shop until fall camp, and through the spring the rooms change
+/// (signing day's book, players who leave, the freshmen who enroll in
+/// June). The landings so far are on the rosters; the cycle's count of
+/// adds per program stays.
+pub(crate) fn refresh_market(w: &mut World) {
+    if w.portal_market.is_none() || w.portal_pending.is_empty() {
+        return;
     }
-    w.portal_market = Some(market);
-    let asked: std::collections::HashSet<usize> = ask.iter().map(|x| x.0).collect();
-    w.portal_pending.extend(entrants.iter().map(|e| e.0).filter(|i| !asked.contains(i)));
-    ask_first(w, ask);
+    w.rebuild_rosters();
+    let leaving: std::collections::HashSet<usize> =
+        w.people.iter().enumerate().filter(|(_, p)| p.cal.portal.is_some()).map(|(i, _)| i).collect();
+    let rooms = market_rooms(w, &leaving);
+    if let Some(m) = w.portal_market.as_mut() {
+        m.open = rooms.open;
+        m.backups_best = rooms.backups_best;
+        m.depth = rooms.depth;
+        m.view = rooms.view;
+        m.nil_pool = rooms.nil_pool;
+        m.keep_filled();
+    }
+}
+
+/// The people list is compacted on signing day (`World::compact`): the
+/// entrants still shopping and the market's held players follow their new
+/// places; the market's rooms are read again after (`refresh_market`).
+pub(crate) fn remap_people(w: &mut World, map: &[Option<usize>]) {
+    let at = |i: usize| map.get(i).copied().flatten();
+    w.portal_pending = w.portal_pending.iter().filter_map(|&i| at(i)).collect();
+    if let Some(m) = w.portal_market.as_mut() {
+        m.held.retain_mut(|h| at(h.person).map(|i| h.person = i).is_some());
+        m.serious = m.serious.iter().filter_map(|&i| at(i)).collect();
+    }
+}
+
+/// Fall camp (minor bug 337): an entrant still without a school decides
+/// now, as he would have on his own day: his old school may take him back,
+/// or he leaves football.
+pub(crate) fn portal_camp(w: &mut World) {
+    if !w.portal_pending.is_empty() {
+        portal_day(w, true);
+    }
 }
 
 /// How a portal entrant weighs playing on two levels down or more: he goes
@@ -7800,7 +8092,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         let Some(entry) = w.people[i].cal.portal else { continue };
         let why = Why::from_reason(entry.why);
         // Someone who left college meanwhile is out of the market.
-        let Some(c) = w.people[i].college else {
+        let Some(c) = w.people[i].college.filter(|_| w.people[i].stage == Stage::College) else {
             w.people[i].cal.portal = None;
             super::folk::backchannel::settled(w, w.people[i].player.id);
             continue;
@@ -7837,14 +8129,13 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         // A placement is read on this, his decision day, then spent (minor
         // bug 325: the Monday cleanup dropped it at entry, before the day).
         super::folk::backchannel::settled(w, id);
-        // His old head coach's new school (minor bug 86), asked once.
+        // His old head coach's new school (minor bug 86), asked until he decides.
         let followed = w.coach_follows.iter().find(|f| f.0 == id).map(|f| f.1);
-        w.coach_follows.retain(|f| f.0 != id);
         // His move is made: last season's reasons to leave are spent, so a
         // later window this offseason (spring, or a coaching change where he
         // landed) doesn't draw him again.
         w.people[i].cal.lean = 0.0;
-        if serious && w.people[i].rng.chance(PIPELINE.college_trouble.serious_quit_share) {
+        if serious && !entry.looking && w.people[i].rng.chance(PIPELINE.college_trouble.serious_quit_share) {
             let p = &mut w.people[i];
             p.stage = Stage::Done;
             p.note("After a serious incident no program would take him, and he never played again.");
@@ -7999,18 +8290,40 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         ranked.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
         // His first choice can fall through while he waits (T9): another
         // entrant takes the spot, or the staff moves on (about 1% a day).
-        let waited = entry.entered.days_to(today).max(1) as f64;
+        // A looker's wait counts from his last weekly look, not his entry.
+        let since = if entry.looking { entry.decide_by.add(-7) } else { entry.entered };
+        let waited = since.days_to(today).max(1) as f64;
         let fell = ranked.len() >= 2 && key_uniform(seed, w.people[i].player.id as u64) > 0.99f64.powf(waited);
         let pick = if fell { ranked.get(1).copied() } else { ranked.first().copied() };
         let age = w.people[i].row_age();
         let from_name = w.program_name(c).to_string();
         let what = why.phrase();
         let Some((j, _, nil, role, edge)) = pick else {
-            // Portal regret (T3): his old school may take him back.
-            let back = !matches!(why, Why::Dismissed | Why::Cut)
+            // Portal regret (T3): his old school may take him back the day
+            // he first finds nothing. At fall camp the same word stands: only
+            // one turned away then for want of room is asked back (a second
+            // draw doubled the returns, 7% of entrants to 16% on seed 74).
+            let back = (!entry.looking || force)
+                && !matches!(why, Why::Dismissed | Why::Cut)
                 && counted[c] < super::ncaa::roster_limits(&w.programs[c], season).0
                 && key_uniform(seed ^ 0xBAC, w.people[i].player.id as u64)
                     < if perf >= median(from) - 2.0 { 0.4 } else { 0.15 };
+            // No deadline to pick a school (minor bug 337, real since 2025):
+            // he stays in the portal and shops again each week as rooms
+            // open, until fall camp.
+            if !back && !force {
+                let p = &mut w.people[i];
+                if !entry.looking {
+                    p.note("Found no school in his first days in the portal and kept looking.");
+                }
+                p.cal.portal = Some(super::PortalEntry { decide_by: today.add(7), looking: true, ..entry });
+                waiting.push(i);
+                continue;
+            }
+            w.coach_follows.retain(|f| f.0 != id);
+            if force {
+                w.log.portal_unplaced_at_camp += 1;
+            }
             let p = &mut w.people[i];
             if back {
                 p.note_again(
@@ -8030,11 +8343,19 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
             w.people[i].note(format!("His first choice, {first}, fell through while he waited."));
         }
         record(w, Some(j), fell, false);
+        w.coach_follows.retain(|f| f.0 != id);
         w.log.portal_landed += 1;
+        if today > crate::calendar::YearDates::new(label).signing_day {
+            w.log.portal_landed_after += 1;
+        }
         market.adds[j] += 1;
         today_adds[j] += 1;
         if market.open[j][k] > 0 && perf > market.backups_best[j][k] {
             market.open[j][k] -= 1;
+            if w.people[i].last_role != Some(PlayingTime::Starter) {
+                market.filled.resize(pn, [0; POSITION_COUNT]);
+                market.filled[j][k] += 1;
+            }
         }
         // He is in that room now, for the entrants still shopping (11.2).
         let at = market.depth[j][k].partition_point(|&v| v >= perf);

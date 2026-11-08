@@ -38,6 +38,7 @@ mod placement;
 mod polls;
 mod portal_talks;
 mod ratings;
+mod roster_moves;
 mod sandbox;
 mod save;
 mod schedule;
