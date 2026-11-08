@@ -26,6 +26,16 @@ function sbCmpVal(f, cmp) {
   if (cmp.startsWith("m")) return sbNum((f.mates || [])[Number(cmp.slice(1))]);
   return null;
 }
+// The outlook in your staff's words. Nobody projects a player your staff
+// hasn't looked at (minor bug 355: the tab broke on him), and a seat
+// without a scouting staff rates its players without projecting them:
+// the same words as the Overview's read card.
+function sbOutlook(x) {
+  if (x.outlook) return `<div class="sb-kv"><span>Outlook</span><b>${esc(sbCap(x.outlook.tier))}</b></div><small class="sb-dim">The staff's word, not a promise. ${esc(x.tape)}.</small>`;
+  return x.read
+    ? `<div class="sb-kv"><span>Outlook</span><b>Not projected</b></div><small class="sb-dim">Your staff rates what he is now; nobody has projected what he could become.</small>`
+    : `<div class="sb-kv"><span>Outlook</span><b>Not seen</b></div><small class="sb-dim">Nobody on your staff has looked at him yet. Only his measurables and public profile are known.</small>`;
+}
 async function sbShapeTab(p) {
   const x = await sbGet("sb_shape", { id: p.id });
   const cmp = sbShapeCmp(x);
@@ -75,7 +85,7 @@ async function sbShapeTab(p) {
     : `<div class="sb-card"><span class="sb-lbl">Since the last kept read</span><p class="sb-dim">${esc(x.kept_note || "")}</p></div>`;
   const left = `<div class="sb-card"><span class="sb-lbl">Staff read</span><div class="sb-hero2"><b>${x.read ? sbMid(x.read) : "–"}</b>${range(x.read, x.own ? "his position coach" : "your scouts", { p: x.id, k: "ovr" })}</div>${scale}
       ${b ? `<div class="sb-kv"><span>Level</span><b>${esc(b.word)}</b></div><small class="sb-dim">${esc(b.line)}</small>` : ""}
-      <div class="sb-kv"><span>Outlook</span><b>${esc(sbCap(x.outlook.tier))}</b></div><small class="sb-dim">The staff's word, not a promise. ${esc(x.tape)}.</small></div>
+      ${sbOutlook(x)}</div>
     <div class="sb-card"><span class="sb-lbl">Player facts</span>${x.facts.map((q) => `<div class="sb-kv"><span>${esc(q.k)}</span><b>${esc(q.v)}</b></div>`).join("")}</div>${since}`;
   const radar = `<svg class="sb-radar" viewBox="0 0 520 470" role="img" aria-label="${esc(x.name)}: eight skill families against ${esc(cmpName || "")}">${rings}${spokes}${band}${cmpPoly}${midPoly}${axes}</svg>`;
   const legend = `<div class="sb-rleg"><span><i class="me"></i>Your staff's read, the band its range</span><span><i class="cmp"></i>${esc(cmpName || "")}</span></div>`;

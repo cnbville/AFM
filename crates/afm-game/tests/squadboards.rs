@@ -189,6 +189,23 @@ fn the_boards_at_every_seat() {
         rows.iter().any(|r| r["last6"].as_array().is_some_and(|x| x.iter().any(Value::is_number))),
         "grades from the game"
     );
+    // Another team's player nobody on your staff has looked at: no read,
+    // no outlook, and the tape says so (minor bug 355: the Shape tab broke
+    // on him). A projection comes only with a read.
+    let others: Vec<u32> = {
+        let w = g.world.as_ref().unwrap();
+        w.people.iter().filter(|p| p.stage == afm_engine::world::Stage::College).map(|p| p.player.id).collect()
+    };
+    let mut unseen = 0;
+    for id in others.iter().step_by(97).take(60) {
+        let sh = board(&mut g, "sb_shape", json!({ "id": id }));
+        assert_eq!(sh["read"].is_null(), sh["outlook"].is_null(), "an outlook comes with a read: {id}");
+        if sh["own"] == false && sh["read"].is_null() {
+            assert_eq!(sh["tape"], "Nobody on your staff has looked at him yet", "{id}");
+            unseen += 1;
+        }
+    }
+    assert!(unseen > 0, "the sample holds a player your staff hasn't seen");
     // The quick filter's production: the game's lines, this season.
     let squad = ok(&mut g, "squad", json!({}));
     assert!(
