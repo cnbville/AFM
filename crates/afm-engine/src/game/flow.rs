@@ -4069,6 +4069,7 @@ impl<'a> Game<'a> {
         r.throw_away = res.throw_away;
         r.drop = res.drop;
         r.pressured = res.pressured;
+        r.moving = res.moving;
         r.out_of_bounds = res.out_of_bounds;
         r.pbu = res.pbu;
         r.tacklers = res.notes.tacklers.clone();

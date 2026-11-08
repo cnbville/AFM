@@ -945,6 +945,9 @@ fn rollover(w: &mut World) {
     w.prev_dates = Some(std::mem::replace(&mut w.dates, dates));
     print_profile(w.year);
     w.year = next;
+    // Growth from results: a ledger two seasons old belongs to a player
+    // who left football.
+    w.results.sweep(w.year);
 }
 
 /// February signing day, then the year-end book for `season`: program

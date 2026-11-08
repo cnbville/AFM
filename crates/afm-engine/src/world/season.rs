@@ -4,6 +4,8 @@
 //! won by comparing the two teams' starters as they played that year (form,
 //! slumps and breakouts included), plus home field and luck.
 
+use std::collections::HashMap;
+
 use rayon::prelude::*;
 
 use super::background;
@@ -655,6 +657,19 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
     // The world log (R2): each step's why, written as it runs.
     let log = w.wlog.as_deref().filter(|_| w.recording);
     let when = (w.year, w.today);
+    // Growth from results: the season ahead plays on the engine (results
+    // on) or not, and each player's last season of results closes here.
+    let mode = w.options.results;
+    let college_engine = mode.on && w.options.engine_from.is_none_or(|from| w.year >= from);
+    let hs_engine = mode.on && super::hs_year::hs_on_engine(w, w.year);
+    let closing: HashMap<u32, crate::results::Ledger> = {
+        let ids: std::collections::HashSet<u32> =
+            role_of.iter().enumerate().filter(|(_, r)| r.is_some()).map(|(i, _)| w.people[i].player.id).collect();
+        let all = std::mem::take(&mut w.results.ledgers);
+        let (mine, rest): (HashMap<_, _>, HashMap<_, _>) = all.into_iter().partition(|(id, _)| ids.contains(id));
+        w.results.ledgers = rest;
+        mine
+    };
     let (people, schools, programs, coaches) = (&mut w.people, &w.high_schools, &w.programs, &w.coaches);
     people.par_iter_mut().zip(role_of.par_iter()).enumerate().for_each(|(i, (p, role))| {
         let Some(role) = *role else { return };
@@ -835,8 +850,17 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             focus: focus.get(&i).copied(),
             defer,
             snaps,
+            results: match p.stage {
+                Stage::College if college_engine => Some(mode),
+                Stage::HighSchool if hs_engine => Some(mode),
+                _ => None,
+            },
             ..SeasonContext::new(level, clamp(coaching, 1.0, 20.0), role)
         };
+        // Last season's results name its row (growth from results).
+        if let Some(l) = closing.get(&p.player.id) {
+            crate::results::close(&mut p.player, l);
+        }
         // Last year's growth that the calendar never reached lands first
         // (section 6b topic 12), so this row starts where he really is.
         crate::training::close_year(&mut p.player, ctx.focus);
@@ -902,6 +926,11 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             p.stage = Stage::Done;
         }
     });
+    // Each closed ledger starts the new season, its reads kept as his past.
+    for (id, mut l) in closing {
+        l.roll(w.year);
+        w.results.ledgers.insert(id, l);
+    }
     // The year's college trouble rate, counted before the dismissed leave.
     for (i, p) in w.people.iter().enumerate() {
         if role_of[i].is_some() && p.player.history.last().is_some_and(|h| h.level.is_college()) {

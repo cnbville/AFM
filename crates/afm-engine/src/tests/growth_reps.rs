@@ -5,8 +5,9 @@
 
 use super::{career, context_for, mean, prospects};
 use crate::development::develop_season;
-use crate::player::{Level, Player, PlayingTime};
+use crate::player::{Level, Player, PlayingTime, ProspectOptions, generate_prospect};
 use crate::positions::Position;
+use crate::results::{self, Dice, Ledger, Man, Mode, Read};
 use crate::rng::Rng;
 use crate::world::season::{depth_chart, reps_read, sat_season, your_order};
 use crate::world::{Reps, Stage};
@@ -218,4 +219,176 @@ fn four_college_years_with_the_snaps_a_year_behind() {
     let two = path([(Backup, None), (Backup, Some(0.05)), (Starter, Some(0.05)), (Starter, Some(1.0))]);
     eprintln!("by 22: start four {all:+.2}, sit one {one:+.2}, sit two {two:+.2}");
     assert!(all > one && one > two);
+}
+
+// --- Growth from results (afm/game-reps/proposal.md) -----------------------
+
+/// A player at a position brought to 22 on the yearly step.
+fn player_at(pos: Position, k: u64) -> Player {
+    let mut rng = Rng::new(format!("results-{pos:?}-{k}").as_str());
+    let opts = ProspectOptions { position: Some(pos), talent_z: Some(1.5), ..Default::default() };
+    let mut p = generate_prospect(&mut rng, opts);
+    career(&mut p, &mut rng, 22, |_| {});
+    p
+}
+
+fn passer(k: u64) -> Player {
+    player_at(Position::QB, k)
+}
+
+/// One game of pass-block reps, `n` trials shown `k` rating points over his rating.
+fn pass_blocks(n: f64, k: f64) -> Man {
+    Man { reads: vec![(Read::PassBlock, n as f32, (n * k) as f32)], snaps: 60, ..Man::default() }
+}
+
+fn moved(p: &Player, games: &[Man], mode: &Mode) -> (Player, f64) {
+    let a = Read::PassBlock.attr();
+    let mut q = p.clone();
+    let mut l = Ledger::default();
+    let before = q.attributes.get(a);
+    for m in games {
+        results::apply(&mut q, &mut l, m, Level::NFL, mode);
+    }
+    let d = q.attributes.get(a) - before;
+    (q, d)
+}
+
+#[test]
+fn a_season_moves_a_skill_as_far_as_its_sample_says() {
+    let p = player_at(Position::OT, 1);
+    let a = Read::PassBlock.attr();
+    let on = Mode::default();
+    let f = results::fit(Level::NFL, Read::PassBlock, Position::OT);
+    assert!(f.on(), "the fitted table reads an NFL tackle's pass blocking");
+    // A whole season shown 4 points over his rating, in one go or game by game.
+    let season = f.season;
+    let (_, once) = moved(&p, &[pass_blocks(season, 4.0)], &on);
+    let weekly: Vec<Man> = (0..17).map(|_| pass_blocks(season / 17.0, 4.0)).collect();
+    let (_, by_game) = moved(&p, &weekly, &on);
+    assert!((once - 4.0 * f.weight(season)).abs() < 1e-3, "credibility: {once}");
+    assert!((once - by_game).abs() < 1e-3, "a season is a season however it's cut");
+    assert!(once > 0.0 && once < 4.0 * 0.6, "a season keeps part of what it shows: {once}");
+    // Small samples count less: a tenth of the season at the same level.
+    let (_, small) = moved(&p, &[pass_blocks(season / 10.0, 4.0)], &on);
+    assert!(small > 0.0 && small < once, "{small} against {once}");
+    // Below his rating: pulled down (item 15), or not at all up only.
+    let (_, down) = moved(&p, &[pass_blocks(season, -4.0)], &on);
+    let (_, held) = moved(&p, &[pass_blocks(season, -4.0)], &Mode { pull_down: false, ..on });
+    assert!((down + once).abs() < 1e-3 && held == 0.0);
+    // No ceiling stops him (item 3): past it, the ceiling moves with him.
+    let mut top = p.clone();
+    top.ceilings.set(a, top.attributes.get(a) + 0.5);
+    // Results far past anything real, so the season's most binds (the
+    // weight tops out at what teammates and scheme leave him).
+    let far = 2.0 * results::CAP / f.weight(50.0 * season);
+    let (q, up) = moved(&top, &[pass_blocks(50.0 * season, far)], &on);
+    assert!(up <= results::CAP + 1e-6 && up > results::CAP - 1e-3, "capped at a season's most: {up}");
+    assert!(q.ceilings.get(a) >= q.attributes.get(a));
+    // A rate scale moves it in proportion.
+    let (_, half) = moved(&p, &[pass_blocks(season, 4.0)], &Mode { scale: 0.5, ..on });
+    assert!((half - once / 2.0).abs() < 1e-3);
+}
+
+#[test]
+fn a_man_judged_against_his_own_normal_stops_rising() {
+    // An edge whose make-up beats his ratings by the same 4 points every
+    // season: the first season lifts him, then his own normal takes it in.
+    let p = player_at(Position::EDGE, 2);
+    let f = results::fit(Level::NFL, Read::FinesseRush, Position::EDGE);
+    assert!(f.on() && f.tp > 0.0, "the fit reads an edge's finesse rush and his own part");
+    let mut q = p.clone();
+    let mut l = Ledger::default();
+    let a = Read::FinesseRush.attr();
+    let mut lifts = Vec::new();
+    for year in 0..6 {
+        l.roll(year);
+        let before = q.attributes.get(a);
+        let n = f.season;
+        let m = Man { reads: vec![(Read::FinesseRush, n as f32, (n * 4.0) as f32)], snaps: 60, ..Man::default() };
+        results::apply(&mut q, &mut l, &m, Level::NFL, &Mode::default());
+        lifts.push(q.attributes.get(a) - before);
+    }
+    eprintln!("a steady 4 over his ratings, season by season: {lifts:?}");
+    assert!(lifts[0] > 0.5, "the first season lifts him");
+    assert!(lifts[5] < 0.5 * lifts[0], "his own normal takes it in");
+    assert!(lifts.windows(2).all(|w| w[1] <= w[0] + 1e-9));
+}
+
+#[test]
+fn results_on_top_keep_todays_dice() {
+    for k in 0..40 {
+        let p = passer(k);
+        let (mut a, mut b) = (p.clone(), p.clone());
+        let mut ctx = context_for(22);
+        develop_season(&mut a, &ctx, &mut Rng::new(format!("dice-{k}").as_str()));
+        ctx.results = Some(Mode { dice: Dice::Kept, ..Mode::default() });
+        develop_season(&mut b, &ctx, &mut Rng::new(format!("dice-{k}").as_str()));
+        assert_eq!(a.attributes, b.attributes, "the yearly step draws the same");
+        assert_eq!(a.ceilings, b.ceilings);
+    }
+}
+
+/// A year held back for the weeks, landed in 13 blocks, with a starter's
+/// snaps landing game by game (results on) or read from last season (off).
+fn held_year(p: &Player, k: u64, in_season: bool) -> f64 {
+    use crate::training::{FAMILIES, close_year, cover, land};
+    let mut q = p.clone();
+    let mut ctx = context_for(22);
+    ctx.level = Level::FBS;
+    ctx.defer = true;
+    ctx.snaps = Some(0.85);
+    ctx.results = in_season.then_some(Mode::default());
+    let before = q.overall();
+    develop_season(&mut q, &ctx, &mut Rng::new(format!("held-{k}").as_str()));
+    let mut l = Ledger::default();
+    let per = (0.85 * results::season_snaps(Level::FBS) / 12.0).round() as u32;
+    for b in 0..13 {
+        let s = cover(&mut q.train, &[1.0 / 13.0; FAMILIES]);
+        land(&mut q, &s, None, b);
+        if (2..8).contains(&b) {
+            for _ in 0..2 {
+                results::reps(&mut q, &mut l, per, Level::FBS, 0.0);
+            }
+        }
+    }
+    close_year(&mut q, None);
+    q.overall() - before
+}
+
+#[test]
+fn snaps_landed_in_season_give_a_starters_year() {
+    let ps: Vec<Player> = (0..300).map(passer).collect();
+    let on = mean(&ps.iter().enumerate().map(|(k, p)| held_year(p, k as u64, true)).collect::<Vec<_>>());
+    let off = mean(&ps.iter().enumerate().map(|(k, p)| held_year(p, k as u64, false)).collect::<Vec<_>>());
+    eprintln!("a starter's held year: snaps in season {on:+.2}, read from last season {off:+.2}");
+    assert!((on - off).abs() < 0.12, "the same snaps grow him the same");
+}
+
+#[test]
+fn replaced_dice_keep_the_average() {
+    let ps: Vec<Player> = (0..2000).map(passer).collect();
+    let gains = |mode: Option<Mode>| -> Vec<f64> {
+        ps.iter()
+            .enumerate()
+            .map(|(k, p)| {
+                let mut q = p.clone();
+                let mut ctx = context_for(22);
+                ctx.results = mode;
+                develop_season(&mut q, &ctx, &mut Rng::new(format!("replace-{k}").as_str()));
+                q.overall() - p.overall()
+            })
+            .collect()
+    };
+    let (today, replaced) = (gains(None), gains(Some(Mode { dice: Dice::Replaced, ..Mode::default() })));
+    let sd = |v: &[f64]| (v.iter().map(|x| (x - mean(v)).powi(2)).sum::<f64>() / v.len() as f64).sqrt();
+    eprintln!(
+        "a year with no games read: today {:+.2} (sd {:.2}), dice replaced {:+.2} (sd {:.2})",
+        mean(&today),
+        sd(&today),
+        mean(&replaced),
+        sd(&replaced)
+    );
+    assert!(results::tested(Position::QB, Level::NFL) != 0, "the fitted table tests a passer");
+    assert!((mean(&today) - mean(&replaced)).abs() < 0.2, "the dice's average is kept");
+    assert!(sd(&replaced) < sd(&today), "without the surprise");
 }
