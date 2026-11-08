@@ -179,6 +179,36 @@ pub struct PortalTarget {
     pub from: usize,
     /// Already told about his decision.
     pub settled: bool,
+    /// Your talks with him while he shops (portal recruiting): the latest
+    /// call, home visit and campus talk, each with its pull.
+    #[serde(default)]
+    pub talks: Vec<PortalTalk>,
+    /// Your visits with him: a campus visit, a home visit.
+    #[serde(default)]
+    pub visits: Vec<Plan>,
+    /// How your campus felt to him on his visit, in appeal points.
+    #[serde(default)]
+    pub feel: Option<f32>,
+    /// Your promise of a role (0 a starting job, 1 a real role) and its day.
+    #[serde(default)]
+    pub promise: Option<(u8, Date)>,
+    /// The day he told you yes: your offer cleared his bar.
+    #[serde(default)]
+    pub committed: Option<Date>,
+    /// The day you last called him.
+    #[serde(default)]
+    pub called: Option<Date>,
+}
+
+/// One of your talks with a transfer: where (0 on the phone, 1 at his
+/// home, 2 on your campus), its pull on him in appeal points and what you
+/// sold.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct PortalTalk {
+    pub date: Date,
+    pub at: u8,
+    pub lean: f32,
+    pub pitch: String,
 }
 
 /// A sit-down with one of your own players before the winter window.
@@ -392,13 +422,19 @@ pub(crate) fn planned_officials(w: &World) -> Option<(usize, std::collections::H
     (!ids.is_empty()).then_some((j, ids))
 }
 
-/// Your offer to a portal entrant: the money and the ties behind it.
+/// Your offer to a portal entrant: the money, the ties and the work behind
+/// it (a quiet word, your talks and his visit), your promise of a role,
+/// whether you called him, hosted him and he told you yes.
 pub(crate) struct PortalOffer {
     /// Your revenue share for him (the whole deal before two pots).
     pub nil: Option<f64>,
     /// Your collective deal for him in two pots; NIL Go reviews it.
     pub coll: Option<f64>,
     pub bond: f64,
+    pub promise: Option<u8>,
+    pub called: bool,
+    pub visited: bool,
+    pub committed: bool,
 }
 
 pub(crate) struct PortalWants {
@@ -421,7 +457,9 @@ pub(crate) fn portal_wants(w: &World) -> Option<PortalWants> {
         .college
         .portal
         .iter()
-        .filter(|t| t.offered.is_some())
+        // A settled target's offer and yes were for a window he has
+        // decided: a later one starts fresh.
+        .filter(|t| t.offered.is_some() && !t.settled)
         .map(|t| {
             (
                 t.id,
@@ -430,7 +468,11 @@ pub(crate) fn portal_wants(w: &World) -> Option<PortalWants> {
                     // yours, Cain 2026-11-07).
                     nil: t.nil,
                     coll: t.nil_coll,
-                    bond: if t.contacted.is_some() { CONTACT_BOND } else { 0.0 },
+                    bond: if t.contacted.is_some() { CONTACT_BOND } else { 0.0 } + super::portal::effort(t),
+                    promise: t.promise.map(|p| p.0),
+                    called: !t.talks.is_empty(),
+                    visited: super::portal::visited(t),
+                    committed: t.committed.is_some(),
                 },
             )
         })
@@ -862,6 +904,8 @@ pub(crate) fn day(w: &mut World, d: Date) {
     scan_board(w, j, d);
     roll_class(w, j);
     scan_portal(w, j, d);
+    super::portal::day(w, j, d);
+    board_bar(w, j);
     reminders(w, j, d);
     if d == w.dates.start {
         prune(w);
@@ -1142,6 +1186,9 @@ fn scan_portal(w: &mut World, j: usize, d: Date) {
     let at = indices(w, &ids);
     let mut lines = Vec::new();
     let mut settle = Vec::new();
+    let mut promises = Vec::new();
+    // He decided without landing with you: a yes he told you is spent.
+    let mut spent = Vec::new();
     for t in w.front_office.college.portal.iter().filter(|t| !t.settled) {
         let Some(&i) = at.get(&t.id) else {
             settle.push(t.id);
@@ -1152,9 +1199,17 @@ fn scan_portal(w: &mut World, j: usize, d: Date) {
             continue;
         }
         let who = format!("{} ({})", p.name, p.player.position);
-        if p.stage == Stage::College && p.college == Some(j) && p.path.last() == Some(&j) && t.from != j {
+        let landed = p.stage == Stage::College && p.college == Some(j) && p.path.last() == Some(&j) && t.from != j;
+        if !landed && t.committed.is_some() {
+            spent.push(t.id);
+        }
+        if landed {
             lines.push(format!("{who} transfers to you from {}.", w.program_name(t.from)));
             settle.push(t.id);
+            // Your promise when he came is yours to keep now.
+            if let Some((kind, _)) = t.promise {
+                promises.push((t.id, kind));
+            }
         } else if p.stage == Stage::College && p.college.is_some_and(|c| c != t.from) {
             let to = w.program_name(p.college.unwrap()).to_string();
             if t.offered.is_some() {
@@ -1174,10 +1229,20 @@ fn scan_portal(w: &mut World, j: usize, d: Date) {
         if settle.contains(&t.id) {
             t.settled = true;
         }
+        if spent.contains(&t.id) {
+            t.committed = None;
+        }
+    }
+    for &id in &settle {
+        super::portal::close_visits(w, id, "He made his choice before the day came.");
     }
     for text in lines {
         note(w, text.clone(), None);
         tell(w, d, text, false);
+    }
+    for (id, kind) in promises {
+        use crate::world::folk::talks::{self, PromiseKind, PromiseTo};
+        talks::promise(w, PromiseTo::Player(id), PromiseKind::Join(kind), 0);
     }
 }
 
@@ -1830,7 +1895,8 @@ pub fn offer(w: &mut World, id: u32) -> Result<String, String> {
     let text = offer_at(w, j, id, Source::You, None)?;
     // Your film look, and any coach of yours it overrules (SK25, SK28).
     super::chain::on_offer(w, id);
-    Ok(text)
+    let yes = board_check(w, j, id).map(|t| format!(" {t}")).unwrap_or_default();
+    Ok(text + &yes)
 }
 
 /// An offer the chain brought you, signed (SK26): it goes out whoever
@@ -2180,15 +2246,21 @@ pub fn set_promise(w: &mut World, id: u32, nil: Option<f64>, coll: Option<f64>) 
     // He answers at once (N1); his decision keeps its own clock.
     let r = promise_reaction(w, i, j, before, after);
     let said = remember(w, r);
+    // Enough for him, he commits now (the satisfaction bar).
+    let yes = board_check(w, j, id).map(|t| format!(" {t}")).unwrap_or_default();
     Ok(match after {
         Some((x, c)) if two => {
-            format!("Your promise: {} revenue share and a {} collective deal a year. {said}", dollars(x), dollars(c))
+            format!(
+                "Your promise: {} revenue share and a {} collective deal a year. {said}{yes}",
+                dollars(x),
+                dollars(c)
+            )
         }
-        Some((x, _)) => format!("Your NIL promise: {} a year. {said}", dollars(x)),
+        Some((x, _)) => format!("Your NIL promise: {} a year. {said}{yes}", dollars(x)),
         None if mine(w, Duty::Board).is_some() => {
-            format!("No money promised: your offer is the scholarship alone. {said}")
+            format!("No money promised: your offer is the scholarship alone. {said}{yes}")
         }
-        None => format!("Your coordinator's usual offer stands. {said}"),
+        None => format!("Your coordinator's usual offer stands. {said}{yes}"),
     })
 }
 
@@ -2860,7 +2932,7 @@ pub(crate) fn head_start(w: &mut World, id: u32) -> Result<(), String> {
     Ok(())
 }
 
-fn portal_target(w: &mut World, id: u32) -> Result<&mut PortalTarget, String> {
+pub(crate) fn portal_target(w: &mut World, id: u32) -> Result<&mut PortalTarget, String> {
     let j = super::program(w).ok_or("You have no college job.")?;
     let i = super::index_of(w, id).ok_or("No such player.")?;
     let p = &w.people[i];
@@ -2885,6 +2957,12 @@ fn portal_target(w: &mut World, id: u32) -> Result<&mut PortalTarget, String> {
             leaked: false,
             from,
             settled: false,
+            talks: Vec::new(),
+            visits: Vec::new(),
+            feel: None,
+            promise: None,
+            committed: None,
+            called: None,
         });
     }
     Ok(desk.portal.iter_mut().find(|t| t.id == id).unwrap())
@@ -2898,6 +2976,9 @@ pub fn portal_offer(w: &mut World, id: u32, nil: Option<f64>, coll: Option<f64>)
         return Err("He isn't in the portal: an offer before he enters is tampering. Reach out quietly instead.".into());
     }
     let j = super::program(w).ok_or("You have no college job.")?;
+    if said_yes(w, id) {
+        return Err(SAID_YES.into());
+    }
     if (nil.is_some() || coll.is_some()) && !ncaa::nil_era(w.today.year()) {
         return Err("NIL deals are allowed from July 1, 2021.".into());
     }
@@ -2939,16 +3020,31 @@ pub fn portal_offer(w: &mut World, id: u32, nil: Option<f64>, coll: Option<f64>)
     // He answers at once (N1), and decides by his date.
     let r = portal_reaction(w, i, j, after);
     let said = remember(w, r);
-    Ok(format!("Offer out to {name}. {said}"))
+    // Enough for him, he says yes now (the satisfaction bar).
+    let yes = super::portal::check(w, id).map(|t| format!(" {t}")).unwrap_or_default();
+    Ok(format!("Offer out to {name}. {said}{yes}"))
+}
+
+/// He told you yes on the offer as it stands: it holds until he signs tonight.
+const SAID_YES: &str = "He's told you yes on this offer. He signs tonight.";
+
+fn said_yes(w: &World, id: u32) -> bool {
+    w.front_office.college.portal.iter().any(|t| t.id == id && !t.settled && t.committed.is_some())
 }
 
 pub fn portal_pull(w: &mut World, id: u32) -> Result<String, String> {
+    if said_yes(w, id) {
+        return Err(SAID_YES.into());
+    }
     let t = w.front_office.college.portal.iter_mut().find(|t| t.id == id && !t.settled).ok_or("No offer to pull.")?;
     t.offered = None;
     Ok("Offer pulled.".into())
 }
 
 pub fn portal_forget(w: &mut World, id: u32) -> Result<String, String> {
+    if said_yes(w, id) {
+        return Err(SAID_YES.into());
+    }
     w.front_office.college.portal.retain(|t| t.id != id || t.settled);
     Ok("Taken off your portal list.".into())
 }
@@ -3234,6 +3330,96 @@ pub fn race_at(w: &World, i: usize) -> Vec<(usize, f64)> {
     let mut v: Vec<(usize, f64)> = schools.into_iter().map(|x| (x, rec::appeal(w, i, x, None))).collect();
     v.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
     v
+}
+
+/// A recruit's satisfaction bar for your offer (Cain 2026-11-07: a
+/// recruit happy with your offer shouldn't wait for his commitment wave),
+/// in `race`'s units: how far you must lead the next school before he
+/// commits to you on the spot. It follows when he'd decide anyway (T5.2):
+/// a summer committer needs less, a February signer more, each his own by
+/// his traits and his draw (`portal::own_bar`). Real recruits commit on
+/// the spot to a dream offer; the rest wait for their visits. Proposed,
+/// not confirmed: 0.04 for the earliest wave up to 0.13 for a February
+/// signer, against a feel for a school of about 0.07 either way.
+pub fn hs_bar(w: &World, i: usize) -> f64 {
+    let base = match w.people[i].cal.commit_timing {
+        Some(crate::world::CommitTiming::Summer(n)) => 0.04 + 0.01 * n.min(4) as f64,
+        Some(crate::world::CommitTiming::Early) => 0.1,
+        _ => 0.13,
+    };
+    super::portal::own_bar(w, i, base)
+}
+
+/// With no other school after him, he weighs your offer against waiting
+/// for one (proposed, not confirmed).
+const HS_ALONE: f64 = 0.06;
+
+/// Your staff's read of where you stand against a recruit's bar: 0 far
+/// off, 1 there (the screens' meter).
+pub fn hs_meter(w: &World, i: usize) -> Option<f64> {
+    let j = super::program(w)?;
+    let race = race_at(w, i);
+    let k = race.iter().position(|r| r.0 == j)?;
+    let b = hs_bar(w, i).max(1e-6);
+    let gap = super::portal::lead(&race, j, HS_ALONE).unwrap_or(race[k].1 - race[0].1);
+    Some(((gap + b) / (2.0 * b)).clamp(0.0, 1.0))
+}
+
+/// Each morning: the recruits holding your offer who now clear their bar.
+fn board_bar(w: &mut World, j: usize) {
+    let ids: Vec<u32> = w
+        .front_office
+        .college
+        .board
+        .iter()
+        .filter(|t| t.offered.is_some() && t.pulled.is_none())
+        .map(|t| t.id)
+        .collect();
+    for id in ids {
+        board_check(w, j, id);
+    }
+}
+
+/// A recruit of the class signing next who holds your offer and leads his
+/// race for you by his bar commits to you now (one committed elsewhere
+/// flips), and signs at the first signing day open to him. Some words for
+/// you.
+pub(crate) fn board_check(w: &mut World, j: usize, id: u32) -> Option<String> {
+    let i = super::index_of(w, id)?;
+    let p = &w.people[i];
+    if p.stage != Stage::HighSchool
+        || p.cal.signed.is_some()
+        || p.class_of != rec::next_class(w)
+        || p.cal.commit.is_some_and(|c| c.0 == j)
+        || !offered_here(w, id)
+    {
+        return None;
+    }
+    let race = race_at(w, i);
+    let lead = super::portal::lead(&race, j, HS_ALONE)?;
+    if lead < hs_bar(w, i) {
+        return None;
+    }
+    let from = p.cal.commit.map(|c| w.program_name(c.0).to_string());
+    let today = w.today;
+    rec::commit_now(w, i, j, today, false);
+    // The morning scan has heard it from you already.
+    let seen = standing(&w.people[i], j);
+    if let Some(t) = w.front_office.college.board.iter_mut().find(|t| t.id == id) {
+        t.seen = seen;
+    }
+    let p = &mut w.people[i];
+    if p.cal.commit_timing.is_none_or(|t| t > crate::world::CommitTiming::Early) {
+        p.cal.commit_timing = Some(crate::world::CommitTiming::Early);
+    }
+    let (name, pos) = (p.name.clone(), p.player.position);
+    let text = match from {
+        Some(old) => format!("{name} ({pos}) flips his commitment from {old} to you: your offer was what he wanted."),
+        None => format!("{name} ({pos}) commits to you: your offer was what he wanted, and he's done waiting."),
+    };
+    note(w, text.clone(), Some(id));
+    tell(w, today, text.clone(), false);
+    Some(text)
 }
 
 /// What program `j` means to a recruit today, in `race`'s units (your own

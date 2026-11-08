@@ -225,3 +225,4 @@
 .fc-fresh p { margin: 4px 0 0; max-width: 92ch; line-height: 1.45; }
 .fc-fresh b { font-weight: 700; }
 .fc-fresh .fc-acts { flex: none; }
+.fc-barm { margin-top: 10px; display: grid; gap: 4px; }
