@@ -83,6 +83,9 @@ Put me on the list of people who'd like an update. Even a short one.
 Somebody should tell the kid he's doing the right things. Even if he's not playing yet.
 There's a lot of noise around this and I'd like the facts. What are they?
 Sure, I'm biased. I'm his parent. But I also know football, and he can play. ~ loud
+Back home we'd call this a shame. I'd like to hear a plan, not a shrug. ~ texas
+Every time {friend} makes a play, my boy claps the loudest. Somebody ought to clap for him. ~ south
+Nobody's asking you to start him tomorrow. Just tell him where he stands so he can quit guessing. ~ northeast
 
 @key parents.playing_time
 What's the plan for a kid who works hard and still sits? Somebody has to answer that.
@@ -488,6 +491,9 @@ My pitch is boring. I'm good, I'm cheap compared to a new hire, and I won't leav
 Yes, I worked for {old}. No, I'm not the same coach. Try me and see.
 There's a lot to like about this place, and a lot to fix. I'd rather be part of the fixing.
 I came up the hard way, and I'll coach the hard way. Keep me and I'll give you my best. ~ expro
+Give me a minute with the cut-ups before you sign anybody else. ~ nfl
+You can ask around about me, but the film will tell you more. ~ college
+Before you go tearing the room apart, let me walk you through who's actually in it.
 
 @key takeover.leader.close_to_old
 I trust you're good, Coach. I just can't pretend he didn't build this place. ~ hs
@@ -644,6 +650,131 @@ I'll listen to you in the huddle. Outside of it, I'm still on his side. ~ hs loy
 {coach}, I'm happy to meet you. I just needed you to know I'm a Coach {old_last} guy.
 My phone keeps buzzing with texts from guys saying he's gone. It's been a heavy week. ~ modern
 You can run this thing however you want, Coach. I'm not sure it'll work like his did. ~ brash
+He let us argue film with him in the room, and he listened. I want that back. ~ nfl
+I'm a practice squad guy who got a real chance from him. I'm not going to forget that. ~ nfl psquad
+The vets in this room looked out for us young guys because he asked them to. ~ nfl rookie
+He never made me feel like a number on a contract. That's rare in this league. ~ nfl
+Every free agent who came here heard about his standard before they heard about money. ~ nfl
+Our secondary meetings were his favorite hour. He'd make us teach each other the coverage. ~ nfl db
+He made every linebacker learn the protections, even the guys who weren't going to be on the field. ~ nfl lb
+He told me a kicker is just as important as the quarterback on a bad day. I've never forgotten it. ~ nfl kicker special
+He wanted our leaders in every meeting, not just the stars. Guys like me showed up because of that. ~ nfl leader
+Some of us still talk to him after games. That's not going to end because the job did. ~ nfl loyal
+He never made me compete with teammates for attention. That's why I trust this group. ~ nfl
+I know the playbook inside and out because he drilled it into me every week. ~ nfl qb
+The guys in the room call him the one who made them grown men. I'd say the same. ~ nfl
+He trusted me to call audibles at the line. Most head coaches wouldn't. ~ nfl qb
+His offensive line meetings were the hardest hour of the week. We were better for it. ~ nfl ol
+I won't lie. Losing him makes me wonder how long I'll be here. ~ nfl greedy
+He taught me that the film room is where you earn a roster spot. I've been living by that since. ~ nfl
+He cared about the guys who didn't play on Sundays, and that's why the roster felt like one team. ~ nfl
+He never got lost in the spreadsheets. He always knew who the real players were. ~ nfl
+Coach {old_last} told me to give you a fair shot, and I'm going to. ~ !hot
+Strange week, Coach. I'm still learning which guys are hurting and which ones are fine.
+Anything you need from the locker room, you'll get it from me. I just need to grieve a little first.
+He was never loud about it, but he kept an eye on every guy in this room. ~ leader
+Nobody prepared me for a coaching change this close to kickoff. Give us time.
+The defense is still figuring out who's in charge. I'm trying to keep us steady. ~ defense leader
+He taught me how to study film at night. I'm going to keep doing that, whoever's in charge. ~ nfl
+I don't think it's fair to ask me to like you right away, but I'll give you my honest work.
+We're still a family here, but we're missing somebody at the head of the table. ~ hs
+Nobody's going to say it out loud, but half the room is waiting to see if you're really staying. ~ nfl
+I'd have gone anywhere he went. I'm still working out where I go now. ~ loyal
+Every guy here knows what {old_last} did for the program. We're not going to forget it fast. ~ hs
+Some of us are still getting used to his voice not being in the hallway. ~ quiet
+You don't have to replace him. Just show us you care about the guys like he did.
+I've been trying to make peace with it all week. It's not easy, but I'll get there.
+Old coaches never really leave. He's still got his hand on a lot of us. ~ nfl vet
+That's a lot of change for one offseason. I'm trying to keep my head down and work.
+If I'm honest, I'm more worried about the guys than about me right now. ~ leader
+Coach {old_last} made sure every walk-on got a fair look. I hope you keep that going. ~ college walkon
+Some of the guys think you'll clean house. I'm telling them to wait and see. ~ nfl
+I don't want to make this a big deal, but he meant a lot to me personally.
+We won some big games under him. I'll be proud of that forever, even if you change everything. ~ hs
+Whatever's happening upstairs, I'll keep showing up. That's what he taught me.
+You'll get my effort, Coach. I just can't promise I'll stop missing him.
+The seniors had one more year with him planned. Now it's on us to figure out who we are. ~ hs senior
+I don't know you well yet, but I'm willing to find out. ~ steady
+Our group chat has been all about him this week. I'm trying to get it back to football. ~ modern
+Old-school guys like him don't come around much. Hope you're ready for the comparisons. ~ vet
+Honestly, I'm waiting to see whether this is the start of something good or just a rough patch. ~ nfl calm
+We're not against you, Coach. We're just not ready to let go of him yet.
+He told us you'd be tough. I'm hoping that means fair. ~ nfl
+I'll follow the game plan. I'll just think about him in the film room a lot.
+Some days I'm excited about the new start, and some days I'm mad. Both are real. ~ nfl
+I'll keep the young guys in line. I just want to know you'll have our backs too. ~ hs young
+Everyone's waiting for the first big speech. I'd rather you just show us how you coach. ~ nfl
+He protected the younger guys from a lot of nonsense. I hope you'll do the same. ~ hs young
+I don't want to be the guy who says it, but this place feels different already. ~ nfl
+The defensive line talked about him all week. We'll get there, but give us some space. ~ dl
+Some of us wonder if this new staff is going to keep the same culture. I'm hoping so.
+He always said the locker room is yours to protect. I'm trying to do that right now. ~ leader
+I don't want you to take my honesty as disrespect. I'm just grieving a bit.
+He coached the snapper like he was a starter, and I'll always respect that. ~ snapper
+I'd like to earn your trust, but I need a minute to get over losing him first.
+The older guys talk about him like a legend. I hope you'll give us something to talk about too. ~ nfl vet
+I want to be honest with you, Coach. I'm still sad, but I'm not checking out.
+He told me to keep my head up no matter who's in charge. I'm trying to live by that.
+I hope you'll let us grieve a little while we learn to play for you. ~ hs
+He made sure I got my meals and my study time. I don't know who will check on that now. ~ hs
+Losing him hit this room hard, Coach. ~ nfl
+Give us a week to find our footing. ~ hs
+Honestly, I'm not sure what to make of you yet, Coach.
+He drilled us on the basics every single day. I'll keep doing that. ~ nfl
+Let me be straight with you about how the group feels. ~ nfl leader
+Nobody here wanted this change, but we're not going to quit on it. ~ competitor
+Tell the guys you want them focused and I'll get them there. ~ leader
+Pride is all we've got right now. We'll show you what it means. ~ hs
+Some of us think he got a raw deal, and I'm not hiding that. ~ hot
+He taught me how to handle a bad week. Guess I'll find out if that still works. ~ nfl steady
+Like it or not, you've got a room full of guys who loved him. ~ hs
+Let's not pretend this was a normal transition. It wasn't. ~ nfl
+There are guys in this building who'd still be here if he stayed. ~ nfl loyal
+I'm loyal to the program first, then to the coach. That's how I was raised. ~ midwest
+Some nights I still wake up thinking about the last practice we had with him. ~ quiet
+You can count on me to keep the room together, but it'll take some time. ~ leader
+He sat with me for an hour after a bad game once. Nobody else would've done that. ~ hs
+He made the whole week feel like it had a purpose. I'm looking for that again. ~ nfl
+Anything he taught me on the sideline, I'll carry into your first game. ~ hs
+He always said the room tells you the truth. The room is quiet right now. ~ nfl
+We need answers, Coach. Not promises. ~ nfl brash
+I don't like the timing, but I'll make the most of it. ~ calm
+We're going to need a minute before we all look at you the same way. ~ hs
+Sure I'll give you my best. You'll have to earn the rest. ~ brash
+My coach never once questioned my effort. I'm going to make sure you never do either. ~ hs competitor
+Pride in the program is all I've got left from him. I'll hold onto it. ~ senior
+Whatever you think of him, he gave this team an identity. ~ nfl
+We learned more from him in one year than most guys learn in two. ~ nfl
+I'm loyal to the guys first, Coach, and to him second. Hope that's fine with you.
+He let me play my game and never asked me to change it. That's rare. ~ nfl
+Our whole offense is still reeling. Give us some time to get our legs back. ~ offense
+Look, I'll follow your call. I'm just not going to pretend I'm over him. ~ nfl
+Our secondary meetings were the best hour of my week with him. I miss them. ~ db
+I'm not your enemy, Coach. I'm just a guy who lost somebody he respected. ~ nfl humble
+The defense has been through a lot already. Go easy on us for a while. ~ defense
+I came here on his word. Keep that in mind when you talk to me. ~ college transfer
+Every guy on this roster has a reason to respect him. That's going to take time to shift. ~ nfl
+Some of us will need a little space before we open up. Nothing personal. ~ quiet
+He made the young guys feel wanted. I'll do my best to keep that going. ~ hs young
+He trusted me as a leader and I'm not going to waste that. ~ leader
+Honestly, I respect what he built here. Just give me some time to get used to the change. ~ hs
+Coach {old_last} made this room feel like home. I'm trying to keep that feeling going.
+Look, I'll be in the building early. That's how he taught me to start every day. ~ nfl
+He's been my guy since I walked in. Losing him is rough, but I'm ready to work. ~ college walkon
+Everybody here knows what {old_last} meant to this program. Give us a little room to breathe. ~ hs
+My folks watched every home game he coached. They're going to be watching you too. ~ hs
+Not gonna lie, I thought I'd have more time with him. Guess I'll have to make the most of now. ~ nfl
+He made the old-timers in this room feel young again. Hope you can do that too. ~ nfl vet
+We're missing him at the team dinners. Doesn't mean we won't show up for you. ~ hs leader
+He told me I'd have a shot if I kept my grades up. I'm still holding him to that. ~ hs junior
+Some of us are hoping this is a fresh start, Coach. We just miss the old one. ~ hs
+He never let me hide behind my talent. I'll keep doing what he taught me. ~ nfl
+My whole recruitment was about him. I'm still learning what this program looks like now. ~ college !freshman
+Old habits die hard. I'll keep my focus on the job, not the drama. ~ nfl pro
+Coach {old_last} saw me as a leader before I did. I'm not going to let that go to waste. ~ leader
+Everybody in the film room misses his voice. I'm hoping we can build something new together. ~ nfl
+Half the team wants to know what you're like. The other half wants to know when he's coming back. ~ hs
+He made me believe in myself when I didn't. I'm going to hold on to that feeling. ~ hs young
 
 @key takeover.leader.ego
 Redshirt's over. I'm ready to be the guy, and I'd like to hear you say so. ~ college redshirt
@@ -1183,6 +1314,33 @@ I've got a lot of years in. I'll tell you what works with this locker room, if y
 Practice squad guys like me are always watching. I'll help the rest of us stay sharp. ~ psquad
 I was a first-round guy, so eyes are on me. I'll make sure what they see is us working for you. ~ nfl firstround
 Everybody here's got their own story. I'll make sure they all pull the same direction. ~ steady
+Steady as the rock they've always been, the group is with you. ~ nfl vet
+Plenty of us have seen a coaching change before. The room will hold together. ~ college
+Give the defensive line one clear standard and they'll meet it every rep. ~ dl
+Our secondary knows the back end is on them, so they'll study your coverages early. ~ db
+Linebackers will have your calls down before the first full walkthrough. ~ lb
+Offensive line first in every drill, same as it's always been. ~ ol
+Tight ends will be the first to the film room if you ask us to be. ~ te
+Receivers already asked about your install schedule. Tell us and we'll be there. ~ wr
+The skill guys just want a clear plan. Give them one and they'll run it. ~ skill
+Kickers and punters will be on time every morning, ready to go. ~ kicker
+Rushers are hungry for a new scheme. Show them the look and they'll attack it. ~ rusher
+Special teams guys are the first to show up and last to leave. You'll see that. ~ special
+Some guys are shaky about the new staff. A steady week of work fixes that. ~ shaky
+Tell me the expectations once and I'll repeat them until everyone has them down. ~ hs
+Our seniors have one shot left here. We'll give you everything we've got. ~ college senior
+Nobody's panicking in this room, and I won't let anybody start. ~ calm
+Young guys are watching how the vets handle this. We'll show them the right way. ~ young
+Walk-ons see the room. Treat them fair and they'll work like starters. ~ college walkon
+Practice squad guys can't afford a bad first week. We'll make sure they're ready. ~ nfl psquad
+Rookies are nervous. The vets will keep them calm and keep them moving. ~ nfl rookie
+Veterans have been through changes before. Give them respect and a plan. ~ nfl vet
+My folks raised me to back whoever's in charge, and I will. ~ midwest
+Modern guys keep their phones close, so I'll keep the group chat on football. ~ modern
+Undrafted guys fight for every snap. We'll keep that fire going for you. ~ nfl undrafted
+Freshmen are still learning the room. I'll walk them through it step by step. ~ college freshman
+Redshirt guys have seen this from the sideline. We'll help you learn fast. ~ college redshirt
+Juniors know how this works now. We'll set the tone for the younger guys. ~ hs junior
 
 @key takeover.leader.waiting
 I'm a junior. I've got one more year to get this right, so I'm paying attention. ~ hs junior
@@ -1417,6 +1575,59 @@ Don't need a big talk, {coach_sir}. Just practice.
 {team} football's been through worse than a new coach. We'll be fine, and so will you.
 You'll find we're a patient room. Just don't test it too long.
 Everything depends on how camp goes. I'll know more by then.
+I hear the room is quiet about you. I'll wait it out with the rest.
+Let the film do the talking and we'll talk after. ~ nfl
+Nobody's made up their mind, Coach, and that includes me.
+Honest answer? I'm still reading you. Keep showing up. ~ college
+Some guys are already on your side. The rest of us are doing homework. ~ hs leader
+Every coach gets a honeymoon until the first hard practice. Let's see when ours ends.
+My head's in the playbook, not the gossip. Tell me how you want the snaps split. ~ nfl
+You haven't run a single rep with us yet. Don't ask me for a verdict.
+The OL room has seen plenty of schemes come and go. We'll see if yours sticks. ~ ol
+A few of us are going to decide in camp, and the rest will follow whoever's right. ~ nfl leader
+Give the captains a chance to talk to you first. Then we'll all have an opinion. ~ hs
+I'm not sold, not against you, just counting reps before I say more. ~ college steady
+Let's see how you treat the guys who don't play, Coach. That's the test for me. ~ college
+You inherited a team that wants to win. Don't waste that on a bad first month. ~ hs competitor
+What's the rep count look like in the spring? That's what I'll judge you on. ~ college
+I don't mind waiting. I'd mind it more if you wasted my time.
+Your first game plan will tell the room who you are. Make it a good one. ~ nfl
+My roommate says you're the real deal. I said I'd believe it after practice. ~ college
+Some of the guys think you're going to clean house. I'm waiting to see if I'm in the broom. ~ nfl shaky
+Coach, I'm watching how you handle the staff before I worry about the players. ~ college
+No questions yet, Coach. I'll ask when I've got a reason to.
+You want buy-in? Earn it on the practice field, not in the meeting room. ~ hs competitor
+The seniors are waiting on you before they say a word. Don't keep them waiting too long. ~ hs senior
+I want to see the depth chart before I believe in anything. ~ nfl
+I liked the speech. I'll keep the verdict to myself until the second week. ~ college
+My first look at you was good. My second look will be the one that counts. ~ hs
+Show me you care about the scout team, Coach, and I'll care about you. ~ nfl psquad
+I don't really know what kind of coach you are. I'm finding out.
+When you're a new coach, every eye in the room is on you. Mine too.
+Stay steady when we lose and I'll stay steady with you. ~ hs steady
+We're waiting to see how your staff gets along before we decide. ~ college
+I'd like to trust you. I'm not going to fake it until I've seen some proof. ~ nfl
+Some guys are chasing the new coach. I'm chasing the film. ~ college
+You've got my ear, Coach. You don't have my heart yet.
+When the cuts come, I'll know whether you meant what you said in the first meeting. ~ nfl
+I'll follow the captains, and the captains will follow you if you earn it. ~ hs leader
+The defense has heard a lot of promises. We want to see the calls. ~ college defense
+You've got the room's attention, Coach. Now keep it earned.
+Don't ask me to choose sides yet. I'm just trying to get better every day.
+I'm not going to make my mind up over one speech. Show me the next ten days. ~ nfl
+This is a big season for me. I'll decide about you once I know the plan. ~ hs junior
+I've got no problem with you, Coach. I just don't know you yet.
+The new staff's got our attention. The results will hold it. ~ college
+Guys have been through this before. They know the first month is the test. ~ nfl vet
+Where I'm from, a coach earns respect by coming to the bus with you. Do that and we're good. ~ hs midwest
+You can't win a room in one meeting, so I'm not expecting you to.
+Most of the guys are just waiting for the first real practice. So am I. ~ nfl
+Coach, you're going to hear a lot of opinions. I'm trying to form mine on my own. ~ college humble
+Freshmen are watching the veterans, and the vets are watching you. So here we are. ~ college freshman
+Let's see how you handle a rough scrimmage before we decide anything. ~ hs
+Show me the film room is a priority, and I'll show you I'm there every night. ~ college steady
+We've got talent. The question is whether you can get it out of us. ~ nfl
+Your staff's already got people talking. I want to know who you actually listen to. ~ college
 
 @key takeover.meeting.react_compete
 Redshirt year was a long wait. Now the door is open and I'm walking through it. ~ college redshirt
@@ -1598,6 +1809,30 @@ I feel kind of bad for whoever's slow to learn that this is real.
 A little pressure never hurt anybody. We'll be fine.
 If anybody's complaining about it, they haven't been paying attention to how football works.
 I'm still processing it, honestly. I'll know more after the first practice. ~ quiet
+Every job's open, huh. Then I'll be the first one in and the last one out. ~ nfl competitor
+Good. Let the tape decide who plays. ~ college competitor
+Nobody gets a pass now. Fine by me. ~ nfl pro
+Starting from zero is scary, but it's the only fair way. ~ college shaky
+You want a fight for every spot? You've got one. ~ nfl brash
+The clock resets for everybody, and I like that. ~ young
+Walk-ons just got a real shot, and I'm taking it. ~ college walkon humble
+So the two-deep is wide open. Let's go find out who's real. ~ college competitor
+My phone's already lit up with guys asking what it means. ~ college modern
+A reset is a chance, and I've been waiting on one. ~ transfer calm
+Didn't come here to be handed anything anyway. ~ hs humble
+Every drill matters now, from warmups on. ~ nfl
+Coach, I don't care whose name is up there. I just want to see mine on the list. ~ competitor
+Clean slate for the whole room, guys. Nobody's safe and nobody's buried. ~ leader
+Open competition sounds great until your name's on the bubble. ~ nfl loose
+Okay. Every rep is a tryout from here. ~ hs junior
+A clean chart means my last year starts today. ~ hs senior
+Coaches always say it's open. Show me the snaps and I'll believe you. ~ nfl vet ego
+Finally, a coach who says it the same way to everybody. ~ college pro
+Long snapper here. One bad snap and I'm gone, so I'll be perfect. ~ nfl snapper
+Team's stronger when every spot has a fight in it. ~ calm
+Lineman, I'll win my spot one rep at a time. ~ nfl ol
+Let's see whose name goes up first on that empty board. ~ quiet
+Front seven just got a lot more interesting. ~ dl
 
 @key takeover.meeting.react_honour
 I'll be honest, I came in expecting the new coach to talk about the portal and who was leaving. You talked about who was here. ~ college nil
@@ -2710,3 +2945,81 @@ Come on in, friend. Sit wherever it's comfortable. ~ midwest
 Folks here are good people. Slow to warm up, but good. Come in. ~ midwest
 Come in, come in. Sit down. It's a nice day. ~ west
 Plenty of room, take your pick. I won't mind. ~ west
+Shut the gym doors, would you? The whole hall can hear every word.
+Those seniors will tell you they're fine. Watch them in the weight room, then ask again. ~ loyal
+Grab a seat by the radiator. It's the only warm spot left in the building.
+You've got the nicer parking spot now. Don't let it go to your head. ~ calm
+Quick question before you go, did you ever find the spare keys to the field house? ~ hot
+Pull a chair over and tell me what the new staff thinks of the freshmen. ~ warm
+Well, the bell's rung and nobody's come for me yet. We've got time.
+My car's still parked behind the bleachers. Figured I'd tell you before someone else did. ~ hot
+Those lockers were rebuilt the year I started. Don't let the kids kick them. ~ old
+Hell of a long hallway to walk down in your first week. Sit, and we'll get through it. ~ calm
+Take the clipboard off the hook by the door. It's got the chart I always kept. ~ loyal
+Don't feel you need to be sweet with me. I'm not the one you're coaching. ~ cold
+I won't keep you. I know the film room gets crowded by third period. ~ warm
+You'll see my old initials scratched on the equipment room door. Leave them. ~ loyal
+Nobody ever tells the new coach where the good bathrooms are. Come in. ~ warm
+Come in and sit. I'll answer your questions as honest as I can, but I'm not your advisor. ~ cold
+Shoot straight with me, Coach. Did the principal ask you to come down here? ~ hot
+You'll hear my name at every booster lunch for a year. Ignore most of it. ~ calm
+My car's the blue one still in the back lot. If you need a jump, don't ask me. ~ hot
+I know that office. The window sticks, so don't wrestle it. ~ warm
+Sit. I've got two stories about the bus driver that you'll want to hear before Friday. ~ warm
+Hey, Coach. You're stepping into a good spot. Don't wreck it. ~ loyal
+I'll be at the first scrimmage. I'll stand way in the back. ~ loyal
+I've still got a box of game balls under my desk. You want one, take it. ~ warm
+Grab a seat, the chairs are terrible but they're clean. ~ calm
+This is where the coaches used to meet before games. Sit in the corner, it's quieter. ~ old
+If you need to talk to the seniors, go to the cafeteria. They'll be there for lunch. ~ warm
+Look at this, the janitor still leaves the lights on in the hall. Come in before they go off. ~ calm
+The gym floor squeaks by the north wall. You'll hear it in your sleep. ~ old
+Got a minute? Grab the stool by the copier, it's the least broken one. ~ warm
+So the varsity's yours. I'll keep my mouth shut about it. ~ loyal
+Just sit down, {coach}. Nobody's going to ask you for anything today. ~ calm
+Watch out for the water fountain by the gym, it sprays the wrong direction. ~ midwest
+I'll help with the scouting reports if you need them. They're in the bottom drawer. ~ warm
+Don't let the boosters pick your lineup. I learned that the hard way. Sit. ~ loyal
+You can take the desk by the window, the sun's coming through there in the morning. ~ west
+You didn't come to talk about the snack bar, I hope. ~ hot
+Pull up a chair. We've got time before the next bell rings. ~ calm
+Grab a stool. I'll tell you which teachers to avoid during homecoming week. ~ calm
+Have a seat. You look like the tired type, same as me. ~ warm
+Well, you've got the job. Now you get to fix all my old problems. Sit down. ~ hot
+Sorry about the trophy case, it's full of ghosts. Sit down, Coach. ~ old
+Sit anywhere that isn't covered in old film canisters. ~ cold
+Come in and sit down before the kids start wandering over here. ~ strict
+That mural in the hall was the seniors' idea. They painted it their last year. Be kind to it. ~ loyal
+Hey, Coach. I'll be honest, I wasn't expecting you this week. ~ calm
+The kitchen staff keeps the coffee on until four. Grab a cup on your way out. ~ warm
+Sit tight. I've got a parent meeting in ten minutes and you're the easiest thing on my list. ~ cold
+You can come back any time. I'll still be around, even if I'm not the coach. ~ warm
+So you're taking the program. Good. I'd rather it stay in good hands. ~ warm
+Whatever you decide for the seniors, I'd like to hear about it. ~ loyal
+Take the seat by the door. I like to keep an eye on the hallway. ~ strict
+Don't be surprised if the kids come by and ask you about me. I'll be fine. ~ calm
+Let me show you where I hid the good whistle. ~ warm
+Hey, Coach. Come in and tell me how the junior varsity looked. ~ warm
+You'll get a lot of advice in the first month. Sit down, and I'll give you mine for free. ~ calm
+Come on in. Watch the boxes, I'm still moving my stuff out. ~ calm
+The seniors signed a card for you. It's in the top drawer. Make sure they read it. ~ loyal
+Don't tell anybody I said this, but you're going to need more coffee than I ever did. ~ warm
+Pull up a chair. The vending machine's been out of Gatorade since August. ~ calm
+Do you want the old playbook, or are you going to make your own? ~ cold
+Nobody gets through a first year without a few bad days. Sit, and I'll tell you about mine. ~ warm
+I still know the password to the athletic department email. I'll keep it to myself. ~ cold
+Well, Reed, the stadium lights still work if you want to walk out there. Watch the third step.
+This office gets cold by ten, so bring a jacket to the early meetings. ~ midwest
+Nobody here expects you to fix everything in a season. Just don't lie to them. ~ calm
+Some of the booster club ladies will bring you casseroles. Eat them. It matters. ~ warm
+Hall's quiet now, but at lunch it sounds like a stadium. Enjoy the peace. ~ calm
+I kept a notebook on every senior I coached. Find it in the bottom drawer, if you want. ~ loyal
+Our weight room doesn't look like much, but the kids sweat there every morning. ~ loyal
+You're welcome to the stat books, though some of them are a mess. Good luck. ~ warm
+Sit down, Reed. I've been expecting someone like you to walk through that door. ~ warm
+That corner office by the gym leaks when it rains. Keep a bucket. ~ midwest
+Sit down, Reed. The gym lights buzz, so ignore them. ~ calm
+Lock the trophy case if you'd like. I never trusted those kids near it. ~ strict
+Honestly, I thought you'd take longer to find me. Sit where you like. ~ cold
+Grab a cup from the faculty room. The coffee's awful, but it's warm. ~ warm
+Hey, Coach. You want the truth about the linebackers? Ask me now. ~ hot
