@@ -905,6 +905,24 @@ fn start_state(w: &mut World, s: usize) {
         .map(|i| (i, w.people[i].sit_out))
         .collect();
     super::clock::timed("hs develop", || season::develop(w, &roles));
+    // On a season the engine plays his row counts the Fridays he really
+    // misses hurt, game by game, and a major camp injury keeps him out of
+    // the games it costs (minor bug 315).
+    if w.hs_season.as_ref().is_some_and(|hs| hs.on_engine) {
+        let fridays = w.hs_season.as_ref().unwrap().states[s].weeks.clone();
+        let seat = w.seat_school();
+        for &(i, _) in &roles {
+            let p = &w.people[i];
+            let Some(h) = p.player.history.last() else { continue };
+            if p.stage != Stage::HighSchool || h.level != crate::player::Level::HS {
+                continue;
+            }
+            let n = (h.games_missed as usize).max(1);
+            let last = fridays.get(n - 1).or(fridays.last()).copied();
+            let yours = seat.is_some_and(|x| w.high_schools[x].roster.contains(&i));
+            season::camp_injury(w, i, last, yours);
+        }
+    }
     let people = &w.people;
     let mut res: Vec<(usize, TeamResult)> = Vec::with_capacity(schools.len());
     for &h in &schools {
@@ -1197,6 +1215,31 @@ fn hs_team(w: &World, h: usize, week: usize) -> Option<(GameTeam, Vec<(u32, usiz
         })
         .collect();
     squad_team(w, h, dressed, true)
+}
+
+/// The players a school would have dressed this week but for an injury
+/// (minor bug 315): out hurt today, and otherwise on its game team (its
+/// varsity squad at your school, freshmen only at a school short of 30
+/// older players, as `hs_team` dresses them).
+fn hurt_dressed(w: &World, h: usize, week: usize) -> Vec<usize> {
+    let school = &w.high_schools[h];
+    let today = w.today;
+    let older = school.roster.iter().filter(|&&i| can_play(w, i, week) && w.people[i].school_age() > 14).count();
+    let squads = super::front_office::school::varsity_filter(w, h);
+    school
+        .roster
+        .iter()
+        .copied()
+        .filter(|&i| {
+            let p = &w.people[i];
+            p.stage == Stage::HighSchool
+                && w.training.hurt_out(p.player.id, today)
+                && match &squads {
+                    Some(v) => v.contains(&i),
+                    None => older < 30 || p.school_age() > 14,
+                }
+        })
+        .collect()
 }
 
 /// Whether a high schooler may play in week `week` (regular weeks, then
@@ -1759,6 +1802,16 @@ fn engine_games(
                 }
             }
         }
+        // Who missed it hurt (minor bug 315): each school's players it
+        // would have dressed but for an injury.
+        for school in [h, a] {
+            for i in hurt_dressed(w, school, week) {
+                if let Some(row) = w.people[i].player.history.last_mut().filter(|r| r.level == crate::player::Level::HS)
+                {
+                    row.games_missed += 1;
+                }
+            }
+        }
         // Injuries outlast the game (update 3, A1); high schools have no
         // medical staff.
         let side = [h, a].iter().position(|&x| seat == Some(x));
@@ -2004,6 +2057,21 @@ fn finish_state(w: &mut World, s: usize, d: Date) {
     poll(w, s, d, "Final");
     all_state(w, s, d);
     file_lines(w, s);
+    // The row's injury is what kept him out (minor bug 315).
+    if w.hs_season.as_ref().is_some_and(|hs| hs.on_engine) {
+        let schools = w.states[s].schools.clone();
+        for h in schools {
+            let roster = w.high_schools[h].roster.clone();
+            for i in roster {
+                let p = &mut w.people[i];
+                if p.stage == Stage::HighSchool
+                    && let Some(r) = p.player.history.last_mut().filter(|r| r.level == crate::player::Level::HS)
+                {
+                    season::mark_real_injury(r);
+                }
+            }
+        }
+    }
     if !w.recording {
         return;
     }
