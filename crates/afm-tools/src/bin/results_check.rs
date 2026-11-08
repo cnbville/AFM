@@ -12,12 +12,15 @@
 //!
 //! Usage: results_check [history_years] [seed] [scale]
 //! `AFM_RESULTS`: off, kept (the default: on top of the dice, pull down),
-//! replaced, kept_up, replaced_up, kept_practice (item 16 on).
+//! replaced, kept_up, replaced_up, kept_practice (item 16 on), kept_wide
+//! (the weight on the skill's whole spread, as the first build).
 
 use std::collections::HashMap;
 use std::time::Instant;
 
+use afm_engine::attributes::Attr;
 use afm_engine::player::{DevelopmentEvent as Ev, Level, PlayingTime, SeasonRecord};
+use afm_engine::positions::Position;
 use afm_engine::results::{Dice, Mode};
 use afm_engine::world::{World, WorldOptions};
 
@@ -63,7 +66,8 @@ fn main() {
         "kept_up" => Mode { pull_down: false, ..on },
         "replaced_up" => Mode { dice: Dice::Replaced, pull_down: false, ..on },
         "kept_practice" => Mode { practice: true, ..on },
-        x => panic!("AFM_RESULTS: off, kept, replaced, kept_up, replaced_up or kept_practice, not {x}"),
+        "kept_wide" => Mode { change: f64::INFINITY, ..on },
+        x => panic!("AFM_RESULTS: off, kept, replaced, kept_up, replaced_up, kept_practice or kept_wide, not {x}"),
     };
     let opts = WorldOptions { seed, history_years: years, scale, results, ..WorldOptions::default() };
     let t = Instant::now();
@@ -223,6 +227,29 @@ fn main() {
     stage("NFL starters 26-29", &|r| {
         r.level == Level::NFL && r.playing_time == PlayingTime::Starter && (26..=29).contains(&r.age)
     });
+
+    println!("\n## NFL starters' skills at the end (mean / sd): the spread line play reads\n");
+    println!("| position | skill | starters | mean | sd |\n|---|---|---|---|---|");
+    for (pos, attr) in [
+        (Position::OT, Attr::PassBlocking),
+        (Position::IOL, Attr::PassBlocking),
+        (Position::IOL, Attr::RunBlocking),
+        (Position::DT, Attr::PowerRush),
+        (Position::EDGE, Attr::FinesseRush),
+        (Position::DT, Attr::BlockShedding),
+        (Position::LB, Attr::Tackling),
+    ] {
+        let v: Vec<f64> = w
+            .people
+            .iter()
+            .filter(|p| p.player.position == pos)
+            .filter(|p| {
+                p.player.history.last().is_some_and(|h| h.level == Level::NFL && h.playing_time == PlayingTime::Starter)
+            })
+            .map(|p| p.player.attributes.get(attr))
+            .collect();
+        println!("| {} | {attr:?} | {} | {:.1} | {:.2} |", pos.name(), v.len(), mean(&v), sd(&v));
+    }
 
     println!("\n## League numbers (every team game in the seasons played)\n");
     println!(

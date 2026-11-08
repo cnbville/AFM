@@ -23,7 +23,7 @@ use rayon::prelude::*;
 
 /// The arms: A today, B-E items 14 and 15, then per-snap rates.
 fn arms() -> Vec<(&'static str, Option<Mode>)> {
-    let m = |dice, pull_down, scale| Some(Mode { on: true, dice, pull_down, practice: false, scale });
+    let m = |dice, pull_down, scale| Some(Mode { on: true, dice, pull_down, practice: false, scale, ..Mode::default() });
     vec![
         ("A today", None),
         ("B on top, pull down", m(Dice::Kept, true, 1.0)),
@@ -633,6 +633,27 @@ fn main() {
             let v: Vec<&Row> = r.rows.iter().filter(played).collect();
             let g: f64 = v.iter().map(|x| x.big[k] as f64).sum();
             let _ = write!(line, " {:.3} |", g / v.len().max(1) as f64);
+        }
+        let _ = writeln!(rep, "{line}");
+    }
+    // Where the named moments' lines fall: the share of starter seasons
+    // past each size, to set BIG_GAME and BIG_SEASON on.
+    for (label, q) in [
+        ("starter seasons: a game's top skill move, 86th percentile", 0),
+        ("starter seasons: the season's top skill move, 90th percentile", 1),
+        ("starter seasons: the season's top skill move, 10th percentile", 2),
+    ] {
+        let mut line = format!("| {label} |");
+        for r in &runs {
+            let mut v: Vec<f64> = r
+                .rows
+                .iter()
+                .filter(|x| x.role == 0 && x.games > 0)
+                .map(|x| if q == 0 { x.best.max(0.0) as f64 } else { x.skill as f64 })
+                .collect();
+            v.sort_by(|a, b| a.total_cmp(b));
+            let at = if v.is_empty() { 0.0 } else { v[((v.len() - 1) as f64 * [0.86, 0.9, 0.1][q]) as usize] };
+            let _ = write!(line, " {at:.2} |");
         }
         let _ = writeln!(rep, "{line}");
     }

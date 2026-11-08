@@ -265,7 +265,7 @@ fn a_season_moves_a_skill_as_far_as_its_sample_says() {
     let (_, once) = moved(&p, &[pass_blocks(season, 4.0)], &on);
     let weekly: Vec<Man> = (0..17).map(|_| pass_blocks(season / 17.0, 4.0)).collect();
     let (_, by_game) = moved(&p, &weekly, &on);
-    assert!((once - 4.0 * f.weight(season)).abs() < 1e-3, "credibility: {once}");
+    assert!((once - 4.0 * f.weight(season, results::CHANGE)).abs() < 1e-3, "credibility: {once}");
     assert!((once - by_game).abs() < 1e-3, "a season is a season however it's cut");
     assert!(once > 0.0 && once < 4.0 * 0.6, "a season keeps part of what it shows: {once}");
     // Small samples count less: a tenth of the season at the same level.
@@ -280,10 +280,28 @@ fn a_season_moves_a_skill_as_far_as_its_sample_says() {
     top.ceilings.set(a, top.attributes.get(a) + 0.5);
     // Results far past anything real, so the season's most binds (the
     // weight tops out at what teammates and scheme leave him).
-    let far = 2.0 * results::CAP / f.weight(50.0 * season);
+    let far = 2.0 * results::CAP / f.weight(50.0 * season, results::CHANGE);
     let (q, up) = moved(&top, &[pass_blocks(50.0 * season, far)], &on);
     assert!(up <= results::CAP + 1e-6 && up > results::CAP - 1e-3, "capped at a season's most: {up}");
     assert!(q.ceilings.get(a) >= q.attributes.get(a));
+    // At his top, a move takes the ceiling with it either way; below it,
+    // the ceiling stays and the yearly step grows him back (no ratchet).
+    let mut at = p.clone();
+    at.ceilings.set(a, at.attributes.get(a));
+    let (q, down) = moved(&at, &[pass_blocks(season, -4.0)], &on);
+    assert!(down < 0.0 && (q.ceilings.get(a) - q.attributes.get(a)).abs() < 1e-6, "his top drops with him");
+    let (q, up) = moved(&at, &[pass_blocks(season, 4.0)], &on);
+    assert!(up > 0.0 && (q.ceilings.get(a) - q.attributes.get(a)).abs() < 1e-6, "and rises with him");
+    let mut below = p.clone();
+    below.ceilings.set(a, below.attributes.get(a) + 5.0);
+    let (q, _) = moved(&below, &[pass_blocks(season, -4.0)], &on);
+    assert!((q.ceilings.get(a) - below.ceilings.get(a)).abs() < 1e-6, "below his top, the ceiling holds");
+    // However the read is fitted, a season's move spreads at most
+    // CHANGE / 2: the most credible noise keeps a quarter of itself.
+    for n in [season / 4.0, season, 4.0 * season] {
+        let noise = ((f.tau * f.tau + f.sd * f.sd / n) / (f.b * f.b)).sqrt();
+        assert!(f.weight(n, results::CHANGE) * noise <= results::CHANGE / 2.0 + 1e-9);
+    }
     // A rate scale moves it in proportion.
     let (_, half) = moved(&p, &[pass_blocks(season, 4.0)], &Mode { scale: 0.5, ..on });
     assert!((half - once / 2.0).abs() < 1e-3);
@@ -391,4 +409,37 @@ fn replaced_dice_keep_the_average() {
     assert!(results::tested(Position::QB, Level::NFL) != 0, "the fitted table tests a passer");
     assert!((mean(&today) - mean(&replaced)).abs() < 0.2, "the dice's average is kept");
     assert!(sd(&replaced) < sd(&today), "without the surprise");
+}
+
+#[test]
+fn a_shift_the_whole_league_shares_moves_nobody() {
+    // Every NFL guard shows 3 points over his rating (his matchups in this
+    // world beat the fit's): the league's centre takes it in once the
+    // league has played, so it can't lift (or sink) the whole position.
+    let f = results::fit(Level::NFL, Read::PassBlock, Position::IOL);
+    assert!(f.on());
+    let mut book = results::Book::default();
+    assert_eq!(book.centre(Level::NFL, Read::PassBlock, Position::IOL, false, 2030), 0.0, "no league yet: the fit's");
+    let n = 200.0 * f.season;
+    book.add(Level::NFL, Read::PassBlock, Position::IOL, false, 2030, n, 3.0 * n);
+    let c = book.centre(Level::NFL, Read::PassBlock, Position::IOL, false, 2030);
+    assert!((c - 3.0 * 200.0 / (200.0 + results::CENTRE_PRIOR)).abs() < 1e-9, "{c}");
+    // A guard who showed the same 3 holds once his season is read against it.
+    let p = player_at(Position::IOL, 3);
+    let mut q = p.clone();
+    let mut l = Ledger::default();
+    let m =
+        Man { reads: vec![(Read::PassBlock, f.season as f32, (3.0 * f.season) as f32)], snaps: 60, ..Man::default() };
+    results::apply_in(&mut q, &mut l, &m, Level::NFL, &Mode::default(), &|_| 3.0);
+    let a = Read::PassBlock.attr();
+    assert!((q.attributes.get(a) - p.attributes.get(a)).abs() < 1e-6, "the league's shift moves nobody");
+    assert!(l.shown(Read::PassBlock).is_some_and(|x| x.0.abs() < 1e-5), "read against the league");
+    // Apart by position, by practice and by season.
+    assert_eq!(book.centre(Level::NFL, Read::PassBlock, Position::OT, false, 2030), 0.0);
+    assert_eq!(book.centre(Level::NFL, Read::PassBlock, Position::IOL, true, 2030), 0.0);
+    assert_eq!(book.centre(Level::NFL, Read::PassBlock, Position::IOL, false, 2031), 0.0);
+    book.add(Level::NFL, Read::PassBlock, Position::IOL, false, 2031, n, 0.0);
+    assert_eq!(book.centre(Level::NFL, Read::PassBlock, Position::IOL, false, 2031), 0.0, "a new season starts over");
+    book.sweep(2032);
+    assert!(book.league.is_empty());
 }

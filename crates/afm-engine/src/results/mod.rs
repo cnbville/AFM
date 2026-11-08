@@ -496,16 +496,22 @@ impl Fit {
     }
 
     /// How much of a season's shown level over his rating, on `n` trials,
-    /// the season keeps: the share of what the results show that his
-    /// skill's spread explains, against what the rest of the engine adds
-    /// (credibility, `sk^2 / (sk^2 + (tau^2 + sd^2 / n) / b^2)`). Small
-    /// samples count less (item 9), a stat the engine makes noisy counts
-    /// less, and the stablest keep about half.
-    pub fn weight(&self, n: f64) -> f64 {
+    /// the season keeps: the share of what the results show that a real
+    /// change in his skill this season explains, against what the rest of
+    /// the engine adds (credibility, `c^2 / (c^2 + (tau^2 + sd^2 / n) /
+    /// b^2)`, `c` the most a season really changes a skill, `CHANGE`, or
+    /// the skill's spread among regulars if that is smaller; `Mode.change`
+    /// sets it). Small samples
+    /// count less (item 9) and a stat the engine makes noisy counts less.
+    /// A season's move then spreads at most `c / 2` however the read is
+    /// fitted, so seasons don't add up to a random walk that widens the
+    /// level's spread.
+    pub fn weight(&self, n: f64, change: f64) -> f64 {
         if !self.on() || n <= 0.0 {
             return 0.0;
         }
-        let k = self.sk * self.sk * self.b * self.b;
+        let c = self.sk.min(change);
+        let k = c * c * self.b * self.b;
         k / (k + self.tau * self.tau + self.sd * self.sd / n)
     }
 
@@ -644,6 +650,15 @@ pub struct Mode {
     /// starter's season moves him by what the engine credits his skill
     /// with). The A/B tries a half rate.
     pub scale: f64,
+    /// The most a season really changes a skill, the prior in
+    /// `Fit::weight` (`CHANGE`; infinite reads the skill's whole spread
+    /// among regulars, as the first build did).
+    #[serde(default = "default_change")]
+    pub change: f64,
+}
+
+fn default_change() -> f64 {
+    CHANGE
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -654,17 +669,29 @@ pub enum Dice {
 
 impl Default for Mode {
     fn default() -> Self {
-        Mode { on: true, dice: Dice::Kept, pull_down: true, practice: false, scale: 1.0 }
+        Mode { on: true, dice: Dice::Kept, pull_down: true, practice: false, scale: 1.0, change: CHANGE }
     }
 }
 
 impl Mode {
-    pub const OFF: Mode = Mode { on: false, dice: Dice::Kept, pull_down: true, practice: false, scale: 1.0 };
+    pub const OFF: Mode =
+        Mode { on: false, dice: Dice::Kept, pull_down: true, practice: false, scale: 1.0, change: CHANGE };
 }
 
 /// Most a season's results move one skill, either way (as the yearly
 /// step's most a skill grows in a year).
 pub const CAP: f64 = 12.0;
+/// How far a season can really change a skill beyond the yearly step, in
+/// rating points (one standard deviation): the prior in `Fit::weight`.
+/// About the yearly step's own surprise on a skill (its noise, slumps and
+/// breakouts) or a little more, so results add about a year's surprise. With the level's
+/// whole skill spread here instead (9 points on the line), seasons moved a
+/// skill up to 4 points each way at random and NFL line skills spread 25
+/// to 57% wider in a seed 75 world (proposed, not confirmed).
+pub const CHANGE: f64 = 3.0;
+/// Within this many points of his ceiling, he is at his top: a results
+/// move there moves the ceiling too (proposed, not confirmed).
+pub const AT_TOP: f64 = 0.5;
 /// A game whose results move one skill this many rating points up is
 /// named on his season row and in the news (the "mini explosion"; about
 /// one starter's season in seven has one in the A/B; proposed, not
@@ -686,6 +713,10 @@ pub struct Entry {
     pub s: f32,
     /// Rating points already moved this season.
     pub applied: f32,
+    /// The league's centre on the read at his last game (`Book::centre`):
+    /// his season is read as `s / n - c`.
+    #[serde(default)]
+    pub c: f32,
 }
 
 /// A read's past seasons for a player: how many, and the sum of each
@@ -730,7 +761,7 @@ impl Ledger {
             };
             let x = &mut past[i];
             x.seasons = x.seasons.saturating_add(1);
-            x.s += e.s / e.n;
+            x.s += e.s / e.n - e.c;
             x.n += e.n;
         }
         *self = Ledger { year, past, ..Ledger::default() };
@@ -758,7 +789,10 @@ impl Ledger {
 
     /// The season's shown level over his rating for a read, and its trials.
     pub fn shown(&self, read: Read) -> Option<(f64, f64)> {
-        self.reads.iter().find(|e| e.read == read as u8).map(|e| (e.s as f64 / e.n.max(1e-6) as f64, e.n as f64))
+        self.reads
+            .iter()
+            .find(|e| e.read == read as u8)
+            .map(|e| (e.s as f64 / e.n.max(1e-6) as f64 - e.c as f64, e.n as f64))
     }
 }
 
@@ -772,7 +806,7 @@ pub fn target(level: Level, read: Read, pos: Position, n: f64, s: f64, own: f64,
     if n <= 0.0 || f.season <= 0.0 {
         return 0.0;
     }
-    let t = mode.scale * (s / n - own) * f.weight(n) * (n / f.season).min(1.0);
+    let t = mode.scale * (s / n - own) * f.weight(n, mode.change) * (n / f.season).min(1.0);
     let t = if mode.pull_down { t } else { t.max(0.0) };
     clamp(t, -CAP, CAP)
 }
@@ -788,7 +822,23 @@ pub struct Moved {
 
 /// Moves his skills after a game. The season so far decides each skill's
 /// move; what this game adds is the change from what was already moved.
+/// Judged against the fit alone (a centre of 0); the world reads each
+/// game against its league with `apply_in`.
 pub fn apply(p: &mut Player, l: &mut Ledger, m: &Man, level: Level, mode: &Mode) -> Moved {
+    apply_in(p, l, m, level, mode, &|_| 0.0)
+}
+
+/// `apply` with the league's centre on each read (`Book::centre`): the
+/// whole season so far is read against the latest centre, so the early
+/// games' centre, before the league had played much, doesn't stay in it.
+pub fn apply_in(
+    p: &mut Player,
+    l: &mut Ledger,
+    m: &Man,
+    level: Level,
+    mode: &Mode,
+    centre: &dyn Fn(Read) -> f64,
+) -> Moved {
     let before = p.overall();
     let mut top: Option<(Read, f64)> = None;
     for &(read, n, s) in &m.reads {
@@ -803,15 +853,21 @@ pub fn apply(p: &mut Player, l: &mut Ledger, m: &Man, level: Level, mode: &Mode)
         let e = &mut l.reads[k];
         e.n += n;
         e.s += s;
-        let t = target(level, read, p.position, e.n as f64, e.s as f64, own, mode);
+        e.c = centre(read) as f32;
+        let t = target(level, read, p.position, e.n as f64, e.s as f64 - e.n as f64 * e.c as f64, own, mode);
         let d = t - e.applied as f64;
         e.applied = t as f32;
         let a = read.attr();
-        let now = clamp(p.attributes.get(a) + d, MIN_RATING, MAX_RATING);
+        let was = p.attributes.get(a);
+        let now = clamp(was + d, MIN_RATING, MAX_RATING);
         p.attributes.set(a, now);
-        if now > p.ceilings.get(a) {
-            p.ceilings.set(a, now);
-        }
+        // At his top, a move takes his top with it, either way; below it,
+        // it is growth early or late that the yearly step evens out. A
+        // ceiling that only rose kept every lucky season at the top and
+        // grew back every unlucky one, a ratchet.
+        let top_now = p.ceilings.get(a);
+        let c = if top_now - was <= AT_TOP { top_now + (now - was) } else { top_now };
+        p.ceilings.set(a, clamp(c, now, MAX_RATING));
         if top.is_none_or(|(_, v)| d.abs() > v.abs()) {
             top = Some((read, d));
         }
@@ -894,17 +950,67 @@ pub fn close(p: &mut Player, l: &Ledger) {
 }
 
 /// The world's open seasons of results, one ledger per player who played
-/// an engine game since his last checkpoint (saved with the world).
+/// an engine game since his last checkpoint, and each level's season so
+/// far per read and position (`centre`), saved with the world.
 #[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Book {
     pub ledgers: HashMap<u32, Ledger>,
+    #[serde(default)]
+    pub league: HashMap<u32, League>,
+}
+
+/// A level's season so far on one read at one position: every man's
+/// trials and summed shown level over his rating.
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct League {
+    pub year: i32,
+    pub n: f64,
+    pub s: f64,
+}
+
+/// The league evidence the centre starts from, in starter's seasons of
+/// trials at the read (proposed, not confirmed): until the league has
+/// played that much, its centre leans toward the fit's.
+pub const CENTRE_PRIOR: f64 = 2.0;
+
+fn league_key(level: Level, read: Read, pos: Position, practice: bool) -> u32 {
+    table::index(row(level), read.index(), pos.index()) as u32 | (practice as u32) << 16
 }
 
 impl Book {
     /// Ledgers older than last season go (a player who left football; a
-    /// player still playing rolls his at each checkpoint).
+    /// player still playing rolls his at each checkpoint); last season's
+    /// league centres go.
     pub fn sweep(&mut self, year: i32) {
         self.ledgers.retain(|_, l| l.year >= year - 1);
+        self.league.retain(|_, x| x.year >= year);
+    }
+
+    /// Adds a man's evidence on a read to his level's season.
+    pub fn add(&mut self, level: Level, read: Read, pos: Position, practice: bool, year: i32, n: f64, s: f64) {
+        let x = self.league.entry(league_key(level, read, pos, practice)).or_default();
+        if x.year != year {
+            *x = League { year, ..League::default() };
+        }
+        x.n += n;
+        x.s += s;
+    }
+
+    /// The league's centre on a read at a position this season: the mean
+    /// shown level over every man's rating at his level so far, leaning
+    /// on the fit's (0) until `CENTRE_PRIOR` seasons of trials are in. A
+    /// man is judged against the league as it plays, as real stats over
+    /// expected are each season: a shift every man at the position shares
+    /// (his matchups in this world against the fit's synthetic teams, a
+    /// line that wins more than the fit's) moves nobody, so it can't feed
+    /// on itself (one side's rise making the other's fall). Practice keeps
+    /// its own centre.
+    pub fn centre(&self, level: Level, read: Read, pos: Position, practice: bool, year: i32) -> f64 {
+        let prior = CENTRE_PRIOR * fit(level, read, pos).season.max(1.0);
+        match self.league.get(&league_key(level, read, pos, practice)) {
+            Some(x) if x.year == year => x.s / (x.n + prior),
+            _ => 0.0,
+        }
     }
 }
 
@@ -924,18 +1030,34 @@ pub(crate) fn world_game(
     }
     let year = w.year;
     let mut big: Vec<(usize, crate::world::stories::TeamKey, Read, f64)> = Vec::new();
-    for (id, m) in ev {
-        let Some((i, team)) = person(id) else { continue };
-        let Some(pp) = w.people.get_mut(i) else { continue };
-        let p = &mut pp.player;
-        if p.id != id {
-            continue;
+    // In id order, so the world plays the same on every run.
+    let mut men: Vec<(u32, usize, Option<crate::world::stories::TeamKey>, Man)> = ev
+        .into_iter()
+        .filter_map(|(id, m)| {
+            let (i, team) = person(id)?;
+            (w.people.get(i)?.player.id == id).then_some((id, i, team, m))
+        })
+        .collect();
+    men.sort_by_key(|x| x.0);
+    // The league's season first, this game in it; then each man's season
+    // is read against it (`Book::centre`, `apply_in`).
+    for (_, i, _, m) in &men {
+        let pos = w.people[*i].player.position;
+        for &(r, n, s) in &m.reads {
+            w.results.add(level, r, pos, m.practice, year, n as f64, s as f64);
         }
+    }
+    for (id, i, team, m) in men {
+        let pos = w.people[i].player.position;
+        let cs: Vec<(Read, f64)> =
+            m.reads.iter().map(|x| (x.0, w.results.centre(level, x.0, pos, m.practice, year))).collect();
+        let centre = |r: Read| cs.iter().find(|x| x.0 == r).map_or(0.0, |x| x.1);
+        let p = &mut w.people[i].player;
         let l = w.results.ledgers.entry(id).or_insert_with(|| Ledger { year, ..Ledger::default() });
         if l.year != year {
             l.roll(year);
         }
-        let moved = apply(p, l, &m, level, &mode);
+        let moved = apply_in(p, l, &m, level, &mode, &centre);
         reps(p, l, m.snaps, level, m.opp as f64);
         if let (Some(t), Some((r, d))) = (team, moved.read)
             && d >= BIG_GAME
