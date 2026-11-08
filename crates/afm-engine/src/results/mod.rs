@@ -645,8 +645,9 @@ pub struct Mode {
     /// Item 15: a season below his ratings pulls the skill down the way a
     /// good one lifts it.
     pub pull_down: bool,
-    /// Item 16 (waiting on Cain): practice snaps on the engine count as
-    /// results too, at a quarter of a game snap.
+    /// Item 16 (Cain's yes, 2026-11-08; on by default): practice snaps on
+    /// the engine count as results too, at
+    /// `training::practice::PRACTICE_RESULTS` of a game snap.
     pub practice: bool,
     /// The per-snap rate against the credibility weight (1: a full
     /// starter's season moves him by what the engine credits his skill
@@ -671,7 +672,7 @@ pub enum Dice {
 
 impl Default for Mode {
     fn default() -> Self {
-        Mode { on: true, dice: Dice::Kept, pull_down: true, practice: false, scale: 1.0, change: CHANGE }
+        Mode { on: true, dice: Dice::Kept, pull_down: true, practice: true, scale: 1.0, change: CHANGE }
     }
 }
 
