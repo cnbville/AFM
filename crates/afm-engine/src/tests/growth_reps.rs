@@ -449,13 +449,13 @@ fn a_shift_the_whole_league_shares_moves_nobody() {
     assert!(f.on());
     let mut book = results::Book::default();
     assert_eq!(
-        book.centre(Level::NFL, Read::PassBlock, Position::IOL, false, 72.0, 2030),
+        book.centre(Level::NFL, Read::PassBlock, Position::IOL, false, (72.0, 60), 2030),
         0.0,
         "no league yet: the fit's"
     );
     let n = 200.0 * f.season;
-    book.add(Level::NFL, Read::PassBlock, Position::IOL, false, 75.0, 2030, n, 3.0 * n);
-    let c = book.centre(Level::NFL, Read::PassBlock, Position::IOL, false, 72.0, 2030);
+    book.add(Level::NFL, Read::PassBlock, Position::IOL, false, (75.0, 60), 2030, n, 3.0 * n);
+    let c = book.centre(Level::NFL, Read::PassBlock, Position::IOL, false, (72.0, 60), 2030);
     assert!((c - 3.0 * 200.0 / (200.0 + results::CENTRE_PRIOR)).abs() < 1e-9, "{c}");
     // A guard who showed the same 3 holds once his season is read against it.
     let p = player_at(Position::IOL, 3);
@@ -468,17 +468,22 @@ fn a_shift_the_whole_league_shares_moves_nobody() {
     assert!((q.attributes.get(a) - p.attributes.get(a)).abs() < 1e-6, "the league's shift moves nobody");
     assert!(l.shown(Read::PassBlock).is_some_and(|x| x.0.abs() < 1e-5), "read against the league");
     // Apart by position, by practice, by peers on the skill and by season.
-    assert_eq!(book.centre(Level::NFL, Read::PassBlock, Position::OT, false, 72.0, 2030), 0.0);
-    assert_eq!(book.centre(Level::NFL, Read::PassBlock, Position::IOL, true, 72.0, 2030), 0.0);
+    assert_eq!(book.centre(Level::NFL, Read::PassBlock, Position::OT, false, (72.0, 60), 2030), 0.0);
+    assert_eq!(book.centre(Level::NFL, Read::PassBlock, Position::IOL, true, (72.0, 60), 2030), 0.0);
     assert_eq!(
-        book.centre(Level::NFL, Read::PassBlock, Position::IOL, false, 84.0, 2030),
+        book.centre(Level::NFL, Read::PassBlock, Position::IOL, false, (84.0, 60), 2030),
         0.0,
         "an 84 has his own peers"
     );
-    assert_eq!(book.centre(Level::NFL, Read::PassBlock, Position::IOL, false, 72.0, 2031), 0.0);
-    book.add(Level::NFL, Read::PassBlock, Position::IOL, false, 72.0, 2031, n, 0.0);
     assert_eq!(
-        book.centre(Level::NFL, Read::PassBlock, Position::IOL, false, 72.0, 2031),
+        book.centre(Level::NFL, Read::PassBlock, Position::IOL, false, (72.0, 20), 2030),
+        0.0,
+        "a rested man has his own"
+    );
+    assert_eq!(book.centre(Level::NFL, Read::PassBlock, Position::IOL, false, (72.0, 60), 2031), 0.0);
+    book.add(Level::NFL, Read::PassBlock, Position::IOL, false, (72.0, 60), 2031, n, 0.0);
+    assert_eq!(
+        book.centre(Level::NFL, Read::PassBlock, Position::IOL, false, (72.0, 60), 2031),
         0.0,
         "a new season starts over"
     );

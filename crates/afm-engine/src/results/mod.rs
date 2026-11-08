@@ -1004,10 +1004,17 @@ pub const CENTRE_PRIOR: f64 = 2.0;
 /// NFL's starters lost rush and sacks a dropback fell 7 and 11% on seeds
 /// 77 and 78 (proposed, not confirmed).
 pub const BAND: f64 = 10.0;
+/// A man's peers by load: the men who played the same this many snaps in
+/// the game (0-14, 15-29, 30-44, 45 and more). The engine tires a man as
+/// he plays, so a defensive tackle who plays every down shows less than a
+/// rested one of the same rating; read against all of them, the starters
+/// lost rush season after season (proposed, not confirmed).
+pub const LOAD: u32 = 15;
 
-fn league_key(level: Level, read: Read, pos: Position, practice: bool, skill: f64) -> u32 {
-    let band = (skill / BAND).floor().clamp(0.0, 15.0) as u32;
-    table::index(row(level), read.index(), pos.index()) as u32 | (practice as u32) << 16 | band << 17
+fn league_key(level: Level, read: Read, pos: Position, practice: bool, peer: (f64, u32)) -> u32 {
+    let band = (peer.0 / BAND).floor().clamp(0.0, 15.0) as u32;
+    let load = (peer.1 / LOAD).min(3);
+    table::index(row(level), read.index(), pos.index()) as u32 | (practice as u32) << 16 | band << 17 | load << 21
 }
 
 impl Book {
@@ -1028,12 +1035,12 @@ impl Book {
         read: Read,
         pos: Position,
         practice: bool,
-        skill: f64,
+        peer: (f64, u32),
         year: i32,
         n: f64,
         s: f64,
     ) {
-        let x = self.league.entry(league_key(level, read, pos, practice, skill)).or_default();
+        let x = self.league.entry(league_key(level, read, pos, practice, peer)).or_default();
         if x.year != year {
             *x = League { year, ..League::default() };
         }
@@ -1042,7 +1049,10 @@ impl Book {
     }
 
     /// The league's centre on a read at a position this season, among a
-    /// man's peers on the read's skill (the same `BAND` of rating points):
+    /// man's peers (`peer`: his rating on the read's skill, in the same
+    /// `BAND` of rating points, and his snaps in the game, in the same
+    /// `LOAD` of snaps, since a man who plays every down plays more of
+    /// them tired):
     /// their mean shown level over their ratings at his level so far,
     /// leaning on the fit's (0) until `CENTRE_PRIOR` seasons of trials are
     /// in. A man is judged against men rated like him as the league plays,
@@ -1051,9 +1061,9 @@ impl Book {
     /// teams, a line that wins more than the fit's, a straight-line fit
     /// that misses at the top of the scale) moves nobody, so it can't feed
     /// on itself. Practice keeps its own centre.
-    pub fn centre(&self, level: Level, read: Read, pos: Position, practice: bool, skill: f64, year: i32) -> f64 {
+    pub fn centre(&self, level: Level, read: Read, pos: Position, practice: bool, peer: (f64, u32), year: i32) -> f64 {
         let prior = CENTRE_PRIOR * fit(level, read, pos).season.max(1.0);
-        match self.league.get(&league_key(level, read, pos, practice, skill)) {
+        match self.league.get(&league_key(level, read, pos, practice, peer)) {
             Some(x) if x.year == year => x.s / (x.n + prior),
             _ => 0.0,
         }
@@ -1094,8 +1104,8 @@ pub(crate) fn world_game(
     for (_, i, _, m) in &men {
         let p = &w.people[*i].player;
         for &(r, n, s) in &m.reads {
-            let skill = p.attributes.get(r.attr());
-            w.results.add(level, r, p.position, m.practice, skill, year, n as f64, s as f64);
+            let peer = (p.attributes.get(r.attr()), m.snaps);
+            w.results.add(level, r, p.position, m.practice, peer, year, n as f64, s as f64);
         }
     }
     for (id, i, team, m) in men {
@@ -1104,7 +1114,12 @@ pub(crate) fn world_game(
         let cs: Vec<(Read, f64)> = m
             .reads
             .iter()
-            .map(|x| (x.0, w.results.centre(level, x.0, q.position, m.practice, q.attributes.get(x.0.attr()), year)))
+            .map(|x| {
+                (
+                    x.0,
+                    w.results.centre(level, x.0, q.position, m.practice, (q.attributes.get(x.0.attr()), m.snaps), year),
+                )
+            })
             .collect();
         let centre = |r: Read| cs.iter().find(|x| x.0 == r).map_or(0.0, |x| x.1);
         let p = &mut w.people[i].player;
