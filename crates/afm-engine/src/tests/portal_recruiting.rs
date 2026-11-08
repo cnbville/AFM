@@ -16,8 +16,15 @@ use crate::world::{PortalEntry, Stage, World, recruiting};
 fn entrant() -> (World, usize, usize) {
     let mut w = seat("college");
     let mine = w.seat.and_then(|s| s.program).unwrap();
-    let q = (0..w.programs.len()).find(|&q| q != mine && w.programs[q].division == Division::FBS).unwrap();
     w.add_class_aged(20);
+    let i = enter(&mut w, mine, true);
+    (w, mine, i)
+}
+
+/// One more player at another FBS program, in the portal from today and
+/// deciding in ten days (the window opened the first time).
+fn enter(w: &mut World, mine: usize, open: bool) -> usize {
+    let q = (0..w.programs.len()).find(|&q| q != mine && w.programs[q].division == Division::FBS).unwrap();
     let year = w.year;
     let i = (0..w.people.len()).find(|&i| w.people[i].stage == Stage::HighSchool).unwrap();
     let p = &mut w.people[i];
@@ -30,8 +37,10 @@ fn entrant() -> (World, usize, usize) {
     p.cal.lean = 1.0;
     w.programs[q].roster.push(i);
     // He wants out, so the window takes him on its first day.
-    let close = w.today.add(20);
-    recruiting::portal_open(&mut w, PortalWindow::Winter, close);
+    if open {
+        let close = w.today.add(20);
+        recruiting::portal_open(w, PortalWindow::Winter, close);
+    }
     let today = w.today;
     assert!(w.portal_market.is_some(), "the window opened a market");
     let e = w.people[i].cal.portal.get_or_insert(PortalEntry {
@@ -47,7 +56,7 @@ fn entrant() -> (World, usize, usize) {
     if !w.portal_pending.contains(&i) {
         w.portal_pending.push(i);
     }
-    (w, mine, i)
+    i
 }
 
 #[test]
@@ -77,7 +86,7 @@ fn a_transfer_takes_your_call_and_your_promise() {
 fn he_visits_your_campus_and_the_sit_down_waits_for_you() {
     let (mut w, mine, i) = entrant();
     let id = w.people[i].player.id;
-    desk::portal_offer(&mut w, id, None).unwrap();
+    desk::portal_offer(&mut w, id, None, None).unwrap();
     let days = portal::visit_dates(&w, id, desk::VisitKind::Official);
     let Some(&(d, _)) = days.first() else {
         // A dead period covers his whole window: no visit, by the rules.
@@ -110,7 +119,7 @@ fn an_offer_he_cant_refuse_decides_him_now() {
     let id = w.people[i].player.id;
     let today = w.today;
     let left = desk::budget(&w, mine).left.max(0.0);
-    let said = desk::portal_offer(&mut w, id, Some(left.min(4.0e6))).unwrap();
+    let said = desk::portal_offer(&mut w, id, Some(left.min(4.0e6)), None).unwrap();
     let t = w.front_office.college.portal.iter().find(|t| t.id == id).unwrap();
     assert!(t.committed.is_some(), "a clear overpay should decide him on the spot: {said}");
     assert_eq!(w.people[i].cal.portal.unwrap().decide_by, today, "he decides tonight, not on his date");
@@ -166,4 +175,51 @@ fn a_recruit_your_offer_satisfies_commits_before_his_wave() {
     let id = p.player.id;
     desk::offer(&mut w, id).unwrap();
     assert!(w.people[j].cal.commit.is_none(), "a lone offer doesn't clear a high bar");
+}
+
+#[test]
+fn a_yes_holds_his_place_on_your_roster() {
+    let (mut w, mine, a) = entrant();
+    let b = enter(&mut w, mine, false);
+    // One place left on your roster.
+    let season = w.portal_market.as_ref().unwrap().season;
+    let limit = crate::world::ncaa::roster_limits(&w.programs[mine], season).0;
+    let year = w.year;
+    while recruiting::counted_rosters(&w, season)[mine] + 1 > limit {
+        w.programs[mine].roster.pop();
+    }
+    // The test world's rosters are thin: walk the class's kids onto yours.
+    let kids: Vec<usize> = (0..w.people.len()).filter(|&k| w.people[k].stage == Stage::HighSchool).collect();
+    let mut kids = kids.into_iter();
+    while recruiting::counted_rosters(&w, season)[mine] + 1 < limit {
+        let k = kids.next().expect("enough kids to fill a roster");
+        let p = &mut w.people[k];
+        (p.stage, p.college, p.class_of, p.college_seasons, p.walk_on) =
+            (Stage::College, Some(mine), year - 1, 1, false);
+        p.path.push(mine);
+        w.programs[mine].roster.push(k);
+    }
+    assert_eq!(recruiting::counted_rosters(&w, season)[mine] + 1, limit, "one place open");
+    // B played better, so he would decide first on a usual night.
+    w.people[b].last_performance = Some(w.people[a].last_performance.unwrap_or(60.0) + 10.0);
+    let (ia, ib) = (w.people[a].player.id, w.people[b].player.id);
+    let left = desk::budget(&w, mine).left.max(0.0);
+    let said = desk::portal_offer(&mut w, ia, Some((left * 0.5).min(4.0e6)), None).unwrap();
+    let committed = |w: &World, id| w.front_office.college.portal.iter().any(|t| t.id == id && t.committed.is_some());
+    assert!(committed(&w, ia), "a clear overpay decides him: {said}");
+    // The last place is his: B can't tell you yes too.
+    let said = desk::portal_offer(&mut w, ib, Some((left * 0.5).min(4.0e6)), None).unwrap();
+    assert!(!committed(&w, ib), "your roster has no place left for a second yes: {said}");
+    assert!(!portal::race(&w, b).iter().any(|r| r.0 == mine), "you aren't in his race");
+    // Without A's yes, the place would be open to him.
+    let t = w.front_office.college.portal.iter_mut().find(|t| t.id == ia).unwrap();
+    let yes = t.committed.take();
+    assert!(portal::race(&w, b).iter().any(|r| r.0 == mine), "with A's place free, you are in B's race");
+    w.front_office.college.portal.iter_mut().find(|t| t.id == ia).unwrap().committed = yes;
+    assert!(desk::portal_pull(&mut w, ia).is_err(), "the offer he said yes to holds");
+    // Both decide tonight: the one who said yes signs first.
+    w.people[b].cal.portal.as_mut().unwrap().decide_by = w.today;
+    recruiting::portal_day(&mut w, false);
+    assert_eq!(w.people[a].college, Some(mine), "he signs with you");
+    assert_ne!(w.people[b].college, Some(mine), "no place was left for him");
 }

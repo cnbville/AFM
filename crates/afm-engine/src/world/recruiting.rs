@@ -2444,7 +2444,7 @@ pub(crate) fn takes_a_place(p: &Person, whole_roster: bool, season: i32) -> bool
 /// a staff counts them (minor bug 131: with them counted, a full roster in
 /// December had no room until its seniors left in January, and the good
 /// transfers it would have taken went to the FCS).
-fn counted_rosters(w: &World, season: i32) -> Vec<usize> {
+pub(crate) fn counted_rosters(w: &World, season: i32) -> Vec<usize> {
     let mut n: Vec<usize> = w
         .programs
         .iter()
@@ -4016,8 +4016,14 @@ pub(crate) fn commit_now(w: &mut World, i: usize, j: usize, d: Date, walk_on: bo
     let why = w.logging().then(|| super::wlog::why::choice(w, i, j, "commit", walk_on));
     let p = &mut w.people[i];
     p.cal.commit = Some((j, d, walk_on));
-    w.log.commits += 1;
-    w.log.commits_by_month[month] += 1;
+    // A flip is counted as a flip, as signing day counts one, not as a
+    // second commitment.
+    if flipped.is_some() {
+        w.log.flips += 1;
+    } else {
+        w.log.commits += 1;
+        w.log.commits_by_month[month] += 1;
+    }
     let age = p.player.age - started as u32;
     let stars = p.stars;
     let name = p.name.clone();
@@ -6896,7 +6902,7 @@ impl Why {
 pub(crate) struct PortalMarket {
     /// The offseason it belongs to (the season just played) and the season the entrants play next.
     label: i32,
-    season: i32,
+    pub(crate) season: i32,
     serious: std::collections::HashSet<usize>,
     medians: [[f64; POSITION_COUNT]; DIVISION_COUNT],
     floors: [[f64; POSITION_COUNT]; DIVISION_COUNT],
@@ -8171,7 +8177,17 @@ pub(crate) fn portal_race(w: &World, i: usize) -> Vec<(usize, f64)> {
         *x = x.max(b as f64);
     }
     let counted = counted_rosters(w, mk.season);
-    let adds = vec![0usize; w.programs.len()];
+    // The places your other yeses hold tonight are taken (they sign first).
+    let mut adds = vec![0usize; w.programs.len()];
+    if let Some(m) = pwant.as_ref() {
+        adds[m.program] = m
+            .offers
+            .iter()
+            .filter(|&(&o, x)| {
+                x.committed && o != id && fo::index_of(w, o).is_some_and(|k| w.people[k].cal.portal.is_some())
+            })
+            .count();
+    }
     let shop = Shop {
         norms: &w.system_norms,
         pwant: pwant.as_ref(),
@@ -8217,7 +8233,14 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         return;
     }
     let perf_of = |p: &Person| p.last_performance.unwrap_or(p.player.overall());
-    due.sort_by(|&a, &b| perf_of(&w.people[b]).total_cmp(&perf_of(&w.people[a])).then(a.cmp(&b)));
+    // Your program wants only the entrants you offered (lane 10).
+    let pwant = fo::college::portal_wants(w);
+    // Those who told you yes sign first: the places they were promised
+    // are theirs before anyone else's decision takes one.
+    let yes = |i: usize| yours_in(pwant.as_ref(), w.people[i].player.id).1.is_some();
+    due.sort_by(|&a, &b| {
+        yes(b).cmp(&yes(a)).then(perf_of(&w.people[b]).total_cmp(&perf_of(&w.people[a]))).then(a.cmp(&b))
+    });
     let pn = w.programs.len();
     let season = market.season;
     let one_time = w.changes.rules(season).one_time_transfer;
@@ -8231,8 +8254,6 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
     // The day's landings (person, program), applied to the rosters in
     // place: a full rebuild every portal day costs more than the decisions.
     let mut landings: Vec<(usize, usize)> = Vec::new();
-    // Your program wants only the entrants you offered (lane 10).
-    let pwant = fo::college::portal_wants(w);
     // Head starts and placements (C15, C16): the buyer or the friend wants
     // him; so does a head coach who took a new job and wants him along
     // (minor bug 86).

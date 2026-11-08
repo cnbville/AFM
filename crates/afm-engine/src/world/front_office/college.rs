@@ -457,7 +457,9 @@ pub(crate) fn portal_wants(w: &World) -> Option<PortalWants> {
         .college
         .portal
         .iter()
-        .filter(|t| t.offered.is_some())
+        // A settled target's offer and yes were for a window he has
+        // decided: a later one starts fresh.
+        .filter(|t| t.offered.is_some() && !t.settled)
         .map(|t| {
             (
                 t.id,
@@ -1185,6 +1187,8 @@ fn scan_portal(w: &mut World, j: usize, d: Date) {
     let mut lines = Vec::new();
     let mut settle = Vec::new();
     let mut promises = Vec::new();
+    // He decided without landing with you: a yes he told you is spent.
+    let mut spent = Vec::new();
     for t in w.front_office.college.portal.iter().filter(|t| !t.settled) {
         let Some(&i) = at.get(&t.id) else {
             settle.push(t.id);
@@ -1195,7 +1199,11 @@ fn scan_portal(w: &mut World, j: usize, d: Date) {
             continue;
         }
         let who = format!("{} ({})", p.name, p.player.position);
-        if p.stage == Stage::College && p.college == Some(j) && p.path.last() == Some(&j) && t.from != j {
+        let landed = p.stage == Stage::College && p.college == Some(j) && p.path.last() == Some(&j) && t.from != j;
+        if !landed && t.committed.is_some() {
+            spent.push(t.id);
+        }
+        if landed {
             lines.push(format!("{who} transfers to you from {}.", w.program_name(t.from)));
             settle.push(t.id);
             // Your promise when he came is yours to keep now.
@@ -1221,6 +1229,12 @@ fn scan_portal(w: &mut World, j: usize, d: Date) {
         if settle.contains(&t.id) {
             t.settled = true;
         }
+        if spent.contains(&t.id) {
+            t.committed = None;
+        }
+    }
+    for &id in &settle {
+        super::portal::close_visits(w, id, "He made his choice before the day came.");
     }
     for text in lines {
         note(w, text.clone(), None);
@@ -2962,6 +2976,9 @@ pub fn portal_offer(w: &mut World, id: u32, nil: Option<f64>, coll: Option<f64>)
         return Err("He isn't in the portal: an offer before he enters is tampering. Reach out quietly instead.".into());
     }
     let j = super::program(w).ok_or("You have no college job.")?;
+    if said_yes(w, id) {
+        return Err(SAID_YES.into());
+    }
     if (nil.is_some() || coll.is_some()) && !ncaa::nil_era(w.today.year()) {
         return Err("NIL deals are allowed from July 1, 2021.".into());
     }
@@ -3008,13 +3025,26 @@ pub fn portal_offer(w: &mut World, id: u32, nil: Option<f64>, coll: Option<f64>)
     Ok(format!("Offer out to {name}. {said}{yes}"))
 }
 
+/// He told you yes on the offer as it stands: it holds until he signs tonight.
+const SAID_YES: &str = "He's told you yes on this offer. He signs tonight.";
+
+fn said_yes(w: &World, id: u32) -> bool {
+    w.front_office.college.portal.iter().any(|t| t.id == id && !t.settled && t.committed.is_some())
+}
+
 pub fn portal_pull(w: &mut World, id: u32) -> Result<String, String> {
+    if said_yes(w, id) {
+        return Err(SAID_YES.into());
+    }
     let t = w.front_office.college.portal.iter_mut().find(|t| t.id == id && !t.settled).ok_or("No offer to pull.")?;
     t.offered = None;
     Ok("Offer pulled.".into())
 }
 
 pub fn portal_forget(w: &mut World, id: u32) -> Result<String, String> {
+    if said_yes(w, id) {
+        return Err(SAID_YES.into());
+    }
     w.front_office.college.portal.retain(|t| t.id != id || t.settled);
     Ok("Taken off your portal list.".into())
 }
@@ -3373,6 +3403,11 @@ pub(crate) fn board_check(w: &mut World, j: usize, id: u32) -> Option<String> {
     let from = p.cal.commit.map(|c| w.program_name(c.0).to_string());
     let today = w.today;
     rec::commit_now(w, i, j, today, false);
+    // The morning scan has heard it from you already.
+    let seen = standing(&w.people[i], j);
+    if let Some(t) = w.front_office.college.board.iter_mut().find(|t| t.id == id) {
+        t.seen = seen;
+    }
     let p = &mut w.people[i];
     if p.cal.commit_timing.is_none_or(|t| t > crate::world::CommitTiming::Early) {
         p.cal.commit_timing = Some(crate::world::CommitTiming::Early);

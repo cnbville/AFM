@@ -719,7 +719,7 @@ screens.portal_desk = async () => {
       { k: "why", t: "Why he left", l: true, wrap: true, div: true },
       { k: "days", t: "Decides", tip: "When he means to choose", f: (r) => `<span title="${esc(fcIn(r.days))}">${esc(String(r.decide || "").replace(/ \d{4}$/, ""))}</span>` },
       { k: "sits", t: "", l: true, v: (r) => (r.sits ? 1 : 0), f: (r) => (r.sits ? '<span class="st-pill gold" title="He would sit out a season with you">Sits a year</span>' : "") },
-      { k: "offered", t: "Your offer", l: true, div: true, v: (r) => (r.offered ? 1 : 0), f: (r) => (r.offered ? `<span class="fc-rowacts"><span class="st-pill good">Offered</span>${nilIn(r)}<button class="st-btn small glass" data-fc="ppull" data-id="${r.id}">Pull</button></span>` : `<span class="fc-rowacts">${nilIn(r)}<button class="st-btn small primary" data-fc="poffer" data-id="${r.id}">Offer</button></span>`) },
+      { k: "offered", t: "Your offer", l: true, div: true, v: (r) => (r.offered ? 1 : 0), f: (r) => (r.committed ? '<span class="st-pill good">Told you yes</span>' : r.offered ? `<span class="fc-rowacts"><span class="st-pill good">Offered</span>${nilIn(r)}<button class="st-btn small glass" data-fc="ppull" data-id="${r.id}">Pull</button></span>` : `<span class="fc-rowacts">${nilIn(r)}<button class="st-btn small primary" data-fc="poffer" data-id="${r.id}">Offer</button></span>`) },
     ];
     const posSel = `<select class="fc-select" data-fcf2="pos"><option value="ALL">Every position</option>${POS.map((p) => `<option ${k.pos === p ? "selected" : ""}>${p}</option>`).join("")}</select>`;
     const divs = [["ALL", "Every division"], ["FBS", "FBS"], ["FCS", "FCS"], ["D2", "D2"], ["NAIA", "NAIA"], ["D3", "D3"], ["JUCO", "JUCO"]];
@@ -737,7 +737,7 @@ screens.portal_desk = async () => {
       { k: "nil", t: "NIL", tip: "Your offer's money a year: revenue share, and the collective's deal from July 2025", v: (r) => (r.nil || 0) + (r.coll || 0), f: (r) => (r.nil != null || r.coll != null ? money((r.nil || 0) + (r.coll || 0)) + (r.coll ? ` <small class="sub">${money(r.coll)} collective</small>` : "") : '<span class="muted">none</span>') },
       { k: "answer", t: "His answer", l: true, wrap: true, v: (r) => (r.answer ? r.answer.word : ""), f: (r) => (r.answer ? `<span class="st-pill ${FC_MOOD_TONE[r.answer.mood] || ""}">${esc(r.answer.word)}</span> <small class="sub">${esc(r.answer.text)}</small>` : '<span class="muted">-</span>') },
       { k: "decide", t: "Decides", l: true, f: (r) => esc(r.decide || "-") },
-      { k: "act", t: "", l: true, f: (r) => (r.settled ? "" : `<button class="st-btn small glass" data-fc="pforget" data-id="${r.id}">Forget him</button>`) },
+      { k: "act", t: "", l: true, f: (r) => (r.settled || r.committed ? "" : `<button class="st-btn small glass" data-fc="pforget" data-id="${r.id}">Forget him</button>`) },
     ], x.targets, { empty: "No targets yet. Offer an entrant, or reach out quietly to a player with whispers about him." });
   } else if (k.tab === "roster") {
     body = `<p class="sub">Your players by how likely they are to leave, in your staff's words. A talk sways a player the way your relationships with players do: a good one keeps him, a poor one can push him.</p>

@@ -204,6 +204,7 @@ pub(crate) fn check(w: &mut World, id: u32) -> Option<String> {
     if let Some(e) = w.people[i].cal.portal.as_mut() {
         e.decide_by = today;
     }
+    close_visits(w, id, "He told you yes before the day came.");
     let name = w.people[i].name.clone();
     let pos = w.people[i].player.position;
     let text = format!(
@@ -346,6 +347,9 @@ pub fn set_visit(w: &mut World, id: u32, kind: VisitKind, d: Date) -> Result<Str
     if t.visits.iter().any(|v| v.kind == kind && matches!(v.state, VisitState::Set | VisitState::Done)) {
         return Err(format!("You have his {} already.", kind.name().to_lowercase()));
     }
+    if t.visits.iter().any(|v| v.date == d && v.state == VisitState::Set) {
+        return Err(format!("You see him on {} already.", d.pretty()));
+    }
     let reply = answer(w, i, j, kind, d);
     let (state, text) = match &reply {
         Ok(t) => (VisitState::Set, t.clone()),
@@ -356,8 +360,7 @@ pub fn set_visit(w: &mut World, id: u32, kind: VisitKind, d: Date) -> Result<Str
         t.visits.push(Plan { id, kind, date: d, state, note: text.clone() });
     }
     if state == VisitState::Set {
-        let at = if kind == VisitKind::Official { ON_CAMPUS } else { AT_HOME };
-        dialogue::transfer_talk(w, id, j, d, at);
+        dialogue::transfer_talk(w, id, j, d, at_of(kind));
     }
     let name = w.people[i].name.clone();
     note(w, format!("{} for portal entrant {name} on {}: {text}", kind.name(), d.pretty()), Some(id));
@@ -371,8 +374,29 @@ pub fn cancel_visit(w: &mut World, id: u32, kind: VisitKind) -> Result<String, S
     v.state = VisitState::Off;
     v.note = "You called it off.".into();
     let d = v.date;
-    dialogue::transfer_visit_off(w, id, d, "You called it off.");
+    dialogue::transfer_visit_off(w, id, d, at_of(kind), "You called it off.");
     Ok(format!("{} called off.", kind.name()))
+}
+
+/// Where a visit's talk happens.
+fn at_of(kind: VisitKind) -> f32 {
+    if kind == VisitKind::Official { ON_CAMPUS } else { AT_HOME }
+}
+
+/// His visits still set are off (he decided, or told you yes), each with
+/// its talk.
+pub(crate) fn close_visits(w: &mut World, id: u32, why: &str) {
+    let mut off = Vec::new();
+    for t in w.front_office.college.portal.iter_mut().filter(|t| t.id == id) {
+        for v in t.visits.iter_mut().filter(|v| v.state == VisitState::Set) {
+            v.state = VisitState::Off;
+            v.note = why.to_string();
+            off.push((v.date, at_of(v.kind)));
+        }
+    }
+    for (d, at) in off {
+        dialogue::transfer_visit_off(w, id, d, at, why);
+    }
 }
 
 /// The day's visits happen (the talk at their end is its own scene).
@@ -410,7 +434,7 @@ fn run_visits(w: &mut World, j: usize, d: Date) {
             None => format!("You sat with {name} at home."),
         };
         if off.is_some() {
-            dialogue::transfer_visit_off(w, id, d, &text);
+            dialogue::transfer_visit_off(w, id, d, at_of(kind), &text);
         } else {
             tell(w, d, text.clone(), false);
             if kind == VisitKind::Official {

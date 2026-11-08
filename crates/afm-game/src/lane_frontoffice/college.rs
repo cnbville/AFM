@@ -1675,6 +1675,7 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
                 "offered": t.is_some_and(|t| t.offered.is_some()), "nil": t.and_then(|t| t.nil),
                 "coll": t.and_then(|t| t.nil_coll),
                 "contacted": t.is_some_and(|t| t.contacted.is_some()), "sits": sits,
+                "committed": t.is_some_and(|t| t.committed.is_some()),
                 "usual": if ncaa::nil_era(w.year) { pot / 40.0 } else { 0.0 },
                 "coll_usual": if ncaa::nil_era(w.year) { coll_pot / 40.0 } else { 0.0 },
             }),
@@ -1763,10 +1764,10 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
             Some(json!({
                 "id": t.id, "name": p.name, "pos": p.player.position.name(), "from": brief(w, t.from),
                 "status": status, "offered": t.offered.map(short_date), "nil": t.nil, "coll": t.nil_coll,
-                "decide": p.cal.portal.map(|e| short_date(e.decide_by)), "settled": t.settled,
+                "decide": p.cal.portal.filter(|e| !e.held).map(|e| short_date(e.decide_by)), "settled": t.settled,
                 "answer": desk::reaction(w, t.id, desk::MoneyKind::Portal).map(answer_json),
                 "interest": (!t.settled && p.cal.portal.is_some()).then(|| { let it = portal_interest(w, j, i, t); json!({ "words": it.words, "tone": it.tone }) }),
-                "promise": t.promise.map(|x| promise_words(x.0)), "committed": t.committed.map(short_date),
+                "promise": t.promise.map(|x| promise_words(x.0)), "committed": t.committed.filter(|_| !t.settled).map(short_date),
                 "next": t.visits.iter().filter(|v| v.state == VisitState::Set && v.date >= today).min_by_key(|v| v.date).map(|v| format!("{}, {}", v.kind.name(), short_date(v.date))),
             }))
         })
@@ -1899,6 +1900,7 @@ fn portal_file(w: &World, j: usize, args: &Value) -> Reply {
     let t = d.portal.iter().find(|t| t.id == id && !t.settled);
     let (read, pot, yours) = staff_read(w, p);
     let e = p.cal.portal;
+    let open = e.filter(|e| !e.held);
     let c = p.college;
     let shopping = e.is_some_and(|e| !e.held && e.entered <= today) && p.stage == Stage::College;
     let race = if shopping { portal::race(w, i) } else { Vec::new() };
@@ -2005,8 +2007,9 @@ fn portal_file(w: &World, j: usize, args: &Value) -> Reply {
     });
     let more = json!({
         "status": status, "shopping": shopping, "why": e.map(|e| e.why.to_string()),
-        "entered": e.map(|e| short_date(e.entered)), "decide": e.map(|e| short_date(e.decide_by)),
-        "days": e.map(|e| today.days_to(e.decide_by).max(0)), "sits": sits,
+        // A held entrant's dates wait for his team's season to end.
+        "entered": open.map(|e| short_date(e.entered)), "decide": open.map(|e| short_date(e.decide_by)),
+        "days": open.map(|e| today.days_to(e.decide_by).max(0)), "sits": sits,
         "interest": it.as_ref().map(|it| it.words.clone()), "tone": it.as_ref().map(|it| it.tone), "reason": it.as_ref().map(|it| it.reason.clone()),
         "schools": schools, "schools_n": race.len(),
         "bar": meter.map(|m| { let (w2, tone) = bar_words(m); json!({ "m": (m * 100.0).round() / 100.0, "words": w2, "tone": tone }) }),

@@ -558,10 +558,14 @@ pub(crate) fn transfer_talk(w: &mut World, id: u32, j: usize, d: Date, at: f32) 
     scene::add(w, s)
 }
 
-/// A transfer's visit called off takes its talk with it.
-pub(crate) fn transfer_visit_off(w: &mut World, id: u32, d: Date, why: &str) {
-    for s in
-        w.folk.scenes.iter_mut().filter(|s| s.kind == Kind::PortalVisit && s.a == id as u64 && s.date == d && !s.done)
+/// A transfer's visit called off takes its talk with it (the talk at
+/// that place on that day).
+pub(crate) fn transfer_visit_off(w: &mut World, id: u32, d: Date, at: f32, why: &str) {
+    for s in w
+        .folk
+        .scenes
+        .iter_mut()
+        .filter(|s| s.kind == Kind::PortalVisit && s.a == id as u64 && s.date == d && s.f[1] == at && !s.done)
     {
         s.outcome.push(why.to_string());
         s.handed = Some("nobody".into());
@@ -656,6 +660,11 @@ fn transfer_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     let id = s.a as u32;
     let j = s.b as usize;
     let Some(i) = super::person(w, id) else { return s.end() };
+    // A talk left open past his decision has nothing left to settle.
+    if w.people[i].cal.portal.is_none() {
+        s.outcome.push("He has made his choice: there is nothing left to talk about.".into());
+        return s.end();
+    }
     let sp = Speaker::player(w, i);
     let me = scene::your_name(w);
     match code {
@@ -672,10 +681,14 @@ fn transfer_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         711 | 712 => {
             let kind = (code - 711) as u8;
             s.you(&me, picked.label.trim_matches('"'));
-            let read = crate::world::front_office::portal::promise(w, id, kind);
+            let Some(read) = crate::world::front_office::portal::promise(w, id, kind) else {
+                s.outcome
+                    .push("Your staff has no place for him to promise: the roster is full, or he can't come.".into());
+                return finish_transfer(w, s, id);
+            };
             let key = match read {
-                Some((_, _, PlayingTime::Starter)) if kind == 0 => "knows",
-                Some((_, b, _)) if b >= 0.6 => "believes",
+                (_, _, PlayingTime::Starter) if kind == 0 => "knows",
+                (_, b, _) if b >= 0.6 => "believes",
                 _ => "doubts",
             };
             let t = line(w, s, 4, &format!("portal.promise.{key}"), &sp, &Facts::new());
@@ -744,6 +757,16 @@ fn transfer_hand(w: &mut World, s: &mut Scene) {
     let id = s.a as u32;
     let j = s.b as usize;
     let Some(i) = super::person(w, id) else { return };
+    // You made your pitch and left before a promise: it stands, and
+    // nobody promises for you.
+    if s.c == 2 {
+        s.handed = Some("nobody".into());
+        s.outcome.push("Your pitch stands. Nobody made him a promise for you.".into());
+        if let Some(t) = crate::world::front_office::portal::after_talk(w, id) {
+            s.outcome.push(t);
+        }
+        return;
+    }
     // Your position coach for his spot makes the call or the pitch.
     let c = caller(w, i, j);
     let (role, nil) = crate::world::front_office::portal::place(w, i, j);
