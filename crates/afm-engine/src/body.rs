@@ -391,9 +391,9 @@ pub fn drill_knack(p: &Player) -> (f64, f64) {
 
 /// How much an edge's 3-cone and shuttle knacks go together (E1), set so
 /// drafted edges' two drills go together as real ones do (0.62, 2005-2025
-/// combine edges with both): 0.42 gave 0.42 and 0.8 gave 0.68 (`positions`,
-/// one class). Other positions keep independent knacks (proposed, not
-/// confirmed).
+/// combine edges with both): 0.7 gives 0.60 (`positions`, one class; 0.42
+/// gave 0.42, 0.8 gave 0.68). Other positions keep independent knacks
+/// (proposed, not confirmed).
 const EDGE_KNACK_TOGETHER: f64 = 0.7;
 
 /// Combine results from his attributes and body, with test-day noise.

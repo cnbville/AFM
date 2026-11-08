@@ -26,6 +26,10 @@ use afm_engine::positions::{Position, overall_for};
 use afm_tools::ab::{Arm, Knob, Part, Who, change_one, synthetic, teams_for, world_nfl};
 use rayon::prelude::*;
 
+/// One edge's season: his id, the season, his counts, and his body
+/// (height, weight, arm).
+type EdgeSeason = (u32, usize, Season, (f64, f64, f64));
+
 #[derive(Default, Clone)]
 struct Season {
     snaps: u32,
@@ -206,7 +210,7 @@ fn main() {
             lines.push((id, s, x));
         }
     }
-    let mut edge: Vec<(u32, usize, Season, (f64, f64, f64))> = lines
+    let mut edge: Vec<EdgeSeason> = lines
         .into_iter()
         .filter_map(|(id, s, x)| {
             let &(h, w, arm, pos) = body.get(&id)?;
@@ -217,7 +221,7 @@ fn main() {
     edge.sort_by(|p, q| rate(&q.2).total_cmp(&rate(&p.2)));
     let all = edge.len();
     let top = (all as f64 * 0.10).round() as usize;
-    let share = |v: &[(u32, usize, Season, (f64, f64, f64))], f: &dyn Fn(&(f64, f64, f64)) -> bool| {
+    let share = |v: &[EdgeSeason], f: &dyn Fn(&(f64, f64, f64)) -> bool| {
         100.0 * v.iter().filter(|e| f(&e.3)).count() as f64 / v.len().max(1) as f64
     };
     let light = |b: &(f64, f64, f64)| b.1 < 250.0;
@@ -274,7 +278,7 @@ fn main() {
         q(0.10),
         q(0.5)
     );
-    let mine: Vec<&(u32, usize, Season, (f64, f64, f64))> = edge.iter().filter(|e| e.0 == freak).collect();
+    let mine: Vec<&EdgeSeason> = edge.iter().filter(|e| e.0 == freak).collect();
     if mine.is_empty() {
         println!("The freak played under 200 snaps a season.");
     }

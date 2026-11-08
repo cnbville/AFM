@@ -4474,7 +4474,7 @@ fn rush_feet(sim: &mut Sim, i: usize) -> (f64, f64) {
 /// - Arms (E2): an edge's arm over the typical edge's, 0.18 yards an inch
 ///   while he is still on his blocker, scaled by his weight over the
 ///   typical edge's (0 at 13 lb under, 1 at the typical, up to 3): the
-///   power rusher's long-arm stab. Pure arms add +0.78 pts of sacks a
+///   power rusher's long-arm stab. Pure arms add +0.68 pts of sacks a
 ///   pressure an inch (real +0.65), most for heavy men (real heavy +1.85,
 ///   light -0.15), and no pressures; short-armed men lose nothing.
 const FINISH_REACH: f64 = 0.2;
