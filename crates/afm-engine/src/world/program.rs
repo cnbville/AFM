@@ -526,7 +526,7 @@ const MAJOR_INDEPENDENTS: [&str; 11] = [
     "West Virginia",
 ];
 
-fn division_scale(d: Division) -> f64 {
+pub(crate) fn division_scale(d: Division) -> f64 {
     match d {
         Division::FBS => 1.0,
         Division::FCS => 0.45,
@@ -994,16 +994,27 @@ pub(crate) fn apply_history(w: &mut super::World) {
         } else {
             continue;
         };
+        let start = w.options.start_year;
         let p = &mut w.programs[i];
+        let real = super::buildings::has_buildings(&p.real_name);
         if was && (d as usize) < old_d as usize {
             // A school moves up after building for it: facilities and crowds
             // take a step toward the new level (proposed, not confirmed).
             let step = (division_scale(d) / division_scale(old_d)).sqrt();
-            p.facilities = clamp(p.facilities * step, 0.0, 1.0);
+            if !real {
+                p.facilities = clamp(p.facilities * step, 0.0, 1.0);
+            }
             p.fans = clamp(p.fans * step, 0.0, 1.0);
         }
         p.division = d;
         p.conference = c;
+        // A school with its real buildings reads them at its new level: the
+        // buildings standing this season in the past, last season's in the
+        // season the world hands over (this season's openings are still to
+        // come in July, `finance::college`, `open_projects`).
+        if real && let Some(f) = super::buildings::number(p, if season < start { season } else { season - 1 }) {
+            p.facilities = f;
+        }
         p.story.push((season, text.clone()));
         let loud = match d.min(old_d) {
             Division::FBS => Loudness::Big,

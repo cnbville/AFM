@@ -10,6 +10,7 @@ mod decide;
 mod depth;
 mod development;
 mod faces;
+mod facilities;
 mod fans;
 mod foundations;
 mod front_office;

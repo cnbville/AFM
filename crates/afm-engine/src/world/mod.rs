@@ -14,6 +14,7 @@
 pub mod analytics;
 pub mod background;
 pub mod broadcast;
+pub mod buildings;
 pub mod charts;
 pub(crate) mod chemistry;
 pub(crate) mod clock;
@@ -1349,6 +1350,11 @@ impl World {
             let mut p = program::program_from_row(id, &start, since, seed, &mut rng);
             p.base = probe.base.clone();
             p.set_history(dropped);
+            // Its facilities from its real buildings as they stood that
+            // season, not from its seats (facilities lane item 1).
+            if let Some(f) = buildings::number(&p, since) {
+                p.facilities = f;
+            }
             programs.push(p);
         }
         // Colleges without a team that may start one after 2026 (SK68) wait

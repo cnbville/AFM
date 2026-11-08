@@ -1174,6 +1174,18 @@
     ]
    },
    "added": "2026-10-28"
+  },
+  "college_facilities.csv": {
+   "source": "Wikipedia program, stadium and facility articles (cached API reads) and web search results naming school releases and local news; a source URL on every row",
+   "years": "projects opened 1975-2028 (ground broken by 2025)",
+   "level": "FBS (the 138 programs of 2026)",
+   "status": "sourced",
+   "holes": "199 of 637 projects have no cost found (the median of their kind and tier stands in) and many lack a groundbreaking year (the kind's usual build time stands in); upgrades under about $3M are left out; older buildings' costs before 1990 are mostly unknown",
+   "areas": [
+    "C1",
+    "C14"
+   ],
+   "added": "2026-11-08"
   }
  },
  "in_code": [
