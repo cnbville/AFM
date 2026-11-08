@@ -395,8 +395,13 @@ fn c15_answer(w: &mut World, s: &mut Scene, code: u32) {
     };
     match code {
         151 | 153 => {
-            if cost > 0.0 {
-                let left = crate::world::front_office::college::budget(w, j).left;
+            // Sandbox mode (the NIL budget or money switch): it costs your
+            // collective nothing, so the money the AI programs read is the
+            // real one.
+            let b = crate::world::front_office::college::budget(w, j);
+            let free = b.unlimited || w.sandbox(crate::world::sandbox::Switch::Money);
+            if cost > 0.0 && !free {
+                let left = b.left;
                 if left < cost {
                     s.outcome.push(format!("You don't have {} left this year. You passed.", money(cost)));
                     return s.end();

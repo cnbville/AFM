@@ -1637,16 +1637,22 @@ pub(crate) fn combine(w: &mut World, invited: &[usize]) {
         list.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
         // Your war room's own interview list goes first.
         let mine = super::super::scouting::predraft::seat_list(w, t, super::super::scouting::predraft::LIST_INTERVIEW);
+        let mut take = interviews;
         if !mine.is_empty() {
             let pick: Vec<usize> =
                 mine.iter().filter_map(|id| invited.iter().copied().find(|&i| w.people[i].player.id == *id)).collect();
+            // Sandbox mode's contact rules: every name on your list is
+            // interviewed (only your club has a list).
+            if w.sandbox(crate::world::sandbox::Switch::ContactRules) {
+                take = take.max(pick.len());
+            }
             list.retain(|x| !pick.contains(&x.0));
             for (k, i) in pick.into_iter().enumerate() {
                 list.insert(k, (i, 0.0));
             }
         }
         let d = director(&w.clubs[t].scouts);
-        for &(i, _) in list.iter().take(interviews) {
+        for &(i, _) in list.iter().take(take) {
             file(w, t, i, d, LookKind::Interview, date);
         }
     }
@@ -1762,7 +1768,10 @@ pub(crate) fn spring(w: &mut World) {
         let visits: Vec<usize> = if mine.is_empty() {
             list.iter().skip(from).take(30).map(|x| x.0).collect()
         } else {
-            mine.iter().filter_map(|&id| super::super::scouting::place(w, id)).take(30).collect()
+            // Sandbox mode's contact rules: every visit on your list (only
+            // your club has one).
+            let cap = if w.sandbox(crate::world::sandbox::Switch::ContactRules) { usize::MAX } else { 30 };
+            mine.iter().filter_map(|&id| super::super::scouting::place(w, id)).take(cap).collect()
         };
         for i in visits {
             // A top prospect's camp turns some visits down (the club's

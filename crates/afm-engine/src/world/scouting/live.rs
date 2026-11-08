@@ -621,9 +621,11 @@ pub fn rush(w: &mut World) -> Result<DraftRecord, String> {
     if pfa.is_empty() {
         pfa = default_pfa(w, &l);
     }
+    // Sandbox mode's money switch: your bonuses go past the pool.
+    let free = w.sandbox(crate::world::sandbox::Switch::Money);
     for (id, bonus, gtd) in pfa {
         let Some(&i) = left.get(&id) else { continue };
-        let b = (bonus as f64).min((pool_cap - spent).max(0.0));
+        let b = if free { bonus as f64 } else { (bonus as f64).min((pool_cap - spent).max(0.0)) };
         spent += b;
         mine.push((i, Offer { team, bonus: b, guarantee: gtd as f64 }));
     }

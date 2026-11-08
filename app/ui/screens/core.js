@@ -2126,7 +2126,7 @@ screens.settings = async () => {
   title("Settings");
   const seg = (k, list, cur) => `<div class="seg">${list.map(([v, t]) => `<button data-act="set" data-k="${k}" data-v="${v}" aria-pressed="${String(cur) === String(v)}">${t}</button>`).join("")}</div>`;
   const row = (t, sub, ctl) => `<div class="setrow"><div><b>${t}</b><small>${sub}</small></div>${ctl}</div>`;
-  const nf = await api("no_fire").catch(() => null);
+  const [nf, sb] = await Promise.all([api("no_fire").catch(() => null), api("sandbox").catch(() => null)]);
   const keys = [["Space", "Continue"], ["⌘K", "Search anything"], ["⌘[ and ⌘]", "Back and forward"], ["Shift-click", "Open beside this screen"], ["⌘-click", "Open in its own window"], ["Right-click a name", "Add to my players, add a note, compare"], ["↑ ↓ and return", "Move through a table and open the row"], ["← →", "Older and newer letter"], ["Esc", "Close the letter or panel"]];
   return `<div class="pad">${pageHead({ title: "Settings" })}<div class="grid2"><div class="panel"><h2>Look</h2>
     ${row("Theme", "Showtime dark, or light for daytime", seg("theme", [["", "Dark"], ["light", "Light"]], prefs.theme || ""))}
@@ -2135,20 +2135,30 @@ screens.settings = async () => {
     <div class="panel"><h2>Reading</h2>
     ${row("Hover cards", "A card when you rest on a name", seg("hover", [["", "On"], ["off", "Off"]], prefs.hover || ""))}
     ${row("Hover delay", "How long to rest first", seg("hoverDelay", [["250", "Quick"], ["", "Normal"], ["900", "Slow"]], prefs.hoverDelay || ""))}</div></div>
-    ${nf && nf.career ? noFirePanel(nf, row) : ""}
+    ${sb && sb.career ? sandboxPanel(sb, nf, row) : ""}
     <div class="panel"><h2>Logos</h2>${row("Logo packs", "AFM has no logos of its own: install a pack, the way Football Manager's work", linkTo("logos", {}, "Logos", "st-btn small"))}</div>
     <div class="panel"><h2>Keys and clicks</h2><div class="keys">${keys.map(([k, t]) => `<div><kbd>${esc(k)}</kbd><span>${esc(t)}</span></div>`).join("")}</div></div></div>`;
 };
 
-// The no-fire override (a test switch): nothing ends your job while it is
-// on, and each time something would have, it is listed here and in the inbox.
-function noFirePanel(nf, row) {
-  const seg = `<div class="seg"><button data-act="nofire" data-v="" aria-pressed="${!nf.on}">Off</button><button data-act="nofire" data-v="1" aria-pressed="${nf.on}">On</button></div>`;
-  const mark = nf.since ? ` This career is marked as having used it since ${esc(nf.since)}; the mark stays when you turn it off.` : " Turning it on marks this career and its saves for good.";
-  const list = nf.spared.slice(0, 12).map((x) => `<div class="setrow"><div><b>${esc(x.date)}</b><small>${esc(x.at)}: ${esc(x.why)}</small></div></div>`).join("");
-  const more = nf.spared.length > 12 ? `<small class="muted">and ${nf.spared.length - 12} more</small>` : "";
-  const kept = nf.spared.length ? `<h3 class="st-label" style="margin-top:12px">Times it kept you in a job (${nf.spared.length})</h3>${list}${more}` : nf.since ? `<small class="muted">It hasn't had to keep you yet.</small>` : "";
-  return `<div class="panel"><h2>Testing</h2>${row("No-fire override", `Nothing ends your job: no firing, no contract left to run out, no new head coach letting you go. Your inbox still says each time it would have happened.${mark}`, seg)}${kept}</div>`;
+// Sandbox mode (a test switch): each switch lifts one of your own limits
+// while it is on; the AI and the world play by the real rules. The no-fire
+// override is one of its switches, and the times it kept you in a job are
+// listed under it.
+function sandboxPanel(sb, nf, row) {
+  const onOff = (act, on, k) => `<div class="seg"><button data-act="${act}" ${k ? `data-key="${esc(k)}"` : ""} data-v="" aria-pressed="${!on}">Off</button><button data-act="${act}" ${k ? `data-key="${esc(k)}"` : ""} data-v="1" aria-pressed="${on}">On</button></div>`;
+  const mark = sb.since ? ` This career is marked as a sandbox career since ${esc(sb.since)}, on its saves too; the mark stays when you turn it off.` : " Turning it on lifts every switch below and marks this career and its saves for good.";
+  const groups = [...new Set(sb.switches.map((s) => s.group))];
+  const sw = groups.map((g) => `<h3 class="st-label sb-group">${esc(g)}</h3>${sb.switches.filter((s) => s.group === g).map((s) => row(esc(s.label), esc(s.what), onOff("sbsw", s.lifted, s.key))).join("")}`).join("");
+  const spared = (nf && nf.spared) || [];
+  const list = spared.slice(0, 12).map((x) => `<div class="setrow"><div><b>${esc(x.date)}</b><small>${esc(x.at)}: ${esc(x.why)}</small></div></div>`).join("");
+  const more = spared.length > 12 ? `<small class="muted">and ${spared.length - 12} more</small>` : "";
+  const kept = spared.length ? `<h3 class="st-label sb-group">Times no-fire kept you in a job (${spared.length})</h3>${list}${more}` : "";
+  const max = (() => { const d = new Date(sb.today + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + sb.jump_max); return d.toISOString().slice(0, 10); })();
+  const min = (() => { const d = new Date(sb.today + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); })();
+  const jump = row("Jump to a date", "Every day plays as Continue plays it, with no stop for huge moments: your staff makes every call you leave, a live draft included. Up to two years at a time.", `<div class="sb-jump"><input type="date" class="ssel" min="${min}" max="${max}" value="${min}" aria-label="Day to jump to"${sb.on ? "" : " disabled"}><button class="st-btn small ${sb.on ? "primary" : "glass"}" data-act="sbjump"${sb.on ? "" : " disabled"}>Jump</button></div>`);
+  return `<div class="panel sandbox${sb.on ? " on" : ""}"><h2><span class="sb-title">Sandbox mode${sb.on ? ' <span class="st-pill gold">On</span>' : ""}</span> <small>for testing</small></h2>
+    ${row("Sandbox mode", `Lifts your own limits so you can test without them. Only yours: the AI programs, the AI clubs and the rest of the world play by the real rules.${mark}`, onOff("sandbox", sb.on))}
+    <div class="sb-switches"${sb.on ? "" : ' aria-disabled="true"'}>${sb.on ? "" : '<small class="muted">The switches apply while sandbox mode is on.</small>'}${sw}<h3 class="st-label sb-group">Calendar</h3>${jump}</div>${kept}</div>`;
 }
 
 // ---------- search as a page (the palette is ⌘K) ----------
@@ -2171,6 +2181,47 @@ if (!screens.studio) screens.studio = async (a) => liveRoom({ kicker: a.kicker |
 
 // The actions the screens above add.
 const CORE_MORE = {
+  sandbox: async (el) => {
+    const on = el.dataset.v === "1";
+    if (el.getAttribute("aria-pressed") === "true") return;
+    if (on && !(await sure("Turn on sandbox mode?", "It lifts your own limits for testing; the AI and the world keep the real rules. This career is marked as a sandbox career, on its saves too, even after you turn it off.", "Turn it on"))) return;
+    try {
+      const r = await api("sandbox_set", { on });
+      if (S.status) S.status.sandbox = r.on;
+      toast(on ? "Sandbox mode on: your limits are lifted." : "Sandbox mode off: the real limits are back.");
+      refresh(el);
+    } catch (e) { toast(e.message); }
+  },
+  sbsw: async (el) => {
+    if (el.getAttribute("aria-pressed") === "true") return;
+    const on = el.dataset.v === "1";
+    // Lifting a switch with the mode off turns it on: the same question.
+    const box = el.closest(".sb-switches");
+    const off = box && box.getAttribute("aria-disabled") === "true";
+    if (on && off && !(await sure("Turn on sandbox mode?", "Lifting a switch turns sandbox mode on. It lifts your own limits for testing; the AI and the world keep the real rules. This career is marked as a sandbox career, on its saves too, even after you turn it off.", "Turn it on"))) return;
+    try {
+      const r = await api("sandbox_switch", { key: el.dataset.key, on });
+      if (S.status) S.status.sandbox = r.on;
+      refresh(el);
+    } catch (e) { toast(e.message); }
+  },
+  sbjump: async (el) => {
+    const box = el.closest(".sb-jump");
+    const until = box && box.querySelector("input").value;
+    if (!until) return toast("Pick a day to jump to.");
+    const room = document.createElement("div");
+    room.className = "holiday-room";
+    room.innerHTML = `<div class="hol-sun"></div><div class="hol-copy"><div class="st-label">Sandbox mode</div><div class="h1">Jumping to ${esc(until)}</div><p class="sub">Every day plays; your staff makes the calls.</p><div class="st-bar"><i></i></div></div>`;
+    document.body.appendChild(room);
+    try {
+      const r = await api("sandbox_jump", { until });
+      S.status = r.status;
+      toast(`Jumped ${r.days} day${r.days === 1 ? "" : "s"}: now ${r.today}.`);
+      go("home", {}, { root: true });
+      if (typeof showReveals === "function") showReveals(r.status && r.status.reveals);
+    } catch (e) { toast(e.message); }
+    room.remove();
+  },
   nofire: async (el) => {
     const on = el.dataset.v === "1";
     if (el.getAttribute("aria-pressed") === "true") return;
