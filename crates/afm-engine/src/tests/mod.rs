@@ -34,6 +34,7 @@ mod new_teams;
 mod nil;
 mod no_fire;
 mod pipeline;
+mod placement;
 mod polls;
 mod portal_talks;
 mod ratings;

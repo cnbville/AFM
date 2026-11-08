@@ -113,6 +113,11 @@ pub(crate) fn placed(w: &World, id: u32) -> bool {
     w.folk.backchannel.placed.iter().any(|s| s.player == id)
 }
 
+/// He decided in the portal: his placement is spent (minor bug 325).
+pub(crate) fn settled(w: &mut World, id: u32) {
+    w.folk.backchannel.placed.retain(|s| s.player != id);
+}
+
 /// Each entrant's ties to a buyer or a friend's program: (player id,
 /// program) to appeal points. A program with one wants him whatever its
 /// depth chart says (it vouched for him, or paid).
@@ -402,7 +407,7 @@ fn c15_answer(w: &mut World, s: &mut Scene, code: u32) {
             if kind == 2
                 && let Some(k) = k
             {
-                w.folk.network.contacts[k].balance -= 1;
+                w.folk.network.contacts[k].shift(-1);
                 let coach = w.folk.network.contacts[k].coach;
                 w.folk.network.ledger.push(Favour {
                     date: w.today,
@@ -582,13 +587,17 @@ pub fn place_player(w: &mut World, id: u32, coach: usize) -> Result<String, Stri
             if w.people[i].pro.as_ref().and_then(|c| c.team) != Some(t) {
                 return Err("He isn't on your roster.".into());
             }
+            // A swap is a trade, and only the head man makes those.
+            if crate::world::front_office::club(w) != Some(t) {
+                return Err("A swap is a trade: only your head coach can make it.".into());
+            }
             swap(w, t, o, id)?
         }
         _ => return Err("He isn't in a position to take him.".into()),
     };
     let x = &mut w.folk.network.contacts[k];
     x.sent = x.sent.saturating_add(1);
-    x.balance = (x.balance + 1).min(5);
+    x.shift(1);
     x.last = Some(w.today);
     w.folk.network.ledger.push(Favour {
         date: w.today,
@@ -603,6 +612,8 @@ pub fn place_player(w: &mut World, id: u32, coach: usize) -> Result<String, Stri
 
 /// The cutdown swap: he and your latest pick in next year's draft for the
 /// friend's pick a round higher, from round five on, or the same round.
+/// It is a trade like any other (minor bug 323): the friend's GM weighs it
+/// on his own chart and says yes or no, and both caps must hold after it.
 fn swap(w: &mut World, t: usize, o: usize, id: u32) -> Result<String, String> {
     use crate::world::front_office::deals::{self, Proposal, Side};
     let year = w.year + 1;
@@ -627,7 +638,10 @@ fn swap(w: &mut World, t: usize, o: usize, id: u32) -> Result<String, String> {
         get: Side { players: Vec::new(), picks: vec![get] },
         conditional: None,
     };
-    deals::execute(w, t, &p);
+    let a = deals::propose(w, &p)?;
+    if !a.accept {
+        return Err(a.text);
+    }
     Ok(format!(
         "Traded to the {} with your {} for their {}, instead of a release.",
         w.nfl[o].name,
@@ -1090,7 +1104,7 @@ fn c18_answer(w: &mut World, s: &mut Scene, code: u32) {
     w.folk.backchannel.steered.push(Steered { player: id, by: Other::Former(f), date: w.today, checked: false });
     if let Some(k) = k {
         let x = &mut w.folk.network.contacts[k];
-        x.balance -= 1;
+        x.shift(-1);
         x.last = Some(w.today);
     }
     let name = w.people[i].name.clone();
@@ -1314,14 +1328,17 @@ pub(crate) fn day(w: &mut World, d: Date) {
         let today = w.today;
         b.placed.retain(|s| s.made.days_to(today) < 400);
     }
-    // A placed player who entered the portal no longer waits on a window.
+    // A placed player who is no longer in the world is dropped. One in the
+    // portal keeps his record until he decides there (`portal_day` drops
+    // it then), since the friend's interest is read on his decision day
+    // (minor bug 325: dropping it at entry lost it 3 to 25 days early).
     if !w.folk.backchannel.placed.is_empty() && d.weekday() == Weekday::Mon {
         let gone: Vec<u32> = w
             .folk
             .backchannel
             .placed
             .iter()
-            .filter(|s| super::person(w, s.player).is_none_or(|i| w.people[i].cal.portal.is_some()))
+            .filter(|s| super::person(w, s.player).is_none())
             .map(|s| s.player)
             .collect();
         if !gone.is_empty() {
