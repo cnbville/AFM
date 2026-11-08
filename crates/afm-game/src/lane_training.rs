@@ -938,6 +938,9 @@ fn practice(w: &World) -> Reply {
         "days": days,
         "fitted": pw.fitted,
         "breaches": breaches,
+        // Sandbox mode's practice rules: a week you write as head coach
+        // runs as written, no case.
+        "rules_lifted": w.seat_head() && w.sandbox(afm_engine::world::sandbox::Switch::PracticeRules),
         "counts": ts::counts_text(&st, block, &counts),
         "limits": { "practices": (lim.practices != u16::MAX).then_some(lim.practices), "contact": (lim.contact != u16::MAX).then_some(lim.contact), "padded": (lim.padded != u16::MAX).then_some(lim.padded), "scrimmages": (lim.scrimmages != u16::MAX).then_some(lim.scrimmages) },
         "work": work,

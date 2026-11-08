@@ -213,7 +213,7 @@ fn scrimmage(p: &PlayRecord) -> bool {
 
 /// Each side's starters: on the field for its first snap with the ball
 /// (offense) and its first snap without it (defense).
-fn starters(g: &GameStats) -> [std::collections::HashSet<u32>; 2] {
+pub(crate) fn starters(g: &GameStats) -> [std::collections::HashSet<u32>; 2] {
     let mut out: [std::collections::HashSet<u32>; 2] = Default::default();
     let mut seen = [[false; 2]; 2];
     for p in g

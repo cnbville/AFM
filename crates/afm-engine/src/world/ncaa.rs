@@ -139,6 +139,44 @@ pub fn whole_roster_limit(prog: &Program, season: i32) -> bool {
     season >= HOUSE_START && (prog.division == Division::FBS || (prog.division == Division::FCS && !opted_out))
 }
 
+/// What a program's football players get to pay for school beyond what any
+/// student gets, where a conference's own rule sets it (minor bug 297).
+/// Division III is its own rule (no athletic aid) and is left out here.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Aid {
+    /// Athletic scholarships, the NCAA's limits.
+    Athletic,
+    /// Need-based aid only, the same as any student's: the Ivy League; the
+    /// Colonial League from 1986 and the Patriot League (its name from 1990)
+    /// until the 2012 season, Fordham until 2009 and Georgetown always.
+    NeedBased,
+    /// No athletic aid and little need-based help, the family pays: the
+    /// Pioneer League (from 1993) and MAAC football (1993-2007).
+    None,
+}
+
+/// The aid rule a program plays under in a season (minor bug 297). Real:
+/// the Colonial League began in 1986 on the Ivy model of need-based aid,
+/// the Patriot League kept football to it through 2012 and gave
+/// scholarships from the 2013 season (15 a class, to 60); Fordham gave them
+/// from 2010 (barred from the league title until the league followed);
+/// Georgetown never has. The Patriot League's football associates (Richmond
+/// from 2025, Villanova and William & Mary from 2026) keep theirs.
+pub fn aid(prog: &Program, season: i32) -> Aid {
+    match prog.conference.as_str() {
+        "PFL" | "MAAC" => Aid::None,
+        "Ivy" | "Colonial League" => Aid::NeedBased,
+        "Patriot" => match prog.real_name.as_str() {
+            "Georgetown" => Aid::NeedBased,
+            "Fordham" if season >= 2010 => Aid::Athletic,
+            _ if season >= 2013 => Aid::Athletic,
+            "Richmond" | "Villanova" | "William & Mary" => Aid::Athletic,
+            _ => Aid::NeedBased,
+        },
+        _ => Aid::Athletic,
+    }
+}
+
 /// Whether a scholarship player his coach cuts keeps his aid while he
 /// stays in school (minor bug 60). Athletic aid was a one-year award,
 /// renewed or not each year (multi-year awards allowed from 2012); from

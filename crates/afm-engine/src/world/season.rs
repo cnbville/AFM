@@ -546,6 +546,51 @@ const COLLEGE_TROUBLE: f64 = 0.036;
 /// The season's development step (one checkpoint a year, `development.rs`)
 /// for the people given, with their roles. High school players develop when
 /// their state's season starts, college and prep players at fall camp.
+/// A college room's teaching for one group as growth reads it: his position
+/// coach teaches him most days (note 5); the coordinator coaches the group
+/// he came up in himself and shares that room's part, half each (C60).
+fn room_teaching(prog: &super::program::Program, coaches: &[super::coach::Coach], group: Group) -> f64 {
+    let coord = if group.offense() { prog.oc } else { prog.dc };
+    let own = coord.filter(|&c| coaches[c].came_up == group && group != Group::Specialists);
+    let pc_t = prog.position_coaches[group as usize].map(|c| coaches[c].teaching(group));
+    match (pc_t, own) {
+        (Some(t), Some(c)) => 0.5 * t + 0.5 * coaches[c].teaching(group),
+        (Some(t), None) => t,
+        (None, Some(c)) => coaches[c].teaching(group),
+        (None, None) => coord
+            .map(|c| coaches[c].teaching(group))
+            .unwrap_or_else(|| prog.head_coach.map_or(9.0, |c| coaches[c].teaching(group))),
+    }
+}
+
+/// A program's strength head, 1-20 (an empty post reads as average).
+pub(crate) fn strength_head(prog: &super::program::Program) -> f64 {
+    10.0 + 10.0 * super::people::Support::z(prog.support.strength.rating)
+}
+
+/// The division's typical strength head (minor bugs 302 and 303), over the
+/// programs with players.
+pub(crate) fn typical_strength(w: &World, d: Division) -> f64 {
+    let (sum, n) = w
+        .programs
+        .iter()
+        .filter(|g| g.division == d && !g.roster.is_empty())
+        .fold((0.0, 0.0), |(s, n), g| (s + strength_head(g), n + 1.0));
+    if n > 0.0 { sum / n } else { 10.0 }
+}
+
+/// The league's typical strength head (minor bugs 302 and 303), over the
+/// clubs playing this year.
+pub(crate) fn nfl_typical_strength(w: &World) -> f64 {
+    let live: Vec<usize> = (0..w.nfl.len()).filter(|&t| super::franchise::active_in(w, t, w.year)).collect();
+    live.iter().map(|&t| club_strength_head(w, t)).sum::<f64>() / live.len().max(1) as f64
+}
+
+/// A club's strength head, 1-20.
+pub(crate) fn club_strength_head(w: &World, t: usize) -> f64 {
+    10.0 + 10.0 * super::people::Support::z(w.clubs[t].support.strength.rating)
+}
+
 pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
     super::coach::set_freedom_norms(w);
     let year = w.year as u64;
@@ -593,6 +638,20 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
     let focus = w.focus_by_person();
     let defer = !w.options.yearly_growth;
     let staff_of = |h: usize, g: Group| seat_staff.and_then(|(s, t)| if s == h { t[g as usize] } else { None });
+    // Each division's typical room teaching by group and strength head
+    // (minor bug 302), over the programs with players.
+    let typical = {
+        let mut sum = [([0.0; super::coach::GROUP_COUNT], 0.0, 0.0); super::data::DIVISION_COUNT];
+        for prog in w.programs.iter().filter(|g| !g.roster.is_empty()) {
+            let d = &mut sum[prog.division as usize];
+            for g in Group::ALL {
+                d.0[g as usize] += room_teaching(prog, &w.coaches, g);
+            }
+            d.1 += strength_head(prog);
+            d.2 += 1.0;
+        }
+        sum.map(|(t, s, n)| if n > 0.0 { (t.map(|x| x / n), s / n) } else { ([10.0; super::coach::GROUP_COUNT], 10.0) })
+    };
     // The world log (R2): each step's why, written as it runs.
     let log = w.wlog.as_deref().filter(|_| w.recording);
     let when = (w.year, w.today);
@@ -606,6 +665,8 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         // head coach's, two-thirds of the way against his coordinator's.
         let mut style = None;
         let mut scheme = None;
+        let mut physical_coaching = None;
+        let mut strength_dev = 0.0;
         let (level, coaching, team_situation, base_trouble) = match p.stage {
             Stage::HighSchool => {
                 let s = &schools[p.hs];
@@ -641,14 +702,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                 // His position coach teaches him most days (note 5); the
                 // coordinator coaches the group he came up in himself and
                 // shares that room's part, half each (C60).
-                let own = coord.filter(|&c| coaches[c].came_up == group && group != Group::Specialists);
-                let pc_t = prog.position_coaches[group as usize].map(|c| coaches[c].teaching(group));
-                let pc = match (pc_t, own) {
-                    (Some(t), Some(c)) => 0.5 * t + 0.5 * coaches[c].teaching(group),
-                    (Some(t), None) => t,
-                    (None, Some(c)) => coaches[c].teaching(group),
-                    (None, None) => coord.map_or(hc, |c| coaches[c].teaching(group)),
-                };
+                let pc = room_teaching(prog, coaches, group);
                 let hs = prog.head_coach.map(|c| coaches[c].style());
                 let cs = coord.map(|c| coaches[c].style());
                 style = match (hs, cs) {
@@ -656,6 +710,19 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                     (h, c) => h.or(c),
                 };
                 scheme = Some((prog.installed.offense(), prog.installed.front()));
+                // Strength, speed and conditioning (minor bug 302): the
+                // strength staff takes the position coach's share, read
+                // around the level's typical room and strength head so the
+                // level's average growth stays where it was.
+                let (t_pc, t_s) = typical[prog.division as usize];
+                let s = strength_head(prog);
+                physical_coaching = Some(
+                    0.2 * hc
+                        + 0.25 * unit
+                        + 0.4 * (t_pc[group as usize] + s - t_s)
+                        + 0.15 * (6.0 + 12.0 * prog.facilities),
+                );
+                strength_dev = s - t_s;
                 (
                     division_level(prog.division),
                     // C57: position coach 0.4, coordinator 0.25, head coach
@@ -763,6 +830,8 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             morale,
             physical,
             medical,
+            physical_coaching,
+            strength_dev,
             focus: focus.get(&i).copied(),
             defer,
             snaps,
@@ -1285,6 +1354,9 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
     }
     team.film = prog.film.clone();
     team.line_chem = line_chem;
+    // His strength staff's guard on muscle strains and backs (minor bug 303).
+    let guard = crate::game::sim::strength_guard(strength_head(prog), typical_strength(w, prog.division)) as f32;
+    team.players.iter_mut().for_each(|g| g.soft = guard);
     super::chemistry::apply(w, &mut team, super::chemistry::Unit::College);
     team.novelty = super::trends::team_novelty(w, prog.division, &prog.film);
     Some(team)

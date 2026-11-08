@@ -22,27 +22,50 @@ use crate::{Game, Reply};
 /// Temporary override (Cain 2026-11-06): the full tape plays straight
 /// through on one press like the quick watch, with no stops to call a snap
 /// ("will this guard's block hold?"), but keeps the full session's hours and
-/// what they buy: the room, run-backs while your hours last, and your verdict
-/// (`session::run_through`). The snap-by-snap session is all still there for
-/// the film revamp: set this to false to bring it back.
+/// what they buy: the room and run-backs while your hours last
+/// (`session::run_through`). No verdict is asked either: the report lands
+/// on the same press (Cain 2026-11-07, minor bug 312). The snap-by-snap
+/// session is all still there for the film revamp: set this to false to
+/// bring it back.
 pub const FULL_RUNS_THROUGH: bool = true;
 
-/// Opens to the snap-by-snap session, or plays it through while the
-/// override is on.
+/// Opens to the snap-by-snap session, or plays it through and saves it
+/// while the override is on.
 fn through(w: &mut World, mode: session::Mode, said: String) -> Result<String, String> {
     if !FULL_RUNS_THROUGH || mode != session::Mode::Full {
         return Ok(said);
     }
-    Ok(session::run_through(w)?.unwrap_or(said))
+    session::run_through(w)
+}
+
+/// A full tape an older build left open (snap by snap, or stopped at the
+/// verdict) is played through and saved as soon as the film room is
+/// opened, so it never asks and never blocks the next tape (minor bug 312).
+fn settle(w: &mut World) {
+    if FULL_RUNS_THROUGH && w.scouting.film.open.as_ref().is_some_and(|s| s.mode == session::Mode::Full) {
+        let v = w.scouting.film.version;
+        let _ = session::run_through(w);
+        // A team's tape goes into the plan only if it was saved: nothing
+        // played (your hours ran out) saves nothing.
+        if w.scouting.film.version != v {
+            after_team(w);
+        }
+    }
 }
 
 pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     let id = || args.get("id").and_then(Value::as_u64).map(|x| x as u32).ok_or_else(|| "Missing id.".to_string());
     let num = |k: &str| args.get(k).and_then(Value::as_u64).ok_or_else(|| format!("Missing {k}."));
     let r = match cmd {
-        "film_home" => game.w().map(home),
+        "film_home" => game.wm().map(|w| {
+            settle(w);
+            home(w)
+        }),
         "film_brief" => game.w().and_then(|w| brief(w, id()?, args.get("ask").and_then(Value::as_str))),
-        "film_session" => game.w().map(session_view),
+        "film_session" => game.wm().map(|w| {
+            settle(w);
+            session_view(w)
+        }),
         "film_open" => game.wm().and_then(|w| {
             let cut = args
                 .get("cut")
@@ -54,11 +77,15 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
                 _ => session::Mode::Full,
             };
             let ask = args.get("ask").and_then(Value::as_str);
+            settle(w);
             let said = session::open_player(w, id()?, cut, mode, ask)?;
             let said = through(w, mode, said)?;
             Ok(with_said(session_view(w), said))
         }),
-        "film_opp" => game.wm().and_then(|w| open_opp(w, args)),
+        "film_opp" => game.wm().and_then(|w| {
+            settle(w);
+            open_opp(w, args)
+        }),
         "film_snap" => game.wm().and_then(|w| step(w, session::play)),
         "film_call" => game.wm().and_then(|w| {
             let k = num("pick")? as u8;
@@ -404,30 +431,59 @@ fn brief(w: &World, id: u32, ask: Option<&str>) -> Reply {
     let ours = session::is_ours(w, id);
     let qs = session::questions(w, id);
     // Each cut-up with the question it is made for, when one fits (picking
-    // the cut picks the question).
+    // the cut picks the question), and what it holds now (minor bug 322):
+    // the snaps a watch plays, how many are new to you, the games, and
+    // the snaps that show each of the question's ratings.
     let pos = p.player.position;
-    let mut cuts: Vec<Value> = tape::Cut::ALL
-        .iter()
-        .map(|&c| json!({ "key": c.key(), "label": c.words(pos), "ask": fm::words::cut_ask(pos, c) }))
-        .collect();
-    if ours {
-        cuts.insert(0, json!({ "key": "ours", "label": tape::Cut::Ours.words(p.player.position) }));
-    }
     let film = sc::own::film_cost(w, id).is_ok() || ours;
+    // No question picked yet: the first, as the brief shows it, so every
+    // cut-up's counts are for the question the watch then asks.
+    let ask = ask.or_else(|| qs.first().map(|q| q.key.as_str()));
+    let looks = if film { session::preview(w, id, ask) } else { Vec::new() };
+    // When no cut-up has a snap because his tape can't be had at all, why.
+    let tape_err = if film && looks.iter().all(|x| x.snaps == 0) { session::tape_error(w, id) } else { None };
+    let mut all = tape::Cut::ALL.to_vec();
+    if ours {
+        all.insert(0, tape::Cut::Ours);
+    }
+    let cuts: Vec<Value> = all
+        .iter()
+        .map(|&c| {
+            let pv = looks.iter().find(|x| x.cut == c);
+            json!({
+                "key": c.key(),
+                "label": c.words(pos),
+                "ask": fm::words::cut_ask(pos, c),
+                "snaps": pv.map_or(0, |x| x.snaps),
+                "fresh": pv.map_or(0, |x| x.fresh),
+                "games": pv.map(|x| x.games.clone()).unwrap_or_default(),
+                "new_games": pv.map_or(0, |x| x.new_games),
+                "shows": pv.map(|x| x.shows.iter().map(|&(a, n)| json!({ "name": Attr::ALL[a as usize].label(), "n": n })).collect::<Vec<_>>()).unwrap_or_default(),
+            })
+        })
+        .collect();
     Ok(json!({
         "id": id,
         "name": p.name,
         "pos": p.player.position.name(),
         "meta": school_line(w, p),
         "film": film,
+        "ours": ours,
         "why_not": sc::own::film_cost(w, id).err(),
-        "questions": qs.iter().map(|q| json!({ "key": q.key, "text": q.text, "why": q.why })).collect::<Vec<_>>(),
+        "tape_err": tape_err,
+        // Each question with the ratings it watches (minor bug 322).
+        "questions": qs.iter().map(|q| json!({
+            "key": q.key,
+            "text": q.text,
+            "why": q.why,
+            "rates": q.attrs.iter().filter_map(|&a| Attr::ALL.get(a as usize).map(|x| x.label())).collect::<Vec<_>>(),
+        })).collect::<Vec<_>>(),
         "cuts": cuts,
         "snap_min": session::SNAP_MIN,
         "quick_min": session::QUICK_MIN,
+        "quick_snap_min": session::QUICK_SNAP_MIN,
         "runback_min": session::RUNBACK_MIN,
         "full_through": FULL_RUNS_THROUGH,
-        "full_snaps": session::CUT_SNAPS,
         "left": (time::left(w) * 10.0).round() / 10.0,
         "budget": time::budget(w),
         "watchers": there::watchers(w, id),
@@ -563,10 +619,17 @@ fn session_view(w: &World) -> Value {
                     }));
                 }
                 session::REPLAYED => {
-                    replayed = Some(cue.map_or_else(
+                    // One run-back shows everything half-seen on the snap
+                    // again (minor bug 318): each line it caught.
+                    let line = cue.map_or_else(
                         || snap.call.as_ref().map_or(String::new(), |c| c.truth.clone()),
                         |&(a, b)| fm::words::cue(a, b as usize).to_string(),
-                    ));
+                    );
+                    replayed = Some(match replayed {
+                        Some(r) if !line.is_empty() => format!("{r} · {line}"),
+                        Some(r) => r,
+                        None => line,
+                    });
                 }
                 session::SLIPPED => slipped += 1,
                 _ => {}
@@ -719,6 +782,12 @@ fn report(w: &World, k: usize) -> Reply {
             "numbers": r.numbers,
             "hints": r.hints,
             "watched": r.watched,
+            // What the tape gave you (minor bug 322): how many snaps were new
+            // to you, and each of your ratings of him it narrowed or read
+            // for the first time, before and after.
+            "fresh": r.fresh,
+            "new_games": r.new_games,
+            "moved": r.moved.iter().filter_map(|&(a, b, x)| Attr::ALL.get(a as usize).map(|at| json!({ "name": at.label(), "before": b, "after": x }))).collect::<Vec<_>>(),
             "snaps": r.snaps.iter().map(|x| json!({ "sit": x.sit, "job": x.job, "result": x.result, "stills": x.stills.iter().map(still_json).collect::<Vec<_>>() })).collect::<Vec<_>>(),
         }
     }))

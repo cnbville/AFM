@@ -116,13 +116,17 @@ fn rarely_drafts_d2_players_and_never_before_day_3() {
 #[test]
 fn drafts_imperfectly_without_wild_first_round_reaches() {
     // Real drafts take 1-3 first-rounders a year from outside the consensus
-    // top 50. One class swings from 1 to 8 by seed (measured 2026-10-21 on
-    // six seeds), so the band is read on the average of five classes.
+    // top 50. One class swings from 0 to 8 by seed (measured 2026-10-21 on
+    // six seeds), so the band is read on the average of fifteen classes:
+    // five gave 5.4 with the safety and linebacker leanings and 3.4 without,
+    // where fifteen gave 4.2 and 4.1 (2026-11-08).
     let mut n = s().draft.first_rounders_outside_top50 as f64;
-    for seed in ["reach-1", "reach-2", "reach-3", "reach-4"] {
-        n += summarize(&simulate_cohort(CohortOptions::new(250_000, seed))).draft.first_rounders_outside_top50 as f64;
+    let seeds: Vec<String> = (1..15).map(|k| format!("reach-{k}")).collect();
+    for seed in &seeds {
+        n += summarize(&simulate_cohort(CohortOptions::new(250_000, seed.as_str()))).draft.first_rounders_outside_top50
+            as f64;
     }
-    let mean = n / 5.0;
+    let mean = n / (seeds.len() + 1) as f64;
     println!("first-rounders from outside the top 50: {mean:.1} a class");
     assert!(mean > 0.5 && mean <= 5.0, "first-rounders from outside the top 50: {mean:.1} a class");
 }

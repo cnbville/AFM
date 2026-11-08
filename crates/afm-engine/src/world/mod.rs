@@ -66,6 +66,7 @@ pub mod pronoun;
 pub mod records;
 pub(crate) mod recruiting;
 pub mod road_marks;
+pub mod sandbox;
 pub mod schedule;
 pub mod scouting;
 pub(crate) mod season;
@@ -362,6 +363,10 @@ pub struct PortalEntry {
     pub why: crate::save::Text,
     /// Held until his team's playoff run ended (T3).
     pub held: bool,
+    /// He found no school on his day and keeps shopping, a week at a time,
+    /// until fall camp (minor bug 337: real entrants have no deadline).
+    #[serde(default)]
+    pub looking: bool,
 }
 
 /// A person's calendar state (section 4). Per-season flags reset at his
@@ -457,6 +462,11 @@ pub struct PersonCal {
     /// at that program (`Person::cut_here`), until the next window moves him.
     #[serde(default)]
     pub cut: Option<CollegeCut>,
+    /// Still unsigned after February's signing day and still looking (lane
+    /// B, the Jan 1 start): a senior, prep school or junior college player
+    /// the late signing days weigh until summer enrollment.
+    #[serde(default)]
+    pub late: bool,
     /// What each head coach's living-room talk did for him (lane 14, D7):
     /// program, lean. It weighs in his choice like the rest of the
     /// relationship.
@@ -870,6 +880,11 @@ pub struct World {
     pub(crate) announcements: Vec<(crate::calendar::Date, usize, u32, usize, bool)>,
     /// The portal market of the open window (kept while entrants decide).
     pub(crate) portal_market: Option<recruiting::PortalMarket>,
+    /// The late signing days after February's signing day (lane B): the
+    /// class still signing, the last day (summer enrollment) and the film
+    /// read the signing day made, so late recruits are read as they were.
+    #[serde(default)]
+    pub(crate) late_signing: Option<recruiting::LateSigning>,
     /// Super Bowl champions by season.
     pub nfl_champions: Vec<(i32, usize)>,
     /// Every NFL team's season: record, head coach and how far it went
@@ -1057,6 +1072,19 @@ pub struct CalendarLog {
     pub walk_on_scholarships: u32,
     /// Students who made a team at an open tryout (topic 5.5).
     pub tryouts: u32,
+    /// After February's signing day (lane B): signings on the late signing
+    /// days by division (high school and prep players, junior college
+    /// movers), the recruits still looking the day after signing day, portal
+    /// entrants who landed after signing day and those still looking at
+    /// fall camp, and walk-ons you put on scholarship or kept at your tryout.
+    #[serde(default)]
+    pub signed_after: [[u32; 2]; data::DIVISION_COUNT],
+    #[serde(default)]
+    pub late_pool: u32,
+    #[serde(default)]
+    pub portal_landed_after: u32,
+    #[serde(default)]
+    pub portal_unplaced_at_camp: u32,
     pub graduates: u32,
     pub graduate_transfers: u32,
     pub flips: u32,
@@ -1293,15 +1321,18 @@ impl World {
         let rows = data::COLLEGES.iter().map(|r| (r, false)).chain(data::DROPPED_COLLEGES.iter().map(|r| (r, true)));
         for (row, dropped) in rows {
             let id = programs.len();
-            let mut probe = program::program_from_row(id, row, seed, &mut Rng::new(0));
+            let today = data::HISTORY_LAST + 1;
+            let mut probe = program::program_from_row(id, row, today, seed, &mut Rng::new(0));
             probe.set_history(dropped);
-            let status = (first.max(data::HISTORY_FIRST)..=data::HISTORY_LAST + 1).find_map(|y| probe.real_status(y));
+            let status = (first.max(data::HISTORY_FIRST)..=today).find_map(|y| probe.real_status(y).map(|s| (y, s)));
             let mut start = row.clone();
-            if let Some((d, c)) = status {
+            let mut since = today;
+            if let Some((y, (d, c))) = status {
                 start.division = d;
                 start.conference = c;
+                since = y;
             }
-            let mut p = program::program_from_row(id, &start, seed, &mut rng);
+            let mut p = program::program_from_row(id, &start, since, seed, &mut rng);
             p.base = probe.base.clone();
             p.set_history(dropped);
             programs.push(p);
@@ -1315,7 +1346,7 @@ impl World {
             if programs.iter().any(|p| p.real_name == row.name) {
                 continue;
             }
-            let mut p = program::program_from_row(programs.len(), row, seed, &mut cand_rng);
+            let mut p = program::program_from_row(programs.len(), row, data::HISTORY_LAST + 1, seed, &mut cand_rng);
             p.set_history(true);
             programs.push(p);
         }
@@ -1423,6 +1454,7 @@ impl World {
             portal_intents: Vec::new(),
             announcements: Vec::new(),
             portal_market: None,
+            late_signing: None,
             nfl_champions: Vec::new(),
             nfl_seasons: Vec::new(),
             realign: Vec::new(),
@@ -1514,6 +1546,12 @@ impl World {
     /// stopped on.
     pub fn holiday_to(&mut self, until: crate::calendar::Date) -> crate::calendar::Date {
         clock::holiday_to(self, until)
+    }
+
+    /// Sandbox mode's jump (a test tool): every day to `until` played as
+    /// Continue plays it, staff running things, no early stop.
+    pub fn jump_to(&mut self, until: crate::calendar::Date) -> crate::calendar::Date {
+        clock::jump_to(self, until)
     }
 
     /// The college season's ranking releases so far: (day, poll, top 25).
@@ -1920,6 +1958,8 @@ impl World {
             .collect();
         // The stories they are in keep their names, and so do your games.
         storylines::keep_names(self, &map);
+        // The portal entrants still shopping past signing day (minor bug 337).
+        recruiting::remap_people(self, &map);
         seat_names::keep(self, &map);
         marks::keep_names(self, &map);
         let mut stays = map.iter();

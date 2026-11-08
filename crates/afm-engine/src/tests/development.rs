@@ -175,7 +175,11 @@ fn moves_potential_both_ways_and_mostly_before_24() {
     let mut rng = Rng::new("drift");
     let mut teen = Vec::new();
     let mut late = Vec::new();
-    for mut p in prospects(1500, "drift", 2.0) {
+    // 6,000 prospects: the share whose ceiling falls 5+ by 18 sits near
+    // 5.7% (4.5-6.9% over ten seeds of 1,500), so 1,500 put it within one
+    // draw's noise of the 5% bar; a change to any position's generator
+    // reshuffled it under (the safety and linebacker leanings, 2026-11-08).
+    for mut p in prospects(6000, "drift", 2.0) {
         let p14 = p.potential();
         career(&mut p, &mut rng, 18, |_| {});
         teen.push(p.potential() - p14);
@@ -324,4 +328,78 @@ fn a_training_focus_grows_its_skill_and_costs_the_rest_a_little() {
     println!("focus lift {lift:.3}, the year {year:.3}");
     assert!(lift > 1.15 && lift < 1.55, "focus lift {lift:.2}");
     assert!((year - 1.0).abs() < 0.15, "the year moves {year:.3}");
+}
+
+/// Minor bug 302: the strength staff drives strength, speed and conditioning
+/// at about the size a position coach has on technique, around the level's
+/// typical staff. The same players and random streams in every arm, from 18
+/// to 22 at FBS (the typical mix 13, the typical strength head 10).
+#[test]
+fn strength_staff_drives_physical_growth() {
+    use crate::development::SeasonContext;
+    let base = prospects(1500, "strength-staff", 1.5);
+    // dev: the strength head over typical; pc: the position coach over typical.
+    let run = |dev: f64, pc: f64, typical: bool| -> [f64; 4] {
+        let mut sums = [0.0; 4];
+        for (k, p0) in base.iter().enumerate() {
+            let mut p = p0.clone();
+            let mut rng = Rng::new(format!("strength-staff-{k}"));
+            career(&mut p, &mut rng, 22, |ctx: &mut SeasonContext| {
+                if ctx.level == crate::player::Level::FBS && typical {
+                    let mix = ctx.coaching;
+                    ctx.coaching = mix + 0.4 * pc;
+                    ctx.physical_coaching = Some(mix + 0.4 * dev);
+                    ctx.strength_dev = dev;
+                    ctx.physical = 0.06 * dev;
+                }
+            });
+            sums[0] += p.attributes.get(Attr::Strength);
+            sums[1] += p.attributes.get(Attr::Stamina);
+            sums[2] += p.attributes.get(Attr::Speed);
+            sums[3] += p.overall();
+        }
+        sums.map(|s| s / base.len() as f64)
+    };
+    let none = run(0.0, 0.0, false);
+    let typical = run(0.0, 0.0, true);
+    let strong = run(10.0, 0.0, true);
+    let weak = run(-5.0, 0.0, true);
+    let coach = run(0.0, 10.0, true);
+    let gap = |a: [f64; 4], b: [f64; 4]| [a[0] - b[0], a[1] - b[1], a[2] - b[2], a[3] - b[3]];
+    eprintln!("strength 20 vs 10 (strength, stamina, speed, overall): {:?}", gap(strong, typical));
+    eprintln!("strength 5 vs 10: {:?}", gap(weak, typical));
+    eprintln!("position coach 20 vs 10: {:?}", gap(coach, typical));
+    // The level's typical staff changes nothing.
+    assert_eq!(none, typical);
+    let s = gap(strong, typical);
+    let c = gap(coach, typical);
+    assert!(s[0] > 0.5 && s[1] > 0.3 && s[2] > 0.15, "strength staff: {s:?}");
+    // The position coach no longer moves the physical side; the strength
+    // staff moves it at least as much as he moves the whole player.
+    assert!(c[0].abs() < 0.1 && c[2].abs() < 0.1, "position coach: {c:?}");
+    assert!(s[0] > c[3], "strength {s:?} coach {c:?}");
+    let w = gap(weak, typical);
+    assert!(w[0] < 0.0 && w[0] > -s[0], "weak staff: {w:?}");
+}
+
+/// Minor bug 303: the strength staff's guard takes its share off muscle
+/// strains and backs and leaves every other kind's chance where it was.
+#[test]
+fn strength_guard_trims_soft_tissue_only() {
+    use crate::game::sim::{GAME_INJURIES, guarded_mix, strength_guard};
+    assert_eq!(strength_guard(13.0, 13.0), 1.0);
+    assert_eq!(strength_guard(20.0, 10.0), 0.85);
+    assert_eq!(strength_guard(2.0, 12.0), 1.15);
+    let (same, f) = guarded_mix(&GAME_INJURIES, 1.0);
+    assert_eq!(f, 1.0);
+    assert_eq!(same, GAME_INJURIES);
+    let total: f64 = GAME_INJURIES.iter().map(|e| e.1).sum();
+    let (mix, f) = guarded_mix(&GAME_INJURIES, 0.85);
+    let new_total: f64 = mix.iter().map(|e| e.1).sum();
+    for (&(k, before), &(_, after)) in GAME_INJURIES.iter().zip(mix.iter()) {
+        let chance_before = before / total;
+        let chance_after = f * after / new_total;
+        let want = if k.soft_tissue() { 0.85 * chance_before } else { chance_before };
+        assert!((chance_after - want).abs() < 1e-12, "{k:?}: {chance_after} against {want}");
+    }
 }

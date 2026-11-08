@@ -11,6 +11,7 @@ use afm_engine::attributes::{Attr, Category};
 use afm_engine::calendar::{Date, Level as CalLevel};
 use afm_engine::positions::Position;
 use afm_engine::world::coach::Group;
+use afm_engine::world::sandbox::Switch;
 use afm_engine::world::scouting::{
     self as sc, Kind, board, dept, file, hs, lines, live, lookback, predraft, public, readers, social,
 };
@@ -1251,7 +1252,7 @@ pub fn draft_board(w: &World) -> Reply {
         "picks": picks,
         "live": w.scouting.live.is_some(),
         "lists": predraft::LIST_NAMES.iter().enumerate().map(|(k, n)| json!({
-            "k": k, "name": n, "cap": predraft::list_cap(k as u8, year),
+            "k": k, "name": n, "cap": predraft::list_cap(k as u8, year), "lifted": list_lifted(w, k as u8),
             "n": w.scouting.predraft.lists.iter().filter(|x| x.1 == k as u8).count(),
         })).collect::<Vec<_>>(),
         "pfa_pool": undrafted_pool(w),
@@ -1317,11 +1318,13 @@ fn board_pfa(w: &mut World, id: u32, args: &Value) -> Result<(), String> {
     let bonus = args.get("bonus").and_then(Value::as_u64).unwrap_or(0) as u32;
     let guarantee = args.get("guarantee").and_then(Value::as_u64).unwrap_or(0) as u32;
     let pool = undrafted_pool(w);
+    // Sandbox mode's money switch: no owner's pool.
+    let free = w.sandbox(Switch::Money);
     let b = &mut w.scouting.board;
     b.pfa.retain(|x| x.0 != id);
     if on {
         let spent: u32 = b.pfa.iter().map(|x| x.1).sum();
-        if (spent + bonus) as f64 > pool * 1.0001 {
+        if !free && (spent + bonus) as f64 > pool * 1.0001 {
             return Err(format!("That's over your undrafted pool (${:.0}).", pool));
         }
         b.pfa.push((id, bonus, guarantee));
@@ -1329,14 +1332,22 @@ fn board_pfa(w: &mut World, id: u32, args: &Value) -> Result<(), String> {
     Ok(())
 }
 
+/// Sandbox mode lifts a pre-draft list's cap: the league's visit and
+/// interview counts are contact rules; the workout and recheck lists are
+/// your staff's travel.
+fn list_lifted(w: &World, list: u8) -> bool {
+    w.sandbox(if list <= predraft::LIST_INTERVIEW { Switch::ContactRules } else { Switch::StaffTime })
+}
+
 fn board_list(w: &mut World, id: u32, list: u8, on: bool) -> Result<(), String> {
     my_club(w)?;
     let list = list.min(3);
     let cap = predraft::list_cap(list, w.year);
+    let lifted = list_lifted(w, list);
     let pd = &mut w.scouting.predraft;
     pd.lists.retain(|x| !(x.0 == id && x.1 == list));
     if on {
-        if pd.lists.iter().filter(|x| x.1 == list).count() >= cap {
+        if !lifted && pd.lists.iter().filter(|x| x.1 == list).count() >= cap {
             return Err(format!("Your {} list is full ({cap}).", predraft::LIST_NAMES[list as usize].to_lowercase()));
         }
         pd.lists.push((id, list));
@@ -1653,7 +1664,7 @@ pub fn predraft_view(w: &World) -> Reply {
                     Some(r)
                 })
                 .collect();
-            json!({ "k": k, "name": predraft::LIST_NAMES[k as usize], "cap": predraft::list_cap(k, w.year), "rows": ids })
+            json!({ "k": k, "name": predraft::LIST_NAMES[k as usize], "cap": predraft::list_cap(k, w.year), "lifted": list_lifted(w, k), "rows": ids })
         })
         .collect();
     let dates = &w.dates;

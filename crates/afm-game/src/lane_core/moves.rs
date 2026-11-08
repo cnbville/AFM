@@ -7,7 +7,7 @@
 //! line, the numbers a dialog shows).
 
 use afm_engine::world::front_office::college::{self as fc, Standing};
-use afm_engine::world::front_office::{Duty, Owner, nfl, redshirt, reserve, school};
+use afm_engine::world::front_office::{Duty, Owner, nfl, redshirt, reserve, school, walk_ons};
 use afm_engine::world::pro::Status;
 use afm_engine::world::scouting::{predraft, public};
 use afm_engine::world::{Stage, World};
@@ -211,11 +211,28 @@ fn college_moves(w: &World, k: usize, j: usize, own: bool, out: &mut Vec<Value>)
             v["words"] = json!(words);
             out.push(v);
         }
+        // A walk-on earns a scholarship (lane B of the Jan 1 start).
+        if let Ok(words) = walk_ons::scholarship_words(w, id) {
+            let mut v = mv("scholarship", "Put him on scholarship");
+            v["words"] = json!(words);
+            out.push(v);
+        }
         return;
     }
     // A transfer in the portal: an offer, with NIL in its era.
+    // A transfer in the portal: his file (your talks, visits, promise and
+    // offer, as a recruit's), a call and the offer.
     if p.cal.portal.is_some() && p.stage == Stage::College {
-        out.push(main(mv("portal", "Offer him a spot")));
+        let t = w.front_office.college.portal.iter().find(|t| t.id == id && !t.settled);
+        out.push(main(mv("portal", "His portal file")));
+        if p.cal.portal.is_some_and(|e| !e.held && e.entered <= w.today)
+            && t.is_none_or(|t| t.called != Some(w.today) && t.committed.is_none())
+        {
+            out.push(mv("pcall", "Call him"));
+        }
+        if t.is_none_or(|t| t.offered.is_none()) {
+            out.push(mv("poffer", "Offer him a spot"));
+        }
         return;
     }
     // A recruit.

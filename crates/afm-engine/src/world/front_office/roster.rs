@@ -44,7 +44,12 @@ pub(crate) fn seat_cutdown(w: &World, t: usize, keep: &[(usize, f64)]) -> Option
     let of = |i: usize| plan.iter().find(|x| x.0 == w.people[i].player.id).map(|x| x.1);
     // The staff's own cut, for the places you left open.
     let (staff53, staff_ps, _) = pro::cut_split(w, t, keep);
-    let mut chosen: Vec<usize> = keep.iter().map(|x| x.0).filter(|&i| of(i) == Some(Cut::Keep)).take(limit).collect();
+    // Sandbox mode's roster limits: every player you keep or mark for the
+    // squad stays, past 53 and past the squad's size (the staff still fills
+    // only to the real sizes).
+    let lifted = super::roster_lifted(w, t);
+    let keeps = if lifted { usize::MAX } else { limit };
+    let mut chosen: Vec<usize> = keep.iter().map(|x| x.0).filter(|&i| of(i) == Some(Cut::Keep)).take(keeps).collect();
     for &i in staff53.iter().chain(keep.iter().map(|x| &x.0)) {
         if chosen.len() >= limit {
             break;
@@ -65,7 +70,7 @@ pub(crate) fn seat_cutdown(w: &World, t: usize, keep: &[(usize, f64)]) -> Option
         own(l, i) || young(i) || (vets < places && c.accrued <= most)
     };
     for &(i, _) in keep {
-        if chosen.contains(&i) || of(i) != Some(Cut::Squad) || !squad::cut_room(w, &squad_list, i) {
+        if chosen.contains(&i) || of(i) != Some(Cut::Squad) || (!lifted && !squad::cut_room(w, &squad_list, i)) {
             continue;
         }
         if eligible(&squad_list, i, vets) {
@@ -104,13 +109,14 @@ pub fn set_plan(w: &mut World, id: u32, cut: Option<Cut>) -> Result<(), String> 
     if cut == Some(Cut::Squad) && !squad_ok(w, i) {
         return Err("He has too many seasons for the practice squad.".into());
     }
+    let lifted = super::roster_lifted(w, t);
     let plan = &mut w.front_office.roster.plan;
     plan.retain(|x| x.0 != id);
     if let Some(c) = cut {
         plan.push((id, c));
     }
     let keeps = plan.iter().filter(|x| x.1 == Cut::Keep).count();
-    if keeps > w.rules.nfl_roster as usize {
+    if keeps > w.rules.nfl_roster as usize && !lifted {
         plan.retain(|x| x.0 != id);
         return Err(format!("You already keep {} players: release one first.", keeps - 1));
     }
@@ -161,7 +167,7 @@ pub fn sign_to_squad(w: &mut World, id: u32) -> Result<String, String> {
     if !squad::squad_room(w, t, i) {
         return Err("He isn't eligible for your squad (seasons, or no veteran place left).".into());
     }
-    if pro::count(w, t, Status::PracticeSquad) >= size {
+    if !super::roster_lifted(w, t) && pro::count(w, t, Status::PracticeSquad) >= size {
         return Err(format!("Your squad is full ({size})."));
     }
     let weeks_left = ((w.dates.super_bowl.0 - d.0) as f64 / 7.0).clamp(1.0, w.rules.nfl_games as f64 + 1.0);
@@ -199,11 +205,11 @@ pub fn sign_up(w: &mut World, id: u32) -> Result<String, String> {
         return Err("He isn't on your practice squad.".into());
     }
     let limit = roster_limit(w);
-    if pro::count(w, t, Status::Roster) >= limit {
+    if !super::roster_lifted(w, t) && pro::count(w, t, Status::Roster) >= limit {
         return Err(format!("Your roster is at {limit}: release someone first."));
     }
     let apy = money::minimum(year, c.credited);
-    if money::cap_books(year) && pro::cap_room(w, t, year) < apy {
+    if money::cap_books(year) && !super::cap_lifted(w, t) && pro::cap_room(w, t, year) < apy {
         return Err("No cap room for the minimum.".into());
     }
     let deal = money::build(t, money::Kind::Veteran, year, &money::Terms::flat(2, apy));
@@ -243,10 +249,10 @@ pub(crate) fn seat_claim(w: &World, t: usize, i: usize, limit: usize) -> Option<
     let &(_, drop) = w.front_office.roster.claims.iter().find(|x| x.0 == id)?;
     let year = w.year;
     let cost = w.people[i].pro.as_ref()?.contract.as_ref().map_or(0.0, |k| k.cap_hit(year));
-    if money::cap_books(year) && pro::cap_room(w, t, year) < cost {
+    if money::cap_books(year) && !super::cap_lifted(w, t) && pro::cap_room(w, t, year) < cost {
         return None;
     }
-    let full = pro::count(w, t, Status::Roster) >= limit;
+    let full = !super::roster_lifted(w, t) && pro::count(w, t, Status::Roster) >= limit;
     let drop =
         drop.and_then(|d| super::index_of(w, d)).filter(|&j| w.people[j].pro.as_ref().and_then(|c| c.team) == Some(t));
     if full && drop.is_none() {

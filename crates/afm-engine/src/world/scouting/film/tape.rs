@@ -158,8 +158,8 @@ pub struct Snap {
     pub role: Role,
     /// How the snap went for him: -1, 0, +1 (the engine's battles).
     pub grade: i8,
-    /// What the tape shows of him on it: an attribute and his band (0-4)
-    /// against the level, the question's first.
+    /// What the tape shows of him on it: each attribute the play tests and
+    /// his band (0-4) against the level, the main one first.
     pub cues: Vec<(Attr, u8)>,
     pub call: Option<Call>,
     pub after: Option<String>,
@@ -349,16 +349,36 @@ fn strength(t: &GameTeam) -> f32 {
 /// A player's tape: three games on the engine with frames on, his snaps
 /// in them. Err when there is no film of him.
 pub fn player_tape(w: &World, id: u32) -> Result<Tape, String> {
-    tape_of(w, id, None)
+    tape_of(w, id, None, 0)
 }
+
+/// His season's film in sets of three games (minor bug 319): set 0 is
+/// the tape as it always was, each later set his next three games.
+pub fn player_tape_set(w: &World, id: u32, set: u8) -> Result<Tape, String> {
+    tape_of(w, id, None, set)
+}
+
+/// How many sets of three games his season's film holds: a high school
+/// season's nine, a college or NFL season's twelve.
+pub fn sets(p: &crate::world::Person) -> u8 {
+    match p.stage {
+        Stage::HighSchool | Stage::PrepSchool => 3,
+        _ => super::session::TAPE_SETS,
+    }
+}
+
+/// The weeks of his season's games, set by set: the first three as the
+/// tape always had them, then the weeks between.
+const NFL_WEEKS: [u8; 12] = [3, 7, 11, 5, 9, 13, 1, 15, 17, 2, 14, 18];
+const WEEKS: [u8; 12] = [2, 5, 8, 3, 6, 9, 1, 4, 10, 7, 11, 12];
 
 /// Tonight's game from the stands (SK32): one game on the engine, played
 /// for the day you're there, against an opponent of his level.
 pub fn live_tape(w: &World, id: u32) -> Result<Tape, String> {
-    tape_of(w, id, Some(w.today))
+    tape_of(w, id, Some(w.today), 0)
 }
 
-fn tape_of(w: &World, id: u32, live: Option<crate::calendar::Date>) -> Result<Tape, String> {
+fn tape_of(w: &World, id: u32, live: Option<crate::calendar::Date>, set: u8) -> Result<Tape, String> {
     let i = super::super::place(w, id).ok_or("No such player.")?;
     let p = &w.people[i];
     let f = super::super::footage::footage(w, i);
@@ -376,7 +396,10 @@ fn tape_of(w: &World, id: u32, live: Option<crate::calendar::Date>) -> Result<Ta
     let season = w.dates.season;
     let salt = match live {
         Some(d) => 0x11FE_0000 ^ (id as u64) << 20 ^ (d.0 as u64) << 40,
-        None => 0xF11A_0000 ^ (id as u64) << 20 ^ season as u64,
+        // The set in low bits: the engine draws each man's form for a
+        // game from the seed's low 53 bits, so a set kept in the top bits
+        // replayed set 0's form in every set.
+        None => 0xF11A_0000 ^ (id as u64) << 20 ^ season as u64 ^ (set as u64) << 12,
     };
     let mut opps = opponents(w, kin, salt);
     if live.is_some() {
@@ -386,9 +409,12 @@ fn tape_of(w: &World, id: u32, live: Option<crate::calendar::Date>) -> Result<Ta
         return Err("His team's film isn't to be had just now.".into());
     }
     let mut tape = Tape::default();
-    let week_word = |k: usize| match level {
-        crate::player::Level::NFL => format!("Wk {}", 3 + 4 * k),
-        _ => format!("Wk {}", 2 + 3 * k),
+    let week_word = |k: usize| {
+        let g = (3 * set as usize + k).min(11);
+        match level {
+            crate::player::Level::NFL => format!("Wk {}", NFL_WEEKS[g]),
+            _ => format!("Wk {}", WEEKS[g]),
+        }
     };
     for (k, (name, opp)) in opps.iter().enumerate() {
         let home = k % 2 == 0;
@@ -492,6 +518,8 @@ fn collect(
     let pos = p.player.position;
     let offense =
         matches!(pos, Position::QB | Position::RB | Position::WR | Position::TE | Position::OT | Position::IOL);
+    // His top speed in the engine, yards a second.
+    let vmax = teams[side].players.iter().find(|g| g.id == me).map_or(0.0, |g| g.top_speed() as f32);
     for r in &res.stats.plays {
         if r.nullified || matches!(r.kind, PlayType::Kneel | PlayType::Spike | PlayType::NoPlay) {
             continue;
@@ -505,7 +533,7 @@ fn collect(
             continue;
         }
         let Some(mi) = fr[0].players.iter().position(|x| x.0 == me) else { continue };
-        let snap = read_snap(r, fr, mi, me, side, &pos_of, p, mark, game, look);
+        let snap = read_snap(r, fr, mi, me, side, &pos_of, p, mark, game, look, vmax);
         tape.snaps.push(snap);
     }
 }
@@ -522,6 +550,7 @@ fn read_snap(
     mark: f64,
     game: u8,
     look: &Look,
+    vmax: f32,
 ) -> Snap {
     let off = r.offense == side;
     let pos = p.player.position;
@@ -665,7 +694,16 @@ fn read_snap(
         _ => r.blitz || r.pressured,
     };
     let others: Vec<u32> = fr[0].players.iter().map(|x| x.0).filter(|&x| x != me).collect();
-    let cues = cues_of(&p.player, role, r, mark);
+    // Moving when the ball left his hand: a throw on the run.
+    let moving = role == Role::Passer
+        && release.filter(|&k| k > 0).is_some_and(|k| {
+            let (a, b) = (&fr[k - 1].players[mi], &fr[k].players[mi]);
+            let dt = (fr[k].t - fr[k - 1].t).max(0.05) as f32;
+            ((b.1 - a.1).powi(2) + (b.2 - a.2).powi(2)).sqrt() / dt > 3.0
+        });
+    // Flat out: within a tenth of his top speed, where his speed shows.
+    let flat_out = vmax > 0.0 && speed >= 0.9 * vmax;
+    let cues = cues_of(&p.player, role, r, mark, moving, flat_out);
     Snap {
         game,
         n: r.n,
@@ -1302,12 +1340,39 @@ fn caption_end(r: &PlayRecord, role: Role, me: u32) -> String {
     format!("{}.", result_words(r, role, me))
 }
 
-/// What the tape shows of him on a snap, by his job (SK43): the skills it
-/// tests, and the effort when the ball goes away.
-fn cues_of(p: &crate::player::Player, role: Role, r: &PlayRecord, mark: f64) -> Vec<(Attr, u8)> {
+/// What the tape shows of him on a snap, by his job (SK43): every skill the
+/// play tests, the main one first, and the effort when the ball goes away
+/// (minor bug 317: a snap showed three at most, so 15 of the film
+/// questions' own ratings were on no snap at all, composure on a pressured
+/// dropback among them, and a sack or a scramble read his short accuracy).
+/// Whether your eye catches each is the session's part.
+fn cues_of(
+    p: &crate::player::Player,
+    role: Role,
+    r: &PlayRecord,
+    mark: f64,
+    moving: bool,
+    flat_out: bool,
+) -> Vec<(Attr, u8)> {
     use Attr::*;
     let pos = p.position;
-    let list: Vec<Attr> = match role {
+    let kick_play = matches!(r.kind, PlayType::Punt | PlayType::Kickoff | PlayType::FieldGoal | PlayType::ExtraPoint);
+    let offense =
+        matches!(pos, Position::QB | Position::RB | Position::WR | Position::TE | Position::OT | Position::IOL);
+    let mut list: Vec<Attr> = match role {
+        // Down before he could throw: how he felt it, what he tried.
+        Role::Passer if r.kind == PlayType::Sack => vec![PocketPresence, Composure, Decisions, Agility],
+        // He took off: when he left, and what his legs did with it.
+        Role::Passer if r.kind == PlayType::Scramble => {
+            vec![PocketPresence, Decisions, Speed, Elusiveness, Agility, BallSecurity]
+        }
+        Role::Passer if r.throw_away => {
+            let mut v = vec![Decisions, PocketPresence];
+            if moving {
+                v.push(ThrowOnMove);
+            }
+            v
+        }
         Role::Passer => {
             let acc = if r.air_yards >= 20.0 {
                 DeepAccuracy
@@ -1316,82 +1381,188 @@ fn cues_of(p: &crate::player::Player, role: Role, r: &PlayRecord, mark: f64) -> 
             } else {
                 ShortAccuracy
             };
-            if r.pressured || r.kind == PlayType::Sack {
-                vec![PocketPresence, Decisions, acc]
-            } else {
-                vec![Decisions, acc, Anticipation]
+            let mut v = Vec::new();
+            if r.pressured {
+                v.extend([PocketPresence, Composure]);
             }
+            if moving {
+                v.extend([ThrowOnMove, Agility]);
+            }
+            v.extend([Decisions, acc, Anticipation, PlayRecognition, Footwork, QuickRelease]);
+            // The arm on the deep ball and the out to the far side; the
+            // ball's flight and his eyes on the safety past the linebackers.
+            if r.air_yards >= 15.0 {
+                v.push(ArmStrength);
+            }
+            if r.air_yards >= 10.0 {
+                v.extend([Touch, EyeManipulation]);
+            }
+            if r.play_action {
+                v.push(BallHandling);
+            }
+            // He stood in and took the hit.
+            if r.pressured && !r.hits.is_empty() {
+                v.push(Toughness);
+            }
+            v
         }
         Role::Target => {
-            if r.separation < 1.0 {
-                vec![ContestedCatch, RouteRunning, Catching]
+            let mut v = if r.separation < 1.0 {
+                vec![ContestedCatch, Catching, RouteRunning, BodyControl, Competitiveness]
             } else if r.air_yards >= 20.0 {
-                vec![BallTracking, Speed, RouteRunning]
+                vec![BallTracking, Speed, RouteRunning, Acceleration, Catching]
             } else {
-                vec![RouteRunning, Catching, Release]
+                vec![RouteRunning, Catching, Agility]
+            };
+            v.extend([Release, Concentration]);
+            if r.complete && r.yac >= 5.0 {
+                v.extend([Elusiveness, BallCarrierVision]);
             }
+            v
         }
         Role::Route => vec![RouteRunning, Release, Motor],
-        Role::Carrier => vec![BallCarrierVision, Elusiveness, LegDrive],
-        Role::PassPro => {
-            if pos == Position::RB {
-                vec![PassBlocking, PlayRecognition]
-            } else {
-                vec![PassBlocking, Footwork, HandUse, Anchor]
+        Role::Carrier if kick_play => {
+            let mut v = vec![BallCarrierVision, Elusiveness, Speed, BallSecurity];
+            if r.kind == PlayType::Punt {
+                v.push(BallTracking);
             }
+            v
         }
-        Role::RunBlock => {
-            if matches!(pos, Position::WR | Position::TE) && pos == Position::WR {
-                vec![BlockingInSpace, Motor]
-            } else {
-                vec![RunBlocking, LegDrive, HandUse]
+        Role::Carrier => {
+            let mut v = vec![BallCarrierVision, Elusiveness, LegDrive, BallSecurity, Balance];
+            if r.yards >= 10.0 {
+                v.extend([Speed, Acceleration]);
             }
+            v
         }
+        Role::PassPro => match pos {
+            Position::RB => vec![PassBlocking, PlayRecognition, Physicality],
+            Position::TE | Position::WR => vec![PassBlocking, HandUse, Footwork],
+            _ => vec![PassBlocking, Footwork, HandUse, Anchor, Strength, Agility, PlayRecognition, Discipline],
+        },
+        Role::RunBlock => match pos {
+            Position::WR => vec![BlockingInSpace, Motor, Physicality],
+            Position::RB => vec![RunBlocking, Physicality],
+            _ => vec![RunBlocking, LegDrive, HandUse, Strength, Physicality, Discipline],
+        },
         Role::Rusher => {
-            let mv = r.rush_wins.iter().find(|x| x.0 == p.id).map(|x| x.1);
-            let rush = match mv.map(|m| format!("{m:?}")) {
-                Some(s) if s.contains("Bull") || s.contains("Power") || s.contains("Long") => PowerRush,
-                _ => FinesseRush,
+            // The moves he tried, his counter too, each with what the
+            // engine's rush reads for it (`game::sim`, `rush_power`): the
+            // speed rush his finesse, speed, burst, bend and hands; the bull
+            // rush his power, strength, hands, balance and shed; the spin
+            // his finesse, agility, hands and shed. A tape from before the
+            // moves were kept shows the move he won with.
+            use crate::game::sim::Move;
+            let mut moves: Vec<Move> = r.rush_moves.iter().filter(|x| x.0 == p.id).map(|x| x.1).collect();
+            if moves.is_empty() {
+                moves.extend(r.rush_wins.iter().find(|x| x.0 == p.id).map(|x| x.1));
+            }
+            let mut v = match pos {
+                Position::LB | Position::S | Position::CB => vec![Blitzing, Acceleration, Anticipation],
+                _ => Vec::new(),
             };
-            if matches!(pos, Position::LB | Position::S | Position::CB) {
-                vec![Blitzing, Acceleration]
-            } else {
-                vec![rush, HandUse, Acceleration]
+            for m in moves {
+                v.extend(match m {
+                    Move::Speed => &[FinesseRush, Speed, Acceleration, Flexibility, HandUse][..],
+                    Move::Power => &[PowerRush, Strength, HandUse, Balance, BlockShedding][..],
+                    Move::Finesse => &[FinesseRush, Agility, HandUse, BlockShedding][..],
+                });
             }
-        }
-        Role::RunStop => {
-            if pos == Position::LB {
-                vec![PlayRecognition, Traffic, Tackling]
-            } else if matches!(pos, Position::CB | Position::S) {
-                vec![Tackling, Pursuit]
-            } else {
-                vec![BlockShedding, Strength, Tackling]
+            if v.is_empty() {
+                // No move on the record (a stunt, a free run): his get-off.
+                v.extend([Acceleration, if pos == Position::DT { PowerRush } else { FinesseRush }]);
             }
+            v.push(Motor);
+            v
         }
+        Role::RunStop => match pos {
+            Position::LB => vec![PlayRecognition, Traffic, Tackling, Pursuit, BlockShedding, Discipline],
+            Position::CB | Position::S => vec![Tackling, Pursuit, PlayRecognition, Physicality],
+            _ => {
+                let mut v = vec![BlockShedding, Strength, Tackling, HandUse, Anchor, Discipline];
+                // The run got past him, or he ran it down: his chase.
+                if r.yards >= 4.0 || flat_out {
+                    v.push(Pursuit);
+                }
+                v
+            }
+        },
         Role::Cover => {
-            if r.coverage_man {
-                if pos == Position::CB { vec![Press, ManCoverage, Speed] } else { vec![ManCoverage, Agility] }
+            let mut v = if r.coverage_man {
+                if pos == Position::CB {
+                    vec![Press, ManCoverage, Speed, Agility, Flexibility]
+                } else {
+                    vec![ManCoverage, Agility, Speed, Flexibility]
+                }
+            } else if pos == Position::S {
+                vec![ZoneCoverage, PlayRecognition, Anticipation, Speed]
             } else {
-                vec![ZoneCoverage, PlayRecognition]
+                // In zone, his legs show carrying a vertical through his
+                // area and closing on the ball.
+                let mut v = vec![ZoneCoverage, PlayRecognition, Anticipation];
+                if r.air_yards >= 15.0 {
+                    v.push(Speed);
+                }
+                if r.pbu == Some(p.id) || r.interceptor == Some(p.id) || r.tacklers.contains(&p.id) {
+                    v.extend([Acceleration, Agility]);
+                }
+                v
+            };
+            // At the catch point: the ball in the air between two men.
+            if r.pbu == Some(p.id) || r.interceptor == Some(p.id) || r.separation < 1.0 {
+                v.push(ContestedCatch);
             }
+            if r.tacklers.contains(&p.id) {
+                v.push(Tackling);
+            }
+            v
         }
         Role::Zone => {
+            // In man away from the ball he still mirrors his man.
             if r.coverage_man {
-                vec![ManCoverage, Motor]
+                if pos == Position::CB {
+                    vec![ManCoverage, Press, Agility, Motor]
+                } else {
+                    vec![ManCoverage, Agility, Motor]
+                }
+            } else if pos == Position::S {
+                vec![ZoneCoverage, PlayRecognition, Speed, Disguise, Motor]
             } else {
                 vec![ZoneCoverage, PlayRecognition, Motor]
             }
         }
         Role::Kick => match r.kind {
-            PlayType::Punt => vec![PuntPower, PuntPlacement],
-            PlayType::FieldGoal if r.yardline_100 + 17.0 >= 45.0 => vec![KickPower, LongKickAccuracy],
-            PlayType::FieldGoal | PlayType::ExtraPoint => vec![ShortKickAccuracy, Composure],
+            PlayType::Punt => vec![PuntPower, PuntPlacement, GetOff],
+            PlayType::FieldGoal if r.yardline_100 + 17.0 >= 45.0 => {
+                vec![KickPower, LongKickAccuracy, Composure, KickTrajectory]
+            }
+            PlayType::FieldGoal | PlayType::ExtraPoint => vec![ShortKickAccuracy, Composure, KickTrajectory],
+            PlayType::Kickoff => vec![KickPower, KickoffTechnique],
             _ => vec![KickPower],
         },
         Role::Coverage => vec![Tackling, Pursuit, Speed],
+        // The long snapper's job is the snap.
+        Role::Away if pos == Position::LS && kick_play => vec![LongSnapping, Composure],
+        // A handoff: the exchange and the fake.
+        Role::Away if pos == Position::QB && r.kind == PlayType::Run => vec![BallHandling, Motor],
+        Role::Away if offense => vec![Motor],
         Role::Away => vec![Motor, Pursuit],
     };
-    list.into_iter().take(3).map(|a| (a, words::band(p.attributes.get(a), mark) as u8)).collect()
+    if pos == Position::LS && kick_play && role == Role::Coverage {
+        list.splice(0..0, [LongSnapping, Composure]);
+    }
+    // Running flat out, his speed shows whatever his job.
+    if flat_out && role != Role::Kick {
+        list.push(Speed);
+    }
+    let mut seen = 0u128;
+    list.retain(|a| {
+        let bit = 1u128 << a.index();
+        let new = seen & bit == 0;
+        seen |= bit;
+        new
+    });
+    list.into_iter().map(|a| (a, words::band(p.attributes.get(a), mark) as u8)).collect()
 }
 
 /// The call before the moment (SK48), with what really happened.
@@ -1645,43 +1816,121 @@ pub fn cut(tape: &Tape, c: Cut, n: usize) -> Vec<usize> {
 /// show the question's attributes come first (a zone question pulls his
 /// zone snaps), then the rest.
 pub fn cut_on(tape: &Tape, c: Cut, n: usize, ask: &[u8]) -> Vec<usize> {
+    cut_for(tape, c, n, ask, &[])
+}
+
+/// Whether you have watched a game of his for the question (minor bug
+/// 338: a game is one look of him, so more of a game you have watched
+/// tells you less than his next one): half its snaps that show the
+/// question's ratings, or six of them; with none asked, half its snaps.
+pub fn game_watched(tape: &Tape, g: u8, ask: &[u8], old: &[bool]) -> bool {
+    let seen = |k: usize| old.get(k).copied().unwrap_or(false);
+    let shows = |k: usize| ask.is_empty() || tape.snaps[k].cues.iter().any(|x| ask.contains(&(x.0.index() as u8)));
+    let (all, done) = (0..tape.snaps.len())
+        .filter(|&k| tape.snaps[k].game == g && shows(k))
+        .fold((0, 0), |(a, d), k| (a + 1, d + usize::from(seen(k))));
+    all > 0 && (done * 2 >= all || (!ask.is_empty() && done >= 6))
+}
+
+/// The games a cut-up's snaps come from, and how many of them you haven't
+/// watched for the question (`game_watched`).
+pub fn new_games(tape: &Tape, picks: &[usize], ask: &[u8], old: &[bool]) -> (usize, usize) {
+    let mut gs: Vec<u8> = picks.iter().map(|&k| tape.snaps[k].game).collect();
+    gs.sort_unstable();
+    gs.dedup();
+    let new = gs.iter().filter(|&&g| !game_watched(tape, g, ask, old)).count();
+    (gs.len(), new)
+}
+
+/// The same, for a watch again (minor bug 319): the snaps you haven't seen
+/// first (`old`, by snap), then those that show the question's rarest
+/// attributes (a deep throw before the tenth medium one), then the rest.
+/// A one-game cut-up takes a game you haven't watched for the question
+/// (his next-best opponent), and once a cut-up holds snaps new to you it
+/// plays only those: the same snap shows the same thing.
+pub fn cut_for(tape: &Tape, c: Cut, n: usize, ask: &[u8], old: &[bool]) -> Vec<usize> {
     let snaps = &tape.snaps;
+    let seen = |k: usize| old.get(k).copied().unwrap_or(false);
     let game_score = |g: u8| -> f64 {
         let v: Vec<f64> = snaps.iter().filter(|s| s.game == g && s.grade != 0).map(|s| s.grade as f64).collect();
         if v.is_empty() { 0.0 } else { v.iter().sum::<f64>() / v.len() as f64 }
     };
+    // The games you haven't watched for the question, else every game.
+    let new_games: Vec<u8> = (0..tape.games.len() as u8)
+        .filter(|&g| snaps.iter().any(|s| s.game == g) && !game_watched(tape, g, ask, old))
+        .collect();
+    let games: Vec<u8> = if new_games.is_empty() { (0..tape.games.len() as u8).collect() } else { new_games };
     let pick: Vec<usize> = match c {
         Cut::ThirdDowns => (0..snaps.len()).filter(|&k| snaps[k].third && !snaps[k].special).collect(),
         Cut::RedZone => (0..snaps.len()).filter(|&k| snaps[k].red && !snaps[k].special).collect(),
         Cut::Pressure => (0..snaps.len()).filter(|&k| snaps[k].pressure && !snaps[k].special).collect(),
         Cut::BestOpponent => {
-            let g = (0..tape.games.len())
-                .max_by(|a, b| tape.games[*a].strength.total_cmp(&tape.games[*b].strength))
-                .unwrap_or(0) as u8;
+            let g = games
+                .iter()
+                .copied()
+                .max_by(|a, b| tape.games[*a as usize].strength.total_cmp(&tape.games[*b as usize].strength))
+                .unwrap_or(0);
             (0..snaps.len()).filter(|&k| snaps[k].game == g).collect()
         }
         Cut::WorstGame => {
-            let g = (0..tape.games.len() as u8).min_by(|a, b| game_score(*a).total_cmp(&game_score(*b))).unwrap_or(0);
+            let g = games.iter().copied().min_by(|a, b| game_score(*a).total_cmp(&game_score(*b))).unwrap_or(0);
             (0..snaps.len()).filter(|&k| snaps[k].game == g).collect()
         }
         Cut::Ours => (0..snaps.len()).collect(),
     };
-    // The snaps where he's in the play first, spread across the games.
+    // The snaps where he's in the play first.
     let mut busy: Vec<usize> = pick.iter().copied().filter(|&k| snaps[k].role != Role::Away).collect();
-    let bears = |k: usize| snaps[k].cues.iter().any(|x| ask.contains(&(x.0.index() as u8)));
-    busy.sort_by_key(|&k| !bears(k));
+    // Each question attribute counts by how rare it is in the cut-up, so
+    // the one snap that shows it isn't lost behind the many that show
+    // another.
+    let shows = |k: usize, a: u8| snaps[k].cues.iter().any(|x| x.0.index() as u8 == a);
+    let rare: Vec<(u8, u64)> = ask
+        .iter()
+        .map(|&a| {
+            let m = pick.iter().filter(|&&k| shows(k, a)).count() as u64;
+            (a, 1_000_000u64.checked_div(m).unwrap_or(0))
+        })
+        .collect();
+    let score = |k: usize| -> u64 { rare.iter().filter(|x| shows(k, x.0)).map(|x| x.1).sum() };
+    busy.sort_by_key(|&k| (seen(k), std::cmp::Reverse(score(k)), k));
     let mut idle: Vec<usize> = pick.iter().copied().filter(|&k| snaps[k].role == Role::Away).collect();
+    idle.sort_by_key(|&k| (seen(k), std::cmp::Reverse(score(k)), k));
     busy.truncate(n.saturating_sub(1).max(1));
-    idle.truncate(n.saturating_sub(busy.len()).min(2));
+    // Away from the ball: what he does when the play goes the other way,
+    // about one snap in six of the cut-up.
+    idle.truncate(n.saturating_sub(busy.len()).min((n / 6).max(2)));
     let mut out = busy;
     out.extend(idle);
+    // A watch again plays the cut-up's snaps you haven't seen (minor bug
+    // 319) while it has any; once you have seen them all it plays them
+    // again, not just the one that jumps out below.
+    let fresh = out.iter().any(|&k| !seen(k));
     // A snap that jumps out, from anywhere on the tape.
-    if let Some(k) = (0..snaps.len()).find(|&k| snaps[k].surprise.is_some() && !out.contains(&k)) {
+    if let Some(k) = (0..snaps.len()).find(|&k| snaps[k].surprise.is_some() && !out.contains(&k) && !seen(k)) {
         if out.len() >= n.max(1) {
             out.pop();
         }
         out.push(k);
     }
+    if fresh {
+        out.retain(|&k| !seen(k));
+    }
     out.sort_unstable();
     out
+}
+
+/// Whether a cut-up pulled from this tape is mostly new to you (minor bug
+/// 319): at least half the snaps it would play if you had seen none, and
+/// at least half its games ones you haven't watched for the question
+/// (minor bug 338: new snaps of a game you have watched add little).
+pub fn mostly_new(tape: &Tape, c: Cut, n: usize, ask: &[u8], picks: &[usize], old: &[bool]) -> bool {
+    let fresh = picks.iter().filter(|&&k| !old.get(k).copied().unwrap_or(false)).count();
+    if fresh == 0 {
+        return false;
+    }
+    if !old.iter().any(|&x| x) {
+        return true;
+    }
+    let (games, new) = new_games(tape, picks, ask, old);
+    fresh * 2 >= cut_on(tape, c, n, ask).len() && new * 2 >= games
 }

@@ -4,7 +4,8 @@
 //! consequence"). A friend who leaves becomes his subject for four weeks,
 //! with its own lines and a promise; every exchange says how it went over
 //! and moves the bars; a starter weighs his role before following a friend
-//! to the portal; "sir" follows your coach's he or she.
+//! to the portal; "sir" follows your coach's he or she; and only a brash
+//! player talks back in your office (Cain 2026-11-05, "Yes, tag them").
 
 use super::legacy::seat;
 use crate::player::PlayingTime;
@@ -155,8 +156,13 @@ fn a_starter_weighs_his_role_before_following_a_friend() {
     let (mut w, _, v) = room(3);
     let (left, starter, backup) = (v[0], v[1], v[2]);
     let d = w.dates.portal_open.add(1);
-    w.people[left].cal.portal =
-        Some(PortalEntry { entered: d.add(-1), decide_by: d.add(30), why: "a friend left", held: false });
+    w.people[left].cal.portal = Some(PortalEntry {
+        entered: d.add(-1),
+        decide_by: d.add(30),
+        why: "a friend left",
+        held: false,
+        looking: false,
+    });
     w.people[starter].last_role = Some(PlayingTime::Starter);
     w.people[backup].last_role = Some(PlayingTime::Backup);
     let il = id(&w, left);
@@ -193,5 +199,72 @@ fn sir_follows_your_coachs_he_or_she() {
             let words = text.split(|c: char| !c.is_alphabetic()).collect::<Vec<_>>();
             assert!(!words.iter().any(|x| x.eq_ignore_ascii_case("sir")), "{key}: {}", v.0);
         }
+    }
+}
+
+#[test]
+fn only_a_brash_player_talks_back_in_your_office() {
+    use crate::player::Trait;
+    let (mut w, _, v) = room(1);
+    let a = v[0];
+    let set = |w: &mut World, ego: f64, temper: f64, trust: f32| {
+        let p = &mut w.people[a];
+        p.player.personality.traits.set(Trait::Ego, ego);
+        p.player.personality.traits.set(Trait::Temper, temper);
+        p.trust = trust;
+    };
+    let brash = |w: &World| voice::Speaker::player(w, a).has("brash");
+    // College: a big ego, a hot temper and little trust in you, all three.
+    set(&mut w, 16.0, 16.0, 0.3);
+    assert!(brash(&w), "cocky, hot-headed and wary of you");
+    set(&mut w, 16.0, 16.0, 0.6);
+    assert!(!brash(&w), "he trusts you");
+    set(&mut w, 16.0, 9.0, 0.3);
+    assert!(!brash(&w), "an ego alone");
+    set(&mut w, 9.0, 16.0, 0.3);
+    assert!(!brash(&w), "a temper alone");
+    // High school: never.
+    set(&mut w, 18.0, 18.0, 0.1);
+    w.people[a].stage = Stage::HighSchool;
+    assert!(!brash(&w), "a high school player never talks back");
+    // The NFL: an ego or a temper keeps its edge.
+    w.people[a].stage = Stage::Pro;
+    set(&mut w, 16.0, 9.0, 0.9);
+    assert!(brash(&w), "an NFL ego");
+    set(&mut w, 9.0, 9.0, 0.1);
+    assert!(!brash(&w), "a level-headed pro");
+}
+
+#[test]
+fn a_school_player_keeps_it_respectful_in_your_office() {
+    // Lines that talk back are tagged brash (Cain 2026-11-05): a high school
+    // or college player with every trait but brash can't say them, and
+    // every talk part keeps plenty he can say.
+    let b = voice::bank();
+    let traits = ["young", "ego", "hot", "loose", "greedy", "competitor", "shaky", "social", "modern", "nil", "south"];
+    let mouthy = ["Whatever you say, Coach.", "Are we done?", "Sit me, then.", "This better be good, Coach."];
+    for level in ["hs", "college"] {
+        let mut who: Vec<&str> = vec!["player", level];
+        who.extend(traits);
+        let can = |need: &[String], not: &[String]| {
+            need.iter().all(|t| who.contains(&t.as_str())) && !not.iter().any(|t| who.contains(&t.as_str()))
+        };
+        let mut seen = 0;
+        for (key, _) in b.keys() {
+            if !key.starts_with("talk.") {
+                continue;
+            }
+            let vs = b.versions(key);
+            for v in &vs {
+                if mouthy.contains(&v.0) {
+                    seen += 1;
+                    assert!(!can(v.1, v.2), "{level} can say {key}: {}", v.0);
+                }
+            }
+            let said = vs.iter().filter(|v| can(v.1, v.2)).count();
+            let brash = vs.iter().filter(|v| v.1.iter().any(|t| t == "brash")).count();
+            assert!(brash == 0 || said >= 5, "{level}: {key} keeps {said} lines");
+        }
+        assert!(seen >= mouthy.len(), "the mouthy lines are in the bank");
     }
 }

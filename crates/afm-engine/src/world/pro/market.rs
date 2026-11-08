@@ -1926,7 +1926,11 @@ pub(crate) fn cap_moves(w: &mut World, d: Date, before_league_year: bool) {
     for t in 0..w.clubs.len() {
         // Your cap is yours until opening day, when the league makes every
         // club get under (lane 10: your cap manager then does what it takes).
-        if super::super::franchise::active_in(w, t, year) && !(before_league_year && fo::yours(w, t, Duty::Cap)) {
+        // Sandbox mode's cap switch keeps your club over it all year.
+        if super::super::franchise::active_in(w, t, year)
+            && !(before_league_year && fo::yours(w, t, Duty::Cap))
+            && !fo::cap_lifted(w, t)
+        {
             clear_room(w, t, d, before_league_year, 0.0, true);
         }
     }

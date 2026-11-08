@@ -173,6 +173,10 @@
 .fc-over { color: var(--live); }
 
 /* NIL: the money at the top, four panels across; the roster's deals below at full width. */
+.fc-nilcards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 0 0 16px; }
+.fc-nilcard { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px solid var(--hair); border-radius: 12px; background: var(--fill-1); font-size: 13px; color: var(--fg2); }
+.fc-nilcard b { color: var(--fg); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+.fc-pot { font-size: 11.5px; color: var(--fg3, var(--fg2)); margin-right: 2px; }
 .fc-nilgrid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
 .fc-nilgrid > :first-child { grid-row: span 2; }
 .fc-nilgrid > :last-child { grid-column: span 2; }
@@ -221,3 +225,4 @@
 .fc-fresh p { margin: 4px 0 0; max-width: 92ch; line-height: 1.45; }
 .fc-fresh b { font-weight: 700; }
 .fc-fresh .fc-acts { flex: none; }
+.fc-barm { margin-top: 10px; display: grid; gap: 4px; }

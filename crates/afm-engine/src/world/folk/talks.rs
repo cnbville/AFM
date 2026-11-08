@@ -198,6 +198,10 @@ pub enum PromiseKind {
     /// His place doesn't change: still on your team at the season's end, in
     /// the role he had (the rank of his `PlayingTime` when you said it).
     Place(u8),
+    /// A transfer's promise when he came (portal recruiting): 0 a starting
+    /// job, 1 a real role, every week. Read off his games for you, not last
+    /// season's role at his old school.
+    Join(u8),
 }
 
 impl PromiseKind {
@@ -211,6 +215,8 @@ impl PromiseKind {
             PromiseKind::Raise => "a raise".into(),
             PromiseKind::Place(0) => "that he'd keep his starting job".into(),
             PromiseKind::Place(_) => "that his place wouldn't change".into(),
+            PromiseKind::Join(0) => "a starting job when he came".into(),
+            PromiseKind::Join(_) => "a real role when he came".into(),
         }
     }
 }
@@ -263,11 +269,11 @@ fn promise_due(w: &World, kind: PromiseKind, seasons: u8) -> Date {
         _ => w.dates.fbs_regular_end.add(3),
     };
     let base = match kind {
-        PromiseKind::Start => {
+        PromiseKind::Start | PromiseKind::Join(0) => {
             let k = kickoff(w).add(8);
             if k > today { k } else { k.add(365) }
         }
-        PromiseKind::Snaps | PromiseKind::Place(_) => {
+        PromiseKind::Snaps | PromiseKind::Place(_) | PromiseKind::Join(_) => {
             let e = end(w);
             if e > today.add(30) { e } else { e.add(365) }
         }
@@ -353,6 +359,20 @@ pub(crate) fn kept(w: &World, p: &Promise) -> bool {
                     let here = Team::seat(w).is_some_and(|t| t.roster(w).contains(&i));
                     here && (pp.last_role.map_or(5, |x| x as u8) <= r || r == 0 && seat_starter(w, i))
                 }
+                PromiseKind::Join(r) => {
+                    let here = Team::seat(w).is_some_and(|t| t.roster(w).contains(&i));
+                    let mine = Team::seat(w).and_then(|t| match t {
+                        Team::College(c) => Some(c as u32),
+                        _ => None,
+                    });
+                    let line = w
+                        .tallies
+                        .players
+                        .get(crate::world::tally::Level::College, id)
+                        .filter(|s| Some(s.team) == mine && w.tallies.season == w.dates.season);
+                    let (games, starts) = line.map_or((0, 0), |s| (s.games, s.starts));
+                    here && if r == 0 { starts > 0 || seat_starter(w, i) } else { games >= 8 || starts >= 3 }
+                }
                 PromiseKind::Contract => {
                     pp.pro.as_ref().and_then(|c| c.contract.as_ref()).is_some_and(|k| {
                         k.signed >= w.year && k.signed > p.made.year() - 1 && p.made.days_to(w.today) > 0
@@ -373,7 +393,7 @@ pub(crate) fn kept(w: &World, p: &Promise) -> bool {
 /// football. A club that cut or traded him, or a program or school that
 /// dismissed him, broke it (`kept`).
 pub(crate) fn lapsed(w: &World, p: &Promise) -> bool {
-    let (PromiseTo::Player(id), PromiseKind::Place(_)) = (p.to, p.kind) else { return false };
+    let (PromiseTo::Player(id), PromiseKind::Place(_) | PromiseKind::Join(_)) = (p.to, p.kind) else { return false };
     let Some(i) = super::person(w, id) else { return true };
     let Some(team) = Team::seat(w) else { return false };
     if team.roster(w).contains(&i) {
@@ -558,15 +578,25 @@ fn week_start(d: Date) -> Date {
     d
 }
 
-/// Hours left this week.
+/// Hours left this week (all of them, every week, with sandbox mode's
+/// hours switch).
 pub fn hours_left(w: &World) -> f32 {
+    if w.sandbox(crate::world::sandbox::Switch::YourHours) {
+        return week_budget(w);
+    }
     let used = if w.folk.mine.week == Some(week_start(w.today)) { w.folk.mine.hours } else { 0.0 };
     (week_budget(w) - used).max(0.0)
 }
 
 /// Charges people time that has to be spent (a trip, a meeting you held),
 /// past the week's budget if need be.
+///
+/// With sandbox mode's hours switch nothing is charged, so the week is
+/// still true when the switch goes off.
 pub fn charge(w: &mut World, hours: f32) {
+    if w.sandbox(crate::world::sandbox::Switch::YourHours) {
+        return;
+    }
     let wk = week_start(w.today);
     if w.folk.mine.week != Some(wk) {
         w.folk.mine.week = Some(wk);
@@ -575,8 +605,12 @@ pub fn charge(w: &mut World, hours: f32) {
     w.folk.mine.hours += hours;
 }
 
-/// Spends people time; false when the week is full.
+/// Spends people time; false when the week is full. Always true, and
+/// nothing charged, with sandbox mode's hours switch.
 pub fn spend(w: &mut World, hours: f32) -> bool {
+    if w.sandbox(crate::world::sandbox::Switch::YourHours) {
+        return true;
+    }
     let wk = week_start(w.today);
     if w.folk.mine.week != Some(wk) {
         w.folk.mine.week = Some(wk);

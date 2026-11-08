@@ -245,6 +245,11 @@ pub struct Agent {
     pub poise20: f64,
     #[serde(default)]
     pub heat: f64,
+    /// A safety's hitter read this snap (S-A): his weight over his level's
+    /// typical safety in tens of pounds, with his hitting ratings over his
+    /// range ones; 0 for everyone else.
+    #[serde(default)]
+    pub hit: f64,
 }
 
 impl Agent {
@@ -307,6 +312,7 @@ impl Agent {
             focus20: 0.0,
             poise20: 0.0,
             heat: 0.0,
+            hit: 0.0,
         }
     }
     /// How hard he can stop, yards per second squared: his grip and his
@@ -353,6 +359,7 @@ impl Agent {
             focus20: self.focus20,
             poise20: self.poise20,
             heat: self.heat,
+            hit: self.hit,
         }
     }
 
@@ -533,7 +540,67 @@ pub enum InjuryKind {
     Quad,
 }
 
+/// The strength staff's guard on soft-tissue injuries (minor bug 303): 2%
+/// fewer muscle strains and backs for each point his strength head stands
+/// over the level's typical one, 2% more for each point under, capped at
+/// 15% either way, so the level's injury totals stay where they were.
+/// Strength work cuts sports injuries to about a third (Lauersen 2014) and
+/// Nordic hamstring work halves strains (van Dyk 2019); every college and
+/// NFL staff lifts, so the gap between staffs is a small share of that.
+/// Proposed, not confirmed: the 2% and the cap.
+pub fn strength_guard(head: f64, typical: f64) -> f64 {
+    clamp(1.0 - 0.02 * (head - typical), 0.85, 1.15)
+}
+
+/// An injury mix with its soft-tissue kinds times `guard` (minor bug 303),
+/// and the factor on the injury's chance that keeps every other kind's
+/// chance where it was.
+pub fn guarded_mix<const N: usize>(mix: &[(InjuryKind, f64); N], guard: f64) -> ([(InjuryKind, f64); N], f64) {
+    let total: f64 = mix.iter().map(|e| e.1).sum();
+    let soft: f64 = mix.iter().filter(|e| e.0.soft_tissue()).map(|e| e.1).sum();
+    let out = mix.map(|(k, wgt)| (k, if k.soft_tissue() { wgt * guard } else { wgt }));
+    (out, (total + (guard - 1.0) * soft) / total)
+}
+
+/// The game injury mix (`Sim::injury_check`), set so the injuries that cost
+/// a week or more fall by body part as real game-status reports do
+/// (nflverse 2012-2025, `development_injuries.json`: knee 17.2%, ankle
+/// 14.3%, hamstring 12.9%, concussion 11.1%, shoulder 5.6%, foot 4.4%,
+/// groin 4.3%, calf 3.8%, back 2.6%, neck 2.3%, hip 2.0%, quad 1.9%, the
+/// rest here as bruises, ribs, hands and broken bones). Knees and ankles
+/// were 24.7% and 21.1% (minor bug 145); knee against ACL and ankle against
+/// high ankle keep their old split.
+pub const GAME_INJURIES: [(InjuryKind, f64); 18] = [
+    (InjuryKind::Bruise, 23.2),
+    (InjuryKind::AnkleSprain, 9.5),
+    (InjuryKind::HighAnkleSprain, 3.6),
+    (InjuryKind::Knee, 7.9),
+    (InjuryKind::Acl, 1.7),
+    (InjuryKind::Shoulder, 4.6),
+    (InjuryKind::Concussion, 10.7),
+    (InjuryKind::Ribs, 5.0),
+    (InjuryKind::Hand, 6.1),
+    (InjuryKind::Fracture, 3.1),
+    (InjuryKind::Back, 2.8),
+    (InjuryKind::Hamstring, 7.4),
+    (InjuryKind::Foot, 3.1),
+    (InjuryKind::Groin, 3.4),
+    (InjuryKind::Calf, 3.0),
+    (InjuryKind::Neck, 1.8),
+    (InjuryKind::Hip, 1.7),
+    (InjuryKind::Quad, 1.5),
+];
+
 impl InjuryKind {
+    /// Muscle strains and backs: what the weight room and the strength
+    /// staff's prevention work guard against (minor bug 303).
+    pub fn soft_tissue(self) -> bool {
+        matches!(
+            self,
+            InjuryKind::Hamstring | InjuryKind::Back | InjuryKind::Groin | InjuryKind::Calf | InjuryKind::Quad
+        )
+    }
+
     pub fn name(self) -> &'static str {
         match self {
             InjuryKind::Bruise => "bruise",
@@ -638,6 +705,11 @@ pub struct Notes {
     pub blocks: Vec<(u32, u32, bool, bool, f64, bool)>,
     /// Rush wins inside 2.5 s, with the move.
     pub rush_wins: Vec<(u32, Move, f64)>,
+    /// Every move a pass rusher tried, his counter too, on plays that keep
+    /// frames only (film tapes): what the tape shows of his rush, won or
+    /// not (minor bug 317).
+    #[serde(skip)]
+    pub rush_moves: Vec<(u32, Move)>,
     pub busts: Vec<u32>,
     pub freelance: Vec<(u32, bool)>,
     pub fouls: Vec<Foul>,
@@ -902,6 +974,36 @@ const LAST_MAN_LEAD: f64 = 1.4;
 /// shows none once talent is known (proposed, not confirmed).
 const EDGE_BURST: f64 = 0.15;
 const EDGE_ARC_LEGS: f64 = 0.5;
+
+/// A defensive tackle's first step on a pass rush, over the 0.64
+/// Acceleration points a pound his 10-yard split shows: the heavy man plays
+/// two gaps and reads the run before he rushes, so he gets off later. His
+/// power rush still reads his mass like every rusher's, so he wins more bull
+/// rushes but gets home less (minor bug 285: real heavier tackles pressure
+/// 0.22 pts less a defense snap per 10 lb at the same draft slot; with this
+/// the engine gives -0.18 pure and -0.24 as recruited, and +0.18 pts of
+/// power wins a rush snap). Proposed, not confirmed.
+const TWO_GAP: f64 = 2.7;
+
+/// The chance a linebacker past the line of scrimmage slips a climbing
+/// blocker, added to the whiff (bug 305: linebackers made 21% of first
+/// run tackles, real 28%; with the fills below 24.5%). Proposed, not
+/// confirmed.
+const LB_SLIP: f64 = 0.4;
+
+/// The chance a tick a linebacker in a block works off it to a runner who
+/// is past the line and going by to his side (bug 305, as `LB_SLIP`; he
+/// was blocked to the whistle 1.7 times a run, now 1.0). Proposed, not
+/// confirmed.
+const LB_LEAVE: f64 = 0.8;
+
+/// Tackling points a pound over the typical man at his position: real
+/// heavier linebackers miss 0.53 pts fewer tackles per 10 lb and corners
+/// 0.57 (engine -0.36 and -0.57); and per inch of a linebacker's arm
+/// (real about -0.2 pts an inch, engine -0.12). Proposed, not confirmed.
+const TACKLE_WEIGHT_LB: f64 = 0.28;
+const TACKLE_ARM_LB: f64 = 1.2;
+const TACKLE_WEIGHT_CB: f64 = 0.27;
 
 /// The hitter's part in a forced fumble, a point of 0.5 Strength + 0.5
 /// Tackling about his level's typical man at his position (minor bug 282:
@@ -1244,6 +1346,13 @@ impl<'a> Sim<'a> {
         } else {
             clamp(0.17 + 0.006 * (slip - skill) + 0.05 * (across - 2.0).max(0.0), 0.05, 0.55)
         };
+        // A linebacker at the second level plays the climbing blocker with
+        // his hands and leverage, and slips him more often.
+        let p_miss = if da.label == "LB" && (da.pos.x - self.los) * self.goal > PHONE_BOOTH {
+            (p_miss + LB_SLIP).min(0.7)
+        } else {
+            p_miss
+        };
         if self.rng.chance(p_miss) {
             self.agents[b].last_try = t;
             // Slipping a block costs him his momentum: he has to dip or
@@ -1265,6 +1374,9 @@ impl<'a> Sim<'a> {
             return;
         }
         let mv = if pass { self.pick_move(b, d) } else { Move::Power };
+        if pass && self.record.is_some() {
+            self.notes.rush_moves.push((self.agents[d].id, mv));
+        }
         let (bl, de) = (&self.agents[b], &self.agents[d]);
         // Get-off against the set: the first step decides a lot. The
         // rusher's jump is his burst and his read of the snap; the blocker
@@ -1287,7 +1399,8 @@ impl<'a> Sim<'a> {
         let k_acc = if edge_rusher { EDGE_BURST } else { 0.6 };
         let heft = if pass && !edge_rusher {
             let (_, wt, _) = super::synthetic::typical_body(self.level, self.player(d).position);
-            0.64 * k_acc * (de.mass - wt)
+            let two_gap = if self.player(d).position == crate::positions::Position::DT { TWO_GAP } else { 0.0 };
+            (0.64 + two_gap) * k_acc * (de.mass - wt)
         } else {
             0.0
         };
@@ -1586,6 +1699,9 @@ impl<'a> Sim<'a> {
                     if mv != e.mv && self.rush_power(d, mv) - self.block_power(b, mv, true) > edge {
                         self.eng[k].mv = mv;
                         edge = self.rush_power(d, mv) - self.block_power(b, mv, true);
+                        if self.record.is_some() {
+                            self.notes.rush_moves.push((self.agents[d].id, mv));
+                        }
                     }
                 }
             }
@@ -1621,10 +1737,15 @@ impl<'a> Sim<'a> {
             if !e.pass
                 && !reading
                 && let Some(c) = carrier
-                && matches!(self.agents[d].label, "CB" | "NB" | "FS" | "SS")
+                && let leave = match self.agents[d].label {
+                    "CB" | "NB" | "FS" | "SS" => SPACE_BLOCK_LEAVE,
+                    "LB" => LB_LEAVE,
+                    _ => 0.0,
+                }
+                && leave > 0.0
                 && (self.agents[c].pos.x - self.los) * self.goal > 0.0
                 && (self.agents[c].pos.y - self.agents[d].pos.y).abs() > SPACE_BLOCK_GAP
-                && self.rng.chance(SPACE_BLOCK_LEAVE)
+                && self.rng.chance(leave)
             {
                 self.release(k);
                 continue;
@@ -2098,9 +2219,12 @@ impl<'a> Sim<'a> {
             let wrap = if free_reach > 1.6 { clamp(0.01 * (d.a(Attr::Tackling) - 60.0), -0.4, 0.4) } else { 0.0 };
             // Length (Dynamic Links): the long arms add tackling reach, about
             // what five tackling points' wrap range gives.
+            // Real linebackers' arms add no run tackles (bug 308): theirs
+            // show as a surer finish instead (`body_tackle`).
+            let arm_reach = if self.player(i).position == crate::positions::Position::LB { 0.0 } else { 0.03 };
             let reach = free_reach
                 + wrap
-                + 0.03 * (self.player(i).arm - 32.0)
+                + arm_reach * (self.player(i).arm - 32.0)
                 + 0.05 * self.player(i).links.share(&[crate::links::Link::Length]);
             // Closest approach over the last tick, so fast players can't
             // pass through each other between two samples.
@@ -2152,6 +2276,22 @@ impl<'a> Sim<'a> {
         }
     }
 
+    /// A tackler's body in his finish, in tackling points over his level's
+    /// typical man at his position (L2, C4; bugs 307, 308): real heavier
+    /// linebackers and corners miss fewer tackles (-0.53 and -0.57 pts of
+    /// misses per 10 lb at the same draft slot), longer-armed linebackers
+    /// too (-0.2 pts an inch); safeties' misses are flat by weight.
+    fn body_tackle(&self, i: usize) -> f64 {
+        use crate::positions::Position as P;
+        let g = self.player(i);
+        let (_, tw, ta) = super::synthetic::typical_body(self.level, g.position);
+        match g.position {
+            P::LB => TACKLE_WEIGHT_LB * (g.weight - tw) + TACKLE_ARM_LB * (g.arm - ta),
+            P::CB => TACKLE_WEIGHT_CB * (g.weight - tw),
+            _ => 0.0,
+        }
+    }
+
     fn first_hit(&mut self, c: usize, i: usize, arm_only: bool, lunge: f64) {
         let t = self.t;
         let (r, d) = (self.agents[c].clone(), self.agents[i].clone());
@@ -2176,7 +2316,8 @@ impl<'a> Sim<'a> {
         let tackle = 0.6 * d.a(Attr::Tackling)
             + 0.2 * d.a(Attr::Agility)
             + 0.2 * d.a(Attr::Pursuit)
-            + self.link(i, &[Link::Sudden]);
+            + self.link(i, &[Link::Sudden])
+            + self.body_tackle(i);
         // Out of control when arriving too fast, behind when chasing.
         let angle = if head_on > 0.5 {
             -0.3
@@ -2544,42 +2685,18 @@ impl<'a> Sim<'a> {
         let prone = 0.55 + gp.injury_proneness / 18.0;
         let tough = gp.trait20(Attr::Toughness, self.level);
         let turf = if self.cond.turf { 1.12 } else { 1.0 };
+        // His strength staff's guard on muscle strains and backs (minor bug 303).
+        let (mix, guarded) = guarded_mix(&GAME_INJURIES, gp.soft as f64);
         // Tired muscles and slower reactions get hurt more (update 3, F8;
         // proposed, not confirmed: up to 60% more for a man at the 0.25
         // energy floor, about 15% after a long drive).
         let tired = 1.0 + 0.8 * self.agents[i].tired;
-        let p = self.injury_scale * 0.022 * share * (force / 1700.0).powf(1.6) * prone * turf * tired;
+        let p = self.injury_scale * 0.022 * share * (force / 1700.0).powf(1.6) * prone * turf * tired * guarded;
         if !self.rng.chance(p) {
             return;
         }
-        // The mix is set so the injuries that cost a week or more fall by
-        // body part as real game-status reports do (nflverse 2012-2025,
-        // `development_injuries.json`: knee 17.2%, ankle 14.3%, hamstring
-        // 12.9%, concussion 11.1%, shoulder 5.6%, foot 4.4%, groin 4.3%,
-        // calf 3.8%, back 2.6%, neck 2.3%, hip 2.0%, quad 1.9%, the rest
-        // here as bruises, ribs, hands and broken bones). Knees and ankles
-        // were 24.7% and 21.1% (minor bug 145); knee against ACL and ankle
-        // against high ankle keep their old split.
-        let kind = self.rng.weighted(&[
-            (InjuryKind::Bruise, 23.2),
-            (InjuryKind::AnkleSprain, 9.5),
-            (InjuryKind::HighAnkleSprain, 3.6),
-            (InjuryKind::Knee, 7.9),
-            (InjuryKind::Acl, 1.7),
-            (InjuryKind::Shoulder, 4.6),
-            (InjuryKind::Concussion, 10.7),
-            (InjuryKind::Ribs, 5.0),
-            (InjuryKind::Hand, 6.1),
-            (InjuryKind::Fracture, 3.1),
-            (InjuryKind::Back, 2.8),
-            (InjuryKind::Hamstring, 7.4),
-            (InjuryKind::Foot, 3.1),
-            (InjuryKind::Groin, 3.4),
-            (InjuryKind::Calf, 3.0),
-            (InjuryKind::Neck, 1.8),
-            (InjuryKind::Hip, 1.7),
-            (InjuryKind::Quad, 1.5),
-        ]);
+        // The mix by body part (`GAME_INJURIES`).
+        let kind = self.rng.weighted(&mix);
         // Some bodies heal faster (hidden recovery; proposed, not confirmed).
         let weeks = injury_weeks(kind, self.rng) * (1.3 - 0.03 * gp_recovery);
         // Playing through it is a choice (topic 6): toughness against how bad it is.

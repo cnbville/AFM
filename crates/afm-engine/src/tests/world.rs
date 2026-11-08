@@ -44,7 +44,7 @@ fn college_history_matches_real_counts() {
     let programs: Vec<Program> = rows
         .enumerate()
         .map(|(i, (r, dropped))| {
-            let mut p = program_from_row(i, r, 1, &mut Rng::new(1));
+            let mut p = program_from_row(i, r, 2026, 1, &mut Rng::new(1));
             p.set_history(dropped);
             p
         })
@@ -189,7 +189,7 @@ fn walk_ons_count_against_the_limit_only_under_the_house_roster_limit() {
     let mut rng = Rng::new(7);
     let mut program = |name: &str| {
         let (i, row) = COLLEGES.iter().enumerate().find(|(_, c)| c.name == name).unwrap();
-        program_from_row(i, row, 7, &mut rng)
+        program_from_row(i, row, 2026, 7, &mut rng)
     };
     let (fbs, fcs, out) = (program("Alabama"), program("Montana"), program("Holy Cross"));
     assert!(!whole_roster_limit(&fbs, 2024) && whole_roster_limit(&fbs, 2025));
@@ -583,7 +583,7 @@ fn recruiting_reach_reads_the_region_first() {
     use crate::world::geo;
     use crate::world::program::{Program, program_from_row, rebuild_footprint};
     let mut programs: Vec<Program> =
-        COLLEGES.iter().enumerate().map(|(i, r)| program_from_row(i, r, 1, &mut Rng::new(1))).collect();
+        COLLEGES.iter().enumerate().map(|(i, r)| program_from_row(i, r, 2026, 1, &mut Rng::new(1))).collect();
     let overflow = crate::world::overflow_by_state(&programs, 2025);
     let at = |c: &str| geo::state_index(c).expect("state");
     let mut read = |find: &dyn Fn(&Program) -> bool, rel: f64, fans: f64| {

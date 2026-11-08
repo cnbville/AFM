@@ -17,6 +17,7 @@ use super::session::Mode;
 use crate::calendar::{Date, Weekday};
 use crate::positions::Position;
 use crate::world::World;
+use crate::world::sandbox::Switch;
 use crate::world::scouting::readers::{self, Staff};
 
 /// How hard you work this week (SK61).
@@ -145,8 +146,16 @@ fn base_on(w: &World, d: Date) -> (f32, f32) {
 
 /// The week's film hours: normal hours plus every hour past a steady
 /// week (SK61); a cruising week gives up film first, down to 40%.
+///
+/// Sandbox mode's film hours (a test switch): the week never runs out.
+/// What is left stays a real number (the hours used plus the week's normal
+/// hours, at least 12), so every check passes and the screens still add up.
 pub fn budget(w: &World) -> f32 {
-    if rested(w) { 0.0 } else { budget_on(w, w.today, w.scouting.film.work) }
+    if rested(w) {
+        return 0.0;
+    }
+    let b = budget_on(w, w.today, w.scouting.film.work);
+    if w.sandbox(Switch::FilmHours) { used(w) + b.max(12.0) } else { b }
 }
 
 fn budget_on(w: &World, d: Date, work: Work) -> f32 {
@@ -188,14 +197,19 @@ pub fn ethic(w: &World) -> f64 {
 }
 
 /// Sent home to rest after wearing yourself out.
+/// Never with sandbox mode's fresh eye.
 pub fn rested(w: &World) -> bool {
-    w.scouting.film.rest_until.is_some_and(|d| w.today < d)
+    !w.sandbox(Switch::FreshEye) && w.scouting.film.rest_until.is_some_and(|d| w.today < d)
 }
 
 /// How tired your eye is, 0-1 (SK59): nothing for the first 3 to 4 hours
 /// of the day (longer with a strong work ethic), then fewer things
 /// half-catch your eye and more slip by; weeks of wear make it worse.
+/// Sandbox mode's fresh eye keeps it at 0, the morning's eye.
 pub fn tiredness(w: &World) -> f64 {
+    if w.sandbox(Switch::FreshEye) {
+        return 0.0;
+    }
     let e = ethic(w);
     let start = 3.0 + 0.1 * (e - 10.0);
     let over = (today(w) as f64 - start).max(0.0) / (2.0 + 0.1 * (e - 10.0)).max(1.0);
@@ -206,7 +220,8 @@ pub fn tiredness(w: &World) -> f64 {
 /// of evaluation after 200 hours of film there, at most 1.5.
 pub fn position_edge(w: &World, pos: Position) -> f64 {
     let h = w.scouting.film.pos_hours.get(pos.index()).copied().unwrap_or(0.0) as f64;
-    1.5 * (1.0 - (-h / 200.0).exp()) - 0.5 * w.scouting.film.wear as f64
+    let wear = if w.sandbox(Switch::FreshEye) { 0.0 } else { w.scouting.film.wear as f64 };
+    1.5 * (1.0 - (-h / 200.0).exp()) - 0.5 * wear
 }
 
 /// Can you watch now? A game from the stands is its own day; tape needs
@@ -218,8 +233,11 @@ pub fn can_watch(w: &World, mode: Mode) -> Result<(), String> {
     if mode == Mode::Live {
         return Ok(());
     }
-    let need = if mode == Mode::Quick { super::session::QUICK_MIN } else { super::session::SNAP_MIN } / 60.0;
-    if left(w) + 0.01 < need {
+    // One snap's worth: a watch plays as many as the hours left allow
+    // (in minutes, the slack the quick watch counts its snaps with: a
+    // snap is 20 or 36 seconds, under the old 0.01-hour slack).
+    let need = if mode == Mode::Quick { super::session::QUICK_SNAP_MIN } else { super::session::SNAP_MIN };
+    if left(w) * 60.0 + 0.01 < need {
         return Err(format!(
             "Your film hours are spent this week ({:.0} of {:.0}): work longer hours, give it to your staff, or watch on Monday.",
             used(w),
@@ -234,7 +252,9 @@ pub fn spend(w: &mut World, hours: f32, pos: Option<Position>) -> Result<(), Str
     if rested(w) {
         return Err("You're home resting: no film until you're back.".into());
     }
-    if left(w) + 0.01 < hours {
+    // In minutes: a snap is 20 or 36 seconds, so the old 0.01-hour slack
+    // let a week with no hours left keep watching.
+    if left(w) * 60.0 + 0.01 < hours * 60.0 {
         return Err(format!("Your film hours are spent this week ({:.0} of {:.0}).", used(w), budget(w)));
     }
     charge(w, hours, pos);
@@ -330,6 +350,9 @@ pub(crate) fn week(w: &mut World, d: Date) {
     let cap = Work::Steady.hours() + 2.0 * (e as f32 - 12.0);
     let hours = work.hours();
     let b = budget_on(w, last.add(6), work);
+    // Sandbox mode's fresh eye: long weeks wear nothing (a worn eye still
+    // recovers) and nobody is sent home.
+    let fresh = w.sandbox(Switch::FreshEye);
     let fr = &mut w.scouting.film;
     fr.week_work = Some((d, fr.work));
     fr.weeks.push(Week { monday: last, work, film, budget: b });
@@ -337,7 +360,7 @@ pub(crate) fn week(w: &mut World, d: Date) {
         fr.weeks.remove(0);
     }
     fr.wear = if hours > cap {
-        (fr.wear + (hours - cap) / 150.0).min(1.0)
+        if fresh { fr.wear } else { (fr.wear + (hours - cap) / 150.0).min(1.0) }
     } else {
         (fr.wear - (cap - hours) / 100.0 - 0.03).max(0.0)
     };
@@ -348,7 +371,7 @@ pub(crate) fn week(w: &mut World, d: Date) {
     let wear = fr.wear;
     // Worn out: exhaustion sends you home for a few days; a long run of it
     // costs your family's patience and some of your drive (burnout).
-    if wear >= 0.6 {
+    if wear >= 0.6 && !fresh {
         let u = crate::world::season::key_uniform(w.options.seed as u64 ^ 0xF17E, d.0 as u64);
         if u < ((wear - 0.6) * 0.5) as f64 {
             w.scouting.film.rest_until = Some(d.add(4));
@@ -372,8 +395,9 @@ pub(crate) fn week(w: &mut World, d: Date) {
             );
         }
     }
-    let worn =
-        w.scouting.film.weeks.iter().rev().take(6).filter(|x| x.work == Work::Junkie).count() >= 6 && wear >= 0.95;
+    let worn = !fresh
+        && w.scouting.film.weeks.iter().rev().take(6).filter(|x| x.work == Work::Junkie).count() >= 6
+        && wear >= 0.95;
     if worn {
         let e = ethic(w) as f32;
         w.scouting.film.ethic = Some((e - 1.0).max(1.0));

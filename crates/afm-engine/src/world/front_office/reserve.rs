@@ -132,18 +132,22 @@ pub fn activate_words(w: &World, id: u32) -> Result<String, String> {
         ));
     }
     let left = games::ir_returns_on(w).saturating_sub(w.clubs[t].ir_used);
-    if !c.pup && left == 0 {
+    // Sandbox mode's roster limits: no count of returns, no roster limit.
+    let lifted = super::roster_lifted(w, t);
+    if !c.pup && left == 0 && !lifted {
         return Err(match games::ir_returns_on(w) {
             0 => "Before 2012 injured reserve ends a player's season.".to_string(),
             n => format!("You've used all {n} returns from injured reserve this season."),
         });
     }
     let lim = super::roster::roster_limit(w);
-    if pro::count(w, t, Status::Roster) >= lim {
+    if !lifted && pro::count(w, t, Status::Roster) >= lim {
         return Err(format!("Your roster is full ({lim}): release or move a player first."));
     }
     Ok(if c.pup {
         "He's healed: back on the roster off the physically unable to perform list.".to_string()
+    } else if lifted && left == 0 {
+        "He's healed. Sandbox mode lifts the count of returns from injured reserve.".to_string()
     } else {
         format!("He's healed. Bringing him back uses one of your {left} returns left this season.")
     })
@@ -173,7 +177,7 @@ pub(crate) fn healed(w: &mut World, i: usize) {
     let left = games::ir_returns_on(w).saturating_sub(w.clubs[t].ir_used);
     let name = w.people[i].name.clone();
     let pos = w.people[i].player.position.name();
-    let full = pro::count(w, t, Status::Roster) >= super::roster::roster_limit(w);
+    let full = !super::roster_lifted(w, t) && pro::count(w, t, Status::Roster) >= super::roster::roster_limit(w);
     let room = if full { " Your roster is full: release or move a player to make room." } else { "" };
     let text = if pup {
         format!(

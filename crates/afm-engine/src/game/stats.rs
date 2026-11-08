@@ -105,6 +105,10 @@ pub struct PlayRecord {
     /// Blocks: (blocker, defender, pass, won, seconds, gave up pressure).
     pub blocks: Vec<(u32, u32, bool, bool, f64, bool)>,
     pub rush_wins: Vec<(u32, Move, f64)>,
+    /// Every move a pass rusher tried (his counter too), on plays that keep
+    /// frames only; never written (minor bug 317, `film::tape`).
+    #[serde(skip)]
+    pub rush_moves: Vec<(u32, Move)>,
     pub busts: Vec<u32>,
     pub freelance: Vec<(u32, bool)>,
     pub injuries: Vec<Injury>,
@@ -262,6 +266,7 @@ impl PlayRecord {
             penalties: Vec::new(),
             blocks: Vec::new(),
             rush_wins: Vec::new(),
+            rush_moves: Vec::new(),
             busts: Vec::new(),
             freelance: Vec::new(),
             injuries: Vec::new(),

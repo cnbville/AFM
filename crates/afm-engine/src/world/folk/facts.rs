@@ -184,7 +184,7 @@ pub fn job_size(w: &World, team: Team) -> f64 {
         Team::College(p) => {
             let prog = &w.programs[p];
             let lvl = match prog.division {
-                Division::FBS if prog.power_four() => 0.55,
+                Division::FBS if prog.power_conference(w.year) => 0.55,
                 Division::FBS => 0.35,
                 Division::FCS => 0.2,
                 _ => 0.08,

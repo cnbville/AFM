@@ -283,7 +283,7 @@ for (const [page, list] of Object.entries({
   body: ["faces"],
   scouting: ["scouting", "scout", "proscout", "myplayers", "finder", "find_insider", "film"],
   recruiting: ["recruiting", "recruit_board", "recruitboard", "recruit_file", "recruit_find", "recruit_race", "visits_desk", "hsside", "colleges_calling", "find_prospects", "find_offers"],
-  portal: ["portal_desk", "nil_desk"],
+  portal: ["portal_desk", "portal_file", "nil_desk"],
   draft: ["draftboard", "predraft", "warroom", "draftrecord", "draftoutlook"],
   contracts: ["contracts", "fo_cap", "capboard", "fo_expiring", "fo_market", "fo_talk", "fo_trades", "fo_moves", "fo_office", "money", "money_league", "school", "market", "area"],
   gameplan: ["plans", "designer", "gameday", "live", "game", "games", "evaluate", "needs"],

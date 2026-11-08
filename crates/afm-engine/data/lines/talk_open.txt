@@ -56,8 +56,8 @@ Alright. Let's get into it. ~ competitor
 Okay, Coach. Hit me. ~ young
 Before you say anything, I want to be heard too. ~ hot
 Just say it straight, Coach. I can take it. ~ hot
-I'm not here to fight. Unless that's what this is. ~ hot
-Somebody already got in my ear today. Go ahead and make it two. ~ hot
+I'm not here to fight. Unless that's what this is. ~ hot brash
+Somebody already got in my ear today. Go ahead and make it two. ~ hot brash
 I'm heated, Coach. I'll be honest. ~ hot
 Don't take my face personal. It's been that kind of day. ~ hot young
 I'm trying to stay calm right now. Just so you know. ~ hot
@@ -100,9 +100,9 @@ Ha. You called me in. That's never good. ~ loose
 Alright, alright. I'm in the chair. ~ loose
 You know I'm going to say what I think, Coach. ~ ego
 I'm not exactly thrilled to be here. ~ ego
-Let's not waste each other's time. ~ ego
+Let's not waste each other's time. ~ ego brash
 I've got things to say too. Just so you know. ~ ego
-I could've texted you what I think. But okay. ~ ego modern
+I could've texted you what I think. But okay. ~ ego modern brash
 I'm not the one who needs to be talked to, honestly. ~ ego
 Coach. Real talk, I'm annoyed. ~ ego young
 I came in ready to compete for this conversation, Coach. ~ competitor
@@ -191,7 +191,7 @@ Go ahead, Coach. Don't sugarcoat it.
 Let's get to it.
 You've got me for a few minutes.
 Okay. I'm here. What's this?
-This better be quick, I've got a lot going on. ~ hot
+This better be quick, I've got a lot going on. ~ hot brash
 I don't really have anything nice to say today, Coach. ~ hot
 I'm not in a talking mood. Which you're probably about to change. ~ loose
 I'll hear you out. That's all I can promise right now. ~ ego
@@ -235,7 +235,7 @@ Okay. My heart's beating a little. What's going on?
 Look, I'm not in the best place, but I respect you calling me in.
 I'm good. I'm fine. Okay, I'm not fine.
 I've been bottling it up, Coach. That's the honest answer.
-Fine. What is it this time?
+Fine. What is it this time? ~ brash
 {coach_sir}. ~ quiet
 Give me a second to cool off first.
 Not gonna fake a smile in here, Coach.
@@ -282,9 +282,9 @@ Frustrated and worn out, and I can't tell which one's louder.
 Sorry, Coach. Bit out of sorts.
 Had better stretches. Plenty of them.
 My fuse is about an inch long today. ~ hot
-Talk fast, Coach. I'm hot right now. ~ hot
+Talk fast, Coach. I'm hot right now. ~ hot brash
 One wrong word and I blow, so let's be careful with each other. ~ hot
-Don't poke me today, Coach. I mean it. ~ hot young
+Don't poke me today, Coach. I mean it. ~ hot young brash
 I'm trying real hard not to slam this door. ~ hot
 Still steaming. Give me a sec. ~ hot
 I'm not upset. I'm just low. There's a difference. ~ calm
@@ -306,10 +306,10 @@ Whatever this is, I can take it. I just need it straight. ~ leader
 I'd run through a wall for you, Coach. Doesn't mean I'm not sore at you. ~ loyal
 You know where my heart is. It's just bruised right now. ~ loyal
 Don't usually get summoned, Coach. ~ ego
-Hope this is worth both our time. ~ ego
-Let's make this a conversation, not a lecture. ~ ego
-My own clock's running, Coach, so let's be efficient. ~ greedy
-Got things to take care of for me. Let's keep it moving. ~ greedy
+Hope this is worth both our time. ~ ego brash
+Let's make this a conversation, not a lecture. ~ ego brash
+My own clock's running, Coach, so let's be efficient. ~ greedy brash
+Got things to take care of for me. Let's keep it moving. ~ greedy brash
 Ayy, Coach. Not my day, man. ~ loose young
 Ha. Should I be nervous? Because I'm already cranky. ~ loose
 Don't even know what I'm feeling, Coach. Sorry. ~ shaky
@@ -422,8 +422,8 @@ Still the new guy around here, and today I've felt like it. ~ college transfer
 Walk-ons don't usually get the big office, Coach. ~ college walkon
 First time in this office, and it's on a bad day. Figures. ~ hs freshman
 Been in this program long enough to read your face, Coach. ~ hs senior
-Get to it, Coach. I'm one bad sentence from walking out. ~ hot
-Not today, Coach. Whatever it is, not today. Fine. Go ahead. ~ hot
+Get to it, Coach. I'm one bad sentence from walking out. ~ hot brash
+Not today, Coach. Whatever it is, not today. Fine. Go ahead. ~ hot brash
 Came in hot. Gonna stay hot for a minute. ~ hot
 Nothing dramatic. Just a gray day in my head. ~ calm
 I'll hear it calmly. I just won't be smiling. ~ calm
@@ -438,11 +438,11 @@ Somebody has to keep a straight face out there. In here, I'm letting it drop. ~ 
 You'll get exactly what I think, because that's my job. And I'm not happy. ~ leader
 Still in your corner, Coach. Just in a bad mood in it. ~ loyal
 You've always been square with me, so I'll be square back. Bad week. ~ loyal
-About time somebody wanted my take. ~ ego
-Usually people come to me, Coach. ~ ego
-This better be good, Coach. ~ ego
-Let's be quick. My time's worth something. ~ greedy
-Looking out for me first, Coach. Today that means keeping this short. ~ greedy
+About time somebody wanted my take. ~ ego brash
+Usually people come to me, Coach. ~ ego brash
+This better be good, Coach. ~ ego brash
+Let's be quick. My time's worth something. ~ greedy brash
+Looking out for me first, Coach. Today that means keeping this short. ~ greedy brash
 Yo. Rough one today. Don't ask. ~ loose young
 Haha. Okay. In a mood, but it's whatever. ~ loose
 If I zone out, it's not you. It's the vibes. ~ loose young
@@ -472,7 +472,7 @@ Please make it quick, Coach. My head's pounding.
 Brace yourself. I'm not in a good place.
 Okay. Rip the band-aid off.
 Honestly, Coach? Fried.
-Spare me the warm-up, please.
+Spare me the warm-up, please. ~ brash
 Can we skip the how-are-you part? It's not good.
 Real quick, I'm not okay, but I'm functional.
 Didn't sleep right, didn't eat right, didn't feel right. So here we are.
@@ -502,7 +502,7 @@ Sitting down's the best part of my day so far.
 Somebody already ruined my mood. You can't make it much worse.
 Nothing's clicking for me right now, honestly.
 My answers are gonna be short. Sorry ahead of time.
-Eh. Whatever. Go.
+Eh. Whatever. Go. ~ brash
 Keep my head down most days. Today it's way down.
 My mind's loud right now, Coach.
 Not trying to be cold. It's just where I'm at.
@@ -573,7 +573,7 @@ Hold on. Let me get my temper down first. ~ hot
 I swear, Coach, if one more thing goes sideways today. ~ hot
 You're catching me hot. Just know that. ~ hot
 My blood's up, Coach. Talk slow. ~ hot
-Came in ready for a fight. Hope I don't need it. ~ hot
+Came in ready for a fight. Hope I don't need it. ~ hot brash
 Bit flat today, Coach. Nothing that won't keep. ~ calm
 Down a notch. I'll be alright. ~ calm
 Not much rattles me. I'm a little rattled. ~ calm
@@ -590,11 +590,11 @@ Gotta be honest with you, because I'm honest with the guys. I'm tired. ~ leader
 Even the guys people lean on run out sometimes, Coach. ~ leader
 Coach, I've got your back. Today I just need you to have mine a little. ~ loyal
 You'll always get the truth from me. Truth is, I'm worn down. ~ loyal
-Not used to explaining myself, Coach. ~ ego
-Let's keep this between equals, Coach. ~ ego
+Not used to explaining myself, Coach. ~ ego brash
+Let's keep this between equals, Coach. ~ ego brash
 Normally I'd have a joke ready. Nothing today. ~ loose
-Time's the one thing I'm not giving away today, Coach. ~ greedy
-Make this worth my while, Coach. ~ greedy
+Time's the one thing I'm not giving away today, Coach. ~ greedy brash
+Make this worth my while, Coach. ~ greedy brash
 My bad, Coach. Today's been a whole movie. ~ loose young
 Can I put my feet up? No? Worth a shot. Bad day. ~ loose
 Every time somebody says come see me, my stomach drops. ~ shaky
@@ -682,7 +682,7 @@ Some things have stung lately. Working through it.
 Sure. Why not. Go ahead.
 Whatever happens, happens, I guess.
 It is what it is, Coach.
-Speech incoming? Just checking.
+Speech incoming? Just checking. ~ brash
 Please don't open with a compliment. I know how that one goes.
 Skip the sandwich, Coach. Just give me the middle.
 No offense, but my guard's up.
@@ -785,9 +785,9 @@ Gonna be the one who says it, Coach. I'm not in a good place. ~ leader
 Somebody's gotta be honest in this office. Today it's me, and I'm sour. ~ leader
 With you, Coach. Always. Just running cold today. ~ loyal
 You know I'd never fake it with you. So, not great. ~ loyal
-Keep it simple, Coach. My own plate's full enough. ~ greedy
-My time, my energy. Both short today. Spend them wisely, Coach. ~ greedy
-Got my own stuff to look after. Quick one? ~ greedy
+Keep it simple, Coach. My own plate's full enough. ~ greedy brash
+My time, my energy. Both short today. Spend them wisely, Coach. ~ greedy brash
+Got my own stuff to look after. Quick one? ~ greedy brash
 Bad day, not a bad me. I'll be right by tomorrow. ~ steady
 Steady as ever, just a few notches lower. ~ steady
 Every part of me wants to be better than this week. ~ competitor
@@ -795,17 +795,17 @@ Wired to hate weeks like this, Coach. Let's get to it. ~ competitor
 Been doing this a long time. Bad days still find me. ~ vet
 Long career, short fuse today, Coach. ~ vet
 Not used to being on this side of the desk, Coach. ~ ego
-Say what you've got to say. I already know what I think. ~ ego
+Say what you've got to say. I already know what I think. ~ ego brash
 It's fine. Today's just heavy. ~ calm
 No sense getting worked up. I'm just down. ~ calm
-Speak your piece, Coach. I've got mine loaded. ~ hot
+Speak your piece, Coach. I've got mine loaded. ~ hot brash
 Biting my tongue so hard it hurts, Coach. ~ hot
 Hm. Yeah. ~ quiet
 Not a talker today. Less than usual. ~ quiet
 My head's been a mess, Coach. Trying to hold it together. ~ shaky
 Sorry. Don't really know how to be today. ~ shaky
 Coach! Hey. Ugh. Bad day. Anyway. ~ loose
-Whatever, man. Sorry. Whatever, Coach. ~ loose young
+Whatever, man. Sorry. Whatever, Coach. ~ loose young brash
 Today's been mid at best, Coach. ~ young
 My vibe is cooked, Coach. ~ young
 So over today, Coach. Like, so over it. ~ young
@@ -872,7 +872,7 @@ Hey. Bit of a mess today. Go ahead.
 {coach}. Not a great time, but you're the boss.
 Sure, {coach}. Let's get through it.
 Don't tell me to calm down, Coach. Please. ~ hot
-Got about ten things I want to say, and none of them nice. You go first. ~ hot
+Got about ten things I want to say, and none of them nice. You go first. ~ hot brash
 Heads up, my temper's right at the surface. ~ hot
 Came in calm, Coach. Let's keep it that way. ~ hot
 Low day. Level head, though. ~ calm
@@ -889,7 +889,7 @@ Usually I'm the one picking guys up. Today I'm the one dragging. ~ leader
 Guys look to me, Coach, and I don't have much to give right now. ~ leader
 Through thick and thin with you, Coach. This is a thin day. ~ loyal
 You've earned my honesty. So, not good. ~ loyal
-Let's be clear. Not here to get talked down to. ~ ego
+Let's be clear. Not here to get talked down to. ~ ego brash
 Got opinions, Coach. Today they're sharp. ~ ego
 I'd rather be asked than told, Coach. Just saying. ~ ego
 Number one's not doing great today, Coach. That's me, by the way. ~ greedy
@@ -1528,7 +1528,7 @@ I'm so happy I might break into song. You've been warned. ~ loose
 What's cooking, {coach}? Smells like good news. ~ loose
 Nice digs. Mind if I put my feet up? Kidding. Mostly. ~ loose
 If I'm smiling too much, blame the cookies. ~ loose
-They don't make many like me, Coach. Lucky you, you got one. ~ ego
+They don't make many like me, Coach. Lucky you, you got one. ~ ego brash
 Felt like a highlight reel all day. What's up? ~ ego
 Feeling like the main event today, Coach. ~ ego
 Just glad to be a part of all this, Coach. Truly. ~ humble
@@ -1818,7 +1818,7 @@ If you're handing out good moods, I already got mine. ~ loose
 Do I get a snack for showing up? No? Still happy. ~ loose
 Ayy! Look at you, Coach! ~ loose
 Tell me you called me in just to hang out. ~ loose
-You know you're lucky to have me, right? Just checking. ~ ego
+You know you're lucky to have me, right? Just checking. ~ ego brash
 Feeling like the guy today. You see it too, right? ~ ego
 Somebody's gotta be the star of your day. Might as well be me. ~ ego
 God's been good to me lately, Coach. I'm all ears. ~ humble
@@ -2150,7 +2150,7 @@ Yo, Coach. You rang? ~ loose
 My guy! What's going on, Coach? ~ loose
 Hope this isn't one of those talks. Kidding. Mostly. ~ loose
 I'm booked solid after this, but you get priority. ~ greedy
-Let's be efficient, Coach. My time's spoken for later. ~ greedy
+Let's be efficient, Coach. My time's spoken for later. ~ greedy brash
 Lowkey nervous, not gonna lie. What's up? ~ young
 Real talk, Coach, I don't know why I'm here. ~ young
 Been a minute, Coach. What's going on? ~ young
@@ -2284,7 +2284,7 @@ The guys saw me come up here, so they're gonna ask. What's going on? ~ leader
 Didn't even have to drag me in this time. ~ loose
 Look who's popular. What's up, Coach? ~ loose
 Hope this one's good for me, Coach. ~ greedy
-What are we talking about, and how long? I've got calls. ~ greedy
+What are we talking about, and how long? I've got calls. ~ greedy brash
 Okay, okay. What's up, Coach? ~ young
 Bet. What's going on? ~ young
 My bad, I was in the lounge on the game. ~ young
@@ -2425,8 +2425,8 @@ Left the guys running the walkthrough on their own. What do you need? ~ leader
 Told the group I'd be right back. What's going on? ~ leader
 If you need me to handle something, say the word. ~ leader
 Got a shoot after this, so I can't stay long. ~ greedy
-Is this gonna be worth my time, Coach? ~ greedy
-Okay, I can give you a few minutes. ~ ego
+Is this gonna be worth my time, Coach? ~ greedy brash
+Okay, I can give you a few minutes. ~ ego brash
 Go ahead. If it's me you called, it's something big. ~ ego
 No windup, Coach. Just say it. ~ hot
 Let's just get it out there. ~ hot
@@ -2562,7 +2562,7 @@ The trainers' room was slammed. Took a second to get out.
 Took the long way around the [construction|crowd]. Sorry.
 Came up from the indoor. Nobody's out there but the kickers now.
 Still had my visor in my hand. Came right up.
-Spit it out, Coach. I can take it. ~ hot
+Spit it out, Coach. I can take it. ~ hot brash
 I don't need the warm-up talk. What's going on? ~ hot
 Not stressed at all, Coach. Go ahead. ~ calm
 Take a second if you need it, Coach. ~ calm
@@ -2575,7 +2575,7 @@ Uh. Hi. ~ quiet
 Okay. Go ahead. ~ quiet
 Got more work I want to get in, so let's go. ~ competitor
 I don't like sitting still, Coach. Let's go. ~ competitor
-I'm a busy man, Coach, but okay. ~ ego
+I'm a busy man, Coach, but okay. ~ ego brash
 Alright, I'm here. The building can breathe now. ~ ego
 Means a lot that you'd want to talk to me, Coach. ~ humble
 {coach_sir}, I'll just listen and learn. ~ humble
@@ -2700,7 +2700,7 @@ Guessing you'll tell me why I'm here.
 Is this good timing? Seemed like you were on the phone. ~ modern
 The trainer was taping a bunch of guys, so I came up first.
 Got stopped by a couple of fans outside the building. Took a sec.
-Let's not waste each other's time, Coach. ~ hot
+Let's not waste each other's time, Coach. ~ hot brash
 I'd rather not sit on anything, Coach. Out with it. ~ hot
 Go ahead. I'm not big on waiting. ~ hot
 We're good, Coach. Take it slow. ~ calm
@@ -2769,7 +2769,7 @@ Redshirt guys hear everything. I heard you wanted me. ~ college redshirt
 Hope all's well with you, {coach_sir}. ~ south
 Yes {coach_sir}. Came running like it was two-a-days. ~ texas
 Hey, no problem at all. What's going on? ~ midwest
-Yeah, yeah. What's going on, Coach? ~ northeast
+Yeah, yeah. What's going on, Coach? ~ northeast brash
 Easy day so far. Hit me, Coach. ~ west
 Sorry, my phone died, so I didn't see it till someone told me. ~ modern
 Got pinged by the ops guys, so I came up. ~ modern
@@ -2848,11 +2848,11 @@ I'll do whatever role you want. I just want to know what it is. ~ humble
 I'm not asking to start. I'm asking where I stand. ~ humble
 If I'm not ready yet, I'd like to hear what I'm missing. ~ humble
 Coach, I think I've earned a look with the ones. That's what I want to talk about. ~ ego
-I should be starting. I think we both know that. ~ ego
+I should be starting. I think we both know that. ~ ego brash
 Let's talk about why I'm not starting. ~ ego
 I'm better than the guy in front of me. I want to talk about that. ~ ego
 I'm not built to be a backup, Coach. ~ ego
-You know where I should be on that chart. ~ ego
+You know where I should be on that chart. ~ ego brash
 I need to be on the field. Plain and simple. ~ ego competitor
 I want the job. I want to know what it takes. ~ competitor
 I'm coming for that starting spot, Coach. I want to know if it's really open. ~ competitor
@@ -3018,8 +3018,8 @@ Cutdown stuff? I'd rather know now than at the end of camp. ~ nfl
 Okay, the chart. I can take whatever it is. ~ steady
 Line me up against whoever's ahead and let the tape decide. ~ competitor
 What would you need to see to make me the guy? ~ competitor
-If this is about the top spot, it should be mine. ~ ego
-Somebody needs to explain that chart to me. I guess that's you. ~ ego hot
+If this is about the top spot, it should be mine. ~ ego brash
+Somebody needs to explain that chart to me. I guess that's you. ~ ego hot brash
 That chart. Yeah, it needs talking about. ~ hot
 Whatever's on the chart, I'll handle it. I just want the reasons. ~ calm
 No rush. Where am I on the board? ~ calm
@@ -3137,7 +3137,7 @@ I'll take whatever spot you give me. I'd like to know which one. ~ humble
 Tell me if I'm not good enough yet. I can handle it. ~ humble
 Here to compete. Tell me where the bar is. ~ competitor
 I'll beat whoever you line me up with. Where's the competition at? ~ competitor ego
-You know I'm the best choice. Let's make it official. ~ ego
+You know I'm the best choice. Let's make it official. ~ ego brash
 I've been the best guy in the room for a while. So let's talk about the chart. ~ ego
 Don't sugarcoat it. In or out? ~ hot
 Just tell me the chart. I'll handle it after. ~ hot
@@ -3260,10 +3260,10 @@ A starting spot in the secondary. Open, or set? ~ db
 How much rope does a specialist get here before you look elsewhere? ~ kicker
 Bringing in another leg? Just tell me. ~ kicker
 Snappers don't get many looks. Is mine still good? ~ snapper
-If somebody's ahead of me, I want the why. Now. ~ hot
+If somebody's ahead of me, I want the why. Now. ~ hot brash
 Let's not waste time. The chart. ~ hot
-The top spot is mine. Everybody in that room knows it. ~ ego
-Put my name at the top and let's move on. ~ ego
+The top spot is mine. Everybody in that room knows it. ~ ego brash
+Put my name at the top and let's move on. ~ ego brash
 Wherever I am, I'm grateful to be here. So where am I? ~ humble
 If there's guys better than me right now, that's fair. I'd still like to know my place. ~ humble
 Not worried about it. I'd just like to know where I'm at. ~ calm
@@ -3358,7 +3358,7 @@ I'm on the hundred and five. But am I on the depth chart that matters? ~ college
 Playing for a job here, or for the tape the other thirty-one teams see? ~ nfl
 Practice squad eligible, I know. Is that the plan for me? ~ nfl rookie
 I know the roster math. Where do I fall in it? ~ nfl vet
-Top of the chart is where I belong. Is that what we're confirming? ~ ego
+Top of the chart is where I belong. Is that what we're confirming? ~ ego brash
 Wherever you need me on the chart, I'll be there. Where's that? ~ humble
 Spot, chart, whatever. Just say it. ~ hot
 Lay it out for me. The chart and where I sit on it. ~ calm
@@ -3708,10 +3708,10 @@ Snap-to-kick timing. Do you need it faster? ~ snapper
 If you want me in more situations, I'm ready to carry it. ~ competitor
 Give me the toughest assignment on the card. I want it. ~ competitor
 Big moments, I want to be out there. Are we using me that way? ~ competitor
-The plan should be built around me. Let's be honest. ~ ego
+The plan should be built around me. Let's be honest. ~ ego brash
 The most dangerous guy we have is sitting in this chair. Are we using that? ~ ego
 What I can do changes games. Are we leaning on it? ~ ego
-Just tell me the plan for me. I don't need a speech. ~ hot
+Just tell me the plan for me. I don't need a speech. ~ hot brash
 Straight to it, then. How are you using me? ~ hot
 Curious how you see me in the scheme. No pressure. ~ calm
 Whatever the thinking is behind how you use me, I'd like to hear it. ~ calm
@@ -3822,7 +3822,7 @@ Bigger guys or faster guys? I'd like to know my matchups. ~ nfl cover
 H-back, fullback, in-line. Which one am I in this offense? ~ nfl te
 Hardest matchup they've got. Give it to me. ~ competitor !special
 The plays where it's all on me. I want those. ~ competitor
-Every plan should have my name all over it. ~ ego
+Every plan should have my name all over it. ~ ego brash
 You've got a weapon in me. Are we using it like one? ~ ego
 If I'm better used somewhere else, I'll go there. Just tell me. ~ humble
 Block, cover, run down kicks, whatever. I'd just like to know the plan. ~ humble !special
@@ -4493,7 +4493,7 @@ Money's not new to me anymore. Let's have a grown-up talk. ~ vet
 Whatever the number is, I'll be asking for more. Fair warning. ~ greedy !hs
 Where I come from, you shake on it and that's the end of it. Let's talk. ~ south
 Plain talk about money, the way we do it back home. ~ midwest
-Money? Fine. Let's not waste each other's time. ~ northeast
+Money? Fine. Let's not waste each other's time. ~ northeast brash
 Money talk, okay. No pressure, let's figure it out. ~ west
 Yes {coach_sir}. Money's a family matter where I'm from, so I'll be careful. ~ texas
 Where I grew up, nobody talked about money out loud. I'll try. ~ midwest
@@ -4577,9 +4577,9 @@ I'm ready for whatever's coming. I deserve it. ~ humble
 Let me guess. Somebody's been talking. ~ ego
 It wasn't a big deal. People are acting like it is. ~ ego
 Everybody does it, Coach. I'm just the one who got caught. ~ ego
-I'm the one getting called in, huh. Figures. ~ ego
+I'm the one getting called in, huh. Figures. ~ ego brash
 I don't think it was as bad as people are saying. ~ ego
-I'm not going to apologize for standing up for myself. ~ hot
+I'm not going to apologize for standing up for myself. ~ hot brash
 I know I've got a short fuse. I'm working on it. ~ hot
 I'm not going to make excuses. I made a mistake. ~ pro
 I'll take whatever's coming. I'm not going to fight it. ~ pro
@@ -5080,7 +5080,7 @@ All right, what's the vibe? Am I in trouble? ~ west young
 I'll take my medicine if I earned it. What happened? ~ texas
 Am I tripping, or is this about the flag? ~ young
 Not gonna lie, I got no clue what I did. ~ young
-Say it with your chest, Coach. What is it? ~ young loose
+Say it with your chest, Coach. What is it? ~ young loose brash
 
 @key talk.open.life
 You wanted to check on me?
@@ -5445,13 +5445,13 @@ The friends I'm making here? It's a mix of team guys and regular students. ~ col
 I'm young. Life's simple. Ask me whatever you want. ~ young
 I've got a life outside this place that's been building for years. Where do you want to start? ~ vet
 I live well. Ask what you want. ~ ego
-Everything outside here is handled. What else you got? ~ ego
+Everything outside here is handled. What else you got? ~ ego brash
 I appreciate the question more than you know. ~ humble
 I'm just thankful to be here. Life's simple for me. ~ humble
 I can tell you how I'm doing, and how some of the guys are doing too. ~ leader
 I don't say much about that stuff. But okay. ~ quiet
 I keep it to myself mostly. Ask, and I'll answer. ~ quiet
-If this turns into a lecture about my personal life, I'm out. Kidding. Mostly. ~ hot
+If this turns into a lecture about my personal life, I'm out. Kidding. Mostly. ~ hot brash
 My life outside is mine. But you can ask. ~ hot
 I'm settled. Life's in a good spot. Ask anything. ~ calm
 Easy. What do you want to know? ~ calm
@@ -6397,7 +6397,7 @@ What the front office has planned for next year, I'm guessing. ~ nfl
 Next year? ~ quiet
 Okay. What's next. ~ quiet
 Keeping me? Because other people are going to come calling. ~ ego
-If you're planning next year, plan it around me. ~ ego
+If you're planning next year, plan it around me. ~ ego brash
 Whatever you think is best for me next year, I'll hear it out. ~ humble
 Not sure I've earned a say in next year. But I'd like one. ~ humble
 If this is about next year, I want the young guys to hear where I stand too. ~ leader
@@ -6553,7 +6553,7 @@ Wherever I land, I'll be thankful. But I'd like to land here. ~ humble
 Just trying to keep my head down. But okay, the future. ~ humble
 The guys will want to know where I'm at. I'd like to know too. ~ leader
 Before I tell the room anything about next year, I wanted to tell you. ~ leader
-Get to it. Next year, me, yes or no? ~ hot
+Get to it. Next year, me, yes or no? ~ hot brash
 If this is about me leaving, somebody's been talking. Who? ~ hot
 Whatever comes, comes. I'm still willing to plan for it. ~ calm
 Take your time. I'm in no rush on any of it. ~ calm

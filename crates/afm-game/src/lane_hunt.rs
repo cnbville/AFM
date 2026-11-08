@@ -221,13 +221,17 @@ fn bank(w: &World, h: &Hunt) -> Value {
     match h.seat {
         Seat::College => {
             let b = afm_engine::world::front_office::college::budget(w, h.team);
-            let promise = w.front_office.college.board.iter().find(|t| t.id == h.id).and_then(|t| t.nil);
+            // Your promise in both pots (every NIL dollar is yours, Cain
+            // 2026-11-07); the bank is the revenue share's.
+            let t = w.front_office.college.board.iter().find(|t| t.id == h.id);
             json!({
                 "nil": h.nil,
                 "hold": h.hold,
                 "left": b.left.max(0.0),
                 "total": b.total,
-                "promise": promise,
+                "promise": t.and_then(|t| t.nil),
+                "promise_coll": t.and_then(|t| t.nil_coll),
+                "two_pots": afm_engine::world::ncaa::two_pots(w.today),
                 "nil_era": afm_engine::world::ncaa::nil_era(w.today.year()),
             })
         }

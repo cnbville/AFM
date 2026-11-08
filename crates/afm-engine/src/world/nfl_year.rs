@@ -1472,6 +1472,8 @@ fn dated_events(w: &mut World, d: Date, y: &YearDates) {
         );
     }
     if d == y.veterans_report.add(5) {
+        // Camp's jobs (L1): each staff lists its spots.
+        super::systems::set_club_spots(w);
         post(w, d, Kind::Practice, Loudness::Small, "CBA: acclimation", "Five days without pads are done: pads go on.");
     }
     if d == y.hof_game {
