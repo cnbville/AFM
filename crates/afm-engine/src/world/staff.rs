@@ -357,6 +357,10 @@ pub(crate) fn leave(w: &mut World, coach: usize, why: &'static str) {
                     let stays = matches!(why, "retired" | "stepped away, burned out");
                     w.programs[p].sideline = if stays { Some(coach) } else { interim(w, p) };
                 }
+            } else if w.programs[p].sideline == Some(coach) {
+                // The interim himself gone (let go at the takeover, or hired
+                // away): the next best of the staff takes the games.
+                w.programs[p].sideline = interim(w, p);
             }
         }
         Employer::Nfl(t) => {
@@ -364,6 +368,17 @@ pub(crate) fn leave(w: &mut World, coach: usize, why: &'static str) {
             for slot in [&mut team.head_coach, &mut team.oc, &mut team.dc] {
                 if *slot == Some(coach) {
                     *slot = None;
+                }
+            }
+            // Your club's interim gone (the Jan 1 start): the other
+            // coordinator takes the games, or you do with none.
+            let mine = |tk: &super::folk::takeover::Takeover| {
+                tk.team == Some(super::folk::Team::Nfl(t)) && tk.interim == Some(coach)
+            };
+            if w.folk.takeover.as_ref().is_some_and(mine) {
+                let next = super::folk::takeover::nfl_coordinator(w, t);
+                if let Some(tk) = w.folk.takeover.as_mut() {
+                    tk.interim = next;
                 }
             }
         }
@@ -2331,6 +2346,47 @@ pub(crate) fn credit_head(w: &mut World, c: usize, p: usize, wins: u32, losses: 
     }
 }
 
+/// The games the man you replaced coached this season, when you take his
+/// job before it ends (the Jan 1 start): his in the record book, the day
+/// he leaves; the interim gets the rest when the season ends. A college
+/// whose coach already left (an interim on the sideline) keeps its credit.
+fn credit_before_takeover(w: &mut World, e: Employer, c: usize) {
+    match e {
+        Employer::College(p) => {
+            let (stage, recording) = (w.programs[p].prestige_rel, w.recording);
+            let Some(cs) = w.college.as_mut() else { return };
+            if !cs.started || cs.finished || w.programs[p].sideline.is_some() {
+                return;
+            }
+            let t = &cs.results[p];
+            let (cw, cl) = cs.credited[p];
+            let (dw, dl) = (t.wins.saturating_sub(cw), t.losses.saturating_sub(cl));
+            // A title his team already won (December's conference title
+            // game, a lower division's final) is his too.
+            let title = t.best_title();
+            cs.credited[p] = (t.wins, t.losses);
+            if title != super::coach::TitleKind::None {
+                cs.title_credited.push((p, title));
+            }
+            credit_head(w, c, p, dw, dl, (title != super::coach::TitleKind::None) as u32);
+            if recording && title != super::coach::TitleKind::None {
+                w.coaches[c].title_reputation(title, true, stage);
+            }
+        }
+        Employer::Nfl(t) => {
+            let Some(s) = w.nfl_season.as_ref() else { return };
+            if !s.started || s.booked {
+                return;
+            }
+            let (wins, losses) = (s.wins[t], s.losses[t]);
+            let coach = &mut w.coaches[c];
+            coach.wins += wins;
+            coach.losses += losses;
+        }
+        _ => {}
+    }
+}
+
 /// The interim head coach: the staff's best-regarded coordinator, else its
 /// best-regarded position coach.
 pub(crate) fn interim(w: &World, p: usize) -> Option<usize> {
@@ -3197,7 +3253,12 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
         let hc_rep = w.programs[i].head_coach.map_or(8.0, |c| w.coaches[c].reputation);
         let mut rng = w.rng.fork();
         let recording = w.recording;
+        let past = year < w.options.start_year;
         let p = &mut w.programs[i];
+        // In the world's past a school with its real buildings reads them
+        // (facilities lane item 1, `buildings`); from the handover on, the
+        // world's own model below runs for everyone.
+        let real = if past { super::buildings::number(p, year) } else { None };
         let scale = match p.division {
             Division::FBS => 1.0,
             Division::FCS => 0.45,
@@ -3233,20 +3294,25 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
             let fac_target = clamp(scale * (0.3 + 0.4 * p.fans) + 0.3 * nil_share, 0.0, 1.0);
             // Facilities move in steps (note 15C): buildings age a little each
             // year, and a project lands when the money and the will line up.
-            p.facilities = (p.facilities - 0.006).max(0.02);
-            let gap = fac_target - p.facilities;
-            let booster = p.collective.big_booster.is_some();
-            let chance = clamp(0.03 + 0.6 * gap.max(0.0) + if booster { 0.05 } else { 0.0 }, 0.0, 0.4);
-            // Before recorded history a project lands at once; in recorded
-            // years the books run real projects (later extras topic 1,
-            // `finance::college`). The draws stay so nothing else moves.
-            if gap > 0.02 && rng.chance(chance) {
-                let step = clamp(gap + rng.range(0.0, 0.08), 0.04, 0.2);
-                let _booster_paid = booster && rng.chance(0.6);
-                if !recording {
-                    p.facilities = clamp(p.facilities + step, 0.02, 1.0);
+            if real.is_none() {
+                p.facilities = (p.facilities - 0.006).max(0.02);
+                let gap = fac_target - p.facilities;
+                let booster = p.collective.big_booster.is_some();
+                let chance = clamp(0.03 + 0.6 * gap.max(0.0) + if booster { 0.05 } else { 0.0 }, 0.0, 0.4);
+                // Before recorded history a project lands at once; in recorded
+                // years the books run real projects (later extras topic 1,
+                // `finance::college`). The draws stay so nothing else moves.
+                if gap > 0.02 && rng.chance(chance) {
+                    let step = clamp(gap + rng.range(0.0, 0.08), 0.04, 0.2);
+                    let _booster_paid = booster && rng.chance(0.6);
+                    if !recording {
+                        p.facilities = clamp(p.facilities + step, 0.02, 1.0);
+                    }
                 }
             }
+        }
+        if let Some(f) = real {
+            p.facilities = f;
         }
         p.prestige = program::prestige_of(p, hc_rep, conf_strength(p));
     }
@@ -3262,6 +3328,8 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
             p.prestige_rel = p.prestige / yardstick;
         }
     }
+    // Recruits read facilities with the projects under way (item 2).
+    let (fac_reads, building) = facilities_reads(w);
     for i in 0..n {
         let t = &results[i];
         let win = if t.games() > 0 { t.win_pct() } else { 0.5 };
@@ -3291,7 +3359,7 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
         raw[i][GradeCat::Tradition as usize] = p.tradition;
         raw[i][GradeCat::TitleChances as usize] = 0.02 * t.strength + (0.6 * titles_recent + win) * conf_strength(p);
         raw[i][GradeCat::CoachPrestige as usize] = hc_rep;
-        raw[i][GradeCat::Facilities as usize] = p.facilities;
+        raw[i][GradeCat::Facilities as usize] = fac_reads[i];
         // Before NIL the grade reads the booster base, the money that becomes NIL.
         raw[i][GradeCat::Nil as usize] =
             if super::ncaa::nil_era(year) { p.collective.budget } else { p.collective.boosters() };
@@ -3313,8 +3381,14 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
                 let p = &mut w.programs[i];
                 let k = cat as usize;
                 p.last_grades[k] = p.grades[k];
-                p.grades[k] =
-                    if w.recording { program::move_grade(p.grades[k], target, cat.speed(), false) } else { target };
+                // A project under way holds the facilities grade where the
+                // finished building puts it (item 2); a fall still creeps.
+                let rise_now = cat == GradeCat::Facilities && building[i] && target > p.grades[k];
+                p.grades[k] = if w.recording && !rise_now {
+                    program::move_grade(p.grades[k], target, cat.speed(), false)
+                } else {
+                    target
+                };
             }
         }
     }
@@ -3345,6 +3419,53 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
             p.grade_history.push((year, p.grades));
             p.prestige_history.push((year, p.prestige));
         }
+    }
+}
+
+/// Each program's facilities as recruits read them, and whether it has a
+/// project under way (facilities lane item 2, Cain 2026-11-08): what stands
+/// plus what its open projects add when they open. A project pulls
+/// recruits from the day ground breaks, not years after it opens (Huml,
+/// Pifer, Towle and Rode 2019: Power 5 classes rose in the two years before
+/// a facility opened, not after).
+pub fn facilities_reads(w: &World) -> (Vec<f64>, Vec<bool>) {
+    let n = w.programs.len();
+    let mut add = vec![0.0f64; n];
+    let mut building = vec![false; n];
+    for x in w.finance.projects.iter() {
+        if let super::finance::Owner::College(p) = x.owner
+            && p < n
+            && x.kind == super::finance::ProjectKind::Facility
+            && !x.done
+        {
+            add[p] += x.step as f64;
+            // Seats and suites alone (a step of nothing) pull no recruits.
+            building[p] |= x.step > 0.0;
+        }
+    }
+    let reads = (0..n).map(|p| clamp(w.programs[p].facilities + add[p], 0.0, 1.0)).collect();
+    (reads, building)
+}
+
+/// Ground breaks on a facility project: the facilities grade moves at once
+/// to where the finished building will put it among the program's level
+/// (the same 55-99 ranking as the yearly book, `update_programs`). It never
+/// falls on the news; a fall still creeps at the steady pace.
+pub fn facilities_grade_now(w: &mut World, p: usize) {
+    if !w.recording || p >= w.programs.len() {
+        return;
+    }
+    let (reads, _) = facilities_reads(w);
+    let division = w.programs[p].division;
+    let mut sorted: Vec<(f64, usize)> =
+        (0..w.programs.len()).filter(|&i| w.programs[i].division == division).map(|i| (reads[i], i)).collect();
+    sorted.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let m = sorted.len().max(2) - 1;
+    if let Some(rank) = sorted.iter().position(|&(_, i)| i == p) {
+        let target = 55.0 + 44.0 * rank as f64 / m as f64;
+        let k = GradeCat::Facilities as usize;
+        let g = &mut w.programs[p].grades[k];
+        *g = g.max(target);
     }
 }
 
@@ -3428,6 +3549,9 @@ pub fn take_seat_as(w: &mut World, you: &super::seat::You, employer: Option<Empl
     if let Some(e) = employer
         && let Some(c) = holder(w, e, role)
     {
+        if role == Role::HeadCoach {
+            credit_before_takeover(w, e, c);
+        }
         leave(w, c, if role == Role::HeadCoach { "fired" } else { "let go by the new staff" });
     }
     let id = w.coaches.len();

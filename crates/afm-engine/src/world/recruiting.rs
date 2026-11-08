@@ -3991,6 +3991,31 @@ pub(crate) fn decommit_after_firing(w: &mut World, prog: usize) {
             ));
         }
     }
+    // Signees whose head coach is gone (Jan 1 start): from the early
+    // signing period to national signing day the ones who ask are mostly
+    // let out, as schools do since the NLI ended (proposed, not confirmed).
+    if signees_waiting(w, d) {
+        let asks: Vec<usize> = (0..w.people.len())
+            .filter(|&i| {
+                let p = &w.people[i];
+                matches!(p.stage, Stage::HighSchool | Stage::PrepSchool)
+                    && p.cal.signed.is_some_and(|s| s.program == prog && !s.walk_on)
+                    && signee_asks(p, prog, d, seed)
+            })
+            .collect();
+        for i in asks {
+            if key_uniform(seed ^ 0x4E11, w.people[i].player.id as u64) >= 0.9 {
+                continue;
+            }
+            let p = &w.people[i];
+            let (name, pos, stars, id) = (p.name.clone(), p.player.position, recruiting_stars(p), p.player.id);
+            release_signee(w, i, &school);
+            w.log.signee_releases += 1;
+            if stars >= 4 {
+                posts.push((format!("{stars}-star {pos} signee {name} is let out of his signing with {school} after the coaching change."), id, name));
+            }
+        }
+    }
     for (text, id, name) in posts {
         let e = Event::new(d, CalLevel::Recruiting, Kind::Commitment, Loudness::Small, text)
             .program(prog)
@@ -3998,6 +4023,54 @@ pub(crate) fn decommit_after_firing(w: &mut World, prog: usize) {
             .school_link(prog, &w.programs[prog].real_name);
         w.calendar.post(e);
     }
+}
+
+/// Whether `d` falls between this cycle's early signing period and its
+/// national signing day: December signees are signed and can still be let
+/// out to sign elsewhere (none before the early period began in 2017).
+pub(crate) fn signees_waiting(w: &World, d: Date) -> bool {
+    w.dates.early_signing.is_some_and(|e| d >= e) && d < w.dates.signing_day
+}
+
+/// A signee's tie to the staff that signed him, 0-1 (Jan 1 start, proposed,
+/// not confirmed): how long he was theirs and how often they had him on
+/// campus, by his loyalty.
+pub(crate) fn signee_tie(p: &Person, prog: usize, today: Date) -> f64 {
+    let since = p
+        .cal
+        .signed
+        .filter(|s| s.program == prog)
+        .map(|s| s.committed.unwrap_or(s.date))
+        .or(p.cal.commit.filter(|c| c.0 == prog).map(|c| c.1))
+        .unwrap_or(today);
+    let years = (since.days_to(today).max(0) as f64 / 365.0).min(3.0);
+    let visits = p.cal.visits.iter().filter(|v| v.0 == prog).count().min(6) as f64;
+    let loyal = p.player.personality.traits.get(crate::player::Trait::Loyalty);
+    clamp((0.25 * years + 0.08 * visits) * (0.6 + 0.04 * loyal), 0.0, 1.0)
+}
+
+/// Whether a December signee asks out once his head coach is gone: about
+/// one in six of a class, the best and the closest to the old staff most
+/// (proposed, not confirmed).
+pub(crate) fn signee_asks(p: &Person, prog: usize, today: Date, seed: u64) -> bool {
+    let base = match recruiting_stars(p) {
+        5 => 0.30,
+        4 => 0.22,
+        3 => 0.14,
+        _ => 0.08,
+    };
+    key_uniform(seed ^ 0x5161, p.player.id as u64) < base * (0.5 + signee_tie(p, prog, today))
+}
+
+/// Lets a signee out of his signing: he is a recruit again and signs on
+/// national signing day.
+pub(crate) fn release_signee(w: &mut World, i: usize, school: &str) {
+    let p = &mut w.people[i];
+    p.cal.signed = None;
+    p.cal.commit = None;
+    p.cal.commit_timing = Some(CommitTiming::Late);
+    let age = p.row_age();
+    p.note(format!("At {age} he was let out of his signing with {school} after its head coach left."));
 }
 
 /// The services' class rankings on a signing day (part B 32): each class
@@ -6845,7 +6918,9 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     });
                 }
                 let flipped = p.cal.commit.is_some_and(|c| c.0 != j);
-                p.cal.signed = Some(super::Signed { program: j, walk_on, date: today, early_enrollee, flipped });
+                let committed = p.cal.commit.filter(|c| c.0 == j).map(|c| c.1);
+                p.cal.signed =
+                    Some(super::Signed { program: j, walk_on, date: today, early_enrollee, flipped, committed });
                 p.cal.commit = None;
                 p.cal.late = false;
                 // His high school coach gets the credit for sending him up.

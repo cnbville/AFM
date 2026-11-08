@@ -282,22 +282,42 @@ fn people_live() {
     // camp who was not put on reserve and was cut at the cutdown was
     // settled with.
     let settled: u32 = w.market.years.iter().map(|m| m.settlements).sum();
+    // Camp runs from the veterans' report to the final cutdown (40 days),
+    // so a practice injury of about six weeks (36 to 42 days) from camp's
+    // first days can heal before the cutdown, and a player cut healthy is
+    // owed nothing (real). Seed 7, 2026-11-08: Kevin Duga, hurt on camp's
+    // second day for 39 days, was healthy again on cutdown day. So a camp
+    // injury must be settled only when even its shortest length (7 a week
+    // less 6 days) outlasts camp. A preseason injury of six weeks or more
+    // always outlasts the 19 days from the first preseason game.
+    let camp = w.dates.veterans_report.days_to(w.dates.cutdown.date);
     let (mut hurt, mut cut_hurt) = (0, 0);
     for p in w.people.iter().filter(|p| p.pro.is_some()) {
         for (k, n) in p.notes.iter().enumerate() {
-            let Some(rest) =
-                n.strip_prefix("Hurt in the preseason at ").or_else(|| n.strip_prefix("Hurt in camp practice at "))
-            else {
-                continue;
+            let (rest, in_camp) = match n.strip_prefix("Hurt in the preseason at ") {
+                Some(r) => (r, false),
+                None => match n.strip_prefix("Hurt in camp practice at ") {
+                    Some(r) => (r, true),
+                    None => continue,
+                },
             };
             if n.ends_with(": injured reserve.") {
                 continue;
             }
             hurt += 1;
             let age = rest.split(' ').next().unwrap();
+            let weeks: i32 = rest
+                .split("about ")
+                .nth(1)
+                .and_then(|x| x.split(' ').next())
+                .and_then(|x| x.parse().ok())
+                .expect("the note gives his weeks out");
             let later = &p.notes[k + 1..];
             if later.iter().any(|m| m.contains(&format!(" at {age} (cut at the final cutdown)"))) {
                 cut_hurt += 1;
+                if in_camp && 7 * weeks - 6 <= camp {
+                    continue;
+                }
                 assert!(
                     later.iter().any(|m| m.contains(&format!(" at {age} with an injury settlement"))),
                     "{} was cut hurt at {age} with no settlement",

@@ -405,6 +405,12 @@ pub struct SeatTraining {
     /// and F13): id, back on (the day he can play again), what it is.
     #[serde(default)]
     pub others_hurt: std::collections::BTreeMap<u32, (Date, Option<InjuryKind>)>,
+    /// A day every entry of `others_hurt` is back after (the day of its
+    /// last sweep), or None when unsure: a sweep up to that day would
+    /// remove nothing, so it is skipped (world speed lane). Working memory
+    /// only, never saved.
+    #[serde(skip)]
+    pub others_floor: Option<Date>,
     pub notes: Vec<Note>,
     pub log: Vec<WeekLog>,
     pub reports: Vec<Report>,
@@ -695,6 +701,20 @@ impl SeatTraining {
     /// Another team's player out hurt on day `d`: what it is and when he is back.
     pub fn other_hurt(&self, id: u32, d: Date) -> Option<(Date, Option<InjuryKind>)> {
         self.others_hurt.get(&id).copied().filter(|x| x.0 > d)
+    }
+
+    /// Another team's player hurt until `back`: the later of two days
+    /// stands. A day on or before the sweep floor (`game_injuries`) means the
+    /// floor no longer holds. Every writer of `others_hurt` comes through
+    /// here, so the floor stays true (world speed lane).
+    pub(crate) fn note_other_hurt(&mut self, id: u32, back: Date, kind: InjuryKind) {
+        if self.others_floor.is_some_and(|f| back <= f) {
+            self.others_floor = None;
+        }
+        let e = self.others_hurt.entry(id).or_insert((back, Some(kind)));
+        if back > e.0 {
+            *e = (back, Some(kind));
+        }
     }
 
     /// Arrived in the last two weeks (a save from before reads nobody as new).
@@ -1527,8 +1547,11 @@ pub(crate) fn game_injuries(
     medical: [f64; 2],
     seat: Option<usize>,
 ) {
-    if w.training.others_hurt.len() > 20_000 {
+    // Everyone listed is back after the floor, so on or before it a sweep
+    // would keep every entry: it is skipped, and the list is the same.
+    if w.training.others_hurt.len() > 20_000 && w.training.others_floor.is_none_or(|f| date > f) {
         w.training.others_hurt.retain(|_, x| x.0 > date);
+        w.training.others_floor = Some(date);
     }
     for (team, inj) in injuries {
         if inj.plays_on || *team > 1 {
@@ -1557,10 +1580,7 @@ pub(crate) fn game_injuries(
                 format!("[[p:{}|{name}]] was hurt in the game ({}): out {long}.", inj.id, inj.kind.name()),
             );
         } else {
-            let e = w.training.others_hurt.entry(inj.id).or_insert((back, Some(inj.kind)));
-            if back > e.0 {
-                *e = (back, Some(inj.kind));
-            }
+            w.training.note_other_hurt(inj.id, back, inj.kind);
         }
     }
 }
@@ -2344,6 +2364,10 @@ impl World {
     /// chart, packages and plan (after you change them).
     pub fn refresh_seat_team(&mut self) {
         let Some(c) = self.seat.filter(|s| s.level == Cal::College).and_then(|s| s.program) else { return };
+        // The interim's games are his staff's (the Jan 1 start).
+        if self.seat_interim().is_some() {
+            return;
+        }
         if self.training.design_ids.len() != self.training.designs.len() {
             self.training.register_designs();
         }
