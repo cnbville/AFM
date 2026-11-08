@@ -62,19 +62,23 @@ BRIEFS = os.path.join(HERE, 'briefs')
 # Each request of a part gets one angle, so the requests of one round don't
 # all write the same lines.
 ANGLES = {
-    'player': ["high school players (tag hs), every position", "college players (tag college), stage tags "
-               "where the words need them", "NFL players (tag nfl), vets, rookies and the practice squad",
+    'player': ["high school players (tag hs), in words only that level has, every position", "college players "
+               "(tag college), in words only that level has, stage tags where the words need them", "NFL players "
+               "(tag nfl), in words only that level has: vets, rookies and the practice squad",
                "untagged lines that fit any player at any level", "one personality tag per line, spread over "
                "all fifteen", "a position or group tag per line, with words that fit everyone under it",
                "short lines, two to eight words", "a light regional touch (one region tag per line) and plain, "
                "unshowy speech"],
-    'coach': ["high school coaches (tag hs)", "college coaches (tag college)", "NFL coaches (tag nfl)",
+    'coach': ["high school coaches (tag hs), in words only that level has", "college coaches (tag college), in "
+              "words only that level has", "NFL coaches (tag nfl), in words only that level has",
               "untagged lines that fit any coach", "one personality tag per line (hot, calm, climber, loyal, "
               "old, young, expro, strict, warm, cold)", "short and to the point", "a light regional touch"],
-    'cast': ["high school (tag hs or the role)", "college (tag college or the role)", "the NFL (tag nfl or the "
-             "role)", "untagged lines that fit every level", "one personality tag per line (ego, hot, warm, "
+    'cast': ["high school (tag hs or the role), in words only that level has", "college (tag college or the "
+             "role), in words only that level has", "the NFL (tag nfl or the role), in words only that level "
+             "has", "untagged lines that fit every level", "one personality tag per line (ego, hot, warm, "
              "cold, blunt, smooth, impatient, patient, meddler, tight, old, she)", "a light regional touch"],
-    'you': ["high school (tag hs)", "college (tag college)", "the NFL (tag nfl)", "untagged lines that fit "
+    'you': ["high school (tag hs), in words only that level has", "college (tag college), in words only that "
+            "level has", "the NFL (tag nfl), in words only that level has", "untagged lines that fit "
             "every level", "short lines", "a light regional touch"],
     'parent': ["untagged lines that fit every family", "one style tag per line", "a light regional touch",
                "short lines"],
