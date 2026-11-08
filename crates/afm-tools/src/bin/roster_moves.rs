@@ -3,11 +3,10 @@
 //! by the month entrants landed, who was still looking at fall camp, the
 //! late signings of seniors and junior college players after February's
 //! signing day, walk-on tryouts and scholarships, and every level's squads
-//! at fall camp against real. Reads only what main already had, so the same
-//! tool measures the code before and after.
+//! at fall camp against real, then the log's own lane B counters.
 //! Usage: roster_moves [scale] [history_years] [seed] [seasons] [engine_from]
 
-use afm_engine::calendar::Date;
+use afm_engine::calendar::{Date, YearDates};
 use afm_engine::world::data::Division;
 use afm_engine::world::{Stage, World, WorldOptions};
 
@@ -79,7 +78,7 @@ fn main() {
         // Late signings: a signature dated after February's signing day.
         for p in w.people.iter() {
             if let Some(s) = p.cal.signed
-                && s.date > Date::ymd(s.date.year(), 2, 14)
+                && s.date > YearDates::new(s.date.year() - 1).signing_day
                 && s.date.month() <= 8
                 && counted_late.insert(p.player.id)
             {
@@ -204,6 +203,10 @@ fn report(w: &World, season: i32, o: &Offseason) {
     println!("  by month: {}", row.join(", "));
     if let Some(l) = w.log_history.iter().find(|l| l.year == season).or((w.log.year == season).then_some(&w.log)) {
         println!("walk-ons put on scholarship {} / open tryouts {}", l.walk_on_scholarships, l.tryouts);
+        println!(
+            "log: late pool {}, signed after signing day {:?}, portal landed after signing day {}, unplaced at fall camp {}",
+            l.late_pool, l.signed_after, l.portal_landed_after, l.portal_unplaced_at_camp
+        );
     }
     println!("squads at fall camp (mean, p10-p90, walk-ons, real):");
     for l in LEVELS {

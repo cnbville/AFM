@@ -8028,12 +8028,14 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         let from_name = w.program_name(c).to_string();
         let what = why.phrase();
         let Some((j, _, nil, role, edge)) = pick else {
-            // Portal regret (T3): his old school may take him back, the day
-            // he first finds nothing or at fall camp.
+            // Portal regret (T3): his old school may take him back the day
+            // he first finds nothing. At fall camp the same word stands: only
+            // one turned away then for want of room is asked back (a second
+            // draw doubled the returns, 7% of entrants to 16% on seed 74).
             let back = (!entry.looking || force)
                 && !matches!(why, Why::Dismissed | Why::Cut)
                 && counted[c] < super::ncaa::roster_limits(&w.programs[c], season).0
-                && key_uniform(seed ^ if entry.looking { 0xBAC ^ 0xCA3 } else { 0xBAC }, w.people[i].player.id as u64)
+                && key_uniform(seed ^ 0xBAC, w.people[i].player.id as u64)
                     < if perf >= median(from) - 2.0 { 0.4 } else { 0.15 };
             // No deadline to pick a school (minor bug 337, real since 2025):
             // he stays in the portal and shops again each week as rooms
