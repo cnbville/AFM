@@ -112,13 +112,11 @@ pub struct GrowthYear {
     #[serde(default)]
     pub pcoach: u8,
     /// Growth from results: the form of the skills results test when
-    /// results replace the dice (item 14), v / 4000, and the level the
-    /// year opened at (`Level as u8`). Flags bit 3: snaps land in season;
-    /// bit 4: results replace the dice.
+    /// results replace the dice (item 14), v / 4000. Flags bit 3: snaps
+    /// land in season; bit 4: results replace the dice; bits 5-7: the
+    /// level the year opened at (`Level as u8`).
     #[serde(default)]
     pub form_tested: u16,
-    #[serde(default)]
-    pub level: u8,
 }
 
 /// A player's training store (section 6b, about 34 bytes): the year's
@@ -183,7 +181,6 @@ impl Train {
                 form: clamp((g.form * g.growth_multiplier * 4000.0).round(), 0.0, 65535.0) as u16,
                 pcoach: q(g.physical_boost, 0.5, 250.0).max(1),
                 form_tested: 0,
-                level: 0,
             },
             covered: [0; FAMILIES],
             due: [0; FAMILIES],
@@ -204,8 +201,7 @@ impl Train {
     /// season, whether results replace the dice on the skills they test,
     /// the level, and those skills' form (times the year's injuries).
     pub(crate) fn open_results(&mut self, in_season: bool, replace: bool, level: Level, form_tested: f64) {
-        self.year.flags |= (in_season as u8) << 3 | (replace as u8) << 4;
-        self.year.level = level as u8;
+        self.year.flags = self.year.flags & 7 | (in_season as u8) << 3 | (replace as u8) << 4 | (level as u8) << 5;
         self.year.form_tested = clamp((form_tested * 4000.0).round(), 0.0, 65535.0) as u16;
     }
 
@@ -215,7 +211,7 @@ impl Train {
     }
 
     fn level(&self) -> Level {
-        [Level::HS, Level::FBS, Level::FCS, Level::SmallCollege, Level::NFL][(self.year.level as usize).min(4)]
+        [Level::HS, Level::FBS, Level::FCS, Level::SmallCollege, Level::NFL][((self.year.flags >> 5) as usize).min(4)]
     }
 
     /// The share of each family's year the calendar has reached, 0-1.
