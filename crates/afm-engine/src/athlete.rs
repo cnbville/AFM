@@ -442,7 +442,42 @@ pub(crate) fn create(rng: &mut Rng, talent: f64) -> (Attributes, Body, Position,
     let height = clamp(fh + dh, 64.0, 82.0);
     let weight = lb_weight(natural, clamp(fw + dw, 140.0, 380.0));
     let body = Body::grown(height, weight, rng);
+    if natural == Position::EDGE {
+        edge_lean(&mut ceilings, body.height);
+    }
     (ceilings, body, natural, compete)
+}
+
+/// Bug 330: a tall edge's skills stop trading rush for coverage and
+/// recognition. At the same overall the generator gave 6-5½ edges about 1.2
+/// points an inch more Zone Coverage, Play Recognition, Pursuit and
+/// Anticipation and 0.6 to 1.1 less Hand Use, Finesse Rush and Power Rush
+/// than 6-2 ones, so tall edges rushed worse as recruited (-0.46 pts of
+/// pressures a snap an inch, real raw +0.02); long arms the same through
+/// their height. `EDGE_TALL_LEAN` points an inch over the combine's height
+/// move back, the edge overall kept: as recruited, height now costs -0.16
+/// pts of pressures a snap an inch and arms -0.06 (4,000 games a test, with
+/// the edge lane's rush; main -0.46 and -0.26, real raw flat). The spread is untouched, so rare bodies with rare skills still
+/// come out (proposed, not confirmed).
+const EDGE_TALL_LEAN: f64 = 1.4;
+
+fn edge_lean(c: &mut Attributes, height: f64) {
+    let (hm, _, _, _) = combine_size(Position::EDGE);
+    let x = EDGE_TALL_LEAN * (height - hm);
+    if x == 0.0 {
+        return;
+    }
+    let from =
+        [(Attr::ZoneCoverage, 1.0), (Attr::PlayRecognition, 1.0), (Attr::Pursuit, 1.0), (Attr::Anticipation, 0.9)];
+    let to = [(Attr::HandUse, 1.0), (Attr::FinesseRush, 0.85), (Attr::PowerRush, 0.55)];
+    let wf: f64 = from.iter().map(|&(a, f)| f * weight(Position::EDGE, a)).sum();
+    let wt: f64 = to.iter().map(|&(a, f)| f * weight(Position::EDGE, a)).sum();
+    for (a, f) in from {
+        c.set(a, clamp(c.get(a) - f * x, MIN_RATING, MAX_RATING));
+    }
+    for (a, f) in to {
+        c.set(a, clamp(c.get(a) + f * x * wf / wt, MIN_RATING, MAX_RATING));
+    }
 }
 
 /// A linebacker plays near the combine's weight (bug 310): a frame far off

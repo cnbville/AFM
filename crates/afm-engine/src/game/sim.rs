@@ -993,13 +993,59 @@ const SPACE_BLOCK_LEAVE: f64 = 0.6;
 const LAST_MAN_LEAD: f64 = 1.4;
 
 /// An edge rusher's get-off: the share of it from raw Acceleration (the
-/// rest of the 0.6 moves to Finesse Rush and Flexibility), and the share of
-/// his speed rush's Speed and Acceleration kept (the rest moves to Finesse
-/// Rush, Flexibility and Hand Use). Minor bug 286: they were 0.6 and 1.0,
-/// and the 10-yard split was the edge's strongest body number, where real
-/// shows none once talent is known (proposed, not confirmed).
-const EDGE_BURST: f64 = 0.15;
-const EDGE_ARC_LEGS: f64 = 0.5;
+/// rest of the 0.6 reads Finesse Rush and Flexibility about the typical
+/// edge's, Flexibility's part `EDGE_GETOFF_BEND`), and the share of his
+/// speed rush's Speed and Acceleration kept (the rest reads Finesse Rush,
+/// Flexibility and Hand Use, Flexibility's part `EDGE_ARC_BEND`). Minor bug
+/// 286: they were 0.6 and 1.0, then 0.15 and 0.5 (PR #249), and the 10-yard
+/// split was still the edge's strongest body number (+1.68 pts of pressures
+/// a defense snap a 0.1 s), where real shows none once talent is known
+/// (-0.49, band -0.99 to +0.01). A slow-burst edge also rushes on the
+/// typical edge's burst, a quick one on his own (`scrimmage.rs`,
+/// `rush_feet`): about +0.9 (pure, 4,000 games). Reading every edge's feet
+/// as the typical edge's took it to +0.3 but failed Cain's freak check
+/// (light edges out of the top seasons), so his weight and turn stay his
+/// own. The edge lane, 2026-11-08; proposed, not confirmed.
+const EDGE_BURST: f64 = 0.0;
+const EDGE_ARC_LEGS: f64 = 0.25;
+/// E1 (Cain's yes 2026-11-08): bend mostly finishes the rush, so the edge's
+/// get-off and arc read less Flexibility (0.5 and 0.3 of their craft
+/// before) and his speed move 0.05 of it (0.15 before), the rest as
+/// Finesse Rush; with the lane's other reads the 3-cone adds +0.31 pts of
+/// pressures a 0.1 s (main +0.45, real band -0.06 to +0.11) and its sacks
+/// come from the bend reach in `sack_check` (proposed, not confirmed).
+const EDGE_GETOFF_BEND: f64 = 0.2;
+const EDGE_ARC_BEND: f64 = 0.1;
+const EDGE_SPEED_BEND: f64 = 0.05;
+/// E1: speed-move points an inch over the typical edge's height a
+/// Flexibility point over the typical edge's (real: 0.1 s of 3-cone for his
+/// weight is worth +0.11 pts more pressures for each 1.4 in; proposed, not
+/// confirmed).
+const EDGE_TALL_BEND: f64 = 0.2;
+/// E3 (Cain's yes 2026-11-08): power-move points a Strength point over the
+/// typical edge's, a 10 lb over the typical edge's weight (real: 5 more
+/// bench reps add +0.48 pts of pressures for heavy edges, -0.12 for light
+/// ones), counted up to `EDGE_MASS_SPAN` over it, about the real heavy
+/// edge's weight. Past it the term stops growing (his strength and mass
+/// still count in full in the power move): taken on with weight, 295 lb
+/// men at edge reached 34 sacks a season. Proposed, not confirmed.
+const EDGE_STRENGTH_MASS: f64 = 0.3;
+const EDGE_MASS_SPAN: f64 = 20.0;
+/// Bug 328: Agility's share of an edge's finesse move (0.25 before; the
+/// rest reads Finesse Rush and Hand Use about the typical edge's). With his
+/// turn on the rush also read about the typical edge's the shuttle came to
+/// about +0.2 pts of pressures a 0.1 s (real +0.17, band +0.02 to +0.32; it
+/// was +0.52), but light, quick edges then fell out of the top seasons
+/// (Cain's freak check), so his turn stays his own and the shuttle is about
+/// +0.5 again (proposed, not confirmed).
+const EDGE_FINESSE_AGILITY: f64 = 0.12;
+/// E2 (Cain's yes 2026-11-08): run-tackle reach, yards an inch of arm over
+/// the typical edge's, for a quick edge (real: +0.55 to +1.0 pts of run
+/// stops a run an inch for quick edges, flat for slow ones, a loose
+/// combination fit). At 0.3 every edge's arms added +0.27 pts of run
+/// tackles a defense snap an inch (main +0.10, real +0.08, band -0.04 to
+/// +0.21), so half of it (proposed, not confirmed).
+const EDGE_CLOSE_REACH: f64 = 0.15;
 
 /// A defensive tackle's first step on a pass rush, over the 0.64
 /// Acceleration points a pound his 10-yard split shows: the heavy man plays
@@ -1474,8 +1520,8 @@ impl<'a> Sim<'a> {
         let typ = |a: Attr| super::synthetic::typical(self.level, self.player(d).position, a);
         let craft = if k_acc < 0.6 {
             typ(Attr::Acceleration)
-                + 0.5 * (de.a(Attr::FinesseRush) - typ(Attr::FinesseRush))
-                + 0.5 * (de.a(Attr::Flexibility) - typ(Attr::Flexibility))
+                + (1.0 - EDGE_GETOFF_BEND) * (de.a(Attr::FinesseRush) - typ(Attr::FinesseRush))
+                + EDGE_GETOFF_BEND * (de.a(Attr::Flexibility) - typ(Attr::Flexibility))
         } else {
             0.0
         };
@@ -1595,8 +1641,8 @@ impl<'a> Sim<'a> {
             + gift
             + match mv {
                 Move::Speed => {
-                    // An edge's arc leans on the craft of it, half his raw
-                    // speed and burst (minor bug 286).
+                    // An edge's arc leans on the craft of it, a quarter of
+                    // his raw speed and burst (minor bug 286, `EDGE_ARC_LEGS`).
                     // The craft reads about his level's typical man at his
                     // position, whose arc wins as before.
                     let k = if edge { EDGE_ARC_LEGS } else { 1.0 };
@@ -1604,32 +1650,79 @@ impl<'a> Sim<'a> {
                         let typ = |x: Attr| super::synthetic::typical(self.level, self.player(d).position, x);
                         0.35 * (1.0 - k)
                             * ((0.2 * typ(Attr::Speed) + 0.15 * typ(Attr::Acceleration)) / 0.35
-                                + 0.45 * (a.a(Attr::FinesseRush) - typ(Attr::FinesseRush))
-                                + 0.3 * (a.a(Attr::Flexibility) - typ(Attr::Flexibility))
+                                + (0.75 - EDGE_ARC_BEND) * (a.a(Attr::FinesseRush) - typ(Attr::FinesseRush))
+                                + EDGE_ARC_BEND * (a.a(Attr::Flexibility) - typ(Attr::Flexibility))
                                 + 0.25 * (a.a(Attr::HandUse) - typ(Attr::HandUse)))
                     } else {
                         0.0
                     };
+                    // E1: an edge's bend is mostly his finish (`sack_check`),
+                    // so his speed move reads less of it, the rest as rush
+                    // craft about the typical man's; and a tall man's bend
+                    // counts more at the corner (his pads under the
+                    // tackle's hands), above the typical edge's height only.
+                    let (bend, tall) = if edge {
+                        let g = self.player(d);
+                        let typ = |x: Attr| super::synthetic::typical(self.level, g.position, x);
+                        let (th, _, _) = super::synthetic::typical_body(self.level, g.position);
+                        (
+                            EDGE_SPEED_BEND * a.a(Attr::Flexibility)
+                                + (0.15 - EDGE_SPEED_BEND)
+                                    * (typ(Attr::Flexibility) + a.a(Attr::FinesseRush) - typ(Attr::FinesseRush)),
+                            EDGE_TALL_BEND
+                                * (g.height - th).max(0.0)
+                                * (a.a(Attr::Flexibility) - typ(Attr::Flexibility)),
+                        )
+                    } else {
+                        (0.15 * a.a(Attr::Flexibility), 0.0)
+                    };
                     0.4 * a.a(Attr::FinesseRush)
                         + 0.2 * k * a.a(Attr::Speed)
                         + 0.15 * k * a.a(Attr::Acceleration)
-                        + 0.15 * a.a(Attr::Flexibility)
+                        + bend
                         + 0.1 * a.a(Attr::HandUse)
                         + freed
+                        + tall
                 }
                 Move::Power => {
+                    // E3: an edge's strength pays with his mass, above the
+                    // typical edge's weight only; at or below it Strength
+                    // keeps its full value, so a lean, strong man still
+                    // wins with it.
+                    let heft = if edge {
+                        let (_, tw, _) = super::synthetic::typical_body(self.level, self.player(d).position);
+                        let typ = super::synthetic::typical(self.level, self.player(d).position, Attr::Strength);
+                        EDGE_STRENGTH_MASS * (a.mass - tw).clamp(0.0, EDGE_MASS_SPAN) / 10.0
+                            * (a.a(Attr::Strength) - typ)
+                    } else {
+                        0.0
+                    };
                     0.4 * a.a(Attr::PowerRush)
                         + 0.25 * a.a(Attr::Strength)
                         + 0.15 * a.a(Attr::HandUse)
                         + 0.1 * a.a(Attr::Balance)
                         + 0.1 * a.a(Attr::BlockShedding)
                         + (a.mass - 280.0) * 0.08
+                        + heft
                 }
                 Move::Finesse => {
+                    // Bug 328: an edge's Agility at the real size, the rest
+                    // of its share read about the typical man's, as craft.
+                    let ka = if edge { EDGE_FINESSE_AGILITY } else { 0.25 };
+                    let freed = if ka < 0.25 {
+                        let typ = |x: Attr| super::synthetic::typical(self.level, self.player(d).position, x);
+                        (0.25 - ka)
+                            * (typ(Attr::Agility)
+                                + 0.6 * (a.a(Attr::FinesseRush) - typ(Attr::FinesseRush))
+                                + 0.4 * (a.a(Attr::HandUse) - typ(Attr::HandUse)))
+                    } else {
+                        0.0
+                    };
                     0.45 * a.a(Attr::FinesseRush)
-                        + 0.25 * a.a(Attr::Agility)
+                        + ka * a.a(Attr::Agility)
                         + 0.2 * a.a(Attr::HandUse)
                         + 0.1 * a.a(Attr::BlockShedding)
+                        + freed
                 }
             }
     }
@@ -2384,6 +2477,7 @@ impl<'a> Sim<'a> {
             let reach = free_reach
                 + wrap
                 + arm_reach * (self.player(i).arm - 32.0)
+                + self.close_reach(i)
                 + 0.05 * self.player(i).links.share(&[crate::links::Link::Length]);
             // Closest approach over the last tick, so fast players can't
             // pass through each other between two samples.
@@ -2433,6 +2527,22 @@ impl<'a> Sim<'a> {
         if !self.fight.is_empty() {
             self.fight_tick(c);
         }
+    }
+
+    /// E2: a quick edge's long arms reach farther as he closes down the
+    /// line, above the typical edge's arm and forty only (yards an inch, at
+    /// one forty step of 0.15 s, up to two).
+    fn close_reach(&self, i: usize) -> f64 {
+        let g = self.player(i);
+        if g.position != crate::positions::Position::EDGE {
+            return 0.0;
+        }
+        let (_, tw, ta) = super::synthetic::typical_body(self.level, g.position);
+        let typ = |x: Attr| super::synthetic::typical(self.level, g.position, x);
+        let t40 =
+            5.56 - 0.0124 * (0.75 * typ(Attr::Speed) + 0.25 * typ(Attr::Acceleration)) + crate::body::forty_weight(tw);
+        let quick = clamp((t40 - g.forty()) / 0.15, 0.0, 2.0);
+        EDGE_CLOSE_REACH * (g.arm - ta).max(0.0) * quick
     }
 
     /// A tackler's body in his finish, in tackling points over his level's

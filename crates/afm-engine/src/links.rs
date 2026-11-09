@@ -548,7 +548,7 @@ fn shuttle(attrs: &Attributes, weight: f64) -> f64 {
 
 fn cone(attrs: &Attributes, weight: f64) -> f64 {
     let bend =
-        0.55 * attrs.get(Attr::Agility) + 0.25 * attrs.get(Attr::Acceleration) + 0.2 * attrs.get(Attr::Flexibility);
+        0.45 * attrs.get(Attr::Agility) + 0.2 * attrs.get(Attr::Acceleration) + 0.35 * attrs.get(Attr::Flexibility);
     7.58 - 0.007 * bend + 0.0062 * (weight - 220.0)
 }
 
