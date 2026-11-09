@@ -894,6 +894,78 @@ Measured in the same batch, not fixed (`ab_check`, 2,000 NFL games an arm, seed 
 - **A linebacker's speed and run tackles (306):** across the whole position the fast men still collect the run tackles (-0.0017 a defense snap a 0.1 s slower, real +0.0037). Read within the field, against the linebackers beside him (`lb_tk_within`, the way real's same-draft-slot slope is a cross-section), the engine gives -0.2 to -1.0 pts a snap a 0.1 s slower, real +0.37: the miss is in the engine, not the measurement.
 - **A corner's speed and target depth (281):** read within the field, against the corners beside him (`cv_adot_within`), the engine gives -0.32 to -0.54 yards a 0.1 s slower (real -0.33, band -0.15 to -0.51), so the miss was the A/B's whole-position read, which can't show a cross-section.
 
+## Edge rushers: bend, arms, strength and rare freaks (E1-E3, minor bugs 286, 328, 330 and 339, 2026-11-08)
+
+The edge research (`afm/ab-tests/research-edge.md` in the project folder) set the engine's edges against 978 real edge seasons (2018-25). Cain said yes to its three proposals on 2026-11-08 with one rule: "it's important to not limit strength or force into this build. A 6'0, lean Aaron Donald should still exist." So nothing here caps a rating, a body or what a combination can reach: every new read is a tilt about the level's typical edge (`synthetic::typical`, `typical_body`), and the size terms add for one body without taking from another. Every size is proposed, not confirmed.
+
+What changed (`game/sim.rs`, `game/scrimmage.rs`, `body.rs`, `links.rs`, `athlete.rs`):
+
+- **E1, bend finishes the rush.** The sack check gives an edge on contain extra reach to the quarterback for Flexibility over the typical edge's, 0.2 yard a 10 points, from -0.3 to +0.6 (`BEND_REACH`): a man who bends the corner flattens to the quarterback. His get-off, arc and speed move read less Flexibility (`EDGE_GETOFF_BEND`, `EDGE_ARC_BEND`, `EDGE_SPEED_BEND`), the rest as Finesse Rush. A tall man's bend counts more at the corner, above the typical edge's height only (`EDGE_TALL_BEND`); a short man's keeps its value. The 3-cone reads more bend (0.45 Agility, 0.2 Acceleration, 0.35 Flexibility; was 0.2 Flexibility), and an edge's 3-cone and shuttle knacks go together 0.7 (`EDGE_KNACK_TOGETHER`), so drafted edges' two drills go together 0.60 (real 0.62; 0.42 before).
+- **E2, arms finish for the power rusher and close for the quick one.** Still on his blocker, an edge reaches 0.18 yard an inch of arm over the typical edge's, scaled by his weight (none at 13 lb under the typical, up to three times at 26 over; `ARM_REACH`). On a run, a quick edge's long arms reach 0.15 yard an inch farther as he closes, one step for each 0.15 s his forty beats the typical edge's, up to two (`close_reach`, `EDGE_CLOSE_REACH`). Short-armed and slow men lose nothing. The run reach is half the first size: at 0.3 yard every edge's arms added +0.27 pts of run tackles a defense snap an inch (main +0.10, real +0.08, band -0.04 to +0.21).
+- **E3, strength pays with mass.** The power move adds 0.3 a Strength point over the typical edge's for each 10 lb over the typical edge's weight, up to 20 lb (`EDGE_STRENGTH_MASS`, `EDGE_MASS_SPAN`). At or below the typical weight Strength keeps its full value. Without the 20 lb span, 295 lb men at edge reached 34 sacks a season.
+- **339, too few pressures ended in a sack.** Every rusher's reach in the sack check now adds a finish: 0.2 yard a 10 points of Tackling and Pursuit over 60, read half his own and half the typical man's (`FINISH_REACH`, `FINISH_MARK`, `FINISH_OWN`). Read on his own in full, the best finishers ran away with it (34 sacks a season). An NFL edge is about 74 in both, an FBS one 54 and a high school one 33, so the lower levels barely move.
+- **286, the 10-yard split drove an edge's pressures.** His get-off no longer reads raw Acceleration (`EDGE_BURST` 0; the typical edge's burst, plus 0.8 of his Finesse Rush and 0.2 of his Flexibility about the typical edge's), and his arc keeps a quarter of his raw speed and burst (`EDGE_ARC_LEGS`, was half). On a pass rush an edge slower off the mark than the typical edge builds up speed as the typical edge does; a quicker one keeps his own burst (`rush_feet`). His weight, turn and top speed stay his own: reading every edge's feet as the typical edge's brought the split row to +0.3 but failed the freak check (heavy edges took 35% of the top seasons, light ones none).
+- **328, the agility drills drove pressures too hard.** Agility's share of an edge's finesse move is 0.12 (was 0.25), the rest read as Finesse Rush and Hand Use about the typical edge's (`EDGE_FINESSE_AGILITY`). A 99 Agility man still beats a 90.
+- **330, the generator's tall edges rushed worse at the same overall.** It gave a 6-5½ edge about 1.2 points an inch more coverage and recognition and less rush craft than a 6-2 one. Now 1.4 points an inch over the combine's height move back from Zone Coverage, Play Recognition, Pursuit and Anticipation to Hand Use, Finesse Rush and Power Rush, the overall kept (`EDGE_TALL_LEAN`). The spread is untouched.
+
+The freak check (`freak_check`, new): ten seasons of 32 synthetic NFL teams on combine bodies, every edge season with 200+ defense snaps, and one 6-0, 240 lb edge given 99 Strength, Agility and Finesse Rush (team 0's best edge, his other ratings his own). Seeds 82 and 83; main is c0bc6f9, after is this lane merged with dd9ac18 (real: 2018-25 edges, the top 9-10% of pressure seasons):
+
+| | main 82 | after 82 | main 83 | after 83 | real |
+|---|---|---|---|---|---|
+| under 250 lb, top 10% / all | 10.6% / 7.7% | 11.7% / 7.8% | 17.0% / 6.4% | 13.3% / 6.2% | 18% / 19% |
+| 290 lb or more, top 10% / all | 5.8% / 10.6% | 11.7% / 10.7% | 0% / 17.0% | 0% / 17.1% | |
+| arms under 33 in, top 10% / all | 67.3% / 67.4% | 69.9% / 66.9% | 81.1% / 68.1% | 83.8% / 68.5% | 32% / 24% |
+| 6-5 or taller, top 10% / all | 10.6% / 18.7% | 11.7% / 18.7% | 12.3% / 20.6% | 4.8% / 20.8% | 21% / 29% |
+| best sack season | 21 | 27 | 20 | 29 | 22.5 and 23 |
+| sacks a season, top 1% / 5% | 16 / 11 | 22 / 15 | 17 / 12 | 22 / 16 | |
+| the freak's median rank in pressures (best) | top 6.5% (0.2%) | top 2.5% (0.1%) | top 22% (5.6%) | top 31% (3.3%) | with the best |
+| the freak's sacks a season | 6-18 | 11-23 | 6-15 | 5-20 | |
+| sacks a pressure, all edges | 22.2% | 27.4% | 22.2% | 28.1% | 27.3% |
+
+Light and short-armed edges hold at least their share of the top seasons, and nothing caps the freak: on seed 82 he is a top 2.5% rusher most years with 11-23 sacks, more than on main. The seed 83 freak has lower Acceleration, Flexibility and Speed (88, 79, 80); his pressures rank lower than on main, his sacks higher. One man's rank swings a lot from season to season (top 2% to top 60% for the same ratings), so a median over ten seasons moves about 10 points from noise. The synthetic league's bodies come from the combine, so its shares of light (7%) and short-armed (67%) edges differ from real regulars'; the check is the top share against the league's own.
+
+2,000 `match_check` games a seed, NFL averaged over seeds 82-85 (main dd9ac18 and this lane merged with it; real NFL from nflverse 2021-25, PFR for pressure; FBS from cfbfastR 2022-24):
+
+| | main | after | real |
+|---|---|---|---|
+| NFL sacks a team game | 1.90 | 2.39 | 2.41 |
+| NFL sack rate a dropback | 5.2% | 6.6% | 6.8% |
+| NFL pressure rate (PFR's count) | 23.3% | 23.8% | 22.2% |
+| NFL sacks a pressure | 0.216 | 0.266 | 0.283 |
+| NFL time to throw | 2.48 s | 2.46 s | 2.71 s |
+| NFL points a team game / sd | 23.6 / 10.71 | 23.1 / 10.77 | 22.5 / 9.9 |
+| NFL completion % / yards an attempt | 66.4% / 7.32 | 66.5% / 7.34 | 64.5% / 7.05 |
+| NFL interceptions a team game | 0.73 | 0.71 | 0.76 |
+| NFL scramble rate | 4.6% | 4.3% | 4.9% |
+| FBS sacks a team game (seed 82) | 2.11 | 2.20 | 2.00 |
+| FBS points a team game | 22.9 | 22.6 | 27.0 |
+| High school sacks / sack rate / points (seed 82) | 2.39 / 10.2% / 17.5 | 2.46 / 10.6% / 17.4 | |
+
+The A/B rows at the NFL (`ab_check`, 4,000 games an arm, seed 82, on the lane before main was merged in, the arm row after; pure moves the body or drill with ratings fixed, against real held equal on draft slot; as recruited uses the generator's athletes at the same overall, against real raw):
+
+| Bug | What moves | Stat | main | after | real (band) |
+|---|---|---|---|---|---|
+| 286 | split, 0.1 s slower | pressures a defense snap, pure / recruited | -1.68 / -2.01 | -0.89 / -1.16 | +0.49 (-0.01 to +0.99) |
+| 286 | forty, 0.1 s slower | pressures a defense snap, pure | – | -0.11 | -0.04 (-0.15 to +0.08) |
+| 286 | weight, 10 lb | pressures a defense snap, pure / recruited | -0.41 / – | -0.37 / -0.23 | -0.02 (-0.13 to +0.08) |
+| 328 | 3-cone, 0.1 s slower | pressures a defense snap, pure | -0.45 | -0.31 | -0.03 (-0.11 to +0.06) |
+| 328 | 3-cone, 0.1 s slower | sacks a pressure, pure (E1) | +0.25 | -0.63 | -0.40 (-0.82 to +0.02) |
+| 328 | shuttle, 0.1 s slower | pressures a defense snap, pure | -0.52 | -0.48 | -0.17 (-0.32 to -0.02) |
+| 330 | height, an inch | pressures a defense snap, recruited | -0.46 | -0.16 | +0.02 (flat) |
+| 330 | arm, an inch | pressures a defense snap, recruited | -0.26 | -0.06 | flat |
+| E2 | arm, an inch | sacks a pressure / run tackles a defense snap, pure | +0.01 / +0.10 | +0.68 / +0.20 | +0.65 (-0.24 to +1.54) / +0.08 (-0.04 to +0.21) |
+| E1 | height, an inch | pressures a defense snap, pure | – | +0.01 | -0.03 (flat) |
+
+The combination grids (2,000 games a cell): a heavy edge's arms now add sacks a pressure (20.5% to 24.4% across the arm rows at 285 lb) and a light one's stay flat (E2); five more bench reps add pressures for a heavy edge (6.73% to 7.56% at 285 lb) and not for a light one (10.02% to 9.56% at 243 lb), the real shape (E3). Every row in the table is at or closer to real than main; the ones that got worse are below. The main rows are c0bc6f9, except the arm row's (the research run on 1831b94).
+
+Still off:
+
+- **The split, weight, 3-cone and shuttle still move pressures 2-4 times real** (bugs 286 and 328). Each fix that closed them took the quick, light edges out of the top seasons, which Cain's rule puts first. The cause is wider: an edge's skills (Finesse Rush, Hand Use) move his pressures less than his athleticism, and a speed win needs the feet because NFL passers throw quickly (2.46 s a dropback, real 2.71). A rush craft lane would weigh the skills up and the feet down together, holding the freak check.
+- **The best sack seasons reach 27-29** (real 22.5 and 23; the top 1% of seasons 22 sacks), most of them heavy power rushers. Sacks a team game at the NFL sit at real, so the tail, not the level, is long. The synthetic league plays fixed depth charts, with no rotation by body.
+- **Tall edges are under their share of the top seasons** (5-12% of the top, 19-21% of all; real 21% of 29%; main 11-12%).
+- **As recruited, a long-armed edge's pressures end in a sack too often** (+2.2 pts of sacks a pressure an inch, real raw +0.66), though pure arms are at real (+0.68, real +0.65).
+- **FBS sacks rose to 2.20 a team game** (main 2.11, real 2.00): the finish reads FBS edges' Tackling and Pursuit, about 54, a little over 60 for the best.
+
 ## Ratings that move their own stats: the rest of minor bug 283 (2026-11-08)
 
 Minor bug 283 (from the A/B tests' spread check): on main Decisions, Football IQ and Play Recognition moved picks and sacks 0.01 to 0.12 of real starters' spread and EPA not at all (Decisions the wrong way), Short Accuracy moved completion 0.05, and Man and Zone Coverage moved the catch rate allowed 0.01 to 0.09. Growth from results reads those stats, so it barely rewarded passers, receivers and the secondary. Every size below is proposed, not confirmed, fitted with `ab_check` (NFL, +15 against -15, 2,000 games an arm, real held equal) to land in the agreed band of 0.1 to 1.0 of the spread, with `match_check` holding each level's totals.

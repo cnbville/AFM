@@ -68,10 +68,18 @@ pub enum Part {
     Forty,
     /// The ten-yard split, by his Acceleration alone (his first step).
     Split,
-    /// The three-cone, by his Agility.
+    /// The three-cone, by his Agility and Flexibility together (the drill
+    /// reads both: feet and bend).
     Cone,
     /// The short shuttle, by his Agility.
     Shuttle,
+    /// The bench press, by his Strength (at his weight and arms).
+    Bench,
+}
+
+/// The bench press before the day's noise and rounding (`body::Drills`).
+pub fn bench_of(strength: f64, weight: f64, arm: f64) -> f64 {
+    8.05 + 0.137 * strength + 0.073 * (weight - 220.0) - 0.8 * (arm - 32.5)
 }
 
 impl Part {
@@ -79,6 +87,7 @@ impl Part {
         match self {
             Part::Height | Part::Arm => ("inch", 1.0),
             Part::Weight => ("10 lb", 10.0),
+            Part::Bench => ("5 reps", 5.0),
             _ => ("0.1 s", 0.1),
         }
     }
@@ -88,6 +97,7 @@ impl Part {
             Part::Height => afm_engine::body::height_text(v).replace('"', ""),
             Part::Arm => format!("{v:.2} in"),
             Part::Weight => format!("{v:.0} lb"),
+            Part::Bench => format!("{v:.1} reps"),
             _ => format!("{v:.2} s"),
         }
     }
@@ -108,6 +118,7 @@ impl Part {
                 let e = d.expected();
                 if self == Part::Cone { e.cone } else { e.shuttle }
             }
+            Part::Bench => bench_of(gp.attrs.get(Attr::Strength), gp.weight, gp.arm),
         }
     }
 }
@@ -190,6 +201,35 @@ fn solve(at: &mut Attributes, a: Attr, target: f64, f: &dyn Fn(&Attributes) -> f
     at.set(a, 0.5 * (lo + hi));
 }
 
+/// Ratings moved together by one shift (each kept between 1 and 99) that
+/// brings `f` to the target, by halving.
+fn solve_shift(at: &mut Attributes, attrs: &[Attr], target: f64, f: &dyn Fn(&Attributes) -> f64) {
+    let base = *at;
+    let put = |x: &mut Attributes, d: f64| {
+        for &a in attrs {
+            x.set(a, clamp(base.get(a) + d, MIN_RATING, MAX_RATING));
+        }
+    };
+    let (mut lo, mut hi) = (-(MAX_RATING - MIN_RATING), MAX_RATING - MIN_RATING);
+    let rising = {
+        let mut x = base;
+        put(&mut x, hi);
+        let up = f(&x);
+        put(&mut x, lo);
+        up > f(&x)
+    };
+    for _ in 0..40 {
+        let mid = 0.5 * (lo + hi);
+        put(at, mid);
+        if (f(at) < target) == rising {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    put(at, 0.5 * (lo + hi));
+}
+
 /// A drawn player at a position with a body number in range, at an overall:
 /// the generator's athlete-first path (`athlete.rs`), the way the world
 /// makes its players, keeping only men whose natural position is his, so
@@ -235,6 +275,7 @@ fn recruit(gp: &GamePlayer, part: Part, lo: f64, hi: f64, level: Level) -> Optio
             Part::Split => afm_engine::links::ten_split(&p.attributes, b.weight),
             Part::Cone => Drills::of(&p).expected().cone,
             Part::Shuttle => Drills::of(&p).expected().shuttle,
+            Part::Bench => bench_of(p.attributes.get(Attr::Strength), b.weight, b.arm),
         };
         if !(lo..=hi).contains(&v) {
             continue;
@@ -259,6 +300,11 @@ fn recruit(gp: &GamePlayer, part: Part, lo: f64, hi: f64, level: Level) -> Optio
     afm_engine::spots::set_spot(&mut p, gp.spot);
     p.id = gp.id;
     Some(p)
+}
+
+/// One player changed by knobs, as an arm changes him (the freak check).
+pub fn change_one(gp: &mut GamePlayer, person: &Player, knobs: &[Knob], level: Level) {
+    change(gp, person, knobs, level);
 }
 
 fn change(gp: &mut GamePlayer, person: &Player, knobs: &[Knob], level: Level) {
@@ -297,7 +343,18 @@ fn change(gp: &mut GamePlayer, person: &Player, knobs: &[Knob], level: Level) {
                             let e = d.expected();
                             if part == Part::Cone { e.cone } else { e.shuttle }
                         };
-                        solve(&mut at, Attr::Agility, v, &f);
+                        // The 3-cone reads his feet and his bend: both move
+                        // together, point for point (E1); the shuttle is his
+                        // feet alone.
+                        if part == Part::Cone {
+                            solve_shift(&mut at, &[Attr::Agility, Attr::Flexibility], v, &f);
+                        } else {
+                            solve(&mut at, Attr::Agility, v, &f);
+                        }
+                    }
+                    Part::Bench => {
+                        let (w, arm) = (b.weight, b.arm);
+                        solve(&mut at, Attr::Strength, v, &|x| bench_of(x.get(Attr::Strength), w, arm));
                     }
                 }
             }

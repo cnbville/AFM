@@ -471,7 +471,8 @@ pub(crate) fn monday(w: &mut World, d: Date) {
                 if cap == 0 || wr.seat_club(t) || tw.battle.is_empty() {
                     return None;
                 }
-                let team = crate::world::pro::games::game_side(wr, t)?.team;
+                // The whole healthy club, its practice squad too (minor bug 361).
+                let team = crate::world::pro::games::practice_side(wr, t)?.team;
                 Some((
                     wr.clubs[t].roster.clone(),
                     super::practice::AiTeam { team, level: crate::player::Level::NFL, snaps: tw.battle.clone(), cap },

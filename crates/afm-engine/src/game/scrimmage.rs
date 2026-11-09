@@ -4736,6 +4736,68 @@ fn pro(x: f64) -> f64 {
     if x >= knee { x } else { knee - (knee - x) * 0.25 }
 }
 
+/// An edge's burst on a pass rush (minor bug 286): an edge slower off the
+/// mark than the typical edge at his level builds up to speed on his rush
+/// as the typical edge does; a quicker one keeps his own. Real edges' 10-yard
+/// split says nothing about their pressures once talent is known (real
+/// -0.49 pts of pressures a defense snap a 0.1 s, band -0.99 to +0.01), so
+/// a slow first step costs him nothing here, while a quick man's burst, the
+/// freak's (Cain 2026-11-08: no caps on rare freaks), stays his. His weight,
+/// turn and top speed are his own: with the typical edge's weight on the
+/// rush as well, heavy edges took 35% of the top 10% of pressure seasons
+/// (11% of all), light ones none (8% of all; real 18% of the top, 19% of
+/// all), and as recruited 10 lb added +0.40 pts (real flat). The edge lane,
+/// 2026-11-08; proposed, not confirmed. On runs, in pursuit and when the
+/// quarterback breaks out his burst counts in full.
+/// Sets it for one step; returns his own (tau, accel) to put back after it.
+fn rush_feet(sim: &mut Sim, i: usize) -> (f64, f64) {
+    let a = &sim.agents[i];
+    let keep = (a.tau, a.accel);
+    let t = super::synthetic::typical(sim.level, sim.player(i).position, Attr::Acceleration);
+    // As `GamePlayer::sprint_tau` and `accel` read them, at the typical
+    // edge's Acceleration, his own weight and how tired he is; he keeps
+    // whichever burst is quicker, his own or that one. Compared on the burst
+    // itself, not his game-day rating, so the day's form and a pulse never
+    // decide which he gets (his burst reads neither).
+    let w = a.mass;
+    let tau = clamp(0.78 + 0.003 * (60.0 - t) + 0.0006 * (w - 220.0), 0.55, 1.0) * (1.0 + 0.1 * a.tired);
+    let ac = if t >= 60.0 { 4.65 + 0.008 * (t - 60.0) } else { 4.65 + 0.0046 * (t - 60.0) };
+    let accel = clamp(ac - 0.006 * (w - 220.0), 2.2, 7.5) * (1.0 - 0.1 * a.tired);
+    let a = &mut sim.agents[i];
+    (a.tau, a.accel) = (tau.min(keep.0), accel.max(keep.1));
+    keep
+}
+
+/// A rusher's reach to the quarterback, in yards, beyond the 1.25 a free
+/// man needs and the 1.2 one nearly through his block needs (bug 339 and
+/// proposals E1 and E2, Cain's yes 2026-11-08; all proposed, not
+/// confirmed):
+/// - Finish: 0.2 yards ten points of Tackling and Pursuit over 60
+///   (`FINISH_MARK`), read half his own and half the typical man's at his
+///   position and level (`FINISH_OWN`), never below nothing. Real NFL
+///   rushers finish 0.28 of their pressures (PFR) and the engine's NFL 0.22
+///   (2.00 sacks a team game, real 2.41). An NFL edge is about 74 in both,
+///   an FBS one 54 and a high school one 33, so college and high school
+///   barely move (they were at or above real). Read on his own in full the
+///   best finishers ran away with it (34 sacks in a season, the top 1% of
+///   edge seasons 22; real best 22.5 and 23); half his own keeps the level
+///   and halves the spread.
+/// - Bend (E1): an edge's Flexibility about the typical edge's, 0.2 yards
+///   ten points, -0.3 to +0.6: a man who bends the corner flattens to the
+///   quarterback. The 3-cone turns -0.25 pts of sacks a pressure a 0.1 s
+///   into +0.63 (real +0.40, band -0.02 to +0.82; pure, 4,000 games).
+/// - Arms (E2): an edge's arm over the typical edge's, 0.18 yards an inch
+///   while he is still on his blocker, scaled by his weight over the
+///   typical edge's (0 at 13 lb under, 1 at the typical, up to 3): the
+///   power rusher's long-arm stab. Pure arms add +0.68 pts of sacks a
+///   pressure an inch (real +0.65), most for heavy men (real heavy +1.85,
+///   light -0.15), and no pressures; short-armed men lose nothing.
+const FINISH_REACH: f64 = 0.2;
+const FINISH_MARK: f64 = 60.0;
+const FINISH_OWN: f64 = 0.5;
+const BEND_REACH: f64 = 0.2;
+const ARM_REACH: f64 = 0.18;
+
 fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
     let t = sim.t;
     let me = sim.agents[qb].pos;
@@ -4751,24 +4813,52 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
     // the quarterback and drag him down with the blocker on him (dynasty
     // item 1: the hand fight and a collapsing pocket make sacks, not only a
     // free rusher).
+    // His reach beyond the base (`FINISH_REACH`): the finisher's, an
+    // edge's bend, and a long-armed edge's stab from his block.
+    let finish = |d: usize| {
+        let a = &sim.agents[d];
+        let pos = sim.player(d).position;
+        let typ = |x: Attr| super::synthetic::typical(sim.level, pos, x);
+        let own = 0.5 * a.a(Attr::Tackling) + 0.5 * a.a(Attr::Pursuit);
+        let t = 0.5 * typ(Attr::Tackling) + 0.5 * typ(Attr::Pursuit);
+        FINISH_REACH * (FINISH_OWN * own + (1.0 - FINISH_OWN) * t - FINISH_MARK).max(0.0) / 10.0
+    };
+    let bend_reach = |d: usize| {
+        let a = &sim.agents[d];
+        if !matches!(a.job, Job::Rush { contain, .. } if contain != 0.0) {
+            return 0.0;
+        }
+        let typ = super::synthetic::typical(sim.level, sim.player(d).position, Attr::Flexibility);
+        clamp(BEND_REACH * (a.a(Attr::Flexibility) - typ) / 10.0, -0.3, 0.6)
+    };
+    let arm_reach = |d: usize| {
+        let g = sim.player(d);
+        if g.position != Position::EDGE {
+            return 0.0;
+        }
+        let (_, tw, ta) = super::synthetic::typical_body(sim.level, g.position);
+        ARM_REACH * (g.arm - ta).max(0.0) * clamp(1.0 + (g.weight - tw) / 13.0, 0.0, 3.0)
+    };
     let through = |d: usize| {
         let a = &sim.agents[d];
-        a.engaged.is_some_and(|k| sim.eng[k].pass && sim.eng[k].w > 0.45) && a.pos.dist(me) < 1.2
+        a.engaged.is_some_and(|k| sim.eng[k].pass && sim.eng[k].w > 0.45)
+            && a.pos.dist(me) < 1.2 + arm_reach(d) + finish(d)
     };
     let qv = sim.agents[qb].vel;
     // Closest approach over the last tick, as with tackles. It is worked
     // out only for an up defender past his last try and off a block: every
     // test is pure, so testing the cheap ones first gives the same answer.
-    let free = |a: &Agent| {
+    let free = |d: usize| {
+        let a = &sim.agents[d];
         let rel = a.pos - me;
         let rv = (a.vel - qv).scale(DT);
         let back = if rv.len() > 1e-6 { clamp(rel.dot(rv) / rv.dot(rv), 0.0, 1.0) } else { 0.0 };
-        (rel - rv.scale(back)).len() < 1.25
+        (rel - rv.scale(back)).len() < 1.25 + bend_reach(d) + finish(d)
     };
     let mut tacklers: Vec<usize> = (0..sim.agents.len())
         .filter(|&d| {
             let a = &sim.agents[d];
-            a.side == 1 && a.up(t) && t - a.last_try > 0.6 && ((a.engaged.is_none() && free(a)) || through(d))
+            a.side == 1 && a.up(t) && t - a.last_try > 0.6 && ((a.engaged.is_none() && free(d)) || through(d))
         })
         .collect();
     if tacklers.is_empty() {
@@ -4962,8 +5052,23 @@ fn defend(
                 let qv = sim.agents[qb].vel;
                 let close = me.dist(q) < 2.5;
                 let aim = v2(q.x, q.y + if close { 0.0 } else { contain * 0.8 }) + qv.scale(0.3);
+                // His burst on a pass rush (`rush_feet`).
+                if pass_play && contain != 0.0 {
+                    let keep = rush_feet(sim, i);
+                    let vm = sim.agents[i].vmax;
+                    sim.steer(i, (aim - me).norm().scale(vm));
+                    (sim.agents[i].tau, sim.agents[i].accel) = keep;
+                    return;
+                }
                 let vm = sim.agents[i].vmax;
                 sim.steer(i, (aim - me).norm().scale(vm));
+                return;
+            }
+            // His burst on a pass rush (`rush_feet`).
+            if pass_play && contain != 0.0 {
+                let keep = rush_feet(sim, i);
+                sim.go_to(i, target, 1.0);
+                (sim.agents[i].tau, sim.agents[i].accel) = keep;
                 return;
             }
             sim.go_to(i, target, 1.0);
