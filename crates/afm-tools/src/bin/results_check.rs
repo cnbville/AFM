@@ -301,6 +301,30 @@ fn main() {
         );
     }
 
+    // Which starters' seasons get a named big game, by position (the
+    // practice size check: reads with few trials a season gain the most
+    // from practice's trials).
+    println!("\n## Starters with a named big game, by position (of starters' seasons with games)\n");
+    let names: Vec<&str> = Position::ALL.iter().map(|p| p.name()).collect();
+    println!("| level | {} |\n|---|{}", names.join(" | "), "---|".repeat(names.len()));
+    for l in [Level::FBS, Level::NFL] {
+        let mut line = format!("| {} |", level_name(l));
+        for pos in Position::ALL {
+            let v: Vec<&Seen> = rows
+                .iter()
+                .filter(|x| x.r.level == l && x.r.playing_time == PlayingTime::Starter && x.r.position == pos)
+                .filter(|x| x.r.performance.get().is_some())
+                .collect();
+            if v.len() < 20 {
+                line.push_str(" - |");
+            } else {
+                let k = v.iter().filter(|x| x.r.events.has(Ev::BigGame)).count();
+                line.push_str(&format!(" {:.1}% ({}) |", 100.0 * k as f64 / v.len() as f64, v.len()));
+            }
+        }
+        println!("{line}");
+    }
+
     println!("\n## Named seasons by role (big season / rough season, of player-seasons with games)\n");
     println!("| level | starter | rotation | backup | redshirt |\n|---|---|---|---|---|");
     for l in LEVELS {
