@@ -24,7 +24,7 @@ use std::time::Instant;
 use afm_engine::attributes::Attr;
 use afm_engine::player::{DevelopmentEvent as Ev, Level, PlayingTime, SeasonRecord};
 use afm_engine::positions::Position;
-use afm_engine::results::{Dice, Mode};
+use afm_engine::results::{Dice, Mode, Read};
 use afm_engine::world::data::Division;
 use afm_engine::world::{World, WorldOptions};
 
@@ -95,6 +95,21 @@ fn main() {
     // The season's evidence at its end, by level and role: player-seasons,
     // trials (every read), of them practice's.
     let mut evidence: HashMap<(usize, usize), (f64, f64, f64)> = HashMap::new();
+    // What results moved by read (minor bug 348's check): per (level,
+    // position, read), the player-seasons, the rating points moved, the
+    // trials, practice's trials, the centres his season was read against
+    // (practice's and games', each weighted by its trials) and the moves'
+    // squares.
+    let mut by_read: HashMap<(usize, usize, usize), [f64; 7]> = HashMap::new();
+    // The tackles' block shedding a year (bug 348): per (level, role), the
+    // years, the change, the part results moved, the ceiling's change and
+    // the rating; each tackle's rating and ceiling at the last season's end.
+    let mut shed: HashMap<(usize, usize), [f64; 5]> = HashMap::new();
+    let mut shed_was: HashMap<u32, (f64, f64)> = HashMap::new();
+    // Their shedding's centres by the rating's band of 10: (level, band) to
+    // men, practice trials, practice's centre times them, game trials,
+    // games' centre times them.
+    let mut shed_band: HashMap<(usize, usize), [f64; 5]> = HashMap::new();
     let w = World::new_logged(opts, None, |w, _| {
         let season = w.year - 1;
         times.push(t.elapsed().as_secs_f64());
@@ -127,6 +142,16 @@ fn main() {
             e.0 += 1.0;
             e.1 += l.reads.iter().map(|x| x.n as f64).sum::<f64>();
             e.2 += l.reads.iter().map(|x| x.np as f64).sum::<f64>();
+            for x in &l.reads {
+                let k = by_read.entry((h.level as usize, p.player.position.index(), x.read as usize)).or_default();
+                k[0] += 1.0;
+                k[1] += x.applied as f64;
+                k[2] += x.n as f64;
+                k[3] += x.np as f64;
+                k[4] += (x.np * x.cp) as f64;
+                k[5] += ((x.n - x.np) * x.c) as f64;
+                k[6] += (x.applied as f64).powi(2);
+            }
         }
         for p in &w.people {
             let len = p.player.history.len();
@@ -140,6 +165,48 @@ fn main() {
                 if p.player.history[len - 1].level.is_college() {
                     school.insert((p.player.id, season), p.college.filter(|_| p.transfers == was));
                 }
+            }
+        }
+        // Each tackle with a row this season: his block shedding against
+        // the last season's end, and what results moved of it.
+        for p in &w.people {
+            if p.player.position != Position::DT {
+                continue;
+            }
+            let id = p.player.id;
+            let this = seen.get(&id).and_then(|v| v.last()).filter(|&&(s, _)| s == season).map(|&(_, k)| k);
+            let Some(h) = this.and_then(|k| p.player.history.get(k)) else {
+                shed_was.remove(&id);
+                continue;
+            };
+            if !(h.level.is_college() || h.level == Level::NFL) {
+                shed_was.remove(&id);
+                continue;
+            }
+            let r = p.player.attributes.get(Attr::BlockShedding);
+            let c = afm_engine::debug::ceilings(&p.player).get(Attr::BlockShedding);
+            let e = w
+                .results
+                .ledgers
+                .get(&id)
+                .filter(|l| l.year == season)
+                .and_then(|l| l.reads.iter().find(|e| e.read as usize == Read::Shed.index()));
+            if let Some(&(r0, c0)) = shed_was.get(&id) {
+                let k = shed.entry((h.level as usize, h.playing_time as usize)).or_default();
+                k[0] += 1.0;
+                k[1] += r - r0;
+                k[2] += e.map_or(0.0, |e| e.applied as f64);
+                k[3] += c - c0;
+                k[4] += r;
+            }
+            shed_was.insert(id, (r, c));
+            if let Some(e) = e {
+                let b = shed_band.entry((h.level as usize, (r / 10.0).floor() as usize)).or_default();
+                b[0] += 1.0;
+                b[1] += e.np as f64;
+                b[2] += (e.np * e.cp) as f64;
+                b[3] += (e.n - e.np) as f64;
+                b[4] += ((e.n - e.np) * e.c) as f64;
             }
         }
         true
@@ -337,6 +404,92 @@ fn main() {
             .map(|p| p.player.attributes.get(attr))
             .collect();
         println!("| {} | {attr:?} | {} | {:.1} | {:.2} |", pos.name(), v.len(), mean(&v), sd(&v));
+    }
+
+    println!(
+        "\n## What results moved by read (rating points a player-season, at the season's end; a read biased one way shows here)\n"
+    );
+    println!(
+        "The 12 reads with the biggest mean move at each level, then every tackle's read. Centres: the league's at his last game and his last practice, rating points.\n"
+    );
+    println!(
+        "| level | position | read | player-seasons | mean move | sd of the mean | trials a season | practice's share | games' centre | practice's centre |\n|---|---|---|---|---|---|---|---|---|---|"
+    );
+    for l in [Level::FBS, Level::NFL] {
+        let mut v: Vec<_> = by_read.iter().filter(|(k, x)| k.0 == l as usize && x[0] >= 200.0).collect();
+        v.sort_by(|a, b| (b.1[1] / b.1[0]).abs().total_cmp(&(a.1[1] / a.1[0]).abs()).then(a.0.cmp(b.0)));
+        let dt = Position::DT.index();
+        let shown: Vec<_> = v.iter().take(12).chain(v.iter().skip(12).filter(|x| x.0.1 == dt)).collect();
+        for (k, x) in shown {
+            let m = x[1] / x[0];
+            let se = ((x[6] / x[0] - m * m).max(0.0) / x[0]).sqrt();
+            println!(
+                "| {} | {} | {:?} | {:.0} | {:+.3} | {:.3} | {:.0} | {:.0}% | {:+.2} | {:+.2} |",
+                level_name(l),
+                Position::ALL[k.1].name(),
+                Read::from_index(k.2),
+                x[0],
+                m,
+                se,
+                x[2] / x[0],
+                100.0 * x[3] / x[2].max(1e-9),
+                x[5] / (x[2] - x[3]).max(1e-9),
+                x[4] / x[3].max(1e-9),
+            );
+        }
+    }
+
+    println!(
+        "\n## Tackles' block shedding a year (each tackle with a row both seasons; his rating at the season's end against the last one's)\n"
+    );
+    println!(
+        "| level | role | years | rating | change | from results | the rest (the yearly step, reps) | ceiling's change |\n|---|---|---|---|---|---|---|---|"
+    );
+    for l in [Level::FBS, Level::FCS, Level::SmallCollege, Level::NFL] {
+        for role in [
+            PlayingTime::Starter,
+            PlayingTime::Rotation,
+            PlayingTime::Backup,
+            PlayingTime::Redshirt,
+            PlayingTime::PracticeSquad,
+        ] {
+            let Some(x) = shed.get(&(l as usize, role as usize)).filter(|x| x[0] >= 20.0) else { continue };
+            println!(
+                "| {} | {role:?} | {:.0} | {:.1} | {:+.2} | {:+.3} | {:+.2} | {:+.2} |",
+                level_name(l),
+                x[0],
+                x[4] / x[0],
+                x[1] / x[0],
+                x[2] / x[0],
+                (x[1] - x[2]) / x[0],
+                x[3] / x[0],
+            );
+        }
+    }
+
+    println!(
+        "\n## Tackles' block shedding: the centres a season was read against, by his rating's band (rating points)\n"
+    );
+    println!(
+        "| level | band | player-seasons | practice trials a man | practice's centre | game trials a man | games' centre |\n|---|---|---|---|---|---|---|"
+    );
+    let mut bands: Vec<_> = shed_band
+        .iter()
+        .filter(|(k, x)| (k.0 == Level::FBS as usize || k.0 == Level::NFL as usize) && x[0] >= 20.0)
+        .collect();
+    bands.sort_by_key(|x| (std::cmp::Reverse(x.0.0 == Level::FBS as usize), x.0.1));
+    for (k, x) in bands {
+        println!(
+            "| {} | {}-{} | {:.0} | {:.0} | {:+.2} | {:.0} | {:+.2} |",
+            if k.0 == Level::FBS as usize { "FBS" } else { "NFL" },
+            k.1 * 10,
+            k.1 * 10 + 9,
+            x[0],
+            x[1] / x[0],
+            x[2] / x[1].max(1e-9),
+            x[3] / x[0],
+            x[4] / x[3].max(1e-9),
+        );
     }
 
     println!("\n## Redshirts at FBS: growth by program (next season's start against this one's)\n");

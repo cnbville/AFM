@@ -313,7 +313,7 @@ pub(crate) fn seat_battles(
     if total(&snaps) < 1.0 {
         return;
     }
-    let Some((team, level)) = w.seat_game_team() else { return };
+    let Some((team, level)) = w.seat_practice_team() else { return };
     let mut starters = HashSet::new();
     let mut backups = HashSet::new();
     for (&i, &r) in roles {
