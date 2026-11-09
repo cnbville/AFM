@@ -371,42 +371,51 @@ pub fn regular_talent(talent_z: f64) -> bool {
 /// running back, receiver, tight end, defensive line, linebacker and back rows
 /// scaled once across all three tables (at most 0.35 in log odds, the
 /// backs' Black ×1.42), and every position at every level came within
-/// 0.65 of its margin (before 1.49). Sizes proposed, not confirmed.
+/// 0.65 of its margin (before 1.49). Refitted once more (2026-11-09)
+/// after main's real-past starts, facilities and passing reads moved the
+/// test world: its FBS defensive linemen read 56.8% Black (real 62) and
+/// its NFL linebackers 45.5% white and 49.8% Black (real 36 and 60), with
+/// FBS linebackers at 46.5% Black (real 48): the world's NFL takes
+/// linebackers from college about as they are, where the real NFL's are
+/// far more Black than FBS's. The same reweighting (26,395 players) scaled
+/// the DL, LB and DB rows' Black cells ×1.37, ×1.42 and ×1.42 and white
+/// ×1.05, ×1.13 and ×1.15, and the backs' and tight ends' white ×0.99.
+/// Sizes proposed, not confirmed.
 const ODDS_LOW: [[f64; 4]; 11] = [
     [1.56, 0.251, 0.740, 0.740],
-    [0.572, 1.78, 0.377, 0.580],
+    [0.565, 1.78, 0.377, 0.580],
     [1.05, 0.616, 0.488, 0.530],
-    [2.12, 0.172, 0.136, 0.630],
+    [2.09, 0.172, 0.136, 0.630],
     [1.49, 0.357, 1.76, 1.53],
-    [0.516, 0.540, 0.324, 1.84],
-    [1.05, 0.449, 0.343, 1.11],
-    [0.231, 1.66, 0.308, 0.580],
+    [0.542, 0.738, 0.324, 1.84],
+    [1.19, 0.637, 0.343, 1.11],
+    [0.265, 2.36, 0.308, 0.580],
     [6.51, 0.00866, 9.04, 1.42],
     [2.05, 0.00910, 0.333, 0.110],
     [5.94, 0.00804, 0.682, 0.580],
 ];
 const ODDS_MID: [[f64; 4]; 11] = [
     [2.22, 0.180, 0.684, 0.740],
-    [0.374, 2.44, 0.408, 0.580],
+    [0.370, 2.44, 0.408, 0.580],
     [0.553, 1.04, 0.491, 0.530],
-    [2.49, 0.133, 0.135, 0.630],
+    [2.46, 0.133, 0.135, 0.630],
     [1.52, 0.319, 1.61, 1.53],
-    [0.306, 0.669, 0.330, 1.84],
-    [0.830, 0.525, 0.330, 1.11],
-    [0.195, 2.00, 0.288, 0.580],
+    [0.322, 0.915, 0.330, 1.84],
+    [0.940, 0.745, 0.330, 1.11],
+    [0.224, 2.84, 0.288, 0.580],
     [6.08, 0.00869, 9.92, 1.42],
     [2.02, 0.00907, 0.395, 0.110],
     [5.78, 0.00811, 0.698, 0.580],
 ];
 const ODDS_HIGH: [[f64; 4]; 11] = [
     [2.39, 0.173, 0.638, 0.740],
-    [0.582, 1.37, 0.438, 0.580],
+    [0.575, 1.37, 0.438, 0.580],
     [0.492, 0.998, 0.499, 0.530],
-    [2.54, 0.115, 0.133, 0.630],
+    [2.51, 0.115, 0.133, 0.630],
     [2.42, 0.183, 1.60, 1.53],
-    [0.300, 0.422, 0.342, 1.84],
-    [0.909, 0.427, 0.324, 1.11],
-    [0.258, 1.37, 0.279, 0.580],
+    [0.315, 0.577, 0.342, 1.84],
+    [1.03, 0.606, 0.324, 1.11],
+    [0.296, 1.94, 0.279, 0.580],
     [7.40, 0.00842, 8.96, 1.42],
     [2.09, 0.00878, 0.465, 0.110],
     [5.70, 0.00804, 0.716, 0.580],
