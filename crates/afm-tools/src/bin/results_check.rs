@@ -10,6 +10,9 @@
 //! - Rating levels by stage (college seniors, NFL rookies, NFL starters).
 //! - Redshirts at FBS: growth at the top 10 programs against the rest, all
 //!   of them and the quarterbacks (item 16's check).
+//! - What results moved by read, starters' named big games by position, and
+//!   the tackles' block shedding and rushes (a year by role, the centres by
+//!   band, the moves by place in the band; minor bugs 348 and 367).
 //! - The players results moved most, with their seasons.
 //!
 //! Usage: results_check [history_years] [seed] [scale]
@@ -57,6 +60,15 @@ fn level_name(l: Level) -> &'static str {
 
 const LEVELS: [Level; 5] = [Level::HS, Level::FBS, Level::FCS, Level::SmallCollege, Level::NFL];
 
+/// The tackles' reads the line tables follow: block shedding (minor bug
+/// 348) and the two rushes (minor bug 367, the finesse rush spread that
+/// widened with practice on).
+const DT_READS: [(Read, Attr, &str); 3] = [
+    (Read::Shed, Attr::BlockShedding, "block shedding"),
+    (Read::FinesseRush, Attr::FinesseRush, "finesse rush"),
+    (Read::PowerRush, Attr::PowerRush, "power rush"),
+];
+
 fn main() {
     let a: Vec<String> = std::env::args().collect();
     let n = |k: usize, d: f64| a.get(k).and_then(|s| s.parse().ok()).unwrap_or(d);
@@ -101,15 +113,22 @@ fn main() {
     // (practice's and games', each weighted by its trials) and the moves'
     // squares.
     let mut by_read: HashMap<(usize, usize, usize), [f64; 7]> = HashMap::new();
-    // The tackles' block shedding a year (bug 348): per (level, role), the
-    // years, the change, the part results moved, the ceiling's change and
-    // the rating; each tackle's rating and ceiling at the last season's end.
-    let mut shed: HashMap<(usize, usize), [f64; 5]> = HashMap::new();
-    let mut shed_was: HashMap<u32, (f64, f64)> = HashMap::new();
-    // Their shedding's centres by the rating's band of 10: (level, band) to
-    // men, practice trials, practice's centre times them, game trials,
-    // games' centre times them.
-    let mut shed_band: HashMap<(usize, usize), [f64; 5]> = HashMap::new();
+    // The tackles' shedding and rushes a year (`DT_READS`; bugs 348 and
+    // 367): per (read, level, role), the years, the change, the part
+    // results moved, the ceiling's change and the rating; each tackle's
+    // rating and ceiling at the last season's end, per read.
+    let mut shed: HashMap<(usize, usize, usize), [f64; 5]> = HashMap::new();
+    let mut shed_was: HashMap<(u32, usize), (f64, f64)> = HashMap::new();
+    // Their centres by the rating's band of 10: (read, level, band) to men,
+    // practice trials, practice's centre times them, game trials, games'
+    // centre times them.
+    let mut shed_band: HashMap<(usize, usize, usize), [f64; 5]> = HashMap::new();
+    // Their moves by the place in the band, on the rating before this
+    // season's results: (read, level, band) to the men, moves and moves'
+    // squares in the band's lower half, then its upper half. Men at the top
+    // of a band moving up more than men at its foot spread the skill out,
+    // which the band's centre doesn't take out.
+    let mut shed_half: HashMap<(usize, usize, usize), [f64; 6]> = HashMap::new();
     let w = World::new_logged(opts, None, |w, _| {
         let season = w.year - 1;
         times.push(t.elapsed().as_secs_f64());
@@ -167,46 +186,52 @@ fn main() {
                 }
             }
         }
-        // Each tackle with a row this season: his block shedding against
-        // the last season's end, and what results moved of it.
+        // Each tackle with a row this season: his shedding and rushes
+        // against the last season's end, and what results moved of them.
         for p in &w.people {
             if p.player.position != Position::DT {
                 continue;
             }
             let id = p.player.id;
             let this = seen.get(&id).and_then(|v| v.last()).filter(|&&(s, _)| s == season).map(|&(_, k)| k);
-            let Some(h) = this.and_then(|k| p.player.history.get(k)) else {
-                shed_was.remove(&id);
+            let h =
+                this.and_then(|k| p.player.history.get(k)).filter(|h| h.level.is_college() || h.level == Level::NFL);
+            let Some(h) = h else {
+                for i in 0..DT_READS.len() {
+                    shed_was.remove(&(id, i));
+                }
                 continue;
             };
-            if !(h.level.is_college() || h.level == Level::NFL) {
-                shed_was.remove(&id);
-                continue;
-            }
-            let r = p.player.attributes.get(Attr::BlockShedding);
-            let c = afm_engine::debug::ceilings(&p.player).get(Attr::BlockShedding);
-            let e = w
-                .results
-                .ledgers
-                .get(&id)
-                .filter(|l| l.year == season)
-                .and_then(|l| l.reads.iter().find(|e| e.read as usize == Read::Shed.index()));
-            if let Some(&(r0, c0)) = shed_was.get(&id) {
-                let k = shed.entry((h.level as usize, h.playing_time as usize)).or_default();
-                k[0] += 1.0;
-                k[1] += r - r0;
-                k[2] += e.map_or(0.0, |e| e.applied as f64);
-                k[3] += c - c0;
-                k[4] += r;
-            }
-            shed_was.insert(id, (r, c));
-            if let Some(e) = e {
-                let b = shed_band.entry((h.level as usize, (r / 10.0).floor() as usize)).or_default();
-                b[0] += 1.0;
-                b[1] += e.np as f64;
-                b[2] += (e.np * e.cp) as f64;
-                b[3] += (e.n - e.np) as f64;
-                b[4] += ((e.n - e.np) * e.c) as f64;
+            let ledger = w.results.ledgers.get(&id).filter(|l| l.year == season);
+            let ceilings = afm_engine::debug::ceilings(&p.player);
+            for (i, &(read, attr, _)) in DT_READS.iter().enumerate() {
+                let r = p.player.attributes.get(attr);
+                let c = ceilings.get(attr);
+                let e = ledger.and_then(|l| l.reads.iter().find(|e| e.read as usize == read.index()));
+                if let Some(&(r0, c0)) = shed_was.get(&(id, i)) {
+                    let k = shed.entry((i, h.level as usize, h.playing_time as usize)).or_default();
+                    k[0] += 1.0;
+                    k[1] += r - r0;
+                    k[2] += e.map_or(0.0, |e| e.applied as f64);
+                    k[3] += c - c0;
+                    k[4] += r;
+                }
+                shed_was.insert((id, i), (r, c));
+                if let Some(e) = e {
+                    let b = shed_band.entry((i, h.level as usize, (r / 10.0).floor() as usize)).or_default();
+                    b[0] += 1.0;
+                    b[1] += e.np as f64;
+                    b[2] += (e.np * e.cp) as f64;
+                    b[3] += (e.n - e.np) as f64;
+                    b[4] += ((e.n - e.np) * e.c) as f64;
+                    let moved = e.applied as f64;
+                    let before = r - moved;
+                    let x = shed_half.entry((i, h.level as usize, (before / 10.0).floor() as usize)).or_default();
+                    let half = if before.rem_euclid(10.0) >= 5.0 { 3 } else { 0 };
+                    x[half] += 1.0;
+                    x[half + 1] += moved;
+                    x[half + 2] += moved * moved;
+                }
             }
         }
         true
@@ -463,57 +488,129 @@ fn main() {
         }
     }
 
-    println!(
-        "\n## Tackles' block shedding a year (each tackle with a row both seasons; his rating at the season's end against the last one's)\n"
-    );
-    println!(
-        "| level | role | years | rating | change | from results | the rest (the yearly step, reps) | ceiling's change |\n|---|---|---|---|---|---|---|---|"
-    );
-    for l in [Level::FBS, Level::FCS, Level::SmallCollege, Level::NFL] {
-        for role in [
-            PlayingTime::Starter,
-            PlayingTime::Rotation,
-            PlayingTime::Backup,
-            PlayingTime::Redshirt,
-            PlayingTime::PracticeSquad,
-        ] {
-            let Some(x) = shed.get(&(l as usize, role as usize)).filter(|x| x[0] >= 20.0) else { continue };
-            println!(
-                "| {} | {role:?} | {:.0} | {:.1} | {:+.2} | {:+.3} | {:+.2} | {:+.2} |",
-                level_name(l),
-                x[0],
-                x[4] / x[0],
-                x[1] / x[0],
-                x[2] / x[0],
-                (x[1] - x[2]) / x[0],
-                x[3] / x[0],
-            );
-        }
+    println!("\n## NFL tackles' shedding and rushes at the end, by role (mean / sd, men)\n");
+    println!("| skill | starters | rotation | backups and practice squad | every tackle |\n|---|---|---|---|---|");
+    for &(_, attr, name) in DT_READS.iter() {
+        let at = |f: &dyn Fn(PlayingTime) -> bool| {
+            let v: Vec<f64> = w
+                .people
+                .iter()
+                .filter(|p| p.player.position == Position::DT)
+                .filter(|p| p.player.history.last().is_some_and(|h| h.level == Level::NFL && f(h.playing_time)))
+                .map(|p| p.player.attributes.get(attr))
+                .collect();
+            format!("{:.1} / {:.2} ({})", mean(&v), sd(&v), v.len())
+        };
+        println!(
+            "| {name} | {} | {} | {} | {} |",
+            at(&|t| t == PlayingTime::Starter),
+            at(&|t| t == PlayingTime::Rotation),
+            at(&|t| matches!(t, PlayingTime::Backup | PlayingTime::PracticeSquad)),
+            at(&|_| true),
+        );
     }
 
-    println!(
-        "\n## Tackles' block shedding: the centres a season was read against, by his rating's band (rating points)\n"
-    );
-    println!(
-        "| level | band | player-seasons | practice trials a man | practice's centre | game trials a man | games' centre |\n|---|---|---|---|---|---|---|"
-    );
-    let mut bands: Vec<_> = shed_band
-        .iter()
-        .filter(|(k, x)| (k.0 == Level::FBS as usize || k.0 == Level::NFL as usize) && x[0] >= 20.0)
-        .collect();
-    bands.sort_by_key(|x| (std::cmp::Reverse(x.0.0 == Level::FBS as usize), x.0.1));
-    for (k, x) in bands {
+    let fbs_nfl = |l: usize| l == Level::FBS as usize || l == Level::NFL as usize;
+    for (i, &(_, _, name)) in DT_READS.iter().enumerate() {
         println!(
-            "| {} | {}-{} | {:.0} | {:.0} | {:+.2} | {:.0} | {:+.2} |",
-            if k.0 == Level::FBS as usize { "FBS" } else { "NFL" },
-            k.1 * 10,
-            k.1 * 10 + 9,
-            x[0],
-            x[1] / x[0],
-            x[2] / x[1].max(1e-9),
-            x[3] / x[0],
-            x[4] / x[3].max(1e-9),
+            "\n## Tackles' {name} a year (each tackle with a row both seasons; his rating at the season's end against the last one's)\n"
         );
+        println!(
+            "| level | role | years | rating | change | from results | the rest (the yearly step, reps) | ceiling's change |\n|---|---|---|---|---|---|---|---|"
+        );
+        for l in [Level::FBS, Level::FCS, Level::SmallCollege, Level::NFL] {
+            for role in [
+                PlayingTime::Starter,
+                PlayingTime::Rotation,
+                PlayingTime::Backup,
+                PlayingTime::Redshirt,
+                PlayingTime::PracticeSquad,
+            ] {
+                let Some(x) = shed.get(&(i, l as usize, role as usize)).filter(|x| x[0] >= 20.0) else { continue };
+                println!(
+                    "| {} | {role:?} | {:.0} | {:.1} | {:+.2} | {:+.3} | {:+.2} | {:+.2} |",
+                    level_name(l),
+                    x[0],
+                    x[4] / x[0],
+                    x[1] / x[0],
+                    x[2] / x[0],
+                    (x[1] - x[2]) / x[0],
+                    x[3] / x[0],
+                );
+            }
+        }
+
+        println!("\n## Tackles' {name}: the centres a season was read against, by his rating's band (rating points)\n");
+        println!(
+            "| level | band | player-seasons | practice trials a man | practice's centre | game trials a man | games' centre |\n|---|---|---|---|---|---|---|"
+        );
+        let mut bands: Vec<_> = shed_band.iter().filter(|(k, x)| k.0 == i && fbs_nfl(k.1) && x[0] >= 20.0).collect();
+        bands.sort_by_key(|x| (std::cmp::Reverse(x.0.1 == Level::FBS as usize), x.0.2));
+        for (k, x) in bands {
+            println!(
+                "| {} | {}-{} | {:.0} | {:.0} | {:+.2} | {:.0} | {:+.2} |",
+                if k.1 == Level::FBS as usize { "FBS" } else { "NFL" },
+                k.2 * 10,
+                k.2 * 10 + 9,
+                x[0],
+                x[1] / x[0],
+                x[2] / x[1].max(1e-9),
+                x[3] / x[0],
+                x[4] / x[3].max(1e-9),
+            );
+        }
+
+        // Within the bands: men in a band's upper half against its lower
+        // half, on the rating before this season's results, pooled over
+        // the bands with each band's difference weighted by n_lo*n_hi/n.
+        println!(
+            "\n## Tackles' {name}: what results moved by his place in his band (his rating before this season's results; rating points a season)\n"
+        );
+        println!(
+            "Men at the top of a band moving up more than men at its foot spread the skill out, which the band's centre doesn't take out.\n"
+        );
+        println!(
+            "| level | band | men, lower half | mean move | men, upper half | mean move | upper less lower | its standard error |\n|---|---|---|---|---|---|---|---|"
+        );
+        let mut halves: Vec<_> =
+            shed_half.iter().filter(|(k, x)| k.0 == i && fbs_nfl(k.1) && x[0] >= 10.0 && x[3] >= 10.0).collect();
+        halves.sort_by_key(|x| (std::cmp::Reverse(x.0.1 == Level::FBS as usize), x.0.2));
+        // (level, weight sum, weighted difference, weighted variance) pooled.
+        let mut pooled: Vec<(usize, f64, f64, f64)> = Vec::new();
+        for (k, x) in halves {
+            let (lo, hi) = (x[1] / x[0], x[4] / x[3]);
+            let var = |n: f64, s: f64, ss: f64| ((ss / n - (s / n).powi(2)) * n / (n - 1.0).max(1.0)).max(0.0);
+            let se2 = var(x[0], x[1], x[2]) / x[0] + var(x[3], x[4], x[5]) / x[3];
+            println!(
+                "| {} | {}-{} | {:.0} | {:+.3} | {:.0} | {:+.3} | {:+.3} | {:.3} |",
+                if k.1 == Level::FBS as usize { "FBS" } else { "NFL" },
+                k.2 * 10,
+                k.2 * 10 + 9,
+                x[0],
+                lo,
+                x[3],
+                hi,
+                hi - lo,
+                se2.sqrt(),
+            );
+            let wgt = x[0] * x[3] / (x[0] + x[3]);
+            match pooled.iter_mut().find(|p| p.0 == k.1) {
+                Some(p) => {
+                    p.1 += wgt;
+                    p.2 += wgt * (hi - lo);
+                    p.3 += wgt * wgt * se2;
+                }
+                None => pooled.push((k.1, wgt, wgt * (hi - lo), wgt * wgt * se2)),
+            }
+        }
+        for (l, wsum, wd, wv) in pooled {
+            println!(
+                "| {} | every band, pooled | | | | | {:+.3} | {:.3} |",
+                if l == Level::FBS as usize { "FBS" } else { "NFL" },
+                wd / wsum,
+                wv.sqrt() / wsum,
+            );
+        }
     }
 
     println!("\n## Redshirts at FBS: growth by program (next season's start against this one's)\n");
