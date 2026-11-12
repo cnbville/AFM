@@ -824,7 +824,9 @@ fn run_return(
     let mut sim = Sim {
         teams: [k.ret, k.kick],
         agents: Vec::new(),
-        eng: Vec::new(),
+        // Room for a return's blocks in one allocation: capacity changes no
+        // value or index (world speed lane).
+        eng: Vec::with_capacity(16),
         ball: Ball::Held(0),
         t: 0.0,
         los: catch.x,
@@ -859,11 +861,12 @@ fn run_return(
         // The sim's side 0 is the return team.
         mood: k.mood.swap(),
         tend_memo: super::sim::tend_memo(),
+        reach_memo: super::sim::reach_memo(),
     };
-    // Reorder so the return team (side 0) comes first.
-    let mut ret_agents: Vec<Agent> = agents.drain(ret_idx..).collect();
-    ret_agents.extend(agents);
-    sim.agents = ret_agents;
+    // Reorder so the return team (side 0) comes first: the same order as
+    // moving them into a new list, done in place (world speed lane).
+    agents.rotate_left(ret_idx);
+    sim.agents = agents;
     sim.ball = Ball::Held(0);
     // Each cover man's lane: he stays in it until he is near the returner,
     // so the coverage doesn't bunch up and open a seam.
@@ -928,6 +931,9 @@ fn run_return(
     let deep = |i: usize| if safety[i] { 10.0 } else { 15.0 };
     let ktrace = super::sim::TRACE.load(std::sync::atomic::Ordering::Relaxed);
     let mut buf = String::new();
+    // The first wave's spots: one list for the whole return, refilled each
+    // tick (the same values in the same order; world speed lane).
+    let mut wave: Vec<f64> = Vec::with_capacity(sim.agents.len());
     while sim.t < 12.0 && !sim.dead {
         sim.t += DT;
         sim.link_speeds();
@@ -939,10 +945,12 @@ fn run_return(
         // Where the first wave is: the safeties trail it by about ten yards
         // and the kicker sits behind them as the last man, so a returner
         // who breaks the wall still meets two levels (real kickoff coverage).
-        let wave: Vec<f64> = (1..sim.agents.len())
-            .filter(|&i| sim.agents[i].side == 1 && !safety[i] && sim.agents[i].label == "ST")
-            .map(|i| sim.agents[i].pos.x)
-            .collect();
+        wave.clear();
+        wave.extend(
+            (1..sim.agents.len())
+                .filter(|&i| sim.agents[i].side == 1 && !safety[i] && sim.agents[i].label == "ST")
+                .map(|i| sim.agents[i].pos.x),
+        );
         let wave_x = if wave.is_empty() { sim.agents[0].pos.x } else { wave.iter().sum::<f64>() / wave.len() as f64 };
         for i in 1..sim.agents.len() {
             if !sim.agents[i].up(sim.t) || sim.agents[i].engaged.is_some() {
