@@ -1,0 +1,80 @@
+/* The position depth overview (Cain, 2026-11-12): the four offseason steps,
+   one strip of the nine position groups and a hover card with the exact
+   players. Calm and dense: hairlines, one gold for where you are, amber
+   only where something is low. Every colour is a token, so the light theme
+   swaps them in one place. */
+
+.dv, .dv-card { --dv-low: #f0a35e; --dv-gold: var(--gold, #ffd60a); }
+:root[data-theme="light"] .dv, :root[data-theme="light"] .dv-card { --dv-low: #b4540f; --dv-gold: #a67c00; }
+
+.dv { display: grid; gap: 10px; margin: 4px 0 14px; min-height: 0; }
+.dv-skel { height: 74px; border-radius: 16px; background: var(--fill-1); opacity: .6; }
+.dv .low, .dv-card .low { color: var(--dv-low); }
+.dv .dim { color: var(--fg3); }
+
+/* The four steps: one row, one thing to look at in each. */
+.dv-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-radius: 16px; background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--hair); overflow: hidden; }
+.dv-step { appearance: none; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; position: relative; border-left: 1px solid var(--hair); }
+.dv-step:first-child { border-left: 0; }
+.dv-step:hover { background: var(--fill-1); }
+.dv-step:focus-visible, .dv-cell:focus-visible { outline: 2px solid var(--dv-gold); outline-offset: -2px; }
+.dv-step i { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 12px; font-weight: 700; box-shadow: inset 0 0 0 1.5px var(--fill-3); color: var(--fg2); }
+.dv-step span { display: grid; gap: 2px; min-width: 0; }
+.dv-step b { font-size: 14px; font-weight: 700; }
+.dv-step small { font-size: 12.5px; color: var(--fg2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dv-step small.low { color: var(--dv-low); }
+.dv-step small.dim { color: var(--fg3); }
+.dv-step.on { background: var(--fill-1); }
+.dv-step.on::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--dv-gold); }
+.dv-step.on i { box-shadow: inset 0 0 0 1.5px var(--dv-gold); color: var(--dv-gold); }
+
+/* The strip: the nine groups, the words the Needs map uses for each. */
+.dv-strip { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 8px; }
+.dv-cell { appearance: none; border: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; display: grid; align-content: start; gap: 3px; padding: 10px 12px 9px; border-radius: 14px; background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--hair); min-height: 74px; position: relative; }
+.dv-cell:hover { background: var(--fill-2); }
+.dv-cell b { font-size: 15px; font-weight: 800; letter-spacing: .01em; }
+.dv-cell .dv-w { font-size: 12.5px; color: var(--fg2); line-height: 1.3; }
+.dv-cell.low .dv-w { color: var(--dv-low); }
+.dv-cell small { font-size: 12px; color: var(--fg3); align-self: end; }
+.dv-cell small.low { color: var(--dv-low); }
+.dv-cell[aria-pressed="true"] { background: var(--fill-2); box-shadow: inset 0 0 0 1px var(--fill-3), inset 0 2px 0 var(--dv-gold); }
+@media (max-width: 1100px) {
+  .dv-strip { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .dv-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dv-step:nth-child(3) { border-left: 0; }
+  .dv-step:nth-child(n+3) { border-top: 1px solid var(--hair); }
+}
+
+/* The pick the strip made, beside the board's own position filter. */
+.dv-pick { display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px 4px 12px; border-radius: 999px; font-size: 12.5px; color: var(--dv-gold); box-shadow: inset 0 0 0 1px var(--dv-gold); }
+.dv-pick button { appearance: none; border: 0; background: none; color: inherit; font: inherit; font-size: 15px; line-height: 1; cursor: pointer; padding: 0 6px; border-radius: 999px; }
+.dv-pick button:hover { background: var(--fill-2); }
+
+/* The hover card (the hover card pattern, wider, with links you can click). */
+.peek.wide { width: min(780px, 94vw); max-height: min(82vh, 700px); overflow: auto; pointer-events: auto; gap: 8px; }
+.dv-card { display: grid; gap: 10px; font-size: 13px; }
+.dv-ch { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.dv-ch b { font-size: 16px; font-weight: 800; }
+.dv-ch span { font-size: 13px; color: var(--fg2); }
+.dv-ch span.low { color: var(--dv-low); }
+.dv-t { width: 100%; border-collapse: collapse; }
+.dv-t th { text-align: right; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--fg3); padding: 6px 8px; border-bottom: 1px solid var(--hair); white-space: nowrap; }
+.dv-t th:first-child { text-align: left; padding-left: 0; }
+.dv-t th:last-child { text-align: left; }
+.dv-t td { padding: 6px 8px; border-bottom: 1px solid var(--hair); vertical-align: baseline; }
+.dv-t .dv-who { padding-left: 0; }
+.dv-who a.link { font-weight: 700; margin-right: 6px; }
+.dv-who small { color: var(--fg3); font-size: 12px; }
+.dv-who.low { font-weight: 700; }
+.dv-who.low small { font-weight: 400; }
+.dv-v { text-align: right; width: 46px; font-variant-numeric: tabular-nums; color: var(--fg3); }
+.dv-v.on { color: var(--fg); font-weight: 800; }
+.dv-v.low { color: var(--dv-low); }
+.dv-go { font-size: 12.5px; color: var(--fg2); white-space: nowrap; }
+.dv-r.gone .dv-who a.link { color: var(--fg2); }
+.dv-more { font-size: 12px; color: var(--fg3); }
+.dv-why { display: grid; gap: 3px; }
+.dv-why p, .dv-note { margin: 0; font-size: 12.5px; color: var(--fg2); line-height: 1.45; }
+.dv-k { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.dv-foot { display: grid; gap: 3px; font-size: 12px; color: var(--fg3); border-top: 1px solid var(--hair); padding-top: 8px; }
+.dv-foot b { color: var(--fg2); font-weight: 700; }

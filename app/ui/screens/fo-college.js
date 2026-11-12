@@ -151,11 +151,14 @@ let FC_YOURS = true;
 screens.recruit_board = async (a) => {
   const x = await api("recruit_board");
   setColors(x.team.colors);
+  dvOwn("board", x);
   FC_ROWS = new Map(x.rows.map((r) => [r.id, r]));
   FC_YOURS = x.duties.list.find((d) => d.key === "board").yours;
   FC_FRESH = FC_YOURS ? x.fresh : null;
   const k = keep("fcb", { tab: "targets", sel: null, order: "mine", cls: "next", pos: "ALL", offers: "all" });
   k.offers ??= "all";
+  // One position pick across the board, Find recruits and the portal (depthview.js).
+  k.pos = dvSync("board", k.pos);
   if (a && a.id) { k.sel = a.id; k.tab = "targets"; }
   if (a && a.tab) { k.tab = a.tab; a.tab = null; }
   const c = x.class;
@@ -167,7 +170,6 @@ screens.recruit_board = async (a) => {
   const left = Math.max(0, c.slots - c.commits);
   const sg = x.calendar.signing;
   const homes = x.homes.slice(0, 3).map((h) => esc(h.date)).join(", ");
-  const openPos = c.by_pos.filter((p) => p.open > 0);
   const heroLine = `${esc(fcCap(x.calendar.period))} · ${esc(x.calendar.rule)}`;
   const sub = `${commits ? `${fcCap(fcCount(commits))} in${c.signed ? ` (${c.signed} signed)` : ""}` : "No commitments yet"}, ${fcPlural(left, "place")} to fill${live.length ? `, ${fcPlural(live.length, "offer")} out` : ""}.${homes ? ` Home weekends left: ${homes}.` : ""}`;
   const panel = `<h2>The class so far <small>${esc(x.division)} · ${c.whole_roster ? `${c.limit}-man roster` : c.yearly ? `${c.yearly} signees a year` : "no signing limit"}${sg ? ` · ${esc(sg.name.toLowerCase())} ${esc(sg.date)}` : ""}</small></h2>
@@ -176,8 +178,7 @@ screens.recruit_board = async (a) => {
       [c.rank ? ordinal(c.rank) : "-", c.rank ? `Public rank of ${c.rank_of}` : "Not ranked yet"],
       [String(left), "Places left"],
       [sg ? String(sg.in) : "-", sg ? "Days to signing" : "No signing date"],
-    ])}
-    <div class="fc-open"><span class="st-label">Open spots</span>${openPos.length ? openPos.map((p) => `<button class="st-pill" data-fc="planpos" data-v="${p.pos}" title="See the ${p.pos}s on your board">${p.pos} ${p.open}</button>`).join("") : '<span class="sub">Every spot your staff planned is filled.</span>'}</div>`;
+    ])}`;
   const ch = await api("recruit_chain").catch(() => null);
   const tabs = [["targets", "Top targets"], ["board", "Full board", x.rows.length], ["word", "Your staff's word", ch ? ch.waiting.length : null], ["passed", "Passed on", ch ? ch.passed.length : null], ["map", "Map"], ["plan", "Class plan and staff"], ["watch", "Watch list"], ["portal", "Portal"], ["juco", "JUCO"]];
   let body = "";
@@ -192,6 +193,7 @@ screens.recruit_board = async (a) => {
   return `<div class="film">${fcHero({ label: `${teamLink(x.team)} · ${esc(x.conference)} · Recruiting`, title: `Class of ${year}`, line: heroLine, sub, big: String(year).slice(2), panel })}
   <div class="pad fc-pad">
     <div class="fc-bar">${fcTabs("fcb", tabs, k.tab)}${fcGoto([["recruit_find", "Find recruits"], ["visits_desk", "Visits"], ["scouting", "Scouting"], ["calendar", "Calendar"], ["roster", "Squad"]])}</div>
+    ${dvBlock("board")}
     ${yours ? fcFresh(x) : fcDuty(x.duties, "board")}
     ${body}
   </div></div>`;
@@ -446,7 +448,7 @@ function fcBoardTable(x, k, yours) {
   const year = x.class.year;
   const classes = [["next", `Class of ${year}`], ["later", "Younger classes"], ["all", "Everyone"]];
   let rows = x.rows.filter((r) => (k.cls === "next" ? r.class_of === year || r.juco : k.cls === "later" ? r.class_of > year && !r.juco : true));
-  if (k.pos !== "ALL") rows = rows.filter((r) => r.pos === k.pos);
+  rows = rows.filter((r) => dvPosHas(k.pos, r.pos));
   // Whose offers: yours out, the old staff's still out, or the ones pulled.
   const live = (r) => r.offered && !["signed", "enrolled", "signed_elsewhere", "gone"].includes(r.standing);
   const offerOpts = [["all", "Everyone"], ["out", "Offers out"], ...(x.rows.some((r) => r.inherited && live(r)) || k.offers === "old" ? [["old", "The old staff's"]] : []), ...(x.rows.some((r) => r.pulled && !r.offered) || k.offers === "pulled" ? [["pulled", "Pulled"]] : [])];
@@ -479,7 +481,7 @@ function fcBoardTable(x, k, yours) {
       : []),
   ];
   const note = `${rows.length} of ${x.rows.length} shown. Rest on a row for his staff's reason; a row opens his file.${yours ? " Tick rows to pull their offers together." : ""}`;
-  return `<div class="filters">${fcSeg("fcb", "cls", classes, k.cls)}${fcSeg("fcb", "pos", posOpts, k.pos)}${fcSeg("fcb", "offers", offerOpts, k.offers)}${fcSeg("fcb", "order", [["mine", "Your order"], ["pos", "By position"]], k.order)}<span class="sub fc-note">${esc(note)}</span></div>
+  return `<div class="filters">${fcSeg("fcb", "cls", classes, k.cls)}${fcSeg("fcb", "pos", posOpts, k.pos)}${k.pos.startsWith("g:") ? dvPickPill() : ""}${fcSeg("fcb", "offers", offerOpts, k.offers)}${fcSeg("fcb", "order", [["mine", "Your order"], ["pos", "By position"]], k.order)}<span class="sub fc-note">${esc(note)}</span></div>
     ${table("fcboard", cols, rows, { groupBy: k.order === "pos" ? (r) => r.pos : null, empty: "Nobody on the board in this view.", groups: [{ t: "Recruit", span: 7 }, { t: "Your staff", who: "position coaches", span: 4, div: true }, { t: "His recruitment", span: 3, div: true }, { t: "Yours", span: yours ? 3 : 2, div: true }] })}`;
 }
 
@@ -693,16 +695,46 @@ screens.visits_desk = async () => {
 };
 
 // ---------- the transfer portal ----------
+// "If he stayed" for the next two falls: for a player who has left, the role
+// the Needs map says he would have had; for one still here, the same map's
+// word for where he stands. No calculation of its own (sb_needs: coming,
+// portal, men, spots).
+function fcStayCols(nd) {
+  if (!nd || !Array.isArray(nd.portal) || !Array.isArray(nd.men) || nd.coming == null) return [];
+  const gone = new Map(nd.portal.map((q) => [q.id, q]));
+  const men = new Map(nd.men.map((m) => [m.id, m]));
+  const spotWord = new Map(nd.spots.map((q) => [q.key, String(q.full).toLowerCase()]));
+  const cell = (n) => (r) => {
+    const q = gone.get(r.id);
+    if (q) {
+      const z = q.stayed[n];
+      return z ? esc(z.words) : `<span class="muted" title="${esc(q.stay_gone || "")}">Gone by then</span>`;
+    }
+    const m = men.get(r.id);
+    if (!m) return '<span class="muted">-</span>';
+    if (m.spots[n]) return `Starter at ${esc(spotWord.get(m.spots[n]) || m.spots[n])}`;
+    return m.vals[n] != null ? '<span class="muted">Not a starter</span>' : '<span class="muted">Gone by then</span>';
+  };
+  return [0, 1].map((o) => ({ k: "stay" + o, t: `If he stayed ’${String(nd.falls[nd.coming + o]).slice(2)}`, l: true, tip: `The role he would have in the fall of ${nd.falls[nd.coming + o]}, by the Needs map`, div: o === 0, f: cell(nd.coming + o) }));
+}
 screens.portal_desk = async () => {
   const k = keep("fcp", { tab: "entrants", pos: "ALL", div: "ALL" });
+  // One position pick across the board, Find recruits and the portal (depthview.js).
+  k.pos = dvSync("portal", k.pos);
   const x = await api("portal_desk", { pos: k.pos, division: k.div });
   setColors(x.team.colors);
+  dvOwn("portal", x);
+  DV.portalPage = { pos: k.pos, div: k.div, shown: x.shown };
+  // When any of your players have left, the portal opens on them: the first thing to see is who is gone.
+  const left = x.roster.filter((r) => r.in_portal).length;
+  if (!k.seen) { k.seen = true; if (left) k.tab = "roster"; }
   const open = x.windows.find((w) => w.open);
   const next = x.windows.find((w) => !w.open && w.in > 0);
   const line = open ? `<span><b>${esc(open.name)} is open</b> · to ${esc(open.closes)}</span>` : next ? `<span>The ${esc(next.name.toLowerCase())} opens ${esc(next.opens)} (${fcIn(next.in)})</span>` : "<span>No window open</span>";
   const leaving = x.roster.filter((r) => r.rank <= 1).length;
   const panel = `<h2>The portal <small>where it stands today</small></h2>${fcTiles([[String(x.in_portal), "In the portal"], [String(x.targets.filter((t) => !t.settled).length), "Your targets"], [String(leaving), "Yours at risk"], [String(x.talks), "Talks held"]])}`;
   const tabs = [["entrants", "Entrants", x.shown], ["targets", "Your targets", x.targets.length], ["roster", "Your roster", x.roster.length], ["whispers", "Quiet words", x.whispers.length]];
+  if (left) tabs.unshift(tabs.splice(2, 1)[0]);
   // Every NIL dollar is yours (Cain, 2026-11-07): a blank box is no money,
   // and from July 2025 the collective's deal is a second box (B18). The
   // going rate is in the box's tip.
@@ -728,7 +760,8 @@ screens.portal_desk = async () => {
       { k: "sits", t: "", l: true, v: (r) => (r.sits ? 1 : 0), f: (r) => (r.sits ? '<span class="st-pill gold" title="He would sit out a season with you">Sits a year</span>' : "") },
       { k: "offered", t: "Your offer", l: true, div: true, v: (r) => (r.offered ? 1 : 0), f: (r) => (r.committed ? '<span class="st-pill good">Told you yes</span>' : r.offered ? `<span class="fc-rowacts"><span class="st-pill good">Offered</span>${nilIn(r)}<button class="st-btn small primary" data-fc="poffer" data-id="${r.id}" data-fcsave hidden>Change</button><button class="st-btn small glass" data-fc="ppull" data-id="${r.id}">Pull</button></span>` : `<span class="fc-rowacts">${nilIn(r)}<button class="st-btn small primary" data-fc="poffer" data-id="${r.id}">Offer</button></span>`) },
     ];
-    const posSel = `<select class="fc-select" data-fcf2="pos"><option value="ALL">Every position</option>${POS.map((p) => `<option ${k.pos === p ? "selected" : ""}>${p}</option>`).join("")}</select>`;
+    // The groups are the strip's: OL, DL and DB, and the specialists (the game takes them as one choice).
+    const posSel = `<select class="fc-select" data-fcf2="pos"><option value="ALL">Every position</option><optgroup label="Positions">${POS.map((p) => `<option ${k.pos === p ? "selected" : ""}>${p}</option>`).join("")}</optgroup><optgroup label="Groups">${["OL", "DL", "DB", "Specialists"].map((p) => `<option ${k.pos === p ? "selected" : ""}>${p}</option>`).join("")}</optgroup></select>`;
     const divs = [["ALL", "Every division"], ["FBS", "FBS"], ["FCS", "FCS"], ["D2", "D2"], ["NAIA", "NAIA"], ["D3", "D3"], ["JUCO", "JUCO"]];
     body = `<div class="filters">${posSel}${fcSeg("fcp", "div", divs, k.div)}<span class="sub fc-note">${esc(x.sit)}</span></div>
       ${table("fcportal", cols, x.entrants, { sort: null, empty: open ? "Nobody in the portal matches." : "The portal is closed: entrants come when a window opens.", groups: [{ t: "Player", span: 7 }, { t: "Your staff", span: 2, div: true }, { t: "His move", span: 3, div: true }, { t: "Yours", span: 1, div: true }] })}`;
@@ -747,13 +780,18 @@ screens.portal_desk = async () => {
       { k: "act", t: "", l: true, f: (r) => (r.settled || r.committed ? "" : `<button class="st-btn small glass" data-fc="pforget" data-id="${r.id}">Forget him</button>`) },
     ], x.targets, { empty: "No targets yet. Offer an entrant, or reach out quietly to a player with whispers about him." });
   } else if (k.tab === "roster") {
+    // The role each would have had if he stayed, in the Needs map's words (its
+    // list of men and of your players in the portal); the columns wait for the map.
+    await dvFetch(["needs"]);
+    const stayCols = fcStayCols(DV.data.needs);
     body = `<p class="sub">Your players by how likely they are to leave, in your staff's words. A talk sways a player the way your relationships with players do: a good one keeps him, a poor one can push him.</p>
     ${table("fcproster", [
       { k: "rank", t: "", v: (r) => -r.rank, f: (r) => fcDot(fcTone(r.tone)) },
       { k: "name", t: "Player", l: true, f: (r) => playerLink(r.id, r.name, "People") },
       { k: "pos", t: "Pos", l: true },
       { k: "cls", t: "Class", l: true, v: (r) => classRank(r.cls) },
-      { k: "role", t: "Role", l: true, v: (r) => r.role || "", f: (r) => esc(r.role || "-") },
+      { k: "role", t: "Last season", l: true, tip: "The role he had last season", v: (r) => r.role || "", f: (r) => esc(r.role || "-") },
+      ...stayCols,
       { k: "read", t: "Read", div: true, v: (r) => mid(r.read), f: (r) => range(r.read, null, { p: r.id, k: "ovr" }) },
       { k: "risk", t: "Mood about staying", l: true, div: true, v: (r) => -r.rank },
       { k: "why", t: "What your staff hears", l: true, wrap: true, tip: "The strongest pull away this year, and the strongest reason he has to stay", f: (r) => `${esc(r.why ? r.why[0].toUpperCase() + r.why.slice(1) : "-")}${r.hold ? `<br><small class="sub">Keeping him: ${esc(r.hold)}</small>` : ""}` },
@@ -777,6 +815,7 @@ screens.portal_desk = async () => {
   return `<div class="film">${fcHero({ label: `${teamLink(x.team)} · Roster`, title: "Transfer portal", line, sub: esc(x.rule), panel })}
   <div class="pad fc-pad">
     <div class="fc-bar">${fcTabs("fcp", tabs, k.tab)}${fcGoto([["roster", "Squad"], ["depth", "Depth chart"], ["nil_desk", "NIL"], ["recruit_board", "Recruiting board"]])}</div>
+    ${dvBlock("portal")}
     ${x.yours ? "" : fcDuty(x.duties, "portal")}
     ${body}
   </div></div>`;

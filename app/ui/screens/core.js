@@ -622,6 +622,8 @@ function peekHide() {
 }
 function peekKey(a) {
   const d = a.dataset;
+  // A cell of the depth strip (screens/depthview.js) rests on its group.
+  if (d.peek === "depth" && d.g) return { kind: "depth", id: d.g };
   if (d.go === "player" && d.id) return { kind: "player", id: d.id };
   if (d.go === "coach" && d.id) return { kind: "coach", id: d.id };
   if (d.go === "team" && d.kind) return { kind: "team", id: d.id, tkind: d.kind };
@@ -629,6 +631,7 @@ function peekKey(a) {
   return null;
 }
 function peekHtml(x) {
+  if (x.kind === "depth") return dvCard(x.id);
   if (x.kind === "player") {
     return `<div class="pk-head">${face({ name: x.name, initials: x.initials, team: x.team }, 52)}<div><b>${esc(x.name)}</b><small>${esc(x.pos)}${x.jersey != null ? ` · #${x.jersey}` : ""} · ${x.team ? esc(x.team.name) : esc(x.where)}</small><small>${esc(x["class"])} · age ${x.age} · ${esc(x.ht)}, ${x.wt} lb ${stars(x.stars)}</small></div></div>
       <div class="pk-body">${x.read ? `<div class="kvline"><span>Your staff's read</span>${range(x.read)}</div>` : ""}${x.yours ? `<div class="kvline"><span>Your own read</span>${yourRange(x.yours)}</div>` : ""}${x.level_rating ? `<div class="kvline"><span>Level</span><b data-h3="${x.id}" tabindex="0">${esc(x.level_rating)}</b></div>` : ""}${x.last ? `<div class="kvline"><span>Last season</span><b>${esc(x.last)}</b></div>` : ""}${x.status ? `<div class="kvline"><span>Status</span><b>${esc(x.status)}</b></div>` : ""}</div>
@@ -656,6 +659,8 @@ function peekShow(a, x) {
   el.innerHTML = peekHtml(x);
   // A card with moves takes the mouse (bug 64); the rest let it pass.
   if (el.querySelector(".pk-moves")) el.classList.add("has-moves");
+  // The depth card (depthview.js) is wide and its names are links.
+  if (el.querySelector(".dv-card")) el.classList.add("wide");
   document.body.appendChild(el);
   const r = a.getBoundingClientRect();
   const w = el.offsetWidth, h = el.offsetHeight;
@@ -670,7 +675,7 @@ function peekShow(a, x) {
 }
 document.addEventListener("mouseover", (ev) => {
   if (prefs.hover === "off") return;
-  const a = ev.target.closest && ev.target.closest("a[data-go]");
+  const a = ev.target.closest && ev.target.closest("a[data-go], [data-peek]");
   if (!a || a === PEEK.on || a.closest(".peek, .find-room, .side")) return;
   const k = peekKey(a);
   if (!k) return;
@@ -678,7 +683,7 @@ document.addEventListener("mouseover", (ev) => {
   PEEK.on = a;
   PEEK.timer = setTimeout(async () => {
     const ck = JSON.stringify(k);
-    let x = PEEK.cache.get(ck);
+    let x = k.kind === "depth" ? { kind: "depth", id: k.id } : PEEK.cache.get(ck);
     if (!x) {
       try {
         x = await api("peek", k.kind === "team" ? { kind: k.tkind, id: Number(k.id) } : { kind: k.kind, id: Number(k.id) });
@@ -690,7 +695,7 @@ document.addEventListener("mouseover", (ev) => {
   }, Number(prefs.hoverDelay) || 450);
 });
 document.addEventListener("mouseout", (ev) => {
-  const a = ev.target.closest && ev.target.closest("a[data-go]");
+  const a = ev.target.closest && ev.target.closest("a[data-go], [data-peek]");
   if (!a || a !== PEEK.on) return;
   if (ev.relatedTarget && a.contains(ev.relatedTarget)) return;
   clearTimeout(PEEK.timer);
@@ -1459,6 +1464,8 @@ function afterRender() {
     if (h && line) (h.classList.contains("hero") ? h : h.parentElement).insertAdjacentHTML("afterend", `<div class="pad goto-pad">${line}</div>`);
   }
   bigWire();
+  // The depth strip and the four steps on the recruiting pages (depthview.js).
+  if (typeof dvAfter === "function") dvAfter();
   // Big moments waiting from before this page loaded (a save, a reload).
   if (S.status && S.status.reveals > 0 && !document.querySelector(".reveal-room")) { const n = S.status.reveals; S.status.reveals = 0; showReveals(n); }
   if (r.screen === "home") homeWire();
