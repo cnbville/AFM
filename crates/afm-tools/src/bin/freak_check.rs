@@ -233,8 +233,8 @@ fn league(seasons: usize, seed: u32, mode: &str) -> Run {
                     venue(),
                 );
                 let mut m = HashMap::new();
-                for side in 0..2 {
-                    for (&id, l) in &r.stats.players[side] {
+                for players in &r.stats.players {
+                    for (&id, l) in players {
                         let e: &mut Season = m.entry(id).or_default();
                         e.add(&Season {
                             snaps: l.snaps_def,
