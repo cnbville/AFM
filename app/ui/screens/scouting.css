@@ -98,20 +98,24 @@
 
 /* Ratings: groups on the left, how one range narrowed on the right. */
 .sc-ratings { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); gap: 18px; align-items: start; }
-.sc-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; align-items: start; }
+.sc-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 18px; align-items: start; }
 .sc-attr { width: 100%; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; border-radius: 8px; padding: 3px 6px; margin: 0 -6px; }
 .sc-attr:hover { background: var(--fill-1); }
 .sc-attr.on { background: var(--fill-2); }
 .sc-attr-r { display: inline-flex; align-items: center; gap: 6px; }
+/* A read can carry all four look chips: the bar gives them room instead of running past the panel. */
+.sc-attr { grid-template-columns: minmax(0, 1fr) 224px; }
+.sc-attr .rg { grid-template-columns: 90px 52px; }
+.sc-attr .rg b, .sc-sticky .rg b { white-space: nowrap; }
 .sc-sticky { position: sticky; top: 12px; }
 .sc-chips { display: inline-flex; gap: 2px; }
 .sc-chips.big { gap: 4px; }
 .sc-chip { display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 4px; font-size: 9px; font-weight: 800; color: var(--on-fg); background: var(--fg3); }
 .sc-chips.big .sc-chip { width: 20px; height: 20px; font-size: 11px; }
-.sc-chip.film { background: #8ab4ff; }
-.sc-chip.live { background: var(--good); }
-.sc-chip.camp { background: var(--gold); }
-.sc-chip.talk { background: #ff9f6b; }
+.sc-chip.sc-k-film { background: #8ab4ff; }
+.sc-chip.sc-k-live { background: var(--good); }
+.sc-chip.sc-k-camp { background: var(--gold); }
+.sc-chip.sc-k-talk { background: #ff9f6b; }
 .sc-legend { display: grid; gap: 4px; padding-top: 10px; border-top: 1px solid var(--hair); font-size: 12px; color: var(--fg2); }
 .sc-legend > span { display: flex; align-items: center; gap: 6px; }
 
