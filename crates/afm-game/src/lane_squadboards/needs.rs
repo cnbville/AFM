@@ -4,15 +4,22 @@
 //! man's read carried forward by how players his age grow in this world.
 //! Each spot gets a verdict against the level's starters, why it changes
 //! and how to fill it. The staff's guess from its reads, never a ceiling.
+//!
+//! A college player in the transfer portal counts as gone (Cain
+//! 2026-11-12): he is off every fall the map plans, and the map says the
+//! place he would have had if he had stayed, from the same reads and the
+//! same picking.
 
 use std::collections::HashMap;
 
+use afm_engine::league::depth_slots;
+use afm_engine::player::PlayingTime;
 use afm_engine::positions::Position;
 use afm_engine::world::norms::{Marks, Rated};
-use afm_engine::world::{Stage, World};
+use afm_engine::world::{Person, Stage, World};
 use serde_json::{Value, json};
 
-use super::{first_last, growth_at, growth_table, level_name, marks, mid, my_team, own_read};
+use super::{first_last, growth_at, growth_table, level_name, marks, mid, my_team, ordinal, own_read};
 use crate::Reply;
 use crate::reads::{self, Read};
 use crate::views::{self, TeamRef};
@@ -53,12 +60,178 @@ const SPOTS: [(&str, Position, &str, f64, f64); 24] = {
 /// (None: gone by then), and why he goes.
 struct Man {
     i: usize,
+    id: u32,
     pos: Position,
     vals: [Option<f64>; 3],
     read: Read,
     commit: bool,
     gone: Option<(usize, String)>,
     draft_risk: bool,
+    /// In the transfer portal: the map counts him as gone.
+    portal: Option<InPortal>,
+}
+
+/// A man in the transfer portal: the reads he would have carried had he
+/// stayed, why he would have gone anyway, the reason he gave, and whether
+/// he plays his team's playoff run out before he goes.
+struct InPortal {
+    stay: [Option<f64>; 3],
+    stay_gone: Option<(usize, String)>,
+    why: &'static str,
+    on_hold: bool,
+}
+
+/// A college player's portal entry and whether it is on hold: a playoff
+/// team's entrant has no day yet and plays the run out (`release_held`).
+/// Everyone else in the portal sits out the games left and is gone.
+/// `season_on`: this fall's season has started and the year hasn't turned.
+fn portal_entry(w: &World, p: &Person, season_on: bool) -> Option<(&'static str, bool)> {
+    let e = p.cal.portal.filter(|_| p.stage == Stage::College)?;
+    Some((e.why, on_hold(e.held, e.entered.0, w.today.0, season_on)))
+}
+
+/// On hold for a playoff run: held, with no day yet (the engine's day for
+/// a hold is far off, as the portal screen reads it). A hold never
+/// outlives its season: once the year has turned he is in the portal like
+/// anyone else, whatever his entry still says.
+fn on_hold(held: bool, entered: i32, today: i32, season_on: bool) -> bool {
+    season_on && held && entered > today + 3650
+}
+
+/// Counts a man in the portal as gone: from now, or from next fall when he
+/// is on hold for the playoff run. Keeps what he would have been had he
+/// stayed. Once he is in the portal he is no draft risk to plan around.
+fn leave_through_portal(
+    vals: &mut [Option<f64>; 3],
+    gone: &mut Option<(usize, String)>,
+    draft_risk: &mut bool,
+    why: &'static str,
+    on_hold: bool,
+) -> InPortal {
+    let kept = InPortal { stay: *vals, stay_gone: gone.take(), why, on_hold };
+    let from = usize::from(on_hold);
+    for v in vals.iter_mut().skip(from) {
+        *v = None;
+    }
+    *draft_risk = false;
+    *gone = Some((
+        from,
+        if on_hold { "means to enter the transfer portal after the playoff run" } else { "is in the transfer portal" }
+            .to_string(),
+    ));
+    kept
+}
+
+/// Each spot's starter in each of the three falls: now by the depth order
+/// (yours, else your staff's), later by the carried reads. `val` is a
+/// man's read in a fall (None: he isn't there).
+fn pick_starters(
+    men: &[Man],
+    order: &[(Position, Vec<u32>)],
+    val: &dyn Fn(usize, usize) -> Option<f64>,
+) -> Vec<[Option<usize>; 3]> {
+    let mut starters: Vec<[Option<usize>; 3]> = vec![[None; 3]; SPOTS.len()];
+    #[allow(clippy::needless_range_loop)] // n is the year, read from every man too
+    for n in 0..3 {
+        let mut used: Vec<usize> = Vec::new();
+        for (k, &(_, pos, _, _, _)) in SPOTS.iter().enumerate() {
+            let mut cands: Vec<(f64, usize)> = men
+                .iter()
+                .enumerate()
+                .filter(|(_, m)| m.pos == pos && !used.contains(&m.i))
+                .filter_map(|(j, _)| val(j, n).map(|v| (v, j)))
+                .collect();
+            cands.sort_by(|a, b| b.0.total_cmp(&a.0));
+            let mut pick = cands.first().map(|x| x.1);
+            if n == 0
+                && let Some((_, ids)) = order.iter().find(|x| x.0 == pos)
+            {
+                let by_order = ids.iter().find_map(|id| cands.iter().find(|c| men[c.1].id == *id).map(|c| c.1));
+                pick = by_order.or(pick);
+            }
+            if let Some(j) = pick {
+                used.push(men[j].i);
+                starters[k][n] = Some(j);
+            }
+        }
+    }
+    starters
+}
+
+/// A man's place in a fall once the starters are picked.
+struct Place {
+    /// The spot he starts at.
+    spot: Option<usize>,
+    /// His place in line at his position: the starters first, in the map's
+    /// order, then the rest by their reads.
+    line: usize,
+    /// How many play his position that fall.
+    of: usize,
+    role: PlayingTime,
+}
+
+/// Where man `j` stands in fall `n` (None: he isn't there). His role is the
+/// game's own depth chart rule (`season::depth_chart`: the starters, then
+/// the next man up rotates in, the rest back up), with every spot on the
+/// map a starter.
+fn place(
+    men: &[Man],
+    starters: &[[Option<usize>; 3]],
+    j: usize,
+    n: usize,
+    val: &dyn Fn(usize, usize) -> Option<f64>,
+) -> Option<Place> {
+    let v = val(j, n)?;
+    let pos = men[j].pos;
+    let first: Vec<usize> =
+        SPOTS.iter().zip(starters).filter(|(s, _)| s.1 == pos).filter_map(|(_, st)| st[n]).collect();
+    let spot = (0..SPOTS.len()).find(|&k| starters[k][n] == Some(j));
+    let at_pos = |m: usize| men[m].pos == pos && val(m, n).is_some();
+    let of = (0..men.len()).filter(|&m| at_pos(m)).count();
+    let line = match first.iter().position(|&m| m == j) {
+        Some(k) => k + 1,
+        None => {
+            let better = |m: usize| val(m, n).is_some_and(|x| x > v || (x == v && m < j));
+            first.len()
+                + 1
+                + (0..men.len()).filter(|&m| m != j && at_pos(m) && !first.contains(&m) && better(m)).count()
+        }
+    };
+    let slots = depth_slots(pos);
+    // A position the map has no spot for (the long snapper) starts as
+    // many as the game's depth chart does.
+    let spots = SPOTS.iter().filter(|s| s.1 == pos).count();
+    let start = if spots == 0 { slots.starters } else { spots };
+    let role = if spot.is_some() || (spots == 0 && line <= start) {
+        PlayingTime::Starter
+    } else if line <= start.max(slots.starters + slots.rotation.max(1)) {
+        PlayingTime::Rotation
+    } else {
+        PlayingTime::Backup
+    };
+    Some(Place { spot, line, of, role })
+}
+
+/// A place in plain words: "Starter at left tackle", "Second running back".
+fn place_words(pos: Position, pl: &Place) -> String {
+    let one = crate::lane_ratings::pos_words(pos).0;
+    match (pl.role, pl.spot) {
+        (PlayingTime::Starter, Some(k)) => {
+            let full = SPOTS[k].2;
+            let mut c = full.chars();
+            let low = c.next().map_or(String::new(), |f| f.to_lowercase().collect::<String>() + c.as_str());
+            format!("Starter at {low}")
+        }
+        (PlayingTime::Starter, None) => format!("Starter at {one}"),
+        _ => {
+            const WORDS: [&str; 10] =
+                ["First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth", "Tenth"];
+            match WORDS.get(pl.line.wrapping_sub(1)) {
+                Some(word) => format!("{word} {one}"),
+                None => format!("{} {one}", ordinal(pl.line as u32)),
+            }
+        }
+    }
 }
 
 /// A verdict against the level's marks at a position.
@@ -120,6 +293,9 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
     let falls = [f0, f0 + 1, f0 + 2];
     let year = args.get("year").and_then(Value::as_u64).unwrap_or(0).min(2) as usize;
     let table = growth_table(w);
+    // This fall's season has started (camp has opened) and the year hasn't
+    // turned: the next fall to start is the one after.
+    let season_on = w.today >= in_season_from(w, t);
     let level_tier = match t {
         TeamRef::HighSchool(_) => 0,
         TeamRef::Nfl(_) => 2,
@@ -216,7 +392,12 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
                 }
             }
         }
-        men.push(Man { i, pos, vals, read, commit, gone, draft_risk });
+        // A man in the transfer portal is gone, whatever his eligibility
+        // says: the map plans without him and keeps what he would have been.
+        let portal = portal_entry(w, p, season_on)
+            .filter(|_| !commit)
+            .map(|(why, on_hold)| leave_through_portal(&mut vals, &mut gone, &mut draft_risk, why, on_hold));
+        men.push(Man { i, id: p.player.id, pos, vals, read, commit, gone, draft_risk, portal });
     }
     // Starters each fall: now by the depth order (yours, else your
     // staff's), later by the carried reads.
@@ -228,36 +409,58 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
         }
         o
     };
-    let mut starters: Vec<[Option<usize>; 3]> = vec![[None; 3]; SPOTS.len()];
-    #[allow(clippy::needless_range_loop)] // n is the year, read from every man too
-    for n in 0..3 {
-        let mut used: Vec<usize> = Vec::new();
-        for (k, &(_, pos, _, _, _)) in SPOTS.iter().enumerate() {
-            let mut cands: Vec<(f64, usize)> = men
-                .iter()
-                .enumerate()
-                .filter(|(_, m)| m.pos == pos && !used.contains(&m.i))
-                .filter_map(|(j, m)| m.vals[n].map(|v| (v, j)))
-                .collect();
-            cands.sort_by(|a, b| b.0.total_cmp(&a.0));
-            let mut pick = cands.first().map(|x| x.1);
-            if n == 0
-                && let Some((_, ids)) = order.iter().find(|x| x.0 == pos)
-            {
-                let by_order =
-                    ids.iter().find_map(|id| cands.iter().find(|c| w.people[men[c.1].i].player.id == *id).map(|c| c.1));
-                pick = by_order.or(pick);
-            }
-            if let Some(j) = pick {
-                used.push(men[j].i);
-                starters[k][n] = Some(j);
-            }
-        }
-    }
+    let starters = pick_starters(&men, &order, &|j, n| men[j].vals[n]);
     let marks_at: HashMap<Position, Option<Marks>> =
         SPOTS.iter().map(|s| (s.1, marks(w, t, s.1, Rated::Overall))).collect();
     let name_of = |j: usize| first_last(&w.people[men[j].i].name).1;
     let full_of = |j: usize| w.people[men[j].i].name.clone();
+    // The next fall to start: this one until camp opens, then the next.
+    let coming = usize::from(season_on);
+    // Your players in the portal: the place each would have had if he
+    // alone had stayed, from the same reads and the same picking. A spot
+    // he would have started at says so (spot, fall, man).
+    let mut in_portal: Vec<Value> = Vec::new();
+    let mut would_start: Vec<(usize, usize, usize)> = Vec::new();
+    for (j, man) in men.iter().enumerate() {
+        let Some(ip) = &man.portal else { continue };
+        let val = |m: usize, n: usize| if m == j { ip.stay[n] } else { men[m].vals[n] };
+        let with_him = pick_starters(&men, &order, &val);
+        // The map's marks, or his position's own where the map has no spot
+        // (the long snapper).
+        let off_map;
+        let m = match marks_at.get(&man.pos) {
+            Some(x) => x.as_ref(),
+            None => {
+                off_map = marks(w, t, man.pos, Rated::Overall);
+                off_map.as_ref()
+            }
+        };
+        let mut first_start = None;
+        let stayed: Vec<Value> = (0..3)
+            .map(|n| {
+                let Some(pl) = place(&men, &with_him, j, n, &val) else { return Value::Null };
+                // The first fall still to start that he would have started in.
+                if first_start.is_none() && n >= coming {
+                    first_start = pl.spot.map(|k| (k, n, j));
+                }
+                json!({
+                    "fall": falls[n], "role": views::role_words(pl.role),
+                    "spot": pl.spot.map(|k| SPOTS[k].0), "spot_full": pl.spot.map(|k| SPOTS[k].2),
+                    "line": pl.line, "of": pl.of, "val": ip.stay[n].map(f64::round),
+                    "verdict": verdict(ip.stay[n], m), "class": class_in(w, man.i, falls[n]),
+                    "words": place_words(man.pos, &pl),
+                })
+            })
+            .collect();
+        // A man on hold still starts now, and his spot says when he goes.
+        would_start.extend(first_start.filter(|_| !ip.on_hold));
+        in_portal.push(json!({
+            "id": man.id, "name": full_of(j), "pos": man.pos.name(), "class": class_in(w, man.i, falls[coming]),
+            "why": ip.why, "on_hold": ip.on_hold,
+            "stay_gone": ip.stay_gone.as_ref().map(|g| json!({ "at": g.0, "why": g.1 })),
+            "stayed": stayed,
+        }));
+    }
     let mut spots: Vec<Value> = Vec::new();
     for (k, &(key, pos, words, x, y)) in SPOTS.iter().enumerate() {
         let m = marks_at.get(&pos).and_then(|x| x.as_ref());
@@ -272,6 +475,13 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
             .collect();
         // Why it changes.
         let mut why: Vec<String> = Vec::new();
+        for &(_, n, j) in would_start.iter().filter(|x| x.0 == k) {
+            why.push(format!(
+                "{} is in the transfer portal and counts as gone: he would have started here in {}.",
+                full_of(j),
+                falls[n]
+            ));
+        }
         if let Some(j) = starters[k][0] {
             if let Some((n, reason)) = &men[j].gone {
                 why.push(format!("{} {reason}.", full_of(j)));
@@ -369,8 +579,14 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
     // Who leaves after this season, who may, who arrives.
     let names_list = |v: &[usize]| v.iter().take(6).map(|&j| full_of(j)).collect::<Vec<_>>();
     let last: Vec<usize> = (0..men.len())
-        .filter(|&j| !men[j].commit && men[j].gone.as_ref().is_some_and(|g| g.0 == 1) && !men[j].draft_risk)
+        .filter(|&j| {
+            !men[j].commit
+                && men[j].gone.as_ref().is_some_and(|g| g.0 == 1)
+                && !men[j].draft_risk
+                && men[j].portal.is_none()
+        })
         .collect();
+    let entered: Vec<usize> = (0..men.len()).filter(|&j| men[j].portal.is_some()).collect();
     let draft: Vec<usize> = (0..men.len()).filter(|&j| men[j].draft_risk).collect();
     let portal: Vec<usize> = (0..men.len())
         .filter(|&j| {
@@ -390,6 +606,7 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
     let mut leaving = vec![json!({ "label": leaving_label, "n": last.len(), "names": names_list(&last) })];
     if let TeamRef::College(_) = t {
         leaving.push(json!({ "label": "Draft risks", "n": draft.len(), "names": names_list(&draft) }));
+        leaving.push(json!({ "label": "In the portal", "n": entered.len(), "names": names_list(&entered) }));
         leaving.push(json!({ "label": "Portal risks", "n": portal.len(), "names": names_list(&portal) }));
         let label = format!("Commits for {}", f0 + 1);
         leaving.push(json!({ "label": label, "n": arriving.len(), "names": names_list(&arriving) }));
@@ -399,7 +616,15 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
         TeamRef::College(c) => {
             let (lim, _) = afm_engine::world::ncaa::roster_limits(&w.programs[c], f0);
             let commits = men.iter().filter(|m| m.commit).count();
-            format!("{roster_n} on the roster of {lim} · {commits} commit{}", if commits == 1 { "" } else { "s" })
+            // The men in the portal are off the count; one on hold for the
+            // playoff run still plays.
+            let away = views::roster_people(w, t)
+                .into_iter()
+                .filter(|&i| portal_entry(w, &w.people[i], season_on).is_some_and(|e| !e.1))
+                .count();
+            let left = if away > 0 { format!(" · {away} in the portal") } else { String::new() };
+            let s = if commits == 1 { "" } else { "s" };
+            format!("{} on the roster of {lim}{left} · {commits} commit{s}", roster_n - away)
         }
         TeamRef::Nfl(n) => {
             // The front office's own count: the men on the roster, not the
@@ -410,6 +635,25 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
         }
         _ => format!("{roster_n} on the roster"),
     };
+    // Every man the map counts, for the screens that show a group's depth:
+    // his read and class each fall he is there, the spot he starts at, and
+    // why he goes.
+    let men_rows: Vec<Value> = men
+        .iter()
+        .enumerate()
+        .map(|(j, m)| {
+            json!({
+                "id": m.id, "name": full_of(j), "pos": m.pos.name(), "commit": m.commit, "portal": m.portal.is_some(),
+                "classes": (0..3).map(|n| m.vals[n].map(|_| class_in(w, m.i, falls[n]))).collect::<Vec<_>>(),
+                "vals": m.vals.iter().map(|v| v.map(f64::round)).collect::<Vec<_>>(),
+                "spots": (0..3)
+                    .map(|n| (0..SPOTS.len()).find(|&k| starters[k][n] == Some(j)).map(|k| SPOTS[k].0))
+                    .collect::<Vec<_>>(),
+                "gone": m.gone.as_ref().map(|g| json!({ "at": g.0, "why": g.1 })),
+                "draft_risk": m.draft_risk,
+            })
+        })
+        .collect();
     let now_note = match (w.today >= in_season_from(w, t), views::next_game(w, t).is_some()) {
         (false, _) => "now, before the fall",
         (true, true) => "now, in the season",
@@ -426,6 +670,9 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
         "spots": spots,
         "years": years,
         "leaving": leaving,
+        "coming": coming,
+        "portal": in_portal,
+        "men": men_rows,
         "draft_note": "A draft risk is a player among the level's best a year from being eligible: the staff counts him gone.",
     }))
 }
@@ -496,6 +743,147 @@ mod tests {
             backups: 0,
             teams: 0,
         }
+    }
+
+    fn man(i: usize, pos: Position, vals: [Option<f64>; 3]) -> Man {
+        Man {
+            i,
+            id: 100 + i as u32,
+            pos,
+            vals,
+            read: Read::Range(60, 70),
+            commit: false,
+            gone: None,
+            draft_risk: false,
+            portal: None,
+        }
+    }
+
+    fn all(v: f64) -> [Option<f64>; 3] {
+        [Some(v), Some(v + 1.0), Some(v + 2.0)]
+    }
+
+    /// Puts man `j` in the portal, as the view does.
+    fn enters(men: &mut [Man], j: usize, on_hold: bool) {
+        let m = &mut men[j];
+        m.portal = Some(leave_through_portal(&mut m.vals, &mut m.gone, &mut m.draft_risk, "playing time", on_hold));
+    }
+
+    fn spot(key: &str) -> usize {
+        SPOTS.iter().position(|s| s.0 == key).unwrap()
+    }
+
+    /// The place man `j` would have had if he alone had stayed.
+    fn stayed(men: &[Man], order: &[(Position, Vec<u32>)], j: usize, n: usize) -> Option<Place> {
+        let ip = men[j].portal.as_ref().unwrap();
+        let val = |m: usize, n: usize| if m == j { ip.stay[n] } else { men[m].vals[n] };
+        let with_him = pick_starters(men, order, &val);
+        place(men, &with_him, j, n, &val)
+    }
+
+    #[test]
+    fn a_man_in_the_portal_counts_as_gone() {
+        use Position::*;
+        // Two quarterbacks; the better one, a likely early entrant, enters the portal.
+        let mut men = vec![man(0, QB, all(80.0)), man(1, QB, all(70.0)), man(2, RB, all(75.0))];
+        men[0].draft_risk = true;
+        men[0].vals[2] = None;
+        men[0].gone = Some((2, "is likely to declare for the draft after 2027".into()));
+        let before = pick_starters(&men, &[], &|j, n| men[j].vals[n]);
+        assert_eq!(before[spot("QB")], [Some(0), Some(0), Some(1)]);
+        enters(&mut men, 0, false);
+        assert_eq!(men[0].vals, [None; 3], "off every fall the map plans");
+        assert_eq!(men[0].gone, Some((0, "is in the transfer portal".to_string())));
+        assert!(!men[0].draft_risk, "in the portal, not a draft risk to plan around");
+        let after = pick_starters(&men, &[], &|j, n| men[j].vals[n]);
+        assert_eq!(after[spot("QB")], [Some(1); 3], "the next man starts every fall");
+        assert_eq!(after[spot("RB")], [Some(2); 3], "the other spots stand");
+        // If he had stayed: the starter this fall and next, then off to the draft as before.
+        for n in 0..2 {
+            let pl = stayed(&men, &[], 0, n).unwrap();
+            assert_eq!((pl.spot, pl.line, pl.of, pl.role), (Some(spot("QB")), 1, 2, PlayingTime::Starter));
+            assert_eq!(place_words(QB, &pl), "Starter at quarterback");
+        }
+        assert!(stayed(&men, &[], 0, 2).is_none(), "gone by then anyway");
+        let kept = men[0].portal.as_ref().unwrap();
+        assert_eq!(kept.stay_gone.as_ref().map(|g| g.0), Some(2));
+        assert_eq!(kept.why, "playing time");
+    }
+
+    #[test]
+    fn an_entrant_on_hold_plays_the_run_out() {
+        use Position::*;
+        let mut men = vec![man(0, QB, all(80.0)), man(1, QB, all(70.0))];
+        enters(&mut men, 0, true);
+        assert_eq!(men[0].vals, [Some(80.0), None, None]);
+        assert_eq!(men[0].gone.as_ref().map(|g| g.0), Some(1));
+        let st = pick_starters(&men, &[], &|j, n| men[j].vals[n]);
+        assert_eq!(st[spot("QB")], [Some(0), Some(1), Some(1)]);
+    }
+
+    #[test]
+    fn a_hold_never_outlives_its_season() {
+        let (today, far) = (10_000, i32::MAX / 2);
+        assert!(on_hold(true, far, today, true), "a playoff team's entrant, the run still on");
+        assert!(!on_hold(true, today + 3, today, true), "released: he has his day");
+        assert!(!on_hold(false, today + 3, today, true), "an entry dated inside the window");
+        assert!(!on_hold(true, far, today, false), "the year has turned: he is in the portal");
+    }
+
+    #[test]
+    fn the_depth_order_skips_a_man_in_the_portal() {
+        use Position::*;
+        // Your order starts the lesser back; he enters the portal.
+        let mut men = vec![man(0, RB, all(60.0)), man(1, RB, all(72.0)), man(2, RB, all(66.0))];
+        let order = vec![(RB, vec![100, 102, 101])];
+        let st = pick_starters(&men, &order, &|j, n| men[j].vals[n]);
+        assert_eq!(st[spot("RB")], [Some(0), Some(1), Some(1)], "now by your order, later by the reads");
+        enters(&mut men, 0, false);
+        let st = pick_starters(&men, &order, &|j, n| men[j].vals[n]);
+        assert_eq!(st[spot("RB")], [Some(2), Some(1), Some(1)], "the next man in your order starts now");
+        // Had he stayed he starts now by your order; next fall he is third by the reads.
+        let now = stayed(&men, &order, 0, 0).unwrap();
+        assert_eq!((now.spot, now.line, now.role), (Some(spot("RB")), 1, PlayingTime::Starter));
+        let next = stayed(&men, &order, 0, 1).unwrap();
+        assert_eq!((next.spot, next.line, next.of, next.role), (None, 3, 3, PlayingTime::Backup));
+        assert_eq!(place_words(RB, &next), "Third running back");
+    }
+
+    #[test]
+    fn the_place_he_would_have_had_follows_the_depth_chart_rule() {
+        use Position::*;
+        // Five receivers, four linebackers, two quarterbacks and a long
+        // snapper stay; one more of each is in the portal.
+        let mut men: Vec<Man> = Vec::new();
+        for (k, v) in [80.0, 78.0, 76.0, 72.0, 70.0].into_iter().enumerate() {
+            men.push(man(k, WR, all(v)));
+        }
+        for (k, v) in [80.0, 78.0, 76.0, 70.0].into_iter().enumerate() {
+            men.push(man(10 + k, LB, all(v)));
+        }
+        men.push(man(20, QB, all(80.0)));
+        men.push(man(21, QB, all(60.0)));
+        men.push(man(30, LS, all(60.0)));
+        let role = |pos: Position, v: f64| {
+            let mut men: Vec<Man> = men.iter().map(|m| man(m.i, m.pos, m.vals)).collect();
+            men.push(man(99, pos, all(v)));
+            let j = men.len() - 1;
+            enters(&mut men, j, false);
+            let pl = stayed(&men, &[], j, 1).unwrap();
+            (pl.role, pl.line, pl.spot.map(|k| SPOTS[k].0), place_words(pos, &pl))
+        };
+        assert_eq!(role(WR, 79.0), (PlayingTime::Starter, 2, Some("Z"), "Starter at wide receiver (Z)".into()));
+        assert_eq!(role(WR, 75.0), (PlayingTime::Rotation, 4, None, "Fourth wide receiver".into()));
+        assert_eq!(role(WR, 71.5), (PlayingTime::Backup, 5, None, "Fifth wide receiver".into()));
+        // Every spot on the map starts: the third linebacker too.
+        assert_eq!(role(LB, 77.5), (PlayingTime::Starter, 3, Some("SAM"), "Starter at strongside linebacker".into()));
+        assert_eq!(role(LB, 75.0), (PlayingTime::Backup, 4, None, "Fourth linebacker".into()));
+        // The game's depth chart calls the next quarterback rotation.
+        assert_eq!(role(QB, 70.0), (PlayingTime::Rotation, 2, None, "Second quarterback".into()));
+        assert_eq!(role(QB, 50.0), (PlayingTime::Backup, 3, None, "Third quarterback".into()));
+        // No spot on the map for the long snapper: the depth chart's one starter.
+        assert_eq!(role(LS, 65.0), (PlayingTime::Starter, 1, None, "Starter at long snapper".into()));
+        assert_eq!(role(LS, 55.0), (PlayingTime::Rotation, 2, None, "Second long snapper".into()));
     }
 
     #[test]

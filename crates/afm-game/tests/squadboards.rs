@@ -159,6 +159,90 @@ fn quick_filter(level: &str, v: &Value) {
     }
 }
 
+/// Puts one of your players in the transfer portal (`held`: on hold for a
+/// playoff run, with no day yet), or takes him out of it.
+fn set_portal(g: &mut Game, id: u32, entry: Option<bool>) {
+    use afm_engine::calendar::Date;
+    let w = g.world.as_mut().unwrap();
+    let today = w.today;
+    let p = w.people.iter_mut().find(|p| p.player.id == id).unwrap();
+    p.cal.portal = entry.map(|held| afm_engine::world::PortalEntry {
+        entered: if held { Date(i32::MAX / 2) } else { today },
+        decide_by: if held { Date(i32::MAX / 2) } else { today.add(20) },
+        why: "playing time",
+        held,
+        looking: false,
+    });
+}
+
+/// A starter who enters the transfer portal counts as gone on the needs
+/// map (Cain 2026-11-12): he is off every fall, the next man starts, the
+/// roster count drops, and the map says the place he would have had. An
+/// entrant on hold for a playoff run plays this fall out.
+fn portal_on_the_needs_map(g: &mut Game) {
+    let before = board(g, "sb_needs", json!({}));
+    assert_eq!(before["portal"], json!([]), "nobody in the portal yet");
+    let spots = |v: &Value| v["spots"].as_array().unwrap().clone();
+    // A spot whose starter holds it this fall and next.
+    let spot = spots(&before)
+        .into_iter()
+        .find(|s| s["names"][0]["id"].is_u64() && s["names"][0]["id"] == s["names"][1]["id"])
+        .expect("a starter who stays");
+    let key = spot["key"].as_str().unwrap().to_string();
+    let id = spot["names"][0]["id"].as_u64().unwrap() as u32;
+    let at = |v: &Value| spots(v).into_iter().find(|s| s["key"] == key.as_str()).unwrap();
+    let man = |v: &Value| v["men"].as_array().unwrap().iter().find(|m| m["id"] == json!(id)).unwrap().clone();
+    let counted = |v: &Value| v["roster_line"].as_str().unwrap().split(' ').next().unwrap().parse::<u32>().unwrap();
+    assert_eq!(man(&before)["spots"][0], key.as_str(), "the men list knows where he starts");
+    assert_eq!(man(&before)["portal"], false);
+
+    set_portal(g, id, Some(false));
+    let after = board(g, "sb_needs", json!({}));
+    let s = at(&after);
+    for n in 0..3 {
+        assert_ne!(s["names"][n]["id"], json!(id), "{key}: he is in the portal and still starts in fall {n}");
+    }
+    assert!(s["why"].as_str().unwrap().contains("is in the transfer portal and counts as gone"), "{key}: {}", s["why"]);
+    let m = man(&after);
+    assert_eq!(m["vals"], json!([null, null, null]), "off every fall");
+    assert_eq!((&m["portal"], &m["gone"]["at"], &m["draft_risk"]), (&json!(true), &json!(0), &json!(false)));
+    // Other positions' spots stand as they were.
+    for (a, b) in spots(&before).iter().zip(&spots(&after)) {
+        if a["pos"] != spot["pos"] {
+            assert_eq!((&a["names"], &a["vals"]), (&b["names"], &b["vals"]), "{}", a["key"]);
+        }
+    }
+    // The place he would have had: the spot he held, on the same read.
+    assert_eq!(after["portal"].as_array().map(Vec::len), Some(1));
+    let row = &after["portal"][0];
+    assert_eq!((&row["id"], &row["on_hold"], &row["why"]), (&json!(id), &json!(false), &json!("playing time")));
+    for n in 0..2 {
+        let st = &row["stayed"][n];
+        assert_eq!((&st["role"], &st["spot"], &st["fall"]), (&json!("Starter"), &json!(key), &after["falls"][n]));
+        assert_eq!((&st["val"], &st["verdict"]), (&spot["vals"][n], &spot["verdicts"][n]), "the map's own numbers");
+        assert!(st["words"].as_str().unwrap().starts_with("Starter at "), "{}", st["words"]);
+    }
+    assert!(after["coming"].as_u64().is_some_and(|c| c <= 1), "{}", after["coming"]);
+    let leaving = after["leaving"].as_array().unwrap().iter().find(|l| l["label"] == "In the portal").unwrap();
+    assert_eq!(leaving["n"], 1);
+    assert_eq!(leaving["names"][0], spot["names"][0]["name"]);
+    assert_eq!(counted(&after) + 1, counted(&before), "off the roster count");
+    assert!(after["roster_line"].as_str().unwrap().contains("· 1 in the portal"), "{}", after["roster_line"]);
+
+    // On hold for a playoff run: he plays this fall out and is gone after.
+    set_portal(g, id, Some(true));
+    let held = board(g, "sb_needs", json!({}));
+    let s = at(&held);
+    assert_eq!(s["names"][0]["id"], json!(id), "{key}: on hold, he still starts now");
+    assert_ne!(s["names"][1]["id"], json!(id), "{key}: gone next fall");
+    assert_eq!((&held["portal"][0]["on_hold"], &man(&held)["gone"]["at"]), (&json!(true), &json!(1)));
+    assert_eq!(counted(&held), counted(&before), "still on the roster count");
+
+    // Out of the portal again, the map is as it was.
+    set_portal(g, id, None);
+    assert_eq!(board(g, "sb_needs", json!({})), before);
+}
+
 #[test]
 fn the_boards_at_every_seat() {
     let t = std::time::Instant::now();
@@ -267,6 +351,8 @@ fn the_boards_at_every_seat() {
     old.as_object_mut().unwrap().remove("kept_through");
     let old: afm_engine::world::seat::Career = serde_json::from_value(old).expect("an older career loads");
     assert!(old.kept_reads.is_empty() && old.kept_through == 0);
+
+    portal_on_the_needs_map(&mut g);
 
     // An NFL head coach.
     ok(&mut g, "load", json!({ "path": fresh.clone() }));
