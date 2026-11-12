@@ -223,3 +223,39 @@ fn a_yes_holds_his_place_on_your_roster() {
     assert_eq!(w.people[a].college, Some(mine), "he signs with you");
     assert_ne!(w.people[b].college, Some(mine), "no place was left for him");
 }
+
+#[test]
+fn a_playoff_teams_entrant_takes_your_call_once_his_team_is_out() {
+    // Minor bug 373: a playoff team's entrant keeps `held` for the record
+    // after his team is out and his real day is set. Your call, your visits
+    // and your offer's early yes all read that flag as "still playing", so he
+    // couldn't be called, visited or say yes until his decision day.
+    let (mut w, mine, i) = entrant();
+    let id = w.people[i].player.id;
+    let today = w.today;
+    w.people[i].cal.portal.as_mut().unwrap().held = true;
+    assert!(!w.people[i].cal.portal.unwrap().on_hold(), "released: he has his day");
+    assert!(!portal::visit_dates(&w, id, desk::VisitKind::Official).is_empty(), "his visits can be set");
+    let shut = portal::visit_rule(&w, i, desk::VisitKind::Home, today.add(1));
+    assert_ne!(shut.as_deref(), Some("He isn't shopping in the portal."), "a visit is open to him");
+    portal::call(&mut w, id).expect("a call to an entrant whose team is out");
+    let left = desk::budget(&w, mine).left.max(0.0);
+    let said = desk::portal_offer(&mut w, id, Some(left.min(4.0e6)), None).unwrap();
+    let t = w.front_office.college.portal.iter().find(|t| t.id == id).unwrap();
+    assert!(t.committed.is_some(), "a clear overpay decides him on the spot: {said}");
+    // Still on hold (his team plays on): no day, no call, no yes.
+    let (mut w, mine, i) = entrant();
+    let id = w.people[i].player.id;
+    let e = w.people[i].cal.portal.as_mut().unwrap();
+    (e.held, e.entered, e.decide_by) = (true, recruiting::HELD, recruiting::HELD);
+    assert!(w.people[i].cal.portal.unwrap().on_hold());
+    let said = portal::call(&mut w, id).unwrap_err();
+    assert!(said.contains("his team is still playing"), "{said}");
+    assert!(portal::race(&w, i).is_empty());
+    let left = desk::budget(&w, mine).left.max(0.0);
+    let _ = desk::portal_offer(&mut w, id, Some(left.min(4.0e6)), None);
+    assert!(
+        w.front_office.college.portal.iter().find(|t| t.id == id).is_none_or(|t| t.committed.is_none()),
+        "he says nothing until his team is out"
+    );
+}

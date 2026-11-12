@@ -1115,7 +1115,14 @@ fn on_team_with(w: &World, tier: Tier, team: usize, year: i32, sq: Option<&Sq>, 
                 .filter(|&k| w.people[k].pro.as_ref().is_some_and(|p| p.team == Some(team)))
                 .collect(),
         };
-        ids.extend(roster.iter().filter_map(|&k| w.people.get(k)).map(|p| p.player.id));
+        // Before the season starts, a college player in the transfer portal is
+        // leaving: he stays on his roster until he lands, but he is not back
+        // (as the class plan and the Needs map read him; minor bug 374). Once
+        // the season is on, the winter window's entrants are leaving after it,
+        // and they did come back into it.
+        let coming = tier == Tier::College && w.today < w.dates.fall_camp;
+        let leaving = |p: &afm_engine::world::Person| coming && p.cal.portal.is_some();
+        ids.extend(roster.iter().filter_map(|&k| w.people.get(k)).filter(|p| !leaving(p)).map(|p| p.player.id));
     }
     if let Some(s) = sq {
         ids.extend(s.starters.iter().map(|x| x.0));
@@ -1817,5 +1824,41 @@ mod tests {
         assert!((stat_by("TmToLuck").unwrap().f)(&s, 0, &lv).unwrap().abs() < 1e-9);
         // A defense ranks the other way.
         assert_eq!(better(ppg, 1), Some(false));
+    }
+
+    /// Minor bug 374: a college player in the transfer portal stays on his
+    /// roster until he lands, and counted as back in the coming season. He
+    /// is not back before the season starts; once it is on he did come back
+    /// into it, whatever he does after it.
+    #[test]
+    fn a_portal_entrant_is_not_back_in_the_coming_season() {
+        use afm_engine::world::{PortalEntry, Stage, WorldOptions};
+        let mut w =
+            World::empty(WorldOptions { scale: 0.001, history_years: 0, start_year: 2037, ..Default::default() });
+        w.add_class_aged(19);
+        let team = w.programs.iter().position(|p| p.division == Division::FBS).unwrap();
+        let year = w.year;
+        let kids: Vec<usize> =
+            (0..w.people.len()).filter(|&i| w.people[i].stage == Stage::HighSchool).take(2).collect();
+        for &i in &kids {
+            let p = &mut w.people[i];
+            (p.stage, p.college, p.class_of, p.college_seasons) = (Stage::College, Some(team), year - 1, 1);
+            w.programs[team].roster.push(i);
+        }
+        let (stays, goes) = (w.people[kids[0]].player.id, w.people[kids[1]].player.id);
+        let today = w.today;
+        w.people[kids[1]].cal.portal =
+            Some(PortalEntry { entered: today, decide_by: today.add(10), why: "test", held: false, looking: false });
+        let open = w.tally_open_season();
+        assert!(w.today < w.dates.fall_camp, "the offseason");
+        let ids = on_team_with(&w, Tier::College, team, open, None, &[]);
+        assert!(ids.contains(&stays), "a man staying is back");
+        assert!(!ids.contains(&goes), "a man in the portal is not back in the coming season");
+        // The season is on: he came back into it (and a closed season reads only its book).
+        w.today = w.dates.fall_camp;
+        let ids = on_team_with(&w, Tier::College, team, open, None, &[]);
+        assert!(ids.contains(&stays) && ids.contains(&goes), "in the season both came back");
+        let ids = on_team_with(&w, Tier::College, team, open - 1, None, &[]);
+        assert!(!ids.contains(&stays) && !ids.contains(&goes), "a closed season reads its book, not the roster");
     }
 }

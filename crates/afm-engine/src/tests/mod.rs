@@ -25,7 +25,7 @@ mod kick_units;
 mod lane7;
 mod lane9;
 mod leagues;
-mod legacy;
+pub(crate) mod legacy;
 mod level_rating;
 mod line_seasons;
 mod lines;

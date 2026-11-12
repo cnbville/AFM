@@ -386,6 +386,16 @@ pub struct PortalEntry {
     pub looking: bool,
 }
 
+impl PortalEntry {
+    /// Still on hold for his team's playoff run: he has no day yet (the
+    /// hold's day is far off, `recruiting::HELD`). `held` alone is not the
+    /// hold: a released entrant keeps it for the record (`PortalRecord`) with
+    /// his real day (minor bug 373).
+    pub fn on_hold(&self) -> bool {
+        self.held && self.entered >= recruiting::HELD
+    }
+}
+
 /// A person's calendar state (section 4). Per-season flags reset at his
 /// season's start.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]

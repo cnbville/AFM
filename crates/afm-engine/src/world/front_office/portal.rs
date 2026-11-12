@@ -127,10 +127,13 @@ fn target(w: &World, id: u32) -> Option<&super::college::PortalTarget> {
     w.front_office.college.portal.iter().find(|t| t.id == id && !t.settled)
 }
 
-/// He is shopping now: in the portal, his window open.
+/// He is shopping now: in the portal, his window open. A playoff team's
+/// entrant is shopping once his team is out and his day has come; `held`
+/// alone doesn't say he is still on hold, since he keeps it for the record
+/// (minor bug 373).
 fn shopping(w: &World, i: usize) -> bool {
     let p = &w.people[i];
-    p.stage == Stage::College && p.cal.portal.is_some_and(|e| !e.held && e.entered <= w.today)
+    p.stage == Stage::College && p.cal.portal.is_some_and(|e| !e.on_hold() && e.entered <= w.today)
 }
 
 fn first(w: &World, i: usize) -> String {
@@ -245,8 +248,12 @@ pub fn call(w: &mut World, id: u32) -> Result<u32, String> {
         return Err("He plays for you: sit down with him instead.".into());
     }
     if !shopping(w, i) {
-        return Err(if w.people[i].cal.portal.is_some() {
-            "He isn't in the portal yet: his team is still playing.".into()
+        return Err(if let Some(e) = w.people[i].cal.portal {
+            if e.on_hold() {
+                "He isn't in the portal yet: his team is still playing.".into()
+            } else {
+                format!("He isn't in the portal yet: he enters on {}.", e.entered.pretty())
+            }
         } else {
             "He isn't in the portal: a call now is tampering. Reach out quietly instead.".into()
         });
@@ -272,7 +279,7 @@ pub fn call(w: &mut World, id: u32) -> Result<u32, String> {
 /// tomorrow to his decision day.
 pub fn visit_rule(w: &World, i: usize, kind: VisitKind, d: Date) -> Option<String> {
     let p = &w.people[i];
-    let Some(e) = p.cal.portal.filter(|e| !e.held && e.entered <= w.today) else {
+    let Some(e) = p.cal.portal.filter(|e| !e.on_hold() && e.entered <= w.today) else {
         return Some("He isn't shopping in the portal.".into());
     };
     if !matches!(kind, VisitKind::Official | VisitKind::Home) {
