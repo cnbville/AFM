@@ -221,8 +221,8 @@ pub fn tally_game(w: &World, args: &Value) -> Value {
     };
     let mut fourths = Vec::new();
     let mut tries = Vec::new();
-    for k in 0..2 {
-        let Some(s) = w.tally_call(tl, year, g.teams[k]) else { continue };
+    for (k, &team) in g.teams.iter().enumerate() {
+        let Some(s) = w.tally_call(tl, year, team) else { continue };
         for f in s.fourths.iter().filter(|f| f.game == key) {
             let j = f.weigh().map(|x| calls::judge(&x, f.did));
             fourths.push((
