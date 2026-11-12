@@ -170,7 +170,7 @@ function dvStrip(page, x) {
   const cells = DV_GROUPS.map((grp) => {
     const w = dvWords(x, grp);
     const on = DV.sel.g === grp[0];
-    return `<button type="button" class="dv-cell ${w.low ? "low" : ""}" data-dv="cell" data-g="${grp[0]}" data-peek="depth" aria-pressed="${on}" aria-label="${esc(dvGroupFull(grp))}: ${esc(w.text)}"><b>${grp[0]}</b><span class="dv-w">${esc(w.text)}</span>${dvNote(page, grp)}</button>`;
+    return `<button type="button" class="dv-cell ${w.low ? "low" : ""}" data-dv="cell" data-g="${grp[0]}" data-peek="depth" title="${on ? "Click to show every group" : `Click to show only ${esc(dvGroupFull(grp).toLowerCase())}`}. Shift-click opens the Needs map beside this page." aria-pressed="${on}" aria-label="${esc(dvGroupFull(grp))}: ${esc(w.text)}"><b>${grp[0]}</b><span class="dv-w">${esc(w.text)}</span>${dvNote(page, grp)}</button>`;
   }).join("");
   return `<div class="dv-strip" role="group" aria-label="Depth by position group">${cells}</div>`;
 }
@@ -239,8 +239,12 @@ function dvCard(g) {
     .sort((a, b) => (start(a) < 0 ? 9 : start(a)) - (start(b) < 0 ? 9 : start(b))
       || (spotAt.get(a.spots[start(a)]) ?? 99) - (spotAt.get(b.spots[start(b)]) ?? 99)
       || Math.max(...b.vals.map((v) => v ?? 0)) - Math.max(...a.vals.map((v) => v ?? 0)));
-  const rowsMax = 12;
-  const rows = shown.slice(0, rowsMax);
+  // As many rows as the window has room for above the strip (the card sits
+  // there): starters and men in the portal first, then the commits who don't start.
+  const rowsMax = Math.max(6, Math.min(12, Math.floor((window.innerHeight - 320) / 56)));
+  const first = (m) => (start(m) >= 0 || m.portal ? 0 : 1);
+  const keep = new Set([...shown].sort((a, b) => first(a) - first(b)).slice(0, rowsMax));
+  const rows = shown.filter((m) => keep.has(m));
   const more = men.length - rows.length;
   const stayed = new Map((x.portal || []).map((q) => [q.id, q]));
   const cell = (m, n) => {
@@ -300,12 +304,10 @@ function dvCard(g) {
   // On the portal page itself, the entrants at this group when the page is on it.
   const pp = DV.portalPage;
   if (S.route.screen === "portal_desk" && pp && pp.div === "ALL" && pp.pos === dvToPage("portal", { g, p: null, raw: null })) foot.push(`Entrants at ${g}: <b>${pp.shown}</b> · see them in the Entrants tab`);
-  const note = !x.men ? '<p class="dv-note">The Needs map\'s list of players isn\'t in this game\'s answer yet.</p>' : "";
-  const picked = DV.sel.g === g && !DV.sel.p;
   return `<div class="dv-card"><div class="dv-ch"><b>${esc(g)} · ${men.length} ${men.length === 1 ? "player" : "players"}</b><span class="${w.low ? "low" : ""}">${esc(w.text)}</span></div>
-    ${note}<table class="dv-t"><thead><tr><th>Depth by fall · bold starts</th>${[0, 1, 2].map((n) => `<th>${yy(n)}</th>`).join("")}<th>If he goes</th></tr></thead><tbody>${body}${holeRows}</tbody></table>
+    <table class="dv-t"><thead><tr><th>Depth by fall · bold starts</th>${[0, 1, 2].map((n) => `<th>${yy(n)}</th>`).join("")}<th>If he goes</th></tr></thead><tbody>${body}${holeRows}</tbody></table>
     ${more > 0 ? `<div class="dv-more">+ ${more} more behind them</div>` : ""}${whyHtml}
-    <div class="dv-foot">${foot.map((f) => `<span>${f}</span>`).join("")}<span><b>Click</b> ${picked ? "clears the filter" : `filters this page to ${esc(g)}`} · <b>Shift-click</b> opens the Needs map beside it</span></div></div>`;
+    <div class="dv-foot">${foot.map((f) => `<span>${f}</span>`).join("")}</div></div>`;
 }
 const dvLast = (m) => String(m.name).split(" ").slice(1).join(" ") || String(m.name);
 

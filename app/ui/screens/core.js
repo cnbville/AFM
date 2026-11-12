@@ -673,8 +673,8 @@ function peekShow(a, x) {
     const above = r.top - 20, below = window.innerHeight - r.bottom - 20;
     const up = h > below && above > below;
     const room = Math.max(160, up ? above : below);
-    if (h > room) el.style.maxHeight = room + "px";
-    top = up ? r.top - Math.min(h, room) - 8 : r.bottom + 8;
+    if (h > room) { el.style.boxSizing = "border-box"; el.style.maxHeight = room + "px"; }
+    top = up ? r.top - el.offsetHeight - 8 : r.bottom + 8;
   }
   el.style.left = Math.max(12, left) + "px";
   el.style.top = Math.max(12, top) + "px";
