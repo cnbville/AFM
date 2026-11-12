@@ -193,9 +193,13 @@ pub fn recruit_nil_go_top(w: &World, i: usize) -> f64 {
 }
 
 /// A portal entrant's race as his decision reads it today, as (program,
-/// what it means to him, its money), best first. `swap`: one program's
-/// money replaced by another figure.
-pub fn portal_race_with(w: &World, i: usize, swap: Option<(usize, f64)>) -> Vec<(usize, f64, f64)> {
+/// what it means to him, its money, the role he'd have there), best first.
+/// `swap`: one program's money replaced by another figure.
+pub fn portal_race_with(
+    w: &World,
+    i: usize,
+    swap: Option<(usize, f64)>,
+) -> Vec<(usize, f64, f64, crate::player::PlayingTime)> {
     rec::portal_race_with(w, i, swap)
 }
 

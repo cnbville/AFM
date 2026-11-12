@@ -1,13 +1,13 @@
 //! How much NIL money moves a recruit's and a transfer's choice (playtest
 //! item F3, Cain 2026-11-12: an SEC school offering double the field's
-//! money wasn't in a recruit's first ten). For every recruit of the class
-//! signing next and every power-conference school on his list, the school's
-//! money is set to 0, 1, 1.5, 2 and 3 times the best money any other school
-//! on his list offers, and its place on his list is read again by the same
-//! appeal his race and his signing day weigh (`recruiting::appeal`). The
-//! same for portal entrants in an open window (`recruiting::portal_race`).
-//! Results by what he weighs: money first of his six reasons, among his
-//! first three, or lower.
+//! money wasn't in a player's first ten). For every recruit of the class
+//! signing next and every picked school on his list, the school's money is
+//! set to 0, 1, 1.5, 2 and 3 times the best money any other school on his
+//! list offers, and its place on his list is read again by the same appeal
+//! his race and his signing day weigh (`recruiting::appeal`). The same for
+//! portal entrants in an open window (`recruiting::portal_race`). Results
+//! by what he weighs: money first of his six reasons, among his first
+//! three, or lower.
 //!
 //! Usage: nil_pull play <world> <out dir> [recruit date] [portal date]
 //!          plays the world on (games on the stand-in) and saves it on each
@@ -18,6 +18,7 @@
 //! Dates are yyyy-mm-dd. The conference (default SEC) names the schools
 //! whose money is moved; "power" takes every power-conference school.
 
+use afm_engine::PlayingTime;
 use afm_engine::calendar::Date;
 use afm_engine::debug;
 use afm_engine::world::front_office::college as desk;
@@ -65,7 +66,9 @@ fn main() {
             args.get(3).map_or("SEC", String::as_str),
             args.get(4).and_then(|s| s.parse().ok()).unwrap_or(usize::MAX),
         ),
-        _ => eprintln!("usage: nil_pull play <world> <out dir> | recruits <world> [conference] | portal <world> [conference]"),
+        _ => eprintln!(
+            "usage: nil_pull play <world> <out dir> | recruits <world> [conference] | portal <world> [conference]"
+        ),
     }
 }
 
@@ -73,6 +76,53 @@ fn main() {
 fn picked(w: &World, j: usize, conference: &str) -> bool {
     let p = &w.programs[j];
     if conference == "power" { p.power_conference(w.year) } else { p.conference == conference }
+}
+
+/// A what-if on top of the game as built (`AFM_PULL_K`, `AFM_PULL_CAP`):
+/// the money that tops every other school's counts once more by its
+/// ratio, `k` × his money weight × ln(his money / the best other money),
+/// the ratio read up to `cap`. 0 (the default) is the game as it is.
+struct WhatIf {
+    k: f64,
+    cap: f64,
+}
+
+fn what_if() -> WhatIf {
+    let read = |name: &str, or: f64| std::env::var(name).ok().and_then(|s| s.parse().ok()).unwrap_or(or);
+    WhatIf { k: read("AFM_PULL_K", 0.0), cap: read("AFM_PULL_CAP", 3.0) }
+}
+
+impl WhatIf {
+    /// Each school's appeal with the what-if on top: `rows` are (appeal,
+    /// money) and `weight` his money weight.
+    fn lift(&self, weight: f64, rows: &[(f64, f64)]) -> Vec<f64> {
+        if self.k == 0.0 {
+            return rows.iter().map(|r| r.0).collect();
+        }
+        let (mut top, mut second, mut at) = (0.0, 0.0, usize::MAX);
+        for (n, r) in rows.iter().enumerate() {
+            if r.1 > top {
+                (second, top, at) = (top, r.1, n);
+            } else if r.1 > second {
+                second = r.1;
+            }
+        }
+        rows.iter()
+            .enumerate()
+            .map(|(n, r)| {
+                let other = if n == at { second } else { top };
+                let more = if other >= 1_000.0 && r.1 > other { (r.1 / other).min(self.cap).ln() } else { 0.0 };
+                r.0 + self.k * weight * more
+            })
+            .collect()
+    }
+}
+
+/// A school's place among `rows` (1: first) and its appeal less the best
+/// other school's.
+fn place(appeals: &[f64], at: usize) -> (usize, f64) {
+    let others = || appeals.iter().enumerate().filter(move |x| x.0 != at).map(|x| *x.1);
+    (1 + others().filter(|&a| a > appeals[at]).count(), appeals[at] - others().fold(f64::NEG_INFINITY, f64::max))
 }
 
 /// One (player, school) pair: what he weighs, and the school's place on his
@@ -84,6 +134,8 @@ struct Pair {
     money_w: f64,
     stars: u8,
     committed: bool,
+    /// The role a transfer would have there.
+    role: Option<PlayingTime>,
     list: usize,
     /// The field's best money, and the school's own today.
     field: f64,
@@ -110,8 +162,16 @@ fn sd(v: &[f64]) -> f64 {
 
 fn recruits(w: &World, conference: &str) {
     let class = desk::next_class(w);
+    let wi = what_if();
     println!("# Recruits of the class of {class} on {} ({conference} schools' money moved)", w.today.pretty());
+    if wi.k != 0.0 {
+        println!("What-if: money over the best other offer counts {} x his weight x ln(ratio), up to {}x", wi.k, wi.cap);
+    }
     let mut pairs: Vec<Pair> = Vec::new();
+    // A school not on his list yet, coming in with an offer (three-stars up).
+    let mut fresh: Vec<Pair> = Vec::new();
+    // NIL Go's top for a collective's deal with him over the field's best money, by stars.
+    let mut clears: [Vec<f64>; 6] = Default::default();
     let (mut lists, mut sizes) = (0usize, 0usize);
     for (i, p) in w.people.iter().enumerate() {
         if p.stage != Stage::HighSchool || p.class_of != class || p.cal.signed.is_some() {
@@ -129,41 +189,56 @@ fn recruits(w: &World, conference: &str) {
         }
         lists += 1;
         sizes += schools.len();
-        let base: Vec<(usize, f64, f64)> =
-            schools.iter().map(|&j| (j, debug::recruit_appeal(w, i, j, None), debug::recruit_money(w, j, i))).collect();
+        // (appeal, money) of every school on his list today.
+        let base: Vec<(f64, f64)> =
+            schools.iter().map(|&j| (debug::recruit_appeal(w, i, j, None), debug::recruit_money(w, j, i))).collect();
         let weights = desk::reason_weights(w, i);
-        let spread = sd(&base.iter().map(|b| b.1).collect::<Vec<_>>());
-        for &(j, appeal, own) in &base {
-            if !picked(w, j, conference) || p.cal.commit.is_some_and(|c| c.0 == j) {
-                continue;
+        let spread = sd(&base.iter().map(|b| b.0).collect::<Vec<_>>());
+        // One school's money moved: `n` its row (the list's length for a new school).
+        let mut moved = |j: usize, n: usize, own: f64, to: &mut Vec<Pair>| {
+            let mut rows = base.clone();
+            if n == rows.len() {
+                rows.push((debug::recruit_appeal(w, i, j, None), own));
             }
-            let others = || base.iter().filter(move |b| b.0 != j);
-            let field = others().map(|b| b.2).fold(0.0, f64::max);
+            let field = rows.iter().enumerate().filter(|x| x.0 != n).map(|x| x.1.1).fold(0.0, f64::max);
             if field < 1_000.0 {
-                continue;
+                return;
             }
-            let best = others().map(|b| b.1).fold(f64::NEG_INFINITY, f64::max);
-            let place_of = |a: f64| 1 + others().filter(|b| b.1 > a).count();
+            let today = place(&wi.lift(weights[2], &rows), n).0;
             let mut at = [0; 5];
             let mut gap = [0.0; 5];
             for (k, t) in TIMES.iter().enumerate() {
-                let a = debug::recruit_appeal(w, i, j, Some(t * field));
-                at[k] = place_of(a);
-                gap[k] = a - best;
+                rows[n] = (debug::recruit_appeal(w, i, j, Some(t * field)), t * field);
+                (at[k], gap[k]) = place(&wi.lift(weights[2], &rows), n);
             }
-            pairs.push(Pair {
+            to.push(Pair {
                 money_rank: money_place(&weights),
                 money_w: weights[2],
                 stars: p.stars,
                 committed: p.cal.commit.is_some(),
-                list: schools.len(),
+                role: None,
+                list: rows.len(),
                 field,
                 own,
-                place: place_of(appeal),
+                place: today,
                 at,
                 gap,
                 spread,
             });
+        };
+        for (n, &j) in schools.iter().enumerate() {
+            if picked(w, j, conference) && p.cal.commit.is_none_or(|c| c.0 != j) {
+                moved(j, n, base[n].1, &mut pairs);
+            }
+        }
+        if p.stars >= 3 {
+            for j in (0..w.programs.len()).filter(|&j| picked(w, j, conference) && !schools.contains(&j)) {
+                moved(j, base.len(), debug::recruit_money(w, j, i), &mut fresh);
+            }
+            let field = base.iter().map(|b| b.1).fold(0.0, f64::max);
+            if field >= 1_000.0 {
+                clears[p.stars.min(5) as usize].push(debug::recruit_nil_go_top(w, i) / field);
+            }
         }
     }
     println!(
@@ -171,11 +246,27 @@ fn recruits(w: &World, conference: &str) {
         sizes as f64 / lists.max(1) as f64,
         pairs.len()
     );
+    for s in [5usize, 4, 3] {
+        println!(
+            "NIL Go's top for a collective's deal with a {s}-star, over the best money on his list: median {:.2} ({} recruits)",
+            median(&mut clears[s]),
+            clears[s].len()
+        );
+    }
     report(&pairs);
+    println!(
+        "\n# A new offer: {conference} schools not on his list yet, three-stars and better ({} pairs)",
+        fresh.len()
+    );
+    report(&fresh);
 }
 
 fn portal(w: &World, conference: &str, most: usize) {
+    let wi = what_if();
     println!("# Portal entrants on {} ({conference} schools' money moved)", w.today.pretty());
+    if wi.k != 0.0 {
+        println!("What-if: money over the best other offer counts {} x his weight x ln(ratio), up to {}x", wi.k, wi.cap);
+    }
     let entrants: Vec<usize> = w
         .people
         .iter()
@@ -201,8 +292,10 @@ fn portal(w: &World, conference: &str, most: usize) {
         }
         let p = &w.people[i];
         let weights = debug::transfer_weights(w, i);
+        let rows = |race: &[(usize, f64, f64, PlayingTime)]| race.iter().map(|r| (r.1, r.2)).collect::<Vec<_>>();
         let spread = sd(&base.iter().map(|b| b.1).collect::<Vec<_>>());
-        for (n, &(j, _, own)) in base.iter().enumerate() {
+        let today = wi.lift(weights[2], &rows(&base));
+        for (n, &(j, _, own, role)) in base.iter().enumerate() {
             if !picked(w, j, conference) {
                 continue;
             }
@@ -215,19 +308,18 @@ fn portal(w: &World, conference: &str, most: usize) {
             for (k, t) in TIMES.iter().enumerate() {
                 let race = debug::portal_race_with(w, i, Some((j, t * field)));
                 let at_j = race.iter().position(|r| r.0 == j).expect("still after him");
-                at[k] = at_j + 1;
-                let best = race.iter().filter(|r| r.0 != j).map(|r| r.1).fold(f64::NEG_INFINITY, f64::max);
-                gap[k] = race[at_j].1 - best;
+                (at[k], gap[k]) = place(&wi.lift(weights[2], &rows(&race)), at_j);
             }
             pairs.push(Pair {
                 money_rank: money_place(&weights),
                 money_w: weights[2],
                 stars: p.stars,
                 committed: false,
+                role: Some(role),
                 list: base.len(),
                 field,
                 own,
-                place: n + 1,
+                place: place(&today, n).0,
                 at,
                 gap,
                 spread,
@@ -241,6 +333,23 @@ fn portal(w: &World, conference: &str, most: usize) {
         pairs.len()
     );
     report(&pairs);
+    println!("\n# By the role he'd have there");
+    let all: Vec<&Pair> = pairs.iter().collect();
+    for (name, role) in [("start", PlayingTime::Starter), ("be in the rotation", PlayingTime::Rotation)] {
+        let v: Vec<&Pair> = all.iter().copied().filter(|p| p.role == Some(role)).collect();
+        table(&format!("He would {name}"), &v);
+        table(
+            &format!("He would {name}, and money is among his first three reasons"),
+            &v.iter().copied().filter(|p| p.money_rank <= 2).collect::<Vec<_>>(),
+        );
+    }
+    table(
+        "He would be a backup",
+        &all.iter()
+            .copied()
+            .filter(|p| !matches!(p.role, Some(PlayingTime::Starter | PlayingTime::Rotation)))
+            .collect::<Vec<_>>(),
+    );
 }
 
 fn median(v: &mut [f64]) -> f64 {
@@ -315,6 +424,6 @@ fn report(pairs: &[Pair]) {
         table(&format!("{s}-stars"), &open.iter().copied().filter(|p| p.stars == s).collect::<Vec<_>>());
     }
     table("2-stars and lower", &open.iter().copied().filter(|p| p.stars <= 2).collect::<Vec<_>>());
-    // Cain's case: a recruit with many schools after him.
+    // Cain's case: a player with many schools after him.
     table("Lists of 15 schools or more", &open.iter().copied().filter(|p| p.list >= 15).collect::<Vec<_>>());
 }

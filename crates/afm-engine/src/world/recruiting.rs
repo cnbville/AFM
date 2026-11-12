@@ -8586,10 +8586,14 @@ pub(crate) fn transfer_weights(w: &World, i: usize) -> [f64; 6] {
 }
 
 /// Trial tooling (`debug`): [`portal_ranked`] as (program, what it means to
-/// him, its money).
+/// him, its money, the role he'd have there).
 #[cfg(feature = "debug")]
-pub(crate) fn portal_race_with(w: &World, i: usize, swap: Option<(usize, f64)>) -> Vec<(usize, f64, f64)> {
-    portal_ranked(w, i, swap).into_iter().map(|r| (r.0, r.1, r.2)).collect()
+pub(crate) fn portal_race_with(
+    w: &World,
+    i: usize,
+    swap: Option<(usize, f64)>,
+) -> Vec<(usize, f64, f64, PlayingTime)> {
+    portal_ranked(w, i, swap).into_iter().map(|r| (r.0, r.1, r.2, r.3)).collect()
 }
 
 /// Entrants whose day has come decide (T3, T9): each shops among programs
