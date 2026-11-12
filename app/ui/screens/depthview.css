@@ -61,7 +61,7 @@
 .dv-t th { text-align: right; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--fg3); padding: 6px 8px; border-bottom: 1px solid var(--hair); white-space: nowrap; }
 .dv-t th:first-child { text-align: left; padding-left: 0; }
 .dv-t th:last-child { text-align: left; }
-.dv-t td { padding: 6px 8px; border-bottom: 1px solid var(--hair); vertical-align: baseline; }
+.dv-t td { padding: 5px 8px; border-bottom: 1px solid var(--hair); vertical-align: baseline; }
 .dv-t .dv-who { padding-left: 0; }
 .dv-who a.link { font-weight: 700; margin-right: 6px; }
 .dv-who small { color: var(--fg3); font-size: 12px; }

@@ -239,7 +239,7 @@ function dvCard(g) {
     .sort((a, b) => (start(a) < 0 ? 9 : start(a)) - (start(b) < 0 ? 9 : start(b))
       || (spotAt.get(a.spots[start(a)]) ?? 99) - (spotAt.get(b.spots[start(b)]) ?? 99)
       || Math.max(...b.vals.map((v) => v ?? 0)) - Math.max(...a.vals.map((v) => v ?? 0)));
-  const rowsMax = 14;
+  const rowsMax = 12;
   const rows = shown.slice(0, rowsMax);
   const more = men.length - rows.length;
   const stayed = new Map((x.portal || []).map((q) => [q.id, q]));

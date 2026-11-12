@@ -667,6 +667,15 @@ function peekShow(a, x) {
   let left = r.left, top = r.bottom + 8;
   if (left + w > window.innerWidth - 12) left = window.innerWidth - w - 12;
   if (top + h > window.innerHeight - 12) top = r.top - h - 8;
+  // The depth card never covers the cell it describes (the click on the cell
+  // filters the page): it takes the side with more room and scrolls inside.
+  if (el.classList.contains("wide") && el.querySelector(".dv-card")) {
+    const above = r.top - 20, below = window.innerHeight - r.bottom - 20;
+    const up = h > below && above > below;
+    const room = Math.max(160, up ? above : below);
+    if (h > room) el.style.maxHeight = room + "px";
+    top = up ? r.top - Math.min(h, room) - 8 : r.bottom + 8;
+  }
   el.style.left = Math.max(12, left) + "px";
   el.style.top = Math.max(12, top) + "px";
   el.addEventListener("mouseenter", () => clearTimeout(PEEK.hideTimer));
