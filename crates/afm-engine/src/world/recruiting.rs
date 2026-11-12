@@ -7287,7 +7287,7 @@ struct Held {
 
 /// The entry dates of a held entrant until he is released: no decision is
 /// due before then.
-const HELD: Date = Date(i32::MAX / 2);
+pub(crate) const HELD: Date = Date(i32::MAX / 2);
 
 /// One of your players who wants to leave (your program, as head coach):
 /// he asks to see you first, and on his day he enters only if his lean is
@@ -7433,9 +7433,12 @@ fn enter_portal(w: &mut World, i: usize, c: usize, entered: Date, decide_by: Dat
             held: false,
         });
     }
+    // His NIL deals end when he enters (T3): his pay, and the deals your desk
+    // counts against your budget while he shops (minor bug 375).
+    let id = w.people[i].player.id;
+    fo::college::drop_deals(w, id);
     let p = &mut w.people[i];
     p.cal.portal = Some(super::PortalEntry { entered, decide_by, why: why.reason(), held: false, looking: false });
-    // His NIL deal ends when he enters (T3).
     if p.nil_income > 0.0 {
         p.nil_income = 0.0;
         let age = p.row_age();
@@ -7502,6 +7505,11 @@ fn release_held(w: &mut World, market: &mut PortalMarket) {
     for (h, last) in out {
         let entered = h.window_day.max(last.add(1 + h.extra));
         if let Some(bar) = h.bar.filter(|_| mine == Some(h.program)) {
+            // The hold is over but he has not entered: like a player on a team
+            // outside the playoff he has no entry until his talk with you.
+            // His held entry would make `intents_day` skip him, and he would
+            // read "In the portal" until fall camp (minor bug 372).
+            w.people[h.person].cal.portal = None;
             ask.push((h.person, entered, h.decide_in, h.why, bar));
             continue;
         }
@@ -8495,7 +8503,7 @@ pub(crate) fn portal_race(w: &World, i: usize) -> Vec<(usize, f64)> {
     let Some(mk) = w.portal_market.as_ref() else { return Vec::new() };
     let p = &w.people[i];
     let (Some(e), Some(c)) = (p.cal.portal, p.college) else { return Vec::new() };
-    if e.held || e.entered > w.today {
+    if e.on_hold() || e.entered > w.today {
         return Vec::new();
     }
     let id = p.player.id;
@@ -9605,6 +9613,68 @@ pub(crate) fn class_outlook(w: &World, j: usize) -> ClassOutlook {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Minor bug 372: a playoff team's player of yours who means to enter the
+    /// portal has no entry once his team is out, as one on a team outside the
+    /// playoff has none before his talk. His held entry made `intents_day`
+    /// skip him, so after his talk he neither entered nor stayed and read "In
+    /// the portal" until fall camp.
+    #[test]
+    fn a_playoff_teams_entrant_of_yours_decides_after_his_talk() {
+        let mut w = crate::tests::legacy::seat("college");
+        let mine = w.seat.and_then(|s| s.program).unwrap();
+        w.add_class_aged(19);
+        let year = w.year;
+        let room: Vec<usize> =
+            (0..w.people.len()).filter(|&i| w.people[i].stage == Stage::HighSchool).take(2).collect();
+        for &i in &room {
+            let q = &mut w.people[i];
+            q.stage = Stage::College;
+            q.college = Some(mine);
+            q.class_of = year - 1;
+            q.college_seasons = 1;
+            q.last_role = Some(crate::player::PlayingTime::Backup);
+            q.cal.lean = 0.9;
+            w.programs[mine].roster.push(i);
+        }
+        // The window opens (which makes its market): both ask to see you.
+        let close = w.today.add(15);
+        portal_open(&mut w, super::super::clock::PortalWindow::Winter, close);
+        assert_eq!(w.portal_intents.len(), 2, "both ask to see you");
+        // The second one's team is in the playoff: he is on hold.
+        let (b, id) = (room[1], w.people[room[1]].player.id);
+        w.portal_intents.retain(|t| !t.is(id));
+        w.people[b].cal.portal = Some(crate::world::PortalEntry {
+            entered: HELD,
+            decide_by: HELD,
+            why: Why::PlayingTime.reason(),
+            held: true,
+            looking: false,
+        });
+        assert!(w.people[b].cal.portal.is_some_and(|e| e.on_hold()));
+        let today = w.today;
+        w.portal_market.as_mut().unwrap().held.push(Held {
+            person: b,
+            program: mine,
+            window_day: today,
+            extra: 0,
+            decide_in: 4,
+            why: Why::PlayingTime,
+            bar: Some(0.3),
+        });
+        // His team is out (the test world has no playoff): he is released and
+        // asks to see you, with no entry until then.
+        portal_day(&mut w, false);
+        assert!(w.people[b].cal.portal.is_none(), "he has no entry before his talk");
+        assert!(w.portal_intents.iter().any(|t| t.is(id)), "he asked to see you");
+        // His talk didn't change his mind: on his day he is in the portal
+        // with his own day, no longer on hold.
+        w.today = w.today.add(30);
+        intents_day(&mut w);
+        assert!(w.portal_intents.is_empty(), "both decided");
+        let e = w.people[b].cal.portal.expect("he entered after his talk");
+        assert!(!e.on_hold() && e.entered <= w.today, "he is in the portal on his day, not on hold");
+    }
 
     /// Minor bug 255: a recruit reads a school's distance from his own town
     /// to its campus. A Jacksonville kid has Georgia Southern, about 150

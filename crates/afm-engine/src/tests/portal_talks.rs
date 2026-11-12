@@ -145,3 +145,76 @@ fn a_said_line_is_read_back_to_its_version() {
     assert!(!could_say("I want to stay.", "I want to go."));
     assert!(!could_say("Leaving {team} is hard.", "Staying at Air Force is hard."));
 }
+
+#[test]
+fn a_player_who_enters_the_portal_leaves_your_nil_budget() {
+    // Minor bug 375: `enter_portal` ended his NIL income but his deal stayed
+    // in the desk, so the money you could promise was short by it while he
+    // shopped. Entering ends his deals as being cut does, and an old offer
+    // of yours to him (a transfer you brought in) doesn't give him one again.
+    let (mut w, p, room) = leaning_room(2);
+    crate::world::front_office::college::ready(&mut w);
+    let ids: Vec<u32> = room.iter().map(|&i| w.people[i].player.id).collect();
+    // The desk seeded the roster it inherited; these two have these deals.
+    w.front_office.college.deals.retain(|d| !ids.contains(&d.0));
+    w.front_office.college.coll_deals.retain(|d| !ids.contains(&d.0));
+    for &id in &ids {
+        w.front_office.college.deals.push((id, 25_000.0));
+        w.front_office.college.coll_deals.push((id, 10_000.0));
+    }
+    // The second came to you through the portal last year, on an offer that is settled.
+    let today = w.today;
+    w.front_office.college.portal.push(crate::world::front_office::college::PortalTarget {
+        id: ids[1],
+        added: today.add(-300),
+        offered: Some(today.add(-290)),
+        nil: Some(200_000.0),
+        nil_coll: Some(100_000.0),
+        contacted: None,
+        leaked: false,
+        from: if p == 0 { 1 } else { 0 },
+        settled: true,
+        talks: Vec::new(),
+        visits: Vec::new(),
+        feel: None,
+        promise: None,
+        committed: None,
+        called: None,
+    });
+    let before = crate::world::front_office::college::budget(&w, p);
+    let close = w.today.add(15);
+    recruiting::portal_open(&mut w, PortalWindow::Winter, close);
+    // They asked to see you first: still yours, deals stand.
+    assert_eq!(w.front_office.college.deals.iter().filter(|d| ids.contains(&d.0)).count(), 2);
+    // One is talked into staying; the other still wants out.
+    w.people[room[0]].cal.lean = 0.0;
+    w.today = close.add(1);
+    recruiting::intents_day(&mut w);
+    assert!(w.people[room[0]].cal.portal.is_none() && w.people[room[1]].cal.portal.is_some());
+    let has = |w: &World, id: u32| {
+        (
+            w.front_office.college.deals.iter().any(|d| d.0 == id),
+            w.front_office.college.coll_deals.iter().any(|d| d.0 == id),
+        )
+    };
+    assert_eq!(has(&w, ids[0]), (true, true), "he stayed, so his deals stand");
+    assert_eq!(has(&w, ids[1]), (false, false), "he is in the portal, so his deals are gone");
+    let after = crate::world::front_office::college::budget(&w, p);
+    assert!(
+        (before.roster - after.roster - 25_000.0).abs() < 1.0,
+        "your budget no longer counts his deal: {} then {}",
+        before.roster,
+        after.roster
+    );
+    assert!(
+        (before.coll_roster - after.coll_roster) > 0.0 || before.coll_roster == 0.0,
+        "nor his collective deal: {} then {}",
+        before.coll_roster,
+        after.coll_roster
+    );
+    // The desk's morning run doesn't hand it back from his old offer.
+    crate::world::front_office::college::fill_deals(&mut w);
+    assert_eq!(has(&w, ids[1]), (false, false), "his old offer gives him no new deal while he shops");
+    let again = crate::world::front_office::college::budget(&w, p);
+    assert!((again.roster - after.roster).abs() < 1.0, "{} then {}", after.roster, again.roster);
+}
