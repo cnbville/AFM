@@ -225,7 +225,7 @@ fn college_moves(w: &World, k: usize, j: usize, own: bool, out: &mut Vec<Value>)
     if p.cal.portal.is_some() && p.stage == Stage::College {
         let t = w.front_office.college.portal.iter().find(|t| t.id == id && !t.settled);
         out.push(main(mv("portal", "His portal file")));
-        if p.cal.portal.is_some_and(|e| !e.held && e.entered <= w.today)
+        if p.cal.portal.is_some_and(|e| !e.on_hold() && e.entered <= w.today)
             && t.is_none_or(|t| t.called != Some(w.today) && t.committed.is_none())
         {
             out.push(mv("pcall", "Call him"));
