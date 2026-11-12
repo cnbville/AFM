@@ -1049,6 +1049,8 @@ function noteBox(about, page) {
   setTimeout(() => { const t = document.querySelector("#nb"); if (t) t.focus(); }, 30);
 }
 async function openNotes() {
+  // The notebook sits in the same place: one at a time (screens/notebook.js).
+  if (typeof NOTEBOOK !== "undefined" && NOTEBOOK.open) notebookClose();
   let el = document.querySelector(".notes-sheet");
   if (!el) {
     el = document.createElement("aside");

@@ -296,6 +296,7 @@ const I = {
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
   note: '<path d="M5 3h10l4 4v14H5z M15 3v4h4 M8 11h8M8 15h8M8 19h5"/>',
+  notebook: '<path d="M6 3h11a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6z M6 3v18 M10 8h6M10 12h6"/>',
   leader: '<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>',
   bracket: '<path d="M3 5h5v4h4 M3 13h5V9 M3 15h5v4h4 M3 23h5v-4 M12 7v14 M12 14h9"/>',
   fold: '<path d="M8 10l4 4 4-4"/>',
@@ -377,6 +378,7 @@ function frame(content, crumb) {
         <button class="st-icon-btn" data-act="fwd" title="Forward (⌘])" ${S.fwd.length ? "" : "disabled"}>${icon("fwd")}</button>
         <nav class="crumb" aria-label="Where you are">${crumb || ""}</nav>
         <div class="search"><span class="sicon">${icon("search")}</span><input id="q" placeholder="Search anything" autocomplete="off" spellcheck="false"><kbd>⌘K</kbd></div>
+        <button class="st-icon-btn nb-toggle" data-act="notebook" title="Notebook: your own notes, in categories, beside any screen" aria-label="Notebook" aria-pressed="${typeof NOTEBOOK !== "undefined" && NOTEBOOK.open}">${icon("notebook")}</button>
         <div class="datebox"><b>${esc(st.clock || st.today || "")}</b><small>${next ? esc(`${next.text.slice(0, 60)}${next.text.length > 60 ? "…" : ""} · ${next.in === 0 ? "today" : next.in === 1 ? "tomorrow" : "in " + next.in + " d"}`) : ""}</small></div>
         <button class="st-btn primary continue ${S.busy ? "busy" : ""}" data-act="continue" title="Continue (space)">${S.busy ? "Playing…" : "Continue"}</button>
         ${S.busy ? '<div class="progress"><i></i></div>' : ""}
