@@ -51,6 +51,7 @@ mod split_build;
 mod stories;
 mod storylines;
 mod tactics;
+mod talk_adviser;
 mod talks_matter;
 mod tallies;
 mod tendencies;

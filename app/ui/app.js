@@ -400,21 +400,32 @@ function pinnedHtml(st) {
 
 // The path you took since your last sidebar click, each step a link (L7).
 function crumbHtml() {
-  const trail = [];
-  for (let i = S.back.length - 1; i >= 0 && trail.length < 5; i--) {
+  const path = [];
+  for (let i = S.back.length - 1; i >= 0; i--) {
     const r = S.back[i];
     if (outside(r)) break;
-    trail.unshift({ r, n: S.back.length - i });
+    path.unshift({ r, n: S.back.length - i });
     if (r.root) break;
   }
-  const label = (r) => esc(r.title || CRUMBS[r.screen] || r.screen);
-  // A page opened from itself, or twice in a row, shows once.
-  const key = (r) => r.screen + JSON.stringify(r.args || {});
-  for (let i = trail.length - 1; i >= 0; i--) {
-    if (key(trail[i].r) === key(S.route) || (i > 0 && key(trail[i].r) === key(trail[i - 1].r))) trail.splice(i, 1);
+  path.push({ r: { ...S.route, title: S.title }, n: 0 });
+  const label = (r) => r.title || CRUMBS[r.screen] || r.screen;
+  // A page shows once, by what the step says (a film room reopened with
+  // other arguments still reads "Jalen Carter · Film room"). Opening a page
+  // already on the path cuts the path back to that step: whatever came after
+  // it drops, and the step stands for the newest visit (Cain, 2026-11-12:
+  // the film room stacked on every watch).
+  // A screen that gave no name of its own reads the same for every page it
+  // shows, so its arguments tell its pages apart.
+  const key = (r) => r.screen + "\u0000" + label(r) + (r.title && r.title !== (CRUMBS[r.screen] || r.screen) ? "" : "\u0000" + JSON.stringify(r.args || {}));
+  const trail = [];
+  for (const t of path) {
+    const at = trail.findIndex((u) => key(u.r) === key(t.r));
+    if (at >= 0) trail.length = at;
+    trail.push(t);
   }
-  const steps = trail.map((t) => `<a class="link" data-act="crumb" data-n="${t.n}">${label(t.r)}</a>`);
-  steps.push(`<b>${label({ ...S.route, title: S.title })}</b>`);
+  const cur = trail.pop();
+  const steps = trail.slice(-5).map((t) => `<a class="link" data-act="crumb" data-n="${t.n}">${esc(label(t.r))}</a>`);
+  steps.push(`<b>${esc(label(cur.r))}</b>`);
   return steps.join('<span class="sep">›</span>');
 }
 

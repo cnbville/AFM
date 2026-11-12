@@ -31,6 +31,11 @@
 //!   seasons showed: his normal only takes in a season's move, never turns
 //!   a season at his ratings into a pull-down (minor bug 351). Results above his
 //!   ceiling lift him past it and the ceiling moves up with him.
+//! - Where his peers' seasons really spread wider than the fit's noise
+//!   says, the season is weighed by their spread (`Book::peers`,
+//!   `Fit::over`; minor bug 367): the fit is one straight line and one pair
+//!   of noise numbers a level, and the best pass rushers' seasons spread
+//!   four times what it gives.
 //! - Snaps against stronger teams count more: 10% per standard deviation
 //!   of opponent strength, at most 20% either way (item 5).
 //! - Snaps grow him in the week he plays them (`reps`): the yearly step
@@ -513,14 +518,29 @@ impl Fit {
     /// count less (item 9) and a stat the engine makes noisy counts less.
     /// A season's move then spreads at most `c / 2` however the read is
     /// fitted, so seasons don't add up to a random walk that widens the
-    /// level's spread.
-    pub fn weight(&self, n: f64, change: f64) -> f64 {
+    /// level's spread. That holds while a season's showing really spreads
+    /// as the fit's noise says: `over` is how many times wider his peers'
+    /// seasons spread (`Fit::over`; 1 where they don't), and the noise is
+    /// taken that much bigger, so it holds for them too (minor bug 367).
+    pub fn weight(&self, n: f64, change: f64, over: f64) -> f64 {
         if !self.on() || n <= 0.0 {
             return 0.0;
         }
         let c = self.sk.min(change);
         let k = c * c * self.b * self.b;
-        k / (k + self.tau * self.tau + self.sd * self.sd / n)
+        let over = over.max(1.0);
+        k / (k + over * self.tau * self.tau + over * self.sd * self.sd / n)
+    }
+
+    /// His peers' own spread on a season of `n` trials against the fit's
+    /// noise (both variances, rating points squared): how many times wider
+    /// their seasons show than the fit gives, 1 where they aren't wider.
+    pub fn over(&self, n: f64, peers: &Peers) -> f64 {
+        if !self.on() || n <= 0.0 {
+            return 1.0;
+        }
+        let theirs = (peers.a + peers.b / n) * self.b * self.b;
+        (theirs / (self.tau * self.tau + self.sd * self.sd / n)).max(1.0)
     }
 
     /// The result a man as he is should get.
@@ -664,10 +684,19 @@ pub struct Mode {
     /// among regulars, as the first build did).
     #[serde(default = "default_change")]
     pub change: f64,
+    /// Minor bug 367: a season is weighed by his peers' own spread where
+    /// their seasons spread wider than the fit's noise says (`Book::peers`,
+    /// `Fit::over`). Off reads the fit's noise alone, as before.
+    #[serde(default = "default_spread")]
+    pub spread: bool,
 }
 
 fn default_change() -> f64 {
     CHANGE
+}
+
+fn default_spread() -> bool {
+    true
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -678,13 +707,20 @@ pub enum Dice {
 
 impl Default for Mode {
     fn default() -> Self {
-        Mode { on: true, dice: Dice::Kept, pull_down: true, practice: true, scale: 1.0, change: CHANGE }
+        Mode { on: true, dice: Dice::Kept, pull_down: true, practice: true, scale: 1.0, change: CHANGE, spread: true }
     }
 }
 
 impl Mode {
-    pub const OFF: Mode =
-        Mode { on: false, dice: Dice::Kept, pull_down: true, practice: false, scale: 1.0, change: CHANGE };
+    pub const OFF: Mode = Mode {
+        on: false,
+        dice: Dice::Kept,
+        pull_down: true,
+        practice: false,
+        scale: 1.0,
+        change: CHANGE,
+        spread: true,
+    };
 }
 
 /// Most a season's results move one skill, either way (as the yearly
@@ -732,6 +768,11 @@ pub struct Entry {
     pub np: f32,
     #[serde(default)]
     pub cp: f32,
+    /// How many times wider his peers' seasons spread than the fit's noise
+    /// says, at his last game (`Fit::over`; practice's peers while he has
+    /// no game; under 1 reads 1). His season is weighed by it.
+    #[serde(default)]
+    pub v: f32,
 }
 
 impl Entry {
@@ -831,14 +872,18 @@ impl Ledger {
 /// season would turn into a loss over the following years. A make-up that
 /// always beats his ratings still lifts him less each season, and a
 /// season below his ratings still pulls him down by what it showed.
-pub fn target(level: Level, read: Read, pos: Position, n: f64, s: f64, own: f64, mode: &Mode) -> f64 {
+///
+/// `over` is his peers' spread against the fit's (`Fit::over`, 1 for the
+/// fit's own): the season keeps less where their seasons spread wider.
+#[allow(clippy::too_many_arguments)]
+pub fn target(level: Level, read: Read, pos: Position, n: f64, s: f64, own: f64, over: f64, mode: &Mode) -> f64 {
     let f = fit(level, read, pos);
     if n <= 0.0 || f.season <= 0.0 {
         return 0.0;
     }
     let shown = s / n;
     let own = own.clamp(shown.min(0.0), shown.max(0.0));
-    let t = mode.scale * (shown - own) * f.weight(n, mode.change) * (n / f.season).min(1.0);
+    let t = mode.scale * (shown - own) * f.weight(n, mode.change, over) * (n / f.season).min(1.0);
     let t = if mode.pull_down { t } else { t.max(0.0) };
     clamp(t, -CAP, CAP)
 }
@@ -857,22 +902,23 @@ pub struct Moved {
 
 /// Moves his skills after a game. The season so far decides each skill's
 /// move; what this game adds is the change from what was already moved.
-/// Judged against the fit alone (a centre of 0); the world reads each
-/// game against its league with `apply_in`.
+/// Judged against the fit alone (a centre of 0, the fit's own noise); the
+/// world reads each game against its league with `apply_in`.
 pub fn apply(p: &mut Player, l: &mut Ledger, m: &Man, level: Level, mode: &Mode) -> Moved {
-    apply_in(p, l, m, level, mode, &|_| 0.0)
+    apply_in(p, l, m, level, mode, &|_| Peers::default())
 }
 
-/// `apply` with the league's centre on each read (`Book::centre`): the
-/// whole season so far is read against the latest centre, so the early
-/// games' centre, before the league had played much, doesn't stay in it.
+/// `apply` with his peers on each read (`Book::peers`): the whole season
+/// so far is read against their latest centre, so the early games' centre,
+/// before the league had played much, doesn't stay in it, and weighed by
+/// their own spread where it is wider than the fit's (`Fit::over`).
 pub fn apply_in(
     p: &mut Player,
     l: &mut Ledger,
     m: &Man,
     level: Level,
     mode: &Mode,
-    centre: &dyn Fn(Read) -> f64,
+    peers: &dyn Fn(Read) -> Peers,
 ) -> Moved {
     let before = p.overall();
     let mut top: Option<(Read, f64)> = None;
@@ -886,16 +932,22 @@ pub fn apply_in(
             }
         };
         let own = l.own(level, read, p.position);
+        let theirs = peers(read);
         let e = &mut l.reads[k];
         e.n += n;
         e.s += s;
         if m.practice {
             e.np += n;
-            e.cp = centre(read) as f32;
+            e.cp = theirs.centre as f32;
         } else {
-            e.c = centre(read) as f32;
+            e.c = theirs.centre as f32;
         }
-        let t = target(level, read, p.position, e.n as f64, e.centred(), own, mode);
+        // His games' peers weigh the season; practice's only while he has
+        // no game, so the weight doesn't swing between the two each week.
+        if !m.practice || e.n - e.np <= 0.0 {
+            e.v = if mode.spread { fit(level, read, p.position).over(e.n as f64, &theirs) as f32 } else { 1.0 };
+        }
+        let t = target(level, read, p.position, e.n as f64, e.centred(), own, e.v as f64, mode);
         let a = read.attr();
         let was = p.attributes.get(a);
         let now = clamp(was + t - e.applied as f64, MIN_RATING, MAX_RATING);
@@ -1027,6 +1079,41 @@ pub struct League {
     /// until it has played (minor bug 348).
     #[serde(default)]
     pub last: f64,
+    /// The peers' own spread (minor bug 367), beside their centre: the
+    /// man-games so far (`k`), the sum of each one's squared shown level
+    /// over its trials (`q`), and each man's season before a game against
+    /// that game: his summed shown level before times the game's (`xs`)
+    /// and times its trials (`xn`, to centre it), and his trials before
+    /// times the game's (`xw`).
+    #[serde(default)]
+    pub k: f64,
+    #[serde(default)]
+    pub q: f64,
+    #[serde(default)]
+    pub xs: f64,
+    #[serde(default)]
+    pub xn: f64,
+    #[serde(default)]
+    pub xw: f64,
+    /// Last season's spread for these peers (`spread`), which this
+    /// season's leans on as the centre does; the fit's in a first season.
+    #[serde(default)]
+    pub last_a: f64,
+    #[serde(default)]
+    pub last_b: f64,
+}
+
+/// A man's peers on a read as the league plays (`Book::peers`): their
+/// centre, and how far their seasons spread about it, in rating points
+/// squared: the part that stays with a man all season (`a`: his make-up,
+/// his teammates and scheme, whatever the fit's straight line misses for
+/// men rated like him) and a single trial's (`b`), so a season of `n`
+/// trials spreads `a + b / n`. All 0 reads the fit alone.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Peers {
+    pub centre: f64,
+    pub a: f64,
+    pub b: f64,
 }
 
 impl League {
@@ -1034,6 +1121,24 @@ impl League {
     /// on last season's by `prior` trials.
     fn centre(&self, prior: f64) -> f64 {
         (self.s + prior * self.last) / (self.n + prior)
+    }
+
+    /// The peers' own spread about the centre, as the season has shown it
+    /// (`Peers.a`, `Peers.b`). What stays with a man is what his season
+    /// before a game says about the game: the two share his make-up and
+    /// nothing else, so their product averages its variance. A trial's is
+    /// what the man-games' own spread leaves over that. Both lean on last
+    /// season's as the centre does, by `prior` trials (`season` a
+    /// starter's, for the weight of his season against a game).
+    fn spread(&self, prior: f64, season: f64) -> (f64, f64) {
+        let c = self.centre(prior);
+        let lean = prior * season / 2.0;
+        let a = ((self.xs - c * self.xn + lean * self.last_a) / (self.xw + lean)).max(0.0);
+        if self.k <= 0.0 {
+            return (a, self.last_b);
+        }
+        let games = (self.q - 2.0 * c * self.s + c * c * self.n - a * self.n).max(0.0);
+        (a, (games * self.n / self.k + prior * self.last_b) / (self.n + prior))
     }
 }
 
@@ -1079,7 +1184,9 @@ impl Book {
     }
 
     /// Adds a man's evidence on a read to his level's season, with his
-    /// peers on the read's skill (`BAND`).
+    /// peers on the read's skill (`BAND`). `before` is his own season
+    /// before this game, its trials and summed shown level over his rating
+    /// (`Entry::centred`; 0 and 0 for his first), for his peers' spread.
     #[allow(clippy::too_many_arguments)]
     pub fn add(
         &mut self,
@@ -1091,16 +1198,33 @@ impl Book {
         year: i32,
         n: f64,
         s: f64,
+        before: (f64, f64),
     ) {
-        let prior = CENTRE_PRIOR * fit(level, read, pos).season.max(1.0);
+        let f = fit(level, read, pos);
+        let season = f.season.max(1.0);
+        let prior = CENTRE_PRIOR * season;
         let x = self.league.entry(league_key(level, read, pos, practice, peer)).or_default();
         if x.year != year {
-            // A new season leans on the last one's centre (minor bug 348).
-            let last = if x.year == year - 1 { x.centre(prior) } else { 0.0 };
-            *x = League { year, last, ..League::default() };
+            // A new season leans on the last one's centre (minor bug 348)
+            // and spread; with no last season, on the fit's.
+            let (last, (last_a, last_b)) = if x.year == year - 1 {
+                (x.centre(prior), x.spread(prior, season))
+            } else if f.b > 0.0 {
+                (0.0, ((f.tau / f.b).powi(2), (f.sd / f.b).powi(2)))
+            } else {
+                (0.0, (0.0, 0.0))
+            };
+            *x = League { year, last, last_a, last_b, ..League::default() };
         }
         x.n += n;
         x.s += s;
+        if n > 0.0 {
+            x.k += 1.0;
+            x.q += s * s / n;
+            x.xs += before.1 * s;
+            x.xn += before.1 * n;
+            x.xw += before.0 * n;
+        }
     }
 
     /// The league's centre on a read at a position this season, among a
@@ -1118,12 +1242,26 @@ impl Book {
     /// that misses at the top of the scale) moves nobody, so it can't feed
     /// on itself. Practice keeps its own centre.
     pub fn centre(&self, level: Level, read: Read, pos: Position, practice: bool, peer: (f64, u32), year: i32) -> f64 {
-        let prior = CENTRE_PRIOR * fit(level, read, pos).season.max(1.0);
+        self.peers(level, read, pos, practice, peer, year).centre
+    }
+
+    /// A man's peers on a read this season (`centre`'s peers): their
+    /// centre and their own spread about it (`League::spread`), for the
+    /// season's weight (`Fit::over`). Their seasons spread wider than the
+    /// fit's noise says where the fit's straight line misses: on seed 92
+    /// the NFL's tackles rated 80 and over showed 25 to 84 rating points
+    /// over the line at finesse rush and a season's results moved them
+    /// about 3 points either way, twice the design's limit (minor bug 367).
+    pub fn peers(&self, level: Level, read: Read, pos: Position, practice: bool, peer: (f64, u32), year: i32) -> Peers {
+        let season = fit(level, read, pos).season.max(1.0);
+        let prior = CENTRE_PRIOR * season;
         match self.league.get(&league_key(level, read, pos, practice, peer)) {
-            Some(x) if x.year == year => x.centre(prior),
-            // His peers haven't played yet this season: last season's.
-            Some(x) if x.year == year - 1 => x.centre(prior),
-            _ => 0.0,
+            // This season's; or, his peers not having played yet, last season's.
+            Some(x) if x.year == year || x.year == year - 1 => {
+                let (a, b) = x.spread(prior, season);
+                Peers { centre: x.centre(prior), a, b }
+            }
+            _ => Peers::default(),
         }
     }
 }
@@ -1159,33 +1297,41 @@ pub(crate) fn world_game(
     men.sort_by_key(|x| x.0);
     // The league's season first, this game in it; then each man's season
     // is read against it (`Book::centre`, `apply_in`).
-    for (_, i, _, m) in &men {
+    for (id, i, _, m) in &men {
         let p = &w.people[*i].player;
         for &(r, n, s) in &m.reads {
             let peer = (p.attributes.get(r.attr()), m.snaps);
-            w.results.add(level, r, p.position, m.practice, peer, year, n as f64, s as f64);
+            // His season before this game, for his peers' spread.
+            let before = w
+                .results
+                .ledgers
+                .get(id)
+                .filter(|l| l.year == year)
+                .and_then(|l| l.reads.iter().find(|e| e.read == r as u8))
+                .map_or((0.0, 0.0), |e| (e.n as f64, e.centred()));
+            w.results.add(level, r, p.position, m.practice, peer, year, n as f64, s as f64, before);
         }
     }
     for (id, i, team, m) in men {
         let focus = w.focus_of(id);
         let q = &w.people[i].player;
-        let cs: Vec<(Read, f64)> = m
+        let cs: Vec<(Read, Peers)> = m
             .reads
             .iter()
             .map(|x| {
                 (
                     x.0,
-                    w.results.centre(level, x.0, q.position, m.practice, (q.attributes.get(x.0.attr()), m.snaps), year),
+                    w.results.peers(level, x.0, q.position, m.practice, (q.attributes.get(x.0.attr()), m.snaps), year),
                 )
             })
             .collect();
-        let centre = |r: Read| cs.iter().find(|x| x.0 == r).map_or(0.0, |x| x.1);
+        let peers = |r: Read| cs.iter().find(|x| x.0 == r).map_or(Peers::default(), |x| x.1);
         let p = &mut w.people[i].player;
         let l = w.results.ledgers.entry(id).or_insert_with(|| Ledger { year, ..Ledger::default() });
         if l.year != year {
             l.roll(year);
         }
-        let moved = apply_in(p, l, &m, level, &mode, &centre);
+        let moved = apply_in(p, l, &m, level, &mode, &peers);
         reps(p, l, m.snaps, level, m.opp as f64, focus);
         if let (Some(t), Some((r, d))) = (team, moved.up)
             && d >= BIG_GAME
