@@ -3593,6 +3593,13 @@ const POCKET_ESCAPE: f64 = 0.5;
 const PRESS_NEAR: f64 = 3.2;
 const PRESS_FROM: f64 = 0.6;
 const PRESS_CAUSE: f64 = 2.6;
+/// How much a rusher winning his block within 3 yards weighs on the
+/// quarterback's feel for the pocket, at full win and on top of him (bug
+/// 358). It was 0.6: the bug 283 merge left NFL sacks at 2.57 a team game
+/// (real 2.41) as the pocket collapsed and he held on. At 1.0 he slides or
+/// gets it out a beat sooner: 2.39 on seeds 86-89. Proposed, not
+/// confirmed.
+const POCKET_FEEL: f64 = 1.0;
 
 /// A typical quarterback's pre-snap read of the coverage (topic 3.5).
 const PRE_READ: f64 = 0.45;
@@ -3653,7 +3660,7 @@ fn quarterback(
                 soon = soon.min((dist - 1.0).max(0.0) / closing);
             }
         } else if winning > 0.0 && dist < 3.0 {
-            let feel = 0.6 * winning * (3.0 - dist) / 3.0;
+            let feel = POCKET_FEEL * winning * (3.0 - dist) / 3.0;
             pressure += feel;
             threat = threat + (me - a.pos).norm().scale(feel);
         }
@@ -4761,11 +4768,25 @@ fn rush_feet(sim: &mut Sim, i: usize) -> (f64, f64) {
 ///   power rusher's long-arm stab. Pure arms add +0.68 pts of sacks a
 ///   pressure an inch (real +0.65), most for heavy men (real heavy +1.85,
 ///   light -0.15), and no pressures; short-armed men lose nothing.
+/// - Weight (bug 358): an edge's weight about the typical edge's, 0.07
+///   yards less reach every 10 lb over and more every 10 lb under, free or
+///   on his block. Real heavy edges finish less of their pressures (-0.49
+///   pts of sacks a pressure per 10 lb held; the engine was +0.53, so
+///   heavy power rushers ran away with the sack tail); now -0.41 pure
+///   (2,000 games an arm, seed 86). It touches no strength or force: a heavy
+///   freak still sheds and drives the pocket as before.
 const FINISH_REACH: f64 = 0.2;
 const FINISH_MARK: f64 = 60.0;
 const FINISH_OWN: f64 = 0.5;
 const BEND_REACH: f64 = 0.2;
 const ARM_REACH: f64 = 0.18;
+const WEIGHT_REACH: f64 = 0.07;
+/// How far from the quarterback a second rusher, free or winning his
+/// block, shares the sack, in yards (bug 358). Real 10.8% of NFL sacks
+/// are shared (PFR 2018-25); 2.25 gives 10.8% on seeds 86-95, and the
+/// share halves a man's count, as the stat line keeps it. Proposed, not
+/// confirmed.
+const SHARE_RADIUS: f64 = 2.25;
 
 fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
     let t = sim.t;
@@ -4808,10 +4829,18 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
         let (_, tw, ta) = super::synthetic::typical_body(sim.level, g.position);
         ARM_REACH * (g.arm - ta).max(0.0) * clamp(1.0 + (g.weight - tw) / 13.0, 0.0, 3.0)
     };
+    let weight_reach = |d: usize| {
+        let g = sim.player(d);
+        if g.position != Position::EDGE {
+            return 0.0;
+        }
+        let (_, tw, _) = super::synthetic::typical_body(sim.level, g.position);
+        -WEIGHT_REACH * (g.weight - tw) / 10.0
+    };
     let through = |d: usize| {
         let a = &sim.agents[d];
         a.engaged.is_some_and(|k| sim.eng[k].pass && sim.eng[k].w > 0.45)
-            && a.pos.dist(me) < 1.2 + arm_reach(d) + finish(d)
+            && a.pos.dist(me) < 1.2 + arm_reach(d) + finish(d) + weight_reach(d)
     };
     let qv = sim.agents[qb].vel;
     // Closest approach over the last tick, as with tackles. It is worked
@@ -4822,7 +4851,7 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
         let rel = a.pos - me;
         let rv = (a.vel - qv).scale(DT);
         let back = if rv.len() > 1e-6 { clamp(rel.dot(rv) / rv.dot(rv), 0.0, 1.0) } else { 0.0 };
-        (rel - rv.scale(back)).len() < 1.25 + bend_reach(d) + finish(d)
+        (rel - rv.scale(back)).len() < 1.25 + bend_reach(d) + finish(d) + weight_reach(d)
     };
     let mut tacklers: Vec<usize> = (0..sim.agents.len())
         .filter(|&d| {
@@ -4864,12 +4893,21 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
     }
     // Sacked. Strip sacks come from the blind side. The man who brings him
     // down always gets the sack; a second rusher on him shares it.
-    sim.notes.sackers = tacklers
-        .iter()
-        .take(2)
-        .filter(|&&k| k == d || sim.agents[k].pos.dist(me) < 1.1)
-        .map(|&k| sim.agents[k].id)
-        .collect();
+    // The nearest other rusher on the quarterback when he goes down, free
+    // or winning his own pass block, inside `SHARE_RADIUS`, shares it (bug
+    // 358: it used to take a second man inside 1.1 yards among the
+    // tacklers, and none ever was).
+    let other = (0..sim.agents.len())
+        .filter(|&k| {
+            let a = &sim.agents[k];
+            k != d
+                && a.side == 1
+                && a.up(t)
+                && a.pos.dist(me) < SHARE_RADIUS
+                && a.engaged.is_none_or(|e| sim.eng[e].pass && sim.eng[e].w > 0.45)
+        })
+        .min_by(|&x, &y| sim.agents[x].pos.dist(me).total_cmp(&sim.agents[y].pos.dist(me)));
+    sim.notes.sackers = std::iter::once(d).chain(other).map(|k| sim.agents[k].id).collect();
     sim.notes.hits.push(sim.agents[d].id);
     let force = sim.agents[d].mass * sim.agents[d].vel.len();
     let carry = sim.agents[qb].a(Attr::BallSecurity);
@@ -4885,7 +4923,9 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
         sim.fumble(qb);
     } else {
         sim.progress = me.x.min(los);
-        sim.notes.tacklers = vec![sim.agents[d].id];
+        // The man who brings him down has the tackle; a second sacker is in
+        // on it (an assist), as the NFL and the NCAA keep a shared sack.
+        sim.notes.tacklers = sim.notes.sackers.clone();
         sim.dead = true;
         sim.ball = Ball::Dead(me);
     }
