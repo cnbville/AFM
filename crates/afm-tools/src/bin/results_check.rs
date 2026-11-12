@@ -13,13 +13,18 @@
 //! - What results moved by read, starters' named big games by position, and
 //!   the tackles' block shedding and rushes (a year by role, the centres by
 //!   band, the moves by place in the band; minor bugs 348 and 367).
+//! - How far a season's results move a skill against the design's limit:
+//!   every read, and the tackles' and edges' rushes by rating band, with
+//!   his peers' spread against the fit's (minor bug 367).
 //! - The players results moved most, with their seasons.
 //!
 //! Usage: results_check [history_years] [seed] [scale]
 //! `AFM_RESULTS`: off, kept (the default: on top of the dice, pull down,
 //! practice counting, item 16), kept_games (practice left out), replaced,
 //! kept_up, replaced_up, kept_practice (the same as kept), kept_wide (the
-//! weight on the skill's whole spread, as the first build).
+//! weight on the skill's whole spread, as the first build), kept_fit and
+//! kept_games_fit (kept and kept_games with the season weighed by the
+//! fit's noise alone, as before minor bug 367).
 
 use std::collections::HashMap;
 use std::time::Instant;
@@ -84,8 +89,10 @@ fn main() {
         "kept_games" => Mode { practice: false, ..on },
         "kept_practice" => Mode { practice: true, ..on },
         "kept_wide" => Mode { change: f64::INFINITY, ..on },
+        "kept_fit" => Mode { spread: false, ..on },
+        "kept_games_fit" => Mode { practice: false, spread: false, ..on },
         x => panic!(
-            "AFM_RESULTS: off, kept, kept_games, replaced, kept_up, replaced_up, kept_practice or kept_wide, not {x}"
+            "AFM_RESULTS: off, kept, kept_games, replaced, kept_up, replaced_up, kept_practice, kept_wide, kept_fit or kept_games_fit, not {x}"
         ),
     };
     let opts = WorldOptions { seed, history_years: years, scale, results, ..WorldOptions::default() };
@@ -110,9 +117,14 @@ fn main() {
     // What results moved by read (minor bug 348's check): per (level,
     // position, read), the player-seasons, the rating points moved, the
     // trials, practice's trials, the centres his season was read against
-    // (practice's and games', each weighted by its trials) and the moves'
-    // squares.
-    let mut by_read: HashMap<(usize, usize, usize), [f64; 7]> = HashMap::new();
+    // (practice's and games', each weighted by its trials), the moves'
+    // squares and his peers' spread against the fit's (`Entry.v`).
+    let mut by_read: HashMap<(usize, usize, usize), [f64; 8]> = HashMap::new();
+    // How far a season's results move a skill by his rating's band before
+    // them (minor bug 367): (level, position, read, band) to the
+    // player-seasons, the moves, their squares, his peers' spread against
+    // the fit's and his trials.
+    let mut by_band: HashMap<(usize, usize, usize, usize), [f64; 5]> = HashMap::new();
     // The tackles' shedding and rushes a year (`DT_READS`; bugs 348 and
     // 367): per (read, level, role), the years, the change, the part
     // results moved, the ceiling's change and the rating; each tackle's
@@ -170,6 +182,16 @@ fn main() {
                 k[4] += (x.np * x.cp) as f64;
                 k[5] += ((x.n - x.np) * x.c) as f64;
                 k[6] += (x.applied as f64).powi(2);
+                k[7] += (x.v as f64).max(1.0);
+                let before = p.player.attributes.get(Read::from_index(x.read as usize).attr()) - x.applied as f64;
+                let band = (before / 10.0).floor().max(0.0) as usize;
+                let b =
+                    by_band.entry((h.level as usize, p.player.position.index(), x.read as usize, band)).or_default();
+                b[0] += 1.0;
+                b[1] += x.applied as f64;
+                b[2] += (x.applied as f64).powi(2);
+                b[3] += (x.v as f64).max(1.0);
+                b[4] += x.n as f64;
             }
         }
         for p in &w.people {
@@ -485,6 +507,70 @@ fn main() {
                 x[5] / (x[2] - x[3]).max(1e-9),
                 x[4] / x[3].max(1e-9),
             );
+        }
+    }
+
+    let limit = afm_engine::results::CHANGE / 2.0;
+    println!("\n## How far a season's results move a skill, by read (rating points; minor bug 367)\n");
+    println!(
+        "The design's limit on the spread is {limit:.1} (`CHANGE` / 2). His peers' spread: how many times wider their seasons spread than the fit's noise says, as his season was weighed (1: the fit's own).\n"
+    );
+    println!(
+        "| level | position | read | player-seasons | trials a season | spread of a season's move | his peers' spread, times the fit's |\n|---|---|---|---|---|---|---|"
+    );
+    for l in [Level::FBS, Level::NFL] {
+        let mut v: Vec<_> = by_read.iter().filter(|(k, x)| k.0 == l as usize && x[0] >= 200.0).collect();
+        v.sort_by_key(|x| (x.0.1, x.0.2));
+        for (k, x) in v {
+            let m = x[1] / x[0];
+            println!(
+                "| {} | {} | {:?} | {:.0} | {:.0} | {:.2} | {:.2} |",
+                level_name(l),
+                Position::ALL[k.1].name(),
+                Read::from_index(k.2),
+                x[0],
+                x[2] / x[0],
+                (x[6] / x[0] - m * m).max(0.0).sqrt(),
+                x[7] / x[0],
+            );
+        }
+    }
+
+    println!(
+        "\n## The tackles' and edges' rushes: a season's move by his rating's band before it (rating points; minor bug 367)\n"
+    );
+    println!(
+        "| level | position | read | band | player-seasons | trials a season | mean move | spread | his peers' spread, times the fit's |\n|---|---|---|---|---|---|---|---|---|"
+    );
+    for l in [Level::FBS, Level::NFL] {
+        for (pos, read) in [
+            (Position::DT, Read::FinesseRush),
+            (Position::DT, Read::PowerRush),
+            (Position::DT, Read::Shed),
+            (Position::EDGE, Read::FinesseRush),
+            (Position::EDGE, Read::PowerRush),
+        ] {
+            let mut v: Vec<_> = by_band
+                .iter()
+                .filter(|(k, x)| k.0 == l as usize && k.1 == pos.index() && k.2 == read.index() && x[0] >= 20.0)
+                .collect();
+            v.sort_by_key(|x| x.0.3);
+            for (k, x) in v {
+                let m = x[1] / x[0];
+                println!(
+                    "| {} | {} | {} | {}-{} | {:.0} | {:.0} | {:+.2} | {:.2} | {:.2} |",
+                    level_name(l),
+                    pos.name(),
+                    read.name(),
+                    k.3 * 10,
+                    k.3 * 10 + 9,
+                    x[0],
+                    x[4] / x[0],
+                    m,
+                    (x[2] / x[0] - m * m).max(0.0).sqrt(),
+                    x[3] / x[0],
+                );
+            }
         }
     }
 

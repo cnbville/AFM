@@ -265,7 +265,7 @@ fn a_season_moves_a_skill_as_far_as_its_sample_says() {
     let (_, once) = moved(&p, &[pass_blocks(season, 4.0)], &on);
     let weekly: Vec<Man> = (0..17).map(|_| pass_blocks(season / 17.0, 4.0)).collect();
     let (_, by_game) = moved(&p, &weekly, &on);
-    assert!((once - 4.0 * f.weight(season, results::CHANGE)).abs() < 1e-3, "credibility: {once}");
+    assert!((once - 4.0 * f.weight(season, results::CHANGE, 1.0)).abs() < 1e-3, "credibility: {once}");
     assert!((once - by_game).abs() < 1e-3, "a season is a season however it's cut");
     assert!(once > 0.0 && once < 4.0 * 0.6, "a season keeps part of what it shows: {once}");
     // Small samples count less: a tenth of the season at the same level.
@@ -280,7 +280,7 @@ fn a_season_moves_a_skill_as_far_as_its_sample_says() {
     top.ceilings.set(a, top.attributes.get(a) + 0.5);
     // Results far past anything real, so the season's most binds (the
     // weight tops out at what teammates and scheme leave him).
-    let far = 2.0 * results::CAP / f.weight(50.0 * season, results::CHANGE);
+    let far = 2.0 * results::CAP / f.weight(50.0 * season, results::CHANGE, 1.0);
     let (q, up) = moved(&top, &[pass_blocks(50.0 * season, far)], &on);
     assert!(up <= results::CAP + 1e-6 && up > results::CAP - 1e-3, "capped at a season's most: {up}");
     assert!(q.ceilings.get(a) >= q.attributes.get(a));
@@ -300,7 +300,7 @@ fn a_season_moves_a_skill_as_far_as_its_sample_says() {
     // CHANGE / 2: the most credible noise keeps a quarter of itself.
     for n in [season / 4.0, season, 4.0 * season] {
         let noise = ((f.tau * f.tau + f.sd * f.sd / n) / (f.b * f.b)).sqrt();
-        assert!(f.weight(n, results::CHANGE) * noise <= results::CHANGE / 2.0 + 1e-9);
+        assert!(f.weight(n, results::CHANGE, 1.0) * noise <= results::CHANGE / 2.0 + 1e-9);
     }
     // A rate scale moves it in proportion.
     let (_, half) = moved(&p, &[pass_blocks(season, 4.0)], &Mode { scale: 0.5, ..on });
@@ -510,7 +510,7 @@ fn a_shift_the_whole_league_shares_moves_nobody() {
         "no league yet: the fit's"
     );
     let n = 200.0 * f.season;
-    book.add(Level::NFL, Read::PassBlock, Position::IOL, false, (75.0, 60), 2030, n, 3.0 * n);
+    book.add(Level::NFL, Read::PassBlock, Position::IOL, false, (75.0, 60), 2030, n, 3.0 * n, (0.0, 0.0));
     let c = book.centre(Level::NFL, Read::PassBlock, Position::IOL, false, (72.0, 60), 2030);
     assert!((c - 3.0 * 200.0 / (200.0 + results::CENTRE_PRIOR)).abs() < 1e-9, "{c}");
     // A guard who showed the same 3 holds once his season is read against it.
@@ -519,7 +519,10 @@ fn a_shift_the_whole_league_shares_moves_nobody() {
     let mut l = Ledger::default();
     let m =
         Man { reads: vec![(Read::PassBlock, f.season as f32, (3.0 * f.season) as f32)], snaps: 60, ..Man::default() };
-    results::apply_in(&mut q, &mut l, &m, Level::NFL, &Mode::default(), &|_| 3.0);
+    results::apply_in(&mut q, &mut l, &m, Level::NFL, &Mode::default(), &|_| results::Peers {
+        centre: 3.0,
+        ..Default::default()
+    });
     let a = Read::PassBlock.attr();
     assert!((q.attributes.get(a) - p.attributes.get(a)).abs() < 1e-6, "the league's shift moves nobody");
     assert!(l.shown(Read::PassBlock).is_some_and(|x| x.0.abs() < 1e-5), "read against the league");
@@ -541,7 +544,7 @@ fn a_shift_the_whole_league_shares_moves_nobody() {
     // ratings, the prior's share of last season's.
     let next = book.centre(Level::NFL, Read::PassBlock, Position::IOL, false, (72.0, 60), 2031);
     assert!((next - c).abs() < 1e-9, "last season's until his peers play: {next}");
-    book.add(Level::NFL, Read::PassBlock, Position::IOL, false, (72.0, 60), 2031, n, 0.0);
+    book.add(Level::NFL, Read::PassBlock, Position::IOL, false, (72.0, 60), 2031, n, 0.0, (0.0, 0.0));
     let c2 = book.centre(Level::NFL, Read::PassBlock, Position::IOL, false, (72.0, 60), 2031);
     assert!((c2 - c * results::CENTRE_PRIOR / (200.0 + results::CENTRE_PRIOR)).abs() < 1e-9, "{c2}");
     book.sweep(2032);
@@ -564,7 +567,7 @@ fn a_small_leagues_shift_is_taken_out_season_by_season() {
     let n = 5.0 * f.season;
     let mut leak = Vec::new();
     for year in 2030..2035 {
-        book.add(Level::NFL, Read::Shed, Position::DT, false, (75.0, 60), year, n, 3.0 * n);
+        book.add(Level::NFL, Read::Shed, Position::DT, false, (75.0, 60), year, n, 3.0 * n, (0.0, 0.0));
         leak.push(3.0 - book.centre(Level::NFL, Read::Shed, Position::DT, false, (75.0, 60), year));
         book.sweep(year + 1);
     }
@@ -574,4 +577,87 @@ fn a_small_leagues_shift_is_taken_out_season_by_season() {
         assert!((leak[k] - leak[k - 1] * p / (5.0 + p)).abs() < 1e-9, "the last season's leak, shrunk: {leak:?}");
     }
     assert!(leak[4] < 0.01, "{leak:?}");
+}
+
+/// One rating band's seasons through the league's book, as `world_game`
+/// runs them: 40 NFL tackles rated 85 at finesse rush, 17 games each,
+/// whose showings spread `wide` times the fit's noise (what stays with a
+/// man all season and a single trial's, both). Three seasons with new men
+/// each: the last season's moves, and how many times the fit's noise the
+/// men's seasons were weighed at.
+fn band_seasons(wide: f64, mode: &Mode) -> (Vec<f64>, f64) {
+    let (read, pos, peer) = (Read::FinesseRush, Position::DT, (85.0, 60));
+    let f = results::fit(Level::NFL, read, pos);
+    assert!(f.on(), "the fitted table reads an NFL tackle's finesse rush");
+    let a = read.attr();
+    let mut base = player_at(pos, 7);
+    base.attributes.set(a, 85.0);
+    base.ceilings.set(a, 99.0);
+    let (own, trial) = (wide * f.tau / f.b, wide * f.sd / f.b);
+    let (men, games) = (40, 17);
+    let n = f.season / games as f64;
+    let mut rng = Rng::new(format!("band-{wide}").as_str());
+    let mut book = results::Book::default();
+    let (mut moves, mut over) = (Vec::new(), 0.0);
+    for year in 2030..2033 {
+        let mut squad: Vec<(Player, Ledger, f64)> =
+            (0..men).map(|_| (base.clone(), Ledger { year, ..Ledger::default() }, rng.normal(0.0, own))).collect();
+        for _ in 0..games {
+            let shown: Vec<Man> = squad
+                .iter()
+                .map(|x| {
+                    let level = x.2 + rng.normal(0.0, trial / n.sqrt());
+                    Man { reads: vec![(read, n as f32, (n * level) as f32)], snaps: 60, ..Man::default() }
+                })
+                .collect();
+            // The league's season first, this game in it; then each man against it.
+            for (x, m) in squad.iter().zip(&shown) {
+                let before = x.1.reads.first().map_or((0.0, 0.0), |e| (e.n as f64, e.centred()));
+                book.add(Level::NFL, read, pos, false, peer, year, m.reads[0].1 as f64, m.reads[0].2 as f64, before);
+            }
+            for (x, m) in squad.iter_mut().zip(&shown) {
+                let peers = book.peers(Level::NFL, read, pos, false, peer, year);
+                results::apply_in(&mut x.0, &mut x.1, m, Level::NFL, mode, &|_| peers);
+            }
+        }
+        moves = squad.iter().map(|x| x.1.reads[0].applied as f64).collect();
+        over = squad.iter().map(|x| x.1.reads[0].v as f64).sum::<f64>() / men as f64;
+        book.sweep(year + 1);
+    }
+    (moves, over)
+}
+
+#[test]
+fn a_band_that_spreads_wider_than_the_fit_stays_inside_the_seasons_limit() {
+    // Minor bug 367: the weight keeps a season's move inside CHANGE / 2
+    // only while a season's showing spreads as the fit's noise says. The
+    // NFL's best tackles' finesse rush seasons spread four times wider
+    // (seed 92), and results moved them about 3 points a season.
+    let (on, fit_only) = (Mode::default(), Mode { spread: false, ..Mode::default() });
+    let limit = results::CHANGE / 2.0;
+    let sd = |v: &[f64]| (v.iter().map(|x| (x - mean(v)).powi(2)).sum::<f64>() / v.len() as f64).sqrt();
+    // A band that plays as the fit says is weighed as before.
+    let (plain, over) = band_seasons(1.0, &on);
+    let (plain_fit, at_fit) = band_seasons(1.0, &fit_only);
+    eprintln!(
+        "as the fit: moves sd {:.2} (the fit alone {:.2}), weighed at {over:.2} times",
+        sd(&plain),
+        sd(&plain_fit)
+    );
+    assert_eq!(at_fit, 1.0);
+    assert!((1.0..1.3).contains(&over), "peers as the fit says: {over}");
+    assert!(sd(&plain) <= limit && sd(&plain) > 0.8 * sd(&plain_fit));
+    // A band four times wider: on the fit's noise alone its seasons move
+    // past the limit; weighed by its own spread (16 times the variance)
+    // they stay inside it.
+    let (wide, over) = band_seasons(4.0, &on);
+    let (wide_fit, _) = band_seasons(4.0, &fit_only);
+    eprintln!(
+        "four times wider: moves sd {:.2} (the fit alone {:.2}), weighed at {over:.1} times",
+        sd(&wide),
+        sd(&wide_fit)
+    );
+    assert!(sd(&wide_fit) > limit, "the fit's noise alone lets them through: {}", sd(&wide_fit));
+    assert!(sd(&wide) <= limit, "their own spread holds them: {}", sd(&wide));
+    assert!((10.0..24.0).contains(&over), "sixteen times the fit's variance: {over}");
 }
