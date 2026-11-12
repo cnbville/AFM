@@ -264,6 +264,15 @@ fn recruit(gp: &GamePlayer, part: Part, lo: f64, hi: f64, level: Level) -> Optio
         for a in Attr::ALL {
             p.attributes.set(a, clamp(afm_engine::debug::ceilings(&p).get(a) * share, MIN_RATING, MAX_RATING));
         }
+        // His position's weight program, as the world places a class
+        // (`athlete::place_class`; bug 360). Without it a drawn edge played
+        // at his frame weight (sd 30 lb), and the as-recruited arm rows read
+        // the heavy men's weight as arm: +2.0 to +2.2 pts of sacks a
+        // pressure an inch (seeds 86 and 82), real +0.66.
+        let mut q = p.clone();
+        q.position_history.clear();
+        afm_engine::athlete::set_position(&mut q, gp.position);
+        p.body.weight = q.body.weight;
         let ov = overall_for(gp.position, &p.attributes);
         aim = clamp(aim + 0.5 * (target - ov), 20.0, 99.0);
         let b = body_now(&p);
@@ -639,6 +648,12 @@ fn middle(r: &PlayRecord) -> bool {
 /// The 4th quarter or overtime with the score within 8.
 fn late_close(r: &PlayRecord) -> bool {
     r.quarter >= 4 && (r.score[r.offense] - r.score[1 - r.offense]).abs() <= 8
+}
+/// Focus players' sacks on a play: a shared sack is half to each of the
+/// two, as PFR and the stat line keep it.
+fn sacks_by(r: &PlayRecord, c: &Cx) -> f64 {
+    let share = if r.sackers.len() > 1 { 0.5 } else { 1.0 };
+    share * r.sackers.iter().filter(|i| c.f(**i)).count() as f64
 }
 /// Focus pass rushers' (or his man's) pressure on a play: in pressures,
 /// sackers or hits.
@@ -1276,7 +1291,7 @@ pub fn stats() -> Vec<Stat> {
             Z
         }),
         play!("dl_sack", "sacks a rush snap", Pct, |r, c| if dropback(r) && c.my_def(r) {
-            rc(r.sackers.iter().filter(|i| c.f(**i)).count() as f64, c.on(r))
+            rc(sacks_by(r, c), c.on(r))
         } else {
             Z
         }),
@@ -1293,7 +1308,7 @@ pub fn stats() -> Vec<Stat> {
             Z
         }),
         play!("dl_sack_snap", "sacks a defense snap", Pct, |r, c| if scrimmage(r) && c.my_def(r) {
-            rc(r.sackers.iter().filter(|i| c.f(**i)).count() as f64, c.on(r))
+            rc(sacks_by(r, c), c.on(r))
         } else {
             Z
         }),
@@ -1333,7 +1348,7 @@ pub fn stats() -> Vec<Stat> {
         ),
         play!("dl_sack_prs", "sacks a pressure", Pct, |r, c| if dropback(r) && c.my_def(r) {
             let p = r.on_field.iter().flatten().filter(|i| c.f(**i) && pressured_by(r, **i)).count();
-            rc(r.sackers.iter().filter(|i| c.f(**i)).count() as f64, p as f64)
+            rc(sacks_by(r, c), p as f64)
         } else {
             Z
         }),
