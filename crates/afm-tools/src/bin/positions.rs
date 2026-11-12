@@ -360,6 +360,11 @@ fn main() {
         let (rc, rcsd) = real_drill(pos, 14).unwrap_or((0.0, 0.0));
         let (rs, rssd) = real_drill(pos, 16).unwrap_or((0.0, 0.0));
         let best = |i: usize| col(i).into_iter().fold(f64::MAX, f64::min);
+        let (c2, c3) = (col(2), col(3));
+        let r = c2.iter().zip(&c3).map(|(a, b)| (a - cm) * (b - sm)).sum::<f64>()
+            / (c2.len().max(1) as f64 * csd * ssd).max(1e-9);
+        let real = if pos == Position::EDGE { " (real 0.62)" } else { "" };
+        println!("corr {:<4} 3-cone and shuttle {r:.3}{real}", pos.name());
         println!(
             "drill {:<4} {cm:.2}/{csd:.2} [{craw:.2}] ({rc:.2}/{rcsd:.2})   {sm:.2}/{ssd:.2} [{sraw:.2}] ({rs:.2}/{rssd:.2})   best {:.2} {:.2}",
             pos.name(),

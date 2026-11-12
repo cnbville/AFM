@@ -27,9 +27,15 @@ fn same(a: &GameResult, b: &GameResult) {
 
 #[test]
 fn a_delegated_live_game_matches_the_one_loop_game() {
-    for (level, seed) in [(Level::NFL, 11u64), (Level::FBS, 12), (Level::HS, 13), (Level::NFL, 14)] {
+    for (level, seed, year) in
+        [(Level::NFL, 11u64, 0), (Level::FBS, 12, 2026), (Level::HS, 13, 2019), (Level::NFL, 14, 2026)]
+    {
         let (home, away) = teams(level, seed as u32);
-        let setup = GameSetup::new(&home, &away, level, seed);
+        // A season too: each kicker kicks at his season's form (minor bug
+        // 364: the live game dropped the year and kicked at a year-0 form).
+        let mut setup = GameSetup::new(&home, &away, level, seed);
+        setup.year = year;
+        assert_eq!(Params::of(&setup).setup(&home, &away).year, year, "the season goes with the game");
         let whole = play_game(&setup);
         for team in 0..2 {
             let settings = Settings { stop: StopMode::EverySnap, ..Settings::default() };

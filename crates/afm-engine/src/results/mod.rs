@@ -111,9 +111,10 @@ pub enum Read {
     FinesseRush,
     /// Block shedding: run-block reps won as the defender.
     Shed,
-    /// Man coverage: completions allowed over expected in man.
+    /// Man coverage: completions allowed in man, against what an open man
+    /// catches at the throw's depth and pressure.
     ManCover,
-    /// Zone coverage: completions allowed over expected in zone.
+    /// Zone coverage: the same in zone.
     ZoneCover,
     /// Tackling: missed tackles per tackle attempt.
     Tackle,
@@ -435,7 +436,12 @@ fn pass_trials(r: &PlayRecord, level: Level, put: &mut impl FnMut(u32, Read, f64
         }
     }
     if let Some(d) = r.defender {
-        put(d, if r.coverage_man { Read::ManCover } else { Read::ZoneCover }, -over, 0.0);
+        // The separation is his doing, so his read is the catch against
+        // what the throw's depth and pressure give an open man (minor bug
+        // 283: against the receiver's separation it left out most of what
+        // coverage does).
+        let open = r.complete as u8 as f64 - expected_completion_at(level, air, 2.0, r.pressured);
+        put(d, if r.coverage_man { Read::ManCover } else { Read::ZoneCover }, -open, 0.0);
     }
 }
 
@@ -645,8 +651,9 @@ pub struct Mode {
     /// Item 15: a season below his ratings pulls the skill down the way a
     /// good one lifts it.
     pub pull_down: bool,
-    /// Item 16 (waiting on Cain): practice snaps on the engine count as
-    /// results too, at a quarter of a game snap.
+    /// Item 16 (Cain's yes, 2026-11-08; on by default): practice snaps on
+    /// the engine count as results too, at
+    /// `training::practice::PRACTICE_RESULTS` of a game snap.
     pub practice: bool,
     /// The per-snap rate against the credibility weight (1: a full
     /// starter's season moves him by what the engine credits his skill
@@ -671,7 +678,7 @@ pub enum Dice {
 
 impl Default for Mode {
     fn default() -> Self {
-        Mode { on: true, dice: Dice::Kept, pull_down: true, practice: false, scale: 1.0, change: CHANGE }
+        Mode { on: true, dice: Dice::Kept, pull_down: true, practice: true, scale: 1.0, change: CHANGE }
     }
 }
 
@@ -1016,11 +1023,31 @@ pub struct League {
     pub year: i32,
     pub n: f64,
     pub s: f64,
+    /// Last season's centre for these peers, which this season's leans on
+    /// until it has played (minor bug 348).
+    #[serde(default)]
+    pub last: f64,
+}
+
+impl League {
+    /// The centre: the season's mean shown level over the ratings, leaning
+    /// on last season's by `prior` trials.
+    fn centre(&self, prior: f64) -> f64 {
+        (self.s + prior * self.last) / (self.n + prior)
+    }
 }
 
 /// The league evidence the centre starts from, in starter's seasons of
 /// trials at the read (proposed, not confirmed): until the league has
-/// played that much, its centre leans toward the fit's.
+/// played that much, its centre leans toward last season's, the fit's (0)
+/// in a world's first season. Leaning on the fit's every season leaked a
+/// share of the league's own offset into every man's results each year,
+/// the share the prior is of his peers' trials: about a fifth for an NFL
+/// band, a twentieth at FBS. So a read the league shows over its ratings
+/// lifted the whole position: on seed 86 NFL tackles' and linebackers'
+/// block shedding +0.18 and +0.17 a season from games alone (their centres
+/// +8 and +17 points), running backs' broken tackles -0.09, the top bands
+/// most, which widened the spread (minor bug 348).
 pub const CENTRE_PRIOR: f64 = 2.0;
 /// A man's peers for the league's centre: the men at his level and
 /// position within the same this many rating points of the read's skill
@@ -1044,11 +1071,11 @@ fn league_key(level: Level, read: Read, pos: Position, practice: bool, peer: (f6
 
 impl Book {
     /// Ledgers older than last season go (a player who left football; a
-    /// player still playing rolls his at each checkpoint); last season's
-    /// league centres go.
+    /// player still playing rolls his at each checkpoint); league centres
+    /// older than last season's go (last season's are this one's lean).
     pub fn sweep(&mut self, year: i32) {
         self.ledgers.retain(|_, l| l.year >= year - 1);
-        self.league.retain(|_, x| x.year >= year);
+        self.league.retain(|_, x| x.year >= year - 1);
     }
 
     /// Adds a man's evidence on a read to his level's season, with his
@@ -1065,9 +1092,12 @@ impl Book {
         n: f64,
         s: f64,
     ) {
+        let prior = CENTRE_PRIOR * fit(level, read, pos).season.max(1.0);
         let x = self.league.entry(league_key(level, read, pos, practice, peer)).or_default();
         if x.year != year {
-            *x = League { year, ..League::default() };
+            // A new season leans on the last one's centre (minor bug 348).
+            let last = if x.year == year - 1 { x.centre(prior) } else { 0.0 };
+            *x = League { year, last, ..League::default() };
         }
         x.n += n;
         x.s += s;
@@ -1079,8 +1109,9 @@ impl Book {
     /// `LOAD` of snaps, since a man who plays every down plays more of
     /// them tired):
     /// their mean shown level over their ratings at his level so far,
-    /// leaning on the fit's (0) until `CENTRE_PRIOR` seasons of trials are
-    /// in. A man is judged against men rated like him as the league plays,
+    /// leaning on last season's (the fit's 0 in a world's first season)
+    /// until `CENTRE_PRIOR` seasons of trials are in. A man is judged
+    /// against men rated like him as the league plays,
     /// as real stats over expected are each season: a shift his peers
     /// share (his matchups in this world against the fit's synthetic
     /// teams, a line that wins more than the fit's, a straight-line fit
@@ -1089,7 +1120,9 @@ impl Book {
     pub fn centre(&self, level: Level, read: Read, pos: Position, practice: bool, peer: (f64, u32), year: i32) -> f64 {
         let prior = CENTRE_PRIOR * fit(level, read, pos).season.max(1.0);
         match self.league.get(&league_key(level, read, pos, practice, peer)) {
-            Some(x) if x.year == year => x.s / (x.n + prior),
+            Some(x) if x.year == year => x.centre(prior),
+            // His peers haven't played yet this season: last season's.
+            Some(x) if x.year == year - 1 => x.centre(prior),
             _ => 0.0,
         }
     }

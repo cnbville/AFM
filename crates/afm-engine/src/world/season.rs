@@ -552,10 +552,7 @@ pub(crate) fn camp_injury(w: &mut World, i: usize, last: Option<crate::calendar:
             how: "fall camp".into(),
         });
     } else {
-        let e = t.others_hurt.entry(id).or_insert((back, Some(kind)));
-        if back > e.0 {
-            *e = (back, Some(kind));
-        }
+        t.note_other_hurt(id, back, kind);
     }
 }
 
@@ -1004,6 +1001,19 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
     for (id, mut l) in closing {
         l.roll(w.year);
         w.results.ledgers.insert(id, l);
+    }
+    // Practice counts only in a season his checkpoint has opened (item 16).
+    // A college player with no ledger yet (no engine snap before, as a
+    // walk-on who never played in high school) opens one here, so his
+    // practice counts from his first season.
+    if mode.on && mode.practice {
+        let year = w.year;
+        let ledgers = &mut w.results.ledgers;
+        for (p, r) in w.people.iter().zip(&role_of) {
+            if r.is_some() && p.stage == Stage::College {
+                ledgers.entry(p.player.id).or_insert_with(|| crate::results::Ledger { year, ..Default::default() });
+            }
+        }
     }
     // The year's college trouble rate, counted before the dismissed leave.
     for (i, p) in w.people.iter().enumerate() {

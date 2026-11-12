@@ -1529,6 +1529,8 @@ pub(crate) fn seat_setup(w: &World, me: usize) -> Option<super::live_seat::SeatS
     );
     setup.rules = rules;
     setup.cond = hs_conditions(w, h, &wx, seed, key);
+    // The season, as the day's game has it (minor bug 364).
+    setup.year = w.year;
     setup.neutral = final_game;
     setup.playoff = playoff;
     setup.kickoff = 19.0;

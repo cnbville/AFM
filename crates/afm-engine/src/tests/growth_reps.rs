@@ -536,13 +536,42 @@ fn a_shift_the_whole_league_shares_moves_nobody() {
         0.0,
         "a rested man has his own"
     );
-    assert_eq!(book.centre(Level::NFL, Read::PassBlock, Position::IOL, false, (72.0, 60), 2031), 0.0);
+    // A new season leans on the last one's until it has played (minor bug
+    // 348): before it, last season's; after a season of nothing over the
+    // ratings, the prior's share of last season's.
+    let next = book.centre(Level::NFL, Read::PassBlock, Position::IOL, false, (72.0, 60), 2031);
+    assert!((next - c).abs() < 1e-9, "last season's until his peers play: {next}");
     book.add(Level::NFL, Read::PassBlock, Position::IOL, false, (72.0, 60), 2031, n, 0.0);
-    assert_eq!(
-        book.centre(Level::NFL, Read::PassBlock, Position::IOL, false, (72.0, 60), 2031),
-        0.0,
-        "a new season starts over"
-    );
+    let c2 = book.centre(Level::NFL, Read::PassBlock, Position::IOL, false, (72.0, 60), 2031);
+    assert!((c2 - c * results::CENTRE_PRIOR / (200.0 + results::CENTRE_PRIOR)).abs() < 1e-9, "{c2}");
     book.sweep(2032);
+    assert_eq!(book.league.len(), 1, "last season's stays as the next one's lean");
+    book.sweep(2033);
     assert!(book.league.is_empty());
+}
+
+#[test]
+fn a_small_leagues_shift_is_taken_out_season_by_season() {
+    // Five starters' seasons of trials a season, every man 3 points over his
+    // rating (an NFL band): the first season's centre leans on the fit's 0
+    // and leaks two sevenths of the shift into every man's results; each
+    // season after leans on the last, so the leak shrinks to nothing
+    // (minor bug 348: leaning on 0 every season leaked two sevenths every
+    // season, lifting the whole band).
+    let f = results::fit(Level::NFL, Read::Shed, Position::DT);
+    assert!(f.on());
+    let mut book = results::Book::default();
+    let n = 5.0 * f.season;
+    let mut leak = Vec::new();
+    for year in 2030..2035 {
+        book.add(Level::NFL, Read::Shed, Position::DT, false, (75.0, 60), year, n, 3.0 * n);
+        leak.push(3.0 - book.centre(Level::NFL, Read::Shed, Position::DT, false, (75.0, 60), year));
+        book.sweep(year + 1);
+    }
+    let p = results::CENTRE_PRIOR;
+    assert!((leak[0] - 3.0 * p / (5.0 + p)).abs() < 1e-9, "{leak:?}");
+    for k in 1..leak.len() {
+        assert!((leak[k] - leak[k - 1] * p / (5.0 + p)).abs() < 1e-9, "the last season's leak, shrunk: {leak:?}");
+    }
+    assert!(leak[4] < 0.01, "{leak:?}");
 }

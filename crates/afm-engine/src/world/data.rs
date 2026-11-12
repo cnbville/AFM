@@ -12,6 +12,9 @@ const COLLEGES_LOWER_CSV: &str = include_str!("../../../../data/real-world/colle
 const COLLEGE_HISTORY_CSV: &str = include_str!("../../../../data/real-world/college_history.csv");
 const COLLEGE_DROPPED_CSV: &str = include_str!("../../../../data/real-world/college_history_dropped.csv");
 const COLLEGE_CANDIDATES_CSV: &str = include_str!("../../../../data/real-world/college_candidates.csv");
+const COLLEGE_START_RECORDS_CSV: &str = include_str!("../../../../data/real-world/college_start_records.csv");
+const COLLEGE_TITLES_CSV: &str = include_str!("../../../../data/real-world/college_titles.csv");
+const COLLEGE_SEATS_CSV: &str = include_str!("../../../../data/real-world/college_seats.csv");
 const HS_STATES_CSV: &str = include_str!("../../../../data/real-world/hs_states.csv");
 const RIVALRIES_CSV: &str = include_str!("../../../../data/real-world/rivalries.csv");
 const TALENT_CSV: &str = include_str!("../../../../data/real-world/talent_by_state.csv");
@@ -198,6 +201,87 @@ pub static COLLEGE_HISTORY: LazyLock<Vec<HistoryRow>> = LazyLock::new(|| {
     }
     out
 });
+
+/// One season's record: season, wins, losses, ties.
+pub type SeasonRecord = (i32, u32, u32, u32);
+
+/// Each program's real records in the seasons before the world starts
+/// (`college_start_records.csv`, 1979-83, minor bug 294).
+pub static START_RECORDS: LazyLock<HashMap<String, Vec<SeasonRecord>>> = LazyLock::new(|| {
+    let t = Table::parse(COLLEGE_START_RECORDS_CSV);
+    let (name, season, w, l, tie) = (t.col("name"), t.col("season"), t.col("wins"), t.col("losses"), t.col("ties"));
+    let mut out: HashMap<String, Vec<SeasonRecord>> = HashMap::new();
+    for r in &t.rows {
+        let n = |c: usize| r[c].parse().unwrap_or(0);
+        out.entry(r[name].clone()).or_default().push((r[season].parse().unwrap_or(0), n(w), n(l), n(tie)));
+    }
+    out
+});
+
+/// A program's real win share (ties count half) over the five seasons
+/// before `season`, from the seasons it played (minor bug 294); None when
+/// none is known.
+pub fn start_record(name: &str, season: i32) -> Option<f64> {
+    let (mut w, mut g) = (0.0, 0.0);
+    for &(_, wins, losses, ties) in START_RECORDS.get(name)?.iter().filter(|x| (season - 5..season).contains(&x.0)) {
+        w += wins as f64 + 0.5 * ties as f64;
+        g += (wins + losses + ties) as f64;
+    }
+    (g > 0.0).then(|| w / g)
+}
+
+/// Every real national title of the world's programs, by season and the
+/// level it was won at (`college_titles.csv`, minor bug 295).
+pub static COLLEGE_TITLES: LazyLock<HashMap<String, Vec<(i32, Division)>>> = LazyLock::new(|| {
+    let t = Table::parse(COLLEGE_TITLES_CSV);
+    let (name, season, level) = (t.col("name"), t.col("season"), t.col("level"));
+    let mut out: HashMap<String, Vec<(i32, Division)>> = HashMap::new();
+    for r in &t.rows {
+        if let Some(d) = Division::parse(&r[level]) {
+            out.entry(r[name].clone()).or_default().push((r[season].parse().unwrap_or(0), d));
+        }
+    }
+    out
+});
+
+/// A program's real national titles won before `season`, by level
+/// (`Division as usize`).
+pub fn titles_before(name: &str, season: i32) -> [u32; DIVISION_COUNT] {
+    let mut out = [0u32; DIVISION_COUNT];
+    for &(_, d) in COLLEGE_TITLES.get(name).into_iter().flatten().filter(|x| x.0 < season) {
+        out[d as usize] += 1;
+    }
+    out
+}
+
+/// Seats over a run of seasons: first season, last season, seats.
+pub type SeatSpan = (i32, i32, u32);
+
+/// Each program's real home seats by season (`college_seats.csv`, minor
+/// bug 296).
+pub static COLLEGE_SEATS: LazyLock<HashMap<String, Vec<SeatSpan>>> = LazyLock::new(|| {
+    let t = Table::parse(COLLEGE_SEATS_CSV);
+    let (name, first, last, seats) = (t.col("name"), t.col("first_season"), t.col("last_season"), t.col("seats"));
+    let mut out: HashMap<String, Vec<SeatSpan>> = HashMap::new();
+    for r in &t.rows {
+        let (Ok(a), Ok(b), Ok(n)) = (r[first].parse(), r[last].parse(), r[seats].parse()) else { continue };
+        out.entry(r[name].clone()).or_default().push((a, b, n));
+    }
+    out
+});
+
+/// A program's real home seats in `season` (1984-2025), when known. After
+/// 2025 its seats today (`colleges.csv`): a temporary home in 2025 gives way
+/// to the new stadium (Northwestern's 12,023-seat Martin Stadium to the new
+/// Ryan Field's 35,000 in 2026).
+pub fn real_seats(name: &str, season: i32) -> Option<u32> {
+    let span = COLLEGE_SEATS.get(name).and_then(|v| v.iter().find(|x| (x.0..=x.1).contains(&season)).map(|x| x.2));
+    span.or_else(|| {
+        (season > HISTORY_LAST)
+            .then(|| COLLEGES.iter().find(|r| r.name == name).and_then(|r| r.stadium_capacity))
+            .flatten()
+    })
+}
 
 /// A listed rivalry's real past (`rivalries.csv`, part B 28-30): the
 /// seasons it was played and its all-time record and trophy holder after

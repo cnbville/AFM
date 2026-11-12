@@ -177,6 +177,19 @@ impl World {
         })
     }
 
+    /// Your team as it practises: at an NFL club its whole healthy roster
+    /// with its practice squad (minor bug 361, as the world's clubs), else
+    /// your game team.
+    pub fn seat_practice_team(&self) -> Option<(crate::game::GameTeam, crate::player::Level)> {
+        let seat = self.seat?;
+        match seat.level {
+            crate::calendar::Level::Nfl => {
+                Some((super::pro::games::practice_side(self, seat.nfl_team?)?.team, crate::player::Level::NFL))
+            }
+            _ => self.seat_game_team(),
+        }
+    }
+
     /// Your depth chart order at a position (player ids, best first).
     pub fn set_seat_depth(&mut self, pos: Position, ids: Vec<u32>) {
         let had = self.seat_depth.iter().find(|(p, _)| *p == pos).map(|(_, v)| v.first().copied());

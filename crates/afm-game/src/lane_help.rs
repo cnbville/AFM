@@ -91,7 +91,7 @@ fn words(a: Attr) -> (&'static str, &'static str) {
         ),
         Flexibility => (
             "Bend: how low and loose he can get.",
-            "A rusher bending the edge, a corner turning to run with a receiver, a lineman sinking his hips.",
+            "A rusher bending the edge and flattening to the quarterback, a corner turning to run with a receiver, a lineman sinking his hips. It shows in the 3-cone.",
         ),
         Jumping => (
             "How high and far he jumps.",
