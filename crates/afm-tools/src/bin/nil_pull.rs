@@ -167,7 +167,10 @@ fn recruits(w: &World, conference: &str) {
     let wi = what_if();
     println!("# Recruits of the class of {class} on {} ({conference} schools' money moved)", w.today.pretty());
     if wi.k != 0.0 {
-        println!("What-if: money over the best other offer counts {} x his weight x ln(ratio), up to {}x", wi.k, wi.cap);
+        println!(
+            "What-if: money over the best other offer counts {} x his weight x ln(ratio), up to {}x",
+            wi.k, wi.cap
+        );
     }
     let mut pairs: Vec<Pair> = Vec::new();
     // A school not on his list yet, coming in with an offer (three-stars up).
@@ -267,7 +270,10 @@ fn portal(w: &World, conference: &str, most: usize) {
     let wi = what_if();
     println!("# Portal entrants on {} ({conference} schools' money moved)", w.today.pretty());
     if wi.k != 0.0 {
-        println!("What-if: money over the best other offer counts {} x his weight x ln(ratio), up to {}x", wi.k, wi.cap);
+        println!(
+            "What-if: money over the best other offer counts {} x his weight x ln(ratio), up to {}x",
+            wi.k, wi.cap
+        );
     }
     let entrants: Vec<usize> = w
         .people
@@ -308,9 +314,8 @@ fn portal(w: &World, conference: &str, most: usize) {
         }
         // The what-if's heavier money: each program's own money term again, f - 1 times.
         let more = |nil: f64| (wi.f - 1.0) * weights[2] * 1.5 * (nil.max(0.0) / 1.0e6).powf(0.6);
-        let rows = |race: &[(usize, f64, f64, PlayingTime)]| {
-            race.iter().map(|r| (r.1 + more(r.2), r.2)).collect::<Vec<_>>()
-        };
+        let rows =
+            |race: &[(usize, f64, f64, PlayingTime)]| race.iter().map(|r| (r.1 + more(r.2), r.2)).collect::<Vec<_>>();
         let spread = sd(&base.iter().map(|b| b.1).collect::<Vec<_>>());
         let today = wi.lift(heavier[2], &rows(&base));
         for (n, &(j, _, own, role)) in base.iter().enumerate() {
