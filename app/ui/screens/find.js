@@ -435,6 +435,10 @@ const frKeepFilters = (x) => x.filters.map((c) => ({ k: c.k, op: c.op, v: c.v, v
 
 screens.recruit_find = async (a) => {
   const st = frSeat("college");
+  // One position pick across the board, Find recruits and the portal (depthview.js).
+  const was = st.pos;
+  st.pos = dvSync("find", st.pos);
+  if (st.pos !== was) st.page = 0;
   if (a && a.state) { st.place = a.state; st.page = 0; a.state = null; }
   const args = frArgs(st, { state: st.place || null });
   if (st.openSaved != null) { args.saved = st.openSaved; st.openSaved = null; }
@@ -454,7 +458,7 @@ screens.recruit_find = async (a) => {
   const foot = `<div class="fr-foot"><div class="fr-panel"><div class="fr-ph"><span class="fr-k">The services</span></div><ul class="fr-list">${x.services.map((s) => `<li><span>${esc(s.name)}</span><span>stars by service, in the Services view</span></li>`).join("")}${x.services.length > 1 ? "<li><span>Composite</span><span>their average, from 2012</span></li>" : ""}</ul></div>
     <div class="fr-panel"><div class="fr-ph"><span class="fr-k">The insiders</span></div>${x.insiders.length ? `<ul class="fr-list">${x.insiders.map((d) => `<li><span><a class="link" data-act="fr-insider" data-desk="${d.k}">${esc(d.name)}</a> <small class="fr-mute">${esc(d.desk)}</small></span><span>${d.pct != null ? `${d.pct}% right last year` : "no record yet"} · ${d.open} open</span></li>`).join("")}</ul>` : '<div class="fr-empty">No insiders log picks before 2011.</div>'}</div>
     <div class="fr-panel"><div class="fr-ph"><span class="fr-k">Your area recruiters</span></div>${x.recruiters.length ? `<ul class="fr-list">${x.recruiters.map((c) => `<li><span>${coachLink(c.id, c.name)}</span><span>${esc(c.states.slice(0, 6).join(", "))}${c.states.length > 6 ? ` +${c.states.length - 6}` : ""}</span></li>`).join("")}</ul>` : '<div class="fr-empty">No areas set.</div>'}</div></div>`;
-  return `<div class="pad fr">${head}${gotoFor("recruit_find")}${frBuilder(x, st, "college")}${frResults(x, st, FR_COLLEGE)}${foot}</div>`;
+  return `<div class="pad fr">${head}${gotoFor("recruit_find")}${dvBlock("find")}${frBuilder(x, st, "college")}${frResults(x, st, FR_COLLEGE)}${foot}</div>`;
 };
 
 screens.find_prospects = async () => {

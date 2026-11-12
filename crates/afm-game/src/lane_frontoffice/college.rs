@@ -1622,7 +1622,13 @@ fn seasons_ahead(w: &World, p: &Person, div: afm_engine::world::data::Division) 
 }
 
 fn portal(w: &World, j: usize, args: &Value) -> Reply {
-    let pos = args.get("pos").and_then(Value::as_str).filter(|s| *s != "ALL");
+    // A position, or one of the position menu's groups (OL, DL, DB, Specialists,
+    // as Find recruits takes them); a name that is neither takes in nobody.
+    let pos: Option<Vec<Position>> = args
+        .get("pos")
+        .and_then(Value::as_str)
+        .filter(|s| *s != "ALL")
+        .map(|s| crate::lane_find::fields::positions(s).unwrap_or_default());
     let div = args.get("division").and_then(Value::as_str).filter(|s| *s != "ALL");
     let today = w.today;
     let d = &w.front_office.college;
@@ -1645,7 +1651,7 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
             continue;
         }
         in_portal += 1;
-        if pos.is_some_and(|x| x != p.player.position.name()) {
+        if pos.as_ref().is_some_and(|v| !v.contains(&p.player.position)) {
             continue;
         }
         if div.is_some_and(|x| x != w.programs[c].division.name()) {
