@@ -835,7 +835,7 @@ fn a_season_of_recruit_talks_counts_its_repeats() {
     for k in 0..20u64 {
         sim.level = "college";
         let tr = sim.player(base + 500 + k);
-        let facts = vec![pick(&mut sim, &bg)];
+        let fact = pick(&mut sim, &bg);
         for t in 0..3 {
             sim.day = 150 + (k as i32 * 5 + t * 20) % 200;
             let call = sim.r.chance(0.7);
@@ -862,7 +862,7 @@ fn a_season_of_recruit_talks_counts_its_repeats() {
                     let role = ["starter", "backup"][sim.r.int(0, 1) as usize];
                     sim.say(FAM, &format!("transfer.role.{role}"), &tr, &f, true);
                 }
-                sim.say(FAM, &format!("recruit.bg.{}", facts[0]), &tr, &f, true);
+                sim.say(FAM, &format!("recruit.bg.{}", fact), &tr, &f, true);
             }
             let a = aspects[sim.r.int(0, 6) as usize];
             let s = ["good", "cool", "weak"][sim.r.int(0, 2) as usize];
