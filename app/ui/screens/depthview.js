@@ -228,6 +228,8 @@ function dvCard(g) {
   const w = dvWords(x, grp);
   const men = (x.men || []).filter((m) => grp[2].includes(m.pos));
   const spotAt = new Map(x.spots.map((s, i) => [s.key, i]));
+  // A spot in the map's own words ("Left guard"), never its letters.
+  const spotName = (k) => ((x.spots.find((s) => s.key === k) || {}).full || String(k).replace(/\d$/, "")).toLowerCase();
   const start = (m) => m.spots.findIndex((s) => s);
   const lastCount = new Map();
   men.forEach((m) => { const l = dvLast(m); lastCount.set(l, (lastCount.get(l) || 0) + 1); });
@@ -257,7 +259,7 @@ function dvCard(g) {
       const q = stayed.get(m.id), s = q && q.stayed ? q.stayed.find((z) => z && z.role === "Starter") : null;
       const any = q && q.stayed ? q.stayed.find((z) => z) : null;
       const yr = (z) => String(z.fall > 100 ? z.fall : x.falls[z.fall]).slice(2);
-      return s ? `<span class="low">would start ${esc(s.spot || "")} in ’${yr(s)}</span>` : any ? `<span class="low">would be ${esc(String(any.words || any.role || "").replace(/^Starter at /, "a starter at ").toLowerCase())}</span>` : "";
+      return s ? `<span class="low">would start at ${esc(spotName(s.spot))} in ’${yr(s)}</span>` : any ? `<span class="low">would be ${esc(String(any.words || any.role || "").replace(/^Starter at /, "a starter at ").toLowerCase())}</span>` : "";
     }
     const n = start(m);
     if (n < 0 || m.vals.filter((v) => v != null).length < 2) return "";
@@ -268,12 +270,12 @@ function dvCard(g) {
   };
   const body = rows.map((m) => {
     const n = start(m);
-    const place = n >= 0 ? m.spots[n].replace(/\d$/, "") : m.pos;
+    const place = n >= 0 ? spotName(m.spots[n]) : m.pos;
     const small = [place, m.commit ? "" : m.classes[Math.max(0, n)] || m.classes[0], tag(m)].filter(Boolean).join(" · ");
     return `<tr class="dv-r${m.portal ? " gone" : ""}"><td class="dv-who">${playerLink(m.id, who(m))}<small>${small}</small></td>${[0, 1, 2].map((i) => cell(m, i)).join("")}<td class="dv-go">${goes(m)}</td></tr>`;
   }).join("");
   const holes = w.spots.map((s) => ({ s, at: [0, 1, 2].filter((n) => s.names[n] === null) })).filter((h) => h.at.length);
-  const holeRows = holes.map((h) => `<tr class="dv-r"><td class="dv-who low">Nobody <small>${esc(h.s.key.replace(/\d$/, ""))} in ${h.at.map(yy).join(", ")}</small></td>${[0, 1, 2].map((n) => `<td class="dv-v low">${h.at.includes(n) ? "hole" : ""}</td>`).join("")}<td></td></tr>`).join("");
+  const holeRows = holes.map((h) => `<tr class="dv-r"><td class="dv-who low">Nobody <small>${esc(spotName(h.s.key))} in ${h.at.map(yy).join(", ")}</small></td>${[0, 1, 2].map((n) => `<td class="dv-v low">${h.at.includes(n) ? "hole" : ""}</td>`).join("")}<td></td></tr>`).join("");
   // Why it reads weak: each weak spot's first weak fall, in the map's own names.
   const why = [];
   for (const s of w.spots) {
@@ -281,7 +283,7 @@ function dvCard(g) {
       const v = s.verdicts[n];
       if (!(v === "Hole" || v === "Thin") || (n > 0 && (DV_RANK[s.verdicts[n - 1]] ?? 2) <= DV_RANK[v])) continue;
       const nm = s.names[n], prev = n > 0 ? s.names[n - 1] : null;
-      const key = s.key.replace(/\d$/, "");
+      const key = spotName(s.key);
       if (!nm) why.push(`${yy(n)} ${key}: ${prev ? `nobody behind ${dvLast(prev)}` : "nobody plays here now"}.`);
       else why.push(`${yy(n)} ${key}: ${v.toLowerCase()}, ${dvLast(nm)} ${s.vals[n]}${prev && prev.id !== nm.id ? ` steps in for ${dvLast(prev)}` : ""}.`);
     }

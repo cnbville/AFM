@@ -708,7 +708,7 @@ function fcStayCols(nd) {
     const q = gone.get(r.id);
     if (q) {
       const z = q.stayed[n];
-      return z ? esc(z.words) : `<span class="muted" title="${esc(q.stay_gone || "")}">Gone by then</span>`;
+      return z ? esc(z.words) : `<span class="muted" title="${esc(q.stay_gone ? q.stay_gone.why : "")}">Gone by then</span>`;
     }
     const m = men.get(r.id);
     if (!m) return '<span class="muted">-</span>';
