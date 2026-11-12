@@ -1194,12 +1194,29 @@ fn add_talk_picks(w: &World, s: &mut Scene, i: usize, subject: Subject, used: &[
     s.pick(900, "End the talk", "End", "calm", "Ends it here.");
 }
 
+/// A starter's place, as proof on the field for praise: last season's
+/// starter, or among the starters at his position on the depth chart your
+/// team would take into a game today (`seat_game_depth`: your own order
+/// where you set one, your staff's elsewhere; `depth_slots` starters deep).
+/// A pro's `last_role` is still his last college season (nothing writes it
+/// after the draft), so a pro is read from today's chart alone.
+pub(crate) fn starters_place(w: &World, i: usize) -> bool {
+    let p = &w.people[i];
+    if (p.stage != Stage::Pro && p.last_role == Some(PlayingTime::Starter)) || seat_starter(w, i) {
+        return true;
+    }
+    let id = p.player.id;
+    w.seat_game_depth().is_some_and(|d| {
+        d.iter().any(|(pos, ids)| ids.iter().take(crate::league::depth_slots(*pos).starters).any(|&x| x == id))
+    })
+}
+
 /// How true praise rings to him, 0 (he knows he's coasting) to 1 (he has
 /// earned every word). Both praise lines are about him and his work ("I've
 /// noticed the work you're putting in"), so his work earns it: effort at
 /// the facility (work ethic) and what he does when nobody is watching
-/// (professionalism), with a starter's place as the proof on the field:
-/// last season's, or on your depth chart now.
+/// (professionalism), with a starter's place as the proof on the field
+/// (`starters_place`).
 ///
 /// Playtest bug F2 (Cain 2026-11-12: "it hasn't lifted spirits once"): it
 /// was a switch on last season's depth chart alone. Its other half, a
@@ -1210,7 +1227,7 @@ fn add_talk_picks(w: &World, s: &mut Scene, i: usize, subject: Subject, used: &[
 pub(crate) fn praise_truth(w: &World, i: usize) -> f32 {
     let me = &w.people[i].player.personality;
     let work = 0.7 * (me.work_ethic - 10.0) / 10.0 + 0.3 * me.traits.z(Trait::Professionalism);
-    (0.5 + 0.9 * work + 0.25 * is_starter(w, i) as u8 as f64).clamp(0.0, 1.0) as f32
+    (0.5 + 0.9 * work + 0.25 * starters_place(w, i) as u8 as f64).clamp(0.0, 1.0) as f32
 }
 
 /// How a move lands on him (topic 5): (trust, mood). Fit with his

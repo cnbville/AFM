@@ -228,8 +228,8 @@ fn praise_measured() {
         let roster = Team::seat(&w).unwrap().roster(&w);
         let names = [
             "all, warm as written",
-            "started last season",
-            "did not start",
+            "a starter's place",
+            "no starter's place",
             "  of them: hard workers",
             "  of them: everyday",
             "  of them: coasting",
@@ -240,7 +240,7 @@ fn praise_measured() {
         let mut cells = [Cell::default(); 9];
         let mut starters = 0;
         for &i in &roster {
-            let starter = w.people[i].last_role == Some(PlayingTime::Starter);
+            let starter = talks::starters_place(&w, i);
             starters += starter as u32;
             let truth = talks::praise_truth(&w, i);
             let (real, _) = talks::concern(&w, i);
@@ -263,7 +263,7 @@ fn praise_measured() {
                 cells[6 + k].add(praise(&mut w, i, real, tone));
             }
         }
-        println!("\n{level}: {} players, {starters} started last season", roster.len());
+        println!("\n{level}: {} players, {starters} with a starter's place", roster.len());
         for (c, name) in cells.iter().zip(names) {
             println!("  {}", c.row(name));
         }
