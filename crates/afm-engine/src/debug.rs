@@ -169,3 +169,38 @@ pub fn world_store(w: &crate::world::World, name: &str) -> Option<serde_json::Va
         _ => None,
     }
 }
+
+// --- NIL pull (`nil_pull`): what money moves in a recruit's and a transfer's choice ---------
+
+use crate::world::World;
+use crate::world::recruiting as rec;
+
+/// What program `j` means to recruit `i` today with `nil` on the table
+/// (None: the money it offers him today), in the units his race is read in
+/// (`recruiting::appeal`).
+pub fn recruit_appeal(w: &World, i: usize, j: usize, nil: Option<f64>) -> f64 {
+    rec::appeal(w, i, j, nil)
+}
+
+/// The money recruit `i` weighs from program `j` today.
+pub fn recruit_money(w: &World, j: usize, i: usize) -> f64 {
+    rec::offer_money(w, j, i)
+}
+
+/// The top of NIL Go's range for a collective's deal with recruit `i`.
+pub fn recruit_nil_go_top(w: &World, i: usize) -> f64 {
+    rec::nil_go_top_recruit(&w.people[i])
+}
+
+/// A portal entrant's race as his decision reads it today, as (program,
+/// what it means to him, its money), best first. `swap`: one program's
+/// money replaced by another figure.
+pub fn portal_race_with(w: &World, i: usize, swap: Option<(usize, f64)>) -> Vec<(usize, f64, f64)> {
+    rec::portal_race_with(w, i, swap)
+}
+
+/// A transfer's own weights on the six reasons (close to home, playing
+/// time, money, development, winning and the name, academics).
+pub fn transfer_weights(w: &World, i: usize) -> [f64; 6] {
+    rec::transfer_weights(w, i)
+}

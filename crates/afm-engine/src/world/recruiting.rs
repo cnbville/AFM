@@ -8500,6 +8500,15 @@ fn yours_in(pwant: Option<&fo::college::PortalWants>, id: u32) -> (Option<usize>
 /// today, best first. The same code his decision day runs (`suitors`),
 /// with the calls made and the campus visits he has taken so far.
 pub(crate) fn portal_race(w: &World, i: usize) -> Vec<(usize, f64)> {
+    portal_ranked(w, i, None).into_iter().map(|r| (r.0, r.1)).collect()
+}
+
+/// [`portal_race`] with each program's money and the role he'd have. `swap`
+/// (trial tooling only, `debug::portal_race_with`): one program's money
+/// replaced by another figure, weighed as its own would be (his utility
+/// there, its staff's call and, if it is a finalist, the sit-down that ends
+/// his visit).
+fn portal_ranked(w: &World, i: usize, swap: Option<(usize, f64)>) -> Vec<Suitor> {
     let Some(mk) = w.portal_market.as_ref() else { return Vec::new() };
     let p = &w.people[i];
     let (Some(e), Some(c)) = (p.cal.portal, p.college) else { return Vec::new() };
@@ -8541,9 +8550,46 @@ pub(crate) fn portal_race(w: &World, i: usize) -> Vec<(usize, f64)> {
     if why != Why::Dismissed && !plays_far_down(w, mk.label, i) {
         ranked.retain(|&(j, ..)| (w.programs[j].division as usize) < from + 2 || Some(j) == said_yes);
     }
+    if let Some((j, nil)) = swap
+        && let Some(r) = ranked.iter_mut().find(|r| r.0 == j)
+    {
+        let (was, role) = (r.2, r.3);
+        let at = |x: f64| {
+            utility(shop.norms, &w.high_schools, p, &p.family.own_wants, &w.programs[j], w.year, x, 0.6, 1.0)
+                + super::folk::dialogue::staff_call(w, i, j, role, x)
+        };
+        r.1 += at(nil) - at(was);
+        r.2 = nil;
+    }
     finalist_visits(w, i, &e, &mut ranked, w.today, skip);
     ranked.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
-    ranked.into_iter().map(|r| (r.0, r.1)).collect()
+    ranked
+}
+
+/// Trial tooling (`debug`): a transfer's own weights on the six reasons, as
+/// [`reason_weights`] gives a recruit's (in the portal he decides for
+/// himself, and home keeps its whole weight).
+#[cfg(feature = "debug")]
+pub(crate) fn transfer_weights(w: &World, i: usize) -> [f64; 6] {
+    let p = &w.people[i];
+    let wants = p.family.own_wants;
+    let crisis = p.bg.story.iter().rev().take(1).any(|s| s.contains("death") || s.contains("lost a job"));
+    let (money_w, path_w) = money_weights(p, &wants, crisis);
+    [
+        wants.close_to_home + if crisis { 0.15 } else { 0.0 },
+        wants.playing_time + path_w,
+        money_w,
+        wants.development + path_w,
+        wants.prestige,
+        wants.academics,
+    ]
+}
+
+/// Trial tooling (`debug`): [`portal_ranked`] as (program, what it means to
+/// him, its money).
+#[cfg(feature = "debug")]
+pub(crate) fn portal_race_with(w: &World, i: usize, swap: Option<(usize, f64)>) -> Vec<(usize, f64, f64)> {
+    portal_ranked(w, i, swap).into_iter().map(|r| (r.0, r.1, r.2)).collect()
 }
 
 /// Entrants whose day has come decide (T3, T9): each shops among programs
