@@ -201,9 +201,9 @@ pub(super) fn view(w: &World) -> Reply {
                 }
             }
         }
-        for left in &g.stats.timeouts_left {
+        for half in &g.stats.timeouts_left {
             halves += 1;
-            if left[*side] >= 2 {
+            if half[*side] >= 2 {
                 with_two += 1;
             }
         }
