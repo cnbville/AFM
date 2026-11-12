@@ -238,3 +238,44 @@ fn position_choices() {
         assert!(fields::positions(c).is_some(), "{c}");
     }
 }
+
+/// A high schooler's schedule strength is his opponents' (minor bug 362):
+/// his last varsity season's school that year, in rating points against
+/// the average high school team, never his school's size class or state.
+#[test]
+fn a_high_schoolers_schedule_strength_is_his_opponents() {
+    let (g, dir) = college_world("sos");
+    let w = g.world.as_ref().unwrap();
+    let Some(TeamRef::College(j)) = views::mine(w) else { panic!("a college seat") };
+    let ctx = Ctx::new(w, Seat::College(j), Staff::Program(j), Sure::Any, false);
+    let mut read = 0;
+    for i in (0..w.people.len()).filter(|&i| w.people[i].stage == Stage::HighSchool) {
+        let Some(l) = w.people[i].hs_lines.last() else { continue };
+        let season = w.high_schools[l.school as usize].seasons.iter().find(|s| s.year == l.year as i32);
+        let want = season.and_then(|s| s.sos).map_or(Val::None, |v| Val::N((v as f64 * 10.0).round() / 10.0));
+        assert_eq!(fields::value(&ctx, i, "sos"), want, "his last season's schedule");
+        read += matches!(want, Val::N(_)) as usize;
+    }
+    assert!(read > 0, "varsity players read a schedule");
+    // Every school that played has one, and they centre on the average team.
+    let last: Vec<f64> = w
+        .high_schools
+        .iter()
+        .filter_map(|s| s.seasons.last().filter(|x| x.year == w.year - 1))
+        .map(|x| x.sos.expect("a season played has a schedule") as f64)
+        .collect();
+    let mean = last.iter().sum::<f64>() / last.len().max(1) as f64;
+    assert!(!last.is_empty() && mean.abs() < 2.0, "{} schools, mean {mean:.2}", last.len());
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// The classification column counts from the biggest schools (minor bug 363).
+#[test]
+fn classification_one_is_the_biggest() {
+    let w = World::empty(afm_engine::world::WorldOptions { scale: 0.03, ..Default::default() });
+    let catalog = fields::catalog(Seat::College(0), &w);
+    let label = |k: &str| catalog.iter().flat_map(|g| g.fields.iter()).find(|f| f.k == k).map(|f| f.label.clone());
+    assert_eq!(label("class").as_deref(), Some("State classification (1 the biggest)"));
+    // Schedule strength reads in rating points at both levels (minor bug 362).
+    assert_eq!(label("sos").as_deref(), Some("Schedule strength (points)"));
+}
