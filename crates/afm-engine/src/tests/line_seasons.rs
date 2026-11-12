@@ -724,3 +724,181 @@ fn a_wording_waits_for_every_other_one() {
     }
     assert!(folk.heard.values().all(|&c| c == 2));
 }
+
+/// The recruiting talks run's season (Cain 2026-11-12, 20,000 lines for the recruiting personal talks): a college
+/// head coach at full use over the recruiting year, 60 high school recruits with a family each, four talks
+/// apiece, and 20 transfers, three talks apiece, drawing the run's parts by the fact each is named for (the way
+/// the talk design will gate them; how often each comes is Claude's, proposed, not confirmed). Nothing asks these
+/// parts yet but the portal call's `portal.*`: this proves the bank holds enough for the season the design
+/// plans. The bar is the other families': 2 in 100 lines said again by the same speaker; the share heard again
+/// from anyone is printed with it.
+#[test]
+fn a_season_of_recruit_talks_counts_its_repeats() {
+    let mut sim = Sim {
+        folk: Folk::default(),
+        r: Rng::new(2026u32 + 77),
+        start: Date::ymd(2026, 7, 1).0,
+        day: 0,
+        seed: 4242,
+        level: "college",
+        ears: HashMap::new(),
+    };
+    const FAM: &str = "recruittalks";
+    let base = 9_000_000u64;
+    let bg = [
+        "money_tight",
+        "money_fine",
+        "single_parent",
+        "grandparents",
+        "foster",
+        "job_loss",
+        "family_move",
+        "death",
+        "new_baby",
+        "mentor",
+        "nil_changed",
+        "brother_follow",
+        "brother_own",
+        "bloodline_nfl",
+        "bloodline_college",
+        "grades_low",
+        "ambitious",
+    ];
+    let aspects = ["tradition", "facilities", "atmosphere", "brand", "conference", "campus", "prestige"];
+    let drives = ["playing", "nil", "school", "distance", "family", "development", "winning"];
+    let whys = ["snaps", "coach", "money", "up", "choice", "grad"];
+    let f = Facts::new()
+        .with("name", "Jalen")
+        .with("team", "Iowa State")
+        .with("coach", "Coach Reed")
+        .with("you", "Reed")
+        .with("pos", "WR")
+        .with("last_record", "7-6")
+        .with("first", "playing time")
+        .with("second", "the school");
+    let pick = |sim: &mut Sim, v: &[&str]| v[sim.r.int(0, v.len() as i32 - 1) as usize].to_string();
+    // The common beats of one talk, from either side.
+    let beats = |sim: &mut Sim, who: &Speaker, first: bool, k: usize, facts: &[String]| {
+        let call = sim.r.chance(0.7);
+        let mood = ["warm", "polite", "polite", "guarded"][sim.r.int(0, 3) as usize];
+        let setting = if call { "call" } else { "visit" };
+        sim.say(FAM, &format!("recruit.open.{setting}.{mood}"), who, &f, true);
+        if first {
+            sim.say(FAM, "recruit.history.first", who, &f, true);
+            for b in facts {
+                sim.say(FAM, &format!("recruit.bg.{b}"), who, &f, true);
+            }
+        } else {
+            let h = ["again", "again", "again", "again", "again", "silence", "kept", "broke"][sim.r.int(0, 7) as usize];
+            sim.say(FAM, &format!("recruit.history.{h}"), who, &f, true);
+        }
+        for _ in 0..sim.r.int(1, 2) {
+            let a = aspects[sim.r.int(0, 6) as usize];
+            let s = ["good", "good", "cool", "weak"][sim.r.int(0, 3) as usize];
+            sim.say(FAM, &format!("recruit.aspect.{a}.{s}"), who, &f, true);
+        }
+        if sim.r.chance(0.5) {
+            sim.say(FAM, "recruit.record.ask", who, &f, true);
+            let r = ["strong", "mixed", "weak"][sim.r.int(0, 2) as usize];
+            sim.say(FAM, &format!("recruit.record.{r}"), who, &f, true);
+        }
+        if sim.r.chance(0.4) {
+            let o = ["other.money", "other.you_money", "other.closer", "other.start", "committed.elsewhere"]
+                [sim.r.int(0, 4) as usize];
+            sim.say(FAM, &format!("recruit.{o}"), who, &f, true);
+        }
+        let w = sim.r.int(0, 9);
+        if w < 3 {
+            sim.say(FAM, "recruit.want.second", who, &f, true);
+        } else if w == 3 {
+            sim.say(FAM, "recruit.want.dealbreaker", who, &f, true);
+        } else if w == 4 {
+            sim.say(FAM, "recruit.want.unsure", who, &f, true);
+        }
+        if sim.r.chance(0.2) {
+            let t = ["team.good_year", "team.bad_year", "you.new", "you.long", "visit.liked", "visit.meh"]
+                [(k + sim.r.int(0, 1) as usize) % 6];
+            sim.say(FAM, &format!("recruit.{t}"), who, &f, true);
+        }
+        let close = ["warm", "flat", "flat", "cool"][sim.r.int(0, 3) as usize];
+        sim.say(FAM, &format!("recruit.close.{setting}.{close}"), who, &f, true);
+    };
+    for k in 0..60u64 {
+        let mut fam = sim.parent(base + k);
+        fam.tags.push(["himself", "parent", "grandparent", "handler"][sim.r.int(0, 3) as usize]);
+        let facts: Vec<String> = (0..sim.r.int(2, 3)).map(|_| pick(&mut sim, &bg)).collect();
+        for t in 0..4 {
+            sim.day = 120 + (k as i32 * 2 + t * 30) % 250;
+            beats(&mut sim, &fam, t == 0, k as usize, &facts);
+        }
+    }
+    for k in 0..20u64 {
+        sim.level = "college";
+        let tr = sim.player(base + 500 + k);
+        let facts = vec![pick(&mut sim, &bg)];
+        for t in 0..3 {
+            sim.day = 150 + (k as i32 * 5 + t * 20) % 200;
+            let call = sim.r.chance(0.7);
+            let mood = ["warm", "polite", "polite", "guarded"][sim.r.int(0, 3) as usize];
+            let setting = if call { "call" } else { "visit" };
+            sim.say(FAM, &format!("recruit.open.{setting}.{mood}"), &tr, &f, true);
+            let drive = pick(&mut sim, &drives);
+            sim.say(FAM, &format!("portal.ask.{drive}"), &tr, &f, true);
+            if sim.r.chance(0.5) {
+                sim.say(FAM, "portal.tell", &tr, &f, true);
+            }
+            for _ in 0..sim.r.int(1, 2) {
+                let m = ["good", "flat", "bad"][sim.r.int(0, 2) as usize];
+                sim.say(FAM, &format!("portal.react.{m}"), &tr, &f, true);
+            }
+            if sim.r.chance(0.4) {
+                let p = ["knows", "believes", "doubts"][sim.r.int(0, 2) as usize];
+                sim.say(FAM, &format!("portal.promise.{p}"), &tr, &f, true);
+            }
+            if t == 0 {
+                let why = pick(&mut sim, &whys);
+                sim.say(FAM, &format!("transfer.why.{why}"), &tr, &f, true);
+                if sim.r.chance(0.5) {
+                    let role = ["starter", "backup"][sim.r.int(0, 1) as usize];
+                    sim.say(FAM, &format!("transfer.role.{role}"), &tr, &f, true);
+                }
+                sim.say(FAM, &format!("recruit.bg.{}", facts[0]), &tr, &f, true);
+            }
+            let a = aspects[sim.r.int(0, 6) as usize];
+            let s = ["good", "cool", "weak"][sim.r.int(0, 2) as usize];
+            sim.say(FAM, &format!("recruit.aspect.{a}.{s}"), &tr, &f, true);
+            if sim.r.chance(0.5) {
+                sim.say(FAM, "recruit.record.ask", &tr, &f, true);
+                let r = ["strong", "mixed", "weak"][sim.r.int(0, 2) as usize];
+                sim.say(FAM, &format!("recruit.record.{r}"), &tr, &f, true);
+            }
+            let close = ["warm", "flat", "flat", "cool"][sim.r.int(0, 3) as usize];
+            sim.say(FAM, &format!("recruit.close.{setting}.{close}"), &tr, &f, true);
+        }
+    }
+    let e = sim.ears.get(FAM).expect("no lines said");
+    let mut thin: Vec<(&String, &usize)> = e.thin.iter().collect();
+    thin.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
+    let mut uses: Vec<(&String, &usize)> = e.uses.iter().collect();
+    uses.sort();
+    println!(
+        "recruit talks: {} lines, {} said again by the same speaker ({:.2}%), {} heard again from anyone ({:.1}%); \
+         thinnest {:?}",
+        e.parts,
+        e.same,
+        100.0 * e.same as f64 / e.parts.max(1) as f64,
+        e.any,
+        100.0 * e.any as f64 / e.parts.max(1) as f64,
+        &thin[..thin.len().min(8)]
+    );
+    println!("recruit talks uses: {uses:?}");
+    // A part nothing fits is said by a plain version or not at all: count what the bank could not say.
+    let silent = e.parts;
+    assert!(silent > 0);
+    assert!(
+        (e.same as f64 / e.parts as f64) <= bar("recruit"),
+        "{} of {} lines said again by the same speaker",
+        e.same,
+        e.parts
+    );
+}

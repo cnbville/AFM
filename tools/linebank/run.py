@@ -36,6 +36,7 @@ sys.path.insert(0, HERE)
 import bank as B  # noqa: E402
 import check as K  # noqa: E402
 from parts import FACT_WORDS, FILES, FIRST, NEVER, PARTS, PRONOUN_WORDS, TAG_WORDS, allocation  # noqa: E402
+import recruit20k  # noqa: E402,F401  (registers the recruiting talks run's parts and FILES entry)
 
 MODEL = 'claude-sonnet-5-5'
 # Each model's price ($ per million tokens through the Batches API, half the
@@ -52,6 +53,8 @@ WRITER = CHECKER = MODEL                    # set by --writer and --checker
 BASE_URL = 'https://api.anthropic.com'      # set, because ANTHROPIC_BASE_URL is set on thread machines
 KEY_VAR = 'AFM_LINEBANK_KEY'
 PER_REQ = 120                               # versions asked in one request (one part per request)
+FACET_REQ = 60                              # the same for a part that hands each request three facets
+MAX_TOKENS_SMALL = 3500                     # the same for a request of 70 versions or fewer
 MAX_TOKENS = 6000                           # 120 versions are about 3,000 tokens, and the model may think first
 SHOW = 600                                  # at most this many existing versions shown per request
 CHECK_PER_REQ = 250                         # lines one checker request reads
@@ -69,6 +72,24 @@ PILOT = {
     'hscall.ask.grades': 100, 'combine.press.bristles': 80, 'boss.mid.open': 100, 'interview.ask.plan': 80,
     'booster.want.rival': 70, 'takeover.leader.ego': 100, 'agent.far': 120,
 }
+
+# Jobs besides the 100,000 line run: a set of parts, their targets, a state folder and an output file.
+JOBS = {
+    'recruit20k': {
+        'family': recruit20k.FAMILY,
+        'state': '/mnt/project-files/afm/line-bank-api/recruit20k',
+        'first': ('portal.', 'recruit.open.', 'recruit.close.', 'recruit.record.'),
+        'pilot': {
+            'portal.ask.nil': 90, 'portal.react.bad': 70, 'recruit.open.guarded': 110, 'recruit.close.warm': 90,
+            'recruit.record.ask': 90, 'recruit.record.weak': 70, 'recruit.aspect.facilities.good': 70,
+            'recruit.bg.money_tight': 90, 'recruit.bg.grandparents': 70, 'recruit.bg.brother_follow': 70,
+            'recruit.history.broke': 70, 'recruit.other.money': 70, 'recruit.team.bad_year': 70,
+            'transfer.why.coach': 70,
+        },
+    },
+}
+JOB = None          # set by --job
+ONLY = None         # set by --parts: {key: versions}, a small trial of chosen parts
 
 BRIEFS = os.path.join(HERE, 'briefs')
 
@@ -98,6 +119,29 @@ ANGLES = {
     'agent': ["untagged lines that fit every agent", "straight agents", "slick agents", "hot or calm agents",
               "big agencies and one-man shops"],
 }
+# The recruiting talks run: every angle is a full spread of both sides, with a different emphasis, so even
+# the first requests of a part cover everyone.
+_MIX = ("the full spread for this part: about 55% untagged lines both sides could say, a fifth written for the "
+        "family side (tags parent, grandparent, handler, himself, loud, online, absent, spread widely), a fifth "
+        "for the transfer side (tag college, with a personality or stage tag where the words need it; a "
+        "position tag on at most 1 line in 15), a few with a region tag. Emphasis: ")
+ANGLES['recruit'] = [
+    _MIX + "the family side: parents, grandparents and handlers in their own voices.",
+    _MIX + "the transfer side: college players with position, personality and stage tags.",
+    _MIX + "short lines, two to eight words, untagged where possible.",
+    _MIX + "the recruit speaking for himself (tag himself) and a handler, plain and a little guarded.",
+    _MIX + "a light regional touch and the era (phones, texts, NIL, the portal) where the words fit.",
+]
+_TMIX = ("the full spread for this part: about 55% untagged lines, a fifth with one personality tag, a few with a "
+         "group tag (offense, defense, skill, lineman, cover, rusher) where the words fit everyone under it, a "
+         "position tag on at most 1 line in 8, a few with a stage tag (transfer, redshirt, senior, walkon) or a "
+         "region tag. Emphasis: ")
+ANGLES['transfer'] = [
+    _TMIX + "untagged lines and personality tags.",
+    _TMIX + "group and position tags (still at most 1 line in 8 with a position tag).",
+    _TMIX + "short lines, two to eight words.",
+    _TMIX + "stage and region touches, and the era (phones, texts, NIL, the portal).",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -252,24 +296,41 @@ def plan_round(st, targets, per_part, keep_rate, rnd):
     # The thinnest parts go first (by tenths of their target), so a batch
     # trimmed at the cap fills the parts furthest behind and leaves none at
     # nothing; among parts as thin, the ones the proposal fills first.
+    first = JOBS[JOB]['first'] if JOB else FIRST
+
     def order(k):
-        return (int(10 * (1 - short[k] / max(1, targets[k]))), not k.startswith(FIRST), -short[k])
+        return (int(10 * (1 - short[k] / max(1, targets[k]))), not k.startswith(first), -short[k])
 
     for key in sorted(short, key=order):
         miss = short[key]
         if miss <= max(2, DONE_SHARE * targets[key]):
             continue
         want = math.ceil(miss / max(keep_rate, 0.3))
-        reqs = min(per_part, math.ceil(want / PER_REQ))
+        facets = recruit20k.FACETS.get(key, []) if JOB else []
+        per = FACET_REQ if facets else PER_REQ
+        reqs = min(per_part, math.ceil(want / per))
         reach = PARTS[key].levels or {'hs', 'college', 'nfl'}
-        angles = [a for a in ANGLES[PARTS[key].who]
+        angles = [a for a in ANGLES[angle_set(key)]
                   if not any(f'(tag {lv}' in a for lv in {'hs', 'college', 'nfl'} - set(reach))]
         for r in range(reqs):
-            n = min(PER_REQ, math.ceil(want / reqs))
+            n = min(per, math.ceil(want / reqs))
             angle = angles[(r + rnd * reqs) % len(angles)]
+            if facets:
+                at = (3 * (r + rnd * reqs)) % len(facets)
+                picks = [facets[(at + t) % len(facets)] for t in range(3)]
+                angle += ('. Cover these facets of the part, spread over them and never two lines on the same '
+                          'idea: ' + '; '.join(picks))
             out.append((f'w{rnd}-{i:05d}', key, n, angle))
             i += 1
     return out
+
+
+def angle_set(key):
+    """Which angles a part's requests rotate through."""
+    p = PARTS[key]
+    if p.family == 'recruittalks':
+        return 'recruit' if p.who == 'recruit' else 'transfer'
+    return p.who
 
 
 def shown_for(key, have, rnd, r):
@@ -314,7 +375,7 @@ def build_requests(st, plan, rnd, targets):
         used = used_openings(have, len(old.get(key, [])), targets.get(key, 0))
         params = {
             'model': WRITER,
-            'max_tokens': MAX_TOKENS,
+            'max_tokens': MAX_TOKENS if n > 70 else MAX_TOKENS_SMALL,
             'thinking': MODELS[WRITER]['thinking'],
             'system': system_prompt(PARTS[key].family),
             'messages': [{'role': 'user', 'content': user_prompt(key, n, angle, shown_for(key, have, rnd, cid),
@@ -614,6 +675,10 @@ def finish_check(c, st, bid, targets):
 # Commands
 
 def targets_for(pilot):
+    if ONLY:
+        return dict(ONLY)
+    if JOB:
+        return dict(JOBS[JOB]['pilot']) if pilot else dict(recruit20k.TARGETS)
     if pilot:
         return dict(PILOT)
     al = allocation()
@@ -739,6 +804,13 @@ def report(st, targets):
     st.log(f'report written: {path}')
 
 
+HEADS = {'recruit20k': (
+    "# The recruiting talks line run (Cain 2026-11-12, 20,000 lines for the recruiting personal talks). Written "
+    "through the Message Batches API and checked by\n# tools/linebank (check.py and one model pass); merged here by "
+    "`run.py --job recruit20k merge`. Format in src/world/folk/voice.rs.\n# portal.* are asked by the game today; "
+    "the rest wait for the talk design (docs/design/recruit-talk-lines.md).")}
+
+
 def merge(st):
     pool = st.pool()
     by = collections.defaultdict(dict)
@@ -746,8 +818,12 @@ def merge(st):
         if k in PARTS:
             by[PARTS[k].family][k] = xs
     for fam, fname in FILES.items():
+        if JOB and fam != JOBS[JOB]['family']:
+            continue
         path = os.path.join(B.LINES, fname)
         head = open(path).read().split('\n@key', 1)[0].rstrip('\n') if os.path.exists(path) else ''
+        if not head and JOB:
+            head = HEADS[JOB]
         out = [head] if head else []
         for k in sorted(by.get(fam, {})):
             out += ['', f'@key {k}'] + by[fam][k]
@@ -758,17 +834,21 @@ def merge(st):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('cmd', choices=['key', 'dry', 'pilot', 'run', 'status', 'merge', 'report', 'repool', 'recheck'])
-    ap.add_argument('--state', default=DEFAULT_STATE)
+    ap.add_argument('--job', choices=sorted(JOBS), default=None, help='a job besides the 100,000 line run')
+    ap.add_argument('--state', default=None)
     ap.add_argument('--cap', type=float, default=40.0, help='stop before this many dollars, all batches counted')
     ap.add_argument('--rounds', type=int, default=6)
     ap.add_argument('--per-part', type=int, default=12, help='requests per part in one round')
     ap.add_argument('--pilot', action='store_true')
+    ap.add_argument('--parts', default=None, help='key:count,key:count: a small trial of these parts only')
     ap.add_argument('--writer', choices=sorted(MODELS), default=MODEL, help='the model that writes the lines')
     ap.add_argument('--checker', choices=sorted(MODELS), default=MODEL, help='the model of the checker pass')
     args = ap.parse_args()
-    global WRITER, CHECKER
-    WRITER, CHECKER = args.writer, args.checker
-    st = State(args.state)
+    global WRITER, CHECKER, JOB, ONLY
+    WRITER, CHECKER, JOB = args.writer, args.checker, args.job
+    if args.parts:
+        ONLY = {k: int(n) for k, n in (x.split(':') for x in args.parts.split(','))}
+    st = State(args.state or (JOBS[JOB]['state'] if JOB else DEFAULT_STATE))
     if args.cmd == 'status':
         print(json.dumps({k: v for k, v in st.s.items() if k != 'batches'}, indent=1))
         for bid, r in st.s['batches'].items():

@@ -34,6 +34,12 @@ SPEAKERS = {
              'blunt', 'smooth', 'impatient', 'patient', 'meddler', 'tight', 'old'} | LEVEL | REGION | ERA,
     'you': {'you'} | LEVEL | REGION | ERA,
     'parent': {'parent', 'loud', 'online', 'calm', 'absent'} | REGION | ERA,
+    # A recruit's side in the recruiting talks (recruit20k): a family at a home visit or on a call (the 'parent'
+    # speaker plus whoever decides), or a transfer in the portal (a college 'player'). A version fits the one
+    # kind of speaker its tags name; an untagged one fits both. `calm` is left out: it means a calm parent
+    # style on one and a calm temper on the other.
+    'recruit': {'parent', 'grandparent', 'handler', 'himself', 'loud', 'online', 'absent', 'college', 'freshman',
+                'senior', 'redshirt', 'transfer', 'walkon'} | (TRAITS - {'calm'}) | SPOT | GROUP | REGION | ERA,
     # Agents carry no level, region or era: a line with one is never said.
     'agent': {'agent', 'straight', 'slick', 'hot', 'calm', 'big', 'small'},
 }
@@ -57,6 +63,18 @@ TAG_WORDS = {
     'you': "level of your job (hs, college, nfl). You have no other traits: your voice is the tone you picked",
     'parent': "how they are with their son's football: loud (loud at games), online (posts about it), calm "
               "(calm and private), absent (rarely around)",
+    'recruit': "who is talking. FAMILY SIDE (a high school recruit's home visit or call): parent (a parent or "
+               "guardian who decides for him: 'my son', 'my boy'), grandparent ('my grandson'), handler (a "
+               "trainer or 7-on-7 coach who steers him, talks business), himself (the 17-year-old recruit "
+               "speaking for himself, plain and a little guarded), and how a parent is around his football: loud "
+               "(loud at games), online (posts about it), absent (rarely around). TRANSFER SIDE (a college "
+               "player in the portal, in a college player's words): college, transfer (has transferred before), "
+               "freshman, senior, redshirt, walkon, position (qb rb wr te ol dl lb db kicker snapper) and "
+               "groups, personality (young, vet, ego, humble, leader, quiet, hot, loyal, greedy, pro, loose, "
+               "shaky, steady, competitor). A line tagged for the family side is never said by a transfer and "
+               "the other way round, so never mix the two sides' tags on one line; region and era tags go with "
+               "either. An untagged line is said by both sides, so its words must fit a family at a living-room "
+               "visit and a transfer on the phone alike",
     'agent': "straight (honest), slick (spins and bluffs); hot, calm (temper); big (a big agency), small (a "
              "one-man shop). Never a level, region or era tag",
 }
@@ -65,8 +83,8 @@ TAG_WORDS = {
 # The facts a line can name, and what they read like.
 
 FACT_WORDS = {
-    'name': "a first name", 'full': "a full name", 'coach': "Coach Reed (you, as players say it)",
-    'you': "Reed (your last name)", 'friend': "his closest friend still on the team, first name",
+    'name': "a first name", 'full': "a full name", 'coach': "'Coach' and your last name, filled in by the game (you, as players say it; never write a name yourself)",
+    'you': "your last name, filled in by the game", 'friend': "his closest friend still on the team, first name",
     'gone': "the friend who left the team, first name",
     'team': "your team's name, as 'this {team} team' or 'the {team} locker room' (never 'a {team}': a or an "
     "depends on the name)",
@@ -82,6 +100,8 @@ FACT_WORDS = {
     "every level; never 'a {them}'", 'us': "your team's name (the same rules as {them})", 'unit': "one of your units in lower case "
     "(quarterback, offensive line, receivers, front, linebackers, corners, kicker)",
     'player': "a player's first name", 'captain': "the captain's first name", 'money': "a sum ($14.5M)",
+    'pos': "his position as the game writes it: QB, RB, WR, TE, OT, IOL, EDGE, DT, LB, CB, S, K, P or LS. Write "
+    "'at {pos}', 'the {pos} room', 'your {pos} group'; never add an s to it, never write 'a {pos}' or 'an {pos}'",
     'club': "an NFL club's full name ('Buffalo Bills': write 'the {club}', plural verbs)", 'first': "what matters most to the "
     "family, lower case (playing time, nil money, the school, close to home, family, getting him to the next "
     "level, winning)", 'second': "what matters next (same list)",
@@ -112,6 +132,7 @@ class Part:
         # tag decides); otherwise the only levels it is said at.
         self.levels = levels
         self.words = words
+        self.phrase_cap = False
         # Tags this part allows beyond its speaker's (a decider in a home
         # visit, your tone on game day), and speaker tags it never fits.
         self.tags = (SPEAKERS[who] | set(extra)) - set(drop)
