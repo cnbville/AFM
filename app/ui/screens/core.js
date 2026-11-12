@@ -1130,25 +1130,30 @@ async function showLetter(id, list) {
   let m;
   try { m = await api("letter", { id: String(id) }); } catch (e) { toast(e.message); closeLetter(); return; }
   if (MAIL.ask !== ask) return;
-  MAIL.cur = m;
   let room = document.querySelector(".letter-room");
+  // The letter already on the sheet drawn again (a star, an answer) changes
+  // in place: replaying the turn faded the sheet out and back for a blink.
+  const same = !!room && !!MAIL.cur && MAIL.cur.id === m.id;
+  MAIL.cur = m;
   const fresh = !room;
   if (!room) {
     room = document.createElement("div");
     room.className = "letter-room";
-    room.innerHTML = `<div class="lt-stage"><div class="lt-stack"><i></i><i></i><i></i></div><div class="lt-sheet"></div></div><div class="lt-aside"></div><button class="lt-close st-icon-btn" data-act="letterclose" aria-label="Close">×</button>`;
+    room.innerHTML = `<div class="lt-stage"><div class="lt-sheet"></div></div><div class="lt-aside"></div><button class="lt-close st-icon-btn" data-act="letterclose" aria-label="Close">×</button>`;
   }
   const sheet = room.querySelector(".lt-sheet");
-  sheet.classList.remove("rise", "turn");
-  void sheet.offsetWidth;
+  if (!same) {
+    sheet.classList.remove("rise", "turn");
+    void sheet.offsetWidth;
+  }
   sheet.innerHTML = letterHtml(m);
-  sheet.classList.add(fresh ? "rise" : "turn");
+  if (!same) sheet.classList.add(fresh ? "rise" : "turn");
   room.querySelector(".lt-aside").innerHTML = letterSide(m);
   if (fresh) {
     document.body.appendChild(room);
     document.documentElement.classList.add("reading");
   }
-  room.querySelector(".lt-stage").scrollTop = 0;
+  if (!same) room.querySelector(".lt-stage").scrollTop = 0;
   if (S.status) { S.status.unread = m.unread; badge(); }
   const row = document.querySelector(`.mrow[data-id="${id}"]`);
   if (row) row.classList.remove("unread");
