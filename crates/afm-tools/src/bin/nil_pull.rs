@@ -195,7 +195,7 @@ fn recruits(w: &World, conference: &str) {
         let weights = desk::reason_weights(w, i);
         let spread = sd(&base.iter().map(|b| b.0).collect::<Vec<_>>());
         // One school's money moved: `n` its row (the list's length for a new school).
-        let mut moved = |j: usize, n: usize, own: f64, to: &mut Vec<Pair>| {
+        let moved = |j: usize, n: usize, own: f64, to: &mut Vec<Pair>| {
             let mut rows = base.clone();
             if n == rows.len() {
                 rows.push((debug::recruit_appeal(w, i, j, None), own));
