@@ -58,6 +58,11 @@ fn commit(w: &mut World, j: usize, id: u32) {
     w.programs[j].hs_pipeline.insert(hs, (0.5, year));
 }
 
+/// The old staff's offers the test uses: two pulled by ticks in the fresh
+/// start, then after it one pulled plainly and one more made the test's
+/// commitment.
+const NEED: u64 = 4;
+
 fn start(g: &mut Game, job: &Value, no_offers: bool) {
     ok(
         g,
@@ -72,18 +77,23 @@ fn a_new_staff_resets_the_board() {
     let mut g = Game::new(dir.clone());
     ok(&mut g, "build_world", json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     let fresh = ok(&mut g, "save", json!({ "name": "fresh" }))["saved"].as_str().unwrap().to_string();
-    // The job among the top ones whose old staff left the most offers out
-    // (a small world's numbers move with the engine).
+    // The first job down the list whose old staff left more offers out than
+    // the test uses (`NEED`), else the one with the most. A small world's
+    // numbers move with the engine: on one world the first ten jobs had
+    // three at most and the twelfth five, so the search goes on past ten.
     let jobs = ok(&mut g, "jobs", json!({ "level": "college" }))["jobs"].as_array().unwrap().clone();
     let mut job = jobs[0]["ref"].clone();
     let mut most = 0;
-    for j in jobs.iter().take(10) {
+    for j in jobs.iter().take(60) {
         ok(&mut g, "open_world", json!({ "path": fresh }));
         start(&mut g, &j["ref"], false);
         // The board takes over the old staff's offers when you first open it.
         let n = ok(&mut g, "recruit_board", json!({}))["fresh"]["offers"].as_u64().unwrap_or(0);
         if n > most {
             (most, job) = (n, j["ref"].clone());
+        }
+        if most > NEED {
+            break;
         }
     }
     ok(&mut g, "open_world", json!({ "path": fresh }));
@@ -114,7 +124,7 @@ fn a_new_staff_resets_the_board() {
     let board = ok(&mut g, "recruit_board", json!({}));
     let f = board["fresh"].clone();
     let offers = f["offers"].as_u64().expect("the old staff left offers out") as usize;
-    assert!(offers >= 3, "enough old offers to test: {f}");
+    assert!(offers as u64 >= NEED, "the test uses {NEED} old offers: {f}");
     assert_eq!(f["days"].as_i64(), Some(i64::from(desk::FRESH_DAYS)), "the window counts today: {f}");
     let rows = board["rows"].as_array().unwrap();
     let old: Vec<&Value> =

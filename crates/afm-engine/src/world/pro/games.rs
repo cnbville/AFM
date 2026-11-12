@@ -122,6 +122,44 @@ pub(crate) fn game_side(w: &World, t: usize) -> Option<Side> {
     build_side(w, t, actives(w, t))
 }
 
+/// An NFL club's practice team (section 6b, minor bug 361): everyone
+/// healthy on its roster and its practice squad, not only the game-day
+/// actives. A practice squad's whole job is practice (the scout team), and
+/// a healthy scratch practises all week; both were left out of every
+/// practice snap, so they missed the practice grades the depth order
+/// reads, practice injuries and, with item 16, practice results. Out hurt,
+/// sitting out or away, a man doesn't practise, as on game day.
+pub(crate) fn practice_side(w: &World, t: usize) -> Option<Side> {
+    let club = w.clubs.get(t)?;
+    let ok = |i: usize| {
+        let p = &w.people[i];
+        p.pro.as_ref().is_some_and(|c| {
+            matches!(c.status, Status::Roster | Status::PracticeSquad)
+                && c.out_weeks == 0
+                && crate::world::people::available(c)
+        }) && !crate::world::folk::rules::sitting(w, p.player.id, w.today)
+            && !w.training.hurt_out(p.player.id, w.today)
+    };
+    let mut list: Vec<(usize, bool)> = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    // The depth chart's order first (its starters marked), then the rest.
+    for pos in Position::ALL {
+        let s = depth_slots(pos);
+        let at = club.depth.get(pos.index()).map_or(&[][..], |d| d.as_slice());
+        for (k, &i) in at.iter().filter(|&&i| ok(i)).enumerate() {
+            if seen.insert(i) {
+                list.push((i, k < s.starters));
+            }
+        }
+    }
+    for &i in &club.roster {
+        if ok(i) && seen.insert(i) {
+            list.push((i, false));
+        }
+    }
+    build_side(w, t, list)
+}
+
 /// A preseason team (topic 1, by era: four games, none in 2020, three
 /// from 2021): the backups, rookies and camp bodies play; the starters sit
 /// unless it is the staff's dress rehearsal (the next-to-last game) and the

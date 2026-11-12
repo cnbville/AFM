@@ -1850,12 +1850,13 @@ fn camp(w: &mut World, d: Date) {
         c.preseason = (0.0, 0.0);
         c.season_mut(year).team = team;
         // The season's ledger: last season's rolled into his past, his
-        // spring snaps landed.
+        // spring snaps landed. With practice on (item 16) every pro on a
+        // team opens one, so his practice counts from his first season.
         let id = w.people[i].player.id;
         let mut l = closing.unwrap_or_default();
         l.roll(year);
         l.reps = spring_landed.unwrap_or(0.0) as f32;
-        if spring_landed.is_some() || !l.past.is_empty() {
+        if spring_landed.is_some() || !l.past.is_empty() || results.is_some_and(|m| m.practice) {
             w.results.ledgers.insert(id, l);
         }
     }

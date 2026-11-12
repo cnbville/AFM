@@ -324,7 +324,13 @@ pub struct Program {
     pub position_coaches: [Option<usize>; super::coach::GROUP_COUNT],
     pub roster: Vec<usize>,
     pub seasons: Vec<ProgramSeason>,
+    /// National titles at any level: the real ones from before the world
+    /// began, then the world's own.
     pub titles: u32,
+    /// The real national titles won before the world began, by the level
+    /// they were won at (`Division as usize`; minor bug 295). Older files: none.
+    #[serde(default)]
+    pub titles_before: [u32; data::DIVISION_COUNT],
     pub conference_titles: u32,
     /// Draft picks by year (round of each pick).
     pub draft_picks: Vec<(i32, u32)>,
@@ -431,7 +437,7 @@ impl Program {
     }
 
     /// The seats its crowds are read from: the stadium, capped by the level
-    /// it plays at now (a Division II school in a 22,000-seat city stadium
+    /// it plays at now (a Division II school in a 17,000-seat city stadium
     /// draws like a Division II school).
     pub fn crowd_seats(&self) -> u32 {
         self.stadium.min(match self.division {
@@ -526,7 +532,10 @@ const MAJOR_INDEPENDENTS: [&str; 11] = [
     "West Virginia",
 ];
 
-fn division_scale(d: Division) -> f64 {
+/// A start with no real record known: an even record.
+const NO_START_RECORD: f64 = 0.5;
+
+pub(crate) fn division_scale(d: Division) -> f64 {
     match d {
         Division::FBS => 1.0,
         Division::FCS => 0.45,
@@ -538,16 +547,19 @@ fn division_scale(d: Division) -> f64 {
 }
 
 /// Builds a program from its real row as it stood in `season`. Prestige
-/// parts are seeded from real history: titles, 2021-25 record, stadium
-/// size, conference and academics.
+/// parts are seeded from real history: the titles won before that season
+/// at every level, its record in the five seasons before, its seats that
+/// season, conference and academics.
 pub fn program_from_row(id: usize, row: &CollegeRow, season: i32, seed: u32, rng: &mut Rng) -> Program {
     let state = geo::state_index(&row.state).unwrap_or(0);
-    // A shared or oversized stadium (Winston-Salem State plays in a 22,000-seat
+    // A shared or oversized stadium (Winston-Salem State plays in a 17,000-seat
     // city stadium) says little about a small program's crowds: cap by level.
     // The real seats are kept (a school that moves up plays in them: UCF's
-    // 45,000 seats were there in its Division II years, A4); what its crowds
+    // Citrus Bowl seats were there in its Division II years, A4); what its crowds
     // can be read from is capped by the level it plays at (`crowd_seats`).
-    let seats = row.stadium_capacity.unwrap_or(match row.division {
+    // Its real seats in the season it starts (minor bug 296): James
+    // Madison's 12,500 in 1984, not today's 24,877.
+    let seats = data::real_seats(&row.name, season).or(row.stadium_capacity).unwrap_or(match row.division {
         Division::FBS => 30000,
         Division::FCS => 12000,
         _ => 4000,
@@ -564,10 +576,23 @@ pub fn program_from_row(id: usize, row: &CollegeRow, season: i32, seed: u32, rng
     let p4 = row.name == "Notre Dame"
         || super::voters::power_conf(&row.conference, season)
         || (season < 1993 && row.conference == "Independent" && MAJOR_INDEPENDENTS.contains(&row.name.as_str()));
-    let titles = row.national_titles as f64;
+    // Tradition counts the real titles won before it starts, at every level
+    // (minor bug 295): a title won below its level counts by that level's
+    // weight, one above it as one of its own (proposed, not confirmed).
+    let before = data::titles_before(&row.name, season);
+    let titles: f64 =
+        Division::ALL.iter().map(|&d| before[d as usize] as f64 * (division_scale(d) / scale).min(1.0)).sum();
     let tradition =
         clamp(scale * (0.25 + 0.12 * titles.sqrt() + if p4 { 0.25 } else { 0.0 }) + rng.normal(0.0, 0.05), 0.02, 1.0);
-    let win = row.last_5yr_win_pct.unwrap_or(0.45);
+    // Recent form is its real record over the five seasons before it starts
+    // (minor bug 294: 1979-83 for a 1984 start). A world that takes over in
+    // 2026 reads the 2021-25 record; with no record known, an even 0.5 (the
+    // known 1979-83 records average 0.50-0.52 at every level).
+    let win = data::start_record(&row.name, season).unwrap_or(if season > data::HISTORY_LAST {
+        row.last_5yr_win_pct.unwrap_or(0.45)
+    } else {
+        NO_START_RECORD
+    });
     // The same scale the yearly update uses, so nobody drifts just from the start.
     let recent = clamp(scale * (0.2 + 0.8 * win), 0.02, 1.0);
     let stadium_share = clamp((stadium as f64 / 110_000.0).sqrt(), 0.05, 1.0);
@@ -630,7 +655,8 @@ pub fn program_from_row(id: usize, row: &CollegeRow, season: i32, seed: u32, rng
         position_coaches: [None; super::coach::GROUP_COUNT],
         roster: Vec::new(),
         seasons: Vec::new(),
-        titles: row.national_titles,
+        titles: before.iter().sum(),
+        titles_before: before,
         conference_titles: 0,
         draft_picks: Vec::new(),
         admissions_bar: admissions(row).0,
@@ -990,6 +1016,14 @@ pub(crate) fn apply_history(w: &mut super::World) {
     if season > data::HISTORY_LAST + 1 {
         return;
     }
+    // Real seats each season through 2025, then today's in 2026 (minor bug
+    // 296): an expansion, a cut or a move to a new stadium lands in the
+    // season it opened.
+    for p in w.programs.iter_mut() {
+        if let Some(seats) = data::real_seats(&p.real_name, season) {
+            p.stadium = seats;
+        }
+    }
     let today = w.today;
     for i in 0..w.programs.len() {
         let p = &w.programs[i];
@@ -1036,16 +1070,27 @@ pub(crate) fn apply_history(w: &mut super::World) {
         } else {
             continue;
         };
+        let start = w.options.start_year;
         let p = &mut w.programs[i];
+        let real = super::buildings::has_buildings(&p.real_name);
         if was && (d as usize) < old_d as usize {
             // A school moves up after building for it: facilities and crowds
             // take a step toward the new level (proposed, not confirmed).
             let step = (division_scale(d) / division_scale(old_d)).sqrt();
-            p.facilities = clamp(p.facilities * step, 0.0, 1.0);
+            if !real {
+                p.facilities = clamp(p.facilities * step, 0.0, 1.0);
+            }
             p.fans = clamp(p.fans * step, 0.0, 1.0);
         }
         p.division = d;
         p.conference = c;
+        // A school with its real buildings reads them at its new level: the
+        // buildings standing this season in the past, last season's in the
+        // season the world hands over (this season's openings are still to
+        // come in July, `finance::college`, `open_projects`).
+        if real && let Some(f) = super::buildings::number(p, if season < start { season } else { season - 1 }) {
+            p.facilities = f;
+        }
         p.story.push((season, text.clone()));
         let loud = match d.min(old_d) {
             Division::FBS => Loudness::Big,

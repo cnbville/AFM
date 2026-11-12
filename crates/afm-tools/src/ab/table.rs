@@ -778,7 +778,7 @@ pub fn all() -> Vec<Test> {
             .real(lb_real!("wt"))
             .sign(-1.0),
         t("lb_speed", "lb", "Speed (forty 4.89 / 4.69 / 4.50)", lb, drawn(Forty, [4.89, 4.69, 4.50]))
-            .chain(&["cv_cmp", "cv_ypt", "cv_back_cmp", "tk_far", "tk_rate", "lb_blitz_press", "def_ypc"])
+            .chain(&["cv_cmp", "cv_ypt", "cv_back_cmp", "tk_far", "tk_rate", "lb_blitz_press", "def_ypc", "lb_tk_within"])
             .chain(LB_BODY)
             .chain(LB_JOBS)
             .real(lb_real!("forty"))
@@ -909,8 +909,8 @@ pub fn all() -> Vec<Test> {
             .sign(-1.0),
         t("cb_speed", "cb", "Speed (forty 4.63 / 4.49 / 4.36)", cb, drawn(Forty, [4.63, 4.49, 4.36]))
             .chain(&[
-                "cv_deep", "cv_ypc", "cv_adot", "cv_ypt", "cv_sep", "cv_yac", "cv_cmp", "cv_pbu", "tk_run_snap", "tk_miss",
-                "tk_ff",
+                "cv_deep", "cv_ypc", "cv_adot", "cv_adot_within", "cv_ypt", "cv_sep", "cv_yac", "cv_cmp", "cv_pbu",
+                "tk_run_snap", "tk_miss", "tk_ff",
             ])
             .real(&[
                 ("cv_ypc", "cb_forty__yds_per_cmp"),
@@ -1125,6 +1125,9 @@ pub fn all() -> Vec<Test> {
         ("grid_edge_ht_cone", "Edge height × 3-cone", Height, [74.0, 75.75, 77.5], Cone, [7.44, 7.17, 6.90]),
         ("grid_edge_arm_split", "Edge arms × get-off", Arm, [32.1, 33.75, 35.4], Split, [1.70, 1.62, 1.55]),
         ("grid_edge_arm_forty", "Edge arms × speed", Arm, [32.1, 33.75, 35.4], Forty, [5.03, 4.79, 4.55]),
+        // E3: does strength pay with mass? (bench reps at his weight)
+        ("grid_edge_wt_bench", "Edge weight × bench", Weight, [243.0, 264.0, 285.0], Bench, [16.0, 20.0, 24.0]),
+        ("grid_edge_wt_arm", "Edge weight × arms", Weight, [243.0, 264.0, 285.0], Arm, [32.1, 33.75, 35.4]),
     ] {
         v.push(grid(id, "edge", name, ed, p, pv, ed, q, qv, ecombo));
     }

@@ -1160,6 +1160,13 @@ fn college_titles_text(p: &afm_engine::world::program::Program) -> String {
             other[d as usize] += 1;
         }
     }
+    // The real titles from before the world began, at the level each was
+    // won at (minor bug 295).
+    for d in Division::ALL {
+        if d != p.division {
+            other[d as usize] += p.titles_before[d as usize];
+        }
+    }
     let n = |k: u32, d: Division| {
         let t = crate::views::college_title(d);
         format!("{k} {}", if k == 1 { t.one } else { t.many })
@@ -1180,6 +1187,15 @@ fn college_titles_text(p: &afm_engine::world::program::Program) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Minor bug 295: the real titles from before the world began keep the
+    /// level they were won at.
+    #[test]
+    fn earlier_titles_keep_their_level() {
+        let row = afm_engine::world::data::COLLEGES.iter().find(|r| r.name == "North Dakota State").unwrap();
+        let p = afm_engine::world::program::program_from_row(0, row, 2026, 1, &mut afm_engine::rng::Rng::new(1));
+        assert_eq!(college_titles_text(&p), "10 FCS titles · 5 Division II titles");
+    }
 
     #[test]
     fn deleting_a_world_takes_what_is_beside_it_and_nothing_else() {

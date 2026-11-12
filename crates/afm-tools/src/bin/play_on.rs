@@ -21,7 +21,33 @@ fn main() {
     // March and 19 in August (trades.csv).
     let mut months: std::collections::BTreeMap<String, u32> = Default::default();
     let traded = |w: &afm_engine::world::World| w.market.years.iter().map(|m| m.trades).sum::<u32>();
+    // Minor bug 290: each year's combine edges and tackles by arm length,
+    // then where they went in the draft.
+    let mut invited: Vec<(usize, u32, f64)> = Vec::new();
+    let mut arm_rows: Vec<(String, f64, Option<u32>)> = Vec::new();
     for d in 0..days {
+        if w.today == w.dates.combine_end {
+            invited = w
+                .people
+                .iter()
+                .enumerate()
+                .filter(|(_, p)| {
+                    p.cal.combine_invite
+                        && matches!(
+                            p.player.position,
+                            afm_engine::positions::Position::EDGE | afm_engine::positions::Position::OT
+                        )
+                })
+                .map(|(i, p)| (i, p.player.position.index() as u32, p.player.body.arm))
+                .collect();
+        }
+        if w.today == w.dates.udfa_rush.date && !invited.is_empty() {
+            for &(i, pos, arm) in &invited {
+                let pick = w.people[i].pro.as_ref().and_then(|c| c.draft).filter(|d| d.0 == w.year).map(|d| d.2);
+                arm_rows.push((afm_engine::positions::Position::ALL[pos as usize].to_string(), arm, pick));
+            }
+            invited.clear();
+        }
         let before = traded(&w);
         if w.today == afm_engine::world::scouting::supp::date(w.year) {
             eprintln!("supplemental entrants this July: {}", afm_engine::world::scouting::supp::eligible(&w).len());
@@ -75,6 +101,7 @@ fn main() {
     }
     eprintln!("TRADES BY MONTH {months:?}");
     summary(&w);
+    arm_report(&arm_rows);
     if days > 0 {
         afm_engine::save::write_world(&w, Path::new(&args[3]), "play_on", "play_on", None).expect("write the world");
     }
@@ -183,5 +210,55 @@ fn summary(w: &afm_engine::world::World) {
     }
     for h in w.nfl_book.hall_coaches.iter() {
         eprintln!("HALL COACH {} {} {}", h.0, h.2, h.3);
+    }
+}
+
+/// Drafted share and log pick against arm length by position (minor bug
+/// 290; real edges: +6.7 pts drafted an inch, log pick -0.128 an inch).
+fn arm_report(rows: &[(String, f64, Option<u32>)]) {
+    for pos in ["EDGE", "OT"] {
+        let r: Vec<_> = rows.iter().filter(|x| x.0 == pos).collect();
+        if r.len() < 20 {
+            continue;
+        }
+        let n = r.len() as f64;
+        let ma = r.iter().map(|x| x.1).sum::<f64>() / n;
+        let sa = (r.iter().map(|x| (x.1 - ma).powi(2)).sum::<f64>() / n).sqrt();
+        let slope = |pts: &[(f64, f64)]| {
+            let k = pts.len() as f64;
+            let mx = pts.iter().map(|p| p.0).sum::<f64>() / k;
+            let my = pts.iter().map(|p| p.1).sum::<f64>() / k;
+            let sxy: f64 = pts.iter().map(|p| (p.0 - mx) * (p.1 - my)).sum();
+            let sxx: f64 = pts.iter().map(|p| (p.0 - mx).powi(2)).sum();
+            (sxy / sxx.max(1e-9), mx, my)
+        };
+        let drafted: Vec<(f64, f64)> = r.iter().map(|x| (x.1, if x.2.is_some() { 1.0 } else { 0.0 })).collect();
+        let picks: Vec<(f64, f64)> = r.iter().filter_map(|x| x.2.map(|p| (x.1, (p as f64).ln()))).collect();
+        let r1: Vec<(f64, f64)> =
+            r.iter().filter_map(|x| x.2.map(|p| (x.1, if p <= 32 { 1.0 } else { 0.0 }))).collect();
+        let (sd, _, md) = slope(&drafted);
+        let (sp, _, _) = slope(&picks);
+        let (s1, _, _) = slope(&r1);
+        eprintln!(
+            "ARMS {pos}: {} invited, arm {ma:.2} sd {sa:.2}, drafted {:.1}%; per inch: drafted {:+.1} pts, log pick {:+.3}, round one among drafted {:+.1} pts",
+            r.len(),
+            100.0 * md,
+            100.0 * sd,
+            sp,
+            100.0 * s1
+        );
+        for (lo, hi) in [(-9.0, -1.0), (-1.0, 0.0), (0.0, 0.95), (0.95, 9.0)] {
+            let b: Vec<_> = r.iter().filter(|x| (x.1 - ma) / sa >= lo && (x.1 - ma) / sa < hi).collect();
+            let dr: Vec<u32> = b.iter().filter_map(|x| x.2).collect();
+            let mut sorted = dr.clone();
+            sorted.sort();
+            let med = sorted.get(sorted.len() / 2).copied().unwrap_or(0);
+            eprintln!(
+                "ARMS {pos} z {lo:+.2}..{hi:+.2}: n {}, drafted {:.0}%, round one {:.0}%, median pick {med}",
+                b.len(),
+                100.0 * dr.len() as f64 / b.len().max(1) as f64,
+                100.0 * dr.iter().filter(|&&p| p <= 32).count() as f64 / b.len().max(1) as f64
+            );
+        }
     }
 }

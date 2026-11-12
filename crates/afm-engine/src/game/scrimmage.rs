@@ -1902,6 +1902,21 @@ fn snap_jitter(los: f64, k: usize) -> f64 {
     (z >> 11) as f64 / (1u64 << 53) as f64
 }
 
+/// How far outside the ball a run must get before the back on that side
+/// takes the force (minor bug 253; 3 and 5 yards moved outside runs by 0.1
+/// a carry either way; proposed, not confirmed).
+const FORCE_WIDE: f64 = 4.0;
+
+/// The rotated-down strong safety's depth (S-A): a hitter sits shallower, a
+/// rangy one deeper, a yard a point of his read over the level's typical
+/// strong safety, and 0.9 either way snap to snap.
+fn ss_depth(s: &Snap, di: usize) -> f64 {
+    let h = hitter(s.rules.level, &s.teams[1][di])
+        - super::synthetic::typical_hitter(s.rules.level, crate::spots::Spot::SS);
+    let j = snap_jitter(s.los, di) * 2.0 - 1.0;
+    clamp(8.1 - h + 0.9 * j, 5.0, 10.0)
+}
+
 fn align_defense(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2> {
     let los = s.los;
     let by = s.ball_y;
@@ -1917,15 +1932,29 @@ fn align_defense(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2>
     let mut left: Vec<(V2, bool)> = Vec::new();
     let mut right: Vec<(V2, bool)> = Vec::new();
     let mut burner_y: Option<f64> = None;
+    // In zone nobody lines up over the jet man in mid-motion (minor bug
+    // 342): the zone defenders set to where he stood before it, and the
+    // strong safety spins with the motion (below). Before, the motion man's
+    // spot at the snap pulled a zone defender inside with him.
+    let jet = if s.call.formation.motion == Motion::Jet && !s.dcall.coverage.is_man() {
+        s.call.formation.motion_man()
+    } else {
+        None
+    };
     for (i, r) in roles.iter().enumerate() {
         if let Some(r) = r
             && matches!(r, ORole::X | ORole::Z | ORole::Slot | ORole::Slot2 | ORole::Slot3)
         {
+            let pos = if jet == Some(*r) {
+                align(&Formation { motion: Motion::None, ..s.call.formation }, *r, los, by)
+            } else {
+                agents[i].pos
+            };
             let feared = fear > 0.0 && s.tac.burner == Some(agents[i].p);
             if feared {
-                burner_y = Some(agents[i].pos.y);
+                burner_y = Some(pos.y);
             }
-            if agents[i].pos.y > by { left.push((agents[i].pos, feared)) } else { right.push((agents[i].pos, feared)) }
+            if pos.y > by { left.push((pos, feared)) } else { right.push((pos, feared)) }
         }
     }
     left.sort_by(|a, b| b.0.y.total_cmp(&a.0.y));
@@ -2053,17 +2082,13 @@ fn align_defense(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2>
                         // way snap to snap. The typical man stays just
                         // outside the box count (7 yards), a heavy one steps
                         // inside it (proposed, not confirmed).
-                        let h = hitter(s.rules.level, &s.teams[1][*di])
-                            - super::synthetic::typical_hitter(s.rules.level, crate::spots::Spot::SS);
-                        let j = snap_jitter(s.los, *di) * 2.0 - 1.0;
-                        let depth = clamp(8.1 - h + 0.9 * j, 5.0, 10.0);
-                        v2(los + depth, by + st * 4.5)
+                        v2(los + ss_depth(s, *di), by + st * 4.5)
                     }
                 }
             }
         })
         .zip(s.defense.iter())
-        .map(|(p, (d, _))| {
+        .map(|(p, (d, di))| {
             // The defense travels with motion (topic 3): against jet or
             // across motion the strong safety spins down toward where it
             // is going and the linebackers bump a gap that way; man
@@ -2078,7 +2103,13 @@ fn align_defense(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2>
                 return p;
             }
             match d {
-                DSlot::SS if !two_high || s.dcall.coverage.high() < 2 => v2(los + 5.5, by + mv * 6.0),
+                DSlot::SS if !two_high || s.dcall.coverage.high() < 2 => {
+                    // He spins at his own depth (minor bug 342): the typical
+                    // man stays just outside the box, a hitter steps into
+                    // it. Before, every spin put him at 5.5 yards, inside
+                    // the box count, so motion alone made an eight-man box.
+                    v2(los + ss_depth(s, *di), by + mv * 6.0)
+                }
                 DSlot::Sam | DSlot::Mike | DSlot::Will => v2(p.x, p.y + mv * 1.2),
                 DSlot::NCB | DSlot::DCB if (p.y - by) * mv > 0.0 => v2(p.x - 1.0, p.y),
                 _ => p,
@@ -2589,14 +2620,21 @@ fn man_job(sim: &Sim, d: usize, r: usize) -> Job {
     // The typical receiver against the typical man defender keeps the old
     // 0.0065 a point; only how far each is from his own position's typical
     // man reads at `MAN_LAG_RR` (minor bug 283).
-    let gap = ra.a(Attr::RouteRunning) - da.a(Attr::ManCoverage);
-    let gap_typ = super::synthetic::typical(sim.level, sim.player(r).position, Attr::RouteRunning)
-        - super::synthetic::typical(sim.level, sim.player(d).position, Attr::ManCoverage);
+    // The man defender's Man Coverage reads at `MAN_LAG_MC` about his
+    // level's typical starter at his position (minor bug 283: at 0.02 about
+    // the dressed man it moved the catch rate he allows 0.03 of real
+    // starters' spread), and no floor above none (it was 0.1 s): the best
+    // cover men mirror the break.
+    let t_rr = super::synthetic::typical(sim.level, sim.player(r).position, Attr::RouteRunning);
+    let t_mc = super::synthetic::typical(sim.level, sim.player(d).position, Attr::ManCoverage);
+    let s_mc = super::synthetic::typical_starter(sim.level, sim.player(d).position, Attr::ManCoverage);
+    let gap_typ = t_rr - t_mc;
     let lag = clamp(
-        0.12 + 0.0065 * gap_typ
-            + MAN_LAG_RR * (gap - gap_typ)
+        0.12 + 0.0065 * gap_typ + MAN_LAG_RR * (ra.a(Attr::RouteRunning) - t_rr)
+            - MAN_LAG_RR * (s_mc - t_mc)
+            - MAN_LAG_MC * (da.a(Attr::ManCoverage) - s_mc)
             + 0.003 * (ra.a(Attr::Agility) - (0.6 * da.a(Attr::Agility) + 0.4 * da.a(Attr::Flexibility))),
-        0.1,
+        0.0,
         0.75,
     );
     // A heavy linebacker turns his hips late (L2, bug 307): real ones
@@ -3555,6 +3593,124 @@ const LEGS_RUN: f64 = 0.5;
 /// typical passer keeps the old room.
 const DECISIONS_CAUTION: f64 = 0.02;
 
+// Minor bug 283, the rest (2026-11-08; every size proposed, not confirmed,
+// fitted with `ab_check` at the NFL, +15 against -15, so each rating moves
+// its own stat by 0.1 to 1.0 of real starters' spread, and with
+// `match_check` so the levels' totals hold). Each new slope sits about his
+// level's typical starter (`synthetic::typical_starter`): starters rate
+// above the dressed average, and a slope about the dressed man lifted or
+// sank every starting lineup (picks ran 2.6% against 2.3%).
+
+/// Decisions: the room he wants before he lets it go, less a rating point
+/// for a better decider about his level's typical starter (the typical
+/// starter keeps `DECISIONS_CAUTION`'s room). He sees the window as it is,
+/// so he can trust a tight one; a poor decider sees more room than there
+/// is and wants what he would want from a true read. At +0.02 a point
+/// (more room for the better man) better decisions cut picks but threw
+/// shorter and held the ball into sacks: EPA a dropback fell 0.008 at +15
+/// against -15, and sacks rose.
+const DECISIONS_TRUST: f64 = 0.06;
+
+/// The share of Decisions in his read of the field (the noise on each
+/// window, what he misses in his lane, where he puts the ball near a
+/// defender); Play Recognition is the rest. It was half each: choosing the
+/// throw is what Decisions rates.
+const READ_DECIDE: f64 = 0.7;
+
+/// Picking up the blitz: seconds sooner he sees the free man coming and
+/// gets rid of it, a 10 points of Football IQ (and `BLITZ_ID_LOOK` of it
+/// Play Recognition) about his level's typical starter. Football IQ moved
+/// sacks 0.01 of real starters' spread; now 0.2.
+const BLITZ_ID: f64 = 0.1;
+const BLITZ_ID_LOOK: f64 = 0.4;
+
+/// Giving up on a covered checkdown: log-odds a 10 points of Decisions and
+/// of Football IQ about his level's typical starter.
+const GIVE_UP_DECIDE: f64 = 0.3;
+const GIVE_UP_IQ: f64 = 0.25;
+
+/// Throwing it away once nothing is there, a point of Decisions on the
+/// passer's scale about his level's typical starter (0.003 from 0 before).
+const THROW_AWAY_DECIDE: f64 = 0.004;
+
+/// A misread, in tens of points of his field read under his level's typical
+/// starter's: a defender reading his eyes jumps the throw this many seconds
+/// sooner than he allows for, and a man sitting in his lane takes this many
+/// yards more of the window than he sees (both the other way for a better
+/// reader, who sees it tighter than the typical man would).
+const MISREAD_EYES: f64 = 0.3;
+const MISREAD_LANE: f64 = 1.0;
+
+/// Ball placement near a defender: yards farther from him, a 10 points of
+/// field read about his level's typical starter, fading out when the
+/// nearest defender is `PLACE_NEAR` yards from the spot.
+const PLACE_READ: f64 = 1.0;
+const PLACE_NEAR: f64 = 4.0;
+
+/// Accuracy within a level: the log of the miss a rating point about his
+/// level's typical starter, by depth, sized against real starters' spread
+/// by depth (nflverse 2023-24, passer seasons: completion under 10 air
+/// yards p5 68.7% to p95 77.8%, 10-19 45.5% to 65.0%, 20+ 26.9% to 49.3%;
+/// the part that isn't sampling luck about 1.4, 3.7 and 4.3 points). Short
+/// Accuracy moved completion 0.05 of real starters' spread; now 0.3.
+const AIM_SHORT: f64 = 0.02;
+/// The miss's base scale (1.3 before). A steeper slope spreads passers
+/// wider, and a wider miss costs more catches than a tighter one gains: on
+/// synthetic rosters NFL completion fell from 65.6% to 64.3% and FBS from
+/// 60.4% to 59.2%. At 1.25 every level is back within half a point of
+/// where it was.
+const AIM_BASE: f64 = 1.25;
+const AIM_MEDIUM: f64 = 0.025;
+const AIM_DEEP: f64 = 0.014;
+
+/// Man coverage within a level: the man defender's reaction lag, seconds a
+/// point of Man Coverage about his level's typical starter at his position.
+const MAN_LAG_MC: f64 = 0.03;
+
+/// Zone coverage within a level: how far behind a break he plays, seconds a
+/// point of his zone read (0.6 Zone Coverage, 0.4 Play Recognition) about
+/// his level's typical starter at his position (0.004 before).
+const ZONE_LAG: f64 = 0.012;
+
+/// Coverage skill when the ball is thrown: seconds sooner a better cover
+/// man breaks on it, a 10 points of his job's coverage (Man or Zone) about
+/// his level's typical starter at his position.
+const BALL_COVER: f64 = 0.15;
+
+/// A man defender with his back turned feels the throw this many seconds
+/// before the receiver's hands go up, from his man's eyes and hands. Man
+/// coverage was completed 67.5% of the time in the NFL against about 57%
+/// real (Cover 0, 1 and 2-man).
+const MAN_FEEL: f64 = 0.25;
+
+/// A breakup, a point of his job's coverage about his level's typical
+/// starter at his position (0.004 from 60 before).
+const BREAKUP_COVER: f64 = 0.012;
+
+/// Interceptions where they come from. Real picks come on throws a
+/// defender could play: FTN charting (NFL 2023-24) has 87% of picks on
+/// throws it calls interception-worthy, 53% of those picked, and 0.33% of
+/// the other throws picked. The engine's spread them over every throw (a tipped or
+/// broken-up ball picked as often as one thrown to a defender in front of
+/// it), so a careful passer saved few picks. Now a defender in front of the
+/// ball picks it more often (`FRONT_PICK`, 0.22 before), and a tipped or
+/// broken-up ball less (`TIP_PICK` 0.13 before, `PBU_PICK` 0.06), with the
+/// league's picks held.
+const FRONT_PICK: f64 = 0.27;
+const TIP_PICK: f64 = 0.065;
+const PBU_PICK: f64 = 0.06;
+
+/// His read of the field (minor bug 283): Decisions and Play Recognition.
+fn field_read(qa: &Agent) -> f64 {
+    READ_DECIDE * qa.a(Attr::Decisions) + (1.0 - READ_DECIDE) * qa.a(Attr::PlayRecognition)
+}
+
+/// The same for his level's typical starting passer.
+fn typical_field_read(level: crate::player::Level) -> f64 {
+    let ts = |a: Attr| super::synthetic::typical_starter(level, Position::QB, a);
+    READ_DECIDE * ts(Attr::Decisions) + (1.0 - READ_DECIDE) * ts(Attr::PlayRecognition)
+}
+
 /// A defender's reach to the ball at the catch point, yards an inch of
 /// height and of arm about his level's typical man at his position (minor
 /// bug 274; they were 0.012 and 0.02, and a corner's arms barely moved the
@@ -3609,6 +3765,13 @@ const POCKET_ESCAPE: f64 = 0.5;
 const PRESS_NEAR: f64 = 3.2;
 const PRESS_FROM: f64 = 0.6;
 const PRESS_CAUSE: f64 = 2.6;
+/// How much a rusher winning his block within 3 yards weighs on the
+/// quarterback's feel for the pocket, at full win and on top of him (bug
+/// 358). It was 0.6: the bug 283 merge left NFL sacks at 2.57 a team game
+/// (real 2.41) as the pocket collapsed and he held on. At 1.0 he slides or
+/// gets it out a beat sooner: 2.39 on seeds 86-89. Proposed, not
+/// confirmed.
+const POCKET_FEEL: f64 = 1.0;
 
 /// A typical quarterback's pre-snap read of the coverage (topic 3.5).
 const PRE_READ: f64 = 0.45;
@@ -3669,7 +3832,7 @@ fn quarterback(
                 soon = soon.min((dist - 1.0).max(0.0) / closing);
             }
         } else if winning > 0.0 && dist < 3.0 {
-            let feel = 0.6 * winning * (3.0 - dist) / 3.0;
+            let feel = POCKET_FEEL * winning * (3.0 - dist) / 3.0;
             pressure += feel;
             threat = threat + (me - a.pos).norm().scale(feel);
         }
@@ -3730,6 +3893,10 @@ fn quarterback(
     }
     // How fast he works through his reads: what he sees and how fast he decides.
     let iq = 0.5 * sim.agents[qb].a(Attr::PlayRecognition) + 0.5 * sim.agents[qb].a(Attr::Decisions);
+    let lv = sim.level;
+    // His level's typical starter, the man a new within-level slope sits
+    // about (minor bug 283).
+    let ts = |a: Attr| super::synthetic::typical_starter(lv, Position::QB, a);
     // What he saw before the snap (topic 3.5): a shell he read cleanly
     // speeds every read; a disguise that fooled him slows them.
     // Measured against a typical read (0.45): the engine's reads were
@@ -3763,7 +3930,10 @@ fn quarterback(
     let hold = sim.lean(qb, Tend::Hold);
     let typ = |a: Attr| super::synthetic::typical(sim.level, Position::QB, a);
     let legs = (sim.agents[qb].a(Attr::Speed) - typ(Attr::Speed)) / 10.0;
-    let clock = clamp(3.6 - 0.01 * (decide - 60.0) - 0.004 * (feel - 60.0), 3.1, 4.1)
+    // Within a level his clock sits at the typical starter's (minor bug
+    // 283): a better decider already gets through his reads sooner, and a
+    // shorter clock on top sent him to the checkdown early.
+    let clock = clamp(3.6 - 0.01 * (ts(Attr::Decisions) - 60.0) - 0.004 * (feel - 60.0), 3.1, 4.1)
         + if ps.concept.drop == Drop::Deep { 0.3 } else { 0.0 }
         + 1.0 * hold
         + LEGS_HOLD * legs;
@@ -3781,8 +3951,15 @@ fn quarterback(
     // (proposed, not confirmed: about 0.85 of a second away, a little
     // sooner for a poised passer who trusts his pocket; the world's FBS
     // rosters then take a sack on about 6% of dropbacks, real 6.0%).
-    let urgent = soon < 0.85 - 0.004 * (poise - 60.0) - LEGS_WAIT * legs && !screen;
-    let urgent_run = soon < 0.85 - 0.004 * (poise - 60.0) - LEGS_RUN * LEGS_WAIT * legs && !screen;
+    // Seeing the blitz coming (minor bug 283): a passer who knows the
+    // pressure (Football IQ, and Play Recognition for the look) sees the
+    // free man sooner and gets rid of it before he arrives.
+    let blitz_id = BLITZ_ID
+        * ((1.0 - BLITZ_ID_LOOK) * (aw - ts(Attr::FootballIq))
+            + BLITZ_ID_LOOK * (sim.agents[qb].a(Attr::PlayRecognition) - ts(Attr::PlayRecognition)))
+        / 10.0;
+    let urgent = soon < 0.85 - 0.004 * (poise - 60.0) - LEGS_WAIT * legs + blitz_id && !screen;
+    let urgent_run = soon < 0.85 - 0.004 * (poise - 60.0) - LEGS_RUN * LEGS_WAIT * legs + blitz_id && !screen;
     // Off schedule out of the pocket, the progression is gone: he takes
     // whoever comes open.
     let over = ps.read >= ps.reads.len() || late || urgent || ps.extend.is_some();
@@ -3792,8 +3969,9 @@ fn quarterback(
     let manip = clamp((sim.agents[qb].a(Attr::EyeManipulation) - 60.0) / 30.0, 0.0, 1.0);
     ps.look_off = if ps.read == 0 && t - ps.read_since < 0.6 { manip } else { 0.0 };
     let tired = t - ps.set_at;
-    let caution = DECISIONS_CAUTION * (sim.agents[qb].a(Attr::Decisions) - typ(Attr::Decisions))
-        + 0.008 * (typ(Attr::Decisions) - 60.0);
+    let caution = DECISIONS_CAUTION * (ts(Attr::Decisions) - typ(Attr::Decisions))
+        + 0.008 * (typ(Attr::Decisions) - 60.0)
+        - DECISIONS_TRUST * (sim.agents[qb].a(Attr::Decisions) - ts(Attr::Decisions));
     let panic = pressure * clamp(1.6 - 1.4 * poise / 100.0, 0.15, 1.5);
     // The reads he looks at, borrowed from the pass rather than copied (the
     // same men in the same order; world speed lane).
@@ -3819,7 +3997,9 @@ fn quarterback(
     };
     // Pocket frame (Dynamic Links): seeing over the line, a read about as
     // clean as five football IQ points give.
-    let iq_seen = iq + sim.link(qb, &[Link::PocketFrame]);
+    // How true his read of a window is: Decisions most, Play Recognition
+    // the rest (`READ_DECIDE`; it was half each).
+    let iq_seen = field_read(&sim.agents[qb]) + sim.link(qb, &[Link::PocketFrame]);
     let noise =
         (1.6 - 0.017 * pro(iq_seen)).max(0.2) * (1.0 + 0.6 * panic) * (1.0 - 0.15 * (s.tac.pre_read - PRE_READ))
             + if s.tac.fooled { 0.2 } else { 0.0 };
@@ -3968,10 +4148,18 @@ fn quarterback(
         // forced it to anyone a step behind his man and threw away 0.4%.
         // At sense 75 (decisions and football IQ on the passer's scale)
         // he gives up 80% of the time, 15 points less 57%, 15 more 95%
-        // (proposed, not confirmed).
+        // (proposed, not confirmed). Within a level (minor bug 283) the
+        // chance moves on the log-odds about his level's typical starter,
+        // `GIVE_UP_DECIDE` and `GIVE_UP_IQ` a 10 points: on the old straight
+        // line a level's typical man set every passer's slope, and
+        // Decisions moved neither picks nor sacks enough.
         if force && !ps.give_up && ck.is_none_or(|c| c.1 < 0.0) {
-            let sense = 0.5 * pro(sim.agents[qb].a(Attr::Decisions)) + 0.5 * pro(aw);
-            if sim.rng.chance(clamp(GIVE_UP + 0.015 * (sense - 75.0), 0.05, 0.95)) {
+            let sense = 0.5 * pro(ts(Attr::Decisions)) + 0.5 * pro(ts(Attr::FootballIq));
+            let p0 = clamp(GIVE_UP + 0.015 * (sense - 75.0), 0.05, 0.95);
+            let lg = (p0 / (1.0 - p0)).ln()
+                + GIVE_UP_DECIDE * (decide - ts(Attr::Decisions)) / 10.0
+                + GIVE_UP_IQ * (aw - ts(Attr::FootballIq)) / 10.0;
+            if sim.rng.chance(1.0 / (1.0 + (-lg).exp())) {
                 ps.give_up = true;
             }
         }
@@ -4127,7 +4315,11 @@ fn quarterback(
         || (over || pressure > 0.6)
             && (outside || !flicked)
             && (imminent || t > clock + 0.5)
-            && sim.rng.chance(0.06 + 0.003 * pro(sim.agents[qb].a(Attr::Decisions)) + if outside { 0.12 } else { 0.0 });
+            && sim.rng.chance(
+                0.06 + 0.003 * pro(ts(Attr::Decisions))
+                    + THROW_AWAY_DECIDE * (pro(sim.agents[qb].a(Attr::Decisions)) - pro(ts(Attr::Decisions)))
+                    + if outside { 0.12 } else { 0.0 },
+            );
     if away {
         qb_why(7, s.dcall.coverage);
         // Throw it away (outside the pocket it is legal past the line).
@@ -4166,6 +4358,12 @@ fn window(sim: &Sim, qb: usize, r: usize) -> (f64, V2, f64) {
     }
     PREDICT_SPOTS.set(ahead.spots);
     let mut w = f64::INFINITY;
+    // How far his read of the field trails his level's typical starter's,
+    // in tens of points (minor bug 283): a poor reader doesn't see the man
+    // sitting in his lane or the defender reading his eyes, so the window
+    // looks bigger to him than it is; a good one sees it smaller than the
+    // typical man would and only throws what is there.
+    let misread = (typical_field_read(sim.level) - field_read(&sim.agents[qb])) / 10.0;
     for d in 0..sim.agents.len() {
         let a = &sim.agents[d];
         if a.side != 1 || !a.up(sim.t) || matches!(a.job, Job::Rush { .. }) {
@@ -4173,7 +4371,12 @@ fn window(sim: &Sim, qb: usize, r: usize) -> (f64, V2, f64) {
         }
         // A man defender already running with him needs no reaction time.
         let on_him = matches!(a.job, Job::Man { target, .. } if target == r);
-        let (react, pace) = if on_him { (0.0, 1.0) } else { (0.3, 0.95) };
+        let watching = !on_him && sim.sees(d, q);
+        let (react, pace) = if on_him {
+            (0.0, 1.0)
+        } else {
+            ((0.3 + if watching { MISREAD_EYES * misread } else { 0.0 }).max(0.0), 0.95)
+        };
         // How far he can get there: he reacts, then speeds up from what
         // he is doing now (a man running away has to stop first).
         // While he reacts he keeps moving as he was: a deep defender
@@ -4210,7 +4413,7 @@ fn window(sim: &Sim, qb: usize, r: usize) -> (f64, V2, f64) {
         } else {
             lane
         };
-        w = w.min(lane + 0.6);
+        w = w.min(lane + 0.6 + MISREAD_LANE * misread);
     }
     // He knows his arm: a spot past his range is never open to him.
     if q.dist(p) > 25.0 + 0.45 * power {
@@ -4400,7 +4603,14 @@ fn throw(
         .min_by(|&a, &b| sim.agents[a].pos.dist(p).total_cmp(&sim.agents[b].pos.dist(p)))
     {
         let away = (p - sim.agents[d].pos).norm();
-        target = target + away.scale(0.45 * acc / 100.0);
+        // With a defender close, he puts it on the side away from him as
+        // well as he reads the leverage (minor bug 283: his read of the
+        // field about his level's typical starter, `PLACE_READ` yards a 10
+        // points, fading out by `PLACE_NEAR` yards; a ball to an open man
+        // goes where it always did).
+        let read = (field_read(&sim.agents[qb]) - typical_field_read(sim.level)) / 10.0;
+        let near = clamp(1.0 - sim.agents[d].pos.dist(p) / PLACE_NEAR, 0.0, 1.0);
+        target = target + away.scale((0.45 * acc / 100.0 + PLACE_READ * read * near).max(0.0));
     }
     // He leaves his man room to catch it in bounds (aim points stay a yard
     // and a half inside the lines; they used to sit on them, and a third of
@@ -4413,7 +4623,7 @@ fn throw(
     // few points from the NFL to college and high school, where receivers
     // and coverage are just as far behind (proposed, not confirmed).
     let down = ((target.x - q.x) * sim.goal).max(0.0);
-    let mut sd = aim_sd(acc, dist, down);
+    let mut sd = aim_sd(acc, typical_accuracy(sim.level, air), air, dist, down);
     // Pressure in his face throws him off: completions under pressure ran
     // 53% in the NFL against 49% real, so the effect is about two thirds
     // stronger than it was (proposed, not confirmed).
@@ -4509,7 +4719,21 @@ fn throw(
         let pr = sim.agents[d].a(Attr::PlayRecognition);
         let base = 0.16 + 0.004 * (100.0 - pr) + 0.1 * sim.rng.next();
         let sees = sim.sees(d, q);
-        sim.agents[d].ball_react = if sees { t + base } else { (arrive - 0.45 + 0.004 * (100.0 - pr)).max(t + base) };
+        let which = if matches!(sim.agents[d].job, Job::Man { .. }) { Attr::ManCoverage } else { Attr::ZoneCoverage };
+        let cover = BALL_COVER
+            * (sim.agents[d].a(which) - super::synthetic::typical_starter(sim.level, sim.player(d).position, which))
+            / 10.0;
+        // Coverage skill reads here too (minor bug 283): a better cover man
+        // breaks on the ball sooner, `BALL_COVER` seconds a 10 points about
+        // his level's typical starter at his position. A man defender with
+        // his back turned feels the throw from his man's eyes and hands,
+        // `MAN_FEEL` before they go up.
+        let man_feel = if matches!(sim.agents[d].job, Job::Man { .. }) { MAN_FEEL } else { 0.0 };
+        sim.agents[d].ball_react = if sees {
+            t + (base - cover).max(0.05)
+        } else {
+            (arrive - 0.45 - man_feel + 0.004 * (100.0 - pr) - cover).max(t + (base - cover).max(0.05))
+        };
         // A route jumper who guessed right broke before the ball was out;
         // one who guessed wrong turned the wrong way and finds it late.
         match sim.notes.tend.jump {
@@ -4646,8 +4870,26 @@ pub fn pass_accuracy(qb: &Agent, air: f64) -> f64 {
     (1.0 - t1) * qb.a(Attr::ShortAccuracy) + (t1 - t2) * qb.a(Attr::MediumAccuracy) + t2 * qb.a(Attr::DeepAccuracy)
 }
 
-fn aim_sd(acc: f64, dist: f64, down: f64) -> f64 {
-    (0.25 + 0.036 * dist + 0.0007 * down * down) * 1.3 * (0.005 * (110.0 - pro(acc))).exp()
+/// The same blend for the level's typical starting passer.
+fn typical_accuracy(level: crate::player::Level, air: f64) -> f64 {
+    let t1 = clamp((air - 5.0) / 10.0, 0.0, 1.0);
+    let t2 = clamp((air - 15.0) / 10.0, 0.0, 1.0);
+    let ts = |a: Attr| super::synthetic::typical_starter(level, Position::QB, a);
+    (1.0 - t1) * ts(Attr::ShortAccuracy) + (t1 - t2) * ts(Attr::MediumAccuracy) + t2 * ts(Attr::DeepAccuracy)
+}
+
+/// The miss, yards of spread, for a passer of placement `acc` where his
+/// level's typical starter has `typ`. The level's typical starter misses as
+/// he did (0.005 a point on the passer's scale); within a level each point
+/// counts `AIM_SHORT`, `AIM_MEDIUM` or `AIM_DEEP` by the depth, blended as
+/// `pass_accuracy` blends the skills (minor bug 283: on the old curve Short
+/// Accuracy moved completion 0.05 of real starters' spread).
+fn aim_sd(acc: f64, typ: f64, air: f64, dist: f64, down: f64) -> f64 {
+    let t1 = clamp((air - 5.0) / 10.0, 0.0, 1.0);
+    let t2 = clamp((air - 15.0) / 10.0, 0.0, 1.0);
+    let k = (1.0 - t1) * AIM_SHORT + (t1 - t2) * AIM_MEDIUM + t2 * AIM_DEEP;
+    let skill = (0.005 * (110.0 - pro(typ))).exp() * (-k * (acc - typ)).exp();
+    (0.25 + 0.036 * dist + 0.0007 * down * down) * AIM_BASE * skill
 }
 
 /// A quarterback skill on the scale where it decides games: through the pro
@@ -4657,6 +4899,82 @@ fn pro(x: f64) -> f64 {
     let knee = 68.0;
     if x >= knee { x } else { knee - (knee - x) * 0.25 }
 }
+
+/// An edge's burst on a pass rush (minor bug 286): an edge slower off the
+/// mark than the typical edge at his level builds up to speed on his rush
+/// as the typical edge does; a quicker one keeps his own. Real edges' 10-yard
+/// split says nothing about their pressures once talent is known (real
+/// -0.49 pts of pressures a defense snap a 0.1 s, band -0.99 to +0.01), so
+/// a slow first step costs him nothing here, while a quick man's burst, the
+/// freak's (Cain 2026-11-08: no caps on rare freaks), stays his. His weight,
+/// turn and top speed are his own: with the typical edge's weight on the
+/// rush as well, heavy edges took 35% of the top 10% of pressure seasons
+/// (11% of all), light ones none (8% of all; real 18% of the top, 19% of
+/// all), and as recruited 10 lb added +0.40 pts (real flat). The edge lane,
+/// 2026-11-08; proposed, not confirmed. On runs, in pursuit and when the
+/// quarterback breaks out his burst counts in full.
+/// Sets it for one step; returns his own (tau, accel) to put back after it.
+fn rush_feet(sim: &mut Sim, i: usize) -> (f64, f64) {
+    let a = &sim.agents[i];
+    let keep = (a.tau, a.accel);
+    let t = super::synthetic::typical(sim.level, sim.player(i).position, Attr::Acceleration);
+    // As `GamePlayer::sprint_tau` and `accel` read them, at the typical
+    // edge's Acceleration, his own weight and how tired he is; he keeps
+    // whichever burst is quicker, his own or that one. Compared on the burst
+    // itself, not his game-day rating, so the day's form and a pulse never
+    // decide which he gets (his burst reads neither).
+    let w = a.mass;
+    let tau = clamp(0.78 + 0.003 * (60.0 - t) + 0.0006 * (w - 220.0), 0.55, 1.0) * (1.0 + 0.1 * a.tired);
+    let ac = if t >= 60.0 { 4.65 + 0.008 * (t - 60.0) } else { 4.65 + 0.0046 * (t - 60.0) };
+    let accel = clamp(ac - 0.006 * (w - 220.0), 2.2, 7.5) * (1.0 - 0.1 * a.tired);
+    let a = &mut sim.agents[i];
+    (a.tau, a.accel) = (tau.min(keep.0), accel.max(keep.1));
+    keep
+}
+
+/// A rusher's reach to the quarterback, in yards, beyond the 1.25 a free
+/// man needs and the 1.2 one nearly through his block needs (bug 339 and
+/// proposals E1 and E2, Cain's yes 2026-11-08; all proposed, not
+/// confirmed):
+/// - Finish: 0.2 yards ten points of Tackling and Pursuit over 60
+///   (`FINISH_MARK`), read half his own and half the typical man's at his
+///   position and level (`FINISH_OWN`), never below nothing. Real NFL
+///   rushers finish 0.28 of their pressures (PFR) and the engine's NFL 0.22
+///   (2.00 sacks a team game, real 2.41). An NFL edge is about 74 in both,
+///   an FBS one 54 and a high school one 33, so college and high school
+///   barely move (they were at or above real). Read on his own in full the
+///   best finishers ran away with it (34 sacks in a season, the top 1% of
+///   edge seasons 22; real best 22.5 and 23); half his own keeps the level
+///   and halves the spread.
+/// - Bend (E1): an edge's Flexibility about the typical edge's, 0.2 yards
+///   ten points, -0.3 to +0.6: a man who bends the corner flattens to the
+///   quarterback. The 3-cone turns -0.25 pts of sacks a pressure a 0.1 s
+///   into +0.63 (real +0.40, band -0.02 to +0.82; pure, 4,000 games).
+/// - Arms (E2): an edge's arm over the typical edge's, 0.18 yards an inch
+///   while he is still on his blocker, scaled by his weight over the
+///   typical edge's (0 at 13 lb under, 1 at the typical, up to 3): the
+///   power rusher's long-arm stab. Pure arms add +0.68 pts of sacks a
+///   pressure an inch (real +0.65), most for heavy men (real heavy +1.85,
+///   light -0.15), and no pressures; short-armed men lose nothing.
+/// - Weight (bug 358): an edge's weight about the typical edge's, 0.07
+///   yards less reach every 10 lb over and more every 10 lb under, free or
+///   on his block. Real heavy edges finish less of their pressures (-0.49
+///   pts of sacks a pressure per 10 lb held; the engine was +0.53, so
+///   heavy power rushers ran away with the sack tail); now -0.41 pure
+///   (2,000 games an arm, seed 86). It touches no strength or force: a heavy
+///   freak still sheds and drives the pocket as before.
+const FINISH_REACH: f64 = 0.2;
+const FINISH_MARK: f64 = 60.0;
+const FINISH_OWN: f64 = 0.5;
+const BEND_REACH: f64 = 0.2;
+const ARM_REACH: f64 = 0.18;
+const WEIGHT_REACH: f64 = 0.07;
+/// How far from the quarterback a second rusher, free or winning his
+/// block, shares the sack, in yards (bug 358). Real 10.8% of NFL sacks
+/// are shared (PFR 2018-25); 2.25 gives 10.8% on seeds 86-95, and the
+/// share halves a man's count, as the stat line keeps it. Proposed, not
+/// confirmed.
+const SHARE_RADIUS: f64 = 2.25;
 
 fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
     let t = sim.t;
@@ -4673,34 +4991,76 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
     // the quarterback and drag him down with the blocker on him (dynasty
     // item 1: the hand fight and a collapsing pocket make sacks, not only a
     // free rusher).
-    // (Within 1.2 on the square, `sq_lt`: the same answer.)
+    // His reach beyond the base (`FINISH_REACH`): the finisher's, an
+    // edge's bend, and a long-armed edge's stab from his block.
+    let finish = |d: usize| {
+        let a = &sim.agents[d];
+        let pos = sim.player(d).position;
+        let typ = |x: Attr| super::synthetic::typical(sim.level, pos, x);
+        let own = 0.5 * a.a(Attr::Tackling) + 0.5 * a.a(Attr::Pursuit);
+        let t = 0.5 * typ(Attr::Tackling) + 0.5 * typ(Attr::Pursuit);
+        FINISH_REACH * (FINISH_OWN * own + (1.0 - FINISH_OWN) * t - FINISH_MARK).max(0.0) / 10.0
+    };
+    let bend_reach = |d: usize| {
+        let a = &sim.agents[d];
+        if !matches!(a.job, Job::Rush { contain, .. } if contain != 0.0) {
+            return 0.0;
+        }
+        let typ = super::synthetic::typical(sim.level, sim.player(d).position, Attr::Flexibility);
+        clamp(BEND_REACH * (a.a(Attr::Flexibility) - typ) / 10.0, -0.3, 0.6)
+    };
+    let arm_reach = |d: usize| {
+        let g = sim.player(d);
+        if g.position != Position::EDGE {
+            return 0.0;
+        }
+        let (_, tw, ta) = super::synthetic::typical_body(sim.level, g.position);
+        ARM_REACH * (g.arm - ta).max(0.0) * clamp(1.0 + (g.weight - tw) / 13.0, 0.0, 3.0)
+    };
+    let weight_reach = |d: usize| {
+        let g = sim.player(d);
+        if g.position != Position::EDGE {
+            return 0.0;
+        }
+        let (_, tw, _) = super::synthetic::typical_body(sim.level, g.position);
+        -WEIGHT_REACH * (g.weight - tw) / 10.0
+    };
+    // (Within his reach on the square, `sq_lt`: the same answer for any
+    // reach.)
     let through = |d: usize| {
         let a = &sim.agents[d];
-        a.engaged.is_some_and(|k| sim.eng[k].pass && sim.eng[k].w > 0.45) && sq_lt(a.pos.dist_sq(me), 1.2)
+        a.engaged.is_some_and(|k| sim.eng[k].pass && sim.eng[k].w > 0.45)
+            && sq_lt(a.pos.dist_sq(me), 1.2 + arm_reach(d) + finish(d) + weight_reach(d))
     };
     let qv = sim.agents[qb].vel;
     // Closest approach over the last tick, as with tackles. It is worked
     // out only for an up defender past his last try and off a block: every
     // test is pure, so testing the cheap ones first gives the same answer.
-    let free = |a: &Agent| {
+    let free = |d: usize| {
+        let a = &sim.agents[d];
         let rel = a.pos - me;
         let rv = (a.vel - qv).scale(DT);
-        // More than 1.3 yards off on either axis beyond the tick's own
-        // movement, he can't have come within 1.25 (the closest point is
+        // His reach, summed as it always was (each part reads only him,
+        // his job and his level's typical man: no dice).
+        let reach = 1.25 + bend_reach(d) + finish(d) + weight_reach(d);
+        // More than his reach and 0.05 off on either axis beyond the tick's
+        // own movement, he can't have come within it (the closest point is
         // `rel` less at most all of `rv`, `back` being 0 to 1): the same
         // `false` without the roots and the division, the margin dwarfing
-        // any rounding (world speed lane). A NaN or infinite axis fails the
-        // test or gives `false` both ways.
-        if rel.x.abs() - rv.x.abs() > 1.3 || rel.y.abs() - rv.y.abs() > 1.3 {
+        // any rounding for a reach under a million yards (world speed
+        // lane). A bigger, infinite or NaN reach is worked out in full, a
+        // NaN or infinite axis fails the test or gives `false` both ways,
+        // and a reach below nothing is `false` both ways.
+        if reach < 1e6 && (rel.x.abs() - rv.x.abs() > reach + 0.05 || rel.y.abs() - rv.y.abs() > reach + 0.05) {
             return false;
         }
         let back = if rv.len() > 1e-6 { clamp(rel.dot(rv) / rv.dot(rv), 0.0, 1.0) } else { 0.0 };
-        (rel - rv.scale(back)).len() < 1.25
+        (rel - rv.scale(back)).len() < reach
     };
     let mut tacklers: Vec<usize> = (0..sim.agents.len())
         .filter(|&d| {
             let a = &sim.agents[d];
-            a.side == 1 && a.up(t) && t - a.last_try > 0.6 && ((a.engaged.is_none() && free(a)) || through(d))
+            a.side == 1 && a.up(t) && t - a.last_try > 0.6 && ((a.engaged.is_none() && free(d)) || through(d))
         })
         .collect();
     if tacklers.is_empty() {
@@ -4737,12 +5097,21 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
     }
     // Sacked. Strip sacks come from the blind side. The man who brings him
     // down always gets the sack; a second rusher on him shares it.
-    sim.notes.sackers = tacklers
-        .iter()
-        .take(2)
-        .filter(|&&k| k == d || sim.agents[k].pos.dist(me) < 1.1)
-        .map(|&k| sim.agents[k].id)
-        .collect();
+    // The nearest other rusher on the quarterback when he goes down, free
+    // or winning his own pass block, inside `SHARE_RADIUS`, shares it (bug
+    // 358: it used to take a second man inside 1.1 yards among the
+    // tacklers, and none ever was).
+    let other = (0..sim.agents.len())
+        .filter(|&k| {
+            let a = &sim.agents[k];
+            k != d
+                && a.side == 1
+                && a.up(t)
+                && a.pos.dist(me) < SHARE_RADIUS
+                && a.engaged.is_none_or(|e| sim.eng[e].pass && sim.eng[e].w > 0.45)
+        })
+        .min_by(|&x, &y| sim.agents[x].pos.dist(me).total_cmp(&sim.agents[y].pos.dist(me)));
+    sim.notes.sackers = std::iter::once(d).chain(other).map(|k| sim.agents[k].id).collect();
     sim.notes.hits.push(sim.agents[d].id);
     let force = sim.agents[d].mass * sim.agents[d].vel.len();
     let carry = sim.agents[qb].a(Attr::BallSecurity);
@@ -4758,7 +5127,9 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
         sim.fumble(qb);
     } else {
         sim.progress = me.x.min(los);
-        sim.notes.tacklers = vec![sim.agents[d].id];
+        // The man who brings him down has the tackle; a second sacker is in
+        // on it (an assist), as the NFL and the NCAA keep a shared sack.
+        sim.notes.tacklers = sim.notes.sackers.clone();
         sim.dead = true;
         sim.ball = Ball::Dead(me);
     }
@@ -4884,8 +5255,23 @@ fn defend(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>, tra
                 let qv = sim.agents[qb].vel;
                 let close = me.dist(q) < 2.5;
                 let aim = v2(q.x, q.y + if close { 0.0 } else { contain * 0.8 }) + qv.scale(0.3);
+                // His burst on a pass rush (`rush_feet`).
+                if pass_play && contain != 0.0 {
+                    let keep = rush_feet(sim, i);
+                    let vm = sim.agents[i].vmax;
+                    sim.steer(i, (aim - me).norm().scale(vm));
+                    (sim.agents[i].tau, sim.agents[i].accel) = keep;
+                    return;
+                }
                 let vm = sim.agents[i].vmax;
                 sim.steer(i, (aim - me).norm().scale(vm));
+                return;
+            }
+            // His burst on a pass rush (`rush_feet`).
+            if pass_play && contain != 0.0 {
+                let keep = rush_feet(sim, i);
+                sim.go_to(i, target, 1.0);
+                (sim.agents[i].tau, sim.agents[i].accel) = keep;
                 return;
             }
             sim.go_to(i, target, 1.0);
@@ -4950,7 +5336,19 @@ fn defend(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>, tra
                     // 29%, at 7.0; PFF roles, nflverse 2021-24), at 8.5 and
                     // 3.5 38%, and now 34% with the linebackers' fills
                     // (bugs 292 and 305; proposed, not confirmed).
-                    let boxed = !post && back && (me.y - s.ball_y).abs() < 7.5 && (me.x - s.los) * sim.goal < 7.0;
+                    // The force (minor bug 253): a back on the side the run
+                    // goes wide to, once the runner is `FORCE_WIDE` yards
+                    // outside the ball on his side, takes the box fit and
+                    // attacks the edge, as a real force player turns a wide
+                    // run back in; a deep zone stays the last line.
+                    if !post && back {
+                        let side = if me.y > s.ball_y { 1.0 } else { -1.0 };
+                        if (cp.y - s.ball_y) * side > FORCE_WIDE {
+                            sim.agents[i].force = true;
+                        }
+                    }
+                    let boxed = sim.agents[i].force
+                        || (!post && back && (me.y - s.ball_y).abs() < 7.5 && (me.x - s.los) * sim.goal < 7.0);
                     let (wait, fill) = if boxed { (1.5, 4.5) } else { (4.75, 9.75) };
                     // A hitter fits shallower and attacks sooner (S-B): 0.25
                     // and 0.2 yards a point of his read.
@@ -4962,7 +5360,10 @@ fn defend(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>, tra
                     // Only a corner holds his outside leverage out wide; a
                     // safety comes down to fill the alley.
                     let corner = matches!(sim.agents[i].label, "CB" | "NB");
-                    let wide = corner && (me.y - s.ball_y).abs() > 12.0 && (cp.x - s.los) * sim.goal < 3.0;
+                    let wide = !sim.agents[i].force
+                        && corner
+                        && (me.y - s.ball_y).abs() > 12.0
+                        && (cp.x - s.los) * sim.goal < 3.0;
                     if wide {
                         // A deep corner keeps outside leverage until it breaks.
                         let depth = s.los + sim.goal * 9.0;
@@ -5339,8 +5740,15 @@ fn cover_inner(sim: &mut Sim, i: usize, job: &Job, s: &Snap, qb: usize, pass: &O
                 // squeezes, keeping his depth for what comes behind him.
                 // His eyes are on the quarterback, so he sees a break late:
                 // he plays where the route was a beat ago (quicker for a
-                // sharp reader).
-                let lag = clamp(0.3 - 0.004 * (pr - 60.0), 0.1, 0.6) + lb_hips(sim, i);
+                // sharp reader). Within a level it reads at `ZONE_LAG` about
+                // the level's typical starter at his position, down to
+                // 0.05 s (minor bug 283: at 0.004 from 60 Zone Coverage
+                // moved the catch rate allowed 0.01-0.09 of real starters'
+                // spread).
+                let pos_i = sim.player(i).position;
+                let ts = |a: Attr| super::synthetic::typical_starter(sim.level, pos_i, a);
+                let pr_s = 0.6 * ts(Attr::ZoneCoverage) + 0.4 * ts(Attr::PlayRecognition);
+                let lag = clamp(0.3 - 0.004 * (pr_s - 60.0) - ZONE_LAG * (pr - pr_s), 0.05, 0.6) + lb_hips(sim, i);
                 let n = trail.ticks;
                 let k = ((lag / DT).round() as usize).min(n.saturating_sub(1));
                 let (rp, rv) = if n > 0 { trail.at(n - 1 - k, r) } else { (sim.agents[r].pos, sim.agents[r].vel) };
@@ -5621,14 +6029,21 @@ fn catch_point(
         va_all = va;
         hp_r_all = hp_r;
         if dd < d_reach && reacted {
-            let cov = da.a(Attr::ManCoverage).max(da.a(Attr::ZoneCoverage));
+            // His coverage skill at the catch point is his job's (Man or
+            // Zone), `BREAKUP_COVER` a point about his level's typical
+            // starter at his position (minor bug 283: it was the better of
+            // the two at 0.004 from 60).
+            let which = if matches!(da.job, Job::Man { .. }) { Attr::ManCoverage } else { Attr::ZoneCoverage };
+            let s_cov = super::synthetic::typical_starter(sim.level, sim.player(d).position, which);
+            let cov_term = 0.004 * (s_cov - 60.0) + BREAKUP_COVER * (da.a(which) - s_cov);
             let closeness = 1.0 - dd / d_reach;
             // He's in front of it: an interception chance.
             if dd < dr - 0.15 {
                 // Playing the ball: a facing defender has a real chance; one
                 // trailing with his back turned mostly plays through the hands.
                 let p_int = clamp(
-                    0.22 * closeness
+                    FRONT_PICK
+                        * closeness
                         * (0.45 + ball_hands(sim, d) / 110.0)
                         * if sees_ball || broke { 1.0 } else { 0.45 }
                         * if broke { 3.5 } else { 1.0 }
@@ -5647,7 +6062,7 @@ fn catch_point(
             let p_pbu = clamp(
                 closeness
                     * (0.39
-                        + 0.004 * (cov - 60.0)
+                        + cov_term
                         + 0.003 * (da.a(Attr::ContestedCatch) + hp_d - 60.0)
                         + 0.003 * (da.a(Attr::Jumping) - 60.0))
                     * size_on_def,
@@ -5656,7 +6071,7 @@ fn catch_point(
             );
             if sim.rng.chance(p_pbu) {
                 pi_check(sim, d, r, to, air, true);
-                if sim.rng.chance(0.06) {
+                if sim.rng.chance(PBU_PICK) {
                     return Catch::Intercepted(d);
                 }
                 return Catch::Incomplete { drop: false, pbu: Some(da.id), sep };
@@ -5733,7 +6148,7 @@ fn catch_point(
         // A ball off his hands can pop up to a defender close by.
         if let Some(d) = dbest
             && dd < 3.0
-            && sim.rng.chance(0.13 * (1.0 - dd / 3.0) * (0.5 + ball_hands(sim, d) / 100.0))
+            && sim.rng.chance(TIP_PICK * (1.0 - dd / 3.0) * (0.5 + ball_hands(sim, d) / 100.0))
         {
             return Catch::Intercepted(d);
         }

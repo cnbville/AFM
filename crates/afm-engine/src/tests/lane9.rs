@@ -462,7 +462,20 @@ fn film_reads_every_attribute_and_narrows_with_tape() {
     let more = read(&w).unwrap();
     assert!(more.attrs[speed].unwrap().1 < before, "{} -> {}", before, more.attrs[speed].unwrap().1);
     assert!(more.attrs[com].unwrap().1 >= file::GUESS_SD * file::visibility(&w, i) - 1e-6);
-    assert!(yours::cut_ups(&w, id).0 > done);
+    // A game of his is one look, however many of its snaps and however
+    // often you watch it (minor bug 338): the looks are the games those
+    // cut-ups played, each report's new games add up to them, the cut-ups
+    // after the first (one game) brought more of his games, and they
+    // never pass his season's film. Six cut-ups are six looks only when
+    // his tape puts them on six games, so the looks are not held against
+    // the number of watches.
+    let looks = yours::cut_ups(&w, id).0;
+    let new: usize = (w.scouting.film.reports.iter())
+        .filter(|r| r.target == fm::Target::Player(id))
+        .map(|r| r.new_games.unwrap_or(0) as usize)
+        .sum();
+    assert_eq!(looks, new, "one look a game of his, however often watched");
+    assert!(looks > 1 && looks <= 3 * session::TAPE_SETS as usize, "{looks} looks from {} cut-ups", done + 1);
 }
 
 #[test]
@@ -582,13 +595,14 @@ fn your_eye_settles_near_him_not_on_him() {
     let truth = w.people[i].player.attributes.get(a);
     // Two thousand catches of your eye, each its own snap, all leaning
     // the same way: the read narrows to the lean and stays there.
-    let lean = 1.2;
+    let lean = fm::lean_sd(session::lasting_eye(&w, w.people[i].player.position), a);
+    let miss = lean * fm::eye_lean(&w, id, a);
     for k in 0..2000u64 {
         let noise = if k % 2 == 0 { 2.0 } else { -2.0 };
         w.scouting.film.catches.push(fm::Catch {
             id,
             attr: a.index() as u8,
-            v: (truth + lean + noise) as f32,
+            v: (truth + miss + noise) as f32,
             sd: 2.0,
             date: w.today,
             by: 0,
@@ -601,11 +615,246 @@ fn your_eye_settles_near_him_not_on_him() {
     let c = fm::catches_of(&w, id)[a.index()].unwrap();
     assert!(c.1 >= lean - 1e-6, "never tighter than your eye's lean: sd {}", c.1);
     assert!(c.1 < lean + 0.1, "settled at it: sd {}", c.1);
-    assert!((c.0 - truth - lean).abs() < 0.05, "near him, where your eye leans");
+    assert!((c.0 - truth - miss).abs() < 0.05, "near him, where your eye leans");
+    // A catch made with another eye's lean (an older save's, a tired week,
+    // another position) is moved to your eye's as it is now: the read
+    // doesn't move with it.
+    for c in w.scouting.film.catches.iter_mut().filter(|c| c.id == id).step_by(2) {
+        c.v -= (miss - 0.5 * miss) as f32;
+        c.lean = (0.5 * lean) as f32;
+    }
+    let moved = fm::catches_of(&w, id)[a.index()].unwrap();
+    assert!((moved.0 - c.0).abs() < 1e-3 && (moved.1 - c.1).abs() < 1e-6, "{c:?} -> {moved:?}");
     // The eye's lean is part of every catch of a session, the same for a
-    // man's trait whenever you look, and an elite eye's is smaller.
-    const { assert!(fm::EYE_LEAN > 0.0 && fm::EYE_LEAN < 1.0) };
+    // man's trait whenever you look; an elite eye's is under a point, an
+    // ordinary eye's three to five (minor bug 352), widest on what film
+    // hides best.
+    let (elite, ordinary) = (fm::lean_sd(20.0, a), fm::lean_sd(10.0, a));
+    assert!(elite < 1.0 && (3.0..5.0).contains(&ordinary), "lean: a 20 eye {elite}, a 10 eye {ordinary}");
+    assert!(fm::lean_sd(10.0, crate::attributes::Attr::PlayRecognition) > ordinary, "widest on what film hides");
     assert_eq!(fm::eye_lean(&w, id, a), fm::eye_lean(&w, id, a));
+}
+
+/// Cain 2026-11-08 ("Bigger gap"): after a season of his tape a 10 eye's
+/// read of a trait stays near ±4 and a 20 eye's near ±1 (minor bug 352).
+#[test]
+fn a_weak_eye_stays_wide_after_a_season_of_tape() {
+    let mut w = nfl_world();
+    let id = pros(&w)[0];
+    let a = crate::attributes::Attr::Composure;
+    let truth = w.people[sc::place(&w, id).unwrap()].player.attributes.get(a);
+    let read = |w: &mut World, eye: f64| {
+        let you = readers::you(w).unwrap();
+        w.coaches[you].yours.as_mut().unwrap().evaluation = eye;
+        let sharp = sc::file::sharp(eye);
+        w.scouting.film.catches.retain(|c| c.id != id);
+        // Twelve games, twenty catches of the trait in each.
+        for k in 0..240u64 {
+            w.scouting.film.catches.push(fm::Catch {
+                id,
+                attr: a.index() as u8,
+                v: (truth + if k % 2 == 0 { 1.0 } else { -1.0 }) as f32,
+                sd: (3.5 * sharp) as f32,
+                date: w.today,
+                by: 0,
+                key: (k + 1) << 8 | 1,
+                lean: fm::lean_sd(eye, a) as f32,
+                game: (k % 12 + 1) << 8 | 3,
+                form: (fm::GAME_SD * sharp) as f32,
+            });
+        }
+        fm::catches_of(w, id)[a.index()].unwrap().1
+    };
+    let (elite, ordinary, weak) = (read(&mut w, 20.0), read(&mut w, 10.0), read(&mut w, 5.0));
+    assert!((1.0..1.2).contains(&elite), "a 20 eye after a season: sd {elite}");
+    assert!((4.2..4.8).contains(&ordinary), "a 10 eye after a season: sd {ordinary}");
+    assert!(weak > ordinary + 2.0, "a 5 eye wider still: sd {weak}");
+}
+
+/// Your eye on his tape is one read (minor bug 352): your film looks of
+/// him and your eye's catches share your eye's lasting misjudgment, so
+/// your read of a trait your eye caught never gets past it; and more of
+/// anything never widens a read: another watch, a trait your eye catches
+/// for the first time, tape of one of your own players beside your
+/// practices, or a look in your club's file under your head coach's code
+/// (where the club's copy of a watch or an asked workout counts once).
+#[test]
+fn your_tape_shares_your_eye_and_more_never_widens_a_read() {
+    use crate::attributes::{ATTRIBUTE_COUNT, Attr};
+    use crate::world::scouting::{file, yours};
+    let mut w = nfl_world();
+    let staff = readers::seat_staff(&w).unwrap();
+    let own = |w: &World, id: u32| {
+        let sr = readers::read(w, staff, id);
+        yours::own_read(w, staff, id, sr.as_ref().map(|x| &x.2)).expect("your read").attrs
+    };
+    let no_wider = |was: &[Option<(f64, f64)>], now: &[Option<(f64, f64)>], what: &str| {
+        for k in 0..ATTRIBUTE_COUNT {
+            if let (Some(b), Some(a)) = (was[k], now[k]) {
+                assert!(a.1 <= b.1 + 1e-9, "{what}: {} went from sd {} to {}", Attr::ALL[k].label(), b.1, a.1);
+            }
+        }
+    };
+    // Another club's man nobody has seen: a watch of his tape.
+    let fresh: Vec<u32> = pros(&w).into_iter().filter(|&id| readers::read(&w, staff, id).is_none()).collect();
+    let id = fresh
+        .into_iter()
+        .find(|&id| session::open_player(&mut w, id, tape::Cut::BestOpponent, session::Mode::Full, None).is_ok())
+        .expect("a man nobody has seen, with tape");
+    session::run_through(&mut w).unwrap();
+    let one = own(&w, id);
+    let i = sc::place(&w, id).unwrap();
+    let pos = w.people[i].player.position;
+    let e = session::lasting_eye(&w, pos);
+    // A trait your eye caught reads no closer than its misjudgment, unless
+    // your analyst's points caught it too (they carry none).
+    let (mut caught, mut helped) = ([false; ATTRIBUTE_COUNT], [false; ATTRIBUTE_COUNT]);
+    for c in w.scouting.film.catches.iter().filter(|c| c.id == id) {
+        if c.by == 0 {
+            caught[c.attr as usize] = true;
+        } else {
+            helped[c.attr as usize] = true;
+        }
+    }
+    assert!(caught.iter().filter(|&&c| c).count() >= 5, "traits your eye caught");
+    for a in Attr::ALL.into_iter().filter(|a| caught[a.index()] && !helped[a.index()]) {
+        let r = one[a.index()].unwrap();
+        assert!(r.1 >= fm::lean_sd(e, a) - 1e-9, "{}: sd {} under the eye's {}", a.label(), r.1, fm::lean_sd(e, a));
+    }
+    // The first catch of a trait the tape read but your eye hadn't caught.
+    let a = Attr::ALL
+        .into_iter()
+        .find(|a| !caught[a.index()] && one[a.index()].is_some() && file::sees(sc::Kind::ProFilm, *a).is_some())
+        .expect("a trait the tape read and your eye hadn't caught");
+    let truth = w.people[i].player.attributes.get(a);
+    w.scouting.film.catches.push(fm::Catch {
+        id,
+        attr: a.index() as u8,
+        v: (truth + 2.0) as f32,
+        sd: 8.0,
+        date: w.today,
+        by: 0,
+        key: 0x3520_0001,
+        lean: fm::lean_sd(e, a) as f32,
+        game: 0x3520_0003,
+        form: (fm::GAME_SD * file::sharp(e)) as f32,
+    });
+    let two = own(&w, id);
+    no_wider(&one, &two, "a first catch");
+    // Another watch, the same day.
+    let more = tape::Cut::ALL.into_iter().any(|cut| {
+        session::open_player(&mut w, id, cut, session::Mode::Full, None).is_ok() && session::run_through(&mut w).is_ok()
+    });
+    assert!(more, "another cut-up of him");
+    no_wider(&two, &own(&w, id), "another watch");
+    // Two watches the same day: one look in his file, one copy in your
+    // club's.
+    let t = match staff {
+        readers::Staff::Club(t) => t,
+        _ => unreachable!("an NFL seat"),
+    };
+    let hc = crate::world::pro::scouts::HC;
+    let copies = w.clubs[t].files.get(&id).map_or(0, |f| f.iter().filter(|l| l.who == hc && l.date == w.today).count());
+    assert_eq!(copies, 1, "two watches the same day, one copy");
+    // One of yours: your practices read him every week; his tape joins
+    // them and never widens them.
+    let roster: Vec<u32> = w.clubs[t]
+        .roster
+        .iter()
+        .map(|&i| &w.people[i].player)
+        .filter(|p| !p.position.is_specialist())
+        .map(|p| p.id)
+        .collect();
+    let mut done = false;
+    for id in roster {
+        let before = own(&w, id);
+        if session::open_player(&mut w, id, tape::Cut::BestOpponent, session::Mode::Full, None).is_ok() {
+            session::run_through(&mut w).unwrap();
+            let after = own(&w, id);
+            no_wider(&before, &after, "your own man's tape");
+            // The club's file keeps a copy of that watch the same day under
+            // the head coach's code: one watch counts once.
+            let file = w.clubs[t].files.get(&id).cloned().unwrap_or_default();
+            assert!(file.iter().any(|l| l.who == hc && l.date == w.today), "the club's copy of your watch");
+            w.clubs[t].files.get_mut(&id).unwrap().retain(|l| !(l.who == hc && l.date == w.today));
+            assert_eq!(after, own(&w, id), "the club's copy of your watch counts once");
+            w.clubs[t].files.insert(id, file);
+            // A look of the club's own under the head coach's code (the
+            // board's spring film study, weeks ago): yours too, never wider.
+            use crate::world::pro::scouts::LookKind;
+            let looks = |w: &World| yours::own_read(w, staff, id, None).map_or(0, |r| r.looks);
+            let n = looks(&w);
+            let weeks_ago = w.today.add(-60);
+            sc::dept::club_look(&mut w, t, id, hc, LookKind::Coach, weeks_ago);
+            assert_eq!(looks(&w), n + 1, "the club's own look is yours");
+            let spring = own(&w, id);
+            no_wider(&after, &spring, "an old look in the club's file");
+            // A workout you asked for: filed under the head coach's code,
+            // with the club's copy, yesterday, when you also practised him.
+            // It counts once, whatever else you did with him that day.
+            // Each act files its own copy, as the trips, the workouts you
+            // ask for and the film room do (`dept::club_copy`).
+            let act = |w: &mut World, who: u32, kind: sc::Kind, lk: LookKind, d: crate::calendar::Date| {
+                if sc::dept::add(w, id, who, kind, d) {
+                    sc::dept::club_copy(w, t, id, lk, d);
+                }
+            };
+            let board = |w: &mut World, kind: LookKind, d: crate::calendar::Date| {
+                w.clubs[t].files.get_mut(&id).unwrap().push(crate::world::pro::scouts::Look { who: hc, kind, date: d });
+            };
+            let yesterday = w.today.add(-1);
+            act(&mut w, hc as u32, sc::Kind::Workout, LookKind::Coach, yesterday);
+            act(&mut w, hc as u32, sc::Kind::Workout, LookKind::Coach, yesterday);
+            assert_eq!(looks(&w), n + 2, "the asked workout counts once");
+            let worked = own(&w, id);
+            no_wider(&spring, &worked, "an asked workout");
+            // The board's film study filed the same day, beside the
+            // workout's copy: an act of its own.
+            board(&mut w, LookKind::Coach, yesterday);
+            assert_eq!(looks(&w), n + 3, "the board's study beside your workout");
+            let studied = own(&w, id);
+            no_wider(&worked, &studied, "the board's study beside your workout");
+            // The board's look first (a specialist's pro day at dawn), then
+            // your trip to it: both count.
+            let me = readers::COACH + readers::you(&w).unwrap() as u32;
+            let pro_day = w.today.add(-2);
+            board(&mut w, LookKind::Coach, pro_day);
+            assert_eq!(looks(&w), n + 4, "the board's pro-day look");
+            let boards = own(&w, id);
+            act(&mut w, me, sc::Kind::ProDay, LookKind::Coach, pro_day);
+            assert_eq!(looks(&w), n + 5, "your trip beside the board's look");
+            let tripped = own(&w, id);
+            no_wider(&boards, &tripped, "your trip beside the board's look");
+            // Two acts of yours the same Tuesday (an asked workout and a
+            // workout trip), then the board's study that day: three looks.
+            let tuesday = w.today.add(-3);
+            act(&mut w, hc as u32, sc::Kind::Workout, LookKind::Coach, tuesday);
+            act(&mut w, me, sc::Kind::Workout, LookKind::Coach, tuesday);
+            assert_eq!(looks(&w), n + 7, "two acts the same day");
+            let two_acts = own(&w, id);
+            no_wider(&tripped, &two_acts, "two acts the same day");
+            board(&mut w, LookKind::Coach, tuesday);
+            assert_eq!(looks(&w), n + 8, "the board's study beside two acts of yours");
+            let all = own(&w, id);
+            no_wider(&two_acts, &all, "the board's study beside two acts of yours");
+            // A save from before this: a watch from the stands filed a film
+            // copy on the day you closed it, with no other look of yours
+            // that day. It counts once: its stands report is the look.
+            use crate::world::scouting::film::Target;
+            let closed = w.today.add(-4);
+            let report = w.scouting.film.reports.iter().rev().find(|r| r.target == Target::Player(id));
+            let mut stands = report.expect("your watch's report").clone();
+            (stands.mode, stands.date) = (session::Mode::Live, closed);
+            w.scouting.film.reports.push(stands);
+            assert_eq!(looks(&w), n + 8, "a report from the stands is no look of its own");
+            board(&mut w, LookKind::Film, closed);
+            assert_eq!(looks(&w), n + 8, "an old save's copy of a watch from the stands");
+            assert_eq!(own(&w, id), all, "an old save's copy of a watch from the stands");
+            done = true;
+            break;
+        }
+    }
+    assert!(done, "one of yours with tape");
 }
 
 #[test]
@@ -613,7 +862,11 @@ fn a_game_is_one_look_however_many_catches() {
     let mut w = nfl_world();
     let id = pros(&w)[0];
     let a = crate::attributes::Attr::Speed;
-    let truth = w.people[sc::place(&w, id).unwrap()].player.attributes.get(a) as f32;
+    let i = sc::place(&w, id).unwrap();
+    let truth = w.people[i].player.attributes.get(a) as f32;
+    // Your eye's lasting misjudgment rides on every catch; the games' part
+    // is what is left of the read without it.
+    let lean = fm::lean_sd(session::lasting_eye(&w, w.people[i].player.position), a);
     let push = |w: &mut World, n: u64, games: u64| {
         w.scouting.film.catches.retain(|c| c.id != id);
         for k in 0..n {
@@ -625,12 +878,13 @@ fn a_game_is_one_look_however_many_catches() {
                 date: w.today,
                 by: 0,
                 key: (k + 1) << 8 | 1,
-                lean: 0.0,
+                lean: lean as f32,
                 game: (k % games + 1) << 8 | 3,
                 form: 3.0,
             });
         }
-        fm::catches_of(w, id)[a.index()].unwrap().1
+        let sd = fm::catches_of(w, id)[a.index()].unwrap().1;
+        (sd * sd - lean * lean).sqrt()
     };
     // Two hundred catches of one game read him no better than the game:
     // what it showed of him is that game.
@@ -688,7 +942,7 @@ fn catches_past_the_cap_fold_and_keep_the_read() {
     assert!((busy_after.0 - busy_before.0).abs() < 0.01 && (busy_after.1 - busy_before.1).abs() < 0.01);
     // A game folded, then watched again: its new catches join the same
     // look, so the game's own look isn't counted twice (sd 2 a game here,
-    // your eye's lean 1: one game reads no tighter than about 2.24).
+    // and your eye's lean: one game reads no tighter than about 2.5).
     let third = ids[2];
     let eye = |w: &mut World, n: u64, base: u64, game: u64, date: crate::calendar::Date| {
         for k in 0..n {

@@ -271,6 +271,13 @@ struct Typical {
     /// (`scrimmage::hitter`): staffs list the hitter at strong safety, so
     /// he reads about +1 at the NFL and the free safety about -0.2.
     hit: [f64; 2],
+    /// The typical starter: the mean rating of the men each depth chart
+    /// starts at the position (`roster::starters`), the men most snaps go
+    /// to. A new within-level slope that should leave a level's totals
+    /// where they were sits about him (minor bug 283: about the dressed
+    /// player, a slope that is steeper than the old one lifts or sinks
+    /// every starting lineup, since starters rate above the dressed mean).
+    start: Vec<[f64; crate::attributes::ATTRIBUTE_COUNT]>,
 }
 
 static TYPICAL: std::sync::LazyLock<Vec<Typical>> = std::sync::LazyLock::new(|| {
@@ -309,7 +316,27 @@ static TYPICAL: std::sync::LazyLock<Vec<Typical>> = std::sync::LazyLock::new(|| 
                     .collect();
                 hit[k] = if men.is_empty() { 0.0 } else { men.iter().sum::<f64>() / men.len() as f64 };
             }
-            Typical { attrs, body, hit }
+            let margin = if level == Level::HS { 4.0 } else { 99.0 };
+            let charts: Vec<super::roster::Depth> =
+                league.iter().map(|t| super::roster::depth_chart(t, margin)).collect();
+            let mut start = attrs.clone();
+            for pos in Position::ALL {
+                let men: Vec<&GamePlayer> = league
+                    .iter()
+                    .zip(&charts)
+                    .flat_map(|(t, d)| {
+                        d.list(pos).iter().take(super::roster::starters(pos)).map(move |&i| &t.players[i])
+                    })
+                    .collect();
+                if men.is_empty() {
+                    continue;
+                }
+                let n = men.len() as f64;
+                for a in Attr::ALL {
+                    start[pos.index()][a.index()] = men.iter().map(|p| p.a(a)).sum::<f64>() / n;
+                }
+            }
+            Typical { attrs, body, hit, start }
         })
         .collect()
 });
@@ -327,6 +354,11 @@ fn level_slot(level: Level) -> usize {
 /// The typical rating in `a` of a player at `pos` at `level`.
 pub fn typical(level: Level, pos: Position, a: Attr) -> f64 {
     TYPICAL[level_slot(level)].attrs[pos.index()][a.index()]
+}
+
+/// The typical starter's rating in `a` at `pos` at `level` (see `Typical`).
+pub fn typical_starter(level: Level, pos: Position, a: Attr) -> f64 {
+    TYPICAL[level_slot(level)].start[pos.index()][a.index()]
 }
 
 /// The typical height, weight and arm length (inches, pounds, inches) of a

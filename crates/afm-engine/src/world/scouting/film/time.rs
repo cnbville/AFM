@@ -218,10 +218,16 @@ pub fn tiredness(w: &World) -> f64 {
 
 /// What your hours at a position taught your eye (SK63): about a point
 /// of evaluation after 200 hours of film there, at most 1.5.
-pub fn position_edge(w: &World, pos: Position) -> f64 {
+pub fn hours_edge(w: &World, pos: Position) -> f64 {
     let h = w.scouting.film.pos_hours.get(pos.index()).copied().unwrap_or(0.0) as f64;
+    1.5 * (1.0 - (-h / 200.0).exp())
+}
+
+/// Your eye's edge at a position today: what your hours there taught it,
+/// less half a point a unit of the weeks' wear.
+pub fn position_edge(w: &World, pos: Position) -> f64 {
     let wear = if w.sandbox(Switch::FreshEye) { 0.0 } else { w.scouting.film.wear as f64 };
-    1.5 * (1.0 - (-h / 200.0).exp()) - 0.5 * wear
+    hours_edge(w, pos) - 0.5 * wear
 }
 
 /// Can you watch now? A game from the stands is its own day; tape needs

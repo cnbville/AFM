@@ -903,7 +903,14 @@ fn facility_decisions(w: &mut World, year: i32) {
         return;
     }
     let n = w.finance.college.len().min(w.programs.len());
+    let past = year < w.options.start_year;
     for p in 0..n {
+        // In the world's past a school with its real buildings builds what
+        // it really built, the year ground really broke (facilities lane).
+        if past && crate::world::buildings::has_buildings(&w.programs[p].real_name) {
+            real_groundbreaks(w, p, year);
+            continue;
+        }
         if w.finance.projects.iter().any(|x| x.owner == Owner::College(p) && !x.done) || !w.programs[p].plays(year) {
             continue;
         }
@@ -964,6 +971,77 @@ fn facility_decisions(w: &mut World, year: i32) {
             let e = story(w, Level::College, loud, text).program(p);
             super::post(w, e);
         }
+        // Recruits see the building from the day ground breaks (item 2).
+        crate::world::staff::facilities_grade_now(w, p);
+    }
+}
+
+/// A school's real projects go in the books the July ground broke (a
+/// project already under way when the world's record begins joins it
+/// then), with their real cost and opening (`buildings`). One that broke
+/// ground and opened within the year goes in as done.
+fn real_groundbreaks(w: &mut World, p: usize, year: i32) {
+    use crate::world::buildings;
+    let name = w.programs[p].real_name.clone();
+    for (k, b) in buildings::of(&name).iter().enumerate() {
+        // Under way, or opening this July without being in the books yet: a
+        // building put up within the year, or one that broke ground before
+        // the world's records begin (open_projects has already run, so it
+        // goes in done).
+        let under_way = b.groundbreak <= year && year < b.opened;
+        let quick = b.groundbreak <= year && b.opened == year;
+        if !(under_way || quick)
+            || w.finance
+                .projects
+                .iter()
+                .any(|x| x.owner == Owner::College(p) && x.name == b.project && x.opens == b.opened)
+        {
+            continue;
+        }
+        let prog = &w.programs[p];
+        let nil_share = clamp((prog.collective.boosters() / 25.0e6).sqrt(), 0.0, 1.0);
+        let big = prog.collective.big_booster.is_some();
+        let cost = b.book_cost();
+        let pledged = cost * clamp(0.4 + 0.3 * nil_share + if big { 0.15 } else { 0.0 }, 0.2, 0.85);
+        let step = buildings::step(prog, k);
+        w.finance.projects.push(Project {
+            owner: Owner::College(p),
+            kind: ProjectKind::Facility,
+            name: b.project.clone(),
+            cost: cost as f32,
+            public: 0.0,
+            pledged: pledged as f32,
+            started: year,
+            opens: b.opened,
+            capacity: 0,
+            step: step as f32,
+            done: quick,
+            asked: false,
+        });
+        if quick {
+            if let Some(f) = buildings::number(&w.programs[p], year) {
+                w.programs[p].facilities = f;
+            }
+            if step > 0.0 {
+                crate::world::staff::facilities_grade_now(w, p);
+            }
+            continue;
+        }
+        if w.seat_program(p) || w.programs[p].division == Division::FBS && tier(w, p, year) == 0 {
+            let prog_name = w.programs[p].name(w.options.names).to_string();
+            let what = match b.cost {
+                Some(c) => format!("a {} {}", dollars(c), b.kind.words()),
+                None => format!("a new {}", b.kind.words()),
+            };
+            let text = format!("{prog_name} breaks ground on the {}, {what} opening in {}.", b.project, b.opened);
+            let loud = if w.seat_program(p) { Loudness::Big } else { Loudness::Small };
+            let e = story(w, Level::College, loud, text).program(p);
+            super::post(w, e);
+        }
+        // Seats and suites alone don't move the facilities grade.
+        if step > 0.0 {
+            crate::world::staff::facilities_grade_now(w, p);
+        }
     }
 }
 
@@ -975,11 +1053,14 @@ fn open_projects(w: &mut World, p: usize, year: i32) {
             x.owner == Owner::College(p) && !x.done && x.opens <= year
         })
         .collect();
+    // In the world's past a school with its real buildings reads them as
+    // they stand this season, the opening included (facilities lane item 1).
+    let real = if year < w.options.start_year { crate::world::buildings::number(&w.programs[p], year) } else { None };
     for k in ready {
         let x = w.finance.projects[k].clone();
         w.finance.projects[k].done = true;
         let prog = &mut w.programs[p];
-        prog.facilities = clamp(prog.facilities + x.step as f64, 0.02, 1.0);
+        prog.facilities = real.unwrap_or(clamp(prog.facilities + x.step as f64, 0.02, 1.0));
         if x.kind == ProjectKind::Stadium && x.capacity > 0 {
             prog.stadium = x.capacity;
         }
@@ -1375,6 +1456,7 @@ pub fn ask_facility(w: &mut World, p: usize) -> Result<String, String> {
         done: false,
         asked: true,
     });
+    crate::world::staff::facilities_grade_now(w, p);
     let text = format!("{name} approves a {} {kind} you asked for, opening in {}.", dollars(cost), year + 2);
     let e = story(w, Level::College, Loudness::Big, text.clone()).program(p);
     super::post(w, e);

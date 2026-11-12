@@ -68,10 +68,18 @@ pub enum Part {
     Forty,
     /// The ten-yard split, by his Acceleration alone (his first step).
     Split,
-    /// The three-cone, by his Agility.
+    /// The three-cone, by his Agility and Flexibility together (the drill
+    /// reads both: feet and bend).
     Cone,
     /// The short shuttle, by his Agility.
     Shuttle,
+    /// The bench press, by his Strength (at his weight and arms).
+    Bench,
+}
+
+/// The bench press before the day's noise and rounding (`body::Drills`).
+pub fn bench_of(strength: f64, weight: f64, arm: f64) -> f64 {
+    8.05 + 0.137 * strength + 0.073 * (weight - 220.0) - 0.8 * (arm - 32.5)
 }
 
 impl Part {
@@ -79,6 +87,7 @@ impl Part {
         match self {
             Part::Height | Part::Arm => ("inch", 1.0),
             Part::Weight => ("10 lb", 10.0),
+            Part::Bench => ("5 reps", 5.0),
             _ => ("0.1 s", 0.1),
         }
     }
@@ -88,6 +97,7 @@ impl Part {
             Part::Height => afm_engine::body::height_text(v).replace('"', ""),
             Part::Arm => format!("{v:.2} in"),
             Part::Weight => format!("{v:.0} lb"),
+            Part::Bench => format!("{v:.1} reps"),
             _ => format!("{v:.2} s"),
         }
     }
@@ -108,6 +118,7 @@ impl Part {
                 let e = d.expected();
                 if self == Part::Cone { e.cone } else { e.shuttle }
             }
+            Part::Bench => bench_of(gp.attrs.get(Attr::Strength), gp.weight, gp.arm),
         }
     }
 }
@@ -190,6 +201,35 @@ fn solve(at: &mut Attributes, a: Attr, target: f64, f: &dyn Fn(&Attributes) -> f
     at.set(a, 0.5 * (lo + hi));
 }
 
+/// Ratings moved together by one shift (each kept between 1 and 99) that
+/// brings `f` to the target, by halving.
+fn solve_shift(at: &mut Attributes, attrs: &[Attr], target: f64, f: &dyn Fn(&Attributes) -> f64) {
+    let base = *at;
+    let put = |x: &mut Attributes, d: f64| {
+        for &a in attrs {
+            x.set(a, clamp(base.get(a) + d, MIN_RATING, MAX_RATING));
+        }
+    };
+    let (mut lo, mut hi) = (-(MAX_RATING - MIN_RATING), MAX_RATING - MIN_RATING);
+    let rising = {
+        let mut x = base;
+        put(&mut x, hi);
+        let up = f(&x);
+        put(&mut x, lo);
+        up > f(&x)
+    };
+    for _ in 0..40 {
+        let mid = 0.5 * (lo + hi);
+        put(at, mid);
+        if (f(at) < target) == rising {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    put(at, 0.5 * (lo + hi));
+}
+
 /// A drawn player at a position with a body number in range, at an overall:
 /// the generator's athlete-first path (`athlete.rs`), the way the world
 /// makes its players, keeping only men whose natural position is his, so
@@ -224,6 +264,15 @@ fn recruit(gp: &GamePlayer, part: Part, lo: f64, hi: f64, level: Level) -> Optio
         for a in Attr::ALL {
             p.attributes.set(a, clamp(afm_engine::debug::ceilings(&p).get(a) * share, MIN_RATING, MAX_RATING));
         }
+        // His position's weight program, as the world places a class
+        // (`athlete::place_class`; bug 360). Without it a drawn edge played
+        // at his frame weight (sd 30 lb), and the as-recruited arm rows read
+        // the heavy men's weight as arm: +2.0 to +2.2 pts of sacks a
+        // pressure an inch (seeds 86 and 82), real +0.66.
+        let mut q = p.clone();
+        q.position_history.clear();
+        afm_engine::athlete::set_position(&mut q, gp.position);
+        p.body.weight = q.body.weight;
         let ov = overall_for(gp.position, &p.attributes);
         aim = clamp(aim + 0.5 * (target - ov), 20.0, 99.0);
         let b = body_now(&p);
@@ -235,6 +284,7 @@ fn recruit(gp: &GamePlayer, part: Part, lo: f64, hi: f64, level: Level) -> Optio
             Part::Split => afm_engine::links::ten_split(&p.attributes, b.weight),
             Part::Cone => Drills::of(&p).expected().cone,
             Part::Shuttle => Drills::of(&p).expected().shuttle,
+            Part::Bench => bench_of(p.attributes.get(Attr::Strength), b.weight, b.arm),
         };
         if !(lo..=hi).contains(&v) {
             continue;
@@ -259,6 +309,11 @@ fn recruit(gp: &GamePlayer, part: Part, lo: f64, hi: f64, level: Level) -> Optio
     afm_engine::spots::set_spot(&mut p, gp.spot);
     p.id = gp.id;
     Some(p)
+}
+
+/// One player changed by knobs, as an arm changes him (the freak check).
+pub fn change_one(gp: &mut GamePlayer, person: &Player, knobs: &[Knob], level: Level) {
+    change(gp, person, knobs, level);
 }
 
 fn change(gp: &mut GamePlayer, person: &Player, knobs: &[Knob], level: Level) {
@@ -297,7 +352,18 @@ fn change(gp: &mut GamePlayer, person: &Player, knobs: &[Knob], level: Level) {
                             let e = d.expected();
                             if part == Part::Cone { e.cone } else { e.shuttle }
                         };
-                        solve(&mut at, Attr::Agility, v, &f);
+                        // The 3-cone reads his feet and his bend: both move
+                        // together, point for point (E1); the shuttle is his
+                        // feet alone.
+                        if part == Part::Cone {
+                            solve_shift(&mut at, &[Attr::Agility, Attr::Flexibility], v, &f);
+                        } else {
+                            solve(&mut at, Attr::Agility, v, &f);
+                        }
+                    }
+                    Part::Bench => {
+                        let (w, arm) = (b.weight, b.arm);
+                        solve(&mut at, Attr::Strength, v, &|x| bench_of(x.get(Attr::Strength), w, arm));
                     }
                 }
             }
@@ -511,6 +577,15 @@ fn sd(c: &C) -> f64 {
     (c[2] / c[0] - m * m).max(0.0).sqrt()
 }
 
+/// A least-squares slope from [n, sum x, sum y, sum xy, sum x squared];
+/// none when x hardly varies: a pure arm gives every man the same body, and
+/// the small spread left in a pure arm (an sd under 0.3 of x's unit)
+/// gave a slope of noise (-4.6 and -5.8 for linebackers' run tackles).
+fn slope(c: &C) -> f64 {
+    let v = c[4] - c[1] * c[1] / c[0];
+    if c[0] < 2.0 || v <= 0.09 * c[0] { f64::NAN } else { (c[3] - c[1] * c[2] / c[0]) / v }
+}
+
 /// A spread with the sample noise taken out: slot 3 holds each game's noise
 /// variance (minor bug 287: real game logs are measured the same way).
 fn true_sd(c: &C) -> f64 {
@@ -573,6 +648,12 @@ fn middle(r: &PlayRecord) -> bool {
 /// The 4th quarter or overtime with the score within 8.
 fn late_close(r: &PlayRecord) -> bool {
     r.quarter >= 4 && (r.score[r.offense] - r.score[1 - r.offense]).abs() <= 8
+}
+/// Focus players' sacks on a play: a shared sack is half to each of the
+/// two, as PFR and the stat line keep it.
+fn sacks_by(r: &PlayRecord, c: &Cx) -> f64 {
+    let share = if r.sackers.len() > 1 { 0.5 } else { 1.0 };
+    share * r.sackers.iter().filter(|i| c.f(**i)).count() as f64
 }
 /// Focus pass rushers' (or his man's) pressure on a play: in pressures,
 /// sackers or hits.
@@ -1210,7 +1291,7 @@ pub fn stats() -> Vec<Stat> {
             Z
         }),
         play!("dl_sack", "sacks a rush snap", Pct, |r, c| if dropback(r) && c.my_def(r) {
-            rc(r.sackers.iter().filter(|i| c.f(**i)).count() as f64, c.on(r))
+            rc(sacks_by(r, c), c.on(r))
         } else {
             Z
         }),
@@ -1227,7 +1308,7 @@ pub fn stats() -> Vec<Stat> {
             Z
         }),
         play!("dl_sack_snap", "sacks a defense snap", Pct, |r, c| if scrimmage(r) && c.my_def(r) {
-            rc(r.sackers.iter().filter(|i| c.f(**i)).count() as f64, c.on(r))
+            rc(sacks_by(r, c), c.on(r))
         } else {
             Z
         }),
@@ -1267,7 +1348,7 @@ pub fn stats() -> Vec<Stat> {
         ),
         play!("dl_sack_prs", "sacks a pressure", Pct, |r, c| if dropback(r) && c.my_def(r) {
             let p = r.on_field.iter().flatten().filter(|i| c.f(**i) && pressured_by(r, **i)).count();
-            rc(r.sackers.iter().filter(|i| c.f(**i)).count() as f64, p as f64)
+            rc(sacks_by(r, c), p as f64)
         } else {
             Z
         }),
@@ -1504,6 +1585,69 @@ pub fn stats() -> Vec<Stat> {
         } else {
             Z
         }),
+        // Minor bug 281: real target depth by a corner's speed is a
+        // cross-section (each 0.1 s slower, 0.33 yd shallower, held equal),
+        // which moving every corner at once can't show. Here each target on
+        // a corner is set against the other corners on the field: the
+        // slope of air yards on his forty less theirs, per 0.1 s slower.
+        Stat {
+            key: "cv_adot_within",
+            label: "depth of targets on him per 0.1 s slower than the corners beside him",
+            unit: Num,
+            play: Some(|r, c| {
+                if !(thrown(r) && c.fo(r.defender) && c.is(r.defender, P::CB)) {
+                    return Z;
+                }
+                let forty = |i: &u32| c.body.get(i).map(|b| b[1]);
+                let cbs: Vec<f64> =
+                    r.on_field[1].iter().filter(|i| c.pos.get(*i) == Some(&P::CB)).filter_map(forty).collect();
+                let Some(me) = r.defender.and_then(|d| forty(&d)) else { return Z };
+                if cbs.len() < 2 {
+                    return Z;
+                }
+                let x = (me - cbs.iter().sum::<f64>() / cbs.len() as f64) / 0.1;
+                [1.0, x, r.air_yards, x * r.air_yards, x * x]
+            }),
+            game: None,
+            value: slope,
+        },
+        // Minor bug 306: real run tackles by a linebacker's speed are a
+        // cross-section too (each 0.1 s slower, +0.37 pts of run tackles a
+        // defense snap at the same draft slot): each snap sets every
+        // linebacker on the field against the others beside him, in pts of
+        // run tackles a snap per 0.1 s slower.
+        Stat {
+            key: "lb_tk_within",
+            label: "run tackles a snap per 0.1 s slower than the linebackers beside him, pts",
+            unit: Num,
+            play: Some(|r, c| {
+                if !scrimmage(r) {
+                    return Z;
+                }
+                let forty = |i: &u32| c.body.get(i).map(|b| b[1]);
+                let lbs: Vec<(u32, f64)> = r.on_field[1]
+                    .iter()
+                    .filter(|i| c.pos.get(*i) == Some(&P::LB))
+                    .filter_map(|i| forty(i).map(|f| (*i, f)))
+                    .collect();
+                if lbs.len() < 2 {
+                    return Z;
+                }
+                let mean = lbs.iter().map(|l| l.1).sum::<f64>() / lbs.len() as f64;
+                let run = matches!(r.kind, T::Run | T::Scramble);
+                let mut out = Z;
+                for (i, f) in lbs {
+                    let x = (f - mean) / 0.1;
+                    let y = if run && r.tacklers.contains(&i) { 100.0 } else { 0.0 };
+                    for (k, v) in [1.0, x, y, x * y, x * x].into_iter().enumerate() {
+                        out[k] += v;
+                    }
+                }
+                out
+            }),
+            game: None,
+            value: slope,
+        },
         play!("cv_int", "picks a target on him", Pct, |r, c| if thrown(r) && c.fo(r.defender) {
             rc(bf(r.interception), 1.0)
         } else {

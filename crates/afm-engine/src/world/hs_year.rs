@@ -1529,6 +1529,8 @@ pub(crate) fn seat_setup(w: &World, me: usize) -> Option<super::live_seat::SeatS
     );
     setup.rules = rules;
     setup.cond = hs_conditions(w, h, &wx, seed, key);
+    // The season, as the day's game has it (minor bug 364).
+    setup.year = w.year;
     setup.neutral = final_game;
     setup.playoff = playoff;
     setup.kickoff = 19.0;
@@ -2085,6 +2087,7 @@ fn finish_state(w: &mut World, s: usize, d: Date) {
             runs.insert(t as usize, (b.wins[k], b.semi[k]));
         }
     }
+    let sos = schedule_strength(w.hs_season.as_ref().unwrap(), &schools);
     for h in schools {
         let t = w.hs_season.as_ref().unwrap().results[h].clone();
         if t.games() == 0 {
@@ -2110,6 +2113,7 @@ fn finish_state(w: &mut World, s: usize, d: Date) {
                 yards: t.totals.yards.max(0.0) as u32,
                 yards_allowed: t.totals.yards_allowed.max(0.0) as u32,
             },
+            sos: sos.get(&h).copied(),
         });
         if t.state_title {
             school.state_titles += 1;
@@ -2134,6 +2138,36 @@ fn finish_state(w: &mut World, s: usize, d: Date) {
             w.coaches[c].season_reputation(t.vs_expectation(), 0.0, false);
         }
     }
+}
+
+/// These schools' schedule strength this season (minor bug 362): each
+/// one's opponents' average team strength, regular season and playoffs,
+/// against the average of every high school team that has played, in
+/// rating points. MaxPreps and CalPreps rate a schedule by its opponents
+/// on one national scale, and the college column reads the same way
+/// (`records::SeasonRecord::sos`). Team strength is set before the first
+/// game and holds all season, so a state that finishes early reads the
+/// same average as one that finishes late.
+pub(crate) fn schedule_strength(hs: &HsSeasonState, schools: &[usize]) -> HashMap<usize, f32> {
+    let played: Vec<f64> = hs.results.iter().filter(|r| r.games() > 0).map(|r| r.strength).collect();
+    if played.is_empty() {
+        return HashMap::new();
+    }
+    let avg = played.iter().sum::<f64>() / played.len() as f64;
+    let mine: HashSet<usize> = schools.iter().copied().collect();
+    let strength = |t: u32| hs.results.get(t as usize).map_or(avg, |r| r.strength);
+    let mut opp: HashMap<usize, (f64, f64)> = HashMap::new();
+    let games = hs.played.iter().copied().chain(hs.playoff_games.iter().map(|g| (g.1, g.2)));
+    for (a, b) in games {
+        for (me, them) in [(a, b), (b, a)] {
+            if mine.contains(&(me as usize)) {
+                let e = opp.entry(me as usize).or_default();
+                e.0 += strength(them);
+                e.1 += 1.0;
+            }
+        }
+    }
+    opp.into_iter().map(|(h, (sum, n))| (h, (sum / n - avg) as f32)).collect()
 }
 
 /// Each varsity player's game reps for his next step (minor bug 247): his
@@ -2807,6 +2841,51 @@ mod tests {
     use super::*;
     use crate::world::WorldOptions;
     use std::collections::BTreeSet;
+
+    #[test]
+    fn schedule_strength_reads_the_opponents_not_the_class() {
+        // Minor bug 362: a schedule is rated by its opponents against the
+        // average high school team (MaxPreps, CalPreps), so a small school
+        // that plays strong teams reads harder than a big one that doesn't.
+        let w = World::empty(WorldOptions { scale: 1.0, ..Default::default() });
+        let mut hs = new_season(&w);
+        let classes =
+            |s: usize| w.states[s].schools.iter().map(|&h| w.high_schools[h].classification).collect::<BTreeSet<_>>();
+        let s =
+            (0..w.states.len()).find(|&s| classes(s).len() >= 2 && w.states[s].schools.len() >= 8).expect("a state");
+        let schools = w.states[s].schools.clone();
+        let class = |h: usize| w.high_schools[h].classification;
+        let big = *schools.iter().min_by_key(|&&h| class(h)).unwrap();
+        let small = *schools.iter().max_by_key(|&&h| class(h)).unwrap();
+        assert!(class(big) < class(small), "class 0 is the biggest");
+        let rest: Vec<usize> = schools.iter().copied().filter(|&h| h != big && h != small).collect();
+        let (strong, weak, idle) = ([rest[0], rest[1]], [rest[2], rest[3]], rest[4]);
+        // Every team 40 but two at 60 and two at 20: the average stays 40.
+        for r in hs.results.iter_mut() {
+            r.strength = 40.0;
+            r.wins = 1;
+        }
+        for h in strong {
+            hs.results[h].strength = 60.0;
+        }
+        for h in weak {
+            hs.results[h].strength = 20.0;
+        }
+        let t = |h: usize| h as u32;
+        hs.played =
+            vec![(t(strong[0]), t(small)), (t(small), t(strong[1])), (t(big), t(weak[0])), (t(big), t(weak[1]))];
+        hs.playoff_games = vec![(0, t(small), t(strong[0]), t(small))];
+        let sos = schedule_strength(&hs, &schools);
+        let near = |h: usize, v: f32| (sos[&h] - v).abs() < 1e-4;
+        assert!(near(small, 20.0), "the small school met three 60s: {}", sos[&small]);
+        assert!(near(big, -20.0), "the big school met two 20s: {}", sos[&big]);
+        assert!(near(strong[0], 0.0), "a strong school met an average one twice: {}", sos[&strong[0]]);
+        assert!(!sos.contains_key(&idle), "no games, no schedule");
+        // Only the state's own schools are read.
+        let other = (0..w.high_schools.len()).find(|&h| w.high_schools[h].state != s).unwrap();
+        hs.played.push((t(other), t(small)));
+        assert!(!schedule_strength(&hs, &schools).contains_key(&other));
+    }
 
     #[test]
     fn high_school_regular_seasons_have_no_rematches() {

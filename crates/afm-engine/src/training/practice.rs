@@ -171,14 +171,24 @@ pub struct Battles {
     pub plays: Vec<PlayRecord>,
     pub snaps: u32,
     /// Growth from results, item 16 (behind its switch): each man's
-    /// practice evidence, at a quarter of a game snap, a sampled snap
-    /// standing for the week's snaps it samples.
+    /// practice evidence, at `PRACTICE_RESULTS` of a game snap, a sampled
+    /// snap standing for the week's snaps it samples.
     pub results: HashMap<u32, crate::results::Man>,
 }
 
-/// A practice snap's weight against a game snap (item 16, proposed, not
-/// confirmed: a quarter).
-pub const PRACTICE_RESULTS: f64 = 0.25;
+/// A practice snap's weight against a game snap (item 16: Cain's yes to
+/// practice counting, 2026-11-08; the size proposed, not confirmed). A
+/// starter's practice gives about six (FBS) to nine (NFL) times his
+/// games' trials, so at a quarter his practice outweighed his games
+/// (about 1.6 and 2.1 times) and big and rough seasons came two and a
+/// half to three times as often (seed 80). A twentieth held on seeds 84-86,
+/// but on the code after minor bug 283's refit (more reads on) and minor
+/// bug 348's fix it lifted NFL starters' named big games 6.4 and 3.5
+/// points over games alone (seeds 88 and 89). At a fortieth his practice
+/// is 14% of an FBS starter's season of evidence and 18% of an NFL
+/// starter's, and starters' named big games stay within 1 to 3 points of
+/// games alone (seeds 89 and 90).
+pub const PRACTICE_RESULTS: f64 = 0.025;
 
 /// Runs a week's battles for a team. `starters` and `backups` are player
 /// ids by their role this week.
@@ -307,7 +317,7 @@ pub(crate) fn seat_battles(
     if total(&snaps) < 1.0 {
         return;
     }
-    let Some((team, level)) = w.seat_game_team() else { return };
+    let Some((team, level)) = w.seat_practice_team() else { return };
     let mut starters = HashSet::new();
     let mut backups = HashSet::new();
     for (&i, &r) in roles {
@@ -322,7 +332,12 @@ pub(crate) fn seat_battles(
             _ => {}
         }
     }
-    let practice_results = w.options.results.on && w.options.results.practice;
+    // Practice counts as results where the world's own teams practise on
+    // the engine (`world_battles`: college programs and NFL clubs), so your
+    // high school or other-league team plays by the AI's rules.
+    let engine_practice =
+        w.seat.is_some_and(|s| matches!(s.level, crate::calendar::Level::College | crate::calendar::Level::Nfl));
+    let practice_results = w.options.results.on && w.options.results.practice && engine_practice;
     let b = run(&team, level, &snaps, 150, &starters, &backups, true, practice_results, seed ^ 0xBA7);
     log.snaps = b.snaps;
     if practice_results {

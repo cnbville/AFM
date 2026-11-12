@@ -119,7 +119,12 @@ fn drafts_imperfectly_without_wild_first_round_reaches() {
     // top 50. One class swings from 0 to 8 by seed (measured 2026-10-21 on
     // six seeds), so the band is read on the average of fifteen classes:
     // five gave 5.4 with the safety and linebacker leanings and 3.4 without,
-    // where fifteen gave 4.2 and 4.1 (2026-11-08).
+    // where fifteen gave 4.2 and 4.1 (2026-11-08). Most of that was the
+    // count (minor bug 341): the consensus ranked grades alone, so a
+    // quarterback or edge every real board has higher counted as a reach,
+    // and specialists sat on the board. Ranked as public boards rank, by
+    // grade and position value without specialists, fifteen classes give
+    // 2.5 with the draft unchanged, so the band is now the real one.
     let mut n = s().draft.first_rounders_outside_top50 as f64;
     let seeds: Vec<String> = (1..15).map(|k| format!("reach-{k}")).collect();
     for seed in &seeds {
@@ -128,7 +133,7 @@ fn drafts_imperfectly_without_wild_first_round_reaches() {
     }
     let mean = n / (seeds.len() + 1) as f64;
     println!("first-rounders from outside the top 50: {mean:.1} a class");
-    assert!(mean > 0.5 && mean <= 5.0, "first-rounders from outside the top 50: {mean:.1} a class");
+    assert!((1.0..=3.0).contains(&mean), "first-rounders from outside the top 50: {mean:.1} a class");
 }
 
 #[test]

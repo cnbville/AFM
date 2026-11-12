@@ -60,6 +60,64 @@ fn college_history_matches_real_counts() {
     assert!(!find("Georgia State").plays(2009) && find("Georgia State").plays(2010));
 }
 
+/// Minor bugs 294-296: a program starts from its real past, not today's.
+#[test]
+fn programs_start_from_their_real_past() {
+    use crate::world::data::{self, DIVISION_COUNT, DROPPED_COLLEGES};
+    use crate::world::program::program_from_row;
+    // Every row of the three files is one of the world's programs.
+    let known = |n: &str| COLLEGES.iter().chain(DROPPED_COLLEGES.iter()).any(|r| r.name == n);
+    for n in data::START_RECORDS.keys().chain(data::COLLEGE_TITLES.keys()).chain(data::COLLEGE_SEATS.keys()) {
+        assert!(known(n), "{n} is not a program in the world");
+    }
+    // 294: the five seasons before the start, not 2021-25. James Madison
+    // went 22-30 in 1979-83 (52-13 in 2021-25); Alabama 47-12-1.
+    assert_eq!(data::start_record("James Madison", 1984), Some(22.0 / 52.0));
+    assert_eq!(data::start_record("Alabama", 1984), Some(47.5 / 60.0));
+    assert_eq!(data::start_record("James Madison", 2011), None);
+    // 295: only the titles won before the start, each at its own level.
+    assert_eq!(data::titles_before("Alabama", 1984)[Division::FBS as usize], 16);
+    assert_eq!(data::titles_before("Alabama", 2026)[Division::FBS as usize], 24);
+    let mut ndsu = [0; DIVISION_COUNT];
+    ndsu[Division::D2 as usize] = 1;
+    assert_eq!(data::titles_before("North Dakota State", 1984), ndsu);
+    // 296: Bridgeforth Stadium's seats by season.
+    assert_eq!(data::real_seats("James Madison", 1984), Some(12_500));
+    assert_eq!(data::real_seats("James Madison", 2011), Some(24_877));
+    // A temporary home in 2025 gives way to today's stadium in 2026.
+    assert_eq!(data::real_seats("Northwestern", 2025), Some(12_023));
+    assert_eq!(data::real_seats("Northwestern", 2026), Some(35_000));
+    // The start reads all three: James Madison in 1984 as a I-AA school.
+    let mut jmu = COLLEGES.iter().find(|r| r.name == "James Madison").unwrap().clone();
+    jmu.division = Division::FCS;
+    jmu.conference = "Yankee".into();
+    let early = program_from_row(0, &jmu, 1984, 1, &mut Rng::new(1));
+    let today = program_from_row(0, &jmu, 2026, 1, &mut Rng::new(1));
+    assert_eq!((early.stadium, early.titles, today.titles), (12_500, 0, 2));
+    assert!(early.recent < today.recent && early.fans < today.fans && early.prestige < today.prestige);
+    // Tradition: a title below its level counts less than one at it.
+    let fcs_row = |n: &str| {
+        let mut r = COLLEGES.iter().find(|r| r.name == n).unwrap().clone();
+        r.division = Division::FCS;
+        r.conference = "Southland".into();
+        r
+    };
+    let tradition = |n: &str| program_from_row(0, &fcs_row(n), 1984, 1, &mut Rng::new(1)).tradition;
+    // Eastern Kentucky's two I-AA titles against Texas State's two Division II ones.
+    assert!(tradition("Eastern Kentucky") > tradition("Texas State"));
+    // A world's title count holds the real titles until its own record
+    // begins: 1996 in a 30-year world (Alabama's 1992 title stands in for
+    // the unrecorded spin-up), 1966 in a 60-year one (its recorded 1966-83
+    // seasons are not counted twice).
+    use crate::world::{World, WorldOptions};
+    let bama = |h: u32| {
+        let w = World::empty(WorldOptions { scale: 0.001, history_years: h, ..Default::default() });
+        w.programs.iter().find(|p| p.real_name == "Alabama").map(|p| (p.titles, p.titles_before)).unwrap()
+    };
+    assert_eq!(bama(30), (17, data::titles_before("Alabama", 1996)));
+    assert_eq!(bama(60).0, data::titles_before("Alabama", 1966).iter().sum::<u32>());
+}
+
 #[test]
 fn two_conference_titles_move_title_chances_far() {
     // Topic 7: no EA-style C- to C+ after back-to-back titles.
