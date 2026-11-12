@@ -1194,6 +1194,12 @@ fn add_talk_picks(w: &World, s: &mut Scene, i: usize, subject: Subject, used: &[
     s.pick(900, "End the talk", "End", "calm", "Ends it here.");
 }
 
+/// Whether praise is earned.
+pub(crate) fn praise_earned(w: &World, i: usize) -> bool {
+    let p = &w.people[i];
+    p.last_role == Some(PlayingTime::Starter) || p.last_performance.unwrap_or(0.0) > 62.0
+}
+
 /// How a move lands on him (topic 5): (trust, mood). Fit with his
 /// personality, his concern and the tone; noise for the day he's having.
 fn landing(w: &World, i: usize, m: Move, t: Tone, subject: Subject, revealed: bool, seed: u64) -> (f32, f32) {
@@ -1204,7 +1210,7 @@ fn landing(w: &World, i: usize, m: Move, t: Tone, subject: Subject, revealed: bo
     let shaky = ((10.0 - p.bg.stability) / 10.0) as f32;
     let (real, _) = concern(w, i);
     let on_point = real == subject || revealed;
-    let earned = p.last_role == Some(PlayingTime::Starter) || p.last_performance.unwrap_or(0.0) > 62.0;
+    let earned = praise_earned(w, i);
     let needs_ear = p.mood < -0.15 || shaky > 0.2 || matches!(real, Subject::Life | Subject::Friend);
     let (mut dt, mut dm): (f32, f32) = match m {
         Move::Ask => (0.04 + 0.04 * needs_ear as u8 as f32, 0.03 + 0.04 * needs_ear as u8 as f32),

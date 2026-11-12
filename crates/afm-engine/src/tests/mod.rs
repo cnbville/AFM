@@ -40,6 +40,7 @@ mod placement;
 mod polls;
 mod portal_recruiting;
 mod portal_talks;
+mod praise;
 mod ratings;
 mod roster_moves;
 mod sandbox;
