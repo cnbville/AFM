@@ -79,6 +79,14 @@ fn main() {
         }
         Some("portal") => {
             let mut w = afm_engine::save::read_world(Path::new(&args[2])).expect("read the world");
+            // AFM_REBUDGET: the year's budgets worked out again, so a change
+            // to how they are sized shows in a world saved after they were set.
+            if std::env::var("AFM_REBUDGET").is_ok() {
+                let y = w.today.year();
+                for p in w.programs.iter_mut() {
+                    p.collective.budget = afm_engine::world::ncaa::nil_budget(p, y);
+                }
+            }
             w.options.engine_from = Some(2100);
             let until: i32 = args[3].parse().expect("a year");
             let month: u32 = args[4].parse().expect("a month");
@@ -239,8 +247,11 @@ fn held(w: &World) {
             let prog = &w.programs[j];
             let b = prog.collective.budget;
             let school = afm_engine::world::ncaa::school_pot(prog, today);
-            meant += 0.6 * b;
-            coll += 0.6 * (b - school).max(0.0);
+            // The school pays its whole share (minor bug 336), the
+            // collective all of its part in two pots (`NIL_ROSTER_TWO`,
+            // minor bug 354).
+            meant += school + (b - school).max(0.0);
+            coll += (b - school).max(0.0);
             paid += w
                 .people
                 .iter()
@@ -397,6 +408,24 @@ fn starters(w: &World) {
             v.sort_by(|a, b| a.total_cmp(b));
             let p25 = if v.is_empty() { 0.0 } else { v[(v.len() - 1) / 4] };
             println!("  {}: p25 {} {}", pos.name(), m(p25), spread(&mut v));
+        }
+        // With his own brand deals too (minor bug 354): The NIL Standard
+        // values a player's whole market.
+        println!("-- {g}: starters with a college season, brand deals included --");
+        for pos in P::ALL {
+            let mut v: Vec<f64> = w
+                .people
+                .iter()
+                .filter(|p| {
+                    p.stage == Stage::College
+                        && p.player.position == pos
+                        && p.last_role == Some(afm_engine::player::PlayingTime::Starter)
+                        && played(p)
+                        && p.college.is_some_and(|j| group(w, j) == Some(g))
+                })
+                .map(|p| p.nil_income.max(0.0))
+                .collect();
+            println!("  {}: {}", pos.name(), spread(&mut v));
         }
     }
 }

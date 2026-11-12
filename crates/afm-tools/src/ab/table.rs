@@ -778,7 +778,7 @@ pub fn all() -> Vec<Test> {
             .real(lb_real!("wt"))
             .sign(-1.0),
         t("lb_speed", "lb", "Speed (forty 4.89 / 4.69 / 4.50)", lb, drawn(Forty, [4.89, 4.69, 4.50]))
-            .chain(&["cv_cmp", "cv_ypt", "cv_back_cmp", "tk_far", "tk_rate", "lb_blitz_press", "def_ypc"])
+            .chain(&["cv_cmp", "cv_ypt", "cv_back_cmp", "tk_far", "tk_rate", "lb_blitz_press", "def_ypc", "lb_tk_within"])
             .chain(LB_BODY)
             .chain(LB_JOBS)
             .real(lb_real!("forty"))
@@ -909,8 +909,8 @@ pub fn all() -> Vec<Test> {
             .sign(-1.0),
         t("cb_speed", "cb", "Speed (forty 4.63 / 4.49 / 4.36)", cb, drawn(Forty, [4.63, 4.49, 4.36]))
             .chain(&[
-                "cv_deep", "cv_ypc", "cv_adot", "cv_ypt", "cv_sep", "cv_yac", "cv_cmp", "cv_pbu", "tk_run_snap", "tk_miss",
-                "tk_ff",
+                "cv_deep", "cv_ypc", "cv_adot", "cv_adot_within", "cv_ypt", "cv_sep", "cv_yac", "cv_cmp", "cv_pbu",
+                "tk_run_snap", "tk_miss", "tk_ff",
             ])
             .real(&[
                 ("cv_ypc", "cb_forty__yds_per_cmp"),

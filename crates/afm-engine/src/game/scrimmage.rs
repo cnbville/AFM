@@ -1840,6 +1840,21 @@ fn snap_jitter(los: f64, k: usize) -> f64 {
     (z >> 11) as f64 / (1u64 << 53) as f64
 }
 
+/// How far outside the ball a run must get before the back on that side
+/// takes the force (minor bug 253; 3 and 5 yards moved outside runs by 0.1
+/// a carry either way; proposed, not confirmed).
+const FORCE_WIDE: f64 = 4.0;
+
+/// The rotated-down strong safety's depth (S-A): a hitter sits shallower, a
+/// rangy one deeper, a yard a point of his read over the level's typical
+/// strong safety, and 0.9 either way snap to snap.
+fn ss_depth(s: &Snap, di: usize) -> f64 {
+    let h = hitter(s.rules.level, &s.teams[1][di])
+        - super::synthetic::typical_hitter(s.rules.level, crate::spots::Spot::SS);
+    let j = snap_jitter(s.los, di) * 2.0 - 1.0;
+    clamp(8.1 - h + 0.9 * j, 5.0, 10.0)
+}
+
 fn align_defense(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2> {
     let los = s.los;
     let by = s.ball_y;
@@ -1855,15 +1870,29 @@ fn align_defense(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2>
     let mut left: Vec<(V2, bool)> = Vec::new();
     let mut right: Vec<(V2, bool)> = Vec::new();
     let mut burner_y: Option<f64> = None;
+    // In zone nobody lines up over the jet man in mid-motion (minor bug
+    // 342): the zone defenders set to where he stood before it, and the
+    // strong safety spins with the motion (below). Before, the motion man's
+    // spot at the snap pulled a zone defender inside with him.
+    let jet = if s.call.formation.motion == Motion::Jet && !s.dcall.coverage.is_man() {
+        s.call.formation.motion_man()
+    } else {
+        None
+    };
     for (i, r) in roles.iter().enumerate() {
         if let Some(r) = r
             && matches!(r, ORole::X | ORole::Z | ORole::Slot | ORole::Slot2 | ORole::Slot3)
         {
+            let pos = if jet == Some(*r) {
+                align(&Formation { motion: Motion::None, ..s.call.formation }, *r, los, by)
+            } else {
+                agents[i].pos
+            };
             let feared = fear > 0.0 && s.tac.burner == Some(agents[i].p);
             if feared {
-                burner_y = Some(agents[i].pos.y);
+                burner_y = Some(pos.y);
             }
-            if agents[i].pos.y > by { left.push((agents[i].pos, feared)) } else { right.push((agents[i].pos, feared)) }
+            if pos.y > by { left.push((pos, feared)) } else { right.push((pos, feared)) }
         }
     }
     left.sort_by(|a, b| b.0.y.total_cmp(&a.0.y));
@@ -1991,17 +2020,13 @@ fn align_defense(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2>
                         // way snap to snap. The typical man stays just
                         // outside the box count (7 yards), a heavy one steps
                         // inside it (proposed, not confirmed).
-                        let h = hitter(s.rules.level, &s.teams[1][*di])
-                            - super::synthetic::typical_hitter(s.rules.level, crate::spots::Spot::SS);
-                        let j = snap_jitter(s.los, *di) * 2.0 - 1.0;
-                        let depth = clamp(8.1 - h + 0.9 * j, 5.0, 10.0);
-                        v2(los + depth, by + st * 4.5)
+                        v2(los + ss_depth(s, *di), by + st * 4.5)
                     }
                 }
             }
         })
         .zip(s.defense.iter())
-        .map(|(p, (d, _))| {
+        .map(|(p, (d, di))| {
             // The defense travels with motion (topic 3): against jet or
             // across motion the strong safety spins down toward where it
             // is going and the linebackers bump a gap that way; man
@@ -2016,7 +2041,13 @@ fn align_defense(s: &Snap, agents: &[Agent], roles: &[Option<ORole>]) -> Vec<V2>
                 return p;
             }
             match d {
-                DSlot::SS if !two_high || s.dcall.coverage.high() < 2 => v2(los + 5.5, by + mv * 6.0),
+                DSlot::SS if !two_high || s.dcall.coverage.high() < 2 => {
+                    // He spins at his own depth (minor bug 342): the typical
+                    // man stays just outside the box, a hitter steps into
+                    // it. Before, every spin put him at 5.5 yards, inside
+                    // the box count, so motion alone made an eight-man box.
+                    v2(los + ss_depth(s, *di), by + mv * 6.0)
+                }
                 DSlot::Sam | DSlot::Mike | DSlot::Will => v2(p.x, p.y + mv * 1.2),
                 DSlot::NCB | DSlot::DCB if (p.y - by) * mv > 0.0 => v2(p.x - 1.0, p.y),
                 _ => p,
@@ -5142,7 +5173,19 @@ fn defend(
                     // 29%, at 7.0; PFF roles, nflverse 2021-24), at 8.5 and
                     // 3.5 38%, and now 34% with the linebackers' fills
                     // (bugs 292 and 305; proposed, not confirmed).
-                    let boxed = !post && back && (me.y - s.ball_y).abs() < 7.5 && (me.x - s.los) * sim.goal < 7.0;
+                    // The force (minor bug 253): a back on the side the run
+                    // goes wide to, once the runner is `FORCE_WIDE` yards
+                    // outside the ball on his side, takes the box fit and
+                    // attacks the edge, as a real force player turns a wide
+                    // run back in; a deep zone stays the last line.
+                    if !post && back {
+                        let side = if me.y > s.ball_y { 1.0 } else { -1.0 };
+                        if (cp.y - s.ball_y) * side > FORCE_WIDE {
+                            sim.agents[i].force = true;
+                        }
+                    }
+                    let boxed = sim.agents[i].force
+                        || (!post && back && (me.y - s.ball_y).abs() < 7.5 && (me.x - s.los) * sim.goal < 7.0);
                     let (wait, fill) = if boxed { (1.5, 4.5) } else { (4.75, 9.75) };
                     // A hitter fits shallower and attacks sooner (S-B): 0.25
                     // and 0.2 yards a point of his read.
@@ -5154,7 +5197,10 @@ fn defend(
                     // Only a corner holds his outside leverage out wide; a
                     // safety comes down to fill the alley.
                     let corner = matches!(sim.agents[i].label, "CB" | "NB");
-                    let wide = corner && (me.y - s.ball_y).abs() > 12.0 && (cp.x - s.los) * sim.goal < 3.0;
+                    let wide = !sim.agents[i].force
+                        && corner
+                        && (me.y - s.ball_y).abs() > 12.0
+                        && (cp.x - s.los) * sim.goal < 3.0;
                     if wide {
                         // A deep corner keeps outside leverage until it breaks.
                         let depth = s.los + sim.goal * 9.0;

@@ -1326,7 +1326,7 @@ fn short_deals(w: &World, j: usize) -> (usize, usize) {
         let p = &w.people[i];
         let (ds, dc) = deal_of(w, id).unwrap_or((0.0, 0.0));
         let paid = if two {
-            ds + rec::nil_go_at(w, j, dc, rec::nil_go_top(p, rec::nil_value(p, w.programs[j].division, &medians)))
+            ds + rec::nil_go_at(w, j, dc, rec::nil_go_top(p, rec::nil_value(p, w.programs[j].division, &medians, true)))
         } else {
             ds
         };
@@ -2348,7 +2348,7 @@ pub fn budget(w: &World, j: usize) -> Budget {
         for &(id, i) in &roster_ids {
             let Some(&x) = coll_now.get(&id) else { continue };
             let p = &w.people[i];
-            let c = rec::nil_go_at(w, j, x, rec::nil_go_top(p, rec::nil_value(p, prog.division, &medians)));
+            let c = rec::nil_go_at(w, j, x, rec::nil_go_top(p, rec::nil_value(p, prog.division, &medians, true)));
             cleared += c;
             held += x - c;
         }
@@ -2419,7 +2419,7 @@ fn splits(w: &World, j: usize) -> Vec<(u32, f64, f64, f64)> {
         .filter(|&i| w.people[i].stage == Stage::College && w.people[i].college == Some(j))
         .collect();
     let medians = rec::nil_medians(w);
-    let value = |i: usize| rec::nil_value(&w.people[i], prog.division, &medians);
+    let value = |i: usize| rec::nil_value(&w.people[i], prog.division, &medians, ncaa::two_pots(w.today));
     let total: f64 = roster.iter().map(|&i| value(i)).sum();
     let shares: f64 = roster.iter().map(|&i| rec::share_value(&w.people[i])).sum();
     let two = ncaa::two_pots(w.today);
@@ -2443,7 +2443,7 @@ fn splits(w: &World, j: usize) -> Vec<(u32, f64, f64, f64)> {
             // them (proposed, not confirmed). The AI pays its whole share
             // on July 1.
             let (school, meant) =
-                rec::july_split(money, s, (rec::share_value(&w.people[i]), shares), (value(i), total));
+                rec::july_split(money, s, (rec::share_value(&w.people[i]), shares), (value(i), total), two);
             let school = school * rec::NIL_ROSTER;
             let coll = if free { meant } else { rec::nil_go(w.today, meant, rec::nil_go_top(&w.people[i], value(i))) };
             (w.people[i].player.id, school, coll, meant - coll)
@@ -2603,7 +2603,7 @@ pub fn coll_cleared(w: &World, j: usize, id: u32, deal: f64) -> f64 {
     }
     let medians = rec::nil_medians(w);
     let p = &w.people[i];
-    rec::nil_go_at(w, j, deal, rec::nil_go_top(p, rec::nil_value(p, w.programs[j].division, &medians)))
+    rec::nil_go_at(w, j, deal, rec::nil_go_top(p, rec::nil_value(p, w.programs[j].division, &medians, true)))
 }
 
 // --- First answers to your money (N1) ------------------------------------------------------

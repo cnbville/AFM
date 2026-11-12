@@ -462,7 +462,20 @@ fn film_reads_every_attribute_and_narrows_with_tape() {
     let more = read(&w).unwrap();
     assert!(more.attrs[speed].unwrap().1 < before, "{} -> {}", before, more.attrs[speed].unwrap().1);
     assert!(more.attrs[com].unwrap().1 >= file::GUESS_SD * file::visibility(&w, i) - 1e-6);
-    assert!(yours::cut_ups(&w, id).0 > done);
+    // A game of his is one look, however many of its snaps and however
+    // often you watch it (minor bug 338): the looks are the games those
+    // cut-ups played, each report's new games add up to them, the cut-ups
+    // after the first (one game) brought more of his games, and they
+    // never pass his season's film. Six cut-ups are six looks only when
+    // his tape puts them on six games, so the looks are not held against
+    // the number of watches.
+    let looks = yours::cut_ups(&w, id).0;
+    let new: usize = (w.scouting.film.reports.iter())
+        .filter(|r| r.target == fm::Target::Player(id))
+        .map(|r| r.new_games.unwrap_or(0) as usize)
+        .sum();
+    assert_eq!(looks, new, "one look a game of his, however often watched");
+    assert!(looks > 1 && looks <= 3 * session::TAPE_SETS as usize, "{looks} looks from {} cut-ups", done + 1);
 }
 
 #[test]

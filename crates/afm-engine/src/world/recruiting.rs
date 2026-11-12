@@ -7121,7 +7121,7 @@ pub(crate) fn enroll(w: &mut World, early: bool) {
             let budget = w.programs[j].collective.budget * 0.6 * super::legacy::college::split_q(w, j, 0);
             let today = w.today;
             for i in fresh {
-                let v = nil_value(&w.people[i], div, &medians);
+                let v = nil_value(&w.people[i], div, &medians, super::ncaa::two_pots(today));
                 // The collective's part through NIL Go (B18).
                 // Sandbox mode's NIL Go switch: your collective's deals
                 // clear in full.
@@ -8391,7 +8391,7 @@ fn place_at(
     let nil = match yours {
         Some((None, None)) => 0.0,
         Some((x, c)) if super::ncaa::two_pots(w.today) => {
-            let v = nil_weight(Some(role), pos, recruiting_stars(p), edge);
+            let v = nil_weight(Some(role), pos, recruiting_stars(p), edge, true);
             // Sandbox mode's NIL Go switch: your deal clears in full.
             x.unwrap_or(0.0) + nil_go_at(w, j, c.unwrap_or(0.0), nil_go_top(p, v))
         }
@@ -8898,6 +8898,17 @@ const NIL_DEPTH: f64 = 0.02;
 const NIL_FRESHMAN: f64 = 0.2;
 const NIL_PLAY: f64 = 0.03;
 
+/// A rotation player's and a newcomer's weight in the collective's split in
+/// two pots (minor bug 354): from July 2025 the school's revenue share pays
+/// them their base (`share_weight`, rotation 0.6, newcomer 0.4), so the
+/// collective's money goes to the starters it means to keep. Fitted with
+/// `nil_fit` on the shipped seed 41 world's July 2026 payday (`nil_check
+/// portal`): at 0.15 and 0.12 Power 4 starters' medians ran 15-20% under
+/// The NIL Standard's 2026 medians, at 0.10 about 10% (proposed, not
+/// confirmed).
+const NIL_ROTATION_TWO: f64 = 0.10;
+const NIL_FRESHMAN_TWO: f64 = 0.10;
+
 /// How much his recruiting stars still price a player once he has played a
 /// college season (minor bug 335): the market reads his college play, so
 /// his stars count as `star_nil`^0.2 (a 3-star 0.79 of a 4-star, a 2-star
@@ -8925,20 +8936,50 @@ const NIL_DT: f64 = 0.73;
 /// a budget by on 1 July): his role there (None: no college season yet),
 /// his position's going rate, his stars and how he played against the
 /// level's starters at his spot (`edge`, points).
-pub(crate) fn nil_weight(role: Option<PlayingTime>, pos: Position, stars: u8, edge: f64) -> f64 {
+pub(crate) fn nil_weight(role: Option<PlayingTime>, pos: Position, stars: u8, edge: f64, two: bool) -> f64 {
     let line = match pos {
         Position::IOL => NIL_IOL,
         Position::DT => NIL_DT,
         _ => 1.0,
     };
-    let market = line * position_nil(pos) / position_nil(Position::WR);
+    let market = if two { nil_fit(pos) } else { 1.0 } * line * position_nil(pos) / position_nil(Position::WR);
     let w = match role {
-        None => return NIL_FRESHMAN * star_nil(stars) * market,
+        None => {
+            return if two { NIL_FRESHMAN_TWO } else { NIL_FRESHMAN } * star_nil(stars) * market;
+        }
         Some(PlayingTime::Starter) => 1.0,
+        Some(PlayingTime::Rotation) if two => NIL_ROTATION_TWO,
         Some(PlayingTime::Rotation) => NIL_ROTATION,
         _ => NIL_DEPTH,
     };
     w * star_nil(stars).powf(NIL_STARS_PLAYED) * market * (NIL_PLAY * edge.clamp(-15.0, 15.0)).exp()
+}
+
+/// The collective's market by position in two pots (minor bug 354), on top
+/// of the going rates (`position_nil`, CBS's 2024 ranges). From July 2025
+/// the school's revenue share spreads by the College Sports Commission's
+/// medians (bug 336), so the collective's part is what lifts a starter to
+/// his whole market, and that gap is widest at quarterback and receiver.
+/// Fitted with `NIL_ROTATION_TWO` on the shipped seed 41 world's July 2026
+/// payday (`nil_check portal`): Power 4 starters with a college season,
+/// brand deals included, then run about 10% under The NIL Standard's 2026
+/// medians at every position it gives (QB $1.79M against $2M, WR $651K
+/// against $726K, OT $827K against $907K, EDGE $830K against $929K, RB
+/// $493K against $527K, CB $523K against $572K, IOL $470K against $525K;
+/// before, QB $926K, WR $397K, OT $594K). Tight ends, linebackers and
+/// specialists keep 1.0, with no Standard figure in hand; safeties take the
+/// corners' (all proposed, not confirmed).
+fn nil_fit(pos: Position) -> f64 {
+    match pos {
+        Position::QB => 3.2,
+        Position::WR => 2.9,
+        Position::OT => 1.9,
+        Position::IOL => 0.92,
+        Position::EDGE | Position::DT => 1.67,
+        Position::RB => 1.32,
+        Position::CB | Position::S => 1.92,
+        _ => 1.0,
+    }
 }
 
 /// What NIL Go's range adds for each follower he has (B18): the same $1.20
@@ -8951,16 +8992,19 @@ const NIL_GO_FOLLOWER: f64 = 1.2;
 /// following). Here: his position's going rate for a four-star starter at
 /// the level's median (`position_nil_max`), moved by his payroll weight
 /// against that starter (role, stars, play), plus his following (proposed,
-/// not confirmed). `weight` is his `nil_weight`.
+/// not confirmed). The top moves with the collective's market at his
+/// position (`nil_fit`, minor bug 354), or NIL Go would hold back what the
+/// split now means for a starting quarterback. `weight` is his
+/// `nil_weight`.
 pub(crate) fn nil_go_top(p: &Person, weight: f64) -> f64 {
     let pos = p.player.position;
-    let starter = nil_weight(Some(PlayingTime::Starter), pos, 4, 0.0);
-    super::ncaa::position_nil_max(pos) * weight / starter + NIL_GO_FOLLOWER * p.followers as f64
+    let starter = nil_weight(Some(PlayingTime::Starter), pos, 4, 0.0, true);
+    super::ncaa::position_nil_max(pos) * nil_fit(pos) * weight / starter + NIL_GO_FOLLOWER * p.followers as f64
 }
 
 /// A recruit's NIL Go top before his first college season.
 pub(crate) fn nil_go_top_recruit(p: &Person) -> f64 {
-    nil_go_top(p, nil_weight(None, p.player.position, recruiting_stars(p), 0.0))
+    nil_go_top(p, nil_weight(None, p.player.position, recruiting_stars(p), 0.0, true))
 }
 
 /// A collective's deal through NIL Go (B18): one it reviews is cleared up
@@ -9030,25 +9074,30 @@ pub(crate) fn nil_medians(w: &World) -> [[f64; POSITION_COUNT]; DIVISION_COUNT] 
 }
 
 /// A college player's weight in his program's payroll today.
-pub(crate) fn nil_value(p: &Person, div: Division, medians: &[[f64; POSITION_COUNT]; DIVISION_COUNT]) -> f64 {
+pub(crate) fn nil_value(
+    p: &Person,
+    div: Division,
+    medians: &[[f64; POSITION_COUNT]; DIVISION_COUNT],
+    two: bool,
+) -> f64 {
     let pos = p.player.position;
     let stars = recruiting_stars(p);
     // An early or summer enrollee's latest row is still his high school's;
     // a mission or service year (unsigned) doesn't count.
     let last = p.player.history.iter().rev().find(|h| h.playing_time != PlayingTime::Unsigned);
     if last.is_none_or(|h| !h.level.is_college()) {
-        return nil_weight(None, pos, stars, 0.0);
+        return nil_weight(None, pos, stars, 0.0, two);
     }
     // A transfer is paid on the place he landed in until he plays there.
     if let Some((role, edge)) = p.cal.nil_role {
-        return nil_weight(Some(role), pos, stars, edge as f64);
+        return nil_weight(Some(role), pos, stars, edge as f64, two);
     }
     let m = medians[div as usize][pos.index()];
     let edge = match p.last_performance {
         Some(x) if m.is_finite() => x - m,
         _ => 0.0,
     };
-    nil_weight(p.last_role, pos, stars, edge)
+    nil_weight(p.last_role, pos, stars, edge, two)
 }
 
 /// A player's weight in his school's revenue share (minor bug 336). Real
@@ -9107,18 +9156,27 @@ pub(crate) fn share_value(p: &Person) -> f64 {
 /// the school's revenue share by `share_value` and the collective's money
 /// by `nil_value`, each over its own roster total. `money` is the
 /// program's year of money and `s` the school's share of it. The
-/// collective pays its roster `NIL_ROSTER` of its part and keeps the rest
-/// for the year's recruits and transfers; the school pays its whole
-/// revenue share to the roster, as real schools do (before, it paid 0.6
-/// of it too, and on the shipped seed 41 world's July 2026 payday every
-/// Power 4 position's median ran about 0.64 of the College Sports
-/// Commission's 2025-26 revenue-share medians once the split was spread).
-pub(crate) fn july_split(money: f64, s: f64, share: (f64, f64), coll: (f64, f64)) -> (f64, f64) {
-    let roster = money * NIL_ROSTER;
+/// collective pays its roster `NIL_ROSTER` of its part before two pots and
+/// keeps the rest for the year's recruits and transfers, and all of it in
+/// two pots (`two`, minor bug 354); the school pays its whole revenue
+/// share to the roster, as real schools do (before, it paid 0.6 of it too,
+/// and on the shipped seed 41 world's July 2026 payday every Power 4
+/// position's median ran about 0.64 of the College Sports Commission's
+/// 2025-26 revenue-share medians once the split was spread).
+pub(crate) fn july_split(money: f64, s: f64, share: (f64, f64), coll: (f64, f64), two: bool) -> (f64, f64) {
+    let roster = money * if two { NIL_ROSTER_TWO } else { NIL_ROSTER };
     (money * s * share.0 / share.1.max(1e-9), roster * (1.0 - s) * coll.0 / coll.1.max(1e-9))
 }
-/// The share of a collective's money its July split pays the roster.
+/// The share of a collective's money its July split pays the roster before
+/// two pots (bug 100's fit to Opendorse's 2021-25 NIL earnings).
 pub(crate) const NIL_ROSTER: f64 = 0.6;
+/// The same in two pots (minor bug 354): the whole collective part. At 0.6
+/// Power 4 starters with a college season ran 20-55% under The NIL
+/// Standard's 2026 medians on the shipped seed 41 world (QB $926K against
+/// $2M), with the school's share already spread as real; the year's
+/// signees and transfers are on the July roster, and the collective's
+/// offers to them read its budget apart (proposed, not confirmed).
+pub(crate) const NIL_ROSTER_TWO: f64 = 1.0;
 
 /// A program's whole payroll weight (its roster by `nil_value`).
 fn nil_pool(
@@ -9128,7 +9186,13 @@ fn nil_pool(
     medians: &[[f64; POSITION_COUNT]; DIVISION_COUNT],
 ) -> f64 {
     let div = w.programs[j].division;
-    w.programs[j].roster.iter().filter(|i| !leaving.contains(i)).map(|&i| nil_value(&w.people[i], div, medians)).sum()
+    let two = super::ncaa::two_pots(w.today);
+    w.programs[j]
+        .roster
+        .iter()
+        .filter(|i| !leaving.contains(i))
+        .map(|&i| nil_value(&w.people[i], div, medians, two))
+        .sum()
 }
 
 /// What a program's collective offers a transfer (11.16; final build: NIL
@@ -9146,7 +9210,7 @@ fn portal_nil(
     today: Date,
     free: bool,
 ) -> (f64, f64) {
-    let v = nil_weight(Some(role), p.player.position, recruiting_stars(p), edge);
+    let v = nil_weight(Some(role), p.player.position, recruiting_stars(p), edge, super::ncaa::two_pots(today));
     let pool = if pool > 0.0 { pool } else { 12.0 };
     // In two pots from July 2025, the collective's part through NIL Go (B18).
     pots(prog, today, prog.collective.budget * 0.6 * v / (pool + v), nil_go_top(p, v), free)
@@ -9190,7 +9254,7 @@ pub(crate) fn portal_top(w: &World, j: usize, i: usize) -> f64 {
         _ => 0.0,
     };
     let role = p.last_role.unwrap_or(PlayingTime::Rotation);
-    nil_go_top(p, nil_weight(Some(role), p.player.position, recruiting_stars(p), edge))
+    nil_go_top(p, nil_weight(Some(role), p.player.position, recruiting_stars(p), edge, true))
 }
 
 /// July 1, the new money year (T3, 11.5): each collective (and from 2025
@@ -9215,7 +9279,7 @@ pub(crate) fn nil_payouts(w: &mut World) {
             continue;
         }
         let div = w.programs[j].division;
-        let value = |p: &Person| nil_value(p, div, &medians);
+        let value = |p: &Person| nil_value(p, div, &medians, super::ncaa::two_pots(today));
         let total: f64 = roster.iter().map(|&i| value(&w.people[i])).sum();
         let shares: f64 = roster.iter().map(|&i| share_value(&w.people[i])).sum();
         // From July 2025 the school's revenue share and the collective pay
@@ -9229,7 +9293,7 @@ pub(crate) fn nil_payouts(w: &mut World) {
             if b > 0.0 { (super::ncaa::school_pot(prog, today) / b).clamp(0.0, 1.0) } else { 0.0 }
         };
         let split = |p: &Person| {
-            let (school, meant) = july_split(year_money, s, (share_value(p), shares), (value(p), total));
+            let (school, meant) = july_split(year_money, s, (share_value(p), shares), (value(p), total), two);
             let coll = if go_free == Some(j) { meant } else { nil_go(today, meant, nil_go_top(p, value(p))) };
             (school, coll, meant - coll)
         };
