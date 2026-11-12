@@ -121,7 +121,8 @@ const scGo = (screen, args, data) => gotoFor(screen, args, data);
 // ---------- the scouting file (screens topic 7, scouting topics 1, 4-8) ----------
 const SC_CHIP = { film: "F", live: "L", camp: "C", talk: "T" };
 const SC_CHIP_T = { film: "Film", live: "Seen live", camp: "Camp or testing", talk: "Talked to people" };
-const scChips = (c) => (c || []).map((x) => `<span class="sc-chip ${x}" title="${SC_CHIP_T[x] || x}">${SC_CHIP[x] || x}</span>`).join("");
+// The look's own class is prefixed: a bare `film` chip took the global `.film` (the warm room, app.css) and its fixed full-window wash covered the page (minor bug 380).
+const scChips = (c) => (c || []).map((x) => `<span class="sc-chip sc-k-${x}" title="${SC_CHIP_T[x] || x}">${SC_CHIP[x] || x}</span>`).join("");
 
 screens.scout = async (a) => {
   const f = await api("scout_file", { id: a.id });
