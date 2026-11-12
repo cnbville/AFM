@@ -4389,10 +4389,13 @@ fn window(sim: &Sim, qb: usize, r: usize) -> (f64, V2, f64) {
         // way). When even that leaves him farther off than the room already
         // found, or than the 8 yards the window is capped at, his gap can't
         // change the answer, and his reach (its exponential) isn't worked
-        // out: the window is the same number (world speed lane). A NaN
-        // bound fails the test: worked out.
+        // out: the window is the same number (world speed lane). The bound
+        // needs a ball in the air at least as long as he takes to react and
+        // a top speed his slowest drift (-2) can't beat, as in every play: a
+        // negative or NaN flight, a top speed under -2 and a NaN bound all
+        // fail the test, and he is worked out.
         let most = a.vmax * (flight - tau) + pace * (a.vmax * tau).max(0.0);
-        let far = dist - most > w.min(8.0);
+        let far = flight - tau >= 0.0 && a.vmax >= -2.0 && dist - most > w.min(8.0);
         if !far {
             let v0 = clamp(a.vel.dot((p - a.pos).norm()), -2.0, a.vmax);
             let drift = v0 * (flight - tau);
