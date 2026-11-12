@@ -1281,7 +1281,9 @@ pub fn expect(w: &World, s: &Scene, code: u32) -> Option<(String, String, String
     let subject = Subject::from_u64(s.b);
     let revealed = s.c & 1 == 1;
     let (dt, dm) = landing(w, i, m, t, subject, revealed, s.id as u64 ^ (s.step as u64) << 8);
-    let rel = position_coach_rel(w, i) as f32;
+    // The man who reads him is the one at his position coach's seat today.
+    let adviser = position_coach_now(w, i);
+    let rel = adviser.map_or(9.0, |c| w.coaches[c].ability().relationships) as f32;
     let you = w.career.as_ref().map_or(10.0, |c| c.you.relationships) as f32;
     let known = w.folk.mine.since.map_or(0, |d| d.days_to(w.today)) as f32 / 180.0;
     let q = (0.45 * rel / 20.0 + 0.35 * you / 20.0 + 0.2 * known.min(1.0)).clamp(0.1, 1.0);
@@ -1307,11 +1309,33 @@ pub fn expect(w: &World, s: &Scene, code: u32) -> Option<(String, String, String
         x if x >= 0.4 => "A guess",
         _ => "A guess, and they don't know him well",
     };
-    let who = w.people[i].college_staff.last().and_then(|x| x.3).filter(|&c| c < w.coaches.len()).map_or_else(
+    let who = adviser.map_or_else(
         || "Your staff".to_string(),
         |c| format!("{} ({})", super::coach_link(w, c), super::facts::coach_role(w, c)),
     );
     Some((format!("{what}{risk}"), sure.to_string(), who))
+}
+
+/// The man at his position coach's seat on your staff today. `college_staff`
+/// is the record of past seasons: its last row holds last season's coach,
+/// who may have been fired, hired away or retired since (and nobody at all
+/// for a man who arrived this year), so the man who reads him comes from the
+/// seat itself. With the seat empty, the coordinator on his side reads him
+/// (a kicker or punter has none), then the head coach; never you. None
+/// leaves it to "your staff": only a college staff keeps its position
+/// coaches as people (an NFL club's and a school's are not).
+pub(crate) fn position_coach_now(w: &World, i: usize) -> Option<usize> {
+    let Team::College(j) = Team::seat(w)? else { return None };
+    let prog = w.programs.get(j)?;
+    let group = crate::world::coach::Group::of(w.people.get(i)?.player.position);
+    let you = w.career.as_ref().map(|c| c.coach);
+    let here = |c: Option<usize>| c.filter(|&c| c < w.coaches.len() && Some(c) != you);
+    let coordinator = match group {
+        crate::world::coach::Group::Specialists => None,
+        g if g.offense() => prog.oc,
+        _ => prog.dc,
+    };
+    here(prog.position_coaches[group as usize]).or_else(|| here(coordinator)).or_else(|| here(prog.head_coach))
 }
 
 /// Whether a code is a talk move with another tone than the one offered
@@ -2064,18 +2088,22 @@ fn staff_line_open(w: &mut World, s: &mut Scene) {
         return;
     };
     s.who.push(Who::Player(id));
-    let pc = w.people[i].college_staff.last().and_then(|x| x.3);
+    let pc = position_coach_now(w, i);
     let coach = pc.map_or_else(|| "His position coach".to_string(), |c| super::coach_link(w, c));
     if let Some(c) = pc {
         s.who.push(Who::Coach(c));
     }
+    // A coordinator or head coach covering an empty seat speaks as himself.
+    let speaker = match pc.and_then(|c| w.coaches[c].job) {
+        Some(j) if !matches!(j.role, crate::world::coach::Role::PositionCoach(_)) => {
+            let mut ch = j.role.name().chars();
+            ch.next().map_or_else(String::new, |f| f.to_uppercase().collect::<String>() + ch.as_str())
+        }
+        _ => "Position coach".to_string(),
+    };
     let (_, words) = concern(w, i);
     s.narrate(format!("{coach} catches you after practice about {}.", player_link(w, i)));
-    s.them(
-        "Position coach",
-        format!("You asked me to tell you if he was slipping. He is. Best I can tell, {words}."),
-        None,
-    );
+    s.them(&speaker, format!("You asked me to tell you if he was slipping. He is. Best I can tell, {words}."), None);
     s.pick(400, "\"Send him to my office tomorrow.\"", "Ask", "warm", "A one-on-one on your calendar.");
     s.pick(
         401,

@@ -578,6 +578,11 @@ fn first_deals(w: &World, j: usize) -> Vec<(u32, Option<f64>, Option<f64>)> {
         .iter()
         .map(|&i| &w.people[i])
         .filter(|p| p.stage == Stage::College && p.college == Some(j))
+        // One of yours in the transfer portal is leaving: his deals ended the
+        // day he entered, and an old offer of yours to him (a transfer you
+        // brought in, settled since) gives him no new one (minor bug 375).
+        // One still on hold for a playoff run is playing for you.
+        .filter(|p| p.cal.portal.is_none_or(|e| e.on_hold()))
         .filter_map(|p| {
             let id = p.player.id;
             let (s, c) = (!school.contains(&id), two && !coll.contains(&id));
@@ -3188,6 +3193,16 @@ pub fn cut_words(w: &World, id: u32) -> Result<String, String> {
     ))
 }
 
+/// A player's deals end (his revenue share and his collective deal): when
+/// you cut him, and when he enters the transfer portal, since his NIL ends
+/// there (`recruiting::enter_portal`) and the money you can promise is not
+/// short by a deal nobody is paid (minor bug 375). Only your own roster has
+/// deals, so for anyone else this does nothing.
+pub(crate) fn drop_deals(w: &mut World, id: u32) {
+    w.front_office.college.deals.retain(|d| d.0 != id);
+    w.front_office.college.coll_deals.retain(|d| d.0 != id);
+}
+
 /// Cuts one of your players (minor bug 60): off the roster and out of your
 /// games today, his NIL deal ended, and into the next transfer window,
 /// where he can move to a program at his level or below (or leaves
@@ -3209,8 +3224,7 @@ pub fn cut(w: &mut World, id: u32) -> Result<String, String> {
         (p.name.clone(), p.player.position, p.stars >= 4 || p.last_role == Some(crate::player::PlayingTime::Starter))
     };
     w.programs[j].roster.retain(|&x| x != i);
-    w.front_office.college.deals.retain(|d| d.0 != id);
-    w.front_office.college.coll_deals.retain(|d| d.0 != id);
+    drop_deals(w, id);
     if let Some(cs) = w.college.as_mut() {
         cs.out.insert(id, "cut from the team");
     }

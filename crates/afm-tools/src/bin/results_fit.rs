@@ -433,7 +433,7 @@ fn main() {
                     if b > 0.0 { tau / b } else { 0.0 },
                     if b > 0.0 { tp / b } else { 0.0 },
                     sk,
-                    if on { fit.weight(season, afm_engine::results::CHANGE) } else { 0.0 },
+                    if on { fit.weight(season, afm_engine::results::CHANGE, 1.0) } else { 0.0 },
                     if on { "yes" } else { "off" }
                 );
                 if on {

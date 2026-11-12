@@ -1643,7 +1643,7 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
     let mut in_portal = 0;
     for p in w.people.iter() {
         let Some(e) = p.cal.portal else { continue };
-        if p.stage != Stage::College || e.held && e.entered.0 > today.0 + 3650 {
+        if p.stage != Stage::College || e.on_hold() {
             continue;
         }
         let Some(c) = p.college else { continue };
@@ -1677,7 +1677,7 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
                 "from": brief(w, c), "division": w.programs[c].division.name(), "cls": views::class_text(w, p),
                 "left": seasons_ahead(w, p, mine_div), "role": p.last_role.map(views::role_words), "read": read.json(),
                 "why": e.why, "entered": short_date(e.entered), "decide": short_date(e.decide_by),
-                "days": today.days_to(e.decide_by).max(0), "held": e.held,
+                "days": today.days_to(e.decide_by).max(0), "held": e.on_hold(),
                 "offered": t.is_some_and(|t| t.offered.is_some()), "nil": t.and_then(|t| t.nil),
                 "coll": t.and_then(|t| t.nil_coll),
                 "contacted": t.is_some_and(|t| t.contacted.is_some()), "sits": sits,
@@ -1770,7 +1770,7 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
             Some(json!({
                 "id": t.id, "name": p.name, "pos": p.player.position.name(), "from": brief(w, t.from),
                 "status": status, "offered": t.offered.map(short_date), "nil": t.nil, "coll": t.nil_coll,
-                "decide": p.cal.portal.filter(|e| !e.held).map(|e| short_date(e.decide_by)), "settled": t.settled,
+                "decide": p.cal.portal.filter(|e| !e.on_hold()).map(|e| short_date(e.decide_by)), "settled": t.settled,
                 "answer": desk::reaction(w, t.id, desk::MoneyKind::Portal).map(answer_json),
                 "interest": (!t.settled && p.cal.portal.is_some()).then(|| { let it = portal_interest(w, j, i, t); json!({ "words": it.words, "tone": it.tone }) }),
                 "promise": t.promise.map(|x| promise_words(x.0)), "committed": t.committed.filter(|_| !t.settled).map(short_date),
@@ -1906,9 +1906,9 @@ fn portal_file(w: &World, j: usize, args: &Value) -> Reply {
     let t = d.portal.iter().find(|t| t.id == id && !t.settled);
     let (read, pot, yours) = staff_read(w, p);
     let e = p.cal.portal;
-    let open = e.filter(|e| !e.held);
+    let open = e.filter(|e| !e.on_hold());
     let c = p.college;
-    let shopping = e.is_some_and(|e| !e.held && e.entered <= today) && p.stage == Stage::College;
+    let shopping = e.is_some_and(|e| !e.on_hold() && e.entered <= today) && p.stage == Stage::College;
     let race = if shopping { portal::race(w, i) } else { Vec::new() };
     let it = t.filter(|_| shopping).map(|t| portal_interest(w, j, i, t));
     let schools: Vec<Value> = race
@@ -1988,6 +1988,8 @@ fn portal_file(w: &World, j: usize, args: &Value) -> Reply {
         .collect();
     let status = if shopping {
         "In the portal".to_string()
+    } else if let Some(x) = e.filter(|x| !x.on_hold() && p.stage == Stage::College) {
+        format!("He enters the portal on {}", short_date(x.entered))
     } else if e.is_some() {
         "His team is still playing: he enters when its season ends".to_string()
     } else if c == Some(j) && t.is_none_or(|t| t.from != j) {
