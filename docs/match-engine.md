@@ -964,6 +964,89 @@ Still off:
 - **High school picks** fell from 1.9% to 1.6%: high school balls off receivers' hands were a larger share of its picks, and those are rarer now. FBS picks were already short of real (0.60 a team game against 0.80).
 - **The Decisions read in growth from results stays off**: picks are too rare for one season of games to show his rating (t under 2 at every level in `results_fit`), though the A/B shows it.
 
+## The edge sack tail: shared sacks, an edge's weight, edges rotating (minor bugs 358-360, 2026-11-09)
+
+The edge lane's freak check left three bugs: the best edge sack seasons ran past real's (358), tall edges looked under their share of the top seasons (359), and as recruited a long-armed edge's pressures ended in a sack too often (360). All three are measured here on new seeds 86-95, pooled, since one seed's top seasons are a few men. Real numbers are PFR and nflverse snap counts, 2018-25, edges with 200+ defense snaps: 983 seasons from PFR's season totals, so a traded man's stints add up (the edge research split them by team, 978 seasons). Nothing caps a rating, a body or a season (Cain 2026-11-08: no caps on freaks). Every size is proposed, not confirmed.
+
+What was wrong:
+
+- **No sack was ever shared.** The second man had to be one of the tacklers within 1.1 yards, and none ever was: 0.0% of sacks were shared, real 10.8%. Every sack went whole to one man.
+- **The best edges never came off.** AI and synthetic teams rotate the line only on fatigue. At the edge's 0.84 line and 60 rating points a unit of energy, the best edges played 88-90% of their team's snaps (real 90th percentile 77%). The top sack seasons were volume.
+- **Heavy edges finished more of their pressures.** Pure, 10 lb added +0.53 pts of sacks a pressure; real held equal is -0.49. The best seasons (34-51 sacks) were 290 lb power rushers.
+- **NFL sacks rose to 2.57 a team game** with the bug 283 merge (#287; real 2.41), the pocket collapsing on a quarterback who held on.
+- **359 is seed noise.** Pooled over ten seeds, 6-5 and taller edges were at or over their share of the top pressure seasons (1.09 of their share, band 0.91-1.29). One seed's top 10% is about 100 seasons of a few dozen men.
+- **360 is mostly the A/B tool.** `ab::recruit` never ran the world's weight program (`athlete::set_position`), so drawn edges played at their frame weight (sd 30 lb), and the long-armed ones were heavy men. Placing them alone takes the row from +1.98 to +1.57 pts an inch (in the real band).
+
+What changed (`game/scrimmage.rs`, `game/flow.rs`, `crates/afm-tools`):
+
+- **Shared sacks.** The nearest other rusher within 2.25 yards of the quarterback when he goes down, free or winning his own pass block (w > 0.45), shares the sack, half to each (`SHARE_RADIUS`). The man who brings him down has the tackle and the second an assist, as the NFL and the NCAA keep it. 10.8% of sacks are shared (real 10.8%).
+- **An edge's weight in his reach.** An edge's reach to the quarterback, free or on his block, loses 0.07 yards every 10 lb over the typical edge and gains it every 10 lb under (`WEIGHT_REACH`). It reads no strength or force: a heavy man still sheds and drives the pocket as before.
+- **Edges rotate.** An edge's energy line is 0.90 and a coach gives up 600 rating points a unit of energy under it to spell him (`EDGE_LINE`, `EDGE_ALLOW`; DTs and every other spot unchanged). A user's own rotation plan (G15) still overrides it.
+- **One backup spells one starter** (every position; found in this lane's review). A tired starter sat whenever any fresh backup was within his allowance, even one already named to spell another starter, so one fresh edge sat both tired starters and the fourth edge played, outside the second starter's allowance. At 60 points a unit it almost never happened; at the edge's 600 it did on most such snaps (`pick`).
+- **Pocket feel.** A rusher winning his block within 3 yards weighs 1.0 (was 0.6) on the quarterback's feel for the pocket at full win (`POCKET_FEEL`), so he slides or gets rid of it a beat sooner.
+- **The A/B tool** places each drawn athlete on his position's weight program, as the world places a class, and counts a shared sack as half in its sack rows (`ab::recruit`, `sacks_by`). As recruited rows from before this change were unplaced.
+- **`freak_check`** takes a seed range (`freak_check 10 86-95`) and pools it. It gives bands by man (400 resamples; a world file's men count once however many seeds replay them), cuts 6-5 at 76.5 in (real heights are whole inches), counts PFR pressures (hurries, hits and every sack he is in on, a shared one whole to each man, as PFR does), and prints the sack tail, the share of team snaps the top seasons play and each line's rotation. `AFM_FREAK_DUMP=file.csv` writes every season.
+
+The freak check (`freak_check 10 86-95`, ten seasons of 32 synthetic NFL teams a seed, every edge season with 200+ defense snaps, the 6-0, 240 lb freak left out of the pool; main is 1a0024d; real shares are of the top 10% by pressures a defense snap):
+
+| | main | after | real |
+|---|---|---|---|
+| shared sacks | 0.0% | 10.8% | 10.8% |
+| sacks a season, top 1% (band) | 24.0 (23-26) | 19.5 (18.5-20.5) | 17.5 |
+| sacks a season, top 5% / 10% / 50% | 17.0 / 15.0 / 6.0 | 15.0 / 12.5 / 6.0 | 12.5 / 10.5 / 4.0 |
+| seasons of 20+ sacks a 1,000 (band) | 29.0 (22.8-35.5) | 9.4 (6.2-12.6) | 2.0 |
+| best season | 51 | 32.5 | 22.5 and 23 |
+| sacks a defense snap, top 1% | 2.57% | 2.44% | 2.40% |
+| team snaps the top 1% / 10% of sack seasons play | 90% / 86% | 79% / 76% | 77% / 74% |
+| edges with 200+ snaps a team season; median / 90th percentile share | 3.21; 76% / 88% | 3.12; 69% / 79% | 3.84; 47% / 77% |
+| under 250 lb, top 10% by pressures against their share (band) | 1.33 (0.74-1.99) | 1.27 (0.56-2.03) | 0.84 |
+| arms under 33 in, the same | 0.96 (0.85-1.06) | 0.96 (0.87-1.05) | 1.58 |
+| 6-5 or taller, the same | 1.09 (0.91-1.29) | 1.10 (0.90-1.30) | 0.69 |
+| 290 lb or more, the same | 1.70 (1.24-2.13) | 1.62 (1.25-2.05) | (0.6% of real edges) |
+| the freak's best season, by seed | top 0.1-5.1% | top 0.1-3.3% | |
+| the freak's median season, by seed | top 2.4-24.4% | top 3.1-19.1% | |
+| the freak's sacks a season | 7-37 | 4-38 | |
+| the freak's share of team snaps | 82-94% | 68-80% | |
+
+The freak still ranks with the best on every seed: he loses snaps to the rotation, not reach. Light edges hold more than their share of the top (1.27, real 0.84); short-armed ones sit just under theirs (0.96, band 0.87-1.05), short of real's 1.58, though the engine's arms run an inch short (bug 370), so its short-armed men are two thirds of all edges and real's a quarter.
+
+2,000 `match_check` games a seed, NFL averaged over seeds 86-89 (real NFL from nflverse 2021-25, PFR for pressure; FBS from cfbfastR 2022-24):
+
+| | main | after | real |
+|---|---|---|---|
+| NFL sacks a team game | 2.57 | 2.39 | 2.41 |
+| NFL sack rate a dropback | 7.0% | 6.4% | 6.8% |
+| NFL pressure rate (PFR's count) | 24.7% | 24.4% | 22.2% |
+| NFL sacks a pressure | 0.274 | 0.258 | 0.283 |
+| NFL time to throw | 2.46 s | 2.46 s | 2.71 s |
+| NFL points a team game | 23.76 | 24.03 | 22.51 |
+| NFL completion % / yards an attempt | 66.0% / 7.50 | 66.0% / 7.49 | 64.5% / 7.05 |
+| NFL scramble rate | 4.4% | 4.5% | 4.9% |
+| FBS sacks a team game (seed 86) | 2.49 | 2.34 | 2.00 |
+| High school sacks / sack rate (seed 86) | 2.48 / 9.8% | 2.38 / 9.3% | |
+
+The A/B rows (`ab_check`, NFL, 2,000 games an arm, seed 86; seed 87 in brackets; per 10 lb or an inch; pure moves the body with ratings fixed, against real held equal on draft slot; as recruited uses the generator's athletes at the same overall, against real raw; main's as recruited rows are unplaced):
+
+| What moves | Stat | main | after | real (band) |
+|---|---|---|---|---|
+| weight, pure | sacks a pressure | +0.53 | -0.41 | -0.49 (-1.26 to +0.28) |
+| weight, as recruited | sacks a pressure | +0.43 | -0.55 | -0.62 (-1.42 to +0.18) |
+| weight, pure | sacks a defense snap | -0.05 | -0.10 | -0.03 (-0.06 to +0.01) |
+| arm, as recruited | sacks a pressure | +1.98 | +1.03 [+1.00] | +0.66 (-0.28 to +1.61) |
+| arm, as recruited | sacks a defense snap | +0.14 | +0.08 [+0.09] | 0.00 (-0.06 to +0.06) |
+| arm, pure | sacks a pressure | +0.78 | +0.64 [+0.80] | +0.65 (-0.24 to +1.54) |
+| height, as recruited | pressures a defense snap | -0.15 | -0.05 | +0.02 (-0.08 to +0.11) |
+
+Still off:
+
+- **The sack tail is shorter but still long**: the top 1% of edge seasons 19.5 sacks (real 17.5), 20+ sack seasons 9.4 a 1,000 (real 2), the best 32.5 (the same 295 lb power rusher three times on seed 94). What is left is pressure, not the finish. Over back-to-back seasons, an edge's pressures a snap go together at r 0.75 (real 0.46), while his sacks a pressure barely carry over, as real (r 0.04; real -0.02, band -0.10 to 0.07; main 0.08). So reading less of his own finish (`FINISH_OWN`) would not help. A rush craft lane (the rest of bugs 286 and 328) would weigh the rush skills up and the feet down and narrow the pressure spread.
+- **Heavy and tall edges are still over their share of the top pressure seasons** (290 lb or more 1.62; 6-5 or taller 1.10, real 0.69). Part of it is the bodies: the generator's NFL edges are bigger than real ones (bug 369).
+- **Teams still use too few edges** (3.12 with 200+ snaps a team season, real 3.84; the median one plays 69% of snaps, real 47%) and **DTs don't rotate** (2.99 a team season, the 90th percentile on 85% of snaps; real 4.35 and 70%; their line and allowance don't move it). Real staffs rotate the line by plan, AI teams here only on fatigue (bug 368).
+- **Pure weight takes sacks a defense snap down too steeply** (-0.10 per 10 lb, real -0.03): the weight reach sits on top of bug 286's pressure slope (-0.40 pts of pressures a defense snap per 10 lb, real -0.02).
+- **As recruited, long arms still add sacks a defense snap** (+0.08 to +0.09 an inch, real 0), and on seed 87 pressures too (+0.14, real -0.07).
+- **NFL sacks a pressure fell to 0.258** (real 0.283) with the pocket feel, while sacks a team game are at real. NFL points rose 0.27 (24.03, real 22.51), about what 0.18 fewer sacks a game is worth.
+- **FBS sacks are still over real** (2.34 a team game, real 2.00).
+
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).
 - `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl2022|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, college only; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams.

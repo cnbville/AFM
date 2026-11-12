@@ -51,6 +51,21 @@ const NFL_WHISTLE: f64 = 1.3;
 /// bug 287; proposed, not confirmed).
 const FORM_SD: f64 = 3.0;
 
+/// How edges rotate on fatigue (bug 358): the energy line he comes out
+/// under, and the points of rating a coach gives up per unit of energy
+/// under it to spell him (60 for every other spot). At 0.84 and 60 the
+/// best edges played 88-90% of the team's snaps and AI teams used 3.2
+/// edges a season; real NFL edges are 3.84 a team season, median 47% and
+/// the 90th percentile 77% of team snaps (nflverse 2018-25, 200+ snaps).
+/// At 0.90 and 600 the top 1% of sack seasons play 79% and the top 10%
+/// 76% of team snaps (real 77% and 74%), the 90th percentile edge 79%.
+/// Teams still use 3.1 edges with 200+ snaps a season, since fatigue alone
+/// brings the fourth edge on rarely (bug 368: real staffs rotate the line
+/// by plan). A user's own rotation plan (G15) still overrides it.
+/// Proposed, not confirmed.
+const EDGE_LINE: f64 = 0.90;
+const EDGE_ALLOW: f64 = 600.0;
+
 /// The play clock after an administrative stoppage such as a penalty,
 /// from the ready signal (40 seconds otherwise, from the end of the play).
 const ADMIN_PLAY_CLOCK: f64 = 25.0;
@@ -521,7 +536,8 @@ impl<'a> Side<'a> {
     /// A strict coach rides his starters harder.
     fn threshold(&self, pos: Position) -> f64 {
         let base = match pos {
-            Position::EDGE | Position::DT => 0.84,
+            Position::EDGE => EDGE_LINE,
+            Position::DT => 0.84,
             Position::RB => 0.60,
             Position::WR | Position::TE => 0.74,
             Position::LB | Position::CB | Position::S => 0.68,
@@ -734,6 +750,10 @@ impl<'a> Side<'a> {
         let th = if self.frozen { 0.0 } else { self.threshold(pos) };
         let mut out = Vec::new();
         let mut skipped = Vec::new();
+        // The fresh men already named to spell someone: one backup spells
+        // one starter (bug 358's review: with edges spelled readily, one
+        // fresh edge sat both tired starters and the fourth edge played).
+        let mut claimed = Vec::new();
         for &(i, ri) in &list {
             if out.len() == n {
                 break;
@@ -748,12 +768,21 @@ impl<'a> Side<'a> {
                 // NFL game (real 70%, 59% over a season with the games he
                 // misses), 53% in FBS, and a star 15 points better about 82%
                 // (real stars about 80-85%; proposed, not confirmed).
-                let allow = 60.0 * (th - self.energy[i]);
+                // Edges come out more readily (bug 358): a star edge played
+                // 90% of the team's snaps and the top sack seasons were
+                // all volume (real top 1% 77%).
+                let allow = if pos == Position::EDGE { EDGE_ALLOW } else { 60.0 } * (th - self.energy[i]);
                 let next = list.iter().copied().find(|&(j, rj)| {
-                    j != i && !out.contains(&j) && !skipped.contains(&j) && self.energy[j] >= th && rj >= ri - allow
+                    j != i
+                        && !out.contains(&j)
+                        && !skipped.contains(&j)
+                        && !claimed.contains(&j)
+                        && self.energy[j] >= th
+                        && rj >= ri - allow
                 });
-                if next.is_some() {
+                if let Some((j, _)) = next {
                     skipped.push(i);
+                    claimed.push(j);
                     continue;
                 }
             }
