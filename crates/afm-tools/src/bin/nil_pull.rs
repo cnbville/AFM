@@ -85,11 +85,13 @@ fn picked(w: &World, j: usize, conference: &str) -> bool {
 struct WhatIf {
     k: f64,
     cap: f64,
+    /// A transfer's money weight times this (`AFM_PULL_F`; 1 as built).
+    f: f64,
 }
 
 fn what_if() -> WhatIf {
     let read = |name: &str, or: f64| std::env::var(name).ok().and_then(|s| s.parse().ok()).unwrap_or(or);
-    WhatIf { k: read("AFM_PULL_K", 0.0), cap: read("AFM_PULL_CAP", 3.0) }
+    WhatIf { k: read("AFM_PULL_K", 0.0), cap: read("AFM_PULL_CAP", 3.0), f: read("AFM_PULL_F", 1.0) }
 }
 
 impl WhatIf {
@@ -274,8 +276,14 @@ fn portal(w: &World, conference: &str, most: usize) {
         .filter(|(_, p)| p.stage == Stage::College && p.cal.portal.is_some_and(|e| !e.held && e.entered <= w.today))
         .map(|(i, _)| i)
         .collect();
+    if wi.f != 1.0 {
+        println!("What-if: a transfer's money weight times {}", wi.f);
+    }
     let mut pairs: Vec<Pair> = Vec::new();
     let (mut lists, mut sizes, mut seen) = (0usize, 0usize, 0usize);
+    // Entrants with a picked program after them: money first, and among
+    // the first three, of his six reasons, as built and under the what-if.
+    let mut cares = [0usize; 4];
     for &i in &entrants {
         let base = debug::portal_race_with(w, i, None);
         if base.len() < 3 {
@@ -292,9 +300,19 @@ fn portal(w: &World, conference: &str, most: usize) {
         }
         let p = &w.people[i];
         let weights = debug::transfer_weights(w, i);
-        let rows = |race: &[(usize, f64, f64, PlayingTime)]| race.iter().map(|r| (r.1, r.2)).collect::<Vec<_>>();
+        let mut heavier = weights;
+        heavier[2] *= wi.f;
+        for (n, v) in [(0, &weights), (2, &heavier)] {
+            cares[n] += (money_place(v) == 0) as usize;
+            cares[n + 1] += (money_place(v) <= 2) as usize;
+        }
+        // The what-if's heavier money: each program's own money term again, f - 1 times.
+        let more = |nil: f64| (wi.f - 1.0) * weights[2] * 1.5 * (nil.max(0.0) / 1.0e6).powf(0.6);
+        let rows = |race: &[(usize, f64, f64, PlayingTime)]| {
+            race.iter().map(|r| (r.1 + more(r.2), r.2)).collect::<Vec<_>>()
+        };
         let spread = sd(&base.iter().map(|b| b.1).collect::<Vec<_>>());
-        let today = wi.lift(weights[2], &rows(&base));
+        let today = wi.lift(heavier[2], &rows(&base));
         for (n, &(j, _, own, role)) in base.iter().enumerate() {
             if !picked(w, j, conference) {
                 continue;
@@ -308,7 +326,7 @@ fn portal(w: &World, conference: &str, most: usize) {
             for (k, t) in TIMES.iter().enumerate() {
                 let race = debug::portal_race_with(w, i, Some((j, t * field)));
                 let at_j = race.iter().position(|r| r.0 == j).expect("still after him");
-                (at[k], gap[k]) = place(&wi.lift(weights[2], &rows(&race)), at_j);
+                (at[k], gap[k]) = place(&wi.lift(heavier[2], &rows(&race)), at_j);
             }
             pairs.push(Pair {
                 money_rank: money_place(&weights),
@@ -331,6 +349,14 @@ fn portal(w: &World, conference: &str, most: usize) {
         entrants.len(),
         sizes as f64 / lists.max(1) as f64,
         pairs.len()
+    );
+    let pct = |n: usize| 100.0 * n as f64 / seen.max(1) as f64;
+    println!(
+        "Of those with a {conference} program after them, money is the first reason for {:.0}% and among the first three for {:.0}% (under the what-if {:.0}% and {:.0}%)",
+        pct(cares[0]),
+        pct(cares[1]),
+        pct(cares[2]),
+        pct(cares[3])
     );
     report(&pairs);
     println!("\n# By the role he'd have there");
