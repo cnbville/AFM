@@ -43,6 +43,7 @@ pub mod lane_storylines;
 pub mod lane_training;
 pub mod lane_views;
 pub mod memory;
+pub mod notebook;
 pub mod quick_filter;
 pub mod reads;
 pub mod setup;
@@ -142,6 +143,7 @@ impl Game {
                     tallies::on_open(&self.home, w, None);
                 }
                 lane_faces::on_open(self);
+                notebook::on_open(&self.home);
                 Ok(json!({ "built": true }))
             }
             // A full world built on this machine, into the library (hours).
@@ -206,6 +208,7 @@ impl Game {
                 lane_core::after_days(self.wm()?);
                 memory::hand_back();
                 lane_faces::on_open(self);
+                notebook::on_open(&self.home);
                 Ok(views::status(self.w()?))
             }
             "save" => {
@@ -218,6 +221,7 @@ impl Game {
                 world_log::on_save(self.wm()?, &path);
                 tallies::on_save(self.wm()?, &path);
                 lane_faces::on_save(&self.home, self.save_path.as_deref(), &path);
+                notebook::on_save(&self.home, self.save_path.as_deref(), &path);
                 self.save_path = Some(path.clone());
                 Ok(json!({ "saved": path.display().to_string() }))
             }
@@ -303,7 +307,7 @@ impl Game {
             _ => {
                 // The final build's lanes each answer their own commands.
                 type Lane = fn(&mut Game, &str, &Value) -> Option<Reply>;
-                const LANES: [Lane; 31] = [
+                const LANES: [Lane; 32] = [
                     lane_core::call,
                     lane_gameday::call,
                     lane_money::call,
@@ -335,6 +339,7 @@ impl Game {
                     lane_groundzero::call,
                     lane_hunt::call,
                     lane_data::call,
+                    notebook::call,
                 ];
                 for lane in LANES {
                     if let Some(r) = lane(self, cmd, args) {

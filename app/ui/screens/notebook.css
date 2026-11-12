@@ -1,0 +1,68 @@
+/* The notebook (Cain, 2026-11-12): free notes in the top bar's panel, in
+   categories. screens/notebook.js. The panel sits under the top bar on the
+   right and the page makes room for it, so you read a note beside what you
+   are looking at. */
+:root { --nb-w: 380px; }
+
+.topbar .nb-toggle[aria-pressed="true"] { background: var(--fg); color: var(--on-fg); }
+
+.notebook { position: fixed; top: var(--topbar); right: 0; bottom: 0; width: var(--nb-w); z-index: 8; box-sizing: border-box; padding: 16px; display: flex; flex-direction: column; gap: 12px;
+  background: var(--chrome); backdrop-filter: blur(var(--blur-lg, 24px)) saturate(1.6); -webkit-backdrop-filter: blur(var(--blur-lg, 24px)) saturate(1.6);
+  box-shadow: -1px 0 0 var(--hair), -20px 0 50px rgba(0, 0, 0, .3); animation: lt-slide .24s var(--ease) both; }
+html.nb-open .view { padding-right: var(--nb-w); }
+html.nb-open .pinned { padding-right: calc(26px + var(--nb-w)); }
+/* The page beside (L6) keeps the right edge; the notebook sits next to it. */
+html.has-beside .notebook { right: min(560px, 46vw); }
+html.has-beside.nb-open .view { padding-right: calc(min(560px, 46vw) + var(--nb-w)); }
+html.calm .notebook { animation: none !important; }
+
+.nb-head { display: flex; align-items: center; gap: 8px; }
+.nb-head b { font-size: 16px; }
+.nb-head .st-icon-btn { width: 30px; height: 30px; font-size: 18px; }
+
+/* Writing */
+.nb-compose { display: grid; gap: 8px; }
+.nb-new { width: 100%; min-height: 64px; max-height: 220px; box-sizing: border-box; resize: vertical; border-radius: 14px; border: 1px solid var(--hair); background: var(--fill-1); color: var(--fg); padding: 10px 12px; font: inherit; font-size: 13.5px; line-height: 1.45; outline: none; }
+.nb-new::placeholder { color: var(--fg3); }
+.nb-new:focus { border-color: var(--edge); background: var(--fill-2); }
+.nb-compose-row { display: flex; align-items: center; gap: 8px; }
+.nb-key { color: var(--fg3); font-size: 11.5px; }
+
+/* One look for the notebook's two kinds of drop-down */
+.nb-cat, .nb-move { appearance: none; -webkit-appearance: none; box-sizing: border-box; min-width: 0; border: 0; color: var(--fg); background-color: var(--fill-1); box-shadow: inset 0 0 0 1px var(--hair); cursor: pointer; font: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23999' stroke-width='1.5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 9px center;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: background-color .12s, box-shadow .12s; }
+.nb-cat option, .nb-move option { background: var(--raised); color: var(--fg); }
+.nb-cat:hover, .nb-move:hover { background-color: var(--fill-2); }
+.nb-cat:focus, .nb-move:focus { outline: none; background-color: var(--fill-2); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--fg) 34%, transparent); }
+.nb-cat { height: 32px; max-width: 190px; border-radius: 10px; padding: 0 28px 0 10px; font-size: 13px; }
+
+/* Finding */
+.nb-find { position: relative; display: flex; align-items: center; }
+.nb-find .sicon { position: absolute; left: 12px; color: var(--fg3); display: grid; pointer-events: none; }
+.nb-find .sicon svg { width: 15px; height: 15px; }
+.nb-q { width: 100%; box-sizing: border-box; border: 1px solid var(--hair); background: var(--fill-1); color: var(--fg); border-radius: 999px; padding: 8px 14px 8px 34px; font: inherit; font-size: 13px; outline: none; }
+.nb-q:focus { border-color: var(--edge); background: var(--fill-2); }
+.nb-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.nb-chip { display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 999px; padding: 5px 11px; background: var(--fill-1); color: var(--fg2); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: background .12s; }
+.nb-chip small { color: var(--fg3); font-size: 11px; font-weight: 700; }
+.nb-chip:hover { background: var(--fill-2); }
+.nb-chip[aria-selected="true"] { background: var(--fg); color: var(--on-fg); }
+.nb-chip[aria-selected="true"] small { color: inherit; opacity: .6; }
+.nb-plus { color: var(--fg3); padding: 5px 10px; }
+.nb-catbar { display: flex; align-items: center; gap: 14px; font-size: 12px; color: var(--fg3); }
+.nb-catbar[hidden] { display: none; }
+.nb-catbar span:first-child { color: var(--fg); font-weight: 700; font-size: 12.5px; }
+
+/* The notes */
+.nb-list { flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: 8px; align-content: start; }
+.nb-list > .empty { padding: 20px 4px; font-size: 13px; line-height: 1.5; }
+.nb-note { background: var(--fill-1); border-radius: 14px; padding: 10px 12px; display: grid; gap: 8px; font-size: 13.5px; }
+.nb-text { outline: none; border-radius: 8px; padding: 2px 4px; margin: 0 -4px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.nb-text:focus { background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--hair); }
+.nb-meta { display: flex; align-items: center; gap: 10px; color: var(--fg3); font-size: 11.5px; }
+.nb-move { height: 22px; max-width: 130px; border-radius: 999px; padding: 0 22px 0 9px; font-size: 11.5px; font-weight: 600; background-position: right 7px center; }
+.nb-when { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nb-del { font-size: 12px; white-space: nowrap; }
+.nb-del.armed { color: var(--live); }
+.nb-foot { font-size: 12px; color: var(--fg3); }
