@@ -68,9 +68,10 @@ fn work(w: &mut World, i: usize, ethic: f64, professionalism: f64) {
     me.traits.set(Trait::Professionalism, professionalism);
 }
 
-/// Forty talks: (mean trust, mean mood, talks where either fell).
-fn forty(w: &mut World, i: usize) -> (f32, f32, u32) {
-    let v: Vec<(f32, f32)> = (0..40).map(|_| praise(w, i, Subject::Role, 1)).collect();
+/// A hundred and twenty talks: (mean trust, mean mood, talks where either
+/// fell).
+fn many(w: &mut World, i: usize) -> (f32, f32, u32) {
+    let v: Vec<(f32, f32)> = (0..120).map(|_| praise(w, i, Subject::Role, 1)).collect();
     let n = v.len() as f32;
     (
         v.iter().map(|x| x.0).sum::<f32>() / n,
@@ -91,19 +92,19 @@ fn praise_lands_by_the_work_he_puts_in() {
 
     // A backup who works: none of them started last season, and before the
     // fix all three heard it as empty.
-    let (dt, dm, fell) = forty(&mut w, hard);
+    let (dt, dm, fell) = many(&mut w, hard);
     assert!(dt > 0.03 && dm > 0.06, "a hard worker hears it: trust {dt:+.3}, mood {dm:+.3}");
-    assert!(fell <= 4, "and it nearly always lifts him: fell in {fell} of 40");
+    assert!(fell <= 12, "and it nearly always lifts him: fell in {fell} of 120");
     // An everyday worker: a small lift, nothing lost.
-    let (pt, pm, _) = forty(&mut w, plain);
+    let (pt, pm, _) = many(&mut w, plain);
     assert!(pt > 0.0 && pm > 0.03, "an everyday worker: trust {pt:+.3}, mood {pm:+.3}");
     assert!(pt < dt && pm < dm, "less than the hard worker");
     // A player who coasts spots it: no trust gained, the smallest lift.
-    let (ct, cm, _) = forty(&mut w, coasts);
+    let (ct, cm, _) = many(&mut w, coasts);
     assert!(ct < 0.01 && ct < pt && cm < pm, "empty praise is spotted: trust {ct:+.3}, mood {cm:+.3}");
     // Said on what is really on his mind, it costs trust with him.
     w.people[coasts].mood_why = crate::world::people::Why::Role as u8;
-    let (ct, _, _) = forty(&mut w, coasts);
+    let (ct, _, _) = many(&mut w, coasts);
     assert!(ct < 0.0, "on his worry, empty praise costs trust: {ct:+.3}");
 }
 
