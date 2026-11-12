@@ -73,8 +73,7 @@ pub fn run(w: &World, run: &DraftRun, me: usize, checks: &[usize], watch: &[usiz
     let pos: Vec<Position> = cands.iter().map(|&i| w.people[i].player.position).collect();
     // Each club's need per candidate in each round it picks, read once.
     let mut needs: HashMap<(usize, u32), Vec<f64>> = HashMap::new();
-    for k in from..upto {
-        let (club, round) = run.board[k];
+    for &(club, round) in run.board.iter().take(upto).skip(from) {
         let rf = if round <= 2 { 0.5 } else { 1.0 };
         needs.entry((club, round)).or_insert_with(|| {
             pos.iter()
