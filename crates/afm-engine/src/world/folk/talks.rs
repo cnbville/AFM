@@ -1194,10 +1194,23 @@ fn add_talk_picks(w: &World, s: &mut Scene, i: usize, subject: Subject, used: &[
     s.pick(900, "End the talk", "End", "calm", "Ends it here.");
 }
 
-/// Whether praise is earned.
-pub(crate) fn praise_earned(w: &World, i: usize) -> bool {
-    let p = &w.people[i];
-    p.last_role == Some(PlayingTime::Starter) || p.last_performance.unwrap_or(0.0) > 62.0
+/// How true praise rings to him, 0 (he knows he's coasting) to 1 (he has
+/// earned every word). Both praise lines are about him and his work ("I've
+/// noticed the work you're putting in"), so his work earns it: effort at
+/// the facility (work ethic) and what he does when nobody is watching
+/// (professionalism), with a starter's place as the proof on the field:
+/// last season's, or on your depth chart now.
+///
+/// Playtest bug F2 (Cain 2026-11-12: "it hasn't lifted spirits once"): it
+/// was a switch on last season's depth chart alone. Its other half, a
+/// played rating above 62, read a rating no level's backups reach (1 of 117
+/// on a college roster, none of 124 at a high school), so four players in
+/// five heard every praise as empty, the hardest workers among them. The
+/// sizes are proposed, not confirmed.
+pub(crate) fn praise_truth(w: &World, i: usize) -> f32 {
+    let me = &w.people[i].player.personality;
+    let work = 0.7 * (me.work_ethic - 10.0) / 10.0 + 0.3 * me.traits.z(Trait::Professionalism);
+    (0.5 + 0.9 * work + 0.25 * is_starter(w, i) as u8 as f64).clamp(0.0, 1.0) as f32
 }
 
 /// How a move lands on him (topic 5): (trust, mood). Fit with his
@@ -1210,7 +1223,6 @@ fn landing(w: &World, i: usize, m: Move, t: Tone, subject: Subject, revealed: bo
     let shaky = ((10.0 - p.bg.stability) / 10.0) as f32;
     let (real, _) = concern(w, i);
     let on_point = real == subject || revealed;
-    let earned = praise_earned(w, i);
     let needs_ear = p.mood < -0.15 || shaky > 0.2 || matches!(real, Subject::Life | Subject::Friend);
     let (mut dt, mut dm): (f32, f32) = match m {
         Move::Ask => (0.04 + 0.04 * needs_ear as u8 as f32, 0.03 + 0.04 * needs_ear as u8 as f32),
@@ -1228,12 +1240,12 @@ fn landing(w: &World, i: usize, m: Move, t: Tone, subject: Subject, revealed: bo
             0.07 + 0.03 * z(Trait::Professionalism),
             -0.04 - 0.05 * z(Trait::Ego).max(0.0) + 0.03 * z(Trait::Professionalism),
         ),
+        // Praise lands by how true it rings (`praise_truth`): from empty
+        // (he spots it: a little trust lost, a small lift all the same) to
+        // earned in full, where a big ego takes the most from it.
         Move::Praise => {
-            if earned {
-                (0.04, 0.09 + 0.04 * z(Trait::Ego).max(0.0))
-            } else {
-                (-0.03, 0.03)
-            }
+            let truth = praise_truth(w, i);
+            (-0.03 + 0.07 * truth, 0.03 + (0.06 + 0.04 * z(Trait::Ego).max(0.0)) * truth)
         }
         Move::Challenge => (0.02 + 0.06 * comp, 0.08 * comp - 0.1 * shaky.max(0.0)),
         Move::Criticize => (
