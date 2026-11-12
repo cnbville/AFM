@@ -499,8 +499,8 @@ pub fn catalog(seat: Seat, w: &World) -> Vec<Group> {
         id: "FS7",
         fields: if college {
             vec![
-                Field::new("class", "State classification (1 the smallest)", FKind::Num),
-                Field::new("sos", "Schedule strength (1-10)", FKind::Num).dp(1),
+                Field::new("class", "State classification (1 the biggest)", FKind::Num),
+                Field::new("sos", "Schedule strength (points)", FKind::Num).dp(1),
                 Field::new("culture", "State football culture (1-10)", FKind::Num).dp(1),
             ]
         } else {
@@ -1226,22 +1226,27 @@ pub fn hs_of(ctx: &Ctx, i: usize) -> Option<usize> {
     (p.hs < ctx.w.high_schools.len()).then_some(p.hs)
 }
 
-/// His schedule's strength (FS7): a high schooler's from his school's
-/// classification within its state and the state's football; a college
-/// player's from his last season's opponents (rating points against his
-/// division's average).
+/// His schedule's strength (FS7), from his opponents, in rating points
+/// (above zero harder): a college player's last season against his
+/// division's average; a high schooler's last varsity season (his
+/// school's that year) against the average high school team's, the way
+/// MaxPreps and CalPreps rate a schedule (minor bug 362: never his
+/// school's size class or his state). With no varsity line yet, his
+/// school's last season.
 fn sos(ctx: &Ctx, i: usize) -> Val {
     let w = ctx.w;
     let p = ctx.p(i);
+    let points = |v: f32| Val::N((v as f64 * 10.0).round() / 10.0);
     if college_side(p) {
-        return w.stats.career(p.player.id).last().map_or(Val::None, |r| Val::N((r.sos as f64 * 10.0).round() / 10.0));
+        return w.stats.career(p.player.id).last().map_or(Val::None, |r| points(r.sos));
     }
-    let Some(h) = hs_of(ctx, i) else { return Val::None };
-    let s = &w.high_schools[h];
-    let st = &w.states[s.state];
-    let top = st.schools.iter().map(|&k| w.high_schools[k].classification).max().unwrap_or(0).max(1) as f64;
-    let size = s.classification as f64 / top;
-    Val::N(((2.0 + 5.0 * size + 3.0 * st.culture) * 10.0).round().clamp(10.0, 100.0) / 10.0)
+    let season = match p.hs_lines.last() {
+        Some(l) => {
+            w.high_schools.get(l.school as usize).and_then(|s| s.seasons.iter().rev().find(|s| s.year == l.year as i32))
+        }
+        None => hs_of(ctx, i).and_then(|h| w.high_schools[h].seasons.last()),
+    };
+    season.and_then(|s| s.sos).map_or(Val::None, points)
 }
 
 /// His other sport and its public marks (FS8): track times from the

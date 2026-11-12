@@ -40,6 +40,12 @@ pub struct HsSeason {
     /// reads beside the points.
     #[serde(default)]
     pub unit: HsUnit,
+    /// Schedule strength (minor bug 362): the opponents' average team
+    /// strength that season, regular season and playoffs, against the
+    /// average high school team's, in rating points, the way MaxPreps and
+    /// CalPreps rate a schedule; none in an older file.
+    #[serde(default)]
+    pub sos: Option<f32>,
 }
 
 /// A high school season's unit totals (C42), compact: engine games only.
