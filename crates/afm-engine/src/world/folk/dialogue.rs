@@ -1122,28 +1122,58 @@ const LABELS: [[&str; 3]; 3] = [
     ["Own a failure", "Point to results", "The people"],
 ];
 
-/// What you can say to a question, given your record (item 19): the code
-/// of each answer, its words, and the label on its button. An answer your
-/// record contradicts is not offered: you can't point to results you don't
-/// have, own a failure you never had, or name people who never came
-/// through your rooms. When none of the three is left, a plain answer
-/// stands in (`PLAIN_ANSWER`), so the question is never left without one.
-fn interview_answers(q: usize, past: &rooms::Past) -> Vec<(u32, u8, String, String)> {
+/// One answer to an interview question: its code, which of the three it
+/// is (3 the plain answer), its words, the label on its button, and, when
+/// your record contradicts it, the hint that says so.
+struct Answer {
+    code: u32,
+    k: u8,
+    text: String,
+    label: String,
+    /// It names your record (the year, the record, the man drafted).
+    backed: bool,
+    against: Option<String>,
+}
+
+/// What you can say to a question, given your record (item 19). An answer
+/// your record backs names it: the year it went wrong, the record, the man
+/// drafted. One your record contradicts (a losing or even record, or none,
+/// held up as results; a failure the record doesn't show; people when no
+/// one of yours was drafted) is still on the table in plain words, with a
+/// hint that says the panel has your record in front of it: said, it costs
+/// their trust (`against_cost`; Cain's yes, 2026-11-13). A winning record
+/// over too few games is thin, not contradicted: its plain words cost
+/// nothing. When your record backs none of the three, a plain answer stands
+/// beside them (`PLAIN_ANSWER`), so there is always an honest one.
+fn interview_answers(q: usize, past: &rooms::Past) -> Vec<Answer> {
     let mut out = Vec::new();
     for k in 0..3usize {
-        let base = 931 + 3 * q as u32 + k as u32;
-        let (text, label) = if q == 2 {
+        let code = 931 + 3 * q as u32 + k as u32;
+        let label = LABELS[q][k].to_string();
+        let plain = QUESTIONS[q].1[k].to_string();
+        let (text, backed, against) = if q == 2 {
             match k {
                 0 => match past.failure() {
-                    Some(x) => (
-                        format!("\"Let me tell you about {x}. It went wrong, and I know why.\""),
-                        LABELS[q][k].to_string(),
+                    Some(x) => (format!("\"Let me tell you about {x}. It went wrong, and I know why.\""), true, None),
+                    None => (
+                        plain,
+                        false,
+                        Some(
+                            "Your record shows no losing season, and no losing stretch of 8 games or more.".to_string(),
+                        ),
                     ),
-                    None => continue,
                 },
                 1 => match past.record_words(true).filter(|_| past.strong()) {
-                    Some(r) => (format!("\"Look at what my teams did: {r}.\""), LABELS[q][k].to_string()),
-                    None => continue,
+                    Some(r) => (format!("\"Look at what my teams did: {r}.\""), true, None),
+                    // A short winning record: thin, not contradicted.
+                    None if past.games() > 0 && past.wins > past.losses => (plain, false, None),
+                    None => {
+                        let why = match past.record_words(false) {
+                            Some(r) => format!("Your record is {r}."),
+                            None => "You have no record of your own yet.".to_string(),
+                        };
+                        (plain, false, Some(why))
+                    }
                 },
                 _ => match past.people() {
                     Some(d) => (
@@ -1153,17 +1183,20 @@ fn interview_answers(q: usize, past: &rooms::Past) -> Vec<(u32, u8, String, Stri
                             super::claims::words::round_word(d.round),
                             d.year
                         ),
-                        LABELS[q][k].to_string(),
+                        true,
+                        None,
                     ),
-                    None => continue,
+                    None => (plain, false, Some("No player of yours has been drafted.".to_string())),
                 },
             }
         } else {
-            (QUESTIONS[q].1[k].to_string(), LABELS[q][k].to_string())
+            (plain, false, None)
         };
-        out.push((base, k as u8, text, label));
+        let against =
+            against.map(|why| format!("{why} They have your record in front of them: this costs their trust."));
+        out.push(Answer { code, k: k as u8, text, label, backed, against });
     }
-    if q == 2 && out.is_empty() {
+    if q == 2 && !out.iter().any(|a| a.backed) {
         // Said as the record allows: a coach with games behind him has a
         // record, only not one of the three kinds.
         let (text, label) = if past.games() == 0 && !past.as_head {
@@ -1171,17 +1204,51 @@ fn interview_answers(q: usize, past: &rooms::Past) -> Vec<(u32, u8, String, Stri
         } else {
             (PLAIN_TEXT_RECORD, "Judge the plan")
         };
-        out.push((PLAIN_ANSWER, 3, text.to_string(), label.to_string()));
+        out.push(Answer {
+            code: PLAIN_ANSWER,
+            k: 3,
+            text: text.into(),
+            label: label.into(),
+            backed: false,
+            against: None,
+        });
     }
     out
 }
 
-/// The answer that stands in when your record backs none of the three
-/// answers to "your past" (a first-time head coach with no seasons, no
-/// stretch that went wrong and no one drafted, or a record that is neither
-/// a winning one nor a losing one over enough games). It lands between a hit and
-/// a miss, like an answer one step from what they want. Proposed, not
-/// confirmed.
+/// An answer your record contradicts loses what it would have earned (only
+/// the bad part of how it lands stays) and costs the panel's trust: this
+/// much from a panel that shrugs off a sales pitch (honesty 5 or lower on
+/// the 1-20 scale) ...
+pub const INTERVIEW_AGAINST_LEAST: f64 = 0.15;
+/// ... up to this much from an honest one (honesty 15 and up), between them
+/// on a straight line. A miss is -0.3 and a hit 0.45 on the same scale.
+/// Proposed, not confirmed.
+pub const INTERVIEW_AGAINST_MOST: f64 = 0.3;
+
+/// What an answer your record contradicts costs the panel's trust, by how
+/// honest the panel is (rule 5 of the talk facts design: against the facts,
+/// a cost).
+fn against_cost(panel: &[cast::Cast]) -> f64 {
+    let honesty = panel.iter().map(|c| c.honesty).sum::<f64>() / panel.len().max(1) as f64;
+    let t = (0.5 + cast::Cast::z(honesty)).clamp(0.0, 1.0);
+    INTERVIEW_AGAINST_LEAST + (INTERVIEW_AGAINST_MOST - INTERVIEW_AGAINST_LEAST) * t
+}
+
+/// What the panel says when your answer is one your record contradicts, if
+/// the bank has nothing it can say.
+const AGAINST_PLAIN: [&str; 3] = [
+    "We went through your record before you came in. We didn't find that year.",
+    "We have your record in front of us. That isn't what it says.",
+    "We looked for your players in the draft. We didn't find any.",
+];
+
+/// The answer that stands beside the three when your record backs none of
+/// them (a first-time head coach with no seasons, no stretch that went
+/// wrong and no one drafted, or a record that is neither a winning one nor
+/// a losing one over enough games). It lands between a hit and a miss,
+/// like an answer one step from what they want, and costs no trust.
+/// Proposed, not confirmed.
 pub const PLAIN_ANSWER: u32 = 940;
 const PLAIN_TEXT: &str = "\"I haven't run my own program yet. Judge me on how I'd build one.\"";
 const PLAIN_TEXT_RECORD: &str = "\"My record is what it is. Judge me on how I'd build yours.\"";
@@ -1205,8 +1272,8 @@ fn interview_ask(w: &mut World, s: &mut Scene) {
         t = line(w, s, 10 + q as u64, &format!("interview.ask.{key}"), &sp, &Facts::new());
     }
     s.them(&c.name, t, None);
-    for (code, _, text, label) in interview_answers(q, &past) {
-        s.pick(code, text, &label, "calm", "");
+    for a in interview_answers(q, &past) {
+        s.pick(a.code, a.text, &a.label, "calm", a.against.as_deref().unwrap_or(""));
     }
 }
 
@@ -1224,10 +1291,13 @@ fn interview_answer(w: &mut World, s: &mut Scene, code: u32) {
     let panel = panel(w, team);
     let want = wants_of(w, team, &panel);
     let aura = w.career.as_ref().map_or(10.0, |c| c.you.aura());
+    let past = rooms::past(w);
+    let answer = interview_answers(q, &past).into_iter().find(|x| x.k == k);
+    let against = answer.as_ref().is_some_and(|x| x.against.is_some());
     // Each answer: on what they want, a miss, or between; how you come
     // across (Aura) carries every answer a little. The plain answer of a
     // coach with no record is between.
-    let hit = if k == 3 {
+    let hit: f64 = if k == 3 {
         0.0
     } else if k == want[q] {
         0.45
@@ -1236,23 +1306,32 @@ fn interview_answer(w: &mut World, s: &mut Scene, code: u32) {
     } else {
         -0.3
     };
+    // An answer your record contradicts: they have the record in front of
+    // them. It can't earn the hit it was aiming at, and it costs their trust.
+    let hit = if against { hit.min(0.0) - against_cost(&panel) } else { hit };
     s.f[q] = (hit + 0.015 * (aura - 10.0)) as f32;
-    let past = rooms::past(w);
-    let said = interview_answers(q, &past)
-        .into_iter()
-        .find(|x| x.1 == k)
-        .map_or_else(|| QUESTIONS[q].1[(k as usize).min(2)].to_string(), |x| x.2);
+    let said = answer.map_or_else(|| QUESTIONS[q].1[(k as usize).min(2)].to_string(), |x| x.text);
     s.you(&scene::your_name(w), said.trim_matches('"'));
     if let Some(c) = panel.get(q % panel.len().max(1)) {
         let sp = Speaker::cast(w, c);
         // What the panel makes of the number you just gave them (item 19):
         // a line that names it, before how they take it.
+        // An answer your record contradicts gets the record read back to
+        // you instead.
         if q == 2 && k < 3 {
             let mut f = Facts::new();
             rooms::chair(w, team, &mut f);
             past.fill(&mut f);
             let part = ["failure", "results", "people"][k as usize];
-            let t = line(w, s, 40 + k as u64, &format!("interview.react.past.{part}"), &sp, &f);
+            let key = if against {
+                format!("interview.react.past.against.{part}")
+            } else {
+                format!("interview.react.past.{part}")
+            };
+            let mut t = line(w, s, 40 + k as u64, &key, &sp, &f);
+            if t.is_empty() && against {
+                t = AGAINST_PLAIN[k as usize].to_string();
+            }
             if !t.is_empty() {
                 s.them(&c.name, t, None);
             }
@@ -1287,6 +1366,9 @@ fn interview_answer(w: &mut World, s: &mut Scene, code: u32) {
         }
         .to_string(),
     );
+    if against {
+        s.outcome.push("They had your record in front of them, and it didn't back what you told them.".into());
+    }
     s.end();
     if s.c == 1 {
         fill_after(w, s, e);

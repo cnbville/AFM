@@ -1,10 +1,11 @@
 //! The staff and scouting rooms read the facts (talk facts lane L11;
-//! `world/folk/claims/rooms.rs`): your job interview offers only the
-//! answers your record backs, the weekly staff meeting carries the game's
-//! real numbers and the plan's real move, your staff's rooms speak of what
-//! the file shows, the combine names the trouble and the home he really
-//! has, and an agent says what his client wants besides money. None of it
-//! moves a number: these prove the words and the options.
+//! `world/folk/claims/rooms.rs`): your job interview names the answers your
+//! record backs and marks the ones it contradicts (said, those cost the
+//! panel's trust), the weekly staff meeting carries the game's real numbers
+//! and the plan's real move, your staff's rooms speak of what the file
+//! shows, the combine names the trouble and the home he really has, and an
+//! agent says what his client wants besides money (and asks for less, or
+//! more, by how well your club meets it).
 
 use super::legacy::seat;
 use crate::calendar::Level;
@@ -165,14 +166,25 @@ fn third_question(w: &mut World) -> (u32, Scene) {
     (id, scene::answer(w, id, 934).unwrap())
 }
 
+/// The answers on the table whose hint says the record contradicts them.
+fn contradicted(s: &Scene) -> Vec<u32> {
+    s.picks.iter().filter(|x| x.hint.contains("costs their trust")).map(|x| x.code).collect()
+}
+
 #[test]
 fn a_first_time_coach_has_a_plain_answer_for_his_past() {
     let mut w = seat("college");
     let (id, s) = third_question(&mut w);
     let codes: Vec<u32> = s.picks.iter().map(|x| x.code).collect();
-    assert_eq!(codes, [dialogue::PLAIN_ANSWER], "no results, no failure, no one drafted: one plain answer");
+    assert_eq!(codes, [937, 938, 939, dialogue::PLAIN_ANSWER], "the three in plain words, and one plain answer");
+    assert_eq!(contradicted(&s), [937, 938, 939], "no results, no failure, no one drafted: all three are marked");
+    let plain = s.picks.iter().find(|x| x.code == dialogue::PLAIN_ANSWER).unwrap();
+    assert!(plain.hint.is_empty(), "the plain answer costs nothing");
+    let results = s.picks.iter().find(|x| x.code == 938).unwrap();
+    assert!(results.hint.starts_with("You have no record of your own yet."), "{}", results.hint);
     let s = scene::answer(&mut w, id, dialogue::PLAIN_ANSWER).unwrap();
     assert!(s.done && !s.outcome.is_empty(), "the interview ends with a verdict");
+    assert!(!s.outcome.iter().any(|o| o.contains("didn't back")), "the plain answer is honest: {:?}", s.outcome);
 }
 
 #[test]
@@ -180,10 +192,14 @@ fn an_even_record_is_neither_results_nor_a_failure_and_does_not_say_no_record() 
     let mut w = seat("college");
     coached(&mut w, &[(2024, 6, 6)]);
     let (_, s) = third_question(&mut w);
-    assert_eq!(s.picks.iter().map(|x| x.code).collect::<Vec<_>>(), [dialogue::PLAIN_ANSWER]);
-    let plain = &s.picks[0];
+    let codes: Vec<u32> = s.picks.iter().map(|x| x.code).collect();
+    assert_eq!(codes, [937, 938, 939, dialogue::PLAIN_ANSWER]);
+    assert_eq!(contradicted(&s), [937, 938, 939]);
+    let plain = s.picks.iter().find(|x| x.code == dialogue::PLAIN_ANSWER).unwrap();
     assert_eq!(plain.mv, "Judge the plan", "a coach who has led a program has a record");
     assert!(!plain.label.contains("haven't run"), "{}", plain.label);
+    let results = s.picks.iter().find(|x| x.code == 938).unwrap();
+    assert!(results.hint.starts_with("Your record is 6-6 in 2024."), "{}", results.hint);
 }
 
 #[test]
@@ -192,14 +208,69 @@ fn the_interview_offers_the_answers_your_record_backs_and_names_it() {
     coached(&mut w, &[(2022, 10, 2), (2023, 9, 3), (2024, 3, 9)]);
     let (_, s) = third_question(&mut w);
     let codes: Vec<u32> = s.picks.iter().map(|x| x.code).collect();
-    assert_eq!(codes, [937, 938], "a failure to own and results to point to; no one drafted");
+    assert_eq!(codes, [937, 938, 939], "the three answers; the record backs two of them");
+    assert_eq!(contradicted(&s), [939], "no one drafted: the people are marked");
     let fail = s.picks.iter().find(|x| x.code == 937).unwrap();
     assert!(fail.label.contains("the 3-9 season in 2024"), "{}", fail.label);
     let results = s.picks.iter().find(|x| x.code == 938).unwrap();
     assert!(results.label.contains("22-14 over three seasons"), "{}", results.label);
+    let people = s.picks.iter().find(|x| x.code == 939).unwrap();
+    assert!(people.hint.starts_with("No player of yours has been drafted."), "{}", people.hint);
+    assert!(!people.label.contains("pick in"), "a marked answer names no one: {}", people.label);
     // The panel's question names the same number.
     let ask = said(&s, 2).pop().unwrap();
     assert!(ask.contains("22-14"), "the question about your past carries your record: {ask}");
+}
+
+/// Your interview's score once the third answer is given.
+fn scored(w: &mut World, id: u32, code: u32) -> (f32, Scene) {
+    let s = scene::answer(w, id, code).unwrap();
+    assert!(s.done, "the third answer ends the interview");
+    (w.folk.dialogue.interviews.last().unwrap().2, s)
+}
+
+#[test]
+fn an_answer_your_record_contradicts_costs_the_panels_trust() {
+    // The same panel and the same first two answers: pointing to results
+    // with a winning record, then with a losing one.
+    let mut good = seat("college");
+    coached(&mut good, &[(2022, 10, 2), (2023, 9, 3), (2024, 11, 1)]);
+    let (id, _) = third_question(&mut good);
+    let (backed, _) = scored(&mut good, id, 938);
+    let mut bad = seat("college");
+    coached(&mut bad, &[(2022, 3, 9), (2023, 4, 8), (2024, 5, 7)]);
+    let (id, s) = third_question(&mut bad);
+    assert!(contradicted(&s).contains(&938), "a losing record marks results");
+    let before = said(&s, 2).len();
+    let (against, s) = scored(&mut bad, id, 938);
+    assert!(
+        backed - against >= dialogue::INTERVIEW_AGAINST_LEAST as f32 - 1e-4,
+        "results the record backs {backed}, results it contradicts {against}"
+    );
+    // The panel reads the record back, never the line for a record that backs it.
+    let new = said(&s, 2).split_off(before);
+    assert!(!new.iter().any(|t| t.contains("That's why you're in this room")), "{new:?}");
+    assert!(s.outcome.iter().any(|o| o.contains("didn't back what you told them")), "{:?}", s.outcome);
+    // Owning the failure that is on the record costs nothing of the kind.
+    let mut honest = seat("college");
+    coached(&mut honest, &[(2022, 3, 9), (2023, 4, 8), (2024, 5, 7)]);
+    let (id, _) = third_question(&mut honest);
+    let (_, s) = scored(&mut honest, id, 937);
+    assert!(!s.outcome.iter().any(|o| o.contains("didn't back")), "{:?}", s.outcome);
+}
+
+#[test]
+fn a_short_winning_record_is_thin_not_contradicted() {
+    let mut w = seat("college");
+    coached(&mut w, &[(2024, 5, 0)]);
+    let (id, s) = third_question(&mut w);
+    let codes: Vec<u32> = s.picks.iter().map(|x| x.code).collect();
+    assert_eq!(codes, [937, 938, 939, dialogue::PLAIN_ANSWER], "none names the record: the plain one stands beside");
+    assert_eq!(contradicted(&s), [937, 939], "5-0 is too short to name, but nothing contradicts it");
+    let results = s.picks.iter().find(|x| x.code == 938).unwrap();
+    assert!(results.hint.is_empty() && !results.label.contains("5-0"), "{} / {}", results.label, results.hint);
+    let (_, s) = scored(&mut w, id, 938);
+    assert!(!s.outcome.iter().any(|o| o.contains("didn't back")), "{:?}", s.outcome);
 }
 
 #[test]
@@ -208,7 +279,8 @@ fn a_losing_record_cannot_point_to_results_and_the_panel_answers_a_failure_by_na
     coached(&mut w, &[(2024, 3, 9)]);
     let (id, s) = third_question(&mut w);
     let codes: Vec<u32> = s.picks.iter().map(|x| x.code).collect();
-    assert_eq!(codes, [937], "12 games and a losing record: only the failure is true");
+    assert_eq!(codes, [937, 938, 939], "the three answers are on the table");
+    assert_eq!(contradicted(&s), [938, 939], "12 games and a losing record: only the failure is true");
     let before = said(&s, 2).len();
     let s = scene::answer(&mut w, id, 937).unwrap();
     let new = said(&s, 2).split_off(before);
