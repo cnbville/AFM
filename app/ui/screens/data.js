@@ -375,7 +375,7 @@ PLAYER_TABS.push({
     const prs = (d.pressure || []).some((s) => s.prs) ? pdtPressure(d.pressure) : "";
     const splits = (d.splits || []).map((t) => panel(`Splits · ${t.title}`, pdtTable(["Split", ...t.heads], t.rows.map((r) => [r.split, ...r.cells])))).join("");
     const log = d.log && d.log.rows.length ? pdtTable(["Date", "Opponent", "Result", ...d.log.heads], d.log.rows.map((g) => [g.date, `${g.at ? g.at + " " : ""}${g.opp ? teamA(g.opp) : "?"}${g.kind && g.kind !== "regular" ? ` <span class="tag soft">${esc(g.kind)}</span>` : ""}`, g.result, ...g.cells]), [1]) : "";
-    const ch = d.charting ? `<p class="dt-src">${esc(d.charting.kind[0].toUpperCase() + d.charting.kind.slice(1))}${d.charting.days > 1 ? `, ${d.charting.days} days behind` : ""}.</p>` : `<p class="dt-src">Box scores only at this level for your seat: the charted maps don't show.</p>`;
+    const ch = d.charting ? `<p class="dt-src">${esc(d.charting.kind[0].toUpperCase() + d.charting.kind.slice(1))}${d.charting.days > 1 ? `, ${d.charting.days} days behind` : ""}.</p>` : `<p class="dt-src">Box scores only at this level: no third party charts it snap by snap, so the charted maps don't show.</p>`;
     return `<div class="dt pdt">${bar}<div class="pdt-grid">${panel("Facet grades", facets, "GrPass")}${panel("Where he lined up", align)}${panel(`Throw map · as the ${d.throws ? d.throws.role : ""}`, throws)}${panel("Run paths", runs)}${panel("Route map", routes)}${panel("Pressure map", prs)}</div>${splits}${panel("Game by game", log)}${ch}</div>`;
   },
 });
@@ -473,7 +473,7 @@ screens.teamdata = async (a) => {
   else body = tdPower(x);
   const src = x.depth == null
     ? "Box scores only for your seat at this level: the charted numbers don't show."
-    : `${x.charting[0].toUpperCase() + x.charting.slice(1)} for your seat at this level.${x.depth < 2 ? " Film charting adds pressure, coverage, the calls and the grades." : ""}`;
+    : `${x.charting[0].toUpperCase() + x.charting.slice(1)} at this level.${x.depth < 2 ? " Film charting adds pressure, coverage, the calls and the grades." : ""}`;
   const goto = gotoLine([["Team page", "team", ta], ["Stats by season", "teamseasons", ta], ["Team leaderboards", "teamlead", { level: x.level }]]);
   return `<div class="pad sl dt td">${pageHead({ kicker: `Data · ${x.mine ? "self-scout" : esc(x.group)}`, title: `${mark(x.team, 30)} ${esc(x.team.name)}`, sub: `The ${x.year} season`, goto })}${bar}${tabs("tdtab", TD_TABS, tab)}<div class="td-body">${body}</div>${dtSource(src)}</div>`;
 };

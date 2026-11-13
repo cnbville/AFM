@@ -225,51 +225,36 @@ pub(crate) fn team_json(w: &World, tier: Tier, team: usize) -> Value {
     team_ref(w, tier, team).map_or(Value::Null, |t| views::team_brief(w, t))
 }
 
-/// Whether your staff sees a level's charted numbers (item 3): the NFL's
-/// tracking is league-wide and published, so every seat has it; a college
-/// staff charts every game in its own division; an NFL club's analytics
-/// staff buys the charting of FBS and FCS for the draft; high school is box
-/// scores (your own film is the only charting, and the store keeps none of
-/// it). Proposed, not confirmed: the NFL seat's college charting and every
-/// seat's NFL tracking.
-pub(crate) fn charted(w: &World, tier: Tier, division: Option<Division>) -> bool {
+/// Whether a level's charted numbers are published (Cain, 2026-11-13: all
+/// available data is charted by a third party, so your staff has nothing to
+/// do with it). The level sets the card, the same for every seat: the NFL,
+/// FBS and FCS are charted snap by snap; D2, D3, NAIA, JUCO and high school
+/// are box scores and rankings, the most a third party publishes. Your own
+/// team's film is separate (`world/scouting/film`) and still follows your
+/// analytics head. Item 2's cap on the lower levels is proposed, not
+/// confirmed.
+pub(crate) fn charted(_w: &World, tier: Tier, division: Option<Division>) -> bool {
     match tier {
         Tier::Nfl => true,
         Tier::Hs => false,
-        Tier::College => match (views::mine(w), division) {
-            (Some(TeamRef::College(p)), Some(d)) => w.programs[p].division == d,
-            (Some(TeamRef::Nfl(_)) | Some(TeamRef::Other(_)), Some(d)) => matches!(d, Division::FBS | Division::FCS),
-            _ => false,
-        },
+        Tier::College => matches!(division, Some(Division::FBS | Division::FCS)),
     }
 }
 
-/// How your seat's charting of a level goes (Data overhaul item 2): how deep
-/// it reads (`analytics::depth`), how many days after a game it arrives, and
-/// whose it is. The NFL's league tracking is the same for every seat; a
-/// level your staff charts follows your analytics head (`analytics::charting`).
-/// None where the level is box scores for you.
+/// How a charted level reaches you: how deep it reads and how many days
+/// after a game it arrives. A third party publishes it, so it is the same
+/// for every seat: full depth the morning after. Your analytics head's
+/// rating doesn't touch it. None where the level is box scores.
 pub(crate) struct Charting {
     pub depth: u8,
     pub days: u8,
-    /// Your analytics head, when it is your own staff's charting.
+    /// Whose it is: always None now (a third party's), kept for the pages
+    /// that print a staffer's name.
     pub head: Option<String>,
 }
 
 pub(crate) fn charting(w: &World, tier: Tier, division: Option<Division>) -> Option<Charting> {
-    if !charted(w, tier, division) {
-        return None;
-    }
-    if tier == Tier::Nfl {
-        return Some(Charting { depth: 3, days: 1, head: None });
-    }
-    let staffer = match views::mine(w) {
-        Some(TeamRef::College(p)) => w.programs.get(p).map(|x| &x.support.analytics),
-        Some(TeamRef::Nfl(t)) => w.clubs.get(t).map(|c| &c.support.analytics),
-        _ => None,
-    };
-    let (depth, days) = afm_engine::world::analytics::charting(staffer.map_or(0, |s| s.rating));
-    Some(Charting { depth, days, head: staffer.map(|s| s.name.clone()).filter(|n| !n.is_empty()) })
+    charted(w, tier, division).then_some(Charting { depth: 3, days: 1, head: None })
 }
 
 pub(crate) fn charting_json(c: &Charting) -> Value {
@@ -283,46 +268,25 @@ pub(crate) fn charting_json(c: &Charting) -> Value {
 
 /// What your seat's numbers come from, in a line for every Data page.
 pub(crate) fn sources(w: &World) -> Value {
-    let (seat, line) = match views::mine(w) {
-        Some(TeamRef::Nfl(_)) | Some(TeamRef::Other(_)) => (
-            "nfl",
-            "League-wide tracking charts every NFL snap. Your analytics staff buys the charting of every FBS and FCS game; the other divisions and high school are box scores.".to_string(),
-        ),
-        Some(TeamRef::College(p)) => (
-            "college",
-            format!(
-                "Your staff charts every game in {}. The NFL's tracking is published; the other divisions and high school are box scores.",
-                w.programs[p].division.name()
-            ),
-        ),
-        Some(TeamRef::HighSchool(_)) => (
-            "hs",
-            "Box scores, with your own film and what you trade for. The NFL's tracking is published; college is box scores.".to_string(),
-        ),
-        None => ("none", "Box scores, and the NFL's published tracking.".to_string()),
+    let seat = match views::mine(w) {
+        Some(TeamRef::Nfl(_)) | Some(TeamRef::Other(_)) => "nfl",
+        Some(TeamRef::College(_)) => "college",
+        Some(TeamRef::HighSchool(_)) => "hs",
+        None => "none",
     };
+    let line = "A third party charts every NFL, FBS and FCS snap and publishes it the morning after, the same for every club. D2, D3, NAIA, junior college and high school are box scores and rankings."
+        .to_string();
     let charted: Vec<&str> = Division::ALL
         .iter()
         .filter(|&&d| charted(w, Tier::College, Some(d)))
         .map(|d| d.name())
         .chain(std::iter::once("NFL"))
         .collect();
-    // Your own staff's charting: how deep and how soon (item 2).
-    let own = Division::ALL.iter().find_map(|&d| charting(w, Tier::College, Some(d)));
-    let mut line = line;
-    if let Some(c) = &own {
-        let who = c.head.as_ref().map_or("Your analytics staff".to_string(), |n| format!("Your analytics head, {n},"));
-        let when = if c.days == 1 { "the morning after".to_string() } else { format!("{} days after", c.days) };
-        line.push_str(&format!(
-            " {who} gives you {} {when} each game.",
-            afm_engine::world::analytics::depth_name(c.depth)
-        ));
-    }
     json!({
         "seat": seat,
         "line": line,
         "charted": charted,
-        "charting": own.as_ref().map(charting_json),
+        "charting": Value::Null,
         "league": charting_json(&Charting { depth: 3, days: 1, head: None }),
     })
 }

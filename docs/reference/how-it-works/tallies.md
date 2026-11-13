@@ -149,11 +149,10 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 
 ## Charting depth and delay (item 2)
 
-- Your analytics head's rating sets how deep your charting goes: 15 and up gives tracking-style charting (separation, run block and pass rush wins), 8 and up film charting (CPOE, depth of target, pressures, missed tackles, coverage, grades), less play-by-play numbers only (EPA, success and the box) (proposed, not confirmed; `world/analytics.rs`, `charting`, `depth`).
-- And how soon it arrives: 17 and up the morning after a game, 12 and up two days after, 7 and up three days, less four (proposed, not confirmed; `charting`).
-- It only changes what you see: the card and table leave out the numbers past your depth, and this season's lines leave out the games not charted yet (`crates/afm-game/src/lane_data/analytics.rs`, `card_of`, `charted_now`).
-- The NFL's own tracking reaches every seat at full depth the morning after (proposed, not confirmed; `crates/afm-game/src/lane_data/mod.rs`, `charting`).
-- The Sources line names your analytics head and says what you get and when (`lane_data/mod.rs`, `sources`). The rating itself is never shown.
+- Charted data comes from a third party, not your staff (Cain, 2026-11-13). The level sets the card, the same for every seat: the NFL, FBS and FCS are charted snap by snap at full depth the morning after; D2, D3, NAIA, junior college and high school are box scores and rankings, the most a third party publishes (the lower-level cap is proposed, not confirmed; `crates/afm-game/src/lane_data/mod.rs`, `charted`, `charting`).
+- Your analytics head's rating doesn't touch it. It still sets your own team's film charting and his reads (`world/analytics.rs`, `charting`, `depth`: 15 and up tracking-style, 8 and up film, less play-by-play only; 17 and up the morning after, 12 and up two days, 7 and up three, less four; proposed, not confirmed).
+- It only changes what you see: the card and table leave out the numbers past the depth, and this season's lines leave out the games not charted yet (`lane_data/analytics.rs`, `card_of`, `charted_now`).
+- The Sources line says a third party charts it, the same for every seat (`lane_data/mod.rs`, `sources`).
 
 ## Sizes
 

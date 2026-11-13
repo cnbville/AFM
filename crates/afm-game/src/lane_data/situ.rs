@@ -163,22 +163,17 @@ fn source_line(sc: &Scope) -> String {
         }
         (Tier::Hs, None) => "High school is box scores for your seat: no one charts its snaps.".into(),
         (_, None) => format!(
-            "Your staff doesn't chart {}: box scores only, so its situations and decisions don't show.",
+            "A third party doesn't chart {} snap by snap: box scores only, so its situations and decisions don't show.",
             sc.division.map_or("this level", |d| d.name())
         ),
         (Tier::Nfl, Some(c)) => {
             format!("The NFL's league-wide tracking, {} the morning after each game.", tally_kind(c))
         }
-        (Tier::College, Some(c)) => {
-            let who =
-                c.head.as_ref().map_or("your analytics staff".to_string(), |n| format!("your analytics head, {n}"));
-            let when = if c.days == 1 { "the morning after".to_string() } else { format!("{} days after", c.days) };
-            format!(
-                "Charted by {who}: {} of every {} game, {when}.",
-                tally_kind(c),
-                sc.division.map_or("college", |d| d.name())
-            )
-        }
+        (Tier::College, Some(c)) => format!(
+            "Charted by a third party: {} of every {} game, the morning after.",
+            tally_kind(c),
+            sc.division.map_or("college", |d| d.name())
+        ),
     }
 }
 
