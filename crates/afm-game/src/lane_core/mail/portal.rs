@@ -264,9 +264,18 @@ pub(super) fn landings_message(
     let told = |id: u32| c.desk.landed.iter().any(|&(i, on)| i == id && on < d && d.0 - on.0 <= 250);
     let mut mine: Vec<(usize, String)> = Vec::new();
     // Today's word on your own: they are read from where they are now, so
-    // only the last day of a stretch can tell it.
-    let ids: &[u32] = if d == today { &w.front_office.college.left } else { &[] };
-    for &id in ids {
+    // only the last day of a stretch can tell it. A day written again at a
+    // later stop (its letter was filed before the day was over) keeps the
+    // men it already told: the rewrite replaces the letter's body, so
+    // leaving them out dropped their line once the day's other landings
+    // grew it.
+    let left = &w.front_office.college.left;
+    let ids: Vec<u32> = if d == today {
+        left.clone()
+    } else {
+        c.desk.landed.iter().filter(|&&(i, on)| on == d && left.contains(&i)).map(|&(i, _)| i).collect()
+    };
+    for &id in &ids {
         // `seen`: told on an earlier day of this same stretch (not filed yet).
         if told(id) || seen.contains(&id) {
             continue;
