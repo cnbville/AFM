@@ -11,7 +11,9 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use afm_game::Game;
-use serde_json::Value;
+use serde_json::{Value, json};
+
+mod keychain;
 
 struct Engine(Arc<Mutex<Game>>);
 
@@ -24,10 +26,40 @@ async fn call(engine: tauri::State<'_, Engine>, cmd: String, args: Value) -> Res
         let waited = asked.elapsed();
         let r = g.call(&cmd, &args);
         slow_call(&g.home, &cmd, waited, asked.elapsed());
-        r
+        match cmd.as_str() {
+            "ai_key_set" | "ai_key_clear" if r.is_ok() => Ok(follow_keychain(&mut g, &cmd, &args)),
+            _ => r,
+        }
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// The live talks key follows the Keychain (live talks lane 1): a key pasted
+/// into settings is saved there, and a key cleared is removed. The game has
+/// already checked and kept it in memory. The answer is the game's status, with
+/// a plain note if the Keychain would not take it (the key then lasts until
+/// AFM quits). The key is never logged.
+fn follow_keychain(g: &mut Game, cmd: &str, args: &Value) -> Value {
+    let note = if cmd == "ai_key_set" {
+        let key = args.get("key").and_then(Value::as_str).unwrap_or("").trim();
+        match keychain::set(key) {
+            Ok(()) => {
+                g.ai.set_kept("keychain");
+                None
+            }
+            Err(e) => {
+                Some(format!("The key could not be saved in the Keychain, so it lasts until you quit AFM. ({e})"))
+            }
+        }
+    } else {
+        keychain::clear().err().map(|e| format!("The saved key could not be removed from the Keychain. ({e})"))
+    };
+    let mut status = g.ai.status();
+    if let Some(n) = note {
+        status["keychain_note"] = json!(n);
+    }
+    status
 }
 
 /// A call that took two seconds or more goes into `logs/slow-calls.log` in
@@ -57,7 +89,17 @@ fn slow_call(home: &Path, cmd: &str, waited: Duration, took: Duration) {
 }
 
 fn main() {
-    let game = Game::new(afm_game::default_home());
+    let mut game = Game::new(afm_game::default_home());
+    // The live talks key, saved in the Keychain, is handed to the game once.
+    match keychain::get() {
+        Ok(Some(k)) => {
+            if game.ai.set_key(&k).is_ok() {
+                game.ai.set_kept("keychain");
+            }
+        }
+        Ok(None) => {}
+        Err(e) => eprintln!("AFM: the Keychain would not give up the live talks key. {e}"),
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         // Updates itself from the public downloads page (`plugins.updater` in
