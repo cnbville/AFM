@@ -2184,7 +2184,12 @@ pub(crate) fn boards_with(w: &World, args: &Value, staff_order: Vec<(Position, V
     // A spot the order leaves empty (a thin room in February) shows the man
     // the engine would send: the best free player in the position group,
     // else the best on that side of the ball, else anyone.
-    let game_team = w.seat_game_team().map(|x| x.0);
+    let game_team = w.seat_game_team();
+    // Who the engine lines up at kickoff (playtest bug 12): at the line's
+    // five spots and the named jobs a board shows him until you set the
+    // position, so the spot's name is where he plays.
+    let seating = game_team.as_ref().map(|(t, level)| afm_engine::game::flow::seating(t, *level));
+    let game_team = game_team.map(|x| x.0);
     let next_up = |pos: Position, taken: &HashSet<u32>| -> Option<usize> {
         let gt = game_team.as_ref()?;
         let free = |p: &&afm_engine::game::roster::GamePlayer| !taken.contains(&p.id) && by_id.contains_key(&p.id);
@@ -2205,13 +2210,25 @@ pub(crate) fn boards_with(w: &World, args: &Value, staff_order: Vec<(Position, V
             .and_then(|p| by_id.get(&p.id).copied())
     };
     let base = |slots: &[(&str, Position, f64, f64)], key: &str, label: &str| {
+        // A position you haven't set: the men the engine seats at the
+        // board's slots first (`seated_first`), then the staff's order.
+        let mut shown: HashMap<Position, (Vec<u32>, Vec<u32>)> = HashMap::new();
+        for &(_, pos, _, _) in slots {
+            shown.entry(pos).or_insert_with(|| {
+                let names: Vec<&str> = slots.iter().filter(|s| s.1 == pos).map(|s| s.0).collect();
+                let staff = seated_first(seating.as_ref(), &names, staff_at(pos));
+                let yours = w.seat_depth.iter().any(|(p, _)| *p == pos);
+                (if yours { order_at(pos) } else { staff.clone() }, staff)
+            });
+        }
         let mut used: HashMap<Position, usize> = HashMap::new();
         let mut picks: Vec<(Option<usize>, Option<usize>)> = slots
             .iter()
             .map(|&(_, pos, _, _)| {
                 let k = used.entry(pos).or_insert(0);
-                let cur = order_at(pos).get(*k).and_then(|id| by_id.get(id)).copied();
-                let prop = staff_at(pos).get(*k).and_then(|id| by_id.get(id)).copied();
+                let (order, staff) = &shown[&pos];
+                let cur = order.get(*k).and_then(|id| by_id.get(id)).copied();
+                let prop = staff.get(*k).and_then(|id| by_id.get(id)).copied();
                 *k += 1;
                 (cur, prop)
             })
@@ -2246,7 +2263,7 @@ pub(crate) fn boards_with(w: &World, args: &Value, staff_order: Vec<(Position, V
     for b in Board::ALL {
         let mine = w.training.package(b);
         let spots = package_spots(b);
-        let prop = proposal(w, t, b, &roster, &roles, reader, &staff_order);
+        let prop = proposal(w, t, b, &roster, &roles, reader, &staff_order, seating.as_ref());
         let list: Vec<Value> = b
             .slots()
             .iter()
@@ -2276,9 +2293,38 @@ pub(crate) fn boards_with(w: &World, args: &Value, staff_order: Vec<(Position, V
     }))
 }
 
+/// A position's order as a base board shows it before you set it: the men
+/// the engine seats at the board's slots there (`names`, in board order),
+/// then the rest of the staff's order. With the slots the game keeps by
+/// name (the line's five, the linebacker, corner and safety jobs) the
+/// spot's name is then where the man plays, and an order written from the
+/// board keeps every man where he was (playtest bug 12). Any other
+/// position, or a team that can't dress, shows the staff's order as it is.
+pub(crate) fn seated_first(
+    seating: Option<&afm_engine::game::flow::Seating>,
+    names: &[&str],
+    staff: Vec<u32>,
+) -> Vec<u32> {
+    let Some(seating) = seating else { return staff };
+    let mut first: Vec<u32> = Vec::new();
+    for (k, name) in names.iter().enumerate() {
+        let nth = names[..k].iter().filter(|n| *n == name).count();
+        match seating.at(name, nth) {
+            Some(id) if staff.contains(&id) && !first.contains(&id) => first.push(id),
+            _ => return staff,
+        }
+    }
+    let rest: Vec<u32> = staff.into_iter().filter(|id| !first.contains(id)).collect();
+    first.into_iter().chain(rest).collect()
+}
+
 /// Your position coaches' proposal for a package (topic 8 of the screens):
 /// the best read at each slot's position; special teams lean on backups,
-/// as real units do, with the fastest returners.
+/// as real units do, with the fastest returners. A slot the game keeps by
+/// name (the line's five; SAM, MIKE, WILL, the corners, the nickel, FS and
+/// SS) takes the man the engine plays there, so a unit you take over
+/// starts as it would have played (playtest bug 12).
+#[allow(clippy::too_many_arguments)]
 fn proposal(
     w: &World,
     t: TeamRef,
@@ -2287,14 +2333,32 @@ fn proposal(
     roles: &HashMap<usize, Role>,
     reader: u64,
     staff: &[(Position, Vec<u32>)],
+    seating: Option<&afm_engine::game::flow::Seating>,
 ) -> Vec<Option<usize>> {
     let by_id: HashMap<u32, usize> = roster.iter().map(|&i| (w.people[i].player.id, i)).collect();
     let special =
         matches!(b, Board::KickReturn | Board::KickCover | Board::PuntReturn | Board::PuntCover | Board::FieldGoal);
-    let mut used: Vec<usize> = Vec::new();
+    // The seated men first, so no other slot takes one of them.
+    let seated: Vec<Option<usize>> = b
+        .slots()
+        .iter()
+        .enumerate()
+        .map(|(k, &(name, pos))| {
+            if special {
+                return None;
+            }
+            let nth = b.slots()[..k].iter().filter(|s| s.0 == name && s.1 == pos).count();
+            seating.and_then(|s| s.at(name, nth)).and_then(|id| by_id.get(&id)).copied()
+        })
+        .collect();
+    let mut used: Vec<usize> = seated.iter().flatten().copied().collect();
     b.slots()
         .iter()
-        .map(|&(name, pos)| {
+        .enumerate()
+        .map(|(k, &(name, pos))| {
+            if let Some(i) = seated[k] {
+                return Some(i);
+            }
             let returner = matches!(name, "KR" | "PR");
             let best = roster
                 .iter()
@@ -2399,6 +2463,20 @@ pub(crate) fn board_set(w: &mut World, args: &Value) -> Result<Option<String>, S
         v.dedup();
         v
     };
+    // The men the board shows now. A position you haven't set and didn't
+    // change here stays your staff's (playtest bug 12): a drop used to mark
+    // every position on the board as yours, and your order now names the
+    // spots, so a receiver swapped must not pin the line.
+    let shown: Vec<Option<u32>> = if reset {
+        Vec::new()
+    } else {
+        boards(w, &json!({}))?["boards"]
+            .as_array()
+            .and_then(|v| v.iter().find(|b| b["key"] == key))
+            .and_then(|b| b["slots"].as_array())
+            .map(|v| v.iter().map(|x| x["player"]["id"].as_u64().map(|id| id as u32)).collect())
+            .unwrap_or_default()
+    };
     let mut notes = Vec::new();
     for pos in positions {
         if !w.controls(pos) {
@@ -2406,6 +2484,12 @@ pub(crate) fn board_set(w: &mut World, args: &Value) -> Result<Option<String>, S
         }
         if reset {
             w.set_seat_depth(pos, Vec::new());
+            continue;
+        }
+        let same = (0..slots.len())
+            .filter(|&k| slots[k].1 == pos)
+            .all(|k| ids.get(k).is_some_and(|id| id.is_some() && Some(id) == shown.get(k)));
+        if same && !w.seat_depth.iter().any(|(p, _)| *p == pos) {
             continue;
         }
         // The slot order first (an emptied slot takes the next man in the

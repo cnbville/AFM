@@ -1160,13 +1160,7 @@ fn proposal_answer(w: &mut World, s: &mut Scene, code: u32) {
             let (y, s0) = ((s.b >> 32) as u32, (s.b & 0xFFFF_FFFF) as u32);
             if let Some(yi) = super::person(w, y) {
                 let pos = w.people[yi].player.position;
-                match w.seat_depth.iter_mut().find(|x| x.0 == pos) {
-                    Some(x) => {
-                        x.1.retain(|&i| i != y);
-                        x.1.insert(0, y);
-                    }
-                    None => w.seat_depth.push((pos, vec![y, s0])),
-                }
+                w.seat_start(y, s0, pos);
                 talks::mood_event(w, y, Reason::Praise, 0.15);
             }
             talks::mood_event(w, s0, Reason::Benched, -0.2);
