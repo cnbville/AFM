@@ -313,13 +313,22 @@ document.addEventListener("keydown", (ev) => {
   if (ev.key === "Escape" && !ev.defaultPrevented && !document.querySelector(".overlay")) { ev.preventDefault(); notebookClose(); }
 });
 
+// What the panel remembers belongs to one career: its notes, the category
+// you were looking at and what you searched for.
+function notebookForget() {
+  NOTEBOOK.book = null;
+  NOTEBOOK.cat = null;
+  NOTEBOOK.q = "";
+}
+
 // The page draws again at every click and the icon is drawn pressed (app.js,
-// frame). Leaving the career for the menus closes the panel, as another
-// career has another notebook.
+// frame). Leaving the career for the menus closes the panel and forgets all
+// of it, as another career has another notebook.
 const notebookRender = render;
 render = async function (scroll) {
   const r = await notebookRender(scroll);
-  if (NOTEBOOK.open) { if (outside(S.route)) notebookClose(); else notebookMark(); }
+  if (outside(S.route)) { if (NOTEBOOK.open) notebookClose(); notebookForget(); }
+  else if (NOTEBOOK.open) notebookMark();
   return r;
 };
 
