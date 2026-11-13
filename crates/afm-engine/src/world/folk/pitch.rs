@@ -32,7 +32,8 @@
 //! talk plays before the bank run fills the new parts. Hidden numbers (his
 //! wants, the lean, the case) pick parts and never appear in a line.
 //!
-//! Every size here is Claude's (proposed, not confirmed).
+//! Every size here is Claude's (proposed, not confirmed); the case's cap
+//! and the 3 and 6 exchanges are Cain's (2026-11-12, in `case.rs`).
 
 use super::case::{self, CALL_EXCHANGES, Case, PHONE, SIT_DOWN_EXCHANGES};
 use super::claims::{self, Ear, Family, Group, Kind, Point, Sheet, Tier};
@@ -228,23 +229,36 @@ fn you(w: &World) -> Option<usize> {
 }
 
 /// Who speaks for him: a transfer himself; at a high school recruit's
-/// home whoever decides, in that voice (a recruit who decides himself
-/// speaks as himself, never as a parent).
+/// home whoever decides, in that voice. Only a parent carries the parent
+/// tag; a grandparent keeps the family's style (loud, online, calm), a
+/// trainer and a recruit who decides himself speak in neither.
 fn speaker(w: &World, t: &Talk) -> Speaker {
     if t.transfer {
         return Speaker::player(w, t.i);
     }
+    const STYLE: [&str; 4] = ["loud", "online", "calm", "absent"];
     let mut sp = Speaker::parent(w, t.i);
     match w.people[t.i].family.decider {
         Decider::Himself => {
-            sp.tags.retain(|&x| x != "parent");
+            sp.tags.retain(|x| *x != "parent" && !STYLE.contains(x));
             sp.tags.push("himself");
         }
-        Decider::Grandparent => sp.tags.push("grandparent"),
-        Decider::Handler => sp.tags.push("handler"),
+        Decider::Grandparent => {
+            sp.tags.retain(|&x| x != "parent");
+            sp.tags.push("grandparent");
+        }
+        Decider::Handler => {
+            sp.tags.retain(|x| *x != "parent" && !STYLE.contains(x));
+            sp.tags.push("handler");
+        }
         Decider::Parent => {}
     }
     sp
+}
+
+/// "does" or "do" after who decides ("His parents do the talking").
+fn verb(who: &str, one: &'static str, many: &'static str) -> &'static str {
+    if who == "His parents" { many } else { one }
 }
 
 /// The name on his side's lines.
@@ -757,14 +771,15 @@ fn point_hint(w: &World, t: &Talk, pt: &Point, tier: Tier) -> String {
 // The talk.
 
 /// Your points he can hear today: the known ones on the sheet, not made
-/// already in this talk.
-fn on_table<'a>(w: &World, t: &Talk, sheet: &'a Sheet) -> Vec<&'a Point> {
+/// already in this talk (the scene `talk`: a call left open overnight is
+/// still one talk, a call and a sit-down on one day are two).
+fn on_table<'a>(w: &World, t: &Talk, talk: u32, sheet: &'a Sheet) -> Vec<&'a Point> {
     let today = w.today;
     sheet
         .points
         .iter()
         .filter(|p| p.known && matches!(p.kind.family(), Family::Pitch(_)))
-        .filter(|p| !w.folk.talked.row(t.id, p).is_some_and(|r| r.on == today))
+        .filter(|p| !w.folk.talked.in_talk(today, talk, t.id, p))
         .collect()
 }
 
@@ -928,7 +943,7 @@ fn promise_picks(s: &mut Scene, back: bool) {
 fn picks(w: &World, s: &mut Scene, t: &Talk, st: &St, sheet: &Sheet) {
     s.picks.clear();
     s.reach.clear();
-    let pts = on_table(w, t, sheet);
+    let pts = on_table(w, t, s.id, sheet);
     let mut out: Vec<Pick> = Vec::new();
     if st.nav == NAV_PROMISE || st.stage == 1 {
         promise_picks(s, st.stage == 0);
@@ -965,7 +980,7 @@ fn picks(w: &World, s: &mut Scene, t: &Talk, st: &St, sheet: &Sheet) {
                 .of(PickKind::Nav),
             );
         }
-        if st.nav == NAV_MENU {
+        if st.nav == NAV_MENU && st.ask != 0 {
             out.push(
                 Pick {
                     label: "Back to his question".into(),
@@ -1044,7 +1059,7 @@ fn next_beat(w: &mut World, s: &mut Scene, t: &Talk, mut st: St) {
         return wrap_up(w, s, t, st);
     }
     let sheet = claims::recruit(w, t.i, t.j, t.ear);
-    let pts = on_table(w, t, &sheet);
+    let pts = on_table(w, t, s.id, &sheet);
     if pts.is_empty() {
         return wrap_up(w, s, t, st);
     }
@@ -1113,7 +1128,7 @@ fn next_beat(w: &mut World, s: &mut Scene, t: &Talk, mut st: St) {
             } else {
                 dialogue::decider_words(&w.people[t.i]).to_string()
             };
-            s.narrate(format!("{name} leaves the floor to you."));
+            s.narrate(format!("{name} {} the floor to you.", verb(&name, "leaves", "leave")));
         }
     }
     picks(w, s, t, &st, &sheet);
@@ -1137,15 +1152,21 @@ fn wrap_up(w: &mut World, s: &mut Scene, t: &Talk, mut st: St) {
 
 /// The talk ends: his last words, what it came to, and (for a transfer)
 /// the talk on his file and whether he has heard enough.
-fn close(w: &mut World, s: &mut Scene, t: &Talk, st: &St) {
-    let d = s.f[0];
-    let mood = if d >= CLOSE_WARM * t.scale() {
+/// How a talk that moved your case by `d` ended: "warm", "flat" or
+/// "cool" (a call's warm bar is a call's size).
+pub fn mood_of(d: f32, phone: bool) -> &'static str {
+    if d >= CLOSE_WARM * if phone { PHONE } else { 1.0 } {
         "warm"
     } else if d >= 0.0 {
         "flat"
     } else {
         "cool"
-    };
+    }
+}
+
+fn close(w: &mut World, s: &mut Scene, t: &Talk, st: &St) {
+    let d = s.f[0];
+    let mood = mood_of(d, t.phone());
     let sp = speaker(w, t);
     let f = base(w, t);
     if let Some(x) = say(w, s, 90, &[format!("recruit.close.{}.{mood}", t.setting())], &sp, &f) {
@@ -1171,6 +1192,9 @@ fn finish(w: &mut World, s: &mut Scene, t: &Talk, delta: f32, made: u8) {
         let groups: Vec<String> =
             Group::ALL.into_iter().filter(|&g| made & bit(g) != 0).map(|g| g.name().to_lowercase()).collect();
         let said = if groups.is_empty() { "listening".to_string() } else { groups.join(", ") };
+        // A save from before the case: fold the leans its talks kept into
+        // the case before this talk takes its place in the list.
+        let _ = portal::case_mut(w, t.id);
         portal::talked(w, t.id, s.f[1], delta, &said);
         if let Some(x) = portal::after_talk(w, t.id) {
             s.outcome.push(x);
@@ -1192,11 +1216,25 @@ fn make_point(w: &mut World, s: &mut Scene, t: &Talk, mut st: St, k: Kind, picke
     let me = scene::your_name(w);
     s.you(&me, picked.label.trim_matches('"'));
     let lean = t.scale() * case::lands(w, pt.care, tier, you(w));
-    let again = w.folk.talked.again(today, t.id, &pt);
-    let came_back = again < 1.0 && w.folk.talked.remembers(today, t.id, &pt);
-    let delta = case_for(w, t).map_or(0.0, |c| c.add(g, lean, again, today));
+    let heard = w.folk.talked.remembers(today, t.id, &pt);
+    let mut again = w.folk.talked.again_in(today, s.id, t.id, &pt);
+    let delta = match case_for(w, t) {
+        Some(c) => {
+            // A case with nothing in the group hears it new (another
+            // school's case, or one made fresh since).
+            if !c.has(g) {
+                again = 1.0;
+            }
+            c.add(g, lean, again, today)
+        }
+        None => 0.0,
+    };
+    // He says he remembers it: it added again (a half, a quarter), or it
+    // added nothing new.
+    let came_back = heard && again > 0.0 && again < 1.0;
+    let stale = heard && again == 0.0;
     s.f[0] += delta;
-    w.folk.talked.note(today, t.id, &pt, lean > 0.0, &picked.code.to_string());
+    w.folk.talked.note_in(today, s.id, t.id, &pt, lean > 0.0, &picked.code.to_string());
     st.made |= bit(g);
     st.used += 1;
     // His reaction: what it did, what he says it did, and whether you
@@ -1216,7 +1254,9 @@ fn make_point(w: &mut World, s: &mut Scene, t: &Talk, mut st: St, k: Kind, picke
         Took::Doubted | Took::Cool => "bad",
     };
     let mut keys: Vec<String> = Vec::new();
-    if came_back && lean > 0.0 {
+    // He says it's the part that matters only when he shows it.
+    let again_said = came_back && lean > 0.0 && matches!(says, Took::Lit | Took::Flat);
+    if again_said {
         keys.push(format!("recruit.react.again.{}", g.key()));
         keys.push("recruit.react.again.any".into());
     }
@@ -1271,7 +1311,8 @@ fn make_point(w: &mut World, s: &mut Scene, t: &Talk, mut st: St, k: Kind, picke
         "{}: {}",
         g.name(),
         match says {
-            _ if came_back && lean > 0.0 => "he remembered it, and it still helped.",
+            _ if again_said => "he remembered it, and it still helped.",
+            _ if stale => "he'd heard it from you before. It added nothing new.",
             Took::Lit => "what he came for.",
             Took::Flat | Took::Polite if rival.is_some() => "another school told him the same.",
             Took::Flat | Took::Polite => "polite.",
@@ -1302,7 +1343,7 @@ fn straight_on(w: &mut World, s: &mut Scene, t: &Talk, mut st: St, g: Group, pt:
         c.on = c.on.max(today);
     }
     if let Some(pt) = pt {
-        w.folk.talked.note(today, t.id, pt, false, "straight");
+        w.folk.talked.note_in(today, s.id, t.id, pt, false, "straight");
     }
     st.straight = st.straight.saturating_add(1);
     st.made |= bit(g);
@@ -1569,15 +1610,19 @@ fn warmth(w: &World, t: &Talk) -> &'static str {
     }
 }
 
-/// What changed since you last spoke, most on his mind first: an event on
-/// his sheet he hasn't talked through with you.
-fn news<'a>(w: &World, t: &Talk, sheet: &'a Sheet) -> Option<&'a Point> {
+/// What changed since you last spoke, most on his mind first: the events
+/// on his sheet he hasn't talked through with you. An opener names its
+/// event by the point's own facts: a coach who left with no name on the
+/// point would read as you.
+fn news<'a>(w: &World, t: &Talk, sheet: &'a Sheet) -> Vec<&'a Point> {
     let today = w.today;
     sheet
         .points
         .iter()
         .filter(|p| p.known && p.kind.family() == Family::Event)
-        .find(|p| !w.folk.talked.remembers(today, t.id, p))
+        .filter(|p| p.kind != Kind::CoachLeft || p.get("coach").is_some())
+        .filter(|p| !w.folk.talked.remembers(today, t.id, p))
+        .collect()
 }
 
 /// Where the two of you stand, when nothing changed: a commitment, the
@@ -1627,7 +1672,7 @@ pub(crate) fn open(w: &mut World, s: &mut Scene) {
             Decider::Himself => format!("{kid} and his family sit across from you. He does the talking."),
             _ => {
                 let d = dialogue::decider_words(p);
-                format!("{kid} sits beside {}. {d} does the talking.", d.to_lowercase())
+                format!("{kid} sits beside {}. {d} {} the talking.", d.to_lowercase(), verb(d, "does", "do"))
             }
         }
     } else if t.at == Where::Campus {
@@ -1649,16 +1694,18 @@ pub(crate) fn open(w: &mut World, s: &mut Scene) {
     }
     let sheet = claims::recruit(w, t.i, t.j, t.ear);
     let mut opened = false;
-    // An opener names its event by the point's own facts: a coach who left
-    // with no name on the point would read as you.
-    if let Some(ev) = news(w, &t, &sheet).filter(|e| e.kind != Kind::CoachLeft || e.get("coach").is_some()).cloned() {
+    // He opens on the first of them he has words for; the rest wait for
+    // another talk.
+    let evs: Vec<Point> = news(w, &t, &sheet).into_iter().cloned().collect();
+    for ev in evs {
         let ff = ev.facts(&f);
         if let Some(x) = say(w, s, 2, &[format!("recruit.open.{}", ev.kind.key())], &sp, &ff) {
             s.them(&name, x, None);
+            let today = w.today;
+            w.folk.talked.note_in(today, s.id, t.id, &ev, false, "open");
             opened = true;
+            break;
         }
-        let today = w.today;
-        w.folk.talked.note(today, t.id, &ev, false, "open");
     }
     if !opened {
         let (key, ff) = history(w, &t, &sheet);

@@ -436,6 +436,8 @@ pub(crate) struct PortalOffer {
     pub bond: f64,
     pub promise: Option<u8>,
     pub called: bool,
+    /// Your case with him (what a staff sit-down on his visit adds to).
+    pub case: crate::world::folk::case::Case,
     pub visited: bool,
     pub committed: bool,
 }
@@ -474,6 +476,7 @@ pub(crate) fn portal_wants(w: &World) -> Option<PortalWants> {
                     bond: if t.contacted.is_some() { CONTACT_BOND } else { 0.0 } + super::portal::effort(t),
                     promise: t.promise.map(|p| p.0),
                     called: !t.talks.is_empty(),
+                    case: super::portal::case_now(t),
                     visited: super::portal::visited(t),
                     committed: t.committed.is_some(),
                 },

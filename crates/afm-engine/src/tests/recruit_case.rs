@@ -1,7 +1,7 @@
 //! The recruit and portal conversation on the fact sheet (talk facts lane
 //! L5; `world::folk::{case, pitch, pulls}`): the case's cap and comebacks,
 //! the talk's flow, the proof that your best talk flips only close races
-//! and none across a level, and the proof that after three talks your file
+//! and never down a level, and the proof that after three talks your file
 //! names what pulls him more often than the free guess alone, and more
 //! often the better you read people (talk facts design, section 10).
 
@@ -36,6 +36,10 @@ fn a_case_counts_each_group_once_and_comebacks_less_under_one_cap() {
     assert!(near(c.add(Group::Money, 0.02, 0.5, d), 0.01));
     assert!(near(c.add(Group::Money, 0.02, 0.25, d), 0.005));
     assert!(near(c.add(Group::Money, 0.02, 0.0, d), 0.0));
+    // A point he heard for another case (a school you left) counts in full
+    // in a case with nothing yet in its group.
+    assert!(near(c.add(Group::Home, 0.01, 0.5, d), 0.01));
+    assert!(c.has(Group::Home));
     // Every group at its best still stops at the cap.
     for g in Group::ALL {
         c.add(g, 0.03, 1.0, d);
@@ -244,20 +248,33 @@ fn a_sit_down_runs_its_exchanges_and_a_handed_one_is_the_coachs_case() {
     let s = scene::hand(&mut w, sid).unwrap();
     assert!(s.done && s.handed.is_some());
     assert!(w.folk.pulls.of(id).any(|r| r.from == pulls::Where::Staff), "the staff's rows are on his file");
+    assert!(
+        !w.folk.pulls.of(id).any(|r| r.on == today && r.from != pulls::Where::Staff),
+        "a talk you never opened puts nothing of yours on his file"
+    );
 }
 
 /// The proof the design asks for (section 10): the same recruits, the same
 /// day, your visit handed to staff against your talk at its best. Only
 /// your school's case changes, so a recruit flips only where your school
 /// and his leader were within what a case can move (the cap and the
-/// floor), and never across a level. The world: the seat test world, 120
-/// recruits, each offered by the three schools that mean nearest to what
-/// yours means to him (so most races are close), one visit each per arm (a
-/// few seconds).
+/// floor), and a talk never pulls him down a level (section 6, "How much
+/// it counts": a power school's lead over a Group of 5 school is about 0.2
+/// from the level alone). The world: the seat test world, 120 recruits,
+/// each offered by the three schools that mean nearest to what yours means
+/// to him, so most races are close and some cross a level; one visit each
+/// per arm (a few seconds).
 #[test]
-fn your_best_talk_flips_only_close_races_and_none_across_a_level() {
+fn your_best_talk_flips_only_close_races_and_never_down_a_level() {
     let (mut w, mine, kids) = recruits_with(120, true);
-    let (mut flips, mut close) = (0, 0);
+    // 0 a power school, 1 the rest of FBS, 2 FCS, 3 Division II.
+    let level = |w: &World, j: usize| match w.programs[j].division {
+        Division::FBS if w.programs[j].power_conference(w.year) => 0,
+        Division::FBS => 1,
+        Division::FCS => 2,
+        _ => 3,
+    };
+    let (mut flips, mut close, mut up) = (0, 0, 0);
     for &i in &kids {
         let before = w.people[i].cal.cases.clone();
         let s = visit(&mut w, i, mine);
@@ -276,24 +293,34 @@ fn your_best_talk_flips_only_close_races_and_none_across_a_level() {
         }
         if a != b {
             flips += 1;
-            let other = if a == mine { b } else { a };
+            println!(
+                "{}: {} (level {}) to {} (level {}), {gap:.3} apart, the talks moved {:.3}",
+                w.people[i].name,
+                w.program_name(a),
+                level(&w, a),
+                w.program_name(b),
+                level(&w, b),
+                best - handed
+            );
             assert!(
                 gap <= (best - handed).abs() + 1e-9,
                 "{} flipped across a gap of {gap:.3} that the talks moved {:.3}",
                 w.people[i].name,
                 best - handed
             );
-            assert_eq!(
-                w.programs[other].division,
-                w.programs[mine].division,
-                "{} flipped across a level ({} to {})",
+            // Toward the school his talk was better for: never a level down.
+            let (from, to) = if best > handed { (a, b) } else { (b, a) };
+            assert!(
+                level(&w, to) <= level(&w, from),
+                "{} was talked down a level ({} to {})",
                 w.people[i].name,
-                w.program_name(a),
-                w.program_name(b)
+                w.program_name(from),
+                w.program_name(to)
             );
+            up += usize::from(level(&w, to) < level(&w, from));
         }
     }
-    println!("{} recruits, {close} close races with you behind, {flips} flips", kids.len());
+    println!("{} recruits, {close} close races with you behind, {flips} flips, {up} of them up a level", kids.len());
     assert!(flips > 0, "with schools like yours on his list, your talks decide some close races");
 }
 

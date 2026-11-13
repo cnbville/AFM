@@ -1941,12 +1941,11 @@ fn portal_file(w: &World, j: usize, args: &Value) -> Reply {
                 .iter()
                 .map(|x| {
                     let place = ["A call", "At his home", "On your campus"][x.at.min(2) as usize];
-                    let how = if x.lean > 0.006 {
-                        "He leaned your way"
-                    } else if x.lean > 0.0 {
-                        "It landed, a little"
-                    } else {
-                        "It cooled him"
+                    // The talk's own words for how it ended (pitch::close).
+                    let how = match afm_engine::world::folk::pitch::mood_of(x.lean, x.at == 0) {
+                        "warm" => "He leaned your way",
+                        "flat" => "Polite, he'll think it over",
+                        _ => "It cooled him",
                     };
                     json!({ "date": short_date(x.date), "place": place, "pitch": x.pitch, "how": how })
                 })

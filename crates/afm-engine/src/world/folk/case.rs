@@ -129,11 +129,14 @@ impl Case {
     /// A point made today in group `g`, worth `lean` in full, of which
     /// `again` counts (`Talked::again`: 1 the first time or once the fact
     /// got better, a half or a quarter when you come back to one that
-    /// landed, 0 in the same talk). Returns what the total moved.
+    /// landed, 0 in the same talk). A case with nothing yet in the group
+    /// takes it in full: what he heard before went into another case (a
+    /// school you left, or a case made fresh since). Returns what the total
+    /// moved.
     pub fn add(&mut self, g: Group, lean: f32, again: f32, today: Date) -> f32 {
         let before = self.total();
         let k = g as usize;
-        if again >= 1.0 {
+        if again >= 1.0 || !self.has(g) {
             if !self.has(g) || lean > self.groups[k] {
                 self.groups[k] = lean;
                 self.made |= 1 << k;

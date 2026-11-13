@@ -117,16 +117,16 @@ We saw {name} committed to you {when}. Where does that leave us?
 You took {name}. Is there still room for us?
 {name} is coming to you. How does that change things for us?
 We noticed {name} committed. What does that mean for us?
-Another {spot} committed to you {when}. Be straight with us about where we stand.
+Be straight with us: with {name} coming, where do we stand?
 {name} picked you {when}. Do you still need us?
 
 # A coach left your staff ({coach}: the man who left; {when}).
 @key recruit.open.coach_left
 We heard {coach} is gone. What happened?
 {coach} left {when}. That changes things for us.
-Who replaces {coach}?
+Where does {coach} leaving put us?
 We liked {coach}. What happens now?
-With {coach} gone, who takes over that room?
+With {coach} gone, is the plan for us the same?
 Is it true about {coach}?
 
 # A transfer, in the weeks after he entered the portal ({when}).

@@ -481,6 +481,16 @@ fn run_visits(w: &mut World, j: usize, d: Date) {
 /// call and visit (`folk::case`; for a save from before it, the talks it
 /// kept, the latest at each place) and how your campus felt to him with
 /// the visit's own pull.
+/// Your case with him as it counts today (a save from before the case:
+/// the leans its talks kept, in no group).
+pub(crate) fn case_now(t: &super::college::PortalTarget) -> crate::world::folk::case::Case {
+    let mut c = t.case;
+    if c.is_empty() {
+        c.again = t.talks.iter().map(|x| x.lean).sum();
+    }
+    c
+}
+
 pub(crate) fn effort(t: &super::college::PortalTarget) -> f64 {
     let talks: f64 =
         if t.case.is_empty() { t.talks.iter().map(|x| x.lean as f64).sum() } else { t.case.total() as f64 };

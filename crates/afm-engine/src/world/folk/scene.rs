@@ -457,7 +457,11 @@ pub fn hand(w: &mut World, id: u32) -> Result<Scene, String> {
     }
     if !s.opened {
         s.opened = true;
-        dispatch_open(w, &mut s);
+        // A recruit talk you never opened is your staff's alone: opening it
+        // would put his first question and the news on your own file.
+        if !matches!(s.kind, Kind::HomeVisit | Kind::PortalCall | Kind::PortalVisit) {
+            dispatch_open(w, &mut s);
+        }
     }
     dispatch_hand(w, &mut s);
     s.done = true;

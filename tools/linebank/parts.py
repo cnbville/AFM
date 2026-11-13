@@ -107,7 +107,7 @@ FACT_WORDS = {
     "level, winning)", 'second': "what matters next (same list)",
     # The recruit conversation's facts (talk facts lane L5, `claims::recruit`).
     'opp': "the other team in a game, its name ('Kansas'): 'beat {opp}', 'the {opp} game'; never 'a {opp}'",
-    'score': "a game's score, winner first ('31-17')", 'when': "the day in words, with its own word: 'today', "
+    'score': "a game's score, your team's first ('31-17' in a win, '17-31' in a loss)", 'when': "the day in words, with its own word: 'today', "
     "'yesterday', 'on Saturday', 'last week', 'on October 4' ('{school} offered {when}', never 'on {when}')",
     'school': "another college's name ('Baylor')", 'spot': "a position as people say it, lower case ('receiver', "
     "'corner', 'quarterback')", 'rival_school': "a school on his list whose proof matches yours ('TCU')",

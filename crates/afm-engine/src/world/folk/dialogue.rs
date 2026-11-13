@@ -211,11 +211,22 @@ fn staff_call_case(w: &World, i: usize, j: usize, role: PlayingTime, nil: f64) -
 }
 
 /// A finalist's head coach with him at the end of his campus visit: what
-/// his sit-down adds to the staff's call (more scenes never raise the
-/// ceiling: each group counts once, under the one cap).
-pub(crate) fn staff_campus(w: &World, i: usize, j: usize, role: PlayingTime, nil: f64) -> f64 {
+/// his sit-down adds to the case before it, the staff's call or (for your
+/// program when you called him) your own case. More scenes never raise
+/// the ceiling: each group counts once, under the one cap.
+pub(crate) fn staff_campus(
+    w: &World,
+    i: usize,
+    j: usize,
+    role: PlayingTime,
+    nil: f64,
+    before: Option<&super::case::Case>,
+) -> f64 {
     use super::case;
-    let call = staff_call_case(w, i, j, role, nil);
+    let call = match before {
+        Some(c) => *c,
+        None => staff_call_case(w, i, j, role, nil),
+    };
     let back = case::transfer_backing(w, i, j, role, nil);
     let hc = w.programs[j].head_coach;
     let sit = case::one_step(

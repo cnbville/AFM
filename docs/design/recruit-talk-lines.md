@@ -24,7 +24,7 @@ Cain's gaps and where they land: a recruit's background (`recruit.bg.*`), him as
 
 ## What is live the day this merges
 
-The game already asks `portal.ask.{drive}`, `portal.tell`, `portal.react.{mood}` and `portal.promise.{kind}` (`world/folk/dialogue.rs`, D7b), so those 3,287 new versions join the existing ones the day this merges. Every other key is asked by nothing yet. Since lane L5 (2026-11-13) the conversation asks most of the `recruit.*` and `transfer.*` keys too: see "The conversation's own parts" below. A key nothing asks for costs nothing (`voice.rs` reads it and never picks it), and `tests/lines.rs` (`the_bank_reads_clean`) still rejects an unknown tag or fact in all of them.
+When this merged, the game asked `portal.ask.{drive}`, `portal.tell`, `portal.react.{mood}` and `portal.promise.{kind}` (then in `world/folk/dialogue.rs`, D7b), so those 3,287 new versions joined the existing ones that day, and every other key was asked by nothing. Since lane L5 (2026-11-13) the recruit and portal conversation (`world/folk/pitch.rs`) asks the `portal.*` keys and most of the `recruit.*` and `transfer.*` keys: see "The conversation's own parts" below. A key nothing asks for costs nothing (`voice.rs` reads it and never picks it), and `tests/lines.rs` (`the_bank_reads_clean`) still rejects an unknown tag or fact in all of them.
 
 ## Who says a line
 
