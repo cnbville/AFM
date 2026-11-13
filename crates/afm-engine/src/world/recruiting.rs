@@ -2569,13 +2569,23 @@ impl RosterRead {
     }
 }
 
+/// What a staff's roster read knows of a player's draft choice.
+#[derive(Clone, Copy, Debug)]
+enum DraftRead {
+    /// No read yet: the chances of declaring the draft itself uses for a
+    /// player at his level, from the overalls of the 64th and 138th best
+    /// players taken in the last draft (a round 1-2 or round 3-4 prospect).
+    Guess,
+    /// His December read: going (0.9) or staying (0.03, a change of mind).
+    Plan(bool),
+    /// Past the declaration deadline: still here, so he stays.
+    Settled,
+}
+
 /// The staff's read of how likely a player is to leave before a season:
 /// out of eligibility, an early NFL entrant, or a transfer out (fix list
 /// 1.2). `seasons` is what he will have used by then, `draft_year` the draft
-/// he would enter. `bars` are the overalls of the 64th and 138th best
-/// players taken in the last draft: a player at that level now is read like
-/// a round 1-2 or round 3-4 prospect, with the chances of declaring the
-/// draft itself uses; a December read (`plan`) replaces the guess.
+/// he would enter, `draft` what the staff knows of his choice (`DraftRead`).
 #[allow(clippy::too_many_arguments)]
 fn leaving(
     p: &Person,
@@ -2584,7 +2594,7 @@ fn leaving(
     draft_year: i32,
     limit: u32,
     bars: Option<(f64, f64)>,
-    plan: Option<bool>,
+    draft: DraftRead,
     portal: bool,
 ) -> f64 {
     if d == Division::JUCO {
@@ -2595,10 +2605,11 @@ fn leaving(
         return 1.0;
     }
     let early = if draft_year - p.class_of >= 3 {
-        match plan {
-            Some(true) => 0.9,
-            Some(false) => 0.03,
-            None => {
+        match draft {
+            DraftRead::Settled => 0.0,
+            DraftRead::Plan(true) => 0.9,
+            DraftRead::Plan(false) => 0.03,
+            DraftRead::Guess => {
                 let ovr = p.player.overall();
                 match bars {
                     Some((r2, _)) if ovr >= r2 => 0.85,
@@ -2629,7 +2640,10 @@ fn leaving(
 fn gone(p: &Person, d: Division, sign_year: i32, bars: Option<(f64, f64)>, read: RosterRead) -> (f64, f64) {
     let seasons = p.college_seasons + read.pending(p);
     // By February the entrants have left; those still here are staying.
-    let declared = !matches!(read.stage, SignStage::Final | SignStage::Late(_));
+    // (They used to keep a December read's 3% change of mind, about one
+    // place a roster that February and the late days signed over the
+    // limit.)
+    let settled = matches!(read.stage, SignStage::Final | SignStage::Late(_));
     let next = leaving(
         p,
         d,
@@ -2637,7 +2651,7 @@ fn gone(p: &Person, d: Division, sign_year: i32, bars: Option<(f64, f64)>, read:
         sign_year,
         super::eligibility::seasons_allowed(sign_year, d),
         bars,
-        if declared { p.cal.declare_plan } else { Some(false) },
+        if settled { DraftRead::Settled } else { p.cal.declare_plan.map_or(DraftRead::Guess, DraftRead::Plan) },
         read.portal_ahead(),
     );
     let after = leaving(
@@ -2647,7 +2661,7 @@ fn gone(p: &Person, d: Division, sign_year: i32, bars: Option<(f64, f64)>, read:
         sign_year + 1,
         super::eligibility::seasons_allowed(sign_year + 1, d),
         bars,
-        None,
+        DraftRead::Guess,
         true,
     );
     (next, 1.0 - (1.0 - next) * (1.0 - after))
