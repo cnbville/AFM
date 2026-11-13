@@ -189,6 +189,7 @@ fn watched_looks_are_the_film_and_live_ones() {
         Kind::Tryout,
         Kind::ProFilm,
         Kind::Numbers,
+        Kind::SideFilm,
     ];
     for k in Kind::ALL {
         assert_eq!(k.watched(), counted.contains(&k), "{k:?}: does a look of this kind count as watching him?");

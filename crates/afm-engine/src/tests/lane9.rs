@@ -1163,3 +1163,238 @@ fn a_transfer_has_his_old_team_s_tape_and_a_redshirt_his_high_school_s() {
     assert_eq!(tape::source(&w, i), Ok(tape::Source::Program(a)));
     assert_eq!(sc::own::film_cost(&w, id).map(|x| x.0), Ok(Kind::CollegeFilm));
 }
+
+/// A kid who pops off another man's tape comes with a read (minor bug 379,
+/// Cain 2026-11-12: he came with none, "0 idea of the attributes"; "keep
+/// it 75"): a film look in his file under your name that reads every
+/// rating film shows three quarters of the way in from the wide guess, and
+/// one catch of your eye for each rating it caught of the man you watched,
+/// on the ratings his position leans on most, sized so that your own read
+/// of it lands three quarters of the way in from his wide guess to your
+/// read of the other man's. One kid pops in the film room itself, the rest
+/// from the same watch, half of them as from the stands.
+#[test]
+fn a_kid_off_the_tape_comes_with_a_read_at_three_quarters() {
+    use crate::attributes::{ATTRIBUTE_COUNT, Attr};
+    use crate::positions::weight;
+    use crate::world::scouting::{Kind, file, yours};
+    use crate::world::season::key_uniform;
+    const { assert!(file::SIDE_SHARE == 0.75) };
+    // A world with no history has no college tape, so the man you watch
+    // and unseen pros stand in for kids nobody is recruiting, each with
+    // two seasons of snaps behind him (film at its ordinary factor).
+    fn stage(w: &mut World, id: u32) {
+        let j = sc::place(w, id).unwrap();
+        w.people[j].stage = Stage::College;
+        w.people[j].stars = 0;
+        w.people[j].college_snaps = 900;
+    }
+    let mut w = nfl_world();
+    w.set_sandbox(true);
+    let staff = readers::seat_staff(&w).unwrap();
+    let you = readers::COACH + readers::you(&w).unwrap() as u32;
+    // The man you came to see: a full tape of his.
+    let fresh: Vec<u32> = pros(&w).into_iter().filter(|&id| readers::read(&w, staff, id).is_none()).collect();
+    let on = (fresh.iter().copied())
+        .find(|&id| session::open_player(&mut w, id, tape::Cut::BestOpponent, session::Mode::Full, None).is_ok())
+        .expect("a player nobody has seen, with tape");
+    let i = sc::place(&w, on).unwrap();
+    let base = w.people[i].player.overall();
+    let stands_in = |w: &World, id: u32| {
+        sc::place(w, id).is_some_and(|j| {
+            let p = &w.people[j];
+            p.stage == Stage::Pro
+                && id != on
+                && !p.player.position.is_specialist()
+                && p.player.overall() + 3.0 >= base
+                && readers::read(w, staff, id).is_none()
+        })
+    };
+    // One man on his snaps pops in the film room itself: his draw is under
+    // the chance a whole cut-up gives (0.3).
+    let d = w.today;
+    let mut field: Vec<u32> =
+        w.scouting.film.open.as_ref().unwrap().snaps.iter().flat_map(|sn| sn.others.iter().copied()).collect();
+    field.sort_unstable();
+    field.dedup();
+    let through = (field.iter().copied())
+        .find(|&id| {
+            stands_in(&w, id)
+                && key_uniform(w.options.seed as u64 ^ 0x9095 ^ (d.0 as u64) << 20, id as u64 ^ (on as u64) << 32)
+                    < 0.25
+        })
+        .expect("a man on his snaps whose draw pops");
+    stage(&mut w, on);
+    stage(&mut w, through);
+    let said = session::run_through(&mut w).unwrap();
+    assert!(w.scouting.film.finds.iter().any(|f| f.id == through && f.on == on), "he popped in the film room: {said}");
+    let report = w.scouting.film.reports.last().unwrap();
+    assert!(report.caught.iter().any(|l| l.contains("first read of him")), "the report says so: {:?}", report.caught);
+    let caught: Vec<fm::Catch> = w.scouting.film.catches.iter().filter(|c| c.id == on).copied().collect();
+    let mut eyed: Vec<u8> = caught.iter().filter(|c| c.by == 0).map(|c| c.attr).collect();
+    eyed.sort_unstable();
+    eyed.dedup();
+    assert!(eyed.len() >= 4, "your eye caught some of his ratings: {}", eyed.len());
+    // More kids on the field with him, for the same watch.
+    let kids: Vec<u32> = w.people.iter().map(|p| p.player.id).filter(|&id| stands_in(&w, id)).take(60).collect();
+    assert!(kids.len() >= 20, "kids to pop: {}", kids.len());
+    for &id in &kids {
+        stage(&mut w, id);
+    }
+    let eye = yours::your_eye(&w).unwrap();
+    let games = yours::cut_ups(&w, on).0;
+    // Your read of the man you watched from this watch alone, the tightest
+    // first: your eye's catches (not your analyst's) joined with a film
+    // look a game on tape, or with the trip's look in person from the
+    // stands.
+    let wide_on = file::GUESS_SD * file::visibility(&w, i);
+    let all = w.scouting.film.catches.clone();
+    w.scouting.film.catches.retain(|c| c.id != on || c.by == 0);
+    let his_read = |w: &World| {
+        let sr = readers::read(w, staff, on).unwrap();
+        let r = yours::own_read(w, staff, on, Some(&sr.2)).unwrap();
+        let mut v: Vec<f64> = eyed.iter().map(|&k| r.attrs[k as usize].unwrap().1).collect();
+        v.sort_by(f64::total_cmp);
+        assert!(v.iter().all(|&g| g < wide_on));
+        (v, r.looks)
+    };
+    let (gave_tape, looks) = his_read(&w);
+    assert_eq!(looks, games, "a look a game");
+    let tape_kind = w.scouting.dept.looks[&on][0].kind;
+    w.scouting.dept.looks.get_mut(&on).unwrap()[0].kind = Kind::Game;
+    for r in w.scouting.film.reports.iter_mut().filter(|r| r.target == fm::Target::Player(on)) {
+        r.mode = session::Mode::Live;
+    }
+    let (gave_live, looks) = his_read(&w);
+    assert_eq!(looks, 1, "the trip's look");
+    w.scouting.dept.looks.get_mut(&on).unwrap()[0].kind = tape_kind;
+    for r in w.scouting.film.reports.iter_mut().filter(|r| r.target == fm::Target::Player(on)) {
+        r.mode = session::Mode::Full;
+    }
+    w.scouting.film.catches = all;
+    let mut popped = vec![(through, false)];
+    for (n, &id) in kids.iter().enumerate() {
+        let live = n % 2 == 1;
+        let gave = fm::finds::Watch { caught: &caught, games, live };
+        if let Some(said) = fm::finds::pop(&mut w, on, &[id], session::CUT_SNAPS, eye, &gave) {
+            assert!(said.contains("first read of him"), "{said}");
+            popped.push((id, live));
+        }
+    }
+    let from_stands = popped.iter().filter(|p| p.1).count();
+    assert!(from_stands >= 1 && popped.len() - from_stands >= 2 && popped.len() <= kids.len(), "{popped:?}");
+    for &(id, live) in &popped {
+        let gave = if live { &gave_live } else { &gave_tape };
+        let j = sc::place(&w, id).unwrap();
+        let pos = w.people[j].player.position;
+        let wide = file::GUESS_SD * file::visibility(&w, j);
+        assert!(w.scouting.dept.my_players.iter().any(|f| f.id == id), "on My players");
+        // His file: one look under your name, of another man's tape, and
+        // a range on every rating today.
+        let looks = &w.scouting.dept.looks[&id];
+        assert_eq!(looks.len(), 1);
+        assert_eq!((looks[0].who, looks[0].kind, looks[0].date), (you, Kind::SideFilm, w.today));
+        let (rds, _, side) = readers::read(&w, staff, id).expect("a read of him today");
+        assert!(side.attrs.iter().all(|a| a.range().is_some()), "a range on every rating");
+        let me = rds.iter().position(|r| r.link == file::Link::You).expect("you read him");
+        // Your own read: every rating, and one catch for each rating your
+        // eye caught of the man you watched, on what his position leans on.
+        let mine = yours::own_read(&w, staff, id, Some(&side)).expect("your own read");
+        assert!(mine.attrs.iter().all(Option::is_some) && mine.looks == 1);
+        let his: Vec<fm::Catch> = w.scouting.film.catches.iter().filter(|c| c.id == id).copied().collect();
+        assert!(!his.is_empty() && his.len() <= eyed.len(), "{} catches from {} ratings", his.len(), eyed.len());
+        assert!(his.iter().all(|c| c.by == 0 && c.key == 0 && c.game == 0 && c.lean > 0.0));
+        let least = his.iter().map(|c| weight(pos, Attr::ALL[c.attr as usize])).fold(f64::MAX, f64::min);
+        assert!(least > 0.0, "ratings his position plays with");
+        let took: Vec<u8> = his.iter().map(|c| c.attr).collect();
+        // For the measure: the look alone, then the same look at his own
+        // tape (the world is put back after).
+        w.scouting.film.catches.retain(|c| c.id != id);
+        let bare = yours::own_read(&w, staff, id, Some(&side)).unwrap();
+        w.scouting.dept.looks.get_mut(&id).unwrap()[0].kind = session::film_kind(&w, j);
+        let (rds_o, _, full) = readers::read(&w, staff, id).unwrap();
+        let without = yours::own_read(&w, staff, id, Some(&full)).unwrap();
+        w.scouting.dept.looks.get_mut(&id).unwrap()[0].kind = Kind::SideFilm;
+        w.scouting.film.catches.extend(his.iter().copied());
+        let me_o = rds_o.iter().position(|r| r.link == file::Link::You).unwrap();
+        let mut seen = 0;
+        for k in 0..ATTRIBUTE_COUNT {
+            let (Some(s), Some(f)) = (side.per_reader[me][k], full.per_reader[me_o][k]) else {
+                assert_eq!(side.per_reader[me][k].is_some(), full.per_reader[me_o][k].is_some());
+                continue;
+            };
+            seen += 1;
+            // Three quarters of the way in from the wide guess, never
+            // tighter than his own tape (to a thousandth: the file's
+            // `MIX_SD` is rounded to four places).
+            let want = f.1 + (1.0 - file::SIDE_SHARE) * (wide - f.1).max(0.0);
+            assert!((s.1 - want).abs() < 1e-3, "{:?}: {} against {want} (his own tape {})", Attr::ALL[k], s.1, f.1);
+            assert!(s.1 >= f.1);
+        }
+        assert!(seen >= 20, "film shows most of him: {seen}");
+        // Where he could get to: the same three quarters of the way in
+        // from no look at all, so less sure than from his own tape.
+        let unseen = (3.0 + 7.0 * crate::development::potential_plasticity(w.people[j].player.age)) * 1.6 * wide
+            / file::GUESS_SD;
+        let want = full.ceiling.1 + (1.0 - file::SIDE_SHARE) * (unseen - full.ceiling.1);
+        assert!(unseen > full.ceiling.1 && (side.ceiling.1 - want).abs() < 1e-3, "{} against {want}", side.ceiling.1);
+        // No character read from a tape you watched for someone else.
+        assert!(side.traits.iter().all(|t| !t.seen) && full.traits.iter().any(|t| t.seen));
+        // The ratings his look shows, heaviest at his position first, take
+        // the other man's ratings, tightest first: your read of each lands
+        // three quarters of the way in from his wide guess to your read of
+        // the other man's.
+        let mut order: Vec<Attr> = (Attr::ALL.iter().copied())
+            .filter(|&a| weight(pos, a) > 0.0 && side.per_reader[me][a.index()].is_some())
+            .collect();
+        order.sort_by(|a, b| weight(pos, *b).total_cmp(&weight(pos, *a)).then(a.index().cmp(&b.index())));
+        let mut landed = 0;
+        for (a, &theirs) in order.iter().zip(gave) {
+            let k = a.index();
+            if !took.contains(&(k as u8)) {
+                continue;
+            }
+            landed += 1;
+            let want = theirs + (1.0 - file::SIDE_SHARE) * (wide - theirs).max(0.0);
+            let got = mine.attrs[k].unwrap().1;
+            assert!((got - want).abs() < 1e-3, "{a:?}: {got} against {want} (the other man's {theirs})");
+            // It narrows your read of the rating, the look alone less.
+            assert!(got < bare.attrs[k].unwrap().1 - 1e-6, "{a:?}");
+        }
+        assert_eq!(landed, his.len(), "every catch on a rating in its turn");
+        // What your eye didn't catch reads as the look alone does.
+        for k in (0..ATTRIBUTE_COUNT).filter(|k| !took.contains(&(*k as u8))) {
+            assert_eq!(mine.attrs[k].unwrap().1, bare.attrs[k].unwrap().1, "{:?}", Attr::ALL[k]);
+        }
+        let mean = |r: &yours::OwnRead, ks: &[u8]| {
+            ks.iter().map(|&k| r.attrs[k as usize].unwrap().1).sum::<f64>() / ks.len().max(1) as f64
+        };
+        eprintln!(
+            "{:?} off the {}: wide guess {wide:.1}; your look's read {:.1} (his own tape {:.1}); your own read on the {} ratings caught {:.1} (the look alone {:.1}, his own tape's look {:.1})",
+            pos,
+            if id == through {
+                "tape, in the film room"
+            } else if live {
+                "stands"
+            } else {
+                "tape"
+            },
+            (0..ATTRIBUTE_COUNT).filter_map(|k| side.per_reader[me][k]).map(|x| x.1).sum::<f64>() / seen as f64,
+            (0..ATTRIBUTE_COUNT).filter_map(|k| full.per_reader[me_o][k]).map(|x| x.1).sum::<f64>() / seen as f64,
+            took.len(),
+            mean(&mine, &took),
+            mean(&bare, &took),
+            mean(&without, &took),
+        );
+    }
+    eprintln!(
+        "the man you watched ({games} games): wide guess {wide_on:.1}; your own read on the {} ratings caught {:.1} on tape, {:.1} from the stands",
+        eyed.len(),
+        gave_tape.iter().sum::<f64>() / gave_tape.len() as f64,
+        gave_live.iter().sum::<f64>() / gave_live.len() as f64
+    );
+    // A kid pops once: he is on My players now.
+    let ids: Vec<u32> = popped.iter().map(|p| p.0).collect();
+    let gave = fm::finds::Watch { caught: &caught, games, live: false };
+    assert!(fm::finds::pop(&mut w, on, &ids, session::CUT_SNAPS, eye, &gave).is_none());
+}

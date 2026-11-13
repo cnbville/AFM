@@ -6,6 +6,7 @@ About 100,000 new versions for the game's talks (Cain 2026-11-07, "yes on all" t
 
 - `parts.py`: every part the run fills (who says it, its facts and when-checks, what it is, its length) and the split: each family's total and, inside it, the groups the proposal names, each filled thinnest first to an even count. `python3 parts.py` prints the split.
 - `check.py`: the checker, every rule from lane 13's tools in one place and strict (a line that breaks one is dropped and its part asks again): the format, tags and facts each part's speaker can have, when-checks, tags that never meet, level words against the levels a line is said at, family, spouses, days, swearing, talking back without `brash` (and never in high school), era tags, names that read wrong at a level ("the {them}" off the NFL, "a {team}"), exact and near repeats (75% shared words) against the bank and the run, and each two-word opening at most 1 in 20 of a part. `python3 check.py --bank` runs the rules over today's bank (no repeat checks) to show how strict they are: 1-8% of today's kept lines would be dropped, most of them real (tags that never fit, days, family, a level's words on an untagged line).
+- Held lines (talk facts lane L2): a one-on-one line that denies or admits something about his own conduct ("I've done nothing wrong", "I know I messed up") carries `blameless=yes` or `at_fault=yes`, facts nothing sets yet, so the game does not say it until the talks' fact sheet backs it. `check.py` drops a new `talk.` line that says one of the blatant forms (`CLAIM`) and rejects either fact on a writer's line; `python3 check.py --bank` allows them on the bank's own.
 - `run.py`: the run. `briefs/`: the general rules (`rules.md`), one brief per family and the checker's (`checker.md`).
 - `bank.py`: the bank's files, tag and fact words, and the parsing every tool shares.
 
@@ -30,6 +31,17 @@ Each round sends one write batch (one part per request, up to 120 versions, at m
 **Money.** Every batch's usage is added up at its model's batch price (Sonnet 5.5 $1 in and $5 out per million tokens, Haiku 5.5 $0.05 and $0.25; `MODELS` in `run.py`). Before a batch goes out, its worst case (every request writing to its token limit) must fit under the cap (`--cap`, $40 by default, $3 for the pilot), or the batch is trimmed; the run keeps $2 for the last checker pass. The key itself is capped at $45 in the Console.
 
 **State** lives in `/mnt/project-files/afm/line-bank-api/run/` (`--state`): `state.json` (batch ids, spend, counts, and which step each batch has reached), `pool/<part>.txt` (kept lines), `replies/<batch>.jsonl` (each batch's replies), `kept/<batch>.json` (a write batch's lines that passed the code check), `dropped/<batch>-code.tsv` and `-checker.tsv` (every dropped line and why), `log.txt` and `report.md` (counts, keep rate, cost and sample lines per part). Every step is saved before the next, so a run that stops anywhere (a machine restart) picks up where it was: `run.py run` first finishes any batch in flight and any lines not yet checked or pooled, and adds nothing twice.
+
+## The recruiting talks job (2026-11-12)
+
+A second job on the same machinery (Cain: 20,000 versions for the recruiting one-on-ones): `recruit20k.py` holds its 96 parts and targets, `briefs/recruittalks.md` its rules, and `run.py --job recruit20k` runs it into its own state folder (`/mnt/project-files/afm/line-bank-api/recruit20k/`) and its own file, `crates/afm-engine/data/lines/recruit_talks_run.txt` (`merge` writes only that file for a job). The family is `recruittalks`; its speaker is the union `recruit` (`parts.py`: both sides' tags; a line tagged for one side is said only by that side, an untagged line by both). Differences from the first run:
+
+- Parts carry facets (`FACETS` in `recruit20k.py`): each request covers three of them, 60 lines at most, so a narrow part does not come back as near copies.
+- A `--parts key:count,...` run fills only those parts (their pool counts against the given count): use it to aim a round at parts that are still empty, since a cap-trimmed round otherwise takes the biggest shortfalls first.
+- `check.py` adds: no untagged we, us or our, no coach names, no tag word written into a line, and one key phrase never used as a refrain (a phrase shared by too many lines of a part).
+- A level never reaches this family: the tag `college` means the transfer side, and the level-word rules are off for it.
+- The worst case of a round has to fit under `--cap` minus $2, so a round trimmed by the cap is the last; start `run` again to continue. The cost came to $10.92 for 12,253 versions (`docs/design/recruit-talk-lines.md`).
+- `python3 recruit20k.py --doc <path>` writes the part list (who says each key, what it takes as true, its facts).
 
 ## After the run
 
