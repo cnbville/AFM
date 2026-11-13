@@ -20,9 +20,15 @@
 //! - ahead (CAL7): the next four dates that matter, each with its countdown
 //!   and the one number that counts.
 //!
+//! - roster notes (playtest bug 8, `notes.rs`): a plain sentence on each date
+//!   that moves players on or off your roster or changes a class, read from
+//!   the year's dates and rule book, in the day panel.
+//!
 //! Everything is read from the calendar, the rule books, your training week,
 //! your season page and your desk: nothing new is stored. Room is left for
 //! more kinds of line (lanes to come add track meets and film time).
+
+mod notes;
 
 use std::collections::HashMap;
 
@@ -324,6 +330,8 @@ enum K {
     Team,
     Media,
     World,
+    /// A roster note under a line the day already has (day panel only).
+    Note,
 }
 
 impl K {
@@ -335,6 +343,7 @@ impl K {
             K::Team => "t",
             K::Media => "m",
             K::World => "w",
+            K::Note => "n",
         }
     }
     fn in_cell(self) -> bool {
@@ -518,6 +527,7 @@ fn lines_on(
     yours: &dyn Fn(&Event) -> bool,
     my_slot: &dyn Fn(&Event) -> bool,
     full: bool,
+    notes: &[notes::Hit],
 ) -> Vec<Line> {
     let mut out: Vec<Line> = Vec::new();
     if let Some(g) = game {
@@ -637,6 +647,31 @@ fn lines_on(
             sub: s.place.clone(),
             go: Some(json!({ "screen": "people_scene", "label": "The room", "id": s.id })),
             act: waiting.then(|| json!({ "label": "Open the talk", "scene": s.id })),
+        });
+    }
+    // What the day does to a roster (playtest bug 8): a line of its own where
+    // the day had none, else a sentence under the line it explains.
+    for h in notes.iter().filter(|h| h.date == d) {
+        let minute = h.at.map(|m| w.local(m).minute as u32);
+        out.push(match h.line {
+            Some((title, k)) => Line {
+                k,
+                minute,
+                short: title.to_string(),
+                full: title.to_string(),
+                sub: h.text.clone(),
+                go: None,
+                act: None,
+            },
+            None => Line {
+                k: K::Note,
+                minute,
+                short: String::new(),
+                full: h.text.clone(),
+                sub: String::new(),
+                go: None,
+                act: None,
+            },
         });
     }
     out
@@ -848,7 +883,10 @@ fn phases(
                     if d >= y.combine_start && d <= y.combine_end {
                         n = "Combine";
                         l = 2;
-                    } else if d > y.combine_end && d < y.league_year.date {
+                    } else if d >= y.tag_window_open && d <= y.tag_deadline.date {
+                        // The window the tags can be placed in (playtest bug
+                        // 8): it opens before the combine and closes on the
+                        // deadline, not after it.
                         n = "Tags";
                         l = 2;
                     } else if d >= y.league_year.date && d < f.phase1 {
@@ -1066,6 +1104,32 @@ fn week_row(
     json!({ "big": big, "a": a, "b": plan.unwrap_or_default(), "now": now, "monday": iso(monday) })
 }
 
+/// The roster notes that fall in [from, to) at your level (playtest bug 8):
+/// every football year the span touches, from its own dates and rule book.
+fn roster_notes(w: &World, me: Option<TeamRef>, lv: Lv, from: Date, to: Date, ys: &mut Years) -> Vec<notes::Hit> {
+    let mut out = Vec::new();
+    for yr in (from.year() - 1)..=to.year() {
+        let y = ys.get(yr).clone();
+        let hs = match me {
+            Some(TeamRef::HighSchool(h)) => w.high_schools.get(h).and_then(|x| w.states.get(x.state)).map(|st| {
+                let first_game = afm_engine::world::hs_year::state_season_dates(&st.code, yr).0;
+                let earliest = w
+                    .states
+                    .iter()
+                    .map(|s| afm_engine::world::hs_year::state_season_dates(&s.code, yr).0)
+                    .min()
+                    .unwrap_or(y.hs_school_start);
+                notes::Hs { first_game, class_day: afm_engine::world::hs_year::class_day(y.hs_school_start, earliest) }
+            }),
+            _ => None,
+        };
+        out.extend(
+            notes::all(&y, &w.changes.rules(yr), lv, hs.as_ref()).into_iter().filter(|h| h.date >= from && h.date < to),
+        );
+    }
+    out
+}
+
 /// The board.
 fn board(w: &World, args: &Value) -> Value {
     let picked = args.get("day").and_then(Value::as_str).and_then(parse_day);
@@ -1151,13 +1215,14 @@ fn board(w: &World, args: &Value) -> Value {
     let yours = views::yours_test(w);
     let my_slot = views::my_slot_test(w);
     let game_on = |d: Date| games.iter().find(|g| g.date == d);
+    let roster_notes = roster_notes(w, me, lv, start, grid_end, &mut ys);
     let mut weeks = Vec::new();
     let mut days = Vec::new();
     let mut d = start;
     while d < grid_end {
         weeks.push(week_row(w, lv, d, &games, &fixed, st.as_ref(), &phase_on(d), &mut ys));
         for _ in 0..7 {
-            let mut lines: Vec<Line> = lines_on(w, d, lv, game_on(d), &fixed, &yours, &my_slot, false);
+            let mut lines: Vec<Line> = lines_on(w, d, lv, game_on(d), &fixed, &yours, &my_slot, false, &roster_notes);
             lines.retain(|l| l.k.in_cell());
             lines.sort_by_key(|l| l.k);
             let n = lines.len();
@@ -1181,7 +1246,7 @@ fn board(w: &World, args: &Value) -> Value {
     } else {
         first
     });
-    let mut rows = lines_on(w, pick, lv, game_on(pick), &fixed, &yours, &my_slot, true);
+    let mut rows = lines_on(w, pick, lv, game_on(pick), &fixed, &yours, &my_slot, true, &roster_notes);
     if let Some(st) = st.as_ref()
         && let Some(p) = practice_line(w, st, pick)
     {
@@ -1214,7 +1279,7 @@ fn board(w: &World, args: &Value) -> Value {
         "rows": rows.iter().map(|l| json!({
             "time": l.minute.map_or("All day".to_string(), hhmm),
             "k": l.k.key(),
-            "label": match l.k { K::Game => "Game", K::You => "Needs you", K::Rec => if lv == Lv::Nfl { "Scouting" } else { "Recruiting" }, K::Team => "Team", K::Media => "Media", K::World => "The world" },
+            "label": match l.k { K::Game => "Game", K::You => "Needs you", K::Rec => if lv == Lv::Nfl { "Scouting" } else { "Recruiting" }, K::Team => "Team", K::Media => "Media", K::World => "The world", K::Note => "Roster" },
             "t": l.full, "s": l.sub, "go": l.go, "act": l.act,
         })).collect::<Vec<_>>(),
         "past": pick < w.today,

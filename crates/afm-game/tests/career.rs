@@ -164,6 +164,41 @@ fn a_college_career_plays_through_its_first_games() {
     let played = |d: &Value| d["game"] == true && d["res"].as_str().is_some_and(|r| r.starts_with(['W', 'L', 'T']));
     assert!(days.iter().chain(before["days"].as_array().unwrap()).any(played), "a played game shows its result");
     assert!(ok(&mut g, "calendar_board", json!({ "month": cal["next"] }))["title"] != cal["title"]);
+    // Roster notes (playtest bug 8): the day the class years move up is a line
+    // of its own, signing day carries its sentence as a Roster row, and the
+    // numbers in a sentence are the rule book's.
+    {
+        use afm_engine::calendar::{Date, YearDates, anchors::eligibility_day};
+        let year: i32 = cal["today"].as_str().unwrap()[..4].parse().unwrap();
+        let iso = |d: Date| {
+            let (y, m, dd) = d.parts();
+            format!("{y:04}-{m:02}-{dd:02}")
+        };
+        let y = YearDates::new(year);
+        let board = ok(&mut g, "calendar_board", json!({ "day": iso(eligibility_day(year)) }));
+        let rows = board["day"]["rows"].as_array().unwrap();
+        assert!(
+            rows.iter().any(|r| r["t"] == "Class years move up"
+                && r["s"].as_str().is_some_and(|s| s.contains("his class moves up a year"))),
+            "{board}"
+        );
+        assert!(
+            board["days"].as_array().unwrap().iter().any(|d| d["iso"] == board["day"]["iso"]
+                && d["lines"].as_array().unwrap().iter().any(|l| l["t"] == "Class years move up")),
+            "the month cell shows the line"
+        );
+        let signing = ok(&mut g, "calendar_board", json!({ "day": iso(y.signing_day) }));
+        let rows = signing["day"]["rows"].as_array().unwrap();
+        assert!(
+            rows.iter().any(|r| r["k"] == "n"
+                && r["label"] == "Roster"
+                && r["t"].as_str().is_some_and(|t| t.contains("Committed recruits sign"))),
+            "{signing}"
+        );
+        // A note never reaches the month cell when a line is already there.
+        let cell = signing["days"].as_array().unwrap().iter().find(|d| d["iso"] == signing["day"]["iso"]).unwrap();
+        assert!(cell["lines"].as_array().unwrap().iter().all(|l| l["k"] != "n"), "{cell}");
+    }
     assert!(!ok(&mut g, "search", json!({ "q": "test coach" }))["coaches"].as_array().unwrap().is_empty());
     // Every name a line names is a link (L2), and the parts rebuild the line.
     let parts_of = |x: &Value| -> Vec<Value> {
@@ -466,6 +501,35 @@ fn a_college_career_plays_through_its_first_games() {
     }
     let game = ok(&mut g, "game", json!({ "index": 0 }));
     assert!(game["plays"].as_array().unwrap().len() > 60, "a whole high school game's plays");
+    // Roster notes at a high school (playtest bug 8): the school year's start
+    // says what moves up, and June 15 is a line of its own.
+    {
+        use afm_engine::world::hs_year::transfer_day;
+        let cal = ok(&mut g, "calendar_board", json!({}));
+        let year: i32 = cal["today"].as_str().unwrap()[..4].parse().unwrap();
+        let (_, m, d) = transfer_day(year).parts();
+        let day = ok(&mut g, "calendar_board", json!({ "day": format!("{year:04}-{m:02}-{d:02}") }));
+        assert!(
+            day["day"]["rows"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|r| r["t"] == "Transfer day"
+                    && r["s"].as_str().is_some_and(|s| s.contains("transfer between schools"))),
+            "{day}"
+        );
+        let start = afm_engine::calendar::YearDates::new(year).hs_school_start;
+        let (_, m, d) = start.parts();
+        let day = ok(&mut g, "calendar_board", json!({ "day": format!("{year:04}-{m:02}-{d:02}") }));
+        assert!(
+            day["day"]["rows"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|r| r["k"] == "n" && r["t"].as_str().is_some_and(|t| t.contains("grade moves up a year"))),
+            "{day}"
+        );
+    }
     let sched = ok(&mut g, "schedule", json!({}));
     assert!(sched["rows"].as_array().unwrap().iter().any(|x| x["result"]["us"].is_number()), "{sched}");
     assert!(!ok(&mut g, "standings", json!({}))["groups"].as_array().unwrap().is_empty());
