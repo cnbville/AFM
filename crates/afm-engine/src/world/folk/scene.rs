@@ -162,6 +162,50 @@ pub struct Pick {
     pub tone: String,
     pub hint: String,
     pub code: u32,
+    /// The talking point it stands on: its kind's key (`claims::Kind::key`,
+    /// talk facts design, section 14). Empty on a plain pick.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub point: String,
+    /// What picking it does to the talk.
+    #[serde(skip_serializing_if = "PickKind::is_plain")]
+    pub kind: PickKind,
+}
+
+/// What picking an option does to the talk (talk facts design, section 14;
+/// a name shared with the live talks plan).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PickKind {
+    /// An answer: it uses an exchange of the talk.
+    #[default]
+    Plain,
+    /// It uses no exchange (asking what he is looking for).
+    Free,
+    /// It moves around the talk ("bring up something else", back). A typed
+    /// line is never read as one.
+    Nav,
+    /// It can't be undone (a firing, a release, a ruling): a typed line
+    /// that reaches it is asked about first.
+    Final,
+}
+
+impl PickKind {
+    pub fn is_plain(&self) -> bool {
+        *self == PickKind::Plain
+    }
+}
+
+impl Pick {
+    /// The same pick, standing on a talking point (its kind's key).
+    pub fn on(mut self, point: &str) -> Pick {
+        self.point = point.to_string();
+        self
+    }
+    /// The same pick, of a kind.
+    pub fn of(mut self, kind: PickKind) -> Pick {
+        self.kind = kind;
+        self
+    }
 }
 
 /// A table beside a scene (a report): column heads and rows of cells with
@@ -217,6 +261,11 @@ pub struct Scene {
     /// stop).
     #[serde(default)]
     pub minute: Option<u16>,
+    /// The options behind "bring up something else" (talk facts design,
+    /// section 14): a talk shows a few answers at a time and keeps the
+    /// rest here, so a typed line can reach every one of them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reach: Vec<Pick>,
 }
 
 impl Scene {
@@ -243,6 +292,7 @@ impl Scene {
             f: [0.0; 4],
             team: None,
             minute: None,
+            reach: Vec::new(),
         }
     }
 
@@ -259,11 +309,19 @@ impl Scene {
         self.lines.push(Said { by: 3, name: name.to_string(), text: text.into(), tell: None, went: None });
     }
     pub fn pick(&mut self, code: u32, label: impl Into<String>, mv: &str, tone: &str, hint: &str) {
-        self.picks.push(Pick { label: label.into(), mv: mv.into(), tone: tone.into(), hint: hint.into(), code });
+        self.picks.push(Pick {
+            label: label.into(),
+            mv: mv.into(),
+            tone: tone.into(),
+            hint: hint.into(),
+            code,
+            ..Pick::default()
+        });
     }
     pub fn end(&mut self) {
         self.done = true;
         self.picks.clear();
+        self.reach.clear();
     }
 }
 

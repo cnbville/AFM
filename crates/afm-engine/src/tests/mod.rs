@@ -4,6 +4,7 @@
 mod assignments;
 mod bodies;
 mod carousel;
+mod claims;
 mod coaching_people;
 mod compact;
 mod decide;

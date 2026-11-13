@@ -86,8 +86,10 @@ const BANKS: &[&str] = &[
 ];
 
 /// The facts that gate a line which denies (`blameless`) or admits
-/// (`at_fault`) something about the speaker's own conduct. Nothing sets them
-/// today, so those lines are held back until the talks can check the facts.
+/// (`at_fault`) something about the speaker's own conduct. The fact sheet
+/// sets one when the world backs it (`claims::Sheet::fill_conduct`); no talk
+/// calls that yet, so those lines are held back until the talks read the
+/// sheet.
 pub const CLAIM_FACTS: [&str; 2] = ["blameless", "at_fault"];
 
 #[derive(Clone, Debug)]
