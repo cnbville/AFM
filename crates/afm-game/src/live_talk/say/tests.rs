@@ -311,9 +311,11 @@ fn with_no_key_there_is_no_box() {
     // The chips play as ever.
     assert!(ok(&mut g, "people_answer", json!({ "id": id, "code": 60 }))["lines"].is_array());
     // The later lanes' commands answer plainly until they are filled.
-    for cmd in ["talk_typed", "fo_say", "fo_fact", "scout_source"] {
+    for cmd in ["fo_say", "fo_fact", "scout_source"] {
         assert_eq!(g.call(cmd, &json!({})), Err(crate::live_talk::NOT_YET.into()), "{cmd}");
     }
+    // The room's box (lane 5) answers for its own room: closed when there is no game today.
+    assert!(g.call("talk_typed", &json!({ "moment": "pregame", "text": "Go." })).is_err());
     for kind in crate::live_talk::ask::KINDS {
         assert_eq!(g.call("ai_ask", &json!({ "kind": kind })), Err(crate::live_talk::NOT_YET.into()), "{kind}");
     }

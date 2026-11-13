@@ -1,6 +1,6 @@
 # Live talks: how it works today
 
-Checked against main at 7691db7 on 2026-11-13 (lane 2, the boxes, before it merged to main; lane 1 is on main since #314), and lane 3, the core, over main c04c172 on 2026-11-13, before it merged. Lanes 4 to 10 are not built yet: their sections below are empty until each lane fills its own.
+Checked against main at 7691db7 on 2026-11-13 (lane 2, the boxes, before it merged to main; lane 1 is on main since #314), and lane 3, the core, over main c04c172 on 2026-11-13, before it merged. Lane 5 (rooms on today's choices) was built over main 695d72d on 2026-11-13, before it merged. Lanes 4 and 6 to 10 are not built yet: their sections below are empty until each lane fills its own.
 
 Live talks are typed lines to your players, recruits and staff, answered in character by Claude Haiku 5.5, on top of the chips and the line bank, which always still work. The rule under all of it: the AI only reads your words and writes theirs; the game decides every result. The design is `afm/live-talks/proposal.md` in the project folder; this page says what the code does.
 
@@ -24,6 +24,7 @@ Live talks are typed lines to your players, recruits and staff, answered in char
 - Can a typed line fire a coach without asking? No. A pick that can't be undone comes back as one reading to confirm, and `scene::say` refuses it unconfirmed (`world/folk/finals.rs`; `scene.rs`, `asks_first`).
 - What if the AI fails mid-talk? The box hides and the chips go on; if the writer fails, the bank's line shows (`live_talk/say/mod.rs`, `reader_step`, `writer_step`).
 - Is "you're my starter" typed to your player checked against the depth chart? No: players never see the chart. It is heard as a promise about what he'll see and handed to the seam lane P1 fills (`world/folk/claims/truth.rs`, `standing_promise`; `talks.rs`, `typed_promise`).
+- Can I type a team talk before kickoff or at halftime? Yes, through `talk_typed`, which reads your line into the room's own move, tone, subject and who and runs the chip's command. A pregame talk can be changed until the team is on the field; the halftime talk always shows its reading first and is said once (`live_talk/say/rooms.rs`).
 - Is a lie judged? Not yet: the lies store and its daily check exist, and judging costs nothing until lane P1 fills it (`world/folk/claims/truth.rs`, `judge`).
 
 ## The contract with the screens
@@ -211,7 +212,31 @@ Not built yet.
 
 ## Lane 5, rooms on today's choices
 
-Not built yet.
+Built 2026-11-13 over main 695d72d (no engine edit; the engine side is two test files). It covers three rooms: the parent's call (LT4), discipline (LT5) and the pregame and halftime talk (LT6). The first two take a typed line through the core's generic path and only needed proof; the third is not a scene and has its own command.
+
+### The parent's call and discipline (proof only)
+
+- The parent's call (`talks.rs`, `parent_open`, picks 300 to 303) takes a typed line with the core's box. None of its four picks asks first. A typed line equals the chip: the same world after, the typed words aside. A promise of snaps (302) is logged once, whether or not the reader also labelled a promise (`tests/live_rooms.rs` in the engine: `the_parents_call_takes_a_typed_line_and_asks_nothing_first`, `a_typed_promise_to_a_parent_is_logged_once`).
+- Discipline (`rules.rs`, `violation_open`) offers by level: the NFL has a warning, a fine, a game's deactivation, a two-week suspension, a six-week suspension and a release (500, 501, 503, 504, 507, 505); college and high school have a warning, running, benching for the start, sitting a game, a two-game suspension and a dismissal (500, 502, 506, 503, 504, 505); a leadership council adds 508 at every level. The warning is free, and every ruling above it asks first: a typed line on it is refused until you confirm, and the refusal changes nothing. Confirmed, it equals the chip for each level and for the council (same tests: `discipline_offers_each_levels_rulings_and_asks_first_above_a_warning`, `a_typed_ruling_is_the_clicked_one_after_it_asks`, `the_council_decides_the_same_whether_you_type_or_click`, `a_typed_warning_needs_no_asking`).
+
+### The pregame and halftime room (LT6)
+
+- The room is not a scene. A `talk_room` reply that is still to choose (`status` "choose", with its `moment`) carries `say {cmd: "talk_typed", args: {moment}, limit: 400}` when a key is usable. A room you have said (`status` "said") or a team already on the field carries none (`say/rooms.rs`, `flag`).
+- `talk_typed {moment, text}` checks the room is open with the room's own rules: the pregame room opens on game day and closes when the team is on the field; the halftime room opens at the half stop and only while no talk was given (`lane_gameday/talk.rs`, `typed_room`). It builds the reader's card from what the room shows you: the setting, the nine moves with a few words each, the subjects offered today (seniors only when the room offers them), and the people a line may name: the captains, then the man who is out and the men who play, up to the room's own 26 (`say/rooms.rs`, `card_text`; `talk.rs`, `typed_of`). It has its own reader rules and schema, label `room_reader` (Haiku 5.5, at most 400 tokens): a move, a tone, a subject, who, a fit (clear, unsure, not a line) and a close second move when unsure (`rooms.rs`, `RULES`, `schema`). It has no writer: nobody answers a team talk in words.
+- The reader's answer is turned into the room's own Pick (`read`): the move; the tone; a subject the room offers (else "us"); for one man his id, only a man in the room (a man the line never named makes it a talk about the room); for handing it to a captain, calm, subject us and the captain named, else none, which the room turns into the first captain, exactly as its chip does. Saying nothing is a chip of its own and never a typed move. Promises and facts in the line change nothing here.
+- Before kickoff a clear reading lands at once through the room's own command (`talk_say {move, tone, subject, who}`), and the poll answers `{state: "done", heard, marks: [], reply: <talk_room>}`. The talk is kept for kickoff; you can say it another way or take it back until the team is on the field. An unsure reading comes back as `unsure` with both readings, and keeps nothing until you pick one.
+- At the half a typed line never lands on its own. The reading always comes back as `unsure` with one reading marked `final`, "The halftime talk is said once..." as its why, and changes nothing until you confirm it. A confirmed pick runs the room's own command (`live_answer {kind: "talk", move, tone, subject, who}`), which refuses a second talk ("The talk is for halftime, once.").
+- A reading that waits is carried by its pick: `readings[].pick` is the Pick packed into one number (move, tone, subject, then who in the high bits), and the box sends back `{moment, ticket, pick}`. Nothing waits in the game and nothing expires. A pick the room can't make today (a subject it doesn't offer, a man not in the room, a "captain" who isn't one) is refused (`rooms.rs`, `code`, `decode`, `allowed`).
+- The game stores only the settled Pick: the live game replays from kickoff on its stored inputs, so a typed halftime talk saves and replays as the chip's does (`w.gameday.pregame`; the live game's input log).
+- The browser build's fake reads a line in the room by plain word match (praise, challenge, warn, a name from the room, and so on) so the box can be tried with no key (`rooms.rs`, `stand_in`).
+- Proposed, not confirmed: the halftime ask-first step, the 26 nameable men, the 400-token reader and the card's few words for each move.
+- Not built here: your line's "Heard as" shows on the box only until the page redraws. The said view of the room draws no log, so a screen change for lane 13 could show it there.
+
+### Tests
+
+- Engine (`crates/afm-engine/src/tests/live_rooms.rs`): the discipline and parent proofs above, for each level, with and without a council.
+- Game (`live_talk/say/rooms.rs`): the pick's number round trip, the reading as the chips' pick, what isn't a line, the card, the flag, the stand-in.
+- Full tests (`crates/afm-game/tests/live_rooms.rs`): on a built world, typed equals clicked before kickoff (the kept talk and the room after), the unsure pick, a man named, the closed room after kickoff, no key no box, halftime asking first and keeping nothing until you confirm, once only, and a save after the typed talk playing the same game to the final whistle as the chip's.
 
 ## Lane 6, rooms that gain something
 
