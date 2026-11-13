@@ -88,18 +88,40 @@ fn stamp(_w: &World, m: &Mail) -> (Date, String) {
 /// (a call, a note, a vote) or one with a day to answer by. An answer that
 /// only files the reply or adds names to your list is not a need. A day to
 /// answer by counts until it has passed.
-fn needs_you(m: &Mail, today: Date) -> bool {
+fn needs_you(w: &World, m: &Mail) -> bool {
     use mail::act;
+    scene_waits(w, m)
+        || (m.answered.is_none()
+            && !m.answers.is_empty()
+            && (m.answer_by.is_some_and(|d| d >= w.today)
+                || m.answers
+                    .iter()
+                    .any(|a| !matches!(a.act, act::ACK | act::LIST_ALL | act::LIST_ONE | act::LIST_FIRST))))
+}
+
+/// The id prefix of a letter the engine writes for a meeting
+/// (`folk::letters::for_scene`).
+const SCENE_LETTER: u64 = 0xF01C_0000_0000_0000;
+
+/// An engine letter about a meeting that waits on you: a player asking for
+/// time, a rule broken, a second opinion to rule on. It carries no answers
+/// of its own (the meeting is the answer), so it is a need while its scene
+/// is open and either stops the clock or asks for your call.
+fn scene_waits(w: &World, m: &Mail) -> bool {
+    use afm_engine::world::folk::scene::Kind;
+    let id = m.id ^ SCENE_LETTER;
     m.answered.is_none()
-        && !m.answers.is_empty()
-        && (m.answer_by.is_some_and(|d| d >= today)
-            || m.answers.iter().any(|a| !matches!(a.act, act::ACK | act::LIST_ALL | act::LIST_ONE | act::LIST_FIRST)))
+        && m.answers.is_empty()
+        && id <= u64::from(u32::MAX)
+        && w.folk.scenes.iter().any(|s| {
+            u64::from(s.id) == id && !s.done && (s.stops || matches!(s.kind, Kind::Discipline | Kind::SecondOpinion))
+        })
 }
 
 /// How the list draws a mail: one that needs you, a plain message, or
 /// background (the morning clips, the practice schedule).
-fn kind_of(m: &Mail, today: Date) -> &'static str {
-    if needs_you(m, today) {
+fn kind_of(w: &World, m: &Mail) -> &'static str {
+    if needs_you(w, m) {
         "need"
     } else if m.loud == 0 {
         "back"
@@ -136,7 +158,7 @@ fn row(w: &World, m: &Mail) -> Value {
         "clears_in": clears_in(w.today, m),
         "keys": keys_of(m.keys),
         "loud": m.loud,
-        "kind": kind_of(m, w.today),
+        "kind": kind_of(w, m),
         "count": count_of(m),
     })
 }
@@ -166,7 +188,7 @@ pub fn list(w: &World, args: &Value) -> Value {
         .filter(|m| match show {
             "read" => m.read,
             "unread" => !m.read,
-            "need" => needs_you(m, w.today),
+            "need" => needs_you(w, m),
             _ => true,
         })
         .filter(|m| bit.is_none_or(|b| m.keys & b != 0))
@@ -178,7 +200,7 @@ pub fn list(w: &World, args: &Value) -> Value {
         "rows": rows,
         "total": mails.len(),
         "unread": unread(w),
-        "need": mails.iter().filter(|m| needs_you(m, w.today)).count(),
+        "need": mails.iter().filter(|m| needs_you(w, m)).count(),
         "saved": mails.iter().filter(|m| m.saved).count(),
         "keywords": KEYWORDS.iter().zip(counts).map(|(k, n)| json!({ "name": k, "count": n })).collect::<Vec<_>>(),
         "notes": notes_count(w),
@@ -243,7 +265,7 @@ pub fn open(w: &mut World, id: u64) -> Result<Value, String> {
         "keys": keys_of(m.keys),
         "about": about_name(w, m.about),
         "answers": m.answers.iter().map(|a| json!({ "label": a.label, "does": a.does })).collect::<Vec<_>>(),
-        "kind": kind_of(&m, w.today),
+        "kind": kind_of(w, &m),
         "count": count_of(&m),
         "answered": m.answered,
         "answer_by": m.answer_by.map(views::date_text),

@@ -1,6 +1,6 @@
 # Injuries: how it works today
 
-Checked against main at 8e145de with update 3 lanes 3 and 4 on 2026-10-28; the on-field engine bugs before the rebuild (minor bugs 96 and 132-145) at dd2ece1 on 2026-10-30. The six-part day (player immersion I1) checked on 2026-11-05, before it merged to main. The strength staff's guard (minor bug 303) checked with that change on 2026-11-07. Games missed on the engine's college and high school seasons (minor bug 315) checked over main 53f3f85 on 2026-11-08.
+Checked against main at 8e145de with update 3 lanes 3 and 4 on 2026-10-28; the on-field engine bugs before the rebuild (minor bugs 96 and 132-145) at dd2ece1 on 2026-10-30. The six-part day (player immersion I1) checked on 2026-11-05, before it merged to main. The strength staff's guard (minor bug 303) checked with that change on 2026-11-07. Games missed on the engine's college and high school seasons (minor bug 315) checked over main 53f3f85 on 2026-11-08. The trainers' memo in the inbox (the inbox lane, part B) checked over main 604b9cc on 2026-11-13, before it merged.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 
@@ -114,6 +114,11 @@ There are four injury sources, and they do not talk to each other much:
 - `positions.rs`: `injury_risk` per position. `attributes.rs`: `injury_sensitive`.
 - `world/folk/life.rs`: second opinions and the 8% re-injury.
 - `world/scouting/file.rs`: `medical_read` weights and grade lines.
+
+## The trainers' memo in a college or high school inbox
+
+A college or high school seat gets a memo from the head trainer the morning after a game that hurt anyone, and on Wednesdays while the season runs (off the season only when someone is out 14 days or more): who is out, what it was, how long ("5 d" up to a week, then weeks) and when he is back, the new injuries first, then the men still out, longest first. It reads the training desk's own record of who is out (`SeatTraining::hurt`: the day he was hurt, the day he is back, what it was) and raises no world event. After a game it offers to check in on each of them (a call each, the mood rises). A starter out four weeks or more makes it loud. Up to 25 rows (`crates/afm-game/src/lane_core/mail/trainer.rs`, `report`, `ROWS`). An NFL seat's report is the Wednesday injury report (`crates/afm-game/src/lane_core/mail.rs`, `injuries`). See [inbox.md](inbox.md).
+
 
 ## Related pages
 

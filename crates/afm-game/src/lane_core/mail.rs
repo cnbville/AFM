@@ -36,9 +36,22 @@ use super::people::{self, Job};
 use crate::lane_help;
 use crate::views::{self, TeamRef};
 
+mod carousel;
+mod compliance;
+mod honors;
+mod nil;
+mod polls;
 mod portal;
+mod selection;
+mod signing;
+mod trail;
+mod trainer;
 
-pub use portal::covered as portal_covered;
+/// Lines a college seat's messages carry, so the Continue card leaves them
+/// out: the portal's and the signing rankings'.
+pub fn card_covered(e: &afm_engine::calendar::Event) -> bool {
+    portal::covered(e) || signing::covered(e)
+}
 
 /// The keyword filter (10e), in the dropdown's order; a mail's `keys` holds
 /// them as bits.
@@ -704,11 +717,14 @@ fn compose(w: &World, me: TeamRef, from: Date, to: Date, mails: &mut Vec<Mail>, 
     let names_roster = |e: &Event| {
         e.refs.iter().any(|r| matches!(r.to, afm_engine::calendar::Link::Person(id) if roster_ids.contains(&id)))
     };
-    // The NFL's awards are news lines, not award lines.
+    // The NFL's awards are news lines, not award lines: the players' ("is
+    // the NFL's"), the coaches' ("is the AP's") and the Super Bowl MVP.
     let nfl_honor = |e: &Event| {
         e.kind == Kind::News
             && e.level == CalLevel::Nfl
-            && (e.text.contains(" is the NFL's ") || e.text.contains("Super Bowl MVP"))
+            && (e.text.contains(" is the NFL's ")
+                || e.text.contains(" is the AP's ")
+                || e.text.contains("Super Bowl MVP"))
     };
 
     for (&d, evs) in w.calendar.events.range(from..=to) {
@@ -720,11 +736,33 @@ fn compose(w: &World, me: TeamRef, from: Date, to: Date, mails: &mut Vec<Mail>, 
         let mut conference: Vec<String> = Vec::new();
         let mut desk_lines: Vec<String> = Vec::new();
         let mut draft: Vec<String> = Vec::new();
-        let mut awards: Vec<String> = Vec::new();
+        let mut awards: Vec<honors::Line> = Vec::new();
         let mut practice: Vec<String> = Vec::new();
         let mut staff_moves: Vec<String> = Vec::new();
+        // The day's signing date and the services' ranking, for the notice.
+        let mut sign_day: Option<signing::Day> = None;
+        let mut ranked: Option<String> = None;
+        // Selection day's line and the All-America line (it names nobody).
+        let mut selection: Option<&Event> = None;
+        let mut all_america: Option<afm_engine::calendar::Moment> = None;
         for e in evs {
             let mine = yours(e);
+            if college || is_hs {
+                sign_day = sign_day.or_else(|| signing::day_of(e));
+            }
+            if college && signing::ranking_line(e) {
+                ranked = Some(link(e));
+                continue;
+            }
+            if let TeamRef::College(pi) = me {
+                if selection::is_day(e, w.programs[pi].division) {
+                    selection = Some(e);
+                }
+                if e.kind == Kind::Award && e.text.starts_with("All-America teams are named") {
+                    all_america = Some(e.when);
+                    continue;
+                }
+            }
             let level_ok = seat.is_none_or(|s| s.cares(e)) || mine;
             let realign = e.kind == Kind::RuleChange
                 && e.level == CalLevel::College
@@ -763,8 +801,12 @@ fn compose(w: &World, me: TeamRef, from: Date, to: Date, mails: &mut Vec<Mail>, 
                     desk_lines.push(format!("{}{rule}", link(e)));
                 }
                 Kind::DraftPick | Kind::DraftChoice if mine => draft.push(link(e)),
-                Kind::Award if mine || names_roster(e) => awards.push(link(e)),
-                Kind::News if nfl_honor(e) && (mine || names_roster(e)) => awards.push(link(e)),
+                Kind::Award if mine || names_roster(e) => {
+                    awards.push(honors::Line { text: link(e), when: e.when, mine });
+                }
+                Kind::News if nfl_honor(e) && (mine || names_roster(e)) => {
+                    awards.push(honors::Line { text: link(e), when: e.when, mine });
+                }
                 Kind::Practice if mine || (level_ok && e.level != CalLevel::Recruiting && !is_hs) => {
                     if mine {
                         practice.push(link(e));
@@ -913,31 +955,13 @@ fn compose(w: &World, me: TeamRef, from: Date, to: Date, mails: &mut Vec<Mail>, 
             pen.out.push(m);
         }
         if !awards.is_empty() {
-            let mut m = pen.memo(
-                &format!("awards|{my_name}"),
-                d,
-                17 * 60,
-                Job::Communications,
-                format!("Honors: {}", strip_dot(&links::strip(&awards[0]))),
-            );
-            let ids: Vec<u32> = awards.iter().flat_map(|l| ids_in(l)).filter(|id| roster_ids.contains(id)).collect();
-            m.body = vec![format!("{}, good news to share with the team:", pen.dear)];
-            m.body.extend(awards);
-            m.body.push("We will put it out on our channels this afternoon.".into());
-            m.keys = PLAYERS | MEDIA;
-            if !ids.is_empty() {
-                m.answers = vec![
-                    answer(
-                        "Recognize him in front of the team",
-                        "You make it a moment at the next team meeting. His mood rises.",
-                        act::CALL_ALL,
-                        0,
-                    ),
-                    answer("Send a short note", "A note goes to him. His mood rises a little.", act::CHEER_ALL, 0),
-                ];
-            }
-            m.ids = ids;
-            pen.out.push(m);
+            honors::memos(&mut pen, awards, &roster_ids);
+        }
+        if let Some(when) = all_america {
+            honors::all_america(&mut pen, d, when);
+        }
+        if let Some(e) = selection {
+            selection::notice(&mut pen, d, e);
         }
         if !practice.is_empty() {
             let spring = matches!(d.month(), 2..=5);
@@ -962,6 +986,9 @@ fn compose(w: &World, me: TeamRef, from: Date, to: Date, mails: &mut Vec<Mail>, 
             m.keys |= STAFF;
             pen.out.push(m);
         }
+        if let Some(day) = sign_day {
+            signing::notice(&mut pen, d, day, ranked.as_deref());
+        }
         if college {
             portal::target_message(&mut pen, d, &targets, &target_names);
             if !landings.is_empty() {
@@ -980,12 +1007,14 @@ fn compose(w: &World, me: TeamRef, from: Date, to: Date, mails: &mut Vec<Mail>, 
             portal::landings_message(&mut pen, pi, d, to, lines, &mut seen);
         }
         portal::window_close(&mut pen, from, to);
+        nil::answers(&mut pen, from, to);
     }
 
     people_mail(&mut pen, from, to, reveals);
     games_mail(&mut pen, from, to);
     lineup_mail(&mut pen, from, to);
     news_mail(&mut pen, from, to, reveals);
+    compliance::practice_cases(&mut pen, from, to);
     weekly_mail(&mut pen, from, to, c.coach);
     mails.append(&mut pen.out);
 }
@@ -1026,8 +1055,15 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
             let mut offers: Vec<(Date, usize)> = Vec::new();
             let mut visits: Vec<(Date, usize)> = Vec::new();
             let mut lost: Vec<(Date, usize, usize)> = Vec::new();
+            // What happened to the recruits you watch at other schools: your
+            // board and every 5-star (the digest's "Around the trail").
+            let on_board = trail::board(w, pi);
+            let mut around: Vec<(Date, usize, trail::Step)> = Vec::new();
             for (k, p) in w.people.iter().enumerate() {
                 let cal = &p.cal;
+                if p.stage == Stage::HighSchool && (p.stars == 5 || on_board.contains(&p.player.id)) {
+                    around.extend(trail::steps(cal, pi, inside).into_iter().map(|(d, s)| (d, k, s)));
+                }
                 if let Some((j, d, walk)) = cal.commit
                     && j == pi
                     && inside(d)
@@ -1074,6 +1110,10 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                     }
                 }
             }
+            // A recruit we offered who picked elsewhere has his own memo below.
+            around.retain(|&(d, k, s)| {
+                !matches!(s, trail::Step::Commit(_)) || !lost.iter().any(|x| x.0 == d && x.1 == k)
+            });
             for (d, k, walk) in commits {
                 let p = &w.people[k];
                 let name = links::player(p.player.id, &p.name);
@@ -1286,34 +1326,43 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
             // Offers and official visits: one digest a week, the Monday
             // after (8 AM), so a busy staff's work doesn't bury the inbox.
             // It waits for its Monday whole (`DIGEST_SPAN`).
-            if !offers.is_empty() || !visits.is_empty() {
-                let mut weeks: HashMap<i32, (Vec<usize>, Vec<usize>)> = HashMap::new();
+            if !offers.is_empty() || !visits.is_empty() || !around.is_empty() {
+                type Week = (Vec<usize>, Vec<usize>, Vec<(Date, usize, trail::Step)>);
+                let mut weeks: HashMap<i32, Week> = HashMap::new();
+                let week_of = |d: Date| d.add(1).on_or_after(Weekday::Mon).0;
                 for (d, k) in offers {
-                    weeks.entry(d.add(1).on_or_after(Weekday::Mon).0).or_default().0.push(k);
+                    weeks.entry(week_of(d)).or_default().0.push(k);
                 }
                 for (d, k) in visits {
-                    weeks.entry(d.add(1).on_or_after(Weekday::Mon).0).or_default().1.push(k);
+                    weeks.entry(week_of(d)).or_default().1.push(k);
+                }
+                for (d, k, s) in around {
+                    weeks.entry(week_of(d)).or_default().2.push((d, k, s));
                 }
                 let mut list: Vec<_> = weeks.into_iter().collect();
                 list.sort_by_key(|x| x.0);
-                for (wk, (of, vi)) in list {
+                for (wk, (of, vi, trail_steps)) in list {
                     let d = Date(wk);
-                    let mut m = pen.memo(
-                        &format!("recruiting|{wk}"),
-                        d,
-                        8 * 60,
-                        Job::Personnel,
-                        format!(
-                            "Recruiting desk: {} {}, {} official {}",
-                            of.len(),
-                            afm_engine::world::folk::noun(of.len(), "offer"),
-                            vi.len(),
-                            afm_engine::world::folk::noun(vi.len(), "visit")
-                        ),
+                    let part = trail::part(w, trail_steps, &on_board);
+                    let ours = format!(
+                        "{} {}, {} official {}",
+                        of.len(),
+                        afm_engine::world::folk::noun(of.len(), "offer"),
+                        vi.len(),
+                        afm_engine::world::folk::noun(vi.len(), "visit")
                     );
+                    let subject = match (of.is_empty() && vi.is_empty(), part.total) {
+                        (_, 0) => format!("{DIGEST} {ours}"),
+                        (true, n) => format!("{DIGEST} {n} around the trail"),
+                        (false, n) => format!("{DIGEST} {ours}, {n} around the trail"),
+                    };
+                    let mut m = pen.memo(&format!("recruiting|{wk}"), d, 8 * 60, Job::Personnel, subject);
                     m.body = vec![format!("{}, the week on the recruiting board:", pen.dear)];
                     m.table =
                         vec![vec!["Player".into(), "Pos".into(), "Stars".into(), "High school".into(), "What".into()]];
+                    if part.total > 0 && !(of.is_empty() && vi.is_empty()) {
+                        m.table.push(vec!["## Offers and visits to us".into()]);
+                    }
                     for (k, what) in
                         of.iter().map(|&k| (k, "Offered")).chain(vi.iter().map(|&k| (k, "Official visit"))).take(40)
                     {
@@ -1326,15 +1375,25 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                             what.into(),
                         ]);
                     }
+                    m.table.extend(part.table);
+                    if part.more > 0 {
+                        m.body.push(format!(
+                            "{} more happened around the trail. [[s:recruit_board|The recruiting board]] has each file.",
+                            part.more
+                        ));
+                    }
+                    m.count = (of.len() + vi.len()) as u32 + part.total;
                     m.ids = of.iter().chain(vi.iter()).map(|&k| w.people[k].player.id).collect();
                     m.keys = RECRUITING;
                     m.loud = 0;
-                    m.answers = vec![answer(
-                        "Add them all to my players",
-                        "Every player in the table goes on your \"my players\" list.",
-                        act::LIST_ALL,
-                        0,
-                    )];
+                    if !m.ids.is_empty() {
+                        m.answers = vec![answer(
+                            "Add them all to my players",
+                            "Every player in the table who came to us goes on your \"my players\" list.",
+                            act::LIST_ALL,
+                            0,
+                        )];
+                    }
                     pen.out.push(m);
                 }
             }
@@ -1747,14 +1806,34 @@ fn games_mail(pen: &mut Pen, from: Date, to: Date) {
     }
 }
 
+/// The news store's stamped items dated `from` or later, newest first. The
+/// store is written in the order things happen, so the scan ends once a
+/// long run is older than `from`; it goes back by date, not by a count,
+/// because the carousel and the NCAA step push hundreds of items in a day.
+fn news_since(w: &World, from: Date) -> Vec<(&afm_engine::world::news::NewsItem, Date)> {
+    let (mut out, mut older) = (Vec::new(), 0u32);
+    for n in w.news.iter().rev() {
+        let Some(d) = n.date else { continue };
+        if d >= from {
+            older = 0;
+            out.push((n, d));
+        } else {
+            older += 1;
+            if older >= 1000 {
+                break;
+            }
+        }
+    }
+    out
+}
+
 /// The news desk's lines about your own program: the collective's NIL
 /// warnings and your titles.
 fn news_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
     let w = pen.w;
     let TeamRef::College(pi) = pen.me else { return };
-    for n in w.news.iter().rev().take(400) {
-        let Some(d) = n.date else { continue };
-        if d < from || d > to || n.program != Some(pi) {
+    for (n, d) in news_since(w, from) {
+        if d > to || n.program != Some(pi) {
             continue;
         }
         match n.kind {
@@ -1783,6 +1862,7 @@ fn news_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                 m.sign = "Best,".into();
                 pen.out.push(m);
             }
+            NewsKind::NcaaPenalty => compliance::ncaa(pen, d, n),
             NewsKind::ConferenceTitle | NewsKind::NationalTitle => {
                 let mut m = pen.boss_letter(&format!("title|{pi}"), d, 10 * 60, "Champions".into());
                 m.body = vec![
@@ -1819,18 +1899,30 @@ fn weekly_mail(pen: &mut Pen, from: Date, to: Date, coach: usize) {
     let w = pen.w;
     let mut d = from;
     while d <= to {
+        // The trainers' memo the morning after a game (college and high
+        // school seats); it covers that week's Wednesday too.
+        let mut told = false;
+        if matches!(pen.me, TeamRef::College(_) | TeamRef::HighSchool(_)) && trainer::hurt_in_game(w, d.add(-1)) {
+            trainer::report(pen, d, Some(d.add(-1)));
+            told = true;
+        }
         match d.weekday() {
             Weekday::Mon => {
                 your_people(pen, d, coach);
                 standouts(pen, d);
                 morale(pen, d);
+                carousel::monday(pen, d);
+                polls::where_we_stand(pen, d);
             }
-            Weekday::Wed => injuries(pen, d),
+            Weekday::Wed => match pen.me {
+                TeamRef::Nfl(_) => injuries(pen, d),
+                _ if !told => trainer::report(pen, d, None),
+                _ => {}
+            },
             _ => {}
         }
         d = d.add(1);
     }
-    let _ = w;
 }
 
 /// H6: the players whose mood fell last week, with why (the chief of staff,

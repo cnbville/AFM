@@ -13,6 +13,7 @@ use crate::world::desk::{Head, Mail};
 /// The inbox's keyword bits (the game crate's `KEYWORDS`).
 const JOB: u16 = 1;
 const PLAYERS: u16 = 1 << 1;
+const PORTAL: u16 = 1 << 3;
 const INJURIES: u16 = 1 << 4;
 const STAFF: u16 = 1 << 8;
 const PEOPLE: u16 = 1 << 9;
@@ -172,7 +173,9 @@ pub(crate) fn for_scene(w: &mut World, s: &Scene) {
         Kind::Family => (Head::Email, "Home".into(), "Family".into(), s.title.clone(), vec!["Call when you get a minute. It's not football.".into()], PEOPLE),
         Kind::OneOnOne if s.stops => {
             let (n, t) = ops();
-            (Head::Memo, n, t, s.title.clone(), vec![format!("{} asked for time with you{when}.", plink.clone().unwrap_or_else(|| "A player".into()))], PLAYERS)
+            // A player asking about his future files under the portal too.
+            let keys = if s.title.ends_with("wants to talk about his future") { PLAYERS | PORTAL } else { PLAYERS };
+            (Head::Memo, n, t, s.title.clone(), vec![format!("{} asked for time with you{when}.", plink.clone().unwrap_or_else(|| "A player".into()))], keys)
         }
         Kind::Parents => {
             let (n, t) = ops();
