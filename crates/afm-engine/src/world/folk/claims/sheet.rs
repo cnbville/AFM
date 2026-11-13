@@ -4,7 +4,7 @@
 use super::kinds::{Group, Kind, When, Whose};
 use crate::calendar::Date;
 use crate::world::folk::Team;
-use crate::world::folk::voice::Facts;
+use crate::world::folk::voice::{CLAIM_FACTS, Facts};
 
 /// How fresh a dated point still is on the last day of its window: it
 /// fades in a straight line from 1 on the day itself. Proposed, not
@@ -482,12 +482,13 @@ impl Sheet {
     /// or `blameless`, or neither while a case is open, so a line that
     /// denies or admits is said only when the world backs it.
     pub fn fill_conduct(&self, f: &mut Facts) {
+        let [blameless, at_fault] = CLAIM_FACTS;
         match self.conduct() {
             Conduct::AtFault => {
-                f.set("at_fault", "yes");
+                f.set(at_fault, "yes");
             }
             Conduct::Blameless => {
-                f.set("blameless", "yes");
+                f.set(blameless, "yes");
             }
             Conduct::Open => {}
         }
