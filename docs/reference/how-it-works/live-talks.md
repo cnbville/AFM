@@ -19,7 +19,11 @@ Live talks are typed lines to your players, recruits and staff, answered in char
 - Can the game call a model with no price in the table? No. It fails before anything is sent, so the cap can't miss a cost (`spend.rs`, `Price::of`).
 - Does a call run inside a command? No. A command returns a ticket at once, a worker thread makes the call, and `ai_poll {ticket}` hands the result back under the game lock (`live_talk/tickets.rs`, `start`, `poll`).
 - What happens after a failure that will repeat (the API refuses the key, the credit is gone)? The boxes stay hidden (`usable` is false) until a new key or a good Test (`live_talk/key.rs`, `note_failure`, `why_not`).
-- Does a reply change today? No. `live_talk::after` only tidies old tickets in lane 1; the core (lane 3) fills it (`live_talk/mod.rs`, `after`).
+- Does a reply change? Only with a usable key: a scene that takes a typed line gets `say`, and a poll's nested reply gets it too (`live_talk/mod.rs`, `after`; `say/mod.rs`, `flag`).
+- Can a typed line do something a chip can't? No. It lands on one of the scene's own options through the chip's code, and the bank picks its line with the same seeds (`world/folk/scene.rs`, `say`, `land`).
+- Can a typed line fire a coach without asking? No. A pick that can't be undone comes back as one reading to confirm, and `scene::say` refuses it unconfirmed (`world/folk/finals.rs`; `scene.rs`, `asks_first`).
+- What if the AI fails mid-talk? The box hides and the chips go on; if the writer fails, the bank's line shows (`live_talk/say/mod.rs`, `reader_step`, `writer_step`).
+- Is a lie judged? Not yet: the lies store and its daily check exist, and judging costs nothing until the promise design is decided (`world/folk/claims/truth.rs`, `judge`).
 
 ## The contract with the screens
 
@@ -114,7 +118,55 @@ Not built yet.
 
 ## Lane 3, the core
 
-Not built yet.
+Built 2026-11-13. A typed line lands on one of a scene's own options through the same code as the chip, so the line bank still picks its line with the same seeds and the world after is the chip's. Your words go on your line for that pick, never on a second line.
+
+### A typed line, step by step
+
+- `people_say {id, text}` checks the meeting (open, not over, a kind that takes a typed line, at most 400 characters), builds the reader's card from the scene's own options and returns a ticket. No call runs in the command (`crates/afm-game/src/live_talk/say/mod.rs`, `people_say`).
+- The reader (label `scene_reader`, Haiku 5.5, structured output, at most 400 tokens) answers with an option id (o1 to o12, or none), a close second when unsure, a tone, a promise as read, the facts stated, the people named and its fit: clear, unsure or not a line. The rules and the schema are fixed for every scene, so the cache holds (`say/mod.rs`, `READER_RULES`, `reader_schema`).
+- Its answer is applied inside `ai_poll`, under the game lock. Not a line, or no option: `{"state": "none", "note": "He doesn't follow."}` and nothing changes. A chip clicked while the line was read: `off`, "The talk moved on before that landed." Unsure, or a pick that can't be undone: `{"state": "unsure", "readings": [{"pick", "heard", "final"}]}`, and the reading waits (`say/mod.rs`, `reader_step`, `Waiting`).
+- Otherwise it lands: `folk::scene::say` runs the scene's own answer with `Scene.heard` set for that one answer, then the same ticket carries the writer's call (label `scene_writer`, at most 200 tokens) for the line the answer wrote for him (`say/mod.rs`, `land`, `go_on`).
+- The writer's words take the bank line's place only if they pass the filter and nothing moved meanwhile; the scene keeps what was shown. If the writer fails or is dropped, the bank's line stays (`say/mod.rs`, `writer_step`).
+- The poll answers `{"state": "done", "heard": "ask about his scheme and how he'd use your players, calm", "marks": [...], "reply": <the people_scene reply>}`. `live_talk::after` puts the box on the nested reply too (`say/mod.rs`, `done`; `live_talk/mod.rs`, `after`).
+- Confirming: the box sends `{id, ticket, pick}` with one of the readings; the answer is a new ticket. A reading waits 10 minutes and is taken once (`say/mod.rs`, `confirm`, `WAIT_TTL`).
+
+### In the engine
+
+- `scene::say(w, id, heard, confirmed)` lands a typed line on one of `scene::options` (the picks and `reach`, never a nav pick) through `land`, the same function `answer` now calls. It refuses a meeting that is over, a kind with no box, an empty line, one over 400 characters, an option not on the table, and a pick that can't be undone unless `confirmed`, with "That can't be undone, so say which you meant first." (`world/folk/scene.rs`, `say`, `land`, `ASK_FIRST`).
+- `Heard` (the pick, tone, words, length, facts as stated, a promise as read, a game plan ask and the people named) rides on `Scene.heard` for that one answer and is cleared before and after. It is never saved (`scene.rs`, `Heard`).
+- `Said.typed` holds your words on your line for the pick. An answer that ends the meeting with no line of yours (an interview's "Thank him and wrap it up") gets one with the chip's words; a meeting that goes on gets no extra line, since scenes count your lines (`scene.rs`, `put_typed`).
+- No box: press conferences, media, story meetings, and one-on-ones until lane 9 fills its hook (`scene.rs`, `NO_BOX`, `takes_typed`; `world/folk/talks.rs`, `ONE_ON_ONE_TYPED`, `one_on_one_say`).
+- The picks that ask first: a pick marked `PickKind::Final`, or one of 28 rows by scene kind and code: a December signee's release (70-72), a holdover's job (22, 33, 34), letting a coach go (70-72), every discipline ruling above a warning (501-508), an all-star invitation or a search firm's call (95-98), hiring a high school coach's package (87), and the deals outside the rules (151-153, 181, 191, 192). Codes repeat across kinds, so the kind always decides (`world/folk/finals.rs`, `FINAL`, `is_final`).
+
+### Facts and lies (seams for the later lanes)
+
+- The reader may label facts of 13 kinds: depth_rank, ahead_of_him, role, snaps_share, touches, nil_amount, money, injury, status, stat, off_field, interest, record (`world/folk/claims/truth.rs`, `CLAIM_KINDS`). Each is marked by `claims::check::fact`, which sends a recruit's scene to `check/recruit.rs`, a GM's or boss's to `check/money.rs` and the rest to `check/roster.rs`. All three answer "unknown" today, which shows no mark (`claims/check/mod.rs`, `fact`).
+- `Folk.live` keeps the lies (who, what, the day he can see it) and each agent's and GM's trust in your word (0.5 to start). It is saved only when not empty (`claims/truth.rs`, `Live`, `KEEP_LIES`, `WORD_START`).
+- The daily check marks a lie seen on its day and then judges it. Judging costs nothing yet: Cain rejected the first lie rule (2026-11-13), and the promise design decides it (`claims/truth.rs`, `check_lies`, `judge`).
+- The cost of a kept or broken promise is now one function, `talks::settle_word`, with the same numbers as before: a player's trust +0.1 kept, -0.22 broken (twice in public), his mood by 1.4 times that, close friends' trust -0.04 each, a grudge, your name for keeping your word +0.04 or -0.08; a cast person or a coach +0.1 or -0.2 (`world/folk/talks.rs`, `check_promises`, `settle_word`).
+- New mood reasons, with codes 40 to 42 so a reason added to the list above them never takes their numbers in a save: a lie found out, what his agent heard you say in his contract talks, a recruit's lie (`talks.rs`, `Reason`).
+
+### Cards and the filter
+
+- Every card is built by one function from a whitelist type with words only: the meeting, you, who is across (name, role, class year), the people he may name, the options, the last 6 lines, his line as the game wrote it, the tell your read caught, what the game released in words, facts and example lines. It has no field for potential, true ratings, true wants or hidden trait numbers. Typed words lose `<` and `>` so they can't close their tag (`crates/afm-game/src/live_talk/card.rs`, `Card`, `scene`, `writer`, `quoted`).
+- The filter drops a writer's reply that is empty, longer than 600 characters, carries markup, names one of 16 words (rating, overall, potential, ceiling, attribute and their forms, ovr, stat-line, engine, simulation, algorithm, prompt) or holds a number its card doesn't. Numbers count as digits ("1,200", "4.5") or words (two to million, "dozen", "twenty-two"); "one" and ordinals are words, not counts (`live_talk/filter.rs`, `check`, `BANNED`, `numbers`).
+
+### Staff interviews typed (LT18, the proof)
+
+- A typed question lands on one of the interview's four questions (60 scheme, 61 a difficult player, 62 where he recruits, 63 what he wants) or on 69, wrapping up. His answer is written from today's answer and the reads that question puts on his page, in words: a range 9 or wider is "still hard to read"; otherwise its middle 16 and up is "a real strength", 13 "good", 9 "about average", 6 "below average", lower "a weak spot"; ambition 14 "wants more, and soon", 9 "some ambition", lower "content where he is" (`live_talk/say/hiring.rs`, `facets`, `read_words`, `writer`).
+
+### The later lanes' places
+
+- Commands the core registers: `people_say`, `talk_typed`, `fo_say {desk}`, `ai_ask {kind}`, `ai_checks`, and question 5's `fo_fact` and `scout_source`. Until a lane fills its stub, each answers "That box comes with a later update." and no flag shows it (`live_talk/mod.rs`, `call`, `NOT_YET`).
+- Each lane's file holds its flag and hooks: `say/{rooms,interview,staff,money,boss,one_on_one,recruit}.rs` (reader, heard, writer, flag; `rules` for its own reader in `staff` and `one_on_one`) and `ask/{analyst,squad,find,opponent,scout,report,leads,source}.rs` (ask, flag; `ask::push` adds an entry to a reply's `ask` list).
+- `ai_checks` runs every labelled line of `checks/staff.json` (30 lines: five for each interview question and for wrapping up, five that are not a line), `deals.json` and `one_on_one.json` (empty, lanes 7 and 9) through the reader on one ticket, and answers `{rows: [{name, score, of, bar}], cost, seconds}` (`live_talk/checks/mod.rs`).
+- The browser build's fake (`AFM_AI_FAKE=1`) reads a typed line by plain word match against the options and says the game's own line back, so a typed line lands where its words point with no key (`live_talk/say/stand_in.rs`).
+
+### Tests
+
+- Engine (`crates/afm-engine/src/tests/live_core.rs`): a typed question is the clicked one (same world bytes, same count of your lines); the same reading on the same save gives the same world; a line that ends the interview shows your words; nothing off the table or nav is landed; a final pick asks first and no caller can skip it; no box on press, media, stories and one-on-ones; `heard` never kept; the lies store waits; a promise costs what it cost before the move.
+- Game (`live_talk/say/tests.rs`, `live_talk/filter.rs`): LT18 end to end on the fake; typed equals clicked through the commands; not a line changes nothing; unsure and the confirm; a final pick asks first; every failure kind falls back mid-scene; no key, no box; the reads match the interview; the filter on 200 replies; no hidden number reaches 1,000 cards.
+- Full tests (`crates/afm-game/tests/live_core.rs`): the same save and reading replay the same, typed equals clicked from a save, and a save made with live talks plays without a key; every reply walked for hidden keys (`tests/common/mod.rs`, `nothing_hidden`, shared by later lanes).
 
 ## Lane 4, the desk
 
@@ -149,6 +201,10 @@ Not built yet.
 - `crates/afm-ai/src/client.rs`: `MODEL`, `VERSION`, `TIMEOUT`.
 - `crates/afm-ai/src/spend.rs`: `CAP_NANO`, `CAP_USD`, `LONG_PROMPT`, `KEEP_MONTHS`.
 - `crates/afm-game/src/live_talk/tickets.rs`: `TTL`, `MAX_OPEN`.
+- `crates/afm-game/src/live_talk/say/mod.rs`: `READER_TOKENS`, `WRITER_TOKENS`, `WAIT_TTL`, `READER_RULES`, `WRITER_RULES`, `PROMISE_KINDS`, `PROMISE_BY`, `CONDITIONS`.
+- `crates/afm-game/src/live_talk/card.rs`: `MAX_OPTIONS`, `SO_FAR`.
+- `crates/afm-game/src/live_talk/filter.rs`: `BANNED`, `MAX_CHARS`, `NUMBER_WORDS`.
+- `crates/afm-engine/src/world/folk/finals.rs`: `FINAL`. `world/folk/scene.rs`: `LIMIT`, `NO_BOX`. `world/folk/claims/truth.rs`: `CLAIM_KINDS`, `KEEP_LIES`, `WORD_START`.
 
 ## Related pages
 

@@ -309,38 +309,50 @@ fn check_promises(w: &mut World, d: Date) {
             p.who,
             p.made.pretty()
         );
-        match p.to {
-            PromiseTo::Player(id) => {
-                if let Some(i) = super::person(w, id) {
-                    let dt = if kept { 0.1 } else { -0.22 * cost as f32 };
-                    let pp = &mut w.people[i];
-                    pp.trust = (pp.trust + dt).clamp(0.0, 1.0);
-                    mood_event(w, id, if kept { Reason::PromiseKept } else { Reason::PromiseBroken }, dt * 1.4);
-                    if !kept {
-                        for f in super::ties::friends(w, id) {
-                            if let Some(j) = super::person(w, f) {
-                                w.people[j].trust = (w.people[j].trust - 0.04 * cost as f32).max(0.0);
-                            }
-                        }
-                        if let Some(c) = w.people[i].pro.as_ref().and_then(|c| c.team) {
-                            crate::world::people::grudge(&mut w.people[i], c, 0.6);
-                        }
-                        w.folk.mine.straight = (w.folk.mine.straight - 0.08 * cost as f32).max(-1.0);
-                    } else {
-                        w.folk.mine.straight = (w.folk.mine.straight + 0.04).min(1.0);
-                    }
-                }
-            }
-            PromiseTo::Cast(r, term) => {
-                let c = super::cast::get(w, r);
-                if c.term == term {
-                    w.folk.mine.nudge(c.key(), if kept { 0.1 } else { -0.2 * cost as f32 });
-                }
-            }
-            PromiseTo::Coach(c) => w.folk.mine.nudge(super::coach_key(c), if kept { 0.1 } else { -0.2 }),
-        }
+        settle_word(w, p.to, kept, cost, if kept { Reason::PromiseKept } else { Reason::PromiseBroken });
         super::note(w, "talk", "Your promises".into(), text.clone(), None);
         super::post_mine(w, d, Loudness::Small, false, "people: promise", &text);
+    }
+}
+
+/// What your word kept or broken does (the cost of a promise, written
+/// once): with a player, his trust and mood, and when broken his close
+/// friends' trust, a grudge against his club and your name for keeping your
+/// word; with a cast person or a coach, his trust in you. `cost` is the
+/// public factor (2 said in public, else 1) and `why` the mood's reason.
+/// `check_promises` calls it with a promise's two reasons; the live talks'
+/// lies check is to call it with `Reason::LieSeen` once the promise design
+/// sets what a lie costs.
+pub(crate) fn settle_word(w: &mut World, to: PromiseTo, kept: bool, cost: f32, why: Reason) {
+    match to {
+        PromiseTo::Player(id) => {
+            if let Some(i) = super::person(w, id) {
+                let dt = if kept { 0.1 } else { -0.22 * cost };
+                let pp = &mut w.people[i];
+                pp.trust = (pp.trust + dt).clamp(0.0, 1.0);
+                mood_event(w, id, why, dt * 1.4);
+                if !kept {
+                    for f in super::ties::friends(w, id) {
+                        if let Some(j) = super::person(w, f) {
+                            w.people[j].trust = (w.people[j].trust - 0.04 * cost).max(0.0);
+                        }
+                    }
+                    if let Some(c) = w.people[i].pro.as_ref().and_then(|c| c.team) {
+                        crate::world::people::grudge(&mut w.people[i], c, 0.6);
+                    }
+                    w.folk.mine.straight = (w.folk.mine.straight - 0.08 * cost).max(-1.0);
+                } else {
+                    w.folk.mine.straight = (w.folk.mine.straight + 0.04).min(1.0);
+                }
+            }
+        }
+        PromiseTo::Cast(r, term) => {
+            let c = super::cast::get(w, r);
+            if c.term == term {
+                w.folk.mine.nudge(c.key(), if kept { 0.1 } else { -0.2 * cost });
+            }
+        }
+        PromiseTo::Coach(c) => w.folk.mine.nudge(super::coach_key(c), if kept { 0.1 } else { -0.2 }),
     }
 }
 
@@ -443,6 +455,17 @@ pub enum Reason {
     /// The way the staff run the week (update 2, lane 4: a third morning of
     /// mat drills).
     Practice,
+    // Live talks (the core declares them; the lanes that use them fill the
+    // sizes). Their codes sit apart from the list above, so a reason a chips
+    // lane adds there never takes one of their numbers in a save.
+    /// He saw that something you told him in a typed line was false (lanes
+    /// 9 and 10, once the promise design sets the cost).
+    LieSeen = 40,
+    /// His agent told him what you brought up about him in his contract
+    /// talks: his arrest, his injuries (lane 7, LT8).
+    HardballHeard = 41,
+    /// What you told him when you recruited him wasn't true (lane 10).
+    RecruitLie = 42,
 }
 
 impl Reason {
@@ -460,6 +483,9 @@ impl Reason {
             11 => Reason::TeamTalk,
             12 => Reason::Room,
             13 => Reason::Practice,
+            40 => Reason::LieSeen,
+            41 => Reason::HardballHeard,
+            42 => Reason::RecruitLie,
             _ => Reason::Talk,
         }
     }
@@ -485,6 +511,9 @@ impl Reason {
             (Reason::Room, false) => "something that happened in the locker room",
             (Reason::Practice, true) => "the way the staff run the week",
             (Reason::Practice, false) => "the grind of the week: mat drills at dawn",
+            (Reason::LieSeen, _) => "found out something you told him wasn't true",
+            (Reason::HardballHeard, _) => "heard what you said about him in his contract talks",
+            (Reason::RecruitLie, _) => "what you told him when you recruited him wasn't true",
         }
     }
 }
@@ -1374,6 +1403,19 @@ pub(crate) fn position_coach_now(w: &World, i: usize) -> Option<usize> {
     here(prog.position_coaches[group as usize]).or_else(|| here(coordinator)).or_else(|| here(prog.head_coach))
 }
 
+/// Whether a one-on-one takes typed lines (live talks). False until lane 9
+/// fills `one_on_one_say`; then the box shows there too.
+pub const ONE_ON_ONE_TYPED: bool = false;
+
+/// A typed line in a one-on-one (live talks lane 9, LT1): the option it
+/// lands on, from the reading's point, move and tone, with the chip's own
+/// rule that any tone of a move on the table can be taken (`same_move`).
+/// The core leaves it empty: no option, so `scene::say` refuses the line
+/// and the chips stay.
+pub fn one_on_one_say(_w: &World, _s: &Scene, _heard: &super::scene::Heard) -> Option<u32> {
+    None
+}
+
 /// Whether a code is a talk move with another tone than the one offered
 /// (you may say any listed move in any of the four tones).
 pub(crate) fn same_move(a: u32, b: u32) -> bool {
@@ -2202,6 +2244,7 @@ fn staff_line_answer(w: &mut World, s: &mut Scene, code: u32) {
 
 pub(crate) fn day(w: &mut World, d: Date) {
     check_promises(w, d);
+    super::claims::truth::check_lies(w, d);
     if d.weekday() == Weekday::Mon {
         // Old reasons that have faded away are dropped.
         let today = w.today;

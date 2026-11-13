@@ -35,7 +35,13 @@ pub struct Ai {
     /// Counts the changes of key or client. A ticket remembers the number it
     /// started under, so a late answer from an old key does not mark the new one.
     generation: u64,
+    /// The fake is the browser build's (`AFM_AI_FAKE=1`): the core's
+    /// stand-in reader answers there, so a typed line lands where its words
+    /// point (`say::stand_in`).
+    browser: bool,
     pub tickets: Tickets,
+    /// Typed lines whose reading waits for you to confirm (the core).
+    pub waiting: super::say::Waiting,
 }
 
 impl fmt::Debug for Ai {
@@ -61,7 +67,9 @@ impl Ai {
             blocked: None,
             kept: "memory",
             generation: 0,
+            browser: false,
             tickets: Tickets::default(),
+            waiting: Default::default(),
         }
     }
 
@@ -96,6 +104,7 @@ impl Ai {
     /// month. With the fake in use the boxes are on without a key.
     pub fn use_fake(&mut self, fake: Arc<Fake>) {
         self.fake = Some(fake);
+        self.browser = false;
         self.spend = Arc::new(Mutex::new(Spend::open(self.home.join("ai-spend-fake.json"))));
         self.rebuild();
     }
@@ -104,7 +113,13 @@ impl Ai {
     pub fn use_browser_fake(&mut self) -> Arc<Fake> {
         let f = Arc::new(Fake::for_browser());
         self.use_fake(f.clone());
+        self.browser = true;
         f
+    }
+
+    /// The browser build's fake, when it is the client in use.
+    pub fn browser_fake(&self) -> Option<Arc<Fake>> {
+        self.fake.clone().filter(|_| self.browser)
     }
 
     fn rebuild(&mut self) {

@@ -21,6 +21,11 @@
 //! The live talks' claim checker lives in this module too (section 14):
 //! a typed fact is checked against the same sheet.
 //!
+//! - `truth`: a stated fact, what checking it finds, and the live talks'
+//!   saved store (lies he can only check later, trust in your word).
+//! - `check`: one door for a typed fact, and one file for each live lane
+//!   that fills a kind of fact (`money`, `roster`, `recruit`).
+//!
 //! # The hidden numbers
 //!
 //! A sheet is read by lines and screens, so nothing hidden may sit in a
@@ -42,6 +47,7 @@
 //! Every size in this module is Claude's (proposed, not confirmed).
 
 mod alumni;
+pub mod check;
 pub mod kinds;
 mod memory;
 mod player;
@@ -50,6 +56,7 @@ mod recruit;
 mod season;
 pub mod sheet;
 mod team;
+pub mod truth;
 pub mod words;
 
 pub use alumni::{Alum, Alumni};
@@ -57,6 +64,7 @@ pub use kinds::{Family, Group, Kind, When, Whose};
 pub use memory::{KEEP_DAYS, Row, Talked};
 pub use program::Ear;
 pub use sheet::{Basis, Conduct, Point, Proof, Ref, Sheet, Tier};
+pub use truth::{Lie, Live, Stated, Truth};
 
 use crate::calendar::Date;
 use crate::player::Trait;

@@ -12,13 +12,23 @@
 //! `docs/reference/how-it-works/live-talks.md`.
 //!
 //! Commands: `ai_status`, `ai_key_set {key}`, `ai_key_clear`, `ai_test`,
-//! `ai_poll {ticket}` and `ai_demo {state?}` (the fake only).
+//! `ai_poll {ticket}` and `ai_demo {state?}` (the fake only). The core
+//! (lane 3) adds `people_say` (a typed line in any scene), `talk_typed`
+//! (the pregame and halftime room), `fo_say` (contract talks, trade calls,
+//! NIL forms), `ai_ask` (every ask box), `ai_checks`, and question 5's two
+//! that need no key, `fo_fact` and `scout_source`. Each later lane fills its
+//! own stub under `say/` and `ask/` and never edits this file.
 //!
 //! The rule under all of it: the AI only reads your words and writes theirs;
 //! the game decides every result. No API call runs inside a command.
 
+pub mod ask;
+pub mod card;
+pub mod checks;
 pub mod demo;
+pub mod filter;
 pub mod key;
+pub mod say;
 pub mod tickets;
 
 use afm_ai::Request;
@@ -28,6 +38,10 @@ use crate::{Game, Reply};
 use tickets::{Next, Step};
 
 pub use key::Ai;
+
+/// What a box that comes with a later lane answers until that lane fills
+/// its stub (no flag shows it, so a screen never sends it).
+pub const NOT_YET: &str = "That box comes with a later update.";
 
 /// The game's lane for the live talks commands (`Game::run` asks each lane in
 /// turn). Returns `None` for a command that is not its own.
@@ -48,16 +62,42 @@ pub fn call(g: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             None => Err("Missing ticket.".into()),
         },
         "ai_demo" => demo_cmd(g, args),
+        "people_say" => say::people_say(g, args),
+        "talk_typed" => say::rooms::typed(g, args),
+        "fo_say" => say::fo_say(g, args),
+        "ai_ask" => ask::ask(g, args),
+        "ai_checks" => checks::ai_checks(g),
+        "fo_fact" => say::money::fact(g, args),
+        "scout_source" => ask::source::source_cmd(g, args),
         _ => return None,
     })
 }
 
 /// The one step after every command that worked, beside
-/// `lane_handbook::after_call`. It may change the reply. The core fills it
-/// (it adds `say` and `ask` to a reply only when `g.ai.usable()`, and the
-/// shapes are in the contract). In this lane it only tidies old tickets.
-pub fn after(g: &mut Game, _cmd: &str, _args: &Value, _reply: &mut Reply) {
+/// `lane_handbook::after_call`. It may change the reply: question 5's lists,
+/// which need no key, then, only when `g.ai.usable()`, the `say` box on a
+/// scene that takes a typed line and each lane's own boxes (the shapes are
+/// in the contract). A reply nested in a poll's answer gets its boxes the
+/// same way.
+pub fn after(g: &mut Game, cmd: &str, _args: &Value, reply: &mut Reply) {
     g.ai.tickets.prune();
+    g.ai.waiting.prune();
+    let Ok(v) = reply else { return };
+    say::money::facts(g, cmd, v);
+    say::recruit::facts(g, cmd, v);
+    ask::source::sources(g, cmd, v);
+    if !g.ai.usable() {
+        return;
+    }
+    if cmd == "ai_poll" {
+        if let Some(inner) = v.get_mut("reply").filter(|r| r.is_object()) {
+            say::flag(g, cmd, inner);
+            ask::flags(g, cmd, inner);
+        }
+        return;
+    }
+    say::flag(g, cmd, v);
+    ask::flags(g, cmd, v);
 }
 
 /// The settings card's Test: one tiny call, to see that the key is accepted.
