@@ -7163,6 +7163,9 @@ pub(crate) fn enroll(w: &mut World, early: bool) {
         p.path.push(s.program);
         p.on_notice = false;
         p.cal.signed = None;
+        // The schools' cases with him are settled (talk facts lane L5).
+        p.cal.cases = Vec::new();
+        p.cal.home_talks = Vec::new();
         if early {
             let age = p.row_age();
             p.note(format!("Enrolled early at {name} in January at {age}, in time for spring practice."));
@@ -8642,7 +8645,9 @@ fn visit_days(w: &World, e: &super::PortalEntry) -> Vec<Date> {
 /// His finalists' campus visits up to `upto`: the programs he likes best
 /// (besides yours when you work him yourself: yours are the visits you
 /// set) host him, each adding the visit's pull, how the place felt to him
-/// and the head coach's sit-down at its end.
+/// and the head coach's sit-down at its end. `yours` is your program and
+/// your case with him when you called him and your staff hosts him: the
+/// sit-down adds to that case, not to a staff call he never had.
 fn finalist_visits(
     w: &World,
     i: usize,
@@ -8650,6 +8655,7 @@ fn finalist_visits(
     ranked: &mut [Suitor],
     upto: Date,
     skip: Option<usize>,
+    yours: Option<(usize, super::folk::case::Case)>,
 ) {
     let days = visit_days(w, e);
     let mut order: Vec<usize> = (0..ranked.len()).filter(|&k| Some(ranked[k].0) != skip).collect();
@@ -8659,10 +8665,18 @@ fn finalist_visits(
             break;
         }
         let (j, _, nil, role, _) = ranked[k];
+        let before = yours.filter(|y| y.0 == j).map(|y| y.1);
         ranked[k].1 += fo::portal::VISIT_PULL
             + fo::portal::feel(w, i, j, e.entered)
-            + super::folk::dialogue::staff_campus(w, i, j, role, nil);
+            + super::folk::dialogue::staff_campus(w, i, j, role, nil, before.as_ref());
     }
+}
+
+/// Your program and your case with an entrant you called, for the sit-down
+/// your staff holds when it hosts him.
+fn your_case(pwant: Option<&fo::college::PortalWants>, id: u32) -> Option<(usize, super::folk::case::Case)> {
+    let m = pwant?;
+    m.offers.get(&id).filter(|o| o.called).map(|o| (m.program, o.case))
 }
 
 /// The program you work an entrant for yourself (your own visits, not
@@ -8742,7 +8756,7 @@ fn portal_ranked(w: &World, i: usize, swap: Option<(usize, f64)>) -> Vec<Suitor>
         r.2 = nil;
     }
     money.top(&mut ranked);
-    finalist_visits(w, i, &e, &mut ranked, w.today, skip);
+    finalist_visits(w, i, &e, &mut ranked, w.today, skip, your_case(pwant.as_ref(), id));
     ranked.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
     ranked
 }
@@ -8923,7 +8937,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         // The money that tops every other program's counts once more (F3).
         TransferMoney::of(w, &market, i).top(&mut ranked);
         // His finalists hosted him on campus while he shopped.
-        finalist_visits(w, i, &entry, &mut ranked, today, skip);
+        finalist_visits(w, i, &entry, &mut ranked, today, skip, your_case(pwant.as_ref(), id));
         ranked.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
         let promised = said_yes.and_then(|j| ranked.iter().find(|r| r.0 == j).copied());
         // His first choice can fall through while he waits (T9): another

@@ -108,6 +108,100 @@ fn your_offer_is_weighed_by_the_markets_own_score() {
 }
 
 #[test]
+fn the_agents_number_moves_with_what_his_client_wants_besides_money() {
+    // Talk facts item 25 (Cain's yes, 2026-11-13): the want his agent names
+    // moves the agent's number by how well your club meets it, and his own
+    // number still signs him.
+    let (mut w, t) = nfl_world();
+    w.today = w.dates.tag_window_open;
+    // The veteran whose want moves his number the most.
+    let moves =
+        |w: &World, i: usize| (nfl::want_factor(w, i, t, nfl::TalkKind::ReSign) - 1.0).abs() * nfl::market_read(w, i).0;
+    let i = *w.clubs[t]
+        .roster
+        .iter()
+        .filter(|&&i| w.people[i].pro.as_ref().unwrap().status == Status::Roster)
+        .filter(|&&i| (4.0e6..15.0e6).contains(&nfl::market_read(&w, i).0))
+        .max_by(|&&a, &&b| moves(&w, a).total_cmp(&moves(&w, b)))
+        .unwrap();
+    make_expiring(&mut w, t, i, 5);
+    let f = nfl::want_factor(&w, i, t, nfl::TalkKind::ReSign);
+    assert!((1.0 - nfl::WANT_ASK..=1.0 + nfl::WANT_ASK).contains(&f), "{f}");
+    let id = w.people[i].player.id;
+    let min = money::minimum(w.year, w.people[i].pro.as_ref().unwrap().credited);
+    let low = nfl::Proposal {
+        years: 2,
+        apy: min,
+        gtd: 0.0,
+        bonus: 0.0,
+        void_years: 0,
+        incentives: 0.0,
+        no_trade: false,
+        start: false,
+        ramp: 0.06,
+        low_first: false,
+    };
+    let ideal = pro::market::ideal(&w, i, w.today);
+    let greed = pro::market::goals(&w, i).greed;
+    let plain = ideal.apy * (1.02 + 0.06 * greed);
+    let moved = (plain * f).max(min);
+    // Agents talk in round numbers: a quarter million, or $25,000 under $2M.
+    assert!((moved - plain).abs() > 130_000.0, "a want that moves his number past the rounding: {f}");
+    let a = nfl::propose(&mut w, id, low).unwrap();
+    let ask = a.ask.expect("the agent names his number");
+    if f > 1.0 {
+        assert!((ask.apy - moved).abs() <= 125_001.0, "the ask {}, the number with his want {moved}", ask.apy);
+        assert!(ask.apy > plain, "a club that misses his want hears more: {} against {plain}", ask.apy);
+    } else {
+        // He gives up only as much as still signs him.
+        assert!(ask.apy >= moved - 125_001.0 && ask.apy <= plain + 125_001.0, "{} not in {moved}..{plain}", ask.apy);
+    }
+    let a = nfl::propose(&mut w, id, ask).unwrap();
+    assert_eq!(a.verdict, nfl::Verdict::Signed, "his own ask didn't sign: {}", a.text);
+}
+
+#[test]
+fn a_want_only_moves_the_number_within_its_span() {
+    let (w, t) = nfl_world();
+    let year = w.year;
+    let clubs: Vec<usize> = (0..w.clubs.len()).filter(|&o| crate::world::franchise::active_in(&w, o, year)).collect();
+    let (mut seen, mut neutral) = (0, 0);
+    for &i in w.clubs[t].roster.iter() {
+        let Some(want) = crate::world::folk::claims::rooms::top_want(&w, i, false) else {
+            assert!(nfl::want_fit(&w, i, t, nfl::TalkKind::FreeAgent).is_none());
+            assert_eq!(nfl::want_factor(&w, i, t, nfl::TalkKind::FreeAgent), 1.0, "nothing but the money");
+            neutral += 1;
+            continue;
+        };
+        seen += 1;
+        for &o in &clubs {
+            let (fit, strength) = nfl::want_fit(&w, i, o, nfl::TalkKind::FreeAgent).unwrap();
+            let f = nfl::want_factor(&w, i, o, nfl::TalkKind::FreeAgent);
+            assert!((-1.0..=1.0).contains(&fit) && (0.5..=1.0).contains(&strength), "{fit} {strength}");
+            assert!((1.0 - nfl::WANT_ASK - 1e-9..=1.0 + nfl::WANT_ASK + 1e-9).contains(&f), "{f}");
+            assert_eq!(f < 1.0, fit > 0.0, "a club that meets the want hears less");
+            assert_eq!(f > 1.0, fit < 0.0, "a club that misses it hears more");
+            use crate::world::folk::claims::rooms::Want;
+            match want {
+                Want::Security => assert_eq!(f, 1.0, "security is in the ask's guarantee already"),
+                Want::Home => assert!(f <= 1.0, "far from home costs nothing extra"),
+                Want::City => {
+                    // The more a city pulls, the less the agent asks there.
+                    let pull = pro::market::city_pull(&w, o, year);
+                    for &q in &clubs {
+                        if pro::market::city_pull(&w, q, year) > pull + 1e-9 {
+                            assert!(nfl::want_factor(&w, i, q, nfl::TalkKind::FreeAgent) < f);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    assert!(seen > 0 && neutral > 0, "{seen} with a want, {neutral} with none");
+}
+
+#[test]
 fn one_tag_a_club_a_year_at_the_tags_price() {
     let (mut w, t) = nfl_world();
     w.today = w.dates.tag_window_open;
