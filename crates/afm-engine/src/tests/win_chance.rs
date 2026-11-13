@@ -435,6 +435,7 @@ fn your_games_keep_the_names_of_players_who_leave() {
         spread: None,
         talks: Default::default(),
         whistle: None,
+        mine: None,
     };
     // A game kept before the names were: it reads with none kept (an
     // empty box score, as JSON keys a box score's ids as text).

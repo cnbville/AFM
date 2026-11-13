@@ -11,8 +11,8 @@ use crate::game::{GameStats, PlayRecord, PlayType};
 use crate::league::depth_slots;
 use crate::player::PlayingTime;
 use crate::positions::Position;
-use crate::world::folk::scene;
 use crate::world::folk::talks::{self, Promise, PromiseKind, PromiseTo, Subject};
+use crate::world::folk::{Team, scene};
 use crate::world::pro::{ProSeason, Status};
 use crate::world::seat::SeatGame;
 use crate::world::{Seat, Stage, World};
@@ -50,6 +50,25 @@ fn rotates(w: &World, chart: &Chart) -> usize {
         .expect("a spot that rotates")
 }
 
+/// A man today's chart has past the men who rotate in at `pos`, and no
+/// higher on any other list.
+fn sits(w: &World, chart: &Chart, pos: Position) -> usize {
+    let up = |id: u32| {
+        chart.iter().any(|(p, ids)| {
+            let d = depth_slots(*p);
+            ids.iter().take(d.starters + d.rotation).any(|&x| x == id)
+        })
+    };
+    let d = depth_slots(pos);
+    let list = &chart.iter().find(|(p, _)| *p == pos).unwrap().1;
+    list.iter()
+        .skip(d.starters + d.rotation)
+        .copied()
+        .find(|&id| !up(id))
+        .map(|id| person(w, id))
+        .expect("a man who sits")
+}
+
 /// A promise to him, as the talk logs it.
 fn made(w: &World, i: usize, kind: PromiseKind) -> Promise {
     Promise {
@@ -60,6 +79,7 @@ fn made(w: &World, i: usize, kind: PromiseKind) -> Promise {
         public: false,
         kept: None,
         who: String::new(),
+        team: Team::seat(w),
     }
 }
 
@@ -104,6 +124,7 @@ fn kept_game(w: &mut World, level: Level, t: usize, date: Date, away: bool, men:
         spread: None,
         talks: Default::default(),
         whistle: None,
+        mine: Some(side as u8),
     });
 }
 
@@ -151,8 +172,7 @@ fn a_pro_is_read_at_his_club_not_at_his_college() {
     // down the chart was a college star. Before the fix the talks had them
     // the wrong way round.
     let qb = at(&w, &chart, Position::QB, 0);
-    let deep = depth_slots(Position::WR);
-    let wr = at(&w, &chart, Position::WR, deep.starters + deep.rotation);
+    let wr = sits(&w, &chart, Position::WR);
     w.people[qb].last_role = Some(PlayingTime::Backup);
     w.people[wr].last_role = Some(PlayingTime::Starter);
     assert_eq!(talks::role_now(&w, qb), Some(PlayingTime::Starter), "first on your chart");
@@ -196,8 +216,7 @@ fn a_pro_is_read_at_his_club_not_at_his_college() {
 #[test]
 fn a_promise_is_kept_by_the_games_he_plays_for_you() {
     let (mut w, t, chart) = club();
-    let slots = depth_slots(Position::WR);
-    let wr = at(&w, &chart, Position::WR, slots.starters + slots.rotation);
+    let wr = sits(&w, &chart, Position::WR);
     w.people[wr].last_role = Some(PlayingTime::Backup);
     let start = made(&w, wr, PromiseKind::Start);
     let snaps = made(&w, wr, PromiseKind::Snaps);
@@ -391,20 +410,33 @@ fn a_job_you_left() {
     let wr = at(&w, &chart, Position::WR, 0);
     let start = made(&w, wr, PromiseKind::Start);
     let place = made(&w, wr, PromiseKind::Place(0));
+    assert_eq!(start.team, Some(Team::Nfl(t)), "a promise keeps the team you made it at");
     games(&mut w, t, 3, &[(wr, true, 60)]);
     assert_eq!(talks::played_role(&w, wr), Some(PlayingTime::Starter));
     assert!(!talks::lapsed(&w, &start) && !talks::lapsed(&w, &place));
 
-    // You took this job after those games (a move from another club in
-    // January): they weren't yours to count, and a promise you made before
-    // it lapses quietly.
-    let moved = w.seat_games.last().unwrap().date.add(1);
-    w.career.as_mut().unwrap().market.job_since = Some(moved);
+    // Promoted at the same club after those games (coordinator to head
+    // coach): the games you played there count, and your word stands.
+    let promoted = w.seat_games.last().unwrap().date.add(1);
+    w.career.as_mut().unwrap().market.job_since = Some(promoted);
+    assert_eq!(talks::played_role(&w, wr), Some(PlayingTime::Starter));
+    assert!(!talks::lapsed(&w, &start) && !talks::lapsed(&w, &place));
+    // A promise or a game kept before its team was (an older save) goes by
+    // the day you took this job.
+    let old = Promise { team: None, ..start.clone() };
+    assert!(talks::lapsed(&w, &old));
+    assert!(!talks::lapsed(&w, &Promise { made: promoted, ..old.clone() }), "one made since stands");
+    for g in &mut w.seat_games {
+        g.mine = None;
+    }
     assert_eq!(talks::played_role(&w, wr), None);
-    assert!(talks::lapsed(&w, &start) && talks::lapsed(&w, &place));
-    let since = Promise { made: moved, ..made(&w, wr, PromiseKind::Start) };
-    assert!(!talks::lapsed(&w, &since), "one made since stands");
     w.career.as_mut().unwrap().market.job_since = None;
+    assert_eq!(talks::played_role(&w, wr), Some(PlayingTime::Starter));
+
+    // A man gone from the world: a promise of his place lapses, as before.
+    let gone = |p: &Promise| Promise { to: PromiseTo::Player(u32::MAX), ..p.clone() };
+    assert!(talks::lapsed(&w, &gone(&place)));
+    assert!(!talks::lapsed(&w, &gone(&start)), "nor does a promise of a start, as before");
 
     // Out of work (fired on Black Monday, the day his promises fall due):
     // he has no role with you, and your promises to him lapse rather than
@@ -415,6 +447,22 @@ fn a_job_you_left() {
     assert_eq!(talks::role_now(&w, wr), None);
     assert_eq!(talks::played_role(&w, wr), None);
     assert!(talks::lapsed(&w, &start) && talks::lapsed(&w, &place));
+
+    // Moved to another club: your word at the old one lapses, even if he
+    // comes with you.
+    let new = (0..w.clubs.len()).find(|&c| c != t && !w.clubs[c].roster.is_empty()).unwrap();
+    w.seat = Some(Seat { nfl_team: Some(new), ..seat.unwrap() });
+    w.clubs[new].roster.push(wr);
+    assert!(talks::lapsed(&w, &start) && talks::lapsed(&w, &place));
+    assert!(!talks::lapsed(&w, &made(&w, wr, PromiseKind::Start)), "one made at the new club stands");
+    // A game your old club played against the new one isn't the new one's,
+    // even on the day you moved.
+    w.seat_games.clear();
+    let kickoff = w.dates.nfl_kickoff;
+    kept_game(&mut w, Level::Nfl, new, kickoff, false, &[(wr, true, 60)]);
+    assert_eq!(talks::played_role(&w, wr), Some(PlayingTime::Starter), "a game you coached for it");
+    w.seat_games[0].mine = Some(1);
+    assert_eq!(talks::played_role(&w, wr), None, "a game you coached against it");
     w.seat = seat;
     assert!(!talks::lapsed(&w, &start));
 }
@@ -445,13 +493,21 @@ fn last_season_you_coached_is_read_from_your_games() {
         let d = w.dates.start.add(-150 + 7 * k);
         kept_game(&mut w, Level::Nfl, t, d, false, &[(qb, false, 5)]);
     }
-    // You didn't coach last season: his row says.
-    assert_eq!(talks::role_now(&w, qb), Some(PlayingTime::Starter));
-    // You did: your games say he sat behind the man you started.
-    w.career.as_mut().unwrap().market.job_since = Some(w.dates.start.add(-365));
+    // Your games say he sat behind the man you started (you coached him
+    // there, then were made head coach today).
+    w.career.as_mut().unwrap().market.job_since = Some(w.today);
     assert_eq!(talks::role_now(&w, qb), Some(PlayingTime::Backup));
     assert_eq!(talks::played_role(&w, qb), None, "not this season's");
     assert!(!talks::kept(&w, &made(&w, qb, PromiseKind::Place(0))));
+    // Games kept before their side was (an older save) count from the day
+    // you took this job: from today his row says, from a year back your
+    // games do.
+    for g in &mut w.seat_games {
+        g.mine = None;
+    }
+    assert_eq!(talks::role_now(&w, qb), Some(PlayingTime::Starter));
+    w.career.as_mut().unwrap().market.job_since = Some(w.dates.start.add(-365));
+    assert_eq!(talks::role_now(&w, qb), Some(PlayingTime::Backup));
 }
 
 #[test]
@@ -508,6 +564,66 @@ fn a_club_in_another_league_reads_its_own_games() {
     // A last season with another club says nothing about yours.
     w.people[qb].pro.as_mut().unwrap().other.push(row(opp));
     assert_eq!(talks::role_now(&w, qb), Some(PlayingTime::Backup));
+
+    // A kicker's row has no start: the man who kicked is your kicker.
+    let k = at(&w, &chart, Position::K, 0);
+    w.others.teams[f].roster.push(k as u32);
+    let c = w.people[k].pro.as_mut().unwrap();
+    c.out_weeks = 10;
+    c.other.clear();
+    c.other.push(OtherSeason { starts: 0, ..row(f) });
+    assert_eq!(talks::role_now(&w, k), Some(PlayingTime::Starter));
+
+    // Off the roster between seasons (the league lets most of its men go
+    // at its season's end): your word to him lapses. Cut while a season
+    // runs, it is broken.
+    let start = made(&w, wr, PromiseKind::Start);
+    w.others.teams[f].roster.retain(|&x| x as usize != wr);
+    let league = other::league_of(f);
+    w.others.live.retain(|l| l.league != league);
+    assert!(talks::lapsed(&w, &start));
+    w.others.live.push(other::Live { league, year, ..Default::default() });
+    assert!(!talks::lapsed(&w, &start));
+    assert!(!talks::kept(&w, &start));
+}
+
+#[test]
+fn a_club_in_another_league_keeps_its_own_dates() {
+    use crate::world::pro::other;
+    let (mut w, _, chart) = club();
+    let wr = at(&w, &chart, Position::WR, 0);
+    let year = w.year;
+    let f = other::teams_in(other::CFL, year)[0];
+    if w.others.teams.len() <= f {
+        w.others.teams.resize(f + 1, Default::default());
+    }
+    w.others.teams[f].roster = vec![wr as u32];
+    w.seat = Some(Seat { level: Level::Other, nfl_team: None, program: None, other: Some(f) });
+    let to = PromiseTo::Player(w.people[wr].player.id);
+    let due = |w: &mut World, kind: PromiseKind| {
+        talks::promise(w, to, kind, 0);
+        w.folk.promises.pop().unwrap().due
+    };
+    // The league's own opener and last week, this season's or the next.
+    let s = other::format(other::CFL, year).unwrap();
+    let opener = s.start.add(8);
+    let weeks = other::season_weeks(&w, other::CFL, year).unwrap() as i32;
+    assert!(weeks >= s.games as i32, "a week for each game at least");
+    let end = s.start.add(7 * (weeks - 1) + 1);
+    let today = w.today;
+    let next = other::format(other::CFL, year + 1).unwrap();
+    let start_due = if opener > today { opener } else { next.start.add(8) };
+    assert_eq!(due(&mut w, PromiseKind::Start), start_due);
+    let snaps = due(&mut w, PromiseKind::Snaps);
+    if end > today.add(30) {
+        assert_eq!(snaps, end);
+    } else {
+        assert_eq!(snaps.year(), year + 1);
+    }
+    assert_eq!(due(&mut w, PromiseKind::Place(0)), snaps);
+    assert_ne!(snaps, w.dates.black_monday, "not the NFL's");
+    // Other promises keep their dates.
+    assert_eq!(due(&mut w, PromiseKind::Contract), today.add(150));
 }
 
 #[test]

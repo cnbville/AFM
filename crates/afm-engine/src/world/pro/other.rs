@@ -894,7 +894,7 @@ fn open(w: &mut World, d: Date, k: u8, f: &Format) {
     for &fr in &teams {
         fill(w, d, k, fr, f.roster);
     }
-    let weeks = schedule(&teams, f.games, year as u64 ^ (k as u64) << 20 ^ w.options.seed as u64);
+    let weeks = schedule(&teams, f.games, schedule_key(w, k, year));
     let table = teams.iter().map(|&fr| Row { fr: fr as u16, ..Row::default() }).collect();
     w.others.live.push(Live { league: k, year, weeks, table, ..Live::default() });
     if w.recording {
@@ -911,6 +911,21 @@ fn open(w: &mut World, d: Date, k: u8, f: &Format) {
 
 /// The weeks of a season: a round robin (the circle method), repeated,
 /// until each team has its games; with an odd number one team rests.
+/// The key a league season's schedule is drawn with (`open`).
+fn schedule_key(w: &World, k: u8, year: i32) -> u64 {
+    year as u64 ^ (k as u64) << 20 ^ w.options.seed as u64
+}
+
+/// The regular-season weeks of a league's season: the drawn season's, else
+/// the schedule its teams would draw (byes make it longer than its games).
+pub(crate) fn season_weeks(w: &World, k: u8, year: i32) -> Option<usize> {
+    if let Some(l) = w.others.live.iter().find(|l| l.league == k && l.year == year) {
+        return Some(l.weeks.len());
+    }
+    let f = format(k, year)?;
+    Some(schedule(&teams_in(k, year), f.games, schedule_key(w, k, year)).len())
+}
+
 pub(crate) fn schedule(teams: &[usize], games: u8, key: u64) -> Vec<Vec<(u16, u16)>> {
     let mut list: Vec<Option<u16>> = teams.iter().map(|&t| Some(t as u16)).collect();
     if list.len() % 2 == 1 {

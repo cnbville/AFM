@@ -45,6 +45,11 @@ pub struct SeatGame {
     /// games kept before.
     #[serde(default)]
     pub whistle: Option<Moment>,
+    /// Your side in it (0 home, 1 away), as your team was then: after a
+    /// move, a game your old club played against your new one isn't the
+    /// new one's (`folk::talks::kept_role`). None for games kept before.
+    #[serde(default)]
+    pub mine: Option<u8>,
 }
 
 /// A drawing on a paused frame of the film: a line, an arrow, a circle or
@@ -121,6 +126,7 @@ impl World {
             spread: None,
             talks: talks.clone(),
             whistle: self.calendar.now.map(|(_, m)| m),
+            mine: Some(mine as u8),
         });
         if self.seat_games.len() > KEEP_GAMES {
             let cut = self.seat_games.len() - KEEP_GAMES;

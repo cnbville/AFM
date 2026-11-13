@@ -266,6 +266,7 @@ fn a_job_change_keeps_the_season_you_coached() {
         spread: None,
         talks: Default::default(),
         whistle: None,
+        mine: None,
     });
     let other = (0..w.programs.len()).find(|&q| q != p && w.programs[q].division == Division::FBS).unwrap();
     market::hired(&mut w, Employer::College(other), Role::HeadCoach);

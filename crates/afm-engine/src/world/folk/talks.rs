@@ -232,6 +232,10 @@ pub struct Promise {
     pub kept: Option<bool>,
     /// Who, in words with link marks.
     pub who: String,
+    /// Your team when you made it (None for promises made before it was
+    /// kept): one made at a team you have since left lapses (`lapsed`).
+    #[serde(default)]
+    pub team: Option<Team>,
 }
 
 /// Logs a promise. `seasons` sets its horizon: 0 is the next checkpoint
@@ -249,7 +253,8 @@ pub fn promise(w: &mut World, to: PromiseTo, kind: PromiseKind, seasons: u8) {
         PromiseTo::Coach(c) => super::coach_link(w, c),
     };
     w.folk.promises.retain(|p| !(p.to == to && p.kind == kind && p.kept.is_none()));
-    w.folk.promises.push(Promise { to, kind, made: today, due, public: false, kept: None, who });
+    let team = Team::seat(w);
+    w.folk.promises.push(Promise { to, kind, made: today, due, public: false, kept: None, who, team });
     if w.folk.promises.len() > 120
         && let Some(k) = w.folk.promises.iter().position(|p| p.kept.is_some())
     {
@@ -268,22 +273,54 @@ fn promise_due(w: &World, kind: PromiseKind, seasons: u8) -> Date {
         Some(Level::Nfl) => w.dates.black_monday,
         _ => w.dates.fbs_regular_end.add(3),
     };
-    let base = match kind {
-        PromiseKind::Start | PromiseKind::Join(0) => {
-            let k = kickoff(w).add(8);
-            if k > today { k } else { k.add(365) }
+    let league = match Team::seat(w) {
+        Some(Team::Other(f)) => league_due(w, f, kind),
+        _ => None,
+    };
+    let base = if let Some(d) = league {
+        d
+    } else {
+        match kind {
+            PromiseKind::Start | PromiseKind::Join(0) => {
+                let k = kickoff(w).add(8);
+                if k > today { k } else { k.add(365) }
+            }
+            PromiseKind::Snaps | PromiseKind::Place(_) | PromiseKind::Join(_) => {
+                let e = end(w);
+                if e > today.add(30) { e } else { e.add(365) }
+            }
+            PromiseKind::Contract => today.add(150),
+            PromiseKind::Stay | PromiseKind::Raise => today.add(330),
+            PromiseKind::Booster(_) => end(w).max(today.add(60)),
         }
-        PromiseKind::Snaps | PromiseKind::Place(_) | PromiseKind::Join(_) => {
-            let e = end(w);
-            if e > today.add(30) { e } else { e.add(365) }
-        }
-        PromiseKind::Contract => today.add(150),
-        PromiseKind::Stay | PromiseKind::Raise => today.add(330),
-        PromiseKind::Booster(_) => end(w).max(today.add(60)),
     };
     base.add(
         365 * seasons.saturating_sub(1) as i32 * matches!(kind, PromiseKind::Booster(_) | PromiseKind::Stay) as i32,
     )
+}
+
+/// A promise of a start, snaps or his place at a club in another league
+/// falls due on its league's own dates, not the NFL's (a UFL season ends in
+/// June, and at its end the league lets most of its men go): a start a week
+/// after the league's opener, snaps and his place the day after its last
+/// regular-season week (its weeks fall a week apart from the opener,
+/// `other::season_weeks`), this year's or the next season's. None for other
+/// promises, and for a league with no season ahead. Proposed, not
+/// confirmed.
+fn league_due(w: &World, f: usize, kind: PromiseKind) -> Option<Date> {
+    use crate::world::pro::other;
+    let start = matches!(kind, PromiseKind::Start);
+    if !start && !matches!(kind, PromiseKind::Snaps | PromiseKind::Place(_)) {
+        return None;
+    }
+    let k = other::league_of(f);
+    let today = w.today;
+    (today.year()..today.year() + 3).find_map(|year| {
+        let s = other::format(k, year)?;
+        let weeks = other::season_weeks(w, k, year)?.max(1);
+        let end = s.start.add(7 * (weeks as i32 - 1) + 1);
+        if start { Some(s.start.add(8)).filter(|&d| d > today) } else { Some(end).filter(|&d| d > today.add(30)) }
+    })
 }
 
 /// Checks the promises due today: kept ones build trust, broken ones cost
@@ -398,21 +435,42 @@ pub(crate) fn kept(w: &World, p: &Promise) -> bool {
 /// dismissed him, broke it (`kept`).
 ///
 /// A promise of a start, snaps or his place to a man who is a pro now
-/// lapses too when you no longer hold the job you made it in: you are out
-/// of work, or it was made before you took this job (`dept::job_start`).
-/// It was about a team you no longer coach, and his college role (all a
-/// pro's `last_role` holds) can't judge it (code oddity 29). Proposed, not
-/// confirmed.
+/// lapses too when you no longer coach the team you made it at (`team`):
+/// you are out of work or at another team; a promotion at the same club
+/// keeps it. It was about a team you no longer coach, and his college role
+/// (all a pro's `last_role` holds) can't judge it (code oddity 29). A
+/// promise kept before the team was goes by the day you took this job
+/// (`dept::job_start`). And at a club in another league, one to a man who
+/// is off the roster between seasons lapses: the league lets most of its
+/// men go at its season's end (`other::finish`). Proposed, not confirmed.
 pub(crate) fn lapsed(w: &World, p: &Promise) -> bool {
     let PromiseTo::Player(id) = p.to else { return false };
-    let Some(i) = super::person(w, id) else { return true };
-    if matches!(p.kind, PromiseKind::Start | PromiseKind::Snaps | PromiseKind::Place(_))
-        && w.people[i].stage == Stage::Pro
-        && (Team::seat(w).is_none() || crate::world::scouting::dept::job_start(w).is_some_and(|j| p.made < j))
-    {
-        return true;
+    let place = matches!(p.kind, PromiseKind::Place(_) | PromiseKind::Join(_));
+    let role = matches!(p.kind, PromiseKind::Start | PromiseKind::Snaps | PromiseKind::Place(_));
+    if !place && !role {
+        return false;
     }
-    let (PromiseKind::Place(_) | PromiseKind::Join(_)) = p.kind else { return false };
+    let Some(i) = super::person(w, id) else { return place };
+    let seat = Team::seat(w);
+    if role && w.people[i].stage == Stage::Pro {
+        let left = match p.team {
+            Some(t) => seat != Some(t),
+            None => seat.is_none() || crate::world::scouting::dept::job_start(w).is_some_and(|j| p.made < j),
+        };
+        let let_go = match seat {
+            Some(t @ Team::Other(f)) => {
+                let k = crate::world::pro::other::league_of(f);
+                !t.roster(w).contains(&i) && !w.others.live.iter().any(|l| l.league == k && !l.done)
+            }
+            _ => false,
+        };
+        if left || let_go {
+            return true;
+        }
+    }
+    if !place {
+        return false;
+    }
     let Some(team) = Team::seat(w) else { return false };
     if team.roster(w).contains(&i) {
         return false;
@@ -531,8 +589,9 @@ fn before_role(w: &World, i: usize, team: Team) -> Option<PlayingTime> {
 }
 
 /// A pro's role from your games for your club `team` that the world keeps
-/// whole (`World::seat_games`), dated from `from` (and not before you took
-/// this job, `dept::job_start`) to before `to`, by the rule a college season
+/// whole (`World::seat_games`: only the games you played as this club, so a
+/// promotion there keeps them and a move from another club doesn't bring
+/// its games), dated from `from` to before `to`, by the rule a college season
 /// is read with (`college::real_role`): his starts against the games he
 /// played and the club's games, and his snaps on offense and defense against
 /// a full starter's.
@@ -550,12 +609,22 @@ fn kept_role(w: &World, i: usize, team: Team, from: Date, to: Option<Date>) -> O
         Team::Other(f) => (Level::Other, f),
         _ => return None,
     };
-    let from = crate::world::scouting::dept::job_start(w).map_or(from, |j| j.max(from));
+    let job = crate::world::scouting::dept::job_start(w);
     let p = &w.people[i];
     let id = p.player.id;
     let (mut team_games, mut games, mut starts, mut snaps) = (0u32, 0u32, 0u32, 0u32);
     for g in w.seat_games.iter().filter(|g| g.level == level && g.date >= from && to.is_none_or(|e| g.date < e)) {
         let Some(side) = g.teams.iter().position(|&x| x == t) else { continue };
+        // Your side in it was this club: a game your old club played
+        // against it isn't. A game kept before the side was counts from the
+        // day you took this job.
+        let yours = match g.mine {
+            Some(m) => m as usize == side,
+            None => job.is_none_or(|j| g.date >= j),
+        };
+        if !yours {
+            continue;
+        }
         team_games += 1;
         let Some(l) = g.stats.players[side].get(&id).filter(|l| l.snaps_off + l.snaps_def + l.snaps_st > 0) else {
             continue;
@@ -581,7 +650,8 @@ fn kept_role(w: &World, i: usize, team: Team, from: Date, to: Option<Date>) -> O
 /// season he played was for it. At an NFL club its starts and snaps
 /// (`ProSeason`); in another league its starts alone (`OtherSeason` keeps no
 /// snaps: a start there is half his side's top snaps in a game), so it reads
-/// a starter or a backup.
+/// a starter or a backup; a kicker, punter or long snapper who played is
+/// the starter.
 fn row_role(w: &World, i: usize, team: Team) -> Option<PlayingTime> {
     use crate::world::college::real_role;
     let c = w.people[i].pro.as_ref()?;
@@ -595,7 +665,9 @@ fn row_role(w: &World, i: usize, team: Team) -> Option<PlayingTime> {
         Team::Other(f) => {
             let s = c.other.iter().rev().find(|s| s.games > 0).filter(|s| s.team as usize == f)?;
             let full = crate::world::pro::other::format(s.league, s.year).map_or(0, |x| x.games as u32);
-            Some(real_role(s.starts as u32, s.games as u32, full.max(s.games as u32), 0.0))
+            // A kicker's row has no start (his snaps are on special teams).
+            let starts = if w.people[i].player.position.is_specialist() { s.games } else { s.starts };
+            Some(real_role(starts as u32, s.games as u32, full.max(s.games as u32), 0.0))
         }
         _ => None,
     }
