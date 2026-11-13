@@ -100,6 +100,10 @@ pub struct Case {
     /// Answers given straight where the proof was weak (he believes your
     /// promises a little more).
     pub straight: u8,
+    /// The points made in this case, one bit each by its place in the
+    /// catalogue (`claims::Kind::ALL`): a point he heard for another case
+    /// is new here.
+    pub points: [u64; 4],
     /// The last day a point was made.
     pub on: Date,
 }
@@ -107,6 +111,18 @@ pub struct Case {
 impl Case {
     pub fn new(prog: usize) -> Case {
         Case { prog: prog as u16, ..Case::default() }
+    }
+
+    /// Whether the point at `place` in the catalogue was made in this case.
+    pub fn heard(&self, place: usize) -> bool {
+        place < 256 && self.points[place / 64] >> (place % 64) & 1 != 0
+    }
+
+    /// Marks the point at `place` in the catalogue as made in this case.
+    pub fn hear(&mut self, place: usize) {
+        if place < 256 {
+            self.points[place / 64] |= 1 << (place % 64);
+        }
     }
 
     /// Whether a point has been made in a group.
@@ -158,6 +174,9 @@ impl Case {
         }
         self.again += o.again;
         self.straight = self.straight.saturating_add(o.straight);
+        for (a, b) in self.points.iter_mut().zip(o.points) {
+            *a |= b;
+        }
         self.on = self.on.max(o.on);
     }
 

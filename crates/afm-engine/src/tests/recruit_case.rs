@@ -40,6 +40,14 @@ fn a_case_counts_each_group_once_and_comebacks_less_under_one_cap() {
     // in a case with nothing yet in its group.
     assert!(near(c.add(Group::Home, 0.01, 0.5, d), 0.01));
     assert!(c.has(Group::Home));
+    // The points a case has heard, one bit each, kept through a merge.
+    assert!(Kind::ALL.len() <= 256, "a case keeps 256 points' bits");
+    let last = Kind::ALL.len() - 1;
+    assert!(!c.heard(last));
+    c.hear(last);
+    let mut m = Case::new(3);
+    m.merge(&c);
+    assert!(m.heard(last) && !m.heard(0));
     // Every group at its best still stops at the cap.
     for g in Group::ALL {
         c.add(g, 0.03, 1.0, d);
@@ -119,8 +127,9 @@ fn adds(w: &World, i: usize, mine: usize, code: u32) -> f32 {
     let Some(g) = k.group() else { return 0.0 };
     let you = w.career.as_ref().map(|c| c.coach);
     let lean = case::lands(w, pt.care, pt.tier().unwrap_or(Tier::Fair), you);
-    let again = w.folk.talked.again(w.today, w.people[i].player.id, pt);
     let mut c = case::of(&w.people[i], mine).copied().unwrap_or(Case::new(mine));
+    let place = Kind::ALL.iter().position(|&x| x == k).unwrap();
+    let again = if c.heard(place) { w.folk.talked.again(w.today, w.people[i].player.id, pt) } else { 1.0 };
     let before = c.total();
     c.add(g, lean, again, w.today);
     c.total() - before
@@ -252,6 +261,30 @@ fn a_sit_down_runs_its_exchanges_and_a_handed_one_is_the_coachs_case() {
         !w.folk.pulls.of(id).any(|r| r.on == today && r.from != pulls::Where::Staff),
         "a talk you never opened puts nothing of yours on his file"
     );
+    // One talk with him at a time: start another and the one you left open
+    // ends as it stands.
+    w.today = w.today.add(7);
+    let mut checked = 0;
+    for &i in &kids[1..] {
+        let first = visit(&mut w, i, mine);
+        let Some(code) = first.picks.iter().chain(&first.reach).find(|p| POINT.contains(&p.code)).map(|p| p.code)
+        else {
+            continue;
+        };
+        let first = scene::answer(&mut w, first.id, code).unwrap();
+        if first.done {
+            continue;
+        }
+        let before = case::pull(&w.people[i], mine);
+        let second = visit(&mut w, i, mine);
+        let was = w.folk.scenes.iter().find(|x| x.id == first.id).unwrap();
+        assert!(was.done && was.handed.as_deref() == Some("nobody"), "the first talk ended");
+        assert!(was.outcome.iter().any(|o| o.contains("stands as you left it")));
+        assert!(second.opened);
+        assert!((case::pull(&w.people[i], mine) - before).abs() < 1e-9, "leaving it adds nothing");
+        checked += 1;
+    }
+    assert!(checked > 0, "some talk was left open and ended by the next");
 }
 
 /// The proof the design asks for (section 10): the same recruits, the same

@@ -474,6 +474,24 @@ pub fn hand(w: &mut World, id: u32) -> Result<Scene, String> {
     Ok(s)
 }
 
+/// Ends a scene you left open without handing it on: `end` writes what
+/// it came to, and what was said stands.
+pub(crate) fn leave(w: &mut World, id: u32, end: impl FnOnce(&mut World, &mut Scene)) {
+    let Some(k) = w.folk.scenes.iter().position(|s| s.id == id) else { return };
+    let mut s = w.folk.scenes[k].clone();
+    if s.done {
+        return;
+    }
+    end(w, &mut s);
+    s.done = true;
+    s.picks.clear();
+    clear_mark(w, &s);
+    log_scene(w, &s);
+    if let Some(slot) = w.folk.scenes.iter_mut().find(|x| x.id == id) {
+        *slot = s;
+    }
+}
+
 /// The meetings waiting for you on a morning: Continue stops for them.
 pub fn due(w: &World, d: Date) -> Option<String> {
     let n = w.folk.scenes.iter().filter(|s| !s.done && s.stops && s.date == d).count();

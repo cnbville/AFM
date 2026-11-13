@@ -236,6 +236,12 @@ impl Talked {
         self.row(who, p).is_some_and(|r| r.on.days_to(today) <= KEEP_DAYS)
     }
 
+    /// Drops one point's row: it starts again at its first time.
+    pub fn forget_point(&mut self, who: u32, p: &Point) {
+        let (of, what) = p.fact();
+        self.rows.retain(|r| !(r.who == who && r.kind == p.kind && r.of == of && r.what == what));
+    }
+
     /// Drops a person's rows (he left football).
     pub fn forget(&mut self, who: u32) {
         self.rows.retain(|r| r.who != who);

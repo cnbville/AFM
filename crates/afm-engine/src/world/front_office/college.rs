@@ -475,7 +475,9 @@ pub(crate) fn portal_wants(w: &World) -> Option<PortalWants> {
                     coll: t.nil_coll,
                     bond: if t.contacted.is_some() { CONTACT_BOND } else { 0.0 } + super::portal::effort(t),
                     promise: t.promise.map(|p| p.0),
-                    called: !t.talks.is_empty(),
+                    // A talk still open counts: your case is written as you
+                    // talk, before the talk goes on his list.
+                    called: !t.talks.is_empty() || !t.case.is_empty(),
                     case: super::portal::case_now(t),
                     visited: super::portal::visited(t),
                     committed: t.committed.is_some(),

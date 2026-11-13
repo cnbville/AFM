@@ -230,8 +230,9 @@ fn you(w: &World) -> Option<usize> {
 
 /// Who speaks for him: a transfer himself; at a high school recruit's
 /// home whoever decides, in that voice. Only a parent carries the parent
-/// tag; a grandparent keeps the family's style (loud, online, calm), a
-/// trainer and a recruit who decides himself speak in neither.
+/// tag; a grandparent who raised him keeps the family's style (loud,
+/// online, calm) but is never the parent who isn't around; a trainer and a
+/// recruit who decides himself speak in neither.
 fn speaker(w: &World, t: &Talk) -> Speaker {
     if t.transfer {
         return Speaker::player(w, t.i);
@@ -244,7 +245,7 @@ fn speaker(w: &World, t: &Talk) -> Speaker {
             sp.tags.push("himself");
         }
         Decider::Grandparent => {
-            sp.tags.retain(|&x| x != "parent");
+            sp.tags.retain(|&x| x != "parent" && x != "absent");
             sp.tags.push("grandparent");
         }
         Decider::Handler => {
@@ -1150,8 +1151,6 @@ fn wrap_up(w: &mut World, s: &mut Scene, t: &Talk, mut st: St) {
     close(w, s, t, &st);
 }
 
-/// The talk ends: his last words, what it came to, and (for a transfer)
-/// the talk on his file and whether he has heard enough.
 /// How a talk that moved your case by `d` ended: "warm", "flat" or
 /// "cool" (a call's warm bar is a call's size).
 pub fn mood_of(d: f32, phone: bool) -> &'static str {
@@ -1164,6 +1163,8 @@ pub fn mood_of(d: f32, phone: bool) -> &'static str {
     }
 }
 
+/// The talk ends: his last words, what it came to, and (for a transfer)
+/// the talk on his file and whether he has heard enough.
 fn close(w: &mut World, s: &mut Scene, t: &Talk, st: &St) {
     let d = s.f[0];
     let mood = mood_of(d, t.phone());
@@ -1217,14 +1218,18 @@ fn make_point(w: &mut World, s: &mut Scene, t: &Talk, mut st: St, k: Kind, picke
     s.you(&me, picked.label.trim_matches('"'));
     let lean = t.scale() * case::lands(w, pt.care, tier, you(w));
     let heard = w.folk.talked.remembers(today, t.id, &pt);
-    let mut again = w.folk.talked.again_in(today, s.id, t.id, &pt);
+    // A point new to this case counts in full and starts its comebacks
+    // again, though he heard it from you for another (a school you left, or
+    // a case made fresh since).
+    let place = place_of(k) as usize;
+    let fresh = case_for(w, t).is_some_and(|c| !c.heard(place));
+    if fresh {
+        w.folk.talked.forget_point(t.id, &pt);
+    }
+    let again = if fresh { 1.0 } else { w.folk.talked.again_in(today, s.id, t.id, &pt) };
     let delta = match case_for(w, t) {
         Some(c) => {
-            // A case with nothing in the group hears it new (another
-            // school's case, or one made fresh since).
-            if !c.has(g) {
-                again = 1.0;
-            }
+            c.hear(place);
             c.add(g, lean, again, today)
         }
         None => 0.0,
@@ -1665,6 +1670,18 @@ pub(crate) fn open(w: &mut World, s: &mut Scene) {
         s.outcome.push(why.into());
         return s.end();
     }
+    // One talk with him at a time: one you left open ends as it stands.
+    let open: Vec<u32> = w
+        .folk
+        .scenes
+        .iter()
+        .filter(|x| x.id != s.id && x.a == s.a && x.opened && !x.done)
+        .filter(|x| matches!(x.kind, Scenes::HomeVisit | Scenes::PortalCall | Scenes::PortalVisit))
+        .map(|x| x.id)
+        .collect();
+    for id in open {
+        scene::leave(w, id, left);
+    }
     let p = &w.people[t.i];
     let kid = super::player_link(w, t.i);
     let room = if !t.transfer {
@@ -1820,6 +1837,21 @@ fn promise(w: &mut World, s: &mut Scene, t: &Talk, st: St, kind: u8, picked: &Pi
     );
     s.outcome.push(format!("You promised {}.", if kind == 0 { "him a starting job" } else { "him a real role" }));
     close(w, s, t, &st);
+}
+
+/// A talk you left open, ended by another you started with him: what you
+/// said stands, and nobody adds to it.
+fn left(w: &mut World, s: &mut Scene) {
+    let Some(t) = talk(w, s) else { return };
+    let st = St::of(s);
+    s.handed = Some("nobody".into());
+    if st.used > 0 || st.stage > 0 {
+        s.outcome.push("You spoke with him again before this talk ended. Your case stands as you left it.".into());
+        finish(w, s, &t, s.f[0], st.made)
+    } else {
+        s.outcome.push("You listened and left it there.".into());
+        finish(w, s, &t, 0.0, 0)
+    }
 }
 
 /// Your staff takes the talk: the position coach for his spot makes the
