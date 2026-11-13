@@ -44,10 +44,21 @@ pub(crate) fn for_scene(w: &mut World, s: &Scene) {
     let org = team.name(w);
     let open = format!("[[s:people_scene?id={}|{}]]", s.id, if s.stops { "Open the meeting" } else { "Open it" });
     let when = if s.date > w.today { format!(" on {}", s.date.pretty()) } else { String::new() };
-    let player = s.who.iter().find_map(|x| match x {
-        Who::Player(id) => Some(*id),
-        _ => None,
-    });
+    // A scene about one player keeps his id in `a` (the portal ask, a
+    // parent's call, a rule broken, a second opinion): without it these
+    // letters named nobody (the inbox lane).
+    let player = s
+        .who
+        .iter()
+        .find_map(|x| match x {
+            Who::Player(id) => Some(*id),
+            _ => None,
+        })
+        .or_else(|| {
+            matches!(s.kind, Kind::OneOnOne | Kind::Discipline | Kind::SecondOpinion | Kind::ParentCall)
+                .then_some(s.a as u32)
+                .filter(|&a| a != 0)
+        });
     let plink = player.and_then(|id| super::person(w, id)).map(|i| super::player_link(w, i));
     // The staff member who'd write the memo: operations at a college or a
     // club, your coordinator at a high school.
@@ -206,6 +217,7 @@ pub(crate) fn for_scene(w: &mut World, s: &Scene) {
         ids: player.into_iter().collect(),
         org_team: Some(team_code(team)),
         why: Vec::new(),
+        count: 0,
     });
     c.desk.mails.sort_by_key(|m| (m.date, m.minute));
 }

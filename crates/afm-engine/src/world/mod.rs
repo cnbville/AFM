@@ -1649,6 +1649,16 @@ impl World {
         clock::holiday_to(self, until)
     }
 
+    /// `holiday_to`, calling `each_day` at the first section of every new
+    /// day it passes (read-only: the world plays the same days).
+    pub fn holiday_to_with(
+        &mut self,
+        until: crate::calendar::Date,
+        each_day: &mut dyn FnMut(&mut World),
+    ) -> crate::calendar::Date {
+        clock::holiday_to_with(self, until, each_day)
+    }
+
     /// Sandbox mode's jump (a test tool): every day to `until` played as
     /// Continue plays it, staff running things, no early stop.
     pub fn jump_to(&mut self, until: crate::calendar::Date) -> crate::calendar::Date {
