@@ -565,6 +565,64 @@ fn the_boards_at_every_seat() {
     let old: afm_engine::world::seat::Career = serde_json::from_value(old).expect("an older career loads");
     assert!(old.kept_reads.is_empty() && old.kept_through == 0);
 
+    // The 67 skills' middles kept beside it (attributes page, lane 1).
+    {
+        let c = g.world.as_ref().unwrap().career.as_ref().unwrap();
+        let rows = c.kept_attrs_of(id);
+        assert_eq!(rows.len(), 1, "the season's middles are kept with the read");
+        let r = &rows[0];
+        assert_eq!((r.season, r.pos), (kept.season, kept.pos));
+        assert_eq!((r.staff.len(), r.mine.len()), (67, 67), "one middle for each skill, both sources");
+        assert!(r.staff.iter().any(|&m| m > 0), "the staff's read of a rostered player is kept");
+        for k in kept.keys.iter().filter(|k| k[1] > 0) {
+            let m = r.staff[k[0] as usize];
+            assert!(m >= k[1] && m <= k[2], "the kept middle sits inside the kept range: {m} in {k:?}");
+        }
+    }
+    {
+        // Two seasons: each keeps its own row, a second keep of one season replaces it.
+        let c = g.world.as_mut().unwrap().career.as_mut().unwrap();
+        let mut next = c.kept_attrs_of(id)[0].clone();
+        next.season += 1;
+        next.staff[0] = 77;
+        c.keep_attrs(id, next.clone());
+        next.staff[0] = 78;
+        c.keep_attrs(id, next);
+        let rows = c.kept_attrs_of(id);
+        assert_eq!(rows.len(), 2);
+        assert!(rows[0].season < rows[1].season, "oldest first");
+        assert_eq!(rows[1].staff[0], 78, "the second keep of a season replaces the first");
+        c.kept_attrs.iter_mut().find(|k| k.id == id).unwrap().rows.pop();
+    }
+    {
+        // The hover compares a skill with its own kept middle: take one the
+        // kept read has no range or family middle for, and the move is its own.
+        let w = g.world.as_mut().unwrap();
+        let c = w.career.as_mut().unwrap();
+        let mut row = c.kept_attrs_of(id)[0].clone();
+        let key0 = kept.keys[0][0] as usize;
+        let skill = (0..67).find(|a| !kept.keys.iter().any(|k| k[0] as usize == *a && k[1] > 0) && row.staff[*a] > 0);
+        if let Some(a) = skill {
+            row.staff[a] = 10; // far below any real read: a clear rise
+            c.keep_attrs(id, row);
+            let attr = afm_engine::attributes::Attr::ALL[a];
+            let (lo, hi) = (60, 64);
+            let out = ok(&mut g, "rr_card", json!({ "p": id, "k": attr.key(), "lo": lo, "hi": hi }));
+            assert_eq!(out["change"]["word"], "Up clearly", "{}", out["change"]);
+            assert!(out["change"]["line"].as_str().unwrap().contains("about 10"), "{}", out["change"]);
+        }
+        let _ = key0;
+    }
+    // Through a save, and a save from before the store loads with none.
+    let saved = ok(&mut g, "save", json!({ "name": "kept2" }))["saved"].as_str().unwrap().to_string();
+    ok(&mut g, "load", json!({ "path": saved }));
+    let before = g.world.as_ref().unwrap().career.as_ref().unwrap().kept_attrs_of(id).to_vec();
+    assert_eq!(before.len(), 1, "kept through a save");
+    let mut old = serde_json::to_value(g.world.as_ref().unwrap().career.as_ref().unwrap()).unwrap();
+    old.as_object_mut().unwrap().remove("kept_attrs");
+    let old: afm_engine::world::seat::Career = serde_json::from_value(old).expect("a save without the store loads");
+    assert!(old.kept_attrs.is_empty() && old.kept_attrs_of(id).is_empty());
+
     portal_on_the_needs_map(&mut g);
 
     // An NFL head coach.
