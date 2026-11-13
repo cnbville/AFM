@@ -218,9 +218,10 @@ impl World {
         let slots = crate::spots::board_jobs(pos).len();
         let mine = self.seat_depth.iter().find(|x| x.0 == pos).map(|x| x.1.clone());
         let (order, last) = match mine {
-            Some(v) if v.len() >= slots => (v, None),
+            // Your own order: he takes the spot in it.
+            Some(v) => (v, None),
             None if slots == 0 => (vec![s0], None),
-            _ => {
+            None => {
                 // The men the game seats at the named spots first, then
                 // the rest of the staff's order; the last starter on the
                 // staff's order is the one who sat before.
@@ -234,7 +235,7 @@ impl World {
                     .map(|(t, level)| crate::game::flow::seating(&t, level).by_slot(pos))
                     .unwrap_or_default();
                 let first: Vec<u32> = seats.iter().flatten().copied().filter(|id| staff.contains(id)).collect();
-                let last = staff.get(slots.wrapping_sub(1)).copied();
+                let last = staff.get(slots - 1).copied();
                 if first.len() == slots {
                     (
                         first.iter().copied().chain(staff.iter().copied().filter(|id| !first.contains(id))).collect(),

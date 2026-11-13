@@ -306,7 +306,7 @@ fn line_spots(g: &mut Game) {
     let (lt, rt) = (at(&off, "LT"), at(&off, "RT"));
     let mut ids: Vec<Value> = off.iter().map(|s| json!(s.1)).collect();
     ids.swap(lt, rt);
-    ok(g, "board_set", json!({ "board": "offense", "ids": ids }));
+    ok(g, "board_set", json!({ "board": "offense", "ids": ids, "positions": ["OT"] }));
     let swapped = seats(g);
     assert_eq!(swapped.at("LT", 0), before.at("RT", 0), "the man dropped at left tackle plays left tackle");
     assert_eq!(swapped.at("RT", 0), before.at("LT", 0), "and the other plays right tackle");
@@ -333,6 +333,32 @@ fn line_spots(g: &mut Game) {
     ok(g, "sb_depth_reset", json!({ "tab": "offense", "form": "offense" }));
     assert!(g.world.as_ref().unwrap().seat_depth.is_empty(), "the staff has it back");
     assert_eq!(seats(g), before, "the staff's line again");
+
+    // The nickel dropped at free safety: he plays free safety, the corners
+    // stay, and another corner takes the nickel job (the Base board doesn't
+    // show it, so the corners' order is written too).
+    if let (Some(nickel), Some(fs)) = (before.at("NICKEL", 0), before.at("FS", 0)) {
+        let def = slots(g, "defense");
+        let mut ids: Vec<Value> = def.iter().map(|s| json!(s.1)).collect();
+        ids[at(&def, "FS")] = json!(nickel);
+        // The screens name the spot he lands on; he came from off the board.
+        ok(g, "board_set", json!({ "board": "defense", "ids": ids, "positions": ["S"] }));
+        let now = seats(g);
+        assert_eq!(now.at("FS", 0), Some(nickel), "the nickel plays free safety");
+        assert!(now.at("NICKEL", 0).is_some_and(|x| x != nickel && x != fs), "another corner plays nickel");
+        let (mut a, mut b) = ([now.at("CB", 0), now.at("CB", 1)], [before.at("CB", 0), before.at("CB", 1)]);
+        a.sort();
+        b.sort();
+        assert_eq!(a, b, "the outside corners stay");
+        for name in ["SAM", "MIKE", "WILL"] {
+            assert_eq!(now.at(name, 0), before.at(name, 0), "the {name} stays");
+        }
+        let mut yours: Vec<_> = g.world.as_ref().unwrap().seat_depth.iter().map(|x| x.0.name()).collect();
+        yours.sort();
+        assert_eq!(yours, vec!["CB", "S"], "the corners and safeties are yours, nobody else");
+        ok(g, "sb_depth_reset", json!({ "tab": "defense", "form": "defense" }));
+        assert!(g.world.as_ref().unwrap().seat_depth.is_empty(), "the staff has it back");
+    }
 }
 
 #[test]

@@ -2454,15 +2454,20 @@ pub fn depth(w: &World) -> Value {
                 .as_ref()
                 .and_then(|g| g.iter().find(|(p, _)| *p == pos))
                 .map_or(Vec::new(), |(_, ids)| ids.clone());
-            let ids = crate::lane_training::seated_first(seating.as_ref(), names, ids);
-            // The spot each first row plays, as far as the engine seats them.
+            // Your own order already stands in the spots' order.
+            let yours = w.seat_depth.iter().any(|(p, _)| *p == pos);
+            let ids = if yours { ids } else { crate::lane_training::seated_first(seating.as_ref(), names, ids) };
+            // The spot each first row plays, as far as the engine seats them
+            // (of the two outside corners either may line up on the left).
             let slots: Vec<&str> = names
                 .iter()
                 .enumerate()
                 .map_while(|(k, name)| {
-                    let nth = names[..k].iter().filter(|n| *n == name).count();
-                    let seat = seating.as_ref().and_then(|s| s.at(name, nth));
-                    (seat.is_some() && seat == ids.get(k).copied()).then_some(*name)
+                    let n = names.iter().filter(|x| *x == name).count();
+                    let here = ids.get(k).copied();
+                    let seated =
+                        (0..n).any(|j| seating.as_ref().and_then(|s| s.at(name, j)).is_some_and(|id| Some(id) == here));
+                    seated.then_some(*name)
                 })
                 .collect();
             let mut list: Vec<usize> = ids.iter().filter_map(|&id| by_id(id)).collect();
@@ -2473,7 +2478,6 @@ pub fn depth(w: &World) -> Value {
                     list.push(k);
                 }
             }
-            let yours = w.seat_depth.iter().any(|(p, _)| *p == pos);
             json!({
                 "pos": pos.name(),
                 "controls": w.controls(pos),

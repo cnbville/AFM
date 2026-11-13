@@ -293,7 +293,8 @@ impl<'a> Side<'a> {
             // guard can't dress. A slot whose man can't dress, or that your
             // order doesn't reach, goes to the next men up, each at the
             // open slot that suits him as his staff would seat him.
-            if let (Some(slots), Some((_, ids))) = (line_slots(pos), team.order.iter().find(|(p, _)| *p == pos)) {
+            let named = team.order.iter().find(|(p, _)| *p == pos && !team.ranked.contains(p));
+            if let (Some(slots), Some((_, ids))) = (line_slots(pos), named) {
                 let mut at: Vec<Option<usize>> = Vec::with_capacity(slots.len());
                 for k in 0..slots.len() {
                     let i = ids.get(k).and_then(|id| team.players.iter().position(|p| p.id == *id));
@@ -302,11 +303,21 @@ impl<'a> Side<'a> {
                 }
                 let open: Vec<usize> = (0..slots.len()).filter(|&k| at[k].is_none()).collect();
                 if !open.is_empty() {
+                    // A man your order names on the line's other half (a
+                    // backup tackle you put at guard) stays for his spot.
+                    let elsewhere = |i: usize| {
+                        let id = team.players[i].id;
+                        team.order.iter().any(|(p, v)| {
+                            *p != pos
+                                && !team.ranked.contains(p)
+                                && line_slots(*p).is_some_and(|s| v.iter().take(s.len()).any(|&x| x == id))
+                        })
+                    };
                     let next: Vec<usize> = depth
                         .list(pos)
                         .iter()
                         .copied()
-                        .filter(|i| line[*i].is_none() && !at.contains(&Some(*i)))
+                        .filter(|i| line[*i].is_none() && !at.contains(&Some(*i)) && !elsewhere(*i))
                         .take(open.len())
                         .collect();
                     let want: Vec<Spot> = open.iter().map(|&k| orole_spot(slots[k])).collect();
@@ -757,7 +768,20 @@ impl<'a> Side<'a> {
             }
         }
         if n < rs.len() {
-            for i in self.pick(pos, rs.len() - n, used) {
+            // The tackles are picked first: the men your order names inside
+            // stay there, so a backup tackle you put at guard isn't taken
+            // to spell a tackle. An AI staff names nobody: nothing held.
+            let held: Vec<usize> = if pos == Position::OT {
+                (0..self.line.len())
+                    .filter(|&i| self.line[i].is_some_and(|r| !rs.contains(&r)) && !used.contains(&i))
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            used.extend(held.iter().copied());
+            let got = self.pick(pos, rs.len() - n, used);
+            used.retain(|i| !held.contains(i));
+            for i in got {
                 match self.line[i].and_then(|r| rs.iter().position(|&x| x == r)).filter(|&k| at[k].is_none()) {
                     Some(k) => at[k] = Some(i),
                     None => loose.push(i),
