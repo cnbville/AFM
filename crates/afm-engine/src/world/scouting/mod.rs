@@ -108,10 +108,14 @@ pub enum Kind {
     /// The analytics staff's read of his numbers (update 2, SK6): his
     /// production against his level, his age, his testing.
     Numbers,
+    /// Seen on another man's tape (minor bug 379): he popped off the film
+    /// you were watching of someone else. A film look, three quarters as
+    /// far in from the wide guess (`file::SIDE_SHARE`).
+    SideFilm,
 }
 
 impl Kind {
-    pub const ALL: [Kind; 32] = [
+    pub const ALL: [Kind; 33] = [
         Kind::School,
         Kind::Film,
         Kind::CrossCheck,
@@ -144,6 +148,7 @@ impl Kind {
         Kind::Tryout,
         Kind::ProFilm,
         Kind::Numbers,
+        Kind::SideFilm,
     ];
 
     pub fn name(self) -> &'static str {
@@ -180,6 +185,7 @@ impl Kind {
             Kind::Tryout => "Tryout",
             Kind::ProFilm => "Pro film",
             Kind::Numbers => "His numbers",
+            Kind::SideFilm => "On another man's tape",
         }
     }
 
@@ -194,7 +200,8 @@ impl Kind {
             | Kind::HsFilm
             | Kind::CollegeFilm
             | Kind::ProFilm
-            | Kind::Numbers => CHIP_FILM,
+            | Kind::Numbers
+            | Kind::SideFilm => CHIP_FILM,
             Kind::School | Kind::Practice | Kind::Game | Kind::AllStar | Kind::Coach => CHIP_LIVE,
             Kind::Combine
             | Kind::ProDay
@@ -232,7 +239,8 @@ impl Kind {
             | Kind::HsFilm
             | Kind::CollegeFilm
             | Kind::ProFilm
-            | Kind::Numbers => "Film and charting",
+            | Kind::Numbers
+            | Kind::SideFilm => "Film and charting",
             Kind::Combine
             | Kind::ProDay
             | Kind::Camp
@@ -262,6 +270,7 @@ impl Kind {
                 | Kind::HsFilm
                 | Kind::CollegeFilm
                 | Kind::Game
+                | Kind::SideFilm
         )
     }
 
