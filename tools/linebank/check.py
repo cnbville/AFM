@@ -75,6 +75,21 @@ BACKTALK = re.compile(r"((^|[.!?]\s)whatever[.!?]|"
                       r"put my name|get to the point|not my problem|that's your problem|you don't get to|"
                       r"who do you think)\b)")
 TALK_BACK_PARTS = ('talk.', 'rules.react.', 'takeover.meeting.react_', 'takeover.leader.')
+# A player denying or admitting something about his own conduct (talk facts,
+# lane L2): the bank is fact-free, so "I've done nothing wrong" would reach a
+# man with a fresh arrest and "I know I messed up" a man who did nothing.
+# The blatant forms are dropped from a run (a new part that must say one gets
+# a part card that says what is true, and a fact check). The lines already in
+# the bank carry blameless=yes or at_fault=yes and wait for the fact sheet
+# (voice.rs, CLAIM_FACTS); a writer never uses those two.
+CLAIM_FACTS = ('blameless', 'at_fault')
+CLAIM = re.compile(r"(?<![a-z])(?<!if )(?<!did )(?<!whether )(?<!in case )(?<!hope )(?<!because )(?<!glad )("
+                   r"i haven't done anything wrong|i've done nothing wrong|i didn't do anything wrong|"
+                   r"i did nothing wrong|i'm not in trouble|i'm clean|nothing to hide|it wasn't me|that wasn't me|"
+                   r"it's not my fault|that's not my fault|i didn't do it|i'm innocent|"
+                   r"i messed up|i screwed up|i blew it|my fault|i was wrong|i let you down|"
+                   r"i let the team down|i crossed a line|i take the blame|i'm to blame)(?![a-z])(?! about)(?! if)")
+CLAIM_PARTS = ('talk.',)
 # Sir or ma'am to your face follows your he or she: {coach_sir}. A line about
 # saying sir ("taught to say yes sir") can't be written that way.
 SIR = re.compile(r"\b(?:[Ss]ir|[Mm]a'am)\b")
@@ -164,9 +179,11 @@ class Part:
 
 
 class Checker:
-    def __init__(self, keys=None, pool=None, target=None, repeats=True):
+    def __init__(self, keys=None, pool=None, target=None, repeats=True, held_ok=False):
         """`pool`: {key: [lines kept so far]}; `target`: {key: new versions
-        the part is to get} (for the opening share)."""
+        the part is to get} (for the opening share). `held_ok`: the bank's own
+        lines may carry blameless= and at_fault= (`--bank`); a run's may not."""
+        self.held_ok = held_ok
         old = B.bank(skip={f for f in B.os.listdir(B.LINES) if f.endswith('_run.txt')})
         for vs in old.values():
             for text, _, _ in vs:
@@ -249,6 +266,10 @@ class Checker:
             elif t not in p.tags:
                 why.append(f'tag {t} never fits this speaker')
         for (k, v), _ in when:
+            if k in CLAIM_FACTS:
+                if not self.held_ok:
+                    why.append(f"{k}= is the fact sheet's, not a writer's tag")
+                continue
             if k not in p.when:
                 why.append(f'{k}= is never set here')
             elif v not in p.when[k]:
@@ -307,6 +328,8 @@ class Checker:
                 why.append('talks back without brash')
         if 'brash' in nd and (lv & {'hs'} or (p.levels and p.levels <= {'hs'})):
             why.append('brash is never a high school player')
+        if key.startswith(CLAIM_PARTS) and CLAIM.search(low) and not any(k in CLAIM_FACTS for (k, v), _ in when):
+            why.append('denies or admits his own conduct (only the fact sheet may say it)')
         if p.who == 'you' and re.search(r"\b(i|i'm|i've|my) (wife|husband)\b", low):
             why.append('you have no spouse in the bank')
         # Era words: tagged as lane 13 did (every speaker you meet from 2026
@@ -460,7 +483,7 @@ def team_words(low, nd, p):
 def main():
     args = sys.argv[1:]
     if args == ['--bank']:
-        ck = Checker(repeats=False)
+        ck = Checker(repeats=False, held_ok=True)
         bad = collections.Counter()
         tot = collections.Counter()
         why = collections.Counter()

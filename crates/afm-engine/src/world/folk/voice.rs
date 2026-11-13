@@ -23,6 +23,14 @@
 //! `!result=win`: never after one). `@with other.key` under a key adds every
 //! version of that other part to this one (a story's up and down quotes
 //! also say its quotes that fit either tone).
+//!
+//! A one-on-one line that denies or admits something about his own conduct
+//! ("I've done nothing wrong", "I know I messed up") carries `blameless=yes`
+//! or `at_fault=yes` (`CLAIM_FACTS`). No caller sets those facts yet, so
+//! those lines are not said at all: a man with a fresh arrest never says he
+//! has done nothing wrong, and a clean one never owns a mistake he didn't
+//! make. The fact sheet of the talks (talk facts, item 5 and 6) sets a fact
+//! when the world backs the line.
 
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -72,6 +80,11 @@ const BANKS: &[&str] = &[
     include_str!("../../../data/lines/room_run.txt"),
     include_str!("../../../data/lines/boosters_run.txt"),
 ];
+
+/// The facts that gate a line which denies (`blameless`) or admits
+/// (`at_fault`) something about the speaker's own conduct. Nothing sets them
+/// today, so those lines are held back until the talks can check the facts.
+pub const CLAIM_FACTS: [&str; 2] = ["blameless", "at_fault"];
 
 #[derive(Clone, Debug)]
 struct Frag {
