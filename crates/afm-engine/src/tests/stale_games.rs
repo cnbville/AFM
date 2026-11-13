@@ -123,9 +123,33 @@ fn the_team_talk_looks_ahead_to_a_game_that_is_near() {
     assert!(!text.contains("17-52"), "{text}");
 }
 
+/// An NFL seat world whose last game was a 17-52 loss `ago` days ago (an NFL
+/// club has a roster in the test world; a college program has none yet).
+fn nfl_after(ago: i32) -> World {
+    let mut w = seat("nfl");
+    let Some(Team::Nfl(t)) = Team::seat(&w) else { panic!("an NFL seat") };
+    let opp = (0..w.clubs.len()).find(|&o| o != t).unwrap();
+    let stats = GameStats { score: [17, 52], ..Default::default() };
+    w.seat_games.push(SeatGame {
+        date: w.today.add(-ago),
+        level: crate::calendar::Level::Nfl,
+        teams: [t, opp],
+        names: ["Home".into(), "Away".into()],
+        stats,
+        replay: Vec::new(),
+        marks: Vec::new(),
+        gone: Vec::new(),
+        spread: None,
+        talks: Default::default(),
+        whistle: None,
+    });
+    w
+}
+
 /// The room's trust, summed, after a team talk answered with one move.
 fn trust_after_talk(w: &mut World, code: u32) -> f32 {
     let team = Team::seat(w).expect("your team");
+    assert!(!team.roster(w).is_empty(), "a room to talk to");
     let id = talks::start_team_talk(w).expect("a team talk");
     scene::open(w, id).expect("the scene opens");
     scene::answer(w, id, code).expect("the move is on the table");
@@ -136,16 +160,19 @@ fn trust_after_talk(w: &mut World, code: u32) -> f32 {
 fn praise_turns_hollow_only_after_this_weeks_loss() {
     // The same room with no game in the file: praise as it plainly lands.
     let plain = |ago: i32| {
-        let (mut w, _) = after(ago);
+        let mut w = nfl_after(ago);
         w.seat_games.clear();
         trust_after_talk(&mut w, 204)
     };
     for ago in [1, 7] {
-        let (mut w, _) = after(ago);
-        assert!(trust_after_talk(&mut w, 204) < plain(ago), "{ago} days after a 17-52 loss, praise rings hollow");
+        let mut w = nfl_after(ago);
+        assert!(facts::fresh_game(&w, Team::seat(&w).unwrap()).is_some(), "{ago} days: the game is fresh");
+        let (hollow, flat) = (trust_after_talk(&mut w, 204), plain(ago));
+        assert!(hollow < flat, "{ago} days after a 17-52 loss, praise rings hollow: {hollow} against {flat}");
     }
     for ago in [8, 30, 120] {
-        let (mut w, _) = after(ago);
+        let mut w = nfl_after(ago);
+        assert!(facts::last_game(&w, Team::seat(&w).unwrap()).is_some(), "{ago} days: the game is kept");
         assert_eq!(trust_after_talk(&mut w, 204), plain(ago), "{ago} days: an old loss no longer turns praise");
     }
 }

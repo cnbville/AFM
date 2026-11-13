@@ -1180,7 +1180,8 @@ fn interview_answers(q: usize, past: &rooms::Past) -> Vec<Answer> {
         } else {
             (plain, None)
         };
-        let against = against.map(|why| format!("{why} They have your record in front of them: this costs their trust."));
+        let against =
+            against.map(|why| format!("{why} They have your record in front of them: this costs their trust."));
         out.push(Answer { code, k: k as u8, text, label, against });
     }
     if q == 2 && out.iter().all(|a| a.against.is_some()) {
