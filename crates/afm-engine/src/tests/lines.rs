@@ -53,6 +53,9 @@ const FACTS: &str = concat!(
     "defense margin upset streak run mood qb star goat cost next mascot color place at from station late class move draft time ",
     // why your player asked to see you before the portal (talks.rs)
     "reason ",
+    // the recruit and portal conversation (pitch.rs): a point's own facts and
+    // the rival school that told him the same
+    "school spot when rival_school score ",
     // lines that deny or admit something about his own conduct: nothing sets
     // these yet, so those lines wait for the talks' fact sheet (voice.rs,
     // CLAIM_FACTS)
@@ -172,6 +175,85 @@ fn asked() -> Vec<String> {
     }
     for k in ["knows", "believes", "doubts"] {
         v.push(format!("portal.promise.{k}"));
+    }
+    // The recruit and portal conversation (talk facts lane L5, pitch.rs): the
+    // hand-written new parts and the recruiting lines' parts it asks for.
+    for k in [
+        "compare.any",
+        "react.again.any",
+        "pitch.straight.any",
+        "react.straight.any",
+        "tell.decides",
+        "open.your_win",
+        "open.your_loss",
+        "open.his_game",
+        "open.new_offer",
+        "open.visit_elsewhere",
+        "open.commit_at_spot",
+        "open.coach_left",
+        "open.entered_portal",
+        "record.ask",
+        "record.strong",
+        "record.mixed",
+        "record.weak",
+        "you.new",
+        "you.long",
+        "want.second",
+        "want.unsure",
+        "want.dealbreaker",
+        "history.first",
+        "history.again",
+        "history.silence",
+        "team.good_year",
+        "team.bad_year",
+        "committed.you",
+        "committed.elsewhere",
+        "other.money",
+        "other.closer",
+        "other.start",
+        "other.you_money",
+    ] {
+        v.push(format!("recruit.{k}"));
+    }
+    for s in ["call", "visit"] {
+        for m in ["warm", "polite", "guarded"] {
+            v.push(format!("recruit.open.{s}.{m}"));
+        }
+        for m in ["warm", "flat", "cool"] {
+            v.push(format!("recruit.close.{s}.{m}"));
+        }
+    }
+    for a in ["atmosphere", "brand", "campus", "conference", "facilities", "prestige", "tradition"] {
+        for m in ["good", "cool", "weak"] {
+            v.push(format!("recruit.aspect.{a}.{m}"));
+        }
+    }
+    for b in [
+        "ambitious",
+        "bloodline_college",
+        "bloodline_nfl",
+        "brother_follow",
+        "brother_own",
+        "death",
+        "family_move",
+        "foster",
+        "grades_low",
+        "grandparents",
+        "job_loss",
+        "mentor",
+        "money_fine",
+        "money_tight",
+        "new_baby",
+        "nil_changed",
+        "single_parent",
+    ] {
+        v.push(format!("recruit.bg.{b}"));
+    }
+    for k in ["choice", "coach", "grad", "money", "snaps", "up"] {
+        v.push(format!("transfer.why.{k}"));
+    }
+    for k in ["starter", "backup"] {
+        v.push(format!("transfer.role.{k}"));
     }
     for m in ["good", "flat", "bad"] {
         v.push(format!("homevisit.react.{m}"));

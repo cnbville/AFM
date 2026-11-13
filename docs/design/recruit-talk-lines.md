@@ -24,7 +24,7 @@ Cain's gaps and where they land: a recruit's background (`recruit.bg.*`), him as
 
 ## What is live the day this merges
 
-The game already asks `portal.ask.{drive}`, `portal.tell`, `portal.react.{mood}` and `portal.promise.{kind}` (`world/folk/dialogue.rs`, D7b), so those 3,287 new versions join the existing ones the day this merges. Every other key is asked by nothing yet. A key nothing asks for costs nothing (`voice.rs` reads it and never picks it), and `tests/lines.rs` (`the_bank_reads_clean`) still rejects an unknown tag or fact in all of them.
+When this merged, the game asked `portal.ask.{drive}`, `portal.tell`, `portal.react.{mood}` and `portal.promise.{kind}` (then in `world/folk/dialogue.rs`, D7b), so those 3,287 new versions joined the existing ones that day, and every other key was asked by nothing. Since lane L5 (2026-11-13) the recruit and portal conversation (`world/folk/pitch.rs`) asks the `portal.*` keys and most of the `recruit.*` and `transfer.*` keys: see "The conversation's own parts" below. A key nothing asks for costs nothing (`voice.rs` reads it and never picks it), and `tests/lines.rs` (`the_bank_reads_clean`) still rejects an unknown tag or fact in all of them.
 
 ## Who says a line
 
@@ -73,6 +73,23 @@ An untagged line is said by both sides, a parent at a home visit and a transfer 
   - Top-up: every one of the 6,317 new versions read once, in 11 chunks, by a reviewer each. 610 dropped (9.7%): 268 asserted more than the key gives, 164 stilted or near copies, 100 off the part's meaning, 68 one-sided untagged, 10 tag mismatches. The list is `afm/recruit20k/dropped-by-review.tsv`.
   - Not done: a full read of the first run's 12,253 old lines. From the sample, about 7% of them are weak in these ways. It costs reading, not API money; Cain's call.
 - Not run: a full recruiting season in a world. It builds a world, so it waits for Cain's yes.
+
+## The conversation's own parts (talk facts lane L5, 2026-11-13)
+
+The recruit and portal conversation (`world/folk/pitch.rs`) asks these parts now: `recruit.open.{call|visit}.{warm|polite|guarded}`, `recruit.history.{first|silence|again}`, `recruit.committed.*`, `recruit.team.*`, `recruit.you.*`, `recruit.aspect.*`, `recruit.record.*`, `recruit.want.*`, `recruit.other.*`, `recruit.bg.*` (how things are at home), `recruit.close.{call|visit}.{warm|flat|cool}`, `transfer.why.*` and `transfer.role.*` (why a transfer left), with today's `homevisit.*` and `portal.*` behind them. Each part tries the design's own key first (talk facts proposal, section 8: `recruit.ask.{point}`, `recruit.react.{point}.{tier}.{cares|doesnt}`, `recruit.pitch.{point}.{tier}`, `recruit.compare.{group}`, `recruit.react.again.{group}`, `recruit.tell.{group}`...), which the bank run (lane L12) fills. Until then they fall through.
+
+Hand-written lines for the most common new parts are in `crates/afm-engine/data/lines/recruit_case.txt` (6 to 10 versions each; what each takes as true is in the file):
+
+| Part | Who says it | When |
+|---|---|---|
+| `recruit.compare.any` | his side | a point another school on his list can match (`{rival_school}`: the school whose fact of that kind is at or over yours) |
+| `recruit.react.again.any` | his side | you came back to a point that landed in an earlier talk |
+| `recruit.pitch.straight.any` | you | your answer when you are straight with him about weak proof |
+| `recruit.react.straight.any` | his side | his reply to a straight answer |
+| `recruit.tell.decides` | whoever decides (`~ himself`, `parent`, `grandparent`, `handler`) | "Who has the final say?" |
+| `recruit.open.{your_win, your_loss, his_game, new_offer, visit_elsewhere, commit_at_spot, coach_left, entered_portal}` | his side | he opens on what changed since you spoke, with the point's own facts (`{opp}`, `{score}`, `{when}`, `{school}`, `{name}`, `{spot}`, `{coach}`); his own game never gives its result |
+
+They join the 2% repeat bar's season (`tests/line_seasons.rs`, `a_season_of_recruit_talks_counts_its_repeats`). How many versions each part has is Claude's (proposed, not confirmed).
 
 ## Every part
 

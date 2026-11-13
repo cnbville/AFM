@@ -69,11 +69,16 @@ fn a_transfer_takes_your_call_and_your_promise() {
     let sc = scene::open(&mut w, s).unwrap();
     assert!(sc.title.starts_with("A call to"), "{}", sc.title);
     assert!(sc.lines.iter().any(|l| !l.text.is_empty() && l.by == 2), "he asks first, in his own words");
-    // Listen, then sell, then promise him a starting job.
+    // Listen, then make a point, then promise him a starting job.
     let sc = scene::answer(&mut w, s, 709).unwrap();
-    assert!(sc.picks.iter().any(|p| p.code == 701));
-    let sc = scene::answer(&mut w, s, 701).unwrap();
-    assert!(sc.picks.iter().any(|p| p.code == 711), "a promise is on the table after the pitch");
+    // His question may be about a group you have nothing in: your points
+    // are all behind "bring up something else".
+    let point =
+        sc.picks.iter().chain(&sc.reach).find(|p| (7100..7300).contains(&p.code)).expect("a point to make").code;
+    let sc = scene::answer(&mut w, s, point).unwrap();
+    assert!(sc.picks.iter().any(|p| p.code == 7520), "a promise is on the table after the pitch");
+    let sc = scene::answer(&mut w, s, 7520).unwrap();
+    assert!(sc.picks.iter().any(|p| p.code == 711 && p.kind == scene::PickKind::Final), "a promise binds you");
     let sc = scene::answer(&mut w, s, 711).unwrap();
     assert!(sc.done);
     let t = w.front_office.college.portal.iter().find(|t| t.id == id).unwrap();

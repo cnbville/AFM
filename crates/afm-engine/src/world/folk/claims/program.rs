@@ -131,8 +131,9 @@ pub(super) fn others(c: &Ctx, prog: usize) -> Vec<usize> {
 
 /// How much each group weighs with the listener, in shares of an even
 /// split: his six wants, and for the people his trust in a coach's word
-/// (as the pitches read it today, `dialogue::wants`).
-pub(super) fn cares(p: &Person, ear: Ear) -> [f32; 7] {
+/// (as the living room's pitches read it before the case, lane L5). Every
+/// case (`folk::case`) reads it.
+pub(crate) fn cares(p: &Person, ear: Ear) -> [f32; 7] {
     let f = &p.family;
     let own = ear == Ear::Himself || f.decider == Decider::Himself;
     // hidden: what he wants from a school sets how much he cares (an
@@ -229,6 +230,26 @@ pub(super) fn points(r: &Reader, i: usize, prog: usize, ear: Ear, out: &mut Vec<
         };
         out.push(pt.care(g));
     }
+}
+
+/// The school on his list whose fact of a kind stands best next to yours
+/// (what "a rival told him the same" names): of his other top schools, the
+/// one with the biggest fact of that kind, its size (0-1) and whether it is
+/// at or over yours. None when no other school on his list has it, or for
+/// a fact only your program has.
+pub(crate) fn rival_for(w: &World, i: usize, prog: usize, kind: Kind) -> Option<(usize, f32, bool)> {
+    if MINE_ONLY.contains(&kind) || prog >= w.programs.len() {
+        return None;
+    }
+    let &(_, fact) = FACTS.iter().find(|x| x.0 == kind)?;
+    let r = Reader::new(w);
+    let c = Ctx::new(&r, i);
+    let mine = fact(&c, prog).map_or(0.0, |x| x.0);
+    others(&c, prog)
+        .into_iter()
+        .filter_map(|o| fact(&c, o).map(|x| (x.0, o)))
+        .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)))
+        .map(|(v, o)| (o, v, v >= mine))
 }
 
 fn unit(x: f64) -> f32 {

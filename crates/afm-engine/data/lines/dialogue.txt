@@ -256,7 +256,7 @@ I think we're done with that part.
 
 @key portal.promise.knows
 I appreciate it, coach. I kind of figured I would.
-I saw your depth chart. I'd start anyway, but thank you.
+I've seen who you have at my spot. I'd start anyway, but thank you.
 I'll hold you to it. Shouldn't be hard.
 Good. That's how I read it too.
 Then we see it the same way.
@@ -273,7 +273,7 @@ Then I think you've got me.
 @key portal.promise.doubts
 Coach, I've heard that before.
 Everybody says that in December.
-I'll believe it when I see the depth chart.
+I'll believe it when I see the snaps.
 My last coach told me the same thing.
 Promises are easy on the phone.
 Okay. We'll see.

@@ -29,6 +29,9 @@ pub struct Row {
     pub what: &'static str,
     /// The last day you made it.
     pub on: Date,
+    /// The talk it was last made in (its scene's id; 0 when the talk keeps
+    /// no id, and then a day is a talk).
+    pub talk: u32,
     /// How many talks it has come up in.
     pub times: u8,
     /// Whether it landed the last time.
@@ -53,10 +56,16 @@ struct Saved {
     #[serde(skip_serializing_if = "String::is_empty")]
     what: String,
     on: Date,
+    #[serde(skip_serializing_if = "is_zero")]
+    talk: u32,
     times: u8,
     landed: bool,
     tier: u8,
     said: String,
+}
+
+fn is_zero(x: &u32) -> bool {
+    *x == 0
 }
 
 /// What you have talked through, newest last.
@@ -78,6 +87,7 @@ impl From<Vec<Saved>> for Talked {
                         of: s.of,
                         what: topic_of(&s.what),
                         on: s.on,
+                        talk: s.talk,
                         times: s.times,
                         landed: s.landed,
                         tier: s.tier,
@@ -99,6 +109,7 @@ impl From<Talked> for Vec<Saved> {
                 of: r.of,
                 what: r.what.to_string(),
                 on: r.on,
+                talk: r.talk,
                 times: r.times,
                 landed: r.landed,
                 tier: r.tier,
@@ -106,6 +117,12 @@ impl From<Talked> for Vec<Saved> {
             })
             .collect()
     }
+}
+
+/// Whether a row is from the talk going on: the same talk by its id when
+/// both keep one, else the same day.
+fn same(r: &Row, today: Date, talk: u32) -> bool {
+    if talk != 0 && r.talk != 0 { r.talk == talk } else { r.on == today }
 }
 
 /// A saved topic as the one a point carries (an unknown one is kept as
@@ -143,28 +160,50 @@ impl Talked {
     /// in it (rule 6: a point counts once in a talk). Rows older than a
     /// season go. `said` is what you did with it, as the tree names it.
     pub fn note(&mut self, today: Date, who: u32, p: &Point, landed: bool, said: &str) {
+        self.note_in(today, 0, who, p, landed, said)
+    }
+
+    /// `note` for a talk that keeps an id (its scene's): two talks on one
+    /// day are two talks, and a talk left open overnight is still one.
+    pub fn note_in(&mut self, today: Date, talk: u32, who: u32, p: &Point, landed: bool, said: &str) {
         self.rows.retain(|r| r.on.days_to(today) <= KEEP_DAYS);
         let (kind, (of, what)) = (p.kind, p.fact());
         let tier = p.tier().map_or(0, Tier::rank);
         match self.rows.iter_mut().rev().find(|r| r.who == who && r.kind == kind && r.of == of && r.what == what) {
             // Said again in the same talk: it landed if it landed either
             // time, at the better proof.
-            Some(r) if r.on == today => {
+            Some(r) if same(r, today, talk) => {
                 r.landed |= landed;
                 r.tier = r.tier.max(tier);
+                r.on = today;
                 r.said = said.to_string();
             }
             Some(r) => {
                 r.times = r.times.saturating_add(1);
                 r.on = today;
+                r.talk = talk;
                 r.landed = landed;
                 r.tier = tier;
                 r.said = said.to_string();
             }
-            None => {
-                self.rows.push(Row { who, kind, of, what, on: today, times: 1, landed, tier, said: said.to_string() })
-            }
+            None => self.rows.push(Row {
+                who,
+                kind,
+                of,
+                what,
+                on: today,
+                talk,
+                times: 1,
+                landed,
+                tier,
+                said: said.to_string(),
+            }),
         }
+    }
+
+    /// Whether a point was already made in this talk.
+    pub fn in_talk(&self, today: Date, talk: u32, who: u32, p: &Point) -> bool {
+        self.row(who, p).is_some_and(|r| same(r, today, talk))
     }
 
     /// What a point adds when you make it today (rule 6; section 6, "How
@@ -173,6 +212,11 @@ impl Talked {
     /// a point with proof) your proof was strong or elite; nothing when it
     /// didn't land. A fact that got better since counts in full.
     pub fn again(&self, today: Date, who: u32, p: &Point) -> f32 {
+        self.again_in(today, 0, who, p)
+    }
+
+    /// `again` for a talk that keeps an id (see `note_in`).
+    pub fn again_in(&self, today: Date, talk: u32, who: u32, p: &Point) -> f32 {
         let Some(r) = self.row(who, p) else { return 1.0 };
         if r.on.days_to(today) > KEEP_DAYS {
             return 1.0;
@@ -180,7 +224,7 @@ impl Talked {
         if p.tier().map_or(0, Tier::rank) > r.tier {
             return 1.0;
         }
-        if r.on == today || !r.landed || (r.tier != 0 && r.tier < Tier::Strong.rank()) {
+        if same(r, today, talk) || !r.landed || (r.tier != 0 && r.tier < Tier::Strong.rank()) {
             return 0.0;
         }
         AGAIN.powi(r.times as i32)
@@ -190,6 +234,12 @@ impl Talked {
     /// remembers it).
     pub fn remembers(&self, today: Date, who: u32, p: &Point) -> bool {
         self.row(who, p).is_some_and(|r| r.on.days_to(today) <= KEEP_DAYS)
+    }
+
+    /// Drops one point's row: it starts again at its first time.
+    pub fn forget_point(&mut self, who: u32, p: &Point) {
+        let (of, what) = p.fact();
+        self.rows.retain(|r| !(r.who == who && r.kind == p.kind && r.of == of && r.what == what));
     }
 
     /// Drops a person's rows (he left football).
