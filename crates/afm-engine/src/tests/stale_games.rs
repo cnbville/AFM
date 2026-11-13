@@ -35,6 +35,7 @@ fn after(ago: i32) -> (World, Team) {
         spread: None,
         talks: Default::default(),
         whistle: None,
+        mine: Some(0),
     });
     (w, team)
 }
