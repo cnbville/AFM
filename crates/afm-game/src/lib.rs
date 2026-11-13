@@ -42,6 +42,7 @@ pub mod lane_stories;
 pub mod lane_storylines;
 pub mod lane_training;
 pub mod lane_views;
+pub mod live_talk;
 pub mod memory;
 pub mod notebook;
 pub mod quick_filter;
@@ -65,6 +66,9 @@ pub struct Game {
     pub save_path: Option<PathBuf>,
     /// A world being built or downloaded beside the game.
     pub job: jobs::Shared,
+    /// Live talks: the API key (in memory only), the client, this month's
+    /// spend and the calls in flight (`live_talk`).
+    pub ai: live_talk::Ai,
 }
 
 pub type Reply = Result<Value, String>;
@@ -74,7 +78,8 @@ impl Game {
         for d in ["worlds", "saves", "bugs"] {
             let _ = std::fs::create_dir_all(home.join(d));
         }
-        Game { world: None, home, save_path: None, job: Default::default() }
+        let ai = live_talk::Ai::new(&home);
+        Game { world: None, home, save_path: None, job: Default::default(), ai }
     }
 
     fn w(&self) -> Result<&World, String> {
@@ -88,7 +93,7 @@ impl Game {
     /// Runs one command. Unknown commands and bad arguments come back as
     /// errors in plain words.
     pub fn call(&mut self, cmd: &str, args: &Value) -> Reply {
-        let r = self.run(cmd, args);
+        let mut r = self.run(cmd, args);
         // The lines a screen showed you are heard: the same moment keeps
         // its words all day, and the next game day reaches for new ones
         // (minor bug 314).
@@ -98,6 +103,8 @@ impl Game {
         // The guided week's tasks tick when their change is made (H12).
         if r.is_ok() {
             lane_handbook::after_call(self, cmd);
+            // Live talks: a box on a reply (the core fills this in).
+            live_talk::after(self, cmd, args, &mut r);
         }
         r
     }
@@ -265,7 +272,10 @@ impl Game {
                 let w = self.wm()?;
                 let (from, filed) = (w.now(), views::desk_ids(w));
                 let today = w.today;
-                w.holiday_to(today.add(days));
+                // The inbox is filed at each new day on the way: an entrant
+                // who decides inside the stretch is gone from the world by
+                // its end, and his day's message is written from the day.
+                w.holiday_to_with(today.add(days), &mut |w| lane_core::mail::after_days(w));
                 lane_core::after_days(w);
                 Ok(views::stopped(w, from, &filed))
             }
@@ -307,7 +317,7 @@ impl Game {
             _ => {
                 // The final build's lanes each answer their own commands.
                 type Lane = fn(&mut Game, &str, &Value) -> Option<Reply>;
-                const LANES: [Lane; 32] = [
+                const LANES: [Lane; 33] = [
                     lane_core::call,
                     lane_gameday::call,
                     lane_money::call,
@@ -340,6 +350,7 @@ impl Game {
                     lane_hunt::call,
                     lane_data::call,
                     notebook::call,
+                    live_talk::call,
                 ];
                 for lane in LANES {
                     if let Some(r) = lane(self, cmd, args) {

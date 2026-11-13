@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use crate::calendar::Date;
 use crate::rng::Rng;
-use crate::world::folk::voice::{Facts, Pen, REST_DAYS, Speaker, bank};
+use crate::world::folk::voice::{CLAIM_FACTS, Facts, Pen, REST_DAYS, Speaker, bank};
 
 /// Every tag a speaker can carry (`voice.rs`, the `Speaker` builders). A
 /// version tagged with anything else could never be said.
@@ -53,6 +53,10 @@ const FACTS: &str = concat!(
     "defense margin upset streak run mood qb star goat cost next mascot color place at from station late class move draft time ",
     // why your player asked to see you before the portal (talks.rs)
     "reason ",
+    // lines that deny or admit something about his own conduct: nothing sets
+    // these yet, so those lines wait for the talks' fact sheet (voice.rs,
+    // CLAIM_FACTS)
+    "blameless at_fault ",
 );
 
 /// The parts the code asks for (talks, press, boss, rules, staffing,
@@ -249,6 +253,114 @@ fn every_part_the_code_asks_for_has_lines() {
         .map(|k| format!("{k}: {}", b.versions(&k).len()))
         .collect();
     assert!(thin.is_empty(), "parts with fewer than 6 versions: {thin:?}");
+}
+
+/// Blatant ways a man denies or admits something about his own conduct
+/// (lowercase, plain apostrophes). A one-on-one line that says one of them
+/// must carry `blameless=yes` or `at_fault=yes`: the bank is fact-free, so
+/// "I've done nothing wrong" would be said to a man with a fresh arrest, and
+/// "I know I messed up" to one who did nothing (talk facts, lane L2). The
+/// word scan and the reading that tagged the bank found more than these;
+/// this list is the floor a later bank run can't slip under.
+const DENIALS: &[&str] = &[
+    "i haven't done anything wrong",
+    "i've done nothing wrong",
+    "i didn't do anything wrong",
+    "i did nothing wrong",
+    "i'm not in trouble",
+    "i'm clean",
+    "nothing to hide",
+    "it wasn't me",
+    "that wasn't me",
+    "it's not my fault",
+    "that's not my fault",
+    "i didn't do it",
+    "i'm innocent",
+];
+const ADMISSIONS: &[&str] = &[
+    "i messed up",
+    "i screwed up",
+    "i blew it",
+    "my fault",
+    "i was wrong",
+    "i let you down",
+    "i let the team down",
+    "i crossed a line",
+    "i take the blame",
+    "i'm to blame",
+];
+
+/// The blatant claim a line makes, if it makes one outright: not in a
+/// question, an "if" ("If I messed up, tell me") or a hope ("I hope I'm not
+/// in trouble"), and not about someone else ("I was wrong about you").
+fn claim_in(text: &str) -> Option<&'static str> {
+    let low = text.to_lowercase().replace('\u{2019}', "'");
+    for p in DENIALS.iter().chain(ADMISSIONS) {
+        let mut from = 0;
+        while let Some(at) = low[from..].find(p) {
+            let at = from + at;
+            let (before, after) = (&low[..at], &low[at + p.len()..]);
+            let word_start = before.chars().next_back().is_none_or(|c| !c.is_alphanumeric());
+            let word_end = after.chars().next().is_none_or(|c| !c.is_alphanumeric());
+            let asks = ["if ", "did ", "whether ", "in case ", "hope ", "because ", "glad "]
+                .iter()
+                .any(|g| before.ends_with(g));
+            let hedged = after.starts_with(" about") || after.starts_with(" if");
+            if word_start && word_end && !asks && !hedged {
+                return Some(p);
+            }
+            from = at + p.len();
+        }
+    }
+    None
+}
+
+#[test]
+fn a_one_on_one_line_that_claims_his_conduct_waits_for_the_facts() {
+    let b = bank();
+    let mut loose: Vec<String> = Vec::new();
+    let mut held = 0;
+    for (key, _) in b.keys() {
+        if !key.starts_with("talk.") {
+            continue;
+        }
+        for (text, _, _, _, when) in b.versions(key) {
+            if when.iter().any(|f| CLAIM_FACTS.contains(f)) {
+                held += 1;
+            } else if let Some(p) = claim_in(text) {
+                loose.push(format!("{key}: \"{p}\": {text}"));
+            }
+        }
+    }
+    assert!(
+        loose.is_empty(),
+        "{} lines claim his conduct with no fact behind them, first: {:#?}",
+        loose.len(),
+        &loose[..loose.len().min(20)]
+    );
+    assert!(held >= 1_000, "the held lines are in the bank ({held})");
+}
+
+#[test]
+fn held_lines_come_back_when_a_fact_backs_them() {
+    // Nothing sets blameless or at_fault today, so no held line is said; set
+    // them and the lines are there (the talks' fact sheet does this).
+    let b = bank();
+    let plain = Facts::new();
+    let backed = Facts::new().with("blameless", "yes").with("at_fault", "yes");
+    let mut back = 0;
+    for level in ["hs", "college", "nfl"] {
+        let who = Speaker { key: 1, tags: vec!["player", level, "social", "modern", "nil"] };
+        for (key, _) in b.keys() {
+            if !key.starts_with("talk.") {
+                continue;
+            }
+            let (a, z) = (b.fitting(key, &who, &plain), b.fitting(key, &who, &backed));
+            assert!(z >= a, "{level}: {key} says fewer lines when the facts are set");
+            back += z - a;
+        }
+    }
+    assert!(back >= 300, "setting the facts brings back the held lines ({back})");
 }
 
 fn player(key: u64, tags: &[&'static str]) -> Speaker {
