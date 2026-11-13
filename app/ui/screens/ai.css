@@ -21,7 +21,7 @@
 .ai-cnt { font-size: 11px; font-weight: 700; letter-spacing: .1em; color: var(--fg3); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ai-f { display: flex; gap: 8px; align-items: flex-end; }
 .ai-b { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.ai-b > .small, .ai-ai-small { color: var(--fg3); }
+.ai-b > .small, .ai-small { color: var(--fg3); }
 
 /* The field you type in */
 .ai-fld { flex: 1; min-width: 0; width: 100%; box-sizing: border-box; min-height: 38px; max-height: 140px; resize: none; overflow: auto; border: 0; border-radius: 12px; background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--edge); padding: 9px 12px; color: var(--fg); font: inherit; line-height: 1.4; outline: none; }

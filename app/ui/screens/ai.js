@@ -54,7 +54,8 @@ function aiDevOn() {
 const aiDemoState = () => (AI_DEMO.some((d) => d[0] === prefs.aiDemoState) ? prefs.aiDemoState : "done");
 // A box shows when the reply carries its flag, or the switch is on (then the
 // place's own preset stands in for the flag).
-const aiFlag = (x, key, preset) => (x && x[key]) || (aiDevOn() ? preset : null);
+// A preset is marked, so a chip or a row that needs no key knows it is only the demo.
+const aiFlag = (x, key, preset) => (x && x[key]) || (aiDevOn() && preset ? { ...preset, preset: true } : null);
 
 // The small bar at the bottom of the window while the switch is on.
 function aiDevPaint() {

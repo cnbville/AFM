@@ -66,7 +66,7 @@ const AI_ASK_WORDS = {
 // The entries of a reply's ask list this place takes, or the demo's presets.
 function aiAskItems(list, kinds, presets) {
   const own = (Array.isArray(list) ? list : []).filter((e) => e && e.args && kinds.includes(e.args.kind));
-  return own.length ? own : aiDevOn() ? presets || [] : [];
+  return own.length ? own : aiDevOn() ? (presets || []).map((p) => ({ ...p, preset: true })) : [];
 }
 function aiAskBox(list, kinds, key, o = {}) {
   return aiAskItems(list, kinds, o.presets).filter((e) => !e.auto).map((e, i) => aiAskOne(e, `${key}:${e.args.kind}:${i}`, o)).join("");
@@ -273,7 +273,7 @@ Object.assign(CORE_MORE, {
     if (b.used[fact]) return;
     try {
       // The demo has no command behind a chip: it only marks it brought up.
-      const r = aiDevOn() && !b.flag.live ? { demo: true } : await api(b.flag.cmd, { ...(b.flag.args || {}), fact });
+      const r = b.flag.preset ? { demo: true } : await api(b.flag.cmd, { ...(b.flag.args || {}), fact });
       b.used[fact] = true;
       if (r && r.demo) { aiPaint(b); return; }
       if (b.o.apply) await b.o.apply(r, b); else await aiRedraw(r);
@@ -326,7 +326,7 @@ Object.assign(CORE_MORE, {
     const src = b.flag;
     const args = { ...(src.args || {}), source: Number(b.source ?? (src.list[0] || {}).source), ...((src.topics || []).length ? { topic: Number(b.topic ?? src.topics[0].topic) } : {}) };
     try {
-      const r = aiDevOn() && !src.live ? { demo: true, text: "He takes hard coaching well. He asks what he did wrong and goes and fixes it." } : await api(src.cmd, args);
+      const r = src.preset ? { demo: true, text: "He takes hard coaching well. He asks what he did wrong and goes and fixes it." } : await api(src.cmd, args);
       const pick = (src.list || []).find((s) => s.source === args.source);
       const t = r && (typeof r.text === "string" ? r.text : r.answer && r.answer.text);
       if (t) { b.answer = { text: t, by: (r.by && r.by.name) || (pick && pick.label) || "A source", small: (r.by && r.by.role) || "" }; aiPaint(b); }

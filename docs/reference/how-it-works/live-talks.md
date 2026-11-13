@@ -110,7 +110,41 @@ Prices are per million tokens. Money is counted in billionths of a dollar.
 
 ## Lane 2, the boxes
 
-Not built yet.
+Built on 2026-11-13 (lane 2, screens only: `app/ui/screens/ai.js`, `say.js`, `ask.js`, `ai.css`, and one call at each place). The frames are lane 0's, built as drawn (pick 19). No Rust changed, no API call is made by these files: a box only sends the command its reply's flag names, then asks `ai_poll`.
+
+### What a place does
+
+- One call puts a box on a screen: `aiSayBox(reply, key, options)` for the talk box, `aiAskBox(reply.ask, kinds, key, options)` for the ask box, `aiFacts(reply, key, options)` for the fact chips, `aiScoutPanel(file)` for the scout file, `aiSettingsPanel()` for the settings card. A box shows only when the reply carries its flag (`say`, an `ask` entry of the place's kind, `facts`, `sources`), or the demo switch is on and the place's own preset stands in. No flag, no box and no gap (`ai.js`, `aiFlag`; `ask.js`, `aiAskItems`).
+- The box's state is kept by a key per talk or page (`ai.js`, `aiBox`), so a screen that draws again finds it as it was. It is not saved, and a typed line is never kept anywhere but the game's own log.
+- The places: the scene (`people.js`, `screens.people_scene`, key `scene:<id>`) and the face to face one-on-one (`talk.js`, `tkFaceToFace`, same key); the pregame and halftime room (`talk.js`, `tkChoose`, key `talk:<moment>`); the contract talk (`fo-nfl.js`, `fo_talk`, key `fo:<id>`) and the trade call (`fo_trades`, key `fo-trade`); the NIL promise on a recruit's file (`fo-college.js`, `fcActions`, key `nil:<id>`); the stat finder (`trends.js`, key `statfind`); Find recruits and Find prospects (`find.js`, keys `find:college`, `find:nfl`); the squad bar (`quickfilter.js`, `qfBar`, now `qfBar(scope, groups, rows, shown, ask)`, called with `x.ask` from `app.js`, `training.js` and `squadboards.js`); the next opponent (`desk.js`, `screens.nextopp`); the scout file's Summary tab (`scouting.js`, `scFileSummary` plus `aiScoutPanel`); the leads mail (`core.js`, `showLetter`, `letterHtml`); the settings card (`core.js`, `screens.settings`, before the Logos panel, and `pregame.js`, the settings dialog).
+
+### The states of a box
+
+Ready and typing (a counter out of the flag's `limit`, default 400; Enter sends, Shift+Enter is a new line; the button wakes with text), wait (the words stay, the button waits, one line says who is reading), unsure (two or more readings to pick from, "Say it this way" or "Say it another way"; one reading, which a step that can't be undone always has, is a confirm card with "Do it" and "Not that"), none (the note in bold, "Your words are still in the box"), off (one note in place of the strip, once; after that no box), done. A pick sends the box's `cmd` again with `{ticket, pick}`; the answer may be a new ticket, an answer in the poll's shapes, or the page's normal reply, and the box takes any of them (`say.js`, `aiPicked`; `ai.js`, `aiSettle`).
+
+Done, for a talk box: the box clears; "Heard as" and the marks go under your line in the talk's log (matched by the text you typed, or read from `heard` and `marks` on the log's own line when the core puts them there: `ai.js`, `aiYours`); the page draws again from its own reply, or runs the place's `apply` (a contract talk takes `reply.answer` as the agent's answer, as an offer's reply does: `fo-nfl.js`, `foAiApply`). On a page with no log of its own, or in the demo, the box shows your line, how it was heard and `reply.text` under it.
+
+Done, for an ask box: a `query` is handed to the page's own filters and the page runs the search (the stat finder, Find and the squad bar take it, in `ask.js`, `aiQueryStat`, `aiQueryFind`, `aiQuerySquad`), with the set fields lit gold and a note under the strip; without such a page (the opponent card) the chips, the `line` and the `table` show in the box; `text` shows as an answer card by the scout, the source or "Scouting report"; `reload` draws the page again.
+
+### Added fields (proposed, not confirmed; all optional, so lanes 3 to 10 may ignore them)
+
+- A `query` entry is `{field, value}` with optional `op`, `v2`, `label` and `words` (what the chip says). The stat finder takes `field` as one of `find, level, division, state, from, to, pos, class, rs, age_min, age_max, min_len` and a condition as `{field: "cond", stat, op, value}`; Find takes `pos, class, level, place, q, sure, unseen` and any field of its catalog (`op` one of `ge, le, between, is`); the squad bar takes `pos`, `q` and any field of its catalog (`op` one of `<, ≤, =, ≥, >`).
+- A mark may carry `when` ("Saturday": "Checked Saturday"). A reading may carry `why` (the line on the confirm card, "It goes on his record, and the room sees it"; else "It can't be taken back once it is done.").
+- An `ask` entry may carry `label`, `placeholder`, `caption`, `name`, `role`, `by`, `byNote`, `wait` (the wait line; the leads mail's default is "<first name> is picking the best few and writing why.") and `rerun {cmd, args}`: without `rerun` the opponent card's chips are read-only (the frame draws them with a ×), since only the AI can read a new question.
+- A report's `text` may hold headings as lines that start with `## `.
+- The leads mail's `letter` reply carries `ask` with the `auto` entry; the page makes the call once as the mail opens and reads the mail again on `reload`.
+
+### The demo switch
+
+Off by default, and only while `ai_status.fake` is true (`AFM_AI_FAKE=1`): the browser build on a real key never meets it. Settings has a Demo row (or add `?aidemo` to the address). While it is on, every place shows its box against its preset flag, every call goes to `ai_demo` with the state the bar at the foot of the window names, a fact chip or the sources row only marks itself, and the leads preset runs on any memo (`ai.js`, `aiDevOn`, `aiDevPaint`, `aiCall`).
+
+### The settings card
+
+`ai_status`, `ai_key_set` (the key field is a password field; Enter saves, also inside the pregame dialog), `ai_key_clear`, `ai_test` (the card says "Works. One small call, 0.6 s." or the refusal's line) and `ai_checks` (rows with a bar and a tick at the bar to clear; amber only under the tick; cost and seconds) (`ai.js`, `aiCardHtml`, `aiCardAct`). With no key the card also says the game plays on the chips. With a key and the cap reached it says so with the day the cap resets.
+
+### Sizes (proposed, not confirmed)
+
+The text field grows up to 140 px; the poll asks every 450 ms; the confirm card's default line, the "off" note's tail ("The chips work as before." and the filters', bar's and file's versions) and every box's own words are lane 0's where the frame has them and mine where it has not.
 
 ## Lane 3, the core
 
