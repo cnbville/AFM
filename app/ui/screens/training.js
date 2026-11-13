@@ -1087,7 +1087,7 @@ screens.roster = async (a) => {
     ? `<p class="sub">${dr.committee ? `The NFL's advisory committee answers your underclassmen's names with a round${dr.limit ? `: ${dr.limit} names a school since 2014 (${dr.sent} sent), more only for a likely first-rounder` : ""}. Requests close December 10.` : "The advisory committee doesn't exist yet (it began in 1994): your juniors go on their own and their agents' word."} Your talk sways a junior by how far he trusts you. Declare by ${esc(dr.deadline)}.</p>`
     : "";
   return `<div class="film"><div class="pad tr-pad">${pageHead({ kicker: `${esc(trTier(x.tier))} · ${x.squadCount ?? x.rows.length} players`, title: `<span class="tr-tmark">${mark(x.team, 40)}</span>${esc(x.team.name)}`, sub: `Your staff reads them every day.${out ? ` ${trPlural(out, "player")} out of practice.` : ""}${hurt ? ` ${hurt} on load watch.` : ""}`, goto: gotoFor("roster", a) })}
-    <div class="filters">${vseg}${seg}</div>${qfBar("mine", x.qf, base, rows.length)}${draftNote}
+    <div class="filters">${vseg}${seg}</div>${qfBar("mine", x.qf, base, rows.length, x.ask)}${draftNote}
     ${table("squad:" + view, qfCols(squadCols(view, x), qs, qfields, "squad:" + view), rows, { groupBy: (r) => r.pos, empty: qfOn(qs, qfields) ? qfEmpty(base, qs, qfields) : undefined })}</div></div>`;
 };
 

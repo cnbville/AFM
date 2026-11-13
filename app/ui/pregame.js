@@ -1330,7 +1330,7 @@ document.addEventListener("click", async (ev) => {
       const h = PG.hello || {};
       const lib = PG.lib || (await api("library"));
       const { f, answer } = dialog(`<b>Settings</b><div class="pg-kv" style="padding:0"><span>Version</span><span>${esc(h.version || "")}</span><span>Game folder</span><span style="word-break:break-all">${esc(lib.home)}</span><span>Worlds</span><span>${lib.worlds.length}</span><span>Saves</span><span>${lib.saves.length}</span></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">${isMac() ? '<button type="button" class="pg-btn s" data-pg="reveal-home">Show the game folder</button>' : ""}${isMac() && window.__TAURI__.updater ? '<button type="button" class="pg-btn s" data-pg="update-now">Check for updates</button>' : ""}</div>`, "Close", () => true);
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${isMac() ? '<button type="button" class="pg-btn s" data-pg="reveal-home">Show the game folder</button>' : ""}${isMac() && window.__TAURI__.updater ? '<button type="button" class="pg-btn s" data-pg="update-now">Check for updates</button>' : ""}</div>${await aiPregameCard()}`, "Close", () => true);
       f.querySelector("[data-dlg=no]").remove();
       await answer;
       break;

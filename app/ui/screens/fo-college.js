@@ -423,6 +423,7 @@ function fcActions(f) {
         <div class="fc-nilrow">${box("Revenue share", "promise", f.nil)}${two ? box("Collective deal", "pcoll", f.nil_coll) : ""}<button class="st-btn small primary" data-fc="promise" data-id="${f.id}">Promise</button></div>
         <small class="sub">${state} ${market} The going rate for his position tops out near ${money(f.nil_max)}, but only your money limits you: ${left}.</small>
         ${fcAnswer(f.answer)}
+        ${aiSayBox(f, "nil:" + f.id, { wrap: "panel", preset: { cmd: "fo_say", args: { id: f.id, nil: true }, limit: 400 }, words: { ph: "Type what you'd say to him and his family about the money. The boxes above still work.", foot: "The boxes above still work." }, echo: true })}${aiFacts(f, "nil:" + f.id, { wrap: "panel", foot: "What you bring up can reach him and his family.", preset: { cmd: "fo_fact", args: { id: f.id, nil: true }, list: [{ fact: 1, label: "Schools like yours usually pay about this" }, { fact: 2, label: "Your collective has money left" }] } })}
         ${promised ? `<button class="st-btn small glass" data-fc="promiseclear" data-id="${f.id}">Take the promise back</button>` : ""}</div>`;
   }
   return `<div class="fc-block"><div class="fc-h"><span class="st-label">Your moves</span></div><div class="fc-acts">${b.join("")}</div>${nil}</div>`;
