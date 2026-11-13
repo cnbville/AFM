@@ -64,6 +64,11 @@ pub struct Case {
     /// The unit's points (scored for the offense, allowed for the defense)
     /// in the game before.
     pub before: i32,
+    /// Your own case instead of his (live talks LT17): the move you made
+    /// (`MOVES`), argued against his numbers. `said` is 2 then: you
+    /// overruled his case.
+    #[serde(default)]
+    pub mine: Option<u8>,
 }
 
 fn you(w: &World) -> Option<usize> {
@@ -1411,6 +1416,31 @@ const CASES: [(&str, &str); 4] = [
     ("pass", "throwing it more"),
 ];
 
+/// Every move the plan can make at a staff meeting: his four cases, then
+/// the two the other way on defense (live talks LT17: your own case).
+pub const MOVES: [&str; 6] =
+    ["more pressure", "more zone coverage", "running it more", "throwing it more", "less pressure", "more man coverage"];
+
+/// The moves you can make instead of his case (LT17, picks 954-959): the
+/// others on his side of the ball, the menu short.
+pub fn own_moves(his: u8) -> Vec<u8> {
+    let side: &[u8] = if his <= 1 { &[0, 1, 4, 5] } else { &[2, 3] };
+    side.iter().copied().filter(|&m| m != his).collect()
+}
+
+/// A move as the setting it changes, its way and its step, the terms a
+/// typed game plan ask is heard in (`scene::PlanAsk`).
+pub fn move_plan(m: u8) -> (&'static str, i8) {
+    match m {
+        0 => ("pressure", 1),
+        1 => ("man", -1),
+        2 => ("run", 1),
+        3 => ("run", -1),
+        4 => ("pressure", -1),
+        _ => ("man", 1),
+    }
+}
+
 /// The game the meeting follows: the morning after it (`staff_meeting_day`
 /// sets the scene for the day after the game).
 fn meeting_game(w: &World, s: &Scene) -> Option<crate::world::seat::SeatGame> {
@@ -1437,15 +1467,24 @@ fn plan_step(w: &World, kind: u8, k: f64) -> (f64, f64) {
             let now = g.run.to.unwrap_or(0.44);
             (now, (now + 0.06 * k).clamp(0.2, 0.75))
         }
-        _ => {
+        3 => {
             let now = g.run.to.unwrap_or(0.44);
             (now, (now - 0.06 * k).clamp(0.2, 0.75))
+        }
+        4 => {
+            let now = g.pressure.to.unwrap_or(0.3);
+            (now, (now - 0.08 * k).clamp(0.05, 0.7))
+        }
+        _ => {
+            let now = g.man.to.unwrap_or(0.4);
+            (now, (now + 0.1 * k).clamp(0.05, 0.9))
         }
     }
 }
 
-/// What the plan's guideline is for each case, in words.
-const PLAN_WORDS: [&str; 4] = ["Pressure", "Man coverage", "The run share", "The run share"];
+/// What the plan's guideline is for each move, in words.
+const PLAN_WORDS: [&str; 6] =
+    ["Pressure", "Man coverage", "The run share", "The run share", "Pressure", "Man coverage"];
 
 fn pct(x: f64) -> i64 {
     (100.0 * x).round() as i64
@@ -1504,6 +1543,22 @@ fn meeting_open(w: &mut World, s: &mut Scene) {
         "firm",
         "If his unit struggles again, he'll remember you said no.",
     );
+    // Your own case instead (live talks LT17, question 5's short menu).
+    for m in own_moves(kind as u8) {
+        let (now, to) = plan_step(w, m, 1.0);
+        s.pick(
+            954 + m as u32,
+            format!("\"No. I want {} this week.\"", MOVES[m as usize]),
+            &format!("Your own call: {}", MOVES[m as usize]),
+            "firm",
+            &format!(
+                "{} goes from {}% to {}%. He'll argue from his numbers, and it's on you if it goes wrong.",
+                PLAN_WORDS[m as usize],
+                pct(now),
+                pct(to)
+            ),
+        );
+    }
 }
 
 /// The game's numbers beside the case, as the box score has them.
@@ -1549,19 +1604,26 @@ fn cap(s: &str) -> String {
 fn meeting_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     let c = s.a as usize;
     let kind = (s.b as u8).min(3);
-    let said = (code.saturating_sub(951)).min(2) as u8;
-    if said < 2 {
+    // Your own case (LT17): a move on his side of the ball, one full step.
+    let mine = code.checked_sub(954).map(|m| m as u8).filter(|m| own_moves(kind).contains(m));
+    let said = if mine.is_some() { 2 } else { (code.saturating_sub(951)).min(2) as u8 };
+    if let Some(m) = mine {
+        shift_plan(w, m, 1.0);
+    } else if said < 2 {
         shift_plan(w, kind, if said == 0 { 1.0 } else { 0.5 });
     }
-    w.folk.dialogue.case = Some(Case { coach: c, kind, said, date: w.today, before: s.c as i32 });
+    w.folk.dialogue.case = Some(Case { coach: c, kind, said, date: w.today, before: s.c as i32, mine });
     s.you(&scene::your_name(w), picked.label.trim_matches('"'));
     let sp = Speaker::coach(w, c);
     let mood = ["yes", "half", "no"][said as usize];
     let t = line(w, s, 2, &format!("staffmeet.reply.{mood}"), &sp, &Facts::new());
     s.them(&w.coaches[c].name.clone(), t, None);
-    s.outcome.push(match said {
-        0 => format!("You agreed: {} this week.", CASES[kind as usize].1),
-        1 => format!("Halfway: a little {} this week.", CASES[kind as usize].1.trim_start_matches("more ")),
+    s.outcome.push(match (mine, said) {
+        (Some(m), _) => {
+            format!("Your own call: {} this week. He argued from his numbers; it's yours now.", MOVES[m as usize])
+        }
+        (_, 0) => format!("You agreed: {} this week.", CASES[kind as usize].1),
+        (_, 1) => format!("Halfway: a little {} this week.", CASES[kind as usize].1.trim_start_matches("more ")),
         _ => "You overruled him. The plan stands.".into(),
     });
     s.end();
@@ -1572,7 +1634,8 @@ fn meeting_hand(w: &mut World, s: &mut Scene) {
     // half of what he asked.
     let kind = (s.b as u8).min(3);
     shift_plan(w, kind, 0.5);
-    w.folk.dialogue.case = Some(Case { coach: s.a as usize, kind, said: 1, date: w.today, before: s.c as i32 });
+    w.folk.dialogue.case =
+        Some(Case { coach: s.a as usize, kind, said: 1, date: w.today, before: s.c as i32, mine: None });
     s.handed = Some("your assistant head coach".into());
     s.outcome.push("Half the change went in.".into());
 }
@@ -1595,9 +1658,17 @@ fn shift_plan(w: &mut World, kind: u8, k: f64) {
             let now = g.run.to.unwrap_or(0.44);
             g.run = Want::new((now + 0.06 * k).clamp(0.2, 0.75), g.run.to.map_or(firm, |_| g.run.firm));
         }
-        _ => {
+        3 => {
             let now = g.run.to.unwrap_or(0.44);
             g.run = Want::new((now - 0.06 * k).clamp(0.2, 0.75), g.run.to.map_or(firm, |_| g.run.firm));
+        }
+        4 => {
+            let now = g.pressure.to.unwrap_or(0.3);
+            g.pressure = Want::new((now - 0.08 * k).clamp(0.05, 0.7), g.pressure.to.map_or(firm, |_| g.pressure.firm));
+        }
+        _ => {
+            let now = g.man.to.unwrap_or(0.4);
+            g.man = Want::new((now + 0.1 * k).clamp(0.05, 0.9), g.man.to.map_or(firm, |_| g.man.firm));
         }
     }
     w.plans.guide_set = Some(w.today);
@@ -1617,11 +1688,16 @@ fn check_case(w: &mut World, g: &crate::world::seat::SeatGame, me: usize) {
     let defense = case.kind <= 1;
     let bad = if defense { pts >= 28 } else { pts < 17 };
     let good = if defense { pts <= 17 } else { pts >= 28 };
-    let by = match (case.said, bad, good) {
-        (2, true, _) => -0.06,
-        (2, _, true) => 0.01,
-        (0, _, true) => 0.03,
-        (0, true, _) => -0.01,
+    // Your own case (LT17) at today's sizes: it went wrong, as an overrule
+    // that went wrong; it worked, as an agreed case that worked.
+    let by = match (case.mine.is_some(), case.said, bad, good) {
+        (true, _, true, _) => -0.06,
+        (true, _, _, true) => 0.03,
+        (true, ..) => 0.0,
+        (_, 2, true, _) => -0.06,
+        (_, 2, _, true) => 0.01,
+        (_, 0, _, true) => 0.03,
+        (_, 0, true, _) => -0.01,
         _ => 0.0,
     };
     if by != 0.0 {
@@ -1629,13 +1705,11 @@ fn check_case(w: &mut World, g: &crate::world::seat::SeatGame, me: usize) {
     }
     if case.said == 2 && bad {
         let name = w.coaches[case.coach].name.clone();
-        super::note(
-            w,
-            "staff",
-            "Staff meeting".into(),
-            format!("{name} hasn't forgotten you overruled him. His unit struggled again."),
-            None,
-        );
+        let text = match case.mine {
+            Some(_) => format!("{name} hasn't forgotten his numbers said otherwise. His unit struggled after your call."),
+            None => format!("{name} hasn't forgotten you overruled him. His unit struggled again."),
+        };
+        super::note(w, "staff", "Staff meeting".into(), text, None);
     }
 }
 
@@ -1884,6 +1958,31 @@ fn press_cost(s: &Scene) -> u8 {
     ((2.0 * s.f[0] / 18.0).round() as u8).clamp(2, 10)
 }
 
+/// A flagged worry's question (live talks LT11): the shortest topics'
+/// minutes in an 18-minute room, deeper in a longer one.
+fn worry_cost(s: &Scene) -> u8 {
+    ((crate::world::scouting::own::WORRY_MINUTES as f32 * s.f[0] / 18.0).round() as u8).clamp(1, 60)
+}
+
+/// The minutes a typed question takes beyond its topic's, by its length
+/// (live talks LT11): one for every 150 characters. They come off the
+/// clock and never add to the topic's minutes, so a long question only
+/// costs. Proposed, not confirmed.
+pub const TYPED_CHARS_A_MINUTE: u16 = 150;
+
+fn typed_minutes(s: &Scene) -> u8 {
+    s.heard.as_ref().map_or(0, |h| (h.len / TYPED_CHARS_A_MINUTE).min(10) as u8)
+}
+
+/// The worries your scouts flagged (bits 32-44 of `b`) and those you asked
+/// (bits 48-60), by trait.
+const FLAGGED: u32 = 32;
+const ASKED: u32 = 48;
+
+fn worry_bits(s: &Scene, at: u32) -> Vec<usize> {
+    (0..crate::world::scouting::file::TRAITS).filter(|k| (s.b >> (at + *k as u32)) & 1 == 1).collect()
+}
+
 /// Opens a timed interview with a player (an NFL seat's combine
 /// interview, or any interview room open with him today).
 pub fn start_combine_talk(w: &mut World, id: u32, room: &str) -> Result<u32, String> {
@@ -1912,7 +2011,8 @@ fn spent_of(s: &Scene) -> [u8; 5] {
 }
 
 fn set_spent(s: &mut Scene, v: [u8; 5]) {
-    s.b = v.iter().enumerate().fold(0u64, |a, (k, &x)| a | (x.min(63) as u64) << (6 * k));
+    let keep = s.b & !((1u64 << 30) - 1);
+    s.b = keep | v.iter().enumerate().fold(0u64, |a, (k, &x)| a | (x.min(63) as u64) << (6 * k));
 }
 
 fn combine_picks(s: &mut Scene) {
@@ -1922,6 +2022,20 @@ fn combine_picks(s: &mut Scene) {
         let cost = topic_minutes(s, k);
         if cost <= left && spent[k] == 0 {
             s.pick(961 + k as u32, format!("{} ({cost} min)", t.words()), t.words(), "calm", "");
+        }
+    }
+    // The worries your scouts flagged, each its own question (LT11).
+    let asked = worry_bits(s, ASKED);
+    let cost = worry_cost(s);
+    for k in worry_bits(s, FLAGGED) {
+        if cost <= left && !asked.contains(&k) {
+            s.pick(
+                970 + k as u32,
+                format!("{} ({cost} min)", crate::world::scouting::own::worry_words(k)),
+                "Flagged worry",
+                "firm",
+                "Your scouts flagged it. A question aimed at it reads it closer than the topic around it.",
+            );
         }
     }
     let press = press_cost(s);
@@ -1940,6 +2054,9 @@ fn combine_picks(s: &mut Scene) {
 fn combine_open(w: &mut World, s: &mut Scene) {
     let Some(i) = super::person(w, s.a as u32) else { return s.end() };
     let kid = super::player_link(w, i);
+    for k in crate::world::scouting::own::flagged_worries(w, s.a as u32) {
+        s.b |= 1u64 << (FLAGGED + k as u32);
+    }
     s.narrate(format!("{kid} sits down. The clock on the wall says {} minutes.", s.c));
     combine_picks(s);
 }
@@ -1951,7 +2068,21 @@ fn combine_answer(w: &mut World, s: &mut Scene, code: u32) {
     if code == 969 || s.c <= 0 {
         return combine_close(w, s);
     }
-    if code == 967 {
+    let long = typed_minutes(s);
+    if (970..970 + crate::world::scouting::file::TRAITS as u32).contains(&code) {
+        // A flagged worry, asked straight out (LT11): his answer is his
+        // topic's, and the file reads that trait closer.
+        let k = (code - 970) as usize;
+        let t = crate::world::scouting::own::worry_topic(k);
+        let cost = worry_cost(s);
+        s.b |= 1u64 << (ASKED + k as u32);
+        s.c -= cost as i64;
+        s.you(&scene::your_name(w), crate::world::scouting::own::worry_question(k));
+        let answer = crate::world::scouting::own::answer_line(w, i, t);
+        s.them(&name, answer, None);
+        s.f[1] = 1.0;
+        s.f[2] = crate::world::scouting::own::TOPICS.iter().position(|x| *x == t).unwrap_or(4) as f32;
+    } else if code == 967 {
         // The follow-up: pushed, a composed man answers, a hot one bristles.
         let p = &w.people[i];
         let comp = p.player.attributes.get(crate::attributes::Attr::Composure);
@@ -1994,6 +2125,14 @@ fn combine_answer(w: &mut World, s: &mut Scene, code: u32) {
         s.f[1] = if matches!(k, 1 | 2) { 1.0 } else { 0.0 };
         s.f[2] = k as f32;
     }
+    if long > 0 {
+        // A long question eats his answer time (LT11).
+        s.c -= long as i64;
+        s.narrate(format!(
+            "Your question took {} to ask.",
+            if long == 1 { "a minute".to_string() } else { format!("{long} minutes") }
+        ));
+    }
     if s.c <= 0 {
         s.narrate("A knock on the door: time.");
         return combine_close(w, s);
@@ -2007,10 +2146,12 @@ fn combine_close(w: &mut World, s: &mut Scene) {
     let spent: Vec<(crate::world::scouting::own::Topic, u8)> =
         crate::world::scouting::own::TOPICS.iter().zip(spent_of(s)).filter(|x| x.1 > 0).map(|(t, m)| (*t, m)).collect();
     let room = s.title.split(':').next().unwrap_or("Combine interview").to_string();
-    if spent.is_empty() {
+    let worry = worry_cost(s);
+    let worries: Vec<(u8, u8)> = worry_bits(s, ASKED).into_iter().map(|k| (k as u8, worry)).collect();
+    if spent.is_empty() && worries.is_empty() {
         s.outcome.push("You let him go without a question.".into());
     } else {
-        match crate::world::scouting::own::interview(w, id, &room, spent) {
+        match crate::world::scouting::own::interview_with(w, id, &room, spent, worries) {
             Ok(t) => s.outcome.push(format!("{t} His answers are in his file.")),
             Err(e) => s.outcome.push(e),
         }
