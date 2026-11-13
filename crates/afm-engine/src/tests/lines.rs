@@ -56,10 +56,16 @@ const FACTS: &str = concat!(
     // the recruit and portal conversation (pitch.rs): a point's own facts and
     // the rival school that told him the same
     "school spot when rival_school score ",
-    // lines that deny or admit something about his own conduct: nothing sets
-    // these yet, so those lines wait for the talks' fact sheet (voice.rs,
-    // CLAIM_FACTS)
+    // lines that deny or admit something about his own conduct: the
+    // one-on-ones set them from his fact sheet (voice.rs, CLAIM_FACTS)
     "blameless at_fault ",
+    // a one-on-one on a talking point (talk facts lane L4): the point, his
+    // stance, how your move went, and every point's holes and checks
+    "point stance went charge when step again outcome by rule punishment ruled why ahead ahead_class mistake ",
+    "line award injury life known promise days gap hold trade asked round pc parent prep forty bench squat ",
+    "weight forty_before bench_before weight_before test phase grade won lost battles shape pounds position ",
+    "stage names arrived change how system grasp picks tie out sport event meet school offers tag what his ",
+    "his_games finish margin ",
     // the staff and scouting rooms (claims/rooms.rs, lane L11)
     "yours strong weak worst pick_name pick_round pick_year form allowed scored pressure big ypc run_share ahead ",
     // the bosses and the outside on the fact sheet (lane L10): the case's
@@ -320,6 +326,25 @@ fn asked() -> Vec<String> {
     }
     // The fans (fans.rs).
     v.extend(crate::world::folk::fans::parts());
+    // One-on-ones on his talking points (talk facts lane L4): the parts
+    // written by hand; the others fall back to today's lines until L12.
+    for (point, stances) in [
+        ("arrest", &["owns", "plays_down", "denies", "defiant", "shaken"][..]),
+        ("lost_job", &["accepts", "pushes_back", "sulks", "fired_up"][..]),
+        ("won_job", &["humble", "proud"][..]),
+        ("big_game", &["humble", "proud"][..]),
+        ("bad_game", &["accepts", "pushes_back", "sulks", "fired_up"][..]),
+        ("hurt", &["opens_up", "guarded"][..]),
+        ("good", &["humble", "proud"][..]),
+    ] {
+        for st in stances {
+            v.push(format!("talk.point.open.{point}.{st}"));
+        }
+    }
+    for q in ["lost_job", "buried", "promise_open", "draft", "your_job"] {
+        v.push(format!("talk.point.ask.{q}"));
+    }
+    v.push("talk.point.again".into());
     v
 }
 
@@ -470,8 +495,9 @@ fn a_one_on_one_line_that_claims_his_conduct_waits_for_the_facts() {
 
 #[test]
 fn held_lines_come_back_when_a_fact_backs_them() {
-    // Nothing sets blameless or at_fault today, so no held line is said; set
-    // them and the lines are there (the talks' fact sheet does this).
+    // A held line is said only when blameless or at_fault is set; set them
+    // and the lines are there (the one-on-ones set them from his fact
+    // sheet, talk facts lane L4).
     let b = bank();
     let plain = Facts::new();
     let backed = Facts::new().with("blameless", "yes").with("at_fault", "yes");

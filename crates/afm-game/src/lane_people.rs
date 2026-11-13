@@ -86,15 +86,15 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "people_subject" => (|| {
             let id = num(args, "id")? as u32;
             let key = args.get("subject").and_then(Value::as_str).unwrap_or("role");
-            let sub = Subject::from_key(key).ok_or("Unknown subject.")?;
-            talks::change_subject(w, id, sub)?;
+            let topic = talks::Topic::from_key(key).ok_or("Unknown subject.")?;
+            talks::change_topic(w, id, topic)?;
             scene(w, id)
         })(),
         "people_talk" => (|| {
             let id = num(args, "id")? as u32;
             let subject = args.get("subject").and_then(Value::as_str).unwrap_or("role");
-            let sub = Subject::from_key(subject).unwrap_or(Subject::Role);
-            let sid = talks::start_talk(w, id, sub)?;
+            let topic = talks::Topic::from_key(subject).unwrap_or(talks::Topic::Subject(Subject::Role));
+            let sid = talks::start_talk_on(w, id, topic)?;
             Ok(json!({ "scene": sid }))
         })(),
         "people_team_talk" => talks::start_team_talk(w).map(|sid| json!({ "scene": sid })),
@@ -364,7 +364,7 @@ fn scene(w: &mut World, id: u32) -> Reply {
         });
     }
     if s.kind == Kind::OneOnOne {
-        v["subject"] = json!(Subject::from_u64(s.b).key());
+        v["subject"] = json!(talks::Topic::of(s.b).key());
         // His friend's leaving is a chip only while it weighs on him.
         v["subjects"] = json!(
             talks::subjects_for(w, s.a as u32)

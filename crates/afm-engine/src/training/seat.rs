@@ -461,6 +461,14 @@ pub struct SeatTraining {
     /// The strength staff's testing days, the last three (TR5).
     #[serde(default)]
     pub tests: Vec<TestDay>,
+    /// What each of your players saw of his place in the week's practice
+    /// (the promises design, section 2: players never see the chart): the
+    /// day a practice week was set and each man's group, `GROUP_ONES`,
+    /// `GROUP_TWOS` or `GROUP_APART` (the young players outside the
+    /// two-deep, working apart on a roster of 70 or more). Specialists have
+    /// no group. The last `GROUP_WEEKS` weeks.
+    #[serde(default)]
+    pub groups: Vec<(Date, Vec<(u32, u8)>)>,
     /// Your NFL club's practice risk from your own week, set by your week
     /// and read by the clubs' practice injuries (0 when there's none).
     #[serde(skip)]
@@ -1009,6 +1017,40 @@ pub fn save_this_week(w: &mut World, monday: Date, wk: Week, push: bool) -> Resu
 }
 
 /// Each player's role this week: his place on your depth chart.
+/// A practice group: with the ones, the twos, or apart.
+pub const GROUP_ONES: u8 = 0;
+pub const GROUP_TWOS: u8 = 1;
+pub const GROUP_APART: u8 = 2;
+/// Practice weeks of groups kept (what his place reads: his last two).
+pub const GROUP_WEEKS: usize = 4;
+/// From this roster size the young players outside the two-deep work
+/// apart; below it they practise with the twos (`practice::run`).
+pub const APART_ROSTER: usize = 70;
+
+/// Keeps each man's group in this week's practice (`SeatTraining::groups`).
+fn record_groups(w: &mut World, st: &SeatTeam, roles: &HashMap<usize, Role>, d: Date) {
+    let apart = st.roster.len() >= APART_ROSTER;
+    let mut g: Vec<(u32, u8)> = roles
+        .iter()
+        .filter_map(|(&i, &r)| {
+            let k = match r {
+                Role::Starter => GROUP_ONES,
+                Role::Backup => GROUP_TWOS,
+                Role::Young if apart => GROUP_APART,
+                Role::Young => GROUP_TWOS,
+                Role::Specialist => return None,
+            };
+            Some((w.people[i].player.id, k))
+        })
+        .collect();
+    g.sort_unstable();
+    let gs = &mut w.training.groups;
+    gs.retain(|x| x.0 != d);
+    gs.push((d, g));
+    let n = gs.len().saturating_sub(GROUP_WEEKS);
+    gs.drain(..n);
+}
+
 pub fn roles(w: &World, st: &SeatTeam) -> HashMap<usize, Role> {
     let mut out = HashMap::new();
     let mut by_pos: HashMap<Position, Vec<usize>> = HashMap::new();
@@ -1263,6 +1305,9 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
         c.add_week(&pw.week);
     }
     let own_time = pw.books.iter().all(|b| !b.coaches);
+    if !own_time {
+        record_groups(w, &st, &roles, d);
+    }
     // Who arrived when (TR8): a player new in the last two weeks reads as
     // new; a save from before this keeps everyone as he was.
     let ids: Vec<u32> = st.roster.iter().map(|&i| w.people[i].player.id).collect();

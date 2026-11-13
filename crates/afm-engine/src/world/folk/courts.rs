@@ -229,6 +229,8 @@ pub(crate) fn amateur(w: &mut World, i: usize, what: &str, nth: i32) {
         guilty,
         outcome: None,
     });
+    // The arrest moves his mood: shame or anger (talk facts lane L4).
+    super::talk_points::arrest_mood(w, i);
 }
 
 fn step(w: &mut World, d: Date) {

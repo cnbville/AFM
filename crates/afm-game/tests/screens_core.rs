@@ -230,7 +230,26 @@ fn titles_keep_the_level_they_were_won_at() {
     // The world card's national champions and story leave them out.
     let card = afm_game::cards::card(w);
     assert!(card["world"]["nc"].as_array().unwrap().iter().all(|r| r[0] != name.as_str()), "{}", card["world"]);
-    assert!(card["world"]["story"].to_string().find(&name).is_none(), "{}", card["world"]["story"]);
+    // The story's lines name champions by team, matched whole: a program
+    // whose name is part of another's ("Georgia" in "Georgia Tech", "Pitt"
+    // in "Pittsburgh Steelers") is not named by it.
+    eprintln!("the program: {name}");
+    for line in card["world"]["story"].as_array().unwrap() {
+        let text = line[1].as_str().unwrap_or("");
+        let teams: Vec<&str> = match line[0].as_str().unwrap_or("") {
+            "Dynasty" => text.split(" won ").take(1).collect(),
+            "The rival" => text.split(", ").take(1).collect(),
+            "Everyone else" => text
+                .split(". ")
+                .next()
+                .unwrap_or("")
+                .split(", ")
+                .filter_map(|x| x.rsplit_once(' ').map(|(t, _)| t))
+                .collect(),
+            _ => Vec::new(),
+        };
+        assert!(!teams.contains(&name.as_str()), "{}", card["world"]["story"]);
+    }
 
     // History's champions file them under FCS.
     let champs = ok(&mut g, "history", json!({ "tab": "champions" }));

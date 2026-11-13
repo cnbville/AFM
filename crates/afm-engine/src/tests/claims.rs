@@ -236,19 +236,15 @@ fn report_day_reads_each_mans_own_pounds() {
     assert!(pt.is("shape", "heavy"));
 }
 
-#[test]
-fn your_first_order_keeps_the_starter_and_moves_only_the_men_it_moves() {
-    let (mut w, p, v) = room(2);
-    let pos = w.people[v[0]].player.position;
-    w.people[v[1]].player.position = pos;
-    let (a, b) = (w.people[v[0]].player.id, w.people[v[1]].player.id);
-    // He started your last game: the staff had him first.
+/// One of your games: each man's snaps on both sides.
+fn game_on(w: &mut World, p: usize, day: i32, snaps: &[(u32, u32)]) {
     let opp = (0..w.programs.len()).find(|&j| j != p).unwrap();
     let mut stats = GameStats { score: [21, 14], ..Default::default() };
-    stats.players[0].insert(a, crate::game::stats::StatLine { snaps_off: 60, snaps_def: 60, ..Default::default() });
-    stats.players[0].insert(b, crate::game::stats::StatLine { snaps_off: 4, snaps_def: 4, ..Default::default() });
+    for &(id, n) in snaps {
+        stats.players[0].insert(id, crate::game::stats::StatLine { snaps_off: n, snaps_def: n, ..Default::default() });
+    }
     w.seat_games.push(SeatGame {
-        date: w.today.add(-3),
+        date: w.today.add(day),
         level: Level::College,
         teams: [p, opp],
         names: [w.program_name(p).to_string(), w.program_name(opp).to_string()],
@@ -260,20 +256,86 @@ fn your_first_order_keeps_the_starter_and_moves_only_the_men_it_moves() {
         talks: Default::default(),
         whistle: None,
     });
+}
+
+/// One of your practice weeks: each man's group.
+fn week_on(w: &mut World, day: i32, groups: &[(u32, u8)]) {
+    let mut g = groups.to_vec();
+    g.sort();
+    w.training.groups.push((w.today.add(day), g));
+}
+
+#[test]
+fn a_job_changes_hands_when_he_sees_it_twice_never_from_the_chart() {
+    use crate::training::seat::{GROUP_ONES as ONES, GROUP_TWOS as TWOS};
+    let (mut w, p, v) = room(2);
+    for &i in &v {
+        w.people[i].player.position = crate::positions::Position::WR;
+    }
+    let (a, b) = (w.people[v[0]].player.id, w.people[v[1]].player.id);
     let up = |s: &Sheet| s.has(Kind::WonJob) || s.get(Kind::ChartMove).is_some_and(|x| x.is("move", "up"));
     let down = |s: &Sheet| s.has(Kind::LostJob) || s.get(Kind::ChartMove).is_some_and(|x| x.is("move", "down"));
-    // Your first order, with the starter still first: nobody moved.
-    w.set_seat_depth(pos, vec![a, b]);
-    assert!(!up(&claims::player(&w, v[0])), "the starter didn't win a job he had");
-    assert!(!down(&claims::player(&w, v[1])));
-    // The backup put first: he won it and the starter lost it.
-    w.seat_depth.clear();
-    w.seat_depth_log.clear();
-    w.set_seat_depth(pos, vec![b, a]);
+    // He started your game and worked with the ones after it.
+    game_on(&mut w, p, -24, &[(a, 60), (b, 4)]);
+    week_on(&mut w, -20, &[(a, ONES), (b, TWOS)]);
+    // Your chart says the backup starts: nobody sees a chart.
+    w.set_seat_depth(crate::positions::Position::WR, vec![b, a]);
+    assert!(!up(&claims::player(&w, v[1])), "a chart he never saw wins him nothing");
+    assert!(!down(&claims::player(&w, v[0])));
+    // One week with the twos is a warning, not a lost job.
+    week_on(&mut w, -13, &[(a, TWOS), (b, ONES)]);
+    assert!(!down(&claims::player(&w, v[0])), "one week is a warning");
+    assert!(!up(&claims::player(&w, v[1])));
+    // The second week makes it.
+    week_on(&mut w, -6, &[(a, TWOS), (b, ONES)]);
     let won = claims::player(&w, v[1]);
     assert!(up(&won));
     assert!(won.points.iter().any(|x| x.refs.contains(&claims::Ref::Player(a))), "he passed the starter");
-    assert!(down(&claims::player(&w, v[0])));
+    let lost = claims::player(&w, v[0]);
+    assert!(down(&lost));
+    assert!(lost.points.iter().any(|x| x.refs.contains(&claims::Ref::Player(b))), "the man with the ones took it");
+}
+
+#[test]
+fn buried_is_two_weeks_away_from_the_ones_behind_the_men_who_play() {
+    use crate::training::seat::{GROUP_APART as APART, GROUP_ONES as ONES, GROUP_TWOS as TWOS};
+    let (mut w, p, v) = room(3);
+    for &i in &v {
+        w.people[i].player.position = crate::positions::Position::WR;
+        w.people[i].college_seasons = 2;
+    }
+    let ids: Vec<u32> = v.iter().map(|&i| w.people[i].player.id).collect();
+    let (a, b, c) = (ids[0], ids[1], ids[2]);
+    // Two weeks apart from the two-deep, behind two men with the ones.
+    week_on(&mut w, -13, &[(a, APART), (b, ONES), (c, ONES)]);
+    assert!(!claims::player(&w, v[0]).has(Kind::Buried), "one week is not buried");
+    week_on(&mut w, -6, &[(a, APART), (b, ONES), (c, ONES)]);
+    game_on(&mut w, p, -3, &[(b, 60), (c, 50)]);
+    let s = claims::player(&w, v[0]);
+    let pt = s.get(Kind::Buried).expect("two weeks apart");
+    assert!(pt.is("group", "apart"));
+    assert_eq!(
+        pt.get("ahead").map(String::from),
+        Some(w.people[v[1]].name.clone()),
+        "the man with the most snaps first"
+    );
+    assert!(pt.get("ahead_all").is_some_and(|x| x.contains(&w.people[v[2]].name)), "every man with the ones");
+    // With the twos he is buried only if he doesn't play.
+    let (mut w2, p2, v2) = room(2);
+    for &i in &v2 {
+        w2.people[i].player.position = crate::positions::Position::WR;
+        w2.people[i].college_seasons = 2;
+    }
+    let (a, b) = (w2.people[v2[0]].player.id, w2.people[v2[1]].player.id);
+    week_on(&mut w2, -13, &[(a, TWOS), (b, ONES)]);
+    game_on(&mut w2, p2, -10, &[(a, 0), (b, 60)]);
+    week_on(&mut w2, -6, &[(a, TWOS), (b, ONES)]);
+    game_on(&mut w2, p2, -3, &[(a, 20), (b, 60)]);
+    assert!(!claims::player(&w2, v2[0]).has(Kind::Buried), "he plays: not buried");
+    w2.seat_games.last_mut().unwrap().stats.players[0].insert(a, Default::default());
+    let s = claims::player(&w2, v2[0]);
+    let pt = s.get(Kind::Buried).expect("with the twos and no snaps");
+    assert!(pt.is("group", "twos"));
 }
 
 #[test]

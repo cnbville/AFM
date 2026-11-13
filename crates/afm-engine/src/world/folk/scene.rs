@@ -341,6 +341,11 @@ pub struct Scene {
     /// rest here, so a typed line can reach every one of them.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub reach: Vec<Pick>,
+    /// The talking points made in a one-on-one (talk facts lane L4): each
+    /// kind's key, what you did with it last, and what it did to trust and
+    /// mood together; kept in `Folk.talked` when the talk ends.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub made: Vec<(String, String, f32)>,
     /// What a typed line carried beyond its pick (live talks), set by `say`
     /// for the one answer it lands on and cleared right after. Never saved.
     #[serde(skip)]
@@ -372,6 +377,7 @@ impl Scene {
             team: None,
             minute: None,
             reach: Vec::new(),
+            made: Vec::new(),
             heard: None,
         }
     }
