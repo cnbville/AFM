@@ -28,6 +28,7 @@ mod lane9;
 mod leagues;
 pub(crate) mod legacy;
 mod level_rating;
+mod line_order;
 mod line_seasons;
 mod lines;
 mod links;

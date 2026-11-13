@@ -435,7 +435,15 @@ pub(crate) fn move_up(w: &mut World, args: &Value) -> Result<Option<String>, Str
         }
         let order = w.seat_game_depth().unwrap_or_default();
         let roster = views::roster_people(w, t);
-        let mut list = staff_list(w, t, &roster, &order, &w.seat_depth, pos);
+        // The board's first men at this position, in slot order, then the
+        // rest: your order names the spots (LT, RT; LG, C, RG; SAM, MIKE,
+        // WILL...), so the men he doesn't pass keep theirs (playtest bug 12).
+        let mut list: Vec<u32> = spots.iter().filter(|x| x.pos == pos).filter_map(|x| x.ids[0]).collect();
+        for id in staff_list(w, t, &roster, &order, &w.seat_depth, pos) {
+            if !list.contains(&id) {
+                list.push(id);
+            }
+        }
         let a = list.iter().position(|&x| x == down);
         let b = list.iter().position(|&x| x == up);
         match (a, b) {
