@@ -526,7 +526,7 @@ I'm done explaining myself.
 I said it once. That should be enough.
 What, you want me to cry or something?
 Don't handle me, {coach}.
-There's nothing left to dig up, so quit digging.
+There's nothing left to dig up, so quit digging. ~ blameless=yes
 I'm sorry I said anything now.
 I didn't ask for a follow-up.
 That's not for you.
@@ -882,7 +882,7 @@ Honestly, I don't know.
 That's about as deep as it goes.
 It's simple, really.
 Nah, you heard it.
-Nothing hiding behind it.
+Nothing hiding behind it. ~ blameless=yes
 It's pretty straightforward.
 That's how I see it, anyway.
 It's just there. I deal with it.
@@ -922,7 +922,7 @@ I'm kind of talked out on it.
 Huh. Not that I can think of.
 Mostly just what I told you.
 It's just a feeling. Can't explain it better.
-I'm not holding anything back, if that's what you mean.
+I'm not holding anything back, if that's what you mean. ~ blameless=yes
 That's all I meant by it.
 I could talk it in circles, but it's the same point.
 That's the long and short of it.
@@ -1180,7 +1180,7 @@ I'm not going to argue with the truth.
 You've got my respect for that one.
 Okay. That's a weight off, honestly.
 Good. Tell me like that every time.
-Okay. I'll own my part of it.
+Okay. I'll own my part of it. ~ at_fault=yes
 Yeah. That's fair. That's really fair.
 I'd take one hard talk over ten easy ones.
 I got it, {coach}. Loud and clear.
@@ -1190,7 +1190,7 @@ Alright. I can respect somebody who says it plain.
 Okay. That gives me something to chase.
 I'd been telling myself a story. Thanks for the real one.
 Better to hear it in here than find out the hard way.
-That's fair, and it's on me to change it.
+That's fair, and it's on me to change it. ~ at_fault=yes
 I won't pretend that felt good. But it was right.
 Thanks for leveling with me.
 Okay, fair. Let's go from there.
@@ -1244,7 +1244,7 @@ I'll put that to work right away. ~ pro
 Clear and honest. That's how I like it. ~ pro vet
 Man, that's brutal. But you're right. ~ loose
 Ha, you don't mess around, huh? Respect. ~ loose
-Okay, okay, you got me. That's fair. ~ loose young
+Okay, okay, you got me. That's fair. ~ loose young at_fault=yes
 Nobody's ever told me the truth and then stuck around. Thank you. ~ shaky
 That's scary to hear. I trust you more for saying it. ~ shaky
 I just needed to know somebody wasn't lying to me. ~ shaky young
@@ -1342,8 +1342,8 @@ I'm not going to pretend I'm happy, but I'm grateful.
 Yeah, that's fair. I can see it from your side.
 I'll be thinking about that, in a good way.
 Okay. I feel like you actually see me.
-That's fair. I'm not going to make excuses.
-That's a hard truth, and I'll own it.
+That's fair. I'm not going to make excuses. ~ at_fault=yes
+That's a hard truth, and I'll own it. ~ at_fault=yes
 Alright. I know what I'm walking into.
 Okay. I respect you for not wasting my time.
 No matter what it is, that's exactly how I want it.
@@ -1468,11 +1468,11 @@ Okay. ~ quiet
 I see. ~ quiet
 Yeah. Alright. ~ quiet
 I don't have anything to say to that. ~ quiet
-I'm sorry I'm not what you want. ~ humble
-I thought I was doing better than that. ~ humble
+I'm sorry I'm not what you want. ~ humble at_fault=yes
+I thought I was doing better than that. ~ humble at_fault=yes
 I'll try harder, I guess. But that hurt. ~ humble
-You're wrong about me. You'll see. ~ ego brash
-I'm better than that, and you know it. ~ ego brash
+You're wrong about me. You'll see. ~ ego brash blameless=yes
+I'm better than that, and you know it. ~ ego brash blameless=yes
 That's your opinion. ~ ego brash
 I don't need you to tell me what I am. ~ ego brash
 Nobody else in this league thinks that about me. ~ ego nfl
@@ -1520,7 +1520,7 @@ That's not honest. That's just mean.
 I don't believe that for a second.
 So that's what you think of me.
 Thanks for nothing, I guess.
-I don't know who's been feeding you that, but it's wrong.
+I don't know who's been feeding you that, but it's wrong. ~ blameless=yes
 That's not the truth. That's your version of it.
 Wow. I didn't think you'd go there.
 You've been sitting on that for a while, huh?
@@ -1528,7 +1528,7 @@ That was harsh, {coach}.
 Okay. I'll just keep my head down, then.
 Cool. Good to know.
 Honest is one thing. That was something else.
-I'm not sure what I did to deserve that.
+I'm not sure what I did to deserve that. ~ blameless=yes
 I don't think you see me at all.
 That's a lot, coming from you.
 I'm done talking for now.
@@ -1538,7 +1538,7 @@ That's not straight. That's just wrong.
 I don't trust that.
 I'm going to need a minute.
 You really think that?
-That's not where I stand. That's where you put me.
+That's not where I stand. That's where you put me. ~ blameless=yes
 Good to finally know what you really think.
 Well, I guess I know not to bother.
 That stung. I'm not going to act like it didn't.
@@ -1551,8 +1551,8 @@ That's a pretty convenient truth for you.
 I didn't realize I was that far gone to you.
 I thought we had a better relationship than that.
 You say it like it's nothing.
-So I'm the problem. Got it.
-I don't even recognize the guy you're describing.
+So I'm the problem. Got it. ~ blameless=yes at_fault=yes
+I don't even recognize the guy you're describing. ~ blameless=yes
 That's one way to kill a guy's confidence.
 Right. Thanks for the pep talk.
 I'll stop expecting anything, then.
@@ -1568,7 +1568,7 @@ You just lost me a little there.
 That's the worst thing anybody's said to me in this office.
 So why am I even here?
 Feels like you had that one ready to go.
-You've got me all wrong.
+You've got me all wrong. ~ blameless=yes
 Wow. Tell me how you really feel.
 I didn't see that coming from you.
 That's your truth. It's not mine.
@@ -1588,10 +1588,10 @@ That's not the truth. That's an opinion.
 You're entitled to it. I think it's wrong.
 That hurt more than you know.
 Okay. I'll stop asking questions, then.
-I feel like I just got cut down for no reason.
+I feel like I just got cut down for no reason. ~ blameless=yes
 You're not even giving me a chance.
 I wish I hadn't heard that.
-That's not what I see when I look in the mirror.
+That's not what I see when I look in the mirror. ~ blameless=yes
 So that's the real you.
 I'm not going to sit here and nod at that.
 You picked a hell of a way to say it. ~ brash
@@ -1633,7 +1633,7 @@ That's a slap in the face.
 You've got no idea what you've got in me. ~ ego
 That's the dumbest read on me I've ever heard. ~ ego hot brash
 {name} doesn't get talked to like that. ~ ego brash
-I've been better than that my whole life. You'll see. ~ ego competitor
+I've been better than that my whole life. You'll see. ~ ego competitor blameless=yes
 Everybody else sees it. Funny you don't. ~ ego brash
 That's cute. I'll be fine without your opinion. ~ ego brash
 Funny. Nobody else talks to me like that. ~ ego brash
@@ -1646,11 +1646,11 @@ You want honest? That was garbage. ~ hot brash
 Keep talking like that and see where it gets us. ~ hot brash
 You think I'm just going to sit here and take that? ~ hot brash
 Man, forget this. ~ hot young brash
-I didn't know I was letting you down that much. ~ humble
-I'm sorry. I thought I was doing things right. ~ humble
-I guess I'm not who I thought I was. ~ humble
+I didn't know I was letting you down that much. ~ humble at_fault=yes
+I'm sorry. I thought I was doing things right. ~ humble at_fault=yes
+I guess I'm not who I thought I was. ~ humble at_fault=yes
 I won't argue with you. I just didn't expect it to hurt that much. ~ humble
-I didn't think I was that bad. ~ humble young
+I didn't think I was that bad. ~ humble young at_fault=yes
 Right. ~ quiet
 Okay then. ~ quiet
 I don't want to talk anymore. ~ quiet
@@ -1743,7 +1743,7 @@ So I'm supposed to say thank you for that?
 I don't think you even believe that.
 Hold on. Where did all that come from?
 That didn't sound like you.
-You've been listening to the wrong people about me.
+You've been listening to the wrong people about me. ~ blameless=yes
 I'm hearing it. I'm not accepting it.
 Okay. You've made yourself real clear.
 Wow, okay. So that's the deal.
@@ -1766,7 +1766,7 @@ If that's you being honest, I'd hate to hear you being mean.
 I'm going to go cool off.
 I think I liked it better when you didn't tell me anything.
 Why tell me like that? What's the point?
-You make it sound like I don't even try.
+You make it sound like I don't even try. ~ blameless=yes
 That's not the truth. That's a guess.
 Thanks for clearing that up. I feel great.
 I respect you less for how you said that.
@@ -1781,23 +1781,23 @@ I'll remember this, {coach}. ~ hot brash
 With respect, {coach}, that's wrong. ~ pro
 Okay, {coach}. If that's how you want it. ~ calm
 I don't need this, {coach}. ~ hot young brash
-That's a bad read, {coach}. You're seeing ghosts. ~ qb
+That's a bad read, {coach}. You're seeing ghosts. ~ qb blameless=yes
 I cover the best guys in this building. Don't tell me that. ~ db brash
 I'd eat double teams all day for you. That's how you talk to me? ~ dl
 I block for everybody in here. Guess nobody blocks for me. ~ ol
 I run my tail off for you. That's it? ~ skill
 Every running back hears that eventually. Didn't think it'd come from you. ~ rb
-I study more film than you think. Don't tell me that. ~ lb brash
+I study more film than you think. Don't tell me that. ~ lb brash blameless=yes
 I've got more range than you think, {coach}. More pride, too. ~ kicker
 Whatever, Coach. ~ hs young brash
 Maybe I'll just go to another school, then. ~ hs
 I work my butt off for this team, {coach}. ~ hs
 I could've gone a lot of places, you know. ~ college ego !walkon
 Everybody on campus thinks I'm doing fine. Except you, apparently. ~ college
-Shoot. I didn't deserve all that. ~ south
+Shoot. I didn't deserve all that. ~ south blameless=yes
 I'll be honest with y'all, that hurt. ~ texas
 That's bull, {coach}. ~ northeast brash
-That's harsh for no reason, man. ~ west brash
+That's harsh for no reason, man. ~ west brash blameless=yes
 Man, that's not chill at all. ~ west young
 
 @key talk.reply.straight.flat
@@ -2717,7 +2717,7 @@ Respectfully, I don't need that. I need a plan. ~ pro
 That's fine, {coach}. It's not useful to me. ~ pro
 Kind words aren't a strategy. ~ pro
 I evaluate myself. What I need from you is something else. ~ pro
-I've handled my end. I'm asking about yours. ~ pro
+I've handled my end. I'm asking about yours. ~ pro blameless=yes
 The guys are going to ask me what you said. I can't tell them that. ~ leader
 I lead by example. I'm asking you to do the same. ~ leader
 I don't need my ego fed. I need you to lead. ~ leader
@@ -3117,7 +3117,7 @@ Okay. I know what I have to do.
 I'll handle it. You'll see it on film.
 Give me a week. Just watch.
 That gets me going, Coach.
-Alright. No more excuses from me.
+Alright. No more excuses from me. ~ at_fault=yes
 That's how you get the best out of me.
 That's a deal. I'll do it.
 Okay. I'll do it. ~ quiet
@@ -3144,11 +3144,11 @@ I'll have a plan for it by tonight. ~ pro
 I'll be in the film room an extra hour every day. ~ pro
 I'll get the guys going with me. ~ leader
 I'll take the young guys with me on it. ~ leader
-That's on me, and I'll own it. ~ leader
+That's on me, and I'll own it. ~ leader at_fault=yes
 I'll get there. Steady. ~ steady
 Okay. I know what to do. ~ steady
 Alright. I'm on it. ~ calm
-I won't let you down. I never have. ~ loyal
+I won't let you down. I never have. ~ loyal blameless=yes
 I'll do it for you, Coach. And for me. ~ loyal
 Okay. I can do this. I can do this. ~ shaky
 I needed somebody to tell me I'm capable. Okay. ~ shaky
@@ -3183,7 +3183,7 @@ Nobody's ever put it to me like that. I'm going to answer it.
 Okay. I'm locked in now.
 You just gave me something to chase. Thank you.
 I know I can be better. Let's go find it.
-Fair. I've been coasting a little, but not anymore.
+Fair. I've been coasting a little, but not anymore. ~ at_fault=yes
 You think I've got another gear? Good, because I do.
 Okay. Hold me to it.
 I'm going to make you glad you said that.
@@ -3196,7 +3196,7 @@ I'll be the hardest worker you've got.
 Okay, {coach}. I'm going to outwork everybody in this building.
 I like knowing where the bar is. Now I can go jump over it.
 Thank you for not letting me get comfortable.
-You're right, I was getting comfortable. Not anymore.
+You're right, I was getting comfortable. Not anymore. ~ at_fault=yes
 Okay. Now I've got a reason.
 That's motivation right there. I'll take it.
 Yes. Yes. Okay, let's go.
@@ -3243,7 +3243,7 @@ Coach me hard. I want it.
 That's the best thing anybody's said to me in a while.
 Another level? I've got three more. Watch. ~ ego
 Good. Now I'm going to embarrass some people. ~ ego
-I've been holding back. Not anymore. ~ ego
+I've been holding back. Not anymore. ~ ego at_fault=yes
 {name} doesn't back down from a challenge. Never has. ~ ego
 Oh, I'm going to make this look easy. ~ ego
 Nobody here can do what I'm about to do. ~ ego competitor brash
@@ -3295,9 +3295,9 @@ I'll adjust my prep. You'll see it in how I practice. ~ pro
 Give me specifics and I'll own every one of them. ~ pro
 Point taken. I'll be more detailed in everything I do. ~ pro
 Ha! Okay, you got me fired up. ~ loose
-Alright, alright. I'll quit messing around. ~ loose
-Okay, real talk, I've been goofing off. No more. ~ loose
-You caught me coasting. Fair. Watch this. ~ loose
+Alright, alright. I'll quit messing around. ~ loose at_fault=yes
+Okay, real talk, I've been goofing off. No more. ~ loose at_fault=yes
+You caught me coasting. Fair. Watch this. ~ loose at_fault=yes
 I'm about to be a menace, Coach. ~ loose young
 You really think I can, {coach}? Okay. Okay, I'm going to. ~ shaky
 Nobody's ever pushed me because they believed in me. Thank you. ~ shaky
@@ -3423,7 +3423,7 @@ I'm going to make that look easy, {coach}.
 Alright. I'll give you a reason to brag on me.
 I want people to talk about how much I got better.
 Thanks for seeing more in me than I was showing.
-You're right that I've been playing it safe.
+You're right that I've been playing it safe. ~ at_fault=yes
 I'll stop playing it safe. You'll see.
 I'm done being careful. I'm going to go get it.
 Count me in. All in.
@@ -3465,8 +3465,8 @@ Bet. I'm about to cook. ~ young loose
 I'll make it my mission, {coach_sir}. ~ pro calm
 
 @key talk.reply.challenge.bad
-I've been doing that. You just haven't seen it.
-So it's always on me.
+I've been doing that. You just haven't seen it. ~ blameless=yes
+So it's always on me. ~ blameless=yes
 That's easy to say from where you're sitting.
 I don't know what more you want.
 I'm already giving everything I have.
@@ -3476,7 +3476,7 @@ You're not listening to me.
 So more of the same. Okay.
 I don't think you get it.
 I keep getting challenged and nothing changes.
-I've been proving it. Nobody's watching.
+I've been proving it. Nobody's watching. ~ blameless=yes
 What else do I have to do?
 That's what they always say.
 I'm tired of being told to work harder.
@@ -3492,19 +3492,19 @@ I'm already giving all I've got, Coach. ~ humble
 I don't know how much more I have. ~ humble
 I've been doing more than anybody. ~ ego
 I don't need to prove anything to anybody. ~ ego brash
-I've already proven it. You're just not seeing it. ~ ego
+I've already proven it. You're just not seeing it. ~ ego blameless=yes
 Don't challenge me. Play me. ~ hot brash
 That's an insult, Coach. ~ hot
 I'm not your project. ~ hot brash
 I'm out here killing myself and you tell me that? ~ hot
 I'm doing my job. That's all I can do. ~ pro
-I've done everything I've been asked. ~ pro
+I've done everything I've been asked. ~ pro blameless=yes
 That's not a clear standard. ~ pro
 That's hard to hear when I've been leading every day. ~ leader
 I've been carrying the room and you want more? ~ leader
 Fine. But I'm already competing. ~ competitor
 I compete every rep. You know that. ~ competitor
-So it's on me again. ~ shaky
+So it's on me again. ~ shaky blameless=yes
 I don't know if I can do more. ~ shaky
 I feel like I'm failing you. ~ shaky
 I've been here for you. That's what I get? ~ loyal
@@ -3524,22 +3524,22 @@ I'm already in here before everybody. What else is there?
 You don't see half of what I do.
 More? I'm running on empty as it is.
 I give you everything and you ask for more.
-Did somebody tell you I wasn't working?
-Who told you I'm not giving it? Because they're wrong.
+Did somebody tell you I wasn't working? ~ blameless=yes
+Who told you I'm not giving it? Because they're wrong. ~ blameless=yes
 Are you watching the same guy I am?
 Would you say that to anybody else on this team?
-There are guys loafing out there and you pick me.
+There are guys loafing out there and you pick me. ~ blameless=yes
 That feels personal.
 Is this personal, {coach}?
 I feel like a target right now.
-Okay, so I'm the problem. Got it.
+Okay, so I'm the problem. Got it. ~ blameless=yes
 Nothing I do is ever enough for you, {coach}.
 You keep moving the line on me.
 Every time I get close, there's a new line.
 I don't have another gear. This is it.
-I'm not holding anything back, if that's what you think.
-I'm not sandbagging. I don't know who told you that.
-You think I'm lazy. Just say it.
+I'm not holding anything back, if that's what you think. ~ blameless=yes
+I'm not sandbagging. I don't know who told you that. ~ blameless=yes
+You think I'm lazy. Just say it. ~ blameless=yes
 That's a nice way of saying I'm not good enough.
 That didn't sound like a challenge. It sounded like a complaint.
 I didn't come in here to get lectured.
@@ -3548,15 +3548,15 @@ Maybe look at what I'm already doing before you ask for more.
 That honestly hurts, {coach}.
 I thought you knew me better than that.
 Of all people, me?
-I'm the last guy who needs to hear that.
+I'm the last guy who needs to hear that. ~ blameless=yes
 Sounds like you've already made up your mind about me.
 Feels like you're looking for a reason.
 I've heard that speech before. It never meant anything. ~ brash
 More, more, more. That's all I ever hear.
 I'm going as hard as I can go. I don't know what you want from me.
-Tell me one thing I'm not doing. One.
-Name one rep I took off. Go ahead. ~ brash
-I show up every single day. Every one.
+Tell me one thing I'm not doing. One. ~ blameless=yes
+Name one rep I took off. Go ahead. ~ brash blameless=yes
+I show up every single day. Every one. ~ blameless=yes
 I'm out here busting it and this is what I get.
 Great. Another pep talk.
 That's real motivating, {coach}.
@@ -3566,7 +3566,7 @@ If that's all, I'm going to go.
 I don't even know how to respond to that.
 It's like nobody sees what I put in.
 All that work and it still isn't enough.
-I'm doing everything right and I'm still the one getting called in.
+I'm doing everything right and I'm still the one getting called in. ~ blameless=yes
 Funny. I thought I was one of the hardest workers you had.
 So I'm one of the guys you worry about now?
 There's enough pressure on me already.
@@ -3574,7 +3574,7 @@ You're piling on, {coach}.
 You don't talk to everybody like this. Just me.
 Other guys get a pat on the back. I get this.
 That's the kind of thing that makes a guy stop caring.
-Fine. But don't act like I haven't been working.
+Fine. But don't act like I haven't been working. ~ blameless=yes
 I'm trying. Can you even see that?
 You have no idea what I put into this.
 That felt like a shot.
@@ -3601,36 +3601,36 @@ I'm the best player you have. Go challenge somebody else. ~ ego brash
 My level is already higher than anybody's in this building. ~ ego brash
 I don't need you to tell me how good I can be. ~ ego brash
 You should be thanking me, not challenging me. ~ ego brash
-Look at the film first. Then go challenge somebody who needs it. ~ ego brash
+Look at the film first. Then go challenge somebody who needs it. ~ ego brash blameless=yes
 I'm already the standard around here. ~ ego brash
 {name} doesn't need a pep talk. ~ ego brash
 Funny. Nobody else around here is doing what I do. ~ ego brash
-You must be confusing me with somebody else. ~ ego brash
+You must be confusing me with somebody else. ~ ego brash blameless=yes
 I'm carrying this whole thing and you want more from me? ~ ego brash
-I'm sorry. I really thought I was giving you everything. ~ humble
-I thought I was doing okay. I guess not. ~ humble
+I'm sorry. I really thought I was giving you everything. ~ humble at_fault=yes
+I thought I was doing okay. I guess not. ~ humble at_fault=yes
 That's hard to hear. I've been trying so hard. ~ humble
 I'm doing everything I know how. Maybe it's just not enough. ~ humble
-I don't know what I'm doing wrong. I'm trying. ~ humble
+I don't know what I'm doing wrong. I'm trying. ~ humble at_fault=yes
 Yeah. Sure. ~ quiet
 Okay, I guess. ~ quiet
 I'm already trying. ~ quiet
 Can I go? ~ quiet
-Don't call me in here and tell me I'm not working! ~ hot brash
+Don't call me in here and tell me I'm not working! ~ hot brash blameless=yes
 You've got some nerve, {coach}. ~ hot brash
 I leave everything out there and you tell me that? ~ hot
-Don't ever question my effort. ~ hot brash
-Question my effort again and we've got a problem. ~ hot brash
+Don't ever question my effort. ~ hot brash blameless=yes
+Question my effort again and we've got a problem. ~ hot brash blameless=yes
 That's garbage and you know it. ~ hot brash
 You want more? Fine! Watch me and see if you're ever happy. ~ hot brash
 I'm out of here. ~ hot brash
 Nah. Nah, you're wrong for that. ~ hot young brash
 I understand what you're saying. I just don't think it's fair. ~ calm
 I don't think that's accurate, and I'll say it plainly. ~ calm
-I hear the words. They don't match what I'm doing. ~ calm
+I hear the words. They don't match what I'm doing. ~ calm blameless=yes
 I'd ask you to look at the work before you say that. ~ calm
 I'm not upset. I'm disappointed. ~ calm
-After everything, you think I'm not giving you my all? ~ loyal
+After everything, you think I'm not giving you my all? ~ loyal blameless=yes
 I've been with you through all of it. That stings. ~ loyal
 I'd do anything for you. I thought you knew that. ~ loyal
 I never thought you'd be the one to doubt me. ~ loyal
@@ -3639,13 +3639,13 @@ You want more from me, I want more from you. ~ greedy brash
 I'll do more when I see something come back for it. ~ greedy brash
 Everybody wants more from me. Nobody gives more back. ~ greedy
 If the standard changed, I'd like to see it in writing. ~ pro
-I've hit every mark you've ever given me. ~ pro
-Show me the film where I'm falling short. ~ pro
+I've hit every mark you've ever given me. ~ pro blameless=yes
+Show me the film where I'm falling short. ~ pro blameless=yes
 I'd like specifics. Otherwise that's just a feeling. ~ pro
-I prepare like a professional every day. That's disappointing to hear. ~ pro
+I prepare like a professional every day. That's disappointing to hear. ~ pro blameless=yes
 Man, chill. I'm out here. ~ loose brash
 Bro, I'm working. Relax. ~ loose young brash
-Do I look like I'm not trying? ~ loose
+Do I look like I'm not trying? ~ loose blameless=yes
 Come on. Don't stress me out like that. ~ loose
 I'm the one keeping guys together and you call me in for this? ~ leader
 I lead by example every day. Ask anybody in that room. ~ leader
@@ -3660,9 +3660,9 @@ I've been the same guy every day. You know that. ~ steady
 I'm the most consistent guy you have. That's disappointing. ~ steady
 I don't have ups and downs. I'm the same every day and you want different? ~ steady
 Nobody in this building competes harder. Nobody. ~ competitor
-I win my one on ones. Check the tape. ~ competitor
+I win my one on ones. Check the tape. ~ competitor blameless=yes
 I don't lose drills. So what's this about? ~ competitor
-You're going to tell me I don't compete? Me? ~ competitor
+You're going to tell me I don't compete? Me? ~ competitor blameless=yes
 I'm already doing more than anybody in my grade. ~ hs
 I've got class, homework and practice, and you want more? ~ hs
 I'm just a kid, Coach. I'm doing what I can. ~ hs young
@@ -3675,34 +3675,34 @@ I could have gone anywhere, you know. ~ college !walkon
 Keep it up and I'll find a coach who actually sees me. ~ college hot brash
 There's a portal for a reason, {coach}. ~ college
 I've been here through everything. I don't need this from you. ~ college senior
-I walked on and earned every bit of this. Don't tell me about effort. ~ walkon brash
+I walked on and earned every bit of this. Don't tell me about effort. ~ walkon brash blameless=yes
 I transferred here because I thought you saw me. ~ transfer
 I left everything to come here and this is what I hear. ~ transfer
 I'm learning as fast as I can. I'm a freshman. ~ college freshman
 I do all the dirty work as a redshirt and nobody notices. Now this? ~ redshirt
 I bet the scouts see more than you do. ~ college ego brash
 I've been in this league long enough to know my level. ~ nfl vet
-You think I'd still be in this league if I didn't work? ~ nfl
-I'm in the facility before anybody. Ask security. ~ nfl
+You think I'd still be in this league if I didn't work? ~ nfl blameless=yes
+I'm in the facility before anybody. Ask security. ~ nfl blameless=yes
 That sounds like something you say right before you cut a guy. ~ nfl
 I'll be honest. I'm calling my agent after this. ~ nfl hot
 This isn't college, {coach}. Talk to me like a pro. ~ nfl vet
 I know what I'm giving. I've done this a long time. ~ nfl vet
 I'm a rookie drinking from a fire hose and you want more? ~ nfl rookie
-Nobody drafted me and I still made it here. Don't question my effort. ~ nfl undrafted
+Nobody drafted me and I still made it here. Don't question my effort. ~ nfl undrafted blameless=yes
 I know how this goes. Everybody leans on the first-rounder. ~ nfl firstround
 I'm on the scout team busting my tail every rep. What more is there? ~ psquad
 Vets don't need to be challenged. We need to be trusted. ~ vet
 I've seen coaches come and go. This is how it starts with them. ~ nfl vet
-I'm reading everything right. Go look at the tape. ~ qb
+I'm reading everything right. Go look at the tape. ~ qb blameless=yes
 I throw extra every day. What more do you want? ~ qb
 Every route, full speed. Every single one. ~ wr
-I run my routes like they count, every rep. Don't tell me that. ~ wr brash
+I run my routes like they count, every rep. Don't tell me that. ~ wr brash blameless=yes
 I'm blocking my tail off every snap. ~ ol
-I'm in the trenches getting hit every play. Don't tell me about effort. ~ lineman brash
-I'm in the backfield all the time. Watch the film. ~ dl
-Nobody's catching anything on me. Check it. ~ db
-I'm flying around on every play. Look at it. ~ lb
+I'm in the trenches getting hit every play. Don't tell me about effort. ~ lineman brash blameless=yes
+I'm in the backfield all the time. Watch the film. ~ dl blameless=yes
+Nobody's catching anything on me. Check it. ~ db blameless=yes
+I'm flying around on every play. Look at it. ~ lb blameless=yes
 I take the hits nobody else wants to take. ~ rb
 I kick until there's nothing left. You want more? ~ kicker
 Nobody thinks about the snapper until something goes wrong. Now you want more? ~ snapper
@@ -3710,7 +3710,7 @@ I do the dirty work on special teams and nobody notices. ~ special
 I'm the hardest working guy on this defense and you know it. ~ defense
 I'm out there giving this offense everything. ~ offense
 Now hold on a minute, {coach}. ~ south
-I've been working my tail off, {coach_sir}. Y'all just don't see it. ~ south
+I've been working my tail off, {coach_sir}. Y'all just don't see it. ~ south blameless=yes
 That ain't right. ~ south
 Where I come from, you don't talk to folks like that. ~ texas brash
 I was raised to work. Don't tell me I don't. ~ texas brash
@@ -3726,47 +3726,47 @@ Okay. I'll remember you said that.
 I won't forget this.
 You really think that? Wow.
 I'm hurt, honestly.
-I don't deserve that.
-I didn't do anything to deserve that.
-I'm not some guy who needs a push. I work.
-I don't know who you've been watching, but it isn't me.
+I don't deserve that. ~ blameless=yes
+I didn't do anything to deserve that. ~ blameless=yes
+I'm not some guy who needs a push. I work. ~ blameless=yes
+I don't know who you've been watching, but it isn't me. ~ blameless=yes
 That's how you see me? Really?
 So that's the book on me now.
-I come in early and leave late. Ask anybody.
+I come in early and leave late. Ask anybody. ~ blameless=yes
 I don't know what more effort even looks like.
 I'm the one turning the lights off in this place.
-Every single thing you've asked, I've done.
+Every single thing you've asked, I've done. ~ blameless=yes
 When is it enough, {coach}?
 When does it ever stop?
 At some point you have to trust me. ~ vet
 I'm not a machine, {coach}.
 You're squeezing a guy who's already dry.
 You're asking me to find something that isn't there.
-I'm doing my part. Ask about the rest of them. ~ pro
-Save it for somebody who's actually slacking. ~ brash
+I'm doing my part. Ask about the rest of them. ~ pro blameless=yes
+Save it for somebody who's actually slacking. ~ brash blameless=yes
 Pick on somebody else.
-You picked the wrong guy for this one.
-I'm not the guy you need to worry about.
+You picked the wrong guy for this one. ~ blameless=yes
+I'm not the guy you need to worry about. ~ blameless=yes
 I thought you had my back.
 I guess I know where I stand.
 Now I know what you really think of me.
-Don't make this about my effort. My effort's not the problem.
-My effort has never been the question.
-You can say a lot about me. Not that.
-Say anything you want about me, just not that I don't work.
+Don't make this about my effort. My effort's not the problem. ~ blameless=yes
+My effort has never been the question. ~ blameless=yes
+You can say a lot about me. Not that. ~ blameless=yes
+Say anything you want about me, just not that I don't work. ~ blameless=yes
 That's just disrespectful.
 I feel disrespected right now.
 That's a slap in the face.
-Half this team is coasting and I'm the one in your office.
+Half this team is coasting and I'm the one in your office. ~ blameless=yes
 I'm getting singled out here.
-So that's what you think I've been doing. Coasting.
-I've been grinding and you call it coasting?
+So that's what you think I've been doing. Coasting. ~ blameless=yes
+I've been grinding and you call it coasting? ~ blameless=yes
 I'm already doing the extra. All of it.
 I do the extra. Nobody asks me to.
 Yeah, I'll just find more hours in the day.
 Sure, let me just invent another gear.
 Okay, let me go pull another level out of thin air.
-You make it sound like I'm not even trying.
+You make it sound like I'm not even trying. ~ blameless=yes
 I'm trying harder than you'll ever know.
 I don't think you understand what it takes me to do what I already do.
 It's a lot easier to ask for more than to give it. ~ calm
@@ -3788,7 +3788,7 @@ I'd rather you just tell me what's really wrong.
 What's this really about, {coach}?
 Who put you up to this?
 Where's this even coming from?
-Since when am I the guy who needs pushing?
+Since when am I the guy who needs pushing? ~ blameless=yes
 I didn't see that coming from you.
 That came out of nowhere.
 I don't need a challenge. I need some credit.
@@ -3801,10 +3801,10 @@ I'm tired. That's all I'll say.
 That's the last thing I needed.
 I don't get it. I really don't.
 Okay, {coach}. You've made your point.
-You don't think I want it? Seriously?
+You don't think I want it? Seriously? ~ blameless=yes
 I want it more than anybody here, and you know it.
-I'm not the one who needs this talk, {coach}.
-You've got the wrong idea about me, {coach}.
+I'm not the one who needs this talk, {coach}. ~ blameless=yes
+You've got the wrong idea about me, {coach}. ~ blameless=yes
 You don't know what I'm dealing with. ~ shaky
 You don't know half of what I do to get ready.
 I'm already in the cold tub, the film room and the weight room. Where else?
@@ -3865,10 +3865,10 @@ Okay. I'll figure it out.
 That's something to work on, I guess.
 Sounds good, {coach}.
 Yeah, I'll keep going.
-I thought I was doing that, but alright.
+I thought I was doing that, but alright. ~ blameless=yes
 Fair enough, {coach}.
 I'll try to step it up.
-Okay. Not sure what more there is, but okay.
+Okay. Not sure what more there is, but okay. ~ blameless=yes
 I'm not totally sure what you mean, but I'll try.
 What would that look like, exactly?
 More how, exactly?
@@ -4082,45 +4082,45 @@ Yeah, sure. I can give that a try. ~ midwest
 Okay. I'll see about stepping it up. ~ northeast
 
 @key talk.reply.criticize.good
-You're right. I was wrong.
+You're right. I was wrong. ~ at_fault=yes
 That's fair. I needed to hear it.
-I know. It won't happen again.
-I don't have an excuse.
-That's on me.
-I've been slipping. I know.
+I know. It won't happen again. ~ at_fault=yes
+I don't have an excuse. ~ at_fault=yes
+That's on me. ~ at_fault=yes
+I've been slipping. I know. ~ at_fault=yes
 I needed somebody to tell me.
-You're right. I'm better than that.
+You're right. I'm better than that. ~ at_fault=yes
 I'm embarrassed, honestly.
 I'll fix it. Starting today.
-No excuses. You're right.
-I deserved that.
-I'll own it.
+No excuses. You're right. ~ at_fault=yes
+I deserved that. ~ at_fault=yes
+I'll own it. ~ at_fault=yes
 I've got to be better.
 I hear you. I'm going to make it right.
 That's real. I'll take it.
-I wasn't living up to the standard. I know.
+I wasn't living up to the standard. I know. ~ at_fault=yes
 Thank you for not letting it slide.
 I'd rather hear it from you than lose my spot over it.
 I needed that wake-up call.
 You're right. I'll show you I'm better than that.
 That's fair criticism. I accept it.
 I appreciate you being hard on me.
-I haven't been myself. You're right to call it out.
+I haven't been myself. You're right to call it out. ~ at_fault=yes
 That stung. It needed to.
-I'm sorry, Coach. ~ quiet
+I'm sorry, Coach. ~ quiet at_fault=yes
 You're right. ~ quiet
 Okay. I'll fix it. ~ quiet
-I'm sorry. It won't happen again. ~ humble
+I'm sorry. It won't happen again. ~ humble at_fault=yes
 Thank you for being honest with me about it. ~ humble
-I know I let you down. I'm sorry. ~ humble
+I know I let you down. I'm sorry. ~ humble at_fault=yes
 Alright. That's fair. I'll fix it. ~ ego
 I don't like hearing it, but you're right. ~ ego
 Okay. I'll clean it up. ~ ego
-You're right. I lost my head. ~ hot
-I know. I've got to control it. ~ hot
+You're right. I lost my head. ~ hot at_fault=yes
+I know. I've got to control it. ~ hot at_fault=yes
 That's fair. I'll keep it together. ~ hot
-That's on me. I'll handle it. ~ pro
-I'm accountable. You'll see a change. ~ pro
+That's on me. I'll handle it. ~ pro at_fault=yes
+I'm accountable. You'll see a change. ~ pro at_fault=yes
 I'll make it right with the guys too. ~ leader
 That's fair. I've got to set the example. ~ leader
 I'll address it with the room myself. ~ leader
@@ -4128,27 +4128,27 @@ You're right. I'll fix it. ~ steady
 Okay. Understood. I'll change it. ~ calm
 I hear you, Coach. You've always been straight with me. ~ loyal
 I won't let you down again. ~ loyal
-I know. I've been messing up. I'll do better. ~ shaky
+I know. I've been messing up. I'll do better. ~ shaky at_fault=yes
 You're right. I needed somebody to say it. ~ shaky
 That's fair. I'll do better. ~ young
-My bad, Coach. For real. ~ young modern
-That's on me. No cap. ~ young modern
-Yeah. I was tripping. ~ young loose
-I've been in this league long enough to know better. You're right. ~ nfl vet
+My bad, Coach. For real. ~ young modern at_fault=yes
+That's on me. No cap. ~ young modern at_fault=yes
+Yeah. I was tripping. ~ young loose at_fault=yes
+I've been in this league long enough to know better. You're right. ~ nfl vet at_fault=yes
 That's fair. The young guys see that. I'll fix it. ~ nfl vet
 I'll make it right. I'm not a rookie anymore. ~ nfl !rookie
 I'll get it together. ~ college young
 I'm going to hear it at home too. You're right. ~ hs young
 Yes {coach_sir}. You're right. ~ south
-I hear you, Coach. I'm sorry. ~ south
+I hear you, Coach. I'm sorry. ~ south at_fault=yes
 That's fair. ~ midwest
-That's on me. I'll fix it. ~ midwest
-You're right. I was out of line. ~ northeast
+That's on me. I'll fix it. ~ midwest at_fault=yes
+You're right. I was out of line. ~ northeast at_fault=yes
 That's fair. I'll handle it. ~ west
 Okay. I hear you, and you're not wrong.
 I can't argue with any of that.
 That's hard to hear, {coach}. It's also true.
-I'm not going to make excuses. Tell me what you need from me.
+I'm not going to make excuses. Tell me what you need from me. ~ at_fault=yes
 Fair. What do I need to do to fix it?
 Nobody's harder on me than me, but you're right to say it.
 I respect you for saying it to my face.
@@ -4160,25 +4160,25 @@ I don't want to be that guy. I'll change it.
 That's not who I want to be.
 Point taken. No argument from me.
 I'm not going to argue with you, {coach}. You're right.
-Yeah, I've been off. I know it.
+Yeah, I've been off. I know it. ~ at_fault=yes
 I can take it. Keep coming at me if I slip again.
 Hold me to it.
 You won't have to tell me twice.
 That one's going to stick with me. In a good way.
 I needed somebody to get in my face about it. Thank you.
-I've been fooling myself. Not anymore.
+I've been fooling myself. Not anymore. ~ at_fault=yes
 I'll fix it, and I'll fix it the right way.
 I'm glad you didn't sugarcoat it, {coach}.
 You could've let it go. I'm glad you didn't.
 That's fair, and I'm going to do something about it.
 I don't love it, but it's the truth.
 Give me a chance to show you.
-I'm going to prove that wasn't the real me.
+I'm going to prove that wasn't the real me. ~ at_fault=yes
 You've got my word on it.
 Okay, I'm with you. Where do I begin?
-I owe the guys better than that.
-I owe you better than that, Coach.
-I can be better than that, and I will be.
+I owe the guys better than that. ~ at_fault=yes
+I owe you better than that, Coach. ~ at_fault=yes
+I can be better than that, and I will be. ~ at_fault=yes
 Straight up, {coach}, you're right.
 I don't like it, but I respect it.
 I'll take that and use it.
@@ -4186,32 +4186,32 @@ Thanks for caring enough to say something.
 I'll get my head right.
 I've got work to do. I know.
 You don't have to say it again. I've got it, and I'm on it.
-I let myself get comfortable. That's done.
-I haven't been holding up my end. That's not how this works.
-Honestly? I was waiting for somebody to call me on it.
+I let myself get comfortable. That's done. ~ at_fault=yes
+I haven't been holding up my end. That's not how this works. ~ at_fault=yes
+Honestly? I was waiting for somebody to call me on it. ~ at_fault=yes
 I'd be mad if you didn't say anything.
 Okay. Message received, loud and clear.
 That's the kind of thing a coach who cares says. I appreciate it.
 I'm going to sit with that and then go fix it.
 I'll be different, and not a little different.
 Alright. Watch me.
-I can't hide from that one, {coach}.
+I can't hide from that one, {coach}. ~ at_fault=yes
 That's a fair hit. I'll get up from it.
 You put it better than I could have. I'll fix it.
-I know I'm better than what you've been seeing.
+I know I'm better than what you've been seeing. ~ at_fault=yes
 I want to be the guy you don't have to have this talk with.
-That's on me, and I'll be the one to clean it up.
+That's on me, and I'll be the one to clean it up. ~ at_fault=yes
 You're right, and I hate that you're right.
 Thank you for treating me like I can handle the truth.
 I'll come back to you when it's fixed. You won't have to chase me.
-I've been lying to myself about it. You just said it out loud.
+I've been lying to myself about it. You just said it out loud. ~ at_fault=yes
 That's exactly what I needed, even if I didn't want it.
-I'm going to earn back what I lost with you.
+I'm going to earn back what I lost with you. ~ at_fault=yes
 Every word of that was fair, {coach}.
 I won't make you regret believing in me.
 I'll do the work. Whatever it takes.
 Let me show you I can take coaching.
-I'm not proud of it. I'll be proud of how I fix it.
+I'm not proud of it. I'll be proud of how I fix it. ~ at_fault=yes
 You're not the first to think it, just the first to say it. Thank you.
 That's fair, {coach}. You'll see the difference.
 I respect you more for saying that, {coach}.
@@ -4225,21 +4225,21 @@ I'll show you. ~ quiet
 I'm grateful you'd even take the time with me. ~ humble
 I don't take it lightly that you care enough to tell me. ~ humble
 I'm not above being coached. Please keep telling me. ~ humble
-I know I haven't earned the right to argue. You're right. ~ humble
+I know I haven't earned the right to argue. You're right. ~ humble at_fault=yes
 Thank you for being patient with me. I'll get it. ~ humble
 I've got a lot to learn still. That's part of it. ~ humble young
 Most guys couldn't get away with saying that to me. You can, because you're right. ~ ego
 Nobody tells me that, and maybe somebody should have. I'll fix it. ~ ego
-I'm better than that, and everybody knows it. So I'll go prove it. ~ ego
+I'm better than that, and everybody knows it. So I'll go prove it. ~ ego at_fault=yes
 Fine, you're right. Don't get used to being right about me. ~ ego brash
 I don't hear that a lot. I'll make sure I don't hear it again. ~ ego
 {name} doesn't need to hear that twice. I'll handle it. ~ ego
-The guys follow what I do. I've got to be better than that. ~ leader
-I'll tell the room I was wrong before you have to. ~ leader
+The guys follow what I do. I've got to be better than that. ~ leader at_fault=yes
+I'll tell the room I was wrong before you have to. ~ leader at_fault=yes
 If I'm going to lead these guys, I can't be the one they whisper about. ~ leader
 I can't ask anybody else to be better until I am. ~ leader
 You're right. The young guys are watching me. ~ leader
-I'll fix it and I'll own it in front of everybody. ~ leader pro
+I'll fix it and I'll own it in front of everybody. ~ leader pro at_fault=yes
 Part of me wants to fire back. I'm not going to, because you're right. ~ hot
 Give me a second. Okay, yeah, you're right. ~ hot
 I hate this. But you're right, and I'll fix it. ~ hot
@@ -4258,29 +4258,29 @@ I'm not dumb. Fixing this helps me too. ~ greedy
 You're right. And it's hurting me as much as anybody. ~ greedy
 I want everything I can get out of football. I won't get it like that. ~ greedy
 Understood. I'll correct it and you won't see it again. ~ pro
-I hold myself to a higher standard than that. Clearly I slipped. ~ pro
+I hold myself to a higher standard than that. Clearly I slipped. ~ pro at_fault=yes
 I appreciate the feedback. I'll put a plan together. ~ pro
 That's a fair evaluation. I'll go to work on it. ~ pro
 Can you send me whatever you've got on it? I want to study it. ~ pro
-Ha, okay, you got me. I'll tighten it up. ~ loose
+Ha, okay, you got me. I'll tighten it up. ~ loose at_fault=yes
 Alright, alright, I hear you. I'll clean it up for real. ~ loose
-Man, you caught me fair. I'll get it together. ~ loose
-I know, I know, I've been messing around. I'll lock in. ~ loose young
+Man, you caught me fair. I'll get it together. ~ loose at_fault=yes
+I know, I know, I've been messing around. I'll lock in. ~ loose young at_fault=yes
 Nobody ever cared enough to say that to me. Thank you. ~ shaky
 I'm not used to somebody being straight with me. I needed it. ~ shaky
 I thought you'd give up on me, and you didn't. I'll fix it. ~ shaky
 I'm going to try really hard. I promise. ~ shaky young
 That means you still think I'm worth it. I'll show you I am. ~ shaky
-Fair. I'll get back to doing it right. ~ steady
+Fair. I'll get back to doing it right. ~ steady at_fault=yes
 Okay. I know how to fix that. ~ steady
 I'll handle it the same way I handle everything. One day at a time. ~ steady
 I hate being told I'm not good enough. So I'll be good enough. ~ competitor
 Nobody's going to outwork me on this. Watch. ~ competitor
-I want to win too bad to keep doing that. You're right. ~ competitor
+I want to win too bad to keep doing that. You're right. ~ competitor at_fault=yes
 That fires me up, honestly. I'll fix it. ~ competitor
 Somebody telling me I'm falling short is fuel. Thank you. ~ competitor
-I'll quit making it harder than it needs to be.
-Alright. No more of that from me.
+I'll quit making it harder than it needs to be. ~ at_fault=yes
+Alright. No more of that from me. ~ at_fault=yes
 I'm not going to pout about it. I'll go fix it.
 That's coaching, and I want coaching.
 I'd rather you be hard on me than quiet, {coach}.
@@ -4291,37 +4291,37 @@ I'll be better for it.
 I know what I have to do now.
 That's the first honest thing anybody's said to me in a while.
 I've got no comeback for that.
-I'll own it and move forward.
+I'll own it and move forward. ~ at_fault=yes
 Okay. Let's fix it.
 Real talk, I needed that.
-I won't waste your time making excuses.
-That's not the standard here, and I know it.
+I won't waste your time making excuses. ~ at_fault=yes
+That's not the standard here, and I know it. ~ at_fault=yes
 I'll get it squared away.
 Tell me if you see it again. I want to know.
 I'm not going to take it personal. You're right.
-I can live with being wrong. I can't live with staying that way.
+I can live with being wrong. I can't live with staying that way. ~ at_fault=yes
 That's going to make me better.
-I've been in my own way. I'm going to get out of it.
-I thought I was doing enough. Clearly not.
+I've been in my own way. I'm going to get out of it. ~ at_fault=yes
+I thought I was doing enough. Clearly not. ~ at_fault=yes
 You're right to expect more from me.
 Expect more from me. I'll give it.
 I'll take the hit and get back up.
 I'll make it right, whatever that takes.
-I'm not going to be that guy anymore.
+I'm not going to be that guy anymore. ~ at_fault=yes
 If I were in your chair, {coach}, I'd have said it too.
 You can be as tough on me as you want. I'll respond.
-I'm sorry you had to be the one to say it.
+I'm sorry you had to be the one to say it. ~ at_fault=yes
 I'll write that down so I don't forget it.
 I'll stop talking about it and go do it.
 I'll fix it quietly and let you see it.
 I'm going to make this the last time we talk about it.
 Thank you for being real with me, {coach}.
-Lesson learned. Honestly.
+Lesson learned. Honestly. ~ at_fault=yes
 I'm going to make you proud of how I respond.
-I let you down. I'll make it up to you.
+I let you down. I'll make it up to you. ~ at_fault=yes
 I get it now. I really do.
 I'll go back to the little things and build from there.
-You're right, and the worst part is I knew it.
+You're right, and the worst part is I knew it. ~ at_fault=yes
 That's the truth, {coach}. I'll fix it.
 I owe you one for that, {coach}.
 I hear you, {coach}. Every word.
@@ -4331,37 +4331,37 @@ You're right, {coach}. I'll make it right.
 I won't make you have this talk with me again, {coach}.
 {friend} would've told me the same thing. You're both right.
 I can already hear {friend} saying I told you so. You're right.
-{team} deserves better than that from me.
+{team} deserves better than that from me. ~ at_fault=yes
 Yes {coach_sir}. Nobody's ever been that straight with me. ~ hs
-I'm sorry, Coach. I'm still learning how all this works. ~ hs
+I'm sorry, Coach. I'm still learning how all this works. ~ hs at_fault=yes
 I want to be the kind of player the little guys look up to on Friday nights. ~ hs
 I don't want to be the guy everybody at school talks about. I'll fix it. ~ hs
 Yes {coach_sir}. I want to make this program proud. ~ hs young
 I'll show you I'm not just some freshman. ~ hs freshman
-I'm a senior. I should know better, and now I do. ~ hs senior
-I'm almost an upperclassman. I've got to start acting like one. ~ hs sophomore
-I'm a junior. It's time I grew up a little. ~ hs junior
+I'm a senior. I should know better, and now I do. ~ hs senior at_fault=yes
+I'm almost an upperclassman. I've got to start acting like one. ~ hs sophomore at_fault=yes
+I'm a junior. It's time I grew up a little. ~ hs junior at_fault=yes
 Hearing that from you hits different than hearing it from a teacher. ~ hs
 I came here to get coached. This is me getting coached. ~ college
 I didn't come all this way to waste my shot. ~ college
 I came here to be pushed. Push me. ~ college transfer
 I transferred here for coaching like this. Thank you. ~ transfer
 I left a lot behind to come here. I'm not going to waste it. ~ transfer
-I walked on to earn everything. That includes earning your trust back. ~ walkon
+I walked on to earn everything. That includes earning your trust back. ~ walkon at_fault=yes
 Nobody handed me anything here. I'm not about to blow it now. ~ college walkon
-A redshirt year is supposed to make me better, not worse. I'll fix it. ~ redshirt
+A redshirt year is supposed to make me better, not worse. I'll fix it. ~ redshirt at_fault=yes
 I'm still figuring out how things work here. Thank you for showing me. ~ college freshman
-I've been here long enough to know better. You're right. ~ college senior
+I've been here long enough to know better. You're right. ~ college senior at_fault=yes
 I want to leave this place better than I found it. That has to begin with me. ~ college senior
 Everybody on campus tells me I'm great. I needed you to tell me I'm not. ~ college
 This league doesn't wait for anybody. I'll get it fixed. ~ nfl
-I'm a grown man. I should hold myself to more than that. ~ nfl
-Rookie or not, that's no excuse. You're right. ~ nfl rookie
+I'm a grown man. I should hold myself to more than that. ~ nfl at_fault=yes
+Rookie or not, that's no excuse. You're right. ~ nfl rookie at_fault=yes
 Nobody drafted me. I can't give anybody a reason to doubt me. ~ undrafted
 Practice squad guys don't get to coast. I hear you. ~ psquad
-They drafted me high for a reason. I'll start acting like it. ~ firstround
+They drafted me high for a reason. I'll start acting like it. ~ firstround at_fault=yes
 However long I've been doing this, I still need to hear it sometimes. ~ vet
-At this point in my career, I should be the one saying that to somebody else. Fair. ~ nfl vet
+At this point in my career, I should be the one saying that to somebody else. Fair. ~ nfl vet at_fault=yes
 Sundays don't care about my feelings, and you shouldn't either. Fair. ~ nfl
 My agent tells me what I want to hear. You told me what I needed to. ~ nfl
 I've seen guys get run out of this league for less. I'll fix it. ~ nfl vet
@@ -4372,7 +4372,7 @@ My job is to not be noticed. If you're noticing me, I've got to fix it. ~ snappe
 Nobody thinks about a kicker until he messes up. Fair, I'll fix it. ~ kicker
 I've got a short memory for most things. This one I'll keep. ~ db
 I'm supposed to be the one holding everybody accountable. Fair. ~ lb
-Linebackers set the temperature in the room. I'll fix mine. ~ lb
+Linebackers set the temperature in the room. I'll fix mine. ~ lb at_fault=yes
 I play angry. I'll point it the right way. ~ dl
 Receivers get a reputation fast. I don't want that one. ~ wr
 I get hit every play. I can take a hit in here too. ~ rb
@@ -4382,12 +4382,12 @@ Yes {coach_sir}. I'll get it straightened out. ~ south
 I hear you loud and clear, Coach. I reckon I needed that. ~ south
 Where I'm from, you take your lumps and get back to work. Yes {coach_sir}. ~ texas
 Yes {coach_sir}. Ain't nobody going to have to tell me again. ~ south
-Y'all have been patient with me. I'll make it right. ~ south
+Y'all have been patient with me. I'll make it right. ~ south at_fault=yes
 Back home they'd have said it a lot louder. You're right. ~ texas
 Yeah, no, that's fair. I'll get after it. ~ midwest
 That's fair. I was raised to take my medicine. ~ midwest
 I'm not going to make a fuss about it. You're right. ~ midwest humble
-Yeah, alright, you got me. I'll fix it. ~ northeast
+Yeah, alright, you got me. I'll fix it. ~ northeast at_fault=yes
 No, you're right. I'm not going to stand here and argue. ~ northeast
 You don't have to dress it up for me. I got it, and I'll fix it. ~ northeast
 That's real talk. I'll get it fixed for sure. ~ west
@@ -4396,40 +4396,40 @@ I appreciate you holding me to it. I'll correct it. ~ pro
 That's useful. I'd rather know than not know. ~ pro calm
 I'll take a breath and then fix it. ~ calm
 That's clear enough. I'm with you on it. ~ calm
-I'll get back to who I am. That wasn't it. ~ steady
+I'll get back to who I am. That wasn't it. ~ steady at_fault=yes
 Same as always, {coach}. I'll put my head down and fix it. ~ steady
 Call me out in front of the whole room if you have to. I can take it. ~ leader
 If I can't take hard coaching, I can't give it. Thank you. ~ leader
-Being told I came up short is the worst feeling there is. I'll never let it happen again. ~ competitor
+Being told I came up short is the worst feeling there is. I'll never let it happen again. ~ competitor at_fault=yes
 I'm going to outwork this. ~ competitor
 Fixing this is the smart move for me. I'll do it. ~ greedy
-Nobody gets ahead acting like that. I know. ~ greedy
+Nobody gets ahead acting like that. I know. ~ greedy at_fault=yes
 I don't always know how to handle stuff like this. But I'll do better. ~ shaky
 I'll try not to let you down. I really will. ~ shaky
 I'm glad you said it to me first. I'll fix it. ~ shaky young
-I'm heated, but not at you. At me. ~ hot
-I'm mad at myself, Coach. Not you. ~ hot
-Okay. I'll stop playing around. ~ loose
-Fair. I'll get serious about it. ~ loose
+I'm heated, but not at you. At me. ~ hot at_fault=yes
+I'm mad at myself, Coach. Not you. ~ hot at_fault=yes
+Okay. I'll stop playing around. ~ loose at_fault=yes
+Fair. I'll get serious about it. ~ loose at_fault=yes
 I'm just thankful you think I'm worth correcting. ~ humble
 I won't forget you took the time. ~ humble
-Big-time players own it. So I'm owning it. ~ ego
-I'm too good to be doing that. You're right about that much. ~ ego
-Sorry. You won't need to say it again. ~ quiet
+Big-time players own it. So I'm owning it. ~ ego at_fault=yes
+I'm too good to be doing that. You're right about that much. ~ ego at_fault=yes
+Sorry. You won't need to say it again. ~ quiet at_fault=yes
 Okay, I'll fix it. Nobody will have to bring it up again. ~ quiet
 For you, I'll fix anything. ~ loyal
 I'd never want you thinking less of me. I'll make it right. ~ loyal
-I've been young and dumb about it. Not anymore. ~ young
+I've been young and dumb about it. Not anymore. ~ young at_fault=yes
 I'm still learning, Coach. Thanks for teaching me. ~ young
 I've been around long enough to know you're right. ~ vet
 I'm too old to be getting talked to like this, and too old to argue it. You're right. ~ vet
 I'll take it to the film room and come back better.
 Fair enough. I'll put in the work.
 Point well made. I'll be better.
-You've been more patient with me than I deserve.
+You've been more patient with me than I deserve. ~ at_fault=yes
 That's what I needed to hear, the way I needed to hear it.
 I can't promise I'll be perfect. I can promise you'll see effort.
-I know I'm capable of more, and so do you. That's why you said it.
+I know I'm capable of more, and so do you. That's why you said it. ~ at_fault=yes
 I'd be a fool to argue with that, {coach}.
 Okay. I'm going to go fix it right now.
 I'm on it. You won't regret saying something.
@@ -4439,7 +4439,7 @@ I needed somebody to hold up a mirror. Thanks.
 
 @key talk.reply.criticize.bad
 That's not fair, Coach.
-I've given everything to this team.
+I've given everything to this team. ~ blameless=yes
 So that's what you think of me.
 You don't know what I'm going through.
 Wow. Okay.
@@ -4447,14 +4447,14 @@ You're blaming me for everything.
 That's not the whole story.
 I can't believe you'd say that.
 You've never talked to anybody else like that.
-I'm not the only one who did that.
+I'm not the only one who did that. ~ at_fault=yes
 So I'm the problem now.
 That's how you talk to your players?
-You're wrong about this.
-I didn't deserve that.
+You're wrong about this. ~ blameless=yes
+I didn't deserve that. ~ blameless=yes
 I'm going to remember this.
 That's out of line, Coach.
-You're making me the scapegoat.
+You're making me the scapegoat. ~ blameless=yes
 I came in here to talk. Not to get yelled at.
 I'm done listening.
 Everybody else gets a pass but me.
@@ -4474,10 +4474,10 @@ I'm going to go now. ~ quiet
 I'm trying, Coach. I really am. ~ humble
 I didn't think you saw me like that. ~ humble
 I don't know what else to do. ~ humble
-Selfish? I'm the reason we win. ~ ego brash
+Selfish? I'm the reason we win. ~ ego brash blameless=yes
 You'd be nothing without me out there. ~ ego brash
 I don't have to listen to this. ~ ego brash
-Find somebody else to blame. ~ ego brash
+Find somebody else to blame. ~ ego brash blameless=yes
 I'm the best player you've got. Remember that. ~ ego brash
 Don't come at me like that. ~ hot brash
 You're going to talk to me like that? ~ hot brash
@@ -4490,8 +4490,8 @@ I'll talk to my position coach. Not you. ~ pro !hs
 I'll lead the guys. You can deal with me later. ~ leader
 That hurts, coming from you. The guys look to me. ~ leader
 You just made the room's job harder. ~ leader
-I'm not the one who's losing games. ~ competitor
-I compete harder than anybody here. ~ competitor
+I'm not the one who's losing games. ~ competitor blameless=yes
+I compete harder than anybody here. ~ competitor blameless=yes
 I didn't expect that from you. ~ steady
 That wasn't fair. ~ calm
 I'll take a minute before I say something. ~ calm
@@ -4521,8 +4521,8 @@ Okay. So that's where we are.
 You've got it all figured out, huh?
 Must be nice to sit in that chair and judge everybody.
 Thanks. Real helpful.
-I don't think you've watched me close enough to say that.
-That's not what happened, and you know it.
+I don't think you've watched me close enough to say that. ~ blameless=yes
+That's not what happened, and you know it. ~ blameless=yes
 Wow. I really thought you were in my corner.
 Cool. Anything else you want to pile on?
 Nobody gets to talk to me like that.
@@ -4538,7 +4538,7 @@ I don't trust where this is going.
 Is this really about me, or is it about something else?
 Somebody's been in your ear. Who was it?
 Who told you that?
-That's one way to see it. It's the wrong way.
+That's one way to see it. It's the wrong way. ~ blameless=yes
 I'm not going to sit here and get torn down.
 You want to tear me down? Go ahead. ~ brash
 I'm not your punching bag.
@@ -4551,9 +4551,9 @@ You only notice when something goes wrong.
 So that's the thanks I get.
 I'm done with this conversation. ~ brash
 Are we finished here?
-You're wrong, and I think you know you're wrong.
-I'm not going to apologize for something I didn't do.
-I don't owe you an apology.
+You're wrong, and I think you know you're wrong. ~ blameless=yes
+I'm not going to apologize for something I didn't do. ~ blameless=yes
+I don't owe you an apology. ~ blameless=yes
 Keep talking. I'm not hearing it.
 That's not coaching. That's just being mean.
 I thought we were better than this, you and me.
@@ -4571,7 +4571,7 @@ I thought you actually knew me.
 You don't know me at all.
 You're making it sound way worse than it is.
 It's not that serious.
-Everybody slips up. Why are you acting like I'm the only one?
+Everybody slips up. Why are you acting like I'm the only one? ~ at_fault=yes
 Give me a break.
 Unbelievable.
 Great. Anything else you want to hit me with?
@@ -4579,8 +4579,8 @@ Whatever helps you sleep at night. ~ brash
 You've been looking for a reason to say that.
 Feels like you've had that one saved up for a while.
 That came out pretty easy for you.
-You think I don't already beat myself up?
-I don't need you telling me what I already know.
+You think I don't already beat myself up? ~ at_fault=yes
+I don't need you telling me what I already know. ~ at_fault=yes
 That's not fair, and it's not right.
 I'm going to need you to back that up.
 Show me where. Show me exactly where.
@@ -4588,11 +4588,11 @@ Prove it.
 You're overreacting.
 You're blowing this way out of proportion.
 Okay. Now I know how you really feel.
-I'm not a problem you need to fix.
+I'm not a problem you need to fix. ~ blameless=yes
 I'm not some project.
 You talk about trust and then you hit me with that?
-I'm not taking the fall for this.
-I'm not carrying this one by myself.
+I'm not taking the fall for this. ~ blameless=yes
+I'm not carrying this one by myself. ~ at_fault=yes
 You're putting all of it on me? Really?
 So none of this is on anybody else?
 I'm leaving before I say something I regret.
@@ -4607,40 +4607,40 @@ Don't worry about me. Clearly you don't anyway. ~ brash
 From now on I'll just keep everything to myself.
 That's a cheap thing to say, {coach}.
 Not you, {coach}. I never figured you'd say that.
-You're way off, {coach}.
+You're way off, {coach}. ~ blameless=yes
 Wow, {coach}. Okay.
 I'm not having this conversation, {coach}.
 Real classy, {coach}.
-{coach}, with all respect, you've got it backwards.
-You've got the wrong guy, {coach}.
+{coach}, with all respect, you've got it backwards. ~ blameless=yes
+You've got the wrong guy, {coach}. ~ blameless=yes
 {friend} warned me you'd be like this.
-I give {team} everything I've got, and that's what I hear?
+I give {team} everything I've got, and that's what I hear? ~ blameless=yes
 I'd like to go. ~ quiet
 I don't really want to talk anymore. ~ quiet
 Fine. Can I leave? ~ quiet
 I'm not going to say anything. ~ quiet
 Got it. Bye, Coach. ~ quiet
-I thought I was doing everything you asked. ~ humble
+I thought I was doing everything you asked. ~ humble blameless=yes
 I've been trying so hard. I guess it doesn't show. ~ humble
 Hearing that from you stings. ~ humble
-I don't know how to be better than I've been. ~ humble
-I keep my head down and work, and that's what I get back? ~ humble
+I don't know how to be better than I've been. ~ humble blameless=yes
+I keep my head down and work, and that's what I get back? ~ humble blameless=yes
 You know how many coaches would kill to have me? ~ ego brash
 I don't get coached like that. Not by anybody. ~ ego brash
 Without me, what have you got? ~ ego brash
 {name} doesn't take that from anybody. ~ ego brash
 You need me a lot more than I need you. ~ ego brash
-I'm the last guy in this building you should be coming at. ~ ego brash
+I'm the last guy in this building you should be coming at. ~ ego brash blameless=yes
 Keep talking like that and see what happens. ~ hot brash
 You don't want to keep pushing me right now. ~ hot brash
 You got something else to say? Say it. ~ hot brash
 I'm about two seconds from walking out. ~ hot brash
 I'm not one of your freshmen. Watch how you talk to me. ~ hot college !freshman brash
 Nah. Nah, don't do that. ~ hot young brash
-I think you're wrong, and I'll leave it there. ~ calm
-I disagree. I'm not going to argue about it. ~ calm
+I think you're wrong, and I'll leave it there. ~ calm blameless=yes
+I disagree. I'm not going to argue about it. ~ calm blameless=yes
 I'll let that sit. I don't think it was fair. ~ calm
-I'll go cool off. I don't think you were right. ~ calm steady
+I'll go cool off. I don't think you were right. ~ calm steady blameless=yes
 I've always had your back. I didn't think I'd need to ask for the same. ~ loyal
 I've stood up for you to people. Don't make me regret it. ~ loyal
 I thought loyalty went both ways. ~ loyal
@@ -4660,7 +4660,7 @@ I knew it. I knew you'd turn on me too. ~ shaky
 I can't ever do anything right, can I? ~ shaky
 Why does everybody always end up against me? ~ shaky
 I'm not going to react to that. But it wasn't fair. ~ steady
-I've been the same guy every single day. You know that. ~ steady
+I've been the same guy every single day. You know that. ~ steady blameless=yes
 Nobody in this building wants it more than me, and you know it. ~ competitor
 Don't you ever question my fight. ~ competitor
 You think I don't hate falling short more than you do? ~ competitor
@@ -4676,7 +4676,7 @@ I didn't come to this campus to get treated like that. ~ college
 I could've gone a lot of places. I picked here for this? ~ college ego !walkon brash
 I didn't transfer here to get talked to like that. ~ transfer
 I've earned every single thing here, and that's how you see me? ~ walkon
-I'm doing everything right as a redshirt, and this is what I hear? ~ redshirt
+I'm doing everything right as a redshirt, and this is what I hear? ~ redshirt blameless=yes
 I've given this place everything since the day I got here. ~ college senior
 I'm a freshman, Coach. You could cut me a little slack. ~ college freshman
 I'm a professional. Treat me like one. ~ nfl
@@ -4688,7 +4688,7 @@ Everybody's got something to say about a first-rounder. Now you too? ~ firstroun
 I'm grinding every day on the practice squad, and that's what I hear? ~ psquad
 I've heard every speech there is. That one isn't landing. ~ nfl vet
 You want to do this through my agent? Because we can. ~ nfl hot
-I take the blame for everything around here already. You don't need to pile on. ~ qb
+I take the blame for everything around here already. You don't need to pile on. ~ qb at_fault=yes
 Nobody notices us up front until something goes wrong. Same old story. ~ ol
 Everybody wants to talk to the kicker when something goes wrong. ~ kicker
 Receivers get blamed for everything. I'm used to it. ~ wr
@@ -4697,16 +4697,16 @@ I do the dirty work nobody sees, and that's what I hear? ~ dl
 I'm the one cleaning up everybody's mess, and I'm the problem? ~ lb
 I sacrifice my body for this team every day. ~ rb
 I do whatever you ask, block, run, whatever. And this is what I hear? ~ te
-I'm the last guy anybody should be worried about. ~ snapper
+I'm the last guy anybody should be worried about. ~ snapper blameless=yes
 Now hold on, Coach. That ain't fair and you know it. ~ south
-With all due respect, {coach_sir}, I don't think that's right. ~ south
-Y'all always put it on me. ~ south
+With all due respect, {coach_sir}, I don't think that's right. ~ south blameless=yes
+Y'all always put it on me. ~ south blameless=yes
 Where I'm from, you don't talk to a man like that. ~ texas brash
 Well, that's a heck of a thing to say. ~ midwest
 Gee, thanks, Coach. ~ midwest
 You serious right now? Come on. ~ northeast brash
 Are you kidding me with this? ~ northeast hot brash
-Nah. That's not it, Coach. ~ west
+Nah. That's not it, Coach. ~ west blameless=yes
 That's lame, Coach. For real. ~ west young brash
 That's so unfair. ~ young
 Why are you always on me? ~ young
@@ -4720,9 +4720,9 @@ You just made my job in that locker room a whole lot harder. ~ leader
 Okay. I'll stay out of your way, then. ~ quiet
 Can we be done? ~ quiet
 Can I just leave it there? ~ quiet
-You're not wrong to want more. You're wrong about me. ~ calm
+You're not wrong to want more. You're wrong about me. ~ calm blameless=yes
 That was uncalled for, and I think you know it. ~ calm
-I'll hear you out. I just don't agree with a word of it. ~ calm pro
+I'll hear you out. I just don't agree with a word of it. ~ calm pro blameless=yes
 I'll still show up. I just won't forget that. ~ steady
 That's not like you. And it's not like me to let it go. ~ steady
 That one's going to stick, and not in a good way. ~ steady
@@ -4731,7 +4731,7 @@ I've gone to war for you. You know that. ~ loyal
 I'd have turned down anybody to stay loyal to you. ~ loyal
 Okay. Then I'll go where I'm valued. ~ greedy brash
 You don't want to get on my bad side. ~ hot brash
-Funny how it's my fault and somebody else's credit. ~ greedy brash
+Funny how it's my fault and somebody else's credit. ~ greedy brash blameless=yes
 I'm not a robot, Coach. ~ loose
 You done? Cool. ~ loose brash
 Man, why you got to kill the vibe like that? ~ loose young brash
@@ -4755,11 +4755,11 @@ I'm not taking that from you. ~ hot brash
 Don't. Just don't. ~ hot brash
 Say one more thing like that. ~ hot brash
 I'm leaving. Don't follow me. ~ hot brash
-I'm sorry I'm such a disappointment to you. ~ humble
+I'm sorry I'm such a disappointment to you. ~ humble at_fault=yes
 I didn't know you felt that way about me. ~ humble
 I'm going to go. I need to think. ~ humble quiet
 {coach_sir}, that hurt to hear. ~ humble south
-I've done everything you've asked, {coach_sir}. ~ hs south
+I've done everything you've asked, {coach_sir}. ~ hs south blameless=yes
 I'm out here every day. Every day. ~ competitor
 You're judging me off one look. ~ pro
 Until I see it on tape, I'm not buying it. ~ pro
@@ -4777,8 +4777,8 @@ I'm not going to be anybody's example.
 Okay. I'll go find somebody who actually believes in me.
 You can criticize me all you want. It won't change a thing.
 You wanted a reaction? There it is, and I'm done.
-That's your opinion, and it's wrong.
-I'm not about to let you put that on me.
+That's your opinion, and it's wrong. ~ blameless=yes
+I'm not about to let you put that on me. ~ blameless=yes
 You're working off half the information.
 I'm not going to grovel.
 I came to work every single day, and that's my reward?
@@ -4788,7 +4788,7 @@ You'd say anything to get a rise out of me.
 I'm not going to let you get in my head.
 That's one more person I can't count on.
 You're the only one who sees it that way.
-Ask anybody in that locker room. They'll tell you different.
+Ask anybody in that locker room. They'll tell you different. ~ blameless=yes
 I trusted you with a lot. Not anymore.
 I'll keep my distance from now on.
 I don't know why I bother.
@@ -4798,7 +4798,7 @@ You want honesty, {coach}? That was garbage.
 That was out of nowhere, {coach}.
 You went too far, {coach}.
 I expected better from you, {coach}.
-Don't put that on me, {coach}.
+Don't put that on me, {coach}. ~ blameless=yes
 Thanks for nothing, {coach}.
 That's how it's going to be, {coach}? Fine.
 I'm not hearing it, {coach}. Not like that.
@@ -4829,7 +4829,7 @@ I'll fix it. ~ competitor
 I'll talk to the guys. ~ leader
 Okay. I'll try. ~ shaky
 Aight. ~ young modern
-Okay. My bad. ~ young
+Okay. My bad. ~ young at_fault=yes
 Ha. Okay. ~ loose
 Okay. Fair. ~ northeast
 I hear it. ~ west
@@ -4868,7 +4868,7 @@ Alright, if that's what you're seeing.
 I'll watch it back.
 I don't know. Maybe.
 I didn't really see it that way, but okay.
-I wasn't trying to, but okay.
+I wasn't trying to, but okay. ~ blameless=yes
 Alright. I'll be more aware of it.
 I'll keep an eye on it.
 That's something to think about.
@@ -4886,7 +4886,7 @@ Whatever you need from me, sure.
 Is there something specific you want me to do?
 What do you want me to change, exactly?
 Do I need to do anything right now, or is that it?
-Alright, sorry about that. I'll clean it up.
+Alright, sorry about that. I'll clean it up. ~ at_fault=yes
 Sorry, I was somewhere else for a second. Yeah, I hear you.
 It is what it is. I'll work on it.
 Fine by me.
@@ -4969,7 +4969,7 @@ Acknowledged. ~ pro
 I'll take it to my position coach. ~ pro !hs
 Okay. I'll add it to my notes. ~ pro
 Yeah, yeah. Okay. ~ loose brash
-Okay, okay. My fault, I guess. ~ loose
+Okay, okay. My fault, I guess. ~ loose at_fault=yes
 Say less. ~ loose young
 Ha. Alright. ~ loose
 Okay, I don't know. I'll try. ~ shaky
@@ -4983,7 +4983,7 @@ Okay. I'll add it to the list. ~ competitor
 Fine. I'll outwork it. ~ competitor
 Okay, Coach. Yeah. ~ young
 Alright. Can I go now? ~ young brash
-Okay. I didn't know. ~ young
+Okay. I didn't know. ~ young blameless=yes
 I've heard it before. I'll handle it. ~ vet
 Yep. Got it. ~ vet
 Been doing this long enough. I'll sort it out. ~ vet
@@ -5047,7 +5047,7 @@ If you want it different, I'll do it different. ~ loyal
 Okay. I'll fix it if it matters that much. ~ greedy
 Understood. I'll make a note and follow up. ~ pro
 Yeah, I feel you. I'll get to it. ~ loose
-Alright, alright, my bad. ~ loose
+Alright, alright, my bad. ~ loose at_fault=yes
 Okay. I hope I can. ~ shaky
 Alright. I'll stay the course and clean it up. ~ steady
 I'll get it right eventually. ~ competitor
@@ -5952,20 +5952,20 @@ That's fair. I'd do the same.
 I get it. I'll be better.
 Okay. I'm locked in from here.
 I respect that you warned me first.
-You won't see it again.
-I hear you. I'm done with all that.
+You won't see it again. ~ at_fault=yes
+I hear you. I'm done with all that. ~ at_fault=yes
 Got it. Clean slate.
 That's fair. I needed to hear the line.
 I appreciate you giving me the chance.
 Okay. I know where the line is now.
 I won't make you regret giving me a shot.
 Understood. I'll make sure of it.
-That's a wake-up call. I needed it.
+That's a wake-up call. I needed it. ~ at_fault=yes
 Yes {coach_sir}. ~ quiet
 Understood. ~ quiet
 It won't happen. ~ quiet
 I'm grateful for the warning. I'll fix it. ~ humble
-I'm sorry it got to this. It won't happen again. ~ humble
+I'm sorry it got to this. It won't happen again. ~ humble at_fault=yes
 Fair. I'll handle it. ~ ego
 Okay. I'll be smart. ~ ego
 I'll keep my head. You have my word. ~ hot
@@ -5975,7 +5975,7 @@ Understood. I'll conduct myself right. ~ pro
 That's fair. I'm a professional. I'll act like one. ~ pro
 You won't have to say it twice. ~ pro
 I'll make sure the guys hear it too. ~ leader
-That's fair. I've got to lead better than that. ~ leader
+That's fair. I've got to lead better than that. ~ leader at_fault=yes
 I'll keep it clean. ~ steady
 I hear you. ~ steady
 Okay. That's reasonable. ~ calm
@@ -5987,7 +5987,7 @@ That's fair. I'll compete the right way. ~ competitor
 Bet. I'm good from here. ~ young modern
 Say less. Won't happen. ~ young modern
 I hear you. I'll get right. ~ young
-Okay, okay. I hear you. For real this time. ~ loose
+Okay, okay. I hear you. For real this time. ~ loose at_fault=yes
 I'll keep it out of the news. ~ nfl
 I hear you. I've got a family to think about too. ~ nfl vet
 I'll stay out of trouble. ~ college young
@@ -6000,15 +6000,15 @@ I hear you. I'll do better. ~ west
 Thank you for telling me straight.
 I'd rather hear it from you than find out the hard way.
 Okay. I won't make you have this talk twice.
-That's on me. I'll fix it.
+That's on me. I'll fix it. ~ at_fault=yes
 I appreciate the heads up.
 You didn't have to warn me. Thank you for doing it anyway.
 I know you could have just done it. I won't forget that you didn't.
 Fair enough. I'll clean it up.
 Heard. I'll stay on the right side of it.
-I know exactly what you mean. It stops here.
+I know exactly what you mean. It stops here. ~ at_fault=yes
 That's the kind of thing I need to hear. I'll take care of it.
-You're right. I've been sloppy.
+You're right. I've been sloppy. ~ at_fault=yes
 Okay. I'm not going to test you.
 Point taken. You won't need to bring it up again.
 I needed somebody to say it. I'm glad it was you.
@@ -6020,11 +6020,11 @@ I don't want to be that guy. I won't be.
 Thanks for coming to me first.
 You've been patient with me. I see that now.
 I'm glad you said something before it got worse.
-I'll own it. No excuses.
+I'll own it. No excuses. ~ at_fault=yes
 You won't have to come find me about this again.
 I know what's at stake. I'm on it.
 Okay. That woke me up.
-Straight up, I needed that.
+Straight up, I needed that. ~ at_fault=yes
 I can't argue with any of that.
 That's fair. I'd want to know too.
 I get why you had to say it.
@@ -6035,9 +6035,9 @@ I'm taking that to heart.
 You gave it to me straight. I respect that a lot.
 I'm going to prove you right for warning me instead of doing something worse.
 I heard every word. It's handled.
-Okay. I know I've been pushing it.
-I didn't realize it had gotten that far. Thank you for telling me.
-That stung a little. But I needed it.
+Okay. I know I've been pushing it. ~ at_fault=yes
+I didn't realize it had gotten that far. Thank you for telling me. ~ at_fault=yes
+That stung a little. But I needed it. ~ at_fault=yes
 I'm not going to make excuses. You're right.
 I'll fix it before you have to.
 It's fair. I'm glad you didn't let it slide.
@@ -6052,13 +6052,13 @@ Okay. I'll make it easy for you.
 You're looking out for me. I know that.
 I appreciate the warning more than you know.
 I'll get my act together.
-Okay, Coach. I'm going to earn it back.
+Okay, Coach. I'm going to earn it back. ~ at_fault=yes
 I hear you. And I believe you.
 That's real. I'll treat it that way.
 I know you mean it. So do I.
-I've got no one to blame but me.
+I've got no one to blame but me. ~ at_fault=yes
 Thank you for giving me the warning instead of the consequence.
-Okay. I'm done giving you reasons.
+Okay. I'm done giving you reasons. ~ at_fault=yes
 I needed a line. Now I have one.
 Got it, Coach. I'll take care of my end.
 I'll be smarter. I promise you that.
@@ -6066,8 +6066,8 @@ That's a fair warning. I'll heed it.
 I'm not going to be the one who makes you follow through.
 Message heard. Loud.
 That's a lot to hear. But you're right to say it.
-Okay. I owe you better than that.
-I won't let it go any further.
+Okay. I owe you better than that. ~ at_fault=yes
+I won't let it go any further. ~ at_fault=yes
 Thanks for treating me like a grown man about it.
 You could have embarrassed me and you didn't. Thank you.
 I'm on notice. I get it.
@@ -6081,21 +6081,21 @@ Thank you for not giving up on me.
 I hear the warning. I won't need another one.
 I'm glad you trust me enough to warn me.
 Okay. I'll do it your way.
-I'm not going to make that mistake twice.
+I'm not going to make that mistake twice. ~ at_fault=yes
 I take it seriously. Real seriously.
 I hear you, and I'm grateful you told me.
 Okay. I'll grow up.
-I've got some things to fix. I'll fix them.
+I've got some things to fix. I'll fix them. ~ at_fault=yes
 That's a gift, honestly. Most coaches wouldn't warn you.
 I'm going to make you glad you said something.
 You don't have to worry about me.
 That's clear. Thank you for making it clear.
-I didn't want to hear it, but I needed to.
+I didn't want to hear it, but I needed to. ~ at_fault=yes
 Okay. You've got my attention.
 I know you've got a program to run. I'll get in line.
-Okay. Lesson learned before it cost me anything.
+Okay. Lesson learned before it cost me anything. ~ at_fault=yes
 I can tell you're serious. So am I.
-You won't hear my name like that again.
+You won't hear my name like that again. ~ at_fault=yes
 I'm glad I heard it now and not later.
 I'm going to do right by you.
 I hear you. I'm not going to be stupid about it.
@@ -6103,12 +6103,12 @@ It's done. You have my word.
 You were honest with me. That makes me want to fix it.
 No, you're right. I'd have said the same thing in your chair.
 I'm glad you told me where the line is. Some coaches just wait for you to cross it.
-Yeah. I deserved that.
+Yeah. I deserved that. ~ at_fault=yes
 Thank you for respecting me enough to say it.
 That's a real warning. I'm treating it like one.
-Okay. Done. No more.
+Okay. Done. No more. ~ at_fault=yes
 Thank you, {coach}. I won't make you regret it.
-Understood, {coach}. You won't see that from me again.
+Understood, {coach}. You won't see that from me again. ~ at_fault=yes
 That's fair, {coach}. I'll handle it the right way.
 {coach}, thank you for giving me the chance to fix it myself.
 I appreciate you, {coach}. Really.
@@ -6119,17 +6119,17 @@ Yes {coach_sir}. I won't give you cause. ~ south
 I appreciate y'all looking out for me like that. ~ south
 Yes {coach_sir}. I'll do right. ~ south humble
 I'm fixing to get it together, Coach. ~ texas
-Yes {coach_sir}. I was raised better than that. ~ texas
+Yes {coach_sir}. I was raised better than that. ~ texas at_fault=yes
 That's a fair shake. I'll take it. ~ midwest
 I appreciate that, Coach. I'll get it squared away. ~ midwest
 You won't have to tell me again. Honest. ~ midwest
-Okay. No more of that. ~ northeast
-Yeah, fair. I'll knock it off. ~ northeast
-Alright. I'll stop being an idiot about it. ~ northeast
+Okay. No more of that. ~ northeast at_fault=yes
+Yeah, fair. I'll knock it off. ~ northeast at_fault=yes
+Alright. I'll stop being an idiot about it. ~ northeast at_fault=yes
 That's real. I appreciate the honesty. ~ west
 Okay. I'll chill out and get right. ~ west young
 Good looking out, Coach. ~ young
-My bad, Coach. For real. ~ young
+My bad, Coach. For real. ~ young at_fault=yes
 I'm still learning. Thanks for teaching me this way. ~ young humble
 I didn't know where the line was. Now I do. ~ young
 That's scary to hear. I'll do better. ~ young shaky
@@ -6147,8 +6147,8 @@ That's the standard. I'll meet it. ~ pro
 I've seen guys ignore that talk. I won't. ~ pro vet
 I've been around long enough to know you mean it. ~ vet
 I've seen this talk go both ways. I'm going to listen. ~ vet
-At my age I should know better. You're right. ~ vet
-I'm too old to be getting this talk. That's on me. ~ vet humble
+At my age I should know better. You're right. ~ vet at_fault=yes
+I'm too old to be getting this talk. That's on me. ~ vet humble at_fault=yes
 I'll set it right with the room too. ~ leader
 I can't lead anybody if I'm the problem. Thank you. ~ leader
 I'm supposed to be the example. I'll be the example. ~ leader
@@ -6173,14 +6173,14 @@ I'm not dumb. I'm not going to blow all of it. ~ greedy
 Understood. That would cost me way too much. ~ greedy
 Alright. I'm too good to let something like that get in my way. ~ ego
 Fair enough. I'll be the guy you need. ~ ego
-{name} doesn't usually need warnings. But I hear you. ~ ego
+{name} doesn't usually need warnings. But I hear you. ~ ego blameless=yes
 I appreciate it. I know I'm not above it. ~ ego
-I'm sorry I put you in this position. ~ humble
-I don't deserve the warning. Thank you for it anyway. ~ humble
+I'm sorry I put you in this position. ~ humble at_fault=yes
+I don't deserve the warning. Thank you for it anyway. ~ humble blameless=yes
 I'm grateful you even took the time. ~ humble
 Yes {coach_sir}. Thank you, {coach_sir}. ~ humble
 Thank you. I'll fix it. ~ quiet
-Won't happen again, Coach. ~ quiet
+Won't happen again, Coach. ~ quiet at_fault=yes
 Okay. Thank you for telling me in private. ~ quiet
 I'm not going to beat myself. That's what this would be. ~ competitor
 I want to win too bad to mess that up. ~ competitor
@@ -6205,16 +6205,16 @@ Nobody handed me anything here. I'm not going to waste it now. ~ walkon
 I picked this place for a reason. I'm not going to wreck it. ~ transfer
 I already packed up and moved once. I'm not doing that again. ~ transfer
 Yes {coach_sir}. I'm not going to waste my redshirt year being dumb. ~ redshirt
-I've been in this program long enough to know better. ~ college senior
-I should be the one keeping the young guys in line. Not this. ~ college senior
+I've been in this program long enough to know better. ~ college senior at_fault=yes
+I should be the one keeping the young guys in line. Not this. ~ college senior at_fault=yes
 I'm still learning how it works here. Thanks for telling me. ~ college freshman
 Yes {coach_sir}. I don't want to let this program down. ~ hs
 Yes {coach_sir}. Friday nights mean too much to me to mess this up. ~ hs
 I'm only a freshman. Thank you for being patient with me. ~ hs freshman
 I've got too much ahead of me to blow it. ~ hs junior
 This is my last go around here. I'm not going to mess it up. ~ hs senior
-A quarterback can't be like that. You're right. ~ qb
-Guys follow me. I've got to be better than that. ~ qb leader
+A quarterback can't be like that. You're right. ~ qb at_fault=yes
+Guys follow me. I've got to be better than that. ~ qb leader at_fault=yes
 Linemen take care of their own business. I'll take care of this. ~ lineman
 Big guys don't get many warnings. Thanks for mine. ~ lineman
 Got it. I'll stay disciplined, same as on the field. ~ defense
@@ -6229,8 +6229,8 @@ Yes {coach_sir}. You've got my word on that. ~ south
 I'll be squared away, Coach. Count on it. ~ midwest
 Thanks for being up front. That's all I ask. ~ calm
 That scared me straight a little. Good. ~ loose
-I know I've been a little loose. I'll tighten it up. ~ loose
-I've been playing around too much. I'll stop. ~ loose young
+I know I've been a little loose. I'll tighten it up. ~ loose at_fault=yes
+I've been playing around too much. I'll stop. ~ loose young at_fault=yes
 That's a fair hit. I'll take it like a pro. ~ pro
 Thank you for not doing it in front of the guys. ~ ego
 You could have made an example of me. Thank you. ~ ego
@@ -6265,14 +6265,14 @@ I know where the door is.
 Okay. If that's how it's going to be.
 You're threatening me?
 That's crazy.
-I've done nothing to deserve that.
+I've done nothing to deserve that. ~ blameless=yes
 I'm not scared of that.
 Cool. Got it.
 You don't have to threaten me.
 I didn't come in here for that.
 Okay. Noted. And remembered.
 That's not how you motivate people.
-I'm not your problem, Coach.
+I'm not your problem, Coach. ~ blameless=yes
 That's a lot.
 You're making a mistake.
 Bench me, then. ~ brash
@@ -6288,7 +6288,7 @@ You threatening me now? ~ hot brash
 Don't push me, Coach. ~ hot brash
 Try it. ~ hot young brash
 I'd like that in writing. ~ pro
-I've done nothing wrong. ~ pro
+I've done nothing wrong. ~ pro blameless=yes
 The guys are going to see that as a threat. ~ leader
 That's not leadership, Coach. ~ leader
 That's not going to make me compete harder. ~ competitor
@@ -6309,7 +6309,7 @@ I don't need threats, {coach_sir}. ~ south
 That's not right. ~ midwest
 Whatever, Coach. ~ northeast brash
 That's not cool. ~ west
-So I'm the problem now.
+So I'm the problem now. ~ blameless=yes
 Why is it always me?
 Who else got this talk? Anybody?
 I didn't know I was on thin ice.
@@ -6327,13 +6327,13 @@ I'm not stupid. I know what this is.
 Message received. Loud and disrespectful.
 I don't need a warning. I need some respect.
 Okay. Now I know where I stand with you.
-You're coming at me over nothing.
+You're coming at me over nothing. ~ blameless=yes
 Why would you even go there?
-I'm not the one you should be worried about.
+I'm not the one you should be worried about. ~ blameless=yes
 Interesting. Real interesting.
 So you've been keeping a list on me.
 Got it. I'm on a short leash.
-Right. Because I'm the easy one to blame.
+Right. Because I'm the easy one to blame. ~ blameless=yes
 I don't take kindly to that.
 You didn't even ask my side.
 I was going to give you everything. Now I don't know.
@@ -6342,15 +6342,15 @@ Okay. I'll keep my head down and my mouth shut.
 You want me scared? I'm not.
 I don't do well with ultimatums.
 That's a cheap shot.
-You've got the wrong guy.
+You've got the wrong guy. ~ blameless=yes
 I came in here with respect. I'm leaving without much.
 That's how you treat people who work hard for you?
 You just lost me a little.
 That's not a warning. That's a threat.
 Do you even know what's going on with me?
 I feel singled out.
-I didn't do half of what you think I did.
-You've been listening to the wrong people.
+I didn't do half of what you think I did. ~ blameless=yes at_fault=yes
+You've been listening to the wrong people. ~ blameless=yes
 Who told you that?
 You're picking on me.
 If that's where your head is, fine.
@@ -6363,7 +6363,7 @@ You sound like every other coach I've had.
 I'm not some problem you have to manage.
 Don't hold that over my head.
 I'm not going to tiptoe around for anybody.
-You're making it sound like I'm a criminal.
+You're making it sound like I'm a criminal. ~ blameless=yes
 Okay. I'll stay out of your way.
 I don't trust where this is going.
 So what's next? You show me the door?
@@ -6388,7 +6388,7 @@ Yeah, okay. Whatever you say. ~ brash
 So much for trust.
 I thought you trusted me.
 I'll be fine. With or without you.
-You're treating me like I already did something.
+You're treating me like I already did something. ~ blameless=yes
 Wow. You really think that little of me.
 I'm not going to be bullied.
 That's not coaching. That's intimidation.
@@ -6423,19 +6423,19 @@ I expected better from you, {coach}.
 {coach}, with respect, that felt like a threat.
 I thought you were in my corner, {coach}.
 {coach}, if you're going to do something, just do it.
-{coach}, I've earned better than that.
+{coach}, I've earned better than that. ~ blameless=yes
 That was cold, {coach}.
 {friend} told me you'd do this eventually.
-I didn't do anything. ~ quiet
+I didn't do anything. ~ quiet blameless=yes
 Okay. I'll go. ~ quiet
-I don't know what I did to you. ~ quiet
+I don't know what I did to you. ~ quiet blameless=yes
 Wow. ~ quiet
 I thought I was doing okay. ~ humble
-I'm trying my best, {coach_sir}. That hurts. ~ humble
+I'm trying my best, {coach_sir}. That hurts. ~ humble blameless=yes
 I don't know what else I can do. ~ humble
-I'd never cause you trouble on purpose. ~ humble
+I'd never cause you trouble on purpose. ~ humble blameless=yes
 That really hurt to hear. ~ humble
-I've been nothing but respectful to you. ~ humble
+I've been nothing but respectful to you. ~ humble blameless=yes
 You can't threaten me. ~ ego brash
 You know who I am, right? ~ ego brash
 People don't talk to me like that. ~ ego brash
@@ -6444,7 +6444,7 @@ You'd be making the biggest mistake of your career. ~ ego brash
 You don't win without me and you know it. ~ ego brash
 I make this place go. Remember that. ~ ego brash
 {name} doesn't get threatened. ~ ego brash
-I'm the last guy you should be warning. ~ ego brash
+I'm the last guy you should be warning. ~ ego brash blameless=yes
 Okay. Let's see who blinks first. ~ ego brash
 Everybody knows who the best player in this building is. ~ ego brash
 {team} is lucky to have me and you talk to me like this? ~ ego brash
@@ -6460,8 +6460,8 @@ You don't want to see me mad. ~ hot brash
 Wow. I need to leave before I say something. ~ hot
 I'd like to know exactly what the policy is. ~ pro
 I'll be reaching out to the people I need to reach out to. ~ pro
-I've conducted myself professionally. That was unprofessional. ~ pro
-With respect, I've done nothing to earn that. ~ pro
+I've conducted myself professionally. That was unprofessional. ~ pro blameless=yes
+With respect, I've done nothing to earn that. ~ pro blameless=yes
 I'll be writing this conversation down. ~ pro
 That's not how professionals talk to each other. ~ pro
 I don't think that was appropriate. ~ pro calm
@@ -6483,32 +6483,32 @@ That one hurt. Coming from you. ~ loyal
 I thought we were tight. ~ loyal young
 Everybody leaves eventually. I guess you're next. ~ shaky
 I knew it. Everybody gives up on me. ~ shaky
-I'm doing the best I can. That's not fair. ~ shaky
+I'm doing the best I can. That's not fair. ~ shaky blameless=yes
 You sound like everybody who ever walked out on me. ~ shaky
 I really thought this place was different. ~ shaky
 I need to get out of here. ~ shaky
 That's not okay. ~ steady
-I don't think I deserved that. ~ steady
+I don't think I deserved that. ~ steady blameless=yes
 Okay. I'll be keeping my distance for a while. ~ steady
 Fine. I'll go where they appreciate me. ~ greedy !hs brash
 I've got options too. ~ greedy !hs brash
 Okay. I'll look out for number one, then. ~ greedy
 Threaten me all you want. I'm still going to compete. ~ competitor
 I'm out here busting it every day and I get warned? ~ competitor
-Nobody works harder than me and you know it. ~ competitor
+Nobody works harder than me and you know it. ~ competitor blameless=yes
 You want me soft? Because that's how you get me soft. ~ competitor
 That's fuel. Just not the kind you want. ~ competitor
 Bro. Really? ~ young brash
 That's so messed up. ~ young
-I'm not even trying to be bad. ~ young
+I'm not even trying to be bad. ~ young blameless=yes
 Why me though? ~ young
 That's not fair. I'm still learning. ~ young
-Everybody else does way worse. ~ young
+Everybody else does way worse. ~ young blameless=yes at_fault=yes
 Ha. Wow. Okay. ~ loose
 Man, chill. ~ loose young brash
 Relax, Coach. It's not that deep. ~ loose brash
 You're stressing way too hard about me. ~ loose brash
-I'm just having fun out here and now I'm in trouble? ~ loose
+I'm just having fun out here and now I'm in trouble? ~ loose blameless=yes
 Whatever. It's not like I care that much. ~ loose brash
 I've been in this league a long time. Nobody's talked to me like that. ~ nfl vet
 I'm a veteran. Don't treat me like a rookie. ~ vet nfl
@@ -6561,7 +6561,7 @@ Receivers always get labeled. I'm not surprised. ~ wr
 Backs get blamed for everything. ~ rb
 DBs are supposed to have a short memory. I'll remember this one though. ~ db
 Defense plays with an edge. Don't take mine away by threatening me. ~ defense
-I block, I do everything you ask. And this? ~ te
+I block, I do everything you ask. And this? ~ te blameless=yes
 I hit people all day. A talk doesn't scare me. ~ lb
 
 @key talk.reply.warn.flat
@@ -6712,7 +6712,7 @@ I know. I don't need it said twice. ~ ego
 Got it. Not worried. ~ ego
 Sure. I'm good. ~ ego
 I'll be fine. I always am. ~ ego
-Yeah, okay. Doesn't really apply to me, but okay. ~ ego brash
+Yeah, okay. Doesn't really apply to me, but okay. ~ ego brash blameless=yes
 Yes {coach_sir}. I'll do my best. ~ humble
 Yes {coach_sir}. I'll be careful. ~ humble
 Got it. I'll pass that along to the room. ~ leader
@@ -6758,7 +6758,7 @@ Got it. I won't mess up. ~ hs freshman
 Yes {coach_sir}. It's my last year, I'll keep it clean. ~ hs senior
 Got it. I'll keep it clean around campus. ~ college
 Understood. I'll keep it straight. ~ college
-Understood. I didn't come here to be a problem. ~ transfer
+Understood. I didn't come here to be a problem. ~ transfer blameless=yes
 Understood. I'll keep my head down. ~ walkon
 I've been around. I know. ~ college senior
 Got it. Quarterbacks get watched. ~ qb
@@ -6791,7 +6791,7 @@ I didn't think you'd do that for me.
 Thank you, Coach. ~ quiet
 I appreciate it. ~ quiet
 Thank you. That means a lot. ~ quiet humble
-I don't deserve that. But thank you. ~ humble
+I don't deserve that. But thank you. ~ humble at_fault=yes
 I'm grateful. Truly. ~ humble
 I won't waste it. ~ humble
 Good. I've earned it. ~ ego
@@ -6979,7 +6979,7 @@ Understood, and appreciated. ~ pro
 Coach, you're the best. ~ loose
 Okay, now you're spoiling me. ~ loose
 Look at you, taking care of me. I love it. ~ loose
-I don't deserve this, but I'm not giving it back. ~ loose
+I don't deserve this, but I'm not giving it back. ~ loose at_fault=yes
 That's beautiful, Coach. I might cry. ~ loose
 I feel trusted. That's new for me. ~ shaky
 Nobody's ever looked out for me like that. ~ shaky
@@ -7161,7 +7161,7 @@ All that tells me is you don't get it.
 You really don't get it, do you?
 It feels like you're checking a box.
 That's what you give somebody when you don't want to deal with them.
-I'm not a problem you can hand something to.
+I'm not a problem you can hand something to. ~ blameless=yes
 I'll take it, but don't think it changes how I feel.
 You can keep that.
 No. I'm good.
@@ -8857,7 +8857,7 @@ I'm going to walk it off.
 I'll be fine. Not that it matters.
 Yep. Got it. Bye.
 I'll keep my mouth shut and work.
-I should've known.
+I should've known. ~ at_fault=yes
 Alright. I see how it is.
 Okay. I know where I stand now.
 I'm going to go cool down.
@@ -9377,13 +9377,13 @@ It's nothing a good night's sleep won't fix.
 You know how it is. Some days are like that.
 Can we skip this part?
 I'm good. Next question.
-Nothing's wrong. I'm just like this.
+Nothing's wrong. I'm just like this. ~ blameless=yes
 I've got a lot going on, but it's fine.
 It's not something I want to get into right now.
 Ask me again in a bit. Maybe.
 Not today, Coach.
 I'm alright. Really, truly.
-There's nothing going on that you need to worry about.
+There's nothing going on that you need to worry about. ~ blameless=yes
 I'm working through some stuff. I'll be fine.
 It's just stuff. Regular stuff.
 Forget it. I'm good.
@@ -9398,8 +9398,8 @@ Nothing. Why, do I look rough?
 I'm good. Do I not look good?
 This is just my face, Coach.
 I'm good. My resting face is just mean.
-Nothing's going on, Coach. I'm boring.
-There's no story here, {coach}.
+Nothing's going on, Coach. I'm boring. ~ blameless=yes
+There's no story here, {coach}. ~ blameless=yes
 I'm an open book, Coach. Just a really short one.
 It's nothing I want to put on you.
 I'll deal with it.
@@ -9441,7 +9441,7 @@ You're making it bigger than it is.
 It's really not that deep.
 It's not that serious, Coach.
 Don't read into it.
-There's nothing to fix.
+There's nothing to fix. ~ blameless=yes
 I'm not broken, {coach}.
 I don't need a sit-down. I'm fine.
 We don't have to do this.
@@ -9517,7 +9517,7 @@ Pressure is a privilege, Coach. I'm good. ~ ego
 Do I look like a guy with problems? ~ ego
 I've got everything handled. Like always. ~ ego
 The day I need help, I'll let you know. Don't hold your breath. ~ ego brash
-{name} doesn't have problems, Coach. {name} solves them. ~ ego
+{name} doesn't have problems, Coach. {name} solves them. ~ ego blameless=yes
 {name} is good. Don't worry about {name}. ~ ego
 I'm the most dialed in guy in this building. ~ ego
 What could be wrong? Have you seen me play? ~ ego
@@ -9565,7 +9565,7 @@ You've always had my back. I'm alright, Coach. ~ loyal
 If it was something you needed to know, I'd tell you. You know that. ~ loyal
 I'd never keep anything big from you. This is small. ~ loyal
 I trust you, Coach. It's just not anything. ~ loyal
-You know I'd come to you, Coach. There's nothing. ~ loyal
+You know I'd come to you, Coach. There's nothing. ~ loyal blameless=yes
 Whatever it is, it won't change anything between us. ~ loyal
 I'm your guy, Coach. Always. I'm fine. ~ loyal
 You'd be the first person I'd come to. I'm okay. ~ loyal
@@ -9589,22 +9589,22 @@ Nothing I haven't accounted for. ~ pro
 I'm on top of it. ~ pro
 It's taken care of, {coach}. ~ pro
 I compartmentalize, Coach. I'm good. ~ pro
-Coach, the only thing going on is I need a haircut. ~ loose
+Coach, the only thing going on is I need a haircut. ~ loose blameless=yes
 I'm great! Look at this smile. ~ loose
 What's going on? Honestly, I forgot already. ~ loose
 Nothing a little music won't fix. ~ loose
 Coach, you're getting soft on me. ~ loose
-My fantasy team is a disaster. That's the only crisis. ~ loose
-The real problem is somebody ate my leftovers. ~ loose
+My fantasy team is a disaster. That's the only crisis. ~ loose blameless=yes
+The real problem is somebody ate my leftovers. ~ loose blameless=yes
 Do I get a couch for this, Coach? I'm fine. ~ loose
 Honestly, I'm thriving. ~ loose young
 Coach, I'm a ray of sunshine. ~ loose
-What's wrong is the AC in the locker room. ~ loose
+What's wrong is the AC in the locker room. ~ loose blameless=yes
 I'm good! Want to see my new handshake? ~ loose young
 Chill, Coach. Everything's chill. ~ loose young
 The only thing on my mind is lunch. ~ loose
 I'm just tired of losing at cards on the bus. ~ loose
-My playlist's been mid. That's the crisis. ~ loose young
+My playlist's been mid. That's the crisis. ~ loose young blameless=yes
 I don't know. I'm fine. I think I'm fine. ~ shaky
 It's... it's nothing. I'm okay. ~ shaky
 Please don't make me talk about it. ~ shaky
@@ -9636,7 +9636,7 @@ Nothing. I just want to work. ~ competitor
 I don't have time to be in my feelings, Coach. ~ competitor
 I'll fix it in the weight room. ~ competitor
 Whatever it is, I'll outwork it. ~ competitor
-Nothing's going on but the grind. ~ competitor
+Nothing's going on but the grind. ~ competitor blameless=yes
 I'm just locked in. People mistake it for something else. ~ competitor
 I always play with a chip. That's not new. ~ competitor
 I'm good. I'm just itching to hit somebody. ~ competitor
@@ -9729,7 +9729,7 @@ Rookie stuff. I'll figure it out. ~ rookie
 Yes {coach_sir}, I'm alright. Still learning the ropes. ~ rookie
 I've been through worse than whatever this is. ~ undrafted
 Nobody ever gave me anything. I'll handle this too. ~ undrafted
-Everybody wants to know what's going on with me. Nothing. ~ firstround
+Everybody wants to know what's going on with me. Nothing. ~ firstround blameless=yes
 I'm used to the attention. I'm fine. ~ firstround
 I'm good, Coach. Same grind. ~ psquad
 I'm alright, Coach. Ain't no thing. ~ south
@@ -9756,18 +9756,18 @@ I'm good, man. Just riding the wave. ~ west
 It's all gravy, Coach. ~ west
 I'm alright, {coach_sir}. Thank you though.
 That's kind of you, Coach. I'm okay.
-I appreciate you, but there's nothing there.
+I appreciate you, but there's nothing there. ~ blameless=yes
 Thanks for looking out. I'm good, honestly.
 I know you mean well. I'm fine.
 You're good to check, Coach. But I'm okay.
 I'm alright. Thanks for caring, though.
-Nothing you need to fix, Coach.
+Nothing you need to fix, Coach. ~ blameless=yes
 I'm okay, Coach. I really am.
 Honestly, Coach? Nothing. I'm good.
 I'm doing alright. Better than alright.
-All good on my end, Coach.
-All quiet on my end.
-Everything's fine on my side, Coach.
+All good on my end, Coach. ~ blameless=yes
+All quiet on my end. ~ blameless=yes
+Everything's fine on my side, Coach. ~ blameless=yes
 I'm in a good place, Coach.
 My head's on straight, Coach.
 I'm squared away.
@@ -9802,16 +9802,16 @@ It's not something you can help with. But thanks.
 Some things are just mine, Coach.
 I'll talk when I've got something to say.
 When there's something to say, I'll say it.
-What's going on is I'm starving.
-Coach, if anything was wrong I'd have written you a letter.
-The vending machine owes me. That's the only problem.
+What's going on is I'm starving. ~ blameless=yes
+Coach, if anything was wrong I'd have written you a letter. ~ blameless=yes
+The vending machine owes me. That's the only problem. ~ blameless=yes
 I'm fine. My hair's a mess, but I'm fine.
 Nothing, Coach. I just have one of those faces.
 Coach, I'm so good it's boring.
-You want drama, Coach? I've got none.
+You want drama, Coach? I've got none. ~ blameless=yes
 I'm about as interesting as a tackling dummy right now.
 Everything's great. The coffee around here is not.
-My only problem right now is this chair.
+My only problem right now is this chair. ~ blameless=yes
 If you find out what's wrong with me, let me know.
 Coach, are you okay? You're the one asking weird questions.
 Coach, I'm fine. Did you have a dream about me or something?
@@ -9835,7 +9835,7 @@ I'm fine. Really. Please stop asking.
 It's nothing. I mean it.
 Look, I'm good.
 Coach. I'm fine.
-No, Coach. There's nothing.
+No, Coach. There's nothing. ~ blameless=yes
 You keep asking like there's an answer.
 There's no answer, Coach. I'm just me.
 I don't need a sit-down for every mood.
@@ -9881,24 +9881,24 @@ I'd rather work it out my own way.
 I'm a big boy, Coach. I've got it.
 I can figure it out. I always do.
 I've handled worse by myself.
-It's on me, and I'll take care of it.
+It's on me, and I'll take care of it. ~ at_fault=yes
 Let me handle it. If I can't, I'll come to you.
 I don't need anybody to fix it. I'll fix it.
 I'll get it right on my own.
 It's just noise. I'm tuning it out.
 It's not even a thing, Coach.
-Whatever you're seeing, it's not what you think.
-You're seeing something that isn't there.
+Whatever you're seeing, it's not what you think. ~ blameless=yes
+You're seeing something that isn't there. ~ blameless=yes
 I'm good. I've just got a lot of energy right now.
 I'm alright. I just get like this sometimes.
 This happens to me sometimes. It goes away.
 I'm fine. My mood comes and goes.
 It's nothing. I'm a moody guy.
-Nothing's going on. I'm just tired of talking, honestly.
+Nothing's going on. I'm just tired of talking, honestly. ~ blameless=yes
 Nothing dramatic, Coach. Promise.
 It's nothing a little work won't fix.
 Everything's good. I just look serious.
-I'm not hiding anything, Coach.
+I'm not hiding anything, Coach. ~ blameless=yes
 I'm good, {coach}. You don't need to dig.
 Honestly, {coach}, I'm just a little tired.
 Nothing, {coach}. You can relax.
@@ -9906,7 +9906,7 @@ I'm alright, {coach}. Thanks for keeping an eye out.
 {coach}, I promise, I'm fine.
 It's no big deal, {coach}.
 {coach}, I'm good. I'd tell you.
-Nothing to see here, {coach}.
+Nothing to see here, {coach}. ~ blameless=yes
 Not right now, {coach}.
 You worry about everybody else, {coach}. I've got me.
 I already talked it through with {friend}. I'm good.
@@ -9941,7 +9941,7 @@ I'm just figuring some stuff out. Regular stuff.
 You know me, Coach. I go quiet and then I'm fine.
 This is just a quiet stretch for me.
 I'm okay. I just needed to get through the day.
-Nothing's wrong. I'm just not a smiler.
+Nothing's wrong. I'm just not a smiler. ~ blameless=yes
 I don't smile a lot. Doesn't mean anything.
 You know what? I'm good. I'm actually good.
 I'm doing better than I look, I promise.
@@ -9955,8 +9955,8 @@ Just a feeling. It'll go away.
 I'm good. I've just been in my own world.
 I'm a star, Coach. Stars have moods. ~ ego
 Everybody wants a piece of me. That's all it is. ~ ego
-I'm on a different level. Nothing's wrong. ~ ego
-I'm too locked in to have problems. ~ ego
+I'm on a different level. Nothing's wrong. ~ ego blameless=yes
+I'm too locked in to have problems. ~ ego blameless=yes
 I'm alright, Coach. The Lord's got me. ~ humble
 I'm just a guy trying to get better. I'm fine. ~ humble
 I'll worry about me later. The room comes first. ~ leader
@@ -9969,7 +9969,7 @@ I'm good, Coach. You and me are good, that's what matters. ~ loyal
 When it's something, you'll be the first to hear. Maybe second. ~ greedy
 Not yet, Coach. When it's real. ~ greedy
 Whatever it is, you won't see it in my work. ~ pro
-Nothing to discuss, Coach. I'm ready to work. ~ pro
+Nothing to discuss, Coach. I'm ready to work. ~ pro blameless=yes
 Coach, I'm so good I'm about to start singing. ~ loose
 I'm living my best life, Coach. ~ loose young
 Ha. You should see your face right now, Coach. I'm fine. ~ loose
@@ -9978,7 +9978,7 @@ I don't really want to think about it right now. ~ shaky
 I'll get through it. I always do somehow. ~ shaky
 Can we just not? Please. ~ shaky
 I'm trying, Coach. I'm okay. ~ shaky
-Nothing out of the ordinary, Coach. ~ steady
+Nothing out of the ordinary, Coach. ~ steady blameless=yes
 Same guy you always get. ~ steady
 I'm just ticked I'm not better yet. ~ competitor
 I'll be fine once I get to work. ~ competitor
@@ -10089,7 +10089,7 @@ Alright. I'll take it out on the field. ~ hot
 Thank you. I needed that from you. ~ loyal
 Okay. I'll keep the guys together. ~ leader
 I'll be fine. I always am. ~ ego
-Thank you, Coach. I'm sorry for being off. ~ humble
+Thank you, Coach. I'm sorry for being off. ~ humble at_fault=yes
 Okay. I feel steadier. ~ shaky
 Good. I need something to chase. ~ competitor
 @key talk.reply.friend.flat

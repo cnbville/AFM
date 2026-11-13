@@ -1682,6 +1682,10 @@ fn finish_talk(w: &mut World, s: &mut Scene, id: u32) {
 // ---------------------------------------------------------------------------
 // Team talks (topic 5: talking to a group).
 
+/// How far ahead the team talk names the next game when no game is fresh
+/// (talk facts item 30; Claude's size, proposed, not confirmed).
+const NEXT_GAME_DAYS: i32 = 14;
+
 /// Opens a team talk you called (`team_talk` command): once a week.
 pub fn start_team_talk(w: &mut World) -> Result<u32, String> {
     let team = Team::seat(w).ok_or("You have no team.")?;
@@ -1716,7 +1720,9 @@ fn team_talk_open(w: &mut World, s: &mut Scene) {
         s.end();
         return;
     };
-    let last = super::facts::last_game(w, team);
+    // Only a game from the last week is named (talk facts item 30): in April
+    // the room no longer opens on January's loss.
+    let last = super::facts::fresh_game(w, team);
     let mood = team_mood(w, team);
     s.who.push(Who::Group("The team".into()));
     s.narrate(match last {
@@ -1726,7 +1732,26 @@ fn team_talk_open(w: &mut World, s: &mut Scene) {
         Some((_, us, them, opp)) => {
             format!("Monday after the {us}-{them} loss to {}. Nobody is talking much.", opp.link(w))
         }
-        None => "No game to talk about yet. Everyone is waiting to hear what kind of week this is.".into(),
+        None => {
+            // With nothing fresh, look ahead to the next game when one is near.
+            let next = super::facts::team_games(w, team)
+                .into_iter()
+                .find(|g| g.0 >= w.today && w.today.days_to(g.0) <= NEXT_GAME_DAYS);
+            match next {
+                Some((date, opp, _)) => {
+                    let when = match w.today.days_to(date) {
+                        0 => "today".to_string(),
+                        1 => "tomorrow".to_string(),
+                        n => format!("in {n} days"),
+                    };
+                    format!(
+                        "No game to talk about. {} is next, {when}. Everyone is waiting to hear what kind of week this is.",
+                        opp.link(w)
+                    )
+                }
+                None => "No game to talk about yet. Everyone is waiting to hear what kind of week this is.".into(),
+            }
+        }
     });
     s.narrate(format!("The room's mood: {}.", mood_words(mood)));
     add_team_picks(s);

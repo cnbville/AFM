@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/afm-engine", "crates/afm-tools", "crates/afm-game", "crates/afm-reader", "crates/afm-reader-app"]
+members = ["crates/afm-engine", "crates/afm-tools", "crates/afm-game", "crates/afm-reader", "crates/afm-reader-app", "crates/afm-ai"]
 
 [workspace.package]
 version = "0.2.0"
@@ -9,6 +9,7 @@ publish = false
 
 [workspace.dependencies]
 afm-engine = { path = "crates/afm-engine" }
+afm-ai = { path = "crates/afm-ai" }
 
 # Tests simulate whole national classes, so they run optimised.
 [profile.dev]

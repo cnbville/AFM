@@ -62,6 +62,7 @@ fn answered_letter(date: Date, yes: u8, no: u8, target: u32, pick: u8) -> Mail {
         ids: Vec::new(),
         org_team: None,
         why: Vec::new(),
+        count: 0,
     }
 }
 

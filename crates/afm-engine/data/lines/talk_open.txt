@@ -77,8 +77,8 @@ I don't really feel like talking. But okay. ~ quiet
 I'll try. Talking's not really my thing right now. ~ quiet
 You might have to do most of the talking, Coach. ~ quiet
 Sorry. I'm just in my head. ~ quiet young
-I'm sorry, Coach. I know I've been off. ~ humble
-I'm not trying to be a problem. I'm just not myself. ~ humble
+I'm sorry, Coach. I know I've been off. ~ humble at_fault=yes
+I'm not trying to be a problem. I'm just not myself. ~ humble blameless=yes
 I appreciate you making time, even if I'm not great company. ~ humble
 Whatever you need, Coach. I'm just a little down. ~ humble
 I know I don't look happy. I'm working on it. ~ humble
@@ -103,7 +103,7 @@ I'm not exactly thrilled to be here. ~ ego
 Let's not waste each other's time. ~ ego brash
 I've got things to say too. Just so you know. ~ ego
 I could've texted you what I think. But okay. ~ ego modern brash
-I'm not the one who needs to be talked to, honestly. ~ ego
+I'm not the one who needs to be talked to, honestly. ~ ego blameless=yes
 Coach. Real talk, I'm annoyed. ~ ego young
 I came in ready to compete for this conversation, Coach. ~ competitor
 I'm not happy. I'm never happy when we're not winning. ~ competitor
@@ -318,7 +318,7 @@ Took me a minute to come up the stairs. In my head, I mean. ~ shaky
 Rough patch. I'll get through it. ~ steady
 I'm down, but I'm not out. Let's talk. ~ steady
 Irritated with myself more than anybody, honestly. ~ competitor
-I want more out of myself than I've been giving, and it's eating me. ~ competitor
+I want more out of myself than I've been giving, and it's eating me. ~ competitor at_fault=yes
 I've been around too long to dress up my mood, Coach. ~ vet
 Old legs, short temper. Go ahead. ~ vet
 Coach, I'm lowkey fried right now. ~ young
@@ -375,7 +375,7 @@ I'd like this to be short. Not because of you.
 Honestly, I don't know how much I've got for this.
 You'll get the honest version of me today. It's not the pretty one.
 Mind if I keep my hood up? It's been one of those days. ~ young
-Man, Coach. My bad. Long one. ~ young loose
+Man, Coach. My bad. Long one. ~ young loose at_fault=yes
 I'm on one today, Coach, and I know it. ~ young
 I'm down bad today, Coach. ~ young
 Yeah, {coach}. Present and miserable.
@@ -595,7 +595,7 @@ Let's keep this between equals, Coach. ~ ego brash
 Normally I'd have a joke ready. Nothing today. ~ loose
 Time's the one thing I'm not giving away today, Coach. ~ greedy brash
 Make this worth my while, Coach. ~ greedy brash
-My bad, Coach. Today's been a whole movie. ~ loose young
+My bad, Coach. Today's been a whole movie. ~ loose young at_fault=yes
 Can I put my feet up? No? Worth a shot. Bad day. ~ loose
 Every time somebody says come see me, my stomach drops. ~ shaky
 Sorry if I'm jumpy, Coach. Everything's been a lot. ~ shaky
@@ -989,7 +989,7 @@ Hey Coach. I brought you a coffee. Just kidding. What's up?
 Sorry I'm a few minutes late, Coach. Got held up in the training room. ~ !hs
 Coach, what's going on? You need something?
 Hey. This office is nicer than I remembered.
-Feels good to be in here when nothing's wrong. Nothing's wrong, right?
+Feels good to be in here when nothing's wrong. Nothing's wrong, right? ~ blameless=yes
 Whatever you need, I'm good, Coach.
 I'm all good, Coach. Shoot.
 Can't complain, Coach. What's up?
@@ -1001,7 +1001,7 @@ I've been hungry all week. In a good way. What's up? ~ competitor
 I'm ready to go, Coach. What do we got? ~ competitor
 Let's get it, Coach. What do you need from me? ~ competitor young
 Coach, you know I'm always ready. What's going on? ~ competitor
-Hey, Coach. All good on my end. ~ calm
+Hey, Coach. All good on my end. ~ calm blameless=yes
 I'm doing well, thanks. What's on your mind? ~ calm
 Things have been good. What can I do for you? ~ calm
 Good to see you, Coach. Take your time. ~ calm
@@ -1040,7 +1040,7 @@ Big Coach! What's up? ~ loose young
 Look at you, Coach. Nice office. ~ loose
 You know I'm always good, Coach. ~ loose
 Coach, what's the word? ~ loose
-Hey, I wasn't late, right? Okay good. ~ loose
+Hey, I wasn't late, right? Okay good. ~ loose blameless=yes
 Coach, this better be good news. I'm kidding. Mostly. ~ loose
 Coach. Your favorite player is here. ~ ego loose
 The {coach_man} {coach_himself}. What's up, Coach? ~ ego
@@ -1133,7 +1133,7 @@ I'm all smiles today, Coach. What's up?
 Coach. Whatever it is, I'm in a good mood for it.
 Oh hey, Coach. Didn't know you were looking for me.
 I'm good, Coach. Really good, actually.
-Coach! Everything's good on my end. What's going on?
+Coach! Everything's good on my end. What's going on? ~ blameless=yes
 Hey. Glad you called, Coach.
 Coach, how's the family?
 Coach. Sit down, I'll stand. I'm too fired up to sit. ~ young competitor
@@ -1673,7 +1673,7 @@ I want to be great today, and I can feel it. What's up? ~ competitor
 Itching to get back out there. What do you need? ~ competitor
 Quick check-in? Happy to. I'm feeling sharp. ~ pro
 Eight hours of sleep, ate clean, already stretched. Ready, Coach. ~ pro
-Good timing. I was planning to check in anyway. All good on my end. ~ pro
+Good timing. I was planning to check in anyway. All good on my end. ~ pro blameless=yes
 Ray of sunshine today, Coach. Squint if you need to. ~ loose
 Look who's in a great mood and wearing matching socks. This guy. ~ loose
 Is this where I get the corner office? Kidding. What's up? ~ loose
@@ -1823,7 +1823,7 @@ Feeling like the guy today. You see it too, right? ~ ego
 Somebody's gotta be the star of your day. Might as well be me. ~ ego
 God's been good to me lately, Coach. I'm all ears. ~ humble
 Thank you for your time, Coach. I'm doing great. ~ humble
-I don't deserve a day this good, but I'll take it. ~ humble
+I don't deserve a day this good, but I'll take it. ~ humble at_fault=yes
 Okay. Good. What's up? ~ quiet
 Fine, Coach. Real fine. ~ quiet
 Whatever comes, I'm good with it today. ~ calm
@@ -2152,7 +2152,7 @@ Hope this isn't one of those talks. Kidding. Mostly. ~ loose
 I'm booked solid after this, but you get priority. ~ greedy
 Let's be efficient, Coach. My time's spoken for later. ~ greedy brash
 Lowkey nervous, not gonna lie. What's up? ~ young
-Real talk, Coach, I don't know why I'm here. ~ young
+Real talk, Coach, I don't know why I'm here. ~ young blameless=yes
 Been a minute, Coach. What's going on? ~ young
 Seen a lot of offices in my time. Yours is one of the better ones. ~ vet
 Old legs took the stairs, Coach. Give me a [second|minute]. ~ vet
@@ -2287,7 +2287,7 @@ Hope this one's good for me, Coach. ~ greedy
 What are we talking about, and how long? I've got calls. ~ greedy brash
 Okay, okay. What's up, Coach? ~ young
 Bet. What's going on? ~ young
-My bad, I was in the lounge on the game. ~ young
+My bad, I was in the lounge on the game. ~ young at_fault=yes
 Seen a lot of these meetings over the years. Go ahead. ~ vet
 Sorry, my locker [jammed|stuck] again. ~ hs
 The custodian let me in the side door. ~ hs
@@ -2725,7 +2725,7 @@ Feeling level, Coach. Go ahead. ~ steady
 Should I pull any of the other leaders in for this? ~ leader
 Got the guys set up downstairs. I'm all yours. ~ leader
 Nice shirt, Coach. What's up? ~ loose
-Okay, I didn't do it. Whatever it is. Kidding. ~ loose
+Okay, I didn't do it. Whatever it is. Kidding. ~ loose blameless=yes
 If this is an opportunity, I'm listening. ~ greedy
 Hope there's something in this for both of us. ~ greedy
 Bro, I mean, Coach. What's up? ~ young loose
@@ -2843,7 +2843,7 @@ I know I'm a sophomore. I still think I can start. ~ hs young
 Is this about me playing both ways? ~ hs
 Is this about who's starting Friday night? ~ hs
 Coach, my dad keeps asking where I'm at. I'd like to know too. ~ hs young
-I've been doing everything you asked. I want to know where that leaves me. ~ humble
+I've been doing everything you asked. I want to know where that leaves me. ~ humble blameless=yes
 I'll do whatever role you want. I just want to know what it is. ~ humble
 I'm not asking to start. I'm asking where I stand. ~ humble
 If I'm not ready yet, I'd like to hear what I'm missing. ~ humble
@@ -2885,7 +2885,7 @@ I keep thinking I'm going to lose my job. Is that what this is? ~ shaky
 If this is about the starting job, let's just talk about it straight. ~ steady
 I'm good either way. I just want to know where I'm at. ~ steady
 Is it about reps? I've been counting, not gonna lie. ~ loose
-Is this about me getting benched? Because I didn't get benched, I just didn't play. ~ loose young
+Is this about me getting benched? Because I didn't get benched, I just didn't play. ~ loose young blameless=yes
 If it's about the depth chart, I already know what you're going to say. ~ loose
 Is it about me playing more? Because I'm down. ~ loose young
 Real talk, I want more run, Coach. ~ young modern
@@ -3943,7 +3943,7 @@ Is this about the tag? Because I don't want to play on the tag. ~ nfl
 If they put the tag on me, I need to know now. ~ nfl
 I've been thinking about holding in. I'd rather talk to you first. ~ nfl
 My agent's talking about a holdout. I don't want that, but I need to be paid. ~ nfl
-I'm not skipping anything. But I need to talk about my deal. ~ nfl pro
+I'm not skipping anything. But I need to talk about my deal. ~ nfl pro blameless=yes
 I've got incentives in my deal that the way I'm used is killing. ~ nfl
 I want to know if I'm getting cut for cap reasons. Just tell me. ~ nfl vet
 They asked me to take a pay cut. I want to hear it from you. ~ nfl vet
@@ -3953,7 +3953,7 @@ I've seen guys with worse tape get paid. That's what this is about. ~ nfl ego
 I'm the best at my spot on this team and the money says otherwise. ~ nfl ego
 The market just reset at my position. You know why I'm here. ~ nfl
 The guy at my spot across the league just got his bag. I want mine. ~ nfl young modern
-I want to talk about my workout bonus. I'm not skipping, but I want to talk. ~ nfl
+I want to talk about my workout bonus. I'm not skipping, but I want to talk. ~ nfl blameless=yes
 My agent told me to bring up the deal with you directly. ~ nfl
 Is this about my collective deal? ~ college nil
 I want to talk about my NIL, Coach. ~ college nil
@@ -4230,7 +4230,7 @@ Let's do it. Money talk, no games.
 People around me have opinions about money. I'd like yours.
 [Hmm|Huh]. Money. Okay, I'm following.
 You can be blunt. Money's just numbers to me.
-Before we start, I don't owe anybody anything, if that's the question.
+Before we start, I don't owe anybody anything, if that's the question. ~ blameless=yes
 My people ask me about money more than I ask anybody. So this helps.
 I'll be honest about where the money goes.
 Tell me if I need to change how I handle money.
@@ -4348,7 +4348,7 @@ If somebody's saying I'm greedy, say who. ~ hot
 Money stuff gets under my skin quick. Let's keep it short. ~ hot
 Whatever the numbers are, we'll figure it out. Go ahead. ~ calm
 If money ever came between me and this place, it'd have to be a lot. What's up? ~ loyal
-I'm not shopping myself around. Just so you know before we start. ~ loyal
+I'm not shopping myself around. Just so you know before we start. ~ loyal blameless=yes
 Is the money going to stop? I just need to know. ~ shaky !hs
 Every money talk I've ever had went bad. Please tell me this one's different. ~ shaky
 I live on a budget. Whatever you need to know, I can show you. ~ steady
@@ -4372,7 +4372,7 @@ How do people usually handle this part? The money part.
 Understood. Money. I'll keep my answers honest.
 Sure. Money's a fair thing to talk about.
 Here's my question before yours. What's the money worry?
-Nothing to hide on money. Ask away.
+Nothing to hide on money. Ask away. ~ blameless=yes
 Who else knows we're having a money talk?
 Anything I say about money stays in here, right?
 Seems like a money conversation. I've got time.
@@ -4518,34 +4518,34 @@ If I stay a fifth year, what changes with the money? ~ college senior nil
 @key talk.open.behavior
 I know what this is about.
 I figured you heard.
-I was expecting this.
-I know I messed up.
+I was expecting this. ~ at_fault=yes
+I know I messed up. ~ at_fault=yes
 Before you start, I know.
 If this is about what happened, I can explain.
 I already know what you're going to say.
 Somebody told you, huh.
 Whatever you heard, let me tell my side.
-I know I've been out of line.
+I know I've been out of line. ~ at_fault=yes
 I know it looked bad.
-I'm not proud of it, Coach.
-I knew this was coming the second it happened.
+I'm not proud of it, Coach. ~ at_fault=yes
+I knew this was coming the second it happened. ~ at_fault=yes
 It's about the other night, right?
-I've been waiting for this all day.
-I know I let you down.
-I won't make excuses. I know why I'm here.
+I've been waiting for this all day. ~ at_fault=yes
+I know I let you down. ~ at_fault=yes
+I won't make excuses. I know why I'm here. ~ at_fault=yes
 I'm guessing my name came up.
 I'm guessing the staff talked to you.
 I already heard about it from my position coach.
 Is this about practice yesterday?
 Is this about me being late?
-If it's about the meeting I missed, I overslept. That's on me.
+If it's about the meeting I missed, I overslept. That's on me. ~ at_fault=yes
 Is this about what I said in the locker room?
 Is this about the thing on social media? ~ modern
-If it's about the video, it's not what it looks like. ~ modern
+If it's about the video, it's not what it looks like. ~ modern blameless=yes
 Is this about the fight at practice?
 If it's about me and that guy at practice, it's done. We squashed it.
 Is this about the curfew thing?
-I wasn't where I was supposed to be. I know.
+I wasn't where I was supposed to be. I know. ~ at_fault=yes
 Is this about missing treatment? ~ !hs
 Is this about missing class? ~ college
 The academic people called you, didn't they. ~ college
@@ -4553,94 +4553,94 @@ Is this about the party? ~ college young
 Is this about the thing at the apartment? ~ college
 Did my teacher call you? ~ hs young
 Is this about detention? ~ hs young
-My mom already grounded me, if that helps. ~ hs young
+My mom already grounded me, if that helps. ~ hs young at_fault=yes
 Is this about the thing at the game? ~ hs
-I know I can't act like that wearing our jersey. ~ hs
+I know I can't act like that wearing our jersey. ~ hs at_fault=yes
 Is the league getting involved? ~ nfl
 Did the league office call? ~ nfl
 My agent already called me about it. ~ nfl
 I've already talked to the team's security guy. ~ nfl
 Is this about the fine? I already know it's coming. ~ nfl
 Is this about me missing the walk-through? ~ nfl
-I've been in this league long enough to know better. That's on me. ~ nfl vet
-I know the young guys are watching me. I set a bad example. ~ nfl vet
+I've been in this league long enough to know better. That's on me. ~ nfl vet at_fault=yes
+I know the young guys are watching me. I set a bad example. ~ nfl vet at_fault=yes
 Okay. Yeah. I know. ~ quiet
-I'm sorry, Coach. ~ quiet
+I'm sorry, Coach. ~ quiet at_fault=yes
 Yes {coach_sir}. I know. ~ quiet
 I don't really know what to say about it. ~ quiet
-I know. I should have told you myself. ~ quiet
-I'm so sorry, Coach. It won't happen again. ~ humble
-I feel terrible about it. ~ humble
-I've been sick about it since it happened. ~ humble
-I don't even recognize that guy, Coach. That wasn't me. ~ humble
-I'm ready for whatever's coming. I deserve it. ~ humble
+I know. I should have told you myself. ~ quiet at_fault=yes
+I'm so sorry, Coach. It won't happen again. ~ humble at_fault=yes
+I feel terrible about it. ~ humble at_fault=yes
+I've been sick about it since it happened. ~ humble at_fault=yes
+I don't even recognize that guy, Coach. That wasn't me. ~ humble blameless=yes at_fault=yes
+I'm ready for whatever's coming. I deserve it. ~ humble at_fault=yes
 Let me guess. Somebody's been talking. ~ ego
-It wasn't a big deal. People are acting like it is. ~ ego
-Everybody does it, Coach. I'm just the one who got caught. ~ ego
+It wasn't a big deal. People are acting like it is. ~ ego blameless=yes
+Everybody does it, Coach. I'm just the one who got caught. ~ ego at_fault=yes
 I'm the one getting called in, huh. Figures. ~ ego brash
-I don't think it was as bad as people are saying. ~ ego
-I'm not going to apologize for standing up for myself. ~ hot brash
-I know I've got a short fuse. I'm working on it. ~ hot
-I'm not going to make excuses. I made a mistake. ~ pro
+I don't think it was as bad as people are saying. ~ ego blameless=yes
+I'm not going to apologize for standing up for myself. ~ hot brash blameless=yes
+I know I've got a short fuse. I'm working on it. ~ hot at_fault=yes
+I'm not going to make excuses. I made a mistake. ~ pro at_fault=yes
 I'll take whatever's coming. I'm not going to fight it. ~ pro
-That's not who I am. I want to make it right. ~ pro
-I'm accountable for it. All of it. ~ pro
-I want to own it in front of the guys too. ~ leader
-I'm supposed to be the one setting the example. I know. ~ leader
-I let the room down. I'll talk to them. ~ leader
-I know the captains have to be better than that. I'm sorry. ~ leader
+That's not who I am. I want to make it right. ~ pro blameless=yes at_fault=yes
+I'm accountable for it. All of it. ~ pro at_fault=yes
+I want to own it in front of the guys too. ~ leader at_fault=yes
+I'm supposed to be the one setting the example. I know. ~ leader at_fault=yes
+I let the room down. I'll talk to them. ~ leader at_fault=yes
+I know the captains have to be better than that. I'm sorry. ~ leader at_fault=yes
 I'll fix it with the team myself if you let me. ~ leader
-My bad, Coach. For real. ~ loose young
-I was just having fun. It got out of hand. ~ loose
-It's not that serious, Coach. Right? ~ loose
+My bad, Coach. For real. ~ loose young at_fault=yes
+I was just having fun. It got out of hand. ~ loose at_fault=yes
+It's not that serious, Coach. Right? ~ loose blameless=yes
 Okay, before you say anything, I can explain most of it. ~ loose
-I already know I'm running after practice. ~ loose
-I've been in a bad place lately. I'm not making excuses. ~ shaky
-Everything's been piling up and I just snapped. ~ shaky
-I don't know why I did it, honestly. ~ shaky
-I'm already beating myself up about it, Coach. ~ shaky
-I know I've been slipping. I'm trying. ~ shaky
+I already know I'm running after practice. ~ loose at_fault=yes
+I've been in a bad place lately. I'm not making excuses. ~ shaky at_fault=yes
+Everything's been piling up and I just snapped. ~ shaky at_fault=yes
+I don't know why I did it, honestly. ~ shaky at_fault=yes
+I'm already beating myself up about it, Coach. ~ shaky at_fault=yes
+I know I've been slipping. I'm trying. ~ shaky at_fault=yes
 I'm not going to lie to you. Ask me whatever you want. ~ steady
-I made a mistake. I'll handle the consequences. ~ steady
+I made a mistake. I'll handle the consequences. ~ steady at_fault=yes
 I'll be honest about what happened. ~ calm
 I'd like to tell you what happened, start to finish. ~ calm
 I'm not going to get defensive. Go ahead. ~ calm
-I'd never want to embarrass this program. I'm sorry. ~ loyal
-I know I let you down after everything you've done for me. ~ loyal
+I'd never want to embarrass this program. I'm sorry. ~ loyal at_fault=yes
+I know I let you down after everything you've done for me. ~ loyal at_fault=yes
 I don't want to be the guy who makes the program look bad. ~ loyal
-It was stupid. I know. ~ young
+It was stupid. I know. ~ young at_fault=yes
 Am I suspended? ~ young
 Am I in trouble, Coach? ~ young
 Is my scholarship okay? ~ college young
 Am I still starting? ~ young competitor
-I know it hurt the team. That's what bothers me most. ~ competitor
+I know it hurt the team. That's what bothers me most. ~ competitor at_fault=yes
 Whatever you need me to do to make up for it, I'll do. ~ competitor
 I'll run till I puke if that's what it takes. ~ competitor young
-Yes {coach_sir}. I know I messed up bad. ~ south
-I ain't gonna lie to you, Coach. I messed up. ~ south
-Mama already got on me about it. ~ south young
-I know. I'm not going to make excuses. ~ midwest
-Yeah. That was dumb. I know. ~ midwest
-I know I messed up. I'm not going to pretend otherwise. ~ northeast
-It wasn't my finest moment, Coach. ~ northeast
-I wasn't thinking. That's the honest truth. ~ west
+Yes {coach_sir}. I know I messed up bad. ~ south at_fault=yes
+I ain't gonna lie to you, Coach. I messed up. ~ south at_fault=yes
+Mama already got on me about it. ~ south young at_fault=yes
+I know. I'm not going to make excuses. ~ midwest at_fault=yes
+Yeah. That was dumb. I know. ~ midwest at_fault=yes
+I know I messed up. I'm not going to pretend otherwise. ~ northeast at_fault=yes
+It wasn't my finest moment, Coach. ~ northeast at_fault=yes
+I wasn't thinking. That's the honest truth. ~ west at_fault=yes
 I'm not trying to hide anything.
-It's not as bad as it sounds. But it's bad.
+It's not as bad as it sounds. But it's bad. ~ blameless=yes at_fault=yes
 I know the guys are talking about it.
 I've been dreading coming in here.
 I'll take my punishment. I just want you to hear me out first.
-It was one bad decision. I'm not a bad guy.
-I didn't mean for it to blow up like this.
-I should have come to you first.
+It was one bad decision. I'm not a bad guy. ~ at_fault=yes
+I didn't mean for it to blow up like this. ~ at_fault=yes
+I should have come to you first. ~ at_fault=yes
 Whatever it is, I'll fix it.
-I know people are disappointed in me.
+I know people are disappointed in me. ~ at_fault=yes
 I've been thinking about it nonstop.
-I know there's a line and I crossed it.
+I know there's a line and I crossed it. ~ at_fault=yes
 Did I do something? I'd rather you just [say it|tell me].
 Me being late? If that's it, I can tell you what happened.
 If this is about something I said in the heat of practice, I'd like to hear how it came across.
 Am I in here for something I did, or something somebody said I did?
-Which one is it? I can think of a couple of things it might be.
+Which one is it? I can think of a couple of things it might be. ~ at_fault=yes
 Whatever you heard, I'd like to hear it in your words first.
 Something about my attitude lately? Go ahead.
 If it's the flag, I can walk you through what I saw.
@@ -4678,7 +4678,7 @@ Did I miss something I was supposed to be at?
 Is it how I've been in meetings?
 Somebody report me for something?
 Am I in trouble, or are we just talking?
-Not sure what I did. Can you tell me?
+Not sure what I did. Can you tell me? ~ blameless=yes
 Should I close the door for this one?
 If this is about the language I used, I'll own the words.
 Was I out of line somewhere? Say it plainly.
@@ -4762,9 +4762,9 @@ Okay, which thing? Give me a hint. ~ loose
 Somebody's always got something to say about me. What is it this time? ~ ego
 If it's about my style on the field, that's how I play. ~ ego
 If I did something wrong, tell me and I'll fix it. ~ humble
-I want to do right by this team. Where did I slip? ~ humble
+I want to do right by this team. Where did I slip? ~ humble at_fault=yes
 Something I did? Okay. ~ quiet
-Whatever I did, I'll listen first. ~ quiet
+Whatever I did, I'll listen first. ~ quiet at_fault=yes
 If I've set a bad example somewhere, tell me where. ~ leader
 Take your time. Tell me what you heard and we'll sort it out. ~ calm
 If I fell short of a standard, I want to know which one. ~ pro
@@ -4818,7 +4818,7 @@ I don't want to guess wrong and make it worse. What's going on?
 You look like you've got something to say. I'm listening.
 One guess. The thing in the hallway?
 Was I loud in the wrong place? Tell me if I was.
-Whatever the rule is, I'd like to hear which one I bent.
+Whatever the rule is, I'd like to hear which one I bent. ~ at_fault=yes
 Being in here usually means somebody noticed something. What was it?
 My effort in conditioning? I'd like to hear specifics.
 Was the strength coach talking about me?
@@ -4866,7 +4866,7 @@ Is the coordinator the one who brought this up? ~ college
 Bowl practice? I'd like to know what was said. ~ college
 My academic advisor and I see things differently sometimes. Is that what this is? ~ college
 Was it the RA? They write up everything. ~ college young
-Scout team stuff? I give those reps everything I've got. ~ college freshman
+Scout team stuff? I give those reps everything I've got. ~ college freshman blameless=yes
 Did something from my old school follow me here? ~ college transfer
 Am I in trouble? As a walk-on, I know how thin the ice is. ~ college walkon
 This deep into college and I'm in here for conduct? What'd I do? ~ college senior
@@ -4902,19 +4902,19 @@ The extra shove after the play? I'd like to see it. ~ te
 Me getting in a guy's face in the huddle? ~ lb
 Who's talking? Because I've got things to say too. ~ hot
 If somebody pushed me first, does that count for anything? ~ hot
-The late thing? Or the other late thing? ~ loose
-Before you start, I've got like three guesses, and none of them are good. ~ loose
+The late thing? Or the other late thing? ~ loose at_fault=yes
+Before you start, I've got like three guesses, and none of them are good. ~ loose at_fault=yes
 Whatever it is, I'd bet somebody's jealous. ~ ego
 People watch everything I do. What'd they see this time? ~ ego
 If I let anybody down, I want to make it right. ~ humble
-Whatever I did, I'd like to fix it before it gets bigger. ~ humble
+Whatever I did, I'd like to fix it before it gets bigger. ~ humble at_fault=yes
 Yes {coach_sir}. Which part was wrong? ~ quiet
 Should I say something, or just listen? ~ quiet
-Something I let slide in the room? That's on me as a leader. ~ leader
+Something I let slide in the room? That's on me as a leader. ~ leader at_fault=yes
 Whatever it is, I'd rather address it with the team myself afterward. ~ leader
 I'm not going anywhere. Tell me what you heard. ~ calm
-Let's take whatever I did one piece at a time. What's first? ~ calm
-Tell me the standard I missed, and I'll hold myself to it. ~ pro
+Let's take whatever I did one piece at a time. What's first? ~ calm at_fault=yes
+Tell me the standard I missed, and I'll hold myself to it. ~ pro at_fault=yes
 If my preparation slipped, show me where. ~ pro
 Whatever it is, I'll be the same guy tomorrow. What happened? ~ steady
 Is it bad? I can't tell from your face. ~ shaky
@@ -4930,14 +4930,14 @@ Alright. If I messed up, lay it on me. ~ midwest
 Don't sugarcoat it. What'd I do? ~ northeast
 No stress. Somebody say something about me? ~ west
 Whatever you heard I did, I'll tell you true. ~ texas
-Lowkey I have no idea what I did. ~ young
+Lowkey I have no idea what I did. ~ young blameless=yes
 Deadass, what did I do? ~ young northeast
-For real, I don't know what I'm in trouble for. ~ young
+For real, I don't know what I'm in trouble for. ~ young blameless=yes
 Talk to me. What's the [conduct issue|problem]?
 So which was it, something I said or something I did?
 Look, if somebody's got a problem with me, I'd like to hear it from them too.
 Listen, I'll answer for anything I did. What's this about?
-Straight up, I'm not sure what I did.
+Straight up, I'm not sure what I did. ~ blameless=yes
 Quick question first. Is anybody else being called in?
 Could it be the film session? I'd like to know what was said.
 Has somebody been talking about my attitude?
@@ -4956,9 +4956,9 @@ Seems like nobody's telling me what I did. What's up?
 Guessing it's how I talk in the huddle. Close?
 I'd guess the language. Is that it?
 I'd bet it's about how I come to meetings. Is it?
-I've got a feeling somebody misread something I said.
+I've got a feeling somebody misread something I said. ~ blameless=yes
 I think I know, but I'd like you to say it first.
-I can think of two things. Which one do you have?
+I can think of two things. Which one do you have? ~ at_fault=yes
 I want to hear exactly what was reported. Word for word, if you can.
 Let me hear it. Then I'll tell you what I remember.
 Give it to me plain. What's the conduct thing?
@@ -4968,10 +4968,10 @@ Say what you've got. I'll be straight back.
 Whoever told you, I'd like a chance to tell it too.
 However it got to you, I'd rather face it head on.
 Anything I should know before I start defending myself?
-Honestly, nothing's coming to mind. What happened?
+Honestly, nothing's coming to mind. What happened? ~ blameless=yes
 Kind of in the dark here. Did I [do something|mess up]?
 Only thing I can think of is the meeting. Is it?
-Could be a few things, I guess. What did you hear?
+Could be a few things, I guess. What did you hear? ~ at_fault=yes
 Flag stuff? Tell me which ones you mean.
 A missed meeting? I'd want to see the sign-in.
 The lift? I can tell you where I was.
@@ -5009,7 +5009,7 @@ Sportsmanship rule? The state's strict about it, I know. ~ hs
 Offseason attendance? I can explain my schedule. ~ hs
 Am I in trouble with the school or with the team? ~ hs
 Something my teachers are saying? I'd like to fix it before grades close. ~ hs
-Senior year and I'm in here. Okay. Where'd I go wrong? ~ hs senior
+Senior year and I'm in here. Okay. Where'd I go wrong? ~ hs senior at_fault=yes
 How I act around the varsity guys? Is that it? ~ hs sophomore
 Would this show up when recruiters call you? That's what I'd want to know. ~ hs junior
 Compliance or the team? Who flagged it? ~ college
@@ -5055,15 +5055,15 @@ Too much talking after the play? I'll tone it down if that's it. ~ skill
 Cheap shots in the trenches? Tell me which snaps. ~ lineman
 Who's got a problem with me now? ~ hot
 Before you say anything, I want to know if they told you how it started. ~ hot
-Pretty sure I'm a little late to everything. Is it that? ~ loose
+Pretty sure I'm a little late to everything. Is it that? ~ loose at_fault=yes
 You know how people get about guys like me. What's the story? ~ ego
 I'm sure it's been blown up. What's the small version? ~ ego
 I don't want special treatment. If I did something, hold me to it. ~ humble
-I figured it was something I did. Go ahead, {coach_sir}. ~ quiet
+I figured it was something I did. Go ahead, {coach_sir}. ~ quiet at_fault=yes
 If I messed up, just tell me. I'll listen. ~ quiet
 If guys followed me into something, put that on me. ~ leader
-Where did I fall short as a leader? I want the honest version. ~ leader
-No need to tiptoe around what I did. Let's hear it. ~ calm
+Where did I fall short as a leader? I want the honest version. ~ leader at_fault=yes
+No need to tiptoe around what I did. Let's hear it. ~ calm at_fault=yes
 Give me the specifics and the fix. I'll handle the rest. ~ pro
 If I slipped up, I'll handle it. What's up? ~ steady
 Are you going to tell my people? I'd want to know first. ~ shaky
@@ -5071,7 +5071,7 @@ Am I about to lose something? I can't tell what this is. ~ shaky
 I've always tried to do right by you. What happened? ~ loyal
 Jawing in competition period? That's how I get going. ~ competitor
 Fines come out of my pocket, so I'd like the details. ~ greedy !hs
-My bad in advance, Coach. What are we talking about? ~ young
+My bad in advance, Coach. What are we talking about? ~ young at_fault=yes
 Been doing this a long time. Whatever it is, let's be adults about it. ~ vet
 Yes {coach_sir}. Whatever it is, my folks raised me to face it. ~ south
 Okay, Coach. Let's hear it and get it fixed. ~ midwest
@@ -5079,7 +5079,7 @@ You got something on me? Let's hear it. ~ northeast
 All right, what's the vibe? Am I in trouble? ~ west young
 I'll take my medicine if I earned it. What happened? ~ texas
 Am I tripping, or is this about the flag? ~ young
-Not gonna lie, I got no clue what I did. ~ young
+Not gonna lie, I got no clue what I did. ~ young blameless=yes
 Say it with your chest, Coach. What is it? ~ young loose brash
 
 @key talk.open.life
@@ -5107,7 +5107,7 @@ Is this about my weight? I've been eating weird. ~ !hs
 Did the nutrition people say something? ~ !hs
 The strength coach said I looked tired. Is that it? ~ !hs
 Is this about my relationship stuff? ~ young
-I know I've been distracted.
+I know I've been distracted. ~ at_fault=yes
 Did my mom call you? She said she might. ~ young !nfl
 Did my dad call you? ~ young !nfl
 Is this about my grandma? ~ young
@@ -5322,7 +5322,7 @@ Texas people check on each other. I get it. ~ texas
 Back home, folks ask about your people before anything else. ~ south
 Lowkey, nobody's asked me that in a minute. ~ young
 Real talk? I appreciate you asking. ~ young
-Stuff online? I've been staying off the apps. ~ young modern
+Stuff online? I've been staying off the apps. ~ young modern blameless=yes
 I've been trying to log off more. That what this is about? ~ modern
 My screen time's crazy. I'll admit that much. ~ young modern
 Is it about me being on my phone all the time? ~ young modern
@@ -5399,7 +5399,7 @@ Between practice and homework, I barely see daylight. Is that what you mean? ~ h
 Classes are classes. I'm getting through. You want specifics? ~ college
 How I'm doing with the online classes? ~ college modern
 Life in the athletes' dorm is its own thing. That what you mean? ~ college
-Was it academics? I meet with my advisor every week. ~ college
+Was it academics? I meet with my advisor every week. ~ college blameless=yes
 Being a student and a player is two jobs. You want to hear about the student part? ~ college
 Campus is home now, mostly. What do you want to know? ~ college
 My schedule's lift, class, meetings, practice, study hall. Life fits in the cracks. That what you mean? ~ college
@@ -5462,7 +5462,7 @@ My free time goes into building something. That what you want to know? ~ greedy
 Sleep, nutrition, recovery, family time. I schedule all of it. ~ pro
 I'm the same at home as here: prepared. Ask me. ~ pro
 My life outside? Fun. Probably too much fun some days. ~ loose
-Ask whatever. I've got nothing to hide. Well, almost nothing. ~ loose
+Ask whatever. I've got nothing to hide. Well, almost nothing. ~ loose blameless=yes
 Is this because something's wrong with me? ~ shaky
 I get nervous when people ask about my life. I'll try, though. ~ shaky
 Nothing changes much for me day to day. That's how I like it. ~ steady
@@ -5583,7 +5583,7 @@ Junior year, I finally feel like I belong at this school. What do you want to kn
 As a sophomore I'm just trying to stay on top of school. That what you're asking? ~ hs sophomore
 Rookies don't get much free time. What I get, I sleep. ~ nfl rookie
 Ask me in a few years, I'll have a better answer. Right now life's simple. ~ young
-When I was younger I didn't take care of myself away from here. Now I do. ~ vet
+When I was younger I didn't take care of myself away from here. Now I do. ~ vet at_fault=yes
 Everybody wants a piece of my time. Life's busy when you're me. ~ ego
 Off the field I'm doing big things too. Ask me. ~ ego
 I don't need much. A bed, some food, my people. ~ humble
@@ -5675,7 +5675,7 @@ I want everybody to want it like I want it. Is this about that? ~ competitor
 I want to talk about the standard in there. ~ competitor
 Is this about me and some of the guys? ~ hot
 If somebody said something about me, I want to know. ~ hot
-I'm not the problem in that room, Coach. ~ hot ego
+I'm not the problem in that room, Coach. ~ hot ego blameless=yes
 Is this about me being too loud in there? ~ hot
 I mostly keep to myself in the room. ~ quiet
 I don't really get involved in the locker room stuff. ~ quiet
@@ -5697,7 +5697,7 @@ I feel like the room's falling apart a little. ~ shaky
 I love these guys, Coach. Is something wrong with the team? ~ loyal
 This team means everything to me. What's going on? ~ loyal
 The team's the reason I'm still here. ~ loyal
-Is this about guys being selfish? Because that's not me. ~ ego
+Is this about guys being selfish? Because that's not me. ~ ego blameless=yes
 I carry this team on the field. What's the problem in the room? ~ ego
 Is it about the guys who don't think I should be the guy? ~ ego
 Is this about the leaders? Because I think I should be one. ~ ego young
@@ -6165,7 +6165,7 @@ I don't have all the answers about the team, but I've got some. ~ humble
 I'll tell you. But I'd rather you hear it from the guys too. ~ quiet
 I notice who's around and who isn't. ~ quiet
 If anybody's out of line in there, I'll handle it. But ask. ~ hot
-People talk too much in that room. Not me. What do you need? ~ hot
+People talk too much in that room. Not me. What do you need? ~ hot blameless=yes
 Things in there move in cycles. I don't overreact to any of it. ~ calm
 Everybody's got their ups and downs in there. I keep perspective. Ask. ~ calm
 This team's my family. Whatever it needs. ~ loyal
@@ -6216,7 +6216,7 @@ I've got some decisions coming up. I know that.
 Is this about my plan after football?
 I've been thinking about life after this.
 Is this about the portal window? ~ college nil
-I haven't entered anything, Coach. I want to be clear. ~ college nil
+I haven't entered anything, Coach. I want to be clear. ~ college nil blameless=yes
 I've had schools reach out to my people. I'm being honest. ~ college nil
 Is it about the draft? ~ college
 Is this about me declaring? ~ college
@@ -6319,7 +6319,7 @@ The future. I had a feeling.
 Whatever you've heard about my plans, I'd rather you get it from me.
 Nothing's locked in. I want that on the table first.
 My plans aren't set yet. Ask anyway.
-Before you ask, no, I haven't signed anything anywhere.
+Before you ask, no, I haven't signed anything anywhere. ~ blameless=yes
 Where you see me next year. That's what I'd like to hear first.
 Can I hear what you see for me before I tell you what I see?
 Sounds like a where-are-you-headed talk.
@@ -6432,7 +6432,7 @@ Real talk, I figured this was the next-year talk. ~ young
 My phone's been blowing up about next year. That's what this is? ~ young modern
 Lowkey been waiting for you to bring this up. ~ young
 Everybody in the group chat keeps asking where I'll be next year. ~ modern
-If you saw something online about my plans, it didn't come from me. ~ modern
+If you saw something online about my plans, it didn't come from me. ~ modern blameless=yes
 Somebody screenshot something about my plans, didn't they? ~ young modern
 The QB room next year? I'd like to know how many of us there'll be. ~ college qb
 I just got here. We're already talking next year? ~ college transfer
@@ -6519,7 +6519,7 @@ Commit soon or keep looking? Everybody's got an opinion on it. ~ hs
 Early enrolling in January? I've wondered if I could. ~ hs senior
 Playing both ways in college or picking a side? ~ hs
 Preferred walk-on spots? I don't really know what that means for me. ~ hs
-If this is about my recruiting profile online, I haven't touched it. ~ hs modern
+If this is about my recruiting profile online, I haven't touched it. ~ hs modern blameless=yes
 Where my grades leave me when colleges start looking? ~ hs
 An all-star game after the season? I've wondered if I'd get a look. ~ college senior
 Declaring by the deadline in January? I know it's coming up. ~ college
@@ -6581,7 +6581,7 @@ Let's be real about next year. No sugarcoating. ~ northeast
 I'm a go-with-it kind of guy, but sure, let's plan ahead. ~ west
 Everybody back home has a theory about where I'll be. I'd like yours. ~ south
 Ngl, saw this one coming. Next year? ~ young
-If my name's been in some tweet about next year, that wasn't me. ~ modern
+If my name's been in some tweet about next year, that wasn't me. ~ modern blameless=yes
 For real, next year already? Okay. ~ young
 A bunch of texts came in asking about next year. Is that where this is going? ~ modern
 Lowkey thought you'd ask me sooner. ~ young
@@ -6614,7 +6614,7 @@ You're the first person I wanted to talk to about this, honestly. What's next.
 Whatever you need to know about my plans, ask. I'll be up front.
 You probably want a yes or no. I've got a maybe, and some reasons.
 Plans change. Mine have a few times already. Where do you want to start?
-Up front, there's nothing going on behind your back.
+Up front, there's nothing going on behind your back. ~ blameless=yes
 If you're asking where I'll be, the honest answer is I'm still deciding.
 Let's look further out than one game for once.
 My future's a fair thing to ask about. Go ahead.
@@ -6682,7 +6682,7 @@ A transition tag? I had to look up what that even is. ~ nfl
 Where I fit after the draft adds bodies at my spot? ~ nfl
 Whether I'm a futures guy or done? ~ nfl psquad
 An extension before camp, or me playing it out? ~ nfl
-A trade request? I haven't made one. I want that clear. ~ nfl
+A trade request? I haven't made one. I want that clear. ~ nfl blameless=yes
 Next year's roster and whether there's room for a vet like me? ~ nfl vet
 Hitting free agency at my age? I know how the market treats guys like me. ~ nfl vet
 OTAs and what I'd be coming back to? ~ nfl
@@ -6839,7 +6839,7 @@ I want film, Coach. I can't get it from the sideline. ~ reason=snaps
 Scouts can't grade a guy who doesn't play. That's why I'm thinking about leaving. ~ reason=snaps
 I came here to play, not to wait my turn forever. I'm looking at the portal. ~ reason=snaps nil
 I'm good enough to start somewhere. I want to go find out where. ~ reason=snaps
-I did everything that was asked and I'm still not out there enough. I'm thinking about going. ~ reason=snaps
+I did everything that was asked and I'm still not out there enough. I'm thinking about going. ~ reason=snaps blameless=yes
 The staff that recruited me is gone. I'm thinking about following my gut out of here. ~ reason=coach
 Nothing personal, Coach, but I didn't sign up for you. I'm thinking about leaving. ~ reason=coach
 I don't know you yet, and I'm not sure I want to find out on my eligibility. ~ reason=coach

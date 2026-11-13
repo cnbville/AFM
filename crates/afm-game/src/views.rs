@@ -863,12 +863,16 @@ pub fn stopped(w: &World, from: afm_engine::calendar::Moment, filed: &[u64]) -> 
             zone::clock(l.minute)
         }
     };
+    // A college seat's portal lines (and the signing rankings) have their
+    // own messages in the inbox: the card lists the message, not each line.
+    let college = matches!(mine(w), Some(TeamRef::College(_)));
     // Since the last stop.
     let picked: Vec<&afm_engine::calendar::Event> = w
         .calendar
         .between(from, now)
         .into_iter()
         .filter(|e| !matches!(e.kind, Kind::Rhythm | Kind::Anniversary) || yours(e))
+        .filter(|e| !(college && crate::lane_core::mail::card_covered(e)))
         .filter(|e| {
             yours(e)
                 || e.needs_decision
@@ -939,15 +943,8 @@ pub fn stopped(w: &World, from: afm_engine::calendar::Moment, filed: &[u64]) -> 
             }
         }
     }
-    // Answers to your money (NIL), at the section after you asked.
-    for r in afm_engine::world::front_office::college::answers_between(w, from, now) {
-        let at = r.due.unwrap_or(now);
-        let name = w.people.iter().find(|p| p.player.id == r.id).map_or(String::new(), |p| p.name.clone());
-        rows.push((
-            at,
-            json!({ "t": w.clock_of(at), "k": "Answer", "x": format!("[[p:{}|{name}]] {}: {}", r.id, r.mood.word(), r.text), "mine": true, "dl": false }),
-        ));
-    }
+    // Answers to your money (NIL) come as a memo from the collective (`mail/nil.rs`):
+    // the Mail rows above carry them.
     rows.sort_by_key(|x| x.0);
     let total = rows.len();
     // Your own and the deadlines first when the list runs long.
