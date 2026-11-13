@@ -31,7 +31,10 @@
   }
   // A hint's names as links (the hint carries who it names).
   const linkNamesIn = (text, who) => (who ? linkNames(text, who) : esc(text));
-  const sure = (s) => `<span class="gd-sure ${s === "sure" ? "good" : s === "fairly sure" ? "warn" : ""}">${esc(s)}</span>`;
+  // The confidence pill. (Named for what it draws: called `sure` it hid the confirmation
+  // dialog `sure()` in this file, and the three "Hand it to your staff?" questions
+  // never asked.)
+  const surePill = (s) => `<span class="gd-sure ${s === "sure" ? "good" : s === "fairly sure" ? "warn" : ""}">${esc(s)}</span>`;
   const upper = (t) => {
     const x = t == null ? "" : String(t);
     return x ? x[0].toUpperCase() + x.slice(1) : "";
@@ -62,7 +65,7 @@
     const pts = series.map(([k, v]) => `${xs(k).toFixed(1)},${ys(v).toFixed(1)}`).join(" ");
     const area = `${xs(series[0][0]).toFixed(1)},${(H / 2).toFixed(1)} ${pts} ${xs(series[series.length - 1][0]).toFixed(1)},${(H / 2).toFixed(1)}`;
     const marks = (opts.marks || [])
-      .map((m) => `<circle cx="${xs(m.n).toFixed(1)}" cy="${ys(m.wp).toFixed(1)}" r="4.5" class="gd-wp-dot ${m.good ? "good" : "bad"}" data-act="gd-play" data-n="${m.n}"><title>${esc(m.title)}</title></circle>`)
+      .map((m) => `<circle cx="${xs(m.n).toFixed(1)}" cy="${ys(m.wp).toFixed(1)}" r="4.5" class="gd-wp-dot ${m.good ? "good" : "bad"}" data-act="gp-play" data-n="${m.n}"><title>${esc(m.title)}</title></circle>`)
       .join("");
     const halves = (opts.halves || []).map((k) => `<line x1="${xs(k)}" x2="${xs(k)}" y1="0" y2="${H}" class="gd-wp-half"/>`).join("");
     return `<svg class="gd-wp" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Win probability">
@@ -135,7 +138,7 @@
     const finds = h.finds.length
       ? `<div class="panel warm gd-finds"><h2>Your finds <small>from the tapes you studied: what the film really shows, with the count</small></h2>${h.finds.map((f) => hintRow(f, f.sources[0])).join("")}</div>`
       : "";
-    const line = (l) => `<div class="gd-line"><span>${l.id != null ? linkFirst(l.text, l.id) : esc(l.text)}</span>${l.sure ? `<small>${l.n} snap${l.n === 1 ? "" : "s"} · ${sure(l.sure)}</small>` : ""}</div>`;
+    const line = (l) => `<div class="gd-line"><span>${l.id != null ? linkFirst(l.text, l.id) : esc(l.text)}</span>${l.sure ? `<small>${l.n} snap${l.n === 1 ? "" : "s"} · ${surePill(l.sure)}</small>` : ""}</div>`;
     const sections = (r.sections || [])
       .map((s) => `<div class="panel warm"><h2>${esc(s.title)} <small>${esc(s.unit)}</small></h2><div class="gd-lines">${s.lines.map(line).join("")}</div></div>`)
       .join("");
@@ -273,7 +276,7 @@
   }
   const tapeKey = (d) => ({ date: Number(d.date), home: Number(d.home), away: Number(d.away) });
   document.addEventListener("click", async (ev) => {
-    const el = ev.target.closest("[data-act^='gd-'],[data-act^='lv-'],[data-act^='gp-']");
+    const el = ev.target.closest("[data-act^='gd-'],[data-act^='lv-'],[data-act^='gp-'],[data-act='tk-word']");
     if (!el) return;
     const d = el.dataset;
     switch (d.act) {
@@ -287,7 +290,17 @@
       case "gd-kick": kickoff(); break;
       case "gd-delegate": {
         if (!(await sure("Hand the whole game to your staff?", "They coach it with your plan, your film study and your game rules. You see the result and the game page.", "Hand it over"))) break;
-        cont();
+        // Not cont(): at the kickoff stop Continue opens the live game for you to call.
+        showBusy("Your staff coaches the game…");
+        try {
+          LV.state = await api("gameday_kickoff");
+          LV.watch = null;
+          LV.seen = LV.state.plays ? LV.state.plays.length : 0;
+          LV.state = await api("live_staff");
+          LV.fresh = true;
+          hideBusy();
+          go("live");
+        } catch (e) { hideBusy(); toast(e.message); }
         break;
       }
       default: if (live[d.act]) live[d.act](d, el, ev);
@@ -619,11 +632,15 @@
       LV.busy = false;
       if (S.route.screen === "live") render();
       else go("live");
+      return true;
     } catch (e) {
       LV.busy = false;
       toast(e.message);
+      return false;
     }
   }
+  // A word to a coordinator changes nothing on the board, so say it went in.
+  const wordSent = (ok, what) => { if (ok) toast(`Your word is passed to your coordinator: ${what}.`); };
   function clearTimer() {
     if (LV.timer) clearInterval(LV.timer);
     LV.timer = null;
@@ -651,7 +668,9 @@
         return;
       }
       if (st.settings.clock === "realism" && !["halftime", "toss"].includes(st.pending.ask)) {
-        LV.deadline = Date.now() + 25000;
+        // The 25 seconds run for one call: a redraw of the same call (the play sheet, a toggle) doesn't restart them.
+        const callKey = `${(st.plays || []).length}:${st.pending.ask}`;
+        if (LV.deadlineKey !== callKey || !LV.deadline) { LV.deadlineKey = callKey; LV.deadline = Date.now() + 25000; }
         LV.timer = setInterval(() => {
           const left = Math.max(0, LV.deadline - Date.now());
           const s = $("#lv-secs"), b = $("#lv-tbar");
@@ -700,7 +719,7 @@
     "lv-chal": (d) => send({ kind: "challenge", throw: d.v === "1" }),
     "lv-timeout": () => send({ kind: "timeout" }),
     "lv-tempo": (d) => send({ kind: "tempo", tempo: d.v }),
-    "lv-wordb": (d) => send({ kind: "plan", [d.k]: d.v === "1" }),
+    "lv-wordb": async (d) => wordSent(await send({ kind: "plan", [d.k]: d.v === "1" }), d.k === "spy" ? (d.v === "1" ? "spy their QB" : "no spy") : d.k === "kick_away" ? (d.v === "1" ? "kick away from the returner" : "kick deep") : d.v === "1" ? "draws and screens" : "their rush as usual"),
     // A word on the sideline to a player after his mistake (lane 14, D6).
     "tk-word": (d) => {
       const w = (LV.state.words || []).find((x) => x.id === Number(d.id));
@@ -788,7 +807,8 @@
     }
     if (d.act === "lv-word" && ev.target.value) {
       const v = ev.target.value;
-      send({ kind: "plan", [d.k]: v === "none" ? "none" : Number(v) });
+      const label = ev.target.options[ev.target.selectedIndex].textContent;
+      send({ kind: "plan", [d.k]: v === "none" ? "none" : Number(v) }).then((ok) => wordSent(ok, (d.k === "target_cb" ? "throw at " : "bracket ") + label));
     }
   });
 
@@ -803,6 +823,8 @@
       const p = st.pending;
       const k = ev.key.toLowerCase();
       const act = (fn) => { ev.preventDefault(); ev.stopPropagation(); fn(); };
+      // A button the person has tabbed to answers Enter and Space itself (they ran "Go with the staff" instead).
+      if ((k === " " || k === "enter") && ev.target.closest && ev.target.closest("button, a[href], summary, [role=button], [role=tab]")) return;
       if (k === " ") return act(() => {});
       if (k === "escape") return act(() => (LV.sheet ? live["lv-sheet-x"]() : live.stepIn()));
       if (st.status === "final") { if (k === "enter") act(() => live["lv-finish"]()); return; }
@@ -865,7 +887,8 @@
     const extra = Object.keys(window.gamePageTabs).filter((t) => !first.includes(t));
     const tabs = [...first, ...GP_TABS, ...extra];
     const tab = keep("gptab", { t: tabs[0] });
-    if (a.tab) tab.t = a.tab;
+    // A link's tab opens the page on it once; later clicks on the tab bar are the person's (they were undone on every redraw).
+    if (a.tab) { tab.t = a.tab; a.tab = null; }
     if (!tabs.includes(tab.t)) tab.t = tabs[0];
     const [h, w] = g.sides;
     const mineHome = g.mine !== 1;

@@ -282,9 +282,11 @@ Object.assign(CORE_MORE, {
   dagroup: (el) => { const K = keep("analytics", {}); K.group = el.dataset.v; K.min = null; K.sort = null; K.dir = -1; K.card = null; K.view = null; K.spot = null; refresh(el); },
   daview: (el) => { const K = keep("analytics", {}); K.view = Number(el.dataset.v) || null; K.sort = null; K.dir = -1; refresh(el); },
   dareading: (el) => { keep("analytics", {}).mode = el.dataset.v === "raw" ? null : el.dataset.v; refresh(el); },
-  daviewsave: (el) => {
+  // The Mac app's webview has no window.prompt (it answers nothing), so the
+  // name is asked in the page's own dialog.
+  daviewsave: async (el) => {
     const K = keep("analytics", {});
-    const name = (window.prompt("Name this view", [K.group || "QB", K.level || ""].filter(Boolean).join(" · ")) || "").trim();
+    const name = await ask("Name this view", { value: [K.group || "QB", K.level || ""].filter(Boolean).join(" · "), ok: "Save view" });
     if (!name) return;
     const v = { name };
     for (const k of DT_VIEW_KEYS) if (K[k] != null && K[k] !== "") v[k] = K[k];
