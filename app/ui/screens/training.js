@@ -1112,7 +1112,7 @@ function bdFrame(slots) {
 function slotCard(s, k, b, sel, fr) {
   const p = s.player;
   const prop = s.fill ? `<em title="Nobody is listed for this spot; the engine sends the best man left in the room">next man up</em>` : s.proposal && (!p || s.proposal.id !== p.id) ? `<em title="Your position coach would put ${esc(s.proposal.name)} here">Coach: ${esc(trLast(s.proposal.name))}</em>` : "";
-  const drag = s.controls ? 'draggable="true"' : "";
+  const drag = s.controls && p ? `data-drag="1" data-name="${esc(p.name)}"` : "";
   return `<div class="tr-slot ${sel ? "sel" : ""} ${p ? "" : "empty"} ${s.controls ? "" : "locked"} ${p && p.practice !== "full" ? "p-" + p.practice : ""}" style="left:${bdX(s.y)}%;top:${fr.y(s.x)}%" data-act="tr-slot" data-k="${k}" data-board="${esc(b.key)}" ${drag} ${p ? `data-pid="${p.id}"` : ""}>
     <small>${esc(s.slot)}</small><b>${p ? esc(trLast(p.name)) : "Open"}</b>${p ? `<span class="tr-sr">${p.ovr ? `${p.ovr[0]}-${p.ovr[1]}` : "?"}${p.pos !== s.pos ? ` · ${esc(p.pos)}` : ""}</span>` : ""}${prop}</div>`;
 }
@@ -1142,7 +1142,7 @@ screens.depth = async (a) => {
   const onBoard = new Set(b.slots.filter((s) => s.player).map((s) => s.player.id));
   // The pool: everyone, the slot's position first when a slot is picked.
   const pool = x.players.slice().sort((p, q) => (want ? (q.pos === want.pos) - (p.pos === want.pos) : 0) || mid(q.ovr) - mid(p.ovr));
-  const poolHtml = pool.filter((p) => !want || p.pos === want.pos || keep("trpoolall", { v: false }).v).map((p) => `<div class="tr-pp ${onBoard.has(p.id) ? "on" : ""} ${p.practice !== "full" ? "p-" + p.practice : ""}" draggable="true" data-act="tr-pp" data-pid="${p.id}"><span class="pos">${esc(p.pos)}</span><b>${playerLink(p.id, p.name, "Development")}</b><small>${esc(p.class)} · ${esc(p.role || "")}${p.practice !== "full" ? ` · ${esc(p.practice)}` : ""}</small>${range(p.ovr, null, { p: p.id, k: "ovr" })}</div>`).join("");
+  const poolHtml = pool.filter((p) => !want || p.pos === want.pos || keep("trpoolall", { v: false }).v).map((p) => `<div class="tr-pp ${onBoard.has(p.id) ? "on" : ""} ${p.practice !== "full" ? "p-" + p.practice : ""}" data-drag="1" data-name="${esc(p.name)}" data-act="tr-pp" data-pid="${p.id}"><span class="pos">${esc(p.pos)}</span><b>${playerLink(p.id, p.name, "Development")}</b><small>${esc(p.class)} · ${esc(p.role || "")}${p.practice !== "full" ? ` · ${esc(p.practice)}` : ""}</small>${range(p.ovr, null, { p: p.id, k: "ovr" })}</div>`).join("");
   const props = b.slots.some((s) => s.proposal && (!s.player || s.proposal.id !== s.player.id));
   const locked = b.slots.some((s) => !s.controls);
   const changes = b.slots.map((s) => (s.proposal && s.player && s.proposal.id !== s.player.id ? `<div class="item"><span class="when">${esc(s.slot)}</span><span>${playerLink(s.proposal.id, s.proposal.name, "Development")} over ${playerLink(s.player.id, s.player.name, "Development")} <small class="muted">${esc(s.proposal.practice === "full" ? s.proposal.class : s.proposal.practice)}</small></span></div>` : "")).join("");
@@ -1159,9 +1159,18 @@ function trBoardIds(b) {
   return b.slots.map((s) => (s.player ? s.player.id : null));
 }
 async function trPlace(boardKey, k, pid) {
-  const x = await api("boards", {});
+  let x;
+  try {
+    x = await api("boards", {});
+  } catch (e) {
+    toast("Nothing was saved: " + ((e && e.message) || e));
+    return;
+  }
   const b = x.boards.find((q) => q.key === boardKey);
-  if (!b) return;
+  if (!b || !b.slots[k]) {
+    toast("Nothing was saved: that depth chart isn't open any more. Open it again and retry.");
+    return;
+  }
   const ids = trBoardIds(b);
   const from = ids.indexOf(pid);
   // Two spots at one position swap; on a base board a man moved to another
@@ -1490,32 +1499,18 @@ document.addEventListener("input", (ev) => {
   const el = ev.target;
   if (el.dataset && el.dataset.act === "tr-dname" && TR.des) TR.des.d.name = el.value;
 });
-// Drag a player onto a spot (or one spot onto another to swap them).
-document.addEventListener("dragstart", (ev) => {
-  const el = ev.target.closest && ev.target.closest(".tr-pp,.tr-slot[data-pid]");
-  if (!el) return;
-  TR.drag = { pid: Number(el.dataset.pid) };
-  ev.dataTransfer.effectAllowed = "move";
-  try { ev.dataTransfer.setData("text/plain", el.dataset.pid); } catch (e) { /* some browsers */ }
-  el.classList.add("dragging");
-});
-document.addEventListener("dragend", (ev) => {
-  const el = ev.target.closest && ev.target.closest(".dragging");
-  if (el) el.classList.remove("dragging");
-  document.querySelectorAll(".tr-slot.over").forEach((x) => x.classList.remove("over"));
-});
-document.addEventListener("dragover", (ev) => {
-  const el = ev.target.closest && ev.target.closest(".tr-slot");
-  if (!el || !TR.drag || el.classList.contains("locked")) return;
-  ev.preventDefault();
-  document.querySelectorAll(".tr-slot.over").forEach((x) => x !== el && x.classList.remove("over"));
-  el.classList.add("over");
-});
-document.addEventListener("drop", async (ev) => {
-  const el = ev.target.closest && ev.target.closest(".tr-slot");
-  if (!el || !TR.drag) return;
-  ev.preventDefault();
-  const pid = TR.drag.pid;
-  TR.drag = null;
-  await trPlace(el.dataset.board, Number(el.dataset.k), pid);
+// Drag a player onto a spot (or one spot onto another to swap them), with
+// pointer events (pointerdrag.js): the Mac app's webview never delivered the
+// browser's own drop (playtest bug 14).
+pdragKind({
+  source: ".tr-pp[data-drag], .tr-slot[data-drag][data-pid]",
+  target: ".tr-slot",
+  over: "over",
+  nowhere: "Nothing changed: drop him on a spot on the board to move him.",
+  payload: (el) => ({ pid: Number(el.dataset.pid), name: el.dataset.name || "" }),
+  why: (el) => (el.classList.contains("locked") ? `${el.querySelector("small") ? el.querySelector("small").textContent : "That spot"} is the head coach's call, so it isn't yours to set.` : null),
+  drop: async (el, d) => {
+    if (Number(el.dataset.pid) === d.pid) { toast(`${d.name || "He"} is already there, so nothing changed.`); return; }
+    await trPlace(el.dataset.board, Number(el.dataset.k), d.pid);
+  },
 });

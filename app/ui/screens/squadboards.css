@@ -471,16 +471,14 @@ i.v-strength { background: var(--sb-strength); }
   .sb-plate, .sb-chip { transition: none; }
 }
 
-/* Drag and drop on the stadium (playtest bug 12): a spot is a drop target
+/* Drag and drop on the stadium (playtest bugs 12 and 14; the held man and the
+   cursor are pointerdrag.css): a spot is a drop target
    named by its slot; while a man is held, the spots that take him show, and
    the others (another position group, or the head coach's) step back. */
-.sb-plate[draggable="true"], .sb-dr[draggable="true"], .hp-alt[draggable="true"] { cursor: grab; -webkit-user-select: none; user-select: none; }
-.sb-plate[draggable="true"]:active, .sb-dr[draggable="true"]:active, .hp-alt[draggable="true"]:active { cursor: grabbing; }
 .sb-plate { -webkit-user-select: none; user-select: none; }
 .sb-plate:focus-visible { outline: 2px solid var(--sb-gold); outline-offset: 2px; }
 .sb-plate.sb-lock { cursor: not-allowed; }
 .sb-plate.sb-lock:hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12), 0 12px 24px rgba(0, 0, 0, .5); }
-.sb-dragging { opacity: .45; }
 .sb-stage.sb-dropping .sb-plate { transition: opacity .12s, box-shadow .12s; }
 .sb-stage.sb-dropping .sb-plate:not(.sb-no):not(.sb-over) { box-shadow: inset 0 0 0 1px rgba(241, 190, 72, .45), 0 12px 24px rgba(0, 0, 0, .5); }
 .sb-stage.sb-dropping .sb-plate.sb-no { opacity: .4; }
