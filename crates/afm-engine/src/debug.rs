@@ -222,6 +222,14 @@ pub fn before_f3(on: bool) {
     rec::BEFORE_F3.store(on, std::sync::atomic::Ordering::Relaxed);
 }
 
+/// Multiplies the money of `programs` by `factor` for a trial: a school
+/// that offers double, measured through signing day and the portal.
+pub fn rich(programs: Vec<usize>, factor: f64) {
+    let on = !programs.is_empty();
+    *rec::RICH.write().expect("the trial's list") = (programs, factor);
+    rec::RICH_ON.store(on, std::sync::atomic::Ordering::Relaxed);
+}
+
 /// What a transfer weighs money by over the recruit he was (None outside a
 /// portal window).
 pub fn transfer_money(w: &World, i: usize) -> Option<f64> {

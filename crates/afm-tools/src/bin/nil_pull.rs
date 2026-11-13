@@ -23,6 +23,11 @@
 //! `AFM_NIL_PULL=off` runs the game as it was before the fix (no lift for
 //! the clear top offer, a transfer weighing money as a recruit does), for
 //! a before and after on one build.
+//! `AFM_RICH=<times>[:conference]` (with `play`) multiplies the money of
+//! four schools all cycle long, the conference's fifth to eighth by
+//! prestige (default SEC), and prints what they signed and who came
+//! through the portal since the start: a school that offers double, end to
+//! end. `1` moves nothing and prints the same lines, for the base.
 
 use afm_engine::PlayingTime;
 use afm_engine::calendar::Date;
@@ -93,6 +98,8 @@ struct Pick {
     rich: Option<(usize, f64)>,
     commit: Option<usize>,
     money_rank: usize,
+    /// The moved schools on his list.
+    moved: Vec<usize>,
 }
 
 /// An entrant on the second date: his first choice, who paid the most.
@@ -103,6 +110,19 @@ struct Shopper {
     first: usize,
     rich: Option<(usize, f64)>,
     money_rank: usize,
+}
+
+/// The schools whose money `AFM_RICH` moves: the conference's fifth to
+/// eighth by prestige, and by how many times.
+fn moved_schools(w: &World) -> (Vec<usize>, f64) {
+    let Ok(spec) = std::env::var("AFM_RICH") else { return (Vec::new(), 1.0) };
+    let mut parts = spec.split(':');
+    let times: f64 = parts.next().and_then(|x| x.parse().ok()).expect("AFM_RICH=<times>[:conference]");
+    let conference = parts.next().unwrap_or("SEC");
+    let mut schools: Vec<usize> = (0..w.programs.len()).filter(|&j| w.programs[j].conference == conference).collect();
+    schools.sort_by(|&a, &b| w.programs[b].prestige.total_cmp(&w.programs[a].prestige).then(a.cmp(&b)));
+    let schools: Vec<usize> = schools.into_iter().skip(4).take(4).collect();
+    (schools, times)
 }
 
 fn play(args: &[String]) {
@@ -117,6 +137,14 @@ fn play(args: &[String]) {
     let first = args.get(4).map_or(Date::ymd(season, 11, 15), |s| date(s));
     let second = args.get(5).map_or(Date::ymd(season + 1, 1, 8), |s| date(s));
     let last = args.get(6).map_or(Date::ymd(season + 1, 2, 20), |s| date(s));
+    let (moved, times) = moved_schools(&w);
+    if times != 1.0 {
+        debug::rich(moved.clone(), times);
+    }
+    // Where every college player is today: a man somewhere else on the last
+    // date came through the portal.
+    let start: std::collections::HashMap<u32, usize> =
+        w.people.iter().filter(|p| p.stage == Stage::College).filter_map(|p| Some((p.player.id, p.college?))).collect();
     let t = std::time::Instant::now();
     let to = |w: &mut World, day: Date, name: &str| {
         while w.today < day {
@@ -150,6 +178,7 @@ fn play(args: &[String]) {
                 rich: richest(&money).map(|(n, x)| (schools[n], x)),
                 commit: p.cal.commit.map(|c| c.0),
                 money_rank: money_place(&desk::reason_weights(&w, i)),
+                moved: schools.iter().copied().filter(|j| moved.contains(j)).collect(),
             })
         })
         .collect();
@@ -175,6 +204,88 @@ fn play(args: &[String]) {
         .collect();
     to(&mut w, last, "");
     outcome(&w, class, &picks, &shoppers);
+    if !moved.is_empty() {
+        moved_outcome(&w, class, &picks, &start, &moved, times);
+    }
+}
+
+/// What the moved schools signed and who came through the portal since
+/// the start (`start`: where every college player was then).
+fn moved_outcome(
+    w: &World,
+    class: i32,
+    picks: &[Pick],
+    start: &std::collections::HashMap<u32, usize>,
+    moved: &[usize],
+    times: f64,
+) {
+    use afm_engine::world::data::Division;
+    let at: std::collections::HashMap<u32, usize> =
+        w.people.iter().enumerate().map(|(i, p)| (p.player.id, i)).collect();
+    let went = |id: u32| at.get(&id).and_then(|&i| w.people[i].cal.signed.map(|s| s.program).or(w.people[i].college));
+    // Every FBS class of the year by the services' score, best first.
+    let score = |j: usize| w.programs[j].class_scores.iter().rev().find(|c| c.0 == class).map_or(0.0, |c| c.1);
+    let mut ranked: Vec<usize> = (0..w.programs.len()).filter(|&j| w.programs[j].division == Division::FBS).collect();
+    ranked.sort_by(|&a, &b| score(b).total_cmp(&score(a)).then(a.cmp(&b)));
+    println!("\n## The four schools whose money was multiplied by {times}");
+    println!(
+        "| school | signed | blue-chips | 3-stars | class rank in FBS | open recruits with it on their list on the first date | signed there | transfers in | from FBS | their overall |"
+    );
+    println!("|---|---|---|---|---|---|---|---|---|---|");
+    let mut sum = [0usize; 7];
+    let mut all = Vec::new();
+    for &j in moved {
+        let class_of: Vec<&afm_engine::world::Person> = w
+            .people
+            .iter()
+            .filter(|p| p.class_of == class && p.cal.signed.map(|s| s.program).or(p.college) == Some(j))
+            .collect();
+        let open: Vec<&Pick> = picks.iter().filter(|p| p.commit.is_none() && p.moved.contains(&j)).collect();
+        let came: Vec<(&afm_engine::world::Person, usize)> = w
+            .people
+            .iter()
+            .filter(|p| p.stage == Stage::College && p.college == Some(j))
+            .filter_map(|p| start.get(&p.player.id).filter(|&&c| c != j).map(|&c| (p, c)))
+            .collect();
+        let overall: Vec<f64> = came.iter().map(|x| x.0.player.overall()).collect();
+        let row = [
+            class_of.len(),
+            class_of.iter().filter(|p| p.stars >= 4).count(),
+            class_of.iter().filter(|p| p.stars == 3).count(),
+            open.len(),
+            open.iter().filter(|p| went(p.id) == Some(j)).count(),
+            came.len(),
+            came.iter().filter(|x| w.programs[x.1].division == Division::FBS).count(),
+        ];
+        for (a, b) in sum.iter_mut().zip(row) {
+            *a += b;
+        }
+        println!(
+            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {:.1} |",
+            w.program_name(j),
+            row[0],
+            row[1],
+            row[2],
+            ranked.iter().position(|&x| x == j).map_or(0, |n| n + 1),
+            row[3],
+            row[4],
+            row[5],
+            row[6],
+            mean(overall.iter().copied())
+        );
+        all.extend(overall);
+    }
+    println!(
+        "| all four | {} | {} | {} | | {} | {} | {} | {} | {:.1} |",
+        sum[0],
+        sum[1],
+        sum[2],
+        sum[3],
+        sum[4],
+        sum[5],
+        sum[6],
+        mean(all.iter().copied())
+    );
 }
 
 /// Where the recruits and entrants of the two dates went by the last one.
@@ -231,7 +342,7 @@ fn outcome(w: &World, class: i32, picks: &[Pick], shoppers: &[Shopper]) {
         }
     }
     let mut conf: Vec<(String, usize)> = by_conf.into_iter().collect();
-    conf.sort_by(|a, b| b.1.cmp(&a.1));
+    conf.sort_by_key(|c| std::cmp::Reverse(c.1));
     println!(
         "\nBlue-chips (4 and 5 stars) signed: {blue}. By conference: {}.",
         conf.iter().take(8).map(|c| format!("{} {}", c.0, c.1)).collect::<Vec<_>>().join(", ")
@@ -380,9 +491,9 @@ fn recruits(w: &World, conference: &str) {
             && let Some((rich, _)) = richest(&money)
         {
             let leader = (0..schools.len()).max_by(|&a, &b| appeals[a].total_cmp(&appeals[b]));
-            for k in 0..=(money_place(&weights) == 0) as usize {
-                led[k][0] += 1;
-                led[k][1] += (leader == Some(rich)) as usize;
+            for row in led.iter_mut().take(1 + (money_place(&weights) == 0) as usize) {
+                row[0] += 1;
+                row[1] += (leader == Some(rich)) as usize;
             }
         }
         // One school's money moved: `n` its place on his list (the list's

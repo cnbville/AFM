@@ -5874,8 +5874,9 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             usual
         };
         // From July 2025 the collective's part goes through NIL Go (B18).
-        cleared(prog, w.today, money, nil_go_top_recruit(p), go_free == Some(j))
-            + super::ncaa::booster_cash(prog, pool[k].person)
+        (cleared(prog, w.today, money, nil_go_top_recruit(p), go_free == Some(j))
+            + super::ncaa::booster_cash(prog, pool[k].person))
+            * rich(j)
     };
     // The next offer a staff makes: (position, walk-on spot).
     let next_offer = |j: usize,
@@ -8402,7 +8403,11 @@ fn suitors(
             // Your staff working the portal for you names no money: only
             // you do (Cain 2026-11-08, "I want the only offering control"),
             // so a man it brings in weighs the place alone.
-            let nil = if yours == Some(j) { 0.0 } else { (school + coll) * super::legacy::college::split_q(wr, j, 1) };
+            let nil = if yours == Some(j) {
+                0.0
+            } else {
+                (school + coll) * super::legacy::college::split_q(wr, j, 1) * rich(j)
+            };
             // Its staff calls him within hours of his name going in (portal
             // recruiting): his position coach's pitch, as yours makes it.
             let u = utility(norms, &wr.high_schools, p, &p.family.own_wants, &wr.programs[j], wr.year, nil, 0.6, 1.0)
@@ -8479,11 +8484,12 @@ fn transfer_money(w: &World, mk: &PortalMarket, i: usize) -> f64 {
     let from = p.college.map_or(Division::FBS, |c| w.programs[c].division);
     let median = mk.medians[Division::FBS as usize][p.player.position.index()];
     let play = p.last_performance.unwrap_or(p.player.overall()) - competition_discount(from);
-    transfer_more(
-        super::eligibility::seasons_left(p, from, mk.season),
-        median.is_finite().then(|| play - median),
-        from == Division::FBS,
-    )
+    // The season just played counts on January 2 (`settle_eligibility`): a
+    // December entrant has it behind him already.
+    let used = p.college_seasons + p.cal.count_pending as u32;
+    let clock = (super::eligibility::clock_last(p) - mk.season + 1).max(0) as u32;
+    let left = super::eligibility::seasons_allowed(mk.season, from).saturating_sub(used).min(clock);
+    transfer_more(left, median.is_finite().then_some(play - median), from == Division::FBS)
 }
 
 /// [`transfer_money`] from his situation: the seasons he has `left`, his
@@ -9598,7 +9604,7 @@ pub(crate) fn nil_payouts(w: &mut World) {
 /// board, without a rising program's reach or a booster's cash).
 pub(crate) fn usual_nil_offer(w: &World, j: usize, i: usize) -> f64 {
     let (school, collective) = usual_nil_parts(w, j, i);
-    school + collective
+    (school + collective) * rich(j)
 }
 
 /// The collective's usual NIL offer to a recruit from program `j` in its two
@@ -9808,6 +9814,32 @@ fn before_f3() -> bool {
     #[cfg(not(feature = "debug"))]
     {
         false
+    }
+}
+
+/// Trial tooling only: the programs whose money is multiplied, and by what
+/// (a school that offers double, measured through signing day and the
+/// portal by `nil_pull`). The game never builds it.
+#[cfg(feature = "debug")]
+pub(crate) static RICH: std::sync::RwLock<(Vec<usize>, f64)> = std::sync::RwLock::new((Vec::new(), 1.0));
+/// Whether [`RICH`] names anyone: the only read a trial without it pays.
+#[cfg(feature = "debug")]
+pub(crate) static RICH_ON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// What program `j`'s money is multiplied by in a trial (1 in the game).
+fn rich(j: usize) -> f64 {
+    #[cfg(feature = "debug")]
+    {
+        if !RICH_ON.load(std::sync::atomic::Ordering::Relaxed) {
+            return 1.0;
+        }
+        let r = RICH.read().expect("the trial's list");
+        if r.0.contains(&j) { r.1 } else { 1.0 }
+    }
+    #[cfg(not(feature = "debug"))]
+    {
+        let _ = j;
+        1.0
     }
 }
 
