@@ -1723,8 +1723,13 @@ function linksHtml(p) {
 function readCard(p) {
   const pot = p.potential;
   const who = p.mine ? "Your position coach" : "Your scouts";
-  return `<div class="readcard"><div class="rc-top"><div><div class="st-label">${esc(who)}'s read</div><div class="rc-tier">${pot ? esc(pot.tier) : p.ovr ? "Rated, not projected" : "Not scouted"}</div></div>${p.level_rating ? `<div class="lvl" data-h3="${p.id}" tabindex="0"><b>${esc(lvlParts(p.level_rating).n)}</b><small>${esc(lvlParts(p.level_rating).words)}</small></div>` : ""}</div>
-    ${pot ? `<p class="sub">Staff ${esc(words(pot.sure))}.${pot.hints && pot.hints.length ? " " + pot.hints.map(esc).join(". ") + "." : ""}</p>` : `<p class="sub">${p.ovr ? "Your staff rates what he is now; nobody has projected what he could become." : "Nobody on your staff has seen him. Only his measurables and public profile are known."}</p>`}
+  // Own potential: your own read leads from your first own look; your
+  // staff's line stays under it.
+  const mine = potMine(pot);
+  const label = mine ? "Your own read" : `${who}'s read`;
+  const staffLine = mine && pot.staff ? ` ${esc(who)}: ${esc(pot.staff.tier)}, ${esc(pot.staff.sure)}.` : mine ? ` ${esc(who)} ${p.mine ? "hasn't" : "haven't"} projected him.` : "";
+  return `<div class="readcard"><div class="rc-top"><div><div class="st-label">${esc(label)}</div><div class="rc-tier">${pot ? esc(pot.tier) : p.ovr ? "Rated, not projected" : "Not scouted"}</div></div>${p.level_rating ? `<div class="lvl" data-h3="${p.id}" tabindex="0"><b>${esc(lvlParts(p.level_rating).n)}</b><small>${esc(lvlParts(p.level_rating).words)}</small></div>` : ""}</div>
+    ${pot ? `<p class="sub">${mine ? "You're" : "Staff"} ${esc(words(pot.sure))}.${pot.hints && pot.hints.length ? " " + pot.hints.map(esc).join(". ") + "." : ""}${staffLine}</p>` : `<p class="sub">${p.ovr ? "Your staff rates what he is now; nobody has projected what he could become." : "Nobody on your staff has seen him. Only his measurables and public profile are known."}</p>`}
     <div class="kv"><dt>Rating now</dt><dd>${range(p.ovr, who.toLowerCase(), { p: p.id, k: "ovr" })}</dd><dt>Your own read</dt><dd>${yourRange(p.yours, p.yours_looks)}</dd><dt>Mood</dt><dd>${esc(p.mood)}</dd><dt>Status</dt><dd>${esc(p.status || "Available")}</dd>${p.born ? `<dt>Born</dt><dd>${esc(p.born)} <small class="sub">(${p.age})</small></dd>` : ""}${p.on_camera ? `<dt>On camera</dt><dd>${esc(p.on_camera)}</dd>` : ""}${p.followers ? `<dt>Followers</dt><dd>${fans(p.followers)}</dd>` : ""}${p.hs_nil ? hsNil(p.hs_nil) : p.brand ? `<dt>Ads and deals</dt><dd>${money(p.brand)} <small class="sub">a year, reported</small></dd>` : ""}</div></div>`;
 }
 // A high schooler's NIL line (N3): his deals a year and who pays, then his
@@ -1862,7 +1867,7 @@ PLAYER_TABS.push({
     const ahead = x.ahead.length ? table("l7ahead", [{ k: "name", t: "Ahead of him the year he arrives", l: true, f: (r) => `${playerLink(r.id, r.name)} <small class="sub">${esc(r.class)}</small>` }, { k: "read", t: "Staff read", v: (r) => mid(r.read), f: (r) => range(r.read, null, { p: r.id, k: "ovr" }) }, { k: "leaves", t: "Through" }], x.ahead, { tools: false }) : `<div class="empty">Nobody ahead of him at ${esc(p.pos)} the year he arrives.</div>`;
     return `<div class="grid2"><div class="panel"><h2>His path here <small>arrives ${x.arrives} · ${x.starters} starter${x.starters === 1 ? "" : "s"} at ${esc(p.pos)}</small></h2>
       <p class="bigline">${esc(x.when)}${x.start ? ` <small class="sub">(${x.start})</small>` : ""}</p>${x.transfer_risk ? '<p class="sub">A kid this rated who sits two years often transfers.</p>' : ""}
-      <div class="kv"><dt>Fit</dt><dd>${esc(x.fit_words)} <small class="sub">${esc(words(x.scheme))}</small></dd><dt>Who teaches him</dt><dd>${x.teacher ? coachLink(x.teacher.id, x.teacher.name) : "Nobody yet"}${x.takes ? ` · he ${esc(x.takes)}` : ""}</dd><dt>Best for us</dt><dd><b>${Math.round(x.for_us)}</b> <small class="sub">his read, less the years he waits, plus his fit</small></dd></div></div>
+      <div class="kv"><dt>Fit</dt><dd>${esc(x.fit_words)} <small class="sub">${esc(words(x.scheme))}</small></dd><dt>Who teaches him</dt><dd>${x.teacher ? coachLink(x.teacher.id, x.teacher.name) : "Nobody yet"}${x.takes ? ` · he ${esc(x.takes)}` : ""}</dd><dt>Best for us</dt><dd><b>${Math.round(x.for_us)}</b> <small class="sub">${x.whose === "yours" ? "your own read" : "his read"} and its road, less the years he waits, plus his fit</small></dd></div></div>
       <div class="panel">${ahead}</div></div>`;
   },
 });

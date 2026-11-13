@@ -47,6 +47,7 @@ pub mod memory;
 pub mod notebook;
 pub mod quick_filter;
 pub mod reads;
+pub mod road;
 pub mod setup;
 pub mod tallies;
 pub mod views;
