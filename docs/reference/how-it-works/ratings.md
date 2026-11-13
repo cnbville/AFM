@@ -1,6 +1,6 @@
 # Ratings: how it works today
 
-Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28 and lane 6 on 2026-10-29; the kicking spots at placement (minor bug 165) at 3817c01 on 2026-10-31.
+Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28 and lane 6 on 2026-10-29; the kicking spots at placement (minor bug 165) at 3817c01 on 2026-10-31. The Attributes tab screen (attributes page, lane 3) at 695d72d on 2026-11-13.
 
 ## Quick answers
 
@@ -144,6 +144,21 @@ Draft boards use `PositionAligner::for_draft`: K, P and LS are read off their ow
 - Never made up after the fact: a new career, or a save from before lane 9A, marks the season it starts in and keeps from the next turn (`after_days`, `kept_through` 0). A second read of the same season replaces the first (`world/seat.rs`, `Career::keep_read`).
 - Where it shows: the career arc (the Career tab's chart and table), the shape tab's "since the end of" card and the body tab's weight over time (`lane_squadboards/arc.rs`, `shape.rs`, `body.rs`).
 - A season row of the record is dated from his birth date: the engine age on a row is his age on 31 August as that season starts (`lane_squadboards/arc.rs`, `record_season`; `calendar/born.rs`).
+
+## The Attributes tab (attributes page, lane 3)
+
+The screen is `app/ui/screens/attrs.js` (`attrTab`; `PT.Attributes` in `screens/core.js` calls it) and `attrs.css`. It draws from one command, `attr_view {id, with?}` (lane 2), and computes the strip in the browser.
+
+- Two views: "In play at <position>" (default) shows the position's eight families from `default_view.families` plus an "Also in play" card with a short reason each; "All 67" groups every skill by `group`, the unused ones dimmed under "Not part of his job". The choice sits in `keep("pattr")` and in the settings (`prefs.attrView`), so it survives leaving the page and a restart (`attrs.js`, `attrTab`, `CORE_MORE.attrview`).
+- A row: a 0-99 track with the read's bar, a faint fill up to its low end, a faint burgundy zone behind the elite mark, a thin starter tick and a burgundy elite tick (the position's marks at his level, `starter` and `elite` from the payload). Skills the payload has no marks for (not in play) draw no ticks (`attrs.js`, `attrRow`).
+- Colour: one smooth gradient on the read's middle, `u = (mid - starter) / max(3, elite - starter)`: grey at -0.75 and below, lighter grey at -0.4, white at 0 (the starter mark), red at 0.5, bright burgundy `#e01c54` at 1.0 and above, linear between. The light theme swaps white for ink (`attrs.js`, `ATTR_STOPS`, `attrRgb`, `attrU`).
+- Whose read judges: `judge` from the payload. "mine" draws his own read as the solid bar, the number and the colour, with the staff's read as an outlined bar and a small range under the number. "staff" draws the staff's read solid and writes "coaches" (or "scouts" off your own team) under the number. "none" is a "Not seen" row. The "Coaches' read" switch hides the outlined bar and small range; the "coaches" label stays (`attrRow`).
+- Family header: the average `u` of its seen skills as a word (Elite from 0.9, Good starter from 0.25, Starter level from -0.25, Short of a starter from -0.65, else Backup level), the family's net move as an arrow, and "n of m seen" when only some are (`attrBand`, `attrBandWord`).
+- Arrows: `moved {dir, by, from_season}` per skill, one chevron under 5 points, two from 5, a dash when it held (`attrMove`, `attrArrow`).
+- The strip (default view only): Strongest against a starter (top three by middle minus starter, only above it), Short of a starter (bottom three, "N under"), Moved since last season (largest three), and "What he could become": "Your read" ("Not formed yet" until an own potential read exists) over the staff's words (`attrStrip`, `attrPotCell`). Each name scrolls to its row (`CORE_MORE.attrjump`).
+- A partly scouted recruit (at least 3 and 20% of the in-play skills "Not seen") gets the recruit strip instead: Best of what you have seen, Not seen yet (N of M), Worth another look (the widest reads, 8 points or more, as ±half the width) and the same potential cell (`attrStrip`).
+- Compare: "Compare with..." lists your players from `my_players` (the ones already picked in the compare list first), loads the second player's `attr_view` beside the first, draws his range as a lighter bar under each row with the signed gap (middle minus middle) in place of the arrow, and the strip becomes Ahead of / Behind / Level with him (gaps of 3 or more, 2 or less) (`CORE_MORE.attrwith`, `attrCompareStrip`). The second player is kept per page in `keep("pattr").with`.
+- Hover: each bar carries `data-rr` so the existing range card opens (`rr_card`), now headed "Your read" or "Your coaches' read" and with a weight line from `weight_pct`: "Counts about 4% of an EDGE's rating" (`ratings.js`, `rrPlayerHtml`; `attrs.js`, `attrWeightLine`).
 
 ## trait_norm and the 1-20 reads in the engine
 
