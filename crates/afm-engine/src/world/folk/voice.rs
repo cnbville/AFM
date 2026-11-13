@@ -79,6 +79,10 @@ const BANKS: &[&str] = &[
     include_str!("../../../data/lines/agents_run.txt"),
     include_str!("../../../data/lines/room_run.txt"),
     include_str!("../../../data/lines/boosters_run.txt"),
+    // The recruiting one-on-one talks (Cain 2026-11-12): calls, home visits
+    // and portal calls, written through the Batches API by tools/linebank
+    // (`recruit20k.py`). Design: docs/design/recruit-talk-lines.md.
+    include_str!("../../../data/lines/recruit_talks_run.txt"),
 ];
 
 /// The facts that gate a line which denies (`blameless`) or admits

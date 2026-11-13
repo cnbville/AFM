@@ -470,3 +470,20 @@ i.v-strength { background: var(--sb-strength); }
 @media (prefers-reduced-motion: reduce) {
   .sb-plate, .sb-chip { transition: none; }
 }
+
+/* Drag and drop on the stadium (playtest bug 12): a spot is a drop target
+   named by its slot; while a man is held, the spots that take him show, and
+   the others (another position group, or the head coach's) step back. */
+.sb-plate[draggable="true"], .sb-dr[draggable="true"], .hp-alt[draggable="true"] { cursor: grab; -webkit-user-select: none; user-select: none; }
+.sb-plate[draggable="true"]:active, .sb-dr[draggable="true"]:active, .hp-alt[draggable="true"]:active { cursor: grabbing; }
+.sb-plate { -webkit-user-select: none; user-select: none; }
+.sb-plate:focus-visible { outline: 2px solid var(--sb-gold); outline-offset: 2px; }
+.sb-plate.sb-lock { cursor: not-allowed; }
+.sb-plate.sb-lock:hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12), 0 12px 24px rgba(0, 0, 0, .5); }
+.sb-dragging { opacity: .45; }
+.sb-stage.sb-dropping .sb-plate { transition: opacity .12s, box-shadow .12s; }
+.sb-stage.sb-dropping .sb-plate:not(.sb-no):not(.sb-over) { box-shadow: inset 0 0 0 1px rgba(241, 190, 72, .45), 0 12px 24px rgba(0, 0, 0, .5); }
+.sb-stage.sb-dropping .sb-plate.sb-no { opacity: .4; }
+.sb-stage.sb-dropping .sb-plate.sb-over { z-index: 4; box-shadow: inset 0 0 0 2px var(--sb-gold, #f1be48), 0 14px 28px rgba(0, 0, 0, .55); }
+.sb-linenote { margin-top: 2px; }
+@media (prefers-reduced-motion: reduce) { .sb-stage.sb-dropping .sb-plate { transition: none; } }

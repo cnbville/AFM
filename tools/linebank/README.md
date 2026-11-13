@@ -32,6 +32,17 @@ Each round sends one write batch (one part per request, up to 120 versions, at m
 
 **State** lives in `/mnt/project-files/afm/line-bank-api/run/` (`--state`): `state.json` (batch ids, spend, counts, and which step each batch has reached), `pool/<part>.txt` (kept lines), `replies/<batch>.jsonl` (each batch's replies), `kept/<batch>.json` (a write batch's lines that passed the code check), `dropped/<batch>-code.tsv` and `-checker.tsv` (every dropped line and why), `log.txt` and `report.md` (counts, keep rate, cost and sample lines per part). Every step is saved before the next, so a run that stops anywhere (a machine restart) picks up where it was: `run.py run` first finishes any batch in flight and any lines not yet checked or pooled, and adds nothing twice.
 
+## The recruiting talks job (2026-11-12)
+
+A second job on the same machinery (Cain: 20,000 versions for the recruiting one-on-ones): `recruit20k.py` holds its 96 parts and targets, `briefs/recruittalks.md` its rules, and `run.py --job recruit20k` runs it into its own state folder (`/mnt/project-files/afm/line-bank-api/recruit20k/`) and its own file, `crates/afm-engine/data/lines/recruit_talks_run.txt` (`merge` writes only that file for a job). The family is `recruittalks`; its speaker is the union `recruit` (`parts.py`: both sides' tags; a line tagged for one side is said only by that side, an untagged line by both). Differences from the first run:
+
+- Parts carry facets (`FACETS` in `recruit20k.py`): each request covers three of them, 60 lines at most, so a narrow part does not come back as near copies.
+- A `--parts key:count,...` run fills only those parts (their pool counts against the given count): use it to aim a round at parts that are still empty, since a cap-trimmed round otherwise takes the biggest shortfalls first.
+- `check.py` adds: no untagged we, us or our, no coach names, no tag word written into a line, and one key phrase never used as a refrain (a phrase shared by too many lines of a part).
+- A level never reaches this family: the tag `college` means the transfer side, and the level-word rules are off for it.
+- The worst case of a round has to fit under `--cap` minus $2, so a round trimmed by the cap is the last; start `run` again to continue. The cost came to $10.92 for 12,253 versions (`docs/design/recruit-talk-lines.md`).
+- `python3 recruit20k.py --doc <path>` writes the part list (who says each key, what it takes as true, its facts).
+
 ## After the run
 
 1. `run.py merge`, then empty `TODAY` in `crates/afm-engine/src/tests/line_seasons.rs` so every family meets the 2% bar.

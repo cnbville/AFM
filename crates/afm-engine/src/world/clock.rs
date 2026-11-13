@@ -151,7 +151,7 @@ fn hs_carousel_day(y: &YearDates) -> Date {
 /// The day June transfers happen: each state's transfer season, after the
 /// school year ends.
 fn hs_transfer_day(y: &YearDates) -> Date {
-    Date::ymd(y.season, 6, 15)
+    hs_year::transfer_day(y.season)
 }
 
 /// Bodies grow by the date (update 3, A16): each person's years past his
@@ -543,7 +543,7 @@ fn office(w: &mut World, d: Date, y: &YearDates) {
     let rule = w.rules.transfer;
     // The season's eligibility settles before a window that opens the same
     // day reads it (lane 10: a burned redshirt counted only after).
-    if d == Date::ymd(season + 1, 1, 2) {
+    if d == crate::calendar::anchors::eligibility_day(season) {
         college::settle_eligibility(w);
     }
     for (open, close, which) in portal_windows(season, rule) {
