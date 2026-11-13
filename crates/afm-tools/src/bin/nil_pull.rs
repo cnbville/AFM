@@ -3,20 +3,26 @@
 //! money wasn't in a player's first ten). For every recruit of the class
 //! signing next and every picked school on his list, the school's money is
 //! set to 0, 1, 1.5, 2 and 3 times the best money any other school on his
-//! list offers, and its place on his list is read again by the same appeal
-//! his race and his signing day weigh (`recruiting::appeal`). The same for
-//! portal entrants in an open window (`recruiting::portal_race`). Results
-//! by what he weighs: money first of his six reasons, among his first
-//! three, or lower.
+//! list offers, and every school's place on his list is read again by the
+//! same appeal his race and his signing day weigh (`recruiting::appeals`).
+//! The same for portal entrants in an open window
+//! (`recruiting::portal_race`). Results by what he weighs: money first of
+//! his six reasons, among his first three, or lower.
 //!
-//! Usage: nil_pull play <world> <out dir> [recruit date] [portal date]
+//! Usage: nil_pull play <world> <out dir> [recruit date] [portal date] [last date]
 //!          plays the world on (games on the stand-in) and saves it on each
-//!          date (`recruits.afmworld`, `portal.afmworld`), so a change is
-//!          measured on the very same recruits and entrants.
+//!          of the first two dates (`recruits.afmworld`, `portal.afmworld`;
+//!          an out dir of "-" saves nothing), so a change is measured on
+//!          the very same recruits and entrants. On the last date it prints
+//!          where they went: who signed with the most money on his list,
+//!          the blue-chips by conference, where the entrants landed.
 //!        nil_pull recruits <world> [conference]
 //!        nil_pull portal <world> [conference] [most entrants]
 //! Dates are yyyy-mm-dd. The conference (default SEC) names the schools
 //! whose money is moved; "power" takes every power-conference school.
+//! `AFM_NIL_PULL=off` runs the game as it was before the fix (no lift for
+//! the clear top offer, a transfer weighing money as a recruit does), for
+//! a before and after on one build.
 
 use afm_engine::PlayingTime;
 use afm_engine::calendar::Date;
@@ -41,25 +47,12 @@ fn read(path: &str) -> World {
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if std::env::var("AFM_NIL_PULL").is_ok_and(|s| s == "off") {
+        debug::before_f3(true);
+        println!("(the game as it was before the fix)");
+    }
     match args.get(1).map(String::as_str) {
-        Some("play") => {
-            let mut w = read(&args[2]);
-            w.options.engine_from = Some(2100);
-            let out = Path::new(&args[3]);
-            std::fs::create_dir_all(out).expect("the folder");
-            let season = w.today.year();
-            let first = args.get(4).map_or(Date::ymd(season, 11, 15), |s| date(s));
-            let second = args.get(5).map_or(Date::ymd(season + 1, 1, 8), |s| date(s));
-            let t = std::time::Instant::now();
-            for (day, name) in [(first, "recruits"), (second, "portal")] {
-                while w.today < day {
-                    w.advance_day();
-                }
-                let to = out.join(format!("{name}.afmworld"));
-                afm_engine::save::write_world(&w, &to, "nil_pull", "nil_pull", None).expect("write");
-                eprintln!("{} saved on {} at {:.0}s", to.display(), w.today.pretty(), t.elapsed().as_secs_f64());
-            }
-        }
+        Some("play") => play(&args),
         Some("recruits") => recruits(&read(&args[2]), args.get(3).map_or("SEC", String::as_str)),
         Some("portal") => portal(
             &read(&args[2]),
@@ -72,52 +65,246 @@ fn main() {
     }
 }
 
+/// The schools with an offer out to a recruit: his list.
+fn list_of(p: &afm_engine::world::Person) -> Vec<usize> {
+    let mut schools: Vec<usize> = p.cal.offers.iter().copied().chain(p.cal.early_offers.iter().map(|o| o.0)).collect();
+    if let Some(c) = p.cal.commit {
+        schools.push(c.0);
+    }
+    schools.sort_unstable();
+    schools.dedup();
+    schools
+}
+
+/// The place of the best money in `money` when it is $1,000 or more, and
+/// how many times the next it is.
+fn richest(money: &[f64]) -> Option<(usize, f64)> {
+    let at = (0..money.len()).max_by(|&a, &b| money[a].total_cmp(&money[b]))?;
+    let next = money.iter().enumerate().filter(|x| x.0 != at).map(|x| *x.1).fold(0.0, f64::max);
+    (money[at] >= 1_000.0).then(|| (at, money[at] / next.max(1_000.0)))
+}
+
+/// A recruit on the first date: who led his race, who offered the most.
+struct Pick {
+    id: u32,
+    stars: u8,
+    leader: usize,
+    /// The school with the most money on his list, and how many times the next offer.
+    rich: Option<(usize, f64)>,
+    commit: Option<usize>,
+    money_rank: usize,
+}
+
+/// An entrant on the second date: his first choice, who paid the most.
+struct Shopper {
+    id: u32,
+    from: usize,
+    division: afm_engine::world::data::Division,
+    first: usize,
+    rich: Option<(usize, f64)>,
+    money_rank: usize,
+}
+
+fn play(args: &[String]) {
+    let mut w = read(&args[2]);
+    w.options.engine_from = Some(2100);
+    let out = Path::new(&args[3]);
+    let save = args[3] != "-";
+    if save {
+        std::fs::create_dir_all(out).expect("the folder");
+    }
+    let season = w.today.year();
+    let first = args.get(4).map_or(Date::ymd(season, 11, 15), |s| date(s));
+    let second = args.get(5).map_or(Date::ymd(season + 1, 1, 8), |s| date(s));
+    let last = args.get(6).map_or(Date::ymd(season + 1, 2, 20), |s| date(s));
+    let t = std::time::Instant::now();
+    let to = |w: &mut World, day: Date, name: &str| {
+        while w.today < day {
+            w.advance_day();
+        }
+        eprintln!("{} at {:.0}s", w.today.pretty(), t.elapsed().as_secs_f64());
+        if save && !name.is_empty() {
+            let file = out.join(format!("{name}.afmworld"));
+            afm_engine::save::write_world(w, &file, "nil_pull", "nil_pull", None).expect("write");
+        }
+    };
+    to(&mut w, first, "recruits");
+    let class = desk::next_class(&w);
+    let picks: Vec<Pick> = w
+        .people
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.stage == Stage::HighSchool && p.class_of == class && p.cal.signed.is_none())
+        .filter_map(|(i, p)| {
+            let schools = list_of(p);
+            if schools.len() < 2 {
+                return None;
+            }
+            let appeals = debug::recruit_appeals(&w, i, &schools, None);
+            let money: Vec<f64> = schools.iter().map(|&j| debug::recruit_money(&w, j, i)).collect();
+            let leader = (0..schools.len()).max_by(|&a, &b| appeals[a].total_cmp(&appeals[b]))?;
+            Some(Pick {
+                id: p.player.id,
+                stars: p.stars,
+                leader: schools[leader],
+                rich: richest(&money).map(|(n, x)| (schools[n], x)),
+                commit: p.cal.commit.map(|c| c.0),
+                money_rank: money_place(&desk::reason_weights(&w, i)),
+            })
+        })
+        .collect();
+    to(&mut w, second, "portal");
+    let shoppers: Vec<Shopper> = w
+        .people
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.stage == Stage::College && p.cal.portal.is_some_and(|e| !e.held && e.entered <= w.today))
+        .filter_map(|(i, p)| {
+            let race = debug::portal_race_with(&w, i, None);
+            let from = p.college?;
+            let money: Vec<f64> = race.iter().map(|r| r.2).collect();
+            Some(Shopper {
+                id: p.player.id,
+                from,
+                division: w.programs[from].division,
+                first: race.first()?.0,
+                rich: richest(&money).map(|(n, x)| (race[n].0, x)),
+                money_rank: money_place(&debug::transfer_weights(&w, i)),
+            })
+        })
+        .collect();
+    to(&mut w, last, "");
+    outcome(&w, class, &picks, &shoppers);
+}
+
+/// Where the recruits and entrants of the two dates went by the last one.
+fn outcome(w: &World, class: i32, picks: &[Pick], shoppers: &[Shopper]) {
+    use afm_engine::world::data::Division;
+    let at: std::collections::HashMap<u32, usize> =
+        w.people.iter().enumerate().map(|(i, p)| (p.player.id, i)).collect();
+    let pct = |n: usize, of: usize| 100.0 * n as f64 / of.max(1) as f64;
+    println!("# Where they went by {}", w.today.pretty());
+    println!("\n## The class of {class}: recruits with two or more schools after them on the first date");
+    println!("| who | recruits | signed | with the most money | with his leader then | flipped from his commitment |");
+    println!("|---|---|---|---|---|---|");
+    let row = |name: &str, f: &dyn Fn(&Pick) -> bool| {
+        let v: Vec<&Pick> = picks.iter().filter(|p| f(p)).collect();
+        let signed: Vec<(&Pick, usize)> = v
+            .iter()
+            .filter_map(|p| {
+                let x = &w.people[*at.get(&p.id)?];
+                Some((*p, x.cal.signed.map(|s| s.program).or(x.college)?))
+            })
+            .collect();
+        let rich = signed.iter().filter(|(p, s)| p.rich.is_some_and(|r| r.0 == *s)).count();
+        let had_rich = signed.iter().filter(|(p, _)| p.rich.is_some()).count();
+        let led = signed.iter().filter(|(p, s)| p.leader == *s).count();
+        let held = signed.iter().filter(|(p, _)| p.commit.is_some()).count();
+        let flipped = signed.iter().filter(|(p, s)| p.commit.is_some_and(|c| c != *s)).count();
+        println!(
+            "| {name} | {} | {} | {:.0}% of {had_rich} | {:.0}% | {:.0}% of {held} |",
+            v.len(),
+            signed.len(),
+            pct(rich, had_rich),
+            pct(led, signed.len()),
+            pct(flipped, held)
+        );
+    };
+    row("everyone", &|_| true);
+    row("5-stars", &|p| p.stars == 5);
+    row("4-stars", &|p| p.stars == 4);
+    row("3-stars", &|p| p.stars == 3);
+    row("money is his first reason", &|p| p.money_rank == 0);
+    row("money is his second or third", &|p| (1..=2).contains(&p.money_rank));
+    row("money is fourth or lower", &|p| p.money_rank >= 3);
+    row("the most money is 1.5 times the next or more", &|p| p.rich.is_some_and(|r| r.1 >= 1.5));
+    row("the most money is under 1.2 times the next", &|p| p.rich.is_some_and(|r| r.1 < 1.2));
+    // The blue-chips by conference, and the biggest classes of them.
+    let mut by_conf: std::collections::BTreeMap<String, usize> = Default::default();
+    let mut by_prog: std::collections::HashMap<usize, usize> = Default::default();
+    let mut blue = 0usize;
+    for p in w.people.iter().filter(|p| p.class_of == class && p.stars >= 4) {
+        if let Some(j) = p.cal.signed.map(|s| s.program).or(p.college) {
+            blue += 1;
+            *by_conf.entry(w.programs[j].conference.clone()).or_default() += 1;
+            *by_prog.entry(j).or_default() += 1;
+        }
+    }
+    let mut conf: Vec<(String, usize)> = by_conf.into_iter().collect();
+    conf.sort_by(|a, b| b.1.cmp(&a.1));
+    println!(
+        "\nBlue-chips (4 and 5 stars) signed: {blue}. By conference: {}.",
+        conf.iter().take(8).map(|c| format!("{} {}", c.0, c.1)).collect::<Vec<_>>().join(", ")
+    );
+    let mut prog: Vec<(usize, usize)> = by_prog.into_iter().collect();
+    prog.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    println!(
+        "The ten biggest blue-chip classes hold {:.0}% of them: {}.",
+        pct(prog.iter().take(10).map(|x| x.1).sum(), blue),
+        prog.iter().take(10).map(|x| format!("{} {}", w.program_name(x.0), x.1)).collect::<Vec<_>>().join(", ")
+    );
+    // The ten biggest collectives' share of the blue-chips.
+    let mut rich: Vec<usize> = (0..w.programs.len()).collect();
+    rich.sort_by(|&a, &b| w.programs[b].collective.budget.total_cmp(&w.programs[a].collective.budget));
+    let top: std::collections::HashSet<usize> = rich.into_iter().take(10).collect();
+    println!(
+        "The ten biggest collectives signed {:.0}% of them.",
+        pct(prog.iter().filter(|x| top.contains(&x.0)).map(|x| x.1).sum(), blue)
+    );
+
+    println!("\n## The portal: entrants shopping on the second date");
+    println!(
+        "| who | entrants | landed | at the most money | at his first choice then | at FBS | at FCS | lower | back or still looking | left football |"
+    );
+    println!("|---|---|---|---|---|---|---|---|---|---|");
+    let row = |name: &str, f: &dyn Fn(&Shopper) -> bool| {
+        let v: Vec<&Shopper> = shoppers.iter().filter(|s| f(s)).collect();
+        let (mut landed, mut rich, mut had_rich, mut first, mut stay, mut gone) = (0, 0, 0, 0, 0, 0);
+        let mut level = [0usize; 3];
+        for s in &v {
+            let Some(x) = at.get(&s.id).map(|&i| &w.people[i]) else {
+                gone += 1;
+                continue;
+            };
+            match x.college {
+                Some(j) if j != s.from && x.stage == Stage::College => {
+                    landed += 1;
+                    had_rich += s.rich.is_some() as usize;
+                    rich += s.rich.is_some_and(|r| r.0 == j) as usize;
+                    first += (s.first == j) as usize;
+                    level[match w.programs[j].division {
+                        Division::FBS => 0,
+                        Division::FCS => 1,
+                        _ => 2,
+                    }] += 1;
+                }
+                _ if x.stage == Stage::College => stay += 1,
+                _ => gone += 1,
+            }
+        }
+        println!(
+            "| {name} | {} | {landed} | {:.0}% of {had_rich} | {:.0}% | {:.0}% | {:.0}% | {:.0}% | {stay} | {gone} |",
+            v.len(),
+            pct(rich, had_rich),
+            pct(first, landed),
+            pct(level[0], landed),
+            pct(level[1], landed),
+            pct(level[2], landed),
+        );
+    };
+    row("everyone", &|_| true);
+    row("from FBS", &|s| s.division == Division::FBS);
+    row("from FCS", &|s| s.division == Division::FCS);
+    row("from below FCS", &|s| !matches!(s.division, Division::FBS | Division::FCS));
+    row("money among his first three reasons", &|s| s.money_rank <= 2);
+    row("money fourth or lower", &|s| s.money_rank >= 3);
+    row("the most money is 1.5 times the next or more", &|s| s.rich.is_some_and(|r| r.1 >= 1.5));
+}
+
 /// Whether a program is one of the schools whose money the check moves.
 fn picked(w: &World, j: usize, conference: &str) -> bool {
     let p = &w.programs[j];
     if conference == "power" { p.power_conference(w.year) } else { p.conference == conference }
-}
-
-/// A what-if on top of the game as built (`AFM_PULL_K`, `AFM_PULL_CAP`):
-/// the money that tops every other school's counts once more by its
-/// ratio, `k` × his money weight × ln(his money / the best other money),
-/// the ratio read up to `cap`. 0 (the default) is the game as it is.
-struct WhatIf {
-    k: f64,
-    cap: f64,
-    /// A transfer's money weight times this (`AFM_PULL_F`; 1 as built).
-    f: f64,
-}
-
-fn what_if() -> WhatIf {
-    let read = |name: &str, or: f64| std::env::var(name).ok().and_then(|s| s.parse().ok()).unwrap_or(or);
-    WhatIf { k: read("AFM_PULL_K", 0.0), cap: read("AFM_PULL_CAP", 3.0), f: read("AFM_PULL_F", 1.0) }
-}
-
-impl WhatIf {
-    /// Each school's appeal with the what-if on top: `rows` are (appeal,
-    /// money) and `weight` his money weight.
-    fn lift(&self, weight: f64, rows: &[(f64, f64)]) -> Vec<f64> {
-        if self.k == 0.0 {
-            return rows.iter().map(|r| r.0).collect();
-        }
-        let (mut top, mut second, mut at) = (0.0, 0.0, usize::MAX);
-        for (n, r) in rows.iter().enumerate() {
-            if r.1 > top {
-                (second, top, at) = (top, r.1, n);
-            } else if r.1 > second {
-                second = r.1;
-            }
-        }
-        rows.iter()
-            .enumerate()
-            .map(|(n, r)| {
-                let other = if n == at { second } else { top };
-                let more = if other >= 1_000.0 && r.1 > other { (r.1 / other).min(self.cap).ln() } else { 0.0 };
-                r.0 + self.k * weight * more
-            })
-            .collect()
-    }
 }
 
 /// A school's place among `rows` (1: first) and its appeal less the best
@@ -164,57 +351,57 @@ fn sd(v: &[f64]) -> f64 {
 
 fn recruits(w: &World, conference: &str) {
     let class = desk::next_class(w);
-    let wi = what_if();
     println!("# Recruits of the class of {class} on {} ({conference} schools' money moved)", w.today.pretty());
-    if wi.k != 0.0 {
-        println!(
-            "What-if: money over the best other offer counts {} x his weight x ln(ratio), up to {}x",
-            wi.k, wi.cap
-        );
-    }
     let mut pairs: Vec<Pair> = Vec::new();
     // A school not on his list yet, coming in with an offer (three-stars up).
     let mut fresh: Vec<Pair> = Vec::new();
     // NIL Go's top for a collective's deal with him over the field's best money, by stars.
     let mut clears: [Vec<f64>; 6] = Default::default();
     let (mut lists, mut sizes) = (0usize, 0usize);
+    // Uncommitted recruits whose leader is the school with the most money
+    // on his list: (recruits, leaders), everyone and the money-first.
+    let mut led = [[0usize; 2]; 2];
     for (i, p) in w.people.iter().enumerate() {
         if p.stage != Stage::HighSchool || p.class_of != class || p.cal.signed.is_some() {
             continue;
         }
-        let mut schools: Vec<usize> =
-            p.cal.offers.iter().copied().chain(p.cal.early_offers.iter().map(|o| o.0)).collect();
-        if let Some(c) = p.cal.commit {
-            schools.push(c.0);
-        }
-        schools.sort_unstable();
-        schools.dedup();
+        let schools = list_of(p);
         if schools.len() < 5 {
             continue;
         }
         lists += 1;
         sizes += schools.len();
         // (appeal, money) of every school on his list today.
-        let base: Vec<(f64, f64)> =
-            schools.iter().map(|&j| (debug::recruit_appeal(w, i, j, None), debug::recruit_money(w, j, i))).collect();
+        let money: Vec<f64> = schools.iter().map(|&j| debug::recruit_money(w, j, i)).collect();
+        let appeals = debug::recruit_appeals(w, i, &schools, None);
         let weights = desk::reason_weights(w, i);
-        let spread = sd(&base.iter().map(|b| b.0).collect::<Vec<_>>());
-        // One school's money moved: `n` its row (the list's length for a new school).
-        let moved = |j: usize, n: usize, own: f64, to: &mut Vec<Pair>| {
-            let mut rows = base.clone();
-            if n == rows.len() {
-                rows.push((debug::recruit_appeal(w, i, j, None), own));
+        let spread = sd(&appeals);
+        if p.cal.commit.is_none()
+            && let Some((rich, _)) = richest(&money)
+        {
+            let leader = (0..schools.len()).max_by(|&a, &b| appeals[a].total_cmp(&appeals[b]));
+            for k in 0..=(money_place(&weights) == 0) as usize {
+                led[k][0] += 1;
+                led[k][1] += (leader == Some(rich)) as usize;
             }
-            let field = rows.iter().enumerate().filter(|x| x.0 != n).map(|x| x.1.1).fold(0.0, f64::max);
+        }
+        // One school's money moved: `n` its place on his list (the list's
+        // length for a new school), `own` its money today.
+        let moved = |j: usize, n: usize, own: f64, to: &mut Vec<Pair>| {
+            let mut list = schools.clone();
+            if n == list.len() {
+                list.push(j);
+            }
+            let field = money.iter().enumerate().filter(|x| x.0 != n).map(|x| *x.1).fold(0.0, f64::max);
             if field < 1_000.0 {
                 return;
             }
-            let today = place(&wi.lift(weights[2], &rows), n).0;
+            // Every school on his list is read again against the money moved.
+            let today = place(&debug::recruit_appeals(w, i, &list, Some((j, own))), n).0;
             let mut at = [0; 5];
             let mut gap = [0.0; 5];
             for (k, t) in TIMES.iter().enumerate() {
-                rows[n] = (debug::recruit_appeal(w, i, j, Some(t * field)), t * field);
-                (at[k], gap[k]) = place(&wi.lift(weights[2], &rows), n);
+                (at[k], gap[k]) = place(&debug::recruit_appeals(w, i, &list, Some((j, t * field))), n);
             }
             to.push(Pair {
                 money_rank: money_place(&weights),
@@ -222,7 +409,7 @@ fn recruits(w: &World, conference: &str) {
                 stars: p.stars,
                 committed: p.cal.commit.is_some(),
                 role: None,
-                list: rows.len(),
+                list: list.len(),
                 field,
                 own,
                 place: today,
@@ -233,14 +420,14 @@ fn recruits(w: &World, conference: &str) {
         };
         for (n, &j) in schools.iter().enumerate() {
             if picked(w, j, conference) && p.cal.commit.is_none_or(|c| c.0 != j) {
-                moved(j, n, base[n].1, &mut pairs);
+                moved(j, n, money[n], &mut pairs);
             }
         }
         if p.stars >= 3 {
             for j in (0..w.programs.len()).filter(|&j| picked(w, j, conference) && !schools.contains(&j)) {
-                moved(j, base.len(), debug::recruit_money(w, j, i), &mut fresh);
+                moved(j, schools.len(), debug::recruit_money(w, j, i), &mut fresh);
             }
-            let field = base.iter().map(|b| b.1).fold(0.0, f64::max);
+            let field = money.iter().copied().fold(0.0, f64::max);
             if field >= 1_000.0 {
                 clears[p.stars.min(5) as usize].push(debug::recruit_nil_go_top(w, i) / field);
             }
@@ -251,6 +438,13 @@ fn recruits(w: &World, conference: &str) {
         sizes as f64 / lists.max(1) as f64,
         pairs.len()
     );
+    for (name, v) in [("uncommitted recruits", led[0]), ("uncommitted recruits who put money first", led[1])] {
+        println!(
+            "The school with the most money leads {:.0}% of {} {name}' lists",
+            100.0 * v[1] as f64 / v[0].max(1) as f64,
+            v[0]
+        );
+    }
     for s in [5usize, 4, 3] {
         println!(
             "NIL Go's top for a collective's deal with a {s}-star, over the best money on his list: median {:.2} ({} recruits)",
@@ -267,14 +461,8 @@ fn recruits(w: &World, conference: &str) {
 }
 
 fn portal(w: &World, conference: &str, most: usize) {
-    let wi = what_if();
+    use afm_engine::world::data::Division;
     println!("# Portal entrants on {} ({conference} schools' money moved)", w.today.pretty());
-    if wi.k != 0.0 {
-        println!(
-            "What-if: money over the best other offer counts {} x his weight x ln(ratio), up to {}x",
-            wi.k, wi.cap
-        );
-    }
     let entrants: Vec<usize> = w
         .people
         .iter()
@@ -282,14 +470,16 @@ fn portal(w: &World, conference: &str, most: usize) {
         .filter(|(_, p)| p.stage == Stage::College && p.cal.portal.is_some_and(|e| !e.held && e.entered <= w.today))
         .map(|(i, _)| i)
         .collect();
-    if wi.f != 1.0 {
-        println!("What-if: a transfer's money weight times {}", wi.f);
-    }
     let mut pairs: Vec<Pair> = Vec::new();
     let (mut lists, mut sizes, mut seen) = (0usize, 0usize, 0usize);
     // Entrants with a picked program after them: money first, and among
-    // the first three, of his six reasons, as built and under the what-if.
-    let mut cares = [0usize; 4];
+    // the first three, of his six reasons.
+    let mut cares = [0usize; 2];
+    // What a transfer weighs money by over the recruit he was: from FBS,
+    // from below it, and those with a picked program after them.
+    let mut more: [Vec<f64>; 3] = Default::default();
+    // Entrants whose first choice today pays the most: (entrants, first choices).
+    let mut led = [0usize; 2];
     for &i in &entrants {
         let base = debug::portal_race_with(w, i, None);
         if base.len() < 3 {
@@ -297,6 +487,14 @@ fn portal(w: &World, conference: &str, most: usize) {
         }
         lists += 1;
         sizes += base.len();
+        let p = &w.people[i];
+        let m = debug::transfer_money(w, i).unwrap_or(1.0);
+        let fbs = p.college.is_some_and(|c| w.programs[c].division == Division::FBS);
+        more[!fbs as usize].push(m);
+        if let Some((rich, _)) = richest(&base.iter().map(|b| b.2).collect::<Vec<_>>()) {
+            led[0] += 1;
+            led[1] += (rich == 0) as usize;
+        }
         if !base.iter().any(|b| picked(w, b.0, conference)) {
             continue;
         }
@@ -304,20 +502,13 @@ fn portal(w: &World, conference: &str, most: usize) {
         if seen > most {
             break;
         }
-        let p = &w.people[i];
+        more[2].push(m);
         let weights = debug::transfer_weights(w, i);
-        let mut heavier = weights;
-        heavier[2] *= wi.f;
-        for (n, v) in [(0, &weights), (2, &heavier)] {
-            cares[n] += (money_place(v) == 0) as usize;
-            cares[n + 1] += (money_place(v) <= 2) as usize;
-        }
-        // The what-if's heavier money: each program's own money term again, f - 1 times.
-        let more = |nil: f64| (wi.f - 1.0) * weights[2] * 1.5 * (nil.max(0.0) / 1.0e6).powf(0.6);
-        let rows =
-            |race: &[(usize, f64, f64, PlayingTime)]| race.iter().map(|r| (r.1 + more(r.2), r.2)).collect::<Vec<_>>();
+        cares[0] += (money_place(&weights) == 0) as usize;
+        cares[1] += (money_place(&weights) <= 2) as usize;
         let spread = sd(&base.iter().map(|b| b.1).collect::<Vec<_>>());
-        let today = wi.lift(heavier[2], &rows(&base));
+        let appeals = |race: &[(usize, f64, f64, PlayingTime)]| race.iter().map(|r| r.1).collect::<Vec<_>>();
+        let today = appeals(&base);
         for (n, &(j, _, own, role)) in base.iter().enumerate() {
             if !picked(w, j, conference) {
                 continue;
@@ -331,7 +522,7 @@ fn portal(w: &World, conference: &str, most: usize) {
             for (k, t) in TIMES.iter().enumerate() {
                 let race = debug::portal_race_with(w, i, Some((j, t * field)));
                 let at_j = race.iter().position(|r| r.0 == j).expect("still after him");
-                (at[k], gap[k]) = place(&wi.lift(heavier[2], &rows(&race)), at_j);
+                (at[k], gap[k]) = place(&appeals(&race), at_j);
             }
             pairs.push(Pair {
                 money_rank: money_place(&weights),
@@ -355,14 +546,33 @@ fn portal(w: &World, conference: &str, most: usize) {
         sizes as f64 / lists.max(1) as f64,
         pairs.len()
     );
-    let pct = |n: usize| 100.0 * n as f64 / seen.max(1) as f64;
+    let pct = |n: usize, of: usize| 100.0 * n as f64 / of.max(1) as f64;
     println!(
-        "Of those with a {conference} program after them, money is the first reason for {:.0}% and among the first three for {:.0}% (under the what-if {:.0}% and {:.0}%)",
-        pct(cares[0]),
-        pct(cares[1]),
-        pct(cares[2]),
-        pct(cares[3])
+        "Of those with a {conference} program after them, money is the first reason for {:.0}% and among the first three for {:.0}%",
+        pct(cares[0], seen.min(most)),
+        pct(cares[1], seen.min(most)),
     );
+    println!(
+        "The program that pays the most is the first choice today of {:.0}% of {} entrants",
+        pct(led[1], led[0]),
+        led[0]
+    );
+    let names =
+        ["from FBS".to_string(), "from below FBS".to_string(), format!("with a {conference} program after them")];
+    for (name, v) in names.iter().zip(more.iter_mut()) {
+        if v.is_empty() {
+            continue;
+        }
+        let n = v.len();
+        let mean = v.iter().sum::<f64>() / n as f64;
+        v.sort_by(|a, b| a.total_cmp(b));
+        println!(
+            "What a transfer weighs money by over the recruit he was, {name}: {mean:.2} on average ({n} entrants; a tenth under {:.2}, half under {:.2}, a tenth over {:.2})",
+            v[n / 10],
+            v[n / 2],
+            v[n - 1 - n / 10]
+        );
+    }
     report(&pairs);
     println!("\n# By the role he'd have there");
     let all: Vec<&Pair> = pairs.iter().collect();
