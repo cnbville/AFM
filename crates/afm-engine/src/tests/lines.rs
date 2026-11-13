@@ -57,6 +57,8 @@ const FACTS: &str = concat!(
     // these yet, so those lines wait for the talks' fact sheet (voice.rs,
     // CLAIM_FACTS)
     "blameless at_fault ",
+    // the staff and scouting rooms (claims/rooms.rs, lane L11)
+    "yours strong weak worst pick_name pick_round pick_year form allowed scored pressure big ypc run_share ahead ",
     // the bosses and the outside on the fact sheet (lane L10): the case's
     // charge, day, step and whether it is his first; who gives and what a
     // booster asked; who holds the final say and the club's mode; the goal
@@ -183,6 +185,18 @@ fn asked() -> Vec<String> {
     }
     for k in ["pressure", "zone", "run", "pass"] {
         v.push(format!("staffmeet.case.{k}"));
+        v.push(format!("staffmeet.case.{k}.facts"));
+    }
+    // The rooms read the facts (lane L11).
+    for k in ["plan", "past"] {
+        v.push(format!("interview.ask.{k}.facts"));
+    }
+    for k in ["failure", "results", "people"] {
+        v.push(format!("interview.react.past.{k}"));
+    }
+    v.push("takeover.holdover.record".into());
+    for k in ["role", "role.ahead", "winning.up", "winning.down", "city", "security", "home", "loyalty"] {
+        v.push(format!("agent.wants.{k}"));
     }
     for k in ["yes", "half", "no"] {
         v.push(format!("staffmeet.reply.{k}"));

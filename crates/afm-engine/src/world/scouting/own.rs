@@ -1166,7 +1166,11 @@ pub(crate) fn answer_line(w: &World, i: usize, t: Topic) -> String {
     if t == Topic::Incident && !trouble {
         return "There's nothing on my record, coach. Ask anybody back home.".to_string();
     }
-    super::lines::interview_answer(t.key(), answer_band(p, t), p.player.id as u64 ^ (w.today.0 as u64) << 20, t as u64)
+    let (band, key) = (answer_band(p, t), p.player.id as u64 ^ (w.today.0 as u64) << 20);
+    // He names his real incident and his real family (talk facts item 24).
+    let (incident, home) = crate::world::folk::claims::rooms::room_facts(w, i);
+    super::lines::room_answer(t.key(), band, key, t as u64, incident.as_ref(), home.as_ref())
+        .unwrap_or_else(|| super::lines::interview_answer(t.key(), band, key, t as u64))
 }
 
 /// Where his answer on a topic falls (0 worrying, 1 fine, 2 strong), from
