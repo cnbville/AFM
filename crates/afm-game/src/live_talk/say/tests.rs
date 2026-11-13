@@ -311,10 +311,12 @@ fn with_no_key_there_is_no_box() {
     // The chips play as ever.
     assert!(ok(&mut g, "people_answer", json!({ "id": id, "code": 60 }))["lines"].is_array());
     // The later lanes' commands answer plainly until they are filled.
-    for cmd in ["talk_typed", "fo_say", "fo_fact", "scout_source"] {
+    for cmd in ["talk_typed", "fo_say", "fo_fact"] {
         assert_eq!(g.call(cmd, &json!({})), Err(crate::live_talk::NOT_YET.into()), "{cmd}");
     }
-    for kind in crate::live_talk::ask::KINDS {
+    // Lane 6 filled the source's ask and its row, which need a player.
+    assert_eq!(g.call("scout_source", &json!({})), Err("Missing player.".into()));
+    for kind in crate::live_talk::ask::KINDS.into_iter().filter(|k| *k != "source") {
         assert_eq!(g.call("ai_ask", &json!({ "kind": kind })), Err(crate::live_talk::NOT_YET.into()), "{kind}");
     }
 }
