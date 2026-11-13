@@ -5,12 +5,35 @@
 
 use afm_game::Game;
 
+/// Live talks in the browser build (`afm-ai`). `AFM_AI_FAKE=1` plays every call
+/// on the fake client, which needs no key and spends nothing: this is how the
+/// screens are built and seen. `AFM_AI_KEY` is a key for development, a name of
+/// the game's own so it can never pick up a key set for something else. The key
+/// is never printed, and never put in a browser session on the fake's behalf.
+fn live_talk_from_env(game: &mut Game) {
+    let fake = std::env::var("AFM_AI_FAKE").is_ok_and(|v| v == "1");
+    if fake {
+        game.ai.use_browser_fake();
+        println!("Live talks: the fake client (AFM_AI_FAKE=1). Nothing leaves this machine.");
+    }
+    let key = std::env::var("AFM_AI_KEY").unwrap_or_default();
+    if key.trim().is_empty() {
+        return;
+    }
+    match game.ai.set_key(&key) {
+        Ok(()) if fake => println!("Live talks: AFM_AI_KEY kept in memory, but the fake answers every call."),
+        Ok(()) => println!("Live talks: key ending ...{} from AFM_AI_KEY.", game.ai.key_tail().unwrap_or_default()),
+        Err(e) => eprintln!("Live talks: AFM_AI_KEY is not used. {e}"),
+    }
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let port: u16 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(7700);
     let ui = std::path::PathBuf::from(args.get(2).cloned().unwrap_or_else(|| "app/ui".into()));
     let home = args.get(3).map(std::path::PathBuf::from).unwrap_or_else(afm_game::default_home);
     let mut game = Game::new(home);
+    live_talk_from_env(&mut game);
     let server = tiny_http::Server::http(("127.0.0.1", port)).expect("port in use");
     println!("AFM on http://127.0.0.1:{port}");
     for mut req in server.incoming_requests() {
