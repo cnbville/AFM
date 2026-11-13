@@ -352,12 +352,16 @@ pub(crate) fn kept(w: &World, p: &Promise) -> bool {
             if pp.stage == Stage::Done {
                 return true;
             }
+            // A start or snaps: the role he holds now, or the one his games
+            // for your club this season gave him (`played_role`, pros only).
+            // His place: the role he holds now.
+            let got = || [role_now(w, i), played_role(w, i)].into_iter().flatten().map(|r| r as u8).min();
             match kind {
-                PromiseKind::Start => pp.last_role == Some(PlayingTime::Starter) || seat_starter(w, i),
-                PromiseKind::Snaps => matches!(pp.last_role, Some(PlayingTime::Starter | PlayingTime::Rotation)),
+                PromiseKind::Start => got() == Some(PlayingTime::Starter as u8) || seat_starter(w, i),
+                PromiseKind::Snaps => got().is_some_and(|r| r <= PlayingTime::Rotation as u8),
                 PromiseKind::Place(r) => {
                     let here = Team::seat(w).is_some_and(|t| t.roster(w).contains(&i));
-                    here && (pp.last_role.map_or(5, |x| x as u8) <= r || r == 0 && seat_starter(w, i))
+                    here && (role_now(w, i).map_or(5, |x| x as u8) <= r || r == 0 && seat_starter(w, i))
                 }
                 PromiseKind::Join(r) => {
                     let here = Team::seat(w).is_some_and(|t| t.roster(w).contains(&i));
@@ -410,9 +414,10 @@ pub(crate) fn lapsed(w: &World, p: &Promise) -> bool {
     }
 }
 
-/// A starter: last season's role or your depth chart now.
+/// A starter today: his role on your team (`role_now`) or first at his
+/// position on the chart you set.
 fn is_starter(w: &World, i: usize) -> bool {
-    w.people[i].last_role == Some(PlayingTime::Starter) || seat_starter(w, i)
+    role_now(w, i) == Some(PlayingTime::Starter) || seat_starter(w, i)
 }
 
 /// On your depth chart as a starter now (the game's own chart when you
@@ -420,6 +425,148 @@ fn is_starter(w: &World, i: usize) -> bool {
 fn seat_starter(w: &World, i: usize) -> bool {
     let id = w.people[i].player.id;
     w.seat_depth.iter().any(|(_, ids)| ids.first() == Some(&id))
+}
+
+/// His role on your team today, as the talks and the promises read it.
+///
+/// A college or high school player's is `last_role`: fall camp's, then the
+/// game-day chart's from his starts and snaps so far (`college.rs`,
+/// `follow_chart`), and last season's until the next camp.
+///
+/// A pro's `last_role` is never written after the draft, so it stayed his
+/// last college season's role (none for a generated veteran), and at an NFL
+/// club the promise he was offered, its rank and whether it was kept were
+/// all read off it (code oddity 29, found by the praise fix). At your club
+/// a pro is read from the club itself:
+/// - the practice squad is its own role;
+/// - a man who can dress today holds his place on the chart your team would
+///   take into a game (`chart_slot`), a backup when it leaves him off;
+/// - a man who can't dress (hurt, on reserve, suspended, sitting) keeps the
+///   role his games for you this season gave him (`played_role`), else his
+///   last season's with the club (`row_role`), as a college player keeps his
+///   role while he is out; a backup with neither. The same on a day your
+///   team can't dress a game team at all.
+///
+/// A pro who is no longer on your team has no role with you. Proposed, not
+/// confirmed.
+pub(crate) fn role_now(w: &World, i: usize) -> Option<PlayingTime> {
+    use crate::world::pro::Status;
+    let p = &w.people[i];
+    let Some(team) = pro_seat(w, i) else { return p.last_role };
+    if !team.roster(w).contains(&i) {
+        return None;
+    }
+    let c = p.pro.as_ref()?;
+    if c.status == Status::PracticeSquad {
+        return Some(PlayingTime::PracticeSquad);
+    }
+    let id = p.player.id;
+    let out = c.status == Status::Reserve
+        || c.out_weeks > 0
+        || !crate::world::people::available(c)
+        || super::rules::sitting(w, id, w.today)
+        || w.training.hurt_out(id, w.today);
+    let chart = w.seat_game_depth();
+    if let Some(r) = chart.as_deref().and_then(|d| chart_slot(d, id)) {
+        return Some(r);
+    }
+    if chart.is_some() && !out {
+        return Some(PlayingTime::Backup);
+    }
+    Some(played_role(w, i).or_else(|| row_role(w, i)).unwrap_or(PlayingTime::Backup))
+}
+
+/// Your team when it is a pro team and he is a pro: the cases read from
+/// the club, not from `last_role`.
+fn pro_seat(w: &World, i: usize) -> Option<Team> {
+    match Team::seat(w) {
+        Some(t @ (Team::Nfl(_) | Team::Other(_))) if w.people[i].stage == Stage::Pro => Some(t),
+        _ => None,
+    }
+}
+
+/// A pro's role from the games he has played for your NFL club this season,
+/// by the rule a college season is read with (`college::real_role`): his
+/// starts against the games he played and the club's games, and his snaps
+/// on offense and defense against a full starter's (`NFL_SEASON_SNAPS` over
+/// the era's games, scaled to the club's games so far).
+///
+/// Read off your own games, which the world keeps whole (`seat_games`): a
+/// start is being on the field for his side's first snap, so it follows the
+/// chart you set, and only his games for you count. His season row can't
+/// say either: its starts are the men the club's own order lists as
+/// starters, whoever lined up (`pro/games.rs`, `actives`, `record`), and
+/// it runs a year's games for two clubs together. A kicking spot has no
+/// scrimmage snap to start or to count, so the man who kicked is the
+/// club's kicker. None for anyone else, for a man no longer on your team,
+/// and without a game.
+pub(crate) fn played_role(w: &World, i: usize) -> Option<PlayingTime> {
+    let Some(team @ Team::Nfl(t)) = pro_seat(w, i) else { return None };
+    if !team.roster(w).contains(&i) {
+        return None;
+    }
+    let p = &w.people[i];
+    let id = p.player.id;
+    let (mut team_games, mut games, mut starts, mut snaps) = (0u32, 0u32, 0u32, 0u32);
+    for g in w.seat_games.iter().filter(|g| g.level == Level::Nfl && g.date >= w.dates.nfl_kickoff) {
+        let Some(side) = g.teams.iter().position(|&x| x == t) else { continue };
+        team_games += 1;
+        let Some(l) = g.stats.players[side].get(&id).filter(|l| l.snaps_off + l.snaps_def + l.snaps_st > 0) else {
+            continue;
+        };
+        games += 1;
+        snaps += l.snaps_off + l.snaps_def;
+        starts += crate::world::tally::games::starters(&g.stats)[side].contains(&id) as u32;
+    }
+    if games == 0 {
+        return None;
+    }
+    if p.player.position.is_specialist() {
+        starts = games;
+    }
+    Some(games_role(w, starts, games, team_games, snaps))
+}
+
+/// A pro's role from his latest season's row with your NFL club: for a man
+/// who can't dress today and hasn't played for you this season. None when
+/// the last season he played was for another club.
+fn row_role(w: &World, i: usize) -> Option<PlayingTime> {
+    let Some(Team::Nfl(t)) = pro_seat(w, i) else { return None };
+    let c = w.people[i].pro.as_ref()?;
+    let s = c.seasons.iter().rev().find(|s| s.games > 0).filter(|s| s.team == Some(t))?;
+    Some(games_role(w, s.starts, s.games, w.rules.nfl_games, s.snaps[0] + s.snaps[1]))
+}
+
+/// A pro's role from his games for an NFL club, by the college rule
+/// (`college::real_role`): a starter started most of the games he played
+/// (and a quarter of the club's, or every one of his own) or took half a
+/// full starter's snaps, a fifth is the rotation, less is a backup.
+fn games_role(w: &World, starts: u32, games: u32, team_games: u32, snaps: u32) -> PlayingTime {
+    let full = crate::world::pro::games::NFL_SEASON_SNAPS as f64 / w.rules.nfl_games.max(1) as f64;
+    let team_games = team_games.max(games).max(1);
+    crate::world::college::real_role(starts, games, team_games, snaps as f64 / (team_games as f64 * full))
+}
+
+/// A man's place on a depth chart (`World::seat_game_depth`: the one your
+/// team would take into a game today, your own order first where you set
+/// one), by his position's slots (`depth_slots`: the starters, then the men
+/// who rotate in), as camp mood and a pro's yearly row read a club's chart;
+/// the best of every spot that lists him. None when it leaves him off.
+fn chart_slot(chart: &[(crate::positions::Position, Vec<u32>)], id: u32) -> Option<PlayingTime> {
+    chart
+        .iter()
+        .filter_map(|(pos, ids)| {
+            let k = ids.iter().position(|&x| x == id)?;
+            let s = crate::league::depth_slots(*pos);
+            Some(if k < s.starters {
+                PlayingTime::Starter
+            } else if k < s.starters + s.rotation {
+                PlayingTime::Rotation
+            } else {
+                PlayingTime::Backup
+            })
+        })
+        .min_by_key(|r| *r as u8)
 }
 
 // ---------------------------------------------------------------------------
@@ -1206,9 +1353,7 @@ pub(crate) fn starters_place(w: &World, i: usize) -> bool {
         return true;
     }
     let id = p.player.id;
-    w.seat_game_depth().is_some_and(|d| {
-        d.iter().any(|(pos, ids)| ids.iter().take(crate::league::depth_slots(*pos).starters).any(|&x| x == id))
-    })
+    w.seat_game_depth().is_some_and(|d| chart_slot(&d, id) == Some(PlayingTime::Starter))
 }
 
 /// How true praise rings to him, 0 (he knows he's coasting) to 1 (he has
@@ -1560,7 +1705,7 @@ fn one_on_one_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     match m {
         Move::Promise => {
             let starter = is_starter(w, i);
-            let rank = if starter { 0 } else { w.people[i].last_role.map_or(PlayingTime::Backup as u8, |r| r as u8) };
+            let rank = if starter { 0 } else { role_now(w, i).map_or(PlayingTime::Backup as u8, |r| r as u8) };
             let kind = match subject {
                 Subject::Money => PromiseKind::Contract,
                 Subject::Future if picked.label.contains("not going anywhere") => PromiseKind::Stay,

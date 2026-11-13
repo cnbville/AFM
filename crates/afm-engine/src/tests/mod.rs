@@ -4,6 +4,7 @@
 mod assignments;
 mod bodies;
 mod carousel;
+mod club_roles;
 mod coaching_people;
 mod compact;
 mod decide;
