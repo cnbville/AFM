@@ -271,8 +271,9 @@ fn room(c: &Ctx, j: usize) -> Option<(f32, Point)> {
 }
 
 /// The role a staff plans for a transfer while he shops: starter, in the
-/// rotation or a backup. He can check it at fall camp. A high school
-/// recruit has no planned role in the world.
+/// rotation or a backup. He can check it over his first two practice
+/// weeks and his first two games (the promises design, section 2): week
+/// 2's Saturday. A high school recruit has no planned role in the world.
 fn role(c: &Ctx, j: usize) -> Option<(f32, Point)> {
     use crate::player::PlayingTime as T;
     let (role, ..) = rec::portal_place(c.w, c.i, j)?;
@@ -282,7 +283,9 @@ fn role(c: &Ctx, j: usize) -> Option<(f32, Point)> {
         _ => ("backup", ROLE_SIZE[2]),
     };
     let camp = c.w.dates.fall_camp;
-    let due = if camp >= c.r.today { camp } else { camp.add(364) };
+    let holds = super::player::PLACE_HOLDS;
+    let check = c.w.dates.cfb_weeks.get(holds).copied().unwrap_or(camp.add(35)).max(camp.add(7 * holds as i32));
+    let due = if check >= c.r.today { check } else { check.add(364) };
     Some((strength, Point::new(Kind::Role).due(due).text("spot", words::spot(c.pos)).state("role", key)))
 }
 

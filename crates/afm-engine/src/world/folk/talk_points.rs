@@ -212,7 +212,7 @@ pub fn chip_name(p: &Point) -> String {
         K::Suspended => "His suspension".into(),
         K::RuleBreak => p.get("rule").map_or("A team rule".into(), |r| format!("The {r} rule")),
         K::LostJob => "Losing his job".into(),
-        K::Buried => "Stuck on the depth chart".into(),
+        K::Buried => p.get("ahead").map_or("Not getting on the field".into(), |a| format!("Stuck behind {}", first(a))),
         K::WonJob => "Winning the job".into(),
         K::BigGame => p.get("opp").map_or("His big game".into(), |o| format!("His game against {o}")),
         K::BadGame => p.get("opp").map_or("His last game".into(), |o| format!("The {o} game")),
@@ -242,7 +242,7 @@ pub fn chip_name(p: &Point) -> String {
         K::PracticeWeek => "His week of practice".into(),
         K::ReportDay => "Reporting to camp".into(),
         K::SpringStep => "His spring".into(),
-        K::ChartMove => "The depth chart".into(),
+        K::ChartMove => "Where he stands".into(),
         K::NewPosition => p.get("position").map_or("His new position".into(), |x| format!("Learning {x}")),
         K::RoomChanged => "His position room".into(),
         K::NewSystem => p.get("system").map_or("The new system".into(), |x| format!("The new {x}")),
@@ -275,7 +275,10 @@ pub fn worry_words(p: &Point) -> String {
         K::RuleBreak => "he's still sore about the ruling".into(),
         K::LostJob if p.get("rival").is_some() => format!("losing his job to {} is eating at him", first(&g("rival"))),
         K::LostJob => "losing his job is eating at him".into(),
-        K::Buried => "he thinks he's stuck on the depth chart".into(),
+        K::Buried => match p.get("ahead") {
+            Some(a) => format!("he thinks he's stuck behind {}", first(a)),
+            None => "he can't see a way onto the field".into(),
+        },
         K::WonJob => "he's riding high on winning the job".into(),
         K::BigGame => "he's feeling good about his last game".into(),
         K::BadGame => "his last game is still with him".into(),
@@ -298,7 +301,7 @@ pub fn worry_words(p: &Point) -> String {
         K::PracticeWeek => "his week of practice is on his mind".into(),
         K::ReportDay => "how he reported is on his mind".into(),
         K::SpringStep => "he's thinking about his spring".into(),
-        K::ChartMove => "the depth chart is on his mind".into(),
+        K::ChartMove => "where he stands is on his mind".into(),
         K::NewPosition => "learning a new position is wearing on him".into(),
         K::RoomChanged => "the new faces at his spot are on his mind".into(),
         K::NewSystem => "the new system is on his mind".into(),
@@ -703,9 +706,10 @@ pub fn moves(w: &World, i: usize, p: &Point) -> Vec<Opt> {
             add(
                 Move::Straight,
                 Tone::Calm,
-                match g("ahead_class") {
-                    Some(c) => format!("You're behind {ahead}, and he's a {c}. That's the truth of it."),
-                    None => format!("You're behind {ahead}. That's the truth of it."),
+                match (g("ahead_all"), g("ahead_class")) {
+                    (Some(all), _) => format!("{all} have the reps and the snaps right now. That's the truth of it."),
+                    (None, Some(c)) => format!("You're behind {ahead}, and he's a {c}. That's the truth of it."),
+                    (None, None) => format!("You're behind {ahead}. That's the truth of it."),
                 },
                 HINT_STRAIGHT,
             );
@@ -870,7 +874,7 @@ pub fn moves(w: &World, i: usize, p: &Point) -> Vec<Opt> {
                 Move::Straight,
                 Tone::Calm,
                 "Here's what next year looks like for you here, honestly.".into(),
-                "Trust now; a player buried on the chart may still go.",
+                "Trust now; a player who isn't getting on the field may still go.",
             );
             add(
                 Move::Promise,

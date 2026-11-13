@@ -66,7 +66,7 @@ They charged me, Coach. It's real now. ~ step=charged
 Court is coming up and I can't eat. ~ step=court
 
 @key talk.point.open.lost_job.accepts
-I saw the chart, Coach. I'm not going to pout about it.
+I heard, Coach. I'm not going to pout about it.
 I get it. I'll keep working.
 You don't have to explain it, Coach. I know where I am.
 I'm not happy about it, but I understand it.
@@ -80,7 +80,7 @@ With respect, I think I earned that spot.
 I've been doing everything you asked. So why?
 One bad stretch and I'm out? That's how it is? ~ !why=injury
 I need you to explain this to me, because I don't see it.
-That chart's wrong, Coach, and I think you know it. ~ brash
+You've got the wrong man starting, Coach, and I think you know it. ~ brash
 I got hurt. I didn't get beat. There's a difference. ~ why=injury
 
 @key talk.point.open.lost_job.sulks
@@ -92,7 +92,7 @@ Guess I'm just a backup now.
 It's whatever, Coach.
 
 @key talk.point.open.lost_job.fired_up
-I saw the chart. I'm taking it back. Watch me.
+Fine. I'm taking it back. Watch me.
 {rival} better enjoy it, because it's not going to last.
 Good. Now I've got something to prove.
 You'll have to play me, Coach. I'll make sure of it.
