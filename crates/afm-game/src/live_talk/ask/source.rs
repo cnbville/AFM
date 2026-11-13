@@ -119,7 +119,20 @@ fn stand_in_reading(words: &str) -> Value {
     const KEYS: [&[&str]; 4] = [
         &["work", "effort", "lazy", "practi", "love", "compet", "hustle"],
         &["coach", "listen", "adapt", "change", "setback", "learn"],
-        &["charac", "troubl", "temper", "attitud", "ego", "leader", "police", "arrest", "habit", "kind of kid"],
+        &[
+            "charac",
+            "troubl",
+            "temper",
+            "hothead",
+            "attitud",
+            "ego",
+            "leader",
+            "follow",
+            "locker",
+            "police",
+            "arrest",
+            "kind of kid",
+        ],
         &["money", "drive", "ambiti", "loyal", "motiv", "want"],
     ];
     let l = words.to_lowercase();
