@@ -1611,7 +1611,7 @@ fn eligibility_left(w: &World, p: &Person) -> u32 {
 /// the five-year clock from high school runs out too. The windows from
 /// December to January follow the season just played; the spring and
 /// graduate windows come after the football year turned.
-fn seasons_ahead(w: &World, p: &Person, div: afm_engine::world::data::Division) -> u32 {
+pub(crate) fn seasons_ahead(w: &World, p: &Person, div: afm_engine::world::data::Division) -> u32 {
     let m = w.today.month();
     let next = if m == 12 || m <= 1 { w.year + 1 } else { w.year };
     // At the division he would play for: yours (minor bug B9).

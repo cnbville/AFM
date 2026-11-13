@@ -228,6 +228,62 @@ html.has-beside .view { padding-right: min(560px, 46vw); }
 .mlist.compact .msubj b { max-width: none; }
 .mlist > .empty { padding: 28px 20px; }
 
+/* The two-pane inbox: the list beside the open message. */
+.ib-chips { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 4px; scrollbar-width: thin; }
+.ib-chips .chip { flex: none; border: 1px solid var(--hair); background: none; border-radius: 999px; padding: 4px 11px; font: inherit; font-size: 12px; font-weight: 600; color: var(--fg2); white-space: nowrap; cursor: pointer; }
+.ib-chips .chip:hover { background: var(--fill-1); color: var(--fg); }
+.ib-chips .chip small { margin-left: 5px; color: var(--fg3); }
+.ib-chips .chip[aria-pressed="true"] { background: var(--fg); color: var(--ground, var(--raised)); border-color: var(--fg); }
+.ib-chips .chip[aria-pressed="true"] small { color: inherit; opacity: .7; }
+.ib-panes { display: grid; grid-template-columns: minmax(320px, 400px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.ib-list, .ib-read { height: max(480px, calc(100vh - 290px)); overflow-y: auto; min-width: 0; }
+.ib-list { align-content: start; grid-auto-rows: min-content; }
+.ib-read { display: flex; flex-direction: column; border-radius: 20px; background: var(--raised); box-shadow: inset 0 0 0 1px var(--hair); overflow: hidden; }
+.ib-empty { margin: auto; display: grid; gap: 4px; justify-items: center; text-align: center; color: var(--fg3); padding: 24px; }
+.ib-empty b { color: var(--fg2); font-size: 15px; }
+.ib-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 16px; border-bottom: 1px solid var(--hair); flex: none; }
+.ib-bar .lt-nav { display: flex; align-items: center; gap: 8px; }
+.ib-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 18px clamp(12px, 2.4vw, 28px) 30px; display: grid; gap: 16px; align-content: start; }
+.ib-read .lt-sheet { width: 100%; max-width: 760px; margin: 0 auto; }
+.ib-read .lt-sheet::before, .ib-read .lt-sheet::after { display: none; }
+.ib-read .lt-paper { padding: 30px clamp(18px, 3vw, 40px) 34px; box-shadow: 0 2px 14px rgba(0,0,0,.18); }
+.ib-read .lh-email { margin: -30px calc(-1 * clamp(18px, 3vw, 40px)) 6px; padding: 16px clamp(18px, 3vw, 40px) 12px; }
+.ib-read .lt-side { color: var(--fg); --fg: inherit; --fg2: inherit; --fg3: inherit; --fill-1: inherit; --fill-2: inherit; --hair: inherit; max-width: 760px; width: 100%; margin: 0 auto; }
+.ib-read .lt-answers { background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--hair); }
+.ib-read .ans { background: var(--fill-1); color: var(--fg); box-shadow: inset 0 0 0 1px var(--hair); }
+.ib-read .ans:hover:not([disabled]) { background: var(--fill-2); }
+.ib-read .ans small { color: var(--fg3); }
+.ib-read .ans.picked { background: color-mix(in oklab, var(--accent) 22%, transparent); }
+.lt-table tr.tsec td { padding: 14px 8px 5px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: var(--ink2); border-bottom: 1.5px solid var(--ink); background: transparent; }
+.lt-table tr.tsec:first-child td { padding-top: 5px; }
+.irow { grid-template-columns: 10px 30px minmax(0, 1fr) auto; align-items: start; gap: 10px; padding: 11px 14px; }
+.ib-list .mday { padding: 10px 14px 5px; }
+.irow[aria-current="true"] { background: var(--fill-2); }
+.irow[aria-current="true"]::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); }
+.irow .mdot { margin-top: 7px; }
+.iglyph { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-size: 10.5px; font-weight: 800; letter-spacing: .04em; background: var(--fill-2); color: var(--fg2); }
+.iglyph.portal { background: color-mix(in oklab, var(--accent) 30%, var(--fill-2)); color: color-mix(in oklab, var(--accent) 45%, var(--fg)); }
+.iglyph.rec { background: color-mix(in oklab, #30d158 22%, var(--fill-2)); color: color-mix(in oklab, #30d158 55%, var(--fg)); }
+.iglyph.money { background: color-mix(in oklab, var(--gold) 18%, var(--fill-2)); color: var(--gold); }
+.imain { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ifrom { font-size: 12px; color: var(--fg3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.isubj { font-size: 13.5px; color: var(--fg2); min-width: 0; }
+.isubj b { font-weight: 600; text-wrap: balance; }
+.iprev { font-size: 12px; color: var(--fg3); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.irow.unread .isubj, .irow.unread .ifrom { color: var(--fg); }
+.irow.unread .isubj b { font-weight: 800; }
+.irow.kind-back:not(.unread) .isubj, .irow.kind-back .ifrom, .irow.kind-back .iprev, .irow.kind-back .isubj b { color: var(--fg3); font-weight: 500; }
+.iside { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; font-size: 11.5px; color: var(--fg3); font-variant-numeric: tabular-nums; padding-top: 2px; }
+.iside .mstar { opacity: 0; }
+.irow:hover .iside .mstar, .irow:focus-visible .iside .mstar, .iside .mstar.on { opacity: .85; }
+.ib-count { min-width: 24px; text-align: center; padding: 1px 7px; border-radius: 999px; background: var(--fg); color: var(--ground, var(--raised)); font-size: 11px; font-weight: 800; font-style: normal; }
+.tag.need { font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--gold); background: color-mix(in oklab, var(--gold) 16%, transparent); padding: 2px 7px; border-radius: 6px; white-space: nowrap; }
+@media (max-width: 979px) {
+  .ib-panes { display: block; }
+  .ib-read { display: none; }
+  .ib-list { height: auto; overflow: visible; }
+}
+
 /* The letter: the inbox blurs away, the sheet rises off the paper stack (10c). */
 html.reading .frame { filter: blur(10px) saturate(.8); transform: scale(.985); transition: filter .35s var(--ease), transform .35s var(--ease); }
 .letter-room { position: fixed; inset: 0; z-index: 84; display: grid; grid-template-columns: minmax(0, 1fr) 320px; background: rgba(6, 7, 10, .55); animation: lt-fade .25s ease both; }
@@ -545,7 +601,7 @@ html.reading .frame { filter: blur(10px) saturate(.8); transform: scale(.985); t
 /* ---------- smaller windows ---------- */
 @media (max-width: 1200px) {
   .home-grid, .cal-wrap, .lr-body { grid-template-columns: 1fr; }
-  .mrow { grid-template-columns: 10px 26px minmax(110px, 160px) minmax(0, 1fr) 58px; }
+  .mrow:not(.irow) { grid-template-columns: 10px 26px minmax(110px, 160px) minmax(0, 1fr) 58px; }
   .mrow .mtags { display: none; }
   .msearch input { width: 220px; }
   .letter-room { grid-template-columns: 1fr; }

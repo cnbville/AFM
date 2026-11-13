@@ -155,3 +155,43 @@ fn a_famous_name_pulls_recruits_for_two_seasons_unless_he_wins() {
     co.recent = vec![0.4];
     assert!((co.name_pull(season + 3) - 3.0).abs() < 1e-9, "unless he wins");
 }
+
+/// Minor bug 382: a scouted habit counts the looks that watched him, the
+/// looks log's film and live families. The count once tested the family
+/// against the words "Film" and "Live", which no family is called, so it
+/// was always 0 and every habit read "Not seen". The family names are
+/// spelled out here, and so is every look that must count, so a renamed
+/// family or a moved look fails this test instead of quietly zeroing it.
+#[test]
+fn watched_looks_are_the_film_and_live_ones() {
+    assert_eq!(Kind::Film.family(), "Film and charting");
+    assert_eq!(Kind::School.family(), "Live and school");
+    assert_eq!(sc::FAMILY_FILM, "Film and charting");
+    assert_eq!(sc::FAMILY_LIVE, "Live and school");
+    const FAMILIES: [&str; 5] =
+        ["Live and school", "Film and charting", "Camp and campus", "Calls and records", "Heard and online"];
+    for k in Kind::ALL {
+        assert!(FAMILIES.contains(&k.family()), "{k:?} is in a family nobody knows: {}", k.family());
+    }
+    let counted = [
+        Kind::School,
+        Kind::Film,
+        Kind::CrossCheck,
+        Kind::Director,
+        Kind::Gm,
+        Kind::Coach,
+        Kind::AllStar,
+        Kind::Workout,
+        Kind::Practice,
+        Kind::Game,
+        Kind::HsFilm,
+        Kind::CollegeFilm,
+        Kind::Tryout,
+        Kind::ProFilm,
+        Kind::Numbers,
+        Kind::SideFilm,
+    ];
+    for k in Kind::ALL {
+        assert_eq!(k.watched(), counted.contains(&k), "{k:?}: does a look of this kind count as watching him?");
+    }
+}

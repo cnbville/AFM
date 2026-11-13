@@ -1,0 +1,12 @@
+<card>
+Setting: one-on-one, your office in the football building, Tuesday of week 6, college.
+Player: p1 Marcus Hill, QB, redshirt senior, 30 career starts, benched last week for p2.
+Players he may name: p1 Marcus Hill (QB, 2nd on the chart), p2 Jaylen Ortiz (QB, true freshman, 1st on the chart), p3 Devin Shaw (QB, 3rd), p4 Coach Ramirez (QB coach).
+Subjects: role (now), touches, behavior, life, team, future.
+Moves already used this talk: ask.
+</card>
+<talk_so_far>
+Coach: What's on your mind, Marcus?
+Marcus: You know what's on my mind, Coach. I've started thirty games here.
+</talk_so_far>
+<coach_line>You're still my guy on third downs. But the freshman is reading it faster right now, and that's why he's starting Saturday.</coach_line>

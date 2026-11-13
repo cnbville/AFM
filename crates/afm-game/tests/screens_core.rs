@@ -67,6 +67,9 @@ fn the_desk_files_answers_and_clears_its_mail() {
     // My players, notes and the finder.
     let roster = ok(&mut g, "roster", json!({}));
     let pid = roster["rows"][0]["id"].as_u64().unwrap();
+    // An answer above may have listed players already (the portal day's
+    // "Add all named"): count what is there before adding mine.
+    let before = ok(&mut g, "my_players", json!({}))["rows"].as_array().unwrap().len();
     assert_eq!(ok(&mut g, "list_add", json!({ "id": pid }))["listed"], true);
     ok(
         &mut g,
@@ -74,11 +77,11 @@ fn the_desk_files_answers_and_clears_its_mail() {
         json!({ "text": "Quick feet.", "page": "Player page", "about": { "kind": "player", "id": pid }, "about_name": "him" }),
     );
     let mine = ok(&mut g, "my_players", json!({}));
-    assert_eq!(mine["rows"].as_array().unwrap().len(), 1, "{mine}");
+    assert_eq!(mine["rows"].as_array().unwrap().len(), before + 1, "{mine}");
     let notes = ok(&mut g, "notes_all", json!({}));
     assert!(notes["notes"].as_array().unwrap().iter().any(|n| n["text"] == "Quick feet."), "{notes}");
     let found = ok(&mut g, "finder", json!({ "filters": [{ "field": "listed", "value": true }] }));
-    assert_eq!(found["total"], 1, "{found}");
+    assert_eq!(found["total"], before + 1, "{found}");
     assert_eq!(
         ok(&mut g, "list_remove", json!({ "id": pid }))["listed"],
         true,

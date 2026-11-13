@@ -1760,7 +1760,7 @@ fn feel_word(w: &World, i: usize, j: usize) -> String {
 
 // --- Board, offers and the money ------------------------------------------------------------
 
-fn offered_here(w: &World, id: u32) -> bool {
+pub(crate) fn offered_here(w: &World, id: u32) -> bool {
     w.front_office.college.board.iter().any(|t| t.id == id && t.offered.is_some() && t.pulled.is_none())
 }
 
@@ -2640,10 +2640,6 @@ fn money_place(weights: &[f64; 6]) -> (usize, &'static str) {
     (place, WANTS[top])
 }
 
-fn own_weights(x: &crate::world::background::Wants) -> [f64; 6] {
-    [x.close_to_home, x.playing_time, x.money, x.development, x.prestige, x.academics]
-}
-
 /// Who speaks for a recruit: he, or whoever decides with him.
 fn speaker(d: crate::world::background::Decider) -> (&'static str, &'static str) {
     use crate::world::background::Decider as D;
@@ -2777,9 +2773,12 @@ fn promise_reaction(w: &World, i: usize, j: usize, before: Option<(f64, f64)>, a
         });
     } else {
         if offered_here(w, p.player.id) {
+            // Your money read against theirs and theirs against yours: money
+            // that tops his list counts once more (`rec::appeals`, F3).
+            let all: Vec<usize> = std::iter::once(j).chain(others.iter().map(|o| o.0)).collect();
             let rank = |m: f64| {
-                let a = rec::appeal(w, i, j, Some(m));
-                others.iter().filter(|o| o.2 > a).count()
+                let a = rec::appeals(w, i, &all, Some((j, m)));
+                a[1..].iter().filter(|&&o| o > a[0]).count()
             };
             let (r0, r1) = (rank(mine_before), rank(mine_after));
             v.push(if others.is_empty() {
@@ -2828,7 +2827,9 @@ fn portal_reaction(w: &World, i: usize, j: usize, after: Option<(f64, f64)>) -> 
     let money = after.map_or(0.0, |(x, c)| x + cleared(c));
     let now = (p.nil_income - p.brand as f64).max(0.0);
     let reference = now.max(usual);
-    let (place, top) = money_place(&own_weights(&p.family.own_wants));
+    // What he weighs as a transfer: money counts more than it did when he
+    // was a recruit (`rec::transfer_weights`, F3).
+    let (place, top) = money_place(&rec::transfer_weights(w, i));
     let cares = place < 3;
     let mood = match mood_of(money, reference) {
         Mood::Insulted if !cares => Mood::WantsMore,
@@ -3342,7 +3343,8 @@ pub fn race_at(w: &World, i: usize) -> Vec<(usize, f64)> {
     }
     schools.sort_unstable();
     schools.dedup();
-    let mut v: Vec<(usize, f64)> = schools.into_iter().map(|x| (x, rec::appeal(w, i, x, None))).collect();
+    let appeals = rec::appeals(w, i, &schools, None);
+    let mut v: Vec<(usize, f64)> = schools.into_iter().zip(appeals).collect();
     v.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
     v
 }
