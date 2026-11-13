@@ -79,6 +79,10 @@ struct Ticket {
 pub struct Tickets {
     next_id: u64,
     map: HashMap<u64, Ticket>,
+    /// The ticket whose next step is running now (`polling`), so a step can
+    /// leave something under its own number (the core's readings that wait
+    /// for you to confirm).
+    polling: Option<u64>,
 }
 
 impl Tickets {
@@ -151,6 +155,17 @@ pub fn start(g: &mut Game, req: Request, next: Next, force: bool) -> Result<u64,
     Ok(id)
 }
 
+/// A ticket that answers with `answer` at the first poll: for a result the
+/// game already has (a confirmed reading whose writer can't be called).
+pub fn ready(g: &mut Game, answer: Value) -> u64 {
+    start_demo(g, answer, 0)
+}
+
+/// The ticket whose next step is running now, inside `poll`.
+pub fn polling(g: &Game) -> Option<u64> {
+    g.ai.tickets.polling
+}
+
 /// A ticket that answers with `answer` after `waits` polls of "wait".
 pub fn start_demo(g: &mut Game, answer: Value, waits: u32) -> u64 {
     g.ai.tickets.prune();
@@ -191,7 +206,10 @@ pub fn poll(g: &mut Game, id: u64) -> Value {
                     Err(f) => g.ai.note_failure(f),
                 }
             }
-            match next(g, result) {
+            g.ai.tickets.polling = Some(id);
+            let step = next(g, result);
+            g.ai.tickets.polling = None;
+            match step {
                 Step::Done(v) => v,
                 Step::Call(req, next2) => {
                     let Some(client) = g.ai.client() else { return off(&Failure::NoKey.note()) };
