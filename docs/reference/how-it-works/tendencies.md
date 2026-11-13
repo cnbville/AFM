@@ -1,6 +1,6 @@
 # Tendencies: how it works today
 
-Checked against main at 2a6e50c with update 3 lanes 1 (the age-14 centres) and 3 on 2026-10-28. The Scramble habit in the spy (minor bug 289) checked over main 460d534 on 2026-11-07.
+Checked against main at 2a6e50c with update 3 lanes 1 (the age-14 centres) and 3 on 2026-10-28. The Scramble habit in the spy (minor bug 289) checked over main 460d534 on 2026-11-07. The scouted read's film count (minor bug 382) checked over main 2ecb250 on 2026-11-13.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 
@@ -19,6 +19,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - How many coaching style settings? Five, each 1-20: risk, freedom, physical, ball hunting, mould (`tendencies.rs`, `Style`). The scheme pull and the head coach/coordinator blend are the design doc's items 5 and 6 (it numbers risk 0), not `Style` fields (`scheme_target`, `Style::blend`).
 - Where does an AI coach's style come from? His traits and ability: risk = ambition, freedom from discipline against his level, physical from temper, mould from relationships, plus keyed noise (`world/coach.rs`, `Coach::style`). Your own style is `style_set` when set.
 - Does the scouted read show the true number? No. A range on 1-20 and a word, widened by little film and a weak eye (`tendencies.rs`, `scout`). The true number is debug only.
+- What counts as "film" for that read? Every look in the file that watched him: the looks log's "Live and school" and "Film and charting" families (`Kind::watched`, `world/scouting/mod.rs`; school, practice, game, all-star, coach, workout and tryout looks, film of every kind, cross-checks, director and GM looks, and the analysts' numbers). Calls, visits, camps, medicals and the combine do not. The count is `scout`'s `games` at 1.5 a look, and the Find tool's "Scouted habit" shows "Not seen" until it is above 0 (`lane_find/staff.rs`, `read_one`; `lane_scouting.rs`; before minor bug 382 the test named the wrong families, so the count was always 0).
 - Does a major injury change contact willingness? Yes: +U(2, 4) to a dip taken off Contact, which keeps 40% each year (`develop_year`; read in `Tendencies::get`).
 - Does losing speed change habits? Yes: Scramble, Bounce and Return risk each drop 0.25 per rating point of speed lost that year (`develop_year`).
 

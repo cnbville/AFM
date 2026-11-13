@@ -1096,7 +1096,7 @@ function letterHead(m) {
 function letterHtml(m) {
   const paper = m.head === "paper";
   const tableHtml = m.table && m.table.length > 1
-    ? `<div class="lt-table"><table><thead><tr>${m.table[0].map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${m.table.slice(1).map((r) => `<tr>${r.map((c) => `<td>${rich(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`
+    ? `<div class="lt-table"><table><thead><tr>${m.table[0].map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${m.table.slice(1).map((r) => (r.length === 1 && String(r[0]).startsWith("## ") ? `<tr class="tsec"><td colspan="${m.table[0].length}">${esc(String(r[0]).slice(3))}</td></tr>` : `<tr>${r.map((c) => `<td>${rich(c)}</td>`).join("")}</tr>`)).join("")}</tbody></table></div>`
     : "";
   const formal = !["email", "memo", "paper"].includes(m.head);
   const body = paper
@@ -1105,22 +1105,37 @@ function letterHtml(m) {
   const sign = m.head === "paper" ? `<p class="lt-sign small muted">${esc(m.sign || "")}</p>` : `<div class="lt-sign">${m.sign ? `<p>${esc(m.sign)}</p>` : ""}${m.head === "email" ? "" : `<p class="sig">${esc(m.from)}</p><small>${esc(m.role)}</small>`}</div>`;
   return `<div class="lt-paper head-${m.head}">${letterHead(m)}${formal ? `<div class="lt-to"><small>To</small> ${esc(m.to)}</div><div class="lt-subject">${esc(m.subject)}</div>` : m.head === "paper" ? `<div class="lt-subject paper">${esc(m.subject)}</div>` : ""}<div class="lt-body">${body}${tableHtml}${typeof hpWhy === "function" ? hpWhy(m.why) : ""}</div>${sign}${m.attach && m.attach.length ? `<div class="lt-attach">${m.attach.map((a) => `<span class="att">${icon("note")}${esc(a)}</span>`).join("")}</div>` : ""}</div>`;
 }
-function letterSide(m) {
+function letterSide(m, pane) {
   const about = m.about;
   const aboutBtn = about ? (about.kind === "player" ? `<button class="st-btn glass" data-act="letterabout" data-go2="player" data-id="${about.id}">Open ${esc(about.name)}</button>` : about.kind === "team" ? `<button class="st-btn glass" data-act="letterabout" data-go2="team" data-args='${esc(JSON.stringify(about.ref))}'>Open ${esc(about.name)}</button>` : about.kind === "game" ? `<button class="st-btn glass" data-act="letterabout" data-go2="game" data-args='${esc(JSON.stringify({ index: about.index }))}'>Open the game page</button>` : about.kind === "coach" ? `<button class="st-btn glass" data-act="letterabout" data-go2="coach" data-id="${about.id}">Open ${esc(about.name)}</button>` : "") : "";
   const answers = m.answers.length
     ? `<div class="lt-answers"><div class="st-label">${m.answered != null ? "Your answer" : "Answer"}${m.answer_by && m.answered == null ? ` · by ${esc(m.answer_by)}` : ""}</div>${m.answers.map((a, i) => `<button class="ans ${m.answered === i ? "picked" : ""}" data-act="answer" data-i="${i}" ${m.answered != null ? "disabled" : ""}><b>${esc(a.label)}</b><small>${esc(a.does)}</small></button>`).join("")}</div>`
     : "";
+  const tools = `<div class="lt-tools"><button class="st-icon-btn ${m.saved ? "on" : ""}" data-act="letterstar" title="${m.saved ? "Saved: stays until you delete it" : "Save: keeps it past 30 days"}">${icon("star")}</button><button class="st-btn small glass" data-act="letterunread">Mark unread</button><button class="st-btn small glass" data-act="letterdel">Delete</button></div>`;
+  const clears = m.clears_in != null ? `<div class="muted small">Clears in ${m.clears_in} d unless saved.</div>` : "";
+  const noteBtn = `<button class="st-btn glass" data-act="letternote">Add a note</button>`;
+  const notes = m.notes && m.notes.length ? `<div class="lt-notes">${m.notes.map((n) => `<div class="ns-note"><div class="ns-meta"><span>${esc(n.date)}</span></div>${esc(n.text)}</div>`).join("")}</div>` : "";
+  const nav = `<div class="lt-nav"><button class="st-btn small glass" data-act="letterprev" ${MAIL.at > 0 ? "" : "disabled"}>‹ Newer</button><span class="muted small">${MAIL.at + 1} of ${MAIL.list.length}</span><button class="st-btn small glass" data-act="letternext" ${MAIL.at < MAIL.list.length - 1 ? "" : "disabled"}>Older ›</button></div>`;
+  // Beside the inbox the letter has its own pane: the tools sit over the
+  // sheet and the answers under it.
+  if (pane) return { bar: `<div class="ib-bar">${tools}<span class="tspace"></span>${nav}</div>`, foot: `<div class="lt-side">${clears}${answers}${aboutBtn}${noteBtn}${notes}</div>` };
   return `<div class="lt-side">
-    <div class="lt-tools"><button class="st-icon-btn ${m.saved ? "on" : ""}" data-act="letterstar" title="${m.saved ? "Saved: stays until you delete it" : "Save: keeps it past 30 days"}">${icon("star")}</button><button class="st-btn small glass" data-act="letterunread">Mark unread</button><button class="st-btn small glass" data-act="letterdel">Delete</button></div>
-    ${m.clears_in != null ? `<div class="muted small">Clears in ${m.clears_in} d unless saved.</div>` : ""}
+    ${tools}
+    ${clears}
     ${answers}
     ${aboutBtn}
-    <button class="st-btn glass" data-act="letternote">Add a note</button>
-    ${m.notes && m.notes.length ? `<div class="lt-notes">${m.notes.map((n) => `<div class="ns-note"><div class="ns-meta"><span>${esc(n.date)}</span></div>${esc(n.text)}</div>`).join("")}</div>` : ""}
-    <div class="lt-nav"><button class="st-btn small glass" data-act="letterprev" ${MAIL.at > 0 ? "" : "disabled"}>‹ Newer</button><span class="muted small">${MAIL.at + 1} of ${MAIL.list.length}</span><button class="st-btn small glass" data-act="letternext" ${MAIL.at < MAIL.list.length - 1 ? "" : "disabled"}>Older ›</button></div>
+    ${noteBtn}
+    ${notes}
+    ${nav}
     <div class="muted small">← → to move, esc to close</div>
   </div>`;
+}
+// The pane beside the inbox list, when the window is wide enough to show it.
+function ibPane() {
+  const p = document.querySelector(".ib-read");
+  // Narrow, or squeezed by a page opened beside, the letter takes the room.
+  if (!p || p.offsetParent === null || p.clientWidth < 360) return null;
+  return document.documentElement.classList.contains("has-beside") ? null : p;
 }
 async function showLetter(id, list) {
   if (list) MAIL.list = list;
@@ -1132,6 +1147,26 @@ async function showLetter(id, list) {
   let m;
   try { m = await api("letter", { id: String(id) }); } catch (e) { toast(e.message); closeLetter(); return; }
   if (MAIL.ask !== ask) return;
+  const pane = document.querySelector(".letter-room") ? null : ibPane();
+  if (pane) {
+    const same = !!MAIL.cur && MAIL.cur.id === m.id;
+    MAIL.cur = m;
+    const side = letterSide(m, true);
+    const keepAt = same ? (pane.querySelector(".ib-scroll") || {}).scrollTop || 0 : 0;
+    pane.classList.add("on");
+    pane.innerHTML = `${side.bar}<div class="ib-scroll"><div class="lt-sheet">${letterHtml(m)}</div>${side.foot}</div>`;
+    pane.querySelector(".ib-scroll").scrollTop = keepAt;
+    document.querySelectorAll(".mrow[aria-current]").forEach((r) => r.removeAttribute("aria-current"));
+    const sel = document.querySelector(`.mrow[data-id="${id}"]`);
+    if (sel) {
+      sel.setAttribute("aria-current", "true"); sel.classList.remove("unread"); sel.scrollIntoView({ block: "nearest" });
+      if (m.answered != null) sel.querySelector(".tag.need")?.remove();
+      sel.classList.toggle("saved", !!m.saved);
+      sel.querySelector(".mstar")?.classList.toggle("on", !!m.saved);
+    }
+    if (S.status) { S.status.unread = m.unread; badge(); }
+    return;
+  }
   let room = document.querySelector(".letter-room");
   // The letter already on the sheet drawn again (a star, an answer) changes
   // in place: replaying the turn faded the sheet out and back for a blink.
@@ -1172,10 +1207,16 @@ function badge() {
   else if (n) { const nav = document.querySelector('.nav[data-nav="inbox"]'); if (nav) nav.insertAdjacentHTML("beforeend", `<em class="badge">${n}</em>`); }
 }
 document.addEventListener("keydown", (ev) => {
-  if (!document.querySelector(".letter-room") || (ev.target.closest && ev.target.closest("input, textarea"))) return;
-  if (ev.key === "Escape") { ev.preventDefault(); closeLetter(); }
-  if (ev.key === "ArrowRight" || ev.key === "j") { ev.preventDefault(); if (MAIL.at < MAIL.list.length - 1) showLetter(MAIL.list[MAIL.at + 1]); }
-  if (ev.key === "ArrowLeft" || ev.key === "k") { ev.preventDefault(); if (MAIL.at > 0) showLetter(MAIL.list[MAIL.at - 1]); }
+  if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+  const room = document.querySelector(".letter-room");
+  // Beside the list only while the pane shows a message (a list that was
+  // filtered or redrawn shows "Pick a message" and keeps the keys to itself).
+  const pane = !room && S.route.screen === "inbox" ? ibPane() : null;
+  const beside = !!(pane && pane.classList.contains("on") && MAIL.cur);
+  if ((!room && !beside) || (ev.target.closest && ev.target.closest("input, textarea, select, [contenteditable]"))) return;
+  if (ev.key === "Escape" && room) { ev.preventDefault(); closeLetter(); }
+  if (ev.key === "ArrowRight" || ev.key === "j" || (beside && ev.key === "ArrowDown")) { ev.preventDefault(); if (MAIL.at < MAIL.list.length - 1) showLetter(MAIL.list[MAIL.at + 1]); }
+  if (ev.key === "ArrowLeft" || ev.key === "k" || (beside && ev.key === "ArrowUp")) { ev.preventDefault(); if (MAIL.at > 0) showLetter(MAIL.list[MAIL.at - 1]); }
 });
 
 // ---------- the big moments (screens topic 9) ----------
@@ -1255,6 +1296,7 @@ async function coreAct(act, el, ev) {
     }
     case "openmail": go("inbox", { open: d.id }); return true;
     case "mshow": keep("mail", {}).show = d.v; refresh(el); return true;
+    case "mchip": keep("mail", {}).key = d.v; refresh(el); return true;
     case "msaved": { const m = keep("mail", {}); m.saved = !m.saved; refresh(el); return true; }
     case "mallread": await api("mail_set", { all: true, read: true }); S.status.unread = 0; refresh(el); return true;
     case "mrow": showLetter(d.id, [...document.querySelectorAll(".mrow[data-id]")].map((r) => r.dataset.id)); return true;
@@ -1264,19 +1306,31 @@ async function coreAct(act, el, ev) {
       await api("mail_set", { id: d.id, saved: on });
       el.classList.toggle("on", on);
       el.closest(".mrow")?.classList.toggle("saved", on);
+      if (MAIL.cur && MAIL.cur.id === d.id) {
+        MAIL.cur.saved = on;
+        document.querySelector(".ib-read [data-act=letterstar]")?.classList.toggle("on", on);
+      }
       return true;
     }
     case "letterclose": closeLetter(); return true;
     case "letterprev": if (MAIL.at > 0) showLetter(MAIL.list[MAIL.at - 1]); return true;
     case "letternext": if (MAIL.at < MAIL.list.length - 1) showLetter(MAIL.list[MAIL.at + 1]); return true;
     case "letterstar": { const m = MAIL.cur; await api("mail_set", { id: m.id, saved: !m.saved }); showLetter(m.id); return true; }
-    case "letterunread": { const m = MAIL.cur; const r = await api("mail_set", { id: m.id, read: false }); S.status.unread = r.unread; badge(); closeLetter(); return true; }
+    case "letterunread": {
+      const m = MAIL.cur;
+      const r = await api("mail_set", { id: m.id, read: false });
+      S.status.unread = r.unread; badge();
+      // Beside the list the row turns bold where it stands; the overlay closes.
+      if (ibPane()) { document.querySelector(`.mrow[data-id="${m.id}"]`)?.classList.add("unread"); toast("Marked unread."); } else closeLetter();
+      return true;
+    }
     case "letterdel": {
       const m = MAIL.cur;
       const r = await api("mail_set", { id: m.id, delete: true });
       S.status.unread = r.unread;
       badge();
       MAIL.list = MAIL.list.filter((x) => x !== m.id);
+      document.querySelector(`.mrow[data-id="${m.id}"]`)?.remove();
       if (MAIL.list.length) showLetter(MAIL.list[Math.min(MAIL.at, MAIL.list.length - 1)]); else closeLetter();
       toast("Deleted.");
       return true;
@@ -1597,6 +1651,22 @@ screens.home = async () => {
 };
 
 // ---------- Inbox (10a-10i) ----------
+// A two-pane inbox, like the mail box of Football Manager: the list on the
+// left, the open message on the right. A message that waits on you carries
+// a "Needs you" tag, a compound one a count of what it holds, and the
+// background (the morning clips) sits dimmer.
+const IB_GLYPH = { Portal: ["PT", "portal"], Recruiting: ["RC", "rec"], Money: ["$", "money"], "Your players": ["PL", ""], Injuries: ["IN", ""], "Your job": ["JB", ""], Media: ["MD", ""], League: ["LG", ""], Staff: ["ST", ""], "Your people": ["PP", ""], "Draft and NFL": ["NF", ""], "Spring practice": ["SP", ""] };
+function ibRow(m) {
+  const key = (m.keys || [])[0] || "";
+  const [tag, cls] = IB_GLYPH[key] || [String(m.org || m.from || "?").trim().slice(0, 2).toUpperCase(), ""];
+  const need = m.kind === "need" ? `<span class="tag need">${m.answer_by ? `Answer by ${esc(m.answer_by)}` : "Needs you"}</span>` : "";
+  const count = m.count > 1 ? `<span class="badge ib-count" title="${m.count} entries in this message">${m.count}</span>` : "";
+  const clears = m.clears_in != null ? `<span class="tag soft">Clears in ${m.clears_in} d</span>` : "";
+  return `<div class="mrow irow kind-${m.kind || "news"} ${m.unread ? "unread" : ""} ${m.saved ? "saved" : ""} head-${m.head}" data-act="mrow" data-id="${m.id}" role="button" tabindex="0">
+    <span class="mdot"></span><span class="iglyph ${cls}">${esc(tag)}</span>
+    <span class="imain"><span class="ifrom">${esc(m.from)}${m.org ? ` · ${esc(m.org)}` : ""}</span><span class="isubj"><b>${esc(m.subject)}</b></span><span class="iprev">${esc(m.preview)}</span></span>
+    <span class="iside"><span class="itime">${esc(m.time)}</span>${count}${need}${clears}<button class="mstar ${m.saved ? "on" : ""}" data-act="mstar" data-id="${m.id}" title="${m.saved ? "Saved" : "Save"}">${icon("star")}</button></span></div>`;
+}
 screens.inbox = async (a) => {
   const M = keep("mail", { show: "all", key: "", q: "", saved: false });
   if (a.key) { M.key = a.key; delete a.key; }
@@ -1607,14 +1677,16 @@ screens.inbox = async (a) => {
   const rows = x.rows.map((m) => {
     const h = m.day !== day ? `<div class="mday">${esc(m.day)}</div>` : "";
     day = m.day;
-    return h + mailRow(m);
+    return h + ibRow(m);
   }).join("");
-  const seg = [["all", "All", x.total], ["unread", "Unread", x.unread], ["read", "Read", x.total - x.unread]].map(([v, t, n]) => `<button data-act="mshow" data-v="${v}" aria-pressed="${M.show === v}">${t}<small>${n}</small></button>`).join("");
-  const keys = `<select class="mkey" data-act="mkey"><option value="">Every keyword</option>${x.keywords.map((k) => `<option value="${esc(k.name)}" ${M.key === k.name ? "selected" : ""}>${esc(k.name)} (${k.count})</option>`).join("")}</select>`;
-  return `<div class="pad inbox">
-    <header class="phead"><div class="phead-copy"><div class="st-label">${x.unread} unread · kept 30 days</div><div class="h1">Inbox</div></div><div class="phead-act"><div class="msearch">${icon("search")}<input id="mq" value="${esc(M.q)}" placeholder="Search subject, sender and letters" autocomplete="off"></div></div></header>
-    <div class="mbar"><div class="seg">${seg}</div>${keys}<span class="tspace"></span><button class="tbtn ${M.saved ? "on" : ""}" data-act="msaved">${icon("star")} Saved mails <small>${x.saved}</small></button><button class="tbtn" data-act="notes">${icon("note")} Notes <small>${x.notes}</small></button><button class="tbtn" data-act="mallread">Mark all read</button></div>
-    <div class="mlist">${rows || `<div class="empty">${M.q || M.key || M.saved || M.show !== "all" ? "No mail matches." : "No mail yet. It arrives each morning as the days play."}</div>`}</div></div>`;
+  const seg = [["all", "All", x.total], ["need", "Needs you", x.need], ["unread", "Unread", x.unread], ["read", "Read", x.total - x.unread]].map(([v, t, n]) => `<button data-act="mshow" data-v="${v}" aria-pressed="${M.show === v}">${t}<small>${n}</small></button>`).join("");
+  const chips = [["", "All", x.total], ...x.keywords.filter((k) => k.count > 0 || k.name === M.key).map((k) => [k.name, k.name, k.count])].map(([v, t, n]) => `<button class="chip" data-act="mchip" data-v="${esc(v)}" aria-pressed="${M.key === v}">${esc(t)}<small>${n}</small></button>`).join("");
+  const none = M.q || M.key || M.saved || M.show !== "all" ? "No mail matches." : "No mail yet. It arrives each morning as the days play.";
+  return `<div class="pad inbox ib">
+    <header class="phead"><div class="phead-copy"><div class="st-label">${x.unread} unread · ${x.need} need you · kept 30 days</div><div class="h1">Inbox</div></div><div class="phead-act"><div class="msearch">${icon("search")}<input id="mq" value="${esc(M.q)}" placeholder="Search subject, sender and letters" autocomplete="off"></div></div></header>
+    <div class="mbar"><div class="seg">${seg}</div><span class="tspace"></span><button class="tbtn ${M.saved ? "on" : ""}" data-act="msaved">${icon("star")} Saved mails <small>${x.saved}</small></button><button class="tbtn" data-act="notes">${icon("note")} Notes <small>${x.notes}</small></button><button class="tbtn" data-act="mallread">Mark all read</button></div>
+    <div class="ib-chips">${chips}</div>
+    <div class="ib-panes"><div class="mlist ib-list" data-keep="iblist">${rows || `<div class="empty">${none}</div>`}</div><div class="ib-read"><div class="ib-empty"><b>Pick a message</b><span>${x.need ? `${x.need} wait${x.need === 1 ? "s" : ""} on you.` : "Nothing waits on you."} Arrow keys move between messages.</span></div></div></div></div>`;
 };
 
 // ---------- the player page (S1-S3) ----------

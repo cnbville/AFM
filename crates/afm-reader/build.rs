@@ -11,6 +11,9 @@ fn main() {
     let pages = root.join("docs/reference/how-it-works");
     println!("cargo:rerun-if-changed={}", pages.display());
     println!("cargo:rerun-if-changed={}", root.join("crates/afm-engine/src").display());
+    // The live talks page names constants in these two places.
+    println!("cargo:rerun-if-changed={}", root.join("crates/afm-ai/src").display());
+    println!("cargo:rerun-if-changed={}", root.join("crates/afm-game/src/live_talk").display());
     println!("cargo:rerun-if-env-changed=AFM_COMMIT");
     let mut knobs = Vec::new();
     let mut names: Vec<PathBuf> =

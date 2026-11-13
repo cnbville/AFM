@@ -29,6 +29,9 @@ use serde_json::{Value, json};
 
 mod week;
 
+#[cfg(test)]
+mod board_tests;
+
 use crate::reads;
 use crate::views::{
     TeamRef, class_text, date_text, eye_for, mine, mood_words, person_index, reader_key, roster_people, row,
@@ -2364,6 +2367,21 @@ fn proposal(
         .collect()
 }
 
+/// The positions a call to `board_set` names (`positions`, as `"OT"`,
+/// `"IOL"`...): on a base board only these are written, so the rest stay with
+/// your staff. None when the call names none, and every position on the board
+/// is written, as the buttons that set a whole board do (playtest bug 12).
+fn named_positions(args: &Value) -> Result<Option<Vec<Position>>, String> {
+    let Some(list) = args.get("positions").and_then(Value::as_array) else { return Ok(None) };
+    list.iter()
+        .map(|v| {
+            let name = v.as_str().unwrap_or_default();
+            Position::ALL.iter().copied().find(|p| p.name() == name).ok_or_else(|| format!("No such position: {name}."))
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .map(Some)
+}
+
 pub(crate) fn board_set(w: &mut World, args: &Value) -> Result<Option<String>, String> {
     let key = args.get("board").and_then(Value::as_str).ok_or("Missing board.")?;
     let ids: Vec<Option<u32>> = args
@@ -2372,6 +2390,7 @@ pub(crate) fn board_set(w: &mut World, args: &Value) -> Result<Option<String>, S
         .map(|a| a.iter().map(|v| v.as_u64().map(|x| x as u32)).collect())
         .unwrap_or_default();
     let reset = args.get("reset").and_then(Value::as_bool).unwrap_or(false);
+    let named = named_positions(args)?;
     if let Some(b) = Board::parse(key) {
         if !w.seat_head() && !b.slots().iter().all(|s| w.controls(s.1)) {
             return Err(format!("That unit is the head coach's. Your job covers {}.", w.your_controls()));
@@ -2401,7 +2420,9 @@ pub(crate) fn board_set(w: &mut World, args: &Value) -> Result<Option<String>, S
     };
     let mut notes = Vec::new();
     for pos in positions {
-        if !w.controls(pos) {
+        // A position the call doesn't name stays as it was: your order if you
+        // had set one, else your staff's, which keeps managing it.
+        if !w.controls(pos) || named.as_ref().is_some_and(|n| !n.contains(&pos)) {
             continue;
         }
         if reset {

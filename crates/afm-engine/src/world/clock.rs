@@ -151,7 +151,7 @@ fn hs_carousel_day(y: &YearDates) -> Date {
 /// The day June transfers happen: each state's transfer season, after the
 /// school year ends.
 fn hs_transfer_day(y: &YearDates) -> Date {
-    Date::ymd(y.season, 6, 15)
+    hs_year::transfer_day(y.season)
 }
 
 /// Bodies grow by the date (update 3, A16): each person's years past his
@@ -543,7 +543,7 @@ fn office(w: &mut World, d: Date, y: &YearDates) {
     let rule = w.rules.transfer;
     // The season's eligibility settles before a window that opens the same
     // day reads it (lane 10: a burned redshirt counted only after).
-    if d == Date::ymd(season + 1, 1, 2) {
+    if d == crate::calendar::anchors::eligibility_day(season) {
         college::settle_eligibility(w);
     }
     for (open, close, which) in portal_windows(season, rule) {
@@ -1188,6 +1188,14 @@ pub fn jump_to(w: &mut World, until: Date) -> Date {
 /// at the section stop after it. Returns the day it stopped on: the first
 /// section of `until`, or the day of the huge moment.
 pub fn holiday_to(w: &mut World, until: Date) -> Date {
+    holiday_to_with(w, until, &mut |_| {})
+}
+
+/// `holiday_to`, calling `each_day` at the first section of every new day it
+/// passes (the game files its inbox there: what the day's people did can be
+/// gone from the world a few days on). It only reads; the world plays the
+/// same days either way.
+pub fn holiday_to_with(w: &mut World, until: Date, each_day: &mut dyn FnMut(&mut World)) -> Date {
     let seat = w.seat;
     loop {
         if super::scouting::live::holds(w) {
@@ -1195,7 +1203,11 @@ pub fn holiday_to(w: &mut World, until: Date) -> Date {
         }
         let from = w.now();
         let (d, m) = w.next_section_stop();
+        let day = w.today;
         run_to(w, d, m);
+        if w.today != day {
+            each_day(w);
+        }
         let huge = w.calendar.between(from, w.now()).into_iter().any(|e| huge_for(seat, e));
         if huge || w.today >= until {
             return w.today;
@@ -1237,6 +1249,24 @@ mod tests {
             Level::Nfl => super::super::Seat { level, nfl_team: Some(t), program: None, other: None },
             _ => super::super::Seat { level, nfl_team: None, program: Some(t), other: None },
         }
+    }
+
+    /// Holiday mode hands back at the first section of every new day it
+    /// passes (the game files its inbox there) and plays the same days.
+    #[test]
+    fn holiday_hands_back_at_every_new_day() {
+        let mut a = small();
+        let mut b = small();
+        let start = a.today;
+        let until = start.add(5);
+        let ended = holiday_to(&mut a, until);
+        let mut days = Vec::new();
+        let ended_b = holiday_to_with(&mut b, until, &mut |w| days.push(w.today));
+        assert_eq!(ended, ended_b);
+        assert_eq!((a.today, a.played), (b.today, b.played), "the same days are played");
+        let want: Vec<Date> = (1..=(a.today.0 - start.0)).map(|n| start.add(n)).collect();
+        assert_eq!(days, want, "once for each new day");
+        assert!(!days.is_empty());
     }
 
     /// Proof 1: Continue stops six times on a quiet day, at 5:00, 8:00,

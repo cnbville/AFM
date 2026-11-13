@@ -83,6 +83,11 @@ pub struct Mail {
     /// three biggest reasons, linked text.
     #[serde(default)]
     pub why: Vec<String>,
+    /// How many entries a compound message holds (the list shows it as a
+    /// badge when it is more than one): the day's 212 portal entrants, of
+    /// which the table names the few that matter.
+    #[serde(default)]
+    pub count: u32,
 }
 
 /// One picked answer: its words, what it will do, and the act behind it.
@@ -183,6 +188,10 @@ pub struct Desk {
     pub reveals: Vec<Reveal>,
     /// Reveals already made (ids), so none is shown twice.
     pub revealed: Vec<u64>,
+    /// Your former players whose landing a "Portal landings" message
+    /// told, and the day it was filed, so none is told twice.
+    #[serde(default)]
+    pub landed: Vec<(u32, Date)>,
 }
 
 /// Days mail is kept (10d): it clears the morning it turns 31 days old.
@@ -197,6 +206,10 @@ impl Desk {
         if self.revealed.len() > 400 {
             let cut = self.revealed.len() - 400;
             self.revealed.drain(..cut);
+        }
+        if self.landed.len() > 600 {
+            let cut = self.landed.len() - 600;
+            self.landed.drain(..cut);
         }
         if self.contacts.len() > 2000 {
             let cut = self.contacts.len() - 2000;
