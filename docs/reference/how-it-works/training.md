@@ -1,6 +1,6 @@
 # Training: how it works today
 
-Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28. The six-part day (player immersion I1) checked on 2026-11-05, before it merged to main. The strength staff (minor bugs 302 and 303) checked with that change on 2026-11-07. Snaps landing in season (growth from results) checked over main e2a6533 on 2026-11-08; practice snaps as results (item 16) on, at a twentieth, over main dd9ac18 the same day. An NFL club's practice with its practice squad and inactives (minor bug 361) checked over main 6049be8 the same day. Practice resized to a fortieth (item 16) over main 92875fc on 2026-11-09.
+Checked against main at 81c9f0c with update 3 lane 3 on 2026-10-28. The six-part day (player immersion I1) checked on 2026-11-05, before it merged to main. The strength staff (minor bugs 302 and 303) checked with that change on 2026-11-07. Snaps landing in season (growth from results) checked over main e2a6533 on 2026-11-08; practice snaps as results (item 16) on, at a twentieth, over main dd9ac18 the same day. An NFL club's practice with its practice squad and inactives (minor bug 361) checked over main 6049be8 the same day. Practice resized to a fortieth (item 16) over main 92875fc on 2026-11-09. Practice groups kept each week (talk facts lane L4) checked over main 67c0388 on 2026-11-13, before it merged.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`. Nearly every size in the training week and in prep is marked in code as Claude's (proposed, not confirmed); `docs/world-model.md`, "Training: the week's frame and prep", lists them.
 
@@ -159,6 +159,7 @@ Blocks: winter, spring, quiet, summer, camp, season, postseason, NFL phase 1, ph
 - Templates are checked before they save; a forbidden period can't be saved (`save_template`). This week's plan saves with breaches only with `push` (`save_this_week`).
 - Your ratio per player is his own week (plan extras added, rest days and injury taken off) against the neutral week, at his absorb factor (`training/seat.rs`, `week`, `own_week`). A hurt player's week keeps every off-field period except mat drills and testing, plus 45 minutes of treatment on each day with any (`own_week`).
 - A player absent from a voluntary week works at his own effort, as on his own time (`training/seat.rs`, `week`).
+- Practice groups (talk facts lane L4, for the promises design): each week your staff runs practice, every player's group is kept: the ones (starters), the twos (backups), or apart from the two-deep (young players on a roster of 70 or more; on a smaller roster they work with the twos); specialists aren't kept. The last 4 weeks are saved (`SeatTraining.groups`, `record_groups`, `GROUP_WEEKS`, `APART_ROSTER`; sizes proposed, not confirmed). It is what a player sees of his place: the fact sheet's job, buried and where he stands read it, and promise judging (lane P1) will.
 - New arrivals (TR8): your players' arrival dates are kept; one who arrived in the last 14 days reads as new. The first week with this list counts everyone as arrived a year ago (`SeatTraining.arrived`, `is_new`, `week`).
 
 ### Practice weather (TR15)

@@ -19,7 +19,8 @@ pub const FORTNIGHT_DAYS: i32 = 14;
 /// A testing day, a college's move on a high school player.
 /// Proposed, not confirmed.
 pub const TEST_DAYS: i32 = 21;
-/// A job lost or won, a move on the depth chart, a friend who left.
+/// A job lost or won, a move in his place (his practice group, his
+/// starts), a friend who left.
 /// Proposed, not confirmed.
 pub const JOB_DAYS: i32 = 28;
 /// A closed case, a ruling, an award, the season that ended, the room
@@ -52,8 +53,9 @@ pub enum When {
     /// He can check it as you say it: a draft pick, a title, the miles,
     /// Saturday's game.
     Now,
-    /// He can check it on a day: the depth chart at fall camp, the money
-    /// at signing, his role on Saturday (the point's `due`).
+    /// He can check it on a day: his place over his first two practice
+    /// weeks and two games, the money at signing, his role on Saturday (the
+    /// point's `due`).
     Day,
     /// He can never check it: what you told another recruit.
     Never,
@@ -249,7 +251,8 @@ catalogue! {
     ReportDay "report_day" Offseason, His Now FORTNIGHT_DAYS, 0.4;
     /// His coaches tipped him for a step this spring, and whether it came.
     SpringStep "spring_step" Offseason, His Now 0, 0.5;
-    /// You moved him on the chart in the last four weeks.
+    /// His place moved in the last four weeks, as he saw it: up to the
+    /// ones or down from them in practice, a start won or lost.
     ChartMove "chart_move" Offseason, Shared Now JOB_DAYS, 0.6;
     /// He is learning a new position.
     NewPosition "new_position" Offseason, His Now 0, 0.55;

@@ -50,6 +50,8 @@ function pdragBegin(h) {
   document.body.classList.add("pd-active");
   h.el.classList.add("pd-src");
   PD.live = { ...h, ghost, over: null, x: h.x, y: h.y, scroller: pdragScroller(h.el), raf: 0 };
+  // A rating's hover card open under the mouse goes while a man is held.
+  if (typeof rrHide === "function") rrHide();
   if (h.kind.begin) h.kind.begin(h.payload, h.el);
   PD.live.raf = requestAnimationFrame(pdragEdge);
 }

@@ -288,10 +288,12 @@ fn rule_break(r: &Reader, m: &Man) -> Option<Point> {
     )
 }
 
-/// A job won or lost, from your own orders on the depth chart and from
-/// the bench he felt (a dated mood reason): (won, lost). Between seasons
-/// an order of yours is a move on the chart (`season::chart_move`), so it
-/// isn't told twice.
+/// A job won or lost, from what he has seen of his place (the promises
+/// design, section 2: players never see the chart): his group in your
+/// last practice weeks and whether he started your games, and the bench
+/// he felt (a dated mood reason, which you or a ruling told him): (won,
+/// lost). Between seasons a change is where he stands after spring or
+/// camp (`season::chart_move`), so it isn't told twice.
 fn job(r: &Reader, m: &Man) -> (Option<Point>, Option<Point>) {
     if !m.mine {
         return (None, None);
@@ -299,23 +301,22 @@ fn job(r: &Reader, m: &Man) -> (Option<Point>, Option<Point>) {
     let w = r.w;
     let (mut won, mut lost) = (None, None);
     if m.team.is_some_and(|t| r.in_season(t)) {
-        for c in chart_changes(r, m) {
-            match c {
-                Chart::Up(day, beat) => {
-                    let mut pt = Point::new(Kind::WonJob).on(day);
-                    if let Some((id, name)) = beat {
-                        pt = pt.text("rival", name).refer(Ref::Player(id));
-                    }
-                    won = Some(pt);
+        match place_changes(r, m).into_iter().last() {
+            Some(Place::Up(day, beat)) => {
+                let mut pt = Point::new(Kind::WonJob).on(day);
+                if let Some((id, name)) = beat {
+                    pt = pt.text("rival", name).refer(Ref::Player(id));
                 }
-                Chart::Down(day, by) => {
-                    let mut pt = Point::new(Kind::LostJob).on(day).state("why", bench_cause(r, m, day));
-                    if let Some((id, name)) = by {
-                        pt = pt.text("rival", name).refer(Ref::Player(id));
-                    }
-                    lost = Some(pt);
-                }
+                won = Some(pt);
             }
+            Some(Place::Down(day, by)) => {
+                let mut pt = Point::new(Kind::LostJob).on(day).state("why", bench_cause(r, m, day));
+                if let Some((id, name)) = by {
+                    pt = pt.text("rival", name).refer(Ref::Player(id));
+                }
+                lost = Some(pt);
+            }
+            None => {}
         }
     }
     // The bench he felt, whoever took the job.
@@ -328,13 +329,11 @@ fn job(r: &Reader, m: &Man) -> (Option<Point>, Option<Point>) {
             .and_then(|x| x.1.iter().rev().find(|n| n.1 == Reason::Benched as u8 && n.2 < 0).map(|n| n.0))
     {
         let mut pt = Point::new(Kind::LostJob).on(day).state("why", bench_cause(r, m, day));
-        // Who starts there now, when you set the order yourself.
-        let pos = w.people[m.i].player.position;
-        if let Some(&first) = w.seat_depth.iter().find(|x| x.0 == pos).and_then(|x| x.1.first())
-            && first != m.id
-            && let Some(name) = r.name(first)
+        // Who he sees in his place: a man with the ones at his spot.
+        if let Some(id) = ones_at(r, m).first().copied()
+            && let Some(name) = r.name(id)
         {
-            pt = pt.text("rival", name).refer(Ref::Player(first));
+            pt = pt.text("rival", name).refer(Ref::Player(id));
         }
         lost = Some(pt);
     }
@@ -347,51 +346,151 @@ fn job(r: &Reader, m: &Man) -> (Option<Point>, Option<Point>) {
     (won, lost)
 }
 
-pub(super) enum Chart {
-    /// He became the first man on a day, and whom he passed (id, name).
+/// A change in his place that held: up to the first team or down from it.
+pub(super) enum Place {
+    /// He came up to the first team on a day, and whom he passed (id, name).
     Up(Date, Option<(u32, String)>),
-    /// He stopped being the first man, and who is (id, name).
+    /// He went down from it, and who took his place (id, name).
     Down(Date, Option<(u32, String)>),
 }
 
-/// Your orders at his position that moved him in or out of the first
-/// spot, oldest first. The log keeps the first man of each order (0: the
-/// order went back to your staff).
-pub(super) fn chart_changes(r: &Reader, m: &Man) -> Vec<Chart> {
+/// What he saw of his place on a day: a practice week's group, or one of
+/// your games.
+struct Seen {
+    day: Date,
+    /// With the ones in practice, or a starter in the game.
+    first: bool,
+    /// The ids with the ones at his spot that week (practice only).
+    ones: Vec<u32>,
+    /// One of your games, not a practice week.
+    game: bool,
+}
+
+/// Your share of the most snaps on his side of the ball that makes a
+/// start (proposed, not confirmed): a man who played half a game's snaps
+/// started it or as good as.
+pub const START_SHARE: f64 = 0.5;
+/// Sightings in a row that make a change in his place hold: one week with
+/// the twos is a warning, two a lost job (the promises design, section 2).
+pub const PLACE_HOLDS: usize = 2;
+
+/// Everything he has seen of his place with you, oldest first: each of
+/// your practice weeks' groups (`SeatTraining::groups`) and each of your
+/// games kept whole, whether he started it (not a game he missed hurt).
+fn sightings(r: &Reader, m: &Man) -> Vec<Seen> {
     let w = r.w;
     let pos = w.people[m.i].player.position;
+    if pos.is_specialist() {
+        return Vec::new();
+    }
+    let at_pos = |id: u32| crate::world::folk::person(w, id).is_some_and(|j| w.people[j].player.position == pos);
+    let mut out: Vec<Seen> = Vec::new();
+    for (day, g) in w.training.groups.iter().filter(|x| x.0 <= r.today) {
+        let Some(&(_, mine)) = g.iter().find(|x| x.0 == m.id) else { continue };
+        let ones = g.iter().filter(|x| x.1 == crate::training::seat::GROUP_ONES && at_pos(x.0)).map(|x| x.0).collect();
+        out.push(Seen { day: *day, first: mine == crate::training::seat::GROUP_ONES, ones, game: false });
+    }
+    let since = w.training.arrived.iter().find(|x| x.0 == m.id).map(|x| x.1);
+    let offense = matches!(
+        pos,
+        crate::positions::Position::QB
+            | crate::positions::Position::RB
+            | crate::positions::Position::WR
+            | crate::positions::Position::TE
+            | crate::positions::Position::OT
+            | crate::positions::Position::IOL
+    );
+    if let Some(team) = m.team {
+        for g in w.seat_games.iter().filter(|g| g.date <= r.today) {
+            let Some(side) = super::side_of(g, team) else { continue };
+            let snaps = |l: &crate::game::stats::StatLine| if offense { l.snaps_off } else { l.snaps_def };
+            let line = g.stats.players[side].get(&m.id);
+            // A game he wasn't with you for, or missed hurt, says nothing.
+            let hurt = w.training.hurt.iter().any(|h| h.id == m.id && h.from <= g.date && g.date <= h.until);
+            if line.is_none() && (hurt || since.is_none_or(|d| d > g.date)) {
+                continue;
+            }
+            let most = g.stats.players[side].values().map(snaps).max().unwrap_or(0);
+            let his = line.map_or(0, snaps);
+            out.push(Seen {
+                day: g.date,
+                first: most > 0 && his as f64 >= START_SHARE * most as f64,
+                ones: Vec::new(),
+                game: true,
+            });
+        }
+    }
+    out.sort_by_key(|x| x.day);
+    out
+}
+
+/// The changes in his place that held (`PLACE_HOLDS` sightings in a row),
+/// oldest first, each with the man he passed or who passed him: a man at
+/// his spot with the ones in the week it held who wasn't before, or the
+/// other way round.
+pub(super) fn place_changes(r: &Reader, m: &Man) -> Vec<Place> {
+    let seen = sightings(r, m);
     let mut out = Vec::new();
-    let mut prev: Option<u32> = None;
-    for &(day, p, first) in &w.seat_depth_log {
-        if p != pos {
+    let Some(first) = seen.first() else { return out };
+    let mut cur = first.first;
+    let mut run = 0;
+    let mut before: Vec<u32> = first.ones.clone();
+    for (k, s) in seen.iter().enumerate() {
+        if s.first == cur {
+            run = 0;
+            if !s.ones.is_empty() {
+                before = s.ones.clone();
+            }
             continue;
         }
-        let named = |id: u32| r.name(id).map(|n| (id, n));
-        // Before an order of yours the staff set the chart: the man who
-        // started your last game there was first.
-        let before = prev.filter(|&x| x != 0).or_else(|| starter_before(r, m, pos, day));
-        if first == m.id && before.is_some_and(|b| b != m.id) {
-            out.push(Chart::Up(day, before.and_then(named)));
-        } else if before == Some(m.id) && first != m.id && first != 0 {
-            out.push(Chart::Down(day, named(first)));
+        run += 1;
+        if run < PLACE_HOLDS {
+            continue;
         }
-        prev = Some(first);
+        // It held: the newest practice week up to now says who is there.
+        let now: Vec<u32> =
+            seen[..=k].iter().rev().find(|x| !x.ones.is_empty()).map_or_else(Vec::new, |x| x.ones.clone());
+        let other = if s.first {
+            before.iter().copied().find(|id| *id != m.id && !now.contains(id))
+        } else {
+            now.iter()
+                .copied()
+                .find(|id| *id != m.id && !before.contains(id))
+                .or_else(|| now.iter().copied().find(|id| *id != m.id))
+        };
+        let named = other.and_then(|id| r.name(id).map(|n| (id, n)));
+        out.push(if s.first { Place::Up(s.day, named) } else { Place::Down(s.day, named) });
+        cur = s.first;
+        run = 0;
+        before = now;
     }
     out
 }
 
-/// Who started at a position in your last game kept whole before a day:
-/// the man there who played the most snaps.
-fn starter_before(r: &Reader, m: &Man, pos: crate::positions::Position, day: Date) -> Option<u32> {
+/// The men at his spot with the ones in his newest practice week, the one
+/// who played the most snaps in your last game first.
+fn ones_at(r: &Reader, m: &Man) -> Vec<u32> {
     let w = r.w;
-    let team = m.team?;
-    let g = w.seat_games.iter().rev().find(|g| g.date < day)?;
-    let side = super::side_of(g, team)?;
-    g.stats.players[side]
+    let pos = w.people[m.i].player.position;
+    let Some((_, g)) = w.training.groups.iter().rev().find(|x| x.0 <= r.today && x.1.iter().any(|y| y.0 == m.id))
+    else {
+        return Vec::new();
+    };
+    let mut ones: Vec<u32> = g
         .iter()
-        .filter(|(id, _)| crate::world::folk::person(w, **id).is_some_and(|i| w.people[i].player.position == pos))
-        .max_by_key(|(id, l)| (l.snaps_off + l.snaps_def, std::cmp::Reverse(**id)))
-        .map(|(id, _)| *id)
+        .filter(|x| {
+            x.0 != m.id
+                && x.1 == crate::training::seat::GROUP_ONES
+                && crate::world::folk::person(w, x.0).is_some_and(|j| w.people[j].player.position == pos)
+        })
+        .map(|x| x.0)
+        .collect();
+    let last = m.team.and_then(|t| {
+        w.seat_games.iter().rev().filter(|g| g.date <= r.today).find_map(|g| super::side_of(g, t).map(|s| (g, s)))
+    });
+    let snaps = |id: u32| last.and_then(|(g, s)| g.stats.players[s].get(&id)).map_or(0, |l| l.snaps_off + l.snaps_def);
+    ones.sort_by_key(|&id| (std::cmp::Reverse(snaps(id)), id));
+    ones
 }
 
 /// Why he sat: your discipline, an injury, or his play.
@@ -413,8 +512,11 @@ fn bench_cause(r: &Reader, m: &Man, day: Date) -> &'static str {
     }
 }
 
-/// Third or lower on the chart your team would take into a game today,
-/// after two seasons in the program.
+/// Buried, as he sees it (the promises design, section 2): after two
+/// seasons in the program, his last two practice weeks away from the ones
+/// (apart from the two-deep both weeks, or with the twos and no snaps in
+/// your last two games he was there for), behind the men who work with
+/// the ones and play his snaps.
 fn buried(r: &Reader, m: &Man) -> Option<Point> {
     if !m.mine {
         return None;
@@ -429,19 +531,50 @@ fn buried(r: &Reader, m: &Man) -> Option<Point> {
     if seasons < 2 || p.player.position.is_specialist() {
         return None;
     }
-    let list = &r.depth()?.iter().find(|x| x.0 == p.player.position)?.1;
-    let rank = list.iter().position(|&x| x == m.id)?;
-    if rank < 2 {
+    use crate::training::seat::{GROUP_APART, GROUP_ONES};
+    let weeks: Vec<u8> = w
+        .training
+        .groups
+        .iter()
+        .rev()
+        .filter(|x| x.0 <= r.today)
+        .filter_map(|x| x.1.iter().find(|y| y.0 == m.id).map(|y| y.1))
+        .take(PLACE_HOLDS)
+        .collect();
+    if weeks.len() < PLACE_HOLDS || weeks.contains(&GROUP_ONES) {
         return None;
     }
-    let ahead = crate::world::folk::person(w, list[0])?;
-    Some(
-        Point::new(Kind::Buried)
-            .text("ahead", w.people[ahead].name.clone())
-            .text("ahead_class", crate::world::folk::facts::class_words(w, ahead))
-            .count("rank", rank as i64 + 1)
-            .refer(Ref::Player(list[0])),
-    )
+    let apart = weeks.iter().all(|&g| g == GROUP_APART);
+    if !apart {
+        // With the twos: buried only if he doesn't play.
+        let games: Vec<Seen> = sightings(r, m).into_iter().filter(|x| x.game).collect();
+        let last: Vec<&Seen> = games.iter().rev().take(PLACE_HOLDS).collect();
+        let played = |s: &Seen| {
+            let team = m.team;
+            w.seat_games.iter().find(|g| g.date == s.day).is_some_and(|g| {
+                team.and_then(|t| super::side_of(g, t))
+                    .and_then(|side| g.stats.players[side].get(&m.id))
+                    .is_some_and(|l| l.snaps_off + l.snaps_def > 0)
+            })
+        };
+        if last.len() < PLACE_HOLDS || last.iter().any(|s| played(s)) {
+            return None;
+        }
+    }
+    let ones = ones_at(r, m);
+    let ahead_id = ones.first().copied()?;
+    let ahead = crate::world::folk::person(w, ahead_id)?;
+    let mut pt = Point::new(Kind::Buried)
+        .text("ahead", w.people[ahead].name.clone())
+        .text("ahead_class", crate::world::folk::facts::class_words(w, ahead))
+        .state("group", if apart { "apart" } else { "twos" })
+        .refer(Ref::Player(ahead_id));
+    // Every man he sees with the ones at his spot, when there are more.
+    let names: Vec<String> = ones.iter().filter_map(|&id| r.name(id)).collect();
+    if names.len() > 1 {
+        pt = pt.text("ahead_all", crate::world::legacy::and_list(&names));
+    }
+    Some(pt)
 }
 
 /// His last game and the run before it, from your team's games kept

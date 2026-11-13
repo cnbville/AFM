@@ -12,7 +12,7 @@
 
 use super::alumni::Alumni;
 use super::kinds::{self, Kind};
-use super::player::{Chart, chart_changes};
+use super::player::{Place, place_changes};
 use super::sheet::{self, Point, Ref};
 use super::{Man, Reader, team, words};
 use crate::calendar::Date;
@@ -294,16 +294,18 @@ fn spring_step(r: &Reader, m: &Man) -> Option<Point> {
     )
 }
 
-/// You moved him on the chart in the last four weeks, between seasons: up
-/// or down, and who he passed or who passed him. In season the same order
-/// is a job won or lost (`player::job`).
+/// Where he stands after spring or camp, between seasons: his place in
+/// your last practice weeks went up to the ones or down from them, and who
+/// he passed or who passed him (the promises design, section 2: what he
+/// sees, never the chart). In season the same change is a job won or lost
+/// (`player::job`).
 fn chart_move(r: &Reader, m: &Man) -> Option<Point> {
     if !m.mine || m.team.is_some_and(|t| r.in_season(t)) {
         return None;
     }
-    let (day, other, up) = match chart_changes(r, m).into_iter().last()? {
-        Chart::Up(day, o) => (day, o, true),
-        Chart::Down(day, o) => (day, o, false),
+    let (day, other, up) = match place_changes(r, m).into_iter().last()? {
+        Place::Up(day, o) => (day, o, true),
+        Place::Down(day, o) => (day, o, false),
     };
     let mut pt = Point::new(Kind::ChartMove).on(day).state("move", if up { "up" } else { "down" });
     if let Some((id, name)) = other {
