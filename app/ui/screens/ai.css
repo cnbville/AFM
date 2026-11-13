@@ -1,0 +1,169 @@
+/* Live talks, lane 2: the boxes (screens/ai.js, say.js, ask.js). The strip you
+   type in under a talk's chips or a page's filters, the "Heard as" line and
+   its marks, the settings card and the demo bar. Frames 1 to 8 of
+   afm/live-talks/lanes/lane-0.md. Gold marks what you typed and what was set
+   from your words; amber shows only where something is wrong. Every class
+   starts with ai- (the screens share one stylesheet scope). */
+
+.ai-box, .ai-card, .ai-heard, .ai-wait, .ai-pg, #ai-devbar { --ai-amber: #f0b27a; --ai-gold: var(--gold); }
+:root[data-theme="light"] .ai-box, :root[data-theme="light"] .ai-card, :root[data-theme="light"] .ai-heard, :root[data-theme="light"] .ai-wait, :root[data-theme="light"] .ai-pg, :root[data-theme="light"] #ai-devbar { --ai-amber: #a8561a; }
+/* The talk rooms are dark in either theme. */
+.pp-room .ai-box, .tk-f2f .ai-box, .pp-room .ai-heard, .tk-f2f .ai-heard { --fg: #f4f5f7; --fg2: #c4c8d0; --fg3: #8d929c; --on-fg: #08090c; --fill-1: rgba(255, 255, 255, .06); --fill-2: rgba(255, 255, 255, .14); --edge: rgba(255, 255, 255, .14); --hair: rgba(255, 255, 255, .10); --gold: #f1be48; --ai-amber: #f0b27a; --good: #8fdcb1; color: var(--fg); }
+
+.ai-box { display: grid; gap: 8px; min-width: 0; font-size: 13px; line-height: 1.45; color: var(--fg); }
+.ai-box.panel { padding: 14px 16px; }
+.pp-moves .ai-box, .tk-fmoves .ai-box { margin-top: 12px; padding-top: 12px; box-shadow: inset 0 1px 0 var(--hair); }
+.tk-fmoves .ai-box { margin-top: 8px; }
+.ai-sy { display: grid; gap: 8px; }
+.ai-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.ai-lb { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--fg3); }
+.ai-lb.ai-gd { color: var(--ai-gold); }
+.ai-cnt { font-size: 11px; font-weight: 700; letter-spacing: .1em; color: var(--fg3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ai-f { display: flex; gap: 8px; align-items: flex-end; }
+.ai-b { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ai-b > .small, .ai-ai-small { color: var(--fg3); }
+
+/* The field you type in */
+.ai-fld { flex: 1; min-width: 0; width: 100%; box-sizing: border-box; min-height: 38px; max-height: 140px; resize: none; overflow: auto; border: 0; border-radius: 12px; background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--edge); padding: 9px 12px; color: var(--fg); font: inherit; line-height: 1.4; outline: none; }
+.ai-fld::placeholder { color: var(--fg3); }
+.ai-fld:focus { box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ai-gold) 65%, transparent); }
+.ai-fld.lock { opacity: .75; color: var(--fg2); }
+.ai-pick { appearance: none; -webkit-appearance: none; height: 38px; max-width: 220px; border: 0; border-radius: 12px; padding: 0 30px 0 12px; background-color: var(--fill-1); color: var(--fg); font: inherit; font-size: 13px; box-shadow: inset 0 0 0 1px var(--edge); cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23999' stroke-width='1.5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 11px center; }
+.ai-pick option { background: var(--raised); color: var(--fg); }
+.ai-pick:disabled { opacity: .6; }
+
+/* Buttons */
+.ai-btn { height: 30px; padding: 0 12px; border: 0; border-radius: 12px; background: var(--fill-2); box-shadow: inset 0 0 0 1px var(--edge); color: var(--fg); font: inherit; font-weight: 600; font-size: 12.5px; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; cursor: pointer; }
+.ai-btn:hover:not(:disabled) { background: var(--fill-3); }
+.ai-btn.pri { background: var(--fg); color: var(--on-fg); box-shadow: none; font-weight: 700; }
+.ai-btn.pri:hover:not(:disabled) { background: var(--fg); opacity: .9; }
+.ai-btn.sm { height: 26px; padding: 0 10px; font-size: 12px; border-radius: 9px; }
+.ai-btn.dim, .ai-btn:disabled { opacity: .4; cursor: default; }
+.ai-f .ai-btn { height: 38px; }
+.ai-btn:focus-visible, .ai-rd:focus-visible, .ai-fchip:focus-visible, .ai-lnk:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+
+/* The wait: the words stay, a thin bar moves, one line says who is reading */
+.ai-pbar { display: block; position: relative; height: 3px; border-radius: 2px; background: var(--fill-2); overflow: hidden; }
+.ai-pbar i { position: absolute; inset: 0 auto 0 0; width: 34%; border-radius: 2px; background: color-mix(in oklab, var(--fg) 60%, transparent); animation: ai-slide 1.3s var(--ease, ease) infinite; }
+@keyframes ai-slide { 0% { left: -34%; } 100% { left: 100%; } }
+html.calm .ai-pbar i, html.calm .ai-wbar i { animation: none; left: 33%; }
+.ai-note { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; color: var(--fg2); }
+.ai-note b { color: var(--fg); }
+.ai-note .small, .ai-small { color: var(--fg3); font-size: 12px; }
+.ai-cap { color: var(--fg3); font-size: 12px; max-width: 70ch; }
+
+/* Heard two ways, and the step that can't be undone */
+.ai-rds { display: grid; gap: 8px; }
+.ai-rd { display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: left; padding: 10px 12px; border: 0; border-radius: 12px; background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--hair); color: var(--fg); font: inherit; font-weight: 600; cursor: pointer; }
+.ai-rd .ai-lb { display: block; margin-bottom: 2px; }
+.ai-rd.on { background: color-mix(in oklab, var(--ai-gold) 7%, transparent); box-shadow: inset 3px 0 0 var(--ai-gold), inset 0 0 0 1px color-mix(in oklab, var(--ai-gold) 35%, transparent); }
+.ai-rd i { flex: none; width: 14px; height: 14px; margin-top: 2px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--fg3); }
+.ai-rd.on i { background: radial-gradient(circle, var(--ai-gold) 0 3.5px, transparent 4px); box-shadow: inset 0 0 0 1.5px var(--ai-gold); }
+.ai-conf { display: grid; gap: 10px; }
+.ai-quote { margin: 0; font-size: 14px; font-weight: 600; color: var(--fg); }
+.ai-cant { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--fg2); }
+.ai-acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ai-lnk { justify-self: start; color: var(--fg2); font-size: 12.5px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.ai-lnk:hover { color: var(--fg); }
+
+/* Heard as, and the marks on what you said (in the box, and under your line in a log) */
+.ai-ha { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-size: 12.5px; }
+.ai-ha .ai-lb { color: inherit; opacity: .6; }
+.ai-cl { display: flex; flex-wrap: wrap; gap: 3px 8px; align-items: center; font-size: 12.5px; margin: 2px 0; }
+.ai-mk { display: inline-flex; align-items: center; gap: 6px; height: 20px; padding: 0 8px; border-radius: 7px; font-size: 11px; font-weight: 700; letter-spacing: .04em; white-space: nowrap; }
+.ai-mk i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.ai-mk-t { background: color-mix(in oklab, var(--good) 16%, transparent); color: var(--good); }
+.ai-mk-f { background: color-mix(in oklab, var(--ai-amber) 16%, transparent); color: var(--ai-amber); }
+.ai-mk-p { background: var(--fill-2); color: var(--fg2); }
+.ai-mk-l { box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ai-gold) 50%, transparent); color: var(--ai-gold); }
+.ai-heard { display: grid; gap: 2px; margin: 2px 0 4px; }
+.ai-heard:empty { display: none; }
+.ai-heard { color: color-mix(in oklab, currentColor 82%, transparent); }
+.ai-heard .ai-mk-t { color: #8fdcb1; }
+.ai-echo { display: grid; gap: 4px; padding: 10px 12px; border-radius: 12px; background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--hair); }
+.ai-you { margin: 0; font-weight: 600; color: var(--fg); }
+.ai-back { margin: 4px 0 0; color: var(--fg2); font-style: italic; }
+
+/* An answer in words: a scout, a source, the report */
+.ai-ans { display: grid; gap: 8px; padding: 14px 16px; border-radius: 14px; background: var(--fill-1); box-shadow: inset 3px 0 0 var(--ai-gold), inset 0 0 0 1px var(--hair); }
+.ai-ans p { margin: 0; font-size: 14px; line-height: 1.55; color: var(--fg); }
+.ai-by { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.ai-by b { font-size: 13px; color: var(--fg); }
+.ai-by .small { color: var(--fg3); font-size: 12px; }
+.ai-ans h3 { margin: 8px 0 0; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--fg3); }
+.ai-askrows { display: grid; gap: 0; }
+.ai-arow { display: grid; gap: 10px; padding: 14px 0; border-bottom: 1px solid var(--hair); }
+.ai-arow:first-child { padding-top: 0; }
+.ai-arow:last-child { border-bottom: 0; padding-bottom: 0; }
+.ai-srow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.ai-btnbox .ai-acts { margin: 2px 0; }
+
+/* What your words set on a page: the group, its chips, its line */
+.ai-fgroup { display: grid; gap: 8px; padding: 10px; border-radius: 14px; box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ai-gold) 30%, transparent); background: color-mix(in oklab, var(--ai-gold) 3%, transparent); }
+.ai-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.ai-top .small { color: var(--fg3); font-size: 12px; }
+.ai-frow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ai-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 28px; padding: 3px 10px; border-radius: 10px; background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--edge); font-size: 12.5px; }
+.ai-chip.set { box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ai-gold) 55%, transparent); background: color-mix(in oklab, var(--ai-gold) 7%, transparent); }
+.ai-chip u { text-decoration: none; color: var(--fg3); cursor: pointer; }
+.ai-mu { color: var(--fg3); }
+.ai-line2 { margin: 0; font-size: 13.5px; color: var(--fg); }
+.ai-table { overflow-x: auto; }
+.ai-dtab { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ai-dtab th { text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--fg3); padding: 6px 10px; border-bottom: 1px solid var(--hair); }
+.ai-dtab td { padding: 7px 10px; border-bottom: 1px solid var(--hair); }
+.ai-dtab .r { text-align: right; font-variant-numeric: tabular-nums; }
+.ssel.set, .sf-cond.set, .qf-rule.set { box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--gold) 55%, transparent); border-radius: 8px; }
+.ai-setgroup { margin: 6px 0; }
+
+/* Facts you can bring up (they need no key) */
+.ai-fchips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ai-fchip { display: inline-flex; align-items: center; gap: 8px; min-height: 30px; padding: 5px 12px; border: 0; border-radius: 12px; background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--edge); color: var(--fg); font: inherit; font-size: 13px; font-weight: 600; text-align: left; cursor: pointer; }
+.ai-fchip:hover { background: var(--fill-2); }
+.ai-fchip.used { box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ai-gold) 55%, transparent); background: color-mix(in oklab, var(--ai-gold) 6%, transparent); color: var(--ai-gold); cursor: default; }
+.ai-fchip.used i { font-style: normal; font-size: 11px; }
+
+/* The leads mail: the wait line inside the letter */
+.ai-wait { display: grid; gap: 8px; margin: 10px 0; padding: 10px 12px; border-radius: 10px; background: color-mix(in oklab, currentColor 6%, transparent); font-size: 13.5px; font-style: italic; }
+.ai-wbar { display: block; position: relative; height: 2px; border-radius: 2px; background: color-mix(in oklab, currentColor 14%, transparent); overflow: hidden; }
+.ai-wbar i { position: absolute; inset: 0 auto 0 0; width: 34%; background: color-mix(in oklab, currentColor 55%, transparent); animation: ai-slide 1.3s ease infinite; }
+
+/* The settings card */
+.ai-card { display: grid; gap: 4px; }
+.ai-card h2 small { color: var(--fg3); font-weight: 500; }
+.ai-lede { max-width: 80ch; color: var(--fg2); margin: 0 0 4px; }
+.ai-card .setrow { align-items: flex-start; }
+.ai-card .setrow small { display: block; max-width: 52ch; }
+.ai-ctl { display: flex; gap: 8px; align-items: center; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+.ai-inp { width: 270px; height: 30px; box-sizing: border-box; border: 0; border-radius: 10px; background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--edge); padding: 0 12px; color: var(--fg); font: inherit; font-size: 12.5px; outline: none; }
+.ai-inp:focus { box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ai-gold) 65%, transparent); }
+.ai-inp::placeholder { color: var(--fg3); }
+.ai-line { margin-top: 4px; display: grid; gap: 4px; font-size: 12.5px; max-width: 52ch; }
+.ai-ok { color: var(--good); }
+.ai-warn { color: var(--ai-amber); }
+.ai-wide { margin-top: 6px; width: 360px; max-width: 100%; display: grid; gap: 4px; }
+.ai-sp2 { display: grid; gap: 5px; justify-items: end; }
+.ai-sp2 b { font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.ai-sp2 .small { color: var(--fg3); font-weight: 500; }
+.ai-mbar { display: block; position: relative; width: 200px; height: 4px; border-radius: 3px; background: var(--fill-2); }
+.ai-mbar i { display: block; height: 100%; border-radius: 3px; background: color-mix(in oklab, var(--fg) 65%, transparent); }
+.ai-mbar.am i { background: var(--ai-amber); }
+.ai-rep { display: grid; margin: 2px 0 4px; border-radius: 14px; background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--hair); }
+.ai-rr { display: grid; grid-template-columns: minmax(0, 1fr) 220px 92px; gap: 14px; align-items: center; padding: 9px 14px; border-bottom: 1px solid var(--hair); }
+.ai-rr .ai-nm { font-size: 13px; }
+.ai-rr .ai-sc { font-size: 13px; font-variant-numeric: tabular-nums; text-align: right; }
+.ai-rr .ai-sc small { color: var(--fg3); }
+.ai-cbar { display: block; position: relative; height: 4px; border-radius: 3px; background: var(--fill-2); }
+.ai-cbar i { display: block; height: 100%; border-radius: 3px; background: color-mix(in oklab, var(--fg) 65%, transparent); }
+.ai-cbar u { position: absolute; top: -4px; bottom: -4px; width: 1.5px; background: color-mix(in oklab, var(--fg) 55%, transparent); text-decoration: none; }
+.ai-cbar.am i { background: var(--ai-amber); }
+.ai-rf { display: flex; justify-content: space-between; gap: 12px; padding: 9px 14px; font-size: 12px; color: var(--fg3); }
+.ai-pg { margin-top: 10px; }
+.ai-pg .ai-card { background: transparent; padding: 0; box-shadow: none; }
+@media (max-width: 760px) { .ai-rr { grid-template-columns: minmax(0, 1fr) 90px; } .ai-rr .ai-cbar { grid-column: 1 / -1; order: 3; } .ai-inp { width: 180px; } }
+
+/* The demo bar */
+#ai-devbar { position: fixed; left: 14px; bottom: 14px; z-index: 60; display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; border-radius: 14px; background: var(--chrome); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ai-gold) 55%, transparent), var(--shadow-card); color: var(--fg); font-size: 12.5px; }
+#ai-devbar select { height: 26px; border: 0; border-radius: 8px; background: var(--fill-2); color: var(--fg); font: inherit; font-size: 12.5px; padding: 0 8px; }
+#ai-devbar select option { background: var(--raised); color: var(--fg); }
