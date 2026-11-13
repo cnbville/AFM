@@ -150,7 +150,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 ## Charting depth and delay (item 2)
 
 - Charted data comes from a third party, not your staff (Cain, 2026-11-13). The level sets the card, the same for every seat: the NFL, FBS and FCS are charted snap by snap at full depth the morning after; D2, D3, NAIA, junior college and high school are box scores and rankings, the most a third party publishes (the lower-level cap is proposed, not confirmed; `crates/afm-game/src/lane_data/mod.rs`, `charted`, `charting`).
-- Your analytics head's rating doesn't touch it. It still sets your own team's film charting and his reads (`world/analytics.rs`, `charting`, `depth`: 15 and up tracking-style, 8 and up film, less play-by-play only; 17 and up the morning after, 12 and up two days, 7 and up three, less four; proposed, not confirmed).
+- Your analytics head's rating doesn't touch it. It still sets your own film: a college seat below FCS charts its own division itself, as deep and as soon as the head allows (division-wide, not only your own games: proposed, not confirmed; `lane_data/mod.rs`, `charting`), and his reads (`world/analytics.rs`, `charting`, `depth`: 15 and up tracking-style, 8 and up film, less play-by-play only; 17 and up the morning after, 12 and up two days, 7 and up three, less four; proposed, not confirmed).
 - It only changes what you see: the card and table leave out the numbers past the depth, and this season's lines leave out the games not charted yet (`lane_data/analytics.rs`, `card_of`, `charted_now`).
 - The Sources line says a third party charts it, the same for every seat (`lane_data/mod.rs`, `sources`).
 

@@ -169,6 +169,12 @@ fn source_line(sc: &Scope) -> String {
         (Tier::Nfl, Some(c)) => {
             format!("The NFL's league-wide tracking, {} the morning after each game.", tally_kind(c))
         }
+        (Tier::College, Some(c)) if c.head.is_some() || c.days > 1 || c.depth < 3 => format!(
+            "Charted by your own staff: {} of every {} game, {} after.",
+            tally_kind(c),
+            sc.division.map_or("college", |d| d.name()),
+            if c.days == 1 { "the morning".to_string() } else { format!("{} days", c.days) }
+        ),
         (Tier::College, Some(c)) => format!(
             "Charted by a third party: {} of every {} game, the morning after.",
             tally_kind(c),

@@ -254,7 +254,19 @@ pub(crate) struct Charting {
 }
 
 pub(crate) fn charting(w: &World, tier: Tier, division: Option<Division>) -> Option<Charting> {
-    charted(w, tier, division).then_some(Charting { depth: 3, days: 1, head: None })
+    if charted(w, tier, division) {
+        return Some(Charting { depth: 3, days: 1, head: None });
+    }
+    // Your own film: a college seat below FCS charts its own division's
+    // games itself, as deep and as soon as your analytics head allows.
+    if let (Tier::College, Some(d), Some(TeamRef::College(p))) = (tier, division, views::mine(w)) {
+        let staff = &w.programs.get(p)?.support.analytics;
+        if w.programs[p].division == d {
+            let (depth, days) = afm_engine::world::analytics::charting(staff.rating);
+            return Some(Charting { depth, days, head: Some(staff.name.clone()).filter(|n| !n.is_empty()) });
+        }
+    }
+    None
 }
 
 pub(crate) fn charting_json(c: &Charting) -> Value {
@@ -274,7 +286,7 @@ pub(crate) fn sources(w: &World) -> Value {
         Some(TeamRef::HighSchool(_)) => "hs",
         None => "none",
     };
-    let line = "A third party charts every NFL, FBS and FCS snap and publishes it the morning after, the same for every club. D2, D3, NAIA, junior college and high school are box scores and rankings."
+    let mut line = "A third party charts every NFL, FBS and FCS snap and publishes it the morning after, the same for every club. D2, D3, NAIA, junior college and high school are box scores and rankings."
         .to_string();
     let charted: Vec<&str> = Division::ALL
         .iter()
@@ -282,11 +294,25 @@ pub(crate) fn sources(w: &World) -> Value {
         .map(|d| d.name())
         .chain(std::iter::once("NFL"))
         .collect();
+    let own = match views::mine(w) {
+        Some(TeamRef::College(p)) if !charted.contains(&w.programs[p].division.name()) => {
+            let d = w.programs[p].division;
+            charting(w, Tier::College, Some(d)).map(|c| (d, c))
+        }
+        _ => None,
+    };
+    if let Some((d, c)) = &own {
+        line.push_str(&format!(
+            " Your own staff charts {} itself, {}, as soon as your analytics head allows.",
+            d.name(),
+            afm_engine::world::analytics::depth_name(c.depth)
+        ));
+    }
     json!({
         "seat": seat,
         "line": line,
         "charted": charted,
-        "charting": Value::Null,
+        "charting": own.as_ref().map(|(_, c)| charting_json(c)),
         "league": charting_json(&Charting { depth: 3, days: 1, head: None }),
     })
 }
