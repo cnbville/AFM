@@ -186,6 +186,11 @@ pub struct ProCareer {
     /// football, the spring leagues.
     #[serde(default)]
     pub other: Vec<other::OtherSeason>,
+    /// His last off-field case and the league's ruling on it (live talks
+    /// lane 8). It lives here and not in the market's lists, because a
+    /// person's index moves when the world is compacted.
+    #[serde(default)]
+    pub case: Option<super::people::PastCase>,
 }
 
 impl ProCareer {
@@ -230,6 +235,7 @@ impl ProCareer {
             suspended: 0,
             exempt: 0,
             other: Vec::new(),
+            case: None,
         }
     }
 

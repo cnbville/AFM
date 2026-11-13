@@ -393,7 +393,95 @@ fn prime_end(pos: Position) -> u32 {
 /// hidden strength, his fit in the team's own systems (topic 8), the age
 /// curve over a deal, and then the team's price a year by its need and its
 /// mode. Returns (the team's read, its walk-away price a year).
+///
+/// A recent off-field case lowers the price and never the read (live talks
+/// lane 8, `case_cut`): the read says how he plays, and the depth chart and
+/// the squad's cuts and signings run on it.
 pub(crate) fn worth(w: &World, t: usize, i: usize) -> (f64, f64) {
+    let (view, apy, rel) = worth_clean(w, t, i);
+    let cut = case_cut(w, t, i, rel);
+    if cut <= 0.0 {
+        return (view, apy);
+    }
+    let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
+    (view, (apy * (1.0 - cut)).max(money::minimum(w.year, credited)))
+}
+
+/// The most a recent case takes off a club's price (proposed, not
+/// confirmed).
+pub const CASE_CAP: f64 = 0.15;
+
+/// What a recent off-field case takes off a club's price a year for a
+/// player, as a share from 0 to `CASE_CAP` (live talks lane 8; `rel` is the
+/// club's read of him on the market's grade scale).
+///
+/// Real: on average an arrest costs little. Sailofsky (2022, Violence
+/// Against Women) followed the 117 players arrested for violence against
+/// women in 2000-2019: a negligible effect on their careers, none for an
+/// average or better player, a little more in the later years. A Temple
+/// working paper (Weiss) found no change in total pay after an arrest. The
+/// men it does cost are role players: Michael Floyd's $1.5M year in 2017
+/// after a DUI, Junior Galette at the minimum in 2015, Greg Hardy's 2015
+/// deal that paid by the game. Stars kept their price (Tyreek Hill's 2019
+/// extension, Ezekiel Elliott's in 2019). So the share is small, shrinks
+/// with how good the club thinks he is, and fades.
+///
+/// Every size is proposed, not confirmed:
+/// - by kind: 10% for a domestic case of 2015 or later (the league's
+///   six-game policy of December 2014), 6% for the other violent ones (assault,
+///   weapons, a domestic case before 2015), 4% for the rest (DUI, drugs,
+///   PEDs, gambling, theft);
+/// - 0.4 of that when the league ended the case without a suspension;
+/// - all of it for a year, then less each day to nothing at three years
+///   (`PastCase::recent`);
+/// - all of it for a player at the last starter's level or below (a market
+///   grade of 72), a quarter of it for one in the top quarter of the
+///   league's starters and above (84), a straight line between;
+/// - half again when another case of his was still recent;
+/// - a quarter more at a careful GM, a quarter less at one who takes
+///   chances (`Gm::risk`).
+pub(crate) fn case_cut(w: &World, t: usize, i: usize, rel: f64) -> f64 {
+    use crate::world::people::Trouble;
+    let Some(pc) = w.people[i].pro.as_ref().and_then(|c| c.case) else { return 0.0 };
+    let recent = pc.recent(w.today);
+    if recent <= 0.0 {
+        return 0.0;
+    }
+    let kind = match pc.kind {
+        Trouble::Domestic if pc.day.year() >= 2015 => 0.10,
+        Trouble::Domestic | Trouble::Assault | Trouble::Weapons => 0.06,
+        _ => 0.04,
+    };
+    let ended = if pc.games == Some(0) { 0.4 } else { 1.0 };
+    let leeway = 1.0 - 0.75 * clamp((rel - 72.0) / 12.0, 0.0, 1.0);
+    let again = if pc.again { 1.5 } else { 1.0 };
+    let club = 1.25 - 0.5 * clamp(w.clubs[t].office.gm.risk, 0.0, 1.0);
+    (kind * ended * recent * leeway * again * club).min(CASE_CAP)
+}
+
+/// What recent cases cost the men who have one, for the trial tools
+/// (`play_on`): how many pros on a club's books have a recent case, and
+/// their average price a year at their own club without the case and with
+/// it.
+pub fn case_prices(w: &World) -> (usize, f64, f64) {
+    let (mut n, mut clean, mut priced) = (0usize, 0.0, 0.0);
+    for i in 0..w.people.len() {
+        let Some(c) = w.people[i].pro.as_ref() else { continue };
+        let Some(t) = c.team else { continue };
+        if w.people[i].stage != Stage::Pro || !c.held() || c.case.is_none_or(|pc| pc.recent(w.today) <= 0.0) {
+            continue;
+        }
+        n += 1;
+        clean += worth_clean(w, t, i).1;
+        priced += worth(w, t, i).1;
+    }
+    let d = n.max(1) as f64;
+    (n, clean / d, priced / d)
+}
+
+/// The club's read, its price a year before any off-field case, and his
+/// place on the market's grade scale in the club's eyes.
+fn worth_clean(w: &World, t: usize, i: usize) -> (f64, f64, f64) {
     let year = w.year;
     let p = &w.people[i];
     let pos = p.player.position;
@@ -478,7 +566,7 @@ pub(crate) fn worth(w: &World, t: usize, i: usize) -> (f64, f64) {
     if o.fans < -0.3 && rel >= 82.0 {
         apy *= 1.0 + 0.1 * o.owner.pr;
     }
-    (view, apy.max(money::minimum(year, credited)))
+    (view, apy.max(money::minimum(year, credited)), rel)
 }
 
 // --- The ideal package and offers ------------------------------------------------------------------

@@ -2,8 +2,9 @@
 //! items 13, 15, 16 and 22): the press asks at the step a case has reached,
 //! the boss answers for where the season stands and how the review went, a
 //! GM's words follow who holds the final say, and a backchannel call names
-//! what your chart says. Words and options only: none of it moves a number
-//! of the game.
+//! what your chart says. Words and options only, apart from the two sizes
+//! Cain said yes to on 2026-11-13: the review answers' trust and the press's
+//! week before a case's next step.
 
 use std::collections::HashSet;
 
@@ -17,7 +18,7 @@ use crate::world::folk::boss::{self, Goal, GoalKind};
 use crate::world::folk::courts::{Case, Step};
 use crate::world::folk::scene::{self, Kind, Scene};
 use crate::world::folk::voice::{Facts, Pen, Speaker, bank};
-use crate::world::folk::{Team, backchannel};
+use crate::world::folk::{Team, backchannel, press};
 use crate::world::pro::office::Power;
 use crate::world::program::ProgramSeason;
 use crate::world::seat::SeatGame;
@@ -81,6 +82,12 @@ fn with_players(w: &mut World) -> Vec<usize> {
 /// the weekly press availability open on it: (world, scene id, scene, his
 /// name, his index).
 fn press_with_case(step: Step, again: bool) -> (World, u32, Scene, String, usize) {
+    press_with_case_at(step, again, 0, 20)
+}
+
+/// As `press_with_case`, with the case opened `ago` days before today and
+/// its next step `next_in` days after it.
+fn press_with_case_at(step: Step, again: bool, ago: i32, next_in: i32) -> (World, u32, Scene, String, usize) {
     let mut w = seat("college");
     let i = with_players(&mut w)[0];
     let team = Team::seat(&w).expect("your team");
@@ -89,8 +96,8 @@ fn press_with_case(step: Step, again: bool) -> (World, u32, Scene, String, usize
         id,
         level: Level::College,
         what: "a DUI".into(),
-        opened: w.today,
-        next: w.today.add(20),
+        opened: w.today.add(-ago),
+        next: w.today.add(next_in),
         step,
         guilty: false,
         outcome,
@@ -204,6 +211,36 @@ fn a_repeat_case_brings_its_own_follow_ups() {
     assert!(!again.iter().any(|l| l.contains("good kid")), "{again:?}");
 }
 
+/// Whether the reporters ask about his case today.
+fn asked_about_case(w: &World, i: usize) -> bool {
+    press::in_trouble(w, Team::seat(w).expect("your team")) == Some(i)
+}
+
+#[test]
+fn the_reporter_asks_again_the_week_before_a_case_moves() {
+    use press::{TROUBLE_NEW_DAYS, TROUBLE_NEXT_STEP_DAYS};
+    // A new case is asked about whatever its next step.
+    let (w, _, s, _, i) = press_with_case_at(Step::Arrest, false, TROUBLE_NEW_DAYS - 1, 30);
+    assert!(asked_about_case(&w, i), "a case opened {} days ago: {}", TROUBLE_NEW_DAYS - 1, text_of(&s));
+    for step in [Step::Charged, Step::Court] {
+        // An old case comes back the week before its court date or ruling,
+        // in the part for its step.
+        let (w, _, s, name, i) = press_with_case_at(step, false, 60, TROUBLE_NEXT_STEP_DAYS);
+        assert!(asked_about_case(&w, i), "{step:?}: the next step in a week: {}", text_of(&s));
+        let want = if step == Step::Charged { "his day in court" } else { "in front of a judge" };
+        let deflect = s.picks.iter().find(|p| p.mv == "Deflect").expect("the standard answer is on the table");
+        assert!(deflect.label.contains(want), "{step:?}: {}", deflect.label);
+        assert!(s.lines.iter().any(|l| l.text.contains(&name)), "{step:?}: the reporter names {name}");
+        // Not before.
+        let (w, _, s, _, i) = press_with_case_at(step, false, 60, TROUBLE_NEXT_STEP_DAYS + 1);
+        assert!(!asked_about_case(&w, i), "{step:?}: the next step more than a week away: {}", text_of(&s));
+        assert!(!s.picks.iter().any(|p| p.label.contains(want)), "{step:?}: asked anyway: {}", text_of(&s));
+    }
+    // A league appeal is not a court case: only its first three weeks.
+    let (w, _, s, _, i) = press_with_case_at(Step::Appeal { games: 2 }, false, 60, 3);
+    assert!(!asked_about_case(&w, i), "an old appeal: {}", text_of(&s));
+}
+
 // ---------------------------------------------------------------------------
 // The boss (item 15).
 
@@ -307,7 +344,7 @@ fn review_with(goals: &[GoalKind]) -> (World, u32, Scene, Team) {
 }
 
 #[test]
-fn a_review_with_misses_can_be_answered_in_words() {
+fn a_review_with_misses_can_be_answered() {
     for (goals, codes) in [
         // A miss (ten wins) and a goal met (a bowl): own it, point to the bowl,
         // or ask.
@@ -320,12 +357,14 @@ fn a_review_with_misses_can_be_answered_in_words() {
         assert_eq!(got, codes, "{goals:?}: {}", text_of(&s));
         for code in codes {
             let (mut w, id, _, team) = review_with(&goals);
-            // His trust was set when the review opened: what you say now
-            // moves nothing but the talk.
+            // How the season ended moved his trust when the review opened;
+            // the answer adds a little on top, more for a goal met.
             let key = boss::boss(&w, team).key();
-            let before = w.folk.mine.trust_of(key);
+            let before = w.folk.mine.trust_of(key).unwrap_or(0.5);
             let s = scene::answer(&mut w, id, code).expect("an answer");
-            assert_eq!(w.folk.mine.trust_of(key), before, "{goals:?}: {code} moved his trust");
+            let by = if code == 51 { boss::REVIEW_POINT_TRUST } else { boss::REVIEW_OWN_TRUST };
+            let after = w.folk.mine.trust_of(key).unwrap_or(0.5);
+            assert!((after - before - by).abs() < 1e-6, "{goals:?}: {code} moved his trust {before} to {after}");
             let line = him(&s);
             // 50 and 52 name the goal he missed, 51 the one he met.
             let missed = GoalKind::Wins(10).words(Level::College);
