@@ -190,7 +190,8 @@ fn week_questions(w: &World, team: Team, occasion: i64) -> Vec<Q> {
         }
         return v;
     }
-    if facts::last_game(w, team).is_some() {
+    // Only a game from the last week is asked about (talk facts item 30).
+    if facts::fresh_game(w, team).is_some() {
         v.push(Q::LastGame);
     }
     if in_trouble(w, team).is_some() {
@@ -282,7 +283,10 @@ fn ask_next(w: &mut World, s: &mut Scene, team: Team, k: u8) {
     if let Some(i) = sub {
         f.set("player", w.people[i].name.clone());
     }
-    if let Some((won, us, them, opp)) = facts::last_game(w, team) {
+    // A line that names the score, the opponent or the result gets them only
+    // while the game is fresh; with none, such lines are skipped (talk facts
+    // item 30), so no question dates a game from months ago.
+    if let Some((won, us, them, opp)) = facts::fresh_game(w, team) {
         // Said the way a score is said: the winner's number first.
         f.set("score", format!("{}-{}", us.max(them), us.min(them)));
         f.set("opp", opp.name(w));
