@@ -2226,6 +2226,10 @@ fn future_deal(w: &mut World, i: usize, t: usize, year: i32) {
 
 // --- Waivers -------------------------------------------------------------------------------------------------------
 
+/// Credited seasons that make a veteran vested: he skips waivers (the
+/// Calendar's note on the waiver run says the same number).
+pub const VESTED_SEASONS: u32 = 4;
+
 /// Whether a released player goes on waivers (real, NFL Football
 /// Operations' waiver overview): a vested veteran has four or more
 /// seasons of pension credit (credited seasons) and skips waivers until
@@ -2233,7 +2237,7 @@ fn future_deal(w: &mut World, i: usize, t: usize, year: i32) {
 /// player goes through them. Under four credited seasons always.
 pub(crate) fn waivable(w: &World, i: usize, d: Date) -> bool {
     let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
-    credited < 4 || (d > w.dates.trade_deadline.date && d < w.dates.black_monday)
+    credited < VESTED_SEASONS || (d > w.dates.trade_deadline.date && d < w.dates.black_monday)
 }
 
 /// The waiver claims (each day at 4pm, real): teams in waiver order (last

@@ -500,7 +500,7 @@ pub(crate) fn new_season(w: &World) -> HsSeasonState {
         groups,
         out: HashMap::new(),
         marks,
-        class_day: w.dates.hs_school_start.min(earliest.add(-10)),
+        class_day: class_day(w.dates.hs_school_start, earliest),
         ratings_day: latest.add(1),
         rated: false,
         on_engine: hs_on_engine(w, year),
@@ -2824,6 +2824,20 @@ fn state_all_stars(w: &mut World, d: Date) {
         let text = format!("{} states hold their high school all-star games.", states_played.len());
         w.calendar.post(Event::new(d, Level::HighSchool, Kind::Game, Loudness::Small, text));
     }
+}
+
+/// The day a year's new class joins the high school rosters: the school
+/// year's start, or ten days before the earliest state's first game when
+/// that is sooner. One rule for the season (`new_season`) and for the
+/// Calendar's note on the day (playtest bug 8).
+pub fn class_day(school_start: Date, earliest_state_start: Date) -> Date {
+    school_start.min(earliest_state_start.add(-10))
+}
+
+/// The day June transfers and reclasses happen: after the school year
+/// ends, on June 15 of the football year.
+pub fn transfer_day(season: i32) -> Date {
+    Date::ymd(season, 6, 15)
 }
 
 /// The year's high school dates in a state, for tests and the screens.
