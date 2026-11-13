@@ -728,10 +728,11 @@ fn a_wording_waits_for_every_other_one() {
 /// The recruiting talks run's season (Cain 2026-11-12, 20,000 lines for the recruiting personal talks): a college
 /// head coach at full use over the recruiting year, 60 high school recruits with a family each, four talks
 /// apiece, and 20 transfers, three talks apiece, drawing the run's parts by the fact each is named for (the way
-/// the talk design will gate them; how often each comes is Claude's, proposed, not confirmed). Nothing asks these
-/// parts yet but the portal call's `portal.*`: this proves the bank holds enough for the season the design
-/// plans. The bar is the other families': 2 in 100 lines said again by the same speaker; the share heard again
-/// from anyone is printed with it.
+/// the talk design gates them; how often each comes is Claude's, proposed, not confirmed), with lane L5's own
+/// parts (`recruit_case.txt`: what changed, a rival who said the same, a point he remembers, a straight answer,
+/// who decides). The conversation (`folk::pitch`) asks these parts; this proves the bank holds enough for a
+/// season of it. The bar is the other families': 2 in 100 lines said again by the same speaker; the share heard
+/// again from anyone is printed with it.
 #[test]
 fn a_season_of_recruit_talks_counts_its_repeats() {
     let mut sim = Sim {
@@ -775,8 +776,18 @@ fn a_season_of_recruit_talks_counts_its_repeats() {
         .with("pos", "WR")
         .with("last_record", "7-6")
         .with("first", "playing time")
-        .with("second", "the school");
+        .with("second", "the school")
+        .with("opp", "Kansas")
+        .with("score", "31-17")
+        .with("when", "Saturday")
+        .with("school", "Baylor")
+        .with("spot", "receiver")
+        .with("rival_school", "TCU");
     let pick = |sim: &mut Sim, v: &[&str]| v[sim.r.int(0, v.len() as i32 - 1) as usize].to_string();
+    // Lane L5's own parts (the hand-written bank, `recruit_case.txt`): what
+    // changed since you last spoke, a rival who said the same, a point he
+    // remembers, a straight answer, who decides.
+    let events = ["your_win", "your_loss", "his_game", "new_offer", "visit_elsewhere", "commit_at_spot", "coach_left"];
     // The common beats of one talk, from either side.
     let beats = |sim: &mut Sim, who: &Speaker, first: bool, k: usize, facts: &[String]| {
         let call = sim.r.chance(0.7);
@@ -789,8 +800,26 @@ fn a_season_of_recruit_talks_counts_its_repeats() {
                 sim.say(FAM, &format!("recruit.bg.{b}"), who, &f, true);
             }
         } else {
-            let h = ["again", "again", "again", "again", "again", "silence", "kept", "broke"][sim.r.int(0, 7) as usize];
-            sim.say(FAM, &format!("recruit.history.{h}"), who, &f, true);
+            if sim.r.chance(0.3) {
+                let e = events[sim.r.int(0, 6) as usize];
+                sim.say(FAM, &format!("recruit.open.{e}"), who, &f, true);
+            } else {
+                let h =
+                    ["again", "again", "again", "again", "again", "silence", "kept", "broke"][sim.r.int(0, 7) as usize];
+                sim.say(FAM, &format!("recruit.history.{h}"), who, &f, true);
+            }
+            if sim.r.chance(0.25) {
+                sim.say(FAM, "recruit.react.again.any", who, &f, true);
+            }
+        }
+        if first && sim.r.chance(0.5) {
+            sim.say(FAM, "recruit.tell.decides", who, &f, true);
+        }
+        if sim.r.chance(0.3) {
+            sim.say(FAM, "recruit.compare.any", who, &f, true);
+        }
+        if sim.r.chance(0.2) {
+            sim.say(FAM, "recruit.react.straight.any", who, &f, true);
         }
         for _ in 0..sim.r.int(1, 2) {
             let a = aspects[sim.r.int(0, 6) as usize];
@@ -842,6 +871,12 @@ fn a_season_of_recruit_talks_counts_its_repeats() {
             let mood = ["warm", "polite", "polite", "guarded"][sim.r.int(0, 3) as usize];
             let setting = if call { "call" } else { "visit" };
             sim.say(FAM, &format!("recruit.open.{setting}.{mood}"), &tr, &f, true);
+            if t == 0 {
+                sim.say(FAM, "recruit.open.entered_portal", &tr, &f, true);
+            }
+            if sim.r.chance(0.3) {
+                sim.say(FAM, "recruit.compare.any", &tr, &f, true);
+            }
             let drive = pick(&mut sim, &drives);
             sim.say(FAM, &format!("portal.ask.{drive}"), &tr, &f, true);
             if sim.r.chance(0.5) {

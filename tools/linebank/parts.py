@@ -105,6 +105,12 @@ FACT_WORDS = {
     'club': "an NFL club's full name ('Buffalo Bills': write 'the {club}', plural verbs)", 'first': "what matters most to the "
     "family, lower case (playing time, nil money, the school, close to home, family, getting him to the next "
     "level, winning)", 'second': "what matters next (same list)",
+    # The recruit conversation's facts (talk facts lane L5, `claims::recruit`).
+    'opp': "the other team in a game, its name ('Kansas'): 'beat {opp}', 'the {opp} game'; never 'a {opp}'",
+    'score': "a game's score, your team's first ('31-17' in a win, '17-31' in a loss)", 'when': "the day in words, with its own word: 'today', "
+    "'yesterday', 'on Saturday', 'last week', 'on October 4' ('{school} offered {when}', never 'on {when}')",
+    'school': "another college's name ('Baylor')", 'spot': "a position as people say it, lower case ('receiver', "
+    "'corner', 'quarterback')", 'rival_school': "a school on his list whose proof matches yours ('TCU')",
 }
 PRONOUN_WORDS = ("{coach_he} {coach_him} {coach_his} {coach_himself}: your pronouns (he or she); {coach_man}: man "
                  "or woman; {coach_sir}: sir or ma'am, to your face")
