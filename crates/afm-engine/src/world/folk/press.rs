@@ -151,11 +151,29 @@ fn questions(w: &World, team: Team, occasion: i64) -> (Vec<Q>, Vec<u32>) {
     (v, kept)
 }
 
-/// The man in trouble: an open case from the last three weeks.
-fn in_trouble(w: &World, team: Team) -> Option<usize> {
+/// Reporters ask about a case opened fewer than this many days ago.
+pub const TROUBLE_NEW_DAYS: i32 = 21;
+
+/// And about an arrest or court case whose next step (the charge, the
+/// court date, the ruling) is this many days away or fewer, so a case is
+/// asked about again as it comes back into the news. Cain's yes,
+/// 2026-11-13.
+pub const TROUBLE_NEXT_STEP_DAYS: i32 = 7;
+
+/// The man in trouble: a case opened in the last three weeks, or an arrest
+/// or court case with its next step a week or less away.
+pub(crate) fn in_trouble(w: &World, team: Team) -> Option<usize> {
     let ids: Vec<u32> = team.roster(w).iter().map(|&i| w.people[i].player.id).collect();
-    let c = w.folk.courts.open.iter().find(|c| ids.contains(&c.id) && c.opened.days_to(w.today) < 21)?;
+    let c = w.folk.courts.open.iter().find(|c| ids.contains(&c.id) && asked_about(c, w.today))?;
     super::person(w, c.id)
+}
+
+/// Whether reporters ask about a case today (`in_trouble`).
+fn asked_about(c: &super::courts::Case, today: Date) -> bool {
+    use super::courts::Step;
+    c.opened.days_to(today) < TROUBLE_NEW_DAYS
+        || (matches!(c.step, Step::Arrest | Step::Charged | Step::Court)
+            && today.days_to(c.next) <= TROUBLE_NEXT_STEP_DAYS)
 }
 
 /// The talking point behind a trouble question (talk facts item 13): the
