@@ -2378,20 +2378,25 @@ fn flight_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
 }
 
 /// A position coach's word with a player: a small push to stay, by his
-/// relationships rating.
+/// relationships rating. He is the man at the seat today, or the man
+/// covering it (`talks::position_coach_now`); 10 with nobody there. Before
+/// minor bug 377's follow-up it was last season's coach from his
+/// `college_staff`, who may have left with the old staff.
 pub(crate) fn position_coach_word(w: &mut World, i: usize) {
-    let rel = w.people[i]
-        .college_staff
-        .last()
-        .and_then(|x| x.3)
-        .and_then(|c| w.coaches.get(c))
-        .map_or(10.0, |c| c.ability().relationships);
+    let pc = super::talks::position_coach_now(w, i);
+    let rel = pc.map_or(10.0, |c| w.coaches[c].ability().relationships);
+    let why = match super::talks::covering(w, pc) {
+        Some(crate::world::coach::Role::OffensiveCoordinator) => "his offensive coordinator asked him to stay",
+        Some(crate::world::coach::Role::DefensiveCoordinator) => "his defensive coordinator asked him to stay",
+        Some(_) => "his head coach asked him to stay",
+        None => "his position coach asked him to stay",
+    };
     let f = (1.0 - 0.02 * (rel - 8.0)).clamp(0.85, 1.05);
     let today = w.today;
     let p = &mut w.people[i];
     if p.stage == Stage::College && p.cal.lean > 0.0 {
         p.cal.lean *= f;
-        p.cal.lean_events.push((today, "his position coach asked him to stay", f));
+        p.cal.lean_events.push((today, why, f));
     }
     p.trust = (p.trust + 0.01).min(1.0);
 }

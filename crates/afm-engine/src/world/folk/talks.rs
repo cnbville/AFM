@@ -2003,7 +2003,11 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
             if spoke {
                 mood_event(w, id, Reason::Talk, s.f[1]);
             }
+            let mut by = "his position coach";
             if let Some(i) = super::person(w, id) {
+                // The man at his position coach's seat today has it, or the
+                // man covering an empty seat.
+                by = cover_words(covering(w, position_coach_now(w, i))).1;
                 let rel = position_coach_rel(w, i);
                 let d = 0.02 * (rel - 9.0) as f32 / 5.0;
                 w.people[i].trust = (w.people[i].trust + d * 0.5).clamp(0.0, 1.0);
@@ -2013,11 +2017,12 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
                     super::takeover::position_coach_word(w, i);
                 }
             }
-            s.handed = Some("his position coach".into());
+            s.handed = Some(by.into());
+            let by = first_up(by);
             s.outcome.push(if spoke {
-                "His position coach finished the talk for you.".into()
+                format!("{by} finished the talk for you.")
             } else {
-                "His position coach talked to him instead. It's not the same as hearing it from you.".into()
+                format!("{by} talked to him instead. It's not the same as hearing it from you.")
             });
         }
         Kind::TeamMeeting | Kind::Parents | Kind::Holdover => super::takeover::hand(w, s),
@@ -2037,13 +2042,40 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
     }
 }
 
+/// His position coach's relationships rating, which sizes a talk handed to
+/// him, your weekly line and "stay on him": the man at the seat today
+/// (`position_coach_now`), 9 with nobody there. Before minor bug 377's
+/// follow-up it read the last row of his `college_staff`, last season's
+/// coach (a transfer's old school's; nobody for a freshman).
 fn position_coach_rel(w: &World, i: usize) -> f64 {
-    w.people[i]
-        .college_staff
-        .last()
-        .and_then(|x| x.3)
-        .and_then(|c| w.coaches.get(c))
-        .map_or(9.0, |c| c.ability().relationships)
+    position_coach_now(w, i).map_or(9.0, |c| w.coaches[c].ability().relationships)
+}
+
+/// A capital first letter.
+fn first_up(s: &str) -> String {
+    let mut c = s.chars();
+    c.next().map_or_else(String::new, |f| f.to_uppercase().collect::<String>() + c.as_str())
+}
+
+/// The man covering an empty position coach's seat, when he isn't a
+/// position coach himself (a coordinator, or the head coach): his role.
+/// None for the seat's own coach, or nobody.
+pub(crate) fn covering(w: &World, c: Option<usize>) -> Option<crate::world::coach::Role> {
+    let r = w.coaches.get(c?)?.job?.role;
+    (!matches!(r, crate::world::coach::Role::PositionCoach(_))).then_some(r)
+}
+
+/// What the man reading his room is called: (as a speaker, in a sentence),
+/// "Position coach" and "his position coach" unless a coordinator or the
+/// head coach covers the seat (`covering`).
+pub(crate) fn cover_words(r: Option<crate::world::coach::Role>) -> (&'static str, &'static str) {
+    use crate::world::coach::Role;
+    match r {
+        Some(Role::OffensiveCoordinator) => ("Offensive coordinator", "his offensive coordinator"),
+        Some(Role::DefensiveCoordinator) => ("Defensive coordinator", "his defensive coordinator"),
+        Some(Role::HeadCoach) => ("Head coach", "the head coach"),
+        _ => ("Position coach", "his position coach"),
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -2129,16 +2161,10 @@ fn staff_line_open(w: &mut World, s: &mut Scene) {
         s.who.push(Who::Coach(c));
     }
     // A coordinator or head coach covering an empty seat speaks as himself.
-    let speaker = match pc.and_then(|c| w.coaches[c].job) {
-        Some(j) if !matches!(j.role, crate::world::coach::Role::PositionCoach(_)) => {
-            let mut ch = j.role.name().chars();
-            ch.next().map_or_else(String::new, |f| f.to_uppercase().collect::<String>() + ch.as_str())
-        }
-        _ => "Position coach".to_string(),
-    };
+    let speaker = cover_words(covering(w, pc)).0;
     let (_, words) = concern(w, i);
     s.narrate(format!("{coach} catches you after practice about {}.", player_link(w, i)));
-    s.them(&speaker, format!("You asked me to tell you if he was slipping. He is. Best I can tell, {words}."), None);
+    s.them(speaker, format!("You asked me to tell you if he was slipping. He is. Best I can tell, {words}."), None);
     s.pick(400, "\"Send him to my office tomorrow.\"", "Ask", "warm", "A one-on-one on your calendar.");
     s.pick(
         401,
@@ -2162,7 +2188,8 @@ fn staff_line_answer(w: &mut World, s: &mut Scene, code: u32) {
             s.outcome.push("A one-on-one is on your calendar for tomorrow.".into());
         }
     } else {
-        s.outcome.push("His position coach stays on him.".into());
+        let by = cover_words(super::person(w, id).and_then(|i| covering(w, position_coach_now(w, i)))).1;
+        s.outcome.push(format!("{} stays on him.", first_up(by)));
         if let Some(i) = super::person(w, id) {
             let d = 0.03 * ((position_coach_rel(w, i) - 8.0) / 8.0) as f32;
             mood_event(w, id, Reason::Talk, d);
