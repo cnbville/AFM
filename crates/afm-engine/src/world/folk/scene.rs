@@ -341,6 +341,11 @@ pub struct Scene {
     /// rest here, so a typed line can reach every one of them.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub reach: Vec<Pick>,
+    /// The talking points made in a one-on-one (talk facts lane L4): each
+    /// kind's key, what you did with it last, and what it did to trust and
+    /// mood together; kept in `Folk.talked` when the talk ends.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub made: Vec<(String, String, f32)>,
     /// What a typed line carried beyond its pick (live talks), set by `say`
     /// for the one answer it lands on and cleared right after. Never saved.
     #[serde(skip)]
@@ -372,6 +377,7 @@ impl Scene {
             team: None,
             minute: None,
             reach: Vec::new(),
+            made: Vec::new(),
             heard: None,
         }
     }
@@ -668,7 +674,11 @@ pub fn hand(w: &mut World, id: u32) -> Result<Scene, String> {
     }
     if !s.opened {
         s.opened = true;
-        dispatch_open(w, &mut s);
+        // A recruit talk you never opened is your staff's alone: opening it
+        // would put his first question and the news on your own file.
+        if !matches!(s.kind, Kind::HomeVisit | Kind::PortalCall | Kind::PortalVisit) {
+            dispatch_open(w, &mut s);
+        }
     }
     dispatch_hand(w, &mut s);
     s.done = true;
@@ -679,6 +689,24 @@ pub fn hand(w: &mut World, id: u32) -> Result<Scene, String> {
         *slot = s.clone();
     }
     Ok(s)
+}
+
+/// Ends a scene you left open without handing it on: `end` writes what
+/// it came to, and what was said stands.
+pub(crate) fn leave(w: &mut World, id: u32, end: impl FnOnce(&mut World, &mut Scene)) {
+    let Some(k) = w.folk.scenes.iter().position(|s| s.id == id) else { return };
+    let mut s = w.folk.scenes[k].clone();
+    if s.done {
+        return;
+    }
+    end(w, &mut s);
+    s.done = true;
+    s.picks.clear();
+    clear_mark(w, &s);
+    log_scene(w, &s);
+    if let Some(slot) = w.folk.scenes.iter_mut().find(|x| x.id == id) {
+        *slot = s;
+    }
 }
 
 /// The meetings waiting for you on a morning: Continue stops for them.

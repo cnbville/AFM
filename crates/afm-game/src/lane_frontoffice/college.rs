@@ -1870,12 +1870,16 @@ fn portal_interest(w: &World, j: usize, i: usize, t: &desk::PortalTarget) -> Int
         g if g > -0.08 => ("Listening, not leaning".to_string(), "warn"),
         _ => (format!("Behind {other}, for now"), "bad"),
     };
-    let reason = if t.talks.is_empty() {
-        "Call him: every staff with a place for him has.".to_string()
-    } else {
-        let (a, b) = afm_engine::world::folk::dialogue::transfer_weighs(w, i);
-        let p = afm_engine::world::folk::dialogue::PITCHES;
-        format!("{first} is after {} first, then {}.", p[a].1.to_lowercase(), p[b].1.to_lowercase())
+    // What pulls him, as his file reads it (talk facts design, section 7):
+    // what your talks have shown, never his own numbers.
+    let file = afm_engine::world::folk::pulls::file(w, i);
+    let seen: Vec<String> =
+        file.iter().filter(|r| r.rows > 0 && r.score > 0.0).take(2).map(|r| r.group.name().to_lowercase()).collect();
+    let reason = match seen.as_slice() {
+        _ if t.talks.is_empty() => "Call him: every staff with a place for him has.".to_string(),
+        [a, b] => format!("From your talks, {first} seems after {a} first, then {b}."),
+        [a] => format!("From your talks, {first} seems after {a} most."),
+        _ => format!("Your talks haven't shown what {first} is after yet. Ask him."),
     };
     Interest { words, tone, reason, leader: Some(if gap > 0.025 { j } else { b.0 }) }
 }
@@ -1937,12 +1941,11 @@ fn portal_file(w: &World, j: usize, args: &Value) -> Reply {
                 .iter()
                 .map(|x| {
                     let place = ["A call", "At his home", "On your campus"][x.at.min(2) as usize];
-                    let how = if x.lean > 0.006 {
-                        "He leaned your way"
-                    } else if x.lean > 0.0 {
-                        "It landed, a little"
-                    } else {
-                        "It cooled him"
+                    // The talk's own words for how it ended (pitch::close).
+                    let how = match afm_engine::world::folk::pitch::mood_of(x.lean, x.at == 0) {
+                        "warm" => "He leaned your way",
+                        "flat" => "Polite, he'll think it over",
+                        _ => "It cooled him",
                     };
                     json!({ "date": short_date(x.date), "place": place, "pitch": x.pitch, "how": how })
                 })

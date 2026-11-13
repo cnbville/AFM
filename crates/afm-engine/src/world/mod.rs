@@ -499,6 +499,12 @@ pub struct PersonCal {
     /// relationship.
     #[serde(default)]
     pub home_talks: Vec<(usize, f32)>,
+    /// Each school's case with him (talk facts, lane L5; `folk::case`):
+    /// the best point it made in each group across every call, message and
+    /// visit, under one cap. It replaces `home_talks`, which a save from
+    /// before it still reads. Cleared when he enrolls.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cases: Vec<crate::world::folk::case::Case>,
 }
 
 /// A college cut (minor bug 60): the program, the day, and whether his
