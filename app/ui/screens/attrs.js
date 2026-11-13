@@ -146,8 +146,9 @@ const attrIt = (s, tail) => `<a class="at-it" data-act="attrjump" data-k="${esc(
 const attrCell = (title, items, empty) => `<div><div class="kick">${esc(title)}</div><div class="v">${items.length ? items.map((x) => `<span class="it">${x}</span>`).join("") : `<span class="sm">${esc(empty)}</span>`}</div></div>`;
 function attrPotVal(v) {
   if (!v) return "";
-  if (typeof v === "string") return `<b>${esc(v)}</b>`;
-  const w = v.words || v.tier || v.word || "";
+  const cap = (t) => String(t).replace(/^./, (c) => c.toUpperCase());
+  if (typeof v === "string") return `<b>${esc(cap(v))}</b>`;
+  const w = cap(v.words || v.tier || v.word || "");
   const sure = v.sure || v.confidence || "";
   return w ? `<b>${esc(w)}</b>${sure ? ` <span class="sm">· ${esc(words(sure))}</span>` : ""}` : "";
 }
