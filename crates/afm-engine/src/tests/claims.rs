@@ -377,7 +377,7 @@ fn a_point_counts_once_then_half_then_a_quarter() {
 /// Every read of a hidden number in the module, by the name it is read
 /// under. A new one fails this test until it is a gate, carries its
 /// `// hidden:` mark and is added here.
-const HIDDEN_READS: [(&str, usize); 25] = [
+const HIDDEN_READS: [(&str, usize); 26] = [
     (".gpa", 2),
     ("gpa_trend", 0),
     (".lean", 1),
@@ -403,6 +403,7 @@ const HIDDEN_READS: [(&str, usize); 25] = [
     ("visibility", 0),
     (".stability", 0),
     ("home_talks", 0),
+    ("goals(", 1),
 ];
 
 #[test]

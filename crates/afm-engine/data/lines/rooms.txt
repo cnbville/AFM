@@ -1,0 +1,171 @@
+# The staff and scouting rooms (talk facts lane L11, items 19, 23, 24, 25):
+# parts that need a fact the game has checked. A part with no version a
+# speaker can say falls back to today's plain part (rule 3 of the lanes),
+# so every tree plays without them. Written by hand; the bank run (L12)
+# fills the rest.
+
+# ---------------------------------------------------------------------------
+# Your job interview: the chair's last season, and your own record.
+
+@key interview.ask.plan.facts
+{team} went {last_record} last year. What does year one look like under you?
+We finished {last_record} last season. What does the next one look like under you?
+Last year was {last_record}. Walk us through your first season.
+Where is {team} in three years under you? We were {last_record} last year.
+{last_record} last year, and our people noticed. What do I tell them about your plan?
+We went {last_record}. What changes first if we hire you?
+{last_record} is not what we want on the wall. What's your plan for {team}? ~ form=down
+We were {last_record} and we want better. How long until we're winning? ~ form=down
+Last year was {last_record}, and we want to keep it that way. How do you build on it? ~ form=up
+{last_record} last year is a good place to start from. What do you change, if anything? ~ form=up
+
+@key interview.ask.past.facts
+Your record reads {yours}. Tell us about that.
+{yours}. What do you take from that?
+We have you at {yours}. What's behind the number?
+Walk us through {yours}.
+{yours}. What would your old players say about you?
+Tell us what {yours} doesn't show.
+Those are good numbers, {yours}. What's on your record we should ask about? ~ strong=yes
+{yours} is a good record, and {worst} is on it. What happened there? ~ strong=yes
+{yours} isn't the record we hoped to see. What happened? ~ weak=yes
+Your record, {yours}, is the first thing people brought up. Tell us about it. ~ weak=yes
+
+@key interview.react.past.failure
+{worst}. Most people don't bring that up first.
+You went straight to {worst}. I respect that.
+{worst}. We saw it. Tell us you learned something.
+That's honest. {worst} is on your record and you didn't dodge it.
+Okay, {worst}. I'd rather hear it from you.
+Not many would open with {worst}. Noted.
+
+@key interview.react.past.results
+{yours}. Those numbers get a second look from us.
+We saw {yours}. That's why you're in this room.
+{yours} speaks for itself, but I wanted to hear you say it.
+Okay, {yours}. Now tell us how much of it was you.
+We've done our homework on {yours}.
+{yours} is what we'd be buying. I like it.
+
+@key interview.react.past.people
+{pick_name}. We know the name.
+A {pick_round}-round pick. That's a real line on a resume.
+{pick_name} went in the {pick_round} round in {pick_year}. You didn't make that up.
+We looked at {pick_name}. That says something about your rooms.
+Okay, {pick_name}. Who else?
+A {pick_round}-round pick from your rooms. We noticed.
+
+# ---------------------------------------------------------------------------
+# The weekly staff meeting: the numbers behind a coordinator's case.
+
+@key staffmeet.case.pressure.facts
+They put {allowed} on us and we got home on {pressure} percent of their dropbacks. I want more pressure this week.
+We got to {opp}'s quarterback on {pressure} percent of his dropbacks. Let me bring more.
+{pressure} percent. That's how often we got to their quarterback against {opp}. We can't give up {allowed} and sit back.
+We gave up {allowed} to {opp} and pressured them on {pressure} percent of their dropbacks. Let me send more.
+I'm tired of watching {opp} get {allowed} on us. Let me bring pressure.
+{allowed} points, {pressure} percent pressure. The two go together. More pressure, more often.
+
+@key staffmeet.case.zone.facts
+{opp} had {big} explosive plays on us and scored {allowed}. I want more zone.
+{big} explosive plays against {opp}. That's {allowed} points. We have to keep everything in front.
+We gave up {big} big ones to {opp}, and {allowed} points. Let me play more zone.
+I'd rather give up five yards than fifty. {opp} had {big} explosive plays. Zone them up.
+{allowed} points and {big} chunk plays. We have to change something.
+{opp} found us for {big} big plays. More zone, more help over the top.
+
+@key staffmeet.case.run.facts
+We averaged {ypc} a carry against {opp} and ran it on only {run_share} percent of our plays. Let's run it more.
+{ypc} a carry. We only ran on {run_share} percent of our snaps against {opp}. Run the ball.
+Our line is winning up front: {ypc} a carry against {opp}. I want to pound it.
+We left yards on the field. {ypc} a carry, and we kept throwing it. Let me run it.
+{opp} couldn't stop the run, {ypc} a carry, and we ran it {run_share} percent of the time. Fix that.
+The tape against {opp} says run it. {ypc} a carry is not something to walk away from.
+
+@key staffmeet.case.pass.facts
+{ypc} a carry against {opp}, and we ran it on {run_share} percent of our plays anyway. I want to throw it more.
+We scored {scored} on {opp}, but only {ypc} a carry on the ground. Let me open it up.
+{ypc} a carry won't win. Let me put it in the quarterback's hands.
+{run_share} percent of our plays were runs, and they gained {ypc} a carry. That's not working. More passes.
+Against {opp} we kept running at {ypc} a carry. Let's throw it.
+The run isn't there, {ypc} a carry against {opp}. Let me throw it.
+
+# ---------------------------------------------------------------------------
+# A holdover coach's pitch: his real record since he took the job.
+
+@key takeover.holdover.record
+We're {record} since I took the {role} job here.
+{record} with me as the {role}. I know what that says.
+Look at the record since I got here: {record}.
+We've been {record} on my watch. I'd like to see it through.
+I've been the {role} for a team that's {record}. I'll stand on that.
+Judge me on {record}. That's what the {role} job has been.
+My unit's been good. You can see it in the numbers. ~ form=good
+I know my unit's numbers haven't been what they should be. I'd fix them. ~ form=poor
+
+# ---------------------------------------------------------------------------
+# Agents: what his client wants besides money.
+
+@key agent.wants.role
+{name} wants to play. He's not signing to sit.
+It's not only money. {name} wants a real role.
+Tell me where {name} fits and we can talk. He wants to start.
+Playing time matters to {name} more than people think.
+He wants a role first. Then we talk about the number. ~ straight
+Money's part of it. {name} wants to be on the field. ~ calm
+
+@key agent.wants.role.ahead
+{name} isn't signing to sit behind {ahead}.
+Where does {name} fit with {ahead} on your roster? That matters as much as the money.
+He wants to play, and {ahead} is in front of him on your chart. We need to talk about that.
+Show {name} a way past {ahead} and the number gets easier.
+I'll be straight: {ahead} is the issue. {name} wants a real shot at the job. ~ straight
+Everybody says there's a role. Where does {name} fit next to {ahead}? ~ slick
+
+@key agent.wants.winning.up
+{name} wants to win, and {club} went {last_record} last year. That counts for something with him.
+He's looking at who can win. {last_record} last year helps you.
+It's not only money. {name} wants to play for a winner, and you were {last_record}.
+You were {last_record}. {name} noticed.
+A contender matters to him. {last_record} puts you in the room.
+He wants rings. You have a case: {last_record}. ~ slick
+
+@key agent.wants.winning.down
+{name} wants to win. {club} went {last_record}. That's the conversation we need to have.
+He's going where he can win. {last_record} last year doesn't help you.
+It's not only money. He wants to play for a winner, and {last_record} isn't that yet.
+Sell him on the plan. {last_record} won't do it by itself.
+He wants a contender. Show me how you get from {last_record} to there. ~ straight
+Winning matters to {name}. You'd have to convince him. ~ calm
+
+@key agent.wants.city
+{name} cares where he lives. That's part of it.
+It's not only money. The city matters to him and his family.
+He wants a place he'll want to live. That counts.
+Where he plays matters to {name}. It's a lifestyle decision too.
+Money's one thing. Will he like living there? That's the other. ~ straight
+Don't underestimate the city. {name} won't. ~ calm
+
+@key agent.wants.security
+{name} wants security. Guarantees and years matter to him as much as the number.
+It's not only the average. He wants the guaranteed money.
+Years and guarantees. That's what {name} cares about.
+He wants to know he's set. Think guarantees.
+A big number with nothing guaranteed doesn't interest him. ~ straight
+Security first for {name}. Then the headline number. ~ calm
+
+@key agent.wants.home
+{name} wants to stay close to home. That matters to him.
+Distance from home is part of this for {name}.
+He'd like to play near where he grew up. It's not nothing.
+It isn't only the money. {name} wants to be near home.
+Home matters to him. Don't take that lightly. ~ straight
+Where he plays in relation to home matters to {name}. ~ calm
+
+@key agent.wants.loyalty
+{name} wants to stay. He's loyal to this place, and that's worth something to him.
+It's not only money. He wants to finish what he started with {club}.
+He'd rather stay than leave. Meet us near our number.
+Loyalty matters to {name}. Help me use it.
+He likes it here. That's real. It won't last forever, though. ~ slick
+{name} wants to stay. Make it easy for him. ~ calm

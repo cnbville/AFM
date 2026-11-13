@@ -181,7 +181,7 @@ screens.scout = async (a) => {
       <div><span class="st-label">Your staff${S.status && S.status.mine ? " · " + esc(S.status.mine.name) : ""}</span>${staffCard}</div>
     </div></div>${ask}`;
   let body = "";
-  if (tab.t === "Summary") body = scFileSummary(f);
+  if (tab.t === "Summary") body = scFileSummary(f) + aiScoutPanel(f);
   else if (tab.t === "Ratings") body = scFileRatings(f);
   else if (tab.t === "Looks") body = scFileLooks(f);
   else if (tab.t === "Tendencies") body = scFileTend(f);

@@ -12,6 +12,7 @@
 
 use super::Team;
 use super::cast::{self, Role as CastRole};
+use super::claims::rooms;
 use super::scene::{self, Kind, Pick, Scene, Who};
 use super::voice::{Facts, Pen, Speaker};
 use crate::calendar::{Date, Event, Kind as CalKind, Level, Loudness, Weekday};
@@ -671,16 +672,91 @@ const LABELS: [[&str; 3]; 3] = [
     ["Own a failure", "Point to results", "The people"],
 ];
 
+/// What you can say to a question, given your record (item 19): the code
+/// of each answer, its words, and the label on its button. An answer your
+/// record contradicts is not offered: you can't point to results you don't
+/// have, own a failure you never had, or name people who never came
+/// through your rooms. When none of the three is left, a plain answer
+/// stands in (`PLAIN_ANSWER`), so the question is never left without one.
+fn interview_answers(q: usize, past: &rooms::Past) -> Vec<(u32, u8, String, String)> {
+    let mut out = Vec::new();
+    for k in 0..3usize {
+        let base = 931 + 3 * q as u32 + k as u32;
+        let (text, label) = if q == 2 {
+            match k {
+                0 => match past.failure() {
+                    Some(x) => (
+                        format!("\"Let me tell you about {x}. It went wrong, and I know why.\""),
+                        LABELS[q][k].to_string(),
+                    ),
+                    None => continue,
+                },
+                1 => match past.record_words(true).filter(|_| past.strong()) {
+                    Some(r) => (format!("\"Look at what my teams did: {r}.\""), LABELS[q][k].to_string()),
+                    None => continue,
+                },
+                _ => match past.people() {
+                    Some(d) => (
+                        format!(
+                            "\"Look at the people who came through my rooms. {}, a {}-round pick in {}.\"",
+                            d.name,
+                            super::claims::words::round_word(d.round),
+                            d.year
+                        ),
+                        LABELS[q][k].to_string(),
+                    ),
+                    None => continue,
+                },
+            }
+        } else {
+            (QUESTIONS[q].1[k].to_string(), LABELS[q][k].to_string())
+        };
+        out.push((base, k as u8, text, label));
+    }
+    if q == 2 && out.is_empty() {
+        // Said as the record allows: a coach with games behind him has a
+        // record, only not one of the three kinds.
+        let (text, label) = if past.games() == 0 && !past.as_head {
+            (PLAIN_TEXT, "No record yet")
+        } else {
+            (PLAIN_TEXT_RECORD, "Judge the plan")
+        };
+        out.push((PLAIN_ANSWER, 3, text.to_string(), label.to_string()));
+    }
+    out
+}
+
+/// The answer that stands in when your record backs none of the three
+/// answers to "your past" (a first-time head coach with no seasons, no
+/// stretch that went wrong and no one drafted, or a record that is neither
+/// a winning one nor a losing one over enough games). It lands between a hit and
+/// a miss, like an answer one step from what they want. Proposed, not
+/// confirmed.
+pub const PLAIN_ANSWER: u32 = 940;
+const PLAIN_TEXT: &str = "\"I haven't run my own program yet. Judge me on how I'd build one.\"";
+const PLAIN_TEXT_RECORD: &str = "\"My record is what it is. Judge me on how I'd build yours.\"";
+
 fn interview_ask(w: &mut World, s: &mut Scene) {
     let q = s.step.min(2) as usize;
     let team = s.team.unwrap_or(Team::from_employer(employer_of(s.a)));
     let panel = panel(w, team);
     let Some(c) = panel.get(q % panel.len().max(1)) else { return s.end() };
     let sp = Speaker::cast(w, c);
-    let t = line(w, s, 10 + q as u64, &format!("interview.ask.{}", QUESTIONS[q].0), &sp, &Facts::new());
+    // The numbers behind the case reach the words (item 19): the chair's
+    // last season and your own record. The fact part comes first; a part
+    // with nothing to say falls back to today's plain question.
+    let past = rooms::past(w);
+    let mut f = Facts::new();
+    rooms::chair(w, team, &mut f);
+    past.fill(&mut f);
+    let key = QUESTIONS[q].0;
+    let mut t = line(w, s, 10 + q as u64, &format!("interview.ask.{key}.facts"), &sp, &f);
+    if t.is_empty() {
+        t = line(w, s, 10 + q as u64, &format!("interview.ask.{key}"), &sp, &Facts::new());
+    }
     s.them(&c.name, t, None);
-    for (k, a) in QUESTIONS[q].1.iter().enumerate() {
-        s.pick(931 + 3 * q as u32 + k as u32, *a, LABELS[q][k], "calm", "");
+    for (code, _, text, label) in interview_answers(q, &past) {
+        s.pick(code, text, &label, "calm", "");
     }
 }
 
@@ -693,15 +769,17 @@ fn interview_open(w: &mut World, s: &mut Scene) {
 }
 
 fn interview_answer(w: &mut World, s: &mut Scene, code: u32) {
-    let q = ((code - 931) / 3) as usize;
-    let k = ((code - 931) % 3) as u8;
+    let (q, k) = if code == PLAIN_ANSWER { (2, 3u8) } else { (((code - 931) / 3) as usize, ((code - 931) % 3) as u8) };
     let team = s.team.unwrap_or(Team::from_employer(employer_of(s.a)));
     let panel = panel(w, team);
     let want = wants_of(w, team, &panel);
     let aura = w.career.as_ref().map_or(10.0, |c| c.you.aura());
     // Each answer: on what they want, a miss, or between; how you come
-    // across (Aura) carries every answer a little.
-    let hit = if k == want[q] {
+    // across (Aura) carries every answer a little. The plain answer of a
+    // coach with no record is between.
+    let hit = if k == 3 {
+        0.0
+    } else if k == want[q] {
         0.45
     } else if (k as i16 - want[q] as i16).abs() == 1 {
         0.0
@@ -709,9 +787,26 @@ fn interview_answer(w: &mut World, s: &mut Scene, code: u32) {
         -0.3
     };
     s.f[q] = (hit + 0.015 * (aura - 10.0)) as f32;
-    s.you(&scene::your_name(w), QUESTIONS[q].1[k as usize].trim_matches('"'));
+    let past = rooms::past(w);
+    let said = interview_answers(q, &past)
+        .into_iter()
+        .find(|x| x.1 == k)
+        .map_or_else(|| QUESTIONS[q].1[(k as usize).min(2)].to_string(), |x| x.2);
+    s.you(&scene::your_name(w), said.trim_matches('"'));
     if let Some(c) = panel.get(q % panel.len().max(1)) {
         let sp = Speaker::cast(w, c);
+        // What the panel makes of the number you just gave them (item 19):
+        // a line that names it, before how they take it.
+        if q == 2 && k < 3 {
+            let mut f = Facts::new();
+            rooms::chair(w, team, &mut f);
+            past.fill(&mut f);
+            let part = ["failure", "results", "people"][k as usize];
+            let t = line(w, s, 40 + k as u64, &format!("interview.react.past.{part}"), &sp, &f);
+            if !t.is_empty() {
+                s.them(&c.name, t, None);
+            }
+        }
         let mood = if hit > 0.0 {
             "good"
         } else if hit < 0.0 {
@@ -866,27 +961,91 @@ const CASES: [(&str, &str); 4] = [
     ("pass", "throwing it more"),
 ];
 
+/// The game the meeting follows: the morning after it (`staff_meeting_day`
+/// sets the scene for the day after the game).
+fn meeting_game(w: &World, s: &Scene) -> Option<crate::world::seat::SeatGame> {
+    let (_, me) = w.seat_team()?;
+    w.seat_games.iter().rev().find(|g| g.date.add(1) == s.date && (g.teams[0] == me || g.teams[1] == me)).cloned()
+}
+
+/// Where the game plan's guideline stands now and where an answer to the
+/// case would move it, as shares (`shift_plan` moves it: `k` is 1.0 for
+/// agreeing, 0.5 for halfway). Pressure, man coverage and the run share are
+/// what the four cases move.
+fn plan_step(w: &World, kind: u8, k: f64) -> (f64, f64) {
+    let g = &w.plans.guide;
+    match kind {
+        0 => {
+            let now = g.pressure.to.unwrap_or(0.3);
+            (now, (now + 0.08 * k).clamp(0.05, 0.7))
+        }
+        1 => {
+            let now = g.man.to.unwrap_or(0.4);
+            (now, (now - 0.1 * k).clamp(0.05, 0.9))
+        }
+        2 => {
+            let now = g.run.to.unwrap_or(0.44);
+            (now, (now + 0.06 * k).clamp(0.2, 0.75))
+        }
+        _ => {
+            let now = g.run.to.unwrap_or(0.44);
+            (now, (now - 0.06 * k).clamp(0.2, 0.75))
+        }
+    }
+}
+
+/// What the plan's guideline is for each case, in words.
+const PLAN_WORDS: [&str; 4] = ["Pressure", "Man coverage", "The run share", "The run share"];
+
+fn pct(x: f64) -> i64 {
+    (100.0 * x).round() as i64
+}
+
 fn meeting_open(w: &mut World, s: &mut Scene) {
     let c = s.a as usize;
     let kind = (s.b as usize).min(3);
     let sp = Speaker::coach(w, c);
     let name = w.coaches[c].name.clone();
-    let t = line(w, s, 1, &format!("staffmeet.case.{}", CASES[kind].0), &sp, &Facts::new());
+    // The numbers behind the case reach the words (item 19): the game he is
+    // arguing from. The fact part comes first; with the game gone from the
+    // file, today's plain case stands.
+    let game = meeting_game(w, s).zip(w.seat_team()).map(|(g, (_, me))| rooms::case(&g, me));
+    let mut f = Facts::new();
+    if let Some(n) = &game {
+        n.fill(&mut f);
+    }
+    let mut t = String::new();
+    if game.is_some() {
+        t = line(w, s, 1, &format!("staffmeet.case.{}.facts", CASES[kind].0), &sp, &f);
+    }
+    if t.is_empty() {
+        t = line(w, s, 1, &format!("staffmeet.case.{}", CASES[kind].0), &sp, &Facts::new());
+    }
     s.narrate(format!("{} has the floor first, as he asked.", super::coach_link(w, c)));
     s.them(&name, t, None);
+    if let Some(n) = &game {
+        s.docs.push(case_doc(kind, n));
+    }
+    let (now, full) = plan_step(w, kind as u8, 1.0);
+    let (_, half) = plan_step(w, kind as u8, 0.5);
     s.pick(
         951,
         format!("\"Do it. {} this week.\"", cap(CASES[kind].1)),
         "Agree",
         "calm",
-        "The plan's guideline moves to his number. He owns it if it goes wrong.",
+        &format!(
+            "{} in the plan goes from {}% to {}%. He owns it if it goes wrong.",
+            PLAN_WORDS[kind],
+            pct(now),
+            pct(full)
+        ),
     );
     s.pick(
         952,
         "\"Some of it. Meet me halfway.\"",
         "Halfway",
         "calm",
-        "Half the change. Nobody's happy, nobody's wrong.",
+        &format!("{} goes from {}% to {}%. Nobody's happy, nobody's wrong.", PLAN_WORDS[kind], pct(now), pct(half)),
     );
     s.pick(
         953,
@@ -895,6 +1054,41 @@ fn meeting_open(w: &mut World, s: &mut Scene) {
         "firm",
         "If his unit struggles again, he'll remember you said no.",
     );
+}
+
+/// The game's numbers beside the case, as the box score has them.
+fn case_doc(kind: usize, n: &rooms::Case) -> super::scene::Doc {
+    use super::scene::{Doc, DocRow};
+    let row = |a: &str, b: String| DocRow { pid: None, cells: vec![a.to_string(), b] };
+    let rows = if kind <= 1 {
+        vec![
+            row("Points allowed", n.allowed.to_string()),
+            row("Their passers pressured", format!("{}%", n.pressure)),
+            row("Explosive plays they had", n.big.to_string()),
+        ]
+    } else {
+        vec![
+            row("Points scored", n.scored.to_string()),
+            row("Yards a carry", format!("{:.1}", n.ypc)),
+            row("Share of your plays that were runs", format!("{}%", n.run_share)),
+        ]
+    };
+    Doc {
+        title: format!(
+            "{} {} {}-{}",
+            match n.score[0].cmp(&n.score[1]) {
+                std::cmp::Ordering::Greater => "Beat",
+                std::cmp::Ordering::Less => "Lost to",
+                std::cmp::Ordering::Equal => "Tied",
+            },
+            n.opp,
+            n.score[0],
+            n.score[1]
+        ),
+        note: format!("The game against {}, the numbers he is pointing at.", n.opp),
+        cols: vec![String::new(), "Last game".into()],
+        rows,
+    }
 }
 
 fn cap(s: &str) -> String {
@@ -1412,19 +1606,46 @@ fn agent_speaker(w: &World, a: usize) -> Speaker {
 /// agent, or no line, the plain words stand. He remembers what he has said
 /// to you, as everyone in the talks does (minor bug 314).
 pub fn agent_says(w: &mut World, i: usize, part: &str, facts: &Facts, plain: String) -> String {
-    let Some(a) = w.people[i].pro.as_ref().and_then(|c| c.agent).filter(|&a| a < w.market.agents.len()) else {
-        return plain;
-    };
+    match agent_part(w, i, part, facts) {
+        Some(t) => format!("\"{t}\""),
+        None => plain,
+    }
+}
+
+/// One part of his agent's bank in his voice, or None when the player has
+/// no agent or the bank has no version he can say with these facts.
+fn agent_part(w: &mut World, i: usize, part: &str, facts: &Facts) -> Option<String> {
+    let a = w.people[i].pro.as_ref().and_then(|c| c.agent).filter(|&a| a < w.market.agents.len())?;
     let who = agent_speaker(w, a);
     let salt = part.bytes().fold(0u64, |h, b| h.wrapping_mul(31).wrapping_add(b as u64));
     let seed = w.today.0 as u64 ^ (w.people[i].player.id as u64) << 24 ^ salt << 40;
     let mut pen = Pen::take(w, seed);
     let said = pen.part(&format!("agent.{part}"), &who, facts).map(|x| super::voice::tidy(&x));
     pen.put(w);
-    match said {
-        Some(t) if !t.is_empty() => format!("\"{t}\""),
-        _ => plain,
-    }
+    said.filter(|t| !t.is_empty())
+}
+
+/// What his agent says his client wants besides money (item 25): the
+/// strongest of his role, winning, city, security, staying near home and
+/// (with his own club) loyalty, when it pulls him past the bar, in the
+/// agent's voice, next to a fact about your club where the want has one
+/// (the man ahead of him on your chart, your last record). None when only
+/// the money pulls him, or when the bank has no line yet: the talk then
+/// goes on as it did. Returns the want's key with the words, in quotes.
+pub fn agent_wants(w: &mut World, i: usize, club: usize, own_club: bool) -> Option<(&'static str, String)> {
+    use rooms::Want;
+    let want = rooms::top_want(w, i, own_club)?;
+    let mut f = Facts::new().with("name", w.people[i].name.clone()).with("club", w.nfl_team_name(club));
+    rooms::club_facts(w, i, club, want, &mut f);
+    let parts: Vec<String> = match want {
+        Want::Role if f.get("ahead").is_some() => vec!["wants.role.ahead".into(), "wants.role".into()],
+        Want::Winning => match f.get("form") {
+            Some(form) => vec![format!("wants.winning.{form}")],
+            None => Vec::new(),
+        },
+        _ => vec![format!("wants.{}", want.key())],
+    };
+    parts.iter().find_map(|p| agent_part(w, i, p, &f)).map(|t| (want.key(), format!("\"{t}\"")))
 }
 
 // ---------------------------------------------------------------------------

@@ -67,6 +67,8 @@ const BANKS: &[&str] = &[
     // Game day talks, home visits, interviews, agents, meetings (lane 14).
     include_str!("../../../data/lines/gameday.txt"),
     include_str!("../../../data/lines/dialogue.txt"),
+    // The staff and scouting rooms read the facts (talk facts lane L11).
+    include_str!("../../../data/lines/rooms.txt"),
     // The fans (people topic 9; the fan lane, then 13f).
     include_str!("../../../data/lines/fans.txt"),
     // The line bank run (Cain 2026-11-07): one file per family, written
