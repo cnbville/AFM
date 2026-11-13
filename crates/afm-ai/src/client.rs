@@ -20,7 +20,8 @@ pub const BASE_URL: &str = "https://api.anthropic.com";
 pub const MODEL: &str = "claude-haiku-5-5";
 
 /// The API version header. The long-standing one: structured output and the
-/// thinking switch need no newer one (checked by lane 1's real test on 2026-11-13).
+/// thinking switch need no newer one (checked by lane 1's live test on
+/// 2026-11-13; proposed, not confirmed by Cain).
 pub const VERSION: &str = "2023-06-01";
 
 /// The whole call, connecting and reading the answer included: 6 seconds, the
@@ -131,7 +132,7 @@ impl Request {
         let mut b = json!({
             "model": self.model,
             "max_tokens": self.max_tokens,
-            "thinking": { "type": "disabled" },
+            "thinking": thinking_off(&self.model),
             "system": [rules],
             "messages": [{ "role": "user", "content": self.user }],
         });
@@ -139,6 +140,17 @@ impl Request {
             b["output_config"] = json!({ "format": { "type": "json_schema", "schema": s } });
         }
         b
+    }
+}
+
+/// The `thinking` setting that turns thinking off. Haiku 5.5 takes
+/// `disabled` (checked by lane 1's live test); Sonnet 5.5 answers `disabled`
+/// with a 400 and asks for `between_tools` instead (the API's error-code notes).
+fn thinking_off(model: &str) -> Value {
+    if model.starts_with("claude-sonnet-5-5") {
+        json!({ "type": "between_tools" })
+    } else {
+        json!({ "type": "disabled" })
     }
 }
 
@@ -365,7 +377,15 @@ impl Real {
     }
 
     fn build(key: Key, base: String, timeout: Duration, proxy_from_env: bool) -> Real {
-        let agent = ureq::AgentBuilder::new().timeout(timeout).try_proxy_from_env(proxy_from_env).build();
+        // `timeout_connect` too: ureq keeps its own 30 second connect limit
+        // beside the overall one. No redirects: ureq would send `x-api-key`
+        // on to wherever a 3xx points, and the API never redirects a POST.
+        let agent = ureq::AgentBuilder::new()
+            .timeout(timeout)
+            .timeout_connect(timeout)
+            .redirects(0)
+            .try_proxy_from_env(proxy_from_env)
+            .build();
         Real { key, base, timeout, proxy_from_env, agent }
     }
 }
@@ -387,6 +407,9 @@ impl Model for Real {
             .send_json(req.body());
         let millis = || t.elapsed().as_millis() as u64;
         match sent {
+            Ok(resp) if resp.status() >= 300 => {
+                Err(Failure::Api { status: resp.status(), message: "The API sent the call somewhere else.".into() })
+            }
             Ok(resp) => {
                 let body: Value = resp.into_json().map_err(|e| self.transport(&e.to_string()))?;
                 Reply::from_body(body, millis())
@@ -457,6 +480,9 @@ mod tests {
         let plain = Request::new("test", "R", "U").no_cache().body();
         assert!(plain["system"][0].get("cache_control").is_none());
         assert!(plain.get("output_config").is_none());
+        // Sonnet 5.5 turns thinking off another way: `disabled` is a 400 there.
+        let sonnet = Request::new("test", "R", "U").model("claude-sonnet-5-5").body();
+        assert_eq!(sonnet["thinking"]["type"], "between_tools");
         // The label is the game's own note and is never sent.
         assert!(!plain.to_string().contains("test\""));
     }

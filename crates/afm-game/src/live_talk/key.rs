@@ -32,6 +32,9 @@ pub struct Ai {
     /// Where the key is kept besides memory: "keychain" when the app has
     /// saved it in the macOS Keychain, else "memory". Set by the app.
     kept: &'static str,
+    /// Counts the changes of key or client. A ticket remembers the number it
+    /// started under, so a late answer from an old key does not mark the new one.
+    generation: u64,
     pub tickets: Tickets,
 }
 
@@ -57,15 +60,18 @@ impl Ai {
             last: None,
             blocked: None,
             kept: "memory",
+            generation: 0,
             tickets: Tickets::default(),
         }
     }
 
     /// Keeps a key in memory (after checking its shape) and builds the real
     /// client from it. With the fake in use the key is kept and the fake
-    /// stays the client.
+    /// stays the client. The new key is in memory only until the app says it
+    /// has saved it in the Keychain (`set_kept`).
     pub fn set_key(&mut self, raw: &str) -> Result<(), String> {
         self.key = Some(Key::parse(raw)?);
+        self.kept = "memory";
         self.blocked = None;
         self.last = None;
         self.rebuild();
@@ -78,6 +84,11 @@ impl Ai {
         self.blocked = None;
         self.last = None;
         self.rebuild();
+    }
+
+    /// The number of the current key and client (see the field).
+    pub fn generation(&self) -> u64 {
+        self.generation
     }
 
     /// Plays every call on this fake instead of the network. Its spend goes
@@ -97,6 +108,7 @@ impl Ai {
     }
 
     fn rebuild(&mut self) {
+        self.generation += 1;
         self.client = match (&self.fake, &self.key) {
             (Some(f), _) => Some(Client::new(f.clone(), self.spend.clone())),
             (None, Some(k)) => Some(Client::new(Arc::new(Real::new(k.clone())), self.spend.clone())),

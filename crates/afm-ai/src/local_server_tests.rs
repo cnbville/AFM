@@ -155,6 +155,41 @@ fn a_reply_that_is_not_json_is_no_use() {
 }
 
 #[test]
+fn a_redirect_is_never_followed_so_the_key_goes_nowhere_else() {
+    // `other` is where a 302 points. It must never get a connection.
+    let other = TcpListener::bind("127.0.0.1:0").unwrap();
+    other.set_nonblocking(true).unwrap();
+    let target = format!("http://{}/v1/messages", other.local_addr().unwrap());
+    let first = TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}", first.local_addr().unwrap());
+    std::thread::spawn(move || {
+        if let Ok((mut s, _)) = first.accept() {
+            let mut chunk = [0u8; 8192];
+            let _ = s.read(&mut chunk);
+            let reply =
+                format!("HTTP/1.1 302 Found\r\nLocation: {target}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+            let _ = s.write_all(reply.as_bytes());
+        }
+    });
+    let err = real(&url).call(&Request::new("test", "r", "u")).unwrap_err();
+    assert!(matches!(err, Failure::Api { status: 302, .. }), "{err:?}");
+    std::thread::sleep(Duration::from_millis(100));
+    let followed = other.accept();
+    assert!(followed.is_err(), "the redirect was followed");
+}
+
+#[test]
+fn connecting_is_cut_off_at_the_same_limit() {
+    // Nothing answers on this address; where the machine has no route the
+    // connect fails at once, which is the same failure kind or "no network".
+    let t = std::time::Instant::now();
+    let r = real("http://10.255.255.1:81").with_timeout(Duration::from_millis(300));
+    let err = r.call(&Request::new("test", "r", "u")).unwrap_err();
+    assert!(matches!(err, Failure::Timeout | Failure::NoNetwork), "{err:?}");
+    assert!(t.elapsed() < Duration::from_secs(5), "took {:?}", t.elapsed());
+}
+
+#[test]
 fn the_debug_text_of_the_client_shows_only_the_tail() {
     let r = Real::new(Key::parse(KEY).unwrap());
     let shown = format!("{r:?}");

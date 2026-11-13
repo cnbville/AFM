@@ -15,6 +15,8 @@ use crate::client::Usage;
 /// The monthly cap, in dollars and in nano (Cain 2026-11-07 14:22 UTC: "a
 /// monthly cap of $50"; confirmed).
 pub const CAP_USD: f64 = 50.0;
+
+/// The same cap in nano (Cain 2026-11-07: "a monthly cap of $50"; confirmed).
 pub const CAP_NANO: u64 = 50_000_000_000;
 
 /// How many months the book keeps (proposed, not confirmed).
@@ -123,16 +125,15 @@ impl Spend {
     /// backstop).
     pub fn open(path: PathBuf) -> Spend {
         let mut s = Spend { path: Some(path.clone()), months: BTreeMap::new(), cap: CAP_NANO, note: None };
-        match std::fs::read(&path) {
-            Ok(bytes) => match serde_json::from_slice::<File>(&bytes) {
+        if let Ok(bytes) = std::fs::read(&path) {
+            match serde_json::from_slice::<File>(&bytes) {
                 Ok(f) => s.months = f.months,
                 Err(_) => {
                     let _ = std::fs::rename(&path, path.with_extension("bad"));
                     s.note =
                         Some("The spend file could not be read. It was set aside and counting started again.".into());
                 }
-            },
-            Err(_) => {}
+            }
         }
         s
     }

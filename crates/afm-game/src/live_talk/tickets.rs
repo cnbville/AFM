@@ -26,7 +26,9 @@ use serde_json::{Value, json};
 
 use crate::Game;
 
-/// A ticket nobody asks about for this long is dropped (proposed, not confirmed).
+/// A ticket is dropped this long after its call started (a chained second call
+/// starts the count again), asked about or not. A call times out long before
+/// this, so only a ticket nobody came back for is ever dropped (proposed, not confirmed).
 pub const TTL: Duration = Duration::from_secs(180);
 
 /// Most tickets open at once. More are refused with a plain line (proposed, not confirmed).
@@ -66,6 +68,10 @@ enum Kind {
 
 struct Ticket {
     born: Instant,
+    /// `Ai::generation` when the ticket started: an answer from an older key
+    /// or client still reaches its next step, but does not mark the new key
+    /// as working or refused.
+    generation: u64,
     kind: Kind,
 }
 
@@ -140,7 +146,8 @@ pub fn start(g: &mut Game, req: Request, next: Next, force: bool) -> Result<u64,
     let client = g.ai.client().ok_or(Failure::NoKey)?;
     let slot = spawn(client, req)?;
     let id = g.ai.tickets.take_id();
-    g.ai.tickets.map.insert(id, Ticket { born: Instant::now(), kind: Kind::Call { slot, next } });
+    let generation = g.ai.generation();
+    g.ai.tickets.map.insert(id, Ticket { born: Instant::now(), generation, kind: Kind::Call { slot, next } });
     Ok(id)
 }
 
@@ -148,7 +155,8 @@ pub fn start(g: &mut Game, req: Request, next: Next, force: bool) -> Result<u64,
 pub fn start_demo(g: &mut Game, answer: Value, waits: u32) -> u64 {
     g.ai.tickets.prune();
     let id = g.ai.tickets.take_id();
-    g.ai.tickets.map.insert(id, Ticket { born: Instant::now(), kind: Kind::Demo { answer, waits } });
+    let generation = g.ai.generation();
+    g.ai.tickets.map.insert(id, Ticket { born: Instant::now(), generation, kind: Kind::Demo { answer, waits } });
     id
 }
 
@@ -163,18 +171,25 @@ pub fn poll(g: &mut Game, id: u64) -> Value {
             if waits == 0 {
                 return answer;
             }
-            g.ai.tickets.map.insert(id, Ticket { born: t.born, kind: Kind::Demo { answer, waits: waits - 1 } });
+            let kind = Kind::Demo { answer, waits: waits - 1 };
+            g.ai.tickets.map.insert(id, Ticket { born: t.born, generation: t.generation, kind });
             wait()
         }
         Kind::Call { slot, next } => {
             let ready = slot.lock().ok().and_then(|mut s| s.take());
             let Some(result) = ready else {
-                g.ai.tickets.map.insert(id, Ticket { born: t.born, kind: Kind::Call { slot, next } });
+                g.ai.tickets
+                    .map
+                    .insert(id, Ticket { born: t.born, generation: t.generation, kind: Kind::Call { slot, next } });
                 return wait();
             };
-            match &result {
-                Ok(_) => g.ai.note_success(),
-                Err(f) => g.ai.note_failure(f),
+            // Only an answer under the key and client in use now says anything
+            // about them.
+            if t.generation == g.ai.generation() {
+                match &result {
+                    Ok(_) => g.ai.note_success(),
+                    Err(f) => g.ai.note_failure(f),
+                }
             }
             match next(g, result) {
                 Step::Done(v) => v,
@@ -182,9 +197,10 @@ pub fn poll(g: &mut Game, id: u64) -> Value {
                     let Some(client) = g.ai.client() else { return off(&Failure::NoKey.note()) };
                     match spawn(client, req) {
                         Ok(slot) => {
-                            g.ai.tickets
-                                .map
-                                .insert(id, Ticket { born: Instant::now(), kind: Kind::Call { slot, next: next2 } });
+                            // The second call goes out on the client in use now.
+                            let generation = g.ai.generation();
+                            let kind = Kind::Call { slot, next: next2 };
+                            g.ai.tickets.map.insert(id, Ticket { born: Instant::now(), generation, kind });
                             wait()
                         }
                         Err(f) => off(&f.note()),

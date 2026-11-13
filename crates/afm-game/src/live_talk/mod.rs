@@ -337,6 +337,44 @@ mod tests {
     }
 
     #[test]
+    fn a_late_answer_from_an_old_key_does_not_mark_the_new_one() {
+        let (mut g, fake, _) = fake_game("stale");
+        fake.push("test", Err(Failure::Api { status: 401, message: String::new() }));
+        let id = ok(&mut g, "ai_test", json!({}))["ticket"].as_u64().unwrap();
+        // The fake answers at once; wait until the worker has left its answer.
+        let t = Instant::now();
+        while fake.asked_count() == 0 && t.elapsed() < Duration::from_secs(2) {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        std::thread::sleep(Duration::from_millis(50));
+        // A new key is pasted before the old answer is read.
+        ok(&mut g, "ai_key_set", json!({ "key": MARKER }));
+        assert_eq!(finish(&mut g, id)["state"], "off", "the old answer still reaches its step");
+        assert!(g.ai.usable(), "the new key is not marked refused by the old one's answer");
+        assert_eq!(ok(&mut g, "ai_status", json!({}))["note"], Value::Null);
+        // The same answer under the key in use does block.
+        fake.push("test", Err(Failure::Api { status: 401, message: String::new() }));
+        let id = ok(&mut g, "ai_test", json!({}))["ticket"].as_u64().unwrap();
+        finish(&mut g, id);
+        assert!(!g.ai.usable());
+    }
+
+    #[test]
+    fn a_new_key_is_in_memory_until_the_app_says_it_saved_it() {
+        let (mut g, _) = game("kept");
+        ok(&mut g, "ai_key_set", json!({ "key": MARKER }));
+        assert_eq!(ok(&mut g, "ai_status", json!({}))["kept"], "memory");
+        g.ai.set_kept("keychain");
+        assert_eq!(ok(&mut g, "ai_status", json!({}))["kept"], "keychain");
+        // A second key the Keychain then refuses must not read as kept there.
+        let s = ok(&mut g, "ai_key_set", json!({ "key": MARKER.replace("abcd", "wxyz") }));
+        assert_eq!(s["kept"], "memory");
+        g.ai.set_kept("keychain");
+        let cleared = ok(&mut g, "ai_key_clear", json!({}));
+        assert!(cleared["kept"].is_null());
+    }
+
+    #[test]
     fn at_the_cap_everything_goes_back_to_the_chips() {
         let h = home("cap");
         let month = afm_ai::month_now();
