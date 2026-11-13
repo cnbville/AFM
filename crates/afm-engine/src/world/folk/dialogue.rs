@@ -1418,8 +1418,14 @@ const CASES: [(&str, &str); 4] = [
 
 /// Every move the plan can make at a staff meeting: his four cases, then
 /// the two the other way on defense (live talks LT17: your own case).
-pub const MOVES: [&str; 6] =
-    ["more pressure", "more zone coverage", "running it more", "throwing it more", "less pressure", "more man coverage"];
+pub const MOVES: [&str; 6] = [
+    "more pressure",
+    "more zone coverage",
+    "running it more",
+    "throwing it more",
+    "less pressure",
+    "more man coverage",
+];
 
 /// The moves you can make instead of his case (LT17, picks 954-959): the
 /// others on his side of the ball, the menu short.
@@ -1674,6 +1680,42 @@ fn shift_plan(w: &mut World, kind: u8, k: f64) {
     w.plans.guide_set = Some(w.today);
 }
 
+/// How the unit did in the game after a case: -1 badly (the defense gave
+/// up 28 or more, the offense scored under 17), 1 well (17 or fewer
+/// allowed, 28 or more scored), else 0.
+pub(crate) fn case_went(case: &Case, pts: i32) -> i8 {
+    let defense = case.kind <= 1;
+    let bad = if defense { pts >= 28 } else { pts < 17 };
+    let good = if defense { pts <= 17 } else { pts >= 28 };
+    if bad {
+        -1
+    } else if good {
+        1
+    } else {
+        0
+    }
+}
+
+/// What a case does to the coordinator's trust in you after the next game:
+/// overruled and his unit struggled again -0.06, overruled and it went well
+/// +0.01; agreed and it worked +0.03, agreed and it didn't -0.01. Your own
+/// case instead (live talks LT17) at the same sizes: it went wrong, as an
+/// overrule that went wrong; it worked, as an agreed case that worked.
+pub(crate) fn case_trust(case: &Case, pts: i32) -> f32 {
+    let went = case_went(case, pts);
+    let (bad, good) = (went < 0, went > 0);
+    match (case.mine.is_some(), case.said, bad, good) {
+        (true, _, true, _) => -0.06,
+        (true, _, _, true) => 0.03,
+        (true, ..) => 0.0,
+        (_, 2, true, _) => -0.06,
+        (_, 2, _, true) => 0.01,
+        (_, 0, _, true) => 0.03,
+        (_, 0, true, _) => -0.01,
+        _ => 0.0,
+    }
+}
+
 /// Last week's case, checked against the game since: overruled and his
 /// unit struggled again costs his trust in you; agreed and it worked earns
 /// a little.
@@ -1685,28 +1727,17 @@ fn check_case(w: &mut World, g: &crate::world::seat::SeatGame, me: usize) {
     }
     let side = if g.teams[0] == me { 0 } else { 1 };
     let pts = if case.kind <= 1 { g.stats.score[1 - side] } else { g.stats.score[side] };
-    let defense = case.kind <= 1;
-    let bad = if defense { pts >= 28 } else { pts < 17 };
-    let good = if defense { pts <= 17 } else { pts >= 28 };
-    // Your own case (LT17) at today's sizes: it went wrong, as an overrule
-    // that went wrong; it worked, as an agreed case that worked.
-    let by = match (case.mine.is_some(), case.said, bad, good) {
-        (true, _, true, _) => -0.06,
-        (true, _, _, true) => 0.03,
-        (true, ..) => 0.0,
-        (_, 2, true, _) => -0.06,
-        (_, 2, _, true) => 0.01,
-        (_, 0, _, true) => 0.03,
-        (_, 0, true, _) => -0.01,
-        _ => 0.0,
-    };
+    let bad = case_went(&case, pts) < 0;
+    let by = case_trust(&case, pts);
     if by != 0.0 {
         w.folk.mine.nudge(super::coach_key(case.coach), by);
     }
     if case.said == 2 && bad {
         let name = w.coaches[case.coach].name.clone();
         let text = match case.mine {
-            Some(_) => format!("{name} hasn't forgotten his numbers said otherwise. His unit struggled after your call."),
+            Some(_) => {
+                format!("{name} hasn't forgotten his numbers said otherwise. His unit struggled after your call.")
+            }
             None => format!("{name} hasn't forgotten you overruled him. His unit struggled again."),
         };
         super::note(w, "staff", "Staff meeting".into(), text, None);

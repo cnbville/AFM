@@ -1,6 +1,6 @@
 # Live talks: how it works today
 
-Checked against main at 7691db7 on 2026-11-13 (lane 2, the boxes, before it merged to main; lane 1 is on main since #314), and lane 3, the core, over main c04c172 on 2026-11-13, before it merged. Lanes 4 to 10 are not built yet: their sections below are empty until each lane fills its own.
+Checked against main at 7691db7 on 2026-11-13 (lane 2, the boxes, before it merged to main; lane 1 is on main since #314), and lane 3, the core, over main c04c172 on 2026-11-13, before it merged; lane 6 over main 695d72d on 2026-11-13, before it merged. Lanes 4, 5, 7, 9 and 10 are not built yet: their sections below are empty until each lane fills its own.
 
 Live talks are typed lines to your players, recruits and staff, answered in character by Claude Haiku 5.5, on top of the chips and the line bank, which always still work. The rule under all of it: the AI only reads your words and writes theirs; the game decides every result. The design is `afm/live-talks/proposal.md` in the project folder; this page says what the code does.
 
@@ -215,7 +215,33 @@ Not built yet.
 
 ## Lane 6, rooms that gain something
 
-Not built yet.
+Built 2026-11-13. Three rooms gain something the chips also get (question 5, taken overnight): each lever is an option the facts back, so a typed line lands on it through the core's generic reader, and with no key it is a chip.
+
+### The interview rooms (LT11)
+
+- The combine interview, the top-30 visit and the official visit's sit-down (`Kind::CombineTalk`) take typed lines: a topic (961-965), pressing him (967), a worry your scouts flagged (970 + the trait) or wrapping up (969) (`world/folk/dialogue.rs`, `combine_picks`; `live_talk/say/interview.rs`).
+- A worry your scouts flagged is a trait your file reads on the worrying side: a good trait under 8, or temper, ego or money at 12.5 and up, the worst three, fixed when the room opens. Its question costs 3 minutes in an 18-minute room (8 on an official visit), his answer is his topic's line, and it reads that trait at 0.75 of the spread the same minutes on the topic give (`world/scouting/own.rs`, `flagged_worries`, `worry_question`, `WORRY_MINUTES`, `WORRY_SD`, `interview_traits`).
+- A typed question takes one more minute off the clock for every 150 characters (a 300-character question two). Those minutes never add to the topic's, so a long question only costs (`dialogue.rs`, `TYPED_CHARS_A_MINUTE`, `typed_minutes`, from `Heard.len`).
+- The writer's card names the worry on a worry question; the reader's card has the minutes left (`say/interview.rs`).
+
+### Asking a source (LT12)
+
+- On a scout file your staff has read, `sources` (no key) lists who you can call and four topics: his work habits, how he takes coaching, his character, what drives him. With a key the file also gets an `ask` entry, `{kind: "source", player}`, with the same people to choose from (`live_talk/ask/source.rs`, `sources`, `flag`).
+- Who: his high school coach (a call, warm; his eye is his recruiting rating; your tie and his tips record from your contacts), a teacher (a call, true, eye 9; a high school kid only), his trainer when his family pays for one (a workout, warm, eye 11), a teammate (practice, defends him, eye 8), and for a college player his position coach to an NFL seat (a school call, warm) or the staff he is leaving to a college seat (cold). None for your own players, a pro, or at a high school seat (`world/scouting/own.rs`, `sources`).
+- What he says is the engine's: only the topic's traits his kind of look shows, each the truth plus his misread (the look's base error × sharp(his eye)) plus his shade's tilt, half of it off at full warmth; the same all year (`world/scouting/file.rs`, `source_says`, `SOURCE_WARM_OFF`). The game's own words: the file's trait words, then what he can't speak to (`own::source_answer`).
+- A call is half an hour of your week (`talks::spend`), once a source and topic a year. What he said goes into your file's character read at his look's spread, his shade taken off as far as your relationships and network see through it (`own::ask_source`, `SOURCE_HOURS`, `source_traits`; applied in `readers::read`).
+- `scout_source {player, source, topic}` (topics from 1) answers with the file as it reads now plus `answer` and `by` (`ask/source.rs`, `source_cmd`). `ai_ask {kind: "source", player, source, text}`: the reader (`source_reader`, its own rules and a two-field schema) puts the question on a topic or none, the game answers, and the writer (`source_writer`) words it in his voice from the reads; a reply that fails the filter, or a failed call, leaves the game's words. Done carries `{heard, text}` (`ask/source.rs`, `ask`, `reader_step`).
+
+### The staff meeting (LT17)
+
+- Besides agreeing, halfway and overruling, the meeting offers your own case: the other moves on his side of the ball, the DC's more or less pressure, more zone or more man, the OC's run or throw more (picks 954 + the move, `MOVES`). It moves the plan one full step your way (less pressure -0.08, more man +0.10), he answers from his numbers, and `Case.mine` keeps it (`dialogue.rs`, `own_moves`, `meeting_answer`, `shift_plan`, `plan_step`).
+- After the next game your case is checked at today's sizes: it went wrong (28+ allowed, or under 17 scored) costs his trust in you 0.06, as an overrule that went wrong; it worked (17 or fewer, or 28+ scored) earns 0.03, as an agreed case that worked (`dialogue.rs`, `case_went`, `case_trust`, `check_case`).
+- A typed line is heard as a game plan ask on `Heard.plan`: the setting, which way and one step (0 for halfway; none for overruling) (`say/staff.rs`, `plan_of`); the writer's card says he went his own way.
+
+### Tests
+
+- Engine (`crates/afm-engine/src/tests/live_gain.rs`): a typed interview question equals the clicked one; a long one takes two minutes off and none into the topic; the flagged worries are offered once and kept; a worry reads tighter than today's topic over 400 recruits; a source tells only what his look shows, his shade tilts it and a warm tie softens it; a call costs half an hour, once a topic, and feeds the file; your own case moves the plan your way, typed equals clicked, and is checked both ways; old saves read with no case of yours and no worries.
+- Game (`live_talk/say/gain_tests.rs`): a typed question lands on a flagged worry; a typed meeting line becomes your own case with its plan ask; the sources row works with no key; a typed source question is read, answered and worded, a writer that adds a number falls back, and a line that isn't one keeps nothing and costs no time.
 
 ## Lane 7, NFL desk and your boss
 
@@ -241,6 +267,7 @@ Not built yet.
 - `crates/afm-game/src/live_talk/say/mod.rs`: `READER_TOKENS`, `WRITER_TOKENS`, `WAIT_TTL`, `READER_RULES`, `WRITER_RULES`, `PROMISE_KINDS`, `PROMISE_BY`, `CONDITIONS`.
 - `crates/afm-game/src/live_talk/card.rs`: `MAX_OPTIONS`, `SO_FAR`.
 - `crates/afm-game/src/live_talk/filter.rs`: `BANNED`, `MAX_CHARS`, `NUMBER_WORDS`.
+- Lane 6: `world/scouting/own.rs`: `WORRY_SD`, `WORRY_MINUTES`, `WORRIES`, `SOURCE_TOPICS`, `SOURCE_HOURS`; `world/scouting/file.rs`: `SOURCE_WARM_OFF`; `world/folk/dialogue.rs`: `TYPED_CHARS_A_MINUTE`, `MOVES`.
 - `crates/afm-engine/src/world/folk/finals.rs`: `FINAL`. `world/folk/scene.rs`: `LIMIT`, `NO_BOX`. `world/folk/claims/truth.rs`: `CLAIM_KINDS`, `KEEP_LIES`, `WORD_START`.
 
 ## Related pages

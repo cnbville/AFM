@@ -1148,8 +1148,7 @@ pub fn interview_with(
 ) -> Result<String, String> {
     let open = rooms(w, id);
     let (room, minutes) = open.into_iter().find(|r| r.0 == room).ok_or("That room isn't open with him today.")?;
-    let total: u32 =
-        spent.iter().map(|x| x.1 as u32).sum::<u32>() + worries.iter().map(|x| x.1 as u32).sum::<u32>();
+    let total: u32 = spent.iter().map(|x| x.1 as u32).sum::<u32>() + worries.iter().map(|x| x.1 as u32).sum::<u32>();
     if total == 0 || total > minutes as u32 {
         return Err(format!("Spend up to {minutes} minutes."));
     }
@@ -1440,9 +1439,12 @@ pub fn sources(w: &World, id: u32) -> Vec<Source> {
         return v;
     }
     let contact = |c: usize| {
-        w.folk.network.contacts.iter().find(|x| x.coach_id() == Some(c)).map_or((0.0, (0, 0)), |x| {
-            (x.warmth as f64, x.record)
-        })
+        w.folk
+            .network
+            .contacts
+            .iter()
+            .find(|x| x.coach_id() == Some(c))
+            .map_or((0.0, (0, 0)), |x| (x.warmth as f64, x.record))
     };
     let coach_source = |code: u8, c: usize, label: String, role: &'static str, kind: Kind, shade: S| {
         let (warmth, record) = contact(c);
@@ -1543,11 +1545,8 @@ pub fn source_answer(w: &World, id: u32, code: u8, topic: u8) -> Result<(Source,
     let says = super::file::source_says(p, s.kind, s.shade, s.eye, s.warmth, key, traits);
     let said: Vec<(&'static str, &'static str)> =
         says.iter().map(|x| (super::file::TRAIT_NAMES[x.k], super::lines::trait_word(x.k, x.said))).collect();
-    let unknown: Vec<&'static str> = traits
-        .iter()
-        .filter(|k| !says.iter().any(|x| x.k == **k))
-        .map(|&k| super::file::TRAIT_NAMES[k])
-        .collect();
+    let unknown: Vec<&'static str> =
+        traits.iter().filter(|k| !says.iter().any(|x| x.k == **k)).map(|&k| super::file::TRAIT_NAMES[k]).collect();
     let text = if said.is_empty() {
         format!("{}? That's not something I'd know, coach.", topic_words)
     } else {
@@ -1582,7 +1581,11 @@ fn cap_first(s: &str) -> String {
 pub fn ask_source(w: &mut World, id: u32, code: u8, topic: u8) -> Result<SourceAnswer, String> {
     let (_, ask, answer) = source_answer(w, id, code, topic)?;
     let year = w.today.year();
-    if w.scouting.own.sources.iter().any(|x| x.id == id && x.source == code && x.topic == topic && x.date.year() == year)
+    if w.scouting
+        .own
+        .sources
+        .iter()
+        .any(|x| x.id == id && x.source == code && x.topic == topic && x.date.year() == year)
     {
         return Err("You asked him that already this year.".into());
     }
@@ -1618,15 +1621,8 @@ pub(crate) fn source_traits(w: &World, id: u32, traits: &mut [super::file::Trait
     let see_through = clamp((rel + net - 16.0) / 24.0, 0.0, 0.85);
     for a in asks {
         let traits_asked = SOURCE_TOPICS.get(a.topic as usize).map_or(&[][..], |t| t.1);
-        let says = super::file::source_says(
-            p,
-            a.kind,
-            shade_of(a.shade),
-            a.eye as f64,
-            a.warmth as f64,
-            a.key,
-            traits_asked,
-        );
+        let says =
+            super::file::source_says(p, a.kind, shade_of(a.shade), a.eye as f64, a.warmth as f64, a.key, traits_asked);
         for x in says {
             let Some(tr) = traits.get_mut(x.k) else { continue };
             let good = if super::file::trait_good_high(x.k) { 1.0 } else { -1.0 };
