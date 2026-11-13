@@ -110,6 +110,11 @@ pub enum Kind {
     Numbers,
 }
 
+/// The looks log's two families of looks at him playing or on tape
+/// (`Kind::family`, `Kind::watched`).
+pub const FAMILY_LIVE: &str = "Live and school";
+pub const FAMILY_FILM: &str = "Film and charting";
+
 impl Kind {
     pub const ALL: [Kind; 32] = [
         Kind::School,
@@ -223,7 +228,7 @@ impl Kind {
     pub fn family(self) -> &'static str {
         match self {
             Kind::School | Kind::Practice | Kind::Game | Kind::AllStar | Kind::Coach | Kind::Workout | Kind::Tryout => {
-                "Live and school"
+                FAMILY_LIVE
             }
             Kind::Film
             | Kind::CrossCheck
@@ -232,7 +237,7 @@ impl Kind {
             | Kind::HsFilm
             | Kind::CollegeFilm
             | Kind::ProFilm
-            | Kind::Numbers => "Film and charting",
+            | Kind::Numbers => FAMILY_FILM,
             Kind::Combine
             | Kind::ProDay
             | Kind::Camp
@@ -246,6 +251,16 @@ impl Kind {
             Kind::Interview | Kind::HomeVisit | Kind::Call | Kind::Transcript | Kind::OldStaff => "Calls and records",
             Kind::Background | Kind::Social => "Heard and online",
         }
+    }
+
+    /// Whether the look was of him playing or of his tape: the looks log's
+    /// live and film families. A habit shows over games, not in a call, a
+    /// medical or a camp, so these are the looks a scouted habit read counts
+    /// and narrows with (minor bug 382: the count tested the family against
+    /// the words "Film" and "Live", which no family is called, so it was
+    /// always 0). Every caller asks here, never the family's name.
+    pub fn watched(self) -> bool {
+        matches!(self.family(), FAMILY_LIVE | FAMILY_FILM)
     }
 
     /// Tape (SK1, SK3): film and the looks that read his games, where what

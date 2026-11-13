@@ -501,7 +501,7 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
         .collect();
     look_rows.reverse();
     // Tendencies: a staff's read, narrower with film.
-    let film = looks.iter().filter(|l| matches!(l.kind.family(), "Film" | "Live")).count() as f64;
+    let film = looks.iter().filter(|l| l.kind.watched()).count() as f64;
     let acc = rds.iter().map(|r| r.judge).fold(0.0f64, f64::max);
     let tendencies: Vec<Value> = if seen {
         afm_engine::tendencies::Tend::ALL
