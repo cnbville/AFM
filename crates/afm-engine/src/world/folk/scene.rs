@@ -424,6 +424,8 @@ pub fn answer(w: &mut World, id: u32, code: u32) -> Result<Scene, String> {
         .iter()
         .find(|p| p.code == code)
         .or_else(|| s.picks.iter().find(|p| talk && super::talks::same_move(p.code, code)))
+        // An option behind "bring up something else" is on the table too.
+        .or_else(|| s.reach.iter().find(|p| p.code == code))
         .cloned()
     else {
         return Err("That answer isn't on the table.".into());

@@ -7126,6 +7126,9 @@ pub(crate) fn enroll(w: &mut World, early: bool) {
         p.path.push(s.program);
         p.on_notice = false;
         p.cal.signed = None;
+        // The schools' cases with him are settled (talk facts lane L5).
+        p.cal.cases = Vec::new();
+        p.cal.home_talks = Vec::new();
         if early {
             let age = p.row_age();
             p.note(format!("Enrolled early at {name} in January at {age}, in time for spring practice."));

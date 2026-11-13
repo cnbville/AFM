@@ -55,7 +55,9 @@ pub mod words;
 pub use alumni::{Alum, Alumni};
 pub use kinds::{Family, Group, Kind, When, Whose};
 pub use memory::{KEEP_DAYS, Row, Talked};
+pub(crate) use player::GRADE_LINE;
 pub use program::Ear;
+pub(crate) use program::{NEED_MONEY, cares as group_cares, rival_for};
 pub use sheet::{Basis, Conduct, Point, Proof, Ref, Sheet, Tier};
 
 use crate::calendar::Date;

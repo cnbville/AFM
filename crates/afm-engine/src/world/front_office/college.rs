@@ -198,6 +198,12 @@ pub struct PortalTarget {
     /// The day you last called him.
     #[serde(default)]
     pub called: Option<Date>,
+    /// Your case with him (talk facts lane L5, `folk::case`): the best
+    /// point made in each group across your calls and visits, under one
+    /// cap. It replaces the pull of `talks`, which a save from before it
+    /// still reads.
+    #[serde(default, skip_serializing_if = "crate::world::folk::case::Case::is_empty")]
+    pub case: crate::world::folk::case::Case,
 }
 
 /// One of your talks with a transfer: where (0 on the phone, 1 at his
@@ -2970,6 +2976,7 @@ pub(crate) fn portal_target(w: &mut World, id: u32) -> Result<&mut PortalTarget,
             promise: None,
             committed: None,
             called: None,
+            case: Default::default(),
         });
     }
     Ok(desk.portal.iter_mut().find(|t| t.id == id).unwrap())
