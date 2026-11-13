@@ -1103,7 +1103,7 @@ function letterHtml(m) {
     ? `<div class="clips">${m.body.map((l, i) => (i === 0 ? `<p class="clip-intro">${rich(l)}</p>` : `<article class="clip"><p>${rich(l)}</p></article>`)).join("")}</div>`
     : m.body.map((l) => `<p>${rich(l)}</p>`).join("");
   const sign = m.head === "paper" ? `<p class="lt-sign small muted">${esc(m.sign || "")}</p>` : `<div class="lt-sign">${m.sign ? `<p>${esc(m.sign)}</p>` : ""}${m.head === "email" ? "" : `<p class="sig">${esc(m.from)}</p><small>${esc(m.role)}</small>`}</div>`;
-  return `<div class="lt-paper head-${m.head}">${letterHead(m)}${formal ? `<div class="lt-to"><small>To</small> ${esc(m.to)}</div><div class="lt-subject">${esc(m.subject)}</div>` : m.head === "paper" ? `<div class="lt-subject paper">${esc(m.subject)}</div>` : ""}<div class="lt-body">${body}${tableHtml}${typeof hpWhy === "function" ? hpWhy(m.why) : ""}</div>${sign}${m.attach && m.attach.length ? `<div class="lt-attach">${m.attach.map((a) => `<span class="att">${icon("note")}${esc(a)}</span>`).join("")}</div>` : ""}</div>`;
+  return `<div class="lt-paper head-${m.head}">${letterHead(m)}${formal ? `<div class="lt-to"><small>To</small> ${esc(m.to)}</div><div class="lt-subject">${esc(m.subject)}</div>` : m.head === "paper" ? `<div class="lt-subject paper">${esc(m.subject)}</div>` : ""}<div class="lt-body">${body}${aiLetterHtml(m)}${tableHtml}${typeof hpWhy === "function" ? hpWhy(m.why) : ""}</div>${sign}${m.attach && m.attach.length ? `<div class="lt-attach">${m.attach.map((a) => `<span class="att">${icon("note")}${esc(a)}</span>`).join("")}</div>` : ""}</div>`;
 }
 function letterSide(m, pane) {
   const about = m.about;
@@ -1147,6 +1147,7 @@ async function showLetter(id, list) {
   let m;
   try { m = await api("letter", { id: String(id) }); } catch (e) { toast(e.message); closeLetter(); return; }
   if (MAIL.ask !== ask) return;
+  aiLetterBegin(m);
   const pane = document.querySelector(".letter-room") ? null : ibPane();
   if (pane) {
     const same = !!MAIL.cur && MAIL.cur.id === m.id;
@@ -2241,6 +2242,7 @@ screens.settings = async () => {
     ${row("Hover cards", "A card when you rest on a name", seg("hover", [["", "On"], ["off", "Off"]], prefs.hover || ""))}
     ${row("Hover delay", "How long to rest first", seg("hoverDelay", [["250", "Quick"], ["", "Normal"], ["900", "Slow"]], prefs.hoverDelay || ""))}</div></div>
     ${sb && sb.career ? sandboxPanel(sb, nf, row) : ""}
+    ${await aiSettingsPanel()}
     <div class="panel"><h2>Logos</h2>${row("Logo packs", "AFM has no logos of its own: install a pack, the way Football Manager's work", linkTo("logos", {}, "Logos", "st-btn small"))}</div>
     <div class="panel"><h2>Keys and clicks</h2><div class="keys">${keys.map(([k, t]) => `<div><kbd>${esc(k)}</kbd><span>${esc(t)}</span></div>`).join("")}</div></div></div>`;
 };
