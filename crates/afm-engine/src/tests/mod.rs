@@ -37,6 +37,7 @@ mod marks;
 mod new_teams;
 mod nil;
 mod no_fire;
+mod outside_talks;
 mod pipeline;
 mod placement;
 mod polls;

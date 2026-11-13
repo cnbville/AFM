@@ -85,6 +85,10 @@ const BANKS: &[&str] = &[
     // and portal calls, written through the Batches API by tools/linebank
     // (`recruit20k.py`). Design: docs/design/recruit-talk-lines.md.
     include_str!("../../../data/lines/recruit_talks_run.txt"),
+    // The bosses and the outside on the fact sheet (talk facts lane L10):
+    // the press on a case's step, the boss on the season's pace, a
+    // booster, the old coach and the GM answering as who they are.
+    include_str!("../../../data/lines/outside_facts.txt"),
 ];
 
 /// The facts that gate a line which denies (`blameless`) or admits

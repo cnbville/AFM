@@ -100,6 +100,31 @@ fn money(x: f64) -> String {
     crate::world::front_office::dollars(x)
 }
 
+/// What your chart says at a position (talk facts item 22): None when your
+/// team can't dress a game team, so there is no chart to speak of; else the
+/// man listed first at the spot, or nobody.
+fn chart_at(w: &World, pos: crate::positions::Position) -> Option<Option<usize>> {
+    let depth = w.seat_game_depth()?;
+    let first = depth.iter().find(|(p, _)| *p == pos).and_then(|(_, ids)| ids.first().copied());
+    Some(first.and_then(|id| super::person(w, id)))
+}
+
+/// A spot as the chart lists it: one line for the interior (a guard or a
+/// center).
+fn chart_spot(pos: crate::positions::Position) -> &'static str {
+    if pos == crate::positions::Position::IOL { "the interior line" } else { super::claims::words::spot(pos) }
+}
+
+/// Your chart at the spot he would play, in a sentence: the fact a deal for
+/// him rests on. None while there is no chart.
+pub(crate) fn chart_words(w: &World, pos: crate::positions::Position) -> Option<String> {
+    let spot = chart_spot(pos);
+    Some(match chart_at(w, pos)? {
+        Some(i) => format!("On your chart, {} is first at {spot}.", player_link(w, i)),
+        None => format!("Nobody is listed at {spot} on your chart."),
+    })
+}
+
 // ---------------------------------------------------------------------------
 // What the portal reads.
 
@@ -350,8 +375,38 @@ fn c15_open(w: &mut World, s: &mut Scene) {
         _ => format!("{kid}, our {pos}, wants out. We'll give him a release to your school and nobody else's."),
     };
     s.them(&school, &ask, None);
+    // What a deal for him rests on (talk facts item 22): your chart at his
+    // spot, and what you can pay.
+    if let Some(words) = chart_words(w, w.people[i].player.position) {
+        s.narrate(words);
+    }
+    // An option you can't afford isn't on the table (talk facts item 22):
+    // the buyout or the premium comes out of your collective's budget.
+    let can_pay = match Team::seat(w) {
+        Some(Team::College(j)) if cost > 0.0 => {
+            let b = crate::world::front_office::college::budget(w, j);
+            let free = b.unlimited || w.sandbox(crate::world::sandbox::Switch::Money);
+            if !free && b.left < cost {
+                s.narrate(format!(
+                    "His price is {}. Your collective has {} left this year.",
+                    money(cost),
+                    money(b.left)
+                ));
+            }
+            free || b.left >= cost
+        }
+        _ => true,
+    };
     let deal = if cost > 0.0 { format!("Pay {}", money(cost)) } else { "Take the deal".into() };
-    s.pick(151, format!("\"We'll do it.\" ({deal})"), "Deal", "warm", "A head start and a clean exit. He still picks.");
+    if can_pay {
+        s.pick(
+            151,
+            format!("\"We'll do it.\" ({deal})"),
+            "Deal",
+            "warm",
+            "A head start and a clean exit. He still picks.",
+        );
+    }
     s.pick(
         152,
         "\"Let me talk to the kid myself first.\"",
@@ -359,7 +414,7 @@ fn c15_open(w: &mut World, s: &mut Scene) {
         "sly",
         "Tampering: it can leak, and from 2025 his school can sue.",
     );
-    if season_of(s) >= 2018 {
+    if season_of(s) >= 2018 && can_pay {
         s.pick(
             153,
             "\"Skip the portal. Send him straight to us.\"",
@@ -1060,7 +1115,21 @@ fn c18_open(w: &mut World, s: &mut Scene) {
         ),
         None,
     );
-    s.pick(181, "\"Bring him over. He'll start.\"", "Promise", "warm", "Your association can rule it undue influence.");
+    // The trainer's deal is a start and the ball. What it costs you rests
+    // on your chart at his spot (talk facts item 22).
+    let pos = w.people[i].player.position;
+    if let Some(words) = chart_words(w, pos) {
+        s.narrate(words);
+    }
+    let hint = match chart_at(w, pos) {
+        Some(Some(i)) => format!(
+            "You'd be promising him the job {} holds now. Your association can rule it undue influence.",
+            w.people[i].name
+        ),
+        Some(None) => "The spot is open. Your association can rule it undue influence.".to_string(),
+        None => "Your association can rule it undue influence.".to_string(),
+    };
+    s.pick(181, "\"Bring him over. He'll start.\"", "Promise", "warm", &hint);
     s.pick(182, "\"I don't take kids that way.\"", "Refuse", "calm", "He'll take his kids elsewhere for a while.");
 }
 
@@ -1220,6 +1289,26 @@ fn c19_open(w: &mut World, s: &mut Scene) {
     let kid = player_link(w, i);
     s.narrate(format!("{agent} calls. You go back a long way."));
     s.them(&agent, format!("{kid} is going to test the market. I wanted you to hear it from me first."), None);
+    // What a first word on him rests on (talk facts item 22): your chart at
+    // his spot and the cap room you have for the new year.
+    let pos = w.people[i].player.position;
+    if let Some(words) = chart_words(w, pos) {
+        s.narrate(words);
+    }
+    if let Some(Team::Nfl(t)) = Team::seat(w) {
+        let year = w.year;
+        if crate::world::pro::money::cap_books(year) && !crate::world::front_office::cap_lifted(w, t) {
+            let room = crate::world::pro::cap_room(w, t, year);
+            s.narrate(if room > 0.0 {
+                format!("You have {} of cap room for the new year.", money(room))
+            } else {
+                "You have no cap room for the new year.".to_string()
+            });
+        }
+    }
+    // "We're set at that spot" is said only where the chart is: a man listed
+    // there who plays there. Without a chart it is today's word.
+    let set = chart_at(w, pos).is_none_or(|first| first.is_some_and(|k| w.people[k].player.position == pos));
     s.pick(
         191,
         "\"Tell me what he's looking for.\"",
@@ -1228,7 +1317,13 @@ fn c19_open(w: &mut World, s: &mut Scene) {
         "Before the window it's tampering: the league can take a pick.",
     );
     s.pick(192, "\"Call me the minute the window opens.\"", "Wait", "calm", "First in line, by the book.");
-    s.pick(193, "\"We're set at that spot.\"", "Pass", "calm", "He'll shop him elsewhere.");
+    s.pick(
+        193,
+        if set { "\"We're set at that spot.\"" } else { "\"Not for us this year.\"" },
+        "Pass",
+        "calm",
+        "He'll shop him elsewhere.",
+    );
 }
 
 fn c19_answer(w: &mut World, s: &mut Scene, code: u32) {

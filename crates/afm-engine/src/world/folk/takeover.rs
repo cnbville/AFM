@@ -3091,6 +3091,31 @@ fn booster_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
         _ => (0.06, "Glad to do it. Glad you're here.", format!("You thanked {}.", c.name)),
     };
     w.folk.mine.nudge(c.key(), dt);
+    // His reply is who he is (talk facts item 16): his age, his temper and
+    // his weight in the room, and what he asked for. The bank has the words;
+    // today's fixed line stands until a part has a version he can say.
+    let mut f = base_facts(w, team);
+    f.set("name", c.first().to_string());
+    f.set(
+        "giver",
+        if b.big {
+            "big"
+        } else if b.yearly > 0.0 {
+            "small"
+        } else {
+            "none"
+        },
+    );
+    if let Some(wt) = want {
+        f.set("want", wt.words());
+    }
+    let key = match code {
+        100 => "booster.reply.promise",
+        101 => "booster.reply.straight",
+        102 => "booster.reply.business",
+        _ => "booster.reply.thanks",
+    };
+    let line = scene::bank_line(w, s, 2, key, &Speaker::cast(w, &c), &f, line);
     s.them(&c.name, line, None);
     if code == 100
         && want == Some(Want::NilDeals)
@@ -3584,15 +3609,16 @@ fn old_coach_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
         }
     }
     let name = w.coaches[o].name.clone();
-    s.them(
-        &name,
-        match code {
-            160 => "I'd like that. These kids matter to me.",
-            161 => "Appreciate it. Good luck, Coach.",
-            _ => "Understood. It's yours.",
-        },
-        None,
-    );
+    // He answers as the man he is (talk facts item 16): his age and his
+    // temper. Today's fixed line stands until a part has a version he can say.
+    let (key, line) = match code {
+        160 => ("takeover.oldcoach.reply.help", "I'd like that. These kids matter to me."),
+        161 => ("takeover.oldcoach.reply.respect", "Appreciate it. Good luck, Coach."),
+        _ => ("takeover.oldcoach.reply.mine", "Understood. It's yours."),
+    };
+    let f = base_facts(w, team);
+    let line = scene::bank_line(w, s, 2, key, &Speaker::coach(w, o), &f, line);
+    s.them(&name, line, None);
     s.outcome.push(match code {
         160 => format!("You asked {name} to stay around the program."),
         161 => format!("You paid your respects to {name}."),
@@ -3633,21 +3659,35 @@ fn gm_open(w: &mut World, s: &mut Scene, team: Team) {
             _ => "somewhere in between: compete and get younger",
         }
     ));
-    s.pick(
-        170,
-        "Tell him you want a say on every 53-man decision.",
-        "Challenge",
-        "firm",
-        "He gives a little and remembers it.",
-    );
-    s.pick(
-        171,
-        "Tell him you'll coach who he gives you, and tell him what you need.",
-        "Praise",
-        "warm",
-        "He trusts you; you live with his roster.",
-    );
+    // What you can say to him rests on who has the final say (talk facts
+    // item 16): you can't ask for a say you already hold.
+    let (say, need) = match power {
+        Some(crate::world::pro::office::Power::Coach) => (
+            "Tell him the final call on the 53 is yours, and you want him in the room.",
+            "Tell him you'll lean on his board, and tell him what you need.",
+        ),
+        Some(crate::world::pro::office::Power::Owner) => (
+            "Ask him to carry your view into the owner's room on every 53-man decision.",
+            "Tell him you'll coach who the owner and he give you, and tell him what you need.",
+        ),
+        _ => (
+            "Tell him you want a say on every 53-man decision.",
+            "Tell him you'll coach who he gives you, and tell him what you need.",
+        ),
+    };
+    s.pick(170, say, "Challenge", "firm", "He gives a little and remembers it.");
+    s.pick(171, need, "Praise", "warm", "He trusts you; you live with his roster.");
     s.pick(172, "Ask him which three players he'd never trade.", "Ask", "calm", "You learn who he believes in.");
+}
+
+/// Who holds the final say on the roster at an NFL club, as the bank checks
+/// it (`power=gm`).
+fn power_key(p: Option<crate::world::pro::office::Power>) -> &'static str {
+    match p {
+        Some(crate::world::pro::office::Power::Coach) => "coach",
+        Some(crate::world::pro::office::Power::Owner) => "owner",
+        _ => "gm",
+    }
 }
 
 fn gm_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
@@ -3658,15 +3698,33 @@ fn gm_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
         _ => 0.05,
     };
     w.folk.mine.nudge(gm.key(), d);
-    s.them(
-        &gm.name,
-        match code {
-            170 => "You'll be in the room. The decisions are mine; that's how the owner set it up.",
-            171 => "That's how this works best. Tell me what you need and I'll go get it.",
-            _ => "Ask me again after the draft. But you can guess the first one.",
+    // His reply fits the scene (talk facts item 16): it says who holds the
+    // final say as the scene did, never the other way. Today's fixed line
+    // stands only where it can't contradict that.
+    let (power, mode) = match team {
+        Team::Nfl(t) => w.clubs.get(t).map(|c| (c.office.power, c.office.mode)).unzip(),
+        _ => (None, None),
+    };
+    let mut f = base_facts(w, team);
+    f.set("power", power_key(power));
+    f.set(
+        "mode",
+        match mode {
+            Some(crate::world::pro::office::Mode::Contend) => "contend",
+            Some(crate::world::pro::office::Mode::Rebuild) => "rebuild",
+            _ => "middle",
         },
-        None,
     );
+    let (key, line) = match code {
+        170 if power.is_none_or(|p| p == crate::world::pro::office::Power::Gm) => {
+            ("gm.reply.say", "You'll be in the room. The decisions are mine; that's how the owner set it up.")
+        }
+        170 => ("gm.reply.say", "I'll be in the room, and I'll make my case."),
+        171 => ("gm.reply.need", "That's how this works best. Tell me what you need and I'll go get it."),
+        _ => ("gm.reply.never", "Ask me again after the draft. But you can guess the first one."),
+    };
+    let line = scene::bank_line(w, s, 2, key, &Speaker::cast(w, &gm), &f, line);
+    s.them(&gm.name, line, None);
     s.outcome.push("You sat down with your general manager.".into());
     s.end();
 }
