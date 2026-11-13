@@ -841,7 +841,9 @@ fn class_plan(w: &World, j: usize, rows: &[(usize, &desk::Target)]) -> Value {
         }
         commits += c;
         signed += s;
-        let need = o.need[k];
+        // The plan's places are what is left after the signees (`class_plan`),
+        // so the class's need at the spot is them plus the signees.
+        let need = o.need[k] + s;
         by_pos.push(json!({ "pos": pos.name(), "need": need, "committed": c, "signed": s, "offers": off, "open": need.saturating_sub(c + s) }));
     }
     let (rank, of) = class_rank(w, j, o.sign_year);
