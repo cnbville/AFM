@@ -441,8 +441,8 @@ fn ai_coaches_talk_the_same_way() {
         let n = v.len() as f32;
         (v.iter().map(|x| x.0).sum::<f32>() / n, v.iter().map(|x| x.1).sum::<f32>() / n)
     };
-    let (good, bad) = (mean(18.0), mean(2.0));
-    for x in [good.0, good.1, bad.0, bad.1] {
+    let (good, mid, bad) = (mean(18.0), mean(10.0), mean(2.0));
+    for x in [good.0, good.1, mid.0, mid.1, bad.0, bad.1] {
         assert!(x.is_finite() && x.abs() < 0.3);
     }
     // The old flat rule, for the report: good 0.25 + 0.035 x rel of the time.
@@ -451,11 +451,15 @@ fn ai_coaches_talk_the_same_way() {
         (0.04 * p - 0.03 * (1.0 - p), 0.08 * p - 0.03 * (1.0 - p))
     };
     eprintln!(
-        "AI talks, mean (trust, mood) per talk: rel 18 {good:?} (old {:?}); rel 2 {bad:?} (old {:?})",
+        "AI talks, mean (trust, mood) per talk: rel 18 {good:?} (old {:?}); rel 10 {mid:?} (old {:?}); rel 2 {bad:?} (old {:?})",
         old(18.0),
+        old(10.0),
         old(2.0)
     );
-    assert!(good.0 + good.1 > bad.0 + bad.1, "a coach who reads people does better: {good:?} {bad:?}");
+    assert!(
+        good.0 + good.1 > mid.0 + mid.1 && mid.0 + mid.1 > bad.0 + bad.1,
+        "a coach who reads people does better: {good:?} {mid:?} {bad:?}"
+    );
 }
 
 #[test]

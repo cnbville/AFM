@@ -51,9 +51,10 @@ pub const ARREST_HIT: f32 = 0.15;
 /// year, not stacking. Proposed, not confirmed.
 pub const HELP_CUT: f64 = 0.15;
 pub const HELP_DAYS: i32 = 365;
-/// How far an AI coach's read of a move can be off, for a coach with no
-/// feel for people (relationships 0); none at 20. Proposed, not confirmed.
-pub const AI_READ_ERR: f32 = 0.25;
+/// How often an AI coach reads a man right in a one-on-one: 0.25 + 0.035 x
+/// his relationships, the chance of a good talk the AI coaches have always
+/// had (rule 8: "picking with noise from their ratings as they do now").
+pub const AI_READ_RIGHT: (f32, f32) = (0.25, 0.035);
 
 /// Bit of `Scene.b` that marks a talking point (the rest is its key's
 /// hash), so a save keeps the point if the catalogue is reordered.
@@ -1495,9 +1496,13 @@ pub fn help(w: &mut World, id: u32) -> bool {
 // The AI coaches' talks (rule 8: the same reading).
 
 /// An AI head coach's one-on-one with an unhappy player: the topic is what
-/// is on his mind that the coach knows (else the subject of his worry),
-/// the move is the one the coach expects to land best, as well as his
-/// feel for people reads it (`AI_READ_ERR`), and it lands as yours would.
+/// is on his mind that the coach knows (else the subject of his worry).
+/// The coach can say anything you could: every move the topic offers, in
+/// every tone, so a wrong word or a fiery tone to a fragile man is on his
+/// table as it is on yours. He reads the man right as often as an AI coach
+/// always has, 0.25 + 0.035 x his relationships (`AI_READ_RIGHT`): then he
+/// picks the move that lands best; else he misreads him and picks one of
+/// the moves that land worse than the middle one. It lands as yours would.
 /// No promise (an AI coach's word is not logged) and no side effects.
 /// Returns (trust, mood).
 pub fn ai_talk(w: &World, i: usize, rel: f32, seed: u64) -> (f32, f32) {
@@ -1508,39 +1513,45 @@ pub fn ai_talk(w: &World, i: usize, rel: f32, seed: u64) -> (f32, f32) {
         .map(|p| Topic::Point(p.kind))
         .or_else(|| talks::worry_on(w, i, &sheet).map(|x| x.0))
         .unwrap_or(Topic::Subject(Subject::Role));
-    let mut opts: Vec<(Move, Tone)> = match topic {
-        Topic::Point(k) => {
-            sheet.get(k).map_or_else(Vec::new, |p| moves(w, i, p).into_iter().map(|o| (o.m, o.tone)).collect())
-        }
+    let mut ms: Vec<Move> = match topic {
+        Topic::Point(k) => sheet.get(k).map_or_else(Vec::new, |p| moves(w, i, p).into_iter().map(|o| o.m).collect()),
         Topic::Subject(_) => Vec::new(),
     };
-    if opts.is_empty() {
-        opts = vec![
-            (Move::Ask, Tone::Warm),
-            (Move::Straight, Tone::Calm),
-            (Move::Challenge, Tone::Firm),
-            (Move::Listen, Tone::Calm),
-        ];
+    if ms.is_empty() {
+        ms = AI_SUBJECT_MOVES.to_vec();
     }
-    opts.retain(|o| o.0 != Move::Promise);
+    ms.retain(|m| *m != Move::Promise);
     let subject = topic.subject();
-    let err = AI_READ_ERR * (1.0 - rel / 20.0).clamp(0.0, 1.0);
-    let id = w.people[i].player.id as u64;
-    let best = opts
+    let mut opts: Vec<(f32, Move, Tone, Rest)> = ms
         .iter()
-        .enumerate()
-        .map(|(k, &(m, t))| {
+        .flat_map(|&m| [Tone::Calm, Tone::Warm, Tone::Firm, Tone::Fiery].map(|t| (m, t)))
+        .map(|(m, t)| {
             let r = rest(w, i, &sheet, topic, m, false);
-            let (dt, dm) = talks::landing(w, i, m, t, subject, r, seed ^ 0xE0 ^ (k as u64) << 8);
-            ((m, t, r), dt + dm + err * super::roll_n(w, seed ^ 0xA1_0000 ^ (k as u64) << 20, id) as f32)
+            let (dt, dm) = talks::landing(w, i, m, t, subject, r, seed);
+            (dt + dm, m, t, r)
         })
-        .max_by(|a, b| a.1.total_cmp(&b.1))
-        .map(|x| x.0);
-    match best {
-        Some((m, t, r)) => talks::landing(w, i, m, t, subject, r, seed),
-        None => (0.0, 0.0),
+        .collect();
+    if opts.is_empty() {
+        return (0.0, 0.0);
     }
+    // Best first; ties keep the order they were made in.
+    opts.sort_by(|a, b| b.0.total_cmp(&a.0));
+    let id = w.people[i].player.id as u64;
+    let right = (super::roll(w, seed ^ 0xA1_0000, id) as f32) < AI_READ_RIGHT.0 + AI_READ_RIGHT.1 * rel;
+    let k = if right {
+        0
+    } else {
+        let low = opts.len() / 2;
+        low + ((super::roll(w, seed ^ 0xA2_0000, id) * (opts.len() - low) as f64) as usize).min(opts.len() - low - 1)
+    };
+    let (_, m, t, r) = opts[k];
+    talks::landing(w, i, m, t, subject, r, seed)
 }
+
+/// What an AI coach can say on a subject with no point behind it: the
+/// moves anyone can make, short of a promise, a warning or a hand.
+const AI_SUBJECT_MOVES: [Move; 6] =
+    [Move::Ask, Move::Straight, Move::Praise, Move::Challenge, Move::Criticize, Move::Listen];
 
 /// The player's own speaker and his facts for a line on a point.
 pub fn point_facts(base: &Facts, p: &Point, st: Option<Stance>) -> Facts {
