@@ -1713,7 +1713,10 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
         // What your staff hears: the strongest pull away this year (the
         // first event is his role at fall camp, the base), and the strongest
         // reason he has to stay.
-        let ev = &p.cal.lean_events;
+        // The day's read takes its previous read back out first: that step
+        // is bookkeeping, not a reason (playtest bug 15).
+        let ev: Vec<_> =
+            p.cal.lean_events.iter().filter(|e| e.1 != afm_engine::world::stay_read::READ_UNDO).cloned().collect();
         let push = ev.iter().skip(1).filter(|e| e.2 > 1.0).max_by(|a, b| a.2.total_cmp(&b.2)).map(|e| e.1);
         let hold = ev.iter().skip(1).filter(|e| e.2 < 1.0).min_by(|a, b| a.2.total_cmp(&b.2)).map(|e| e.1);
         let why = push.or_else(|| ev.first().map(|e| e.1)).unwrap_or("");

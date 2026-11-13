@@ -98,7 +98,7 @@ pub fn begin(w: &mut World) {
         Some(Takeover { team: Some(team), started: Some(d0), old_coach: old, fit, rush, ..Default::default() });
     first_impressions(w, team, old, fit);
     if let Team::College(p) = team {
-        coach_change_window(w, p, d0);
+        coach_change_window(w, p, d0, old);
     }
     if let Team::Nfl(t) = team {
         nfl_interim(w, t);
@@ -170,26 +170,28 @@ pub(crate) fn rush_week(w: &World) -> Option<Date> {
 /// T-B: your hire opens the coaching-change transfer window for your
 /// players (15 days, starting five days after the hire, from 2025; 30 days
 /// in the 2022-24 windows era) and pushes the "his head coach is gone" lean.
-fn coach_change_window(w: &mut World, p: usize, d0: Date) {
+fn coach_change_window(w: &mut World, p: usize, d0: Date, old: Option<usize>) {
     let rule = w.rules.transfer;
     let days = match rule {
         crate::calendar::rules::TransferRule::Windows => Some(30),
         crate::calendar::rules::TransferRule::January => Some(15),
         _ => None,
     };
-    let factor = crate::career::PIPELINE.portal_entry.coaching_change;
     // Your window replaces the late one your predecessor's exit scheduled
     // before the career was set (minor bug 88).
     w.late_windows.retain(|x| x.0 != p);
     for i in 0..w.people.len() {
         let pp = &w.people[i];
         // The man you replaced already moved them the day he left
-        // (`college::coach_gone`): once a cycle.
+        // (`college::coach_gone`): once a cycle. Otherwise the push goes by
+        // each player's tie to him (playtest bug 15, Cain's item 7): a man
+        // who never coached a game with them moves them least.
         if pp.stage == Stage::College
             && pp.college == Some(p)
             && pp.cal.lean > 0.0
             && !pp.cal.lean_events.iter().any(|e| e.1 == crate::world::college::COACH_GONE)
         {
+            let factor = crate::world::college::coach_gone_factor(tie_to_old(w, i, old));
             crate::world::college::lean_push(&mut w.people[i], d0, crate::world::college::COACH_GONE, factor);
         }
     }

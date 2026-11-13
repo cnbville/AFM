@@ -58,6 +58,7 @@ mod schedule;
 mod scouting;
 mod split_build;
 mod stale_games;
+mod stay_read;
 mod stories;
 mod storylines;
 mod tactics;
