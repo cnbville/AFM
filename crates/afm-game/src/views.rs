@@ -1637,7 +1637,10 @@ pub(crate) fn fixed_dates(w: &World, years: &[i32]) -> Vec<(Date, String)> {
         add(y.minicamp.0, "Mandatory minicamp".into(), Level::Nfl);
         add(y.rookies_report, "Rookies report to camp".into(), Level::Nfl);
         add(y.veterans_report, "Veterans report to camp".into(), Level::Nfl);
-        add(y.cutdown.date, "Cutdown day: 90 to 53".into(), Level::Nfl);
+        // The sizes come from the year's rule book, so a roster-size vote
+        // moves the line with it (playtest bug 8).
+        let rules = w.changes.rules(year);
+        add(y.cutdown.date, format!("Cutdown day: {} to {}", rules.nfl_offseason, rules.nfl_roster), Level::Nfl);
         add(y.nfl_kickoff, "NFL kickoff game".into(), Level::Nfl);
         add(y.trade_deadline.date, "NFL trade deadline".into(), Level::Nfl);
         add(y.black_monday, "Black Monday".into(), Level::Nfl);

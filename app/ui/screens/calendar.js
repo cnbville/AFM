@@ -87,14 +87,18 @@ function cbList(x) {
 function cbDay(x, C) {
   const d = x.day;
   const all = C.all === d.iso;
-  const shown = all ? d.rows : d.rows.slice(0, 4);
+  // A roster note (playtest bug 8) is a short sentence under its date, so it never
+  // counts toward the four rows and never hides behind "more".
+  let seen = 0;
+  const shown = all ? d.rows : d.rows.filter((r) => r.k === "n" || ++seen <= 4);
   const row = (r) => {
+    if (r.k === "n") return `<div class="cb-row note"><span class="cb-time"></span><div class="cb-rc"><div class="cb-rn"><span class="cb-k n">${esc(r.label)}</span>${rich(r.t)}</div></div></div>`;
     const go = r.go ? (() => { const { screen, label, ...rest } = r.go; return { screen, label, args: rest }; })() : null;
     const goAttrs = go ? `data-go="${esc(go.screen)}" data-args='${esc(JSON.stringify(go.args))}'` : "";
     const act = r.act ? (r.act.mail != null ? `<button class="cb-chip" data-act="openmail" data-id="${esc(r.act.mail)}">${esc(r.act.label)}</button>` : r.act.scene != null ? `<button class="cb-chip" data-go="people_scene" data-id="${r.act.scene}">${esc(r.act.label)}</button>` : "") : "";
     return `<div class="cb-row ${r.k === "y" ? "you" : ""} ${go ? "click" : ""}" ${goAttrs}><span class="cb-time">${esc(r.time)}</span><div class="cb-rc"><div class="cb-rh"><span class="cb-k ${r.k}">${esc(r.label)}</span>${go ? `<span class="cb-go">${esc(go.label)} ›</span>` : ""}</div><div class="cb-rt">${rich(r.t)}</div>${r.s ? `<div class="cb-rs">${rich(r.s)}</div>` : ""}${act ? `<div>${act}</div>` : ""}</div></div>`;
   };
-  const rest = d.rows.slice(4);
+  const rest = d.rows.filter((r) => r.k !== "n").slice(4);
   const more = !all && rest.length ? `<button class="cb-dmore" data-act="cball" data-iso="${d.iso}">+${rest.length} more on this day: ${esc(rest.map((r) => plainText(r.t)).join(" · "))}</button>` : "";
   const empty = d.rows.length ? "" : `<div class="cb-empty">Nothing on the calendar. The week's plan runs as set.</div>`;
   return `<section class="cb-panel cb-day"><div class="cb-dh"><h2>${esc(d.title)}</h2><span class="cb-rel ${d.today ? "now" : ""}">${esc(d.rel)}</span></div>${d.ctx ? `<div class="cb-ctx">${esc(d.ctx)}</div>` : ""}${shown.map(row).join("")}${more}${empty}</section>`;

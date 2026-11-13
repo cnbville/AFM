@@ -718,6 +718,15 @@ impl YearDates {
     }
 }
 
+/// The day each college player's season on the roster is counted
+/// (January 2 after the season): his class label moves up a year. The
+/// clock settles eligibility on it, just before the January transfer
+/// window reads the result, and the Calendar's note names the same day
+/// (playtest bug 8), so the two cannot drift.
+pub fn eligibility_day(season: i32) -> Date {
+    Date::ymd(season + 1, 1, 2)
+}
+
 /// The January transfer window after `season` (minor bug B16): January 2
 /// to 16 for the 2025 season (adopted October 2025), then ten days from
 /// the first business day after January 1 (January 4-13, 2027: the FBS
