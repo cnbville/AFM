@@ -19,6 +19,7 @@
 //! confirmed).
 
 use super::cast::{self, Cast, CastRef, Role, Want};
+use super::claims;
 use super::scene::{self, Doc, DocRow, Kind, Pick, Scene, Who};
 use super::voice::{Facts, Speaker};
 use super::{Team, facts};
@@ -178,6 +179,70 @@ pub fn trust_words(t: f32, she: bool) -> String {
     }
 }
 
+/// Where the season stands against the bar he set (talk facts item 15).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Pace {
+    /// On course for a win or more over his bar.
+    Ahead,
+    /// Within a win of it either way.
+    On,
+    /// On course to miss it by a win or more.
+    Behind,
+}
+
+impl Pace {
+    /// The word the bank part is named by (`boss.mid.reply.ahead`).
+    pub fn key(self) -> &'static str {
+        match self {
+            Pace::Ahead => "ahead",
+            Pace::On => "on",
+            Pace::Behind => "behind",
+        }
+    }
+}
+
+/// The record is ahead or behind his bar when the wins it is on course
+/// for are this many over or under it. Claude's size, proposed, not
+/// confirmed.
+pub const PACE_BAND: f64 = 1.0;
+
+/// How the season is going against his win goal: the wins the record is on
+/// course for over the whole schedule, against the bar he set (half the
+/// games when he set none). None before a game has been played.
+pub fn pace(w: &World, team: Team) -> Option<Pace> {
+    let (wn, l) = facts::record_now(w, team);
+    let played = (wn + l) as f64;
+    if played == 0.0 {
+        return None;
+    }
+    let total = (facts::team_games(w, team).len() as f64).max(played);
+    let bar = w
+        .folk
+        .goals
+        .iter()
+        .filter(|g| g.season == w.year)
+        .find_map(|g| match g.kind {
+            GoalKind::Wins(n) => Some(n as f64),
+            _ => None,
+        })
+        .unwrap_or(total / 2.0);
+    let on_course = wn as f64 / played * total;
+    Some(if on_course >= bar + PACE_BAND {
+        Pace::Ahead
+    } else if on_course <= bar - PACE_BAND {
+        Pace::Behind
+    } else {
+        Pace::On
+    })
+}
+
+/// His reply from the bank, or today's fixed line while the part has no
+/// version he can say (talk facts item 15). `k` keeps each step's pen apart.
+fn reply(w: &mut World, s: &Scene, b: &Cast, key: &str, f: &Facts, k: u64, fallback: &str) -> String {
+    let spk = Speaker::cast(w, b);
+    scene::bank_line(w, s, k, key, &spk, f, fallback)
+}
+
 /// The goals that fit the team and the boss: his situation read from the
 /// team's last seasons, its level, and his own wants (topic 12).
 fn draft_goals(w: &World, team: Team) -> Vec<GoalKind> {
@@ -279,27 +344,53 @@ fn meeting_open(w: &mut World, s: &mut Scene) {
                 if line.is_empty() { format!("{wn} and {l}. Talk to me. What do you see?") } else { line },
                 Some(boss_tell(&b, trust(w, team))),
             );
-            s.pick(
-                30,
-                "\"We're ahead of where I thought. Here's why.\"",
-                "Tell him straight",
-                "calm",
-                "Honest about the good; he likes being told.",
-            );
-            s.pick(
-                31,
-                "\"I'm not happy either. Here's what changes.\"",
-                "Take the blame",
-                "firm",
-                "Owning it builds trust when it's true.",
-            );
-            s.pick(
-                32,
-                "\"The injuries have killed us.\"",
-                "Deflect",
-                "calm",
-                "He hears an excuse unless it's plainly true.",
-            );
+            // What you can say rests on where the season stands and who is
+            // hurt (talk facts item 15): an option is on the table because
+            // its fact is true.
+            let pace = pace(w, team);
+            let rec = format!("{wn}-{l}");
+            let (label, hint) = match pace {
+                Some(Pace::Ahead) => (
+                    format!("\"We're {rec}, ahead of where you thought. Here's why.\""),
+                    "Honest about the good; he likes being told.",
+                ),
+                Some(Pace::Behind) => (
+                    format!("\"We're {rec}, and it isn't good enough. Here's what I see.\""),
+                    "Straight talk about a bad stretch; he likes being told early.",
+                ),
+                _ => (
+                    format!("\"We're {rec}, about where we should be. Here's what I see.\""),
+                    "Straight talk; he likes being told.",
+                ),
+            };
+            s.pick(30, label, "Tell him straight", "calm", hint);
+            if pace == Some(Pace::Behind) || l > wn {
+                s.pick(
+                    31,
+                    "\"I'm not happy either. Here's what changes.\"",
+                    "Take the blame",
+                    "firm",
+                    "Owning it builds trust when it's true.",
+                );
+            }
+            if let Some(p) = claims::team(w, team).get(claims::Kind::StartersOut) {
+                let names = p.get("names").unwrap_or("our starters");
+                let starters = p.get("starters").unwrap_or("starters");
+                // Past three the sheet names the first three: "A, B and C"
+                // reads "A, B, C and others".
+                let names = if p.get("out").and_then(|x| x.parse::<u32>().ok()).is_some_and(|n| n > 3) {
+                    format!("{} and others", names.replacen(" and ", ", ", 1))
+                } else {
+                    names.to_string()
+                };
+                s.pick(
+                    32,
+                    format!("\"We've been without {names}. That's {starters} out.\""),
+                    "Deflect",
+                    "calm",
+                    "He hears an excuse unless it's plainly true.",
+                );
+            }
         }
         2 => review_open(w, s, team, &b, &mut pen, &mut f),
         3 => {
@@ -363,9 +454,17 @@ fn meeting_open(w: &mut World, s: &mut Scene) {
                 "He likes the ambition; the bar goes up and you'll be judged by it.",
             );
             s.pick(21, "\"Those are fair. We'll get there.\"", "Praise", "calm", "Goals as set.");
+            // Asking for time rests on a reason you can name: a losing year.
+            // Without one it is only an ask (talk facts item 15).
+            let ask_time = match facts::seasons(w, team, 1).last() {
+                Some(l) if l.losses > l.wins => {
+                    format!("\"We were {}-{} last year. Give me a year to build it.\"", l.wins, l.losses)
+                }
+                _ => "\"Give me a year to build this the right way.\"".to_string(),
+            };
             s.pick(
                 22,
-                "\"The roster's young. Give me a year to build it.\"",
+                ask_time,
                 "Tell him straight",
                 "calm",
                 "A lower bar now; a patient boss agrees, an impatient one remembers you asked.",
@@ -474,6 +573,31 @@ fn review_open(w: &mut World, s: &mut Scene, team: Team, b: &Cast, pen: &mut sup
         },
         Some(trust_words(trust(w, team), b.she)),
     );
+    // A review that missed something can be answered (talk facts item 15).
+    // Words only: how he sees you after it is set when the review opens.
+    if met < total {
+        let missed = ended.iter().find(|x| !x.1).map(|x| x.0.words(level));
+        let hit = ended.iter().find(|x| x.1).map(|x| x.0.words(level));
+        if let Some(m) = missed {
+            s.pick(
+                50,
+                format!("\"We fell short of the goal to {m}. That's on me, and here is what changes.\""),
+                "Take the blame",
+                "firm",
+                "He hears you own it.",
+            );
+        }
+        if let Some(h) = hit {
+            s.pick(
+                51,
+                format!("\"We hit the goal to {h}. That part of the plan worked.\""),
+                "Tell him straight",
+                "calm",
+                "Fair, if the rest isn't dressed up behind it.",
+            );
+        }
+        s.pick(52, "\"What do you need to see from us next year?\"", "Ask", "calm", "He tells you what he'll judge.");
+    }
     add_ask_picks(w, s, team);
 }
 
@@ -589,6 +713,9 @@ fn meeting_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     let b = boss(w, team);
     s.you(&scene::your_name(w), picked.label.clone());
     let season = goal_season(w, team);
+    // The facts his reply may name (talk facts item 15).
+    let mut f = super::takeover::base_facts(w, team);
+    f.set("boss", b.first().to_string());
     match code {
         20 => {
             for g in w.folk.goals.iter_mut().filter(|g| g.season == season) {
@@ -599,14 +726,16 @@ fn meeting_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
             }
             w.folk.mine.nudge(b.key(), 0.06);
             w.folk.mine.expectation = (w.folk.mine.expectation + 0.15).min(1.0);
-            s.them(&b.name, "Good. That's the coach I hired.", None);
+            let line = reply(w, s, &b, "boss.goals.reply.higher", &f, 3, "Good. That's the coach I hired.");
+            s.them(&b.name, line, None);
             s.outcome.push("You took on a higher bar.".into());
             add_ask_picks(w, s, team);
             return;
         }
         21 => {
             w.folk.mine.nudge(b.key(), 0.02);
-            s.them(&b.name, "Good. Then we understand each other.", None);
+            let line = reply(w, s, &b, "boss.goals.reply.fair", &f, 3, "Good. Then we understand each other.");
+            s.them(&b.name, line, None);
             s.outcome.push("You agreed to his goals as set.".into());
             add_ask_picks(w, s, team);
             return;
@@ -623,15 +752,13 @@ fn meeting_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
                 !(g.season == season && patient && matches!(g.kind, GoalKind::Title | GoalKind::Postseason))
             });
             w.folk.mine.nudge(b.key(), if patient { 0.0 } else { -0.05 });
-            s.them(
-                &b.name,
-                if patient {
-                    "All right. A year to build. But I want to see it moving."
-                } else {
-                    "I didn't hire you to ask for time."
-                },
-                None,
-            );
+            let (key, line) = if patient {
+                ("boss.goals.reply.lowered", "All right. A year to build. But I want to see it moving.")
+            } else {
+                ("boss.goals.reply.kept", "I didn't hire you to ask for time.")
+            };
+            let line = reply(w, s, &b, key, &f, 3, line);
+            s.them(&b.name, line, None);
             s.outcome.push(if patient {
                 "He lowered the bar for this year.".to_string()
             } else {
@@ -640,9 +767,69 @@ fn meeting_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
             add_ask_picks(w, s, team);
             return;
         }
+        50..=52 => {
+            // Answering the review (talk facts item 15): the words only. How
+            // the season ended is already in his trust (`review_open`).
+            let level = team.level();
+            let goals: Vec<Goal> = w.folk.goals.iter().filter(|g| g.season == s.b as i32).cloned().collect();
+            let met = goals.iter().filter(|g| g.met == Some(true)).count();
+            let share = if goals.is_empty() { 0.5 } else { met as f32 / goals.len() as f32 };
+            f.set(
+                "review",
+                if share >= 0.67 {
+                    "good"
+                } else if share >= 0.34 {
+                    "mixed"
+                } else {
+                    "bad"
+                },
+            );
+            f.set("met", met.to_string());
+            let pick_of = |ok: bool| goals.iter().find(|g| g.met == Some(ok)).map(|g| g.kind.words(level));
+            let (key, line, said) = match code {
+                50 => (
+                    "boss.review.reply.own",
+                    "I appreciate you saying it. I'll hold you to it.",
+                    "You took the review on yourself.",
+                ),
+                51 => (
+                    "boss.review.reply.point",
+                    "That's fair. It's the rest I'm worried about.",
+                    "You pointed to what worked.",
+                ),
+                _ => (
+                    "boss.review.reply.ask",
+                    "Wins, a clean program, and fewer surprises. In that order.",
+                    "You asked what he needs to see.",
+                ),
+            };
+            if let Some(g) = pick_of(code == 51) {
+                // A goal's words may carry a colon ("...eligible: two at
+                // most ruled out"); a line takes the part before it.
+                f.set("goal", g.split(':').next().unwrap_or(&g).to_string());
+            }
+            let line = reply(w, s, &b, key, &f, 4, line);
+            s.them(&b.name, line, None);
+            s.outcome.push(said.into());
+            // A words-only answer is not an ask: the review keeps its four
+            // ask rounds (`s.a` counts the answers given).
+            s.a += 1;
+            add_ask_picks(w, s, team);
+            return;
+        }
         30 | 31 => {
             w.folk.mine.nudge(b.key(), if code == 31 { 0.04 } else { 0.02 });
-            s.them(&b.name, "Okay. Keep me posted. I don't want to read it in the paper first.", None);
+            let (wn, l) = facts::record_now(w, team);
+            f.set("record", format!("{wn}-{l}"));
+            // "I'm not happy either" is answered as a year that isn't going
+            // well, unless the pace says it is: a losing record ahead of
+            // a low bar is a year on course.
+            let at = pace(w, team);
+            let at = if code == 31 && at != Some(Pace::Behind) { Some(Pace::On) } else { at };
+            let key = format!("boss.mid.reply.{}", at.map_or("on", Pace::key));
+            let line =
+                reply(w, s, &b, &key, &f, 2, "Okay. Keep me posted. I don't want to read it in the paper first.");
+            s.them(&b.name, line, None);
         }
         32 => {
             let hurt = team
@@ -655,16 +842,27 @@ fn meeting_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
                 .count();
             let true_excuse = hurt >= 5;
             w.folk.mine.nudge(b.key(), if true_excuse { 0.01 } else { -0.04 });
-            s.them(
-                &b.name,
-                if true_excuse { "I know. I've seen the injury list." } else { "Everybody has injuries." },
-                None,
-            );
+            // His words follow the list the option stood on (the trainers'
+            // count of last season's starters out) as well as his own count,
+            // so he never calls a long list light. The nudge above is the
+            // old one.
+            let listed = claims::team(w, team)
+                .get(claims::Kind::StartersOut)
+                .and_then(|p| p.get("out"))
+                .and_then(|x| x.parse::<u32>().ok())
+                .unwrap_or(0);
+            let (key, line) = if true_excuse || listed >= 5 {
+                ("boss.mid.reply.injury_true", "I know. I've seen the injury list.")
+            } else {
+                ("boss.mid.reply.injury_thin", "Everybody has injuries.")
+            };
+            let line = reply(w, s, &b, key, &f, 2, line);
+            s.them(&b.name, line, None);
         }
         40..=45 => {
             ask(w, s, team, AskKind::from_code(code - 40));
             add_ask_picks(w, s, team);
-            if s.picks.len() <= 1 || s.step >= 3 {
+            if s.picks.len() <= 1 || u64::from(s.step) >= 3 + s.a.min(2) {
                 s.end();
             }
             return;
