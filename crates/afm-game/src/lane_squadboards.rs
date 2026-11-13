@@ -29,17 +29,30 @@ use crate::reads::{self, Read};
 use crate::views::{self, TeamRef};
 use crate::{Game, Reply};
 
-const COMMANDS: [&str; 8] =
-    ["sb_depth", "sb_depth_up", "sb_depth_reset", "sb_needs", "sb_roster", "sb_shape", "sb_arc", "sb_body"];
+const COMMANDS: [&str; 9] = [
+    "sb_depth",
+    "sb_depth_up",
+    "sb_depth_put",
+    "sb_depth_reset",
+    "sb_needs",
+    "sb_roster",
+    "sb_shape",
+    "sb_arc",
+    "sb_body",
+];
 
 pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     if !COMMANDS.contains(&cmd) {
         return None;
     }
     let id = || args.get("id").and_then(Value::as_u64).map(|v| v as u32).ok_or_else(|| "Missing id.".to_string());
-    if cmd == "sb_depth_up" || cmd == "sb_depth_reset" {
+    if cmd == "sb_depth_up" || cmd == "sb_depth_put" || cmd == "sb_depth_reset" {
         let Some(w) = game.world.as_mut() else { return Some(Err("No world is loaded.".into())) };
-        let done = if cmd == "sb_depth_up" { depth::move_up(w, args) } else { depth::reset(w, args).map(|_| None) };
+        let done = match cmd {
+            "sb_depth_up" => depth::move_up(w, args),
+            "sb_depth_put" => depth::put(w, args),
+            _ => depth::reset(w, args).map(|_| None),
+        };
         return Some(done.and_then(|note| {
             let mut v = depth::view(w, args)?;
             v["note"] = json!(note);
