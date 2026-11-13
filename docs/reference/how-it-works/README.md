@@ -22,6 +22,7 @@ These pages describe what the code does on `main`, not what the design docs plan
 | [training.md](training.md) | The practice week per level, time budgets, plans, who teaches, how training becomes growth |
 | [injuries.md](injuries.md) | Injury odds in games and practice, what reads them, types and lengths, recovery, carry-over |
 | [nfl.md](nfl.md) | The living NFL: contracts, the cap, free agency, tags, trades, waivers, retirement, honors |
+| [inbox.md](inbox.md) | The inbox: where a message comes from, what makes it "Needs you", the college seat's writers (the portal, the recruiting trail, signing days, NIL answers, the trainers, the coaching carousel, polls, selection day, honors, NCAA letters, practice cases) |
 | [people.md](people.md) | Personality, morale, relationships, chemistry, talks, life off the field, media, fame and Aura, ethnicity by position and level |
 | [new-teams.md](new-teams.md) | NFL expansion and the expansion draft, colleges starting football and their build year, new high schools and their zones, ground zero starts |
 | [saves.md](saves.md) | Save and world files: what is in them, the two formats, how saving and loading use every core |
