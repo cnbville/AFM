@@ -208,6 +208,51 @@ impl World {
         }
     }
 
+    /// A backup takes a starter's place in your depth order (a staff
+    /// proposal you agreed to). At a position whose slots the order names
+    /// (`spots::board_jobs`: the line, linebackers, corners, safeties) he
+    /// takes that man's spot and nobody else moves (`spots::start_at`): it
+    /// used to put him first and push every man one spot over. Anywhere
+    /// else he goes to the top, as before.
+    pub fn seat_start(&mut self, y: u32, s0: u32, pos: Position) {
+        let slots = crate::spots::board_jobs(pos).len();
+        let mine = self.seat_depth.iter().find(|x| x.0 == pos).map(|x| x.1.clone());
+        let (order, last) = match mine {
+            // Your own order: he takes the spot in it.
+            Some(v) => (v, None),
+            None if slots == 0 => (vec![s0], None),
+            None => {
+                // The men the game seats at the named spots first, then
+                // the rest of the staff's order; the last starter on the
+                // staff's order is the one who sat before.
+                let staff = self
+                    .seat_game_depth()
+                    .and_then(|o| o.into_iter().find(|(p, _)| *p == pos))
+                    .map(|x| x.1)
+                    .unwrap_or_default();
+                let seats = self
+                    .seat_game_team()
+                    .map(|(t, level)| crate::game::flow::seating(&t, level).by_slot(pos))
+                    .unwrap_or_default();
+                let first: Vec<u32> = seats.iter().flatten().copied().filter(|id| staff.contains(id)).collect();
+                let last = staff.get(slots - 1).copied();
+                if first.len() == slots {
+                    (
+                        first.iter().copied().chain(staff.iter().copied().filter(|id| !first.contains(id))).collect(),
+                        last,
+                    )
+                } else {
+                    (staff, last)
+                }
+            }
+        };
+        let order = crate::spots::start_at(order, slots, y, s0, last);
+        match self.seat_depth.iter_mut().find(|x| x.0 == pos) {
+            Some(x) => x.1 = order,
+            None => self.seat_depth.push((pos, order)),
+        }
+    }
+
     /// The depth chart your team would take into a game today, built the
     /// way the engine builds it on game day: per position, player ids in
     /// order, with players from another spot where the staff would use

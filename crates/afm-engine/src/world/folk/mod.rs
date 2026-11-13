@@ -19,6 +19,7 @@
 pub mod backchannel;
 pub mod boss;
 pub mod cast;
+pub mod claims;
 pub mod coach_look;
 pub mod courts;
 pub mod dialogue;
@@ -361,6 +362,16 @@ pub struct Folk {
     pub bulletin: Option<(Team, Date)>,
     /// "A fence around the state": the state and when you said it.
     pub fence: Option<(usize, Date)>,
+    /// What you have talked through with each person, kept for a season
+    /// (talk facts design, rule 6): a point counts once, and less each
+    /// time you come back to it. Nothing is written until a talk notes
+    /// one.
+    #[serde(skip_serializing_if = "claims::Talked::is_empty")]
+    pub talked: claims::Talked,
+    /// NFL alumni by program and position (`claims::Alumni`): built when a
+    /// fact sheet first asks, never saved.
+    #[serde(skip)]
+    pub alumni: claims::Alumni,
 }
 
 /// Fills what a world built before this build lacks (an old world or save

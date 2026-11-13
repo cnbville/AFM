@@ -7376,6 +7376,12 @@ pub(crate) fn intent_reason(w: &World, id: u32) -> Option<&'static str> {
     })
 }
 
+/// The reason he gives, once the day of his talk with you has come: until
+/// then you know only that he asked to see you.
+pub(crate) fn intent_told(w: &World, id: u32, today: Date) -> Option<&'static str> {
+    w.portal_intents.iter().find(|t| t.is(id)).filter(|t| t.talk <= today).and_then(|_| intent_reason(w, id))
+}
+
 /// Your program, when you are its head coach.
 fn talks_first(w: &World) -> Option<usize> {
     fo::program(w)

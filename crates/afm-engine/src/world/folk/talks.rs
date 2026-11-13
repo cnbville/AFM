@@ -964,6 +964,7 @@ fn add_talk_picks(w: &World, s: &mut Scene, i: usize, subject: Subject, used: &[
                 tone: t.name().into(),
                 hint: hint.into(),
                 code: code_of(m, t),
+                ..Pick::default()
             });
         }
     };

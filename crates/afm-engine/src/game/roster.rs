@@ -461,9 +461,15 @@ pub struct GameTeam {
     pub week: f64,
     /// Your own depth chart (section 8, topic 6): at each position you
     /// ordered, the player ids you listed, best first. Empty for every AI
-    /// team, whose staff orders it.
+    /// team, whose staff orders it, except a CFL club's ratio (`ranked`).
     #[serde(default)]
     pub order: Vec<(Position, Vec<u32>)>,
+    /// Positions whose order only says who starts, ranked by rating, and
+    /// names no spot: a CFL club meeting the ratio where you didn't set the
+    /// position (`world::pro::other`). The line there is seated by fit, as
+    /// a staff seats it (playtest bug 12).
+    #[serde(default)]
+    pub ranked: Vec<Position>,
     /// Your week of practice (section 6b): kickoff energy, packages and
     /// the call sheet. Empty for AI teams.
     #[serde(default)]
@@ -697,6 +703,7 @@ impl GameTeam {
             novelty: [0.0; FAMILY_COUNT],
             week: 1.0,
             order: Vec::new(),
+            ranked: Vec::new(),
             prep: Prep::default(),
             day: Default::default(),
         }
