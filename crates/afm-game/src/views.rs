@@ -2415,15 +2415,32 @@ pub(crate) fn ats_text(w: &World, c: usize) -> Option<String> {
     })
 }
 
+/// The board spots a position's first rows name, in order: your order
+/// names them and the engine keeps them (`spots::board_jobs`; the line
+/// since playtest bug 12).
+pub(crate) fn slot_names(pos: Position) -> &'static [&'static str] {
+    match pos {
+        Position::OT => &["LT", "RT"],
+        Position::IOL => &["LG", "C", "RG"],
+        Position::LB => &["SAM", "MIKE", "WILL"],
+        Position::CB => &["CB", "CB", "NICKEL"],
+        Position::S => &["FS", "SS"],
+        _ => &[],
+    }
+}
+
 /// Your depth chart: the order the engine will play, position by position,
 /// built the way the engine builds it on game day (a two-way high schooler
 /// or a corner at receiver shows at the spot he would play), your own order
 /// first where you set one. The rest of the position's players follow.
+/// Where the first rows name spots (`slot_names`), they stand in the spots'
+/// order with the man the engine plays at each, and say the spot.
 pub fn depth(w: &World) -> Value {
     let Some(t) = mine(w) else { return json!({ "positions": [] }) };
     let people = roster_people(w, t);
     let reader = reader_key(w);
     let game = w.seat_game_depth();
+    let seating = w.seat_game_team().map(|(team, level)| afm_engine::game::flow::seating(&team, level));
     let by_id = |id: u32| people.iter().copied().find(|&k| w.people[k].player.id == id);
     let positions: Vec<Value> = Position::ALL
         .iter()
@@ -2432,23 +2449,42 @@ pub fn depth(w: &World) -> Value {
             // Without a game team (too few players to dress), the staff's read.
             let read = |k: usize| reads::centre(w, k).unwrap_or(0.0);
             own.sort_by(|&a, &b| read(b).total_cmp(&read(a)));
-            let mut list: Vec<usize> = game
+            let names = slot_names(pos);
+            let ids: Vec<u32> = game
                 .as_ref()
                 .and_then(|g| g.iter().find(|(p, _)| *p == pos))
-                .map_or(Vec::new(), |(_, ids)| ids.iter().filter_map(|&id| by_id(id)).collect());
+                .map_or(Vec::new(), |(_, ids)| ids.clone());
+            // Your own order already stands in the spots' order.
+            let yours = w.seat_depth.iter().any(|(p, _)| *p == pos);
+            let ids = if yours { ids } else { crate::lane_training::seated_first(seating.as_ref(), names, ids) };
+            // The spot each first row plays, as far as the engine seats them
+            // (of the two outside corners either may line up on the left).
+            let slots: Vec<&str> = names
+                .iter()
+                .enumerate()
+                .map_while(|(k, name)| {
+                    let n = names.iter().filter(|x| *x == name).count();
+                    let here = ids.get(k).copied();
+                    let seated =
+                        (0..n).any(|j| seating.as_ref().and_then(|s| s.at(name, j)).is_some_and(|id| Some(id) == here));
+                    seated.then_some(*name)
+                })
+                .collect();
+            let mut list: Vec<usize> = ids.iter().filter_map(|&id| by_id(id)).collect();
+            let slots = if list.len() == ids.len() { slots } else { Vec::new() };
             let dressed = list.len();
             for k in own {
                 if !list.contains(&k) {
                     list.push(k);
                 }
             }
-            let yours = w.seat_depth.iter().any(|(p, _)| *p == pos);
             json!({
                 "pos": pos.name(),
                 "controls": w.controls(pos),
                 "starters": afm_engine::game::roster::starters(pos),
                 "set_by_you": yours,
                 "listed": dressed,
+                "slots": slots,
                 "players": list.iter().map(|&k| {
                     let mut v = row(w, k, t, true, reader);
                     v["here"] = json!(w.people[k].player.position == pos);

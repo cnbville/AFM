@@ -310,15 +310,6 @@ function sbDepthPage(x, cur) {
     <div class="sb-dc"><div class="sb-dc-main"><div class="sb-next">${next}${last}${actions ? `<span class="sb-act">${actions}</span>` : ""}</div>${stage}${hpDcFoot(x)}${sbUnits(x.units)}</div>
     <aside class="sb-side">${s ? sbSpotPanel(x, s, sel) : '<div class="sb-empty">No spots on this formation.</div>'}</aside></div></div></div>`;
 }
-// What the engine does with your order up front (read from `game/flow.rs`:
-// `Side::new` names Mike, Will, Sam, the corners and the safeties from your
-// order, but the line goes through `lineup` -> `best_order`, which seats the
-// listed tackles, guards and center by fit). Said where it matters, so a man
-// dropped on LT isn't taken to be tied to the left side.
-function sbLineNote(s) {
-  if (!s.controls || (s.pos !== "OT" && s.pos !== "IOL")) return "";
-  return `<p class="sb-note sb-linenote">Up front, your order picks who starts. The engine lines them up left, center and right by fit.</p>`;
-}
 function sbSpotPanel(x, s, k) {
   const p = s.picks[0];
   const d = s.detail;
@@ -340,7 +331,7 @@ function sbSpotPanel(x, s, k) {
     <div class="sb-cells"><div><span class="sb-lbl">Snaps last game</span><b>${snaps}</b></div><div><span class="sb-lbl">Grade last game</span><b>${d && d.grade != null ? d.grade : "–"}</b></div></div>
     ${hpWhyHere(x, s, k)}
     <div class="sb-sec"><span class="sb-lbl">What matters at ${esc(s.pos)}</span>${keys}</div>
-    <div class="sb-sec"><span class="sb-lbl">Depth at ${esc(s.slot)}</span>${depth}${sbLineNote(s)}</div>
+    <div class="sb-sec"><span class="sb-lbl">Depth at ${esc(s.slot)}</span>${depth}</div>
     ${coach}
     <div class="st-actions">${linkTo("player", { id: p.id, tab: "Development" }, "Player page ›")}<button class="st-btn small glass" data-act="pcmp" data-id="${p.id}">Compare</button></div>`;
 }
