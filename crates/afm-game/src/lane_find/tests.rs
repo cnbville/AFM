@@ -322,3 +322,58 @@ fn classification_one_is_the_biggest() {
     // Schedule strength reads in rating points at both levels (minor bug 362).
     assert_eq!(label("sos").as_deref(), Some("Schedule strength (points)"));
 }
+
+/// Minor bug 382: a look that watched him (film or live) counts toward his
+/// scouted habits. The count was taken from the looks log's family names
+/// spelled wrong ("Film" and "Live"), so it was always 0 and every habit
+/// read "Not seen". The two family names are spelled out here on purpose:
+/// a renamed family fails this test instead of quietly zeroing the count.
+#[test]
+fn watched_looks_count_toward_his_habits() {
+    use afm_engine::tendencies::Tend;
+    use afm_engine::world::scouting::readers;
+
+    let (g, dir) = college_world("habits");
+    let w = g.world.as_ref().unwrap();
+    let Some(TeamRef::College(j)) = views::mine(w) else { panic!("a college seat") };
+    let st = Staff::Program(j);
+    // Up to 60 players your staff has a file on, with the looks in each.
+    let mut files: Vec<(usize, u32, usize)> = Vec::new();
+    for i in 0..w.people.len() {
+        if files.len() >= 60 {
+            break;
+        }
+        let id = w.people[i].player.id;
+        if !staff::has_file(w, st, id) {
+            continue;
+        }
+        let Some((_, looks, _)) = readers::read(w, st, id) else { continue };
+        let watched =
+            looks.iter().filter(|l| matches!(l.kind.family(), "Film and charting" | "Live and school")).count();
+        files.push((i, id, watched));
+    }
+    staff::forget();
+    let ids: Vec<u32> = files.iter().map(|f| f.1).collect();
+    let reads = staff::reads(w, st, &ids);
+    let mut ctx = Ctx::new(w, Seat::College(j), st, Sure::Any, false);
+    ctx.reads = reads.clone();
+    let mut with_film = 0;
+    for &(i, id, watched) in &files {
+        let r = reads.get(&id).expect("his read");
+        assert_eq!(r.film as usize, watched, "player {id}: the read counts the film and live looks in his file");
+        if watched == 0 {
+            continue;
+        }
+        // Film and live looks mean a habit he owns reads as a range, not
+        // "Not seen" (a few positions own none).
+        let pos = w.people[i].player.position;
+        let Some(t) = Tend::ALL.iter().position(|t| t.owned_by(pos)) else { continue };
+        with_film += 1;
+        assert!(
+            !matches!(fields::value(&ctx, i, &format!("tend:{t}")), Val::Unseen),
+            "player {id} has {watched} film or live looks and his habit still reads Not seen"
+        );
+    }
+    assert!(with_film > 0, "no player in the test world has a film or live look to check ({} files)", files.len());
+    let _ = std::fs::remove_dir_all(dir);
+}
