@@ -169,3 +169,69 @@ pub fn world_store(w: &crate::world::World, name: &str) -> Option<serde_json::Va
         _ => None,
     }
 }
+
+// --- NIL pull (`nil_pull`): what money moves in a recruit's and a transfer's choice ---------
+
+use crate::world::World;
+use crate::world::recruiting as rec;
+
+/// What program `j` means to recruit `i` today with `nil` on the table
+/// (None: the money it offers him today), in the units his race is read in
+/// (`recruiting::appeal`).
+pub fn recruit_appeal(w: &World, i: usize, j: usize, nil: Option<f64>) -> f64 {
+    rec::appeal(w, i, j, nil)
+}
+
+/// What each of `schools` means to recruit `i` today, his list's money
+/// read once; `with` sets one school's money, on his list or coming onto
+/// it, and every school is weighed against it.
+pub fn recruit_appeals(w: &World, i: usize, schools: &[usize], with: Option<(usize, f64)>) -> Vec<f64> {
+    rec::appeals(w, i, schools, with)
+}
+
+/// The money recruit `i` weighs from program `j` today.
+pub fn recruit_money(w: &World, j: usize, i: usize) -> f64 {
+    rec::offer_money(w, j, i)
+}
+
+/// The top of NIL Go's range for a collective's deal with recruit `i`.
+pub fn recruit_nil_go_top(w: &World, i: usize) -> f64 {
+    rec::nil_go_top_recruit(&w.people[i])
+}
+
+/// A portal entrant's race as his decision reads it today, as (program,
+/// what it means to him, its money, the role he'd have there), best first.
+/// `swap`: one program's money replaced by another figure.
+pub fn portal_race_with(
+    w: &World,
+    i: usize,
+    swap: Option<(usize, f64)>,
+) -> Vec<(usize, f64, f64, crate::player::PlayingTime)> {
+    rec::portal_race_with(w, i, swap)
+}
+
+/// A transfer's own weights on the six reasons (close to home, playing
+/// time, money, development, winning and the name, academics).
+pub fn transfer_weights(w: &World, i: usize) -> [f64; 6] {
+    rec::transfer_weights(w, i)
+}
+
+/// The game as it was before the clear top offer and the transfer's
+/// heavier money (playtest item F3), for a before and after on one build.
+pub fn before_f3(on: bool) {
+    rec::BEFORE_F3.store(on, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Multiplies the money of `programs` by `factor` for a trial: a school
+/// that offers double, measured through signing day and the portal.
+pub fn rich(programs: Vec<usize>, factor: f64) {
+    let on = !programs.is_empty();
+    *rec::RICH.write().expect("the trial's list") = (programs, factor);
+    rec::RICH_ON.store(on, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// What a transfer weighs money by over the recruit he was (None outside a
+/// portal window).
+pub fn transfer_money(w: &World, i: usize) -> Option<f64> {
+    rec::transfer_money_of(w, i)
+}
