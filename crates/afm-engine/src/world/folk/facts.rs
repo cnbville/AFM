@@ -578,8 +578,13 @@ pub fn team_games(w: &World, team: Team) -> Vec<(Date, Team, bool)> {
     v
 }
 
-/// Your team's last game kept whole: (won, our points, theirs, opponent).
-pub fn last_game(w: &World, team: Team) -> Option<(bool, i32, i32, Team)> {
+/// How many days a game stays the thing a talk or a press room is about
+/// (talk facts item 30, rule 9 of `afm/talk-facts/proposal.md`: a talk is
+/// about today). Claude's size, proposed, not confirmed.
+pub const GAME_FRESH_DAYS: i32 = 7;
+
+/// Your team's last game kept whole, with the day it was played.
+fn last_game_on(w: &World, team: Team) -> Option<(Date, (bool, i32, i32, Team))> {
     let (k, i) = team.parts();
     let g = w.seat_games.iter().rev().find(|g| g.teams.contains(&i) && (k == "nfl") == (g.level == Level::Nfl))?;
     let side = if g.teams[0] == i { 0 } else { 1 };
@@ -592,7 +597,22 @@ pub fn last_game(w: &World, team: Team) -> Option<(bool, i32, i32, Team)> {
         // Other leagues' games aren't kept whole.
         Team::Other(_) => return None,
     };
-    Some((us > them, us, them, o))
+    Some((g.date, (us > them, us, them, o)))
+}
+
+/// Your team's last game kept whole: (won, our points, theirs, opponent).
+/// It carries no check on its age: it is the January game in April too.
+/// Words must read `fresh_game` instead.
+pub fn last_game(w: &World, team: Team) -> Option<(bool, i32, i32, Team)> {
+    last_game_on(w, team).map(|x| x.1)
+}
+
+/// Your team's last game, only while it is fresh (`GAME_FRESH_DAYS`): what
+/// a talk or a press room may name. A game from last season, or from before
+/// a bye, is not the talk of the day (talk facts item 30).
+pub fn fresh_game(w: &World, team: Team) -> Option<(bool, i32, i32, Team)> {
+    let (date, game) = last_game_on(w, team)?;
+    (date.days_to(w.today) <= GAME_FRESH_DAYS).then_some(game)
 }
 
 /// Your team's record this season from the games kept whole.
