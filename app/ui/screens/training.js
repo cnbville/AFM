@@ -1168,7 +1168,10 @@ async function trPlace(boardKey, k, pid) {
   // position's spot leaves his old one to the next man in that order.
   if (from >= 0 && from !== k) ids[from] = b.kind === "base" && b.slots[from].pos !== b.slots[k].pos ? null : ids[k];
   ids[k] = pid;
-  const r = await trDo("board_set", { board: boardKey, ids });
+  // Only the positions whose spots changed are saved (the spot he lands on,
+  // and the one he leaves): the staff keeps managing the rest of the board.
+  const touched = [...new Set([b.slots[k].pos, ...(from >= 0 && from !== k ? [b.slots[from].pos] : [])])];
+  const r = await trDo("board_set", b.kind === "base" ? { board: boardKey, ids, positions: touched } : { board: boardKey, ids });
   if (r && typeof r === "object" && r.note) toast(r.note);
   else if (r) toast("Depth chart saved.");
   TR.pick = null;
@@ -1368,7 +1371,9 @@ document.addEventListener("click", async (ev) => {
       const b = x.boards.find((q) => q.key === d.board);
       const ids = trBoardIds(b);
       ids[Number(d.k)] = null;
-      if (await trDo("board_set", { board: d.board, ids }, "Cleared.")) { TR.pick = null; trRedraw(); }
+      // Clearing a spot touches its position only.
+      const args = b.kind === "base" ? { board: d.board, ids, positions: [b.slots[Number(d.k)].pos] } : { board: d.board, ids };
+      if (await trDo("board_set", args, "Cleared.")) { TR.pick = null; trRedraw(); }
       break;
     }
     case "tr-poolall": keep("trpoolall", { v: false }).v = el.checked; trRedraw(); break;

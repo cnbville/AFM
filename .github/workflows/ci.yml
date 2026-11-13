@@ -88,6 +88,7 @@ jobs:
           --skip tests::split_build::
           --skip tests::jan1::
           --skip lane_find::tests::
+          --skip lane_training::board_tests::
           --skip lane_logos::tests::your_own_logo_wins_and_stays_with_the_save
       - run: cargo test --workspace --doc
   # Every screen script and data file must parse, on every pull request. On

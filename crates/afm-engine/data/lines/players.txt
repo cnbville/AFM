@@ -74,7 +74,7 @@ Is this about who's running with the ones?
 I'd rather hear it from you than [read it somewhere|hear it from the guys].
 I know what I'm doing out there. I just want to know what my role is.
 I've been wondering where I fit in all this. ~ quiet
-I've been doing everything you asked. I want to know if it's counting. ~ humble
+I've been doing everything you asked. I want to know if it's counting. ~ humble blameless=yes
 If this is about reps, I've been counting mine. ~ hot
 Let me guess. The depth chart. ~ ego
 Is it about who's starting? Because I've got thoughts on that. ~ competitor
@@ -125,18 +125,18 @@ I might have to start working nights, Coach. We need the money at home. ~ hs
 I know why I'm in here.
 Whatever you heard, there's more to it.
 I already know, Coach.
-I figured I'd be hearing about it.
+I figured I'd be hearing about it. ~ at_fault=yes
 I already talked to my position coach about it.
 If this is about the other night, I can explain. ~ young
-Before you start, it wasn't how it looked. ~ hot
+Before you start, it wasn't how it looked. ~ hot blameless=yes
 Who'd you hear it from? ~ hot
 Let me guess. Somebody told you something. ~ ego
-I'm not gonna make excuses. ~ pro
+I'm not gonna make excuses. ~ pro at_fault=yes
 Whatever it is, I'll own it. ~ leader
-Yes {coach_sir}. I messed up. ~ humble
-I know, I know. I'm on thin ice. ~ loose
+Yes {coach_sir}. I messed up. ~ humble at_fault=yes
+I know, I know. I'm on thin ice. ~ loose at_fault=yes
 Am I in trouble? ~ hs young
-My dad already got on me about it, if that helps. ~ hs young
+My dad already got on me about it, if that helps. ~ hs young at_fault=yes
 Is the league involved, or is this just between us? ~ nfl
 
 @key talk.open.life
@@ -162,7 +162,7 @@ Guys have been talking. I'm guessing you heard.
 The room's been weird, Coach. You probably know that.
 I figured you'd want to talk about the team at some point.
 Is this about {friend}? Because he's good, Coach.
-If it's about what happened in there, I wasn't the one who started it. ~ hot
+If it's about what happened in there, I wasn't the one who started it. ~ hot blameless=yes
 Is this a captain thing? ~ leader
 I've been wanting to talk to you about some of the young guys. ~ leader
 I'm not a snitch, Coach. Just so we're clear. ~ loose young
@@ -190,7 +190,7 @@ My trainer says I should be getting more looks than I am. Is that what this is a
 # talk.reveal.team covers losing, distrust of a new staff and a sour room.
 
 @key talk.reveal.role
-I've been doing everything right, Coach. Every lift, every meeting. And I'm still watching.
+I've been doing everything right, Coach. Every lift, every meeting. And I'm still watching. ~ blameless=yes
 I feel like the decision got made before camp even started.
 Honestly? I don't know what else I'm supposed to do to get on the field.
 I see guys getting reps I earned, and nobody tells me why. That's what's eating me.
@@ -227,14 +227,14 @@ There's a school that'd double what I'm getting here. I haven't said yes. I have
 I'm not trying to get a job, Coach. I have to. ~ hs
 
 @key talk.reveal.behavior
-I've been out a lot. I know. It's easier than sitting in my room thinking about everything.
-People keep telling me I'm a problem. After a while you just start acting like it.
-I've been running with some guys from back home. I know they're not good for me.
-Stuff at home has had me on edge. I took it out on the wrong people.
-I'm not trying to disrespect anybody. It just feels like nobody listens unless I'm loud.
-I've got a temper. I know that. It's been worse lately, and I don't really know why. ~ hot
-Honestly, I was bored. That's not an excuse. That's just the truth. ~ young loose
-I know I'm better than how I've been acting. I don't need you to tell me that. ~ ego brash
+I've been out a lot. I know. It's easier than sitting in my room thinking about everything. ~ at_fault=yes
+People keep telling me I'm a problem. After a while you just start acting like it. ~ at_fault=yes
+I've been running with some guys from back home. I know they're not good for me. ~ at_fault=yes
+Stuff at home has had me on edge. I took it out on the wrong people. ~ at_fault=yes
+I'm not trying to disrespect anybody. It just feels like nobody listens unless I'm loud. ~ blameless=yes
+I've got a temper. I know that. It's been worse lately, and I don't really know why. ~ hot at_fault=yes
+Honestly, I was bored. That's not an excuse. That's just the truth. ~ young loose at_fault=yes
+I know I'm better than how I've been acting. I don't need you to tell me that. ~ ego brash at_fault=yes
 
 @key talk.reveal.life
 It's home, Coach. I'm here, but my head's back there.
@@ -289,9 +289,9 @@ I'd rather not get into it, if that's okay.
 Coach, I'm fine. Can we talk about football?
 Body's sore, that's all.
 It's personal, Coach. I'll be alright.
-Honestly, there's nothing to tell. ~ calm
+Honestly, there's nothing to tell. ~ calm blameless=yes
 Nah, I'm good. ~ young
-Nothing's going on. I promise. ~ young
+Nothing's going on. I promise. ~ young blameless=yes
 I'm handling it. ~ ego
 I'm locked in. Don't worry about me. ~ competitor
 I just need to get back to work. ~ pro
@@ -414,14 +414,14 @@ Say less. ~ young nil
 Okay. Then I'm coming for it. ~ competitor
 
 @key talk.reply.challenge.bad
-I've been doing everything you asked, and it's still not enough?
+I've been doing everything you asked, and it's still not enough? ~ blameless=yes
 Okay, Coach. I'll keep running into the same wall.
 Yeah. Okay.
 That's easy to say when you're the one deciding.
 That's not fair, Coach, and you know it.
 I've been trying to do that since camp.
-I've been doing that. You just haven't been looking. ~ hot brash
-So it's on me. It's always on me. ~ shaky
+I've been doing that. You just haven't been looking. ~ hot brash blameless=yes
+So it's on me. It's always on me. ~ shaky blameless=yes
 Whatever you say, Coach. ~ ego brash
 Okay. ~ quiet
 
@@ -435,26 +435,26 @@ I'll keep working.
 Okay. Noted. ~ loose
 
 @key talk.reply.criticize.good
-You're right. It won't happen again.
-Yeah. I was out of line.
+You're right. It won't happen again. ~ at_fault=yes
+Yeah. I was out of line. ~ at_fault=yes
 I needed somebody to say it. You're right.
-That's on me. All of it.
-No excuses. I'll fix it. ~ pro
+That's on me. All of it. ~ at_fault=yes
+No excuses. I'll fix it. ~ pro at_fault=yes
 I hear you. I'm embarrassed, honestly. ~ humble
 That's fair. I'll handle it with the guys myself. ~ leader
 Yes {coach_sir}. I'll be better. ~ young
 
 @key talk.reply.criticize.bad
 You didn't even ask what happened.
-I've been busting my tail for this team, and that's what I get?
+I've been busting my tail for this team, and that's what I get? ~ blameless=yes
 Wow. Good to know where I stand.
 You don't know what I'm dealing with, Coach.
 So I'm the problem. Got it.
-Funny. Nobody said anything when somebody else did it.
+Funny. Nobody said anything when somebody else did it. ~ at_fault=yes
 You're gonna talk to me like that? Okay. ~ hot brash
 I'm done talking. ~ hot brash
 I don't have anything to say to that. ~ quiet
-Selfish? I'm the reason we win games around here. ~ ego brash
+Selfish? I'm the reason we win games around here. ~ ego brash blameless=yes
 I'll be sure to tell my agent how you feel. ~ nfl ego
 
 @key talk.reply.criticize.flat
@@ -498,7 +498,7 @@ We'll see how it plays out. ~ calm
 @key talk.reply.warn.good
 Yes {coach_sir}. It won't come to that.
 Understood. You won't have to.
-I know. I'm done with that.
+I know. I'm done with that. ~ at_fault=yes
 Message received, Coach.
 I won't put you in that spot.
 That's fair. I'd do the same thing. ~ leader

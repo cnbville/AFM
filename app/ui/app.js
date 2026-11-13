@@ -401,9 +401,12 @@ function pinnedHtml(st) {
 }
 
 // The path you took since your last sidebar click, each step a link (L7).
+// A sidebar click makes the page you land on the start of a new path, so
+// the old steps drop at once (Cain, 2026-11-13: the old path stayed after
+// a click). Only the steps after it, opened from it, add to the path.
 function crumbHtml() {
   const path = [];
-  for (let i = S.back.length - 1; i >= 0; i--) {
+  for (let i = S.back.length - 1; i >= 0 && !S.route.root; i--) {
     const r = S.back[i];
     if (outside(r)) break;
     path.unshift({ r, n: S.back.length - i });

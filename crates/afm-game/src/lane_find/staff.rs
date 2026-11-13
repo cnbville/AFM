@@ -136,7 +136,7 @@ fn read_one(w: &World, staff: Staff, id: u32) -> Option<Read> {
         .collect();
     let traits: Box<[(f32, f32)]> =
         f.traits.iter().map(|t| if t.seen { (t.centre as f32, t.sd.max(0.1) as f32) } else { (0.0, 0.0) }).collect();
-    let film = looks.iter().filter(|l| matches!(l.kind.family(), "Film" | "Live")).count() as u16;
+    let film = looks.iter().filter(|l| l.kind.watched()).count() as u16;
     let judge = rds.iter().map(|r| r.judge).fold(0.0f64, f64::max) as f32;
     let own = w.scouting.dept.looks.get(&id);
     let has = |k: &[Kind]| own.is_some_and(|v| v.iter().any(|l| k.contains(&l.kind)));

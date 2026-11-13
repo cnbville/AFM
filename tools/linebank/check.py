@@ -89,6 +89,21 @@ BACKTALK = re.compile(r"((^|[.!?]\s)whatever[.!?]|"
                       r"put my name|get to the point|not my problem|that's your problem|you don't get to|"
                       r"who do you think)\b)")
 TALK_BACK_PARTS = ('talk.', 'rules.react.', 'takeover.meeting.react_', 'takeover.leader.')
+# A player denying or admitting something about his own conduct (talk facts,
+# lane L2): the bank is fact-free, so "I've done nothing wrong" would reach a
+# man with a fresh arrest and "I know I messed up" a man who did nothing.
+# The blatant forms are dropped from a run (a new part that must say one gets
+# a part card that says what is true, and a fact check). The lines already in
+# the bank carry blameless=yes or at_fault=yes and wait for the fact sheet
+# (voice.rs, CLAIM_FACTS); a writer never uses those two.
+CLAIM_FACTS = ('blameless', 'at_fault')
+CLAIM = re.compile(r"(?<![a-z])(?<!if )(?<!did )(?<!whether )(?<!in case )(?<!hope )(?<!because )(?<!glad )("
+                   r"i haven't done anything wrong|i've done nothing wrong|i didn't do anything wrong|"
+                   r"i did nothing wrong|i'm not in trouble|i'm clean|nothing to hide|it wasn't me|that wasn't me|"
+                   r"it's not my fault|that's not my fault|i didn't do it|i'm innocent|"
+                   r"i messed up|i screwed up|i blew it|my fault|i was wrong|i let you down|"
+                   r"i let the team down|i crossed a line|i take the blame|i'm to blame)(?![a-z])(?! about)(?! if)")
+CLAIM_PARTS = ('talk.',)
 # Sir or ma'am to your face follows your he or she: {coach_sir}. A line about
 # saying sir ("taught to say yes sir") can't be written that way.
 SIR = re.compile(r"\b(?:[Ss]ir|[Mm]a'am)\b")
@@ -195,9 +210,11 @@ class Part:
 
 
 class Checker:
-    def __init__(self, keys=None, pool=None, target=None, repeats=True):
+    def __init__(self, keys=None, pool=None, target=None, repeats=True, held_ok=False):
         """`pool`: {key: [lines kept so far]}; `target`: {key: new versions
-        the part is to get} (for the opening share)."""
+        the part is to get} (for the opening share). `held_ok`: the bank's own
+        lines may carry blameless= and at_fault= (`--bank`); a run's may not."""
+        self.held_ok = held_ok
         old = B.bank(skip={f for f in B.os.listdir(B.LINES) if f.endswith('_run.txt')})
         for vs in old.values():
             for text, _, _ in vs:
@@ -280,6 +297,10 @@ class Checker:
             elif t not in p.tags:
                 why.append(f'tag {t} never fits this speaker')
         for (k, v), _ in when:
+            if k in CLAIM_FACTS:
+                if not self.held_ok:
+                    why.append(f"{k}= is the fact sheet's, not a writer's tag")
+                continue
             if k not in p.when:
                 why.append(f'{k}= is never set here')
             elif v not in p.when[k]:
@@ -293,8 +314,12 @@ class Checker:
             for t in nd & ECHO:
                 if re.search(r'\b' + t[:5], low):
                     why.append(f'writes the tag word "{t}" into the line')
+            if TIME_OF_DAY.search(low):
+                why.append('names a time of day or a day')
+            if KID_COUNT.search(low):
+                why.append('counts his sons, boys or brothers')
         if p.who == 'recruit':
-            why += recruit_side(nd, text, low)
+            why += recruit_side(key, nd, text, low)
         # Facts.
         found = re.findall(r'\{([^}]*)\}', text)
         for f in found:
@@ -353,6 +378,8 @@ class Checker:
                 why.append('talks back without brash')
         if 'brash' in nd and (lv & {'hs'} or (p.levels and p.levels <= {'hs'})):
             why.append('brash is never a high school player')
+        if key.startswith(CLAIM_PARTS) and CLAIM.search(low) and not any(k in CLAIM_FACTS for (k, v), _ in when):
+            why.append('denies or admits his own conduct (only the fact sheet may say it)')
         if p.who == 'you' and re.search(r"\b(i|i'm|i've|my) (wife|husband)\b", low):
             why.append('you have no spouse in the bank')
         # Era words: tagged as lane 13 did (every speaker you meet from 2026
@@ -460,13 +487,26 @@ SELF_WORDS = re.compile(r"\b(i'?m (seventeen|17|a (junior|senior))|my (junior|se
 
 # The example name the briefs show ("Coach Reed") must never be written into a line: you are {coach}.
 COACH_NAME = re.compile(r"\bCoach [A-Z][a-z]+|\bReed\b")
+# What the top-up's checker kept flagging (2026-11-13): a greeting by time of day, a day or a frequency, and how many
+# sons a parent has. None of it is a stored fact.
+TIME_OF_DAY = re.compile(r"\b(good )?(morning|afternoon|evening|tonight)\b|\bevery (day|night|friday|saturday|"
+                         r"sunday|game|morning|weekend)\b|\bfor years\b|\blast (week|night)\b")
+KID_COUNT = re.compile(r"\b(both|two|three|my other|one more|second|other) (of )?(my |our |his )?(sons?|boys?|kids?|"
+                       r"grandsons?|brothers?)\b|\b(raised|have|had) (two|three|four) (boys|sons|kids)\b")
 WE = re.compile(r"\b(we|we're|we've|we'll|we'd|us|our|ours)\b")
 # A trait tag's own word in the line ("I'm not greedy", "I'm a competitor"): the tag is the reason he can say
 # it, not the thing he says.
 ECHO = {'ego', 'humble', 'leader', 'quiet', 'loyal', 'greedy', 'loose', 'shaky', 'steady', 'competitor'}
 
 
-def recruit_side(nd, text, low):
+# Parts about the recruit's own life: a line there that says "I", "my" or "me" about him is true of only one side
+# (a transfer or the recruit himself says it, a parent says "my son"), so it must carry that side's tag. An untagged
+# line in these parts is neutral: a question, a reaction, a statement about you or about "the kid".
+OWN_LIFE = ('recruit.bg.', 'recruit.committed.', 'recruit.other.', 'recruit.want.', 'recruit.visit.')
+FIRST = re.compile(r"\b(i|i'm|i've|i'd|i'll|my|mine|myself)\b|\b(to|for|about|with|at|from|on) me\b|\b\w+ed me\b")
+
+
+def recruit_side(key, nd, text, low):
     """The union speaker of the recruiting talks: a family side and a transfer side that never meet on a line."""
     out = []
     if nd & FAMILY_SIDE and nd & TRANSFER_SIDE:
@@ -479,6 +519,8 @@ def recruit_side(nd, text, low):
         out.append('a parent style on the recruit himself')
     if not nd & (FAMILY_SIDE | TRANSFER_SIDE) and WE.search(low):
         out.append('we, us or our on a line both sides say')
+    if key.startswith(OWN_LIFE) and not nd & (FAMILY_SIDE | TRANSFER_SIDE) and FIRST.search(low):
+        out.append('I, my or me on a line both sides say, in a part about his own life')
     if '{name}' in text and not nd & {'parent', 'grandparent', 'handler'}:
         out.append('{name} is said by a parent, grandparent or handler only')
     if TRANSFER_WORDS.search(low) and 'college' not in nd:
@@ -552,7 +594,7 @@ def team_words(low, nd, p):
 def main():
     args = sys.argv[1:]
     if args == ['--bank']:
-        ck = Checker(repeats=False)
+        ck = Checker(repeats=False, held_ok=True)
         bad = collections.Counter()
         tot = collections.Counter()
         why = collections.Counter()
