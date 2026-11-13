@@ -137,7 +137,10 @@ fn a_typed_line_never_lands_on_a_nav_pick() {
     let s = w.folk.scenes.iter().find(|s| s.id == id).unwrap().clone();
     let codes: Vec<u32> = scene::options(&s).iter().map(|p| p.code).collect();
     assert_eq!(codes, [10, 11], "the table and what's behind 'something else', never a nav pick");
-    assert_eq!(scene::say(&mut w, id, typed(19, "Let's talk about something else."), true).unwrap_err(), "That answer isn't on the table.");
+    assert_eq!(
+        scene::say(&mut w, id, typed(19, "Let's talk about something else."), true).unwrap_err(),
+        "That answer isn't on the table."
+    );
 }
 
 #[test]
@@ -219,7 +222,10 @@ fn the_lies_store_waits_for_the_promise_design() {
     let (trust, mood, straight) = (w.people[i].trust, w.people[i].mood, w.folk.mine.straight);
     let fact = Stated { kind: "depth_rank".into(), about: Some(id), value: "starter".into() };
     let today = w.today;
-    claims::truth::file_lie(&mut w, Lie { to: PromiseTo::Player(id), fact, said: today, sees: today, seen: false, who: String::new() });
+    claims::truth::file_lie(
+        &mut w,
+        Lie { to: PromiseTo::Player(id), fact, said: today, sees: today, seen: false, who: String::new() },
+    );
     claims::truth::check_lies(&mut w, today);
     assert!(w.folk.live.lies[0].seen, "its day came");
     // It costs nothing until Cain answers the promise design.

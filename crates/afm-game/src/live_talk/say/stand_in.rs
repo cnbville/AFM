@@ -48,8 +48,3 @@ pub fn reading(card: &Card, words: &str) -> Value {
 pub fn echo(line: &str) -> Value {
     body(&afm_engine::world::folk::plain(line), 500, 40)
 }
-
-pub fn reading_value(card: &Card, words: &str) -> Value {
-    let b = reading(card, words);
-    b.pointer("/content/0/text").and_then(Value::as_str).and_then(|t| serde_json::from_str(t).ok()).unwrap_or(Value::Null)
-}

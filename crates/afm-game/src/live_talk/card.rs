@@ -244,7 +244,10 @@ impl Card {
     pub fn writer_text(&self, words: &str) -> String {
         let mut out = String::from("<card>\n");
         self.common(&mut out);
-        out.push_str(&format!("What the game decided he answers (keep its meaning and every fact in it): {}\n", self.his_line));
+        out.push_str(&format!(
+            "What the game decided he answers (keep its meaning and every fact in it): {}\n",
+            self.his_line
+        ));
         if !self.tell.is_empty() {
             out.push_str(&format!("How he comes across: {}\n", self.tell));
         }

@@ -74,7 +74,8 @@ fn finish(g: &mut Game, ticket: u64) -> Value {
 
 /// A reader's answer as the API sends it.
 fn reading(pick: &str, fit: &str, also: &str) -> Value {
-    let v = json!({ "pick": pick, "also": also, "tone": "calm", "promise": null, "claims": [], "named": [], "fit": fit });
+    let v =
+        json!({ "pick": pick, "also": also, "tone": "calm", "promise": null, "claims": [], "named": [], "fit": fit });
     body(&v.to_string(), 700, 60)
 }
 
@@ -241,7 +242,9 @@ fn a_final_pick_asks_first() {
     let wd = g.world.as_mut().unwrap();
     let team = Team::seat(wd).unwrap();
     let c = (0..wd.coaches.len())
-        .find(|&c| wd.coaches[c].job.is_some_and(|j| Team::from_employer(j.employer) == team && j.role != Role::HeadCoach))
+        .find(|&c| {
+            wd.coaches[c].job.is_some_and(|j| Team::from_employer(j.employer) == team && j.role != Role::HeadCoach)
+        })
         .expect("an assistant on your staff");
     let id = staffing::start_firing(wd, c).unwrap();
     let v = ok(&mut g, "people_scene", json!({ "id": id }));

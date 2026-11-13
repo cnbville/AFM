@@ -183,3 +183,72 @@ fn report(t: &Tally) -> Value {
         "seconds": (t.millis as f64 / lines / 10.0).round() / 100.0,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::time::{Duration, Instant};
+
+    use afm_ai::Fake;
+    use afm_ai::fake::body;
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn every_set_parses_and_staff_holds_lt18s_thirty_lines() {
+        let sets = sets();
+        assert_eq!(sets.len(), SETS.len(), "every file parses");
+        let staff = &sets[0];
+        assert_eq!((staff.name.as_str(), staff.lines.len()), ("staff", 30));
+        let (card, keys) = staff.card();
+        assert_eq!(card.options.len(), 5);
+        for code in [60, 61, 62, 63, 69] {
+            let n = staff.lines.iter().filter(|l| l.want == json!(code)).count();
+            assert_eq!(n, 5, "{code}");
+            assert!(keys.option_tag(code).is_some());
+        }
+        assert_eq!(staff.lines.iter().filter(|l| l.want == json!("not_a_line")).count(), 5);
+        assert!(sets[1].lines.is_empty() && sets[2].lines.is_empty(), "lanes 7 and 9 fill theirs");
+    }
+
+    #[test]
+    fn the_checks_run_on_the_fake_and_count_the_matches() {
+        let home = std::env::temp_dir().join(format!("afm-live-checks-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&home);
+        std::fs::create_dir_all(&home).unwrap();
+        let mut g = Game::new(home);
+        let f = Arc::new(Fake::new());
+        g.ai.use_fake(f.clone());
+        let staff = &sets()[0];
+        let (_, keys) = staff.card();
+        // Right on every line but the last two.
+        for (k, line) in staff.lines.iter().enumerate() {
+            let pick = match line.want.as_u64() {
+                Some(c) if k < 28 => keys.option_tag(c as u32).unwrap().to_string(),
+                Some(_) => "none".to_string(),
+                None if k < 28 => "none".to_string(),
+                None => "o1".to_string(),
+            };
+            let fit = if pick == "none" { "not_a_line" } else { "clear" };
+            let v = json!({ "pick": pick, "also": "none", "tone": "calm", "promise": null, "claims": [], "named": [], "fit": fit });
+            f.push(say::READER, Ok(body(&v.to_string(), 700, 60)));
+        }
+        let t = g.call("ai_checks", &json!({})).unwrap()["ticket"].as_u64().unwrap();
+        let start = Instant::now();
+        let v = loop {
+            let v = g.call("ai_poll", &json!({ "ticket": t })).unwrap();
+            if v["state"] != "wait" || start.elapsed() > Duration::from_secs(10) {
+                break v;
+            }
+            std::thread::sleep(Duration::from_millis(2));
+        };
+        assert_eq!(v["state"], "done", "{v}");
+        assert_eq!(v["rows"], json!([{ "name": "staff", "score": 28, "of": 30, "bar": 28.0 / 30.0 }]));
+        assert!(v["cost"].as_f64().unwrap() > 0.0 && v["seconds"].is_number());
+        assert_eq!(f.asked_count(), 30, "one call a line");
+        // With no client there is no run.
+        let mut h = Game::new(std::env::temp_dir().join(format!("afm-live-checks2-{}", std::process::id())));
+        assert_eq!(h.call("ai_checks", &json!({})), Err("No key is set.".into()));
+    }
+}

@@ -195,9 +195,8 @@ pub fn people_say(g: &mut Game, args: &Value) -> Reply {
     }
     let (mut card, keys) = card::scene(w, s);
     hooks_reader(w, s, &mut card);
-    let (rules, schema) = one_on_one::rules(s)
-        .or_else(|| staff::rules(s))
-        .unwrap_or_else(|| (READER_RULES, reader_schema()));
+    let (rules, schema) =
+        one_on_one::rules(s).or_else(|| staff::rules(s)).unwrap_or_else(|| (READER_RULES, reader_schema()));
     let req = Request::new(READER, rules, &card.reader_text(&text)).schema(schema).max_tokens(READER_TOKENS);
     let step = s.step;
     if let Some(f) = g.ai.browser_fake() {
@@ -322,13 +321,8 @@ pub fn read(w: &World, s: &Scene, v: &Value, keys: &Keys, words: &str) -> Option
             against: person(p.get("against").and_then(Value::as_str)),
         })
     });
-    let named = v
-        .get("named")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(|t| person(t.as_str()))
-        .collect();
+    let named =
+        v.get("named").and_then(Value::as_array).into_iter().flatten().filter_map(|t| person(t.as_str())).collect();
     let mut heard = Heard {
         pick,
         tone: v.get("tone").and_then(Value::as_str).filter(|t| TONES.contains(t)).unwrap_or("").to_string(),
@@ -345,7 +339,8 @@ pub fn read(w: &World, s: &Scene, v: &Value, keys: &Keys, words: &str) -> Option
 
 /// "Heard as": the option's words and the tone.
 pub fn heard_words(s: &Scene, pick: u32, tone: &str) -> String {
-    let label = scene::options(s).into_iter().find(|p| p.code == pick).map(|p| folk::plain(&p.label)).unwrap_or_default();
+    let label =
+        scene::options(s).into_iter().find(|p| p.code == pick).map(|p| folk::plain(&p.label)).unwrap_or_default();
     let mut c = label.chars();
     let mut out = match c.next() {
         Some(f) => f.to_lowercase().collect::<String>() + c.as_str(),
