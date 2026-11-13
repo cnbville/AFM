@@ -1496,8 +1496,24 @@ fn holdover_open(w: &mut World, s: &mut Scene, team: Team) {
             "He wasn't the old coach's hire from his own tree, which may help him."
         }
     ));
+    // His real record with the program and his unit's year (talk facts item
+    // 23): in the narration, and for the pitch to name.
+    if let Some(u) = super::claims::rooms::unit(w, c) {
+        let mut about = String::new();
+        if let Some(r) = u.record_words() {
+            about += &format!(" The team is {r} since he took the job.");
+        }
+        if let Some(y) = u.year_words() {
+            about += &format!(" {y}");
+        }
+        if !about.is_empty() {
+            s.narrate(about.trim_start().to_string());
+        }
+        u.fill(&mut f);
+    }
     let mut pen = scene::pen(w, s, 1);
-    let pitch = pen.line(&["takeover.holdover.pitch", "?takeover.holdover.detail"], &spk, &f);
+    let pitch =
+        pen.line(&["takeover.holdover.pitch", "?takeover.holdover.detail", "takeover.holdover.record"], &spk, &f);
     pen.put(w);
     s.them(
         &name,
@@ -1592,10 +1608,13 @@ fn oversell(w: &World, team: Team, c: usize) -> Option<(usize, String)> {
             fa.total_cmp(&fb)
         })?;
     let p = &w.people[best];
+    // The real player: his class and last year's role, and no bowl practice
+    // he may not have had (talk facts item 23).
     let text = format!(
-        "And {} is ready. {} was {} last year, but you watch him in bowl practice and he's a starter. He's going to surprise people.",
+        "And {} is ready. {} is {} and was {} last year, but you watch him in practice and he's a starter. He's going to surprise people.",
         player_link(w, best),
         p.name.split_whitespace().next().unwrap_or(""),
+        super::claims::rooms::class_phrase(w, best),
         facts::role_words(p.last_role)
     );
     Some((best, text))

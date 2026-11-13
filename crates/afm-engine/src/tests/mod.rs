@@ -43,6 +43,7 @@ mod portal_recruiting;
 mod portal_talks;
 mod praise;
 mod ratings;
+mod rooms;
 mod roster_moves;
 mod sandbox;
 mod save;
