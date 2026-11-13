@@ -26,10 +26,16 @@ async fn call(engine: tauri::State<'_, Engine>, cmd: String, args: Value) -> Res
         let waited = asked.elapsed();
         let r = g.call(&cmd, &args);
         slow_call(&g.home, &cmd, waited, asked.elapsed());
-        match cmd.as_str() {
-            "ai_key_set" | "ai_key_clear" if r.is_ok() => Ok(follow_keychain(&mut g, &cmd, &args)),
-            _ => r,
+        if !(matches!(cmd.as_str(), "ai_key_set" | "ai_key_clear") && r.is_ok()) {
+            return r;
         }
+        // The Keychain may stop to ask the person (a new build is signed
+        // afresh), so it runs with the game unlocked: the screens must not
+        // freeze behind a question.
+        drop(g);
+        let saved = follow_keychain(&cmd, &args);
+        let mut g = game.lock().map_err(|_| "the game stopped after an error; restart AFM".to_string())?;
+        Ok(keychain_status(&mut g, &cmd, &args, saved))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -37,27 +43,32 @@ async fn call(engine: tauri::State<'_, Engine>, cmd: String, args: Value) -> Res
 
 /// The live talks key follows the Keychain (live talks lane 1): a key pasted
 /// into settings is saved there, and a key cleared is removed. The game has
-/// already checked and kept it in memory. The answer is the game's status, with
-/// a plain note if the Keychain would not take it (the key then lasts until
-/// AFM quits). The key is never logged.
-fn follow_keychain(g: &mut Game, cmd: &str, args: &Value) -> Value {
-    let note = if cmd == "ai_key_set" {
+/// already checked and kept it in memory. An error is the plain note for the
+/// screen (the key then lasts until AFM quits). The key is never logged.
+fn follow_keychain(cmd: &str, args: &Value) -> Result<(), String> {
+    if cmd == "ai_key_set" {
         let key = args.get("key").and_then(Value::as_str).unwrap_or("").trim();
-        match keychain::set(key) {
-            Ok(()) => {
-                g.ai.set_kept("keychain");
-                None
-            }
-            Err(e) => {
-                Some(format!("The key could not be saved in the Keychain, so it lasts until you quit AFM. ({e})"))
-            }
-        }
+        keychain::set(key)
+            .map_err(|e| format!("The key could not be saved in the Keychain, so it lasts until you quit AFM. ({e})"))
     } else {
-        keychain::clear().err().map(|e| format!("The saved key could not be removed from the Keychain. ({e})"))
-    };
+        keychain::clear().map_err(|e| format!("The saved key could not be removed from the Keychain. ({e})"))
+    }
+}
+
+/// The answer to `ai_key_set` and `ai_key_clear`: the game's status, with
+/// where the key is kept and, if the Keychain would not take it, its note.
+/// A new key reads as kept in the Keychain only when it was saved there and
+/// is still the key the game holds.
+fn keychain_status(g: &mut Game, cmd: &str, args: &Value, saved: Result<(), String>) -> Value {
+    if cmd == "ai_key_set" && saved.is_ok() {
+        let key = args.get("key").and_then(Value::as_str).unwrap_or("").trim();
+        if g.ai.key_tail().as_deref() == key.get(key.len().saturating_sub(4)..) {
+            g.ai.set_kept("keychain");
+        }
+    }
     let mut status = g.ai.status();
-    if let Some(n) = note {
-        status["keychain_note"] = json!(n);
+    if let Err(note) = saved {
+        status["keychain_note"] = json!(note);
     }
     status
 }
