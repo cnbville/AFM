@@ -110,7 +110,7 @@ const FR_COLLEGE = {
     { t: x.prev_since ? `Rank · since ${x.prev_since}` : "Rank", k: "nat", hw: true, f: (r) => frRank(r, true) },
     { t: "Ht · Wt", k: "ht", f: (r) => `<span class="fr-num">${esc(r.ht)}</span><div class="fr-l2 fr-num">${esc(r.wt)} lb</div>` },
     { t: "Your staff's read", k: "now", hw: true, f: (r) => frRead(r.read, r.id) },
-    { t: "Could play", k: "proj", f: (r) => (r.proj ? `${esc(r.proj)}<div class="fr-l2">${esc(r.sure || "")}</div>` : frMute("Not seen")) },
+    { t: "Could play", k: "proj", f: (r) => (r.proj ? `${esc(r.proj)}${r.proj_whose === "yours" ? '<span class="pot-yours" title="Your own read; sorts and filters read it too">yours</span>' : ""}<div class="fr-l2">${esc(r.sure || "")}</div>` : frMute("Not seen")) },
     { t: "You vs the services", k: "vs", hw: true, tip: FR_VS_TIP.services.head, f: (r) => frVs(r.vs) },
     { t: "Where it stands", f: frStands, wrap: true },
     { t: "Offers", k: "offers", r: true, f: frOffers },

@@ -1918,7 +1918,9 @@ fn live_development(w: &World, t: TeamRef) -> Option<Value> {
         .or_else(|| by_read(w, t).first().copied())?;
     let (k, (lo, hi)) = young;
     let p = &w.people[k];
-    let o = reads::potential_words(w, k);
+    // The staff's own words here (own potential: the top level may be yours).
+    let all = reads::potential_words(w, k);
+    let o = if all["staff"].is_null() { &all } else { &all["staff"] };
     let tier = o["tier"].as_str().unwrap_or("hard to call");
     let sure = o["sure"].as_str().unwrap_or("unsure");
     let mut lines = vec![format!(
