@@ -2553,7 +2553,7 @@ pub(crate) fn board_set(w: &mut World, args: &Value) -> Result<Option<String>, S
                 list.push(x);
             }
         }
-        for id in keep.into_iter().chain(rest) {
+        for id in keep.iter().copied().chain(rest) {
             if !list.contains(&id) {
                 list.push(id);
             }
