@@ -312,3 +312,177 @@ fn the_owners_goals_meeting_stops_its_morning() {
     assert!(s.date == pre && !s.done && s.handed.is_none(), "{:?} done {} handed {:?}", s.date, s.done, s.handed);
     assert!(scene::due(&w, pre).is_some());
 }
+
+// --- The off-field price (live talks lane 8) --------------------------------------------------
+
+/// A rostered pro of an AI club whose price there is well over the
+/// minimum, so a few percent off shows.
+fn priced_pro(w: &World, mine: usize) -> (usize, usize) {
+    (0..w.clubs.len())
+        .filter(|&t| t != mine && crate::world::franchise::active_in(w, t, w.year))
+        .flat_map(|t| w.clubs[t].roster.iter().map(move |&i| (t, i)))
+        .find(|&(t, i)| {
+            let c = w.people[i].pro.as_ref().unwrap();
+            c.status == Status::Roster
+                && c.contract.is_some()
+                && pro::market::worth(w, t, i).1 > 4.0 * money::minimum(w.year, c.credited)
+        })
+        .expect("a pro priced over the minimum")
+}
+
+fn give_case(w: &mut World, i: usize, case: crate::world::people::PastCase) {
+    w.people[i].pro.as_mut().unwrap().case = Some(case);
+}
+
+#[test]
+fn a_recent_case_lowers_a_clubs_price_and_never_its_read() {
+    use crate::world::people::{PastCase, Trouble};
+    use crate::world::pro::{market, trades};
+    let (mut w, mine) = nfl_world();
+    let (t, i) = priced_pro(&w, mine);
+    let day = w.today;
+    let (read, clean) = market::worth(&w, t, i);
+    let points = trades::player_points(&w, t, i);
+    give_case(&mut w, i, PastCase { kind: Trouble::Domestic, day, games: None, again: false });
+    let (read_with, priced) = market::worth(&w, t, i);
+    // The read is how he plays: the depth chart and the squad's moves run
+    // on it, and a case doesn't touch it.
+    assert_eq!(read, read_with, "the case moved the club's read");
+    assert!(priced < clean, "the case took nothing off: {priced} against {clean}");
+    assert!(priced >= clean * (1.0 - market::CASE_CAP) - 1.0, "more than the cap came off: {priced} of {clean}");
+    // What a club would give for him in a trade falls with its price.
+    assert!(trades::player_points(&w, t, i) < points, "his trade value didn't fall");
+    // Three years on the market has forgotten it.
+    w.today = day.add(1095);
+    assert_eq!(market::worth(&w, t, i), (read, clean), "an old case still costs him");
+}
+
+#[test]
+fn the_off_field_price_is_small_capped_and_fades() {
+    use crate::world::people::{PastCase, Trouble};
+    use crate::world::pro::market;
+    let (mut w, mine) = nfl_world();
+    assert_eq!(w.year, 2025);
+    let (t, i) = priced_pro(&w, mine);
+    let day = w.today;
+    w.clubs[t].office.gm.risk = 0.5;
+    let near = |a: f64, b: f64| (a - b).abs() < 1e-12;
+    let cut = |w: &mut World, kind, games, again, rel: f64, days: i32| {
+        give_case(w, i, PastCase { kind, day, games, again });
+        w.today = day.add(days);
+        market::case_cut(w, t, i, rel)
+    };
+    // By kind, at the last starter's level, at an even-handed GM.
+    assert!(near(cut(&mut w, Trouble::Dui, None, false, 72.0, 0), 0.04));
+    assert!(near(cut(&mut w, Trouble::Ped, Some(6), false, 72.0, 0), 0.04));
+    assert!(near(cut(&mut w, Trouble::Assault, Some(3), false, 72.0, 0), 0.06));
+    assert!(near(cut(&mut w, Trouble::Domestic, Some(6), false, 72.0, 0), 0.10));
+    // Ended without a suspension: 0.4 of it.
+    assert!(near(cut(&mut w, Trouble::Assault, Some(0), false, 72.0, 0), 0.024));
+    // Full for a year, half at two, nothing at three.
+    assert!(near(cut(&mut w, Trouble::Dui, None, false, 72.0, 365), 0.04));
+    assert!(near(cut(&mut w, Trouble::Dui, None, false, 72.0, 730), 0.02));
+    assert!(near(cut(&mut w, Trouble::Dui, None, false, 72.0, 1095), 0.0));
+    // The better the club thinks he is, the less comes off: all of it at
+    // the last starter's level and below, a quarter in the top quarter.
+    assert!(near(cut(&mut w, Trouble::Dui, None, false, 60.0, 0), 0.04));
+    assert!(near(cut(&mut w, Trouble::Dui, None, false, 78.0, 0), 0.025));
+    assert!(near(cut(&mut w, Trouble::Dui, None, false, 84.0, 0), 0.01));
+    assert!(near(cut(&mut w, Trouble::Dui, None, false, 95.0, 0), 0.01));
+    // A second case while the first was recent: half again.
+    assert!(near(cut(&mut w, Trouble::Dui, None, true, 72.0, 0), 0.06));
+    // A careful GM takes off a quarter more, a gambler a quarter less.
+    w.clubs[t].office.gm.risk = 0.0;
+    assert!(near(cut(&mut w, Trouble::Dui, None, false, 72.0, 0), 0.05));
+    // The worst of everything stops at the cap.
+    assert!(near(cut(&mut w, Trouble::Domestic, Some(6), true, 60.0, 0), market::CASE_CAP));
+    w.clubs[t].office.gm.risk = 1.0;
+    assert!(near(cut(&mut w, Trouble::Dui, None, false, 72.0, 0), 0.03));
+    // A domestic case before the league's 2014 policy weighed as any
+    // violent one.
+    w.clubs[t].office.gm.risk = 0.5;
+    w.year = 2010;
+    assert!(near(cut(&mut w, Trouble::Domestic, Some(2), false, 72.0, 0), 0.06));
+    // No record, no cut.
+    w.people[i].pro.as_mut().unwrap().case = None;
+    assert_eq!(market::case_cut(&w, t, i, 72.0), 0.0);
+}
+
+#[test]
+fn a_pros_last_case_stays_on_his_record() {
+    use crate::calendar::{Date, Level};
+    use crate::world::folk::courts;
+    use crate::world::people::{self, Case, PastCase, Trouble};
+    let (mut w, mine) = nfl_world();
+    let today = w.today;
+    // Trouble writes the record the night it happens, with no ruling yet.
+    let mut d = today;
+    while w.market.cases.len() < 3 {
+        d = d.add(1);
+        assert!(today.days_to(d) < 400, "no pro found trouble in a year");
+        people::pro_arrests_day(&mut w, d);
+    }
+    for case in w.market.cases.clone() {
+        let pc = w.people[case.person].pro.as_ref().unwrap().case.expect("a case without a record");
+        assert!(pc.day >= case.opened && pc.games.is_none());
+        if pc.day == case.opened {
+            assert_eq!(pc.kind, case.kind);
+        }
+    }
+    w.market.cases.clear();
+    // The ruling goes onto it: the games, or none.
+    let picks: Vec<usize> = (0..w.clubs.len())
+        .filter(|&t| t != mine && crate::world::franchise::active_in(&w, t, w.year))
+        .flat_map(|t| w.clubs[t].roster.iter().copied().take(2))
+        .filter(|&i| w.people[i].pro.as_ref().is_some_and(|c| c.case.is_none() && c.suspended == 0))
+        .take(5)
+        .collect();
+    let (a, b, c, e, f) = (picks[0], picks[1], picks[2], picks[3], picks[4]);
+    let open = |kind| PastCase { kind, day: today, games: None, again: false };
+    let record = |w: &World, i: usize| w.people[i].pro.as_ref().unwrap().case.unwrap();
+    w.today = d;
+    give_case(&mut w, a, open(Trouble::Ped));
+    give_case(&mut w, b, open(Trouble::Theft));
+    w.market.cases.push(Case { person: a, kind: Trouble::Ped, ruling: d, guilty: true, opened: today });
+    w.market.cases.push(Case { person: b, kind: Trouble::Theft, ruling: d, guilty: true, opened: today });
+    // A ruling on an older case leaves his last case alone.
+    let later = PastCase { kind: Trouble::Dui, day: today.add(5), games: None, again: true };
+    give_case(&mut w, c, later);
+    w.market.cases.push(Case { person: c, kind: Trouble::Ped, ruling: d, guilty: true, opened: today });
+    // A case from a save made before records were kept gets one at its
+    // ruling, dated that day.
+    w.market.cases.push(Case { person: e, kind: Trouble::Ped, ruling: d, guilty: true, opened: Date::default() });
+    people::pro_rulings_day(&mut w, d);
+    assert!(w.market.cases.is_empty());
+    assert_eq!(record(&w, a), PastCase { kind: Trouble::Ped, day: today, games: Some(6), again: false });
+    assert_eq!(w.people[a].pro.as_ref().unwrap().suspended, 6);
+    assert_eq!(record(&w, b), PastCase { kind: Trouble::Theft, day: today, games: Some(0), again: false });
+    assert_eq!(record(&w, c), later);
+    assert_eq!(record(&w, e), PastCase { kind: Trouble::Ped, day: d, games: Some(6), again: false });
+    // An appeal that cuts the games is written in.
+    give_case(&mut w, f, PastCase { kind: Trouble::Assault, day: today, games: Some(4), again: false });
+    w.people[f].pro.as_mut().unwrap().suspended = 4;
+    w.folk.courts.open.push(courts::Case {
+        id: w.people[f].player.id,
+        level: Level::Nfl,
+        what: Trouble::Assault.words().to_string(),
+        opened: d,
+        next: d,
+        step: courts::Step::Appeal { games: 4 },
+        guilty: false,
+        outcome: None,
+    });
+    courts::day(&mut w, d);
+    assert_eq!(w.people[f].pro.as_ref().unwrap().suspended, 3);
+    assert_eq!(record(&w, f).games, Some(3));
+    // A save from before the record loads with none, and its open cases
+    // with no opening day.
+    let mut old = serde_json::to_value(w.people[a].pro.as_ref().unwrap()).unwrap();
+    assert!(old.as_object_mut().unwrap().remove("case").is_some());
+    let career: pro::ProCareer = serde_json::from_value(old).unwrap();
+    assert!(career.case.is_none());
+    let case: Case =
+        serde_json::from_value(serde_json::json!({ "person": 1, "kind": "Dui", "ruling": 10, "guilty": true }))
+            .unwrap();
+    assert_eq!(case.opened, Date::default());
+}
