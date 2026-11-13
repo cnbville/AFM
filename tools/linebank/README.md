@@ -39,7 +39,7 @@ A second job on the same machinery (Cain: 20,000 versions for the recruiting one
 - A `--parts key:count,...` run fills only those parts (their pool counts against the given count): use it to aim a round at parts that are still empty, since a cap-trimmed round otherwise takes the biggest shortfalls first.
 - `check.py` adds: no untagged we, us or our, no coach names, no tag word written into a line, and one key phrase never used as a refrain (a phrase shared by too many lines of a part).
 - A level never reaches this family: the tag `college` means the transfer side, and the level-word rules are off for it.
-- The worst case of a round has to fit under `--cap` minus $2, so a round trimmed by the cap is the last; start `run` again to continue. The cost came to $10.92 for 12,253 versions (`docs/design/recruit-talk-lines.md`).
+- The worst case of a round has to fit under `--cap` minus $2, so a round trimmed by the cap is the last; start `run` again to continue. The first run cost $10.92 for 12,253 versions, the top-up (Cain 2026-11-13) $8.75 for 5,707 more: 17,960 for $19.67 (`docs/design/recruit-talk-lines.md`). A top-up reads best with more facets for the thin parts first (the first run showed near copies come back when a part is asked the same way); `--rounds 1` stops after one round.
 - `python3 recruit20k.py --doc <path>` writes the part list (who says each key, what it takes as true, its facts).
 
 ## After the run

@@ -293,8 +293,12 @@ class Checker:
             for t in nd & ECHO:
                 if re.search(r'\b' + t[:5], low):
                     why.append(f'writes the tag word "{t}" into the line')
+            if TIME_OF_DAY.search(low):
+                why.append('names a time of day or a day')
+            if KID_COUNT.search(low):
+                why.append('counts his sons, boys or brothers')
         if p.who == 'recruit':
-            why += recruit_side(nd, text, low)
+            why += recruit_side(key, nd, text, low)
         # Facts.
         found = re.findall(r'\{([^}]*)\}', text)
         for f in found:
@@ -460,13 +464,26 @@ SELF_WORDS = re.compile(r"\b(i'?m (seventeen|17|a (junior|senior))|my (junior|se
 
 # The example name the briefs show ("Coach Reed") must never be written into a line: you are {coach}.
 COACH_NAME = re.compile(r"\bCoach [A-Z][a-z]+|\bReed\b")
+# What the top-up's checker kept flagging (2026-11-13): a greeting by time of day, a day or a frequency, and how many
+# sons a parent has. None of it is a stored fact.
+TIME_OF_DAY = re.compile(r"\b(good )?(morning|afternoon|evening|tonight)\b|\bevery (day|night|friday|saturday|"
+                         r"sunday|game|morning|weekend)\b|\bfor years\b|\blast (week|night)\b")
+KID_COUNT = re.compile(r"\b(both|two|three|my other|one more|second|other) (of )?(my |our |his )?(sons?|boys?|kids?|"
+                       r"grandsons?|brothers?)\b|\b(raised|have|had) (two|three|four) (boys|sons|kids)\b")
 WE = re.compile(r"\b(we|we're|we've|we'll|we'd|us|our|ours)\b")
 # A trait tag's own word in the line ("I'm not greedy", "I'm a competitor"): the tag is the reason he can say
 # it, not the thing he says.
 ECHO = {'ego', 'humble', 'leader', 'quiet', 'loyal', 'greedy', 'loose', 'shaky', 'steady', 'competitor'}
 
 
-def recruit_side(nd, text, low):
+# Parts about the recruit's own life: a line there that says "I", "my" or "me" about him is true of only one side
+# (a transfer or the recruit himself says it, a parent says "my son"), so it must carry that side's tag. An untagged
+# line in these parts is neutral: a question, a reaction, a statement about you or about "the kid".
+OWN_LIFE = ('recruit.bg.', 'recruit.committed.', 'recruit.other.', 'recruit.want.', 'recruit.visit.')
+FIRST = re.compile(r"\b(i|i'm|i've|i'd|i'll|my|mine|myself)\b|\b(to|for|about|with|at|from|on) me\b|\b\w+ed me\b")
+
+
+def recruit_side(key, nd, text, low):
     """The union speaker of the recruiting talks: a family side and a transfer side that never meet on a line."""
     out = []
     if nd & FAMILY_SIDE and nd & TRANSFER_SIDE:
@@ -479,6 +496,8 @@ def recruit_side(nd, text, low):
         out.append('a parent style on the recruit himself')
     if not nd & (FAMILY_SIDE | TRANSFER_SIDE) and WE.search(low):
         out.append('we, us or our on a line both sides say')
+    if key.startswith(OWN_LIFE) and not nd & (FAMILY_SIDE | TRANSFER_SIDE) and FIRST.search(low):
+        out.append('I, my or me on a line both sides say, in a part about his own life')
     if '{name}' in text and not nd & {'parent', 'grandparent', 'handler'}:
         out.append('{name} is said by a parent, grandparent or handler only')
     if TRANSFER_WORDS.search(low) and 'college' not in nd:
