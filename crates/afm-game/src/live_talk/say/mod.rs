@@ -319,6 +319,7 @@ pub fn read(w: &World, s: &Scene, v: &Value, keys: &Keys, words: &str) -> Option
             condition: f("condition", &CONDITIONS),
             condition_words: p.get("condition_words").and_then(Value::as_str).unwrap_or("").chars().take(120).collect(),
             against: person(p.get("against").and_then(Value::as_str)),
+            claim: None,
         })
     });
     let named =

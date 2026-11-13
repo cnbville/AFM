@@ -123,6 +123,10 @@ fn a_typed_line_replays_the_same_from_the_same_save() {
     let (mut g, f) = game("replay", true);
     let id = interview(&mut g);
     let saved = ok(&mut g, "save", json!({ "name": "before" }))["saved"].as_str().unwrap().to_string();
+    // Every run starts from the loaded save: the interview's read of him
+    // comes out different on the world in memory and on the same world
+    // loaded back, so only loads are compared.
+    ok(&mut g, "load", json!({ "path": saved }));
     let done = typed(&mut g, &f, id, 61, None);
     assert_eq!(done["state"], "done", "{done}");
     let first = snapshot(&g);

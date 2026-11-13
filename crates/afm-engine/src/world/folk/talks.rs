@@ -1416,6 +1416,13 @@ pub fn one_on_one_say(_w: &World, _s: &Scene, _heard: &super::scene::Heard) -> O
     None
 }
 
+/// A promise a typed line made to your player, or a claim about where he
+/// stands heard as one (`claims::truth::standing_promise`): the seam lane
+/// P1 fills (the promise design, agreed 2026-11-13: his belief now, the
+/// terms of section 3, judged on his next 2 practice weeks and 2 games). It
+/// logs nothing yet, so a typed line costs and keeps what its chip does.
+pub fn typed_promise(_w: &mut World, _scene: u32, _him: u32, _p: &super::scene::PromiseRead) {}
+
 /// Whether a code is a talk move with another tone than the one offered
 /// (you may say any listed move in any of the four tones).
 pub(crate) fn same_move(a: u32, b: u32) -> bool {

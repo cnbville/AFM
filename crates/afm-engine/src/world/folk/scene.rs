@@ -266,6 +266,10 @@ pub struct PromiseRead {
     pub condition_words: String,
     /// The teammate he would play ahead of, by id.
     pub against: Option<u32>,
+    /// The claim it was heard from, when the line stated where he stands
+    /// rather than promising it in so many words (the promise design,
+    /// section 11: "you're my starter" is a promise about what he'll see).
+    pub claim: Option<super::claims::Stated>,
 }
 
 /// A game plan ask read from a typed line (lane 6's staff meeting).
@@ -570,7 +574,17 @@ pub fn say(w: &mut World, id: u32, mut heard: Heard, confirmed: bool) -> Result<
     }
     heard.pick = code;
     heard.len = heard.words.chars().count().min(u16::MAX as usize) as u16;
-    land(w, id, code, Some(heard))
+    // A claim about where your player stands is a promise about what he'll
+    // see (the promise design, section 11).
+    if let Some(p) = super::claims::truth::standing_promise(w, s, &heard) {
+        heard.promise = Some(p);
+    }
+    let promise = heard.promise.clone().zip(super::claims::truth::your_player(w, s));
+    let out = land(w, id, code, Some(heard))?;
+    if let Some((p, him)) = promise {
+        super::talks::typed_promise(w, id, him, &p);
+    }
+    Ok(out)
 }
 
 /// Lands an answer, clicked (`heard` none) or typed. The scene is written

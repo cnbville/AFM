@@ -7,18 +7,21 @@
 //! only check on a later day, and each agent's and GM's trust in your
 //! word.
 //!
-//! What a lie costs when he sees it is not set here. Cain rejected the
-//! overnight pick on it (2026-11-13 10:09 UTC: players never see the depth
-//! chart, and a promise is judged on his belief and can carry conditions).
-//! Its replacement waits on his answers (`afm/promises/proposal.md`,
-//! sections 2, 4 and 11). So the daily check finds the lies that come due
-//! and hands each to `judge`, which marks it seen and costs nothing yet:
-//! that is the seam the promise design fills. No lane files a lie yet
-//! (lanes 9 and 10 do), so nothing changes in any world today.
+//! A claim about where he stands ("you're my starter", "you're ahead of
+//! him") is a promise about what he'll see (`afm/promises/proposal.md`,
+//! section 11, agreed by Cain 2026-11-13 16:29 UTC, replacing the rejected
+//! pick 7): `standing_promise` hears it as one, `scene::say` hands it to
+//! `talks::typed_promise`, and lane P1 fills that seam (his belief now,
+//! judged on his next 2 practice weeks and 2 games). A claim he can only
+//! check later (a NIL number at signing) is a lie saved here, judged on its
+//! day by `judge`, which costs nothing until P1 fills it too. No lane files
+//! a lie yet (lanes 9 and 10 do), so nothing changes in any world today.
 
 use crate::calendar::Date;
 use crate::world::World;
+use crate::world::folk::scene::{Heard, PromiseRead, Scene, Who};
 use crate::world::folk::talks::PromiseTo;
+use crate::world::folk::{Team, person};
 
 /// The kinds of fact a typed line can state, as the reader labels them.
 /// The reader's schema lists exactly these.
@@ -37,6 +40,11 @@ pub const CLAIM_KINDS: [&str; 13] = [
     "interest",
     "record",
 ];
+
+/// The kinds that say where he stands: his place on the chart, who is
+/// ahead of him, his role, his snaps, his touches. Said to your own player
+/// about himself, each is a promise about what he'll see (section 11).
+pub const STANDING: [&str; 5] = ["depth_rank", "ahead_of_him", "role", "snaps_share", "touches"];
 
 /// A fact stated in a typed line, as the reader labelled it. The AI never
 /// says whether it is true: the game checks it (`check::fact`).
@@ -165,9 +173,55 @@ pub(crate) fn check_lies(w: &mut World, d: Date) {
     }
 }
 
-/// What a lie costs when he sees it: the seam the promise design fills
-/// (`afm/promises/proposal.md`, section 11; Cain rejected the overnight
-/// pick). Until his answers, a lie that comes due costs nothing. When it
-/// is filled, it goes through `talks::settle_word`, the same code a broken
-/// promise's cost runs through, with `Reason::LieSeen`.
+/// What a lie costs when he sees it: the seam lane P1 fills (the promise
+/// design, section 11: a broken promise's cost scaled by his belief). Until
+/// then a lie that comes due costs nothing. When it is filled, it goes
+/// through `talks::settle_word`, the same code a broken promise's cost runs
+/// through, with `Reason::LieSeen`.
 fn judge(_w: &mut World, _lie: &Lie) {}
+
+/// The player a scene is with, when he is on your team: the only one a
+/// claim about where he stands is a promise to.
+pub fn your_player(w: &World, s: &Scene) -> Option<u32> {
+    let seat = Team::seat(w)?;
+    s.who.iter().find_map(|x| match x {
+        Who::Player(id) => person(w, *id).filter(|&i| super::team_of(w, i) == Some(seat)).map(|_| *id),
+        _ => None,
+    })
+}
+
+/// Whether a stated fact says where `him` stands: a standing kind about
+/// him (or about no one named), or who is ahead of him.
+pub fn is_standing(f: &Stated, him: u32) -> bool {
+    STANDING.contains(&f.kind.as_str()) && (f.about.is_none() || f.about == Some(him) || f.kind == "ahead_of_him")
+}
+
+/// A typed line's claim about where your player stands, heard as the
+/// promise it is (section 11): the first such claim, when the line made no
+/// promise of its own. Its terms are what he'll see: a start for a first
+/// place on the chart, else his place; playing ahead of a named teammate; a
+/// role (a package or a share of snaps); touches. The claim rides along
+/// for P1 (`PromiseRead.claim`); by when is left empty, since the judging
+/// window is his next 2 practice weeks and 2 games.
+pub fn standing_promise(w: &World, s: &Scene, heard: &Heard) -> Option<PromiseRead> {
+    if heard.promise.is_some() {
+        return None;
+    }
+    let him = your_player(w, s)?;
+    let f = heard.facts.iter().find(|f| is_standing(f, him))?;
+    let v = f.value.to_lowercase();
+    let first = ["start", "1st", "first", "the ones", "number one", "no. 1"].iter().any(|x| v.contains(x));
+    let kind = match f.kind.as_str() {
+        "depth_rank" if first => "start",
+        "depth_rank" => "place",
+        "ahead_of_him" => "ahead_of",
+        "touches" => "touches",
+        _ => "role",
+    };
+    Some(PromiseRead {
+        kind: kind.to_string(),
+        against: f.about.filter(|&a| a != him),
+        claim: Some(f.clone()),
+        ..PromiseRead::default()
+    })
+}

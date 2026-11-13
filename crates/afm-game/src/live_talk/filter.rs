@@ -148,9 +148,9 @@ pub fn numbers(t: &str) -> Vec<u64> {
     for w in words(t) {
         let parts: Vec<u64> =
             w.split('-').filter_map(|p| NUMBER_WORDS.iter().find(|(name, _)| *name == p).map(|x| x.1)).collect();
+        // "ninety-nine" is 99 alone, never 90 and 9.
         if !parts.is_empty() {
             out.push(parts.iter().sum());
-            out.extend(parts.iter().copied());
         }
     }
     out

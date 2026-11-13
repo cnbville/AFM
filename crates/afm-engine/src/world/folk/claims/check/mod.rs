@@ -21,8 +21,16 @@ use super::truth::{Stated, Truth};
 use crate::world::World;
 use crate::world::folk::scene::{Kind, Scene};
 
-/// Checks one fact stated in a typed line in a scene.
+/// Checks one fact stated in a typed line in a scene. A claim about where
+/// your player stands is about what he'll see, so it reads "later": it is
+/// heard as a promise and judged on its days (the promise design, section
+/// 11), never against the staff's chart.
 pub fn fact(w: &World, s: &Scene, stated: &Stated) -> Truth {
+    if let Some(him) = super::truth::your_player(w, s)
+        && super::truth::is_standing(stated, him)
+    {
+        return Truth::Later;
+    }
     match s.kind {
         Kind::HomeVisit | Kind::PortalCall | Kind::PortalVisit | Kind::SigneeRelease => recruit::check(w, s, stated),
         Kind::Gm | Kind::BossFirst | Kind::BossMeeting => money::check(w, stated),

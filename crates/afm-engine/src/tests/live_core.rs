@@ -8,11 +8,11 @@
 use super::legacy::seat;
 use crate::calendar::Weekday;
 use crate::player::PlayingTime;
-use crate::world::World;
 use crate::world::coach::{Group, Role};
 use crate::world::folk::scene::{self, Heard, Kind, Pick, PickKind, Scene, Who};
 use crate::world::folk::talks::{self, PromiseKind, PromiseTo, Reason};
 use crate::world::folk::{Team, finals, staffing};
+use crate::world::{Stage, World};
 
 /// A coach who isn't on your staff.
 fn outsider(w: &World) -> usize {
@@ -204,7 +204,7 @@ fn heard_rides_on_the_scene_for_one_answer_only() {
     scene::say(&mut w, id, h, false).unwrap();
     assert!(w.folk.scenes.iter().all(|s| s.heard.is_none()), "cleared right after the dispatch");
     // A save never carries it.
-    let back: World = rmp_serde::from_slice(&rmp_serde::to_vec(&w).unwrap()).unwrap();
+    let back: World = rmp_serde::from_slice(&rmp_serde::to_vec_named(&w).unwrap()).unwrap();
     assert!(back.folk.scenes.iter().all(|s| s.heard.is_none()));
     let s = back.folk.scenes.iter().find(|s| s.id == id).unwrap();
     assert!(s.lines.iter().any(|l| l.typed.is_some()), "your words are saved with the line");
@@ -217,8 +217,7 @@ fn heard_rides_on_the_scene_for_one_answer_only() {
 fn the_lies_store_waits_for_the_promise_design() {
     use crate::world::folk::claims::{self, Lie, Stated};
     let mut w = seat("college");
-    let i = Team::seat(&w).unwrap().roster(&w)[0];
-    let id = w.people[i].player.id;
+    let (i, id) = backup(&mut w);
     let (trust, mood, straight) = (w.people[i].trust, w.people[i].mood, w.folk.mine.straight);
     let fact = Stated { kind: "depth_rank".into(), about: Some(id), value: "starter".into() };
     let today = w.today;
@@ -246,10 +245,21 @@ fn the_lies_store_waits_for_the_promise_design() {
     assert_eq!(Reason::from_u8(Reason::RecruitLie as u8), Reason::RecruitLie);
 }
 
-/// A player on your roster who isn't a starter, and the next weekday that
-/// isn't a Monday.
+/// A sophomore put on your college roster as a backup (a world from
+/// `World::empty` has no college players), by index and id.
 fn backup(w: &mut World) -> (usize, u32) {
-    let i = Team::seat(w).unwrap().roster(w)[0];
+    let p = w.seat.and_then(|s| s.program).unwrap();
+    w.add_class_aged(19);
+    let year = w.year;
+    let i = (0..w.people.len()).find(|&i| w.people[i].stage == Stage::HighSchool).unwrap();
+    {
+        let q = &mut w.people[i];
+        q.stage = Stage::College;
+        q.college = Some(p);
+        q.class_of = year - 1;
+        q.college_seasons = 1;
+    }
+    w.programs[p].roster.push(i);
     let id = w.people[i].player.id;
     w.people[i].last_role = Some(PlayingTime::Backup);
     for (_, ids) in w.seat_depth.iter_mut() {
@@ -299,4 +309,43 @@ fn a_promise_costs_what_it_cost_before_the_move() {
     assert_eq!(w.folk.promises[k].kept, Some(true));
     assert!((w.people[i].trust - 0.7).abs() < 1e-6);
     assert!((w.folk.mine.straight - (straight + 0.04).min(1.0)).abs() < 1e-6);
+}
+
+#[test]
+fn a_claim_about_where_he_stands_is_heard_as_a_promise() {
+    use crate::world::folk::claims::{self, Stated, Truth};
+    use crate::world::folk::scene::PromiseRead;
+    let mut w = seat("college");
+    let (_, id) = backup(&mut w);
+    let mut s = bare(Kind::Discipline, vec![pick(500)], Vec::new());
+    s.who = vec![Who::Player(id)];
+    let mut h = typed(500, "You're still my starter. Nobody's taking that.");
+    let starter = Stated { kind: "depth_rank".into(), about: Some(id), value: "starter".into() };
+    h.facts = vec![starter.clone()];
+    let p = claims::truth::standing_promise(&w, &s, &h).expect("heard as a promise");
+    assert_eq!((p.kind.as_str(), p.claim.as_ref()), ("start", Some(&starter)));
+    assert!(p.by.is_empty(), "judged on his next 2 practice weeks and 2 games, by P1");
+    assert_eq!(claims::check::fact(&w, &s, &starter), Truth::Later, "about what he'll see, never the staff's chart");
+    // Ahead of a named teammate, a package, touches.
+    let mate = id.wrapping_add(1);
+    for (kind, about, want) in
+        [("ahead_of_him", Some(mate), "ahead_of"), ("role", None, "role"), ("touches", Some(id), "touches")]
+    {
+        h.facts = vec![Stated { kind: kind.into(), about, value: "x".into() }];
+        let p = claims::truth::standing_promise(&w, &s, &h).unwrap();
+        assert_eq!(p.kind, want, "{kind}");
+        assert_eq!(p.against, if kind == "ahead_of_him" { Some(mate) } else { None }, "{kind}");
+    }
+    // What he can check now isn't one, and a promise said as one stays as said.
+    h.facts = vec![Stated { kind: "stat".into(), about: Some(id), value: "212 yards".into() }];
+    assert!(claims::truth::standing_promise(&w, &s, &h).is_none());
+    h.facts = vec![starter.clone()];
+    h.promise = Some(PromiseRead { kind: "touches".into(), ..PromiseRead::default() });
+    assert!(claims::truth::standing_promise(&w, &s, &h).is_none());
+    // Only to your own player: a high schooler elsewhere hears no promise.
+    let kid = w.people.iter().find(|p| p.stage == Stage::HighSchool).unwrap().player.id;
+    s.who = vec![Who::Player(kid)];
+    h.promise = None;
+    assert!(claims::truth::standing_promise(&w, &s, &h).is_none());
+    assert_eq!(claims::check::fact(&w, &s, &starter), Truth::Unknown);
 }
