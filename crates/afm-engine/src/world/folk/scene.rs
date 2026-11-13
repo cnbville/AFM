@@ -674,7 +674,11 @@ pub fn hand(w: &mut World, id: u32) -> Result<Scene, String> {
     }
     if !s.opened {
         s.opened = true;
-        dispatch_open(w, &mut s);
+        // A recruit talk you never opened is your staff's alone: opening it
+        // would put his first question and the news on your own file.
+        if !matches!(s.kind, Kind::HomeVisit | Kind::PortalCall | Kind::PortalVisit) {
+            dispatch_open(w, &mut s);
+        }
     }
     dispatch_hand(w, &mut s);
     s.done = true;
@@ -685,6 +689,24 @@ pub fn hand(w: &mut World, id: u32) -> Result<Scene, String> {
         *slot = s.clone();
     }
     Ok(s)
+}
+
+/// Ends a scene you left open without handing it on: `end` writes what
+/// it came to, and what was said stands.
+pub(crate) fn leave(w: &mut World, id: u32, end: impl FnOnce(&mut World, &mut Scene)) {
+    let Some(k) = w.folk.scenes.iter().position(|s| s.id == id) else { return };
+    let mut s = w.folk.scenes[k].clone();
+    if s.done {
+        return;
+    }
+    end(w, &mut s);
+    s.done = true;
+    s.picks.clear();
+    clear_mark(w, &s);
+    log_scene(w, &s);
+    if let Some(slot) = w.folk.scenes.iter_mut().find(|x| x.id == id) {
+        *slot = s;
+    }
 }
 
 /// The meetings waiting for you on a morning: Continue stops for them.

@@ -93,6 +93,9 @@ const BANKS: &[&str] = &[
     // the press on a case's step, the boss on the season's pace, a
     // booster, the old coach and the GM answering as who they are.
     include_str!("../../../data/lines/outside_facts.txt"),
+    // The recruit and portal conversation (talk facts lane L5): hand-written
+    // lines for its most common new parts until the bank run fills them.
+    include_str!("../../../data/lines/recruit_case.txt"),
 ];
 
 /// The facts that gate a line which denies (`blameless`) or admits

@@ -2354,7 +2354,10 @@ fn team_talk_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     // A tone used too often wears out (topic 5).
     let t = tone_index(tone) as u8;
     let worn = w.folk.mine_tones.iter().rev().take(4).filter(|&&x| x == t).count();
-    let won = super::facts::last_game(w, team).map(|x| x.0);
+    // Praise after a loss and a challenge after a win read only this
+    // week's game (`facts::fresh_game`, 7 days): a January loss is not what
+    // the room hears in April (talk facts item 30; Cain's yes 2026-11-13).
+    let won = super::facts::fresh_game(w, team).map(|x| x.0);
     let mut weight = 0.5 * (1.0 - 0.22 * worn as f32);
     if code == 204 && won == Some(false) {
         weight *= -0.4;

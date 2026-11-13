@@ -602,7 +602,7 @@ fn last_game_on(w: &World, team: Team) -> Option<(Date, (bool, i32, i32, Team))>
 
 /// Your team's last game kept whole: (won, our points, theirs, opponent).
 /// It carries no check on its age: it is the January game in April too.
-/// Words must read `fresh_game` instead.
+/// Words, and the team talk's tone, must read `fresh_game` instead.
 pub fn last_game(w: &World, team: Team) -> Option<(bool, i32, i32, Team)> {
     last_game_on(w, team).map(|x| x.1)
 }

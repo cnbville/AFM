@@ -387,6 +387,16 @@ fn a_point_counts_once_then_half_then_a_quarter() {
     assert_eq!(t.again(d.add(3), 9, &strong), 1.0, "the fact got better");
     t.note(d.add(3), 9, &strong, true, "pitch");
     assert_eq!(t.again(d.add(5), 9, &strong), 0.25, "its second repeat");
+    // A talk with an id is one talk however many days it stays open, and
+    // two talks on one day are two (a call, then the sit-down).
+    let role = Point::new(Kind::Role).proof(0.8, Tier::Elite, 3);
+    t.note_in(d, 41, 11, &role, true, "pitch");
+    assert!(t.in_talk(d.add(1), 41, 11, &role), "the call left open overnight");
+    assert_eq!(t.again_in(d.add(1), 41, 11, &role), 0.0);
+    assert!(!t.in_talk(d, 42, 11, &role), "the sit-down that evening");
+    assert_eq!(t.again_in(d, 42, 11, &role), 0.5);
+    t.note_in(d, 42, 11, &role, true, "pitch");
+    assert_eq!(t.again_in(d.add(1), 43, 11, &role), 0.25);
     // Kept for a season.
     let later = d.add(claims::KEEP_DAYS + 9);
     assert_eq!(t.again(later, 7, &game), 1.0);

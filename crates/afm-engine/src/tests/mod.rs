@@ -51,6 +51,7 @@ mod portal_recruiting;
 mod portal_talks;
 mod praise;
 mod ratings;
+mod recruit_case;
 mod rooms;
 mod roster_moves;
 mod sandbox;
