@@ -241,10 +241,11 @@
 .sb-chip.v-strength { --vc: var(--sb-strength); --vt: #9cbcf5; }
 .sb-stage .sb-chip { font-size: 1.15cqw; }
 .sb-side-l { position: absolute; z-index: 2; left: 18px; font-size: 10.5px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: rgba(255, 255, 255, .55); }
-.sb-side-l.def { top: 30%; }
-.sb-side-l.off { bottom: 22%; }
-.sb-legend { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-left: auto; font-size: 11.5px; color: var(--sb-dim); }
+.sb-side-l.def { top: 3%; }
+.sb-side-l.off { bottom: 3%; }
+.sb-legend { justify-content: flex-end; display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-left: auto; font-size: 11.5px; color: var(--sb-dim); }
 .sb-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.sb-legend-n { flex-basis: 100%; text-align: right; font-size: 11px; color: var(--sb-dim); }
 .sb-legend i { width: 10px; height: 10px; border-radius: 3px; }
 i.v-hole { background: var(--sb-hole); }
 i.v-thin { background: var(--sb-thin); }
@@ -467,6 +468,13 @@ i.v-strength { background: var(--sb-strength); }
   .sb-years { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .sb-years .sb-leave { grid-column: 1 / -1; }
 }
+.sb-ptl { border-radius: 18px; padding: 12px 16px; background: var(--sb-card); box-shadow: inset 0 0 0 1px var(--sb-line); font-size: 12.5px; color: var(--sb-text2); }
+.sb-ptl-r { display: grid; grid-template-columns: 150px repeat(2, minmax(0, 1fr)); gap: 10px; padding: 5px 0; border-top: 1px solid var(--sb-line); }
+.sb-ptl-r b { color: var(--sb-text); } .sb-ptl-r small { color: var(--sb-dim); font-weight: 500; }
+.sb-ptl-h { border-top: 0; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--sb-dim); }
+/* The needs map keeps its side panel beside the field down to a narrow window. */
+@media (max-width: 1200px) { .sb-dc.sb-dc-needs { grid-template-columns: minmax(0, 1fr) 250px; } .sb-dc-needs .sb-side { position: sticky; top: 0; } }
+@media (max-width: 900px) { .sb-dc.sb-dc-needs { grid-template-columns: minmax(0, 1fr); } .sb-ptl-r { grid-template-columns: 110px repeat(2, minmax(0, 1fr)); } }
 @media (prefers-reduced-motion: reduce) {
   .sb-plate, .sb-chip { transition: none; }
 }
