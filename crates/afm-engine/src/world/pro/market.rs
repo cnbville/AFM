@@ -422,13 +422,13 @@ pub const CASE_CAP: f64 = 0.15;
 /// working paper (Weiss) found no change in total pay after an arrest. The
 /// men it does cost are role players: Michael Floyd's $1.5M year in 2017
 /// after a DUI, Junior Galette at the minimum in 2015, Greg Hardy's 2015
-/// deal that paid by the game. Stars kept their
-/// price (Tyreek Hill's 2019 extension, Ezekiel Elliott's in 2019). So the
-/// share is small, shrinks with how good the club thinks he is, and fades.
+/// deal that paid by the game. Stars kept their price (Tyreek Hill's 2019
+/// extension, Ezekiel Elliott's in 2019). So the share is small, shrinks
+/// with how good the club thinks he is, and fades.
 ///
 /// Every size is proposed, not confirmed:
-/// - by kind: 10% for a domestic case from 2015 (the league's six-game
-///   policy of December 2014), 6% for the other violent ones (assault,
+/// - by kind: 10% for a domestic case of 2015 or later (the league's
+///   six-game policy of December 2014), 6% for the other violent ones (assault,
 ///   weapons, a domestic case before 2015), 4% for the rest (DUI, drugs,
 ///   PEDs, gambling, theft);
 /// - 0.4 of that when the league ended the case without a suspension;
@@ -448,7 +448,7 @@ pub(crate) fn case_cut(w: &World, t: usize, i: usize, rel: f64) -> f64 {
         return 0.0;
     }
     let kind = match pc.kind {
-        Trouble::Domestic if w.year >= 2015 => 0.10,
+        Trouble::Domestic if pc.day.year() >= 2015 => 0.10,
         Trouble::Domestic | Trouble::Assault | Trouble::Weapons => 0.06,
         _ => 0.04,
     };

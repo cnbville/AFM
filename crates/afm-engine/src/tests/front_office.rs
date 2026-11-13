@@ -398,11 +398,16 @@ fn the_off_field_price_is_small_capped_and_fades() {
     assert!(near(cut(&mut w, Trouble::Domestic, Some(6), true, 60.0, 0), market::CASE_CAP));
     w.clubs[t].office.gm.risk = 1.0;
     assert!(near(cut(&mut w, Trouble::Dui, None, false, 72.0, 0), 0.03));
-    // A domestic case before the league's 2014 policy weighed as any
-    // violent one.
+    // A domestic case before the league's 2014 policy weighs as any
+    // violent one, whenever he is priced.
     w.clubs[t].office.gm.risk = 0.5;
-    w.year = 2010;
-    assert!(near(cut(&mut w, Trouble::Domestic, Some(2), false, 72.0, 0), 0.06));
+    give_case(
+        &mut w,
+        i,
+        PastCase { kind: Trouble::Domestic, day: crate::calendar::Date::ymd(2014, 6, 1), games: Some(2), again: false },
+    );
+    w.today = crate::calendar::Date::ymd(2015, 3, 1);
+    assert!(near(market::case_cut(&w, t, i, 72.0), 0.06));
     // No record, no cut.
     w.people[i].pro.as_mut().unwrap().case = None;
     assert_eq!(market::case_cut(&w, t, i, 72.0), 0.0);

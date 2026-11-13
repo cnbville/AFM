@@ -78,7 +78,7 @@ Paths are relative to `crates/afm-engine/src/`. "Proposed, not confirmed" sizes 
   - A pet position: x1.1.
   - After a bad year (fans under -0.3) an owner adds a splash for an 82+ player (+10% x his PR trait).
   - A recent off-field case (live talks lane 8; every size proposed, not confirmed): the price falls by kind x ruling x how recent x leeway x repeat x the GM, at most 15% (`CASE_CAP`), never below the minimum (`case_cut`). The club's read stays as it was, because the depth chart, the squad's cuts and signings run on it. Every reader of the price feels it: offers, re-signs, tags, extensions, options, offer sheets, matching, cuts for room, bluffs believed and trade points.
-    - Kind: 10% for a domestic case from 2015 (the six-game policy of December 2014), 6% for assault, weapons or a domestic case before 2015, 4% for DUI, drugs, PEDs, gambling and theft.
+    - Kind: 10% for a domestic case that happened in 2015 or later (the six-game policy of December 2014), 6% for assault, weapons or a domestic case before 2015, 4% for DUI, drugs, PEDs, gambling and theft.
     - Ruling: x0.4 when the league ended the case with no suspension. An open case counts in full.
     - How recent: full for a year from the day it happened, then down in a straight line to nothing at three years (`world/people.rs`, `PastCase::recent`, `CASE_FULL_DAYS`, `CASE_GONE_DAYS`).
     - Leeway: full at a market grade of 72 (the last starter's level) and below, down to a quarter at 84 (the top quarter of the starters) and above.
