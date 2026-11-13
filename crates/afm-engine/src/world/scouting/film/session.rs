@@ -1443,7 +1443,12 @@ fn finish(w: &mut World, s: Session, verdict: Option<u8>, read_says: bool) -> St
                     .filter(|(k, _)| !s.seen[*k].is_empty())
                     .flat_map(|(_, sn)| sn.others.iter().copied())
                     .collect();
-                if let Some(f) = super::finds::pop(w, id, &others, watched, e) {
+                let gave = super::finds::Watch {
+                    caught: &catches,
+                    games: seen_games(w, &s).len(),
+                    live: s.mode == Mode::Live,
+                };
+                if let Some(f) = super::finds::pop(w, id, &others, watched, e, &gave) {
                     caught_lines.push(f);
                 }
             }

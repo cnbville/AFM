@@ -259,6 +259,34 @@ pub fn own_read_with(
     out
 }
 
+/// What `n` looks of yours of one kind read of him today, each rating's
+/// sd (None where the look doesn't show it): for a kind on tape, the tape
+/// read `own_read_with` joins your catches to. `film::finds` sizes a catch
+/// off another man's tape from it (minor bug 379).
+pub(super) fn tape_sd(w: &World, staff: Staff, id: u32, kind: Kind, n: usize) -> Vec<Option<f64>> {
+    let mut out = vec![None; crate::attributes::ATTRIBUTE_COUNT];
+    let (Some(i), Some(you)) = (super::place(w, id), readers::you(w)) else { return out };
+    let group = crate::world::coach::Group::of(w.people[i].player.position) as usize;
+    let Some(mut rd) = readers::reader(w, staff, readers::COACH + you as u32, group) else { return out };
+    rd.say = 1.0;
+    rd.key ^= TAPE_KEY;
+    let lk = vec![file::Evidence { reader: 0, kind, date: w.today }; n.max(1)];
+    let f = file::read_in(
+        w,
+        i,
+        std::slice::from_ref(&rd),
+        &lk,
+        Some(lk.as_slice()),
+        &readers::norms(w, i),
+        readers::medical_rating(w, staff),
+        Some(w.today),
+    );
+    for (o, r) in out.iter_mut().zip(f.per_reader.first().map_or(&[][..], Vec::as_slice)) {
+        *o = r.map(|x| x.1);
+    }
+    out
+}
+
 /// The club file's copy of a look of yours (minor bug 352): the kind the
 /// club's file gives it beside the look under your name the same day (the
 /// film room's watches and the hunt's games as film, a trip or an asked
@@ -284,7 +312,14 @@ fn copies(club: Kind, yours: Kind) -> bool {
 fn on_tape(k: Kind) -> bool {
     matches!(
         k,
-        Kind::Film | Kind::CrossCheck | Kind::Director | Kind::Gm | Kind::HsFilm | Kind::CollegeFilm | Kind::ProFilm
+        Kind::Film
+            | Kind::CrossCheck
+            | Kind::Director
+            | Kind::Gm
+            | Kind::HsFilm
+            | Kind::CollegeFilm
+            | Kind::ProFilm
+            | Kind::SideFilm
     )
 }
 

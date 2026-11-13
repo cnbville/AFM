@@ -1,0 +1,9 @@
+{"type":"object","additionalProperties":false,"required":["move","tone","subject","promise","claims","named","fit"],
+"properties":{
+"move":{"type":"string","enum":["ask","straight","praise","challenge","criticize","promise","warn","hand","listen"]},
+"tone":{"type":"string","enum":["fiery","warm","firm","calm"]},
+"subject":{"type":"string","enum":["role","touches","money","behavior","life","team","future","friend"]},
+"promise":{"type":["object","null"],"additionalProperties":false,"required":["kind","horizon"],"properties":{"kind":{"type":"string","enum":["start","snaps","contract","stay","place"]},"horizon":{"type":"string","enum":["next_game","this_season","next_season"]}}},
+"claims":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["kind","player","value"],"properties":{"kind":{"type":"string","enum":["depth_rank","ahead_of_him","role","snaps_share","touches","nil_amount","injury","status"]},"player":{"type":"string"},"value":{"type":"string"}}}},
+"named":{"type":"array","items":{"type":"string"}},
+"fit":{"type":"string","enum":["clear","unsure","not_a_line"]}}}

@@ -46,6 +46,18 @@ pub fn guess(w: &World, i: usize, a: Attr) -> (f64, f64) {
     (clamp(p.player.attributes.get(a) + v, 1.0, 99.0), GUESS_SD * vis)
 }
 
+/// How far a man seen on someone else's tape is read (Cain 2026-11-12,
+/// minor bug 379: "keep it 75"): three quarters of the way a look at his
+/// own tape narrows him from the wide guess.
+pub const SIDE_SHARE: f64 = 0.75;
+
+/// A read from someone else's tape: `sd` is what the same look at his own
+/// tape reads, `wide` what no look reads (the wide guess). It closes
+/// `SIDE_SHARE` of the gap between them, and is never tighter than `sd`.
+pub fn side(sd: f64, wide: f64) -> f64 {
+    sd + (1.0 - SIDE_SHARE) * (wide - sd).max(0.0)
+}
+
 /// How sharp a rating makes a read (10 is 1.0, 20 is 0.6, 1 is 1.36).
 pub fn sharp(r: f64) -> f64 {
     1.4 - 0.04 * r
@@ -218,7 +230,10 @@ pub fn sees(kind: Kind, a: Attr) -> Option<f64> {
         | Kind::ProFilm
         | Kind::CrossCheck
         | Kind::Director
-        | Kind::Gm => film(8.0, 7.0, 7.5),
+        | Kind::Gm
+        // Another man's tape shows what film shows; the read widens it
+        // (`read_in`, `side`).
+        | Kind::SideFilm => film(8.0, 7.0, 7.5),
         Kind::Coach => film(8.0, 6.5, 7.5),
         Kind::School => {
             if mental {
@@ -391,7 +406,8 @@ fn trait_sees(kind: Kind) -> (&'static [usize], f64) {
         Kind::Coach => (&[2, 3, 1], 3.4),
         Kind::Film | Kind::HsFilm | Kind::CollegeFilm | Kind::ProFilm | Kind::CrossCheck => (&[2, 3], 4.0),
         Kind::Transcript => (&[10], 4.0),
-        Kind::Combine | Kind::ProDay | Kind::Medical | Kind::Showcase | Kind::Numbers => (&[], 9.0),
+        // On another man's tape your eye wasn't on him between the whistles.
+        Kind::Combine | Kind::ProDay | Kind::Medical | Kind::Showcase | Kind::Numbers | Kind::SideFilm => (&[], 9.0),
     }
 }
 
@@ -606,6 +622,12 @@ pub fn read_in(
         Some(c) => tape_flags(&written(c)),
         None => tape_flags(&looks),
     };
+    // The rating a reader reads each kind of attribute with.
+    let skill_of = |rd: &Reader, cat: Category| match cat {
+        Category::Physical => rd.athletic,
+        Category::Mental => 0.6 * rd.judge + 0.4 * rd.character,
+        _ => rd.judge,
+    };
     // Each reader's looks that see each attribute: count and best base sd.
     let n_r = readers.len();
     let mut count = vec![[0u8; ATTRIBUTE_COUNT]; n_r];
@@ -637,7 +659,17 @@ pub fn read_in(
             } else if l.kind.tape() && !super::footage::role_seen(&foot, a, pos) {
                 None
             } else {
-                sees(l.kind, a).map(|sd| if l.kind.tape() && l.kind != Kind::Game { sd * film_f } else { sd })
+                sees(l.kind, a).map(|sd| {
+                    let sd = if l.kind.tape() && l.kind != Kind::Game { sd * film_f } else { sd };
+                    // Seen on another man's tape (minor bug 379): three
+                    // quarters of the way in from the wide guess, in this
+                    // reader's own points (his sharpness comes below).
+                    if l.kind == Kind::SideFilm {
+                        side(sd, GUESS_SD / sharp(skill_of(&readers[l.reader], a.category())))
+                    } else {
+                        sd
+                    }
+                })
             };
             if let Some(sd) = seen {
                 count[l.reader][k] = count[l.reader][k].saturating_add(1);
@@ -701,12 +733,7 @@ pub fn read_in(
                 continue;
             }
             nread += 1;
-            let skill = match cat {
-                Category::Physical => rd.athletic,
-                Category::Mental => 0.6 * rd.judge + 0.4 * rd.character,
-                _ => rd.judge,
-            };
-            let sd = sharp(skill) * best[r][k] * vis;
+            let sd = sharp(skill_of(rd, cat)) * best[r][k] * vis;
             let c = cat_index(cat) as u64;
             let lean = 0.7 * key_normal(rd.key ^ 0x1EA4 ^ c << 56, id)
                 + 0.714 * key_normal(rd.key ^ 0xA77 ^ (k as u64) << 50, id);
@@ -797,12 +824,19 @@ pub fn read_in(
         if rd.link == Link::Event {
             continue;
         }
-        let n = looks.iter().filter(|l| l.reader == r && !matches!(l.kind, Kind::Medical | Kind::Transcript)).count();
+        let his = |l: &&Evidence| l.reader == r && !matches!(l.kind, Kind::Medical | Kind::Transcript);
+        let n = looks.iter().filter(his).count();
         if n == 0 {
             continue;
         }
         let talk = looks.iter().any(|l| l.reader == r && l.kind.chip() == super::CHIP_TALK);
-        let sd = (3.0 + 7.0 * plast) * sharp(rd.potential) * vis * if talk { 1.0 } else { 1.15 };
+        let mut sd = (3.0 + 7.0 * plast) * sharp(rd.potential) * vis * if talk { 1.0 } else { 1.15 };
+        // All he has is another man's tape (minor bug 379): the same three
+        // quarters of the way in from no look at all (below), in this
+        // reader's own points (his say sharpens the file's read of it).
+        if looks.iter().filter(his).all(|l| l.kind == Kind::SideFilm) {
+            sd = side(sd, (3.0 + 7.0 * plast) * 1.6 * vis * rd.say.sqrt());
+        }
         let lean = key_normal(rd.key ^ 0x9071, id);
         let yr = if r < 64 { year[r] } else { w.year as u64 };
         let noise = key_normal(rd.key ^ 0x9072 ^ yr << 40, id);

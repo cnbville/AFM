@@ -108,10 +108,19 @@ pub enum Kind {
     /// The analytics staff's read of his numbers (update 2, SK6): his
     /// production against his level, his age, his testing.
     Numbers,
+    /// Seen on another man's tape (minor bug 379): he popped off the film
+    /// you were watching of someone else. A film look, three quarters as
+    /// far in from the wide guess (`file::SIDE_SHARE`).
+    SideFilm,
 }
 
+/// The looks log's two families of looks at him playing or on tape
+/// (`Kind::family`, `Kind::watched`).
+pub const FAMILY_LIVE: &str = "Live and school";
+pub const FAMILY_FILM: &str = "Film and charting";
+
 impl Kind {
-    pub const ALL: [Kind; 32] = [
+    pub const ALL: [Kind; 33] = [
         Kind::School,
         Kind::Film,
         Kind::CrossCheck,
@@ -144,6 +153,7 @@ impl Kind {
         Kind::Tryout,
         Kind::ProFilm,
         Kind::Numbers,
+        Kind::SideFilm,
     ];
 
     pub fn name(self) -> &'static str {
@@ -180,6 +190,7 @@ impl Kind {
             Kind::Tryout => "Tryout",
             Kind::ProFilm => "Pro film",
             Kind::Numbers => "His numbers",
+            Kind::SideFilm => "On another man's tape",
         }
     }
 
@@ -194,7 +205,8 @@ impl Kind {
             | Kind::HsFilm
             | Kind::CollegeFilm
             | Kind::ProFilm
-            | Kind::Numbers => CHIP_FILM,
+            | Kind::Numbers
+            | Kind::SideFilm => CHIP_FILM,
             Kind::School | Kind::Practice | Kind::Game | Kind::AllStar | Kind::Coach => CHIP_LIVE,
             Kind::Combine
             | Kind::ProDay
@@ -223,7 +235,7 @@ impl Kind {
     pub fn family(self) -> &'static str {
         match self {
             Kind::School | Kind::Practice | Kind::Game | Kind::AllStar | Kind::Coach | Kind::Workout | Kind::Tryout => {
-                "Live and school"
+                FAMILY_LIVE
             }
             Kind::Film
             | Kind::CrossCheck
@@ -232,7 +244,8 @@ impl Kind {
             | Kind::HsFilm
             | Kind::CollegeFilm
             | Kind::ProFilm
-            | Kind::Numbers => "Film and charting",
+            | Kind::Numbers
+            | Kind::SideFilm => FAMILY_FILM,
             Kind::Combine
             | Kind::ProDay
             | Kind::Camp
@@ -246,6 +259,16 @@ impl Kind {
             Kind::Interview | Kind::HomeVisit | Kind::Call | Kind::Transcript | Kind::OldStaff => "Calls and records",
             Kind::Background | Kind::Social => "Heard and online",
         }
+    }
+
+    /// Whether the look was of him playing or of his tape: the looks log's
+    /// live and film families. A habit shows over games, not in a call, a
+    /// medical or a camp, so these are the looks a scouted habit read counts
+    /// and narrows with (minor bug 382: the count tested the family against
+    /// the words "Film" and "Live", which no family is called, so it was
+    /// always 0). Every caller asks here, never the family's name.
+    pub fn watched(self) -> bool {
+        matches!(self.family(), FAMILY_LIVE | FAMILY_FILM)
     }
 
     /// Tape (SK1, SK3): film and the looks that read his games, where what
@@ -262,6 +285,7 @@ impl Kind {
                 | Kind::HsFilm
                 | Kind::CollegeFilm
                 | Kind::Game
+                | Kind::SideFilm
         )
     }
 
