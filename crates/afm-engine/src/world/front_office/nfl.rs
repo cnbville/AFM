@@ -365,16 +365,83 @@ fn own_bar(w: &World, i: usize, kind: TalkKind) -> f64 {
     }
 }
 
+/// How far the want his agent names moves the agent's number (talk facts
+/// item 25; Cain's yes, 2026-11-13): a club that fully meets it hears up to
+/// this much less (the hometown discount, the veteran who takes less to
+/// play for a winner), one that fully misses it this much more (what it
+/// costs a 3-14 club or a cold small market to get him). Half of it for a
+/// want just over the bar (`rooms::WANT_BAR`), all of it for a want that
+/// pulls as hard as one can. The same span as a greedy client's ask.
+/// Proposed, not confirmed.
+pub const WANT_ASK: f64 = 0.06;
+
+/// How well your club meets what his client wants besides money, -1 to 1:
+/// the want his agent names (`rooms::top_want`), read the way the agent
+/// sees your club. Role: +1 when he would start for you (fewer men your
+/// club grades above him at his position than it starts), -1 when he
+/// would not. Winning: your last season, +1 at a .800 win share, 0 at .500,
+/// -1 at .200. The city: its pull (warm weather, nightlife, a big market;
+/// the least pull is -0.5). Home: +1 in his home state, 0 elsewhere.
+/// Loyalty (his own club only): his trust in you, -1 at none, +1 at full.
+/// Security: 0 (his want for guarantees and years is in the ask already).
+/// With it, how hard the want pulls: 0.5 at the bar, 1 at the most. None
+/// when nothing but the money pulls him.
+pub(crate) fn want_fit(w: &World, i: usize, t: usize, kind: TalkKind) -> Option<(f64, f64)> {
+    use crate::world::folk::claims::rooms::{self, Want};
+    use crate::world::folk::{Team, facts};
+    let own = matches!(kind, TalkKind::ReSign | TalkKind::Extension);
+    let want = rooms::top_want(w, i, own)?;
+    let g = market::goals(w, i);
+    let p = &w.people[i];
+    let (fit, pull) = match want {
+        Want::Role => {
+            let pos = p.player.position;
+            let his = pro::grade(w, t, i);
+            let ahead = w.clubs[t]
+                .depth
+                .get(pos.index())
+                .map_or(0, |d| d.iter().filter(|&&j| j != i && pro::grade(w, t, j) > his).count());
+            (if ahead < crate::league::depth_slots(pos).starters { 1.0 } else { -1.0 }, g.role)
+        }
+        Want::Winning => {
+            let fit = facts::seasons(w, Team::Nfl(t), 1)
+                .last()
+                .filter(|s| s.wins + s.losses > 0)
+                .map_or(0.0, |s| clamp((s.wins as f64 / (s.wins + s.losses) as f64 - 0.5) / 0.3, -1.0, 1.0));
+            (fit, g.winning)
+        }
+        Want::City => (clamp(2.0 * (market::city_pull(w, t, w.year) - 0.5), -1.0, 1.0), g.city),
+        Want::Home => {
+            let home = crate::world::franchise::era_in(w, t, w.year)
+                .and_then(|e| crate::world::geo::state_index(e.state))
+                .is_some_and(|s| s == p.home_state);
+            (if home { 1.0 } else { 0.0 }, g.home)
+        }
+        Want::Loyalty => (clamp(2.0 * p.pro.as_ref().map_or(0.5, |c| c.trust) - 1.0, -1.0, 1.0), g.loyalty),
+        Want::Security => (0.0, g.security),
+    };
+    Some((fit, 0.5 + 0.5 * clamp((pull - rooms::WANT_BAR) / (1.0 - rooms::WANT_BAR), 0.0, 1.0)))
+}
+
+/// What the agent's number is multiplied by for the want he names: below 1
+/// at a club that meets it, above 1 at one that misses it (`WANT_ASK`).
+pub(crate) fn want_factor(w: &World, i: usize, t: usize, kind: TalkKind) -> f64 {
+    want_fit(w, i, t, kind).map_or(1.0, |(fit, strength)| 1.0 - WANT_ASK * fit * strength)
+}
+
 /// Rounds to a quarter million (agents talk in round numbers).
 fn round_q(x: f64) -> f64 {
     if x >= 2e6 { (x / 250_000.0).round() * 250_000.0 } else { (x / 25_000.0).round() * 25_000.0 }
 }
 
 /// The agent's ask from the hidden ideal: a little over it (agents open
-/// high, the greedy ones higher), his years and guarantees.
-fn agent_ask(w: &World, i: usize, ideal: &Ideal) -> Proposal {
+/// high, the greedy ones higher), moved by how well your club meets what
+/// his client wants besides money (`want`, from `want_factor`), his years
+/// and guarantees.
+fn agent_ask(w: &World, i: usize, ideal: &Ideal, want: f64) -> Proposal {
     let g = market::goals(w, i);
-    let apy = round_q(ideal.apy * (1.02 + 0.06 * g.greed));
+    let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
+    let apy = round_q(ideal.apy * (1.02 + 0.06 * g.greed) * want).max(money::minimum(w.year, credited));
     let gtd = (ideal.gtd + 0.03).min(0.95);
     Proposal {
         years: ideal.years,
@@ -512,7 +579,8 @@ pub fn propose(w: &mut World, id: u32, p: Proposal) -> Result<Answer, String> {
     let s = offer_score(w, i, &o, &ideal, own);
     let name = w.people[i].name.clone();
     let said = describe_proposal(&p, w.year);
-    let ask = agent_ask(w, i, &ideal);
+    let want = want_factor(w, i, t, kind);
+    let ask = agent_ask(w, i, &ideal, want);
     let g = market::goals(w, i);
     let mut answer = Answer {
         verdict: Verdict::Counter,
@@ -538,7 +606,8 @@ pub fn propose(w: &mut World, id: u32, p: Proposal) -> Result<Answer, String> {
             // the negotiating window is still under his old deal: his
             // answer waits for the market's day.)
             let street = !market::on_market(w, i, false);
-            let yes = if street { p.apy >= pro::ask(w, i, w.year, today).0 * 0.95 } else { s >= 0.85 };
+            // Off the street his price is the ask, moved by the same want.
+            let yes = if street { p.apy >= pro::ask(w, i, w.year, today).0 * 0.95 * want } else { s >= 0.85 };
             if yes && (street || today >= w.dates.league_year.date) {
                 answer.verdict = Verdict::Signed;
                 answer.text = format!("{name} takes it: {said}.");

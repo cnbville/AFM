@@ -55,6 +55,34 @@ We looked at {pick_name}. That says something about your rooms.
 Okay, {pick_name}. Who else?
 A {pick_round}-round pick from your rooms. We noticed.
 
+# An answer your record contradicts: the panel reads the record back to you
+# (Cain's yes, 2026-11-13). Said only when the answer is not backed, so a
+# version never needs the missing fact; {yours} is your record when you have
+# one.
+@key interview.react.past.against.failure
+We went through your record before you came in. We didn't find that year.
+{yours}, and not a losing stretch in it. Which year do you mean?
+That's a story we can't find on your record.
+Odd. Nothing on your record went wrong. Why tell us it did?
+We read your file. There's no bad year in it.
+You're reaching for a failure you don't have. We noticed.
+
+@key interview.react.past.against.results
+We have your record in front of us. That isn't what it says.
+{yours}. That's not a record to point to. ~ weak=yes
+{yours}? I'd pick something else to be proud of. ~ weak=yes
+We have you at {yours}. Not quite what you just described. ~ weak=yes
+Results? We read your file before you came in.
+{yours} doesn't make that case yet.
+
+@key interview.react.past.against.people
+We looked for your players in the draft. We didn't find any.
+Which people? Nobody from your rooms has been drafted.
+Names, then. We couldn't find a pick from your rooms.
+We checked the draft. None of them were yours.
+That's a nice line. Our people couldn't find a name to put to it.
+No one you coached has been drafted. We looked.
+
 # ---------------------------------------------------------------------------
 # The weekly staff meeting: the numbers behind a coordinator's case.
 
