@@ -863,12 +863,17 @@ pub fn stopped(w: &World, from: afm_engine::calendar::Moment, filed: &[u64]) -> 
             zone::clock(l.minute)
         }
     };
+    // A college seat's portal lines have their own messages in the inbox
+    // (the portal day, the targets, the landings): the card lists the
+    // message, not each line.
+    let college = matches!(mine(w), Some(TeamRef::College(_)));
     // Since the last stop.
     let picked: Vec<&afm_engine::calendar::Event> = w
         .calendar
         .between(from, now)
         .into_iter()
         .filter(|e| !matches!(e.kind, Kind::Rhythm | Kind::Anniversary) || yours(e))
+        .filter(|e| !(college && crate::lane_core::mail::portal_covered(e)))
         .filter(|e| {
             yours(e)
                 || e.needs_decision

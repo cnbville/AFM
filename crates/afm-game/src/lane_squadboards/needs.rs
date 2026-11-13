@@ -677,6 +677,30 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
     }))
 }
 
+/// The positions the map calls weak when the next season's work starts (a
+/// Hole or Thin spot in the fall still to come): position name to the
+/// weakest spot there (in words) and its verdict. The inbox's portal-day
+/// message asks it which entrants "fit what we need".
+pub(crate) fn weak_positions(w: &World) -> HashMap<String, (String, &'static str)> {
+    let mut out: HashMap<String, (String, &'static str)> = HashMap::new();
+    let Ok(v) = view(w, &json!({})) else { return out };
+    let coming = v["coming"].as_u64().unwrap_or(0) as usize;
+    for s in v["spots"].as_array().into_iter().flatten() {
+        let verdict = match s["verdicts"][coming].as_str() {
+            Some("Hole") => "Hole",
+            Some("Thin") => "Thin",
+            _ => continue,
+        };
+        let pos = s["pos"].as_str().unwrap_or_default().to_string();
+        let full = s["full"].as_str().unwrap_or_default().to_lowercase();
+        let worse = out.get(&pos).is_none_or(|old| verdict == "Hole" && old.1 == "Thin");
+        if worse {
+            out.insert(pos, (full, verdict));
+        }
+    }
+    out
+}
+
 /// The best man at another position your staff reads as a fit at `pos`
 /// (not a starter at his own spot that fall): name, his read there, and
 /// where he plays now.

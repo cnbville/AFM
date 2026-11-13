@@ -27,7 +27,7 @@ use afm_engine::calendar::{Date, Event, Kind, Level as CalLevel, Loudness, Weekd
 use afm_engine::positions::Position;
 use afm_engine::world::coach::Group;
 use afm_engine::world::desk::{Answer, Head, KEEP_DAYS, Mail, Reveal};
-use afm_engine::world::news::NewsKind;
+use afm_engine::world::news::{Channel, NewsKind};
 use afm_engine::world::records::Stat;
 use afm_engine::world::{Stage, World};
 
@@ -35,6 +35,10 @@ use super::links::{self, Linker};
 use super::people::{self, Job};
 use crate::lane_help;
 use crate::views::{self, TeamRef};
+
+mod portal;
+
+pub use portal::covered as portal_covered;
 
 /// The keyword filter (10e), in the dropdown's order; a mail's `keys` holds
 /// them as bits.
@@ -89,6 +93,9 @@ pub mod act {
     /// Gives your order at the positions in the target's bits back to the
     /// staff (H5).
     pub const DEPTH_BACK: u8 = 8;
+    /// The first `target` players the mail names go on "my players" (the
+    /// portal day's "add the ones who fit": they are named first).
+    pub const LIST_FIRST: u8 = 9;
 }
 
 /// What a mail is about, for `Mail::about` (the page opened beside it).
@@ -166,6 +173,7 @@ pub fn letter(
         ids: Vec::new(),
         org_team: None,
         why: Vec::new(),
+        count: 0,
     }
 }
 
@@ -526,8 +534,20 @@ pub fn after_days(w: &mut World) {
         .map(|m| m.date.add(if m.subject.starts_with(DIGEST) { -DIGEST_SPAN } else { -2 }))
         .min()
         .map_or(last, |d| d.min(last));
+    // Your former players a "Portal landings" message told about, so none
+    // is told twice.
+    let landed: Vec<(u32, Date)> = mails
+        .iter()
+        .filter(|m| m.subject.starts_with("Portal landings"))
+        .flat_map(|m| m.ids.iter().map(|&i| (i, m.date)))
+        .collect();
     let Some(c) = w.career.as_mut() else { return };
     let desk = &mut c.desk;
+    for l in landed {
+        if !desk.landed.contains(&l) {
+            desk.landed.push(l);
+        }
+    }
     for m in first.into_iter().chain(mails) {
         if !desk.has(m.id) {
             desk.mails.push(m);
@@ -538,6 +558,8 @@ pub fn after_days(w: &mut World) {
             // A day's letter written before the day was over (the six-part
             // day): the lines posted since join it, and it is new again.
             (old.subject, old.body, old.table, old.ids, old.why) = (m.subject, m.body, m.table, m.ids, m.why);
+            // The answers and the badge belong with the names they act on.
+            (old.answers, old.count, old.loud) = (m.answers, m.count, m.loud.max(old.loud));
             old.keys |= m.keys;
             old.read = false;
         }
@@ -661,9 +683,38 @@ fn compose(w: &World, me: TeamRef, from: Date, to: Date, mails: &mut Vec<Mail>, 
     }
     let linker = Linker::new(w, &texts, is_hs);
     let link = |e: &Event| tidy(&linker.event(e));
+    // A college seat's portal lines come as their own messages (`portal`):
+    // the card and the clips leave them out, and the targets' names are
+    // linked here because the front office's lines carry none.
+    let college = matches!(me, TeamRef::College(_));
+    let target_names: Vec<(u32, String)> = if college {
+        w.front_office
+            .college
+            .portal
+            .iter()
+            .filter_map(|t| views::person_index(w, t.id).map(|k| (t.id, w.people[k].name.clone())))
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let mut land_days: Vec<(Date, Vec<String>)> = Vec::new();
+    // Your own players, for the honors memo: an award line names them even
+    // when the line itself carries no team (the Heisman show's finalists).
+    let roster_ids: HashSet<u32> = views::roster_people(w, me).iter().map(|&k| w.people[k].player.id).collect();
+    let names_roster = |e: &Event| {
+        e.refs.iter().any(|r| matches!(r.to, afm_engine::calendar::Link::Person(id) if roster_ids.contains(&id)))
+    };
+    // The NFL's awards are news lines, not award lines.
+    let nfl_honor = |e: &Event| {
+        e.kind == Kind::News
+            && e.level == CalLevel::Nfl
+            && (e.text.contains(" is the NFL's ") || e.text.contains("Super Bowl MVP"))
+    };
 
     for (&d, evs) in w.calendar.events.range(from..=to) {
         let next = d.add(1);
+        let mut targets: Vec<String> = Vec::new();
+        let mut landings: Vec<String> = Vec::new();
         let mut clips: Vec<String> = Vec::new();
         let mut front: Vec<String> = Vec::new();
         let mut conference: Vec<String> = Vec::new();
@@ -691,6 +742,14 @@ fn compose(w: &World, me: TeamRef, from: Date, to: Date, mails: &mut Vec<Mail>, 
                 }
                 continue;
             }
+            if college && portal::covered(e) {
+                if e.kind == Kind::Transfer && e.text.contains(" transfers from ") {
+                    landings.push(link(e));
+                } else if portal::target_line(&e.text) {
+                    targets.push(e.text.clone());
+                }
+                continue;
+            }
             // 10h5: the front page carries your own level's huge news (and
             // the world's); other leagues' news waits on the News screen.
             if e.loud == Loudness::Huge
@@ -704,7 +763,8 @@ fn compose(w: &World, me: TeamRef, from: Date, to: Date, mails: &mut Vec<Mail>, 
                     desk_lines.push(format!("{}{rule}", link(e)));
                 }
                 Kind::DraftPick | Kind::DraftChoice if mine => draft.push(link(e)),
-                Kind::Award if mine => awards.push(link(e)),
+                Kind::Award if mine || names_roster(e) => awards.push(link(e)),
+                Kind::News if nfl_honor(e) && (mine || names_roster(e)) => awards.push(link(e)),
                 Kind::Practice if mine || (level_ok && e.level != CalLevel::Recruiting && !is_hs) => {
                     if mine {
                         practice.push(link(e));
@@ -860,7 +920,7 @@ fn compose(w: &World, me: TeamRef, from: Date, to: Date, mails: &mut Vec<Mail>, 
                 Job::Communications,
                 format!("Honors: {}", strip_dot(&links::strip(&awards[0]))),
             );
-            let ids: Vec<u32> = awards.iter().flat_map(|l| ids_in(l)).collect();
+            let ids: Vec<u32> = awards.iter().flat_map(|l| ids_in(l)).filter(|id| roster_ids.contains(id)).collect();
             m.body = vec![format!("{}, good news to share with the team:", pen.dear)];
             m.body.extend(awards);
             m.body.push("We will put it out on our channels this afternoon.".into());
@@ -902,6 +962,24 @@ fn compose(w: &World, me: TeamRef, from: Date, to: Date, mails: &mut Vec<Mail>, 
             m.keys |= STAFF;
             pen.out.push(m);
         }
+        if college {
+            portal::target_message(&mut pen, d, &targets, &target_names);
+            if !landings.is_empty() {
+                land_days.push((d, landings));
+            }
+        }
+    }
+    // Where the portal's decisions landed, day by day, and today's word on
+    // your own former players.
+    if let TeamRef::College(pi) = me {
+        if !land_days.iter().any(|x| x.0 == to) {
+            land_days.push((to, Vec::new()));
+        }
+        let mut seen: Vec<u32> = Vec::new();
+        for (d, lines) in land_days {
+            portal::landings_message(&mut pen, pi, d, to, lines, &mut seen);
+        }
+        portal::window_close(&mut pen, from, to);
     }
 
     people_mail(&mut pen, from, to, reveals);
@@ -944,6 +1022,7 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
             let mut commits: Vec<(Date, usize, bool)> = Vec::new();
             let mut signed: HashMap<Date, Vec<usize>> = HashMap::new();
             let mut portal: HashMap<Date, Vec<usize>> = HashMap::new();
+            let mut elsewhere: HashMap<Date, Vec<usize>> = HashMap::new();
             let mut offers: Vec<(Date, usize)> = Vec::new();
             let mut visits: Vec<(Date, usize)> = Vec::new();
             let mut lost: Vec<(Date, usize, usize)> = Vec::new();
@@ -974,6 +1053,13 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                     && inside(e.entered)
                 {
                     portal.entry(e.entered).or_default().push(k);
+                } else if let Some(e) = cal.portal
+                    && p.stage == Stage::College
+                    && p.college.is_some()
+                    && !e.on_hold()
+                    && inside(e.entered)
+                {
+                    elsewhere.entry(e.entered).or_default().push(k);
                 }
                 if p.stage == Stage::HighSchool {
                     for &(j, d) in &cal.early_offers {
@@ -1193,6 +1279,10 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                 ];
                 pen.out.push(m);
             }
+            // Everyone else who entered, as one message a day.
+            let mut days: Vec<_> = elsewhere.into_iter().collect();
+            days.sort_by_key(|x| x.0);
+            portal::day_messages(pen, pi, days);
             // Offers and official visits: one digest a week, the Monday
             // after (8 AM), so a busy staff's work doesn't bury the inbox.
             // It waits for its Monday whole (`DIGEST_SPAN`).
@@ -1662,16 +1752,18 @@ fn games_mail(pen: &mut Pen, from: Date, to: Date) {
 fn news_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
     let w = pen.w;
     let TeamRef::College(pi) = pen.me else { return };
-    for (i, n) in w.news.iter().enumerate().rev().take(400) {
+    for n in w.news.iter().rev().take(400) {
         let Some(d) = n.date else { continue };
         if d < from || d > to || n.program != Some(pi) {
             continue;
         }
         match n.kind {
-            NewsKind::NilWarning { .. } => {
+            // The warning is posted three ways (the staff's note, a news
+            // story, the grade arrow): only the staff's note is an email.
+            NewsKind::NilWarning { .. } if n.channel == Channel::Inbox => {
                 let prog = &w.programs[pi];
                 let mut m = letter(
-                    &format!("nil|{i}"),
+                    &format!("nil|{pi}"),
                     d,
                     14 * 60,
                     Head::Email,
@@ -1692,7 +1784,7 @@ fn news_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                 pen.out.push(m);
             }
             NewsKind::ConferenceTitle | NewsKind::NationalTitle => {
-                let mut m = pen.boss_letter(&format!("title|{i}"), d, 10 * 60, "Champions".into());
+                let mut m = pen.boss_letter(&format!("title|{pi}"), d, 10 * 60, "Champions".into());
                 m.body = vec![
                     format!("{},", pen.dear),
                     n.text.clone(),
@@ -2092,6 +2184,7 @@ pub fn pick(w: &mut World, id: u64, k: usize) -> Result<(), String> {
         }
         act::LIST_ALL => list = ids.clone(),
         act::LIST_ONE => list = vec![a.target],
+        act::LIST_FIRST => list = ids.iter().take(a.target as usize).copied().collect(),
         act::THANK_COACH => contacts.push((1, a.target, "Thank-you")),
         act::DEPTH_BACK => {
             for pos in Position::ALL {

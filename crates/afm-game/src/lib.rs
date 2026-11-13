@@ -272,7 +272,10 @@ impl Game {
                 let w = self.wm()?;
                 let (from, filed) = (w.now(), views::desk_ids(w));
                 let today = w.today;
-                w.holiday_to(today.add(days));
+                // The inbox is filed at each new day on the way: an entrant
+                // who decides inside the stretch is gone from the world by
+                // its end, and his day's message is written from the day.
+                w.holiday_to_with(today.add(days), &mut |w| lane_core::mail::after_days(w));
                 lane_core::after_days(w);
                 Ok(views::stopped(w, from, &filed))
             }

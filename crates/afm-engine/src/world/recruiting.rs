@@ -8829,7 +8829,15 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         }
         if stars >= 4 || starter {
             let text = format!("{name} transfers from {from_name} to {to_name}.");
-            w.calendar.post(Event::new(today, CalLevel::College, Kind::Transfer, Loudness::Small, text).program(j));
+            // The names are linked, so the inbox's landings message matches
+            // them (a display link only; nothing in the sim reads it).
+            w.calendar.post(
+                Event::new(today, CalLevel::College, Kind::Transfer, Loudness::Small, text)
+                    .program(j)
+                    .person(id, &name)
+                    .school_link(c, &from_name)
+                    .school_link(j, &to_name),
+            );
         }
     }
     w.portal_pending = waiting;

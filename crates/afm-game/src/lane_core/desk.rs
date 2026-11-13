@@ -84,6 +84,39 @@ fn stamp(_w: &World, m: &Mail) -> (Date, String) {
     (m.date, clock(m.minute))
 }
 
+/// Whether a mail waits on you: an answer that does something to people
+/// (a call, a note, a vote) or one with a day to answer by. An answer that
+/// only files the reply or adds names to your list is not a need. A day to
+/// answer by counts until it has passed.
+fn needs_you(m: &Mail, today: Date) -> bool {
+    use mail::act;
+    m.answered.is_none()
+        && !m.answers.is_empty()
+        && (m.answer_by.is_some_and(|d| d >= today)
+            || m.answers.iter().any(|a| !matches!(a.act, act::ACK | act::LIST_ALL | act::LIST_ONE | act::LIST_FIRST)))
+}
+
+/// How the list draws a mail: one that needs you, a plain message, or
+/// background (the morning clips, the practice schedule).
+fn kind_of(m: &Mail, today: Date) -> &'static str {
+    if needs_you(m, today) {
+        "need"
+    } else if m.loud == 0 {
+        "back"
+    } else {
+        "news"
+    }
+}
+
+/// How many entries a message holds, for the badge in the list (0: one).
+fn count_of(m: &Mail) -> u32 {
+    if m.count > 1 {
+        return m.count;
+    }
+    let rows = m.table.iter().skip(1).filter(|r| !(r.len() == 1 && r[0].starts_with("## "))).count();
+    if rows > 1 { rows as u32 } else { 0 }
+}
+
 fn row(w: &World, m: &Mail) -> Value {
     let (day, time) = stamp(w, m);
     json!({
@@ -103,6 +136,8 @@ fn row(w: &World, m: &Mail) -> Value {
         "clears_in": clears_in(w.today, m),
         "keys": keys_of(m.keys),
         "loud": m.loud,
+        "kind": kind_of(m, w.today),
+        "count": count_of(m),
     })
 }
 
@@ -131,6 +166,7 @@ pub fn list(w: &World, args: &Value) -> Value {
         .filter(|m| match show {
             "read" => m.read,
             "unread" => !m.read,
+            "need" => needs_you(m, w.today),
             _ => true,
         })
         .filter(|m| bit.is_none_or(|b| m.keys & b != 0))
@@ -142,6 +178,7 @@ pub fn list(w: &World, args: &Value) -> Value {
         "rows": rows,
         "total": mails.len(),
         "unread": unread(w),
+        "need": mails.iter().filter(|m| needs_you(m, w.today)).count(),
         "saved": mails.iter().filter(|m| m.saved).count(),
         "keywords": KEYWORDS.iter().zip(counts).map(|(k, n)| json!({ "name": k, "count": n })).collect::<Vec<_>>(),
         "notes": notes_count(w),
@@ -206,6 +243,8 @@ pub fn open(w: &mut World, id: u64) -> Result<Value, String> {
         "keys": keys_of(m.keys),
         "about": about_name(w, m.about),
         "answers": m.answers.iter().map(|a| json!({ "label": a.label, "does": a.does })).collect::<Vec<_>>(),
+        "kind": kind_of(&m, w.today),
+        "count": count_of(&m),
         "answered": m.answered,
         "answer_by": m.answer_by.map(views::date_text),
         "saved": m.saved,
