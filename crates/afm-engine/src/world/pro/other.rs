@@ -1426,6 +1426,9 @@ fn side(w: &World, k: u8, fr: usize, year: i32) -> Option<Side> {
     if k == CFL {
         let fixed = ratio_starters_from(&t.players, &nationals, &natzd, ratio(year).1, &mine);
         let set: Vec<Position> = fixed.iter().map(|x| x.0).collect();
+        // Where you didn't set the position the ratio's list is ranked by
+        // rating: it says who starts, not who plays where.
+        t.ranked = set.iter().copied().filter(|p| !mine.iter().any(|x| x.0 == *p)).collect();
         t.order = mine.into_iter().filter(|(p, _)| !set.contains(p)).chain(fixed).collect();
     } else {
         t.order = mine;

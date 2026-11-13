@@ -559,14 +559,17 @@ screens.depth = async () => {
   const seat = S.status && S.status.seat;
   const boss = seat && seat.boss ? seat.boss.name : "the head coach";
   const rows = cur.players.map((r, i) => {
-    const n = i < cur.starters ? `<b>${i + 1}</b>` : `<span class="muted">${i + 1}</span>`;
+    // The first rows name spots (LT, RT; LG, C, RG; SAM, MIKE, WILL...): the
+    // engine plays the man in that row there.
+    const spot = cur.slots && cur.slots[i] ? ` <small class="muted" title="The man in this row plays ${esc(cur.slots[i])}">${esc(cur.slots[i])}</small>` : "";
+    const n = (i < cur.starters ? `<b>${i + 1}</b>` : `<span class="muted">${i + 1}</span>`) + spot;
     const where = r.here ? esc(r.pos) : `<span class="st-pill gold" title="Listed at ${esc(r.pos)}: the staff plays him here too">${esc(r.pos)}</span>`;
     const deep = i >= cur.listed ? ' class="deep"' : "";
     return `<tr${deep}><td class="l">${n}</td><td class="l">${playerLink(r.id, r.name, "Development")}</td><td class="l">${where}</td><td class="l">${esc(r.class)}</td><td>${range(r.ovr, null, { p: r.id, k: "ovr" })}</td><td class="l">${esc(r.status)}</td>
       <td><button class="st-btn small glass" data-act="dmove" data-i="${i}" data-d="-1" ${i === 0 || !ctl ? "disabled" : ""}>Up</button> <button class="st-btn small glass" data-act="dmove" data-i="${i}" data-d="1" ${i === cur.players.length - 1 || !ctl ? "disabled" : ""}>Down</button></td></tr>`;
   }).join("");
   return `<div class="film"><div class="pad">
-    <div class="h1">Depth chart</div><p class="sub">The order your team plays on game day, as the staff will dress it: a player listed at another spot shows where they would use him too, as small schools play their best athletes both ways. Where you set an order, the engine plays yours. Players in grey after the line aren't in the game-day list.</p>
+    <div class="h1">Depth chart</div><p class="sub">The order your team plays on game day, as the staff will dress it: a player listed at another spot shows where they would use him too, as small schools play their best athletes both ways. Where you set an order, the engine plays yours. Where a row names a spot (LT, MIKE, FS), the man in that row plays it. Players in grey after the line aren't in the game-day list.</p>
     <div class="tabsline">${x.positions.map((p) => `<button data-act="dpos" data-p="${p.pos}" aria-selected="${p.pos === cur.pos}"${p.controls === false ? ` style="opacity:.5" title="${esc(boss)}'s call"` : ""}>${p.pos}${p.set_by_you ? " ●" : ""}</button>`).join("")}</div>
     <div class="panel warm"><h2>${esc(cur.pos)} <small>${cur.starters} start · ${cur.set_by_you ? "your order" : !ctl ? `${esc(boss)}'s call: your job covers ${esc(seat.controls)}` : seat && !seat.head ? `the staff's order · you propose it, ${esc(boss)} has the last word` : "the staff's order"}</small></h2>
     <div class="tbl"><table><thead><tr><th class="l">#</th><th class="l">Name</th><th class="l">Listed at</th><th class="l">Class</th><th>Rating</th><th class="l">Status</th><th>Move</th></tr></thead><tbody>

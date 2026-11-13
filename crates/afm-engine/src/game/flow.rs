@@ -199,6 +199,11 @@ struct Side<'a> {
     /// (L1, C1): yours from your board's order, else the staff's pick.
     /// On game day a named man plays his job; the engine doesn't re-sort.
     job: Vec<Option<Spot>>,
+    /// The line spot each tackle, guard and center is named to this week
+    /// (playtest bug 12): yours from your board's order, LT and RT, then
+    /// LG, C and RG. None for every man of a staff that sets its own line:
+    /// the engine seats those by fit on each snap, as before.
+    line: Vec<Option<ORole>>,
     /// Snaps played this game, and the most he may play (update 2, G17:
     /// a snap limit back from injury; u16::MAX none).
     snaps: Vec<u16>,
@@ -259,6 +264,7 @@ impl<'a> Side<'a> {
         // unless moving him is clearly better.
         let mut familiar: Vec<u32> = team.players.iter().map(|p| p.spots_played | p.spot.bit()).collect();
         let mut job: Vec<Option<Spot>> = vec![None; n];
+        let mut line: Vec<Option<ORole>> = vec![None; n];
         // A left-handed starter's blind side is his right (`spots::blind_side`).
         let lefty = depth.list(Position::QB).first().is_some_and(|&i| team.players[i].left_handed);
         for pos in Position::ALL {
@@ -281,6 +287,52 @@ impl<'a> Side<'a> {
                 let cost = if familiar[i] & sp.bit() != 0 { 0.0 } else { fill_in(sp, p.spot) };
                 p.spot_r[spots::blind_side(sp, lefty).index()] - 0.5 * cost
             };
+            // Your order names the line (playtest bug 12): the board's
+            // slots as you filled them, so the man you put at left tackle
+            // plays left tackle and your center stays at center when a
+            // guard can't dress. A slot whose man can't dress, or that your
+            // order doesn't reach, goes to the next men up, each at the
+            // open slot that suits him as his staff would seat him.
+            let named = team.order.iter().find(|(p, _)| *p == pos && !team.ranked.contains(p));
+            if let (Some(slots), Some((_, ids))) = (line_slots(pos), named) {
+                let mut at: Vec<Option<usize>> = Vec::with_capacity(slots.len());
+                for k in 0..slots.len() {
+                    let i = ids.get(k).and_then(|id| team.players.iter().position(|p| p.id == *id));
+                    let i = i.filter(|i| line[*i].is_none() && !at.contains(&Some(*i)));
+                    at.push(i);
+                }
+                let open: Vec<usize> = (0..slots.len()).filter(|&k| at[k].is_none()).collect();
+                if !open.is_empty() {
+                    // A man your order names on the line's other half (a
+                    // backup tackle you put at guard) stays for his spot.
+                    let elsewhere = |i: usize| {
+                        let id = team.players[i].id;
+                        team.order.iter().any(|(p, v)| {
+                            *p != pos
+                                && !team.ranked.contains(p)
+                                && line_slots(*p).is_some_and(|s| v.iter().take(s.len()).any(|&x| x == id))
+                        })
+                    };
+                    let next: Vec<usize> = depth
+                        .list(pos)
+                        .iter()
+                        .copied()
+                        .filter(|i| line[*i].is_none() && !at.contains(&Some(*i)) && !elsewhere(*i))
+                        .take(open.len())
+                        .collect();
+                    let want: Vec<Spot> = open.iter().map(|&k| orole_spot(slots[k])).collect();
+                    for (j, i) in best_order(&next, &want, &value).into_iter().enumerate() {
+                        at[open[j]] = i;
+                    }
+                }
+                for (k, i) in at.into_iter().enumerate() {
+                    if let Some(i) = i {
+                        line[i] = Some(slots[k]);
+                        familiar[i] |= orole_spot(slots[k]).bit();
+                    }
+                }
+                continue;
+            }
             let order = best_order(&list, spots, &value);
             for (k, i) in order.into_iter().enumerate() {
                 if let Some(i) = i {
@@ -315,6 +367,7 @@ impl<'a> Side<'a> {
             frozen: false,
             familiar,
             job,
+            line,
             snaps: vec![0; n],
             base_only: team.players.iter().map(|p| team.prep.base_only.contains(&p.id)).collect(),
             rot: team
@@ -681,6 +734,64 @@ impl<'a> Side<'a> {
             got.extend(self.pick(pos, need, used));
             let spots: Vec<Spot> = open.iter().map(|&k| dslot_spot(want[k])).collect();
             let fit = best_order(&got, &spots, &|i, sp| self.at_spot(i, sp));
+            for (j, i) in fit.into_iter().enumerate() {
+                at[open[j]] = i;
+            }
+        }
+        at
+    }
+
+    /// The line's men at a position (the tackles; the guards and the
+    /// center) for the slots on the field. Your package's men go to the
+    /// slots you gave them, then the men your order names go to theirs
+    /// (playtest bug 12); nobody named is re-sorted. Whoever is left takes
+    /// the open slots, each man where he plays best together with the
+    /// others, a fill-in paying for a spot he doesn't know (3.3). A staff
+    /// that names nobody (every AI staff, and yours until you set the
+    /// position) has all its men seated that way, as before.
+    fn pick_line(
+        &self,
+        pos: Position,
+        rs: &[ORole],
+        used: &mut Vec<usize>,
+        board: Option<u8>,
+        lefty: bool,
+    ) -> Vec<Option<usize>> {
+        let mut at: Vec<Option<usize>> = vec![None; rs.len()];
+        let mut loose: Vec<usize> = Vec::new();
+        let mine = self.pick_package(pos, rs.len(), used, board);
+        let n = mine.len();
+        for (label, i) in mine {
+            match (0..rs.len()).find(|&k| at[k].is_none() && super::scrimmage::orole_label(rs[k]) == label) {
+                Some(k) => at[k] = Some(i),
+                None => loose.push(i),
+            }
+        }
+        if n < rs.len() {
+            // The tackles are picked first: the men your order names inside
+            // stay there, so a backup tackle you put at guard isn't taken
+            // to spell a tackle. An AI staff names nobody: nothing held.
+            let held: Vec<usize> = if pos == Position::OT {
+                (0..self.line.len())
+                    .filter(|&i| self.line[i].is_some_and(|r| !rs.contains(&r)) && !used.contains(&i))
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            used.extend(held.iter().copied());
+            let got = self.pick(pos, rs.len() - n, used);
+            used.retain(|i| !held.contains(i));
+            for i in got {
+                match self.line[i].and_then(|r| rs.iter().position(|&x| x == r)).filter(|&k| at[k].is_none()) {
+                    Some(k) => at[k] = Some(i),
+                    None => loose.push(i),
+                }
+            }
+        }
+        let open: Vec<usize> = (0..rs.len()).filter(|&k| at[k].is_none()).collect();
+        if !open.is_empty() && !loose.is_empty() {
+            let spots: Vec<Spot> = open.iter().map(|&k| orole_spot(rs[k])).collect();
+            let fit = best_order(&loose, &spots, &|i, sp| self.on_line(i, sp, lefty));
             for (j, i) in fit.into_iter().enumerate() {
                 at[open[j]] = i;
             }
@@ -3216,13 +3327,13 @@ impl<'a> Game<'a> {
                 }
             }
         };
-        // The line: each man to the spot he plays best together with the
-        // others, a fill-in paying for a spot he doesn't know (3.3).
-        let line = |list: Vec<usize>, rs: &[ORole], off: &mut Vec<(ORole, usize)>| {
+        // The line: the men your order or your package names at the slots
+        // you gave them; everyone else to the spot he plays best together
+        // with the others, a fill-in paying for a spot he doesn't know
+        // (3.3; `pick_line`).
+        let line = |pos: Position, rs: &[ORole], used: &mut Vec<usize>, off: &mut Vec<(ORole, usize)>, gl| {
             let lefty = off.iter().any(|&(r, i)| r == ORole::QB && o.team.players[i].left_handed);
-            let spots: Vec<Spot> = rs.iter().map(|&r| orole_spot(r)).collect();
-            let order = best_order(&list, &spots, &|i, sp| o.on_line(i, sp, lefty));
-            for (k, i) in order.into_iter().enumerate() {
+            for (k, i) in o.pick_line(pos, rs, used, gl, lefty).into_iter().enumerate() {
                 if let Some(i) = i {
                     off.push((rs[k], i));
                 }
@@ -3240,9 +3351,9 @@ impl<'a> Game<'a> {
         add(o.pick_pref(Position::QB, 1, &mut used, gl), &[ORole::QB], &mut off);
         // Arena football's line is a center and two guards (8 a side).
         if self.rules().code.players > 8 {
-            line(o.pick_pref(Position::OT, 2, &mut used, gl), &[ORole::LT, ORole::RT], &mut off);
+            line(Position::OT, &[ORole::LT, ORole::RT], &mut used, &mut off, gl);
         }
-        line(o.pick_pref(Position::IOL, 3, &mut used, gl), &[ORole::LG, ORole::C, ORole::RG], &mut off);
+        line(Position::IOL, &[ORole::LG, ORole::C, ORole::RG], &mut used, &mut off, gl);
         let backs: Vec<ORole> = roles.iter().copied().filter(|r| r.is_back() && *r != ORole::FB).collect();
         add(o.pick_pref(Position::RB, backs.len(), &mut used, gl), &backs, &mut off);
         let wrs: Vec<ORole> = roles
@@ -5996,6 +6107,93 @@ pub fn practice_snaps(off: &GameTeam, def: &GameTeam, level: Level, snaps: &[Pra
         stats.plays.push(r);
     }
     stats
+}
+
+/// The line's slots a position's men fill on your Offense board, left to
+/// right. Your order names them (`spots::board_jobs`).
+fn line_slots(pos: Position) -> Option<&'static [ORole]> {
+    match pos {
+        Position::OT => Some(&[ORole::LT, ORole::RT]),
+        Position::IOL => Some(&[ORole::LG, ORole::C, ORole::RG]),
+        _ => None,
+    }
+}
+
+/// Who lines up where at kickoff, every man fresh: the line by slot and the
+/// men named to the linebacker, corner and safety jobs, by player id. Your
+/// depth chart screens read it, so a spot you haven't set shows the man
+/// the game will play there, not your staff's order on the slots' names
+/// (playtest bug 12).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Seating {
+    /// The line, left to right: LT, LG, C, RG, RT (no tackles in arena
+    /// football).
+    pub line: Vec<(&'static str, u32)>,
+    /// The men named to a job, in the order the engine fills its slots: of
+    /// the two outside corners the first lines up on the left.
+    pub jobs: Vec<(Spot, u32)>,
+}
+
+impl Seating {
+    /// The man at a board slot the game keeps by name, the `nth` slot of
+    /// that name on the board (the second "CB" is 1): the line's five and
+    /// SAM, MIKE, WILL, CB, NICKEL, FS, SS. None for any other slot.
+    pub fn at(&self, slot: &str, nth: usize) -> Option<u32> {
+        let job = match slot {
+            "SAM" => Spot::SAM,
+            "MIKE" => Spot::MLB,
+            "WILL" => Spot::OLB,
+            "CB" => Spot::CB,
+            "NICKEL" => Spot::NB,
+            "FS" => Spot::FS,
+            "SS" => Spot::SS,
+            _ => return self.line.iter().filter(|x| x.0 == slot).nth(nth).map(|x| x.1),
+        };
+        self.jobs.iter().filter(|x| x.0 == job).nth(nth).map(|x| x.1)
+    }
+
+    /// The men at a position's board slots, in the board's order
+    /// (`spots::board_jobs`): LT, RT; LG, C, RG; SAM, MIKE, WILL; the two
+    /// corners and the nickel; FS, SS. Empty for any other position.
+    pub fn by_slot(&self, pos: Position) -> Vec<Option<u32>> {
+        if let Some(slots) = line_slots(pos) {
+            return slots.iter().map(|r| self.at(super::scrimmage::orole_label(*r), 0)).collect();
+        }
+        let jobs = if spots::named_jobs(pos) { spots::board_jobs(pos) } else { &[] };
+        (0..jobs.len())
+            .map(|k| {
+                let nth = jobs[..k].iter().filter(|j| **j == jobs[k]).count();
+                self.jobs.iter().filter(|x| x.0 == jobs[k]).nth(nth).map(|x| x.1)
+            })
+            .collect()
+    }
+}
+
+/// A team's seating at kickoff (`Seating`), worked out by the game's own
+/// lineup code: the same picks and the same fit.
+pub fn seating(team: &GameTeam, level: Level) -> Seating {
+    let setup = GameSetup::new(team, team, level, 0);
+    let side = Side::new(team, setup.two_way_margin[0], setup.rules.timeouts);
+    let mut used = Vec::new();
+    let qb = side.pick_pref(Position::QB, 1, &mut used, None);
+    let lefty = qb.first().is_some_and(|&i| team.players[i].left_handed);
+    let mut line: Vec<(ORole, u32)> = Vec::new();
+    let mut seat = |pos: Position, rs: &[ORole], used: &mut Vec<usize>| {
+        for (k, i) in side.pick_line(pos, rs, used, None, lefty).into_iter().enumerate() {
+            if let Some(i) = i {
+                line.push((rs[k], team.players[i].id));
+            }
+        }
+    };
+    if setup.rules.code.players > 8 {
+        seat(Position::OT, &[ORole::LT, ORole::RT], &mut used);
+    }
+    seat(Position::IOL, &[ORole::LG, ORole::C, ORole::RG], &mut used);
+    line.sort_by_key(|x| [ORole::LT, ORole::LG, ORole::C, ORole::RG, ORole::RT].iter().position(|r| *r == x.0));
+    Seating {
+        line: line.into_iter().map(|(r, id)| (super::scrimmage::orole_label(r), id)).collect(),
+        jobs: (0..team.players.len()).filter_map(|i| side.job[i].map(|s| (s, team.players[i].id))).collect(),
+    }
 }
 
 /// The depth-chart spot an offensive role asks for.

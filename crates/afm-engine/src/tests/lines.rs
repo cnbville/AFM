@@ -60,6 +60,11 @@ const FACTS: &str = concat!(
     // these yet, so those lines wait for the talks' fact sheet (voice.rs,
     // CLAIM_FACTS)
     "blameless at_fault ",
+    // the bosses and the outside on the fact sheet (lane L10): the case's
+    // charge, day, step and whether it is his first; who gives and what a
+    // booster asked; who holds the final say and the club's mode; the goal
+    // in words and how the season review went
+    "charge when step again giver power mode goal review ",
 );
 
 /// The parts the code asks for (talks, press, boss, rules, staffing,
@@ -272,6 +277,31 @@ fn asked() -> Vec<String> {
     }
     for k in ["real", "bluff", "market", "stay"] {
         v.push(format!("agent.claim.{k}"));
+    }
+    // The bosses and the outside on the facts (lane L10, outside_facts.txt).
+    for k in ["arrest", "charged", "court"] {
+        v.push(format!("press.q.trouble.{k}"));
+    }
+    for k in ["deflect", "warn", "praise"] {
+        v.push(format!("press.follow.trouble.{k}"));
+    }
+    for k in ["ahead", "on", "behind", "injury_true", "injury_thin"] {
+        v.push(format!("boss.mid.reply.{k}"));
+    }
+    for k in ["higher", "fair", "lowered", "kept"] {
+        v.push(format!("boss.goals.reply.{k}"));
+    }
+    for k in ["own", "point", "ask"] {
+        v.push(format!("boss.review.reply.{k}"));
+    }
+    for k in ["promise", "straight", "business", "thanks"] {
+        v.push(format!("booster.reply.{k}"));
+    }
+    for k in ["help", "respect", "mine"] {
+        v.push(format!("takeover.oldcoach.reply.{k}"));
+    }
+    for k in ["say", "need", "never"] {
+        v.push(format!("gm.reply.{k}"));
     }
     // The fans (fans.rs).
     v.extend(crate::world::folk::fans::parts());
