@@ -1,0 +1,49 @@
+name: Mac retry
+# GitHub's macOS arm64 machines run short at times. A Mac job then waits 15
+# minutes for a machine, is never given one, and the run ends as "failed" with
+# "The job was not acquired by Runner of type hosted even after multiple
+# attempts" (Mac app runs 439 and 440, 2026-11-13). No step ran, so running
+# the job again loses nothing. This runs the unstarted jobs again, at most
+# twice more, and only for the newest push run of the workflow: an older run
+# would build, and publish, an older app over a newer one. A job that had a
+# machine and failed is a real failure and is left alone.
+on:
+  workflow_run:
+    workflows: ["Mac app", "World Reader app"]
+    types: [completed]
+permissions:
+  actions: write
+  contents: read
+jobs:
+  retry:
+    if: >-
+      github.event.workflow_run.conclusion == 'failure'
+      && github.event.workflow_run.event == 'push'
+      && github.event.workflow_run.head_branch == 'main'
+      && github.event.workflow_run.run_attempt < 3
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      RUN_ID: ${{ github.event.workflow_run.id }}
+      ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+      WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
+    steps:
+      - name: Run the unstarted jobs again
+        run: |
+          newest=$(gh api "repos/$REPO/actions/workflows/$WORKFLOW_ID/runs?branch=main&event=push&per_page=1" --jq '.workflow_runs[0].id')
+          if [ "$newest" != "$RUN_ID" ]; then
+            echo "Run $newest is newer than run $RUN_ID: nothing to retry."
+            exit 0
+          fi
+          # A job that ran has a runner id. One never given a machine has none
+          # (jobs skipped because an earlier job failed are left out).
+          unstarted=$(gh api "repos/$REPO/actions/runs/$RUN_ID/attempts/$ATTEMPT/jobs?per_page=100" \
+            --jq '[.jobs[] | select(.conclusion != "skipped" and ((.runner_id // 0) == 0))] | length')
+          if [ "$unstarted" = "0" ]; then
+            echo "Every failed job had a machine: a real failure, not retried."
+            exit 0
+          fi
+          echo "$unstarted job(s) of run $RUN_ID attempt $ATTEMPT never got a machine: running them again."
+          gh run rerun "$RUN_ID" --repo "$REPO" --failed

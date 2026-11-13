@@ -5756,6 +5756,33 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         w.people[pool[k].person].stars == 5 && matches!(programs[j].division, Division::FBS | Division::FCS)
     };
     let pn = programs.len();
+    // The places over a full class for a 5-star (and a hunt) count only the
+    // signees the plan hasn't already counted. Each plan is net of the
+    // recruits who signed in an earlier period (`class_plan`: its slots and
+    // its places at each position), and the matching counts them again in
+    // `taken`, so in February a staff with December signees had no room
+    // even two over the plan. Full tests (seed 7, lane 8's branch): Georgia
+    // Military signed three 5-stars of the class of 2019, and qualifiers
+    // with 39 to 76 offers began at junior colleges in the 2019-2022
+    // classes; every Division I board that had them was at 8 to 14 taken
+    // against 0 slots. The other room checks below still count earlier
+    // signees twice; fixing them changes every class's size, so it is its
+    // own fix.
+    let (earlier, earlier_at) = {
+        let mut n = vec![0usize; pn];
+        let mut at = vec![[0usize; POSITION_COUNT]; pn];
+        for p in &w.people {
+            if let Some(sg) = p.cal.signed
+                && !sg.walk_on
+                && p.stage != Stage::College
+                && sg.program < pn
+            {
+                n[sg.program] += 1;
+                at[sg.program][p.player.position.index()] += 1;
+            }
+        }
+        (n, at)
+    };
     // The hunts (SK67): each recruit's hunters (AI staffs, and your
     // program for your own hunt). A hunter offers him first at his spot
     // and holds him a scholarship there (the others at his spot share one
@@ -5895,8 +5922,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             let i = pos.index();
             let Some(e) = head(i) else { continue };
             let star = boards[j][i].get(cursor[j][i]).is_some_and(|x| elite(j, x.0) || hunted(j, x.0))
-                && taken[j] < plan.slots + OVER_CLASS
-                && taken_at[j][i][0] < plan.scholarship[i] + OVER_PLAN;
+                && taken[j].saturating_sub(earlier[j]) < plan.slots + OVER_CLASS
+                && taken_at[j][i][0].saturating_sub(earlier_at[j][i]) < plan.scholarship[i] + OVER_PLAN;
             let sch_open = (sch_room && taken_at[j][i][0] < plan.scholarship[i]) || star;
             // Under the House limit, a walk-on place at a regular position
             // opens only in the final period, once the portal has had its turn.
@@ -6469,8 +6496,18 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 let scholarship = if pos.is_specialist() {
                     taken[j] < plan.slots && taken_at[j][i][0] < plan.scholarship[i]
                 } else {
-                    let over = if elite(j, k) { OVER_CLASS } else { 0 };
-                    taken[j] < plan.slots + over && taken_at[j][i][0] < plan.scholarship[i] + OVER_PLAN
+                    // A 5-star's places over the class count only this
+                    // class's signees the plan hasn't counted (above).
+                    let (over, n, at) = if elite(j, k) {
+                        (
+                            OVER_CLASS,
+                            taken[j].saturating_sub(earlier[j]),
+                            taken_at[j][i][0].saturating_sub(earlier_at[j][i]),
+                        )
+                    } else {
+                        (0, taken[j], taken_at[j][i][0])
+                    };
+                    n < plan.slots + over && at < plan.scholarship[i] + OVER_PLAN
                 };
                 let walk_on = !scholarship;
                 if walk_on && !plan.late_walk_on(i, [taken[j], taken_walk_on[j]], taken_at[j][i]) {
