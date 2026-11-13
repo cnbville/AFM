@@ -99,6 +99,7 @@ function tkChoose(x) {
     <div class="tk-sub"><div class="tk-ph"><b>Your line, roughly</b><span>from your picks, in your voice</span></div>
       <p class="tk-line-q">${x.pick.move === "nothing" ? "You say nothing. They get dressed and go." : `“${esc(x.line)}”`}</p></div>
     ${tkStaff(x)}
+    ${aiSayBox(x, "talk:" + x.moment, { preset: { cmd: "talk_typed", args: {}, limit: 400 }, words: { ph: "Type what you'd say to the room. The picks above still work.", foot: "The picks above still work." } })}
     ${others ? `<div class="tk-sub"><div class="tk-ph"><b>Other tones, roughly</b><span>same move and subject</span></div><table class="tk-others"><tbody>${others}</tbody></table></div>` : ""}
     <div class="tk-actions"><button class="st-btn primary" data-act="tk-say">Say it</button>
       ${cap && x.pick.move !== "captain" ? `<button class="st-btn glass" data-act="tk-captain" data-id="${cap.id}">Hand it to ${esc(cap.name.split(" ").slice(-1)[0])}</button>` : ""}
@@ -318,17 +319,18 @@ async function tkFaceToFace(s, lead, pp, st) {
   // The talk so far, an exchange at a time: what you said, what he said and
   // what your read caught.
   const ex = [];
+  const ay = aiYours("scene:" + s.id);
   for (const l of s.lines) {
     if (l.by === 1 || !ex.length) ex.push({ you: null, them: [], notes: [] });
     const cur = ex[ex.length - 1];
-    if (l.by === 1) cur.you = l.text;
+    if (l.by === 1) { cur.you = l.text; cur.heard = ay(l); }
     else if (l.by === 0) cur.notes.push(l.text);
     else cur.them.push(l);
   }
   const lastThem = [...s.lines].reverse().find((l) => l.by === 2);
   // Under what he said: his tell, then how it went over as far as your read
   // catches it (new bugs, Cain 2026-11-03).
-  const so = ex.map((e, k) => `<li><span class="tk-fn">${k + 1}</span><div>${e.you ? `<p class="tk-fyou">${rich(e.you)}</p>` : ""}${e.notes.map((n) => `<p class="tk-fnote">${rich(n)}</p>`).join("")}${e.them.map((t) => `<p>"${rich(t.text)}"</p>${t.tell ? `<p class="tk-fnote">${esc(t.tell)}</p>` : ""}${t.went ? `<p class="tk-fwent">${esc(t.went)}</p>` : ""}`).join("")}</div></li>`).join("");
+  const so = ex.map((e, k) => `<li><span class="tk-fn">${k + 1}</span><div>${e.you ? `<p class="tk-fyou">${rich(e.you)}</p>` : ""}${e.heard ? `<div class="ai-heard">${e.heard}</div>` : ""}${e.notes.map((n) => `<p class="tk-fnote">${rich(n)}</p>`).join("")}${e.them.map((t) => `<p>"${rich(t.text)}"</p>${t.tell ? `<p class="tk-fnote">${esc(t.tell)}</p>` : ""}${t.went ? `<p class="tk-fwent">${esc(t.went)}</p>` : ""}`).join("")}</div></li>`).join("");
 
   // How he is: words with thin bars (yours only), and your staff's read. In a
   // one-on-one the bars move with each line, with a mark where he came in.
@@ -387,6 +389,7 @@ async function tkFaceToFace(s, lead, pp, st) {
   const bottom = s.done
     ? `<div class="tk-fend"><b>${s.handed ? `Handed to ${esc(s.handed)}` : "How it went"}</b>${(s.outcome.length ? s.outcome : ["It's done."]).map((o) => `<p>${rich(o)}</p>`).join("")}<div class="tk-factions">${s.next ? `<button class="st-btn small primary" data-act="ppopen" data-id="${s.next.id}">Next: ${esc(plainText(s.next.title))}</button>` : ""}<button class="st-btn small glass" data-nav="people">Back to People</button></div></div>`
     : `<div class="tk-fmoves"><div class="tk-fpick"><span>Move</span><div>${moves || '<em class="tk-fnote">Waiting on him.</em>'}</div></div>${tones}${subjects}
+      ${aiSayBox(s, "scene:" + s.id, { preset: { cmd: "people_say", args: { id: s.id }, limit: 400 }, log: "scene:" + s.id, words: { ph: "Type what you'd say to him. The chips above still work." } })}
       <div class="tk-factions">${say}<span class="tk-fnote">${left}</span>${end ? `<button class="st-btn small glass" data-act="ppsay" data-id="${s.id}" data-code="${end.code}">${esc(end.mv === "End" ? "End the talk" : end.mv)}</button>` : ""}<button class="st-btn small glass" data-act="pphand" data-id="${s.id}" title="Your staff plays it the way they would">Hand it to your staff</button></div></div>`;
 
   const first = plainText(lead.link).split(" ")[0] || "";

@@ -596,6 +596,10 @@ pub fn propose(w: &mut World, id: u32, p: Proposal) -> Result<Answer, String> {
             _ => ("insult", format!("\"Respectfully, that isn't a serious offer for {name}.\"")),
         };
         answer.text = crate::world::folk::dialogue::agent_says(w, i, part, &f, plain);
+        // What else his client wants, once in a talk (item 25).
+        if let Some(extra) = wants_remark(w, id, i, t, kind) {
+            answer.text = format!("{} {extra}", answer.text);
+        }
     }
     if answer.verdict == Verdict::Broken {
         let cold = today.add(if kind == TalkKind::FreeAgent { 7 } else { 30 });
@@ -648,6 +652,22 @@ pub fn propose(w: &mut World, id: u32, p: Proposal) -> Result<Answer, String> {
         answer.text = format!("{name} signs your offer sheet. His club has five days to match.");
     }
     Ok(answer)
+}
+
+/// Once in a talk, his agent says what his client wants besides money
+/// (talk facts item 25): his role, winning, the city, security, staying
+/// near home or, with his own club, loyalty. It is written into the talk's
+/// claims by its kind, so the same want is not said twice in a talk. None
+/// when it has been said, only the money pulls him, or the bank has no line
+/// for it yet.
+fn wants_remark(w: &mut World, id: u32, i: usize, t: usize, kind: TalkKind) -> Option<String> {
+    if w.front_office.nfl.talk(id)?.claims.iter().any(|c| c.starts_with("wants:")) {
+        return None;
+    }
+    let own = matches!(kind, TalkKind::ReSign | TalkKind::Extension);
+    let (key, text) = crate::world::folk::dialogue::agent_wants(w, i, t, own)?;
+    w.front_office.nfl.talk_mut(id)?.claims.push(format!("wants:{key}"));
+    Some(text)
 }
 
 /// A free agent no club holds: off the street or on the open market.

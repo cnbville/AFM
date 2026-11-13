@@ -67,6 +67,8 @@ const BANKS: &[&str] = &[
     // Game day talks, home visits, interviews, agents, meetings (lane 14).
     include_str!("../../../data/lines/gameday.txt"),
     include_str!("../../../data/lines/dialogue.txt"),
+    // The staff and scouting rooms read the facts (talk facts lane L11).
+    include_str!("../../../data/lines/rooms.txt"),
     // The fans (people topic 9; the fan lane, then 13f).
     include_str!("../../../data/lines/fans.txt"),
     // The line bank run (Cain 2026-11-07): one file per family, written
@@ -83,6 +85,10 @@ const BANKS: &[&str] = &[
     // and portal calls, written through the Batches API by tools/linebank
     // (`recruit20k.py`). Design: docs/design/recruit-talk-lines.md.
     include_str!("../../../data/lines/recruit_talks_run.txt"),
+    // The bosses and the outside on the fact sheet (talk facts lane L10):
+    // the press on a case's step, the boss on the season's pace, a
+    // booster, the old coach and the GM answering as who they are.
+    include_str!("../../../data/lines/outside_facts.txt"),
 ];
 
 /// The facts that gate a line which denies (`blameless`) or admits
