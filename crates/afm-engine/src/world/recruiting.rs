@@ -5763,7 +5763,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     // `taken`, so in February a staff with December signees had no room
     // even two over the plan. Full tests (seed 7, lane 8's branch): Georgia
     // Military signed three 5-stars of the class of 2019, and qualifiers
-    // with 44 to 76 offers began at junior colleges in the 2019-2022
+    // with 39 to 76 offers began at junior colleges in the 2019-2022
     // classes; every Division I board that had them was at 8 to 14 taken
     // against 0 slots. The other room checks below still count earlier
     // signees twice; fixing them changes every class's size, so it is its
