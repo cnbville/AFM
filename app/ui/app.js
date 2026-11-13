@@ -477,7 +477,7 @@ screens.roster = async (a) => {
       ${seg("cls", [["ALL", pro ? "Everyone" : "All classes"], ...bands.map(([v, t]) => [v, t, count((r) => band(r) === v)])])}
       <div class="seg"><button data-act="rinj" aria-pressed="${f.injured}">Injured only</button></div>
     </div>
-    ${qfBar(scope, x.qf, base, rows.length)}
+    ${qfBar(scope, x.qf, base, rows.length, x.ask)}
     ${table("roster", allCols, rows, {
       groupBy: (r) => r.pos,
       // The quick filter's columns sit in the Player group, after his class.

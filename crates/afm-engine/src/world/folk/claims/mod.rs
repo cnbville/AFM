@@ -47,6 +47,7 @@ mod memory;
 mod player;
 mod program;
 mod recruit;
+pub mod rooms;
 mod season;
 pub mod sheet;
 mod team;

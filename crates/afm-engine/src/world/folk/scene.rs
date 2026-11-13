@@ -338,6 +338,26 @@ pub fn pen(w: &mut World, s: &Scene, k: u64) -> voice::Pen {
     voice::Pen::take(w, seed)
 }
 
+/// A line from the bank for one step of a scene, or `fallback` while the
+/// part has no version this speaker can say. A tree that reads the facts
+/// asks for its new part this way, so it plays from its first merge and
+/// never says something its facts don't back (talk facts design, section
+/// 15, rule 3).
+pub(super) fn bank_line(
+    w: &mut World,
+    s: &Scene,
+    k: u64,
+    key: &str,
+    who: &voice::Speaker,
+    f: &voice::Facts,
+    fallback: &str,
+) -> String {
+    let mut pen = pen(w, s, k);
+    let line = pen.line(&[key], who, f);
+    pen.put(w);
+    if line.is_empty() { fallback.to_string() } else { line }
+}
+
 /// Adds a scene for you: it gets its id and, when it stops Continue, a line
 /// on the calendar waiting on your answer.
 pub fn add(w: &mut World, mut s: Scene) -> u32 {

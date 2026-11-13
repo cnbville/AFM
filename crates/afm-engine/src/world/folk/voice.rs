@@ -68,6 +68,8 @@ const BANKS: &[&str] = &[
     // Game day talks, home visits, interviews, agents, meetings (lane 14).
     include_str!("../../../data/lines/gameday.txt"),
     include_str!("../../../data/lines/dialogue.txt"),
+    // The staff and scouting rooms read the facts (talk facts lane L11).
+    include_str!("../../../data/lines/rooms.txt"),
     // The fans (people topic 9; the fan lane, then 13f).
     include_str!("../../../data/lines/fans.txt"),
     // The line bank run (Cain 2026-11-07): one file per family, written
@@ -87,6 +89,10 @@ const BANKS: &[&str] = &[
     // One-on-ones on his talking points (talk facts lane L4): written by
     // hand for the most common parts; the bank run (L12) fills the rest.
     include_str!("../../../data/lines/talk_points.txt"),
+    // The bosses and the outside on the fact sheet (talk facts lane L10):
+    // the press on a case's step, the boss on the season's pace, a
+    // booster, the old coach and the GM answering as who they are.
+    include_str!("../../../data/lines/outside_facts.txt"),
 ];
 
 /// The facts that gate a line which denies (`blameless`) or admits

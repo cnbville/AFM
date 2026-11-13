@@ -160,7 +160,7 @@ function qfHits(r, st, fields) {
 }
 // The bar. `rows` are the squad before the bar (for the counts), `shown`
 // how many it leaves.
-function qfBar(scope, groups, rows, shown) {
+function qfBar(scope, groups, rows, shown, ask) {
   const st = qfState(scope);
   const fields = qfFields(groups);
   const on = qfOn(st, fields);
@@ -169,7 +169,7 @@ function qfBar(scope, groups, rows, shown) {
     const f = fields.get(u.k);
     const bad = u.v !== "" && f && qfNum(u.v, f.kind) == null;
     const hint = f && f.kind === "height" ? "6-2" : f && f.kind === "read" ? "60" : "Value";
-    return `<span class="qf-rule${f && qfNum(u.v, f.kind) != null ? " on" : ""}">${i ? '<i class="qf-and">and</i>' : ""}<select data-qf="k" data-i="${i}" aria-label="Attribute or stat" title="${f ? esc(f.group) : "Pick an attribute, his body or a stat"}">${opts(u)}</select><select data-qf="op" data-i="${i}" aria-label="Comparison">${QF_OPS.map(([o, t]) => `<option value="${o}" ${o === u.op ? "selected" : ""} title="${t}">${o}</option>`).join("")}</select><input data-qf="v" data-i="${i}" value="${esc(u.v)}" placeholder="${hint}" inputmode="decimal" autocomplete="off" aria-label="Value"${bad ? ' aria-invalid="true"' : ""}>${i || u.k || u.v ? `<button class="qf-x" data-act="qf-del" data-i="${i}" aria-label="Remove this rule" title="Remove this rule">×</button>` : ""}</span>`;
+    return `<span class="qf-rule${f && qfNum(u.v, f.kind) != null ? " on" : ""}${u.ai ? " set" : ""}">${i ? '<i class="qf-and">and</i>' : ""}<select data-qf="k" data-i="${i}" aria-label="Attribute or stat" title="${f ? esc(f.group) : "Pick an attribute, his body or a stat"}">${opts(u)}</select><select data-qf="op" data-i="${i}" aria-label="Comparison">${QF_OPS.map(([o, t]) => `<option value="${o}" ${o === u.op ? "selected" : ""} title="${t}">${o}</option>`).join("")}</select><input data-qf="v" data-i="${i}" value="${esc(u.v)}" placeholder="${hint}" inputmode="decimal" autocomplete="off" aria-label="Value"${bad ? ' aria-invalid="true"' : ""}>${i || u.k || u.v ? `<button class="qf-x" data-act="qf-del" data-i="${i}" aria-label="Remove this rule" title="Remove this rule">×</button>` : ""}</span>`;
   };
   const count = (p) => rows.filter((r) => r.pos === p).length;
   const chips = QF_POS.map((g) => g.filter((p) => count(p) || st.pos.includes(p))).filter((g) => g.length).map((g) => `<span class="qf-pg">${g.map((p) => `<button class="qf-chip" data-act="qf-pos" data-v="${p}" aria-pressed="${st.pos.includes(p)}">${p}<small>${count(p)}</small></button>`).join("")}</span>`).join("");
@@ -180,6 +180,7 @@ function qfBar(scope, groups, rows, shown) {
       <span class="tspace"></span>
       <span class="qf-count" title="${read ? "A read matches on the middle of your staff's range; one nobody has seen matches no rule." : ""}">${on ? `<b>${shown}</b> of ${rows.length} players` : `${rows.length} players`}</span>${on ? '<button class="tbtn" data-act="qf-clear">Clear</button>' : ""}</div>
     <div class="qf-line qf-posline" role="group" aria-label="Positions"><span class="qf-lbl">Positions</span>${chips}${st.pos.length ? '<button class="qf-link" data-act="qf-allpos">Every position</button>' : ""}</div>
+    ${aiAskBox(ask, ["squad"], "qf:" + scope, { scope, query: aiQuerySquad, presets: [{ cmd: "ai_ask", args: { kind: "squad" }, limit: 400 }] })}
   </div>`;
 }
 // The empty table or board's word when the bar leaves nobody: a read
