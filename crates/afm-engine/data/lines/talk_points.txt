@@ -1,0 +1,245 @@
+# The line bank: one-on-ones on his talking points (talk facts lane L4,
+# item 6; design in /afm/talk-facts/proposal.md, section 8). Written by hand
+# for the most common parts; the bank run (lane L12) fills the rest. A part
+# with no lines falls back to today's line for the move.
+#
+# talk.point.open.<point>.<stance>: he opens on the point, in his stance.
+# talk.point.open.good.<stance>: any good news with no part of its own
+# (an award, a job won, a big game, coming back): it names nothing.
+# talk.point.ask.<point>: his question to you.
+# talk.point.again: he hears praise for the same thing a second time.
+#
+# Facts: the player's (name, full, coach, you, pos, team, friend, gone),
+# the point's holes and checks (talk_points.rs, claims/player.rs), stance,
+# went (good, flat, bad) on a reply. A line that denies or admits his own
+# conduct outright carries blameless=yes or at_fault=yes: the game sets them
+# only when the world backs the line (an open case sets neither, unless he
+# owns it and did it, or denies it and didn't).
+
+@key talk.point.open.arrest.owns
+I'm not going to make excuses, Coach. Whatever you decide, I'll take it.
+I know what this looks like for the team. I'll answer for it.
+I should have come to you first, Coach.
+Coach, I messed up. No excuses. ~ at_fault=yes
+I was wrong, and I know it. Tell me what I have to do. ~ at_fault=yes
+I let the team down, Coach. I'll do whatever it takes to fix it. ~ at_fault=yes
+I'm ashamed of it, Coach. I'm not going to pretend otherwise. ~ at_fault=yes
+I'll face it, whatever comes. I won't hide from it.
+
+@key talk.point.open.arrest.plays_down
+It's not as big as it sounds, Coach. It'll get handled.
+People are making it bigger than it is.
+My lawyer says it's going to go away. Nothing to worry about.
+It was one night, Coach. It'll blow over.
+I know how it reads. It's not that serious.
+You didn't need to call me in for this. It's handled.
+It's a court thing now. It doesn't have to be a football thing. ~ step=charged
+We'll be in front of a judge soon and that's where it ends. ~ step=court
+
+@key talk.point.open.arrest.denies
+There's more to it than what's in the report, Coach.
+Wait till the whole story comes out.
+I was there, but it's not how they're telling it.
+You're going to hear a lot of things. Don't believe all of it.
+Coach, you know me. Does that sound like me?
+I'm going to fight it. My lawyer says we've got a good case.
+I didn't do it, Coach. I need you to believe me. ~ blameless=yes
+I did nothing wrong, and it's going to come out in court. ~ blameless=yes !step=league
+
+@key talk.point.open.arrest.defiant
+Everybody's already decided what happened. So go ahead.
+I'm not going to sit here and get lectured about it.
+You going to sit me before a judge even hears it? ~ !step=league
+Do what you've got to do, Coach.
+It's my business. I'll handle it.
+I don't need a speech. I need you to have my back. ~ brash
+This is my life, Coach, not yours. ~ brash
+
+@key talk.point.open.arrest.shaken
+Coach, I don't know what's going to happen to me.
+I haven't slept since it happened.
+My family keeps calling. I don't know what to tell them.
+Am I done here? Just tell me if I'm done.
+I keep thinking about what this does to my family.
+I've never been in anything like this, Coach. I'm scared.
+They charged me, Coach. It's real now. ~ step=charged
+Court is coming up and I can't eat. ~ step=court
+
+@key talk.point.open.lost_job.accepts
+I saw the chart, Coach. I'm not going to pout about it.
+I get it. I'll keep working.
+You don't have to explain it, Coach. I know where I am.
+I'm not happy about it, but I understand it.
+It's on me to get it back.
+{rival} earned it. I'll be ready when you need me.
+I got hurt and {rival} took his chance. I'd have done the same. ~ why=injury
+
+@key talk.point.open.lost_job.pushes_back
+I don't get it, Coach. What did {rival} do that I didn't?
+With respect, I think I earned that spot.
+I've been doing everything you asked. So why?
+One bad stretch and I'm out? That's how it is? ~ !why=injury
+I need you to explain this to me, because I don't see it.
+That chart's wrong, Coach, and I think you know it. ~ brash
+I got hurt. I didn't get beat. There's a difference. ~ why=injury
+
+@key talk.point.open.lost_job.sulks
+Doesn't matter what I say. You already decided.
+Yeah. I saw.
+I'm fine. Whatever.
+I don't really want to talk about it.
+Guess I'm just a backup now.
+It's whatever, Coach.
+
+@key talk.point.open.lost_job.fired_up
+I saw the chart. I'm taking it back. Watch me.
+{rival} better enjoy it, because it's not going to last.
+Good. Now I've got something to prove.
+You'll have to play me, Coach. I'll make sure of it.
+I needed this. I'm going to be better for it.
+Give me one week of practice. That's all I'm asking.
+
+@key talk.point.open.won_job.humble
+Thank you for trusting me, Coach. I just want to keep doing my job.
+{rival} pushed me every day. I wouldn't be here without that.
+I'm grateful. I'm not going to take it for granted.
+It's a job, not a trophy. I still have to earn it every week.
+I'll keep working. Nothing changes.
+Thanks, Coach. I won't let the guys down.
+
+@key talk.point.open.won_job.proud
+Told you I'd get it, Coach.
+I've been ready for this for a long time.
+About time, if you ask me. ~ brash
+Now you'll see what I can do.
+I knew this was coming. I worked for it.
+It's mine now, and I'm keeping it.
+
+@key talk.point.open.big_game.humble
+The guys around me made that happen, Coach.
+We won as a team. I just did my part. ~ result=win
+Felt good, but we've got another one this week.
+I just tried to do my job against {opp}.
+I watched the film. There's still stuff I can clean up.
+I'm glad it helped us, Coach.
+Too bad it wasn't enough against {opp}. ~ result=loss
+
+@key talk.point.open.big_game.proud
+Did you see that, Coach? That's what I've been telling you.
+{opp} couldn't handle me.
+That's who I am. That's what I can do every week.
+I told you I'd show up against {opp}.
+Keep putting me out there like that every week.
+Felt like I couldn't miss out there.
+
+@key talk.point.open.good.humble
+Thanks for making time for me, Coach.
+It's been a good stretch. I'm just trying to keep it going.
+I'm trying to stay level about it, Coach.
+Good things are happening. I'm not getting ahead of myself.
+Feels good, Coach. I'm not changing anything.
+I appreciate it, Coach. There's still work to do.
+
+@key talk.point.open.good.proud
+Things are going my way right now, Coach.
+Feels good, doesn't it, Coach?
+I've been waiting for a stretch like this.
+I'm feeling it right now, Coach.
+This is what I've been working for.
+Nobody can tell me anything right now.
+
+@key talk.point.open.bad_game.accepts
+I watched the film already. I know what I did.
+I hurt us against {opp}. It won't happen again.
+No excuses. I have to be better.
+I've been thinking about it all weekend.
+Tell me what you saw, Coach. I want to fix it.
+{mistake}. I know. I've been sick about it.
+
+@key talk.point.open.bad_game.pushes_back
+One game, Coach. Everybody has one.
+It wasn't all on me out there.
+I'm not the only one who struggled against {opp}.
+Come on, Coach. Look at the whole film.
+We won, didn't we? ~ result=win
+Some of that wasn't on me, and you know it. ~ brash
+
+@key talk.point.open.bad_game.sulks
+I don't want to talk about {opp}.
+Yeah. I know I was bad.
+I'm sure you've got a lot to say.
+I just want to forget it.
+Can we not do this right now?
+I already know, Coach.
+
+@key talk.point.open.bad_game.fired_up
+I can't wait for this week. I owe everybody one.
+{opp} is going to be the last bad one, Coach.
+I watched it three times. I'm angry. Good angry.
+Put me right back out there.
+That's not going to happen again. Watch me.
+I need practice tomorrow. I need to get it out.
+
+@key talk.point.open.hurt.opens_up
+Honestly, Coach? I'm scared it won't come back the same.
+It hurts more than I've been letting on.
+The {injury} is the easy part. Sitting out is what's killing me.
+I don't know what to do with myself when I'm not out there.
+I keep worrying somebody takes my spot while I'm out.
+I just want to be back out there with the guys.
+
+@key talk.point.open.hurt.guarded
+I'm fine, Coach. Just rehabbing.
+It's coming along.
+It's nothing I can't handle.
+I'm doing everything they tell me.
+Don't worry about me.
+I'll be ready.
+
+@key talk.point.ask.lost_job
+What do I have to do to get my job back, Coach?
+Just tell me what I need to do. I'll do it.
+What did {rival} do that I didn't? I want to know.
+Is there a way back for me, or is this it?
+Be straight with me. What does it take?
+What do you need to see from me in practice?
+
+@key talk.point.ask.buried
+Be honest with me, Coach. Am I ever going to play here?
+{ahead} isn't going anywhere. So where does that leave me?
+What do I have to do to get on the field?
+Is there a plan for me, or am I just depth?
+I need to know if I've got a future here.
+Tell me what it takes to pass {ahead}.
+
+@key talk.point.ask.promise_open
+You made me a promise, Coach. Is that still happening?
+I haven't forgotten what you told me. Have you?
+I'm still waiting on what you said, Coach.
+You gave me your word. I'm holding on to that.
+Can I ask where we are on what you promised me?
+I took you at your word, Coach. Was I right to?
+
+@key talk.point.ask.draft
+What are you hearing about me, Coach? From the scouts?
+Be honest. Where do the scouts have me?
+Do you think I'm ready to go?
+What would you do, if you were me?
+Have teams been asking about me?
+Should I go, Coach?
+
+@key talk.point.ask.your_job
+Can I ask you something, Coach? Are you going to be here next year?
+Everybody's saying your job is on the line. Is it?
+If you leave, what happens to us?
+My family keeps asking if you're staying. What do I tell them?
+Are you staying, Coach? I need to know.
+People are talking about your job. Should I be worried?
+
+@key talk.point.again
+You told me that already, Coach. I appreciate it, though.
+You said that last time. I heard you.
+I know, Coach. You told me.
+Thanks. Again.
+You keep saying that. I'm starting to believe it.
+I remember, Coach. It meant something the first time.

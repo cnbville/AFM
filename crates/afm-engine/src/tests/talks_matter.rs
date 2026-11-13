@@ -72,7 +72,12 @@ fn a_friend_leaving_is_his_subject_and_takes_a_promise() {
     assert!(words.starts_with(&gone), "{words}");
     let chips = talks::subjects_for(&w, ia);
     assert_eq!(chips[0], ("friend", format!("{gone} leaving")), "the friend's chip comes first");
-    assert_eq!(chips.len(), Subject::ALL.len() + 1);
+    // Then his talking points, then the subjects you can always raise; his
+    // behavior only with something on his sheet behind it (talk facts
+    // lane L4).
+    let subjects: Vec<&str> = chips.iter().map(|c| c.0).filter(|k| Subject::from_key(k).is_some()).collect();
+    assert_eq!(subjects.len(), Subject::ALL.len(), "{chips:?}");
+    assert!(!subjects.contains(&"behavior"), "{chips:?}");
 
     // The talk: it opens on him, the bars know where he came in, and a
     // promise is on the table.

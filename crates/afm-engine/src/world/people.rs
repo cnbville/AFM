@@ -859,6 +859,8 @@ pub(crate) fn pro_arrests_day(w: &mut World, d: Date) {
     // the night it happens, not in Tuesday's batch).
     let base = if year < 2014 { 0.03 } else { 0.022 } / 365.25;
     let seed = w.options.seed as u64 ^ 0x7E0B_1E00 ^ (d.0 as u64) << 24;
+    // A man you got help for after trouble (talk facts lane L4).
+    let helped = super::folk::talk_points::helped_ids(w);
     // Every pro's roll is keyed by the day and the person, so the walk runs
     // on all cores and keeps person order (world speed lane).
     use rayon::prelude::*;
@@ -881,7 +883,8 @@ pub(crate) fn pro_arrests_day(w: &mut World, d: Date) {
                     0.25,
                     2.5,
                 ) * clamp(1.0 - 0.04 * (age - 25.0), 0.6, 1.3)
-                    * (1.0 - 0.15 * room);
+                    * (1.0 - 0.15 * room)
+                    * if helped.contains(&p.player.id) { 1.0 - super::folk::talk_points::HELP_CUT } else { 1.0 };
             if key_uniform(seed, i as u64) >= risk {
                 return None;
             }
@@ -916,6 +919,8 @@ pub(crate) fn pro_arrests_day(w: &mut World, d: Date) {
         let age = w.people[i].row_age();
         w.people[i].note(format!("Off-field trouble at {age}: {}.", kind.words()));
         w.market.year_mut(year).trouble += 1;
+        // The arrest moves his mood: shame or anger (talk facts lane L4).
+        super::folk::talk_points::arrest_mood(w, i);
         // The commissioner exempt list (2015 on): paid leave while a
         // violent charge is open.
         if year >= 2015

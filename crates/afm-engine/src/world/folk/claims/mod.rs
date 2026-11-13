@@ -55,7 +55,7 @@ pub mod words;
 pub use alumni::{Alum, Alumni};
 pub use kinds::{Family, Group, Kind, When, Whose};
 pub use memory::{KEEP_DAYS, Row, Talked};
-pub use program::Ear;
+pub use program::{Ear, hot_seat};
 pub use sheet::{Basis, Conduct, Point, Proof, Ref, Sheet, Tier};
 
 use crate::calendar::Date;

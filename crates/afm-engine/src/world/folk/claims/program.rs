@@ -611,7 +611,7 @@ fn brother(c: &Ctx, j: usize) -> Option<(f32, Point)> {
 
 /// Whether a head coach's last two seasons ran well under what was
 /// expected of him.
-pub(super) fn hot_seat(w: &World, coach: usize) -> bool {
+pub fn hot_seat(w: &World, coach: usize) -> bool {
     let r = &w.coaches[coach].recent;
     r.len() >= 2 && r[r.len() - 1] + r[r.len() - 2] < HOT_SEAT
 }

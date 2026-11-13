@@ -35,6 +35,7 @@ pub mod rules;
 pub mod scene;
 pub mod staffing;
 pub mod takeover;
+pub mod talk_points;
 pub mod talks;
 pub mod ties;
 pub mod tips;
