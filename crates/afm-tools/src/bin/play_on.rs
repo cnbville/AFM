@@ -100,6 +100,15 @@ fn main() {
         }
     }
     eprintln!("TRADES BY MONTH {months:?}");
+    // Live talks lane 8: what a recent off-field case takes off the price
+    // a year of the men who have one, each at his own club.
+    let (n, clean, priced) = afm_engine::world::pro::market::case_prices(&w);
+    eprintln!(
+        "OFF-FIELD {n} rostered pros with a recent case: ${:.2}M a year without it, ${:.2}M with it ({:+.1}%)",
+        clean / 1e6,
+        priced / 1e6,
+        100.0 * (priced / clean.max(1.0) - 1.0)
+    );
     summary(&w);
     arm_report(&arm_rows);
     if days > 0 {
