@@ -243,6 +243,124 @@ fn portal_on_the_needs_map(g: &mut Game) {
     assert_eq!(board(g, "sb_needs", json!({})), before);
 }
 
+/// The line and the named jobs (playtest bug 12): an untouched board shows
+/// the men the game lines up at each spot, a tackle dropped at left tackle
+/// plays left tackle, and only the position you changed becomes yours.
+fn line_spots(g: &mut Game) {
+    const LINE: [&str; 5] = ["LT", "LG", "C", "RG", "RT"];
+    let seats = |g: &Game| {
+        let w = g.world.as_ref().unwrap();
+        let (team, level) = w.seat_game_team().expect("a team that can dress");
+        afm_engine::game::flow::seating(&team, level)
+    };
+    let slots = |g: &mut Game, key: &str| -> Vec<(String, Option<u32>)> {
+        let b = ok(g, "boards", json!({}));
+        let b = b["boards"].as_array().unwrap().iter().find(|b| b["key"] == key).unwrap().clone();
+        b["slots"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| (s["slot"].as_str().unwrap().to_string(), s["player"]["id"].as_u64().map(|x| x as u32)))
+            .collect()
+    };
+    let at = |v: &[(String, Option<u32>)], name: &str| v.iter().position(|s| s.0 == name).expect("the slot");
+    assert!(g.world.as_ref().unwrap().seat_depth.is_empty(), "nothing set by hand");
+    let before = seats(g);
+    // Untouched: each named spot shows the man the game plays there, on
+    // the practice board, the stadium board and the flat chart.
+    let off = slots(g, "offense");
+    for name in LINE {
+        assert_eq!(off[at(&off, name)].1, before.at(name, 0), "the board's {name}");
+    }
+    let def = slots(g, "defense");
+    for name in ["SAM", "MIKE", "WILL", "FS", "SS"] {
+        assert_eq!(def[at(&def, name)].1, before.at(name, 0), "the board's {name}");
+    }
+    let stadium = ok(g, "sb_depth", json!({ "tab": "offense", "form": "offense" }));
+    for s in stadium["slots"].as_array().unwrap() {
+        let name = s["slot"].as_str().unwrap();
+        if LINE.contains(&name) {
+            assert_eq!(
+                s["picks"][0]["id"].as_u64().map(|x| x as u32),
+                before.at(name, 0),
+                "the stadium board's {name}"
+            );
+        }
+    }
+    let flat = ok(g, "depth", json!({}));
+    let row = |flat: &Value, pos: &str| {
+        flat["positions"].as_array().unwrap().iter().find(|p| p["pos"] == pos).unwrap().clone()
+    };
+    let ot = row(&flat, "OT");
+    assert_eq!(ot["slots"], json!(["LT", "RT"]), "the flat chart names the tackles' rows");
+    assert_eq!(ot["players"][0]["id"].as_u64().map(|x| x as u32), before.at("LT", 0));
+    assert_eq!(ot["players"][1]["id"].as_u64().map(|x| x as u32), before.at("RT", 0));
+    let iol = row(&flat, "IOL");
+    assert_eq!(iol["slots"], json!(["LG", "C", "RG"]));
+    for (k, name) in ["LG", "C", "RG"].into_iter().enumerate() {
+        assert_eq!(iol["players"][k]["id"].as_u64().map(|x| x as u32), before.at(name, 0), "the flat chart's {name}");
+    }
+
+    // The tackles swapped on the board: the game follows, the inside
+    // three stay, and only the tackles are yours.
+    let (lt, rt) = (at(&off, "LT"), at(&off, "RT"));
+    let mut ids: Vec<Value> = off.iter().map(|s| json!(s.1)).collect();
+    ids.swap(lt, rt);
+    ok(g, "board_set", json!({ "board": "offense", "ids": ids, "positions": ["OT"] }));
+    let swapped = seats(g);
+    assert_eq!(swapped.at("LT", 0), before.at("RT", 0), "the man dropped at left tackle plays left tackle");
+    assert_eq!(swapped.at("RT", 0), before.at("LT", 0), "and the other plays right tackle");
+    for name in ["LG", "C", "RG"] {
+        assert_eq!(swapped.at(name, 0), before.at(name, 0), "the {name} stays");
+    }
+    assert_eq!(swapped.jobs, before.jobs, "the defense is as it was");
+    let yours: Vec<_> = g.world.as_ref().unwrap().seat_depth.iter().map(|x| x.0).collect();
+    assert_eq!(yours, vec![afm_engine::positions::Position::OT], "only the tackles are yours");
+    let now = slots(g, "offense");
+    assert_eq!((now[lt].1, now[rt].1), (off[rt].1, off[lt].1), "the board shows the swap");
+    assert_eq!(row(&ok(g, "depth", json!({})), "OT")["players"][0]["id"].as_u64().map(|x| x as u32), off[rt].1);
+
+    // The next tackle moved up at left tackle: the right tackle stays.
+    let stadium = ok(g, "sb_depth", json!({ "tab": "offense", "form": "offense" }));
+    let k = stadium["slots"].as_array().unwrap().iter().position(|s| s["slot"] == "LT").unwrap();
+    if let Some(next) = stadium["slots"][k]["picks"][1]["id"].as_u64().map(|x| x as u32) {
+        ok(g, "sb_depth_up", json!({ "tab": "offense", "form": "offense", "slot": k, "n": 2 }));
+        let moved = seats(g);
+        assert_eq!(moved.at("LT", 0), Some(next), "the backup plays left tackle");
+        assert_eq!(moved.at("RT", 0), swapped.at("RT", 0), "the right tackle stays");
+    }
+    // Given back: the staff's seating again.
+    ok(g, "sb_depth_reset", json!({ "tab": "offense", "form": "offense" }));
+    assert!(g.world.as_ref().unwrap().seat_depth.is_empty(), "the staff has it back");
+    assert_eq!(seats(g), before, "the staff's line again");
+
+    // The nickel dropped at free safety: he plays free safety, the corners
+    // stay, and another corner takes the nickel job (the Base board doesn't
+    // show it, so the corners' order is written too).
+    if let (Some(nickel), Some(fs)) = (before.at("NICKEL", 0), before.at("FS", 0)) {
+        let def = slots(g, "defense");
+        let mut ids: Vec<Value> = def.iter().map(|s| json!(s.1)).collect();
+        ids[at(&def, "FS")] = json!(nickel);
+        // The screens name the spot he lands on; he came from off the board.
+        ok(g, "board_set", json!({ "board": "defense", "ids": ids, "positions": ["S"] }));
+        let now = seats(g);
+        assert_eq!(now.at("FS", 0), Some(nickel), "the nickel plays free safety");
+        assert!(now.at("NICKEL", 0).is_some_and(|x| x != nickel && x != fs), "another corner plays nickel");
+        let (mut a, mut b) = ([now.at("CB", 0), now.at("CB", 1)], [before.at("CB", 0), before.at("CB", 1)]);
+        a.sort();
+        b.sort();
+        assert_eq!(a, b, "the outside corners stay");
+        for name in ["SAM", "MIKE", "WILL"] {
+            assert_eq!(now.at(name, 0), before.at(name, 0), "the {name} stays");
+        }
+        let mut yours: Vec<_> = g.world.as_ref().unwrap().seat_depth.iter().map(|x| x.0.name()).collect();
+        yours.sort();
+        assert_eq!(yours, vec!["CB", "S"], "the corners and safeties are yours, nobody else");
+        ok(g, "sb_depth_reset", json!({ "tab": "defense", "form": "defense" }));
+        assert!(g.world.as_ref().unwrap().seat_depth.is_empty(), "the staff has it back");
+    }
+}
+
 #[test]
 fn the_boards_at_every_seat() {
     let t = std::time::Instant::now();
@@ -315,6 +433,7 @@ fn the_boards_at_every_seat() {
     assert_eq!(qbs["players"][0]["id"], second, "the flat depth chart agrees");
     let back = ok(&mut g, "sb_depth_reset", json!({ "tab": "offense", "form": "offense" }));
     assert_eq!(back["yours"], false, "the staff has it back");
+    line_spots(&mut g);
 
     // The reads kept at a season's end: a career's first turn keeps none
     // (it starts mid-year), the next keeps every player the staff follows,

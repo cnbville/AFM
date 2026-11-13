@@ -270,6 +270,49 @@ fn swap(knows: bool) -> Kind {
     Kind::Swap { a: Spot::SAM, b: Spot::OLB, ka, kb, knows }
 }
 
+/// The rows for each spot on the line a swap moves (`ab::line_jobs`): who
+/// lines up there (his weight) and how the man there blocks.
+const OT_SPOTS: &[&str] =
+    &["oj_lt_wt", "oj_rt_wt", "oj_lt_lost", "oj_rt_lost", "oj_lt_press", "oj_rt_press", "oj_lt_run", "oj_rt_run"];
+const IOL_SPOTS: &[&str] =
+    &["oj_lg_wt", "oj_c_wt", "oj_rg_wt", "oj_lg_lost", "oj_c_lost", "oj_rg_lost", "oj_lg_run", "oj_c_run", "oj_rg_run"];
+
+/// A left tackle's build against a right tackle's: 308 lb with Pass
+/// Blocking and Agility 6 up and Run Blocking and Strength 6 down, against
+/// 324 lb the other way round (Claude's picks, proposed, not confirmed).
+/// Your order names the side (playtest bug 12), and a starter knows the
+/// spot he practiced all week, so `knows` would change nothing here.
+fn ot_swap() -> Kind {
+    use Attr as A;
+    let lean = |d: f64| {
+        vec![
+            Knob::Rating(A::PassBlocking, d),
+            Knob::Rating(A::Agility, d),
+            Knob::Rating(A::RunBlocking, -d),
+            Knob::Rating(A::Strength, -d),
+        ]
+    };
+    let mut ka = vec![Knob::Set(Part::Weight, 308.0)];
+    ka.extend(lean(6.0));
+    let mut kb = vec![Knob::Set(Part::Weight, 324.0)];
+    kb.extend(lean(-6.0));
+    Kind::Swap { a: Spot::LT, b: Spot::RT, ka, kb, knows: false }
+}
+
+/// A center's build against a guard's: 302 lb with Shotgun Snap and
+/// Communication 8 up, against 318 lb with both 8 down (Claude's picks,
+/// proposed, not confirmed). Swapped, each team's center plays left guard
+/// and its best guard snaps the ball; the other guard stays.
+fn c_swap() -> Kind {
+    use Attr as A;
+    let lean = |d: f64| vec![Knob::Rating(A::ShotgunSnap, d), Knob::Rating(A::Communication, d)];
+    let mut ka = vec![Knob::Set(Part::Weight, 302.0)];
+    ka.extend(lean(8.0));
+    let mut kb = vec![Knob::Set(Part::Weight, 318.0)];
+    kb.extend(lean(-8.0));
+    Kind::Swap { a: Spot::C, b: Spot::G, ka, kb, knows: false }
+}
+
 fn body(part: Part, v: [f64; 3]) -> Kind {
     Kind::Body { part, v, recruit: false, cross: None }
 }
@@ -594,6 +637,11 @@ pub fn all() -> Vec<Test> {
             .chain(&["ol_hold", "ol_fs"])
             .real(&[("ol_hold", "ol_holding_per_snap"), ("ol_fs", "ol_false_start_per_snap")])
             .sign(-1.0),
+        // A pass protector's build and a run blocker's, named right and
+        // swapped on every team's board: the side follows the board.
+        t("ot_swap", "ot", "A right tackle at left tackle and a left tackle at right (every team)", ot, ot_swap())
+            .chain(OT_SPOTS)
+            .chain(&["off_sack", "off_press", "off_ypc", "blk_pass_lost", "blk_run_won"]),
         // ---------------------------------------------------- interior line
         t("iol_weight", "iol", "Weight (290 / 311 / 331 lb)", iol, drawn(Weight, [290.0, 311.0, 331.0]))
             .chain(&["blk_run_won", "off_in_ypc", "blk_lost_power", "blk_pass_lost", "blk_press", "off_ypc"])
@@ -629,6 +677,11 @@ pub fn all() -> Vec<Test> {
         t("iol_focus", "iol", "Concentration", iol, r(&[A::Concentration]))
             .chain(&["ol_fs_road", "ol_fs_home", "ol_fs"])
             .sign(-1.0),
+        // A center's build and a guard's, named right and swapped on every
+        // team's board: the man at center follows the board.
+        t("c_swap", "iol", "A guard at center and a center at left guard (every team)", iol, c_swap())
+            .chain(IOL_SPOTS)
+            .chain(&["bad_snap", "qb_fum", "off_sack", "off_press", "off_bust", "off_ypc"]),
         // ---------------------------------------------------- defensive tackle
         t("dt_weight", "dt", "Weight (284 / 307 / 330 lb)", dt, drawn(Weight, [284.0, 307.0, 330.0]))
             .chain(&["dl_run_shed", "dl_tfl", "def_ypc", "dl_shed", "dl_power_win", "dl_win", "dl_press", "dl_sack"])

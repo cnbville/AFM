@@ -485,5 +485,4 @@ i.v-strength { background: var(--sb-strength); }
 .sb-stage.sb-dropping .sb-plate:not(.sb-no):not(.sb-over) { box-shadow: inset 0 0 0 1px rgba(241, 190, 72, .45), 0 12px 24px rgba(0, 0, 0, .5); }
 .sb-stage.sb-dropping .sb-plate.sb-no { opacity: .4; }
 .sb-stage.sb-dropping .sb-plate.sb-over { z-index: 4; box-shadow: inset 0 0 0 2px var(--sb-gold, #f1be48), 0 14px 28px rgba(0, 0, 0, .55); }
-.sb-linenote { margin-top: 2px; }
 @media (prefers-reduced-motion: reduce) { .sb-stage.sb-dropping .sb-plate { transition: none; } }
