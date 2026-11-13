@@ -58,14 +58,15 @@ A {pick_round}-round pick from your rooms. We noticed.
 # An answer your record contradicts: the panel reads the record back to you
 # (Cain's yes, 2026-11-13). Said only when the answer is not backed, so a
 # version never needs the missing fact; {yours} is your record when you have
-# one.
+# one. The failure lines speak of the year you named, never of a record with
+# no loss in it: a short stint's losses aren't a stretch to own.
 @key interview.react.past.against.failure
 We went through your record before you came in. We didn't find that year.
-{yours}, and not a losing stretch in it. Which year do you mean?
+Which year do you mean? We couldn't find it in your file.
 That's a story we can't find on your record.
-Odd. Nothing on your record went wrong. Why tell us it did?
-We read your file. There's no bad year in it.
-You're reaching for a failure you don't have. We noticed.
+Odd. We didn't see that year when we read your file.
+We read your file. We didn't find a season like that in it.
+You're reaching for a failure we can't find. We noticed.
 
 @key interview.react.past.against.results
 We have your record in front of us. That isn't what it says.

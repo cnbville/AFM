@@ -429,6 +429,25 @@ pub(crate) fn want_factor(w: &World, i: usize, t: usize, kind: TalkKind) -> f64 
     want_fit(w, i, t, kind).map_or(1.0, |(fit, strength)| 1.0 - WANT_ASK * fit * strength)
 }
 
+/// The agent's ask with his client's want in it. Where the want lowers it,
+/// he gives up only as much of his number as still gets the deal done: the
+/// first of four steps from the full discount back to his plain number
+/// whose offer clears his bar (his own club's bar on a re-sign or an
+/// extension, 85% on the market), so "get us there and he signs" stays true.
+fn want_ask(w: &World, i: usize, t: usize, kind: TalkKind, ideal: &Ideal, own: Option<usize>, want: f64) -> Proposal {
+    if want >= 1.0 {
+        return agent_ask(w, i, ideal, want);
+    }
+    let bar = match kind {
+        TalkKind::ReSign | TalkKind::Extension => own_bar(w, i, kind),
+        TalkKind::FreeAgent | TalkKind::OfferSheet => 0.85,
+    };
+    (0..4)
+        .map(|k| agent_ask(w, i, ideal, want + (1.0 - want) * k as f64 / 3.0))
+        .find(|a| offer_score(w, i, &a.offer(t), ideal, own) >= bar)
+        .unwrap_or_else(|| agent_ask(w, i, ideal, 1.0))
+}
+
 /// Rounds to a quarter million (agents talk in round numbers).
 fn round_q(x: f64) -> f64 {
     if x >= 2e6 { (x / 250_000.0).round() * 250_000.0 } else { (x / 25_000.0).round() * 25_000.0 }
@@ -580,7 +599,7 @@ pub fn propose(w: &mut World, id: u32, p: Proposal) -> Result<Answer, String> {
     let name = w.people[i].name.clone();
     let said = describe_proposal(&p, w.year);
     let want = want_factor(w, i, t, kind);
-    let ask = agent_ask(w, i, &ideal, want);
+    let ask = want_ask(w, i, t, kind, &ideal, own, want);
     let g = market::goals(w, i);
     let mut answer = Answer {
         verdict: Verdict::Counter,
@@ -606,8 +625,12 @@ pub fn propose(w: &mut World, id: u32, p: Proposal) -> Result<Answer, String> {
             // the negotiating window is still under his old deal: his
             // answer waits for the market's day.)
             let street = !market::on_market(w, i, false);
-            // Off the street his price is the ask, moved by the same want.
-            let yes = if street { p.apy >= pro::ask(w, i, w.year, today).0 * 0.95 * want } else { s >= 0.85 };
+            // Off the street his price is the ask, moved by the same want,
+            // never above the league minimum: a man worth the minimum
+            // takes it from anyone.
+            let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
+            let price = (pro::ask(w, i, w.year, today).0 * 0.95 * want).min(money::minimum(w.year, credited));
+            let yes = if street { p.apy >= price } else { s >= 0.85 };
             if yes && (street || today >= w.dates.league_year.date) {
                 answer.verdict = Verdict::Signed;
                 answer.text = format!("{name} takes it: {said}.");

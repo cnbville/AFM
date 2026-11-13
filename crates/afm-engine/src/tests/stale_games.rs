@@ -82,7 +82,8 @@ fn a_game_is_fresh_for_a_week() {
     for (ago, fresh) in [(0, true), (2, true), (7, true), (8, false), (120, false)] {
         let (w, team) = after(ago);
         assert_eq!(facts::fresh_game(&w, team).is_some(), fresh, "{ago} days after the game");
-        // The plain reader still has it; no talk reads it any more.
+        // The plain reader still has it: the press reads it only once it
+        // has asked about a fresh game.
         assert!(facts::last_game(&w, team).is_some(), "{ago} days: the game is kept");
     }
     let (w, team) = after(2);

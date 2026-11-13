@@ -260,6 +260,20 @@ fn an_answer_your_record_contradicts_costs_the_panels_trust() {
 }
 
 #[test]
+fn a_short_winning_record_is_thin_not_contradicted() {
+    let mut w = seat("college");
+    coached(&mut w, &[(2024, 5, 0)]);
+    let (id, s) = third_question(&mut w);
+    let codes: Vec<u32> = s.picks.iter().map(|x| x.code).collect();
+    assert_eq!(codes, [937, 938, 939, dialogue::PLAIN_ANSWER], "none names the record: the plain one stands beside");
+    assert_eq!(contradicted(&s), [937, 939], "5-0 is too short to name, but nothing contradicts it");
+    let results = s.picks.iter().find(|x| x.code == 938).unwrap();
+    assert!(results.hint.is_empty() && !results.label.contains("5-0"), "{} / {}", results.label, results.hint);
+    let (_, s) = scored(&mut w, id, 938);
+    assert!(!s.outcome.iter().any(|o| o.contains("didn't back")), "{:?}", s.outcome);
+}
+
+#[test]
 fn a_losing_record_cannot_point_to_results_and_the_panel_answers_a_failure_by_name() {
     let mut w = seat("college");
     coached(&mut w, &[(2024, 3, 9)]);

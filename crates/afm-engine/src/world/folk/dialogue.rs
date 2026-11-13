@@ -1130,38 +1130,49 @@ struct Answer {
     k: u8,
     text: String,
     label: String,
+    /// It names your record (the year, the record, the man drafted).
+    backed: bool,
     against: Option<String>,
 }
 
 /// What you can say to a question, given your record (item 19). An answer
 /// your record backs names it: the year it went wrong, the record, the man
-/// drafted. One your record contradicts (results you don't have, a failure
-/// you never had, people who never came through your rooms) is still on the
-/// table in plain words, with a hint that says the panel has your record in
-/// front of it: said, it costs their trust (`against_cost`; Cain's yes,
-/// 2026-11-13). When your record backs none of the three, a plain answer
-/// stands in as well (`PLAIN_ANSWER`), so there is always an honest one.
+/// drafted. One your record contradicts (a losing or even record, or none,
+/// held up as results; a failure the record doesn't show; people when no
+/// one of yours was drafted) is still on the table in plain words, with a
+/// hint that says the panel has your record in front of it: said, it costs
+/// their trust (`against_cost`; Cain's yes, 2026-11-13). A winning record
+/// over too few games is thin, not contradicted: its plain words cost
+/// nothing. When your record backs none of the three, a plain answer stands
+/// beside them (`PLAIN_ANSWER`), so there is always an honest one.
 fn interview_answers(q: usize, past: &rooms::Past) -> Vec<Answer> {
     let mut out = Vec::new();
     for k in 0..3usize {
         let code = 931 + 3 * q as u32 + k as u32;
         let label = LABELS[q][k].to_string();
         let plain = QUESTIONS[q].1[k].to_string();
-        let (text, against) = if q == 2 {
+        let (text, backed, against) = if q == 2 {
             match k {
                 0 => match past.failure() {
-                    Some(x) => (format!("\"Let me tell you about {x}. It went wrong, and I know why.\""), None),
-                    None => (plain, Some("Your record has no losing season or stretch to own.".to_string())),
+                    Some(x) => (format!("\"Let me tell you about {x}. It went wrong, and I know why.\""), true, None),
+                    None => (
+                        plain,
+                        false,
+                        Some(
+                            "Your record shows no losing season, and no losing stretch of 8 games or more.".to_string(),
+                        ),
+                    ),
                 },
                 1 => match past.record_words(true).filter(|_| past.strong()) {
-                    Some(r) => (format!("\"Look at what my teams did: {r}.\""), None),
+                    Some(r) => (format!("\"Look at what my teams did: {r}.\""), true, None),
+                    // A short winning record: thin, not contradicted.
+                    None if past.games() > 0 && past.wins > past.losses => (plain, false, None),
                     None => {
                         let why = match past.record_words(false) {
-                            Some(r) if past.games() >= rooms::RESULTS_GAMES => format!("Your record is {r}."),
-                            Some(r) => format!("Your record is {r}: not enough games to point to."),
+                            Some(r) => format!("Your record is {r}."),
                             None => "You have no record of your own yet.".to_string(),
                         };
-                        (plain, Some(why))
+                        (plain, false, Some(why))
                     }
                 },
                 _ => match past.people() {
@@ -1172,19 +1183,20 @@ fn interview_answers(q: usize, past: &rooms::Past) -> Vec<Answer> {
                             super::claims::words::round_word(d.round),
                             d.year
                         ),
+                        true,
                         None,
                     ),
-                    None => (plain, Some("No player of yours has been drafted.".to_string())),
+                    None => (plain, false, Some("No player of yours has been drafted.".to_string())),
                 },
             }
         } else {
-            (plain, None)
+            (plain, false, None)
         };
         let against =
             against.map(|why| format!("{why} They have your record in front of them: this costs their trust."));
-        out.push(Answer { code, k: k as u8, text, label, against });
+        out.push(Answer { code, k: k as u8, text, label, backed, against });
     }
-    if q == 2 && out.iter().all(|a| a.against.is_some()) {
+    if q == 2 && !out.iter().any(|a| a.backed) {
         // Said as the record allows: a coach with games behind him has a
         // record, only not one of the three kinds.
         let (text, label) = if past.games() == 0 && !past.as_head {
@@ -1192,7 +1204,14 @@ fn interview_answers(q: usize, past: &rooms::Past) -> Vec<Answer> {
         } else {
             (PLAIN_TEXT_RECORD, "Judge the plan")
         };
-        out.push(Answer { code: PLAIN_ANSWER, k: 3, text: text.into(), label: label.into(), against: None });
+        out.push(Answer {
+            code: PLAIN_ANSWER,
+            k: 3,
+            text: text.into(),
+            label: label.into(),
+            backed: false,
+            against: None,
+        });
     }
     out
 }

@@ -110,16 +110,20 @@ fn your_offer_is_weighed_by_the_markets_own_score() {
 #[test]
 fn the_agents_number_moves_with_what_his_client_wants_besides_money() {
     // Talk facts item 25 (Cain's yes, 2026-11-13): the want his agent names
-    // moves the agent's number by how well your club meets it.
+    // moves the agent's number by how well your club meets it, and his own
+    // number still signs him.
     let (mut w, t) = nfl_world();
     w.today = w.dates.tag_window_open;
+    // The veteran whose want moves his number the most.
+    let moves =
+        |w: &World, i: usize| (nfl::want_factor(w, i, t, nfl::TalkKind::ReSign) - 1.0).abs() * nfl::market_read(w, i).0;
     let i = *w.clubs[t]
         .roster
         .iter()
         .filter(|&&i| w.people[i].pro.as_ref().unwrap().status == Status::Roster)
-        .filter(|&&i| (2.0e6..20.0e6).contains(&nfl::market_read(&w, i).0))
-        .find(|&&i| nfl::want_factor(&w, i, t, nfl::TalkKind::ReSign) != 1.0)
-        .expect("a veteran whose want your club meets or misses");
+        .filter(|&&i| (4.0e6..15.0e6).contains(&nfl::market_read(&w, i).0))
+        .max_by(|&&a, &&b| moves(&w, a).total_cmp(&moves(&w, b)))
+        .unwrap();
     make_expiring(&mut w, t, i, 5);
     let f = nfl::want_factor(&w, i, t, nfl::TalkKind::ReSign);
     assert!((1.0 - nfl::WANT_ASK..=1.0 + nfl::WANT_ASK).contains(&f), "{f}");
@@ -139,13 +143,21 @@ fn the_agents_number_moves_with_what_his_client_wants_besides_money() {
     };
     let ideal = pro::market::ideal(&w, i, w.today);
     let greed = pro::market::goals(&w, i).greed;
-    let a = nfl::propose(&mut w, id, low).unwrap();
-    let ask = a.ask.expect("the agent names his number").apy;
-    // Agents talk in round numbers: a quarter million, or $25,000 under $2M.
-    let want = (ideal.apy * (1.02 + 0.06 * greed) * f).max(min);
-    assert!((ask - want).abs() <= 125_001.0, "the ask {ask}, the number with his want {want}");
     let plain = ideal.apy * (1.02 + 0.06 * greed);
-    assert!(if f < 1.0 { ask < plain } else { ask > plain }, "the want moved the ask: {ask} against {plain}");
+    let moved = (plain * f).max(min);
+    // Agents talk in round numbers: a quarter million, or $25,000 under $2M.
+    assert!((moved - plain).abs() > 130_000.0, "a want that moves his number past the rounding: {f}");
+    let a = nfl::propose(&mut w, id, low).unwrap();
+    let ask = a.ask.expect("the agent names his number");
+    if f > 1.0 {
+        assert!((ask.apy - moved).abs() <= 125_001.0, "the ask {}, the number with his want {moved}", ask.apy);
+        assert!(ask.apy > plain, "a club that misses his want hears more: {} against {plain}", ask.apy);
+    } else {
+        // He gives up only as much as still signs him.
+        assert!(ask.apy >= moved - 125_001.0 && ask.apy <= plain + 125_001.0, "{} not in {moved}..{plain}", ask.apy);
+    }
+    let a = nfl::propose(&mut w, id, ask).unwrap();
+    assert_eq!(a.verdict, nfl::Verdict::Signed, "his own ask didn't sign: {}", a.text);
 }
 
 #[test]
