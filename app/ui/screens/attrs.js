@@ -73,6 +73,7 @@ function attrArrow(m) {
 }
 // What a skill is worth to his position, for the hover card.
 function attrWeightLine(s, pos) {
+  if (s.weight_line) return s.weight_line;
   const w = Number(s.weight_pct);
   if (!Number.isFinite(w)) return "";
   const of = `${attrArticle(pos)}'s rating`;
@@ -203,7 +204,9 @@ async function attrTab(p) {
   if (st.with && st.with.for !== p.id) st.with = null;
   let a, b = null;
   try {
-    [a, b] = await Promise.all([api("attr_view", { id: p.id, ...(st.with ? { with: st.with.id } : {}) }), st.with ? api("attr_view", { id: st.with.id }) : null]);
+    a = await api("attr_view", { id: p.id, ...(st.with ? { with: st.with.id } : {}) });
+    // The second player's skills come with the first's; an older payload without them is asked for apart.
+    b = st.with ? (a.with && a.with.skills ? a.with : await api("attr_view", { id: st.with.id })) : null;
   } catch (e) {
     st.with = null;
     return `<div class="panel"><div class="empty">The attributes couldn't be read just now: ${esc(e.message || String(e))}</div></div>`;
