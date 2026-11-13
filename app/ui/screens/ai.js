@@ -61,6 +61,8 @@ const aiFlag = (x, key, preset) => (x && x[key]) || (aiDevOn() && preset ? { ...
 function aiDevPaint() {
   const on = aiDevOn();
   let bar = document.getElementById("ai-devbar");
+  // The page keeps room under its last row while the bar floats over it.
+  document.documentElement.classList.toggle("ai-dev", on);
   if (!on) { if (bar) bar.remove(); return; }
   if (!document.body) return;
   if (!bar) {

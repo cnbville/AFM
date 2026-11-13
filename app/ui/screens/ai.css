@@ -14,6 +14,7 @@
 .ai-box.panel { padding: 14px 16px; }
 .pp-moves .ai-box, .tk-fmoves .ai-box { margin-top: 12px; padding-top: 12px; box-shadow: inset 0 1px 0 var(--hair); }
 .tk-fmoves .ai-box { margin-top: 8px; }
+.tk > .tk-pad .ai-box { margin-top: 14px; }
 .ai-sy { display: grid; gap: 8px; }
 .ai-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .ai-lb { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--fg3); }
@@ -164,6 +165,7 @@ html.calm .ai-pbar i, html.calm .ai-wbar i { animation: none; left: 33%; }
 @media (max-width: 760px) { .ai-rr { grid-template-columns: minmax(0, 1fr) 90px; } .ai-rr .ai-cbar { grid-column: 1 / -1; order: 3; } .ai-inp { width: 180px; } }
 
 /* The demo bar */
-#ai-devbar { position: fixed; left: 14px; bottom: 14px; z-index: 60; display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; border-radius: 14px; background: var(--chrome); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ai-gold) 55%, transparent), var(--shadow-card); color: var(--fg); font-size: 12.5px; }
+.ai-dev .view > .pad, .ai-dev .view > .film > .pad { padding-bottom: 96px; }
+#ai-devbar { position: fixed; right: 14px; bottom: 14px; z-index: 60; display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; border-radius: 14px; background: var(--chrome); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ai-gold) 55%, transparent), var(--shadow-card); color: var(--fg); font-size: 12.5px; }
 #ai-devbar select { height: 26px; border: 0; border-radius: 8px; background: var(--fill-2); color: var(--fg); font: inherit; font-size: 12.5px; padding: 0 8px; }
 #ai-devbar select option { background: var(--raised); color: var(--fg); }

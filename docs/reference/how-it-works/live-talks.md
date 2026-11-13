@@ -1,6 +1,6 @@
 # Live talks: how it works today
 
-Checked against main at 1f2b001 on 2026-11-13 (lane 1, the pipe, before it merged to main). Lanes 2 to 10 are not built yet: their sections below are empty until each lane fills its own.
+Checked against main at 7691db7 on 2026-11-13 (lane 2, the boxes, before it merged to main; lane 1 is on main since #314). Lanes 3 to 10 are not built yet: their sections below are empty until each lane fills its own.
 
 Live talks are typed lines to your players, recruits and staff, answered in character by Claude Haiku 5.5, on top of the chips and the line bank, which always still work. The rule under all of it: the AI only reads your words and writes theirs; the game decides every result. The design is `afm/live-talks/proposal.md` in the project folder; this page says what the code does.
 

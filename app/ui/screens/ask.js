@@ -74,11 +74,11 @@ function aiAskBox(list, kinds, key, o = {}) {
 function aiAskOne(e, key, o) {
   const kind = e.args.kind;
   const base = AI_ASK_WORDS[kind] || AI_ASK_WORDS.analyst;
-  const words = { ...base, ...(e.label ? { title: e.label } : {}), ...(e.placeholder ? { ph: e.placeholder } : {}), ...(e.wait ? { reading: e.wait } : {}), ...(e.caption ? { cap: e.caption } : {}), ...(e.button ? { btn: e.button } : {}), ...(o.words || {}) };
+  const words = { btn: "Ask", ...base, ...(e.label ? { title: e.label } : {}), ...(e.placeholder ? { ph: e.placeholder } : {}), ...(e.wait ? { reading: e.wait } : {}), ...(e.caption ? { cap: e.caption } : {}), ...(e.button ? { btn: e.button } : {}), ...(o.words || {}) };
   const b = aiBox(key, e.button ? "btn" : "ask", e, words);
   b.o = o;
   b.e = e;
-  return aiBoxHtml(b);
+  return b.html(b);
 }
 
 // A button with no text ("Write the report"): one press, one answer.

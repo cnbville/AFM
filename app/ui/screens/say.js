@@ -141,7 +141,7 @@ async function aiSend(b, noText) {
   aiPaint(b);
   const args = { ...(b.flag.args || {}), ...(text ? { text } : {}) };
   if (b.flag.choose) args[b.flag.choose.key] = b.choice ?? b.flag.choose.options[0].value;
-  await aiLand(b, await aiCall(b.flag.cmd, args, () => b.run === run), text);
+  await aiLand(b, await aiCall(b.flag.cmd, args, () => b.run === run && aiState.boxes[b.key] === b), text);
 }
 // A reading picked: the box sends its command again with the ticket and the pick.
 async function aiPicked(b) {
@@ -152,7 +152,7 @@ async function aiPicked(b) {
   aiPaint(b);
   const args = { ...(b.flag.args || {}), ticket: b.ticket, pick: r.pick };
   if (b.flag.choose) args[b.flag.choose.key] = b.choice ?? b.flag.choose.options[0].value;
-  await aiLand(b, await aiCall(b.flag.cmd, args, () => b.run === run, "done"), b.sent || b.text);
+  await aiLand(b, await aiCall(b.flag.cmd, args, () => b.run === run && aiState.boxes[b.key] === b, "done"), b.sent || b.text);
 }
 // Back to the typed words, unchanged: "Say it another way", "Not that".
 function aiAgain(b) {
