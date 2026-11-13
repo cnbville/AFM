@@ -132,7 +132,18 @@ fn game_day_from_the_morning_to_the_game_page() {
         assert!(!page[key].is_null(), "the game page has {key}");
     }
     assert!(page["snaps"].as_array().unwrap().iter().filter(|s| s["yours"].as_u64().unwrap_or(0) > 0).count() > 40);
-    assert!(page["drives"].as_array().unwrap().len() >= 16, "{}", page["drives"]);
+    // The drive chart covers the whole game: in order, both sides, from the
+    // first quarter to the last. (A count bar of 16 failed on a real game
+    // shape when live talks lane 8 changed the world: a P4 side grinding an
+    // FCS one with 9- to 13-play drives played a full game in 15.)
+    let drives = page["drives"].as_array().unwrap();
+    let n = |d: &Value, k: &str| d[k].as_u64().unwrap();
+    assert!(drives.iter().all(|d| n(d, "first") <= n(d, "last")), "{}", page["drives"]);
+    assert!(drives.windows(2).all(|p| n(&p[0], "last") < n(&p[1], "first")), "{}", page["drives"]);
+    assert!(drives.iter().any(|d| d["team"] == 0) && drives.iter().any(|d| d["team"] == 1), "{}", page["drives"]);
+    assert_eq!(drives[0]["q"], "Q1", "{}", page["drives"]);
+    let end = drives.last().unwrap()["q"].as_str().unwrap();
+    assert!(!matches!(end, "Q1" | "Q2" | "Q3"), "{}", page["drives"]);
     println!("game 1 live in {:.0}s: {score:?}", t.elapsed().as_secs_f64());
 
     // Game 2: the morning's game is the day's when the staff coaches it.
