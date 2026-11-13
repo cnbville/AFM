@@ -1,0 +1,7 @@
+/* Picking a man up with the mouse (playtest bug 14, pointerdrag.js). */
+[data-drag] { cursor: grab; -webkit-user-select: none; user-select: none; -webkit-user-drag: none; touch-action: none; }
+[data-drag] a, [data-drag] img { -webkit-user-drag: none; }
+body.pd-active, body.pd-active * { cursor: grabbing !important; -webkit-user-select: none !important; user-select: none !important; }
+.pd-src { opacity: .45; }
+.pd-ghost { position: fixed; left: 0; top: 0; z-index: 9999; pointer-events: none; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 8px 13px; border-radius: 10px; background: rgba(10, 11, 15, .94); color: #f4f5f7; font-size: 13px; font-weight: 800; line-height: 1; letter-spacing: -.01em; box-shadow: inset 0 0 0 1.5px #f1be48, 0 12px 28px rgba(0, 0, 0, .5); }
+.pd-ghost.no { opacity: .75; box-shadow: inset 0 0 0 1.5px #b8503c, 0 12px 28px rgba(0, 0, 0, .5); }
