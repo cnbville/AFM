@@ -196,7 +196,8 @@ screens.fo_talk = async (a) => {
   try { pv = await api("fo_preview", { id: t.id, ...d }); } catch (e) { pv = null; }
   const ag = t.agent;
   const ask = t.talk && t.talk.ask;
-  const lines = (t.lines || []).map((l) => `<div class="fo-line ${l.ours ? "ours" : "theirs"}"><small>${esc(l.date)} · ${l.ours ? "You" : ag ? esc(ag.name) : "His agent"}</small><div>${esc(l.text)}</div></div>`).join("") || `<div class="empty">No talks yet. Your first offer opens them.</div>`;
+  const ay = aiYours("fo:" + t.id);
+  const lines = (t.lines || []).map((l) => `<div class="fo-line ${l.ours ? "ours" : "theirs"}"><small>${esc(l.date)} · ${l.ours ? "You" : ag ? esc(ag.name) : "His agent"}</small><div>${esc(l.text)}</div>${l.ours ? `<div class="ai-heard">${ay(l)}</div>` : ""}</div>`).join("") || `<div class="empty">No talks yet. Your first offer opens them.</div>`;
   const yearsRows = pv ? pv.years.map((y) => `<tr class="${y.void ? "fo-voidrow" : ""}"><td class="l">${y.year}${y.void ? ' <span class="st-pill">void</span>' : ""}</td><td>${foM(y.base)}</td><td>${foM(y.bonus)}</td><td>${foM(y.other)}</td><td><b>${foM(y.hit)}</b></td><td class="muted">${foPct(y.share)}</td><td>${foM(y.gtd + y.injury)}</td><td class="${y.room != null && y.room < 0 ? "neg" : "muted"}">${y.room != null ? foM(y.room) : ""}</td></tr>`).join("") : "";
   const opt = (n, v) => `<option value="${n}" ${n === v ? "selected" : ""}>${n}</option>`;
   const live = t.kind != null;
@@ -228,6 +229,8 @@ screens.fo_talk = async (a) => {
         <small class="sub">Minimum for his seasons ${foM(t.minimum)} · cap ${foM(t.cap)} · your room ${foM(t.room)} this year, ${foM(t.room_next)} next.</small>
       </div>
       <div style="display:grid;gap:18px">
+        ${aiSayBox(t, "fo:" + t.id, { wrap: "panel", preset: { cmd: "fo_say", args: { id: t.id }, limit: 400 }, log: "fo:" + t.id, words: { ph: "Type your offer and your reasons. The boxes on the left still work.", foot: "The boxes on the left still work." }, apply: foAiApply })}
+        ${aiFacts(t, "fo:" + t.id, { wrap: "panel", foot: "What you bring up about him can reach him through his agent.", preset: { cmd: "fo_fact", args: { id: t.id }, list: [{ fact: 1, label: "His market is lower than his ask" }, { fact: 2, label: "Your backup's numbers are close to his" }] }, apply: foAiApply })}
         <div class="panel"><h2>What you know <small title="Your own rating: it reads agents' claims and sets how far you can push">${linkTo("you", {}, `Your negotiating ${t.negotiating}/20`)}</small></h2>
           <div class="kv"><dt>His market</dt><dd>${foM(t.market[0])} to ${foM(t.market[1])} a year <small class="sub">· your cap manager's read</small></dd>
           ${ask ? `<dt>His agent asks</dt><dd><b>${ask.years} ${ask.years === 1 ? "yr" : "yrs"}, ${foM(ask.apy)} a year</b>, ${foPct(ask.gtd)} guaranteed${ask.start ? ", a starting job" : ""}</dd>` : ""}
@@ -320,6 +323,7 @@ screens.fo_trades = async (a = {}) => {
       </div>
       ${condOpts}
       <div class="st-actions">${foBtn("teval", "Ask their GM", {}, "glass")} ${foBtn("tpropose", "Make the trade", {}, "primary")} ${foBtn("tclear", "Clear", {})}</div>
+      ${aiSayBox(x, "fo-trade", { wrap: "panel", preset: { cmd: "fo_say", args: { trade: true }, limit: 400 }, words: { ph: "Say what you want from their GM, and why. The boxes above still work.", foot: "The boxes above still work." }, echo: true, apply: foAiTrade })}${aiFacts(x, "fo-trade", { wrap: "panel", foot: "What you bring up can reach their GM.", preset: { cmd: "fo_fact", args: { trade: true }, list: [{ fact: 1, label: "Your pick is worth more on your chart" }, { fact: 2, label: "You are over the cap this year" }] }, apply: foAiTrade })}
       ${ans ? `<div class="fo-answer ${ans.accept ? "Signed" : "Counter"}"><b>${esc(ans.text)}</b>${ans.counter ? `<div>${ans.counter.map(foPick).join(" ")} ${foBtn("taddcounter", "Add it", {})}</div>` : ""}<small>Your chart: you give ${ans.points[0]}, you get ${ans.points[1]}.</small></div>` : ""}
     </div>
     ${shop}
@@ -411,6 +415,19 @@ async function foCapMove(kind, id, name, cap) {
   if (v) await foDo("fo_release", { id, june1: v === "june1" });
 }
 function foRedraw() { render($(".view") && $(".view").scrollTop); }
+// A typed line or a fact landed (live talks): the agent's answer is what an offer's answer is.
+async function foAiApply(r, b) {
+  const id = Number(String(b.key).split(":")[1]);
+  if (r && r.answer) S.keep.foanswer = { id, a: r.answer };
+  S.status = null;
+  foRedraw();
+}
+async function foAiTrade(r) {
+  const tr = foTrade();
+  if (r && r.answer) tr.answer = r.answer;
+  S.status = null;
+  foRedraw();
+}
 async function foDo(cmd, args, ok) {
   try {
     const r = await api(cmd, args);

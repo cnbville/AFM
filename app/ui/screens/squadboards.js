@@ -473,7 +473,7 @@ screens.roster = async (a) => {
     goto: gotoFor("roster", a),
   });
   const matched = all.filter((r) => inRail.includes(r)).length;
-  return `<div class="film sb"><div class="pad sb-pad">${pageH}<div class="filters">${vseg}</div>${qfBar("mine", x.qf, inRail, matched)}
+  return `<div class="film sb"><div class="pad sb-pad">${pageH}<div class="filters">${vseg}</div>${qfBar("mine", x.qf, inRail, matched, x.ask)}
     <div class="sb-roster">${railHtml}<div class="sb-rt" role="table">${head}${body}</div><aside class="sb-side">${pick ? sbRosterPanel(pick, x) : ""}</aside></div></div></div>`;
 };
 function sbPips(y) {
