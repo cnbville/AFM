@@ -71,7 +71,7 @@ It's embarrassing, honestly. People back home don't believe I'm not starting. ~ 
 I lose sleep over it. I'm a competitor. I want to be out there. ~ competitor
 Watching the game from the sideline is the worst feeling in the world for me. ~ competitor
 I want to be the one making the play when it matters. That's all I've ever wanted. ~ competitor
-I've been angry about it for weeks and taking it out on people who don't deserve it. ~ hot
+I've been angry about it for weeks and taking it out on people who don't deserve it. ~ hot at_fault=yes
 I'm trying not to blow up about it. But it's been building. ~ hot
 I'm at peace with competing. I'm not at peace with not knowing. ~ calm
 I'm okay with waiting. I'm just not okay with not knowing how long. ~ calm steady
@@ -82,7 +82,7 @@ I've been here for everything. I'd like to be here on the field too. ~ loyal
 I've stayed loyal to this place. I want to know it's going to be loyal back. ~ loyal
 I've started to think nobody believes in me here. ~ shaky
 I keep telling myself it'll happen and I'm running out of ways to believe it. ~ shaky
-I've been playing scared because I think one mistake sends me back down. ~ shaky
+I've been playing scared because I think one mistake sends me back down. ~ shaky at_fault=yes
 Lowkey it's been eating me alive. ~ young modern
 I don't want to be the guy posting cryptic stuff. But I've been tempted. ~ young modern
 I just want to be out there, Coach. That's all it is. ~ young
@@ -102,7 +102,7 @@ If I'm wrong about where I should be, I'd honestly rather hear it from you.
 My spot feels like it's on loan. Like it could get called back any day.
 The hardest part is not knowing if anybody's even looking.
 Half the time I think I'm close. The other half I think nobody's considering me at all.
-You ever feel like you're doing everything right and it still doesn't count?
+You ever feel like you're doing everything right and it still doesn't count? ~ blameless=yes
 I want to be out there when it matters. Not just when it's safe to put me in.
 There's a version of me that could really help us. He just needs the snaps to show up.
 A fair shot. That's all I keep coming back to. A fair shot.
@@ -135,7 +135,7 @@ Can I be straight with you? I think I should be out there more.
 It's not jealousy. I'm glad for the guys getting snaps. I just think I belong in that mix too.
 Not asking you to change everything. Just give me a bigger slice.
 There's a ceiling on what I can show you in the reps I get.
-Nobody likes the guy who whines about playing time. So I haven't. Until now.
+Nobody likes the guy who whines about playing time. So I haven't. Until now. ~ blameless=yes
 Where do I really stand on the chart? Not the nice version. The real one.
 Tell me I'm in the competition. That's all I need to hear.
 More snaps, Coach. I've turned it over a hundred ways and it always comes back to that.
@@ -216,7 +216,7 @@ More snaps, more tape, more value. I'm not going to pretend that's not how I thi
 Playing time turns into money down the road. Right now I'm leaving money on the field. ~ greedy
 Whatever the chart says, I prepare the same. I just think the chart's running behind the work. ~ pro
 I'll keep preparing like a guy who plays every down. I'd just like the chart to reflect it. ~ pro
-I know I'm not the most buttoned-up guy. But between the lines I can play. Let me play more. ~ loose
+I know I'm not the most buttoned-up guy. But between the lines I can play. Let me play more. ~ loose at_fault=yes
 Look, I goof around. Everybody knows that. Doesn't mean I don't want more snaps bad. ~ loose
 When I don't get more chances, I start hearing every doubt I've ever had. ~ shaky
 I need to hear you still believe in me. Because lately I can't tell. ~ shaky
@@ -361,9 +361,9 @@ I'd run through a wall for this {team} team. I'd just like to do it on game day 
 I'm with you no matter what. But I need you to know I want more. ~ loyal
 Snaps are stock. Mine are undervalued. ~ greedy
 Numbers get you the next thing. You can't put up numbers without snaps. ~ greedy
-I've done my part every day. Respectfully, I think I've earned more opportunity. ~ pro
+I've done my part every day. Respectfully, I think I've earned more opportunity. ~ pro blameless=yes
 I keep a log of my reps. The trend says I'm ready for more. ~ pro
-I joke around too much, I know. But I'm dead serious about this. I want more snaps. ~ loose
+I joke around too much, I know. But I'm dead serious about this. I want more snaps. ~ loose at_fault=yes
 People think I don't care because I'm loose. I care. I want more. ~ loose
 Some days I wonder if I even belong here. More snaps would quiet that. ~ shaky
 I need to know I'm wanted. Right now I don't feel it. ~ shaky
@@ -558,7 +558,7 @@ A couple more series a game. That's all I'm asking for [to start|for now].
 Truth be told, I've started wondering if I belong here. More snaps would answer that.
 Deep down I know I'm good enough. I just need room to show it.
 Unless somebody tells me what I'm missing, I'm going to keep thinking it isn't about football.
-Ever since camp, I've felt a step behind on the chart for no reason I can see.
+Ever since camp, I've felt a step behind on the chart for no reason I can see. ~ blameless=yes
 From where I stand, I'm doing everything right and getting less than I should.
 Before every game I tell myself to stay ready. I don't want to be ready. I want to be in.
 Either way, I'll keep working. But I'd be a liar if I said I didn't want more.
@@ -595,7 +595,7 @@ Colleges recruiting our guys watch our games. I want to be all over that tape. ~
 I hear the crowd on game nights and I want to give them more reasons to get loud. ~ hs
 Our school doesn't get many scouts. When they come, I want to be out there. ~ hs
 I want an offer. Offers come from [snaps|game tape]. ~ hs
-Summer workouts, I never missed one. I want that to mean something this fall. ~ hs
+Summer workouts, I never missed one. I want that to mean something this fall. ~ hs blameless=yes
 Being on varsity is great. Playing a lot on varsity is the dream. ~ hs
 My coaches growing up told me I'd be a big piece of a varsity team someday. I want someday to be now. ~ hs
 Linebacker, receiver, special teams, I'll play anywhere. Just more. ~ hs
@@ -985,7 +985,7 @@ My people are telling me I'm leaving money on the table.
 I've got a plan for my family and the money's the whole plan.
 I want security, Coach. That's all I'm after.
 I lie awake thinking about what happens if this ends tomorrow.
-I've been taking advice from people I probably shouldn't.
+I've been taking advice from people I probably shouldn't. ~ at_fault=yes
 My NIL deal's paying me less than guys who don't play. ~ college nil
 The collective keeps promising more and it never comes. ~ college nil
 There's a school offering way more. I haven't taken it. I'm thinking about it. ~ college nil
@@ -997,7 +997,7 @@ I want to stay, but another school can change my family's life. ~ college nil
 My stipend doesn't cover rent and food. Something's got to give. ~ college
 I don't have money for a flight home at Christmas. ~ college young
 I've been skipping meals to save money. ~ college young
-A guy offered me money to come work for him. I said no. But I needed it. ~ college
+A guy offered me money to come work for him. I said no. But I needed it. ~ college blameless=yes
 I'm working weekends to help at home, and it's wrecking me. ~ hs
 I can't afford the camps everybody else goes to. ~ hs young
 I don't have the cleats or the gear the other guys have. ~ hs young
@@ -1372,7 +1372,7 @@ Kept it in for months. It's getting harder to keep in. ~ nfl hot
 There's no rush. There's no reason to wait either. The numbers are what they are. ~ nfl calm
 Being underpaid feels like losing. I hate losing. ~ nfl competitor
 This doesn't change how I work. I just want it on your radar. ~ nfl pro
-I know I'm not first to the facility. I'm still worth more than I'm getting. ~ nfl loose
+I know I'm not first to the facility. I'm still worth more than I'm getting. ~ nfl loose at_fault=yes
 Am I even allowed to ask for more? I honestly don't know. ~ nfl shaky
 Year after year, same production, same small number. ~ nfl steady
 I'd like loyalty to go both ways. I've given mine. ~ nfl loyal
@@ -1395,7 +1395,7 @@ Being a walk-on who earned his way shouldn't mean I'm paid like I'm still walkin
 Transfers get the bags. Guys who came up through the program get the speeches. ~ college nil
 Watching first-year guys out-earn me in my last year here. ~ college nil senior
 A sophomore still on his freshman number. I've played my way past that. ~ college nil sophomore
-I came in as a transfer for less than I could've gotten. That was my mistake. Help me fix it. ~ college nil transfer
+I came in as a transfer for less than I could've gotten. That was my mistake. Help me fix it. ~ college nil transfer at_fault=yes
 The quarterback should get paid. But somebody has to block for him and catch for him. ~ college nil !qb
 Defense doesn't sell, they say. Defense wins, though, and defense should get paid. ~ college nil defense
 Everybody's chasing the bag in the portal. I'm not chasing. Bring the bag to me here. ~ college nil
@@ -1435,7 +1435,7 @@ Sitting on it has me heated. I'd rather say it to you than blow up somewhere els
 Not upset. Just clear about what I'm worth. ~ calm
 I want to be the best and get paid like the best. I'm halfway there. ~ competitor !hs
 I'll keep it professional. But it's a real issue, and I want it addressed. ~ pro
-Look, I'm not the most buttoned-up guy. I still know when I'm underpaid. ~ loose !hs
+Look, I'm not the most buttoned-up guy. I still know when I'm underpaid. ~ loose !hs at_fault=yes
 Every time I think about asking for more, I worry they'll decide I'm not worth keeping. ~ shaky
 No drama, no headlines. Just a fair number for a guy you can count on. ~ steady !hs
 I don't want to go anywhere. I just want to be treated right where I am. ~ loyal
@@ -1503,7 +1503,7 @@ Trying hard not to take it out on anybody. But it's eating me. ~ nfl hot
 Let the numbers speak. Mine say I'm underpaid. ~ nfl calm
 If I'm better than him on the field, I want to be better than him on the cap sheet. ~ nfl competitor
 I'll handle it through my agent like a pro. I just wanted you to hear it from me first. ~ nfl pro
-Can't lie, I've been spending like I'm already paid. I figured I would be by now. ~ nfl loose
+Can't lie, I've been spending like I'm already paid. I figured I would be by now. ~ nfl loose at_fault=yes
 What if this is all I ever get? That scares me. ~ nfl shaky
 Consistency should be worth money. Nobody here's more consistent than me. ~ nfl steady
 I'd give this team a discount. I just won't give it a giveaway. ~ nfl loyal
@@ -1515,249 +1515,249 @@ Where I'm from, if you're good, you get paid. ~ nfl west
 Texas taught me football's a business. This business owes me. ~ nfl texas
 
 @key talk.reveal.behavior
-I've been acting out. I know it. It's easier than dealing with what's actually wrong.
-I keep making bad decisions and I don't even know why.
-I think I've been trying to get somebody's attention. I don't know whose.
-People already think I'm a problem, so I've stopped trying to prove them wrong.
-I've been hanging with the wrong people. I know they're the wrong people.
-I've been angry for a while, and it keeps coming out sideways.
-When I'm out, I don't have to think. That's why I'm out so much.
-I'm not trying to disrespect anybody. I just feel like nobody hears me unless I'm loud.
-I've been testing the rules. I don't know why. I think I wanted to see if anybody cared.
-Stuff at home has me on edge, and I'm taking it out here.
-I've been drinking more than I should. I'm telling you because I want to stop. ~ !hs
-I've been staying out late because I can't sleep anyway.
-I've been on my phone all night every night. It's messing me up. ~ modern
-I've got guys from back home who lean on me, and they get me into stuff.
-I've been in some bad situations lately. Nothing I can't get out of. Yet.
-I snap at people. Coaches, teammates, everybody. I hate it.
-I don't feel like myself. I keep doing things the real me wouldn't do.
-I'm embarrassed by how I've been acting.
-I know I've been late a lot. I've just been struggling to get out of bed.
-Honestly, I was bored and I made bad choices. That's the truth.
-I've been trying to fit in with certain guys. It's made me act different.
-I feel like the rules here are different for different guys. So I stopped following them.
-I have a temper. I've always had one. Lately it's been winning. ~ hot
-When somebody comes at me, I don't think. I just go. ~ hot
-I get so mad I can't see straight, and then it's too late. ~ hot
-I know I'm better than how I've been acting. ~ ego
+I've been acting out. I know it. It's easier than dealing with what's actually wrong. ~ at_fault=yes
+I keep making bad decisions and I don't even know why. ~ at_fault=yes
+I think I've been trying to get somebody's attention. I don't know whose. ~ at_fault=yes
+People already think I'm a problem, so I've stopped trying to prove them wrong. ~ at_fault=yes
+I've been hanging with the wrong people. I know they're the wrong people. ~ at_fault=yes
+I've been angry for a while, and it keeps coming out sideways. ~ at_fault=yes
+When I'm out, I don't have to think. That's why I'm out so much. ~ at_fault=yes
+I'm not trying to disrespect anybody. I just feel like nobody hears me unless I'm loud. ~ blameless=yes
+I've been testing the rules. I don't know why. I think I wanted to see if anybody cared. ~ at_fault=yes
+Stuff at home has me on edge, and I'm taking it out here. ~ at_fault=yes
+I've been drinking more than I should. I'm telling you because I want to stop. ~ !hs at_fault=yes
+I've been staying out late because I can't sleep anyway. ~ at_fault=yes
+I've been on my phone all night every night. It's messing me up. ~ modern at_fault=yes
+I've got guys from back home who lean on me, and they get me into stuff. ~ at_fault=yes
+I've been in some bad situations lately. Nothing I can't get out of. Yet. ~ at_fault=yes
+I snap at people. Coaches, teammates, everybody. I hate it. ~ at_fault=yes
+I don't feel like myself. I keep doing things the real me wouldn't do. ~ at_fault=yes
+I'm embarrassed by how I've been acting. ~ at_fault=yes
+I know I've been late a lot. I've just been struggling to get out of bed. ~ at_fault=yes
+Honestly, I was bored and I made bad choices. That's the truth. ~ at_fault=yes
+I've been trying to fit in with certain guys. It's made me act different. ~ at_fault=yes
+I feel like the rules here are different for different guys. So I stopped following them. ~ at_fault=yes
+I have a temper. I've always had one. Lately it's been winning. ~ hot at_fault=yes
+When somebody comes at me, I don't think. I just go. ~ hot at_fault=yes
+I get so mad I can't see straight, and then it's too late. ~ hot at_fault=yes
+I know I'm better than how I've been acting. ~ ego at_fault=yes
 Everybody makes a big deal out of everything I do. That gets to me. ~ ego
 I feel like I've got a target on my back with the coaches. ~ ego
-I just don't take things seriously sometimes. I know that's a problem. ~ loose
-I was just having fun. Then it wasn't fun anymore. ~ loose young
-I've been going too hard on the weekends. ~ loose !hs
-I keep everything in, and then it comes out at the worst times. ~ quiet
-I don't talk about stuff. So I do stuff instead. ~ quiet
-I feel terrible. I've let people down. ~ humble
+I just don't take things seriously sometimes. I know that's a problem. ~ loose at_fault=yes
+I was just having fun. Then it wasn't fun anymore. ~ loose young at_fault=yes
+I've been going too hard on the weekends. ~ loose !hs at_fault=yes
+I keep everything in, and then it comes out at the worst times. ~ quiet at_fault=yes
+I don't talk about stuff. So I do stuff instead. ~ quiet at_fault=yes
+I feel terrible. I've let people down. ~ humble at_fault=yes
 I don't want to be that guy. I'm scared I'm becoming that guy. ~ shaky
-Everything feels out of control, so I do whatever feels good in the moment. ~ shaky
-I don't know why I keep messing up. I really don't. ~ shaky
-I'm supposed to set the example and I've been doing the opposite. ~ leader
-I know the young guys see what I do. That's been on me. ~ leader
-I've been competing with everybody, even when I shouldn't be. ~ competitor
-I hate losing so much I've been taking it out on people. ~ competitor
-I've been skipping class because I'm so far behind I don't see the point. ~ college
-I partied too much this semester. I know. ~ college young
-I've been hanging out at a place I shouldn't be. Some of the older guys go. ~ college
-I've been fighting with my roommate and it spilled into everything. ~ college young
-I'm failing a class and I think I've just given up on it. ~ college
-I've been in trouble at school too. It's not just here. ~ hs young
-I've been getting into it with my teachers. ~ hs young
-Some of the guys I grew up with are into bad stuff. I'm around it. ~ hs
-I've been skipping school some days. ~ hs young
-I've been out too late, and I've been reckless. I've got a family. I know better. ~ nfl
-The money changed how I act. I see it now. ~ nfl young
+Everything feels out of control, so I do whatever feels good in the moment. ~ shaky at_fault=yes
+I don't know why I keep messing up. I really don't. ~ shaky at_fault=yes
+I'm supposed to set the example and I've been doing the opposite. ~ leader at_fault=yes
+I know the young guys see what I do. That's been on me. ~ leader at_fault=yes
+I've been competing with everybody, even when I shouldn't be. ~ competitor at_fault=yes
+I hate losing so much I've been taking it out on people. ~ competitor at_fault=yes
+I've been skipping class because I'm so far behind I don't see the point. ~ college at_fault=yes
+I partied too much this semester. I know. ~ college young at_fault=yes
+I've been hanging out at a place I shouldn't be. Some of the older guys go. ~ college at_fault=yes
+I've been fighting with my roommate and it spilled into everything. ~ college young at_fault=yes
+I'm failing a class and I think I've just given up on it. ~ college at_fault=yes
+I've been in trouble at school too. It's not just here. ~ hs young at_fault=yes
+I've been getting into it with my teachers. ~ hs young at_fault=yes
+Some of the guys I grew up with are into bad stuff. I'm around it. ~ hs at_fault=yes
+I've been skipping school some days. ~ hs young at_fault=yes
+I've been out too late, and I've been reckless. I've got a family. I know better. ~ nfl at_fault=yes
+The money changed how I act. I see it now. ~ nfl young at_fault=yes
 I've got guys around me who just say yes to everything. That's not good for me. ~ nfl
-I've been in this league long enough to know better, and I've still been dumb. ~ nfl vet
-It's not an excuse, but I've had a lot going on. ~ pro
-I'm going to own it. But I want you to know where it's coming from. ~ pro
-Lowkey I've just been on one lately. ~ young modern
-I've been moving different, Coach. Not in a good way. ~ young modern
+I've been in this league long enough to know better, and I've still been dumb. ~ nfl vet at_fault=yes
+It's not an excuse, but I've had a lot going on. ~ pro at_fault=yes
+I'm going to own it. But I want you to know where it's coming from. ~ pro at_fault=yes
+Lowkey I've just been on one lately. ~ young modern at_fault=yes
+I've been moving different, Coach. Not in a good way. ~ young modern at_fault=yes
 I ain't been myself. That's the honest truth. ~ south
-I've been acting like a fool. I know it. ~ midwest
-I've been out of line. I know exactly when it started. ~ northeast
-I've been trying to find my way and I've been taking wrong turns. ~ west
-Honestly, I've been in a bad headspace, and it's coming out in everything I do.
-Whatever you heard, I'm not going to fight you on it. I just want you to know why.
-Part of it is pressure. I feel like everybody's waiting for me to mess up, so I do.
+I've been acting like a fool. I know it. ~ midwest at_fault=yes
+I've been out of line. I know exactly when it started. ~ northeast at_fault=yes
+I've been trying to find my way and I've been taking wrong turns. ~ west at_fault=yes
+Honestly, I've been in a bad headspace, and it's coming out in everything I do. ~ at_fault=yes
+Whatever you heard, I'm not going to fight you on it. I just want you to know why. ~ at_fault=yes
+Part of it is pressure. I feel like everybody's waiting for me to mess up, so I do. ~ at_fault=yes
 Sleep's been bad. When I'm running on nothing, I'm a different person.
-Truth is, I stopped caring about the small stuff, and the small stuff added up.
+Truth is, I stopped caring about the small stuff, and the small stuff added up. ~ at_fault=yes
 My head's been somewhere else. My body shows up and my head doesn't.
-Things away from here have been loud. I bring the noise in with me.
-When I feel disrespected, I stop thinking. That's what's been happening.
-I've been carrying a lot and haven't told anybody. It comes out as attitude.
-Real reason? I'm angry at myself, and I take it out on everybody else.
-Once I saw nobody was checking, I got lazy with the rules.
-Look, I got comfortable. Too comfortable. I stopped respecting the little things.
-Some of it's just me being stubborn. I don't like being told what to do.
-Every time I mess up it feels like proof, so I stop trying to fix it.
-Since things went sideways for me on the field, I've let everything else slide too.
+Things away from here have been loud. I bring the noise in with me. ~ at_fault=yes
+When I feel disrespected, I stop thinking. That's what's been happening. ~ at_fault=yes
+I've been carrying a lot and haven't told anybody. It comes out as attitude. ~ at_fault=yes
+Real reason? I'm angry at myself, and I take it out on everybody else. ~ at_fault=yes
+Once I saw nobody was checking, I got lazy with the rules. ~ at_fault=yes
+Look, I got comfortable. Too comfortable. I stopped respecting the little things. ~ at_fault=yes
+Some of it's just me being stubborn. I don't like being told what to do. ~ at_fault=yes
+Every time I mess up it feels like proof, so I stop trying to fix it. ~ at_fault=yes
+Since things went sideways for me on the field, I've let everything else slide too. ~ at_fault=yes
 Can you help me? I don't know how to get back to being the guy I was.
 My fuse is short because I'm worn out, and I'm worn out because I won't slow down.
-Trying to handle everything on my own, and doing a bad job of it.
-There's a lot going on in my head. I don't always catch it before it comes out my mouth.
-Certain people bring out the worst in me. I keep being around them anyway.
-I let my routine fall apart, and everything else followed it down.
-Not gonna lie, I've been checked out. I'm trying to check back in.
-It started small. A few minutes here, a skipped thing there. Then it wasn't small.
-The attitude's covering for something. I'm just not ready to say all of it yet.
-I get embarrassed easy, and when I'm embarrassed I get loud.
-Pride's been my problem. Rather look tough than ask for help.
-Under stress I either go quiet or go off. It's been off.
-Every little thing's been setting me off. I know it's not about the little things.
-A lot of it's nerves. I don't handle nerves well, and they come out wrong.
-Being out is easier than being still. I've been running from some stuff.
-My priorities got all mixed up. Football slipped down the list, and it shouldn't have.
-Short version, I've been a mess, and I didn't want anybody to see it.
+Trying to handle everything on my own, and doing a bad job of it. ~ at_fault=yes
+There's a lot going on in my head. I don't always catch it before it comes out my mouth. ~ at_fault=yes
+Certain people bring out the worst in me. I keep being around them anyway. ~ at_fault=yes
+I let my routine fall apart, and everything else followed it down. ~ at_fault=yes
+Not gonna lie, I've been checked out. I'm trying to check back in. ~ at_fault=yes
+It started small. A few minutes here, a skipped thing there. Then it wasn't small. ~ at_fault=yes
+The attitude's covering for something. I'm just not ready to say all of it yet. ~ at_fault=yes
+I get embarrassed easy, and when I'm embarrassed I get loud. ~ at_fault=yes
+Pride's been my problem. Rather look tough than ask for help. ~ at_fault=yes
+Under stress I either go quiet or go off. It's been off. ~ at_fault=yes
+Every little thing's been setting me off. I know it's not about the little things. ~ at_fault=yes
+A lot of it's nerves. I don't handle nerves well, and they come out wrong. ~ at_fault=yes
+Being out is easier than being still. I've been running from some stuff. ~ at_fault=yes
+My priorities got all mixed up. Football slipped down the list, and it shouldn't have. ~ at_fault=yes
+Short version, I've been a mess, and I didn't want anybody to see it. ~ at_fault=yes
 If I'm honest, some of it is jealousy. That's ugly to say out loud.
 I just feel restless. Like I've got to be doing something, even if it's the wrong thing.
 Help me with structure. When I've got structure, I'm fine. When I don't, I drift.
 Something in me doesn't want to be told no right now. I can't tell you where it's coming from.
-I've been short with people who didn't deserve it. I owe some apologies.
-Nothing's wrong, exactly. I just stopped caring, and I hate that I stopped.
-Feels like I'm watching myself make bad choices from a few feet away.
-Anything that felt like pressure, I've been dodging. Practice, meetings, all of it.
-I don't trust many people. When I don't trust somebody, I stop listening. That's been a problem.
-The guys I've been around don't have anything to lose. I do.
-My mouth's been running ahead of my brain.
-When I feel overlooked, I start acting out. It's childish, but it's real.
-I get bored and go looking for trouble. Not proud of it.
-Maybe I need somebody to hold me to it. I'm not doing it on my own.
-Ever since I got here I've felt like I had to prove I'm tough. I've been proving it the wrong way.
+I've been short with people who didn't deserve it. I owe some apologies. ~ at_fault=yes
+Nothing's wrong, exactly. I just stopped caring, and I hate that I stopped. ~ blameless=yes at_fault=yes
+Feels like I'm watching myself make bad choices from a few feet away. ~ at_fault=yes
+Anything that felt like pressure, I've been dodging. Practice, meetings, all of it. ~ at_fault=yes
+I don't trust many people. When I don't trust somebody, I stop listening. That's been a problem. ~ at_fault=yes
+The guys I've been around don't have anything to lose. I do. ~ at_fault=yes
+My mouth's been running ahead of my brain. ~ at_fault=yes
+When I feel overlooked, I start acting out. It's childish, but it's real. ~ at_fault=yes
+I get bored and go looking for trouble. Not proud of it. ~ at_fault=yes
+Maybe I need somebody to hold me to it. I'm not doing it on my own. ~ at_fault=yes
+Ever since I got here I've felt like I had to prove I'm tough. I've been proving it the wrong way. ~ at_fault=yes
 Whatever's going on with me, I don't want it to cost me this.
-I'm not a bad guy. I've been doing bad-guy stuff, and I want to stop.
-The worst part is I know better. I keep doing it anyway.
+I'm not a bad guy. I've been doing bad-guy stuff, and I want to stop. ~ at_fault=yes
+The worst part is I know better. I keep doing it anyway. ~ at_fault=yes
 Too much free time and not enough sleep. That's most of it.
 Getting up has been hard. Everything's been hard, and I can't really say why.
 You don't have to believe me, but I want to fix this.
-Got caught up in being somebody I'm not.
+Got caught up in being somebody I'm not. ~ at_fault=yes
 Some days I wake up already angry. I couldn't tell you at what.
-Feels like the walls are closing in, and I've been acting like it.
-Numbing out has been easier than dealing with stuff. You can probably guess how.
-When people doubt me I get defensive, and defensive turns ugly fast.
-There's a version of me that cares about all this. I've been letting the other one drive.
-{friend} has been trying to keep me in line. I haven't been listening to him either.
+Feels like the walls are closing in, and I've been acting like it. ~ at_fault=yes
+Numbing out has been easier than dealing with stuff. You can probably guess how. ~ at_fault=yes
+When people doubt me I get defensive, and defensive turns ugly fast. ~ at_fault=yes
+There's a version of me that cares about all this. I've been letting the other one drive. ~ at_fault=yes
+{friend} has been trying to keep me in line. I haven't been listening to him either. ~ at_fault=yes
 I don't want to be the guy everybody tiptoes around.
-It's like I'm daring somebody to stop me. I think I want somebody to.
+It's like I'm daring somebody to stop me. I think I want somebody to. ~ at_fault=yes
 Angry is easier than sad. So I've been angry.
-There's no good reason. I wish there was. I just want to be better.
-A couple of bad choices turned into a habit before I noticed.
-Every time somebody tells me to calm down, I get worse. I'm working on it.
+There's no good reason. I wish there was. I just want to be better. ~ at_fault=yes
+A couple of bad choices turned into a habit before I noticed. ~ at_fault=yes
+Every time somebody tells me to calm down, I get worse. I'm working on it. ~ at_fault=yes
 Getting here's been hard. I don't always have a ride, and I've been too embarrassed to say. ~ hs
-I'm behind in a couple classes, and it's got me stressed all day. I take it out at practice. ~ hs
-Teachers have been on me, my people have been on me, and then I get here and blow up. ~ hs
-I'm trying to get noticed by colleges, and I think I've been trying too hard in all the wrong ways. ~ hs
-Away from school I hang with older guys who don't play. I start acting like them. ~ hs
-Thinking about getting recruited has me acting bigger than I am. ~ hs
-Up late gaming, then a zombie all day. That's been me. ~ hs young
-Some nights there's a lot going on at my house. I don't get much sleep, and I come in heated. ~ hs
-Being the man at school went to my head a little. ~ hs ego
-My grades slipping made me feel stupid, and when I feel stupid I act tough. ~ hs
+I'm behind in a couple classes, and it's got me stressed all day. I take it out at practice. ~ hs at_fault=yes
+Teachers have been on me, my people have been on me, and then I get here and blow up. ~ hs at_fault=yes
+I'm trying to get noticed by colleges, and I think I've been trying too hard in all the wrong ways. ~ hs at_fault=yes
+Away from school I hang with older guys who don't play. I start acting like them. ~ hs at_fault=yes
+Thinking about getting recruited has me acting bigger than I am. ~ hs at_fault=yes
+Up late gaming, then a zombie all day. That's been me. ~ hs young at_fault=yes
+Some nights there's a lot going on at my house. I don't get much sleep, and I come in heated. ~ hs at_fault=yes
+Being the man at school went to my head a little. ~ hs ego at_fault=yes
+My grades slipping made me feel stupid, and when I feel stupid I act tough. ~ hs at_fault=yes
 Keeping my grades up, playing, and handling stuff at home has me stretched thin. ~ hs
-At home there's nobody checking on me, so I do whatever I want. ~ hs
-First time on my own, and nobody's telling me to go to bed. I've been taking advantage. ~ college freshman
-The NIL stuff has me pulled in a lot of directions, and I've let the football side slip. ~ college nil
-Skipping study hall is easier than admitting how far behind I am. ~ college
-Campus is a lot. Parties every night if you want them, and I've been wanting them. ~ college
-My academic advisor keeps emailing, and I just don't answer. I'm avoiding everything. ~ college modern
-Feeling like I don't fit with anybody here, I've been finding people who'll have me. Wrong people. ~ college
-Classes, lifts, meetings, appearances. Something had to give, and it was the rules. ~ college nil
-Everybody back home thinks I've made it. I've been living like I have. ~ college
+At home there's nobody checking on me, so I do whatever I want. ~ hs at_fault=yes
+First time on my own, and nobody's telling me to go to bed. I've been taking advantage. ~ college freshman at_fault=yes
+The NIL stuff has me pulled in a lot of directions, and I've let the football side slip. ~ college nil at_fault=yes
+Skipping study hall is easier than admitting how far behind I am. ~ college at_fault=yes
+Campus is a lot. Parties every night if you want them, and I've been wanting them. ~ college at_fault=yes
+My academic advisor keeps emailing, and I just don't answer. I'm avoiding everything. ~ college modern at_fault=yes
+Feeling like I don't fit with anybody here, I've been finding people who'll have me. Wrong people. ~ college at_fault=yes
+Classes, lifts, meetings, appearances. Something had to give, and it was the rules. ~ college nil at_fault=yes
+Everybody back home thinks I've made it. I've been living like I have. ~ college at_fault=yes
 Part of me wants to see if they'd really pull my scholarship. That's messed up, but it's true. ~ college !walkon
-The portal talk has me halfway out the door in my head, and I've been acting like it. ~ college nil
-In the dorm there's always something going on, and I've been saying yes to all of it. ~ college
-College is the first place nobody makes me do anything. Turns out I need somebody to. ~ college
+The portal talk has me halfway out the door in my head, and I've been acting like it. ~ college nil at_fault=yes
+In the dorm there's always something going on, and I've been saying yes to all of it. ~ college at_fault=yes
+College is the first place nobody makes me do anything. Turns out I need somebody to. ~ college at_fault=yes
 The money changed who calls me. Some of those people aren't good for me. ~ nfl
-The city's a lot when you've got money in your pocket. I've been out more than I should. ~ nfl
-Gambling got its hooks in me. Not on football, but enough that I'm up all night. ~ nfl
-Everybody back home is asking me for something. It's got me short with everybody here. ~ nfl
-Got comfortable once the checks started coming. I'm not proud of it. ~ nfl
-Fines don't sting much at this pay. I know that's the wrong way to think. ~ nfl
-Pushing back on everything, because part of me thinks my time in this building is short. ~ nfl
+The city's a lot when you've got money in your pocket. I've been out more than I should. ~ nfl at_fault=yes
+Gambling got its hooks in me. Not on football, but enough that I'm up all night. ~ nfl at_fault=yes
+Everybody back home is asking me for something. It's got me short with everybody here. ~ nfl at_fault=yes
+Got comfortable once the checks started coming. I'm not proud of it. ~ nfl at_fault=yes
+Fines don't sting much at this pay. I know that's the wrong way to think. ~ nfl at_fault=yes
+Pushing back on everything, because part of me thinks my time in this building is short. ~ nfl at_fault=yes
 Being away from my family in season has me out of sorts, and it shows. ~ nfl
-My body hurts all the time, and the pain makes me mean. That's not an excuse. ~ nfl
-In this league everybody's watching. I got tired of being watched, so I stopped caring how it looked. ~ nfl
+My body hurts all the time, and the pain makes me mean. That's not an excuse. ~ nfl at_fault=yes
+In this league everybody's watching. I got tired of being watched, so I stopped caring how it looked. ~ nfl at_fault=yes
 Nothing to do after practice in a city where I don't know anybody. That's dangerous for a guy like me. ~ nfl
 My circle got bigger and worse at the same time. ~ nfl
-Sitting out a year with nothing to play for, I got bored and sloppy. ~ college redshirt
-Walk-ons don't get much slack, and I still went looking for it. Can't explain that. ~ college walkon
-New school, new city, no roots. I've been finding my footing in the wrong places. ~ college transfer
-Last year of eligibility, and part of me already checked out. You can see it in how I've been. ~ college senior
-Senioritis is real, Coach. I let it get into football. ~ hs senior
-One of the youngest guys out here, and I've been trying to act older than I am. It keeps backfiring. ~ hs freshman
-As a sophomore I figured I'd earned some slack. I hadn't. ~ hs sophomore
+Sitting out a year with nothing to play for, I got bored and sloppy. ~ college redshirt at_fault=yes
+Walk-ons don't get much slack, and I still went looking for it. Can't explain that. ~ college walkon at_fault=yes
+New school, new city, no roots. I've been finding my footing in the wrong places. ~ college transfer at_fault=yes
+Last year of eligibility, and part of me already checked out. You can see it in how I've been. ~ college senior at_fault=yes
+Senioritis is real, Coach. I let it get into football. ~ hs senior at_fault=yes
+One of the youngest guys out here, and I've been trying to act older than I am. It keeps backfiring. ~ hs freshman at_fault=yes
+As a sophomore I figured I'd earned some slack. I hadn't. ~ hs sophomore at_fault=yes
 Junior year's when everybody starts talking recruiting. It got into my head the wrong way. ~ hs junior
-First paycheck, first apartment, first time nobody's checking on me. It got away from me. ~ nfl rookie
-The practice squad's a grind with no game day at the end of it. I've let that eat at me. ~ nfl psquad
-Undrafted guys carry a chip. Mine's been turning into a temper. ~ nfl undrafted
-Everybody watches a first-rounder. I've been acting like I wanted to give them a show. ~ nfl firstround
-Quarterbacks don't get to have bad days off the field. I've been having plenty. ~ qb
-Everybody takes their cue from the quarterback. I haven't been giving them a good one. ~ qb
-We specialists have a lot of time on our hands. Mine's been going to the wrong things. ~ kicker
-D-linemen get taught to be mean. I've had trouble switching it off. ~ dl
-Up front you're taught to finish everybody. I've been finishing stuff I shouldn't. ~ ol
-Defensive backs live on swagger. Mine turned into something uglier. ~ db
-Receivers get a lot of attention. I let it change how I treat people. ~ wr
-Backs take a beating every snap. Some of that frustration's been coming out where it shouldn't. ~ rb
-Linebackers play angry. I haven't been leaving it on the field. ~ lb
+First paycheck, first apartment, first time nobody's checking on me. It got away from me. ~ nfl rookie at_fault=yes
+The practice squad's a grind with no game day at the end of it. I've let that eat at me. ~ nfl psquad at_fault=yes
+Undrafted guys carry a chip. Mine's been turning into a temper. ~ nfl undrafted at_fault=yes
+Everybody watches a first-rounder. I've been acting like I wanted to give them a show. ~ nfl firstround at_fault=yes
+Quarterbacks don't get to have bad days off the field. I've been having plenty. ~ qb at_fault=yes
+Everybody takes their cue from the quarterback. I haven't been giving them a good one. ~ qb at_fault=yes
+We specialists have a lot of time on our hands. Mine's been going to the wrong things. ~ kicker at_fault=yes
+D-linemen get taught to be mean. I've had trouble switching it off. ~ dl at_fault=yes
+Up front you're taught to finish everybody. I've been finishing stuff I shouldn't. ~ ol at_fault=yes
+Defensive backs live on swagger. Mine turned into something uglier. ~ db at_fault=yes
+Receivers get a lot of attention. I let it change how I treat people. ~ wr at_fault=yes
+Backs take a beating every snap. Some of that frustration's been coming out where it shouldn't. ~ rb at_fault=yes
+Linebackers play angry. I haven't been leaving it on the field. ~ lb at_fault=yes
 Snappers only get noticed when something goes wrong. Maybe I've been making things go wrong to get noticed. ~ snapper
-Half lineman, half receiver, and lately all attitude. That's been me. ~ te
-Defense runs on emotion. Mine's been running hot everywhere. ~ defense
-First year here, still trying to fit, and I've been fitting in with the wrong crowd. ~ college freshman
-New to the league and trying to prove I belong in ways that don't matter. ~ nfl rookie
-Something gets in my head and I can't let it go. Then I explode. ~ hot
-My temper's been running my life. I need help putting it back in the box. ~ hot
-Zero to done in a second. I've been living there. ~ hot
-Honestly, I started thinking the rules were for other guys. ~ ego
-Everybody kept telling me how good I am. I started believing the little stuff didn't apply to me. ~ ego
-Getting corrected in front of people kills me. I've been making that everybody's problem. ~ ego
-I make everything a joke. Some stuff isn't a joke, and I've been blurring the line. ~ loose
-Rules always felt optional to me. I'm starting to see they're not. ~ loose
-I like a good time. I've been having too good a time. ~ loose
-Everything falling apart around me means I fall apart too. That's how I'm built. ~ shaky
-My head's a mess. I can't find solid ground, so I keep stumbling. ~ shaky
-Good things never last for me, so I wreck them first. ~ shaky
-Nobody hears from me for weeks, then everybody hears from me at once. That's what's been happening. ~ quiet
-Disappearing is easier than explaining. So I've been disappearing. ~ quiet
-So busy holding everybody else up, I stopped holding myself to anything. ~ leader
-Being the standard every day wore me out, and I slipped. ~ leader
-I can't turn the competition off. It's been spilling into places it shouldn't. ~ competitor
-When I'm not winning at something, I get ugly. I've been ugly. ~ competitor
-I'm ashamed, Coach. I really am. I don't know how I let it get here. ~ humble
-No excuses from me. There's stuff going on, but it's on me. ~ humble
+Half lineman, half receiver, and lately all attitude. That's been me. ~ te at_fault=yes
+Defense runs on emotion. Mine's been running hot everywhere. ~ defense at_fault=yes
+First year here, still trying to fit, and I've been fitting in with the wrong crowd. ~ college freshman at_fault=yes
+New to the league and trying to prove I belong in ways that don't matter. ~ nfl rookie at_fault=yes
+Something gets in my head and I can't let it go. Then I explode. ~ hot at_fault=yes
+My temper's been running my life. I need help putting it back in the box. ~ hot at_fault=yes
+Zero to done in a second. I've been living there. ~ hot at_fault=yes
+Honestly, I started thinking the rules were for other guys. ~ ego at_fault=yes
+Everybody kept telling me how good I am. I started believing the little stuff didn't apply to me. ~ ego at_fault=yes
+Getting corrected in front of people kills me. I've been making that everybody's problem. ~ ego at_fault=yes
+I make everything a joke. Some stuff isn't a joke, and I've been blurring the line. ~ loose at_fault=yes
+Rules always felt optional to me. I'm starting to see they're not. ~ loose at_fault=yes
+I like a good time. I've been having too good a time. ~ loose at_fault=yes
+Everything falling apart around me means I fall apart too. That's how I'm built. ~ shaky at_fault=yes
+My head's a mess. I can't find solid ground, so I keep stumbling. ~ shaky at_fault=yes
+Good things never last for me, so I wreck them first. ~ shaky at_fault=yes
+Nobody hears from me for weeks, then everybody hears from me at once. That's what's been happening. ~ quiet at_fault=yes
+Disappearing is easier than explaining. So I've been disappearing. ~ quiet at_fault=yes
+So busy holding everybody else up, I stopped holding myself to anything. ~ leader at_fault=yes
+Being the standard every day wore me out, and I slipped. ~ leader at_fault=yes
+I can't turn the competition off. It's been spilling into places it shouldn't. ~ competitor at_fault=yes
+When I'm not winning at something, I get ugly. I've been ugly. ~ competitor at_fault=yes
+I'm ashamed, Coach. I really am. I don't know how I let it get here. ~ humble at_fault=yes
+No excuses from me. There's stuff going on, but it's on me. ~ humble at_fault=yes
 People think I'm calm, so nobody checks on me. It hasn't been calm inside. ~ calm
 Normally nothing rattles me. Something's been eating at me, and the cracks are showing. ~ calm
-For me this is unacceptable. I've had a lot going on, and I let my standards drop. ~ pro
-I take pride in being a pro. I haven't been one, and I want to tell you why. ~ pro
-Reliable is my whole thing. Something knocked me off it, and I haven't found my way back. ~ steady
-Nothing big happened. A bunch of small things piled up and I stopped keeping up. ~ steady
-I'd never want to embarrass this place. I've been doing it anyway, and it's killing me. ~ loyal
-This place deserves better than how I've been carrying myself. ~ loyal
-Chasing money and attention pulled me off track. ~ greedy
-Everything's been about what I can get. Somewhere in there I stopped caring how I come across. ~ greedy
-Still learning how to be grown, and I've been failing the test. ~ young
-Everybody my age is out having fun. I wanted that too. ~ young
-At this age I should have it figured out. Some stuff caught up with me. ~ vet
-Been around long enough to know the rules. I got tired of following them. ~ vet
-Where I'm from you don't back down. I've been carrying that into places it doesn't belong. ~ south
-Back home nobody talks about feelings, so mine come out in what I do instead. ~ midwest
-Back in Texas I was somebody. Here I'm just another guy, and I haven't handled it well. ~ texas ego
-I grew up where you handle things yourself. I've been handling them wrong. ~ northeast
-Back west I had my whole support system. Without it I've been sloppy. ~ west
-My people back home raised me better than this. I know it. ~ south
-Growing up in the city you learn to keep your guard up. Mine's been up too high. ~ northeast
-Out here, far from home, nobody's keeping me honest. ~ west
-Where I come from, a man owns it. So I'm owning it. ~ midwest
-Real talk, I've been on autopilot and making dumb choices. ~ young
-Scrolling till three, then dragging all day. I know how that looks. ~ young modern
-People online have been coming at me, and I've been coming back at them. ~ modern
-When I'm heated I grab my phone. Nothing good comes from that. ~ modern
+For me this is unacceptable. I've had a lot going on, and I let my standards drop. ~ pro at_fault=yes
+I take pride in being a pro. I haven't been one, and I want to tell you why. ~ pro at_fault=yes
+Reliable is my whole thing. Something knocked me off it, and I haven't found my way back. ~ steady at_fault=yes
+Nothing big happened. A bunch of small things piled up and I stopped keeping up. ~ steady blameless=yes at_fault=yes
+I'd never want to embarrass this place. I've been doing it anyway, and it's killing me. ~ loyal at_fault=yes
+This place deserves better than how I've been carrying myself. ~ loyal at_fault=yes
+Chasing money and attention pulled me off track. ~ greedy at_fault=yes
+Everything's been about what I can get. Somewhere in there I stopped caring how I come across. ~ greedy at_fault=yes
+Still learning how to be grown, and I've been failing the test. ~ young at_fault=yes
+Everybody my age is out having fun. I wanted that too. ~ young at_fault=yes
+At this age I should have it figured out. Some stuff caught up with me. ~ vet at_fault=yes
+Been around long enough to know the rules. I got tired of following them. ~ vet at_fault=yes
+Where I'm from you don't back down. I've been carrying that into places it doesn't belong. ~ south at_fault=yes
+Back home nobody talks about feelings, so mine come out in what I do instead. ~ midwest at_fault=yes
+Back in Texas I was somebody. Here I'm just another guy, and I haven't handled it well. ~ texas ego at_fault=yes
+I grew up where you handle things yourself. I've been handling them wrong. ~ northeast at_fault=yes
+Back west I had my whole support system. Without it I've been sloppy. ~ west at_fault=yes
+My people back home raised me better than this. I know it. ~ south at_fault=yes
+Growing up in the city you learn to keep your guard up. Mine's been up too high. ~ northeast at_fault=yes
+Out here, far from home, nobody's keeping me honest. ~ west at_fault=yes
+Where I come from, a man owns it. So I'm owning it. ~ midwest at_fault=yes
+Real talk, I've been on autopilot and making dumb choices. ~ young at_fault=yes
+Scrolling till three, then dragging all day. I know how that looks. ~ young modern at_fault=yes
+People online have been coming at me, and I've been coming back at them. ~ modern at_fault=yes
+When I'm heated I grab my phone. Nothing good comes from that. ~ modern at_fault=yes
 My mental's been off, for real. ~ young
-Vaping nonstop to calm my nerves. It's not helping anything. ~ young
-The online noise gets in my head, and I bring it to practice. ~ modern
-Everybody's watching me on social media now. I started acting like a character. ~ modern
-No lie, I've been slipping. I want to get it together. ~ young
-When nobody believes in me, I stop believing in the rules.
+Vaping nonstop to calm my nerves. It's not helping anything. ~ young at_fault=yes
+The online noise gets in my head, and I bring it to practice. ~ modern at_fault=yes
+Everybody's watching me on social media now. I started acting like a character. ~ modern at_fault=yes
+No lie, I've been slipping. I want to get it together. ~ young at_fault=yes
+When nobody believes in me, I stop believing in the rules. ~ at_fault=yes
 My mood's been deciding everything, and my mood's been bad.
 You're the first person I've told any of this to.
 
@@ -1787,7 +1787,7 @@ Football's been my whole life and I'm starting to wonder who I am without it. ~ 
 My body hurts all the time and I'm scared about what it'll be like in ten years. ~ nfl vet
 It's hard for me to talk about. But it's home. ~ quiet
 I don't usually open up. You're the first person I've told. ~ quiet
-I'm sorry for being off. It's personal stuff. ~ humble
+I'm sorry for being off. It's personal stuff. ~ humble at_fault=yes
 I didn't want to make it anybody else's problem. ~ humble
 I keep it out of the building. It's getting harder. ~ pro
 I've been trying to compartmentalize. It's not working anymore. ~ pro
@@ -1796,19 +1796,19 @@ I'm usually the steady one. I'm not steady right now. ~ steady
 I don't know how I'm doing, honestly. Some days I'm fine. Most days I'm not. ~ shaky
 I feel like everything's falling apart at once. ~ shaky
 I act like nothing gets to me. It gets to me. ~ ego
-I've been short with everybody because I'm hurting. ~ hot
+I've been short with everybody because I'm hurting. ~ hot at_fault=yes
 Lowkey I've been going through it. ~ young modern
 My folks are going through a lot. ~ midwest
 It's a family thing, Coach. It's heavy. ~ northeast
 Life's just been hard lately. ~ west
 I haven't slept a full night in weeks. I lie there and run it over and over.
-Something's going on outside football, Coach, and I've been dragging it in here every day.
+Something's going on outside football, Coach, and I've been dragging it in here every day. ~ at_fault=yes
 Honestly? I walk in this building and pretend. Then I get in the car and it all comes back.
 My head's been somewhere else. Meetings, practice, the weight room, everywhere.
 Every time my phone buzzes, my stomach drops. ~ modern
 I didn't know how to bring it up. I started to a couple times and walked right past your door.
 There's stuff outside these walls I can't do a thing about.
-You're going to see me drift sometimes. That's not effort. That's what I'm dealing with.
+You're going to see me drift sometimes. That's not effort. That's what I'm dealing with. ~ blameless=yes
 Football used to be the hard part of my day. Now it's the easy part.
 I keep it together until about midnight. Then it's just me and my thoughts.
 Most days I eat once, maybe. The appetite isn't there.
@@ -1855,7 +1855,7 @@ I've snapped at a few guys. That's not about them. It's about what I'm carrying.
 I know I look calm. That's just my face. Inside's a mess. ~ calm
 I hate admitting something's beating me. This is beating me. ~ competitor
 I've always been able to put things in a box. The box doesn't close anymore. ~ pro
-I've been going out more than I should. Staying busy so I don't have to think. ~ loose
+I've been going out more than I should. Staying busy so I don't have to think. ~ loose at_fault=yes
 Please don't think less of me for this. ~ shaky
 People count on me not to wobble. I've been wobbling, Coach. ~ steady
 Nothing's going to change how I show up for you. I just wanted you to know where my head's at. ~ loyal
@@ -1864,13 +1864,13 @@ I've spent my whole life chasing the next thing. Right now none of it seems to m
 I'm young, I know. I don't really know how to handle something like this. ~ young
 I've been through a lot in this game. This is a different kind of hard. ~ vet
 I sit in class and don't hear a word. Then I sit in meetings and it's the same thing. ~ college
-I've been missing some class. Not because I don't care. I just can't get out of my own head. ~ college
+I've been missing some class. Not because I don't care. I just can't get out of my own head. ~ college at_fault=yes
 My roommate noticed. He asked what's wrong and I told him nothing. ~ college
 A flight back costs more than I've got, so I sit here and think about it instead. ~ college
 Every break, I count the days until I can get back. This year it's worse. ~ college
 My grades are about to take a hit. My head isn't in the books right now. ~ college
 The dorm gets real quiet at night, and that's when it gets me. ~ college freshman
-My position coach asked if I was okay. I lied and said yeah. ~ college
+My position coach asked if I was okay. I lied and said yeah. ~ college at_fault=yes
 At the house it's bad right now, Coach. I come here because it's the one place it isn't. ~ hs
 I can't focus at school. My teachers keep asking what's wrong. ~ hs
 I'm in high school and I'm dealing with grown-up problems. ~ hs
@@ -1936,7 +1936,7 @@ Never thought I'd be the guy sitting in here saying this.
 The building's the only place I don't feel it as much. So I stay late.
 I don't need answers right now. I need a minute.
 It's hard to care about a walkthrough when your whole world's shaking.
-People around me have been catching my bad moods. They didn't deserve that.
+People around me have been catching my bad moods. They didn't deserve that. ~ at_fault=yes
 I'm trying to be two people right now, and both of them are tired.
 I kept thinking it would pass on its own. It didn't.
 Every time I start to feel normal, something pulls me back under.
@@ -1947,7 +1947,7 @@ I sat a whole year to get here, and now my head won't let me enjoy any of it. ~ 
 Nobody here knew me before I transferred in. So nobody can tell I'm off but you. ~ college transfer
 I walked on to prove something. Right now I can barely prove I can get out of bed. ~ college walkon
 It's my last year here and I wanted to soak it all in. Instead I'm just getting through it. ~ college senior
-The tutors in study hall think I'm lazy. I'm not lazy. I'm drowning. ~ college
+The tutors in study hall think I'm lazy. I'm not lazy. I'm drowning. ~ college blameless=yes
 A paper due, an install to learn, and a family I can't stop worrying about. That's every week. ~ college
 When everybody leaves for break, I'm the one still checking flights I can't book. ~ college
 The team chaplain's been good to me. I figured you should hear it too. ~ college
@@ -1960,7 +1960,7 @@ My roommate brings me food because I don't come out of my room much. ~ college
 School, practice, then home to deal with all of it. There's no break in there anywhere. ~ hs
 Coach, I'm supposed to be thinking about recruiting. I can't think about anything but home. ~ hs
 My family's counting on me to keep it together, and I'm a junior in high school. ~ hs junior
-Teachers think I'm lazy because I nod off in class. I'm up all night, Coach. ~ hs
+Teachers think I'm lazy because I nod off in class. I'm up all night, Coach. ~ hs blameless=yes at_fault=yes
 Please keep it off the school gossip. Some guys here would talk. ~ hs
 The ride home is the worst part of my day. ~ hs
 It's my senior year. It was supposed to be the best one. ~ hs senior
@@ -1986,12 +1986,12 @@ The front office doesn't need to know. I just needed you to. ~ nfl
 Grown men in this league don't fall apart in the coach's office. Give me a second anyway. ~ nfl
 Being a voice out there is part of my job. I can't even get my own head lined up. ~ lb
 On the back end, one lapse is six points. I've had too many lapses, and this is why. ~ db
-The line works as one. I've been playing like I'm somewhere else and they can feel it. ~ ol
+The line works as one. I've been playing like I'm somewhere else and they can feel it. ~ ol at_fault=yes
 Rushing the passer is all instinct, and my instincts are shot right now. ~ dl
 The ball's coming to me and my head's a thousand miles away. ~ wr
 A back has to see everything. I can't see straight. ~ rb
 Kicking's ninety percent between the ears. Right now that's exactly where it's broken. ~ kicker
-My job is one snap, done right, every single time. Lately my mind isn't on the snap. ~ snapper
+My job is one snap, done right, every single time. Lately my mind isn't on the snap. ~ snapper at_fault=yes
 The quarterback can't look rattled. So I hide it, and hiding it is wearing me out. ~ qb
 My whole thing is not needing anybody. Turns out I need somebody. ~ ego
 The guys follow my lead. I don't want them following me into this. ~ leader
@@ -2023,7 +2023,7 @@ Every notification makes my heart jump. ~ modern
 FaceTime helps a little. Then the call ends and the room's empty again. ~ modern college
 It's a lot, fr. Not even gonna front. ~ young
 You ever carry something so long you forget you're carrying it? Then it hits all at once.
-I need you to know I'm not checked out on you. I'm checked out on everything.
+I need you to know I'm not checked out on you. I'm checked out on everything. ~ blameless=yes at_fault=yes
 My body shows up. My mind shows up maybe half the time.
 Late at night is when it gets loud.
 Some of the guys have asked. I keep saying I'm good. I'm not good.
@@ -2179,7 +2179,7 @@ Some people would call it a rough patch. Feels more like a whole rough season of
 There's nowhere to put it down. I've looked.
 I carry it into every rep.
 The only plan I've got is getting to tomorrow.
-Sorry I didn't come to you sooner.
+Sorry I didn't come to you sooner. ~ at_fault=yes
 Somebody asked if I was okay, and I almost lost it right there.
 It's harder to talk about than I thought it'd be.
 Mostly I'm just trying to get through each day without anybody noticing.
@@ -2189,7 +2189,7 @@ Want the honest version? I'm not okay, and I haven't been for a while.
 When people are nice to me, I almost can't take it.
 Sometimes the field is the only place my brain shuts up.
 Honestly, football's what's keeping me upright.
-You probably thought I'd stopped caring. I care too much about too many things right now.
+You probably thought I'd stopped caring. I care too much about too many things right now. ~ blameless=yes
 I don't have the words, Coach. I just have the weight.
 Some days I'm a step slow. Some days I'm a mile slow.
 My mind was elsewhere on every rep you're thinking of.
@@ -2224,7 +2224,7 @@ If I'm off, pull me aside. Not in front of everybody.
 Just check on me once in a while. That's all I'm asking. ~ humble
 I don't want the guys paying for my stuff.
 Everybody wants to talk to me about football. Nobody knows what's really going on.
-It's been building for a while, and I let it build.
+It's been building for a while, and I let it build. ~ at_fault=yes
 Headaches, a tight jaw, my heart racing at night. That's where I'm at.
 Before warmups I sit at my locker and it all floods in.
 On the ride to games I put my hood up and close my eyes.
@@ -2279,7 +2279,7 @@ Wasn't going to say anything. Then you asked. ~ quiet
 Somebody looks at me wrong and I'm ready to go. That's not about them. ~ hot
 Staying calm on the outside costs me a lot more than it used to. ~ calm
 Losing to something I can't even see is driving me crazy. ~ competitor
-I've kept every appointment, every meeting, every lift. I just haven't been all there. ~ pro
+I've kept every appointment, every meeting, every lift. I just haven't been all there. ~ pro blameless=yes
 The jokes, the noise, being the clown in the room. That's how I keep it from catching me. ~ loose
 Some days I feel like I'm one bad moment from losing it. ~ shaky
 I've never needed a day. I might need a day. ~ steady
@@ -2297,7 +2297,7 @@ My screen time is through the roof. It's the only thing that quiets my head. ~ m
 Been barely keeping it together, if I'm being real. ~ young
 I stopped posting because I didn't want to fake a smile online too. ~ modern
 A quarterback has to process fast. My mind's stuck on one thing. ~ qb
-In the secondary you can't hide a bad day. I've had a bunch of them. ~ db
+In the secondary you can't hide a bad day. I've had a bunch of them. ~ db at_fault=yes
 Linemen are supposed to be the tough ones. I'm not feeling tough. ~ lineman
 Special teams is doing your one job perfectly. Perfect isn't happening right now. ~ special
 Skill guys get the ball and the attention. I don't want any attention right now. ~ skill
@@ -2308,7 +2308,7 @@ Calls, checks, adjustments, all of it runs through my head, and my head's full. 
 My leg's fine. It's everything above my neck. ~ kicker
 Nobody notices a snapper till something goes wrong. Something's wrong. ~ snapper
 The guy next to me trusts me with his whole job. I owe him the truth about where my head's at. ~ ol
-Off the ball you can't hesitate. I've been hesitating, and it's not football. ~ dl
+Off the ball you can't hesitate. I've been hesitating, and it's not football. ~ dl at_fault=yes
 I eat lunch by myself in the library now. It's easier than talking. ~ hs
 I quit going out with my friends. I quit everything but this. ~ hs
 My people can't make it to games right now. I look up in the stands anyway. ~ hs
@@ -2325,7 +2325,7 @@ I'd like to see the team's counselor, if that's alright. ~ college
 First year away and I'm finding out it's a lot harder than anybody said. ~ college freshman
 Senior year was supposed to be a victory lap. It's been a crawl. ~ college senior
 I came here to start over. I didn't want to show up as the guy with problems. ~ college transfer
-As a walk-on I've got no cushion. Any slip and I'm gone. And I'm slipping. ~ college walkon
+As a walk-on I've got no cushion. Any slip and I'm gone. And I'm slipping. ~ college walkon at_fault=yes
 That year on the sideline was nothing compared to this. ~ college redshirt
 Study hall, tutors, film. I go through every step and remember none of it. ~ college
 Chapel the night before games is the one hour I can breathe. ~ nfl
@@ -2349,7 +2349,7 @@ Guys come to me with their stuff. I never had anywhere to take mine. ~ leader
 The room takes its energy from me. I don't want to hand it this. ~ leader
 It's family. That's all I can get out right now. ~ quiet
 Don't make me say more than that. Please. ~ quiet
-I've been looking for fights because a fight's easier than this. ~ hot
+I've been looking for fights because a fight's easier than this. ~ hot at_fault=yes
 When I'm mad, I don't have to feel the rest of it. ~ hot
 People think I'm unbothered. I'm bothered. I just don't show it. ~ calm
 My breathing's the only thing I can control right now, so I control it. ~ calm
@@ -2357,7 +2357,7 @@ Give me something to compete against and I'm fine. With this there's no scoreboa
 I want to win this. I don't even know what winning looks like. ~ competitor
 I take care of my body like it's my job, because it is. My head I've let go. ~ pro
 My routine's the only thing keeping me upright. I've doubled down on it. ~ pro
-Honestly, Coach, I've been running from it. Out late, sleeping in, whatever keeps me from thinking. ~ loose
+Honestly, Coach, I've been running from it. Out late, sleeping in, whatever keeps me from thinking. ~ loose at_fault=yes
 I joke about everything. This is the one thing I can't joke about. ~ loose
 Everything feels shaky. Like any day it could all go. ~ shaky
 Waiting on the next bad thing. That's how I live right now. ~ shaky
@@ -2409,7 +2409,7 @@ I feel like I'm the only one who wants it this bad. ~ competitor
 The standard's dropped and nobody's saying anything. ~ competitor
 I've been trying to hold everybody together and I'm worn out. ~ leader
 I'm a captain and I don't know if anybody's following. ~ leader
-I'm doing my part. A lot of guys aren't. ~ ego
+I'm doing my part. A lot of guys aren't. ~ ego blameless=yes
 Some of the guys get on my nerves and I'm trying not to snap. ~ hot
 I just stay quiet in there. But I see everything. ~ quiet
 I don't really have friends on the team. I'm just there. ~ quiet
@@ -2605,7 +2605,7 @@ It's not one thing. It's everything, a little at a time.
 Something has to change, Coach. I don't know what, but something.
 The fire's gone out of us, and nobody's lighting it back.
 If I'm being real with you, I don't feel the team part anymore.
-On the field I'm fine. Around the team, I'm not fine.
+On the field I'm fine. Around the team, I'm not fine. ~ blameless=yes
 We used to finish practice together. Now it just kind of ends.
 All I want is to feel like we're going somewhere.
 Being here feels like work in the worst way.
@@ -2636,7 +2636,7 @@ Me and {friend} are about the only ones still talking it out. That's not enough.
 I want to be proud to be a {team} guy again.
 I want this {team} team to mean something. Right now it feels hollow.
 At lunch the team doesn't even sit together anymore. ~ hs
-My grades are slipping because I'm thinking about this team in class. ~ hs
+My grades are slipping because I'm thinking about this team in class. ~ hs at_fault=yes
 Walking the halls in my jersey on game day used to mean something. ~ hs
 The younger guys come to me asking what's going on. I don't know what to tell them. ~ hs
 Before the season I talked this team up to everybody. Now I keep quiet about it. ~ hs
@@ -2691,7 +2691,7 @@ On the practice squad you feel everything twice as hard. It's rough around here.
 I sat a year to get here. I want what I waited for. ~ college redshirt
 I walked on because I loved this place. Loving it right now takes work. ~ college walkon
 As a junior I'm supposed to be stepping up. Hard to step up into this. ~ hs junior
-Doing everything right on my end, and it's still dragging me down. ~ ego
+Doing everything right on my end, and it's still dragging me down. ~ ego blameless=yes
 I didn't come this far to be stuck in something like this. ~ ego
 You know more than me about building teams. I just know how this one feels, and it's not good. ~ humble
 Not my place, maybe. But I needed to tell somebody. ~ humble
@@ -2750,7 +2750,7 @@ My chest gets tight before I walk in. That never used to happen.
 Nobody celebrates anything. Not a big hit, not a good rep, nothing.
 I still think we can be something. I just can't feel it yet.
 Straight up, I'm not sure we believe.
-Maybe I haven't done enough to pull guys together. That's on me too.
+Maybe I haven't done enough to pull guys together. That's on me too. ~ at_fault=yes
 Every day's the same flat feeling. Meetings, practice, home.
 I need to know there's a way out of this feeling.
 Feels like a house with cracks in the walls. Still standing, but you notice.
@@ -2781,7 +2781,7 @@ It hurts to say, but I don't feel connected to anybody here right now.
 We need a reason. Right now nobody has one.
 I want to go to battle with these guys. I'm not sure they want to go with me.
 It just feels like everybody's bracing for something.
-I've been faking the energy. I don't think I can keep faking it.
+I've been faking the energy. I don't think I can keep faking it. ~ at_fault=yes
 This should be the best time of my life. It's not.
 The hope's leaking out of us, a little every day.
 There's nobody to lean on, and nobody leaning on me.
@@ -2967,7 +2967,7 @@ Been biting my tongue so hard it's about bleeding. ~ hot
 I breathe through everything. I'm having to breathe through a lot. ~ calm
 I bleed for this place. Right now it feels like I'm the only one bleeding. ~ loyal
 My future's tied to how this team looks. It looks shaky. ~ greedy
-My end's handled. I need the whole operation to feel handled too. ~ pro
+My end's handled. I need the whole operation to feel handled too. ~ pro blameless=yes
 Usually I don't sweat anything. I'm sweating this. ~ loose
 Something's about to give, and I can't tell if it's me or us. ~ shaky
 I don't rock the boat. But the boat's already rocking. ~ steady
@@ -3054,7 +3054,7 @@ Truth is, I've already looked at who's thin at my spot around the country. ~ col
 Part of me wants to put my name in just to see who calls. ~ college nil
 The window opens in January and I haven't decided. That's the honest answer. ~ college nil
 What scares me is going in and nobody calling. Guys sit in the portal for months and land nowhere. ~ college nil
-A school with a big collective has been in my people's ear. I didn't go looking for it. ~ college nil
+A school with a big collective has been in my people's ear. I didn't go looking for it. ~ college nil blameless=yes
 Another program got word to me through somebody back home. I didn't answer. I didn't say no either. ~ college
 Revenue share somewhere else would change things for my family. I can't pretend it wouldn't. ~ college nil
 Chasing a bag and then sitting is my nightmare. But the bag keeps calling. ~ college nil young
@@ -3097,7 +3097,7 @@ Redshirting here, I felt like I owed this place. But I've only got so much time 
 Already thinking about leaving my first year. I know how that sounds. ~ college freshman
 Everybody tells freshmen to be patient. I'm trying. It's hard when other schools keep reaching out. ~ college freshman
 With the roster limits now, I'm scared I get squeezed out anyway. I'd rather leave on my own terms. ~ college
-Coaches at other schools somehow have my number. I didn't give it to them. ~ college
+Coaches at other schools somehow have my number. I didn't give it to them. ~ college blameless=yes
 My high school coach keeps telling me to come play closer to home. I listen to him. ~ college
 Spring ball is going to decide it for me. If nothing changes, I'm probably looking. ~ college
 One season as the guy. That's all I want, and I'm running out of time to get it here. ~ college senior
@@ -3117,7 +3117,7 @@ If I stay, I'll always wonder. If I go, I might regret it. I'm stuck.
 Nobody's promised me anything here, and that sits with me.
 Better to know now if there's no room for me next year.
 Staying too long somewhere is a real fear of mine.
-I've caught myself looking at other places. I'm not proud of it.
+I've caught myself looking at other places. I'm not proud of it. ~ at_fault=yes
 What if the best version of me is somewhere else?
 Leaving feels like quitting. Staying feels like settling. I don't know which is worse.
 Hurting anybody here is the last thing I want. That's why I've kept quiet.
@@ -3203,7 +3203,7 @@ The fifth-year option is coming and I don't know if they'll pick it up. It's alw
 If we make a run, the window opens while we're still playing. That messes with my head. ~ college nil
 Entering could mean my revenue share here is gone. I've read the terms twice. ~ college nil
 Everybody talks about buyouts in these deals now. I'm scared to even look at mine. ~ college nil
-Bowl practice is when I'm supposed to be locked in, and I'm thinking about where I'll be in January. ~ college nil
+Bowl practice is when I'm supposed to be locked in, and I'm thinking about where I'll be in January. ~ college nil at_fault=yes
 My name on a portal list while guys here are still fighting for something? I can't stomach that, but I've thought about it. ~ college nil leader
 Playing in the playoff matters to me. If we're not getting there, I might want to be somewhere that is. ~ college competitor
 At a smaller school I'd put up numbers. Here I'm one guy in a deep room. ~ college
@@ -3213,7 +3213,7 @@ Some of my credits might not come with me if I transfer. Nobody talks about that
 The degree matters to my family. Playing matters to me. Those two keep pulling in different directions. ~ college
 Being on scholarship here means a lot. Walking away from a sure thing scares me. ~ college
 Another transfer at my spot and I'm probably gone. I've decided that much. ~ college nil
-Being honest, I took a call from a coach somewhere else. I shouldn't have. I wanted you to know. ~ college
+Being honest, I took a call from a coach somewhere else. I shouldn't have. I wanted you to know. ~ college at_fault=yes
 Starting at a smaller school or fighting at a big one. I go back and forth on which I'd rather. ~ college
 A program in my home state needs somebody at my spot. Everybody back home keeps sending it to me. ~ college
 My people keep asking what I'd be worth on the open market. I don't even know how to answer that. ~ college nil
@@ -3542,7 +3542,7 @@ Guys from back home who went JUCO and climbed up keep telling me to bet on mysel
 
 @key talk.deflect
 I'm good, Coach.
-Nothing's going on. I'm alright.
+Nothing's going on. I'm alright. ~ blameless=yes
 It's fine. I'm fine.
 I'm just tired, that's all.
 Nah. I'm straight, Coach.
@@ -3592,7 +3592,7 @@ It's nothing you need to worry about. ~ humble
 I appreciate you, Coach. I'm good. ~ humble
 I'm fine. I don't need a therapy session. ~ ego brash
 I'm good. Worry about the other guys. ~ ego
-I'm the last guy you need to worry about. ~ ego
+I'm the last guy you need to worry about. ~ ego blameless=yes
 I'm straight. Trust me. ~ ego
 I'm good. Why does everybody keep asking? ~ hot
 Who said something's wrong? ~ hot
@@ -3650,9 +3650,9 @@ I'm fine, Coach. Ain't nothing to it. ~ south
 I'm doing alright, I reckon. ~ south
 I'm good. Don't you worry about me. ~ south
 I'm fine, Coach. Just a little tired. ~ midwest
-Nothing to report, Coach. ~ midwest
+Nothing to report, Coach. ~ midwest blameless=yes
 It's nothing. Really. ~ midwest
-I'm good. Nothing to talk about. ~ northeast
+I'm good. Nothing to talk about. ~ northeast blameless=yes
 It's nothing, Coach. Seriously. ~ northeast
 Forget about it. I'm good. ~ northeast
 It's all good. Just trying to stay balanced. ~ west
@@ -3702,7 +3702,7 @@ I've seen guys come and go for years. This one got to me. ~ nfl vet
 It's my family that's taking it hard too. {gone} was over at our place all the time. ~ nfl vet
 I don't really talk about stuff like this. But I miss him. ~ quiet
 It's {gone}. That's all. I just miss him. ~ quiet
-I said some things in the locker room I shouldn't have when {gone} left. I was hot. ~ hot
+I said some things in the locker room I shouldn't have when {gone} left. I was hot. ~ hot at_fault=yes
 I was angry about it. Still am, a little. ~ hot
 When somebody's mine, they're mine. {gone} was mine. ~ loyal
 I'd do anything for my guys. I couldn't do anything for {gone}. ~ loyal
