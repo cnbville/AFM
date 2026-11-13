@@ -9,6 +9,7 @@ publish = false
 
 [workspace.dependencies]
 afm-engine = { path = "crates/afm-engine" }
+afm-ai = { path = "crates/afm-ai" }
 
 # Tests simulate whole national classes, so they run optimised.
 [profile.dev]

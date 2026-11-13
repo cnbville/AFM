@@ -2,9 +2,11 @@
 //! every test of a live talk runs on this, and so does the browser build
 //! when it is started with `AFM_AI_FAKE=1`.
 //!
-//! The first recordings (`recordings/`) are written by hand from the
-//! proposal's sample prompts (the reader's one line and the writer's card).
-//! When the real test has run, its replies are kept beside them. A test can
+//! The recordings (`recordings/`): `test`, `reader` and `reader_first` are
+//! the real API's replies from lane 1's real test (2026-11-13, the proposal's
+//! one-line sample, the second call reading the cache and the first writing
+//! it); `writer` is written by hand from the proposal's card, until a lane
+//! records a real one. A test can
 //! queue its own replies and failures per label, and read back every request
 //! the fake was asked, which is how a test proves what a card held.
 
@@ -18,6 +20,7 @@ use crate::client::{Failure, Model, Reply, Request};
 
 const TEST: &str = include_str!("../recordings/test.json");
 const READER: &str = include_str!("../recordings/reader.json");
+const READER_FIRST: &str = include_str!("../recordings/reader_first.json");
 const WRITER: &str = include_str!("../recordings/writer.json");
 
 #[derive(Default)]
@@ -78,6 +81,7 @@ impl Fake {
         let raw = match label {
             "test" => TEST,
             "reader" => READER,
+            "reader_first" => READER_FIRST,
             "writer" => WRITER,
             _ => return body("Fine.", 100, 5),
         };
@@ -145,10 +149,14 @@ mod tests {
             assert!(j.get(k).is_some(), "the reader's reading has {k}");
         }
         assert_eq!(j["move"], "straight");
+        // The real test's two reader replies: the first wrote the rules to the cache, the second read them.
+        let first = f.call(&Request::new("reader_first", "r", "u")).unwrap();
+        assert_eq!((first.usage.cache_write_5m, first.usage.cache_read), (1616, 0));
+        assert_eq!((r.usage.cache_write_5m, r.usage.cache_read), (0, 1616));
         assert!(f.call(&Request::new("writer", "r", "u")).unwrap().text.contains("thirty games"));
         // An unknown label still answers.
         assert_eq!(f.call(&Request::new("anything", "r", "u")).unwrap().text, "Fine.");
-        assert_eq!(f.asked_count(), 4);
+        assert_eq!(f.asked_count(), 5);
     }
 
     #[test]

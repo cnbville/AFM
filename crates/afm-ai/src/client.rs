@@ -15,14 +15,16 @@ use serde_json::{Value, json};
 /// `ANTHROPIC_BASE_URL`, and the game must never read it.
 pub const BASE_URL: &str = "https://api.anthropic.com";
 
-/// The only model the game's live talks use (Cain 2026-11-07: Haiku 5.5).
+/// The only model the game's live talks use (Cain 2026-11-07: "Haiku is fine",
+/// Claude Haiku 5.5 for both calls; confirmed).
 pub const MODEL: &str = "claude-haiku-5-5";
 
 /// The API version header. The long-standing one: structured output and the
-/// thinking switch need no newer one (checked by the real test).
+/// thinking switch need no newer one (checked by lane 1's real test on 2026-11-13).
 pub const VERSION: &str = "2023-06-01";
 
-/// The whole call, connecting and reading the answer included.
+/// The whole call, connecting and reading the answer included: 6 seconds, the
+/// proposal's figure in "When the API isn't there" (proposed, not confirmed).
 pub const TIMEOUT: Duration = Duration::from_secs(6);
 
 /// An Anthropic API key. It can be made from text and nothing else can be
@@ -40,7 +42,11 @@ impl Key {
         let ok = t.starts_with("sk-ant-")
             && (20..=300).contains(&t.len())
             && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
-        if ok { Ok(Key(t.to_string())) } else { Err("That doesn't look like an Anthropic key. It starts with sk-ant-.".into()) }
+        if ok {
+            Ok(Key(t.to_string()))
+        } else {
+            Err("That doesn't look like an Anthropic key. It starts with sk-ant-.".into())
+        }
     }
 
     /// The last four characters, for "Key ending ...abcd".
@@ -255,12 +261,17 @@ pub enum Failure {
     NoNetwork,
     Timeout,
     /// The API answered with an error (`status` 0 when there was none).
-    Api { status: u16, message: String },
+    Api {
+        status: u16,
+        message: String,
+    },
     Refusal,
     /// The account's credit or the key's own spending limit is used up.
     CreditGone,
     /// The game's own monthly cap is reached.
     CapReached,
+    /// Too many questions are open at once (the game's own limit).
+    Busy,
     /// The API answered, but not with anything usable.
     BadReply(String),
 }
@@ -276,6 +287,7 @@ impl Failure {
             Failure::Refusal => "refusal",
             Failure::CreditGone => "credit_gone",
             Failure::CapReached => "cap_reached",
+            Failure::Busy => "busy",
             Failure::BadReply(_) => "bad_reply",
         }
     }
@@ -292,6 +304,7 @@ impl Failure {
             Failure::Refusal => "The AI would not answer that.".into(),
             Failure::CreditGone => "The API credit or the key's spending limit is used up.".into(),
             Failure::CapReached => "This month's $50 cap is reached.".into(),
+            Failure::Busy => "Too many questions are open at once.".into(),
             Failure::BadReply(_) => "The AI's answer could not be used.".into(),
         }
     }
@@ -450,7 +463,8 @@ mod tests {
 
     #[test]
     fn usage_reads_the_cache_split_when_there_is_one() {
-        let plain = Usage::from_body(&json!({"input_tokens": 10, "output_tokens": 5, "cache_creation_input_tokens": 7}));
+        let plain =
+            Usage::from_body(&json!({"input_tokens": 10, "output_tokens": 5, "cache_creation_input_tokens": 7}));
         assert_eq!((plain.input, plain.output, plain.cache_write_5m, plain.cache_write_1h), (10, 5, 7, 0));
         let split = Usage::from_body(&json!({
             "input_tokens": 1, "output_tokens": 2, "cache_read_input_tokens": 3, "cache_creation_input_tokens": 9,
@@ -497,6 +511,7 @@ mod tests {
             Failure::Refusal,
             Failure::CreditGone,
             Failure::CapReached,
+            Failure::Busy,
             Failure::BadReply("x".into()),
         ];
         for f in &all {

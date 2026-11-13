@@ -16,6 +16,9 @@ pub mod client;
 pub mod fake;
 pub mod spend;
 
+#[cfg(test)]
+mod local_server_tests;
+
 use std::sync::{Arc, Mutex};
 
 pub use client::{BASE_URL, Failure, Key, MODEL, Model, Real, Reply, Request, TIMEOUT, Usage};
@@ -36,6 +39,11 @@ impl Client {
 
     pub fn spend(&self) -> &Arc<Mutex<Spend>> {
         &self.spend
+    }
+
+    /// True when the model behind it is the fake.
+    pub fn is_fake(&self) -> bool {
+        self.model.is_fake()
     }
 
     /// Makes one call. At the cap, or for a model with no price in the

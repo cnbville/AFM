@@ -1,12 +1,13 @@
 //! The real client against a small server on this machine: what it sends,
-//! and each way a call can fail. No network, no key of any value.
+//! and each way a call can fail. No network, no key of any value. These are
+//! lib tests, so the quick check runs them (they take under a second).
 
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use afm_ai::{Failure, Key, Model, Real, Request};
+use crate::{Failure, Key, Model, Real, Request};
 use serde_json::{Value, json};
 
 const KEY: &str = "sk-ant-api03-LOCALTESTKEYabcdefghijklmnopqrstuvwxyz0123-wxyz";

@@ -12,11 +12,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::client::Usage;
 
-/// The monthly cap, in dollars and in nano.
+/// The monthly cap, in dollars and in nano (Cain 2026-11-07 14:22 UTC: "a
+/// monthly cap of $50"; confirmed).
 pub const CAP_USD: f64 = 50.0;
 pub const CAP_NANO: u64 = 50_000_000_000;
 
-/// How many months the book keeps.
+/// How many months the book keeps (proposed, not confirmed).
 const KEEP_MONTHS: usize = 24;
 
 /// Nano per token for each kind of token.
@@ -39,8 +40,8 @@ pub struct Price {
     pub long: Rates,
 }
 
-/// Prompts above this many tokens cost more (the claude-api skill, Haiku
-/// 5.5: $0.10/$0.50 up to 100K, then $0.50/$2.50).
+/// Prompts above this many tokens cost more: the real price card for Haiku
+/// 5.5 (source: the claude-api skill, $0.10/$0.50 up to 100K, then $0.50/$2.50).
 pub const LONG_PROMPT: u64 = 100_000;
 
 impl Price {
@@ -79,8 +80,10 @@ pub fn usd(nano: u64) -> f64 {
     nano as f64 / 1e9
 }
 
-/// One calendar month of spending.
+/// One calendar month of spending. A field missing from the file reads as zero,
+/// so a book written by an older or newer game still reads.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct MonthBook {
     pub nano: u64,
     pub calls: u64,
@@ -125,7 +128,8 @@ impl Spend {
                 Ok(f) => s.months = f.months,
                 Err(_) => {
                     let _ = std::fs::rename(&path, path.with_extension("bad"));
-                    s.note = Some("The spend file could not be read. It was set aside and counting started again.".into());
+                    s.note =
+                        Some("The spend file could not be read. It was set aside and counting started again.".into());
                 }
             },
             Err(_) => {}
@@ -219,7 +223,13 @@ mod tests {
         // 100,000 input tokens (the top of the short card) at $0.10 a million is a cent.
         assert_eq!(p.cost(&usage(100_000, 0)), 10_000_000);
         assert_eq!(p.cost(&usage(0, 100_000)), 50_000_000);
-        let all = Usage { input: 1_000_000, output: 1_000_000, cache_read: 1_000_000, cache_write_5m: 1_000_000, cache_write_1h: 1_000_000 };
+        let all = Usage {
+            input: 1_000_000,
+            output: 1_000_000,
+            cache_read: 1_000_000,
+            cache_write_5m: 1_000_000,
+            cache_write_1h: 1_000_000,
+        };
         // Five million prompt tokens is a long prompt, so every kind is on the second card.
         assert!(all.prompt() > LONG_PROMPT);
         assert_eq!(p.cost(&all), (500 + 2500 + 50 + 625 + 1000) * 1_000_000);

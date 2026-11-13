@@ -33,6 +33,7 @@ dependencies = [
 name = "afm-game"
 version = "0.2.0"
 dependencies = [
+ "afm-ai",
  "afm-engine",
  "mimalloc",
  "rayon",
