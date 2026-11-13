@@ -83,6 +83,10 @@ pub fn after(g: &mut Game, cmd: &str, _args: &Value, reply: &mut Reply) {
     g.ai.tickets.prune();
     g.ai.waiting.prune();
     let Ok(v) = reply else { return };
+    say::typed_lines(v);
+    if let Some(inner) = v.get_mut("reply") {
+        say::typed_lines(inner);
+    }
     say::money::facts(g, cmd, v);
     say::recruit::facts(g, cmd, v);
     ask::source::sources(g, cmd, v);

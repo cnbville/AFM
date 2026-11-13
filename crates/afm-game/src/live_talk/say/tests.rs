@@ -139,7 +139,8 @@ fn a_staff_interview_can_be_typed_on_the_fake() {
     let lines = reply["lines"].as_array().unwrap();
     let mine = lines.iter().rev().find(|l| l["by"] == 1).unwrap();
     assert_eq!(mine["typed"], "Walk me through how you'd use the quarterbacks we already have.");
-    assert_eq!(mine["text"], "How would you use our players?", "the chip's words stay under it");
+    assert_eq!(mine["text"], mine["typed"], "the log shows what you typed");
+    assert_eq!(mine["chip"], "How would you use our players?", "the chip's words stay under it");
     let his = lines.last().unwrap();
     assert_eq!(his["text"], "I'd build it around what your quarterbacks already do well, Coach.");
     // The writer had today's answer and the reads that question released,
@@ -414,4 +415,16 @@ fn no_card_carries_anything_hidden_in_1000_cards() {
     for (k, x) in who.iter().enumerate() {
         assert_eq!(cards(&w, x.clone()), before[k], "a hidden number reached a card");
     }
+}
+
+#[test]
+fn a_typed_line_shows_your_words_with_no_markup() {
+    let mut v = json!({ "lines": [
+        { "by": 1, "text": "How would you use our players?", "typed": "Would [[p:7|Jones]] start for you?" },
+        { "by": 2, "text": "Sure." },
+    ] });
+    super::typed_lines(&mut v);
+    assert_eq!(v["lines"][0]["text"], "Would Jones start for you?");
+    assert_eq!(v["lines"][0]["chip"], "How would you use our players?");
+    assert_eq!(v["lines"][1], json!({ "by": 2, "text": "Sure." }), "a line you didn't type is left as it was");
 }

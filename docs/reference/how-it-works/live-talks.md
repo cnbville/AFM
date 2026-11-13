@@ -1,6 +1,6 @@
 # Live talks: how it works today
 
-Checked against main at 7691db7 on 2026-11-13 (lane 2, the boxes, before it merged to main; lane 1 is on main since #314). Lanes 3 to 10 are not built yet: their sections below are empty until each lane fills its own.
+Checked against main at 7691db7 on 2026-11-13 (lane 2, the boxes, before it merged to main; lane 1 is on main since #314), and lane 3, the core, over main c04c172 on 2026-11-13, before it merged. Lanes 4 to 10 are not built yet: their sections below are empty until each lane fills its own.
 
 Live talks are typed lines to your players, recruits and staff, answered in character by Claude Haiku 5.5, on top of the chips and the line bank, which always still work. The rule under all of it: the AI only reads your words and writes theirs; the game decides every result. The design is `afm/live-talks/proposal.md` in the project folder; this page says what the code does.
 
@@ -162,6 +162,7 @@ Built 2026-11-13. A typed line lands on one of a scene's own options through the
 - Its answer is applied inside `ai_poll`, under the game lock. Not a line, or no option: `{"state": "none", "note": "He doesn't follow."}` and nothing changes. A chip clicked while the line was read: `off`, "The talk moved on before that landed." Unsure, or a pick that can't be undone: `{"state": "unsure", "readings": [{"pick", "heard", "final"}]}`, and the reading waits (`say/mod.rs`, `reader_step`, `Waiting`).
 - Otherwise it lands: `folk::scene::say` runs the scene's own answer with `Scene.heard` set for that one answer, then the same ticket carries the writer's call (label `scene_writer`, at most 200 tokens) for the line the answer wrote for him (`say/mod.rs`, `land`, `go_on`).
 - The writer's words take the bank line's place only if they pass the filter and nothing moved meanwhile; the scene keeps what was shown. If the writer fails or is dropped, the bank's line stays (`say/mod.rs`, `writer_step`).
+- The scene's log shows a typed line as you typed it: `live_talk::after` puts your words (markup taken out) in the line's `text` and keeps the chip's words as `chip`, with a key or none, so lane 2's box finds your line by its text (`say/mod.rs`, `typed_lines`).
 - The poll answers `{"state": "done", "heard": "ask about his scheme and how he'd use your players, calm", "marks": [...], "reply": <the people_scene reply>}`. `live_talk::after` puts the box on the nested reply too (`say/mod.rs`, `done`; `live_talk/mod.rs`, `after`).
 - Confirming: the box sends `{id, ticket, pick}` with one of the readings; the answer is a new ticket. A reading waits 10 minutes and is taken once (`say/mod.rs`, `confirm`, `WAIT_TTL`).
 
@@ -200,7 +201,7 @@ Built 2026-11-13. A typed line lands on one of a scene's own options through the
 
 ### Tests
 
-- Engine (`crates/afm-engine/src/tests/live_core.rs`): a typed question is the clicked one (same world bytes, same count of your lines); the same reading on the same save gives the same world; a line that ends the interview shows your words; nothing off the table or nav is landed; a final pick asks first and no caller can skip it; no box on press, media, stories and one-on-ones; `heard` never kept; the lies store waits; a promise costs what it cost before the move.
+- Engine (`crates/afm-engine/src/tests/live_core.rs`): a typed question is the clicked one (same world bytes, same count of your lines); the same reading on the same save gives the same world; a line that ends the interview shows your words; nothing off the table or nav is landed; a final pick asks first and no caller can skip it; no box on press, media, stories and one-on-ones; `heard` never kept; the lies store waits; a promise costs what it cost before the move; a claim about where your player stands is heard as a promise and marked "later".
 - Game (`live_talk/say/tests.rs`, `live_talk/filter.rs`): LT18 end to end on the fake; typed equals clicked through the commands; not a line changes nothing; unsure and the confirm; a final pick asks first; every failure kind falls back mid-scene; no key, no box; the reads match the interview; the filter on 200 replies; no hidden number reaches 1,000 cards.
 - Full tests (`crates/afm-game/tests/live_core.rs`): the same save and reading replay the same, typed equals clicked from a save, and a save made with live talks plays without a key; every reply walked for hidden keys (`tests/common/mod.rs`, `nothing_hidden`, shared by later lanes).
 

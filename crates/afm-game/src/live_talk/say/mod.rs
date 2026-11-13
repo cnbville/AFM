@@ -260,6 +260,20 @@ pub fn flag(g: &Game, cmd: &str, v: &mut Value) {
     recruit::flag(g, cmd, v);
 }
 
+/// Your words in a scene's log: a line you typed shows what you typed as
+/// its `text`, with the chip's words kept as `chip`. With a key or none, so
+/// a save's typed lines read as you said them. Markup is taken out, so a
+/// typed line can't draw a link.
+pub fn typed_lines(v: &mut Value) {
+    let Some(lines) = v.get_mut("lines").and_then(Value::as_array_mut) else { return };
+    for l in lines {
+        let Some(t) = l.get("typed").and_then(Value::as_str).map(folk::plain) else { continue };
+        let chip = l["text"].take();
+        l["text"] = Value::String(t);
+        l["chip"] = chip;
+    }
+}
+
 /// A reply that is a scene (`people_scene`, `people_answer` and the like:
 /// its id, lines, picks and step) gets the talk box when the scene takes a
 /// typed line now.
