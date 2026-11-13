@@ -421,8 +421,8 @@ pub const CASE_CAP: f64 = 0.15;
 /// average or better player, a little more in the later years. A Temple
 /// working paper (Weiss) found no change in total pay after an arrest. The
 /// men it does cost are role players: Michael Floyd's $1.5M year in 2017
-/// after a DUI and a $7.3M option year, Junior Galette at the minimum in
-/// 2015, Greg Hardy's 2015 deal that paid by the game. Stars kept their
+/// after a DUI, Junior Galette at the minimum in 2015, Greg Hardy's 2015
+/// deal that paid by the game. Stars kept their
 /// price (Tyreek Hill's 2019 extension, Ezekiel Elliott's in 2019). So the
 /// share is small, shrinks with how good the club thinks he is, and fades.
 ///
