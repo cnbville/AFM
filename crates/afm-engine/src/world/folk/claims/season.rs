@@ -71,7 +71,7 @@ fn season_ended(r: &Reader, m: &Man) -> Option<Point> {
     let played = team::played(r, team);
     let mut pt = team::season_ended(r, team, &played, Kind::SeasonEnded)?;
     if m.mine {
-        let from = played.iter().map(|g| g.day).min()?;
+        let from = team::season_start(&played)?;
         let grades: Vec<f64> =
             r.w.seat_games
                 .iter()
@@ -236,10 +236,15 @@ fn report_day(r: &Reader, m: &Man) -> Option<Point> {
     let tag = format!("[[p:{}|", m.id);
     let over =
         notes.iter().rev().filter(|n| n.id == 0 && n.text.starts_with("Report day:") && fresh(n.date)).find_map(|n| {
-            let rest = &n.text[n.text.find(&tag)?..];
-            let rest = &rest[rest.find("]] (")? + 4..];
-            let lb: i64 = rest.split_whitespace().next()?.parse().ok()?;
-            rest.split_whitespace().nth(1).is_some_and(|x| x == "lb").then_some((n.date, lb))
+            // His own tag followed by its pounds: a man on the list of those
+            // who failed has none of his own.
+            n.text.match_indices(&tag).find_map(|(at, _)| {
+                let rest = &n.text[at..];
+                let rest = rest[rest.find("]]")? + 2..].strip_prefix(" (")?;
+                let mut words = rest.split_whitespace();
+                let lb: i64 = words.next()?.parse().ok()?;
+                (words.next() == Some("lb")).then_some((n.date, lb))
+            })
         });
     let day = own.map(|n| n.date).or(over.map(|x| x.0))?;
     let shape = match own {

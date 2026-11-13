@@ -690,6 +690,7 @@ fn ahead(c: &Ctx, out: &mut Vec<Point>) {
     // you know it once you have talked.
     if let Some(e) = c.p.cal.portal
         && !e.on_hold()
+        && e.entered <= today
         && (0..=AHEAD).contains(&today.days_to(e.decide_by))
     {
         out.push(

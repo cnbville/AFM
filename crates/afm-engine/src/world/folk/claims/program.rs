@@ -106,7 +106,10 @@ impl<'a> Ctx<'a> {
             i,
             p,
             pos: p.player.position,
-            transfer: p.cal.portal.is_some() || p.stage == Stage::College,
+            // A junior college player still looking to move up is a
+            // recruit on the board, not a transfer.
+            transfer: p.cal.portal.is_some()
+                || (p.stage == Stage::College && !crate::world::front_office::college::is_juco_recruit(p)),
             ix: Alumni::get(r.w),
         }
     }
@@ -201,6 +204,9 @@ const FACTS: [(Kind, Fact); 33] = [
     (Kind::Buildings, buildings),
 ];
 
+/// Facts only your program has (the world keeps them for you alone).
+const MINE_ONLY: [Kind; 1] = [Kind::YourWord];
+
 pub(super) fn points(r: &Reader, i: usize, prog: usize, ear: Ear, out: &mut Vec<Point>) {
     if prog >= r.w.programs.len() {
         return;
@@ -214,6 +220,9 @@ pub(super) fn points(r: &Reader, i: usize, prog: usize, ear: Ear, out: &mut Vec<
         let g = kind.group().map_or(1.0, |g| care[g as usize]);
         let pt = if pt.whose == Whose::His {
             pt
+        } else if MINE_ONLY.contains(&kind) {
+            // No other school has this fact: its own size is the grade.
+            pt.proof(mine, Tier::of(mine), 0)
         } else {
             let theirs: Vec<f32> = rest.iter().map(|&o| fact(&c, o).map_or(0.0, |x| x.0)).collect();
             pt.proof(mine, Tier::grade(mine, &theirs), theirs.len())
@@ -352,8 +361,33 @@ fn dollars(x: f64) -> String {
     format!("${out}")
 }
 
-/// What signing day pays: checked on the day he signs.
+/// What a school's money for him is: a transfer's from the portal (for
+/// your program your numbers, nothing until you name one), a recruit's
+/// from the board.
+fn money(c: &Ctx, j: usize) -> f64 {
+    if c.transfer { rec::portal_place(c.w, c.i, j).map_or(0.0, |x| x.1) } else { rec::offer_money(c.w, j, c.i) }
+}
+
+/// What a school usually pays a player like him.
+fn usual_money(c: &Ctx, j: usize) -> f64 {
+    // A transfer's: the usual portal money for him there, the read his
+    // first answer to your offer measures it against.
+    if c.transfer {
+        let (school, collective) = rec::portal_usual(c.w, j, c.i);
+        school + collective
+    } else {
+        rec::usual_nil_offer(c.w, j, c.i)
+    }
+}
+
+/// What the money pays: checked on the day he signs (a transfer's, the
+/// day he decides by).
 fn money_day(c: &Ctx) -> crate::calendar::Date {
+    if c.transfer
+        && let Some(e) = c.p.cal.portal.filter(|e| !e.on_hold() && e.decide_by >= c.r.today)
+    {
+        return e.decide_by;
+    }
     let y = &c.w.dates;
     [y.early_signing, Some(y.signing_day)]
         .into_iter()
@@ -365,8 +399,8 @@ fn money_day(c: &Ctx) -> crate::calendar::Date {
 /// Your offer against the going rate at his spot: what your program
 /// usually pays a recruit like him. The number is yours to say.
 fn offer_rate(c: &Ctx, j: usize) -> Option<(f32, Point)> {
-    let offer = rec::offer_money(c.w, j, c.i);
-    let usual = rec::usual_nil_offer(c.w, j, c.i);
+    let offer = money(c, j);
+    let usual = usual_money(c, j);
     if offer <= 0.0 || usual <= 0.0 {
         return None;
     }
@@ -391,7 +425,7 @@ fn offer_rate(c: &Ctx, j: usize) -> Option<(f32, Point)> {
 /// Your offer against his other offers: its size is what the grade
 /// against his list reads.
 fn offer_others(c: &Ctx, j: usize) -> Option<(f32, Point)> {
-    let offer = rec::offer_money(c.w, j, c.i);
+    let offer = money(c, j);
     if offer <= 0.0 {
         return None;
     }
@@ -404,7 +438,7 @@ fn offer_others(c: &Ctx, j: usize) -> Option<(f32, Point)> {
 /// What the money does for a family in need. You know the need once your
 /// staff has been in touch with the family.
 fn family_need(c: &Ctx, j: usize) -> Option<(f32, Point)> {
-    let offer = rec::offer_money(c.w, j, c.i);
+    let offer = money(c, j);
     let money = c.p.family_money();
     if offer <= 0.0 || money >= NEED_MONEY {
         return None;
@@ -433,7 +467,7 @@ pub(super) fn contacted(c: &Ctx) -> bool {
 /// Brand deals for a kid with a name: his following is public, and so is
 /// how much your program is seen.
 fn brand(c: &Ctx, j: usize) -> Option<(f32, Point)> {
-    if c.p.followers < BRAND_FOLLOWERS || rec::offer_money(c.w, j, c.i) <= 0.0 {
+    if c.p.followers < BRAND_FOLLOWERS || money(c, j) <= 0.0 {
         return None;
     }
     let big = c.p.followers >= 4 * BRAND_FOLLOWERS;
@@ -617,14 +651,14 @@ fn position_coach(c: &Ctx, j: usize) -> Option<(f32, Point)> {
     let pc = w.programs[j].position_coaches[g as usize]?;
     let years = w.coaches[pc].job.map_or(0, |x| (w.dates.season - x.first_season() + 1).max(0));
     let picks: Vec<_> =
-        c.ix.coached(pc).filter(|a| a.position_coach == Some(pc) && Room::of(a.position) == g).take(12).collect();
+        c.ix.coached(pc).filter(|a| a.position_coach == Some(pc) && Room::of(a.position) == g).collect();
     let mut pt = Point::new(Kind::PositionCoach)
         .text("pc", format!("Coach {}", super::player::last_name(&w.coaches[pc].name)))
         .text("title", g.coach_title())
         .count("years", years as i64)
         .count("picks", picks.len() as i64)
         .refer(Ref::Coach(pc));
-    if let Some(a) = picks.first() {
+    if let Some(a) = picks.iter().min_by_key(|a| a.pick) {
         pt = pt.text("best", a.name.clone()).text("best_round", words::round_word(a.round as u32));
     }
     Some((unit(0.3 + 0.1 * picks.len() as f64 + 0.03 * years.min(8) as f64), pt))
@@ -674,7 +708,9 @@ fn your_word(c: &Ctx, j: usize) -> Option<(f32, Point)> {
 
 /// Why a transfer left his old school: the reason on his portal entry.
 fn why_left(c: &Ctx, _j: usize) -> Option<(f32, Point)> {
-    let e = c.p.cal.portal?;
+    // In the portal from the day he enters: an entry still to come or on
+    // hold is not his story yet.
+    let e = c.p.cal.portal.filter(|e| !e.on_hold() && e.entered <= c.r.today)?;
     let why = match e.why {
         "coaching change" => "coaching_change",
         "steered" => "steered",

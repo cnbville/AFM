@@ -35,7 +35,7 @@ pub(super) fn points(r: &Reader, team: Team, out: &mut Vec<Point>) {
     let played = played(r, team);
     out.extend(last_game(r, &played));
     out.extend(streak(r, &played));
-    out.extend(next_game(r, team));
+    out.extend(next_game(r, team, &played));
     out.extend(starters_out(r, team));
     out.extend(season_ended(r, team, &played, Kind::SeasonEnded));
 }
@@ -48,6 +48,8 @@ pub(super) struct Played {
     pub us: i32,
     pub them: i32,
     pub home: bool,
+    /// At a neutral site (a bowl, a playoff or title game).
+    pub neutral: bool,
     /// A bowl or playoff game's name.
     pub name: Option<&'static str>,
 }
@@ -80,6 +82,7 @@ pub(super) fn played(r: &Reader, team: Team) -> Vec<Played> {
                 us: g.stats.score[side],
                 them: g.stats.score[1 - side],
                 home: side == 0,
+                neutral: false,
                 name: None,
             });
         }
@@ -92,7 +95,10 @@ pub(super) fn played(r: &Reader, team: Team) -> Vec<Played> {
                     let home = f.home == p;
                     let (us, them) = if home { (s[0], s[1]) } else { (s[1], s[0]) };
                     match out.iter_mut().find(|x| x.day == f.date) {
-                        Some(x) => x.name = f.name,
+                        Some(x) => {
+                            x.name = f.name;
+                            x.neutral = f.neutral;
+                        }
                         None => out.push(Played {
                             day: f.date,
                             opp: Team::College(if home { f.away } else { f.home }),
@@ -100,6 +106,7 @@ pub(super) fn played(r: &Reader, team: Team) -> Vec<Played> {
                             us: us as i32,
                             them: them as i32,
                             home,
+                            neutral: f.neutral,
                             name: f.name,
                         }),
                     }
@@ -123,6 +130,7 @@ pub(super) fn played(r: &Reader, team: Team) -> Vec<Played> {
                         us: us as i32,
                         them: them as i32,
                         home,
+                        neutral: false,
                         name: None,
                     });
                 }
@@ -132,6 +140,41 @@ pub(super) fn played(r: &Reader, team: Team) -> Vec<Played> {
     }
     out.sort_by_key(|x| std::cmp::Reverse(x.day));
     out
+}
+
+fn place(home: bool, neutral: bool) -> &'static str {
+    if neutral {
+        "neutral"
+    } else if home {
+        "home"
+    } else {
+        "away"
+    }
+}
+
+/// Whether a college game on a day is at a neutral site.
+fn neutral_on(r: &Reader, team: Team, day: Date) -> bool {
+    match team {
+        Team::College(p) => r.w.college_fixtures(Some(p)).iter().any(|f| f.date == day && f.neutral),
+        _ => false,
+    }
+}
+
+/// The first day of the season the last game played belongs to: back
+/// from it, no gap over six weeks.
+pub(super) fn season_start(played: &[Played]) -> Option<Date> {
+    played.first()?;
+    let mut n = 1;
+    while n < played.len() && played[n].day.days_to(played[n - 1].day) <= SEASON_GAP {
+        n += 1;
+    }
+    Some(played[n - 1].day)
+}
+
+/// A game on the schedule still to be played: a later day, or today's
+/// game before it is played.
+fn to_play(r: &Reader, day: Date, last: Option<Date>) -> bool {
+    day > r.today || (day == r.today && last != Some(r.today))
 }
 
 fn margin(g: &Played) -> &'static str {
@@ -155,7 +198,7 @@ pub(super) fn game_point(r: &Reader, kind: Kind, g: &Played) -> Point {
         .text("when", words::when_words(g.day, r.today))
         .state("result", g.result())
         .state("margin", margin(g))
-        .state("place", if g.home { "home" } else { "away" })
+        .state("place", place(g.home, g.neutral))
         .refer(Ref::Team(g.opp));
     if let Some(n) = g.name {
         pt = pt.text("game", n);
@@ -193,9 +236,10 @@ fn streak(r: &Reader, played: &[Played]) -> Option<Point> {
 }
 
 /// The next game, from two weeks out.
-fn next_game(r: &Reader, team: Team) -> Option<Point> {
+fn next_game(r: &Reader, team: Team, played: &[Played]) -> Option<Point> {
     let w = r.w;
-    let (day, opp, home) = r.games(team).into_iter().find(|g| g.0 >= r.today)?;
+    let last = played.first().map(|g| g.day);
+    let (day, opp, home) = r.games(team).into_iter().find(|g| to_play(r, g.0, last))?;
     let left = r.today.days_to(day);
     if left > NEXT_GAME_DAYS {
         return None;
@@ -207,7 +251,7 @@ fn next_game(r: &Reader, team: Team) -> Option<Point> {
             .text("opp", opp.name(w))
             .text("when", words::when_words(day, r.today))
             .count("days", left as i64)
-            .state("place", if home { "home" } else { "away" })
+            .state("place", place(home, neutral_on(r, team, day)))
             .state("rival", if rival { "yes" } else { "no" })
             .refer(Ref::Team(opp)),
     )
@@ -226,7 +270,8 @@ fn starters_out(r: &Reader, team: Team) -> Option<Point> {
         .filter(|&i| {
             let p = &w.people[i];
             p.last_role == Some(PlayingTime::Starter)
-                && w.training.hurt_on(p.player.id, r.today).is_some_and(|h| h.from <= r.today)
+                && (w.training.hurt_on(p.player.id, r.today).is_some_and(|h| h.from <= r.today)
+                    || p.pro.as_ref().is_some_and(|c| c.out_weeks > 0))
         })
         .collect();
     if out.is_empty() {
@@ -248,7 +293,7 @@ fn starters_out(r: &Reader, team: Team) -> Option<Point> {
 /// playoff run that is alive.
 pub(super) fn still_playing(r: &Reader, team: Team, last: Date) -> bool {
     let w = r.w;
-    if r.games(team).iter().any(|g| g.0 >= r.today && r.today.days_to(g.0) <= SEASON_GAP) {
+    if r.games(team).iter().any(|g| to_play(r, g.0, Some(last)) && r.today.days_to(g.0) <= SEASON_GAP) {
         return true;
     }
     match team {
@@ -283,11 +328,8 @@ pub(super) fn season_ended(r: &Reader, team: Team, played: &[Played], kind: Kind
         return None;
     }
     // The season's games: back from the last one, no gap over six weeks.
-    let mut n = 1;
-    while n < played.len() && played[n].day.days_to(played[n - 1].day) <= SEASON_GAP {
-        n += 1;
-    }
-    let season = &played[..n];
+    let from = season_start(played)?;
+    let season: Vec<&Played> = played.iter().take_while(|g| g.day >= from).collect();
     let wins = season.iter().filter(|g| g.us > g.them).count();
     let losses = season.iter().filter(|g| g.us < g.them).count();
     let share = wins as f64 / (wins + losses).max(1) as f64;

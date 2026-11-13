@@ -6,8 +6,9 @@
 //!
 //! Nothing is saved: the index is built from `World.people` (pros still
 //! playing) and `World.alumni` (pros who retired) the first time a sheet
-//! asks, and again once the alumni list has grown (a draft, a retirement)
-//! or the year has turned.
+//! asks, and again once the alumni list has grown, the draft is held or
+//! the year has turned. A man who retires in between reads as still
+//! playing until that rebuild.
 
 use crate::positions::Position;
 use crate::world::World;
@@ -74,9 +75,14 @@ impl Index {
         let coaches = |staff: &[(i32, usize, Option<usize>, Option<usize>)], prog: usize| {
             staff.iter().rev().find(|s| s.1 == prog).map_or((None, None), |s| (s.2, s.3))
         };
-        // Pros still playing.
+        // Pros still playing. A man who retired keeps his place in the
+        // people until the world tidies them; once his career is written
+        // to the alumni list he is counted there, below, and not here.
         for p in &w.people {
             let Some((year, round, pick, club)) = p.pro.as_ref().and_then(|c| c.draft) else { continue };
+            if p.pro.as_ref().and_then(|c| c.alumnus).and_then(|k| w.alumni.get(k)).is_some_and(|a| a.pro.is_some()) {
+                continue;
+            }
             let Some(&prog) = p.path.last().or(p.college.as_ref()) else { continue };
             let (head, position_coach) = coaches(&p.college_staff, prog);
             all.push(Alum {
@@ -88,7 +94,7 @@ impl Index {
                 round: round.min(255) as u8,
                 pick: pick.min(u16::MAX as u32) as u16,
                 club: w.nfl_team_name(club),
-                active: true,
+                active: p.stage == crate::world::Stage::Pro,
                 head,
                 position_coach,
             });

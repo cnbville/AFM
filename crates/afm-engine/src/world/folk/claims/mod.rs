@@ -260,7 +260,7 @@ fn seal(r: &Reader, about: Option<usize>, team: Option<Team>, points: Vec<Point>
         let Some(fresh) = sheet::fresh(p.kind, p.day, r.today) else { continue };
         let mut by = fresh;
         if let Some(id) = id.filter(|_| yours) {
-            by *= sheet::TALKED_FADE.powi(w.folk.talked.times(r.today, id, p.kind, p.day) as i32);
+            by *= sheet::TALKED_FADE.powi(w.folk.talked.times(r.today, id, &p) as i32);
         }
         if let (Some(i), Some((t, sign))) = (about, cares(p.kind)) {
             p = p.care(1.0 + sign * CARE_SWING * w.people[i].player.personality.traits.z(t) as f32);

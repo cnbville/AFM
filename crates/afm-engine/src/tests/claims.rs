@@ -177,6 +177,106 @@ fn your_proof_is_graded_against_his_other_schools() {
 }
 
 #[test]
+fn a_hairs_lead_is_strong_and_only_your_program_has_your_word() {
+    // Level schools, or one other: a hair ahead is not "clearly" ahead.
+    assert_eq!(Tier::grade(0.51, &[0.5]), Tier::Strong);
+    assert_eq!(Tier::grade(0.501, &[0.5, 0.5]), Tier::Strong);
+    assert_eq!(Tier::grade(0.3, &[0.0, 0.0]), Tier::Elite);
+    assert_eq!(Tier::grade(0.7, &[0.5]), Tier::Elite);
+    // Your word is yours alone: graded on its own size, a poor record is
+    // weak however the other schools stand.
+    let (mut w, p, _, v) = recruits(1);
+    let i = v[0];
+    for k in 0..6 {
+        w.folk.promises.push(crate::world::folk::talks::Promise {
+            to: crate::world::folk::talks::PromiseTo::Player(900_000 + k),
+            kind: crate::world::folk::talks::PromiseKind::Start,
+            made: w.today.add(-200),
+            due: w.today.add(-100),
+            public: false,
+            kept: Some(k == 0),
+            who: String::new(),
+        });
+    }
+    let s = claims::recruit(&w, i, p, Ear::Himself);
+    let word = s.get(Kind::YourWord).expect("five broken promises are a record");
+    assert!(word.is("record", "poor"));
+    assert_eq!(word.tier(), Some(Tier::Weak), "{word:?}");
+}
+
+#[test]
+fn conduct_waits_while_a_case_is_open() {
+    let day = crate::calendar::Date::ymd(2026, 9, 1);
+    let mut s = Sheet::new(day, Some(1), None);
+    s.points = vec![Point::new(Kind::Arrest), Point::new(Kind::Suspended)];
+    assert_eq!(s.conduct(), Conduct::Open, "suspended for the arrest: still open");
+    s.points.remove(0);
+    assert_eq!(s.conduct(), Conduct::AtFault);
+    s.points = vec![Point::new(Kind::Arrest), Point::new(Kind::Effort)];
+    assert_eq!(s.conduct(), Conduct::Open);
+}
+
+#[test]
+fn report_day_reads_each_mans_own_pounds() {
+    let (mut w, _, v) = room(3);
+    let ids: Vec<u32> = v.iter().map(|&i| w.people[i].player.id).collect();
+    let tag = |k: usize| format!("[[p:{}|{}]]", ids[k], w.people[v[k]].name);
+    let text = format!(
+        "Report day: 3 of 40 missed. Failed: {}, {}. Over their weight: {} (9 lb over).",
+        tag(0),
+        tag(1),
+        tag(2)
+    );
+    w.training.notes.push(crate::training::seat::Note { date: w.today, id: 0, dept: "strength".into(), text });
+    let failed = claims::player(&w, v[0]);
+    assert!(failed.get(Kind::ReportDay).is_none(), "a man who failed is not over his weight");
+    let heavy = claims::player(&w, v[2]);
+    let pt = heavy.get(Kind::ReportDay).expect("over his weight");
+    assert_eq!(pt.get("pounds"), Some("9"));
+    assert!(pt.is("shape", "heavy"));
+}
+
+#[test]
+fn your_first_order_keeps_the_starter_and_moves_only_the_men_it_moves() {
+    let (mut w, p, v) = room(2);
+    let pos = w.people[v[0]].player.position;
+    w.people[v[1]].player.position = pos;
+    let (a, b) = (w.people[v[0]].player.id, w.people[v[1]].player.id);
+    // He started your last game: the staff had him first.
+    let opp = (0..w.programs.len()).find(|&j| j != p).unwrap();
+    let mut stats = GameStats { score: [21, 14], ..Default::default() };
+    stats.players[0].insert(a, crate::game::stats::StatLine { snaps_off: 60, snaps_def: 60, ..Default::default() });
+    stats.players[0].insert(b, crate::game::stats::StatLine { snaps_off: 4, snaps_def: 4, ..Default::default() });
+    w.seat_games.push(SeatGame {
+        date: w.today.add(-3),
+        level: Level::College,
+        teams: [p, opp],
+        names: [w.program_name(p).to_string(), w.program_name(opp).to_string()],
+        stats,
+        replay: Vec::new(),
+        marks: Vec::new(),
+        gone: Vec::new(),
+        spread: None,
+        talks: Default::default(),
+        whistle: None,
+    });
+    let up = |s: &Sheet| s.has(Kind::WonJob) || s.get(Kind::ChartMove).is_some_and(|x| x.is("move", "up"));
+    let down = |s: &Sheet| s.has(Kind::LostJob) || s.get(Kind::ChartMove).is_some_and(|x| x.is("move", "down"));
+    // Your first order, with the starter still first: nobody moved.
+    w.set_seat_depth(pos, vec![a, b]);
+    assert!(!up(&claims::player(&w, v[0])), "the starter didn't win a job he had");
+    assert!(!down(&claims::player(&w, v[1])));
+    // The backup put first: he won it and the starter lost it.
+    w.seat_depth.clear();
+    w.seat_depth_log.clear();
+    w.set_seat_depth(pos, vec![b, a]);
+    let won = claims::player(&w, v[1]);
+    assert!(up(&won));
+    assert!(won.points.iter().any(|x| x.refs.contains(&claims::Ref::Player(a))), "he passed the starter");
+    assert!(down(&claims::player(&w, v[0])));
+}
+
+#[test]
 fn a_dated_point_fades_and_then_leaves_its_window() {
     let (w, _, _) = room(1);
     let d = w.today;
@@ -208,8 +308,8 @@ fn a_point_counts_once_then_half_then_a_quarter() {
     assert_eq!(t.again(d.add(1), 8, &game), 1.0, "another man hasn't heard it");
     t.note(d.add(1), 7, &game, true, "praise");
     assert_eq!(t.again(d.add(2), 7, &game), 0.25, "then a quarter");
-    assert_eq!(t.times(d.add(2), 7, Kind::BigGame, Some(d)), 2);
-    assert!(t.remembers(d.add(2), 7, Kind::BigGame, Some(d)));
+    assert_eq!(t.times(d.add(2), 7, &game), 2);
+    assert!(t.remembers(d.add(2), 7, &game));
     // Another game is another point.
     let next = Point::new(Kind::BigGame).on(d.add(7));
     assert_eq!(t.again(d.add(8), 7, &next), 1.0);
@@ -228,8 +328,8 @@ fn a_point_counts_once_then_half_then_a_quarter() {
     // Kept for a season.
     let later = d.add(claims::KEEP_DAYS + 9);
     assert_eq!(t.again(later, 7, &game), 1.0);
-    assert!(!t.remembers(later, 7, Kind::BigGame, Some(d)));
-    assert_eq!(t.times(later, 7, Kind::BigGame, Some(d)), 0);
+    assert!(!t.remembers(later, 7, &game));
+    assert_eq!(t.times(later, 7, &game), 0);
 
     // It saves by key, and a key a build doesn't know drops that row only.
     let bytes = rmp_serde::encode::to_vec_named(&t).unwrap();
@@ -243,12 +343,31 @@ fn a_point_counts_once_then_half_then_a_quarter() {
     assert_eq!(old.rows()[0].kind, Kind::BigGame);
     t.forget(7);
     assert!(t.with(7).next().is_none() && t.with(9).next().is_some());
+
+    // A point still to come is the fact of its day: two promises due the
+    // same day are two points, and another due day is another.
+    let mut t = Talked::default();
+    let start = Point::new(Kind::PromiseOpen).due(d.add(30)).topic("start");
+    let snaps = Point::new(Kind::PromiseOpen).due(d.add(30)).topic("snaps");
+    let later = Point::new(Kind::PromiseOpen).due(d.add(40)).topic("start");
+    t.note(d, 7, &start, true, "remind");
+    assert_eq!(t.again(d.add(1), 7, &start), 0.5);
+    assert_eq!(t.again(d.add(1), 7, &snaps), 1.0);
+    assert_eq!(t.again(d.add(1), 7, &later), 1.0);
+    // Said twice in one talk, it landed if it landed either time.
+    t.note(d, 7, &start, false, "remind");
+    assert_eq!(t.again(d.add(1), 7, &start), 0.5);
+    assert_eq!(t.times(d.add(1), 7, &start), 1);
+    // The topic is saved with it.
+    let bytes = rmp_serde::encode::to_vec_named(&t).unwrap();
+    let back: Talked = rmp_serde::from_slice(&bytes).unwrap();
+    assert_eq!(back, t);
 }
 
 /// Every read of a hidden number in the module, by the name it is read
 /// under. A new one fails this test until it is a gate, carries its
 /// `// hidden:` mark and is added here.
-const HIDDEN_READS: [(&str, usize); 22] = [
+const HIDDEN_READS: [(&str, usize); 25] = [
     (".gpa", 2),
     ("gpa_trend", 0),
     (".lean", 1),
@@ -263,6 +382,9 @@ const HIDDEN_READS: [(&str, usize); 22] = [
     ("overall()", 0),
     ("potential", 0),
     ("ceiling", 0),
+    ("ceilings", 0),
+    ("original_potential", 0),
+    ("gpa_at_signing", 0),
     ("own_wants", 1),
     ("decider_wants", 1),
     ("stay_home", 0),
@@ -562,6 +684,24 @@ fn the_alumni_index_lists_a_programs_picks_by_position_and_coach() {
     // Everyone still playing is listed once.
     let listed: Vec<u32> = ix.all().iter().filter_map(|a| a.id).collect();
     assert_eq!(listed.len(), listed.iter().collect::<HashSet<_>>().len());
+    // A man who retired stays among the people until the world tidies
+    // them: once his career is on the alumni list he is counted there
+    // alone, as retired.
+    let gone = pros[0];
+    let (gone_year, gone_pick) = w.people[gone].pro.as_ref().and_then(|c| c.draft).map(|d| (d.0, d.2)).unwrap();
+    let mut row = crate::world::Alumnus::from_person(&w.people[gone], gone_year, Some(gone_pick), true);
+    row.colleges = vec![prog];
+    row.pro = w.people[gone].pro.clone();
+    w.alumni.push(row);
+    let k = w.alumni.len() - 1;
+    w.people[gone].pro.as_mut().unwrap().alumnus = Some(k);
+    w.people[gone].stage = Stage::Done;
+    let name = w.people[gone].name.clone();
+    let ix = Alumni::get(&w);
+    let his: Vec<_> = ix.of(prog).filter(|a| a.name == name && a.year == gone_year).collect();
+    assert_eq!(his.len(), 1, "counted once");
+    assert!(!his[0].active && his[0].id.is_none());
+    assert_eq!(ix.coached(9).filter(|a| a.name == name).count(), 1);
     // A new year builds it again.
     w.year += 1;
     assert!(!std::sync::Arc::ptr_eq(&ix, &Alumni::get(&w)));

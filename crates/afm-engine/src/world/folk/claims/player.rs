@@ -216,7 +216,7 @@ fn suspended(r: &Reader, m: &Man) -> Option<Point> {
         } else {
             "team"
         };
-        let mut pt = Point::new(Kind::Suspended).count("games", c.suspended as i64).state("by", by);
+        let mut pt = Point::new(Kind::Suspended).count("games", c.suspended as i64).state("by", by).topic(by);
         if league
             && let Some(why) = p.notes.iter().rev().find_map(|n| {
                 n.strip_prefix("Suspended").and_then(|x| x.split_once(" for ")).map(|x| x.1.trim_end_matches('.'))
@@ -233,7 +233,7 @@ fn suspended(r: &Reader, m: &Man) -> Option<Point> {
     {
         let team = m.team?;
         let left = r.games(team).iter().filter(|g| g.0 >= r.today && g.0 <= *through).count();
-        let mut pt = Point::new(Kind::Suspended).due(*through).state("by", "you");
+        let mut pt = Point::new(Kind::Suspended).due(*through).state("by", "you").topic("you");
         if left > 0 {
             pt = pt.count("games", left as i64);
         }
@@ -367,14 +367,31 @@ pub(super) fn chart_changes(r: &Reader, m: &Man) -> Vec<Chart> {
             continue;
         }
         let named = |id: u32| r.name(id).map(|n| (id, n));
-        if first == m.id && prev != Some(m.id) {
-            out.push(Chart::Up(day, prev.filter(|&x| x != 0).and_then(named)));
-        } else if prev == Some(m.id) && first != m.id && first != 0 {
+        // Before an order of yours the staff set the chart: the man who
+        // started your last game there was first.
+        let before = prev.filter(|&x| x != 0).or_else(|| starter_before(r, m, pos, day));
+        if first == m.id && before.is_some_and(|b| b != m.id) {
+            out.push(Chart::Up(day, before.and_then(named)));
+        } else if before == Some(m.id) && first != m.id && first != 0 {
             out.push(Chart::Down(day, named(first)));
         }
         prev = Some(first);
     }
     out
+}
+
+/// Who started at a position in your last game kept whole before a day:
+/// the man there who played the most snaps.
+fn starter_before(r: &Reader, m: &Man, pos: crate::positions::Position, day: Date) -> Option<u32> {
+    let w = r.w;
+    let team = m.team?;
+    let g = w.seat_games.iter().rev().find(|g| g.date < day)?;
+    let side = super::side_of(g, team)?;
+    g.stats.players[side]
+        .iter()
+        .filter(|(id, _)| crate::world::folk::person(w, **id).is_some_and(|i| w.people[i].player.position == pos))
+        .max_by_key(|(id, l)| (l.snaps_off + l.snaps_def, std::cmp::Reverse(**id)))
+        .map(|(id, _)| *id)
 }
 
 /// Why he sat: your discipline, an injury, or his play.
@@ -450,7 +467,11 @@ fn games(r: &Reader, m: &Man) -> (Option<Point>, Option<Point>, Option<Point>) {
         return none;
     }
     let (us, them) = (g.stats.score[side], g.stats.score[1 - side]);
-    let result = if us > them { "win" } else { "loss" };
+    let result = match us.cmp(&them) {
+        std::cmp::Ordering::Greater => "win",
+        std::cmp::Ordering::Less => "loss",
+        std::cmp::Ordering::Equal => "tie",
+    };
     let base = |k: Kind| {
         let opp = match team {
             Team::College(_) => Team::College(g.teams[1 - side]),
@@ -545,7 +566,8 @@ fn hurt(r: &Reader, m: &Man) -> Option<Point> {
         return Some(pt);
     }
     let c = w.people[m.i].pro.as_ref().filter(|c| c.out_weeks > 0)?;
-    Some(Point::new(Kind::Hurt).count("weeks", c.out_weeks as i64))
+    let back = r.today.add(c.out_days.max(1) as i32);
+    Some(Point::new(Kind::Hurt).due(back).count("weeks", c.out_weeks as i64))
 }
 
 /// Back from an injury in the last two weeks (your players: the report
@@ -596,6 +618,24 @@ fn life_events(r: &Reader, m: &Man) -> Vec<Point> {
     out
 }
 
+/// A promise's topic, so two promises due the same day are two points.
+pub(super) const PROMISE_TOPICS: [&str; 8] =
+    ["start", "snaps", "contract", "stay", "booster", "raise", "place", "join"];
+
+fn promise_topic(k: talks::PromiseKind) -> &'static str {
+    use talks::PromiseKind as P;
+    PROMISE_TOPICS[match k {
+        P::Start => 0,
+        P::Snaps => 1,
+        P::Contract => 2,
+        P::Stay => 3,
+        P::Booster(_) => 4,
+        P::Raise => 5,
+        P::Place(_) => 6,
+        P::Join(_) => 7,
+    }]
+}
+
 /// Your promises to him: one that comes due within two months, one that
 /// broke in the last four.
 fn promises(r: &Reader, m: &Man) -> Vec<Point> {
@@ -611,6 +651,7 @@ fn promises(r: &Reader, m: &Man) -> Vec<Point> {
                     out.push(
                         Point::new(Kind::PromiseOpen)
                             .due(p.due)
+                            .topic(promise_topic(p.kind))
                             .text("promise", p.kind.words())
                             .text("when", words::when_words(p.due, r.today))
                             .count("days", left as i64),
@@ -618,7 +659,9 @@ fn promises(r: &Reader, m: &Man) -> Vec<Point> {
                 }
             }
             // The promise broke on the day it came due.
-            Some(false) => out.push(Point::new(Kind::PromiseBroken).on(p.due).text("promise", p.kind.words())),
+            Some(false) => out.push(
+                Point::new(Kind::PromiseBroken).on(p.due).topic(promise_topic(p.kind)).text("promise", p.kind.words()),
+            ),
             Some(true) => {}
         }
     }
@@ -675,6 +718,9 @@ fn portal(r: &Reader, m: &Man) -> Option<Point> {
         return None;
     }
     let asked = crate::world::recruiting::intent_reason(w, m.id);
+    // The reason is his to give in the talk he asked for: until its day,
+    // you know only that he asked.
+    let told = crate::world::recruiting::intent_told(w, m.id, r.today);
     // hidden: his lean is read as a gate and as how much it is on his
     // mind, never as a value.
     let lean = p.cal.lean;
@@ -685,7 +731,7 @@ fn portal(r: &Reader, m: &Man) -> Option<Point> {
         .state("asked", yes_no(asked.is_some()))
         .known_if(asked.is_some() || p.cal.whispered)
         .weigh((0.6 + lean as f32).min(1.25));
-    if let Some(why) = asked {
+    if let Some(why) = told {
         pt = pt.state("why", why);
     }
     Some(pt)

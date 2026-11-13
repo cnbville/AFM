@@ -26,6 +26,10 @@ pub const ALUM_OTHERS: f32 = 0.6;
 /// The best on his list "clearly": ahead of the next school by this share
 /// of the spread on his list. Proposed, not confirmed.
 pub const ELITE_LEAD: f32 = 0.15;
+/// The spread a lead is read against is at least this (on the facts' 0-1
+/// scale), so a hair's lead over schools that sit level is not clear.
+/// Proposed, not confirmed.
+pub const ELITE_SPREAD: f32 = 0.1;
 
 /// What a move rests on (section 5, "How much it counts"; rule 5).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -129,7 +133,7 @@ impl Tier {
         let above = others.iter().filter(|&&o| o > mine).count();
         let best = others.iter().copied().fold(f32::MIN, f32::max);
         let worst = others.iter().copied().fold(mine, f32::min);
-        let spread = (best.max(mine) - worst).max(1e-6);
+        let spread = (best.max(mine) - worst).max(ELITE_SPREAD);
         // "Below the middle": more of his other schools beat you than not.
         if above == 0 {
             if (mine - best) / spread >= ELITE_LEAD { Tier::Elite } else { Tier::Strong }
@@ -207,6 +211,9 @@ pub struct Point {
     /// reads it to play his side, and it is never a line's fact. `fill`
     /// leaves it out.
     hidden: Vec<(&'static str, &'static str)>,
+    /// What tells two points of one kind about one day apart (two
+    /// promises due the same day): part of what you remember it by.
+    pub topic: &'static str,
 }
 
 impl Point {
@@ -224,7 +231,21 @@ impl Point {
             proof: None,
             care: 1.0,
             hidden: Vec::new(),
+            topic: "",
         }
+    }
+
+    /// The fact a point is about, as your memory keys it: the day it
+    /// happened or, for one still to come, the day it comes due, and its
+    /// topic. A second arrest, a second injury, another promise is another
+    /// point.
+    pub fn fact(&self) -> (Option<Date>, &'static str) {
+        (self.day.or(self.due), self.topic)
+    }
+
+    pub fn topic(mut self, t: &'static str) -> Point {
+        self.topic = t;
+        self
     }
 
     pub fn on(mut self, day: Date) -> Point {
@@ -464,18 +485,17 @@ impl Sheet {
     /// (`Point::hid`): an open case answers `Conduct::Open` whether he did
     /// it or not.
     pub fn conduct(&self) -> Conduct {
+        // An open case first: whatever else is on the sheet, a line that
+        // admits or denies would answer the charge.
+        if self.has(Kind::Arrest) {
+            return Conduct::Open;
+        }
         let fault = self.points.iter().any(|p| match p.kind {
             Kind::RuleBreak | Kind::Suspended | Kind::Effort => true,
             Kind::CaseClosed => p.is("outcome", "convicted") || p.is("outcome", "pleaded"),
             _ => false,
         });
-        if fault {
-            Conduct::AtFault
-        } else if self.has(Kind::Arrest) {
-            Conduct::Open
-        } else {
-            Conduct::Blameless
-        }
+        if fault { Conduct::AtFault } else { Conduct::Blameless }
     }
 
     /// Sets the line bank's conduct fact for a talk with him: `at_fault`
