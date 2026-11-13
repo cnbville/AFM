@@ -206,6 +206,12 @@ impl Pace {
 /// confirmed.
 pub const PACE_BAND: f64 = 1.0;
 
+/// How far an answer to a season review with a miss moves his trust: owning
+/// the miss or asking what he needs to see, and pointing to a goal that was
+/// met. The midseason check-in's own two sizes. Cain's yes, 2026-11-13.
+pub const REVIEW_OWN_TRUST: f32 = 0.02;
+pub const REVIEW_POINT_TRUST: f32 = 0.04;
+
 /// How the season is going against his win goal: the wins the record is on
 /// course for over the whole schedule, against the bar he set (half the
 /// games when he set none). None before a game has been played.
@@ -574,7 +580,8 @@ fn review_open(w: &mut World, s: &mut Scene, team: Team, b: &Cast, pen: &mut sup
         Some(trust_words(trust(w, team), b.she)),
     );
     // A review that missed something can be answered (talk facts item 15).
-    // Words only: how he sees you after it is set when the review opens.
+    // How the season ended moved his trust above; the answer adds a little
+    // (`REVIEW_OWN_TRUST`, `REVIEW_POINT_TRUST`).
     if met < total {
         let missed = ended.iter().find(|x| !x.1).map(|x| x.0.words(level));
         let hit = ended.iter().find(|x| x.1).map(|x| x.0.words(level));
@@ -768,8 +775,11 @@ fn meeting_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
             return;
         }
         50..=52 => {
-            // Answering the review (talk facts item 15): the words only. How
-            // the season ended is already in his trust (`review_open`).
+            // Answering the review (talk facts item 15). How the season ended
+            // is already in his trust (`review_open`); the answer adds a
+            // little on top: owning the miss or asking, and more for
+            // pointing to a goal that was met.
+            w.folk.mine.nudge(b.key(), if code == 51 { REVIEW_POINT_TRUST } else { REVIEW_OWN_TRUST });
             let level = team.level();
             let goals: Vec<Goal> = w.folk.goals.iter().filter(|g| g.season == s.b as i32).cloned().collect();
             let met = goals.iter().filter(|g| g.met == Some(true)).count();
@@ -811,7 +821,7 @@ fn meeting_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
             let line = reply(w, s, &b, key, &f, 4, line);
             s.them(&b.name, line, None);
             s.outcome.push(said.into());
-            // A words-only answer is not an ask: the review keeps its four
+            // An answer to the review is not an ask: the review keeps its four
             // ask rounds (`s.a` counts the answers given).
             s.a += 1;
             add_ask_picks(w, s, team);

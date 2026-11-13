@@ -25,6 +25,7 @@ pub mod courts;
 pub mod dialogue;
 pub mod facts;
 pub mod fans;
+pub mod finals;
 pub mod gametalk;
 pub mod hiring;
 pub mod letters;
@@ -373,6 +374,11 @@ pub struct Folk {
     /// fact sheet first asks, never saved.
     #[serde(skip)]
     pub alumni: claims::Alumni,
+    /// Live talks' one saved store (the core): the lies said in typed
+    /// lines that he can only check on a later day, and each agent's and
+    /// GM's trust in your word. Empty until a live lane writes it.
+    #[serde(skip_serializing_if = "claims::Live::is_empty")]
+    pub live: claims::Live,
 }
 
 /// Fills what a world built before this build lacks (an old world or save

@@ -275,6 +275,7 @@ fn step(w: &mut World, d: Date) {
                         && let Some(pc) = w.people[i].pro.as_mut()
                     {
                         pc.suspended = pc.suspended.saturating_sub(games as u32 - cut);
+                        crate::world::people::record_appeal(pc, &c.what, games as u32, cut);
                     }
                     (
                         None,

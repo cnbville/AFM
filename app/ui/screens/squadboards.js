@@ -264,8 +264,9 @@ function sbPlate(s, k, sel, pos) {
   const tag = p && p.health === "out" ? '<span class="sb-tag bad">OUT</span>' : p && p.health === "limited" ? '<span class="sb-tag warn">Q</span>' : "";
   // A spot is a drop target named by its slot (LT, RT, MIKE, FS...): drop a man
   // here, or drag the spot onto another to swap the two (playtest bug 12).
-  // Not a <button>: a button can't be dragged in every webview.
-  const drag = s.controls && p ? ` draggable="true" data-pid="${p.id}"` : "";
+  // Not a <button>: a button can't be dragged in every webview. Picked up with
+  // pointer events (pointerdrag.js), so no `draggable`.
+  const drag = s.controls && p ? ` data-drag="1" data-pid="${p.id}" data-name="${esc(p.name)}"` : "";
   return `<div class="sb-plate ${sel ? "on" : ""} ${p ? "" : "empty"} ${s.controls ? "" : "sb-lock"}" role="button" tabindex="0" style="${sbAt(pos.x, pos.y)};--k:${pos.k.toFixed(3)}" data-act="sbspot" data-k="${k}" data-pos="${esc(s.pos)}" data-slot="${esc(s.slot)}"${drag} aria-label="${esc(s.pos_full)}${p ? ", " + esc(p.name) : ""}${s.controls ? "" : ", the head coach's call"}">
     <span class="sb-pt"><span class="sb-pn">${p && p.num != null ? p.num : "–"}</span><span class="sb-ps">${esc(s.slot)}</span>${rd(p).replace('class="sb-prr"', 'class="sb-pr"')}</span>
     <span class="sb-pl"><span class="sb-plt">${p ? esc(p.last) : "Open"}</span>${tag}</span>${back}${p && s.by ? `<span class="hp-by hp-pby ${s.by.toLowerCase()}" aria-hidden="true">${s.by}</span>` : ""}</div>`;
@@ -321,7 +322,7 @@ function sbSpotPanel(x, s, k) {
     const up = i > 0 && s.controls && x.slots[k] ? `<button class="sb-up" data-act="sbup" data-k="${k}" data-n="${i + 1}" title="Move ${esc(m.name)} up" aria-label="Move ${esc(m.name)} up">↑</button>` : "";
     const hurt = m.health !== "full" ? ` <span class="sb-tag ${m.health === "out" ? "bad" : "warn"}" title="${esc(m.health_why || "")}">${m.health === "out" ? "Out" : "Limited"}</span>` : "";
     const ready = i === 0 ? "Starter" : m.ready;
-    const drag = s.controls ? ` draggable="true" data-pid="${m.id}" data-pos="${esc(m.pos)}" title="Drag ${esc(m.name)} onto a spot"` : "";
+    const drag = s.controls ? ` data-drag="1" data-pid="${m.id}" data-pos="${esc(m.pos)}" data-name="${esc(m.name)}" title="Drag ${esc(m.name)} onto a spot"` : "";
     return `<div class="sb-dr ${i === 0 ? "first" : ""}"${drag}><span class="sb-di">${i + 1}</span><span class="sb-dn">${playerLink(m.id, m.name, "Development")}${hurt}<small>${esc(m.class)} · <span class="${/Needs|Out|Redshirt/.test(ready) ? "sb-warn" : ""}">${esc(ready)}</span>${m.pos !== s.pos ? ` · plays ${esc(m.pos)}` : ""}</small></span>${range(m.read, null, { p: m.id, k: "ovr" })}${up}</div>`;
   }).join("");
   const coach = d && d.coach ? `<div class="sb-coach"><span class="sb-ci">${esc(String(d.coach.name || "?").split(" ").map((w) => w[0]).slice(0, 2).join(""))}</span><div><div class="sb-cn">${d.coach.you ? "You" : coachLink(d.coach.id, d.coach.name || "")}, ${esc(d.coach.title)}</div><p>${esc(d.note)}</p></div></div>` : "";
@@ -347,7 +348,7 @@ function hpWhyHere(x, s, k) {
   const w = s.why;
   if (!w) return "";
   const why = (w.why || []).map((r) => `<li><span><b>${esc(r.t)}</b>${rich(r.s)}</span></li>`).join("");
-  const alts = (w.alts || []).map((m) => `<div class="hp-alt"${s.controls ? ` draggable="true" data-pid="${m.id}" data-pos="${esc(m.pos)}" title="Drag ${esc(m.name)} onto a spot"` : ""}><div>${playerLink(m.id, m.name)}<small>${esc(m.pos)} · ${esc(m.class)}</small><small class="${m.hurt ? "hurt" : ""}">${esc(m.note)}</small></div>${range(m.read, null, { p: m.id, k: "ovr" })}</div>`).join("");
+  const alts = (w.alts || []).map((m) => `<div class="hp-alt"${s.controls ? ` data-drag="1" data-pid="${m.id}" data-pos="${esc(m.pos)}" data-name="${esc(m.name)}" title="Drag ${esc(m.name)} onto a spot"` : ""}><div>${playerLink(m.id, m.name)}<small>${esc(m.pos)} · ${esc(m.class)}</small><small class="${m.hurt ? "hurt" : ""}">${esc(m.note)}</small></div>${range(m.read, null, { p: m.id, k: "ovr" })}</div>`).join("");
   const reps = (w.practice || []).filter((r) => r.grade).map((r) => `<div class="hp-rep"><span>${playerLink(r.id, r.name)}<small>${esc(r.words)}</small></span><i><u style="width:${Math.max(0, Math.min(100, r.grade))}%"></u></i></div>`).join("");
   const second = s.picks[1];
   const calls = (s.controls && second ? `<button class="st-btn small glass" data-act="sbup" data-k="${k}" data-n="2">Move ${esc(second.last)} up</button>` : "")
@@ -529,7 +530,7 @@ function sbRosterPanel(r, x) {
     <div class="st-actions">${linkTo("player", { id: r.id }, "Player page ›")}${linkTo("player", { id: r.id, tab: "People" }, "Talk", "st-btn small glass")}</div>`;
 }
 
-// ---------- drag and drop on the stadium (playtest bug 12) ----------
+// ---------- drag and drop on the stadium (playtest bugs 12 and 14) ----------
 // A spot is a drop target named by its slot (LT, RT, MIKE, WILL, SAM, LE, RE,
 // FS, SS...). Drag a man onto it from a spot, from the depth beside the field
 // or from "who else could play it"; drag one spot onto another to swap them.
@@ -537,73 +538,48 @@ function sbRosterPanel(r, x) {
 // view and Overhead write one depth chart, and an order set here is read
 // exactly as one set there. Only a spot in the man's own position group takes
 // him (the engine lists a man only inside his group: `spots::group`); a spot
-// that is the head coach's takes nobody.
+// that is the head coach's takes nobody. The drag itself is drawn from pointer
+// events (pointerdrag.js), because the Mac app's webview never delivered the
+// browser's own drop (bug 14), and a drop that can't save says why.
 const SB_GROUP = { QB: 0, RB: 1, WR: 2, TE: 3, OT: 4, IOL: 4, EDGE: 5, DT: 5, LB: 6, CB: 7, S: 7, K: 8, P: 9, LS: 10 };
-SB.drag = null;
-function sbCanDrop(plate) {
-  if (!SB.drag || !plate || plate.classList.contains("sb-lock")) return false;
-  const a = SB_GROUP[SB.drag.pos], b = SB_GROUP[plate.dataset.pos];
-  return a === undefined || b === undefined || a === b;
+// Why this spot can't take the man held, or null when it can.
+function sbWhy(plate, d) {
+  if (plate.classList.contains("sb-lock")) return `${plate.dataset.slot} is the head coach's call, so it isn't yours to set.`;
+  const a = SB_GROUP[d.pos], b = SB_GROUP[plate.dataset.pos];
+  if (a !== undefined && b !== undefined && a !== b) return `${d.name || "He"} plays ${d.pos}, so he can't take ${plate.dataset.slot} (${plate.dataset.pos}). A man moves only inside his own position group.`;
+  return null;
 }
-function sbDragEnd() {
-  SB.drag = null;
-  document.querySelectorAll(".sb-dragging, .sb-over").forEach((el) => el.classList.remove("sb-dragging", "sb-over"));
-  document.querySelectorAll(".sb-stage.sb-dropping").forEach((el) => el.classList.remove("sb-dropping"));
-  document.querySelectorAll(".sb-plate.sb-no").forEach((el) => el.classList.remove("sb-no"));
-}
-document.addEventListener("dragstart", (ev) => {
-  const el = ev.target.closest && ev.target.closest(".sb [data-pid][draggable=true]");
-  if (!el) return;
-  SB.drag = { pid: Number(el.dataset.pid), pos: el.dataset.pos || "" };
-  ev.dataTransfer.effectAllowed = "move";
-  try { ev.dataTransfer.setData("text/plain", el.dataset.pid); } catch (e) { /* some webviews refuse */ }
-  // A frame later, so the picture the browser takes of the dragged spot is
-  // the spot as it was.
-  setTimeout(() => {
-    if (!SB.drag) return;
-    el.classList.add("sb-dragging");
+pdragKind({
+  source: ".sb [data-pid][data-drag]",
+  target: ".sb-plate",
+  over: "sb-over",
+  nowhere: "Nothing changed: drop him on a spot on the field to move him.",
+  payload: (el) => ({ pid: Number(el.dataset.pid), pos: el.dataset.pos || "", name: el.dataset.name || "" }),
+  why: sbWhy,
+  begin: (d) => {
     const stage = document.querySelector(".sb-stage");
-    if (stage) {
-      stage.classList.add("sb-dropping");
-      stage.querySelectorAll(".sb-plate").forEach((p) => p.classList.toggle("sb-no", !sbCanDrop(p)));
+    if (!stage) return;
+    stage.classList.add("sb-dropping");
+    stage.querySelectorAll(".sb-plate").forEach((p) => p.classList.toggle("sb-no", !!sbWhy(p, d)));
+  },
+  end: () => {
+    document.querySelectorAll(".sb-stage.sb-dropping").forEach((el) => el.classList.remove("sb-dropping"));
+    document.querySelectorAll(".sb-plate.sb-no").forEach((el) => el.classList.remove("sb-no"));
+  },
+  drop: async (el, d) => {
+    const stage = el.closest(".sb-stage");
+    const form = stage && stage.dataset.form;
+    const k = Number(el.dataset.k);
+    if (!form || !Number.isFinite(k)) { toast("Nothing was saved: this formation isn't open. Open the depth chart again and retry."); return; }
+    // The spot he was dropped on opens, whatever happens next.
+    keep("sbdc:" + form, { k: 0 }).k = k;
+    // Dropped on the spot he already holds: nothing to save.
+    if (Number(el.dataset.pid) === d.pid) {
+      toast(`${d.name || "He"} already starts at ${el.dataset.slot}, so nothing changed.`);
+      return sbLocal(el);
     }
-  }, 0);
-});
-document.addEventListener("dragend", sbDragEnd);
-for (const type of ["dragenter", "dragover"]) {
-  document.addEventListener(type, (ev) => {
-    const el = ev.target.closest && ev.target.closest(".sb-plate");
-    if (!el || !sbCanDrop(el)) return;
-    ev.preventDefault();
-    ev.dataTransfer.dropEffect = "move";
-    document.querySelectorAll(".sb-plate.sb-over").forEach((p) => p !== el && p.classList.remove("sb-over"));
-    el.classList.add("sb-over");
-  });
-}
-// Leaving a spot: by where the pointer is, not by relatedTarget, which
-// Safari leaves empty.
-document.addEventListener("dragleave", (ev) => {
-  const el = ev.target.closest && ev.target.closest(".sb-plate");
-  if (!el) return;
-  const r = el.getBoundingClientRect();
-  const inside = ev.clientX > r.left && ev.clientX < r.right && ev.clientY > r.top && ev.clientY < r.bottom;
-  if (!inside) el.classList.remove("sb-over");
-});
-document.addEventListener("drop", async (ev) => {
-  const el = ev.target.closest && ev.target.closest(".sb-plate");
-  if (!el || !sbCanDrop(el)) return;
-  ev.preventDefault();
-  const pid = SB.drag.pid;
-  const stage = el.closest(".sb-stage");
-  const form = stage && stage.dataset.form;
-  const k = Number(el.dataset.k);
-  sbDragEnd();
-  if (!form || !Number.isFinite(k)) return;
-  // The spot he was dropped on opens, whatever happens next.
-  keep("sbdc:" + form, { k: 0 }).k = k;
-  // Dropped on the spot he already holds: nothing to save.
-  if (Number(el.dataset.pid) === pid) return sbLocal(el);
-  await trPlace(form, k, pid);
+    await trPlace(form, k, d.pid);
+  },
 });
 // A spot is a button for the keyboard too (Enter or Space).
 document.addEventListener("keydown", (ev) => {
