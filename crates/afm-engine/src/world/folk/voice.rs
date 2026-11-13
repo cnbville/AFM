@@ -26,11 +26,12 @@
 //!
 //! A one-on-one line that denies or admits something about his own conduct
 //! ("I've done nothing wrong", "I know I messed up") carries `blameless=yes`
-//! or `at_fault=yes` (`CLAIM_FACTS`). No caller sets those facts yet, so
-//! those lines are not said at all: a man with a fresh arrest never says he
-//! has done nothing wrong, and a clean one never owns a mistake he didn't
-//! make. The fact sheet of the talks (talk facts, item 5 and 6) sets a fact
-//! when the world backs the line.
+//! or `at_fault=yes` (`CLAIM_FACTS`). Only the one-on-ones set them, from
+//! his fact sheet (`Sheet::fill_conduct`, `talk_points::conduct`; talk
+//! facts lane L4), and only when the world backs the line: a man with an
+//! open case never says he has done nothing wrong (unless he didn't and
+//! says so), and a clean one never owns a mistake he didn't make. Every
+//! other talk sets neither, so the held lines are not said there.
 
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -85,10 +86,16 @@ const BANKS: &[&str] = &[
     // and portal calls, written through the Batches API by tools/linebank
     // (`recruit20k.py`). Design: docs/design/recruit-talk-lines.md.
     include_str!("../../../data/lines/recruit_talks_run.txt"),
+    // One-on-ones on his talking points (talk facts lane L4): written by
+    // hand for the most common parts; the bank run (L12) fills the rest.
+    include_str!("../../../data/lines/talk_points.txt"),
     // The bosses and the outside on the fact sheet (talk facts lane L10):
     // the press on a case's step, the boss on the season's pace, a
     // booster, the old coach and the GM answering as who they are.
     include_str!("../../../data/lines/outside_facts.txt"),
+    // The recruit and portal conversation (talk facts lane L5): hand-written
+    // lines for its most common new parts until the bank run fills them.
+    include_str!("../../../data/lines/recruit_case.txt"),
 ];
 
 /// The facts that gate a line which denies (`blameless`) or admits

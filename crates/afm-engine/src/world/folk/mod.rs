@@ -18,6 +18,7 @@
 
 pub mod backchannel;
 pub mod boss;
+pub mod case;
 pub mod cast;
 pub mod claims;
 pub mod coach_look;
@@ -31,11 +32,14 @@ pub mod hiring;
 pub mod letters;
 pub mod life;
 pub mod network;
+pub mod pitch;
 pub mod press;
+pub mod pulls;
 pub mod rules;
 pub mod scene;
 pub mod staffing;
 pub mod takeover;
+pub mod talk_points;
 pub mod talks;
 pub mod ties;
 pub mod tips;
@@ -369,6 +373,10 @@ pub struct Folk {
     /// one.
     #[serde(skip_serializing_if = "claims::Talked::is_empty")]
     pub talked: claims::Talked,
+    /// What your talks have shown you of what pulls each recruit and
+    /// transfer (talk facts design, section 7): his file's evidence.
+    #[serde(skip_serializing_if = "pulls::Pulls::is_empty")]
+    pub pulls: pulls::Pulls,
     /// NFL alumni by program and position (`claims::Alumni`): built when a
     /// fact sheet first asks, never saved.
     #[serde(skip)]

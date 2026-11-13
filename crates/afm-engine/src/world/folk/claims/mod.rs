@@ -63,13 +63,14 @@ pub mod words;
 pub use alumni::{Alum, Alumni};
 pub use kinds::{Family, Group, Kind, When, Whose};
 pub use memory::{KEEP_DAYS, Row, Talked};
-pub use program::Ear;
+pub(crate) use player::GRADE_LINE;
+pub use program::{Ear, hot_seat};
+pub(crate) use program::{NEED_MONEY, cares as group_cares, rival_for};
 pub use sheet::{Basis, Conduct, Point, Proof, Ref, Sheet, Tier};
 pub use truth::{Lie, Live, Stated, Truth};
 
 use crate::calendar::Date;
 use crate::player::Trait;
-use crate::positions::Position;
 use crate::world::folk::{Team, facts};
 use crate::world::seat::SeatGame;
 use crate::world::{Stage, World};
@@ -83,8 +84,6 @@ pub const CARE_SWING: f32 = 0.3;
 
 /// A team's games: (day, opponent, at home).
 type Games = Vec<(Date, Team, bool)>;
-/// A depth chart: each spot's players, the starter first.
-type Depth = Vec<(Position, Vec<u32>)>;
 /// Who joined a program: (his place in the people, the day, signed).
 type Joined = Vec<(usize, Date, bool)>;
 
@@ -95,21 +94,13 @@ pub(crate) struct Reader<'a> {
     pub w: &'a World,
     pub today: Date,
     games: OnceCell<(Team, Games)>,
-    depth: OnceCell<Option<Depth>>,
     rates: OnceCell<HashMap<u32, f64>>,
     joined: OnceCell<(usize, Joined)>,
 }
 
 impl<'a> Reader<'a> {
     pub fn new(w: &'a World) -> Reader<'a> {
-        Reader {
-            w,
-            today: w.today,
-            games: OnceCell::new(),
-            depth: OnceCell::new(),
-            rates: OnceCell::new(),
-            joined: OnceCell::new(),
-        }
+        Reader { w, today: w.today, games: OnceCell::new(), rates: OnceCell::new(), joined: OnceCell::new() }
     }
 
     /// A person's name by his id.
@@ -131,11 +122,6 @@ impl<'a> Reader<'a> {
             (Some(a), Some(b)) => self.today >= a.0.add(-kinds::GAME_DAYS) && self.today <= b.0.add(kinds::GAME_DAYS),
             _ => false,
         }
-    }
-
-    /// The depth chart your team would take into a game today.
-    pub fn depth(&self) -> Option<&Vec<(Position, Vec<u32>)>> {
-        self.depth.get_or_init(|| self.w.seat_game_depth()).as_ref()
     }
 
     /// The going rate for one of your college players: the usual share of

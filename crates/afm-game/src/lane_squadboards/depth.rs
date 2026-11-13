@@ -213,11 +213,22 @@ pub(crate) fn spots(w: &World, t: TeamRef, form: &str) -> Result<(Vec<Spot>, boo
     let roster = views::roster_people(w, t);
     let order = w.seat_game_depth().unwrap_or_default();
     let mut used: Vec<u32> = out.iter().filter_map(|s| s.ids[0]).collect();
+    // The men your own order puts in a position's three-deep stay there: the
+    // staff's list at another position repeats a man who plays two ways (a
+    // linebacker at guard), and would claim him first (playtest bug 16).
+    let reserved: Vec<(Position, Vec<u32>)> = w
+        .seat_depth
+        .iter()
+        .map(|(p, ids)| (*p, ids.iter().copied().take(3 * out.iter().filter(|s| s.pos == *p).count()).collect()))
+        .collect();
     let mut lists: HashMap<Position, Vec<u32>> = HashMap::new();
     for n in 1..3 {
         for s in out.iter_mut() {
             let list = lists.entry(s.pos).or_insert_with(|| staff_list(w, t, &roster, &order, &w.seat_depth, s.pos));
-            let id = list.iter().copied().find(|id| !used.contains(id));
+            let id = list
+                .iter()
+                .copied()
+                .find(|id| !used.contains(id) && !reserved.iter().any(|(p, r)| *p != s.pos && r.contains(id)));
             if let Some(id) = id {
                 used.push(id);
             }
@@ -498,4 +509,188 @@ pub(crate) fn reset(w: &mut World, args: &Value) -> Result<(), String> {
         w.refresh_seat_team();
     }
     Ok(())
+}
+
+/// The depth word for a cell: "starter", "second string", "third string".
+fn depth_word(n: usize) -> &'static str {
+    match n {
+        1 => "the starter",
+        2 => "second string",
+        _ => "third string",
+    }
+}
+
+/// One position's cells on the board in the order its depth list holds
+/// them: every spot's starter, then every spot's second man, then every
+/// spot's third (`spots` reads the list back the same way).
+fn pos_cells(spots: &[Spot], pos: Position) -> Vec<Option<u32>> {
+    let at: Vec<&Spot> = spots.iter().filter(|s| s.pos == pos).collect();
+    (0..3).flat_map(|d| at.iter().map(move |s| s.ids[d])).collect()
+}
+
+/// Where a spot's cell sits in `pos_cells`: depth `d` (0 is the starter)
+/// of the spot `k`.
+fn cell_at(spots: &[Spot], k: usize, d: usize) -> usize {
+    let rank = spots[..k].iter().filter(|s| s.pos == spots[k].pos).count();
+    let width = spots.iter().filter(|s| s.pos == spots[k].pos).count();
+    d * width + rank
+}
+
+/// Puts a man into one cell of a formation: spot `slot`, depth `n` (1 the
+/// starter, 2 and 3 the men behind him; playtest bug 16). A man who already
+/// holds a cell swaps with the man he replaces when that man can play the
+/// spot he leaves; otherwise he leaves it and the next man up takes it.
+/// A man from outside the three deep replaces the man there, who drops back
+/// into the room. Only inside the man's own position group, as on the starters.
+///
+/// A base board holds the order per position (the list `spots` reads back:
+/// starters, then the second men, then the third), so a backup's place is
+/// the place in that list. A package keeps its first men on its board and
+/// lane 5's second and third men beside them; the other special units keep
+/// only their first men, the staff fills behind.
+pub(crate) fn put(w: &mut World, args: &Value) -> Result<Option<String>, String> {
+    let t = my_team(w)?;
+    let (ti, fi) = pick(args);
+    let (form, form_label) = TABS[ti].2[fi];
+    let k = args.get("slot").and_then(Value::as_u64).ok_or("Missing spot.")? as usize;
+    let n = args.get("n").and_then(Value::as_u64).ok_or("Missing depth.")? as usize;
+    let pid = args.get("pid").and_then(Value::as_u64).ok_or("Missing player.")? as u32;
+    if !(1..=3).contains(&n) {
+        return Err("A spot is three deep: the starter and two behind him.".into());
+    }
+    let d = n - 1;
+    let (spots, _) = spots(w, t, form)?;
+    let target = spots.get(k).ok_or("No such spot.")?;
+    let roster = views::roster_people(w, t);
+    let mi = views::person_index(w, pid).filter(|i| roster.contains(i)).ok_or("He isn't on your roster.")?;
+    let name = w.people[mi].name.clone();
+    let mpos = w.people[mi].player.position;
+    let locked = |w: &World, s: &Spot| {
+        format!("{} is the head coach's call, so it isn't yours to set. Your job covers {}.", s.slot, w.your_controls())
+    };
+    if !target.controls {
+        return Err(locked(w, target));
+    }
+    // The cell he is picked up from, when the screen says (a two-way player
+    // stands at two spots): else the first cell that holds him.
+    let named = args.get("from_slot").and_then(Value::as_u64).zip(args.get("from_n").and_then(Value::as_u64));
+    let src = named
+        .map(|(ks, fn_)| (ks as usize, (fn_ as usize).wrapping_sub(1)))
+        .filter(|&(ks, ds)| spots.get(ks).is_some_and(|s| s.ids.get(ds) == Some(&Some(pid))))
+        .or_else(|| {
+            spots.iter().enumerate().find_map(|(ks, s)| s.ids.iter().position(|x| *x == Some(pid)).map(|ds| (ks, ds)))
+        });
+    // A man takes a spot in his own position group, or in the group of the
+    // spot he already plays (a linebacker listed at guard moves between guards).
+    let group = afm_engine::spots::group;
+    if group(mpos) != group(target.pos) && !src.is_some_and(|(ks, _)| group(spots[ks].pos) == group(target.pos)) {
+        return Err(format!(
+            "{name} plays {}, so he can't take {} ({}). A man moves only inside his own position group.",
+            mpos.name(),
+            target.slot,
+            target.pos.name()
+        ));
+    }
+    if src == Some((k, d)) {
+        return Ok(Some(format!("{name} is already {} at {}, so nothing changed.", depth_word(n), target.slot)));
+    }
+    if let Some((ks, _)) = src
+        && !spots[ks].controls
+    {
+        return Err(locked(w, &spots[ks]));
+    }
+    let displaced = target.ids[d];
+    let dpos = displaced.and_then(|id| views::person_index(w, id)).map(|i| w.people[i].player.position);
+
+    if matches!(form, "offense" | "defense" | "specialists") {
+        let order = w.seat_game_depth().unwrap_or_default();
+        let old = |w: &World, p: Position| -> Vec<u32> {
+            w.seat_depth
+                .iter()
+                .chain(order.iter())
+                .find(|(q, _)| *q == p)
+                .map(|(_, ids)| ids.clone())
+                .unwrap_or_default()
+        };
+        let pos = target.pos;
+        let mut writes: Vec<(Position, Vec<Option<u32>>)> = Vec::new();
+        let mut cp = pos_cells(&spots, pos);
+        let b = cell_at(&spots, k, d);
+        match src {
+            Some((ks, ds)) if spots[ks].pos == pos => {
+                // Two cells at one position swap.
+                let a = cell_at(&spots, ks, ds);
+                cp.swap(a, b);
+            }
+            Some((ks, ds)) => {
+                // From another position's cell (the same group): he leaves
+                // it and the next man there takes it.
+                let q = spots[ks].pos;
+                let mut cq = pos_cells(&spots, q);
+                cq[cell_at(&spots, ks, ds)] = None;
+                writes.push((q, cq));
+                cp[b] = Some(pid);
+            }
+            None => cp[b] = Some(pid),
+        }
+        writes.push((pos, cp));
+        let placed: Vec<u32> = writes.iter().flat_map(|(_, c)| c.iter().flatten().copied()).collect();
+        let mut notes = Vec::new();
+        for (p, cells) in writes {
+            if !w.controls(p) {
+                return Err(format!("{} is not yours to set. Your job covers {}.", p.name(), w.your_controls()));
+            }
+            let mut list: Vec<u32> = cells.into_iter().flatten().collect();
+            for id in old(w, p) {
+                if !placed.contains(&id) && !list.contains(&id) {
+                    list.push(id);
+                }
+            }
+            if let Some(note) = w.propose_depth(p, list)? {
+                notes.push(note);
+            }
+        }
+        w.refresh_seat_team();
+        return Ok((!notes.is_empty()).then(|| notes.join(" ")));
+    }
+
+    // A package or a special unit: the cells are the spots, kept apart.
+    let b = Board::parse(form).ok_or("No such unit.")?;
+    if !w.seat_head() && !b.slots().iter().all(|x| w.controls(x.1)) {
+        return Err(format!("That unit is the head coach's. Your job covers {}.", w.your_controls()));
+    }
+    let package = LANE5.contains(&form);
+    let behind = d > 0 || src.is_some_and(|(_, ds)| ds > 0);
+    if behind && !package {
+        return Err(format!(
+            "Your staff fills the men behind the first on {form_label}. Only its starters are yours to set."
+        ));
+    }
+    let mut cells: Vec<[Option<u32>; 3]> = spots.iter().map(|s| s.ids).collect();
+    let mut changed = vec![(k, d)];
+    if let Some((ks, ds)) = src {
+        // He swaps with the man he replaces when that man can play the spot
+        // he leaves; else the cell empties and the staff fills it.
+        let fits = dpos.is_some_and(|p| group(p) == group(spots[ks].pos)) || group(target.pos) == group(spots[ks].pos);
+        cells[ks][ds] = if fits { displaced } else { None };
+        changed.push((ks, ds));
+    }
+    cells[k][d] = Some(pid);
+    if changed.iter().any(|&(_, c)| c == 0) {
+        let firsts: Vec<u32> = cells.iter().map(|c| c[0].unwrap_or(0)).collect();
+        w.training.packages.retain(|(x, _)| *x != b);
+        w.training.packages.push((b, firsts));
+    }
+    if package && changed.iter().any(|&(_, c)| c > 0) {
+        let len = 2 * b.slots().len();
+        let mut v: Vec<u32> = w.plans.depth.iter().find(|(x, _)| *x == b).map(|(_, v)| v.clone()).unwrap_or_default();
+        v.resize(len, 0);
+        for &(ks, ds) in changed.iter().filter(|&&(_, c)| c > 0) {
+            v[2 * ks + ds - 1] = cells[ks][ds].unwrap_or(0);
+        }
+        w.plans.depth.retain(|(x, _)| *x != b);
+        w.plans.depth.push((b, v));
+    }
+    w.refresh_seat_team();
+    Ok(None)
 }

@@ -159,6 +159,23 @@ pub(crate) fn talked(w: &mut World, id: u32, at: f32, lean: f32, pitch: &str) {
     t.talks.push(PortalTalk { date: today, at, lean, pitch: pitch.to_string() });
 }
 
+/// Your case with an entrant you chase (talk facts lane L5), to change.
+/// A save from before the case starts it from the talks it kept.
+pub(crate) fn case_mut(w: &mut World, id: u32) -> Option<&mut crate::world::folk::case::Case> {
+    let j = program(w)?;
+    let t = target_mut(w, id)?;
+    if t.case.is_empty() && !t.talks.is_empty() {
+        t.case.again = t.talks.iter().map(|x| x.lean).sum();
+    }
+    t.case.prog = j as u16;
+    Some(&mut t.case)
+}
+
+/// Your case with an entrant you chase.
+pub(crate) fn case_of(w: &World, id: u32) -> Option<&crate::world::folk::case::Case> {
+    target(w, id).map(|t| &t.case)
+}
+
 /// Your promise of a role is on his file (0 a starting job, 1 a real role).
 pub(crate) fn promised(w: &World, id: u32) -> Option<(u8, Date)> {
     target(w, id).and_then(|t| t.promise)
@@ -460,11 +477,23 @@ fn run_visits(w: &mut World, j: usize, d: Date) {
     }
 }
 
-/// What your work with him adds at his decision: the quiet word before
-/// he entered, your talks (the latest at each place) and how your campus
-/// felt to him with the visit's own pull.
+/// Your case with him as it counts today (a save from before the case:
+/// the leans its talks kept, in no group).
+pub(crate) fn case_now(t: &super::college::PortalTarget) -> crate::world::folk::case::Case {
+    let mut c = t.case;
+    if c.is_empty() {
+        c.again = t.talks.iter().map(|x| x.lean).sum();
+    }
+    c
+}
+
+/// What your work with him adds at his decision: your case from every
+/// call and visit (`folk::case`; for a save from before it, the talks it
+/// kept, the latest at each place) and how your campus felt to him with
+/// the visit's own pull.
 pub(crate) fn effort(t: &super::college::PortalTarget) -> f64 {
-    let talks: f64 = t.talks.iter().map(|x| x.lean as f64).sum();
+    let talks: f64 =
+        if t.case.is_empty() { t.talks.iter().map(|x| x.lean as f64).sum() } else { t.case.total() as f64 };
     let visit = t.feel.map_or(0.0, |f| VISIT_PULL + f as f64);
     talks + visit
 }

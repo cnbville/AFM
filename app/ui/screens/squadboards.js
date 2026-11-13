@@ -257,19 +257,25 @@ screens.depth = async (a) => {
   }
   return sbDepthPage(x, cur);
 };
-function sbPlate(s, k, sel, pos) {
+// A spot is a plate with its three men as three pills (1 the starter, 2 and
+// 3 the men behind him). Each pill is its own drag source and its own drop
+// target, so a man can be put into a backup slot as well as a starter's
+// (playtest bug 16). `bk` says whether this formation keeps its backups: the
+// special units keep only their first men (the staff fills behind).
+function sbCell(s, k, n, m, bk) {
+  const rd = (q) => (q && q.read ? `<b class="sb-prr"${rrAttrs({ p: q.id, k: "ovr" }, q.read[0], q.read[1])}>${q.read[0]}-${q.read[1]}</b>` : "");
+  const tag = n === 1 && m && m.health === "out" ? '<span class="sb-tag bad">OUT</span>' : n === 1 && m && m.health === "limited" ? '<span class="sb-tag warn">Q</span>' : "";
+  // Pointer events (pointerdrag.js), so no `draggable`; not a <button>, which
+  // can't be dragged in every webview.
+  const man = m ? ` data-pid="${m.id}" data-pos="${esc(m.pos)}" data-name="${esc(m.name)}"${s.controls ? ' data-drag="1"' : ""}` : "";
+  return `<span class="sb-cell n${n} ${m ? "" : "nobody"} ${s.controls ? "" : "sb-lock"}" data-cell="1" data-k="${k}" data-n="${n}" data-slot="${esc(s.slot)}" data-spos="${esc(s.pos)}"${bk ? "" : ' data-bk="0"'}${man}><i>${n}</i><span class="sb-cname">${m ? esc(m.last) : n === 1 ? "Open" : '<span class="sb-dim">Nobody</span>'}</span>${tag}${rd(m)}</span>`;
+}
+function sbPlate(s, k, sel, pos, bk) {
   const p = s.picks[0];
-  const rd = (m) => (m && m.read ? `<b class="sb-prr"${rrAttrs({ p: m.id, k: "ovr" }, m.read[0], m.read[1])}>${m.read[0]}-${m.read[1]}</b>` : "");
-  const back = s.picks.slice(1).map((b, i) => `<span class="sb-pb"><i>${i + 2}</i><span>${b ? esc(b.last) : '<span class="sb-dim">Nobody</span>'}</span>${rd(b)}</span>`).join("");
-  const tag = p && p.health === "out" ? '<span class="sb-tag bad">OUT</span>' : p && p.health === "limited" ? '<span class="sb-tag warn">Q</span>' : "";
-  // A spot is a drop target named by its slot (LT, RT, MIKE, FS...): drop a man
-  // here, or drag the spot onto another to swap the two (playtest bug 12).
-  // Not a <button>: a button can't be dragged in every webview. Picked up with
-  // pointer events (pointerdrag.js), so no `draggable`.
-  const drag = s.controls && p ? ` data-drag="1" data-pid="${p.id}" data-name="${esc(p.name)}"` : "";
-  return `<div class="sb-plate ${sel ? "on" : ""} ${p ? "" : "empty"} ${s.controls ? "" : "sb-lock"}" role="button" tabindex="0" style="${sbAt(pos.x, pos.y)};--k:${pos.k.toFixed(3)}" data-act="sbspot" data-k="${k}" data-pos="${esc(s.pos)}" data-slot="${esc(s.slot)}"${drag} aria-label="${esc(s.pos_full)}${p ? ", " + esc(p.name) : ""}${s.controls ? "" : ", the head coach's call"}">
-    <span class="sb-pt"><span class="sb-pn">${p && p.num != null ? p.num : "–"}</span><span class="sb-ps">${esc(s.slot)}</span>${rd(p).replace('class="sb-prr"', 'class="sb-pr"')}</span>
-    <span class="sb-pl"><span class="sb-plt">${p ? esc(p.last) : "Open"}</span>${tag}</span>${back}${p && s.by ? `<span class="hp-by hp-pby ${s.by.toLowerCase()}" aria-hidden="true">${s.by}</span>` : ""}</div>`;
+  const cells = [1, 2, 3].map((n) => sbCell(s, k, n, s.picks[n - 1], bk)).join("");
+  return `<div class="sb-plate ${sel ? "on" : ""} ${p ? "" : "empty"} ${s.controls ? "" : "sb-lock"}" role="button" tabindex="0" style="${sbAt(pos.x, pos.y)};--k:${pos.k.toFixed(3)}" data-act="sbspot" data-k="${k}" data-pos="${esc(s.pos)}" data-slot="${esc(s.slot)}" aria-label="${esc(s.pos_full)}${p ? ", " + esc(p.name) : ""}${s.controls ? "" : ", the head coach's call"}">
+    <span class="sb-pt"><span class="sb-pn">${p && p.num != null ? p.num : "–"}</span><span class="sb-ps">${esc(s.slot)}</span></span>
+    <span class="sb-cells">${cells}</span>${p && s.by ? `<span class="hp-by hp-pby ${s.by.toLowerCase()}" aria-hidden="true">${s.by}</span>` : ""}</div>`;
 }
 function sbUnits(units) {
   return `<div class="sb-units">${units.map((u, i) => `<div class="sb-unit ${i === units.length - 1 ? "all" : ""}"><div class="sb-unit-h"><span class="sb-lbl">${esc(u.name)}</span><small>${u.rank ? `${esc(u.rank_words)} ${esc(u.among)}` : esc(u.among || "")}</small></div><div class="sb-unit-v"><span class="sb-grade">${esc(u.grade)}</span><b>${u.value != null ? u.value : "–"}</b></div><span class="sb-ubar"><i style="width:${u.pct != null ? u.pct : 0}%"></i></span></div>`).join("")}</div>`;
@@ -292,9 +298,9 @@ function sbDepthPage(x, cur) {
     // Every plate keeps one size, as on a broadcast, so every name stays legible.
     return { x: px, y: py, k: 1 };
   });
-  // A plate is 10 by 8.25 em on a base of 1.25% of the stage (squadboards.css).
-  sbSpread(items, 123, 101, 11);
-  const plates = x.slots.map((s, i) => sbPlate(s, i, i === sel, items[i])).join("");
+  // A plate is 10 by 9.1 em on a base of 1.25% of the stage (squadboards.css).
+  sbSpread(items, 123, 112, 11);
+  const plates = x.slots.map((s, i) => sbPlate(s, i, i === sel, items[i], !!(x.base || x.package))).join("");
   const s = x.slots[sel];
   const head = pageHead({
     kicker: `${esc(x.level)} · ${esc(x.form_label)}`,
@@ -317,13 +323,15 @@ function sbSpotPanel(x, s, k) {
   if (!p) return `<div class="sb-ph"><span class="sb-lbl gold">${esc(s.pos_full)}</span><h2 class="sb-name">Open</h2><p class="sb-dim">Nobody is listed here. The engine sends the next man left in the room.</p></div>`;
   const keys = d ? d.keys.map((q) => `<div class="sb-kr"><span>${esc(q.label)}</span>${range(q.read, null, { p: p.id, k: q.key })}</div>`).join("") : "";
   const snaps = d && d.snaps != null && d.team_snaps ? `${d.snaps} of ${d.team_snaps}` : "–";
+  // Each row of the depth is a cell too: a man dropped on it takes that place.
+  const cellAt = (i) => ` data-cell="1" data-k="${k}" data-n="${i + 1}" data-slot="${esc(s.slot)}" data-spos="${esc(s.pos)}"${x.base || x.package ? "" : ' data-bk="0"'}`;
   const depth = s.picks.map((m, i) => {
-    if (!m) return `<div class="sb-dr ${i === 0 ? "first" : ""}"><span class="sb-di">${i + 1}</span><span class="sb-dim">Nobody</span></div>`;
+    if (!m) return `<div class="sb-dr ${i === 0 ? "first" : ""} ${s.controls ? "" : "sb-lock"}"${cellAt(i)}><span class="sb-di">${i + 1}</span><span class="sb-dim">Nobody</span></div>`;
     const up = i > 0 && s.controls && x.slots[k] ? `<button class="sb-up" data-act="sbup" data-k="${k}" data-n="${i + 1}" title="Move ${esc(m.name)} up" aria-label="Move ${esc(m.name)} up">↑</button>` : "";
     const hurt = m.health !== "full" ? ` <span class="sb-tag ${m.health === "out" ? "bad" : "warn"}" title="${esc(m.health_why || "")}">${m.health === "out" ? "Out" : "Limited"}</span>` : "";
     const ready = i === 0 ? "Starter" : m.ready;
     const drag = s.controls ? ` data-drag="1" data-pid="${m.id}" data-pos="${esc(m.pos)}" data-name="${esc(m.name)}" title="Drag ${esc(m.name)} onto a spot"` : "";
-    return `<div class="sb-dr ${i === 0 ? "first" : ""}"${drag}><span class="sb-di">${i + 1}</span><span class="sb-dn">${playerLink(m.id, m.name, "Development")}${hurt}<small>${esc(m.class)} · <span class="${/Needs|Out|Redshirt/.test(ready) ? "sb-warn" : ""}">${esc(ready)}</span>${m.pos !== s.pos ? ` · plays ${esc(m.pos)}` : ""}</small></span>${range(m.read, null, { p: m.id, k: "ovr" })}${up}</div>`;
+    return `<div class="sb-dr ${i === 0 ? "first" : ""} ${s.controls ? "" : "sb-lock"}"${cellAt(i)}${drag}><span class="sb-di">${i + 1}</span><span class="sb-dn">${playerLink(m.id, m.name, "Development")}${hurt}<small>${esc(m.class)} · <span class="${/Needs|Out|Redshirt/.test(ready) ? "sb-warn" : ""}">${esc(ready)}</span>${m.pos !== s.pos ? ` · plays ${esc(m.pos)}` : ""}</small></span>${range(m.read, null, { p: m.id, k: "ovr" })}${up}</div>`;
   }).join("");
   const coach = d && d.coach ? `<div class="sb-coach"><span class="sb-ci">${esc(String(d.coach.name || "?").split(" ").map((w) => w[0]).slice(0, 2).join(""))}</span><div><div class="sb-cn">${d.coach.you ? "You" : coachLink(d.coach.id, d.coach.name || "")}, ${esc(d.coach.title)}</div><p>${esc(d.note)}</p></div></div>` : "";
   return `<span class="sb-bignum" aria-hidden="true">${p.num != null ? p.num : ""}</span>
@@ -530,55 +538,67 @@ function sbRosterPanel(r, x) {
     <div class="st-actions">${linkTo("player", { id: r.id }, "Player page ›")}${linkTo("player", { id: r.id, tab: "People" }, "Talk", "st-btn small glass")}</div>`;
 }
 
-// ---------- drag and drop on the stadium (playtest bugs 12 and 14) ----------
-// A spot is a drop target named by its slot (LT, RT, MIKE, WILL, SAM, LE, RE,
-// FS, SS...). Drag a man onto it from a spot, from the depth beside the field
-// or from "who else could play it"; drag one spot onto another to swap them.
-// It saves through the flat board's own call (`trPlace`, `board_set`), so this
-// view and Overhead write one depth chart, and an order set here is read
-// exactly as one set there. Only a spot in the man's own position group takes
-// him (the engine lists a man only inside his group: `spots::group`); a spot
+// ---------- drag and drop on the stadium (playtest bugs 12, 14 and 16) ----------
+// A spot's three men are three pills (1 the starter, 2 and 3 behind him), and
+// each pill is a drop target: put a man in a backup slot as well as a
+// starter's. Drag him from a pill, from the depth beside the field or from
+// "who else could play it"; drag one pill onto another to swap the two.
+// A starter onto a starter saves through the flat board's own call (`trPlace`,
+// `board_set`), so this view and Overhead write one depth chart; anything
+// that touches a backup saves through `sb_depth_put`, which writes the same
+// order the staff plays (a position's list: the starters, then the second
+// men, then the third). Only a pill in the man's own position group takes him
+// (the engine lists a man only inside his group: `spots::group`); a spot
 // that is the head coach's takes nobody. The drag itself is drawn from pointer
 // events (pointerdrag.js), because the Mac app's webview never delivered the
 // browser's own drop (bug 14), and a drop that can't save says why.
 const SB_GROUP = { QB: 0, RB: 1, WR: 2, TE: 3, OT: 4, IOL: 4, EDGE: 5, DT: 5, LB: 6, CB: 7, S: 7, K: 8, P: 9, LS: 10 };
-// Why this spot can't take the man held, or null when it can.
-function sbWhy(plate, d) {
-  if (plate.classList.contains("sb-lock")) return `${plate.dataset.slot} is the head coach's call, so it isn't yours to set.`;
-  const a = SB_GROUP[d.pos], b = SB_GROUP[plate.dataset.pos];
-  if (a !== undefined && b !== undefined && a !== b) return `${d.name || "He"} plays ${d.pos}, so he can't take ${plate.dataset.slot} (${plate.dataset.pos}). A man moves only inside his own position group.`;
+const SB_DEPTH_WORD = ["the starter", "second string", "third string"];
+// Why this pill can't take the man held, or null when it can.
+function sbWhy(cell, d) {
+  const slot = cell.dataset.slot;
+  if (cell.classList.contains("sb-lock")) return `${slot} is the head coach's call, so it isn't yours to set.`;
+  // His own position's group, or the group of the spot he is playing now.
+  const a = SB_GROUP[d.pos], b = SB_GROUP[cell.dataset.spos], c = SB_GROUP[d.spos];
+  if (a !== undefined && b !== undefined && a !== b && c !== b) return `${d.name || "He"} plays ${d.pos}, so he can't take ${slot} (${cell.dataset.spos}). A man moves only inside his own position group.`;
+  if (cell.dataset.bk === "0" && Number(cell.dataset.n) > 1) return "Your staff fills the men behind the first on this unit. Only its starters are yours to set.";
   return null;
 }
 pdragKind({
   source: ".sb [data-pid][data-drag]",
-  target: ".sb-plate",
+  target: ".sb [data-cell]",
   over: "sb-over",
-  nowhere: "Nothing changed: drop him on a spot on the field to move him.",
-  payload: (el) => ({ pid: Number(el.dataset.pid), pos: el.dataset.pos || "", name: el.dataset.name || "" }),
+  nowhere: "Nothing changed: drop him on a pill (1, 2 or 3) of a spot to put him there.",
+  payload: (el) => ({ pid: Number(el.dataset.pid), pos: el.dataset.pos || "", name: el.dataset.name || "", n: Number(el.dataset.n) || 0, spos: el.dataset.spos || "", k: el.dataset.cell ? Number(el.dataset.k) : null }),
   why: sbWhy,
   begin: (d) => {
     const stage = document.querySelector(".sb-stage");
     if (!stage) return;
     stage.classList.add("sb-dropping");
-    stage.querySelectorAll(".sb-plate").forEach((p) => p.classList.toggle("sb-no", !!sbWhy(p, d)));
+    document.querySelectorAll(".sb [data-cell]").forEach((p) => p.classList.toggle("sb-no", !!sbWhy(p, d)));
   },
   end: () => {
     document.querySelectorAll(".sb-stage.sb-dropping").forEach((el) => el.classList.remove("sb-dropping"));
-    document.querySelectorAll(".sb-plate.sb-no").forEach((el) => el.classList.remove("sb-no"));
+    document.querySelectorAll(".sb [data-cell].sb-no").forEach((el) => el.classList.remove("sb-no"));
   },
   drop: async (el, d) => {
-    const stage = el.closest(".sb-stage");
+    const stage = document.querySelector(".sb-stage");
     const form = stage && stage.dataset.form;
-    const k = Number(el.dataset.k);
-    if (!form || !Number.isFinite(k)) { toast("Nothing was saved: this formation isn't open. Open the depth chart again and retry."); return; }
+    const k = Number(el.dataset.k), n = Number(el.dataset.n);
+    if (!form || !Number.isFinite(k) || !(n >= 1)) { toast("Nothing was saved: this formation isn't open. Open the depth chart again and retry."); return; }
     // The spot he was dropped on opens, whatever happens next.
     keep("sbdc:" + form, { k: 0 }).k = k;
-    // Dropped on the spot he already holds: nothing to save.
+    // Dropped on the cell he already holds: nothing to save.
     if (Number(el.dataset.pid) === d.pid) {
-      toast(`${d.name || "He"} already starts at ${el.dataset.slot}, so nothing changed.`);
+      toast(`${d.name || "He"} is already ${SB_DEPTH_WORD[n - 1]} at ${el.dataset.slot}, so nothing changed.`);
       return sbLocal(el);
     }
-    await trPlace(form, k, d.pid);
+    // A starter's cell, and the man not from a backup's: the flat board's own save.
+    if (n === 1 && d.n <= 1) return trPlace(form, k, d.pid);
+    const r = await api("sb_depth_put", { form, slot: k, n, pid: d.pid, ...(d.k != null && d.n ? { from_slot: d.k, from_n: d.n } : {}) });
+    SB.cache = {};
+    toast(r && r.note ? r.note : "Depth chart saved.");
+    return trRedraw();
   },
 });
 // A spot is a button for the keyboard too (Enter or Space).
