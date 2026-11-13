@@ -275,6 +275,7 @@ fn asked() -> Vec<String> {
     }
     for k in ["failure", "results", "people"] {
         v.push(format!("interview.react.past.{k}"));
+        v.push(format!("interview.react.past.against.{k}"));
     }
     v.push("takeover.holdover.record".into());
     for k in ["role", "role.ahead", "winning.up", "winning.down", "city", "security", "home", "loyalty"] {

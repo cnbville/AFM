@@ -1,7 +1,9 @@
 //! Talks stay about today (talk facts item 30, rule 9 of
 //! `afm/talk-facts/proposal.md`): the team talk and the press name your last
 //! game only while it is fresh (`facts::GAME_FRESH_DAYS`). In April the room
-//! no longer opens on January's loss, and no reporter asks about it.
+//! no longer opens on January's loss, and no reporter asks about it. The
+//! team talk's tone reads the same window: praise after a loss rings hollow
+//! that week, not months later (Cain's yes, 2026-11-13).
 
 use super::legacy::seat;
 use crate::game::stats::GameStats;
@@ -80,7 +82,8 @@ fn a_game_is_fresh_for_a_week() {
     for (ago, fresh) in [(0, true), (2, true), (7, true), (8, false), (120, false)] {
         let (w, team) = after(ago);
         assert_eq!(facts::fresh_game(&w, team).is_some(), fresh, "{ago} days after the game");
-        // The plain reader still has it: the weights read it, words never.
+        // The plain reader still has it: the press reads it only once it
+        // has asked about a fresh game.
         assert!(facts::last_game(&w, team).is_some(), "{ago} days: the game is kept");
     }
     let (w, team) = after(2);
@@ -119,6 +122,60 @@ fn the_team_talk_looks_ahead_to_a_game_that_is_near() {
     assert!(text.contains("No game to talk about."), "{text}");
     assert!(text.contains(&format!("{} is next, in 10 days.", opp.link(&w))), "{text}");
     assert!(!text.contains("17-52"), "{text}");
+}
+
+/// An NFL seat world whose last game was a 17-52 loss `ago` days ago (an NFL
+/// club has a roster in the test world; a college program has none yet).
+fn nfl_after(ago: i32) -> World {
+    let mut w = seat("nfl");
+    let Some(Team::Nfl(t)) = Team::seat(&w) else { panic!("an NFL seat") };
+    let opp = (0..w.clubs.len()).find(|&o| o != t).unwrap();
+    let stats = GameStats { score: [17, 52], ..Default::default() };
+    w.seat_games.push(SeatGame {
+        date: w.today.add(-ago),
+        level: crate::calendar::Level::Nfl,
+        teams: [t, opp],
+        names: ["Home".into(), "Away".into()],
+        stats,
+        replay: Vec::new(),
+        marks: Vec::new(),
+        gone: Vec::new(),
+        spread: None,
+        talks: Default::default(),
+        whistle: None,
+    });
+    w
+}
+
+/// The room's trust, summed, after a team talk answered with one move.
+fn trust_after_talk(w: &mut World, code: u32) -> f32 {
+    let team = Team::seat(w).expect("your team");
+    assert!(!team.roster(w).is_empty(), "a room to talk to");
+    let id = talks::start_team_talk(w).expect("a team talk");
+    scene::open(w, id).expect("the scene opens");
+    scene::answer(w, id, code).expect("the move is on the table");
+    team.roster(w).iter().map(|&i| w.people[i].trust).sum()
+}
+
+#[test]
+fn praise_turns_hollow_only_after_this_weeks_loss() {
+    // The same room with no game in the file: praise as it plainly lands.
+    let plain = |ago: i32| {
+        let mut w = nfl_after(ago);
+        w.seat_games.clear();
+        trust_after_talk(&mut w, 204)
+    };
+    for ago in [1, 7] {
+        let mut w = nfl_after(ago);
+        assert!(facts::fresh_game(&w, Team::seat(&w).unwrap()).is_some(), "{ago} days: the game is fresh");
+        let (hollow, flat) = (trust_after_talk(&mut w, 204), plain(ago));
+        assert!(hollow < flat, "{ago} days after a 17-52 loss, praise rings hollow: {hollow} against {flat}");
+    }
+    for ago in [8, 30, 120] {
+        let mut w = nfl_after(ago);
+        assert!(facts::last_game(&w, Team::seat(&w).unwrap()).is_some(), "{ago} days: the game is kept");
+        assert_eq!(trust_after_talk(&mut w, 204), plain(ago), "{ago} days: an old loss no longer turns praise");
+    }
 }
 
 #[test]

@@ -197,7 +197,7 @@ const keep = (k, d) => (S.keep[k] ??= d);
 
 // The opening, load and new-career pages sit outside a career: back and forward move
 // between the career's screens only, so they never lead out of it.
-const outside = (r) => r.screen === "start" || r.screen === "setup" || r.screen === "load";
+const outside = (r) => r.screen === "start" || r.screen === "setup" || r.screen === "load" || r.screen === "whatsnew";
 // The NFL desk's cap sheet holds every contract by year, so at the NFL a
 // link to the old Contracts table (a calendar line, search, an older
 // screen) opens the cap sheet instead.
