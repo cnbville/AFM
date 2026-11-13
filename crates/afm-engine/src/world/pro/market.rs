@@ -657,7 +657,7 @@ pub(crate) fn ideal(w: &World, i: usize, d: Date) -> Ideal {
 
 /// A city's pull (topic 5 question 2, Cain: New York and Miami have a leg
 /// up): warm weather, nightlife, a big market. 0-1.
-fn city_pull(w: &World, t: usize, year: i32) -> f64 {
+pub(crate) fn city_pull(w: &World, t: usize, year: i32) -> f64 {
     let Some(e) = super::super::franchise::era_in(w, t, year) else { return 0.5 };
     let warm = matches!(e.state, "FL" | "CA" | "AZ" | "NV" | "TX" | "LA" | "GA" | "HI") as u8 as f64;
     let night = match e.city {
