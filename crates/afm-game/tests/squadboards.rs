@@ -361,6 +361,66 @@ fn line_spots(g: &mut Game) {
     }
 }
 
+/// Playtest bug 16: every backup cell takes a drop. A man put into a second
+/// or third string cell holds it (read back from the stadium board), two
+/// cells at one position swap, a backup put into the starter's cell swaps
+/// with him, a man from another position group is refused with the reason,
+/// and giving the order back restores the staff's.
+fn backup_spots(g: &mut Game) {
+    let view = |g: &mut Game| ok(g, "sb_depth", json!({ "tab": "offense", "form": "offense" }));
+    let ids = |v: &Value, slot: &str| -> Vec<Option<u32>> {
+        let s = v["slots"].as_array().unwrap().iter().find(|s| s["slot"] == slot).unwrap();
+        s["picks"].as_array().unwrap().iter().map(|p| p["id"].as_u64().map(|x| x as u32)).collect()
+    };
+    let put = |g: &mut Game, slot: &str, n: u32, pid: u32| -> Result<Value, String> {
+        let v = view(g);
+        let k = v["slots"].as_array().unwrap().iter().position(|s| s["slot"] == slot).unwrap();
+        g.call("sb_depth_put", &json!({ "tab": "offense", "form": "offense", "slot": k, "n": n, "pid": pid }))
+    };
+    let v0 = view(g);
+    let start_lt = ids(&v0, "LT");
+    let (lt, rt) = (ids(&v0, "LT"), ids(&v0, "RT"));
+    if lt.len() != 3 || rt.len() != 3 || lt.iter().chain(rt.iter()).any(Option::is_none) {
+        return;
+    }
+    let lt: Vec<u32> = lt.into_iter().flatten().collect();
+    let rt: Vec<u32> = rt.into_iter().flatten().collect();
+
+    // Third string up to second at one spot: the two swap.
+    let v = put(g, "LT", 2, lt[2]).unwrap();
+    assert_eq!(ids(&v, "LT"), vec![Some(lt[0]), Some(lt[2]), Some(lt[1])], "the third and second swap");
+    assert_eq!(ids(&v, "RT"), vec![Some(rt[0]), Some(rt[1]), Some(rt[2])], "the right tackle's men stay");
+    assert_eq!(v["yours"], true);
+    assert_eq!(ids(&view(g), "LT")[1], Some(lt[2]), "kept on a fresh read");
+    // The right tackle's second string into the left tackle's third: swap
+    // across spots at the same position.
+    let v = put(g, "LT", 3, rt[1]).unwrap();
+    assert_eq!(ids(&v, "LT"), vec![Some(lt[0]), Some(lt[2]), Some(rt[1])]);
+    assert_eq!(ids(&v, "RT"), vec![Some(rt[0]), Some(lt[1]), Some(rt[2])], "he took the other's cell");
+    // A backup into the starter's cell: he starts, the starter is behind him.
+    let v = put(g, "LT", 1, rt[1]).unwrap();
+    assert_eq!(ids(&v, "LT"), vec![Some(rt[1]), Some(lt[2]), Some(lt[0])]);
+    let mine: Vec<_> = g.world.as_ref().unwrap().seat_depth.iter().map(|x| x.0).collect();
+    assert_eq!(mine, vec![afm_engine::positions::Position::OT], "only the tackles are written");
+    // The same cell again says so; a fourth string and a man who isn't on
+    // the roster are refused.
+    let said = put(g, "LT", 1, rt[1]).unwrap();
+    assert!(said["note"].as_str().unwrap().contains("already"), "{}", said["note"]);
+    assert!(put(g, "LT", 4, lt[0]).is_err());
+    assert!(put(g, "LT", 2, 4_000_000_000).is_err());
+    // A man from another position group is refused, with the reason.
+    let off = view(g);
+    let wr =
+        off["slots"].as_array().unwrap().iter().find(|s| s["pos"] == "WR").and_then(|s| s["picks"][0]["id"].as_u64());
+    if let Some(wr) = wr {
+        let e = put(g, "LT", 2, wr as u32).unwrap_err();
+        assert!(e.contains("position group"), "{e}");
+    }
+    // Given back, the staff's order again.
+    ok(g, "sb_depth_reset", json!({ "tab": "offense", "form": "offense" }));
+    assert_eq!(ids(&view(g), "LT"), start_lt);
+}
+
 #[test]
 fn the_boards_at_every_seat() {
     let t = std::time::Instant::now();
@@ -434,6 +494,7 @@ fn the_boards_at_every_seat() {
     let back = ok(&mut g, "sb_depth_reset", json!({ "tab": "offense", "form": "offense" }));
     assert_eq!(back["yours"], false, "the staff has it back");
     line_spots(&mut g);
+    backup_spots(&mut g);
 
     // The reads kept at a season's end: a career's first turn keeps none
     // (it starts mid-year), the next keeps every player the staff follows,
