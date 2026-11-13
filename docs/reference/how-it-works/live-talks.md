@@ -144,7 +144,7 @@ Off by default, and only while `ai_status.fake` is true (`AFM_AI_FAKE=1`): the b
 
 ### Sizes (proposed, not confirmed)
 
-The text field grows up to 140 px; the poll asks every 450 ms; the confirm card's default line, the "off" note's tail ("The chips work as before." and the filters', bar's and file's versions) and every box's own words are lane 0's where the frame has them and mine where it has not.
+The text field grows up to 140 px; the poll asks every 450 ms (a poll stops when its box is no longer the one kept for its key); the ask box's send button says "Ask" (an `ask` entry with a `button` is a one-button box that says it, "Write the report", then "Write it again"); the demo bar floats at the bottom right and a page keeps 96 px under its last row while it is on; the confirm card's default line, the "off" note's tail ("The chips work as before." and the filters', bar's and file's versions) and every box's own words are lane 0's where the frame has them and mine where it has not.
 
 ## Lane 3, the core
 
