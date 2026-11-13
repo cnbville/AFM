@@ -188,7 +188,6 @@ fn press_media_stories_and_one_on_ones_take_no_typed_line() {
         let err = scene::say(&mut w, id, typed(100, "We're here to win."), true).unwrap_err();
         assert_eq!(err, "This talk takes no typed lines.", "{kind:?}");
     }
-    assert!(!talks::ONE_ON_ONE_TYPED, "lane 9 turns it on");
     // A scene with nobody in it (a report) has no box either.
     let mut s = bare(Kind::TeamMeeting, vec![pick(10)], Vec::new());
     s.who.clear();

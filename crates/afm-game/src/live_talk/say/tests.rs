@@ -363,7 +363,7 @@ fn hide(w: &mut World) {
             pl.attributes.set_at(k, 20.0);
         }
         (pl.bloom, pl.longevity, pl.injury_proneness, pl.wear) = (3.0, 3.0, 19.0, 0.9);
-        let mut v = serde_json::to_value(&pl.personality).unwrap();
+        let mut v = serde_json::to_value(pl.personality).unwrap();
         fill(&mut v);
         pl.personality = serde_json::from_value(v).unwrap();
         p.mood = -0.9;
