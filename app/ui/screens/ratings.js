@@ -71,14 +71,14 @@ function rrPlayerHtml(x) {
   const m = x.marks;
   const lo0 = Math.max(1, Math.min(x.range[0], m.backup) - 8);
   const hi0 = Math.min(99, Math.max(x.range[1], m.elite) + 6);
-  return `<div class="rr-top"><span class="st-label">${esc(x.title)} · your staff's read</span><b>${x.range[0]}-${x.range[1]}</b></div>
+  return `<div class="rr-top"><span class="st-label">${esc(x.title)} · ${x.own ? "your read" : "your staff's read"}</span><b>${x.range[0]}-${x.range[1]}</b></div>
     <div class="rr-word">${esc(x.band)}</div>
     ${rrScale(x.range, [{ v: m.backup }, { v: m.starter }, { v: m.elite, cls: "e" }], lo0, hi0, true)}
     <div class="rr-marks"><span><small>Typical backup</small><b>${m.backup}</b></span><span><small>Typical starter</small><b>${m.starter}</b></span><span><small>Elite from</small><b>${m.elite}</b></span></div>
     <p>${esc(x.line)}</p>
     ${x.combine ? `<p class="rr-comb"><span class="st-label">At the combine</span>${esc(x.combine)}</p>` : ""}
     <p class="rr-pool">${esc(x.pool)}, ${esc(x.count)}.${x.widened ? ` ${esc(x.widened)}` : ""}</p>
-    ${x.change ? rrChangeHtml(x.change, x.dev ? x.pid : null) : ""}`;
+    ${x.change && !x.own ? rrChangeHtml(x.change, x.dev ? x.pid : null) : ""}`;
 }
 // H2 (lane 6): how the read moved since the last season's end, and why.
 function rrChangeHtml(c, pid) {
@@ -134,10 +134,10 @@ async function rrOpen(t, delay) {
   RR.timer = setTimeout(async () => {
     const d = t.dataset;
     const [kind, whose] = [d.rr.slice(0, 1), d.rr.slice(2)];
-    const ck = `${S.status ? S.status.today : ""}|${d.rr}|${d.rrk}|${d.lo}|${d.hi}`;
+    const ck = `${S.status ? S.status.today : ""}|${d.rr}|${d.rrk}|${d.lo}|${d.hi}|${d.own || ""}`;
     let x = RR.cache.get(ck);
     if (!x) {
-      const args = { k: d.rrk, lo: Number(d.lo), hi: Number(d.hi) };
+      const args = { k: d.rrk, lo: Number(d.lo), hi: Number(d.hi), ...(d.own ? { own: true } : {}) };
       try {
         x = kind === "s" ? await api("rr_staff", { ...args, who: whose }) : await api("rr_card", { ...args, p: Number(whose) });
       } catch (e) {

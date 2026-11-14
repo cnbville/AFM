@@ -52,7 +52,7 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "rr_card" => (|| {
             let id = num("p").ok_or("Missing p.")? as u32;
             let k = args.get("k").and_then(Value::as_str).unwrap_or("ovr");
-            card(w, id, k, range()?)
+            card(w, id, k, range()?, args.get("own").and_then(Value::as_bool).unwrap_or(false))
         })(),
         "rr_staff" => (|| {
             let m = sr::member(w, who()?).ok_or("He is no longer on your staff.")?;
@@ -246,7 +246,7 @@ fn combine_line(w: &World, k: usize, attr: Attr, lo: u8, hi: u8) -> Option<Strin
 }
 
 /// The hover card for a player's range.
-fn card(w: &World, id: u32, k: &str, (lo, hi): (u8, u8)) -> Reply {
+fn card(w: &World, id: u32, k: &str, (lo, hi): (u8, u8), own: bool) -> Reply {
     let i = views::person_index(w, id).ok_or("That player is no longer in football.")?;
     let p = &w.people[i];
     let pool = norms::pool_of(w, i).ok_or("He isn't playing anywhere now.")?;
@@ -276,12 +276,15 @@ fn card(w: &World, id: u32, k: &str, (lo, hi): (u8, u8)) -> Reply {
         _ => None,
     };
     // H2 (update 3, lane 6): how the read moved since last season, and why.
+    // Only your staff's reads are kept year to year, so your own read has no
+    // "since last season" to compare against: the card leaves the line out.
     let change = match rated {
-        Rated::Attr(a) => crate::lane_help::last_year(w, i, a, (lo, hi)),
+        Rated::Attr(a) if !own => crate::lane_help::last_year(w, i, a, (lo, hi)),
         _ => None,
     };
     Ok(json!({
         "title": title,
+        "own": own,
         "range": [lo, hi],
         "pool": match m.pool {
             Pool::Hs { .. } => format!("Against {pw} at {one} this season"),
