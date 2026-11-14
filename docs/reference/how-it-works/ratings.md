@@ -1,6 +1,6 @@
 # Ratings: how it works today
 
-Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28 and lane 6 on 2026-10-29; the kicking spots at placement (minor bug 165) at 3817c01 on 2026-10-31; the kept 67-skill middles (Kept reads, last bullets) at 695d72d on 2026-11-13.
+Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28 and lane 6 on 2026-10-29; the kicking spots at placement (minor bug 165) at 3817c01 on 2026-10-31; the kept 67-skill middles (Kept reads, last bullets) at 695d72d on 2026-11-13; the Attributes page's data (`attr_view`, its lists and the hover's weight line) at 8a0192b on 2026-11-14.
 
 ## Quick answers
 
@@ -127,6 +127,21 @@ Draft boards use `PositionAligner::for_draft`: K, P and LS are read off their ow
 - For a physical rating the card adds what it stands for at the combine at his weight (see the body page) (`lane_ratings.rs`, `combine_line`).
 - A high school pool with grade 0 keeps every graduating class (`world/norms.rs`, `collect`). The squad boards use it for a high school's players and unit cards, so a sophomore starter is read against the state classification's starters of every grade (`crates/afm-game/src/lane_squadboards.rs`, `team_pool`, `marks`).
 
+## The Attributes page's data (`attr_view`)
+
+The player page's Attributes tab asks one command, `attr_view {id, with?}` (`crates/afm-game/src/lane_ratings/attrs.rs`, wired through `lane_ratings.rs`, `call`). It returns the page's data and none of its drawing. Marks are asked here and cached for the season (`marks_cached`), never in `views::player`.
+
+- What it returns: `pos`, `pos_words`, `pool_words` (who the marks are read against), `default_view` (the position's eight families with their skill keys, and `also`: key, label and a reason each), `strip` (up to three each of strongest and short against a starter's mark, the biggest moves, and `potential`), `skills` (all 67, in `Attr::ALL` order) and `with` (null unless asked).
+- A skill row: `key`, `label`, `group` (the player page's eight groups), `in_play`, `weight_pct` and `weight_line`, `staff` and `mine` (a range or null), `judge` ("mine", "staff" or "none"), `mid` (the judging read's middle), `starter`, `elite`, `backup` (marks, null where nobody at his level plays there), `band` and `band_line` (the hover card's words, `lane_ratings.rs`, `band`), and `moved` ({dir "up", "down" or "same", by, from_season} or null).
+- Which read judges: your own read wherever you have one, your staff's only where you have none, none where neither saw it (`attrs.rs`, `judge_of`). Band, colour, strip and arrows all use the judging read, so the page compares like with like; the page says "coaches" under a number the staff's read judges.
+- In play: the position's eight skill families (`lane_squadboards.rs`, `families`; OT and IOL share one set, EDGE and DT, CB and S) plus the "Also in play" list (`attrs/lists.rs`). K, P and LS show their families only. Sizes: QB 26, RB 20, WR 27, TE 28, OT 23, IOL 24, EDGE 25, DT 24, LB 30, CB 27, S 30, K 10, P 12, LS 14. Tests hold the sizes and that each position's core is its families.
+- Where the lists come from: skills with an overall weight of 1% or more, or that the match engine reads in at least a quarter of the snaps of a job he holds every game (counted over 800 NFL games), then 21 edits from eight reviewers (an engine reader and a veteran scout per position group). By hand: an edge rusher shows no run blocking and no kicking, and LB, S and CB show catching. Agreed with Cain 2026-11-13 (`/mnt/project-files/attributes-page/default-lists.md`). The engine does not read some in-play skills yet (leg drive for linemen, ball tracking for defenders, LB and S decisions, a safety's blitzing, the punter's kick trajectory); the page still shows them because their weights say so.
+- Weight: `positions::weight(pos, attr)` as a share of his overall, in the line "Counts about 4% of an edge rusher's overall rating." (`attrs.rs`, `weight_line`). The range hover card (`rr_card`) carries the same line for a rating, null for the overall.
+- Moved: the judging read's middle against the same source's middle at the last kept season end (`Career::kept_attrs_of`, read through `KeptAttrs::mid`, which gives the exact half-point middle), up or down at 1.5 points as on the range card, nothing where it was not seen then (`attrs.rs`, `moved`). The store is read through `kept_attrs_of`; until a season has been kept there is no arrow.
+- The potential cell: `strip.potential.coaches` is the staff's words (`reads::potential_words`); `mine` is null until the game forms an own potential read, and the page says "Not formed yet".
+- A second player (`with`): his 67 rows the same way against his own pool and position, and `gaps`: for each skill both have a judging read, the first player's middle minus his, one decimal.
+- A recruit your staff has not looked at returns 67 rows with `judge` "none" and no band or arrow; a player no longer in football is an error. Strip skills count only in-play skills.
+
 ## Help hovers (update 3, lane 6)
 
 - An attribute's name (H1): its plain words, what it does on the field, how it grows (its group's growth window, coachability, whether experience grows it, its decline age, whether injuries cut it) and the top four positions by `positions::weight` (from 0.03) (`crates/afm-game/src/lane_help.rs`, `attr_help`, `words`, `grows`, `matters`; commands `help_attr`, `help_attrs`).
@@ -164,6 +179,7 @@ Draft boards use `PositionAligner::for_draft`: K, P and LS are read off their ow
 - `game/rules.rs`: `trait_norm` bases and offsets, `TRAIT_STEP`.
 - `crates/afm-game/src/reads.rs`: half-widths (2 + 0.12 per eye point, +4 for others' physicals, ±6 others' overall), lean 0.6.
 - `world/norms.rs`: `MIN_STARTERS` 12, `NATIONAL_SCHOOLS` 1500, elite at the 90th percentile.
+- `crates/afm-game/src/lane_ratings/attrs/lists.rs`: the Attributes page's position lists (core and also with reasons); `attrs.rs`, `MOVE` 1.5.
 - `crates/afm-game/src/lane_squadboards.rs`: `followed` (the board's top 300), `read_now` (what a kept read holds), `key_attrs` (the top four by position weight over 0.02).
 - `scouting.rs`: `to_stars`, `level_visibility`, tier cut 52; `career.rs`, `NFL_LEVELS` (65/75/85/92).
 - `spots.rs`: `LEAN` 0.35, `fill_in`.

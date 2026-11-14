@@ -30,7 +30,9 @@ use crate::reads::{self, Read};
 use crate::views;
 use crate::{Game, Reply};
 
-const COMMANDS: [&str; 5] = ["rr_card", "rr_staff", "staff_quality", "staff_member", "coach_ratings"];
+mod attrs;
+
+const COMMANDS: [&str; 6] = ["rr_card", "rr_staff", "staff_quality", "staff_member", "coach_ratings", "attr_view"];
 
 pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     if !COMMANDS.contains(&cmd) {
@@ -59,6 +61,7 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             let k = args.get("k").and_then(Value::as_str).ok_or("Missing k.")?;
             staff_card(w, &m, k, range()?)
         })(),
+        "attr_view" => attrs::view(w, args),
         "staff_quality" => Ok(quality(w)),
         "staff_member" => (|| {
             let m = sr::member(w, who()?).ok_or("He is no longer on your staff.")?;
@@ -110,7 +113,7 @@ fn grade_words(w: &World, class_of: i32) -> String {
 }
 
 /// Who a pool is, in words: "Texas 6A juniors", "FBS", "the NFL".
-fn pool_words(w: &World, pool: Pool, school: Option<usize>) -> String {
+pub(crate) fn pool_words(w: &World, pool: Pool, school: Option<usize>) -> String {
     match pool {
         Pool::Nfl => "NFL".into(),
         Pool::College(0) => "FBS".into(),
@@ -126,6 +129,20 @@ fn pool_words(w: &World, pool: Pool, school: Option<usize>) -> String {
                 _ => format!("{g} across the country"),
             }
         }
+    }
+}
+
+/// Who a range is read against, in words: "Texas 6A juniors starting at
+/// quarterback", "NFL starting edge rushers".
+pub(crate) fn who_phrase(w: &World, m: &Marks, k: usize, at: Position) -> String {
+    let p = &w.people[k];
+    let school = matches!(p.stage, Stage::HighSchool | Stage::PrepSchool).then_some(p.hs);
+    let pw = pool_words(w, m.pool, school);
+    let (one, many) = pos_words(at);
+    match m.pool {
+        Pool::Hs { .. } => format!("{pw} starting at {one}"),
+        Pool::Nfl => format!("NFL starting {many}"),
+        _ => format!("{pw} starting {many}"),
     }
 }
 
@@ -288,11 +305,7 @@ fn card(w: &World, id: u32, k: &str, (lo, hi): (u8, u8)) -> Reply {
     let school = matches!(p.stage, Stage::HighSchool | Stage::PrepSchool).then_some(p.hs);
     let pw = pool_words(w, m.pool, school);
     let (one, many) = pos_words(at);
-    let who = match m.pool {
-        Pool::Hs { .. } => format!("{pw} starting at {one}"),
-        Pool::Nfl => format!("NFL starting {many}"),
-        _ => format!("{pw} starting {many}"),
-    };
+    let who = who_phrase(w, &m, i, at);
     let widened = m.pool != pool;
     let (word, line) = band(&m, lo, hi, &who);
     let combine_now = match rated {
@@ -333,6 +346,11 @@ fn card(w: &World, id: u32, k: &str, (lo, hi): (u8, u8)) -> Reply {
         "combine": combine,
         "combine_now": combine_now,
         "change": change,
+        // The Attributes page's weight line: where the rating counts toward his overall.
+        "weight_line": match rated {
+            Rated::Attr(a) => Some(attrs::weight_line(pos, a)),
+            _ => None,
+        },
         "dev": views::team_of(w, p).is_some_and(|t| views::is_mine(w, t)),
         "count": format!("{} starters on {} teams", m.starters.len(), m.teams),
     }))
