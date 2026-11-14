@@ -173,12 +173,40 @@ pub(crate) fn check_lies(w: &mut World, d: Date) {
     }
 }
 
-/// What a lie costs when he sees it: the seam lane P1 fills (the promise
-/// design, section 11: a broken promise's cost scaled by his belief). Until
-/// then a lie that comes due costs nothing. When it is filled, it goes
-/// through `talks::settle_word`, the same code a broken promise's cost runs
-/// through, with `Reason::LieSeen`.
-fn judge(_w: &mut World, _lie: &Lie) {}
+/// What a lie costs when he sees it (the promise design, section 11; lane
+/// P1): a broken promise's cost, scaled by how far he believed you
+/// (`promise::broken_scale`: 40% from a man who never did, all of it from
+/// one who counted on it), through `talks::settle_word` with
+/// `Reason::LieSeen`. His belief is read from his trust and your record as
+/// it reaches him, the promise's other parts at their middle.
+fn judge(w: &mut World, lie: &Lie) {
+    use crate::world::folk::promise;
+    let belief = match lie.to {
+        PromiseTo::Player(id) => person(w, id).map_or(1.0, |i| {
+            let h = if super::team_of(w, i) == Team::seat(w) {
+                promise::Hearer::Own
+            } else {
+                let j = match Team::seat(w) {
+                    Some(Team::College(c)) => c,
+                    _ => 0,
+                };
+                promise::Hearer::Out(j, super::Ear::Himself)
+            };
+            promise::Parts {
+                trust: promise::trust_part(w, i, h),
+                record: promise::record(w, i, h),
+                likely: 1.0,
+                past: promise::past(w, i),
+                ear: promise::ear(w, i),
+                shape: 1.0,
+            }
+            .belief() as f32
+        }),
+        _ => 1.0,
+    };
+    let cost = promise::broken_scale(belief, 1.0);
+    crate::world::folk::talks::settle_word(w, lie.to, false, cost, crate::world::folk::talks::Reason::LieSeen);
+}
 
 /// The player a scene is with, when he is on your team: the only one a
 /// claim about where he stands is a promise to.

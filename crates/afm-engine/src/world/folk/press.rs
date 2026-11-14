@@ -734,7 +734,7 @@ pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         }
         (Q::Vision, 1) => {
             w.folk.mine.expectation = (w.folk.mine.expectation - 0.15).max(-1.0);
-            w.folk.mine.straight = (w.folk.mine.straight + 0.05).min(1.0);
+            w.folk.mine.word_all(0.05);
         }
         (Q::Vision, _) => w.folk.mine.nudge(boss.key(), 0.03),
         (Q::OldCoach, 0) => {
@@ -823,7 +823,7 @@ pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         }
         (Q::HotSeat, 2) => {
             w.folk.mine.nudge(boss.key(), 0.02);
-            w.folk.mine.straight = (w.folk.mine.straight + 0.04).min(1.0);
+            w.folk.mine.word_all(0.04);
         }
         (Q::Trouble, 1) => {
             if let Some(i) = sub {

@@ -252,36 +252,18 @@ pub(crate) fn next_fall(w: &World, ctx: &Ctx, i: usize) -> Next {
     }
 }
 
-/// How much he believes his head coach's promise, 0.2-1. The hook the
-/// promises lane P1 fills (`afm/promises/proposal.md`, section 4: trust,
-/// your record as it reaches him, what he sees, his past, his traits).
-/// Until then (proposed, not confirmed): your name as a transfer's
-/// promise reads it (`dialogue::promise_pull`: 0.55 + 0.3 x your record
-/// for straight talk + 0.02 x (your relationships - 10)), plus 0.4 x (his
-/// trust in you - 0.5), plus what you backed it with (Cain's 2c: +0.1 a
-/// real strength of his, -0.15 one that isn't), times how likely it looks
-/// from what he sees (his own guess at next fall: a start when he sees
-/// himself next in line x0.85, behind x0.6; a role when behind x0.8).
-pub(crate) fn promise_belief(w: &World, ctx: &Ctx, i: usize, pr: &super::folk::talks::Promise) -> f64 {
-    let p = &w.people[i];
-    let you = w.career.as_ref().map(|c| c.coach);
-    let rel = you.map_or(10.0, |c| w.coaches[c].ability().relationships);
-    let trust = if you.is_some_and(|c| c as u32 == p.trust_in) { p.trust as f64 } else { 0.5 };
-    let backed = match pr.backed {
-        1 => 0.1,
-        -1 => -0.15,
-        _ => 0.0,
+/// How much he believes his head coach's promise, 0.2-1: the promise's
+/// own belief (the promises design, section 4; lane P1), which moves each
+/// week with what he sees and what you say. A promise not heard yet is
+/// heard now. Held to 0.2-1 as before, since the day's read multiplies
+/// by it.
+pub(crate) fn promise_belief(w: &World, _ctx: &Ctx, i: usize, pr: &super::folk::talks::Promise) -> f64 {
+    let b = if pr.belief > 0.0 {
+        pr.belief as f64
+    } else {
+        super::folk::promise::belief_own(w, i, pr.kind, &pr.terms, pr.backed)
     };
-    let name =
-        (0.55 + 0.3 * w.folk.mine.straight as f64 + 0.02 * (rel - 10.0) + 0.4 * (trust - 0.5) + backed).clamp(0.2, 1.0);
-    let start = matches!(pr.kind, PromiseKind::Start | PromiseKind::Join(0) | PromiseKind::Place(0));
-    let plausible = match (next_fall(w, ctx, i), start) {
-        (Next::Start, _) | (Next::InLine, false) => 1.0,
-        (Next::InLine, true) => 0.85,
-        (Next::Behind, true) => 0.6,
-        (Next::Behind, false) => 0.8,
-    };
-    (name * plausible).clamp(0.2, 1.0)
+    b.clamp(0.2, 1.0)
 }
 
 /// The role a playing-time promise gives him.

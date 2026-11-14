@@ -28,7 +28,7 @@
 //! AI staffs make no promises yet (the promises design, section 10, its
 //! lane P2). Every size here is Claude's (proposed, not confirmed).
 
-use super::case::{self, Case};
+use super::case;
 use super::claims::{Ear, Group};
 use crate::calendar::Date;
 use crate::positions::Position;
@@ -122,14 +122,12 @@ fn likely(k: Kind, room: f64, stars: u8) -> f64 {
     }
 }
 
-/// How far he believes a promise from you: your name for keeping your
-/// word, your read of people and the answers you gave him straight (as a
-/// transfer's), times how likely it looks to him.
-pub fn belief(w: &World, k: Kind, room: f64, stars: u8, c: Option<&Case>) -> f64 {
-    let rel = w.career.as_ref().map(|c| c.coach).map_or(10.0, |c| w.coaches[c].ability().relationships);
-    let straight = c.map_or(0.0, |c| c.belief());
-    let name = (0.55 + 0.3 * w.folk.mine.straight as f64 + 0.02 * (rel - 10.0) + straight).clamp(0.2, 1.0);
-    name * likely(k, room, stars)
+/// How far he believes a promise from you (the promises design, sections
+/// 4 and 9; lane P1): the same six parts as your own player's, with the
+/// trail's name, the answers you gave him straight and his family in place
+/// of trust, and how likely it looks from the public roster at his spot.
+pub fn belief(w: &World, k: Kind, room: f64, stars: u8, i: usize, j: usize, ear: Ear) -> f64 {
+    super::promise::belief_out(w, i, j, ear, likely(k, room, stars))
 }
 
 /// You promise recruit `i` something for school `j`, said to `ear`: the
@@ -142,7 +140,7 @@ pub fn make(w: &mut World, i: usize, j: usize, k: Kind, ear: Ear, room: f64) -> 
         return None;
     }
     let care = super::claims::group_cares(p, ear)[Group::PlayingTime as usize] as f64;
-    let b = belief(w, k, room, p.stars, case::of(p, j));
+    let b = belief(w, k, room, p.stars, i, j, ear);
     let pull = PULL[k as usize] * care * ADDS[k as usize] * b;
     let pos = p.player.position as u8;
     let today = w.today;
@@ -172,9 +170,14 @@ pub(crate) fn log_signed(w: &mut World, j: usize) {
         case::case_mut(w, i, j).logged = true;
         let kind = super::talks::PromiseKind::Recruit(c.promise - 1, c.pos);
         super::talks::promise(w, super::talks::PromiseTo::Player(id), kind, 0);
-        if let Some(p) = w.folk.promises.last_mut() {
-            p.made = c.promised;
+        let k = w.folk.promises.len() - 1;
+        // A start is his from week 4 of his first season, judged over the
+        // games to its end (section 7); a role from the opener.
+        if Kind::of(c.promise - 1) == Some(Kind::Start) {
+            let t = super::promise::Terms { by: super::promise::By::Week4, dated: true, ..Default::default() };
+            super::talks::set_terms(w, k, t);
         }
+        w.folk.promises[k].made = c.promised;
     }
 }
 
@@ -184,7 +187,7 @@ pub(crate) fn log_signed(w: &mut World, j: usize) {
 pub(crate) fn due(w: &World, k: u8) -> Date {
     let today = w.today;
     match Kind::of(k) {
-        Some(Kind::Start | Kind::Early) => {
+        Some(Kind::Early) => {
             let fourth = w.dates.cfb_weeks.get(3).copied().unwrap_or(w.dates.fall_camp.add(50)).add(3);
             if fourth > today { fourth } else { fourth.add(365) }
         }

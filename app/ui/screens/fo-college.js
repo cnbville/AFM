@@ -511,7 +511,7 @@ function fcPlan(x) {
     <div style="display:grid;gap:18px">
       <div class="panel"><h2>Class of ${c.year} by position <small>your staff's plan: how many it would chase at each spot</small></h2>
         <div class="tbl warm"><table><thead><tr><th class="l">Pos</th><th title="Recruits your staff would chase at the spot; the class itself takes only its places">Chase</th><th>Committed</th><th>Signed</th><th title="Live offers out">Offers</th><th>Open</th></tr></thead><tbody>${rows}</tbody></table></div>
-        <p class="sub">${esc(limit)} The class can take ${fcPlural(c.slots, "more commitment")}${c.slots ? "" : ": new yeses wait for a place"}.</p></div>
+        <p class="sub">${esc(limit)} The class can take ${fcPlural(Math.max(0, c.slots - c.commits), "more commitment")}${c.slots > c.commits ? "" : ": new yeses wait for a place"}.</p></div>
       <div class="panel"><h2>Who runs what <small>hand any of it to your staff, take it back any day</small></h2>${duties}${fill}</div>
     </div>
     <div style="display:grid;gap:18px">

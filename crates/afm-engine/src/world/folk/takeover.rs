@@ -88,7 +88,11 @@ pub fn begin(w: &mut World) {
         s.picks.clear();
         s.handed = Some("nobody: you left the job".into());
     }
-    w.folk.mine = super::Mine { team: Some(team), since: Some(d0), ..Default::default() };
+    // Your names travel (the promises design, section 4): the new room
+    // starts from what it has heard of you.
+    let names = w.folk.mine.carried(team.level() == Level::Nfl);
+    let straight = names.iter().sum::<f32>() / 3.0;
+    w.folk.mine = super::Mine { team: Some(team), since: Some(d0), names, named: true, straight, ..Default::default() };
     w.folk.promises.clear();
     w.folk.goals.clear();
     w.folk.asks.clear();

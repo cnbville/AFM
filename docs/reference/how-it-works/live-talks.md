@@ -262,6 +262,7 @@ Built 2026-11-13. Three rooms gain something the chips also get (question 5, tak
 - A worry your scouts flagged is a trait your file reads on the worrying side: a good trait under 8, or temper, ego or money at 12.5 and up, the worst three, fixed when the room opens. Its question costs 3 minutes in an 18-minute room (8 on an official visit), his answer is his topic's line, and it reads that trait at 0.75 of the spread the same minutes on the topic give (`world/scouting/own.rs`, `flagged_worries`, `worry_question`, `WORRY_MINUTES`, `WORRY_SD`, `interview_traits`).
 - A typed question takes one more minute off the clock for every 150 characters (a 300-character question two). Those minutes never add to the topic's, so a long question only costs (`dialogue.rs`, `TYPED_CHARS_A_MINUTE`, `typed_minutes`, from `Heard.len`).
 - The writer's card names the worry on a worry question; the reader's card has the minutes left (`say/interview.rs`).
+- Sizes of lane 6 (worry bar and count, 3 minutes a worry question, 0.75 of the spread asked straight, a minute per 150 typed characters, the sources and their eyes, a warm tie up to half a shade, a source call half an hour once a year, your own case at the staff meeting checked at -0.06 / +0.03) are Claude's picks, confirmed by Cain 2026-11-14.
 
 ### Asking a source (LT12)
 

@@ -378,6 +378,12 @@ Cain was asleep that night, so the threads made their own picks and marked them 
 - **Confirmed:** Claude's own picks in the film overhaul (PR #265; `docs/game.md`, "The film overhaul"), growth from game reps and results (PR #259; `docs/game.md`, "Growth from game reps and results"), Lane A's Jan 1 takeover start, the line bank run's tooling and the run itself (PRs #260 and #268), the spring and summer roster moves (lane B, PR #270) and the minor bugs batch before the rebuild.
 - **Not covered:** item 16 of growth from results (practice snaps counted as results) stays off until Cain says otherwise.
 
+## 21. Promises he judges for himself (thread "Design conditional promises in talks", 2026-11-13)
+
+Cain, 2026-11-13 10:09 UTC: players never see the depth chart; a promise can carry follow-up conditions ("ahead of X as long as you get 3 tackles a game"); whether he believes it is dynamic, not one trust rating. Live talks pick 7 is rejected. At 16:29 UTC he agreed to all 15 questions of the design (`docs/design/promises.md`, section 15). Its sizes (section 14) are working values, proposed, not confirmed.
+- **Built:** lane P1 (sections 2-9, 11, 12), 2026-11-14, overnight under the coordinator's proxy for Cain (`docs/reference/how-it-works/people.md`, "Promises he judges for himself"). Its own picks are listed there as proposed, not confirmed.
+- **Not built:** lane P2, AI staffs that promise (section 10; on the rebuild gate). The 49 new line parts go in the talk facts L12 run.
+
 ## Superseded decisions
 
 | Old | Replaced by | When |

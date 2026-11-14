@@ -71,10 +71,6 @@ pub struct Case {
     pub mine: Option<u8>,
 }
 
-fn you(w: &World) -> Option<usize> {
-    w.career.as_ref().map(|c| c.coach)
-}
-
 fn z(v: f64) -> f64 {
     (v - 10.0) / 10.0
 }
@@ -278,14 +274,19 @@ pub(crate) fn promise_pull(
         (_, PlayingTime::Rotation) => 0.2,
         _ => 0.6,
     };
-    let rel = you(w).map_or(10.0, |c| w.coaches[c].ability().relationships);
-    let straight = crate::world::front_office::portal::case_of(w, w.people[i].player.id).map_or(0.0, |c| c.belief());
-    let name = (0.55 + 0.3 * w.folk.mine.straight as f64 + 0.02 * (rel - 10.0) + straight).clamp(0.2, 1.0);
+    // His belief (the promises design, sections 4 and 9; lane P1): the
+    // trail's name and the answers you gave him straight in place of
+    // trust, and for a starting job how close his play is to the
+    // starter's he'd have to beat.
     let plausible = match bar {
         Some(b) if k == 0 => (1.0 - 0.06 * (b - perf).max(0.0)).clamp(0.3, 1.0),
         _ => 1.0,
     };
-    let belief = name * plausible;
+    let j = match super::Team::seat(w) {
+        Some(super::Team::College(c)) => c,
+        _ => w.people[i].college.unwrap_or(0),
+    };
+    let belief = super::promise::belief_out(w, i, j, super::claims::Ear::Himself, plausible);
     (PROMISE_PULL[k] * pt * adds * belief, belief)
 }
 
@@ -481,15 +482,18 @@ fn call_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         warmth: 0.0,
     });
     w.folk.dialogue.calls.push(CallWord { id, program: j, date: w.today, word, concern, settled: false });
-    w.folk.mine.straight = (w.folk.mine.straight
-        + if word == 1 {
+    // Your word to a college staff reaches the trail (the promises design,
+    // section 4).
+    w.folk.mine.word(
+        super::Name::Trail,
+        if word == 1 {
             0.02
         } else if word == 2 && concern > 0 {
             -0.03
         } else {
             0.0
-        })
-    .clamp(-1.0, 1.0);
+        },
+    );
     s.you(&scene::your_name(w), picked.label.trim_matches('"'));
     s.outcome.push(
         match (word, concern) {

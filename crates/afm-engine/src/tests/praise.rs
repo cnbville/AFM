@@ -109,16 +109,23 @@ fn praise_lands_by_the_work_he_puts_in() {
 }
 
 #[test]
-fn a_starters_place_counts_from_your_chart_today() {
+fn a_starters_place_counts_from_what_he_sees() {
     let (mut w, v) = three();
     let (a, b) = (v[0], v[1]);
     let before = talks::praise_truth(&w, a);
-    // First at his position on your depth chart, a backup last season.
+    // First at his position on your depth chart: he never sees it (the
+    // promises design, section 2), so it changes nothing.
     let id = w.people[a].player.id;
     let pos = w.people[a].player.position;
     w.seat_depth.push((pos, vec![id]));
+    assert_eq!(talks::praise_truth(&w, a), before, "the chart alone is never his place");
+    // With the ones in his last two practice weeks, a backup last season.
+    let t = w.today;
+    let ones = crate::training::seat::GROUP_ONES;
+    w.training.groups.push((t.add(-7), vec![(id, ones)]));
+    w.training.groups.push((t, vec![(id, ones)]));
     let now = talks::praise_truth(&w, a);
-    assert!((now - before - 0.25).abs() < 1e-6, "your starter today: {before} to {now}");
+    assert!((now - before - 0.25).abs() < 1e-6, "your starter as he sees it: {before} to {now}");
     // The same as a starter of last season.
     w.people[b].last_role = Some(PlayingTime::Starter);
     assert_eq!(talks::praise_truth(&w, b), now);
