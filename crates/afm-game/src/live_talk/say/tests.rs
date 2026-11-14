@@ -439,3 +439,38 @@ fn a_typed_line_shows_your_words_with_no_markup() {
     assert_eq!(v["lines"][0]["chip"], "How would you use our players?");
     assert_eq!(v["lines"][1], json!({ "by": 2, "text": "Sure." }), "a line you didn't type is left as it was");
 }
+
+/// A reader's answer with what the line said beyond its option.
+fn reading_beyond(pick: &str, beyond: &str) -> Value {
+    let v = json!({ "pick": pick, "also": "none", "tone": "firm", "promise": null, "claims": [], "named": [],
+        "fit": "clear", "beyond": beyond });
+    body(&v.to_string(), 700, 60)
+}
+
+#[test]
+fn what_a_line_said_beyond_its_option_shows_and_reaches_the_writer() {
+    let (mut g, f) = game("beyond");
+    let id = interview(&mut g);
+    let o1 = tag(&g, id, 60);
+    f.push(READER, Ok(reading_beyond(&o1, "wants a no-huddle offense with 80 snaps a game")));
+    f.push_text(WRITER, "Eighty snaps is a lot, Coach, but I'd build it around what your quarterbacks do well.");
+    let done = say(&mut g, id, "I want to run no-huddle, 80 snaps a game. How would you use our quarterbacks?");
+    assert_eq!(done["state"], "done", "{done}");
+    assert_eq!(
+        done["heard"],
+        "ask about his scheme and how he'd use your players, firm. Also heard: wants a no-huddle offense with 80 snaps a game"
+    );
+    let card = &f.asked().iter().rev().find(|r| r.label == WRITER).expect("the writer was asked").user.clone();
+    assert!(card.contains("What the coach said beyond that, as he heard it: wants a no-huddle offense"), "{card}");
+}
+
+#[test]
+fn a_beyond_with_a_number_you_never_said_is_dropped() {
+    let (mut g, f) = game("beyond-number");
+    let id = interview(&mut g);
+    let o1 = tag(&g, id, 60);
+    f.push(READER, Ok(reading_beyond(&o1, "wants 90 snaps a game")));
+    f.push_text(WRITER, "I'd build it around your quarterbacks, Coach.");
+    let done = say(&mut g, id, "I want to play fast. How would you use our quarterbacks?");
+    assert_eq!(done["heard"], "ask about his scheme and how he'd use your players, firm");
+}
