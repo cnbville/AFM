@@ -137,7 +137,7 @@ impl Move {
             Move::Listen => "Listen",
         }
     }
-    fn key(self) -> &'static str {
+    pub(crate) fn key(self) -> &'static str {
         match self {
             Move::Ask => "ask",
             Move::Straight => "straight",
@@ -1047,7 +1047,7 @@ fn one_on_one_open(w: &mut World, s: &mut Scene) {
     s.them(&name, line, tell);
     // A point with a question comes as one; any of them asks once a season
     // if you're staying when your name is in a job story.
-    let q = point.as_ref().and_then(tp::question).map(|q| (q, false)).or_else(|| {
+    let q = point.as_ref().and_then(|p| tp::question(w, i, p)).map(|q| (q, false)).or_else(|| {
         if asked || point.as_ref().is_some_and(|p| p.kind.is_trouble() || p.kind.is_life()) {
             None
         } else {
@@ -1213,7 +1213,7 @@ pub fn change_topic(w: &mut World, id: u32, topic: Topic) -> Result<(), String> 
     // He asks once a talk: back on a point you already talked through, he
     // waits for your next move.
     let talked = point.as_ref().is_some_and(|p| s.made.iter().any(|x| x.0 == p.kind.key()));
-    if let Some(q) = point.as_ref().filter(|_| !talked).and_then(tp::question) {
+    if let Some(q) = point.as_ref().filter(|_| !talked).and_then(|p| tp::question(w, i, p)) {
         let said = pen.line(&[&format!("talk.point.ask.{}", q.key)], &spk, &f);
         pen.put(w);
         s.them(&name, if said.is_empty() { q.fallback.clone() } else { said }, None);
@@ -1283,8 +1283,20 @@ fn add_talk_picks(w: &World, s: &mut Scene, i: usize, subject: Subject, used: &[
     };
     // One pick per move and tone: the subject's own line wins over the
     // general one (two picks on one code read as the same chip twice).
+    // Your words from the bank (`talk.you.<subject>.<move>`, lane L12) when
+    // it has a version that fits; else the one written here.
+    let mut yf = player_facts(w, i);
+    yf.set("starter", if starter { "yes" } else { "no" });
+    if let Some(m) = &mate {
+        yf.set("mate", m.clone());
+    }
+    let me = Speaker::you(w);
+    let look = super::voice::Look::new(w, ((p.player.id as u64) << 24) ^ 0x1221 ^ subject as u64);
     let mut add = |m: Move, t: Tone, label: String, hint: &str| {
         if !used.contains(&m) && !s.picks.iter().any(|p| p.code == code_of(m, t)) {
+            let label = look
+                .part(&format!("talk.you.{}.{}", subject.key(), m.key()), &me, &yf)
+                .map_or(label, |x| format!("\"{}\"", super::voice::tidy(&x)));
             s.picks.push(Pick {
                 label,
                 mv: m.name().into(),

@@ -557,12 +557,36 @@ const HINT_LEAVE: &str = "Time off from practice; the room sees how you treat pe
 const HINT_PLACE: &str = "Logged: his place doesn't change by the season's end, or it's broken.";
 const HINT_START: &str = "Lifts him now. Logged: break it and he, his friends and the room remember.";
 
+/// Your words for a move or an answer on a point: the bank's part for it
+/// (the point's values and states, and what your rules say, are its facts),
+/// else `fallback`, which says the same from the code. One wording a day
+/// for the same moment (`voice::Look`).
+pub(crate) fn you_words(w: &World, i: usize, p: &Point, key: &str, fallback: String) -> String {
+    let base = talks::player_facts(w, i);
+    let mut f = p.facts(&base);
+    if let Some(d) = p.due {
+        f.set("when_due", claims::words::when_words(d, w.today));
+    }
+    if p.kind == K::Arrest {
+        let level = super::Team::seat(w).map_or(Level::College, |t| t.level());
+        f.set("book", book_says(w, w.people[i].player.id, level));
+    }
+    f.set("starter", if talks::is_starter(w, i) { "yes" } else { "no" });
+    let me = super::voice::Speaker::you(w);
+    let seed = ((w.people[i].player.id as u64) << 24) ^ hash(key) ^ 0x1220;
+    let look = super::voice::Look::new(w, seed);
+    look.part(key, &me, &f).map(|x| super::voice::tidy(&x)).unwrap_or(fallback)
+}
+
 /// The moves a point offers (section 5, "Your moves"): three to five,
 /// worded with its real values.
 pub fn moves(w: &World, i: usize, p: &Point) -> Vec<Opt> {
     let mut v: Vec<Opt> = Vec::new();
     let g = |h: &str| p.get(h).map(str::to_string);
+    // Your words come from the bank (`talk.point.you.<point>.<move>`, lane
+    // L12) when it has a version that fits; else today's.
     let mut add = |m: Move, tone: Tone, label: String, hint: &'static str| {
+        let label = you_words(w, i, p, &format!("talk.point.you.{}.{}", p.kind.key(), m.key()), label);
         v.push(Opt { m, tone, label: format!("\"{label}\""), hint });
     };
     let nfl = w.people[i].stage == Stage::Pro;
@@ -1340,7 +1364,7 @@ pub struct Question {
 }
 
 /// The question a point comes as, if it has one.
-pub fn question(p: &Point) -> Option<Question> {
+pub fn question(w: &World, i: usize, p: &Point) -> Option<Question> {
     let g = |h: &str| p.get(h).map(str::to_string);
     let q = match p.kind {
         K::LostJob | K::Buried => Question {
@@ -1411,7 +1435,17 @@ pub fn question(p: &Point) -> Option<Question> {
         },
         _ => return None,
     };
-    Some(q)
+    Some(with_bank_answers(w, i, p, q))
+}
+
+/// Your answers in the bank's words where it has them (`talk.point.answer.
+/// <point>.<answer>`, lane L12).
+fn with_bank_answers(w: &World, i: usize, p: &Point, mut q: Question) -> Question {
+    for (a, label, _) in q.answers.iter_mut() {
+        let key = format!("talk.point.answer.{}.{}", q.key, a.key());
+        *label = you_words(w, i, p, &key, std::mem::take(label));
+    }
+    q
 }
 
 /// The question when your name is in a job story (your seat at a college
@@ -1426,7 +1460,7 @@ pub fn job_question(w: &World, i: usize) -> Option<Question> {
     if w.folk.talked.remembers(w.today, id, &Point::new(K::YourJob)) {
         return None;
     }
-    Some(Question {
+    Some(with_bank_answers(w, i, &Point::new(K::YourJob), Question {
         key: K::YourJob.key(),
         fallback: "Can I ask you something, Coach? Everybody's saying you're on the hot seat. Are you going to be here next year?".into(),
         answers: vec![
@@ -1435,7 +1469,7 @@ pub fn job_question(w: &World, i: usize) -> Option<Question> {
             (Answer::Promise, "I'm not going anywhere. I'll be here.".into(), "Logged: you stay a year."),
             (Answer::Dodge, "That's not your concern.".into(), "He notices a dodge."),
         ],
-    })
+    }))
 }
 
 /// What an answer does: (trust, mood), before his trust colours it. A
