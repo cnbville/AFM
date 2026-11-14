@@ -64,7 +64,10 @@ pub const TONES: [&str; 4] = ["fiery", "warm", "firm", "calm"];
 /// A promise as the reader may label it: the promise design's kinds
 /// (`afm/promises/proposal.md`, proposed, not confirmed). The game judges
 /// nothing from them yet.
-pub const PROMISE_KINDS: [&str; 8] = ["start", "role", "touches", "ahead_of", "position", "place", "contract", "stay"];
+/// "early_chance" and "no_redshirt" are two of the five a recruit is
+/// promised (lane 10).
+pub const PROMISE_KINDS: [&str; 10] =
+    ["start", "role", "touches", "ahead_of", "position", "place", "contract", "stay", "early_chance", "no_redshirt"];
 pub const PROMISE_BY: [&str; 6] = ["next_game", "opener", "midseason", "this_season", "next_season", "none"];
 pub const CONDITIONS: [&str; 7] = ["stat", "practice", "conduct", "grades", "body", "health", "none"];
 
@@ -298,9 +301,13 @@ pub fn read(w: &World, s: &Scene, v: &Value, keys: &Keys, words: &str) -> Option
         return None;
     }
     let tag = |k: &str| v.get(k).and_then(Value::as_str).unwrap_or("none");
-    let pick = keys.option(tag("pick"))?;
+    // A line with no option of the card's own can still be one a lane's
+    // hook places (lane 10: a promise to a recruit, wherever it sits in
+    // the talk); with none placed it means nothing.
+    let read_pick = keys.option(tag("pick"));
+    let pick = read_pick.unwrap_or(0);
     let mut also = Vec::new();
-    if fit == "unsure" {
+    if fit == "unsure" && read_pick.is_some() {
         also.push(pick);
         if let Some(a) = keys.option(tag("also")).filter(|a| *a != pick) {
             also.push(a);
@@ -349,6 +356,14 @@ pub fn read(w: &World, s: &Scene, v: &Value, keys: &Keys, words: &str) -> Option
         named,
     };
     hooks_heard(w, s, v, &mut heard);
+    if heard.pick == 0 {
+        return None;
+    }
+    // A hook that moved the line onto an option of its own (lane 10: the
+    // promise it means) leaves no close second.
+    if heard.pick != pick {
+        also.clear();
+    }
     Some((heard, also))
 }
 
