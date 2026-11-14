@@ -1,6 +1,6 @@
 # Saves and world files: how it works today
 
-Checked against main at d41bed5 on 2026-10-28 (update 3, lane 19). The tallies folder beside each save over main a0dfde3 on 2026-11-04 (lane NB1). Deleting worlds over main 4d881d5 on 2026-11-06. The Jan 1 start (lane A) checked on 2026-11-08, before it merged to main. The notebook beside each save over main 5247199 on 2026-11-12; per career, never shared, over main 8e62944 on 2026-11-13. The plan ahead file beside each save over main 0ca3b43 on 2026-11-14.
+Checked against main at d41bed5 on 2026-10-28 (update 3, lane 19). The tallies folder beside each save over main a0dfde3 on 2026-11-04 (lane NB1). Deleting worlds over main 4d881d5 on 2026-11-06. The Jan 1 start (lane A) checked on 2026-11-08, before it merged to main. The notebook beside each save over main 5247199 on 2026-11-12; per career, never shared, over main 8e62944 on 2026-11-13. The plan ahead file beside each save over main 0ca3b43 on 2026-11-14. The autosave over main ddc308e on 2026-11-14.
 
 ## Quick answers
 
@@ -19,9 +19,22 @@ Checked against main at d41bed5 on 2026-10-28 (update 3, lane 19). The tallies f
 - Is a note written when I make it? Yes: each add, edit or delete rewrites the file at once (written to `.partial`, then renamed), not only when you save. A file that can't be read is kept as `.afmnotes.broken` and the notebook starts empty (`notebook.rs`, `write`, `read`). Caps: 2000 notes, 4000 letters a note, 40 categories of 32 letters (`MAX_NOTES`, `MAX_TEXT`, `MAX_CATEGORIES`, `MAX_CATEGORY_LEN`).
 - Can the game delete them? Saves: Load game, Delete (`setup.rs`, `delete_save`). Library worlds: the World step, "Delete this world…", which takes its card, log and tallies beside it and never a save (`setup.rs`, `delete_world`). Both only touch files in their own folder of the game folder (`~/Library/Application Support/AFM` on a Mac).
 - What is a played-on world? A library world the game played on from February 9 to Jan 1 of its next winter (the World step's Jan 1 start), kept as its own file `<name>-jan<year>.afmworld` with its card and tallies (hard-linked from the old one, then the season added) and no world log; the old world stays as it was. Its start year, history years and high school engine years each go up one, as the season it played is now its history's last (`crates/afm-game/src/jobs.rs`, `play_on`, `play_on_file`). The card says `jan1` when the world stands on Jan 1 (`cards.rs`).
+- Does the game save by itself? Yes, about every 10 minutes of play, in the background: the screens ask `autosave_tick` every 30 seconds, and once 10 minutes have passed since the last save of any kind and something was done since, the game forks itself and the copy writes the file while the game goes on (`crates/afm-game/src/autosave.rs`, `tick`, `start`, `child`; `app/ui/app.js`, `autosaveTick`). See "Autosave" below.
 - Is a half-written save possible? No: the game writes `name.partial` and renames it over the old save when done (`crates/afm-game/src/files.rs`, `write_world`).
 - Is the file the same bytes each time? No: parts land in the order they finish and hash maps keep no fixed order. The table says where each part is (`save.rs`, `write_world`).
 - How long does it take? On the 30-year world at the first game, 4-core Linux: save 17-18 s, load 14.4 s with `after_load`, peak 3.77 GB (`docs/game.md`, "Lane 19").
+
+## Autosave
+
+- Why a fork? A copy of the world is 3 to 4 GB, too much for an 8 GB Mac. The forked child shares every page with the game until one of them changes it, so the child sees the world exactly as it stood at the tick and costs memory only for what the game changes while it writes (`autosave.rs`, module notes).
+- When does the snapshot happen? Inside the `autosave_tick` command, so between two commands, never in the middle of a day; the tick answers at once (`autosave.rs`, `tick`).
+- What is written? `saves/Autosave - <coach name>.afmsave`, one per coach, replaced each time through the same `write_world` as a save by hand (`name.partial`, then a rename). The world log and tallies are linked beside it and the notebook and depth plan copied, all at the moment of the tick; a career's face pictures are not (`autosave.rs`, `start`; `notebook.rs` and `depth_plan.rs`, `on_autosave`).
+- When does it start? 10 minutes after the last save of any kind (or the career's start), only if some command other than the idle ones ran since, never while a world is being built, downloaded or played on, and only in a career (`autosave.rs`, `EVERY`, `is_idle_call`, `job_running`).
+- Never two at once: a running autosave blocks the next, and a save by hand, a bug pack, opening a world or starting a career ends it (SIGKILL, its `.partial` removed) before going on (`lib.rs`, `autosave.cancel`, `autosave.reset`). Loaded or started, the clock starts again.
+- If it fails or takes over 20 minutes: the old autosave stays, the sidebar says "Autosave failed" and it tries again after the next 10 minutes (`autosave.rs`, `STUCK`).
+- Priority: the child runs at nice 10 (`autosave.rs`, `NICE`).
+- On the screen: one quiet line over the Save button, "Saving in the background", then "Autosaved 14:32" (`app/ui/app.js`, `autosaveHtml`).
+- Where it does not run: not on Windows (no fork); the tick answers `off`.
 
 ## Format 2
 
