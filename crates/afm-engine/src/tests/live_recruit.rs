@@ -50,9 +50,20 @@ fn bytes(w: &World) -> Vec<u8> {
     rmp_serde::to_vec(w).unwrap()
 }
 
+/// What a talk can change: the people, the talks' stores, the desks and
+/// the calendar. (Two worlds built alike can still differ in a map's order
+/// elsewhere, so whole worlds aren't compared.)
+fn talked(w: &World) -> Vec<u8> {
+    let mut v = rmp_serde::to_vec(&w.people).unwrap();
+    v.extend(rmp_serde::to_vec(&w.folk).unwrap());
+    v.extend(rmp_serde::to_vec(&w.front_office).unwrap());
+    v.extend(rmp_serde::to_vec(&w.calendar).unwrap());
+    v
+}
+
 /// A copy of a world, as a save and a load make it.
 fn copy(w: &World) -> World {
-    rmp_serde::from_slice(&bytes(w)).unwrap()
+    rmp_serde::from_slice(&rmp_serde::to_vec_named(w).unwrap()).unwrap()
 }
 
 fn untyped(w: &mut World) {
@@ -78,9 +89,9 @@ fn total(w: &World, i: usize, mine: usize) -> f32 {
 
 /// A sit-down with a point to make, in two copies of the same world.
 fn two(n: usize) -> Option<(World, World, usize, usize, u32, u32)> {
-    let (w, mine, kids) = class(n);
+    let (_, mine, kids) = class(n);
     for &i in &kids {
-        let (mut a, mut b) = (copy(&w), copy(&w));
+        let (mut a, mut b) = (class(n).0, class(n).0);
         let s = sit_down(&mut a, i, mine);
         let sb = sit_down(&mut b, i, mine);
         assert_eq!(s.id, sb.id);
@@ -121,7 +132,7 @@ fn a_true_fact_is_the_chip_and_a_false_one_he_can_check_costs_on_the_spot() {
         scene::say(&mut b, id, typed(code, vec![fact("record", format!("{titles} national titles"))]), false).unwrap();
     assert_eq!(check::read(&b, &s, &fact("record", format!("{titles} national titles"))).truth, Truth::True);
     untyped(&mut b);
-    assert!(bytes(&a) == bytes(&b), "a true fact counts what the point counts, and nothing more");
+    assert!(talked(&a) == talked(&b), "a true fact counts what the point counts, and nothing more");
     // The same point with titles you don't have: he knows as you say it.
     let lie = fact("record", format!("{} national titles", titles + 5));
     let s = scene::say(&mut c, id, typed(code, vec![lie.clone()]), false).unwrap();
