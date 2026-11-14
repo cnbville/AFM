@@ -380,9 +380,13 @@ fn a_coordinators_case_carries_the_games_numbers_and_the_plans_real_move() {
             assert_eq!(rows[1].cells[1], "3.0");
             assert_eq!(rows[2].cells[1], "33%");
         }
-        // The options and their codes are today's three.
+        // The options and their codes are today's three, then your own case
+        // instead (live talks lane 6).
         let codes: Vec<u32> = s.picks.iter().map(|x| x.code).collect();
-        assert_eq!(codes, [951, 952, 953]);
+        let own: Vec<u32> =
+            crate::world::folk::dialogue::own_moves(kind as u8).into_iter().map(|m| 954 + m as u32).collect();
+        assert_eq!(codes[..3], [951, 952, 953]);
+        assert_eq!(codes[3..], own[..]);
         // "Agree" says where the plan goes, and agreeing takes it there.
         let agree = s.picks.iter().find(|x| x.code == 951).unwrap().hint.clone();
         let half = s.picks.iter().find(|x| x.code == 952).unwrap().hint.clone();
@@ -421,7 +425,7 @@ fn a_meeting_without_its_game_keeps_the_plain_case() {
     let (_, s) = meeting(&mut w, 0, false);
     assert!(s.docs.is_empty(), "no game on file, no numbers beside the case");
     let codes: Vec<u32> = s.picks.iter().map(|x| x.code).collect();
-    assert_eq!(codes, [951, 952, 953]);
+    assert_eq!(codes, [951, 952, 953, 955, 958, 959]);
     assert!(!said(&s, 2).pop().unwrap_or_default().is_empty(), "he still makes his case");
 }
 

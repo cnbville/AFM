@@ -79,6 +79,9 @@ pub struct Own {
     /// SK22: athletes in your building you talked to, by key.
     #[serde(default)]
     pub athletes: Vec<AthleteTalk>,
+    /// Live talks LT12: the sources you asked about a prospect.
+    #[serde(default)]
+    pub sources: Vec<SourceAsk>,
 }
 
 fn one() -> u8 {
@@ -1082,6 +1085,10 @@ pub struct Interview {
     pub answers: Vec<(Topic, String)>,
     /// The whiteboard quiz later: assignments he drew back of those taught.
     pub quiz: Option<(u8, u8)>,
+    /// Live talks LT11: the worries your scouts flagged that you asked him
+    /// about straight out (the trait in file numbering, minutes).
+    #[serde(default)]
+    pub worries: Vec<(u8, u8)>,
 }
 
 /// The rooms open to you with this player now, and their minutes (SK15):
@@ -1125,9 +1132,23 @@ pub fn rooms(w: &World, id: u32) -> Vec<(&'static str, u8)> {
 /// choice reads different things; his answers come in his own voice from
 /// the line bank, shaded the way he tells it.
 pub fn interview(w: &mut World, id: u32, room: &str, spent: Vec<(Topic, u8)>) -> Result<String, String> {
+    interview_with(w, id, room, spent, Vec::new())
+}
+
+/// An interview with the worries you asked him about straight out (live
+/// talks LT11, the timed talk's "ask about what your scouts flagged"): each
+/// worry's minutes count against the room, and his answer is the one his
+/// topic gets.
+pub fn interview_with(
+    w: &mut World,
+    id: u32,
+    room: &str,
+    spent: Vec<(Topic, u8)>,
+    worries: Vec<(u8, u8)>,
+) -> Result<String, String> {
     let open = rooms(w, id);
     let (room, minutes) = open.into_iter().find(|r| r.0 == room).ok_or("That room isn't open with him today.")?;
-    let total: u32 = spent.iter().map(|x| x.1 as u32).sum();
+    let total: u32 = spent.iter().map(|x| x.1 as u32).sum::<u32>() + worries.iter().map(|x| x.1 as u32).sum::<u32>();
     if total == 0 || total > minutes as u32 {
         return Err(format!("Spend up to {minutes} minutes."));
     }
@@ -1141,6 +1162,12 @@ pub fn interview(w: &mut World, id: u32, room: &str, spent: Vec<(Topic, u8)>) ->
         }
         answers.push((t, answer_line(w, i, t)));
     }
+    for &(k, m) in &worries {
+        let t = worry_topic(k as usize);
+        if m > 0 && !answers.iter().any(|a| a.0 == t) {
+            answers.push((t, answer_line(w, i, t)));
+        }
+    }
     // The whiteboard quiz comes at the end of the day: how many of six
     // assignments he draws back, from his football IQ and recognition.
     let quiz = spent.iter().find(|x| x.0 == Topic::Whiteboard && x.1 >= 3).map(|_| {
@@ -1151,7 +1178,16 @@ pub fn interview(w: &mut World, id: u32, room: &str, spent: Vec<(Topic, u8)>) ->
     });
     let d = w.today;
     super::dept::add(w, id, you, Kind::Interview, d);
-    w.scouting.own.interviews.push(Interview { id, date: d, room: room.to_string(), minutes, spent, answers, quiz });
+    w.scouting.own.interviews.push(Interview {
+        id,
+        date: d,
+        room: room.to_string(),
+        minutes,
+        spent,
+        answers,
+        quiz,
+        worries,
+    });
     Ok(format!("{room} with {} is done.", w.people[i].name))
 }
 
@@ -1209,6 +1245,14 @@ pub(crate) fn interview_traits(w: &World, id: u32, traits: &mut [super::file::Tr
     let Some(i) = super::place(w, id) else { return };
     let p = &w.people[i];
     let rel = readers::you(w).map_or(10.0, |c| w.coaches[c].ability().relationships);
+    // He tells it well: the room reads him a little better than he is.
+    let room_read = |k: usize, m: u8, sharper: f64, salt: u64, tr: &mut super::file::TraitRead| {
+        let shade = if super::file::trait_good_high(k) { polish(p) } else { -polish(p) };
+        let truth = super::file::trait_value(p, k) + 0.6 * shade;
+        let sd = 2.4 * (6.0 / m as f64).sqrt() * super::file::sharp(rel) * sharper;
+        let v = sd * key_normal(salt ^ (k as u64) << 40, id as u64);
+        fold(tr, truth, v, sd);
+    };
     for iv in w.scouting.own.interviews.iter().filter(|x| x.id == id) {
         for &(t, m) in &iv.spent {
             if m == 0 {
@@ -1216,20 +1260,375 @@ pub(crate) fn interview_traits(w: &World, id: u32, traits: &mut [super::file::Tr
             }
             for &k in t.reads().0 {
                 let Some(tr) = traits.get_mut(k) else { continue };
-                // He tells it well: the room reads him a little better
-                // than he is.
-                let shade = if super::file::trait_good_high(k) { polish(p) } else { -polish(p) };
-                let truth = super::file::trait_value(p, k) + 0.6 * shade;
-                let sd = 2.4 * (6.0 / m as f64).sqrt() * super::file::sharp(rel);
-                let v = sd * key_normal(0x1A7E ^ (k as u64) << 40 ^ iv.date.0 as u64, id as u64);
-                let (acc, prec) =
-                    if tr.seen { ((tr.centre - truth) / (tr.sd * tr.sd), 1.0 / (tr.sd * tr.sd)) } else { (0.0, 0.0) };
-                let acc = acc + v / (sd * sd);
-                let prec = prec + 1.0 / (sd * sd);
-                tr.centre = clamp(truth + acc / prec, 1.0, 20.0);
-                tr.sd = (1.0 / prec).sqrt();
-                tr.seen = true;
+                room_read(k, m, 1.0, 0x1A7E ^ iv.date.0 as u64, tr);
             }
+        }
+        // A worry asked straight out reads that trait tighter than the
+        // same minutes on the topic around it (live talks LT11).
+        for &(k, m) in &iv.worries {
+            let Some(tr) = traits.get_mut(k as usize).filter(|_| m > 0) else { continue };
+            room_read(k as usize, m, WORRY_SD, 0x1A7F ^ iv.date.0 as u64, tr);
+        }
+    }
+}
+
+/// One more read of a trait into the file's: `truth + v` with spread `sd`,
+/// weighed against what the file had.
+fn fold(tr: &mut super::file::TraitRead, truth: f64, v: f64, sd: f64) {
+    let (acc, prec) = if tr.seen { ((tr.centre - truth) / (tr.sd * tr.sd), 1.0 / (tr.sd * tr.sd)) } else { (0.0, 0.0) };
+    let acc = acc + v / (sd * sd);
+    let prec = prec + 1.0 / (sd * sd);
+    tr.centre = clamp(truth + acc / prec, 1.0, 20.0);
+    tr.sd = (1.0 / prec).sqrt();
+    tr.seen = true;
+}
+
+// --- Live talks LT11: the worries your scouts flagged ----------------------------------------
+
+/// How much tighter a worry asked straight out reads than the same minutes
+/// on its topic (the spread's share). Proposed, not confirmed.
+pub const WORRY_SD: f64 = 0.75;
+/// A worry question's minutes in an 18-minute room (the shortest topics'
+/// three); a longer room goes deeper, as the topics do. Proposed, not
+/// confirmed.
+pub const WORRY_MINUTES: u8 = 3;
+/// At most this many flagged worries are offered in one room.
+pub const WORRIES: usize = 3;
+
+/// The worries your scouts flagged in his file: each trait whose read
+/// lands on the worrying side (a good trait under 8, temper, ego or money
+/// at 12.5 and up: the file's two worst words), the worst first, at most
+/// `WORRIES`. Your staff's read, never the truth.
+pub fn flagged_worries(w: &World, id: u32) -> Vec<usize> {
+    let Some((_, _, f)) = readers::seat_staff(w).and_then(|s| readers::read(w, s, id)) else { return Vec::new() };
+    let mut v: Vec<(f64, usize)> = f
+        .traits
+        .iter()
+        .enumerate()
+        .filter(|(_, t)| t.seen)
+        .filter_map(|(k, t)| {
+            let depth = if super::file::trait_good_high(k) { 8.0 - t.centre } else { t.centre - 12.0 };
+            (depth > 0.0).then_some((depth, k))
+        })
+        .collect();
+    v.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+    v.into_iter().take(WORRIES).map(|x| x.1).collect()
+}
+
+/// The topic a worry belongs to (the first whose reads include it), whose
+/// answer he gives.
+pub fn worry_topic(k: usize) -> Topic {
+    TOPICS.iter().copied().find(|t| t.reads().0.contains(&k)).unwrap_or(Topic::Football)
+}
+
+/// A flagged worry's question, as the chip names it.
+pub fn worry_words(k: usize) -> String {
+    format!("Ask about what your scouts flagged: {}", super::file::TRAIT_NAMES[k.min(12)].to_lowercase())
+}
+
+/// A flagged worry's question, as you ask it.
+pub fn worry_question(k: usize) -> &'static str {
+    const Q: [&str; 13] = [
+        "People say you don't always put the work in. Tell me about that.",
+        "We hear you can be hard to coach. Why would they say that?",
+        "Some people question how hard you compete. What do you tell them?",
+        "Do you love this game, or is it a job to you?",
+        "Where do you want to be in five years?",
+        "If somebody offered you more somewhere else, would you stay?",
+        "How much does the money matter to you?",
+        "Tell me about the times you've lost your temper.",
+        "What would your teammates say about your ego?",
+        "Who follows you in that locker room?",
+        "Walk me through a normal week away from football.",
+        "What happens when a coach moves you or changes the scheme on you?",
+        "Tell me about the worst thing that's happened to you, and how you came back.",
+    ];
+    Q[k.min(12)]
+}
+
+// --- Live talks LT12: asking a source about a prospect --------------------------------------
+
+/// What you can ask a source about: the traits each topic covers (file
+/// numbering). A source answers only the ones his kind of look shows.
+pub const SOURCE_TOPICS: [(&str, &[usize]); 4] = [
+    ("His work habits", &[0, 3, 2]),
+    ("How he takes coaching", &[1, 11, 12]),
+    ("His character", &[7, 10, 8, 9]),
+    ("What drives him", &[4, 6, 5]),
+];
+
+/// A call to a source costs this much of your week's talk time (a call in
+/// `network::reach_out`).
+pub const SOURCE_HOURS: f32 = 0.5;
+
+/// A source you asked about a prospect, as the file keeps it.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct SourceAsk {
+    pub id: u32,
+    pub date: Date,
+    /// The source (`Source::code`) and the topic (`SOURCE_TOPICS`).
+    pub source: u8,
+    pub topic: u8,
+    /// His kind of look, his shade (`shade_code`), his eye (1-20), how warm
+    /// he is with you (0-1) and the key of his draws.
+    pub kind: Kind,
+    pub shade: u8,
+    pub eye: f32,
+    pub warmth: f32,
+    pub key: u64,
+}
+
+/// Someone who knows a prospect and will take your call.
+#[derive(Clone, Debug)]
+pub struct Source {
+    pub code: u8,
+    pub label: String,
+    pub role: &'static str,
+    pub kind: Kind,
+    pub shade: super::file::Shade,
+    pub eye: f64,
+    pub coach: Option<usize>,
+    /// How warm he is with you (0 a stranger), and his tips' record
+    /// (settled, held up).
+    pub warmth: f64,
+    pub record: (u8, u8),
+}
+
+fn shade_code(s: super::file::Shade) -> u8 {
+    use super::file::Shade as S;
+    match s {
+        S::Warm => 0,
+        S::True => 1,
+        S::Defends => 2,
+        S::Cold => 3,
+    }
+}
+
+fn shade_of(c: u8) -> super::file::Shade {
+    use super::file::Shade as S;
+    match c {
+        0 => S::Warm,
+        2 => S::Defends,
+        3 => S::Cold,
+        _ => S::True,
+    }
+}
+
+/// The people around a prospect you can call (LT12): his high school coach
+/// (warm on his own player), a teacher (true), his trainer when his family
+/// pays for one (warm on a paying client), a teammate (defends him), and for
+/// a college player his position coach (warm, to an NFL seat) or the staff
+/// he is leaving (cold, to a college seat). A coach's eye is his recruiting
+/// rating; the others' are set (proposed, not confirmed: a teacher 9, a
+/// trainer 11, a teammate 8). None for your own players, a pro, or at a
+/// high school seat.
+pub fn sources(w: &World, id: u32) -> Vec<Source> {
+    use super::file::Shade as S;
+    let mut v = Vec::new();
+    let Some(i) = super::place(w, id) else { return v };
+    let p = &w.people[i];
+    let staff = readers::seat_staff(w);
+    let hs_kid = matches!(p.stage, Stage::HighSchool | Stage::PrepSchool);
+    let college = matches!(p.stage, Stage::College | Stage::Declared);
+    let ok = match staff {
+        Some(Staff::Program(prog)) => (hs_kid || p.stage == Stage::College) && p.college != Some(prog),
+        Some(Staff::Club(_)) => college,
+        _ => false,
+    };
+    if !ok {
+        return v;
+    }
+    let contact = |c: usize| {
+        w.folk
+            .network
+            .contacts
+            .iter()
+            .find(|x| x.coach_id() == Some(c))
+            .map_or((0.0, (0, 0)), |x| (x.warmth as f64, x.record))
+    };
+    let coach_source = |code: u8, c: usize, label: String, role: &'static str, kind: Kind, shade: S| {
+        let (warmth, record) = contact(c);
+        Source {
+            code,
+            label,
+            role,
+            kind,
+            shade,
+            eye: w.coaches[c].ability().recruiting,
+            coach: Some(c),
+            warmth,
+            record,
+        }
+    };
+    let other = |code: u8, label: &str, role: &'static str, kind: Kind, shade: S, eye: f64| Source {
+        code,
+        label: label.to_string(),
+        role,
+        kind,
+        shade,
+        eye,
+        coach: None,
+        warmth: 0.0,
+        record: (0, 0),
+    };
+    if let Some(c) = w.high_schools.get(p.hs).and_then(|h| h.coach).filter(|&c| c < w.coaches.len()) {
+        let label = format!("His high school coach, {}", w.coaches[c].name);
+        v.push(coach_source(0, c, label, "High school coach", Kind::Call, S::Warm));
+    }
+    if hs_kid {
+        v.push(other(1, "A teacher at his school", "Teacher", Kind::Call, S::True, 9.0));
+    }
+    if p.bg.money >= 0.4 {
+        v.push(other(2, "His trainer", "Private trainer", Kind::Workout, S::Warm, 11.0));
+    }
+    v.push(other(3, "A teammate", "Teammate", Kind::Practice, S::Defends, 8.0));
+    if let Some(c) = p.college.filter(|_| college) {
+        let pr = &w.programs[c];
+        let g = crate::world::coach::Group::of(p.player.position) as usize;
+        if let Some(k) = pr.position_coaches.get(g).copied().flatten().or(pr.head_coach) {
+            match staff {
+                Some(Staff::Club(_)) => v.push(coach_source(
+                    4,
+                    k,
+                    format!("His position coach at {}, {}", w.program_name(c), w.coaches[k].name),
+                    "College coach",
+                    Kind::School,
+                    S::Warm,
+                )),
+                _ => v.push(coach_source(
+                    5,
+                    k,
+                    format!("The staff he's leaving at {}, {}", w.program_name(c), w.coaches[k].name),
+                    "His old staff",
+                    Kind::OldStaff,
+                    S::Cold,
+                )),
+            }
+        }
+    }
+    v
+}
+
+/// What a source told you.
+#[derive(Clone, Debug)]
+pub struct SourceAnswer {
+    pub by: String,
+    pub role: String,
+    /// His words, plain (the line bank's place later).
+    pub text: String,
+    /// Each trait he spoke to, in the file's words.
+    pub said: Vec<(&'static str, &'static str)>,
+    /// The topic's traits his kind of look doesn't show.
+    pub unknown: Vec<&'static str>,
+}
+
+/// What a source says on a topic, worked out by the engine (no time spent,
+/// nothing kept): the traits his look shows, in the file's words.
+pub fn source_answer(w: &World, id: u32, code: u8, topic: u8) -> Result<(Source, SourceAsk, SourceAnswer), String> {
+    let s = sources(w, id).into_iter().find(|s| s.code == code).ok_or("He isn't someone you can call about him.")?;
+    let (topic_words, traits) = *SOURCE_TOPICS.get(topic as usize).ok_or("Unknown topic.")?;
+    let i = super::place(w, id).ok_or("No such player.")?;
+    let p = &w.people[i];
+    let who = s.coach.map_or(p.hs as u64 ^ 0x7EAC << 32, |c| c as u64);
+    let key = 0x50C0_0000 ^ (code as u64) << 56 ^ who << 20 ^ (w.today.year() as u64) << 8;
+    let ask = SourceAsk {
+        id,
+        date: w.today,
+        source: code,
+        topic,
+        kind: s.kind,
+        shade: shade_code(s.shade),
+        eye: s.eye as f32,
+        warmth: s.warmth as f32,
+        key,
+    };
+    let says = super::file::source_says(p, s.kind, s.shade, s.eye, s.warmth, key, traits);
+    let said: Vec<(&'static str, &'static str)> =
+        says.iter().map(|x| (super::file::TRAIT_NAMES[x.k], super::lines::trait_word(x.k, x.said))).collect();
+    let unknown: Vec<&'static str> =
+        traits.iter().filter(|k| !says.iter().any(|x| x.k == **k)).map(|&k| super::file::TRAIT_NAMES[k]).collect();
+    let text = if said.is_empty() {
+        format!("{}? That's not something I'd know, coach.", topic_words)
+    } else {
+        let words: Vec<String> = said.iter().map(|x| x.1.to_string()).collect();
+        let mut t = cap_first(&words.join("; "));
+        t.push('.');
+        if !unknown.is_empty() {
+            let names: Vec<String> = unknown.iter().map(|n| n.to_lowercase()).collect();
+            t.push_str(&format!(" I couldn't tell you about his {}.", names.join(" or his ")));
+        }
+        t
+    };
+    let mut role = format!("{}, {}", s.role, s.shade.words());
+    if s.coach.is_some() {
+        role.push_str(&match s.record {
+            (0, _) => ", no tips settled from him yet".to_string(),
+            (n, h) => format!(", {h} of his {n} tips held up"),
+        });
+    }
+    let answer = SourceAnswer { by: s.label.clone(), role, text, said, unknown };
+    Ok((s, ask, answer))
+}
+
+fn cap_first(s: &str) -> String {
+    let mut c = s.chars();
+    c.next().map(|f| f.to_uppercase().collect::<String>() + c.as_str()).unwrap_or_default()
+}
+
+/// You ask a source about a prospect (LT12): half an hour of your week; once
+/// a source and topic a year. What he says goes into your file's character
+/// read (`source_traits`).
+pub fn ask_source(w: &mut World, id: u32, code: u8, topic: u8) -> Result<SourceAnswer, String> {
+    let (_, ask, answer) = source_answer(w, id, code, topic)?;
+    let year = w.today.year();
+    if w.scouting
+        .own
+        .sources
+        .iter()
+        .any(|x| x.id == id && x.source == code && x.topic == topic && x.date.year() == year)
+    {
+        return Err("You asked him that already this year.".into());
+    }
+    if !crate::world::folk::talks::spend(w, SOURCE_HOURS) {
+        return Err("Your week is full.".into());
+    }
+    let list = &mut w.scouting.own.sources;
+    list.push(ask);
+    if list.len() > MAX_SOURCES {
+        list.remove(0);
+    }
+    Ok(answer)
+}
+
+/// The most source asks kept (the oldest go first).
+pub const MAX_SOURCES: usize = 600;
+
+/// What the sources you asked add to your file's character read (LT12):
+/// each told trait at his look's spread, his shade taken off as far as your
+/// own read of people sees through it (the file's rule: relationships and
+/// network, as `trait_reads` reads a reader's character and network).
+pub(crate) fn source_traits(w: &World, id: u32, traits: &mut [super::file::TraitRead]) {
+    let asks: Vec<&SourceAsk> = w.scouting.own.sources.iter().filter(|x| x.id == id).collect();
+    if asks.is_empty() {
+        return;
+    }
+    let Some(i) = super::place(w, id) else { return };
+    let p = &w.people[i];
+    let (rel, net) = readers::you(w).map_or((10.0, 10.0), |c| {
+        let a = w.coaches[c].ability();
+        (a.relationships, a.network)
+    });
+    let see_through = clamp((rel + net - 16.0) / 24.0, 0.0, 0.85);
+    for a in asks {
+        let traits_asked = SOURCE_TOPICS.get(a.topic as usize).map_or(&[][..], |t| t.1);
+        let says =
+            super::file::source_says(p, a.kind, shade_of(a.shade), a.eye as f64, a.warmth as f64, a.key, traits_asked);
+        for x in says {
+            let Some(tr) = traits.get_mut(x.k) else { continue };
+            let good = if super::file::trait_good_high(x.k) { 1.0 } else { -1.0 };
+            let truth = super::file::trait_value(p, x.k);
+            let v = x.said - truth - see_through * x.tilt * good;
+            fold(tr, truth, v, x.sd);
         }
     }
 }
