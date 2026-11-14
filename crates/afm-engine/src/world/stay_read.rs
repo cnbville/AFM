@@ -102,7 +102,7 @@ const UNDERPAID_PUSH: f64 = 0.2;
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum Next {
     Start,
-    NextIn,
+    InLine,
     Behind,
 }
 
@@ -110,7 +110,7 @@ impl Next {
     fn role(self) -> PlayingTime {
         match self {
             Next::Start => PlayingTime::Starter,
-            Next::NextIn => PlayingTime::Rotation,
+            Next::InLine => PlayingTime::Rotation,
             Next::Behind => PlayingTime::Backup,
         }
     }
@@ -246,7 +246,7 @@ pub(crate) fn next_fall(w: &World, ctx: &Ctx, i: usize) -> Next {
     if ahead < slots.starters {
         Next::Start
     } else if ahead < slots.starters + slots.rotation.max(1) {
-        Next::NextIn
+        Next::InLine
     } else {
         Next::Behind
     }
@@ -276,8 +276,8 @@ pub(crate) fn promise_belief(w: &World, ctx: &Ctx, i: usize, pr: &super::folk::t
         (0.55 + 0.3 * w.folk.mine.straight as f64 + 0.02 * (rel - 10.0) + 0.4 * (trust - 0.5) + backed).clamp(0.2, 1.0);
     let start = matches!(pr.kind, PromiseKind::Start | PromiseKind::Join(0) | PromiseKind::Place(0));
     let plausible = match (next_fall(w, ctx, i), start) {
-        (Next::Start, _) | (Next::NextIn, false) => 1.0,
-        (Next::NextIn, true) => 0.85,
+        (Next::Start, _) | (Next::InLine, false) => 1.0,
+        (Next::InLine, true) => 0.85,
         (Next::Behind, true) => 0.6,
         (Next::Behind, false) => 0.8,
     };
@@ -382,7 +382,7 @@ fn raw(w: &World, ctx: &Ctx, i: usize) -> Vec<(&'static str, f64)> {
         if !changed {
             match next {
                 Next::Start => parts.push((SEES_START, START_HOLD)),
-                Next::NextIn => parts.push((SEES_NEXT, NEXT_HOLD)),
+                Next::InLine => parts.push((SEES_NEXT, NEXT_HOLD)),
                 Next::Behind => {}
             }
             own *= hold(next.role());

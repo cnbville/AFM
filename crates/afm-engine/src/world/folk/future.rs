@@ -106,6 +106,9 @@ fn offered(w: &World, i: usize, k: K) -> bool {
         })
 }
 
+/// A physical number he knows from testing: its word and how to read it.
+type Measure = (&'static str, Box<dyn Fn(&Person) -> f64>);
+
 /// His best physical number against the other men at his spot on your
 /// roster, as he knows it from testing: (the word for it, whether it is in
 /// the top third there). Alone at his spot, it counts as real.
@@ -113,7 +116,7 @@ pub fn strength(w: &World, i: usize) -> (&'static str, bool) {
     let p = &w.people[i];
     let pos = p.player.position;
     let big = matches!(pos, Position::OT | Position::IOL | Position::DT | Position::EDGE);
-    let mut list: Vec<(&'static str, Box<dyn Fn(&Person) -> f64>)> = vec![
+    let mut list: Vec<Measure> = vec![
         ("speed", Box::new(|q: &Person| q.player.attributes.get(Attr::Speed))),
         ("burst", Box::new(|q: &Person| q.player.attributes.get(Attr::Acceleration))),
         ("feet", Box::new(|q: &Person| q.player.attributes.get(Attr::Agility))),
