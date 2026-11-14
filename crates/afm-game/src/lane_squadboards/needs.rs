@@ -265,6 +265,7 @@ fn pick_starters(
         done.push(pos);
         let ks: Vec<usize> = (0..SPOTS.len()).filter(|&k| SPOTS[k].1 == pos).collect();
         let at_pos: Vec<usize> = (0..men.len()).filter(|&j| men[j].pos == pos).collect();
+        #[allow(clippy::needless_range_loop)] // n is the fall, read from every man too
         for n in 0..3 {
             let here: Vec<(f64, usize)> = at_pos.iter().filter_map(|&j| val(j, n).map(|v| (v, j))).collect();
             // Now, your depth order fills the spots in its own order (left
@@ -1055,9 +1056,10 @@ mod tests {
             m.fit[spot("C")] = -2.0;
         }
         let st = pick_starters(&men, &[], &|j, n| men[j].vals[n]);
+        let (c, lg, rg) = (&st[spot("C")], &st[spot("LG")], &st[spot("RG")]);
         for n in 1..3 {
-            assert_eq!(st[spot("C")][n], Some(3), "the best read at center takes it");
-            let guards = [st[spot("LG")][n], st[spot("RG")][n]];
+            assert_eq!(c[n], Some(3), "the best read at center takes it");
+            let guards = [lg[n], rg[n]];
             assert!(guards.iter().all(|g| g.is_some_and(|j| j < 3)), "guards at guard: {guards:?}");
         }
         let order = vec![(IOL, vec![100, 101, 102, 103])];
