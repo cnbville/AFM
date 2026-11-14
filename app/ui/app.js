@@ -97,7 +97,8 @@ function rateColor(v) {
 // `who` names whose read it is for the hover. `ctx` says whose rating it
 // is, so the range explains itself on hover against his level (update 2,
 // RR1-RR3; screens/ratings.js): { p: player id, k: "ovr", "at:QB" or an
-// attribute key } or { s: staff key, k: rating key }.
+// attribute key } or { s: staff key, k: rating key }. `own: true` marks your
+// own read (yourRange), which opens the same card titled "Your read".
 function range(r, who, ctx) {
   if (!r) return `<span class="rg ns" title="Nobody on your staff has seen this"><span class="t"></span><b>Not seen</b></span>`;
   const [lo, hi] = r;
@@ -110,11 +111,12 @@ function range(r, who, ctx) {
 // or a first impression from what reached your desk until you have seen
 // him yourself. `looks`: your own looks (0 a first impression; left out on
 // a table, where the tip stays general).
-function yourRange(r, looks) {
+function yourRange(r, looks, ctx) {
   if (!r) return `<span class="rg ns l7-yours" title="You have no read of your own on him"><span class="t"></span><b>-</b></span>`;
   const [lo, hi] = r;
   const tip = looks == null ? `Your own read: ${lo} to ${hi}, from your own looks or your first impression.` : looks ? `Your own read: ${lo} to ${hi}, from ${looks} look${looks === 1 ? "" : "s"} of your own.` : `Your first impression: ${lo} to ${hi}. You haven't seen him yourself yet, so it can be well off.`;
-  return `<span class="rg l7-yours${looks === 0 ? " l7-first" : ""}" title="${esc(tip)}"><span class="t"><i style="left:${lo}%;width:${Math.max(2, hi - lo)}%"></i></span><b>${lo}-${hi}</b></span>`;
+  const card = rrAttrs(ctx && { ...ctx, own: true }, lo, hi);
+  return `<span class="rg l7-yours${looks === 0 ? " l7-first" : ""}${card ? " rr-on" : ""}"${card || ` title="${esc(tip)}"`}><span class="t"><i style="left:${lo}%;width:${Math.max(2, hi - lo)}%"></i></span><b>${lo}-${hi}</b></span>`;
 }
 // Own potential (Cain 2026-11-13): a potential word is your own read from
 // your first own look of him, your staff's before; your staff's line
@@ -147,7 +149,7 @@ function lvlTip(p) {
 function rrAttrs(ctx, lo, hi) {
   if (!ctx || (ctx.p == null && ctx.s == null)) return "";
   const w = ctx.p != null ? `p:${ctx.p}` : `s:${ctx.s}`;
-  return ` data-rr="${esc(w)}" data-rrk="${esc(ctx.k || "ovr")}" data-lo="${lo}" data-hi="${hi}" tabindex="0"`;
+  return ` data-rr="${esc(w)}" data-rrk="${esc(ctx.k || "ovr")}" data-lo="${lo}" data-hi="${hi}"${ctx.own ? ' data-own="1"' : ""} tabindex="0"`;
 }
 // "minorInjury" -> "minor injury"
 const words = (s) => String(s).replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
@@ -480,7 +482,7 @@ screens.roster = async (a) => {
     { k: "home", t: "Hometown", l: true, wrap: true },
     { k: "stars", t: "★", tip: "Recruiting stars", f: (r) => (r.stars ? "★".repeat(r.stars) : '<span class="muted">-</span>') },
     { k: "ovr", t: "Rating", div: true, tip: "Your staff's read of his play now, as a range", v: (r) => mid(r.ovr), f: (r) => range(r.ovr, null, { p: r.id, k: "ovr" }) },
-    { k: "yours", t: "Yours", tip: "Your own read: what you have seen of him yourself", v: (r) => mid(r.yours), f: (r) => yourRange(r.yours) },
+    { k: "yours", t: "Yours", tip: "Your own read: what you have seen of him yourself", v: (r) => mid(r.yours), f: (r) => yourRange(r.yours, undefined, { p: r.id, k: "ovr" }) },
     { k: "mood", t: "Mood", l: true },
     { k: "status", t: "Status", l: true, f: (r) => (r.status ? `<span class="dot ${/Injur|Susp|ineligible/.test(r.status) ? "bad" : "warn"}"></span>${esc(r.status)}` : '<span class="muted">Available</span>') },
   ];
