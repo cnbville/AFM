@@ -116,14 +116,16 @@ fn the_calendar_year_hangs_together() {
     // places under the House rule brought it to 74%.
     let fbs = log.signed_by_division[Division::FBS as usize];
     assert!(fbs[0] * 3 > fbs[1] * 7, "{fbs:?}");
-    // Real early entrants granted eligibility, 2022-2025: about 58-95; the
-    // 2026 draft 63, 42 of them by special eligibility (NFL, January 2026).
-    // This world's 2025 year gave 47 on main, 44 with December's signees
-    // counted once and 36 with minor bug 384's lane, while its earlier
-    // years differ by up to 11 between those runs, so the floor is 30
-    // (proposed, not confirmed: the coordinator's pick while Cain slept).
-    // Low House-era entrant totals are their own item, not tuned here.
-    assert!((30..=130).contains(&log.declared), "{}", log.declared);
+    // Real underclassmen on the NFL's list (special eligibility plus degree
+    // finishers): 100 in 2022, 82 in 2023, 70 in 2025 and 63 in 2026 (42 by
+    // special eligibility). Before the early entrants lane this world gave
+    // 47 for 2026 on main and 36 after minor bug 384's lane, so the floor
+    // had dropped to 30. The lane's lean (`early_entry::lean`) gives 87 /
+    // 84 / 68 for the 2023-2025 years and 49 for 2026: the world's House
+    // year pays its top underclassmen about twice the year before and reads
+    // fewer of them near the top, so 2026 sits under real. The floor is 40
+    // again (proposed, not confirmed).
+    assert!((40..=130).contains(&log.declared), "{}", log.declared);
     // The portal fills over many days, not one (T3, T9).
     assert!(log.portal_by_day.len() >= 10, "{:?}", log.portal_by_day);
     // A full NFL year: 272 regular-season games and 13 playoff games.
