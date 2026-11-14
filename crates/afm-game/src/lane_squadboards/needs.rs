@@ -915,8 +915,8 @@ mod tests {
         use Position::*;
         let mut men: Vec<Man> = (0..4).map(|i| man(i, IOL, all(if i == 3 { 68.0 } else { 70.0 - i as f64 }))).collect();
         men[3].fit[spot("C")] = 4.0;
-        for j in 0..3 {
-            men[j].fit[spot("C")] = -2.0;
+        for m in men.iter_mut().take(3) {
+            m.fit[spot("C")] = -2.0;
         }
         let st = pick_starters(&men, &[], &|j, n| men[j].vals[n]);
         for n in 1..3 {
