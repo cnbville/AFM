@@ -37,6 +37,7 @@ import bank as B  # noqa: E402
 import check as K  # noqa: E402
 from parts import FACT_WORDS, FILES, FIRST, NEVER, PARTS, PRONOUN_WORDS, TAG_WORDS, allocation  # noqa: E402
 import recruit20k  # noqa: E402,F401  (registers the recruiting talks run's parts and FILES entry)
+import ownlines  # noqa: E402,F401  (registers Cain's own lines' parts and FILES entry, lane L12)
 
 MODEL = 'claude-sonnet-5-5'
 # Each model's price ($ per million tokens through the Batches API, half the
@@ -87,7 +88,20 @@ JOBS = {
             'transfer.why.coach': 70,
         },
     },
+    'ownlines': {
+        'family': ownlines.FAMILY,
+        'state': '/mnt/project-files/afm/line-bank-api/ownlines',
+        'first': ('talk.point.you.arrest', 'talk.point.you.lost_job', 'talk.point.you.big_game', 'talk.point.you.bad_game',
+                  'talk.point.you.hurt', 'talk.point.you.practice_week', 'talk.point.answer.'),
+        'pilot': {
+            'talk.point.you.arrest.straight': 40, 'talk.point.you.lost_job.challenge': 30,
+            'talk.point.you.hurt.promise': 30, 'talk.point.answer.lost_job.soften': 30,
+            'talk.point.answer.draft.straight': 30, 'talk.you.role.promise': 30, 'talk.you.money.promise': 30,
+            'recruit.pitch.role.strong': 24, 'recruit.pitch.drive.weak': 24, 'recruit.pitch.straight.money': 24,
+        },
+    },
 }
+JOB_MODS = {'recruit20k': recruit20k, 'ownlines': ownlines}
 JOB = None          # set by --job
 ONLY = None         # set by --parts: {key: versions}, a small trial of chosen parts
 
@@ -306,7 +320,7 @@ def plan_round(st, targets, per_part, keep_rate, rnd):
         if miss <= max(2, DONE_SHARE * targets[key]):
             continue
         want = math.ceil(miss / max(keep_rate, 0.3))
-        facets = recruit20k.FACETS.get(key, []) if JOB else []
+        facets = JOB_MODS[JOB].FACETS.get(key, []) if JOB else []
         per = FACET_REQ if facets else PER_REQ
         reqs = min(per_part, math.ceil(want / per))
         reach = PARTS[key].levels or {'hs', 'college', 'nfl'}
@@ -678,7 +692,7 @@ def targets_for(pilot):
     if ONLY:
         return dict(ONLY)
     if JOB:
-        return dict(JOBS[JOB]['pilot']) if pilot else dict(recruit20k.TARGETS)
+        return dict(JOBS[JOB]['pilot']) if pilot else dict(JOB_MODS[JOB].TARGETS)
     if pilot:
         return dict(PILOT)
     al = allocation()
@@ -804,7 +818,12 @@ def report(st, targets):
     st.log(f'report written: {path}')
 
 
-HEADS = {'recruit20k': (
+HEADS = {'ownlines': (
+    "# Your own lines (talk facts lane L12, Cain 2026-11-13): the moves and answers you pick in a one-on-one, your "
+    "moves when you call a player in about a subject,\n# and your pitch to a recruit. Written through the Message "
+    "Batches API and checked by tools/linebank (check.py and one model pass);\n# merged by `run.py --job ownlines "
+    "merge`. Format in src/world/folk/voice.rs. The code's own wording is each part's fallback."),
+    'recruit20k': (
     "# The recruiting talks line run (Cain 2026-11-12, 20,000 lines for the recruiting personal talks). Written "
     "through the Message Batches API and checked by\n# tools/linebank (check.py and one model pass); merged here by "
     "`run.py --job recruit20k merge`. Format in src/world/folk/voice.rs.\n# portal.* are asked by the game today; "

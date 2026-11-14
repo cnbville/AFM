@@ -1,0 +1,94 @@
+/* The player page's Attributes tab (attributes page build, lane 3), from
+   the canvas boards A to F in Showtime's tokens. Every class is at- so the
+   app's global names never restyle it. */
+.at { --at-elite: #e01c54; --at-amber: #e0a23a; --at-ink: #fff; display: grid; gap: 16px; }
+:root[data-theme="light"] .at { --at-elite: #a80a3e; --at-amber: #b97d12; --at-ink: #14161c; }
+
+/* ---------- the bar on top ---------- */
+.at-tb { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; }
+.at-tgl { display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; color: var(--fg2); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; padding: 4px 2px; }
+.at-tgl .sw { width: 30px; height: 18px; border-radius: 999px; background: var(--fill-2); position: relative; display: inline-block; }
+.at-tgl .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 12px; height: 12px; border-radius: 50%; background: var(--fg3); transition: left .15s; }
+.at-tgl .sw.on { background: var(--fg); }
+.at-tgl .sw.on::after { left: 15px; background: var(--ground); }
+.at-tgl:focus-visible, .at-it:focus-visible, .at-tr:focus-visible { outline: 2px solid var(--fg2); outline-offset: 3px; border-radius: 4px; }
+.at-lg { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; color: var(--fg3); font-size: 12px; }
+.at-lg .lgr { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px 16px; align-items: center; }
+.at-lg i { display: inline-block; vertical-align: middle; margin-right: 6px; }
+.at-lg .p { width: 22px; height: 6px; border-radius: 3px; background: var(--fg); }
+.at-lg .o { width: 22px; height: 7px; border-radius: 4px; box-shadow: inset 0 0 0 1.5px var(--fg2); }
+.at-lg .m { width: 22px; height: 6px; border-radius: 3px; background: var(--fg3); opacity: .7; }
+.at-lg .s { width: 1px; height: 12px; background: var(--fg2); }
+.at-lg .e { width: 2px; height: 15px; background: var(--at-elite); }
+.at-lg .gb { width: 70px; height: 6px; border-radius: 3px; margin: 0 8px; }
+
+/* ---------- the strip ---------- */
+.at-brief { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); background: var(--raised); border: 1px solid var(--hair); border-radius: 20px; }
+.at-brief.p4 { grid-template-columns: 1fr 1fr 1fr 1.25fr; }
+.at-brief > div { padding: 14px 20px; border-left: 1px solid var(--hair); min-width: 0; }
+.at-brief > div:first-child { border-left: 0; }
+.at-brief .kick { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--fg3); }
+.at-brief .v { margin-top: 6px; font-weight: 600; display: flex; gap: 6px 16px; flex-wrap: wrap; align-items: center; }
+.at-brief .it { display: inline-flex; align-items: center; gap: 5px; }
+.at-brief .sm { color: var(--fg3); font-weight: 500; font-variant-numeric: tabular-nums; }
+.at-it { cursor: pointer; border: 0; border-bottom: 1px solid var(--hair); background: none; padding: 0; font: inherit; color: var(--fg); }
+.at-it:hover { border-bottom-color: var(--fg2); }
+.at-brief .pr { display: grid; grid-template-columns: 82px 1fr; gap: 0 8px; align-items: baseline; margin-top: 7px; }
+.at-brief .pr small { color: var(--fg3); font-weight: 600; font-size: 13px; }
+.at-brief .pr b { font-weight: 600; }
+.at-brief .pr .dim b { color: var(--fg2); }
+.at-brief .hint { margin-top: 8px; color: var(--fg3); }
+.at .cg { width: 12px; height: 12px; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.at .cg.up { stroke: var(--fg); }
+.at .cg.dn { stroke: var(--at-amber); }
+.at .cg.same { stroke: var(--fg3); }
+
+/* ---------- the cards ---------- */
+.at-cols { column-width: 330px; column-gap: 18px; }
+.at-card { break-inside: avoid; background: var(--raised); border: 1px solid var(--hair); border-radius: 20px; padding: 6px 18px 8px; margin: 0 0 18px; display: block; }
+.at-card header { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 0 10px; border-bottom: 1px solid var(--hair); margin-bottom: 2px; }
+.at-card h3 { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--fg3); }
+.at-card .hr { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 12.5px; }
+.at-card .hr .sm { color: var(--fg3); font-weight: 500; }
+.at-card .bnd.faint { color: var(--fg3); font-weight: 500; }
+.at-row { display: grid; grid-template-columns: minmax(96px, 128px) minmax(60px, 1fr) 52px 14px; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--hair); min-height: 34px; font-size: 13px; }
+.at-row.cmp { grid-template-columns: minmax(96px, 128px) minmax(60px, 1fr) 52px 26px; }
+.at-row:last-child { border-bottom: 0; }
+.at-row:hover { background: var(--fill-1); }
+.at-row.flash { background: var(--fill-2); }
+.at-row.has-why { row-gap: 0; padding-bottom: 9px; }
+.at-nm { min-width: 0; color: var(--fg); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.at-why { grid-column: 1 / -1; color: var(--fg3); font-size: 12.5px; line-height: 1.25; margin-top: 1px; }
+.at-tr { position: relative; height: 30px; display: block; cursor: default; }
+.at-tr .trk { position: absolute; left: 0; right: 0; top: 6px; height: 6px; border-radius: 6px; background: var(--fill-1); }
+.at-tr .zone { position: absolute; top: 6px; height: 6px; right: 0; border-radius: 0 6px 6px 0; background: rgba(224, 28, 84, .2); }
+.at-tr .fill { position: absolute; top: 6px; left: 0; height: 6px; border-radius: 6px 0 0 6px; background: var(--fill-2); }
+.at-tr .pill { position: absolute; top: 6px; height: 6px; min-width: 8px; border-radius: 3px; background: var(--fg); }
+.at-tr .own { position: absolute; top: 17px; height: 7px; min-width: 7px; border-radius: 4px; box-shadow: inset 0 0 0 1.5px var(--fg2); }
+.at-tr .oth { position: absolute; top: 17px; height: 6px; min-width: 6px; border-radius: 3px; background: var(--fg3); opacity: .7; }
+.at-tr .tk { position: absolute; width: 1px; background: var(--fg2); top: 3px; height: 22px; }
+.at-tr .tk.el { background: var(--at-elite); top: 1px; height: 26px; width: 2px; margin-left: -1px; }
+.at-num { display: flex; flex-direction: column; align-items: flex-end; justify-content: center; font-variant-numeric: tabular-nums; font-weight: 600; line-height: 1.25; white-space: nowrap; }
+.at-num b { font-weight: 600; }
+.at-num small { font-weight: 500; color: var(--fg2); font-size: 11.5px; }
+.at-num.nsx { color: var(--fg3); font-weight: 500; }
+.at-chg { display: grid; place-items: center; }
+.at-dl { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--fg3); text-align: right; }
+.at-dl.pos { color: var(--fg); }
+.at-row.ns .trk { background: repeating-linear-gradient(90deg, var(--fill-1) 0 4px, transparent 4px 8px); }
+.at-row.ns .at-nm { color: var(--fg2); }
+.at-row.dim { opacity: .38; }
+.at-row.dim:hover { opacity: .75; }
+.at-row.dim .at-tr { height: 22px; }
+.at-row.dim .trk, .at-row.dim .fill, .at-row.dim .pill { top: 8px; }
+.at-sep { padding: 12px 0 6px; color: var(--fg3); font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; border-bottom: 1px solid var(--hair); }
+.at-foot { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; color: var(--fg3); font-size: 12.5px; }
+.at-foot span:last-child { white-space: nowrap; }
+.at-foot a { color: var(--fg2); cursor: pointer; border-bottom: 1px solid var(--hair); }
+
+/* The weight line the hover card adds (ratings.js). */
+.rr-card .rr-wt { color: var(--sl-text2, var(--fg2)); font-weight: 600; }
+@media (max-width: 900px) {
+  .at-brief, .at-brief.p4 { grid-template-columns: 1fr 1fr; }
+  .at-brief > div:nth-child(odd) { border-left: 0; }
+}

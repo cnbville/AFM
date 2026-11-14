@@ -368,7 +368,7 @@ fn read(p: &mut Person, coach: Option<usize>, coach_motivation: f64, parts: Part
 
 /// His view of himself (topic 3): his real level, overrated by ego and
 /// ambition (proposed, not confirmed: up to about 4 points each).
-fn self_view(p: &Person) -> f64 {
+pub(crate) fn self_view(p: &Person) -> f64 {
     let t = &p.player.personality.traits;
     p.player.overall() + 4.0 * t.z(Trait::Ego).max(0.0) + 1.5 * t.z(Trait::Ambition)
 }
