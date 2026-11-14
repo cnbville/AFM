@@ -1,0 +1,105 @@
+# The recruit's other talks (talk facts lane L6): hand-written lines for
+# their most common new parts, until the bank run (lane L12) fills them.
+# Every other part falls back to the recruit conversation's lines
+# (recruit_case.txt) and then to plain words built from the facts.
+
+# His family calls you: a coach left your staff ({coach}: the man who
+# left; {when}). Whoever decides says it; "we" is his side.
+@key recruit.family.coach_left
+We saw {coach} is gone. Who's going to coach him now?
+{coach} left. That was a big part of why we liked you. What happens now?
+We just read that {coach} is out. We need to hear it from you, Coach.
+{coach} was the man we trusted over there. Who takes his place?
+So {coach} is gone {when}. Where does that leave us?
+Nobody told us {coach} was leaving. Is there anything else we should know?
+We built a lot on {coach}. Tell us the plan now.
+With {coach} gone, why should we still believe in this?
+
+# His family calls you: you took a commitment at his spot ({name}, {spot},
+# {when}).
+@key recruit.family.commit_at_spot
+We saw {name} committed to you at {spot}. Where does that leave us?
+{name} is coming to play {spot}. Is there still a place for him?
+We heard about {name}. How many {spot} are you taking this year?
+You just took {name} at {spot}. Be honest with us about what that means.
+{name} committed {when}. Are you still counting on us?
+Another {spot} committed to you. We need to know where we stand.
+
+# His family calls you: another school ahead of you offered him
+# ({school}, {when}).
+@key recruit.family.new_offer
+{school} offered {when}. Tell us why we should stay with you.
+{school} called. It's a serious offer, Coach. What do you say to that?
+Now {school} is in it. Why are you still the place?
+{school} offered him. We'd like to hear your side before we think about it.
+We have an offer from {school} on the table. Make your case.
+{school} came in {when}. We're listening to everyone now.
+
+# His family calls you: your job is in the news.
+@key recruit.family.your_job
+We keep reading about your job. Will you be there for him?
+People are saying you might not be there next year. Is that true?
+Coach, we need to know you're staying before we decide anything.
+The papers have you leaving. We're asking you straight.
+If you're not there in two years, none of this matters. Are you staying?
+We're hearing things about your job. Tell us what's real.
+
+# His family calls you about something else that changed.
+@key recruit.family.any
+Something changed, Coach. We wanted to hear it from you.
+We saw the news. We'd rather talk to you than read about it.
+Got a minute? We have questions after this week.
+Before we hear it from anybody else, tell us what's going on.
+We're still with you, but we need some answers.
+Help us understand where things stand now.
+
+# His answer to a message of yours about something that happened: warm
+# (you're among his first two schools), polite (third or fourth),
+# guarded.
+@key recruit.message.thanks.warm
+Appreciate you, Coach! Means a lot.
+Thank you Coach! Always good to hear from you.
+That means a lot coming from you. Thank you!
+Appreciate that, Coach. Talk soon.
+Thanks Coach! I'll be watching Saturday.
+You always reach out. I notice that. Thank you.
+Thank you! Can't wait to see you again.
+Means a lot, Coach. For real.
+
+@key recruit.message.thanks.polite
+Thanks, Coach. Appreciate it.
+Appreciate you reaching out.
+Thank you, Coach.
+Thanks for thinking of me.
+Appreciate it. Hope you have a good week.
+Thanks, Coach. I'll be in touch.
+
+@key recruit.message.thanks.guarded
+Thanks.
+Appreciate it.
+Thanks Coach.
+Got it, thanks.
+Thank you.
+Ok, thanks Coach.
+
+# A high school recruit's side when you make him a promise: they believe
+# it, or they've heard it before. Whoever decides says it.
+@key recruit.promise.hs.believes
+That's what we needed to hear. We'll hold you to it.
+We believe you, Coach. That means everything.
+If you say it, we trust it. Thank you.
+That's the kind of word we came here for.
+We'll remember you said that. In a good way.
+That changes things for us. Thank you for saying it plainly.
+We believe you. Don't make us regret it.
+Thank you. That's a promise we can build on.
+
+@key recruit.promise.hs.doubts
+Every coach says that, Coach.
+We've heard that one in every living room.
+Words are easy. We'll see.
+I want to believe you. I'm not there yet.
+Somebody told us the same thing last week.
+That's a big promise. How do we know you'll keep it?
+We'll believe it when we see it.
+Respectfully, Coach, everybody promises something.

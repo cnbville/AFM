@@ -35,10 +35,14 @@
 //! Every size here is Claude's (proposed, not confirmed); the case's cap
 //! and the 3 and 6 exchanges are Cain's (2026-11-12, in `case.rs`).
 
-use super::case::{self, CALL_EXCHANGES, Case, PHONE, SIT_DOWN_EXCHANGES};
+use super::case::{
+    self, CALL_EXCHANGES, Case, FAMILY_EXCHANGES, MESSAGE, MESSAGE_EXCHANGES, PHONE, SIT_DOWN_EXCHANGES,
+};
 use super::claims::{self, Ear, Family, Group, Kind, Point, Sheet, Tier};
 use super::dialogue::{self, ON_CAMPUS};
+use super::pledge;
 use super::pulls::{Ev, Pull, Where};
+use super::reach;
 use super::scene::{self, Kind as Scenes, Pick, PickKind, Scene};
 use super::voice::{self, Facts, Speaker};
 use crate::player::{PlayingTime, Trait};
@@ -109,6 +113,12 @@ const ELSE: u32 = 7510;
 const PROMISE_MENU: u32 = 7520;
 /// Straight about a group you have no point in (7530 + the group).
 const STRAIGHT_GROUP: u32 = 7530;
+/// A promise to a high school recruit (lane L6): this plus its kind
+/// (`pledge::Kind`).
+const PROMISE_RECRUIT: u32 = 731;
+/// A message about one thing that happened (lane L6): this plus the
+/// event's place in the catalogue.
+const NEWS: u32 = 7700;
 const DECIDES: u32 = 7601;
 const OTHERS: u32 = 7602;
 const HOME: u32 = 7603;
@@ -180,6 +190,9 @@ struct Talk {
     transfer: bool,
     ear: Ear,
     at: Where,
+    scene: Scenes,
+    /// The group his family called about (lane L6): their question first.
+    lead: Option<Group>,
 }
 
 impl Talk {
@@ -187,13 +200,35 @@ impl Talk {
         self.at == Where::Call
     }
     fn scale(&self) -> f32 {
-        if self.phone() { PHONE } else { 1.0 }
+        match self.at {
+            Where::Call => PHONE,
+            Where::Message => MESSAGE,
+            _ => 1.0,
+        }
     }
     fn limit(&self) -> u8 {
-        (if self.phone() { CALL_EXCHANGES } else { SIT_DOWN_EXCHANGES }) as u8
+        (match (self.scene, self.at) {
+            (_, Where::Message) => MESSAGE_EXCHANGES,
+            (Scenes::FamilyCall, _) => FAMILY_EXCHANGES,
+            (_, Where::Call) => CALL_EXCHANGES,
+            _ => SIT_DOWN_EXCHANGES,
+        }) as u8
     }
     fn setting(&self) -> &'static str {
-        if self.phone() { "call" } else { "visit" }
+        match self.at {
+            Where::Call => "call",
+            Where::Message => "message",
+            _ => "visit",
+        }
+    }
+    /// A sit-down: a living room, or your office at the end of a visit.
+    fn sit_down(&self) -> bool {
+        matches!(self.at, Where::Home | Where::Campus)
+    }
+    /// He speaks for himself: a transfer, and a recruit on the phone or in
+    /// a message.
+    fn himself(&self) -> bool {
+        self.transfer || self.ear == Ear::Himself
     }
 }
 
@@ -208,9 +243,14 @@ fn talk(w: &World, s: &Scene) -> Option<Talk> {
         Scenes::HomeVisit => (false, Ear::Decider, Where::Home),
         Scenes::PortalCall => (true, Ear::Himself, Where::Call),
         Scenes::PortalVisit => (true, Ear::Himself, if s.f[1] == ON_CAMPUS { Where::Campus } else { Where::Home }),
+        Scenes::RecruitCall => (false, Ear::Himself, Where::Call),
+        Scenes::RecruitMessage => (false, Ear::Himself, Where::Message),
+        Scenes::FamilyCall => (false, Ear::Decider, Where::Call),
+        Scenes::OfficialTalk => (false, Ear::Decider, Where::Campus),
         _ => return None,
     };
-    Some(Talk { i, id, j, transfer, ear, at })
+    let lead = reach::family_about(s).map(|x| x.1);
+    Some(Talk { i, id, j, transfer, ear, at, scene: s.kind, lead })
 }
 
 /// Why there is nothing left to talk about, if so.
@@ -234,7 +274,7 @@ fn you(w: &World) -> Option<usize> {
 /// online, calm) but is never the parent who isn't around; a trainer and a
 /// recruit who decides himself speak in neither.
 fn speaker(w: &World, t: &Talk) -> Speaker {
-    if t.transfer {
+    if t.himself() {
         return Speaker::player(w, t.i);
     }
     const STYLE: [&str; 4] = ["loud", "online", "calm", "absent"];
@@ -265,7 +305,7 @@ fn verb(who: &str, one: &'static str, many: &'static str) -> &'static str {
 /// The name on his side's lines.
 fn who(w: &World, t: &Talk) -> String {
     let p = &w.people[t.i];
-    if t.transfer || p.family.decider == Decider::Himself {
+    if t.himself() || p.family.decider == Decider::Himself {
         "Him".into()
     } else {
         dialogue::decider_words(p).to_string()
@@ -837,7 +877,7 @@ fn rest_picks(w: &World, t: &Talk, st: &St, out: &mut Vec<Pick>) {
             "He tells you what he weighs. It uses no time.",
         ));
     }
-    if st.free & 2 == 0 {
+    if st.free & 2 == 0 && t.scene != Scenes::FamilyCall {
         out.push(if t.transfer {
             free(DECIDES, "\"Why did you leave?\"", "Ask him", "His reason, in his words. It uses no time.")
         } else {
@@ -866,13 +906,18 @@ fn rest_picks(w: &World, t: &Talk, st: &St, out: &mut Vec<Pick>) {
         }
         .of(PickKind::Nav),
     );
-    if t.transfer && portal::promised(w, t.id).is_none() {
+    if (t.transfer && portal::promised(w, t.id).is_none()) || (!t.transfer && can_promise(w, t)) {
         out.push(
             Pick {
                 label: "Make him a promise".into(),
                 mv: "Promise".into(),
                 tone: "firm".into(),
-                hint: "A starting job or a real role, checked after he arrives.".into(),
+                hint: if t.transfer {
+                    "A starting job or a real role, checked after he arrives."
+                } else {
+                    "A start, a role, his position, an early chance or no redshirt, checked once he's yours."
+                }
+                .into(),
                 code: PROMISE_MENU,
                 ..Pick::default()
             }
@@ -880,10 +925,10 @@ fn rest_picks(w: &World, t: &Talk, st: &St, out: &mut Vec<Pick>) {
         );
     }
     out.push(Pick {
-        label: if t.transfer {
-            "\"Think it over. Call me anytime.\"".into()
-        } else {
-            "\"Thank you for having me. Think it over.\"".into()
+        label: match t.at {
+            _ if t.transfer || t.phone() => "\"Think it over. Call me anytime.\"".into(),
+            Where::Campus => "\"Thanks for coming. Think it over.\"".into(),
+            _ => "\"Thank you for having me. Think it over.\"".into(),
         },
         mv: "Wrap up".into(),
         tone: "calm".into(),
@@ -893,7 +938,52 @@ fn rest_picks(w: &World, t: &Talk, st: &St, out: &mut Vec<Pick>) {
     });
 }
 
-fn promise_picks(s: &mut Scene, back: bool) {
+fn promise_picks(w: &World, s: &mut Scene, t: &Talk, back: bool) {
+    if !t.transfer {
+        // A high school recruit: the five things coaches promise them.
+        let pos = w.people[t.i].player.position;
+        for k in pledge::Kind::ALL {
+            s.picks.push(
+                Pick {
+                    label: k.label(pos),
+                    mv: "Promise".into(),
+                    tone: if k == pledge::Kind::Start { "firm" } else { "warm" }.into(),
+                    hint: k.hint().into(),
+                    code: PROMISE_RECRUIT + k as u32,
+                    ..Pick::default()
+                }
+                .of(PickKind::Final),
+            );
+        }
+    } else {
+        transfer_promise_picks(s);
+    }
+    if back {
+        s.picks.push(
+            Pick {
+                label: "Not yet".into(),
+                mv: "Back".into(),
+                tone: "calm".into(),
+                hint: String::new(),
+                code: BACK,
+                ..Pick::default()
+            }
+            .of(PickKind::Nav),
+        );
+    }
+    s.picks.push(Pick {
+        label: if t.transfer { "\"Think it over. Call me anytime.\"" } else { "\"Think it over. We'll talk soon.\"" }
+            .into(),
+        mv: "Leave it there".into(),
+        tone: "calm".into(),
+        hint: String::new(),
+        code: LEAVE,
+        ..Pick::default()
+    });
+}
+
+/// A transfer's two promises, as built.
+fn transfer_promise_picks(s: &mut Scene) {
     s.picks.push(
         Pick {
             label: "\"You'll start for us. You have my word.\"".into(),
@@ -917,27 +1007,6 @@ fn promise_picks(s: &mut Scene, back: bool) {
         }
         .of(PickKind::Final),
     );
-    if back {
-        s.picks.push(
-            Pick {
-                label: "Not yet".into(),
-                mv: "Back".into(),
-                tone: "calm".into(),
-                hint: String::new(),
-                code: BACK,
-                ..Pick::default()
-            }
-            .of(PickKind::Nav),
-        );
-    }
-    s.picks.push(Pick {
-        label: "\"Think it over. Call me anytime.\"".into(),
-        mv: "Leave it there".into(),
-        tone: "calm".into(),
-        hint: String::new(),
-        code: LEAVE,
-        ..Pick::default()
-    });
 }
 
 /// The picks for where the talk stands.
@@ -947,8 +1016,12 @@ fn picks(w: &World, s: &mut Scene, t: &Talk, st: &St, sheet: &Sheet) {
     let pts = on_table(w, t, s.id, sheet);
     let mut out: Vec<Pick> = Vec::new();
     if st.nav == NAV_PROMISE || st.stage == 1 {
-        promise_picks(s, st.stage == 0);
+        promise_picks(w, s, t, st.stage == 0);
         return;
+    }
+    // A message: you name one thing (lane L6).
+    if t.at == Where::Message && !(1..=7).contains(&st.nav) {
+        return message_picks(w, s, t, &pts, sheet);
     }
     if (1..=7).contains(&st.nav) {
         let g = Group::ALL[st.nav as usize - 1];
@@ -1069,7 +1142,9 @@ fn next_beat(w: &mut World, s: &mut Scene, t: &Talk, mut st: St) {
     let seed = (s.id as u64) << 20 ^ (st.used as u64) << 4 ^ 0xA5C0;
     st.nav = NAV_ASKED;
     let heard = if firsts { Ev::BroughtUp } else { Ev::AskedLater };
-    let asked = ask_now.then(|| asks(w, t, st.asked, st.made, seed)).flatten();
+    // His family called about something: their question first (lane L6).
+    let lead = t.lead.filter(|_| firsts);
+    let asked = lead.or_else(|| ask_now.then(|| asks(w, t, st.asked, st.made, seed)).flatten());
     let pt = asked.and_then(|g| {
         pts.iter()
             .copied()
@@ -1144,7 +1219,18 @@ fn wrap_up(w: &mut World, s: &mut Scene, t: &Talk, mut st: St) {
         st.nav = NAV_PROMISE;
         s.picks.clear();
         s.reach.clear();
-        promise_picks(s, false);
+        promise_picks(w, s, t, false);
+        st.put(s);
+        return;
+    }
+    // A high school recruit at a sit-down, holding your offer: the promise
+    // before you go (lane L6).
+    if !t.transfer && t.sit_down() && can_promise(w, t) && st.stage == 0 {
+        st.stage = 1;
+        st.nav = NAV_PROMISE;
+        s.picks.clear();
+        s.reach.clear();
+        promise_picks(w, s, t, false);
         st.put(s);
         return;
     }
@@ -1154,7 +1240,12 @@ fn wrap_up(w: &mut World, s: &mut Scene, t: &Talk, mut st: St) {
 /// How a talk that moved your case by `d` ended: "warm", "flat" or
 /// "cool" (a call's warm bar is a call's size).
 pub fn mood_of(d: f32, phone: bool) -> &'static str {
-    if d >= CLOSE_WARM * if phone { PHONE } else { 1.0 } {
+    mood_at(d, if phone { PHONE } else { 1.0 })
+}
+
+/// `mood_of` for a talk of any size (a message is a quarter).
+fn mood_at(d: f32, scale: f32) -> &'static str {
+    if d >= CLOSE_WARM * scale {
         "warm"
     } else if d >= 0.0 {
         "flat"
@@ -1167,7 +1258,7 @@ pub fn mood_of(d: f32, phone: bool) -> &'static str {
 /// the talk on his file and whether he has heard enough.
 fn close(w: &mut World, s: &mut Scene, t: &Talk, st: &St) {
     let d = s.f[0];
-    let mood = mood_of(d, t.phone());
+    let mood = mood_at(d, t.scale());
     let sp = speaker(w, t);
     let f = base(w, t);
     if let Some(x) = say(w, s, 90, &[format!("recruit.close.{}.{mood}", t.setting())], &sp, &f) {
@@ -1676,7 +1767,7 @@ pub(crate) fn open(w: &mut World, s: &mut Scene) {
         .scenes
         .iter()
         .filter(|x| x.id != s.id && x.a == s.a && x.opened && !x.done)
-        .filter(|x| matches!(x.kind, Scenes::HomeVisit | Scenes::PortalCall | Scenes::PortalVisit))
+        .filter(|x| x.kind.is_pitch())
         .map(|x| x.id)
         .collect();
     for id in open {
@@ -1684,7 +1775,9 @@ pub(crate) fn open(w: &mut World, s: &mut Scene) {
     }
     let p = &w.people[t.i];
     let kid = super::player_link(w, t.i);
-    let room = if !t.transfer {
+    let room = if let Some(r) = setting_words(w, &t, &kid) {
+        r
+    } else if !t.transfer {
         match p.family.decider {
             Decider::Himself => format!("{kid} and his family sit across from you. He does the talking."),
             _ => {
@@ -1705,6 +1798,21 @@ pub(crate) fn open(w: &mut World, s: &mut Scene) {
     let sp = speaker(w, &t);
     let name = who(w, &t);
     let f = base(w, &t);
+    // A message: you write first, about one thing (lane L6).
+    if t.at == Where::Message {
+        s.f[0] = 0.0;
+        let st = St::default();
+        let sheet = claims::recruit(w, t.i, t.j, t.ear);
+        picks(w, s, &t, &st, &sheet);
+        st.put(s);
+        return;
+    }
+    // His family called you: they say what changed (lane L6).
+    if let Some((ev, _)) = reach::family_about(s) {
+        family_opens(w, s, &t, ev);
+        s.f[0] = 0.0;
+        return next_beat(w, s, &t, St::default());
+    }
     let warm = warmth(w, &t);
     if let Some(x) = say(w, s, 1, &[format!("recruit.open.{}.{warm}", t.setting())], &sp, &f) {
         s.them(&name, x, None);
@@ -1767,6 +1875,15 @@ pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         PROMISE_MENU => st.nav = NAV_PROMISE,
         c if (GROUP..GROUP + 7).contains(&c) => st.nav = (c - GROUP) as u8 + 1,
         PROMISE_START | PROMISE_ROLE => return promise(w, s, &t, st, (code - PROMISE_START) as u8, picked),
+        c if (PROMISE_RECRUIT..PROMISE_RECRUIT + 5).contains(&c) && !t.transfer => {
+            return recruit_promise(w, s, &t, st, (c - PROMISE_RECRUIT) as u8, picked);
+        }
+        c if (NEWS..NEWS + 100).contains(&c) && t.at == Where::Message => {
+            return match kind_at(c - NEWS) {
+                Some(k) => send_news(w, s, &t, st, k, picked),
+                None => close(w, s, &t, &st),
+            };
+        }
         LEAVE => {
             let me = scene::your_name(w);
             s.you(&me, picked.label.trim_matches('"'));
@@ -1908,4 +2025,208 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
     });
     let made = covered.iter().fold(0u8, |m, &g| m | bit(g));
     finish(w, s, &t, delta, made);
+}
+
+// ---------------------------------------------------------------------------
+// The recruit's other talks (lane L6): calls, messages, his family's call,
+// the official visit's sit-down, and promises to a high school recruit.
+
+/// Where the talk happens, for the talks lane L6 added (None for the
+/// living room and a transfer's talks, which say it as before).
+fn setting_words(w: &World, t: &Talk, kid: &str) -> Option<String> {
+    let p = &w.people[t.i];
+    let d = dialogue::decider_words(p);
+    Some(match t.scene {
+        Scenes::RecruitCall => format!("{kid} picks up. Your staff has kept his number warm."),
+        Scenes::RecruitMessage => {
+            let noun = crate::calendar::contact::Medium::of(w.today).noun();
+            format!("You write {kid} a {noun}. One thing, said well.")
+        }
+        Scenes::FamilyCall => match p.family.decider {
+            Decider::Himself => format!("{kid} calls you. Something changed, and he wants to hear it from you."),
+            _ => format!("{d} calls you about {kid}. Something changed, and they want to hear it from you."),
+        },
+        Scenes::OfficialTalk => match p.family.decider {
+            Decider::Himself => format!(
+                "{kid} sits across your desk at the end of his official visit, his family beside him. He does the talking."
+            ),
+            _ => format!(
+                "{kid} sits across your desk at the end of his official visit. {d} {} the talking.",
+                verb(d, "does", "do")
+            ),
+        },
+        _ => return None,
+    })
+}
+
+/// His family's opening on the call: what changed, in their words, and
+/// that change is talked through.
+fn family_opens(w: &mut World, s: &mut Scene, t: &Talk, ev: Kind) {
+    let sheet = claims::recruit(w, t.i, t.j, t.ear);
+    let sp = speaker(w, t);
+    let name = who(w, t);
+    let f = base(w, t);
+    let Some(pt) = sheet.get(ev).cloned() else { return };
+    let ff = pt.facts(&f);
+    let plain = |h: &str| pt.get(h).unwrap_or("").to_string();
+    let fallback = match ev {
+        Kind::CoachLeft => format!("We saw {} is gone. Who's going to coach him now?", plain("coach")),
+        Kind::CommitAtSpot | Kind::SigneeAtSpot => {
+            format!("We heard {} is coming to play {}. Where does that leave him?", plain("name"), plain("spot"))
+        }
+        Kind::TransferIn => {
+            format!("{} is transferring in at {}. Where does that leave him?", plain("name"), plain("spot"))
+        }
+        Kind::YourJob => "We keep reading about your job. Will you be there for him?".to_string(),
+        Kind::NewOffer => format!("{} offered him. Tell us why we should stay with you.", plain("school")),
+        _ => "Something changed, Coach. We wanted to hear it from you.".to_string(),
+    };
+    let keys = [format!("recruit.family.{}", ev.key()), "recruit.family.any".to_string()];
+    let x = say(w, s, 2, &keys, &sp, &ff).unwrap_or(fallback);
+    s.them(&name, x, None);
+    let today = w.today;
+    w.folk.talked.note_in(today, s.id, t.id, &pt, false, "family");
+}
+
+/// Whether you can make a high school recruit a promise: your offer is out
+/// and his case with you holds none.
+fn can_promise(w: &World, t: &Talk) -> bool {
+    !t.transfer
+        && t.at != Where::Message
+        && crate::world::front_office::college::offered_here(w, t.id)
+        && pledge::on_case(w, t.i, t.j).is_none()
+}
+
+/// Your words about something that happened, for a message: only an event
+/// you can name from the sheet.
+fn news_words(pt: &Point) -> Option<String> {
+    let g = |h: &str| pt.get(h).filter(|x| !x.is_empty()).map(str::to_string);
+    let when = g("when").map(|x| format!(" {x}")).unwrap_or_default();
+    Some(match pt.kind {
+        Kind::HisGame => format!("Saw you played {}{when}. How'd it go?", g("opp")?),
+        Kind::NewOffer => format!("Heard {} offered you{when}. You've earned every one of them.", g("school")?),
+        Kind::YourWin => format!("Big one for us{when}: {} over {}. Wish you'd been there.", g("score")?, g("opp")?),
+        Kind::TrackTime => format!("Saw your {} time{when}. That's real speed.", g("event")?),
+        Kind::CampForty => format!("Heard about the forty at {}{when}. Keep stacking.", g("place")?),
+        Kind::RankUpdate if pt.is("move", "up") => format!("Saw you moved up in the rankings{when}. Stay hungry."),
+        Kind::AllState => "Congratulations on all-state. Nobody earned it more.".to_string(),
+        Kind::TitleRun => format!("What a run: {} went {}. Be proud of that.", g("school")?, g("record")?),
+        Kind::TopSchools if pt.is("in", "yes") => "Saw your list. Glad we're on it.".to_string(),
+        _ => return None,
+    })
+}
+
+/// A message's picks: something that happened, or one point of yours.
+fn message_picks(w: &World, s: &mut Scene, t: &Talk, pts: &[&Point], sheet: &Sheet) {
+    let mut out: Vec<Pick> = Vec::new();
+    for ev in news(w, t, sheet).into_iter().filter_map(|p| news_words(p).map(|x| (p, x))).take(3) {
+        out.push(
+            Pick {
+                label: format!("\"{}\"", ev.1),
+                mv: "Keep in touch".into(),
+                tone: "warm".into(),
+                hint: "No pitch: it keeps you in his life. No pull.".into(),
+                code: NEWS + place_of(ev.0.kind),
+                ..Pick::default()
+            }
+            .on(ev.0.kind.key()),
+        );
+    }
+    for g in Group::ALL {
+        let n = pts.iter().filter(|p| p.kind.group() == Some(g)).count();
+        if n == 0 {
+            continue;
+        }
+        out.push(
+            Pick {
+                label: g.name().into(),
+                mv: "Write about".into(),
+                tone: "calm".into(),
+                hint: format!(
+                    "{n} point{} you can make. A message lands at a quarter of a sit-down.",
+                    if n == 1 { "" } else { "s" }
+                ),
+                code: GROUP + g as u32,
+                ..Pick::default()
+            }
+            .of(PickKind::Nav),
+        );
+    }
+    out.push(Pick {
+        label: "Don't send it".into(),
+        mv: "Leave it".into(),
+        tone: "calm".into(),
+        hint: String::new(),
+        code: LEAVE,
+        ..Pick::default()
+    });
+    s.picks = out;
+    s.reach.clear();
+    for p in pts {
+        s.reach.push(point_pick(w, s, t, p));
+    }
+}
+
+/// A message about something that happened: he answers, and it is talked
+/// through. No pull: keeping in touch is a contact, not a pitch.
+fn send_news(w: &mut World, s: &mut Scene, t: &Talk, mut st: St, k: Kind, picked: &Pick) {
+    let sheet = claims::recruit(w, t.i, t.j, t.ear);
+    let me = scene::your_name(w);
+    s.you(&me, picked.label.trim_matches('"'));
+    if let Some(pt) = sheet.get(k).cloned() {
+        let today = w.today;
+        w.folk.talked.note_in(today, s.id, t.id, &pt, false, "message");
+        let sp = speaker(w, t);
+        let f = pt.facts(&base(w, t));
+        let warm = warmth(w, t);
+        let keys = [format!("recruit.message.{}", k.key()), format!("recruit.message.thanks.{warm}")];
+        let x = say(w, s, 70, &keys, &sp, &f).unwrap_or_else(|| {
+            match warm {
+                "warm" => "Appreciate you, Coach! Means a lot.",
+                "polite" => "Thanks, Coach. Appreciate it.",
+                _ => "Thanks.",
+            }
+            .to_string()
+        });
+        let name = who(w, t);
+        s.them(&name, x, None);
+    }
+    st.used += 1;
+    st.put(s);
+    s.outcome.push("You kept in touch. No pitch and no pull: he heard from you.".into());
+    finish(w, s, t, 0.0, 0);
+}
+
+/// Your promise to a high school recruit: it goes on his case with you and
+/// pulls by how far they believe it (`pledge::make`); then the talk closes.
+fn recruit_promise(w: &mut World, s: &mut Scene, t: &Talk, st: St, k: u8, picked: &Pick) {
+    let me = scene::your_name(w);
+    s.you(&me, picked.label.trim_matches('"'));
+    let Some(kind) = pledge::Kind::of(k) else { return close(w, s, t, &st) };
+    if !can_promise(w, t) {
+        s.outcome.push("You've made him a promise already, or your offer isn't out.".into());
+        return close(w, s, t, &st);
+    }
+    let sheet = claims::recruit(w, t.i, t.j, t.ear);
+    let room = sheet.get(Kind::Room).and_then(|p| p.proof).map_or(0.5, |p| p.strength as f64);
+    let Some((_, belief)) = pledge::make(w, t.i, t.j, kind, t.ear, room) else { return close(w, s, t, &st) };
+    let key = if belief >= pledge::BELIEVES { "believes" } else { "doubts" };
+    let sp = speaker(w, t);
+    let f = base(w, t);
+    let keys = [format!("recruit.promise.{}.{key}", kind.key()), format!("recruit.promise.hs.{key}")];
+    let name = who(w, t);
+    if let Some(x) = say(w, s, 60, &keys, &sp, &f) {
+        s.them(&name, x, None);
+    }
+    s.outcome.push(
+        if key == "believes" {
+            "They believe you. It's what they wanted to hear, and it binds you."
+        } else {
+            "They've heard promises before. They aren't sure they believe yours."
+        }
+        .to_string(),
+    );
+    let pos = w.people[t.i].player.position;
+    s.outcome.push(format!("You promised {}. It's checked once he's yours.", kind.words(pos)));
+    close(w, s, t, &st);
 }
