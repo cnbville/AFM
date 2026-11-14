@@ -177,7 +177,7 @@ fn record((won, lost): (u32, u32), v: &str) -> Truth {
     if has(v, &["winless", "haven't won", "no wins"]) {
         return said(true, won == 0 && lost > 0);
     }
-    let nums: Vec<f64> = v.split(|c: char| !c.is_ascii_alphanumeric()).filter_map(|t| number(t)).take(2).collect();
+    let nums: Vec<f64> = v.split(|c: char| !c.is_ascii_alphanumeric()).filter_map(number).take(2).collect();
     match nums[..] {
         [a, b] => said(true, a as u32 == won && b as u32 == lost),
         _ => Truth::Unknown,

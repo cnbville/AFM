@@ -114,7 +114,7 @@ fn a_one_on_one_takes_a_typed_line() {
     let (mut w, him, _) = room();
     let id = talk(&mut w, him, Subject::Role);
     assert!(scene::takes_typed(&scene_of(&w, id)), "the box shows in a one-on-one");
-    assert!(talks::ONE_ON_ONE_TYPED);
+    const { assert!(talks::ONE_ON_ONE_TYPED) };
 }
 
 #[test]
