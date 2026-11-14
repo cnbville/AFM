@@ -460,6 +460,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         carrier_side: 0,
         dead: false,
         out_of_bounds: false,
+        pocket: None,
         progress: los,
         contact_force: 0.0,
         injury_scale: s.injury_scale,

@@ -939,6 +939,9 @@ pub struct Sim<'a> {
     pub carrier_side: usize,
     pub dead: bool,
     pub out_of_bounds: bool,
+    /// Where the quarterback last held the ball in the pocket: the spot a
+    /// pass rush drives toward after the throw or a scramble.
+    pub pocket: Option<V2>,
     /// Farthest forward spot of the ball carrier (forward progress).
     pub progress: f64,
     pub contact_force: f64,
@@ -1975,6 +1978,9 @@ impl<'a> Sim<'a> {
     /// the rusher wins ground; run blocks move with whoever is winning.
     pub fn update_blocks(&mut self, qb: Option<usize>, carrier: Option<usize>) {
         let t = self.t;
+        if let Some(q) = qb {
+            self.pocket = Some(self.agents[q].pos);
+        }
         for k in 0..self.eng.len() {
             if self.eng[k].over {
                 continue;
@@ -2198,7 +2204,11 @@ impl<'a> Sim<'a> {
             // Where the pair goes.
             let (bp, dp) = (self.agents[b].pos, self.agents[d].pos);
             let target = if e.pass {
-                qb.map(|q| self.agents[q].pos).unwrap_or(bp)
+                // Once the ball is gone (thrown, or the quarterback out of
+                // the pocket) the rush still fights toward where he stood.
+                // It drove at the blocker's own spot before: a fixed heading
+                // that could carry the pair off the field on a long play.
+                qb.map(|q| self.agents[q].pos).or(self.pocket).unwrap_or(bp)
             } else {
                 carrier.map(|c| self.agents[c].pos).unwrap_or(dp + v2(-self.goal, 0.0))
             };
@@ -2210,14 +2220,7 @@ impl<'a> Sim<'a> {
             } else {
                 1.6 * w
             };
-            let v = if e.pass && qb.is_none() {
-                // The ball is gone (thrown, or the quarterback is out of
-                // the pocket): nothing to drive toward, so the pair holds
-                // its ground. Before, it drove at the blocker's own spot,
-                // a fixed heading that could carry the two off the field
-                // on a long play.
-                V2::default()
-            } else if e.pass {
+            let v = if e.pass {
                 dir.scale(drive.max(-2.0))
             } else {
                 // The surge fades (`RUN_PUSH_BACK`, `RUN_PUSH_UP`): the push

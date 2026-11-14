@@ -840,6 +840,7 @@ fn run_return(
         carrier_side: 0,
         dead: false,
         out_of_bounds: false,
+        pocket: None,
         progress: catch.x,
         contact_force: 0.0,
         injury_scale,
