@@ -9,6 +9,7 @@
 
 pub mod anchors;
 pub mod born;
+pub mod contact;
 pub mod data;
 pub mod date;
 pub mod events;

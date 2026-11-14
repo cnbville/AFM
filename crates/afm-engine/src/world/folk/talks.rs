@@ -205,6 +205,9 @@ pub enum PromiseKind {
     /// job, 1 a real role, every week. Read off his games for you, not last
     /// season's role at his old school.
     Join(u8),
+    /// A high school recruit's promise when he signed (talk facts lane L6):
+    /// the kind (`pledge::Kind`) and his position when you made it.
+    Recruit(u8, u8),
 }
 
 impl PromiseKind {
@@ -220,6 +223,10 @@ impl PromiseKind {
             PromiseKind::Place(_) => "that his place wouldn't change".into(),
             PromiseKind::Join(0) => "a starting job when he came".into(),
             PromiseKind::Join(_) => "a real role when he came".into(),
+            PromiseKind::Recruit(k, pos) => super::pledge::Kind::of(k).map_or_else(
+                || "a promise when he signed".into(),
+                |x| x.words(crate::positions::Position::ALL[pos as usize % crate::positions::POSITION_COUNT]),
+            ),
         }
     }
 }
@@ -288,6 +295,7 @@ fn promise_due(w: &World, kind: PromiseKind, seasons: u8) -> Date {
         PromiseKind::Contract => today.add(150),
         PromiseKind::Stay | PromiseKind::Raise => today.add(330),
         PromiseKind::Booster(_) => end(w).max(today.add(60)),
+        PromiseKind::Recruit(k, _) => super::pledge::due(w, k),
     };
     base.add(
         365 * seasons.saturating_sub(1) as i32 * matches!(kind, PromiseKind::Booster(_) | PromiseKind::Stay) as i32,
@@ -393,6 +401,20 @@ pub(crate) fn kept(w: &World, p: &Promise) -> bool {
                     let (games, starts) = line.map_or((0, 0), |s| (s.games, s.starts));
                     here && if r == 0 { starts > 0 || seat_starter(w, i) } else { games >= 8 || starts >= 3 }
                 }
+                PromiseKind::Recruit(k, pos) => {
+                    let here = Team::seat(w).is_some_and(|t| t.roster(w).contains(&i));
+                    let mine = Team::seat(w).and_then(|t| match t {
+                        Team::College(c) => Some(c as u32),
+                        _ => None,
+                    });
+                    let line = w
+                        .tallies
+                        .players
+                        .get(crate::world::tally::Level::College, id)
+                        .filter(|s| Some(s.team) == mine && w.tallies.season == w.dates.season);
+                    let (games, starts) = line.map_or((0, 0), |s| (s.games, s.starts));
+                    here && super::pledge::kept(w, i, k, pos, games as u32, starts as u32)
+                }
                 PromiseKind::Contract => {
                     pp.pro.as_ref().and_then(|c| c.contract.as_ref()).is_some_and(|k| {
                         k.signed >= w.year && k.signed > p.made.year() - 1 && p.made.days_to(w.today) > 0
@@ -413,7 +435,11 @@ pub(crate) fn kept(w: &World, p: &Promise) -> bool {
 /// football. A club that cut or traded him, or a program or school that
 /// dismissed him, broke it (`kept`).
 pub(crate) fn lapsed(w: &World, p: &Promise) -> bool {
-    let (PromiseTo::Player(id), PromiseKind::Place(_) | PromiseKind::Join(_)) = (p.to, p.kind) else { return false };
+    let (PromiseTo::Player(id), PromiseKind::Place(_) | PromiseKind::Join(_) | PromiseKind::Recruit(..)) =
+        (p.to, p.kind)
+    else {
+        return false;
+    };
     let Some(i) = super::person(w, id) else { return true };
     let Some(team) = Team::seat(w) else { return false };
     if team.roster(w).contains(&i) {
@@ -425,6 +451,9 @@ pub(crate) fn lapsed(w: &World, p: &Promise) -> bool {
         Team::College(c) => {
             matches!(pp.stage, Stage::Pro | Stage::Declared | Stage::Done | Stage::Away)
                 || pp.college.is_some_and(|x| x != c)
+                // A recruit who never came (he didn't qualify, or went
+                // elsewhere first): the promise was his to take up.
+                || matches!(p.kind, PromiseKind::Recruit(..)) && pp.college.is_none()
         }
         Team::High(h) => pp.stage != Stage::HighSchool || pp.hs != h,
     }

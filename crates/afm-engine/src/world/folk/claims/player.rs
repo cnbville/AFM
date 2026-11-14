@@ -752,8 +752,8 @@ fn life_events(r: &Reader, m: &Man) -> Vec<Point> {
 }
 
 /// A promise's topic, so two promises due the same day are two points.
-pub(super) const PROMISE_TOPICS: [&str; 8] =
-    ["start", "snaps", "contract", "stay", "booster", "raise", "place", "join"];
+pub(super) const PROMISE_TOPICS: [&str; 9] =
+    ["start", "snaps", "contract", "stay", "booster", "raise", "place", "join", "recruit"];
 
 fn promise_topic(k: talks::PromiseKind) -> &'static str {
     use talks::PromiseKind as P;
@@ -766,6 +766,7 @@ fn promise_topic(k: talks::PromiseKind) -> &'static str {
         P::Raise => 5,
         P::Place(_) => 6,
         P::Join(_) => 7,
+        P::Recruit(..) => 8,
     }]
 }
 

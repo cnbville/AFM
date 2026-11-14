@@ -4434,6 +4434,8 @@ fn plan_visits(w: &World, i: usize, c: &VisitDay) -> Option<VisitPlan> {
 pub(crate) fn recruiting_day(w: &mut World, d: Date) {
     use super::Visit;
     use crate::calendar::Weekday;
+    // Every staff's calls to the recruits it offered (talk facts L6).
+    super::folk::reach::ai_calls(w, d);
     let y = &w.dates;
     let period = crate::calendar::recruiting_period(y, d);
     let wd = d.weekday();
@@ -4479,6 +4481,7 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
     };
     let mut posts = Vec::new();
     let mut homes = Vec::new();
+    let mut sits = Vec::new();
     let (mut off, mut unoff, mut drops) = (0u32, 0u32, 0u32);
     // Each recruit's day planned on all cores (world speed lane): his own
     // visits and keyed rolls only. The official visit's school cap counts
@@ -4529,6 +4532,7 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
             match v {
                 Visit::Official => {
                     off += 1;
+                    sits.push((i, j));
                     if let Some(h) = hosted.as_mut() {
                         h[j] += 1;
                     }
@@ -4555,6 +4559,11 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
     w.log.drop_ins += drops;
     for (i, j) in homes {
         super::folk::dialogue::ai_home_visit(w, i, j, d);
+    }
+    // The head coach's sit-down at the end of each official visit (talk
+    // facts L6).
+    for (i, j) in sits {
+        super::folk::reach::ai_official_talk(w, i, j, d);
     }
     for (j, text, id, name) in posts {
         w.calendar.post(

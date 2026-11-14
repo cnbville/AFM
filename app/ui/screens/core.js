@@ -844,6 +844,15 @@ async function runMove(m, who, at) {
         return toast(e.message || String(e));
       }
     }
+    case "rcall":
+    case "rmsg": {
+      try {
+        const r = await api(m.k === "rcall" ? "recruit_call" : "recruit_message", { id });
+        return go("people_scene", { id: r.scene });
+      } catch (e) {
+        return toast(e.message || String(e));
+      }
+    }
     case "poffer": return moveDo("portal_offer", { id });
     case "offer": return moveDo("recruit_offer", { id });
     case "pull": if (await sure(...pullWords(m.free))) moveDo("recruit_pull", { id }); return;

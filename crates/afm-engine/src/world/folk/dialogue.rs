@@ -1907,7 +1907,7 @@ pub fn agent_wants(w: &mut World, i: usize, club: usize, own_club: bool) -> Opti
 
 pub(crate) fn open(w: &mut World, s: &mut Scene) {
     match s.kind {
-        Kind::HomeVisit | Kind::PortalCall | Kind::PortalVisit => super::pitch::open(w, s),
+        k if k.is_pitch() => super::pitch::open(w, s),
         Kind::CollegeCall => call_open(w, s),
         Kind::JobInterview => interview_open(w, s),
         Kind::StaffMeeting => meeting_open(w, s),
@@ -1918,7 +1918,7 @@ pub(crate) fn open(w: &mut World, s: &mut Scene) {
 
 pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     match s.kind {
-        Kind::HomeVisit | Kind::PortalCall | Kind::PortalVisit => super::pitch::answer(w, s, code, picked),
+        k if k.is_pitch() => super::pitch::answer(w, s, code, picked),
         Kind::CollegeCall => call_answer(w, s, code, picked),
         Kind::JobInterview => interview_answer(w, s, code),
         Kind::StaffMeeting => meeting_answer(w, s, code, picked),
@@ -1929,7 +1929,7 @@ pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
 
 pub(crate) fn hand(w: &mut World, s: &mut Scene) {
     match s.kind {
-        Kind::HomeVisit | Kind::PortalCall | Kind::PortalVisit => super::pitch::hand(w, s),
+        k if k.is_pitch() => super::pitch::hand(w, s),
         Kind::CollegeCall => {
             s.handed = Some("your voicemail".into());
             s.outcome.push("You never called back. They'll go on the film.".into());

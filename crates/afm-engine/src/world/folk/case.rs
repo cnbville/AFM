@@ -56,6 +56,15 @@ pub const PHONE: f32 = 0.5;
 pub const CALL_EXCHANGES: usize = 3;
 /// A sit-down is six exchanges (Cain agreed 2026-11-12).
 pub const SIT_DOWN_EXCHANGES: usize = 6;
+/// A point made in a message lands at a quarter of a sit-down (talk facts
+/// design, section 6, "Calls and messages"; section 13). Proposed, not
+/// confirmed.
+pub const MESSAGE: f32 = 0.25;
+/// A message is one exchange: you name one thing and he answers.
+pub const MESSAGE_EXCHANGES: usize = 1;
+/// His family's call is one or two exchanges, their question first.
+/// Proposed, not confirmed.
+pub const FAMILY_EXCHANGES: usize = 2;
 /// Each answer you gave him straight raises how far he believes your
 /// promises by this much, up to `STRAIGHT_MOST` answers. Proposed, not
 /// confirmed.
@@ -106,6 +115,18 @@ pub struct Case {
     pub points: [u64; 4],
     /// The last day a point was made.
     pub on: Date,
+    /// A promise made to a high school recruit in this case (lane L6): its
+    /// kind + 1 (`pledge::Kind`), 0 for none. One a school.
+    pub promise: u8,
+    /// What the promise pulls, in appeal points, beside the case and its
+    /// cap, as a transfer's promise does.
+    pub pledge: f32,
+    /// His position when you promised it (`Position as u8`).
+    pub pos: u8,
+    /// The day you promised it.
+    pub promised: Date,
+    /// Logged as the school's promise once he signed with it.
+    pub logged: bool,
 }
 
 impl Case {
@@ -174,6 +195,9 @@ impl Case {
         }
         self.again += o.again;
         self.straight = self.straight.saturating_add(o.straight);
+        if self.promise == 0 && o.promise != 0 {
+            (self.promise, self.pledge, self.pos, self.promised) = (o.promise, o.pledge, o.pos, o.promised);
+        }
         for (a, b) in self.points.iter_mut().zip(o.points) {
             *a |= b;
         }
@@ -192,11 +216,11 @@ pub fn of(p: &Person, j: usize) -> Option<&Case> {
 }
 
 /// What a school's talks add to its pull on a high school recruit: its
-/// case, or for a save from before the case, the living room's lean it
+/// case and its promise (`pledge`), or for a save from before the case, the living room's lean it
 /// kept (`home_talks`).
 pub fn pull(p: &Person, j: usize) -> f64 {
     match of(p, j) {
-        Some(c) => c.total() as f64,
+        Some(c) => (c.total() + c.pledge) as f64,
         None => p.cal.home_talks.iter().filter(|x| x.0 == j).map(|x| x.1 as f64).sum(),
     }
 }
