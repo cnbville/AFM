@@ -56,9 +56,10 @@ const UNHAPPY: &str = "unhappy where he is";
 const PAID: &str = "well paid where he is";
 const UNDERPAID: &str = "underpaid where he is";
 const LIMIT: &str = "the day's read held at its limit";
+pub(crate) const LEVEL: &str = "against every player's read at his level";
 
 /// Every lean event the day's read writes.
-const READS: [&str; 15] = [
+const READS: [&str; 16] = [
     READ_UNDO,
     OLD_ROLE_HALF,
     YOUR_WORD,
@@ -74,6 +75,7 @@ const READS: [&str; 15] = [
     PAID,
     UNDERPAID,
     LIMIT,
+    LEVEL,
 ];
 
 /// Whether a lean event belongs to the day's read.
@@ -126,6 +128,10 @@ pub(crate) struct Ctx {
     /// Your program, when you are its head coach: the promises in
     /// `folk.promises` are yours there.
     mine: Option<usize>,
+    /// The read decides who leaves, not how many (proposed, not
+    /// confirmed): each division's reads are divided by their mean,
+    /// weighted by the lean they act on.
+    level: HashMap<Division, f64>,
 }
 
 /// The money level a program pays at: Power 4, the rest of FBS, FCS, below.
@@ -177,8 +183,32 @@ impl Ctx {
             })
             .collect();
         let mine = super::front_office::program(w);
-        Ctx { label, returning, nil_median, nil_era, mine }
+        let mut ctx = Ctx { label, returning, nil_median, nil_era, mine, level: HashMap::new() };
+        let mut sums: HashMap<Division, (f64, f64)> = HashMap::new();
+        for i in readable(w) {
+            let p = &w.people[i];
+            let prev: f64 = p.cal.lean_events.iter().filter(|e| is_read(e.1)).map(|e| e.2).product();
+            let lean = p.cal.lean / prev;
+            let f: f64 = raw(w, &ctx, i).iter().map(|x| x.1).product();
+            let s = sums.entry(w.programs[p.college.unwrap()].division).or_default();
+            s.0 += lean * f;
+            s.1 += lean;
+        }
+        ctx.level = sums.into_iter().filter(|x| x.1.0 > 0.0).map(|(d, (a, b))| (d, b / a)).collect();
+        ctx
     }
+}
+
+/// The college players the read reads: a lean, not in the portal, not at
+/// a junior college.
+fn readable(w: &World) -> impl Iterator<Item = usize> + '_ {
+    (0..w.people.len()).filter(|&i| {
+        let p = &w.people[i];
+        p.stage == Stage::College
+            && p.cal.lean > 0.0
+            && p.cal.portal.is_none()
+            && p.college.is_some_and(|c| w.programs[c].division != Division::JUCO)
+    })
 }
 
 /// The lean base of a role (the fall camp lean's own: `college::lean_checkpoint`).
@@ -188,6 +218,15 @@ fn base(role: PlayingTime) -> f64 {
         PlayingTime::Starter => rates.rotation / 3.0,
         PlayingTime::Rotation => rates.rotation,
         _ => rates.backup,
+    }
+}
+
+/// What seeing himself in a role next fall holds him by (3a).
+fn hold(role: PlayingTime) -> f64 {
+    match role {
+        PlayingTime::Starter => START_HOLD,
+        PlayingTime::Rotation => NEXT_HOLD,
+        _ => 1.0,
     }
 }
 
@@ -213,12 +252,36 @@ pub(crate) fn next_fall(w: &World, ctx: &Ctx, i: usize) -> Next {
     }
 }
 
-/// How much he believes his head coach's promise, 0-1. The hook the
+/// How much he believes his head coach's promise, 0.2-1. The hook the
 /// promises lane P1 fills (`afm/promises/proposal.md`, section 4: trust,
-/// your record, what he sees, his past, his traits); until then he
-/// believes it fully.
-pub(crate) fn promise_belief(_w: &World, _i: usize, _kind: PromiseKind) -> f64 {
-    1.0
+/// your record as it reaches him, what he sees, his past, his traits).
+/// Until then (proposed, not confirmed): your name as a transfer's
+/// promise reads it (`dialogue::promise_pull`: 0.55 + 0.3 x your record
+/// for straight talk + 0.02 x (your relationships - 10)), plus 0.4 x (his
+/// trust in you - 0.5), plus what you backed it with (Cain's 2c: +0.1 a
+/// real strength of his, -0.15 one that isn't), times how likely it looks
+/// from what he sees (his own guess at next fall: a start when he sees
+/// himself next in line x0.85, behind x0.6; a role when behind x0.8).
+pub(crate) fn promise_belief(w: &World, ctx: &Ctx, i: usize, pr: &super::folk::talks::Promise) -> f64 {
+    let p = &w.people[i];
+    let you = w.career.as_ref().map(|c| c.coach);
+    let rel = you.map_or(10.0, |c| w.coaches[c].ability().relationships);
+    let trust = if you.is_some_and(|c| c as u32 == p.trust_in) { p.trust as f64 } else { 0.5 };
+    let backed = match pr.backed {
+        1 => 0.1,
+        -1 => -0.15,
+        _ => 0.0,
+    };
+    let name =
+        (0.55 + 0.3 * w.folk.mine.straight as f64 + 0.02 * (rel - 10.0) + 0.4 * (trust - 0.5) + backed).clamp(0.2, 1.0);
+    let start = matches!(pr.kind, PromiseKind::Start | PromiseKind::Join(0) | PromiseKind::Place(0));
+    let plausible = match (next_fall(w, ctx, i), start) {
+        (Next::Start, _) | (Next::NextIn, false) => 1.0,
+        (Next::NextIn, true) => 0.85,
+        (Next::Behind, true) => 0.6,
+        (Next::Behind, false) => 0.8,
+    };
+    (name * plausible).clamp(0.2, 1.0)
 }
 
 /// The role a playing-time promise gives him.
@@ -239,13 +302,13 @@ fn promised_role(kind: PromiseKind) -> Option<PlayingTime> {
 /// one, any broken). Only yours exist (AI staffs make none yet, lane P2),
 /// and only the current head coach's count (Cain, item 5): a new job
 /// clears the old ones (`takeover::begin`).
-fn promises(w: &World, ctx: &Ctx, i: usize) -> (Option<PromiseKind>, bool) {
+fn promises<'a>(w: &'a World, ctx: &Ctx, i: usize) -> (Option<&'a super::folk::talks::Promise>, bool) {
     let p = &w.people[i];
     if ctx.mine.is_none() || p.college != ctx.mine {
         return (None, false);
     }
     let id = p.player.id;
-    let mut open: Option<PromiseKind> = None;
+    let mut open: Option<&super::folk::talks::Promise> = None;
     let mut broken = false;
     for pr in &w.folk.promises {
         if pr.to != PromiseTo::Player(id) {
@@ -254,8 +317,8 @@ fn promises(w: &World, ctx: &Ctx, i: usize) -> (Option<PromiseKind>, bool) {
         let Some(role) = promised_role(pr.kind) else { continue };
         match pr.kept {
             None => {
-                if open.and_then(promised_role).is_none_or(|r| (role as u8) < (r as u8)) {
-                    open = Some(pr.kind);
+                if open.and_then(|o| promised_role(o.kind)).is_none_or(|r| (role as u8) < (r as u8)) {
+                    open = Some(pr);
                 }
             }
             Some(false) => broken = true,
@@ -265,22 +328,48 @@ fn promises(w: &World, ctx: &Ctx, i: usize) -> (Option<PromiseKind>, bool) {
     (open, broken)
 }
 
-/// The day's read on player `i`: the parts and their product, held to
-/// the floor and ceiling. Empty when he has no lean to read.
+/// The day's read on player `i`: the parts and their product, levelled
+/// against his division's and held to the floor and ceiling. Empty when
+/// he has no lean to read.
 pub(crate) fn read(w: &World, ctx: &Ctx, i: usize) -> Vec<(&'static str, f64)> {
+    let mut parts = raw(w, ctx, i);
+    if parts.is_empty() {
+        return parts;
+    }
+    let div = w.programs[w.people[i].college.unwrap()].division;
+    if let Some(&k) = ctx.level.get(&div)
+        && (k - 1.0).abs() > 0.01
+    {
+        parts.push((LEVEL, k));
+    }
+    let total: f64 = parts.iter().map(|x| x.1).product();
+    let held = total.clamp(READ_MIN, READ_MAX);
+    if (held - total).abs() > 1e-9 {
+        parts.push((LIMIT, held / total));
+    }
+    parts
+}
+
+/// The read's own parts, before levelling and the limit.
+fn raw(w: &World, ctx: &Ctx, i: usize) -> Vec<(&'static str, f64)> {
     let p = &w.people[i];
     let mut parts: Vec<(&'static str, f64)> = Vec::new();
     if p.stage != Stage::College || p.cal.lean <= 0.0 {
         return parts;
     }
     let Some(c) = p.college else { return parts };
+    // Your word decided it (no future here, play elsewhere, last choice):
+    // nothing more to read this year (`folk::future`).
+    if super::folk::future::decided(p).is_some() {
+        return parts;
+    }
     let div = w.programs[c].division;
     // The fall camp base: the first event when it is a role.
     let camp = p.cal.lean_events.first().filter(|e| super::college::CAMP_ROLES.contains(&e.1) && e.2 > 0.0);
     let next = next_fall(w, ctx, i);
     let changed = p.cal.lean_events.iter().any(|e| e.1 == super::college::COACH_GONE);
     let (open, broken) = promises(w, ctx, i);
-    let word = open.and_then(|k| promised_role(k).map(|r| (r, promise_belief(w, i, k))));
+    let word = open.and_then(|pr| promised_role(pr.kind).map(|r| (r, promise_belief(w, ctx, i, pr))));
     if let Some(b0) = camp.map(|e| e.2) {
         // 2a: a new head coach hasn't seen him practice; the old staff's
         // role counts half, his own guess the other half.
@@ -288,15 +377,22 @@ pub(crate) fn read(w: &World, ctx: &Ctx, i: usize) -> Vec<(&'static str, f64)> {
         if changed && (own - b0).abs() > 1e-9 {
             parts.push((OLD_ROLE_HALF, own / b0));
         }
-        // 2b, 3a: your word on his role wins where you said it.
-        if let Some((role, belief)) = word {
-            let now = belief * base(role) + (1.0 - belief) * own;
-            parts.push((YOUR_WORD, now / own));
-        } else if !changed {
+        // 3a: with no change, his own guess of next fall holds him.
+        let mut own = own;
+        if !changed {
             match next {
                 Next::Start => parts.push((SEES_START, START_HOLD)),
                 Next::NextIn => parts.push((SEES_NEXT, NEXT_HOLD)),
                 Next::Behind => {}
+            }
+            own *= hold(next.role());
+        }
+        // 2b: your word on his place next fall wins where you said it, by
+        // how much he believes it; it agrees with his guess when they match.
+        if let Some((role, belief)) = word {
+            let now = belief * base(role) * hold(role) + (1.0 - belief) * own;
+            if (now / own - 1.0).abs() > 1e-9 {
+                parts.push((YOUR_WORD, now / own));
             }
         }
     }
@@ -342,11 +438,6 @@ pub(crate) fn read(w: &World, ctx: &Ctx, i: usize) -> Vec<(&'static str, f64)> {
             parts.push((PAID, 1.0 - PAID_HOLD * m));
         }
     }
-    let total: f64 = parts.iter().map(|x| x.1).product();
-    let held = total.clamp(READ_MIN, READ_MAX);
-    if (held - total).abs() > 1e-9 {
-        parts.push((LIMIT, held / total));
-    }
     parts
 }
 
@@ -372,16 +463,7 @@ pub(crate) fn apply(p: &mut super::Person, date: Date, parts: &[(&'static str, f
 pub(crate) fn read_all(w: &mut World, label: i32) {
     let ctx = Ctx::new(w, label);
     let today = w.today;
-    let reads: Vec<(usize, Vec<(&'static str, f64)>)> = (0..w.people.len())
-        .filter(|&i| {
-            let p = &w.people[i];
-            p.stage == Stage::College
-                && p.cal.lean > 0.0
-                && p.cal.portal.is_none()
-                && p.college.is_some_and(|c| w.programs[c].division != Division::JUCO)
-        })
-        .map(|i| (i, read(w, &ctx, i)))
-        .collect();
+    let reads: Vec<(usize, Vec<(&'static str, f64)>)> = readable(w).map(|i| (i, read(w, &ctx, i))).collect();
     for (i, parts) in reads {
         apply(&mut w.people[i], today, &parts);
     }

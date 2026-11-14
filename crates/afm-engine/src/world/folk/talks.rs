@@ -233,6 +233,11 @@ pub struct Promise {
     /// Said in public (a press conference): breaking it costs double.
     pub public: bool,
     pub kept: Option<bool>,
+    /// What you backed a playing-time promise with (playtest bug 15, Cain's
+    /// 2c): 1 a real strength of his you named, -1 one he knows isn't, 0
+    /// nothing. His belief reads it (`stay_read::promise_belief`).
+    #[serde(default)]
+    pub backed: i8,
     /// Who, in words with link marks.
     pub who: String,
 }
@@ -252,7 +257,7 @@ pub fn promise(w: &mut World, to: PromiseTo, kind: PromiseKind, seasons: u8) {
         PromiseTo::Coach(c) => super::coach_link(w, c),
     };
     w.folk.promises.retain(|p| !(p.to == to && p.kind == kind && p.kept.is_none()));
-    w.folk.promises.push(Promise { to, kind, made: today, due, public: false, kept: None, who });
+    w.folk.promises.push(Promise { to, kind, made: today, due, public: false, kept: None, backed: 0, who });
     if w.folk.promises.len() > 120
         && let Some(k) = w.folk.promises.iter().position(|p| p.kept.is_some())
     {
@@ -1206,6 +1211,9 @@ fn add_picks(w: &World, s: &mut Scene, i: usize, topic: Topic, used: &[Move]) {
         let sheet = claims::player(w, i);
         if let Some(p) = sheet.get(k) {
             s.picks.extend(tp::picks(w, i, p, used, code_of));
+            // Your word on his future (playtest bug 15): a promise backed by
+            // a strength of his, or the three ways to tell him to go.
+            s.picks.extend(super::future::picks(w, i, k));
             s.pick(900, "End the talk", "End", "calm", "Ends it here.");
             return;
         }
@@ -1821,6 +1829,17 @@ fn one_on_one_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     }
     if let Some(a) = Answer::of(code) {
         answer_question(w, s, i, a, picked);
+        return;
+    }
+    // Your word on his future (playtest bug 15): he answers, and the talk
+    // ends there.
+    if let Some(word) = super::future::Word::of(code) {
+        s.you(&scene::your_name(w), picked.label.clone());
+        let (line, outcome) = super::future::answer(w, i, word);
+        let sign = if word == super::future::Word::Backed { 1 } else { -1 };
+        s.them(&name, line, read_tell(w, i, sign));
+        s.outcome.extend(outcome);
+        finish_talk(w, s, id);
         return;
     }
     let Some((m, t)) = decode(code) else {

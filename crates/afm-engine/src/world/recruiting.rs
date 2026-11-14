@@ -8120,7 +8120,12 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
         if why == Why::Dismissed && w.people[i].rng.chance(PIPELINE.college_trouble.serious_share) {
             serious.insert(i);
         }
-        let bar = bars.get(&i).copied().filter(|_| mine == Some(c));
+        // Told he has no future here (or to play elsewhere): no talk to ask
+        // for, he enters on the window's day (playtest bug 15, `folk::future`).
+        let bar = bars
+            .get(&i)
+            .copied()
+            .filter(|_| mine == Some(c) && super::folk::future::decided(&w.people[i]) != Some(true));
         if alive[c]
             && !matches!(why, Why::Dismissed | Why::Cut)
             && !matches!(which, PortalWindow::Spring | PortalWindow::Graduate)

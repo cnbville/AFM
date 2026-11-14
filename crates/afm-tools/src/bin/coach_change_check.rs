@@ -261,13 +261,13 @@ fn main() {
             let young_left = young.iter().filter(|id| seen.contains_key(id)).count() as u32;
             young_total.0 += young_left;
             young_total.1 += young.len() as u32;
-            println!("  young starters: {young_left} of {} left", young.len());
             let with_lean = leaning.iter().filter(|&&x| x > 0.0).count();
             let mean = leaning.iter().sum::<f64>() / with_lean.max(1) as f64;
             println!(
                 "{:<28} {wn:>2}-{l:<2} roster {roster:>3}, January window {jan:>2}, after your hire {n:>2} {by:?} ({with_lean} with a lean, mean {mean:.2})",
                 s.programs[p].real_name
             );
+            println!("  young starters: {young_left} of {} left", young.len());
         }
         println!("mean after your hire: {:.1}", total as f64 / pick.len().max(1) as f64);
         let mut v: Vec<_> = whys.into_iter().collect();
