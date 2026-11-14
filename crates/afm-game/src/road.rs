@@ -125,12 +125,7 @@ pub fn walk(w: &World, from: &Judging, seasons: &[(i32, u32, u8)]) -> Vec<Row> {
     for &(season, a, tier) in seasons {
         let q = growth_at(&table, a - 1, tier);
         let [drift, share] = yours::road_step(&fit, a - 1, tier);
-        let step = drift + share * (ceiling - p50).max(0.0);
-        let mut next = p50 + step;
-        if step > 0.0 {
-            next = next.min(ceiling.max(p50));
-        }
-        p50 = next.clamp(1.0, 99.0);
+        p50 = step_mid(p50, ceiling, drift, share);
         closed = 1.0 - (1.0 - closed) * (1.0 - share);
         s_lo += (q[2] - q[1]).powi(2);
         s_hi += (q[3] - q[2]).powi(2);
@@ -151,4 +146,32 @@ pub fn walk(w: &World, from: &Judging, seasons: &[(i32, u32, u8)]) -> Vec<Row> {
         out.push(Row { season, age: a, tier, q });
     }
     out
+}
+
+/// One season on the road's middle: a drift plus a share of the gap to
+/// the ceiling read, never past the ceiling on the way up.
+fn step_mid(p50: f64, ceiling: f64, drift: f64, share: f64) -> f64 {
+    let step = drift + share * (ceiling - p50).max(0.0);
+    let mut next = p50 + step;
+    if step > 0.0 {
+        next = next.min(ceiling.max(p50));
+    }
+    next.clamp(1.0, 99.0)
+}
+
+/// The road's middle from an overall now and a ceiling over the given
+/// seasons (`walk`'s middle, unrounded, without its band): what the
+/// projected test numbers read the gap from, so the drills and the road
+/// stay on the same road.
+pub fn mids(w: &World, now: f64, ceiling: f64, seasons: &[(i32, u32, u8)]) -> Vec<f64> {
+    let fit = fit(w);
+    let mut p50 = now;
+    seasons
+        .iter()
+        .map(|&(_, a, tier)| {
+            let [drift, share] = yours::road_step(&fit, a - 1, tier);
+            p50 = step_mid(p50, ceiling, drift, share);
+            p50
+        })
+        .collect()
 }

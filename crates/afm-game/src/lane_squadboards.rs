@@ -12,6 +12,7 @@ pub mod arc;
 pub mod body;
 pub mod depth;
 pub mod needs;
+pub mod projected;
 pub mod roster;
 pub mod shape;
 

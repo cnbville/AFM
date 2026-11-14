@@ -1,6 +1,5 @@
 # Live talks: how it works today
 
-<<<<<<< HEAD
 Checked against main at 7691db7 on 2026-11-13 (lane 2, the boxes, before it merged to main; lane 1 is on main since #314), and lane 3, the core, over main c04c172 on 2026-11-13, before it merged. Lane 5 (rooms on today's choices) was built over main 695d72d on 2026-11-13, before it merged. Lane 4, the desk, over main 65b1d0a on 2026-11-13, before it merged. Lane 6 (rooms that gain something) over main b1f10b5 on 2026-11-14, before it merged. Lanes 7 to 10 are not built yet: their sections below are empty until each lane fills its own.
 
 Live talks are typed lines to your players, recruits and staff, answered in character by Claude Haiku 5.5, on top of the chips and the line bank, which always still work. The rule under all of it: the AI only reads your words and writes theirs; the game decides every result. The design is `afm/live-talks/proposal.md` in the project folder; this page says what the code does.
