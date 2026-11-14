@@ -196,7 +196,14 @@ function sbDcTabs(cur, x) {
     const forms = tab ? tab.forms : [];
     extra = `<span class="sb-tabx">${forms.length > 1 ? `<span class="sb-seg" aria-label="Formation">${forms.map((f) => `<button data-act="sbform" data-tab="${esc(cur)}" data-v="${esc(f.key)}" aria-pressed="${f.key === x.form}">${esc(f.label)}</button>`).join("")}</span>` : ""}<span class="sb-seg" aria-label="View">${["Broadcast", "Overhead"].map((v) => `<button data-act="sbdcview" data-v="${v}" aria-pressed="${v === view}">${v}</button>`).join("")}</span></span>`;
   }
-  return `<div class="sb-tabrow">${t}${extra}</div>`;
+  // Plan ahead (Cain, 2026-11-13): the same board for the next three falls, a
+  // private plan of who starts when you recruit. Base boards, broadcast view.
+  let plan = "";
+  if (SB_DC_TABS.includes(cur) && x && x.plan_falls && view === "Broadcast") {
+    const y = x.plan ? x.plan.offset : 0;
+    plan = `<div class="sb-planrow"><span class="sb-lbl">Plan ahead</span><span class="sb-seg" aria-label="Plan ahead">${x.plan_falls.map((f, i) => `<button data-act="sbplan" data-v="${i}" aria-pressed="${i === y}">${i === 0 ? `Now <small>${f}</small>` : f}</button>`).join("")}</span><span class="sb-plan-priv"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Your private plan. Nothing in the game reads it.</span></div>`;
+  }
+  return `<div class="sb-tabrow">${t}${extra}</div>${plan}`;
 }
 const sbDepthBase = screens.depth;
 screens.depth = async (a) => {
@@ -232,14 +239,23 @@ screens.depth = async (a) => {
   if (pid != null) delete keep("sbform", {})[cur];
   const form = keep("sbform", {})[cur] || SB_TAB_KEY[cur];
   let x;
+  const planK = keep("sbplan", { y: 0 });
+  const ask = (o) => sbGet("sb_depth", { tab: SB_TAB_KEY[cur], form, ...(o > 0 ? { offset: o } : {}) });
   try {
-    x = await sbGet("sb_depth", { tab: SB_TAB_KEY[cur], form });
+    try {
+      x = await ask(planK.y);
+    } catch (e) {
+      // A formation the plan doesn't cover (a package, the units): the chart now.
+      if (!(planK.y > 0)) throw e;
+      planK.y = 0;
+      x = await ask(0);
+    }
   } catch (e) {
     const html = await sbDepthBase({ ...a, tab: "By position" });
     k.t = cur;
     return html;
   }
-  if (keep("sbdcview", { v: "Broadcast" }).v === "Overhead") {
+  if (keep("sbdcview", { v: "Broadcast" }).v === "Overhead" && !x.plan) {
     // The flat drag-and-drop board of this formation, under the stadium's tabs.
     const label = SB_FORM_LABEL[x.form] || "Offense";
     k.t = label;
@@ -287,7 +303,7 @@ function sbRing(r, size = 84) {
 }
 function sbDepthPage(x, cur) {
   setColors(x.team.colors);
-  title("Depth chart", cur);
+  title("Depth chart", x.plan ? `${cur} · ${x.plan.fall}` : cur);
   const selKey = "sbdc:" + x.form;
   const sel = Math.min(keep(selKey, { k: 0 }).k, Math.max(0, x.slots.length - 1));
   const def = SB_DEF_FORMS.includes(x.form);
@@ -309,17 +325,18 @@ function sbDepthPage(x, cur) {
       + " Drag a man onto a spot to put him there, or drag one spot onto another to swap them.",
     goto: gotoLine([["Squad", "roster"], ["Needs map", "needs"], ["Training", "training"], ["Game day", "gameday"], ["Schedule", "schedule"]]),
   });
-  const next = x.next ? `<span><span class="sb-lbl">Next game</span> ${x.next.home ? "vs" : "at"} ${teamChip(x.next.opp, 18)} <small>${esc(x.next.date || "")}${x.next.in != null ? ` · ${sbPlural(x.next.in, "day")}` : ""}</small></span>` : `<span class="sb-dim">No game ahead this season.</span>`;
+  const next = x.plan ? `<span><span class="sb-lbl">Fall ${x.plan.fall}</span> <small>Your plan</small></span>` : x.next ? `<span><span class="sb-lbl">Next game</span> ${x.next.home ? "vs" : "at"} ${teamChip(x.next.opp, 18)} <small>${esc(x.next.date || "")}${x.next.in != null ? ` · ${sbPlural(x.next.in, "day")}` : ""}</small></span>` : `<span class="sb-dim">No game ahead this season.</span>`;
   const last = x.last_game ? `<span><span class="sb-lbl">Last game</span> ${esc(x.last_game.opp)} <small>${x.last_game.score[0]}-${x.last_game.score[1]} · ${esc(x.last_game.date)}</small></span>` : "";
-  const actions = x.yours ? `<button class="st-btn small glass" data-act="sbreset" data-form="${esc(x.form)}">Give it back to the staff</button>` : "";
-  const stage = `<div class="sb-stage" data-form="${esc(x.form)}" role="group" aria-label="${esc(x.form_label)} on the field">${sbField(x.level, LOS, YD, def ? null : LOS - 10 * YD)}${plates}</div>`;
+  const actions = x.yours ? `<button class="st-btn small glass" data-act="sbreset" data-form="${esc(x.form)}"${x.plan ? ` data-plan="${x.plan.offset}"` : ""}>${x.plan ? "Reset this year to my chart" : "Give it back to the staff"}</button>` : "";
+  const stage = `<div class="sb-stage" data-form="${esc(x.form)}" data-plan="${x.plan ? x.plan.offset : 0}" role="group" aria-label="${esc(x.form_label)} on the field">${sbField(x.level, LOS, YD, def ? null : LOS - 10 * YD)}${plates}</div>`;
   return `<div class="film sb"><div class="pad sb-pad">${head}${sbDcTabs(cur, x)}
-    <div class="sb-dc sb-dc-needs"><div class="sb-dc-main"><div class="sb-next">${next}${last}${actions ? `<span class="sb-act">${actions}</span>` : ""}</div>${stage}${hpDcFoot(x)}${sbUnits(x.units)}</div>
+    <div class="sb-dc sb-dc-needs"><div class="sb-dc-main"><div class="sb-next">${next}${last}${actions ? `<span class="sb-act">${actions}</span>` : ""}</div>${stage}${x.plan ? "" : hpDcFoot(x) + sbUnits(x.units)}</div>
     <aside class="sb-side">${s ? sbSpotPanel(x, s, sel) : '<div class="sb-empty">No spots on this formation.</div>'}</aside></div></div></div>`;
 }
 function sbSpotPanel(x, s, k) {
   const p = s.picks[0];
   const d = s.detail;
+  if (!p && s.why && s.why.plan) return `<div class="sb-ph"><span class="sb-lbl gold">${esc(s.pos_full)}</span><h2 class="sb-name">Open</h2><p class="sb-dim">Nobody is planned here yet. Drag a man in from below.</p></div>${hpWhyHere(x, s, k)}`;
   if (!p) return `<div class="sb-ph"><span class="sb-lbl gold">${esc(s.pos_full)}</span><h2 class="sb-name">Open</h2><p class="sb-dim">Nobody is listed here. The engine sends the next man left in the room.</p></div>`;
   const keys = d ? d.keys.map((q) => `<div class="sb-kr"><span>${esc(q.label)}</span>${range(q.read, null, { p: p.id, k: q.key })}</div>`).join("") : "";
   const snaps = d && d.snaps != null && d.team_snaps ? `${d.snaps} of ${d.team_snaps}` : "–";
@@ -327,7 +344,7 @@ function sbSpotPanel(x, s, k) {
   const cellAt = (i) => ` data-cell="1" data-k="${k}" data-n="${i + 1}" data-slot="${esc(s.slot)}" data-spos="${esc(s.pos)}"${x.base || x.package ? "" : ' data-bk="0"'}`;
   const depth = s.picks.map((m, i) => {
     if (!m) return `<div class="sb-dr ${i === 0 ? "first" : ""} ${s.controls ? "" : "sb-lock"}"${cellAt(i)}><span class="sb-di">${i + 1}</span><span class="sb-dim">Nobody</span></div>`;
-    const up = i > 0 && s.controls && x.slots[k] ? `<button class="sb-up" data-act="sbup" data-k="${k}" data-n="${i + 1}" title="Move ${esc(m.name)} up" aria-label="Move ${esc(m.name)} up">↑</button>` : "";
+    const up = i > 0 && s.controls && x.slots[k] ? `<button class="sb-up" data-act="sbup" data-k="${k}" data-n="${i + 1}" data-pid="${m.id}"${x.plan ? ` data-plan="${x.plan.offset}"` : ""} title="Move ${esc(m.name)} up" aria-label="Move ${esc(m.name)} up">↑</button>` : "";
     const hurt = m.health !== "full" ? ` <span class="sb-tag ${m.health === "out" ? "bad" : "warn"}" title="${esc(m.health_why || "")}">${m.health === "out" ? "Out" : "Limited"}</span>` : "";
     const ready = i === 0 ? "Starter" : m.ready;
     const drag = s.controls ? ` data-drag="1" data-pid="${m.id}" data-pos="${esc(m.pos)}" data-name="${esc(m.name)}" title="Drag ${esc(m.name)} onto a spot"` : "";
@@ -355,6 +372,11 @@ function hpDcFoot(x) {
 function hpWhyHere(x, s, k) {
   const w = s.why;
   if (!w) return "";
+  // A planned fall: only who else could play it (nobody put him there yet).
+  if (w.plan) {
+    const pa = (w.alts || []).map((m) => `<div class="hp-alt"${s.controls ? ` data-drag="1" data-pid="${m.id}" data-pos="${esc(m.pos)}" data-name="${esc(m.name)}" title="Drag ${esc(m.name)} onto a spot"` : ""}><div>${playerLink(m.id, m.name)}<small>${esc(m.pos)} · ${esc(m.class)}${m.commit ? " · commit" : ""}</small><small>${esc(m.note)}</small></div>${range(m.read, null, { p: m.id, k: "ovr" })}</div>`).join("");
+    return pa ? `<div class="sb-sec hp-wh"><span class="sb-lbl">${esc(w.else_title)}</span><div class="hp-alts">${pa}</div></div>` : "";
+  }
   const why = (w.why || []).map((r) => `<li><span><b>${esc(r.t)}</b>${rich(r.s)}</span></li>`).join("");
   const alts = (w.alts || []).map((m) => `<div class="hp-alt"${s.controls ? ` data-drag="1" data-pid="${m.id}" data-pos="${esc(m.pos)}" data-name="${esc(m.name)}" title="Drag ${esc(m.name)} onto a spot"` : ""}><div>${playerLink(m.id, m.name)}<small>${esc(m.pos)} · ${esc(m.class)}</small><small class="${m.hurt ? "hurt" : ""}">${esc(m.note)}</small></div>${range(m.read, null, { p: m.id, k: "ovr" })}</div>`).join("");
   const reps = (w.practice || []).filter((r) => r.grade).map((r) => `<div class="hp-rep"><span>${playerLink(r.id, r.name)}<small>${esc(r.words)}</small></span><i><u style="width:${Math.max(0, Math.min(100, r.grade))}%"></u></i></div>`).join("");
@@ -610,6 +632,14 @@ pdragKind({
     if (Number(el.dataset.pid) === d.pid) {
       toast(`${d.name || "He"} is already ${SB_DEPTH_WORD[n - 1]} at ${el.dataset.slot}, so nothing changed.`);
       return sbLocal(el);
+    }
+    // A planned fall: the same drops, saved to your private plan.
+    const off = Number(stage.dataset.plan) || 0;
+    if (off) {
+      const r = await api("sb_plan_put", { form, offset: off, slot: k, n, pid: d.pid, ...(d.k != null && d.n ? { from_slot: d.k, from_n: d.n } : {}) });
+      SB.cache = {};
+      toast(r && r.note ? r.note : "Plan saved.");
+      return trRedraw();
     }
     // A starter's cell, and the man not from a backup's: the flat board's own save.
     if (n === 1 && d.n <= 1) return trPlace(form, k, d.pid);
