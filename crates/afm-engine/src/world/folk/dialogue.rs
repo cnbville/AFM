@@ -134,6 +134,8 @@ pub(crate) fn ai_home_visit(w: &mut World, i: usize, j: usize, d: Date) {
         seed,
     );
     super::case::case_mut(w, i, j).merge(&c);
+    // His word, when his room allows it (promises lane P2).
+    super::ai_promise::recruit(w, i, j, super::claims::Ear::Decider, seed);
 }
 
 /// Your home visit is set: its talk waits on the day.
@@ -247,6 +249,29 @@ pub(crate) fn staff_campus(
     (both.total() - call.total()) as f64
 }
 
+/// A promise's pull on a transfer (0 a starting job, 1 a real role) with
+/// the role he'd have and how far he believes it: by what playing time
+/// means to him and what it adds to that role. Yours and an AI staff's
+/// (`ai_promise::transfer`).
+pub(crate) fn transfer_pull(w: &World, i: usize, kind: u8, role: PlayingTime, belief: f64) -> f64 {
+    let pt = super::claims::group_cares(&w.people[i], super::claims::Ear::Himself)
+        [super::claims::Group::PlayingTime as usize] as f64;
+    let k = (kind as usize).min(1);
+    PROMISE_PULL[k] * pt * transfer_adds(k, role) * belief
+}
+
+/// What a promise adds to the role he'd have anyway.
+fn transfer_adds(k: usize, role: PlayingTime) -> f64 {
+    match (k, role) {
+        (0, PlayingTime::Starter) => 0.15,
+        (0, PlayingTime::Rotation) => 0.6,
+        (0, _) => 1.0,
+        (_, PlayingTime::Starter) => 0.0,
+        (_, PlayingTime::Rotation) => 0.2,
+        _ => 0.6,
+    }
+}
+
 /// Your promise of a role to a transfer (0 a starting job, 1 a real role):
 /// its pull at his decision and how far he believes it, 0-1. It pulls by
 /// what playing time means to him and what it adds to the role he'd have
@@ -263,17 +288,7 @@ pub(crate) fn promise_pull(
     perf: f64,
     bar: Option<f64>,
 ) -> (f64, f64) {
-    let pt = super::claims::group_cares(&w.people[i], super::claims::Ear::Himself)
-        [super::claims::Group::PlayingTime as usize] as f64;
     let k = (kind as usize).min(1);
-    let adds = match (k, role) {
-        (0, PlayingTime::Starter) => 0.15,
-        (0, PlayingTime::Rotation) => 0.6,
-        (0, _) => 1.0,
-        (_, PlayingTime::Starter) => 0.0,
-        (_, PlayingTime::Rotation) => 0.2,
-        _ => 0.6,
-    };
     // His belief (the promises design, sections 4 and 9; lane P1): the
     // trail's name and the answers you gave him straight in place of
     // trust, and for a starting job how close his play is to the
@@ -287,7 +302,7 @@ pub(crate) fn promise_pull(
         _ => w.people[i].college.unwrap_or(0),
     };
     let belief = super::promise::belief_out(w, i, j, super::claims::Ear::Himself, plausible);
-    (PROMISE_PULL[k] * pt * adds * belief, belief)
+    (transfer_pull(w, i, kind, role, belief), belief)
 }
 
 /// Your talk with a transfer is set: a call now, a sit-down at his home or

@@ -5,8 +5,10 @@ name: Mac retry
 # attempts" (Mac app runs 439 and 440, 2026-11-13). No step ran, so running
 # the job again loses nothing. This runs the unstarted jobs again, at most
 # twice more, and only for the newest push run of the workflow: an older run
-# would build, and publish, an older app over a newer one. A job that had a
-# machine and failed is a real failure and is left alone.
+# is replaced by the newer one's build, so it isn't worth a Mac machine (an
+# older build can no longer publish over a newer one: mac-publish.sh only
+# moves forward). A job that had a machine and failed is a real failure and
+# is left alone.
 on:
   workflow_run:
     workflows: ["Mac app", "World Reader app"]

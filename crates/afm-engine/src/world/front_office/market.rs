@@ -798,6 +798,9 @@ pub(crate) fn left(w: &mut World, why: &str) {
         c.market.out_since = Some(today);
     }
     if why != "left for another job" {
+        if !matches!(why, "promoted" | "reassigned") {
+            fired_reveal(w, &name, why);
+        }
         log(w, format!("{name}: {why}."));
         post(
             w,
@@ -806,6 +809,43 @@ pub(crate) fn left(w: &mut World, why: &str) {
             format!("You are out at {name} ({why}). Your job market page lists what's open and what you'd take."),
             true,
         );
+    }
+}
+
+/// The quiet reveal for losing a job (screens topic 9): the years there,
+/// the record and the reason in the world's own words. Nothing is made up:
+/// the stint is the one the world just closed.
+fn fired_reveal(w: &mut World, name: &str, why: &str) {
+    let Some(me) = me(w) else { return };
+    let stint = w.coaches[me].history.last().cloned();
+    let today = w.today;
+    let mut r = crate::world::desk::Reveal {
+        date: today,
+        kind: "fired".into(),
+        kicker: "It's over".into(),
+        name: format!("You're out at {name}"),
+        colors: ["#3a4252".into(), "#3a4252".into()],
+        quiet: true,
+        ..Default::default()
+    };
+    if let Some(s) = stint {
+        let seasons = (s.to - s.from + 1).max(1);
+        r.number = seasons.to_string();
+        r.sub = format!("{} at {name} · {} to {}", if seasons == 1 { "season" } else { "seasons" }, s.from, s.to);
+        if s.wins + s.losses > 0 {
+            r.facts.push(("Record".into(), format!("{}\u{2013}{}", s.wins, s.losses)));
+        }
+        if s.titles > 0 {
+            r.facts.push(("Titles".into(), s.titles.to_string()));
+        }
+        r.facts.push(("Job".into(), s.role.name().to_string()));
+    }
+    let said = crate::world::pronoun::to_you(why);
+    let mut cs = said.chars();
+    let said = cs.next().map(|c| c.to_uppercase().collect::<String>() + cs.as_str()).unwrap_or_default();
+    r.cards.push(("The reason".into(), vec![format!("{said}.")]));
+    if let Some(c) = w.career.as_mut() {
+        c.desk.reveals.push(r);
     }
 }
 

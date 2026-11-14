@@ -94,7 +94,7 @@ pub(crate) mod glossary;
 mod money;
 mod prospects;
 pub(crate) mod situ;
-mod teams;
+pub(crate) mod teams;
 pub(crate) mod tgame;
 mod trends;
 mod yours;

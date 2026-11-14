@@ -1,0 +1,55 @@
+/* "What pulls him" (talk facts lane L13): the seven groups, a word for each,
+   and the newest evidence behind it. Only tokens the race page already has
+   (the .fr set in find.css): gold for what matters most, amber where his
+   words and your read part, everything else monochrome. */
+
+.fr .pl { gap: 2px; padding-left: 8px; padding-right: 8px; }
+.fr .pl > .fr-ph { padding: 0 10px 8px; flex-wrap: wrap; }
+.fr .pl-flag { margin: 0 10px 6px; padding: 7px 10px; border-radius: 8px; background: color-mix(in srgb, var(--fr-amber) 12%, transparent); color: var(--fr-amber); font-size: 12.5px; font-weight: 600; }
+.fr .pl-none { padding: 4px 10px 6px; display: grid; gap: 10px; }
+.fr .pl-names { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.fr .pl-row { display: grid; grid-template-columns: minmax(96px, 130px) minmax(150px, 190px) minmax(0, 1fr); column-gap: 14px; align-items: start; padding: 8px 10px; border-top: 1px solid var(--fr-hair); }
+.fr .pl-row:first-of-type { border-top: 0; }
+.fr .pl-row:hover { background: var(--fr-hover); }
+.fr .pl-name { font-weight: 600; line-height: 20px; }
+.fr .pl-word { display: flex; align-items: center; gap: 8px; line-height: 20px; color: var(--fr-fg2); }
+.fr .pl-dot { flex: none; width: 8px; height: 8px; border-radius: 4px; box-shadow: inset 0 0 0 1.5px var(--fr-fg4); }
+.fr .pl-row.hi .pl-word { color: var(--fr-fg); font-weight: 600; }
+.fr .pl-row.hi .pl-dot { background: var(--fr-gold); box-shadow: none; }
+.fr .pl-row.mid .pl-dot { background: var(--fr-fg3); box-shadow: none; }
+.fr .pl-row.lo .pl-word { color: var(--fr-fg3); }
+.fr .pl-row.lo .pl-dot { box-shadow: inset 0 0 0 1.5px var(--fr-fg4); opacity: .6; }
+.fr .pl-row.conf .pl-word { color: var(--fr-amber); font-weight: 600; }
+.fr .pl-row.conf .pl-dot { background: var(--fr-amber); box-shadow: none; }
+.fr .pl-row.empty .pl-name, .fr .pl-row.empty .pl-word { color: var(--fr-fg3); font-weight: 400; }
+.fr .pl-firm { margin-left: 2px; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--fr-gold); }
+
+.fr .pl-ev { display: grid; gap: 4px; min-width: 0; }
+.fr .pl-e { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; line-height: 20px; }
+.fr .pl-t { color: var(--fr-fg); }
+.fr .pl-f { color: var(--fr-fg3); font-size: 11.5px; white-space: nowrap; }
+.fr .pl-e.guess .pl-t { color: var(--fr-fg2); font-style: italic; }
+.fr .pl-intro { margin: 0; padding: 2px 10px 8px; }
+.fr .pl-y { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; line-height: 20px; margin-top: 2px; padding-top: 6px; border-top: 1px dashed var(--fr-hair); }
+.fr .pl-ev > .pl-y:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.fr .pl-yh { display: inline-flex; align-items: baseline; gap: 8px; }
+.fr .pl-y small { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--fr-fg3); }
+.fr .pl-y .pl-t { color: var(--fr-fg2); }
+.fr .pl-y .pl-also { flex-basis: 100%; color: var(--fr-fg); }
+.fr .pl-tier { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--fr-fg2); }
+.fr .pl-tier.elite, .fr .pl-tier.strong { color: var(--fr-gold); }
+.fr .pl-tier.weak { color: var(--fr-amber); }
+.fr .pl-more { color: var(--fr-fg3); font-size: 11.5px; }
+.fr .pl-more summary { cursor: pointer; list-style: none; line-height: 20px; }
+.fr .pl-more summary::-webkit-details-marker { display: none; }
+.fr .pl-more summary:hover { color: var(--fr-fg2); }
+.fr .pl-more[open] { display: grid; gap: 4px; }
+
+/* On a file page the panel sits among Showtime panels, full width. */
+.pl-wrap { margin-top: 16px; }
+.pl-wrap .fr-panel { background: var(--surface, var(--fr-raised)); }
+
+@media (max-width: 760px) {
+  .fr .pl-row { grid-template-columns: minmax(0, 1fr); row-gap: 4px; }
+}

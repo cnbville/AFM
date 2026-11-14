@@ -223,7 +223,15 @@ fn a_lie_he_sees_costs_what_a_broken_promise_costs_by_his_belief() {
     let today = w.today;
     claims::truth::file_lie(
         &mut w,
-        Lie { to: PromiseTo::Player(id), fact, said: today, sees: today, seen: false, who: String::new() },
+        Lie {
+            to: PromiseTo::Player(id),
+            fact,
+            said: today,
+            sees: today,
+            seen: false,
+            who: String::new(),
+            recruit: false,
+        },
     );
     claims::truth::check_lies(&mut w, today);
     assert!(w.folk.live.lies[0].seen, "its day came");

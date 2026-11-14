@@ -1,6 +1,6 @@
 # Live talks: how it works today
 
-Checked against main at 7691db7 on 2026-11-13 (lane 2, the boxes, before it merged to main; lane 1 is on main since #314), and lane 3, the core, over main c04c172 on 2026-11-13, before it merged. Lane 5 (rooms on today's choices) was built over main 695d72d on 2026-11-13, before it merged. Lane 4, the desk, over main 65b1d0a on 2026-11-13, before it merged. Lane 6 (rooms that gain something) over main b1f10b5 on 2026-11-14, before it merged. Lane 9 (one-on-ones typed) over main 0957af5 on 2026-11-14, before it merged. Lanes 7, 8 and 10 are not built yet: their sections below are empty until each lane fills its own.
+Checked against main at 7691db7 on 2026-11-13 (lane 2, the boxes, before it merged to main; lane 1 is on main since #314), and lane 3, the core, over main c04c172 on 2026-11-13, before it merged. Lane 5 (rooms on today's choices) was built over main 695d72d on 2026-11-13, before it merged. Lane 4, the desk, over main 65b1d0a on 2026-11-13, before it merged. Lane 6 (rooms that gain something) over main b1f10b5 on 2026-11-14, before it merged. Lane 10's recruit and transfer talks (LT2, LT3) over main 0957af5 on 2026-11-14, before it merged. Lane 9 (one-on-ones typed) over main 81f5b14 on 2026-11-14, before it merged. Lane 7 and lane 10's NIL forms (LT9) are not built yet: their sections below say so.
 
 Live talks are typed lines to your players, recruits and staff, answered in character by Claude Haiku 5.5, on top of the chips and the line bank, which always still work. The rule under all of it: the AI only reads your words and writes theirs; the game decides every result. The design is `afm/live-talks/proposal.md` in the project folder; this page says what the code does.
 
@@ -26,7 +26,9 @@ Live talks are typed lines to your players, recruits and staff, answered in char
 - Can I type in a one-on-one? Yes (lane 9). Your line lands on a move on the table in the tone you said it, or turns the talk to another of his points as its chip does and lands the move there. A promise asks first. A fact he can check as you say it is checked, and a false one costs what a move against the facts costs (`live_talk/say/one_on_one.rs`; `world/folk/talks.rs`, `one_on_one_say`, `typed_turn`, `typed_against`).
 - Is "you're my starter" typed to your player checked against the depth chart? No: players never see the chart. It is heard as a promise about what he'll see and handed to the seam lane P1 fills (`world/folk/claims/truth.rs`, `standing_promise`; `talks.rs`, `typed_promise`).
 - Can I type a team talk before kickoff or at halftime? Yes, through `talk_typed`, which reads your line into the room's own move, tone, subject and who and runs the chip's command. A pregame talk can be changed until the team is on the field; the halftime talk always shows its reading first and is said once (`live_talk/say/rooms.rs`).
-- Is a lie judged? Not yet: the lies store and its daily check exist, and judging costs nothing until lane P1 fills it (`world/folk/claims/truth.rs`, `judge`).
+- Is a lie judged? Yes, on the day he can see it, at a broken promise's cost scaled by his belief (`world/folk/claims/truth.rs`, `check_lies`, `judge`). Only lane 10 files lies so far: a NIL number a recruit can check only at signing (`claims/check/recruit.rs`).
+- What if I tell a recruit something false he can check on the spot (titles, last season, draft picks, who comes back at his spot)? It is never saved. The point adds nothing to your case, the oversell costs 0.006 off his lean and your name on the trail drops 0.02 (`claims/check/recruit.rs`, `landed`, `CAUGHT_TRAIL`).
+- Can I promise a recruit something by typing it? Yes: the line lands on the promise it means (a start, a role, his position, an early chance or no redshirt; a starting job or a real role for a transfer), asked first, the same promise as the chip (`world/folk/pitch.rs`, `typed_promise`; `live_talk/say/recruit.rs`, `heard`).
 
 ## The contract with the screens
 
@@ -74,7 +76,7 @@ On a yes to question 5, the same step adds two lists that need no key:
 - `ai_status`: what the settings card shows. `key_set`, `key_ending` ("...abcd", never more), `kept` ("keychain" or "memory", when a key is set), `fake`, `usable` (a box may show), `month` ("2026-11"), `spent` (dollars), `cap` (50), `cap_reached`, `calls` (this month), and `note` (one plain line when something is wrong: a lasting failure, the cap, the last failure, or an unreadable spend file) (`live_talk/key.rs`, `status`).
 - `ai_key_set {key}`: checks the shape (`sk-ant-`, letters, digits, `-` and `_`, 20 to 300 characters, trimmed first) and keeps the key in memory. It answers with the status. In the app the reply may also carry `keychain_note`, a plain line, when the Keychain would not take the key (`crates/afm-ai/src/client.rs`, `Key::parse`; `app/src-tauri/src/main.rs`, `follow_keychain`).
 - `ai_key_clear`: forgets the key, and the app removes it from the Keychain.
-- `ai_test`: one tiny call ("Reply with the single word ok."), to see that the key is accepted. It answers `{"ticket": n}`; the poll's `done` carries `text` ("The key works."), `seconds`, `cost` and a fresh `status`. It goes through even after a lasting failure, since a good test is how that is cleared (`live_talk/mod.rs`, `test`).
+- `ai_test`: one call the size of a typed line (the scene reader's rules and schema with a short card, 400 tokens at most), to see that the key is accepted and to show the seconds a typed line takes; it also warms that reader's schema at the API (it was a 16-token plain call that answered in 0.8 s while typed lines timed out at 6 s, 2026-11-14). It answers `{"ticket": n}`; the poll's `done` carries `text` ("The key works."), `seconds`, `cost` and a fresh `status`. It goes through even after a lasting failure, since a good test is how that is cleared (`live_talk/mod.rs`, `test`).
 - `ai_poll {ticket}`: "wait" until the call is back, then the ticket's answer in the contract's shapes. A ticket is answered once; an unknown or old one answers `off` with "That answer is gone." (`live_talk/tickets.rs`, `poll`).
 - `ai_demo {state?}`: on the fake only. With no state it lists the states and the flags a reply carries (the contract's `say`, `ask`, `facts`, `sources`). With a state (`wait`, `unsure`, `done`, `none`, `off`, `cap`, `table`, `text`, `reload`, `checks`, `ask_first`) it gives a ticket that answers "wait" twice and then that state's answer (`live_talk/demo.rs`).
 
@@ -147,7 +149,7 @@ Off by default, and only while `ai_status.fake` is true (`AFM_AI_FAKE=1`): the b
 
 ### The settings card
 
-`ai_status`, `ai_key_set` (the key field is a password field; Enter saves, also inside the pregame dialog), `ai_key_clear`, `ai_test` (the card says "Works. One small call, 0.6 s." or the refusal's line) and `ai_checks` (rows with a bar and a tick at the bar to clear; amber only under the tick; cost and seconds) (`ai.js`, `aiCardHtml`, `aiCardAct`). With no key the card also says the game plays on the chips. With a key and the cap reached it says so with the day the cap resets.
+`ai_status`, `ai_key_set` (the key field is a password field; Enter saves, also inside the pregame dialog), `ai_key_clear`, `ai_test` (the card says "Works. A call the size of a typed line, 1.2 s." or the refusal's line) and `ai_checks` (rows with a bar and a tick at the bar to clear; amber only under the tick; cost and seconds) (`ai.js`, `aiCardHtml`, `aiCardAct`). With no key the card also says the game plays on the chips. With a key and the cap reached it says so with the day the cap resets.
 
 ### Sizes (proposed, not confirmed)
 
@@ -331,7 +333,31 @@ The real test (both sets through `ai_checks` on the real reader, 3 to 5 cents a 
 
 ## Lane 10, college desk
 
-Not built yet.
+Built 2026-11-14 for recruit and transfer talks (LT2, LT3): the home visit, a call, a message, the family's call, the official visit's sit-down, and a transfer's call and visit. The conversation's math is untouched (it scores the AI staffs too): a typed line lands on the talk's own options through the core, and a typed fact only ever takes away. NIL forms (LT9, `fo_say` with desk "nil", and their no-key fact chips) wait for lane 7's money facts and still answer "That box comes with a later update." Every size here is proposed, not confirmed.
+
+### A typed fact to a recruit
+
+- Each fact is checked where he would look: the public record (national and conference titles, last season's record, the program's draft picks and first-rounders), the public roster at his spot (who comes back; a named player leaving or staying) and the money (your offer, `recruiting::offer_money`; a transfer's `portal::place`). A number below the truth is modesty and reads true; anything the game can't place reads unknown and counts for nothing (`world/folk/claims/check/recruit.rs`, `read`, `record`, `money`, `status`, `room`).
+- Where he will stand ("you'll start day one") is a promise about what he'll see, never a fact: it marks "later" and lands on the promise (below).
+- False, and he can check it as you say it: never saved. After the line lands, your case with him goes back to what it held before the line (the lift is lost), then 0.006 comes off it (`case::OVERSELL`), your name on the trail drops 0.02 and the talk's outcome says "He knew that wasn't so." Once a line, however many false things it said (`landed`, `CAUGHT_TRAIL`).
+- False, and he can only check it on a day (a NIL figure more than 10% over your offer, `MONEY_SLACK`): saved as a lie with that day, the next signing date or a transfer's decision day (`money_day`; `Lie.recruit`).
+- On its day the lie is looked at only if he is yours: arrived on your roster, it costs a broken promise's cost scaled by his belief, his trust and his mood (`Reason::RecruitLie`), which raises his portal lean; signed with you and not here yet, it is looked at again a week on (`ARRIVAL_CHECK_DAYS`); unsigned, at the next signing date; gone elsewhere, never (`due`; `truth::check_lies`).
+- `scene::say` takes what the talk held before the line (`claims::check::before`) and hands the facts on after it lands (`claims::check::landed`).
+
+### A typed promise to a recruit
+
+- Every promise you could make from the talk is in reach of a typed line, not only from the promise menu (`pitch.rs`, `picks`, the promise picks in `Scene.reach`).
+- The reader's promise kinds add "early_chance" and "no_redshirt" (`live_talk/say/mod.rs`, `PROMISE_KINDS`). A read promise, or a claim about where he will stand with none (a first place or ahead of a named player: a start; else a role), moves the line onto that promise: a start, a role, his position, an early chance or no redshirt for a high school recruit; a starting job or a real role for a transfer (`pitch::typed_promise`; `live_talk/say/recruit.rs`, `heard`).
+- A promise binds you, so it always asks first, and confirmed it is the chip's promise (`pledge::make` or `portal::promise`). It works even when the reader's card (12 options) doesn't list it: a hook that places a line itself is allowed to (`say/mod.rs`, `read`). A promise the talk can't make (one is made, your offer isn't out) changes nothing: the line lands where the reader put it.
+
+### The writer's card for a recruit
+
+- It carries his wants only as the reaction the game picked to the point you made, from his file's row (that's what he came for, polite, not his thing, he doesn't believe you can back it up), under "What your read of him caught". Nothing else of what pulls him (`say/recruit.rs`, `writer`, `reaction`).
+
+### Tests
+
+- Engine (`crates/afm-engine/src/tests/live_recruit.rs`): money and counts read from words; a true typed fact gives the chip's world byte for byte; a false one he can check costs the lift, the oversell and the trail name and is never saved; a NIL figure is a lie seen once he arrives (trust down by his belief, his mood's reason), after a save and load, re-checked while he hasn't arrived, and never seen if he signs elsewhere; every promise is in reach, asks first, and leaves the chip's case.
+- Game (`live_talk/say/recruit.rs`, `tests`): a typed promise the card doesn't list lands on its promise, asked first; the writer's card releases only his reaction.
 
 ## Where the knobs are
 
@@ -342,6 +368,7 @@ Not built yet.
 - `crates/afm-game/src/live_talk/card.rs`: `MAX_OPTIONS`, `SO_FAR`.
 - `crates/afm-game/src/live_talk/filter.rs`: `BANNED`, `MAX_CHARS`, `NUMBER_WORDS`.
 - Lane 6: `world/scouting/own.rs`: `WORRY_SD`, `WORRY_MINUTES`, `WORRIES`, `SOURCE_TOPICS`, `SOURCE_HOURS`; `world/scouting/file.rs`: `SOURCE_WARM_OFF`; `world/folk/dialogue.rs`: `TYPED_CHARS_A_MINUTE`, `MOVES`.
+- Lane 10: `world/folk/claims/check/recruit.rs`: `CAUGHT_TRAIL`, `MONEY_SLACK`, `ARRIVAL_CHECK_DAYS`.
 - `crates/afm-engine/src/world/folk/finals.rs`: `FINAL`. `world/folk/scene.rs`: `LIMIT`, `NO_BOX`. `world/folk/claims/truth.rs`: `CLAIM_KINDS`, `KEEP_LIES`, `WORD_START`.
 
 ## Related pages

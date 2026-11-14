@@ -159,11 +159,14 @@ pub struct Contact {
     pub what: String,
 }
 
-/// A reveal waiting to be shown (screens topic 9).
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+/// A reveal waiting to be shown (screens topic 9). The first nine fields
+/// are the original pop-up; the rest dress the big-moment show (the hat
+/// table, the quiet reveals, the facts under the name) and are empty in a
+/// save from before it.
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Reveal {
     pub date: Date,
-    /// commit, signing, pick, hire, title, record.
+    /// commit, signing, miss, hire, fired, title, record, hall, first.
     pub kind: String,
     pub kicker: String,
     pub number: String,
@@ -173,6 +176,38 @@ pub struct Reveal {
     /// The page it opens: kind and id.
     pub about: Option<(u8, u32)>,
     pub colors: [String; 2],
+    /// The short token in the verdict box ("QB1", "1st", "18 yrs"); empty
+    /// for none. Always words or a rank, never a potential number.
+    #[serde(default)]
+    pub token: String,
+    /// A quiet reveal (a miss, a firing): dark room, no rays.
+    #[serde(default)]
+    pub quiet: bool,
+    /// The small facts under the verdict: label, then the value in bold.
+    #[serde(default)]
+    pub facts: Vec<(String, String)>,
+    /// Cards under the verdict: a heading and its lines (a why, a quote
+    /// with its speaker as the heading).
+    #[serde(default)]
+    pub cards: Vec<(String, Vec<String>)>,
+    /// The hat table: a recruit's finalists (name and colours); `chosen`
+    /// is the cap he picks up. Empty: no ceremony.
+    #[serde(default)]
+    pub hats: Vec<(String, [String; 2])>,
+    #[serde(default)]
+    pub chosen: usize,
+    /// The room the ceremony is held in (his high school's gym).
+    #[serde(default)]
+    pub room: String,
+    /// A record's old and new marks: label, value text, share of the new.
+    #[serde(default)]
+    pub bars: Vec<(String, String, f32)>,
+    /// A career laid out in steps: age or year, then what happened.
+    #[serde(default)]
+    pub steps: Vec<(String, String)>,
+    /// The other page it can open, with the label on its button.
+    #[serde(default)]
+    pub also: Option<(String, u8, u32)>,
 }
 
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -193,6 +228,18 @@ pub struct Desk {
     pub reveals: Vec<Reveal>,
     /// Reveals already made (ids), so none is shown twice.
     pub revealed: Vec<u64>,
+    /// The reveals already shown, newest last (capped), so one can be
+    /// played again from the page that holds it.
+    #[serde(default)]
+    pub shown: Vec<Reveal>,
+    /// The seat the "You're hired" reveal last played for (a team code),
+    /// so a new job gets its own.
+    #[serde(default)]
+    pub hired_for: Option<u32>,
+    /// Players whose first NFL start the desk already told (a player you
+    /// wrote a note on at 14 to 16).
+    #[serde(default)]
+    pub first_told: Vec<u32>,
     /// Your former players whose landing a "Portal landings" message
     /// told, and the day it was filed, so none is told twice.
     #[serde(default)]

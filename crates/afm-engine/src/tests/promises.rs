@@ -372,6 +372,7 @@ fn a_lie_he_sees_costs_by_how_far_he_believed_you() {
             sees: today,
             seen: false,
             who: String::new(),
+            recruit: false,
         },
     );
     talks::day(&mut w, today);
