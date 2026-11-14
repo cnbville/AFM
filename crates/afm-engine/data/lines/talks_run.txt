@@ -24433,7 +24433,7 @@ Honestly I think I'm done. I want to look at other schools.
 I've been quiet about this too long. I'm leaning toward the portal. ~ nil
 Plain and simple, I don't see my future here. I'm thinking about transferring.
 It's a long way home and I'm not happy here. I'm thinking about going. ~ midwest
-My name's not moving on that depth chart. I'm thinking about the portal. ~ reason=snaps nil
+My name's not moving on that depth chart. I'm thinking about the portal. ~ reason=snaps nil saw_chart=yes
 I haven't told anybody yet. You're the first. I think I'm going.
 Some days I don't even want to come in. I'm thinking about leaving.
 The money's not close to what other schools are saying. I'm looking at the portal. ~ reason=money nil
@@ -26095,7 +26095,7 @@ The offensive line here doesn't take care of its own. I'm thinking about the por
 Too many guys ahead of me in the rotation. I'm looking for a place with an opening. ~ college reason=snaps
 I'd rather leave on good terms than sit and rot. I'm thinking about the portal. ~ college pro nil
 The NFL people are watching film of other schools, and I'm not on their list here. I'm leaving. ~ college reason=up
-Coach, I know the depth chart. I know where I stand. I'm thinking about the portal. ~ college steady nil
+Coach, I know the depth chart. I know where I stand. I'm thinking about the portal. ~ college steady nil saw_chart=yes
 Our defense is stacked and I'm not on it. I'm looking for a place that uses me. ~ college defense reason=snaps
 Honestly, I'm not sure this program is building anything for me anymore. I'm leaving. ~ college
 The running back room is crowded and I'm running out of time. I'm thinking about the portal. ~ college rb reason=snaps nil
@@ -48164,7 +48164,7 @@ I'm one phone call from the portal. ~ college nil brash
 I came in as a transfer and you're warning me already? ~ transfer
 Left my last school for a fresh start. Not for this. ~ transfer
 Hold up, I'm still a redshirt. What did I even do? ~ redshirt
-Redshirt, bottom of the depth chart, and now this. Great. ~ redshirt
+Redshirt, bottom of the depth chart, and now this. Great. ~ redshirt saw_chart=yes
 I'm a sophomore. I'm still figuring it all out. ~ sophomore
 Junior year and I'm getting called out like this? ~ junior
 I've been here four years and nobody's said a word like that. ~ college senior

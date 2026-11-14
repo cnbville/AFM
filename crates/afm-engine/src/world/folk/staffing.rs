@@ -1250,9 +1250,11 @@ fn proposal_answer(w: &mut World, s: &mut Scene, code: u32) {
             if let Some(yi) = super::person(w, y) {
                 let pos = w.people[yi].player.position;
                 w.seat_start(y, s0, pos);
-                talks::mood_event(w, y, Reason::Praise, 0.15);
+                // He sees it at his next practice week, not on the chart
+                // (the promises design, section 2).
+                talks::when_seen(w, y, Reason::Praise, 0.15);
             }
-            talks::mood_event(w, s0, Reason::Benched, -0.2);
+            talks::when_seen(w, s0, Reason::Benched, -0.2);
             w.folk.mine.nudge(coach_key(s.a as usize), 0.06);
             s.outcome.push("Your depth chart changed: the young player starts.".into());
         }

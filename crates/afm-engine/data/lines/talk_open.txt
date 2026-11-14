@@ -2859,7 +2859,7 @@ I'm coming for that starting spot, Coach. I want to know if it's really open. ~ 
 I'm competing every rep. I want to know if it's counting. ~ competitor
 I want a fair fight for the job. That's all I'm asking. ~ competitor
 If somebody's going to beat me out, I want to know how. ~ competitor
-I saw the chart. I need to talk about it. ~ hot
+I saw the chart. I need to talk about it. ~ hot saw_chart=yes
 Somebody's getting my reps, and I want to know why. ~ hot
 I want to talk about where I'm at. Calmly. ~ calm
 I'm at peace with whatever you decide. I just want to understand it. ~ calm
@@ -6833,7 +6833,7 @@ I'm a lineman. I don't complain. So when I'm in here saying I want to leave, it'
 Specialists don't ask for many meetings. I asked for this one because I'm thinking about leaving. ~ special
 I need to play, Coach. I can't spend another year waiting. I'm thinking about the portal. ~ reason=snaps nil
 I'm not getting the snaps I need here. I'm thinking about finding them somewhere else. ~ reason=snaps
-The chart is the chart. I just don't see my name moving, so I'm thinking about going. ~ reason=snaps
+The chart is the chart. I just don't see my name moving, so I'm thinking about going. ~ reason=snaps saw_chart=yes
 Every week I prepare like a starter and every week I wait. I'm done waiting here. ~ reason=snaps
 I want film, Coach. I can't get it from the sideline. ~ reason=snaps
 Scouts can't grade a guy who doesn't play. That's why I'm thinking about leaving. ~ reason=snaps
@@ -7032,7 +7032,7 @@ Linemen don't move around much, I know. I'm thinking about it anyway. ~ lineman
 Specialists get one job. I'm thinking about where I do it. ~ special
 I need more snaps than I'm getting. I'm thinking about the portal. ~ reason=snaps nil
 It's about playing time. I'm thinking about going where I'd get more. ~ reason=snaps
-I looked at the chart and did the math. I'm thinking about leaving. ~ reason=snaps
+I looked at the chart and did the math. I'm thinking about leaving. ~ reason=snaps saw_chart=yes
 A real shot to start. I'm thinking about where I'd get one. ~ reason=snaps
 I'm thinking about going somewhere I can play right away. ~ reason=snaps
 It's the depth chart, Coach. I don't see a path, so I'm looking. ~ reason=snaps

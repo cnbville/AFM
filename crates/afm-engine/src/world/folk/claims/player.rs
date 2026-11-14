@@ -752,8 +752,8 @@ fn life_events(r: &Reader, m: &Man) -> Vec<Point> {
 }
 
 /// A promise's topic, so two promises due the same day are two points.
-pub(super) const PROMISE_TOPICS: [&str; 9] =
-    ["start", "snaps", "contract", "stay", "booster", "raise", "place", "join", "recruit"];
+pub(super) const PROMISE_TOPICS: [&str; 11] =
+    ["start", "snaps", "contract", "stay", "booster", "raise", "place", "join", "recruit", "touches", "position"];
 
 fn promise_topic(k: talks::PromiseKind) -> &'static str {
     use talks::PromiseKind as P;
@@ -767,6 +767,8 @@ fn promise_topic(k: talks::PromiseKind) -> &'static str {
         P::Place(_) => 6,
         P::Join(_) => 7,
         P::Recruit(..) => 8,
+        P::Touches => 9,
+        P::Position(_) => 10,
     }]
 }
 
@@ -781,13 +783,23 @@ fn promises(r: &Reader, m: &Man) -> Vec<Point> {
         match p.kept {
             None => {
                 let left = r.today.days_to(p.due);
-                if (0..=kinds::AHEAD_DAYS).contains(&left) {
+                // Due soon, or slipping as he sees it (the promises design,
+                // section 6: behind, owed or missed).
+                let st = crate::world::folk::promise::State::of(p.state);
+                let slipped = matches!(
+                    st,
+                    crate::world::folk::promise::State::Behind
+                        | crate::world::folk::promise::State::Owed
+                        | crate::world::folk::promise::State::Missed
+                );
+                if (0..=kinds::AHEAD_DAYS).contains(&left) || slipped && left >= 0 {
                     out.push(
                         Point::new(Kind::PromiseOpen)
                             .due(p.due)
                             .topic(promise_topic(p.kind))
                             .text("promise", p.kind.words())
                             .text("when", words::when_words(p.due, r.today))
+                            .text("state", st.key())
                             .count("days", left as i64),
                     );
                 }

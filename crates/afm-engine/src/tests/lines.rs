@@ -42,6 +42,11 @@ const TAGS: &str = concat!(
 /// Every fact a caller hands the bank (`Facts::set` and `with` across
 /// `world/folk` and `world/storylines/tell.rs`). A version that needs any
 /// other fact would never be said.
+/// Facts no caller sets on purpose: their lines are held, never said.
+/// `saw_chart`: a player reading the depth chart (the promises design,
+/// section 2: players never see it; lane P1).
+const HELD: &[&str] = &["saw_chart"];
+
 const FACTS: &str = concat!(
     "amateur at_college at_hs at_pro boss boss_title came_up coach coach_last count count_next friend full games ",
     "gameday gone lead lead_last made mark met milestone money n n_words name not_hs nth_week old old_last ",
@@ -761,7 +766,7 @@ fn the_bank_reads_clean() {
     for (key, _) in b.keys() {
         for (text, need, not, fs, when) in b.versions(key) {
             for f in when {
-                if !facts.contains(f) {
+                if !facts.contains(f) && !HELD.contains(&f) {
                     bad.push(format!("{key}: said on an unknown fact {f}: {text}"));
                 }
             }

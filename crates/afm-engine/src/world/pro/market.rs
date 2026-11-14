@@ -1971,11 +1971,10 @@ pub(crate) fn check_promises(w: &mut World) {
         if y != year {
             continue;
         }
-        let pos = w.people[i].player.position;
-        let starts = w.clubs[t]
-            .depth
-            .get(pos.index())
-            .is_some_and(|d| d.iter().take(depth_slots(pos).starters).any(|&j| j == i));
+        // Judged on his starts in the club's first 4 games, 3 of every 4
+        // he was healthy for (the promises design, question 3; lane P1),
+        // not the week 1 chart he never sees.
+        let starts = crate::world::folk::promise::nfl_start_kept(w, i, t).unwrap_or(true);
         let here = w.people[i].pro.as_ref().unwrap().team == Some(t);
         let agent = w.people[i].pro.as_ref().unwrap().agent;
         let c = w.people[i].pro.as_mut().unwrap();

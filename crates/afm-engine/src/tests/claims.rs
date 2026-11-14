@@ -189,14 +189,13 @@ fn a_hairs_lead_is_strong_and_only_your_program_has_your_word() {
     let i = v[0];
     for k in 0..6 {
         w.folk.promises.push(crate::world::folk::talks::Promise {
-            to: crate::world::folk::talks::PromiseTo::Player(900_000 + k),
-            kind: crate::world::folk::talks::PromiseKind::Start,
             made: w.today.add(-200),
             due: w.today.add(-100),
-            public: false,
             kept: Some(k == 0),
-            backed: 0,
-            who: String::new(),
+            ..crate::world::folk::talks::Promise::blank(
+                crate::world::folk::talks::PromiseTo::Player(900_000 + k),
+                crate::world::folk::talks::PromiseKind::Start,
+            )
         });
     }
     let s = claims::recruit(&w, i, p, Ear::Himself);

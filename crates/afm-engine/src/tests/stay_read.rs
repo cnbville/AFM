@@ -217,10 +217,13 @@ fn a_promise_backed_by_a_real_strength_is_believed_more() {
     assert_eq!(w.folk.promises[k].backed, if real { 1 } else { -1 });
     let ctx = Ctx::new(&w, w.year);
     w.folk.promises[k].backed = 1;
+    crate::world::folk::promise::hear(&mut w, k);
     let strong = stay_read::promise_belief(&w, &ctx, i, &w.folk.promises[k]);
     w.folk.promises[k].backed = -1;
+    crate::world::folk::promise::hear(&mut w, k);
     let weak = stay_read::promise_belief(&w, &ctx, i, &w.folk.promises[k]);
     w.folk.promises[k].backed = 0;
+    crate::world::folk::promise::hear(&mut w, k);
     let plain = stay_read::promise_belief(&w, &ctx, i, &w.folk.promises[k]);
     assert!(strong >= plain && plain > weak, "{strong} {plain} {weak}");
 }

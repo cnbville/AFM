@@ -36,10 +36,12 @@ pub mod network;
 pub mod pitch;
 pub mod pledge;
 pub mod press;
+pub mod promise;
 pub mod pulls;
 pub mod reach;
 pub mod rules;
 pub mod scene;
+pub mod seen;
 pub mod staffing;
 pub mod takeover;
 pub mod talk_points;
@@ -255,7 +257,27 @@ pub struct Mine {
     /// How the world reads you: disciplinarian (+) or players' coach (-),
     /// and honest (+) or a salesman (-), each -1 to 1, built from what you do.
     pub hard: f32,
+    /// Your name for keeping your word as the world reads it in public:
+    /// the average of your three names (`names`), which stories and the
+    /// press read (the promises design, section 4).
     pub straight: f32,
+    /// Your name for keeping your word by who hears it (the promises
+    /// design, section 4, lane P1), each -1 to 1: your room (`Name::Room`),
+    /// the recruiting trail (`Name::Trail`), agents and clubs
+    /// (`Name::Agents`). Each moves only by what reaches that audience.
+    pub names: [f32; 3],
+    /// The three names have been split from `straight` (a save from
+    /// before lane P1 starts all three at its value).
+    pub named: bool,
+    /// Players you told straight what you could and couldn't promise, and
+    /// when: he believes your next promise more (the promises design,
+    /// section 5).
+    pub told_straight: Vec<(u32, Date)>,
+    /// Chart changes he hasn't seen yet (the promises design, section 2):
+    /// the player, the mood it brings and its reason's code, and the day
+    /// you made it. It lands at his next practice week if his group there
+    /// changed, and never if you undid it first.
+    pub unseen: Vec<(u32, f32, u8, Date)>,
     /// Hours used from this week's time budget (talks, calls, trips).
     pub week: Option<Date>,
     pub hours: f32,
@@ -265,7 +287,71 @@ pub fn coach_key(c: usize) -> u64 {
     0xC0AC_0000_0000_0000 | c as u64
 }
 
+/// Who hears what you did with your word (the promises design, section 4).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Name {
+    /// Your room: every promise to a player on your roster.
+    Room = 0,
+    /// The recruiting trail: promises to recruits, a transfer out who
+    /// blames a broken promise, your word as a high school coach to
+    /// college staffs.
+    Trail = 1,
+    /// Agents and clubs: every promise to an agent's client.
+    Agents = 2,
+}
+
+/// Each name fades this share of the way back to neutral a year
+/// (proposed, not confirmed).
+pub const NAME_FADE: f32 = 0.25;
+
 impl Mine {
+    /// Your name with one audience, -1 to 1.
+    pub fn name(&self, n: Name) -> f32 {
+        if self.named { self.names[n as usize] } else { self.straight }
+    }
+    fn split(&mut self) {
+        if !self.named {
+            self.names = [self.straight; 3];
+            self.named = true;
+        }
+    }
+    fn settle_straight(&mut self) {
+        self.straight = (self.names.iter().sum::<f32>() / 3.0).clamp(-1.0, 1.0);
+    }
+    /// Moves your name with one audience.
+    pub fn word(&mut self, n: Name, by: f32) {
+        self.split();
+        let v = &mut self.names[n as usize];
+        *v = (*v + by).clamp(-1.0, 1.0);
+        self.settle_straight();
+    }
+    /// Moves all three names: the press and stories reach everyone.
+    pub fn word_all(&mut self, by: f32) {
+        self.split();
+        for v in self.names.iter_mut() {
+            *v = (*v + by).clamp(-1.0, 1.0);
+        }
+        self.settle_straight();
+    }
+    /// A week's fade back toward neutral: a quarter of the way a year.
+    pub fn fade_week(&mut self) {
+        if !self.named {
+            return;
+        }
+        let k = (1.0 - NAME_FADE).powf(1.0 / 52.0);
+        for v in self.names.iter_mut() {
+            *v *= k;
+        }
+        self.settle_straight();
+    }
+    /// The names a new job starts from (section 4): a college or high
+    /// school room has heard of you along the trail, an NFL room through
+    /// the agents.
+    pub fn carried(&self, nfl: bool) -> [f32; 3] {
+        let (t, a) = (self.name(Name::Trail), self.name(Name::Agents));
+        [if nfl { a } else { t }, t, a]
+    }
+
     pub fn trust_of(&self, key: u64) -> Option<f32> {
         self.trust.iter().find(|x| x.0 == key).map(|x| x.1)
     }

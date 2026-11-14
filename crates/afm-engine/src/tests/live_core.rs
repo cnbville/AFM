@@ -213,7 +213,7 @@ fn heard_rides_on_the_scene_for_one_answer_only() {
 }
 
 #[test]
-fn the_lies_store_waits_for_the_promise_design() {
+fn a_lie_he_sees_costs_what_a_broken_promise_costs_by_his_belief() {
     use crate::world::folk::claims::{self, Lie, Stated};
     let mut w = seat("college");
     let (i, id) = backup(&mut w);
@@ -226,8 +226,10 @@ fn the_lies_store_waits_for_the_promise_design() {
     );
     claims::truth::check_lies(&mut w, today);
     assert!(w.folk.live.lies[0].seen, "its day came");
-    // It costs nothing until Cain answers the promise design.
-    assert_eq!((w.people[i].trust, w.people[i].mood, w.folk.mine.straight), (trust, mood, straight));
+    // A broken promise's cost, scaled by how far he believed you (the
+    // promises design, section 11; lane P1).
+    assert!(w.people[i].trust < trust && w.people[i].trust > trust - 0.22, "{}", w.people[i].trust);
+    assert!(w.people[i].mood < mood && w.folk.mine.straight < straight);
     // Trust in your word: an agent or a GM starts in the middle.
     assert_eq!(w.folk.live.word_of(7), claims::truth::WORD_START);
     w.folk.live.set_word(7, 1.4);
@@ -270,44 +272,45 @@ fn backup(w: &mut World) -> (usize, u32) {
 }
 
 #[test]
-fn a_promise_costs_what_it_cost_before_the_move() {
+fn a_promise_costs_by_his_belief_and_the_public() {
+    // The cost of a promise (lane P1): broken, -0.22 x (0.4 + 0.6 x his
+    // belief), twice in public; kept, +0.10 x (2 - his belief when said).
     for public in [false, true] {
         let mut w = seat("college");
         let (i, id) = backup(&mut w);
-        talks::promise(&mut w, PromiseTo::Player(id), PromiseKind::Start, 0);
+        talks::promise(&mut w, PromiseTo::Player(id), PromiseKind::Contract, 0);
         let k = w.folk.promises.len() - 1;
         w.folk.promises[k].public = public;
+        w.folk.promises[k].belief = 0.5;
+        w.people[i].trust = 0.6;
         let mut d = w.today;
         while d.weekday() == Weekday::Mon {
             d = d.add(1);
         }
         w.folk.promises[k].due = d;
-        let straight = w.folk.mine.straight;
         talks::day(&mut w, d);
         assert_eq!(w.folk.promises[k].kept, Some(false));
-        let cost = if public { 2.0 } else { 1.0 };
+        let cost = if public { 2.0 } else { 1.0 } * (0.4 + 0.6 * 0.5);
         let dt = -0.22 * cost;
-        assert!((w.people[i].trust - (0.6 + dt)).abs() < 1e-6, "{public}: trust {}", w.people[i].trust);
+        assert!((w.people[i].trust - (0.6 + dt)).abs() < 1e-5, "{public}: trust {}", w.people[i].trust);
         let note = w.folk.moods.iter().find(|x| x.0 == id).and_then(|x| x.1.last().copied()).unwrap();
         assert_eq!((note.1, note.2), (Reason::PromiseBroken as u8, (dt * 1.4 * 100.0).round() as i8));
-        assert!((w.folk.mine.straight - (straight - 0.08 * cost).max(-1.0)).abs() < 1e-6);
     }
-    // Kept: a start he got.
+    // Kept: a doubter's trust rises more.
     let mut w = seat("college");
     let (i, id) = backup(&mut w);
-    talks::promise(&mut w, PromiseTo::Player(id), PromiseKind::Snaps, 0);
+    talks::promise(&mut w, PromiseTo::Player(id), PromiseKind::Stay, 0);
     let k = w.folk.promises.len() - 1;
-    w.people[i].last_role = Some(PlayingTime::Rotation);
+    w.folk.promises[k].said = 0.3;
+    w.people[i].trust = 0.6;
     let mut d = w.today;
     while d.weekday() == Weekday::Mon {
         d = d.add(1);
     }
     w.folk.promises[k].due = d;
-    let straight = w.folk.mine.straight;
     talks::day(&mut w, d);
     assert_eq!(w.folk.promises[k].kept, Some(true));
-    assert!((w.people[i].trust - 0.7).abs() < 1e-6);
-    assert!((w.folk.mine.straight - (straight + 0.04).min(1.0)).abs() < 1e-6);
+    assert!((w.people[i].trust - 0.77).abs() < 1e-5, "{}", w.people[i].trust);
 }
 
 #[test]

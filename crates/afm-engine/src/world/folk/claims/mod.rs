@@ -52,7 +52,7 @@ mod alumni;
 pub mod check;
 pub mod kinds;
 mod memory;
-mod player;
+pub(crate) mod player;
 mod program;
 mod recruit;
 pub mod rooms;

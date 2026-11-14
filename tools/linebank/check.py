@@ -97,6 +97,9 @@ TALK_BACK_PARTS = ('talk.', 'rules.react.', 'takeover.meeting.react_', 'takeover
 # the bank carry blameless=yes or at_fault=yes and wait for the fact sheet
 # (voice.rs, CLAIM_FACTS); a writer never uses those two.
 CLAIM_FACTS = ('blameless', 'at_fault')
+# Lines held on purpose: nothing sets these (saw_chart: a player reading
+# the depth chart, which he never sees; promises lane P1).
+HELD_FACTS = CLAIM_FACTS + ('saw_chart',)
 CLAIM = re.compile(r"(?<![a-z])(?<!if )(?<!did )(?<!whether )(?<!in case )(?<!hope )(?<!because )(?<!glad )("
                    r"i haven't done anything wrong|i've done nothing wrong|i didn't do anything wrong|"
                    r"i did nothing wrong|i'm not in trouble|i'm clean|nothing to hide|it wasn't me|that wasn't me|"
@@ -297,7 +300,7 @@ class Checker:
             elif t not in p.tags:
                 why.append(f'tag {t} never fits this speaker')
         for (k, v), _ in when:
-            if k in CLAIM_FACTS:
+            if k in HELD_FACTS:
                 if not self.held_ok:
                     why.append(f"{k}= is the fact sheet's, not a writer's tag")
                 continue
