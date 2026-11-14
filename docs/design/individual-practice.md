@@ -187,6 +187,19 @@ Mock-up: https://claude.ai/artifact/55SqK4iz9STFrrojYn9iCq (in the app's own loo
    - **Reports:** his key ratings as ranges, staff notes and the practice log, as today.
 3. **One palette.** The team's colour for the wash, gold for progress and the picked point, white and greys for the rest, amber only when something went wrong.
 
+## Topic 9c. The projection before you pick (proposed, not confirmed)
+
+Cain 2026-11-14 13:18: "i want a bit more transparency about the projection of gain. As an NCAA coach you only get certain players for a few years or less... if i have a brilliant athlete with one sore spot... very good zone coverage. But i'm predominantly man coverage team. I have to know if developing x player is gonna give me some sort of hope. It shouldn't be a perfect projection but i need some transparency."
+
+Mock-up: the "Points, a man-team corner" board in the canvas above. Every number is the staff's read through its eye, never the hidden truth.
+
+1. **The gain on every candidate.** Each flaw or tool in the list shows its gain in rating points in its own situation, the middle of the staff's range (a full one is about 5, topic sizes). A tool your scheme rarely uses shows its gain "for you", weighted by how often you meet its situation.
+2. **What it's worth.** For the picked one: the skill in that situation now and fixed, as two ranges, and how often your scheme meets the situation (from your own calls, e.g. "you play man on 61% of snaps").
+3. **In your defense.** His role in your scheme now and once it holds, from the staff's depth read, with the coach's line on the gap.
+4. **Against his clock.** When it holds, as a range drawn on his remaining seasons, and the seasons of payoff left after it. A senior is told plainly when a fix likely won't land in time. More minutes move the range, and the line says by how much.
+5. **The whole skill.** Where the skill itself could get by his last season, as a wider range named as a guess. It reads the hidden ceiling through the coach's eye like the potential words, so it can be wrong; the exact ceiling stays hidden.
+6. **How sure.** A word for the fix and one for the whole skill, from the coach's eye, how many snaps of that situation he has seen, and how many of his past calls held. Every projection is kept, and the look-back later shows whether it came true, so you learn which coach to trust.
+
 ## Topic 10. The AI
 
 AI staffs do the same with their own eyes, teachers and styles. A moulding staff works its system's flaws first, and an adapting one works the player's biggest. The world and your team run on the same rules.
