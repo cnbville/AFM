@@ -243,6 +243,22 @@ struct Pen<'a> {
 }
 
 impl<'a> Pen<'a> {
+    /// The stamp of a letter about something that happened today: the
+    /// clock's own minute when that is earlier than its usual evening hour,
+    /// so it is filed at the stop that shows the news (the card, a reveal and
+    /// the inbox all read the same moment), not hours later. A day gone by
+    /// keeps its usual hour (it has come anyway).
+    fn stamp(&self, d: Date, usual: u16) -> u16 {
+        let now = self.w.local_now();
+        if now.date == d { now.minute.min(usual) } else { usual }
+    }
+
+    /// Whether a letter stamped `minute` on `d` is on the desk at this stop.
+    fn filed_at(&self, d: Date, minute: u16) -> bool {
+        let w = self.w;
+        w.has_come(w.seat_zone().to_eastern(afm_engine::calendar::Moment { date: d, minute }))
+    }
+
     fn colors(&self, m: &mut Mail, t: TeamRef) {
         m.org_team = Some(team_code(t));
     }
@@ -1121,7 +1137,7 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                 let mut m = pen.memo(
                     &format!("commit|{}", p.player.id),
                     d,
-                    21 * 60,
+                    pen.stamp(d, 21 * 60),
                     Job::Personnel,
                     format!("Commitment: {what} {}", p.name),
                 );
@@ -1167,7 +1183,8 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                     ),
                 ];
                 m.loud = if p.stars >= 4 { 2 } else { 1 };
-                if p.stars >= 4 {
+                // The pop-up comes with the letter, never ahead of it.
+                if p.stars >= 4 && pen.filed_at(d, m.minute) {
                     reveals.push(Reveal {
                         date: d,
                         kind: "commit".into(),
@@ -1193,7 +1210,7 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                 let mut m = pen.memo(
                     &format!("lost|{}", p.player.id),
                     d,
-                    21 * 60 + 20,
+                    pen.stamp(d, 21 * 60 + 20),
                     Job::Personnel,
                     format!("{} picks {}", p.name, w.program_name(j)),
                 );
@@ -1222,7 +1239,7 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                 let mut m = pen.memo(
                     &format!("signed|{}", d.0),
                     d,
-                    18 * 60,
+                    pen.stamp(d, 18 * 60),
                     Job::Personnel,
                     format!("Signings: {} today", ks.len()),
                 );
@@ -1264,7 +1281,7 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                 let mut m = pen.memo(
                     &format!("portal|{}", d.0),
                     d,
-                    19 * 60,
+                    pen.stamp(d, 19 * 60),
                     Job::Personnel,
                     if ks.len() == 1 {
                         format!("Portal: {} enters", w.people[ks[0]].name)
@@ -1483,7 +1500,7 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                     let mut m = letter(
                         &format!("hscommit|{id}"),
                         d,
-                        20 * 60 + 15,
+                        pen.stamp(d, 20 * 60 + 15),
                         Head::Email,
                         p.name.clone(),
                         String::new(),
@@ -1532,7 +1549,7 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                 let mut m = pen.memo(
                     &format!("hssign|{}", d.0),
                     d,
-                    17 * 60,
+                    pen.stamp(d, 17 * 60),
                     Job::Operations,
                     format!("Signing day: {} of ours signed", ks.len()),
                 );
@@ -1570,7 +1587,8 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
             }
             if let Some((d, k)) = best_sign {
                 let p = &w.people[k];
-                if let Some(s) = p.cal.signed {
+                // With the day's signing letter, never ahead of it.
+                if let Some(s) = p.cal.signed.filter(|_| pen.filed_at(d, pen.stamp(d, 17 * 60))) {
                     reveals.push(Reveal {
                         date: d,
                         kind: "signing".into(),
@@ -1871,22 +1889,25 @@ fn news_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                     "Thank you. Enjoy this one with your family before recruiting takes the next week from you.".into(),
                 ];
                 m.loud = 3;
+                let filed = pen.filed_at(d, m.minute);
                 pen.out.push(m);
-                reveals.push(Reveal {
-                    date: d,
-                    kind: "title".into(),
-                    kicker: if n.kind == NewsKind::NationalTitle {
-                        "National champions".into()
-                    } else {
-                        "Conference champions".into()
-                    },
-                    number: d.year().to_string(),
-                    name: views::team_name(w, pen.me),
-                    sub: links::strip(&n.text),
-                    verdict: String::new(),
-                    about: Some((ABOUT_TEAM, team_code(pen.me))),
-                    colors: views::team_colors(w, pen.me),
-                });
+                if filed {
+                    reveals.push(Reveal {
+                        date: d,
+                        kind: "title".into(),
+                        kicker: if n.kind == NewsKind::NationalTitle {
+                            "National champions".into()
+                        } else {
+                            "Conference champions".into()
+                        },
+                        number: d.year().to_string(),
+                        name: views::team_name(w, pen.me),
+                        sub: links::strip(&n.text),
+                        verdict: String::new(),
+                        about: Some((ABOUT_TEAM, team_code(pen.me))),
+                        colors: views::team_colors(w, pen.me),
+                    });
+                }
             }
             _ => {}
         }
