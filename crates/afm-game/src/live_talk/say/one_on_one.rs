@@ -213,3 +213,7 @@ pub fn turn(w: &mut World, id: u32, heard: &mut Heard) -> Result<bool, String> {
 pub fn was_turn(code: u32) -> bool {
     code >= TURN
 }
+
+#[cfg(test)]
+#[path = "one_on_one_tests.rs"]
+mod tests;
