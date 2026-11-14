@@ -28,7 +28,7 @@ pub mod week;
 pub mod work;
 
 use crate::attributes::{Attr, AttributeGroup, Category};
-use crate::development::{GrowthCtx, declines, grow_share, growth_age_factor};
+use crate::development::{Focus, GrowthCtx, declines, focus_cost, focus_take, grow_share, growth_age_factor};
 use crate::player::{Level, Player};
 use crate::positions::{Position, overall_for};
 use crate::rng::{Rng, clamp};
@@ -154,6 +154,11 @@ pub struct Train {
     /// technique (`prep::record`).
     #[serde(default)]
     pub rust: [u8; 2],
+    /// The minutes a week he has spent on his plan's focus lately, plus
+    /// one (individual practice, topic 5b): a running average over about
+    /// six weeks; 0 when never read, which counts as the usual 30.
+    #[serde(default)]
+    pub focus_min: u8,
 }
 
 fn q(v: f64, lo: f64, scale: f64) -> u8 {
@@ -192,7 +197,20 @@ impl Train {
             grade: 0,
             prep: 0,
             rust: [0, 0],
+            focus_min: 0,
         }
+    }
+
+    /// The minutes a week he has spent on his focus lately (the usual 30
+    /// before any week was read).
+    pub fn focus_minutes(&self) -> f64 {
+        if self.focus_min == 0 { crate::development::USUAL_FOCUS_MINUTES } else { self.focus_min as f64 - 1.0 }
+    }
+
+    /// Takes this week's minutes on his focus into the running average.
+    pub fn add_focus_minutes(&mut self, minutes: f64) {
+        let m = 0.85 * self.focus_minutes() + 0.15 * clamp(minutes, 0.0, 200.0);
+        self.focus_min = clamp(m.round() + 1.0, 1.0, 255.0) as u8;
     }
 
     pub fn pending(&self) -> bool {
@@ -241,7 +259,7 @@ impl Train {
         self.load = [a.round() as u8, c.round() as u8];
     }
 
-    fn ctx(&self, work_ethic: f64, focus: Option<Attr>, coachability: f64) -> GrowthCtx {
+    fn ctx(&self, work_ethic: f64, focus: Option<Focus>, coachability: f64) -> GrowthCtx {
         let y = &self.year;
         GrowthCtx {
             coaching_boost: 0.5 + y.coach as f64 / 250.0,
@@ -256,7 +274,7 @@ impl Train {
             college: y.flags & 2 != 0,
             redshirt: y.flags & 4 != 0,
             focus,
-            focus_take: clamp(0.6 + 0.02 * coachability, 0.6, 1.0),
+            focus_take: focus_take(coachability),
             tested: if y.flags & 16 != 0 { crate::results::tested(self.position(), self.level()) } else { 0 },
             form_tested: y.form as f64 / 4000.0 * ((y.form_tested as f64 - 128.0) / 32.0).exp2(),
         }
@@ -286,7 +304,7 @@ fn quick_normal(rng: &mut Rng) -> f64 {
 /// year add to about one; a plan moves them). `focus` is his plan's main
 /// focus. The noise comes from its own keyed stream, so nothing else in
 /// the world draws differently. Returns the overall gained.
-pub fn land(p: &mut Player, share: &[f64; FAMILIES], focus: Option<Attr>, key: u64) -> f64 {
+pub fn land(p: &mut Player, share: &[f64; FAMILIES], focus: Option<Focus>, key: u64) -> f64 {
     let done: [f64; FAMILIES] = std::array::from_fn(|f| p.train.landed(Family::ALL[f]) - share[f]);
     land_after(p, share, &done, focus, key)
 }
@@ -296,7 +314,7 @@ pub fn land_after(
     p: &mut Player,
     share: &[f64; FAMILIES],
     done: &[f64; FAMILIES],
-    focus: Option<Attr>,
+    focus: Option<Focus>,
     key: u64,
 ) -> f64 {
     if !p.train.pending() || share.iter().all(|&s| s <= 0.0) {
@@ -307,6 +325,7 @@ pub fn land_after(
     let dev_age = p.train.development_age();
     let mut rng = Rng::new((key ^ (p.id as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ 0x7A11) as u32);
     let (mut attrs, mut ceil) = (p.attributes, p.ceilings);
+    let mut extra = 0.0;
     for a in Attr::ALL {
         let s = share[family_of(a) as usize];
         if s <= 0.0 || !deferred(p, a) {
@@ -315,11 +334,38 @@ pub fn land_after(
         let af = growth_age_factor(dev_age, a.profile().growth_window);
         let rate = g.rate(a, af);
         let noise = 0.5 * s.sqrt() * quick_normal(&mut rng);
-        grow_share(&mut attrs, &mut ceil, a, rate, s, done[family_of(a) as usize], noise);
+        let d = done[family_of(a) as usize];
+        if focus.is_some_and(|f| f.attr == a) {
+            extra = focus_extra(&attrs, &ceil, a, g.plain().rate(a, af), s, d, noise);
+        }
+        grow_share(&mut attrs, &mut ceil, a, rate, s, d, noise);
+        if focus.is_some_and(|f| f.attr == a) {
+            extra = attrs.get(a) - extra;
+        }
+    }
+    // What the focus grew, his other key skills pay for (topic 5b).
+    if let Some(f) = focus {
+        focus_cost(p.position, &p.attributes, &mut attrs, f.attr, extra);
     }
     p.attributes = attrs;
     p.ceilings = ceil;
     p.overall() - before
+}
+
+/// Where a focused skill would have landed without the focus (the same
+/// share and noise): what the focus added is the rest.
+fn focus_extra(
+    attrs: &crate::attributes::Attributes,
+    ceil: &crate::attributes::Attributes,
+    a: Attr,
+    plain_rate: f64,
+    share: f64,
+    done: f64,
+    noise: f64,
+) -> f64 {
+    let (mut at, mut ce) = (*attrs, *ceil);
+    grow_share(&mut at, &mut ce, a, plain_rate, share, done, noise);
+    at.get(a)
 }
 
 /// Lands what a game's snaps add to the year (growth from results, item
@@ -328,7 +374,7 @@ pub fn land_after(
 /// in the snaps' rate gives (`development::reps_ratio` raised to the
 /// skill's experience weight, as the yearly step's snaps). Returns the
 /// overall gained. Only a year opened with snaps landing in season.
-pub fn reps_land(p: &mut Player, before: f64, share: f64, focus: Option<Attr>) -> f64 {
+pub fn reps_land(p: &mut Player, before: f64, share: f64, focus: Option<Focus>) -> f64 {
     if !p.train.reps_in_season() || share <= 0.0 {
         return 0.0;
     }
@@ -338,6 +384,7 @@ pub fn reps_land(p: &mut Player, before: f64, share: f64, focus: Option<Attr>) -
     let dev_age = p.train.development_age();
     let (r0, r1) = (crate::development::reps_ratio(before), crate::development::reps_ratio(before + share));
     let (mut attrs, mut ceil) = (p.attributes, p.ceilings);
+    let mut gave = 0.0;
     for a in Attr::ALL {
         if !deferred(p, a) {
             continue;
@@ -350,7 +397,16 @@ pub fn reps_land(p: &mut Player, before: f64, share: f64, focus: Option<Attr>) -
         let af = growth_age_factor(dev_age, a.profile().growth_window);
         let rate = g.rate(a, af);
         let done = p.train.landed(family_of(a));
+        if focus.is_some_and(|f| f.attr == a) {
+            gave = focus_extra(&attrs, &ceil, a, g.plain().rate(a, af), extra, done, 0.0);
+        }
         grow_share(&mut attrs, &mut ceil, a, rate, extra, done, 0.0);
+        if focus.is_some_and(|f| f.attr == a) {
+            gave = attrs.get(a) - gave;
+        }
+    }
+    if let Some(f) = focus {
+        focus_cost(p.position, &p.attributes, &mut attrs, f.attr, gave);
     }
     p.attributes = attrs;
     p.ceilings = ceil;
@@ -386,7 +442,7 @@ pub fn owe(t: &mut Train, s: &[f64; FAMILIES]) -> bool {
 }
 
 /// Lands what waits, and clears it.
-pub fn settle(p: &mut Player, focus: Option<Attr>, key: u64) -> f64 {
+pub fn settle(p: &mut Player, focus: Option<Focus>, key: u64) -> f64 {
     let due = p.train.due.map(|v| v as f64 / 2000.0);
     p.train.due = [0; FAMILIES];
     land(p, &due, focus, key)
@@ -395,7 +451,7 @@ pub fn settle(p: &mut Player, focus: Option<Attr>, key: u64) -> f64 {
 /// Closes a year at the next checkpoint (topic 12): what waits lands, what
 /// the calendar never reached lands now at the staff's default, and his
 /// last season row ends on the rating he really reached.
-pub fn close_year(p: &mut Player, focus: Option<Attr>) {
+pub fn close_year(p: &mut Player, focus: Option<Focus>) {
     if !p.train.pending() {
         return;
     }
@@ -406,12 +462,12 @@ pub fn close_year(p: &mut Player, focus: Option<Attr>) {
     }
     let done: [f64; FAMILIES] = std::array::from_fn(|f| p.train.landed(Family::ALL[f]));
     land_after(p, &rest, &done, focus, 0xC105E);
-    let (load, prep, rust) = (p.train.load, p.train.prep, p.train.rust);
+    let (load, prep, rust, focus_min) = (p.train.load, p.train.prep, p.train.rust, p.train.focus_min);
     // Whether the year's snaps landed in season (flags bit 3) stays for
     // the next opening: a year that didn't (results off, unsigned at camp,
     // an older save) has its snaps read there instead.
     let year = GrowthYear { flags: p.train.year.flags & 8, ..GrowthYear::default() };
-    p.train = Train { load, prep, rust, year, ..Train::default() };
+    p.train = Train { load, prep, rust, focus_min, year, ..Train::default() };
     let now = p.overall();
     if let Some(h) = p.history.last_mut() {
         h.overall = now;
