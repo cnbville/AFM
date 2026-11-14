@@ -16,6 +16,7 @@
 //! Every size no real source publishes is Claude's pick (proposed, not
 //! confirmed), listed in `docs/world-model.md`.
 
+pub mod ai_promise;
 pub mod backchannel;
 pub mod boss;
 pub mod case;
@@ -386,6 +387,9 @@ pub struct Folk {
     /// Your people log: everything the meetings, talks and reports told you.
     pub log: Vec<Entry>,
     pub promises: Vec<talks::Promise>,
+    /// The AI staffs' promises and each AI head coach's name for keeping
+    /// his word (promises lane P2).
+    pub ai_promises: ai_promise::Book,
     /// The line versions each speaker has said to you and the day he said
     /// each one; a version rests a full season (topic 5, part 5; D3). Saves
     /// from before D3 kept `said` without days: it is dropped on load.
@@ -539,6 +543,7 @@ pub(crate) fn step(w: &mut World, d: Date, t: u16) {
         hour::PRACTICE => {
             ensure_base(w);
             talks::day(w, d);
+            ai_promise::day(w, d);
             dialogue::players_only_day(w, d);
         }
         hour::EVENING => {

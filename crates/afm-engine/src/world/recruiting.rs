@@ -7170,6 +7170,9 @@ pub(crate) fn enroll(w: &mut World, early: bool) {
             continue;
         }
         let name = w.program_name(s.program).to_string();
+        // An AI head coach's word to him goes in the book before the
+        // schools' cases are settled (promises lane P2).
+        super::folk::ai_promise::log_recruit(w, i, s.program);
         let p = &mut w.people[i];
         if p.stage == Stage::College {
             // A junior college player moving up keeps two seasons at most behind him.
@@ -8495,7 +8498,10 @@ fn suitors(
                 + fit
                 + bond
                 + money.extra(nil)
-                + super::folk::dialogue::staff_call(wr, i, j, role, nil);
+                + super::folk::dialogue::staff_call(wr, i, j, role, nil)
+                // Its head coach's word on his role, as far as he believes
+                // it (promises lane P2).
+                + super::folk::ai_promise::transfer(wr, i, j, role).map_or(0.0, |x| x.1);
             Some((j, u, nil, role, perf - median(d), fit))
         })
         .collect()
@@ -9089,6 +9095,8 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         let (stars, starter, name) =
             (w.people[i].stars, w.people[i].last_role == Some(PlayingTime::Starter), w.people[i].name.clone());
         landings.push((i, j));
+        // An AI head coach's word to him goes in the book (promises lane P2).
+        super::folk::ai_promise::log_transfer(w, i, j, role);
         let p = &mut w.people[i];
         p.pending_dip = Some(World::adjustment(p, step));
         p.college = Some(j);
