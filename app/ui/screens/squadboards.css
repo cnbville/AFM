@@ -241,10 +241,11 @@
 .sb-chip.v-strength { --vc: var(--sb-strength); --vt: #9cbcf5; }
 .sb-stage .sb-chip { font-size: 1.15cqw; }
 .sb-side-l { position: absolute; z-index: 2; left: 18px; font-size: 10.5px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: rgba(255, 255, 255, .55); }
-.sb-side-l.def { top: 30%; }
-.sb-side-l.off { bottom: 22%; }
-.sb-legend { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-left: auto; font-size: 11.5px; color: var(--sb-dim); }
+.sb-side-l.def { top: 3%; }
+.sb-side-l.off { bottom: 3%; }
+.sb-legend { justify-content: flex-end; display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-left: auto; font-size: 11.5px; color: var(--sb-dim); }
 .sb-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.sb-legend-n { flex-basis: 100%; text-align: right; font-size: 11px; color: var(--sb-dim); }
 .sb-legend i { width: 10px; height: 10px; border-radius: 3px; }
 i.v-hole { background: var(--sb-hole); }
 i.v-thin { background: var(--sb-thin); }
@@ -467,6 +468,13 @@ i.v-strength { background: var(--sb-strength); }
   .sb-years { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .sb-years .sb-leave { grid-column: 1 / -1; }
 }
+.sb-ptl { border-radius: 18px; padding: 12px 16px; background: var(--sb-card); box-shadow: inset 0 0 0 1px var(--sb-line); font-size: 12.5px; color: var(--sb-text2); }
+.sb-ptl-r { display: grid; grid-template-columns: 150px repeat(2, minmax(0, 1fr)); gap: 10px; padding: 5px 0; border-top: 1px solid var(--sb-line); }
+.sb-ptl-r b { color: var(--sb-text); } .sb-ptl-r small { color: var(--sb-dim); font-weight: 500; }
+.sb-ptl-h { border-top: 0; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--sb-dim); }
+/* The needs map keeps its side panel beside the field down to a narrow window. */
+@media (max-width: 1200px) { .sb-dc.sb-dc-needs { grid-template-columns: minmax(0, 1fr) 250px; } .sb-dc-needs .sb-side { position: sticky; top: 0; } }
+@media (max-width: 900px) { .sb-dc.sb-dc-needs { grid-template-columns: minmax(0, 1fr); } .sb-ptl-r { grid-template-columns: 110px repeat(2, minmax(0, 1fr)); } }
 @media (prefers-reduced-motion: reduce) {
   .sb-plate, .sb-chip { transition: none; }
 }
@@ -477,10 +485,35 @@ i.v-strength { background: var(--sb-strength); }
    the others (another position group, or the head coach's) step back. */
 .sb-plate { -webkit-user-select: none; user-select: none; }
 .sb-plate:focus-visible { outline: 2px solid var(--sb-gold); outline-offset: 2px; }
-.sb-plate.sb-lock { cursor: not-allowed; }
+.sb-plate.sb-lock, .sb-pb.sb-lock { cursor: not-allowed; }
 .sb-plate.sb-lock:hover { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12), 0 12px 24px rgba(0, 0, 0, .5); }
 .sb-stage.sb-dropping .sb-plate { transition: opacity .12s, box-shadow .12s; }
 .sb-stage.sb-dropping .sb-plate:not(.sb-no):not(.sb-over) { box-shadow: inset 0 0 0 1px rgba(241, 190, 72, .45), 0 12px 24px rgba(0, 0, 0, .5); }
 .sb-stage.sb-dropping .sb-plate.sb-no { opacity: .4; }
 .sb-stage.sb-dropping .sb-plate.sb-over { z-index: 4; box-shadow: inset 0 0 0 2px var(--sb-gold, #f1be48), 0 14px 28px rgba(0, 0, 0, .55); }
-@media (prefers-reduced-motion: reduce) { .sb-stage.sb-dropping .sb-plate { transition: none; } }
+/* The 2 and 3 rows inside a plate take a man too (playtest bug 16): the row
+   under him lights the way a plate does, a row that can't take him steps back. */
+.sb-pb[data-drag] { cursor: grab; }
+.sb-stage.sb-dropping .sb-pb { border-radius: .45em; transition: opacity .12s, box-shadow .12s, background .12s; }
+.sb-stage.sb-dropping .sb-pb.sb-no { opacity: .4; }
+.sb-stage.sb-dropping .sb-pb.sb-over { color: #f4f5f7; background: rgba(241, 190, 72, .16); box-shadow: inset 0 0 0 1.5px var(--sb-gold, #f1be48); }
+body.pd-active .sb-dr[data-cell] { transition: opacity .12s, box-shadow .12s; }
+body.pd-active .sb-dr[data-cell]:not(.sb-no):not(.sb-over) { box-shadow: inset 0 0 0 1px rgba(241, 190, 72, .45); }
+body.pd-active .sb-dr[data-cell].sb-no { opacity: .4; }
+body.pd-active .sb-dr[data-cell].sb-over { box-shadow: inset 0 0 0 2px var(--sb-gold, #f1be48); background: rgba(241, 190, 72, .16); }
+@media (prefers-reduced-motion: reduce) { .sb-stage.sb-dropping .sb-plate, .sb-stage.sb-dropping .sb-pb, body.pd-active .sb-dr[data-cell] { transition: none; } }
+
+/* Plan ahead (Cain, 2026-11-13): the pills for the next three falls under the
+   depth chart's tabs; the board itself is the same. */
+.sb-planrow { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; }
+.sb-planrow .sb-seg button small { font-weight: 500; opacity: .6; margin-left: 4px; }
+.sb-plan-priv { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sb-dim); }
+/* Projected test numbers: the dim projected number, the hollow ring and
+   its line on the plot, the dashed weight line ahead. */
+.sb-projv { color: var(--sb-text2); font-style: italic; }
+.sb-pnote { margin: 6px 0 0; font-size: 12px; }
+.sb-pring { fill: none; stroke: var(--sb-gold); stroke-width: 2.2; }
+.sb-pline { stroke: var(--sb-gold); stroke-width: 1.2; stroke-dasharray: 3 3; opacity: 0.8; }
+.sb-al.sb-ahead { stroke-dasharray: 6 5; stroke-width: 2; opacity: 0.85; }
+.sb-ad.sb-ring { fill: var(--sb-panel); stroke: var(--sb-gold); stroke-width: 2; }
+.sb-rleg i.pring { background: none; height: 8px; width: 8px; border-radius: 50%; border: 2px solid var(--sb-gold); box-sizing: border-box; }

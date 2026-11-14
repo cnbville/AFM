@@ -668,13 +668,19 @@ pub fn set_position(p: &mut Player, pos: Position) {
 /// A position's playing weight for him: the combine's average there, less
 /// what lower talent takes off a body.
 pub(crate) fn position_weight(p: &Player, pos: Position) -> f64 {
+    position_weight_for(p.original_potential, pos)
+}
+
+/// `position_weight` for a talent (a ceiling read stands in for it on a
+/// projection).
+pub fn position_weight_for(talent: f64, pos: Position) -> f64 {
     let (_, _, wm, _) = combine_size(pos);
-    wm + talent_size(p.original_potential).1
+    wm + talent_size(talent).1
 }
 
 /// Where a position's weight program puts a frame when he moves there:
 /// 60% of the way to the position's weight, at most 25 lb off or 30 lb on.
-pub(crate) fn placed_weight(frame: f64, target: f64) -> f64 {
+pub fn placed_weight(frame: f64, target: f64) -> f64 {
     frame + clamp(0.6 * (target - frame), -25.0, 30.0)
 }
 

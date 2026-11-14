@@ -12,7 +12,7 @@
 
 use super::alumni::Alumni;
 use super::kinds::{self, Kind};
-use super::player::{Chart, chart_changes};
+use super::player::{Place, place_changes};
 use super::sheet::{self, Point, Ref};
 use super::{Man, Reader, team, words};
 use crate::calendar::Date;
@@ -294,16 +294,18 @@ fn spring_step(r: &Reader, m: &Man) -> Option<Point> {
     )
 }
 
-/// You moved him on the chart in the last four weeks, between seasons: up
-/// or down, and who he passed or who passed him. In season the same order
-/// is a job won or lost (`player::job`).
+/// Where he stands after spring or camp, between seasons: his place in
+/// your last practice weeks went up to the ones or down from them, and who
+/// he passed or who passed him (the promises design, section 2: what he
+/// sees, never the chart). In season the same change is a job won or lost
+/// (`player::job`).
 fn chart_move(r: &Reader, m: &Man) -> Option<Point> {
     if !m.mine || m.team.is_some_and(|t| r.in_season(t)) {
         return None;
     }
-    let (day, other, up) = match chart_changes(r, m).into_iter().last()? {
-        Chart::Up(day, o) => (day, o, true),
-        Chart::Down(day, o) => (day, o, false),
+    let (day, other, up) = match place_changes(r, m).into_iter().last()? {
+        Place::Up(day, o) => (day, o, true),
+        Place::Down(day, o) => (day, o, false),
     };
     let mut pt = Point::new(Kind::ChartMove).on(day).state("move", if up { "up" } else { "down" });
     if let Some((id, name)) = other {
@@ -620,8 +622,14 @@ fn effort(r: &Reader, m: &Man) -> Option<Point> {
 /// The next dated thing on his calendar, for a quiet day (rule 9): the
 /// testing day, spring practice, the spring game, report day, the opener.
 fn ahead(r: &Reader, m: &Man) -> Option<Point> {
+    team_ahead(r, m.team?, m.mine)
+}
+
+/// A team's next dated thing out of season (spring practice, OTAs, camp,
+/// the opener, and for your own team its testing day): what a player's
+/// `Ahead` point and the team talk look ahead to (talk facts lane L9).
+pub(super) fn team_ahead(r: &Reader, team: Team, mine: bool) -> Option<Point> {
     let w = r.w;
-    let team = m.team?;
     let y = &w.dates;
     let mut next: Vec<(Date, &'static str, &'static str)> = Vec::new();
     match team {
@@ -649,9 +657,7 @@ fn ahead(r: &Reader, m: &Man) -> Option<Point> {
         }
         next.push((g.0, "opener", "the opener"));
     }
-    if m.mine
-        && let Some(f) = crate::training::seat::seat_frame(w, y)
-    {
+    if mine && let Some(f) = crate::training::seat::seat_frame(w, y) {
         let monday = r.today.on_or_before(crate::calendar::Weekday::Mon);
         if let Some(d) = (0..=(LOOK_AHEAD / 7))
             .filter_map(|k| {

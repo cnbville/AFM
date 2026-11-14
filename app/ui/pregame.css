@@ -194,7 +194,7 @@
 .pg-wordmark span { display: flex; align-items: center; gap: 12px; margin-top: 10px; font-size: 12px; font-weight: 700; letter-spacing: .32em; text-transform: uppercase; color: #c9ced6; }
 .pg-wordmark span::before { content: ""; width: 40px; height: 2px; background: var(--pg-amber); }
 .pg-menu { display: flex; flex-direction: column; gap: 4px; max-width: 420px; }
-.pg-mi { all: unset; display: flex; align-items: center; gap: 14px; font-size: 24px; font-weight: 700; font-stretch: 108%; letter-spacing: .01em; color: #c9ced6; min-height: 48px; cursor: pointer; }
+.pg-stage .pg-mi { all: unset; display: flex; align-items: center; gap: 14px; font-size: 24px; font-weight: 700; font-stretch: 108%; letter-spacing: .01em; color: #c9ced6; min-height: 48px; cursor: pointer; }
 .pg-mi::before { content: ""; width: 3px; height: 22px; border-radius: 2px; background: transparent; }
 .pg-mi:hover, .pg-mi:focus-visible { color: #fff; }
 .pg-mi:hover::before, .pg-mi:focus-visible::before { background: rgba(240, 180, 76, .5); }
@@ -232,7 +232,7 @@
   .pg-band { padding: 22px 32px 18px; }
   .pg-band h1 { font-size: 28px; }
   .pg-stage { gap: 24px; padding-top: 40px; }
-  .pg-mi { min-height: 40px; font-size: 21px; }
+  .pg-stage .pg-mi:not(.quiet) { min-height: 40px; font-size: 21px; }
 }
 .overlay.pg-dlg { background: rgba(8, 9, 11, .72); }
 .overlay.pg-dlg .box { padding: 22px 24px; gap: 14px; box-shadow: 0 24px 60px rgba(0, 0, 0, .5); }
@@ -428,3 +428,18 @@ body:has(.pg) .toasts { bottom: 96px; }
 .pg-startc.on { border-color: var(--pg-amber); background: rgba(240, 180, 76, .08); }
 .pg-startc.on em { color: var(--pg-amber); font-weight: 600; }
 .pg-startc[disabled] { cursor: default; opacity: .55; }
+
+/* What's new: one panel a version, the changelog written for players. */
+.pg-log { max-width: 820px; gap: 14px; }
+.pg-rel { padding: 16px 20px 18px; }
+.pg-rel.new { border-color: #3a404a; box-shadow: inset 3px 0 0 var(--pg-amber); }
+.pg-rh { display: flex; align-items: baseline; gap: 12px; }
+.pg-rh .v { font-size: 13px; font-weight: 800; font-stretch: 85%; letter-spacing: .06em; color: var(--pg-fg); font-variant-numeric: tabular-nums; }
+.pg-rh .d { font-size: 12px; color: var(--pg-fg3); }
+.pg-rh .pg-tag { margin-left: auto; }
+.pg-rel h3 { margin: 6px 0 10px; font-size: 18px; font-weight: 800; font-stretch: 108%; color: #fff; }
+.pg-rel ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 7px; }
+.pg-rel li { position: relative; padding-left: 16px; font-size: 13.5px; line-height: 1.5; color: #d5d9df; }
+.pg-rel li::before { content: ""; position: absolute; left: 0; top: .6em; width: 6px; height: 2px; border-radius: 1px; background: var(--pg-amber); }
+/* A dot on the menu line when a version came out since you last looked. */
+.pg-mi .pg-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--pg-amber); }

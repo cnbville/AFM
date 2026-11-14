@@ -213,6 +213,9 @@ pub struct Rulebook {
     pub set: bool,
     /// Rookie rituals: 0 banned, 1 within limits, 2 the veterans' call.
     pub rituals: u8,
+    /// Players you got help for after trouble, and when (talk facts lane
+    /// L4: a little less risk of more trouble for a year).
+    pub helped: Vec<(u32, Date)>,
 }
 
 impl Rulebook {
@@ -973,17 +976,23 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
             let kind = RuleKind::ALL[s.b as usize % RuleKind::ALL.len()];
             let level = s.team.map_or(Level::College, |t| t.level());
             let strict = w.folk.rules.strict(kind);
-            let resp = match (strict + s.c.max(0) as u8, level) {
-                (0..=1, _) => Response::Talk,
-                (2, Level::Nfl) => Response::Fine,
-                (2, _) => Response::Running,
-                (3, Level::Nfl) => Response::Fine,
-                (3, _) => Response::BenchStart,
-                _ => Response::BenchGame,
-            };
+            let resp = staff_response(strict + s.c.max(0) as u8, level);
             s.handed = Some("your staff".into());
             apply(w, s, id, kind, resp, true);
         }
+    }
+}
+
+/// How your staff rules on a break when you leave it to them: the rule's
+/// strictness plus his earlier breaks.
+pub(crate) fn staff_response(n: u8, level: Level) -> Response {
+    match (n, level) {
+        (0..=1, _) => Response::Talk,
+        (2, Level::Nfl) => Response::Fine,
+        (2, _) => Response::Running,
+        (3, Level::Nfl) => Response::Fine,
+        (3, _) => Response::BenchStart,
+        _ => Response::BenchGame,
     }
 }
 

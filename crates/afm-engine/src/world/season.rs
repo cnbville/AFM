@@ -739,6 +739,8 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         w.results.ledgers = rest;
         mine
     };
+    // The men you got help for after trouble (talk facts lane L4).
+    let helped = super::folk::talk_points::helped_ids(w);
     let (people, schools, programs, coaches) = (&mut w.people, &w.high_schools, &w.programs, &w.coaches);
     people.par_iter_mut().zip(role_of.par_iter()).enumerate().for_each(|(i, (p, role))| {
         let Some(role) = *role else { return };
@@ -843,7 +845,8 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                     1.0 - 0.12 * super::people::Support::z(programs[c].support.engagement.rating)
                 }
                 _ => 1.0,
-            };
+            }
+            * if helped.contains(&p.player.id) { 1.0 - super::folk::talk_points::HELP_CUT } else { 1.0 };
         let mut trouble = None;
         if p.rng.chance(trouble_p) {
             p.incident = true;

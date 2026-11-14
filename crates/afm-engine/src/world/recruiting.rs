@@ -7163,6 +7163,9 @@ pub(crate) fn enroll(w: &mut World, early: bool) {
         p.path.push(s.program);
         p.on_notice = false;
         p.cal.signed = None;
+        // The schools' cases with him are settled (talk facts lane L5).
+        p.cal.cases = Vec::new();
+        p.cal.home_talks = Vec::new();
         if early {
             let age = p.row_age();
             p.note(format!("Enrolled early at {name} in January at {age}, in time for spring practice."));
@@ -8287,8 +8290,10 @@ const SMALL_PORTAL_REACH: f64 = 0.2;
 
 /// One program that wants an entrant, as he weighs it: (program, his
 /// utility there, the money it would pay him, the role he'd have, his play
-/// over the level's starters at his spot).
-type Suitor = (usize, f64, f64, PlayingTime, f64);
+/// over the level's starters at his spot, what the room at his spot there
+/// adds: [`RosterView::fit`], the job's own term beyond the program's
+/// playing time grade).
+type Suitor = (usize, f64, f64, PlayingTime, f64, f64);
 
 /// What a portal decision reads besides the entrant himself: the day's
 /// rosters, your offers and the head starts behind him.
@@ -8368,18 +8373,11 @@ fn suitors(
                 }
                 let p = &wr.people[i];
                 let (role, nil, perf, edge) = place_at(wr, mk, i, from, j, Some((o.nil, o.coll)));
+                let fit =
+                    mk.view.fit(j, i, p.player.position, &p.family.own_wants, perf, 3, 0.0, early_weight(p.stars));
                 let mut u =
                     utility(norms, &wr.high_schools, p, &p.family.own_wants, &wr.programs[j], wr.year, nil, 0.6, 1.0)
-                        + mk.view.fit(
-                            j,
-                            i,
-                            p.player.position,
-                            &p.family.own_wants,
-                            perf,
-                            3,
-                            0.0,
-                            early_weight(p.stars),
-                        )
+                        + fit
                         + o.bond
                         + bond
                         + money.extra(nil);
@@ -8391,7 +8389,7 @@ fn suitors(
                 if m.staff && !o.called {
                     u += super::folk::dialogue::staff_call(wr, i, j, role, nil);
                 }
-                return Some((j, u, nil, role, edge));
+                return Some((j, u, nil, role, edge, fit));
             }
             // His play read at that program's level (part D 15): D2 play
             // is discounted against FBS and FCS the way FCS play is
@@ -8453,12 +8451,13 @@ fn suitors(
             };
             // Its staff calls him within hours of his name going in (portal
             // recruiting): his position coach's pitch, as yours makes it.
+            let fit = mk.view.fit(j, i, p.player.position, &p.family.own_wants, perf, 3, 0.0, early_weight(p.stars));
             let u = utility(norms, &wr.high_schools, p, &p.family.own_wants, &wr.programs[j], wr.year, nil, 0.6, 1.0)
-                + mk.view.fit(j, i, p.player.position, &p.family.own_wants, perf, 3, 0.0, early_weight(p.stars))
+                + fit
                 + bond
                 + money.extra(nil)
                 + super::folk::dialogue::staff_call(wr, i, j, role, nil);
-            Some((j, u, nil, role, perf - median(d)))
+            Some((j, u, nil, role, perf - median(d), fit))
         })
         .collect()
 }
@@ -8642,7 +8641,9 @@ fn visit_days(w: &World, e: &super::PortalEntry) -> Vec<Date> {
 /// His finalists' campus visits up to `upto`: the programs he likes best
 /// (besides yours when you work him yourself: yours are the visits you
 /// set) host him, each adding the visit's pull, how the place felt to him
-/// and the head coach's sit-down at its end.
+/// and the head coach's sit-down at its end. `yours` is your program and
+/// your case with him when you called him and your staff hosts him: the
+/// sit-down adds to that case, not to a staff call he never had.
 fn finalist_visits(
     w: &World,
     i: usize,
@@ -8650,19 +8651,31 @@ fn finalist_visits(
     ranked: &mut [Suitor],
     upto: Date,
     skip: Option<usize>,
-) {
+    yours: Option<(usize, super::folk::case::Case)>,
+) -> Vec<(usize, Date)> {
     let days = visit_days(w, e);
     let mut order: Vec<usize> = (0..ranked.len()).filter(|&k| Some(ranked[k].0) != skip).collect();
     order.sort_by(|&a, &b| ranked[b].1.total_cmp(&ranked[a].1).then(ranked[a].0.cmp(&ranked[b].0)));
+    let mut hosts = Vec::new();
     for (n, &k) in order.iter().take(days.len()).enumerate() {
         if days[n] > upto {
             break;
         }
-        let (j, _, nil, role, _) = ranked[k];
+        let (j, _, nil, role, ..) = ranked[k];
+        let before = yours.filter(|y| y.0 == j).map(|y| y.1);
         ranked[k].1 += fo::portal::VISIT_PULL
             + fo::portal::feel(w, i, j, e.entered)
-            + super::folk::dialogue::staff_campus(w, i, j, role, nil);
+            + super::folk::dialogue::staff_campus(w, i, j, role, nil, before.as_ref());
+        hosts.push((j, days[n]));
     }
+    hosts
+}
+
+/// Your program and your case with an entrant you called, for the sit-down
+/// your staff holds when it hosts him.
+fn your_case(pwant: Option<&fo::college::PortalWants>, id: u32) -> Option<(usize, super::folk::case::Case)> {
+    let m = pwant?;
+    m.offers.get(&id).filter(|o| o.called).map(|o| (m.program, o.case))
 }
 
 /// The program you work an entrant for yourself (your own visits, not
@@ -8687,11 +8700,16 @@ pub(crate) fn portal_race(w: &World, i: usize) -> Vec<(usize, f64)> {
 /// there, its staff's call and, if it is a finalist, the sit-down that ends
 /// his visit).
 fn portal_ranked(w: &World, i: usize, swap: Option<(usize, f64)>) -> Vec<Suitor> {
-    let Some(mk) = w.portal_market.as_ref() else { return Vec::new() };
+    portal_ranked_hosts(w, i, swap).0
+}
+
+/// [`portal_ranked`] with his finalists' visits so far (program, day).
+fn portal_ranked_hosts(w: &World, i: usize, swap: Option<(usize, f64)>) -> (Vec<Suitor>, Vec<(usize, Date)>) {
+    let Some(mk) = w.portal_market.as_ref() else { return (Vec::new(), Vec::new()) };
     let p = &w.people[i];
-    let (Some(e), Some(c)) = (p.cal.portal, p.college) else { return Vec::new() };
+    let (Some(e), Some(c)) = (p.cal.portal, p.college) else { return (Vec::new(), Vec::new()) };
     if e.on_hold() || e.entered > w.today {
-        return Vec::new();
+        return (Vec::new(), Vec::new());
     }
     let id = p.player.id;
     let why = Why::from_reason(e.why);
@@ -8742,9 +8760,9 @@ fn portal_ranked(w: &World, i: usize, swap: Option<(usize, f64)>) -> Vec<Suitor>
         r.2 = nil;
     }
     money.top(&mut ranked);
-    finalist_visits(w, i, &e, &mut ranked, w.today, skip);
+    let hosts = finalist_visits(w, i, &e, &mut ranked, w.today, skip, your_case(pwant.as_ref(), id));
     ranked.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
-    ranked
+    (ranked, hosts)
 }
 
 /// A transfer's own weights on the six reasons, as [`reason_weights`] gives
@@ -8923,7 +8941,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         // The money that tops every other program's counts once more (F3).
         TransferMoney::of(w, &market, i).top(&mut ranked);
         // His finalists hosted him on campus while he shopped.
-        finalist_visits(w, i, &entry, &mut ranked, today, skip);
+        finalist_visits(w, i, &entry, &mut ranked, today, skip, your_case(pwant.as_ref(), id));
         ranked.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
         let promised = said_yes.and_then(|j| ranked.iter().find(|r| r.0 == j).copied());
         // His first choice can fall through while he waits (T9): another
@@ -8944,7 +8962,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         let age = w.people[i].row_age();
         let from_name = w.program_name(c).to_string();
         let what = why.phrase();
-        let Some((j, _, nil, role, edge)) = pick else {
+        let Some((j, _, nil, role, edge, _)) = pick else {
             // Portal regret (T3): his old school may take him back the day
             // he first finds nothing. At fall camp the same word stands: only
             // one turned away then for want of room is asked back (a second
@@ -9752,9 +9770,26 @@ fn appeal_in(w: &World, i: usize, j: usize, nil: f64, field: &TopTwo) -> f64 {
 /// ([`top_money`]). The seven add up to `appeal` exactly.
 pub(crate) fn reason_parts(w: &World, i: usize, j: usize, nil: Option<f64>) -> [(f64, f64); 7] {
     let p = &w.people[i];
-    let prog = &w.programs[j];
     let nil = nil.unwrap_or_else(|| offer_money(w, j, i));
-    let wants = p.family.decider_wants;
+    let mut six = six_parts(w, p, &w.programs[j], &p.family.decider_wants, nil, home_weight(&w.programs, p, w.year));
+    // The money that tops his list counts once more (F3), under money.
+    six[2].0 += top_money(recruit_top_weight(p, w.year), nil, money_field(w, i, None).other(j));
+    let rest = appeal(w, i, j, Some(nil)) - six.iter().map(|x| x.0).sum::<f64>();
+    [six[0], six[1], six[2], six[3], six[4], six[5], (rest, clamp(0.5 + rest / 0.4, 0.0, 1.0))]
+}
+
+/// Six of [`utility_fit`]'s terms for one program, as `wants` weigh them
+/// (close to home, playing time, money, development, winning and the name,
+/// academics), each (appeal points, the program's score 0 to 1). `home` is
+/// how much home still pulls him (1 for a transfer).
+fn six_parts(
+    w: &World,
+    p: &Person,
+    prog: &Program,
+    wants: &super::background::Wants,
+    nil: f64,
+    home: f64,
+) -> [(f64, f64); 6] {
     let g = |c: GradeCat| prog.grades[c as usize] / 100.0;
     let close = closeness(home_miles(&w.high_schools, p, prog));
     let crisis = p.bg.story.iter().rev().take(1).any(|s| s.contains("death") || s.contains("lost a job"));
@@ -9765,14 +9800,13 @@ pub(crate) fn reason_parts(w: &World, i: usize, j: usize, nil: Option<f64>) -> [
         + g(GradeCat::BrandExposure))
         / 4.0;
     let money = (nil.max(0.0) / 1.0e6).powf(0.6);
-    let (money_w, path_w) = money_weights(p, &wants, crisis);
-    // `appeal` reads him at 0.6 of the way down a board.
+    let (money_w, path_w) = money_weights(p, wants, crisis);
+    // `appeal` and the portal read him at 0.6 of the way down a board.
     let playing = g(GradeCat::PlayingTime) * (0.6 + 0.4 * 0.6);
     let academics = g(GradeCat::Academics) * (0.5 + 0.5 * clamp((p.bg.gpa - 2.5) / 1.5, 0.0, 1.0));
     let development = (g(GradeCat::ProPipeline) + g(GradeCat::CoachPrestige)) / 2.0;
     let brand = prog.prestige_rel.min(NAME_TIE);
     let lv = recruit_level(prog, w.year);
-    let home = home_weight(&w.programs, p, w.year);
     let mut name = 1.6 * lv * (0.5 + wants.prestige + wants.development)
         + (0.25 + wants.prestige) * brand * (0.4 + 0.6 * lv)
         + 0.1 * g(GradeCat::Facilities)
@@ -9780,18 +9814,95 @@ pub(crate) fn reason_parts(w: &World, i: usize, j: usize, nil: Option<f64>) -> [
     if p.stars == 5 {
         name += FIVE_STAR_PULL * brand.powi(3) * lv;
     }
-    // The money that tops his list counts once more (F3), under money.
-    let lead = top_money(recruit_top_weight(p, w.year), nil, money_field(w, i, None).other(j));
-    let six = [
+    [
         (home * close_w * close, close),
         ((wants.playing_time + path_w) * playing, playing),
-        (money_w * money * 1.5 + lead, money.min(1.0)),
+        (money_w * money * 1.5, money.min(1.0)),
         ((wants.development + path_w) * development, development),
         (name, (prestige + brand) / 2.0),
         (wants.academics * academics, g(GradeCat::Academics)),
-    ];
-    let rest = appeal(w, i, j, Some(nil)) - six.iter().map(|x| x.0).sum::<f64>();
-    [six[0], six[1], six[2], six[3], six[4], six[5], (rest, clamp(0.5 + rest / 0.4, 0.0, 1.0))]
+    ]
+}
+
+/// Program `j`'s roster for the portal's season as a transfer's decision
+/// counts it (the players who return and the recruits signed for it, with
+/// the yeses it holds) and its limit: a full one keeps its offer out of
+/// every entrant's race (`suitors`). None outside a portal market.
+pub(crate) fn portal_roster(w: &World, j: usize) -> Option<(usize, usize)> {
+    let mk = w.portal_market.as_ref()?;
+    let counted = counted_rosters(w, mk.season);
+    let held = match fo::program(w) {
+        Some(p) if p == j => {
+            w.front_office.college.portal.iter().filter(|t| !t.settled && t.committed.is_some()).count()
+        }
+        _ => 0,
+    };
+    Some((counted[j] + held, super::ncaa::roster_limits(&w.programs[j], mk.season).0))
+}
+
+/// What one program means to a transfer, reason by reason, as his decision
+/// weighs it today ([`portal_ranked`]): close to home, the job (the program's
+/// playing time grade and the room at his spot there), money (with what a
+/// transfer weighs it by over the recruit he was and the clear top offer's
+/// lift), development, winning and the name, academics, and the rest (the
+/// staffs' calls and promises, his visits and how each campus felt, ties
+/// and small pulls). The seven add up to `total` exactly.
+#[derive(Clone, Debug)]
+pub struct PortalReasons {
+    pub program: usize,
+    pub total: f64,
+    pub nil: f64,
+    pub role: PlayingTime,
+    pub parts: [(f64, f64); 7],
+    /// The day he took his finalist's visit there, if he has.
+    pub hosted: Option<Date>,
+}
+
+/// Every program in a transfer's race today, best first, with its
+/// [`PortalReasons`]. Empty when he isn't shopping.
+pub(crate) fn portal_reasons(w: &World, i: usize) -> Vec<PortalReasons> {
+    let Some(mk) = w.portal_market.as_ref() else { return Vec::new() };
+    let (ranked, hosts) = portal_ranked_hosts(w, i, None);
+    if ranked.is_empty() {
+        return Vec::new();
+    }
+    let p = &w.people[i];
+    let money = TransferMoney::of(w, mk, i);
+    let mut field = TopTwo::new();
+    for r in &ranked {
+        field.add(r.0, r.2);
+    }
+    let top_w = top_money_weight(money.weight, money.more);
+    ranked
+        .iter()
+        .map(|&(j, total, nil, role, _, fit)| {
+            let mut six = six_parts(w, p, &w.programs[j], &p.family.own_wants, nil, 1.0);
+            six[1].0 += fit;
+            six[2].0 += money.extra(nil) + top_money(top_w, nil, field.other(j));
+            let rest = total - six.iter().map(|x| x.0).sum::<f64>();
+            let job = match role {
+                PlayingTime::Starter => 1.0,
+                PlayingTime::Rotation => 0.6,
+                _ => 0.25,
+            };
+            PortalReasons {
+                program: j,
+                total,
+                nil,
+                role,
+                parts: [
+                    six[0],
+                    (six[1].0, job),
+                    six[2],
+                    six[3],
+                    six[4],
+                    six[5],
+                    (rest, clamp(0.5 + rest / 0.4, 0.0, 1.0)),
+                ],
+                hosted: hosts.iter().find(|h| h.0 == j).map(|h| h.1),
+            }
+        })
+        .collect()
 }
 
 /// How much each of the six reasons counts with whoever decides for him,

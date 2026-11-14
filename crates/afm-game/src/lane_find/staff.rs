@@ -21,8 +21,13 @@ use rayon::prelude::*;
 pub struct Read {
     /// Overall at his position now, and its spread.
     pub now: (f32, f32),
-    /// Where he could get to, and its spread.
+    /// Where he could get to, and its spread: the read that judges (own
+    /// potential, Cain 2026-11-13), yours from your first own look, your
+    /// staff's before, so every sort, filter and column reads it.
     pub ceiling: (f32, f32),
+    /// Whether `ceiling` is your own read; your staff's beside it.
+    pub ceiling_yours: bool,
+    pub staff_ceiling: (f32, f32),
     /// Each attribute: centre and spread (rounded), spread 0 when unseen.
     pub attrs: Box<[(u8, u8)]>,
     /// Each character trait: centre and spread, spread 0 when unread.
@@ -142,9 +147,16 @@ fn read_one(w: &World, staff: Staff, id: u32) -> Option<Read> {
     let has = |k: &[Kind]| own.is_some_and(|v| v.iter().any(|l| k.contains(&l.kind)));
     let contact = contacts(w, id) as u16;
     let seen_now = f.now.1 > 0.0 || f.now.0 > 0.0;
+    let staff_ceiling = (f.ceiling.0 as f32, f.ceiling.1 as f32);
+    let mine = (readers::seat_staff(w) == Some(staff) && afm_engine::world::scouting::yours::looked(w, staff, id))
+        .then(|| afm_engine::world::scouting::yours::own_read(w, staff, id, Some(&f)))
+        .flatten()
+        .and_then(|o| o.ceiling);
     Some(Read {
         now: if seen_now { (f.now.0 as f32, f.now.1 as f32) } else { (0.0, 0.0) },
-        ceiling: (f.ceiling.0 as f32, f.ceiling.1 as f32),
+        ceiling: mine.map_or(staff_ceiling, |c| (c.0 as f32, c.1 as f32)),
+        ceiling_yours: mine.is_some(),
+        staff_ceiling,
         attrs,
         traits,
         medical: (f.medical.grade, f.medical.examined),

@@ -180,6 +180,8 @@ fn a_player_who_enters_the_portal_leaves_your_nil_budget() {
         promise: None,
         committed: None,
         called: None,
+        case: Default::default(),
+        stand: None,
     });
     let before = crate::world::front_office::college::budget(&w, p);
     let close = w.today.add(15);

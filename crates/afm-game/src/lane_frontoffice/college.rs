@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use afm_engine::calendar::Date;
 use afm_engine::player::PlayingTime;
 use afm_engine::positions::Position;
-use afm_engine::world::background::Decider;
+use afm_engine::world::folk::claims::Group as PullGroup;
 use afm_engine::world::front_office::college::{self as desk, Source, Standing, VisitKind, VisitState};
 use afm_engine::world::front_office::{Duty, Owner, chain, dollars, portal, walk_ons as walk};
 use afm_engine::world::program::NilTrend;
@@ -596,17 +596,17 @@ pub(crate) fn interest(w: &World, j: usize, i: usize, offered: bool) -> Interest
     Interest { words, tone, reason, leader: Some(if gap > 0.025 { j } else { b.0 }) }
 }
 
-/// The one thing your staff would say about where he leans.
+/// The one thing your staff would say about where he leans (and, against
+/// a school ahead of you, why you're behind): the public facts, read
+/// through what his file shows pulls him (talk facts lane L7), never his
+/// own wants.
 fn reason(w: &World, j: usize, i: usize, rival: Option<usize>) -> String {
     let p = &w.people[i];
-    let wants = desk::family_read(w, i);
+    let file = super::pulls::file(w, i);
+    let leans = |g: PullGroup| super::pulls::leans(&file, g);
     let miles_you = geo::miles(p.home_state, w.programs[j].state);
-    let decider = match wants.decider {
-        Decider::Himself => "He",
-        Decider::Parent => "His parents",
-        Decider::Grandparent => "His grandparents",
-        Decider::Handler => "The trainer around him",
-    };
+    let decider = super::pulls::subject(w, i);
+    let known = super::pulls::decider(w, i).is_some();
     let visited = |x: usize, v: Visit| p.cal.visits.iter().any(|e| e.0 == x && e.2 == v);
     if let Some(r) = rival {
         let rn = name(w, r);
@@ -614,7 +614,7 @@ fn reason(w: &World, j: usize, i: usize, rival: Option<usize>) -> String {
             return format!("He took an official visit to {rn}; you haven't hosted him.");
         }
         let miles_them = geo::miles(p.home_state, w.programs[r].state);
-        if wants.close_to_home > 0.35 && miles_them + 150.0 < miles_you {
+        if leans(PullGroup::Home) && miles_them + 150.0 < miles_you {
             return format!(
                 "{decider} want{} him close to home: {rn} is {:.0} miles away, you {:.0}.",
                 if decider == "He" { "s" } else { "" },
@@ -622,10 +622,10 @@ fn reason(w: &World, j: usize, i: usize, rival: Option<usize>) -> String {
                 miles_you
             );
         }
-        if wants.close_to_home > 0.35 && miles_you + 150.0 < miles_them {
+        if leans(PullGroup::Home) && miles_you + 150.0 < miles_them {
             return format!("Home is {miles_you:.0} miles from you: being the close school helps.");
         }
-        if ncaa::nil_era(w.year) && wants.money > 0.3 {
+        if ncaa::nil_era(w.year) && leans(PullGroup::Money) {
             let theirs = desk::usual_offer(w, r, p.player.id);
             let ours = desk::weighed_offer(w, j, p.player.id);
             if theirs > 1.4 * ours + 10_000.0 {
@@ -638,29 +638,33 @@ fn reason(w: &World, j: usize, i: usize, rival: Option<usize>) -> String {
                 return "Your NIL number is the best he has.".into();
             }
         }
-        if wants.playing_time > 0.35 {
+        if leans(PullGroup::PlayingTime) {
             return "He wants to play early: he's counting who is ahead of him.".into();
         }
-        if wants.academics > 0.35 {
-            return "Academics weigh with the family.".into();
+        if leans(PullGroup::School) {
+            return format!("Academics weigh with {}.", if decider == "He" { "him" } else { "the family" });
         }
-        if w.programs[r].prestige_rel > w.programs[j].prestige_rel + 0.1 && wants.prestige > 0.25 {
+        if w.programs[r].prestige_rel > w.programs[j].prestige_rel + 0.1 && leans(PullGroup::Winning) {
             return format!("{rn}'s name and its titles pull at him.");
         }
         if w.programs[j].prestige_rel > w.programs[r].prestige_rel + 0.1 {
             return "Your program's name carries weight with him.".into();
         }
     }
-    if p.childhood_team == Some(j) {
+    if known && p.childhood_team == Some(j) {
         return "He grew up cheering for you.".into();
     }
     if visited(j, Visit::Official) {
         return "He's seen your campus on an official visit.".into();
     }
+    let first = p.name.split_whitespace().next().unwrap_or("he");
+    if let Some(s) = super::pulls::summary(&file, first) {
+        return s;
+    }
     if miles_you <= 250.0 {
         return format!("He lives {miles_you:.0} miles away: you can be around him often.");
     }
-    "Your staff is still learning what matters to him.".into()
+    "Your staff is still learning what matters to him. Ask him.".into()
 }
 
 /// His recruitment's schools for the file: best first, each with what
@@ -1392,12 +1396,10 @@ fn file(w: &World, j: usize, args: &Value) -> Reply {
     let fam = desk::family_read(w, i);
     v["gpa"] = json!(format!("{:.2}", fam.gpa));
     v["test"] = json!(p.cal.test_score);
-    v["decides"] = json!(match fam.decider {
-        Decider::Himself => "He decides for himself.",
-        Decider::Parent => "A parent has the final say.",
-        Decider::Grandparent => "His grandparents raised him; they decide with him.",
-        Decider::Handler => "A trainer close to the family steers it.",
-    });
+    // Who decides as far as you know, and what pulls him as his file reads
+    // it (talk facts lane L7): what your talks showed, never his wants.
+    v["decides"] = json!(super::pulls::decides_words(w, i));
+    v["pulls"] = super::pulls::section(w, i);
     v["schools_n"] = json!(desk::race_at(w, i).len());
     // How close your offer is to what he needs to commit now (the
     // satisfaction bar), while he holds it and isn't yours yet.
@@ -1842,6 +1844,20 @@ fn portal_interest(w: &World, j: usize, i: usize, t: &desk::PortalTarget) -> Int
     }
     let mine = race.iter().find(|r| r.0 == j).map(|r| r.1);
     let best = race.iter().find(|r| r.0 != j).copied();
+    // Offered, and still not in his race: your roster has no place for him.
+    if mine.is_none()
+        && t.offered.is_some()
+        && let Some((n, limit)) = portal::your_room(w).filter(|r| r.0 >= r.1)
+    {
+        return Interest {
+            words: "Your offer doesn't count yet".into(),
+            tone: "bad",
+            reason: format!(
+                "Your roster for next season is full ({n} of {limit}), so {first} can't weigh a place you don't have. Free a spot and he will."
+            ),
+            leader: best.map(|b| b.0),
+        };
+    }
     let (Some(yours), true) = (mine, t.offered.is_some()) else {
         return Interest {
             words: match best {
@@ -1870,12 +1886,14 @@ fn portal_interest(w: &World, j: usize, i: usize, t: &desk::PortalTarget) -> Int
         g if g > -0.08 => ("Listening, not leaning".to_string(), "warn"),
         _ => (format!("Behind {other}, for now"), "bad"),
     };
+    // What pulls him, as his file reads it (talk facts design, section 7):
+    // what your talks have shown, never his own numbers.
+    let file = super::pulls::file(w, i);
     let reason = if t.talks.is_empty() {
         "Call him: every staff with a place for him has.".to_string()
     } else {
-        let (a, b) = afm_engine::world::folk::dialogue::transfer_weighs(w, i);
-        let p = afm_engine::world::folk::dialogue::PITCHES;
-        format!("{first} is after {} first, then {}.", p[a].1.to_lowercase(), p[b].1.to_lowercase())
+        super::pulls::summary(&file, &first)
+            .unwrap_or_else(|| format!("Your talks haven't shown what {first} is after yet. Ask him."))
     };
     Interest { words, tone, reason, leader: Some(if gap > 0.025 { j } else { b.0 }) }
 }
@@ -1937,12 +1955,11 @@ fn portal_file(w: &World, j: usize, args: &Value) -> Reply {
                 .iter()
                 .map(|x| {
                     let place = ["A call", "At his home", "On your campus"][x.at.min(2) as usize];
-                    let how = if x.lean > 0.006 {
-                        "He leaned your way"
-                    } else if x.lean > 0.0 {
-                        "It landed, a little"
-                    } else {
-                        "It cooled him"
+                    // The talk's own words for how it ended (pitch::close).
+                    let how = match afm_engine::world::folk::pitch::mood_of(x.lean, x.at == 0) {
+                        "warm" => "He leaned your way",
+                        "flat" => "Polite, he'll think it over",
+                        _ => "It cooled him",
                     };
                     json!({ "date": short_date(x.date), "place": place, "pitch": x.pitch, "how": how })
                 })
@@ -2020,6 +2037,9 @@ fn portal_file(w: &World, j: usize, args: &Value) -> Reply {
         "days": open.map(|e| today.days_to(e.decide_by).max(0)), "sits": sits,
         "interest": it.as_ref().map(|it| it.words.clone()), "tone": it.as_ref().map(|it| it.tone), "reason": it.as_ref().map(|it| it.reason.clone()),
         "schools": schools, "schools_n": race.len(),
+        // Where you stand (Cain 2026-11-14): your staff's read of his
+        // reasons against his top three, once your offer is out.
+        "stand": t.filter(|t| shopping && t.offered.is_some() && t.committed.is_none()).and_then(|t| super::stand::panel(w, j, i, t)),
         "bar": meter.map(|m| { let (w2, tone) = bar_words(m); json!({ "m": (m * 100.0).round() / 100.0, "words": w2, "tone": tone }) }),
         "offered": t.is_some_and(|t| t.offered.is_some()), "nil": t.and_then(|t| t.nil), "coll": t.and_then(|t| t.nil_coll),
         "usual": if ncaa::nil_era(w.year) { pot_total / 40.0 } else { 0.0 },
@@ -2030,6 +2050,8 @@ fn portal_file(w: &World, j: usize, args: &Value) -> Reply {
         "called_today": t.is_some_and(|t| t.called == Some(today)),
         "contacted": t.and_then(|t| t.contacted).map(short_date),
         "talks": talks, "visits": visits, "options": options,
+        // What pulls him, as his file reads it (talk facts lane L7).
+        "pulls": super::pulls::section(w, i),
         "nil_era": ncaa::nil_era(w.year), "two_pots": ncaa::two_pots(today), "budget": budget_json(w, j),
         "portal_yours": w.front_office.owner(Duty::Portal) == Owner::You,
         // Your own film session on him (minor bug 353), as on a recruit's

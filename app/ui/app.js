@@ -116,6 +116,22 @@ function yourRange(r, looks) {
   const tip = looks == null ? `Your own read: ${lo} to ${hi}, from your own looks or your first impression.` : looks ? `Your own read: ${lo} to ${hi}, from ${looks} look${looks === 1 ? "" : "s"} of your own.` : `Your first impression: ${lo} to ${hi}. You haven't seen him yourself yet, so it can be well off.`;
   return `<span class="rg l7-yours${looks === 0 ? " l7-first" : ""}" title="${esc(tip)}"><span class="t"><i style="left:${lo}%;width:${Math.max(2, hi - lo)}%"></i></span><b>${lo}-${hi}</b></span>`;
 }
+// Own potential (Cain 2026-11-13): a potential word is your own read from
+// your first own look of him, your staff's before; your staff's line
+// stays beside yours. `pot` is the game's potential words (whose, yours,
+// staff), or a list row's read (whose, staff_role, staff_sure).
+function potMine(pot) {
+  return !!(pot && pot.whose === "yours");
+}
+function potStaffText(pot) {
+  if (!potMine(pot)) return "";
+  if (pot.staff) return `Your staff: ${pot.staff.tier}, ${pot.staff.sure}`;
+  if (pot.staff_role) return `Your staff: ${pot.staff_role}${pot.staff_sure ? `, ${pot.staff_sure}` : ""}`;
+  return "Your staff has no read of their own";
+}
+function potTag(pot) {
+  return potMine(pot) ? ` <span class="pot-yours" title="${esc(potStaffText(pot))}">yours</span>` : "";
+}
 // "Senior level 89" -> { n: 89, words: "Senior level" } for the badge, and
 // the badge's hover: what each level means at his pool (minor bugs 55, 56).
 function lvlParts(s) {
@@ -197,7 +213,7 @@ const keep = (k, d) => (S.keep[k] ??= d);
 
 // The opening, load and new-career pages sit outside a career: back and forward move
 // between the career's screens only, so they never lead out of it.
-const outside = (r) => r.screen === "start" || r.screen === "setup" || r.screen === "load";
+const outside = (r) => r.screen === "start" || r.screen === "setup" || r.screen === "load" || r.screen === "whatsnew";
 // The NFL desk's cap sheet holds every contract by year, so at the NFL a
 // link to the old Contracts table (a calendar line, search, an older
 // screen) opens the cap sheet instead.

@@ -133,6 +133,7 @@ screens.start = async () => {
       <button class="pg-mi ${cont ? "" : "on"}" data-pg="new">New career</button>
       <button class="pg-mi" data-pg="load">Load game</button>
       <div style="height:10px"></div>
+      <button class="pg-mi quiet" data-pg="news">What's new${newsUnseen() ? ' <span class="pg-dot" title="A new version since you last looked"></span>' : ""}</button>
       <button class="pg-mi quiet" data-pg="settings">Settings</button>
       ${isMac() && window.__TAURI__.process ? '<button class="pg-mi quiet" data-pg="quit">Quit</button>' : ""}
     </nav>
@@ -141,6 +142,26 @@ screens.start = async () => {
       ${news}
     </div>
   </div>`;
+};
+
+// ---------- What's new ----------
+// The changelog for players (changelog.js). The dot on the menu line shows
+// until you open the page once for the newest version in it.
+const NEWS_KEY = "afm.news.seen";
+function newsSeen() { try { return localStorage.getItem(NEWS_KEY); } catch (e) { return null; } }
+function newsUnseen() { return CHANGELOG.length > 0 && newsSeen() !== CHANGELOG[0].v; }
+screens.whatsnew = async () => {
+  const hello = PG.hello || (await appHello());
+  PG.hello = hello;
+  try { if (CHANGELOG.length) localStorage.setItem(NEWS_KEY, CHANGELOG[0].v); } catch (e) { /* the dot just shows again */ }
+  return pgPage({
+    right: `Version ${hello.version}`,
+    kicker: "What's new",
+    title: "Latest updates",
+    lede: "What changed for you, newest first.",
+    body: changelogBody(CHANGELOG, hello.version, esc),
+    foot: `<button class="pg-btn" data-pg="home">Back</button>`,
+  });
 };
 
 // ---------- Load game ----------
@@ -1326,6 +1347,7 @@ document.addEventListener("click", async (ev) => {
       break;
     }
     case "load": go("load", {}, false); break;
+    case "news": go("whatsnew", {}, false); break;
     case "settings": {
       const h = PG.hello || {};
       const lib = PG.lib || (await api("library"));

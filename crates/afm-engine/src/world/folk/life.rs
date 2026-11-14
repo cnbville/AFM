@@ -147,6 +147,39 @@ pub fn open_event(w: &World, id: u32) -> Option<String> {
         .map(|e| format!("he {}", e.event.words()))
 }
 
+/// He tells you what is going on at home (a one-on-one where he opened up;
+/// talk facts lane L4): the event he raised is known to you from now on.
+/// `ev` is the one he named; none is what weighs on him (`open_event`: his
+/// newest hard one of the last 90 days).
+pub fn tell(w: &mut World, id: u32, ev: Option<Event>) {
+    let today = w.today;
+    if let Some(e) = w.folk.life.events.iter_mut().rev().find(|e| {
+        e.id == id
+            && e.date.days_to(today) < 90
+            && match ev {
+                Some(x) => e.event == x,
+                None => e.event.mood() < 0.0,
+            }
+    }) {
+        e.told = true;
+    }
+}
+
+/// The life event a talking point is about.
+pub fn event_of(k: super::claims::Kind) -> Option<Event> {
+    use super::claims::Kind as K;
+    Some(match k {
+        K::Birth => Event::Birth,
+        K::Wedding => Event::Wedding,
+        K::SickParent => Event::ParentIll,
+        K::Death => Event::Death,
+        K::Divorce => Event::Divorce,
+        K::MoneyLost => Event::MoneyTrouble,
+        K::Homesick => Event::Homesick,
+        _ => return None,
+    })
+}
+
 /// Time away you gave him (talks: "your family comes first"): a week out.
 pub fn grant_leave(w: &mut World, id: u32) {
     let until = w.today.add(6);

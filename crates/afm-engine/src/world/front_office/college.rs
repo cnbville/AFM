@@ -198,6 +198,48 @@ pub struct PortalTarget {
     /// The day you last called him.
     #[serde(default)]
     pub called: Option<Date>,
+    /// Your case with him (talk facts lane L5, `folk::case`): the best
+    /// point made in each group across your calls and visits, under one
+    /// cap. It replaces the pull of `talks`, which a save from before it
+    /// still reads.
+    #[serde(default, skip_serializing_if = "crate::world::folk::case::Case::is_empty")]
+    pub case: crate::world::folk::case::Case,
+    /// Where you stood in his race the last time your desk read it
+    /// (`portal::stand`), kept for the why when he picks someone else.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stand: Option<Stand>,
+}
+
+/// Where you stand with a transfer, reason by reason (Cain 2026-11-14:
+/// "agree on all"): his top schools and yours as his decision weighs each
+/// today. The true parts stay here; the screens show them only through
+/// your staff's read (facts, ranges, who wins each row).
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Stand {
+    pub date: Date,
+    /// How many programs are after him.
+    pub schools: u16,
+    /// His top three besides you, then yours, each with its place.
+    pub rows: Vec<StandRow>,
+}
+
+/// One program in [`Stand`].
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct StandRow {
+    pub program: usize,
+    /// Its place in his race, from 1.
+    pub place: u16,
+    /// The money he weighs from it a year.
+    pub nil: f32,
+    /// The role he'd have there.
+    pub role: crate::player::PlayingTime,
+    /// The seven reasons in appeal points (close to home, the job, money,
+    /// development, winning and the name, academics, the rest); they add up
+    /// to what the program means to him.
+    pub parts: [f32; 7],
+    /// The day he took his finalist's visit there.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted: Option<Date>,
 }
 
 /// One of your talks with a transfer: where (0 on the phone, 1 at his
@@ -430,6 +472,8 @@ pub(crate) struct PortalOffer {
     pub bond: f64,
     pub promise: Option<u8>,
     pub called: bool,
+    /// Your case with him (what a staff sit-down on his visit adds to).
+    pub case: crate::world::folk::case::Case,
     pub visited: bool,
     pub committed: bool,
 }
@@ -467,7 +511,10 @@ pub(crate) fn portal_wants(w: &World) -> Option<PortalWants> {
                     coll: t.nil_coll,
                     bond: if t.contacted.is_some() { CONTACT_BOND } else { 0.0 } + super::portal::effort(t),
                     promise: t.promise.map(|p| p.0),
-                    called: !t.talks.is_empty(),
+                    // A talk still open counts: your case is written as you
+                    // talk, before the talk goes on his list.
+                    called: !t.talks.is_empty() || !t.case.is_empty(),
+                    case: super::portal::case_now(t),
                     visited: super::portal::visited(t),
                     committed: t.committed.is_some(),
                 },
@@ -2970,6 +3017,8 @@ pub(crate) fn portal_target(w: &mut World, id: u32) -> Result<&mut PortalTarget,
             promise: None,
             committed: None,
             called: None,
+            case: Default::default(),
+            stand: None,
         });
     }
     Ok(desk.portal.iter_mut().find(|t| t.id == id).unwrap())
@@ -3311,7 +3360,7 @@ pub fn official_cap(d: crate::calendar::Date) -> Option<usize> {
     rec::official_cap(d)
 }
 
-pub use rec::{four_year_transfers, multi_transfers_free, transfer_sits};
+pub use rec::{PortalReasons, four_year_transfers, multi_transfers_free, transfer_sits};
 
 pub fn next_class(w: &World) -> i32 {
     rec::next_class(w)
