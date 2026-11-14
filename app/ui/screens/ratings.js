@@ -71,8 +71,9 @@ function rrPlayerHtml(x) {
   const m = x.marks;
   const lo0 = Math.max(1, Math.min(x.range[0], m.backup) - 8);
   const hi0 = Math.min(99, Math.max(x.range[1], m.elite) + 6);
-  return `<div class="rr-top"><span class="st-label">${esc(x.title)} · ${x.own ? "your read" : "your staff's read"}</span><b>${x.range[0]}-${x.range[1]}</b></div>
+  return `<div class="rr-top"><span class="st-label">${esc(x.title)} · ${esc(x.who || (x.own ? "your read" : "your staff's read"))}</span><b>${x.range[0]}-${x.range[1]}</b></div>
     <div class="rr-word">${esc(x.band)}</div>
+    ${x.wline ? `<p class="rr-wt">${esc(x.wline)}</p>` : ""}
     ${rrScale(x.range, [{ v: m.backup }, { v: m.starter }, { v: m.elite, cls: "e" }], lo0, hi0, true)}
     <div class="rr-marks"><span><small>Typical backup</small><b>${m.backup}</b></span><span><small>Typical starter</small><b>${m.starter}</b></span><span><small>Elite from</small><b>${m.elite}</b></span></div>
     <p>${esc(x.line)}</p>
@@ -106,7 +107,7 @@ function rrShow(t, x) {
   const lo = t.dataset.lo, hi = t.dataset.hi;
   el.innerHTML = x.error
     ? `<div class="rr-top"><span class="st-label">Your read</span><b>${esc(lo)}-${esc(hi)}</b></div><p>${esc(x.error)}</p>`
-    : t.dataset.rr.startsWith("s:") ? rrStaffHtml(x) : rrPlayerHtml({ ...x, pid: Number(t.dataset.rr.slice(2)) });
+    : t.dataset.rr.startsWith("s:") ? rrStaffHtml(x) : rrPlayerHtml({ ...x, pid: Number(t.dataset.rr.slice(2)), who: t.dataset.rrw, wline: t.dataset.wline });
   document.body.appendChild(el);
   // A range laid out in its table's columns has no box of its own: its bar does.
   let r = t.getBoundingClientRect();

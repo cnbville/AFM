@@ -1513,7 +1513,6 @@ document.addEventListener("change", (ev) => {
   if (t.dataset.act === "hsel") { const H = keep("history", {}); H[t.dataset.k] = t.value; refresh(t); }
   if (t.dataset.act === "mkey") { keep("mail", {}).key = t.value; refresh(t); }
   if (t.dataset.act === "setsel") { prefs[t.dataset.k] = t.value; savePrefs(); applyPrefs(); refresh(t); }
-  if (t.dataset.act === "attrgroup") { keep("pattr", {}).g = t.value; refresh(t); }
   if (t.dataset.act === "bdiv") { keep("brackets", {}).division = t.value; refresh(t); }
 });
 document.addEventListener("input", (ev) => {
@@ -1753,12 +1752,8 @@ const PT = {
       <div class="grid2">${last ? `<div class="panel"><h2>Latest season <small>${esc(last.year)} · ${esc(last.level)}</small></h2><p class="bigline">${esc(last.line)}</p>${last.team ? `<p class="sub">${teamChip(last.team, 18)} · ${last.games} game${last.games === 1 ? "" : "s"}</p>` : ""}</div>` : ""}${fit}</div>
       ${p.stories.length ? `<div class="panel"><h2>What happened</h2><div class="items">${p.stories.slice(0, 8).map((s) => `<div class="item story"><span>${rich(s)}</span></div>`).join("")}</div></div>` : ""}`;
   },
-  Attributes: (p) => {
-    const g = keep("pattr", { g: "" }).g;
-    const groups = p.groups.filter((x) => !g || x.name === g);
-    const sel = `<select data-act="attrgroup" class="ssel"><option value="">Every group</option>${p.groups.map((x) => `<option ${x.name === g ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select>`;
-    return `<div class="tbar">${sel}<span class="muted small">Ranges are your staff's reads: a narrow bar is a sure read. The outlined bar under one is your own read. Nobody sees a true number.</span></div><div class="attrgrid">${groups.map((x) => `<div class="panel"><h2>${esc(x.name)} <small>${esc(p.mine ? "your coaches" : x.name === "Physical" ? "public measurables" : "your scouts")}</small></h2><div class="attrs">${x.attrs.map((a) => `<div class="attr"><span>${esc(a.label)}</span><span class="l7-pair">${range(a.read, null, { p: p.id, k: a.key })}${a.yours ? yourRange(a.yours, p.yours_looks, { p: p.id, k: a.key }) : ""}</span></div>`).join("")}</div></div>`).join("")}</div>`;
-  },
+  // The attributes page: screens/attrs.js.
+  Attributes: (p) => attrTab(p),
   Reports: (p) => `<div class="grid2"><div class="panel">${readCard(p)}</div><div class="panel"><h2>Reports on file</h2>${(p.reports || []).length ? `<div class="items">${p.reports.map((r) => `<div class="item"><span class="when">${esc(r.date)}</span><span><b>${esc(r.by || "")}</b> ${rich(r.text)}</span></div>`).join("")}</div>` : `<div class="empty">${p.mine ? "Your position coach grades him every week; his read is the bar on each attribute." : "No written reports yet. Put him on your list and your scouts will keep looking."}</div>`}</div></div>`,
   Stats: (p) => {
     const v = keep("pstats", { v: "Seasons" });

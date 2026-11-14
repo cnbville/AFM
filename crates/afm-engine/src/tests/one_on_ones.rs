@@ -111,7 +111,8 @@ fn an_arrested_man_opens_on_the_arrest_every_time() {
         let promise = s.picks.iter().find(|p| p.mv == "Promise").unwrap();
         assert_eq!(promise.kind, PickKind::Final, "a promise can't be taken back");
         let straight = s.picks.iter().find(|p| p.mv.starts_with("Tell")).unwrap();
-        assert!(straight.label.contains(&book), "{} / {book}", straight.label);
+        // A line may start a sentence with the rule ("A talk and a warning.").
+        assert!(straight.label.to_lowercase().contains(&book.to_lowercase()), "{} / {book}", straight.label);
         assert_eq!(s.picks.iter().find(|p| p.mv == "Warn").unwrap().hint, tp::HINT_WARN);
         let s = scene::answer(&mut w, s.id, pick(&s, Move::Ask)).unwrap();
         let s = scene::answer(&mut w, s.id, 900).unwrap();
@@ -482,4 +483,32 @@ fn the_topic_survives_a_save() {
     let back: Scene = serde_json::from_str(&j).unwrap();
     assert!(back.made.is_empty());
     assert_eq!(Topic::of(back.b), Topic::Subject(Subject::Money));
+}
+
+/// Your own side comes from the bank (lane L12): the moves on an arrest are
+/// worded by `talk.point.you.arrest.<move>`, the code's own words only the
+/// fallback. A moment keeps its wording for the day (`voice::Look`), so the
+/// same talk shows the same chips; every chip is a quoted line with no hole
+/// left in it, and most are not the old fixed sentences.
+#[test]
+fn your_moves_are_worded_by_the_bank() {
+    let (mut w, _, v) = room(2);
+    arrest(&mut w, v[0], true);
+    let who = id(&w, v[0]);
+    let s = talk(&mut w, who, Subject::Role.into());
+    let old = [
+        "There can't be a next time. Not here.",
+        "I want you talking to someone. I'll set it up.",
+        "Handle this the right way and your place here is safe.",
+        "Tell me what happened.",
+    ];
+    let labels: Vec<&str> = s.picks.iter().filter(|p| p.code != 900).map(|p| p.label.as_str()).collect();
+    for l in &labels {
+        assert!(!l.contains(['{', '}']), "{l}");
+        assert!(l.starts_with('"') && l.ends_with('"'), "{l}");
+    }
+    let fresh = labels.iter().filter(|l| !old.iter().any(|o| l.contains(o))).count();
+    assert!(fresh >= 2, "{labels:?}");
+    // The straight move still says what your rules say.
+    assert!(labels.iter().any(|l| l.to_lowercase().contains(&tp::book_says(&w, who, Level::College).to_lowercase())));
 }
