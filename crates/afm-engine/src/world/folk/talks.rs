@@ -1715,7 +1715,10 @@ fn add_talk_picks(w: &World, s: &mut Scene, i: usize, subject: Subject, used: &[
 /// A starter's place, as proof on the field for praise: what he sees of
 /// his place (the promises design, section 2), never your chart.
 pub(crate) fn starters_place(w: &World, i: usize) -> bool {
-    super::seen::starter(w, i)
+    // A pro's `last_role` is still his last college season: only what he
+    // has seen with you counts.
+    let p = &w.people[i];
+    super::seen::first_now(w, i).unwrap_or(p.stage != Stage::Pro && p.last_role == Some(PlayingTime::Starter))
 }
 
 /// How true praise rings to him, 0 (he knows he's coasting) to 1 (he has
