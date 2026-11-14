@@ -91,13 +91,13 @@ pub fn has_file(w: &World, staff: Staff, id: u32) -> bool {
 }
 
 /// Your staff's contacts with a player: calls, home visits, his visits
-/// and your camps.
+/// and your camps, and your own calls and messages to him (talk facts L6).
 pub fn contacts(w: &World, id: u32) -> usize {
     w.scouting.dept.looks.get(&id).map_or(0, |v| {
         v.iter()
             .filter(|l| matches!(l.kind, Kind::Call | Kind::HomeVisit | Kind::Official | Kind::Unofficial | Kind::Camp))
             .count()
-    })
+    }) + afm_engine::world::folk::reach::contacts(w, id)
 }
 
 /// Whether your staff has been in touch with a player (what "Who decides"

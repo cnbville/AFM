@@ -96,6 +96,9 @@ const BANKS: &[&str] = &[
     // The recruit and portal conversation (talk facts lane L5): hand-written
     // lines for its most common new parts until the bank run fills them.
     include_str!("../../../data/lines/recruit_case.txt"),
+    // The recruit's other talks (talk facts lane L6): his family's call, his
+    // answer to a message, a recruit's side of a promise.
+    include_str!("../../../data/lines/recruit_reach.txt"),
     // Your own lines (talk facts lane L12): your moves, answers and pitches,
     // written through the Batches API (`tools/linebank/ownlines.py`).
     include_str!("../../../data/lines/own_lines_run.txt"),

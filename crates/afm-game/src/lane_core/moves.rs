@@ -266,6 +266,14 @@ fn college_moves(w: &World, k: usize, j: usize, own: bool, out: &mut Vec<Value>)
     } else if !offered {
         out.push(mv("unboard", "Take off the board"));
     }
+    // A call or a message, when the era's rules allow it today (talk facts
+    // L6, `calendar::contact`).
+    if afm_engine::world::folk::reach::call_rule(w, id).is_ok() {
+        out.push(mv("rcall", "Call him"));
+    }
+    if let Ok(m) = afm_engine::world::folk::reach::message_rule(w, id) {
+        out.push(mv("rmsg", format!("Send him a {}", m.noun())));
+    }
     out.push(mv("visit_plan", "Plan a visit"));
     if afm_engine::world::ncaa::nil_era(w.year) {
         out.push(mv("nil", "NIL promise"));

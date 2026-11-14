@@ -308,6 +308,9 @@ pub struct CollegeDesk {
     pub fresh_until: Option<Date>,
     /// Your open tryout this season (lane B): who came out and who you kept.
     pub tryout: Option<super::walk_ons::Tryout>,
+    /// Your calls and messages to recruits, and their families' calls to
+    /// you (talk facts lane L6): what the era's contact rules count.
+    pub reach: Vec<crate::world::folk::reach::Reach>,
 }
 
 /// How long a new head coach's fresh start lasts, the day he takes over
@@ -943,6 +946,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
     roll_class(w, j);
     scan_portal(w, j, d);
     super::portal::day(w, j, d);
+    crate::world::folk::reach::day(w, j, d);
     board_bar(w, j);
     reminders(w, j, d);
     if d == w.dates.start {
@@ -1775,6 +1779,10 @@ fn run_visits(w: &mut World, j: usize, d: Date) {
         v.state = VisitState::Done;
         v.note = text.clone();
         tell(w, d, text, false);
+        // Your case at the end of his official visit (talk facts L6).
+        if kind == VisitKind::Official {
+            crate::world::folk::reach::official_talk(w, id, j, d);
+        }
         if kind == VisitKind::Official && stars >= 4 {
             let text = format!("{stars}-star {name} takes an official visit to {school}.");
             w.calendar.post(

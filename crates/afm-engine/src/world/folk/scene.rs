@@ -72,9 +72,32 @@ pub enum Kind {
     /// A December signee asks to be let out of his signing once his head
     /// coach is gone (Jan 1 start).
     SigneeRelease,
+    // Talk facts lane L6: the recruit's other talks.
+    /// Your call to a high school recruit, on the era's contact rules.
+    RecruitCall,
+    /// Your message to a high school recruit: one exchange.
+    RecruitMessage,
+    /// Whoever decides for a recruit calls you about something that changed.
+    FamilyCall,
+    /// Your case at the end of a recruit's official visit, in your office.
+    OfficialTalk,
 }
 
 impl Kind {
+    /// A recruit or transfer conversation on the fact sheet (`pitch`).
+    pub fn is_pitch(self) -> bool {
+        matches!(
+            self,
+            Kind::HomeVisit
+                | Kind::PortalCall
+                | Kind::PortalVisit
+                | Kind::RecruitCall
+                | Kind::RecruitMessage
+                | Kind::FamilyCall
+                | Kind::OfficialTalk
+        )
+    }
+
     pub fn name(self) -> &'static str {
         match self {
             Kind::TeamMeeting => "Team meeting",
@@ -123,6 +146,10 @@ impl Kind {
             Kind::PortalCall => "A call to a transfer",
             Kind::PortalVisit => "Transfer visit",
             Kind::SigneeRelease => "A signee asks out",
+            Kind::RecruitCall => "A call to a recruit",
+            Kind::RecruitMessage => "A message to a recruit",
+            Kind::FamilyCall => "His family calls",
+            Kind::OfficialTalk => "Official visit: your case",
         }
     }
 }
@@ -676,7 +703,7 @@ pub fn hand(w: &mut World, id: u32) -> Result<Scene, String> {
         s.opened = true;
         // A recruit talk you never opened is your staff's alone: opening it
         // would put his first question and the news on your own file.
-        if !matches!(s.kind, Kind::HomeVisit | Kind::PortalCall | Kind::PortalVisit) {
+        if !s.kind.is_pitch() {
             dispatch_open(w, &mut s);
         }
     }
@@ -772,7 +799,11 @@ fn log_scene(w: &mut World, s: &Scene) {
         | Kind::CombineTalk
         | Kind::PortalCall
         | Kind::PortalVisit
-        | Kind::SigneeRelease => "recruiting",
+        | Kind::SigneeRelease
+        | Kind::RecruitCall
+        | Kind::RecruitMessage
+        | Kind::FamilyCall
+        | Kind::OfficialTalk => "recruiting",
         Kind::JobInterview => "network",
         Kind::StaffMeeting => "staff",
         _ => "place",
@@ -799,7 +830,11 @@ fn dispatch_open(w: &mut World, s: &mut Scene) {
         | Kind::StaffMeeting
         | Kind::CombineTalk
         | Kind::PortalCall
-        | Kind::PortalVisit => super::dialogue::open(w, s),
+        | Kind::PortalVisit
+        | Kind::RecruitCall
+        | Kind::RecruitMessage
+        | Kind::FamilyCall
+        | Kind::OfficialTalk => super::dialogue::open(w, s),
         _ => super::takeover::open(w, s),
     }
 }
@@ -823,7 +858,11 @@ fn dispatch_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         | Kind::StaffMeeting
         | Kind::CombineTalk
         | Kind::PortalCall
-        | Kind::PortalVisit => super::dialogue::answer(w, s, code, picked),
+        | Kind::PortalVisit
+        | Kind::RecruitCall
+        | Kind::RecruitMessage
+        | Kind::FamilyCall
+        | Kind::OfficialTalk => super::dialogue::answer(w, s, code, picked),
         _ => super::takeover::answer(w, s, code, picked),
     }
 }
@@ -847,7 +886,11 @@ fn dispatch_hand(w: &mut World, s: &mut Scene) {
         | Kind::StaffMeeting
         | Kind::CombineTalk
         | Kind::PortalCall
-        | Kind::PortalVisit => super::dialogue::hand(w, s),
+        | Kind::PortalVisit
+        | Kind::RecruitCall
+        | Kind::RecruitMessage
+        | Kind::FamilyCall
+        | Kind::OfficialTalk => super::dialogue::hand(w, s),
         _ => super::takeover::hand(w, s),
     }
 }
