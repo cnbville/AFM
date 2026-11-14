@@ -317,7 +317,16 @@ pub(super) fn landings_message(
     let mut mine: Vec<(usize, String)> = Vec::new();
     // Today's word on your own: they are read from where they are now, so
     // only the last day of a stretch can tell it.
-    let ids: &[u32] = if d == today { &w.front_office.college.left } else { &[] };
+    // A day already told keeps its own when its letter is written again
+    // with the day's later lines, or the later version (longer, so it
+    // takes the letter's place) would drop them.
+    let again: Vec<u32>;
+    let ids: &[u32] = if d == today {
+        &w.front_office.college.left
+    } else {
+        again = c.desk.landed.iter().filter(|&&(_, on)| on == d).map(|&(i, _)| i).collect();
+        &again
+    };
     for &id in ids {
         // `seen`: told on an earlier day of this same stretch (not filed yet).
         if told(id) || seen.contains(&id) {
