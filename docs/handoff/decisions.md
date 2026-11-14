@@ -392,6 +392,12 @@ Cain, 2026-11-14 20:22 UTC: the AI should play the person, never steer him to op
 - **His ideas (20:19 UTC):** custom football promises judged on the play log, and football knowledge in talks.
 - **Open:** the 11 questions in the spec's section 13.
 
+## 23. The progression update: projects, the body limit and the knack (thread "Design the progression update", 2026-11-14)
+
+Cain, 15:22 UTC: "Making it worth taking risks". Spec: `docs/design/progression.md`, 17 items, all Cain's yes the same day (17:41 to 22:26 UTC).
+- **Agreed:** physical ceilings move on their own leashes with a hidden body knack (strength about +7 typical, +14 big responder; speed 1 at most, pounds cost speed at the combine's rate); vague clues only; technique room from his tools' rank plus 4 plus the tools-ahead gap; technique knack 1 in 5 / half / 1 in 3, one per kind of skill; each limit reads makeup too (toughness for tackling, hands for contested catch); body and skill projects can stack for extra wear; projects per room QB 1, RB 1, WR 2, TE 2, OL 2, DL 2, LB 1, CB 2, S 1; a quarter of the room a year with the knack; the click; no age rule through the senior or redshirt senior year; the focus's cost; AI staffs run projects by style (no sandbox switch, 21:47: "i just want a teeny tiny edge"); high school projects; your edge (AI reads clues less sharply, keeps dead ends a year longer); pro projects by pro season; converts keep their limits.
+- **Open:** the one star-count trim and everyday growth, in the sibling thread "Design split ceilings for all progression".
+
 ## Superseded decisions
 
 | Old | Replaced by | When |
