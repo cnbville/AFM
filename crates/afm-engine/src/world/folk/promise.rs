@@ -1214,25 +1214,27 @@ pub fn time_care(p: &Person, ear: Ear) -> f64 {
 // The NFL (question 3): a club's free agency start promise is judged on his
 // starts in its first 4 games.
 
-/// He started 3 of every 4 of his club's games he was healthy for (the
-/// season's starts on his own pro record, which the world keeps whether the
-/// tallies are on or not), or, with no game yet, he heads its chart. None
-/// while he has been on reserve and played none.
+/// He started 3 of every 4 of his club's games he dressed for, from his
+/// own season row (`ProSeason`: games and starts, which every NFL game on
+/// the engine writes whether or not the world counts the Data section's
+/// tallies, so a tallying world judges exactly as one that doesn't). None
+/// while he hasn't dressed for the club this season. A season on the
+/// stand-in has no games, only its year-end rule that the chart's heads
+/// started (`season_end`), so that rule judges it.
 pub fn nfl_start_kept(w: &World, i: usize, club: usize) -> Option<bool> {
-    let line =
-        w.people[i].pro.as_ref().and_then(|c| c.seasons.last()).filter(|s| s.year == w.year && s.team == Some(club));
-    match line {
-        Some(s) if s.games > 0 => Some(s.starts as f64 >= KEPT_SHARE * s.games.min(4) as f64),
-        // Hurt for all of them so far.
-        Some(s) if s.ir_weeks > 0 => None,
-        _ => {
-            let pos = w.people[i].player.position;
-            Some(
-                w.clubs[club]
-                    .depth
-                    .get(pos.index())
-                    .is_some_and(|d| d.iter().take(crate::league::depth_slots(pos).starters).any(|&j| j == i)),
-            )
-        }
+    let year = w.year;
+    if !w.options.engine_from.is_none_or(|from| year >= from) {
+        let pos = w.people[i].player.position;
+        return Some(
+            w.clubs[club]
+                .depth
+                .get(pos.index())
+                .is_some_and(|d| d.iter().take(crate::league::depth_slots(pos).starters).any(|&j| j == i)),
+        );
     }
+    let s = w.people[i].pro.as_ref()?.seasons.iter().rev().find(|s| s.year == year)?;
+    if s.team != Some(club) || s.games == 0 {
+        return None;
+    }
+    Some(s.starts as f64 >= KEPT_SHARE * s.games.min(4) as f64)
 }
