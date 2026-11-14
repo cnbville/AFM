@@ -3,12 +3,65 @@
 // notice, with no PR numbers, code names or build talk. Newest first. A
 // version that changed nothing you can see is left out.
 //
+// Add a panel here with every version that ships (the patch notes thread's job,
+// from afm/patch-notes.md); the page shows only what is in this list.
+//
 // `v` is the app number (0.2.<build>), `date` the day it came out, `title` a
 // few words on the version, `notes` three or four short lines. The patch notes
 // (afm/patch-notes.md) keep the full story for the team.
 "use strict";
 
 const CHANGELOG = [
+  {
+    v: "0.2.470", date: "14 Nov", title: "Call and text recruits, portal exits read the whole player",
+    notes: [
+      "You can call or text a recruit. A call counts as half a sit-down and a text as a quarter, under each era's real contact rules.",
+      "His family calls you when something he cares about changes, like a coach leaving or a better school's offer.",
+      "You can promise a recruit a start, a real role, his position or no redshirt. Once he signs, the promise is checked against his first season.",
+      "A college player's choice to leave now follows his own view of his future, your promises, his trust in the head coach and his pay.",
+      "Hovering your own outlined bar on the rating card opens your read, next to the staff's range.",
+    ],
+  },
+  {
+    v: "0.2.467", date: "14 Nov", title: "The Attributes screen, and your own lines in talks",
+    notes: [
+      "The Attributes tab has a new screen: the eight families with a word each, a reason for each skill in play, and a compare with one of your players.",
+      "Your moves and recruit pitches in talks draw on a bank of written lines.",
+      "Interview rooms offer your scouts' worst worries as picks, and you can call his coach, a teacher or his trainer as a source.",
+      "In a staff meeting you can argue your own case, which can move the plan one step.",
+      "A transfer's file has a \u201cWhere you stand\u201d panel, and the depth chart has pills for the next three falls.",
+    ],
+  },
+  {
+    v: "0.2.462", date: "14 Nov", title: "Your team's rooms read the facts",
+    notes: [
+      "The team talk opens on the real day, result, streak and next game. Parent calls name the real complaint, and exit meetings talk about why he is leaving.",
+      "A staff read is never narrower than 2 wide, so a very weak skill no longer shows a falsely certain \u201c1\u201d.",
+      "The Testing day on the Body tab can show his numbers as of Senior year, the combine or next year in the NFL, and the plot shows his future weight.",
+      "The race page's squares narrow as your talks and his words give reasons. A letter and its pop-up come at the same stop.",
+      "The desk takes typed questions on the stat finder, squad bar, Find and opponent pages, and the scout box can write a report.",
+    ],
+  },
+  {
+    v: "0.2.454", date: "14 Nov", title: "Charted data for every seat, typed lines in the pregame",
+    notes: [
+      "NFL, FBS and FCS games are charted snap by snap the morning after, for every seat.",
+      "Type a line in the pregame and halftime rooms. At halftime it lands only when you confirm.",
+      "The Needs map has an \u201cIn the portal\u201d card. The depth chart keeps its familiar plates, and each backup is its own row you can drop a man into.",
+      "Once you have looked at a player, your own read of his potential judges him, with the staff's read beside it.",
+      "One-on-ones open on what weighs on the player, and an arrest always comes up.",
+    ],
+  },
+  {
+    v: "0.2.447", date: "13 Nov", title: "Recruit talks built on the facts, and this page",
+    notes: [
+      "A home visit, a call or a sit-down opens on what changed, asks what the recruit weighs, then reacts to your answer. His file shows what your talks showed.",
+      "AI schools build the same case, so who signs where can change.",
+      "After a loss, praise only counts a game from the last 7 days.",
+      "An agent whose stated want fits your club can ask for a little less.",
+      "The opening screen has this What's new page.",
+    ],
+  },
   {
     v: "0.2.444", date: "13 Nov", title: "Type your own lines in talks",
     notes: [
