@@ -73,6 +73,10 @@ const FACTS: &str = concat!(
     // booster asked; who holds the final say and the club's mode; the goal
     // in words and how the season review went
     "charge when step again giver power mode goal review ",
+    // your team's rooms (claims/team_rooms.rs, lane L9): the week, the
+    // season before you, a family's complaint and what it sees, the day
+    "game next_when next_place next_rival season_was ahead_when last_year why_left complaint with group snaps ",
+    "starts seen penalty stakes playoff seniors hurt ",
 );
 
 /// The parts the code asks for (talks, press, boss, rules, staffing,
@@ -352,6 +356,23 @@ fn asked() -> Vec<String> {
     for k in ["cleared", "guilty"] {
         v.push(format!("rules.court.{k}"));
     }
+    // Your team's rooms (lane L9, team_rooms.txt).
+    for k in ["lands", "mixed"] {
+        v.push(format!("teamtalk.react.{k}"));
+    }
+    for k in ["lost_job", "buried", "role", "suspended", "rule_break", "pay", "new_position"] {
+        v.push(format!("parents.call.{k}"));
+    }
+    for k in ["straight.fair", "straight.above", "listen", "promise", "warn"] {
+        v.push(format!("parents.reply.{k}"));
+    }
+    for k in ["oldcoach", "courted", "deal", "unhappy"] {
+        v.push(format!("talk.exit.open.{k}"));
+    }
+    for k in ["playoff", "seniors", "hurt", "big"] {
+        v.push(format!("gameday.day.{k}"));
+    }
+    v.push("gameday.captain.day".into());
     v
 }
 

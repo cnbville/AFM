@@ -12,6 +12,7 @@ pub mod arc;
 pub mod body;
 pub mod depth;
 pub mod needs;
+pub mod plan;
 pub mod projected;
 pub mod roster;
 pub mod shape;
@@ -22,7 +23,7 @@ use std::sync::Mutex;
 use afm_engine::attributes::Attr;
 use afm_engine::positions::Position;
 use afm_engine::world::norms::{Marks, Pool, Rated};
-use afm_engine::world::seat::{KeptRead, SeatGame};
+use afm_engine::world::seat::{KeptAttrs, KeptRead, SeatGame};
 use afm_engine::world::{Person, Stage, World};
 use serde_json::{Value, json};
 
@@ -30,11 +31,13 @@ use crate::reads::{self, Read};
 use crate::views::{self, TeamRef};
 use crate::{Game, Reply};
 
-const COMMANDS: [&str; 9] = [
+const COMMANDS: [&str; 11] = [
     "sb_depth",
     "sb_depth_up",
     "sb_depth_put",
     "sb_depth_reset",
+    "sb_plan_put",
+    "sb_plan_reset",
     "sb_needs",
     "sb_roster",
     "sb_shape",
@@ -60,9 +63,33 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             Ok(v)
         }));
     }
+    if cmd == "sb_plan_put" || cmd == "sb_plan_reset" {
+        // Your private plan for the falls to come: a file beside the save,
+        // never the world (`depth_plan.rs`).
+        let path = crate::depth_plan::path_for(game);
+        let Some(w) = game.world.as_ref() else { return Some(Err("No world is loaded.".into())) };
+        let mut plan = crate::depth_plan::read(&path);
+        let done = if cmd == "sb_plan_put" {
+            plan::put(w, &mut plan, args)
+        } else {
+            plan::reset(w, &mut plan, args).map(|_| None)
+        };
+        return Some(done.and_then(|note| {
+            plan.prune(w.year);
+            crate::depth_plan::write(&path, &plan)?;
+            let mut v = depth::view_planned(w, args, &plan)?;
+            v["note"] = json!(note);
+            Ok(v)
+        }));
+    }
+    let planned = cmd == "sb_depth" && plan::offset_of(args) > 0;
+    let plan_file = planned.then(|| crate::depth_plan::read(&crate::depth_plan::path_for(game)));
     let Some(w) = game.world.as_ref() else { return Some(Err("No world is loaded.".into())) };
     Some(match cmd {
-        "sb_depth" => depth::view(w, args),
+        "sb_depth" => match &plan_file {
+            Some(p) => depth::view_planned(w, args, p),
+            None => depth::view(w, args),
+        },
         "sb_needs" => needs::view(w, args),
         "sb_roster" => roster::view(w),
         "sb_shape" => id().and_then(|i| shape::view(w, i)),
@@ -662,6 +689,25 @@ pub(crate) fn mine_now(w: &World, i: usize, season: i32) -> Option<KeptRead> {
     })
 }
 
+/// The middle of each of the 67 skills, from your staff's read and from
+/// your own, in the kept form (half points, 0 = not seen: `KeptAttrs::mid`).
+/// Your own is kept only after your first own look, as in `mine_now` (a
+/// first impression is never kept). Reads are cached for the day, so
+/// asking beside `read_now` costs nothing extra.
+pub(crate) fn attrs_now(w: &World, i: usize, season: i32) -> KeptAttrs {
+    let half = |r: Read| match r {
+        Read::Range(lo, hi) => (lo as u16 + hi as u16).clamp(2, 198) as u8,
+        Read::NotSeen => 0,
+    };
+    let looked = reads::seen(w, i).mine_looks > 0;
+    KeptAttrs {
+        season: season as i16,
+        pos: w.people[i].player.position.index() as u8,
+        staff: reads::attributes(w, i).into_iter().map(|x| half(x.1)).collect(),
+        mine: reads::mine_attributes(w, i).into_iter().map(|x| if looked { half(x.1) } else { 0 }).collect(),
+    }
+}
+
 /// The players your staff follows: your roster, everyone you keep notes
 /// on and your scouting board.
 fn followed(w: &World) -> Vec<usize> {
@@ -695,16 +741,20 @@ pub fn after_days(w: &mut World) {
         }
         return;
     }
-    let rows: Vec<(u32, KeptRead, Option<KeptRead>)> = followed(w)
+    let rows: Vec<(u32, KeptRead, Option<KeptRead>, KeptAttrs)> = followed(w)
         .into_iter()
-        .map(|k| (w.people[k].player.id, read_now(w, k, season as i32), mine_now(w, k, season as i32)))
+        .map(|k| {
+            let y = season as i32;
+            (w.people[k].player.id, read_now(w, k, y), mine_now(w, k, y), attrs_now(w, k, y))
+        })
         .collect();
     if let Some(c) = w.career.as_mut() {
-        for (id, row, mine) in rows {
+        for (id, row, mine, attrs) in rows {
             c.keep_read(id, row);
             if let Some(m) = mine {
                 c.keep_mine(id, m);
             }
+            c.keep_attrs(id, attrs);
         }
         c.kept_through = season;
     }

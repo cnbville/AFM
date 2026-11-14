@@ -1129,11 +1129,15 @@ fn team_meeting_open(w: &mut World, s: &mut Scene, team: Team) {
     let n = roster.len();
     let close: Vec<usize> = roster.iter().copied().filter(|&i| tie_to_old(w, i, old) > 0.45).collect();
     let captains = captains_of(w, team);
+    // What the room knows on your first day (talk facts lane L9): the
+    // season before you, the man you replaced and why he left, what's next.
+    let arr = super::claims::team_rooms::arrival(w, team);
     s.who.push(Who::Group(format!("The team ({n} players)")));
     let mut pen = scene::pen(w, s, 1);
     let you = Speaker::you(w);
     let mut f = base_facts(w, team);
     f.set("count", n.to_string());
+    arr.fill(&mut f);
     let room = match team {
         Team::High(_) => "the field house bleachers",
         Team::Nfl(_) => "the auditorium",
@@ -1151,6 +1155,19 @@ fn team_meeting_open(w: &mut World, s: &mut Scene, team: Team) {
             _ => "Nobody here owes the last staff much.".to_string(),
         }
     ));
+    let mut known: Vec<String> = Vec::new();
+    if let (Some(y), Some(r)) = (arr.year, &arr.record) {
+        known.push(format!(
+            "The {y} team went {r}{}.",
+            arr.finish.as_ref().map(|x| format!(", {x}")).unwrap_or_default()
+        ));
+    }
+    if let Some((o, why)) = arr.old {
+        known.push(format!("As for {}, {why}.", coach_link(w, o)));
+    }
+    if !known.is_empty() {
+        s.narrate(format!("They all know the story. {}", known.join(" ")));
+    }
     if let Some(&c) = captains.first() {
         s.narrate(format!(
             "{} sits in the front row, arms folded. Everyone else watches him as much as you.",
@@ -1163,27 +1180,51 @@ fn team_meeting_open(w: &mut World, s: &mut Scene, team: Team) {
     }
     pen.put(w);
     s.narrate("What do you tell them?");
-    add_message_picks(s);
+    add_message_picks(w, s, &arr);
 }
 
-fn add_message_picks(s: &mut Scene) {
+/// The five messages, worded for what the room knows (lane L9): the
+/// codes and what each does are the same as they always were.
+fn add_message_picks(w: &World, s: &mut Scene, arr: &super::claims::team_rooms::Arrival) {
+    let what = arr.ahead.as_ref().and_then(|p| Some((p.get("what")?.to_string(), p.get("when")?.to_string())));
     s.pick(
         10,
-        "Every job is open. The depth chart starts over today.",
+        match &what {
+            Some((x, _)) => format!("Every job is open. The depth chart starts over at {x}."),
+            None => "Every job is open. The depth chart starts over today.".into(),
+        },
         "Challenge",
         "firm",
         "Competitors and backups lift; entrenched starters bristle.",
     );
+    let old_last = arr.old.map(|(o, _)| {
+        let n = &w.coaches[o].name;
+        format!("Coach {}", n.split_whitespace().last().unwrap_or(n))
+    });
     s.pick(
         11,
-        "I'm not here to erase what was built. I'm here to finish it.",
+        match (&old_last, &arr.record, arr.season_was) {
+            (Some(o), Some(r), Some("good")) => {
+                format!("{o} built something here: {r}. I'm not here to erase it. I'm here to finish it.")
+            }
+            (Some(o), Some(_), Some("bad")) => {
+                format!("I'm not here to erase what {o} built. I'm building on the men who stuck it out.")
+            }
+            _ => "I'm not here to erase what was built. I'm here to finish it.".into(),
+        },
         "Praise",
         "warm",
         "Loyal players and the old coach's people warm to you; ambitious ones hear nothing new.",
     );
     s.pick(
         12,
-        "We win now. The standard here is a championship, starting this year.",
+        match (&arr.record, arr.season_was) {
+            (Some(r), Some("good")) => {
+                format!("{r} was a start. The standard here is a championship, starting this year.")
+            }
+            (Some(r), Some(_)) => format!("{r} is behind us. The standard here is a championship, starting this year."),
+            _ => "We win now. The standard here is a championship, starting this year.".into(),
+        },
         "Promise",
         "fiery",
         "Lifts the room for now and raises the bar you'll be judged by.",
@@ -1197,7 +1238,10 @@ fn add_message_picks(s: &mut Scene) {
     );
     s.pick(
         14,
-        "Who I am, how we'll work, and when practice starts. That's it.",
+        match &what {
+            Some((x, when)) => format!("Who I am, how we'll work, and {x} {when}. That's it."),
+            None => "Who I am, how we'll work, and when practice starts. That's it.".into(),
+        },
         "Tell him straight",
         "calm",
         "Little lift and little risk: they judge you by the first workout.",
@@ -1213,9 +1257,11 @@ fn team_meeting_answer(w: &mut World, s: &mut Scene, team: Team, code: u32, pick
         _ => (Message::Plain, Tone::Calm),
     };
     s.you(&scene::your_name(w), picked.label.clone());
+    let before: Vec<(usize, f32)> = team.roster(w).into_iter().map(|i| (i, w.people[i].trust)).collect();
     let (up, down, gone) = team_effect(w, team, msg, tone, 1.0);
     let mut pen = scene::pen(w, s, 2);
-    let f = base_facts(w, team);
+    let mut f = base_facts(w, team);
+    super::claims::team_rooms::arrival(w, team).fill(&mut f);
     // A voice from the room: a leader's reaction.
     if let Some(&c) = captains_of(w, team).first() {
         let spk = Speaker::player(w, c);
@@ -1240,6 +1286,16 @@ fn team_meeting_answer(w: &mut World, s: &mut Scene, team: Team, code: u32, pick
         Message::Compete => "The backups sit up. A couple of starters don't.".to_string(),
         Message::Plain => "Nobody cheers and nobody walks out. They'll decide about you in the weight room.".to_string(),
     });
+    // Who it really moved (lane L9): the biggest rise and fall in trust.
+    let (best, worst) = super::talks::movers(w, &before);
+    match (best, worst) {
+        (Some(a), Some(b)) => {
+            s.narrate(format!("{} is with you already. {} isn't.", player_link(w, a), player_link(w, b)))
+        }
+        (Some(a), None) => s.narrate(format!("{} is with you already.", player_link(w, a))),
+        (None, Some(b)) => s.narrate(format!("{} has heard enough.", player_link(w, b))),
+        (None, None) => {}
+    }
     s.outcome.push(format!(
         "Your first team meeting: {} player{} warmed to you, {} cooled{}.",
         up,
@@ -2454,10 +2510,11 @@ fn flight_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
                 let title = format!("One-on-one with {}", w.people[i].name);
                 let mut sc = Scene::new(Kind::OneOnOne, d, title);
                 sc.a = *id as u64;
-                sc.b = super::talks::Subject::Future as u64;
                 sc.place = "Your office".into();
                 sc.team = Some(team);
-                let _ = why;
+                // The reason on your staff's list carries into the talk
+                // (talk facts lane L9, item 21).
+                super::talks::exit_reason(w, &mut sc, i, Some(why));
                 scene::add(w, sc);
                 n += 1;
             }
