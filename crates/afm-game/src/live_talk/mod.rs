@@ -341,6 +341,8 @@ mod tests {
             let id = ok(&mut g, "ai_test", json!({}))["ticket"].as_u64().unwrap();
             let v = finish(&mut g, id);
             assert_eq!((v["state"].as_str(), v["note"].as_str()), (Some("off"), Some(f.note().as_str())), "{f:?}");
+            // A call that went wrong once keeps its box (the page keeps the words and may try again).
+            assert_eq!(v["retry"], true, "{f:?}");
             assert!(g.ai.usable(), "{f:?} does not stand in the way of the next call");
         }
         // Fake mode needs no key for the boxes.
@@ -353,7 +355,9 @@ mod tests {
         for f in [Failure::CreditGone, Failure::Api { status: 401, message: String::new() }] {
             fake.push("test", Err(f.clone()));
             let id = ok(&mut g, "ai_test", json!({}))["ticket"].as_u64().unwrap();
-            assert_eq!(finish(&mut g, id)["state"], "off");
+            let v = finish(&mut g, id);
+            assert_eq!(v["state"], "off");
+            assert!(v.get("retry").is_none(), "a lasting failure hides the box: {v}");
             assert!(!g.ai.usable());
             let s = ok(&mut g, "ai_status", json!({}));
             assert_eq!(s["usable"], false);

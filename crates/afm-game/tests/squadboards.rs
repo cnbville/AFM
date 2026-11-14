@@ -559,6 +559,48 @@ fn plan_ahead(g: &mut Game, rows: &[Value]) {
     assert!(!afm_game::depth_plan::read(&beside).years.contains_key(&(g.world.as_ref().unwrap().year + 1).to_string()));
 }
 
+/// The class filter on the depth chart (Cain, 2026-11-14): every man on a spot
+/// carries his class key, the squad's tiles add up, each unit card counts its
+/// men by class once, and a planned fall reads each man's class then.
+fn class_filter(g: &mut Game) {
+    let keys = ["FR", "SO", "JR", "SR"];
+    for off in 0..=2u32 {
+        let args = if off == 0 {
+            json!({ "tab": "offense", "form": "offense" })
+        } else {
+            json!({ "tab": "offense", "form": "offense", "offset": off })
+        };
+        let v = board(g, "sb_depth", args);
+        let tiles = v["classes"].as_array().unwrap();
+        assert_eq!(tiles[0]["key"], "ALL");
+        let sum: u64 = tiles[1..].iter().map(|t| t["n"].as_u64().unwrap()).sum();
+        assert_eq!(sum, tiles[0]["n"].as_u64().unwrap(), "the classes add up to the squad in fall +{off}: {tiles:?}");
+        assert_eq!(tiles.len(), 5, "all, then four classes at a school");
+        let mut men = std::collections::HashMap::new();
+        for s in v["slots"].as_array().unwrap() {
+            for p in s["picks"].as_array().unwrap().iter().filter(|p| p.is_object()) {
+                let g = p["grp"].as_str().unwrap_or_else(|| panic!("no class key on {}", p["name"]));
+                assert!(keys.contains(&g), "{} is {g}", p["name"]);
+                // The key agrees with the class the page writes beside him.
+                assert!(p["class"].as_str().unwrap().to_uppercase().ends_with(g), "{} {}", p["class"], g);
+                men.insert(p["id"].as_u64().unwrap(), g.to_string());
+            }
+        }
+        if off == 0 {
+            // The "Offense" unit counts every man on the offense's spots once.
+            let units = v["units"].as_array().unwrap();
+            let all = units.last().unwrap();
+            let total: u64 = keys.iter().map(|k| all["cls"][*k].as_u64().unwrap()).sum();
+            assert_eq!(total as usize, men.len(), "the offense unit's classes count each man once: {all}");
+            for u in units {
+                for k in keys {
+                    assert!(u["cls"][k].is_u64(), "{} has no {k} count", u["name"]);
+                }
+            }
+        }
+    }
+}
+
 #[test]
 fn the_boards_at_every_seat() {
     let t = std::time::Instant::now();
@@ -634,6 +676,7 @@ fn the_boards_at_every_seat() {
     line_spots(&mut g);
     backup_spots(&mut g);
     plan_ahead(&mut g, &rows);
+    class_filter(&mut g);
 
     // The reads kept at a season's end: a career's first turn keeps none
     // (it starts mid-year), the next keeps every player the staff follows,

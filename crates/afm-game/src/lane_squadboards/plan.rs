@@ -203,6 +203,7 @@ pub(crate) fn man(w: &World, t: TeamRef, i: usize, num: Option<u8>, offset: i32)
     let commit = !views::roster_people(w, t).contains(&i);
     v["class_full"] = json!(class_words(&short));
     v["class"] = json!(short);
+    v["grp"] = json!(depth::grp_key(w, i, offset));
     v["health"] = json!("full");
     v["health_why"] = json!("");
     v["ready"] = json!(if commit { "Commit" } else { "Still here" });
