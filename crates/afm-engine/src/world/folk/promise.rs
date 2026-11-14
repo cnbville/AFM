@@ -1215,19 +1215,17 @@ pub fn time_care(p: &Person, ear: Ear) -> f64 {
 // starts in its first 4 games.
 
 /// He started 3 of every 4 of his club's games he was healthy for (the
-/// season's starts from the game book), or, with no book, he heads its
-/// chart. None while he hasn't been healthy for any.
+/// season's starts on his own pro record, which the world keeps whether the
+/// tallies are on or not), or, with no game yet, he heads its chart. None
+/// while he has been on reserve and played none.
 pub fn nfl_start_kept(w: &World, i: usize, club: usize) -> Option<bool> {
-    let id = w.people[i].player.id;
-    let line = w
-        .tallies
-        .players
-        .get(crate::world::tally::Level::Nfl, id)
-        .filter(|s| s.team as usize == club && w.tallies.season == w.dates.season);
+    let line =
+        w.people[i].pro.as_ref().and_then(|c| c.seasons.last()).filter(|s| s.year == w.year && s.team == Some(club));
     match line {
         Some(s) if s.games > 0 => Some(s.starts as f64 >= KEPT_SHARE * s.games.min(4) as f64),
-        Some(_) => None,
-        None => {
+        // Hurt for all of them so far.
+        Some(s) if s.ir_weeks > 0 => None,
+        _ => {
             let pos = w.people[i].player.position;
             Some(
                 w.clubs[club]
