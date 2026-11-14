@@ -139,6 +139,8 @@ Each entry gives the engine moment it sits in, what it costs (or adds), and the 
 2. **The staff sets them unless you do.** His position coach picks from what the staff has seen, and you can change any of them. This keeps a 100-man roster from becoming busywork: you step in for the players you care about.
 3. **It replaces the rating focus** (Cain's yes, 2026-11-14). Body plans, habits, position moves, extra work and rest stay as they are.
 4. **Minutes decide the pace.** The work comes from the minutes he really spends on that situation: individual periods, one-on-ones, kicking stations, his own extra work, a private trainer's sessions, and for mental flaws film and installs. A team week with more individual time fixes more flaws but runs fewer team reps (prep). That is the real trade every staff makes.
+5. **The room shares its individual time.** Individual periods are set per position group in the week, so a room's minutes are one budget: more time for one man comes out of another's, unless the week gives the group more (and the team fewer team reps). Extra work after practice and a private trainer add on top (proposed, not confirmed).
+6. **Two setup screens** (mock-up boards A and B, proposed, not confirmed): "Set his plan" starts from what the staff has seen on tape (each flaw with what it costs, how sure they are, and the reps as proof), then asks who teaches, how much time, and shows the coach's estimate as a range and the player's reaction. "Set the room" shows every man's points with whose pick it is (yours or the coach's), the room's time budget and buy-in, so you change only the ones you care about.
 
 ## Topic 6. How a fix lands: three stages
 
