@@ -32,7 +32,14 @@ pub fn fact(w: &World, s: &Scene, stated: &Stated) -> Truth {
         return Truth::Later;
     }
     match s.kind {
-        Kind::HomeVisit | Kind::PortalCall | Kind::PortalVisit | Kind::SigneeRelease => recruit::check(w, s, stated),
+        Kind::HomeVisit
+        | Kind::PortalCall
+        | Kind::PortalVisit
+        | Kind::SigneeRelease
+        | Kind::RecruitCall
+        | Kind::RecruitMessage
+        | Kind::FamilyCall
+        | Kind::OfficialTalk => recruit::check(w, s, stated),
         Kind::Gm | Kind::BossFirst | Kind::BossMeeting => money::check(w, stated),
         _ => roster::check(w, s, stated),
     }

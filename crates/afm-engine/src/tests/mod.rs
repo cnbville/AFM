@@ -55,6 +55,7 @@ mod praise;
 mod pull_file;
 mod ratings;
 mod recruit_case;
+mod recruit_reach;
 mod rooms;
 mod roster_moves;
 mod sandbox;

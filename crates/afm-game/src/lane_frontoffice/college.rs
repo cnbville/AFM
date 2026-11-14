@@ -30,6 +30,7 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "portal_desk" => with_args(game, args, portal),
         "portal_file" => with_args(game, args, portal_file),
         "portal_call" => portal_call(game, args),
+        "recruit_call" | "recruit_message" => recruit_reach(game, cmd, args),
         "nil_desk" => with(game, nil),
         "walkons_desk" => with(game, walk_ons),
         "recruit_chain" => with(game, chain_view),
@@ -87,6 +88,21 @@ fn portal_call(game: &mut Game, args: &Value) -> Reply {
     program(w)?;
     desk::ready(w);
     let sid = portal::call(w, id_arg(args)?)?;
+    Ok(json!({ "scene": sid }))
+}
+
+/// You call or message a high school recruit (talk facts L6): the talk is
+/// a scene, opened on its page.
+fn recruit_reach(game: &mut Game, cmd: &str, args: &Value) -> Reply {
+    let w = game.world.as_mut().ok_or("No world is loaded.")?;
+    program(w)?;
+    desk::ready(w);
+    let id = id_arg(args)?;
+    let sid = if cmd == "recruit_call" {
+        afm_engine::world::folk::reach::call(w, id)?
+    } else {
+        afm_engine::world::folk::reach::message(w, id)?
+    };
     Ok(json!({ "scene": sid }))
 }
 
