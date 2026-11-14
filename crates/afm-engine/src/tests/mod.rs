@@ -8,6 +8,7 @@ mod carousel;
 mod claims;
 mod coaching_people;
 mod compact;
+mod craft;
 mod decide;
 mod depth;
 mod development;

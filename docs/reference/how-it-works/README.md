@@ -20,6 +20,7 @@ These pages describe what the code does on `main`, not what the design docs plan
 | [staff-and-coaches.md](staff-and-coaches.md) | Coach and staff ratings, what each role affects, the ladder, hiring and firing, job security |
 | [clock.md](clock.md) | The six-part day: the day's steps in clock order, the sections and where Continue stops, live moments, your seat's time zone, when results and lines show, practice and meeting hours, the draft's three nights |
 | [training.md](training.md) | The practice week per level, time budgets, plans, who teaches, how training becomes growth |
+| [flaws-and-tools.md](flaws-and-tools.md) | The 56 flaws and tools: where they come from, how a year changes them, each one's situation in the engine, the stress return, the tape's tags, counts by stage |
 | [injuries.md](injuries.md) | Injury odds in games and practice, what reads them, types and lengths, recovery, carry-over |
 | [nfl.md](nfl.md) | The living NFL: contracts, the cap, free agency, tags, trades, waivers, retirement, honors |
 | [inbox.md](inbox.md) | The inbox: where a message comes from, what makes it "Needs you", the college seat's writers (the portal, the recruiting trail, signing days, NIL answers, the trainers, the coaching carousel, polls, selection day, honors, NCAA letters, practice cases) |

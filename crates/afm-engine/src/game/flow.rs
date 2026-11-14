@@ -3540,7 +3540,11 @@ impl<'a> Game<'a> {
         // (tendencies topic 4.4).
         let vs = self.sides[o].mem.plan.vs.hard_count;
         let hard = if self.down >= 3 && self.togo <= 2.0 || vs > 0.0 && (self.down >= 3 || self.togo <= 3.0) {
-            clamp(1.5 + 0.05 * (qp.trait20(Attr::FootballIq, self.s.rules.level) - 10.0), 1.0, 2.5) * (1.0 + 0.5 * vs)
+            // A hard count that draws flags (individual practice): the
+            // tool's points on his football IQ, a quarter of a step each.
+            let count = 0.25 * qp.craft_vs(crate::craft::Craft::HardCount, self.s.rules.level, 0.0);
+            clamp(1.5 + 0.05 * (qp.trait20(Attr::FootballIq, self.s.rules.level) + count - 10.0), 1.0, 2.5)
+                * (1.0 + 0.5 * vs)
         } else {
             1.0
         };
@@ -3851,7 +3855,17 @@ impl<'a> Game<'a> {
         let db_iq = def
             .iter()
             .filter(|(s, _)| s.is_db())
-            .map(|&(_, i)| self.sides[d].team.players[i].a(Attr::Disguise))
+            // Late rotation (individual practice): a safety who turns his
+            // disguise late shows the true shell the flaw sooner.
+            .map(|&(s, i)| {
+                let p = &self.sides[d].team.players[i];
+                let late = if matches!(s, DSlot::FS | DSlot::SS) {
+                    p.craft_vs(crate::craft::Craft::LateRotation, self.s.rules.level, 0.0)
+                } else {
+                    0.0
+                };
+                p.a(Attr::Disguise) + late
+            })
             .sum::<f64>()
             / def.iter().filter(|(s, _)| s.is_db()).count().max(1) as f64;
         let fooled =
@@ -4281,6 +4295,7 @@ impl<'a> Game<'a> {
         r.blocks = res.notes.blocks.clone();
         r.rush_wins = res.notes.rush_wins.clone();
         r.rush_moves = res.notes.rush_moves.clone();
+        r.craft = res.notes.craft.clone();
         r.line = res.notes.chart.clone();
         r.tend = res.notes.tend;
         r.busts = res.notes.busts.clone();
@@ -6083,6 +6098,14 @@ pub struct PracticeSnap {
 /// training model), so the engine's are cleared between snaps. The plays
 /// come back booked, with their grades, in a game's stats.
 pub fn practice_snaps(off: &GameTeam, def: &GameTeam, level: Level, snaps: &[PracticeSnap], seed: u64) -> GameStats {
+    // A fix shows on the practice field first (individual practice topic
+    // 6.2): practice reads each man's flaws and tools as they are there.
+    let practice = |t: &GameTeam| {
+        let mut t = t.clone();
+        t.players.iter_mut().for_each(|p| p.craft.to_practice());
+        t
+    };
+    let (off, def) = (&practice(off), &practice(def));
     let setup = GameSetup::new(off, def, level, seed);
     let mut g = bare_game(&setup, off, def, 35.0, seed);
     let fresh: [Vec<f64>; 2] = [g.sides[0].energy.clone(), g.sides[1].energy.clone()];
