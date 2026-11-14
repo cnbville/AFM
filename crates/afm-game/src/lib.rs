@@ -9,6 +9,7 @@
 
 pub mod cards;
 pub mod colors;
+pub mod depth_plan;
 pub mod files;
 pub mod jobs;
 pub mod lane_boards;
@@ -152,6 +153,7 @@ impl Game {
                 }
                 lane_faces::on_open(self);
                 notebook::on_open(&self.home);
+                depth_plan::on_open(&self.home);
                 Ok(json!({ "built": true }))
             }
             // A full world built on this machine, into the library (hours).
@@ -217,6 +219,7 @@ impl Game {
                 memory::hand_back();
                 lane_faces::on_open(self);
                 notebook::on_open(&self.home);
+                depth_plan::on_open(&self.home);
                 Ok(views::status(self.w()?))
             }
             "save" => {
@@ -230,6 +233,7 @@ impl Game {
                 tallies::on_save(self.wm()?, &path);
                 lane_faces::on_save(&self.home, self.save_path.as_deref(), &path);
                 notebook::on_save(&self.home, self.save_path.as_deref(), &path);
+                depth_plan::on_save(&self.home, self.save_path.as_deref(), &path);
                 self.save_path = Some(path.clone());
                 Ok(json!({ "saved": path.display().to_string() }))
             }
