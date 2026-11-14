@@ -48,7 +48,7 @@ function attrBandWord(u) {
   return u >= 0.9 ? "Elite" : u >= 0.25 ? "Good starter" : u >= -0.25 ? "Starter level" : u >= -0.65 ? "Short of a starter" : "Backup level";
 }
 const attrArticle = (pos) => (/^[AEFHILMNORSX]/.test(pos) ? "an " : "a ") + pos;
-const attrSpan = (r) => `${r[0]}–${r[1]}`;
+const attrSpan = (r) => `<span class="rg"><i>${r[0]}</i><em>–</em><i>${r[1]}</i></span>`;
 const attrPct = (v) => Math.max(0, Math.min(100, v));
 // The read judging a skill (his own, or the staff's where he has none).
 const attrRead = (s) => (s.judge === "mine" ? s.mine : s.judge === "staff" ? s.staff : null);
@@ -116,12 +116,12 @@ function attrRow(s, o) {
     tail = g == null ? `<span class="at-dl"></span>` : `<span class="at-dl ${g > 0 ? "pos" : ""}">${g > 0 ? "+" : g < 0 ? "−" : ""}${Math.abs(g)}</span>`;
   } else {
     if (s.judge === "staff") small = `<small title="You have no read of your own on this skill yet, so this is your ${staffWord}' read">${staffWord}</small>`;
-    else if (showStaff) small = `<small title="Your ${staffWord}' read">${attrSpan(s.staff)}</small>`;
+    else if (showStaff) small = `<small data-rr="p:${o.p.id}" data-rrk="${esc(s.key)}" data-lo="${s.staff[0]}" data-hi="${s.staff[1]}" data-rrw="Your ${staffWord}' read" data-wline="${esc(attrWeightLine(s, pos))}" tabindex="0">${attrSpan(s.staff)}</small>`;
     tail = attrArrow(s.moved) || tail;
   }
   const who = s.judge === "mine" ? "Your read" : `Your ${staffWord}' read`;
   const wl = attrWeightLine(s, pos);
-  return `<div class="${cls}" data-k="${esc(s.key)}"><span class="at-nm">${esc(s.label)}</span><span class="at-tr" data-rr="p:${o.p.id}" data-rrk="${esc(s.key)}" data-lo="${lo}" data-hi="${hi}" data-rrw="${esc(who)}"${s.judge === "mine" ? ' data-own="1"' : ""} data-wline="${esc(wl)}" tabindex="0">${bars}</span><span class="at-num"${color ? ` style="color:${color}"` : ""}><b>${attrSpan(jr)}</b>${small}</span>${tail}${why}</div>`;
+  return `<div class="${cls}" data-k="${esc(s.key)}"><span class="at-nm">${esc(s.label)}</span><span class="at-tr"${marks ? ` data-zm="${[s.starter, s.elite].join(",")}"` : ""} data-zr="${lo},${hi}"${showStaff ? ` data-zs="${s.staff[0]},${s.staff[1]}"` : ""} data-zn="${esc(s.label)}">${bars}</span><span class="at-num"${color ? ` style="color:${color}"` : ""}><b data-rr="p:${o.p.id}" data-rrk="${esc(s.key)}" data-lo="${lo}" data-hi="${hi}" data-rrw="${esc(who)}"${s.judge === "mine" ? ' data-own="1"' : ""} data-wline="${esc(wl)}" tabindex="0">${attrSpan(jr)}</b>${small}</span>${tail}${why}</div>`;
 }
 
 // A family's header: its band word and whether it is moving.
@@ -162,8 +162,8 @@ function attrPotCell(a, p, recruit) {
   const mine = attrPotVal(pot.mine);
   const c = attrPotVal(coaches);
   return `<div class="pot"><div class="kick">What he could become</div>
-    <div class="pr"><small>Your read</small>${mine ? `<span>${mine}</span>` : `<span class="sm">Not formed yet${recruit ? " · needs more looks" : ""}</span>`}</div>
-    <div class="pr"><small>${who}</small>${c ? `<span class="dim">${c}</span>` : `<span class="sm">No read yet</span>`}</div>
+    <div class="pr"><small>Your read</small>${mine ? `<span>${mine}</span>` : `<span class="nf">Not formed yet${recruit ? " · needs more looks" : ""}</span>`}</div>
+    <div class="pr"><small>${who}</small>${c ? `<span class="dim">${c}</span>` : `<span class="nf">No read yet</span>`}</div>
     ${hint ? `<div class="hint">${esc(hint)}</div>` : ""}</div>`;
 }
 const attrFirst = (arr, n) => arr.slice(0, n);
@@ -181,7 +181,7 @@ function attrStrip(a, p, st, inPlay) {
     return `<div class="at-brief p4">${attrCell("Best of what you have seen", best, "Nothing seen yet")}${attrCell(`Not seen yet · ${unseen.length} of ${inPlay.length}`, nots, "")}${attrCell("Worth another look", look, "The reads you have are tight")}${attrPotCell(a, p, true)}</div>`;
   }
   const byGap = [...seen].sort((x, y) => (y.mid - y.starter) - (x.mid - x.starter));
-  const strong = byGap.filter((s) => s.mid > s.starter).slice(0, 3).map((s) => attrIt(s));
+  const strong = byGap.filter((s) => s.mid > s.starter).slice(0, 3).map((s) => attrIt(s, `+${Math.round(s.mid - s.starter)}`));
   const short = [...byGap].reverse().filter((s) => s.mid < s.starter).slice(0, 3).map((s) => attrIt(s, `${Math.round(s.starter - s.mid)} under`));
   const moved = inPlay.map((s) => ({ s, m: attrMove(s.moved) })).filter((x) => x.m && x.m.sign && x.m.by >= 1).sort((x, y) => y.m.by - x.m.by).slice(0, 3).map((x) => `${attrIt(x.s)}${attrArrow(x.s.moved)}`);
   const anyMove = inPlay.some((s) => s.moved);
@@ -294,3 +294,53 @@ Object.assign(CORE_MORE, {
     });
   },
 });
+
+// ---------- zoom: hover the bar for a close-up of the marks ----------
+(function attrZoom() {
+  let box = null, on = null;
+  const hide = () => { if (box) { box.remove(); box = null; } on = null; };
+  const nums = (v) => (v ? String(v).split(",").map(Number) : null);
+  function show(t) {
+    if (prefs.hover === "off") return;
+    const r = nums(t.dataset.zr), m = nums(t.dataset.zm), c = nums(t.dataset.zs);
+    if (!r) return;
+    const all = [...r, ...(m || []), ...(c || [])];
+    const lo = Math.max(0, Math.min(...all) - 4), hi = Math.min(100, Math.max(...all) + 4), sp = hi - lo || 1;
+    const p = (v) => ((v - lo) / sp) * 100;
+    const bar = (a, b) => `left:${p(a)}%;width:${Math.max(p(b) - p(a), 2.2)}%`;
+    const col = (t.querySelector(".pill") || {}).style ? t.querySelector(".pill").style.background : "";
+    let ax = "";
+    const step = sp > 24 ? 5 : 2;
+    for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) ax += `<u style="left:${p(v)}%"></u><span style="left:${p(v)}%">${v}</span>`;
+    let labs = "";
+    if (m) {
+      const close = Math.abs(p(m[1]) - p(m[0])) < 24;
+      labs = `<span class="zl" style="left:${p(m[0])}%;${close ? "transform:translateX(-100%)" : ""}">Starter ${m[0]}</span><span class="zl e" style="left:${p(m[1])}%;${close ? "transform:translateX(0)" : ""}">Elite ${m[1]}</span>`;
+    }
+    if (box) box.remove();
+    box = document.createElement("div");
+    box.className = "at-zoom";
+    box.innerHTML = `<div class="zt"><b>${esc(t.dataset.zn)}</b><span>zoom ${lo} to ${hi}</span></div>
+      <div class="zs">${labs}<i class="trk"></i><i class="pill" style="${bar(r[0], r[1])}${col ? ";background:" + col : ""}"></i>${c ? `<i class="own" style="${bar(c[0], c[1])}"></i>` : ""}${m ? `<b class="tk st" style="left:${p(m[0])}%"></b><b class="tk el" style="left:${p(m[1])}%"></b>` : ""}</div>
+      <div class="zx">${ax}</div>`;
+    document.body.appendChild(box);
+    const b = t.getBoundingClientRect();
+    let left = Math.min(b.left, innerWidth - box.offsetWidth - 12), top = b.bottom + 8;
+    if (top + box.offsetHeight > innerHeight - 12) top = b.top - box.offsetHeight - 8;
+    box.style.left = Math.max(12, left) + "px";
+    box.style.top = Math.max(12, top) + "px";
+  }
+  document.addEventListener("mouseover", (ev) => {
+    const t = ev.target.closest && ev.target.closest(".at-tr[data-zr]");
+    if (!t || t === on) return;
+    on = t;
+    show(t);
+  });
+  document.addEventListener("mouseout", (ev) => {
+    const t = ev.target.closest && ev.target.closest(".at-tr[data-zr]");
+    if (!t || t !== on) return;
+    if (ev.relatedTarget && t.contains(ev.relatedTarget)) return;
+    hide();
+  });
+  document.addEventListener("scroll", hide, true);
+})();
