@@ -4,13 +4,18 @@
 //! coach left, against programs that kept their coach; and (2) your own
 //! takeover in a new save: you take a losing FBS program on the start
 //! morning, the days run on, and each entrant from your roster is listed
-//! with the reason the game gives.
+//! with the reason the game gives, by role, and how many young starters
+//! left; then the same takeover with a start promised to every young
+//! starter (playtest bug 15: the day's read). `AFM_STOP=jan1` stops the
+//! history on Jan 1, so the takeover comes before the January window.
 //! Usage: coach_change_check [history_years] [seed] [programs]
 
 use std::collections::HashMap;
 
+use afm_engine::player::PlayingTime;
 use afm_engine::world::coach::{Employer, Role};
 use afm_engine::world::data::Division;
+use afm_engine::world::folk::talks;
 use afm_engine::world::seat::{Job, You};
 use afm_engine::world::{PortalRecord, World, WorldOptions};
 
@@ -47,7 +52,9 @@ fn main() {
     let t = std::time::Instant::now();
     // The world is kept on disk: read back fresh for each takeover, and
     // reused by a later run.
-    let file = std::env::temp_dir().join(format!("coach_change_{seed}_{years}.afmworld"));
+    let jan1 = std::env::var("AFM_STOP").is_ok_and(|v| v == "jan1");
+    let file =
+        std::env::temp_dir().join(format!("coach_change_{seed}_{years}{}.afmworld", if jan1 { "_jan1" } else { "" }));
     let w = if file.exists() {
         afm_engine::save::read_world(&file).expect("read")
     } else {
@@ -56,6 +63,7 @@ fn main() {
             history_years: years,
             engine_from: Some(2100),
             hs_engine_years: None,
+            stop_jan1: jan1,
             ..Default::default()
         });
         afm_engine::save::write_world(&w, &file, "check", "now", None).expect("write");
@@ -143,6 +151,20 @@ fn main() {
         }
     }
     rows.sort_by(|a, b| a.0.cmp(&b.0));
+    // Who leaves (playtest bug 15): FBS entrants by their role that season.
+    let mut by_role: HashMap<String, u32> = HashMap::new();
+    let mut fbs_all = 0u32;
+    for r in records(&w) {
+        if r.from == Division::FBS && r.year >= first && r.year < w.year {
+            fbs_all += 1;
+            *by_role.entry(format!("{:?}", r.role)).or_default() += 1;
+        }
+    }
+    let mut v: Vec<_> = by_role.into_iter().collect();
+    v.sort_by_key(|x| std::cmp::Reverse(x.1));
+    let shares: Vec<String> =
+        v.iter().map(|(k, n)| format!("{k} {:.1}%", 100.0 * *n as f64 / fbs_all.max(1) as f64)).collect();
+    println!("FBS entrants by role ({fbs_all}): {}", shares.join(", "));
     println!("\nFBS portal entrants per program and cycle, {first}-{}", w.year - 1);
     println!("{:<44} {:>6} {:>9} {:>14}", "group", "cycles", "entrants", "of them 'coach'");
     for (label, n, e, c) in &rows {
@@ -184,44 +206,78 @@ fn main() {
     println!("\nYour takeover on {} at {} losing FBS programs (last three seasons)", w.today.pretty(), pick.len());
     // One world in memory at a time.
     drop(w);
-    let mut total = 0;
-    let mut whys: HashMap<String, u32> = HashMap::new();
-    for &&(p, wn, l) in &pick {
-        let mut seen: HashMap<u32, &'static str> = HashMap::new();
-        let mut whys_role: HashMap<u32, String> = HashMap::new();
-        let mut s = afm_engine::save::read_world(&file).expect("read");
-        let d0 = s.today;
-        let roster = s.people.iter().filter(|x| x.college == Some(p)).count();
-        let jan = records(&s).iter().filter(|r| r.from_program == p && r.year == last).count();
-        let leaning: Vec<f64> = s.people.iter().filter(|x| x.college == Some(p)).map(|x| x.cal.lean).collect();
-        s.start_career(&you(), Job::College(p), 7);
-        // A live save keeps no portal records: everyone from your roster
-        // with an entry dated after your hire, read each day.
-        for _ in 0..45 {
-            s.advance_day();
-            for x in s.people.iter().filter(|x| x.college == Some(p)) {
-                if let Some(e) = x.cal.portal.as_ref().filter(|e| e.entered >= d0) {
-                    seen.insert(x.player.id, e.why);
-                    whys_role.insert(x.player.id, format!("{} ({:?})", e.why, x.last_role));
+    for promised in [false, true] {
+        println!(
+            "\n{}",
+            if promised { "With a start promised to every young starter on the start morning" } else { "No promises" }
+        );
+        let mut total = 0;
+        let mut young_total = (0u32, 0u32);
+        let mut whys: HashMap<String, u32> = HashMap::new();
+        for &&(p, wn, l) in &pick {
+            let mut seen: HashMap<u32, &'static str> = HashMap::new();
+            let mut whys_role: HashMap<u32, String> = HashMap::new();
+            let mut s = afm_engine::save::read_world(&file).expect("read");
+            let d0 = s.today;
+            let roster = s.people.iter().filter(|x| x.college == Some(p)).count();
+            let jan = records(&s).iter().filter(|r| r.from_program == p && r.year == last).count();
+            let leaning: Vec<f64> = s.people.iter().filter(|x| x.college == Some(p)).map(|x| x.cal.lean).collect();
+            s.start_career(&you(), Job::College(p), 7);
+            // Young starters: started this season, two seasons or more left.
+            let label = if s.today < s.dates.fall_camp { s.year - 1 } else { s.year };
+            let young: Vec<u32> = s
+                .people
+                .iter()
+                .filter(|x| {
+                    x.college == Some(p)
+                        && x.last_role == Some(PlayingTime::Starter)
+                        && afm_engine::world::eligibility::seasons_left(x, Division::FBS, label + 1) >= 2
+                })
+                .map(|x| x.player.id)
+                .collect();
+            if promised {
+                for &id in &young {
+                    talks::promise(&mut s, talks::PromiseTo::Player(id), talks::PromiseKind::Start, 0);
                 }
             }
+            // A live save keeps no portal records: everyone from your roster
+            // with an entry dated after your hire, read each day.
+            for _ in 0..45 {
+                s.advance_day();
+                for x in s.people.iter().filter(|x| x.college == Some(p)) {
+                    if let Some(e) = x.cal.portal.as_ref().filter(|e| e.entered >= d0) {
+                        seen.insert(x.player.id, e.why);
+                        whys_role.insert(x.player.id, format!("{} ({:?})", e.why, x.last_role));
+                    }
+                }
+            }
+            let n = seen.len();
+            total += n;
+            let mut by: HashMap<&str, u32> = HashMap::new();
+            for (id, why) in &seen {
+                *by.entry(why).or_default() += 1;
+                *whys.entry(whys_role[id].clone()).or_default() += 1;
+            }
+            let young_left = young.iter().filter(|id| seen.contains_key(id)).count() as u32;
+            young_total.0 += young_left;
+            young_total.1 += young.len() as u32;
+            let with_lean = leaning.iter().filter(|&&x| x > 0.0).count();
+            let mean = leaning.iter().sum::<f64>() / with_lean.max(1) as f64;
+            println!(
+                "{:<28} {wn:>2}-{l:<2} roster {roster:>3}, January window {jan:>2}, after your hire {n:>2} {by:?} ({with_lean} with a lean, mean {mean:.2})",
+                s.programs[p].real_name
+            );
+            println!("  young starters: {young_left} of {} left", young.len());
         }
-        let n = seen.len();
-        total += n;
-        let mut by: HashMap<&str, u32> = HashMap::new();
-        for (id, why) in &seen {
-            *by.entry(why).or_default() += 1;
-            *whys.entry(whys_role[id].clone()).or_default() += 1;
-        }
-        let with_lean = leaning.iter().filter(|&&x| x > 0.0).count();
-        let mean = leaning.iter().sum::<f64>() / with_lean.max(1) as f64;
+        println!("mean after your hire: {:.1}", total as f64 / pick.len().max(1) as f64);
+        let mut v: Vec<_> = whys.into_iter().collect();
+        v.sort_by_key(|x| std::cmp::Reverse(x.1));
+        println!("reasons by role: {v:?}");
         println!(
-            "{:<28} {wn:>2}-{l:<2} roster {roster:>3}, January window {jan:>2}, after your hire {n:>2} {by:?} ({with_lean} with a lean, mean {mean:.2})",
-            s.programs[p].real_name
+            "young starters who left: {} of {} ({:.1}%)",
+            young_total.0,
+            young_total.1,
+            100.0 * young_total.0 as f64 / young_total.1.max(1) as f64
         );
     }
-    println!("mean after your hire: {:.1}", total as f64 / pick.len().max(1) as f64);
-    let mut v: Vec<_> = whys.into_iter().collect();
-    v.sort_by_key(|x| std::cmp::Reverse(x.1));
-    println!("reasons by role: {v:?}");
 }

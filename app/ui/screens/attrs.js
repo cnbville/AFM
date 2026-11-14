@@ -121,7 +121,7 @@ function attrRow(s, o) {
   }
   const who = s.judge === "mine" ? "Your read" : `Your ${staffWord}' read`;
   const wl = attrWeightLine(s, pos);
-  return `<div class="${cls}" data-k="${esc(s.key)}"><span class="at-nm">${esc(s.label)}</span><span class="at-tr" data-rr="p:${o.p.id}" data-rrk="${esc(s.key)}" data-lo="${lo}" data-hi="${hi}" data-rrw="${esc(who)}" data-wline="${esc(wl)}" tabindex="0">${bars}</span><span class="at-num"${color ? ` style="color:${color}"` : ""}><b>${attrSpan(jr)}</b>${small}</span>${tail}${why}</div>`;
+  return `<div class="${cls}" data-k="${esc(s.key)}"><span class="at-nm">${esc(s.label)}</span><span class="at-tr" data-rr="p:${o.p.id}" data-rrk="${esc(s.key)}" data-lo="${lo}" data-hi="${hi}" data-rrw="${esc(who)}"${s.judge === "mine" ? ' data-own="1"' : ""} data-wline="${esc(wl)}" tabindex="0">${bars}</span><span class="at-num"${color ? ` style="color:${color}"` : ""}><b>${attrSpan(jr)}</b>${small}</span>${tail}${why}</div>`;
 }
 
 // A family's header: its band word and whether it is moving.
