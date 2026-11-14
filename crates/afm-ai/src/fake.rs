@@ -120,6 +120,9 @@ impl Model for Fake {
         let b = match queued {
             Some(Ok(b)) => b,
             Some(Err(f)) => return Err(f),
+            // The settings card's Test sends a reader-sized call with a schema:
+            // it gets a reader's JSON back, as the real API would give.
+            None if req.label == "test" && req.schema.is_some() => Fake::recording("reader"),
             None => Fake::recording(&req.label),
         };
         Reply::from_body(b, self.delay.as_millis() as u64)
