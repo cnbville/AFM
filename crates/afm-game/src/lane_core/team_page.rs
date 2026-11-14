@@ -104,8 +104,14 @@ fn key_players(w: &World, t: TeamRef) -> Vec<Value> {
                     .pro
                     .as_ref()
                     .and_then(|x| x.contract.as_ref())
-                    .filter(|x| x.team == c && x.last_year() <= w.year)
-                    .map(|_| "His contract ends after this season.".to_string()),
+                    .filter(|x| x.team == c && x.last_year() == ending_year(w))
+                    .map(|_| {
+                        if ending_year(w) < w.year {
+                            "His contract runs out when the new league year opens.".to_string()
+                        } else {
+                            "His contract ends after this season.".to_string()
+                        }
+                    }),
                 TeamRef::College(_) => (p.stage == Stage::College && views::class_text(w, p).ends_with("Sr"))
                     .then(|| "In his last season.".to_string()),
                 _ => None,
@@ -219,6 +225,12 @@ fn table(w: &World, t: TeamRef) -> Value {
     }
 }
 
+/// The league year whose deals run out next: last year's until the new
+/// league year opens in March, this year's after.
+fn ending_year(w: &World) -> i32 {
+    if w.today < w.dates.league_year.date { w.year - 1 } else { w.year }
+}
+
 /// An NFL club's cap this league year in shares, never dollars (Cain: no
 /// dollar figures unless he asks), and the picks it holds in the next draft.
 fn nfl_books(w: &World, c: usize) -> Value {
@@ -231,7 +243,6 @@ fn nfl_books(w: &World, c: usize) -> Value {
     let (mut off, mut def, mut st) = (0.0, 0.0, 0.0);
     let mut top: Option<(f64, usize)> = None;
     let mut ending = 0;
-    let mut ending_starters = 0;
     for &i in &w.clubs[c].roster {
         let p = &w.people[i];
         let Some(k) = p.pro.as_ref().and_then(|x| x.contract.as_ref()).filter(|k| k.team == c) else { continue };
@@ -244,11 +255,8 @@ fn nfl_books(w: &World, c: usize) -> Value {
         if top.is_none_or(|t| hit > t.0) {
             top = Some((hit, i));
         }
-        if k.last_year() <= year {
+        if k.last_year() == ending_year(w) {
             ending += 1;
-            if p.last_role == Some(afm_engine::player::PlayingTime::Starter) {
-                ending_starters += 1;
-            }
         }
     }
     let dead = w.clubs[c].dead_in(year);
@@ -259,7 +267,7 @@ fn nfl_books(w: &World, c: usize) -> Value {
         "off": share(off), "def": share(def), "st": share(st), "dead": share(dead),
         "room": share(room.max(0.0)), "over": room < 0.0,
         "top": top.map(|(hit, i)| json!({ "id": w.people[i].player.id, "name": w.people[i].name, "pos": w.people[i].player.position.name(), "share": share(hit) })),
-        "ending": ending, "ending_starters": ending_starters,
+        "ending": ending, "ending_now": ending_year(w) < year,
         "picks": picks(w, c),
     })
 }

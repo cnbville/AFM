@@ -2098,7 +2098,7 @@ function tpTiles(t) {
     if (b.capped) tiles.push([b.over ? "Over" : `${b.room}%`, b.over ? "over the cap" : "of the cap still free"]);
     if (b.picks && b.picks.year) tiles.push([String(b.picks.list.length), `picks in the ${b.picks.year} draft`]);
   } else if (t.ref.kind === "college") {
-    tiles.push([b.rank ? `#${b.rank}` : "–", `${b.sign_year} class among ${b.rank_of} ${esc(b.division)} programs`]);
+    tiles.push(b.rank ? [`#${b.rank}`, `${b.sign_year} class among ${b.rank_of} ${esc(b.division)} programs`] : ["–", `no commitments yet for the ${b.sign_year} class`]);
     if (b.portal) tiles.push([`${b.portal.in} in · ${b.portal.out} out`, "the portal this cycle"]);
   } else if (t.ref.kind === "hs") {
     if (t.alive) tiles.push(["Alive", "still in the state playoffs"]);
@@ -2158,7 +2158,7 @@ function tpNflBooks(t) {
   let out = "";
   if (b.capped) {
     const parts = [["var(--fg)", "Offense", b.off], ["var(--fg2)", "Defense", b.def], ["var(--fill-3)", "Special teams", b.st], ["var(--fg3)", "Dead money", b.dead]].filter((x) => x[2] > 0);
-    out += `<div class="panel"><h2>Cap and contracts <small>${b.year} · share of the cap</small></h2><div class="tp-capbar">${parts.map(([c, , v]) => `<i style="width:${Math.min(100, v)}%;background:${c}"></i>`).join("")}</div><div class="tp-leg">${parts.map(([c, l, v]) => `<span><i style="background:${c}"></i>${l} ${v}%</span>`).join("")}</div><div class="kv">${b.top ? `<dt>Biggest hit</dt><dd>${playerLink(b.top.id, b.top.name)} <small class="muted">${esc(b.top.pos)}</small> · ${b.top.share}% of the cap</dd>` : ""}<dt>Expiring</dt><dd>${b.ending} deal${b.ending === 1 ? "" : "s"} after this season${b.ending_starters ? `, ${b.ending_starters} of them starters` : ""}</dd><dt>Cap space</dt><dd>${b.over ? '<span class="tp-low">Over the cap</span>' : `<b>${b.room}%</b> of the cap`}</dd></div></div>`;
+    out += `<div class="panel"><h2>Cap and contracts <small>${b.year} · share of the cap</small></h2><div class="tp-capbar">${parts.map(([c, , v]) => `<i style="width:${Math.min(100, v)}%;background:${c}"></i>`).join("")}</div><div class="tp-leg">${parts.map(([c, l, v]) => `<span><i style="background:${c}"></i>${l} ${v}%</span>`).join("")}</div><div class="kv">${b.top ? `<dt>Biggest hit</dt><dd>${playerLink(b.top.id, b.top.name)} <small class="muted">${esc(b.top.pos)}</small> · ${b.top.share}% of the cap</dd>` : ""}<dt>Expiring</dt><dd>${b.ending} deal${b.ending === 1 ? "" : "s"} ${b.ending_now ? "run out when the new league year opens" : "after this season"}</dd><dt>Cap space</dt><dd>${b.over ? '<span class="tp-low">Over the cap</span>' : `<b>${b.room}%</b> of the cap`}</dd></div></div>`;
   }
   const p = b.picks;
   if (p && p.year) out += `<div class="panel"><h2>Draft picks <small>${p.year} · ${p.list.length} in all</small></h2>${p.list.length ? `<div class="chips">${p.list.map((x) => `<span class="st-pill" title="${esc(x.text)}">R${x.round}${x.comp ? " comp" : ""}${x.from ? ` · from ${esc(x.from.name)}` : ""}</span>`).join("")}</div>` : '<div class="empty">No picks in this draft: they were traded away.</div>'}</div>`;
