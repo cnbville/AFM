@@ -1273,7 +1273,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         player.train.grade = old.grade;
         player.train.prep = old.prep;
         player.train.rust = old.rust;
-        player.train.focus_min = old.focus_min;
+        player.train.pos |= old.focus_bits();
     }
 
     for key in Attr::ALL {

@@ -136,8 +136,12 @@ pub struct Train {
     pub due: [u8; FAMILIES],
     /// Bloom at the checkpoint in quarter years (development age = age - bloom).
     pub bloom4: i8,
-    /// His position at the checkpoint: the attributes it uses grow
-    /// through the year, the rest settle at the checkpoint.
+    /// His position at the checkpoint (low four bits): the attributes it
+    /// uses grow through the year, the rest settle at the checkpoint. The
+    /// high four bits: his minutes a week on his plan's focus last week
+    /// (individual practice, topic 5b), 0 never read (the usual 30), else
+    /// 5 × (v − 1) minutes, 0 to 70 (a focus lifts no more past 60), so
+    /// the store stays 40 bytes.
     #[serde(default)]
     pub pos: u8,
     /// Load: this week's and the last weeks' (chronic), in tens of units.
@@ -154,11 +158,6 @@ pub struct Train {
     /// technique (`prep::record`).
     #[serde(default)]
     pub rust: [u8; 2],
-    /// The minutes a week he has spent on his plan's focus lately, plus
-    /// one (individual practice, topic 5b): a running average over about
-    /// six weeks; 0 when never read, which counts as the usual 30.
-    #[serde(default)]
-    pub focus_min: u8,
 }
 
 fn q(v: f64, lo: f64, scale: f64) -> u8 {
@@ -197,20 +196,27 @@ impl Train {
             grade: 0,
             prep: 0,
             rust: [0, 0],
-            focus_min: 0,
         }
     }
 
-    /// The minutes a week he has spent on his focus lately (the usual 30
+    /// The minutes a week he spent on his focus last week (the usual 30
     /// before any week was read).
     pub fn focus_minutes(&self) -> f64 {
-        if self.focus_min == 0 { crate::development::USUAL_FOCUS_MINUTES } else { self.focus_min as f64 - 1.0 }
+        match self.pos >> 4 {
+            0 => crate::development::USUAL_FOCUS_MINUTES,
+            v => 5.0 * (v as f64 - 1.0),
+        }
     }
 
-    /// Takes this week's minutes on his focus into the running average.
+    /// Keeps this week's minutes on his focus.
     pub fn add_focus_minutes(&mut self, minutes: f64) {
-        let m = 0.85 * self.focus_minutes() + 0.15 * clamp(minutes, 0.0, 200.0);
-        self.focus_min = clamp(m.round() + 1.0, 1.0, 255.0) as u8;
+        let v = clamp((minutes / 5.0).round() + 1.0, 1.0, 15.0) as u8;
+        self.pos = (self.pos & 0x0F) | (v << 4);
+    }
+
+    /// The focus minutes' bits alone, to carry them into a new year.
+    pub(crate) fn focus_bits(&self) -> u8 {
+        self.pos & 0xF0
     }
 
     pub fn pending(&self) -> bool {
@@ -242,7 +248,7 @@ impl Train {
     }
 
     pub fn position(&self) -> Position {
-        Position::ALL[(self.pos as usize).min(Position::ALL.len() - 1)]
+        Position::ALL[((self.pos & 0x0F) as usize).min(Position::ALL.len() - 1)]
     }
 
     /// Acute against chronic load: above about 1.3 a sudden jump.
@@ -462,12 +468,13 @@ pub fn close_year(p: &mut Player, focus: Option<Focus>) {
     }
     let done: [f64; FAMILIES] = std::array::from_fn(|f| p.train.landed(Family::ALL[f]));
     land_after(p, &rest, &done, focus, 0xC105E);
-    let (load, prep, rust, focus_min) = (p.train.load, p.train.prep, p.train.rust, p.train.focus_min);
+    let (load, prep, rust, focus) = (p.train.load, p.train.prep, p.train.rust, p.train.focus_bits());
     // Whether the year's snaps landed in season (flags bit 3) stays for
     // the next opening: a year that didn't (results off, unsigned at camp,
     // an older save) has its snaps read there instead.
     let year = GrowthYear { flags: p.train.year.flags & 8, ..GrowthYear::default() };
-    p.train = Train { load, prep, rust, focus_min, year, ..Train::default() };
+    p.train = Train { load, prep, rust, year, ..Train::default() };
+    p.train.pos |= focus;
     let now = p.overall();
     if let Some(h) = p.history.last_mut() {
         h.overall = now;
