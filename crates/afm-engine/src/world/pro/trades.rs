@@ -17,6 +17,7 @@ use crate::league::depth_slots;
 use crate::positions::Position;
 use crate::rng::clamp;
 use crate::world::World;
+use crate::world::front_office::deals::Pick;
 use crate::world::season::key_uniform;
 use std::collections::HashMap;
 
@@ -247,26 +248,44 @@ pub(crate) fn pick_value(w: &World, t: usize, year: i32, round: u32, orig: usize
 /// A club counts the seasons it will use him for its plan: a rebuilding
 /// club gets little from a veteran of 27 or more, who will be gone or past
 /// it before it wins again (a third of his surplus), so it doesn't spend
-/// picks on one and sells its own cheaply; a contender pays a little more
-/// for help this season. What he costs over his worth counts in full.
+/// picks on one and sells its own cheaply. What he costs over his worth
+/// counts in full.
+///
+/// The trade finder (TF10, TF14, TF15): he fades on his own position's
+/// curve (a back from 27, a quarterback from 33), not a flat 12% a year
+/// from 30; this season counts only the part still to play, and more to a
+/// club in the race (half again at even odds, half at none), with no flat
+/// contender's premium; and a club's doctors take their read of his
+/// record off what he is worth to it.
 pub(crate) fn player_points(w: &World, t: usize, i: usize) -> f64 {
     let year = w.year;
     let (_, apy) = worth(w, t, i);
     let Some(k) = w.people[i].pro.as_ref().and_then(|c| c.contract.as_ref()) else { return 0.0 };
-    let age = w.people[i].player.age as i32;
+    let pos = w.people[i].player.position;
+    let age = w.people[i].player.age;
     let mode = w.clubs[t].office.mode;
+    let left = 1.0 - paid_share(w, w.today);
+    let race = super::bargain::race(w, t);
+    let now = super::market::decline(pos, age);
     let mut pts = 0.0;
     for y in year..=k.last_year() {
-        let decline = if age + (y - year) >= 30 { 0.88f64.powi(y - year) } else { 1.0 };
+        let on = (y - year) as u32;
+        let decline = super::market::decline(pos, age + on) / now;
         let cost = k.year(y).map_or(0.0, |x| x.base + x.roster_bonus + x.workout + x.per_game);
-        let surplus = apy * decline - cost;
+        let mut surplus = apy * decline - cost;
+        if y == year {
+            surplus *= left;
+        }
         let used = match mode {
             _ if surplus <= 0.0 => 1.0,
-            Mode::Rebuild if age + (y - year) >= 27 => 0.35,
-            Mode::Contend if y == year => 1.15,
+            Mode::Rebuild if age + on >= 27 => 0.35,
+            _ if y == year => 0.5 + race,
             _ => 1.0,
         };
         pts += 10_000.0 * surplus * used / money::price_cap(y);
+    }
+    if pts > 0.0 {
+        pts *= 1.0 - super::bargain::health_cut(super::bargain::doctors(w, t, i));
     }
     pts
 }
@@ -329,7 +348,9 @@ pub(crate) fn trade_window(w: &mut World, d: Date, window: Window) {
             Window::Offseason => 0.45,
             Window::Season => 0.1 * (weeks / 5.0).clamp(0.15, 1.2),
             Window::Deadline => 0.45,
-        } * if w.clubs[buyer].office.mode == Mode::Contend { 1.5 } else { 1.0 };
+        } * if w.clubs[buyer].office.mode == Mode::Contend { 1.5 } else { 1.0 }
+            // How often this GM deals at all (TF18).
+            * (0.5 + super::bargain::style(w, buyer).deals);
         if roll > calls {
             continue;
         }
@@ -390,7 +411,10 @@ pub(crate) fn trade_window(w: &mut World, d: Date, window: Window) {
                 }
                 reached = reached.max(2);
                 let vb = player_points(w, buyer, i);
-                let vs = own * if c.wants_out { 0.85 } else { 1.0 };
+                // The seller's walk-away, less what it can't hold out for
+                // (TF9: a trade request, a holdout, his last year, a cap
+                // squeeze), more from a GM this buyer fleeced before.
+                let vs = super::bargain::reservation(w, seller, i);
                 let ask = vs.max(30.0) * (1.05 + (w.market.fleece[buyer][seller] / 5000.0).clamp(0.0, 0.3));
                 if vb < ask {
                     continue;
@@ -425,36 +449,77 @@ pub(crate) fn trade_window(w: &mut World, d: Date, window: Window) {
             }
         }
         let Some((seller, i, _, ask)) = best else { continue };
-        // Talks can fail; a physical can void it (proposed, not confirmed).
-        if key_uniform(w.options.seed as u64 ^ 0x7EAE ^ d.0 as u64, i as u64) < 0.35 {
+        // TF20: the same bargain as yours. The price lands between the
+        // seller's ask and the buyer's top by who bargains harder; talks
+        // fail more often between two hard bargainers.
+        let (sb, ss) = (super::bargain::style(w, buyer), super::bargain::style(w, seller));
+        if key_uniform(w.options.seed as u64 ^ 0x7EAE ^ d.0 as u64, i as u64)
+            < 0.2 + 0.3 * 0.5 * (sb.haggle + ss.haggle)
+        {
             w.market.year_mut(year).trade_funnel[4] += 1;
             shopping_rumor(w, i, seller, d);
             continue;
         }
-        let Some(package) = package(w, buyer, seller, ask) else {
+        let top = player_points(w, buyer, i);
+        let price = ask + (top - ask) * clamp(0.5 + 0.3 * (ss.haggle - sb.haggle), 0.2, 0.8);
+        let yours = crate::world::front_office::yours(w, seller, crate::world::front_office::Duty::Trades);
+        let lim = super::bargain::Limits { back: !yours, draft_only: None, cond: !yours, swap: !yours };
+        let Some(mut pk) = super::bargain::build(w, buyer, seller, i, price, lim).filter(|p| p.worth >= ask * 0.95)
+        else {
             w.market.year_mut(year).trade_funnel[5] += 1;
             continue;
         };
-        if key_uniform(w.options.seed as u64 ^ 0x7EAF ^ d.0 as u64, i as u64) < 0.02 {
-            let who = super::describe(w, i);
-            post(
-                w,
-                d,
-                Some(seller),
-                Some(i),
-                Loudness::Medium,
-                Kind::Transfer,
-                format!("A trade for {who} is voided after a failed physical."),
-            );
+        // An owner with the last word signs off on a blockbuster (TF16).
+        if super::bargain::blockbuster(w, i, &pk.picks)
+            && (super::bargain::owner_yes(w, buyer, true, d.0 as u64 ^ i as u64) == Some(false)
+                || !yours && super::bargain::owner_yes(w, seller, false, d.0 as u64 ^ i as u64) == Some(false))
+        {
+            w.market.year_mut(year).trade_funnel[5] += 1;
             continue;
         }
+        // The physical reads his record (TF15): a failed one voids the
+        // deal; a new finding takes the cheapest pick off, and the seller
+        // goes on if what's left still meets its walk-away.
+        match super::bargain::exam(w, buyer, i, d.0 as u64).0 {
+            super::bargain::Exam::Failed => {
+                let who = super::describe(w, i);
+                post(
+                    w,
+                    d,
+                    Some(seller),
+                    Some(i),
+                    Loudness::Medium,
+                    Kind::Transfer,
+                    format!("A trade for {who} is voided after a failed physical."),
+                );
+                continue;
+            }
+            super::bargain::Exam::Revised if pk.picks.len() > 1 => {
+                let k = (0..pk.picks.len())
+                    .min_by(|&a, &b| {
+                        crate::world::front_office::deals::pick_points(w, seller, &pk.picks[a])
+                            .total_cmp(&crate::world::front_office::deals::pick_points(w, seller, &pk.picks[b]))
+                    })
+                    .unwrap();
+                let cut = crate::world::front_office::deals::pick_points(w, seller, &pk.picks[k]);
+                if pk.worth - cut < super::bargain::reservation(w, seller, i) {
+                    continue;
+                }
+                pk.worth -= cut;
+                pk.picks.remove(k);
+                if pk.cond.is_some_and(|c| !pk.picks.contains(&c.0)) {
+                    pk.cond = None;
+                }
+            }
+            _ => {}
+        }
         // A call to your club waits for your answer (lane 10).
-        if crate::world::front_office::yours(w, seller, crate::world::front_office::Duty::Trades) {
-            crate::world::front_office::deals::call_in(w, d, buyer, seller, i, package);
+        if yours {
+            crate::world::front_office::deals::call_in(w, d, buyer, seller, i, pk.picks);
             moved.push(i);
             continue;
         }
-        execute(w, d, buyer, seller, i, package, window);
+        execute(w, d, buyer, seller, i, &pk, window);
         moved.push(i);
     }
     if window == Window::Offseason && d >= w.dates.cutdown.date.add(-7) {
@@ -535,8 +600,12 @@ fn depth_trades(w: &mut World, d: Date, teams: &[usize], moved: &mut Vec<usize>)
         if key_uniform(w.options.seed as u64 ^ 0xDE97 ^ d.0 as u64, i as u64) < 0.35 {
             continue;
         }
-        let Some(package) = package(w, buyer, seller, ask) else { continue };
-        execute(w, d, buyer, seller, i, package, Window::Offseason);
+        let Some(picks) = package(w, buyer, seller, ask) else { continue };
+        let pk = super::bargain::Package {
+            picks: picks.into_iter().map(|(year, round, orig)| Pick { year, round, orig, comp: false }).collect(),
+            ..Default::default()
+        };
+        execute(w, d, buyer, seller, i, &pk, Window::Offseason);
         moved.push(i);
         bought.push(buyer);
     }
@@ -671,50 +740,107 @@ pub(crate) fn trade_hurt(w: &World, i: usize, from: usize) -> f64 {
     })
 }
 
+/// An AI trade on the books (TF20): the player to the buyer, its package
+/// to the seller (picks, a player back, a swap of this year's picks, a
+/// condition on a later pick), each player's bonus left on the cap of the
+/// club he leaves.
 fn execute(
     w: &mut World,
     d: Date,
     buyer: usize,
     seller: usize,
     i: usize,
-    picks: Vec<(i32, u32, usize)>,
+    pk: &super::bargain::Package,
     window: Window,
 ) {
+    use crate::world::front_office::deals;
     let year = w.year;
+    let june1 = super::after_june1(w, d);
+    let back: Vec<usize> = pk
+        .back
+        .iter()
+        .filter_map(|&id| w.clubs[buyer].roster.iter().copied().find(|&j| w.people[j].player.id == id))
+        .collect();
+    let fair = consensus(w, i);
+    let who = super::describe(w, i);
+    let backs: Vec<String> = back.iter().map(|&j| super::describe(w, j)).collect();
     // The seller keeps the bonus already paid: its remaining proration
     // accelerates onto the seller's cap; the buyer takes the salary.
-    let june1 = super::after_june1(w, d);
-    let (now, later) =
-        w.people[i].pro.as_ref().and_then(|c| c.contract.as_ref()).map_or((0.0, 0.0), |k| kept_bonus(k, year, june1));
-    let id = w.people[i].player.id;
-    w.clubs[seller].add_dead(year, now, id, super::DeadWhy::Traded);
-    w.clubs[seller].add_dead(year + 1, later, id, super::DeadWhy::Traded);
-    keep_paid(w, i, seller, d);
-    if let Some(k) = w.people[i].pro.as_mut().unwrap().contract.as_mut() {
-        for y in k.years.iter_mut().filter(|y| y.year >= year) {
-            y.proration = 0.0;
+    for &(j, from) in std::iter::once(&(i, seller)).chain(back.iter().map(|j| (*j, buyer)).collect::<Vec<_>>().iter()) {
+        let (now, later) = w.people[j]
+            .pro
+            .as_ref()
+            .and_then(|c| c.contract.as_ref())
+            .map_or((0.0, 0.0), |k| kept_bonus(k, year, june1));
+        let id = w.people[j].player.id;
+        w.clubs[from].add_dead(year, now, id, super::DeadWhy::Traded);
+        w.clubs[from].add_dead(year + 1, later, id, super::DeadWhy::Traded);
+        keep_paid(w, j, from, d);
+        if let Some(k) = w.people[j].pro.as_mut().unwrap().contract.as_mut() {
+            for y in k.years.iter_mut().filter(|y| y.year >= year) {
+                y.proration = 0.0;
+            }
         }
     }
+    let picks: Vec<(i32, u32, usize)> = pk.picks.iter().map(|p| (p.year, p.round, p.orig)).collect();
     let consensus_given: f64 = picks
         .iter()
         .map(|&(y, r, _)| chart_at(&CLASSIC, ((r - 1) * 32 + 16) as f64) * if y > year { 0.85 } else { 1.0 })
-        .sum();
-    for &(y, r, o) in &picks {
-        w.market.picks.owner.insert((y, r, o), seller);
+        .sum::<f64>()
+        + back.iter().map(|&j| (consensus(w, j) - 75.0).max(0.0) * 120.0).sum::<f64>();
+    for p in &pk.picks {
+        deals::move_pick(w, p, seller);
     }
-    let fair = consensus(w, i);
+    if let Some((mine, theirs)) = pk.swap {
+        deals::move_pick(w, &mine, buyer);
+        deals::move_pick(w, &theirs, seller);
+    }
+    if let Some((p, cond)) = pk.cond {
+        let player = w.people[i].player.id;
+        w.front_office.trades.conditionals.push(deals::Conditional {
+            pick: p,
+            from: buyer,
+            to: seller,
+            player,
+            cond,
+            season: year,
+        });
+    }
     let got = (fair - 75.0).max(0.0) * 120.0;
     w.market.fleece[seller][buyer] += (consensus_given - got).max(0.0);
     w.market.fleece[buyer][seller] += (got - consensus_given).max(0.0);
     // Named with the team he played for (trial 7 finding 17).
-    let who = super::describe(w, i);
     let hurt = trade_hurt(w, i, seller);
     super::transfer(w, i, buyer, "traded");
     crate::world::people::grudge(&mut w.people[i], seller, hurt);
+    for &j in &back {
+        let hurt = trade_hurt(w, j, buyer);
+        super::transfer(w, j, seller, "traded");
+        crate::world::people::grudge(&mut w.people[j], buyer, hurt);
+        let c = w.people[j].pro.as_mut().unwrap();
+        c.wants_out = false;
+        c.hold = super::market::Hold::None;
+    }
     let to = w.nfl[buyer].name;
     let from = w.nfl[seller].name;
-    let what: Vec<String> = picks.iter().map(|&(y, r, _)| format!("a {y} round {r} pick")).collect();
-    let text = format!("The {from} trade {who} to the {to} for {}.", what.join(" and "));
+    let mut what: Vec<String> = backs;
+    what.extend(pk.picks.iter().map(|p| {
+        let c =
+            pk.cond.filter(|c| c.0 == *p).map_or(String::new(), |(_, c)| format!(" (a round higher {})", c.words()));
+        format!("a {} round {} pick{c}", p.year, p.round)
+    }));
+    if let Some((_, theirs)) = pk.swap {
+        what.push(format!("a swap of {} round {} picks", theirs.year, theirs.round));
+    }
+    let list = match what.len() {
+        0 => String::new(),
+        1 => what[0].clone(),
+        _ => {
+            let last = what.pop().unwrap();
+            format!("{} and {last}", what.join(", "))
+        }
+    };
+    let text = format!("The {from} trade {who} to the {to} for {list}.");
     let loud = if fair >= 82.0 { Loudness::Big } else { Loudness::Medium };
     post(w, d, Some(buyer), Some(i), loud, Kind::Transfer, text.clone());
     let my = w.market.year_mut(year);

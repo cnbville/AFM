@@ -64,7 +64,10 @@ pub const TONES: [&str; 4] = ["fiery", "warm", "firm", "calm"];
 /// A promise as the reader may label it: the promise design's kinds
 /// (`afm/promises/proposal.md`, proposed, not confirmed). The game judges
 /// nothing from them yet.
-pub const PROMISE_KINDS: [&str; 8] = ["start", "role", "touches", "ahead_of", "position", "place", "contract", "stay"];
+/// "early_chance" and "no_redshirt" are two of the five a recruit is
+/// promised (lane 10).
+pub const PROMISE_KINDS: [&str; 10] =
+    ["start", "role", "touches", "ahead_of", "position", "place", "contract", "stay", "early_chance", "no_redshirt"];
 pub const PROMISE_BY: [&str; 6] = ["next_game", "opener", "midseason", "this_season", "next_season", "none"];
 pub const CONDITIONS: [&str; 7] = ["stat", "practice", "conduct", "grades", "body", "health", "none"];
 
@@ -193,7 +196,7 @@ pub fn people_say(g: &mut Game, args: &Value) -> Reply {
     if text.chars().count() > scene::LIMIT {
         return Err(format!("A line is {} characters at most.", scene::LIMIT));
     }
-    let (mut card, keys) = card::scene(w, s);
+    let (mut card, keys) = one_on_one::card(w, s).unwrap_or_else(|| card::scene(w, s));
     hooks_reader(w, s, &mut card);
     let (rules, schema) =
         one_on_one::rules(s).or_else(|| staff::rules(s)).unwrap_or_else(|| (READER_RULES, reader_schema()));
@@ -298,9 +301,13 @@ pub fn read(w: &World, s: &Scene, v: &Value, keys: &Keys, words: &str) -> Option
         return None;
     }
     let tag = |k: &str| v.get(k).and_then(Value::as_str).unwrap_or("none");
-    let pick = keys.option(tag("pick"))?;
+    // A line with no option of the card's own can still be one a lane's
+    // hook places (lane 10: a promise to a recruit, wherever it sits in
+    // the talk); with none placed it means nothing.
+    let read_pick = keys.option(tag("pick"));
+    let pick = read_pick.unwrap_or(0);
     let mut also = Vec::new();
-    if fit == "unsure" {
+    if fit == "unsure" && read_pick.is_some() {
         also.push(pick);
         if let Some(a) = keys.option(tag("also")).filter(|a| *a != pick) {
             also.push(a);
@@ -349,13 +356,25 @@ pub fn read(w: &World, s: &Scene, v: &Value, keys: &Keys, words: &str) -> Option
         named,
     };
     hooks_heard(w, s, v, &mut heard);
+    if heard.pick == 0 {
+        return None;
+    }
+    // A hook that moved the line onto an option of its own (lane 10: the
+    // promise it means) leaves no close second.
+    if heard.pick != pick {
+        also.clear();
+    }
     Some((heard, also))
 }
 
-/// "Heard as": the option's words and the tone.
-pub fn heard_words(s: &Scene, pick: u32, tone: &str) -> String {
-    let label =
-        scene::options(s).into_iter().find(|p| p.code == pick).map(|p| folk::plain(&p.label)).unwrap_or_default();
+/// "Heard as": the option's words (a turn's, in a one-on-one) and the tone.
+pub fn heard_words(w: &World, s: &Scene, pick: u32, tone: &str) -> String {
+    let label = scene::options(s)
+        .into_iter()
+        .find(|p| p.code == pick)
+        .map(|p| folk::plain(&p.label))
+        .or_else(|| one_on_one::turn_words(w, s, pick))
+        .unwrap_or_default();
     let mut c = label.chars();
     let mut out = match c.next() {
         Some(f) => f.to_lowercase().collect::<String>() + c.as_str(),
@@ -388,12 +407,14 @@ fn reader_step(id: u32, step: u8, words: String, keys: Keys) -> Next {
             return Step::Done(tickets::off(MOVED_ON));
         }
         let Some((heard, also)) = read(w, s, &v, &keys, &words) else { return Step::Done(none()) };
-        let fin = scene::options(s).into_iter().find(|p| p.code == heard.pick).is_some_and(|p| scene::asks_first(s, p));
+        let fin = asks_first(w, s, heard.pick);
         if !also.is_empty() || fin {
             let picks = if also.is_empty() { vec![heard.pick] } else { also };
             let readings: Vec<Value> = picks
                 .iter()
-                .map(|&p| json!({ "pick": p, "heard": heard_words(s, p, &heard.tone), "final": asks_first(s, p) }))
+                .map(
+                    |&p| json!({ "pick": p, "heard": heard_words(w, s, p, &heard.tone), "final": asks_first(w, s, p) }),
+                )
                 .collect();
             let ticket = tickets::polling(g).unwrap_or(0);
             g.ai.waiting.map.insert(ticket, Pending { scene: id, step, heard, picks, born: Instant::now() });
@@ -406,8 +427,9 @@ fn reader_step(id: u32, step: u8, words: String, keys: Keys) -> Next {
     })
 }
 
-fn asks_first(s: &Scene, code: u32) -> bool {
+fn asks_first(w: &World, s: &Scene, code: u32) -> bool {
     scene::options(s).into_iter().find(|p| p.code == code).is_some_and(|p| scene::asks_first(s, p))
+        || one_on_one::asks_first(w, s, code)
 }
 
 /// The confirm call: the box sends the reading you picked.
@@ -450,13 +472,30 @@ struct Writer {
 
 /// Lands the reading on the scene (`scene::say`) and gets the writer's call
 /// ready for his line, if the answer wrote one.
-fn land(g: &mut Game, id: u32, heard: Heard, confirmed: bool) -> Result<Landed, String> {
+fn land(g: &mut Game, id: u32, mut heard: Heard, confirmed: bool) -> Result<Landed, String> {
     let w = g.world.as_mut().ok_or("No world is loaded.")?;
-    let (before, heard_text) = {
+    let (mut before, heard_text) = {
         let s = w.folk.scenes.iter().find(|s| s.id == id).ok_or("No such meeting.")?;
-        (s.lines.len(), heard_words(s, heard.pick, &heard.tone))
+        (s.lines.len(), heard_words(w, s, heard.pick, &heard.tone))
     };
-    let s = scene::say(w, id, heard.clone(), confirmed)?;
+    // A one-on-one's line on another of his points turns the talk there
+    // first, as its chip does (lane 9); a line that only turns it lands
+    // nothing more, and your words go on the turn's own line.
+    let turning = one_on_one::was_turn(heard.pick);
+    let lands = one_on_one::turn(w, id, &mut heard)?;
+    let s = if lands {
+        if turning {
+            before = w.folk.scenes.iter().find(|s| s.id == id).map_or(before, |s| s.lines.len());
+        }
+        scene::say(w, id, heard.clone(), confirmed)?
+    } else {
+        let s = w.folk.scenes.iter_mut().find(|s| s.id == id).ok_or("No such meeting.")?;
+        let from = before.min(s.lines.len());
+        if let Some(l) = s.lines[from..].iter_mut().find(|l| l.by == 1) {
+            l.typed = Some(heard.words.clone());
+        }
+        s.clone()
+    };
     let marks = marks(w, &s, &heard.facts);
     let his = s.lines.iter().enumerate().skip(before).find(|(_, l)| l.by == 2).map(|(k, _)| k);
     let writer = his.map(|line| {

@@ -21,6 +21,24 @@ use super::truth::{Stated, Truth};
 use crate::world::World;
 use crate::world::folk::scene::{Kind, Scene};
 
+/// What a talk held before a typed line landed, for `landed` (lane 10: a
+/// recruit's case).
+pub(crate) struct Before(Option<recruit::Before>);
+
+/// Taken by `scene::say` just before a typed line lands.
+pub(crate) fn before(w: &World, s: &Scene) -> Before {
+    Before(recruit::before(w, s))
+}
+
+/// After a typed line landed (`scene::say`): what its facts cost or save,
+/// in the talks that check them on the spot or on a day. A recruit's and a
+/// transfer's are lane 10's (`recruit::landed`).
+pub(crate) fn landed(w: &mut World, id: u32, facts: &[Stated], b: Before) {
+    if let Some(r) = b.0 {
+        recruit::landed(w, id, facts, r);
+    }
+}
+
 /// Checks one fact stated in a typed line in a scene. A claim about where
 /// your player stands is about what he'll see, so it reads "later": it is
 /// heard as a promise and judged on its days (the promise design, section

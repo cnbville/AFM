@@ -37,6 +37,8 @@ use crate::reads::{self, Read};
 use crate::views::{self, TeamRef};
 use crate::{Game, Reply};
 
+mod roles;
+
 const COMMANDS: [&str; 3] = ["help_attr", "help_attrs", "help_level"];
 
 pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
@@ -47,7 +49,12 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "help_attr" => (|| {
             let k = args.get("k").and_then(Value::as_str).ok_or("Missing k.")?;
             let a = Attr::ALL.iter().copied().find(|a| a.key() == k).ok_or("No such rating.")?;
-            Ok(attr_help(a))
+            // The position of the player whose page the name sits on, if any.
+            let pos = args
+                .get("pos")
+                .and_then(Value::as_str)
+                .and_then(|n| Position::ALL.iter().copied().find(|p| p.name() == n));
+            Ok(attr_help(a, pos))
         })(),
         // The labels the page looks for in its text, with their keys.
         "help_attrs" => {
@@ -255,7 +262,7 @@ fn words(a: Attr) -> (&'static str, &'static str) {
             "Getting everyone on the same page.",
             "The quarterback, the center and the defense's signal caller keep their unit from busting.",
         ),
-        Toughness => ("Playing through pain and contact.", "Keeps playing hurt and doesn't shy from collisions."),
+        Toughness => ("Playing through pain.", "Decides whether he plays on through an injury instead of coming out."),
         Motor => (
             "Effort to the whistle.",
             "Chases plays down and doesn't let go of a block; with football IQ, a rusher's counter move.",
@@ -297,7 +304,40 @@ fn matters(a: Attr) -> Vec<String> {
     v.into_iter().take(4).map(|(_, p)| crate::lane_ratings::pos_words(p).1.to_string()).collect()
 }
 
-fn attr_help(a: Attr) -> Value {
+/// "an edge rusher" / "a running back".
+fn article(pos: Position) -> String {
+    let one = crate::lane_ratings::pos_words(pos).0;
+    format!("{} {one}", if one.starts_with(['a', 'e', 'i', 'o', 'u']) { "an" } else { "a" })
+}
+
+/// What the skill does for the position of the player being viewed
+/// (`roles.rs`), and in a short line what it does elsewhere.
+fn at_position(a: Attr, pos: Position) -> Value {
+    let all = roles::roles(a);
+    let here = all.iter().find(|r| r.at.contains(&pos));
+    let in_play = crate::lane_ratings::attrs::in_play(pos).contains(&a);
+    let line = match here {
+        Some(r) => Some(r.line.to_string()),
+        None if !in_play => Some(format!("Not part of {}'s job.", article(pos))),
+        None => None,
+    };
+    let names = |at: &[Position]| at.iter().map(|p| p.name()).collect::<Vec<_>>().join("/");
+    let elsewhere: Vec<String> = all
+        .iter()
+        .filter(|r| !r.at.contains(&pos) && r.short != "not read")
+        .take(4)
+        .map(|r| format!("{}: {}", names(r.at), r.short))
+        .collect();
+    json!({
+        "pos": pos.name(),
+        "line": line,
+        "elsewhere": if elsewhere.is_empty() { Value::Null } else { json!(elsewhere.join(" · ")) },
+        "unread": roles::unread(a, pos).then(|| format!("The match engine doesn't read this for {} yet: it only counts toward his rating.", article(pos))),
+        "weight": crate::lane_ratings::attrs::weight_line(pos, a),
+    })
+}
+
+fn attr_help(a: Attr, pos: Option<Position>) -> Value {
     let (what, field) = words(a);
     let m = matters(a);
     json!({
@@ -305,6 +345,7 @@ fn attr_help(a: Attr) -> Value {
         "label": a.label(),
         "what": what,
         "field": field,
+        "at": pos.map(|p| at_position(a, p)),
         "grows": grows(a),
         "matters": if m.is_empty() { "Little in anyone's overall: it shows in the moments it decides.".to_string() } else { format!("Weighs most for {}.", join_and(&m)) },
     })

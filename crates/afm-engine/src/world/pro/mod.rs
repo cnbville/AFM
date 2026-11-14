@@ -9,6 +9,7 @@
 //! `Member` lists, each carrying the person's index), so the strength,
 //! need and draft logic read real players.
 
+pub mod bargain;
 pub mod games;
 pub mod honors;
 pub mod leagues;
@@ -326,6 +327,9 @@ pub enum DeadWhy {
     /// season's weekly checks already paid, and the offseason bonuses once
     /// the season is on (minor bug 123).
     PaidBeforeTrade,
+    /// Salary a seller turned into a signing bonus and paid itself before
+    /// a trade, so the buyer takes less (the trade finder's pay-down, TF12).
+    PaidDown,
 }
 
 /// One dead-money charge, as real cap pages list them: the league year it

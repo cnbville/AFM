@@ -382,6 +382,7 @@ function frame(content, crumb) {
     <aside class="side">
       <div class="brand">${me ? mark(me) : '<span class="st-mark">AFM</span>'}<div><b>${esc(me ? me.name : "AFM")}</b><small>${esc(st.you ? "Coach " + st.you : "American Football Manager")}</small>${st.sandbox ? '<button class="st-pill gold sb-badge" data-nav="settings" title="Sandbox mode is on: your own limits are lifted (Settings)">Sandbox</button>' : ""}</div></div>
       <nav class="navs">${navHtml}</nav>
+      <div class="autosave" id="autosave" aria-live="polite">${autosaveHtml()}</div>
       <div class="foot">
         <button class="nav save" data-act="save" title="Save game (⌘S)">${icon("save")}<span>Save</span></button>
         <button class="nav ico" data-act="holiday" title="Holiday" aria-label="Holiday">${icon("sun")}</button>
@@ -786,6 +787,37 @@ function fitBoxes() {
 }
 window.addEventListener("resize", fitBoxes);
 
+// ---------- autosave ----------
+// Every 10 minutes of play the game saves itself in the background (the
+// game's autosave.rs: a copy of the process writes the file, so nothing
+// here waits). The screen only asks every 30 seconds whether it is time and
+// shows one quiet line over the Save button: "Saving in the background",
+// then "Autosaved 14:32". It is never a box and never takes focus.
+const AUTO = { state: "idle", at: null, note: "", ticking: false, poll: 0 };
+function autosaveHtml() {
+  if (AUTO.state === "saving") return '<i class="pulse"></i><span>Saving in the background</span>';
+  const t = AUTO.at ? AUTO.at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+  if (AUTO.state === "saved") return `<span>Autosaved ${esc(t)}</span>`;
+  if (AUTO.state === "failed") return `<span class="bad" title="${esc(AUTO.note)}">Autosave failed ${esc(t)}: save by hand</span>`;
+  return "";
+}
+function autosaveSee(r) {
+  AUTO.state = r && r.state ? r.state : "idle";
+  if (r && r.age != null) AUTO.at = new Date(Date.now() - r.age * 1000);
+  AUTO.note = (r && r.note) || "";
+  const el = $("#autosave");
+  if (el) el.innerHTML = autosaveHtml();
+  // While it writes, look again soon so the line clears when it is done.
+  clearTimeout(AUTO.poll);
+  if (AUTO.state === "saving") AUTO.poll = setTimeout(autosaveTick, 4000);
+}
+async function autosaveTick() {
+  if (AUTO.ticking || !(S.status && (S.status.mine || S.status.you)) || outside(S.route)) return;
+  AUTO.ticking = true;
+  try { autosaveSee(await api("autosave_tick")); } catch (e) { /* the next tick tries again */ } finally { AUTO.ticking = false; }
+}
+setInterval(autosaveTick, 30000);
+
 // ---------- Continue ----------
 async function cont() {
   if (S.busy) return;
@@ -1079,7 +1111,8 @@ function sure(title, note, ok = "Go on") {
 function leaveCareer() {
   if (!(S.status && S.status.you)) return Promise.resolve(true);
   const since = S.savedOn ? (S.savedOn === S.status.today ? "You saved today." : `Your last save was on ${S.savedOn}; the days since then are lost.`) : "You haven't saved this career yet: all of it is lost.";
-  return sure("Close the career you have open?", `${since} Save first from the sidebar if you want to keep it.`, "Close it");
+  const auto = AUTO.state === "saved" && AUTO.at ? ` Your autosave from ${AUTO.at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} stays on the Load page.` : "";
+  return sure("Close the career you have open?", `${since}${auto} Save first from the sidebar if you want to keep it.`, "Close it");
 }
 
 // ---------- updates ----------
