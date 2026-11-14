@@ -99,6 +99,9 @@ const BANKS: &[&str] = &[
     // Discipline on the facts (talk facts lane L8): he speaks before you
     // rule, and on his court day.
     include_str!("../../../data/lines/discipline_facts.txt"),
+    // Your own lines (talk facts lane L12): your moves, answers and pitches,
+    // written through the Batches API (`tools/linebank/ownlines.py`).
+    include_str!("../../../data/lines/own_lines_run.txt"),
     // Your team's rooms (talk facts lane L9): the team talk's captain, a
     // parent's real complaint and his answers, an exit meeting's reason,
     // and what about game day reaches your words.

@@ -312,12 +312,49 @@ fn attr_help(a: Attr) -> Value {
 
 // ---------- H2: how his read moved since last season ----------
 
+/// How your own read of skill `a` moved since the last season end you had
+/// one kept (like with like: only your own kept middles are compared).
+fn last_year_own(w: &World, i: usize, a: Attr, now: (u8, u8)) -> Option<Value> {
+    let c = w.career.as_ref()?;
+    let id = w.people[i].player.id;
+    let Some((row, m)) = c.kept_attrs_of(id).iter().rev().find_map(|r| r.mid(true, a.index()).map(|m| (r, m))) else {
+        return Some(json!({
+            "word": "No read of your own kept",
+            "line": "You had no read of your own on this skill at the end of a season yet, so there is nothing to compare today's with.",
+            "why": [],
+            "season": w.year - 1,
+        }));
+    };
+    let season = row.season as i32;
+    let delta = (now.0 as f64 + now.1 as f64) / 2.0 - m;
+    let word = if delta >= 3.0 {
+        "Up clearly"
+    } else if delta >= 1.5 {
+        "Up a little"
+    } else if delta > -1.5 {
+        "About the same"
+    } else if delta > -3.0 {
+        "Down a little"
+    } else {
+        "Down clearly"
+    };
+    Some(json!({
+        "word": word,
+        "line": format!("At the end of the {season} season you read it about {m:.0}; today {}-{}.", now.0, now.1),
+        "why": [],
+        "season": season,
+    }))
+}
+
 /// How your staff's read of rating `a` moved since the last season it kept,
 /// with the reasons it can see. `now` is the range shown today.
-pub(crate) fn last_year(w: &World, i: usize, a: Attr, now: (u8, u8)) -> Option<Value> {
+pub(crate) fn last_year(w: &World, i: usize, a: Attr, now: (u8, u8), own: bool) -> Option<Value> {
     let p = &w.people[i];
     let c = w.career.as_ref()?;
     let id = p.player.id;
+    if own {
+        return last_year_own(w, i, a, now);
+    }
     let Some(last) = c.kept_of(id).last() else {
         // Nothing kept yet (a new career, or someone just followed): the
         // first read is kept as this football year ends; last season's

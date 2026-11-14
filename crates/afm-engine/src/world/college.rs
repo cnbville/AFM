@@ -3920,22 +3920,39 @@ pub(crate) const COACH_GONE: &str = "his head coach is gone";
 /// leans harder toward the portal, once a cycle (the events clear at fall
 /// camp). It hung on the Sunday after rivalry week, so a coach who left
 /// for another job after it, as most do, never moved his players (minor
-/// bug 88).
-pub(crate) fn coach_gone(w: &mut World, prog: usize) {
-    let factor = crate::career::PIPELINE.portal_entry.coaching_change;
+/// bug 88). How hard depends on how close he was to that coach (playtest
+/// bug 15, Cain's item 7, 2026-11-13): [`coach_gone_factor`].
+pub(crate) fn coach_gone(w: &mut World, prog: usize, coach: usize) {
     let today = w.today;
-    // Each player's own lean: any order gives the same world (world speed
-    // lane).
-    w.people.par_iter_mut().with_min_len(4096).for_each(|p| {
-        if p.stage == Stage::College
-            && p.college == Some(prog)
-            && p.cal.lean > 0.0
-            && !p.cal.lean_events.iter().any(|e| e.1 == COACH_GONE)
-        {
-            lean_push(p, today, COACH_GONE, factor);
-        }
-    });
+    let pushes: Vec<(usize, f64)> = (0..w.people.len())
+        .filter(|&i| {
+            let p = &w.people[i];
+            p.stage == Stage::College
+                && p.college == Some(prog)
+                && p.cal.lean > 0.0
+                && !p.cal.lean_events.iter().any(|e| e.1 == COACH_GONE)
+        })
+        .map(|i| (i, coach_gone_factor(super::folk::takeover::tie_to_old(w, i, Some(coach)))))
+        .collect();
+    for (i, f) in pushes {
+        lean_push(&mut w.people[i], today, COACH_GONE, f);
+    }
 }
+
+/// The push a head coach's exit gives one of his players, by his tie to
+/// that coach (`folk::takeover::tie_to_old`: seasons under him, whether he
+/// recruited him): 1 + 0.8 x min(1, 0.35 + tie), x1.28 with no tie (a coach
+/// who never coached a game with him), x1.8 for a man he recruited and
+/// coached (Cain's item 7, 2026-11-13; before, x1.8 for everyone).
+pub(crate) fn coach_gone_factor(tie: f32) -> f64 {
+    let full = crate::career::PIPELINE.portal_entry.coaching_change - 1.0;
+    1.0 + full * (0.35 + tie as f64).min(1.0)
+}
+
+/// The lean events a fall camp role sets as the base (the first event of a
+/// season's lean).
+pub(crate) const CAMP_ROLES: [&str; 4] =
+    ["a starter at fall camp", "a backup at fall camp", "in the rotation at fall camp", "redshirting this year"];
 
 /// Reads and moves each college player's lean toward leaving (T3). The base
 /// is the yearly entry chance by role (`PIPELINE.portal_entry`), how buried
@@ -3950,14 +3967,27 @@ pub(crate) fn lean_checkpoint(w: &mut World, check: LeanCheck) {
         LeanCheck::FallCamp => {
             // Starters' level at each position and division: the bar a backup measures himself against.
             let mut perf: [[Vec<f64>; crate::positions::POSITION_COUNT]; DIVISION_COUNT] = Default::default();
+            // Power 4 starters apart: the level a Group of 5 starter measures
+            // himself against (playtest bug 15, Cain's item 9).
+            let mut p4: [Vec<f64>; crate::positions::POSITION_COUNT] = Default::default();
             for p in w.people.iter() {
                 if p.stage == Stage::College
                     && p.last_role == Some(PlayingTime::Starter)
                     && let Some(c) = p.college
                 {
                     perf[w.programs[c].division as usize][p.player.position.index()].push(p.player.overall());
+                    if w.programs[c].division == Division::FBS && w.programs[c].power_conference(year) {
+                        p4[p.player.position.index()].push(p.player.overall());
+                    }
                 }
             }
+            let p4_med: Vec<f64> = p4
+                .iter_mut()
+                .map(|v| {
+                    v.sort_by(|a, b| a.total_cmp(b));
+                    if v.is_empty() { 99.0 } else { v[v.len() / 2] }
+                })
+                .collect();
             let med: Vec<Vec<f64>> = perf
                 .iter_mut()
                 .map(|d| {
@@ -4003,8 +4033,20 @@ pub(crate) fn lean_checkpoint(w: &mut World, check: LeanCheck) {
                 } else {
                     div
                 };
-                let m = med[up as usize][p.player.position.index()];
-                let buried = clamp(1.0 + 0.12 * (p.player.overall() - m), 0.6, 2.0);
+                // An FBS starter (playtest bug 15, Cain's item 9): a Power 4
+                // starter gets no push for being good, he starts already; a
+                // Group of 5 starter measures himself against Power 4
+                // starters. Before, every FBS starter measured himself
+                // against FBS starters, so a good one leaned out more.
+                let starter = p.last_role == Some(PlayingTime::Starter);
+                let power = div == Division::FBS && programs[c].power_conference(year);
+                let m = if starter && div == Division::FBS {
+                    p4_med[p.player.position.index()]
+                } else {
+                    med[up as usize][p.player.position.index()]
+                };
+                let buried =
+                    clamp(1.0 + 0.12 * (p.player.overall() - m), 0.6, if starter && power { 1.0 } else { 2.0 });
                 let comp = 1.0 + (p.player.personality.competitiveness - 10.0) * 0.04;
                 p.cal.lean = base;
                 let why = match p.last_role {
@@ -4057,12 +4099,9 @@ pub(crate) fn lean_checkpoint(w: &mut World, check: LeanCheck) {
                         lean_push(p, date, "no snaps by midseason", 1.15);
                     }
                 }
-                // Section 6 topics 1 and 3: his mood and his loyalty.
-                if p.mood < -0.15 {
-                    lean_push(p, date, "unhappy at the school", (1.0 - 0.6 * p.mood as f64).min(1.6));
-                } else if p.mood > 0.3 {
-                    lean_push(p, date, "happy at the school", 0.85);
-                }
+                // Section 6 topic 3: his loyalty. His mood is read on the day
+                // he decides instead (`stay_read`; playtest bug 15, Cain's
+                // item 8): it was read here once, months before a window.
                 let loyal = p.player.personality.traits.z(crate::player::Trait::Loyalty);
                 if loyal.abs() > 0.3 {
                     lean_push(

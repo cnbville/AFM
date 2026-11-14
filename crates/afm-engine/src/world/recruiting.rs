@@ -7482,12 +7482,19 @@ pub(crate) fn intents_day(w: &mut World) {
     let (due, rest): (Vec<Intent>, Vec<Intent>) =
         std::mem::take(&mut w.portal_intents).into_iter().partition(|t| t.enters <= today);
     w.portal_intents = rest;
+    // He reads his situation again on his day, after his talk with you
+    // (playtest bug 15): what you said, trust in you, his mood now.
+    let ctx = (!due.is_empty()).then(|| super::stay_read::Ctx::new(w, super::staff::cycle_year(w)));
     for t in due {
         let Some(i) = super::folk::person(w, t.id) else { continue };
         let p = &w.people[i];
         if p.stage != Stage::College || p.college != Some(t.program) || p.cal.portal.is_some() {
             continue;
         }
+        if let Some(ctx) = ctx.as_ref() {
+            super::stay_read::read_one(w, ctx, i);
+        }
+        let p = &w.people[i];
         let link = super::folk::player_link(w, i);
         if p.cal.lean > t.bar {
             if let Some(e) = enter_portal(w, i, t.program, today, today.add(t.decide_in), t.why) {
@@ -7818,6 +7825,9 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
             }
         }
     }
+    // Each player reads his whole situation on the window's day (playtest
+    // bug 15): his place next fall, your word, trust, mood, his money.
+    super::stay_read::read_all(w, label);
     let mut entrants: Vec<(usize, Why)> = Vec::new();
     // The lean each lean-driven entrant must still be above on his day
     // (`Intent`): his draw over the window's rate.
@@ -8128,7 +8138,12 @@ pub(crate) fn portal_open(w: &mut World, which: super::clock::PortalWindow, clos
         if why == Why::Dismissed && w.people[i].rng.chance(PIPELINE.college_trouble.serious_share) {
             serious.insert(i);
         }
-        let bar = bars.get(&i).copied().filter(|_| mine == Some(c));
+        // Told he has no future here (or to play elsewhere): no talk to ask
+        // for, he enters on the window's day (playtest bug 15, `folk::future`).
+        let bar = bars
+            .get(&i)
+            .copied()
+            .filter(|_| mine == Some(c) && super::folk::future::decided(&w.people[i]) != Some(true));
         if alive[c]
             && !matches!(why, Why::Dismissed | Why::Cut)
             && !matches!(which, PortalWindow::Spring | PortalWindow::Graduate)

@@ -137,7 +137,7 @@ impl Move {
             Move::Listen => "Listen",
         }
     }
-    fn key(self) -> &'static str {
+    pub(crate) fn key(self) -> &'static str {
         match self {
             Move::Ask => "ask",
             Move::Straight => "straight",
@@ -233,6 +233,11 @@ pub struct Promise {
     /// Said in public (a press conference): breaking it costs double.
     pub public: bool,
     pub kept: Option<bool>,
+    /// What you backed a playing-time promise with (playtest bug 15, Cain's
+    /// 2c): 1 a real strength of his you named, -1 one he knows isn't, 0
+    /// nothing. His belief reads it (`stay_read::promise_belief`).
+    #[serde(default)]
+    pub backed: i8,
     /// Who, in words with link marks.
     pub who: String,
 }
@@ -252,7 +257,7 @@ pub fn promise(w: &mut World, to: PromiseTo, kind: PromiseKind, seasons: u8) {
         PromiseTo::Coach(c) => super::coach_link(w, c),
     };
     w.folk.promises.retain(|p| !(p.to == to && p.kind == kind && p.kept.is_none()));
-    w.folk.promises.push(Promise { to, kind, made: today, due, public: false, kept: None, who });
+    w.folk.promises.push(Promise { to, kind, made: today, due, public: false, kept: None, backed: 0, who });
     if w.folk.promises.len() > 120
         && let Some(k) = w.folk.promises.iter().position(|p| p.kept.is_some())
     {
@@ -1022,7 +1027,7 @@ fn one_on_one_open(w: &mut World, s: &mut Scene) {
     s.them(&name, line, tell);
     // A point with a question comes as one; any of them asks once a season
     // if you're staying when your name is in a job story.
-    let q = point.as_ref().and_then(tp::question).map(|q| (q, false)).or_else(|| {
+    let q = point.as_ref().and_then(|p| tp::question(w, i, p)).map(|q| (q, false)).or_else(|| {
         if asked || point.as_ref().is_some_and(|p| p.kind.is_trouble() || p.kind.is_life()) {
             None
         } else {
@@ -1188,7 +1193,7 @@ pub fn change_topic(w: &mut World, id: u32, topic: Topic) -> Result<(), String> 
     // He asks once a talk: back on a point you already talked through, he
     // waits for your next move.
     let talked = point.as_ref().is_some_and(|p| s.made.iter().any(|x| x.0 == p.kind.key()));
-    if let Some(q) = point.as_ref().filter(|_| !talked).and_then(tp::question) {
+    if let Some(q) = point.as_ref().filter(|_| !talked).and_then(|p| tp::question(w, i, p)) {
         let said = pen.line(&[&format!("talk.point.ask.{}", q.key)], &spk, &f);
         pen.put(w);
         s.them(&name, if said.is_empty() { q.fallback.clone() } else { said }, None);
@@ -1232,6 +1237,9 @@ fn add_picks(w: &World, s: &mut Scene, i: usize, topic: Topic, used: &[Move]) {
         let sheet = claims::player(w, i);
         if let Some(p) = sheet.get(k) {
             s.picks.extend(tp::picks(w, i, p, used, code_of));
+            // Your word on his future (playtest bug 15): a promise backed by
+            // a strength of his, or the three ways to tell him to go.
+            s.picks.extend(super::future::picks(w, i, k));
             s.pick(900, "End the talk", "End", "calm", "Ends it here.");
             return;
         }
@@ -1258,8 +1266,20 @@ fn add_talk_picks(w: &World, s: &mut Scene, i: usize, subject: Subject, used: &[
     };
     // One pick per move and tone: the subject's own line wins over the
     // general one (two picks on one code read as the same chip twice).
+    // Your words from the bank (`talk.you.<subject>.<move>`, lane L12) when
+    // it has a version that fits; else the one written here.
+    let mut yf = player_facts(w, i);
+    yf.set("starter", if starter { "yes" } else { "no" });
+    if let Some(m) = &mate {
+        yf.set("mate", m.clone());
+    }
+    let me = Speaker::you(w);
+    let look = super::voice::Look::new(w, ((p.player.id as u64) << 24) ^ 0x1221 ^ subject as u64);
     let mut add = |m: Move, t: Tone, label: String, hint: &str| {
         if !used.contains(&m) && !s.picks.iter().any(|p| p.code == code_of(m, t)) {
+            let label = look
+                .part(&format!("talk.you.{}.{}", subject.key(), m.key()), &me, &yf)
+                .map_or(label, |x| format!("\"{}\"", super::voice::tidy(&x)));
             s.picks.push(Pick {
                 label,
                 mv: m.name().into(),
@@ -1847,6 +1867,17 @@ fn one_on_one_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     }
     if let Some(a) = Answer::of(code) {
         answer_question(w, s, i, a, picked);
+        return;
+    }
+    // Your word on his future (playtest bug 15): he answers, and the talk
+    // ends there.
+    if let Some(word) = super::future::Word::of(code) {
+        s.you(&scene::your_name(w), picked.label.clone());
+        let (line, outcome) = super::future::answer(w, i, word);
+        let sign = if word == super::future::Word::Backed { 1 } else { -1 };
+        s.them(&name, line, read_tell(w, i, sign));
+        s.outcome.extend(outcome);
+        finish_talk(w, s, id);
         return;
     }
     let Some((m, t)) = decode(code) else {
