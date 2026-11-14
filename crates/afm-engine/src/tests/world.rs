@@ -458,6 +458,8 @@ fn a_player_who_withdraws_from_the_draft_gives_up_his_all_star_invite() {
         p.class_of = 2017;
         p.college_seasons = 2;
         p.cal.draft_read = Some(crate::world::DraftRead { grade: 40.0, score: 0.0, round: 8 });
+        // Early entrants: only a man who planned to go can withdraw.
+        p.cal.declare_plan = Some(true);
         p.cal.all_star = Some("Senior Bowl");
     }
     declarations(&mut w, Declare::Withdraw);
