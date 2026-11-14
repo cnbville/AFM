@@ -331,7 +331,7 @@ fn with_no_key_there_is_no_box() {
 }
 
 #[test]
-fn the_press_and_a_one_on_one_take_no_typed_line() {
+fn the_press_takes_no_typed_line_and_a_one_on_one_does() {
     let (mut g, _) = game("nobox");
     let today = w(&g).today;
     for kind in [Kind::Press, Kind::Media, Kind::Story, Kind::OneOnOne, Kind::Discipline] {
@@ -339,7 +339,7 @@ fn the_press_and_a_one_on_one_take_no_typed_line() {
         s.who.push(Who::Group("The room".into()));
         s.opened = true;
         s.pick(10, "Say something", "Ask", "calm", "");
-        assert_eq!(scene::takes_typed(&s), kind == Kind::Discipline, "{kind:?}");
+        assert_eq!(scene::takes_typed(&s), matches!(kind, Kind::Discipline | Kind::OneOnOne), "{kind:?}");
     }
     let _ = g.call("hello", &json!({}));
 }
