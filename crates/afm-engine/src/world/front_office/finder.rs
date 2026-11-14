@@ -760,14 +760,15 @@ fn closing_day(w: &mut World, d: Date) {
             }
         }
     }
-    if let (Some(st), Some(o)) = (c.deal.as_mut(), c.ext) {
-        if st.done.is_none() && st.due <= d {
-            let id = market::ideal(w, i, d);
-            let ok = market::score(w, i, &o, &id, Some(c.club)) >= 0.82;
-            st.done = Some(ok);
-            if !ok {
-                fail = fail.or(Some("He and the club couldn't agree a new deal.".into()));
-            }
+    if let (Some(st), Some(o)) = (c.deal.as_mut(), c.ext)
+        && st.done.is_none()
+        && st.due <= d
+    {
+        let id = market::ideal(w, i, d);
+        let ok = market::score(w, i, &o, &id, Some(c.club)) >= 0.82;
+        st.done = Some(ok);
+        if !ok {
+            fail = fail.or(Some("He and the club couldn't agree a new deal.".into()));
         }
     }
     let ready = c.owners.iter().all(|x| x.1.done == Some(true)) && c.deal.as_ref().is_none_or(|x| x.done == Some(true));
