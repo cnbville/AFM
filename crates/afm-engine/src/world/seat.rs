@@ -1106,6 +1106,7 @@ impl World {
             no_fire_since: None,
             spared: Vec::new(),
             sandbox: Default::default(),
+            kept_attrs: Vec::new(),
         });
         let home = employer.and_then(|e| super::front_office::market::state_of(self, e));
         if let Some(c) = self.career.as_mut() {
@@ -1209,6 +1210,43 @@ pub struct Career {
     /// before it loads with it off.
     #[serde(default)]
     pub sandbox: super::sandbox::Sandbox,
+    /// All 67 skills' middles per followed player per season, from your
+    /// staff's read and from your own, kept beside `kept_reads` so the
+    /// Attributes page can say what moved since last season (build lane 1).
+    /// Last in the struct, defaulted: a save from before loads empty.
+    #[serde(default)]
+    pub kept_attrs: Vec<KeptAttrsOf>,
+}
+
+/// One player's kept attribute middles, oldest season first.
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct KeptAttrsOf {
+    pub id: u32,
+    pub rows: Vec<KeptAttrs>,
+}
+
+/// The middle of each of the 67 skills as one season ended, once for your
+/// staff's read and once for your own (`Attr::index` order). Kept in half
+/// points, the range's low plus its high (2-198, 0 = not seen), so a
+/// middle like 61.5 is kept exactly: read it through `mid`. About 134
+/// bytes a player a season. `Vec<u8>` because serde has no array impl
+/// past 32.
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct KeptAttrs {
+    pub season: i16,
+    /// His position then (`Position::index`).
+    pub pos: u8,
+    pub staff: Vec<u8>,
+    pub mine: Vec<u8>,
+}
+
+impl KeptAttrs {
+    /// A skill's kept middle (`Attr::index`), from your own read or your
+    /// staff's: None where that read had not seen it.
+    pub fn mid(&self, mine: bool, a: usize) -> Option<f64> {
+        let v = *(if mine { &self.mine } else { &self.staff }).get(a)?;
+        (v > 0).then_some(v as f64 / 2.0)
+    }
 }
 
 /// One player's kept reads, oldest season first.
@@ -1278,6 +1316,27 @@ impl Career {
             }
         };
         let rows = &mut self.kept_reads[at].rows;
+        rows.retain(|r| r.season != row.season);
+        rows.push(row);
+        rows.sort_by_key(|r| r.season);
+    }
+
+    /// The kept attribute middles of one player, oldest first.
+    pub fn kept_attrs_of(&self, id: u32) -> &[KeptAttrs] {
+        self.kept_attrs.iter().find(|k| k.id == id).map_or(&[], |k| k.rows.as_slice())
+    }
+
+    /// Keeps a season's attribute middles; a second keep of the same
+    /// season replaces the first.
+    pub fn keep_attrs(&mut self, id: u32, row: KeptAttrs) {
+        let at = match self.kept_attrs.iter().position(|k| k.id == id) {
+            Some(i) => i,
+            None => {
+                self.kept_attrs.push(KeptAttrsOf { id, rows: Vec::new() });
+                self.kept_attrs.len() - 1
+            }
+        };
+        let rows = &mut self.kept_attrs[at].rows;
         rows.retain(|r| r.season != row.season);
         rows.push(row);
         rows.sort_by_key(|r| r.season);

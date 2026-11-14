@@ -447,6 +447,51 @@ pub fn trait_good_high(k: usize) -> bool {
     !matches!(k, 6..=8)
 }
 
+/// One trait as a source tells it (live talks LT12): what he says on the
+/// 1-20 scale, his look's spread around the truth and the tilt his shade
+/// put in it (trait points toward the good side; negative runs cold).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SourceSays {
+    pub k: usize,
+    pub said: f64,
+    pub sd: f64,
+    pub tilt: f64,
+}
+
+/// What a source tells when you ask him about some traits (live talks
+/// LT12): only the traits his kind of look shows (`trait_sees`), each the
+/// truth plus his own misread (the look's base error, sharper with a better
+/// eye) plus his shade's tilt, softened by how warm he is with you (a
+/// friend shades less: proposed, not confirmed, half the tilt off at full
+/// warmth). The same source on the same trait says the same thing all year.
+pub fn source_says(
+    p: &crate::world::Person,
+    kind: Kind,
+    shade: Shade,
+    eye: f64,
+    warmth: f64,
+    key: u64,
+    traits: &[usize],
+) -> Vec<SourceSays> {
+    let (shows, base) = trait_sees(kind);
+    let sd = base * sharp(eye.clamp(1.0, 20.0));
+    let id = p.player.id as u64;
+    traits
+        .iter()
+        .filter(|k| shows.contains(k))
+        .map(|&k| {
+            let good = if trait_good_high(k) { 1.0 } else { -1.0 };
+            let tilt = shade.tilt() * (1.0 - SOURCE_WARM_OFF * warmth.clamp(0.0, 1.0));
+            let noise = sd * key_normal(key ^ 0x5A1D ^ (k as u64) << 48, id);
+            SourceSays { k, said: clamp(trait_value(p, k) + noise + tilt * good, 1.0, 20.0), sd, tilt }
+        })
+        .collect()
+}
+
+/// The share of a source's shade a warm tie takes off (LT12). Proposed, not
+/// confirmed.
+pub const SOURCE_WARM_OFF: f64 = 0.5;
+
 fn kind_shade(kind: Kind) -> Shade {
     match kind {
         Kind::Call | Kind::Practice | Kind::Game => Shade::Warm,
