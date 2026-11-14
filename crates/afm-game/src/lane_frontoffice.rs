@@ -12,6 +12,7 @@ pub mod college;
 pub mod nfl;
 pub mod school;
 pub mod setup;
+pub(crate) mod stand;
 
 pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     nfl::call(game, cmd, args)
