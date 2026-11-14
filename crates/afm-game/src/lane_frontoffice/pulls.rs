@@ -135,7 +135,8 @@ fn day(d: Date, today: Date) -> String {
 /// he did or said, where and when, and whose read when it was a coach of
 /// yours); the lines where his words and your read part; your area
 /// recruiter's free guess; who decides as far as you know, and whose wants
-/// the rows speak for. No number of his.
+/// the rows speak for (`for`: him, or whoever decides at his home as far
+/// as you know). No number of his.
 pub(crate) fn section(w: &World, i: usize) -> Value {
     let p = &w.people[i];
     let id = p.player.id;
@@ -189,7 +190,13 @@ pub(crate) fn section(w: &World, i: usize) -> Value {
         "groups": groups,
         "flags": pulls::flags(&reads),
         "empty": reads.iter().all(|r| r.rows == 0),
-        "for": if family { "his family" } else { "him" },
+        "for": match (family, decider(w, i)) {
+            (false, _) => "him",
+            (true, Some(Decider::Parent)) => "his parents",
+            (true, Some(Decider::Grandparent)) => "his grandparents",
+            (true, Some(Decider::Handler)) => "the trainer around him",
+            (true, _) => "his family",
+        },
         "decides": if transfer { Value::Null } else { json!({ "words": decides_words(w, i), "told": told }) },
     })
 }
