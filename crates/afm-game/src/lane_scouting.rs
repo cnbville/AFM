@@ -324,13 +324,28 @@ fn speak(p: &Person) -> file::Speak {
     }
 }
 
+/// A read window `c - half ..= c + half` on the 1..99 scale, at least 2 wide:
+/// a centre near or past an end shifts the window inside the scale rather
+/// than collapsing it to one number (a staff's read is never that sure).
+fn read_window(c: f64, half: f64) -> [u8; 2] {
+    let lo = (c - half).floor().clamp(1.0, 99.0) as u8;
+    let hi = (c + half).ceil().clamp(1.0, 99.0) as u8;
+    if hi.saturating_sub(lo) >= 2 {
+        [lo, hi]
+    } else if hi >= 99 {
+        [97, 99]
+    } else {
+        [lo.min(97), lo.min(97) + 2]
+    }
+}
+
 /// The overall read as a range, or None.
 fn now_range(f: &file::FileRead) -> Option<[u8; 2]> {
     if f.now.1 <= 0.0 && f.now.0 <= 0.0 {
         return None;
     }
     let half = f.now.1.max(1.0);
-    Some([(f.now.0 - half).floor().clamp(1.0, 99.0) as u8, (f.now.0 + half).ceil().clamp(1.0, 99.0) as u8])
+    Some(read_window(f.now.0, half))
 }
 
 fn group_name(cat: Category) -> &'static str {
@@ -475,7 +490,8 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
         .filter(|s| s.timed && seen);
     let timed_range = |c: f64, sd: f64| {
         let half = sd.max(1.0);
-        ((c - half).floor().clamp(1.0, 99.0) as u8, ((c + half).ceil().clamp(1.0, 99.0) as u8).max(1))
+        let [lo, hi] = read_window(c, half);
+        (lo, hi)
     };
     let groups: Vec<Value> = CATS
         .iter()
@@ -495,7 +511,7 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
                                     let (c, sd) = v.get(a.index()).copied().flatten()?;
                                     Some(json!({
                                         "who": rds.get(k).map(|x| x.name.clone()),
-                                        "read": [(c - sd).floor().clamp(1.0, 99.0) as u8, (c + sd).ceil().clamp(1.0, 99.0) as u8],
+                                        "read": read_window(c, sd),
                                     }))
                                 })
                                 .collect()
