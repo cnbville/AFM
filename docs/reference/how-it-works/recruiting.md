@@ -134,6 +134,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - Measured on the world tests' world (seed 7, 3 history years, the last on the engine, to Feb 9, 2026; `crates/afm-tools/tests/world.rs`): main before the fix, then signees counted once, then with December's portal read on the era's flow and AI programs taking January transfers up to their open places under the House limit (the PR as merged; the three arms ran over three different mains, so read the direction, not the decimals):
   - FBS early share of December plus February signings, 2025-26: 84.5% → 59.5% → 74.0% (real about 85-90%). 2024-25, the House limit's first class: 79.9% → 61.4% → 63.6%, as the jump from 85 to 105 places leaves room December doesn't fill. 2023-24: 91.4% → 73.3% → 79.8%.
   - FBS rosters on Feb 9, 2026: 104.9 bodies with signees counted once, 108.7 with the read and the lift, 26.1 of them walk-ons from before the House rule, who take no place (82.5 places of 102 among the players still at school, counted the way `takes_a_place` counts; none over). The roster check reads bodies for its floor (80) and the rule's places for its ceiling (105).
+  - Early draft entrants for the 2026 draft (the world's 2025 year): main 47, signees counted once 44, the PR 36 (Full tests on CI), while the same runs' earlier years differ by up to 11. Real: 63, 42 of them by special eligibility (NFL, January 2026). The calendar check's floor went from 40 to 30 (proposed, not confirmed); the low House-era totals are their own item.
 
 ## What a recruit weighs
 
