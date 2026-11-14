@@ -430,9 +430,8 @@ fn backup_spots(g: &mut Game) {
 fn plan_ahead(g: &mut Game, rows: &[Value]) {
     let left: std::collections::HashMap<u64, u64> =
         rows.iter().filter_map(|r| Some((r["id"].as_u64()?, r["years_left"].as_u64()?))).collect();
-    let view = |g: &mut Game, off: u32| {
-        board(g, "sb_depth", json!({ "tab": "offense", "form": "offense", "offset": off }))
-    };
+    let view =
+        |g: &mut Game, off: u32| board(g, "sb_depth", json!({ "tab": "offense", "form": "offense", "offset": off }));
     let ids = |v: &Value, slot: &str| -> Vec<Option<u32>> {
         let s = v["slots"].as_array().unwrap().iter().find(|s| s["slot"] == slot).unwrap();
         s["picks"].as_array().unwrap().iter().map(|p| p["id"].as_u64().map(|x| x as u32)).collect()
