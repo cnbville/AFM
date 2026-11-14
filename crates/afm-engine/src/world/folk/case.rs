@@ -127,6 +127,8 @@ pub struct Case {
     pub promised: Date,
     /// Logged as the school's promise once he signed with it.
     pub logged: bool,
+    /// How far he believed the promise when he heard it (0 before lane P2).
+    pub belief: f32,
 }
 
 impl Case {
@@ -196,7 +198,8 @@ impl Case {
         self.again += o.again;
         self.straight = self.straight.saturating_add(o.straight);
         if self.promise == 0 && o.promise != 0 {
-            (self.promise, self.pledge, self.pos, self.promised) = (o.promise, o.pledge, o.pos, o.promised);
+            (self.promise, self.pledge, self.pos, self.promised, self.belief) =
+                (o.promise, o.pledge, o.pos, o.promised, o.belief);
         }
         for (a, b) in self.points.iter_mut().zip(o.points) {
             *a |= b;

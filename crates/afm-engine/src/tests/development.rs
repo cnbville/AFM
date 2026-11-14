@@ -294,15 +294,18 @@ fn an_early_enrollees_spring_step_opens_his_first_college_row() {
     assert!((first.spring_gain.get().unwrap() - gain - 1.5).abs() < 1e-9);
 }
 
-/// Section 6b topic 5, choice 2: a plan's main focus grows up to about 1.5
-/// times its share, the rest of his skills of that kind pay for it, and his
-/// year as a whole moves well inside 15% either way.
+/// Section 6b topic 5 and individual practice topic 5b: a focus grows its
+/// skill faster by its minutes (about 1.3 times the climb at the usual 30
+/// minutes a week, about 1.5 at 60 for an average player), his position's
+/// key skills pay a quarter of the extra, his year as a whole moves well
+/// inside 15%, and nothing passes its ceiling.
 #[test]
 fn a_training_focus_grows_its_skill_and_costs_the_rest_a_little() {
     let mut rng = Rng::new("focus");
-    let (mut plain_focus, mut with_focus, mut plain_all, mut with_all) = (0.0, 0.0, 0.0, 0.0);
+    // [none, 30 minutes, 60 minutes]: the focus, its key skills, every skill.
+    let (mut focus, mut keys, mut all) = ([0.0; 3], [0.0; 3], [0.0; 3]);
+    let mut over = 0;
     for p in prospects(400, "focus", 1.0) {
-        let mut ctx = context_for(19);
         let key = Attr::ALL
             .into_iter()
             .filter(|&a| a.profile().group == crate::attributes::AttributeGroup::Technical)
@@ -310,24 +313,72 @@ fn a_training_focus_grows_its_skill_and_costs_the_rest_a_little() {
                 crate::positions::weight(p.position, a).total_cmp(&crate::positions::weight(p.position, b))
             })
             .unwrap();
-        let mut a = p.clone();
-        let mut b = p.clone();
-        let mut ra = rng.clone();
-        let mut rb = rng.clone();
-        develop_season(&mut a, &ctx, &mut ra);
-        ctx.focus = Some(key);
-        develop_season(&mut b, &ctx, &mut rb);
+        let cost = crate::development::focus_cost_skills(p.position, key);
+        for (k, m) in [None, Some(30.0), Some(60.0)].into_iter().enumerate() {
+            let mut ctx = context_for(19);
+            if let Some(m) = m {
+                ctx.focus = Some(key);
+                ctx.focus_minutes = m;
+            }
+            let mut a = p.clone();
+            let mut ra = rng.clone();
+            develop_season(&mut a, &ctx, &mut ra);
+            focus[k] += a.attributes.get(key) - p.attributes.get(key);
+            keys[k] += cost.iter().map(|(s, _)| a.attributes.get(*s) - p.attributes.get(*s)).sum::<f64>();
+            all[k] += Attr::ALL.iter().map(|&s| a.attributes.get(s) - p.attributes.get(s)).sum::<f64>();
+            if a.attributes.get(key) > a.ceilings.get(key) + 1e-6 {
+                over += 1;
+            }
+        }
         rng.next();
-        plain_focus += a.attributes.get(key) - p.attributes.get(key);
-        with_focus += b.attributes.get(key) - p.attributes.get(key);
-        plain_all += Attr::ALL.iter().map(|&k| a.attributes.get(k) - p.attributes.get(k)).sum::<f64>();
-        with_all += Attr::ALL.iter().map(|&k| b.attributes.get(k) - p.attributes.get(k)).sum::<f64>();
     }
-    let lift = with_focus / plain_focus;
-    let year = with_all / plain_all;
-    println!("focus lift {lift:.3}, the year {year:.3}");
-    assert!(lift > 1.15 && lift < 1.55, "focus lift {lift:.2}");
-    assert!((year - 1.0).abs() < 0.15, "the year moves {year:.3}");
+    let lift = |k: usize| focus[k] / focus[0];
+    let paid = |k: usize| (keys[0] - keys[k]) / (focus[k] - focus[0]);
+    let year = |k: usize| all[k] / all[0];
+    println!(
+        "focus lift {:.3} at 30, {:.3} at 60; key skills pay {:.3} and {:.3} of the extra; the year {:.3}, {:.3}",
+        lift(1),
+        lift(2),
+        paid(1),
+        paid(2),
+        year(1),
+        year(2)
+    );
+    assert!(lift(1) > 1.2 && lift(1) < 1.6, "focus lift at 30 {:.2}", lift(1));
+    assert!(lift(2) > 1.4 && lift(2) < 2.0, "focus lift at 60 {:.2}", lift(2));
+    assert!(paid(2) > 0.18 && paid(2) <= 0.26, "key skills pay {:.3}", paid(2));
+    assert!((year(2) - 1.0).abs() < 0.15, "the year moves {:.3}", year(2));
+    assert_eq!(over, 0, "a focus never passes the ceiling");
+}
+
+/// Individual practice topic 5b: a veteran's focus slows the decline of a
+/// technique skill, by up to a third at 60 minutes a week.
+#[test]
+fn a_veterans_focus_slows_his_decline() {
+    let mut rng = Rng::new("focus-veteran");
+    let (mut plain, mut worked) = (0.0, 0.0);
+    for mut p in prospects(300, "focus-veteran", 1.5) {
+        let mut r = rng.clone();
+        while p.age < 31 {
+            let ctx = context_for(p.age);
+            develop_season(&mut p, &ctx, &mut r);
+        }
+        let key = Attr::ManCoverage;
+        let mut ctx = context_for(31);
+        let mut a = p.clone();
+        develop_season(&mut a, &ctx, &mut r.clone());
+        ctx.focus = Some(key);
+        ctx.focus_minutes = 60.0;
+        let mut b = p.clone();
+        develop_season(&mut b, &ctx, &mut r.clone());
+        plain += a.attributes.get(key) - p.attributes.get(key);
+        worked += b.attributes.get(key) - p.attributes.get(key);
+        rng.next();
+    }
+    let slowed = 1.0 - worked / plain;
+    println!("decline {plain:.1} plain, {worked:.1} with a focus: slowed {slowed:.3}");
+    assert!(plain < 0.0, "a 31-year-old's coverage declines");
+    assert!(slowed > 0.15 && slowed <= 0.34, "slowed {slowed:.3}");
 }
 
 /// Minor bug 302: the strength staff drives strength, speed and conditioning

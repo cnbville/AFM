@@ -1825,6 +1825,7 @@ fn camp(w: &mut World, d: Date) {
             physical_coaching,
             strength_dev,
             focus: focus.get(&i).copied(),
+            focus_minutes: p.player.train.focus_minutes(),
             defer,
             results,
             ..crate::development::SeasonContext::new(Level::NFL, clamp(coaching, 1.0, 20.0), role)
@@ -1836,12 +1837,13 @@ fn camp(w: &mut World, d: Date) {
         // A season whose snaps didn't land in season is read at this
         // opening, spring snaps with it (`develop_season`).
         let read_late = crate::development::reads_late(&p.player, Level::NFL);
-        crate::training::close_year(&mut p.player, ctx.focus);
+        let year_focus = ctx.focus.map(|a| crate::development::Focus::new(a, ctx.focus_minutes));
+        crate::training::close_year(&mut p.player, year_focus);
         let report = crate::development::develop_season(&mut p.player, &ctx, &mut p.rng);
         // His spring snaps (OTAs, minicamp) land now as reps of the new
         // year, as they added to last season's snaps before.
         let spring_landed = if results.is_some() && spring > 0.0 && !p.player.position.is_specialist() && !read_late {
-            crate::training::reps_land(&mut p.player, 0.0, spring, ctx.focus);
+            crate::training::reps_land(&mut p.player, 0.0, spring, year_focus);
             Some(spring)
         } else {
             None

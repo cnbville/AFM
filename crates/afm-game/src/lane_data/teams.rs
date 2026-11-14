@@ -1523,6 +1523,14 @@ fn team_power(w: &World, tier: Tier, team: usize, year: i32) -> Value {
     })
 }
 
+/// A team's next games with its chance in each, from the power rating
+/// (the team page's "Next four games"): empty between seasons.
+pub(crate) fn coming_games(w: &World, t: TeamRef, n: usize) -> Vec<Value> {
+    let Some((tier, team)) = tier_of(t) else { return Vec::new() };
+    let p = team_power(w, tier, team, w.tally_open_season());
+    p["coming"].as_array().map(|a| a.iter().take(n).cloned().collect()).unwrap_or_default()
+}
+
 // ---------------------------------------------------------------------
 // `team_seasons` (item 18, board 44).
 

@@ -25,8 +25,10 @@
 //!   than four games from 2018, else any game). It lapses if he never comes
 //!   or leaves on his own.
 //!
-//! AI staffs make no promises yet (the promises design, section 10, its
-//! lane P2). Every size here is Claude's (proposed, not confirmed).
+//! AI staffs promise recruits by the same pull and belief, with their head
+//! coach's own trail name (`ai_promise::recruit`, the promises design's
+//! section 10, lane P2). Every size here is Claude's (proposed, not
+//! confirmed).
 
 use super::case;
 use super::claims::{Ear, Group};
@@ -112,7 +114,7 @@ pub const BELIEVES: f64 = 0.6;
 
 /// How likely the promise looks from the room at his spot (0 crowded to 1
 /// open, the fact sheet's `Room`) and his stars.
-fn likely(k: Kind, room: f64, stars: u8) -> f64 {
+pub(crate) fn likely(k: Kind, room: f64, stars: u8) -> f64 {
     let room = room.clamp(0.0, 1.0);
     match k {
         Kind::Start => (0.35 + 0.65 * room) * (0.7 + 0.075 * stars as f64).min(1.0),
@@ -149,6 +151,7 @@ pub fn make(w: &mut World, i: usize, j: usize, k: Kind, ear: Ear, room: f64) -> 
     c.pledge = pull as f32;
     c.pos = pos;
     c.promised = today;
+    c.belief = b as f32;
     Some((pull, b))
 }
 
