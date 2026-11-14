@@ -2208,8 +2208,8 @@ screens.team = async (a) => {
   return `<div class="hero tp-hero" style="--c1:${t.colors[0]};--c2:${t.colors[1] || t.colors[0]}"><div class="art"></div>${(typeof logoHero === "function" && logoHero(t)) || `<div class="st-outline">${esc(initials(t.name))}</div>`}<div class="copy"><div class="st-label">${esc(level)}</div><h1>${esc(t.name)}</h1>
     <div class="meta"><span><b>${esc(t.record)}</b> ${esc(t.record_note || "this season")}</span>${t.place ? `<span>${esc(t.place)}</span>` : ""}${t.prestige ? `<span>${esc(t.prestige)}</span>` : ""}${t.coach ? `<span>Head coach ${coachLink(t.coach.id, t.coach.name)}</span>` : ""}${t.stadium ? `<span>${Number(t.stadium).toLocaleString()} seats</span>` : ""}</div>
     <div class="st-actions">${logoChange(t)}</div></div></div>
-    <div class="pad">${gotoFor("team", a, t)}${tpTiles(t)}<div class="grid2"><div class="col">${tpKeys(t)}${tpUnits(t)}${tpComing(t)}<div class="panel"><h2>Lately <small>the last 60 days</small></h2>${news}</div>${leaders}</div>
-    <div class="col">${tpBars(t)}${books}${tpTable(t)}${rivals}</div></div><div class="panel"><h2>Every season</h2>${seasons}</div></div>`;
+    <div class="pad">${gotoFor("team", a, t)}${tpTiles(t)}<div class="grid2"><div class="col">${tpKeys(t)}${tpUnits(t)}${tpComing(t)}<div class="panel"><h2>Lately <small>the last 60 days</small></h2>${news}</div>${leaders}<div class="panel"><h2>Every season</h2>${seasons}</div></div>
+    <div class="col">${tpBars(t)}${books}${tpTable(t)}${rivals}</div></div></div>`;
 };
 // The team's own screens are Go to chips, not hero buttons (topic 17 rule 7).
 GOTO.team = (a, t) => {
