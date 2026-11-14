@@ -187,6 +187,7 @@ pub fn letter(
         org_team: None,
         why: Vec::new(),
         count: 0,
+        leads: 0,
     }
 }
 
@@ -1910,6 +1911,7 @@ fn weekly_mail(pen: &mut Pen, from: Date, to: Date, coach: usize) {
             Weekday::Mon => {
                 your_people(pen, d, coach);
                 standouts(pen, d);
+                leads_mail(pen, d);
                 morale(pen, d);
                 carousel::monday(pen, d);
                 polls::where_we_stand(pen, d);
@@ -2196,6 +2198,62 @@ fn standouts(pen: &mut Pen, d: Date) {
         ),
         answer("Not now", "Nothing changes.", act::ACK, 0),
     ];
+    pen.out.push(m);
+}
+
+/// The analyst's weekly leads (live talks lane 4, LT21), Mondays in the
+/// season and its bowls (September to January; proposed, not confirmed): the
+/// game's own top few outliers on your seat's numbers (`live_talk::ask::leads`),
+/// as a table of linked text. That is the whole mail with no key. With a key,
+/// opening it asks once for the writer's part (`Mail.leads` 1, then 2). No
+/// call is made here: this runs while the clock does.
+fn leads_mail(pen: &mut Pen, d: Date) {
+    let w = pen.w;
+    if !matches!(d.month(), 9..=12 | 1) {
+        return;
+    }
+    let found = crate::live_talk::ask::leads::outliers(w, pen.me);
+    if found.is_empty() {
+        return;
+    }
+    let mut m =
+        pen.memo(&format!("leads|{}", d.0), d, 8 * 60 + 30, Job::Personnel, "Leads: this week's outliers".into());
+    // From your analytics head, when your staff has one.
+    let head = match pen.me {
+        TeamRef::College(p) => Some(w.programs[p].support.analytics.name.clone()),
+        TeamRef::Nfl(t) => w.clubs.get(t).map(|c| c.support.analytics.name.clone()),
+        _ => None,
+    };
+    if let Some(n) = head.filter(|n| !n.is_empty()) {
+        m.from = n;
+        m.role = "Head of analytics".into();
+    }
+    m.body = vec![format!(
+        "{}, these are the players whose best numbers sit at the top of the level this season. A younger player gets a small credit for his age. None is on your squad, your board or your list.",
+        pen.dear
+    )];
+    m.table = vec![vec!["Player".into(), "Pos".into(), "Team".into(), "Class".into(), "Best numbers".into()]];
+    for l in &found {
+        m.table.push(vec![
+            links::player(l.id, &l.name),
+            l.pos.into(),
+            l.team.map_or_else(|| "-".to_string(), |t| links::team(w, t)),
+            l.class.clone(),
+            l.best.join("; "),
+        ]);
+    }
+    m.ids = found.iter().map(|l| l.id).collect();
+    m.keys = PLAYERS | RECRUITING;
+    m.answers = vec![
+        answer(
+            "Put them all on my players",
+            "Every player in the table goes on your \"my players\" list, so you see him whenever he moves.",
+            act::LIST_ALL,
+            0,
+        ),
+        answer("Not now", "Nothing changes.", act::ACK, 0),
+    ];
+    m.leads = 1;
     pen.out.push(m);
 }
 

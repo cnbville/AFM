@@ -314,7 +314,7 @@ function sbDepthPage(x, cur) {
   const actions = x.yours ? `<button class="st-btn small glass" data-act="sbreset" data-form="${esc(x.form)}">Give it back to the staff</button>` : "";
   const stage = `<div class="sb-stage" data-form="${esc(x.form)}" role="group" aria-label="${esc(x.form_label)} on the field">${sbField(x.level, LOS, YD, def ? null : LOS - 10 * YD)}${plates}</div>`;
   return `<div class="film sb"><div class="pad sb-pad">${head}${sbDcTabs(cur, x)}
-    <div class="sb-dc"><div class="sb-dc-main"><div class="sb-next">${next}${last}${actions ? `<span class="sb-act">${actions}</span>` : ""}</div>${stage}${hpDcFoot(x)}${sbUnits(x.units)}</div>
+    <div class="sb-dc sb-dc-needs"><div class="sb-dc-main"><div class="sb-next">${next}${last}${actions ? `<span class="sb-act">${actions}</span>` : ""}</div>${stage}${hpDcFoot(x)}${sbUnits(x.units)}</div>
     <aside class="sb-side">${s ? sbSpotPanel(x, s, sel) : '<div class="sb-empty">No spots on this formation.</div>'}</aside></div></div></div>`;
 }
 function sbSpotPanel(x, s, k) {
@@ -370,6 +370,24 @@ function hpWhyHere(x, s, k) {
 }
 
 // ---------- V2: the needs map in the stadium ----------
+// The commits box counts only the class that arrives next fall, so it says so
+// (the roster line counts every commit, this fall's class too).
+const sbLeaveLabel = (t) => String(t).replace(/^Commits for (\d+)$/, "Commits for fall $1 (next class)");
+// A man in the portal, in the place he would have had in each of the next two
+// falls. A null fall is one he would be gone from anyway.
+function sbPortalCard(x) {
+  const rows = x.portal || [];
+  if (!rows.length) return "";
+  const c = x.coming || 0, f = [c, c + 1].filter((n) => n < x.falls.length);
+  const cell = (r, n) => {
+    const q = r.stayed[n];
+    if (q) return esc(q.words);
+    return r.stay_gone && /draft/.test(r.stay_gone.why) ? "Likely in the draft" : "Out of eligibility";
+  };
+  return `<div class="sb-ptl"><span class="sb-lbl">In the portal · ${rows.length} · counted as gone</span>
+    <div class="sb-ptl-r sb-ptl-h"><span>Man</span>${f.map((n) => `<span>If he had stayed · fall ${x.falls[n]}</span>`).join("")}</div>
+    ${rows.map((r) => `<div class="sb-ptl-r"><b>${playerLink(r.id, r.name)} <small>${esc(r.pos)}</small></b>${f.map((n) => `<span>${cell(r, n)}${r.on_hold && n === c ? " (plays on through the playoffs)" : ""}</span>`).join("")}</div>`).join("")}</div>`;
+}
 const SB_VERDICTS = ["Hole", "Thin", "Average", "Solid", "Strength"];
 const sbVc = (v) => "v-" + String(v || "Hole").toLowerCase();
 screens.needs = async (a) => {
@@ -399,9 +417,9 @@ screens.needs = async (a) => {
     return `<button class="sb-chip ${sbVc(p.verdicts[y])} ${p.key === s.key ? "on" : ""}" style="${sbAt(items[i].x, items[i].y)};--k:${items[i].k.toFixed(3)}" data-act="sbneed" data-k="${esc(p.key)}" aria-label="${esc(p.full)}: ${esc(p.verdicts[y])}"><span>${esc(p.key.replace(/\d$/, ""))}${d}</span><b>${v != null ? v : "–"}</b></button>`;
   }).join("");
   const field = sbField(x.level, LOS, YD, null).replace("</svg>", `${pools}</svg>`);
-  const legend = `<div class="sb-legend">${SB_VERDICTS.map((v) => `<span><i class="${sbVc(v)}"></i>${v}</span>`).join("")}</div>`;
+  const legend = `<div class="sb-legend">${SB_VERDICTS.map((v) => `<span><i class="${sbVc(v)}"></i>${v}</span>`).join("")}<small class="sb-legend-n">Words compare each man with the starters at your level (${esc(x.level)}).</small></div>`;
   const yearCards = x.years.map((q, i) => `<button class="sb-year ${i === y ? "on" : ""}" data-act="sbneedy" data-v="${i}"><span class="sb-lbl">${esc(q.label)} · ${q.fall}</span><small>${esc(x.notes[i])}</small><b>${q.avg != null ? q.avg : "–"}</b><small class="${q.holes ? "sb-warn" : ""}">${sbPlural(q.holes, "hole")} · ${q.thin} thin</small></button>`).join("");
-  const leaving = `<div class="sb-leave"><span class="sb-lbl">After this season</span>${x.leaving.map((l) => `<div class="sb-lv" title="${esc((l.names || []).join(", "))}"><b>${l.n}</b><span>${esc(l.label)}</span></div>`).join("")}</div>`;
+  const leaving = `<div class="sb-leave"><span class="sb-lbl">After this season</span>${x.leaving.map((l) => `<div class="sb-lv" title="${esc((l.names || []).join(", "))}"><b>${l.n}</b><span>${esc(sbLeaveLabel(l.label))}</span></div>`).join("")}</div>`;
   const nf = sbFloor(x.spots.map((q) => q.vals));
   const bars = s.vals.map((v, i) => `<button class="sb-ybar ${i === y ? "on" : ""}" data-act="sbneedy" data-v="${i}"><span class="sb-yb"><i class="${sbVc(s.verdicts[i])}" style="height:${v != null ? sbPct(v, nf) : 0}%"></i></span><b>${v != null ? v : "–"}</b><small>${x.falls[i]}</small></button>`).join("");
   const rows = s.names.map((n, i) => `<div class="sb-sr ${i === y ? "on" : ""}"><span>${x.falls[i]}</span><span>${n ? `${playerLink(n.id, n.name)} <small>${esc(n.class)}${n.commit ? " · commit" : ""}</small>` : '<span class="sb-warn">Nobody</span>'}</span><b class="${sbVc(s.verdicts[i])}-t">${s.vals[i] != null ? s.vals[i] : "–"}</b></div>`).join("");
@@ -419,9 +437,9 @@ screens.needs = async (a) => {
     goto: gotoLine([["Depth chart", "depth"], ["Squad", "roster"], ...fills.slice(0, 2)]),
   });
   return `<div class="film sb"><div class="pad sb-pad">${head}
-    <div class="sb-dc"><div class="sb-dc-main"><div class="sb-next"><span class="sb-lbl">${esc(x.years[y].label)} · fall ${x.falls[y]}</span><small class="sb-dim">${esc(x.notes[y])}</small>${legend}</div>
+    <div class="sb-dc sb-dc-needs"><div class="sb-dc-main"><div class="sb-next"><span class="sb-lbl">${esc(x.years[y].label)} · fall ${x.falls[y]}</span><small class="sb-dim">${esc(x.notes[y])}</small>${legend}</div>
       <div class="sb-stage needs" role="group" aria-label="Needs on the field">${field}<span class="sb-side-l off">Offense</span><span class="sb-side-l def">Defense</span>${chips}</div>
-      <div class="sb-years">${yearCards}${leaving}</div><p class="sb-foot">${esc(x.draft_note)}</p></div>
+      <div class="sb-years">${yearCards}${leaving}</div>${sbPortalCard(x)}<p class="sb-foot">${esc(x.draft_note)}</p></div>
     <aside class="sb-side">${panel}</aside></div></div></div>`;
 };
 Object.assign(I, { needs: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/><circle cx="16" cy="9" r="2"/>' });

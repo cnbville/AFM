@@ -21,11 +21,11 @@
 use afm_engine::calendar::Date;
 use afm_engine::player::PlayingTime;
 use afm_engine::world::folk::claims::Group;
-use afm_engine::world::folk::pulls::{self, Ev, Where};
+use afm_engine::world::folk::pulls::Ev;
 use afm_engine::world::front_office::college::{PortalTarget, Stand, StandRow, VisitState, coordinator};
 use afm_engine::world::front_office::portal;
 use afm_engine::world::program::GradeCat;
-use afm_engine::world::{Stage, World, geo, key_normal};
+use afm_engine::world::{Stage, World, geo};
 use serde_json::{Value, json};
 
 use crate::views::{self, TeamRef};
@@ -68,27 +68,14 @@ fn contacts(t: &PortalTarget) -> usize {
     t.talks.len() + t.visits.iter().filter(|v| v.state == VisitState::Done).count()
 }
 
-/// Your staff's read of how much each reason counts with him: a range on 1
-/// to 5 around the truth, narrower with each talk and visit, and with each
-/// thing your talks showed about that part of what pulls him.
-fn weight_read(w: &World, i: usize, t: &PortalTarget) -> [[u8; 2]; 7] {
-    let id = w.people[i].player.id;
-    let six = portal::transfer_weights(w, i);
-    let mut wts = [0.0; 7];
-    wts[..6].copy_from_slice(&six);
-    wts[6] = six.iter().sum::<f64>() / 6.0;
-    let top = wts.iter().copied().fold(0.01, f64::max);
-    let file = pulls::file(w, i);
-    let n = contacts(t) as f64;
+/// Your staff's read of how much each reason counts with him: the race
+/// page's read of his file (talk facts lane L7, `pulls::race_weights`), a
+/// range on 1 to 5 that narrows with what your talks showed and never
+/// reads his own wants.
+fn weight_read(w: &World, i: usize) -> [[u8; 2]; 7] {
     let mut out = [[1u8, 5u8]; 7];
-    for k in 0..7 {
-        let rows = file.iter().find(|r| r.group == GROUPS[k]).map_or(0, |r| r.rows) as f64;
-        let half = (2.0 - 0.35 * n - 0.25 * rows).max(0.5);
-        let truth = 1.0 + 4.0 * (wts[k] / top).clamp(0.0, 1.0);
-        let centre = truth + 0.6 * half * key_normal(0x57A0 ^ k as u64, id as u64).clamp(-1.5, 1.5);
-        let lo = (centre - half).round().clamp(1.0, 5.0) as u8;
-        let hi = (centre + half).round().clamp(1.0, 5.0) as u8;
-        out[k] = [lo, hi.max(lo)];
+    for (k, r) in super::pulls::race_weights(w, i).into_iter().take(7).enumerate() {
+        out[k] = r;
     }
     out
 }
@@ -127,13 +114,9 @@ fn sources(w: &World, i: usize) -> [String; 7] {
         "Your recruiter".into(),
     ];
     for (k, g) in GROUPS.iter().enumerate() {
-        let rows: Vec<&pulls::Pull> = w.folk.pulls.of(id).filter(|r| r.group() == *g).collect();
-        if let Some(r) = rows.iter().filter(|r| r.ev != Ev::Guess && r.ev != Ev::Decides).max_by_key(|r| r.on) {
-            out[k] = match r.from {
-                Where::Staff => format!("Your staff, {}", short(r.on)),
-                _ => format!("He told you, {}", short(r.on)),
-            };
-        } else if rows.iter().any(|r| r.ev == Ev::Guess) {
+        if let Some(x) = super::pulls::race_source(w, i, k) {
+            out[k] = x;
+        } else if w.folk.pulls.of(id).any(|r| r.group() == *g && r.ev == Ev::Guess) {
             out[k] = "Your recruiter's guess".into();
         }
     }
@@ -373,7 +356,7 @@ fn read(w: &World, j: usize, i: usize, t: &PortalTarget, s: &Stand) -> Value {
         cols.push(y.clone());
     }
     cols.extend(s.rows.iter().filter(|r| r.program != j).cloned());
-    let reads = weight_read(w, i, t);
+    let reads = weight_read(w, i);
     let scale = read_scale(w, i, &reads);
     let src = sources(w, i);
     let wins = winners(t, &cols, j);

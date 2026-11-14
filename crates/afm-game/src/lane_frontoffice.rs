@@ -10,6 +10,7 @@ use crate::{Game, Reply};
 
 pub mod college;
 pub mod nfl;
+pub(crate) mod pulls;
 pub mod school;
 pub mod setup;
 pub(crate) mod stand;
