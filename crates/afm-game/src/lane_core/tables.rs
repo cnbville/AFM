@@ -600,6 +600,7 @@ fn level_word(s: Stage) -> &'static str {
         Stage::Pro => "NFL",
         Stage::Done => "Out of football",
         Stage::Away => "Away from football",
+        Stage::CflPool => "CFL draft pool",
     }
 }
 

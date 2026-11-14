@@ -193,6 +193,7 @@ fn seat_word(staff: Staff) -> &'static str {
         Staff::Club(_) => "nfl",
         Staff::Program(_) => "college",
         Staff::School(_) => "hs",
+        Staff::League(_) => "cfl",
     }
 }
 
@@ -277,6 +278,7 @@ fn home(w: &World) -> Value {
         Staff::Club(t) => out["nfl"] = nfl_desk(w, t),
         Staff::Program(c) => out["college"] = college_desk(w, c),
         Staff::School(h) => out["hs"] = hs_desk(w, h),
+        Staff::League(fr) => out["cfl"] = cfl_desk(w, fr),
     }
     out
 }
@@ -327,6 +329,24 @@ fn scout_row(w: &World, s: &Scout, place: Option<usize>) -> Value {
         "record": career(s.held as u32, s.missed as u32),
         "clubs": clubs,
     })
+}
+
+/// A CFL club's scouts (SK77): four men, the class and the Americans
+/// down south; their contracts follow the club's own turnover.
+fn cfl_desk(w: &World, fr: usize) -> Value {
+    let staff: Vec<Value> = w.others.teams.get(fr).map_or(Vec::new(), |t| {
+        t.scouts
+            .iter()
+            .enumerate()
+            .map(|(k, s)| {
+                let mut row = scout_row(w, s, Some(k));
+                row["region"] =
+                    json!(afm_engine::world::pro::cfl::REGIONS.get(s.region as usize).copied().unwrap_or(""));
+                row
+            })
+            .collect()
+    });
+    json!({ "staff": staff })
 }
 
 fn nfl_desk(w: &World, t: usize) -> Value {
@@ -683,5 +703,8 @@ fn sendable(w: &World, staff: Staff) -> Vec<Value> {
                 .collect()
         }
         Staff::School(_) => Vec::new(),
+        Staff::League(fr) => w.others.teams.get(fr).map_or(Vec::new(), |c| {
+            c.scouts.iter().enumerate().map(|(k, s)| json!({ "code": k, "name": s.name, "job": s.job() })).collect()
+        }),
     }
 }

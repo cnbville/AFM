@@ -4,6 +4,8 @@
 //! squads, its office, its feeders and its JV games, and a club in another
 //! league through a season's first games.
 
+mod common;
+
 use afm_game::Game;
 use serde_json::{Value, json};
 
@@ -206,15 +208,38 @@ fn every_seat_starts_and_the_school_desk_runs() {
     );
     let lg = ok(&mut g, "leagues", json!({}));
     assert_eq!(lg["league"]["short"], "CFL", "your own league first");
+    // The CFL's scouting year from your chair (SK77): the department, the
+    // board, and the draft room stops the clock on your picks.
+    let dept = ok(&mut g, "scouting", json!({}));
+    assert!(dept["people"].as_array().is_some_and(|p| p.len() >= 4), "your club's scouts: {}", dept["people"]);
     let mut played = 0;
+    let mut picks = 0;
     for _ in 0..400 {
         played = g.world.as_ref().map_or(0, |w| w.seat_games().len());
         if played >= 3 {
             break;
         }
-        ok(&mut g, "day", json!({}));
+        let r = ok(&mut g, "day", json!({}));
+        let mut guard = 0;
+        let mut r = r;
+        while r["studio"]["screen"] == "cfldraft" && guard < 40 {
+            let v = ok(&mut g, "cfl_draft", json!({}));
+            common::nothing_hidden("cfl_draft", &v, "");
+            assert_eq!(v["live"]["on_clock"], true, "the clock stops on your pick: {}", v["live"]);
+            assert!(v["board"].as_array().is_some_and(|b| !b.is_empty()), "your board");
+            if let Some(o) = v["live"]["offers"].as_array().and_then(|o| o.first()) {
+                ok(&mut g, "cfl_offer", json!({ "k": o["k"], "say": "no" }));
+            }
+            ok(&mut g, "cfl_auto", json!({}));
+            picks += 1;
+            guard += 1;
+            r = ok(&mut g, "day", json!({}));
+        }
     }
     assert!(played >= 3, "your club's games are kept: {played}");
+    assert!(picks >= 8, "you picked in the CFL draft: {picks}");
+    let v = ok(&mut g, "cfl_draft", json!({}));
+    assert!(v["national_picks"].as_array().is_some_and(|p| !p.is_empty()) || v["year"].as_i64() > Some(2026), "{v}");
     let games = ok(&mut g, "games", json!({}));
     let n = games["games"].as_array().unwrap().len();
     let page = ok(&mut g, "game_page", json!({ "index": n - 1 }));

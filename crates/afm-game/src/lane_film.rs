@@ -223,6 +223,7 @@ fn home(w: &World) -> Value {
         Some(readers::Staff::Club(_)) => "nfl",
         Some(readers::Staff::Program(_)) => "college",
         Some(readers::Staff::School(_)) => "hs",
+        Some(readers::Staff::League(_)) => "cfl",
         None => "",
     };
     let (recruit, prep) = time::base(w);

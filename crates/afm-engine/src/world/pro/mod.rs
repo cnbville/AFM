@@ -9,6 +9,7 @@
 //! `Member` lists, each carrying the person's index), so the strength,
 //! need and draft logic read real players.
 
+pub mod cfl;
 pub mod games;
 pub mod honors;
 pub mod leagues;

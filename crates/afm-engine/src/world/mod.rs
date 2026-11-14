@@ -189,6 +189,11 @@ pub enum Stage {
     /// mission or a military term (A3, final build). `Person::roads.away`
     /// says which, when he comes back and to which program.
     Away,
+    /// In the CFL's draft pool from outside the world's colleges (SK77): a
+    /// Canadian at a U Sports school, or a player from abroad for the
+    /// Global Draft. `others.pool` holds where he plays; a pick back at
+    /// school for his last year stays here with his rights held.
+    CflPool,
 }
 
 /// One state's football setting.
@@ -2066,7 +2071,13 @@ impl World {
             .map(|p| {
                 let stays = matches!(
                     p.stage,
-                    Stage::HighSchool | Stage::College | Stage::PrepSchool | Stage::Declared | Stage::Pro | Stage::Away
+                    Stage::HighSchool
+                        | Stage::College
+                        | Stage::PrepSchool
+                        | Stage::Declared
+                        | Stage::Pro
+                        | Stage::Away
+                        | Stage::CflPool
                 );
                 stays.then(|| {
                     next += 1;

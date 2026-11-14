@@ -23,7 +23,7 @@ I.eye = '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx=
 // A high school coach evaluates no staff: his desk is the athletes in his
 // building and his own days out, and is named for them (SC3).
 const evName = (seat) => (seat === "hs" ? "Athletes and days out" : "Evaluation");
-navAdd({ go: "evaluate", get label() { return evName(seatKind()); }, icon: "eye", sec: "scout", after: "scouting", seats: ["nfl", "college", "hs"] });
+navAdd({ go: "evaluate", get label() { return evName(seatKind()); }, icon: "eye", sec: "scout", after: "scouting", seats: ["nfl", "college", "hs", "other"], show: () => seatKind() !== "other" || !!(S.status && S.status.cfl) });
 CRUMBS.evaluate = "Evaluation";
 GOTO.evaluate = () => (scSeat() === "nfl"
   ? [["Department", "scouting"], ["Draft board", "draftboard"], ["Pre-draft", "predraft"], ["Staff", "staff"]]
@@ -55,6 +55,8 @@ screens.evaluate = async (a) => {
   if (!x.seat) return `<div class="pad"><p class="sub">Start a career first.</p></div>`;
   const list = x.seat === "nfl"
     ? ["Scouts", "Days out", "Meetings", "Minimums", "Service", "Outside football", "Coverage"]
+    : x.seat === "cfl"
+    ? ["Scouts", "Days out", "Meetings", "Minimums"]
     : x.seat === "college"
       ? ["Personnel", "Days out", "NFL on campus", "Pro day", "Advisory", "Meetings", "Minimums", "Outside football", "Coverage"]
       : ["Athletes", "Days out", "Your class and systems", "Coverage"];
@@ -65,7 +67,7 @@ screens.evaluate = async (a) => {
     Scouts: evScouts, "Days out": evTrips, Meetings: evMeetings, Minimums: evMinimums, Service: evService,
     Personnel: evPersonnel, "NFL on campus": evCampus, "Pro day": evProDay, Advisory: evAdvisory, Athletes: evAthletes,
   }[tab](x);
-  const sub = x.seat === "nfl" ? "Your scouts, your own days out, the room and the rules you hold to." : x.seat === "college" ? "Your personnel staff, your days out, the NFL on your campus and your juniors' calls." : "Your days out and the athletes in your building who don't play yet.";
+  const sub = x.seat === "nfl" || x.seat === "cfl" ? "Your scouts, your own days out, the room and the rules you hold to." : x.seat === "college" ? "Your personnel staff, your days out, the NFL on your campus and your juniors' calls." : "Your days out and the athletes in your building who don't play yet.";
   return `<div class="pad sl ev ev-${x.seat}">
     <header class="ev-head"><div><div class="st-label">Scouting · ${esc(x.today)}</div><h1 class="ev-h1">${evName(x.seat)}</h1><p class="ev-sub">${esc(sub)}</p></div>${evTops(x)}</header>
     <div class="ev-tabs">${tabs("evtab", list, tab)}</div>
@@ -92,6 +94,10 @@ function evScoutRow(s, extra) {
     <td class="num ev-dim">${esc(s.market)}</td>${extra || ""}</tr>`;
 }
 function evScouts(x) {
+  if (x.cfl) {
+    const head = `<thead><tr><th>Scout</th><th class="num">Age</th><th>Contacts</th>${evTrackTh}<th class="num">Pay</th><th class="num">Market</th>`;
+    return evCard("Your scouts", `<p class="ev-dim">Four men: the director, the head of Canadian scouting, a scout in the west and one for the Americans down south. The club turns a few over each spring.</p><table class="tbl ev-tbl">${head}</tr></thead><tbody>${x.cfl.staff.map((s) => evScoutRow(s)).join("")}</tbody></table>`, "wide");
+  }
   const n = x.nfl;
   const head = `<thead><tr><th>Scout</th><th class="num">Age</th><th>Contacts</th>${evTrackTh}<th class="num">Pay</th><th class="num">Market</th>`;
   let review = "";
@@ -143,7 +149,7 @@ function evMeetings(x) {
         <td><small>${esc(it.high.name)}</small>${evBand(it.high.read[0], it.high.read[1], "hi", ...dom)}</td>
         <td><small>${esc(it.low.name)}</small>${evBand(it.low.read[0], it.low.read[1], "lo", ...dom)}</td>
         <td><div class="ev-seg">${[[1, "High"], [3, "Between"], [2, "Low"]].map(([v, t]) => evLk("evsettle", { meeting: m.index, id: it.id, side: v }, t, it.settled === v ? "on" : "")).join("")}</div></td></tr>`).join("")}</tbody></table>` : evEmpty("Your room agreed on everyone."), "wide")).join("")
-    : evCard("Board meetings", evEmpty(x.seat === "nfl" ? "The room meets after the all-star games in February and for April's final stack." : "Your staff meets June 1, August 1 and December 1."), "wide");
+    : evCard("Board meetings", evEmpty(x.seat === "nfl" ? "The room meets after the all-star games in February and for April's final stack." : x.seat === "cfl" ? "The room meets after the winter Bureau in January and for the final board in April." : "Your staff meets June 1, August 1 and December 1."), "wide");
   return `${ms}${evCard("Who was right in the room", rec)}`;
 }
 

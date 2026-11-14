@@ -280,7 +280,7 @@ fn sizes(year: i32, owner: f64) -> (usize, usize) {
     ((areas + adj).clamp(5, 10) as usize, nationals)
 }
 
-fn hire(rng: &mut Rng, year: i32, role: Role, budget: f64) -> Scout {
+pub(crate) fn hire(rng: &mut Rng, year: i32, role: Role, budget: f64) -> Scout {
     let mean = match role {
         Role::Director => 12.0,
         Role::National => 11.0,
@@ -851,7 +851,7 @@ pub(crate) struct Ctx {
 }
 
 impl Ctx {
-    fn new(w: &World, people: &[usize]) -> Ctx {
+    pub(crate) fn new(w: &World, people: &[usize]) -> Ctx {
         let mut h = vec![Vec::new(); POSITION_COUNT];
         for &i in people {
             let p = &w.people[i].player;
@@ -934,11 +934,108 @@ fn competition_discount(d: Division) -> f64 {
 /// by their skill and their say in the room. Combine and pro day numbers
 /// are shared by every club.
 pub(crate) fn read(w: &World, t: usize, i: usize, looks: &[Look], ctx: &Ctx) -> Read {
+    read_src(w, Src::Nfl(t), i, looks, ctx)
+}
+
+/// Whose file a read is built from: an NFL club, or a club in another
+/// league (SK77: a CFL club's department reads the same way, with its own
+/// people, no analytics staff and no say from a GM the world doesn't keep).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Src {
+    Nfl(usize),
+    Other(usize),
+}
+
+impl Src {
+    /// The key a club's priors are drawn on: an NFL club's place, another
+    /// league's club's franchise past the NFL's.
+    fn key(self) -> usize {
+        match self {
+            Src::Nfl(t) => t,
+            Src::Other(fr) => 1000 + fr,
+        }
+    }
+}
+
+/// A CFL club's people as readers (SK77): its scouts by their place, its
+/// head coach (the final say: the world keeps no GM there) and its
+/// coordinators.
+fn other_eye(w: &World, fr: usize, who: u8, group: usize) -> Eye {
+    let tm = &w.others.teams[fr];
+    match who {
+        HC | OC | DC | GM => {
+            let c = match who {
+                OC => tm.oc.or(tm.head_coach),
+                DC => tm.dc.or(tm.head_coach),
+                _ => tm.head_coach,
+            };
+            let (key, teach, rel) = c.map_or(((fr as u64) << 24 ^ 0x07E0 ^ who as u64, 10.0, 10.0), |c| {
+                let a = w.coaches[c].ability();
+                (w.coaches[c].id as u64 ^ 0xC0AC_0000, a.teaching[group], a.relationships)
+            });
+            Eye {
+                key,
+                judge: teach,
+                potential: teach,
+                athletic: 10.0,
+                character: rel,
+                say: if who == OC || who == DC { 1.0 } else { 1.4 },
+                bias: None,
+                home: REGIONS,
+                contacts: None,
+            }
+        }
+        k => match tm.scouts.get(k as usize) {
+            Some(s) => {
+                let know = s.know[group] as f64;
+                Eye {
+                    key: s.key,
+                    judge: 0.6 * s.judge as f64 + 0.4 * know,
+                    potential: 0.7 * s.potential as f64 + 0.3 * know,
+                    athletic: s.athletic as f64,
+                    character: s.character as f64,
+                    say: (0.8 + 0.02 * s.conviction as f64) * if s.role == Role::Director { 1.2 } else { 1.0 },
+                    bias: Some(s.bias),
+                    home: s.home,
+                    contacts: None,
+                }
+            }
+            None => Eye {
+                key: (fr as u64) << 24 ^ 0x5C0 ^ k as u64,
+                judge: 8.0,
+                potential: 8.0,
+                athletic: 8.0,
+                character: 8.0,
+                say: 0.6,
+                bias: None,
+                home: REGIONS,
+                contacts: None,
+            },
+        },
+    }
+}
+
+fn eye_of(w: &World, src: Src, who: u8, group: usize) -> Eye {
+    match src {
+        Src::Nfl(t) => eye(w, t, who, group),
+        Src::Other(fr) => other_eye(w, fr, who, group),
+    }
+}
+
+/// `read` for any club's file (SK77): the NFL's, or a CFL club's.
+pub(crate) fn read_src(w: &World, src: Src, i: usize, looks: &[Look], ctx: &Ctx) -> Read {
+    let t = src.key();
     let p = &w.people[i];
     let pos = p.cal.pro_position.unwrap_or(p.player.position);
     let id = p.player.id as u64;
     let group = Group::of(pos) as usize;
-    let division = p.college.map_or(Division::FBS, |c| w.programs[c].division);
+    // A U Sports player reads like a player below the FCS: fewer good
+    // opponents on his tape (SK77; proposed, not confirmed).
+    let division = if p.stage == crate::world::Stage::CflPool {
+        Division::D2
+    } else {
+        p.college.map_or(Division::FBS, |c| w.programs[c].division)
+    };
     let vis = match division {
         Division::FBS => 1.0,
         Division::FCS => 1.2,
@@ -1016,7 +1113,7 @@ pub(crate) fn read(w: &World, t: usize, i: usize, looks: &[Look], ctx: &Ctx) -> 
     let mut risk_prec = 0.0;
     let plast = crate::development::potential_plasticity(p.player.age);
     for (a, x) in whos.iter().enumerate() {
-        let e = eye(w, t, x.0, group);
+        let e = eye_of(w, src, x.0, group);
         for c in 0..CATS {
             let n = x.1[c];
             if n == 0 {
@@ -1082,7 +1179,12 @@ pub(crate) fn read(w: &World, t: usize, i: usize, looks: &[Look], ctx: &Ctx) -> 
     }
     // The analytics staff's read of his numbers (SK6), on everyone the
     // club files, weighted by how far the GM trusts numbers over film.
-    if w.year >= 2003 && !looks.is_empty() && foot.level == 2 && foot.snaps >= 100.0 {
+    if let Src::Nfl(t) = src
+        && w.year >= 2003
+        && !looks.is_empty()
+        && foot.level == 2
+        && foot.snaps >= 100.0
+    {
         let club = &w.clubs[t];
         let r = club.support.analytics.rating;
         let skill = if r == 0 { 10.0 } else { r as f64 };
@@ -1144,8 +1246,10 @@ pub(crate) fn read(w: &World, t: usize, i: usize, looks: &[Look], ctx: &Ctx) -> 
     let gift = crate::links::gift(&crate::links::links_at(&p.player, pos));
     let gift_pts = if meas.is_some() { DRAFT_GIFT } else { 0.5 * DRAFT_GIFT } * gift;
     // SK19: your word to this club about one of your players.
-    let word =
-        if w.scouting.own.words.is_empty() { 0.0 } else { crate::world::scouting::own::word_lift(w, t, p.player.id) };
+    let word = match src {
+        Src::Nfl(t) if !w.scouting.own.words.is_empty() => crate::world::scouting::own::word_lift(w, t, p.player.id),
+        _ => 0.0,
+    };
     let grade = now + q * (pot - now) + gift_pts - competition_discount(division) - flags(p) + word;
     let var = now_var * (1.0 - q) * (1.0 - q) + q * q / pot_prec;
     // The character read: the services' talk only, if nobody asked.
