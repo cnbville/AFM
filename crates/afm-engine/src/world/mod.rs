@@ -77,6 +77,7 @@ pub mod seat_names;
 pub mod sections;
 pub mod staff;
 pub mod staff_read;
+pub mod stay_read;
 pub mod stories;
 pub mod storylines;
 pub mod systems;

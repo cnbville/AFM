@@ -346,7 +346,7 @@ pub(crate) fn leave(w: &mut World, coach: usize, why: &'static str) {
                 // departure after the cycle's window opened gets its own
                 // (minor bug 88). A second change in a cycle moves no one again.
                 if !again {
-                    super::college::coach_gone(w, p);
+                    super::college::coach_gone(w, p, coach);
                     late_window_due(w, p);
                 }
                 // His team still has games this season: a coach retiring or

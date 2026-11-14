@@ -195,6 +195,7 @@ fn a_hairs_lead_is_strong_and_only_your_program_has_your_word() {
             due: w.today.add(-100),
             public: false,
             kept: Some(k == 0),
+            backed: 0,
             who: String::new(),
         });
     }
