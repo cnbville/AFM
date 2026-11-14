@@ -921,7 +921,7 @@ fn class_rank(w: &World, j: usize, sign_year: i32) -> (Option<u32>, usize) {
 /// The same ranking nationally and in your conference: (national rank,
 /// programs in your division, conference rank, programs in your
 /// conference).
-fn class_ranks(w: &World, j: usize, sign_year: i32) -> (Option<u32>, usize, Option<u32>, usize) {
+pub(crate) fn class_ranks(w: &World, j: usize, sign_year: i32) -> (Option<u32>, usize, Option<u32>, usize) {
     let div = w.programs[j].division;
     let mut by: HashMap<usize, Vec<f64>> = HashMap::new();
     for p in w.people.iter() {

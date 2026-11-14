@@ -27,6 +27,9 @@ pub struct Set {
     pub name: String,
     pub card: SetCard,
     pub lines: Vec<Line>,
+    /// Lines meant to trick the reader or the game (lane 9's 40): reported
+    /// as their own row, "<name> exploits", on the same card.
+    pub exploits: Vec<Line>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -51,19 +54,43 @@ pub struct SetSpoken {
 pub struct SetOption {
     pub code: u32,
     pub text: String,
+    /// Its tag on the card: o1, o2... by default; a one-on-one's turns are
+    /// t1, t2...
+    pub tag: String,
 }
 
-/// One labelled line: the option code it means, or "not_a_line".
+/// One labelled line: the option code it means, or "not_a_line". An
+/// exploit line also carries what it tries (`why`), the move and tone it
+/// would land as, and the facts a right reading lists (`claims`, the
+/// reader's own form), so a test can land it on a real talk.
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(default)]
 pub struct Line {
     pub text: String,
     pub want: Value,
+    pub why: String,
+    pub tone: String,
+    pub claims: Vec<Value>,
+    pub promise: Value,
 }
 
-/// Every set, read from its file. A set that doesn't parse is left out.
+/// Every set, read from its file, a set's exploits as a set of their own.
+/// A set that doesn't parse is left out.
 pub fn sets() -> Vec<Set> {
-    SETS.iter().filter_map(|(_, raw)| serde_json::from_str(raw).ok()).collect()
+    let mut out = Vec::new();
+    for (_, raw) in SETS {
+        let Ok(mut set) = serde_json::from_str::<Set>(raw) else { continue };
+        let exploits = std::mem::take(&mut set.exploits);
+        let more = (!exploits.is_empty()).then(|| Set {
+            name: format!("{} exploits", set.name),
+            card: set.card.clone(),
+            lines: exploits,
+            exploits: Vec::new(),
+        });
+        out.push(set);
+        out.extend(more);
+    }
+    out
 }
 
 impl Set {
@@ -78,7 +105,7 @@ impl Set {
         };
         let mut keys = Keys::default();
         for (k, o) in self.card.options.iter().enumerate() {
-            let tag = format!("o{}", k + 1);
+            let tag = if o.tag.is_empty() { format!("o{}", k + 1) } else { o.tag.clone() };
             card.options.push(Tagged { tag: tag.clone(), text: o.text.clone() });
             keys.options.push((tag, o.code));
         }
@@ -123,9 +150,15 @@ pub fn ai_checks(g: &mut Game) -> Reply {
         tally.score.push(0);
         tally.of.push(0);
         let (card, keys) = set.card();
+        // A one-on-one's sets read on lane 9's own rules.
+        let (rules, schema) = if set.name.starts_with("one_on_one") {
+            (say::one_on_one::RULES.as_str(), say::one_on_one::schema())
+        } else {
+            (say::READER_RULES, say::reader_schema())
+        };
         for line in &set.lines {
-            let req = Request::new(say::READER, say::READER_RULES, &card.reader_text(&line.text))
-                .schema(say::reader_schema())
+            let req = Request::new(say::READER, rules, &card.reader_text(&line.text))
+                .schema(schema.clone())
                 .max_tokens(say::READER_TOKENS);
             if let Some(f) = g.ai.browser_fake() {
                 f.push(say::READER, Ok(stand_in::reading(&card, &line.text)));
@@ -198,7 +231,8 @@ mod tests {
     #[test]
     fn every_set_parses_and_staff_holds_lt18s_thirty_lines() {
         let sets = sets();
-        assert_eq!(sets.len(), SETS.len(), "every file parses");
+        // Every file parses; the one-on-one's exploits are a row of their own.
+        assert_eq!(sets.len(), SETS.len() + 1, "every file parses");
         let staff = &sets[0];
         assert_eq!((staff.name.as_str(), staff.lines.len()), ("staff", 30));
         let (card, keys) = staff.card();
@@ -209,7 +243,39 @@ mod tests {
             assert!(keys.option_tag(code).is_some());
         }
         assert_eq!(staff.lines.iter().filter(|l| l.want == json!("not_a_line")).count(), 5);
-        assert!(sets[1].lines.is_empty() && sets[2].lines.is_empty(), "lanes 7 and 9 fill theirs");
+        assert!(sets[1].lines.is_empty(), "lane 7 fills its own");
+    }
+
+    #[test]
+    fn the_one_on_one_sets_hold_a_hundred_lines_and_forty_exploits() {
+        let sets = sets();
+        let set = sets.iter().find(|s| s.name == "one_on_one").unwrap();
+        let ex = sets.iter().find(|s| s.name == "one_on_one exploits").unwrap();
+        assert_eq!((set.lines.len(), ex.lines.len()), (100, 40));
+        let (card, keys) = set.card();
+        // Every label is on the card, and the turns carry their own tags.
+        for l in set.lines.iter().chain(&ex.lines) {
+            if let Some(c) = l.want.as_u64() {
+                assert!(keys.option_tag(c as u32).is_some(), "{}", l.text);
+            } else {
+                assert_eq!(l.want, json!("not_a_line"), "{}", l.text);
+            }
+            assert!(l.text.chars().count() <= 400);
+        }
+        assert!(card.options.iter().any(|o| o.tag == "t1") && card.options.iter().any(|o| o.tag == "o6"));
+        // Each option has lines, and a fair share don't count as a line.
+        for (_, code) in &keys.options {
+            assert!(set.lines.iter().any(|l| l.want == json!(code)), "{code}");
+        }
+        let none = set.lines.iter().filter(|l| l.want == json!("not_a_line")).count();
+        assert!((10..=15).contains(&none), "{none}");
+        // The card reads on lane 9's schema: every tag is in its enum.
+        let schema = crate::live_talk::say::one_on_one::schema();
+        let tags: Vec<&str> =
+            schema["properties"]["pick"]["enum"].as_array().unwrap().iter().filter_map(|v| v.as_str()).collect();
+        for (t, _) in &keys.options {
+            assert!(tags.contains(&t.as_str()), "{t}");
+        }
     }
 
     #[test]
@@ -234,6 +300,12 @@ mod tests {
             let v = json!({ "pick": pick, "also": "none", "tone": "calm", "promise": null, "claims": [], "named": [], "fit": fit });
             f.push(say::READER, Ok(body(&v.to_string(), 700, 60)));
         }
+        // The other sets' lines, each read as no line at all.
+        let rest: usize = sets().iter().skip(1).map(|s| s.lines.len()).sum();
+        for _ in 0..rest {
+            let v = json!({ "pick": "none", "also": "none", "tone": "calm", "promise": null, "claims": [], "named": [], "fit": "not_a_line" });
+            f.push(say::READER, Ok(body(&v.to_string(), 700, 60)));
+        }
         let t = g.call("ai_checks", &json!({})).unwrap()["ticket"].as_u64().unwrap();
         let start = Instant::now();
         let v = loop {
@@ -244,9 +316,14 @@ mod tests {
             std::thread::sleep(Duration::from_millis(2));
         };
         assert_eq!(v["state"], "done", "{v}");
-        assert_eq!(v["rows"], json!([{ "name": "staff", "score": 28, "of": 30, "bar": 28.0 / 30.0 }]));
+        assert_eq!(v["rows"][0], json!({ "name": "staff", "score": 28, "of": 30, "bar": 28.0 / 30.0 }));
+        // Lane 9's rows: only its not-a-line labels match a reading of none.
+        assert_eq!(v["rows"][1]["name"], "one_on_one");
+        assert_eq!(v["rows"][1]["of"], 100);
+        assert_eq!(v["rows"][2]["name"], "one_on_one exploits");
+        assert_eq!(v["rows"][2]["of"], 40);
         assert!(v["cost"].as_f64().unwrap() > 0.0 && v["seconds"].is_number());
-        assert_eq!(f.asked_count(), 30, "one call a line");
+        assert_eq!(f.asked_count(), 30 + rest, "one call a line");
         // With no client there is no run.
         let mut h = Game::new(std::env::temp_dir().join(format!("afm-live-checks2-{}", std::process::id())));
         assert_eq!(h.call("ai_checks", &json!({})), Err("No key is set.".into()));

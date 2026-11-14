@@ -289,6 +289,8 @@ pub(crate) fn ai_official_talk(w: &mut World, i: usize, j: usize, d: Date) {
     let back = case::backing(w, i, j);
     let c = case::one_step(w, i, j, hc, Ear::Decider, back, SIT_DOWN_EXCHANGES, 1.0, seed);
     case::case_mut(w, i, j).merge(&c);
+    // His word, when his room allows it (promises lane P2).
+    super::ai_promise::recruit(w, i, j, Ear::Decider, seed);
 }
 
 /// Each week, every staff's calls to the recruits it offered in the

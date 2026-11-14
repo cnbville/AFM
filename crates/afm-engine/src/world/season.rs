@@ -39,6 +39,10 @@ pub(crate) struct TeamResult {
     pub incidents: u32,
     pub roster: u32,
     pub totals: super::program::SeasonTotals,
+    /// Points scored and allowed in every game, the stand-in's too (the
+    /// team page's seasons; `totals` counts engine games only).
+    #[serde(default)]
+    pub points: [u32; 2],
 }
 
 impl TeamResult {
@@ -920,6 +924,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             physical_coaching,
             strength_dev,
             focus: focus.get(&i).copied(),
+            focus_minutes: p.player.train.focus_minutes(),
             defer,
             snaps,
             results: match p.stage {
@@ -937,7 +942,8 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         crate::results::settle_reps(&mut p.player, closing.get(&id));
         // Last year's growth that the calendar never reached lands first
         // (section 6b topic 12), so this row starts where he really is.
-        crate::training::close_year(&mut p.player, ctx.focus);
+        let year_focus = ctx.focus.map(|a| crate::development::Focus::new(a, ctx.focus_minutes));
+        crate::training::close_year(&mut p.player, year_focus);
         let report = develop_season(&mut p.player, &ctx, &mut p.rng);
         if let Some(log) = log {
             let staff = match p.stage {

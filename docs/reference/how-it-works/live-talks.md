@@ -1,6 +1,6 @@
 # Live talks: how it works today
 
-Checked against main at 7691db7 on 2026-11-13 (lane 2, the boxes, before it merged to main; lane 1 is on main since #314), and lane 3, the core, over main c04c172 on 2026-11-13, before it merged. Lane 5 (rooms on today's choices) was built over main 695d72d on 2026-11-13, before it merged. Lane 4, the desk, over main 65b1d0a on 2026-11-13, before it merged. Lane 6 (rooms that gain something) over main b1f10b5 on 2026-11-14, before it merged. Lane 10's recruit and transfer talks (LT2, LT3) over main 0957af5 on 2026-11-14, before it merged. What a line said beyond its option ("Also heard") over lane 10's branch at 0645bc7 on 2026-11-14, before it merged. Lanes 7 and 9, and lane 10's NIL forms (LT9), are not built yet: their sections below say so.
+Checked against main at 7691db7 on 2026-11-13 (lane 2, the boxes, before it merged to main; lane 1 is on main since #314), and lane 3, the core, over main c04c172 on 2026-11-13, before it merged. Lane 5 (rooms on today's choices) was built over main 695d72d on 2026-11-13, before it merged. Lane 4, the desk, over main 65b1d0a on 2026-11-13, before it merged. Lane 6 (rooms that gain something) over main b1f10b5 on 2026-11-14, before it merged. Lane 10's recruit and transfer talks (LT2, LT3) over main 0957af5 on 2026-11-14, before it merged. Lane 9 (one-on-ones typed) over main 81f5b14 on 2026-11-14, before it merged. Lane 7 and lane 10's NIL forms (LT9) are not built yet: their sections below say so. What a line said beyond its option ("Also heard") over main 2026-11-14, after lanes 9 and 10 merged.
 
 Live talks are typed lines to your players, recruits and staff, answered in character by Claude Haiku 5.5, on top of the chips and the line bank, which always still work. The rule under all of it: the AI only reads your words and writes theirs; the game decides every result. The design is `afm/live-talks/proposal.md` in the project folder; this page says what the code does.
 
@@ -23,6 +23,7 @@ Live talks are typed lines to your players, recruits and staff, answered in char
 - Can a typed line do something a chip can't? No. It lands on one of the scene's own options through the chip's code, and the bank picks its line with the same seeds (`world/folk/scene.rs`, `say`, `land`).
 - Can a typed line fire a coach without asking? No. A pick that can't be undone comes back as one reading to confirm, and `scene::say` refuses it unconfirmed (`world/folk/finals.rs`; `scene.rs`, `asks_first`).
 - What if the AI fails mid-talk? The box hides and the chips go on; if the writer fails, the bank's line shows (`live_talk/say/mod.rs`, `reader_step`, `writer_step`).
+- Can I type in a one-on-one? Yes (lane 9). Your line lands on a move on the table in the tone you said it, or turns the talk to another of his points as its chip does and lands the move there. A promise asks first. A fact he can check as you say it is checked, and a false one costs what a move against the facts costs (`live_talk/say/one_on_one.rs`; `world/folk/talks.rs`, `one_on_one_say`, `typed_turn`, `typed_against`).
 - Is "you're my starter" typed to your player checked against the depth chart? No: players never see the chart. It is heard as a promise about what he'll see and handed to the seam lane P1 fills (`world/folk/claims/truth.rs`, `standing_promise`; `talks.rs`, `typed_promise`).
 - Can I type a team talk before kickoff or at halftime? Yes, through `talk_typed`, which reads your line into the room's own move, tone, subject and who and runs the chip's command. A pregame talk can be changed until the team is on the field; the halftime talk always shows its reading first and is said once (`live_talk/say/rooms.rs`).
 - Is a lie judged? Yes, on the day he can see it, at a broken promise's cost scaled by his belief (`world/folk/claims/truth.rs`, `check_lies`, `judge`). Only lane 10 files lies so far: a NIL number a recruit can check only at signing (`claims/check/recruit.rs`).
@@ -297,7 +298,40 @@ Not built yet. It will update [nfl.md](nfl.md).
 
 ## Lane 9, one-on-ones typed
 
-Not built yet.
+Built 2026-11-14 (LT1). A typed line in a one-on-one becomes one of the talk's own options and scores with the chip's formula. Wording alone never beats the best chip. Every size here is Claude's (proposed, not confirmed).
+
+### A typed line, step by step
+
+- The box shows in every one-on-one (`world/folk/talks.rs`, `ONE_ON_ONE_TYPED`).
+- The reader's card is the scene's own options (o1 to o12: the moves on the table, his question's answers, your word on his future, ending the talk) plus the turns (t1 to t48): each other point or subject you could raise with a chip, with the move it would land on there in that chip's words, or "Turn the talk to" alone when he would ask you something first. The card also names the men in his position room (up to 8), so a fact about the man ahead of him can be checked (`live_talk/say/one_on_one.rs`, `card`, `MAX_TURNS`, `MAX_ROOM`; `talks.rs`, `typed_turns`).
+- The reader's rules are the Appendix's for a one-on-one: the nine moves, each defined from the code's own list (`Move::ALL`), the options and turns from the card, tone, promise, claims, named and fit. The schema is the core's with the turns' tags added. Both are fixed for every one-on-one, so the cache holds (`one_on_one.rs`, `RULES`, `schema`).
+- A move lands in the tone the line was said in: any tone of a move on the table can be taken, as a chip can (`talks.rs`, `one_on_one_say`; `scene.rs`, `say`, `same_move`). An answer to his question, a promise answer, your word on his future and ending the talk land as they are.
+- A turn: the talk turns to the topic exactly as its chip turns it (`change_topic`, no exchange used), then the move lands there if it is on the new table. If he asks you something first, or the move isn't there, the line only turns the talk, and your words go on the turn's line (`talks.rs`, `typed_turn`; `say/mod.rs`, `land`; `one_on_one.rs`, `turn`).
+- A pick that can't be undone asks first: every promise in a one-on-one is marked final by the chips track (talk facts lane L4 and lane P1), so a typed promise, on the table or through a turn, comes back as one reading to confirm (`one_on_one.rs`, `asks_first`). The other picks `final-picks.md` rows 58 to 61 left to this lane land on a clear read: a warning, a council seat, leave and a teammate asked to look out for him. None of them ends a job or a place, hands down a ruling or makes a deal outside the rules.
+- "Heard as" for a turn is the turn's words ("The team: I want you on the leadership council., warm").
+- The writer's card adds the talk's topic in the chip's words and how it went over as your read caught it (`one_on_one.rs`, `writer`).
+
+### Promises and facts
+
+- A typed promise on a promise pick (a Promise move, or the Promise answer to his question) takes the reading's kind and terms (by when, a condition, ahead of whom; lane P1's), not the chip's label. Its due day and a place's rank come out the way the chip's do. It is logged once: `scene::say` hands a promise to `typed_promise` only when the pick's own answer logged none (`talks.rs`, `typed_kind`, `read_kind`, `read_terms`; `scene.rs`, `say`).
+- A promise riding on another move ("Take it back from him, and the job's yours by November") is logged by `typed_promise`, as the core does for every scene. A claim about where he stands stays a promise about what he'll see (section 11 of the promise design).
+- Each other fact is checked by finding it on the sheet or in what the room sees, never the chart (`claims/check/roster.rs`): his injury or a teammate's (your training room's list), a teammate's status (hurt, suspended, healthy), an off-field case (an arrest, a closed case, a suspension or a team-rule break on his sheet), a teammate's place (starter or not, as he sees it, `seen::starter`), a teammate's snap share (within 0.2 of his last two games, `SHARE_SLACK`) and touches a game (within 3 or 30% over his last 4 games, `TOUCH_SLACK`, `TOUCH_GAMES`), and your record this season. A stat, a money or NIL number and another club's interest read unknown: they count for nothing either way.
+- True adds nothing beyond the option: on the sheet a true fact is the point itself, and it counts what the point counts. False, and he checks it as you say it: the move rests against the facts, so its lift is lost and it costs trust 0.03 to 0.06, more with ego, with "He knows that isn't so." on the talk's outcome. Praise is priced by how true it rings already, so it takes no second cost (`talks.rs`, `typed_against`).
+- Everything a one-on-one can check, he checks now, and where he stands is a promise. So a one-on-one files no lie; `Folk.live.lies` serves lane 10.
+- A move still counts once a talk, a typed repeat of a point counts what the clicked repeat counts (`Talked::again`), and the talk's exchanges are the chips'. The box takes 400 characters.
+
+### Check sets
+
+`live_talk/checks/one_on_one.json`: one card (a benched senior on losing his job, after he asked what it takes) with 6 options and 11 turns, 100 lines labelled by hand (bar 90, proposed) and 40 exploits: orders to the AI, ratings talk, magic words, flattery with nothing on the table, stacked promises and moves, false facts and claims about where he stands. Each exploit carries what a right reading lists. `ai_checks` reads both on lane 9's rules and reports the exploits as their own row, "one_on_one exploits" (`checks/mod.rs`, `sets`).
+
+### Tests
+
+- Engine (`tests/live_one_on_one.rs`): the box shows; a typed move is the clicked one in each of the four tones (same world bytes); a line on another point is its chip and then the move; a typed repeat adds what the clicked repeat adds; none of the 40 exploits lands above the best chip (every move on the table in every tone) and every false fact is caught as it is said, with no lie saved and one promise at most; a typed promise takes the reading's kind and is logged once; a typed claim of his place is judged on its day in a save loaded with no key.
+- Game (`live_talk/say/one_on_one_tests.rs`, `checks/mod.rs`): a line lands on its move in its tone through `people_say` on the fake, with the writer's card; a turn hands him a council seat; a promise asks first and lands once confirmed; with no key there is no box and the chips play; the sets hold 100 lines and 40 exploits, every label on the card.
+
+### Not run
+
+The real test (both sets through `ai_checks` on the real reader, 3 to 5 cents a run) was not run: the opening message gave no go. Cain's Mac runs the same sets from settings.
 
 ## Lane 10, college desk
 

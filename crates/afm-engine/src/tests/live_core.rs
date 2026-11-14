@@ -177,8 +177,9 @@ fn a_final_pick_asks_first_and_no_caller_can_skip_it() {
 }
 
 #[test]
-fn press_media_stories_and_one_on_ones_take_no_typed_line() {
-    for kind in [Kind::Press, Kind::PressIntro, Kind::Media, Kind::Story, Kind::OneOnOne] {
+fn press_media_and_stories_take_no_typed_line() {
+    // A one-on-one takes them since lane 9 (`tests/live_one_on_one.rs`).
+    for kind in [Kind::Press, Kind::PressIntro, Kind::Media, Kind::Story] {
         let mut w = seat("college");
         let mut s = bare(kind, vec![pick(100)], Vec::new());
         s.date = w.today;

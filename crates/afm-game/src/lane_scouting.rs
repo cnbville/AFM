@@ -1424,7 +1424,7 @@ fn board_list(w: &mut World, id: u32, list: u8, on: bool) -> Result<(), String> 
 
 // --- The war room (screens topic 8, scouting topic 11) -----------------------------------
 
-fn offer_json(w: &World, l: &live::LiveDraft, o: &live::TradeOffer, k: usize) -> Value {
+pub(crate) fn offer_json(w: &World, l: &live::LiveDraft, o: &live::TradeOffer, k: usize) -> Value {
     let slot_text = |s: usize| l.run.board.get(s).map_or(String::new(), |x| format!("pick {} (round {})", s + 1, x.1));
     let mut gets = vec![slot_text(o.their_slot)];
     if let Some(s) = o.slot_extra {

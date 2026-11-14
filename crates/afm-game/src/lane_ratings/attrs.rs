@@ -76,7 +76,7 @@ fn range_json(r: Option<(u8, u8)>) -> Value {
 
 /// The skills in play at a position: the families' skills, then the
 /// "also in play" ones.
-fn in_play(pos: Position) -> HashSet<Attr> {
+pub(crate) fn in_play(pos: Position) -> HashSet<Attr> {
     let l = list(pos);
     l.core.iter().copied().chain(l.also.iter().map(|x| x.0)).collect()
 }
