@@ -228,6 +228,7 @@ Who decides (`world/background.rs`, `generate_family`): himself 45%, a parent (o
 - `coming` is the index of the next fall to start among the map's three: 0 until fall camp opens, then 1. "If he stayed" this fall and next is `stayed[coming]` and `stayed[coming + 1]`.
 - A spot he would have started at says so under "Why it changes", for the first fall still to start (from `coming` on): "… is in the transfer portal and counts as gone: he would have started here in 2026."
 - `men` lists every man the map counts (roster and commits): his read and class each fall he is there, the spot he starts at, why and when he goes, and whether he is a commit, in the portal or a draft risk. The screens that show a group's depth read it instead of working anything out again.
+- On screen (UX pass, 2026-11-14): a full-width "In the portal" card under the year cards lists each man with his place in the next two falls if he had stayed (`stayed[coming]`, `stayed[coming + 1]`: `words`, or "Out of eligibility" / "Likely in the draft" from `stay_gone`); the commits box is labelled "Commits for fall N (next class)" because it counts only the class arriving next fall (`app/ui/screens/squadboards.js`, `sbPortalCard`, `sbLeaveLabel`).
 - Not changed: the depth chart. The engine's game team still holds a player in the portal until he lands or leaves (`season.rs`, `game_team`), so the Depth chart screen can still show him.
 
 ### The portal in your inbox (the inbox lane, Cain 2026-11-12)
