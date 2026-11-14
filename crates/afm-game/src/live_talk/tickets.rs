@@ -46,9 +46,15 @@ pub enum Step {
 }
 
 impl Step {
-    /// The answer for a call that failed: the box hides, the chips stay.
+    /// The answer for a call that failed: the chips stay. A failure worth
+    /// another try carries `retry`, so the box keeps the words and stays; a
+    /// lasting one (key, credit, cap) hides the box.
     pub fn off(f: &Failure) -> Step {
-        Step::Done(off(&f.note()))
+        let mut v = off(&f.note());
+        if f.is_retryable() {
+            v["retry"] = json!(true);
+        }
+        Step::Done(v)
     }
 }
 
