@@ -39,6 +39,10 @@ pub(crate) struct TeamResult {
     pub incidents: u32,
     pub roster: u32,
     pub totals: super::program::SeasonTotals,
+    /// Points scored and allowed in every game, the stand-in's too (the
+    /// team page's seasons; `totals` counts engine games only).
+    #[serde(default)]
+    pub points: [u32; 2],
 }
 
 impl TeamResult {
