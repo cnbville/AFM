@@ -390,6 +390,7 @@ Cain, 2026-11-14 20:22 UTC: the AI should play the person, never steer him to op
 - **Agreed 22:02 UTC:** a typed line is never mapped onto a chip (rule LT1 dropped); two calls a line (the ear reads, the game decides, the voice answers as him).
 - **Agreed 22:12 UTC:** asking gets real information from what he knows, gated by his trust and honesty ("This has always been my fucking intent with this live feature"); deals you build from real game actions, which he weighs and counters ("good"); asking people to do things that become real actions ("good"); and all of it in every facet: "recruiting, player relationship, negotiating. Everything".
 - **His ideas (20:19 UTC):** custom football promises judged on the play log, and football knowledge in talks.
+- **Agreed 23:08 UTC (promises thread):** the 9 football promise items, as "a baseline for every position with their own promises, don't treat it like a kicker or edge fix". The spec's section 8.4 reads that for every position (proposed, not confirmed), and the promises thread builds from it.
 - **Open:** the 14 questions in the spec's section 17 (version 3 replaces version 2's 11).
 
 ## Superseded decisions
