@@ -177,6 +177,23 @@ impl GrowthCtx {
     }
 }
 
+/// The weight the weight room pulls a grown frame toward (update 3, A4,
+/// A14): his position's weight for his talent, never past the position's
+/// combine weight, and at most about 30 lb past where his frame put him.
+pub fn weight_room_room(position: crate::positions::Position, talent: f64, frame: f64) -> f64 {
+    let target = crate::athlete::position_weight_for(talent, position).min(crate::body::combine_size(position).2);
+    target.min(crate::athlete::placed_weight(frame, target) + 30.0)
+}
+
+/// The share of the way to `weight_room_room` a year closes: a third in
+/// college and the pros, an eighth in high school, faster with his work
+/// ethic and a strength staff (proposed, not confirmed).
+pub fn weight_room_pace(hs: bool, work_ethic: f64, physical: f64) -> f64 {
+    (if hs { 0.12 } else { 0.33 })
+        * clamp(0.7 + 0.03 * work_ethic, 0.7, 1.3)
+        * (1.0 + 0.15 * clamp(physical, -1.0, 1.0))
+}
+
 /// Whether an attribute is past its decline onset this year, by the
 /// ageing step's rule.
 pub(crate) fn declines(position: crate::positions::Position, longevity: f64, key: Attr, age: f64) -> bool {
@@ -1201,11 +1218,8 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // third of the way a year in college and the pros, an eighth in high
     // school, from 15 to 25).
     if (15.0..=25.0).contains(&age) && !position.is_specialist() {
-        let target = crate::athlete::position_weight(player, position).min(crate::body::combine_size(position).2);
-        let room = target.min(crate::athlete::placed_weight(player.body.frame_weight, target) + 30.0);
-        let pace = if hs { 0.12 } else { 0.33 }
-            * clamp(0.7 + 0.03 * personality.work_ethic, 0.7, 1.3)
-            * (1.0 + 0.15 * clamp(ctx.physical, -1.0, 1.0));
+        let room = weight_room_room(position, player.original_potential, player.body.frame_weight);
+        let pace = weight_room_pace(hs, personality.work_ethic, ctx.physical);
         let gap = room - player.body.weight;
         if gap > 0.0 {
             player.body.weight += gap * clamp(pace, 0.0, 1.0);
