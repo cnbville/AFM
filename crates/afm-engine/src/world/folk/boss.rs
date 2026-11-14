@@ -996,6 +996,32 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
     ));
 }
 
+/// How far the public bar moves your review, in seasons' shares (a share
+/// of the season's games: 0.06 is about one game of a 17-game NFL year).
+/// Claude's size (proposed, not confirmed).
+pub const PUBLIC_BAR: f64 = 0.06;
+
+/// The public bar you set (`Mine.expectation`, -1 to 1: championships
+/// promised at your introduction or to the team, a higher bar taken on with
+/// the boss, or "it's a process"), as the people who judge you hold it to
+/// the season: the same record reads that much worse, or better, in your
+/// review (`staff::college_review`, `staff::nfl_firing`, and your high
+/// school's season review). A raised bar weighs fully for three seasons,
+/// half in the fourth and fifth, then your record is the bar. A lowered
+/// one buys only the first season, as its hint says. A season that clears
+/// the bar is not hurt: the reviews fire only on a read past their own
+/// line. `tenure`: full seasons in the job. Proposed, not confirmed.
+pub fn public_bar(w: &World, tenure: i32) -> f64 {
+    let e = w.folk.mine.expectation as f64;
+    let fade = match (e > 0.0, tenure) {
+        (true, ..=3) => 1.0,
+        (true, 4 | 5) => 0.5,
+        (false, ..=1) => 1.0,
+        _ => 0.0,
+    };
+    PUBLIC_BAR * e * fade
+}
+
 /// Your review read by the coaching carousel (`staff::college_review`): his
 /// trust moves the read a little, up to about a tenth of a bad season
 /// either way (proposed, not confirmed).
