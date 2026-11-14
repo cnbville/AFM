@@ -122,7 +122,7 @@ fn money_json(x: f64) -> Value {
 
 /// A player's row with your staff's read (your own players) or the
 /// league's public read (everyone else's).
-fn prow(w: &World, i: usize) -> Value {
+pub(crate) fn prow(w: &World, i: usize) -> Value {
     let t = views::mine(w).unwrap_or(TeamRef::Nfl(0));
     let own = matches!(t, TeamRef::Nfl(c) if w.people[i].pro.as_ref().and_then(|p| p.team) == Some(c));
     let mut v = views::row(w, i, t, own, views::reader_key(w));
@@ -393,12 +393,13 @@ fn dead_words(d: pro::DeadWhy) -> &'static str {
         Retired => "Retired",
         Traded => "Traded (bonus kept)",
         PaidBeforeTrade => "Traded (pay already paid)",
+        PaidDown => "Traded (salary paid down)",
         Voided => "Void years",
         Incentives => "Incentives settled",
     }
 }
 
-fn pick_json(w: &World, p: &deals::Pick) -> Value {
+pub(crate) fn pick_json(w: &World, p: &deals::Pick) -> Value {
     let t = views::mine(w).and_then(|t| if let TeamRef::Nfl(c) = t { Some(c) } else { None }).unwrap_or(0);
     json!({
         "year": p.year, "round": p.round, "orig": p.orig, "comp": p.comp,
@@ -814,6 +815,7 @@ fn trade_desk(w: &World) -> Reply {
         .trades
         .conditionals
         .iter()
+        .filter(|c| c.from == t || c.to == t)
         .map(|c| json!({ "pick": pick_json(w, &c.pick), "cond": c.cond.words(), "player": fo::index_of(w, c.player).map(|i| w.people[i].name.clone()), "from_me": c.from == t }))
         .collect();
     let made: Vec<Value> = w
@@ -859,7 +861,7 @@ fn tradable(w: &World, t: usize, i: usize, s: Status) -> bool {
         .is_some_and(|c| c.status == s && c.contract.as_ref().is_some_and(|k| k.team == t && k.last_year() >= w.year))
 }
 
-fn mode_words(m: afm_engine::world::pro::office::Mode) -> &'static str {
+pub(crate) fn mode_words(m: afm_engine::world::pro::office::Mode) -> &'static str {
     use afm_engine::world::pro::office::Mode;
     match m {
         Mode::Contend => "chasing a title",
