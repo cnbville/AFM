@@ -122,6 +122,8 @@ async function aiLand(b, a, text) {
   if (a.ticket != null) b.ticket = a.ticket;
   if (a.state === "unsure") { b.phase = "unsure"; b.readings = a.readings || []; b.sel = 0; aiPaint(b); return; }
   if (a.state === "none") { b.phase = "none"; b.note = a.note; aiPaint(b); return; }
+  // A call that went wrong once (retry) keeps the words and the box; only a lasting failure hides it.
+  if (a.state === "off" && a.retry) { b.phase = "none"; b.note = a.note; aiPaint(b, true); return; }
   if (a.state === "off") { b.phase = "off"; b.note = a.note; b.offShown = false; aiPaint(b); return; }
   if (a.state === "done") {
     if (b.kind === "say") await aiSayDone(b, a, text); else await aiAskDone(b, a, text);

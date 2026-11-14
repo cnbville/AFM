@@ -9769,6 +9769,9 @@ pub(crate) fn appeal(w: &World, i: usize, j: usize, nil: Option<f64>) -> f64 {
     appeal_in(w, i, j, nil, &money_field(w, i, None))
 }
 
+/// What an official visit adds to a school's appeal: the weekend on campus.
+const OFFICIAL_PULL: f64 = 0.02;
+
 /// [`appeal`] with the money on his list read already ([`money_field`]).
 fn appeal_in(w: &World, i: usize, j: usize, nil: f64, field: &TopTwo) -> f64 {
     let p = &w.people[i];
@@ -9789,7 +9792,10 @@ fn appeal_in(w: &World, i: usize, j: usize, nil: f64, field: &TopTwo) -> f64 {
     u += FEEL_SD * key_normal(seed ^ 77 ^ j as u64, p.player.id as u64);
     let contact = p.cal.visits.iter().filter(|v| v.0 == j).count().min(5) as f64;
     let official = p.cal.visits.iter().any(|v| v.0 == j && v.2 == super::Visit::Official);
-    u += 0.004 * contact + if official { 0.02 } else { 0.0 };
+    // The official visit's weekend; your athletic director's raises for
+    // travel and visits host it better (people topic 12).
+    u += 0.004 * contact
+        + if official { OFFICIAL_PULL * (1.0 + super::folk::staffing::recruit_bonus(w, j)) } else { 0.0 };
     // What the head coach said in the living room (lane 14, D7).
     u += super::folk::dialogue::home_talk(p, j);
     if let Some(k) = p.cal.early_offers.iter().position(|o| o.0 == j) {

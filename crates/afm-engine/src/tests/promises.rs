@@ -381,12 +381,33 @@ fn a_lie_he_sees_costs_by_how_far_he_believed_you() {
 
 #[test]
 fn an_nfl_start_promise_is_judged_on_his_first_four_games() {
-    let w = seat("nfl");
+    let mut w = seat("nfl");
     let club = w.seat.and_then(|s| s.nfl_team).unwrap_or(0);
     let i = w.clubs[club].roster[0];
-    // No game book this season: his club's chart decides.
-    let on_chart = promise::nfl_start_kept(&w, i, club);
-    assert!(on_chart.is_some());
+    let year = w.year;
+    let row = |w: &mut World, team: usize, games: u32, starts: u32| {
+        let c = w.people[i].pro.as_mut().unwrap();
+        c.seasons.retain(|s| s.year != year);
+        let s = c.season_mut(year);
+        s.team = Some(team);
+        s.games = games;
+        s.starts = starts;
+    };
+    // Not a game dressed for the club yet: nothing to judge (never the chart).
+    row(&mut w, club, 0, 0);
+    assert_eq!(promise::nfl_start_kept(&w, i, club), None);
+    // 3 starts in 4 games keeps it, 2 breaks it.
+    row(&mut w, club, 4, 3);
+    assert_eq!(promise::nfl_start_kept(&w, i, club), Some(true));
+    row(&mut w, club, 4, 2);
+    assert_eq!(promise::nfl_start_kept(&w, i, club), Some(false));
+    // Hurt for one: 3 of the 3 he dressed for keeps it.
+    row(&mut w, club, 3, 3);
+    assert_eq!(promise::nfl_start_kept(&w, i, club), Some(true));
+    // His games for another club say nothing about this one's word.
+    let other = (club + 1) % w.clubs.len();
+    row(&mut w, other, 4, 4);
+    assert_eq!(promise::nfl_start_kept(&w, i, club), None);
 }
 
 #[test]

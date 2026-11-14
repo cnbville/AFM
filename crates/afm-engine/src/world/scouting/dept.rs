@@ -666,6 +666,7 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
                     }
                 }
                 picks.truncate(today as usize);
+                let extra = second_schools(w, prog, d, &board, &picks, &seen);
                 for (who, i) in picks {
                     let id = w.people[i].player.id;
                     let kind = if wd == Weekday::Fri { Kind::Game } else { Kind::Practice };
@@ -677,6 +678,15 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
                     } else {
                         w.scouting.dept.eval_days.2 += 1;
                     }
+                }
+                // A second school on the same day is the same evaluation
+                // day by NCAA rule (one coach out one day), so it takes
+                // none of the staff's days.
+                for (who, i) in extra {
+                    let id = w.people[i].player.id;
+                    add(w, id, who, Kind::Practice, d);
+                    w.scouting.dept.days_log.push((d, who, id));
+                    w.scouting.dept.asks.retain(|a| a.0 != id || a.1 != Kind::Practice);
                 }
             }
         }
@@ -746,6 +756,50 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
             }
         }
     }
+}
+
+/// How far a coach goes on to a second school the same afternoon on
+/// travel money: a short flight or a drive the budget pays for (proposed,
+/// not confirmed).
+const SECOND_MILES: f64 = 250.0;
+
+/// Your athletic director's raises for travel (people topic 12) put your
+/// coaches on planes: on a Thursday out (practice, never Friday's game,
+/// which all kick off at once) each coach out on the road goes on to a
+/// second school with the raise's share as his chance (a tenth more money,
+/// about a tenth more schools), to see the best recruit on your board
+/// within `SECOND_MILES` of the first whom nobody of yours has seen in
+/// person this recruiting year. None without a raise.
+pub(crate) fn second_schools(
+    w: &World,
+    prog: usize,
+    d: Date,
+    board: &[usize],
+    picks: &[(u32, usize)],
+    seen: &dyn Fn(&World, usize) -> bool,
+) -> Vec<(u32, usize)> {
+    let bonus = crate::world::folk::staffing::recruit_bonus(w, prog);
+    if bonus <= 0.0 || d.weekday() != Weekday::Thu {
+        return Vec::new();
+    }
+    let mut extra: Vec<(u32, usize)> = Vec::new();
+    for &(who, i) in picks {
+        if who < COACH || !readers::chance(Staff::Program(prog), 0x2ECD ^ d.0 as u64, who, bonus.min(1.0)) {
+            continue;
+        }
+        let from = w.people[i].home_state;
+        let next = board.iter().copied().find(|&k| {
+            matches!(w.people[k].stage, Stage::HighSchool | Stage::PrepSchool)
+                && !seen(w, k)
+                && !picks.iter().any(|p| p.1 == k)
+                && !extra.iter().any(|p| p.1 == k)
+                && crate::world::geo::miles(from, w.people[k].home_state) <= SECOND_MILES
+        });
+        if let Some(k) = next {
+            extra.push((who, k));
+        }
+    }
+    extra
 }
 
 /// One Monday's film study by the personnel staff: a quarter of the board

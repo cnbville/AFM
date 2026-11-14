@@ -367,7 +367,7 @@ function fcFile(f, ctx, compact) {
   if (compact) {
     return `<section class="fc-file warm">${left}${mid}${right}</section>`;
   }
-  return `<section class="fc-file warm">${left}${mid}${right}</section><div class="grid3">${family}${history || '<div class="panel"><h2>Visits and contacts</h2><div class="empty">He hasn\'t been on your campus yet.</div></div>'}${early || '<div class="panel"><h2>His offers in order</h2><div class="empty">No offers yet.</div></div>'}</div>`;
+  return `<section class="fc-file warm">${left}${mid}${right}</section>${plPanel(f.pulls, { wrap: true })}<div class="grid3">${family}${history || '<div class="panel"><h2>Visits and contacts</h2><div class="empty">He hasn\'t been on your campus yet.</div></div>'}${early || '<div class="panel"><h2>His offers in order</h2><div class="empty">No offers yet.</div></div>'}</div>`;
 }
 
 // Your own film session on him (bug 82): today, on your own film hours;
@@ -627,6 +627,7 @@ screens.portal_file = async (a) => {
     <div class="fc-bar"><div><div class="st-label">Transfer portal${f.from ? ` · from ${esc(f.from.name)}` : ""}</div><div class="h1">${esc(f.name)}</div></div>${go}</div>
     <section class="fc-file warm">${left}${mid}${right}</section>
     ${fcStand(f.stand)}
+    ${plPanel(f.pulls, { wrap: true })}
     <div class="grid3"><div class="panel"><h2>Your talks <small>the latest at each place counts</small></h2>${talks}</div><div class="panel"><h2>Visits <small>with your program</small></h2>${visits}</div><div class="panel"><h2>How a transfer decides</h2><p class="sub">He weighs the same things a recruit's family does, for himself: playing time against who's ahead of him, the money, the school, home, the staff, his shot at the league and winning. Every staff with a place for him calls; his finalists host him. When one school clearly gives him what he needs, he stops shopping and says yes, often days before his date.</p></div></div>
   </div></div>`;
 };

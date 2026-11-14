@@ -104,12 +104,26 @@ pub fn after(g: &mut Game, cmd: &str, _args: &Value, reply: &mut Reply) {
     ask::flags(g, cmd, v);
 }
 
-/// The settings card's Test: one tiny call, to see that the key is accepted.
-/// It goes through even after a lasting failure, since a good test is how that
-/// is cleared.
+/// A short card for the Test call, in the shape of a typed line to a player.
+const TEST_CARD: &str = "<card>
+Setting: one-on-one, your office in the football building, Tuesday of week 6, college.
+Player: p1 Marcus Hill, QB, redshirt senior, benched last week for p2.
+Players he may name: p1 Marcus Hill (QB), p2 Jaylen Ortiz (QB, true freshman, 1st on the chart).
+Subjects: role (now), touches, behavior, life, team, future.
+Moves already used this talk: ask.
+</card>
+<coach_line>You're still my guy on third downs, but the freshman is reading it faster right now.</coach_line>";
+
+/// The settings card's Test: one call the size of a typed line (the scene
+/// reader's own rules and schema), so the key is checked and the seconds it
+/// shows are what a typed line takes. The call with a schema is also the first
+/// the API compiles, so it warms that reader's schema for the day. It goes
+/// through even after a lasting failure, since a good test is how that is
+/// cleared.
 fn test(g: &mut Game) -> Reply {
     let fake = g.ai.is_fake();
-    let req = Request::new("test", "Reply with the single word ok.", "ping").no_cache().max_tokens(16);
+    let req =
+        Request::new("test", say::READER_RULES, TEST_CARD).schema(say::reader_schema()).max_tokens(say::READER_TOKENS);
     let next: Next = Box::new(move |g, r| match r {
         Ok(reply) => Step::Done(json!({
             "state": "done",
@@ -341,6 +355,8 @@ mod tests {
             let id = ok(&mut g, "ai_test", json!({}))["ticket"].as_u64().unwrap();
             let v = finish(&mut g, id);
             assert_eq!((v["state"].as_str(), v["note"].as_str()), (Some("off"), Some(f.note().as_str())), "{f:?}");
+            // A call that went wrong once keeps its box (the page keeps the words and may try again).
+            assert_eq!(v["retry"], true, "{f:?}");
             assert!(g.ai.usable(), "{f:?} does not stand in the way of the next call");
         }
         // Fake mode needs no key for the boxes.
@@ -353,7 +369,9 @@ mod tests {
         for f in [Failure::CreditGone, Failure::Api { status: 401, message: String::new() }] {
             fake.push("test", Err(f.clone()));
             let id = ok(&mut g, "ai_test", json!({}))["ticket"].as_u64().unwrap();
-            assert_eq!(finish(&mut g, id)["state"], "off");
+            let v = finish(&mut g, id);
+            assert_eq!(v["state"], "off");
+            assert!(v.get("retry").is_none(), "a lasting failure hides the box: {v}");
             assert!(!g.ai.usable());
             let s = ok(&mut g, "ai_status", json!({}));
             assert_eq!(s["usable"], false);
