@@ -1759,6 +1759,7 @@ pub fn team_page(w: &World, t: TeamRef) -> Value {
         }
         v["leaders"] = json!(leaders);
     }
+    super::team_page::blocks(w, t, &mut v);
     let _ = tables::COLS.len();
     v
 }

@@ -2077,7 +2077,118 @@ screens.you = async (a) => {
   return `<div class="pad">${pageHead({ kicker: esc(y.title || `Head coach since ${y.started}`), title: esc(y.name), sub: esc(y.record) })}${gotoLine([["Your staff", "staff"], ["Your boss's letters", "inbox", { key: "Your job" }], ["Coaching carousel", "history", { tab: "Coaching carousel" }]])}${tabs("ytab", ["Profile", "Contract", "Coaching tree", "Job market", "Jobs", "Big moments"], tab)}<div class="tabbody">${body}</div></div>`;
 };
 
-// ---------- the team page ----------
+// ---------- the team page (the shared template, Cain 2026-11-14) ----------
+// One page for every level, in the same order: the hero, four key numbers,
+// the key players, then the level's middle (strength by unit, the next four
+// games, the books an NFL club or a college keeps, the group's table), the
+// season bars and Lately. A block the world can't fill is left out. Calm and
+// monochrome: gold only for what is yours.
+const TP_ORD = (n) => (n == null ? "" : `${n}${["th", "st", "nd", "rd"][(n % 100 >= 11 && n % 100 <= 13) || n % 10 > 3 ? 0 : n % 10]}`);
+const TP_WHOSE = { yours: "your read", staff: "your staff's read", film: "the read off film" };
+function tpRing(v) {
+  const c = 138.2, f = Math.max(0, Math.min(1, (v || 0) / 100)) * c;
+  return `<svg class="tp-ring" width="52" height="52" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="22" fill="none" stroke="var(--fill-2)" stroke-width="5"/><circle cx="28" cy="28" r="22" fill="none" stroke="var(--fg)" stroke-width="5" stroke-linecap="round" stroke-dasharray="${f.toFixed(1)} ${c}" transform="rotate(-90 28 28)"/><text x="28" y="33" text-anchor="middle" font-size="15" font-weight="800" fill="var(--fg)">${v == null ? "–" : Math.round(v)}</text></svg>`;
+}
+function tpTiles(t) {
+  const tiles = [];
+  tiles.push([t.record, esc(t.record_note || "this season")]);
+  if (t.table && t.table.place) tiles.push([TP_ORD(t.table.place), esc(t.table.name)]);
+  const b = t.books || {};
+  if (t.ref.kind === "nfl") {
+    if (b.capped) tiles.push([b.over ? "Over" : `${b.room}%`, b.over ? "over the cap" : "of the cap still free"]);
+    if (b.picks && b.picks.year) tiles.push([String(b.picks.list.length), `picks in the ${b.picks.year} draft`]);
+  } else if (t.ref.kind === "college") {
+    tiles.push(b.rank ? [`#${b.rank}`, `${b.sign_year} class among ${b.rank_of} ${esc(b.division)} programs`] : ["–", `no commitments yet for the ${b.sign_year} class`]);
+    if (b.portal) tiles.push([`${b.portal.in} in · ${b.portal.out} out`, "the portal this cycle"]);
+  } else if (t.ref.kind === "hs") {
+    if (t.alive) tiles.push(["Alive", "still in the state playoffs"]);
+    if (t.roster_count != null) tiles.push([String(t.roster_count), "players on the roster"]);
+  }
+  return tiles.length ? `<div class="tp-tiles">${tiles.slice(0, 4).map(([b2, s]) => `<div><b>${esc(b2)}</b><span>${s}</span></div>`).join("")}</div>` : "";
+}
+function tpKeys(t) {
+  const k = t.key_players || [];
+  if (!k.length) return "";
+  const nfl = t.ref.kind === "nfl";
+  return `<div class="panel"><h2>Key players <small>who it leans on</small></h2><div class="tp-cards">${k.map((p) => `<div class="tp-pc"><div class="tp-pr">${tpRing(p.value)}<div>${playerLink(p.id, p.name)}<span>${esc(p.pos)} · ${nfl ? `age ${p.age}` : esc(p.class)}</span></div></div>${p.word ? `<div class="tp-rd">${esc(p.word)}<small>${esc(TP_WHOSE[p.whose] || "")}</small></div>` : ""}${p.line ? `<p>${esc(p.line)}${p.note ? ` ${esc(p.note)}` : ""}</p>` : ""}</div>`).join("")}</div></div>`;
+}
+function tpUnits(t) {
+  const u = t.units;
+  if (!u || !u.rows || !u.rows.some((r) => r.value != null)) return "";
+  return `<div class="panel"><h2>Strength by unit <small>the starters ${esc(u.among)} · the line is the level's middle starter</small></h2><div class="tp-units">${u.rows.map((r) => `<div class="tp-ur" title="${r.value == null ? "Nobody there" : `${r.grade} · starters' read ${r.value}`}"><span>${esc(r.name)}</span><div class="tp-ub"><i style="width:${r.pct ?? 0}%"></i><u></u></div><b>${r.rank_words ? esc(r.rank_words) : "–"}</b></div>`).join("")}</div></div>`;
+}
+function tpComing(t) {
+  const g = t.coming || [];
+  if (!g.length) return "";
+  return `<div class="panel"><h2>Next games <small>win chances from the power rating</small></h2><div class="tp-gms">${g.map((x) => `<div class="tp-gm"><small>${esc(x.date)}</small><b>${x.neutral ? "vs" : x.home ? "vs" : "at"} ${x.opp ? teamA(x.opp) : ""}</b><div class="tp-wb"><i style="width:${parseInt(x.chance, 10) || 0}%"></i></div><span>${esc(x.chance)} win chance</span></div>`).join("")}</div></div>`;
+}
+// One bar per season, oldest on the left: its height the share of games
+// won, its shade how far it went. A bar opens that season's schedule.
+function tpBars(t) {
+  const list = (t.seasons || []).slice().reverse().filter((s) => s.w != null);
+  if (list.length < 2) return "";
+  const kind = t.ref.kind;
+  const ta = { kind: t.ref.kind, id: t.ref.id };
+  const shade = (s) => {
+    if (kind === "nfl") return s.round >= 5 ? "var(--fg)" : s.round >= 2 ? "var(--fg2)" : s.round === 1 ? "var(--fill-3)" : "var(--fill-2)";
+    if (s.nat) return "var(--fg)";
+    if (s.conf || (kind === "hs" && s.semi)) return "var(--fg2)";
+    if (kind === "hs" && s.playoff_wins) return "var(--fill-3)";
+    return "var(--fill-2)";
+  };
+  const legend = kind === "nfl"
+    ? [["var(--fg)", "Won the Super Bowl"], ["var(--fg2)", "Won a playoff game"], ["var(--fill-3)", "Lost in the wild card round"], ["var(--fill-2)", "Missed"]]
+    : kind === "hs"
+      ? [["var(--fg)", "State champions"], ["var(--fg2)", "Final four"], ["var(--fill-3)", "Won a playoff game"], ["var(--fill-2)", "The rest"]]
+      : [["var(--fg)", list.find((s) => s.nat && s.nat_word) ? `${list.find((s) => s.nat && s.nat_word).nat_word} champions` : "Champions"], ["var(--fg2)", "Won the conference"], ["var(--fill-2)", "The rest"]];
+  const n = list.length, W = 360, step = W / n, bw = Math.max(4, Math.min(14, step - 4)), top = 8, h = 66;
+  const bars = list.map((s, i) => {
+    const g = (s.w || 0) + (s.l || 0);
+    const bh = Math.max(3, h * (g ? s.w / g : 0));
+    const x = i * step + (step - bw) / 2;
+    return `<g class="tp-bar" data-go="schedule" data-args='${esc(JSON.stringify({ ...ta, season: s.year }))}'><title>${s.year}: ${esc(s.record)}${s.coach ? ` · ${esc(s.coach)}` : ""}${s.note ? ` · ${esc(s.note)}` : ""}</title><rect x="${(i * step).toFixed(1)}" y="0" width="${step.toFixed(1)}" height="${top + h}" fill="transparent"/><rect x="${x.toFixed(1)}" y="${(top + h - bh).toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="3" fill="${shade(s)}"/></g>`;
+  }).join("");
+  const every = Math.max(1, Math.ceil(n / 8));
+  const labels = list.map((s, i) => (i % every === 0 || i === n - 1 ? `<text x="${(i * step + step / 2).toFixed(1)}" y="${top + h + 12}" text-anchor="middle" font-size="8" fill="var(--fg3)">${String(s.year).slice(2)}</text>` : "")).join("");
+  return `<div class="panel"><h2>Seasons <small>share of games won, shade is how far it went · click a bar for its schedule</small></h2><svg class="tp-bars" viewBox="0 0 ${W} ${top + h + 16}" width="100%" role="img" aria-label="Wins by season">${bars}${labels}</svg><div class="tp-leg">${legend.map(([c, l]) => `<span><i style="background:${c}"></i>${esc(l)}</span>`).join("")}</div></div>`;
+}
+function tpNflBooks(t) {
+  const b = t.books;
+  if (!b) return "";
+  let out = "";
+  if (b.capped) {
+    const parts = [["var(--fg)", "Offense", b.off], ["var(--fg2)", "Defense", b.def], ["var(--fill-3)", "Special teams", b.st], ["var(--fg3)", "Dead money", b.dead]].filter((x) => x[2] > 0);
+    out += `<div class="panel"><h2>Cap and contracts <small>${b.year} · share of the cap</small></h2><div class="tp-capbar">${parts.map(([c, , v]) => `<i style="width:${Math.min(100, v)}%;background:${c}"></i>`).join("")}</div><div class="tp-leg">${parts.map(([c, l, v]) => `<span><i style="background:${c}"></i>${l} ${v}%</span>`).join("")}</div><div class="kv">${b.top ? `<dt>Biggest hit</dt><dd>${playerLink(b.top.id, b.top.name)} <small class="muted">${esc(b.top.pos)}</small> · ${b.top.share}% of the cap</dd>` : ""}<dt>Expiring</dt><dd>${b.ending} deal${b.ending === 1 ? "" : "s"} ${b.ending_now ? "run out when the new league year opens" : "after this season"}</dd><dt>Cap space</dt><dd>${b.over ? '<span class="tp-low">Over the cap</span>' : `<b>${b.room}%</b> of the cap`}</dd></div></div>`;
+  }
+  const p = b.picks;
+  if (p && p.year) out += `<div class="panel"><h2>Draft picks <small>${p.year} · ${p.list.length} in all</small></h2>${p.list.length ? `<div class="chips">${p.list.map((x) => `<span class="st-pill" title="${esc(x.text)}">R${x.round}${x.comp ? " comp" : ""}${x.from ? ` · from ${esc(x.from.name)}` : ""}</span>`).join("")}</div>` : '<div class="empty">No picks in this draft: they were traded away.</div>'}</div>`;
+  return out;
+}
+function tpCollegeBooks(t) {
+  const b = t.books;
+  if (!b) return "";
+  const mine = t.mine;
+  const needs = (b.needs || []).length
+    ? b.needs.map((n) => `<div class="tp-ur"><span>${esc(n.pos)}</span><div class="tp-ub"><i style="width:${n.need ? Math.min(100, (100 * n.have) / n.need) : 100}%"></i></div><b>${n.have}/${n.need}</b></div>`).join("")
+    : '<div class="empty">No places left to fill in this class.</div>';
+  const pin = b.portal.in_names.map((x) => `${esc(x.pos)} ${playerLink(x.id, x.name)}`).join(", ");
+  const kv = `<div class="kv"><dt>Committed</dt><dd><b>${b.committed}</b> of ${b.places} places</dd>${b.conf_rank ? `<dt>In the conference</dt><dd>${TP_ORD(b.conf_rank)} of ${b.conf_of}</dd>` : ""}<dt>Portal in</dt><dd><b>${b.portal.in}</b>${pin ? ` · ${pin}${b.portal.in > b.portal.in_names.length ? " and more" : ""}` : ""}</dd><dt>Portal out</dt><dd><b>${b.portal.out}</b>${b.portal.out_starters ? ` · ${b.portal.out_starters} starter${b.portal.out_starters === 1 ? "" : "s"}` : ""}</dd></div>`;
+  let out = `<div class="panel"><h2>Class and portal <small>class of ${b.sign_year} · committed against the places ${mine ? "you still need" : "it needs"}</small></h2><div class="tp-units">${needs}</div>${kv}</div>`;
+  const pl = b.pipeline;
+  if (pl && pl.rows.length) {
+    const top = Math.max(...pl.rows.map((r) => r.n), 1);
+    out += `<div class="panel"><h2>Where its recruits come from <small>classes of ${pl.classes[0]}-${pl.classes[1]} · ${pl.total} signees</small></h2><div class="tp-units">${pl.rows.map((r) => `<div class="tp-ur tp-pipe"><span>${esc(r.state)}${r.home ? ' <small class="muted">home</small>' : ""}</span><div class="tp-ub"><i class="${r.home && mine ? "tp-gold" : ""}" style="width:${(100 * r.n) / top}%"></i></div><b>${r.n}</b></div>`).join("")}</div></div>`;
+  }
+  return out;
+}
+function tpTable(t) {
+  const x = t.table;
+  if (!x || !x.rows || x.rows.length < 2) return "";
+  const conf = !!x.conf;
+  const pts = x.rows.some((r) => r.diff != null && r.diff !== 0);
+  const rec = (r) => (r.t ? `${r.w}-${r.l}-${r.t}` : `${r.w}-${r.l}`);
+  return `<div class="panel"><h2>${t.ref.kind === "nfl" ? "Division" : t.ref.kind === "college" ? "Conference" : "Its group"} <small>${esc(x.name)}</small></h2><div class="tbl warm box"><table><thead><tr><th class="l">Team</th>${conf ? '<th class="l">Conf</th>' : ""}<th class="l">Record</th>${pts ? '<th class="l">Points</th>' : ""}</tr></thead><tbody>${x.rows.map((r) => `<tr class="${r.this ? "tp-this" : ""} ${r.mine ? "tp-mine" : ""}"><td class="l">${teamChip(r.team, 18)}</td>${conf ? `<td class="l">${r.cw}-${r.cl}</td>` : ""}<td class="l">${rec(r)}</td>${pts ? `<td class="l">${r.diff > 0 ? "+" : r.diff < 0 ? "−" : ""}${Math.abs(r.diff || 0)}</td>` : ""}</tr>`).join("")}</tbody></table></div></div>`;
+}
 screens.team = async (a) => {
   const t = await api("team_page", a.kind ? { kind: a.kind, id: a.id } : {});
   setColors(t.colors);
@@ -2087,15 +2198,18 @@ screens.team = async (a) => {
   const seasons = t.seasons && t.seasons.length
     ? pro
       ? table("tseasons", [{ k: "year", t: "Season", f: (s) => linkTo("schedule", { ...ta, season: s.year }, String(s.year)) }, { k: "record", t: "Record", l: true }, { k: "coach", t: "Head coach", l: true }, { k: "note", t: "Playoffs", l: true }], t.seasons, { tools: false })
-      : table("tseasons", [{ k: "year", t: "Season", f: (s) => linkTo("schedule", { ...ta, season: s.year }, String(s.year)) }, { k: "record", t: "Record", l: true }, { k: "coach", t: "Coach", l: true }, { k: "pts", t: "Points", l: true, f: (s) => (s.g ? `${s.pf}-${s.pa}` : "") }, { k: "titles", t: "Titles", l: true, wrap: true, f: (s) => [s.conf ? "Conference" : "", s.nat ? (t.ref.kind === "hs" ? "State" : s.nat_word || "National") : ""].filter(Boolean).join(", ") }], t.seasons, { tools: false })
+      : table("tseasons", [{ k: "year", t: "Season", f: (s) => linkTo("schedule", { ...ta, season: s.year }, String(s.year)) }, { k: "record", t: "Record", l: true }, { k: "coach", t: "Coach", l: true }, { k: "pts", t: "Points", l: true, v: (s) => (s.g ? s.pf - s.pa : null), f: (s) => (s.g ? `${s.pf}-${s.pa}` : '<span class="muted">–</span>') }, { k: "titles", t: "Titles", l: true, wrap: true, v: (s) => (s.nat ? 2 : s.conf ? 1 : 0), f: (s) => [s.conf ? "Conference" : "", s.nat ? (t.ref.kind === "hs" ? "State" : s.nat_word || "National") : ""].filter(Boolean).join(", ") || '<span class="muted">–</span>' }], t.seasons, { tools: false })
     : `<div class="empty">${pro ? "The league's book of seasons starts with this world's next season." : "No seasons kept."}</div>`;
   const leaders = (t.leaders || []).length ? `<div class="panel"><h2>Last season's leaders</h2><div class="items">${t.leaders.map((l) => `<div class="item"><span class="when">${esc(l.label)}</span><span>${playerLink(l.id, l.name)} <small class="muted">${esc(l.pos)}</small><br><small>${esc(l.line)}</small></span></div>`).join("")}</div></div>` : "";
   const news = t.news.length ? `<div class="items">${t.news.map((n) => `<div class="item"><span class="when">${esc(n.date)}</span><span><small class="muted">${esc(n.kind)}</small> ${rich(n.text)}</span></div>`).join("")}</div>` : '<div class="empty">Nothing in the last two months.</div>';
-  return `<div class="hero" style="--c1:${t.colors[0]};--c2:${t.colors[1] || t.colors[0]}"><div class="art"></div>${(typeof logoHero === "function" && logoHero(t)) || `<div class="st-outline">${esc(initials(t.name))}</div>`}<div class="copy"><div class="st-label">${esc(t.level)}</div><h1>${esc(t.name)}</h1>
-    <div class="meta"><span><b>${esc(t.record)}</b> ${esc(t.record_note || "this season")}</span>${t.place ? `<span>${esc(t.place)}</span>` : ""}${t.prestige ? `<span>${esc(t.prestige)}</span>` : ""}${t.stadium ? `<span>${Number(t.stadium).toLocaleString()} seats</span>` : ""}${t.coach ? `<span>Head coach ${coachLink(t.coach.id, t.coach.name)}</span>` : ""}</div>
+  const level = pro && t.table && t.table.name ? `NFL · ${t.table.name}` : t.level;
+  const rivals = !pro && t.rivals.length ? `<div class="panel"><h2>${t.ref.kind === "hs" ? "Rivals and neighbours" : "Rivals"}</h2><div class="chips">${t.rivals.map((r) => teamChip(r, 20)).join("")}</div></div>` : "";
+  const books = pro ? tpNflBooks(t) : t.ref.kind === "college" ? tpCollegeBooks(t) : "";
+  return `<div class="hero tp-hero" style="--c1:${t.colors[0]};--c2:${t.colors[1] || t.colors[0]}"><div class="art"></div>${(typeof logoHero === "function" && logoHero(t)) || `<div class="st-outline">${esc(initials(t.name))}</div>`}<div class="copy"><div class="st-label">${esc(level)}</div><h1>${esc(t.name)}</h1>
+    <div class="meta"><span><b>${esc(t.record)}</b> ${esc(t.record_note || "this season")}</span>${t.place ? `<span>${esc(t.place)}</span>` : ""}${t.prestige ? `<span>${esc(t.prestige)}</span>` : ""}${t.coach ? `<span>Head coach ${coachLink(t.coach.id, t.coach.name)}</span>` : ""}${t.stadium ? `<span>${Number(t.stadium).toLocaleString()} seats</span>` : ""}</div>
     <div class="st-actions">${logoChange(t)}</div></div></div>
-    <div class="pad">${gotoFor("team", a, t)}<div class="grid2"><div class="col"><div class="panel"><h2>Lately</h2>${news}</div>${leaders}</div>
-    <div class="col"><div class="panel"><h2>Seasons</h2>${seasons}</div>${t.rivals.length ? `<div class="panel"><h2>${pro ? "Division" : t.ref.kind === "hs" ? "Its group" : "Rivals"}</h2><div class="chips">${t.rivals.map((r) => teamChip(r, 20)).join("")}</div></div>` : ""}</div></div></div>`;
+    <div class="pad">${gotoFor("team", a, t)}${tpTiles(t)}<div class="grid2"><div class="col">${tpKeys(t)}${tpUnits(t)}${tpComing(t)}<div class="panel"><h2>Lately <small>the last 60 days</small></h2>${news}</div>${leaders}</div>
+    <div class="col">${tpBars(t)}${books}${tpTable(t)}${rivals}</div></div><div class="panel"><h2>Every season</h2>${seasons}</div></div>`;
 };
 // The team's own screens are Go to chips, not hero buttons (topic 17 rule 7).
 GOTO.team = (a, t) => {

@@ -1810,7 +1810,12 @@ pub fn team(w: &World, t: TeamRef) -> Value {
                         "nat_word": s.national_title
                             .then(|| upper_first(college_title(season_division(p, s)).one.trim_end_matches(" title"))),
                         "coach": s.coach.and_then(|c| w.coaches.get(c)).map(|c| c.name.clone()),
-                        "pf": s.totals.points_for, "pa": s.totals.points_against, "g": s.totals.games,
+                        // The engine's totals, else every game's score
+                        // (seasons played on the stand-in keep no totals).
+                        "pf": if s.totals.games > 0 { s.totals.points_for as i64 } else { s.points[0] as i64 },
+                        "pa": if s.totals.games > 0 { s.totals.points_against as i64 } else { s.points[1] as i64 },
+                        "g": if s.totals.games > 0 { s.totals.games } else if s.points != [0, 0] { s.wins + s.losses } else { 0 },
+                        "w": s.wins, "l": s.losses,
                     }))
                     .collect::<Vec<_>>()
             );
@@ -1845,7 +1850,7 @@ pub fn team(w: &World, t: TeamRef) -> Value {
                         };
                         let note = NFL_ROUNDS[s.round.min(5) as usize];
                         let coach = s.coach.and_then(|c| w.coaches.get(c)).map(|c| c.name.clone());
-                        json!({ "year": s.year, "record": record, "coach": coach, "note": note, "nat": s.round == 5 })
+                        json!({ "year": s.year, "record": record, "coach": coach, "note": note, "nat": s.round == 5, "w": s.wins, "l": s.losses, "round": s.round })
                     })
                     .collect::<Vec<_>>()
             );
@@ -1866,6 +1871,7 @@ pub fn team(w: &World, t: TeamRef) -> Value {
                         "year": h.year, "record": format!("{}-{}", h.wins, h.losses), "nat": h.state_title,
                         "coach": h.coach.and_then(|c| w.coaches.get(c)).map(|c| c.name.clone()),
                         "pf": h.points[0], "pa": h.points[1], "g": if h.points == [0, 0] { 0 } else { h.wins + h.losses },
+                        "w": h.wins, "l": h.losses, "playoff_wins": h.playoff_wins, "semi": h.semifinal,
                     }))
                     .collect::<Vec<_>>()
             );
