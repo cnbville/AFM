@@ -140,7 +140,7 @@ Each entry gives the engine moment it sits in, what it costs (or adds), and the 
 3. **It replaces the rating focus** (Cain's yes, 2026-11-14). Body plans, habits, position moves, extra work and rest stay as they are.
 4. **Minutes decide the pace.** The work comes from the minutes he really spends on that situation: individual periods, one-on-ones, kicking stations, his own extra work, a private trainer's sessions, and for mental flaws film and installs. A team week with more individual time fixes more flaws but runs fewer team reps (prep). That is the real trade every staff makes.
 5. **The room shares its individual time.** Individual periods are set per position group in the week, so a room's minutes are one budget: more time for one man comes out of another's, unless the week gives the group more (and the team fewer team reps). Extra work after practice and a private trainer add on top (proposed, not confirmed).
-6. **Two setup screens** (mock-up boards A and B, proposed, not confirmed): "Set his plan" starts from what the staff has seen on tape (each flaw with what it costs, how sure they are, and the reps as proof), then asks who teaches, how much time, and shows the coach's estimate as a range and the player's reaction. "Set the room" shows every man's points with whose pick it is (yours or the coach's), the room's time budget and buy-in, so you change only the ones you care about.
+6. **Set on the player page.** You set his points on his Development tab (topic 9b), never on a new Training screen.
 
 ## Topic 6. How a fix lands: three stages
 
@@ -173,17 +173,15 @@ Each entry gives the engine moment it sits in, what it costs (or adds), and the 
 4. **The habit chart.** A habit plan is charted from his games, e.g. "bounced outside on 18% of runs, 11% over the last four".
 5. **The world notices.** Scouts, draft notes, recruiters and the press read fixes ("cleaned up his footwork"), each through their own eye.
 
-## Topic 9b. Where the payoff shows on screen (mock-up)
+## Topic 9b. Where it lives on screen (mock-up)
 
-Cain 2026-11-14 12:40: "The back-end could be amazing, but how do we retain focus on the results." Mock-up canvas: https://claude.ai/artifact/55SqK4iz9STFrrojYn9iCq (Press Box, proposed, not confirmed).
+Cain 2026-11-14 12:40: "The back-end could be amazing, but how do we retain focus on the results." 13:07: "i want the graphical changes in the player page -> development, and not necessarily replacing the visual training side bar route... don't replace the current training screens, i quite like them."
 
-The rule: the training screen sets the work, and the payoff shows where results already live. Every point of emphasis has one hero number from games (how often the flaw cost him), a before and a now, and the snaps as proof.
+Mock-up: https://claude.ai/artifact/55SqK4iz9STFrrojYn9iCq (in the app's own look: team colour wash, gold kickers, the staff-read ring, the Broadcast field; proposed, not confirmed).
 
-1. **His Working on page** (college LT): the stage track, the hero number ("beaten by the counter: 1 in 41 pass sets, was 1 in 9"), one chart with practice (dashed) and games (solid) since the flaw was seen, with the dip and the slips marked, the proof clips, the coach's note and what others now write.
-2. **After the game, "The work showed"**: the rep of the game drawn on the 2D view next to the same rep from before the fix ("in week 2 this was a sack"), the team's count of reps your points decided, and a row per player.
-3. **The inbox** (high school): the coach's stage note, then the world noticing: the re-graded recruiting file and the offer that came from the tape of the fix.
-4. **The points of emphasis board** (NFL): every player's point, stage, a small trend of costly reps a game, the teacher and a status word (paying off, learning, in the dip, stalled, not bought in), with the talk to have when a veteran refuses.
-5. **His development story** (career page): each flaw and tool as a lane over the seasons, the results by season beside it, the press line and his own words.
+1. **Everything lives on the player page's Development tab.** The Training screens in the sidebar stay as they are. Their plan columns (Plans, the squad's Development view) show his points of emphasis where they showed a rating focus.
+2. **Top to bottom on the tab:** the tiles it has today (growth, the year, practice, load, role); "What he's working on": each point with a stage ring, one hero number from games with a before and now (e.g. "beaten by the counter: 1 in 41 pass sets, was 1 in 9"), one chart of practice (dashed) and games (solid) since the flaw was seen with the dip and slips marked, the same rep then and now on the Broadcast field, the coach's latest note and what others write now; "Set his points": the flaws and tools the staff has seen, each with what it costs, how sure they are and the reps as proof, and for the picked point who teaches, how much time (and what it costs in team reps), the coach's estimate as a range and his buy-in; then the rest of his plan (habit, body, position, extra work, rest), who teaches him, his key ratings as ranges, staff notes and practice, all as today.
+3. **One palette.** The team's colour for the wash, gold for progress and the picked point, white and greys for the rest, amber only when something went wrong.
 
 ## Topic 10. The AI
 
