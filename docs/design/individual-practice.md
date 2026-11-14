@@ -1,6 +1,6 @@
 # Individual practice: flaws and tools
 
-Design started 2026-11-14 in the thread "Plan the training patch". Plan and sizes agreed by Cain the same day. Not built.
+Designed 2026-11-14 with Cain in the thread "Plan the training patch". Plan, sizes, screens and the focus numbers agreed the same day; Cain's go to build at 15:52. Not built. The progression update (technique ceilings that investment can move) is separate work with its own design thread (see "Not in this build").
 
 ## Cain's words
 
@@ -8,6 +8,13 @@ Design started 2026-11-14 in the thread "Plan the training patch". Plan and size
 - 12:04: "i was mostly talking about individual practice for now." The team-week ideas from the same thread (testing-day changes, a staff development report, scout-team looks, split first-team reps) are parked.
 - 12:14: "that's an symptomatic approach when i prefer an Etiological approach that boosts players immersiveness."
 - 12:15, on flaws and tools as a new engine layer that replaces the "focus one rating" plan: "well... i meant to fix both, but yeah go ahead." Read as: yes to the root (flaws and tools) and yes to dropping the rating focus. The symptoms (charting, notes, a habit chart) are fixed on top of it.
+- 13:07, on the screens: "i want the graphical changes in the player page -> development, and not necessarily replacing the visual training side bar route... don't replace the current training screens, i quite like them."
+- 13:10: "just stacking them beneath each other is not proper game design, perhaps tabs in development."
+- 13:18: "i want a bit more transparency about the projection of gain" (topic 9c).
+- 13:30: "Keep the sports jargon but make sure the rest are consumer friendly."
+- 13:35 and 13:38, on numbers: "what about numeral improvement", then "Corroborate that those numbers make sense and also make it worth spending months on something without breaking progression" (topic 5b).
+- 15:22: "i do want to implement your previous system improvements", while asking for a separate look at risk in development.
+- 15:52: "i want it running concurrent with the system updates we discussed earlier, so have those running and then we'll have a separate exhaustive progression update. Seems like two separate works anyways."
 
 ## Why it is dead today (the cause)
 
@@ -32,7 +39,7 @@ The root: real coaches never work on a number. They see a specific problem on ta
 1. **A flaw is one specific way of losing one battle.** It is how scouts write weaknesses: "oversets", "rounds his breaks", "locks onto his first read", "peeks into the backfield". It costs him only in its own situation.
 2. **A tool is something added to his game.** A counter move, a release package against press, a pump fake that moves safeties. It helps only in its own situation.
 3. **They sit inside an existing engine moment and never own one.** Each attribute owns its moment (`docs/design/attributes.md`, "One main owner per engine moment"), and each tendency owns how often (`docs/design/tendencies.md`). A flaw or tool moves the owner's read in one narrow slice, the way Dynamic Links do (`docs/design/dynamic-links.md`). An overset tackle's pass set reads lower only against speed and the inside counter. Against power he plays to his rating.
-4. **Not talent.** Fixing an overset doesn't make a slow tackle fast, and a tool doesn't add a ceiling. Ratings keep growing by the yearly step as they do now.
+4. **Not talent.** Fixing an overset doesn't make a slow tackle fast, and a tool doesn't add a ceiling. Ratings keep growing as they do now (the year's rate, landing week by week, plus growth from results), and the rating a focus belongs to grows faster (topic 5b).
 5. **No cliffs.** Each flaw has a severity from 0 to 1 that grows and shrinks smoothly.
 6. **Flaws against links.** A flaw and a link in the same situation both count. A Burner receiver who rounds his breaks still runs past people, but he doesn't separate on the out.
 
@@ -137,10 +144,32 @@ Each entry gives the engine moment it sits in, what it costs (or adds), and the 
 
 1. **One or two points of emphasis per player at a time**, as real position coaches give them (`docs/design/training.md`, topic 5). Each one is a flaw to fix or a tool to add.
 2. **The staff sets them unless you do.** His position coach picks from what the staff has seen, and you can change any of them. This keeps a 100-man roster from becoming busywork: you step in for the players you care about.
-3. **It replaces the rating focus** (Cain's yes, 2026-11-14). Body plans, habits, position moves, extra work and rest stay as they are.
+3. **It replaces the old flat rating focus** (Cain's yes, 2026-11-14). A focus is a flaw, a tool, or, when the staff has named nothing, a plain rating ("Man coverage, all round"). Every focus also grows the rating it belongs to (topic 5b, Cain 15:22). Body plans, habits, position moves, extra work and rest stay as they are.
 4. **Minutes decide the pace.** The work comes from the minutes he really spends on that situation: individual periods, one-on-ones, kicking stations, his own extra work, a private trainer's sessions, and for mental flaws film and installs. A team week with more individual time fixes more flaws but runs fewer team reps (prep). That is the real trade every staff makes.
 5. **The room shares its individual time.** Individual periods are set per position group in the week, so a room's minutes are one budget: more time for one man comes out of another's, unless the week gives the group more (and the team fewer team reps). Extra work after practice and a private trainer add on top (proposed, not confirmed).
 6. **Set on the player page.** You set his points on his Development tab (topic 9b), never on a new Training screen.
+
+## Topic 5b. The numbers: a focus grows its rating
+
+Measured 2026-11-14 with `focus_check` (a local tool, copy at `/mnt/project-files/afm/progression/focus_check.rs`): 2,000 college-level corners grown twice on the same dice, with and without today's man coverage focus, all starters under an average staff (coaching 12).
+
+| Stage | Without | With today's focus | Extra |
+|---|---|---|---|
+| College, 19, year 1 | +3.87 | +5.02 | +1.16 |
+| College, 19, three years | +9.51 | +11.47 | +1.96 |
+| Pro, 26, a year | +0.69 | +0.94 | +0.25 |
+| Pro, 30, a year | -1.58 | -1.57 | +0.02 (decline untouched) |
+
+Today's cost is next to nothing (the other 45 technique skills lose about 0.02 each), and the ceiling caps it (three years in, 4.8 points of room left against 6.8 without). An offseason of focus buys a young player about half a point, inside the staff's ±2 to ±4 read. That's why it felt dead.
+
+Sizes (Cain 15:22: "i do want to implement your previous system improvements"):
+
+1. **The lift scales with his minutes on it.** 1.5x at the usual 30 minutes a week, up to 2x at 60. A young player then gains about +3 to +4 extra in a year on that skill, roughly double his normal climb (the build measures it).
+2. **The ceiling stays the cap.** A focus never adds talent. It gets him to his ceiling sooner, about a year on a young player, so a college coach gets the payoff while the player is still his.
+3. **It costs something real.** The minutes come out of his position's other key skills: they grow slower by about a quarter of the focus's gain in total, spread over the 3 or 4 skills with the most weight at his position (replacing today's 3.5% off each skill in the group).
+4. **Veterans: a focus slows the decline** of a technique skill by up to a third, scaled by minutes like the lift, so working on a 30-year-old still means something.
+5. **A plain rating focus** when the staff has named no flaw: the rating lift only, no situational fix.
+6. **Numbers you can see.** The projection shows the rating by the year's end "with it / without it", and Progress shows the rating's change since the focus was set ("+3 since spring", as the staff reads it).
 
 ## Topic 6. How a fix lands: three stages
 
@@ -182,13 +211,13 @@ Mock-up: https://claude.ai/artifact/55SqK4iz9STFrrojYn9iCq (in the app's own loo
 1. **Everything lives on the player page's Development tab.** The Training screens in the sidebar stay as they are. Their plan columns (Plans, the squad's Development view) show his points of emphasis where they showed a rating focus.
 2. **Four sub-tabs, one screen each, no scrolling** (Cain 13:10: "just stacking them beneath each other is not proper game design, perhaps tabs in development"). The tiles it has today (growth, the year, practice, load, role) become one slim strip above the sub-tabs, the same on all four.
    - **Progress** (opens first): each point with a stage ring, one hero number from games with a before and now (e.g. "beaten by the counter: 1 in 41 pass sets"), one chart of practice (dashed) and games (solid) since the flaw was seen with the dip and slips marked, the same rep then and now on the Broadcast field, the coach's latest note and what others write now. A gold dot on the sub-tab when something new happened (a point held in games, a slip).
-   - **Points:** the flaws and tools the staff has seen, each with what it costs, how sure they are and the reps as proof; for the picked point who teaches, how much time (and what it costs in team reps), the coach's estimate as a range and his buy-in. The sub-tab shows how many points are set (2/2).
+   - **Focus:** the flaws and tools the staff has seen, each with what it costs, how sure they are and the reps as proof; for the picked point who teaches, how much time (and what it costs in team reps), the coach's estimate as a range and his buy-in. The sub-tab shows how many focus points are set (2/2).
    - **Plan:** the rest of his plan as today (habit, body, position, extra work, rest), who teaches him, and his share of the room's individual time with a link to the room in Training.
    - **Reports:** his key ratings as ranges, staff notes and the practice log, as today.
 3. **Plain words** (Cain 13:30: "Keep the sports jargon but make sure the rest are consumer friendly"). Football terms stay (kick-slide, pass block, man coverage, play action, high pad level). Everything else is everyday English: a point of emphasis shows as "Focus 1" and "Focus 2", the stages as "Learning", "Works in practice" and "Fixed in games", "flaws his coaches have seen" and "new skills he could learn" rather than tape and tool words, "Is he on board?" rather than buy-in, and the staff's numbers as guesses ("Hale's guess", "past guesses: 7 of 9 right").
 4. **One palette.** The team's colour for the wash, gold for progress and the picked point, white and greys for the rest, amber only when something went wrong.
 
-## Topic 9c. The projection before you pick (proposed, not confirmed)
+## Topic 9c. The projection before you pick (agreed 15:22)
 
 Cain 2026-11-14 13:18: "i want a bit more transparency about the projection of gain. As an NCAA coach you only get certain players for a few years or less... if i have a brilliant athlete with one sore spot... very good zone coverage. But i'm predominantly man coverage team. I have to know if developing x player is gonna give me some sort of hope. It shouldn't be a perfect projection but i need some transparency."
 
@@ -200,6 +229,7 @@ Mock-up: the "Points, a man-team corner" board in the canvas above. Every number
 4. **Against his clock.** When it holds, as a range drawn on his remaining seasons, and the seasons of payoff left after it. A senior is told plainly when a fix likely won't land in time. More minutes move the range, and the line says by how much.
 5. **The whole skill.** Where the skill itself could get by his last season, as a wider range named as a guess. It reads the hidden ceiling through the coach's eye like the potential words, so it can be wrong; the exact ceiling stays hidden.
 6. **How sure.** A word for the fix and one for the whole skill, from the coach's eye, how many snaps of that situation he has seen, and how many of his past calls held. Every projection is kept, and the look-back later shows whether it came true, so you learn which coach to trust.
+7. **With it or without it.** The rating the focus belongs to, by the year's end, with this focus and without (topic 5b).
 
 ## Topic 10. The AI
 
@@ -213,6 +243,8 @@ AI staffs do the same with their own eyes, teachers and styles. A moulding staff
 4. **No level drifts.** NFL, FBS and high school averages stay where the match checks put them.
 5. **The payoff shows.** On a test season, a fixed flaw's tags per game fall, and the chart and notes report it.
 6. **Speed and memory.** A few bytes per player, and a small check in each engine moment. Measured on the 8 GB Mac budget.
+7. **The focus numbers land.** `focus_check` (copy above) at 60 minutes: a 19-year-old's focused rating gains about +3 to +4 extra in year one, never passes his ceiling, a 30-year-old's technique decline slows by up to a third, and the cost lands on his position's 3 or 4 key skills.
+8. **Progression intact.** A player's total growth over a career stays about the same with and without focus points (steered, not added), and the world's level averages and draft-age ratings don't move.
 
 ## Sizes (confirmed by Cain, 2026-11-14 12:40: "yes, okay i like the plan")
 
@@ -220,9 +252,16 @@ AI staffs do the same with their own eyes, teachers and styles. A moulding staff
 2. **Pace.** With usual individual time, a willing, coachable 20-year-old with a strong teacher (teaching 15+) gets a flaw to hold in about one offseason (12-16 weeks). A poor teacher or low coachability takes a year or more. A 30-year-old takes about twice as long.
 3. **The dip.** While he's learning, the flaw costs up to a quarter more in team periods and games, for 2 to 4 weeks.
 
+## Not in this build
+
+- **The progression update** (Cain 15:52, its own design thread): technique ceilings that investment can move up to what his body and tools allow, a hidden knack per kind of skill, development "projects", and keeping the world's count of stars at real. Cain on 2026-11-14: "okay so we basically override ceilings? which i'm definitely not opposed to... i mean technique ceilings." Until that design is agreed, the October rule stands: training moves ratings toward the ceilings and moves ceilings only through the built drift (`docs/design/training.md`).
+- The parked team-week ideas (testing-day changes, a staff development report, scout-team looks, split first-team reps).
+
 ## Proposed, not confirmed
 
 - The whole list in topic 2 (entries and their engine moments).
 - The starting counts (3 to 5 for a freshman) and the draft target (1 to 3 flaws, 1 to 2 tools).
 - How private trainers and camps are drawn (quality, speciality, cost).
 - The stress return (up to a third), borrowed from tendencies.
+- How the lift reads coachability: 1 + take × minutes / 60 (minutes capped at 60, take as today, 0.6 to 1.0), so a coachable player gets 1.5x at 30 minutes and 2x at 60.
+- How the cost spreads: about a quarter of the focus's gain, split over his position's 3 or 4 highest-weight skills by their weight.
