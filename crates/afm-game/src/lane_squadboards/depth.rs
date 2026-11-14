@@ -50,7 +50,7 @@ const TABS: [Tab; 4] = [
 const LANE5: [&str; 5] = ["nickel", "dime", "goal_line_d", "jumbo", "goal_line_o"];
 
 /// The tab and formation asked for (a board key alone finds its tab).
-fn pick(args: &Value) -> (usize, usize) {
+pub(super) fn pick(args: &Value) -> (usize, usize) {
     let form = args.get("form").and_then(Value::as_str);
     if let Some(f) = form {
         for (t, tab) in TABS.iter().enumerate() {
@@ -63,8 +63,14 @@ fn pick(args: &Value) -> (usize, usize) {
     (t, 0)
 }
 
+/// The formation's board key for the tab and formation asked for.
+pub(super) fn form_key(args: &Value) -> &'static str {
+    let (ti, fi) = pick(args);
+    TABS[ti].2[fi].0
+}
+
 /// A spot's name in words: "Left tackle", "Wide receiver (Z)".
-fn spot_words(slot: &str, pos: Position) -> String {
+pub(super) fn spot_words(slot: &str, pos: Position) -> String {
     let named = match slot {
         "QB" => "Quarterback",
         "RB" => "Running back",
@@ -107,7 +113,7 @@ fn spot_words(slot: &str, pos: Position) -> String {
 }
 
 /// One man on a spot.
-fn man(w: &World, t: TeamRef, i: usize, num: Option<u8>) -> Value {
+pub(super) fn man(w: &World, t: TeamRef, i: usize, num: Option<u8>) -> Value {
     let p = &w.people[i];
     let pos = p.player.position;
     let (first, last) = first_last(&p.name);
@@ -127,7 +133,7 @@ fn man(w: &World, t: TeamRef, i: usize, num: Option<u8>) -> Value {
 /// The staff's list at a position: the depth order (yours where set,
 /// else your staff's), then the rest of the position group by your read,
 /// a man from another position a step behind (he pays to cross-train).
-fn staff_list(
+pub(super) fn staff_list(
     w: &World,
     t: TeamRef,
     roster: &[usize],
@@ -300,11 +306,33 @@ fn units(w: &World, t: TeamRef, tab: &str) -> Vec<Value> {
 }
 
 pub(crate) fn view(w: &World, args: &Value) -> Reply {
+    view_in(w, args, None)
+}
+
+/// The same board for a fall to come (plan ahead, `plan.rs`): the planned
+/// men, their class in that fall, no games, no unit cards.
+pub(crate) fn view_planned(w: &World, args: &Value, plan: &crate::depth_plan::Plan) -> Reply {
+    let offset = super::plan::offset_of(args);
+    view_in(w, args, (offset > 0).then_some((plan, offset)))
+}
+
+fn view_in(w: &World, args: &Value, planned: Option<(&crate::depth_plan::Plan, i32)>) -> Reply {
     let t = my_team(w)?;
     let (ti, fi) = pick(args);
     let (tab, tab_label, forms) = TABS[ti];
     let (form, form_label) = forms[fi];
-    let (spots, yours) = spots(w, t, form)?;
+    let (mut spots, mut yours) = spots(w, t, form)?;
+    let ctx = match planned {
+        Some((plan, offset)) => {
+            if !super::plan::planned_form(form) {
+                return Err("Plan ahead covers the base offense, the base defense and the specialists.".into());
+            }
+            super::plan::apply(w, t, offset, plan, &mut spots);
+            yours = super::plan::is_yours(w, plan, &spots, offset);
+            Some((offset, super::plan::Ctx::new(w, t, offset, &spots)))
+        }
+        None => None,
+    };
     let nums: HashMap<usize, u8> = crate::lane_core::people::jerseys(w, t).into_iter().collect();
     let idx = |id: Option<u32>| id.and_then(|id| views::person_index(w, id));
     let last = my_games(w).last().copied();
@@ -315,9 +343,19 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
         let men: [Option<usize>; 3] = [idx(s.ids[0]), idx(s.ids[1]), idx(s.ids[2])];
         // H4: who put him there, why, and who else could play it.
         let set = if base { w.seat_depth.iter().any(|(p, _)| *p == s.pos) } else { yours };
-        let why = crate::lane_help::why_here(w, &roster, s.pos, &spot_words(&s.slot, s.pos), s.controls, set, &men);
-        let picks: Vec<Value> =
-            men.iter().map(|m| m.map_or(Value::Null, |i| man(w, t, i, nums.get(&i).copied()))).collect();
+        let why = match &ctx {
+            Some((offset, c)) => super::plan::why(w, t, c, s.pos, &spot_words(&s.slot, s.pos), *offset),
+            None => crate::lane_help::why_here(w, &roster, s.pos, &spot_words(&s.slot, s.pos), s.controls, set, &men),
+        };
+        let picks: Vec<Value> = men
+            .iter()
+            .map(|m| {
+                m.map_or(Value::Null, |i| match &ctx {
+                    Some((offset, _)) => super::plan::man(w, t, i, nums.get(&i).copied(), *offset),
+                    None => man(w, t, i, nums.get(&i).copied()),
+                })
+            })
+            .collect();
         // The starter in full.
         let detail = men[0].map(|i| {
             let p = &w.people[i];
@@ -361,7 +399,7 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
             "group": starters_words(w, t, s.pos),
         }));
     }
-    let last_game = last.map(|(g, side)| {
+    let last_game = last.filter(|_| ctx.is_none()).map(|(g, side)| {
         let opp = g.names[1 - side].clone();
         json!({ "date": views::date_text(g.date), "opp": opp, "score": [g.stats.score[side], g.stats.score[1 - side]] })
     });
@@ -374,11 +412,13 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
         "package": LANE5.contains(&form),
         "base": matches!(form, "offense" | "defense" | "specialists"),
         "yours": yours,
-        "next": views::next_game(w, t),
+        "next": if ctx.is_some() { None } else { views::next_game(w, t) },
         "last_game": last_game,
-        "changes": changes(w, &spots, &roster),
+        "changes": if ctx.is_some() { Vec::new() } else { changes(w, &spots, &roster) },
         "slots": slots,
-        "units": units(w, t, tab),
+        "units": if ctx.is_some() { Vec::new() } else { units(w, t, tab) },
+        "plan_falls": if base { json!((0..=super::plan::AHEAD).map(|n| w.year + n).collect::<Vec<_>>()) } else { Value::Null },
+        "plan": ctx.as_ref().map(|(offset, _)| json!({ "offset": offset, "fall": w.year + offset })),
     }))
 }
 
@@ -512,7 +552,7 @@ pub(crate) fn reset(w: &mut World, args: &Value) -> Result<(), String> {
 }
 
 /// The depth word for a cell: "starter", "second string", "third string".
-fn depth_word(n: usize) -> &'static str {
+pub(super) fn depth_word(n: usize) -> &'static str {
     match n {
         1 => "the starter",
         2 => "second string",
@@ -523,14 +563,14 @@ fn depth_word(n: usize) -> &'static str {
 /// One position's cells on the board in the order its depth list holds
 /// them: every spot's starter, then every spot's second man, then every
 /// spot's third (`spots` reads the list back the same way).
-fn pos_cells(spots: &[Spot], pos: Position) -> Vec<Option<u32>> {
+pub(super) fn pos_cells(spots: &[Spot], pos: Position) -> Vec<Option<u32>> {
     let at: Vec<&Spot> = spots.iter().filter(|s| s.pos == pos).collect();
     (0..3).flat_map(|d| at.iter().map(move |s| s.ids[d])).collect()
 }
 
 /// Where a spot's cell sits in `pos_cells`: depth `d` (0 is the starter)
 /// of the spot `k`.
-fn cell_at(spots: &[Spot], k: usize, d: usize) -> usize {
+pub(super) fn cell_at(spots: &[Spot], k: usize, d: usize) -> usize {
     let rank = spots[..k].iter().filter(|s| s.pos == spots[k].pos).count();
     let width = spots.iter().filter(|s| s.pos == spots[k].pos).count();
     d * width + rank

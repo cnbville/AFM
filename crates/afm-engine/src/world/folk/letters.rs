@@ -221,6 +221,7 @@ pub(crate) fn for_scene(w: &mut World, s: &Scene) {
         org_team: Some(team_code(team)),
         why: Vec::new(),
         count: 0,
+        leads: 0,
     });
     c.desk.mails.sort_by_key(|m| (m.date, m.minute));
 }

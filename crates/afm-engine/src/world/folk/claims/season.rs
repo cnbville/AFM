@@ -622,8 +622,14 @@ fn effort(r: &Reader, m: &Man) -> Option<Point> {
 /// The next dated thing on his calendar, for a quiet day (rule 9): the
 /// testing day, spring practice, the spring game, report day, the opener.
 fn ahead(r: &Reader, m: &Man) -> Option<Point> {
+    team_ahead(r, m.team?, m.mine)
+}
+
+/// A team's next dated thing out of season (spring practice, OTAs, camp,
+/// the opener, and for your own team its testing day): what a player's
+/// `Ahead` point and the team talk look ahead to (talk facts lane L9).
+pub(super) fn team_ahead(r: &Reader, team: Team, mine: bool) -> Option<Point> {
     let w = r.w;
-    let team = m.team?;
     let y = &w.dates;
     let mut next: Vec<(Date, &'static str, &'static str)> = Vec::new();
     match team {
@@ -651,9 +657,7 @@ fn ahead(r: &Reader, m: &Man) -> Option<Point> {
         }
         next.push((g.0, "opener", "the opener"));
     }
-    if m.mine
-        && let Some(f) = crate::training::seat::seat_frame(w, y)
-    {
+    if mine && let Some(f) = crate::training::seat::seat_frame(w, y) {
         let monday = r.today.on_or_before(crate::calendar::Weekday::Mon);
         if let Some(d) = (0..=(LOOK_AHEAD / 7))
             .filter_map(|k| {

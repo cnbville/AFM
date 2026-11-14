@@ -13,6 +13,8 @@
 //!   your proof graded against his other schools, and what changed for him
 //!   and what is coming.
 //! - `team`: your team's week (the team talk, the press, your boss).
+//! - `team_rooms`: your team's rooms (lane L9): the team talk's week, what
+//!   a family calls about and sees, why a man is on your exit list.
 //! - `alumni`: the one new index, NFL alumni by program and position.
 //! - `memory`: what you have talked through with each person (`Talked`,
 //!   kept in `Folk.talked`).
@@ -57,6 +59,7 @@ pub mod rooms;
 mod season;
 pub mod sheet;
 mod team;
+pub mod team_rooms;
 pub mod truth;
 pub mod words;
 

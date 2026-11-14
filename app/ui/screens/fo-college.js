@@ -575,6 +575,22 @@ function fcPortalVisits(f) {
     .join("");
   return `<div class="fc-block"><div class="fc-h"><span class="st-label">Plan a visit</span><small class="sub">24 to 48 hours, before he decides</small></div><div class="fc-vopts">${rows}</div></div>`;
 }
+// Where you stand with a transfer (Cain 2026-11-14): his reasons in the
+// order your staff thinks they count, you against his top three on each,
+// who wins the row and how your staff knows; your coordinator's word.
+function fcStand(x) {
+  if (!x || !x.columns.length) return "";
+  const sq = ([lo, hi]) => `<span class="fc-sw" title="Your staff's read: ${lo === hi ? lo : `${lo} to ${hi}`} of 5">${[1, 2, 3, 4, 5].map((q) => `<i class="${q <= lo ? "f" : q <= hi ? "o" : ""}"></i>`).join("")}</span>`;
+  const head = x.columns.map((c, i) => `<th class="l ${i === 0 ? "div" : ""}">${c.yours ? "You" : esc(c.name)}${c.yours ? "" : ` <small>${c.place}</small>`}</th>`).join("");
+  const body = x.rows.map((r) => `<tr><td class="l"><b>${esc(r.name)}</b></td><td class="l">${sq(r.weight)}</td>${r.cells.map((c, i) => `<td class="l wrap ${i === 0 ? "div" : ""}">${c.win ? '<i class="fc-swin" title="Wins this row"></i>' : ""}${esc(c.fact)}</td>`).join("")}<td class="l div"><span class="fc-src">${esc(r.source)}</span></td></tr>`).join("");
+  const read = x.contacts ? `${x.contacts === 1 ? "one talk" : `${x.contacts} talks and visits`} in` : "no talk yet, so the read is wide";
+  const sum = [x.ahead.length ? `ahead on ${x.ahead.join(", ")}` : "", x.behind.length ? `behind on ${x.behind.join(", ")}` : ""].filter(Boolean).join(" · ");
+  return `<div class="panel fc-stand"><h2>Where you stand <small>his reasons in the order your staff thinks they count, against his top schools · ${esc(read)}</small></h2>
+    <div class="fc-ssum"><b>${esc(x.place_text || "")}</b><span class="sub"><i class="fc-swin"></i>wins the row · of ${x.schools} ${x.schools === 1 ? "school" : "schools"} after him${x.versus && sum ? ` · against ${esc(x.versus)}: ${esc(sum)}` : ""}</span></div>
+    <div class="tbl warm box fc-stbl"><table><thead><tr><th class="l">His reason</th><th class="l">Counts to him</th>${head}<th class="l div">How you know</th></tr></thead><tbody>${body}</tbody></table></div>
+    ${x.says ? `<div class="fc-sstaff"><p><b>${x.who ? `${esc(x.who)}, your recruiting coordinator:` : "Your recruiting coordinator:"}</b> ${esc(x.says)}</p>${x.move ? `<p class="sub">What could move it: ${esc(x.move)}</p>` : ""}</div>` : ""}
+  </div>`;
+}
 screens.portal_file = async (a) => {
   const f = await api("portal_file", { id: a.id });
   const [c1, c2] = f.colors || ["#444", "#222"];
@@ -610,6 +626,7 @@ screens.portal_file = async (a) => {
   return `<div class="film"><div class="pad fc-pad">
     <div class="fc-bar"><div><div class="st-label">Transfer portal${f.from ? ` · from ${esc(f.from.name)}` : ""}</div><div class="h1">${esc(f.name)}</div></div>${go}</div>
     <section class="fc-file warm">${left}${mid}${right}</section>
+    ${fcStand(f.stand)}
     <div class="grid3"><div class="panel"><h2>Your talks <small>the latest at each place counts</small></h2>${talks}</div><div class="panel"><h2>Visits <small>with your program</small></h2>${visits}</div><div class="panel"><h2>How a transfer decides</h2><p class="sub">He weighs the same things a recruit's family does, for himself: playing time against who's ahead of him, the money, the school, home, the staff, his shot at the league and winning. Every staff with a place for him calls; his finalists host him. When one school clearly gives him what he needs, he stops shopping and says yes, often days before his date.</p></div></div>
   </div></div>`;
 };

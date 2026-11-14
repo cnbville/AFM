@@ -1,0 +1,271 @@
+# Your team's rooms (talk facts lane L9, items 18, 20, 21, 26): parts that
+# need a fact the game has checked. A part with no version a speaker can
+# say falls back to today's plain line (rule 3 of the lanes), so every
+# room plays without them. Written by hand; the bank run (L12) fills the
+# rest.
+
+# ---------------------------------------------------------------------------
+# The team talk: a captain who took it well speaks to the room. Facts: the
+# week (claims::team_rooms::Week::fill): {opp} {score} result= margin= the
+# last game; {next} next_rival=yes the next game; {run} streak= a streak;
+# {names} the starters out; {record} season_was= the season that ended;
+# {what} {ahead_when} what's coming.
+
+@key teamtalk.react.lands
+You heard him. Let's go.
+That's it. That's all of it. Let's get to work.
+Y'all heard the man. Nobody's tired this week.
+That's what I'm talking about. {next}, here we come.
+You heard him. {next} doesn't care how we feel. Let's go. ~ !next_rival=yes
+{next} week. Everybody in this room knows what that means. ~ next_rival=yes
+Nobody in here wants to lose to {next}. Nobody. ~ next_rival=yes
+{run} in a row. We're not done. ~ streak=winning
+We don't get to feel sorry for ourselves. Not after {opp}. ~ result=loss
+We play for {names} this week. ~ !result=win
+Alright, alright. Let's get after it.
+Let's go to work, fellas.
+
+@key teamtalk.react.mixed
+Alright. You heard him. Let's go to work.
+We'll show him at practice.
+Talk's over. Let's get to work.
+Nobody needs to say anything else. Practice.
+Okay. Let's go.
+He said it. Now we do it.
+Practice is where we answer that.
+
+# ---------------------------------------------------------------------------
+# A parent's call: the real complaint and what the family can see
+# (claims::team_rooms::Family::fill). Facts: {name} his first name;
+# complaint=role|punishment|money|position; {group} his practice group in
+# words and with=ones|twos|apart, as he tells it at home; {snaps} {starts}
+# {seen} his snaps and starts in your last two games; and the point's own
+# holes. A role call follows today's opening (parents.call.open); the
+# others open on their own.
+
+@key parents.call.lost_job
+He started the season. Now {rival} is out there and nobody's told us why.
+{rival} has his spot now. I'd like to understand what happened.
+He tells me he's been running with {group}. Not long ago he was a starter.
+He's had {snaps} and {starts} in {seen}. He was a starter, Coach.
+One week he's starting, the next {rival} is. What changed?
+Nobody sat him down. He found out when {rival} ran out with the first team.
+If {rival} beat him out, fine. But I'd like somebody to tell us how.
+He lost his job and he doesn't know why. That's what's killing him. ~ !why=discipline
+I know what he did. I'm asking how long this lasts. ~ why=discipline
+He got hurt and came back to find {rival} in his spot. That doesn't sit right. ~ why=injury
+
+@key parents.call.buried
+He's been in that program long enough. He's still behind {ahead}.
+He tells me he's with {group} again. Every week, {group}.
+He's had {snaps} in {seen}. He's not a freshman anymore, Coach.
+He's been patient. He's still behind {ahead}. When does it turn?
+I'm not asking you to start him. I'm asking if there's a plan.
+He watches {ahead} play his snaps and comes home quiet. Every week.
+If he's not going to see the field there, we need to know.
+He's worked behind {ahead} long enough to know whether it's going to happen.
+
+@key parents.call.role
+He tells me he's running with {group}. He doesn't understand why.
+He's had {snaps} and {starts} in {seen}. I'd like to understand that.
+He says he's with {group} in practice. Is that where you see him?
+He doesn't complain to you, so I will. He's had {snaps} in {seen}.
+I've watched every game. He got {snaps} in {seen}. That's all.
+He's working his tail off with {group}. Where does that get him?
+I just want to know what he has to do to get off the bench.
+
+@key parents.call.suspended
+Coach, I'm calling about {name}'s suspension. I'd like to understand it.
+{name} told me he's sitting for {reason}. Is that the whole story?
+Coach, this is about the suspension. How many games are we talking about?
+I'm not defending what {name} did. I want to know how long he's out.
+I'd like to hear from you why it's {penalty}.
+I know {name} messed up. I'm calling about what happens now.
+Coach, I need to talk to you about {name} sitting out.
+
+@key parents.call.rule_break
+Coach, {name} told me about the rule on {rule}. I want to hear your side.
+I'm calling about {penalty}. For {rule}, that seems like a lot.
+{name} told me what happened. I'm calling about {penalty}, not the rule.
+Coach, I think {penalty} is too much for what he did.
+I'd like to understand the {rule} thing. {name} says it's being blown up.
+I'm not calling to fight. I want to know why it's {penalty}.
+He broke a rule, I get it. But it's the first time, Coach. ~ again=no
+This is twice now, I know. I'm still calling about {penalty}. ~ again=yes
+
+@key parents.call.pay
+Coach, I'm calling about {name}'s deal. I don't think it's right.
+I'll be direct. We know what other players at his spot are getting. He isn't getting that.
+Coach, this is about money, and I know that's awkward. But it's real for our family.
+{name} won't bring it up, so I will. His deal isn't fair for what he does.
+I'm not a greedy person. I'm asking for fair, and this isn't fair.
+Other schools are paying players like {name} a lot more. You know that. ~ gap=big
+He's starting to hear what other kids get. I'm calling before it gets worse.
+Coach, can we talk about where {name}'s deal stands?
+
+@key parents.call.new_position
+Coach, I'm calling about {name} moving to {position}. Nobody explained it to us.
+He's played one position his whole life. Now he's learning {position}. Why?
+{name} says he's lost out there at {position}. That's not like him. ~ stage=early
+Coach, he came to play his position, not {position}.
+I'd like to understand the move to {position}. Is it permanent?
+He tells me {position} is coming along, but he's not happy about it. ~ !stage=early
+Is the move to {position} because he's not good enough where he was? That's what he thinks.
+I'm calling about {position}. He didn't sign up for this, and he's struggling.
+
+# ---------------------------------------------------------------------------
+# The parent answers you: complaint= picks which versions fit.
+
+@key parents.reply.straight.fair
+Okay. That's fair. I'll tell him.
+Alright. That's what I needed to hear.
+Okay. At least I know where he stands now.
+I don't like it, but I respect you telling me straight.
+Okay. I'll make sure he hears what you said. ~ complaint=role
+So he knows what he has to do. Okay. ~ complaint=role
+Alright. He'll serve it and we'll move on. ~ complaint=punishment
+I didn't know all of that. Okay. ~ complaint=punishment
+Okay. We'll see what next year looks like then. ~ complaint=money
+Alright. If that's where you see him, I'll tell him to dig in. ~ complaint=position
+
+@key parents.reply.straight.above
+We'll see what the AD thinks about that.
+That's not good enough. I'll be calling the athletic director.
+Then I'll take it to someone above you.
+I've heard that before. I'll take it up the ladder.
+I don't think the AD will see it that way.
+We'll see if the AD agrees that it's earned at practice. ~ complaint=role
+We'll see how the AD feels about that punishment. ~ complaint=punishment
+I'll be talking to the people who actually decide the money. ~ complaint=money
+
+@key parents.reply.listen
+Thank you. That's all I'm asking.
+Thank you, Coach. I appreciate you hearing me out.
+Okay. That's all I wanted. Somebody to look at it.
+Thank you. Let me know what his position coach says. ~ complaint=role
+I appreciate that. He'll listen to you more than me. ~ complaint=punishment
+Thank you. That's more than I expected, honestly. ~ complaint=money
+Okay. If his position coach can explain it to him, that would help. ~ complaint=position
+Thank you. I'll tell him you're looking at it.
+
+@key parents.reply.promise
+That's what I wanted to hear, Coach.
+I'm going to hold you to that.
+Thank you. I'll tell him tonight.
+Okay. Your word is good enough for me.
+That's all I needed. Thank you, Coach.
+I'll be watching Saturday. ~ complaint=role
+He'll be glad to hear it. He wants to get back out there. ~ complaint=punishment
+Okay. As long as he gets his snaps, he'll learn it. ~ complaint=position
+
+@key parents.reply.warn
+Then I'll talk to someone who does.
+Fine. I'll find someone who will.
+That's your answer? Okay.
+Then we'll take it from here.
+I see. I'll remember that.
+Then I'll talk to the AD about playing time. ~ complaint=role
+That's convenient for you, isn't it. ~ complaint=punishment
+Then I'll talk to whoever does. ~ complaint=money
+Okay, Coach. We'll see. ~ complaint=position
+
+# ---------------------------------------------------------------------------
+# Exit meetings: his own opening when your staff's reason is no point on
+# his sheet. {old} {old_last} the coach you replaced.
+
+@key talk.exit.open.oldcoach
+Coach {old_last} is the reason I came here. I'm not going to lie to you about that.
+I came here for Coach {old_last}. I'm still figuring out what that means now.
+Coach {old_last} recruited me out of my living room. It's hard to see him gone.
+With Coach {old_last} gone, I don't really know where I stand.
+I'll be honest. I signed with Coach {old_last}, not with this place.
+I want to give you a chance, Coach. But Coach {old_last} was why I'm here.
+Everybody keeps asking me if I'm leaving with Coach {old_last}. I don't know yet.
+Coach {old_last} knew me. You don't yet. That's all it is.
+
+@key talk.exit.open.courted
+Coach, people have been reaching out. I'm not going to pretend they haven't.
+My phone's been busy since the news. I wanted you to hear that from me.
+Some schools have been asking about me. I haven't said anything back.
+I'm getting calls, Coach. I don't know what to do with them yet.
+A lot of people want to know my plans right now. Including you, I guess.
+I'm hearing from places. I want to know why I should stay.
+
+@key talk.exit.open.deal
+Coach, my deal's almost up. I want to know where I stand.
+I'll be straight. I want a new contract, and I want to know if it's coming.
+I've outplayed my deal. I think we both know that.
+My agent's been asking me questions I can't answer. Can you?
+I want to be here. I also want to get paid. Can those be the same thing?
+Next year's the last on my deal. That's what's on my mind.
+
+@key talk.exit.open.unhappy
+Coach, I'm not going to lie. It hasn't been a good year for me.
+I haven't been happy here for a while. I figured you knew.
+Honestly? I don't know what I'm doing next year. I haven't liked this year.
+It's been a long season, Coach. In my head, too.
+I'm trying to figure out if I want to come back. That's the truth.
+I've been in a bad place this year. I wanted to be honest with you.
+
+# ---------------------------------------------------------------------------
+# Game day: what about today reaches your words (gametalk::LineCx). Said
+# between your opening and your point, in your tone. Facts: playoff=yes,
+# seniors=yes, {hurt} the starter out, stakes=big|all, moment=pregame|
+# halftime, rival=yes, {them}.
+
+@key gameday.day.playoff
+Lose and we go home. Win and we play again. That's all it is.
+There's no next week unless we earn it today.
+Every team that's still playing wants what we want. Only half of them get it.
+This is the playoffs. Nobody remembers the regular season.
+Season's on the line, men. Right here, right now.
+One more half, and our season's still alive or it isn't. ~ moment=halftime
+Thirty minutes. Win them and we keep playing. ~ moment=halftime
+Nobody in this room is ready to turn in their gear. ~ fiery
+Win or go home. I don't need to tell you which one I like. ~ firm
+I'm not ready for this to be over. Are you? ~ warm
+
+@key gameday.day.seniors
+This is the last time our seniors run out of that tunnel at home.
+Seniors, this is your last one here. Take a second and look around.
+Some of these guys have given four, five years to this place. Today's for them.
+Last home game for the seniors. Send them out right.
+Our seniors built this. Today we play for them.
+Look at the seniors in this room. This is the last time they do this here.
+The seniors' families are in the stands. Let's give them something to remember. ~ warm
+Seniors, leave it all out there. Everyone else, make sure they can. ~ firm
+For the seniors! Today, we play for them! ~ fiery
+
+@key gameday.day.hurt
+We're doing this without {hurt}. Somebody has to pick that up.
+{hurt} can't be out there with us. So we play for him.
+{hurt} would give anything to be in this room right now. Remember that.
+No {hurt} today. Nobody's coming to save us. We do it ourselves.
+Everybody knows {hurt} is out. Nobody uses it as an excuse.
+Next man up. That's not a slogan today; {hurt} is out.
+We're down {hurt}. That means everybody does one more thing. ~ firm
+Play for {hurt}! He'd play for you! ~ fiery
+{hurt} is watching. Let's make him proud. ~ warm
+Without {hurt}, we need everybody. Every snap. ~ moment=halftime
+
+@key gameday.day.big
+This is the one everybody circled. ~ stakes=all
+Everything we've worked for is on this game. ~ stakes=all
+This is what you came here for. A game that matters this much. ~ stakes=all
+Big game. Everybody in the building knows it.
+Nobody has to tell you what this one means.
+This is the kind of game people remember for a long time.
+They've been waiting all week for this one, and so have we.
+It's {them}. You know what that means. ~ rival=yes
+Beat {them}. That's all anybody's going to talk about for a year. ~ rival=yes
+I've been waiting for this one all season. ~ fiery
+
+# The captain names the day too, when there is one.
+@key gameday.captain.day
+It's the playoffs. Lose and we go home. ~ playoff=yes
+Nobody in here is ready for this to be over. ~ playoff=yes
+For the seniors. Last time at home. ~ seniors=yes
+Seniors, this one's yours. Let's send you out right. ~ seniors=yes
+We play for {hurt} today.
+{hurt} can't go, so somebody's got to step up.
+Do it for {hurt}. He'd do it for you.
