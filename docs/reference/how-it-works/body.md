@@ -167,7 +167,7 @@ What he'd measure and run at a coming testing day, on the Body and testing tab's
 - Percentiles and the athletic score recompute on the projected numbers against: this season's seniors at his position for Senior year (his state's with 40, the nation's otherwise), the last three drafts' picks at his position with their combine numbers (the men the combine tested lately) for At the combine, his level now for Next year; the drafted and the real combine as always (`target_pool`, `pct_with`, `scores_of`).
 - On the tab: "Testing day: Now · Senior year · At the combine" (pros: Now · Next year). A projected row reads "4.47 projected (4.43-4.52) · now 4.58" in the dim style; the plot keeps his dot and adds a hollow ring where he's projected with a thin line between; his weight line runs dashed from today to the day. A note says whose read and which day.
 - The hover card (`lane_ratings.rs`, `combine_ahead`): for speed, acceleration, agility, strength and jumping, "At the combine" shows the projected drills at the projected weight, on whose read; what he'd run today at today's weight follows as "Today". A pro keeps today's line.
-- Proposed, not confirmed: the senior testing day (April 15), the listing discount (its mean), coaching 10 for the fit's copies, 400 draws, 52 body-plan weeks a year, average work ethic for the weight room.
+- Confirmed (Cain, 2026-11-14): the senior testing day (April 15), the listing discount (its mean), coaching 10 for the fit's copies, 400 draws, 52 body-plan weeks a year, average work ethic for the weight room.
 
 ## Where the knobs are
 
