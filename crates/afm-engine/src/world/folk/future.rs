@@ -276,14 +276,13 @@ pub fn answer(w: &mut World, i: usize, word: Word) -> (String, Vec<String>) {
         let (strong, real) = strength(w, i);
         let kind = backed_kind(w, i);
         talks::promise(w, PromiseTo::Player(id), kind, 0);
-        if let Some(pr) = w
-            .folk
-            .promises
-            .iter_mut()
-            .rev()
-            .find(|x| x.to == PromiseTo::Player(id) && x.kind == kind && x.kept.is_none())
-        {
-            pr.backed = if real { 1 } else { -1 };
+        if let Some(k) = (0..w.folk.promises.len()).rev().find(|&k| {
+            let x = &w.folk.promises[k];
+            x.to == PromiseTo::Player(id) && x.kind == kind && x.kept.is_none()
+        }) {
+            w.folk.promises[k].backed = if real { 1 } else { -1 };
+            // He hears it again with what you backed it with (its shape).
+            super::promise::hear(w, k);
         }
         let p = &mut w.people[i];
         if Some(p.trust_in) == you {

@@ -1409,7 +1409,7 @@ pub(crate) fn make(w: &mut World, id: u32, mv: Move, said: &str) -> Vec<String> 
                     w.people[i].trust = (w.people[i].trust + 0.006).min(1.0);
                 }
             }
-            w.folk.mine.straight = (w.folk.mine.straight + 0.03).min(1.0);
+            w.folk.mine.word_all(0.03);
             out.push("You owned it in public.".into());
         }
         Move::FireBack => {

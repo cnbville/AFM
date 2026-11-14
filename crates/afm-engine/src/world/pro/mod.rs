@@ -1225,8 +1225,11 @@ pub(crate) fn step(w: &mut World, d: Date, t: u16) {
             if d == y.nfl_kickoff {
                 // From the first game every contract counts against the cap.
                 market::cap_moves(w, d, false);
-                market::check_promises(w);
                 opening_day_cap(w);
+            }
+            // Free agency start promises, after the club's fourth game.
+            if y.nfl_weeks.get(3).is_some_and(|&g| d == g.add(2)) {
+                market::check_promises(w);
             }
             // In season, each Tuesday: injured players to reserve.
             if d >= y.cutdown.date && d.weekday() == crate::calendar::Weekday::Tue && d <= y.super_bowl {

@@ -208,6 +208,11 @@ pub enum PromiseKind {
     /// A high school recruit's promise when he signed (talk facts lane L6):
     /// the kind (`pledge::Kind`) and his position when you made it.
     Recruit(u8, u8),
+    /// More touches (carries and targets) than now (the promises design,
+    /// section 3; lane P1).
+    Touches,
+    /// You won't move him from his position (the position's index; lane P1).
+    Position(u8),
 }
 
 impl PromiseKind {
@@ -226,6 +231,13 @@ impl PromiseKind {
             PromiseKind::Recruit(k, pos) => super::pledge::Kind::of(k).map_or_else(
                 || "a promise when he signed".into(),
                 |x| x.words(crate::positions::Position::ALL[pos as usize % crate::positions::POSITION_COUNT]),
+            ),
+            PromiseKind::Touches => "more touches".into(),
+            PromiseKind::Position(pos) => format!(
+                "that he'd stay at {}",
+                super::claims::words::spot(
+                    crate::positions::Position::ALL[pos as usize % crate::positions::POSITION_COUNT]
+                )
             ),
         }
     }
@@ -247,6 +259,65 @@ pub struct Promise {
     pub backed: i8,
     /// Who, in words with link marks.
     pub who: String,
+    /// Its terms: by when, on what condition, ahead of whom (the promises
+    /// design, section 3; lane P1).
+    #[serde(default)]
+    pub terms: super::promise::Terms,
+    /// How far he believes it now, 0-1 (section 4): never shown as a
+    /// number. 0 for a promise from before lane P1 until he hears it.
+    #[serde(default)]
+    pub belief: f32,
+    /// His belief when you said it (keeping it pays more the more he
+    /// doubted, section 7).
+    #[serde(default)]
+    pub said: f32,
+    /// What he sees of it (`promise::State`).
+    #[serde(default)]
+    pub state: u8,
+    /// Weeks in a row behind, and owed (section 6: he comes to you).
+    #[serde(default)]
+    pub behind: u8,
+    #[serde(default)]
+    pub owed: u8,
+    /// The last day he came to you about it.
+    #[serde(default)]
+    pub came: Option<Date>,
+    /// His own deadline (section 3): on the day, if he doesn't have it,
+    /// his lean jumps.
+    #[serde(default)]
+    pub his_by: Option<Date>,
+    /// The share missed when it was judged (0 kept in full).
+    #[serde(default)]
+    pub missed: f32,
+    /// He missed his condition and released you (section 6).
+    #[serde(default)]
+    pub released: bool,
+}
+
+impl Promise {
+    /// A promise with nothing said yet beyond who and what.
+    pub fn blank(to: PromiseTo, kind: PromiseKind) -> Promise {
+        Promise {
+            to,
+            kind,
+            made: Date(0),
+            due: Date(0),
+            public: false,
+            kept: None,
+            backed: 0,
+            who: String::new(),
+            terms: Default::default(),
+            belief: 0.0,
+            said: 0.0,
+            state: 0,
+            behind: 0,
+            owed: 0,
+            came: None,
+            his_by: None,
+            missed: 0.0,
+            released: false,
+        }
+    }
 }
 
 /// Logs a promise. `seasons` sets its horizon: 0 is the next checkpoint
@@ -264,33 +335,69 @@ pub fn promise(w: &mut World, to: PromiseTo, kind: PromiseKind, seasons: u8) {
         PromiseTo::Coach(c) => super::coach_link(w, c),
     };
     w.folk.promises.retain(|p| !(p.to == to && p.kind == kind && p.kept.is_none()));
-    w.folk.promises.push(Promise { to, kind, made: today, due, public: false, kept: None, backed: 0, who });
+    w.folk.promises.push(Promise { made: today, due, who, ..Promise::blank(to, kind) });
     if w.folk.promises.len() > 120
         && let Some(k) = w.folk.promises.iter().position(|p| p.kept.is_some())
     {
         w.folk.promises.remove(k);
     }
+    // He hears it (the promises design, section 4): his belief now, and a
+    // named teammate or a second man promised the same spot may find out.
+    if let PromiseTo::Player(_) = to {
+        let k = w.folk.promises.len() - 1;
+        super::promise::hear(w, k);
+        let heard = super::promise::spread(w, k);
+        for x in heard {
+            super::note(w, "talk", "Your promises".into(), x, None);
+        }
+    }
+}
+
+/// Sets the terms of a promise just made and hears it again (a follow-up
+/// answer, a typed line's terms). Returns his belief.
+pub fn set_terms(w: &mut World, k: usize, t: super::promise::Terms) -> f64 {
+    w.folk.promises[k].terms = t;
+    w.folk.promises[k].due = due_for(w, w.folk.promises[k].kind, t.by);
+    let b = super::promise::hear(w, k);
+    for x in super::promise::spread(w, k) {
+        super::note(w, "talk", "Your promises".into(), x, None);
+    }
+    b
+}
+
+/// A playing-time promise's day: the end of the term its window opens in
+/// (section 7: judged over the games, from its date to the end of its
+/// term; the season unless you said otherwise).
+fn due_for(w: &World, kind: PromiseKind, by: super::promise::By) -> Date {
+    let base = promise_due(w, kind, 0);
+    if !super::promise::over_games(kind) {
+        return base;
+    }
+    let from = super::promise::opens(w, w.today, by);
+    let mut d = base;
+    while d < from.add(7) {
+        d = d.add(364);
+    }
+    d
 }
 
 fn promise_due(w: &World, kind: PromiseKind, seasons: u8) -> Date {
     let today = w.today;
-    let kickoff = |w: &World| match Team::seat(w).map(|t| t.level()) {
-        Some(Level::Nfl) => w.dates.nfl_kickoff,
-        Some(Level::HighSchool) => w.dates.hs_school_start.add(14),
-        _ => w.dates.cfb_weeks.first().copied().unwrap_or(w.dates.fall_camp.add(30)),
-    };
     let end = |w: &World| match Team::seat(w).map(|t| t.level()) {
         Some(Level::Nfl) => w.dates.black_monday,
         _ => w.dates.fbs_regular_end.add(3),
     };
     let base = match kind {
-        PromiseKind::Start | PromiseKind::Join(0) => {
-            let k = kickoff(w).add(8);
-            if k > today { k } else { k.add(365) }
-        }
-        PromiseKind::Snaps | PromiseKind::Place(_) | PromiseKind::Join(_) => {
+        // Judged over the games to the season's end (the promises design,
+        // section 7), not on one day.
+        PromiseKind::Start
+        | PromiseKind::Snaps
+        | PromiseKind::Touches
+        | PromiseKind::Place(_)
+        | PromiseKind::Join(_)
+        | PromiseKind::Position(_) => {
             let e = end(w);
-            if e > today.add(30) { e } else { e.add(365) }
+            if e > today.add(14) { e } else { e.add(365) }
         }
         PromiseKind::Contract => today.add(150),
         PromiseKind::Stay | PromiseKind::Raise => today.add(330),
@@ -302,8 +409,11 @@ fn promise_due(w: &World, kind: PromiseKind, seasons: u8) -> Date {
     )
 }
 
-/// Checks the promises due today: kept ones build trust, broken ones cost
-/// it with him, his friends and (said in public) the room.
+/// Checks the promises due today (the promises design, section 7): a
+/// playing-time promise is judged over its games, kept in 3 of every 4
+/// healthy games, broken by the share missed, released when he missed his
+/// condition; the rest on their day as before. Keeping it pays more the
+/// more he doubted; breaking it costs by what he counted on.
 fn check_promises(w: &mut World, d: Date) {
     let due: Vec<usize> = (0..w.folk.promises.len())
         .filter(|&k| w.folk.promises[k].kept.is_none() && w.folk.promises[k].due <= d)
@@ -315,38 +425,75 @@ fn check_promises(w: &mut World, d: Date) {
             w.folk.promises[k].kept = Some(true);
             continue;
         }
-        let kept = kept(w, &p);
+        let verdict = super::promise::judge(w, &p).unwrap_or_else(|| {
+            if kept(w, &p) { super::promise::Verdict::Kept } else { super::promise::Verdict::Broken(1.0) }
+        });
+        let public = if p.public { 2.0 } else { 1.0 };
+        let (kept, scale, text) = match verdict {
+            super::promise::Verdict::Kept => (true, 1.0, "You kept"),
+            super::promise::Verdict::Broken(share) => (
+                false,
+                super::promise::broken_scale(p.belief, share),
+                if share >= 0.99 { "You broke" } else { "You half kept" },
+            ),
+            super::promise::Verdict::Released(holds) => {
+                w.folk.promises[k].released = true;
+                if holds <= 0.0 {
+                    w.folk.promises[k].kept = Some(true);
+                    let text = format!(
+                        "{} missed the condition on the promise of {} you made on {}: you're released.",
+                        p.who,
+                        p.kind.words(),
+                        p.made.pretty()
+                    );
+                    super::note(w, "talk", "Your promises".into(), text, None);
+                    continue;
+                }
+                (false, super::promise::broken_scale(p.belief, holds), "He holds you to")
+            }
+            super::promise::Verdict::Lapsed => {
+                w.folk.promises[k].kept = Some(true);
+                w.folk.promises[k].released = true;
+                continue;
+            }
+        };
         w.folk.promises[k].kept = Some(kept);
-        let cost = if p.public { 2.0 } else { 1.0 };
-        let text = format!(
-            "{} the promise of {} you made to {} on {}.",
-            if kept { "You kept" } else { "You broke" },
-            p.kind.words(),
-            p.who,
-            p.made.pretty()
-        );
-        settle_word(w, p.to, kept, cost, if kept { Reason::PromiseKept } else { Reason::PromiseBroken });
+        w.folk.promises[k].missed = if kept { 0.0 } else { scale };
+        let text = format!("{} the promise of {} you made to {} on {}.", text, p.kind.words(), p.who, p.made.pretty());
+        let cost = if kept { 1.0 } else { scale * public };
+        let p = w.folk.promises[k].clone();
+        settle_promise(w, &p, kept, cost);
         super::note(w, "talk", "Your promises".into(), text.clone(), None);
         super::post_mine(w, d, Loudness::Small, false, "people: promise", &text);
     }
 }
 
+/// A promise kept or broken, with its audiences and his belief when you
+/// said it (section 7): `cost` is the broken share x what he counted on x
+/// the public factor.
+fn settle_promise(w: &mut World, p: &Promise, kept: bool, cost: f32) {
+    let names = super::promise::audiences(w, p);
+    settle(w, p.to, kept, cost, if kept { Reason::PromiseKept } else { Reason::PromiseBroken }, p.said, &names);
+}
+
 /// What your word kept or broken does (the cost of a promise, written
 /// once): with a player, his trust and mood, and when broken his close
 /// friends' trust, a grudge against his club and your name for keeping your
-/// word; with a cast person or a coach, his trust in you. `cost` is the
-/// public factor (2 said in public, else 1) and `why` the mood's reason.
-/// `check_promises` calls it with a promise's two reasons; the live talks'
-/// lies check is to call it with `Reason::LieSeen` once the promise design
-/// sets what a lie costs.
+/// word with his audience; with a cast person or a coach, his trust in you.
+/// `cost` is the share of the full cost (said in public, 2). A lie he sees
+/// runs through it with `Reason::LieSeen` (section 11).
 pub(crate) fn settle_word(w: &mut World, to: PromiseTo, kept: bool, cost: f32, why: Reason) {
+    settle(w, to, kept, cost, why, 0.0, &[super::Name::Room])
+}
+
+fn settle(w: &mut World, to: PromiseTo, kept: bool, cost: f32, why: Reason, said: f32, names: &[super::Name]) {
     match to {
         PromiseTo::Player(id) => {
             if let Some(i) = super::person(w, id) {
-                let dt = if kept { 0.1 } else { -0.22 * cost };
+                let dt = if kept { super::promise::kept_trust(said) } else { -0.22 * cost };
                 let pp = &mut w.people[i];
                 pp.trust = (pp.trust + dt).clamp(0.0, 1.0);
-                mood_event(w, id, why, dt * 1.4);
+                mood_event(w, id, why, if kept { 0.1 * 1.4 } else { dt * 1.4 });
                 if !kept {
                     for f in super::ties::friends(w, id) {
                         if let Some(j) = super::person(w, f) {
@@ -354,11 +501,15 @@ pub(crate) fn settle_word(w: &mut World, to: PromiseTo, kept: bool, cost: f32, w
                         }
                     }
                     if let Some(c) = w.people[i].pro.as_ref().and_then(|c| c.team) {
-                        crate::world::people::grudge(&mut w.people[i], c, 0.6);
+                        crate::world::people::grudge(&mut w.people[i], c, 0.6 * cost.min(1.0) as f64);
                     }
-                    w.folk.mine.straight = (w.folk.mine.straight - 0.08 * cost).max(-1.0);
+                    for &n in names {
+                        w.folk.mine.word(n, -0.08 * cost);
+                    }
                 } else {
-                    w.folk.mine.straight = (w.folk.mine.straight + 0.04).min(1.0);
+                    for &n in names {
+                        w.folk.mine.word(n, 0.04);
+                    }
                 }
             }
         }
@@ -380,15 +531,27 @@ pub(crate) fn kept(w: &World, p: &Promise) -> bool {
             if pp.stage == Stage::Done {
                 return true;
             }
+            // What he sees, never your chart (the promises design, section 2).
+            let here = Team::seat(w).is_some_and(|t| t.roster(w).contains(&i));
             match kind {
-                PromiseKind::Start => pp.last_role == Some(PlayingTime::Starter) || seat_starter(w, i),
-                PromiseKind::Snaps => matches!(pp.last_role, Some(PlayingTime::Starter | PlayingTime::Rotation)),
+                PromiseKind::Start => super::seen::starter(w, i),
+                PromiseKind::Snaps | PromiseKind::Touches => {
+                    super::seen::starter(w, i) || super::promise::share_now(w, i) >= super::promise::ROLE_SHARE
+                }
+                PromiseKind::Position(pos) => here && pp.player.position as u8 == pos,
                 PromiseKind::Place(r) => {
-                    let here = Team::seat(w).is_some_and(|t| t.roster(w).contains(&i));
-                    here && (pp.last_role.map_or(5, |x| x as u8) <= r || r == 0 && seat_starter(w, i))
+                    // His place as he sees it: 0 a starter, 1 a real role,
+                    // 2 any other place on the team.
+                    let seen = if super::seen::starter(w, i) {
+                        0
+                    } else if super::promise::share_now(w, i) >= super::promise::ROLE_SHARE {
+                        1
+                    } else {
+                        2
+                    };
+                    here && (r >= 2 || seen <= r)
                 }
                 PromiseKind::Join(r) => {
-                    let here = Team::seat(w).is_some_and(|t| t.roster(w).contains(&i));
                     let mine = Team::seat(w).and_then(|t| match t {
                         Team::College(c) => Some(c as u32),
                         _ => None,
@@ -399,10 +562,13 @@ pub(crate) fn kept(w: &World, p: &Promise) -> bool {
                         .get(crate::world::tally::Level::College, id)
                         .filter(|s| Some(s.team) == mine && w.tallies.season == w.dates.season);
                     let (games, starts) = line.map_or((0, 0), |s| (s.games, s.starts));
-                    here && if r == 0 { starts > 0 || seat_starter(w, i) } else { games >= 8 || starts >= 3 }
+                    here && if r == 0 {
+                        starts > 0 || super::seen::with_the_ones(w, id)
+                    } else {
+                        games >= 8 || starts >= 3
+                    }
                 }
                 PromiseKind::Recruit(k, pos) => {
-                    let here = Team::seat(w).is_some_and(|t| t.roster(w).contains(&i));
                     let mine = Team::seat(w).and_then(|t| match t {
                         Team::College(c) => Some(c as u32),
                         _ => None,
@@ -435,8 +601,16 @@ pub(crate) fn kept(w: &World, p: &Promise) -> bool {
 /// football. A club that cut or traded him, or a program or school that
 /// dismissed him, broke it (`kept`).
 pub(crate) fn lapsed(w: &World, p: &Promise) -> bool {
-    let (PromiseTo::Player(id), PromiseKind::Place(_) | PromiseKind::Join(_) | PromiseKind::Recruit(..)) =
-        (p.to, p.kind)
+    let (
+        PromiseTo::Player(id),
+        PromiseKind::Place(_)
+        | PromiseKind::Join(_)
+        | PromiseKind::Recruit(..)
+        | PromiseKind::Start
+        | PromiseKind::Snaps
+        | PromiseKind::Touches
+        | PromiseKind::Position(_),
+    ) = (p.to, p.kind)
     else {
         return false;
     };
@@ -459,16 +633,11 @@ pub(crate) fn lapsed(w: &World, p: &Promise) -> bool {
     }
 }
 
-/// A starter: last season's role or your depth chart now.
+/// A starter as he sees it (the promises design, section 2): with the
+/// ones and starting in his last practice weeks and games, else last
+/// season's role. Never your chart.
 pub(crate) fn is_starter(w: &World, i: usize) -> bool {
-    w.people[i].last_role == Some(PlayingTime::Starter) || seat_starter(w, i)
-}
-
-/// On your depth chart as a starter now (the game's own chart when you
-/// set one).
-fn seat_starter(w: &World, i: usize) -> bool {
-    let id = w.people[i].player.id;
-    w.seat_depth.iter().any(|(_, ids)| ids.first() == Some(&id))
+    super::seen::starter(w, i)
 }
 
 // ---------------------------------------------------------------------------
@@ -1265,6 +1434,10 @@ fn add_picks(w: &World, s: &mut Scene, i: usize, topic: Topic, used: &[Move]) {
             // Your word on his future (playtest bug 15): a promise backed by
             // a strength of his, or the three ways to tell him to go.
             s.picks.extend(super::future::picks(w, i, k));
+            // An open promise that slipped: section 6's answers.
+            if k == PointKind::PromiseOpen {
+                slipped_picks(w, s, i);
+            }
             s.pick(900, "End the talk", "End", "calm", "Ends it here.");
             return;
         }
@@ -1539,21 +1712,13 @@ fn add_talk_picks(w: &World, s: &mut Scene, i: usize, subject: Subject, used: &[
     s.pick(900, "End the talk", "End", "calm", "Ends it here.");
 }
 
-/// A starter's place, as proof on the field for praise: last season's
-/// starter, or among the starters at his position on the depth chart your
-/// team would take into a game today (`seat_game_depth`: your own order
-/// where you set one, your staff's elsewhere; `depth_slots` starters deep).
-/// A pro's `last_role` is still his last college season (nothing writes it
-/// after the draft), so a pro is read from today's chart alone.
+/// A starter's place, as proof on the field for praise: what he sees of
+/// his place (the promises design, section 2), never your chart.
 pub(crate) fn starters_place(w: &World, i: usize) -> bool {
+    // A pro's `last_role` is still his last college season: only what he
+    // has seen with you counts.
     let p = &w.people[i];
-    if (p.stage != Stage::Pro && p.last_role == Some(PlayingTime::Starter)) || seat_starter(w, i) {
-        return true;
-    }
-    let id = p.player.id;
-    w.seat_game_depth().is_some_and(|d| {
-        d.iter().any(|(pos, ids)| ids.iter().take(crate::league::depth_slots(*pos).starters).any(|&x| x == id))
-    })
+    super::seen::first_now(w, i).unwrap_or(p.stage != Stage::Pro && p.last_role == Some(PlayingTime::Starter))
 }
 
 /// How true praise rings to him, 0 (he knows he's coasting) to 1 (he has
@@ -1783,7 +1948,59 @@ pub fn one_on_one_say(_w: &World, _s: &Scene, _heard: &super::scene::Heard) -> O
 /// P1 fills (the promise design, agreed 2026-11-13: his belief now, the
 /// terms of section 3, judged on his next 2 practice weeks and 2 games). It
 /// logs nothing yet, so a typed line costs and keeps what its chip does.
-pub fn typed_promise(_w: &mut World, _scene: u32, _him: u32, _p: &super::scene::PromiseRead) {}
+pub fn typed_promise(w: &mut World, _scene: u32, him: u32, p: &super::scene::PromiseRead) {
+    use super::promise::{By, Cond, Terms};
+    let Some(i) = super::person(w, him) else { return };
+    let rank = if is_starter(w, i) { 0 } else { w.people[i].last_role.map_or(PlayingTime::Backup as u8, |r| r as u8) };
+    let kind = match p.kind.as_str() {
+        "start" | "ahead_of" => PromiseKind::Start,
+        "role" => PromiseKind::Snaps,
+        "touches" => PromiseKind::Touches,
+        "position" => PromiseKind::Position(w.people[i].player.position as u8),
+        "place" => PromiseKind::Place(rank),
+        "contract" => PromiseKind::Contract,
+        "stay" => PromiseKind::Stay,
+        _ => return,
+    };
+    // A claim about where he stands is judged on his next 2 practice weeks
+    // and 2 games (section 11): from now, to the end of three weeks.
+    let by = match p.by.as_str() {
+        "midseason" => By::Midseason,
+        "next_season" => By::NextSeason,
+        "opener" | "next_game" | "this_season" | "" => By::Now,
+        _ => By::Now,
+    };
+    let cond = match p.condition.as_str() {
+        "stat" => Cond::Stat,
+        "practice" => Cond::Practice,
+        "conduct" => Cond::Conduct,
+        "grades" => Cond::Grades,
+        "body" => Cond::Weight,
+        "health" => Cond::Health,
+        _ => Cond::None,
+    };
+    let mut t = Terms { by, dated: !p.by.is_empty(), cond, ahead: p.against, ..Terms::default() };
+    if cond == Cond::Stat
+        && let Some(st) = super::promise::Stat::of(w.people[i].player.position)
+    {
+        t.stat = st;
+        t.bar = super::promise::bars(w, i, kind, st, by).0;
+        if let Some(n) = p.condition_words.split_whitespace().find_map(|x| x.parse::<f32>().ok()) {
+            t.bar = n;
+        }
+    }
+    promise(w, PromiseTo::Player(him), kind, 0);
+    let k = w.folk.promises.len() - 1;
+    set_terms(w, k, t);
+    if p.claim.is_some() {
+        // His next two practice weeks and two games.
+        let d = w.today.add(16);
+        let x = &mut w.folk.promises[k];
+        if super::promise::over_games(x.kind) {
+            x.due = d;
+        }
+    }
+}
 
 /// Whether a code is a talk move with another tone than the one offered
 /// (you may say any listed move in any of the four tones).
@@ -1894,6 +2111,12 @@ fn one_on_one_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         answer_question(w, s, i, a, picked);
         return;
     }
+    // Your answer to his follow-up on a promise, or on an open promise
+    // that slipped (the promises design, sections 5 and 6).
+    if let Some(a) = PAct::of(code) {
+        promise_act(w, s, i, a, picked);
+        return;
+    }
     // Your word on his future (playtest bug 15): he answers, and the talk
     // ends there.
     if let Some(word) = super::future::Word::of(code) {
@@ -1934,6 +2157,15 @@ fn one_on_one_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         "bad"
     } else {
         "flat"
+    };
+    // A promise: he answers by how far he believes it (the promises design,
+    // section 5, question 14): good believes, flat isn't sure, bad doubts;
+    // a man who'd have it anyway says so.
+    let pkind = (m == Move::Promise).then(|| move_promise_kind(w, i, topic, picked));
+    let knows = pkind.is_some_and(|k| super::promise::knows(w, i, k));
+    let outcome = match pkind {
+        Some(k) => super::promise::band(super::promise::belief_own(w, i, k, &Default::default(), 0)),
+        None => outcome,
     };
     f.set("went", outcome);
     // Praise for the same thing again: he says so (section 5, "Follow-ups
@@ -2016,6 +2248,9 @@ fn one_on_one_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         } else {
             String::new()
         };
+        let line = if line.is_empty() && knows { pen.line(&["talk.promise.reply.knows"], &spk, &f) } else { line };
+        let line =
+            if line.is_empty() && knows { "I'm already doing that, Coach. But I hear you.".to_string() } else { line };
         let line = if line.is_empty() {
             pen.line(&[&format!("talk.reply.{}.{outcome}", m.key()), &format!("?talk.close.{outcome}")], &spk, &f)
         } else {
@@ -2044,22 +2279,7 @@ fn one_on_one_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     // What the move does beyond the talk.
     match (m, topic) {
         (Move::Promise, _) => {
-            let kind = match topic {
-                Topic::Point(k) => tp::promise_kind(w, i, k),
-                Topic::Subject(sub) => {
-                    let starter = is_starter(w, i);
-                    let rank =
-                        if starter { 0 } else { w.people[i].last_role.map_or(PlayingTime::Backup as u8, |r| r as u8) };
-                    match sub {
-                        Subject::Money => PromiseKind::Contract,
-                        Subject::Future if picked.label.contains("not going anywhere") => PromiseKind::Stay,
-                        Subject::Future => PromiseKind::Start,
-                        Subject::Behavior | Subject::Life | Subject::Team | Subject::Friend => PromiseKind::Place(rank),
-                        _ if starter => PromiseKind::Snaps,
-                        _ => PromiseKind::Start,
-                    }
-                }
-            };
+            let kind = pkind.unwrap_or(PromiseKind::Start);
             promise(w, PromiseTo::Player(id), kind, 0);
             s.outcome.push(format!("You promised {} {}.", name, kind.words()));
         }
@@ -2095,8 +2315,22 @@ fn one_on_one_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         }
         _ => {}
     }
-    // Leaning to leave: what you said reaches the portal lean (T3).
-    if w.people[i].stage == Stage::College && w.people[i].cal.lean > 0.0 && (dt + dm).abs() > 0.03 {
+    // The meeting before he enters the portal (the promises design, section
+    // 8): a playing-time promise moves his lean by what it adds for him
+    // times his belief, at most halving it, in place of the flat lift.
+    let held = pkind.filter(|&k| super::promise::playing_time(k) && asked_to_leave(w, id)).and_then(|_| {
+        let k = super::promise::fresh(w, id)?;
+        Some(super::promise::portal_pull(w, i, &w.folk.promises[k]))
+    });
+    if let Some(pull) = held
+        && w.people[i].stage == Stage::College
+        && w.people[i].cal.lean > 0.0
+    {
+        let today = w.today;
+        let p = &mut w.people[i];
+        p.cal.lean *= 1.0 - pull;
+        p.cal.lean_events.push((today, "his head coach promised him playing time", 1.0 - pull));
+    } else if w.people[i].stage == Stage::College && w.people[i].cal.lean > 0.0 && (dt + dm).abs() > 0.03 {
         let f = if dt + dm > 0.0 {
             (1.0 - 1.2 * (dt + dm) as f64).max(0.7)
         } else {
@@ -2112,6 +2346,11 @@ fn one_on_one_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         ));
     }
     s.c |= used_bit(m);
+    // He isn't sure, or doubts: one follow-up about his doubt (section 5),
+    // using one of the talk's exchanges.
+    if pkind.is_some() && s.step < 3 && follow_up(w, s, i) {
+        return;
+    }
     let all_used: Vec<Move> =
         Move::ALL.iter().enumerate().filter(|(k, _)| s.c & (1 << (2 + k)) != 0).map(|x| *x.1).collect();
     if s.step >= 3 || matches!(m, Move::Criticize) && outcome == "bad" {
@@ -2119,6 +2358,738 @@ fn one_on_one_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     } else {
         add_picks(w, s, i, Topic::of(s.b), &all_used);
     }
+}
+
+/// The promise a Promise move makes on a topic: a point's own kind, else
+/// the subject's (a start for a man who doesn't see himself starting).
+fn move_promise_kind(w: &World, i: usize, topic: Topic, picked: &Pick) -> PromiseKind {
+    match topic {
+        Topic::Point(k) => tp::promise_kind(w, i, k),
+        Topic::Subject(sub) => {
+            let starter = is_starter(w, i);
+            let rank = if starter { 0 } else { w.people[i].last_role.map_or(PlayingTime::Backup as u8, |r| r as u8) };
+            match sub {
+                Subject::Money => PromiseKind::Contract,
+                Subject::Future if picked.label.contains("not going anywhere") => PromiseKind::Stay,
+                Subject::Future => PromiseKind::Start,
+                Subject::Behavior | Subject::Life | Subject::Team | Subject::Friend => PromiseKind::Place(rank),
+                _ if starter => PromiseKind::Snaps,
+                _ => PromiseKind::Start,
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Promises in the talk (the promises design, sections 5 and 6; lane P1).
+
+/// A follow-up on a promise has been asked in this talk (`Scene.c`).
+const FOLLOWED: i64 = 1 << 30;
+
+/// His follow-up, the one his doubt is about (section 5).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Ask {
+    /// "Ahead of who?"
+    Who,
+    /// "What do I have to do?"
+    What,
+    /// "By when?"
+    When,
+    /// "What happens when he's back?"
+    Threat,
+    /// "You told him the same."
+    Friend,
+    /// "Will you put that in writing?" (NFL)
+    Writing,
+}
+
+impl Ask {
+    fn key(self) -> &'static str {
+        match self {
+            Ask::Who => "who",
+            Ask::What => "what",
+            Ask::When => "when",
+            Ask::Threat => "threat",
+            Ask::Friend => "friend",
+            Ask::Writing => "writing",
+        }
+    }
+}
+
+/// Your answers to a follow-up and to an open promise that slipped.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PAct {
+    /// Name the man he plays ahead of.
+    Name,
+    /// Tell him straight what you can and can't promise.
+    Straight,
+    /// Take it back.
+    TakeBack,
+    /// A stat bar a starter makes on the snaps he'll play.
+    BarFair,
+    /// A bar well above that.
+    BarHigh,
+    Practice,
+    Conduct,
+    Grades,
+    Weight,
+    Health,
+    Week4,
+    Midseason,
+    NextSeason,
+    /// He keeps it when the hurt man is back.
+    KeepsIt,
+    /// You own the one you broke to his friend.
+    OwnIt,
+    /// "That was different."
+    Different,
+    Writing,
+    WordEnough,
+    /// Section 6: deliver (you start him).
+    Deliver,
+    /// Section 6: the real reason.
+    Real,
+    /// Section 6: a new date.
+    NewDate,
+    /// Section 6: change the condition.
+    NewCond,
+    /// Section 6: help him find a place.
+    Help,
+    /// Section 6: dodge.
+    Dodge,
+}
+
+const PACT_FIRST: u32 = 1100;
+
+impl PAct {
+    const ALL: [PAct; 24] = [
+        PAct::Name,
+        PAct::Straight,
+        PAct::TakeBack,
+        PAct::BarFair,
+        PAct::BarHigh,
+        PAct::Practice,
+        PAct::Conduct,
+        PAct::Grades,
+        PAct::Weight,
+        PAct::Health,
+        PAct::Week4,
+        PAct::Midseason,
+        PAct::NextSeason,
+        PAct::KeepsIt,
+        PAct::OwnIt,
+        PAct::Different,
+        PAct::Writing,
+        PAct::WordEnough,
+        PAct::Deliver,
+        PAct::Real,
+        PAct::NewDate,
+        PAct::NewCond,
+        PAct::Help,
+        PAct::Dodge,
+    ];
+    pub fn code(self) -> u32 {
+        PACT_FIRST + PAct::ALL.iter().position(|x| *x == self).unwrap_or(0) as u32
+    }
+    pub fn of(code: u32) -> Option<PAct> {
+        code.checked_sub(PACT_FIRST).and_then(|k| PAct::ALL.get(k as usize)).copied()
+    }
+    fn key(self) -> &'static str {
+        match self {
+            PAct::Name => "name",
+            PAct::Straight => "straight",
+            PAct::TakeBack => "take_back",
+            PAct::BarFair | PAct::BarHigh => "stat",
+            PAct::Practice => "practice",
+            PAct::Conduct => "conduct",
+            PAct::Grades => "grades",
+            PAct::Weight => "weight",
+            PAct::Health => "health",
+            PAct::Week4 | PAct::Midseason | PAct::NextSeason => "when",
+            PAct::KeepsIt => "keeps",
+            PAct::OwnIt => "own",
+            PAct::Different => "different",
+            PAct::Writing => "writing",
+            PAct::WordEnough => "word",
+            PAct::Deliver => "deliver",
+            PAct::Real => "straight",
+            PAct::NewDate => "new_date",
+            PAct::NewCond => "new_condition",
+            PAct::Help => "help",
+            PAct::Dodge => "dodge",
+        }
+    }
+}
+
+/// The man he has to pass: the one at his spot with the ones who played
+/// the most snaps in your last game.
+fn man_ahead(w: &World, i: usize) -> Option<u32> {
+    let ahead = super::seen::ahead(w, i);
+    let team = Team::seat(w)?;
+    let last =
+        w.seat_games.iter().rev().filter(|g| g.date <= w.today).find_map(|g| claims::side_of(g, team).map(|s| (g, s)));
+    let snaps = |id: u32| last.and_then(|(g, s)| g.stats.players[s].get(&id)).map_or(0, |l| l.snaps_off + l.snaps_def);
+    ahead.into_iter().max_by_key(|&id| (snaps(id), std::cmp::Reverse(id)))
+}
+
+/// A man at his spot out hurt now who had the job (the threat when he's
+/// back).
+fn hurt_ahead(w: &World, i: usize) -> Option<u32> {
+    let p = &w.people[i];
+    let (id, pos) = (p.player.id, p.player.position);
+    let team = Team::seat(w)?;
+    team.roster(w).into_iter().find_map(|j| {
+        let q = &w.people[j];
+        (q.player.id != id
+            && q.player.position == pos
+            && super::seen::hurt_on(w, q.player.id, w.today)
+            && q.last_role == Some(PlayingTime::Starter))
+        .then_some(q.player.id)
+    })
+}
+
+/// A promise you broke to a close friend of his in the last two years.
+fn broke_to_friend(w: &World, id: u32) -> Option<u32> {
+    let friends = super::ties::friends(w, id);
+    w.folk.promises.iter().find_map(|p| match p.to {
+        PromiseTo::Player(o) if friends.contains(&o) && p.kept == Some(false) && p.due.days_to(w.today) <= 730 => {
+            Some(o)
+        }
+        _ => None,
+    })
+}
+
+fn which_ask(w: &World, i: usize, p: &Promise) -> Option<Ask> {
+    let id = w.people[i].player.id;
+    if !super::promise::playing_time(p.kind) {
+        return None;
+    }
+    let start = matches!(p.kind, PromiseKind::Start | PromiseKind::Place(0));
+    let t = &p.terms;
+    if broke_to_friend(w, id).is_some() {
+        return Some(Ask::Friend);
+    }
+    if w.people[i].stage == Stage::Pro && (p.belief as f64) < super::promise::UNSURE && !t.written {
+        return Some(Ask::Writing);
+    }
+    if start && hurt_ahead(w, i).is_some() && t.ahead.is_none() {
+        return Some(Ask::Threat);
+    }
+    if start && t.ahead.is_none() && man_ahead(w, i).is_some() {
+        return Some(Ask::Who);
+    }
+    if t.cond == super::promise::Cond::None && super::promise::likely_own(w, i, p.kind, t) < 0.7 {
+        return Some(Ask::What);
+    }
+    if !t.dated {
+        return Some(Ask::When);
+    }
+    None
+}
+
+fn first_of(w: &World, id: u32) -> String {
+    super::person(w, id).map_or_else(|| "him".into(), |j| first_name(&w.people[j].name))
+}
+
+/// He isn't sure or doubts the promise you just made: he asks one
+/// follow-up about his doubt, and the talk's picks become your answers.
+fn follow_up(w: &mut World, s: &mut Scene, i: usize) -> bool {
+    let id = w.people[i].player.id;
+    if s.c & FOLLOWED != 0 {
+        return false;
+    }
+    let Some(k) = super::promise::fresh(w, id) else { return false };
+    let p = w.folk.promises[k].clone();
+    if p.made != w.today || p.belief as f64 >= super::promise::BELIEVES || super::promise::knows(w, i, p.kind) {
+        return false;
+    }
+    let Some(ask) = which_ask(w, i, &p) else { return false };
+    s.c |= FOLLOWED;
+    let name = w.people[i].name.clone();
+    let spk = Speaker::player(w, i);
+    let mut f = player_facts(w, i);
+    let ahead = man_ahead(w, i);
+    if let Some(a) = ahead {
+        f.set("ahead", first_of(w, a));
+    }
+    let hurt = hurt_ahead(w, i);
+    if let Some(h) = hurt {
+        f.set("back", first_of(w, h));
+    }
+    let friend = broke_to_friend(w, id);
+    if let Some(o) = friend {
+        f.set("friend", first_of(w, o));
+    }
+    let mut pen = scene::pen(w, s, 0x9A0 + s.step as u64);
+    let line = pen.line(&[&format!("talk.promise.ask.{}", ask.key())], &spk, &f);
+    pen.put(w);
+    let line = if line.is_empty() {
+        match ask {
+            Ask::Who => format!(
+                "Ahead of who, Coach? {} is getting the reps with the ones.",
+                f.get("ahead").unwrap_or("Somebody")
+            ),
+            Ask::What => "What do I have to do? Tell me and I'll do it.".to_string(),
+            Ask::When => "By when, Coach?".to_string(),
+            Ask::Threat => format!("And what happens when {} is back?", f.get("back").unwrap_or("he")),
+            Ask::Friend => {
+                format!("You told {} the same thing. Look how that went.", f.get("friend").unwrap_or("my boy"))
+            }
+            Ask::Writing => "With respect, Coach: will you put that in writing?".to_string(),
+        }
+    } else {
+        line
+    };
+    s.them(&name, line, read_tell(w, i, -1));
+    s.outcome.push(format!("{name} isn't sure he believes it."));
+    s.picks.clear();
+    let mut add = |a: PAct, label: String, tone: &str, hint: &str| {
+        s.picks.push(Pick {
+            label,
+            mv: "Answer".into(),
+            tone: tone.into(),
+            hint: hint.into(),
+            code: a.code(),
+            kind: PickKind::Final,
+            ..Pick::default()
+        });
+    };
+    let them = |x: Option<u32>| x.map_or_else(|| "him".to_string(), |a| first_of(w, a));
+    match ask {
+        Ask::Who | Ask::Threat => {
+            let x = if ask == Ask::Who { ahead } else { hurt };
+            add(
+                if ask == Ask::Who { PAct::Name } else { PAct::KeepsIt },
+                if ask == Ask::Who {
+                    format!("\"You'll play ahead of {}.\"", them(x))
+                } else {
+                    format!("\"When {} is back, you're still ahead of him.\"", them(x))
+                },
+                "firm",
+                "Names the man: more real to him, and that man may hear of it.",
+            );
+            add(
+                PAct::Straight,
+                format!("\"I can't promise you'll pass {}. I can promise you'll get your shot.\"", them(x)),
+                "calm",
+                "Takes the promise back honestly: no pull now, and he believes your next one more.",
+            );
+        }
+        Ask::What => {
+            let pos = w.people[i].player.position;
+            if let Some(st) = super::promise::Stat::of(pos) {
+                let (fair, high) = super::promise::bars(w, i, p.kind, st, p.terms.by);
+                add(
+                    PAct::BarFair,
+                    format!("\"Give me {}.\"", st.words(fair)),
+                    "firm",
+                    "A bar a starter makes on those snaps. He likes earning it.",
+                );
+                add(
+                    PAct::BarHigh,
+                    format!("\"Give me {}.\"", st.words(high)),
+                    "fiery",
+                    "Well above a starter's line on those snaps: he may hear a setup.",
+                );
+            }
+            add(
+                PAct::Practice,
+                "\"Win it in practice.\"".into(),
+                "firm",
+                "Your staff judges it: it rests on his belief you judge fairly.",
+            );
+            add(PAct::Conduct, "\"Keep your nose clean. No rule broken.\"".into(), "calm", "Plain to both of you.");
+            if matches!(w.people[i].stage, Stage::College | Stage::HighSchool) {
+                add(PAct::Grades, "\"Stay eligible.\"".into(), "calm", "Plain to both of you.");
+            }
+            if super::seen::hurt_on(w, id, w.today) {
+                add(PAct::Health, "\"Get healthy first.\"".into(), "warm", "It waits until he is cleared.");
+            }
+        }
+        Ask::When => {
+            add(PAct::Week4, "\"By week 4.\"".into(), "firm", "A date makes it real.");
+            add(PAct::Midseason, "\"By midseason.\"".into(), "calm", "A date makes it real.");
+            add(PAct::NextSeason, "\"Next season.\"".into(), "calm", "A long promise weighs your job security.");
+        }
+        Ask::Friend => {
+            add(
+                PAct::OwnIt,
+                format!("\"I let {} down. I won't do it to you.\"", them(friend)),
+                "warm",
+                "Owning it helps a little.",
+            );
+            add(PAct::Different, "\"That was different.\"".into(), "firm", "He hears an excuse.");
+        }
+        Ask::Writing => {
+            add(
+                PAct::Writing,
+                "\"Have your agent call. We'll put a snap clause in.\"".into(),
+                "calm",
+                "A playing time incentive clause: he believes it.",
+            );
+            add(PAct::WordEnough, "\"My word is enough.\"".into(), "firm", "A wary man trusts it less.");
+        }
+    }
+    add(PAct::TakeBack, "\"Forget I said it.\"".into(), "calm", "Takes it back. It costs a little trust.");
+    s.pick(900, "End the talk", "End", "calm", "Ends it here.");
+    true
+}
+
+/// The open promise to him that slipped (behind, owed or missed).
+fn slipped(w: &World, id: u32) -> Option<usize> {
+    use super::promise::State;
+    (0..w.folk.promises.len()).rev().find(|&k| {
+        let p = &w.folk.promises[k];
+        p.to == PromiseTo::Player(id)
+            && p.kept.is_none()
+            && matches!(State::of(p.state), State::Behind | State::Owed | State::Missed)
+    })
+}
+
+/// Section 6's answers on an open promise that slipped.
+fn slipped_picks(w: &World, s: &mut Scene, i: usize) {
+    use super::promise::{Cond, State};
+    let id = w.people[i].player.id;
+    let Some(k) = slipped(w, id) else { return };
+    let p = &w.folk.promises[k];
+    let st = State::of(p.state);
+    let mut add = |a: PAct, label: &str, tone: &str, hint: &str| {
+        if !s.picks.iter().any(|x| x.code == a.code()) {
+            s.picks.push(Pick {
+                label: label.into(),
+                mv: "Answer".into(),
+                tone: tone.into(),
+                hint: hint.into(),
+                code: a.code(),
+                kind: PickKind::Final,
+                ..Pick::default()
+            });
+        }
+    };
+    if st != State::Missed {
+        add(
+            PAct::Deliver,
+            "\"You start this week.\"",
+            "firm",
+            "You move him up your chart: he sees it at practice and on game day.",
+        );
+    }
+    add(
+        PAct::Real,
+        "\"Here's the real reason.\"",
+        "calm",
+        "The truth about where it stands: it ends the promise, half the sting.",
+    );
+    add(PAct::NewDate, "\"Give me until midseason.\"", "warm", "A new date: his belief drops by a third.");
+    if p.terms.cond != Cond::None || st == State::Owed {
+        add(PAct::NewCond, "\"Win it in practice first.\"", "firm", "Once he met it, he hears the goalposts moved.");
+    }
+    if w.people[i].stage == Stage::College {
+        add(
+            PAct::Help,
+            "\"If you want out, I'll help you find a place.\"",
+            "warm",
+            "Ends it. His trust and your room's word hold.",
+        );
+    }
+    add(PAct::Dodge, "\"Let's see how the week goes.\"", "calm", "He notices a dodge.");
+}
+
+/// Your answer to a follow-up or to an open promise that slipped: it
+/// reshapes the promise and his belief through the part it touches.
+fn promise_act(w: &mut World, s: &mut Scene, i: usize, a: PAct, picked: &Pick) {
+    use super::promise::{By, Cond};
+    let id = w.people[i].player.id;
+    let name = w.people[i].name.clone();
+    s.you(&scene::your_name(w), picked.label.clone());
+    let slip = matches!(a, PAct::Deliver | PAct::Real | PAct::NewDate | PAct::NewCond | PAct::Help | PAct::Dodge);
+    let k = if slip { slipped(w, id) } else { super::promise::fresh(w, id) };
+    let Some(k) = k else {
+        add_picks(w, s, i, Topic::of(s.b), &[]);
+        return;
+    };
+    let before = w.folk.promises[k].clone();
+    let old_pull = super::promise::portal_pull(w, i, &before);
+    let ego = w.people[i].player.personality.traits.z(Trait::Ego).clamp(0.0, 1.5) as f32;
+    let prof = w.people[i].player.personality.traits.z(Trait::Professionalism) as f32;
+    let mut t = before.terms;
+    let mut hear_key = String::new();
+    let mut gone = false;
+    match a {
+        PAct::Name | PAct::KeepsIt => {
+            t.ahead = if a == PAct::Name { man_ahead(w, i) } else { hurt_ahead(w, i) };
+            t.dated = t.dated || a == PAct::KeepsIt;
+        }
+        PAct::Straight => {
+            // No pull now, and he believes your next promise more.
+            gone = true;
+            let q = &mut w.people[i];
+            q.trust = (q.trust + 0.02 + 0.02 * prof.max(0.0)).clamp(0.0, 1.0);
+            w.folk.mine.told_straight.retain(|x| x.1.days_to(w.today) < 120 && x.0 != id);
+            w.folk.mine.told_straight.push((id, w.today));
+            hear_key = "talk.promise.hear.sure".into();
+        }
+        PAct::TakeBack => {
+            gone = true;
+            let q = &mut w.people[i];
+            q.trust = (q.trust - 0.05).max(0.0);
+        }
+        PAct::BarFair | PAct::BarHigh => {
+            let pos = w.people[i].player.position;
+            if let Some(st) = super::promise::Stat::of(pos) {
+                let (fair, high) = super::promise::bars(w, i, before.kind, st, t.by);
+                t.cond = Cond::Stat;
+                t.stat = st;
+                t.bar = if a == PAct::BarFair { fair } else { high };
+            }
+        }
+        PAct::Practice => t.cond = Cond::Practice,
+        PAct::Conduct => t.cond = Cond::Conduct,
+        PAct::Grades => t.cond = Cond::Grades,
+        PAct::Weight => t.cond = Cond::Weight,
+        PAct::Health => t.cond = Cond::Health,
+        PAct::Week4 | PAct::Midseason | PAct::NextSeason => {
+            t.by = match a {
+                PAct::Week4 => By::Week4,
+                PAct::Midseason => By::Midseason,
+                _ => By::NextSeason,
+            };
+            t.dated = true;
+        }
+        PAct::OwnIt => {
+            let b = &mut w.folk.promises[k].belief;
+            *b = (*b + 0.03).min(0.97);
+        }
+        PAct::Different => {
+            let q = &mut w.people[i];
+            q.trust = (q.trust - 0.02).max(0.0);
+            let b = &mut w.folk.promises[k].belief;
+            *b = (*b - 0.05).max(0.05);
+        }
+        PAct::Writing => t.written = true,
+        PAct::WordEnough => {
+            let b = &mut w.folk.promises[k].belief;
+            *b = (*b - 0.1).max(0.05);
+        }
+        PAct::Deliver => {
+            // You start him: he sees it at practice and on game day.
+            let pos = w.people[i].player.position;
+            let mut order: Vec<u32> = w.seat_depth.iter().find(|x| x.0 == pos).map(|x| x.1.clone()).unwrap_or_default();
+            order.retain(|&x| x != id);
+            order.insert(0, id);
+            w.set_seat_depth(pos, order);
+            t.by = By::Now;
+            let b = &mut w.folk.promises[k].belief;
+            *b = (*b + 0.1).min(0.97);
+            s.outcome.push(format!("{name} goes to the top of your depth chart at his spot."));
+        }
+        PAct::Real => {
+            // The real reason, a true fact: it ends here, judged on what
+            // he has seen, at half the sting.
+            gone = true;
+            let r = super::promise::judge(w, &before);
+            let share = match r {
+                Some(super::promise::Verdict::Broken(x)) => x,
+                _ => 0.0,
+            };
+            let q = &mut w.people[i];
+            q.trust = (q.trust + 0.03 * prof.max(0.0)).clamp(0.0, 1.0);
+            if share > 0.0 {
+                let mut p = before.clone();
+                p.public = false;
+                let cost = 0.5 * super::promise::broken_scale(before.belief, share);
+                settle_promise(w, &p, false, cost);
+            }
+        }
+        PAct::NewDate => {
+            t.by = match t.by {
+                By::Now | By::Week4 => By::Midseason,
+                _ => By::NextSeason,
+            };
+            t.dated = true;
+            let b = &mut w.folk.promises[k].belief;
+            *b *= super::promise::NEW_DATE as f32;
+        }
+        PAct::NewCond => {
+            if super::promise::State::of(before.state) == super::promise::State::Owed {
+                let q = &mut w.people[i];
+                q.trust = (q.trust - super::promise::GOALPOSTS - 0.04 * ego).max(0.0);
+                s.outcome.push(format!("{name} hears the goalposts moved."));
+            }
+            t.cond = Cond::Practice;
+        }
+        PAct::Help => {
+            // You help him find a place: the promise ends, his trust and
+            // your room's word hold, and he leans out.
+            gone = true;
+            let today = w.today;
+            let q = &mut w.people[i];
+            q.cal.lean = (q.cal.lean.max(0.05) * 1.5).min(1.0);
+            q.cal.lean_events.push((today, "his head coach offered to help him find a place", 1.5));
+        }
+        PAct::Dodge => {
+            let q = &mut w.people[i];
+            q.trust = (q.trust - 0.04).max(0.0);
+            let b = &mut w.folk.promises[k].belief;
+            *b = (*b - 0.1).max(0.05);
+        }
+    }
+    let belief = if gone {
+        w.folk.promises.remove(k);
+        0.0
+    } else {
+        let keep_belief = w.folk.promises[k].belief;
+        let reshaped = t != before.terms;
+        let b = if reshaped { set_terms(w, k, t) as f32 } else { keep_belief };
+        // A reshaped promise is heard fresh, then what this talk already
+        // did to his belief (owning it, a dodge) still counts.
+        if reshaped {
+            let drift = keep_belief - before.belief;
+            let x = &mut w.folk.promises[k];
+            x.belief = (b + drift).clamp(0.05, 0.97);
+            x.said = x.belief;
+        }
+        if matches!(a, PAct::NewDate) {
+            let x = &mut w.folk.promises[k];
+            x.belief = (x.belief.min(before.belief) * super::promise::NEW_DATE as f32).max(0.05);
+        }
+        w.folk.promises[k].belief
+    };
+    // The portal meeting: what the promise holds now replaces what it held.
+    if asked_to_leave(w, id) && w.people[i].stage == Stage::College && super::promise::playing_time(before.kind) {
+        let now = if gone { 0.0 } else { super::promise::portal_pull(w, i, &w.folk.promises[k]) };
+        let f = ((1.0 - now) / (1.0 - old_pull).max(0.5)).clamp(0.5, 2.0);
+        if (f - 1.0).abs() > 1e-6 {
+            let today = w.today;
+            let q = &mut w.people[i];
+            q.cal.lean *= f;
+            q.cal.lean_events.push((today, "his head coach's promise, reshaped", f));
+        }
+    }
+    // His answer: by how he heard a condition, else by belief.
+    let fair = if gone { 0 } else { w.folk.promises[k].terms.fair };
+    if hear_key.is_empty() {
+        hear_key = match (a, fair) {
+            (PAct::BarFair | PAct::BarHigh, -1) => "talk.promise.hear.unfair".into(),
+            (PAct::BarFair | PAct::BarHigh | PAct::Practice, _) => "talk.promise.hear.earn".into(),
+            (PAct::Conduct | PAct::Grades | PAct::Weight | PAct::Health, _) => "talk.promise.hear.fair".into(),
+            _ => format!("talk.reply.promise.{}", super::promise::band(belief as f64)),
+        };
+    }
+    let spk = Speaker::player(w, i);
+    let mut f = player_facts(w, i);
+    if !gone {
+        let p = &w.folk.promises[k];
+        f.set("snaps", format!("{}", super::promise::snaps_under(w, i, p.kind, &p.terms).round() as i32));
+        if let Some(a) = p.terms.ahead {
+            f.set("ahead", first_of(w, a));
+        }
+        f.set("when", p.terms.by.words());
+    }
+    let mut pen = scene::pen(w, s, 0x9B0 + s.step as u64);
+    let line = pen.line(&[&hear_key, &format!("talk.promise.answer.{}", a.key())], &spk, &f);
+    pen.put(w);
+    let line = if line.is_empty() {
+        match (a, fair, super::promise::band(belief as f64)) {
+            (PAct::BarFair | PAct::BarHigh, -1, _) => {
+                format!("On {} snaps a game? Come on, Coach. You're setting me up.", f.get("snaps").unwrap_or("these"))
+            }
+            (PAct::BarFair | PAct::BarHigh | PAct::Practice, _, _) => "Bet. I'll earn it.".into(),
+            (PAct::Straight | PAct::Real, _, _) => "I appreciate you being straight with me.".into(),
+            (PAct::TakeBack, _, _) => "Right. I figured.".into(),
+            (PAct::Help, _, _) => "Thanks, Coach. I think it's time.".into(),
+            (PAct::Dodge, _, _) => "That's not really an answer, Coach.".into(),
+            (_, _, "good") => "Alright. I'm going to hold you to that.".into(),
+            (_, _, "flat") => "We'll see, Coach.".into(),
+            _ => "I've heard that before.".into(),
+        }
+    } else {
+        line
+    };
+    let sign = if gone {
+        0
+    } else if belief as f64 >= super::promise::BELIEVES {
+        1
+    } else {
+        -1
+    };
+    s.them(&name, line, read_tell(w, i, sign));
+    if !gone {
+        let t = w.folk.promises[k].terms;
+        let mut said: Vec<String> = Vec::new();
+        if let Some(a) = t.ahead {
+            said.push(format!("ahead of {}", first_of(w, a)));
+        }
+        if t.dated {
+            said.push(t.by.words().to_string());
+        }
+        if t.cond == Cond::Stat {
+            said.push(format!("as long as he gives you {}", t.stat.words(t.bar)));
+        } else if t.cond != Cond::None {
+            said.push(format!("on a condition: {}", picked.label.trim_matches('"')));
+        }
+        if !said.is_empty() {
+            s.outcome.push(format!("Your promise to {name}: {}.", said.join(", ")));
+        }
+        // His own deadline (section 3): a doubter with fight in him sets one.
+        own_deadline(w, s, i, k);
+    } else {
+        s.outcome.push(format!("You took back your promise to {name}."));
+    }
+    let used: Vec<Move> =
+        Move::ALL.iter().enumerate().filter(|(k, _)| s.c & (1 << (2 + k)) != 0).map(|x| *x.1).collect();
+    if s.step >= 3 {
+        finish_talk(w, s, id);
+    } else {
+        add_picks(w, s, i, Topic::of(s.b), &used);
+    }
+}
+
+/// A doubter with fight in him sets his own deadline: "If I'm not starting
+/// by midseason, I'm in the portal when the window opens." Logged like
+/// yours; on the day, if you missed it, his lean jumps (`promise::week`).
+fn own_deadline(w: &mut World, s: &mut Scene, i: usize, k: usize) {
+    let p = &w.folk.promises[k];
+    if p.his_by.is_some() || w.people[i].stage != Stage::College || p.belief as f64 >= 0.5 {
+        return;
+    }
+    let me = &w.people[i].player.personality;
+    let fight = ((me.competitiveness - 10.0) / 10.0).max(me.traits.z(Trait::Ego));
+    if fight < 0.5 {
+        return;
+    }
+    let by = super::promise::opens(w, w.today, super::promise::By::Midseason);
+    w.folk.promises[k].his_by = Some(by);
+    let name = w.people[i].name.clone();
+    let spk = Speaker::player(w, i);
+    let mut f = player_facts(w, i);
+    f.set("when", "midseason");
+    let mut pen = scene::pen(w, s, 0x9C0 + s.step as u64);
+    let line = pen.line(&["talk.promise.deadline"], &spk, &f);
+    pen.put(w);
+    let line = if line.is_empty() {
+        "If I'm not starting by midseason, I'm in the portal when the window opens.".to_string()
+    } else {
+        line
+    };
+    s.them(&name, line, None);
+    s.outcome.push(format!("{name} set his own deadline: {}.", by.pretty()));
+}
+
+/// He comes to you about a promise that slipped (section 6): a one-on-one
+/// on your calendar about it.
+pub(crate) fn promise_asks(w: &mut World, i: usize, d: Date) {
+    let mut s = Scene::new(Kind::OneOnOne, d, format!("{} wants to talk about your promise", w.people[i].name));
+    s.a = w.people[i].player.id as u64;
+    s.b = Topic::Point(PointKind::PromiseOpen).code();
+    s.place = "Your office".into();
+    s.stops = false;
+    scene::add(w, s);
+}
+
+/// A one-on-one with him is already on your calendar.
+pub(crate) fn has_open_talk(w: &World, id: u32) -> bool {
+    w.folk.scenes.iter().any(|s| !s.done && s.kind == Kind::OneOnOne && s.a == id as u64)
 }
 
 /// Keeps what you did with a point in this talk (a point counts once a
@@ -2215,6 +3186,11 @@ fn answer_question(w: &mut World, s: &mut Scene, i: usize, a: Answer, picked: &P
             Some(kind) => {
                 promise(w, PromiseTo::Player(id), kind, 0);
                 s.outcome.push(format!("You promised {} {}.", name, kind.words()));
+                // He isn't sure, or doubts: one follow-up (the promises
+                // design, section 5).
+                if s.step < 3 && follow_up(w, s, i) {
+                    return;
+                }
             }
             None => s.outcome.push(format!("You gave {name} your word again.")),
         }
@@ -3160,10 +4136,39 @@ fn staff_line_answer(w: &mut World, s: &mut Scene, code: u32) {
 // ---------------------------------------------------------------------------
 // The day.
 
+/// A chart change's mood waits until he sees it at practice (the promises
+/// design, section 2).
+pub(crate) fn when_seen(w: &mut World, id: u32, why: Reason, delta: f32) {
+    let today = w.today;
+    w.folk.mine.unseen.retain(|x| x.0 != id);
+    w.folk.mine.unseen.push((id, delta, why as u8, today));
+}
+
+/// The chart changes he has now seen at practice land; ones you undid
+/// before a practice week showed them, or that no practice week showed in
+/// three weeks, never do.
+fn chart_seen(w: &mut World) {
+    let waiting = std::mem::take(&mut w.folk.mine.unseen);
+    let mut keep = Vec::new();
+    for (id, delta, why, made) in waiting {
+        let weeks: Vec<(Date, u8)> = super::seen::weeks(w, id).into_iter().filter(|x| x.0 >= made).collect();
+        if super::seen::group_changed(w, id, made).is_some() {
+            mood_event(w, id, Reason::from_u8(why), delta);
+        } else if weeks.is_empty() && made.days_to(w.today) < 21 {
+            keep.push((id, delta, why, made));
+        }
+    }
+    w.folk.mine.unseen = keep;
+}
+
 pub(crate) fn day(w: &mut World, d: Date) {
     check_promises(w, d);
     super::claims::truth::check_lies(w, d);
+    if !w.folk.mine.unseen.is_empty() {
+        chart_seen(w);
+    }
     if d.weekday() == Weekday::Mon {
+        super::promise::week(w, d);
         // Old reasons that have faded away are dropped.
         let today = w.today;
         for x in w.folk.moods.iter_mut() {
