@@ -9,8 +9,9 @@
 //! his true interest; today's point is read the same way. His reasons are
 //! the parts of what each school means to him
 //! (`front_office::college::reasons`); how much each counts with whoever
-//! decides for him is shown only as your staff's read, a range on 1 to 5
-//! that narrows as your staff gets to know him. His ties are only the ones
+//! decides for him is shown as a range on 1 to 5 read from his file, what
+//! your talks showed of what pulls him (talk facts lane L7): the whole
+//! range until something speaks to it. His ties are only the ones
 //! anyone can see, and when he decides is a window your staff has heard,
 //! never his own plan.
 
@@ -103,17 +104,21 @@ fn day(d: Date) -> String {
     super::college::short(d)
 }
 
-/// Your staff's read of how much a reason counts with him: a range on 1
-/// to 5 around the truth, narrower with each call, visit and camp your
-/// staff has had with him (a high school coach knows his own player).
-fn weight_read(w: &World, i: usize, own: bool, contacts: usize) -> Vec<[u8; 2]> {
+/// How much a reason counts with him: a high school coach knows his own
+/// player (a range on 1 to 5 around the truth); a college staff reads it
+/// from his file, what your talks showed of what pulls him (talk facts
+/// lane L7, `lane_frontoffice::pulls::race_weights`).
+fn weight_read(w: &World, i: usize, own: bool) -> Vec<[u8; 2]> {
+    if !own {
+        return crate::lane_frontoffice::pulls::race_weights(w, i);
+    }
     let p = &w.people[i];
     // The six wants, and his ties and feel at his average want (the model
     // gives them no want of their own).
     let six = desk::reason_weights(w, i);
     let wts: Vec<f64> = six.iter().copied().chain([six.iter().sum::<f64>() / six.len() as f64]).collect();
     let top = wts.iter().copied().fold(0.01, f64::max);
-    let half = if own { 0.5 } else { (2.0 - 0.35 * contacts as f64).max(0.5) };
+    let half = 0.5;
     wts.iter()
         .enumerate()
         .map(|(k, &x)| {
@@ -311,7 +316,7 @@ pub fn page(w: &World, args: &Value) -> Reply {
         .collect();
     // His reasons against each school in his race now (yours too, when
     // you're in it).
-    let reads = weight_read(w, i, own, rd.contacts);
+    let reads = weight_read(w, i, own);
     let mut cmp: Vec<usize> = now_race.iter().take(race::SCHOOLS).map(|r| r.0).collect();
     if let Some(j) = me
         && !cmp.contains(&j)
@@ -410,15 +415,15 @@ pub fn page(w: &World, args: &Value) -> Reply {
                 .min_by_key(|v| v.1)
                 .map(|v| (v.1, w.program_name(v.0).to_string()))
         });
-    let decider = if !known {
-        "Not known yet"
-    } else {
-        match desk::family_read(w, i).decider {
-            Decider::Himself => "Himself",
-            Decider::Parent => "His parents",
-            Decider::Grandparent => "His grandparents",
-            Decider::Handler => "A trainer close to the family",
-        }
+    // Who decides: what he or his family told you, else as your staff knows
+    // it once in touch (his own coach always knows).
+    let told = if own { Some(desk::family_read(w, i).decider) } else { crate::lane_frontoffice::pulls::decider(w, i) };
+    let decider = match told {
+        None => "Not known yet",
+        Some(Decider::Himself) => "Himself",
+        Some(Decider::Parent) => "His parents",
+        Some(Decider::Grandparent) => "His grandparents",
+        Some(Decider::Handler) => "A trainer close to the family",
     };
     let reader = me.and_then(|j| dept::area_coach(w, j, p.home_state.min(50) as u8)).map(
         |c| json!({ "id": c, "name": w.coaches[c].name, "state": w.states.get(p.home_state).map(|s| s.code.clone()) }),
@@ -592,7 +597,11 @@ fn move_words(k: usize, seat_hs: bool) -> &'static str {
 fn source_words(w: &World, i: usize, k: usize, me: Option<usize>, known: bool) -> Vec<String> {
     let p = &w.people[i];
     let mut v: Vec<String> = Vec::new();
-    if let Some(t) = w.front_office.college.talks.iter().filter(|t| t.id == p.player.id).max_by_key(|t| t.date)
+    // The newest thing his file has on it (talk facts lane L7), else your
+    // last call.
+    if let Some(x) = me.and_then(|_| crate::lane_frontoffice::pulls::race_source(w, i, k)) {
+        v.push(x);
+    } else if let Some(t) = w.front_office.college.talks.iter().filter(|t| t.id == p.player.id).max_by_key(|t| t.date)
         && me.is_some()
     {
         v.push(format!("Your call, {}", views::date_text(t.date)));
@@ -604,15 +613,16 @@ fn source_words(w: &World, i: usize, k: usize, me: Option<usize>, known: bool) -
         _ => {}
     }
     // Who he listens to is a source only once your staff knows it.
-    if known {
-        match desk::family_read(w, i).decider {
-            Decider::Parent => v.push("His parents".into()),
-            Decider::Grandparent => v.push("His grandparents".into()),
-            Decider::Handler => v.push("His trainer".into()),
-            Decider::Himself => v.push("His high school coach".into()),
-        }
+    let told = if known {
+        crate::lane_frontoffice::pulls::decider(w, i).or(Some(desk::family_read(w, i).decider))
     } else {
-        v.push("His high school coach".into());
+        None
+    };
+    match told {
+        Some(Decider::Parent) => v.push("His parents".into()),
+        Some(Decider::Grandparent) => v.push("His grandparents".into()),
+        Some(Decider::Handler) => v.push("His trainer".into()),
+        _ => v.push("His high school coach".into()),
     }
     v.truncate(3);
     v

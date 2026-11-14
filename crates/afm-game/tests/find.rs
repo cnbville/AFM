@@ -204,8 +204,30 @@ fn a_college_staff_searches_a_class() {
         if !talked {
             assert_eq!(page["listens"], json!("Not known yet"), "who decides waits for a contact");
         }
+        // What pulls him (talk facts lane L7): the weights, the file's
+        // section and the lean line read his file, never his wants. With
+        // nothing on it, every reason is the whole range and the section
+        // says nothing yet.
+        let file = afm_engine::world::folk::pulls::file(w, i);
+        if file.iter().all(|r| r.rows == 0) {
+            for r in page["reasons"].as_array().unwrap() {
+                assert_eq!(r["weight"], json!([1, 5]), "nothing on his file: {r}");
+            }
+        }
         if !talked && !listed && p.cal.commit.is_none() && p.cal.signed.is_none() {
             assert!(page["decides"].is_null(), "when he decides waits for a signal: {}", page["decides"]);
+        }
+        let rf = ok(&mut g, "recruit_file", json!({ "id": kid }));
+        let sec = &rf["pulls"];
+        assert_eq!(sec["groups"].as_array().map(Vec::len), Some(7), "{sec}");
+        for gr in sec["groups"].as_array().unwrap() {
+            assert!(!gr["word"].as_str().unwrap().chars().any(|c| c.is_ascii_digit()), "{gr}");
+            for r in gr["rows"].as_array().unwrap() {
+                assert!(!r["text"].as_str().unwrap().chars().any(|c| c.is_ascii_digit()), "no number of his: {r}");
+            }
+        }
+        if !talked {
+            assert_eq!(rf["decides"], json!("Not known yet: your staff hasn't been in touch."));
         }
     }
     // A read lands on his true number now and then by chance (about one
