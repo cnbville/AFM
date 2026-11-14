@@ -185,7 +185,8 @@ Mock-up: https://claude.ai/artifact/55SqK4iz9STFrrojYn9iCq (in the app's own loo
    - **Points:** the flaws and tools the staff has seen, each with what it costs, how sure they are and the reps as proof; for the picked point who teaches, how much time (and what it costs in team reps), the coach's estimate as a range and his buy-in. The sub-tab shows how many points are set (2/2).
    - **Plan:** the rest of his plan as today (habit, body, position, extra work, rest), who teaches him, and his share of the room's individual time with a link to the room in Training.
    - **Reports:** his key ratings as ranges, staff notes and the practice log, as today.
-3. **One palette.** The team's colour for the wash, gold for progress and the picked point, white and greys for the rest, amber only when something went wrong.
+3. **Plain words** (Cain 13:30: "Keep the sports jargon but make sure the rest are consumer friendly"). Football terms stay (kick-slide, pass block, man coverage, play action, high pad level). Everything else is everyday English: a point of emphasis shows as "Focus 1" and "Focus 2", the stages as "Learning", "Works in practice" and "Fixed in games", "flaws his coaches have seen" and "new skills he could learn" rather than tape and tool words, "Is he on board?" rather than buy-in, and the staff's numbers as guesses ("Hale's guess", "past guesses: 7 of 9 right").
+4. **One palette.** The team's colour for the wash, gold for progress and the picked point, white and greys for the rest, amber only when something went wrong.
 
 ## Topic 9c. The projection before you pick (proposed, not confirmed)
 
