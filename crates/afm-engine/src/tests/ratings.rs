@@ -74,7 +74,12 @@ fn marks_read_in_order_at_every_level() {
     let hs = (0..w.people.len()).filter(|&k| w.people[k].stage == Stage::HighSchool).take(40);
     let mut read = 0;
     for k in hs {
-        let pool = norms::pool_of(&w, k).expect("a high school player has a pool");
+        // His class across the country is the main read; his state
+        // classification is the second, and widens when it is too small.
+        let national = norms::pool_of(&w, k).expect("a high school player has a pool");
+        assert!(matches!(national, Pool::Hs { state: None, class: None, .. }), "{national:?}");
+        let pool = norms::local_pool_of(&w, k).expect("a high school player has a local pool");
+        assert!(matches!(pool, Pool::Hs { state: Some(_), class: Some(_), .. }), "{pool:?}");
         let pos = w.people[k].player.position;
         if let Some(m) = norms::marks(&w, pool, pos, Rated::Overall) {
             read += 1;
