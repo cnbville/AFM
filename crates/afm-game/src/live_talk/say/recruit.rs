@@ -120,7 +120,7 @@ mod tests {
     use afm_engine::world::folk::{pledge, pulls};
     use afm_engine::world::front_office::college as fc;
     use afm_engine::world::seat::{Job, You};
-    use afm_engine::world::{Stage, World, WorldOptions, recruiting};
+    use afm_engine::world::{Stage, World, WorldOptions};
     use serde_json::{Value, json};
 
     use super::super::{READER, WRITER};
@@ -153,9 +153,11 @@ mod tests {
         let mine = w.programs.iter().position(|p| p.division == Division::FBS).unwrap();
         w.start_career(&you(), Job::College(mine), 7);
         w.add_class_aged(17);
-        let next = recruiting::next_class(&w);
-        let i = (0..w.people.len()).find(|&i| w.people[i].stage == Stage::HighSchool).unwrap();
-        w.people[i].class_of = next;
+        // A senior: the high school class that signs next.
+        let i = (0..w.people.len())
+            .filter(|&i| w.people[i].stage == Stage::HighSchool)
+            .min_by_key(|&i| (w.people[i].class_of, i))
+            .unwrap();
         let id = w.people[i].player.id;
         fc::add(&mut w, id).unwrap();
         fc::offer(&mut w, id).unwrap();
@@ -223,11 +225,11 @@ mod tests {
         let (mut g, f, sid, i, _) = call("writer");
         let s = g.world.as_ref().unwrap().folk.scenes.iter().find(|s| s.id == sid).unwrap().clone();
         let options = scene::options(&s);
-        let Some(k) =
-            options.iter().take(crate::live_talk::card::MAX_OPTIONS).position(|p| (7100..7300).contains(&p.code))
-        else {
-            return;
-        };
+        let k = options
+            .iter()
+            .take(crate::live_talk::card::MAX_OPTIONS)
+            .position(|p| (7100..7300).contains(&p.code))
+            .expect("a point to make on the card");
         f.push(READER, Ok(reading(&format!("o{}", k + 1), Value::Null)));
         f.push(WRITER, Ok(body("That means a lot, coach.", 400, 20)));
         let t = ok(&mut g, "people_say", json!({ "id": sid, "text": "Let me tell you what we can do for you here." }))
