@@ -1211,20 +1211,18 @@ pub fn year(p: &mut Player, coaching: f64, level: Level, playing: f64) {
     let gift = if w.is_empty() { 1.0 } else { (w.iter().sum::<f64>() / w.len() as f64).powi(2) };
     let p_tool =
         0.3 * gift * coach.min(1.5) * (0.4 + 0.6 * playing) * take * settle.max(0.3) / (1.0 + held_tools as f64);
-    if r.next() < p_tool {
-        if !cands.is_empty() {
-            let tot: f64 = w.iter().sum();
-            let mut x = r.next() * tot;
-            let mut pick = cands[0];
-            for (c, wc) in cands.iter().zip(&w) {
-                if x < *wc {
-                    pick = *c;
-                    break;
-                }
-                x -= wc;
+    if r.next() < p_tool && !cands.is_empty() {
+        let tot: f64 = w.iter().sum();
+        let mut x = r.next() * tot;
+        let mut pick = cands[0];
+        for (c, wc) in cands.iter().zip(&w) {
+            if x < *wc {
+                pick = *c;
+                break;
             }
-            cr.set(pick, 0.2 + 0.2 * r.next());
+            x -= wc;
         }
+        cr.set(pick, 0.2 + 0.2 * r.next());
     }
     // A bad habit under a poor staff: a new flaw now and then.
     if coaching < 7.0 && r.next() < 0.08 * (7.0 - coaching) / 6.0 {
