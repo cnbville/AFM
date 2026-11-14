@@ -188,9 +188,16 @@ fn table(w: &World, t: TeamRef) -> Value {
             if ids.len() < 2 {
                 return Value::Null;
             }
-            let teams = w.college_conference_table(&ids, false);
+            // Before a new season's first game (from the February roll-over
+            // to September) the table is last season's final one.
+            let prev = ids.iter().all(|&x| {
+                let r = w.college_record(x);
+                r.wins + r.losses == 0
+            });
+            let teams = w.college_conference_table(&ids, prev);
+            let year = if prev { w.programs[me].seasons.last().map(|s| s.year) } else { None };
             let mut diff: HashMap<usize, i64> = HashMap::new();
-            for f in w.college_fixtures(None) {
+            for f in w.college_fixtures_in(None, prev) {
                 if let Some([h, a]) = f.score.map(|s| [s[0] as i64, s[1] as i64]) {
                     *diff.entry(f.home).or_default() += h - a;
                     *diff.entry(f.away).or_default() += a - h;
@@ -213,7 +220,10 @@ fn table(w: &World, t: TeamRef) -> Value {
                 .collect();
             let place = teams.iter().position(|x| x.0 == me).map(|k| k + 1);
             let champ = teams.first().filter(|x| x.1.conf_title).map(|x| x.0 == me);
-            json!({ "name": w.conference_name(&p.conference), "rows": rows, "place": place, "conf": true, "champ": champ })
+            json!({
+                "name": w.conference_name(&p.conference), "rows": rows, "place": place, "conf": true,
+                "champ": champ, "year": year,
+            })
         }
         TeamRef::HighSchool(h) => {
             let Some((name, rows)) = w.hs_standings(h) else { return Value::Null };

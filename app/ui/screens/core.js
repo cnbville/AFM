@@ -2092,7 +2092,7 @@ function tpRing(v) {
 function tpTiles(t) {
   const tiles = [];
   tiles.push([t.record, esc(t.record_note || "this season")]);
-  if (t.table && t.table.place) tiles.push([TP_ORD(t.table.place), esc(t.table.name) + (t.table.champ ? " champions" : "")]);
+  if (t.table && t.table.place) tiles.push([TP_ORD(t.table.place), esc(t.table.name) + (t.table.champ ? " champions" : "") + (t.table.year ? ` in ${t.table.year}` : "")]);
   const b = t.books || {};
   if (t.ref.kind === "nfl") {
     if (b.capped) tiles.push([b.over ? "Over" : `${b.room}%`, b.over ? "over the cap" : "of the cap still free"]);
@@ -2187,7 +2187,7 @@ function tpTable(t) {
   const conf = !!x.conf;
   const pts = x.rows.some((r) => r.diff != null && r.diff !== 0);
   const rec = (r) => (r.t ? `${r.w}-${r.l}-${r.t}` : `${r.w}-${r.l}`);
-  return `<div class="panel"><h2>${t.ref.kind === "nfl" ? "Division" : t.ref.kind === "college" ? "Conference" : "Its group"} <small>${esc(x.name)}</small></h2><div class="tbl warm box"><table><thead><tr><th class="l">Team</th>${conf ? '<th class="l">Conf</th>' : ""}<th class="l">Record</th>${pts ? '<th class="l">Points</th>' : ""}</tr></thead><tbody>${x.rows.map((r) => `<tr class="${r.this ? "tp-this" : ""} ${r.mine ? "tp-mine" : ""}"><td class="l">${teamChip(r.team, 18)}${r.champ ? ' <small class="muted">champions</small>' : ""}</td>${conf ? `<td class="l">${r.cw}-${r.cl}</td>` : ""}<td class="l">${rec(r)}</td>${pts ? `<td class="l">${r.diff > 0 ? "+" : r.diff < 0 ? "−" : ""}${Math.abs(r.diff || 0)}</td>` : ""}</tr>`).join("")}</tbody></table></div></div>`;
+  return `<div class="panel"><h2>${t.ref.kind === "nfl" ? "Division" : t.ref.kind === "college" ? "Conference" : "Its group"} <small>${esc(x.name)}${x.year ? ` · ${x.year} final` : ""}</small></h2><div class="tbl warm box"><table><thead><tr><th class="l">Team</th>${conf ? '<th class="l">Conf</th>' : ""}<th class="l">Record</th>${pts ? '<th class="l">Points</th>' : ""}</tr></thead><tbody>${x.rows.map((r) => `<tr class="${r.this ? "tp-this" : ""} ${r.mine ? "tp-mine" : ""}"><td class="l">${teamChip(r.team, 18)}${r.champ ? ' <small class="muted">champions</small>' : ""}</td>${conf ? `<td class="l">${r.cw}-${r.cl}</td>` : ""}<td class="l">${rec(r)}</td>${pts ? `<td class="l">${r.diff > 0 ? "+" : r.diff < 0 ? "−" : ""}${Math.abs(r.diff || 0)}</td>` : ""}</tr>`).join("")}</tbody></table></div></div>`;
 }
 screens.team = async (a) => {
   const t = await api("team_page", a.kind ? { kind: a.kind, id: a.id } : {});
