@@ -5,7 +5,7 @@
 use std::sync::LazyLock;
 
 use afm_engine::world::data::Division;
-use afm_engine::world::{World, WorldOptions};
+use afm_engine::world::{World, WorldOptions, charts, ncaa};
 
 // The game plays every college game on the engine; the test plays only the
 // last history season on it, to keep the run short.
@@ -19,8 +19,25 @@ fn rosters_and_staffs_are_full() {
     let fbs: Vec<_> = w.programs.iter().filter(|p| p.division == Division::FBS).collect();
     let avg = fbs.iter().map(|p| p.roster.len()).sum::<usize>() as f64 / fbs.len() as f64;
     let walk_ons = fbs.iter().flat_map(|p| p.roster.iter()).filter(|&&i| w.people[i].walk_on).count();
-    eprintln!("FBS rosters average {avg:.1}, walk-ons {:.1} a roster", walk_ons as f64 / fbs.len() as f64);
-    assert!((80.0..=105.0).contains(&avg), "FBS rosters average {avg:.0}");
+    // The House rule (from 2025) limits a roster to 105 places, and its
+    // designated student-athletes (walk-ons on a roster before it) take
+    // none: about a quarter of a February roster here. So the floor reads
+    // bodies and the ceiling the places the rule counts (minor bug 384's
+    // lane measured 108.7 bodies, 26.1 of them walk-ons from before it).
+    let places = fbs
+        .iter()
+        .map(|p| {
+            let whole = ncaa::whole_roster_limit(p, w.year);
+            p.roster.iter().filter(|&&i| charts::takes_a_place(w, i, whole, w.year)).count()
+        })
+        .sum::<usize>() as f64
+        / fbs.len() as f64;
+    eprintln!(
+        "FBS rosters average {avg:.1}, walk-ons {:.1} a roster, {places:.1} places under the limit",
+        walk_ons as f64 / fbs.len() as f64
+    );
+    assert!(avg >= 80.0, "FBS rosters average {avg:.0}");
+    assert!(places <= 105.0, "FBS rosters average {places:.0} places under the limit");
     // A head job is empty only while its search runs (part D 18); the
     // world stops in February, when the last links of the carousel's
     // chains (and jobs left for the NFL in late January) are still open.
@@ -93,7 +110,10 @@ fn the_calendar_year_hangs_together() {
     // world's year moves a lot: calendar_check's world signed 66%, 70% and
     // 77% early in 2023-2025 before update 3's lane 1 and 68%, 69% and 78%
     // after it; this world signed 77% in 2025 before and 73% after. The
-    // check asks more than 70% (it asked 75%).
+    // check asks more than 70% (it asked 75%). Counting December's signees
+    // once (minor bug 384) took it to 60%; December's portal read on the
+    // era's flow and AI programs taking January transfers up to their open
+    // places under the House rule brought it to 74%.
     let fbs = log.signed_by_division[Division::FBS as usize];
     assert!(fbs[0] * 3 > fbs[1] * 7, "{fbs:?}");
     // Real early entrants granted eligibility, 2022-2025: about 58-95.

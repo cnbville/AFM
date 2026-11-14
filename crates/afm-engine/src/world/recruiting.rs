@@ -2550,6 +2550,9 @@ pub(crate) fn counted_rosters(w: &World, season: i32) -> Vec<usize> {
 #[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 struct RosterRead {
     stage: SignStage,
+    /// The era's transfer flow for the winter window after the season just
+    /// played (`era_factor`), which the world's own portal draws use.
+    portal_era: f64,
 }
 
 impl RosterRead {
@@ -2563,9 +2566,20 @@ impl RosterRead {
         }
     }
 
-    /// Whether the winter transfer window is still to come.
-    fn portal_ahead(self) -> bool {
-        matches!(self.stage, SignStage::Summer(_) | SignStage::Early)
+    /// The read for a class signing in `sign_year` at `stage`.
+    fn new(w: &World, stage: SignStage, sign_year: i32) -> Self {
+        let label = sign_year - 1;
+        // December's read expected the yearly base rate, while the world
+        // draws it times the era's flow (1.2 in 2023, then 1.45, and 1.9
+        // under the single January window): in the test world about 12
+        // FBS leavers a roster where 28 entered, so the rest of the class
+        // waited for February (minor bug 384's lane).
+        RosterRead { stage, portal_era: era_factor(label, w.changes.rules(label).transfer) }
+    }
+
+    /// The era's winter transfer flow, while that window is still to come.
+    fn portal_ahead(self) -> Option<f64> {
+        matches!(self.stage, SignStage::Summer(_) | SignStage::Early).then_some(self.portal_era)
     }
 }
 
@@ -2595,7 +2609,7 @@ fn leaving(
     limit: u32,
     bars: Option<(f64, f64)>,
     draft: DraftRead,
-    portal: bool,
+    portal: Option<f64>,
 ) -> f64 {
     if d == Division::JUCO {
         // Junior college players move up or stop after two seasons.
@@ -2621,14 +2635,12 @@ fn leaving(
     } else {
         0.0
     };
-    let transfer = if portal {
-        match p.last_role {
-            Some(PlayingTime::Backup) => PIPELINE.portal_entry.backup,
-            Some(PlayingTime::Rotation) => PIPELINE.portal_entry.rotation,
-            _ => 0.0,
-        }
-    } else {
-        0.0
+    // The yearly entry chance by role, times the era's flow, as the
+    // world's own portal draws it (`lean_checkpoint`, `portal_open`).
+    let transfer = match (portal, p.last_role) {
+        (Some(era), Some(PlayingTime::Backup)) => PIPELINE.portal_entry.backup * era,
+        (Some(era), Some(PlayingTime::Rotation)) => PIPELINE.portal_entry.rotation * era,
+        _ => 0.0,
     };
     1.0 - (1.0 - early) * (1.0 - transfer)
 }
@@ -2662,7 +2674,7 @@ fn gone(p: &Person, d: Division, sign_year: i32, bars: Option<(f64, f64)>, read:
         super::eligibility::seasons_allowed(sign_year + 1, d),
         bars,
         DraftRead::Guess,
-        true,
+        Some(read.portal_era),
     );
     (next, 1.0 - (1.0 - next) * (1.0 - after))
 }
@@ -5464,7 +5476,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     let seat_prog = super::scouting::readers::seat_staff(w)
         .and_then(|s| if let super::scouting::readers::Staff::Program(p) = s { Some(p) } else { None });
     let own_mins = w.scouting.own.minimums.clone();
-    let read = RosterRead { stage };
+    let read = RosterRead::new(w, stage, sign_year);
     let mut signed_by: Vec<Vec<usize>> = vec![Vec::new(); programs.len()];
     // Found on all cores, then listed in person order (world speed lane).
     let signees: Vec<(usize, usize)> = w
@@ -8403,7 +8415,14 @@ fn suitors(
             let room = counted[j] + today_adds[j] + 5 <= limit;
             let deep = if room { 3 } else { 2 };
             let wanted = ahead < deep * slots || (mk.open[j][k] > 0 && perf > mk.backups_best[j][k]);
-            if (!wanted && bond == 0.0) || j == c || mk.adds[j] >= 10 || counted[j] + today_adds[j] >= limit {
+            // An AI staff stops at ten transfers a cycle, a stand-in from
+            // the world's first build. Under the House whole-roster limit
+            // it takes them up to its open places instead: one January
+            // window is the whole year there, and its roster lost about
+            // 28 men to the portal, so ten left the rest to a February
+            // high school bulge (minor bug 384's lane, Cain 2026-11-14).
+            let capped = mk.adds[j] >= 10 && !super::ncaa::whole_roster_limit(&wr.programs[j], season);
+            if (!wanted && bond == 0.0) || j == c || capped || counted[j] + today_adds[j] >= limit {
                 return None;
             }
             // A Division II, NAIA or Division III staff works the portal
@@ -10023,7 +10042,7 @@ pub(crate) fn class_outlook(w: &World, j: usize) -> ClassOutlook {
         _ if w.today.month() >= 12 || w.today.month() <= 2 => SignStage::Final,
         _ => SignStage::Summer(0),
     };
-    let read = RosterRead { stage };
+    let read = RosterRead::new(w, stage, sign_year);
     let prog = &w.programs[j];
     let signed: Vec<usize> = w
         .people
