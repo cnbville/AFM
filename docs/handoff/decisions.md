@@ -380,8 +380,8 @@ Cain was asleep that night, so the threads made their own picks and marked them 
 
 ## 21. Promises he judges for himself (thread "Design conditional promises in talks", 2026-11-13)
 
-Cain, 2026-11-13 10:09 UTC: players never see the depth chart; a promise can carry follow-up conditions ("ahead of X as long as you get 3 tackles a game"); whether he believes it is dynamic, not one trust rating. Live talks pick 7 is rejected. At 16:29 UTC he agreed to all 15 questions of the design (`docs/design/promises.md`, section 15). Its sizes (section 14) are working values, proposed, not confirmed.
-- **Built:** lane P1 (sections 2-9, 11, 12), 2026-11-14, overnight under the coordinator's proxy for Cain (`docs/reference/how-it-works/people.md`, "Promises he judges for himself"). Its own picks are listed there as proposed, not confirmed.
+Cain, 2026-11-13 10:09 UTC: players never see the depth chart; a promise can carry follow-up conditions ("ahead of X as long as you get 3 tackles a game"); whether he believes it is dynamic, not one trust rating. Live talks pick 7 is rejected. At 16:29 UTC he agreed to all 15 questions of the design (`docs/design/promises.md`, section 15). Its sizes (section 14) were confirmed 2026-11-14 ("agree on all").
+- **Built:** lane P1 (sections 2-9, 11, 12), 2026-11-14, overnight under the coordinator's proxy for Cain (`docs/reference/how-it-works/people.md`, "Promises he judges for himself"). Its 16 picks (week-4 start judging, fallback rates, 1.1x fair bar with 0.85x/1.7x offers, deliver to top of chart, real reason at half cost, help-find-place 1.5x, midseason deadline 1.5x, named teammate 1.15x, names carry to a new job, names fade weekly, NFL check on game totals, 16-day claim, lie cost scales with belief, follow-up sizes, 14 held chart lines, 3-week mood drop) were confirmed by Cain 2026-11-14 ("agree on all").
 - **Not built:** lane P2, AI staffs that promise (section 10; on the rebuild gate). The 49 new line parts go in the talk facts L12 run.
 
 ## Superseded decisions
