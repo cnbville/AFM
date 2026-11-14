@@ -310,10 +310,10 @@ fn card(w: &World, id: u32, k: &str, (lo, hi): (u8, u8), own: bool) -> Reply {
         None => (combine_now, None),
     };
     // H2 (update 3, lane 6): how the read moved since last season, and why.
-    // Only your staff's reads are kept year to year, so your own read has no
-    // "since last season" to compare against: the card leaves the line out.
+    // Your own read is compared with your own kept middles, your staff's with
+    // theirs (lane 1, `Career::kept_attrs_of`).
     let change = match rated {
-        Rated::Attr(a) if !own => crate::lane_help::last_year(w, i, a, (lo, hi)),
+        Rated::Attr(a) => crate::lane_help::last_year(w, i, a, (lo, hi), own),
         _ => None,
     };
     Ok(json!({

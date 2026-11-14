@@ -78,7 +78,7 @@ function rrPlayerHtml(x) {
     <p>${esc(x.line)}</p>
     ${x.combine ? `<p class="rr-comb"><span class="st-label">At the combine</span>${esc(x.combine)}${x.combine_now ? `<small class="rr-now">Today: ${esc(x.combine_now)}</small>` : ""}</p>` : ""}
     <p class="rr-pool">${esc(x.pool)}, ${esc(x.count)}.${x.widened ? ` ${esc(x.widened)}` : ""}</p>
-    ${x.change && !x.own ? rrChangeHtml(x.change, x.dev ? x.pid : null) : ""}`;
+    ${x.change ? rrChangeHtml(x.change, x.dev ? x.pid : null) : ""}`;
 }
 // H2 (lane 6): how the read moved since the last season's end, and why.
 function rrChangeHtml(c, pid) {
