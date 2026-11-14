@@ -29,6 +29,7 @@ pub mod live;
 pub mod lookback;
 pub mod outside;
 pub mod own;
+pub mod physical;
 pub mod pitch;
 pub mod predraft;
 pub mod pro;

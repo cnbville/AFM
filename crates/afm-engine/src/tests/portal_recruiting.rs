@@ -264,3 +264,30 @@ fn a_playoff_teams_entrant_takes_your_call_once_his_team_is_out() {
         "he says nothing until his team is out"
     );
 }
+
+/// Where you stand (Cain 2026-11-14): a transfer's reasons at each program
+/// add up to what it means to him, in his race's own order, and your desk
+/// keeps where you stood once you've offered.
+#[test]
+fn a_transfers_reasons_add_up_to_his_race() {
+    let (mut w, mine, i) = entrant();
+    let id = w.people[i].player.id;
+    // Your offer puts you in his race; your desk reads it and keeps where
+    // you stood (before it asks whether he says yes).
+    desk::portal_offer(&mut w, id, None, None).unwrap();
+    let t = w.front_office.college.portal.iter().find(|t| t.id == id).unwrap();
+    let s = t.stand.as_ref().expect("your desk kept where you stood");
+    assert!(s.rows.iter().any(|r| r.program == mine), "yours is in it");
+    assert!(s.rows.iter().filter(|r| r.program != mine).count() <= 3, "three others at most");
+    assert!(s.rows.iter().filter(|r| r.program != mine).all(|r| r.place <= 4), "his top schools besides you");
+    let race = recruiting::portal_race(&w, i);
+    let reasons = portal::reasons(&w, i);
+    assert!(race.iter().any(|r| r.0 == mine), "you are in his race");
+    assert_eq!(race.len(), reasons.len());
+    for (r, x) in race.iter().zip(&reasons) {
+        assert_eq!(r.0, x.program, "the same order as his race");
+        let sum: f64 = x.parts.iter().map(|p| p.0).sum();
+        assert!((sum - x.total).abs() < 1e-9, "the seven add up: {sum} against {}", x.total);
+        assert!((x.total - r.1).abs() < 1e-12, "the same appeal as his race");
+    }
+}

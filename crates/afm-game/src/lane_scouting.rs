@@ -324,13 +324,28 @@ fn speak(p: &Person) -> file::Speak {
     }
 }
 
+/// A read window `c - half ..= c + half` on the 1..99 scale, at least 2 wide:
+/// a centre near or past an end shifts the window inside the scale rather
+/// than collapsing it to one number (a staff's read is never that sure).
+fn read_window(c: f64, half: f64) -> [u8; 2] {
+    let lo = (c - half).floor().clamp(1.0, 99.0) as u8;
+    let hi = (c + half).ceil().clamp(1.0, 99.0) as u8;
+    if hi.saturating_sub(lo) >= 2 {
+        [lo, hi]
+    } else if hi >= 99 {
+        [97, 99]
+    } else {
+        [lo.min(97), lo.min(97) + 2]
+    }
+}
+
 /// The overall read as a range, or None.
 fn now_range(f: &file::FileRead) -> Option<[u8; 2]> {
     if f.now.1 <= 0.0 && f.now.0 <= 0.0 {
         return None;
     }
     let half = f.now.1.max(1.0);
-    Some([(f.now.0 - half).floor().clamp(1.0, 99.0) as u8, (f.now.0 + half).ceil().clamp(1.0, 99.0) as u8])
+    Some(read_window(f.now.0, half))
 }
 
 fn group_name(cat: Category) -> &'static str {
@@ -364,20 +379,52 @@ fn is_followed(w: &World, id: u32) -> bool {
 }
 
 /// A short read of a player for a list row: the now range, the role words
-/// and how many looks.
+/// and how many looks. The role is the read that judges (own potential,
+/// Cain 2026-11-13): yours from your first own look, with your staff's
+/// beside it (`staff_role`, `staff_sure`), and `whose` says which.
 pub(crate) fn brief_read(w: &World, staff: readers::Staff, id: u32) -> Value {
     let Some(i) = sc::place(w, id) else { return Value::Null };
     let p = &w.people[i];
+    let own = (readers::seat_staff(w) == Some(staff) && afm_engine::world::scouting::yours::looked(w, staff, id))
+        .then(|| crate::reads::seen(w, i));
+    let mine = own.as_ref().and_then(|s| s.mine_tier.zip(s.mine_sure));
     match readers::read(w, staff, id) {
-        Some((_, looks, f)) => json!({
-            "now": now_range(&f),
-            "role": file::tier_words(speak(p), f.ceiling.0),
-            "sure": file::sure_words(f.ceiling.1),
-            "looks": looks.len(),
-            "medical": file::medical_words(f.medical.grade),
-            "examined": f.medical.examined,
+        Some((_, looks, f)) => {
+            let (role, sure) = (file::tier_words(speak(p), f.ceiling.0), file::sure_words(f.ceiling.1));
+            let (r, su, whose) = mine.map_or((role, sure, "staff"), |(r, su)| (r, su, "yours"));
+            json!({
+                "now": now_range(&f),
+                "role": r,
+                "sure": su,
+                "whose": whose,
+                "staff_role": role,
+                "staff_sure": sure,
+                "looks": looks.len(),
+                "medical": file::medical_words(f.medical.grade),
+                "examined": f.medical.examined,
+            })
+        }
+        None => match mine {
+            Some((r, su)) => json!({ "now": Value::Null, "role": r, "sure": su, "whose": "yours", "looks": 0 }),
+            None => json!({ "now": Value::Null, "role": "Not seen", "looks": 0 }),
+        },
+    }
+}
+
+/// Your own read of his potential for the file (own potential, Cain
+/// 2026-11-13): the role, floor and ceiling words and hints your own eye
+/// gives on your own looks. Null until your first own look.
+fn yours_potential(w: &World, i: usize, p: &afm_engine::world::Person, physical: f64) -> Value {
+    let s = crate::reads::seen(w, i);
+    match (s.mine_ceiling, s.mine) {
+        (Some(c), Some(now)) => json!({
+            "role": file::tier_words(speak(p), c.0),
+            "floor": file::floor_words(now.0, c.0, c.1, p.player.age, physical),
+            "sure": file::sure_words(c.1),
+            "hints": s.mine_hints,
+            "looks": s.mine_looks,
         }),
-        None => json!({ "now": Value::Null, "role": "Not seen", "looks": 0 }),
+        _ => Value::Null,
     }
 }
 
@@ -429,6 +476,9 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
             "medical": file::medical_words(f.medical.grade),
             "medical_grade": f.medical.grade,
             "examined": f.medical.examined,
+            // Your own read of where he could get to (own potential): your
+            // eye on your own looks; null until your first own look.
+            "yours": yours_potential(w, i, p, physical),
         })
     });
     // Ratings by group.
@@ -440,7 +490,8 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
         .filter(|s| s.timed && seen);
     let timed_range = |c: f64, sd: f64| {
         let half = sd.max(1.0);
-        ((c - half).floor().clamp(1.0, 99.0) as u8, ((c + half).ceil().clamp(1.0, 99.0) as u8).max(1))
+        let [lo, hi] = read_window(c, half);
+        (lo, hi)
     };
     let groups: Vec<Value> = CATS
         .iter()
@@ -460,7 +511,7 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
                                     let (c, sd) = v.get(a.index()).copied().flatten()?;
                                     Some(json!({
                                         "who": rds.get(k).map(|x| x.name.clone()),
-                                        "read": [(c - sd).floor().clamp(1.0, 99.0) as u8, (c + sd).ceil().clamp(1.0, 99.0) as u8],
+                                        "read": read_window(c, sd),
                                     }))
                                 })
                                 .collect()

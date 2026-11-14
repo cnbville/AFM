@@ -578,6 +578,11 @@ pub(super) fn room(w: &World, a: &Value) -> Reply {
         player: nm(pick.who).filter(|_| pick.subject == Subject::One),
         captain: nm(pick.who).filter(|_| pick.mv == Move::Captain),
         rival: team.day.rival,
+        // The day reaches the words (talk facts lane L9, item 26).
+        stakes: cx.stakes as f32,
+        playoff: s.params.playoff,
+        seniors: team.day.seniors,
+        hurt: team.day.hurt.and_then(nm),
         seed: seed_of(w.today, &pick, false),
     };
     let next = super::next_game(w);
@@ -693,6 +698,10 @@ fn halftime_room(
         player: nm(pick.who).filter(|_| pick.subject == Subject::One),
         captain: nm(pick.who).filter(|_| pick.mv == Move::Captain),
         rival: team.day.rival,
+        stakes: cx.stakes as f32,
+        playoff: l.game.params.playoff,
+        seniors: team.day.seniors,
+        hurt: team.day.hurt.and_then(nm),
         seed: seed_of(l.date, &pick, true),
     };
     let mut v = room_json(w, team, &cx, &pick, &names, l.date, true, &lcx);
@@ -715,6 +724,114 @@ fn halftime_room(
     v["options"] = options_json(team, &cx);
     v["week"] = week_json(team);
     Ok(v)
+}
+
+/// What a typed line may reach in a room (live talks lane 5): the subjects
+/// offered today, the people it may name (the men the room's own picker
+/// lists, then the captains) and the room in one line. Only what the room
+/// shows you; never a rating (`live_talk::say::rooms`).
+pub(crate) struct Typed {
+    pub half: bool,
+    pub setting: String,
+    pub coach: String,
+    /// (key, name) of each subject the room offers today.
+    pub subjects: Vec<(String, String)>,
+    /// Who a line may name: id, "Name, POS, class" and whether he is a captain.
+    pub people: Vec<(u32, String, bool)>,
+}
+
+/// The most men a typed line may name beyond the captains: the room's own
+/// picker shows 26 (proposed, not confirmed).
+const NAMEABLE: usize = 26;
+
+/// The room as a typed line sees it, for `moment` ("pregame" or "halftime").
+/// The same checks as the room's own commands: the pregame room is open
+/// until the team is on the field, and the halftime talk happens once.
+pub(crate) fn typed_room(w: &World, moment: &str) -> Result<Typed, String> {
+    let half = match moment {
+        "pregame" => false,
+        "halftime" => true,
+        _ => return Err("That room is not open.".into()),
+    };
+    let (level, t) = w.seat_team().ok_or("You have no team.")?;
+    let me = seat_team(w).ok_or("You have no team.")?;
+    let coach = format!("{}, head coach at {}", afm_engine::world::folk::scene::your_name(w), me.name(w));
+    let lv = level_name(level).to_lowercase();
+    if half {
+        let l = w.live.as_ref().filter(|l| l.date == w.today).ok_or("The halftime talk opens at the break.")?;
+        let mut g = l.game.clone();
+        let step = g.run();
+        let p = step.pending.filter(|p| p.ask == Ask::Halftime).ok_or("The halftime talk opens at the break.")?;
+        if p.talked.is_some() {
+            return Err("The talk is for halftime, once.".into());
+        }
+        let mine = l.game.ctl.team;
+        let team = if mine == 0 { &l.game.home } else { &l.game.away };
+        let margin = p.view.score[mine] - p.view.score[1 - mine];
+        let cx = talk::ctx(
+            team,
+            l.game.params.rules.level,
+            l.game.params.playoff,
+            &l.game.params.context[mine],
+            Moment::Halftime { margin },
+        );
+        let refs = [super::team_ref(l.level, l.teams[0]), super::team_ref(l.level, l.teams[1])];
+        let names = super::names(w, &refs);
+        let score = format!("{} to {}", p.view.score[mine], p.view.score[1 - mine]);
+        let state = match margin {
+            0 => format!("level at {score}"),
+            m if m > 0 => format!("up {score}"),
+            _ => format!("down {score}"),
+        };
+        let setting = format!(
+            "Halftime talk in the locker room, {}, {lv}, against {}, {state}",
+            views::date_text(l.date),
+            l.names[1 - mine]
+        );
+        return Ok(typed_of(w, team, &cx, &names, true, setting, coach));
+    }
+    if w.live.as_ref().is_some_and(|l| l.date == w.today) {
+        return Err("The team is already on the field.".into());
+    }
+    let s = w.seat_setup_today().ok_or("The room opens on the day of the game.")?;
+    let side = if s.teams[0] == t { 0 } else { 1 };
+    let team = if side == 0 { &s.home } else { &s.away };
+    let cx = talk::ctx(team, s.params.rules.level, s.params.playoff, &s.params.context[side], Moment::Pregame);
+    let refs = [super::team_ref(level, s.teams[0]), super::team_ref(level, s.teams[1])];
+    let names = super::names(w, &refs);
+    let setting = format!(
+        "Pregame talk in the locker room, {}, {lv}, {} {}",
+        views::date_text(w.today),
+        if side == 0 { "at home against" } else { "away at" },
+        s.names[1 - side]
+    );
+    Ok(typed_of(w, team, &cx, &names, false, setting, coach))
+}
+
+fn typed_of(w: &World, team: &GameTeam, cx: &Ctx, names: &Names, half: bool, setting: String, coach: String) -> Typed {
+    let subjects = options_json(team, cx)["subjects"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|s| Some((s["key"].as_str()?.to_string(), s["name"].as_str()?.to_string())))
+        .collect();
+    let caps: Vec<u32> = talk::captains(team, cx.day).iter().map(|&i| team.players[i].id).collect();
+    let line = |id: u32| {
+        let (name, pos) = names.get(&id).cloned().unwrap_or((format!("No. {id}"), String::new()));
+        let class = views::person_index(w, id).map(|k| views::class_text(w, &w.people[k])).unwrap_or_default();
+        [name, pos, class].into_iter().filter(|x| !x.is_empty()).collect::<Vec<_>>().join(", ")
+    };
+    let mut people: Vec<(u32, String, bool)> = caps.iter().map(|&id| (id, line(id), true)).collect();
+    // The room's own picker: the man who is out, then the men who play.
+    let wt = talk::weights(team);
+    let mut ids: Vec<u32> = team.day.hurt.into_iter().collect();
+    ids.extend(team.players.iter().zip(&wt).filter(|(_, k)| **k >= 1.0).map(|(p, _)| p.id));
+    for id in ids.into_iter().take(NAMEABLE) {
+        if !people.iter().any(|p| p.0 == id) {
+            people.push((id, line(id), false));
+        }
+    }
+    Typed { half, setting, coach, subjects, people }
 }
 
 /// Your pregame talk said (D4): kept for kickoff.

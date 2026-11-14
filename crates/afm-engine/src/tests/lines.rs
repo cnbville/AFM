@@ -80,6 +80,10 @@ const FACTS: &str = concat!(
     "game guys home hours hs hs_coach leaving miles opens picks_words seasons seats state staying titles u ",
     // the states that pick a pitch's words (pitch.rs `claim_words`)
     "academics depth drive level new seat ",
+    // your team's rooms (claims/team_rooms.rs, lane L9): the week, the
+    // season before you, a family's complaint and what it sees, the day
+    "game next_when next_place next_rival season_was ahead_when last_year why_left complaint with group snaps ",
+    "starts seen penalty stakes playoff seniors hurt ",
 );
 
 /// The parts the code asks for (talks, press, boss, rules, staffing,
@@ -355,6 +359,23 @@ fn asked() -> Vec<String> {
     // Your own lines (lane L12, own_lines_run.txt): the moves and answers on
     // a point, the moves on a subject and the pitch, each asked by the code.
     v.extend(YOUR_PARTS.iter().map(|k| k.to_string()));
+    // Your team's rooms (lane L9, team_rooms.txt).
+    for k in ["lands", "mixed"] {
+        v.push(format!("teamtalk.react.{k}"));
+    }
+    for k in ["lost_job", "buried", "role", "suspended", "rule_break", "pay", "new_position"] {
+        v.push(format!("parents.call.{k}"));
+    }
+    for k in ["straight.fair", "straight.above", "listen", "promise", "warn"] {
+        v.push(format!("parents.reply.{k}"));
+    }
+    for k in ["oldcoach", "courted", "deal", "unhappy"] {
+        v.push(format!("talk.exit.open.{k}"));
+    }
+    for k in ["playoff", "seniors", "hurt", "big"] {
+        v.push(format!("gameday.day.{k}"));
+    }
+    v.push("gameday.captain.day".into());
     v
 }
 

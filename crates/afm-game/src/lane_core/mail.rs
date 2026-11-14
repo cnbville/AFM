@@ -187,6 +187,7 @@ pub fn letter(
         org_team: None,
         why: Vec::new(),
         count: 0,
+        leads: 0,
     }
 }
 
@@ -243,6 +244,22 @@ struct Pen<'a> {
 }
 
 impl<'a> Pen<'a> {
+    /// The stamp of a letter about something that happened today: the
+    /// clock's own minute when that is earlier than its usual evening hour,
+    /// so it is filed at the stop that shows the news (the card, a reveal and
+    /// the inbox all read the same moment), not hours later. A day gone by
+    /// keeps its usual hour (it has come anyway).
+    fn stamp(&self, d: Date, usual: u16) -> u16 {
+        let now = self.w.local_now();
+        if now.date == d { now.minute.min(usual) } else { usual }
+    }
+
+    /// Whether a letter stamped `minute` on `d` is on the desk at this stop.
+    fn filed_at(&self, d: Date, minute: u16) -> bool {
+        let w = self.w;
+        w.has_come(w.seat_zone().to_eastern(afm_engine::calendar::Moment { date: d, minute }))
+    }
+
     fn colors(&self, m: &mut Mail, t: TeamRef) {
         m.org_team = Some(team_code(t));
     }
@@ -1121,7 +1138,7 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                 let mut m = pen.memo(
                     &format!("commit|{}", p.player.id),
                     d,
-                    21 * 60,
+                    pen.stamp(d, 21 * 60),
                     Job::Personnel,
                     format!("Commitment: {what} {}", p.name),
                 );
@@ -1167,7 +1184,8 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                     ),
                 ];
                 m.loud = if p.stars >= 4 { 2 } else { 1 };
-                if p.stars >= 4 {
+                // The pop-up comes with the letter, never ahead of it.
+                if p.stars >= 4 && pen.filed_at(d, m.minute) {
                     reveals.push(Reveal {
                         date: d,
                         kind: "commit".into(),
@@ -1193,7 +1211,7 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                 let mut m = pen.memo(
                     &format!("lost|{}", p.player.id),
                     d,
-                    21 * 60 + 20,
+                    pen.stamp(d, 21 * 60 + 20),
                     Job::Personnel,
                     format!("{} picks {}", p.name, w.program_name(j)),
                 );
@@ -1222,7 +1240,7 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                 let mut m = pen.memo(
                     &format!("signed|{}", d.0),
                     d,
-                    18 * 60,
+                    pen.stamp(d, 18 * 60),
                     Job::Personnel,
                     format!("Signings: {} today", ks.len()),
                 );
@@ -1264,7 +1282,7 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                 let mut m = pen.memo(
                     &format!("portal|{}", d.0),
                     d,
-                    19 * 60,
+                    pen.stamp(d, 19 * 60),
                     Job::Personnel,
                     if ks.len() == 1 {
                         format!("Portal: {} enters", w.people[ks[0]].name)
@@ -1483,7 +1501,7 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                     let mut m = letter(
                         &format!("hscommit|{id}"),
                         d,
-                        20 * 60 + 15,
+                        pen.stamp(d, 20 * 60 + 15),
                         Head::Email,
                         p.name.clone(),
                         String::new(),
@@ -1532,7 +1550,7 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                 let mut m = pen.memo(
                     &format!("hssign|{}", d.0),
                     d,
-                    17 * 60,
+                    pen.stamp(d, 17 * 60),
                     Job::Operations,
                     format!("Signing day: {} of ours signed", ks.len()),
                 );
@@ -1570,7 +1588,8 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
             }
             if let Some((d, k)) = best_sign {
                 let p = &w.people[k];
-                if let Some(s) = p.cal.signed {
+                // With the day's signing letter, never ahead of it.
+                if let Some(s) = p.cal.signed.filter(|_| pen.filed_at(d, pen.stamp(d, 17 * 60))) {
                     reveals.push(Reveal {
                         date: d,
                         kind: "signing".into(),
@@ -1871,22 +1890,25 @@ fn news_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                     "Thank you. Enjoy this one with your family before recruiting takes the next week from you.".into(),
                 ];
                 m.loud = 3;
+                let filed = pen.filed_at(d, m.minute);
                 pen.out.push(m);
-                reveals.push(Reveal {
-                    date: d,
-                    kind: "title".into(),
-                    kicker: if n.kind == NewsKind::NationalTitle {
-                        "National champions".into()
-                    } else {
-                        "Conference champions".into()
-                    },
-                    number: d.year().to_string(),
-                    name: views::team_name(w, pen.me),
-                    sub: links::strip(&n.text),
-                    verdict: String::new(),
-                    about: Some((ABOUT_TEAM, team_code(pen.me))),
-                    colors: views::team_colors(w, pen.me),
-                });
+                if filed {
+                    reveals.push(Reveal {
+                        date: d,
+                        kind: "title".into(),
+                        kicker: if n.kind == NewsKind::NationalTitle {
+                            "National champions".into()
+                        } else {
+                            "Conference champions".into()
+                        },
+                        number: d.year().to_string(),
+                        name: views::team_name(w, pen.me),
+                        sub: links::strip(&n.text),
+                        verdict: String::new(),
+                        about: Some((ABOUT_TEAM, team_code(pen.me))),
+                        colors: views::team_colors(w, pen.me),
+                    });
+                }
             }
             _ => {}
         }
@@ -1910,6 +1932,7 @@ fn weekly_mail(pen: &mut Pen, from: Date, to: Date, coach: usize) {
             Weekday::Mon => {
                 your_people(pen, d, coach);
                 standouts(pen, d);
+                leads_mail(pen, d);
                 morale(pen, d);
                 carousel::monday(pen, d);
                 polls::where_we_stand(pen, d);
@@ -2196,6 +2219,62 @@ fn standouts(pen: &mut Pen, d: Date) {
         ),
         answer("Not now", "Nothing changes.", act::ACK, 0),
     ];
+    pen.out.push(m);
+}
+
+/// The analyst's weekly leads (live talks lane 4, LT21), Mondays in the
+/// season and its bowls (September to January; proposed, not confirmed): the
+/// game's own top few outliers on your seat's numbers (`live_talk::ask::leads`),
+/// as a table of linked text. That is the whole mail with no key. With a key,
+/// opening it asks once for the writer's part (`Mail.leads` 1, then 2). No
+/// call is made here: this runs while the clock does.
+fn leads_mail(pen: &mut Pen, d: Date) {
+    let w = pen.w;
+    if !matches!(d.month(), 9..=12 | 1) {
+        return;
+    }
+    let found = crate::live_talk::ask::leads::outliers(w, pen.me);
+    if found.is_empty() {
+        return;
+    }
+    let mut m =
+        pen.memo(&format!("leads|{}", d.0), d, 8 * 60 + 30, Job::Personnel, "Leads: this week's outliers".into());
+    // From your analytics head, when your staff has one.
+    let head = match pen.me {
+        TeamRef::College(p) => Some(w.programs[p].support.analytics.name.clone()),
+        TeamRef::Nfl(t) => w.clubs.get(t).map(|c| c.support.analytics.name.clone()),
+        _ => None,
+    };
+    if let Some(n) = head.filter(|n| !n.is_empty()) {
+        m.from = n;
+        m.role = "Head of analytics".into();
+    }
+    m.body = vec![format!(
+        "{}, these are the players whose best numbers sit at the top of the level this season. A younger player gets a small credit for his age. None is on your squad, your board or your list.",
+        pen.dear
+    )];
+    m.table = vec![vec!["Player".into(), "Pos".into(), "Team".into(), "Class".into(), "Best numbers".into()]];
+    for l in &found {
+        m.table.push(vec![
+            links::player(l.id, &l.name),
+            l.pos.into(),
+            l.team.map_or_else(|| "-".to_string(), |t| links::team(w, t)),
+            l.class.clone(),
+            l.best.join("; "),
+        ]);
+    }
+    m.ids = found.iter().map(|l| l.id).collect();
+    m.keys = PLAYERS | RECRUITING;
+    m.answers = vec![
+        answer(
+            "Put them all on my players",
+            "Every player in the table goes on your \"my players\" list, so you see him whenever he moves.",
+            act::LIST_ALL,
+            0,
+        ),
+        answer("Not now", "Nothing changes.", act::ACK, 0),
+    ];
+    m.leads = 1;
     pen.out.push(m);
 }
 

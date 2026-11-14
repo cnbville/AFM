@@ -35,6 +35,16 @@ pub struct OwnRead {
     pub attrs: Vec<Option<(f64, f64)>>,
     /// Your own looks written up (0: a first impression only).
     pub looks: usize,
+    /// Where you think he could get to (overall at his position): centre
+    /// and sd, read by your own eye for potential (0.7 evaluation and 0.3
+    /// your teaching of his group, `readers::coach_reader`) from your own
+    /// looks alone. None until your first own look: a first impression
+    /// never reads potential (Cain 2026-11-13, own potential item 1), so
+    /// your staff's read judges until then.
+    pub ceiling: Option<(f64, f64)>,
+    /// What your own eye noticed about his growth (`file::hints` on your
+    /// looks alone: none below 13 at judging potential).
+    pub hints: Vec<String>,
 }
 
 impl OwnRead {
@@ -196,6 +206,8 @@ pub fn own_read_with(
             )
         };
         let f = read(&rd, &lk);
+        let ceiling = f.ceiling;
+        let hints: Vec<String> = file::hints(w, i, std::slice::from_ref(&rd), &lk).into_iter().map(|h| h.0).collect();
         // Only what your own eye saw counts as yours: a shared measurement
         // isn't in your looks. What your tape can't show is a wide guess.
         let yours_of = |f: &file::FileRead, guesses: bool| {
@@ -233,30 +245,129 @@ pub fn own_read_with(
                 }
             }
         }
-        Some((f.now, attrs, n, tape, others))
+        Some((f.now, attrs, n, tape, others, ceiling, hints))
     });
     let first = staff_read.and_then(|f| impression(w, id, f));
     let (mut tape, mut others) = (Vec::new(), Vec::new());
     let mut out = match (mine, first) {
-        (Some((now, attrs, n, t, o)), Some(imp)) => {
+        (Some((now, attrs, n, t, o, c, h)), Some(imp)) => {
             (tape, others) = (t, o);
             let (a, b) = (1.0 / (imp.1 * imp.1), 1.0 / (now.1 * now.1).max(0.25));
-            Some(OwnRead { now: ((imp.0 * a + now.0 * b) / (a + b), (1.0 / (a + b)).sqrt()), attrs, looks: n })
+            let now = ((imp.0 * a + now.0 * b) / (a + b), (1.0 / (a + b)).sqrt());
+            Some(OwnRead { now, attrs, looks: n, ceiling: Some(c), hints: h })
         }
-        (Some((now, attrs, n, t, o)), None) => {
+        (Some((now, attrs, n, t, o, c, h)), None) => {
             (tape, others) = (t, o);
-            Some(OwnRead { now, attrs, looks: n })
+            Some(OwnRead { now, attrs, looks: n, ceiling: Some(c), hints: h })
         }
-        (None, Some(imp)) => {
-            Some(OwnRead { now: imp, attrs: vec![None; crate::attributes::ATTRIBUTE_COUNT], looks: 0 })
-        }
+        (None, Some(imp)) => Some(OwnRead {
+            now: imp,
+            attrs: vec![None; crate::attributes::ATTRIBUTE_COUNT],
+            looks: 0,
+            ceiling: None,
+            hints: Vec::new(),
+        }),
         (None, None) => None,
     };
     // Lane 9 (SK43): what your own eye caught on his film.
     if let Some(r) = out.as_mut() {
         super::film::sharpen_with(w, id, w.people[i].player.position, &mut r.now, &mut r.attrs, &tape, &others, extra);
+        // A ceiling is never below what you read him at now (the file's rule).
+        if let Some(c) = r.ceiling.as_mut() {
+            c.0 = c.0.max(r.now.0);
+        }
     }
     out
+}
+
+/// The share of the gap to his ceiling a player closes in a year, at each
+/// age and level, from the world's own records (own potential item 5,
+/// Cain 2026-11-13): for every season of everyone still in football, the
+/// gap is where his ceiling stood as the season began less his rating
+/// then, and the change is the year's change in overall. Fitted as
+/// `change = drift + share * gap` by age and level (0 high school, 1
+/// college, 2 the NFL), so the drift carries the years when bodies fade.
+/// Only the world's totals: no player's ceiling shows through it. Ages and
+/// levels with fewer than 20 seasons are left out (`road_step` takes the
+/// nearest age).
+pub fn gap_fit(w: &World) -> std::collections::HashMap<(u32, u8), [f64; 2]> {
+    use crate::player::Level;
+    // (n, sum gap, sum change, sum gap^2, sum gap*change)
+    let mut by: std::collections::HashMap<(u32, u8), [f64; 5]> = std::collections::HashMap::new();
+    for p in w.people.iter().step_by(3) {
+        let h = &p.player.history;
+        for k in 1..h.len() {
+            let (prev, row) = (&h[k - 1], &h[k]);
+            if row.age < 14 || row.age > 38 || prev.position != row.position {
+                continue;
+            }
+            let tier = match row.level {
+                Level::HS => 0,
+                Level::NFL => 2,
+                _ => 1,
+            };
+            let gap = (prev.potential - row.overall_start).max(0.0);
+            let ch = row.overall - row.overall_start;
+            let e = by.entry((row.age, tier)).or_default();
+            e[0] += 1.0;
+            e[1] += gap;
+            e[2] += ch;
+            e[3] += gap * gap;
+            e[4] += gap * ch;
+        }
+    }
+    by.into_iter()
+        .filter(|(_, s)| s[0] >= 20.0)
+        .map(|(k, s)| {
+            let n = s[0];
+            let (mg, mc) = (s[1] / n, s[2] / n);
+            let var = s[3] / n - mg * mg;
+            let share = if var > 1e-6 { ((s[4] / n - mg * mc) / var).clamp(0.0, 1.0) } else { 0.0 };
+            (k, [mc - share * mg, share])
+        })
+        .collect()
+}
+
+/// A year's drift and share of the gap closed at an age and level (the
+/// nearest age kept; none: no change).
+pub fn road_step(fit: &std::collections::HashMap<(u32, u8), [f64; 2]>, age: u32, tier: u8) -> [f64; 2] {
+    for d in 0..6 {
+        for a in [age + d, age.saturating_sub(d)] {
+            if let Some(q) = fit.get(&(a, tier)) {
+                return *q;
+            }
+        }
+    }
+    [0.0, 0.0]
+}
+
+/// Whether anything of yours has looked at him: a look under your name
+/// in your seat's file or your club's, or film of him you watched. A quick
+/// gate before `own_read` for a long list.
+pub fn looked(w: &World, staff: Staff, id: u32) -> bool {
+    let Some(you) = readers::you(w) else { return false };
+    use crate::world::pro::scouts::{DC, HC, OC};
+    let tm = match staff {
+        Staff::Club(t) => w.nfl.get(t),
+        _ => None,
+    };
+    let job = |code: u32| {
+        code == readers::COACH + you as u32
+            || tm.is_some_and(|tm| match u8::try_from(code) {
+                Ok(HC) => tm.head_coach == Some(you),
+                Ok(OC) => tm.oc == Some(you),
+                Ok(DC) => tm.dc == Some(you),
+                _ => false,
+            })
+    };
+    let seat = w.scouting.dept.looks.get(&id).is_some_and(|v| v.iter().any(|l| job(l.who)));
+    let club = match staff {
+        Staff::Club(t) => {
+            w.clubs.get(t).and_then(|c| c.files.get(&id)).is_some_and(|v| v.iter().any(|l| job(l.who as u32)))
+        }
+        _ => false,
+    };
+    seat || club || cut_ups(w, id).0 > 0
 }
 
 /// What `n` looks of yours of one kind read of him today, each rating's

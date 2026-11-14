@@ -891,11 +891,14 @@ fn one_on_one_open(w: &mut World, s: &mut Scene) {
         topic = tp::subject_of(k).into();
     }
     let asked = asked_to_leave(w, id);
+    // An exit meeting opens on why he is on your list (lane L9).
+    let exit = s.c & EXIT != 0;
     // He raises what weighs on him himself (talk facts lane L4): an open
     // case every time, else his top point when it weighs on him. One you
     // don't know (trouble at home he hasn't told you) he raises if he opens
     // up to you.
-    let lead = tp::leads(&sheet).filter(|p| Topic::Point(p.kind) != topic && (!asked || p.kind == PointKind::Arrest));
+    let lead = tp::leads(&sheet)
+        .filter(|p| Topic::Point(p.kind) != topic && (!(asked || exit) || p.kind == PointKind::Arrest));
     if let Some((k, known)) = lead.map(|p| (p.kind, p.known)) {
         if known {
             topic = Topic::Point(k);
@@ -929,6 +932,9 @@ fn one_on_one_open(w: &mut World, s: &mut Scene) {
     };
     if asked {
         s.narrate("He asked for this meeting.");
+    }
+    if exit {
+        s.narrate(format!("Your staff's note on him: {}.", exit_note(w, s, i, &sheet)));
     }
     s.narrate(format!("In comes {}. {posture}", player_link(w, i)));
     let spk = Speaker::player(w, i);
@@ -970,9 +976,25 @@ fn one_on_one_open(w: &mut World, s: &mut Scene) {
     let keys: Vec<&str> = keys.iter().map(String::as_str).collect();
     // On a point, his own opening in his stance; until the bank has one,
     // today's opening for its subject.
-    let line = match (&point, stance) {
-        (Some(p), Some(st)) => {
+    // An exit meeting no point carries: his own opening for your staff's
+    // reason (lane L9), else today's.
+    let leaving = claims::team_rooms::Leaving::of_code((s.c >> EXIT_SHIFT) & 0xF);
+    if exit
+        && leaving == claims::team_rooms::Leaving::OldCoach
+        && let Some(o) = w.folk.takeover.as_ref().and_then(|t| t.old_coach)
+    {
+        let n = &w.coaches[o].name;
+        f.set("old", n.clone());
+        f.set("old_last", n.split_whitespace().last().unwrap_or(n).to_string());
+    }
+    let exit_key = leaving.key().filter(|_| exit && point.is_none() && !asked);
+    let line = match (&point, stance, exit_key) {
+        (Some(p), Some(st), _) => {
             let own = point_open(&mut pen, p, st, good, &spk, &f);
+            if own.is_empty() { pen.line(&keys, &spk, &f) } else { own }
+        }
+        (_, _, Some(k)) => {
+            let own = pen.line(&[k], &spk, &f);
             if own.is_empty() { pen.line(&keys, &spk, &f) } else { own }
         }
         _ => pen.line(&keys, &spk, &f),
@@ -2197,6 +2219,12 @@ fn cap(s: &str) -> String {
     }
 }
 
+/// Capitalizes the first letter, with no stop (`cap` adds one).
+fn upper(s: &str) -> String {
+    let mut c = s.chars();
+    c.next().map_or(String::new(), |f| f.to_uppercase().chain(c).collect())
+}
+
 /// Keeps the points made in a talk (`Talked`): what you said, and whether
 /// it landed.
 fn keep_made(w: &mut World, s: &mut Scene, id: u32) {
@@ -2237,10 +2265,6 @@ fn finish_talk(w: &mut World, s: &mut Scene, id: u32) {
 // ---------------------------------------------------------------------------
 // Team talks (topic 5: talking to a group).
 
-/// How far ahead the team talk names the next game when no game is fresh
-/// (talk facts item 30; Claude's size, proposed, not confirmed).
-const NEXT_GAME_DAYS: i32 = 14;
-
 /// Opens a team talk you called (`team_talk` command): once a week.
 pub fn start_team_talk(w: &mut World) -> Result<u32, String> {
     let team = Team::seat(w).ok_or("You have no team.")?;
@@ -2275,79 +2299,207 @@ fn team_talk_open(w: &mut World, s: &mut Scene) {
         s.end();
         return;
     };
-    // Only a game from the last week is named (talk facts item 30): in April
-    // the room no longer opens on January's loss.
-    let last = super::facts::fresh_game(w, team);
+    // The room reads your team's week (talk facts lane L9): a game is named
+    // only while it is fresh (item 30), with its margin and where it was
+    // played; a streak, the starters out, the next game and its rival; and
+    // with nothing near, how the season ended or what is coming.
+    let wk = claims::team_rooms::week(w, team);
     let mood = team_mood(w, team);
     s.who.push(Who::Group("The team".into()));
-    s.narrate(match last {
-        Some((won, us, them, opp)) if won => {
-            format!("Monday after the {us}-{them} win over {}. The room is loose; somebody has music on.", opp.link(w))
-        }
-        Some((_, us, them, opp)) => {
-            format!("Monday after the {us}-{them} loss to {}. Nobody is talking much.", opp.link(w))
-        }
+    let day = WEEKDAY_NAMES[w.today.weekday().index() as usize];
+    match &wk.last {
+        Some(g) => s.narrate(format!("{day}, {} {}", game_words(w, g), room_after(g))),
         None => {
-            // With nothing fresh, look ahead to the next game when one is near.
-            let next = super::facts::team_games(w, team)
-                .into_iter()
-                .find(|g| g.0 >= w.today && w.today.days_to(g.0) <= NEXT_GAME_DAYS);
-            match next {
-                Some((date, opp, _)) => {
-                    let when = match w.today.days_to(date) {
-                        0 => "today".to_string(),
-                        1 => "tomorrow".to_string(),
-                        n => format!("in {n} days"),
-                    };
-                    format!(
-                        "No game to talk about. {} is next, {when}. Everyone is waiting to hear what kind of week this is.",
-                        opp.link(w)
-                    )
-                }
-                None => "No game to talk about yet. Everyone is waiting to hear what kind of week this is.".into(),
-            }
+            let then = match (&wk.next, &wk.ended, &wk.ahead) {
+                (Some(n), _, _) => format!(
+                    "{} is next, {}.{} Everyone is waiting to hear what kind of week this is.",
+                    opp_link(w, n),
+                    days_words(w, n.due.unwrap_or(w.today)),
+                    if wk.rival_week() { " Rivalry week." } else { "" }
+                ),
+                (None, Some(e), _) => format!(
+                    "The season is over: {}{}, and it ended {}. Everyone is waiting to hear what comes next.",
+                    e.get("record").unwrap_or(""),
+                    e.get("finish").map(|f| format!(", {f}")).unwrap_or_default(),
+                    e.get("when").unwrap_or("this winter")
+                ),
+                (None, None, Some(a)) => format!(
+                    "{} is next, {}. Everyone is waiting to hear what kind of week this is.",
+                    upper(a.get("what").unwrap_or("practice")),
+                    a.get("when").unwrap_or("soon")
+                ),
+                (None, None, None) => "Everyone is waiting to hear what kind of week this is.".into(),
+            };
+            s.narrate(format!("{day}. No game to talk about. {then}"))
         }
-    });
+    }
+    if let Some(st) = &wk.streak {
+        let n: usize = st.get("games").and_then(|x| x.parse().ok()).unwrap_or(3);
+        s.narrate(format!(
+            "That's {} straight {}.",
+            super::count_words(n),
+            if wk.run() == Some("winning") { "wins" } else { "losses" }
+        ));
+    }
+    if let Some(o) = &wk.out {
+        let n: usize = o.get("out").and_then(|x| x.parse().ok()).unwrap_or(1);
+        let names = o.get("names").unwrap_or("");
+        s.narrate(if n > 3 {
+            format!("Out hurt: {}, {names} among them.", o.get("starters").unwrap_or("starters"))
+        } else {
+            format!("Out hurt: {names}.")
+        });
+    }
+    if wk.last.is_some()
+        && let Some(n) = &wk.next
+    {
+        s.narrate(format!(
+            "{} is next, {}.{}",
+            opp_link(w, n),
+            days_words(w, n.due.unwrap_or(w.today)),
+            if wk.rival_week() { " Rivalry week." } else { "" }
+        ));
+    }
     s.narrate(format!("The room's mood: {}.", mood_words(mood)));
-    add_team_picks(s);
+    add_team_picks(s, &wk);
 }
 
-fn add_team_picks(s: &mut Scene) {
-    s.pick(
-        200,
-        "\"One play at a time. Do your job.\" (focus)",
-        "Focus",
-        "calm",
-        "Steady and safe: small lift, little risk.",
-    );
-    s.pick(
-        201,
-        "\"Breathe. We're fine. Nothing changes.\" (calm)",
-        "Reassure",
-        "warm",
-        "Settles a shaky room; a competitive room wants more.",
-    );
-    s.pick(
-        202,
-        "\"I want somebody to hit somebody this week.\" (fire)",
-        "Fire",
-        "fiery",
-        "Lifts competitors; wears thin if you use it every week.",
-    );
-    s.pick(
-        203,
-        "\"That wasn't good enough, and you know it.\" (challenge)",
-        "Challenge",
-        "firm",
-        "Hits the proud players where it should; the fragile sink.",
-    );
-    s.pick(
-        204,
-        "\"I believe in this group more than ever.\" (praise)",
-        "Praise",
-        "warm",
-        "Lands after a win; rings hollow after a bad loss.",
-    );
+const WEEKDAY_NAMES: [&str; 7] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+/// A game's opponent, linked when the point names his team.
+fn opp_link(w: &World, p: &Point) -> String {
+    claims::team_rooms::team_of(p).map_or_else(|| p.get("opp").unwrap_or("them").to_string(), |t| t.link(w))
+}
+
+/// "the 24-17 win over X in the Rose Bowl".
+fn result_words(w: &World, g: &Point) -> String {
+    let (word, to) = match g.check("result") {
+        Some("win") => ("win", "over"),
+        Some("loss") => ("loss", "to"),
+        _ => ("tie", "with"),
+    };
+    format!(
+        "the {} {word} {to} {}{}",
+        g.get("score").unwrap_or(""),
+        opp_link(w, g),
+        g.get("game").map(|n| format!(" in the {n}")).unwrap_or_default()
+    )
+}
+
+/// How long after the game: "after the...", "the day after the...",
+/// "three days after the...".
+fn game_words(w: &World, g: &Point) -> String {
+    let ago = g.day.map_or(0, |d| d.days_to(w.today));
+    let after = match ago {
+        0 => "after".to_string(),
+        1 => "the day after".to_string(),
+        n => format!("{} days after", super::count_words(n as usize)),
+    };
+    format!("{after} {}.", result_words(w, g))
+}
+
+/// The room after a game, by its result and margin.
+fn room_after(g: &Point) -> &'static str {
+    match (g.check("result"), g.check("margin")) {
+        (Some("win"), Some("close")) => "The room is loud and tired: that one took everything.",
+        (Some("win"), _) => "The room is loose; somebody has music on.",
+        (Some("loss"), Some("close")) => "The room is quiet. Half of them are still replaying the last drive.",
+        (Some("loss"), _) => "Nobody is talking much.",
+        _ => "Nobody knows quite what to make of it.",
+    }
+}
+
+/// The season's last game: "the 24-31 loss to X in the Y Bowl on
+/// December 30."
+/// "today", "tomorrow", "in 10 days".
+fn days_words(w: &World, date: Date) -> String {
+    match w.today.days_to(date) {
+        0 => "today".to_string(),
+        1 => "tomorrow".to_string(),
+        n => format!("in {n} days"),
+    }
+}
+
+/// The five things you can tell the room, each worded for the week: the
+/// codes and what each does are the same as they always were (lane L9
+/// changes the words only).
+fn add_team_picks(s: &mut Scene, wk: &claims::team_rooms::Week) {
+    let g = |p: &Option<Point>, k: &str| p.as_ref().and_then(|x| x.get(k)).map(str::to_string);
+    let (score, opp) = (g(&wk.last, "score"), g(&wk.last, "opp"));
+    let next = g(&wk.next, "opp");
+    let names = g(&wk.out, "names");
+    let record = g(&wk.ended, "record");
+    let what = g(&wk.ahead, "what");
+    let streak = wk.streak.as_ref().and_then(|p| p.get("games")).and_then(|x| x.parse::<usize>().ok());
+    let focus = match (&next, &what) {
+        (Some(n), _) => format!("\"One play at a time. {n} is all that matters this week.\" (focus)"),
+        (None, Some(a)) => format!("\"One rep at a time. Get ready for {a}.\" (focus)"),
+        _ => "\"One play at a time. Do your job.\" (focus)".to_string(),
+    };
+    s.pick(200, focus, "Focus", "calm", "Steady and safe: small lift, little risk.");
+    let calm = match (wk.lost(), &names, wk.run(), &score) {
+        (_, Some(n), _, _) => format!("\"We're without {n}. Next man up. Nothing changes.\" (calm)"),
+        (_, None, Some("losing"), _) => format!(
+            "\"{} straight doesn't define us. Breathe. Nothing changes.\" (calm)",
+            upper(&super::count_words(streak.unwrap_or(3)))
+        ),
+        (true, None, _, Some(sc)) => format!("\"Breathe. One {sc} loss doesn't change who we are.\" (calm)"),
+        _ => "\"Breathe. We're fine. Nothing changes.\" (calm)".to_string(),
+    };
+    s.pick(201, calm, "Reassure", "warm", "Settles a shaky room; a competitive room wants more.");
+    let fire = match &next {
+        Some(n) if wk.rival_week() => format!("\"It's {n} week. I want somebody to hit somebody.\" (fire)"),
+        Some(n) => format!("\"I want somebody to hit somebody against {n}.\" (fire)"),
+        None => "\"I want somebody to hit somebody this week.\" (fire)".to_string(),
+    };
+    s.pick(202, fire, "Fire", "fiery", "Lifts competitors; wears thin if you use it every week.");
+    let (challenge, hint) = match (wk.result(), &score, &opp, &record) {
+        (Some("loss"), Some(sc), Some(o), _) => (
+            format!("\"{sc} against {o}. That wasn't good enough, and you know it.\" (challenge)"),
+            "Hits the proud players where it should; the fragile sink.",
+        ),
+        (Some("win"), _, Some(o), _) => (
+            format!("\"We beat {o}, and that still wasn't our standard.\" (challenge)"),
+            "After a win it counts for half: some of them want to enjoy it.",
+        ),
+        (None, _, _, Some(r)) if wk.season() == Some("bad") => (
+            format!("\"{r}. Nobody in this room forgets that.\" (challenge)"),
+            "Hits the proud players where it should; the fragile sink.",
+        ),
+        (None, ..) => (
+            "\"Nobody in this room has earned anything yet.\" (challenge)".to_string(),
+            "Hits the proud players where it should; the fragile sink.",
+        ),
+        _ => (
+            "\"That wasn't good enough, and you know it.\" (challenge)".to_string(),
+            "Hits the proud players where it should; the fragile sink.",
+        ),
+    };
+    s.pick(203, challenge, "Challenge", "firm", hint);
+    let (praise, hint) = match (wk.result(), &score, &opp, &record) {
+        (Some("win"), Some(sc), Some(o), _) => {
+            (format!("\"That {sc} win over {o} was yours. You earned it.\" (praise)"), "Lands after a win.")
+        }
+        (Some("loss"), Some(sc), _, _) => (
+            format!("\"I believe in this group, {sc} or not.\" (praise)"),
+            "Rings hollow after a loss: it can cool the room.",
+        ),
+        (None, _, _, Some(r)) if wk.season() == Some("good") => {
+            (format!("\"{r}. That season was yours.\" (praise)"), "They earned it; it lands.")
+        }
+        _ if wk.run() == Some("winning") => (
+            format!(
+                "\"{} straight. I believe in this group more than ever.\" (praise)",
+                upper(&super::count_words(streak.unwrap_or(3)))
+            ),
+            "Lands after a win.",
+        ),
+        _ => (
+            "\"I believe in this group more than ever.\" (praise)".to_string(),
+            "Lands after a win; rings hollow after a bad loss.",
+        ),
+    };
+    s.pick(204, praise, "Praise", "warm", hint);
 }
 
 fn team_talk_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
@@ -2381,21 +2533,76 @@ fn team_talk_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     if w.folk.mine_tones.len() > 8 {
         w.folk.mine_tones.remove(0);
     }
+    // How it really moved the room (lane L9): each man's trust before and
+    // after, so the reaction names who took it best and who worst.
+    let before: Vec<(usize, f32)> = team.roster(w).into_iter().map(|i| (i, w.people[i].trust)).collect();
     let (up, down, _) = super::takeover::team_effect(w, team, msg, tone, weight);
+    let (best, worst) = movers(w, &before);
+    let lands = worn < 2 && up > down * 2;
     s.narrate(if worn >= 2 {
-        "You've said it this way before. A few of them mouth the words with you."
-    } else if up > down * 2 {
-        "It lands. The noise when you finish is real."
+        "You've said it this way before. A few of them mouth the words with you.".to_string()
+    } else if lands {
+        match best {
+            Some(i) => {
+                format!("It lands. The noise when you finish is real; {} is the first one up.", player_link(w, i))
+            }
+            None => "It lands. The noise when you finish is real.".to_string(),
+        }
     } else if down > up {
-        "Polite silence. Some of them are already looking at their phones."
+        match worst {
+            Some(i) => format!(
+                "Polite silence. Some of them are already looking at their phones. {} doesn't look up at all.",
+                player_link(w, i)
+            ),
+            None => "Polite silence. Some of them are already looking at their phones.".to_string(),
+        }
     } else {
-        "They take it in. Practice will tell you more."
+        match (best, worst) {
+            (Some(a), Some(b)) => format!(
+                "They take it in. {} nods along; {} stares at the floor. Practice will tell you more.",
+                player_link(w, a),
+                player_link(w, b)
+            ),
+            _ => "They take it in. Practice will tell you more.".to_string(),
+        }
     });
+    // A captain who took it well says something to the room (lane L9).
+    if worn < 2
+        && up > down
+        && let Some(c) = super::takeover::captains_of(w, team)
+            .into_iter()
+            .find(|&c| before.iter().any(|&(i, t)| i == c && w.people[c].trust > t + MOVED))
+    {
+        let wk = claims::team_rooms::week(w, team);
+        let mut f = super::takeover::base_facts(w, team);
+        wk.fill(&mut f);
+        let spk = Speaker::player(w, c);
+        let key = if lands { "teamtalk.react.lands" } else { "teamtalk.react.mixed" };
+        let line = scene::bank_line(w, s, 2, key, &spk, &f, "");
+        if !line.is_empty() {
+            let name = w.people[c].name.clone();
+            s.them(&name, line, None);
+        }
+    }
     s.outcome.push(format!(
         "Your team talk: {up} lifted, {down} cooled{}.",
         if worn >= 2 { " (the tone is wearing thin)" } else { "" }
     ));
     s.end();
+}
+
+/// A man whose trust moved by more than this took the talk to heart.
+/// Proposed, not confirmed.
+const MOVED: f32 = 0.02;
+
+/// Who the talk moved most each way: the biggest rise in trust and the
+/// biggest fall, each past `MOVED`.
+pub(crate) fn movers(w: &World, before: &[(usize, f32)]) -> (Option<usize>, Option<usize>) {
+    let d = |&(i, t): &(usize, f32)| (i, w.people[i].trust - t);
+    let ds: Vec<(usize, f32)> = before.iter().map(d).collect();
+    let best = ds.iter().filter(|x| x.1 > MOVED).max_by(|a, b| a.1.total_cmp(&b.1).then(b.0.cmp(&a.0))).map(|x| x.0);
+    let worst = ds.iter().filter(|x| x.1 < -MOVED).min_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0))).map(|x| x.0);
+    (best, worst)
 }
 
 /// The room's mood for your team.
@@ -2456,6 +2663,12 @@ fn parent_open(w: &mut World, s: &mut Scene) {
     let p = &w.people[i];
     let style = p.family.parent_style;
     let who = parent_word(w, i);
+    // What the family calls about and what it can see (talk facts lane L9):
+    // the real complaint, his group in practice as he tells it at home, his
+    // snaps and starts in your last two games.
+    let fam = claims::team_rooms::family(w, i);
+    let complaint = fam.as_ref().map_or(claims::team_rooms::Complaint::Role, |x| x.complaint);
+    s.b = complaint_code(complaint);
     s.narrate(format!(
         "{who} calls about {}. {}",
         player_link(w, i),
@@ -2465,48 +2678,161 @@ fn parent_open(w: &mut World, s: &mut Scene) {
             _ => "It's the first time this parent has called.",
         }
     ));
+    if let Some(sees) = fam.as_ref().and_then(|x| x.sees()) {
+        s.narrate(format!("What the family can see: {sees}"));
+    }
     let spk = Speaker::parent(w, i);
-    let f = player_facts(w, i);
+    let mut f = player_facts(w, i);
+    if let Some(x) = &fam {
+        x.fill(&mut f);
+    }
+    let point = fam.as_ref().and_then(|x| x.point.as_ref());
     let mut pen = scene::pen(w, s, 1);
-    let line = pen.line(&["parents.call.open", "?parents.call.point"], &spk, &f);
+    // The complaint's own part (the point's when there is one), else
+    // today's opening and point, which are about playing time.
+    let own = match point {
+        Some(pt) => format!("parents.call.{}", pt.kind.key()),
+        None => format!("parents.call.{}", complaint.key()),
+    };
+    // Today's opening and point are about playing time: they go with a
+    // role complaint only. Money, a punishment or a position move is the
+    // complaint's own part, which carries its own greeting, or a plain
+    // line that names it.
+    let line = if complaint == claims::team_rooms::Complaint::Role {
+        match pen.part(&own, &spk, &f) {
+            Some(x) => {
+                let open = pen.part("parents.call.open", &spk, &f).unwrap_or_default();
+                super::voice::tidy(&format!("{open} {x}"))
+            }
+            None => pen.line(&["parents.call.open", "?parents.call.point"], &spk, &f),
+        }
+    } else {
+        pen.part(&own, &spk, &f).map(|x| super::voice::tidy(&x)).unwrap_or_else(|| {
+            let name = f.get("name").unwrap_or("my son").to_string();
+            match complaint {
+                claims::team_rooms::Complaint::Punishment => {
+                    format!("Coach, I'm calling about {name}'s punishment. I'd like to understand it.")
+                }
+                claims::team_rooms::Complaint::Money => {
+                    format!("Coach, I'm calling about {name}'s deal. I don't think it's right.")
+                }
+                _ => match f.get("position") {
+                    Some(x) => format!("Coach, I'm calling about {name} moving to {x}. Nobody explained it to us."),
+                    None => format!("Coach, I'm calling about {name}'s position. Nobody explained it to us."),
+                },
+            }
+        })
+    };
     pen.put(w);
     s.them(
         who,
         if line.is_empty() {
-            format!("Coach, I'm going to be honest with you. {} should be on the field, and everybody in the stands can see it.", f.get("name").unwrap_or("My son"))
+            format!(
+                "Coach, I'm going to be honest with you. {} should be on the field, and everybody in the stands can see it.",
+                f.get("name").unwrap_or("My son")
+            )
         } else {
             line
         },
         None,
     );
+    add_parent_picks(s, complaint, point, &f, fam.as_ref());
+}
+
+/// A complaint's code in `Scene.b` (the parent's call).
+fn complaint_code(c: claims::team_rooms::Complaint) -> u64 {
+    use claims::team_rooms::Complaint as C;
+    match c {
+        C::Role => 0,
+        C::Punishment => 1,
+        C::Money => 2,
+        C::Position => 3,
+    }
+}
+
+fn complaint_of(b: u64) -> claims::team_rooms::Complaint {
+    use claims::team_rooms::Complaint as C;
+    match b {
+        1 => C::Punishment,
+        2 => C::Money,
+        3 => C::Position,
+        _ => C::Role,
+    }
+}
+
+/// Your four answers, worded for the complaint (lane L9). The codes and
+/// what each does are the same as they always were; a promise of snaps is
+/// on the table only where snaps are what the family wants: his role, a
+/// position move, or a punishment of a man who played before it.
+fn add_parent_picks(
+    s: &mut Scene,
+    c: claims::team_rooms::Complaint,
+    point: Option<&Point>,
+    f: &Facts,
+    fam: Option<&claims::team_rooms::Family>,
+) {
+    use claims::team_rooms::Complaint as C;
+    let name = f.get("name").unwrap_or("He").to_string();
+    let v = |k: &str| point.and_then(|p| p.get(k)).map(str::to_string);
+    let straight = match c {
+        C::Role => match (point.map(|p| p.kind), v("rival"), v("ahead"), fam.and_then(|x| x.group)) {
+            (Some(PointKind::LostJob), Some(r), _, _) => {
+                format!("\"{r} won the job in practice. Here's what {name} needs to do to win it back.\"")
+            }
+            (Some(PointKind::Buried), _, Some(a), _) => {
+                format!("\"{name} is behind {a} right now. Here's what he needs to show us.\"")
+            }
+            (_, _, _, Some(g)) => format!(
+                "\"He's working with {}. Playing time is earned at practice. Here's what moves him up.\"",
+                claims::team_rooms::group_words(g)
+            ),
+            _ => "\"Playing time is earned at practice. Here's what he needs to do.\"".to_string(),
+        },
+        C::Punishment => match (v("rule"), fam.and_then(|x| x.penalty.clone()), v("reason")) {
+            (Some(r), Some(x), _) => format!("\"He broke our rule on {r}, and {x} stands. Here's why.\""),
+            (None, Some(x), _) => format!("\"{} stands, and here's why.\"", upper(&x)),
+            (_, None, Some(r)) => format!("\"He's sitting for {r}, and it stands. Here's why.\""),
+            _ => "\"He's sitting because of what he did, and it stands. Here's why.\"".to_string(),
+        },
+        C::Money => "\"His deal is what it is this year. How he plays earns the next one.\"".to_string(),
+        C::Position => match v("position") {
+            Some(x) => format!("\"We moved him to {x} because that's where we see him getting on the field.\""),
+            None => "\"We moved him because that's where we see him getting on the field.\"".to_string(),
+        },
+    };
     s.pick(
         300,
-        "\"Playing time is earned at practice. Here's what he needs to do.\"",
+        straight,
         "Tell him straight",
         "calm",
         "Honest: a reasonable parent respects it; a loud one goes to the AD.",
     );
-    s.pick(
-        301,
-        "\"I hear you. Let me look at it with his position coach.\"",
-        "Listen",
-        "warm",
-        "Cools the call down; promises nothing.",
-    );
-    s.pick(
-        302,
-        "\"He'll get his chance. I promise you that.\"",
-        "Promise",
-        "warm",
-        "Pleases the parent now; logged as a promise of snaps.",
-    );
-    s.pick(
-        303,
-        "\"I don't discuss playing time with parents.\"",
-        "Warn",
-        "firm",
-        "Ends it; the parent may go above you.",
-    );
+    let listen = match c {
+        C::Role | C::Position => "\"I hear you. Let me look at it with his position coach.\"",
+        C::Punishment => "\"I hear you. I'll sit down with him myself.\"",
+        C::Money => "\"I hear you. I'll look at where his deal stands.\"",
+    };
+    s.pick(301, listen, "Listen", "warm", "Cools the call down; promises nothing.");
+    let played = fam.is_some_and(|x| x.games.iter().any(|g| g.started) || x.group == Some("ones"));
+    let promise = match c {
+        C::Role => Some("\"He'll get his chance. I promise you that.\"".to_string()),
+        C::Position => Some(match v("position") {
+            Some(x) => format!("\"He'll get his snaps at {x}. I promise you that.\""),
+            None => "\"He'll get his snaps. I promise you that.\"".to_string(),
+        }),
+        C::Punishment if played => Some("\"When it's served, he's back where he was. You have my word.\"".to_string()),
+        _ => None,
+    };
+    if let Some(p) = promise {
+        s.pick(302, p, "Promise", "warm", "Pleases the parent now; logged as a promise of snaps.");
+    }
+    let warn = match c {
+        C::Role => "\"I don't discuss playing time with parents.\"",
+        C::Punishment => "\"Team discipline stays between me and the player.\"",
+        C::Money => "\"I don't talk about a player's money with his family.\"",
+        C::Position => "\"Where a player lines up is a coaching decision.\"",
+    };
+    s.pick(303, warn, "Warn", "firm", "Ends it; the parent may go above you.");
 }
 
 fn parent_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
@@ -2533,7 +2859,24 @@ fn parent_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         }
         _ => (-0.06, "Then I'll talk to someone who does.", loud || super::roll(w, 0x9A3, id as u64) < 0.3),
     };
-    s.them(parent_word(w, i), line, None);
+    // The parent answers what you said about the real complaint (lane L9):
+    // the bank's part for your answer and how it went, else today's line.
+    let complaint = complaint_of(s.b);
+    let key = match code {
+        300 if above => "parents.reply.straight.above",
+        300 => "parents.reply.straight.fair",
+        301 => "parents.reply.listen",
+        302 => "parents.reply.promise",
+        _ => "parents.reply.warn",
+    };
+    let spk = Speaker::parent(w, i);
+    let mut f = player_facts(w, i);
+    f.set("complaint", complaint.key());
+    if let Some(x) = claims::team_rooms::family(w, i).filter(|x| x.complaint == complaint) {
+        x.fill(&mut f);
+    }
+    let said = scene::bank_line(w, s, 2, key, &spk, &f, line);
+    s.them(parent_word(w, i), said, None);
     let p = &mut w.people[i];
     p.trust = (p.trust + dtrust).clamp(0.0, 1.0);
     if above && let Some(team) = s.team {
@@ -2545,11 +2888,22 @@ fn parent_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
             w,
             "talk",
             b.link(),
-            format!("Heard from {}'s family about playing time.", player_link(w, i)),
+            format!("Heard from {}'s family about {}.", player_link(w, i), complaint_words(complaint)),
             None,
         );
     }
     s.end();
+}
+
+/// What a family called about, in a note's words.
+fn complaint_words(c: claims::team_rooms::Complaint) -> &'static str {
+    use claims::team_rooms::Complaint as C;
+    match c {
+        C::Role => "playing time",
+        C::Punishment => "his punishment",
+        C::Money => "his money",
+        C::Position => "his position move",
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -2793,8 +3147,10 @@ fn asked_to_leave(w: &World, id: u32) -> bool {
     w.portal_intents.iter().any(|t| t.is(id))
 }
 
-/// A loud parent calls when his son's role sours (high school and
-/// college; proposed, not confirmed: a few a season).
+/// A loud parent calls when something the family can see sours him (high
+/// school and college; proposed, not confirmed: a few a season): his role,
+/// a punishment of yours, his money or a position move (talk facts lane
+/// L9, `claims::team_rooms::family`). Before the lane only his role.
 fn parent_calls(w: &mut World, d: Date) {
     let Some(team) = Team::seat(w) else { return };
     if team.level() == Level::Nfl {
@@ -2806,13 +3162,13 @@ fn parent_calls(w: &mut World, d: Date) {
     let roster = team.roster(w);
     let pick = roster.iter().copied().find(|&i| {
         let p = &w.people[i];
-        p.mood_why == Why::Role as u8
-            && p.mood < -0.25
+        p.mood < -0.25
             && matches!(
                 p.family.parent_style,
                 crate::world::background::ParentStyle::LoudAtGames | crate::world::background::ParentStyle::SocialMedia
             )
             && super::roll(w, 0xCA11 ^ d.0 as u64, p.player.id as u64) < 0.25
+            && (p.mood_why == Why::Role as u8 || claims::team_rooms::family(w, i).is_some())
     });
     if let Some(i) = pick {
         let mut s = Scene::new(Kind::ParentCall, d, format!("{}'s family calls", w.people[i].name));
@@ -2861,10 +3217,56 @@ fn exit_meetings(w: &mut World, d: Date) {
     for (k, (i, _)) in open.into_iter().take(8).enumerate() {
         let mut s = Scene::new(Kind::OneOnOne, d.add(k as i32 / 3), format!("Exit meeting: {}", w.people[i].name));
         s.a = w.people[i].player.id as u64;
-        s.b = Subject::Future as u64;
         s.stops = false;
         s.place = "Your office".into();
+        exit_reason(w, &mut s, i, None);
         scene::add(w, s);
+    }
+}
+
+/// Marks a one-on-one as an exit meeting (`Scene.c`): the talk opens on
+/// why he is on your list, and only an open case comes before it.
+pub(crate) const EXIT: i64 = 1 << 22;
+/// Where the reason no point carries sits in `Scene.c` (four bits).
+const EXIT_SHIFT: u32 = 24;
+
+/// Carries the real reason he is on your exit list into the talk (talk
+/// facts lane L9, item 21): the point on his sheet you know that is the
+/// reason (the talk's topic), or your staff's own reason from its list
+/// (`staff`, the takeover's flight list), which his opening speaks to.
+pub(crate) fn exit_reason(w: &World, s: &mut Scene, i: usize, staff: Option<&str>) {
+    use claims::team_rooms::Leaving;
+    let why = claims::team_rooms::leaving(w, i, staff);
+    let topic: Topic = match why {
+        Leaving::Point(k) if tp::talkable(k) => Topic::Point(k),
+        Leaving::Point(k) => tp::subject_of(k).into(),
+        Leaving::Role => Subject::Role.into(),
+        _ => Subject::Future.into(),
+    };
+    s.b = topic.code();
+    s.c |= EXIT | (why.code() << EXIT_SHIFT);
+}
+
+/// A takeover's flight list speaks for the meetings it set up this long.
+const TAKEOVER_LIST_DAYS: i32 = 30;
+
+/// Your staff's note on why he is on your list, said as the talk opens.
+fn exit_note(w: &World, s: &Scene, i: usize, sheet: &Sheet) -> String {
+    use claims::team_rooms::Leaving;
+    let id = w.people[i].player.id;
+    // A takeover's list says it in its own words.
+    if let Some((_, why)) = w
+        .folk
+        .takeover
+        .as_ref()
+        .filter(|t| t.started.is_some_and(|d| (0..=TAKEOVER_LIST_DAYS).contains(&d.days_to(s.date))))
+        .and_then(|t| t.risks.iter().find(|x| x.0 == id))
+    {
+        return why.clone();
+    }
+    match Topic::of(s.b).point().and_then(|k| sheet.get(k)) {
+        Some(p) => tp::worry_words(p),
+        None => Leaving::of_code((s.c >> EXIT_SHIFT) & 0xF).words().to_string(),
     }
 }
 

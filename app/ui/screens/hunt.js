@@ -24,7 +24,7 @@ GOTO.hunt = () => (seatKind() === "nfl"
 const hnBtn = (act, data, html, cls = "") => `<button class="st-btn small ${cls || "glass"}" data-act="${act}" ${Object.entries(data).map(([k, v]) => `data-${k}="${esc(String(v))}"`).join(" ")}>${html}</button>`;
 const hnCell = (label, big, cap, cls = "") => `<div class="hn-cell ${cls}"><div class="st-label">${esc(label)}</div><b>${big}</b>${cap ? `<small>${cap}</small>` : ""}</div>`;
 const hnPanel = (title, side, body, cls = "") => `<section class="hn-panel ${cls}"><div class="hn-ph"><b>${esc(title)}</b>${side ? `<span>${side}</span>` : ""}</div>${body}</section>`;
-const hnTier = (pt) => (pt ? `${esc(pt.tier)} <small class="hn-dim">${esc(pt.sure)}</small>` : '<span class="hn-dim">Not seen</span>');
+const hnTier = (pt) => (pt ? `${esc(pt.tier)}${potTag(pt)} <small class="hn-dim">${esc(pt.sure)}</small>` : '<span class="hn-dim">Not seen</span>');
 const hnGen = (g) => (g ? `<span class="hn-chip gold" title="${esc(g.since ? `The best ${g.draft ? "the scouts have read" : "the services have seen"} since ${g.since.name} (${g.since.year})` : "The best the public has ever read")}">Generational</span>` : "");
 const hnTeam = (t) => (t ? `${mark(t, 18)} ${teamLink(t)}` : '<span class="hn-dim">-</span>');
 const HN_END = { landed: ["Landed", "gold"], lost: ["Lost", "amber"], refused: ["Refused you", "amber"], dropped: ["Let go", ""], boss: ["Ended by your boss", "amber"], gone: ["Gone", ""] };
