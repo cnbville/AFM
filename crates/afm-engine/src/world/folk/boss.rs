@@ -905,6 +905,10 @@ pub fn request_meeting(w: &mut World) -> Result<u32, String> {
     Ok(scene::add(w, s))
 }
 
+/// One yes to a bigger recruiting budget: a tenth more for travel and
+/// visits, from today (proposed, not confirmed).
+const RECRUIT_RAISE: f32 = 0.1;
+
 /// You ask for something (topic 12): his answer reads his money, his trust
 /// in you and his personality.
 fn ask(w: &mut World, s: &mut Scene, team: Team, k: AskKind) {
@@ -939,7 +943,10 @@ fn ask(w: &mut World, s: &mut Scene, team: Team, k: AskKind) {
                 "Yes. We'll break ground after the season."
             }
             AskKind::RecruitingMoney => {
-                w.folk.staff.recruit_bonus += 0.1;
+                w.folk.staff.recruit_bonus += RECRUIT_RAISE;
+                if let Team::College(pg) = team {
+                    crate::world::finance::college::raise_recruiting(w, pg, RECRUIT_RAISE as f64);
+                }
                 "Yes. More travel money for the staff."
             }
             AskKind::NilMoney => {
