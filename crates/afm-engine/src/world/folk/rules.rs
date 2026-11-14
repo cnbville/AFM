@@ -147,6 +147,12 @@ pub enum Response {
     Dismiss,
     /// The leadership council decides.
     Council,
+    /// Out until his case is settled (an arrest, college and high school;
+    /// talk facts lane L8).
+    Indefinite,
+    /// He plays while the courts, or the league, run their course (an
+    /// arrest).
+    Wait,
 }
 
 impl Response {
@@ -162,16 +168,20 @@ impl Response {
             Response::Dismiss if level == Level::Nfl => "released".into(),
             Response::Dismiss => "dismissed from the team".into(),
             Response::Council => "handed to the leadership council".into(),
+            Response::Indefinite => "suspended indefinitely".into(),
+            Response::Wait if level == Level::Nfl => "left to the league".into(),
+            Response::Wait => "left to the legal process".into(),
         }
     }
     /// Severity, 0 to 6.
-    fn severity(self) -> u8 {
+    pub(crate) fn severity(self) -> u8 {
         match self {
-            Response::Talk | Response::Council => 0,
+            Response::Talk | Response::Council | Response::Wait => 0,
             Response::Fine | Response::Running => 1,
             Response::BenchStart => 2,
             Response::BenchGame => 3,
             Response::Suspend(n) => 3 + n.min(3),
+            Response::Indefinite => 4,
             Response::Dismiss => 6,
         }
     }
@@ -216,6 +226,9 @@ pub struct Rulebook {
     /// Players you got help for after trouble, and when (talk facts lane
     /// L4: a little less risk of more trouble for a year).
     pub helped: Vec<(u32, Date)>,
+    /// Your rulings on your players' arrests and on their court days (talk
+    /// facts lane L8, `arrests.rs`).
+    pub arrests: Vec<super::arrests::ArrestRuling>,
 }
 
 impl Rulebook {
@@ -625,40 +638,60 @@ fn violation_open(w: &mut World, s: &mut Scene) {
             p.player.position.name()
         ));
     }
+    // Your own book's standard, as your staff would rule it (what handing
+    // it to them does).
+    let prior = s.c.max(0) as u8;
+    let standard = staff_response(w.folk.rules.strict(kind) + prior, level);
+    s.narrate(format!("Your staff's standard for it: {}.", standard.words(level)));
+    // He speaks before you rule (talk facts lane L8): he explains, plays
+    // it down, denies it or owns it.
+    speak_first(w, s, i);
+    let due = rule_due(kind, prior);
+    let fit = |r: Response, hint: &str| format!("{hint} {}", fit_words(r.severity() as i32 - due));
     let council = !w.folk.rules.council.is_empty();
-    s.pick(500, "Talk to him and warn him", "Warn", "firm", "The lightest touch. Fair for a first small offense.");
+    s.pick(500, "Talk to him and warn him", "Warn", "firm", &fit(Response::Talk, "The lightest touch."));
     match level {
         Level::Nfl => {
-            let fine = nfl_fine(w.year, kind);
+            // The schedule's fine, doubled for each break before (`apply`).
+            let fine = nfl_fine(w.year, kind) * (1.0 + prior as f64);
             s.pick(
                 501,
                 format!("Fine him (${}, the CBA schedule)", super::facts::thousands(fine as u32)),
                 "Fine",
                 "firm",
-                "The standard answer in the league; warning letters come first for small things.",
+                &fit(Response::Fine, "The standard answer in the league; warning letters come first for small things."),
             );
             s.pick(
                 503,
                 "Deactivate him for a game",
                 "Bench",
                 "firm",
-                "Counts as discipline under the CBA. The union is told.",
+                &fit(Response::BenchGame, "Counts as discipline under the CBA. The union is told."),
             );
             s.pick(
                 504,
                 "Suspend him two weeks for conduct detrimental",
                 "Suspend",
                 "fiery",
-                "Unpaid. Inside the four-week cap.",
+                &fit(Response::Suspend(2), "Unpaid. Inside the four-week cap."),
             );
             s.pick(
                 507,
                 "Suspend him six weeks",
                 "Suspend",
                 "fiery",
-                "Past the CBA's four weeks: he files a grievance and an arbitrator may overturn it.",
+                &fit(
+                    Response::Suspend(6),
+                    "Past the CBA's four weeks: he files a grievance and an arbitrator may overturn it.",
+                ),
             );
-            s.pick(505, "Release him", "Dismiss", "fiery", "Section 5's cap rules apply. Gone.");
+            s.pick(
+                505,
+                "Release him",
+                "Dismiss",
+                "fiery",
+                &fit(Response::Dismiss, "Section 5's cap rules apply. Gone."),
+            );
         }
         _ => {
             s.pick(
@@ -666,33 +699,36 @@ fn violation_open(w: &mut World, s: &mut Scene) {
                 "Five a.m. running and lost privileges",
                 "Running",
                 "firm",
-                "The college and high school standard.",
+                &fit(Response::Running, "The college and high school standard."),
             );
             s.pick(
                 506,
                 "Bench him for the start",
                 "Bench",
                 "firm",
-                "He plays, but everyone sees him on the sideline first.",
+                &fit(Response::BenchStart, "He plays, but everyone sees him on the sideline first."),
             );
-            s.pick(503, "Sit him for the next game", "Bench", "firm", "Real games missed.");
+            s.pick(503, "Sit him for the next game", "Bench", "firm", &fit(Response::BenchGame, "Real games missed."));
             s.pick(
                 504,
                 "Suspend him for two games",
                 "Suspend",
                 "fiery",
-                "A real price; the media hears 'violation of team rules'.",
+                &fit(Response::Suspend(2), "A real price; the media hears 'violation of team rules'."),
             );
             s.pick(
                 505,
                 "Dismiss him from the team",
                 "Dismiss",
                 "fiery",
-                if level == Level::College {
-                    "He can transfer. The room learns where the line is."
-                } else {
-                    "He's off the team. His parents will call the principal."
-                },
+                &fit(
+                    Response::Dismiss,
+                    if level == Level::College {
+                        "He can transfer. The room learns where the line is."
+                    } else {
+                        "He's off the team. His parents will call the principal."
+                    },
+                ),
             );
         }
     }
@@ -707,6 +743,77 @@ fn violation_open(w: &mut World, s: &mut Scene) {
     }
 }
 
+/// How a ruling sits against what the offense and his record call for
+/// (both public: the rule, the charge, his earlier rulings), in the hint
+/// under each option (talk facts lane L8: the options read what he did and
+/// his record).
+pub(crate) fn fit_words(gap: i32) -> &'static str {
+    match gap {
+        g if g >= 3 => "Far past what he did and his record call for: he and the room will call it unfair.",
+        2 => "Heavy for what he did and his record.",
+        -2 => "Light for what he did and his record.",
+        g if g <= -3 => "Far under what he did and his record call for: the room will notice.",
+        _ => "Fits what he did and his record.",
+    }
+}
+
+/// He speaks before you rule (talk facts lane L8): on his trouble point
+/// (the break waiting on your ruling, or his open case) in his stance from
+/// the one-on-ones, with the tell your read catches. His words come from
+/// the bank: `rules.speak.<stance>` for a team rule, the one-on-one's
+/// `talk.point.open.arrest.<stance>` for an arrest (the same conduct
+/// gates: a guilty man's denial denies nothing outright).
+pub(crate) fn speak_first(w: &mut World, s: &mut Scene, i: usize) {
+    use super::claims::Kind as K;
+    use super::talk_points as tp;
+    let sheet = super::claims::player(w, i);
+    let arrest = s.b == super::arrests::ARREST;
+    let court = s.b == super::arrests::COURT;
+    let kind = match (arrest, court) {
+        (true, _) => K::Arrest,
+        (_, true) => K::CaseClosed,
+        _ => K::RuleBreak,
+    };
+    let Some(pt) = sheet.get(kind).cloned() else { return };
+    let st = tp::stance(w, i, &pt, s.id as u64 ^ 0x5EA4);
+    let mut f = tp::point_facts(&talks::player_facts(w, i), &pt, Some(st));
+    tp::conduct(&sheet, Some(&pt), Some(st), &mut f);
+    let spk = super::voice::Speaker::player(w, i);
+    let key = match (arrest, court) {
+        (true, _) => format!("talk.point.open.arrest.{}", st.key()),
+        (_, true) => format!("rules.court.{}", if tp::did(&pt) { "guilty" } else { "cleared" }),
+        _ => format!("rules.speak.{}", st.key()),
+    };
+    let mut pen = scene::pen(w, s, 9);
+    let line = pen.line(&[&key], &spk, &f);
+    pen.put(w);
+    let line = match (line.is_empty(), court) {
+        (false, _) => line,
+        (true, true) if tp::did(&pt) => "It's done, Coach. I'll take whatever comes with the team.".to_string(),
+        (true, true) => "It's over, Coach. I just want to get back to football.".to_string(),
+        (true, false) => speak_fallback(st, arrest).to_string(),
+    };
+    let tell = tp::stance_tell(&pt, st, talks::sharpness(w));
+    let name = w.people[i].name.clone();
+    s.them(&name, line, tell);
+}
+
+/// His words when the bank has none his voice can say: nothing in them
+/// denies or admits anything outright.
+fn speak_fallback(st: super::talk_points::Stance, arrest: bool) -> &'static str {
+    use super::talk_points::Stance as S;
+    match (st, arrest) {
+        (S::Owns, _) => "I'm not going to make excuses, Coach. Whatever you decide, I'll take it.",
+        (S::PlaysDown, false) => "Coach, it was a few minutes. It's not a big deal.",
+        (S::PlaysDown, true) => "It's not as big as it sounds, Coach. It'll get handled.",
+        (S::Denies, false) => "That's not how it went, Coach.",
+        (S::Denies, true) => "There's more to it than what's in the report, Coach.",
+        (S::Defiant, _) => "Do what you've got to do, Coach.",
+        (S::Shaken, _) => "Coach, I don't know what happens now.",
+        _ => "I know why I'm here, Coach.",
+    }
+}
+
 fn ordinal(n: usize) -> &'static str {
     match n {
         1 => "first",
@@ -717,7 +824,7 @@ fn ordinal(n: usize) -> &'static str {
     }
 }
 
-fn is_star(w: &World, i: usize) -> bool {
+pub(crate) fn is_star(w: &World, i: usize) -> bool {
     let p = &w.people[i];
     p.last_role == Some(PlayingTime::Starter)
         && (p.stars >= 4
@@ -757,9 +864,43 @@ fn council_call(w: &World, id: u32, kind: RuleKind, prior: u8) -> Response {
     }
 }
 
-/// Carries out a ruling: games missed, money, and how he and the room take
-/// it (fairness and consistency, topic 8).
+/// Carries out a ruling on a team-rule break.
 fn apply(w: &mut World, s: &mut Scene, id: u32, kind: RuleKind, resp: Response, staff: bool) {
+    let prior = s.c.max(0) as u8;
+    let due = rule_due(kind, prior);
+    carry_out(w, s, id, &Over::Rule(kind, prior), resp, staff, due, due);
+}
+
+/// What a ruling answers: a team rule he broke (with his earlier breaks),
+/// or an arrest, on the night it opened or on its court day (talk facts
+/// lane L8).
+#[derive(Clone, Debug)]
+pub(crate) enum Over {
+    Rule(RuleKind, u8),
+    Arrest { charge: String, case: Date, court: bool },
+}
+
+/// What a break of a team rule calls for, on the 0-6 severity scale: the
+/// rule's weight and his record (topic 8).
+pub(crate) fn rule_due(kind: RuleKind, prior: u8) -> i32 {
+    (kind.weight() + prior.min(3)) as i32 - 1
+}
+
+/// Carries out a ruling: games missed, money, and how he and the room take
+/// it (fairness and consistency, topic 8). `due` is what the offense and
+/// his record call for as the room sees them; `his_due` what he thinks he
+/// has coming (lower for a man who knows he didn't do it).
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn carry_out(
+    w: &mut World,
+    s: &mut Scene,
+    id: u32,
+    over: &Over,
+    resp: Response,
+    staff: bool,
+    due: i32,
+    his_due: i32,
+) {
     let Some(i) = super::person(w, id) else {
         s.end();
         return;
@@ -768,19 +909,41 @@ fn apply(w: &mut World, s: &mut Scene, id: u32, kind: RuleKind, resp: Response, 
     let level = team.map_or(Level::College, |t| t.level());
     let star = is_star(w, i);
     let name = w.people[i].name.clone();
-    let prior = s.c.max(0) as u8;
-    // Fair: severity near what the offense and his record call for.
-    let due = (kind.weight() + prior.min(3)) as i32 - 1;
     let sev = resp.severity() as i32;
-    let gap = sev - due;
-    // Consistency: the same rule, a different answer for a star and a backup.
+    // Fair: severity near what the offense and his record call for.
+    let gap = sev - his_due;
+    let room_gap = sev - due;
+    // Consistency: the same offense, a different answer for a star and a
+    // backup.
+    let past: Vec<(bool, i32)> = match over {
+        Over::Rule(kind, _) => w
+            .folk
+            .rules
+            .rulings
+            .iter()
+            .rev()
+            .take(30)
+            .filter(|r| r.kind == *kind && r.id != id)
+            .map(|r| (r.star, r.response.severity() as i32))
+            .collect(),
+        Over::Arrest { court, .. } => w
+            .folk
+            .rules
+            .arrests
+            .iter()
+            .rev()
+            .take(30)
+            .filter(|r| r.id != id && r.court == *court)
+            .map(|r| (r.star, r.response.severity() as i32))
+            .collect(),
+    };
     let mut uneven = 0;
-    for r in w.folk.rules.rulings.iter().rev().take(30).filter(|r| r.kind == kind && r.id != id) {
-        let d = sev - r.response.severity() as i32;
-        if star && !r.star && d < 0 {
+    for (was_star, was) in past {
+        let d = sev - was;
+        if star && !was_star && d < 0 {
             uneven += 1;
         }
-        if !star && r.star && d > 0 {
+        if !star && was_star && d > 0 {
             uneven += 1;
         }
     }
@@ -798,7 +961,7 @@ fn apply(w: &mut World, s: &mut Scene, id: u32, kind: RuleKind, resp: Response, 
     talks::mood_event(w, id, Reason::Discipline, dm);
     // A firm, fair answer from a respected coach raises professionalism
     // over time (topic 1).
-    if gap.abs() <= 1
+    if room_gap.abs() <= 1
         && sev >= 1
         && super::roll(w, 0xF41E, id as u64 ^ w.today.0 as u64) < 0.25 + 0.1 * coachable as f64
     {
@@ -810,7 +973,7 @@ fn apply(w: &mut World, s: &mut Scene, id: u32, kind: RuleKind, resp: Response, 
         let roster = t.roster(w);
         let room_dt = if uneven > 0 {
             -0.015 * uneven.min(3) as f32
-        } else if gap.abs() <= 1 {
+        } else if room_gap.abs() <= 1 {
             0.006
         } else {
             -0.004
@@ -822,15 +985,21 @@ fn apply(w: &mut World, s: &mut Scene, id: u32, kind: RuleKind, resp: Response, 
         }
     }
     w.folk.mine.hard = (w.folk.mine.hard + 0.04 * (sev - 2) as f32).clamp(-1.0, 1.0);
+    let reason = match over {
+        Over::Rule(kind, _) => kind.name().to_lowercase(),
+        Over::Arrest { charge, .. } => charge.clone(),
+    };
     // Games and money.
     let mut extra = String::new();
     match resp {
         Response::Fine => {
-            let fine = nfl_fine(w.year, kind) * (1.0 + prior as f64);
-            if let Some(c) = w.people[i].pro.as_mut() {
-                c.earnings = (c.earnings - fine / 1.0e6).max(0.0);
+            if let Over::Rule(kind, prior) = over {
+                let fine = nfl_fine(w.year, *kind) * (1.0 + *prior as f64);
+                if let Some(c) = w.people[i].pro.as_mut() {
+                    c.earnings = (c.earnings - fine / 1.0e6).max(0.0);
+                }
+                extra = format!(" (${})", super::facts::thousands(fine as u32));
             }
-            extra = format!(" (${})", super::facts::thousands(fine as u32));
         }
         Response::BenchStart => {
             w.folk.benched.push((id, after_games(w, team.unwrap_or(Team::College(0)), 1)));
@@ -852,18 +1021,47 @@ fn apply(w: &mut World, s: &mut Scene, id: u32, kind: RuleKind, resp: Response, 
             } else if let Some(t) = team {
                 let until = after_games(w, t, n);
                 w.folk.out.retain(|x| x.0 != id);
-                w.folk.out.push((id, until, format!("{} for {}", resp.words(level), kind.name().to_lowercase())));
+                w.folk.out.push((id, until, format!("{} for {reason}", resp.words(level))));
             }
             talks::mood_event(w, id, Reason::Benched, -0.06 * n as f32);
+        }
+        Response::Indefinite => {
+            // Out until you reinstate him, or the court day ends it
+            // (`arrests::court_day`).
+            w.folk.out.retain(|x| x.0 != id);
+            w.folk.out.push((
+                id,
+                w.today.add(super::arrests::INDEFINITE_DAYS),
+                format!("suspended indefinitely for {reason}"),
+            ));
+            talks::mood_event(w, id, Reason::Benched, -0.12);
         }
         Response::Dismiss => {
             dismiss(w, i, level);
         }
         _ => {}
     }
-    w.folk.rules.rulings.push(Ruling { date: w.today, id, kind, response: resp, star });
-    if w.folk.rules.rulings.len() > 200 {
-        w.folk.rules.rulings.remove(0);
+    match over {
+        Over::Rule(kind, _) => {
+            w.folk.rules.rulings.push(Ruling { date: w.today, id, kind: *kind, response: resp, star });
+            if w.folk.rules.rulings.len() > 200 {
+                w.folk.rules.rulings.remove(0);
+            }
+        }
+        Over::Arrest { charge, case, court } => {
+            w.folk.rules.arrests.push(super::arrests::ArrestRuling {
+                id,
+                case: *case,
+                charge: charge.clone(),
+                response: resp,
+                date: w.today,
+                star,
+                court: *court,
+            });
+            if w.folk.rules.arrests.len() > 120 {
+                w.folk.rules.arrests.remove(0);
+            }
+        }
     }
     w.folk.cases.retain(|v| v.id != id || v.scene != s.id);
     let words = resp.words(level);
@@ -896,15 +1094,23 @@ fn apply(w: &mut World, s: &mut Scene, id: u32, kind: RuleKind, resp: Response, 
         );
     }
     // A public suspension reaches the news.
-    if sev >= 3
-        && let Some(t) = team
-    {
+    if sev >= 3 && team.is_some() {
+        let why = match over {
+            Over::Rule(..) => "for a violation of team rules",
+            Over::Arrest { court: false, .. } => "following his arrest",
+            Over::Arrest { court: true, .. } => "now that his case is settled",
+        };
         let text = format!(
-            "{name} {} for a violation of team rules.",
-            if level == Level::Nfl && matches!(resp, Response::BenchGame) { "is deactivated" } else { "is suspended" }
+            "{name} {} {why}.",
+            match resp {
+                Response::BenchGame if level == Level::Nfl => "is deactivated",
+                Response::Indefinite => "is suspended indefinitely",
+                Response::Dismiss if level == Level::Nfl => "is released",
+                Response::Dismiss => "is dismissed from the team",
+                _ => "is suspended",
+            }
         );
         super::post_mine(w, w.today, Loudness::Small, false, "people: discipline", &text);
-        let _ = t;
     }
     s.end();
 }
@@ -949,6 +1155,7 @@ fn dismiss(w: &mut World, i: usize, level: Level) {
 pub(crate) fn open(w: &mut World, s: &mut Scene) {
     match s.kind {
         Kind::Ritual => ritual_open(w, s),
+        _ if s.b >= super::arrests::ARREST => super::arrests::open(w, s),
         _ => violation_open(w, s),
     }
 }
@@ -957,6 +1164,7 @@ pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     let _ = picked;
     match s.kind {
         Kind::Ritual => ritual_answer(w, s, code),
+        _ if s.b >= super::arrests::ARREST => super::arrests::answer(w, s, code),
         _ => violation_answer(w, s, code),
     }
 }
@@ -971,6 +1179,7 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
             w.folk.rules.rituals = 2;
             ritual_risk(w, s);
         }
+        _ if s.b >= super::arrests::ARREST => super::arrests::hand(w, s),
         _ => {
             let id = s.a as u32;
             let kind = RuleKind::ALL[s.b as usize % RuleKind::ALL.len()];

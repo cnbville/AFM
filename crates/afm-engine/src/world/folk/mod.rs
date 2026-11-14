@@ -16,7 +16,9 @@
 //! Every size no real source publishes is Claude's pick (proposed, not
 //! confirmed), listed in `docs/world-model.md`.
 
+pub mod arrests;
 pub mod backchannel;
+pub mod backers;
 pub mod boss;
 pub mod case;
 pub mod cast;
@@ -339,6 +341,11 @@ pub struct Folk {
     /// The recruiting coordinator's calls to wobbling commits: program, day,
     /// and whether you made them all yourself.
     pub commit_calls: Option<(usize, Date, bool)>,
+    /// Who those calls reached: player id, and whether you called him
+    /// yourself (read by the commitment's hold, `recruiting::heard`).
+    pub commits_heard: Vec<(u32, bool)>,
+    /// You chose a stance with the press (`media_policy` is read only then).
+    pub media_chosen: bool,
     /// Your stance with the press: 0 open door, 1 closed, 2 fair to all.
     pub media_policy: u8,
     /// The tones of your last team talks (a tone used too often wears out).
@@ -368,6 +375,8 @@ pub struct Folk {
     pub bulletin: Option<(Team, Date)>,
     /// "A fence around the state": the state and when you said it.
     pub fence: Option<(usize, Date)>,
+    /// What your promises to boosters hang on (talk facts lane L8).
+    pub backers: backers::Book,
     /// What you have talked through with each person, kept for a season
     /// (talk facts design, rule 6): a point counts once, and less each
     /// time you come back to it. Nothing is written until a talk notes
@@ -440,6 +449,7 @@ pub(crate) fn step(w: &mut World, d: Date, t: u16) {
             rules::day(w, d);
             boss::day(w, d);
             if w.seat.is_some() {
+                backers::day(w, d);
                 takeover::day(w, d);
                 scene::day(w, d);
             }

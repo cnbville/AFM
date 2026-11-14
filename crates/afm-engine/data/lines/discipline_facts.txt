@@ -1,0 +1,81 @@
+# The line bank: discipline on the facts (talk facts lane L8, item 14;
+# format in src/world/folk/voice.rs). Written by hand for the most common
+# parts; the bank run (lane L12) fills the rest. A part with no version the
+# speaker can say falls back to a plain line in rules.rs (`speak_fallback`).
+#
+# rules.speak.<stance>: he speaks before you rule on a team-rule break he
+# was seen breaking, in his stance from the one-on-ones (owns, plays_down,
+# denies, defiant, shaken). Facts: the player's (name, coach, team), rule
+# (curfew, being on time, weight targets ...), again (yes when he broke
+# one before), stance. Your staff saw it, so a denial here denies nothing
+# outright.
+#
+# rules.court.<cleared|guilty>: his words the morning after his case
+# closed. Facts: charge (a DUI, an arrest after a fight), outcome (the
+# charges dropped, acquitted, a plea to a lesser charge, convicted).
+#
+# An arrest's morning reuses the one-on-ones' talk.point.open.arrest.<stance>.
+
+@key rules.speak.owns
+That's on me, Coach. I knew the rule.
+No excuses. I was wrong.
+I'm not going to stand here and tell you a story. I messed up.
+Whatever you decide, I'll take it.
+I let the guys down. That's the part that bothers me.
+It won't happen again, Coach. I mean that.
+I know it's the second time. I don't have anything to say for myself. ~ again=yes
+I know what I did. I'm ready for whatever comes. ~ quiet
+
+@key rules.speak.plays_down
+Coach, it was a few minutes. It's not a big deal.
+Everybody does it. I just got caught.
+I didn't think it was that serious.
+It's one thing, Coach. It's not like I'm in trouble.
+I was right there. It's not like I skipped out.
+I'll fix it. It doesn't need to be a whole thing.
+Come on, Coach. It's {rule}. ~ young
+
+@key rules.speak.denies
+That's not how it went, Coach.
+Whoever told you that wasn't there the whole time.
+There's more to it than that.
+I had a reason. Nobody asked me what it was.
+Somebody's making it bigger than it was.
+I don't know who said what, but that's not the whole story.
+I was handling something. It's not what it looks like.
+
+@key rules.speak.defiant
+So what happens now? Just tell me.
+Do what you've got to do, Coach.
+I'm not going to beg about it.
+You already made up your mind. I can see it.
+Other guys do worse and nobody says anything. ~ brash
+Fine. Go ahead. ~ brash
+I'm not a kid, Coach. ~ !hs
+
+@key rules.speak.shaken
+Coach, I'm sorry. I don't know what I was thinking.
+Am I in a lot of trouble?
+Please don't take my spot for this.
+I can't have this follow me, Coach.
+Is my mom going to hear about this? ~ hs
+I know I can't keep doing this. ~ again=yes
+I didn't sleep last night. I knew this was coming.
+
+@key rules.court.cleared
+It's over, Coach. I just want to get back to football.
+I told you it would come out right.
+I've been waiting a long time to hear that.
+I'm just glad it's done. I'm ready to work.
+I know how it looked. I'm glad the truth came out.
+Can I get back out there with the guys?
+Thank you for waiting on it, Coach. ~ pro
+
+@key rules.court.guilty
+It's done, Coach. I'll take whatever comes with the team.
+I made a mistake and I'm paying for it. I'm not going to argue.
+The court's done with me. I hope you're not.
+I know I owe the guys something after all this.
+I'm not proud of it. I just want to put it behind me.
+Whatever you decide, I'll do it the right way this time.
+I know I don't get the benefit of the doubt anymore. ~ again=yes

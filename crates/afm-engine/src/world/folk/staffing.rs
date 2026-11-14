@@ -830,6 +830,18 @@ fn interview_open(w: &mut World, s: &mut Scene) {
     s.pick(61, "Ask how he'd handle your most difficult player", "Ask", "firm", "How he handles people.");
     s.pick(62, "Ask where he recruits and who he'd bring", "Ask", "calm", "His ties and his tree.");
     s.pick(63, "Ask what he wants: money, title, play calling", "Ask", "calm", "What it will take.");
+    meet_pick(w, s, c, role);
+}
+
+/// While you owe a booster a say in hires, a coordinator candidate can meet
+/// him first (talk facts lane L8): hiring one he never met breaks your word.
+fn meet_pick(w: &World, s: &mut Scene, c: usize, role: Role) {
+    let coordinator = matches!(role, Role::OffensiveCoordinator | Role::DefensiveCoordinator);
+    if let Some((code, label)) = super::backers::meet_pick(w, c, coordinator)
+        && s.picks.iter().all(|p| p.code != code)
+    {
+        s.pick(code, label, "Hand him something", "calm", "Keeps your word to the booster. A proud candidate notices.");
+    }
 }
 
 fn interview_answer(w: &mut World, s: &mut Scene, code: u32) {
@@ -959,6 +971,7 @@ fn interview_answer(w: &mut World, s: &mut Scene, code: u32) {
                 s.pick(*code2, *label, "Ask", "calm", "");
             }
         }
+        meet_pick(w, s, c, role);
         s.pick(69, "Thank him and wrap it up", "End", "calm", "");
     }
 }
@@ -1290,6 +1303,11 @@ pub(crate) fn open(w: &mut World, s: &mut Scene) {
 
 pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, _picked: &Pick) {
     match s.kind {
+        Kind::Interview if code == 68 => {
+            let c = s.a as usize;
+            super::backers::meet(w, s, c);
+            s.picks.retain(|p| p.code != 68);
+        }
         Kind::Interview if code == 69 => {
             s.outcome.push(format!("You interviewed {}.", w.coaches[s.a as usize].name));
             s.end();

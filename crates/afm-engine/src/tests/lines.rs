@@ -356,6 +356,13 @@ fn asked() -> Vec<String> {
         v.push(format!("talk.point.ask.{q}"));
     }
     v.push("talk.point.again".into());
+    // Discipline on the facts (talk facts lane L8, discipline_facts.txt).
+    for st in ["owns", "plays_down", "denies", "defiant", "shaken"] {
+        v.push(format!("rules.speak.{st}"));
+    }
+    for k in ["cleared", "guilty"] {
+        v.push(format!("rules.court.{k}"));
+    }
     // Your own lines (lane L12, own_lines_run.txt): the moves and answers on
     // a point, the moves on a subject and the pitch, each asked by the code.
     v.extend(YOUR_PARTS.iter().map(|k| k.to_string()));

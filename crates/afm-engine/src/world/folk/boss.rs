@@ -774,6 +774,14 @@ fn meeting_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
             add_ask_picks(w, s, team);
             return;
         }
+        super::backers::NAMING | 151 => {
+            super::backers::naming_answer(w, s, team, code);
+            add_ask_picks(w, s, team);
+            if s.picks.len() <= 1 {
+                s.end();
+            }
+            return;
+        }
         50..=52 => {
             // Answering the review (talk facts item 15). How the season ended
             // is already in his trust (`review_open`); the answer adds a
@@ -870,7 +878,17 @@ fn meeting_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
             s.them(&b.name, line, None);
         }
         40..=45 => {
-            ask(w, s, team, AskKind::from_code(code - 40));
+            let k = AskKind::from_code(code - 40);
+            ask(w, s, team, k);
+            // A granted facility while you owe a booster your vote on its
+            // name: he asks where you stand (talk facts lane L8).
+            if k == AskKind::Facility
+                && w.folk.asks.last().is_some_and(|a| a.kind == k && a.granted && a.date == w.today)
+                && matches!(team, Team::College(_))
+                && super::backers::naming_picks(w, s)
+            {
+                return;
+            }
             add_ask_picks(w, s, team);
             if s.picks.len() <= 1 || u64::from(s.step) >= 3 + s.a.min(2) {
                 s.end();

@@ -2087,6 +2087,13 @@ pub fn limber_of(week: &Week, neutral: &Week) -> f64 {
     clamp(1.0 - 0.1 * (m - n) / (n + 15.0), 0.9, 1.1)
 }
 
+/// A school player pushed back from rehab early gets hurt in practice this
+/// much more often for his first eight weeks back (the soft-tissue
+/// re-injury studies' rough ratio, as a club's rushed return in
+/// `folk/life.rs`). Claude's sizes (proposed, not confirmed).
+pub const RUSHED_RISK: f64 = 1.6;
+pub const RUSHED_DAYS: i32 = 56;
+
 /// Practice injuries on your team (topic 7): every rep carries risk from
 /// its contact, gear and tempo, his load against his usual, and his body.
 /// The neutral week lands on the NCAA's practice rates (proposed, not
@@ -2142,9 +2149,13 @@ fn practice_injuries(
         let exposure = if role == Role::Specialist { 0.25 } else { 1.0 };
         let spike = p.player.train.spike();
         let soft = soft_tissue(spike) * limber;
+        // Pushed back from rehab early (the takeover's trainer report, talk
+        // facts lane L8): the re-injury risk of the first weeks back.
+        let rushed = p.pro.is_none() && w.folk.rushed.iter().any(|x| x.0 == id && x.1 <= d && d < x.1.add(RUSHED_DAYS));
         let chance = injury_chance(st.tier, pw.block, practices, contact, p.player.injury_proneness, exposure, spike)
             * (0.77 + 0.23 * limber)
-            * practice_guarded(contact, soft, guard);
+            * practice_guarded(contact, soft, guard)
+            * if rushed { RUSHED_RISK } else { 1.0 };
         let mut rng = Rng::new(seed ^ id.wrapping_mul(0x9E37_79B1));
         if !rng.chance(chance / med) {
             continue;

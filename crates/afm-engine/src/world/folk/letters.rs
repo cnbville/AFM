@@ -112,7 +112,12 @@ pub(crate) fn for_scene(w: &mut World, s: &Scene) {
         }
         Kind::Discipline => {
             let (n, t) = ops();
-            (Head::Memo, n, t, s.title.clone(), vec![format!("{} {}", plink.clone().unwrap_or_default(), "broke one of your rules. He's waiting to hear from you before practice.")], PLAYERS | PEOPLE)
+            let what = match s.b {
+                super::arrests::ARREST => "was arrested. He's waiting in your office to hear what happens to him.",
+                super::arrests::COURT => "is done in court. What happens with the team is your call.",
+                _ => "broke one of your rules. He's waiting to hear from you before practice.",
+            };
+            (Head::Memo, n, t, s.title.clone(), vec![format!("{} {}", plink.clone().unwrap_or_default(), what)], PLAYERS | PEOPLE)
         }
         Kind::SecondOpinion => {
             let (n, t) = match person_of(w, team, Role::Trainer) {

@@ -10,6 +10,7 @@ mod compact;
 mod decide;
 mod depth;
 mod development;
+mod discipline;
 mod faces;
 mod facilities;
 mod fans;
