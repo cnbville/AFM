@@ -575,8 +575,8 @@ fn the_boards_at_every_seat() {
         assert_eq!((r.staff.len(), r.mine.len()), (67, 67), "one middle for each skill, both sources");
         assert!(r.staff.iter().any(|&m| m > 0), "the staff's read of a rostered player is kept");
         for k in kept.keys.iter().filter(|k| k[1] > 0) {
-            let m = r.staff[k[0] as usize];
-            assert!(m >= k[1] && m <= k[2], "the kept middle sits inside the kept range: {m} in {k:?}");
+            let m = r.mid(false, k[0] as usize).expect("a kept key was seen");
+            assert_eq!(m, (k[1] as f64 + k[2] as f64) / 2.0, "the kept middle is the kept range's, exactly: {k:?}");
         }
     }
     {
@@ -603,7 +603,7 @@ fn the_boards_at_every_seat() {
         let key0 = kept.keys[0][0] as usize;
         let skill = (0..67).find(|a| !kept.keys.iter().any(|k| k[0] as usize == *a && k[1] > 0) && row.staff[*a] > 0);
         if let Some(a) = skill {
-            row.staff[a] = 10; // far below any real read: a clear rise
+            row.staff[a] = 20; // half points: a middle of 10, far below any real read
             c.keep_attrs(id, row);
             let attr = afm_engine::attributes::Attr::ALL[a];
             let (lo, hi) = (60, 64);

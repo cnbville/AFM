@@ -662,18 +662,21 @@ pub(crate) fn mine_now(w: &World, i: usize, season: i32) -> Option<KeptRead> {
 }
 
 /// The middle of each of the 67 skills, from your staff's read and from
-/// your own, in the kept form (0 = not seen). Reads are cached for the
-/// day, so asking beside `read_now` costs nothing extra.
+/// your own, in the kept form (half points, 0 = not seen: `KeptAttrs::mid`).
+/// Your own is kept only after your first own look, as in `mine_now` (a
+/// first impression is never kept). Reads are cached for the day, so
+/// asking beside `read_now` costs nothing extra.
 pub(crate) fn attrs_now(w: &World, i: usize, season: i32) -> KeptAttrs {
-    let mid = |r: Read| match r {
-        Read::Range(lo, hi) => (lo as u16 + hi as u16).div_ceil(2).clamp(1, 99) as u8,
+    let half = |r: Read| match r {
+        Read::Range(lo, hi) => (lo as u16 + hi as u16).clamp(2, 198) as u8,
         Read::NotSeen => 0,
     };
+    let looked = reads::seen(w, i).mine_looks > 0;
     KeptAttrs {
         season: season as i16,
         pos: w.people[i].player.position.index() as u8,
-        staff: reads::attributes(w, i).into_iter().map(|x| mid(x.1)).collect(),
-        mine: reads::mine_attributes(w, i).into_iter().map(|x| mid(x.1)).collect(),
+        staff: reads::attributes(w, i).into_iter().map(|x| half(x.1)).collect(),
+        mine: reads::mine_attributes(w, i).into_iter().map(|x| if looked { half(x.1) } else { 0 }).collect(),
     }
 }
 

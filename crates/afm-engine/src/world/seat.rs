@@ -1226,9 +1226,11 @@ pub struct KeptAttrsOf {
 }
 
 /// The middle of each of the 67 skills as one season ended, once for your
-/// staff's read and once for your own (`Attr::index` order, 1-99, 0 = not
-/// seen). About 134 bytes a player a season. `Vec<u8>` because serde has
-/// no array impl past 32.
+/// staff's read and once for your own (`Attr::index` order). Kept in half
+/// points, the range's low plus its high (2-198, 0 = not seen), so a
+/// middle like 61.5 is kept exactly: read it through `mid`. About 134
+/// bytes a player a season. `Vec<u8>` because serde has no array impl
+/// past 32.
 #[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct KeptAttrs {
     pub season: i16,
@@ -1236,6 +1238,15 @@ pub struct KeptAttrs {
     pub pos: u8,
     pub staff: Vec<u8>,
     pub mine: Vec<u8>,
+}
+
+impl KeptAttrs {
+    /// A skill's kept middle (`Attr::index`), from your own read or your
+    /// staff's: None where that read had not seen it.
+    pub fn mid(&self, mine: bool, a: usize) -> Option<f64> {
+        let v = *(if mine { &self.mine } else { &self.staff }).get(a)?;
+        (v > 0).then(|| v as f64 / 2.0)
+    }
 }
 
 /// One player's kept reads, oldest season first.

@@ -345,18 +345,14 @@ pub(crate) fn last_year(w: &World, i: usize, a: Attr, now: (u8, u8)) -> Option<V
             format!("At the end of the {season} season your staff read it {lo:.0}-{hi:.0}; today {}-{}.", now.0, now.1),
             d,
         )
-    } else if let Some(m) = c
-        .kept_attrs_of(id)
-        .iter()
-        .find(|r| r.season == last.season)
-        .and_then(|r| r.staff.get(a.index()).copied())
-        .filter(|&m| m > 0)
+    } else if let Some(m) =
+        c.kept_attrs_of(id).iter().find(|r| r.season == last.season).and_then(|r| r.mid(false, a.index()))
     {
         // The season's middle for all 67 was kept: the move is this skill's own.
         (
             None,
-            format!("At the end of the {season} season your staff read it about {m}; today {}-{}.", now.0, now.1),
-            nm - m as f64,
+            format!("At the end of the {season} season your staff read it about {m:.0}; today {}-{}.", now.0, now.1),
+            nm - m,
         )
     } else if let Some((name, m)) = was_fam {
         // Only the family's middle was kept: the move is the family's.
