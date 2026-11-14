@@ -1,6 +1,6 @@
 # Promises he judges for himself: design proposal
 
-Written 2026-11-13 for Cain, thread "Design conditional promises in talks". **Lane P1 (sections 2-9, 11, 12) built 2026-11-14**: how it works is in `docs/reference/how-it-works/people.md`, "Promises he judges for himself"; the code is `world/folk/promise.rs` and `seen.rs`. Section 10 (AI staffs promise) is lane P2, not built. The 49 new line parts are written in the talk facts L12 run; until then the code falls back to plain lines. **Agreed by Cain 2026-11-13 16:29 UTC (cmsg_013Ukratj7v15wm7eeTHSDRzXixYXnLDbuPe5i2nD5WQDH, "agree to all"): all 15 questions in section 15.** The sizes in section 14 stand as working values (Claude's, proposed, not confirmed); Cain can change any by name. Build: lane P1 (sections 2-9, 11, 12) after talk facts L4 and L6; lane P2 (section 10) on the rebuild gate; the 49 new line parts in the talk facts L12 run. One checker pass read this against the code and the earlier decisions; its 30 findings are fixed in this version.
+Written 2026-11-13 for Cain, thread "Design conditional promises in talks". **Lane P1 (sections 2-9, 11, 12) built 2026-11-14**: how it works is in `docs/reference/how-it-works/people.md`, "Promises he judges for himself"; the code is `world/folk/promise.rs` and `seen.rs`. Section 10 (AI staffs promise) is lane P2, not built. The 49 new line parts are written in the talk facts L12 run; until then the code falls back to plain lines. **Agreed by Cain 2026-11-13 16:29 UTC (cmsg_013Ukratj7v15wm7eeTHSDRzXixYXnLDbuPe5i2nD5WQDH, "agree to all"): all 15 questions in section 15.** The sizes in section 14 were confirmed by Cain 2026-11-14 ("agree on all"); he can change any by name. Build: lane P1 (sections 2-9, 11, 12) after talk facts L4 and L6; lane P2 (section 10) on the rebuild gate; the 49 new line parts in the talk facts L12 run. One checker pass read this against the code and the earlier decisions; its 30 findings are fixed in this version.
 
 Cain, 2026-11-13 10:09 UTC (cmsg_013Ukratj7v15wm7eeTHSDRzWaf354Kt77CJ4b35G9chjp), answering live talks pick 7:
 
@@ -29,7 +29,7 @@ Cain's call (2026-11-13): the depth chart is the staff's own, and players never 
 
 Practice runs once a week, from the chart as it stands when the week's practice is set (`training/seat.rs`, `week`; `training/practice.rs`). The ones are the starters, the twos every other player, and on a roster of 70 or more the young players outside the two-deep work apart (`Unit`). So he can tell three things: with the ones, with the twos, or outside the two-deep.
 
-| What | How he knows it | Window (proposed) |
+| What | How he knows it | Window (confirmed, Cain 2026-11-14) |
 |---|---|---|
 | His group: the ones, the twos, outside the two-deep | His practice week (a new saved record: his group each practice week) | His last 2 practice weeks. A chart change you undo before the week's practice is set never shows. One week with the twos reads as a warning, two as a lost job |
 | Whether he started, his snaps, his touches or targets | The game | His last 2 games |
@@ -220,7 +220,7 @@ Recruits and transfers (family `recruit`), 13 parts:
 
 **Real life, so not asked** (the ground rules): a condition only on things you both can see; an unfair stat bar heard as a setup; his own deadline; the teammate named in it finding out; two men promised one spot; injury pausing it; a missed condition releasing you as far as he sees it; a new job's room starting from what they've heard of you.
 
-**Sizes, proposed, not confirmed** (change any by name): the windows (2 practice weeks, 2 games); the bands (0.65 and 0.4 for your players, 0.6 for transfers and recruits, as built); the belief form and its ranges; the weekly quarter step (0.9, 0.4, 0.25) and the trust drain (a fifth); 3 games in 4 for kept, half broken at half; a new date's third off belief; the moved goalposts' -0.08; the teammate's -0.04; the name's yearly fade (a quarter); the pull's 0.5 cap and want weights; the follow-ups per talk (1, 1, 2).
+**Sizes, confirmed (Cain, 2026-11-14, "agree on all"; change any by name)**: the windows (2 practice weeks, 2 games); the bands (0.65 and 0.4 for your players, 0.6 for transfers and recruits, as built); the belief form and its ranges; the weekly quarter step (0.9, 0.4, 0.25) and the trust drain (a fifth); 3 games in 4 for kept, half broken at half; a new date's third off belief; the moved goalposts' -0.08; the teammate's -0.04; the name's yearly fade (a quarter); the pull's 0.5 cap and want weights; the follow-ups per talk (1, 1, 2).
 
 ## 15. Questions (all agreed, Cain 2026-11-13 16:29 UTC)
 
