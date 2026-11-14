@@ -936,6 +936,9 @@ fn program_reads(w: &World, home: usize, prog: usize) -> [f64; 6] {
 /// (your program) when given, else what the school offered that he wanted.
 pub(crate) fn pick_why(w: &World, i: usize, chosen: usize, versus: Option<usize>) -> Vec<String> {
     use afm_engine::world::background::Decider;
+    if let Some(v) = versus {
+        return lost_why(w, i, chosen, v);
+    }
     let p = &w.people[i];
     let f = afm_engine::world::front_office::college::family_read(w, i);
     let wants = [f.close_to_home, f.prestige, f.playing_time, f.academics, f.development, f.money];
@@ -978,6 +981,75 @@ pub(crate) fn pick_why(w: &World, i: usize, chosen: usize, versus: Option<usize>
     v.extend(scored.into_iter().filter(|x| x.0 > 0.004).take(2).map(|x| x.1));
     if v.len() == 1 {
         v.push(format!("No single edge: {name} was simply the better fit to the family"));
+    }
+    v
+}
+
+/// Why a recruit you offered committed to `chosen` over `yours` (Cain
+/// 2026-11-14): who decided, then the reasons that put `chosen` ahead as
+/// his decision weighs them today (`front_office::college::reasons`: the
+/// job, the money he was actually offered, home, development, the name,
+/// academics), each with its plain fact, and where you were better.
+fn lost_why(w: &World, i: usize, chosen: usize, yours: usize) -> Vec<String> {
+    use afm_engine::world::background::Decider;
+    use afm_engine::world::front_office::college as desk;
+    let p = &w.people[i];
+    let id = p.player.id;
+    let a = desk::reasons(w, i, chosen);
+    let b = desk::reasons(w, i, yours);
+    let name = w.program_name(chosen).to_string();
+    let miles = |prog: usize| afm_engine::world::geo::miles(p.home_state, w.programs[prog].state);
+    let pos = p.player.position;
+    let ahead = |prog: usize| {
+        w.programs[prog]
+            .roster
+            .iter()
+            .filter(|&&k| w.people[k].player.position == pos && w.people[k].college_seasons < 3)
+            .count()
+    };
+    let money = |prog: usize| desk::weighed_offer(w, prog, id);
+    let fact = |k: usize| -> String {
+        match k {
+            0 => format!("Closer to home: {:.0} miles against our {:.0}", miles(chosen), miles(yours)),
+            1 => format!(
+                "A clearer path to the field: {} {pos}s with a year or more left at {name}, {} here",
+                ahead(chosen),
+                ahead(yours)
+            ),
+            2 => {
+                let (x, y) = (money(chosen), money(yours));
+                let r = if y > 0.0 { x / y } else { f64::INFINITY };
+                let words = match r {
+                    r if r.is_infinite() => "real money where we offered none".to_string(),
+                    r if r >= 1.7 => format!("about {:.0} times ours", r.max(2.0)),
+                    r if r >= 1.15 => "more than ours".to_string(),
+                    _ => "about what we offered, and it counted more with him there".to_string(),
+                };
+                format!("The NIL money at {name}: {words}")
+            }
+            3 => format!("{name}'s record of developing pros, and its coaches"),
+            4 => format!("{name}'s name: titles, the stadium and television"),
+            _ => format!("{name}'s academics"),
+        }
+    };
+    let f = desk::family_read(w, i);
+    let decider = match f.decider {
+        Decider::Himself => "He decided himself",
+        Decider::Parent => "A parent made the call",
+        Decider::Grandparent => "His grandparents made the call",
+        Decider::Handler => "A trainer close to the family steered it",
+    };
+    let mut ks: Vec<usize> = (0..6).collect();
+    ks.sort_by(|&x, &y| (a[y].0 - b[y].0).total_cmp(&(a[x].0 - b[x].0)));
+    let mut v = vec![decider.to_string()];
+    v.extend(ks.iter().filter(|&&k| a[k].0 - b[k].0 > 0.004).take(2).map(|&k| fact(k)));
+    if v.len() == 1 {
+        v.push(format!("No single edge: {name} was simply the better fit to the family"));
+    }
+    let names = ["home", "playing time", "the money", "development", "the name", "academics"];
+    let better: Vec<&str> = (0..6).filter(|&k| b[k].0 - a[k].0 > 0.004).map(|k| names[k]).collect();
+    if !better.is_empty() {
+        v.push(format!("Where we were better: {}", better.join(", ")));
     }
     v
 }
