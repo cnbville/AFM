@@ -2138,7 +2138,8 @@ screens.myplayers = async () => {
 
 // ---------- leaderboards (S8) ----------
 const SCOPES = [["fbs", "FBS"], ["fcs", "FCS"], ["d2", "Division II"], ["d3", "Division III"], ["naia", "NAIA"], ["juco", "Junior college"], ["college", "All college"], ["nfl", "NFL"], ["hs", "High school"]];
-const POS_GROUPS = ["QB", "RB", "WR", "TE", "OL", "DL", "LB", "DB", "ST"];
+// One position each (Cain 2026-11-14: never lump jobs that differ).
+const POS_GROUPS = ["QB", "RB", "WR", "TE", "OT", "IOL", "EDGE", "DT", "LB", "CB", "S", "K", "P"];
 const fmtCell = (v, d) => (v == null ? "" : typeof v === "number" ? (d ? v.toFixed(d) : Math.round(v).toLocaleString()) : esc(v));
 screens.leaders = async (a) => {
   const L = keep("leaders", { per: "total" });

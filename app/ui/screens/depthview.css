@@ -1,5 +1,5 @@
 /* The position depth overview (Cain, 2026-11-12): the four offseason steps,
-   one strip of the nine position groups and a hover card with the exact
+   one strip of the twelve position groups and a hover card with the exact
    players. Calm and dense: hairlines, one gold for where you are, amber
    only where something is low. Every colour is a token, so the light theme
    swaps them in one place. */
@@ -28,8 +28,8 @@
 .dv-step.on::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--dv-gold); }
 .dv-step.on i { box-shadow: inset 0 0 0 1.5px var(--dv-gold); color: var(--dv-gold); }
 
-/* The strip: the nine groups, the words the Needs map uses for each. */
-.dv-strip { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 8px; }
+/* The strip: the twelve groups, the words the Needs map uses for each. */
+.dv-strip { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 6px; }
 .dv-cell { appearance: none; border: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; display: grid; align-content: start; gap: 3px; padding: 10px 12px 9px; border-radius: 14px; background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--hair); min-height: 74px; position: relative; }
 .dv-cell:hover { background: var(--fill-2); }
 .dv-cell b { font-size: 15px; font-weight: 800; letter-spacing: .01em; }
@@ -39,7 +39,7 @@
 .dv-cell small.low { color: var(--dv-low); }
 .dv-cell[aria-pressed="true"] { background: var(--fill-2); box-shadow: inset 0 0 0 1px var(--fill-3), inset 0 2px 0 var(--dv-gold); }
 @media (max-width: 1100px) {
-  .dv-strip { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .dv-strip { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .dv-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dv-step:nth-child(3) { border-left: 0; }
   .dv-step:nth-child(n+3) { border-top: 1px solid var(--hair); }

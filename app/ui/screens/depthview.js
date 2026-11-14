@@ -1,7 +1,7 @@
 // The position depth overview (Cain, 2026-11-12). At the start of a save a
 // coach checks each group's depth for the next falls by hand, on the Depth
 // chart, and picks the position again on every recruiting page. This puts
-// one strip of the nine groups, the four offseason steps and a hover card
+// one strip of the twelve groups, the four offseason steps and a hover card
 // with the exact players on the Recruiting board, Find recruits and the
 // Transfer portal.
 //
@@ -14,18 +14,28 @@
 // as fast as it did before; the strip fills in a moment later.
 "use strict";
 
-// The nine groups, as the Squad's rail has them.
+// The twelve groups, as the Squad's rail has them: one position each
+// (Cain 2026-11-14: tackles and guards, edge rushers and tackles, corners
+// and safeties are recruited and played as different jobs), only the
+// specialists together.
 const DV_GROUPS = [
   ["QB", "Quarterbacks", ["QB"]],
   ["RB", "Running backs", ["RB"]],
   ["WR", "Wide receivers", ["WR"]],
   ["TE", "Tight ends", ["TE"]],
-  ["OL", "Offensive line", ["OT", "IOL"]],
-  ["DL", "Defensive line", ["EDGE", "DT"]],
+  ["OT", "Offensive tackles", ["OT"]],
+  ["IOL", "Interior line", ["IOL"]],
+  ["EDGE", "Edge rushers", ["EDGE"]],
+  ["DT", "Defensive tackles", ["DT"]],
   ["LB", "Linebackers", ["LB"]],
-  ["DB", "Defensive backs", ["CB", "S"]],
+  ["CB", "Cornerbacks", ["CB"]],
+  ["S", "Safeties", ["S"]],
   ["ST", "Specialists", ["K", "P", "LS"]],
 ];
+// The filters' own wider groups (Find recruits and the portal still offer
+// them as a filter). The strip has no cell for them: a pick of one stays
+// the page's own and lights the cells it covers.
+const DV_WIDE = { OL: ["OT", "IOL"], DL: ["EDGE", "DT"], DB: ["CB", "S"] };
 const DV_RANK = { Hole: 0, Thin: 1, Average: 2, Solid: 3, Strength: 4 };
 const DV_TTL = 10000;
 // sel: the pick every page follows (g a group key or "ALL"; p one position
@@ -39,18 +49,19 @@ const dvStamp = () => (S.status && S.status.today) || "";
 
 // ---------- the one position pick ----------
 // A page's own position string as the shared pick. The board keeps a group
-// as "g:OL"; Find and the portal take OL, DL, DB and Specialists.
+// as "g:ST"; Find and the portal take Specialists, and OL, DL and DB as
+// wider filters.
 function dvFromPage(v) {
   if (!v || v === "ALL") return { g: "ALL", p: null, raw: null };
-  if (v.startsWith("g:")) return { g: v.slice(2), p: null, raw: null };
+  if (v.startsWith("g:")) return dvGroupKey(v.slice(2)) ? { g: v.slice(2), p: null, raw: null } : { g: "ALL", p: null, raw: DV_WIDE[v.slice(2)] ? v.slice(2) : null };
   const g = dvGroupOf(v);
   if (g) return { g: g[0], p: g[2].length > 1 ? v : null, raw: null };
-  const named = { OL: "OL", DL: "DL", DB: "DB", Specialists: "ST" }[v];
-  return named ? { g: named, p: null, raw: null } : { g: "ALL", p: null, raw: v };
+  return v === "Specialists" ? { g: "ST", p: null, raw: null } : { g: "ALL", p: null, raw: v };
 }
-// The shared pick as a page's own string.
+// The shared pick as a page's own string. A wider group (OL, DL, DB) goes
+// to the pages that filter by it; Find takes its other filters too.
 function dvToPage(page, s) {
-  if (s.g === "ALL") return page === "find" && s.raw ? s.raw : "ALL";
+  if (s.g === "ALL") return s.raw && (page === "find" || (page === "portal" && DV_WIDE[s.raw])) ? s.raw : "ALL";
   if (s.p) return s.p;
   const g = dvGroupKey(s.g);
   if (!g) return "ALL";
@@ -75,7 +86,7 @@ function dvPosHas(v, pos) {
   if (!v || v === "ALL") return true;
   if (v.startsWith("g:")) {
     const g = dvGroupKey(v.slice(2));
-    return !!g && g[2].includes(pos);
+    return g ? g[2].includes(pos) : (DV_WIDE[v.slice(2)] || []).includes(pos);
   }
   return v === pos;
 }

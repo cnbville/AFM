@@ -69,6 +69,56 @@ struct Man {
     draft_risk: bool,
     /// In the transfer portal: the map counts him as gone.
     portal: Option<InPortal>,
+    /// How much better or worse your staff reads him at each spot than at
+    /// his position as a whole (`spot_fit`): the center's calls and snap,
+    /// the guard's anchor, the left tackle's feet, the free safety's range.
+    fit: [f64; SPOTS.len()],
+}
+
+/// The engine's depth-chart job behind each spot of the map, where the
+/// position has more than one (`spots::spot_rating`): a center is picked as
+/// a center and a guard as a guard, not the best interior lineman anywhere
+/// (Cain 2026-11-14).
+fn spot_job(key: &str) -> Option<afm_engine::spots::Spot> {
+    use afm_engine::spots::Spot;
+    Some(match key {
+        "LT" => Spot::LT,
+        "RT" => Spot::RT,
+        "LG" | "RG" => Spot::G,
+        "C" => Spot::C,
+        "WILL" => Spot::OLB,
+        "MIKE" => Spot::MLB,
+        "SAM" => Spot::SAM,
+        "FS" => Spot::FS,
+        "SS" => Spot::SS,
+        _ => return None,
+    })
+}
+
+/// A man's fit at each spot of the map from your staff's read of his
+/// attributes and his listed body: his rating at the spot's job less his
+/// position's overall, both on the read. Zero where the spot has no job of
+/// its own or the staff has no read of him.
+fn spot_fit(w: &World, i: usize, pos: Position) -> [f64; SPOTS.len()] {
+    let mut out = [0.0; SPOTS.len()];
+    let read = reads::attributes(w, i);
+    if read.iter().any(|(_, r)| mid(*r).is_none()) {
+        return out;
+    }
+    let mut a = afm_engine::attributes::Attributes::default();
+    for (attr, r) in &read {
+        a.set(*attr, mid(*r).unwrap_or(50.0));
+    }
+    let body = afm_engine::body::body_now(&w.people[i].player);
+    let base = afm_engine::positions::overall_for(pos, &a);
+    for (k, s) in SPOTS.iter().enumerate() {
+        if s.1 == pos
+            && let Some(job) = spot_job(s.0)
+        {
+            out[k] = afm_engine::spots::spot_rating(job, &a, body.weight, body.height) - base;
+        }
+    }
+    out
 }
 
 /// A man in the transfer portal: the reads he would have carried had he
@@ -134,14 +184,23 @@ fn pick_starters(
     #[allow(clippy::needless_range_loop)] // n is the year, read from every man too
     for n in 0..3 {
         let mut used: Vec<usize> = Vec::new();
-        for (k, &(_, pos, _, _, _)) in SPOTS.iter().enumerate() {
+        // Now, your depth order fills the spots in its own order (left
+        // guard, center, right guard). Later falls fill the center and the
+        // Mike first, the spots that ask most of their own (`spots::fill_in`).
+        let mut seq: Vec<usize> = (0..SPOTS.len()).collect();
+        if n > 0 {
+            seq.sort_by_key(|&k| !matches!(SPOTS[k].0, "C" | "MIKE"));
+        }
+        for k in seq {
+            let pos = SPOTS[k].1;
             let mut cands: Vec<(f64, usize)> = men
                 .iter()
                 .enumerate()
                 .filter(|(_, m)| m.pos == pos && !used.contains(&m.i))
                 .filter_map(|(j, _)| val(j, n).map(|v| (v, j)))
                 .collect();
-            cands.sort_by(|a, b| b.0.total_cmp(&a.0));
+            // Each man as he reads at this spot's own job.
+            cands.sort_by(|a, b| (b.0 + men[b.1].fit[k]).total_cmp(&(a.0 + men[a.1].fit[k])));
             let mut pick = cands.first().map(|x| x.1);
             if n == 0
                 && let Some((_, ids)) = order.iter().find(|x| x.0 == pos)
@@ -397,7 +456,8 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
         let portal = portal_entry(w, p, season_on)
             .filter(|_| !commit)
             .map(|(why, on_hold)| leave_through_portal(&mut vals, &mut gone, &mut draft_risk, why, on_hold));
-        men.push(Man { i, id: p.player.id, pos, vals, read, commit, gone, draft_risk, portal });
+        let fit = spot_fit(w, i, pos);
+        men.push(Man { i, id: p.player.id, pos, vals, read, commit, gone, draft_risk, portal, fit });
     }
     // Starters each fall: now by the depth order (yours, else your
     // staff's), later by the carried reads.
@@ -780,6 +840,7 @@ mod tests {
             gone: None,
             draft_risk: false,
             portal: None,
+            fit: [0.0; SPOTS.len()],
         }
     }
 
@@ -843,6 +904,29 @@ mod tests {
         assert_eq!(men[0].gone.as_ref().map(|g| g.0), Some(1));
         let st = pick_starters(&men, &[], &|j, n| men[j].vals[n]);
         assert_eq!(st[spot("QB")], [Some(0), Some(1), Some(1)]);
+    }
+
+    /// Cain 2026-11-14: the center is picked as a center. Three guards read
+    /// a little better overall, but the fourth man reads best at center: he
+    /// takes the center spot in the falls the map plans, the guards the
+    /// guard spots. Now your depth order still decides.
+    #[test]
+    fn the_center_is_picked_as_a_center() {
+        use Position::*;
+        let mut men: Vec<Man> = (0..4).map(|i| man(i, IOL, all(if i == 3 { 68.0 } else { 70.0 - i as f64 }))).collect();
+        men[3].fit[spot("C")] = 4.0;
+        for j in 0..3 {
+            men[j].fit[spot("C")] = -2.0;
+        }
+        let st = pick_starters(&men, &[], &|j, n| men[j].vals[n]);
+        for n in 1..3 {
+            assert_eq!(st[spot("C")][n], Some(3), "the best read at center takes it");
+            let guards = [st[spot("LG")][n], st[spot("RG")][n]];
+            assert!(guards.iter().all(|g| g.is_some_and(|j| j < 3)), "guards at guard: {guards:?}");
+        }
+        let order = vec![(IOL, vec![100, 101, 102, 103])];
+        let now = pick_starters(&men, &order, &|j, n| men[j].vals[n]);
+        assert_eq!([now[spot("LG")][0], now[spot("C")][0], now[spot("RG")][0]], [Some(0), Some(1), Some(2)]);
     }
 
     #[test]
