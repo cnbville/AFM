@@ -2550,6 +2550,9 @@ pub(crate) fn counted_rosters(w: &World, season: i32) -> Vec<usize> {
 #[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 struct RosterRead {
     stage: SignStage,
+    /// The era's transfer flow for the winter window after the season just
+    /// played (`era_factor`), which the world's own portal draws use.
+    portal_era: f64,
 }
 
 impl RosterRead {
@@ -2563,19 +2566,40 @@ impl RosterRead {
         }
     }
 
-    /// Whether the winter transfer window is still to come.
-    fn portal_ahead(self) -> bool {
-        matches!(self.stage, SignStage::Summer(_) | SignStage::Early)
+    /// The read for a class signing in `sign_year` at `stage`.
+    fn new(w: &World, stage: SignStage, sign_year: i32) -> Self {
+        let label = sign_year - 1;
+        // December's read expected the yearly base rate, while the world
+        // draws it times the era's flow (1.2 in 2023, then 1.45, and 1.9
+        // under the single January window): in the test world about 12
+        // FBS leavers a roster where 28 entered, so the rest of the class
+        // waited for February (minor bug 384's lane).
+        RosterRead { stage, portal_era: era_factor(label, w.changes.rules(label).transfer) }
     }
+
+    /// The era's winter transfer flow, while that window is still to come.
+    fn portal_ahead(self) -> Option<f64> {
+        matches!(self.stage, SignStage::Summer(_) | SignStage::Early).then_some(self.portal_era)
+    }
+}
+
+/// What a staff's roster read knows of a player's draft choice.
+#[derive(Clone, Copy, Debug)]
+enum DraftRead {
+    /// No read yet: the chances of declaring the draft itself uses for a
+    /// player at his level, from the overalls of the 64th and 138th best
+    /// players taken in the last draft (a round 1-2 or round 3-4 prospect).
+    Guess,
+    /// His December read: going (0.9) or staying (0.03, a change of mind).
+    Plan(bool),
+    /// Past the declaration deadline: still here, so he stays.
+    Settled,
 }
 
 /// The staff's read of how likely a player is to leave before a season:
 /// out of eligibility, an early NFL entrant, or a transfer out (fix list
 /// 1.2). `seasons` is what he will have used by then, `draft_year` the draft
-/// he would enter. `bars` are the overalls of the 64th and 138th best
-/// players taken in the last draft: a player at that level now is read like
-/// a round 1-2 or round 3-4 prospect, with the chances of declaring the
-/// draft itself uses; a December read (`plan`) replaces the guess.
+/// he would enter, `draft` what the staff knows of his choice (`DraftRead`).
 #[allow(clippy::too_many_arguments)]
 fn leaving(
     p: &Person,
@@ -2584,8 +2608,8 @@ fn leaving(
     draft_year: i32,
     limit: u32,
     bars: Option<(f64, f64)>,
-    plan: Option<bool>,
-    portal: bool,
+    draft: DraftRead,
+    portal: Option<f64>,
 ) -> f64 {
     if d == Division::JUCO {
         // Junior college players move up or stop after two seasons.
@@ -2595,10 +2619,11 @@ fn leaving(
         return 1.0;
     }
     let early = if draft_year - p.class_of >= 3 {
-        match plan {
-            Some(true) => 0.9,
-            Some(false) => 0.03,
-            None => {
+        match draft {
+            DraftRead::Settled => 0.0,
+            DraftRead::Plan(true) => 0.9,
+            DraftRead::Plan(false) => 0.03,
+            DraftRead::Guess => {
                 let ovr = p.player.overall();
                 match bars {
                     Some((r2, _)) if ovr >= r2 => 0.85,
@@ -2610,14 +2635,12 @@ fn leaving(
     } else {
         0.0
     };
-    let transfer = if portal {
-        match p.last_role {
-            Some(PlayingTime::Backup) => PIPELINE.portal_entry.backup,
-            Some(PlayingTime::Rotation) => PIPELINE.portal_entry.rotation,
-            _ => 0.0,
-        }
-    } else {
-        0.0
+    // The yearly entry chance by role, times the era's flow, as the
+    // world's own portal draws it (`lean_checkpoint`, `portal_open`).
+    let transfer = match (portal, p.last_role) {
+        (Some(era), Some(PlayingTime::Backup)) => PIPELINE.portal_entry.backup * era,
+        (Some(era), Some(PlayingTime::Rotation)) => PIPELINE.portal_entry.rotation * era,
+        _ => 0.0,
     };
     1.0 - (1.0 - early) * (1.0 - transfer)
 }
@@ -2629,7 +2652,10 @@ fn leaving(
 fn gone(p: &Person, d: Division, sign_year: i32, bars: Option<(f64, f64)>, read: RosterRead) -> (f64, f64) {
     let seasons = p.college_seasons + read.pending(p);
     // By February the entrants have left; those still here are staying.
-    let declared = !matches!(read.stage, SignStage::Final | SignStage::Late(_));
+    // (They used to keep a December read's 3% change of mind, about one
+    // place a roster that February and the late days signed over the
+    // limit.)
+    let settled = matches!(read.stage, SignStage::Final | SignStage::Late(_));
     let next = leaving(
         p,
         d,
@@ -2637,7 +2663,7 @@ fn gone(p: &Person, d: Division, sign_year: i32, bars: Option<(f64, f64)>, read:
         sign_year,
         super::eligibility::seasons_allowed(sign_year, d),
         bars,
-        if declared { p.cal.declare_plan } else { Some(false) },
+        if settled { DraftRead::Settled } else { p.cal.declare_plan.map_or(DraftRead::Guess, DraftRead::Plan) },
         read.portal_ahead(),
     );
     let after = leaving(
@@ -2647,8 +2673,8 @@ fn gone(p: &Person, d: Division, sign_year: i32, bars: Option<(f64, f64)>, read:
         sign_year + 1,
         super::eligibility::seasons_allowed(sign_year + 1, d),
         bars,
-        None,
-        true,
+        DraftRead::Guess,
+        Some(read.portal_era),
     );
     (next, 1.0 - (1.0 - next) * (1.0 - after))
 }
@@ -2666,6 +2692,14 @@ fn plan_count(target: f64, now: f64, staying: f64) -> usize {
 /// The most scholarship signees a class takes under the House roster limit
 /// (part D 10; proposed, not confirmed).
 const HOUSE_CLASS_MAX: usize = 30;
+
+/// A signing a class plan counts at the new school: signed and not yet
+/// enrolled there. A junior college player who signed with a four-year
+/// school stays on his old roster until he enrolls; he counts at the
+/// school he signed with, not the one he is leaving.
+pub(crate) fn signed_ahead(p: &Person) -> Option<super::Signed> {
+    p.cal.signed.filter(|s| p.college != Some(s.program))
+}
 
 #[allow(clippy::too_many_arguments)]
 fn class_plan(
@@ -2693,7 +2727,10 @@ fn class_plan(
         let p = &people[i];
         // A player in the portal is leaving: since entrants keep shopping
         // after signing day (minor bug 337), his place is open to the class.
-        if p.stage != Stage::College || p.cal.portal.is_some() {
+        // So is a junior college player who signed with a four-year school:
+        // he counts at his new school (`signed_ahead`), as the portal's
+        // rooms count him (`counted_rosters`).
+        if p.stage != Stage::College || p.cal.portal.is_some() || signed_ahead(p).is_some() {
             continue;
         }
         let (k, wo) = (p.player.position.index(), p.walk_on as usize);
@@ -2704,8 +2741,10 @@ fn class_plan(
             returning += 1.0 - next;
         }
     }
-    // Recruits who signed in an earlier period and haven't enrolled are
-    // part of next fall's roster and of this class.
+    // Recruits who signed in an earlier period and haven't enrolled
+    // (`signed_ahead`: junior college movers too) are part of next fall's
+    // roster and of this class. Every count in the plan is what is left
+    // after them, so the matching counts only its own period's signees.
     let mut signed_class = 0;
     for &i in signed {
         let p = &people[i];
@@ -5446,7 +5485,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     let seat_prog = super::scouting::readers::seat_staff(w)
         .and_then(|s| if let super::scouting::readers::Staff::Program(p) = s { Some(p) } else { None });
     let own_mins = w.scouting.own.minimums.clone();
-    let read = RosterRead { stage };
+    let read = RosterRead::new(w, stage, sign_year);
     let mut signed_by: Vec<Vec<usize>> = vec![Vec::new(); programs.len()];
     // Found on all cores, then listed in person order (world speed lane).
     let signees: Vec<(usize, usize)> = w
@@ -5454,7 +5493,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         .par_iter()
         .enumerate()
         .with_min_len(4096)
-        .filter_map(|(i, p)| p.cal.signed.filter(|_| p.stage != Stage::College).map(|s| (s.program, i)))
+        .filter_map(|(i, p)| signed_ahead(p).map(|s| (s.program, i)))
         .collect();
     for (j, i) in signees {
         signed_by[j].push(i);
@@ -5765,33 +5804,6 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         w.people[pool[k].person].stars == 5 && matches!(programs[j].division, Division::FBS | Division::FCS)
     };
     let pn = programs.len();
-    // The places over a full class for a 5-star (and a hunt) count only the
-    // signees the plan hasn't already counted. Each plan is net of the
-    // recruits who signed in an earlier period (`class_plan`: its slots and
-    // its places at each position), and the matching counts them again in
-    // `taken`, so in February a staff with December signees had no room
-    // even two over the plan. Full tests (seed 7, lane 8's branch): Georgia
-    // Military signed three 5-stars of the class of 2019, and qualifiers
-    // with 39 to 76 offers began at junior colleges in the 2019-2022
-    // classes; every Division I board that had them was at 8 to 14 taken
-    // against 0 slots. The other room checks below still count earlier
-    // signees twice; fixing them changes every class's size, so it is its
-    // own fix.
-    let (earlier, earlier_at) = {
-        let mut n = vec![0usize; pn];
-        let mut at = vec![[0usize; POSITION_COUNT]; pn];
-        for p in &w.people {
-            if let Some(sg) = p.cal.signed
-                && !sg.walk_on
-                && p.stage != Stage::College
-                && sg.program < pn
-            {
-                n[sg.program] += 1;
-                at[sg.program][p.player.position.index()] += 1;
-            }
-        }
-        (n, at)
-    };
     // The hunts (SK67): each recruit's hunters (AI staffs, and your
     // program for your own hunt). A hunter offers him first at his spot
     // and holds him a scholarship there (the others at his spot share one
@@ -5930,9 +5942,11 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         for pos in Position::ALL {
             let i = pos.index();
             let Some(e) = head(i) else { continue };
+            // Over what is left of the plan: its slots are net of the
+            // earlier periods' signees, and `taken` holds this period's.
             let star = boards[j][i].get(cursor[j][i]).is_some_and(|x| elite(j, x.0) || hunted(j, x.0))
-                && taken[j].saturating_sub(earlier[j]) < plan.slots + OVER_CLASS
-                && taken_at[j][i][0].saturating_sub(earlier_at[j][i]) < plan.scholarship[i] + OVER_PLAN;
+                && taken[j] < plan.slots + OVER_CLASS
+                && taken_at[j][i][0] < plan.scholarship[i] + OVER_PLAN;
             let sch_open = (sch_room && taken_at[j][i][0] < plan.scholarship[i]) || star;
             // Under the House limit, a walk-on place at a regular position
             // opens only in the final period, once the portal has had its turn.
@@ -6182,17 +6196,20 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     dbg_lap("relationships");
 
     let mut view = RosterView::new(programs, &w.people, &std::collections::HashSet::new());
-    // Signed recruits not yet on campus hold their places (an NLI binds).
+    // Signed recruits not yet on campus hold their places (an NLI binds):
+    // the next recruit at a position sees them in the room. Their places
+    // are already out of each plan (`class_plan`: its slots, its places at
+    // each position and its walk-on room are what is left after them), so
+    // `taken`, `taken_walk_on` and `taken_at` count this period's signees
+    // only. They used to count the earlier ones again, and in February a
+    // Division I staff that had signed in December sat at 8 to 14 taken
+    // against 0 slots (seed 7, the class of 2019). A signee under the
+    // school's own admissions bar used one of its exceptions for the class.
     for (who, p) in w.people.iter().enumerate() {
-        if let Some(sg) = p.cal.signed {
-            let (j, i) = (sg.program, p.player.position.index());
-            if sg.walk_on {
-                taken_walk_on[j] += 1;
-            } else {
-                taken[j] += 1;
-            }
-            taken_at[j][i][sg.walk_on as usize] += 1;
+        if let Some(sg) = signed_ahead(p) {
+            let j = sg.program;
             view.join(j, p.player.position, who, p.player.overall() + 4.0, 0);
+            special_taken[j] += u32::from(p.bg.gpa < programs[j].admissions_bar);
         }
     }
     // Your former players' pull (update 2, L-guys).
@@ -6505,18 +6522,9 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 let scholarship = if pos.is_specialist() {
                     taken[j] < plan.slots && taken_at[j][i][0] < plan.scholarship[i]
                 } else {
-                    // A 5-star's places over the class count only this
-                    // class's signees the plan hasn't counted (above).
-                    let (over, n, at) = if elite(j, k) {
-                        (
-                            OVER_CLASS,
-                            taken[j].saturating_sub(earlier[j]),
-                            taken_at[j][i][0].saturating_sub(earlier_at[j][i]),
-                        )
-                    } else {
-                        (0, taken[j], taken_at[j][i][0])
-                    };
-                    n < plan.slots + over && at < plan.scholarship[i] + OVER_PLAN
+                    // A 5-star's two places over the class, over what is left of the plan.
+                    let over = if elite(j, k) { OVER_CLASS } else { 0 };
+                    taken[j] < plan.slots + over && taken_at[j][i][0] < plan.scholarship[i] + OVER_PLAN
                 };
                 let walk_on = !scholarship;
                 if walk_on && !plan.late_walk_on(i, [taken[j], taken_walk_on[j]], taken_at[j][i]) {
@@ -8426,7 +8434,14 @@ fn suitors(
             let room = counted[j] + today_adds[j] + 5 <= limit;
             let deep = if room { 3 } else { 2 };
             let wanted = ahead < deep * slots || (mk.open[j][k] > 0 && perf > mk.backups_best[j][k]);
-            if (!wanted && bond == 0.0) || j == c || mk.adds[j] >= 10 || counted[j] + today_adds[j] >= limit {
+            // An AI staff stops at ten transfers a cycle, a stand-in from
+            // the world's first build. Under the House whole-roster limit
+            // it takes them up to its open places instead: one January
+            // window is the whole year there, and its roster lost about
+            // 28 men to the portal, so ten left the rest to a February
+            // high school bulge (minor bug 384's lane, Cain 2026-11-14).
+            let capped = mk.adds[j] >= 10 && !super::ncaa::whole_roster_limit(&wr.programs[j], season);
+            if (!wanted && bond == 0.0) || j == c || capped || counted[j] + today_adds[j] >= limit {
                 return None;
             }
             // A Division II, NAIA or Division III staff works the portal
@@ -10148,13 +10163,13 @@ pub(crate) fn class_outlook(w: &World, j: usize) -> ClassOutlook {
         _ if w.today.month() >= 12 || w.today.month() <= 2 => SignStage::Final,
         _ => SignStage::Summer(0),
     };
-    let read = RosterRead { stage };
+    let read = RosterRead::new(w, stage, sign_year);
     let prog = &w.programs[j];
     let signed: Vec<usize> = w
         .people
         .iter()
         .enumerate()
-        .filter(|(_, p)| p.stage != Stage::College && p.cal.signed.is_some_and(|s| s.program == j))
+        .filter(|(_, p)| signed_ahead(p).is_some_and(|s| s.program == j))
         .map(|(i, _)| i)
         .collect();
     let plan = class_plan(prog, &w.people, &signed, sign_year, w.options.seed as u64, w.draft_bars, read);
