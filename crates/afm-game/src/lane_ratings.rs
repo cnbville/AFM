@@ -30,7 +30,7 @@ use crate::reads::{self, Read};
 use crate::views;
 use crate::{Game, Reply};
 
-mod attrs;
+pub(crate) mod attrs;
 
 const COMMANDS: [&str; 6] = ["rr_card", "rr_staff", "staff_quality", "staff_member", "coach_ratings", "attr_view"];
 
