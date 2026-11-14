@@ -307,12 +307,17 @@ document.addEventListener("mouseout", (ev) => {
 Object.assign(CORE_MORE, {
   sbspot: (el) => { keep("sbdc:" + sbCurForm(), { k: 0 }).k = Number(el.dataset.k); sbLocal(el); },
   sbform: (el) => { keep("sbform", {})[el.dataset.tab] = el.dataset.v; refresh(el); },
-  sbdcview: (el) => { keep("sbdcview", { v: "Broadcast" }).v = el.dataset.v; refresh(el); },
+  sbdcview: (el) => { keep("sbdcview", { v: "Broadcast" }).v = el.dataset.v; if (el.dataset.v !== "Broadcast") keep("sbplan", { y: 0 }).y = 0; refresh(el); },
+  sbplan: (el) => { keep("sbplan", { y: 0 }).y = Number(el.dataset.v) || 0; refresh(el); },
   sbup: async (el) => {
     const tab = keep("trboard", { t: "Offense" }).t;
     const form = sbCurForm();
     try {
-      const r = await api("sb_depth_up", { tab: SB_TAB_KEY[tab], form, slot: Number(el.dataset.k), n: Number(el.dataset.n) });
+      const off = Number(el.dataset.plan) || 0;
+      // A planned fall: the man swaps with the one above him in your plan.
+      const r = off
+        ? await api("sb_plan_put", { tab: SB_TAB_KEY[tab], form, offset: off, slot: Number(el.dataset.k), n: Number(el.dataset.n) - 1, pid: Number(el.dataset.pid), from_slot: Number(el.dataset.k), from_n: Number(el.dataset.n) })
+        : await api("sb_depth_up", { tab: SB_TAB_KEY[tab], form, slot: Number(el.dataset.k), n: Number(el.dataset.n) });
       SB.cache = {};
       toast(r && r.note ? r.note : "Depth chart saved.");
     } catch (e) {
@@ -322,9 +327,15 @@ Object.assign(CORE_MORE, {
   },
   sbreset: async (el) => {
     try {
-      await api("sb_depth_reset", { tab: SB_TAB_KEY[keep("trboard", { t: "Offense" }).t], form: el.dataset.form });
+      const off = Number(el.dataset.plan) || 0;
+      if (off) {
+        await api("sb_plan_reset", { tab: SB_TAB_KEY[keep("trboard", { t: "Offense" }).t], form: el.dataset.form, offset: off });
+        toast("This year follows your chart again.");
+      } else {
+        await api("sb_depth_reset", { tab: SB_TAB_KEY[keep("trboard", { t: "Offense" }).t], form: el.dataset.form });
+        toast("Your staff has the depth chart back.");
+      }
       SB.cache = {};
-      toast("Your staff has the depth chart back.");
     } catch (e) {
       toast(e.message || String(e));
     }
