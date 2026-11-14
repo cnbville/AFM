@@ -580,6 +580,7 @@ pub fn read(w: &World, staff: Staff, id: u32) -> Option<(Vec<Reader>, Vec<Eviden
     let mut f = super::file::read(w, i, &readers, &looks, &norms(w, i), medical_rating(w, staff), Some(w.today));
     if seat_staff(w) == Some(staff) {
         super::own::interview_traits(w, id, &mut f.traits);
+        super::own::source_traits(w, id, &mut f.traits);
     }
     Some((readers, looks, f))
 }
