@@ -80,7 +80,7 @@
 //! Data pages show stats and your staff's charting only, never a hidden
 //! rating.
 
-mod analytics;
+pub(crate) mod analytics;
 mod books;
 pub(crate) use books::title_case;
 mod careers;

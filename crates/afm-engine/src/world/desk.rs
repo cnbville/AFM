@@ -88,6 +88,11 @@ pub struct Mail {
     /// which the table names the few that matter.
     #[serde(default)]
     pub count: u32,
+    /// The analyst's weekly leads (live talks lane 4): 0 for any other mail,
+    /// 1 when the writer's part is wanted (the game's own table stands until
+    /// you open it with a key), 2 once it is written.
+    #[serde(default)]
+    pub leads: u8,
 }
 
 /// One picked answer: its words, what it will do, and the act behind it.

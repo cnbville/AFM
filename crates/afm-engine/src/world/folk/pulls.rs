@@ -166,6 +166,14 @@ pub struct Read {
     pub rows: u8,
     /// His words and his reactions disagree about it.
     pub conflict: bool,
+    /// He plays it down (says it isn't his thing) and your read caught it
+    /// reaching him: it matters more to him than he lets on.
+    pub under: bool,
+    /// He talks it up and your read caught it not reaching him.
+    pub over: bool,
+    /// His own words put it up: he asked about it, told you of it or said
+    /// it was what he came for.
+    pub talked: bool,
 }
 
 /// The evidence on every recruit's and transfer's file.
@@ -214,8 +222,10 @@ impl Pulls {
     /// own order. `decider` reads the rows that speak for whoever decides
     /// at his home (`false`: for the recruit himself).
     pub fn order(&self, who: u32, decider: Option<bool>) -> Vec<Read> {
-        let mut out: Vec<Read> =
-            Group::ALL.iter().map(|&g| Read { group: g, score: 0.0, rows: 0, conflict: false }).collect();
+        let mut out: Vec<Read> = Group::ALL
+            .iter()
+            .map(|&g| Read { group: g, score: 0.0, rows: 0, conflict: false, under: false, over: false, talked: false })
+            .collect();
         let mut asked = [0.0f32; 7];
         let mut told = [0.0f32; 7];
         let mut words = [(0.0f32, 0u16); 7];
@@ -259,7 +269,10 @@ impl Pulls {
                 0.0
             };
             out[k].score = asked[k] + told[k] + took;
-            out[k].conflict = (said[k].0 && seen[k].1) || (said[k].1 && seen[k].0);
+            out[k].talked = said[k].0;
+            out[k].over = said[k].0 && seen[k].1;
+            out[k].under = said[k].1 && seen[k].0;
+            out[k].conflict = out[k].over || out[k].under;
         }
         out.sort_by(|a, b| {
             (b.rows > 0).cmp(&(a.rows > 0)).then(b.score.total_cmp(&a.score)).then(a.group.cmp(&b.group))
@@ -351,4 +364,96 @@ pub fn file(w: &World, i: usize) -> Vec<Read> {
     }
     out.sort_by(|a, b| (b.rows > 0).cmp(&(a.rows > 0)).then(b.score.total_cmp(&a.score)).then(a.group.cmp(&b.group)));
     out
+}
+
+// ---------------------------------------------------------------------------
+// The file in words (lane L7): what the recruit and portal files, the race
+// page and "why you're behind" read. No number of his ever reaches them.
+
+/// A group as his file names it in a sentence ("says development, lights up
+/// at money").
+pub fn word(g: Group) -> &'static str {
+    match g {
+        Group::PlayingTime => "playing time",
+        Group::Money => "money",
+        Group::School => "the school",
+        Group::Home => "staying close to home",
+        Group::People => "the people",
+        Group::League => "development",
+        Group::Winning => "winning",
+    }
+}
+
+/// Who decides at his home, from the `Decides` row's code (0 himself, 1 a
+/// parent, 2 a grandparent, 3 a handler).
+pub fn decider_of(code: u8) -> crate::world::background::Decider {
+    use crate::world::background::Decider;
+    match code {
+        0 => Decider::Himself,
+        1 => Decider::Parent,
+        2 => Decider::Grandparent,
+        _ => Decider::Handler,
+    }
+}
+
+impl Pull {
+    /// What the row says he did, in your staff's words: "Asked about money
+    /// first". Where and when go beside it (`Where::words`, `on`).
+    pub fn says(&self) -> String {
+        let g = word(self.group());
+        match self.ev {
+            Ev::BroughtUp => format!("Asked about {g} first"),
+            Ev::AskedLater => format!("Asked about {g}"),
+            Ev::TookWell => format!("Said {g} is what he came for"),
+            Ev::Polite => format!("Polite about {g}"),
+            Ev::Cool => format!("Said {g} isn't his thing"),
+            Ev::Doubted => format!("Wants {g}, doubts you can back it up"),
+            Ev::CaughtLit => format!("Your read: {g} reached him"),
+            Ev::CaughtFlat => format!("Your read: {g} didn't reach him"),
+            Ev::ToldFirst => format!("Told you {g} matters most"),
+            Ev::ToldSecond => format!("Told you {g} comes next"),
+            Ev::Guess => format!("A guess: {g}"),
+            Ev::Decides => match decider_of(self.group) {
+                crate::world::background::Decider::Himself => "Told you he decides himself".to_string(),
+                crate::world::background::Decider::Parent => "Told you a parent has the final say".to_string(),
+                crate::world::background::Decider::Grandparent => {
+                    "Told you his grandparents have the final say".to_string()
+                }
+                crate::world::background::Decider::Handler => "Told you his trainer has the final say".to_string(),
+            },
+        }
+    }
+}
+
+/// Where his words and your read part, in your staff's words: "Says
+/// development, lights up at money" when he talks one up and your read
+/// caught another reaching him, else one line for each group he plays down
+/// ("Money matters more to him than he lets on") or talks up ("Says
+/// playing time, but it doesn't seem to reach him").
+pub fn flags(reads: &[Read]) -> Vec<String> {
+    let under: Vec<Group> = reads.iter().filter(|r| r.under).map(|r| r.group).collect();
+    let over: Vec<Group> = reads.iter().filter(|r| r.over).map(|r| r.group).collect();
+    let mut out = Vec::new();
+    let mut paired = Vec::new();
+    for &g in &under {
+        // What he talks up instead: a group your read caught falling flat,
+        // else the one his own words put highest.
+        let said = reads.iter().find(|r| r.talked && !r.under && r.group != g).map(|r| r.group);
+        match over.first().copied().or(said) {
+            Some(o) => {
+                out.push(format!("Says {}, lights up at {}.", word(o), word(g)));
+                paired.push(o);
+            }
+            None => out.push(format!("{} matters more to him than he lets on.", cap(word(g)))),
+        }
+    }
+    for g in over.into_iter().filter(|g| !paired.contains(g)) {
+        out.push(format!("Says {}, but it doesn't seem to reach him.", word(g)));
+    }
+    out
+}
+
+fn cap(s: &str) -> String {
+    let mut c = s.chars();
+    c.next().map_or_else(String::new, |f| f.to_uppercase().chain(c).collect())
 }
