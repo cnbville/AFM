@@ -1847,6 +1847,20 @@ fn portal_interest(w: &World, j: usize, i: usize, t: &desk::PortalTarget) -> Int
     }
     let mine = race.iter().find(|r| r.0 == j).map(|r| r.1);
     let best = race.iter().find(|r| r.0 != j).copied();
+    // Offered, and still not in his race: your roster has no place for him.
+    if mine.is_none()
+        && t.offered.is_some()
+        && let Some((n, limit)) = portal::your_room(w).filter(|r| r.0 >= r.1)
+    {
+        return Interest {
+            words: "Your offer doesn't count yet".into(),
+            tone: "bad",
+            reason: format!(
+                "Your roster for next season is full ({n} of {limit}), so {first} can't weigh a place you don't have. Free a spot and he will."
+            ),
+            leader: best.map(|b| b.0),
+        };
+    }
     let (Some(yours), true) = (mine, t.offered.is_some()) else {
         return Interest {
             words: match best {
@@ -2026,6 +2040,9 @@ fn portal_file(w: &World, j: usize, args: &Value) -> Reply {
         "days": open.map(|e| today.days_to(e.decide_by).max(0)), "sits": sits,
         "interest": it.as_ref().map(|it| it.words.clone()), "tone": it.as_ref().map(|it| it.tone), "reason": it.as_ref().map(|it| it.reason.clone()),
         "schools": schools, "schools_n": race.len(),
+        // Where you stand (Cain 2026-11-14): your staff's read of his
+        // reasons against his top three, once your offer is out.
+        "stand": t.filter(|t| shopping && t.offered.is_some() && t.committed.is_none()).and_then(|t| super::stand::panel(w, j, i, t)),
         "bar": meter.map(|m| { let (w2, tone) = bar_words(m); json!({ "m": (m * 100.0).round() / 100.0, "words": w2, "tone": tone }) }),
         "offered": t.is_some_and(|t| t.offered.is_some()), "nil": t.and_then(|t| t.nil), "coll": t.and_then(|t| t.nil_coll),
         "usual": if ncaa::nil_era(w.year) { pot_total / 40.0 } else { 0.0 },

@@ -12,6 +12,7 @@ pub mod arc;
 pub mod body;
 pub mod depth;
 pub mod needs;
+pub mod plan;
 pub mod projected;
 pub mod roster;
 pub mod shape;
@@ -30,11 +31,13 @@ use crate::reads::{self, Read};
 use crate::views::{self, TeamRef};
 use crate::{Game, Reply};
 
-const COMMANDS: [&str; 9] = [
+const COMMANDS: [&str; 11] = [
     "sb_depth",
     "sb_depth_up",
     "sb_depth_put",
     "sb_depth_reset",
+    "sb_plan_put",
+    "sb_plan_reset",
     "sb_needs",
     "sb_roster",
     "sb_shape",
@@ -60,9 +63,33 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             Ok(v)
         }));
     }
+    if cmd == "sb_plan_put" || cmd == "sb_plan_reset" {
+        // Your private plan for the falls to come: a file beside the save,
+        // never the world (`depth_plan.rs`).
+        let path = crate::depth_plan::path_for(game);
+        let Some(w) = game.world.as_ref() else { return Some(Err("No world is loaded.".into())) };
+        let mut plan = crate::depth_plan::read(&path);
+        let done = if cmd == "sb_plan_put" {
+            plan::put(w, &mut plan, args)
+        } else {
+            plan::reset(w, &mut plan, args).map(|_| None)
+        };
+        return Some(done.and_then(|note| {
+            plan.prune(w.year);
+            crate::depth_plan::write(&path, &plan)?;
+            let mut v = depth::view_planned(w, args, &plan)?;
+            v["note"] = json!(note);
+            Ok(v)
+        }));
+    }
+    let planned = cmd == "sb_depth" && plan::offset_of(args) > 0;
+    let plan_file = planned.then(|| crate::depth_plan::read(&crate::depth_plan::path_for(game)));
     let Some(w) = game.world.as_ref() else { return Some(Err("No world is loaded.".into())) };
     Some(match cmd {
-        "sb_depth" => depth::view(w, args),
+        "sb_depth" => match &plan_file {
+            Some(p) => depth::view_planned(w, args, p),
+            None => depth::view(w, args),
+        },
         "sb_needs" => needs::view(w, args),
         "sb_roster" => roster::view(w),
         "sb_shape" => id().and_then(|i| shape::view(w, i)),
