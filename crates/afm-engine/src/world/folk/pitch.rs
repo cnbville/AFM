@@ -1097,7 +1097,46 @@ fn picks(w: &World, s: &mut Scene, t: &Talk, st: &St, sheet: &Sheet) {
             s.reach.push(point_pick(w, s, t, p));
         }
     }
+    // A promise you could make from here is in reach of a typed line too
+    // (live talks lane 10): "you'll start as a freshman" lands on the
+    // promise it means, asked first, as the menu's chip would.
+    if out.iter().any(|p| p.code == PROMISE_MENU) {
+        let mut v = s.clone();
+        v.picks.clear();
+        promise_picks(w, &mut v, t, false);
+        s.reach.extend(v.picks.into_iter().filter(|p| p.kind == PickKind::Final));
+    }
     s.picks = out;
+}
+
+/// The promise a typed line means, by the reader's kind (live talks lane
+/// 10; the promise design, section 9): for a high school recruit one of
+/// the five (a start, a role, his position, an early chance, no redshirt),
+/// for a transfer a starting job or a real role. Its code, when the talk
+/// can reach it now (`scene::options`), else none.
+pub fn typed_promise(s: &Scene, kind: &str) -> Option<u32> {
+    let hs = match kind {
+        "start" | "ahead_of" => Some(pledge::Kind::Start),
+        "role" | "touches" | "place" => Some(pledge::Kind::Role),
+        "position" => Some(pledge::Kind::Position),
+        "early_chance" => Some(pledge::Kind::Early),
+        "no_redshirt" => Some(pledge::Kind::NoRedshirt),
+        _ => None,
+    };
+    let transfer = match kind {
+        "start" | "ahead_of" => Some(PROMISE_START),
+        "role" | "touches" | "place" => Some(PROMISE_ROLE),
+        _ => None,
+    };
+    let codes = [hs.map(|k| PROMISE_RECRUIT + k as u32), transfer];
+    scene::options(s).into_iter().map(|p| p.code).find(|c| codes.contains(&Some(*c)))
+}
+
+/// The talking point a pick in a recruit's talk stands on, when it is a
+/// point you make (live talks lane 10: the writer's card reads his
+/// reaction to it).
+pub fn point_of(code: u32) -> Option<Kind> {
+    (POINT..STRAIGHT).contains(&code).then(|| kind_at(code - POINT)).flatten()
 }
 
 /// The group he asks about next (section 7, "What he brings up"): what he

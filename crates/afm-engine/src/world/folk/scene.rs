@@ -613,11 +613,13 @@ pub fn say(w: &mut World, id: u32, mut heard: Heard, confirmed: bool) -> Result<
         heard.promise = Some(p);
     }
     let promise = heard.promise.clone().zip(super::claims::truth::your_player(w, s));
-    let out = land(w, id, code, Some(heard))?;
+    let (facts, before) = (heard.facts.clone(), super::claims::check::before(w, s));
+    land(w, id, code, Some(heard))?;
     if let Some((p, him)) = promise {
         super::talks::typed_promise(w, id, him, &p);
     }
-    Ok(out)
+    super::claims::check::landed(w, id, &facts, before);
+    w.folk.scenes.iter().find(|s| s.id == id).cloned().ok_or_else(|| "No such meeting.".into())
 }
 
 /// Lands an answer, clicked (`heard` none) or typed. The scene is written
