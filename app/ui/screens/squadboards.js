@@ -257,25 +257,25 @@ screens.depth = async (a) => {
   }
   return sbDepthPage(x, cur);
 };
-// A spot is a plate with its three men as three pills (1 the starter, 2 and
-// 3 the men behind him). Each pill is its own drag source and its own drop
-// target, so a man can be put into a backup slot as well as a starter's
-// (playtest bug 16). `bk` says whether this formation keeps its backups: the
-// special units keep only their first men (the staff fills behind).
-function sbCell(s, k, n, m, bk) {
-  const rd = (q) => (q && q.read ? `<b class="sb-prr"${rrAttrs({ p: q.id, k: "ovr" }, q.read[0], q.read[1])}>${q.read[0]}-${q.read[1]}</b>` : "");
-  const tag = n === 1 && m && m.health === "out" ? '<span class="sb-tag bad">OUT</span>' : n === 1 && m && m.health === "limited" ? '<span class="sb-tag warn">Q</span>' : "";
-  // Pointer events (pointerdrag.js), so no `draggable`; not a <button>, which
-  // can't be dragged in every webview.
-  const man = m ? ` data-pid="${m.id}" data-pos="${esc(m.pos)}" data-name="${esc(m.name)}"${s.controls ? ' data-drag="1"' : ""}` : "";
-  return `<span class="sb-cell n${n} ${m ? "" : "nobody"} ${s.controls ? "" : "sb-lock"}" data-cell="1" data-k="${k}" data-n="${n}" data-slot="${esc(s.slot)}" data-spos="${esc(s.pos)}"${bk ? "" : ' data-bk="0"'}${man}><i>${n}</i><span class="sb-cname">${m ? esc(m.last) : n === 1 ? "Open" : '<span class="sb-dim">Nobody</span>'}</span>${tag}${rd(m)}</span>`;
-}
+// A spot is a plate: the starter on top, the two men behind him below. The
+// plate is the starter's place and each of the 2 and 3 rows is a place of its
+// own, so a man can be picked up from any of them and dropped into a backup
+// slot as well as a starter's (playtest bug 16). `bk` says whether this
+// formation keeps its backups: the special units keep only their first men.
 function sbPlate(s, k, sel, pos, bk) {
   const p = s.picks[0];
-  const cells = [1, 2, 3].map((n) => sbCell(s, k, n, s.picks[n - 1], bk)).join("");
-  return `<div class="sb-plate ${sel ? "on" : ""} ${p ? "" : "empty"} ${s.controls ? "" : "sb-lock"}" role="button" tabindex="0" style="${sbAt(pos.x, pos.y)};--k:${pos.k.toFixed(3)}" data-act="sbspot" data-k="${k}" data-pos="${esc(s.pos)}" data-slot="${esc(s.slot)}" aria-label="${esc(s.pos_full)}${p ? ", " + esc(p.name) : ""}${s.controls ? "" : ", the head coach's call"}">
-    <span class="sb-pt"><span class="sb-pn">${p && p.num != null ? p.num : "–"}</span><span class="sb-ps">${esc(s.slot)}</span></span>
-    <span class="sb-cells">${cells}</span>${p && s.by ? `<span class="hp-by hp-pby ${s.by.toLowerCase()}" aria-hidden="true">${s.by}</span>` : ""}</div>`;
+  const rd = (m) => (m && m.read ? `<b class="sb-prr"${rrAttrs({ p: m.id, k: "ovr" }, m.read[0], m.read[1])}>${m.read[0]}-${m.read[1]}</b>` : "");
+  // What makes a place a drop target (n: 1 the starter, 2 and 3 behind him),
+  // and the man in it something to pick up.
+  const cell = (n, m) => ` data-cell="1" data-k="${k}" data-n="${n}" data-slot="${esc(s.slot)}" data-spos="${esc(s.pos)}"${bk ? "" : ' data-bk="0"'}` +
+    (m ? ` data-pid="${m.id}" data-mpos="${esc(m.pos)}" data-name="${esc(m.name)}"${s.controls ? ' data-drag="1"' : ""}` : "");
+  const back = s.picks.slice(1).map((b, i) => `<span class="sb-pb ${s.controls ? "" : "sb-lock"}"${cell(i + 2, b)}><i>${i + 2}</i><span>${b ? esc(b.last) : '<span class="sb-dim">Nobody</span>'}</span>${rd(b)}</span>`).join("");
+  const tag = p && p.health === "out" ? '<span class="sb-tag bad">OUT</span>' : p && p.health === "limited" ? '<span class="sb-tag warn">Q</span>' : "";
+  // Not a <button>: a button can't be dragged in every webview. Picked up with
+  // pointer events (pointerdrag.js), so no `draggable`.
+  return `<div class="sb-plate ${sel ? "on" : ""} ${p ? "" : "empty"} ${s.controls ? "" : "sb-lock"}" role="button" tabindex="0" style="${sbAt(pos.x, pos.y)};--k:${pos.k.toFixed(3)}" data-act="sbspot" data-pos="${esc(s.pos)}"${cell(1, p)} aria-label="${esc(s.pos_full)}${p ? ", " + esc(p.name) : ""}${s.controls ? "" : ", the head coach's call"}">
+    <span class="sb-pt"><span class="sb-pn">${p && p.num != null ? p.num : "–"}</span><span class="sb-ps">${esc(s.slot)}</span>${rd(p).replace('class="sb-prr"', 'class="sb-pr"')}</span>
+    <span class="sb-pl"><span class="sb-plt">${p ? esc(p.last) : "Open"}</span>${tag}</span>${back}${p && s.by ? `<span class="hp-by hp-pby ${s.by.toLowerCase()}" aria-hidden="true">${s.by}</span>` : ""}</div>`;
 }
 function sbUnits(units) {
   return `<div class="sb-units">${units.map((u, i) => `<div class="sb-unit ${i === units.length - 1 ? "all" : ""}"><div class="sb-unit-h"><span class="sb-lbl">${esc(u.name)}</span><small>${u.rank ? `${esc(u.rank_words)} ${esc(u.among)}` : esc(u.among || "")}</small></div><div class="sb-unit-v"><span class="sb-grade">${esc(u.grade)}</span><b>${u.value != null ? u.value : "–"}</b></div><span class="sb-ubar"><i style="width:${u.pct != null ? u.pct : 0}%"></i></span></div>`).join("")}</div>`;
@@ -298,8 +298,8 @@ function sbDepthPage(x, cur) {
     // Every plate keeps one size, as on a broadcast, so every name stays legible.
     return { x: px, y: py, k: 1 };
   });
-  // A plate is 10 by 9.1 em on a base of 1.25% of the stage (squadboards.css).
-  sbSpread(items, 123, 112, 11);
+  // A plate is 10 by 8.25 em on a base of 1.25% of the stage (squadboards.css).
+  sbSpread(items, 123, 101, 11);
   const plates = x.slots.map((s, i) => sbPlate(s, i, i === sel, items[i], !!(x.base || x.package))).join("");
   const s = x.slots[sel];
   const head = pageHead({
@@ -314,7 +314,7 @@ function sbDepthPage(x, cur) {
   const actions = x.yours ? `<button class="st-btn small glass" data-act="sbreset" data-form="${esc(x.form)}">Give it back to the staff</button>` : "";
   const stage = `<div class="sb-stage" data-form="${esc(x.form)}" role="group" aria-label="${esc(x.form_label)} on the field">${sbField(x.level, LOS, YD, def ? null : LOS - 10 * YD)}${plates}</div>`;
   return `<div class="film sb"><div class="pad sb-pad">${head}${sbDcTabs(cur, x)}
-    <div class="sb-dc"><div class="sb-dc-main"><div class="sb-next">${next}${last}${actions ? `<span class="sb-act">${actions}</span>` : ""}</div>${stage}${hpDcFoot(x)}${sbUnits(x.units)}</div>
+    <div class="sb-dc sb-dc-needs"><div class="sb-dc-main"><div class="sb-next">${next}${last}${actions ? `<span class="sb-act">${actions}</span>` : ""}</div>${stage}${hpDcFoot(x)}${sbUnits(x.units)}</div>
     <aside class="sb-side">${s ? sbSpotPanel(x, s, sel) : '<div class="sb-empty">No spots on this formation.</div>'}</aside></div></div></div>`;
 }
 function sbSpotPanel(x, s, k) {
@@ -370,6 +370,24 @@ function hpWhyHere(x, s, k) {
 }
 
 // ---------- V2: the needs map in the stadium ----------
+// The commits box counts only the class that arrives next fall, so it says so
+// (the roster line counts every commit, this fall's class too).
+const sbLeaveLabel = (t) => String(t).replace(/^Commits for (\d+)$/, "Commits for fall $1 (next class)");
+// A man in the portal, in the place he would have had in each of the next two
+// falls. A null fall is one he would be gone from anyway.
+function sbPortalCard(x) {
+  const rows = x.portal || [];
+  if (!rows.length) return "";
+  const c = x.coming || 0, f = [c, c + 1].filter((n) => n < x.falls.length);
+  const cell = (r, n) => {
+    const q = r.stayed[n];
+    if (q) return esc(q.words);
+    return r.stay_gone && /draft/.test(r.stay_gone.why) ? "Likely in the draft" : "Out of eligibility";
+  };
+  return `<div class="sb-ptl"><span class="sb-lbl">In the portal · ${rows.length} · counted as gone</span>
+    <div class="sb-ptl-r sb-ptl-h"><span>Man</span>${f.map((n) => `<span>If he had stayed · fall ${x.falls[n]}</span>`).join("")}</div>
+    ${rows.map((r) => `<div class="sb-ptl-r"><b>${playerLink(r.id, r.name)} <small>${esc(r.pos)}</small></b>${f.map((n) => `<span>${cell(r, n)}${r.on_hold && n === c ? " (plays on through the playoffs)" : ""}</span>`).join("")}</div>`).join("")}</div>`;
+}
 const SB_VERDICTS = ["Hole", "Thin", "Average", "Solid", "Strength"];
 const sbVc = (v) => "v-" + String(v || "Hole").toLowerCase();
 screens.needs = async (a) => {
@@ -399,9 +417,9 @@ screens.needs = async (a) => {
     return `<button class="sb-chip ${sbVc(p.verdicts[y])} ${p.key === s.key ? "on" : ""}" style="${sbAt(items[i].x, items[i].y)};--k:${items[i].k.toFixed(3)}" data-act="sbneed" data-k="${esc(p.key)}" aria-label="${esc(p.full)}: ${esc(p.verdicts[y])}"><span>${esc(p.key.replace(/\d$/, ""))}${d}</span><b>${v != null ? v : "–"}</b></button>`;
   }).join("");
   const field = sbField(x.level, LOS, YD, null).replace("</svg>", `${pools}</svg>`);
-  const legend = `<div class="sb-legend">${SB_VERDICTS.map((v) => `<span><i class="${sbVc(v)}"></i>${v}</span>`).join("")}</div>`;
+  const legend = `<div class="sb-legend">${SB_VERDICTS.map((v) => `<span><i class="${sbVc(v)}"></i>${v}</span>`).join("")}<small class="sb-legend-n">Words compare each man with the starters at your level (${esc(x.level)}).</small></div>`;
   const yearCards = x.years.map((q, i) => `<button class="sb-year ${i === y ? "on" : ""}" data-act="sbneedy" data-v="${i}"><span class="sb-lbl">${esc(q.label)} · ${q.fall}</span><small>${esc(x.notes[i])}</small><b>${q.avg != null ? q.avg : "–"}</b><small class="${q.holes ? "sb-warn" : ""}">${sbPlural(q.holes, "hole")} · ${q.thin} thin</small></button>`).join("");
-  const leaving = `<div class="sb-leave"><span class="sb-lbl">After this season</span>${x.leaving.map((l) => `<div class="sb-lv" title="${esc((l.names || []).join(", "))}"><b>${l.n}</b><span>${esc(l.label)}</span></div>`).join("")}</div>`;
+  const leaving = `<div class="sb-leave"><span class="sb-lbl">After this season</span>${x.leaving.map((l) => `<div class="sb-lv" title="${esc((l.names || []).join(", "))}"><b>${l.n}</b><span>${esc(sbLeaveLabel(l.label))}</span></div>`).join("")}</div>`;
   const nf = sbFloor(x.spots.map((q) => q.vals));
   const bars = s.vals.map((v, i) => `<button class="sb-ybar ${i === y ? "on" : ""}" data-act="sbneedy" data-v="${i}"><span class="sb-yb"><i class="${sbVc(s.verdicts[i])}" style="height:${v != null ? sbPct(v, nf) : 0}%"></i></span><b>${v != null ? v : "–"}</b><small>${x.falls[i]}</small></button>`).join("");
   const rows = s.names.map((n, i) => `<div class="sb-sr ${i === y ? "on" : ""}"><span>${x.falls[i]}</span><span>${n ? `${playerLink(n.id, n.name)} <small>${esc(n.class)}${n.commit ? " · commit" : ""}</small>` : '<span class="sb-warn">Nobody</span>'}</span><b class="${sbVc(s.verdicts[i])}-t">${s.vals[i] != null ? s.vals[i] : "–"}</b></div>`).join("");
@@ -419,9 +437,9 @@ screens.needs = async (a) => {
     goto: gotoLine([["Depth chart", "depth"], ["Squad", "roster"], ...fills.slice(0, 2)]),
   });
   return `<div class="film sb"><div class="pad sb-pad">${head}
-    <div class="sb-dc"><div class="sb-dc-main"><div class="sb-next"><span class="sb-lbl">${esc(x.years[y].label)} · fall ${x.falls[y]}</span><small class="sb-dim">${esc(x.notes[y])}</small>${legend}</div>
+    <div class="sb-dc sb-dc-needs"><div class="sb-dc-main"><div class="sb-next"><span class="sb-lbl">${esc(x.years[y].label)} · fall ${x.falls[y]}</span><small class="sb-dim">${esc(x.notes[y])}</small>${legend}</div>
       <div class="sb-stage needs" role="group" aria-label="Needs on the field">${field}<span class="sb-side-l off">Offense</span><span class="sb-side-l def">Defense</span>${chips}</div>
-      <div class="sb-years">${yearCards}${leaving}</div><p class="sb-foot">${esc(x.draft_note)}</p></div>
+      <div class="sb-years">${yearCards}${leaving}</div>${sbPortalCard(x)}<p class="sb-foot">${esc(x.draft_note)}</p></div>
     <aside class="sb-side">${panel}</aside></div></div></div>`;
 };
 Object.assign(I, { needs: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/><circle cx="16" cy="9" r="2"/>' });
@@ -539,22 +557,22 @@ function sbRosterPanel(r, x) {
 }
 
 // ---------- drag and drop on the stadium (playtest bugs 12, 14 and 16) ----------
-// A spot's three men are three pills (1 the starter, 2 and 3 behind him), and
-// each pill is a drop target: put a man in a backup slot as well as a
-// starter's. Drag him from a pill, from the depth beside the field or from
-// "who else could play it"; drag one pill onto another to swap the two.
+// A spot is a plate (its starter) with a 2 and a 3 row (the men behind him),
+// and each is a drop target: put a man in a backup slot as well as a
+// starter's. Drag him from a spot or a row, from the depth beside the field or from
+// "who else could play it"; drag one place onto another to swap the two.
 // A starter onto a starter saves through the flat board's own call (`trPlace`,
 // `board_set`), so this view and Overhead write one depth chart; anything
 // that touches a backup saves through `sb_depth_put`, which writes the same
 // order the staff plays (a position's list: the starters, then the second
-// men, then the third). Only a pill in the man's own position group takes him
+// men, then the third). Only a place in the man's own position group takes him
 // (the engine lists a man only inside his group: `spots::group`); a spot
 // that is the head coach's takes nobody. The drag itself is drawn from pointer
 // events (pointerdrag.js), because the Mac app's webview never delivered the
 // browser's own drop (bug 14), and a drop that can't save says why.
 const SB_GROUP = { QB: 0, RB: 1, WR: 2, TE: 3, OT: 4, IOL: 4, EDGE: 5, DT: 5, LB: 6, CB: 7, S: 7, K: 8, P: 9, LS: 10 };
 const SB_DEPTH_WORD = ["the starter", "second string", "third string"];
-// Why this pill can't take the man held, or null when it can.
+// Why this place can't take the man held, or null when it can.
 function sbWhy(cell, d) {
   const slot = cell.dataset.slot;
   if (cell.classList.contains("sb-lock")) return `${slot} is the head coach's call, so it isn't yours to set.`;
@@ -568,8 +586,8 @@ pdragKind({
   source: ".sb [data-pid][data-drag]",
   target: ".sb [data-cell]",
   over: "sb-over",
-  nowhere: "Nothing changed: drop him on a pill (1, 2 or 3) of a spot to put him there.",
-  payload: (el) => ({ pid: Number(el.dataset.pid), pos: el.dataset.pos || "", name: el.dataset.name || "", n: Number(el.dataset.n) || 0, spos: el.dataset.spos || "", k: el.dataset.cell ? Number(el.dataset.k) : null }),
+  nowhere: "Nothing changed: drop him on a spot, or on its 2 or 3 row, to put him there.",
+  payload: (el) => ({ pid: Number(el.dataset.pid), pos: el.dataset.mpos || el.dataset.pos || "", name: el.dataset.name || "", n: Number(el.dataset.n) || 0, spos: el.dataset.spos || "", k: el.dataset.cell ? Number(el.dataset.k) : null }),
   why: sbWhy,
   begin: (d) => {
     const stage = document.querySelector(".sb-stage");

@@ -522,6 +522,39 @@ fn the_boards_at_every_seat() {
         "the arc shows the kept read: {}",
         arc["points"]
     );
+    // Own potential (Cain 2026-11-13): your own players are in your
+    // practices, so your own read of potential judges them, your staff's
+    // beside it; your own read is kept at the season's end beside the
+    // staff's; the road starts from yours and bends toward the ceiling read.
+    {
+        let w = g.world.as_ref().unwrap();
+        let k = w.people.iter().position(|p| p.player.id == id).unwrap();
+        let s = afm_game::reads::seen(w, k);
+        assert!(s.mine_looks > 0 && s.mine_ceiling.is_some(), "your own player has your own ceiling read");
+        let pot = afm_game::reads::potential_words(w, k);
+        assert_eq!(pot["whose"], "yours", "{pot}");
+        assert!(pot["staff"]["tier"].is_string() && pot["yours"]["tier"] == pot["tier"], "{pot}");
+        let c = w.career.as_ref().unwrap();
+        assert_eq!(c.kept_mine(id).len(), 1, "your own read is kept beside the staff's");
+        assert_eq!(json!(c.kept_mine(id)[0].ovr), json!(s.mine().json()), "the kept own read is today's");
+        // Two players read the same today with different ceiling reads get
+        // different roads; the higher ceiling ends higher, the middle never
+        // passes the ceiling read on the way up.
+        let seasons: Vec<(i32, u32, u8)> = (1..=6).map(|n| (w.year + n, 19 + n as u32, 1)).collect();
+        let lo = afm_game::reads::Judging { now: (60.0, 3.0), ceiling: (64.0, 4.0), yours: true };
+        let hi = afm_game::reads::Judging { ceiling: (80.0, 4.0), ..lo };
+        let (a, b) = (afm_game::road::walk(w, &lo, &seasons), afm_game::road::walk(w, &hi, &seasons));
+        assert!(b[5].q[2] > a[5].q[2] + 3.0, "a higher ceiling read, a higher road: {:?} {:?}", a[5].q, b[5].q);
+        assert!(a.iter().all(|r| r.q[2] <= 64.0 + 1e-9), "never past the ceiling read: {a:?}");
+        assert!(b[5].q[4] - b[5].q[0] >= 2.0, "a band");
+    }
+    let arc = board(&mut g, "sb_arc", json!({ "id": id }));
+    assert_eq!(arc["whose"], "yours", "the road starts from your own read");
+    assert!(
+        arc["points"].as_array().unwrap().iter().any(|p| p["now"] == false && !p["yours"].is_null()),
+        "{}",
+        arc["points"]
+    );
     // Kept through a save; a career saved before the kept reads loads empty.
     let saved = ok(&mut g, "save", json!({ "name": "kept" }))["saved"].as_str().unwrap().to_string();
     ok(&mut g, "load", json!({ "path": saved }));

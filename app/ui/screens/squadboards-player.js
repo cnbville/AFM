@@ -31,6 +31,7 @@ function sbCmpVal(f, cmp) {
 // without a scouting staff rates its players without projecting them:
 // the same words as the Overview's read card.
 function sbOutlook(x) {
+  if (x.outlook && potMine(x.outlook)) return `<div class="sb-kv"><span>Outlook</span><b>${esc(sbCap(x.outlook.tier))}</b></div><small class="sb-dim">Your own word, not a promise. ${esc(potStaffText(x.outlook))}. ${esc(x.tape)}.</small>`;
   if (x.outlook) return `<div class="sb-kv"><span>Outlook</span><b>${esc(sbCap(x.outlook.tier))}</b></div><small class="sb-dim">The staff's word, not a promise. ${esc(x.tape)}.</small>`;
   return x.read
     ? `<div class="sb-kv"><span>Outlook</span><b>Not projected</b></div><small class="sb-dim">Your staff rates what he is now; nobody has projected what he could become.</small>`

@@ -1216,6 +1216,12 @@ pub struct Career {
 pub struct KeptReads {
     pub id: u32,
     pub rows: Vec<KeptRead>,
+    /// Your own read of him as each season ended, beside your staff's
+    /// (own potential item 4, Cain 2026-11-13): the same shape, from your
+    /// own looks only; a season you never looked at him yourself has none.
+    /// A save from before this starts keeping at the next season's end.
+    #[serde(default)]
+    pub mine: Vec<KeptRead>,
 }
 
 /// Your staff's read of a player as one season ended: his overall and the
@@ -1240,13 +1246,34 @@ impl Career {
         self.kept_reads.iter().find(|k| k.id == id).map_or(&[], |k| k.rows.as_slice())
     }
 
+    /// Your own kept reads of one player, oldest first.
+    pub fn kept_mine(&self, id: u32) -> &[KeptRead] {
+        self.kept_reads.iter().find(|k| k.id == id).map_or(&[], |k| k.mine.as_slice())
+    }
+
+    /// Keeps a season's own read beside the staff's; a second read of the
+    /// same season replaces the first.
+    pub fn keep_mine(&mut self, id: u32, row: KeptRead) {
+        let at = match self.kept_reads.iter().position(|k| k.id == id) {
+            Some(i) => i,
+            None => {
+                self.kept_reads.push(KeptReads { id, rows: Vec::new(), mine: Vec::new() });
+                self.kept_reads.len() - 1
+            }
+        };
+        let rows = &mut self.kept_reads[at].mine;
+        rows.retain(|r| r.season != row.season);
+        rows.push(row);
+        rows.sort_by_key(|r| r.season);
+    }
+
     /// Keeps a season's read; a second read of the same season replaces
     /// the first.
     pub fn keep_read(&mut self, id: u32, row: KeptRead) {
         let at = match self.kept_reads.iter().position(|k| k.id == id) {
             Some(i) => i,
             None => {
-                self.kept_reads.push(KeptReads { id, rows: Vec::new() });
+                self.kept_reads.push(KeptReads { id, rows: Vec::new(), mine: Vec::new() });
                 self.kept_reads.len() - 1
             }
         };
