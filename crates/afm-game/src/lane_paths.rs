@@ -12,12 +12,13 @@
 //!   has eyes, where good players came from, where your rivals look) and
 //!   the look-back of the good players nobody on your staff ever saw.
 //!
-//! Every read is your staff's (`reads`); nothing true reaches a screen.
-//! Proposed, not confirmed: a prospect grows from his read now toward his
-//! ceiling read over four years, an older college player two points a year
-//! and a pro one until 27 and down a point and a half a year past 30; a
-//! college player stays for his seasons left, a pro to 32 (a quarterback
-//! 36, a kicker 38).
+//! Every read is yours or your staff's (`reads`); nothing true reaches a
+//! screen. Each man's rating in a later year is the middle of his road
+//! (`road.rs`, own potential item 6, Cain 2026-11-13): the same road the
+//! Shape tab draws, from the read that judges him (yours from your first
+//! own look, your staff's before) toward its ceiling read. Proposed, not
+//! confirmed: a college player stays for his seasons left, a pro to 32 (a
+//! quarterback 36, a kicker 38).
 
 use std::collections::{HashMap, HashSet};
 
@@ -54,17 +55,16 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     })
 }
 
-/// The man's read now and ceiling (centres) and where he plays.
-fn read_of(w: &World, k: usize) -> Option<(f64, f64)> {
-    let s = reads::seen(w, k);
-    let now = s.now?.0;
-    let ceiling = readers::read(w, readers::seat_staff(w)?, w.people[k].player.id).map_or(now, |(_, _, f)| f.ceiling.0);
-    Some((now, ceiling.max(now)))
+/// A man's road (`road.rs`): his rating's middle in each coming season,
+/// [0] today.
+fn road_of(w: &World, k: usize) -> Option<Vec<f64>> {
+    let r = crate::road::road(w, k)?;
+    Some((0..=8).map(|y| r.mid(y)).collect())
 }
 
-/// His read in a later year: a prospect grows toward his ceiling read.
-fn grown(now: f64, ceiling: f64, years: i32) -> f64 {
-    now + (ceiling - now) * (years.max(0) as f64 / 4.0).min(1.0)
+/// His rating `years` seasons on, from his road.
+fn grown(road: &[f64], years: i32) -> f64 {
+    road[(years.max(0) as usize).min(road.len() - 1)]
 }
 
 /// The year a pro stops playing, by age.
@@ -75,19 +75,6 @@ fn pro_last(pos: Position, age: u32, year: i32) -> i32 {
         _ => 32,
     };
     year + (last - age as i32).max(0)
-}
-
-fn pro_grown(now: f64, age: u32, years: i32) -> f64 {
-    let mut r = now;
-    for y in 0..years.max(0) {
-        let a = age as i32 + y;
-        if a < 27 {
-            r += 1.0;
-        } else if a >= 30 {
-            r -= 1.5;
-        }
-    }
-    r
 }
 
 /// Fit words from a staff-read fit.
@@ -135,7 +122,7 @@ pub(crate) fn path(w: &World, k: usize) -> Option<Value> {
     let p = &w.people[k];
     let pos = p.player.position;
     let season = w.dates.season;
-    let (now, ceiling) = read_of(w, k)?;
+    let his_road = road_of(w, k)?;
     let starters = depth_slots(pos).starters as usize;
     // (arrives, the men at his spot: name, id, read by year, the last year).
     let (arrives, inst, teacher, men): (i32, Installed, Option<usize>, Vec<Man>) = match views::mine(w)? {
@@ -147,14 +134,9 @@ pub(crate) fn path(w: &World, k: usize) -> Option<Value> {
                 if q.player.position != pos || i == k {
                     continue;
                 }
-                let Some((n, c)) = read_of(w, i) else { continue };
+                let Some(r) = road_of(w, i) else { continue };
                 let left = 4i32 - q.college_seasons as i32;
-                let young = q.college_seasons < 2;
-                men.push((
-                    i,
-                    season + left.max(1) - 1,
-                    Box::new(move |y| if young { grown(n, c, y - season) } else { n + 2.0 * (y - season) as f64 }),
-                ));
+                men.push((i, season + left.max(1) - 1, Box::new(move |y| grown(&r, y - season))));
             }
             // Your commits ahead of him or with him (on your board).
             for i in w.front_office.college.board.iter().filter_map(|t| views::person_index(w, t.id)) {
@@ -163,10 +145,10 @@ pub(crate) fn path(w: &World, k: usize) -> Option<Value> {
                     && q.player.position == pos
                     && q.cal.commit.is_some_and(|c| c.0 == j)
                     && matches!(q.stage, Stage::HighSchool | Stage::PrepSchool)
-                    && let Some((n, c)) = read_of(w, i)
+                    && let Some(r) = road_of(w, i)
                 {
                     let from = q.class_of;
-                    men.push((i, from + 3, Box::new(move |y| if y < from { 0.0 } else { grown(n, c, y - season) })));
+                    men.push((i, from + 3, Box::new(move |y| if y < from { 0.0 } else { grown(&r, y - season) })));
                 }
             }
             let g = afm_engine::world::coach::Group::of(pos) as usize;
@@ -181,9 +163,9 @@ pub(crate) fn path(w: &World, k: usize) -> Option<Value> {
                 if q.player.position != pos {
                     continue;
                 }
-                let Some((n, _)) = read_of(w, i) else { continue };
+                let Some(r) = road_of(w, i) else { continue };
                 let age = q.player.age;
-                men.push((i, pro_last(pos, age, year), Box::new(move |y| pro_grown(n, age, y - year))));
+                men.push((i, pro_last(pos, age, year), Box::new(move |y| grown(&r, y - year))));
             }
             let arrives = if w.today.parts().1 >= 5 { w.year + 1 } else { w.year };
             (arrives, club.installed, w.nfl.get(t).and_then(|c| c.head_coach), men)
@@ -194,7 +176,7 @@ pub(crate) fn path(w: &World, k: usize) -> Option<Value> {
     let mut start = None;
     let mut ahead_then: Vec<Value> = Vec::new();
     for y in arrives..arrives + 4 {
-        let his = grown(now, ceiling, y - season);
+        let his = grown(&his_road, y - season);
         let ahead: Vec<&Man> = men.iter().filter(|m| m.1 >= y && (m.2)(y) > his).collect();
         if y == arrives {
             ahead_then = ahead
@@ -225,7 +207,7 @@ pub(crate) fn path(w: &World, k: usize) -> Option<Value> {
     let takes = coachable(w, k);
     // Best for us: his read, less a point for each year he waits, plus
     // his fit (proposed, not confirmed).
-    let score = grown(now, ceiling, 2) - 1.5 * wait.unwrap_or(4) as f64 + 3.0 * fit_v.unwrap_or(0.0);
+    let score = grown(&his_road, 2) - 1.5 * wait.unwrap_or(4) as f64 + 3.0 * fit_v.unwrap_or(0.0);
     Some(json!({
         "arrives": arrives, "start": start, "when": when, "ahead": ahead_then, "starters": starters,
         "transfer_risk": risk,
@@ -233,6 +215,8 @@ pub(crate) fn path(w: &World, k: usize) -> Option<Value> {
         "scheme": if nfl { format!("{} front", if inst.front == 0 { "4-3" } else { "3-4" }) } else { format!("{:?}", OFFENSES[inst.off]) },
         "teacher": teacher_v.map(|(c, n)| json!({ "id": c, "name": n })), "takes": takes,
         "for_us": (score * 10.0).round() / 10.0,
+        // Whose read his road starts from (own potential): "yours" or "staff".
+        "whose": reads::judging(w, k).map(|j| j.whose()),
     }))
 }
 

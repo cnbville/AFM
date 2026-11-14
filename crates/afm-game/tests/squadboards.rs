@@ -128,8 +128,44 @@ fn every_board(g: &mut Game, level: &str) -> Vec<Value> {
         let body = board(g, "sb_body", json!({ "id": id }));
         assert_eq!(body["compares"].as_array().map(Vec::len), Some(3), "{level}");
         assert!(body["rows"].as_array().is_some_and(|x| x.iter().any(|t| t["key"] == "forty")), "{level}");
+        projected(level, &body);
     }
     rows
+}
+
+/// Projected test numbers (Cain 2026-11-14): your players get a coming
+/// testing day by their level, each projection's middle sits inside its
+/// band, says whose read it is built on, and scores the same tests.
+fn projected(level: &str, body: &Value) {
+    let tg = body["targets"].as_array().unwrap();
+    let keys: Vec<&str> = tg.iter().filter_map(|t| t["key"].as_str()).collect();
+    match level {
+        "nfl" => assert_eq!(keys, ["next"], "{level}"),
+        "college" => assert_eq!(keys, ["combine"], "{level}"),
+        _ => assert!(keys.contains(&"combine"), "{level}: {keys:?}"),
+    }
+    for t in tg {
+        if t["error"].is_string() {
+            continue;
+        }
+        assert!(matches!(t["whose"].as_str(), Some("yours" | "staff")), "{level}: {}", t["whose"]);
+        let rows = t["rows"].as_array().unwrap();
+        assert_eq!(rows.len(), body["rows"].as_array().unwrap().len(), "{level}");
+        assert_eq!(t["scores"].as_array().map(Vec::len), Some(3), "{level}");
+        for r in rows {
+            let Some(v) = r["value"].as_f64() else { continue };
+            assert!(v.is_finite() && v > 0.0, "{level}: {} {v}", r["key"]);
+        }
+        let forty = rows.iter().find(|r| r["key"] == "forty").unwrap();
+        let v = forty["value"].as_f64().expect("a projected forty");
+        assert!((4.2..=6.0).contains(&v), "{level}: forty {v}");
+        let band = forty["band"].as_str().unwrap_or("");
+        let ends: Vec<f64> = band.split('-').filter_map(|x| x.trim().parse().ok()).collect();
+        if ends.len() == 2 {
+            assert!(ends[0] <= v + 1e-9 && v <= ends[1] + 1e-9, "{level}: {v} outside {band}");
+        }
+        assert!(t["weights"].as_array().is_some_and(|w| !w.is_empty()), "{level}");
+    }
 }
 
 /// The quick filter's data (Cain, 2026-11-04): every row carries each of
@@ -520,6 +556,39 @@ fn the_boards_at_every_seat() {
     assert!(
         arc["points"].as_array().unwrap().iter().any(|p| p["now"] == false && p["read"] == rows[0]["ovr"]),
         "the arc shows the kept read: {}",
+        arc["points"]
+    );
+    // Own potential (Cain 2026-11-13): your own players are in your
+    // practices, so your own read of potential judges them, your staff's
+    // beside it; your own read is kept at the season's end beside the
+    // staff's; the road starts from yours and bends toward the ceiling read.
+    {
+        let w = g.world.as_ref().unwrap();
+        let k = w.people.iter().position(|p| p.player.id == id).unwrap();
+        let s = afm_game::reads::seen(w, k);
+        assert!(s.mine_looks > 0 && s.mine_ceiling.is_some(), "your own player has your own ceiling read");
+        let pot = afm_game::reads::potential_words(w, k);
+        assert_eq!(pot["whose"], "yours", "{pot}");
+        assert!(pot["staff"]["tier"].is_string() && pot["yours"]["tier"] == pot["tier"], "{pot}");
+        let c = w.career.as_ref().unwrap();
+        assert_eq!(c.kept_mine(id).len(), 1, "your own read is kept beside the staff's");
+        assert_eq!(json!(c.kept_mine(id)[0].ovr), json!(s.mine().json()), "the kept own read is today's");
+        // Two players read the same today with different ceiling reads get
+        // different roads; the higher ceiling ends higher, the middle never
+        // passes the ceiling read on the way up.
+        let seasons: Vec<(i32, u32, u8)> = (1..=6).map(|n| (w.year + n, 19 + n as u32, 1)).collect();
+        let lo = afm_game::reads::Judging { now: (60.0, 3.0), ceiling: (64.0, 4.0), yours: true };
+        let hi = afm_game::reads::Judging { ceiling: (80.0, 4.0), ..lo };
+        let (a, b) = (afm_game::road::walk(w, &lo, &seasons), afm_game::road::walk(w, &hi, &seasons));
+        assert!(b[5].q[2] > a[5].q[2] + 3.0, "a higher ceiling read, a higher road: {:?} {:?}", a[5].q, b[5].q);
+        assert!(a.iter().all(|r| r.q[2] <= 64.0 + 1e-9), "never past the ceiling read: {a:?}");
+        assert!(b[5].q[4] - b[5].q[0] >= 2.0, "a band");
+    }
+    let arc = board(&mut g, "sb_arc", json!({ "id": id }));
+    assert_eq!(arc["whose"], "yours", "the road starts from your own read");
+    assert!(
+        arc["points"].as_array().unwrap().iter().any(|p| p["now"] == false && !p["yours"].is_null()),
+        "{}",
         arc["points"]
     );
     // Kept through a save; a career saved before the kept reads loads empty.

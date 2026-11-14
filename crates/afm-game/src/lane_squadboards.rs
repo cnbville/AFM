@@ -12,6 +12,7 @@ pub mod arc;
 pub mod body;
 pub mod depth;
 pub mod needs;
+pub mod projected;
 pub mod roster;
 pub mod shape;
 
@@ -626,6 +627,41 @@ pub(crate) fn read_now(w: &World, i: usize, season: i32) -> KeptRead {
     }
 }
 
+/// Your own read of a player today in the kept form (own potential item
+/// 4): your overall, the key ratings and families your own eye read, his
+/// weight. None until your first own look (a first impression is never
+/// kept).
+pub(crate) fn mine_now(w: &World, i: usize, season: i32) -> Option<KeptRead> {
+    let s = reads::seen(w, i);
+    if s.mine_looks == 0 {
+        return None;
+    }
+    let p = &w.people[i];
+    let pos = p.player.position;
+    let attrs = reads::mine_attributes(w, i);
+    let pair = |r: Read| match r {
+        Read::Range(lo, hi) => [lo, hi],
+        Read::NotSeen => [0, 0],
+    };
+    let mut keys = [[0u8; 3]; 4];
+    for (k, a) in key_attrs(pos).into_iter().enumerate() {
+        let [lo, hi] = pair(attrs.iter().find(|x| x.0 == a).map_or(Read::NotSeen, |x| x.1));
+        keys[k] = [a.index() as u8, lo, hi];
+    }
+    let mut fams = [0u8; 8];
+    for (k, f) in families(pos).iter().enumerate() {
+        fams[k] = family_read(&attrs, f).map_or(0, |(lo, hi)| ((lo + hi) / 2.0).round() as u8);
+    }
+    Some(KeptRead {
+        season: season as i16,
+        pos: pos.index() as u8,
+        ovr: pair(s.mine()),
+        keys,
+        fams,
+        wt: afm_engine::body::body_now(&p.player).weight.round() as u16,
+    })
+}
+
 /// The players your staff follows: your roster, everyone you keep notes
 /// on and your scouting board.
 fn followed(w: &World) -> Vec<usize> {
@@ -644,7 +680,8 @@ fn followed(w: &World) -> Vec<usize> {
 
 /// Keeps the season's reads once the football year has turned: the read
 /// each followed player ended the season on (his overall, his position's
-/// key ratings and families, his weight). A career started mid-year, or a
+/// key ratings and families, his weight), your staff's and, once you have
+/// looked at him yourself, your own beside it. A career started mid-year, or a
 /// save from before the kept reads, starts keeping at the next turn.
 pub fn after_days(w: &mut World) {
     let Some(c) = w.career.as_ref() else { return };
@@ -658,11 +695,16 @@ pub fn after_days(w: &mut World) {
         }
         return;
     }
-    let rows: Vec<(u32, KeptRead)> =
-        followed(w).into_iter().map(|k| (w.people[k].player.id, read_now(w, k, season as i32))).collect();
+    let rows: Vec<(u32, KeptRead, Option<KeptRead>)> = followed(w)
+        .into_iter()
+        .map(|k| (w.people[k].player.id, read_now(w, k, season as i32), mine_now(w, k, season as i32)))
+        .collect();
     if let Some(c) = w.career.as_mut() {
-        for (id, row) in rows {
+        for (id, row, mine) in rows {
             c.keep_read(id, row);
+            if let Some(m) = mine {
+                c.keep_mine(id, m);
+            }
         }
         c.kept_through = season;
     }
