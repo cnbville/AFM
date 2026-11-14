@@ -1,6 +1,6 @@
 # Individual practice: flaws and tools
 
-Design started 2026-11-14 in the thread "Plan the training patch". Not built.
+Design started 2026-11-14 in the thread "Plan the training patch". Plan and sizes agreed by Cain the same day. Not built.
 
 ## Cain's words
 
@@ -171,6 +171,18 @@ Each entry gives the engine moment it sits in, what it costs (or adds), and the 
 4. **The habit chart.** A habit plan is charted from his games, e.g. "bounced outside on 18% of runs, 11% over the last four".
 5. **The world notices.** Scouts, draft notes, recruiters and the press read fixes ("cleaned up his footwork"), each through their own eye.
 
+## Topic 9b. Where the payoff shows on screen (mock-up)
+
+Cain 2026-11-14 12:40: "The back-end could be amazing, but how do we retain focus on the results." Mock-up canvas: https://claude.ai/artifact/55SqK4iz9STFrrojYn9iCq (Press Box, proposed, not confirmed).
+
+The rule: the training screen sets the work, and the payoff shows where results already live. Every point of emphasis has one hero number from games (how often the flaw cost him), a before and a now, and the snaps as proof.
+
+1. **His Working on page** (college LT): the stage track, the hero number ("beaten by the counter: 1 in 41 pass sets, was 1 in 9"), one chart with practice (dashed) and games (solid) since the flaw was seen, with the dip and the slips marked, the proof clips, the coach's note and what others now write.
+2. **After the game, "The work showed"**: the rep of the game drawn on the 2D view next to the same rep from before the fix ("in week 2 this was a sack"), the team's count of reps your points decided, and a row per player.
+3. **The inbox** (high school): the coach's stage note, then the world noticing: the re-graded recruiting file and the offer that came from the tape of the fix.
+4. **The points of emphasis board** (NFL): every player's point, stage, a small trend of costly reps a game, the teacher and a status word (paying off, learning, in the dip, stalled, not bought in), with the talk to have when a veteran refuses.
+5. **His development story** (career page): each flaw and tool as a lane over the seasons, the results by season beside it, the press line and his own words.
+
 ## Topic 10. The AI
 
 AI staffs do the same with their own eyes, teachers and styles. A moulding staff works its system's flaws first, and an adapting one works the player's biggest. The world and your team run on the same rules.
@@ -179,16 +191,16 @@ AI staffs do the same with their own eyes, teachers and styles. A moulding staff
 
 1. **Each flaw and tool moves its own situation by its size and nothing else.** An A/B test per entry, like the links (`ab_check`).
 2. **Counts match real life.** Drafted players carry 1 to 3 flaws and 1 to 2 tools. A high school freshman carries 3 to 5.
-3. **Fix speeds match the agreed targets** (question 2).
+3. **Fix speeds match the agreed pace** (sizes, item 2).
 4. **No level drifts.** NFL, FBS and high school averages stay where the match checks put them.
 5. **The payoff shows.** On a test season, a fixed flaw's tags per game fall, and the chart and notes report it.
 6. **Speed and memory.** A few bytes per player, and a small check in each engine moment. Measured on the 8 GB Mac budget.
 
-## Questions for Cain (real football can't settle these)
+## Sizes (confirmed by Cain, 2026-11-14 12:40: "yes, okay i like the plan")
 
-1. **Size.** A full flaw costs about what 5 rating points of its owning attribute would, and only in its situation. A full tool adds the same. That's the same size as a full link. Yes or no?
-2. **Pace.** With usual individual time, a willing, coachable 20-year-old with a strong teacher (teaching 15+) gets a flaw to hold in about one offseason (12-16 weeks). A poor teacher or low coachability takes a year or more. A 30-year-old takes about twice as long. Yes or no?
-3. **The dip.** While he's learning, the flaw costs up to a quarter more in team periods and games, for 2 to 4 weeks. Yes or no?
+1. **Size.** A full flaw costs about what 5 rating points of its owning attribute would, and only in its situation. A full tool adds the same. That's the same size as a full link.
+2. **Pace.** With usual individual time, a willing, coachable 20-year-old with a strong teacher (teaching 15+) gets a flaw to hold in about one offseason (12-16 weeks). A poor teacher or low coachability takes a year or more. A 30-year-old takes about twice as long.
+3. **The dip.** While he's learning, the flaw costs up to a quarter more in team periods and games, for 2 to 4 weeks.
 
 ## Proposed, not confirmed
 
