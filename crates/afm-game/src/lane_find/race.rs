@@ -451,6 +451,10 @@ pub fn page(w: &World, args: &Value) -> Reply {
         "followed": !weeks.is_empty(), "since": day(first), "span": span,
         "months": months, "schools": schools, "moments": moments, "reasons": reasons, "compare": cmp,
         "decides": decides, "listens": decider,
+        // What pulls him, as his file reads it (talk facts lane L13): the
+        // tracker under his reasons. A high school coach knows his own
+        // player and has no file to read.
+        "pulls": if me.is_some() && !own { crate::lane_frontoffice::pulls::section(w, i) } else { Value::Null },
         "next_visit": next_visit.map(|(d, n)| json!({ "date": views::date_text(d), "where": n })),
         "reader": reader,
         "committed": p.cal.commit.map(|c| w.program_name(c.0).to_string()),

@@ -279,7 +279,7 @@ const aiCardAct = {
     const a = await aiCall("ai_test", {}, () => true, false);
     const t = a || { state: "off", note: "No answer." };
     if (t.state === "done") {
-      aiState.card.test = { phase: "ok", text: `Works. One small call, ${Number(t.seconds || 0).toFixed(1)} s.` };
+      aiState.card.test = { phase: "ok", text: `Works. A call the size of a typed line, ${Number(t.seconds || 0).toFixed(1)} s.` };
     } else {
       const n = t.note || "The test did not finish.";
       aiState.card.test = { phase: "bad", text: /not accepted/i.test(n) ? "That key did not work. Check it, remove it and paste it again." : /could not be reached|took too long/i.test(n) ? "No connection. Typed lines are off until it comes back. The chips work as before." : n };

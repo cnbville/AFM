@@ -1230,24 +1230,104 @@ document.addEventListener("keydown", (ev) => {
 });
 
 // ---------- the big moments (screens topic 9) ----------
+// The full-screen show (Cain's yes, 2026-11-14): a recruit's hat table and
+// "He chose ...", the job you are given, the one you lose, a final won, a
+// record that falls, a Hall of Fame class, a first start. Wins glow; a
+// miss or a firing stays dark and quiet. Several in a row play one after
+// another; a click skips the hat table, Escape the reveal, "Skip all" the
+// queue. The text of each is the world's own (the server's Reveal).
 const REVEALS = [];
+const BM = { timers: [], n: 0 };
+function bmClear() { BM.timers.forEach(clearTimeout); BM.timers = []; }
 async function showReveals(n) {
   if (!n) return;
   try { REVEALS.push(...(await api("reveals"))); } catch (e) { return; }
-  if (!document.querySelector(".reveal-room")) nextReveal();
+  if (!document.querySelector(".reveal-room")) { BM.n = 0; nextReveal(); }
+}
+// Cap lettering: initials of a long name, the first letters of a short one.
+function bmAbbr(name) {
+  const words = String(name).split(/\s+/).filter((x) => x && !/^(of|the|at|and|&)$/i.test(x));
+  const s = words.length <= 1 ? (words[0] || "").replace(/[^A-Za-z0-9]/g, "").slice(0, 4) : words.map((x) => x[0]).join("").slice(0, 4);
+  return s.toUpperCase();
+}
+function bmShade(c, pct) { return `color-mix(in oklab, ${c} ${pct}%, #000)`; }
+function bmFrame(r, inner, opt = {}) {
+  const c = r.colors || ["#a71930", "#322f2b"];
+  const gold = r.kind === "hall" || r.kind === "title";
+  const bg = r.quiet
+    ? `background:radial-gradient(60% 55% at 50% 30%, color-mix(in oklab, ${c[0]} 18%, #1b1e26), transparent 70%), #050608`
+    : `background:radial-gradient(60% 55% at 50% 30%, color-mix(in oklab, ${c[0]} 62%, transparent), transparent 70%), radial-gradient(55% 40% at 50% 108%, color-mix(in oklab, ${gold ? "#ffd60a" : c[1] || c[0]} 24%, transparent), transparent 70%), #050608`;
+  const left = REVEALS.length;
+  const q = !opt.hats && (left || BM.n) ? `<div class="bm-q"><span>${BM.n + 1} of ${BM.n + 1 + left}</span>${left ? `<button type="button" data-act="revealskipall">Skip all</button>` : ""}</div>` : "";
+  return `<div class="st-moment fixed bm kind-${esc(r.kind)}${r.quiet ? " quiet" : ""}${gold ? " gold" : ""}" style="--accent:${c[0]};--accent-2:${c[1] || c[0]};${bg}" role="dialog" aria-modal="true" aria-label="${esc(r.kicker)}">${r.quiet ? "" : '<div class="bm-rays" aria-hidden="true"></div>'}${q}${inner}</div>`;
+}
+function bmHatTable(r) {
+  const hats = r.hats.map((h, i) => {
+    const c = h.colors || ["#666", "#333"];
+    const ab = bmAbbr(h.name);
+    return `<div class="bm-hat${i === r.chosen ? " pick" : ""}"><span class="nub" style="background:${c[0]}"></span><span class="cap" style="background:${c[0]};color:#fff;font-size:${ab.length > 2 ? 24 : 36}px">${esc(ab)}</span><span class="brim" style="background:${bmShade(c[0], 70)}"></span></div>`;
+  }).join("");
+  const names = r.hats.map((h) => `<div><b>${esc(h.name)}</b></div>`).join("");
+  const room = r.room ? `<div class="bm-room">${esc(r.room)}</div>` : "";
+  return `<div class="st-reveal bm-ceremony"><span class="st-label bm-where">${r.kind === "signing" ? "Your gym · the signing" : "He is deciding"}</span><h2 class="st-wide bm-hat-h" id="bm-hat-h">${r.hats.length} hats on the table</h2><p class="bm-hat-p">${esc(r.name)} picks one up.</p><div class="bm-hats" id="bm-hats" style="--n:${r.hats.length}">${hats}</div><div class="bm-top"></div>${room}<div class="bm-names" style="--n:${r.hats.length}">${names}</div><small class="bm-skip">Click to skip</small></div>`;
+}
+function bmReveal(r) {
+  const num = r.number ? `<span class="st-outline bm-num${r.number.length > 4 ? " long" : ""}" aria-hidden="true">${esc(r.number)}</span>` : "";
+  const verdict = r.token || r.verdict ? `<div class="st-verdict">${r.token ? `<b>${esc(r.token)}</b>` : ""}<span>${esc(r.verdict)}</span></div>` : "";
+  const bars = r.bars && r.bars.length ? `<div class="bm-bars">${r.bars.map((b, i) => `<div class="bm-bar${i === r.bars.length - 1 ? " new" : ""}"><span>${esc(b[0])}</span><i style="width:${Math.round(b[2] * 100)}%"></i><b>${esc(b[1])}</b></div>`).join("")}</div>` : "";
+  const cards = r.cards && r.cards.length ? `<div class="bm-cards">${r.cards.map((cd, i) => `<div class="bm-card" style="animation-delay:${1.3 + i * 0.15}s"><small>${esc(cd[0])}</small>${cd[1].map((l) => `<p>${esc(l)}</p>`).join("")}</div>`).join("")}</div>` : "";
+  const steps = r.steps && r.steps.length ? `<div class="bm-steps" style="--n:${r.steps.length}">${r.steps.map((st, i) => `<div${i === r.steps.length - 1 ? ' class="now"' : ""}><i></i><b>${esc(st[0])}</b>${esc(st[1])}</div>`).join("")}</div>` : "";
+  const facts = r.facts && r.facts.length ? `<div class="bm-facts">${r.facts.map((f) => `<span class="st-fact">${esc(f[0])} <b>${esc(f[1])}</b></span>`).join("")}</div>` : "";
+  const goB = (label, go2, args, id) => `<button class="st-btn glass" type="button" data-act="revealopen" data-go2="${go2}"${args ? ` data-args='${esc(JSON.stringify(args))}'` : ""}${id != null ? ` data-id="${id}"` : ""}>${esc(label)}</button>`;
+  let acts = "";
+  if (r.kind === "fired") acts += goB("Look for your next job", "market", {});
+  else if (r.kind === "hire") acts += goB("Meet your staff", "staff", {});
+  else if (r.about && r.about.kind === "player") acts += goB(r.kind === "commit" || r.kind === "signing" || r.kind === "miss" ? "Open his file" : "Open his page", "player", null, r.about.id);
+  else if (r.about && r.about.kind === "coach") acts += goB("Open his page", "coach", null, r.about.id);
+  else if (r.about && r.about.kind === "team" && r.about.ref && r.kind !== "hire") acts += goB("Open the team", "team", r.about.ref);
+  if (r.also) acts += goB(r.also.label, "history", {});
+  const more = REVEALS.length;
+  const done = `<button class="st-btn primary" type="button" data-act="revealnext">${more ? "Next" : r.kind === "commit" || r.kind === "signing" || r.kind === "miss" ? "Back to the board" : "Continue"}</button>`;
+  return `<div class="st-reveal bm-reveal"><span class="st-kicker">${esc(r.kicker)}</span>${num}${r.sub ? `<span class="st-reveal-sub">${esc(r.sub)}</span>` : ""}<h2 class="bm-name${r.name.length > 22 ? " long" : ""}">${esc(r.name)}</h2>${bars}${verdict}${steps}${cards}${facts}<div class="bm-acts">${done}${acts}</div><small class="bm-date">${esc(r.date)}</small></div>`;
 }
 function nextReveal() {
+  bmClear();
+  document.querySelectorAll(".reveal-room").forEach((x) => x.remove());
   const r = REVEALS.shift();
-  if (!r) return;
-  const c = r.colors || ["#a71930", "#322f2b"];
+  if (!r) { BM.n = 0; return; }
   const room = document.createElement("div");
-  room.className = `reveal-room kind-${r.kind}`;
-  room.style.setProperty("--c1", c[0]);
-  room.style.setProperty("--c2", c[1] || c[0]);
-  const scene = r.kind === "commit" || r.kind === "signing" ? posterScene("recruit", c) : r.kind === "title" ? posterScene("award", c) : r.kind === "pick" ? posterScene("draft", c) : posterScene("coach", c);
-  room.innerHTML = `<div class="rv-art">${scene}</div><div class="rv-copy"><div class="st-label">${esc(r.kicker)}</div>${r.number ? `<div class="rv-num">${esc(r.number)}</div>` : ""}<div class="rv-name">${esc(r.name)}</div><div class="rv-sub">${esc(r.sub)}</div>${r.verdict ? `<p class="rv-verdict">${esc(r.verdict)}</p>` : ""}<div class="st-actions">${r.about && r.about.kind === "player" ? `<button class="st-btn primary" data-act="revealopen" data-go2="player" data-id="${r.about.id}">Open his page</button>` : r.about && r.about.kind === "team" && r.about.ref ? `<button class="st-btn primary" data-act="revealopen" data-go2="team" data-args='${esc(JSON.stringify(r.about.ref))}'>Open the team</button>` : ""}<button class="st-btn glass" data-act="revealnext">${REVEALS.length ? "Next" : "Continue"}</button></div><small class="muted">${esc(r.date)}</small></div>`;
+  room.className = "reveal-room";
+  const calm = document.documentElement.classList.contains("calm");
+  const show = () => { bmClear(); room.innerHTML = bmFrame(r, bmReveal(r)); BM.n += 1; };
+  if (r.hats && r.hats.length > 1 && !calm) {
+    room.innerHTML = bmFrame(r, bmHatTable(r), { hats: true });
+    room.dataset.hats = "1";
+    BM.timers.push(setTimeout(() => {
+      const t = room.querySelector("#bm-hats");
+      if (!t) return;
+      t.classList.add("picked");
+      const h = room.querySelector("#bm-hat-h"); if (h) h.textContent = `He picked up the ${r.hats[r.chosen].name} hat`;
+      BM.timers.push(setTimeout(show, 2600));
+    }, 3200));
+  } else {
+    room.innerHTML = bmFrame(r, bmReveal(r));
+    BM.n += 1;
+  }
+  room._show = show;
   document.body.appendChild(room);
 }
+document.addEventListener("click", (ev) => {
+  const room = ev.target.closest && ev.target.closest(".reveal-room[data-hats]");
+  if (room && room._show) { delete room.dataset.hats; room._show(); }
+});
+document.addEventListener("keydown", (ev) => {
+  if (ev.key !== "Escape" || !document.querySelector(".reveal-room")) return;
+  if (ev.target.closest && ev.target.closest("input, textarea, select, [contenteditable]")) return;
+  ev.preventDefault();
+  const hats = document.querySelector(".reveal-room[data-hats]");
+  if (hats && hats._show) { delete hats.dataset.hats; hats._show(); return; }
+  nextReveal();
+});
 
 // ---------- holiday mode on screen ----------
 async function holiday() {
@@ -1362,10 +1442,16 @@ async function coreAct(act, el, ev) {
       } catch (e) { toast(e.message); }
       return true;
     }
-    case "revealnext": el.closest(".reveal-room").remove(); nextReveal(); return true;
+    case "revealnext": nextReveal(); return true;
+    case "revealskipall": REVEALS.length = 0; nextReveal(); return true;
+    case "revealagain": {
+      try { REVEALS.push(...(await api("reveal_again", { n: Number(d.n) }))); } catch (e) { toast(e.message); return true; }
+      BM.n = 0; nextReveal();
+      return true;
+    }
     case "revealopen": {
       el.closest(".reveal-room").remove();
-      REVEALS.length = 0;
+      REVEALS.length = 0; bmClear(); BM.n = 0;
       go(d.go2, d.args ? JSON.parse(d.args) : { id: Number(d.id) });
       return true;
     }
@@ -1963,7 +2049,7 @@ screens.you = async (a) => {
   const row = (t, v) => `<div class="attr"><span>${esc(t)}</span><span class="rg"><span class="t"><i style="left:0;width:${(v / 20) * 100}%;background:${rateColor(v * 5)}"></i></span><b>${v.toFixed(1)}</b></span></div>`;
   const x = y.extra;
   const p = y.profile || {};
-  const tab = tabOf("ytab", ["Profile", "Contract", "Coaching tree", "Job market", "Jobs"], a);
+  const tab = tabOf("ytab", ["Profile", "Contract", "Coaching tree", "Job market", "Jobs", "Big moments"], a);
   let body = "";
   if (tab === "Profile") {
     const from = [p.hometown, y.home_state].filter(Boolean).join(", ");
@@ -1980,12 +2066,15 @@ screens.you = async (a) => {
     body = c ? `<div class="panel"><h2>Your contract</h2><div class="st-tiles"><div><b>${money(c.salary)}</b><small>a year</small></div><div><b>${c.through}</b><small>through</small></div><div><b>${money(c.buyout)}</b><small>what firing you costs now</small></div><div><b>${Math.round((c.buyout_share || 0) * 100)}%</b><small>of what's left is guaranteed</small></div></div><p class="sub">Your boss reads your contract with your results: a big buyout buys patience, a small one doesn't.</p></div>` : '<div class="empty">No written contract: high school coaches work year to year.</div>';
   } else if (tab === "Coaching tree") {
     body = `<div class="panel"><h2>Coaches who learned under you</h2>${treeHtml(y.tree, "Nobody has come up under you yet. Assistants who work for you a few years join your tree when they move on.")}</div>`;
+  } else if (tab === "Big moments") {
+    const list = await api("reveal_list");
+    body = list.length ? `<div class="panel"><h2>Big moments <small>play any of them again</small></h2><div class="bm-list">${list.map((m) => `<div class="bm-li"><span class="bm-lk">${esc(m.kicker)}</span><b>${esc(m.name)}</b><small>${esc(m.date)}</small><button type="button" class="st-btn small glass" data-act="revealagain" data-n="${m.n}">Replay</button></div>`).join("")}</div></div>` : '<div class="empty">Nothing yet. A recruit\'s commitment, a new job, a final won, a record that falls or a first start shows up here after it happens.</div>';
   } else if (tab === "Job market") {
     body = `${screens.market ? `<div class="sub" style="margin-bottom:12px">${linkTo("market", {}, "Open the job market", "st-btn small primary")} to apply, put your name in and answer offers.</div>` : ""}<div class="panel"><h2>Head jobs that opened <small>this year and last · your stock: ${esc(y.stock)}</small></h2>${y.market.length ? table("ymarket", [{ k: "team", t: "Job", l: true, f: (r) => teamChip(r.team, 18), v: (r) => r.team.name }, { k: "line", t: "Where", l: true }, { k: "prestige", t: "Program", l: true }, { k: "date", t: "Opened", l: true }, { k: "filled", t: "Filled by", l: true, f: (r) => (r.filled ? coachLink(r.filled.id, r.filled.name) : '<span class="tag due">Open</span>'), v: (r) => (r.filled ? r.filled.name : "") }], y.market, { tools: false }) : '<div class="empty">No head jobs have opened yet. Black Monday and the end of the college season move the carousel.</div>'}</div>`;
   } else {
     body = y.history && y.history.length ? table("yjobs", [{ k: "where", t: "Where", l: true }, { k: "role", t: "Role", l: true }, { k: "from", t: "From" }, { k: "to", t: "To" }, { k: "record", t: "Record", l: true }], y.history, { tools: false }) : '<div class="empty">This is your first job.</div>';
   }
-  return `<div class="pad">${pageHead({ kicker: esc(y.title || `Head coach since ${y.started}`), title: esc(y.name), sub: esc(y.record) })}${gotoLine([["Your staff", "staff"], ["Your boss's letters", "inbox", { key: "Your job" }], ["Coaching carousel", "history", { tab: "Coaching carousel" }]])}${tabs("ytab", ["Profile", "Contract", "Coaching tree", "Job market", "Jobs"], tab)}<div class="tabbody">${body}</div></div>`;
+  return `<div class="pad">${pageHead({ kicker: esc(y.title || `Head coach since ${y.started}`), title: esc(y.name), sub: esc(y.record) })}${gotoLine([["Your staff", "staff"], ["Your boss's letters", "inbox", { key: "Your job" }], ["Coaching carousel", "history", { tab: "Coaching carousel" }]])}${tabs("ytab", ["Profile", "Contract", "Coaching tree", "Job market", "Jobs", "Big moments"], tab)}<div class="tabbody">${body}</div></div>`;
 };
 
 // ---------- the team page ----------

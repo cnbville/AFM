@@ -600,16 +600,49 @@ pub fn watch_mail(w: &mut World) {
     }
 }
 
-/// Reveals waiting to be shown, taken off the desk as they are handed over.
+/// One reveal as the screens draw it.
+fn reveal_json(w: &World, r: &afm_engine::world::desk::Reveal) -> Value {
+    json!({
+        "kind": r.kind, "kicker": r.kicker, "number": r.number, "name": r.name, "sub": r.sub,
+        "verdict": r.verdict, "colors": r.colors, "date": views::date_text(r.date),
+        "token": r.token, "quiet": r.quiet,
+        "facts": r.facts, "cards": r.cards,
+        "hats": r.hats.iter().map(|(n, c)| json!({ "name": n, "colors": c })).collect::<Vec<_>>(),
+        "chosen": r.chosen, "room": r.room, "bars": r.bars, "steps": r.steps,
+        "also": r.also.as_ref().map(|(label, kind, id)| json!({ "label": label, "kind": kind, "id": id })),
+        "about": r.about.map(|(k, id)| json!({ "kind": match k { 0 => "player", 1 => "coach", 2 => "team", _ => "game" }, "id": id,
+            "ref": if k == 2 { views::team_brief(w, mail::team_from(id))["ref"].clone() } else { Value::Null } })),
+    })
+}
+
+/// The most reveals kept for playing again.
+const KEEP_SHOWN: usize = 80;
+
+/// Reveals waiting to be shown, taken off the desk as they are handed over
+/// (and kept, so each can be played again).
 pub fn take_reveals(w: &mut World) -> Value {
     let Some(c) = w.career.as_mut() else { return json!([]) };
     let list = std::mem::take(&mut c.desk.reveals);
-    json!(list.iter().map(|r| json!({
-        "kind": r.kind, "kicker": r.kicker, "number": r.number, "name": r.name, "sub": r.sub,
-        "verdict": r.verdict, "colors": r.colors, "date": views::date_text(r.date),
-        "about": r.about.map(|(k, id)| json!({ "kind": match k { 0 => "player", 1 => "coach", 2 => "team", _ => "game" }, "id": id,
-            "ref": if k == 2 { views::team_brief(w, mail::team_from(id))["ref"].clone() } else { Value::Null } })),
+    c.desk.shown.extend(list.iter().cloned());
+    let over = c.desk.shown.len().saturating_sub(KEEP_SHOWN);
+    c.desk.shown.drain(..over);
+    let w = &*w;
+    json!(list.iter().map(|r| reveal_json(w, r)).collect::<Vec<_>>())
+}
+
+/// The reveals already shown, newest first, with their place in the list.
+pub fn reveal_list(w: &World) -> Value {
+    let Some(c) = &w.career else { return json!([]) };
+    json!(c.desk.shown.iter().enumerate().rev().map(|(i, r)| json!({
+        "n": i, "kind": r.kind, "name": r.name, "kicker": r.kicker, "date": views::date_text(r.date),
+        "about": r.about.map(|(k, id)| json!({ "kind": match k { 0 => "player", 1 => "coach", 2 => "team", _ => "game" }, "id": id })),
     })).collect::<Vec<_>>())
+}
+
+/// One shown reveal, to play again.
+pub fn reveal_again(w: &World, n: usize) -> Value {
+    let Some(r) = w.career.as_ref().and_then(|c| c.desk.shown.get(n)) else { return json!([]) };
+    json!([reveal_json(w, r)])
 }
 
 /// Pinned under Continue (S10): mails waiting on an answer by a date.

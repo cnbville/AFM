@@ -517,3 +517,29 @@ body.pd-active .sb-dr[data-cell].sb-over { box-shadow: inset 0 0 0 2px var(--sb-
 .sb-al.sb-ahead { stroke-dasharray: 6 5; stroke-width: 2; opacity: 0.85; }
 .sb-ad.sb-ring { fill: var(--sb-panel); stroke: var(--sb-gold); stroke-width: 2; }
 .sb-rleg i.pring { background: none; height: 8px; width: 8px; border-radius: 50%; border: 2px solid var(--sb-gold); box-sizing: border-box; }
+
+/* The class filter (Cain, 2026-11-14): tiles under the field in the unit
+   cards' own look. A spot with none of the picked class steps back; the men
+   who are of it glow in the page's gold edge. */
+.cf-wrap { display: flex; flex-direction: column; gap: 8px; }
+.cf-h { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.cf-hint { font-size: 12px; color: var(--sb-dim); }
+.cf-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.cf-t { font: inherit; color: inherit; text-align: left; cursor: pointer; border: 0; border-radius: 18px; padding: 11px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0; background: var(--sb-panel); box-shadow: inset 0 0 0 1px var(--sb-line); transition: transform .12s, box-shadow .12s, background .12s; }
+.cf-t:hover { background: var(--sb-hover); transform: translateY(-1px); }
+.cf-t:focus-visible { outline: 2px solid var(--sb-gold); outline-offset: 2px; }
+.cf-t.on { box-shadow: inset 0 0 0 1px var(--sb-gold-ring), 0 6px 22px rgba(241, 190, 72, .16); background: linear-gradient(140deg, var(--sb-gold-bg), var(--sb-panel) 70%); }
+.cf-th { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cf-th small { font-size: 11px; line-height: 1.3; color: var(--sb-dim); }
+.cf-v { display: flex; align-items: baseline; gap: 10px; }
+.cf-v b { font-size: 20px; font-weight: 800; font-stretch: 75%; font-variant-numeric: tabular-nums; }
+.cf-t.on .sb-lbl { color: var(--sb-gold); }
+.cf-t.on .sb-grade { -webkit-text-stroke-color: var(--sb-gold); }
+.cf-t.on .sb-ubar i { background: var(--sb-gold); }
+.cf-n { font-size: 11px; font-weight: 600; color: var(--sb-gold); }
+.sb-plate.cf-dim { opacity: .38; }
+.sb-plate.cf-hit { box-shadow: inset 0 0 0 1.5px #f1be48, 0 14px 28px rgba(0, 0, 0, .55); }
+.sb-pb.cf-hit { border-radius: .45em; box-shadow: inset 0 0 0 1.5px #f1be48; background: rgba(241, 190, 72, .14); }
+.sb-dr.cf-dim { opacity: .45; }
+.sb-dr.cf-hit { box-shadow: inset 0 0 0 1.5px var(--sb-gold-ring); background: var(--sb-gold-bg); }
+@media (prefers-reduced-motion: reduce) { .cf-t { transition: none; } .cf-t:hover { transform: none; } }

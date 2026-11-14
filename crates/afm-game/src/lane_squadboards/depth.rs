@@ -9,10 +9,11 @@ use std::collections::HashMap;
 
 use afm_engine::positions::Position;
 use afm_engine::training::seat::Board;
-use afm_engine::world::World;
 use afm_engine::world::norms::Rated;
+use afm_engine::world::{Stage, World};
 use serde_json::{Value, json};
 
+use super::needs::class_in;
 use super::{
     class_full, first_last, game_grade, health, key_attrs, level_name, marks, mid, my_games, my_team, own_read,
     readiness, snaps_in, starters_words, team_snaps, unit_card,
@@ -112,6 +113,80 @@ pub(super) fn spot_words(slot: &str, pos: Position) -> String {
     format!("{what} ({slot})")
 }
 
+/// The class filter's key for a man (Cain, 2026-11-14): FR, SO, JR or SR at a
+/// school (a redshirt counts with his class), and at a pro club the years left
+/// on his contract in the fall (1Y, 2Y, 3Y+). `offset` is the fall ahead, so a
+/// planned fall reads each man's class then. Empty for anyone else.
+pub(super) fn grp_key(w: &World, i: usize, offset: i32) -> String {
+    let p = &w.people[i];
+    if p.stage == Stage::Pro {
+        let through = p.pro.as_ref().and_then(|c| c.contract.as_ref()).map_or(w.year - 1, |k| k.last_year());
+        return match through - (w.year + offset) + 1 {
+            ..=1 => "1Y",
+            2 => "2Y",
+            _ => "3Y+",
+        }
+        .to_string();
+    }
+    let short = if offset == 0 { views::class_text(w, p) } else { class_in(w, i, w.year + offset) };
+    let k = short.trim_start_matches("RS ").to_uppercase();
+    if ["FR", "SO", "JR", "SR"].contains(&k.as_str()) { k } else { String::new() }
+}
+
+/// The filter's tiles keys for a seat: school classes, or contract years.
+fn grp_keys(t: TeamRef) -> [(&'static str, &'static str); 4] {
+    if matches!(t, TeamRef::Nfl(_) | TeamRef::Other(_)) {
+        [("1Y", "Final year"), ("2Y", "Two years left"), ("3Y+", "Three or more"), ("", "")]
+    } else {
+        [("FR", "Freshmen"), ("SO", "Sophomores"), ("JR", "Juniors"), ("SR", "Seniors")]
+    }
+}
+
+/// The whole squad's tiles: each class's headcount and share, then the filter's
+/// default (the whole squad). In a planned fall, the men still here then.
+fn class_tiles(w: &World, t: TeamRef, offset: i32, roster: &[usize]) -> Vec<Value> {
+    let here: Vec<usize> = roster
+        .iter()
+        .copied()
+        .filter(|&i| offset == 0 || super::plan::avail(w, t, i, offset, roster) == super::plan::Avail::Here)
+        .collect();
+    let n = here.len().max(1) as f64;
+    let mut out = vec![json!({ "key": "ALL", "name": "Whole squad", "n": here.len(), "pct": 100 })];
+    for (k, name) in grp_keys(t).into_iter().filter(|(k, _)| !k.is_empty()) {
+        let c = here.iter().filter(|&&i| grp_key(w, i, offset) == k).count();
+        out.push(json!({ "key": k, "name": name, "n": c, "pct": (c as f64 / n * 100.0).round() }));
+    }
+    out
+}
+
+/// Each class's men in a unit's spots, starters and the two behind them, a
+/// man once: the small count under a unit card while a class is picked.
+fn unit_classes(slots: &[Value], t: TeamRef, spots: &[(Position, usize)]) -> Value {
+    let mut seen: Vec<u64> = Vec::new();
+    let mut c: HashMap<String, usize> = HashMap::new();
+    for s in slots {
+        let pos = s["pos"].as_str().unwrap_or("");
+        if !spots.iter().any(|(p, _)| p.name() == pos) {
+            continue;
+        }
+        for m in s["picks"].as_array().into_iter().flatten() {
+            let Some(id) = m["id"].as_u64() else { continue };
+            if seen.contains(&id) {
+                continue;
+            }
+            seen.push(id);
+            if let Some(g) = m["grp"].as_str().filter(|g| !g.is_empty()) {
+                *c.entry(g.to_string()).or_default() += 1;
+            }
+        }
+    }
+    let mut o = serde_json::Map::new();
+    for (k, _) in grp_keys(t).into_iter().filter(|(k, _)| !k.is_empty()) {
+        o.insert(k.to_string(), json!(c.get(k).copied().unwrap_or(0)));
+    }
+    Value::Object(o)
+}
+
 /// One man on a spot.
 pub(super) fn man(w: &World, t: TeamRef, i: usize, num: Option<u8>) -> Value {
     let p = &w.people[i];
@@ -123,7 +198,7 @@ pub(super) fn man(w: &World, t: TeamRef, i: usize, num: Option<u8>) -> Value {
     let b = afm_engine::body::body_now(&p.player);
     json!({
         "id": p.player.id, "name": p.name, "first": first, "last": last, "num": num,
-        "pos": pos.name(), "class": views::class_text(w, p), "class_full": class_full(w, p),
+        "pos": pos.name(), "class": views::class_text(w, p), "class_full": class_full(w, p), "grp": grp_key(w, i, 0),
         "size": format!("{} · {:.0}", views::ft_in(b.height), b.weight), "home": views::hometown(w, p),
         "read": read.json(), "health": h, "health_why": why,
         "ready": readiness(w, i, read, m.as_ref()),
@@ -281,7 +356,7 @@ fn coach_note(w: &World, t: TeamRef, men: &[Option<usize>; 3], last_grade: Optio
 }
 
 /// The unit cards of a tab.
-fn units(w: &World, t: TeamRef, tab: &str) -> Vec<Value> {
+fn units(w: &World, t: TeamRef, tab: &str, slots: &[Value]) -> Vec<Value> {
     use Position::*;
     let list: &[(&str, &[(Position, usize)])] = match tab {
         "offense" => &[
@@ -302,7 +377,13 @@ fn units(w: &World, t: TeamRef, tab: &str) -> Vec<Value> {
         ],
         _ => &[("K", &[(K, 1)]), ("P", &[(P, 1)]), ("LS", &[(LS, 1)]), ("Specialists", &[(K, 1), (P, 1), (LS, 1)])],
     };
-    list.iter().map(|(n, s)| unit_card(w, t, n, s)).collect()
+    list.iter()
+        .map(|(n, s)| {
+            let mut card = unit_card(w, t, n, s);
+            card["cls"] = unit_classes(slots, t, s);
+            card
+        })
+        .collect()
 }
 
 pub(crate) fn view(w: &World, args: &Value) -> Reply {
@@ -415,8 +496,9 @@ fn view_in(w: &World, args: &Value, planned: Option<(&crate::depth_plan::Plan, i
         "next": if ctx.is_some() { None } else { views::next_game(w, t) },
         "last_game": last_game,
         "changes": if ctx.is_some() { Vec::new() } else { changes(w, &spots, &roster) },
+        "classes": class_tiles(w, t, ctx.as_ref().map_or(0, |(o, _)| *o), &roster),
         "slots": slots,
-        "units": if ctx.is_some() { Vec::new() } else { units(w, t, tab) },
+        "units": if ctx.is_some() { Vec::new() } else { units(w, t, tab, &slots) },
         "plan_falls": if base { json!((0..=super::plan::AHEAD).map(|n| w.year + n).collect::<Vec<_>>()) } else { Value::Null },
         "plan": ctx.as_ref().map(|(offset, _)| json!({ "offset": offset, "fall": w.year + offset })),
     }))

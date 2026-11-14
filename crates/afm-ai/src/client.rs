@@ -3,7 +3,7 @@
 //! The real client sends one POST to `/v1/messages` on `ureq`, with the
 //! model's fixed rules cached, thinking off and, when the caller gives a
 //! schema, structured output. The whole call, connecting and reading the
-//! answer included, is cut off after `TIMEOUT`. The key is read only here,
+//! answer included, is cut off after `TIMEOUT` (`SCHEMA_TIMEOUT` with a schema). The key is read only here,
 //! and nothing here prints it.
 
 use std::fmt;
@@ -27,6 +27,13 @@ pub const VERSION: &str = "2023-06-01";
 /// The whole call, connecting and reading the answer included: 6 seconds, the
 /// proposal's figure in "When the API isn't there" (proposed, not confirmed).
 pub const TIMEOUT: Duration = Duration::from_secs(6);
+
+/// A call with a schema gets longer: the API compiles a schema the first time
+/// it sees it (then keeps it for a day), and the typed-question schemas list
+/// the whole catalog, so the first question of a day can take well past 6
+/// seconds (a typed line timed out at 6 s on Cain's Mac, 2026-11-14; the
+/// real test's own limit was 30 s).
+pub const SCHEMA_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// An Anthropic API key. It can be made from text and nothing else can be
 /// made of it: no `Display`, no `Serialize`, and `Debug` shows only the last
@@ -312,7 +319,7 @@ impl Failure {
             Failure::Timeout => "The AI took too long.".into(),
             Failure::Api { status: 401 | 403, .. } => "The key was not accepted.".into(),
             Failure::Api { status: 429 | 500..=599, .. } => "The AI is busy right now.".into(),
-            Failure::Api { .. } => "The AI answered with an error.".into(),
+            Failure::Api { status, message } => api_note(*status, message),
             Failure::Refusal => "The AI would not answer that.".into(),
             Failure::CreditGone => "The API credit or the key's spending limit is used up.".into(),
             Failure::CapReached => "This month's $50 cap is reached.".into(),
@@ -321,10 +328,32 @@ impl Failure {
         }
     }
 
+    /// Failures worth trying the same words again after: the call itself
+    /// went wrong, and nothing about the key or the month stands in the way.
+    pub fn is_retryable(&self) -> bool {
+        !self.is_lasting() && !matches!(self, Failure::NoKey | Failure::CapReached)
+    }
+
     /// Failures that will repeat on every call until something changes
     /// (a new key, more credit): the boxes stay hidden until then.
     pub fn is_lasting(&self) -> bool {
         matches!(self, Failure::Api { status: 401 | 403, .. } | Failure::CreditGone)
+    }
+}
+
+/// "The AI answered with an error (400: the API's own words)." The API's
+/// message is kept on screen so a call that fails only on the real API can be
+/// read from the page (the key is already taken out of it by `status_failure`).
+fn api_note(status: u16, message: &str) -> String {
+    let one: String = message.split_whitespace().collect::<Vec<_>>().join(" ");
+    let one = one.trim_end_matches('.');
+    let short: String = one.chars().take(220).collect();
+    let more = if one.chars().count() > 220 { "..." } else { "" };
+    match (status, short.is_empty()) {
+        (0, true) => "The AI answered with an error.".into(),
+        (0, false) => format!("The AI answered with an error ({short}{more})."),
+        (s, true) => format!("The AI answered with an error ({s})."),
+        (s, false) => format!("The AI answered with an error ({s}: {short}{more})."),
     }
 }
 
@@ -399,9 +428,11 @@ impl fmt::Debug for Real {
 impl Model for Real {
     fn call(&self, req: &Request) -> Result<Reply, Failure> {
         let t = Instant::now();
+        let limit = if req.schema.is_some() { self.timeout.max(SCHEMA_TIMEOUT) } else { self.timeout };
         let sent = self
             .agent
             .post(&format!("{}/v1/messages", self.base))
+            .timeout(limit)
             .set("x-api-key", self.key.expose())
             .set("anthropic-version", VERSION)
             .send_json(req.body());
@@ -546,5 +577,15 @@ mod tests {
         assert!(Failure::CreditGone.is_lasting());
         assert!(Failure::Api { status: 401, message: String::new() }.is_lasting());
         assert!(!Failure::Timeout.is_lasting() && !Failure::CapReached.is_lasting());
+        assert!(Failure::Timeout.is_retryable() && Failure::Api { status: 400, message: String::new() }.is_retryable());
+        assert!(
+            !Failure::CreditGone.is_retryable()
+                && !Failure::CapReached.is_retryable()
+                && !Failure::NoKey.is_retryable()
+        );
+        // A 400 shows the API's own words, so a failure only the real API gives can be read.
+        let shown = Failure::Api { status: 400, message: "output_config.format.schema: too complex.".into() }.note();
+        assert_eq!(shown, "The AI answered with an error (400: output_config.format.schema: too complex).");
+        assert_eq!(Failure::Api { status: 404, message: String::new() }.note(), "The AI answered with an error (404).");
     }
 }

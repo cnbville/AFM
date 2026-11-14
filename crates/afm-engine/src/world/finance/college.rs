@@ -412,7 +412,10 @@ pub(crate) fn open_year(w: &mut World, p: usize, year: i32) {
         _ => (0.25e6, 0.05e6, 0.2e6),
     };
     b.l[STAFF] = (staff_top * spend * idx) as f32;
-    b.l[RECRUITING] = (recruit_top * spend * idx) as f32;
+    // Your athletic director's raises for travel and visits (people topic
+    // 12) come on top of the usual line.
+    let raised = 1.0 + crate::world::folk::staffing::recruit_bonus(w, p);
+    b.l[RECRUITING] = (recruit_top * spend * idx * raised) as f32;
     b.l[TRAVEL] = (travel * idx) as f32;
     let coa = 48_000.0 * data::hs_index(year);
     b.l[SCHOLARSHIPS] = (football_aid(prog.division) * coa * 3.2) as f32;
@@ -512,6 +515,19 @@ fn expected_crowd(w: &World, p: usize) -> f64 {
     let x = 0.2 + 0.62 * prog.fans + 0.12 * prog.recent + 0.06;
     let seats = prog.crowd_seats() as f64;
     (x * seats).min(prog.stadium as f64)
+}
+
+/// Your athletic director says yes to more recruiting money (people topic
+/// 12): this money year's recruiting line grows by `share` of its usual
+/// size from today, the months still to come spending it (the next year's
+/// budget carries the raise from `open_year`).
+pub(crate) fn raise_recruiting(w: &mut World, p: usize, share: f64) {
+    let bonus = crate::world::folk::staffing::recruit_bonus(w, p);
+    let Some(d) = w.finance.college.get_mut(p) else { return };
+    // The line already holds the raises before this one.
+    let before = 1.0 + (bonus - share).max(0.0);
+    let usual = d.budget.l[RECRUITING] as f64 / before;
+    d.budget.l[RECRUITING] = (usual * (1.0 + bonus)) as f32;
 }
 
 /// The month's money.

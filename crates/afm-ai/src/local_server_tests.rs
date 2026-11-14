@@ -138,6 +138,16 @@ fn a_slow_server_times_out() {
 }
 
 #[test]
+fn a_call_with_a_schema_is_given_longer_than_a_plain_one() {
+    // The same slow server: a plain call gives up, a schema call (whose first
+    // run the API compiles) waits for the answer.
+    let (url, _) = serve(vec![Answer(200, ok_body(), 900)]);
+    let r = real(&url).with_timeout(Duration::from_millis(300));
+    let req = Request::new("reader", "r", "u").schema(json!({"type": "object"}));
+    assert_eq!(r.call(&req).unwrap().text, "ok");
+}
+
+#[test]
 fn nothing_listening_is_no_network() {
     // A port that was free a moment ago and has nothing on it.
     let url = {
