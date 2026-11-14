@@ -119,6 +119,59 @@ pub fn race(w: &World, i: usize) -> Vec<(usize, f64)> {
     rec::portal_race(w, i)
 }
 
+/// Where you stand with him today, reason by reason: his top three besides
+/// you and yours, as his decision weighs each (None when he isn't
+/// shopping or you aren't in his race).
+pub fn stand(w: &World, i: usize) -> Option<super::college::Stand> {
+    let j = program(w)?;
+    stand_of(&rec::portal_reasons(w, i), j, w.today)
+}
+
+/// Your roster for the portal's season as a transfer counts it, and its
+/// limit (None outside a window): at the limit your offer is out of every
+/// race, unless the sandbox lifts the limits.
+pub fn your_room(w: &World) -> Option<(usize, usize)> {
+    let j = program(w)?;
+    if w.sandbox(crate::world::sandbox::Switch::RosterLimits) {
+        return None;
+    }
+    rec::portal_roster(w, j)
+}
+
+/// How much each of six reasons counts with a transfer (close to home,
+/// playing time, money, development, winning and the name, academics).
+/// True values: a screen shows them only through your staff's read.
+pub fn transfer_weights(w: &World, i: usize) -> [f64; 6] {
+    rec::transfer_weights(w, i)
+}
+
+/// Every program in his race with its reasons, best first (trial tooling
+/// and the screens' read; the numbers are his own).
+pub fn reasons(w: &World, i: usize) -> Vec<rec::PortalReasons> {
+    rec::portal_reasons(w, i)
+}
+
+fn stand_of(reasons: &[rec::PortalReasons], j: usize, today: crate::calendar::Date) -> Option<super::college::Stand> {
+    reasons.iter().position(|r| r.program == j)?;
+    let rows = reasons
+        .iter()
+        .enumerate()
+        .filter(|(n, r)| r.program == j || *n < 4)
+        .map(|(n, r)| super::college::StandRow {
+            program: r.program,
+            place: n as u16 + 1,
+            nil: r.nil as f32,
+            role: r.role,
+            parts: r.parts.map(|x| x.0 as f32),
+            hosted: r.hosted,
+        })
+        .collect::<Vec<_>>();
+    // Three others at most, then yours.
+    let mut others: Vec<super::college::StandRow> = rows.iter().filter(|r| r.program != j).take(3).cloned().collect();
+    others.extend(rows.into_iter().filter(|r| r.program == j));
+    Some(super::college::Stand { date: today, schools: reasons.len() as u16, rows: others })
+}
+
 fn target_mut(w: &mut World, id: u32) -> Option<&mut super::college::PortalTarget> {
     w.front_office.college.portal.iter_mut().find(|t| t.id == id && !t.settled)
 }
@@ -212,7 +265,13 @@ pub(crate) fn check(w: &mut World, id: u32) -> Option<String> {
     if t.offered.is_none() || t.committed.is_some() || !shopping(w, i) {
         return None;
     }
-    let race = rec::portal_race(w, i);
+    let reasons = rec::portal_reasons(w, i);
+    let race: Vec<(usize, f64)> = reasons.iter().map(|r| (r.program, r.total)).collect();
+    // Where you stand, kept for the why if he picks someone else.
+    let kept = stand_of(&reasons, j, w.today);
+    if let Some(t) = target_mut(w, id) {
+        t.stand = kept;
+    }
     let l = lead(&race, j, ALONE)?;
     if l < bar(w, i) {
         return None;

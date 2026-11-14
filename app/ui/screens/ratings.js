@@ -76,7 +76,7 @@ function rrPlayerHtml(x) {
     ${rrScale(x.range, [{ v: m.backup }, { v: m.starter }, { v: m.elite, cls: "e" }], lo0, hi0, true)}
     <div class="rr-marks"><span><small>Typical backup</small><b>${m.backup}</b></span><span><small>Typical starter</small><b>${m.starter}</b></span><span><small>Elite from</small><b>${m.elite}</b></span></div>
     <p>${esc(x.line)}</p>
-    ${x.combine ? `<p class="rr-comb"><span class="st-label">At the combine</span>${esc(x.combine)}</p>` : ""}
+    ${x.combine ? `<p class="rr-comb"><span class="st-label">At the combine</span>${esc(x.combine)}${x.combine_now ? `<small class="rr-now">Today: ${esc(x.combine_now)}</small>` : ""}</p>` : ""}
     <p class="rr-pool">${esc(x.pool)}, ${esc(x.count)}.${x.widened ? ` ${esc(x.widened)}` : ""}</p>
     ${x.change && !x.own ? rrChangeHtml(x.change, x.dev ? x.pid : null) : ""}`;
 }

@@ -201,43 +201,65 @@ PT.Career = async (p) => {
 // ---------- V6: body and testing ----------
 async function sbBodyTab(p) {
   const x = await sbGet("sb_body", { id: p.id });
-  const ci = Math.max(0, x.compares.findIndex((c) => c.key === keep("sbbcmp", { v: "level" }).v));
-  const cmp = x.compares[ci];
-  const sc = x.scores[ci];
-  const seg = `<span class="sb-seg">${x.compares.map((c, i) => `<button data-act="sbbcmp" data-v="${esc(c.key)}" aria-pressed="${i === ci}">${esc(c.label)}</button>`).join("")}</span>`;
-  const score = `<div class="sb-card"><span class="sb-lbl">Athletic score</span><div class="sb-hero2"><b>${sc.score != null ? sc.score.toFixed(1) : "–"}</b><small class="sb-dim">out of 10, against ${esc(cmp.long)}</small></div>${sc.better != null ? `<small class="sb-dim">Better than ${sc.better}% of them</small>` : '<small class="sb-dim">Too few of his numbers are known to score him.</small>'}
+  // Projected test numbers: Now, or a coming day (Senior year, At the
+  // combine, Next year) on the read that judges him.
+  const tgs = x.targets || [];
+  const gi = tgs.findIndex((g) => g.key === keep("sbbtg", { v: "now" }).v);
+  const tg = gi >= 0 ? tgs[gi] : null;
+  const pj = tg && !tg.error ? tg : null;
+  const compares = x.compares.map((c, i) => (i === 0 && pj ? { ...c, label: pj.level.label, long: pj.level.long } : c));
+  const ci = Math.max(0, compares.findIndex((c) => c.key === keep("sbbcmp", { v: "level" }).v));
+  const cmp = compares[ci];
+  const sc = pj ? pj.scores[ci] : x.scores[ci];
+  const seg = `<span class="sb-seg">${compares.map((c, i) => `<button data-act="sbbcmp" data-v="${esc(c.key)}" aria-pressed="${i === ci}">${esc(c.label)}</button>`).join("")}</span>`;
+  const tseg = tgs.length ? `<span class="sb-lbl">Testing day</span><span class="sb-seg">${[{ key: "now", label: "Now" }, ...tgs].map((g) => `<button data-act="sbbtg" data-v="${esc(g.key)}" aria-pressed="${(tg ? tg.key : "now") === g.key}">${esc(g.label)}</button>`).join("")}</span>` : "";
+  const projNote = tg ? (tg.error ? `<p class="sb-dim sb-pnote">${esc(tg.error)}</p>` : `<p class="sb-dim sb-pnote">Projected to ${esc(tg.note)} (${esc(tg.when)}) on ${tg.whose === "yours" ? "your own read" : "your staff's read"}: the middle, and the middle half of where he could land. Display only.</p>`) : "";
+  const score = `<div class="sb-card"><span class="sb-lbl">Athletic score${pj ? ' <small class="sb-dim">projected</small>' : ""}</span><div class="sb-hero2"><b class="${pj ? "sb-projv" : ""}">${sc.score != null ? sc.score.toFixed(1) : "–"}</b><small class="sb-dim">out of 10, against ${esc(cmp.long)}</small></div>${sc.better != null ? `<small class="sb-dim">Better than ${sc.better}% of them</small>` : '<small class="sb-dim">Too few of his numbers are known to score him.</small>'}
     <span class="sb-scale"><i class="sb-sc-b" style="left:0;width:${sc.score != null ? sc.score * 10 : 0}%"></i><i class="sb-sc-t" style="left:50%"></i></span><span class="sb-scl"><small>0</small><small>5</small><small>10</small></span>
     <div class="sb-cells four">${sc.subs.map((s) => `<div><span class="sb-lbl">${esc(s.k)}</span><b class="${s.v != null && s.v < 2.5 ? "sb-warn" : ""}">${s.v != null ? s.v.toFixed(1) : "–"}</b><small class="sb-dim">of 10</small></div>`).join("")}</div></div>`;
   const ti = Math.max(0, x.rows.findIndex((r) => r.key === keep("sbbt", { v: "forty" }).v));
   const rows = x.rows.map((r, i) => {
-    const pc = r.pct ? r.pct[ci] : null;
-    return `<div class="sb-mr ${i === ti ? "on" : ""}" data-act="sbbt" data-v="${esc(r.key)}"><span>${esc(r.label)}</span><span>${r.text != null ? `<b>${esc(r.text)}</b><small class="${r.verified === false ? "sb-warn" : "sb-dim"}" title="${esc(r.source || "")}">${r.verified ? "✓ " : ""}${esc(r.source || "")}</small>` : '<span class="sb-dim">Not tested</span>'}</span><span class="sb-pb2">${pc != null ? `<span class="sb-pbar"><i style="width:${pc}%" class="${pc < 25 ? "low" : ""}"></i><i class="mid"></i></span>` : ""}</span><b class="${pc != null && pc < 25 ? "sb-warn" : ""}">${pc != null ? pc : "–"}</b></div>`;
+    const q = pj ? pj.rows[i] : null;
+    const pc = q ? (q.pct ? q.pct[ci] : null) : r.pct ? r.pct[ci] : null;
+    const now = r.text != null ? `<b>${esc(r.text)}</b><small class="${r.verified === false ? "sb-warn" : "sb-dim"}" title="${esc(r.source || "")}">${r.verified ? "✓ " : ""}${esc(r.source || "")}</small>` : '<span class="sb-dim">Not tested</span>';
+    const ahead = q ? (q.text != null ? `<b class="sb-projv">${esc(q.text)}</b><small class="sb-dim" title="${q.anchored ? "Leans on his own test" : "From the read alone"}">projected${q.band ? ` (${esc(q.band)})` : ""}${r.text != null ? ` · now ${esc(r.text)}` : ""}</small>` : '<span class="sb-dim">Not projected</span>') : null;
+    return `<div class="sb-mr ${i === ti ? "on" : ""}" data-act="sbbt" data-v="${esc(r.key)}"><span>${esc(r.label)}</span><span>${ahead || now}</span><span class="sb-pb2">${pc != null ? `<span class="sb-pbar"><i style="width:${pc}%" class="${pc < 25 ? "low" : ""}"></i><i class="mid"></i></span>` : ""}</span><b class="${pc != null && pc < 25 ? "sb-warn" : ""}">${pc != null ? pc : "–"}</b></div>`;
   }).join("");
   const lifts = x.lifts.length ? `<div class="sb-sec"><span class="sb-lbl">The weight room <small class="sb-dim">your strength staff</small></span>${x.lifts.map((l) => `<div class="sb-kv"><span>${esc(l.label)}</span><b>${esc(l.text)}</b></div>`).join("")}</div>` : "";
   const t = x.rows[ti];
-  const plot = sbBodyPlot(x, ti, ci);
+  const plot = sbBodyPlot(x, ti, ci, pj);
   const alikes = x.alikes.length ? `<div class="sb-card"><span class="sb-lbl">Built like him <small class="sb-dim">drafted ${esc(x.pos)}s closest in size and testing</small></span><div class="sb-bh"><span>Player</span><span>Drafted</span><span>NFL career</span><span>Match</span></div>${x.alikes.map((a) => `<div class="sb-br"><span>${playerLink(a.id, a.name)}<small>${esc(a.line)}</small></span><span>${esc(a.drafted)}</span><span>${esc(a.career)}</span><b>${a.match}%</b></div>`).join("")}</div>` : `<div class="sb-card"><span class="sb-lbl">Built like him</span><p class="sb-dim">Too few of his numbers are known to match him.</p></div>`;
-  const ws = x.weights;
+  // Projected: a dashed line from today to the day, ending on his
+  // projected weight.
+  const fut = pj ? pj.weights.map((w) => ({ ...w, ahead: true, source: "Projected" })) : [];
+  const ws = x.weights.concat(fut);
+  const nowAt = x.weights.length - 1;
   const wline = ws.length > 1 ? (() => {
     const W = 640, H = 150, lo = Math.min(...ws.map((w) => w.wt)) - 4, hi = Math.max(...ws.map((w) => w.wt)) + 4;
     const X = (i) => 40 + (i * (W - 80)) / Math.max(1, ws.length - 1), Y = (v) => H - 34 - ((v - lo) / Math.max(1, hi - lo)) * (H - 66);
     // Every point carries its weight; the dates under at most six of them.
     const every = Math.ceil(ws.length / 6);
-    const named = (i) => i === 0 || i === ws.length - 1 || (i % every === 0 && ws.length - 1 - i >= every / 2);
+    const named = (i) => i === 0 || i === ws.length - 1 || i === nowAt || (i % every === 0 && ws.length - 1 - i >= every / 2 && Math.abs(i - nowAt) >= every / 2);
     const day = (s) => String(s || "").replace(/^[A-Z][a-z]{2} \d{1,2} /, "");
-    return `<svg class="sb-wl" viewBox="0 0 ${W} ${H}" role="img" aria-label="His weight over time"><polyline points="${ws.map((w, i) => `${X(i).toFixed(1)},${Y(w.wt).toFixed(1)}`).join(" ")}" class="sb-al"/>${ws.map((w, i) => `<circle cx="${X(i).toFixed(1)}" cy="${Y(w.wt).toFixed(1)}" r="4" class="sb-ad"><title>${esc(w.label)}: ${w.wt} lb (${esc(w.source || "")})</title></circle>${named(i) ? `<text x="${X(i).toFixed(1)}" y="${(Y(w.wt) - 10).toFixed(1)}" class="sb-wlv">${w.wt}</text><text x="${X(i).toFixed(1)}" y="${H - 10}" class="sb-wlt">${esc(day(w.label))}</text>` : ""}`).join("")}</svg>`;
+    const pts = (a, b) => ws.slice(a, b).map((w, k) => `${X(a + k).toFixed(1)},${Y(w.wt).toFixed(1)}`).join(" ");
+    const past = `<polyline points="${pts(0, nowAt + 1)}" class="sb-al"/>`;
+    const ahead = fut.length ? `<polyline points="${pts(nowAt, ws.length)}" class="sb-al sb-ahead"/>` : "";
+    return `<svg class="sb-wl" viewBox="0 0 ${W} ${H}" role="img" aria-label="His weight over time">${past}${ahead}${ws.map((w, i) => `<circle cx="${X(i).toFixed(1)}" cy="${Y(w.wt).toFixed(1)}" r="4" class="sb-ad${w.ahead ? " sb-ring" : ""}"><title>${esc(w.label)}: ${w.wt} lb (${esc(w.source || "")})</title></circle>${named(i) ? `<text x="${X(i).toFixed(1)}" y="${(Y(w.wt) - 10).toFixed(1)}" class="sb-wlv">${w.wt}</text><text x="${X(i).toFixed(1)}" y="${H - 10}" class="sb-wlt">${esc(day(w.label))}</text>` : ""}`).join("")}</svg>`;
   })() : '<p class="sb-dim">Your staff keeps his weight from each testing day and each season\'s end.</p>';
   const body = x.body;
   const over = `<div class="sb-card"><span class="sb-lbl">Body over time</span>${wline}<div class="sb-kv"><span>Playing weight</span><b>${body.now} lb</b></div>${body.gained != null && ws.length > 1 ? `<div class="sb-kv"><span>Since ${esc(ws[0].label)}</span><b>${sbDiff(Math.round(body.gained))} lb</b></div>` : ""}<div class="sb-kv"><span>Staff target</span><b>${body.target ? body.target + " lb" : "None set"}</b></div><div class="sb-kv"><span>Games missed hurt</span><b>${body.missed}</b></div><div class="sb-kv"><span>Seasons with an injury</span><b>${body.injuries}</b></div></div>`;
-  return `<div class="sb"><div class="sb-top"><span class="sb-lbl">Compare with</span>${seg}</div>
+  return `<div class="sb"><div class="sb-top"><span class="sb-lbl">Compare with</span>${seg}${tseg}</div>${projNote}
     <div class="sb-body"><div class="sb-col">${score}<div class="sb-card"><span class="sb-lbl">Measurements <small class="sb-dim">✓ verified · the rest self-reported</small></span><div class="sb-mh"><span>Test</span><span>Result</span><span>Percentile</span><span>Pct</span></div>${rows}${lifts}</div></div>
     <div class="sb-col"><div class="sb-card"><span class="sb-lbl">${esc(t.label)} against weight <small class="sb-dim">${esc(cmp.long)}</small></span>${plot}</div>${alikes}${over}</div></div></div>`;
 }
-function sbBodyPlot(x, ti, ci) {
+const cap1 = (s) => String(s || "").charAt(0).toUpperCase() + String(s || "").slice(1);
+function sbBodyPlot(x, ti, ci, pj) {
   const W = 900, H = 392, L = 52, R = 14, T = 16, B = 40;
   const t = x.rows[ti];
   const me = t.value, mw = x.rows[1].value;
-  const pool = ci === 0 ? x.plot.level : ci === 1 ? x.plot.drafted : [];
+  // Projected: a hollow ring where he's projected, a thin line from today.
+  const pv = pj ? pj.rows[ti].value : null, pw = pj ? pj.rows[1].value : null;
+  const pool = ci === 0 ? (pj ? pj.dots : x.plot.level) : ci === 1 ? x.plot.drafted : [];
   const pts = pool.map((m) => [m.v[ti], m.v[1], m.f, m]).filter((q) => q[0] != null && q[1] != null);
   const real = x.plot.real;
   let xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
@@ -247,6 +269,8 @@ function sbBodyPlot(x, ti, ci) {
   }
   if (me != null) xs.push(me);
   if (mw != null) ys.push(mw);
+  if (pv != null) xs.push(pv);
+  if (pw != null) ys.push(pw);
   if (!xs.length || !ys.length) return '<p class="sb-dim">Nothing to plot for this test.</p>';
   const pad = (a, b) => { const d = (b - a) * 0.06 || 1; return [a - d, b + d]; };
   const [x0, x1] = pad(Math.min(...xs), Math.max(...xs)), [y0, y1] = pad(Math.min(...ys), Math.max(...ys));
@@ -282,8 +306,14 @@ function sbBodyPlot(x, ti, ci) {
     const bw = label.length * 6.6 + 18, bx = cx + bw + 14 > W ? cx - bw - 12 : cx + 12;
     return `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="6" class="sb-me"/><rect x="${bx.toFixed(1)}" y="${(cy - 30).toFixed(1)}" width="${bw.toFixed(1)}" height="22" rx="6" class="sb-mel"/><text x="${(bx + 9).toFixed(1)}" y="${(cy - 15).toFixed(1)}" class="sb-melt">${esc(label)}</text>`;
   })() : "";
-  const legend = ci === 1 ? '<div class="sb-rleg"><span><i class="dot"></i>Drafted</span><span><i class="ring"></i>First round</span><span><i class="me"></i>Him</span></div>' : ci === 2 ? '<div class="sb-rleg"><span><i class="po"></i>The real combine since 2000, one and two spreads</span><span><i class="me"></i>Him</span></div>' : '<div class="sb-rleg"><span><i class="dot"></i>His level at his position</span><span><i class="me"></i>Him</span></div>';
-  return `<svg class="sb-plot" viewBox="0 0 ${W} ${H}" data-w="${W}" role="img" aria-label="${esc(t.label)} against weight">${gx}${gy}${ell}${dots}${meDot}<g class="sb-hov"></g><text x="${W - R}" y="${H - 4}" class="sb-axl">${esc(t.label.toUpperCase())}${flip ? " · FASTER TO THE RIGHT" : ""}</text><text x="${L}" y="${T - 4}" class="sb-axl l">WEIGHT (LB)</text></svg>${legend}`;
+  const ring = pv != null && pw != null ? (() => {
+    const cx = X(pv), cy = Y(pw);
+    const from = me != null && mw != null ? `<line x1="${X(me).toFixed(1)}" y1="${Y(mw).toFixed(1)}" x2="${cx.toFixed(1)}" y2="${cy.toFixed(1)}" class="sb-pline"/>` : "";
+    return `${from}<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="6.5" class="sb-pring"><title>Projected: ${esc(pj.rows[ti].text || "")} at ${esc(pj.rows[1].text || "")}</title></circle>`;
+  })() : "";
+  const pl = pj ? '<span><i class="pring"></i>Projected</span>' : "";
+  const legend = ci === 1 ? `<div class="sb-rleg"><span><i class="dot"></i>Drafted</span><span><i class="ring"></i>First round</span><span><i class="me"></i>Him</span>${pl}</div>` : ci === 2 ? `<div class="sb-rleg"><span><i class="po"></i>The real combine since 2000, one and two spreads</span><span><i class="me"></i>Him</span>${pl}</div>` : `<div class="sb-rleg"><span><i class="dot"></i>${pj ? esc(cap1(pj.level.long)) : "His level at his position"}</span><span><i class="me"></i>Him</span>${pl}</div>`;
+  return `<svg class="sb-plot" viewBox="0 0 ${W} ${H}" data-w="${W}" role="img" aria-label="${esc(t.label)} against weight">${gx}${gy}${ell}${dots}${ring}${meDot}<g class="sb-hov"></g><text x="${W - R}" y="${H - 4}" class="sb-axl">${esc(t.label.toUpperCase())}${flip ? " · FASTER TO THE RIGHT" : ""}</text><text x="${L}" y="${T - 4}" class="sb-axl l">WEIGHT (LB)</text></svg>${legend}`;
 }
 PLAYER_TABS.push({ name: "Body and testing", after: "Shape", draw: sbSafe(sbBodyTab) });
 // A dot's label on hover (minor bug 30), drawn as the plot's own label.
@@ -307,12 +337,17 @@ document.addEventListener("mouseout", (ev) => {
 Object.assign(CORE_MORE, {
   sbspot: (el) => { keep("sbdc:" + sbCurForm(), { k: 0 }).k = Number(el.dataset.k); sbLocal(el); },
   sbform: (el) => { keep("sbform", {})[el.dataset.tab] = el.dataset.v; refresh(el); },
-  sbdcview: (el) => { keep("sbdcview", { v: "Broadcast" }).v = el.dataset.v; refresh(el); },
+  sbdcview: (el) => { keep("sbdcview", { v: "Broadcast" }).v = el.dataset.v; if (el.dataset.v !== "Broadcast") keep("sbplan", { y: 0 }).y = 0; refresh(el); },
+  sbplan: (el) => { keep("sbplan", { y: 0 }).y = Number(el.dataset.v) || 0; refresh(el); },
   sbup: async (el) => {
     const tab = keep("trboard", { t: "Offense" }).t;
     const form = sbCurForm();
     try {
-      const r = await api("sb_depth_up", { tab: SB_TAB_KEY[tab], form, slot: Number(el.dataset.k), n: Number(el.dataset.n) });
+      const off = Number(el.dataset.plan) || 0;
+      // A planned fall: the man swaps with the one above him in your plan.
+      const r = off
+        ? await api("sb_plan_put", { tab: SB_TAB_KEY[tab], form, offset: off, slot: Number(el.dataset.k), n: Number(el.dataset.n) - 1, pid: Number(el.dataset.pid), from_slot: Number(el.dataset.k), from_n: Number(el.dataset.n) })
+        : await api("sb_depth_up", { tab: SB_TAB_KEY[tab], form, slot: Number(el.dataset.k), n: Number(el.dataset.n) });
       SB.cache = {};
       toast(r && r.note ? r.note : "Depth chart saved.");
     } catch (e) {
@@ -322,9 +357,15 @@ Object.assign(CORE_MORE, {
   },
   sbreset: async (el) => {
     try {
-      await api("sb_depth_reset", { tab: SB_TAB_KEY[keep("trboard", { t: "Offense" }).t], form: el.dataset.form });
+      const off = Number(el.dataset.plan) || 0;
+      if (off) {
+        await api("sb_plan_reset", { tab: SB_TAB_KEY[keep("trboard", { t: "Offense" }).t], form: el.dataset.form, offset: off });
+        toast("This year follows your chart again.");
+      } else {
+        await api("sb_depth_reset", { tab: SB_TAB_KEY[keep("trboard", { t: "Offense" }).t], form: el.dataset.form });
+        toast("Your staff has the depth chart back.");
+      }
       SB.cache = {};
-      toast("Your staff has the depth chart back.");
     } catch (e) {
       toast(e.message || String(e));
     }
@@ -341,6 +382,7 @@ Object.assign(CORE_MORE, {
   sbarcy: (el) => { keep("sbarcy:" + el.dataset.id, { v: 0 }).v = Number(el.dataset.v); sbLocal(el); },
   sbbcmp: (el) => { keep("sbbcmp", { v: "level" }).v = el.dataset.v; sbLocal(el); },
   sbbt: (el) => { keep("sbbt", { v: "forty" }).v = el.dataset.v; sbLocal(el); },
+  sbbtg: (el) => { keep("sbbtg", { v: "now" }).v = el.dataset.v; sbLocal(el); },
 });
 // The formation on the stadium's open tab.
 function sbCurForm() {

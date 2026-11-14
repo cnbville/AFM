@@ -316,8 +316,15 @@ fn with_no_key_there_is_no_box() {
     }
     // The room's box (lane 5) answers for its own room: closed when there is no game today.
     assert!(g.call("talk_typed", &json!({ "moment": "pregame", "text": "Go." })).is_err());
+    // Lane 4 (the desk) filled these kinds; with no key none of them answers.
+    let desk = ["analyst", "squad", "find", "opponent", "scout", "report", "leads"];
     for kind in crate::live_talk::ask::KINDS {
-        assert_eq!(g.call("ai_ask", &json!({ "kind": kind })), Err(crate::live_talk::NOT_YET.into()), "{kind}");
+        let r = g.call("ai_ask", &json!({ "kind": kind }));
+        if desk.contains(&kind) {
+            assert!(r.is_err(), "{kind}");
+        } else {
+            assert_eq!(r, Err(crate::live_talk::NOT_YET.into()), "{kind}");
+        }
     }
 }
 

@@ -85,7 +85,7 @@ struct InPortal {
 /// team's entrant has no day yet and plays the run out (`release_held`).
 /// Everyone else in the portal sits out the games left and is gone.
 /// `season_on`: this fall's season has started and the year hasn't turned.
-fn portal_entry(w: &World, p: &Person, season_on: bool) -> Option<(&'static str, bool)> {
+pub(super) fn portal_entry(w: &World, p: &Person, season_on: bool) -> Option<(&'static str, bool)> {
     let e = p.cal.portal.filter(|_| p.stage == Stage::College)?;
     Some((e.why, on_hold(e.held, e.entered.0, w.today.0, season_on)))
 }
@@ -251,7 +251,7 @@ fn verdict(v: Option<f64>, m: Option<&Marks>) -> &'static str {
 }
 
 /// His class in a fall to come: "Jr", "RS So", "Sr"; a pro's age.
-fn class_in(w: &World, i: usize, fall: i32) -> String {
+pub(super) fn class_in(w: &World, i: usize, fall: i32) -> String {
     let p = &w.people[i];
     match p.stage {
         Stage::HighSchool | Stage::PrepSchool if !is_commit(w, i) => {
@@ -269,7 +269,7 @@ fn class_in(w: &World, i: usize, fall: i32) -> String {
     }
 }
 
-fn is_commit(w: &World, i: usize) -> bool {
+pub(super) fn is_commit(w: &World, i: usize) -> bool {
     let p = &w.people[i];
     let Some(TeamRef::College(c)) = views::mine(w) else { return false };
     matches!(p.stage, Stage::HighSchool | Stage::PrepSchool)
