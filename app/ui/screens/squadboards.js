@@ -278,23 +278,38 @@ screens.depth = async (a) => {
 // own, so a man can be picked up from any of them and dropped into a backup
 // slot as well as a starter's (playtest bug 16). `bk` says whether this
 // formation keeps its backups: the special units keep only their first men.
-function sbPlate(s, k, sel, pos, bk) {
+function sbPlate(s, k, sel, pos, bk, cf) {
   const p = s.picks[0];
+  // The class filter (Cain, 2026-11-14): a spot with none of that class steps
+  // back, and the men who are of it glow.
+  const hit = (m) => cf && cf !== "ALL" && m && m.grp === cf;
+  const dim = cf && cf !== "ALL" && !s.picks.some(hit);
   const rd = (m) => (m && m.read ? `<b class="sb-prr"${rrAttrs({ p: m.id, k: "ovr" }, m.read[0], m.read[1])}>${m.read[0]}-${m.read[1]}</b>` : "");
   // What makes a place a drop target (n: 1 the starter, 2 and 3 behind him),
   // and the man in it something to pick up.
   const cell = (n, m) => ` data-cell="1" data-k="${k}" data-n="${n}" data-slot="${esc(s.slot)}" data-spos="${esc(s.pos)}"${bk ? "" : ' data-bk="0"'}` +
     (m ? ` data-pid="${m.id}" data-mpos="${esc(m.pos)}" data-name="${esc(m.name)}"${s.controls ? ' data-drag="1"' : ""}` : "");
-  const back = s.picks.slice(1).map((b, i) => `<span class="sb-pb ${s.controls ? "" : "sb-lock"}"${cell(i + 2, b)}><i>${i + 2}</i><span>${b ? esc(b.last) : '<span class="sb-dim">Nobody</span>'}</span>${rd(b)}</span>`).join("");
+  const back = s.picks.slice(1).map((b, i) => `<span class="sb-pb ${s.controls ? "" : "sb-lock"} ${hit(b) ? "cf-hit" : ""}"${cell(i + 2, b)}><i>${i + 2}</i><span>${b ? esc(b.last) : '<span class="sb-dim">Nobody</span>'}</span>${rd(b)}</span>`).join("");
   const tag = p && p.health === "out" ? '<span class="sb-tag bad">OUT</span>' : p && p.health === "limited" ? '<span class="sb-tag warn">Q</span>' : "";
   // Not a <button>: a button can't be dragged in every webview. Picked up with
   // pointer events (pointerdrag.js), so no `draggable`.
-  return `<div class="sb-plate ${sel ? "on" : ""} ${p ? "" : "empty"} ${s.controls ? "" : "sb-lock"}" role="button" tabindex="0" style="${sbAt(pos.x, pos.y)};--k:${pos.k.toFixed(3)}" data-act="sbspot" data-pos="${esc(s.pos)}"${cell(1, p)} aria-label="${esc(s.pos_full)}${p ? ", " + esc(p.name) : ""}${s.controls ? "" : ", the head coach's call"}">
+  return `<div class="sb-plate ${sel ? "on" : ""} ${p ? "" : "empty"} ${s.controls ? "" : "sb-lock"} ${dim ? "cf-dim" : ""} ${hit(p) ? "cf-hit" : ""}" role="button" tabindex="0" style="${sbAt(pos.x, pos.y)};--k:${pos.k.toFixed(3)}" data-act="sbspot" data-pos="${esc(s.pos)}"${cell(1, p)} aria-label="${esc(s.pos_full)}${p ? ", " + esc(p.name) : ""}${s.controls ? "" : ", the head coach's call"}">
     <span class="sb-pt"><span class="sb-pn">${p && p.num != null ? p.num : "–"}</span><span class="sb-ps">${esc(s.slot)}</span>${rd(p).replace('class="sb-prr"', 'class="sb-pr"')}</span>
     <span class="sb-pl"><span class="sb-plt">${p ? esc(p.last) : "Open"}</span>${tag}</span>${back}${p && s.by ? `<span class="hp-by hp-pby ${s.by.toLowerCase()}" aria-hidden="true">${s.by}</span>` : ""}</div>`;
 }
-function sbUnits(units) {
-  return `<div class="sb-units">${units.map((u, i) => `<div class="sb-unit ${i === units.length - 1 ? "all" : ""}"><div class="sb-unit-h"><span class="sb-lbl">${esc(u.name)}</span><small>${u.rank ? `${esc(u.rank_words)} ${esc(u.among)}` : esc(u.among || "")}</small></div><div class="sb-unit-v"><span class="sb-grade">${esc(u.grade)}</span><b>${u.value != null ? u.value : "–"}</b></div><span class="sb-ubar"><i style="width:${u.pct != null ? u.pct : 0}%"></i></span></div>`).join("")}</div>`;
+function sbUnits(units, cf) {
+  const on = cf && cf !== "ALL";
+  return `<div class="sb-units">${units.map((u, i) => `<div class="sb-unit ${i === units.length - 1 ? "all" : ""}"><div class="sb-unit-h"><span class="sb-lbl">${esc(u.name)}</span><small>${u.rank ? `${esc(u.rank_words)} ${esc(u.among)}` : esc(u.among || "")}</small></div><div class="sb-unit-v"><span class="sb-grade">${esc(u.grade)}</span><b>${u.value != null ? u.value : "–"}</b></div><span class="sb-ubar"><i style="width:${u.pct != null ? u.pct : 0}%"></i></span>${on && u.cls && u.cls[cf] != null ? `<small class="cf-n">${u.cls[cf]} ${esc(cf)}</small>` : ""}</div>`).join("")}</div>`;
+}
+// The class filter's tiles, under the field (Cain, 2026-11-14): press one to
+// light that class on the field and in the unit cards; All clears it. It lives
+// on the route, so leaving the page drops it.
+const sbClass = () => (S.route.args && S.route.args.sbc) || "ALL";
+function sbClassRow(x) {
+  const cf = sbClass();
+  const tiles = x.classes || [];
+  if (tiles.length < 2) return "";
+  return `<div class="cf-wrap"><div class="cf-h"><span class="sb-lbl">${/^\d/.test(tiles[1].key) ? "Contract years left" : "Class"}</span><span class="cf-hint">Press one to light that group on the field. Press All to clear it.</span></div><div class="cf-row" role="group" aria-label="Class filter">${tiles.map((c) => `<button class="cf-t ${c.key === cf ? "on" : ""}" data-act="sbclass" data-v="${esc(c.key)}" aria-pressed="${c.key === cf}"><span class="cf-th"><span class="sb-lbl">${esc(c.name)}</span><small>${c.key === "ALL" ? "across all units" : `${c.pct}% of the squad`}</small></span><span class="cf-v"><span class="sb-grade">${esc(c.key)}</span><b>${c.n}</b></span><span class="sb-ubar"><i style="width:${c.pct}%"></i></span></button>`).join("")}</div></div>`;
 }
 function sbRing(r, size = 84) {
   const m = r ? (r[0] + r[1]) / 2 : 0;
@@ -316,7 +331,8 @@ function sbDepthPage(x, cur) {
   });
   // A plate is 10 by 8.25 em on a base of 1.25% of the stage (squadboards.css).
   sbSpread(items, 123, 101, 11);
-  const plates = x.slots.map((s, i) => sbPlate(s, i, i === sel, items[i], !!(x.base || x.package))).join("");
+  const cf = sbClass();
+  const plates = x.slots.map((s, i) => sbPlate(s, i, i === sel, items[i], !!(x.base || x.package), cf)).join("");
   const s = x.slots[sel];
   const head = pageHead({
     kicker: `${esc(x.level)} · ${esc(x.form_label)}`,
@@ -330,7 +346,7 @@ function sbDepthPage(x, cur) {
   const actions = x.yours ? `<button class="st-btn small glass" data-act="sbreset" data-form="${esc(x.form)}"${x.plan ? ` data-plan="${x.plan.offset}"` : ""}>${x.plan ? "Reset this year to my chart" : "Give it back to the staff"}</button>` : "";
   const stage = `<div class="sb-stage" data-form="${esc(x.form)}" data-plan="${x.plan ? x.plan.offset : 0}" role="group" aria-label="${esc(x.form_label)} on the field">${sbField(x.level, LOS, YD, def ? null : LOS - 10 * YD)}${plates}</div>`;
   return `<div class="film sb"><div class="pad sb-pad">${head}${sbDcTabs(cur, x)}
-    <div class="sb-dc sb-dc-needs"><div class="sb-dc-main"><div class="sb-next">${next}${last}${actions ? `<span class="sb-act">${actions}</span>` : ""}</div>${stage}${x.plan ? "" : hpDcFoot(x) + sbUnits(x.units)}</div>
+    <div class="sb-dc sb-dc-needs"><div class="sb-dc-main"><div class="sb-next">${next}${last}${actions ? `<span class="sb-act">${actions}</span>` : ""}</div>${stage}${sbClassRow(x)}${x.plan ? "" : hpDcFoot(x) + sbUnits(x.units, cf)}</div>
     <aside class="sb-side">${s ? sbSpotPanel(x, s, sel) : '<div class="sb-empty">No spots on this formation.</div>'}</aside></div></div></div>`;
 }
 function sbSpotPanel(x, s, k) {
@@ -348,7 +364,8 @@ function sbSpotPanel(x, s, k) {
     const hurt = m.health !== "full" ? ` <span class="sb-tag ${m.health === "out" ? "bad" : "warn"}" title="${esc(m.health_why || "")}">${m.health === "out" ? "Out" : "Limited"}</span>` : "";
     const ready = i === 0 ? "Starter" : m.ready;
     const drag = s.controls ? ` data-drag="1" data-pid="${m.id}" data-pos="${esc(m.pos)}" data-name="${esc(m.name)}" title="Drag ${esc(m.name)} onto a spot"` : "";
-    return `<div class="sb-dr ${i === 0 ? "first" : ""} ${s.controls ? "" : "sb-lock"}"${cellAt(i)}${drag}><span class="sb-di">${i + 1}</span><span class="sb-dn">${playerLink(m.id, m.name, "Development")}${hurt}<small>${esc(m.class)} · <span class="${/Needs|Out|Redshirt/.test(ready) ? "sb-warn" : ""}">${esc(ready)}</span>${m.pos !== s.pos ? ` · plays ${esc(m.pos)}` : ""}</small></span>${range(m.read, null, { p: m.id, k: "ovr" })}${up}</div>`;
+    const cfOn = sbClass();
+    return `<div class="sb-dr ${i === 0 ? "first" : ""} ${s.controls ? "" : "sb-lock"} ${cfOn !== "ALL" ? (m.grp === cfOn ? "cf-hit" : "cf-dim") : ""}"${cellAt(i)}${drag}><span class="sb-di">${i + 1}</span><span class="sb-dn">${playerLink(m.id, m.name, "Development")}${hurt}<small>${esc(m.class)} · <span class="${/Needs|Out|Redshirt/.test(ready) ? "sb-warn" : ""}">${esc(ready)}</span>${m.pos !== s.pos ? ` · plays ${esc(m.pos)}` : ""}</small></span>${range(m.read, null, { p: m.id, k: "ovr" })}${up}</div>`;
   }).join("");
   const coach = d && d.coach ? `<div class="sb-coach"><span class="sb-ci">${esc(String(d.coach.name || "?").split(" ").map((w) => w[0]).slice(0, 2).join(""))}</span><div><div class="sb-cn">${d.coach.you ? "You" : coachLink(d.coach.id, d.coach.name || "")}, ${esc(d.coach.title)}</div><p>${esc(d.note)}</p></div></div>` : "";
   return `<span class="sb-bignum" aria-hidden="true">${p.num != null ? p.num : ""}</span>
