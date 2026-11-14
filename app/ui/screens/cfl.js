@@ -38,19 +38,28 @@ screens.cfldraft = async (a) => {
   return `<div class="pad cf">${head}${said}${tab.html}${body}${scGoto(GOTO.cfldraft())}</div>`;
 };
 
-function cfBoard(x) {
+function cfBoard(x, compact) {
   const live = x.live;
   const there = live && live.next_mine ? `There at pick ${live.next_mine}` : "";
-  const head = [["#", false], ["Your board, best left", true], ["Your staff's read", true], ["Grade", true], ["Bureau", false]];
+  // The room is the mock-up's: the board, the grade, the Bureau, who's
+  // there at your next pick.
+  const head = [["#", false], ["Your board, best left", true], ...(compact ? [] : [["Your staff's read", true]]), ["Grade", true], ["Bureau", false]];
   if (there) head.push([there, false]);
   if (live && live.on_clock) head.push(["", false]);
-  const rows = x.board.map((r) => `<tr><td><b class="st-cond">${r.rank}</b></td><td class="l">${cfWho(r)}</td><td class="l">${scNow(r.read, r.id)} ${scRole(r.read)}</td><td class="l">${esc(r.grade)}</td><td>${r.bureau ?? cfDash}</td>${there ? `<td title="Your staff's mock of the picks before yours, ten times">${r.there} in 10</td>` : ""}${live && live.on_clock ? `<td>${cfBtn("cf-pick", { id: r.id, name: r.name }, "Draft", "primary")}</td>` : ""}</tr>`);
+  const rows = x.board.map((r) => `<tr><td><b class="st-cond">${r.rank}</b></td><td class="l">${cfWho(r)}</td>${compact ? "" : `<td class="l">${scNow(r.read, r.id)} ${scRole(r.read)}</td>`}<td class="l">${esc(r.grade)}</td><td>${r.bureau ?? cfDash}</td>${there ? `<td title="Your staff's mock of the picks before yours, ten times">${r.there} in 10</td>` : ""}${live && live.on_clock ? `<td>${cfBtn("cf-pick", { id: r.id, name: r.name }, "Draft", "primary")}</td>` : ""}</tr>`);
   return cfPanel("Your board", "the class still on it, by your club's grade", cfTable(head, rows, "The class comes out on U Sports' opening weekend in late August."));
 }
 
 function cfBureau(x) {
   if (!x.bureau.length) return cfPanel("CFL Scouting Bureau", "", '<div class="empty">The Bureau\'s first top 20 comes out in mid September.</div>');
-  return `<div class="cf-grid">${x.bureau.slice().reverse().map((b) => cfPanel(`${b.edition} edition`, esc(b.date), cfTable([["#", false], ["Player", true], ["Your board", false]], b.rows.map((r) => `<tr><td><b class="st-cond">${r.rank}</b></td><td class="l">${cfWho(r)}</td><td>${r.yours ?? cfDash}</td></tr>`), "Nobody listed."))).join("")}</div>`;
+  // One row a man, his place in each edition, the latest first.
+  const eds = x.bureau.slice().reverse();
+  const men = new Map();
+  eds.forEach((b, k) => b.rows.forEach((r) => { if (!men.has(r.id)) men.set(r.id, { r, at: [] }); men.get(r.id).at[k] = r.rank; }));
+  const list = [...men.values()].sort((a, b) => (a.at[0] ?? 99) - (b.at[0] ?? 99) || (a.at[1] ?? 99) - (b.at[1] ?? 99) || (a.at[2] ?? 99) - (b.at[2] ?? 99));
+  const head = [["Player", true], ...eds.map((b) => [b.edition, false]), ["Your board", false]];
+  const rows = list.map((m) => `<tr><td class="l">${cfWho(m.r)}</td>${eds.map((_, k) => `<td>${m.at[k] ? `<b class="st-cond">${m.at[k]}</b>` : cfDash}</td>`).join("")}<td>${m.r.yours ?? cfDash}</td></tr>`);
+  return cfPanel("CFL Scouting Bureau", `the top 20 of each edition · ${eds.map((b) => `${esc(b.edition)} ${esc(b.date)}`).join(" · ")}`, cfTable(head, rows, "Nobody listed."));
 }
 
 function cfTests(list, label, note) {
@@ -81,8 +90,11 @@ function cfRoom(x) {
   const offers = live.offers.map((o) => `<div class="cf-call"><span class="st-label">${esc(o.club.name)} on the phone</span><p>${esc(o.text)}.</p><div class="cf-acts">${cfBtn("cf-offer", { k: o.k, say: "take" }, "Take it", "primary")}${cfBtn("cf-offer", { k: o.k, say: "more" }, "Ask for more")}${cfBtn("cf-offer", { k: o.k, say: "no" }, "No")}</div></div>`).join("");
   const trades = live.trades.length ? `<div class="cf-dim">${live.trades.map(esc).join("<br>")}</div>` : "";
   const staff = live.on_clock && live.staff_pick ? `<p class="cf-dim">Your staff would take ${scName(live.staff_pick.id, live.staff_pick.name)}, ${esc(live.staff_pick.pos)}, ${esc(live.staff_pick.from)}.</p>` : "";
-  const side = `${offers}${cfPanel("Picks so far", `${live.pick - 1} of ${live.picks}`, cfPicks(live.made, "None yet."))}${trades}`;
-  return `<div class="cf-room"><div class="cf-main">${staff}${cfBoard(x)}</div><div class="cf-side">${side}</div></div>`;
+  const made = live.made.length
+    ? `<div class="cf-made">${live.made.map((p) => `<div><b class="st-cond">${p.n}</b><span><b>${esc(p.club.name)}</b> · ${scName(p.id, p.name)} <span class="cf-dim">${esc(p.pos)} · ${esc(p.from)}${p.now ? ` · ${esc(p.now)}` : ""}</span></span></div>`).join("")}</div>`
+    : '<div class="empty">None yet.</div>';
+  const side = `${offers}${cfPanel("Picks so far", `${live.pick - 1} of ${live.picks}`, made)}${trades}`;
+  return `<div class="cf-room"><div class="cf-main">${staff}${cfBoard(x, true)}</div><div class="cf-side">${side}</div></div>`;
 }
 
 function cfGlobal(x) {

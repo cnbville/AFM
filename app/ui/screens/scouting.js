@@ -110,7 +110,7 @@ Object.assign(CRUMBS, {
 });
 // Where each screen leads (topic 17).
 GOTO.scout = (a, f) => [["Player page", "player", { id: a.id }], f && f.team ? [f.team.name, "team", f.team.ref] : null, scSeat() === "nfl" ? ["Draft board", "draftboard"] : scSeat() === "college" ? ["Recruit board", "recruitboard"] : ["Colleges calling", "hsside"], ["My players", "myplayers"]];
-GOTO.scouting = () => (scSeat() === "nfl" ? [["Draft board", "draftboard"], ["Pre-draft", "predraft"], ["Pro scouting", "proscout"], ["Staff", "staff"], ["My players", "myplayers"]] : [["Recruit board", "recruitboard"], ["Recruiting", "recruiting"], ["Staff", "staff"], ["My players", "myplayers"]]);
+GOTO.scouting = () => (scSeat() === "other" ? [["CFL Draft", "cfldraft"], ["Evaluation", "evaluate"], ["Film room", "film"], ["Staff", "staff"]] : scSeat() === "nfl" ? [["Draft board", "draftboard"], ["Pre-draft", "predraft"], ["Pro scouting", "proscout"], ["Staff", "staff"], ["My players", "myplayers"]] : [["Recruit board", "recruitboard"], ["Recruiting", "recruiting"], ["Staff", "staff"], ["My players", "myplayers"]]);
 GOTO.draftboard = () => [["Pre-draft", "predraft"], ["Department", "scouting"], ["Cap sheet", "fo_cap"], ["Squad", "roster"]];
 GOTO.predraft = () => [["Draft board", "draftboard"], ["Department", "scouting"], ["Calendar", "calendar"]];
 GOTO.warroom = () => [["Draft board", "draftboard"], ["Pre-draft", "predraft"], ["Squad", "roster"], ["Cap sheet", "fo_cap"]];
@@ -349,7 +349,7 @@ screens.scouting = async () => {
   const hero = `<div class="sc-room st-room"><i></i><i></i><i></i><div class="sc-room-in">
     <div><span class="st-label">${esc(me ? me.name : "")} · ${nfl ? "college scouting and pro personnel" : cfl ? "player personnel and Canadian scouting" : "your staff on the road"} · ${d.season}</span><h1 class="st-wide sc-room-h">Scouting</h1>
       <div class="sc-room-facts"><span><b>${d.people.length}</b> people read players for you</span><span><b>${looks}</b> looks this football year</span><span><b>${d.my_players.length}</b> in My players</span>${d.asks.length ? `<span><b>${d.asks.length}</b> asks waiting</span>` : ""}</div></div>
-    ${evalDays ? `<div class="sc-room-card st-glass">${evalDays}<small class="sc-dim">One coach out for one day is one day.${d.eval.recruiters ? ` Only ${d.eval.recruiters} coaches, the head coach included, may recruit off campus.` : ""}</small></div>` : `<div class="sc-room-card st-glass"><span class="st-label">Your desk</span><b class="st-cond sc-big">${d.public.draft_year || d.season}</b><span>${d.public.consensus_date ? `Consensus board of ${esc(d.public.consensus_date)}` : "The public's boards come out in the fall"}</span></div>`}
+    ${evalDays ? `<div class="sc-room-card st-glass">${evalDays}<small class="sc-dim">One coach out for one day is one day.${d.eval.recruiters ? ` Only ${d.eval.recruiters} coaches, the head coach included, may recruit off campus.` : ""}</small></div>` : cfl ? `<div class="sc-room-card st-glass"><span class="st-label">Your desk</span><b class="st-cond sc-big">CFL</b><span>The Bureau, your board and the draft room are on the <a class="link" data-go="cfldraft">CFL Draft</a> screen</span></div>` : `<div class="sc-room-card st-glass"><span class="st-label">Your desk</span><b class="st-cond sc-big">${d.public.draft_year || d.season}</b><span>${d.public.consensus_date ? `Consensus board of ${esc(d.public.consensus_date)}` : "The public's boards come out in the fall"}</span></div>`}
   </div></div>`;
   let body = "";
   if (tab.t === "Staff") {

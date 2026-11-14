@@ -926,11 +926,15 @@ fn staff_people(w: &World, staff: readers::Staff) -> Vec<(u32, String, String, V
                 for (k, s) in tm.scouts.iter().enumerate() {
                     let r = afm_engine::world::scouting::readers::reader(w, staff, k as u32, 0);
                     let job = r.map_or_else(|| "Scout".to_string(), |r| r.job);
-                    let area = afm_engine::world::pro::cfl::covers(s.region)
-                        .into_iter()
-                        .map(|r| afm_engine::world::pro::cfl::REGIONS[r as usize])
-                        .collect::<Vec<_>>()
-                        .join(", ");
+                    let area = if s.role == afm_engine::world::pro::scouts::Role::Director {
+                        "Top of the board".to_string()
+                    } else {
+                        afm_engine::world::pro::cfl::covers(s.region)
+                            .into_iter()
+                            .map(|r| afm_engine::world::pro::cfl::REGIONS[r as usize])
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    };
                     v.push((
                         k as u32,
                         s.name.clone(),

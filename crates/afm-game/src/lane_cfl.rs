@@ -65,13 +65,20 @@ fn club_of(w: &World) -> Result<usize, String> {
 /// his American college.
 fn from_words(w: &World, i: usize) -> String {
     let p = &w.people[i];
-    cfl::pool_words(w, p.player.id).or_else(|| p.college.map(|c| w.program_name(c).to_string())).unwrap_or_default()
+    cfl::pool_words(w, p.player.id)
+        .or_else(|| w.others.draft.iter().rev().find(|x| x.id == p.player.id).map(|x| x.from.clone()))
+        .or_else(|| p.college.map(|c| w.program_name(c).to_string()))
+        .unwrap_or_default()
 }
 
 /// What a man is to the draft beyond his name: a fourth-year who may go
 /// back to school, an NCAA Canadian's NFL news.
 fn note_words(w: &World, i: usize) -> String {
     let p = &w.people[i];
+    if let Some(x) = w.others.draft.iter().rev().find(|x| x.id == p.player.id) {
+        let what = if x.global { "Global Draft" } else { "draft" };
+        return format!("{} {what}: pick {}, the {}", x.year, x.pick, other::name(x.team as usize, x.year));
+    }
     if let Some(x) = w.others.pool.get(&p.player.id) {
         return match x.year {
             4 => "4th year: may go back to school".into(),
@@ -185,8 +192,8 @@ fn pick_row(w: &World, p: &other::Pick, n: usize) -> Value {
         _ => String::new(),
     });
     json!({
-        "n": p.pick as usize + 1,
-        "round": p.pick as usize / n.max(1) + 1,
+        "n": p.pick,
+        "round": (p.pick as usize).saturating_sub(1) / n.max(1) + 1,
         "club": team_brief(w, TeamRef::Other(p.team as usize)),
         "id": p.id,
         "name": p.name,

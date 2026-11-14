@@ -25,7 +25,9 @@ I.eye = '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx=
 const evName = (seat) => (seat === "hs" ? "Athletes and days out" : "Evaluation");
 navAdd({ go: "evaluate", get label() { return evName(seatKind()); }, icon: "eye", sec: "scout", after: "scouting", seats: ["nfl", "college", "hs", "other"], show: () => seatKind() !== "other" || !!(S.status && S.status.cfl) });
 CRUMBS.evaluate = "Evaluation";
-GOTO.evaluate = () => (scSeat() === "nfl"
+GOTO.evaluate = () => (scSeat() === "other"
+  ? [["Department", "scouting"], ["CFL Draft", "cfldraft"], ["Film room", "film"], ["Squad", "roster"]]
+  : scSeat() === "nfl"
   ? [["Department", "scouting"], ["Draft board", "draftboard"], ["Pre-draft", "predraft"], ["Staff", "staff"]]
   : scSeat() === "college"
     ? [["Department", "scouting"], ["Recruit board", "recruitboard"], ["Recruiting", "recruiting"], ["Squad", "roster"]]
@@ -95,8 +97,9 @@ function evScoutRow(s, extra) {
 }
 function evScouts(x) {
   if (x.cfl) {
-    const head = `<thead><tr><th>Scout</th><th class="num">Age</th><th>Contacts</th>${evTrackTh}<th class="num">Pay</th><th class="num">Market</th>`;
-    return evCard("Your scouts", `<p class="ev-dim">Four men: the director, the head of Canadian scouting, a scout in the west and one for the Americans down south. The club turns a few over each spring.</p><table class="tbl ev-tbl">${head}</tr></thead><tbody>${x.cfl.staff.map((s) => evScoutRow(s)).join("")}</tbody></table>`, "wide");
+    const head = `<thead><tr><th>Scout</th><th class="num">Age</th><th class="num">With the club since</th>${evTrackTh}`;
+    const row = (s) => `<tr><td class="ev-name"><b>${esc(s.name)}</b><small>${esc(s.job)}${s.area ? ` · ${esc(s.area)}` : ""}</small></td><td class="num">${s.age}</td><td class="num">${s.since}</td><td>${evRec(s.record)}</td></tr>`;
+    return evCard("Your scouts", `<p class="ev-dim">Four men: the director, the head of Canadian scouting, a scout on Canada West and the AUS, and one on the Canadians at American colleges. The club replaces about one in eight each May.</p><table class="tbl ev-tbl">${head}</tr></thead><tbody>${x.cfl.staff.map(row).join("")}</tbody></table>`, "wide");
   }
   const n = x.nfl;
   const head = `<thead><tr><th>Scout</th><th class="num">Age</th><th>Contacts</th>${evTrackTh}<th class="num">Pay</th><th class="num">Market</th>`;

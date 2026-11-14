@@ -836,9 +836,24 @@ pub(crate) fn board(w: &World, fr: usize, class: &[usize], ctx: &scouts::Ctx) ->
                 Some(f) if !f.is_empty() => scouts::read_src(w, Src::Other(fr), i, f, ctx).grade,
                 _ => consensus(w, i) - 3.0 + 2.0 * key_normal(0xB0A2 ^ (fr as u64) << 20, id as u64),
             };
-            (i, g - slide(w, i))
+            (i, g - slide(w, i) - specialist(w, i))
         })
         .collect()
+}
+
+/// What a national draft takes off a kicker, punter or snapper (proposed,
+/// not confirmed): real clubs take them from the third round on, as one
+/// spot on the roster; the Global Draft is for them, so nothing there.
+fn specialist(w: &World, i: usize) -> f64 {
+    let p = &w.people[i];
+    if w.others.pool.get(&p.player.id).is_some_and(|x| x.global()) {
+        return 0.0;
+    }
+    match p.player.position {
+        Position::K | Position::P => 5.0,
+        Position::LS => 7.0,
+        _ => 0.0,
+    }
 }
 
 /// What a club takes off a prospect it may not get soon (proposed, not

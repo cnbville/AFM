@@ -340,8 +340,18 @@ fn cfl_desk(w: &World, fr: usize) -> Value {
             .enumerate()
             .map(|(k, s)| {
                 let mut row = scout_row(w, s, Some(k));
-                row["region"] =
-                    json!(afm_engine::world::pro::cfl::REGIONS.get(s.region as usize).copied().unwrap_or(""));
+                let staff = Staff::League(fr);
+                row["job"] =
+                    json!(readers::reader(w, staff, k as u32, 0).map_or_else(|| s.job().to_string(), |r| r.job));
+                row["area"] = json!(if s.role == Role::Director {
+                    "Top of the board".to_string()
+                } else {
+                    afm_engine::world::pro::cfl::covers(s.region)
+                        .into_iter()
+                        .map(|r| afm_engine::world::pro::cfl::REGIONS[r as usize])
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                });
                 row
             })
             .collect()

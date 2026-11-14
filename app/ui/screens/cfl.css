@@ -35,6 +35,8 @@
 .cf-room { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
 .cf-main { flex: 999 1 560px; min-width: 0; }
 .cf-side { flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.cf-made > div { display: flex; gap: 10px; padding: 7px 0; border-top: 1px solid var(--hair); font-size: 13px; }
+.cf-made > div > b { flex: 0 0 24px; }
 .cf-call { border-radius: 20px; padding: 14px 16px; background: rgba(255, 255, 255, .075); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14); }
 .cf-call .st-label { color: #ffd60a; }
 .cf-call p { margin: 6px 0 10px; font-size: 15px; }
@@ -45,3 +47,6 @@
   .cf-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .cf-hero h1 { font-size: 30px; }
 }
+.cf-tbl td.l { white-space: normal; }
+.cf-tbl .cf-sub { white-space: normal; max-width: 340px; }
+.cf-room .cf-tbl td:last-child { padding-right: 4px; }
