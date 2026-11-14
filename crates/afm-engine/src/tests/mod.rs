@@ -68,6 +68,7 @@ mod tactics;
 mod talk_adviser;
 mod talks_matter;
 mod tallies;
+mod team_rooms;
 mod tendencies;
 mod training;
 mod update3;

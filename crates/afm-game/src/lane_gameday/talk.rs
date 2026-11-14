@@ -578,6 +578,11 @@ pub(super) fn room(w: &World, a: &Value) -> Reply {
         player: nm(pick.who).filter(|_| pick.subject == Subject::One),
         captain: nm(pick.who).filter(|_| pick.mv == Move::Captain),
         rival: team.day.rival,
+        // The day reaches the words (talk facts lane L9, item 26).
+        stakes: cx.stakes as f32,
+        playoff: s.params.playoff,
+        seniors: team.day.seniors,
+        hurt: team.day.hurt.and_then(nm),
         seed: seed_of(w.today, &pick, false),
     };
     let next = super::next_game(w);
@@ -693,6 +698,10 @@ fn halftime_room(
         player: nm(pick.who).filter(|_| pick.subject == Subject::One),
         captain: nm(pick.who).filter(|_| pick.mv == Move::Captain),
         rival: team.day.rival,
+        stakes: cx.stakes as f32,
+        playoff: l.game.params.playoff,
+        seniors: team.day.seniors,
+        hurt: team.day.hurt.and_then(nm),
         seed: seed_of(l.date, &pick, true),
     };
     let mut v = room_json(w, team, &cx, &pick, &names, l.date, true, &lcx);

@@ -96,6 +96,10 @@ const BANKS: &[&str] = &[
     // The recruit and portal conversation (talk facts lane L5): hand-written
     // lines for its most common new parts until the bank run fills them.
     include_str!("../../../data/lines/recruit_case.txt"),
+    // Your team's rooms (talk facts lane L9): the team talk's captain, a
+    // parent's real complaint and his answers, an exit meeting's reason,
+    // and what about game day reaches your words.
+    include_str!("../../../data/lines/team_rooms.txt"),
 ];
 
 /// The facts that gate a line which denies (`blameless`) or admits
