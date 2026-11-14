@@ -152,6 +152,10 @@ async function rrOpen(t, delay) {
 document.addEventListener("mouseover", (ev) => {
   const t = ev.target.closest && ev.target.closest("[data-rr]");
   if (!t || t === RR.on) return;
+  // A man you can pick up (a depth chart spot or row) has no card: it would
+  // sit over the rows under it, and the next pick-up would land on the card
+  // (playtest bug 16). A held man opens none either.
+  if (t.closest(".sb [data-drag]") || document.body.classList.contains("pd-active")) return;
   rrOpen(t, Math.min(450, Number(prefs.hoverDelay) || 350));
 });
 document.addEventListener("mouseout", (ev) => {
@@ -164,7 +168,7 @@ document.addEventListener("mouseout", (ev) => {
 // The keyboard reaches a range too: tab onto it and the card opens.
 document.addEventListener("focusin", (ev) => {
   const t = ev.target.closest && ev.target.closest("[data-rr]");
-  if (t) rrOpen(t, 120);
+  if (t && !t.closest(".sb [data-drag]")) rrOpen(t, 120);
 });
 document.addEventListener("focusout", (ev) => {
   const t = ev.target.closest && ev.target.closest("[data-rr]");

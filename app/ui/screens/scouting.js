@@ -44,7 +44,7 @@ function scNow(read, id) {
 }
 function scRole(read) {
   if (!read || !read.role || read.role === "Not seen") return '<span class="muted">Not seen</span>';
-  return `<span class="sc-role">${esc(read.role)}</span>${read.sure ? ` <small class="muted">· ${esc(read.sure)}</small>` : ""}`;
+  return `<span class="sc-role">${esc(read.role)}</span>${potTag(read)}${read.sure ? ` <small class="muted">· ${esc(read.sure)}</small>` : ""}`;
 }
 function scMed(word) {
   if (!word) return '<span class="muted">-</span>';
@@ -149,7 +149,9 @@ screens.scout = async (a) => {
     f.followers ? `<span>${esc(f.followers)} followers</span>` : "",
     f.nil ? `<span>NIL ${money(f.nil)}</span>` : "",
   ].filter(Boolean).join("");
-  const staffCard = s
+  const staffCard = s && s.yours
+    ? `<b class="sc-hero-role">${esc(s.yours.role)}<span class="pot-yours" title="Your own read">yours</span></b><span>${esc(s.yours.floor)}. You're ${esc(s.yours.sure)}. Your staff: ${esc(s.role)}, ${esc(s.sure)}.</span><span class="sc-dim">${scPlural(f.looks_n, "look")} by ${scPlural(f.readers_n, "person", "people")}</span>`
+    : s
     ? `<b class="sc-hero-role">${esc(s.role)}</b><span>${esc(s.floor || "")}${s.floor ? ". " : ""}Staff ${esc(s.sure)}.</span><span class="sc-dim">${scPlural(f.looks_n, "look")} by ${scPlural(f.readers_n, "person", "people")}</span>`
     : `<b class="sc-hero-role">Not seen</b><span>Your staff hasn't looked at him yet.</span>`;
   const boardLine = [
@@ -209,7 +211,7 @@ function scFileSummary(f) {
   const reads = [
     b.rank ? `<li><b>Your board: No. ${b.rank}</b>${b.tier ? `, tier ${b.tier}` : ""}.</li>` : "",
     b.public ? `<li><b>The public: No. ${b.public}.</b> ${b.rank ? (Math.abs(b.public - b.rank) >= Math.max(12, Math.round(b.rank * 0.35)) ? (b.public > b.rank ? "You are out on a limb: higher on him than the public." : "You are out on a limb: lower on him than the public.") : "Close to your own order.") : ""}</li>` : "",
-    f.stars ? `<li><b>The services: ${f.stars}★.</b> ${s.role ? `Your staff: ${esc(s.role).toLowerCase()}.` : ""}</li>` : "",
+    f.stars ? `<li><b>The services: ${f.stars}★.</b> ${s.role ? `Your staff: ${esc(s.role)}.` : ""}</li>` : "",
     f.choices && f.choices.length ? `<li><b>His choices:</b> ${esc(f.choices.join(", "))}.</li>` : "",
   ].filter(Boolean).join("");
   const voices = f.voices.length
@@ -217,7 +219,8 @@ function scFileSummary(f) {
     : scEmpty("Nobody has three looks at him yet, so the room has no voices on him.");
   return `<div class="sc-sum">
     <div class="panel warm"><h2>Your staff's grade <small>${scPlural(f.looks_n, "look")} by ${scPlural(f.readers_n, "person", "people")}</small></h2>
-      <div class="sc-grade"><div><b class="sc-role-big">${esc(s.role)}</b><span class="sub">Staff ${esc(s.sure)}.</span></div><div class="sc-nowread"><span class="st-label">His level now</span>${range(s.now, null, { p: f.id, k: "ovr" })}</div></div>
+      ${s.yours ? `<div class="sc-grade"><div><span class="st-label">Your own read</span><b class="sc-role-big">${esc(s.yours.role)}</b><span class="sub">${esc(s.yours.floor)}. You're ${esc(s.yours.sure)}, from ${scPlural(s.yours.looks, "look")} of your own.${s.yours.hints && s.yours.hints.length ? " " + s.yours.hints.map(esc).join(". ") + "." : ""}</span></div></div>` : ""}
+      <div class="sc-grade"><div>${s.yours ? '<span class="st-label">Your staff</span>' : ""}<b class="sc-role-big">${esc(s.role)}</b><span class="sub">Staff ${esc(s.sure)}.</span></div><div class="sc-nowread"><span class="st-label">His level now</span>${range(s.now, null, { p: f.id, k: "ovr" })}</div></div>
       <dl class="kv"><dt>Floor and ceiling</dt><dd>${esc(s.floor || "Not read yet")}</dd>
       <dt>Best at</dt><dd>${esc(s.strengths.join(", ") || "-")}</dd><dt>Watch</dt><dd>${esc(s.weaknesses.join(", ") || "-")}</dd>
       <dt>Medical</dt><dd>${scMed(s.medical)}${s.examined ? "" : ' <small class="muted">· not examined, records only</small>'}</dd></dl></div>

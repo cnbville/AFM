@@ -113,7 +113,7 @@ function fcDuty(duties, key) {
 }
 function fcPot(p) {
   if (!p) return '<span class="muted">Not worked yet</span>';
-  return `<span title="How sure: ${esc(words(p.sure))}${p.hints && p.hints.length ? " · " + esc(p.hints.join(" · ")) : ""}">${esc(fcCap(p.tier))}</span>`;
+  return `<span title="How sure: ${esc(words(p.sure))}${p.hints && p.hints.length ? " · " + esc(p.hints.join(" · ")) : ""}">${esc(fcCap(p.tier))}</span>${potTag(p)}`;
 }
 const fcPublic = (r) => `<small>${esc(r.rank)}${r.camp ? ` · <span title="The kicking and snapping camps' own stars">${r.camp}★ camps</span>` : ""}</small>`;
 const fcTone = (t) => (t === "good" ? "good" : t === "bad" ? "bad" : t === "warn" ? "warn" : "");
@@ -468,7 +468,7 @@ function fcBoardTable(x, k, yours) {
     { k: "read", t: "Read", div: true, tip: "Your staff's read of his play now", v: (r) => mid(r.read), f: (r) => range(r.read, null, { p: r.id, k: "ovr" }) },
     { k: "yours", t: "Yours", tip: "Your own read: what you have seen of him yourself, or your first impression", v: (r) => mid(r.yours), f: (r) => yourRange(r.yours) },
     { k: "for_us", t: "For us", tip: "Best for us: his read with when he'd play here and how he fits what you run (his path on his page)", v: (r) => (r.for_us == null ? -99 : r.for_us), f: (r) => (r.for_us == null ? '<span class="muted">-</span>' : `<b>${Math.round(r.for_us)}</b>`) },
-    { k: "pot", t: "Ceiling", l: true, tip: "Your staff's words on how far he can go", v: (r) => (r.pot ? r.pot.tier : ""), f: (r) => fcPot(r.pot) },
+    { k: "pot", t: "Ceiling", l: true, tip: "How far he can go: your own words once you've seen him yourself, your staff's before", v: (r) => (r.pot ? r.pot.tier : ""), f: (r) => fcPot(r.pot) },
     { k: "interest", t: "His interest", l: true, div: true, f: (r) => `<span title="${esc(r.reason)}">${fcDot(fcTone(r.tone))}${esc(r.interest)}</span>` },
     { k: "leader", t: "Leader", l: true, v: (r) => (r.leader ? r.leader.name : ""), f: (r) => (r.leader ? teamLink(r.leader) : '<span class="muted">-</span>') },
     { k: "offers", t: "Offers" },

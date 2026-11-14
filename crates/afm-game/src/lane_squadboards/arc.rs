@@ -12,7 +12,7 @@ use afm_engine::world::{Stage, World};
 use serde_json::{Value, json};
 use std::collections::HashSet;
 
-use super::{any_read, first_last, growth_at, growth_table, kept, key_attrs, mid, pair_json, quantile, tier_of};
+use super::{any_read, first_last, kept, key_attrs, mid, pair_json, quantile, tier_of};
 use crate::Reply;
 use crate::reads;
 use crate::views::{self, TeamRef};
@@ -257,6 +257,8 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
             continue;
         }
         let kr = kept(w, id, season);
+        // Your own read that season beside the staff's (own potential item 4).
+        let km = w.career.as_ref().and_then(|c| c.kept_mine(id).iter().find(|r| r.season as i32 == season).copied());
         let stat = seasons_rows.iter().find(|s| s["year"].as_i64() == Some(season as i64));
         let team = match (h.level, h.team) {
             (Level::NFL, Some(t)) => Some(w.nfl_team_name(t)),
@@ -268,7 +270,7 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
         };
         table.push(json!({
             "season": season, "age": h.age, "level": level_word(h.level), "pos": h.position.name(),
-            "team": team, "read": kr.map(|r| pair_json(r.ovr)),
+            "team": team, "read": kr.map(|r| pair_json(r.ovr)), "yours": km.map(|r| pair_json(r.ovr)),
             "keys": kr.map(|r| r.keys.iter().map(|x| pair_json([x[1], x[2]])).collect::<Vec<_>>()),
             "games": stat.and_then(|s| s["games"].as_u64()),
             "line": stat.and_then(|s| s["line"].as_str()),
@@ -283,12 +285,14 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
         if let Some(r) = kr {
             points.push(json!({
                 "season": season, "age": h.age, "level": level_word(h.level), "read": pair_json(r.ovr),
+                "yours": km.map(|m| pair_json(m.ovr)),
                 "keys": r.keys.iter().map(|x| pair_json([x[1], x[2]])).collect::<Vec<_>>(), "now": false,
             }));
         }
     }
     // Today's read, this season's row.
     let level_now = views::level_of(w, p);
+    let mine_now = (reads::seen(w, i).mine_looks > 0).then(|| reads::mine(w, i).json());
     let age = p.player.age;
     let key_now: Vec<Value> =
         keys.iter().map(|a| attrs.iter().find(|x| x.0 == *a).map_or(Value::Null, |x| x.1.json())).collect();
@@ -297,71 +301,29 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
     if this_in_record || matches!(p.stage, Stage::HighSchool | Stage::PrepSchool | Stage::College | Stage::Pro) {
         table.push(json!({
             "season": w.year, "age": age, "level": level_word(level_now), "pos": pos.name(), "team": team_now,
-            "read": ovr.json(), "keys": key_now, "now": true,
+            "read": ovr.json(), "yours": mine_now, "keys": key_now, "now": true,
             "level_rating": crate::lane_core::pages::level_read(w, i).map(|(r, words)| format!("{words} level {r}")),
             "games": this_stat.and_then(|s| s["games"].as_u64()),
             "line": this_stat.and_then(|s| s["line"].as_str()),
             "what": "This season, so far",
         }));
     }
-    points.push(json!({ "season": w.year, "age": age, "level": level_word(level_now), "read": ovr.json(), "keys": key_now, "now": true }));
-    // The road ahead: each coming season's level and the growth there.
-    let table_g = growth_table(w);
-    let start = mid(ovr);
-    let half = match ovr {
-        reads::Read::Range(lo, hi) => (hi as f64 - lo as f64) / 2.0,
-        reads::Read::NotSeen => 6.0,
-    };
-    let mut road: Vec<(i32, u32, u8)> = Vec::new();
+    points.push(json!({ "season": w.year, "age": age, "level": level_word(level_now), "read": ovr.json(), "yours": mine_now, "keys": key_now, "now": true }));
+    // The road ahead (own potential items 5 and 6): from the read that
+    // judges him, bending toward its ceiling read (`road.rs`).
     let tier_now = tier_of(level_now);
-    let college_left = |p: &afm_engine::world::Person| -> i32 {
-        use afm_engine::world::eligibility;
-        eligibility::seasons_left(p, eligibility::division_of(p, &w.programs), w.year) as i32
-    };
-    for n in 1..=8 {
-        let season = w.year + n;
-        let a = age + n as u32;
-        let tier = match p.stage {
-            Stage::HighSchool | Stage::PrepSchool => {
-                if season < p.class_of {
-                    0
-                } else if season < p.class_of + 4 {
-                    1
-                } else {
-                    2
-                }
-            }
-            Stage::College => {
-                if n < college_left(p) {
-                    1
-                } else {
-                    2
-                }
-            }
-            _ => tier_now,
-        };
-        road.push((season, a, tier));
-    }
+    let road = crate::road::road(w, i);
+    let start = road.as_ref().map(|r| r.from.now.0).or(mid(ovr));
+    let half = road.as_ref().map_or(6.0, |r| r.from.now.1.max(1.0));
     let mut path: Vec<Value> = Vec::new();
     let mut peak: Option<(f64, u32, f64, f64)> = start.map(|m| (m, age, m - half, m + half));
-    if let Some(m0) = start {
-        let (mut p50, mut s_lo, mut s_hi, mut s_lo2, mut s_hi2) =
-            (m0, half * half, half * half, half * half, half * half);
-        for &(season, a, tier) in &road {
-            let q = growth_at(&table_g, a - 1, tier);
-            p50 = (p50 + q[2]).clamp(1.0, 99.0);
-            s_lo += (q[2] - q[1]).powi(2);
-            s_hi += (q[3] - q[2]).powi(2);
-            s_lo2 += (q[2] - q[0]).powi(2);
-            s_hi2 += (q[4] - q[2]).powi(2);
-            let row = [p50 - s_lo2.sqrt(), p50 - s_lo.sqrt(), p50, p50 + s_hi.sqrt(), p50 + s_hi2.sqrt()]
-                .map(|x| (x.clamp(1.0, 99.0) * 10.0).round() / 10.0);
-            if peak.is_none_or(|pk| p50 > pk.0) {
-                peak = Some((p50, a, row[1], row[3]));
-            }
-            path.push(json!({ "season": season, "age": a, "tier": tier, "level": (["High school", "College", "NFL"][tier as usize]), "q": row }));
+    for r in road.as_ref().map_or(&[][..], |r| r.rows.as_slice()) {
+        if peak.is_none_or(|pk| r.q[2] > pk.0) {
+            peak = Some((r.q[2], r.age, r.q[1], r.q[3]));
         }
+        path.push(json!({ "season": r.season, "age": r.age, "tier": r.tier, "level": (["High school", "College", "NFL"][r.tier as usize]), "q": r.q }));
     }
+    let yours = road.as_ref().is_some_and(|r| r.from.yours);
     // The cells: likely peak, the draft, an NFL starter.
     let nfl_marks = crate::lane_ratings::marks_cached(w, Pool::Nfl, pos, Rated::Overall);
     // The years after college say "NFL" only when his middle path gets to
@@ -432,15 +394,21 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
     .collect();
     let (first, last) = first_last(&p.name);
     let footnote = format!(
-        "From your staff's read today, his age and how {many} grow in this world{}. The staff's guess, not a promise.",
+        "From {} read today and where it thinks he could get to, his age and how {many} grow toward that in this world{}. {}, not a promise.",
+        if yours { "your own" } else { "your staff's" },
         match outcome_n {
             Some(n) => format!(", and {n} past {many} rated like him who signed with an NFL team out of college"),
             None => String::new(),
-        }
+        },
+        if yours { "Your guess" } else { "The staff's guess" },
     );
     Ok(json!({
         "id": id, "name": p.name, "first": first, "last": last, "pos": pos.name(), "own": own,
         "read": ovr.json(),
+        // Whose read the road starts from: "yours" from your first own
+        // look, "staff" before (own potential).
+        "whose": road.as_ref().map(|r| r.from.whose()),
+        "yours_read": yours.then(|| reads::mine(w, i).json()),
         "metrics": std::iter::once(json!({ "key": "ovr", "label": "Overall" }))
             .chain(keys.iter().map(|a| json!({ "key": a.key(), "label": a.label() })))
             .collect::<Vec<_>>(),

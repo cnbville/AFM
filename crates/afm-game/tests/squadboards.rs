@@ -361,6 +361,66 @@ fn line_spots(g: &mut Game) {
     }
 }
 
+/// Playtest bug 16: every backup cell takes a drop. A man put into a second
+/// or third string cell holds it (read back from the stadium board), two
+/// cells at one position swap, a backup put into the starter's cell swaps
+/// with him, a man from another position group is refused with the reason,
+/// and giving the order back restores the staff's.
+fn backup_spots(g: &mut Game) {
+    let view = |g: &mut Game| ok(g, "sb_depth", json!({ "tab": "offense", "form": "offense" }));
+    let ids = |v: &Value, slot: &str| -> Vec<Option<u32>> {
+        let s = v["slots"].as_array().unwrap().iter().find(|s| s["slot"] == slot).unwrap();
+        s["picks"].as_array().unwrap().iter().map(|p| p["id"].as_u64().map(|x| x as u32)).collect()
+    };
+    let put = |g: &mut Game, slot: &str, n: u32, pid: u32| -> Result<Value, String> {
+        let v = view(g);
+        let k = v["slots"].as_array().unwrap().iter().position(|s| s["slot"] == slot).unwrap();
+        g.call("sb_depth_put", &json!({ "tab": "offense", "form": "offense", "slot": k, "n": n, "pid": pid }))
+    };
+    let v0 = view(g);
+    let start_lt = ids(&v0, "LT");
+    let (lt, rt) = (ids(&v0, "LT"), ids(&v0, "RT"));
+    if lt.len() != 3 || rt.len() != 3 || lt.iter().chain(rt.iter()).any(Option::is_none) {
+        return;
+    }
+    let lt: Vec<u32> = lt.into_iter().flatten().collect();
+    let rt: Vec<u32> = rt.into_iter().flatten().collect();
+
+    // Third string up to second at one spot: the two swap.
+    let v = put(g, "LT", 2, lt[2]).unwrap();
+    assert_eq!(ids(&v, "LT"), vec![Some(lt[0]), Some(lt[2]), Some(lt[1])], "the third and second swap");
+    assert_eq!(ids(&v, "RT"), vec![Some(rt[0]), Some(rt[1]), Some(rt[2])], "the right tackle's men stay");
+    assert_eq!(v["yours"], true);
+    assert_eq!(ids(&view(g), "LT")[1], Some(lt[2]), "kept on a fresh read");
+    // The right tackle's second string into the left tackle's third: swap
+    // across spots at the same position.
+    let v = put(g, "LT", 3, rt[1]).unwrap();
+    assert_eq!(ids(&v, "LT"), vec![Some(lt[0]), Some(lt[2]), Some(rt[1])]);
+    assert_eq!(ids(&v, "RT"), vec![Some(rt[0]), Some(lt[1]), Some(rt[2])], "he took the other's cell");
+    // A backup into the starter's cell: he starts, the starter is behind him.
+    let v = put(g, "LT", 1, rt[1]).unwrap();
+    assert_eq!(ids(&v, "LT"), vec![Some(rt[1]), Some(lt[2]), Some(lt[0])]);
+    let mine: Vec<_> = g.world.as_ref().unwrap().seat_depth.iter().map(|x| x.0).collect();
+    assert_eq!(mine, vec![afm_engine::positions::Position::OT], "only the tackles are written");
+    // The same cell again says so; a fourth string and a man who isn't on
+    // the roster are refused.
+    let said = put(g, "LT", 1, rt[1]).unwrap();
+    assert!(said["note"].as_str().unwrap().contains("already"), "{}", said["note"]);
+    assert!(put(g, "LT", 4, lt[0]).is_err());
+    assert!(put(g, "LT", 2, 4_000_000_000).is_err());
+    // A man from another position group is refused, with the reason.
+    let off = view(g);
+    let wr =
+        off["slots"].as_array().unwrap().iter().find(|s| s["pos"] == "WR").and_then(|s| s["picks"][0]["id"].as_u64());
+    if let Some(wr) = wr {
+        let e = put(g, "LT", 2, wr as u32).unwrap_err();
+        assert!(e.contains("position group"), "{e}");
+    }
+    // Given back, the staff's order again.
+    ok(g, "sb_depth_reset", json!({ "tab": "offense", "form": "offense" }));
+    assert_eq!(ids(&view(g), "LT"), start_lt);
+}
+
 #[test]
 fn the_boards_at_every_seat() {
     let t = std::time::Instant::now();
@@ -434,6 +494,7 @@ fn the_boards_at_every_seat() {
     let back = ok(&mut g, "sb_depth_reset", json!({ "tab": "offense", "form": "offense" }));
     assert_eq!(back["yours"], false, "the staff has it back");
     line_spots(&mut g);
+    backup_spots(&mut g);
 
     // The reads kept at a season's end: a career's first turn keeps none
     // (it starts mid-year), the next keeps every player the staff follows,
@@ -459,6 +520,39 @@ fn the_boards_at_every_seat() {
     assert!(
         arc["points"].as_array().unwrap().iter().any(|p| p["now"] == false && p["read"] == rows[0]["ovr"]),
         "the arc shows the kept read: {}",
+        arc["points"]
+    );
+    // Own potential (Cain 2026-11-13): your own players are in your
+    // practices, so your own read of potential judges them, your staff's
+    // beside it; your own read is kept at the season's end beside the
+    // staff's; the road starts from yours and bends toward the ceiling read.
+    {
+        let w = g.world.as_ref().unwrap();
+        let k = w.people.iter().position(|p| p.player.id == id).unwrap();
+        let s = afm_game::reads::seen(w, k);
+        assert!(s.mine_looks > 0 && s.mine_ceiling.is_some(), "your own player has your own ceiling read");
+        let pot = afm_game::reads::potential_words(w, k);
+        assert_eq!(pot["whose"], "yours", "{pot}");
+        assert!(pot["staff"]["tier"].is_string() && pot["yours"]["tier"] == pot["tier"], "{pot}");
+        let c = w.career.as_ref().unwrap();
+        assert_eq!(c.kept_mine(id).len(), 1, "your own read is kept beside the staff's");
+        assert_eq!(json!(c.kept_mine(id)[0].ovr), json!(s.mine().json()), "the kept own read is today's");
+        // Two players read the same today with different ceiling reads get
+        // different roads; the higher ceiling ends higher, the middle never
+        // passes the ceiling read on the way up.
+        let seasons: Vec<(i32, u32, u8)> = (1..=6).map(|n| (w.year + n, 19 + n as u32, 1)).collect();
+        let lo = afm_game::reads::Judging { now: (60.0, 3.0), ceiling: (64.0, 4.0), yours: true };
+        let hi = afm_game::reads::Judging { ceiling: (80.0, 4.0), ..lo };
+        let (a, b) = (afm_game::road::walk(w, &lo, &seasons), afm_game::road::walk(w, &hi, &seasons));
+        assert!(b[5].q[2] > a[5].q[2] + 3.0, "a higher ceiling read, a higher road: {:?} {:?}", a[5].q, b[5].q);
+        assert!(a.iter().all(|r| r.q[2] <= 64.0 + 1e-9), "never past the ceiling read: {a:?}");
+        assert!(b[5].q[4] - b[5].q[0] >= 2.0, "a band");
+    }
+    let arc = board(&mut g, "sb_arc", json!({ "id": id }));
+    assert_eq!(arc["whose"], "yours", "the road starts from your own read");
+    assert!(
+        arc["points"].as_array().unwrap().iter().any(|p| p["now"] == false && !p["yours"].is_null()),
+        "{}",
         arc["points"]
     );
     // Kept through a save; a career saved before the kept reads loads empty.
