@@ -46,10 +46,6 @@ fn sit_down(w: &mut World, i: usize, mine: usize) -> Scene {
     scene::open(w, sid).unwrap()
 }
 
-fn bytes(w: &World) -> Vec<u8> {
-    rmp_serde::to_vec(w).unwrap()
-}
-
 /// What a talk can change: the people, the talks' stores, the desks and
 /// the calendar. (Two worlds built alike can still differ in a map's order
 /// elsewhere, so whole worlds aren't compared.)
