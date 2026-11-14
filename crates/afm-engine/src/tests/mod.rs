@@ -54,6 +54,7 @@ mod praise;
 mod promises;
 mod pull_file;
 mod ratings;
+mod recruit_budget;
 mod recruit_case;
 mod recruit_reach;
 mod rooms;
