@@ -724,6 +724,8 @@ pub struct Record {
     pub losses: u32,
     pub conf_wins: u32,
     pub conf_losses: u32,
+    /// Won the conference: its title game, or first where there is none.
+    pub conf_title: bool,
 }
 
 /// A college game on this season's schedule, for the screens.
@@ -780,7 +782,27 @@ impl World {
             losses: r.losses,
             conf_wins: r.conf_wins,
             conf_losses: r.conf_losses,
+            conf_title: r.conference_title,
         })
+    }
+
+    /// A conference's table this season, or last (`prev`), as conferences
+    /// publish it: the champion first once the title is decided, then the
+    /// conference winning share (0-0 last), fewer conference losses, the
+    /// overall share and wins.
+    pub fn college_conference_table(&self, teams: &[usize], prev: bool) -> Vec<(usize, Record)> {
+        let mut v: Vec<(usize, Record)> = teams.iter().map(|&t| (t, self.college_record_in(t, prev))).collect();
+        let pct = |w: u32, l: u32| if w + l > 0 { w as f64 / (w + l) as f64 } else { -1.0 };
+        v.sort_by(|(a, x), (b, y)| {
+            y.conf_title
+                .cmp(&x.conf_title)
+                .then(pct(y.conf_wins, y.conf_losses).total_cmp(&pct(x.conf_wins, x.conf_losses)))
+                .then(x.conf_losses.cmp(&y.conf_losses))
+                .then(pct(y.wins, y.losses).total_cmp(&pct(x.wins, x.losses)))
+                .then(y.wins.cmp(&x.wins))
+                .then(a.cmp(b))
+        });
+        v
     }
 
     /// This college season's games for a program (all programs if None).
