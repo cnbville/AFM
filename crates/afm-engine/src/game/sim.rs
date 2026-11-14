@@ -2210,7 +2210,14 @@ impl<'a> Sim<'a> {
             } else {
                 1.6 * w
             };
-            let v = if e.pass {
+            let v = if e.pass && qb.is_none() {
+                // The ball is gone (thrown, or the quarterback is out of
+                // the pocket): nothing to drive toward, so the pair holds
+                // its ground. Before, it drove at the blocker's own spot,
+                // a fixed heading that could carry the two off the field
+                // on a long play.
+                V2::default()
+            } else if e.pass {
                 dir.scale(drive.max(-2.0))
             } else {
                 // The surge fades (`RUN_PUSH_BACK`, `RUN_PUSH_UP`): the push
