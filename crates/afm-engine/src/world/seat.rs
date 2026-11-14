@@ -1245,7 +1245,7 @@ impl KeptAttrs {
     /// staff's: None where that read had not seen it.
     pub fn mid(&self, mine: bool, a: usize) -> Option<f64> {
         let v = *(if mine { &self.mine } else { &self.staff }).get(a)?;
-        (v > 0).then(|| v as f64 / 2.0)
+        (v > 0).then_some(v as f64 / 2.0)
     }
 }
 
