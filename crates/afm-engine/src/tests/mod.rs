@@ -52,6 +52,7 @@ mod portal_recruiting;
 mod portal_talks;
 mod praise;
 mod promises;
+mod public_bar;
 mod pull_file;
 mod ratings;
 mod recruit_budget;

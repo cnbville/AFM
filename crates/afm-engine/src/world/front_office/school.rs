@@ -1534,6 +1534,11 @@ fn review(w: &mut World, h: usize) {
     let of = state.len() as u32;
     let missed: Vec<String> = state.iter().filter(|x| !x.2).map(|x| x.0.clone()).collect();
     let goals = |n: usize| if n == 1 { "a goal".to_string() } else { format!("{n} goals") };
+    // The public bar you set (`folk::boss::public_bar`): a town that heard
+    // you promise more holds the goals you missed against you harder, by
+    // the share of them missed (a season of every goal met is not hurt).
+    let tenure = super::market::your_job(w).map_or(0, |j| year - j.since);
+    let bar = crate::world::folk::boss::public_bar(w, tenure) as f32 * (of - met) as f32 / of as f32;
     let mut words = Vec::new();
     for which in [1u8, 3] {
         let p = if which == 1 { &w.front_office.school.ad } else { &w.front_office.school.boosters.president };
@@ -1542,6 +1547,7 @@ fn review(w: &mut World, h: usize) {
         for (_, want, m) in &state {
             d += wants[*want] * if *m { 0.14 } else { -0.16 / (0.5 + patience) };
         }
+        d -= bar;
         let t = (trust_of(w, p) + d).clamp(0.02, 0.98);
         set_trust(w, which, t);
         let line = match (d >= 0.02, missed.is_empty()) {
