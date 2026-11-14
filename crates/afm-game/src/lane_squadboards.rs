@@ -13,6 +13,7 @@ pub mod body;
 pub mod depth;
 pub mod needs;
 pub mod plan;
+pub mod projected;
 pub mod roster;
 pub mod shape;
 
