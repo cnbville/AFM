@@ -26,11 +26,16 @@ use crate::views::{self, TeamRef};
 
 /// The starting spots: key, position, words, and where each stands
 /// (yards: depth from the line, across from the middle).
-const SPOTS: [(&str, Position, &str, f64, f64); 24] = {
+///
+/// The third-down back and the nickel corner are starters in their own
+/// role (Cain 2026-11-14): the back on passing downs, the nickel in the
+/// sub packages most snaps now see.
+const SPOTS: [(&str, Position, &str, f64, f64); 26] = {
     use Position::*;
     [
         ("QB", QB, "Quarterback", -5.0, 0.0),
-        ("RB", RB, "Running back", -7.5, 0.0),
+        ("RB", RB, "Every-down back", -7.5, 0.0),
+        ("RB3", RB, "Third-down back", -6.5, -4.0),
         ("X", WR, "Wide receiver (X)", 0.0, -21.0),
         ("Z", WR, "Wide receiver (Z)", -1.0, 21.0),
         ("SLOT", WR, "Slot receiver", -1.8, 13.0),
@@ -49,6 +54,7 @@ const SPOTS: [(&str, Position, &str, f64, f64); 24] = {
         ("SAM", LB, "Strongside linebacker", 4.5, 5.0),
         ("CB1", CB, "Cornerback", 6.0, -19.0),
         ("CB2", CB, "Cornerback", 6.0, 19.0),
+        ("NICKEL", CB, "Nickel corner", 5.5, 12.0),
         ("FS", S, "Free safety", 13.0, -6.0),
         ("SS", S, "Strong safety", 10.0, 6.0),
         ("K", K, "Kicker", -10.0, -12.0),
@@ -75,6 +81,62 @@ struct Man {
     fit: [f64; SPOTS.len()],
 }
 
+/// The role section a spot belongs to in a position's card (Cain's
+/// approved design, 2026-11-14) and the short word the class plan names
+/// an open place by: "open 2 (guard 1, center 1)".
+fn role_of(key: &str) -> (&'static str, &'static str) {
+    match key {
+        "RB" => ("Every-down back", "every-down"),
+        "RB3" => ("Third-down back", "third-down"),
+        "X" | "Z" => ("X and Z", "X/Z"),
+        "SLOT" => ("Slot", "slot"),
+        "LT" => ("Left tackle", "left tackle"),
+        "RT" => ("Right tackle", "right tackle"),
+        "LG" | "RG" => ("Guards", "guard"),
+        "C" => ("Center", "center"),
+        "LE" => ("Left end", "left end"),
+        "RE" => ("Right end", "right end"),
+        "DT1" | "DT2" => ("Defensive tackles", "tackle"),
+        "MIKE" => ("Mike", "Mike"),
+        "WILL" => ("Will", "Will"),
+        "SAM" => ("Sam", "Sam"),
+        "CB1" | "CB2" => ("Outside", "outside"),
+        "NICKEL" => ("Nickel", "nickel"),
+        "FS" => ("Free safety", "free safety"),
+        "SS" => ("Strong safety", "strong safety"),
+        "QB" => ("Quarterback", "quarterback"),
+        "TE" => ("Tight end", "tight end"),
+        "K" => ("Kicker", "kicker"),
+        "P" => ("Punter", "punter"),
+        _ => ("", ""),
+    }
+}
+
+/// What the map's own roles ask where the engine has no job for them yet
+/// (receivers and backs have one job each in the engine): the X's release
+/// against press and the contested ball, the Z's speed and routes, the
+/// slot's quickness and catches in traffic, the every-down back's vision
+/// and power, the third-down back's protection and hands. A staff read
+/// only: it picks who the map puts where and never touches a game.
+/// Proposed, not confirmed (Cain 2026-11-14).
+fn map_lean(key: &str) -> &'static [(afm_engine::attributes::Attr, f64)] {
+    use afm_engine::attributes::Attr::*;
+    match key {
+        "X" => &[(Release, 0.3), (ContestedCatch, 0.25), (Strength, 0.15), (BallTracking, 0.15), (Jumping, 0.15)],
+        "Z" => &[(Speed, 0.35), (RouteRunning, 0.3), (Acceleration, 0.15), (Elusiveness, 0.1), (BallTracking, 0.1)],
+        "SLOT" => &[(Agility, 0.3), (Acceleration, 0.25), (RouteRunning, 0.2), (Catching, 0.15), (Toughness, 0.1)],
+        "RB" => &[(BallCarrierVision, 0.3), (LegDrive, 0.2), (Balance, 0.2), (BallSecurity, 0.15), (Stamina, 0.15)],
+        "RB3" => {
+            &[(PassBlocking, 0.35), (Catching, 0.25), (RouteRunning, 0.2), (PlayRecognition, 0.1), (Elusiveness, 0.1)]
+        }
+        _ => &[],
+    }
+}
+
+/// How much a map role's lean moves his read, as the engine's spots do
+/// (`spots::LEAN`, half the gap to the position's other roles).
+const MAP_LEAN: f64 = 0.35;
+
 /// The engine's depth-chart job behind each spot of the map, where the
 /// position has more than one (`spots::spot_rating`): a center is picked as
 /// a center and a guard as a guard, not the best interior lineman anywhere
@@ -91,6 +153,8 @@ fn spot_job(key: &str) -> Option<afm_engine::spots::Spot> {
         "SAM" => Spot::SAM,
         "FS" => Spot::FS,
         "SS" => Spot::SS,
+        "CB1" | "CB2" => Spot::CB,
+        "NICKEL" => Spot::NB,
         _ => return None,
     })
 }
@@ -111,11 +175,23 @@ fn spot_fit(w: &World, i: usize, pos: Position) -> [f64; SPOTS.len()] {
     }
     let body = afm_engine::body::body_now(&w.people[i].player);
     let base = afm_engine::positions::overall_for(pos, &a);
+    let lean = |key: &str| -> f64 {
+        let v: f64 = map_lean(key).iter().map(|&(x, wt)| wt * a.get(x)).sum();
+        // The X is the big receiver outside: height counts as at the corner.
+        if key == "X" { 0.9 * v + 0.1 * (50.0 + 6.0 * (body.height - 73.0)).clamp(1.0, 99.0) } else { v }
+    };
     for (k, s) in SPOTS.iter().enumerate() {
-        if s.1 == pos
-            && let Some(job) = spot_job(s.0)
-        {
+        if s.1 != pos {
+            continue;
+        }
+        if let Some(job) = spot_job(s.0) {
             out[k] = afm_engine::spots::spot_rating(job, &a, body.weight, body.height) - base;
+        } else if !map_lean(s.0).is_empty() {
+            // Each other role of his position once (X and Z are two).
+            let mut others: Vec<&str> = SPOTS.iter().filter(|o| o.1 == pos && o.0 != s.0).map(|o| o.0).collect();
+            others.dedup_by_key(|o| role_of(o).0);
+            let other = others.iter().map(|o| lean(o)).sum::<f64>() / others.len().max(1) as f64;
+            out[k] = MAP_LEAN * (lean(s.0) - other) / 2.0;
         }
     }
     out
@@ -181,40 +257,88 @@ fn pick_starters(
     val: &dyn Fn(usize, usize) -> Option<f64>,
 ) -> Vec<[Option<usize>; 3]> {
     let mut starters: Vec<[Option<usize>; 3]> = vec![[None; 3]; SPOTS.len()];
-    #[allow(clippy::needless_range_loop)] // n is the year, read from every man too
-    for n in 0..3 {
-        let mut used: Vec<usize> = Vec::new();
-        // Now, your depth order fills the spots in its own order (left
-        // guard, center, right guard). Later falls fill the center and the
-        // Mike first, the spots that ask most of their own (`spots::fill_in`).
-        let mut seq: Vec<usize> = (0..SPOTS.len()).collect();
-        if n > 0 {
-            seq.sort_by_key(|&k| !matches!(SPOTS[k].0, "C" | "MIKE"));
+    let mut done: Vec<Position> = Vec::new();
+    for &(_, pos, _, _, _) in SPOTS.iter() {
+        if done.contains(&pos) {
+            continue;
         }
-        for k in seq {
-            let pos = SPOTS[k].1;
-            let mut cands: Vec<(f64, usize)> = men
-                .iter()
-                .enumerate()
-                .filter(|(_, m)| m.pos == pos && !used.contains(&m.i))
-                .filter_map(|(j, _)| val(j, n).map(|v| (v, j)))
-                .collect();
-            // Each man as he reads at this spot's own job.
-            cands.sort_by(|a, b| (b.0 + men[b.1].fit[k]).total_cmp(&(a.0 + men[a.1].fit[k])));
-            let mut pick = cands.first().map(|x| x.1);
+        done.push(pos);
+        let ks: Vec<usize> = (0..SPOTS.len()).filter(|&k| SPOTS[k].1 == pos).collect();
+        let at_pos: Vec<usize> = (0..men.len()).filter(|&j| men[j].pos == pos).collect();
+        for n in 0..3 {
+            let here: Vec<(f64, usize)> = at_pos.iter().filter_map(|&j| val(j, n).map(|v| (v, j))).collect();
+            // Now, your depth order fills the spots in its own order (left
+            // guard, center, right guard), as the engine seats it.
             if n == 0
                 && let Some((_, ids)) = order.iter().find(|x| x.0 == pos)
             {
-                let by_order = ids.iter().find_map(|id| cands.iter().find(|c| men[c.1].id == *id).map(|c| c.1));
-                pick = by_order.or(pick);
+                let mut used: Vec<usize> = Vec::new();
+                for &k in &ks {
+                    let mut cands: Vec<&(f64, usize)> = here.iter().filter(|c| !used.contains(&c.1)).collect();
+                    cands.sort_by(|a, b| (b.0 + men[b.1].fit[k]).total_cmp(&(a.0 + men[a.1].fit[k])));
+                    let by_order = ids.iter().find_map(|id| cands.iter().find(|c| men[c.1].id == *id).map(|c| c.1));
+                    if let Some(j) = by_order.or(cands.first().map(|c| c.1)) {
+                        used.push(j);
+                        starters[k][n] = Some(j);
+                    }
+                }
+                continue;
             }
-            if let Some(j) = pick {
-                used.push(men[j].i);
+            // Later falls (and a position with no order): the men who read
+            // best at the spots' own jobs together, so a center goes to
+            // center and a slot to the slot.
+            for (k, j) in best_fill(men, &ks, &here) {
                 starters[k][n] = Some(j);
             }
         }
     }
     starters
+}
+
+/// The men who fill a position's spots best together: the most read at
+/// the spots' own jobs in all, from the best eight at the position (every
+/// spot gets its own man; ties go to the spots' order). `here`: each man
+/// there that fall with his read.
+fn best_fill(men: &[Man], ks: &[usize], here: &[(f64, usize)]) -> Vec<(usize, usize)> {
+    let at = |j: usize, k: usize| here.iter().find(|c| c.1 == j).map_or(0.0, |c| c.0) + men[j].fit[k];
+    let mut pool: Vec<usize> = here.iter().map(|c| c.1).collect();
+    pool.sort_by(|&a, &b| {
+        let best = |j: usize| ks.iter().map(|&k| at(j, k)).fold(f64::MIN, f64::max);
+        best(b).total_cmp(&best(a))
+    });
+    pool.truncate(8);
+    let mut best: (f64, Vec<(usize, usize)>) = (f64::MIN, Vec::new());
+    fn walk(
+        ks: &[usize],
+        pool: &[usize],
+        at: &dyn Fn(usize, usize) -> f64,
+        taken: &mut Vec<(usize, usize)>,
+        sum: f64,
+        best: &mut (f64, Vec<(usize, usize)>),
+    ) {
+        let Some((&k, rest)) = ks.split_first() else {
+            if taken.len() > best.1.len() || (taken.len() == best.1.len() && sum > best.0 + 1e-9) {
+                *best = (sum, taken.clone());
+            }
+            return;
+        };
+        let mut any = false;
+        for &j in pool {
+            if taken.iter().any(|t| t.1 == j) {
+                continue;
+            }
+            any = true;
+            taken.push((k, j));
+            walk(rest, pool, at, taken, sum + at(j, k), best);
+            taken.pop();
+        }
+        // Fewer men than spots: the spot is left empty.
+        if !any {
+            walk(rest, pool, at, taken, sum, best);
+        }
+    }
+    walk(ks, &pool, &at, &mut Vec::new(), 0.0, &mut best);
+    best.1
 }
 
 /// A man's place in a fall once the starters are picked.
@@ -622,6 +746,7 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
         }
         spots.push(json!({
             "key": key, "pos": pos.name(), "full": words, "x": x, "y": y,
+            "role": role_of(key).0, "role_short": role_of(key).1,
             "vals": vals.iter().map(|v| v.map(f64::round)).collect::<Vec<_>>(),
             "verdicts": verdicts, "names": names, "why": why.join(" "), "fix": fix.join(" "),
         }));
@@ -711,6 +836,17 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
                     .collect::<Vec<_>>(),
                 "gone": m.gone.as_ref().map(|g| json!({ "at": g.0, "why": g.1 })),
                 "draft_risk": m.draft_risk,
+                // The spot whose job he reads best at, for a man who starts
+                // nowhere (the first of his position's spots on a tie).
+                "fit": SPOTS
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, s)| s.1 == m.pos)
+                    .fold(None::<(usize, f64)>, |b, (k, _)| match b {
+                        Some((_, f)) if f >= m.fit[k] - 1e-9 => b,
+                        _ => Some((k, m.fit[k])),
+                    })
+                    .map(|(k, _)| SPOTS[k].0),
             })
         })
         .collect();

@@ -72,6 +72,9 @@
 .dv-v.low { color: var(--dv-low); }
 .dv-go { font-size: 12.5px; color: var(--fg2); white-space: nowrap; }
 .dv-r.gone .dv-who a.link { color: var(--fg2); }
+/* A role section in a position's card: its name once, over its men. */
+.dv-sec td { padding: 8px 0 2px; border-bottom: 0; }
+.dv-sec .dv-k { color: var(--fg3); }
 .dv-more { font-size: 12px; color: var(--fg3); }
 .dv-why { display: grid; gap: 3px; }
 .dv-why p, .dv-note { margin: 0; font-size: 12.5px; color: var(--fg2); line-height: 1.45; }

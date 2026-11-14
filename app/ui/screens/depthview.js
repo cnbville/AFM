@@ -283,14 +283,31 @@ function dvCard(g) {
     const drop = m.vals[n] - next.vals[n];
     return `<span title="In ${yy(n)} the next man up is ${esc(next.name)}, ${next.vals[n]}">${drop > 0 ? `−${drop}` : "no drop"} · ${esc(who(next))} ${next.vals[n]}</span>`;
   };
-  const body = rows.map((m) => {
+  // The role sections (Cain's approved design, 2026-11-14): left and
+  // right end, guards and center, X and Z and the slot, outside and
+  // nickel, every-down and third-down back. The role names the section,
+  // not each row. A man goes where he first starts, else where his read
+  // fits best (the Needs map's `fit`).
+  const roleOf = (k) => (x.spots.find((s) => s.key === k) || {}).role || "";
+  const roles = dvRoles(w.spots);
+  const headed = w.spots.length > 1 && roles.length > 0;
+  const sectionOf = (m) => roleOf(start(m) >= 0 ? m.spots[start(m)] : m.fit);
+  const rowHtml = (m) => {
     const n = start(m);
-    const place = n >= 0 ? spotName(m.spots[n]) : m.pos;
+    const place = headed ? "" : n >= 0 ? spotName(m.spots[n]) : m.pos;
     const small = [place, m.commit ? "" : m.classes[Math.max(0, n)] || m.classes[0], tag(m)].filter(Boolean).join(" · ");
     return `<tr class="dv-r${m.portal ? " gone" : ""}"><td class="dv-who">${playerLink(m.id, who(m))}<small>${small}</small></td>${[0, 1, 2].map((i) => cell(m, i)).join("")}<td class="dv-go">${goes(m)}</td></tr>`;
-  }).join("");
+  };
   const holes = w.spots.map((s) => ({ s, at: [0, 1, 2].filter((n) => s.names[n] === null) })).filter((h) => h.at.length);
-  const holeRows = holes.map((h) => `<tr class="dv-r"><td class="dv-who low">Nobody <small>${esc(spotName(h.s.key))} in ${h.at.map(yy).join(", ")}</small></td>${[0, 1, 2].map((n) => `<td class="dv-v low">${h.at.includes(n) ? "hole" : ""}</td>`).join("")}<td></td></tr>`).join("");
+  const holeHtml = (h) => `<tr class="dv-r"><td class="dv-who low">Nobody <small>${esc(spotName(h.s.key))} in ${h.at.map(yy).join(", ")}</small></td>${[0, 1, 2].map((n) => `<td class="dv-v low">${h.at.includes(n) ? "hole" : ""}</td>`).join("")}<td></td></tr>`;
+  const body = headed
+    ? roles.map((r) => {
+        const mine = rows.filter((m) => sectionOf(m) === r.role);
+        const hs = holes.filter((h) => h.s.role === r.role);
+        if (!mine.length && !hs.length) return "";
+        return `<tr class="dv-sec"><td colspan="5"><span class="dv-k">${esc(r.role)}</span></td></tr>${mine.map(rowHtml).join("")}${hs.map(holeHtml).join("")}`;
+      }).join("") + rows.filter((m) => !roles.some((r) => r.role === sectionOf(m))).map(rowHtml).join("")
+    : rows.map(rowHtml).join("") + holes.map(holeHtml).join("");
   // Why it reads weak: each weak spot's first weak fall, in the map's own names.
   const why = [];
   for (const s of w.spots) {
@@ -310,15 +327,46 @@ function dvCard(g) {
   if (bp) {
     const sum = (k) => bp.reduce((a, p) => a + p[k], 0);
     const open = sum("open");
-    foot.push(`Class plan for ${g}: chase ${sum("need")} · committed ${sum("committed") + sum("signed")} · <b>open ${open}</b>${bp.length > 1 && open ? ` (${bp.filter((p) => p.open).map((p) => `${esc(p.pos)} ${p.open}`).join(", ")})` : ""}`);
+    const split = bp.length > 1 ? bp.filter((p) => p.open).map((p) => `${esc(p.pos)} ${p.open}`) : dvSplit(w.spots, open);
+    foot.push(`Class plan for ${g}: chase ${sum("need")} · committed ${sum("committed") + sum("signed")} · <b>open ${open}</b>${split.length ? ` (${split.join(", ")})` : ""}`);
   }
   // On the portal page itself, the entrants at this group when the page is on it.
   const pp = DV.portalPage;
   if (S.route.screen === "portal_desk" && pp && pp.div === "ALL" && pp.pos === dvToPage("portal", { g, p: null, raw: null })) foot.push(`Entrants at ${g}: <b>${pp.shown}</b> · see them in the Entrants tab`);
   return `<div class="dv-card"><div class="dv-ch"><b>${esc(g)} · ${men.length} ${men.length === 1 ? "player" : "players"}</b><span class="${w.low ? "low" : ""}">${esc(w.text)}</span></div>
-    <table class="dv-t"><thead><tr><th>Depth by fall · bold starts</th>${[0, 1, 2].map((n) => `<th>${yy(n)}</th>`).join("")}<th>If he goes</th></tr></thead><tbody>${body}${holeRows}</tbody></table>
+    <table class="dv-t"><thead><tr><th>Depth by fall · bold starts</th>${[0, 1, 2].map((n) => `<th>${yy(n)}</th>`).join("")}<th>If he goes</th></tr></thead><tbody>${body}</tbody></table>
     ${more > 0 ? `<div class="dv-more">+ ${more} more behind them</div>` : ""}${whyHtml}
     <div class="dv-foot">${foot.map((f) => `<span>${f}</span>`).join("")}</div></div>`;
+}
+// A group's role sections in the Needs map's spot order, each with its
+// spots and the short word the class plan uses.
+function dvRoles(spots) {
+  const out = [];
+  for (const s of spots) {
+    if (!s.role) continue;
+    const r = out.find((q) => q.role === s.role);
+    if (r) r.spots.push(s);
+    else out.push({ role: s.role, short: s.role_short || s.role.toLowerCase(), spots: [s] });
+  }
+  return out;
+}
+// A position's open places by role: the roles that read weakest in the
+// falls a recruit arrives in (next fall, then two falls out) first, one
+// place a turn; with no weak role, a turn for each of a role's spots. "guard 1, center 1". Proposed, not confirmed.
+function dvSplit(spots, open) {
+  const roles = dvRoles(spots);
+  if (roles.length < 2 || !open) return [];
+  const worst = (r) => Math.min(...r.spots.flatMap((s) => [1, 2].map((n) => DV_RANK[s.verdicts[n]] ?? 2)));
+  const order = [...roles].sort((a, b) => worst(a) - worst(b) || b.spots.length - a.spots.length);
+  const weak = order.filter((r) => worst(r) <= 1);
+  // No weak role: a turn for each of a role's spots (X and Z two, the slot one).
+  const turn = weak.length ? weak : [...order].sort((a, b) => b.spots.length - a.spots.length).flatMap((r) => r.spots.map(() => r));
+  const got = new Map();
+  for (let i = 0; i < open; i++) {
+    const r = turn[i % turn.length];
+    got.set(r, (got.get(r) || 0) + 1);
+  }
+  return order.filter((r) => got.has(r)).map((r) => `${esc(r.short)} ${got.get(r)}`);
 }
 const dvLast = (m) => String(m.name).split(" ").slice(1).join(" ") || String(m.name);
 
