@@ -51,6 +51,9 @@ pub struct Staffs {
     pub raises: Vec<(usize, Date)>,
     /// More money from your boss for the staff pool and recruiting (shares).
     pub pool_bonus: f32,
+    /// Your athletic director's raises to the recruiting budget for travel
+    /// and visits (people topic 12), as a share above the usual: 0.1 a yes.
+    /// Read by [`recruit_bonus`]; a new job starts at none.
     pub recruit_bonus: f32,
     /// Drawn jobs whose holder changed (job key, term).
     pub terms: Vec<(u64, u16)>,
@@ -63,6 +66,20 @@ pub struct Staffs {
     /// Deals carried over from another job were repriced once (older saves
     /// kept a coach's deal when he moved).
     pub repriced: bool,
+}
+
+/// The share your athletic director added to program `p`'s recruiting
+/// budget for travel and visits (people topic 12; 0 for any other program,
+/// so the world runs as before until he says yes). It buys more of the
+/// athletic budget's recruiting line (`finance::college`, `open_year`), a
+/// second school on a coach's Thursday on the road (`scouting::dept`,
+/// `college_day`) and a better-hosted visit (`recruiting::appeal`,
+/// `front_office::portal::effort`). Sizes proposed, not confirmed.
+pub fn recruit_bonus(w: &World, p: usize) -> f64 {
+    match Team::seat(w) {
+        Some(Team::College(q)) if q == p => w.folk.staff.recruit_bonus.max(0.0) as f64,
+        _ => 0.0,
+    }
 }
 
 impl Staffs {

@@ -338,6 +338,7 @@ Object.assign(CORE_MORE, {
   sbspot: (el) => { keep("sbdc:" + sbCurForm(), { k: 0 }).k = Number(el.dataset.k); sbLocal(el); },
   sbform: (el) => { keep("sbform", {})[el.dataset.tab] = el.dataset.v; refresh(el); },
   sbdcview: (el) => { keep("sbdcview", { v: "Broadcast" }).v = el.dataset.v; if (el.dataset.v !== "Broadcast") keep("sbplan", { y: 0 }).y = 0; refresh(el); },
+  sbclass: (el) => { S.route.args = S.route.args || {}; S.route.args.sbc = el.dataset.v === "ALL" ? undefined : el.dataset.v; refresh(el); },
   sbplan: (el) => { keep("sbplan", { y: 0 }).y = Number(el.dataset.v) || 0; refresh(el); },
   sbup: async (el) => {
     const tab = keep("trboard", { t: "Offense" }).t;

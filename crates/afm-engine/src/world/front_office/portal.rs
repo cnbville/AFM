@@ -549,11 +549,12 @@ pub(crate) fn case_now(t: &super::college::PortalTarget) -> crate::world::folk::
 /// What your work with him adds at his decision: your case from every
 /// call and visit (`folk::case`; for a save from before it, the talks it
 /// kept, the latest at each place) and how your campus felt to him with
-/// the visit's own pull.
-pub(crate) fn effort(t: &super::college::PortalTarget) -> f64 {
+/// the visit's own pull, hosted better by `raised` (1 plus your athletic
+/// director's raises for travel and visits, people topic 12).
+pub(crate) fn effort(t: &super::college::PortalTarget, raised: f64) -> f64 {
     let talks: f64 =
         if t.case.is_empty() { t.talks.iter().map(|x| x.lean as f64).sum() } else { t.case.total() as f64 };
-    let visit = t.feel.map_or(0.0, |f| VISIT_PULL + f as f64);
+    let visit = t.feel.map_or(0.0, |f| VISIT_PULL * raised + f as f64);
     talks + visit
 }
 

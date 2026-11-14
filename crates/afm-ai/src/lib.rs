@@ -21,7 +21,7 @@ mod local_server_tests;
 
 use std::sync::{Arc, Mutex};
 
-pub use client::{BASE_URL, Failure, Key, MODEL, Model, Real, Reply, Request, TIMEOUT, Usage};
+pub use client::{BASE_URL, Failure, Key, MODEL, Model, Real, Reply, Request, SCHEMA_TIMEOUT, TIMEOUT, Usage};
 pub use fake::Fake;
 pub use spend::{CAP_NANO, CAP_USD, MonthBook, Price, Spend, month_now};
 

@@ -496,6 +496,7 @@ const CONTACT_BOND: f64 = 0.05;
 pub(crate) fn portal_wants(w: &World) -> Option<PortalWants> {
     let j = super::program(w)?;
     let staff = mine(w, Duty::Portal).is_none();
+    let raised = 1.0 + crate::world::folk::staffing::recruit_bonus(w, j);
     let offers = w
         .front_office
         .college
@@ -512,7 +513,7 @@ pub(crate) fn portal_wants(w: &World) -> Option<PortalWants> {
                     // yours, Cain 2026-11-07).
                     nil: t.nil,
                     coll: t.nil_coll,
-                    bond: if t.contacted.is_some() { CONTACT_BOND } else { 0.0 } + super::portal::effort(t),
+                    bond: if t.contacted.is_some() { CONTACT_BOND } else { 0.0 } + super::portal::effort(t, raised),
                     promise: t.promise.map(|p| p.0),
                     // A talk still open counts: your case is written as you
                     // talk, before the talk goes on his list.
