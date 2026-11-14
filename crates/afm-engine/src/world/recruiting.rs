@@ -4692,11 +4692,29 @@ fn early_enrollee_chance(sign_year: i32, stars: u8, gpa: f64, division: Division
 /// How hard a committed recruit holds to his school (T5.1), in utility
 /// points: loyal kids hold on; a head coach leaving since he committed
 /// halves it.
-fn stickiness(p: &Person, prog: &Program, year: i32) -> f64 {
+fn stickiness(p: &Person, prog: &Program, year: i32, heard: f64) -> f64 {
     let pers = &p.player.personality;
     let loyal = clamp(0.6 + 0.04 * (pers.love_of_game - 10.0) + 0.03 * (pers.coachability - 10.0), 0.3, 1.0);
     let changed = prog.hc_changed == year;
-    0.18 * loyal * if changed { 0.5 } else { 1.0 }
+    0.18 * loyal * if changed { 0.5 + HEARD_HOLD * heard } else { 1.0 }
+}
+
+/// How much of a commitment's hold a coaching change gives back when the
+/// commit heard from the new staff in its first days (the takeover's calls;
+/// talk facts lane L8): at 1 (the head coach called him himself) his hold
+/// is 0.8 of a normal year's instead of half; at 0.5 (a staff call) 0.65.
+/// Claude's sizes (proposed, not confirmed).
+pub const HEARD_HOLD: f64 = 0.3;
+
+/// Whether your new staff called this commit to your program in its first
+/// days (`Folk.commit_calls`, `Folk.commits_heard`): 1 you, 0.5 your staff.
+fn heard(w: &World, p: &Person, j: usize) -> f64 {
+    match w.folk.commit_calls {
+        Some((q, ..)) if q == j => {
+            w.folk.commits_heard.iter().find(|x| x.0 == p.player.id).map_or(0.0, |x| if x.1 { 1.0 } else { 0.5 })
+        }
+        _ => 0.0,
+    }
 }
 
 /// A signing stage for the class that signs after `season` (T5). Its
@@ -6193,7 +6211,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         let p = &w.people[pool[k].person];
         let mut u = 0.0;
         if p.cal.commit.is_some_and(|c| c.0 == j) {
-            u += stickiness(p, &programs[j], year);
+            u += stickiness(p, &programs[j], year, heard(w, p, j));
             // Until the early period a commitment holds its place: he
             // weighs a switch only when he can sign (T5.1).
             if summer {
@@ -9745,8 +9763,10 @@ fn appeal_in(w: &World, i: usize, j: usize, nil: f64, field: &TopTwo) -> f64 {
         u += if k == 0 { 0.02 } else { 0.01 };
     }
     if p.cal.commit.is_some_and(|c| c.0 == j) {
-        u += stickiness(p, prog, w.year);
+        u += stickiness(p, prog, w.year, heard(w, p, j));
     }
+    // A fence you promised around your state (talk facts lane L8).
+    u += super::folk::press::fence_pull(w, p, j);
     if p.cal.signed.is_some_and(|s| s.program == j) {
         u += 10.0;
     }
@@ -10003,7 +10023,7 @@ pub(crate) fn appeals(w: &World, i: usize, schools: &[usize], with: Option<(usiz
 /// How hard a recruit holds to the school he committed to, in appeal points.
 pub(crate) fn commitment_hold(w: &World, i: usize) -> f64 {
     let p = &w.people[i];
-    p.cal.commit.map_or(0.0, |c| stickiness(p, &w.programs[c.0], w.year))
+    p.cal.commit.map_or(0.0, |c| stickiness(p, &w.programs[c.0], w.year, heard(w, p, c.0)))
 }
 
 /// The class a program signs next: the seniors until February's signing

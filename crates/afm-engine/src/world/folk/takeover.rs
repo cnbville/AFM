@@ -997,6 +997,12 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
             s.outcome.push("You said a few plain words at the end of a workout instead. The room shrugged: no first impression either way.".into());
         }
         Kind::PressIntro => {}
+        Kind::Booster if super::backers::is_pass_test(s) => {
+            // Nobody else can pull his pass: it stands, and the room saw it.
+            if let Some(c) = booster_of(w, s, team) {
+                super::backers::pass_answer(w, s, team, &c, 142);
+            }
+        }
         Kind::Booster => {
             if let Some(c) = booster_of(w, s, team) {
                 w.folk.mine.nudge(c.key(), -0.08);
@@ -1039,6 +1045,13 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
             s.outcome.push("The general manager ran the meeting on his own terms and left you his notes.".into());
         }
         Kind::SigneeRelease => signee_hand(w, s, team, &who),
+        Kind::Trainer => {
+            // The trainers run their own plan: nobody is pushed.
+            rehab_holds(w, team, false);
+            if s.outcome.is_empty() {
+                s.outcome.push(format!("{who} took it and left you the notes."));
+            }
+        }
         _ => {
             if s.outcome.is_empty() {
                 s.outcome.push(format!("{who} took it and left you the notes."));
@@ -1993,6 +2006,7 @@ fn report_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
         61 => s.outcome.push("The academic staff handles it as they did.".into()),
         70 => {
             w.folk.mine.hard = (w.folk.mine.hard - 0.05).max(-1.0);
+            rehab_holds(w, team, false);
             s.outcome.push("Nobody rushes back. The trainers heard you say it.".into());
             if let Some(c) =
                 cast::has(w, team, Role::Trainer).then(|| cast::get(w, CastRef::new(team, Role::Trainer, 0)))
@@ -2008,6 +2022,13 @@ fn report_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
                 w.folk.mine.nudge(c.key(), -0.08);
             }
             w.folk.pushed_rehab = true;
+            let n = rehab_holds(w, team, true);
+            if n > 0 {
+                s.outcome.push(format!(
+                    "{n} {} back sooner than the trainers' plan, at a higher risk of getting hurt again.",
+                    if n == 1 { "player is" } else { "players are" }
+                ));
+            }
         }
         _ => s.outcome.push("Filed in the takeover file.".into()),
     }
@@ -2131,22 +2152,11 @@ fn trainer(w: &mut World, s: &mut Scene, team: Team) {
                 },
             )
         } else {
-            let Some(h) = p.player.history.last() else { continue };
-            use crate::player::DevelopmentEvent as Ev;
-            if h.events.has(Ev::MajorInjury) {
-                let surgery = super::roll(w, 0x5E6, p.player.id as u64) < 0.4;
-                (
-                    if surgery {
-                        "a major injury; surgery still to come".into()
-                    } else {
-                        "rehab from a major injury".into()
-                    },
-                    if surgery { "summer, maybe fall camp".into() } else { "late spring".into() },
-                )
-            } else if h.events.has(Ev::ModerateInjury) && h.games_missed > 2 {
-                ("rehab, finishing up".into(), "spring ball, limited".into())
-            } else {
-                continue;
+            let Some(tier) = rehab_of(w, i) else { continue };
+            match tier {
+                2 => ("a major injury; surgery still to come".into(), "summer, maybe fall camp".into()),
+                1 => ("rehab from a major injury".into(), "late spring".into()),
+                _ => ("rehab, finishing up".into(), "spring ball, limited".into()),
             }
         };
         doc.rows.push(DocRow {
@@ -2174,6 +2184,76 @@ fn trainer(w: &mut World, s: &mut Scene, team: Team) {
         "Some come back sooner; the re-injury risk rises, and the trainers notice.",
     );
 }
+
+/// Where a school player's rehab stands at the trainer's report, from his
+/// last season's injury: 2 a major one with surgery still to come, 1 rehab
+/// from a major one, 0 a moderate one finishing up; None healthy.
+fn rehab_of(w: &World, i: usize) -> Option<u8> {
+    use crate::player::DevelopmentEvent as Ev;
+    let p = &w.people[i];
+    let h = p.player.history.last()?;
+    if h.events.has(Ev::MajorInjury) {
+        Some(if super::roll(w, 0x5E6, p.player.id as u64) < 0.4 { 2 } else { 1 })
+    } else if h.events.has(Ev::ModerateInjury) && h.games_missed > 2 {
+        Some(0)
+    } else {
+        None
+    }
+}
+
+/// The days a rehab really ends, as the trainer's report says (talk facts
+/// lane L8, item 27: pushing rehab had no effect, and the report's dates
+/// held nobody out): surgery to come is back for fall camp, rehab from a
+/// major injury by the spring game, a moderate one two weeks into spring
+/// ball. Pushed, each comes back a step sooner: by the spring game, at the
+/// start of spring ball, and with no hold.
+fn rehab_back(w: &World, tier: u8, pushed: bool) -> Option<Date> {
+    let (start, game) = (w.dates.spring_practice.0, w.dates.spring_game);
+    match (tier, pushed) {
+        (2, false) => Some(w.dates.fall_camp),
+        (2, true) | (1, false) => Some(game),
+        (1, true) => Some(start),
+        (_, false) => Some(start.add(14)),
+        _ => None,
+    }
+}
+
+/// The report's holds become real (`training.hurt`): each player in rehab
+/// is off the practice field until his day. Pushed, he is back sooner and
+/// on the trainers' watch for re-injury (`Folk.rushed`, read by your
+/// practices: `training::seat`). At a club, pushed players' time out is
+/// cut by a quarter, as a second opinion's rush (`life.rs`). Returns how
+/// many came back sooner.
+pub(crate) fn rehab_holds(w: &mut World, team: Team, pushed: bool) -> usize {
+    let today = w.today;
+    let mut sooner = 0;
+    for i in team.roster(w) {
+        let id = w.people[i].player.id;
+        if let Some(c) = w.people[i].pro.as_mut() {
+            if pushed && c.out_weeks > 0 && !c.pup {
+                c.out_for((c.out_days * 3 / 4).max(1));
+                w.folk.rushed.push((id, today));
+                sooner += 1;
+            }
+            continue;
+        }
+        let Some(tier) = rehab_of(w, i) else { continue };
+        let normal = rehab_back(w, tier, false).filter(|d| *d > today);
+        let back = rehab_back(w, tier, pushed).filter(|d| *d > today);
+        if let Some(until) = back {
+            w.training.hurt.retain(|h| !(h.id == id && h.how == REHAB));
+            w.training.hurt.push(crate::training::seat::Hurt { id, kind: None, from: today, until, how: REHAB.into() });
+        }
+        if pushed && normal.is_some() && back != normal {
+            w.folk.rushed.push((id, back.unwrap_or(today)));
+            sooner += 1;
+        }
+    }
+    sooner
+}
+
+/// What a rehab hold says it is (`training.hurt`).
+const REHAB: &str = "rehab from last season's injury";
 
 // ---------------------------------------------------------------------------
 // Item 10: the academic and conduct report.
@@ -2535,8 +2615,10 @@ fn recruiting_calls(w: &mut World, team: Team, all_you: bool) -> usize {
         })
         .collect();
     list.sort_by(|&a, &b| w.people[b].stars.cmp(&w.people[a].stars));
+    w.folk.commits_heard.clear();
     for (k, i) in list.into_iter().enumerate() {
         let you_called = all_you || k < 3;
+        w.folk.commits_heard.push((w.people[i].player.id, you_called));
         let pp = &mut w.people[i];
         pp.trust_in = w.career.as_ref().map_or(0, |c| c.coach) as u32;
         pp.trust = (0.45 + if you_called { 0.08 + 0.006 * (rec - 10.0) as f32 } else { 0.03 }).clamp(0.0, 1.0);
@@ -2833,6 +2915,11 @@ fn booster_open(w: &mut World, s: &mut Scene, team: Team) {
         s.end();
         return;
     };
+    // His pass put to the test (talk facts lane L8).
+    if super::backers::is_pass_test(s) {
+        super::backers::pass_open(w, s, team, &c);
+        return;
+    }
     let Some(b) = c.booster.clone() else {
         s.end();
         return;
@@ -2883,6 +2970,19 @@ fn booster_open(w: &mut World, s: &mut Scene, team: Team) {
         let line = pen.line(&[want_key(wt)], &spk, &f);
         s.them(&c.name, if line.is_empty() { want_fallback(w, wt, &b) } else { line }, None);
         s.c = 0;
+        // The local kid he means, by name (talk facts lane L8: the promise
+        // is held to his games).
+        if wt == Want::SayOnPlayer
+            && let Some(k) = super::backers::kid(w, team)
+        {
+            s.narrate(format!(
+                "He means {}, a {} from {} who hasn't been starting.",
+                player_link(w, k),
+                w.people[k].player.position.name().to_lowercase(),
+                facts::state_name(w.states.get(w.people[k].home_state).map_or("", |x| x.code.as_str()))
+            ));
+            s.c = w.people[k].player.id as i64 + 1;
+        }
         super::note(
             w,
             "boosters",
@@ -2898,6 +2998,14 @@ fn booster_open(w: &mut World, s: &mut Scene, team: Team) {
     pen.put(w);
     if let Some(wt) = want {
         add_want_picks(s, wt);
+        if wt == Want::SayOnPlayer
+            && let Some(k) = super::person(w, (s.c - 1).max(0) as u32).filter(|_| s.c > 0)
+            && let Some(p) = s.picks.iter_mut().find(|p| p.code == 100)
+        {
+            let first = w.people[k].name.split_whitespace().next().unwrap_or("").to_string();
+            p.label = format!("{first} will get a real look this season. You have my word.");
+            p.hint = "Logged: he plays real snaps by the season's end, or it's broken.".into();
+        }
     } else {
         s.pick(103, "Thank him for everything he does for the program.", "Praise", "warm", "Goodwill.");
     }
@@ -3059,6 +3167,10 @@ fn booster_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
         s.end();
         return;
     };
+    if super::backers::is_pass_test(s) {
+        super::backers::pass_answer(w, s, team, &c, code);
+        return;
+    }
     let b = c.booster.clone().unwrap_or_default();
     let want = b.wants.first().copied();
     let meddler = Cast::z(c.meddling) as f32;
@@ -3071,6 +3183,9 @@ fn booster_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
                     super::talks::PromiseKind::Booster(wt),
                     2,
                 );
+                if wt == Want::SayOnPlayer && s.c > 0 {
+                    super::backers::promised_kid(w, c.key(), (s.c - 1) as u32);
+                }
             }
             (
                 0.15,
@@ -3212,6 +3327,7 @@ fn media_open(w: &mut World, s: &mut Scene, team: Team) {
 
 fn media_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
     w.folk.media_policy = code as u8 - 110;
+    w.folk.media_chosen = true;
     let reporters = cast::all(w, team, Role::Reporter);
     for r in &reporters {
         let d = match code {

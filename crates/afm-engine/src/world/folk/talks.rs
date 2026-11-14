@@ -313,6 +313,10 @@ fn check_promises(w: &mut World, d: Date) {
             p.made.pretty()
         );
         settle_word(w, p.to, kept, cost, if kept { Reason::PromiseKept } else { Reason::PromiseBroken });
+        // A booster takes it further (talk facts lane L8).
+        if !kept && let (PromiseTo::Cast(r, term), PromiseKind::Booster(_)) = (p.to, p.kind) {
+            super::backers::broken(w, r, term);
+        }
         super::note(w, "talk", "Your promises".into(), text.clone(), None);
         super::post_mine(w, d, Loudness::Small, false, "people: promise", &text);
     }
@@ -397,7 +401,7 @@ pub(crate) fn kept(w: &World, p: &Promise) -> bool {
             }
         }
         (_, PromiseKind::Stay) => w.folk.mine.since.is_some_and(|s| s <= p.made),
-        (_, PromiseKind::Booster(want)) => super::boss::want_met(w, want),
+        (_, PromiseKind::Booster(want)) => super::backers::kept(w, p.to, p.made, want),
         (PromiseTo::Coach(c), PromiseKind::Raise) => w.folk.staff.raised_since(c, p.made),
         _ => true,
     }
@@ -1758,7 +1762,7 @@ fn read_tell(w: &World, i: usize, sign: i32) -> Option<String> {
 
 /// How sharp your read of people is: your relationships rating and how
 /// long you've known them (0 to about 1.2; under 0.45 is a weak read).
-fn sharpness(w: &World) -> f64 {
+pub(crate) fn sharpness(w: &World) -> f64 {
     let you = w.career.as_ref().map_or(10.0, |c| c.you.relationships);
     let known = w.folk.mine.since.map_or(0, |d| d.days_to(w.today)) as f64 / 120.0;
     you / 20.0 + 0.2 * known.min(1.0)
