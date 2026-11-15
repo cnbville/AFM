@@ -48,6 +48,7 @@ mod no_fire;
 mod one_on_ones;
 mod outside_talks;
 mod persona;
+mod persona_people;
 mod pipeline;
 mod placement;
 mod polls;

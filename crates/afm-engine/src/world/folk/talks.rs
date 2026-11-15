@@ -2223,7 +2223,7 @@ fn read_tell(w: &World, i: usize, sign: i32) -> Option<String> {
 
 /// How sharp your read of people is: your relationships rating and how
 /// long you've known them (0 to about 1.2; under 0.45 is a weak read).
-fn sharpness(w: &World) -> f64 {
+pub(crate) fn sharpness(w: &World) -> f64 {
     let you = w.career.as_ref().map_or(10.0, |c| c.you.relationships);
     let known = w.folk.mine.since.map_or(0, |d| d.days_to(w.today)) as f64 / 120.0;
     you / 20.0 + 0.2 * known.min(1.0)
