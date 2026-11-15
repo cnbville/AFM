@@ -43,6 +43,8 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -54,6 +56,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      # The app carries its own entry on the What's new page: the merges since the
+      # last shipped build, from the pull requests' Patch note sections (only the
+      # working copy changes, nothing is committed; the "Patch notes" workflow
+      # commits the real entry once the build ships). Never stops a build.
+      - name: Put this build's notes on the What's new page
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PATCH_NOTES_NO_AI: "1"
+        run: |
+          python3 .github/scripts/patch_notes.py preview --version ${{ github.run_number }} --sha ${{ github.sha }}
+          node --check app/ui/changelog.js || git checkout -- app/ui/changelog.js
       # Each build has its own version, 0.2.<run>, so an installed app knows a
       # newer one exists. Once the "Set up updates" workflow has made the
       # signing key (secret TAURI_SIGNING_PRIVATE_KEY, public half in the

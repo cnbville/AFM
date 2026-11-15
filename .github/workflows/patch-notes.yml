@@ -1,0 +1,57 @@
+name: Patch notes
+# The patch notes write themselves (Cain 2026-11-15). When a Mac build finishes
+# (it has put its dmg on its own release, app-<run>), this reads every shipped
+# build, writes each one's entry from the pull requests merged into it, and
+# commits the notes and the in-game "What's new" panels to main.
+#   docs/patch-notes.md           the team notes, one entry per shipped version
+#   docs/patch-notes/*.json       the shipped builds, the PR texts, hand-written fixes
+#   app/ui/changelog.js           the page players see (between its auto markers)
+# It reads the shipped builds from the releases and rebuilds from them, so a run
+# that was dropped or cancelled loses nothing: the next one catches up. Pushes
+# made with the job's own token start no other workflow, so this never loops and
+# never starts a Mac build. Details in .github/scripts/patch_notes.py.
+#
+# Optional: a repository secret ANTHROPIC_API_KEY lets the script write plain
+# words for a pull request that has no "## Patch note" section (team notes only).
+on:
+  workflow_run:
+    workflows: ["Mac app"]
+    types: [completed]
+  # A safety net, and a way to run it by hand (Actions, Patch notes, Run workflow).
+  schedule:
+    - cron: "23 */3 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: patch-notes
+  cancel-in-progress: false
+jobs:
+  notes:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Write the notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python3 .github/scripts/patch_notes.py sync
+      - name: Commit them to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/patch-notes.md docs/patch-notes app/ui/changelog.js
+          if git diff --cached --quiet; then echo "Nothing new to commit."; exit 0; fi
+          git commit -m "Patch notes: the shipped builds so far [skip ci]"
+          for i in 1 2 3 4; do
+            if git push origin HEAD:main; then exit 0; fi
+            sleep $((i * 5))
+            git pull --rebase origin main
+          done
+          exit 1
