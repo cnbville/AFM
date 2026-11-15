@@ -1,6 +1,6 @@
 # The NFL draft: how it works today
 
-Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, the hunt (next update lane 11) on 2026-10-30, L12's league fixes (minor bugs 97, 134) on dd2ece1 on 2026-10-30, and the pick times (minor bug 159) on 2026-10-31. The six-part day (player immersion I1) checked on 2026-11-05, before it merged to main. Early entry (the early entrants lane) checked on 2026-11-14.
+Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, the hunt (next update lane 11) on 2026-10-30, L12's league fixes (minor bugs 97, 134) on dd2ece1 on 2026-10-30, and the pick times (minor bug 159) on 2026-10-31. The six-part day (player immersion I1) checked on 2026-11-05, before it merged to main. Early entry (the early entrants lane) checked on 2026-11-14. The CFL's scouts and drafts (SK77) checked over main 24d6db0 on 2026-11-15, before it merged.
 
 ## Quick answers
 
@@ -218,6 +218,7 @@ Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, the hunt (ne
 
 ## Related pages
 
+- The CFL's own draft (its scouts, the Bureau, the combines, the Global Draft, your CFL draft room): `nfl.md`, "The CFL scouts and drafts".
 - [scouting.md](scouting.md): the files and reads the boards are built from.
 - [nfl.md](nfl.md): contracts, free agency and trades outside the draft.
 - [recruiting.md](recruiting.md): the college pipelines a pick credits.

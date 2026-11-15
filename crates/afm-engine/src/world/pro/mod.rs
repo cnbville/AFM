@@ -10,6 +10,7 @@
 //! need and draft logic read real players.
 
 pub mod bargain;
+pub mod cfl;
 pub mod games;
 pub mod honors;
 pub mod leagues;
@@ -1687,6 +1688,7 @@ fn camp(w: &mut World, d: Date) {
         }
     }
     let focus = w.focus_by_person();
+    let seat_mine: std::collections::HashSet<usize> = w.seat_roster().iter().copied().collect();
     let defer = !w.options.yearly_growth;
     // The league's typical staff and strength head (minor bug 302), so the
     // strength staff's share moves growth around the league's average.
@@ -1824,7 +1826,9 @@ fn camp(w: &mut World, d: Date) {
             medical,
             physical_coaching,
             strength_dev,
-            focus: focus.get(&i).copied(),
+            focus: focus.get(&i).map(|x| x.0),
+            focus2: focus.get(&i).and_then(|x| x.1),
+            seat_plan: seat_mine.contains(&i),
             focus_minutes: p.player.train.focus_minutes(),
             defer,
             results,
@@ -1837,7 +1841,7 @@ fn camp(w: &mut World, d: Date) {
         // A season whose snaps didn't land in season is read at this
         // opening, spring snaps with it (`develop_season`).
         let read_late = crate::development::reads_late(&p.player, Level::NFL);
-        let year_focus = ctx.focus.map(|a| crate::development::Focus::new(a, ctx.focus_minutes));
+        let year_focus = ctx.focus.map(|a| crate::development::Focus::two(a, ctx.focus2, ctx.focus_minutes));
         crate::training::close_year(&mut p.player, year_focus);
         let report = crate::development::develop_season(&mut p.player, &ctx, &mut p.rng);
         // His spring snaps (OTAs, minicamp) land now as reps of the new

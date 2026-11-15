@@ -564,6 +564,9 @@ fn your_week(w: &mut World, d: Date) {
         }
         let seen = super::roll(w, 0x7B20 ^ d.0 as u64, id as u64) as f32 <= see;
         if !seen {
+            // Your staff missed it, but the teammates who were there know
+            // (live talks v3, 3.1). Kept only: no roll and no number moves.
+            super::persona::stores::record_unseen(w, i, kind, d);
             continue;
         }
         let prior = w.folk.rules.rulings.iter().filter(|x| x.id == id).count().min(9) as u8;
@@ -1594,6 +1597,8 @@ pub(crate) fn day(w: &mut World, d: Date) {
         ai_week(w, d);
     }
     if w.seat.is_some() && d.weekday() == Weekday::Mon {
+        // Live talks v3's stores: old rows go, lies due are checked.
+        super::persona::stores::week(w);
         your_week(w, d);
     }
     // Rookie rituals at camp (P8).

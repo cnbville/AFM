@@ -20,7 +20,7 @@
  */
 
 I.film = '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18M3 15h18M7 5v4M12 5v4M17 5v4M7 15v4M12 15v4M17 15v4"/>';
-navAdd({ go: "film", label: "Film room", icon: "film", sec: "scout", after: "evaluate", seats: ["nfl", "college", "hs"] });
+navAdd({ go: "film", label: "Film room", icon: "film", sec: "scout", after: "evaluate", seats: ["nfl", "college", "hs", "other"], show: () => seatKind() !== "other" || !!(S.status && S.status.cfl) });
 CRUMBS.film = "Film room";
 GOTO.film = () => (scSeat() === "nfl"
   ? [["Draft board", "draftboard"], ["Evaluation", "evaluate"], ["Game day", "gameday"]]

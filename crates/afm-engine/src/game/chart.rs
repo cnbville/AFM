@@ -113,7 +113,7 @@ pub struct Rusher {
     /// The gap he rushed, from the offense's left: 0 left edge, 1 left
     /// inside, 2 middle, 3 right inside, 4 right edge.
     pub gap: u8,
-    /// `LINEMAN`, `PICKED`, `STUNT`.
+    /// `LINEMAN`, `PICKED`, `STUNT`, `CHIPPED`.
     pub flags: u8,
 }
 
@@ -124,6 +124,19 @@ impl Rusher {
     pub const PICKED: u8 = 2;
     /// He was in the stunt (the man who went first or the one who looped).
     pub const STUNT: u8 = 4;
+    /// A back or tight end chipped him on his way out (A8; saved for the
+    /// promises on usage, the other team's call, never judged).
+    pub const CHIPPED: u8 = 8;
+
+    pub fn stunt(&self) -> bool {
+        self.flags & Rusher::STUNT != 0
+    }
+    pub fn lineman(&self) -> bool {
+        self.flags & Rusher::LINEMAN != 0
+    }
+    pub fn chipped(&self) -> bool {
+        self.flags & Rusher::CHIPPED != 0
+    }
 }
 
 /// The protection a pass play used.
