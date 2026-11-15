@@ -409,6 +409,33 @@ impl Resolving for Conversation<'_> {
                 }
                 Act::Answer(_) => {}
                 Act::End => t.ends = Some(Ends::You),
+                // Your word on his future (playtest bug 15): the picks'
+                // outcome and odds, decided now, made real in `apply`.
+                Act::Future { word, strength } => {
+                    if let Some(i) = yours_across(w, him, s) {
+                        let plan = folk::future::plan(w, i, *word, strength);
+                        if !plan.words().is_empty() {
+                            t.say.released.push(plan.words().into());
+                        }
+                        if plan.ends() {
+                            t.ends = Some(Ends::Him(None));
+                        }
+                        t.future.push(plan);
+                    }
+                }
+                // A change to a promise you made him: the promises
+                // design's answers, made real in `apply`.
+                Act::Amend(a) => {
+                    if let Some(i) = yours_across(w, him, s) {
+                        match amended(w, i, a) {
+                            Some((k, pa, bar)) => {
+                                t.say.released.push(amend_words(pa).into());
+                                t.reworked.push((k as u32, pa, bar));
+                            }
+                            None => t.say.released.push("You have no promise to him for that to change.".into()),
+                        }
+                    }
+                }
             }
         }
         // Every hit on every listener, sized (question 1), then held inside
@@ -593,6 +620,17 @@ impl Resolving for Conversation<'_> {
                 talks::typed_promise(w, id, pid, p);
             }
         }
+        // Promises your line changes, then your word on his future (after
+        // this line's own promises, so a strength named backs the promise
+        // it made).
+        if facet == Facet::Other
+            && let Some(i) = yours_across(w, him, Some(&s))
+        {
+            let out = rework_and_future(w, i, t);
+            if let Some(sc) = w.folk.scenes.iter_mut().find(|x| x.id == id) {
+                sc.outcome.extend(out);
+            }
+        }
         // What an offer leaves behind (lane N3): your first number, an
         // answer he owes you.
         for (o, wd) in &t.weighed {
@@ -669,6 +707,72 @@ impl Resolving for Conversation<'_> {
             end(w, id);
         }
     }
+}
+
+/// The man across in your one-on-one, when he's your player: his index.
+fn yours_across(w: &World, him: Them, s: Option<&Scene>) -> Option<usize> {
+    let Them::Player(pid) = him else { return None };
+    s.filter(|s| s.kind == SceneKind::OneOnOne)?;
+    folk::person(w, pid)
+}
+
+/// The promise a change names (the card's tag, else the one that slipped,
+/// else the latest open one) and the answer it is.
+fn amended(w: &World, i: usize, a: &super::ear::Amend) -> Option<(usize, talks::PAct, Option<f32>)> {
+    let pid = w.people[i].player.id;
+    let to = talks::PromiseTo::Player(pid);
+    let k = a
+        .promise
+        .map(|k| k as usize)
+        .filter(|&k| w.folk.promises.get(k).is_some_and(|p| p.to == to && p.kept.is_none()))
+        .or_else(|| talks::slipped(w, pid))
+        .or_else(|| folk::promise::fresh(w, pid))?;
+    let (pa, bar) = talks::amend_act(w, i, k, a)?;
+    Some((k, pa, bar))
+}
+
+/// What a change to a promise is, for the voice.
+fn amend_words(a: talks::PAct) -> &'static str {
+    use talks::PAct as P;
+    match a {
+        P::TakeBack => "You take back your promise to him.",
+        P::Real => "You tell him the real reason: your promise ends there.",
+        P::Writing => "You put your promise in writing.",
+        P::NewDate | P::Week4 | P::Midseason | P::NextSeason => "Your promise to him has a new date.",
+        _ => "Your promise to him has a condition on it now.",
+    }
+}
+
+/// Makes the line's promise changes and your word on his future real: the
+/// outcome lines. Changes run from the last promise back, so one taken
+/// back doesn't move the others.
+fn rework_and_future(w: &mut World, i: usize, t: &Turn) -> Vec<String> {
+    let to = talks::PromiseTo::Player(w.people[i].player.id);
+    let name = w.people[i].name.clone();
+    let mut out = Vec::new();
+    let mut rw = t.reworked.clone();
+    rw.sort_by_key(|a| std::cmp::Reverse(a.0));
+    rw.dedup_by_key(|x| x.0);
+    for (k, a, bar) in rw {
+        let k = k as usize;
+        if !w.folk.promises.get(k).is_some_and(|p| p.to == to && p.kept.is_none()) {
+            continue;
+        }
+        let words = w.folk.promises[k].kind.words();
+        let r = talks::rework(w, i, k, a, bar);
+        out.extend(r.outcome);
+        if r.gone && a == talks::PAct::TakeBack {
+            out.push(format!("You took back your promise to {name}: {words}."));
+        } else if r.gone {
+            out.push(format!("Your promise to {name} ends: {words}."));
+        } else {
+            out.push(format!("Your promise to {name} changed: {words}."));
+        }
+    }
+    for plan in &t.future {
+        out.extend(folk::future::run(w, i, plan));
+    }
+    out
 }
 
 /// His loyalty to the man a question is about, 0-1: their tie.
