@@ -1,6 +1,6 @@
 # Saves and world files: how it works today
 
-Checked against main at d41bed5 on 2026-10-28 (update 3, lane 19). The tallies folder beside each save over main a0dfde3 on 2026-11-04 (lane NB1). Deleting worlds over main 4d881d5 on 2026-11-06. The Jan 1 start (lane A) checked on 2026-11-08, before it merged to main. The notebook beside each save over main 5247199 on 2026-11-12; per career, never shared, over main 8e62944 on 2026-11-13. The plan ahead file beside each save over main 0ca3b43 on 2026-11-14. The autosave over main ddc308e on 2026-11-14.
+Checked against main at d41bed5 on 2026-10-28 (update 3, lane 19). The tallies folder beside each save over main a0dfde3 on 2026-11-04 (lane NB1). Deleting worlds over main 4d881d5 on 2026-11-06. The Jan 1 start (lane A) checked on 2026-11-08, before it merged to main. The notebook beside each save over main 5247199 on 2026-11-12; per career, never shared, over main 8e62944 on 2026-11-13. The plan ahead file beside each save over main 0ca3b43 on 2026-11-14. The autosave over main ddc308e on 2026-11-14. A newer world on an older game over main fc57156 on 2026-11-15.
 
 ## Quick answers
 
@@ -9,6 +9,7 @@ Checked against main at d41bed5 on 2026-10-28 (update 3, lane 19). The tallies f
 - Which format does the game write? Format 2, in parts (`save.rs`, `FORMAT_VERSION`).
 - Do old files still open? Yes: format 1 (one zstd stream, every file before update 3) loads through the same `read_world` (`save.rs`, `read_world`).
 - Does a new save open in an older game? No: an older game refuses format 2 with "update the game" (`save.rs`, `header`).
+- What does an older game say about a world from a newer one in the same format? A newer world can hold what the older game has never heard of (a new career stage such as `CflPool`), and the reader stops on it. The game then compares the header's "written" time with the time of the commit it was built from (`AFM_CODE_TIME`, stamped by `crates/afm-game/build.rs`): written later, it says the world was made by a newer version of AFM and to update the game; written earlier, it says the file is damaged or unreadable; with no code time (a build without git) it says the world was most likely made by a newer version. The reader's own words follow, short (`crates/afm-game/src/files.rs`, `unreadable`; test `a_world_from_a_newer_game_says_update`). Games before this change show the reader's error as it is.
 - How is the world encoded? Named MessagePack (field names kept), so a newer game reads an older file by name; a new field needs `#[serde(default)]` (`save.rs`, module notes).
 - Which compression? zstd level 3, through a 1 MB buffer both ways (`save.rs`, `LEVEL`, `BUFFER`).
 - How many cores does a save use? All of them: each part is packed on its own core, one more thread writes them (`save.rs`, `on_every_core`, `write_world`).
