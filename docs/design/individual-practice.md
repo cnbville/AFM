@@ -1,6 +1,6 @@
 # Individual practice: flaws and tools
 
-Designed 2026-11-14 with Cain in the thread "Plan the training patch". Plan, sizes, screens and the focus numbers agreed the same day; Cain's go to build at 15:52. Not built. The progression update (technique ceilings that investment can move) is separate work with its own design thread (see "Not in this build").
+Designed 2026-11-14 with Cain in the thread "Plan the training patch". Plan, sizes, screens and the focus numbers agreed the same day; Cain's go to build at 15:52. Built in four parts from 2026-11-14 (thread "Build individual practice"): part 1, the focus numbers of topic 5b, is built (how it works on `docs/reference/how-it-works/development.md`, "Focus", and `training.md`, "Individual plans"); flaws and tools, working on them and the screens follow. The progression update (technique ceilings that investment can move) is separate work with its own design thread (see "Not in this build").
 
 ## Cain's words
 

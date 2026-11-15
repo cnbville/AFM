@@ -321,6 +321,22 @@ pub fn on_save(home: &Path, from: Option<&Path>, to: &Path) {
     }
 }
 
+/// An autosave was written to `to`: the file goes beside it as it stands,
+/// a copy (never a move), from the career's own save or, before its first
+/// save, from the unsaved one.
+pub fn on_autosave(home: &Path, from: Option<&Path>, to: &Path) {
+    let dest = beside(to);
+    let src = from.map_or_else(|| unsaved(home), beside);
+    if same_file(&src, &dest) {
+        return;
+    }
+    if src.exists() {
+        let _ = std::fs::copy(&src, &dest);
+    } else {
+        let _ = std::fs::remove_file(&dest);
+    }
+}
+
 /// A save renamed: its notebook too.
 pub fn on_rename(from: &Path, to: &Path) {
     let (a, b) = (beside(from), beside(to));

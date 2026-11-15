@@ -334,6 +334,7 @@ fn review_with(goals: &[GoalKind]) -> (World, u32, Scene, Team) {
         conference_won: None,
         conference: None,
         division: None,
+        points: [0, 0],
     });
     w.folk.goals.clear();
     for kind in goals {

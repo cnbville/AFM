@@ -994,6 +994,11 @@ fn play_games(w: &mut World, date: Date, now: impl Fn(&Game) -> bool) {
         let (wi, li) = if home_won { (home, away) } else { (away, home) };
         cs.results[wi].wins += 1;
         cs.results[li].losses += 1;
+        let [hs, as_] = played.score;
+        cs.results[home].points[0] += hs;
+        cs.results[home].points[1] += as_;
+        cs.results[away].points[0] += as_;
+        cs.results[away].points[1] += hs;
         if conference {
             cs.results[wi].conf_wins += 1;
             cs.results[li].conf_losses += 1;
@@ -3158,6 +3163,7 @@ pub(crate) fn record_regular_season(w: &mut World) {
             conference_won: t.conference_title.then(|| prog.conference.clone()),
             conference: (!prog.conference.is_empty()).then(|| prog.conference.clone()),
             division: Some(prog.division),
+            points: t.points,
         });
         let locker = clamp(t.incidents as f64 / t.roster.max(1) as f64 * 8.0, 0.0, 1.0);
         let staff = staff_of(prog, head);
@@ -3316,6 +3322,7 @@ pub(crate) fn finish(w: &mut World) {
                 s.national_title = t.national_title;
                 s.strength = t.strength;
                 s.totals = t.totals;
+                s.points = t.points;
             }
             if t.conference_title {
                 prog.conference_titles += 1;

@@ -48,6 +48,7 @@ fn coached(w: &mut World, seasons: &[(i32, u32, u32)]) {
             conference_won: None,
             conference: None,
             division: None,
+            points: [0, 0],
         });
     }
 }
@@ -307,6 +308,7 @@ fn the_chair_you_apply_for_is_named_with_its_last_season() {
         conference_won: None,
         conference: None,
         division: None,
+        points: [0, 0],
     });
     let on = w.today.add(10);
     dialogue::interview_set(&mut w, Employer::College(other), Role::HeadCoach, Some(on)).unwrap();
@@ -491,6 +493,7 @@ fn his_record_and_unit_reach_a_lines_facts() {
             conference_won: None,
             conference: None,
             division: None,
+            points: [0, 0],
         });
     }
     games(&mut w, 7);

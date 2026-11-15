@@ -24,7 +24,7 @@ use serde_json::{Value, json};
 use crate::views::date_text;
 use crate::{Game, Reply};
 
-const COMMANDS: [&str; 28] = [
+const COMMANDS: [&str; 29] = [
     "people_agenda",
     "people_expect",
     "people_scene",
@@ -32,6 +32,7 @@ const COMMANDS: [&str; 28] = [
     "people_hand",
     "people_talk",
     "people_subject",
+    "people_subject_look",
     "people_team_talk",
     "people_line",
     "people_player",
@@ -87,8 +88,31 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             let id = num(args, "id")? as u32;
             let key = args.get("subject").and_then(Value::as_str).unwrap_or("role");
             let topic = talks::Topic::from_key(key).ok_or("Unknown subject.")?;
+            // Turning the talk and the move you set for it are one confirmed
+            // step: nothing is said until you say it.
+            let code = args.get("code").and_then(Value::as_u64).map(|c| c as u32);
+            if let Some(code) = code {
+                let ok = talks::turn_preview(w, id, topic)?.is_some_and(|ps| ps.iter().any(|p| p.code == code));
+                if !ok {
+                    return Err("That isn't on the table for him.".to_string());
+                }
+            }
             talks::change_topic(w, id, topic)?;
+            if let Some(code) = code {
+                folk::scene::answer(w, id, code)?;
+            }
             scene(w, id)
+        })(),
+        // What a subject chip would put on the table, before you say it:
+        // its moves and tones, and no words from him.
+        "people_subject_look" => (|| {
+            let id = num(args, "id")? as u32;
+            let key = args.get("subject").and_then(Value::as_str).unwrap_or("role");
+            let topic = talks::Topic::from_key(key).ok_or("Unknown subject.")?;
+            Ok(match talks::turn_preview(w, id, topic)? {
+                Some(picks) => json!({ "asks_first": false, "picks": picks }),
+                None => json!({ "asks_first": true, "picks": [] }),
+            })
         })(),
         "people_talk" => (|| {
             let id = num(args, "id")? as u32;

@@ -1831,7 +1831,12 @@ pub fn team(w: &World, t: TeamRef) -> Value {
                         "nat_word": s.national_title
                             .then(|| upper_first(college_title(season_division(p, s)).one.trim_end_matches(" title"))),
                         "coach": s.coach.and_then(|c| w.coaches.get(c)).map(|c| c.name.clone()),
-                        "pf": s.totals.points_for, "pa": s.totals.points_against, "g": s.totals.games,
+                        // The engine's totals, else every game's score
+                        // (seasons played on the stand-in keep no totals).
+                        "pf": if s.totals.games > 0 { s.totals.points_for as i64 } else { s.points[0] as i64 },
+                        "pa": if s.totals.games > 0 { s.totals.points_against as i64 } else { s.points[1] as i64 },
+                        "g": if s.totals.games > 0 { s.totals.games } else if s.points != [0, 0] { s.wins + s.losses } else { 0 },
+                        "w": s.wins, "l": s.losses,
                     }))
                     .collect::<Vec<_>>()
             );
@@ -1866,7 +1871,7 @@ pub fn team(w: &World, t: TeamRef) -> Value {
                         };
                         let note = NFL_ROUNDS[s.round.min(5) as usize];
                         let coach = s.coach.and_then(|c| w.coaches.get(c)).map(|c| c.name.clone());
-                        json!({ "year": s.year, "record": record, "coach": coach, "note": note, "nat": s.round == 5 })
+                        json!({ "year": s.year, "record": record, "coach": coach, "note": note, "nat": s.round == 5, "w": s.wins, "l": s.losses, "round": s.round })
                     })
                     .collect::<Vec<_>>()
             );
@@ -1887,6 +1892,7 @@ pub fn team(w: &World, t: TeamRef) -> Value {
                         "year": h.year, "record": format!("{}-{}", h.wins, h.losses), "nat": h.state_title,
                         "coach": h.coach.and_then(|c| w.coaches.get(c)).map(|c| c.name.clone()),
                         "pf": h.points[0], "pa": h.points[1], "g": if h.points == [0, 0] { 0 } else { h.wins + h.losses },
+                        "w": h.wins, "l": h.losses, "playoff_wins": h.playoff_wins, "semi": h.semifinal,
                     }))
                     .collect::<Vec<_>>()
             );
@@ -2203,13 +2209,13 @@ pub fn standings(w: &World, args: &Value) -> Value {
         Some(TeamRef::College(p)) => Some(w.programs[p].division),
         _ => None,
     };
-    let mut teams: Vec<(usize, afm_engine::world::seat::Record)> = w
+    let ids: Vec<usize> = w
         .programs
         .iter()
         .filter(|p| p.conference == conf && div.is_none_or(|d| p.division == d))
-        .map(|p| (p.id, w.college_record(p.id)))
+        .map(|p| p.id)
         .collect();
-    teams.sort_by(|a, b| (b.1.conf_wins, b.1.wins, a.1.conf_losses).cmp(&(a.1.conf_wins, a.1.wins, b.1.conf_losses)));
+    let teams = w.college_conference_table(&ids, false);
     let mut confs: Vec<String> = w
         .programs
         .iter()
@@ -2222,7 +2228,7 @@ pub fn standings(w: &World, args: &Value) -> Value {
         "conferences": confs,
         "groups": [{ "name": w.conference_name(&conf), "teams": teams.iter().map(|(p, r)| json!({
             "team": team_brief(w, TeamRef::College(*p)),
-            "cw": r.conf_wins, "cl": r.conf_losses, "w": r.wins, "l": r.losses,
+            "cw": r.conf_wins, "cl": r.conf_losses, "w": r.wins, "l": r.losses, "champ": r.conf_title,
         })).collect::<Vec<_>>() }],
     })
 }

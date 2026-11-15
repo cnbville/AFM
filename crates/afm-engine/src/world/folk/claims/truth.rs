@@ -14,8 +14,9 @@
 //! `talks::typed_promise`, and lane P1 fills that seam (his belief now,
 //! judged on his next 2 practice weeks and 2 games). A claim he can only
 //! check later (a NIL number at signing) is a lie saved here, judged on its
-//! day by `judge`, which costs nothing until P1 fills it too. No lane files
-//! a lie yet (lanes 9 and 10 do), so nothing changes in any world today.
+//! day by `judge`. Lane 10 files a recruit's (`check::recruit`); lane 9 will
+//! file your own players'. Only a typed line files one, so no world without
+//! a typed line changes.
 
 use crate::calendar::Date;
 use crate::world::World;
@@ -106,6 +107,10 @@ pub struct Lie {
     /// Who, in words with link marks.
     #[serde(default)]
     pub who: String,
+    /// Told to a recruit or a transfer (lane 10): he sees it only once he
+    /// is yours (`check::recruit::due`), and it costs as a recruit's lie.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub recruit: bool,
 }
 
 /// The live talks' one saved store (`Folk.live`). No later lane adds a field
@@ -164,11 +169,28 @@ pub fn file_lie(w: &mut World, lie: Lie) {
 /// come is seen, and goes to `judge`. Oldest first, by its place in the
 /// store, so the order never depends on a map.
 pub(crate) fn check_lies(w: &mut World, d: Date) {
-    let due: Vec<usize> =
+    use super::check::recruit::{Due, due};
+    let due_now: Vec<usize> =
         (0..w.folk.live.lies.len()).filter(|&k| !w.folk.live.lies[k].seen && w.folk.live.lies[k].sees <= d).collect();
-    for k in due {
-        w.folk.live.lies[k].seen = true;
+    for k in due_now {
         let lie = w.folk.live.lies[k].clone();
+        // A recruit sees it only once he is yours (lane 10).
+        if lie.recruit
+            && let PromiseTo::Player(id) = lie.to
+        {
+            match due(w, id, d) {
+                Due::Judge => {}
+                Due::Later(day) => {
+                    w.folk.live.lies[k].sees = day;
+                    continue;
+                }
+                Due::Lapse => {
+                    w.folk.live.lies[k].seen = true;
+                    continue;
+                }
+            }
+        }
+        w.folk.live.lies[k].seen = true;
         judge(w, &lie);
     }
 }
@@ -205,7 +227,12 @@ fn judge(w: &mut World, lie: &Lie) {
         _ => 1.0,
     };
     let cost = promise::broken_scale(belief, 1.0);
-    crate::world::folk::talks::settle_word(w, lie.to, false, cost, crate::world::folk::talks::Reason::LieSeen);
+    let why = if lie.recruit {
+        crate::world::folk::talks::Reason::RecruitLie
+    } else {
+        crate::world::folk::talks::Reason::LieSeen
+    };
+    crate::world::folk::talks::settle_word(w, lie.to, false, cost, why);
 }
 
 /// The player a scene is with, when he is on your team: the only one a

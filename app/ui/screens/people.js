@@ -246,7 +246,7 @@ screens.people_scene = async (a) => {
   const cast = lead && lead.kind === "cast" && lead.tok ? await api("people_cast", { tok: lead.tok }).catch(() => null) : null;
   title(plainText(s.title), s.kindName);
   const st = keep("ppscene:" + s.id, { pick: null, tone: null });
-  if (st.pick != null && !s.picks.some((p) => p.code === st.pick || (s.kind === "OneOnOne" && Math.floor((p.code - 100) / 10) === Math.floor((st.pick - 100) / 10) && p.code >= 100 && p.code < 190))) st.pick = null;
+  if (st.pick != null && !st.turn && !s.picks.some((p) => p.code === st.pick || (s.kind === "OneOnOne" && Math.floor((p.code - 100) / 10) === Math.floor((st.pick - 100) / 10) && p.code >= 100 && p.code < 190))) st.pick = null;
   const colors = (S.status && S.status.mine && S.status.mine.colors) || ["#2b3140", "#11141b"];
   setColors(colors);
   // A one-on-one and a timed interview room are face to face (lane 14, D1).
