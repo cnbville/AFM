@@ -65,6 +65,7 @@ pub fn call(g: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "ai_demo" => demo_cmd(g, args),
         "people_say" => say::people_say(g, args),
         "talk_confirm" => persona::talk::confirm(g, args),
+        "talk_agent" | "talk_gm" | "talk_rush" => return persona::calls::call(g, cmd, args),
         "talk_typed" => say::rooms::typed(g, args),
         "fo_say" => say::fo_say(g, args),
         "ai_ask" => ask::ask(g, args),

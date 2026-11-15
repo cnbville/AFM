@@ -171,10 +171,10 @@ pub fn name(w: &World, who: Them) -> String {
                 format!("{first}'s {who}")
             },
         ),
-        Them::Drawn(_, prog) if (prog as usize) < w.programs.len() => {
+        Them::Drawn(super::super::wants::Kind::OtherCoach, prog) if (prog as usize) < w.programs.len() => {
             format!("{}'s recruiting coordinator", w.program_name(prog as usize))
         }
-        _ => "He".into(),
+        _ => super::super::office::sit::name(w, who).unwrap_or_else(|| "He".into()),
     }
 }
 

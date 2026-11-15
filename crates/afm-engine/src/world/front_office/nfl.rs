@@ -561,6 +561,118 @@ fn committed_elsewhere(w: &World, t: usize, i: usize) -> f64 {
     standing.max(pending)
 }
 
+/// How the agent takes an offer, read without making it (live talks v3,
+/// lane N5b): the verdict, his ask, how close you are, his patience after
+/// it and his claim about other interest with your read of it, from the
+/// same numbers `propose` uses, so a talk can say his answer and wait on
+/// your confirm before anything is signed. Nothing in the world changes.
+#[derive(Clone, Debug)]
+pub struct Judged {
+    pub kind: TalkKind,
+    pub verdict: Verdict,
+    /// The market's own score of the offer with him (an engine number,
+    /// never shown).
+    pub score: f64,
+    /// His ask, when he isn't signing or breaking off.
+    pub ask: Option<Proposal>,
+    pub gap: &'static str,
+    /// His patience with the talks after this offer, 0-1.
+    pub patience: f32,
+    /// What he claims about other interest, in plain words, whether it is
+    /// true, and your read of it in words.
+    pub claim: Option<(String, bool, String)>,
+}
+
+/// The agent's answer to an offer, without making it (`Judged`).
+pub fn judge(w: &World, id: u32, p: &Proposal) -> Result<Judged, String> {
+    let t = club(w)?;
+    let i = person(w, id)?;
+    let kind = negotiable(w, i).ok_or("He isn't someone you can talk terms with today.")?;
+    check(w, t, i, p, kind)?;
+    let today = w.today;
+    if let Some(cold) = w.front_office.nfl.talk(id).and_then(|x| x.cold_until)
+        && today < cold
+    {
+        return Err(format!("His agent won't take your call until {}.", cold.pretty()));
+    }
+    let ideal = ideal_of(w, i, kind);
+    let own = match kind {
+        TalkKind::ReSign | TalkKind::Extension => Some(t),
+        _ => w.people[i].pro.as_ref().and_then(|c| c.teams.last().copied()),
+    };
+    let o = p.offer(t);
+    let s = offer_score(w, i, &o, &ideal, own);
+    let want = want_factor(w, i, t, kind);
+    let ask = want_ask(w, i, t, kind, &ideal, own, want);
+    let g = market::goals(w, i);
+    let mut verdict = Verdict::Counter;
+    match kind {
+        TalkKind::ReSign | TalkKind::Extension => {
+            if s >= own_bar(w, i, kind) || w.year < 1993 && kind == TalkKind::ReSign {
+                verdict = Verdict::Signed;
+            }
+        }
+        TalkKind::FreeAgent
+            if free_now(w, i) && (!market::on_market(w, i, false) || today >= w.dates.veterans_report) =>
+        {
+            // The street, and anyone unsigned once camps open: no market
+            // day weighs offers, so he answers yours at once. (A player in
+            // the negotiating window is still under his old deal: his
+            // answer waits for the market's day.)
+            let street = !market::on_market(w, i, false);
+            // Off the street his price is the ask, moved by the same want,
+            // never above the league minimum: a man worth the minimum
+            // takes it from anyone.
+            let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
+            let price = (pro::ask(w, i, w.year, today).0 * 0.95 * want).min(money::minimum(w.year, credited));
+            let yes = if street { p.apy >= price } else { s >= 0.85 };
+            if yes && (street || today >= w.dates.league_year.date) {
+                verdict = Verdict::Signed;
+            }
+        }
+        TalkKind::FreeAgent | TalkKind::OfferSheet => {
+            verdict = Verdict::Standing;
+        }
+    }
+    let mut patience = w.front_office.nfl.talk(id).map_or(1.0, |x| x.patience);
+    if verdict == Verdict::Counter || verdict == Verdict::Standing {
+        // Lowball offers wear his patience down, the hot-tempered fastest.
+        let hurt = if s < 0.55 {
+            0.45
+        } else if s < 0.7 {
+            0.25
+        } else {
+            0.0
+        } * (0.6 + 0.8 * g.temper);
+        patience = (patience - hurt as f32).max(0.0);
+        if patience <= 0.0 {
+            verdict = Verdict::Broken;
+        }
+    }
+    let speaks = verdict != Verdict::Signed && verdict != Verdict::Broken;
+    let claim =
+        if speaks { claim_parts(w, i, t, kind, s, &ideal).map(|c| (c.plain, c.true_claim, c.read)) } else { None };
+    Ok(Judged { kind, verdict, score: s, ask: speaks.then_some(ask), gap: gap_words(s), patience, claim })
+}
+
+/// The agent's ask today, without an offer (live talks v3, lane N5b): his
+/// last ask in the talk, or the one `judge` would give. Nothing changes.
+pub fn asking(w: &World, id: u32) -> Result<Proposal, String> {
+    let t = club(w)?;
+    let i = person(w, id)?;
+    let kind = negotiable(w, i).ok_or("He isn't someone you can talk terms with today.")?;
+    if let Some(a) = w.front_office.nfl.talk(id).and_then(|x| x.ask) {
+        return Ok(a);
+    }
+    let ideal = ideal_of(w, i, kind);
+    let own = match kind {
+        TalkKind::ReSign | TalkKind::Extension => Some(t),
+        _ => w.people[i].pro.as_ref().and_then(|c| c.teams.last().copied()),
+    };
+    let want = want_factor(w, i, t, kind);
+    Ok(want_ask(w, i, t, kind, &ideal, own, want))
+}
+
 /// Makes an offer to a player's agent and hears his answer.
 pub fn propose(w: &mut World, id: u32, p: Proposal) -> Result<Answer, String> {
     let t = club(w)?;
@@ -589,74 +701,31 @@ pub fn propose(w: &mut World, id: u32, p: Proposal) -> Result<Answer, String> {
             claims: Vec::new(),
         });
     }
+    let j = judge(w, id, &p)?;
     let ideal = ideal_of(w, i, kind);
-    let own = match kind {
-        TalkKind::ReSign | TalkKind::Extension => Some(t),
-        _ => w.people[i].pro.as_ref().and_then(|c| c.teams.last().copied()),
-    };
-    let o = p.offer(t);
-    let s = offer_score(w, i, &o, &ideal, own);
+    let s = j.score;
     let name = w.people[i].name.clone();
     let said = describe_proposal(&p, w.year);
-    let want = want_factor(w, i, t, kind);
-    let ask = want_ask(w, i, t, kind, &ideal, own, want);
-    let g = market::goals(w, i);
     let mut answer = Answer {
-        verdict: Verdict::Counter,
+        verdict: j.verdict,
         text: String::new(),
         ask: None,
         claim: None,
         read: None,
-        gap: gap_words(s),
+        gap: j.gap,
         claim_plain: None,
     };
-    match kind {
-        TalkKind::ReSign | TalkKind::Extension => {
-            if s >= own_bar(w, i, kind) || w.year < 1993 && kind == TalkKind::ReSign {
-                answer.verdict = Verdict::Signed;
-                answer.text = format!("You have a deal. {name} signs: {said}.");
-            }
-        }
-        TalkKind::FreeAgent
-            if free_now(w, i) && (!market::on_market(w, i, false) || today >= w.dates.veterans_report) =>
-        {
-            // The street, and anyone unsigned once camps open: no market
-            // day weighs offers, so he answers yours at once. (A player in
-            // the negotiating window is still under his old deal: his
-            // answer waits for the market's day.)
-            let street = !market::on_market(w, i, false);
-            // Off the street his price is the ask, moved by the same want,
-            // never above the league minimum: a man worth the minimum
-            // takes it from anyone.
-            let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
-            let price = (pro::ask(w, i, w.year, today).0 * 0.95 * want).min(money::minimum(w.year, credited));
-            let yes = if street { p.apy >= price } else { s >= 0.85 };
-            if yes && (street || today >= w.dates.league_year.date) {
-                answer.verdict = Verdict::Signed;
-                answer.text = format!("{name} takes it: {said}.");
-            }
-        }
-        TalkKind::FreeAgent | TalkKind::OfferSheet => {
-            answer.verdict = Verdict::Standing;
-        }
+    if answer.verdict == Verdict::Signed {
+        answer.text = match kind {
+            TalkKind::ReSign | TalkKind::Extension => format!("You have a deal. {name} signs: {said}."),
+            _ => format!("{name} takes it: {said}."),
+        };
     }
-    if answer.verdict == Verdict::Counter || answer.verdict == Verdict::Standing {
-        // Lowball offers wear his patience down, the hot-tempered fastest.
-        let hurt = if s < 0.55 {
-            0.45
-        } else if s < 0.7 {
-            0.25
-        } else {
-            0.0
-        } * (0.6 + 0.8 * g.temper);
-        let talk = w.front_office.nfl.talk_mut(id).unwrap();
-        talk.patience = (talk.patience - hurt as f32).max(0.0);
-        if talk.patience <= 0.0 {
-            answer.verdict = Verdict::Broken;
-        }
+    if matches!(j.verdict, Verdict::Counter | Verdict::Standing | Verdict::Broken) {
+        w.front_office.nfl.talk_mut(id).unwrap().patience = j.patience;
     }
     // What the agent says.
-    if answer.verdict != Verdict::Signed && answer.verdict != Verdict::Broken {
+    if let Some(ask) = j.ask {
         answer.ask = Some(ask);
         if let Some((claim, read, plain)) = agent_claim(w, i, t, kind, s, &ideal) {
             answer.claim = Some(claim);
@@ -780,6 +849,24 @@ fn agent_claim(
     s: f64,
     ideal: &Ideal,
 ) -> Option<(String, String, String)> {
+    let c = claim_parts(w, i, t, kind, s, ideal)?;
+    let text = crate::world::folk::dialogue::agent_says(w, i, c.part, &c.facts, c.plain.clone());
+    Some((text, c.read, c.plain))
+}
+
+/// An agent's claim before it is put in his words: the line bank's part,
+/// its facts, the claim in plain words, whether it is true, and your read.
+struct ClaimParts {
+    part: &'static str,
+    facts: Facts,
+    plain: String,
+    true_claim: bool,
+    read: String,
+}
+
+/// The claim and your read, from the same draws `agent_claim` has always
+/// made (nothing changes in the world).
+fn claim_parts(w: &World, i: usize, t: usize, kind: TalkKind, s: f64, ideal: &Ideal) -> Option<ClaimParts> {
     let a = w.people[i].pro.as_ref().and_then(|c| c.agent)?;
     let agent = &w.market.agents[a];
     let (honesty, rel) = (agent.honesty, agent.rel.get(t).copied().unwrap_or(0.0));
@@ -825,7 +912,6 @@ fn agent_claim(
         }
         _ => return None,
     };
-    let text = crate::world::folk::dialogue::agent_says(w, i, part, &f, plain.clone());
     // Your read: right more often the better you negotiate and the more
     // you know this agent (his history with your club).
     let skill = negotiating(w);
@@ -844,7 +930,7 @@ fn agent_claim(
     } else {
         format!("Your read: he's bluffing ({sure}).")
     };
-    Some((text, read, plain))
+    Some(ClaimParts { part, facts: f, plain, true_claim, read })
 }
 
 /// Your words for a proposal: "4 years, $48.0M ($12.0M a year), $26.4M guaranteed".

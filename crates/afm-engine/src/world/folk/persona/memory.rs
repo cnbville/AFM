@@ -224,6 +224,27 @@ pub struct Memory {
     pub anchors: Vec<Anchor>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub watch: Vec<Watch>,
+    /// The draft side's stores (lane N5e, `draft::Book`).
+    #[serde(skip_serializing_if = "super::draft::Book::is_empty")]
+    pub draft: super::draft::Book,
+    /// Contract offers sent to your own pro's agent, until he calls back,
+    /// and the deals he called back to say yes to, until you answer on his
+    /// call (lane N5b).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub ready: Vec<Ready>,
+}
+
+/// A contract offer with your own pro's agent (lane N5b): the day he
+/// calls back, his call once it's made (0 before), who answers, the man it
+/// is for, and the deal.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Ready {
+    #[serde(default)]
+    pub scene: u32,
+    pub by: crate::calendar::Date,
+    pub with: Them,
+    pub player: u32,
+    pub offer: Offer,
 }
 
 impl Memory {
@@ -240,5 +261,7 @@ impl Memory {
             && self.owed.is_empty()
             && self.anchors.is_empty()
             && self.watch.is_empty()
+            && self.ready.is_empty()
+            && self.draft.is_empty()
     }
 }

@@ -6,6 +6,7 @@
 //! hidden ideal and true ratings never leave the engine.
 
 use afm_engine::positions::Position;
+use afm_engine::world::folk::terms;
 use afm_engine::world::front_office::{self as fo, Duty, Owner, deals, nfl, roster};
 use afm_engine::world::pro::{self, Status, money};
 use afm_engine::world::{Stage, World};
@@ -932,14 +933,19 @@ fn proposal(w: &World, args: &Value) -> Result<deals::Proposal, String> {
             comp: false,
         };
         let n = c.get("n").and_then(Value::as_u64).unwrap_or(8) as u32;
+        let pid = c.get("player")?.as_u64()? as u32;
         let cond = match c.get("kind").and_then(Value::as_str).unwrap_or("games") {
             "starts" => deals::Condition::Starts(n),
             "pro_bowl" => deals::Condition::ProBowl,
+            // A snap share is lane N2's season term on the man it reads.
+            "snaps" => {
+                let pos = afm_engine::world::folk::person(w, pid).map(|i| w.people[i].player.position)?;
+                deals::Condition::Term(terms::read(Some(pos), "snaps", Some(n.clamp(1, 100) as f32), false)?)
+            }
             _ => deals::Condition::Games(n),
         };
-        Some((pk, cond, c.get("player")?.as_u64()? as u32))
+        Some((pk, cond, pid))
     });
-    let _ = w;
     Ok(deals::Proposal { other, give, get, conditional })
 }
 

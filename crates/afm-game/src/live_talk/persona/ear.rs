@@ -28,7 +28,7 @@ pub const MAX_ACTS: usize = 8;
 pub const MAX_HITS: usize = 8;
 
 /// Every request the ear may name, in the schema's words.
-pub const REQUESTS: [&str; 40] = [
+pub const REQUESTS: [&str; 44] = [
     "mentor",
     "talk_to",
     "recruit",
@@ -52,10 +52,14 @@ pub const REQUESTS: [&str; 40] = [
     "heads_up",
     "not_our_division",
     "scout",
+    "find_out",
+    "whiteboard",
+    "plant",
     "plan",
     "target",
     "work_with",
     "second_opinion",
+    "clear",
     "money",
     "time",
     "hire",
@@ -83,9 +87,9 @@ The card lists the people there and anyone the line may name (tags p1, p2...; p1
 Acts: list what the line does, in order. Use only these kinds:
 - question: he is asked something. topic is what it's about (Life, Mood, Wants, Portal, Case, RuleBreak, Effort, Injury, Pitches, Nil, Grades, Character, Opponent, Market, Club, ScoutFile, Jobs, Goals, Money, Rules, Grapevine, HisWord, Football, Nothing); about is the tag of the person it's about, or empty when it's about the listener himself.
 - claim: a checkable statement of fact about the present (claim is its kind from the schema; value is what was said, in a few words; about is who it's about).
-- offer: terms put on the table (deal is its kind; words are the coach's). gives: each thing in it (give is its key; number the amount, years, position number, jersey or round when said; who the tag of the person it's for, a brother's scholarship). terms: how the coach will use him, each measure as said (number, per game or share of snaps, most, spot, down, inside the yard line, far, package, look); none of either when not said.
+- offer: terms put on the table (deal is its kind; words are the coach's). gives: each thing in it (give is its key; number the amount, years, position number, jersey or round when said; who the tag of the person it's for, a brother's scholarship). A coach's title or the play-calling, offered to a coach, are the gives title and play_calling. Money and incentives are a year, guaranteed and bonus in all, in dollars as said ($12 million is 12000000). In a trade: player is a man who moves either way (who is his tag); pick is the coach's club's pick by round, their_pick the other club's; draft the year the picks are in; if_games, if_starts, if_snaps (a percent) and if_pro_bowl a condition that moves the coach's pick up a round. revenue_share is a college player's share beside his NIL money. terms: how the coach will use him, each measure as said (number, per game or share of snaps, most, spot, down, inside the yard line, far, package, look); none of either when not said. season is true for a term on his whole season that money or a pick rides on (an incentive, an NIL clause, a pick's condition: 10 sacks, 1,000 rushing yards, the Pro Bowl, 60% of the snaps this season), false for how he'll be used.
 - promise: a commitment about the future, said with or without the word promise. what is its kind (start, role, touches, ahead_of, position, place, contract, stay, early_chance, no_redshirt, usage: how he will be used, with its terms); when is by when (next_game, opener, midseason, this_season, next_season, none); value is any condition the coach set, in his words; about is the teammate he'd play ahead of.
-- request: the coach asks him to do something. what is its name from the list in the schema; about is the person it involves; value is a number or a position when it needs one. A request not on the list is other.
+- request: the coach asks him to do something. what is its name from the list in the schema; about is the person it involves; value is a number or a position when it needs one. Asking a doctor to clear a hurt player to play sooner is clear (about is the player). For scout or find_out, topic is what to find out (Character, Injury, Effort, Life, ScoutFile...). whiteboard: the coach sends a prospect in the interview room to the board. plant: the coach wants word out that his club likes a prospect (about). A request not on the list is other.
 - decision: the coach tells him a decision already made. what is its name (benched, starting, suspended, cut, traded, offer_pulled, coach_let_go, position_moved, redshirt); value is the new position for position_moved.
 - threat: a threat; what is \"ultimatum\" when it's do-this-or-else.
 - deadline: a date on an offer; when is that date as YYYY-MM-DD, worked out from today's date on the card.
@@ -127,13 +131,12 @@ fn give_schema() -> Value {
 /// One usage term (`usage::Usage`), in the usage reader's labels.
 fn term_schema() -> Value {
     use crate::live_talk::say::{LOOKS, PACKAGES};
-    let mut measures: Vec<&str> = usage::MEASURES.iter().map(|m| m.key).collect();
-    measures.push("none");
+    let measures = super::measure_keys();
     let spots: Vec<&str> = usage::Spot::KEYS.iter().map(|x| x.0).collect();
     json!({
         "type": "object",
         "additionalProperties": false,
-        "required": ["measure", "number", "per", "most", "spot", "down", "inside", "far", "package", "look"],
+        "required": ["measure", "number", "per", "most", "spot", "down", "inside", "far", "package", "look", "season"],
         "properties": {
             "measure": s(&measures),
             "number": { "type": ["number", "null"] },
@@ -144,7 +147,8 @@ fn term_schema() -> Value {
             "inside": { "type": "integer" },
             "far": { "type": "integer" },
             "package": { "type": "string", "enum": PACKAGES.map(|x| x.0) },
-            "look": { "type": "string", "enum": LOOKS.map(|x| x.0) }
+            "look": { "type": "string", "enum": LOOKS.map(|x| x.0) },
+            "season": { "type": "boolean" }
         }
     })
 }
@@ -348,12 +352,21 @@ impl Tags {
             "give_number" => Request::GiveNumber,
             "heads_up" => Request::HeadsUp(p()),
             "not_our_division" => Request::NotOurDivision(p()?),
-            "scout" => Request::Scout(p()?),
+            // A scout or security man asked to find out one thing about a
+            // man (lane N5e); a trip or a file with no topic stays a scout.
+            "scout" | "find_out" => match a.topic.filter(|t| *t != Topic::Nothing) {
+                Some(t) => Request::FindOut(p()?, t),
+                None if a.what == "find_out" => Request::FindOut(p()?, Topic::ScoutFile),
+                None => Request::Scout(p()?),
+            },
+            "whiteboard" => Request::Whiteboard,
+            "plant" => Request::Plant(p()?),
             "plan" => Request::Plan(text(&a.value)),
             "target" => Request::Target(p()?),
             "work_with" => Request::WorkWith(p()?),
             "second_opinion" => Request::SecondOpinion(p()?),
-            "money" => Request::Money,
+            "clear" => Request::Clear(p()?),
+            "money" => Request::Money(text(&format!("{} {}", a.value, a.words))),
             "time" => Request::Time,
             "hire" => Request::Hire(coach()?),
             "backing" => Request::Backing,
@@ -471,7 +484,8 @@ impl Tags {
                 condition_words: text(&a.value),
                 against: self.player(keys, a.about.as_deref()),
                 claim: None,
-                usage: self.terms(a, keys).into_iter().next(),
+                // A season term is never a promise (it pays or moves a pick).
+                usage: self.terms(a, keys).into_iter().find(|u| !u.season),
             })
             .collect()
     }

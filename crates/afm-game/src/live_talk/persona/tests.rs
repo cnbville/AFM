@@ -64,3 +64,39 @@ fn an_offer_reads_its_gives_and_terms() {
     assert_eq!(terms[0].down, 3);
     assert!(terms[0].share && (terms[0].n - 0.25).abs() < 1e-6);
 }
+
+#[test]
+fn the_draft_sides_requests_read() {
+    use afm_engine::world::folk::persona::terms::Request;
+    let json = r#"{"acts": [
+        {"act": "request", "what": "scout", "about": "p2", "topic": "Character"},
+        {"act": "request", "what": "scout", "about": "p2"},
+        {"act": "request", "what": "find_out", "about": "p2"},
+        {"act": "request", "what": "whiteboard"},
+        {"act": "request", "what": "plant", "about": "p2"},
+        {"act": "request", "what": "plant"}]}"#;
+    let r: EarReply = serde_json::from_str(json).unwrap();
+    let keys =
+        EarKeys { people: vec![("p1".into(), Them::Player(7)), ("p2".into(), Them::Player(9))], ..Default::default() };
+    let tags = ear::Tags { today: afm_engine::calendar::Date::ymd(2030, 3, 1), pos: None };
+    let got: Vec<Request> = tags
+        .resolve(&r, &keys)
+        .acts
+        .into_iter()
+        .filter_map(|a| match a {
+            Act::Request(x) => Some(x),
+            _ => None,
+        })
+        .collect();
+    // A plant with nobody named drops.
+    assert_eq!(
+        got,
+        vec![
+            Request::FindOut(9, Topic::Character),
+            Request::Scout(9),
+            Request::FindOut(9, Topic::ScoutFile),
+            Request::Whiteboard,
+            Request::Plant(9),
+        ]
+    );
+}

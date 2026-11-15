@@ -50,6 +50,7 @@ pub mod staffing;
 pub mod takeover;
 pub mod talk_points;
 pub mod talks;
+pub mod terms;
 pub mod ties;
 pub mod tips;
 pub mod usage;
@@ -391,6 +392,9 @@ pub struct Folk {
     /// Your people log: everything the meetings, talks and reports told you.
     pub log: Vec<Entry>,
     pub promises: Vec<talks::Promise>,
+    /// Clauses on a season term (lane N2): NIL clauses and staff goals,
+    /// settled after the season (`terms::day`).
+    pub clauses: Vec<terms::Clause>,
     /// The AI staffs' promises and each AI head coach's name for keeping
     /// his word (promises lane P2).
     pub ai_promises: ai_promise::Book,

@@ -119,14 +119,23 @@ pub fn across(room: &Room) -> Option<Them> {
 /// (a recruit, a transfer) through what he's heard of you, a family, a
 /// coach, an agent.
 pub fn trust_of(w: &World, who: Them) -> f32 {
-    super::makeup::trust(w, who) as f32
+    match who {
+        // A man you don't coach keeps his trust in you apart from his
+        // trust in his own head coach (`makeup::trust`).
+        Them::Player(_) => super::makeup::trust(w, who) as f32,
+        // Someone in your building: the trust his meeting's chips move
+        // (lane N5c).
+        _ if super::office::key(w, who).is_some() => super::office::trust(w, who),
+        _ => w.folk.live.word_of(store::word_key(who)),
+    }
 }
 
 /// Which facet lane plays a scene's talk, if one does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Facet {
-    /// Your players' one-on-ones (lane N4).
-    OneOnOne,
+    /// Every other talk: your players' one-on-ones (lane N4) and the
+    /// lanes that run on the shared path (N5b-e).
+    Other,
     /// A recruit's or a transfer's talk (lane N5a).
     Recruit,
     /// A college staff's call to you, the high school coach (lane N5a).
@@ -140,7 +149,7 @@ impl Facet {
         } else if hs_call::is_call(s.kind) {
             Facet::HsCall
         } else {
-            Facet::OneOnOne
+            Facet::Other
         }
     }
 }
@@ -195,7 +204,7 @@ impl Resolving for Conversation<'_> {
         }
         let wants = self.parts.wanting.wants(w, him);
         let s = scene(w, self.said.scene);
-        let facet = s.map_or(Facet::OneOnOne, Facet::of);
+        let facet = s.map_or(Facet::Other, Facet::of);
         let mut promise_k = 0usize;
         let mut facts: Vec<Stated> = Vec::new();
         for act in &reading.acts {
@@ -413,6 +422,9 @@ impl Resolving for Conversation<'_> {
             (_, Some(s)) => hits::cap(w, s, room, &mut t.hits),
             _ => {}
         }
+        // Someone in your building: inside what his meeting's chips can do
+        // (lane N5c).
+        super::office::cap(w, room, &mut t.hits);
         // His own ask (5.4, question 3): what he wants most that you
         // haven't given, once a talk per want.
         if t.ends.is_none()
@@ -426,6 +438,11 @@ impl Resolving for Conversation<'_> {
                 gives: Vec::new(),
                 terms: Vec::new(),
             });
+        }
+        // Someone in your building asks for something the game can do
+        // (lane N5c): a raise, a title, the play-calling.
+        for a in t.his_asks.iter_mut() {
+            a.gives = super::office::asks::his_gives(w, him, a.why.kind);
         }
         match (facet, s) {
             (Facet::Recruit, Some(s)) => recruit::turn(w, s, reading, &mut t),
@@ -491,11 +508,16 @@ impl Resolving for Conversation<'_> {
         match facet {
             Facet::Recruit => recruit::apply(w, id, t, &self.said.promises, &wants),
             Facet::HsCall => hs_call::apply(w, id, &self.said.reading, t),
-            Facet::OneOnOne => {}
+            Facet::Other => {}
         }
-        for h in t.hits.iter().filter(|_| facet == Facet::OneOnOne) {
+        for h in t.hits.iter().filter(|_| facet == Facet::Other) {
             let Them::Player(pid) = h.hit.on else {
                 if h.hit.on != him || h.trust == 0.0 {
+                    continue;
+                }
+                // Someone in your building: the trust the world keeps for
+                // him (lane N5c); your word with anyone else.
+                if super::office::nudge(w, h.hit.on, h.trust) {
                     continue;
                 }
                 let k = store::word_key(h.hit.on);
@@ -504,8 +526,14 @@ impl Resolving for Conversation<'_> {
                 continue;
             };
             let Some(i) = folk::person(w, pid) else { continue };
-            let p = &mut w.people[i];
-            p.trust = (p.trust + h.trust).clamp(0.0, 1.0);
+            if super::makeup::coached_by_you(w, i) {
+                let p = &mut w.people[i];
+                p.trust = (p.trust + h.trust).clamp(0.0, 1.0);
+            } else if h.trust != 0.0 {
+                // Someone else's player: his trust in you, kept by his key.
+                let now = super::makeup::trust(w, h.hit.on) as f32;
+                w.folk.mine.set_trust(super::makeup::key(h.hit.on), (now + h.trust).clamp(0.0, 1.0));
+            }
             if h.hit.on == him {
                 if let Some(sc) = w.folk.scenes.iter_mut().find(|x| x.id == id) {
                     sc.f[0] += h.trust;
@@ -521,7 +549,7 @@ impl Resolving for Conversation<'_> {
         // Promises count the moment you say them (question 4), through P1
         // (a recruit's through the recruiting desk, above).
         if let Them::Player(pid) = him
-            && facet == Facet::OneOnOne
+            && facet == Facet::Other
         {
             for p in self.said.promises.iter().chain(standing.iter()) {
                 talks::typed_promise(w, id, pid, p);
@@ -595,6 +623,9 @@ impl Resolving for Conversation<'_> {
             Line { you: self.said.words.clone(), reading: self.said.reading.clone(), his: String::new() },
         );
         store::advance(w, id, &room, t, &self.said, point);
+        // The draft side's rooms (lane N5e): the interview clock, a press,
+        // a GM's word, a family's answer for the file.
+        super::draft::after_line(w, id, &self.said, t);
         talks::charge(w, t.minutes / 60.0);
         if t.ends.is_some() {
             end(w, id);
@@ -664,7 +695,15 @@ pub fn end(w: &mut World, id: u32) {
         }
         Facet::Recruit => recruit::end(w, &mut s),
         Facet::HsCall => hs_call::end(w, &mut s),
-        Facet::OneOnOne => s.end(),
+        // A built staff or boss meeting keeps its own picks to finish
+        // (lane N5c): the talk ending leaves the meeting open, and the
+        // talk's state stays so a man done talking stays done today.
+        Facet::Other if super::office::plays(s.kind) && !super::office::talk_only(s.kind) => return,
+        Facet::Other => {
+            if !super::draft::end(w, &mut s) {
+                s.end();
+            }
+        }
     }
     w.folk.scenes[k] = s;
     store::close(w, id);

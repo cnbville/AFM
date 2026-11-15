@@ -2375,7 +2375,9 @@ pub(crate) fn rush(
                     super::super::franchise::era_in(w, t, year).and_then(|e| super::super::geo::state_index(e.state));
                 let home = state.is_some_and(|s| s == p.home_state) as u8 as f64;
                 let luck = (1.6 - agent) * key_normal(seed ^ (t as u64) << 40, p.player.id as u64);
-                let u = path + 0.6 * cash + 0.8 * knew + 0.3 * home + luck;
+                // Your club's call weighs his word of you (lane N5e).
+                let word = crate::world::folk::persona::draft::remember::rush_pull(w, i, t);
+                let u = path + 0.6 * cash + 0.8 * knew + 0.3 * home + word + luck;
                 if best.is_none_or(|b| u > b.1) {
                     best = Some((*o, u));
                 }

@@ -76,7 +76,7 @@ pub fn talk_block(w: &World, s: &Scene) -> Option<Value> {
         Seat::FormerPlayer => "Former player",
         Seat::Listener => "Listening",
     };
-    let mut t = json!({ "v3": true, "channel": channel });
+    let mut t = json!({ "persona": true, "channel": channel });
     if room.present.len() > 1 {
         let people: Vec<Value> = room
             .present

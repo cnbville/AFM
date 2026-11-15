@@ -41,10 +41,13 @@
 
 pub mod asks;
 pub mod deals;
+// Lane N5e, scouting and the draft.
+pub mod draft;
 pub mod ear;
 pub mod fake;
 pub mod knows;
 pub mod memory;
+pub mod negotiate;
 pub mod room;
 pub mod talk;
 pub mod terms;
@@ -61,6 +64,10 @@ pub mod people;
 pub mod stores;
 pub mod telling;
 pub mod wanting;
+
+// Lane N5c: staff, bosses and money (the facet's people, the team doctor,
+// references, staff contracts, your own deal, boosters, compliance).
+pub mod office;
 
 use super::cast::CastRef;
 

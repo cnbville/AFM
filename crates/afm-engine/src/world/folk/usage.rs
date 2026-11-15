@@ -27,8 +27,9 @@
 
 use crate::attributes::Attr;
 use crate::game::chart::Protection;
+use crate::game::playbook::{Coverage, PASS_CONCEPTS, PassConcept, PassDepth, RUN_CONCEPTS, RunConcept};
 use crate::game::roster::Keep;
-use crate::game::stats::{PlayRecord, PlayType};
+use crate::game::stats::{PlayRecord, PlayType, StatLine};
 use crate::player::Trait;
 use crate::positions::Position;
 use crate::world::World;
@@ -82,6 +83,46 @@ pub enum What {
     Chips,
     /// Double teams on him: shown, never promised.
     Doubles,
+    // Lane N2: the six readers kept on every snap.
+    /// His snaps at quarterback with at least this freedom at the line
+    /// (`kind`: 2 a kill call, 3 full audibles).
+    Freedom,
+    /// His carries in a run family (`kind`: 1 inside zone, 2 outside zone,
+    /// 3 gap, 4 option); a man who carried none, the runs he was on for (a
+    /// guard's gap scheme).
+    RunFamily,
+    /// Targets on quick-game and RPO throws.
+    QuickTargets,
+    /// His outside corner snaps on a side by the hash (`kind`: 1 the
+    /// boundary, 2 the field).
+    Side,
+    /// His pass snaps with two deep: help over the top.
+    TwoHigh,
+    /// His pass snaps as the post safety: single-high, at free safety.
+    Post,
+    /// His pass snaps as the robber: Cover 1 robber, at strong safety.
+    Robber,
+    /// His team's field goal and extra point tries he kicked (the only
+    /// kicker).
+    PlaceKicks,
+    /// His pass snaps spying the quarterback (a spy call, at Mike).
+    Spy,
+    // Lane N2: season terms for incentives, NIL clauses, conditional picks
+    // and staff and boss goals (`terms.rs`; `Usage::season`).
+    /// A season stat line number (`kind`: the index in `terms::LINES`).
+    Stat,
+    /// His starts, his games played.
+    Starts,
+    Games,
+    /// An honor (`kind`: `terms::HONORS`).
+    Honor,
+    /// His team's wins, a postseason, a title.
+    Wins,
+    Postseason,
+    Title,
+    /// His team's rank in its division (`kind`: `terms::RANKS`), at most
+    /// `n`.
+    Rank,
 }
 
 /// Where he lined up (`PlayRecord::roles`).
@@ -313,7 +354,17 @@ pub struct Usage {
     pub share: bool,
     /// At most (a ceiling) rather than at least.
     pub most: bool,
+    /// Which one, for a measure with kinds (lane N2): the freedom, the run
+    /// family, the side, the stat, the honor, the rank (0 none).
+    pub kind: u8,
+    /// Judged on the season, not game by game (lane N2): an incentive, an
+    /// NIL clause, a conditional pick, a staff or boss goal.
+    pub season: bool,
 }
+
+// Usage keeps no NaN (every number comes from words, clamped), so it is
+// Eq for the types that hold one (a pick's condition, a boss's goal).
+impl Eq for Usage {}
 
 /// One game's reading of a term: what counted and his chances.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -331,7 +382,23 @@ impl Usage {
 
     /// About his team, not him (judged even in a game he sat out).
     pub fn team(&self) -> bool {
-        self.what == What::TeamPunts
+        matches!(self.what, What::TeamPunts | What::Wins | What::Postseason | What::Title | What::Rank)
+    }
+
+    /// A measure read off the season only (an outcome, an honor, the
+    /// team's record): never a game-by-game promise.
+    pub fn season_only(&self) -> bool {
+        matches!(
+            self.what,
+            What::Stat
+                | What::Starts
+                | What::Games
+                | What::Honor
+                | What::Wins
+                | What::Postseason
+                | What::Title
+                | What::Rank
+        )
     }
 
     /// Kept only on your games' line chart (lane 9).
@@ -441,6 +508,10 @@ impl Usage {
                 }
             }
             _ => {
+                // A back's run family is read off his own carries; a man
+                // who carried none (a guard) reads the runs he was on for.
+                let carried = self.what == What::RunFamily
+                    && plays.iter().any(|r| r.offense == side && r.kind == PlayType::Run && r.carrier == Some(id));
                 for r in plays.iter().filter(live).filter(|r| self.fits(r)) {
                     let off = ours(r);
                     let chart = r.line.as_deref();
@@ -592,7 +663,59 @@ impl Usage {
                                 add(r.on_field[0].contains(&id) || r.on_field[1].contains(&id), true);
                             }
                         }
-                        What::AfterMistake => {}
+                        What::Freedom => {
+                            if off && scrimmage(r) && r.freedom > 0 && role(r, id, 0) == Some(orole::QB) {
+                                add(r.freedom >= self.kind.max(2), true);
+                            }
+                        }
+                        What::RunFamily => {
+                            if off && r.kind == PlayType::Run && !r.scramble {
+                                let chance = if carried { r.carrier == Some(id) } else { on(r, 0) };
+                                let fam = run_of(&r.call).and_then(crate::game::calling::run_family);
+                                add(fam.is_some_and(|f| f + 1 == self.kind as usize), chance);
+                            }
+                        }
+                        What::QuickTargets => {
+                            if off && r.kind == PlayType::Pass && r.passer.is_some() {
+                                add(r.target == Some(id) && quick_call(&r.call) && self.spot_ok(r, id, true), true);
+                            }
+                        }
+                        What::Side => {
+                            if !off && scrimmage(r) && matches!(r.hash, 1 | 2) {
+                                let me = role(r, id, 1);
+                                if matches!(me, Some(dslot::CBL | dslot::CBR)) {
+                                    let boundary = (r.hash == 1) == (me == Some(dslot::CBL));
+                                    add(boundary == (self.kind != 2), true);
+                                }
+                            }
+                        }
+                        What::TwoHigh | What::Post | What::Robber | What::Spy => {
+                            if !off && dropback(r) && on(r, 1) && self.spot_ok(r, id, false) {
+                                let cov = coverage_of(&r.defense_call);
+                                let me = role(r, id, 1);
+                                let hit = match self.what {
+                                    What::TwoHigh => cov.is_some_and(|c| c.high() == 2),
+                                    What::Post => cov.is_some_and(|c| c.high() == 1) && me == Some(dslot::FS),
+                                    What::Robber => cov == Some(Coverage::Cover1Robber) && me == Some(dslot::SS),
+                                    _ => r.defense_call.contains("QB spy") && me == Some(dslot::MIKE),
+                                };
+                                add(hit, true);
+                            }
+                        }
+                        What::PlaceKicks => {
+                            if off && matches!(r.kind, PlayType::FieldGoal | PlayType::ExtraPoint) {
+                                add(r.kicker == Some(id), true);
+                            }
+                        }
+                        What::AfterMistake
+                        | What::Stat
+                        | What::Starts
+                        | What::Games
+                        | What::Honor
+                        | What::Wins
+                        | What::Postseason
+                        | What::Title
+                        | What::Rank => {}
                     }
                 }
             }
@@ -603,6 +726,9 @@ impl Usage {
     /// One game against the term: Some(kept), or None when the game says
     /// nothing (a share with no chances: no dropbacks while he was on).
     pub fn game(&self, plays: &[PlayRecord], side: usize, id: u32, played: bool) -> Option<bool> {
+        if self.season_only() {
+            return None;
+        }
         if !played && !self.team() {
             // He didn't play: no snaps, nothing kept, and a ceiling is safe.
             return Some(self.most);
@@ -617,6 +743,69 @@ impl Usage {
             if self.what == What::AfterMistake && c.of <= 0.0 {
                 return None;
             }
+            c.n
+        };
+        let bar = self.n as f64;
+        Some(if self.most { v <= bar + 1e-9 } else { v + 1e-9 >= bar })
+    }
+
+    /// One game kept as a box score only (high school, lane N2): what its
+    /// lines can say, his count and his chances (for a share, his team's
+    /// count: its carries, targets, kicks; for snaps, the most any man on
+    /// his side played). None for a term with a situation (a down, a zone,
+    /// a spot, a package, a look, air yards), one read off the line chart,
+    /// a team term, or a game whose box keeps no lines.
+    pub fn box_count(&self, mates: &std::collections::BTreeMap<u32, StatLine>, id: u32) -> Option<Count> {
+        if mates.is_empty()
+            || self.down > 0
+            || self.inside > 0
+            || self.far > 0
+            || self.pkg > 0
+            || self.look > 0
+            || self.spot != Spot::Any
+            || self.charted()
+            || self.team()
+            || self.season_only()
+        {
+            return None;
+        }
+        let off = mates.get(&id).is_none_or(|l| l.snaps_off >= l.snaps_def);
+        let get = |l: &StatLine| -> Option<f64> {
+            Some(match self.what {
+                What::Snaps => (if off { l.snaps_off } else { l.snaps_def }) as f64,
+                What::Carries => l.rush as f64,
+                What::Targets => l.targets as f64,
+                What::Touches => (l.rush + l.targets) as f64,
+                What::Throws => l.att as f64,
+                What::FieldGoals => l.fg_att.iter().sum::<u32>() as f64,
+                What::PlaceKicks => (l.fg_att.iter().sum::<u32>() + l.xp_att) as f64,
+                What::Punts => l.punts as f64,
+                What::Kickoffs => l.kickoffs as f64,
+                What::Returns => l.kr as f64,
+                What::Teams => l.snaps_st as f64,
+                _ => return None,
+            })
+        };
+        let n = mates.get(&id).map_or(Some(0.0), get)?;
+        let of = if !self.share {
+            1.0
+        } else if matches!(self.what, What::Snaps | What::Teams) {
+            mates.values().filter_map(get).fold(0.0, f64::max)
+        } else {
+            mates.values().filter_map(get).sum()
+        };
+        Some(Count { n, of })
+    }
+
+    /// A game read as a count against the term: Some(kept), or None when
+    /// it says nothing.
+    pub fn judge(&self, c: Count) -> Option<bool> {
+        let v = if self.share {
+            if c.of <= 0.0 {
+                return None;
+            }
+            c.n / c.of
+        } else {
             c.n
         };
         let bar = self.n as f64;
@@ -662,6 +851,25 @@ impl Usage {
             What::AfterMistake => "snaps after a mistake",
             What::Chips => "chips",
             What::Doubles => "double teams",
+            What::Freedom => "snaps",
+            What::RunFamily => "carries",
+            What::QuickTargets => "quick-game and RPO targets",
+            What::Side => "snaps",
+            What::TwoHigh => "pass snaps with help over the top",
+            What::Post => "pass snaps as the post safety",
+            What::Robber => "pass snaps as the robber",
+            What::PlaceKicks => "kicks",
+            What::Spy => "pass snaps spying the quarterback",
+            What::Stat
+            | What::Starts
+            | What::Games
+            | What::Honor
+            | What::Wins
+            | What::Postseason
+            | What::Title
+            | What::Rank => {
+                return super::terms::words(self);
+            }
         };
         let of = match self.what {
             What::Snaps => "of the snaps",
@@ -676,6 +884,11 @@ impl Usage {
             What::Stunts | What::Chips | What::Doubles => "of his pass rushes",
             What::Man => "of his pass snaps",
             What::AfterMistake => "of the snaps after a mistake",
+            What::Freedom => "of his snaps at quarterback",
+            What::RunFamily => "of his carries",
+            What::Side => "of his snaps at outside corner",
+            What::TwoHigh | What::Post | What::Robber | What::Spy => "of his pass snaps",
+            What::PlaceKicks => "of the field goals and extra points",
             _ => "of the chances",
         };
         let mut out = if self.share {
@@ -685,6 +898,19 @@ impl Usage {
                 What::Stunts => format!("{how} {pct}% of his pass rushes in a stunt"),
                 What::Snaps if self.spot != Spot::Any => format!("{how} {pct}% of his snaps {}", self.spot.words()),
                 What::AfterMistake => format!("{how} {pct}% of the snaps after a mistake: not pulled"),
+                What::Freedom => format!(
+                    "{} on {how} {pct}% of his snaps at quarterback",
+                    if self.kind >= 3 { "full audibles at the line" } else { "a kill call at the line" }
+                ),
+                What::RunFamily => format!(
+                    "{how} {pct}% of the runs with him in {}",
+                    ["the run game", "inside zone", "outside zone", "the gap scheme", "the option"]
+                        [self.kind.min(4) as usize]
+                ),
+                What::Side => format!(
+                    "{how} {pct}% of his outside corner snaps on the {} side",
+                    if self.kind == 2 { "field" } else { "boundary" }
+                ),
                 _ => format!("{thing} on {how} {pct}% {of}"),
             }
         } else if self.most {
@@ -754,6 +980,33 @@ fn offense_side(plays: &[PlayRecord], side: usize, id: u32) -> bool {
         }
     }
     o >= d
+}
+
+/// His spot's number on a play on side `k` (0 offense), when he was on.
+fn role(r: &PlayRecord, id: u32, k: usize) -> Option<u8> {
+    r.on_field[k].iter().position(|&x| x == id).and_then(|i| r.roles[k].get(i)).copied()
+}
+
+/// The run concept a call names (the longest name in it: "QB power", not
+/// "power").
+pub fn run_of(call: &str) -> Option<RunConcept> {
+    RUN_CONCEPTS.iter().copied().filter(|c| call.contains(c.name())).max_by_key(|c| c.name().len())
+}
+
+/// The pass concept a call names (the longest name in it).
+pub fn pass_of(call: &str) -> Option<&'static PassConcept> {
+    PASS_CONCEPTS.iter().filter(|c| call.contains(c.name)).max_by_key(|c| c.name.len())
+}
+
+/// A quick-game or RPO throw: the quick concepts and every RPO.
+pub fn quick_call(call: &str) -> bool {
+    call.contains(" with ") || call.contains("RPO") || pass_of(call).is_some_and(|c| c.depth == PassDepth::Quick)
+}
+
+/// The coverage a defensive call names (it leads the call's words).
+pub fn coverage_of(call: &str) -> Option<Coverage> {
+    let head = call.split(',').next()?.trim();
+    Coverage::ALL.iter().copied().find(|c| c.name() == head)
 }
 
 // ---------------------------------------------------------------------------
@@ -971,6 +1224,132 @@ pub const MEASURES: &[Measure] = &[
         most: false,
         spots: ALL,
         means: "stays on the field after his own turnover or bust",
+    }, // Lane N2: the six readers kept on every snap.
+    Measure {
+        key: "kill_call",
+        what: What::Freedom,
+        n: 0.9,
+        share: true,
+        most: false,
+        spots: &[P::QB],
+        means: "a kill call at the line (two plays in the huddle, he picks), a share of his snaps",
+    },
+    Measure {
+        key: "audibles",
+        what: What::Freedom,
+        n: 0.9,
+        share: true,
+        most: false,
+        spots: &[P::QB],
+        means: "full audibles at the line, a share of his snaps",
+    },
+    Measure {
+        key: "inside_zone",
+        what: What::RunFamily,
+        n: 0.4,
+        share: true,
+        most: false,
+        spots: &[P::RB, P::IOL, P::OT, P::TE],
+        means: "a share of his carries in inside zone (a lineman's or tight end's: of the runs he's on for)",
+    },
+    Measure {
+        key: "outside_zone",
+        what: What::RunFamily,
+        n: 0.4,
+        share: true,
+        most: false,
+        spots: &[P::RB, P::IOL, P::OT, P::TE],
+        means: "a share of his carries in outside zone and the toss",
+    },
+    Measure {
+        key: "gap_scheme",
+        what: What::RunFamily,
+        n: 0.4,
+        share: true,
+        most: false,
+        spots: &[P::RB, P::IOL, P::OT, P::TE],
+        means: "a share of his carries in the gap scheme: power, counter, duo, trap, iso",
+    },
+    Measure {
+        key: "option",
+        what: What::RunFamily,
+        n: 0.2,
+        share: true,
+        most: false,
+        spots: &[P::RB, P::QB],
+        means: "a share of his carries in the option",
+    },
+    Measure {
+        key: "quick_targets",
+        what: What::QuickTargets,
+        n: 3.0,
+        share: false,
+        most: false,
+        spots: &[P::WR, P::TE, P::RB],
+        means: "targets a game on quick-game and RPO throws",
+    },
+    Measure {
+        key: "boundary",
+        what: What::Side,
+        n: 0.8,
+        share: true,
+        most: false,
+        spots: &[P::CB],
+        means: "the boundary (short side) corner, a share of his outside corner snaps by the hash",
+    },
+    Measure {
+        key: "field_side",
+        what: What::Side,
+        n: 0.8,
+        share: true,
+        most: false,
+        spots: &[P::CB],
+        means: "the field (wide side) corner, a share of his outside corner snaps by the hash",
+    },
+    Measure {
+        key: "help_over_top",
+        what: What::TwoHigh,
+        n: 0.5,
+        share: true,
+        most: false,
+        spots: &[P::CB],
+        means: "two deep behind him (help over the top), a share of his pass snaps",
+    },
+    Measure {
+        key: "post_safety",
+        what: What::Post,
+        n: 0.4,
+        share: true,
+        most: false,
+        spots: &[P::S],
+        means: "the post safety in single-high, a share of his pass snaps",
+    },
+    Measure {
+        key: "robber",
+        what: What::Robber,
+        n: 0.15,
+        share: true,
+        most: false,
+        spots: &[P::S],
+        means: "the robber in Cover 1 robber, a share of his pass snaps",
+    },
+    Measure {
+        key: "only_kicker",
+        what: What::PlaceKicks,
+        n: 0.95,
+        share: true,
+        most: false,
+        spots: &[P::K],
+        means: "he kicks the field goals and extra points, a share of them",
+    },
+    Measure {
+        key: "spy",
+        what: What::Spy,
+        n: 0.1,
+        share: true,
+        most: false,
+        spots: &[P::LB],
+        means: "spies the quarterback, a share of his pass snaps",
     },
 ];
 
@@ -1017,6 +1396,7 @@ pub fn read(
     if !m.spots.contains(&pos) {
         return None;
     }
+    let kind = kind_of(key);
     if m.what == What::TeamPunts {
         let yards = far.max(number.map_or(0, |x| x.round().clamp(0.0, 80.0) as u8));
         if yards <= SNAP_HOLD {
@@ -1050,7 +1430,23 @@ pub fn read(
         n,
         share,
         most: most || m.most,
+        kind,
+        season: false,
     })
+}
+
+/// The kind a reader's key names (lane N2): the freedom, the run family,
+/// the corner's side (0 for the rest).
+pub fn kind_of(key: &str) -> u8 {
+    match key {
+        "kill_call" => 2,
+        "audibles" => 3,
+        "inside_zone" | "boundary" => 1,
+        "outside_zone" | "field_side" => 2,
+        "gap_scheme" => 3,
+        "option" => 4,
+        _ => 0,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1074,7 +1470,8 @@ pub fn shown(w: &World, i: usize, u: &Usage) -> Option<f64> {
     let mut games = 0;
     for g in w.seat_games.iter().filter(|g| g.date >= since && g.date <= w.today) {
         let Some(side) = super::claims::side_of(g, team) else { continue };
-        if g.stats.plays.is_empty() {
+        let boxed = g.stats.plays.is_empty();
+        if boxed && u.box_count(&g.stats.players[side], 0).is_none() {
             continue;
         }
         games += 1;
@@ -1082,7 +1479,11 @@ pub fn shown(w: &World, i: usize, u: &Usage) -> Option<f64> {
             if !g.stats.players[side].contains_key(&id) {
                 continue;
             }
-            let c = u.count(&g.stats.plays, side, id);
+            let c = if boxed {
+                u.box_count(&g.stats.players[side], id).unwrap_or_default()
+            } else {
+                u.count(&g.stats.plays, side, id)
+            };
             let v = if u.share {
                 if c.of < 4.0 {
                     continue;
@@ -1138,7 +1539,7 @@ pub fn open(w: &World) -> Vec<(u32, Usage)> {
     w.folk
         .promises
         .iter()
-        .filter(|p| p.kept.is_none())
+        .filter(|p| p.kept.is_none() && !p.terms.off)
         .filter(|p| matches!(p.kind, PromiseKind::Usage | PromiseKind::Recruit(super::pledge::USAGE, _)))
         .filter_map(|p| match (p.to, p.terms.usage) {
             (PromiseTo::Player(id), Some(u)) => Some((id, u)),
@@ -1148,7 +1549,8 @@ pub fn open(w: &World) -> Vec<(u32, Usage)> {
 }
 
 /// The plan settings your staff sets from your open promises on usage,
-/// before each game your team plays (`plans::prepare`).
+/// before each game your team plays (`plans::prepare`). A promise whose
+/// setting you turned off (`Terms::off`) sets nothing.
 pub fn keep(w: &World) -> Keep {
     let mut k = Keep::default();
     let push = |v: &mut Vec<u32>, id: u32| {
@@ -1157,6 +1559,12 @@ pub fn keep(w: &World) -> Keep {
         }
     };
     for (id, u) in open(w) {
+        let pos = super::person(w, id).map(|i| w.people[i].player.position);
+        // "No designed runs" is a ceiling the plan keeps.
+        if u.what == What::Designed && u.never() {
+            k.qb_runs = -1;
+            continue;
+        }
         if u.most && u.what != What::TeamPunts {
             continue;
         }
@@ -1166,10 +1574,54 @@ pub fn keep(w: &World) -> Keep {
             What::Blitzes => push(&mut k.send, id),
             What::Targets if u.far >= 15 => push(&mut k.shots, id),
             What::Throws if u.far >= 15 => {}
-            What::Targets | What::Touches | What::Screens => push(&mut k.feature, id),
+            What::Throws => {
+                k.pass = true;
+                k.play_action |= u.look & PLAY_ACTION != 0;
+                if u.look & GUN != 0 {
+                    k.backfield = 1;
+                } else if u.look & UNDER != 0 {
+                    k.backfield = -1;
+                }
+            }
+            What::Designed if k.qb_runs == 0 => k.qb_runs = 1,
+            What::Protected => k.protect = true,
+            What::Targets | What::Touches => push(&mut k.feature, id),
+            What::Screens => {
+                push(&mut k.feature, id);
+                push(&mut k.screens, id);
+            }
+            What::QuickTargets => {
+                push(&mut k.feature, id);
+                push(&mut k.quick, id);
+            }
+            What::Carries if pos == Some(Position::WR) => push(&mut k.gadget, id),
+            What::Carries | What::AfterMistake => push(&mut k.on, id),
+            What::Snaps => {
+                push(&mut k.on, id);
+                if u.pkg >= 10 {
+                    k.personnel = u.pkg;
+                }
+            }
+            What::Routes => push(&mut k.release, id),
             What::Help => push(&mut k.help, id),
             What::Rushes => push(&mut k.rush, id),
             What::Man => k.man = k.man.max(if u.share { u.n } else { 0.5 }),
+            What::Freedom => match k.freedom.iter_mut().find(|x| x.0 == id) {
+                Some(x) => x.1 = x.1.max(u.kind.max(2)),
+                None => k.freedom.push((id, u.kind.max(2))),
+            },
+            What::RunFamily if (1..=4).contains(&u.kind) => k.family[u.kind as usize - 1] = 1.0,
+            What::Side if !k.side.iter().any(|x| x.0 == id) => k.side.push((id, u.kind.max(1))),
+            What::TwoHigh => k.two_high = k.two_high.max(if u.share { u.n } else { 0.5 }),
+            What::Post => {
+                push(&mut k.post, id);
+                k.one_high = k.one_high.max(if u.share { u.n } else { 0.4 });
+            }
+            What::Robber => {
+                push(&mut k.robber, id);
+                k.rob = k.rob.max(if u.share { u.n } else { 0.15 });
+            }
+            What::Returns => push(&mut k.returner, id),
             _ => {}
         }
     }
@@ -1181,17 +1633,122 @@ pub fn keep(w: &World) -> Keep {
 pub fn kept_by(u: &Usage) -> &'static str {
     match u.what {
         What::TeamPunts if u.never() => "The field goal line on the game plan: inside it, the staff kicks.",
+        What::Designed if u.never() => "No designed runs on the game plan: the staff takes his runs off the sheet.",
+        _ if u.most => "Your depth chart and your calls keep it: the game plan has no setting for it.",
         What::Stunts => "Free him up on the game plan: stunts with him in them.",
         What::Blitzes => "Send him on the game plan: more blitzes, with him the man sent.",
         What::Targets if u.far >= 15 => {
             "Take shots to him on the game plan: more deep calls, his deep routes read first."
         }
-        What::Targets | What::Touches | What::Screens => {
-            "Feature him on the game plan: the quarterback looks to him first more often."
+        What::Targets | What::Touches => "Feature him on the game plan: the quarterback looks to him first more often.",
+        What::Screens => "Screens to him on the game plan: more screens, and he's read first.",
+        What::QuickTargets => {
+            "The quick game to him on the game plan: more quick throws and RPOs, and he's read first."
         }
         What::Help => "Help him on the game plan: the slide, a double or a chip on his man.",
         What::Rushes => "Rush him on the game plan: he never drops.",
         What::Man => "More man on the game plan.",
+        What::Throws if u.far >= 15 => "Your calls keep it: the game plan has no setting for his deep throws.",
+        What::Throws => "Throw more on the game plan, with play action or the backfield you named.",
+        What::Designed => "Designed runs on the game plan: his runs called more often.",
+        What::Protected => "Max protect on the game plan: more seven-man protections.",
+        What::Carries | What::Snaps | What::AfterMistake => {
+            "Keep him on, on the game plan: never spelled, never kept to base downs. Your depth chart still has to start him."
+        }
+        What::Routes => "Release him on the game plan: he runs a route where the call keeps him in.",
+        What::Freedom => "Freedom at the line on the game plan: his kill calls or full audibles.",
+        What::RunFamily => "Run family weights on the game plan: that family called more.",
+        What::Side => "His side on the game plan: he trades sides with the other corner by the hash.",
+        What::TwoHigh => "Two-high on the game plan: at least that much two deep.",
+        What::Post => "Single-high with him deep on the game plan: he plays free safety in it.",
+        What::Robber => "Rob with him on the game plan: Cover 1 robber with him the strong safety.",
+        What::Returns => "He returns on the game plan: first on kickoffs, the punt returner.",
         _ => "Your depth chart and your calls keep it: the game plan has no setting for it.",
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Turning a setting off, and the staff's warning before a game (lane N2).
+
+/// Turn the plan setting that keeps promise `k` (an index in
+/// `Folk.promises`) off, or back on. Your staff stops keeping it and warns
+/// you before each game while it is off. Err for a promise that isn't an
+/// open usage promise.
+pub fn set_off(w: &mut World, k: usize, off: bool) -> Result<(), String> {
+    use super::talks::PromiseKind;
+    let p = w.folk.promises.get(k).ok_or("No such promise.")?;
+    if p.kept.is_some()
+        || p.terms.usage.is_none()
+        || !matches!(p.kind, PromiseKind::Usage | PromiseKind::Recruit(super::pledge::USAGE, _))
+    {
+        return Err("That promise has no plan setting.".into());
+    }
+    w.folk.promises[k].terms.off = off;
+    Ok(())
+}
+
+/// Your staff's warnings before a game: each open promise on usage the
+/// plan won't keep, and why (its setting turned off, him not with the ones
+/// for a term that needs him on the field, a field goal line past his
+/// kicker's range, a term with no setting that fell behind). Nothing for a
+/// man out hurt: his promise waits.
+pub fn warnings(w: &World) -> Vec<String> {
+    use super::promise::State;
+    use super::talks::{PromiseKind, PromiseTo};
+    let mut out = Vec::new();
+    for p in w.folk.promises.iter().filter(|p| p.kept.is_none()) {
+        if !matches!(p.kind, PromiseKind::Usage | PromiseKind::Recruit(super::pledge::USAGE, _)) {
+            continue;
+        }
+        let (PromiseTo::Player(id), Some(u)) = (p.to, p.terms.usage) else { continue };
+        let Some(i) = super::person(w, id) else { continue };
+        if !u.team() && super::seen::hurt_on(w, id, w.today) {
+            continue;
+        }
+        let said = u.words();
+        let who = &p.who;
+        let specialist = w.people[i].player.position.is_specialist();
+        let field = !u.team()
+            && !u.most
+            && !specialist
+            && !matches!(u.what, What::Returns | What::Teams | What::PlaceKicks | What::Kickoffs | What::Punts);
+        let line = if p.terms.off {
+            Some(format!("You turned off the plan setting for {who} ({said}): we won't keep it."))
+        } else if field && !super::seen::with_the_ones(w, id) {
+            Some(format!(
+                "{who} isn't with the ones, so the plan alone won't keep {said}: your depth chart has to put him there."
+            ))
+        } else if u.what == What::TeamPunts && u.never() && likely(w, i, &u) < 0.7 {
+            Some(format!(
+                "The field goal line for {who} ({said}) is past his range: we'll kick from there, and he may miss."
+            ))
+        } else if super::promise::State::of(p.state) == State::Behind {
+            Some(format!(
+                "{who} is behind on {said}. {}",
+                if kept_by(&u).starts_with("Your depth chart") {
+                    "The game plan has no setting for it: your calls and your depth chart keep it."
+                } else {
+                    "The setting is on, but the game didn't give it to him last week."
+                }
+            ))
+        } else {
+            None
+        };
+        out.extend(line);
+    }
+    out
+}
+
+/// The day before each of your games, your staff's warnings land in your
+/// inbox (lane N2).
+pub(crate) fn warn(w: &mut World, d: crate::calendar::Date) {
+    if w.seat.is_none() || !w.folk.promises.iter().any(|p| p.kept.is_none() && p.terms.usage.is_some()) {
+        return;
+    }
+    if crate::world::plans::next_game(w).is_none_or(|g| g.date != d.add(1)) {
+        return;
+    }
+    for text in warnings(w) {
+        super::note(w, "talk", "Your staff, before the game".into(), text, None);
     }
 }

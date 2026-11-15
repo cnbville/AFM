@@ -1596,6 +1596,10 @@ pub(crate) fn day(w: &mut World, d: Date) {
     if d.weekday() == Weekday::Mon {
         ai_week(w, d);
     }
+    if w.seat.is_some() {
+        // Live talks v3, lane N5b: your pros' agents calling back.
+        super::persona::negotiate::day::day(w);
+    }
     if w.seat.is_some() && d.weekday() == Weekday::Mon {
         // Live talks v3's stores: old rows go, lies due are checked.
         super::persona::stores::week(w);
