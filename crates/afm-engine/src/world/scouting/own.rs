@@ -964,6 +964,7 @@ fn leak(w: &mut World, i: usize, kind: TripKind, d: Date) {
                 date: d,
                 real: true,
                 yours: false,
+                to: None,
             });
         }
         Some(Staff::Program(prog)) => {
@@ -1255,9 +1256,12 @@ pub(crate) fn interview_traits(w: &World, id: u32, traits: &mut [super::file::Tr
     let p = &w.people[i];
     let rel = readers::you(w).map_or(10.0, |c| w.coaches[c].ability().relationships);
     // He tells it well: the room reads him a little better than he is.
-    let room_read = |k: usize, m: u8, sharper: f64, salt: u64, tr: &mut super::file::TraitRead| {
-        let shade = if super::file::trait_good_high(k) { polish(p) } else { -polish(p) };
-        let truth = super::file::trait_value(p, k) + 0.6 * shade;
+    // A coached answer reads better still on the stock questions, less each
+    // follow-up (live talks N5e, `persona::draft::coached`).
+    let room_read = |k: usize, m: u8, sharper: f64, salt: u64, lift: f64, tr: &mut super::file::TraitRead| {
+        let up = 0.6 * polish(p) + lift;
+        let shade = if super::file::trait_good_high(k) { up } else { -up };
+        let truth = super::file::trait_value(p, k) + shade;
         let sd = 2.4 * (6.0 / m as f64).sqrt() * super::file::sharp(rel) * sharper;
         let v = sd * key_normal(salt ^ (k as u64) << 40, id as u64);
         fold(tr, truth, v, sd);
@@ -1267,16 +1271,18 @@ pub(crate) fn interview_traits(w: &World, id: u32, traits: &mut [super::file::Tr
             if m == 0 {
                 continue;
             }
+            let lift = crate::world::folk::persona::draft::coached::shade(w, id, iv.date, t);
             for &k in t.reads().0 {
                 let Some(tr) = traits.get_mut(k) else { continue };
-                room_read(k, m, 1.0, 0x1A7E ^ iv.date.0 as u64, tr);
+                room_read(k, m, 1.0, 0x1A7E ^ iv.date.0 as u64, lift, tr);
             }
         }
         // A worry asked straight out reads that trait tighter than the
         // same minutes on the topic around it (live talks LT11).
         for &(k, m) in &iv.worries {
             let Some(tr) = traits.get_mut(k as usize).filter(|_| m > 0) else { continue };
-            room_read(k as usize, m, WORRY_SD, 0x1A7F ^ iv.date.0 as u64, tr);
+            let lift = crate::world::folk::persona::draft::coached::shade(w, id, iv.date, worry_topic(k as usize));
+            room_read(k as usize, m, WORRY_SD, 0x1A7F ^ iv.date.0 as u64, lift, tr);
         }
     }
 }
@@ -1491,6 +1497,11 @@ pub fn sources(w: &World, id: u32) -> Vec<Source> {
         v.push(other(2, "His trainer", "Private trainer", Kind::Workout, S::Warm, 11.0));
     }
     v.push(other(3, "A teammate", "Teammate", Kind::Practice, S::Defends, 8.0));
+    // His family, at an NFL seat (live talks N5e, question 10): a call home;
+    // they know him best and defend him.
+    if matches!(staff, Some(Staff::Club(_))) {
+        v.push(other(FAMILY_SOURCE, "His family", "Family", Kind::HomeVisit, S::Defends, FAMILY_EYE));
+    }
     if let Some(c) = p.college.filter(|_| college) {
         let pr = &w.programs[c];
         let g = crate::world::coach::Group::of(p.player.position) as usize;
@@ -1517,6 +1528,11 @@ pub fn sources(w: &World, id: u32) -> Vec<Source> {
     }
     v
 }
+
+/// His family as a source (live talks N5e): its code and its eye.
+/// Proposed, not confirmed.
+pub const FAMILY_SOURCE: u8 = 6;
+pub const FAMILY_EYE: f64 = 13.0;
 
 /// What a source told you.
 #[derive(Clone, Debug)]

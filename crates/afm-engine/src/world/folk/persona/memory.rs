@@ -224,6 +224,9 @@ pub struct Memory {
     pub anchors: Vec<Anchor>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub watch: Vec<Watch>,
+    /// The draft side's stores (lane N5e, `draft::Book`).
+    #[serde(skip_serializing_if = "super::draft::Book::is_empty")]
+    pub draft: super::draft::Book,
 }
 
 impl Memory {
@@ -240,5 +243,6 @@ impl Memory {
             && self.owed.is_empty()
             && self.anchors.is_empty()
             && self.watch.is_empty()
+            && self.draft.is_empty()
     }
 }

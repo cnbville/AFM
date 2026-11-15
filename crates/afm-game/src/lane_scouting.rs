@@ -21,6 +21,41 @@ use serde_json::{Value, json};
 use crate::views::{TeamRef, date_text, team_brief, team_name};
 use crate::{Game, Reply};
 
+/// Which draft-side talk: `with` is family, security, scout, pro_scout,
+/// room, gm or call; `k` the scout's place or the club.
+fn draft_sub(with: &str, k: usize) -> Result<afm_engine::world::folk::persona::draft::Sub, String> {
+    use afm_engine::world::folk::persona::draft::Sub;
+    Ok(match with {
+        "family" => Sub::Family,
+        "security" => Sub::Security,
+        "scout" => Sub::Scout(k),
+        "pro_scout" => Sub::ProScout(k),
+        "room" => Sub::Room,
+        "gm" => Sub::Gm(k),
+        "call" => Sub::Call,
+        _ => return Err("Who do you want to talk to?".into()),
+    })
+}
+
+/// The draft room's debate on the clock (lane N5e): each man's case from
+/// your readers' own reads.
+fn draft_debate(w: &World) -> Value {
+    let cases: Vec<Value> = afm_engine::world::folk::persona::draft::debate::debate(w)
+        .into_iter()
+        .map(|c| {
+            json!({
+                "id": c.id,
+                "name": c.name,
+                "by": c.by.1,
+                "case": c.case,
+                "against": c.against.map(|a| json!({ "by": a.1, "case": a.2 })),
+                "flags": c.flags,
+            })
+        })
+        .collect();
+    json!({ "cases": cases })
+}
+
 pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     let num = |k: &str| args.get(k).and_then(Value::as_u64);
     let id = || num("id").map(|v| v as u32).ok_or_else(|| "Missing id.".to_string());
@@ -185,6 +220,21 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             Ok(json!({ "said": said, "hs": hs_side(w)? }))
         })(),
         "lookback" => (|| Ok(lookback_view(game.w()?)))(),
+        // Live talks v3, lane N5e: the draft side's talks.
+        "draft_talk" => (|| {
+            let w = game.wm()?;
+            let sub = draft_sub(&text("with"), num("k").unwrap_or(0) as usize)?;
+            let pid = num("id").unwrap_or(0) as u32;
+            let sid = afm_engine::world::folk::persona::draft::scene::start(w, sub, pid)?;
+            game.call("people_scene", &json!({ "id": sid }))
+        })(),
+        "draft_debate" => (|| Ok(draft_debate(game.w()?)))(),
+        "smoke_read" => (|| {
+            let w = game.w()?;
+            let team = num("team").ok_or("Missing team.")? as usize;
+            let r = afm_engine::world::folk::persona::draft::smoke::read(w, team, id()?, false);
+            Ok(json!({ "read": r.band, "why": r.why }))
+        })(),
         _ => return None,
     };
     Some(r)
@@ -1740,8 +1790,14 @@ pub fn predraft_view(w: &World) -> Reply {
                 "date": date_text(l.date),
                 "team": team_brief(w, TeamRef::Nfl(l.team)),
                 "player": row(w, i),
-                // Your staff's read on whether it's real (the GM's habits).
-                "read": if l.yours { "Yours" } else if l.real { "Likely real" } else { "Smells like a smokescreen" },
+                // Your staff's read on whether it's real, from what they can
+                // see (the club's record, its visits, its need, the slot):
+                // never the truth (lane N5e, `draft::smoke::read`).
+                "read": if l.yours {
+                    "Yours".to_string()
+                } else {
+                    afm_engine::world::folk::persona::draft::smoke::read(w, l.team, l.player, false).band.to_string()
+                },
                 "yours": l.yours,
             }))
         })
