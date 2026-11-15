@@ -8,24 +8,31 @@ name: Mac app
 # request. Test-only data is skipped too: only afm-tools reads ab_real.json,
 # and the Python scripts make data files without being read by the game.
 #
-# Builds run side by side (Cain 2026-11-14): every merge to main gets its own
-# build and none replaces another that is waiting. GitHub gives a public
-# repository five Mac machines at once; a build takes two for its compile and
-# one for the bundle, so about two builds run together and the rest queue.
-# Builds can finish in any order, so each build only puts its dmg on its own
-# release (app-<run>, never marked latest). The last job, "publish", runs one
-# at a time and moves "latest" and the public downloads page forward to the
-# highest finished build, never back (.github/scripts/mac-publish.sh).
+# One build at a time, newest next (Cain 2026-11-15): runs of this workflow
+# share one concurrency group without cancel-in-progress. A build that is
+# already running is never killed. A merge that arrives while one is running
+# waits, and a newer merge replaces the one that was waiting, so the next
+# build is always the newest main (every build holds all earlier merges). The
+# five Mac machines GitHub gives a public repository used to fill up with a
+# build per merge, and the newest one waited hours. Each build only puts its
+# dmg on its own release (app-<run>, never marked latest). The last job,
+# "publish", runs one at a time and moves "latest" and the public downloads
+# page forward to the highest finished build, never back
+# (.github/scripts/mac-publish.sh).
 on:
   push:
     branches: [main]
     paths-ignore: ["docs/**", "**/*.md", "tools/**", "legacy-ts/**", "crates/afm-tools/**", "crates/afm-reader/**",
       "crates/afm-reader-app/**", "reader/**", ".github/workflows/reader-app.yml",
       "data/real-world/ab_real.json", "data/real-world/scripts/**",
-      ".github/workflows/ci.yml", ".github/workflows/full-tests.yml", ".github/workflows/build-world.yml", ".github/scripts/**"]
+      ".github/workflows/ci.yml", ".github/workflows/full-tests.yml", ".github/workflows/build-world.yml", ".github/workflows/mac-app.yml",
+      ".github/scripts/**"]
   workflow_dispatch:
 permissions:
   contents: write
+concurrency:
+  group: mac-app-build
+  cancel-in-progress: false
 jobs:
   # Each chip on its own machine at the same time. The engine is one big
   # compile per chip (codegen-units = 1), so the two builds one after the
