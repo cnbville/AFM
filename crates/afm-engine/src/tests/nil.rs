@@ -35,6 +35,10 @@ fn college(house: bool) -> (World, usize) {
     let c = &mut w.programs[j].collective;
     c.budget = 20.0e6;
     c.school = 12.0e6;
+    // NIL Go's book, as July 2025's payday would have read it.
+    if house {
+        w.nil_book = crate::world::nil_bid::NilBook::from_pots(&w);
+    }
     (w, j)
 }
 
@@ -64,7 +68,7 @@ fn the_school_pays_its_share_and_nil_go_reads_the_collectives() {
     let (w, j) = college(true);
     let prog = &w.programs[j];
     let i = w.people.iter().position(|p| p.stage == Stage::HighSchool).unwrap();
-    let top = rec::nil_go_top_recruit(&w.people[i]);
+    let top = rec::go_top_recruit(&w, j, &w.people[i]);
     assert!(top > 0.0);
     let money = 4.0 * top;
     // Before NIL Go opened (June 11, 2025) it is all the collective's, and
@@ -72,9 +76,13 @@ fn the_school_pays_its_share_and_nil_go_reads_the_collectives() {
     let (s, c) = rec::pots(prog, Date::ymd(2025, 6, 1), money, top, false);
     assert_eq!((s, c), (0.0, money));
     // After, the school's 12 of 20 million is its own; the collective's part
-    // is cleared to his top.
+    // is cleared to his top, and what NIL Go denies moves into the school's
+    // revenue share as far as its room under the cap goes (the new NIL
+    // scheme, item 11).
     let (s, c) = rec::pots(prog, w.today, money, top, false);
-    assert!((s - 0.6 * money).abs() < 1.0, "{s}");
+    let room = ncaa::share_room(prog, crate::world::nil_bid::deal_year(w.today));
+    let moved = (0.4 * money - top).min(room).max(0.0);
+    assert!((s - 0.6 * money - moved).abs() < 1.0, "{s}");
     assert!((c - top).abs() < 1.0, "{c} against {top}");
 }
 
@@ -89,7 +97,14 @@ fn your_money_is_the_schools_revenue_share() {
     assert!(b.two_pots);
     assert!((b.yours - 12.0e6).abs() < 1.0, "the school's pot is yours: {}", b.yours);
     assert!((b.collective - 8.0e6).abs() < 1.0);
-    assert!(b.collective_roster > 0.0 && b.collective_roster <= 0.6 * 8.0e6 + 1.0, "{}", b.collective_roster);
+    // The going rate keeps 0.6 of the collective too, each deal rounded to
+    // the nearest $500.
+    let deals_n = collective_deals(&w, j).len() as f64;
+    assert!(
+        b.collective_roster > 0.0 && b.collective_roster <= 0.6 * 8.0e6 + 500.0 * deals_n,
+        "{}",
+        b.collective_roster
+    );
     let own = collective_deals(&w, j);
     assert_eq!(own.len(), usual_deals(&w, j).len(), "a collective deal for every player");
     let (had, _) = deal_of(&w, id).expect("a deal for every player");
@@ -305,6 +320,9 @@ fn promise_answers(house: bool) {
     let (mut w, j) = college(house);
     let class = rec::next_class(&w);
     let i = w.people.iter().position(|p| p.stage == Stage::HighSchool && p.class_of == class).unwrap();
+    // A four-star, whom the market pays real money (the new NIL scheme
+    // prices a low-star kid at a few hundred dollars).
+    w.people[i].stars = 4;
     let id = w.people[i].player.id;
     let usual = rec::usual_nil_offer(&w, j, i);
     assert!(usual > 1_000.0, "{usual}");
@@ -391,7 +409,10 @@ fn double_the_money_moves_a_recruit_more_than_the_dollars_alone() {
     let (i, id) = lone_recruit(&mut w, None);
     let others: Vec<usize> =
         (0..w.programs.len()).filter(|&x| x != j && w.programs[x].division == w.programs[j].division).take(2).collect();
-    for (&x, budget) in others.iter().zip([20.0e6, 10.0e6]) {
+    // Each prices against the other's top bid (the new NIL scheme): the
+    // $20M school pays half its top, the $5M school its whole top, half
+    // as much.
+    for (&x, budget) in others.iter().zip([20.0e6, 5.0e6]) {
         w.programs[x].collective.budget = budget;
         w.programs[x].collective.school = 0.6 * budget;
         w.people[i].cal.offers.push(x);
@@ -479,7 +500,7 @@ fn lone_offer(house: bool) {
     // there is one number.
     if house {
         set_promise(&mut w, id, Some(50_000.0), Some(collective.max(10_000.0))).unwrap();
-        let top = rec::nil_go_top_recruit(&w.people[i]);
+        let top = rec::go_top_recruit(&w, j, &w.people[i]);
         let c = rec::nil_go(w.today, collective.max(10_000.0), top);
         assert!((weighed_offer(&w, j, id) - 50_000.0 - c).abs() < 1.0, "{} against {c}", weighed_offer(&w, j, id));
     } else {
@@ -704,8 +725,9 @@ fn the_school_spreads_its_whole_share_by_role_and_position() {
     assert!(w(R::Starter, P::OT) > w(R::Starter, P::WR) && w(R::Starter, P::WR) > w(R::Starter, P::TE));
     assert!(w(R::Starter, P::TE) > w(R::Starter, P::K));
     // A starter over a rotation player over a backup; a backup still holds
-    // a real part (real schools pay most of the roster).
+    // a real part (a quarter: the College Sports Commission's medians once
+    // only the paid three quarters of a Power 4 roster share it).
     assert!(w(R::Starter, P::WR) > w(R::Rotation, P::WR) && w(R::Rotation, P::WR) > w(R::Backup, P::WR));
-    assert!(w(R::Backup, P::WR) >= 0.3 * w(R::Starter, P::WR));
+    assert!(w(R::Backup, P::WR) >= 0.25 * w(R::Starter, P::WR));
     assert_eq!(rec::share_weight(None, P::WR), w(R::Backup, P::WR));
 }

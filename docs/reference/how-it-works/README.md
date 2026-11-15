@@ -11,6 +11,7 @@ These pages describe what the code does on `main`, not what the design docs plan
 | [ratings.md](ratings.md) | The 67 attributes and 5 hidden traits, scales, position ratings and fit, level-relative ratings, ranges on screen |
 | [body.md](body.md) | Height, weight, arms, hands, body growth by age, the weight room, the combine and the forty, speed "for his size" |
 | [development.md](development.md) | Potential, ceilings, growth by age, slumps and breakouts, coaching × coachability, ageing |
+| [progression.md](progression.md) | The split ceiling: each technique skill's limit from body and makeup, the hidden knacks, everyday room closing, breakouts that close room, skill projects and AI staffs' bets, the trims |
 | [tendencies.md](tendencies.md) | The 15 tendencies, where they come from, coaching styles, instructions, how the engine reads them |
 | [match-engine.md](match-engine.md) | How a snap is simulated and every check: what it reads and what it doesn't |
 | [play-calling.md](play-calling.md) | Play calling, playbooks, game plans, coach quality in calls, level rule differences |

@@ -740,6 +740,57 @@ pub(crate) fn club_strength_head(w: &World, t: usize) -> f64 {
     10.0 + 10.0 * super::people::Support::z(w.clubs[t].support.strength.rating)
 }
 
+/// The AI staffs' project changes this checkpoint, by person (the
+/// progression update): each college program's and high school's rooms
+/// (`progression::Room`), by the head coach's lean and the position
+/// coach's eye. Your seat's team is left to you.
+fn ai_projects(w: &World, role_of: &[Option<PlayingTime>]) -> HashMap<usize, crate::progression::Change> {
+    use crate::progression::{Lean, Room, ai_room};
+    let mut rooms: HashMap<(bool, usize, Room), Vec<usize>> = HashMap::new();
+    for (i, p) in w.people.iter().enumerate() {
+        if role_of[i].is_none() {
+            continue;
+        }
+        let Some(room) = Room::of(p.player.position) else { continue };
+        let key = match p.stage {
+            Stage::College => match p.college {
+                Some(c) if !w.seat_program(c) => (true, c),
+                _ => continue,
+            },
+            Stage::HighSchool if w.seat_school() != Some(p.hs) => (false, p.hs),
+            _ => continue,
+        };
+        rooms.entry((key.0, key.1, room)).or_default().push(i);
+    }
+    let mut keys: Vec<(bool, usize, Room)> = rooms.keys().copied().collect();
+    keys.sort_by_key(|k| (k.0, k.1, k.2 as u8));
+    let out: Vec<Vec<(usize, crate::progression::Change)>> = keys
+        .par_iter()
+        .map(|k| {
+            let ids = &rooms[k];
+            let members: Vec<&crate::player::Player> = ids.iter().map(|&i| &w.people[i].player).collect();
+            let group = Group::of(members[0].position);
+            let (head, eye, scale) = if k.0 {
+                let prog = &w.programs[k.1];
+                (prog.head_coach, room_teaching(prog, &w.coaches, group), 1.0)
+            } else {
+                let s = &w.high_schools[k.1];
+                // A high school's smaller staff has less one-on-one time
+                // (design item 14: its coaching and staff size set what it
+                // gets out of it; proposed, not confirmed: 0.3 to 0.8).
+                (s.coach, s.coach.map_or(7.0, |c| w.coaches[c].teaching(group)), 0.3 + 0.5 * s.resources)
+            };
+            let lean = head.map_or(Lean::BALANCED, |c| {
+                let left = w.coaches[c].contract.as_ref().map_or(2.5, |ct| (ct.through - w.year) as f64);
+                Lean::of_coach(c, clamp((left - 2.5) / 2.5, -1.0, 1.0))
+            });
+            let seed = (w.year as u32).wrapping_mul(0x9E37) ^ (k.1 as u32).wrapping_mul(0x85EB) ^ (k.2 as u32) << 24;
+            ai_room(&members, k.2, lean, eye, scale, seed).into_iter().map(|(m, c)| (ids[m], c)).collect()
+        })
+        .collect();
+    out.into_iter().flatten().collect()
+}
+
 pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
     super::coach::set_freedom_norms(w);
     let year = w.year as u64;
@@ -820,6 +871,9 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
     };
     // The men you got help for after trouble (talk facts lane L4).
     let helped = super::folk::talk_points::helped_ids(w);
+    // The AI staffs' skill projects (the progression update, design items
+    // 8 and 13-15), room by room; your own staff's are yours to set.
+    let projects = ai_projects(w, &role_of);
     // Each player's real injuries since his last step (audit item 1), for
     // a stage whose last season played on the engine.
     let real = [Stage::HighSchool, Stage::College].map(|s| real_hurts(w, s));
@@ -1045,6 +1099,9 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         // (section 6b topic 12), so this row starts where he really is.
         let year_focus = ctx.focus.map(|a| crate::development::Focus::two(a, ctx.focus2, ctx.focus_minutes));
         crate::training::close_year(&mut p.player, year_focus);
+        if let Some(&c) = projects.get(&i) {
+            crate::progression::apply(&mut p.player, c);
+        }
         let report = develop_season(&mut p.player, &ctx, &mut p.rng);
         if ctx.hurt.is_some() && report.rehab_due {
             rehab_due.lock().unwrap().push(p.player.id);
