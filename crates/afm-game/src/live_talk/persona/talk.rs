@@ -24,10 +24,10 @@ use afm_ai::{Failure, Request};
 use afm_engine::world::World;
 use afm_engine::world::folk;
 use afm_engine::world::folk::persona::Them;
-use afm_engine::world::folk::persona::deals;
 use afm_engine::world::folk::persona::ear::{Confirm, Resolving, Turn};
 use afm_engine::world::folk::persona::room::Room;
 use afm_engine::world::folk::persona::talk::{self, Conversation, Parts, Said, channels, store};
+use afm_engine::world::folk::persona::{deals, office};
 use afm_engine::world::folk::scene::{Kind, Scene};
 use serde_json::{Value, json};
 
@@ -38,9 +38,24 @@ use crate::{Game, Reply};
 /// How long a confirm waits. Proposed, not confirmed.
 pub const WAIT_TTL: Duration = Duration::from_secs(900);
 
-/// Whether a scene's typed lines play as a v3 talk: your one-on-ones.
+/// Whether a scene's typed lines play as a v3 talk: your one-on-ones, and
+/// the meetings with the people in your building (lane N5c).
 pub fn plays(g: &Game, s: &Scene) -> bool {
-    g.ai.persona_talks && s.kind == Kind::OneOnOne
+    g.ai.persona_talks && (s.kind == Kind::OneOnOne || office::plays(s.kind))
+}
+
+/// The room a scene's talk is held in: the open talk's, else the one its
+/// lane sets (someone in your building, lane N5c), else a one-on-one.
+pub fn room_of(w: &World, s: &Scene) -> Room {
+    store::room(w, s.id)
+        .or_else(|| office::plays(s.kind).then(|| office::room(w, s)).flatten())
+        .unwrap_or_else(|| channels::one_on_one(s))
+}
+
+/// The parts a scene's talk is played with: lane N5c's for the people in
+/// your building, else lane N1's people and lane N3's deals and requests.
+pub fn parts_for(s: &Scene) -> Parts<'static> {
+    if office::plays(s.kind) { office::parts() } else { parts() }
 }
 
 /// What waits on your confirm, by ticket, and how each typed line was
@@ -126,8 +141,8 @@ pub fn parts() -> Parts<'static> {
 pub fn say(g: &mut Game, id: u32, text: String) -> Reply {
     let w = g.world.as_ref().ok_or("No world is loaded.")?;
     let s = w.folk.scenes.iter().find(|s| s.id == id).ok_or("No such meeting.")?;
-    let room = store::room(w, id).unwrap_or_else(|| channels::one_on_one(s));
-    let p = parts();
+    let room = room_of(w, s);
+    let p = parts_for(s);
     let (card, keys) = cards::ear(w, s, &room, &p, &text);
     let today = crate::views::date_text(w.today);
     let (y, m, d) = w.today.parts();
@@ -183,26 +198,36 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
         if s.done || s.lines.len() != at {
             return Step::Done(tickets::off(crate::live_talk::say::MOVED_ON));
         }
-        let pos = match talk::across(&channels::one_on_one(&s)) {
+        let room = match store::room(w, id) {
+            Some(r) => r,
+            None => {
+                let r = room_of(w, &s);
+                store::begin(w, id, r.clone());
+                r
+            }
+        };
+        let pos = match talk::across(&room) {
             Some(Them::Player(pid)) => folk::person(w, pid).map(|i| w.people[i].player.position),
             _ => None,
         };
         let tags = ear::Tags { today: w.today, pos };
         let reading = tags.resolve(&er, &keys);
         let promises = tags.promises(&er, &keys);
-        let room = match store::room(w, id) {
-            Some(r) => r,
-            None => {
-                let r = channels::one_on_one(&s);
-                store::begin(w, id, r.clone());
-                r
-            }
-        };
-        let conv = Conversation { parts: parts(), said: Said { scene: id, words: words.clone(), reading, promises } };
+        let conv =
+            Conversation { parts: parts_for(&s), said: Said { scene: id, words: words.clone(), reading, promises } };
         let t = conv.turn(w, &room, &conv.said.reading);
         let heard = cards::heard(w, &room, &t);
         let vc = cards::voice(w, &s, &room, &conv.parts, &t, &words, &keys);
         conv.apply(w, &t);
+        // What lane N5c makes of it: a reference's read on the coach's page.
+        if office::plays(s.kind) {
+            let lines = office::after(w, id, &room, &conv.said.reading, &t);
+            if let Some(sc) = w.folk.scenes.iter_mut().find(|x| x.id == id) {
+                for l in lines {
+                    sc.narrate(l);
+                }
+            }
+        }
         let marks = marks(w, &t);
         let confirm = waits(g, id, &room, &t);
         let card_text = vc.text();
@@ -315,7 +340,7 @@ pub fn confirm(g: &mut Game, args: &Value) -> Reply {
     }
     let w = g.world.as_mut().ok_or("No world is loaded.")?;
     if yes {
-        let lines = run(w, him, &item);
+        let lines = office::confirm(w, id, him, &item).unwrap_or_else(|| run(w, him, &item));
         if let Some(s) = w.folk.scenes.iter_mut().find(|s| s.id == id) {
             for l in lines {
                 s.narrate(l);

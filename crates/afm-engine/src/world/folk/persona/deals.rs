@@ -214,6 +214,10 @@ fn meets(w: &World, i: Option<usize>, give: &Give, money: f64) -> Vec<(WantKind,
         Give::Stay => vec![(WantKind::Loyalty, 0.3), (WantKind::Development, 0.2)],
         Give::Pick(r) => vec![(WantKind::Club, (0.6 * (8.0 - r.clamp(1, 7) as f64) / 7.0).max(0.05))],
         Give::Favour => vec![(WantKind::Kids, 0.4), (WantKind::Name, 0.2)],
+        // A coach's title and the play-calling (lane N5c): his career and his
+        // say in the scheme.
+        Give::Title => vec![(WantKind::Career, 0.3), (WantKind::Name, 0.1)],
+        Give::Calling => vec![(WantKind::Career, 0.4), (WantKind::Scheme, 0.6)],
     }
 }
 

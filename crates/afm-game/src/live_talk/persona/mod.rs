@@ -145,7 +145,7 @@ impl EarTerm {
 
 /// The things a deal can hold (`terms::Give`), by their keys in the ear's
 /// schema.
-pub const GIVE_KEYS: [&str; 20] = [
+pub const GIVE_KEYS: [&str; 22] = [
     "scholarship",
     "scholarship_for",
     "money",
@@ -166,6 +166,8 @@ pub const GIVE_KEYS: [&str; 20] = [
     "pick",
     "favour",
     "outside",
+    "title",
+    "play_calling",
 ];
 
 /// One thing in a deal as the ear reads it: its key, the number you said,
@@ -211,6 +213,8 @@ impl EarGive {
             "pick" => Give::Pick(small(n?).clamp(1, 7)),
             "favour" => Give::Favour,
             "outside" => Give::Outside(n.unwrap_or(0.0).max(0.0)),
+            "title" => Give::Title,
+            "play_calling" => Give::Calling,
             _ => return None,
         })
     }
