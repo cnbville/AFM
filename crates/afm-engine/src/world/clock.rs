@@ -111,8 +111,24 @@ pub(crate) fn portal_windows(season: i32, rule: TransferRule) -> Vec<(Date, Date
 /// the end of October.
 pub(crate) const COMMIT_WAVES: [(u32, u32); 5] = [(3, 20), (4, 30), (6, 15), (8, 31), (10, 31)];
 
-fn commit_wave(y: &YearDates, d: Date) -> Option<u8> {
-    COMMIT_WAVES.iter().position(|&(m, day)| Date::ymd(y.season, m, day) == d).map(|k| k as u8)
+/// The recruiting week of the class signing next (thread "Make AI schools
+/// offer on real days"): every seventh day from the first wave to the end
+/// of November, and each wave's own day (the services' rating days), the
+/// staffs' boards and offers move and the recruits whose time has come
+/// decide. The window `d` falls in (the last wave on or before it).
+/// Cain agreed 2026-11-15: a week, the cadence real staffs set their
+/// boards and offers by.
+pub(crate) fn recruiting_week(y: &YearDates, d: Date) -> Option<u8> {
+    let first = Date::ymd(y.season, COMMIT_WAVES[0].0, COMMIT_WAVES[0].1);
+    let last = Date::ymd(y.season, 11, 30);
+    if d < first || d > last {
+        return None;
+    }
+    let wave = COMMIT_WAVES.iter().any(|&(m, day)| Date::ymd(y.season, m, day) == d);
+    if !wave && first.days_to(d) % 7 != 0 {
+        return None;
+    }
+    COMMIT_WAVES.iter().rposition(|&(m, day)| Date::ymd(y.season, m, day) <= d).map(|k| k as u8)
 }
 
 /// The college all-star games of a football year's January, with their dates.
@@ -683,6 +699,14 @@ fn afternoon(w: &mut World, d: Date, y: &YearDates) {
     if d.weekday() == Weekday::Sun && (4..=10).any(|k| y.cfb_weeks.get(k).is_some_and(|s| d == s.add(1))) {
         staff::in_season_firings(w);
     }
+    // The NFL's (realism audit items 7 and 8): the Mondays after weeks 4-15.
+    if d.weekday() == Weekday::Mon && (3..=14).any(|k| y.nfl_weeks.get(k).is_some_and(|s| d == s.add(1))) {
+        staff::nfl_in_season(w);
+    }
+    // And the high schools' (item 8): fall Mondays from mid-September.
+    if d.weekday() == Weekday::Mon && d >= y.hs_school_start.add(35) && d <= y.thanksgiving.add(-21) {
+        staff::hs_in_season(w);
+    }
 }
 
 /// 2:00 PM Sundays: the weekly polls.
@@ -778,20 +802,9 @@ fn evening(w: &mut World, d: Date, y: &YearDates) {
     if d == y.spring_game {
         hs_year::spring_game(w);
     }
-    // Dated offers before a class's first wave (part B 34).
-    let season = w.year;
-    for (date, class_of, pass) in [
-        (y.junior_days.0.add(14), season + 1, 4),
-        (Date::ymd(season, 6, 15), season + 2, 1),
-        (Date::ymd(season, 9, 1), season + 2, 2),
-        (Date::ymd(season + 1, 1, 15), season + 3, 0),
-        (Date::ymd(season + 1, 1, 15), season + 2, 3),
-    ] {
-        if d == date {
-            timed("early offers", || recruiting::early_offers(w, d, class_of, pass));
-        }
-    }
-    if let Some(wave) = commit_wave(y, d) {
+    // Offers before a class's first wave (part B 34), week by week.
+    timed("early offers", || recruiting::early_offer_week(w, d));
+    if let Some(wave) = recruiting_week(y, d) {
         timed("sign summer", || recruiting::signing_stage(w, recruiting::SignStage::Summer(wave), w.year));
     }
 }

@@ -835,6 +835,14 @@ async function cont() {
     S.status = r.status;
     S.busy = false;
     document.documentElement.classList.remove("running");
+    // A meeting waits for you: the days did not play. Hold it, or hand it
+    // to your staff from its page.
+    if (r.blocked) {
+      const b = r.blocked;
+      toast(`${b.text} is waiting. Hold it or hand it to your staff first${b.more ? ` (${b.more} more after it)` : ""}.`);
+      if (screens.people_scene && !(S.route.screen === "people_scene" && S.route.args && S.route.args.id === b.meeting)) go("people_scene", { id: b.meeting }); else render();
+      return;
+    }
     if (typeof peekForget === "function") peekForget();
     // A screen picked while the days played: you stay there.
     const moved = S.route !== from;

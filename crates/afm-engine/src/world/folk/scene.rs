@@ -783,6 +783,27 @@ pub fn due(w: &World, d: Date) -> Option<String> {
     Some(if n == 1 { cal_text(first) } else { format!("{} meetings today, starting with {title}", n) })
 }
 
+/// The meetings waiting for you right now: dated ones whose hour has come
+/// (or that have no hour) and that you have neither held nor handed on.
+/// Continue does not pass them: you hold each one or hand it to your staff
+/// first. One that is still ahead today does not wait yet.
+pub fn waiting(w: &World) -> Vec<&Scene> {
+    let now = w.now();
+    let z = w.seat_zone();
+    let mut v: Vec<&Scene> = w
+        .folk
+        .scenes
+        .iter()
+        .filter(|s| !s.done && s.stops && s.date <= w.today)
+        .filter(|s| match s.minute {
+            Some(m) if s.date == w.today => z.to_eastern(crate::calendar::Moment::at(s.date, m / 60, m % 60)) <= now,
+            _ => true,
+        })
+        .collect();
+    v.sort_by_key(|s| s.id);
+    v
+}
+
 /// The end of a day: a meeting you didn't hold is handed to your staff; a
 /// scene that waited a week (a press availability, a call) lapses the same
 /// way.

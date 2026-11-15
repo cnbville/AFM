@@ -522,4 +522,4 @@ mod recruit_tests;
 
 #[cfg(test)]
 #[path = "n7_tests.rs"]
-mod n7_tests;
+pub(crate) mod n7_tests;

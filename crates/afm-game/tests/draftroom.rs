@@ -126,7 +126,7 @@ fn the_draft_room_and_the_outlook() {
     }
     // Your first pick may come on a later night: Continue on to it.
     while ok(&mut g, "draft_live", json!({}))["waiting"] == json!(true) && steps < 340 {
-        ok(&mut g, "continue", json!({}));
+        ok(&mut g, "continue", json!({ "staff": true }));
         steps += 1;
     }
     println!("to the draft in {:.0}s", t.elapsed().as_secs_f64());
@@ -153,7 +153,7 @@ fn the_draft_room_and_the_outlook() {
     while !r["rush"].as_bool().unwrap() && guard < 120 {
         if ok(&mut g, "draft_live", json!({}))["waiting"] == json!(true) {
             // Between the draft's nights: the clock runs on to the next.
-            ok(&mut g, "continue", json!({}));
+            ok(&mut g, "continue", json!({ "staff": true }));
         } else if r["on_clock"].as_bool().unwrap() {
             ok(&mut g, "draft_auto", json!({}));
         } else {

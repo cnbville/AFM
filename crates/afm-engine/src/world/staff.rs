@@ -17,6 +17,9 @@ use crate::rng::{Rng, clamp};
 
 use super::front_office::{market, school};
 
+mod midseason;
+pub(crate) mod pay;
+
 /// The coaches the hiring searches walk (world speed lane): those not
 /// retired when the list was last taken, and every coach added since. A
 /// coach never comes back from retirement and coaches are only ever added
@@ -261,6 +264,13 @@ pub(crate) fn hire(w: &mut World, coach: usize, employer: Employer, role: Role) 
             buyout_share: buyout_share(w, p),
         };
         w.coaches[coach].contract = Some(contract);
+    }
+    // An NFL head coach signs one too (realism audit item 6): five years,
+    // all of it owed if he's fired.
+    if role == Role::HeadCoach
+        && let Employer::Nfl(t) = employer
+    {
+        w.coaches[coach].contract = Some(pay::nfl_contract(w, coach, t, since));
     }
     // An assistant hired under a head coach joins his tree.
     let boss = match employer {
@@ -820,7 +830,15 @@ fn level_rank(w: &World, e: Employer) -> Option<u8> {
 /// gives up his edge (-0.02); a young core coming back -0.03; -0.003 a year
 /// of age past 52 and -0.0015 a season settled (to 12); going home +0.03,
 /// leaving home -0.02; a hot seat up to +0.03.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn weigh_offer(w: &mut World, c: usize, o: Opening) -> Option<String> {
+    weigh_offer_at(w, c, o, 0).map(|x| x.0)
+}
+
+/// [`weigh_offer`] for the man at `rank` on the search's list: his answer
+/// and the pay he signs for (the search's offer, or its last bid against
+/// his school's counter; realism audit item 6).
+fn weigh_offer_at(w: &mut World, c: usize, o: Opening, rank: usize) -> Option<(String, f64)> {
     let year = w.year;
     let coach = &w.coaches[c];
     let Some(job) = coach.job else {
@@ -837,10 +855,11 @@ pub(crate) fn weigh_offer(w: &mut World, c: usize, o: Opening) -> Option<String>
             return None;
         }
         // Out of work: he takes it.
-        return Some(coach.history.last().map_or(String::new(), |s| {
+        let why = coach.history.last().map_or(String::new(), |s| {
             let how = if s.ended.starts_with("fired") { "fired" } else { "let go" };
             format!("out of work since he was {how}")
-        }));
+        });
+        return Some((why, pay::offer(w, c, o.employer, o.role, rank)));
     };
     // Hired this cycle (a college job in December, say): he stays put
     // through the NFL and high school carousels that follow.
@@ -889,10 +908,12 @@ pub(crate) fn weigh_offer(w: &mut World, c: usize, o: Opening) -> Option<String>
     if first_head {
         parts.push((0.12 * (1.0 + 0.5 * a), "his first head job".to_string()));
     }
-    // The money: a winner has had raises to keep him (10% a title, to three).
-    let pay_now = salary(w, job.employer, job.role) * (1.0 + 0.1 * coach.titles.min(3) as f64);
-    let pay = salary(w, o.employer, o.role);
-    parts.push((0.05 * (pay / pay_now).ln(), "a big raise".to_string()));
+    // The money (realism audit item 6): the search's offer against what he
+    // makes now, his own deal, raised by the market and his results.
+    let now = super::folk::hiring::pay_now(w, c).max(1.0);
+    let mut offer = pay::offer(w, c, o.employer, o.role, rank);
+    let money_part = parts.len();
+    parts.push((0.05 * (offer / now).ln(), "a big raise".to_string()));
     // The NFL: the top of the profession for the ambitious. A gifted
     // recruiter gives up his edge there; an NFL man who hates recruiting stays.
     let recruiter = (coach.ability().recruiting - 10.0) / 10.0;
@@ -961,21 +982,38 @@ pub(crate) fn weigh_offer(w: &mut World, c: usize, o: Opening) -> Option<String>
         return None;
     }
     let p = &coach.personality;
-    let mut chance = clamp(0.35 + 0.04 * (p.ambition - 10.0) - 0.03 * (p.loyalty - 10.0) + 1.5 * pull, 0.05, 0.95);
-    // A college head coach is slower to go than an assistant: most of the
-    // 17.6% of FBS programs with a new head coach each season (2000-2025,
-    // `college_people.json`) are firings, and the rest leave for a bigger
-    // job (minor bug 124; 0.75 proposed, not confirmed).
-    if job.role == Role::HeadCoach && matches!(job.employer, Employer::College(_)) {
-        chance *= 0.75;
-    }
-    if !w.rng.chance(chance) {
+    let (ambition, loyalty) = (p.ambition, p.loyalty);
+    let college_head = job.role == Role::HeadCoach && matches!(job.employer, Employer::College(_));
+    let chance_at = |pull: f64| {
+        let chance = clamp(0.35 + 0.04 * (ambition - 10.0) - 0.03 * (loyalty - 10.0) + 1.5 * pull, 0.05, 0.95);
+        // A college head coach is slower to go than an assistant: most of the
+        // 17.6% of FBS programs with a new head coach each season (2000-2025,
+        // `college_people.json`) are firings, and the rest leave for a bigger
+        // job (minor bug 124; 0.75 proposed, not confirmed).
+        if college_head { chance * 0.75 } else { chance }
+    };
+    let chance = chance_at(pull);
+    let u = w.rng.next();
+    if u >= chance {
         return None;
+    }
+    // He means to go: his school can counter, and the two bid until one
+    // can't (realism audit item 6). He weighs the last bid against what
+    // he'd make staying, on the same roll.
+    if let Some((last, stay)) = pay::auction(w, c, offer, o.employer, o.role) {
+        let money = 0.05 * (last / stay).ln();
+        let pull = pull - parts[money_part].0 + money;
+        parts[money_part].0 = money;
+        if pull <= 0.03 || u >= chance_at(pull) {
+            pay::kept_by_counter(w, c, stay, o);
+            return None;
+        }
+        offer = last;
     }
     // Why, in plain words: the two biggest pulls.
     parts.sort_by(|x, y| y.0.total_cmp(&x.0));
     let why: Vec<String> = parts.into_iter().filter(|x| x.0 > 0.01 && !x.1.is_empty()).take(2).map(|x| x.1).collect();
-    Some(if why.is_empty() { "a fresh start".to_string() } else { why.join(" and ") })
+    Some((if why.is_empty() { "a fresh start".to_string() } else { why.join(" and ") }, offer))
 }
 
 /// A coach under 60 who steps away (11.15): his health, likelier with age,
@@ -1072,6 +1110,11 @@ fn departure_news(w: &mut World, c: usize, job: Job, o: Opening, why: &str) {
 /// keeps his job often fires a coordinator after a losing year. Proposed, not
 /// confirmed; sized for about 6-8 openings a year (real 2015-2025 about 7).
 fn nfl_firing(w: &mut World, c: usize, t: usize, tenure: i32, openings: &mut Vec<Opening>) {
+    // An interim head coach from the season is kept or moved on from
+    // (realism audit item 7).
+    if midseason::interim_review(w, c, t, openings) {
+        return;
+    }
     let ws = &w.nfl[t].win_share;
     let n = ws.len();
     let last = if n >= 1 { ws[n - 1] } else { 0.5 };
@@ -1121,6 +1164,7 @@ fn nfl_firing(w: &mut World, c: usize, t: usize, tenure: i32, openings: &mut Vec
             }
         }
     } else {
+        pay::nfl_kept(w, c, last);
         for role in [Role::OffensiveCoordinator, Role::DefensiveCoordinator] {
             let p = clamp((0.42 - last) * 1.5, 0.0, 0.35);
             if let Some(a) = nfl_slot(&w.nfl[t], role)
@@ -1141,6 +1185,10 @@ fn nfl_firing(w: &mut World, c: usize, t: usize, tenure: i32, openings: &mut Vec
 pub(crate) fn carousel(w: &mut World, scope: Scope) {
     let year = w.year;
     note_live(w);
+    // The market read before the reviews and searches (realism audit item 6).
+    if matches!(scope, Scope::College | Scope::NflFirings) {
+        pay::refresh(w);
+    }
     // The NCAA rules first: a show-cause order opens a job (11.6).
     if scope == Scope::College {
         super::ncaa::enforcement(w);
@@ -1658,15 +1706,17 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
     // A search works down its list: when the first names say no, the
     // school calls the next ones (proposed, not confirmed: 20 calls).
     // Each one weighs the offer his own way (11.13).
-    for &(c, _) in scored.iter().take(20) {
+    let mut price = None;
+    for (rank, &(c, _)) in scored.iter().take(20).enumerate() {
         // You are their pick: the job waits for your answer.
         if Some(c) == me {
             market::offer(w, o.employer, o.role, o.prestige);
             return;
         }
-        if let Some(reason) = weigh_offer(w, c, o) {
+        if let Some((reason, pay)) = weigh_offer_at(w, c, o, rank) {
             hired = Some(c);
             why = reason;
+            price = Some(pay);
             break;
         }
     }
@@ -1693,6 +1743,7 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
             market::offer(w, o.employer, o.role, o.prestige);
             return;
         }
+        price = hired.map(|c| pay::offer(w, c, o.employer, o.role, 19));
     }
     let left = hired.and_then(|c| w.coaches[c].job);
     let c = match hired {
@@ -1764,7 +1815,12 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
     };
     moved.insert(c);
     let from_job = w.coaches[c].history.last().map(|s| (s.employer, s.role));
+    let price = price.unwrap_or_else(|| pay::offer(w, c, o.employer, o.role, 19));
     hire(w, c, o.employer, o.role);
+    // He signs for the price the search paid (realism audit item 6).
+    if !matches!(o.employer, Employer::HighSchool(_) | Employer::Other(_)) {
+        pay::set(w, c, price);
+    }
     // The NFL position coaches the search called and passed over stay in
     // their jobs, which the world doesn't keep (minor bug 244).
     if matches!(o.employer, Employer::Nfl(_)) && o.role != Role::HeadCoach {
@@ -2138,12 +2194,18 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
         let hot = w.coaches[c].prove_it == Some(year) || (tenure >= 3 && wp2 < 0.4);
         staff_review(w, p, last + 0.5 * before, hot, openings);
     }
-    // A new contract: after a good year with two seasons or fewer left, or when it runs out.
+    // A new contract: after a good year with two seasons or fewer left, or
+    // when it runs out; and a hot name the market prices well over his pay
+    // is extended early, before someone comes calling (realism audit item
+    // 6: Smart's 2022 and 2024 deals). The new pay is his market read, at
+    // least 5% more, never past what the school can pay.
     let Some(k) = w.coaches[c].contract else { return };
-    if (k.through - year <= 2 && (last > 0.03 || wp_last >= 0.6 || title)) || expired {
-        let through = year + contract_years(w, p);
-        let raise = if expired && !(last > 0.03 || wp_last >= 0.6 || title) { 1.0 } else { 1.15 };
-        w.coaches[c].contract = Some(super::coach::Contract { through, salary: k.salary * raise, ..k });
+    let good = last > 0.03 || wp_last >= 0.6 || title;
+    if (k.through - year <= 2 && good) || expired || (good && pay::underpaid(w, c, k.salary)) {
+        let through = (year + contract_years(w, p)).max(k.through);
+        let salary = if good { pay::renewed(w, c, k.salary, 1.05) } else { k.salary };
+        let raise = salary / k.salary.max(1.0);
+        w.coaches[c].contract = Some(super::coach::Contract { through, salary, ..k });
         if division == Division::FBS && raise > 1.0 {
             let name = w.programs[p].name(w.options.names).to_string();
             let coach_name = w.coaches[c].name.clone();
@@ -2165,15 +2227,14 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
 /// coaches, retirements and moves up changed staffs. Sized with the chains
 /// it starts so FBS on-field turnover lands near the real 40% (proposed,
 /// not confirmed: the base, the coordinators' extra exposure, the season
-/// and hot-seat reads and the cap of four a year; FCS takes the FBS rate,
-/// no data). In 30-year worlds at 0.1, FBS on-field hires a season in
+/// and hot-seat reads; FCS takes the FBS rate, no data). The cap of four
+/// a year is gone (realism audit item 12, Cain 2026-11-15). In 30-year worlds at 0.1, FBS on-field hires a season in
 /// 2016-25: 357 (24%) at 0.09 (seed 69), 494 (34%) at 0.2 (seed 71, before
 /// playoff teams were left out), 519 (35%) at 0.3 (seed 73), against 529 in
-/// 247Sports' 2023-24 audit and 550 in CBS Sports' 2024-25. A bad season is
-/// already at the 60% and four-a-year caps, so a higher base adds little.
+/// 247Sports' 2023-24 audit and 550 in CBS Sports' 2024-25 (all with the old
+/// cap of four a year). A bad season is already at the 60% per man.
 const STAFF_TURN: f64 = 0.3;
 const STAFF_TURN_COORDINATOR: f64 = 1.4;
-const STAFF_TURN_MAX: usize = 4;
 
 /// A kept head coach's look at his staff after the season (minor bug 263):
 /// a season under what was expected costs assistants their jobs, the
@@ -2216,24 +2277,22 @@ fn staff_review(w: &mut World, p: usize, form: f64, hot: bool, openings: &mut Ve
             marked.push((role, a, weak));
         }
     }
+    // However many are marked go (realism audit item 12, Cain 2026-11-15:
+    // the old cap of four a year is gone), the weakest first.
     marked.sort_by(|x, y| y.2.total_cmp(&x.2));
-    let mut gone = 0;
     for (role, a, _) in marked {
-        if gone >= STAFF_TURN_MAX {
-            break;
-        }
         if market::spared(w, a, "let go by the head coach") {
             continue;
         }
         leave(w, a, "let go by the head coach");
-        gone += 1;
         let prestige = employer_prestige(w, Employer::College(p));
         openings.push(Opening { employer: Employer::College(p), role, prestige });
     }
 }
 
 /// In-season firings (part B 38): on the Sundays from late September to
-/// mid-November an FBS athletic director can fire a coach in at least his
+/// mid-November an athletic director (every level since realism audit item
+/// 8, the FBS most) can fire a coach in at least his
 /// second season whose team has collapsed (five or more games, 30% or
 /// worse, well under the roster) after a bad year before or a prove-it
 /// extension. Proposed, not confirmed: a quarter chance each Sunday, half
@@ -2253,9 +2312,18 @@ pub(crate) fn in_season_firings(w: &mut World) {
     let mut fired = Vec::new();
     for p in 0..w.programs.len() {
         let prog = &w.programs[p];
-        if prog.division != Division::FBS || prog.sideline.is_some() {
+        if prog.sideline.is_some() {
             continue;
         }
+        // Every level fires in season now (realism audit item 8), the
+        // smaller ones far less: less money riding on the season, and a
+        // buyout no smaller for it (proposed, not confirmed: FCS 0.4 and
+        // the levels below 0.2 of the FBS's chance).
+        let level = match prog.division {
+            Division::FBS => FBS_FIRE,
+            Division::FCS => FBS_FIRE * 0.4,
+            _ => FBS_FIRE * 0.2,
+        };
         let Some(c) = prog.head_coach else { continue };
         let Some(job) = w.coaches[c].job else { continue };
         let tenure = year - job.since;
@@ -2272,14 +2340,31 @@ pub(crate) fn in_season_firings(w: &mut World) {
         let money = super::finance::college::athletic_budget(w, p).unwrap_or_else(|| athletic_budget(prog))
             + prog.collective.boosters();
         let afford = clamp(1.2 - buyout / (0.2 * money).max(1.0), 0.15, 1.0);
-        let chance = FBS_FIRE * 0.35 * afford * era * (0.6 + 0.8 * prog.prestige) * if tenure == 2 { 0.5 } else { 1.0 };
+        let chance = level * 0.35 * afford * era * (0.6 + 0.8 * prog.prestige) * if tenure == 2 { 0.5 } else { 1.0 };
         fired.push((p, c, chance));
     }
+    let mut gone = Vec::new();
     for (p, c, chance) in fired {
         if w.rng.chance(chance) && !market::spared(w, c, "fired during the season") {
             fire_in_season(w, p, c);
+            gone.push(p);
         }
     }
+    // Then the assistants: a head coach whose season is going wrong fires a
+    // coordinator or a position coach (realism audit item 8).
+    midseason::college_assistants(w, &gone);
+}
+
+/// The NFL's firings during the season (realism audit items 7 and 8): the
+/// Mondays after weeks 4-15 (`midseason::nfl_week`).
+pub(crate) fn nfl_in_season(w: &mut World) {
+    midseason::nfl_week(w);
+}
+
+/// High school firings during the season (realism audit item 8): the fall
+/// Mondays from the fifth game on (`midseason::hs_week`).
+pub(crate) fn hs_in_season(w: &mut World) {
+    midseason::hs_week(w);
 }
 
 fn fire_in_season(w: &mut World, p: usize, c: usize) {

@@ -135,3 +135,42 @@ fn with_no_key_there_is_no_call() {
     let page = ok(&mut g, "fo_talk", json!({ "id": id }));
     assert!(page.get("call").is_none());
 }
+
+/// Lane N7's sweep on the calls: a line that begs for every hidden thing,
+/// to his agent and to another club's GM, sends cards of words only.
+#[test]
+fn the_agent_and_gm_calls_send_cards_of_words_only() {
+    use crate::live_talk::persona::talk::n7_tests::{BAIT, assert_clean, last_cards, no_hidden_key};
+    let (mut g, f, t, id) = game("sweep", true);
+    let f = f.unwrap();
+    let plain = |f: &Fake| {
+        let quiet = json!({ "acts": [], "hits": [], "dodged": false, "not_talk": false });
+        f.push(EAR, Ok(body(&quiet.to_string(), 900, 60)));
+        f.push(
+            VOICE,
+            Ok(body(&json!({ "line": "Let's keep this about the deal.", "colour": "" }).to_string(), 600, 40)),
+        );
+    };
+    let sweep = |g: &mut Game, facet: &str, sid: u32| {
+        plain(&f);
+        let tk = ok(g, "people_say", json!({ "id": sid, "text": BAIT }))["ticket"].as_u64().unwrap();
+        let v = finish(g, tk);
+        assert_eq!(v["state"], "done", "{facet}: {v}");
+        let (e, vc) = last_cards(&f);
+        assert_clean(facet, "ear", &e);
+        assert_clean(facet, "voice", &vc);
+        no_hidden_key(facet, &v, "");
+    };
+    let sid = ok(&mut g, "talk_agent", json!({ "id": id }))["scene"].as_u64().unwrap() as u32;
+    sweep(&mut g, "agent", sid);
+    // Another club's GM, about one of his men.
+    let (club, his) = {
+        let w = g.world.as_ref().unwrap();
+        let club = (0..w.clubs.len())
+            .find(|&c| c != t && afm_engine::world::franchise::active_in(w, c, w.year) && !w.clubs[c].roster.is_empty())
+            .unwrap();
+        (club, w.people[w.clubs[club].roster[0]].player.id)
+    };
+    let sid = ok(&mut g, "talk_gm", json!({ "club": club, "id": his }))["scene"].as_u64().unwrap() as u32;
+    sweep(&mut g, "gm", sid);
+}
