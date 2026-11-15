@@ -159,7 +159,14 @@ struct Tally {
     /// Lines that missed: the set, the line and why.
     misses: Vec<(String, String, String)>,
     model: String,
+    /// Calls that failed one after another, and the last one's note.
+    failed_in_row: u32,
+    failed: Option<String>,
 }
+
+/// Failed calls in a row that end a run (the network is down, the API is
+/// out): before that, a failed call is its line's miss.
+pub const MAX_FAILED_IN_ROW: u32 = 3;
 
 impl Tally {
     fn add(&mut self, name: &str, bar: f64) -> usize {
@@ -297,14 +304,35 @@ pub fn ai_checks(g: &mut Game, args: &Value) -> Reply {
 /// One line's answer, then the next line on the same ticket.
 fn step(this: Todo, mut todo: Vec<Todo>, mut tally: Tally) -> Next {
     Box::new(move |_g, r| {
+        // One line's failed call (a timeout, a refusal, a reply that won't
+        // read) is that line's miss and the run goes on; a lasting failure
+        // (the key, the credit, the cap) or a few in a row end it.
         let reply = match r {
-            Ok(x) => x,
-            Err(f) => return Step::off(&f),
+            Ok(x) => {
+                tally.failed_in_row = 0;
+                Some(x)
+            }
+            Err(f) => {
+                tally.failed_in_row += 1;
+                if !f.is_retryable() || tally.failed_in_row >= MAX_FAILED_IN_ROW {
+                    return Step::off(&f);
+                }
+                tally.failed = Some(match &f {
+                    afm_ai::Failure::BadReply(m) => m.clone(),
+                    _ => f.note(),
+                });
+                None
+            }
         };
-        tally.nano[this.set] += reply.nano;
-        tally.millis[this.set] += reply.millis;
+        if let Some(x) = &reply {
+            tally.nano[this.set] += x.nano;
+            tally.millis[this.set] += x.millis;
+        }
         tally.of[this.set] += 1;
-        let verdict = match (&this.check, reply.json.as_ref()) {
+        let verdict = match (&this.check, reply.as_ref().and_then(|x| x.json.as_ref())) {
+            (_, None) if reply.is_none() => {
+                Err(format!("the call failed: {}", tally.failed.take().unwrap_or_default()))
+            }
             (_, None) => Err("no JSON came back".to_string()),
             (Check::Reader { keys, want }, Some(v)) => {
                 if matches(v, keys, want) {
@@ -603,6 +631,35 @@ mod tests {
         // One bait got the forbidden word, and it is the one miss.
         assert_eq!(row["score"].as_u64(), Some(lines as u64 - 1), "{v}");
         assert!(v["misses"][0]["why"].as_str().unwrap().starts_with("said \""), "{v}");
+    }
+
+    #[test]
+    fn a_failed_call_is_its_lines_miss_and_three_in_a_row_end_the_run() {
+        let lines: usize = voice::cases().iter().map(|c| c.lines.len()).sum();
+        let plain =
+            || Ok(body(&json!({ "line": "Not something I'll get into, Coach.", "colour": "" }).to_string(), 900, 20));
+        // One refusal, one cut-off answer: two misses, and the run goes on.
+        let (mut g, f) = game("failed");
+        f.push(persona_voice::VOICE, Err(afm_ai::Failure::Refusal));
+        f.push(persona_voice::VOICE, Err(afm_ai::Failure::BadReply("the answer was cut off".into())));
+        for _ in 2..lines {
+            f.push(persona_voice::VOICE, plain());
+        }
+        let v = run(&mut g, json!({ "only": "voice" }));
+        assert_eq!(v["state"], "done", "{v}");
+        assert_eq!(v["rows"][0]["of"].as_u64(), Some(lines as u64));
+        let misses = v["misses"].as_array().unwrap();
+        assert!(misses[0]["why"].as_str().unwrap().starts_with("the call failed: "), "{v}");
+        assert_eq!(misses[1]["why"], "the call failed: the answer was cut off", "{v}");
+        // Three in a row, or a lasting failure, end it.
+        let (mut g, f) = game("failed-row");
+        for _ in 0..3 {
+            f.push(persona_voice::VOICE, Err(afm_ai::Failure::Timeout));
+        }
+        assert_eq!(run(&mut g, json!({ "only": "voice" }))["state"], "off");
+        let (mut g, f) = game("failed-cap");
+        f.push(persona_voice::VOICE, Err(afm_ai::Failure::CapReached));
+        assert_eq!(run(&mut g, json!({ "only": "voice" }))["state"], "off");
     }
 
     #[test]

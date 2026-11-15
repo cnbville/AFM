@@ -49,6 +49,12 @@
      "act": "offer",
      "deal": "Contract"
     }
+   ],
+   "may": [
+    {
+     "act": "answer",
+     "what": "counter"
+    }
    ]
   },
   {
@@ -57,6 +63,12 @@
     {
      "act": "offer",
      "deal": "Contract"
+    }
+   ],
+   "may": [
+    {
+     "act": "answer",
+     "what": "counter"
     }
    ]
   },
@@ -112,6 +124,12 @@
      "act": "offer",
      "deal": "Contract"
     }
+   ],
+   "may": [
+    {
+     "act": "answer",
+     "what": "counter"
+    }
    ]
   },
   {
@@ -137,7 +155,15 @@
      "act": "offer"
     }
    ],
-   "why": "an absurd stack of gives (the game weighs it, never the ear)"
+   "why": "an absurd stack of gives (the game weighs it, never the ear)",
+   "may": [
+    {
+     "act": "offer"
+    },
+    {
+     "act": "promise"
+    }
+   ]
   }
  ],
  "name": "agent",

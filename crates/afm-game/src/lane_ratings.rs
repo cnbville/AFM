@@ -367,9 +367,18 @@ fn card(w: &World, id: u32, k: &str, (lo, hi): (u8, u8), own: bool) -> Reply {
         Rated::Attr(a) => crate::lane_help::last_year(w, i, a, (lo, hi), own),
         _ => None,
     };
+    // Why your staff's read is still a wide guess, and what would narrow it.
+    let wide = match rated {
+        Rated::Attr(a) if !own => afm_engine::world::scouting::readers::seat_staff(w)
+            .and_then(|st| afm_engine::world::scouting::readers::read(w, st, id))
+            .filter(|r| r.2.attrs[a.index()].guess)
+            .and_then(|_| afm_engine::world::scouting::footage::why_guess(w, i, a)),
+        _ => None,
+    };
     Ok(json!({
         "title": title,
         "own": own,
+        "wide": wide,
         "range": [lo, hi],
         "pool": match m.pool {
             Pool::Hs { .. } => format!("Against {pw} at {one} this season"),

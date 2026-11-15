@@ -3882,17 +3882,72 @@ fn camp_rankings(
 pub(crate) const EARLY_OFFER_PASSES: [(f64, f64); 5] =
     [(6.0, 40.0), (10.0, 120.0), (15.0, 300.0), (20.0, 600.0), (24.0, 900.0)];
 
-/// One dated offer pass for the class of `class_of` (part B 34). Staffs
-/// read the class on film and on what the services see in him, rank it,
-/// and each prospect picks up offers up to his rank's count, from the
-/// programs that fit him: the best programs offer the best prospects
-/// anywhere, others the ones within their reach and footprint. The
-/// services' read made here is the one their later ratings drift from.
-pub(crate) fn early_offers(w: &mut World, d: Date, class_of: i32, pass: usize) {
-    let Some(&(most, scale_r)) = EARLY_OFFER_PASSES.get(pass) else { return };
+/// The offers of the week (thread "Make AI schools offer on real days"):
+/// staffs offer a class from its sophomore January to its junior days on
+/// any week, not on five days. The passes' counts stay what a prospect at
+/// each rank holds by each day (`EARLY_OFFER_PASSES`); between two of them
+/// the count climbs a little each week, so an offer lands in the week a
+/// staff has seen enough, and the services look again only on the passes'
+/// own days. Cain agreed 2026-11-15: each Monday and each pass's day.
+pub(crate) fn early_offer_week(w: &mut World, d: Date) {
+    let season = w.year;
+    let junior_days = w.dates.junior_days.0;
+    for class_of in [season + 1, season + 2, season + 3] {
+        if let Some((most, scale_r, look)) = early_want(season, junior_days, class_of, d) {
+            early_offers(w, d, class_of, most, scale_r, look);
+        }
+    }
+}
+
+/// What the class of `class_of` is offered by day `d` of football year
+/// `season` (`early_offer_week`): the pass counts (most, rank scale) by
+/// then, and whether it is one of the services' look days. None on a day
+/// no offers go out to the class: before its sophomore January, from its
+/// first wave on, and between Mondays.
+pub(crate) fn early_want(season: i32, junior_days: Date, class_of: i32, d: Date) -> Option<(f64, f64, bool)> {
+    if d >= first_wave(class_of) {
+        return None;
+    }
+    let last = if class_of == season + 1 { junior_days.add(14) } else { Date::ymd(class_of - 1, 2, 15) };
+    let anchors = [
+        Date::ymd(class_of - 2, 1, 15),
+        Date::ymd(class_of - 2, 6, 15),
+        Date::ymd(class_of - 2, 9, 1),
+        Date::ymd(class_of - 1, 1, 15),
+        last,
+    ];
+    let look = anchors.contains(&d);
+    if !(look || d.weekday() == crate::calendar::Weekday::Mon) || d < anchors[0] {
+        return None;
+    }
+    // Sophomores were offered less before 2005 (the first three passes).
+    let era = clamp((d.year() - 2000) as f64 / 15.0 + 0.25, 0.25, 1.0);
+    let at = |k: usize| {
+        let (most, scale_r) = EARLY_OFFER_PASSES[k];
+        (most * if k <= 2 { era } else { 1.0 }, scale_r)
+    };
+    let k = anchors.iter().rposition(|&a| a <= d).unwrap_or(0);
+    let (most, scale_r) = match anchors.get(k + 1) {
+        Some(&next) => {
+            let (m0, s0) = at(k);
+            let (m1, s1) = at(k + 1);
+            let f = anchors[k].days_to(d) as f64 / anchors[k].days_to(next).max(1) as f64;
+            (m0 + f * (m1 - m0), s0 + f * (s1 - s0))
+        }
+        None => at(k),
+    };
+    Some((most, scale_r, look))
+}
+
+/// One week's offers to the class of `class_of` (part B 34): staffs read
+/// the class on film and on what the services see in him, rank it, and
+/// each prospect picks up offers up to his rank's count (`most`, falling
+/// off by `scale_r`), from the programs that fit him: the best programs
+/// offer the best prospects anywhere, others the ones within their reach
+/// and footprint. The services look again only on `look` days; their read
+/// made here is the one their later ratings drift from.
+pub(crate) fn early_offers(w: &mut World, d: Date, class_of: i32, most: f64, scale_r: f64, look: bool) {
     let scale = w.options.scale;
-    let era = if pass <= 2 { clamp((d.year() - 2000) as f64 / 15.0 + 0.25, 0.25, 1.0) } else { 1.0 };
-    let most = most * era;
     // Film first: only the top of the class gets a look.
     let played = hs_played(w);
     // Read on all cores, in person order (world speed lane).
@@ -3920,10 +3975,13 @@ pub(crate) fn early_offers(w: &mut World, d: Date, class_of: i32, pass: usize) {
         .into_par_iter()
         .zip(idx.par_iter())
         .map(|(p, &i)| {
-            let rep = scout_player(&p.player, ScoutOptions { accuracy: 12.0, level: Level::HS }, &mut p.rng);
+            // Between their looks the services' last read stands.
             let read = match p.cal.service_read {
-                Some(prev) => prev + 0.5 * (rep.potential - prev),
-                None => rep.potential,
+                Some(prev) if !look => prev,
+                prev => {
+                    let rep = scout_player(&p.player, ScoutOptions { accuracy: 12.0, level: Level::HS }, &mut p.rng);
+                    prev.map_or(rep.potential, |prev| prev + 0.5 * (rep.potential - prev))
+                }
             };
             p.cal.service_read = Some(read);
             (i, 0.6 * film_raw(p, &played) + 0.4 * read)
@@ -4710,6 +4768,42 @@ fn commit_timing(p: &Person, seed: u64, juco: bool) -> CommitTiming {
     }
 }
 
+/// The day a summer committer means to give his word (T5.2; thread "Make
+/// AI schools offer on real days"): a day of his own in his window, from
+/// the day after its wave to the next (40 days after junior days, 45 in
+/// May, to late August after June, 58 in the fall, 30 in November; July 4
+/// a favorite after June's official visits). He commits that day to the
+/// school he holds then, or the first week after it that he holds one.
+/// Cain agreed 2026-11-15. None for an early or February signer.
+pub(crate) fn commit_day(world_seed: u32, p: &Person) -> Option<Date> {
+    let Some(CommitTiming::Summer(wave)) = p.cal.commit_timing else { return None };
+    let k = wave.min(4) as usize;
+    let seed = world_seed as u64 ^ (p.class_of as u64) << 20;
+    let id = p.player.id as u64;
+    let season = p.class_of - 1;
+    let (m, d) = super::clock::COMMIT_WAVES[k];
+    if k == 2 && key_uniform(seed ^ 0xA77, id) < 0.08 {
+        return Some(Date::ymd(season, 7, 4));
+    }
+    let span = [40.0, 45.0, 68.0, 58.0, 30.0][k];
+    Some(Date::ymd(season, m, d).add(1 + (key_uniform(seed ^ 0xA78, id) * span) as i32))
+}
+
+/// With no other offer in hand, how far the one he holds leads his race:
+/// the lead your own offer counts with nobody else after him
+/// (`front_office::college::HS_ALONE`).
+const AI_ALONE: f64 = 0.06;
+
+/// How a recruit's plan to wait raises the bar a school must clear before
+/// his own day (thread "Make AI schools offer on real days"): his bar
+/// times 1 + the weeks until his decision day / `WAIT_WEEKS`, so four
+/// weeks out he needs twice his bar and in his junior March (about 20
+/// weeks before a June day) six times it; on his day, his bar alone.
+/// Cain agreed 2026-11-15: 4 (on seed 2031 at a quarter of the class, 2
+/// gives about a quarter of the summer's verbals before his day, 4 about
+/// 40%, 8 about half).
+pub(crate) const WAIT_WEEKS: f64 = 4.0;
+
 /// Why a recruit ready to sign in December waits for February instead
 /// (part D 14; real FBS classes sign about 85-90% in December since 2018):
 /// his school changed head coaches this cycle and he wants to meet the new
@@ -5088,6 +5182,9 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     // The stage that rates the whole class and records its stars.
     let rating = matches!(stage, SignStage::Early | SignStage::JanuaryEnrollees);
     let summer = matches!(stage, SignStage::Summer(_));
+    // A summer week on one of the services' own days, when they look at
+    // the class again and rate it (the other weeks keep their last read).
+    let services_day = summer && super::clock::COMMIT_WAVES.iter().any(|&(m, d)| Date::ymd(year, m, d) == today);
     // A late signing day (lane B) runs February's matching on the recruits
     // still looking; only its last day closes their search.
     let late_day = matches!(stage, SignStage::Late(_));
@@ -5274,9 +5371,16 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     let persons = super::pick_mut(&mut w.people, pool.iter().map(|r| r.person));
     persons.into_par_iter().zip(pool.par_iter_mut()).for_each(|(p, r)| {
         // After signing day the services have stopped looking (lane B):
-        // a late recruit keeps their last read.
-        if late_day && let Some(prev) = p.cal.service_read {
+        // a late recruit keeps their last read. Between their summer days
+        // they keep it too.
+        if (late_day || (summer && !services_day))
+            && let Some(prev) = p.cal.service_read
+        {
             r.projection = prev;
+            if !late_day {
+                p.visibility = r.visibility;
+                p.bg.exposure_network = r.visibility;
+            }
             return;
         }
         let rep = scout_player(&p.player, ScoutOptions { accuracy: 12.0, level: Level::HS }, &mut p.rng);
@@ -5313,7 +5417,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     // The services rate the class at each summer wave and again in the
     // senior season. Each rating replaces the last, so a kid holds only the
     // stars of the latest one (February adds no new stars).
-    let rate_now = matches!(stage, SignStage::Summer(_)) || rating;
+    let rate_now = services_day || rating;
     if rate_now {
         let mut by_star: Vec<usize> = seniors.clone();
         // The services rank mostly from film and their projection; they
@@ -6790,20 +6894,37 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
     // February everyone left decides.
     let esp_era = w.dates.early_signing.is_some() || stage == SignStage::Early;
     let mut decided: Vec<(usize, bool)> = Vec::new();
+    // A summer week (thread "Make AI schools offer on real days"): the
+    // ones whose own day falls this week, or has passed with nothing in
+    // hand until now, commit to what they hold; the others when the school
+    // they hold leads their race by their bar (the bar your own offers
+    // clear, `front_office::college::hs_bar`) raised by how long they meant
+    // to wait (`WAIT_WEEKS`). Those deciding already wait to announce.
+    let pending: std::collections::HashSet<u32> =
+        if summer { w.announcements.iter().map(|a| a.2).collect() } else { Default::default() };
+    let week_end = today.add(7);
+    let mut by_bar: std::collections::HashSet<usize> = std::collections::HashSet::new();
+    // The open ones whose day hasn't come: their race is read below.
+    let mut racing: Vec<usize> = Vec::new();
     for (k, r) in pool.iter().enumerate() {
         let p = &w.people[r.person];
         let timing = p.cal.commit_timing.unwrap_or(CommitTiming::Late);
         let division = held[k].map(|h| w.programs[h.program].division);
         let four_year = matches!(division, Some(Division::FBS | Division::FCS));
         let now = match stage {
-            SignStage::Summer(wave) => {
-                // Those who committed in an earlier wave hold to it until the
-                // early period. Junior colleges recruit only at the end, from
-                // what is left (part D 9): nobody commits to one in summer.
-                timing == CommitTiming::Summer(wave)
-                    && p.cal.commit.is_none()
+            SignStage::Summer(_) => {
+                // Those who committed earlier hold to it until the early
+                // period. Junior colleges recruit only at the end, from what
+                // is left (part D 9): nobody commits to one in summer.
+                let open = p.cal.commit.is_none()
                     && !r.juco_mover
-                    && held[k].is_some_and(|h| w.programs[h.program].division != Division::JUCO)
+                    && !pending.contains(&p.player.id)
+                    && held[k].is_some_and(|h| w.programs[h.program].division != Division::JUCO);
+                let due = commit_day(w.options.seed, p).is_some_and(|d| d < week_end);
+                if open && !due {
+                    racing.push(k);
+                }
+                open && due
             }
             SignStage::Early => {
                 timing <= CommitTiming::Early
@@ -6832,6 +6953,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         };
         decided.push((k, early_enrollee));
     }
+
     if std::env::var("AFM_DEBUG").is_ok() {
         let mut by_div = [0usize; DIVISION_COUNT];
         let mut held_div = [0usize; DIVISION_COUNT];
@@ -6869,26 +6991,69 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             w.people[r.person].cal.offers = list;
         }
     }
+    // The rest of a summer week's open recruits: one whose race the school
+    // he holds leads by his bar, times 1 + the weeks to his decision day /
+    // `WAIT_WEEKS`, commits there now: the race and the bar your own offers
+    // are read by (`front_office::college::race_at`, `hs_bar`), read on all
+    // cores.
+    if summer && !racing.is_empty() {
+        let wr: &World = w;
+        // (k, lead over his bar, weeks to his own day)
+        let reads: Vec<(usize, f64, f64)> = racing
+            .par_iter()
+            .filter_map(|&k| {
+                let i = pool[k].person;
+                let j = held[k]?.program;
+                let race = fo::college::race_at(wr, i);
+                let lead = fo::portal::lead(&race, j, AI_ALONE)?;
+                let weeks = super::scouting::services::decision_day(wr, i)
+                    .map_or(0.0, |d| (today.days_to(d) as f64 / 7.0).max(0.0));
+                Some((k, lead / fo::college::hs_bar(wr, i).max(1e-6), weeks))
+            })
+            .collect();
+        let won: Vec<usize> = reads.iter().filter(|r| r.1 >= 1.0 + r.2 / WAIT_WEEKS).map(|r| r.0).collect();
+        if std::env::var("AFM_DEBUG").is_ok() {
+            eprintln!(
+                "week {} {stage:?}: due {}, racing {}, leading {}, by bar {}",
+                today.pretty(),
+                decided.len(),
+                racing.len(),
+                reads.len(),
+                won.len()
+            );
+        }
+        for k in won {
+            by_bar.insert(k);
+            decided.push((k, false));
+        }
+    }
     let month = today.month() as usize - 1;
     for (k, early_enrollee) in decided {
         let r = pool[k];
         let i = r.person;
-        if let SignStage::Summer(wave) = stage {
+        if summer {
             // A verbal commitment: news, not a signature (T5.1). The mind is
-            // made up at the wave; the recruit announces on a day of his own
-            // before the next wave (July 4 is a favorite after June's
-            // official visits; proposed, not confirmed).
+            // made up this week; the recruit announces on a day of his own
+            // before the next (July 4 is a favorite after June's official
+            // visits; proposed, not confirmed).
             let Held { program: j, walk_on, .. } = held[k].unwrap();
             let id = w.people[i].player.id;
-            // Until the next wave: 40 days after junior days, 45 in May, to
-            // late August after June, 58 in the fall, 30 in November.
-            let span = [40.0, 45.0, 68.0, 58.0, 30.0][wave.min(4) as usize];
-            let u = key_uniform(seed ^ 0xA77, id as u64);
-            let day = if wave == 2 && u < 0.08 {
-                Date::ymd(today.year(), 7, 4)
-            } else {
-                today.add(1 + (key_uniform(seed ^ 0xA78, id as u64) * span) as i32)
+            // On his own day when it falls this week; else within the
+            // week (his day has passed, or the offer he wanted came).
+            let soon = today.add(1 + (key_uniform(seed ^ 0xA79 ^ (today.0 as u64) << 8, id as u64) * 6.0) as i32);
+            let day = match commit_day(w.options.seed, &w.people[i]) {
+                Some(d) if d > today && !by_bar.contains(&k) => d,
+                _ => soon,
             };
+            // A commitment he chose before his time signs at the first
+            // signing day open to him, as one to your offer does.
+            if by_bar.contains(&k) {
+                let p = &mut w.people[i];
+                if p.cal.commit_timing.is_none_or(|t| t > CommitTiming::Early) {
+                    p.cal.commit_timing = Some(CommitTiming::Early);
+                }
+                w.log.bar_commits += 1;
+            }
             w.announcements.push((day, i, id, j, walk_on));
             continue;
         }

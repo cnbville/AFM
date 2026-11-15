@@ -246,41 +246,6 @@ function aiMarkSet() {
   afterRender = function () { after0(); aiMarkSet(); aiGrow(); };
 }
 
-// ---------- fact chips (question 5: they need no key) ----------
-// "Bring it up": the facts you can raise in a contract talk, a trade call
-// or a NIL form. A chip sends the flag's command with its fact and the
-// page's reply lands as the page's own does (options.apply).
-function aiFacts(x, key, o = {}) {
-  const f = aiFlag(x, "facts", o.preset);
-  if (!f || !(f.list || []).length) return "";
-  const b = aiBox(key + ":facts", "facts", f, {});
-  b.o = o;
-  b.html = aiFactsHtml;
-  return aiFactsHtml(b);
-}
-function aiFactsHtml(b) {
-  const f = b.flag;
-  const wrap = b.o && b.o.wrap === "panel" ? " panel" : "";
-  return `<div class="ai-box ai-facts${wrap}" data-ai="${esc(b.key)}" data-aikind="facts"><div class="ai-sy"><div class="ai-h"><span class="ai-lb">Bring it up</span><span class="ai-cnt">${f.list.length} fact${f.list.length === 1 ? "" : "s"}</span></div>
-    <div class="ai-fchips">${f.list.map((c) => `<button type="button" class="ai-fchip${b.used[c.fact] ? " used" : ""}" data-act="aifact" data-ai="${esc(b.key)}" data-fact="${c.fact}">${b.used[c.fact] ? "<i>✓</i>" : ""}${esc(c.label)}</button>`).join("")}</div>
-    ${b.o.foot ? `<div class="ai-b"><span class="small">${esc(b.o.foot)}</span></div>` : ""}</div></div>`;
-}
-Object.assign(CORE_MORE, {
-  aifact: async (el) => {
-    const b = aiOf(el);
-    if (!b || !b.flag) return;
-    const fact = Number(el.dataset.fact);
-    if (b.used[fact]) return;
-    try {
-      // The demo has no command behind a chip: it only marks it brought up.
-      const r = b.flag.preset ? { demo: true } : await api(b.flag.cmd, { ...(b.flag.args || {}), fact });
-      b.used[fact] = true;
-      if (r && r.demo) { aiPaint(b); return; }
-      if (b.o.apply) await b.o.apply(r, b); else await aiRedraw(r);
-    } catch (e) { toast(e.message); }
-  },
-});
-
 // ---------- the scout file (frame 5, frame 8) ----------
 // "Ask about him": a scout, the report, a source, from the file's `ask`
 // list, and (with no key) the sources row from its `sources` list.

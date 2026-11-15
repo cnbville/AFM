@@ -109,7 +109,7 @@ function fcDuty(duties, key) {
   if (!d) return "";
   const what = { board: "the recruiting board", visits: "your visits", portal: "the transfer portal", nil: "NIL" }[key];
   return `<div class="fc-duty ${d.yours ? "yours" : ""}"><span>${d.yours ? `<b>You run ${what}.</b>` : `<b>Your staff runs ${what}.</b> ${esc(d.staff)} A move you make yourself stands.`}</span>
-    <button class="st-btn small glass" data-fc="duty" data-duty="${d.key}" data-owner="${d.yours ? "staff" : "you"}">${d.yours ? "Hand it to your staff" : "Take it back"}</button></div>`;
+    <span><button class="st-btn small glass" data-fc="duty" data-duty="${d.key}" data-owner="${d.yours ? "staff" : "you"}">${d.yours ? "Hand it to your staff" : "Take it back"}</button>${hoDutyLink(d.key)}</span></div>`;
 }
 function fcPot(p) {
   if (!p) return '<span class="muted">Not worked yet</span>';
@@ -423,7 +423,7 @@ function fcActions(f) {
         <div class="fc-nilrow">${box("Revenue share", "promise", f.nil)}${two ? box("Collective deal", "pcoll", f.nil_coll) : ""}<button class="st-btn small primary" data-fc="promise" data-id="${f.id}">Promise</button></div>
         <small class="sub">${state} ${market} The going rate for his position tops out near ${money(f.nil_max)}, but only your money limits you: ${left}.</small>
         ${fcAnswer(f.answer)}
-        ${aiSayBox(f, "nil:" + f.id, { wrap: "panel", preset: { cmd: "fo_say", args: { id: f.id, nil: true }, limit: 400 }, words: { ph: "Type what you'd say to him and his family about the money. The boxes above still work.", foot: "The boxes above still work." }, echo: true })}${aiFacts(f, "nil:" + f.id, { wrap: "panel", foot: "What you bring up can reach him and his family.", preset: { cmd: "fo_fact", args: { id: f.id, nil: true }, list: [{ fact: 1, label: "Schools like yours usually pay about this" }, { fact: 2, label: "Your collective has money left" }] } })}
+        ${aiSayBox(f, "nil:" + f.id, { wrap: "panel", hand: true, preset: { cmd: "fo_say", args: { desk: "nil", id: f.id }, limit: 400 }, words: { title: "Talk money with him", ph: "Type what you'd say to him about the money. It goes on a call with him, by the contact rules.", foot: "The boxes above still work.", btn: "Call and say it" } })}
         ${promised ? `<button class="st-btn small glass" data-fc="promiseclear" data-id="${f.id}">Take the promise back</button>` : ""}</div>`;
   }
   return `<div class="fc-block"><div class="fc-h"><span class="st-label">Your moves</span></div><div class="fc-acts">${b.join("")}</div>${nil}</div>`;
@@ -498,7 +498,7 @@ function fcPlan(x) {
         : c.aid === "shared" ? `${c.equiv} scholarships are shared out${c.aid_max ? ` among at most ${c.aid_max} players on aid` : ""}; your roster has room for ${c.room} more.`
         : `Your ${c.limit} scholarships leave room for ${c.room}.`}`;
   const duties = x.duties.list
-    .map((d) => `<div class="fc-dutyrow"><div><b>${esc(d.name)}</b><small class="sub">${d.yours ? "You run it. Your staff steps in only when you hand it over." : esc(d.staff)}</small></div>
+    .map((d) => `<div class="fc-dutyrow"><div><b>${esc(d.name)}</b><small class="sub">${d.yours ? "You run it. Your staff steps in only when you hand it over." : esc(d.staff)} ${hoDutyLink(d.key)}</small></div>
       <div class="seg"><button data-fc="duty" data-duty="${d.key}" data-owner="you" aria-pressed="${d.yours}">You</button><button data-fc="duty" data-duty="${d.key}" data-owner="staff" aria-pressed="${!d.yours}">Your staff</button></div></div>`)
     .join("");
   const fill = `<div class="fc-dutyrow"><div><b>Your coordinator fills the gaps</b><small class="sub">When your board leaves a spot open on a signing day, ${esc(x.duties.coordinator || "your coordinator")} offers the players your staff rates next. Each of his offers carries his reason.</small></div>

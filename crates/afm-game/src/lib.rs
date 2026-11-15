@@ -310,10 +310,25 @@ impl Game {
                 let w = self.wm()?;
                 let (from, filed) = (w.now(), views::desk_ids(w));
                 let today = w.today;
+                // A meeting you picked to stop for brings you back the
+                // morning it is held (the holiday preview's stops).
+                let stops: Vec<u32> = args
+                    .get("stops")
+                    .and_then(Value::as_array)
+                    .map(|a| a.iter().filter_map(Value::as_u64).map(|x| x as u32).collect())
+                    .unwrap_or_default();
+                let until = w
+                    .folk
+                    .scenes
+                    .iter()
+                    .filter(|s| !s.done && stops.contains(&s.id) && s.date > today)
+                    .map(|s| s.date)
+                    .min()
+                    .map_or(today.add(days), |d| d.min(today.add(days)));
                 // The inbox is filed at each new day on the way: an entrant
                 // who decides inside the stretch is gone from the world by
                 // its end, and his day's message is written from the day.
-                w.holiday_to_with(today.add(days), &mut |w| lane_core::mail::after_days(w));
+                w.holiday_to_with(until, &mut |w| lane_core::mail::after_days(w));
                 lane_core::after_days(w);
                 Ok(views::stopped(w, from, &filed))
             }
