@@ -239,7 +239,7 @@ fn a_mentor_ask_makes_a_real_tie_and_a_threatened_starter_balks() {
     let kid_o = w.people[kid].player.overall();
     if kid_o < o - 5.0 {
         // Make the kid a threat.
-        w.people[vet].player.attributes = w.people[kid].player.attributes.clone();
+        w.people[vet].player.attributes = w.people[kid].player.attributes;
     }
     {
         let t = &mut w.people[vet].player.personality.traits;
