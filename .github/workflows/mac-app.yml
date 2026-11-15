@@ -50,9 +50,11 @@ jobs:
     # their scheduled brownouts before that cancel jobs (Mac app runs 304
     # and 305 on 2026-10-30).
     runs-on: macos-15
-    # A build takes about two hours now (Cain 2026-11-15), so the old 120
-    # minute limit sat right on it and killed run 526 at the end.
-    timeout-minutes: 180
+    # A build takes about two hours now, so the old 120 minute limit killed
+    # run 526 at the end (Cain 2026-11-15). 360 is GitHub's own maximum for a
+    # hosted job: a build is never killed by a clock any more. Stop one by hand
+    # with Cancel workflow in Actions.
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
         with:
