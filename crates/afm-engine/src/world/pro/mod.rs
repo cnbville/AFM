@@ -790,6 +790,12 @@ fn veteran(w: &mut World, pos: Position, rating: f64, age: u32, seed: u32) -> Pe
 /// real roster by depth slot (the class model's background league), each
 /// on a contract with one to four years left, and a pool of unsigned
 /// veterans waits on the street.
+/// The opening league's deals are a stand-in from each man's raw rating,
+/// before there is a market to read him against, so they stop where the old
+/// price curve did (1.08 times the top five): the first real markets set
+/// the records from there (realism audit item 4; proposed, not confirmed).
+const SEED_TOP: f64 = 91.18;
+
 pub(crate) fn fill_league(w: &mut World) {
     let year = w.year;
     let n = w.nfl.len();
@@ -838,7 +844,7 @@ pub(crate) fn fill_league(w: &mut World) {
         .iter()
         .map(|(p, team, rating)| match team {
             Some(_) => (cap
-                * money::market_share(p.player.position, *rating)
+                * money::market_share(market::top5(w, year, p.player.position), rating.min(SEED_TOP))
                 * market::decline(p.player.position, p.player.age))
             .max(money::minimum(year, p.player.age.saturating_sub(22))),
             None => 0.0,
@@ -1194,7 +1200,10 @@ pub(crate) fn step(w: &mut World, d: Date, t: u16) {
                 set_carryover(w);
             }
             if d == y.tag_window_open {
-                // The year's pay ladders: the veterans by position after last season.
+                // The year's markets (after the real years, moved by last
+                // year's deals), then its pay ladders: the veterans by
+                // position after last season.
+                market::set_shares(w);
                 market::set_ladders(w);
                 // Cap cuts and restructures start right after the season, so teams
                 // can talk with their own free agents (real: February into March).
@@ -1552,7 +1561,7 @@ pub(crate) fn ask(w: &World, i: usize, year: i32, d: Date) -> (f64, u32) {
     let min = money::minimum(year, credited);
     let rel = market::market_grade(w, p.player.position, g);
     let price = money::price_cap(year)
-        * money::market_share(p.player.position, rel)
+        * money::market_share(market::top5(w, year, p.player.position), rel)
         * market::decline(p.player.position, p.player.age)
         * (1.0 - 0.04 * weeks as f64).max(0.0);
     (price.max(min), money::usual_years(p.player.position, g, p.player.age))

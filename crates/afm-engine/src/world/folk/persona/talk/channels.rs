@@ -103,7 +103,10 @@ pub fn one_on_one(s: &Scene) -> Room {
 /// The room a scene's talk starts in: its facet's (a recruit's talk, a
 /// college staff's call: lane N5a), else a one-on-one.
 pub fn room_for(w: &World, s: &Scene) -> Room {
-    super::recruit::room(w, s).or_else(|| super::hs_call::room(s)).unwrap_or_else(|| one_on_one(s))
+    super::recruit::room(w, s)
+        .or_else(|| super::hs_call::room(s))
+        .or_else(|| super::super::meetings::room(w, s))
+        .unwrap_or_else(|| one_on_one(s))
 }
 
 /// A place from a scene's words.
@@ -174,7 +177,9 @@ pub fn name(w: &World, who: Them) -> String {
         Them::Drawn(super::super::wants::Kind::OtherCoach, prog) if (prog as usize) < w.programs.len() => {
             format!("{}'s recruiting coordinator", w.program_name(prog as usize))
         }
-        _ => super::super::office::sit::name(w, who).unwrap_or_else(|| "He".into()),
+        _ => super::super::office::sit::name(w, who)
+            .or_else(|| super::super::meetings::name(w, who))
+            .unwrap_or_else(|| "He".into()),
     }
 }
 
