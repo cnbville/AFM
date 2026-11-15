@@ -60,7 +60,7 @@ fn main() {
     }
     let busiest: Vec<(String, u32)> = {
         let mut v: Vec<(i32, u32)> = days.iter().map(|(&d, &n)| (d, n)).collect();
-        v.sort_by(|a, b| b.1.cmp(&a.1));
+        v.sort_by_key(|a| std::cmp::Reverse(a.1));
         v.iter().take(8).map(|&(d, n)| (afm_engine::calendar::Date(d).pretty(), n)).collect()
     };
     let total: u32 = days.values().sum();
