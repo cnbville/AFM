@@ -853,6 +853,13 @@ fn late(w: &mut World, d: Date) {
     timed("plans", || super::plans::day(w, d));
 }
 
+/// The regular portal windows of `season`'s offseason under its rule (the
+/// winter window, and the spring one in the eras that had it), for the
+/// screens: each window's first and last day.
+pub fn portal_windows_for(w: &World, season: i32) -> Vec<(Date, Date)> {
+    portal_windows(season, transfer_rule_of(w, season)).into_iter().map(|(open, close, _)| (open, close)).collect()
+}
+
 fn transfer_rule_of(w: &World, season: i32) -> TransferRule {
     w.changes.rules(season).transfer
 }
