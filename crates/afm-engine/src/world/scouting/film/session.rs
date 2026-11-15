@@ -1607,6 +1607,39 @@ fn finish(w: &mut World, s: Session, verdict: Option<u8>, read_says: bool) -> St
             .collect();
         report.new_games = Some(report.games.iter().filter(|g| !before.contains(g)).count().min(255) as u8);
     }
+    // The snaps new to you, counted by the role each tested.
+    if let Target::Player(id) = s.target
+        && let Some(i) = super::super::place(w, id)
+    {
+        let pos = w.people[i].player.position;
+        let old = watched_keys(w, id);
+        let mut add = [0u16; super::super::footage::ROLES];
+        let mut done: HashSet<u64> = HashSet::new();
+        for (k, key) in (0..s.snaps.len()).filter(|&k| !s.seen[k].is_empty()).zip(keys.iter()) {
+            if old.contains(key) || !done.insert(*key) {
+                continue;
+            }
+            let m = super::snap_roles(&s.snaps[k].cues, pos);
+            for (r, a) in add.iter_mut().enumerate() {
+                if m & 1 << r != 0 {
+                    *a += 1;
+                }
+            }
+        }
+        if add.iter().any(|&a| a > 0) {
+            let fr = &mut w.scouting.film;
+            let k = match fr.roles.iter().position(|r| r.id == id) {
+                Some(k) => k,
+                None => {
+                    fr.roles.push(super::RoleSnaps { id, ..Default::default() });
+                    fr.roles.len() - 1
+                }
+            };
+            for (n, a) in fr.roles[k].n.iter_mut().zip(add) {
+                *n = n.saturating_add(a);
+            }
+        }
+    }
     let fr = &mut w.scouting.film;
     if let Target::Player(id) = s.target {
         for k in keys {

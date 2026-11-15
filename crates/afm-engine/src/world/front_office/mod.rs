@@ -19,6 +19,7 @@ pub mod finder;
 pub mod market;
 pub mod nfl;
 pub mod portal;
+pub mod preview;
 pub mod race;
 pub mod redshirt;
 pub mod reserve;
@@ -182,6 +183,17 @@ impl Duty {
             }
         }
     }
+}
+
+/// The duties your staff holds at your level, each in their words (hand-off
+/// projections: the holiday preview). Your own moves stand beside them.
+pub fn staff_duty_lines(w: &World) -> Vec<String> {
+    let Some(level) = w.seat.map(|s| s.level) else { return Vec::new() };
+    Duty::ALL
+        .into_iter()
+        .filter(|d| d.level() == level && *d != Duty::Nil && w.front_office.owner(*d) == Owner::Staff)
+        .map(|d| format!("{}: {}", d.name(), d.staff_does()))
+        .collect()
 }
 
 /// One thing your front office did, for its log.

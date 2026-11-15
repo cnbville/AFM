@@ -193,6 +193,14 @@ pub fn ask(w: &World, c: usize, role: Role) -> f64 {
     if employed && step(w, c, role, 0) < 0.15 {
         a = a.max(now * 1.05);
     }
+    // What the market says he's worth on this rung (realism audit item 6):
+    // a man in a job asks a little over it.
+    if let Some(job) = co.job
+        && rung(Some(job.role), None, false) == rung(Some(role), None, false)
+        && let Some(r) = crate::world::staff::pay::read(w, c)
+    {
+        a = a.max(r * 1.05);
+    }
     (a / 1000.0).round() * 1000.0
 }
 
@@ -474,7 +482,10 @@ fn counter(w: &mut World, c: usize, role: Role, t: &Terms) -> Option<(f64, f32, 
         // The NFL blocks laterals instead; a high school can't pay.
         return None;
     };
-    let top = crate::world::staff::salary(w, job.employer, job.role) * 1.2;
+    // His school goes as high as it would to keep him from anyone (realism
+    // audit item 6): his market read or pay and a quarter, within what it
+    // can pay, no longer 1.2 times the job's line.
+    let top = crate::world::staff::pay::keep_top(w, c);
     let now = pay_now(w, c);
     let rated = co.reputation >= 12.0 || co.units.iter().any(|u| u.seasons >= 6.0 && u.growth_read() >= 0.5);
     let side_coord = match job.role {
@@ -509,7 +520,7 @@ fn counter(w: &mut World, c: usize, role: Role, t: &Terms) -> Option<(f64, f32, 
         if role == r || matches!(role, Role::OffensiveCoordinator | Role::DefensiveCoordinator) {
             crate::world::staff::leave(w, c, "promoted");
             crate::world::staff::hire(w, c, job.employer, r);
-            let pay = (top.max(now * 1.1)).min(crate::world::staff::salary(w, job.employer, r) * 1.2);
+            let pay = (top.max(now * 1.1)).min(crate::world::staff::pay::cap(w, job.employer, r));
             set_pay(w, c, pay);
             return Some((pay, 1.0, format!("{school} promoted him to {} on the spot", r.name())));
         }

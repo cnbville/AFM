@@ -271,6 +271,25 @@ impl Game {
             "card" => Ok(cards::card(self.w()?)),
             "continue" => {
                 let w = self.wm()?;
+                // A meeting that waits for you stops the clock until you hold
+                // it or hand it to your staff. `staff: true` (the tools and
+                // tests) hands every one on, as the day's end always did.
+                let waiting: Vec<u32> = afm_engine::world::folk::scene::waiting(w).iter().map(|s| s.id).collect();
+                if !waiting.is_empty() {
+                    if args.get("staff").and_then(Value::as_bool) == Some(true) {
+                        for id in waiting {
+                            afm_engine::world::folk::scene::hand(w, id)?;
+                        }
+                    } else {
+                        let first = afm_engine::world::folk::scene::waiting(w)[0];
+                        let text = lane_people::plain(&first.title);
+                        let more = waiting.len() - 1;
+                        return Ok(json!({
+                            "status": views::status(w),
+                            "blocked": { "meeting": first.id, "text": text, "more": more },
+                        }));
+                    }
+                }
                 let (from, filed) = (w.now(), views::desk_ids(w));
                 w.continue_until_needed();
                 lane_core::after_days(w);
@@ -291,10 +310,25 @@ impl Game {
                 let w = self.wm()?;
                 let (from, filed) = (w.now(), views::desk_ids(w));
                 let today = w.today;
+                // A meeting you picked to stop for brings you back the
+                // morning it is held (the holiday preview's stops).
+                let stops: Vec<u32> = args
+                    .get("stops")
+                    .and_then(Value::as_array)
+                    .map(|a| a.iter().filter_map(Value::as_u64).map(|x| x as u32).collect())
+                    .unwrap_or_default();
+                let until = w
+                    .folk
+                    .scenes
+                    .iter()
+                    .filter(|s| !s.done && stops.contains(&s.id) && s.date > today)
+                    .map(|s| s.date)
+                    .min()
+                    .map_or(today.add(days), |d| d.min(today.add(days)));
                 // The inbox is filed at each new day on the way: an entrant
                 // who decides inside the stretch is gone from the world by
                 // its end, and his day's message is written from the day.
-                w.holiday_to_with(today.add(days), &mut |w| lane_core::mail::after_days(w));
+                w.holiday_to_with(until, &mut |w| lane_core::mail::after_days(w));
                 lane_core::after_days(w);
                 Ok(views::stopped(w, from, &filed))
             }

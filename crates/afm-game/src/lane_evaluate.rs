@@ -618,7 +618,13 @@ fn file(w: &World, id: u32) -> Reply {
     let tape: Vec<String> = match &read {
         Some((_, looks, _)) => {
             let (good, reel) = afm_engine::world::scouting::file::tape_flags(looks);
-            footage::reasons(&footage::footage(w, i), pos, good, reel)
+            footage::reasons(
+                &footage::footage(w, i),
+                pos,
+                good,
+                reel,
+                &afm_engine::world::scouting::film::roles_watched(w, id, pos),
+            )
         }
         None => Vec::new(),
     };

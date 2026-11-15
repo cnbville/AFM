@@ -342,6 +342,58 @@ pub struct FilmRoom {
     /// The year you last set your work ethic (SK62): once a year.
     #[serde(default)]
     pub ethic_year: Option<i32>,
+    /// The snaps of his you have watched by the role each tested (his
+    /// routes, his pass sets, his throws): what your own tape shows of a
+    /// skill his record barely tested (`roles_watched`).
+    #[serde(default)]
+    pub roles: Vec<RoleSnaps>,
+}
+
+/// One man's snaps you have watched, by the role each tested
+/// (`footage::role_of`; each snap counts once).
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct RoleSnaps {
+    pub id: u32,
+    pub n: [u16; super::footage::ROLES],
+}
+
+/// The roles a snap tested: each role one of its cues belongs to.
+pub(crate) fn snap_roles(cues: &[(Attr, u8)], pos: Position) -> u16 {
+    cues.iter().filter_map(|c| super::footage::role_of(c.0, pos)).fold(0, |m, r| m | 1 << r)
+}
+
+/// The snaps of his you have watched in each role: those counted as you
+/// watched them, or (for watches from before they were counted) the snaps
+/// your eye caught one of the role's skills on, whichever is more. The file
+/// reads your film of a skill his record barely tested by these, the same
+/// 60 snaps of the role (`footage::ROLE_MIN`): the tape you watched is
+/// what you saw, whatever his box score says.
+pub fn roles_watched(w: &World, id: u32, pos: Position) -> [u16; super::footage::ROLES] {
+    let fr = &w.scouting.film;
+    let mut n = fr.roles.iter().find(|r| r.id == id).map_or([0; super::footage::ROLES], |r| r.n);
+    let mut keys: Vec<(usize, u64)> = fr
+        .catches
+        .iter()
+        .filter(|c| c.id == id && c.by == 0 && c.key != 0 && (c.attr as usize) < ATTRIBUTE_COUNT)
+        .filter_map(|c| super::footage::role_of(Attr::ALL[c.attr as usize], pos).map(|r| (r, c.key)))
+        .collect();
+    keys.sort_unstable();
+    keys.dedup();
+    let mut caught = [0u16; super::footage::ROLES];
+    for (r, _) in keys {
+        caught[r] = caught[r].saturating_add(1);
+    }
+    for r in 0..super::footage::ROLES {
+        n[r] = n[r].max(caught[r]);
+    }
+    n
+}
+
+/// The roles your own tape of him has shown on enough snaps to read
+/// (`footage::ROLE_MIN`), as a mask of `footage` roles.
+pub fn roles_shown(w: &World, id: u32, pos: Position) -> u16 {
+    let n = roles_watched(w, id, pos);
+    (0..super::footage::ROLES).filter(|&r| n[r] as f64 >= super::footage::ROLE_MIN).fold(0, |m, r| m | 1 << r)
 }
 
 /// How far a catch drifts from him as he changes: rating points a year
