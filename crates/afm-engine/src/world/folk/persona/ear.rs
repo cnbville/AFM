@@ -93,9 +93,11 @@ pub enum Act {
     /// An offer: valued against his best option (11).
     Offer(Offer),
     /// A promise: logged with its terms through P1, his belief decided.
-    /// Its term (`usage::Usage`) joins once that file is on main.
     Promise {
         words: String,
+        /// How you'll use him, when your words name a measure.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        terms: Vec<crate::world::folk::usage::Usage>,
     },
     /// A request: whether he'll do it, then the game runs it (8.3).
     Request(Request),
@@ -230,8 +232,11 @@ pub struct HisAsk {
     pub why: Want,
     /// A question he asks you ("who's ahead of me at corner?").
     pub question: Option<Topic>,
-    /// What he asks for, in words (the terms join with `usage::Usage`).
+    /// What he asks for, in words.
     pub asks: Vec<String>,
+    /// The same as things the game can do, and how he wants to be used.
+    pub gives: Vec<super::terms::Give>,
+    pub terms: Vec<crate::world::folk::usage::Usage>,
 }
 
 /// How the talk ends this turn, if it does.

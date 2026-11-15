@@ -773,7 +773,7 @@ A typical season is about half that. The $50 cap stays. A Sonnet 5.5 ear would c
 | N0 | Mock-ups | The conversation page, who's in the room, the deal panel, texts, people coming to you, pick lists | Sonnet |
 | N1 | People | What he knows and tells (football too, section 9), wants and actions for every kind, heat and patience, the new stores (unseen breaks, the grapevine, lies, notebooks), people coming to you | Opus |
 | N2 | Terms | Measure readers and the football readers on the play log (section 9), every position's terms (8.4, which the promises thread is building now), terms on promises, incentives, NIL, picks, staff and boss goals, plan settings that keep them, the staff's warning | Opus |
-| N3 | Deals and requests | Valuing against his best option, asks and counters, deadlines, taking time, many people, requests run as actions, confirm cards | Opus |
+| N3 | Deals and requests | Valuing against his best option, asks and counters, deadlines, taking time, many people, requests run as actions, confirm cards. Built 2026-11-15 (`world/folk/persona/deals.rs`, `asks.rs`; how it works in `docs/reference/how-it-works/live-talks.md`, "lane N3"); its sizes proposed, not confirmed | Opus |
 | N4 | The conversation | The ear and the voice, cards, hits, turns, channels, groups, memory, saved readings; your players first | Opus |
 | N5a | Recruiting | Recruits, families, high school coaches and circles, transfers, visits, signing | Opus |
 | N5b | Negotiating | Agents, GMs, NIL, contracts, trades, the undrafted rush | Opus |
