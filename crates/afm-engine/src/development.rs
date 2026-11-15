@@ -273,6 +273,12 @@ pub(crate) struct GrowthCtx {
     /// and the year's form for them: the dice's average.
     pub tested: u128,
     pub form_tested: f64,
+    /// His skill project (the progression update, design items 9 and 12):
+    /// it grows at the 60-minute focus's pace, and the skills in
+    /// `cost_mask` (his position's other technique skills) grow a quarter
+    /// slower.
+    pub project: Option<Attr>,
+    pub cost_mask: u128,
 }
 
 impl GrowthCtx {
@@ -305,6 +311,15 @@ impl GrowthCtx {
             Some(f) if f.has(key) => 1.0 + f.lift_on(key, self.focus_take),
             _ => 1.0,
         };
+        // A project takes the position coach's one-on-one minutes at the
+        // 60-minute focus (design item 8); a focus on the same skill adds
+        // nothing past it.
+        let focus_mult = match self.project {
+            Some(a) if a == key => focus_mult.max(1.0 + Focus::new(a, 60.0).lift(self.focus_take)),
+            _ => focus_mult,
+        };
+        let project_cost =
+            if self.cost_mask >> key.index() & 1 == 1 { 1.0 - crate::progression::PROJECT_COST } else { 1.0 };
         // The focus multiplies the year as it would have been, past the
         // usual half of the gap a year (topic 5b: at 60 minutes about double
         // his normal climb); the ceiling still caps it.
@@ -319,7 +334,8 @@ impl GrowthCtx {
                 * redshirt_lift
                 * hs_lag
                 * self.morale_mult
-                * if profile.group == AttributeGroup::Physical { self.physical_mult } else { 1.0 },
+                * if profile.group == AttributeGroup::Physical { self.physical_mult } else { 1.0 }
+                * project_cost,
             0.0,
             0.5,
         );
@@ -452,7 +468,7 @@ pub(crate) fn grow_share(
     }
     let prop = 1.0 - (share * (1.0 - rate).ln()).exp();
     let given = FINISHING_STEP * rate * done.clamp(0.0, 1.0);
-    let add = gap.min((gap + given) * prop + FINISHING_STEP * rate * share).min(MAX_YEARLY_GAIN * share) + noise;
+    let add = gap.min((gap + given) * prop + FINISHING_STEP * rate * share) + noise;
     let before = attrs.get(key);
     let attr = clamp(before + add, MIN_RATING, MAX_RATING);
     attrs.set(key, attr);
@@ -485,7 +501,9 @@ fn level_injury_rate(level: Level) -> f64 {
 
 /// Points per unit of growth rate added on top of proportional growth.
 const FINISHING_STEP: f64 = 1.6;
-const MAX_YEARLY_GAIN: f64 = 12.0;
+// No yearly limit on a rating's gain (physical study item 16, Cain
+// 2026-11-15): a growth spurt or a project that clicks grows as far as
+// its year takes it; the ceiling still caps it.
 /// Yearly chance, at 18-20, that an average bloomer's body stops developing (higher for early bloomers).
 const STALL_CHANCE: f64 = 0.025;
 
@@ -600,6 +618,13 @@ pub struct SeasonReport {
 /// back with `take_why` right after the step, on the same thread.
 #[derive(Clone, Copy, Debug, Default, serde::Serialize)]
 pub struct GrowthWhy {
+    /// Ceiling points everyday coaching closed toward his limits, and a
+    /// breakout's (the progression update).
+    pub room_closed: f64,
+    pub room_breakout: f64,
+    /// His skill project's ceiling lift this year, and its click's part.
+    pub project_lift: f64,
+    pub project_click: f64,
     pub age: f64,
     /// Age less bloom: what the growth windows read.
     pub development_age: f64,
@@ -696,6 +721,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     let situation = ctx.situation;
     let mut games_missed = 0;
     let attrs_before = player.attributes;
+    let ceilings_before = player.ceilings;
     let mut why = GrowthWhy {
         age,
         development_age: age - player.bloom,
@@ -985,6 +1011,9 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     let tested = if replace { crate::results::tested(position, ctx.level) } else { 0 };
     let mut form_tested = form;
     let mut lift_mean = 0.0;
+    // A breakout's chance-weighted share, for the room it closes on the
+    // skills results test (the progression update, everyday item 5).
+    let mut breakout_mean = 0.0;
     if replace {
         let base = (0.125f64).exp() * (1.0 - 0.15 * dip) * (1.0 + 0.12 * situation * youth);
         if events.has(Ev::LostSeason) {
@@ -1000,6 +1029,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             let kept = (1.0 - pl).max(1e-6);
             let none = 1.0 - pb - pl - ps - pst;
             form_tested = base * (pb * 2.2 + ps * 0.6 + pst * 0.3 + none) / kept;
+            breakout_mean = pb / kept;
             let size = if player.position.is_specialist() { 0.5 } else { 1.0 };
             let slump_mean = ps / kept * 4.0 * size;
             for key in Attr::ALL {
@@ -1180,6 +1210,17 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             }
         }
     }
+    // The split ceiling (the progression update): everyday coaching closes
+    // part of the room between his everyday ceiling and what his body and
+    // makeup allow, by his knack (everyday item 1), and a breakout closes
+    // it at a click's size (item 5). On its own stream.
+    why.room_closed = crate::progression::everyday(player, ctx.coaching, ctx.level, pt, ctx.trouble.is_some());
+    why.room_breakout =
+        crate::progression::breakout(player, ctx.level, events.has(Ev::Breakout), breakout_mean, tested);
+    // His skill project's year (design items 9-11): its ceiling, a click.
+    let project = crate::progression::project_year(player, ctx.coaching, ctx.level, ctx.trouble.is_some());
+    why.project_lift = project.lift;
+    why.project_click = project.click;
 
     // --- Growth towards the ceiling --------------------------------------------
     let coaching_mult = 0.75 + ctx.coaching * 0.025; // 10 -> 1.0, 20 -> 1.25
@@ -1227,6 +1268,8 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         focus_take,
         tested,
         form_tested,
+        project: player.prog.project(),
+        cost_mask: player.prog.project().map_or(0, |a| crate::progression::cost_mask(position, a)),
     };
     // Speed and burst come with the body (S4): what his growing body has
     // reached by the end of the year, he has.
@@ -1235,7 +1278,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         for key in [Attr::Speed, Attr::Acceleration] {
             let lift = share * player.ceilings.get(key) - player.attributes.get(key);
             if lift > 0.0 {
-                player.attributes.add(key, lift.min(MAX_YEARLY_GAIN));
+                player.attributes.add(key, lift);
             }
         }
     }
@@ -1284,11 +1327,10 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         }
         // Proportional growth plus a fixed step, so a well-developed player can
         // actually reach his ceiling instead of creeping towards it forever.
-        // Even a monster year adds at most about a dozen points to one attribute.
-        let add = gap.min(gap * rate + FINISHING_STEP * rate).min(MAX_YEARLY_GAIN) + noise;
+        let add = gap.min(gap * rate + FINISHING_STEP * rate) + noise;
         if focus.is_some_and(|f| f.has(key)) {
             let r0 = rate_of(&g.plain());
-            focus_extra.push((key, add - (gap.min(gap * r0 + FINISHING_STEP * r0).min(MAX_YEARLY_GAIN) + noise)));
+            focus_extra.push((key, add - (gap.min(gap * r0 + FINISHING_STEP * r0) + noise)));
         }
         player.attributes.add(key, add);
         why.landed += add;
@@ -1433,6 +1475,8 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         player.attributes.set_at(i, attr);
         player.ceilings.set_at(i, ceil);
     }
+    // A natural rise past a limit lifts it (everyday item 2).
+    crate::progression::settle(player, &ceilings_before);
 
     // His habits (tendencies topic 3): results, coaching, the staff's
     // style, age and a major injury. On their own stream.

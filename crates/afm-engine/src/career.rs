@@ -302,6 +302,11 @@ pub struct CareerRecord {
     pub pro_exit: Option<ProExit>,
     pub peak_overall: f64,
     pub peak_age: u32,
+    /// The progression update's checks (`prog_check`): each limited skill at
+    /// college entry and his best over his college seasons. None for a boy
+    /// who never reached college. Tooling only, never saved.
+    #[serde(skip)]
+    pub prog_probe: Option<Box<ProgProbe>>,
     /// A quarterback whose game leans on his legs.
     pub running_qb: bool,
     /// Plain-language reasons for the notable things that happened to him, for trial cards.
@@ -336,6 +341,7 @@ impl CareerRecord {
             pro_exit: None,
             peak_overall: ovr,
             peak_age: player.age,
+            prog_probe: None,
             running_qb: false,
             notes: Vec::new(),
             at_draft: None,
@@ -437,6 +443,9 @@ pub fn simulate_cohort(opts: CohortOptions) -> CohortResult {
         let roles = roles_by_rank(&seen, share_this_year, 0.2);
         records.par_iter_mut().zip(prngs.par_iter_mut()).zip(roles.par_iter()).zip(hs_coaching.par_iter()).for_each(
             |(((r, prng), &role), &coaching)| {
+                // His staff's projects (the progression update, item 14).
+                let lean = class_lean(&r.player);
+                crate::progression::ai_single(&mut r.player, lean, coaching, true, coaching);
                 develop_season(&mut r.player, &SeasonContext::new(Level::HS, coaching, role), prng);
                 track_peak(r);
             },
@@ -600,6 +609,9 @@ pub fn simulate_cohort(opts: CohortOptions) -> CohortResult {
 
     // --- College: four seasons of eligibility in five years --------------------
     let collegians: Vec<usize> = (0..size).filter(|&i| records[i].college.is_some()).collect();
+    for &i in &collegians {
+        records[i].prog_probe = Some(Box::new(ProgProbe::at_entry(&records[i].player)));
+    }
     let mut active = vec![false; size];
     for &i in &collegians {
         active[i] = true;
@@ -686,8 +698,13 @@ pub fn simulate_cohort(opts: CohortOptions) -> CohortResult {
                     adjustment: dip,
                     ..SeasonContext::new(level.level(), col.coaching[i], role)
                 };
+                let lean = class_lean(&r.player);
+                crate::progression::ai_single(&mut r.player, lean, col.coaching[i], false, col.coaching[i]);
                 develop_season(&mut r.player, &ctx, &mut prngs[i]);
                 track_peak(r);
+                if let Some(pp) = r.prog_probe.as_mut() {
+                    pp.season(&r.player);
+                }
                 // A year without games doesn't use one of his four seasons.
                 if role != PlayingTime::Redshirt && trouble.is_none() {
                     seasons_played[i] = Some(seasons_played[i].unwrap_or(0) + 1);
@@ -1790,6 +1807,7 @@ fn simulate_league_years(
             }
             let payday = std::mem::take(&mut s.paid);
             let ctx = SeasonContext { adjustment, situation, payday, ..SeasonContext::new(Level::NFL, coaching, role) };
+            crate::progression::ai_single(&mut r.player, crate::progression::Lean::BALANCED, coaching, false, coaching);
             let report = develop_season(&mut r.player, &ctx, &mut prngs[i]);
             let row = r.player.history.last_mut().unwrap();
             row.depth = Some(depth);
@@ -2254,6 +2272,65 @@ fn roles_by_rank(seen: &[(Position, f64)], starter_share: f64, rotation_share: f
         }
     }
     roles
+}
+
+/// Each limited skill (`progression::LIMITED`) at college entry, and his
+/// best rating in it after any college season.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProgProbe {
+    pub rating: [f32; crate::progression::LIMITED_COUNT],
+    pub ceiling: [f32; crate::progression::LIMITED_COUNT],
+    pub limit: [f32; crate::progression::LIMITED_COUNT],
+    /// What players with his tools reach (the rank map alone).
+    pub mapped: [f32; crate::progression::LIMITED_COUNT],
+    pub best: [f32; crate::progression::LIMITED_COUNT],
+    pub best_ceiling: [f32; crate::progression::LIMITED_COUNT],
+    pub position: Position,
+    /// College seasons, and those on a skill project.
+    pub seasons: u8,
+    pub project_seasons: u8,
+}
+
+impl ProgProbe {
+    fn at_entry(p: &Player) -> ProgProbe {
+        let mut x = ProgProbe {
+            rating: [0.0; crate::progression::LIMITED_COUNT],
+            ceiling: [0.0; crate::progression::LIMITED_COUNT],
+            limit: [0.0; crate::progression::LIMITED_COUNT],
+            mapped: [0.0; crate::progression::LIMITED_COUNT],
+            best: [0.0; crate::progression::LIMITED_COUNT],
+            best_ceiling: [0.0; crate::progression::LIMITED_COUNT],
+            position: p.position,
+            seasons: 0,
+            project_seasons: 0,
+        };
+        for (k, &a) in crate::progression::LIMITED.iter().enumerate() {
+            x.rating[k] = p.attributes.get(a) as f32;
+            x.ceiling[k] = p.ceilings.get(a) as f32;
+            x.limit[k] = crate::progression::limit(p, a).unwrap_or(0.0) as f32;
+            x.mapped[k] = crate::progression::mapped(p, a) as f32;
+            x.best[k] = x.rating[k];
+            x.best_ceiling[k] = x.ceiling[k];
+        }
+        x
+    }
+
+    fn season(&mut self, p: &Player) {
+        self.seasons += 1;
+        if p.prog.project().is_some() {
+            self.project_seasons += 1;
+        }
+        for (k, &a) in crate::progression::LIMITED.iter().enumerate() {
+            self.best[k] = self.best[k].max(p.attributes.get(a) as f32);
+            self.best_ceiling[k] = self.best_ceiling[k].max(p.ceilings.get(a) as f32);
+        }
+    }
+}
+
+/// The class sim has no staffs: each boy's programs lean as one staff
+/// would (`progression::Lean::of_coach` on his id), the same every year.
+fn class_lean(p: &Player) -> crate::progression::Lean {
+    crate::progression::Lean::of_coach((p.id as usize) ^ 0xC1A5_5000, 0.0)
 }
 
 /// Best rating he played a season at.

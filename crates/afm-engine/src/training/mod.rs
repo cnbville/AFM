@@ -265,9 +265,11 @@ impl Train {
         self.load = [a.round() as u8, c.round() as u8];
     }
 
-    fn ctx(&self, work_ethic: f64, focus: Option<Focus>, coachability: f64) -> GrowthCtx {
+    fn ctx(&self, work_ethic: f64, focus: Option<Focus>, coachability: f64, project: Option<Attr>) -> GrowthCtx {
         let y = &self.year;
         GrowthCtx {
+            project,
+            cost_mask: project.map_or(0, |a| crate::progression::cost_mask(self.position(), a)),
             coaching_boost: 0.5 + y.coach as f64 / 250.0,
             physical_boost: 0.5 + if y.pcoach == 0 { y.coach } else { y.pcoach } as f64 / 250.0,
             snaps_mult: y.snaps as f64 / 200.0,
@@ -327,7 +329,7 @@ pub fn land_after(
         return 0.0;
     }
     let before = p.overall();
-    let g = p.train.ctx(p.personality.work_ethic, focus, p.personality.coachability);
+    let g = p.train.ctx(p.personality.work_ethic, focus, p.personality.coachability, p.prog.project());
     let dev_age = p.train.development_age();
     let mut rng = Rng::new((key ^ (p.id as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ 0x7A11) as u32);
     let (mut attrs, mut ceil) = (p.attributes, p.ceilings);
@@ -385,7 +387,7 @@ pub fn reps_land(p: &mut Player, before: f64, share: f64, focus: Option<Focus>) 
     }
     let start = p.overall();
     // His plan's focus counts on this part of the year as on the rest.
-    let g = p.train.ctx(p.personality.work_ethic, focus, p.personality.coachability);
+    let g = p.train.ctx(p.personality.work_ethic, focus, p.personality.coachability, p.prog.project());
     let dev_age = p.train.development_age();
     let (r0, r1) = (crate::development::reps_ratio(before), crate::development::reps_ratio(before + share));
     let (mut attrs, mut ceil) = (p.attributes, p.ceilings);
@@ -482,7 +484,7 @@ pub fn close_year(p: &mut Player, focus: Option<Focus>) {
 /// The overall he ends the year on if the whole year's growth lands at
 /// the default (no noise): the season row's end until the year closes.
 pub fn projected_overall(p: &Player) -> f64 {
-    let g = p.train.ctx(p.personality.work_ethic, None, p.personality.coachability);
+    let g = p.train.ctx(p.personality.work_ethic, None, p.personality.coachability, p.prog.project());
     let dev_age = p.train.development_age();
     let (mut attrs, mut ceil) = (p.attributes, p.ceilings);
     for a in Attr::ALL {

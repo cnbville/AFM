@@ -1,0 +1,979 @@
+//! The split ceiling (the progression update: `docs/design/progression.md`
+//! and `docs/design/progression-everyday.md`, both agreed with Cain on
+//! 2026-11-14/15).
+//!
+//! A technique skill has two tops. The everyday ceiling is today's
+//! per-skill ceiling (`Player.ceilings`). The limit is what his body and
+//! makeup allow: his tools' rank among players at his position, mapped onto
+//! the skill ceilings players there are born with, plus 4, plus the whole
+//! gap when that level sits above his own ceiling (design item 4). Room is
+//! the limit less the everyday ceiling. Coaching closes room every year,
+//! by a hidden knack for that kind of skill (items 1 and 5); a breakout
+//! closes it at a click's size (everyday item 5). The limit never holds a
+//! natural rise back: a ceiling that passes it lifts it (everyday item 2),
+//! and it never takes a rating away when his body fades (everyday item 4).
+//! The limit only ever adds room, so it never caps a freak.
+//!
+//! The body part of the read is his physical ceilings as they are now
+//! (item 1), the makeup part his makeup ceilings as they are now: they move
+//! with his drift, so the limit grows with him (everyday item 10; ceilings,
+//! not today's ratings, so a boy's young reads don't hold his limit down).
+
+use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+use crate::attributes::{Attr, Attributes};
+use crate::player::{Level, Player, PlayingTime};
+use crate::positions::{POSITION_COUNT, Position, weight};
+use crate::rng::{Rng, clamp};
+
+/// The skills with a limit (design item 6 and everyday item 9). The rest
+/// keep no limit and work as before (everyday item 8: gifts and the
+/// mental reads, and the skills neither list names).
+pub const LIMITED: [Attr; LIMITED_COUNT] = [
+    Attr::ManCoverage,
+    Attr::ZoneCoverage,
+    Attr::Press,
+    Attr::Tackling,
+    Attr::BlockShedding,
+    Attr::ContestedCatch,
+    Attr::RouteRunning,
+    Attr::Release,
+    Attr::PowerRush,
+    Attr::FinesseRush,
+    Attr::PassBlocking,
+    Attr::RunBlocking,
+    Attr::Footwork,
+    Attr::LegDrive,
+    Attr::Pursuit,
+    Attr::Blitzing,
+    Attr::ThrowOnMove,
+];
+pub const LIMITED_COUNT: usize = 17;
+
+/// The kinds of technique a knack belongs to (design item 5): one hidden
+/// knack each.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Kind {
+    Coverage,
+    Routes,
+    Blocking,
+    Rushing,
+    Passing,
+    Tackling,
+}
+
+pub const KINDS: [Kind; 6] =
+    [Kind::Coverage, Kind::Routes, Kind::Blocking, Kind::Rushing, Kind::Passing, Kind::Tackling];
+
+impl Kind {
+    pub fn index(self) -> usize {
+        self as usize
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Kind::Coverage => "coverage",
+            Kind::Routes => "routes",
+            Kind::Blocking => "blocking",
+            Kind::Rushing => "rushing",
+            Kind::Passing => "passing mechanics",
+            Kind::Tackling => "tackling",
+        }
+    }
+}
+
+/// A part of the limit's read: a rating's ceiling, or his arm length.
+#[derive(Clone, Copy, Debug)]
+enum Part {
+    A(Attr),
+    Arms,
+}
+
+/// What a limited skill's knack kind and read are (design item 6, everyday
+/// item 9). Hips are flexibility, burst acceleration, hands catching.
+fn spec(a: Attr) -> (Kind, &'static [Part], &'static [Part]) {
+    use Attr as A;
+    use Part::{A as R, Arms};
+    const COVER: &[Part] = &[R(A::Speed), R(A::Acceleration), R(A::Agility), R(A::Flexibility)];
+    const COVER_M: &[Part] = &[R(A::PlayRecognition)];
+    const TACKLE: &[Part] = &[R(A::Strength), R(A::Speed), R(A::Balance)];
+    const TACKLE_M: &[Part] = &[R(A::Toughness), R(A::Physicality)];
+    const CATCH: &[Part] = &[R(A::Strength), R(A::BodyControl), R(A::Jumping)];
+    const CATCH_M: &[Part] = &[R(A::Catching), R(A::Competitiveness)];
+    const ROUTE: &[Part] = &[R(A::Agility), R(A::Acceleration), R(A::Balance)];
+    const IQ: &[Part] = &[R(A::FootballIq)];
+    const RUSH: &[Part] = &[R(A::Acceleration), R(A::Strength), R(A::Flexibility), R(A::Balance), Arms];
+    const RUSH_M: &[Part] = &[R(A::Motor), R(A::Competitiveness)];
+    const BLOCK: &[Part] = &[R(A::Strength), R(A::Balance), R(A::Agility), Arms];
+    const TOUGH: &[Part] = &[R(A::Toughness)];
+    const PASS: &[Part] = &[R(A::ArmStrength), R(A::Balance), R(A::Agility)];
+    const POISE: &[Part] = &[R(A::Composure)];
+    const DRIVE: &[Part] = &[R(A::Strength), R(A::Balance)];
+    const CHASE: &[Part] = &[R(A::Speed), R(A::Acceleration)];
+    const MOTOR: &[Part] = &[R(A::Motor)];
+    const BLITZ: &[Part] = &[R(A::Acceleration), R(A::Agility)];
+    const MOVE: &[Part] = &[R(A::Agility), R(A::Balance)];
+    match a {
+        A::ManCoverage | A::ZoneCoverage | A::Press => (Kind::Coverage, COVER, COVER_M),
+        A::Tackling | A::BlockShedding => (Kind::Tackling, TACKLE, TACKLE_M),
+        A::ContestedCatch => (Kind::Routes, CATCH, CATCH_M),
+        A::RouteRunning | A::Release => (Kind::Routes, ROUTE, IQ),
+        A::PowerRush | A::FinesseRush => (Kind::Rushing, RUSH, RUSH_M),
+        A::PassBlocking | A::RunBlocking => (Kind::Blocking, BLOCK, TOUGH),
+        A::Footwork => (Kind::Passing, PASS, POISE),
+        A::LegDrive => (Kind::Tackling, DRIVE, TOUGH),
+        A::Pursuit => (Kind::Tackling, CHASE, MOTOR),
+        A::Blitzing => (Kind::Rushing, BLITZ, IQ),
+        _ => (Kind::Passing, MOVE, POISE), // ThrowOnMove
+    }
+}
+
+/// The limited skill's place in `LIMITED`.
+pub fn limited_index(a: Attr) -> Option<usize> {
+    LIMITED.iter().position(|&x| x == a)
+}
+
+/// The knack kind of a limited skill.
+pub fn kind_of(a: Attr) -> Option<Kind> {
+    limited_index(a).map(|_| spec(a).0)
+}
+
+/// The most of the read's six parts any skill has.
+const PARTS: usize = 7;
+
+fn parts(a: Attr) -> (Vec<(Part, f64)>, usize) {
+    let (_, body, makeup) = spec(a);
+    // About a third of the read is his makeup (design item 6).
+    let mut v: Vec<(Part, f64)> = body.iter().map(|&p| (p, (2.0 / 3.0) / body.len() as f64)).collect();
+    v.extend(makeup.iter().map(|&p| (p, (1.0 / 3.0) / makeup.len() as f64)));
+    let n = v.len();
+    (v, n)
+}
+
+fn part_value(c: &Attributes, arm: f64, p: Part) -> f64 {
+    match p {
+        Part::A(a) => c.get(a),
+        Part::Arms => arm,
+    }
+}
+
+/// Quantiles of the rank map: every 2.5%.
+const Q: usize = 41;
+
+/// One limited skill's rank map at one position: the read's parts' mean and
+/// spread there, and the tools score's quantiles against the skill
+/// ceiling's.
+struct RankMap {
+    mean: [f64; PARTS],
+    sd: [f64; PARTS],
+    t: [f64; Q],
+    c: [f64; Q],
+}
+
+/// Boys drawn for the rank maps, on a fixed stream of the generator itself
+/// (`athlete::create`), so the maps follow any change to how players are
+/// made and every world reads the same maps.
+const FIT_SAMPLE: u32 = 60_000;
+
+fn maps() -> &'static Vec<Option<RankMap>> {
+    static MAPS: OnceLock<Vec<Option<RankMap>>> = OnceLock::new();
+    MAPS.get_or_init(|| {
+        use rayon::prelude::*;
+        let drawn: Vec<(Position, Attributes, f64)> = (0..FIT_SAMPLE)
+            .into_par_iter()
+            .map(|i| {
+                let mut rng = Rng::new(0x5EED_11A1u32 ^ i.wrapping_mul(0x9E37_79B1));
+                let talent = clamp(crate::player::talent_from_z(rng.normal(0.0, 1.0)), 20.0, 99.0);
+                let (ceilings, body, natural, _) = crate::athlete::create(&mut rng, talent);
+                (natural, ceilings, body.arm)
+            })
+            .collect();
+        let mut out = Vec::with_capacity(LIMITED_COUNT * POSITION_COUNT);
+        for &a in LIMITED.iter() {
+            let (ps, n) = parts(a);
+            for pos in Position::ALL {
+                if weight(pos, a) <= 0.0 {
+                    out.push(None);
+                    continue;
+                }
+                let group: Vec<&(Position, Attributes, f64)> = drawn.iter().filter(|d| d.0 == pos).collect();
+                if group.len() < 200 {
+                    out.push(None);
+                    continue;
+                }
+                let mut mean = [0.0; PARTS];
+                let mut sd = [1.0; PARTS];
+                for k in 0..n {
+                    let xs: Vec<f64> = group.iter().map(|d| part_value(&d.1, d.2, ps[k].0)).collect();
+                    let m = xs.iter().sum::<f64>() / xs.len() as f64;
+                    let v = xs.iter().map(|x| (x - m).powi(2)).sum::<f64>() / xs.len() as f64;
+                    mean[k] = m;
+                    sd[k] = v.sqrt().max(1e-6);
+                }
+                let score = |c: &Attributes, arm: f64| {
+                    (0..n).map(|k| ps[k].1 * (part_value(c, arm, ps[k].0) - mean[k]) / sd[k]).sum::<f64>()
+                };
+                let mut ts: Vec<f64> = group.iter().map(|d| score(&d.1, d.2)).collect();
+                let mut cs: Vec<f64> = group.iter().map(|d| d.1.get(a)).collect();
+                ts.sort_by(|x, y| x.total_cmp(y));
+                cs.sort_by(|x, y| x.total_cmp(y));
+                let at = |v: &[f64], q: f64| v[((q * (v.len() - 1) as f64).round() as usize).min(v.len() - 1)];
+                let mut t = [0.0; Q];
+                let mut c = [0.0; Q];
+                for j in 0..Q {
+                    let q = j as f64 / (Q - 1) as f64;
+                    t[j] = at(&ts, q);
+                    c[j] = at(&cs, q);
+                }
+                out.push(Some(RankMap { mean, sd, t, c }));
+            }
+        }
+        out
+    })
+}
+
+/// The position whose map a limited skill reads for him: his own when it
+/// uses the skill, else the position that leans on it most (a convert
+/// keeps his room, design item 17: the read is his body and makeup).
+fn map_position(pos: Position, a: Attr) -> Position {
+    if weight(pos, a) > 0.0 && maps()[limited_index(a).unwrap() * POSITION_COUNT + pos.index()].is_some() {
+        return pos;
+    }
+    Position::ALL
+        .iter()
+        .copied()
+        .filter(|&p| maps()[limited_index(a).unwrap() * POSITION_COUNT + p.index()].is_some())
+        .max_by(|x, y| weight(*x, a).total_cmp(&weight(*y, a)))
+        .unwrap_or(pos)
+}
+
+/// What players with his tools reach in a limited skill, at a position: his
+/// tools score's rank mapped onto the skill's ceilings there. Above the
+/// sample's best it carries on at the top tenth's slope, so a freak's body
+/// keeps adding room (no cap on freaks).
+pub fn mapped(p: &Player, a: Attr) -> f64 {
+    let Some(li) = limited_index(a) else { return p.ceilings.get(a) };
+    let pos = map_position(p.position, a);
+    let Some(m) = &maps()[li * POSITION_COUNT + pos.index()] else { return p.ceilings.get(a) };
+    let (ps, n) = parts(a);
+    let s: f64 = (0..n).map(|k| ps[k].1 * (part_value(&p.ceilings, p.body.arm, ps[k].0) - m.mean[k]) / m.sd[k]).sum();
+    if s <= m.t[0] {
+        return m.c[0];
+    }
+    if s >= m.t[Q - 1] {
+        let j = Q - 5;
+        let slope = (m.c[Q - 1] - m.c[j]) / (m.t[Q - 1] - m.t[j]).max(1e-6);
+        return m.c[Q - 1] + (s - m.t[Q - 1]) * slope.max(0.0);
+    }
+    let j = m.t.partition_point(|&x| x <= s).clamp(1, Q - 1);
+    let (t0, t1) = (m.t[j - 1], m.t[j]);
+    let w = if t1 > t0 { (s - t0) / (t1 - t0) } else { 0.5 };
+    m.c[j - 1] + w * (m.c[j] - m.c[j - 1])
+}
+
+/// The margin past the rank map every limit gets (design item 4).
+pub const MARGIN: f64 = 4.0;
+
+/// His hidden progression state (about 26 bytes): the knacks, and each
+/// limit's own part past the rank map.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct Prog {
+    /// Whether it was drawn (an older save draws it once, at his age).
+    pub drawn: bool,
+    /// The technique knacks by `Kind`, then the body knack: standard
+    /// normals times 25. Hidden: the game shows only staff words.
+    pub knack: [i8; 7],
+    /// Each limit's part past the rank map, in half points: the margin,
+    /// the gap at 14 when his tools' level sat above his ceiling, and every
+    /// natural rise past the limit since (everyday item 2).
+    pub over: [u8; LIMITED_COUNT],
+    /// His skill project (design items 8-12): 0 none, else its skill's
+    /// place in `LIMITED` plus 1.
+    #[serde(default)]
+    pub project: u8,
+    /// Years on the current skill project, and the ceiling it has opened
+    /// so far (half points).
+    #[serde(default)]
+    pub project_years: u8,
+    #[serde(default)]
+    pub project_lift: u8,
+    /// Clicks over his career (design item 10).
+    #[serde(default)]
+    pub clicks: u8,
+    /// Your staff set the project (an AI staff never ends it).
+    #[serde(default)]
+    pub yours: bool,
+    /// The trims still to land, by place in `LIMITED` (everyday item 11).
+    #[serde(default)]
+    pub pending: u32,
+}
+
+impl Prog {
+    /// The skill his project works, if any.
+    pub fn project(&self) -> Option<Attr> {
+        (self.project > 0).then(|| LIMITED[(self.project as usize - 1).min(LIMITED_COUNT - 1)])
+    }
+}
+
+/// Turns the split ceiling off (trial and debug tooling: the A/B
+/// measurements of the build). On by default.
+static OFF: AtomicBool = AtomicBool::new(false);
+
+pub fn set_enabled(on: bool) {
+    OFF.store(!on, Ordering::Relaxed);
+}
+
+pub fn enabled() -> bool {
+    !OFF.load(Ordering::Relaxed)
+}
+
+/// The parts that are on (trial tooling, `prog_check`): everyday closing,
+/// breakouts, projects, trims. All on by default.
+static PARTS_OFF: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+pub const PART_EVERYDAY: u8 = 1;
+pub const PART_BREAKOUT: u8 = 2;
+pub const PART_PROJECTS: u8 = 4;
+pub const PART_TRIMS: u8 = 8;
+
+pub fn set_parts(on: u8) {
+    PARTS_OFF.store(!on & 15, Ordering::Relaxed);
+}
+
+fn part(p: u8) -> bool {
+    enabled() && PARTS_OFF.load(Ordering::Relaxed) & p == 0
+}
+
+fn stream(id: u32, salt: u32) -> Rng {
+    Rng::new(id.wrapping_mul(0x2C1B_3C6D) ^ salt.wrapping_mul(0x297A_2D39) ^ 0x7A6E_5103)
+}
+
+fn to_i8(z: f64) -> i8 {
+    (z * 25.0).round().clamp(-127.0, 127.0) as i8
+}
+
+/// A technique knack's z (design item 5).
+pub fn knack(p: &Player, k: Kind) -> f64 {
+    p.prog.knack[k.index()] as f64 / 25.0
+}
+
+/// His body knack's z (design item 1): how his body takes to a program.
+pub fn body_knack(p: &Player) -> f64 {
+    p.prog.knack[6] as f64 / 25.0
+}
+
+/// How fast a knack closes room, 0-1 (design item 5): Φ(1.4 × (z − 0.3)),
+/// so about 1 in 5 has it (pace past 0.6), half are middling and about 1 in
+/// 3 have none (under 0.2).
+pub fn pace(z: f64) -> f64 {
+    crate::athlete::phi(1.4 * (z - 0.3))
+}
+
+/// Draws his knacks and sets each limit if he has none yet (at creation,
+/// or once for a player from an older save, from where he is now). On his
+/// own keyed stream: no other draw moves.
+pub fn ensure(p: &mut Player) {
+    if p.prog.drawn {
+        return;
+    }
+    let mut r = stream(p.id, 0x4B4E);
+    // About a third of a technique knack is coachability (item 5).
+    let cz = clamp((p.personality.coachability - 10.0) / 3.5, -3.0, 3.0);
+    let own = (1.0f64 - 0.35 * 0.35).sqrt();
+    for k in 0..6 {
+        p.prog.knack[k] = to_i8(0.35 * cz + own * r.normal(0.0, 1.0));
+    }
+    p.prog.knack[6] = to_i8(r.normal(0.0, 1.0));
+    for (li, &a) in LIMITED.iter().enumerate() {
+        let m = mapped(p, a);
+        let over = MARGIN + (m - p.ceilings.get(a)).max(0.0);
+        p.prog.over[li] = (over * 2.0).ceil().clamp(0.0, 255.0) as u8;
+    }
+    p.prog.drawn = true;
+}
+
+/// His limit in a skill: the rank map plus its own part, never under his
+/// ceiling. None for a skill with no limit.
+pub fn limit(p: &Player, a: Attr) -> Option<f64> {
+    let li = limited_index(a)?;
+    if !p.prog.drawn {
+        return Some(p.ceilings.get(a));
+    }
+    Some((mapped(p, a) + p.prog.over[li] as f64 / 2.0).max(p.ceilings.get(a)))
+}
+
+/// The room between his limit and his everyday ceiling (0 for a skill with
+/// no limit).
+pub fn room(p: &Player, a: Attr) -> f64 {
+    limit(p, a).map_or(0.0, |l| (l - p.ceilings.get(a)).max(0.0))
+}
+
+/// The share of a room a year of everyday coaching closes (everyday item
+/// 1): a third of a project year's 0.30.
+pub const EVERYDAY: f64 = 0.10;
+
+/// How much the staff's coaching gets out of the room (design item 9):
+/// 0.5 + coaching / 20, so a 10 is 1.0 and a 20 is 1.5.
+pub fn coach_mult(coaching: f64) -> f64 {
+    clamp(0.5 + coaching / 20.0, 0.5, 1.5)
+}
+
+/// His snaps' part in everyday closing (everyday item 1): a starter 1,
+/// rotation 0.8, a redshirt 0.6, the rest 0.5; a year away from the staff
+/// (suspended or dismissed) closes nothing.
+pub fn snaps_mult(pt: PlayingTime, trouble: bool) -> f64 {
+    if trouble {
+        return 0.0;
+    }
+    match pt {
+        PlayingTime::Starter => 1.0,
+        PlayingTime::Rotation => 0.8,
+        PlayingTime::Redshirt => 0.6,
+        _ => 0.5,
+    }
+}
+
+/// The strength of a year's closing by his stage (design items 11 and 16):
+/// full through high school and every college season whatever his age;
+/// in the pros half in his first two pro seasons, a fifth in seasons three
+/// and four, none after (the pros' everyday part is proposed, not
+/// confirmed).
+pub fn stage_mult(p: &Player, level: Level) -> f64 {
+    if level != Level::NFL {
+        return 1.0;
+    }
+    let seasons = p.history.iter().filter(|h| h.level == Level::NFL).count() + 1;
+    match seasons {
+        1 | 2 => 0.5,
+        3 | 4 => 0.2,
+        _ => 0.0,
+    }
+}
+
+/// Whether his position works a limited skill (only those grow and close).
+fn works(p: &Player, a: Attr, hs: bool) -> bool {
+    weight(p.position, a) > 0.0 && !crate::development::unrelated(p.position, a, hs)
+}
+
+/// The year's everyday closing (everyday item 1): each limited skill his
+/// position works closes room × 0.10 × knack pace × coaching × snaps,
+/// times his stage. Returns the ceiling points it added.
+pub(crate) fn everyday(p: &mut Player, coaching: f64, level: Level, pt: PlayingTime, trouble: bool) -> f64 {
+    ensure(p);
+    land_trims(p);
+    if !part(PART_EVERYDAY) {
+        return 0.0;
+    }
+    let hs = level == Level::HS;
+    let base = EVERYDAY * coach_mult(coaching) * snaps_mult(pt, trouble) * stage_mult(p, level);
+    if base <= 0.0 {
+        return 0.0;
+    }
+    let mut added = 0.0;
+    for &a in LIMITED.iter() {
+        if !works(p, a, hs) {
+            continue;
+        }
+        let room = room(p, a);
+        if room <= 0.0 {
+            continue;
+        }
+        let k = kind_of(a).unwrap();
+        let close = room * base * pace(knack(p, k));
+        p.ceilings.add(a, close);
+        added += close;
+    }
+    added
+}
+
+/// A click's size on the ceiling (design item 10): 6 to 10 points.
+pub const CLICK: (f64, f64) = (6.0, 10.0);
+
+/// A breakout year closes room at a click's size (everyday item 5): the
+/// limited skill his position works with the most room (by what the
+/// position asks of it) clicks, U(6, 10) on its ceiling, never past his
+/// limit, so a raw kid's breakout is bigger than a polished kid's. `mean`
+/// (results replacing the dice, item 14): a tested skill takes the
+/// chance-weighted mean instead, as the breakout's own lift does. Returns
+/// the ceiling points added.
+pub(crate) fn breakout(p: &mut Player, level: Level, hit: bool, mean: f64, tested: u128) -> f64 {
+    if !part(PART_BREAKOUT) || (!hit && mean <= 0.0) {
+        return 0.0;
+    }
+    ensure(p);
+    let hs = level == Level::HS;
+    let mut r = stream(p.id, 0xB0 ^ p.age.wrapping_mul(0x51));
+    let Some(a) = LIMITED
+        .iter()
+        .copied()
+        .filter(|&a| works(p, a, hs))
+        .map(|a| (a, room(p, a) * weight(p.position, a)))
+        .filter(|x| x.1 > 0.0)
+        .max_by(|x, y| x.1.total_cmp(&y.1))
+        .map(|x| x.0)
+    else {
+        return 0.0;
+    };
+    let size = r.range(CLICK.0, CLICK.1);
+    let add = if crate::results::is_tested(tested, a) {
+        mean * (CLICK.0 + CLICK.1) / 2.0
+    } else if hit {
+        size
+    } else {
+        0.0
+    };
+    let add = add.min(room(p, a));
+    if add > 0.0 {
+        p.ceilings.add(a, add);
+        return add;
+    }
+    0.0
+}
+
+/// After the year: a natural rise past the limit lifts it (everyday item
+/// 2), so neglect later reopens room he had (item 3). Only his ceiling's
+/// own rise counts (`before` is his ceilings when the year opened): a limit
+/// that falls with his body is left to fall (item 4), and `limit` keeps it
+/// at his ceiling, so a wobble in his body read never ratchets it up.
+pub(crate) fn settle(p: &mut Player, before: &Attributes) {
+    if !p.prog.drawn {
+        return;
+    }
+    for (li, &a) in LIMITED.iter().enumerate() {
+        let c = p.ceilings.get(a);
+        let rose = c - before.get(a);
+        let l = mapped(p, a) + p.prog.over[li] as f64 / 2.0;
+        if c > l && rose > 0.0 {
+            let need = p.prog.over[li] as f64 / 2.0 + (c - l).min(rose);
+            p.prog.over[li] = (need * 2.0).ceil().clamp(0.0, 255.0) as u8;
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Skill projects (design items 8-17)
+// ---------------------------------------------------------------------------
+
+/// A project room: the position rooms that hold skill projects, with
+/// Cain's counts (design item 8): QB 1, RB 1, WR 2, TE 2, O-line 2,
+/// D-line 2, LB 1, CB and nickel 2, safeties 1; kickers, punters and
+/// snappers none.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Room {
+    Qb,
+    Rb,
+    Wr,
+    Te,
+    Ol,
+    Dl,
+    Lb,
+    Cb,
+    S,
+}
+
+impl Room {
+    pub fn of(pos: Position) -> Option<Room> {
+        Some(match pos {
+            Position::QB => Room::Qb,
+            Position::RB => Room::Rb,
+            Position::WR => Room::Wr,
+            Position::TE => Room::Te,
+            Position::OT | Position::IOL => Room::Ol,
+            Position::EDGE | Position::DT => Room::Dl,
+            Position::LB => Room::Lb,
+            Position::CB => Room::Cb,
+            Position::S => Room::S,
+            _ => return None,
+        })
+    }
+
+    /// Projects the room's position coach can run at once.
+    pub fn slots(self) -> usize {
+        match self {
+            Room::Qb | Room::Rb | Room::Lb | Room::S => 1,
+            _ => 2,
+        }
+    }
+}
+
+/// The share of the room a project year closes with the knack and a good
+/// coach (design item 9): room × 0.30 × pace × coaching × U(0.7, 1.3).
+pub const PROJECT: f64 = 0.30;
+
+/// A click's chance a project year (design item 10): 0.25 × pace.
+pub const CLICK_CHANCE: f64 = 0.25;
+
+/// The share of the year's growth his other key technique skills give up
+/// to a project (design item 12).
+pub const PROJECT_COST: f64 = 0.25;
+
+/// The skills that pay for a project: his position's technique skills,
+/// never the project's own. As a mask over `Attr::index`.
+pub fn cost_mask(pos: Position, project: Attr) -> u128 {
+    let mut m = 0u128;
+    for a in Attr::ALL {
+        if a != project && a.profile().group == crate::attributes::AttributeGroup::Technical && weight(pos, a) > 0.0 {
+            m |= 1u128 << a.index();
+        }
+    }
+    m
+}
+
+/// What a project year did (for the world log and the clues).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct ProjectYear {
+    pub skill: Option<Attr>,
+    pub lift: f64,
+    pub click: f64,
+}
+
+/// A project year at his checkpoint (design items 9-11, 16): his project's
+/// ceiling closes room by his knack, his coach and his stage, and with luck
+/// it clicks (6 to 10 on the ceiling, half of it on the field within
+/// weeks). A project on a skill his position no longer works is dropped.
+/// The growth toward the new ceiling runs at the 60-minute focus's pace
+/// (`GrowthCtx`), and his other technique skills pay `PROJECT_COST`.
+pub(crate) fn project_year(p: &mut Player, coaching: f64, level: Level, trouble: bool) -> ProjectYear {
+    let Some(a) = p.prog.project() else { return ProjectYear::default() };
+    if !part(PART_PROJECTS) || !works(p, a, level == Level::HS) {
+        end_project(p);
+        return ProjectYear::default();
+    }
+    ensure(p);
+    let mut r = stream(p.id, 0x9A07 ^ p.age.wrapping_mul(0x1F3));
+    let stage = stage_mult(p, level) * if trouble { 0.0 } else { 1.0 };
+    let pace = pace(knack(p, kind_of(a).unwrap()));
+    let room = room(p, a);
+    let mut lift = room * PROJECT * pace * coach_mult(coaching) * r.range(0.7, 1.3) * stage;
+    let mut click = 0.0;
+    if r.chance(CLICK_CHANCE * pace * stage) {
+        click = r.range(CLICK.0, CLICK.1);
+        lift += click;
+    }
+    let lift = lift.min(room).max(0.0);
+    let click = click.min(lift);
+    p.ceilings.add(a, lift);
+    if click > 0.0 {
+        // The light comes on: half of it shows on the field within weeks.
+        let c = p.ceilings.get(a);
+        let v = (p.attributes.get(a) + 0.5 * click).min(c);
+        p.attributes.set(a, v);
+        p.prog.clicks = p.prog.clicks.saturating_add(1);
+    }
+    p.prog.project_years = p.prog.project_years.saturating_add(1);
+    p.prog.project_lift = (p.prog.project_lift as f64 + lift * 2.0).round().clamp(0.0, 255.0) as u8;
+    ProjectYear { skill: Some(a), lift, click }
+}
+
+/// Starts a skill project (you, or an AI staff's pick). Only on a limited
+/// skill his position works.
+pub fn start_project(p: &mut Player, a: Attr, yours: bool) -> bool {
+    let Some(li) = limited_index(a) else { return false };
+    if weight(p.position, a) <= 0.0 {
+        return false;
+    }
+    ensure(p);
+    if p.prog.project() != Some(a) {
+        p.prog.project_years = 0;
+        p.prog.project_lift = 0;
+    }
+    p.prog.project = li as u8 + 1;
+    p.prog.yours = yours;
+    true
+}
+
+pub fn end_project(p: &mut Player) {
+    p.prog.project = 0;
+    p.prog.project_years = 0;
+    p.prog.project_lift = 0;
+    p.prog.yours = false;
+}
+
+/// How an AI staff runs projects (design item 13): developers use their
+/// slots most years and bet bolder, balanced staffs about half, win-now
+/// staffs rarely and only on kids already close. 2.0 to 0.25.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Lean(pub f64);
+
+impl Lean {
+    pub const DEVELOPER: Lean = Lean(2.0);
+    pub const BALANCED: Lean = Lean(1.0);
+    pub const WIN_NOW: Lean = Lean(0.25);
+
+    /// The share of a room's open slots it fills a year.
+    pub fn fill(self) -> f64 {
+        clamp(0.45 * self.0, 0.05, 0.95)
+    }
+
+    /// A coach's own lean, from his id (3 in 10 developers, 4 balanced, 3
+    /// win-now; proposed, not confirmed: the shares of the class-sim
+    /// prototype), moved by his seat: `security` -1 (a hot seat) to 1 (a
+    /// new long deal) halves or doubles it.
+    pub fn of_coach(id: usize, security: f64) -> Lean {
+        let u = stream(id as u32, 0x1EA4).next();
+        let own = if u < 0.3 {
+            2.0
+        } else if u < 0.7 {
+            1.0
+        } else {
+            0.25
+        };
+        Lean(clamp(own * 2f64.powf(clamp(security, -1.0, 1.0)), 0.125, 4.0))
+    }
+}
+
+/// A staff's read of what a bet on him in a skill is worth (design items
+/// 13 and 15): the room it sees times the knack it reads, from his tools
+/// and the clues, never the true values. `sharp` 0-1 is how well the staff
+/// reads the knack clues (an AI staff a bit less than yours, so it picks
+/// more on tools); `eye` 1-20 its evaluators.
+pub fn staff_read(p: &Player, a: Attr, sharp: f64, eye: f64, r: &mut Rng) -> f64 {
+    let room = room(p, a) + r.normal(0.0, clamp(9.0 - 0.3 * eye, 2.0, 9.0));
+    let cz = clamp((p.personality.coachability - 10.0) / 3.5, -3.0, 3.0);
+    let k = knack(p, kind_of(a).unwrap());
+    // Before any work on it, coachability is the clue he gives; a sharper
+    // staff reads more of the rest.
+    let seen = 0.35 * cz + sharp * 0.5 * (k - 0.35 * cz) + r.normal(0.0, 0.6);
+    room.max(0.0) * pace(seen)
+}
+
+/// How sharply AI staffs read the knack clues against your staff (design
+/// item 15: a bit less sharply).
+pub const AI_SHARP: f64 = 0.6;
+pub const YOUR_SHARP: f64 = 1.0;
+
+/// The skill a staff would bet on for him and what it reads the bet as
+/// worth: his best by the read, weighted by what his position asks of it.
+pub fn best_bet(p: &Player, sharp: f64, eye: f64, r: &mut Rng) -> Option<(Attr, f64)> {
+    let top = LIMITED.iter().map(|&a| weight(p.position, a)).fold(0.0, f64::max);
+    if top <= 0.0 {
+        return None;
+    }
+    LIMITED
+        .iter()
+        .filter(|&&a| weight(p.position, a) >= 0.5 * top)
+        .map(|&a| (a, staff_read(p, a, sharp, eye, r) * weight(p.position, a) / top))
+        .max_by(|x, y| x.1.total_cmp(&y.1))
+}
+
+/// The least a staff reads a bet as worth before it runs one (ceiling
+/// points in reach, after the knack it reads).
+pub const BET_FLOOR: f64 = 3.0;
+
+/// Whether an AI staff keeps a project going after this year (design item
+/// 15): it ends one that opened under a point and a half a year once it has
+/// had two years with it, and one that has used its room; your own staff's
+/// read would see a dead end a year sooner.
+pub fn ai_keeps(p: &Player) -> bool {
+    let Some(a) = p.prog.project() else { return false };
+    if room(p, a) < 1.0 {
+        return false;
+    }
+    let years = p.prog.project_years as f64;
+    !(years >= 2.0 && (p.prog.project_lift as f64 / 2.0) / years < 1.5)
+}
+
+/// What an AI staff does with one player's project at the checkpoint.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Change {
+    End,
+    Start(Attr),
+}
+
+/// An AI staff's projects for one room at the checkpoint (design items 8,
+/// 13-15): it ends the dead ends, then fills its open slots by its lean,
+/// best read first. `members` are the room's players; `scale` (0-1) is how
+/// much of a full staff's time it has (a high school's smaller staff).
+/// Returns each change by its place in `members`. Nothing changes here:
+/// the caller applies them (`apply`) when his year opens.
+pub fn ai_room(members: &[&Player], room: Room, lean: Lean, eye: f64, scale: f64, seed: u32) -> Vec<(usize, Change)> {
+    let mut out = Vec::new();
+    if !part(PART_PROJECTS) {
+        return out;
+    }
+    let mut r = Rng::new(seed ^ 0x4F0E_C7A1);
+    let mut running = 0;
+    for (i, p) in members.iter().enumerate() {
+        if p.prog.project().is_some() {
+            if p.prog.yours || ai_keeps(p) {
+                running += 1;
+            } else {
+                out.push((i, Change::End));
+            }
+        }
+    }
+    let open = room.slots().saturating_sub(running);
+    if open == 0 {
+        return out;
+    }
+    let mut cands: Vec<(usize, Attr, f64)> = members
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.prog.drawn && p.prog.project().is_none())
+        .filter_map(|(i, p)| best_bet(p, AI_SHARP, eye, &mut r).map(|(a, v)| (i, a, v)))
+        .filter(|c| c.2 >= BET_FLOOR)
+        .collect();
+    // A win-now staff only bets on kids already close to the field.
+    if lean.0 < 0.5 {
+        let mut ov: Vec<f64> = members.iter().map(|p| p.overall()).collect();
+        ov.sort_by(|a, b| b.total_cmp(a));
+        let bar = ov.get(ov.len() / 3).copied().unwrap_or(0.0);
+        cands.retain(|c| members[c.0].overall() >= bar);
+    }
+    cands.sort_by(|a, b| b.2.total_cmp(&a.2));
+    for c in cands.into_iter().take(open) {
+        if r.chance(lean.fill() * clamp(scale, 0.0, 1.0)) {
+            out.push((c.0, Change::Start(c.1)));
+        }
+    }
+    out
+}
+
+/// Applies an AI staff's change.
+pub fn apply(p: &mut Player, c: Change) {
+    match c {
+        Change::End => end_project(p),
+        Change::Start(a) => {
+            start_project(p, a, false);
+        }
+    }
+}
+
+/// A staff with no rooms to see (the class sim): one player's chance to be
+/// picked a year, set so a room's slots fill as `ai_room` fills them
+/// (design item 13: about 1.5 a 20-man room a year on the prototype).
+pub fn ai_single(p: &mut Player, lean: Lean, eye: f64, hs: bool, coaching: f64) {
+    if !part(PART_PROJECTS) {
+        return;
+    }
+    ensure(p);
+    let mut r = stream(p.id, 0x5E1 ^ p.age.wrapping_mul(0x3B));
+    if p.prog.project().is_some() {
+        if !(p.prog.yours || ai_keeps(p)) {
+            end_project(p);
+        }
+        return;
+    }
+    let Some(room) = Room::of(p.position) else { return };
+    let Some((a, v)) = best_bet(p, AI_SHARP, eye, &mut r) else { return };
+    if v < BET_FLOOR {
+        return;
+    }
+    // About 1.5 bets a 20-man room a year in college before the lean
+    // (design item 13, the prototype's 7.5%), about 1 in 20 of a high
+    // school room (item 14); the room's slots set the scale.
+    let per = room.slots() as f64 / 2.0;
+    let base = if hs { 0.02 * clamp(coaching / 10.0, 0.3, 1.5) } else { 0.03 };
+    if r.chance(base * per * lean.0) {
+        start_project(p, a, false);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The trims (everyday item 11)
+// ---------------------------------------------------------------------------
+
+/// The points a family's natural ceilings of 60+ give up, so the world
+/// keeps today's number of stars with everything on (everyday item 11).
+/// The limit keeps them, so investment can win them back. A family is one
+/// limited skill at one position, never lumped. Sized on the class sim
+/// with every part on (`prog_check fit`); the build sizes them again on a
+/// world. Indexed [position][limited skill].
+static TRIMS: [[f32; LIMITED_COUNT]; POSITION_COUNT] = TRIM_TABLE;
+
+/// The class-sim values from the design (everyday item 11), before the fit.
+const TRIM_TABLE: [[f32; LIMITED_COUNT]; POSITION_COUNT] = {
+    let mut t = [[0.0f32; LIMITED_COUNT]; POSITION_COUNT];
+    // Order of `LIMITED`: man, zone, press, tackling, shedding, contested
+    // catch, routes, release, power rush, finesse rush, pass blocking, run
+    // blocking, footwork, leg drive, pursuit, blitzing, throw on the move.
+    // Order of `Position::ALL`: QB, RB, WR, TE, OT, IOL, EDGE, DT, LB, CB,
+    // S, K, P, LS.
+    t[0][12] = 3.5; // QB footwork
+    t[1][10] = 3.5; // RB pass blocking
+    t[2][6] = 4.0; // WR routes
+    t[3][11] = 5.0; // TE run blocking
+    t[4][10] = 5.0; // OT pass blocking
+    t[5][10] = 5.0; // IOL pass blocking
+    t[6][9] = 3.5; // EDGE finesse rush
+    t[7][8] = 2.0; // DT power rush
+    t[8][1] = 3.5; // LB zone coverage
+    t[9][0] = 3.5; // CB man coverage
+    t[10][3] = 5.0; // S tackling
+    t
+};
+
+/// A trial override of the trims (`prog_check fit`).
+static TRIM_OVERRIDE: std::sync::RwLock<Option<Vec<[f32; LIMITED_COUNT]>>> = std::sync::RwLock::new(None);
+
+pub fn set_trims(t: Option<Vec<[f32; LIMITED_COUNT]>>) {
+    *TRIM_OVERRIDE.write().unwrap() = t;
+}
+
+pub fn trims() -> Vec<[f32; LIMITED_COUNT]> {
+    TRIM_OVERRIDE.read().unwrap().clone().unwrap_or_else(|| TRIMS.to_vec())
+}
+
+pub fn trim(pos: Position, a: Attr) -> f64 {
+    let Some(li) = limited_index(a) else { return 0.0 };
+    if let Some(t) = TRIM_OVERRIDE.read().unwrap().as_ref() {
+        return t[pos.index()][li] as f64;
+    }
+    TRIMS[pos.index()][li] as f64
+}
+
+/// The natural ceiling a trim starts from.
+pub const TRIM_FROM: f64 = 60.0;
+
+/// The last age a pending trim lands (his school years).
+pub const TRIM_UNTIL: u32 = 22;
+
+/// A new player's knacks and limits, with his trims pending: each lands
+/// the first year he plays a spot whose family has one (so a boy moved to
+/// corner at 16 gives up corner's points then). An older save's players
+/// have none pending and keep their ceilings.
+pub fn ensure_new(p: &mut Player) {
+    if p.prog.drawn {
+        return;
+    }
+    ensure(p);
+    if p.age <= 15 {
+        p.prog.pending = (1u32 << LIMITED_COUNT) - 1;
+    }
+}
+
+/// Lands his pending trims at his spot (at each checkpoint, before the
+/// year's closing).
+pub(crate) fn land_trims(p: &mut Player) {
+    if p.prog.pending == 0 {
+        return;
+    }
+    if p.age > TRIM_UNTIL {
+        p.prog.pending = 0;
+        return;
+    }
+    if !part(PART_TRIMS) {
+        return;
+    }
+    for (li, &a) in LIMITED.iter().enumerate() {
+        if p.prog.pending >> li & 1 == 0 {
+            continue;
+        }
+        let t = trim(p.position, a);
+        if t <= 0.0 {
+            continue;
+        }
+        p.prog.pending &= !(1 << li);
+        let c = p.ceilings.get(a);
+        if c < TRIM_FROM {
+            continue;
+        }
+        // The limit stays where it was before the trim.
+        let keep = (p.prog.over[li] as f64 / 2.0).max(c - mapped(p, a));
+        p.prog.over[li] = (keep * 2.0).ceil().clamp(0.0, 255.0) as u8;
+        p.ceilings.set(a, c - t);
+        if p.attributes.get(a) > c - t {
+            p.attributes.set(a, c - t);
+        }
+    }
+}

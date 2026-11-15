@@ -1690,6 +1690,34 @@ fn camp(w: &mut World, d: Date) {
     let focus = w.focus_by_person();
     let seat_mine: std::collections::HashSet<usize> = w.seat_roster().iter().copied().collect();
     let defer = !w.options.yearly_growth;
+    // The clubs' skill projects (the progression update, design item 16):
+    // by pro season inside the step, the same room counts; your club's are
+    // yours to set. NFL staffs run them as balanced staffs (proposed, not
+    // confirmed).
+    let projects: std::collections::HashMap<usize, crate::progression::Change> = {
+        use crate::progression::{Lean, Room, ai_room};
+        let mut rooms: std::collections::HashMap<(usize, Room), Vec<usize>> = Default::default();
+        for &i in &pros {
+            let p = &w.people[i];
+            let Some(t) = p.pro.as_ref().and_then(|c| c.team) else { continue };
+            let Some(room) = Room::of(p.player.position) else { continue };
+            if !w.seat_club(t) {
+                rooms.entry((t, room)).or_default().push(i);
+            }
+        }
+        let mut keys: Vec<(usize, Room)> = rooms.keys().copied().collect();
+        keys.sort_by_key(|k| (k.0, k.1 as u8));
+        let mut out = std::collections::HashMap::new();
+        for k in keys {
+            let ids = &rooms[&k];
+            let members: Vec<&crate::player::Player> = ids.iter().map(|&i| &w.people[i].player).collect();
+            let seed = (year as u32).wrapping_mul(0x51_7CC1) ^ (k.0 as u32).wrapping_mul(0x2F0B) ^ (k.1 as u32) << 24;
+            for (m, c) in ai_room(&members, k.1, Lean::BALANCED, w.nfl[k.0].coaching, 1.0, seed) {
+                out.insert(ids[m], c);
+            }
+        }
+        out
+    };
     // The league's typical staff and strength head (minor bug 302), so the
     // strength staff's share moves growth around the league's average.
     let heads: Vec<f64> =
@@ -1843,6 +1871,9 @@ fn camp(w: &mut World, d: Date) {
         let read_late = crate::development::reads_late(&p.player, Level::NFL);
         let year_focus = ctx.focus.map(|a| crate::development::Focus::two(a, ctx.focus2, ctx.focus_minutes));
         crate::training::close_year(&mut p.player, year_focus);
+        if let Some(&c) = projects.get(&i) {
+            crate::progression::apply(&mut p.player, c);
+        }
         let report = crate::development::develop_season(&mut p.player, &ctx, &mut p.rng);
         // His spring snaps (OTAs, minicamp) land now as reps of the new
         // year, as they added to last season's snaps before.
