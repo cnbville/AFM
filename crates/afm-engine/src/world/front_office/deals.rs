@@ -119,6 +119,10 @@ pub struct Answer {
     pub counter: Option<Vec<Pick>>,
     /// Your chart's points for each side (what you give, what you get).
     pub points: (f64, f64),
+    /// Not close: he gets less than half of what he gives on his chart
+    /// (a lowball to a talk, live talks lane N5b).
+    #[serde(skip)]
+    pub far: bool,
 }
 
 /// Whether trades can be made today: from the new league year to the
@@ -372,6 +376,7 @@ pub fn evaluate(w: &World, p: &Proposal) -> Result<Answer, String> {
                 text: format!("{} has a no-trade clause and won't waive it to come to you.", w.people[i].name),
                 counter: None,
                 points: yours,
+                far: false,
             });
         }
     }
@@ -384,6 +389,7 @@ pub fn evaluate(w: &World, p: &Proposal) -> Result<Answer, String> {
             text: format!("{gm_name}, the {team} GM: \"We can do that.\""),
             counter: None,
             points: yours,
+            far: false,
         });
     }
     // Short: the cheapest of your picks (on your own chart) that closes the gap.
@@ -413,6 +419,7 @@ pub fn evaluate(w: &World, p: &Proposal) -> Result<Answer, String> {
                 text: format!("{gm_name}, the {team} GM: \"Add {} and we have a deal.\"", words.join(" and ")),
                 counter: Some(extra),
                 points: yours,
+                far: false,
             }
         }
         _ => Answer {
@@ -427,6 +434,7 @@ pub fn evaluate(w: &World, p: &Proposal) -> Result<Answer, String> {
             ),
             counter: None,
             points: yours,
+            far,
         },
     })
 }
