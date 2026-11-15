@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.552", date: "15 Nov", title: "Player page: when he can sign and his first day with you and 9 more",
+    notes: [
+      "College programs now spend on their support staff from what they really earn, and strength coaches, trainers and other support heads move between jobs like real people.",
+      "The richest athletic departments spend the most on staff and recruiting, with no ceiling per level.",
+      "Support staff heads have an age and a salary, and the best get hired away by programs and clubs that pay more.",
+      "A new head coach usually brings his own strength coach with him.",
+      "An interim head coach leaves the support staff as it is.",
+      "The star on a player's page now fills in once he's on your players, so you can tell at a glance.",
+    ],
+  },
+  {
     v: "0.2.541", date: "15 Nov", title: "NFL pay: records can jump, the elite out-earn the top, real markets by era (realism audit 1, 3, 4)",
     notes: [
       "The NFL's money now works like the real market: the very best at a position can set records far above everyone else, and clubs bid against each other for the top free agents.",
