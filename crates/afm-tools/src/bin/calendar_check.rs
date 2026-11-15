@@ -74,6 +74,9 @@ fn print_log(l: &CalendarLog) {
             format!("{} / {} / {}", l.official_visits, l.unofficial_visits, l.drop_ins),
         ),
         ("declared early / withdrew", format!("{} / {}", l.declared, l.withdrew)),
+        ("early entry by December round [read, declared, withdrew]", format!("{:?}", l.entry_by_round)),
+        ("declared with a degree", l.declared_graduates.to_string()),
+        ("early entrants drafted by round (8th: undrafted)", format!("{:?}", l.early_drafted)),
         (
             "portal entries / landed / returned",
             format!("{} / {} / {}", l.portal_entries, l.portal_landed, l.portal_returned),

@@ -48,7 +48,7 @@ const TAGS: &str = concat!(
 const HELD: &[&str] = &["saw_chart"];
 
 const FACTS: &str = concat!(
-    "amateur at_college at_hs at_pro boss boss_title came_up coach coach_last count count_next friend full games ",
+    "about amateur at_college at_hs at_pro boss boss_title came_up coach coach_last count count_next friend full games ",
     "gameday gone lead lead_last made mark met milestone money n n_words name not_hs nth_week old old_last ",
     "old_school opp other other_name other_short outlet player pos question rank rank_of record record_mark ",
     "result rival rival_last rivalry role scope score season series since since_year starters stars_now stars_was ",
@@ -361,6 +361,7 @@ fn asked() -> Vec<String> {
         v.push(format!("talk.point.ask.{q}"));
     }
     v.push("talk.point.again".into());
+    v.push("talk.point.open.plain".into());
     // Discipline on the facts (talk facts lane L8, discipline_facts.txt).
     for st in ["owns", "plays_down", "denies", "defiant", "shaken"] {
         v.push(format!("rules.speak.{st}"));

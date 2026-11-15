@@ -30,7 +30,7 @@ GOTO.fo_talk = (a) => [["Player page", "player", { id: a.id }], ["Deals and tags
 GOTO.fo_market = () => [["Front office", "fo_office"], ["Cap sheet", "fo_cap"], ["Deals and tags", "fo_expiring"], ["Squad", "roster"], ["Depth chart", "depth"]];
 GOTO.fo_trades = () => {
   const tr = foTrade();
-  return [["Front office", "fo_office"], ["Cap sheet", "fo_cap"], tr.team != null ? ["Their club", "team", { kind: "nfl", id: tr.team }] : null, ["Squad", "roster"]];
+  return [["Trade finder", "fo_finder"], ["Front office", "fo_office"], ["Cap sheet", "fo_cap"], tr.team != null ? ["Their club", "team", { kind: "nfl", id: tr.team }] : null, ["Squad", "roster"]];
 };
 GOTO.fo_moves = () => [["Front office", "fo_office"], ["Depth chart", "depth"], ["Squad", "roster"], ["Cap sheet", "fo_cap"]];
 function foHead(team, title, sub, extra = "") {
@@ -536,14 +536,14 @@ document.addEventListener("click", async (ev) => {
     case "claim": await foDo("fo_claim", { id, on: d.on === "1" }, d.on === "1" ? "Claim in." : "Claim withdrawn."); break;
     case "call": await foDo("fo_call", { k: Number(d.k), yes: d.yes === "1" }); break;
     case "block": await foDo("fo_block", { id, on: d.on === "1" }, "Off the block."); break;
+    // The trade finder shops him over days (TF1-TF19).
     case "shop": {
-      try {
-        const r = await api("fo_shop", { id });
-        foTrade().shop = { id, name: d.name, offers: r.offers };
-        foRedraw();
-      } catch (e) { toast(e.message || String(e)); }
+      const st = tfState();
+      Object.assign(st, { id, clubs: null, tab: "shop" });
+      go("fo_finder", { id });
       break;
     }
+    case "finder": go("fo_finder", {}); break;
     case "shoptake": {
       const tr = foTrade();
       Object.assign(tr, { team: Number(d.team), give: [id], givePicks: [], get: [], getPicks: JSON.parse(d.picks), cond: null, answer: null, shop: null });

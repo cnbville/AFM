@@ -496,6 +496,7 @@ const CONTACT_BOND: f64 = 0.05;
 pub(crate) fn portal_wants(w: &World) -> Option<PortalWants> {
     let j = super::program(w)?;
     let staff = mine(w, Duty::Portal).is_none();
+    let raised = 1.0 + crate::world::folk::staffing::recruit_bonus(w, j);
     let offers = w
         .front_office
         .college
@@ -512,7 +513,7 @@ pub(crate) fn portal_wants(w: &World) -> Option<PortalWants> {
                     // yours, Cain 2026-11-07).
                     nil: t.nil,
                     coll: t.nil_coll,
-                    bond: if t.contacted.is_some() { CONTACT_BOND } else { 0.0 } + super::portal::effort(t),
+                    bond: if t.contacted.is_some() { CONTACT_BOND } else { 0.0 } + super::portal::effort(t, raised),
                     promise: t.promise.map(|p| p.0),
                     // A talk still open counts: your case is written as you
                     // talk, before the talk goes on his list.
@@ -1001,6 +1002,13 @@ pub fn seed(w: &mut World, j: usize) {
         // The class signing next and the younger ones; a class that has
         // signed is the roster's now.
         if !matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) || p.class_of < next {
+            continue;
+        }
+        // A letter signed elsewhere binds him (walk-on places too): he
+        // isn't a recruit for you any more, so he never lands on the board
+        // you inherit. A verbal commitment elsewhere is another matter: it
+        // can flip, so he stays, shown as committed elsewhere.
+        if p.cal.signed.is_some_and(|s| s.program != j) {
             continue;
         }
         let signed = p.cal.signed.is_some_and(|s| s.program == j && !s.walk_on);
@@ -2116,7 +2124,21 @@ pub fn reset_board(w: &mut World, keep_commits: bool) -> Result<String, String> 
     }
     let text = pull_many(w, &ids)?;
     w.front_office.college.board.retain(|t| !(t.pulled.is_some() && ids.contains(&t.id)));
+    drop_signed_elsewhere(w, super::program(w).unwrap_or(usize::MAX));
     Ok(format!("{text} They're off your board."))
+}
+
+/// Takes off the board every inherited name who signed with another school:
+/// a signed letter binds him, so the old staff's offer to him is no
+/// business of yours. Commitments elsewhere stay (they can flip).
+fn drop_signed_elsewhere(w: &mut World, j: usize) {
+    let ids: Vec<u32> = w.front_office.college.board.iter().map(|t| t.id).collect();
+    let at = indices(w, &ids);
+    let people = &w.people;
+    w.front_office.college.board.retain(|t| {
+        t.by != Source::Inherited
+            || !at.get(&t.id).is_some_and(|&i| matches!(standing(&people[i], j), Standing::SignedElsewhere))
+    });
 }
 
 /// A new save that starts with no offers out (the setup's switch): the
@@ -2135,6 +2157,7 @@ pub fn start_clean(w: &mut World) -> (usize, usize) {
     }
     let gone: Vec<u32> = out.iter().map(|x| x.0).collect();
     w.front_office.college.board.retain(|t| !gone.contains(&t.id));
+    drop_signed_elsewhere(w, j);
     if n > 0 {
         let today = w.today;
         let school = w.programs[j].name(w.options.names).to_string();

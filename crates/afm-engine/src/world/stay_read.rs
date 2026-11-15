@@ -16,7 +16,8 @@
 //!   by how much he believes it ([`promise_belief`], the hook the promises
 //!   lane P1 fills), and holds him on its own;
 //! - a young starter with two seasons or more left;
-//! - a promise his head coach broke;
+//! - a promise his head coach broke (an AI head coach's too since the
+//!   promises lane P2);
 //! - trust in his current head coach, his mood today;
 //! - his NIL pay against the going rate at his level: an underpaid man
 //!   leans out, a well-paid one who wants out may stay for the money.
@@ -132,6 +133,10 @@ pub(crate) struct Ctx {
     /// confirmed): each division's reads are divided by their mean,
     /// weighted by the lean they act on.
     level: HashMap<Division, f64>,
+    /// The AI staffs' promises by player: an open playing-time one from
+    /// his current head coach (role, belief), and whether that coach broke
+    /// one (promises lane P2).
+    ai: HashMap<u32, (Option<(PlayingTime, f64)>, bool)>,
 }
 
 /// The money level a program pays at: Power 4, the rest of FBS, FCS, below.
@@ -183,19 +188,58 @@ impl Ctx {
             })
             .collect();
         let mine = super::front_office::program(w);
-        let mut ctx = Ctx { label, returning, nil_median, nil_era, mine, level: HashMap::new() };
+        let ai = super::folk::ai_promise::index(w);
+        let mut ctx = Ctx { label, returning, nil_median, nil_era, mine, level: HashMap::new(), ai };
+        ctx.levels(w);
+        ctx
+    }
+
+    /// Each division's level (the reads divided by their mean).
+    fn levels(&mut self, w: &World) {
+        let ctx = &*self;
         let mut sums: HashMap<Division, (f64, f64)> = HashMap::new();
         for i in readable(w) {
             let p = &w.people[i];
             let prev: f64 = p.cal.lean_events.iter().filter(|e| is_read(e.1)).map(|e| e.2).product();
             let lean = p.cal.lean / prev;
-            let f: f64 = raw(w, &ctx, i).iter().map(|x| x.1).product();
+            let f: f64 = raw(w, ctx, i).iter().map(|x| x.1).product();
             let s = sums.entry(w.programs[p.college.unwrap()].division).or_default();
             s.0 += lean * f;
             s.1 += lean;
         }
-        ctx.level = sums.into_iter().filter(|x| x.1.0 > 0.0).map(|(d, (a, b))| (d, b / a)).collect();
-        ctx
+        self.level = sums.into_iter().filter(|x| x.1.0 > 0.0).map(|(d, (a, b))| (d, b / a)).collect();
+    }
+
+    /// The window's day at the AI programs (promises lane P2): each head
+    /// coach's stay meeting may give a non-starter coming back his word on
+    /// a start next fall (`ai_promise::stay`); then the read sees it.
+    fn ai_stays(&mut self, w: &mut World) {
+        let mut asks: Vec<(usize, usize, Vec<f64>)> = Vec::new();
+        let open = super::folk::ai_promise::open_ids(w);
+        for i in readable(w) {
+            let p = &w.people[i];
+            let Some(c) = p.college else { continue };
+            if Some(c) == self.mine || p.last_role == Some(PlayingTime::Starter) {
+                continue;
+            }
+            let id = p.player.id;
+            if open.contains(&id) {
+                continue;
+            }
+            let Some(back) = self.returning.get(&(c, p.player.position.index())) else { continue };
+            if !back.iter().any(|x| x.0 == id) {
+                continue;
+            }
+            asks.push((i, c, back.iter().filter(|x| x.0 != id).map(|x| x.1).collect()));
+        }
+        let mut made = false;
+        for (i, c, others) in asks {
+            made |= super::folk::ai_promise::stay(w, i, c, &others).is_some();
+        }
+        if made {
+            self.ai = super::folk::ai_promise::index(w);
+            self.levels(w);
+        }
     }
 }
 
@@ -280,9 +324,9 @@ fn promised_role(kind: PromiseKind) -> Option<PlayingTime> {
     }
 }
 
-/// The current head coach's playing-time promises to him: (the best open
-/// one, any broken). Only yours exist (AI staffs make none yet, lane P2),
-/// and only the current head coach's count (Cain, item 5): a new job
+/// The current head coach's playing-time promises to him at your program:
+/// (the best open one, any broken). An AI head coach's are in `Ctx::ai`
+/// (lane P2). Only the current head coach's count (Cain, item 5): a new job
 /// clears the old ones (`takeover::begin`).
 fn promises<'a>(w: &'a World, ctx: &Ctx, i: usize) -> (Option<&'a super::folk::talks::Promise>, bool) {
     let p = &w.people[i];
@@ -350,8 +394,13 @@ fn raw(w: &World, ctx: &Ctx, i: usize) -> Vec<(&'static str, f64)> {
     let camp = p.cal.lean_events.first().filter(|e| super::college::CAMP_ROLES.contains(&e.1) && e.2 > 0.0);
     let next = next_fall(w, ctx, i);
     let changed = p.cal.lean_events.iter().any(|e| e.1 == super::college::COACH_GONE);
-    let (open, broken) = promises(w, ctx, i);
-    let word = open.and_then(|pr| promised_role(pr.kind).map(|r| (r, promise_belief(w, ctx, i, pr))));
+    let (word, broken) = if Some(c) == ctx.mine {
+        let (open, broken) = promises(w, ctx, i);
+        (open.and_then(|pr| promised_role(pr.kind).map(|r| (r, promise_belief(w, ctx, i, pr)))), broken)
+    } else {
+        // An AI head coach's word (promises lane P2), as yours.
+        ctx.ai.get(&p.player.id).map_or((None, false), |x| (x.0.map(|(r, b)| (r, b.clamp(0.2, 1.0))), x.1))
+    };
     if let Some(b0) = camp.map(|e| e.2) {
         // 2a: a new head coach hasn't seen him practice; the old staff's
         // role counts half, his own guess the other half.
@@ -443,7 +492,8 @@ pub(crate) fn apply(p: &mut super::Person, date: Date, parts: &[(&'static str, f
 
 /// Reads every college player with a lean today (a window's day).
 pub(crate) fn read_all(w: &mut World, label: i32) {
-    let ctx = Ctx::new(w, label);
+    let mut ctx = Ctx::new(w, label);
+    ctx.ai_stays(w);
     let today = w.today;
     let reads: Vec<(usize, Vec<(&'static str, f64)>)> = readable(w).map(|i| (i, read(w, &ctx, i))).collect();
     for (i, parts) in reads {

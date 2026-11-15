@@ -15,6 +15,7 @@
 pub mod chain;
 pub mod college;
 pub mod deals;
+pub mod finder;
 pub mod market;
 pub mod nfl;
 pub mod portal;
@@ -377,10 +378,12 @@ pub(crate) fn tell_links(w: &mut World, d: Date, text: String, decision: bool, w
 /// Your front office's day, after the world's own: reminders before
 /// deadlines, answers that came in, calls that expired, books that settle.
 pub(crate) fn day(w: &mut World, d: Date) {
+    deals::settle(w, d);
     if w.career.is_none() {
         return;
     }
     nfl::day(w, d);
+    finder::day(w, d);
     deals::day(w, d);
     roster::day(w, d);
     college::day(w, d);

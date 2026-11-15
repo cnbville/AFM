@@ -7,6 +7,15 @@ name: Mac app
 # ran past its hour. ci.yml checks that the app still compiles on every pull
 # request. Test-only data is skipped too: only afm-tools reads ab_real.json,
 # and the Python scripts make data files without being read by the game.
+#
+# Builds run side by side (Cain 2026-11-14): every merge to main gets its own
+# build and none replaces another that is waiting. GitHub gives a public
+# repository five Mac machines at once; a build takes two for its compile and
+# one for the bundle, so about two builds run together and the rest queue.
+# Builds can finish in any order, so each build only puts its dmg on its own
+# release (app-<run>, never marked latest). The last job, "publish", runs one
+# at a time and moves "latest" and the public downloads page forward to the
+# highest finished build, never back (.github/scripts/mac-publish.sh).
 on:
   push:
     branches: [main]
@@ -17,11 +26,6 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
-# One build at a time: a newer push waits, and replaces any push still
-# waiting, so the newest main is always the next one built.
-concurrency:
-  group: mac-app-${{ github.ref }}
-  cancel-in-progress: false
 jobs:
   # Each chip on its own machine at the same time. The engine is one big
   # compile per chip (codegen-units = 1), so the two builds one after the
@@ -134,36 +138,19 @@ jobs:
           name: AFM-mac
           path: app/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
           if-no-files-found: error
-      # On main, the dmg is also put on a release, so the newest app always has
-      # one plain download link: github.com/cnbville/AFM/releases/latest.
-      - name: Publish the release
+      # On main, the build's files go on a release of their own, never marked
+      # latest: the dmg, and the signed in-app update with its latest.json
+      # when signing is set up. The "publish" job below decides which build
+      # is the newest, so a build that finishes late can never become latest.
+      - name: Put the build on its own release
         if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="app-${{ github.run_number }}"
-          gh release create "$tag" app/src-tauri/target/universal-apple-darwin/release/bundle/dmg/AFM_universal.dmg \
-            --repo "${{ github.repository }}" --target "${{ github.sha }}" --latest \
-            --title "AFM for Mac (build ${{ github.run_number }})" \
-            --notes "The game for macOS, one app for Apple silicon and Intel. Unsigned: the first time, right-click AFM and choose Open."
-      # On main, the newest app also goes to the public downloads page
-      # (cnbville/afm-worlds, release "app-latest"): a download link that needs
-      # no GitHub sign-in, and latest.json, where the installed app looks for
-      # its updates. Needs the WORLDS_TOKEN secret.
-      - name: Publish the update
-        if: github.ref == 'refs/heads/main'
-        env:
-          GH_TOKEN: ${{ secrets.WORLDS_TOKEN }}
-        run: |
-          if [ -z "$GH_TOKEN" ]; then echo "No WORLDS_TOKEN secret yet: no public download or update."; exit 0; fi
-          repo=cnbville/afm-worlds
-          # A brand-new repository has no commit, and a release needs one.
-          gh api "repos/$repo/commits?per_page=1" > /dev/null 2>&1 || gh api -X PUT "repos/$repo/contents/README.md" \
-            -f message="Start the downloads page" \
-            -f content="$(printf '# AFM downloads\n\nReady-built worlds and the newest AFM for Mac. The game downloads from here by itself.\n' | base64 | tr -d '\n')"
           b=app/src-tauri/target/universal-apple-darwin/release/bundle
           v="0.2.${{ github.run_number }}"
-          url="https://github.com/$repo/releases/download/app-latest"
+          url="https://github.com/cnbville/afm-worlds/releases/download/app-latest"
           files="$b/dmg/AFM_universal.dmg"
           if [ -f "$b/macos/AFM.app.tar.gz.sig" ]; then
             jq -n --arg v "$v" --arg s "$(cat "$b/macos/AFM.app.tar.gz.sig")" --arg u "$url/AFM.app.tar.gz" \
@@ -171,7 +158,31 @@ jobs:
               '{version: $v, notes: $n, pub_date: $d, platforms: {"darwin-aarch64": {signature: $s, url: $u}, "darwin-x86_64": {signature: $s, url: $u}}}' > latest.json
             files="$files $b/macos/AFM.app.tar.gz latest.json"
           fi
-          gh release delete app-latest --repo "$repo" --cleanup-tag --yes || true
-          gh release create app-latest $files --repo "$repo" --latest=false \
-            --title "AFM for Mac $v" \
-            --notes "The newest AFM for Mac (one app for Apple silicon and Intel). First install: open the dmg, drag AFM to Applications, then right-click AFM and choose Open. After that it updates itself."
+          # Running this build's jobs again starts from a clean release.
+          gh release delete "$tag" --repo "${{ github.repository }}" --cleanup-tag --yes 2>/dev/null || true
+          gh release create "$tag" $files \
+            --repo "${{ github.repository }}" --target "${{ github.sha }}" --latest=false \
+            --title "AFM for Mac (build ${{ github.run_number }})" \
+            --notes "The game for macOS, one app for Apple silicon and Intel. Unsigned: the first time, right-click AFM and choose Open."
+  # Moves "latest" (github.com/cnbville/AFM/releases/latest) and the public
+  # downloads page (cnbville/afm-worlds, release "app-latest": the dmg and
+  # latest.json, where the installed app looks for its updates; needs the
+  # WORLDS_TOKEN secret) to the highest finished build, and never back. One
+  # run of this job at a time, on a cheap machine. If GitHub drops one that
+  # was waiting, nothing is lost: the next one reads the same releases.
+  publish:
+    needs: bundle
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: mac-app-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Move latest and the downloads page forward
+        env:
+          REPO: ${{ github.repository }}
+          AFM_TOKEN: ${{ github.token }}
+          WORLDS_TOKEN: ${{ secrets.WORLDS_TOKEN }}
+        run: bash .github/scripts/mac-publish.sh

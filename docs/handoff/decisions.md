@@ -382,7 +382,30 @@ Cain was asleep that night, so the threads made their own picks and marked them 
 
 Cain, 2026-11-13 10:09 UTC: players never see the depth chart; a promise can carry follow-up conditions ("ahead of X as long as you get 3 tackles a game"); whether he believes it is dynamic, not one trust rating. Live talks pick 7 is rejected. At 16:29 UTC he agreed to all 15 questions of the design (`docs/design/promises.md`, section 15). Its sizes (section 14) were confirmed 2026-11-14 ("agree on all").
 - **Built:** lane P1 (sections 2-9, 11, 12), 2026-11-14, overnight under the coordinator's proxy for Cain (`docs/reference/how-it-works/people.md`, "Promises he judges for himself"). Its 16 picks (week-4 start judging, fallback rates, 1.1x fair bar with 0.85x/1.7x offers, deliver to top of chart, real reason at half cost, help-find-place 1.5x, midseason deadline 1.5x, named teammate 1.15x, names carry to a new job, names fade weekly, NFL check on game totals, 16-day claim, lie cost scales with belief, follow-up sizes, 14 held chart lines, 3-week mood drop) were confirmed by Cain 2026-11-14 ("agree on all").
-- **Not built:** lane P2, AI staffs that promise (section 10; on the rebuild gate). The 49 new line parts go in the talk facts L12 run.
+- **Lane P2 built 2026-11-14:** AI staffs make and break promises (section 10; `world/folk/ai_promise.rs`, on the rebuild gate). Its sizes and picks are Claude's, proposed, not confirmed. The 49 new line parts go in the talk facts L12 run.
+
+## 22. Live talks rebuilt: everyone you talk to is a real person (thread "Rework live talks so the AI plays the player", 2026-11-14)
+
+Cain, 2026-11-14 20:22 UTC: the AI should play the person, never steer him to options already on screen, never be tied to the line bank. 20:24: "I want a architectural overhaul". 22:32: "You're proposal doesn't feel exhaustive enough", so version 3 covers every person, every talk of the year, football talk from the play log (his idea), every term, request and measure, and the rules around talking. Spec: `docs/design/live-talks-persona.md` (version 3).
+- **Agreed 22:02 UTC:** a typed line is never mapped onto a chip (rule LT1 dropped); two calls a line (the ear reads, the game decides, the voice answers as him).
+- **Agreed 22:12 UTC:** asking gets real information from what he knows, gated by his trust and honesty ("This has always been my fucking intent with this live feature"); deals you build from real game actions, which he weighs and counters ("good"); asking people to do things that become real actions ("good"); and all of it in every facet: "recruiting, player relationship, negotiating. Everything".
+- **His ideas (20:19 UTC):** custom football promises judged on the play log, and football knowledge in talks.
+- **Agreed 23:08 UTC (promises thread):** the 9 football promise items, as "a baseline for every position with their own promises, don't treat it like a kicker or edge fix". The spec's section 8.4 reads that for every position (proposed, not confirmed), and the promises thread builds from it.
+- **Go-ahead 23:27 UTC:** "18 hours it is": build lanes N0-N8 on the 18-hour plan (the shared types first, then N1, N3 and N4 side by side). The 14 questions are still unanswered, so the lanes follow Claude's picks in section 17 (proposed, not confirmed) until Cain answers.
+- **N0 mock-ups (23:34 UTC):** the first board, in plain Press Box panels, was "chaotic and no eye candy. Feels like letters thrown on a page". All six boards were redone in the look agreed for section 10 talks (the team's light behind glass, drawn heads, charts from the play log): https://claude.ai/artifact/9EPFSfZ8ysBHkZBwzEjAgj, sources in the project folder at `afm/live-talks/v3-mockups/`. His answer on the redo is open.
+- **Open:** the 14 questions in the spec's section 17 (version 3 replaces version 2's 11).
+
+## 23. The progression update: projects, the body limit and the knack (thread "Design the progression update", 2026-11-14)
+
+Cain, 15:22 UTC: "Making it worth taking risks". Spec: `docs/design/progression.md`, 17 items, all Cain's yes the same day (17:41 to 22:26 UTC).
+- **Agreed:** physical ceilings move on their own leashes with a hidden body knack (strength about +7 typical, +14 big responder; speed 1 at most, pounds cost speed at the combine's rate); vague clues only; technique room from his tools' rank plus 4 plus the tools-ahead gap; technique knack 1 in 5 / half / 1 in 3, one per kind of skill; each limit reads makeup too (toughness for tackling, hands for contested catch); body and skill projects can stack for extra wear; projects per room QB 1, RB 1, WR 2, TE 2, OL 2, DL 2, LB 1, CB 2, S 1; a quarter of the room a year with the knack; the click; no age rule through the senior or redshirt senior year; the focus's cost; AI staffs run projects by style (no sandbox switch, 21:47: "i just want a teeny tiny edge"); high school projects; your edge (AI reads clues less sharply, keeps dead ends a year longer); pro projects by pro season; converts keep their limits.
+- **Settled in section 24:** the trims and everyday growth.
+
+## 24. The split ceiling in all growth (thread "Design split ceilings for all progression", 2026-11-14/15)
+
+Cain, 2026-11-14 18:27 UTC: "i was hoping to have it be for everything". Spec: `docs/design/progression-everyday.md`, 12 items, Cain's "yes to all" on 2026-11-15 00:02 UTC, after the per-position test he asked for (21:37).
+- **Agreed:** everyday coaching closes room every year (a third of a project year, times knack, coach and snaps; no age rule in school); the limit lifts with natural rises (holding them back cut 80+ cover men 49 to 14); neglect lowers the everyday ceiling, never the limit; a falling limit never takes ratings away; a breakout closes room at the click's size; the normal weight room inside the leashes by the body knack; bug 385 fixed in the same build; gifts and the mental reads have no limit; limits for leg drive, pursuit, blitzing and throw on the move; makeup in the limit grows with him; one trim per skill family (2 to 5 points), sized again on a world; the build checks that a hit project moves draft stock, else scouts lean more on a position's key skills.
+- **Proposed, not confirmed:** everyday closing in the pros on the pro-season curve.
 
 ## Superseded decisions
 
@@ -390,6 +413,7 @@ Cain, 2026-11-13 10:09 UTC: players never see the depth chart; a promise can car
 |---|---|---|
 | TypeScript web app (Claude's default, never confirmed) | Rust engine in a desktop app (Q49) | 2026-10-11 |
 | Season calendar draft `season-calendar-and-pacing.md` ([T03]) | `docs/design/calendar.md` wherever they differ | 2026-10-14 |
+| Live talks rule LT1: a typed line becomes one of today's choices (2026-11-07) | Section 22: the ear reads what you did, the game decides, the voice answers as him | 2026-11-14 |
 | Q4: you coach the NFL only, college coaching later | One career that can start at a high school, a college or an NFL team | 2026-10-18 |
 | Calendar draft: one potential step per checkpoint | Breakouts can lift a ceiling up to ~10 a year | 2026-10-10 |
 | Calendar draft: at most 2 climax games, news held back 5 days | Climaxes only with real stakes, nothing held back (topic 8) | 2026-10-14 |

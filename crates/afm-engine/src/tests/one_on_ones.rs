@@ -512,3 +512,34 @@ fn your_moves_are_worded_by_the_bank() {
     // The straight move still says what your rules say.
     assert!(labels.iter().any(|l| l.to_lowercase().contains(&tp::book_says(&w, who, Level::College).to_lowercase())));
 }
+
+#[test]
+fn a_subject_chip_shows_its_moves_before_anything_is_said() {
+    let (mut w, _, v) = room(1);
+    let i = v[0];
+    let who = id(&w, i);
+    w.people[i].bg.gpa = 1.5;
+    let sh = claims::player(&w, i);
+    assert!(sh.get(K::Grades).is_some(), "his grades are a point");
+    let s = talk(&mut w, who, Subject::Role.into());
+    let before = s.clone();
+    // Looking at a chip says nothing and moves nothing, and it shows the
+    // moves the chip would put on the table.
+    let look = talks::turn_preview(&w, s.id, Topic::Point(K::Grades)).unwrap();
+    let after = w.folk.scenes.iter().find(|x| x.id == s.id).unwrap();
+    assert_eq!(after.lines.len(), before.lines.len(), "nothing said");
+    assert_eq!(after.b, before.b, "the talk hasn't turned");
+    assert_eq!(after.f, before.f, "nothing moved");
+    if let Some(picks) = &look {
+        assert!(!picks.is_empty());
+    }
+    // Turning to a point with no opening of its own names what you named,
+    // never its subject's line ("My future with this program...").
+    talks::change_topic(&mut w, s.id, Topic::Point(K::Grades)).unwrap();
+    let s = w.folk.scenes.iter().find(|x| x.id == s.id).unwrap();
+    let bank = crate::world::folk::voice::bank();
+    let said = s.lines.iter().rev().find(|l| l.by == 2).unwrap().text.clone();
+    assert!(!said.contains('{'), "{said}");
+    let future: Vec<String> = bank.versions("talk.open.future").iter().map(|x| x.0.to_string()).collect();
+    assert!(!future.contains(&said), "no future line on grades: {said}");
+}

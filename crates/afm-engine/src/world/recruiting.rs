@@ -849,44 +849,21 @@ pub(crate) fn draft_reads(w: &mut World) {
         let p = &mut w.people[i];
         p.cal.draft_read = Some(super::DraftRead { grade, score, round });
         p.cal.declare_plan = None;
+        p.cal.declare_why = None;
         if exhausted(p, &w.programs, draft_year) {
             continue;
         }
-        // His first lean; the advisory grade in mid-December decides it (B 37).
-        let chance = declare_chance(p, round, draft_year);
-        p.cal.declare_plan = Some(p.rng.chance(chance));
+        w.log.entry_by_round[round.clamp(1, 8) as usize - 1][0] += 1;
+        // His first lean; the advisory grade in mid-December decides it (B
+        // 37). Where he reads on the board, as a round on a smooth scale
+        // (1 the top pick, 8 just past the last one), so a player far below
+        // the draft leans home harder than one at its edge.
+        let place = 1.0 + 7.0 * (rank as f64 - 1.0) / slots as f64;
+        let lean = super::early_entry::lean(w, &w.people[i], place, draft_year);
+        let p = &mut w.people[i];
+        p.cal.declare_plan = Some(p.rng.chance(lean.chance));
+        p.cal.declare_why = Some(lean.why.code());
     }
-}
-
-/// An underclassman's chance to declare from his projected round (T3.1):
-/// projected high picks go; the rest mostly return. Family money pulls a
-/// mid-round prospect. About 80-150 underclassmen declare a year, and only
-/// a handful of them with no draft grade (NFL special-eligibility lists,
-/// 2019-2025; proposed, not confirmed).
-fn declare_chance(p: &Person, round: u32, draft_year: i32) -> f64 {
-    let chance = match round {
-        1 | 2 => 0.85,
-        3 | 4 => 0.35 + 0.02 * (p.family.decider_wants.money * 10.0),
-        5..=7 => 0.08,
-        _ => 0.0005,
-    };
-    // From 2021 staying is paid (part B 11): he weighs the NIL money he
-    // would give up against a year of his round's rookie pay, so a
-    // mid-round prospect earning well stays (real underclass entrants fell
-    // to about 58 in 2024). Rookie pay a year by round, roughly the 2024
-    // scale: about $4M in round 1, $1.6M in round 2, $1.2M in rounds 3-4,
-    // $1M later (proposed, not confirmed).
-    let rookie_year = match round {
-        1 => 4.0e6,
-        2 => 1.6e6,
-        3 | 4 => 1.2e6,
-        _ => 1.0e6,
-    };
-    let stay_pay = if super::ncaa::nil_era(draft_year - 1) { p.nil_income } else { 0.0 };
-    // Section 6 topic 1: an ambitious player goes sooner (proposed, not
-    // confirmed: up to a quarter more or less likely).
-    let ambition = 1.0 + 0.25 * p.player.personality.traits.z(crate::player::Trait::Ambition);
-    clamp(chance * clamp(1.0 - 0.6 * stay_pay / rookie_year, 0.25, 1.0) * ambition, 0.0, 0.97)
 }
 
 /// The NFL's College Advisory Committee returns its grades in mid-December
@@ -973,8 +950,12 @@ pub(crate) fn advisory_grades(w: &mut World) {
             p.cal.advisory = Some(guess as u8);
             guess
         };
-        let chance = clamp(declare_chance(p, round, draft_year) * talks[k], 0.0, 0.97);
+        // The middle of the round he is told.
+        let lean = super::early_entry::lean(w, &w.people[i], round as f64 + 0.5, draft_year);
+        let chance = clamp(lean.chance * talks[k], 0.0, 0.97);
+        let p = &mut w.people[i];
         p.cal.declare_plan = Some(p.rng.chance(chance));
+        p.cal.declare_why = Some(lean.why.code());
         if !sent[k] {
             continue;
         }
@@ -1110,6 +1091,21 @@ pub(crate) fn declarations(w: &mut World, phase: Declare) {
                     continue;
                 }
                 if p.cal.declare_plan != Some(true) {
+                    // A good prospect who stays says why (the early
+                    // entrants lane).
+                    if phase == Declare::Deadline && first_pass && read.round <= 3 {
+                        let why = p
+                            .cal
+                            .declare_why
+                            .and_then(super::early_entry::Why::from_code)
+                            .map_or(String::new(), |y| format!(", weighing most {}", y.text()));
+                        let p = &mut w.people[i];
+                        let age = p.row_age();
+                        p.note(format!(
+                            "At {age} he chose to stay in school another year (projected round {}{why}).",
+                            read.round
+                        ));
+                    }
                     continue;
                 }
                 // Each announces on his own day (part D 17): one who opted
@@ -1138,8 +1134,18 @@ pub(crate) fn declarations(w: &mut World, phase: Declare) {
                 let round = read.round;
                 let proj =
                     if round <= 7 { format!("projected round {round}") } else { "projected to go undrafted".into() };
-                p.note(format!("Declared early for the NFL draft at {age} ({proj})."));
+                let why = p
+                    .cal
+                    .declare_why
+                    .and_then(super::early_entry::Why::from_code)
+                    .filter(|&y| y != super::early_entry::Why::Slot)
+                    .map_or(String::new(), |y| format!(", weighing most {}", y.text()));
+                p.note(format!("Declared early for the NFL draft at {age} ({proj}{why})."));
                 w.log.declared += 1;
+                w.log.entry_by_round[round.clamp(1, 8) as usize - 1][1] += 1;
+                if p.cal.graduated {
+                    w.log.declared_graduates += 1;
+                }
                 bump_day(&mut w.log.declared_by_day, date);
                 let loud = if round == 1 { Loudness::Medium } else { Loudness::Small };
                 events.push((
@@ -1153,7 +1159,15 @@ pub(crate) fn declarations(w: &mut World, phase: Declare) {
             Declare::Withdraw => {
                 // A player who opted out of the postseason for the draft has
                 // left college football: he stays in.
-                if p.stage != Stage::Declared || exhausted(p, &w.programs, draft_year) || p.cal.opted_out {
+                // Only an early entrant can withdraw: a senior who passed on
+                // his extra COVID year has left college football (before
+                // the early entrants lane, thousands of them "withdrew"
+                // and went back to school each year from 2021 to 2024).
+                if p.stage != Stage::Declared
+                    || exhausted(p, &w.programs, draft_year)
+                    || p.cal.opted_out
+                    || p.cal.declare_plan != Some(true)
+                {
                     continue;
                 }
                 let Some(read) = p.cal.draft_read else { continue };
@@ -1174,6 +1188,7 @@ pub(crate) fn declarations(w: &mut World, phase: Declare) {
                         "Withdrew from the draft at {age} after a poor advisory grade and returned to school."
                     ));
                     w.log.withdrew += 1;
+                    w.log.entry_by_round[read.round.clamp(1, 8) as usize - 1][2] += 1;
                     bump_day(&mut w.log.withdrew_by_day, date);
                     if let Some(c) = p.college {
                         events.push((
@@ -1908,6 +1923,15 @@ pub(crate) fn draft_end(
     let slots = board.len();
     // What it took to go in rounds 1-2 and 3-4 this year, as overall ratings:
     // staffs read their own underclassmen against it (fix list 1.2).
+    // Early entrants by where they went (the entry check).
+    let early = |p: &Person| p.cal.declare_plan == Some(true) && !exhausted(p, &w.programs, draft_year);
+    for &(i, pk, _, _) in &picked {
+        if early(&w.people[i]) {
+            w.log.early_drafted[board[pk as usize - 1].1.clamp(1, 7) as usize - 1] += 1;
+        }
+    }
+    let early_left = pool.iter().filter(|x| early(&w.people[x.0])).count() as u32;
+    w.log.early_drafted[7] += early_left;
     let mut drafted: Vec<f64> = picked.iter().map(|x| w.people[x.0].player.overall()).collect();
     drafted.sort_by(|a, b| b.total_cmp(a));
     if !drafted.is_empty() {
@@ -7188,6 +7212,9 @@ pub(crate) fn enroll(w: &mut World, early: bool) {
             continue;
         }
         let name = w.program_name(s.program).to_string();
+        // An AI head coach's word to him goes in the book before the
+        // schools' cases are settled (promises lane P2).
+        super::folk::ai_promise::log_recruit(w, i, s.program);
         let p = &mut w.people[i];
         if p.stage == Stage::College {
             // A junior college player moving up keeps two seasons at most behind him.
@@ -8513,7 +8540,10 @@ fn suitors(
                 + fit
                 + bond
                 + money.extra(nil)
-                + super::folk::dialogue::staff_call(wr, i, j, role, nil);
+                + super::folk::dialogue::staff_call(wr, i, j, role, nil)
+                // Its head coach's word on his role, as far as he believes
+                // it (promises lane P2).
+                + super::folk::ai_promise::transfer(wr, i, j, role).map_or(0.0, |x| x.1);
             Some((j, u, nil, role, perf - median(d), fit))
         })
         .collect()
@@ -9107,6 +9137,8 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         let (stars, starter, name) =
             (w.people[i].stars, w.people[i].last_role == Some(PlayingTime::Starter), w.people[i].name.clone());
         landings.push((i, j));
+        // An AI head coach's word to him goes in the book (promises lane P2).
+        super::folk::ai_promise::log_transfer(w, i, j, role);
         let p = &mut w.people[i];
         p.pending_dip = Some(World::adjustment(p, step));
         p.college = Some(j);
@@ -9779,6 +9811,9 @@ pub(crate) fn appeal(w: &World, i: usize, j: usize, nil: Option<f64>) -> f64 {
     appeal_in(w, i, j, nil, &money_field(w, i, None))
 }
 
+/// What an official visit adds to a school's appeal: the weekend on campus.
+const OFFICIAL_PULL: f64 = 0.02;
+
 /// [`appeal`] with the money on his list read already ([`money_field`]).
 fn appeal_in(w: &World, i: usize, j: usize, nil: f64, field: &TopTwo) -> f64 {
     let p = &w.people[i];
@@ -9799,7 +9834,10 @@ fn appeal_in(w: &World, i: usize, j: usize, nil: f64, field: &TopTwo) -> f64 {
     u += FEEL_SD * key_normal(seed ^ 77 ^ j as u64, p.player.id as u64);
     let contact = p.cal.visits.iter().filter(|v| v.0 == j).count().min(5) as f64;
     let official = p.cal.visits.iter().any(|v| v.0 == j && v.2 == super::Visit::Official);
-    u += 0.004 * contact + if official { 0.02 } else { 0.0 };
+    // The official visit's weekend; your athletic director's raises for
+    // travel and visits host it better (people topic 12).
+    u += 0.004 * contact
+        + if official { OFFICIAL_PULL * (1.0 + super::folk::staffing::recruit_bonus(w, j)) } else { 0.0 };
     // What the head coach said in the living room (lane 14, D7).
     u += super::folk::dialogue::home_talk(p, j);
     if let Some(k) = p.cal.early_offers.iter().position(|o| o.0 == j) {

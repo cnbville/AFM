@@ -601,7 +601,13 @@ pub fn say(w: &mut World, id: u32, mut heard: Heard, confirmed: bool) -> Result<
     } else {
         heard.pick
     };
-    let p = options(s).into_iter().find(|p| p.code == code).ok_or("That answer isn't on the table.")?;
+    // A talk's move may be said in any tone (screens topic 8), typed as
+    // clicked (`talks::same_move`).
+    let talk = s.kind == Kind::OneOnOne;
+    let p = options(s)
+        .into_iter()
+        .find(|p| p.code == code || talk && super::talks::same_move(p.code, code))
+        .ok_or("That answer isn't on the table.")?;
     if asks_first(s, p) && !confirmed {
         return Err(ASK_FIRST.into());
     }
@@ -613,11 +619,16 @@ pub fn say(w: &mut World, id: u32, mut heard: Heard, confirmed: bool) -> Result<
         heard.promise = Some(p);
     }
     let promise = heard.promise.clone().zip(super::claims::truth::your_player(w, s));
-    let out = land(w, id, code, Some(heard))?;
-    if let Some((p, him)) = promise {
+    let (facts, before) = (heard.facts.clone(), super::claims::check::before(w, s));
+    let made = w.folk.promises.len();
+    land(w, id, code, Some(heard))?;
+    // The pick's own answer logs a promise on the reading's terms when it
+    // makes one (a one-on-one's promise); the line adds none beyond it.
+    if let Some((p, him)) = promise.filter(|_| w.folk.promises.len() == made) {
         super::talks::typed_promise(w, id, him, &p);
     }
-    Ok(out)
+    super::claims::check::landed(w, id, &facts, before);
+    w.folk.scenes.iter().find(|s| s.id == id).cloned().ok_or_else(|| "No such meeting.".into())
 }
 
 /// Lands an answer, clicked (`heard` none) or typed. The scene is written

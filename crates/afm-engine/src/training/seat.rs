@@ -1120,6 +1120,53 @@ pub fn own_week(base: &Week, plan: &Plan, hurt: bool, does_extra: bool) -> Week 
     wk
 }
 
+/// Whether a period's minutes work a focus (individual practice, topic
+/// 5.4): his position's individual work, one-on-ones, kicking stations,
+/// ball security, routes on air and the young players' period; for a
+/// mental skill the film room, installs and position meetings instead.
+fn works_focus(p: &Period, mental: bool) -> bool {
+    if mental {
+        matches!(p.kind, Kind::Film | Kind::Install | Kind::VrReps | Kind::Vision)
+            || (p.kind == Kind::Meeting && p.what == 2)
+    } else {
+        matches!(
+            p.kind,
+            Kind::Individual | Kind::OneOnOnes | Kind::KickStations | Kind::BallSecurity | Kind::OnAir | Kind::Young
+        )
+    }
+}
+
+/// The minutes a week a focus gets (individual practice, topic 5b;
+/// proposed, not confirmed): the position coach gives it the usual 30 of a
+/// neutral week's individual time, more or fewer as his own week has more
+/// or less of it (his reps in each period), and every minute of his own
+/// extra work after practice goes to it. On his own time, what he works
+/// on alone: 20 minutes times his own effort.
+pub fn focus_minutes(
+    mine: &Week,
+    neutral: &Week,
+    extra: &Week,
+    role: Role,
+    camp: bool,
+    mental: bool,
+    own_effort: Option<f64>,
+) -> f64 {
+    if let Some(e) = own_effort {
+        return 20.0 * e;
+    }
+    let mins = |wk: &Week| -> f64 {
+        wk.days
+            .iter()
+            .flat_map(|d| &d.periods)
+            .filter(|p| works_focus(p, mental))
+            .map(|p| p.min as f64 * super::work::reps(p.who, role, camp))
+            .sum()
+    };
+    let usual = mins(neutral);
+    let base = if usual > 0.0 { crate::development::USUAL_FOCUS_MINUTES * mins(mine) / usual } else { 0.0 };
+    base + (mins(extra) - mins(mine)).max(0.0)
+}
+
 /// What a week's non-contact periods do beyond growth and prep (proposed,
 /// not confirmed): a third morning of mat drills costs mood (TR6); routes
 /// on air warm the quarterback's timing with his receivers (TR20); outings
@@ -1351,6 +1398,18 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
         // Extra work he says he'll do: whether he really does it.
         let does = does_extra(p, seed);
         let mine = own_week(&pw.week, &plan, hurt, does);
+        // The minutes his focus gets this week (individual practice, topic 5b).
+        let focus_of = focus.get(&i).map(|&a| {
+            let mental = family_of(a) == Family::Mental;
+            let own = if absent || own_time {
+                Some(super::offseason::own_effort(&p.player, p.pro.as_ref().is_some_and(|c| c.paid), false))
+            } else {
+                None
+            };
+            let plain = own_week(&pw.week, &plan, hurt, false);
+            let m = focus_minutes(&plain, &pw.neutral, &mine, role, camp, mental, own);
+            crate::development::Focus::new(a, m)
+        });
         let r = if absent {
             // Not at a voluntary week: his own work, as on his own time.
             [super::offseason::own_effort(&p.player, p.pro.as_ref().is_some_and(|c| c.paid), false); FAMILIES]
@@ -1401,6 +1460,9 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
         }
         let p = &mut w.people[i];
         p.player.train.add_load(load);
+        if let Some(f) = focus_of {
+            p.player.train.add_focus_minutes(f.minutes);
+        }
         let prev = super::prep::latest(&p.player.train);
         super::prep::record(&mut p.player, pr.word, pr.mental);
         if pr.status == super::prep::Status::Out {
@@ -1429,7 +1491,7 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
                 s[f] += due[f];
             }
             let before = p.player.attributes;
-            let gain = land(&mut p.player, &s, focus.get(&i).copied(), seed);
+            let gain = land(&mut p.player, &s, focus_of, seed);
             if let Some(m) = moved.iter_mut().find(|m| m.0 == id) {
                 m.1 += gain as f32;
             } else {

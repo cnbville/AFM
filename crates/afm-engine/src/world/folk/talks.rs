@@ -1314,6 +1314,36 @@ pub fn change_subject(w: &mut World, id: u32, subject: Subject) -> Result<(), St
     change_topic(w, id, subject.into())
 }
 
+/// What a chip would put on the table, before you turn the talk (read only:
+/// nothing is said and nothing moves). The moves are the topic's own, with
+/// their tones. None: he would ask you something first, so there is no move
+/// to set yet and the chip only turns the talk.
+pub fn turn_preview(w: &World, id: u32, topic: Topic) -> Result<Option<Vec<Pick>>, String> {
+    let s = w.folk.scenes.iter().find(|s| s.id == id).ok_or("No such talk.")?;
+    if s.done || s.kind != Kind::OneOnOne || !s.opened {
+        return Err("That talk isn't going on.".into());
+    }
+    let Some(i) = super::person(w, s.a as u32) else { return Err("He's gone.".into()) };
+    if topic == Topic::Subject(Subject::Friend) && friend_gone(w, s.a as u32).is_none() {
+        return Err("That's behind him now.".into());
+    }
+    let sheet = claims::player(w, i);
+    let point = match topic {
+        Topic::Point(k) => Some(sheet.known().find(|p| p.kind == k).ok_or("That's behind him now.")?),
+        Topic::Subject(_) => None,
+    };
+    let talked = point.is_some_and(|p| s.made.iter().any(|x| x.0 == p.kind.key()));
+    if point.is_some_and(|p| !talked && tp::question(w, i, p).is_some()) {
+        return Ok(None);
+    }
+    let used: Vec<Move> =
+        Move::ALL.iter().enumerate().filter(|(k, _)| s.c & (1 << (2 + k)) != 0).map(|x| *x.1).collect();
+    let mut table = s.clone();
+    table.picks.clear();
+    add_picks(w, &mut table, i, topic, &used);
+    Ok(Some(table.picks))
+}
+
 /// You turn a one-on-one to another subject or one of his talking points
 /// (a chip): he answers on it now in his stance, and the talk goes on.
 pub fn change_topic(w: &mut World, id: u32, topic: Topic) -> Result<(), String> {
@@ -1347,6 +1377,8 @@ pub fn change_topic(w: &mut World, id: u32, topic: Topic) -> Result<(), String> 
         }
         _ => subject.name().to_string(),
     };
+    // The same words in his own mouth ("his grades" is "my grades").
+    let about_mine = about.split(' ').map(|x| if x == "his" { "my" } else { x }).collect::<Vec<_>>().join(" ");
     let about = about.split(' ').map(|x| if x == "his" { "your" } else { x }).collect::<Vec<_>>().join(" ");
     s.you(&scene::your_name(w), format!("Let's talk about {about}."));
     let spk = Speaker::player(w, i);
@@ -1364,6 +1396,17 @@ pub fn change_topic(w: &mut World, id: u32, topic: Topic) -> Result<(), String> 
     let line = match (&point, stance) {
         (Some(p), Some(st)) => point_open(&mut pen, p, st, good, &spk, &f),
         _ => String::new(),
+    };
+    // A point with no opening of its own opens plainly on what you named,
+    // never on its subject's line: "your grades" is not "My future with this
+    // program, what is it?".
+    let line = match (&point, line.is_empty(), good) {
+        (Some(_), true, false) => {
+            f.set("about", about_mine);
+            let l = pen.line(&["talk.point.open.plain"], &spk, &f);
+            if l.is_empty() { "Sure, Coach.".into() } else { l }
+        }
+        _ => line,
     };
     let line = match (line.is_empty(), good) {
         (false, _) => line,
@@ -1934,29 +1977,121 @@ pub(crate) fn position_coach_now(w: &World, i: usize) -> Option<usize> {
     here(prog.position_coaches[group as usize]).or_else(|| here(coordinator)).or_else(|| here(prog.head_coach))
 }
 
-/// Whether a one-on-one takes typed lines (live talks). False until lane 9
-/// fills `one_on_one_say`; then the box shows there too.
-pub const ONE_ON_ONE_TYPED: bool = false;
+/// Whether a one-on-one takes typed lines (live talks lane 9): yes.
+pub const ONE_ON_ONE_TYPED: bool = true;
 
-/// A typed line in a one-on-one (live talks lane 9, LT1): the option it
-/// lands on, from the reading's point, move and tone, with the chip's own
-/// rule that any tone of a move on the table can be taken (`same_move`).
-/// The core leaves it empty: no option, so `scene::say` refuses the line
-/// and the chips stay.
-pub fn one_on_one_say(_w: &World, _s: &Scene, _heard: &super::scene::Heard) -> Option<u32> {
-    None
+/// A tone by its name, as the reader gives it.
+fn tone_named(name: &str) -> Option<Tone> {
+    [Tone::Calm, Tone::Warm, Tone::Firm, Tone::Fiery].into_iter().find(|t| t.name() == name)
 }
 
-/// A promise a typed line made to your player, or a claim about where he
-/// stands heard as one (`claims::truth::standing_promise`): the seam lane
-/// P1 fills (the promise design, agreed 2026-11-13: his belief now, the
-/// terms of section 3, judged on his next 2 practice weeks and 2 games). It
-/// logs nothing yet, so a typed line costs and keeps what its chip does.
-pub fn typed_promise(w: &mut World, _scene: u32, him: u32, p: &super::scene::PromiseRead) {
-    use super::promise::{By, Cond, Terms};
-    let Some(i) = super::person(w, him) else { return };
+/// A typed line in a one-on-one (live talks lane 9, LT1): the option it
+/// lands on. The reader picked one of the options on the table (`heard.
+/// pick`) and the tone it was said in; a move lands in that tone, by the
+/// chip's own rule that any tone of a move on the table can be taken
+/// (`same_move`). An answer to his question, a promise answer, your word on
+/// his future and ending the talk land as they are. None: the option isn't
+/// on the table, so `scene::say` refuses the line and the chips stay.
+pub fn one_on_one_say(_w: &World, s: &Scene, heard: &super::scene::Heard) -> Option<u32> {
+    let p = scene::options(s).into_iter().find(|p| p.code == heard.pick)?;
+    Some(match (decode(p.code), tone_named(&heard.tone)) {
+        (Some((m, _)), Some(t)) => code_of(m, t),
+        _ => p.code,
+    })
+}
+
+/// Where a typed line can turn a one-on-one (live talks lane 9): another of
+/// his points or subjects you could raise with a chip (`subjects_for`), and
+/// the move it would land on there. A move is None when the line only turns
+/// the talk: he would ask you something first (a point with a question), so
+/// no move is on that table yet.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Turn {
+    pub topic: Topic,
+    pub mv: Option<Move>,
+    /// The chip's words: the topic's name, and the move's own words on it.
+    pub label: String,
+    /// The move's code on that table (its offered tone), when it has one.
+    pub code: Option<u32>,
+    /// It can't be undone (a promise), so a typed line asks first.
+    pub fin: bool,
+}
+
+/// The topics a typed line can turn to and the moves on each, in the
+/// chips' order (`subjects_for`), the talk's own topic left out.
+pub fn typed_turns(w: &World, s: &Scene) -> Vec<Turn> {
+    let mut out = Vec::new();
+    if s.kind != Kind::OneOnOne || s.done || !s.opened {
+        return out;
+    }
+    let id = s.a as u32;
+    let Some(i) = super::person(w, id) else { return out };
+    let now = Topic::of(s.b);
+    let sheet = claims::player(w, i);
+    let used: Vec<Move> =
+        Move::ALL.iter().enumerate().filter(|(k, _)| s.c & (1 << (2 + k)) != 0).map(|x| *x.1).collect();
+    for (key, name) in subjects_for(w, id) {
+        let Some(topic) = Topic::from_key(key) else { continue };
+        if topic == now {
+            continue;
+        }
+        let point = topic.point().and_then(|k| sheet.known().find(|p| p.kind == k));
+        let talked = point.is_some_and(|p| s.made.iter().any(|x| x.0 == p.kind.key()));
+        let name = super::plain(&name);
+        if point.is_some_and(|p| !talked && tp::question(w, i, p).is_some()) {
+            out.push(Turn { topic, mv: None, label: format!("Turn the talk to: {name}"), code: None, fin: false });
+            continue;
+        }
+        let mut table = s.clone();
+        table.picks.clear();
+        add_picks(w, &mut table, i, topic, &used);
+        for p in &table.picks {
+            let Some((m, _)) = decode(p.code) else { continue };
+            out.push(Turn {
+                topic,
+                mv: Some(m),
+                label: format!("{name}: {}", super::plain(&p.label)),
+                code: Some(p.code),
+                fin: scene::asks_first(&table, p),
+            });
+        }
+    }
+    out
+}
+
+/// A typed line that turns the talk (live talks lane 9): the talk turns to
+/// the topic as its chip turns it (`change_topic`), and the move the line
+/// made is then the option it lands on there, if that move is on the new
+/// table (Some(code), in the offered tone). Ok(None): the line only turned
+/// the talk (he asks you something first, or the move isn't there).
+pub fn typed_turn(w: &mut World, id: u32, topic: Topic, mv: Option<Move>) -> Result<Option<u32>, String> {
+    change_topic(w, id, topic)?;
+    let s = w.folk.scenes.iter().find(|s| s.id == id).ok_or("No such talk.")?;
+    Ok(mv.and_then(|m| s.picks.iter().find(|p| decode(p.code).is_some_and(|x| x.0 == m)).map(|p| p.code)))
+}
+
+/// A topic as one small number, for a reading that waits (never saved):
+/// a subject's index, or 8 and up for a kind of point.
+pub fn topic_slot(t: Topic) -> u32 {
+    match t {
+        Topic::Subject(s) => s as u32,
+        Topic::Point(k) => 8 + PointKind::ALL.iter().position(|x| *x == k).unwrap_or(0) as u32,
+    }
+}
+
+pub fn topic_of_slot(n: u32) -> Option<Topic> {
+    if n < 8 {
+        return Subject::EVERY.get(n as usize).map(|s| Topic::Subject(*s));
+    }
+    PointKind::ALL.get((n - 8) as usize).map(|k| Topic::Point(*k))
+}
+
+/// What a promise read from a typed line is, for your player (live talks
+/// lane 9; lane P1's terms): its kind from the reading, not from a chip's
+/// label. A place keeps the rank the chip works out.
+fn read_kind(w: &World, i: usize, p: &super::scene::PromiseRead) -> Option<PromiseKind> {
     let rank = if is_starter(w, i) { 0 } else { w.people[i].last_role.map_or(PlayingTime::Backup as u8, |r| r as u8) };
-    let kind = match p.kind.as_str() {
+    Some(match p.kind.as_str() {
         "start" | "ahead_of" => PromiseKind::Start,
         "role" => PromiseKind::Snaps,
         "touches" => PromiseKind::Touches,
@@ -1964,14 +2099,17 @@ pub fn typed_promise(w: &mut World, _scene: u32, him: u32, p: &super::scene::Pro
         "place" => PromiseKind::Place(rank),
         "contract" => PromiseKind::Contract,
         "stay" => PromiseKind::Stay,
-        _ => return,
-    };
-    // A claim about where he stands is judged on his next 2 practice weeks
-    // and 2 games (section 11): from now, to the end of three weeks.
+        _ => return None,
+    })
+}
+
+/// The terms a promise read from a typed line carries (the promise design,
+/// section 3): by when, on what condition, ahead of whom.
+fn read_terms(w: &World, i: usize, kind: PromiseKind, p: &super::scene::PromiseRead) -> super::promise::Terms {
+    use super::promise::{By, Cond, Terms};
     let by = match p.by.as_str() {
         "midseason" => By::Midseason,
         "next_season" => By::NextSeason,
-        "opener" | "next_game" | "this_season" | "" => By::Now,
         _ => By::Now,
     };
     let cond = match p.condition.as_str() {
@@ -1993,6 +2131,17 @@ pub fn typed_promise(w: &mut World, _scene: u32, him: u32, p: &super::scene::Pro
             t.bar = n;
         }
     }
+    t
+}
+
+/// A promise a typed line made to your player, or a claim about where he
+/// stands heard as one (`claims::truth::standing_promise`), when the pick's
+/// own answer logged none (lane P1: his belief now, the terms of section 3,
+/// judged on his next 2 practice weeks and 2 games).
+pub fn typed_promise(w: &mut World, _scene: u32, him: u32, p: &super::scene::PromiseRead) {
+    let Some(i) = super::person(w, him) else { return };
+    let Some(kind) = read_kind(w, i, p) else { return };
+    let t = read_terms(w, i, kind, p);
     promise(w, PromiseTo::Player(him), kind, 0);
     let k = w.folk.promises.len() - 1;
     set_terms(w, k, t);
@@ -2004,6 +2153,34 @@ pub fn typed_promise(w: &mut World, _scene: u32, him: u32, p: &super::scene::Pro
             x.due = d;
         }
     }
+}
+
+/// The promise a typed line on a promise pick makes (live talks lane 9):
+/// the reading's kind and terms, else the chip's kind and none.
+fn typed_kind(w: &World, s: &Scene, i: usize) -> Option<(PromiseKind, super::promise::Terms)> {
+    let p = s.heard.as_ref()?.promise.as_ref()?;
+    let kind = read_kind(w, i, p)?;
+    Some((kind, read_terms(w, i, kind, p)))
+}
+
+/// A typed line stated a fact he knows is false as you say it (live talks
+/// lane 9; the promise design, section 11): the move rests against the
+/// facts, so its lift is lost and it costs trust, as a warning to a man who
+/// did nothing does. A claim about where he stands is a promise, and a fact
+/// the game can't check counts for nothing. Praise is priced by how true it
+/// rings already (`praise_truth`), so it takes no second cost.
+fn typed_against(w: &World, s: &Scene, i: usize, m: Move, mut rest: Rest) -> (Rest, bool) {
+    let Some(h) = s.heard.as_ref() else { return (rest, false) };
+    if m == Move::Praise {
+        return (rest, false);
+    }
+    let caught = h.facts.iter().any(|f| claims::check::fact(w, s, f) == claims::truth::Truth::False);
+    if caught {
+        let ego = w.people[i].player.personality.traits.z(Trait::Ego);
+        rest.against = true;
+        rest.cost = rest.cost.max(claims::sheet::Basis::Against.trust_cost(ego));
+    }
+    (rest, caught)
 }
 
 /// Whether a code is a talk move with another tone than the one offered
@@ -2143,6 +2320,7 @@ fn one_on_one_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     let sheet = claims::player(w, i);
     let point = topic.point().and_then(|k| sheet.get(k)).cloned();
     let rest = tp::rest(w, i, &sheet, topic, m, revealed);
+    let (rest, caught) = typed_against(w, s, i, m, rest);
     let (dt, dm) = landing(w, i, m, t, subject, rest, s.id as u64 ^ (s.step as u64) << 8);
     s.f[0] += dt;
     s.f[1] += dm;
@@ -2165,10 +2343,13 @@ fn one_on_one_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     // A promise: he answers by how far he believes it (the promises design,
     // section 5, question 14): good believes, flat isn't sure, bad doubts;
     // a man who'd have it anyway says so.
-    let pkind = (m == Move::Promise).then(|| move_promise_kind(w, i, topic, picked));
+    // A typed promise is the reading's kind and terms (live talks lane 9).
+    let typed = if m == Move::Promise { typed_kind(w, s, i) } else { None };
+    let pkind = (m == Move::Promise).then(|| typed.map_or_else(|| move_promise_kind(w, i, topic, picked), |x| x.0));
+    let terms = typed.map(|x| x.1).unwrap_or_default();
     let knows = pkind.is_some_and(|k| super::promise::knows(w, i, k));
     let outcome = match pkind {
-        Some(k) => super::promise::band(super::promise::belief_own(w, i, k, &Default::default(), 0)),
+        Some(k) => super::promise::band(super::promise::belief_own(w, i, k, &terms, 0)),
         None => outcome,
     };
     f.set("went", outcome);
@@ -2273,7 +2454,9 @@ fn one_on_one_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     if let Some(l) = s.lines.last_mut().filter(|l| l.by == 2) {
         l.went = Some(went_words(w, dt, dm));
     }
-    if rest.against {
+    if caught {
+        s.outcome.push(format!("{name} knows that isn't so."));
+    } else if rest.against {
         s.outcome.push(format!("{name} knows he did nothing to deserve that."));
     }
     // What you said on a point, kept for the talk's end (`Talked`).
@@ -2285,6 +2468,10 @@ fn one_on_one_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         (Move::Promise, _) => {
             let kind = pkind.unwrap_or(PromiseKind::Start);
             promise(w, PromiseTo::Player(id), kind, 0);
+            if typed.is_some() {
+                let k = w.folk.promises.len() - 1;
+                set_terms(w, k, terms);
+            }
             s.outcome.push(format!("You promised {} {}.", name, kind.words()));
         }
         (Move::Warn, _) => {
@@ -3119,6 +3306,10 @@ fn answer_question(w: &mut World, s: &mut Scene, i: usize, a: Answer, picked: &P
     s.you(&scene::your_name(w), picked.label.clone());
     let m = tp::answer_move(a);
     let rest = rest_now(w, i, s, m.unwrap_or(Move::Straight));
+    let (rest, caught) = typed_against(w, s, i, m.unwrap_or(Move::Straight), rest);
+    // A softened answer or a dodge is sized on its own and rests on nothing.
+    let caught = caught && m.is_some();
+    let typed = if a == Answer::Promise { typed_kind(w, s, i) } else { None };
     s.c &= !(QUESTION | JOB_QUESTION);
     // Answering straight or with a promise uses that move for this talk: the
     // point doesn't offer it again (a promise lands once).
@@ -3177,18 +3368,26 @@ fn answer_question(w: &mut World, s: &mut Scene, i: usize, a: Answer, picked: &P
         l.went = Some(went_words(w, dt, dm));
     }
     made(s, key, a.key(), dt + dm);
+    if caught {
+        s.outcome.push(format!("{name} knows that isn't so."));
+    }
     // A promise: a start for a benched man, your word for your job; on a
-    // promise already open, your word again (nothing new is logged).
+    // promise already open, your word again (nothing new is logged). Typed,
+    // the reading's kind and terms (live talks lane 9).
     if a == Answer::Promise {
         let kind = match (job, topic.point()) {
             (true, _) => Some(PromiseKind::Stay),
             (false, Some(PointKind::PromiseOpen)) => None,
-            (false, Some(k)) => Some(tp::promise_kind(w, i, k)),
+            (false, Some(k)) => Some(typed.map_or_else(|| tp::promise_kind(w, i, k), |x| x.0)),
             (false, None) => None,
         };
         match kind {
             Some(kind) => {
                 promise(w, PromiseTo::Player(id), kind, 0);
+                if let Some((_, t)) = typed.filter(|_| !job) {
+                    let k = w.folk.promises.len() - 1;
+                    set_terms(w, k, t);
+                }
                 s.outcome.push(format!("You promised {} {}.", name, kind.words()));
                 // He isn't sure, or doubts: one follow-up (the promises
                 // design, section 5).

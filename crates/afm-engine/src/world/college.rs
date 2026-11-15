@@ -989,6 +989,11 @@ fn play_games(w: &mut World, date: Date, now: impl Fn(&Game) -> bool) {
         let (wi, li) = if home_won { (home, away) } else { (away, home) };
         cs.results[wi].wins += 1;
         cs.results[li].losses += 1;
+        let [hs, as_] = played.score;
+        cs.results[home].points[0] += hs;
+        cs.results[home].points[1] += as_;
+        cs.results[away].points[0] += as_;
+        cs.results[away].points[1] += hs;
         if conference {
             cs.results[wi].conf_wins += 1;
             cs.results[li].conf_losses += 1;
@@ -3153,6 +3158,7 @@ pub(crate) fn record_regular_season(w: &mut World) {
             conference_won: t.conference_title.then(|| prog.conference.clone()),
             conference: (!prog.conference.is_empty()).then(|| prog.conference.clone()),
             division: Some(prog.division),
+            points: t.points,
         });
         let locker = clamp(t.incidents as f64 / t.roster.max(1) as f64 * 8.0, 0.0, 1.0);
         let staff = staff_of(prog, head);
@@ -3311,6 +3317,7 @@ pub(crate) fn finish(w: &mut World) {
                 s.national_title = t.national_title;
                 s.strength = t.strength;
                 s.totals = t.totals;
+                s.points = t.points;
             }
             if t.conference_title {
                 prog.conference_titles += 1;
@@ -4283,23 +4290,30 @@ fn fall_term_check(w: &mut World) {
     }
 }
 
+/// Does he finish his degree this December (keyed, so the draft talk in
+/// mid-December knows it before the ceremony)? December is for the early
+/// finishers (part B 36): a good student in his fourth fall, or a
+/// fifth-year senior finishing his degree. Proposed, not confirmed: a third
+/// of the first, half of the second. Years away on a mission or in the
+/// service don't count (A3).
+pub(crate) fn graduates_in_december(p: &super::Person, year: i32, world_seed: u32) -> bool {
+    let seed = world_seed as u64 ^ (year as u64) << 20 ^ 0xDEC6;
+    let years = super::eligibility::school_year(p, year);
+    let early = years == 4 && p.bg.gpa >= 3.0 && key_uniform(seed, p.player.id as u64) < 0.35;
+    let fifth = years >= 5 && p.bg.gpa >= 2.3 && key_uniform(seed ^ 5, p.player.id as u64) < 0.5;
+    p.stage == Stage::College && (early || fifth) && p.college.is_some() && !p.cal.graduated
+}
+
 /// The week after finals: the fall term's eligibility check, then December
 /// graduation (A24): seniors with three years done and their degree in hand
 /// can transfer as graduates and play at once, under every era's rules.
 pub(crate) fn december_graduation(w: &mut World) {
     fall_term_check(w);
     let year = w.year;
-    let seed = w.options.seed as u64 ^ (year as u64) << 20 ^ 0xDEC6;
+    let seed = w.options.seed;
     let programs = &w.programs;
     for p in w.people.iter_mut() {
-        // December is for the early finishers (part B 36): a good student
-        // in his fourth fall, or a fifth-year senior finishing his degree.
-        // Proposed, not confirmed: a third of the first, half of the second.
-        // Years away on a mission or in the service don't count (A3).
-        let years = super::eligibility::school_year(p, year);
-        let early = years == 4 && p.bg.gpa >= 3.0 && key_uniform(seed, p.player.id as u64) < 0.35;
-        let fifth = years >= 5 && p.bg.gpa >= 2.3 && key_uniform(seed ^ 5, p.player.id as u64) < 0.5;
-        if p.stage == Stage::College && (early || fifth) && p.college.is_some() && !p.cal.graduated {
+        if graduates_in_december(p, year, seed) {
             p.cal.graduated = true;
             let age = p.row_age();
             // The year to use anywhere only when he has a season left.

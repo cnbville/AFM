@@ -74,6 +74,9 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
         Some(norms::Pool::Hs { state: Some(s), .. }) => {
             format!("{} high school starters at {one}", views::state_name(&w.states[s].code))
         }
+        Some(pl @ norms::Pool::Hs { state: None, .. }) => {
+            format!("{} starting at {one}", crate::lane_ratings::pool_words(w, pl, None))
+        }
         _ => format!("starting {many}"),
     };
     let short_level = match pool {
@@ -82,6 +85,7 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
         Some(norms::Pool::College(1)) => "FCS".into(),
         Some(norms::Pool::College(_)) => "Small college".into(),
         Some(norms::Pool::Hs { state: Some(s), .. }) => views::state_name(&w.states[s].code).to_string(),
+        Some(norms::Pool::Hs { state: None, .. }) => "Nationally".into(),
         _ => "Level".into(),
     };
     // The hero: his overall against the level's starters.

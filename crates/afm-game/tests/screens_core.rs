@@ -267,6 +267,16 @@ fn titles_keep_the_level_they_were_won_at() {
     // The team page's seasons and the job file say FCS too.
     let page = ok(&mut g, "team_page", json!({ "kind": "college", "id": p }));
     assert!(page["seasons"].as_array().unwrap().iter().all(|s| s["nat_word"] == "FCS"), "{}", page["seasons"]);
+    // The shared template's blocks: twelve units, never lumped, key players
+    // from the roster, the conference table with this team in it, and the
+    // class and portal books.
+    assert_eq!(page["units"]["rows"].as_array().map(Vec::len), Some(12), "{}", page["units"]);
+    assert!(page["key_players"].as_array().is_some_and(|k| !k.is_empty() && k.len() <= 3), "{}", page["key_players"]);
+    if let Some(rows) = page["table"]["rows"].as_array() {
+        assert_eq!(rows.iter().filter(|r| r["this"] == true).count(), 1, "{}", page["table"]);
+    }
+    assert!(page["books"]["needs"].is_array() && page["books"]["portal"]["in"].is_number(), "{}", page["books"]);
+    assert!(page["seasons"].as_array().unwrap().iter().all(|s| s["w"].is_number()), "{}", page["seasons"]);
     let jobs = ok(&mut g, "jobs", json!({ "level": "college" }));
     let job = jobs["jobs"].as_array().unwrap().iter().find(|j| j["ref"]["id"] == p).unwrap();
     assert_eq!(job["titles_text"], format!("{n} FCS titles"), "{job}");

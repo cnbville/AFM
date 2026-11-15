@@ -20,6 +20,10 @@
 .rr-card.hp-card { width: 330px; }
 .hp-card .hp-big { font-size: 15px; white-space: normal; text-align: right; }
 .hp-card .hp-what { font-size: 13.5px; font-weight: 700; color: var(--fg); line-height: 1.4; }
+.hp-card .hp-at { color: var(--fg); line-height: 1.45; }
+.hp-card .hp-unread { font-size: 12px; color: var(--sl-gold, var(--gold)); line-height: 1.4; }
+.hp-card .hp-else { font-size: 12px; line-height: 1.45; opacity: .85; }
+.hp-card .hp-else .st-label { display: inline-block; margin-right: 6px; }
 .hp-card .hp-above { padding: 7px 10px; border-radius: 10px; background: var(--sl-row); color: var(--fg); font-weight: 600; }
 .rr-card .hp-chg { display: flex; flex-direction: column; gap: 4px; padding-top: 8px; border-top: 1px solid var(--sl-line); }
 .rr-card .hp-chg .rr-top b.up { color: var(--sl-gold); }

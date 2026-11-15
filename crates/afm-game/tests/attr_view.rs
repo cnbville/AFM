@@ -151,6 +151,29 @@ fn the_attributes_page_data() {
     let c = ok(&mut g, "rr_card", json!({ "p": first, "k": "ovr", "lo": 60, "hi": 66 }));
     assert!(c["weight_line"].is_null());
 
+    // A high schooler is read against his class across the country, with his
+    // state classification as a second, smaller line (Cain 2026-11-14).
+    let mut with_near = 0;
+    for id in &hs_ids {
+        let c = ok(&mut g, "rr_card", json!({ "p": id, "k": "ovr", "lo": 50, "hi": 60 }));
+        let pool = c["pool"].as_str().unwrap();
+        assert!(pool.contains("across the country"), "national pool: {pool}");
+        let rank = &c["rank"];
+        assert!(rank["word"].as_str().is_some_and(|w| w.starts_with("About ")), "rank label: {rank}");
+        assert!(rank["sub"].as_str().is_some_and(|w| w.contains("class of")), "{rank}");
+        if let Some(n) = c["near"].as_object() {
+            with_near += 1;
+            assert!(n["line"].as_str().is_some_and(|l| l.starts_with("Against ")), "{c}");
+        }
+        // An attribute card has no rank label, only the band.
+        let c = ok(&mut g, "rr_card", json!({ "p": id, "k": Attr::Speed.key(), "lo": 50, "hi": 60 }));
+        assert!(c["rank"].is_null(), "rank is for overall only");
+    }
+    println!("{with_near} of {} recruits had a near-home line", hs_ids.len());
+    // A college player has neither.
+    let c = ok(&mut g, "rr_card", json!({ "p": first, "k": "ovr", "lo": 60, "hi": 66 }));
+    assert!(c["rank"].is_null() && c["near"].is_null());
+
     // A player who is gone, and no id.
     assert!(g.call("attr_view", &json!({ "id": 4_000_000_000u64 })).is_err());
     assert!(g.call("attr_view", &json!({})).is_err());

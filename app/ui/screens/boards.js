@@ -495,6 +495,7 @@ screens.recruit_race = async (a) => {
         <div class="fr-panel"><div class="fr-ph"><span><b class="frr-h3">The race</b> <span class="fr-mute">his interest, 0 to 100, as your staff reads it · ${snapIx === 0 ? "where it started" : `trail since ${esc(snaps[snapIx - 1][0])}`}</span></span>${snapSeg}</div>
           <div class="frr-lanes">${lanes || '<div class="fr-empty">No school is after him yet.</div>'}</div>${chart}</div>
         ${weighs}
+        ${plPanel(x.pulls)}
       </div>
       <aside class="fr-panel frr-side">${standCard}${reasonCard}<div><div class="fr-k frr-mh">Moments that moved him</div>${moments}</div></aside>
     </div></div>`;

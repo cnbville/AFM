@@ -1,6 +1,6 @@
 # The NFL draft: how it works today
 
-Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, the hunt (next update lane 11) on 2026-10-30, L12's league fixes (minor bugs 97, 134) on dd2ece1 on 2026-10-30, and the pick times (minor bug 159) on 2026-10-31. The six-part day (player immersion I1) checked on 2026-11-05, before it merged to main.
+Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, the hunt (next update lane 11) on 2026-10-30, L12's league fixes (minor bugs 97, 134) on dd2ece1 on 2026-10-30, and the pick times (minor bug 159) on 2026-10-31. The six-part day (player immersion I1) checked on 2026-11-05, before it merged to main. Early entry (the early entrants lane) checked on 2026-11-14.
 
 ## Quick answers
 
@@ -14,7 +14,7 @@ Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, the hunt (ne
 - Do freak athletes go early? Yes: +2.0 grade points per full Dynamic Link once he has tested (1.0 on film) (`world/pro/scouts.rs`, `read`, `DRAFT_GIFT`).
 - Do small-school players get marked down? Yes: FCS -1, D2/JUCO -5, NAIA -6, D3 -7 grade points, and film reads 1.2× or 1.5× noisier (`world/pro/scouts.rs`, `competition_discount`, `read`).
 - Do red flags cost picks? -4 per suspension, -8 per dismissal in every grade; character worry costs up to a few more; very bad reads go on the do-not-draft list (`career.rs`, `PIPELINE.red_flag_discount`; `scouts.rs`, `board_from`).
-- Who declares early? From the December round read: rounds 1-2 85%, 3-4 35% + family money, 5-7 8%, undrafted 0.05%; less with NIL income, more with ambition; the mid-December advisory grade redraws it (`world/recruiting.rs`, `declare_chance`, `advisory_grades`).
+- Who declares early? Each underclassman weighs the round he hears against his age, his degree, his family's need, the NIL pay he would give up, his position, a new head coach and his make-up, each a term on the log-odds of going; the mid-December advisory grade redraws it (`world/early_entry.rs`, `lean`; `world/recruiting.rs`, `draft_reads`, `advisory_grades`). See "The December read and declaring".
 - Are there draft-day trades? Yes, priced on each GM's chart (classic Jimmy Johnson or a flatter surplus chart), with a later pick this year or next year's (`world/pro/scouts.rs`, `trade_on_clock`; `world/pro/trades.rs`, `chart`).
 - How does the undrafted rush work? Each club calls the best left on its board (grade 50+) with a bonus pool; each player picks the best path to the 53 (`world/pro/scouts.rs`, `rush`).
 - What does a first pick earn? From 2011, four years at about 5.1% of the cap a year (1.5% at the end of round one, 0.4% in round seven); before 2011 up to twice that at the top, with longer deals (`world/pro/money.rs`, `rookie_terms`, `rookie_scale_share`).
@@ -42,11 +42,22 @@ Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, the hunt (ne
 - Grade = overall + (0.25 + 0.2 × youth) × (potential - overall) - competition discount - red flags; youth = clamp((23 - age)/3, 0, 1).
 - Score (the public's ranking number) = grade + position value × (1.0 if grade 78+, 0.6 if 72+, else 0.3) - 2 for kickers and punters, 5 for long snappers (`specialist_draft_discount`).
 - Round = where his score ranks against the draft's slots; beyond the slots he is "round 8", projected undrafted (`career.rs`, `draft_round`).
-- Each underclassman draws a first plan from `declare_chance` (`recruiting.rs`).
-- `declare_chance`: rounds 1-2 0.85; 3-4 0.35 + 0.02 × (family money want × 10); 5-7 0.08; else 0.0005. In the NIL era × clamp(1 - 0.6 × NIL income / a year of his round's rookie pay, 0.25, 1). × (1 + 0.25 × ambition z). Capped 0.97. Rookie pay used: $4M round 1, $1.6M round 2, $1.2M rounds 3-4, $1M later.
-- December 15, the advisory committee (`advisory_grades`; date in `world/clock.rs`; update 2 lane 8, SK21): who asks is every underclassman projected in rounds 1-7 or planning to go. From 1994 the committee answers; from 2014 five names a school (an AI staff sends its five best scores, more for a projected first-rounder; your program sends the names on your list, `own::request_advisory`) with three answers (1, 2, 3 = return to school), before 2014 a round 1-8. Advisory = round(December round + 1.5 × a keyed draw). A junior not sent decides on round(December round + 2.4 × a keyed draw) with no grade. The plan is redrawn from `declare_chance` × your stay-or-go talk's factor (`own::talk_factor`) for your own players.
+- Each underclassman draws a first plan from his lean (`world/early_entry.rs`, `lean`), on where he reads on the board as a smooth round: 1 + 7 × (rank - 1) / picks (8 = just past the last pick).
+- The lean (early entrants lane, 2026-11-14; every size proposed, not confirmed): chance = logistic(sum of parts), capped 0.97. The parts, in log-odds:
+  - The round he hears (`BY_ROUND`, at the top of each round): 3.0, 0.05, -0.85, -1.45, -2.05, -2.45, -2.85, then -3.45 just past the draft and 1.5 less each round further down.
+  - Age: +0.55 for a fourth year out of high school, +0.35 more for a fifth; a true junior read past round 2.5 -0.25.
+  - Degree done (`cal.graduated`): +0.6.
+  - Family need = 0.6 × hardship + 0.4 × clamp(3 × the decider's money want): +1.6 × (need - 0.35).
+  - NIL (from 2021): r = NIL income / what going is worth to him (`slot_value`: the era's rookie deal in the middle of his round, `money::rookie_terms`, its guaranteed share × its years + a year of the rest × the share such picks see, `KEEPS`: 0.95, 0.85, 0.75, 0.65, 0.55, 0.5, 0.45; past the draft 0.3 of a year of an undrafted deal); -4.5 × r / (r + 0.3).
+  - The rookie scale (2011 CBA): +1.5 for anyone read past the first round, a third of it in the 2012 draft, two thirds in 2013, all from 2014.
+  - Position (his pro position): backs +0.45, quarterbacks -0.3, kickers, punters and snappers -0.9.
+  - A new head coach this cycle (`hc_changed`): +0.4.
+  - Make-up (trait z = (trait - 10)/10): +0.7 ambition, +0.3 ego, +0.25 greed, -0.4 loyalty.
+  - The part that weighed most is kept (`cal.declare_why`) and goes in his note: "Declared early ... (projected round 4, weighing most his degree done)"; a prospect read in rounds 1-3 who stays gets a note at the deadline with his reason.
+  - Fitted on two test-size worlds' dumped choices (`AFM_ENTRY_DUMP`, debug builds) against the NFL's lists (special eligibility plus degree finishers): 128 in 2021, 100 in 2022, 82 in 2023, 70 in 2025, 63 in 2026; about 95-135 a year in 2016-2020; undrafted underclassmen 28 in the 2021 draft, 5 in 2024 (CBS Sports, April 2025). `entry_check` prints each year beside the real count.
+- December 15, the advisory committee (`advisory_grades`; date in `world/clock.rs`; update 2 lane 8, SK21): who asks is every underclassman projected in rounds 1-7 or planning to go. From 1994 the committee answers; from 2014 five names a school (an AI staff sends its five best scores, more for a projected first-rounder; your program sends the names on your list, `own::request_advisory`) with three answers (1, 2, 3 = return to school), before 2014 a round 1-8. Advisory = round(December round + 1.5 × a keyed draw). A junior not sent decides on round(December round + 2.4 × a keyed draw) with no grade. The plan is redrawn from his lean on the middle of that round × your stay-or-go talk's factor (`own::talk_factor`) for your own players.
 - Announcements: each on his own day between his last game (or the advisory date) and the deadline, sooner with competitiveness; seniors who have used their eligibility enter at the deadline; playoff teams' players after their last game (`declarations`, `Declare::Soft`, `Deadline`).
-- Withdrawals: a declared underclassman with advisory round 5+ withdraws 30% of the time, unless he opted out of his bowl (`declarations`, `Declare::Withdraw`).
+- Withdrawals: a declared early entrant (his plan was to go) with advisory round 5+ withdraws 30% of the time, unless he opted out of his bowl (`declarations`, `Declare::Withdraw`). A senior who passed on his extra COVID year can't: before the early entrants lane thousands of them a year "withdrew" in 2021-2024 and went back to school.
 - The COVID year: a senior with only that year left decides at the deadline (`eligibility::covid_return_chance`).
 
 ## All-star games, combine and pro days
@@ -193,7 +204,8 @@ Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, the hunt (ne
 
 ## Where the knobs are
 
-- `world/recruiting.rs`: `draft_top5`, `veteran_top5`, `VETERAN_MEAN`, `VETERAN_MIN`, `BOARD_PER_CAP` 140, `market_value` (66/24/1.6), `specialist_draft_discount`, `competition_discount`, round factors in `draft_value` and `draft_reads`, `declare_chance`, the advisory 1.5 sd, the 30% withdrawal, all-star sizes and skip odds, the combine extra 60, the owner-override 0.15.
+- `world/recruiting.rs`: `draft_top5`, `veteran_top5`, `VETERAN_MEAN`, `VETERAN_MIN`, `BOARD_PER_CAP` 140, `market_value` (66/24/1.6), `specialist_draft_discount`, `competition_discount`, round factors in `draft_value` and `draft_reads`, the advisory 1.5 sd, the 30% withdrawal, all-star sizes and skip odds, the combine extra 60, the owner-override 0.15.
+- `world/early_entry.rs`: `BY_ROUND`, `PAST_DRAFT`, `KEEPS` and the sizes in `parts` (age, degree, family need, NIL, the rookie scale, position, a new coach, make-up).
 - `career.rs`: `need`, `PIPELINE.draft_picks` 257, `PIPELINE.udfa_ratio`, `PIPELINE.red_flag_discount` (4, 8), `draft_round`.
 - `world/pro/scouts.rs`: `DRAFT_GIFT`, the board blend (0.25 floor, /16, 1.5 - overconfidence), do-not-draft lines 2.5 and 1.0, `trade_on_clock` thresholds (1.5 tier, 3.0 eager, 12 slots, call odds), `udfa_pool`, the rush's weights.
 - `world/pro/trades.rs`: `CLASSIC`, `SURPLUS`, `award_comp_picks` percentiles. `world/franchise.rs`: `draft_rounds`, `comp_picks`.

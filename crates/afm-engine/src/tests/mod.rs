@@ -1,6 +1,7 @@
 //! Engine tests, ported from the TypeScript model. Calibration of a whole
 //! national class lives in afm-tools (it needs the debug summary).
 
+mod ai_promises;
 mod assignments;
 mod bodies;
 mod carousel;
@@ -14,6 +15,7 @@ mod discipline;
 mod faces;
 mod facilities;
 mod fans;
+mod finder;
 mod foundations;
 mod front_office;
 mod game_stats;
@@ -53,8 +55,10 @@ mod portal_recruiting;
 mod portal_talks;
 mod praise;
 mod promises;
+mod public_bar;
 mod pull_file;
 mod ratings;
+mod recruit_budget;
 mod recruit_case;
 mod recruit_reach;
 mod rooms;
