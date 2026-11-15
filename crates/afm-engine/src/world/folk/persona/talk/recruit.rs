@@ -279,7 +279,9 @@ pub fn released(w: &World, s: &Scene, hits: &[Sized], wants: &[Want]) -> Vec<Str
     {
         out.push(reaction_words(ev).to_string());
     }
-    if pitch::exchanges_left(w, s) == 0 && hits.iter().any(|h| matches!(h.hit.how, How::Reassured | How::Respected | How::Staked)) {
+    if pitch::exchanges_left(w, s) == 0
+        && hits.iter().any(|h| matches!(h.hit.how, How::Reassured | How::Respected | How::Staked))
+    {
         out.push("He has heard your case for today.".into());
     }
     out
