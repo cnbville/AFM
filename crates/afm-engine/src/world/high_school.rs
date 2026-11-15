@@ -46,6 +46,14 @@ pub struct HsSeason {
     /// CalPreps rate a schedule; none in an older file.
     #[serde(default)]
     pub sos: Option<f32>,
+    /// Its passes as a share of its passes and runs, from engine games
+    /// (attempts over attempts and carries, as a box score counts them):
+    /// what a receiver's routes are read from (`footage`). None in an older
+    /// file: its players' lines can't fill it, since the world drops
+    /// everyone who left football, so a school's kept lines miss its
+    /// graduated seniors' attempts and carries.
+    #[serde(default)]
+    pub pass_share: Option<f32>,
 }
 
 /// A high school season's unit totals (C42), compact: engine games only.
@@ -105,6 +113,16 @@ impl HighSchool {
     pub fn is_powerhouse(&self) -> bool {
         self.prestige >= 0.75
     }
+
+    /// Its passes as a share of its plays that season, when kept.
+    pub fn pass_share(&self, year: i32) -> Option<f64> {
+        self.seasons.iter().rev().find(|s| s.year == year).and_then(|s| s.pass_share).map(f64::from)
+    }
+}
+
+/// A pass share from a season's attempts and carries (none without plays).
+pub fn pass_share_of(att: f64, carries: f64) -> Option<f32> {
+    (att + carries > 0.0).then(|| (att / (att + carries)) as f32)
 }
 
 /// How a state's transfer rule treats a transfer without a family move: the
