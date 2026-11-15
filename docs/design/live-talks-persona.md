@@ -772,7 +772,7 @@ A typical season is about half that. The $50 cap stays. A Sonnet 5.5 ear would c
 
 | # | Lane | Holds | Model |
 |---|---|---|---|
-| N0 | Mock-ups | The conversation page, who's in the room, the deal panel, texts, people coming to you, pick lists | Sonnet |
+| N0 | Mock-ups | The conversation page, who's in the room, the deal panel, texts, people coming to you, pick lists. Agreed by Cain 2026-11-15: six boards at https://claude.ai/artifact/9EPFSfZ8ysBHkZBwzEjAgj, sources in the project folder at `afm/live-talks/v3-mockups/` | Sonnet |
 | N1 | People | What he knows and tells (football too, section 9), wants and actions for every kind, heat and patience, the new stores (unseen breaks, the grapevine, lies, notebooks), people coming to you | Opus |
 | N2 | Terms | Measure readers and the football readers on the play log (section 9), every position's terms (8.4, which the promises thread is building now), terms on promises, incentives, NIL, picks, staff and boss goals, plan settings that keep them, the staff's warning | Opus |
 | N3 | Deals and requests | Valuing against his best option, asks and counters, deadlines, taking time, many people, requests run as actions, confirm cards | Opus |
@@ -782,7 +782,7 @@ A typical season is about half that. The $50 cap stays. A Sonnet 5.5 ear would c
 | N5c | Staff, bosses, money | Coordinators, position coaches, scouts, the analyst, doctors, hiring and firing, the AD and owner, boosters, compliance | Opus |
 | N5d | Game day and the room | Speeches, the sideline, officials, captains, the council, team meetings | Opus |
 | N5e | Scouting and the draft | Prospects, sources, and whatever question 10 brings back | Opus |
-| N6 | Screens | After Cain okays N0 and N4's contract is set | Sonnet |
+| N6 | Screens | The six agreed N0 boards, on N4's contract (the ear and voice cards, the ticket chain) | Sonnet |
 | N7 | Checks | Labelled lines per facet, exploits, leaks, cost and time on Cain's Mac | Sonnet |
 | N8 | AI staffs on the same logic | Question 11. It changes every world, so it goes on the rebuild gate | Opus |
 
