@@ -7,6 +7,7 @@
 
 use super::super::Them;
 use super::super::ear::{Act, Hit, How, Item, Turn};
+use super::super::knows::Topic;
 use super::super::memory::{Colour, Line, Memory, Saved, Treated, Treatment};
 use super::super::room::{Present, Room};
 use super::super::terms::Request;
@@ -49,6 +50,10 @@ pub struct Open {
     /// Questions asked so far, by whom they're about.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub asked: Vec<Option<Them>>,
+    /// Each question asked so far, by its topic and whom it's about: one
+    /// asked again gets nowhere (Cain 2026-11-15).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub questions: Vec<(Topic, Option<Them>)>,
     /// Requests he said no to.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub refused: Vec<Request>,
@@ -66,6 +71,7 @@ impl Open {
             raised: Vec::new(),
             hits: Vec::new(),
             asked: Vec::new(),
+            questions: Vec::new(),
             refused: Vec::new(),
         }
     }
@@ -81,6 +87,11 @@ impl Open {
             return 0;
         }
         self.asked.iter().filter(|x| **x == about).count().min(255) as u8
+    }
+
+    /// Whether you already asked him this question in the talk.
+    pub fn asked_before(&self, topic: Topic, about: Option<Them>) -> bool {
+        self.questions.contains(&(topic, about))
     }
 
     pub fn raised(&self, k: WantKind) -> bool {
@@ -166,8 +177,11 @@ pub fn advance(w: &mut World, scene: u32, room: &Room, t: &Turn, said: &Said, po
     o.raised.extend(t.his_asks.iter().map(|a| a.why.kind));
     o.hits.extend(t.hits.iter().map(|h| (h.hit.on, h.hit.item.clone(), h.hit.how)));
     for act in &said.reading.acts {
-        if let Act::Question { about, .. } = act {
+        if let Act::Question { topic, about, .. } = act {
             o.asked.push(*about);
+            if !o.questions.contains(&(*topic, *about)) {
+                o.questions.push((*topic, *about));
+            }
         }
     }
     for (r, wl, _) in &t.asked {
