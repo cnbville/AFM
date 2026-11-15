@@ -31,6 +31,9 @@
 //!   the game runs, his report back, and what asks you to confirm.
 //! - `ear`: the ear's acts and hits (5.1, 5.2), and the game's turn (5.3).
 //! - `fake`: fakes for every trait, for the lanes' tests.
+//! - `talk`: lane N4, the conversation: the game's turn (`Resolving`), the
+//!   hits sized, heat and patience, channels and the room, the saved
+//!   readings, and stand-in parts until N1 and N3 land.
 //!
 //! The voice card, the ear's card and the ear's JSON live in afm-game
 //! (`live_talk::persona`), beside the whitelist card and the reply filter
@@ -43,6 +46,7 @@ pub mod fake;
 pub mod knows;
 pub mod memory;
 pub mod room;
+pub mod talk;
 pub mod terms;
 pub mod wants;
 

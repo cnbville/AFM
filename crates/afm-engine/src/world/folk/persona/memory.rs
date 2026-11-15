@@ -213,6 +213,10 @@ pub struct Memory {
     pub agreed: Vec<Agreed>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub talks: Vec<Saved>,
+    /// The talks open now (lane N4, `talk::store::Open`): who's in the
+    /// room, the heat, his patience.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub open: Vec<super::talk::store::Open>,
     /// Answers owed, anchors and watchers (lane N3).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub owed: Vec<Owed>,
@@ -232,6 +236,7 @@ impl Memory {
             && self.secrets.is_empty()
             && self.agreed.is_empty()
             && self.talks.is_empty()
+            && self.open.is_empty()
             && self.owed.is_empty()
             && self.anchors.is_empty()
             && self.watch.is_empty()
