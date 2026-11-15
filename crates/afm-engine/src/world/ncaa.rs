@@ -102,9 +102,10 @@ pub fn scholarship_rules(d: Division, season: i32, opted_out: bool) -> (usize, O
     }
 }
 
-/// Where the NCAA sets no yearly cap, a staff still signs at most about 1.4
+/// Where the NCAA sets no yearly cap below Division I (Division II, the NAIA,
+/// Division III and junior colleges), a staff still signs at most about 1.4
 /// normal classes (the world's earlier pick, proposed, not confirmed: classes
-/// of 28, 24, 30 and 40).
+/// of 28, 24, 30 and 40). The House limit has none (`roster_limits`).
 fn staff_cap(d: Division) -> usize {
     match d {
         Division::FBS => 39,
@@ -127,7 +128,16 @@ pub fn roster_limits(prog: &Program, season: i32) -> (usize, usize) {
     let opted_out = prog.division == Division::FCS && FCS_OPTED_OUT.contains(&prog.real_name.as_str());
     let (limit, yearly) = scholarship_rules(prog.division, season, opted_out);
     let cut = prog.era.cut_in(season) as usize;
-    (limit.saturating_sub(cut), yearly.unwrap_or_else(|| staff_cap(prog.division)).saturating_sub(cut))
+    // Under the House whole-roster limit nothing caps a class: the limit is
+    // the only bound (realism audit item 13, Cain 2026-11-15: "the 105
+    // roster limit is the only bound"). Before, a staff stopped at its 1.4
+    // normal classes there too, and the class plan at 30.
+    let yearly = match yearly {
+        Some(y) => y,
+        None if whole_roster_limit(prog, season) => limit,
+        None => staff_cap(prog.division),
+    };
+    (limit.saturating_sub(cut), yearly.saturating_sub(cut))
 }
 
 /// Whether a program's limit counts its whole roster, walk-ons included:

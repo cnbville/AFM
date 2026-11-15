@@ -9,6 +9,7 @@ use afm_engine::world::World;
 use afm_engine::world::folk::persona::Them;
 use afm_engine::world::folk::persona::ear::Item;
 use afm_engine::world::folk::persona::gameday::group::{self, ROOM};
+use afm_engine::world::folk::persona::meetings;
 use afm_engine::world::folk::persona::room::Room;
 use afm_engine::world::folk::scene::Scene;
 use afm_engine::world::folk::{self as folk, claims, talk_points as tp};
@@ -41,7 +42,7 @@ pub fn ear(w: &World, s: &Scene, room: &Room, line: &str) -> (EarCard, EarKeys) 
     };
     c.people.push(Tagged { tag: "p0".into(), text: "the whole room".into() });
     keys.people.push(("p0".into(), ROOM));
-    c.items.push(Tagged { tag: "c0".into(), text: "the team as a whole".into() });
+    c.items.push(Tagged { tag: "c0".into(), text: meetings::whole_words(s).into() });
     keys.items.push(("c0".into(), Item::Room));
     // The captains (or the council) first, as the room has them; then the
     // men most on the room's mind.
@@ -53,7 +54,8 @@ pub fn ear(w: &World, s: &Scene, room: &Room, line: &str) -> (EarCard, EarKeys) 
         .filter(|p| !lead.contains(&p.who))
         .filter_map(|p| match p.who {
             Them::Player(id) => folk::person(w, id).map(|i| (p.who, w.people[i].mood)),
-            _ => None,
+            // A parent or another coach in the room (the older meetings).
+            _ => Some((p.who, 0.0)),
         })
         .collect();
     rest.sort_by(|a, b| a.1.total_cmp(&b.1));

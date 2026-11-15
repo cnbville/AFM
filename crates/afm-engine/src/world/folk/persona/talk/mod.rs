@@ -123,6 +123,9 @@ pub fn trust_of(w: &World, who: Them) -> f32 {
         // A man you don't coach keeps his trust in you apart from his
         // trust in his own head coach (`makeup::trust`).
         Them::Player(_) => super::makeup::trust(w, who) as f32,
+        // A parent: where lane N1 keeps it (`folk.mine`, the older
+        // meetings' `nudge`).
+        Them::Kin(..) => super::makeup::trust(w, who) as f32,
         // Someone in your building: the trust his meeting's chips move
         // (lane N5c).
         _ if super::office::key(w, who).is_some() => super::office::trust(w, who),
@@ -466,6 +469,11 @@ impl Resolving for Conversation<'_> {
         // Someone in your building: inside what his meeting's chips can do
         // (lane N5c).
         super::office::cap(w, room, &mut t.hits);
+        // A parent, an agent, a trainer, another school's committee in one
+        // of the older meetings.
+        if let Some(s) = s {
+            super::meetings::cap(w, s, room, &mut t.hits);
+        }
         // His own ask (5.4, question 3): what he wants most that you
         // haven't given, once a talk per want.
         if t.ends.is_none()
@@ -561,7 +569,14 @@ impl Resolving for Conversation<'_> {
         }
         for h in t.hits.iter().filter(|_| facet == Facet::Other) {
             let Them::Player(pid) = h.hit.on else {
-                if h.hit.on != him || h.trust == 0.0 {
+                // In a room of them (the parents, the feeder coaches) each
+                // one's own trust lands.
+                let in_room = super::meetings::is_group(&s) && room.present.iter().any(|p| p.who == h.hit.on);
+                if (h.hit.on != him && !in_room) || h.trust == 0.0 {
+                    continue;
+                }
+                // A parent: his own trust and his son's (the older meetings).
+                if super::meetings::nudge(w, h.hit.on, h.trust) {
                     continue;
                 }
                 // Someone in your building: the trust the world keeps for
@@ -826,6 +841,9 @@ pub fn end(w: &mut World, id: u32) {
         // (lane N5c): the talk ending leaves the meeting open, and the
         // talk's state stays so a man done talking stays done today.
         Facet::Other if super::office::plays(s.kind) && !super::office::talk_only(s.kind) => return,
+        // So does one of the older meetings (a parent's call, discipline,
+        // the captains, a call from someone you know...).
+        Facet::Other if super::meetings::keeps_open(s.kind) => return,
         Facet::Other => {
             if !super::draft::end(w, &mut s) {
                 s.end();
