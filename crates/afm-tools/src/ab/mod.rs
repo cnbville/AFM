@@ -135,6 +135,8 @@ pub enum Knob {
     Tend(Tend, f64),
     /// Set a Dynamic Link's strength (0 none, 1 full) after his body is read.
     Link(Link, f64),
+    /// Set a flaw or tool (individual practice): 0 without it, 1 full.
+    Craft(afm_engine::craft::Craft, f64),
     /// Set his hidden consistency (1-20).
     Consistency(f64),
     /// Swap him for a player the generator draws at his position, with this
@@ -374,7 +376,7 @@ fn change(gp: &mut GamePlayer, person: &Player, knobs: &[Knob], level: Level) {
             }
             Knob::Tend(t, v) => gp.tend.set(t, v),
             Knob::Consistency(v) => gp.traits.consistency = v,
-            Knob::Link(..) | Knob::Board(_) => {}
+            Knob::Link(..) | Knob::Craft(..) | Knob::Board(_) => {}
             Knob::Knows(s) => gp.spots_played |= s.bit(),
             Knob::Recruit(part, lo, hi) => {
                 if let Some(p) = recruit(gp, part, lo, hi, level) {
@@ -410,6 +412,9 @@ fn change(gp: &mut GamePlayer, person: &Player, knobs: &[Knob], level: Level) {
     for k in knobs {
         if let Knob::Link(l, v) = *k {
             gp.links.set(l, v);
+        }
+        if let Knob::Craft(c, v) = *k {
+            gp.craft.set(c, v);
         }
     }
 }

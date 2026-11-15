@@ -109,6 +109,12 @@ pub struct PlayRecord {
     /// frames only; never written (minor bug 317, `film::tape`).
     #[serde(skip)]
     pub rush_moves: Vec<(u32, Move)>,
+    /// Reps a flaw or tool was in play (individual practice topic 4.4, the
+    /// tape tags): (player, craft, -1 lost the rep, 0 in play, +1 won it).
+    /// Read when the game ends, never stored (a game log or save stays the
+    /// size it was).
+    #[serde(skip)]
+    pub craft: Vec<(u32, u8, i8)>,
     pub busts: Vec<u32>,
     pub freelance: Vec<(u32, bool)>,
     pub injuries: Vec<Injury>,
@@ -271,6 +277,7 @@ impl PlayRecord {
             blocks: Vec::new(),
             rush_wins: Vec::new(),
             rush_moves: Vec::new(),
+            craft: Vec::new(),
             busts: Vec::new(),
             freelance: Vec::new(),
             injuries: Vec::new(),
@@ -307,6 +314,27 @@ impl PlayRecord {
 
     pub fn success(&self) -> bool {
         self.epa > 0.0
+    }
+
+    /// The tape's tags on flaws and tools in this play (individual
+    /// practice topic 4.4): who, which, and whether he won the rep. A tag
+    /// left undecided in the play (a hook outside the blocks) takes the
+    /// play's outcome for his side.
+    pub fn craft_tags(&self) -> impl Iterator<Item = (u32, crate::craft::Craft, bool)> + '_ {
+        let good = self.success();
+        self.craft.iter().filter_map(move |&(id, code, v)| {
+            let c = crate::craft::Craft::from_index(code as usize)?;
+            let won = match v {
+                1 => true,
+                -1 => false,
+                _ => match self.side_of(id) {
+                    Some(s) if s == self.offense => good,
+                    Some(_) => !good,
+                    None => return None,
+                },
+            };
+            Some((id, c, won))
+        })
     }
 
     /// The team (0 home, 1 away) a player on the field plays for, or None

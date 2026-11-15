@@ -463,6 +463,10 @@ fn check_promises(w: &mut World, d: Date) {
         let cost = if kept { 1.0 } else { scale * public };
         let p = w.folk.promises[k].clone();
         settle_promise(w, &p, kept, cost);
+        // A booster takes it further (talk facts lane L8).
+        if !kept && let (PromiseTo::Cast(r, term), PromiseKind::Booster(_)) = (p.to, p.kind) {
+            super::backers::broken(w, r, term);
+        }
         super::note(w, "talk", "Your promises".into(), text.clone(), None);
         super::post_mine(w, d, Loudness::Small, false, "people: promise", &text);
     }
@@ -590,7 +594,7 @@ pub(crate) fn kept(w: &World, p: &Promise) -> bool {
             }
         }
         (_, PromiseKind::Stay) => w.folk.mine.since.is_some_and(|s| s <= p.made),
-        (_, PromiseKind::Booster(want)) => super::boss::want_met(w, want),
+        (_, PromiseKind::Booster(want)) => super::backers::kept(w, p.to, p.made, want),
         (PromiseTo::Coach(c), PromiseKind::Raise) => w.folk.staff.raised_since(c, p.made),
         _ => true,
     }
