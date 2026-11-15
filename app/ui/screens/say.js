@@ -112,6 +112,9 @@ async function aiSayDone(b, a, text) {
   b.phase = "ready";
   b.text = "";
   b.last = { text, heard: a.heard, marks: a.marks, reply };
+  // What waits on your say-so (live talks v3, lane N4's talk_confirm): the
+  // conversation page draws each as a card with Do it and Not that.
+  b.confirm = a.confirm || [];
   aiRemember(b.o && b.o.log ? b.o.log : b.key, text, a.heard, a.marks);
   if (reply.demo || !aiHere(b)) { aiPaint(b); return; }
   if (b.o && b.o.apply) await b.o.apply(reply, b); else await aiRedraw(reply);

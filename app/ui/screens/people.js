@@ -249,6 +249,8 @@ screens.people_scene = async (a) => {
   if (st.pick != null && !st.turn && !s.picks.some((p) => p.code === st.pick || (s.kind === "OneOnOne" && Math.floor((p.code - 100) / 10) === Math.floor((st.pick - 100) / 10) && p.code >= 100 && p.code < 190))) st.pick = null;
   const colors = (S.status && S.status.mine && S.status.mine.colors) || ["#2b3140", "#11141b"];
   setColors(colors);
+  // Live talks v3, lane N6: a talk with a person across from you draws as the conversation page.
+  if (typeof cvWants === "function" && cvWants(s, lead)) return cvScene(s, lead, pp, cast, st);
   // A one-on-one and a timed interview room are face to face (lane 14, D1).
   if (s.face && !s.future && lead && lead.kind === "player" && typeof tkFaceToFace === "function") return tkFaceToFace(s, lead, pp, st);
   // The conversation. Under your lines: how a typed line was heard (live talks).
