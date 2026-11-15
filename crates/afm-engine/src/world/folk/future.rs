@@ -27,7 +27,8 @@ use crate::positions::Position;
 use crate::world::{Person, Stage, World};
 
 /// The four words, each its own pick code.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Word {
     /// A role next season, with a strength of his named as the reason.
     Backed,
@@ -48,6 +49,18 @@ impl Word {
     }
     pub fn of(code: u32) -> Option<Word> {
         code.checked_sub(FIRST_CODE).and_then(|k| Word::ALL.get(k as usize)).copied()
+    }
+    /// Its name in the ear's schema (live talks v3).
+    pub fn key(self) -> &'static str {
+        match self {
+            Word::Backed => "backed",
+            Word::NoFuture => "no_future",
+            Word::Elsewhere => "elsewhere",
+            Word::LastChoice => "last_choice",
+        }
+    }
+    pub fn of_key(k: &str) -> Option<Word> {
+        Word::ALL.iter().copied().find(|w| w.key() == k)
     }
     /// How often he stays anyway, before his traits (Cain's 3b: the last
     /// choice leaves a small window open).
@@ -89,48 +102,91 @@ pub fn decided(p: &Person) -> Option<bool> {
     Some(!p.cal.lean_events[told..].iter().any(|e| e.1 == STAYS))
 }
 
+/// A college player of yours, as his head coach, whose year your word
+/// hasn't decided yet.
+fn yours(w: &World, p: &Person) -> bool {
+    p.stage == Stage::College
+        && p.college.is_some()
+        && crate::world::front_office::program(w) == p.college
+        && decided(p).is_none()
+}
+
+/// Your open word on his role (a start, snaps or his place), if any.
+fn role_promise(w: &World, p: &Person) -> Option<usize> {
+    (0..w.folk.promises.len()).rev().find(|&k| {
+        let pr = &w.folk.promises[k];
+        pr.to == PromiseTo::Player(p.player.id)
+            && pr.kept.is_none()
+            && matches!(pr.kind, PromiseKind::Start | PromiseKind::Snaps | PromiseKind::Place(_))
+    })
+}
+
+/// The points the four words belong to.
+const POINTS: [K; 3] = [K::Portal, K::Buried, K::LostJob];
+
 /// Whether the four words are on the table: a college player of yours, as
 /// head coach, on the portal, a lost job or sitting behind someone.
 fn offered(w: &World, i: usize, k: K) -> bool {
     let p = &w.people[i];
-    matches!(k, K::Portal | K::Buried | K::LostJob)
-        && p.stage == Stage::College
-        && p.college.is_some()
-        && crate::world::front_office::program(w) == p.college
-        && decided(p).is_none()
+    POINTS.contains(&k)
+        && yours(w, p)
         // A promise lands once: your word on his role is already given.
-        && !w.folk.promises.iter().any(|pr| {
-            pr.to == PromiseTo::Player(p.player.id)
-                && pr.kept.is_none()
-                && matches!(pr.kind, PromiseKind::Start | PromiseKind::Snaps | PromiseKind::Place(_))
-        })
+        && role_promise(w, p).is_none()
+}
+
+/// Whether a typed talk can settle your word on his future (live talks v3):
+/// the same gates, with the point read from his fact sheet today, since a
+/// typed talk is not tied to one point.
+pub fn open(w: &World, i: usize) -> bool {
+    let p = &w.people[i];
+    yours(w, p) && {
+        let sheet = super::claims::player(w, i);
+        POINTS.iter().any(|&k| sheet.has(k))
+    }
 }
 
 /// A physical number he knows from testing: its word and how to read it.
-type Measure = (&'static str, Box<dyn Fn(&Person) -> f64>);
+type Measure = (&'static str, fn(&Person) -> f64);
 
-/// His best physical number against the other men at his spot on your
-/// roster, as he knows it from testing: (the word for it, whether it is in
-/// the top third there). Alone at his spot, it counts as real.
-pub fn strength(w: &World, i: usize) -> (&'static str, bool) {
-    let p = &w.people[i];
-    let pos = p.player.position;
+/// The numbers he knows at his spot.
+fn measures(pos: Position) -> Vec<Measure> {
     let big = matches!(pos, Position::OT | Position::IOL | Position::DT | Position::EDGE);
     let mut list: Vec<Measure> = vec![
-        ("speed", Box::new(|q: &Person| q.player.attributes.get(Attr::Speed))),
-        ("burst", Box::new(|q: &Person| q.player.attributes.get(Attr::Acceleration))),
-        ("feet", Box::new(|q: &Person| q.player.attributes.get(Attr::Agility))),
-        ("strength", Box::new(|q: &Person| q.player.attributes.get(Attr::Strength))),
-        ("leaping ability", Box::new(|q: &Person| q.player.attributes.get(Attr::Jumping))),
+        ("speed", |q| q.player.attributes.get(Attr::Speed)),
+        ("burst", |q| q.player.attributes.get(Attr::Acceleration)),
+        ("feet", |q| q.player.attributes.get(Attr::Agility)),
+        ("strength", |q| q.player.attributes.get(Attr::Strength)),
+        ("leaping ability", |q| q.player.attributes.get(Attr::Jumping)),
     ];
     if big {
-        list.push(("size", Box::new(|q: &Person| q.player.body.weight)));
+        list.push(("size", |q| q.player.body.weight));
     } else {
-        list.push(("length", Box::new(|q: &Person| q.player.body.height)));
+        list.push(("length", |q| q.player.body.height));
     }
     if pos == Position::QB {
-        list.push(("arm", Box::new(|q: &Person| q.player.attributes.get(Attr::ArmStrength))));
+        list.push(("arm", |q| q.player.attributes.get(Attr::ArmStrength)));
     }
+    list
+}
+
+/// Every word the ear may name a strength by (live talks v3), against the
+/// measure's own word.
+pub const STRENGTHS: [(&str, &str); 8] = [
+    ("speed", "speed"),
+    ("burst", "burst"),
+    ("feet", "feet"),
+    ("strength", "strength"),
+    ("leaping", "leaping ability"),
+    ("size", "size"),
+    ("length", "length"),
+    ("arm", "arm"),
+];
+
+/// His share of the men at his spot on your roster at or below him on a
+/// measure. Alone at his spot, it counts as real.
+fn share(w: &World, i: usize, f: fn(&Person) -> f64) -> f64 {
+    let p = &w.people[i];
+    let pos = p.player.position;
     let others: Vec<&Person> = w
         .people
         .iter()
@@ -141,19 +197,34 @@ pub fn strength(w: &World, i: usize) -> (&'static str, bool) {
                 && q.player.id != p.player.id
         })
         .collect();
+    if others.is_empty() {
+        return 1.0;
+    }
+    let me = f(p);
+    others.iter().filter(|q| f(q) <= me).count() as f64 / others.len() as f64
+}
+
+/// His best physical number against the other men at his spot on your
+/// roster, as he knows it from testing: (the word for it, whether it is in
+/// the top third there). Alone at his spot, it counts as real.
+pub fn strength(w: &World, i: usize) -> (&'static str, bool) {
     let mut best = ("speed", -1.0);
-    for (word, f) in &list {
-        let me = f(p);
-        let share = if others.is_empty() {
-            1.0
-        } else {
-            others.iter().filter(|q| f(q) <= me).count() as f64 / others.len() as f64
-        };
-        if share > best.1 {
-            best = (word, share);
+    for (word, f) in measures(w.people[i].player.position) {
+        let s = share(w, i, f);
+        if s > best.1 {
+            best = (word, s);
         }
     }
     (best.0, best.1 >= 2.0 / 3.0)
+}
+
+/// The strength you named, as he knows it: (its word, whether it is in the
+/// top third at his spot). None when it isn't a number he has at his spot
+/// (an arm, named to a guard).
+pub fn named(w: &World, i: usize, key: &str) -> Option<(&'static str, bool)> {
+    let word = STRENGTHS.iter().find(|x| x.0 == key)?.1;
+    let (word, f) = measures(w.people[i].player.position).into_iter().find(|m| m.0 == word)?;
+    Some((word, share(w, i, f) >= 2.0 / 3.0))
 }
 
 /// The promise the backed word logs: a start when he can see one coming,
@@ -267,28 +338,16 @@ fn set_lean(p: &mut Person, date: crate::calendar::Date, why: &'static str, to: 
 
 /// What your word does: (his answer, the outcome lines).
 pub fn answer(w: &mut World, i: usize, word: Word) -> (String, Vec<String>) {
-    let today = w.today;
-    let id = w.people[i].player.id;
-    let name = w.people[i].name.clone();
-    let you = w.programs[w.people[i].college.unwrap_or(0)].head_coach.map(|c| c as u32);
-    let mut out = Vec::new();
     if word == Word::Backed {
         let (strong, real) = strength(w, i);
         let kind = backed_kind(w, i);
+        let id = w.people[i].player.id;
         talks::promise(w, PromiseTo::Player(id), kind, 0);
-        if let Some(k) = (0..w.folk.promises.len()).rev().find(|&k| {
+        let k = (0..w.folk.promises.len()).rev().find(|&k| {
             let x = &w.folk.promises[k];
             x.to == PromiseTo::Player(id) && x.kind == kind && x.kept.is_none()
-        }) {
-            w.folk.promises[k].backed = if real { 1 } else { -1 };
-            // He hears it again with what you backed it with (its shape).
-            super::promise::hear(w, k);
-        }
-        let p = &mut w.people[i];
-        if Some(p.trust_in) == you {
-            p.trust = (p.trust + if real { 0.03 } else { -0.03 }).clamp(0.0, 1.0);
-        }
-        out.push(format!("You promised {name} {} and named his {strong} as the reason.", kind.words()));
+        });
+        let out = back(w, i, k, strong, real);
         let line = if real {
             format!("You noticed my {strong}? Alright, Coach. I'm listening.")
         } else {
@@ -296,6 +355,40 @@ pub fn answer(w: &mut World, i: usize, word: Word) -> (String, Vec<String>) {
         };
         return (line, out);
     }
+    let stays = stays(w, i, word);
+    settle(w, i, word, stays)
+}
+
+/// Backs promise `k` with a strength of his: he hears it again with what
+/// you backed it with (its shape), and his trust moves a little either way.
+fn back(w: &mut World, i: usize, k: Option<usize>, strong: &str, real: bool) -> Vec<String> {
+    let name = w.people[i].name.clone();
+    let you = w.programs[w.people[i].college.unwrap_or(0)].head_coach.map(|c| c as u32);
+    let mut out = Vec::new();
+    if let Some(k) = k {
+        w.folk.promises[k].backed = if real { 1 } else { -1 };
+        super::promise::hear(w, k);
+        out.push(format!(
+            "You promised {name} {} and named his {strong} as the reason.",
+            w.folk.promises[k].kind.words()
+        ));
+    }
+    let p = &mut w.people[i];
+    if Some(p.trust_in) == you {
+        p.trust = (p.trust + if real { 0.03 } else { -0.03 }).clamp(0.0, 1.0);
+    }
+    out
+}
+
+/// Whether he stays to fight after one of the three ways to tell him to go:
+/// the same draw for the same word on the same day, so the game's turn
+/// can say it before it is made real.
+pub fn stays(w: &World, i: usize, word: Word) -> bool {
+    if word == Word::Backed {
+        return true;
+    }
+    let today = w.today;
+    let id = w.people[i].player.id;
     let p = &w.people[i];
     let pers = p.player.personality;
     let t = pers.traits;
@@ -303,7 +396,17 @@ pub fn answer(w: &mut World, i: usize, word: Word) -> (String, Vec<String>) {
     let lift = (1.0 + 0.4 * comp + 0.25 * t.z(Trait::Loyalty) - 0.2 * t.z(Trait::Ego)).clamp(0.5, 1.6);
     let room = if nowhere(w, i) { 1.5 } else { 1.0 };
     let chance = (word.stays() * lift * room).clamp(0.02, 0.6);
-    let stays = super::roll(w, 0xF07E_0000 ^ word.code() as u64, id as u64 ^ (today.0 as u64) << 32) < chance;
+    super::roll(w, 0xF07E_0000 ^ word.code() as u64, id as u64 ^ (today.0 as u64) << 32) < chance
+}
+
+/// What one of the three ways to tell him to go does, once you know
+/// whether he stays: (his answer, the outcome lines).
+fn settle(w: &mut World, i: usize, word: Word, stays: bool) -> (String, Vec<String>) {
+    let today = w.today;
+    let id = w.people[i].player.id;
+    let name = w.people[i].name.clone();
+    let you = w.programs[w.people[i].college.unwrap_or(0)].head_coach.map(|c| c as u32);
+    let mut out = Vec::new();
     let mine = Some(w.people[i].trust_in) == you;
     {
         let p = &mut w.people[i];
@@ -368,4 +471,118 @@ pub fn answer(w: &mut World, i: usize, word: Word) -> (String, Vec<String>) {
         format!("{name} will enter the transfer portal at the next window.")
     });
     (line.into(), out)
+}
+
+/// What a typed word on his future will do (live talks v3: the ear hears
+/// it as a `future` act, the game's turn decides this before anything is
+/// made real, and `run` makes it real). The same outcomes and odds as the
+/// picks; the gates are the picks' too, with the point read from his
+/// sheet today (`open`).
+#[derive(Clone, Debug, PartialEq)]
+pub enum Plan {
+    /// One of the three ways to tell him to go, settled: whether he stays,
+    /// and whether it takes back your open word on his role first (you
+    /// can't tell a man you promised a role that he has no future here and
+    /// keep the promise). Proposed, not confirmed.
+    Settle { word: Word, stays: bool, takes_back: bool },
+    /// "You'd play more somewhere else, I'll help you find the place" when
+    /// your word on his role has slipped: section 6's help (it ends the
+    /// promise and he leans out).
+    Help,
+    /// A strength of his named as the reason for a role: the promise this
+    /// line made, else your open word on his role, else a new one (the
+    /// pick's start or real role).
+    Back { strong: &'static str, real: bool },
+    /// Nothing for the game to settle: the reason, in words (empty when
+    /// your words alone carry it, through the hits).
+    Nothing(&'static str),
+}
+
+impl Plan {
+    /// What the game releases to the voice.
+    pub fn words(&self) -> &'static str {
+        match self {
+            Plan::Settle { stays: false, .. } => "He'll put his name in the transfer portal at the next window.",
+            Plan::Settle { stays: true, .. } => "He's staying to fight for his place.",
+            Plan::Help => "He'll take your help finding a new school.",
+            Plan::Back { real: true, .. } => "He knows that strength is real at his spot, so he believes you more.",
+            Plan::Back { real: false, .. } => "He knows that number isn't above the others at his spot.",
+            Plan::Nothing(why) => why,
+        }
+    }
+    /// Whether it ends the talk (the picks ended it on a word to go).
+    pub fn ends(&self) -> bool {
+        matches!(self, Plan::Settle { .. } | Plan::Help)
+    }
+}
+
+/// The plan for a typed word on his future. `strong` is the strength the
+/// ear heard named for a backed word (`STRENGTHS`' keys), empty for none.
+pub fn plan(w: &World, i: usize, word: Word, strong: &str) -> Plan {
+    let p = &w.people[i];
+    if crate::world::front_office::program(w) != p.college || p.college.is_none() || p.stage != Stage::College {
+        return Plan::Nothing("Only his head coach can settle his future here.");
+    }
+    if decided(p).is_some() {
+        return Plan::Nothing("He has already made up his mind about next year.");
+    }
+    if !open(w, i) {
+        return Plan::Nothing("");
+    }
+    let promised = role_promise(w, p);
+    match word {
+        Word::Backed => match named(w, i, strong) {
+            Some((strong, real)) => Plan::Back { strong, real },
+            None => Plan::Nothing(""),
+        },
+        Word::Elsewhere if promised.is_some() && talks::slipped(w, p.player.id) == promised => Plan::Help,
+        _ => Plan::Settle { word, stays: stays(w, i, word), takes_back: promised.is_some() },
+    }
+}
+
+/// Makes a plan real: the outcome lines. A backed word backs the promise
+/// on his role made today (this line's own, logged first), else your open
+/// one not yet backed, else it logs one.
+pub fn run(w: &mut World, i: usize, plan: &Plan) -> Vec<String> {
+    let id = w.people[i].player.id;
+    match *plan {
+        Plan::Settle { word, stays, takes_back } => {
+            let mut out = Vec::new();
+            if takes_back && let Some(k) = role_promise(w, &w.people[i]) {
+                talks::rework(w, i, k, talks::PAct::TakeBack, None);
+                out.push(format!("Your word on his role is gone: {}.", w.people[i].name));
+            }
+            out.extend(settle(w, i, word, stays).1);
+            out
+        }
+        Plan::Help => match talks::slipped(w, id) {
+            Some(k) => talks::rework(w, i, k, talks::PAct::Help, None).outcome,
+            None => Vec::new(),
+        },
+        Plan::Back { strong, real } => {
+            let today = w.today;
+            let now = (0..w.folk.promises.len()).rev().find(|&k| {
+                let x = &w.folk.promises[k];
+                x.to == PromiseTo::Player(id)
+                    && x.kept.is_none()
+                    && x.made == today
+                    && matches!(x.kind, PromiseKind::Start | PromiseKind::Snaps | PromiseKind::Place(_))
+            });
+            let k = now.or_else(|| role_promise(w, &w.people[i]).filter(|&k| w.folk.promises[k].backed == 0));
+            let k = match k {
+                Some(k) => Some(k),
+                None if role_promise(w, &w.people[i]).is_none() => {
+                    let kind = backed_kind(w, i);
+                    talks::promise(w, PromiseTo::Player(id), kind, 0);
+                    Some(w.folk.promises.len() - 1)
+                }
+                None => None,
+            };
+            if k.is_none() {
+                return Vec::new();
+            }
+            back(w, i, k, strong, real)
+        }
+        Plan::Nothing(_) => Vec::new(),
+    }
 }

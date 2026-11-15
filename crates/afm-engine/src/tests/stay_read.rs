@@ -227,3 +227,114 @@ fn a_promise_backed_by_a_real_strength_is_believed_more() {
     let plain = stay_read::promise_belief(&w, &ctx, i, &w.folk.promises[k]);
     assert!(strong >= plain && plain > weak, "{strong} {plain} {weak}");
 }
+
+/// Your word on his future in a typed talk (live talks v3): the picks'
+/// gates with the point read from his sheet, the picks' outcome and odds.
+#[test]
+fn a_typed_word_on_his_future_settles_it_like_the_pick() {
+    use crate::world::folk::future::{self, Plan, Word};
+    let (mut w, i) = yours(PlayingTime::Backup, 2);
+    // No portal, lost job or buried point on his sheet: nothing to settle.
+    assert!(!future::open(&w, i));
+    assert_eq!(future::plan(&w, i, Word::NoFuture, ""), Plan::Nothing(""));
+    // Leaning toward the portal: the words are open.
+    w.people[i].cal.lean = 0.5;
+    assert!(future::open(&w, i));
+    let plan = future::plan(&w, i, Word::LastChoice, "");
+    let stays = future::stays(&w, i, Word::LastChoice);
+    assert_eq!(plan, Plan::Settle { word: Word::LastChoice, stays, takes_back: false });
+    assert!(plan.ends());
+    future::run(&mut w, i, &plan);
+    assert_eq!(future::decided(&w.people[i]), Some(!stays), "the plan's draw is the one made real");
+    // Decided: a second word does nothing.
+    assert!(matches!(future::plan(&w, i, Word::NoFuture, ""), Plan::Nothing(x) if !x.is_empty()));
+}
+
+#[test]
+fn a_typed_word_to_go_takes_back_your_word_on_his_role() {
+    use crate::world::folk::future::{self, Plan, Word};
+    let (mut w, i) = yours(PlayingTime::Backup, 2);
+    w.people[i].cal.lean = 0.5;
+    let id = w.people[i].player.id;
+    talks::promise(&mut w, PromiseTo::Player(id), PromiseKind::Snaps, 0);
+    let plan = future::plan(&w, i, Word::NoFuture, "");
+    assert!(matches!(plan, Plan::Settle { takes_back: true, .. }), "{plan:?}");
+    let out = future::run(&mut w, i, &plan);
+    assert!(!w.folk.promises.iter().any(|p| p.to == PromiseTo::Player(id) && p.kept.is_none()), "{out:?}");
+    assert!(future::decided(&w.people[i]).is_some());
+    // "I'll help you find a place" on a promise that slipped is section 6's help.
+    let (mut w, i) = yours(PlayingTime::Backup, 2);
+    w.people[i].cal.lean = 0.5;
+    let id = w.people[i].player.id;
+    talks::promise(&mut w, PromiseTo::Player(id), PromiseKind::Start, 0);
+    let k = w.folk.promises.len() - 1;
+    w.folk.promises[k].state = 2;
+    assert_eq!(future::plan(&w, i, Word::Elsewhere, ""), Plan::Help);
+    let before = w.people[i].cal.lean;
+    future::run(&mut w, i, &Plan::Help);
+    assert!(w.folk.promises.iter().all(|p| p.to != PromiseTo::Player(id) || p.kept.is_some()));
+    assert!(w.people[i].cal.lean > before, "he leans out");
+    assert!(future::decided(&w.people[i]).is_none(), "help isn't a decision for him");
+}
+
+#[test]
+fn a_typed_strength_backs_the_promise_the_line_made() {
+    use crate::world::folk::future::{self, Plan, Word};
+    let (mut w, i) = yours(PlayingTime::Backup, 2);
+    w.people[i].cal.lean = 0.5;
+    let id = w.people[i].player.id;
+    // A strength he has no number for at his spot backs nothing.
+    assert_eq!(future::plan(&w, i, Word::Backed, "nothing"), Plan::Nothing(""));
+    if w.people[i].player.position != crate::positions::Position::QB {
+        assert!(future::named(&w, i, "arm").is_none(), "only a quarterback has an arm number");
+    }
+    let (word, real) = future::named(&w, i, "speed").expect("speed is his at any spot");
+    assert_eq!(future::plan(&w, i, Word::Backed, "speed"), Plan::Back { strong: word, real });
+    // The line's own promise, logged first, is the one backed.
+    talks::promise(&mut w, PromiseTo::Player(id), PromiseKind::Start, 0);
+    let n = w.folk.promises.len();
+    future::run(&mut w, i, &Plan::Back { strong: word, real });
+    assert_eq!(w.folk.promises.len(), n, "no second promise");
+    assert_eq!(w.folk.promises[n - 1].backed, if real { 1 } else { -1 });
+    // No promise said: it logs the pick's own.
+    let (mut w, i) = yours(PlayingTime::Backup, 2);
+    w.people[i].cal.lean = 0.5;
+    let id = w.people[i].player.id;
+    future::run(&mut w, i, &Plan::Back { strong: word, real });
+    let p = w.folk.promises.iter().find(|p| p.to == PromiseTo::Player(id) && p.kept.is_none()).expect("logged");
+    assert_eq!(p.backed, if real { 1 } else { -1 });
+}
+
+/// A typed line that changes a promise lands on the moves list's answers.
+#[test]
+fn a_typed_change_to_a_promise_reworks_it() {
+    use crate::world::folk::persona::ear::{Amend, AmendHow};
+    use crate::world::folk::promise::By;
+    let (mut w, i) = yours(PlayingTime::Backup, 2);
+    w.people[i].trust = 0.5;
+    let id = w.people[i].player.id;
+    talks::promise(&mut w, PromiseTo::Player(id), PromiseKind::Start, 0);
+    let k = w.folk.promises.len() - 1;
+    let a = |how, by: &str, condition: &str| Amend {
+        promise: None,
+        how,
+        by: by.into(),
+        condition: condition.into(),
+        bar: None,
+    };
+    let (pa, _) = talks::amend_act(&w, i, k, &a(AmendHow::Later, "next_season", "")).unwrap();
+    assert_eq!(pa, talks::PAct::NextSeason);
+    let r = talks::rework(&mut w, i, k, pa, None);
+    assert!(!r.gone);
+    assert_eq!(w.folk.promises[k].terms.by, By::NextSeason);
+    assert!(talks::amend_act(&w, i, k, &a(AmendHow::Condition, "", "")).is_none(), "no condition named");
+    let (pa, _) = talks::amend_act(&w, i, k, &a(AmendHow::Condition, "", "grades")).unwrap();
+    assert_eq!(pa, talks::PAct::Grades);
+    // Slipped, a later date is section 6's new date.
+    w.folk.promises[k].state = 2;
+    assert_eq!(talks::amend_act(&w, i, k, &a(AmendHow::Later, "midseason", "")).unwrap().0, talks::PAct::NewDate);
+    let trust = w.people[i].trust;
+    let (pa, _) = talks::amend_act(&w, i, k, &a(AmendHow::TakeBack, "", "")).unwrap();
+    assert!(talks::rework(&mut w, i, k, pa, None).gone);
+    assert!(w.people[i].trust < trust, "taking it back costs a little trust");
+}
