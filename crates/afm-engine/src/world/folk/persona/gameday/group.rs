@@ -162,7 +162,8 @@ pub fn council_open(w: &mut World, s: &mut Scene) {
     s.pick(601, "That's all for today.", "end", "calm", "");
 }
 
-/// The council meeting's chips: 600 asks how the room is, 601 ends it.
+/// The council meeting's chips: 600 asks how the room is (once), 601
+/// ends it. The scene's picks are cleared before an answer runs.
 pub fn council_answer(w: &mut World, s: &mut Scene, code: u32) {
     s.you(&scene::your_name(w), if code == 600 { "How's the room?" } else { "That's all for today." });
     if code != 600 {
@@ -179,10 +180,8 @@ pub fn council_answer(w: &mut World, s: &mut Scene, code: u32) {
             (None, text) => s.narrate(text),
         }
     }
-    s.picks.retain(|p| p.code != 600);
-    if s.picks.is_empty() {
-        s.end();
-    }
+    // Asked once: what's left is to end it.
+    s.pick(601, "That's all for today.", "end", "calm", "");
 }
 
 /// What the council tells you of the unhappiest men on the roster (up to

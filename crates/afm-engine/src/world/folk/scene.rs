@@ -806,7 +806,9 @@ fn log_scene(w: &mut World, s: &Scene) {
         Kind::Press | Kind::PressIntro | Kind::Media => "press",
         Kind::BossFirst | Kind::BossMeeting => "boss",
         Kind::Booster => "boosters",
-        Kind::OneOnOne | Kind::TeamMeeting | Kind::TeamTalk | Kind::Parents | Kind::ParentCall => "talk",
+        Kind::OneOnOne | Kind::TeamMeeting | Kind::TeamTalk | Kind::Parents | Kind::ParentCall | Kind::Council => {
+            "talk"
+        }
         Kind::Holdover | Kind::StaffLine | Kind::Interview | Kind::Firing | Kind::Proposal => "staff",
         Kind::Discipline | Kind::Ritual => "rules",
         Kind::ReachOut | Kind::Trip | Kind::JobCall | Kind::Backchannel => "network",
@@ -830,9 +832,13 @@ fn log_scene(w: &mut World, s: &Scene) {
 
 fn dispatch_open(w: &mut World, s: &mut Scene) {
     match s.kind {
-        Kind::OneOnOne | Kind::TeamMeeting | Kind::TeamTalk | Kind::Parents | Kind::ParentCall | Kind::StaffLine => {
-            super::talks::open(w, s)
-        }
+        Kind::OneOnOne
+        | Kind::TeamMeeting
+        | Kind::TeamTalk
+        | Kind::Parents
+        | Kind::ParentCall
+        | Kind::StaffLine
+        | Kind::Council => super::talks::open(w, s),
         Kind::Press | Kind::PressIntro => super::press::open(w, s),
         Kind::BossFirst | Kind::BossMeeting => super::boss::open(w, s),
         Kind::Discipline | Kind::Ritual => super::rules::open(w, s),
@@ -858,9 +864,13 @@ fn dispatch_open(w: &mut World, s: &mut Scene) {
 
 fn dispatch_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     match s.kind {
-        Kind::OneOnOne | Kind::TeamMeeting | Kind::TeamTalk | Kind::Parents | Kind::ParentCall | Kind::StaffLine => {
-            super::talks::answer(w, s, code, picked)
-        }
+        Kind::OneOnOne
+        | Kind::TeamMeeting
+        | Kind::TeamTalk
+        | Kind::Parents
+        | Kind::ParentCall
+        | Kind::StaffLine
+        | Kind::Council => super::talks::answer(w, s, code, picked),
         Kind::Press | Kind::PressIntro => super::press::answer(w, s, code, picked),
         Kind::BossFirst | Kind::BossMeeting => super::boss::answer(w, s, code, picked),
         Kind::Discipline | Kind::Ritual => super::rules::answer(w, s, code, picked),
