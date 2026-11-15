@@ -8,16 +8,19 @@ name: Mac app
 # request. Test-only data is skipped too: only afm-tools reads ab_real.json,
 # and the Python scripts make data files without being read by the game.
 #
-# One build at a time, newest next (Cain 2026-11-15): runs of this workflow
-# share one concurrency group without cancel-in-progress. A build that is
-# already running is never killed. A merge that arrives while one is running
-# waits, and a newer merge replaces the one that was waiting, so the next
-# build is always the newest main (every build holds all earlier merges). The
-# five Mac machines GitHub gives a public repository used to fill up with a
-# build per merge, and the newest one waited hours. Each build only puts its
-# dmg on its own release (app-<run>, never marked latest). The last job,
-# "publish", runs one at a time and moves "latest" and the public downloads
-# page forward to the highest finished build, never back
+# Two builds at a time, newest next (Cain 2026-11-15): runs of this workflow
+# are split into two lanes by the last digit of the run number (even digit
+# lane a, odd digit lane b, so merges alternate). Each lane is its own
+# concurrency group without cancel-in-progress. A build that is already
+# running is never killed. A merge that arrives while its lane is busy waits,
+# and a newer merge in the same lane replaces the one that was waiting, so at
+# most two builds compile and at most two wait, and the waiting ones are the
+# newest merges (every build holds all earlier merges). Two builds use four of
+# the five Mac machines GitHub gives a public repository, plus one for a
+# bundle job. Each build only puts its dmg on its own release (app-<run>,
+# never marked latest). The last job, "publish", runs one at a time and moves
+# "latest" and the public downloads page to the highest finished build, never
+# back, so a lane that finishes late can never put an older build on top
 # (.github/scripts/mac-publish.sh).
 on:
   push:
@@ -31,7 +34,7 @@ on:
 permissions:
   contents: write
 concurrency:
-  group: mac-app-build
+  group: mac-app-build-${{ (endsWith(format('{0}', github.run_number), '0') || endsWith(format('{0}', github.run_number), '2') || endsWith(format('{0}', github.run_number), '4') || endsWith(format('{0}', github.run_number), '6') || endsWith(format('{0}', github.run_number), '8')) && 'a' || 'b' }}
   cancel-in-progress: false
 jobs:
   # Each chip on its own machine at the same time. The engine is one big
