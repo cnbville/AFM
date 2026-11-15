@@ -17,6 +17,16 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.541", date: "15 Nov", title: "NFL pay: records can jump, the elite out-earn the top, real markets by era (realism audit 1, 3, 4)",
+    notes: [
+      "The NFL's money now works like the real market: the very best at a position can set records far above everyone else, and clubs bid against each other for the top free agents.",
+      "An elite player is paid for how far he stands above the rest, so the best back costs much more than a good starter.",
+      "Free agents with several suitors see clubs top each other's offers, as far as each club's price and cap room go.",
+      "Each position's market follows its era: backs were paid far more in the late 90s, quarterbacks and receivers rose in the 2020s.",
+      "After today the markets move with the deals your league signs.",
+    ],
+  },
+  {
     v: "0.2.540", date: "15 Nov", title: "Live talks v3: the older meetings play on the conversation, not on chips and 44 more",
     notes: [
       "AI schools now offer and take commitments week by week through spring, summer and fall, not on five fixed dates. Each recruit commits on his own day, or sooner when one school clearly leads.",

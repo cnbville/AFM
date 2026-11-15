@@ -8,6 +8,14 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.541 (15 Nov, shipped): NFL pay: records can jump, the elite out-earn the top, real markets by era (realism audit 1, 3, 4) (PR #447)
+**TLDR:** The NFL's money now works like the real market: the very best at a position can set records far above everyone else, and clubs bid against each other for the top free agents.
+- An elite player is paid for how far he stands above the rest, so the best back costs much more than a good starter. (PR #447)
+- Free agents with several suitors see clubs top each other's offers, as far as each club's price and cap room go. (PR #447)
+- Each position's market follows its era: backs were paid far more in the late 90s, quarterbacks and receivers rose in the 2020s. (PR #447)
+- After today the markets move with the deals your league signs. (PR #447)
+- Look at: the biggest deals at each position after a free agency, and a record-setting extension. (PR #447)
+
 ## 0.2.540 (15 Nov, shipped): keep recruits signed elsewhere off the inherited board (PR #392), college conference tables: the champion first, one order everywhere (PR #389), team page: Every season moves into the left column (PR #398), and 43 more
 **TLDR:** 46 changes ship together: keep recruits signed elsewhere off the inherited board; college conference tables: the champion first, one order everywhere; team page: Every season moves into the left column; read a high schooler's marks nationally, with his state as Near home; and 42 more.
 - Keep recruits signed elsewhere off the inherited board (PR #392): At a new college job the board you inherit still listed recruits who had already signed with another school, with or without the old staff's offers.
