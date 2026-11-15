@@ -404,9 +404,16 @@ pub(crate) fn open_year(w: &mut World, p: usize, year: i32) {
     let pay: f64 = staff_ids.filter_map(|c| w.coaches.get(c).and_then(|c| c.contract)).map(|k| k.salary).sum::<f64>();
     let pay = if pay > 0.0 { pay * coach_idx } else { default_pay(prog.division, t) * coach_idx };
     b.l[COACHES] = pay as f32;
-    let room = clamp(dept.reserves as f64 / 20.0e6, -0.3, 0.3);
-    let spend = clamp(0.35 + 0.45 * prog.prestige + 0.2 * fans + room, 0.1, 1.0);
-    let (staff_top, recruit_top, travel) = match t {
+    // Football's support staff and recruiting lines come out of what the
+    // department earns (realism audit item 9; Knight-Newhouse: departments
+    // spend about what they bring in, and spending varies widely inside the
+    // Power 4): this year's income on the books, last year's bowl and
+    // guarantee money, never the university's support. How hard a school
+    // pushes football (its name) and its reserves move the share a little.
+    let earned = earned(&b, dept);
+    let push = football_push(prog.prestige, dept.reserves as f64, earned);
+    let (staff_share, recruit_share) = SPEND_SHARE[t.min(3) as usize];
+    let (staff_ref, recruit_ref, travel) = match t {
         0 => (24.0e6, 5.0e6, 5.0e6),
         1 => (5.0e6, 0.8e6, 2.2e6),
         2 => (1.4e6, 0.3e6, 0.8e6),
@@ -415,11 +422,11 @@ pub(crate) fn open_year(w: &mut World, p: usize, year: i32) {
     // Your athletic director's raises to the staff pool come on top of the
     // usual support staff line (people topic 12).
     let pooled = 1.0 + crate::world::folk::staffing::staff_bonus(w, Team::College(p));
-    b.l[STAFF] = (staff_top * spend * idx * pooled) as f32;
+    b.l[STAFF] = (earned * staff_share * push * pooled) as f32;
     // Your athletic director's raises for travel and visits (people topic
     // 12) come on top of the usual line.
     let raised = 1.0 + crate::world::folk::staffing::recruit_bonus(w, p);
-    b.l[RECRUITING] = (recruit_top * spend * idx * raised) as f32;
+    b.l[RECRUITING] = (earned * recruit_share * push * raised) as f32;
     b.l[TRAVEL] = (travel * idx) as f32;
     let coa = 48_000.0 * data::hs_index(year);
     b.l[SCHOLARSHIPS] = (football_aid(prog.division) * coa * 3.2) as f32;
@@ -483,9 +490,9 @@ pub(crate) fn open_year(w: &mut World, p: usize, year: i32) {
     let keep = if left > floor { 0.04 * (left - floor) } else { 0.0 };
     b.l[OTHER_COSTS] = ((other - keep) * 0.72) as f32;
     b.l[ADMIN] = ((other - keep) * 0.28) as f32;
-    // The level reads above 1 only with a raise from your boss (every other
-    // program's lines are at most the top of their tier).
-    let level = clamp((b.l[STAFF] + b.l[RECRUITING]) as f64 / ((staff_top + recruit_top) * idx), 0.0, LEVEL_MAX);
+    // The level reads the two lines against a well-off program of the tier
+    // (1); the richest read above it (item 9: no tier top).
+    let level = clamp((b.l[STAFF] + b.l[RECRUITING]) as f64 / ((staff_ref + recruit_ref) * idx), 0.0, LEVEL_MAX);
     let d = &mut w.finance.college[p];
     d.level = level as f32;
     d.budget = b;
@@ -496,9 +503,33 @@ pub(crate) fn open_year(w: &mut World, p: usize, year: i32) {
     d.attendance = 0;
 }
 
-/// The most a program's spending level reads: 1 at the top of its tier, a
-/// little above it with raises from your boss (proposed, not confirmed).
-const LEVEL_MAX: f64 = 1.5;
+/// The most a program's spending level reads: 1 is a well-off program of
+/// its tier, the richest read above it (realism audit item 9 took away the
+/// tier top); a guard only, no program reaches it (proposed, not confirmed).
+const LEVEL_MAX: f64 = 4.0;
+
+/// The share of what a department earns that goes to football's support
+/// staff and recruiting lines, by tier (Power, Group of 5, FCS, below):
+/// fitted on a world's books so the median program of each tier spends
+/// what it did under the old tier tops (proposed, not confirmed).
+const SPEND_SHARE: [(f64, f64); 4] = [(0.114, 0.024), (0.106, 0.017), (0.107, 0.023), (0.13, 0.026)];
+
+/// What a department earns for a year's budget (item 9): the income lines
+/// on the books, less the university's support (it covers a gap, it isn't
+/// earned), plus last year's bowl and guarantee money (booked during the
+/// season, so not yet on this year's books).
+pub fn earned(b: &Book<N>, dept: &Dept) -> f64 {
+    let last = dept.years.last().map_or(0.0, |y| (y.l[POSTSEASON] + y.l[GUARANTEES_IN]) as f64);
+    (b.sum(0..INCOME) - b.l[SUPPORT] as f64 + last).max(0.0)
+}
+
+/// How hard a school pushes football with its money (item 9): its name
+/// (prestige 0-1) and its reserves against a year's earnings, 0.75-1.3
+/// (proposed, not confirmed).
+pub fn football_push(prestige: f64, reserves: f64, earned: f64) -> f64 {
+    let room = clamp(0.5 * reserves / earned.max(1.0e5), -0.15, 0.15);
+    clamp(0.8 + 0.4 * prestige + room, 0.75, 1.3)
+}
 
 fn default_pay(d: Division, t: u8) -> f64 {
     match (t, d) {
