@@ -144,6 +144,11 @@
      "act": "deadline",
      "when": "2037-09-11"
     }
+   ],
+   "may": [
+    {
+     "act": "threat"
+    }
    ]
   },
   {
@@ -181,18 +186,21 @@
      "act": "promise"
     }
    ],
-   "why": "an offer stack, said as terms"
+   "why": "an offer stack, said as terms",
+   "may": [
+    {
+     "act": "offer"
+    },
+    {
+     "act": "promise"
+    }
+   ]
   },
   {
-   "text": "What's his true potential grade according to your staff's file?",
-   "acts": [
-    {
-     "act": "question",
-     "topic": "ScoutFile"
-    }
-   ],
+   "text": "What's your true potential grade? What does our staff's file say your ceiling is?",
    "no_hits": true,
-   "why": "asks for the hidden file"
+   "why": "asks for the hidden file and grade (the rules call that not talk; a quiet question is fine too)",
+   "not_talk": true
   },
   {
    "text": "I swear we'll start you every single game of your career. I promise. I promise again.",

@@ -28,9 +28,6 @@ pub fn flags() -> Value {
                   { "value": 6, "label": "A scout who watched him" } ] } },
             { "cmd": "ai_ask", "args": { "kind": "leads", "mail": 31 }, "auto": true }
         ],
-        "facts": { "cmd": "fo_fact", "args": { "id": 12 },
-                   "list": [ { "fact": 2, "label": "His backup's numbers are better" },
-                             { "fact": 3, "label": "He was arrested last spring" } ] },
         "sources": { "cmd": "scout_source", "args": { "player": 88 },
                      "list": [ { "source": 5, "label": "His high school coach" } ],
                      "topics": [ { "topic": 1, "label": "His character" } ] },

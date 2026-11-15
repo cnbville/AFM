@@ -80,7 +80,7 @@ function aiBox(key, kind, flag, words) {
   b.kind = kind;
   // How a box draws itself again when its answer comes (a card or row of
   // another kind sets b.html itself).
-  b.html = kind === "btn" ? aiBtnHtml : kind === "facts" ? aiFactsHtml : b.kind === "source" && b.html ? b.html : aiBoxHtml;
+  b.html = kind === "btn" ? aiBtnHtml : b.kind === "source" && b.html ? b.html : aiBoxHtml;
   b.flag = flag;
   b.w = words;
   return b;
@@ -236,7 +236,7 @@ function aiCardHtml(st) {
     if (ch && ch.phase === "done") {
       const under = ch.rows.filter((r) => r.score < r.bar).length;
       const misses = (ch.misses || []).map((m) => `<div class="ai-ms"><span>${esc(m.set)}</span><span>${esc(m.text)}</span><span>${esc(m.why)}</span></div>`).join("");
-      report = `<div class="ai-rep">${ch.rows.map((r) => `<div class="ai-rr" title="$${Number(r.cost || 0).toFixed(3)} · ${Number(r.seconds || 0).toFixed(1)} s a line"><span class="ai-nm">${esc(r.name)}</span><span class="ai-cbar${r.score < r.bar ? " am" : ""}"><i style="width:${(r.score / r.of) * 100}%"></i><u style="left:${(r.bar / r.of) * 100}%"></u></span><span class="ai-sc"><b>${r.score}</b> <small>of ${r.of}</small></span></div>`).join("")}<div class="ai-rf"><span>${under ? `Needs the tick or more. ${under === 1 ? "One row is" : under + " rows are"} under it.` : "Every row is at the tick or above."}</span><span>${esc(ch.model || "")} · ${ch.calls || ""} calls · $${Number(ch.cost || 0).toFixed(2)} · ${Number(ch.seconds || 0).toFixed(1)} s a line</span></div>${misses ? `<details class="ai-mt"><summary>${(ch.misses || []).length} lines it missed, and why</summary>${misses}</details>` : ""}</div>`;
+      report = `<div class="ai-rep${ch.base ? " cmp" : ""}">${ch.rows.map((r) => `<div class="ai-rr" title="$${Number(r.cost || 0).toFixed(3)} · ${Number(r.seconds || 0).toFixed(1)} s a line"><span class="ai-nm">${esc(r.name)}</span><span class="ai-cbar${r.score < r.bar ? " am" : ""}"><i style="width:${(r.score / r.of) * 100}%"></i><u style="left:${(r.bar / r.of) * 100}%"></u></span><span class="ai-sc"><b>${r.score}</b> <small>of ${r.of}</small>${aiBaseScore(ch.base, r)}</span></div>`).join("")}<div class="ai-rf"><span>${under ? `Needs the tick or more. ${under === 1 ? "One row is" : under + " rows are"} under it.` : "Every row is at the tick or above."}</span><span>${esc(ch.model || "")} · ${ch.calls || ""} calls · $${Number(ch.cost || 0).toFixed(2)} · ${Number(ch.seconds || 0).toFixed(1)} s a line</span></div>${misses ? `<details class="ai-mt"><summary>${(ch.misses || []).length} lines it missed, and why</summary>${misses}</details>` : ""}</div>`;
     }
     const busy = running ? " disabled" : "";
     checks = row("Run checks", "Sends the check lines through the reader, the ear (12 facets, with their exploits) and the voice (leak baits) once, about 300 calls. It costs about 10 to 20 cents and takes 5 to 10 minutes.", `<button type="button" class="ai-btn" data-act="aichecks"${busy}>${running ? "Running" : "Run checks"}</button>`, extra)
@@ -255,11 +255,23 @@ function aiCardPaint() {
 }
 async function aiCardFresh() { await aiProbe(); aiCardPaint(); }
 
+// A model's short name: "claude-haiku-5-5" is Haiku.
+function aiModelName(m) { const w = String(m || "").split("-")[1] || ""; return w.charAt(0).toUpperCase() + w.slice(1); }
+// The earlier run's score for the same row, beside a comparison's.
+function aiBaseScore(base, r) {
+  const b = base && base.rows.find((x) => x.name === r.name);
+  return b ? ` <small>· ${esc(aiModelName(base.model))} ${b.score}</small>` : "";
+}
 async function aiRunChecks(args) {
+  // A run on another model keeps the last finished run beside it, so Compare shows both.
+  const prev = aiState.card.checks && aiState.card.checks.phase === "done" ? aiState.card.checks : null;
   aiState.card.checks = { phase: "wait" };
   aiCardPaint();
   const a = await aiCall("ai_checks", args, () => true, "checks");
-  if (a && a.state === "done" && a.rows) aiState.card.checks = { phase: "done", rows: a.rows, misses: a.misses, model: a.model, calls: a.calls, cost: a.cost, seconds: a.seconds };
+  if (a && a.state === "done" && a.rows) {
+    const base = prev && prev.model !== a.model ? { model: prev.model, rows: prev.rows } : null;
+    aiState.card.checks = { phase: "done", rows: a.rows, misses: a.misses, model: a.model, calls: a.calls, cost: a.cost, seconds: a.seconds, base };
+  }
   else aiState.card.checks = { phase: "bad", note: (a && a.note) || "The checks did not finish." };
   await aiCardFresh();
 }
