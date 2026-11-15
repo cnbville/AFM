@@ -18,6 +18,9 @@
 //             heard and what came back sit under the strip
 //   apply     async (reply, box): what the page does with the reply the line
 //             landed with. Default: draw the page again.
+//   hand      true on a money desk (live talks v3): the line opens the call
+//             with the man across, or picks up the one you're on, and the
+//             page moves to that call, where his answer comes (aiHand).
 // The strip's states are the contract's answers (ai_poll): ready and typing,
 // wait, unsure (two readings to pick from, or one to confirm when the step
 // can't be undone), none, off, done.
@@ -146,7 +149,30 @@ async function aiSend(b, noText) {
   aiPaint(b);
   const args = { ...(b.flag.args || {}), ...(text ? { text } : {}) };
   if (b.flag.choose) args[b.flag.choose.key] = b.choice ?? b.flag.choose.options[0].value;
+  if (b.o && b.o.hand && !b.flag.preset) return aiHand(b, args, text, run);
   await aiLand(b, await aiCall(b.flag.cmd, args, () => b.run === run && aiState.boxes[b.key] === b), text);
+}
+// A money desk's box (live talks v3): the desk answers {scene, ticket}, the
+// call your line went into. The page moves to the call, whose own box waits
+// on the ticket, so his answer lands there as any typed line's does. A call
+// the desk won't open today comes back as a note, and the words stay here.
+async function aiHand(b, args, text, run) {
+  let r;
+  try { r = await api(b.flag.cmd, args); } catch (e) { r = { state: "off", retry: true, note: e.message }; }
+  if (b.run !== run) return;
+  if (!r || r.scene == null || r.ticket == null) { await aiLand(b, r && r.state ? r : { state: "none", note: "The call didn't go through." }, text); return; }
+  b.phase = "ready";
+  b.text = "";
+  const key = "scene:" + r.scene;
+  go("people_scene", { id: r.scene });
+  const c = aiBox(key, "say", { cmd: "people_say", args: { id: r.scene }, limit: b.flag.limit || AI_LIMIT }, { ...AI_SAY_WORDS });
+  c.o = { log: key };
+  c.sent = text;
+  c.phase = "wait";
+  c.route = S.route.screen;
+  const cr = ++c.run;
+  aiPaint(c);
+  await aiLand(c, await aiSettle(r, () => c.run === cr && aiState.boxes[key] === c), text);
 }
 // A reading picked: the box sends its command again with the ticket and the pick.
 async function aiPicked(b) {

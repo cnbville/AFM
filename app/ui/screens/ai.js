@@ -80,7 +80,7 @@ function aiBox(key, kind, flag, words) {
   b.kind = kind;
   // How a box draws itself again when its answer comes (a card or row of
   // another kind sets b.html itself).
-  b.html = kind === "btn" ? aiBtnHtml : kind === "facts" ? aiFactsHtml : b.kind === "source" && b.html ? b.html : aiBoxHtml;
+  b.html = kind === "btn" ? aiBtnHtml : b.kind === "source" && b.html ? b.html : aiBoxHtml;
   b.flag = flag;
   b.w = words;
   return b;

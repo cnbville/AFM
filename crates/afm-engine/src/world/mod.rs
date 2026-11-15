@@ -1239,6 +1239,11 @@ pub struct CalendarLog {
     pub blue_verbal: u32,
     #[serde(default)]
     pub blue_broken: u32,
+    /// Summer verbals given before the recruit's own day because the
+    /// school he held led his race by his bar (thread "Make AI schools
+    /// offer on real days").
+    #[serde(default)]
+    pub bar_commits: u32,
 }
 
 /// Where the manager works (N58): his level, and his NFL team, college
