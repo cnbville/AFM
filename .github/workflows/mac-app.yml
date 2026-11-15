@@ -81,8 +81,13 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           PATCH_NOTES_NO_AI: "1"
         run: |
-          python3 .github/scripts/patch_notes.py preview --version ${{ github.run_number }} --sha ${{ github.sha }}
-          node --check app/ui/changelog.js || git checkout -- app/ui/changelog.js
+          if python3 .github/scripts/patch_notes.py preview --version ${{ github.run_number }} --sha ${{ github.sha }} \
+            && node --check app/ui/changelog.js; then
+            grep -c '"0.2.${{ github.run_number }}"' app/ui/changelog.js || echo "This build has no changes a player can see: no panel."
+          else
+            echo "::warning title=What's new is stale::the build's own entry was not written"
+            git checkout -- app/ui/changelog.js
+          fi
       # Each build has its own version, 0.2.<run>, so an installed app knows a
       # newer one exists. Once the "Set up updates" workflow has made the
       # signing key (secret TAURI_SIGNING_PRIVATE_KEY, public half in the
