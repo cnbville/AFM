@@ -81,6 +81,10 @@ pub enum Kind {
     FamilyCall,
     /// Your case at the end of a recruit's official visit, in your office.
     OfficialTalk,
+    /// A negotiation (live talks v3, lane N5b): a call with a pro's agent,
+    /// another club's GM, a prospect in the undrafted rush, or an agent
+    /// calling back (`Scene.b`, `persona::negotiate`).
+    Negotiation,
 }
 
 impl Kind {
@@ -138,6 +142,7 @@ impl Kind {
             Kind::Family => "At home",
             Kind::Story => "Storyline",
             Kind::Backchannel => "A call from someone you know",
+            Kind::Negotiation => "A negotiation",
             Kind::HomeVisit => "Home visit",
             Kind::CollegeCall => "A college calls",
             Kind::JobInterview => "Job interview",
@@ -837,6 +842,7 @@ fn dispatch_open(w: &mut World, s: &mut Scene) {
         Kind::StarPower | Kind::SecondOpinion | Kind::Family => super::life::open(w, s),
         Kind::Story => crate::world::storylines::moves::open(w, s),
         Kind::Backchannel => super::backchannel::open(w, s),
+        Kind::Negotiation => super::persona::negotiate::open(w, s),
         Kind::HomeVisit
         | Kind::CollegeCall
         | Kind::JobInterview
@@ -865,6 +871,7 @@ fn dispatch_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         Kind::StarPower | Kind::SecondOpinion | Kind::Family => super::life::answer(w, s, code, picked),
         Kind::Story => crate::world::storylines::moves::answer(w, s, code, picked),
         Kind::Backchannel => super::backchannel::answer(w, s, code, picked),
+        Kind::Negotiation => super::persona::negotiate::answer(w, s, code),
         Kind::HomeVisit
         | Kind::CollegeCall
         | Kind::JobInterview
@@ -893,6 +900,7 @@ fn dispatch_hand(w: &mut World, s: &mut Scene) {
         Kind::StarPower | Kind::SecondOpinion | Kind::Family => super::life::hand(w, s),
         Kind::Story => crate::world::storylines::moves::hand(w, s),
         Kind::Backchannel => super::backchannel::hand(w, s),
+        Kind::Negotiation => super::persona::negotiate::hand(w, s),
         Kind::HomeVisit
         | Kind::CollegeCall
         | Kind::JobInterview

@@ -12,7 +12,10 @@ use crate::live_talk::card::Card;
 /// Adds this lane's own box to a reply (`live_talk::after`, only with a
 /// usable key). A scene's talk box is the core's: this is for what the
 /// scene box doesn't cover.
-pub fn flag(_g: &Game, _cmd: &str, _v: &mut Value) {}
+pub fn flag(g: &Game, cmd: &str, v: &mut Value) {
+    // Live talks v3, lane N5b: the desks' call buttons.
+    crate::live_talk::persona::calls::flag(g, cmd, v);
+}
 
 /// Adds what this lane's scenes need to the reader's card.
 pub fn reader(_w: &World, _s: &Scene, _card: &mut Card) {}

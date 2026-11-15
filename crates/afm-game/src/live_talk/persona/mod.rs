@@ -22,11 +22,12 @@ use afm_engine::positions::Position;
 use afm_engine::world::folk::persona::Them;
 use afm_engine::world::folk::persona::ear::{ActKind, How, Item, Reading};
 use afm_engine::world::folk::persona::knows::Topic;
-use afm_engine::world::folk::persona::terms::{DealKind, Give};
+use afm_engine::world::folk::persona::terms::{DealKind, Give, PickIf};
 use afm_engine::world::folk::usage::{self, Usage};
 
 use super::card::{Spoken, Tagged};
 
+pub mod calls;
 pub mod cards;
 pub mod ear;
 pub mod talk;
@@ -144,7 +145,7 @@ impl EarTerm {
 
 /// The things a deal can hold (`terms::Give`), by their keys in the ear's
 /// schema.
-pub const GIVE_KEYS: [&str; 20] = [
+pub const GIVE_KEYS: [&str; 32] = [
     "scholarship",
     "scholarship_for",
     "money",
@@ -165,6 +166,19 @@ pub const GIVE_KEYS: [&str; 20] = [
     "pick",
     "favour",
     "outside",
+    // Lane N5b, negotiating.
+    "bonus",
+    "incentives",
+    "void_years",
+    "no_trade",
+    "player",
+    "their_pick",
+    "draft",
+    "if_games",
+    "if_starts",
+    "if_pro_bowl",
+    "if_snaps",
+    "revenue_share",
 ];
 
 /// One thing in a deal as the ear reads it: its key, the number you said,
@@ -210,6 +224,18 @@ impl EarGive {
             "pick" => Give::Pick(small(n?).clamp(1, 7)),
             "favour" => Give::Favour,
             "outside" => Give::Outside(n.unwrap_or(0.0).max(0.0)),
+            "bonus" => Give::Bonus(n?.max(0.0)),
+            "incentives" => Give::Incentives(n?.max(0.0)),
+            "void_years" => Give::VoidYears(small(n?).min(4)),
+            "no_trade" => Give::NoTrade,
+            "player" => Give::Player(who?),
+            "their_pick" => Give::TheirPick(small(n?).clamp(1, 7)),
+            "draft" => Give::Draft(n?.round() as i32),
+            "if_games" => Give::PickIf(PickIf::Games(small(n?))),
+            "if_starts" => Give::PickIf(PickIf::Starts(small(n?))),
+            "if_pro_bowl" => Give::PickIf(PickIf::ProBowl),
+            "if_snaps" => Give::PickIf(PickIf::Snaps(small(n?).clamp(1, 99))),
+            "revenue_share" => Give::RevenueShare(n?.max(0.0)),
             _ => return None,
         })
     }

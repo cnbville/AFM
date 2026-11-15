@@ -935,6 +935,7 @@ fn proposal(w: &World, args: &Value) -> Result<deals::Proposal, String> {
         let cond = match c.get("kind").and_then(Value::as_str).unwrap_or("games") {
             "starts" => deals::Condition::Starts(n),
             "pro_bowl" => deals::Condition::ProBowl,
+            "snaps" => deals::Condition::Snaps(n.clamp(1, 100) as u8),
             _ => deals::Condition::Games(n),
         };
         Some((pk, cond, c.get("player")?.as_u64()? as u32))

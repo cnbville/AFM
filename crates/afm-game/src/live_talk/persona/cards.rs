@@ -5,6 +5,7 @@
 use afm_engine::world::World;
 use afm_engine::world::folk::persona::Them;
 use afm_engine::world::folk::persona::ear::{Ends, Turn};
+use afm_engine::world::folk::persona::negotiate;
 use afm_engine::world::folk::persona::room::{Channel, Group, Place, Room, Seat};
 use afm_engine::world::folk::persona::talk::{self, Parts, channels, items, store, who};
 use afm_engine::world::folk::persona::wants::Boil;
@@ -126,6 +127,12 @@ pub fn ear(w: &World, s: &Scene, room: &Room, parts: &Parts, line: &str) -> (Ear
     for p in &room.present {
         add(&mut c, &mut keys, p.who, seat_words(p.seat));
     }
+    // A negotiation's men: the client, the men in a trade, your roster at
+    // a prospect's spot (lane N5b).
+    let (extra_people, extra_items) = negotiate::card_extras(w, s);
+    for (who, why) in extra_people {
+        add(&mut c, &mut keys, who, &why);
+    }
     // Anyone else the line may name: his friends, then his position room,
     // then your staff.
     if let Them::Player(id) = him {
@@ -158,7 +165,7 @@ pub fn ear(w: &World, s: &Scene, room: &Room, parts: &Parts, line: &str) -> (Ear
         }
     }
     let wants = parts.wanting.wants(w, him);
-    for (k, (item, words)) in items::items(w, him, &wants).into_iter().enumerate() {
+    for (k, (item, words)) in items::items(w, him, &wants).into_iter().chain(extra_items).enumerate() {
         let tag = format!("c{}", k + 1);
         c.items.push(Tagged { tag: tag.clone(), text: words });
         keys.items.push((tag, item));

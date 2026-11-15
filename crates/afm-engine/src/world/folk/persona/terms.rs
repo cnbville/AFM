@@ -54,6 +54,40 @@ pub enum Give {
     Favour,
     /// Money outside the rules (`finals.rs`): read as one, with its risk.
     Outside(f64),
+    // Lane N5b, negotiating: the rest of an NFL contract, a trade's
+    // players and picks, revenue share.
+    /// A signing bonus, in all.
+    Bonus(f64),
+    /// Not likely to be earned incentives, a year.
+    Incentives(f64),
+    /// Void years added after the real ones to spread the bonus (from 2016).
+    VoidYears(u8),
+    /// A no-trade clause.
+    NoTrade,
+    /// A player in a trade, by id: one of yours goes, one of his comes.
+    Player(u32),
+    /// One of his club's picks in a trade, by round.
+    TheirPick(u8),
+    /// The draft the deal's picks come from (the next one when not said).
+    Draft(i32),
+    /// A condition on your first pick in the deal: met, it moves up a round.
+    PickIf(PickIf),
+    /// Revenue share a year (from 2025), beside a collective's NIL deal.
+    RevenueShare(f64),
+}
+
+/// A condition on a pick in a trade, as real deals word them (lane N5b):
+/// the player it reads is the first one you receive.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PickIf {
+    /// He dresses for at least this many games.
+    Games(u8),
+    /// He starts at least this many games.
+    Starts(u8),
+    /// He makes the Pro Bowl.
+    ProBowl,
+    /// He plays at least this share of his side's snaps, in percent.
+    Snaps(u8),
 }
 
 impl Give {
@@ -92,6 +126,20 @@ impl Give {
             Give::Pick(r) => format!("a round {r} pick"),
             Give::Favour => "a clinic and camp invites".into(),
             Give::Outside(_) => "money outside the rules".into(),
+            Give::Bonus(_) => "a signing bonus".into(),
+            Give::Incentives(_) => "incentives".into(),
+            Give::VoidYears(n) => format!("{n} void years"),
+            Give::NoTrade => "a no-trade clause".into(),
+            Give::Player(_) => "a player in the deal".into(),
+            Give::TheirPick(r) => format!("their round {r} pick"),
+            Give::Draft(y) => format!("picks in the {y} draft"),
+            Give::PickIf(c) => match c {
+                PickIf::Games(n) => format!("a pick that moves up if he plays {n} games"),
+                PickIf::Starts(n) => format!("a pick that moves up if he starts {n} games"),
+                PickIf::ProBowl => "a pick that moves up if he makes the Pro Bowl".into(),
+                PickIf::Snaps(n) => format!("a pick that moves up if he plays {n}% of the snaps"),
+            },
+            Give::RevenueShare(_) => "revenue share".into(),
         }
     }
 }

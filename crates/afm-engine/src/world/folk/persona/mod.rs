@@ -45,6 +45,7 @@ pub mod ear;
 pub mod fake;
 pub mod knows;
 pub mod memory;
+pub mod negotiate;
 pub mod room;
 pub mod talk;
 pub mod terms;
