@@ -46,6 +46,10 @@ pub enum ActKind {
     Show,
     Answer,
     End,
+    /// Your word on his future (the four words of `folk::future`).
+    Future,
+    /// A change to a promise you made him.
+    Amend,
 }
 
 /// What you can show (5.1): only real things.
@@ -127,6 +131,53 @@ pub enum Act {
     /// Answering his ask.
     Answer(Reply),
     End,
+    /// Your word on his future (playtest bug 15, `folk::future`): a role
+    /// backed by a strength of his you named (`strength`, a key of
+    /// `future::STRENGTHS`, empty for none), or one of the three ways to
+    /// tell him to go.
+    Future {
+        word: crate::world::folk::future::Word,
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        strength: String,
+    },
+    /// A change to a promise you made him (the promises design, sections
+    /// 5 and 6).
+    Amend(Amend),
+}
+
+/// How a line changes a promise you made him.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AmendHow {
+    /// "Forget I said it."
+    TakeBack,
+    /// A later date.
+    Later,
+    /// A condition on it.
+    Condition,
+    /// The real reason it hasn't happened.
+    Reason,
+    /// Putting it in writing.
+    Writing,
+}
+
+/// A change to a promise: which one (P1's index; none for the latest open
+/// one), how, and what the line named for it.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Amend {
+    #[serde(default)]
+    pub promise: Option<u32>,
+    pub how: AmendHow,
+    /// The new date, in the promise reader's words (`midseason`,
+    /// `next_season`), empty for none.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub by: String,
+    /// The condition's kind (lane 9's list), empty for none.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub condition: String,
+    /// A stat bar you named.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bar: Option<f32>,
 }
 
 impl Act {
@@ -149,6 +200,8 @@ impl Act {
             Act::Show(_) => ActKind::Show,
             Act::Answer(_) => ActKind::Answer,
             Act::End => ActKind::End,
+            Act::Future { .. } => ActKind::Future,
+            Act::Amend(_) => ActKind::Amend,
         }
     }
 }
@@ -302,6 +355,11 @@ pub struct Turn {
     /// Minutes the line took.
     pub minutes: f32,
     pub say: Say,
+    /// Your word on his future, decided (`folk::future::plan`).
+    pub future: Vec<crate::world::folk::future::Plan>,
+    /// Promises your line changes: (P1's index, the answer it is, a stat
+    /// bar you named), made real through `talks::rework`.
+    pub reworked: Vec<(u32, crate::world::folk::talks::PAct, Option<f32>)>,
 }
 
 /// The game's side of a line (lane N4).

@@ -101,6 +101,9 @@ fn main() {
     for part in ["story", "name", "position history", "college staff", "path", "calendar lists"] {
         weigh(&format!("people: {part}"), &mut w, &|w| w.debug_drop_people_part(part));
     }
+    let books: usize = w.people.iter().map(|p| p.tests.len()).sum();
+    println!("testing books: {books} days kept on {} people", w.people.iter().filter(|p| !p.tests.is_empty()).count());
+    weigh("people: testing books", &mut w, &|w| w.people.iter_mut().for_each(|p| p.tests = Default::default()));
     weigh("people: notes", &mut w, &|w| w.people.iter_mut().for_each(|p| p.notes = Vec::new()));
     weigh("people: season records", &mut w, &|w| w.people.iter_mut().for_each(|p| p.player.history = Vec::new()));
     weigh("people: pro careers", &mut w, &|w| w.people.iter_mut().for_each(|p| p.pro = None));
