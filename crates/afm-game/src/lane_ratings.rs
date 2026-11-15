@@ -164,6 +164,31 @@ pub(crate) fn marks_cached(w: &World, pool: Pool, pos: Position, rated: Rated) -
     m
 }
 
+/// How far down the class a place is still said as a rank, in the services'
+/// steps; beyond the last it is a share of the starters.
+const RANK_STEPS: [u32; 7] = [25, 50, 100, 300, 500, 1000, 2500];
+
+/// "About top 500 nationally" for a range, at a real-size class: the share of
+/// the world's starters at his spot who are ahead of its middle, on the real
+/// class's size (world scale). `None` when the pool can't say.
+fn national_rank_words(w: &World, m: &Marks, lo: u8, hi: u8, one: &str, class_of: i32) -> Option<Value> {
+    if m.starters.is_empty() {
+        return None;
+    }
+    let mid = (lo as f64 + hi as f64) / 2.0;
+    let above = 1.0 - m.below(mid);
+    let rank = above * norms::national_starters(w, m) / w.options.scale.max(1e-6);
+    let word = match RANK_STEPS.iter().find(|&&s| rank <= s as f64) {
+        Some(s) => format!("About top {} nationally", group_thousands(*s)),
+        None => format!("About the top {}% nationally", round5(above).max(5)),
+    };
+    Some(json!({ "word": word, "sub": format!("at {one}, class of {class_of}") }))
+}
+
+fn group_thousands(n: u32) -> String {
+    if n >= 1000 { format!("{},{:03}", n / 1000, n % 1000) } else { n.to_string() }
+}
+
 fn round5(x: f64) -> u32 {
     ((x * 100.0 / 5.0).round() * 5.0).clamp(0.0, 100.0) as u32
 }
@@ -308,6 +333,19 @@ fn card(w: &World, id: u32, k: &str, (lo, hi): (u8, u8), own: bool) -> Reply {
     let who = who_phrase(w, &m, i, at);
     let widened = m.pool != pool;
     let (word, line) = band(&m, lo, hi, &who);
+    // A high schooler is read nationally; his state classification is the
+    // second, smaller read ("near home").
+    let high_school = matches!(m.pool, Pool::Hs { state: None, .. });
+    let near = norms::local_pool_of(w, i)
+        .and_then(|lp| marks_cached(w, lp, pos, rated))
+        .filter(|lm| lm.pool != m.pool)
+        .map(|lm| {
+            let (nw, nl) = band(&lm, lo, hi, "the starters there");
+            let lw = pool_words(w, lm.pool, school);
+            json!({ "who": lw, "band": nw, "line": format!("Against {lw} starting at {one}: {}. {nl}", nw.to_lowercase()) })
+        });
+    // His place in the class nationally, in the services' steps (overall only).
+    let rank = (high_school && k == "ovr").then(|| national_rank_words(w, &m, lo, hi, one, p.class_of)).flatten();
     let combine_now = match rated {
         Rated::Attr(a) => combine_line(w, i, a, lo, hi),
         _ => None,
@@ -339,6 +377,8 @@ fn card(w: &World, id: u32, k: &str, (lo, hi): (u8, u8), own: bool) -> Reply {
             _ => format!("Against {pw} {many} this season"),
         },
         "widened": widened.then_some("Too few at his own classification to read: the wider pool is shown."),
+        "near": near,
+        "rank": rank,
         "marks": { "backup": m.backup.round(), "starter": m.starter.round(), "elite": m.elite.round() },
         "marks_line": format!(
             "Elite starts at {:.0}. A typical starter has {:.0}, a typical backup {:.0}.",

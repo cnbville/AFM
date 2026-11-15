@@ -219,3 +219,75 @@ fn a_new_staff_resets_the_board() {
     }
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// A recruit who signed with another school never lands on the board you
+/// inherit, with the old staff's offers or without them; one who only
+/// committed elsewhere stays (he can flip) while the old offers stand.
+#[test]
+fn signed_elsewhere_never_lands_on_the_inherited_board() {
+    use afm_engine::calendar::Date;
+    use afm_engine::world::Signed;
+    let dir = std::env::temp_dir().join(format!("afm-fresh-signed-{}", std::process::id()));
+    let mut g = Game::new(dir.clone());
+    ok(&mut g, "build_world", json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    let fresh = ok(&mut g, "save", json!({ "name": "fresh" }))["saved"].as_str().unwrap().to_string();
+    // A job whose old staff left at least three unsigned offers out.
+    let jobs = ok(&mut g, "jobs", json!({ "level": "college" }))["jobs"].as_array().unwrap().clone();
+    let mut found: Option<(Value, usize, Vec<u32>)> = None;
+    for j in jobs.iter().take(60) {
+        ok(&mut g, "open_world", json!({ "path": fresh }));
+        start(&mut g, &j["ref"], false);
+        ok(&mut g, "recruit_board", json!({}));
+        let w = g.world.as_ref().unwrap();
+        let ids: Vec<u32> = desk::inherited_out(w).into_iter().filter(|x| !x.1).map(|x| x.0).collect();
+        if ids.len() >= 3 {
+            found = Some((j["ref"].clone(), program(w), ids));
+            break;
+        }
+    }
+    let (job, j, ids) = found.expect("a job with three old offers out");
+    for no_offers in [false, true] {
+        ok(&mut g, "open_world", json!({ "path": fresh }));
+        let w = g.world.as_mut().unwrap();
+        let other = (j + 1) % w.programs.len();
+        let today = w.today;
+        let at = |w: &World, id: u32| w.people.iter().position(|p| p.player.id == id).unwrap();
+        // One signed his letter with another school (a walk-on place for
+        // the second), one only committed there.
+        for (k, walk_on) in [(ids[0], false), (ids[1], true)] {
+            let i = at(w, k);
+            w.people[i].cal.signed = Some(Signed {
+                program: other,
+                walk_on,
+                date: today,
+                early_enrollee: false,
+                flipped: false,
+                committed: None,
+            });
+        }
+        let i = at(w, ids[2]);
+        w.people[i].cal.commit = Some((other, today, false));
+        let _: Date = today;
+        start(&mut g, &job, no_offers);
+        ok(&mut g, "recruit_board", json!({}));
+        let w = g.world.as_ref().unwrap();
+        let on = |id: u32| w.front_office.college.board.iter().any(|t| t.id == id);
+        assert!(!on(ids[0]) && !on(ids[1]), "signed elsewhere stays off the board (no_offers {no_offers})");
+        if no_offers {
+            assert!(!on(ids[2]), "a clean board holds no old offer, committed elsewhere or not");
+        } else {
+            assert!(on(ids[2]), "committed elsewhere can still flip: he stays on the board");
+        }
+        // The old staff's offer is still on a signed recruit's record, but
+        // none of the board's inherited names is signed elsewhere.
+        let j2 = program(w);
+        assert!(
+            w.front_office.college.board.iter().all(|t| {
+                let p = w.people.iter().find(|p| p.player.id == t.id).unwrap();
+                !p.cal.signed.is_some_and(|s| s.program != j2)
+            }),
+            "no board name signed with another school"
+        );
+    }
+    let _ = std::fs::remove_dir_all(dir);
+}

@@ -179,20 +179,25 @@ fn table(w: &World, t: TeamRef) -> Value {
         }
         TeamRef::College(me) => {
             let p = &w.programs[me];
-            let mut teams: Vec<(usize, afm_engine::world::seat::Record)> = w
+            let ids: Vec<usize> = w
                 .programs
                 .iter()
                 .filter(|q| q.conference == p.conference && q.division == p.division && q.plays(w.year))
-                .map(|q| (q.id, w.college_record(q.id)))
+                .map(|q| q.id)
                 .collect();
-            if teams.len() < 2 {
+            if ids.len() < 2 {
                 return Value::Null;
             }
-            teams.sort_by(|a, b| {
-                (b.1.conf_wins, b.1.wins, a.1.conf_losses, a.0).cmp(&(a.1.conf_wins, a.1.wins, b.1.conf_losses, b.0))
+            // Before a new season's first game (from the February roll-over
+            // to September) the table is last season's final one.
+            let prev = ids.iter().all(|&x| {
+                let r = w.college_record(x);
+                r.wins + r.losses == 0
             });
+            let teams = w.college_conference_table(&ids, prev);
+            let year = if prev { w.programs[me].seasons.last().map(|s| s.year) } else { None };
             let mut diff: HashMap<usize, i64> = HashMap::new();
-            for f in w.college_fixtures(None) {
+            for f in w.college_fixtures_in(None, prev) {
                 if let Some([h, a]) = f.score.map(|s| [s[0] as i64, s[1] as i64]) {
                     *diff.entry(f.home).or_default() += h - a;
                     *diff.entry(f.away).or_default() += a - h;
@@ -201,18 +206,24 @@ fn table(w: &World, t: TeamRef) -> Value {
             let rows: Vec<Value> = teams
                 .iter()
                 .map(|(x, r)| {
-                    row(
+                    let mut v = row(
                         TeamRef::College(*x),
                         r.wins,
                         r.losses,
                         0,
                         Some((r.conf_wins, r.conf_losses)),
                         Some(diff.get(x).copied().unwrap_or(0)),
-                    )
+                    );
+                    v["champ"] = json!(r.conf_title);
+                    v
                 })
                 .collect();
             let place = teams.iter().position(|x| x.0 == me).map(|k| k + 1);
-            json!({ "name": w.conference_name(&p.conference), "rows": rows, "place": place, "conf": true })
+            let champ = teams.first().filter(|x| x.1.conf_title).map(|x| x.0 == me);
+            json!({
+                "name": w.conference_name(&p.conference), "rows": rows, "place": place, "conf": true,
+                "champ": champ, "year": year,
+            })
         }
         TeamRef::HighSchool(h) => {
             let Some((name, rows)) = w.hs_standings(h) else { return Value::Null };

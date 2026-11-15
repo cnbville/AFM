@@ -386,11 +386,14 @@ Cain, 2026-11-13 10:09 UTC: players never see the depth chart; a promise can car
 
 ## 22. Live talks rebuilt: everyone you talk to is a real person (thread "Rework live talks so the AI plays the player", 2026-11-14)
 
-Cain, 2026-11-14 20:22 UTC: the AI should play the person, never steer him to options already on screen, never be tied to the line bank. 20:24: "I want a architectural overhaul". Spec: `docs/design/live-talks-persona.md` (version 2).
+Cain, 2026-11-14 20:22 UTC: the AI should play the person, never steer him to options already on screen, never be tied to the line bank. 20:24: "I want a architectural overhaul". 22:32: "You're proposal doesn't feel exhaustive enough", so version 3 covers every person, every talk of the year, football talk from the play log (his idea), every term, request and measure, and the rules around talking. Spec: `docs/design/live-talks-persona.md` (version 3).
 - **Agreed 22:02 UTC:** a typed line is never mapped onto a chip (rule LT1 dropped); two calls a line (the ear reads, the game decides, the voice answers as him).
 - **Agreed 22:12 UTC:** asking gets real information from what he knows, gated by his trust and honesty ("This has always been my fucking intent with this live feature"); deals you build from real game actions, which he weighs and counters ("good"); asking people to do things that become real actions ("good"); and all of it in every facet: "recruiting, player relationship, negotiating. Everything".
 - **His ideas (20:19 UTC):** custom football promises judged on the play log, and football knowledge in talks.
-- **Open:** the 11 questions in the spec's section 13.
+- **Agreed 23:08 UTC (promises thread):** the 9 football promise items, as "a baseline for every position with their own promises, don't treat it like a kicker or edge fix". The spec's section 8.4 reads that for every position (proposed, not confirmed), and the promises thread builds from it.
+- **Go-ahead 23:27 UTC:** "18 hours it is": build lanes N0-N8 on the 18-hour plan (the shared types first, then N1, N3 and N4 side by side). The 14 questions are still unanswered, so the lanes follow Claude's picks in section 17 (proposed, not confirmed) until Cain answers.
+- **N0 mock-ups (23:34 UTC):** the first board, in plain Press Box panels, was "chaotic and no eye candy. Feels like letters thrown on a page". All six boards were redone in the look agreed for section 10 talks (the team's light behind glass, drawn heads, charts from the play log): https://claude.ai/artifact/9EPFSfZ8ysBHkZBwzEjAgj, sources in the project folder at `afm/live-talks/v3-mockups/`. His answer on the redo is open.
+- **Open:** the 14 questions in the spec's section 17 (version 3 replaces version 2's 11).
 
 ## 23. The progression update: projects, the body limit and the knack (thread "Design the progression update", 2026-11-14)
 
