@@ -34,7 +34,10 @@ fn memory_round_trips_in_live() {
     let reading = Reading {
         acts: vec![
             Act::Question { topic: Topic::Mood, about: Some(Them::Player(9)), words: "how's Tre".into() },
-            Act::Promise { words: "you kick from the 37 in".into() },
+            Act::Promise {
+                words: "you kick from the 37 in".into(),
+                terms: vec![crate::world::folk::usage::Usage::fg_line(37)],
+            },
             Act::Claim(Stated { kind: "role".into(), about: Some(7), value: "starter".into() }),
             Act::Request(Request::Mentor(9)),
         ],

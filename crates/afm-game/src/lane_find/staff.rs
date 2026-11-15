@@ -71,6 +71,11 @@ pub(crate) fn cache_key(w: &World, staff: Staff) -> (i32, u64, usize, u64) {
     {
         looks += c.files.values().map(|v| v.len()).sum::<usize>();
     }
+    if let Staff::League(fr) = staff
+        && let Some(c) = w.others.teams.get(fr)
+    {
+        looks += c.files.values().map(|v| v.len()).sum::<usize>();
+    }
     let who = match staff {
         Staff::Club(t) => w.nfl.get(t).map_or(0, |tm| {
             let id = |c: Option<usize>| c.map_or(0xFFFF, |c| c as u64 & 0xFFFF);
@@ -78,6 +83,10 @@ pub(crate) fn cache_key(w: &World, staff: Staff) -> (i32, u64, usize, u64) {
         }),
         Staff::Program(p) => w.programs.get(p).map_or(0, |pr| pr.head_coach.map_or(0xFFFF, |c| c as u64 & 0xFFFF)),
         Staff::School(_) => 0,
+        Staff::League(fr) => w.others.teams.get(fr).map_or(0, |tm| {
+            let id = |c: Option<usize>| c.map_or(0xFFFF, |c| c as u64 & 0xFFFF);
+            id(tm.head_coach) | id(tm.oc) << 16 | id(tm.dc) << 32
+        }),
     };
     let medical = readers::medical_rating(w, staff) as u64;
     let seat = who ^ medical << 48 ^ (w.options.seed as u64).rotate_left(24) ^ (w.scouting.film.version as u64) << 52;
@@ -88,6 +97,7 @@ pub(crate) fn cache_key(w: &World, staff: Staff) -> (i32, u64, usize, u64) {
 pub fn has_file(w: &World, staff: Staff, id: u32) -> bool {
     w.scouting.dept.looks.get(&id).is_some_and(|v| !v.is_empty())
         || matches!(staff, Staff::Club(t) if w.clubs.get(t).is_some_and(|c| c.files.get(&id).is_some_and(|v| !v.is_empty())))
+        || matches!(staff, Staff::League(fr) if w.others.teams.get(fr).is_some_and(|c| c.files.get(&id).is_some_and(|v| !v.is_empty())))
 }
 
 /// Your staff's contacts with a player: calls, home visits, his visits

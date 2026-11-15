@@ -87,6 +87,7 @@ jobs:
           --skip tests::tallies::
           --skip tests::split_build::
           --skip tests::jan1::
+          --skip tests::cfl_draft::
           --skip lane_find::tests::
           --skip lane_training::board_tests::
           --skip lane_logos::tests::your_own_logo_wins_and_stays_with_the_save

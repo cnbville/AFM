@@ -1352,6 +1352,22 @@ pub fn matters(pos: Position, a: Attr) -> f64 {
     weight(pos, a)
 }
 
+/// How much of a position's biggest rating weight another rating needs to
+/// count as one that matters there (proposed, not confirmed). The weights
+/// are shares of the position's whole rating, so a fixed cutoff like 0.4
+/// could never be met (the file's strengths and worries, the "matters"
+/// flag and the fit line were all empty by it): the cutoff is a share of
+/// the position's biggest weight instead.
+pub const MATTERS_SHARE: f64 = 0.4;
+
+/// Whether a rating matters at a position: its weight is at least
+/// `MATTERS_SHARE` of the position's biggest. Every screen and read that
+/// asks "what matters for him" goes through this.
+pub fn matters_here(pos: Position, a: Attr) -> bool {
+    let top = Attr::ALL.iter().map(|&x| weight(pos, x)).fold(0.0f64, f64::max);
+    top > 0.0 && weight(pos, a) >= MATTERS_SHARE * top
+}
+
 /// His grade point average (the transcript's number; screens show it as a
 /// range unless the staff has his transcript).
 pub fn gpa(p: &crate::world::Person) -> f64 {
