@@ -57,9 +57,9 @@ pub const BID_FLOOR: f64 = -15.0;
 /// class of 2027 so a No. 1 quarterback at a $50M school draws about $2.4M,
 /// a typical five-star $750K-1M, a four-star receiver $100-250K at the top
 /// programs and a top class $6-9M; measured, Power 4 five-stars at a median
-/// $662K (mean $778K), four-star receivers at the 15 richest $181K, the
-/// five-star quarterbacks at Florida State, Iowa and Texas, $42-48M,
-/// $2.4-2.6M, the top class $7.90M).
+/// $717K (mean $771K), four-star receivers at the 15 richest $132K, the
+/// five-star quarterbacks at Florida State and Tennessee, $46M, $2.5-2.6M,
+/// the top class $8.26M).
 pub fn star_bid(stars: u8) -> f64 {
     match stars {
         5 => 0.8,
@@ -123,7 +123,7 @@ pub fn level(prog: &Program) -> usize {
 /// a deal priced past what this share of similar players cleared, per unit
 /// of their payroll weight, is denied. Aimed at about 8% of reviewed deals
 /// (real May-June 2026: 659 of 8,298 deals, $33.7M of $146.6M); on seed 41
-/// it denies 4.1% of the year's reviewed deals and 6% of their dollars
+/// it denies 3.7% of the year's reviewed deals and 7% of their dollars
 /// (`nil_scheme run`, the year to July 2027): under real. Proposed, not
 /// confirmed.
 pub const NIL_GO_Q: f64 = 0.92;
