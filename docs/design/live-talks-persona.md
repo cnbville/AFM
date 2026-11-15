@@ -18,7 +18,7 @@ Cain's words, 2026-11-14 (UTC):
 
 The decision log is `docs/handoff/decisions.md`, section 22.
 
-Built so far: the shared contract (PR #402) and lane N1, people (2026-11-15): who each of the 17 kinds is and his makeup, what he knows and how he tells it (football from his snaps too), his wants, heat and patience, the stores and people coming to you (`world/folk/persona/`, how it works in `docs/reference/how-it-works/live-talks.md`, "Live talks v3, lane N1: people"). Every size N1 set is proposed, not confirmed.
+Built so far: the shared contract (PR #402) and lane N1, people (2026-11-15): who each of the 17 kinds is and his makeup, what he knows and how he tells it (football from his snaps too), his wants, heat and patience, the stores and people coming to you (`world/folk/persona/`, how it works in `docs/reference/how-it-works/live-talks.md`, "Live talks v3, lane N1: people"). Every size N1 set is proposed, not confirmed. Lane N4, the conversation (2026-11-15): your one-on-ones play as two calls a line, on N1's people (how it works in the same page, "Live talks v3, lane N4: the conversation"; its sizes are proposed, not confirmed).
 
 ## Contents
 
@@ -283,7 +283,7 @@ For each: what you talk about, what you can learn, deal, ask and promise, and wh
 
 - **GMs (built: trade talks, haggle, leverage, rumours, `office.rs`):** learn why he's buying or selling, what his staff thinks of a player (biases built), what others offered (a bluff). Deal: players, picks, conditional picks (new), cap room. Ask: a heads-up when someone comes free, "don't send him to our division". He comes to you with offers, "are you shopping him?", deadline calls and calls on the clock in the live draft (built: `world/scouting/live.rs`, `TradeOffer`; a talk is new).
 - **Other head coaches:** the handshake after a game (new), job talk (built: the carousel), coaching-tree favours (built: the network), recommending or poaching a staff member (asking permission to interview an assistant, new).
-- **Other clubs' scouts and pro scouts:** draft talk, smoke (11-07 decided against; question 10).
+- **Other clubs' scouts and pro scouts:** draft talk, smoke (decided against on 11-07, brought back on 2026-11-15: question 10).
 
 ### 6.8 Your staff
 
@@ -292,7 +292,7 @@ For each: what you talk about, what you can learn, deal, ask and promise, and wh
 - **Deal:** their contract (pay built; title, play-calling, a promotion promise, years and a buyout new), their staff budget, time off.
 - **Ask:** scouting trips, a recruit to target or call, a plan setting, a player to work with (built: individual plans and who teaches), mentor a young coach, stay through the bowl.
 - **They come to you about:** another job, being overruled, a player problem, a raise, a family matter (coaches' families are drawn, not stored; new if kept).
-- **Hiring and firing:** interviews (built: LT18, C25), references (11-07 decided against; question 10), his contract (new), letting him go (built: asks first, `finals.rs` 70-72).
+- **Hiring and firing:** interviews (built: LT18, C25), references (decided against on 11-07, brought back on 2026-11-15: question 10), his contract (new), letting him go (built: asks first, `finals.rs` 70-72).
 
 ### 6.9 Your bosses
 
@@ -319,7 +319,7 @@ For each: what you talk about, what you can learn, deal, ask and promise, and wh
 - **The calls (new):** the draft-day call to the man you just picked, and the call to the one you passed on who thought you'd take him.
 - **Your own players (college seat, new):** NFL scouts come through and ask about your players. You talk them up or down, and your word with each club moves the way a high school coach's credibility already does (built for the high school seat). Oversell a man who busts and that club trusts you less.
 - **They come to you about:** "don't draft my client, he won't sign there" (new, real), declare or return for your own college players (built: the December read).
-- 11-07's decided-against items here: the whiteboard, coached answers, a prospect remembering you, his family, the team doctor, security, smoke (question 10).
+- 11-07's decided-against items here, all brought back on 2026-11-15 (question 10): the whiteboard, coached answers, a prospect remembering you, his family, the team doctor, security, smoke.
 
 ### 6.12 Game day
 
@@ -346,7 +346,7 @@ For each: what you talk about, what you can learn, deal, ask and promise, and wh
 ### 6.15 The high school seat
 
 - Players' parents (built), your principal and AD, the booster club (new).
-- College recruiters calling about your kids: you talk them up or down, with your credibility on the line (built: credibility and "worth a look" calls; answering in words was decided against on 11-07, question 10).
+- College recruiters calling about your kids: you talk them up or down, with your credibility on the line (built: credibility and "worth a look" calls; answering in words, decided against on 11-07, is back since 2026-11-15: question 10).
 - Kids you pitch to transfer in (built: `world/scouting/pitch.rs`, found out 18%+).
 - The state association (built: transfer rules by state).
 
@@ -734,7 +734,7 @@ A heavy season, every facet in:
 | Bosses, boosters, compliance | 30 | 180 | $0.10 |
 | Game day | 100 | 200 | $0.10 |
 | Prospects and sources | 150 | 900 | $0.55 |
-| Press, if question 8 is yes | 40 | 200 | $0.10 |
+| Press (question 8: yes) | 40 | 200 | $0.10 |
 | **All** | **1,420** | **7,580** | **about $4.50** |
 
 A typical season is about half that. The $50 cap stays. A Sonnet 5.5 ear would cost about $0.005 a line, about $38 a heavy season, which is why Haiku is the pick. Time: Haiku answered a small call in 0.8 s. Ear then voice is about 2 to 2.5 s a line, and "Heard as" shows after about 1 s.
@@ -769,58 +769,60 @@ A typical season is about half that. The $50 cap stays. A Sonnet 5.5 ear would c
 - LT13-LT16, LT20, LT21 (the desk): kept. The analyst and scouts also become people.
 - W1-W11 (taken overnight, never confirmed by Cain): untouched. Check against section 6.8 when lane 11 opens.
 
-### 16.3 The build (proposed)
+### 16.3 The build (agreed 2026-11-15, question 14)
 
 | # | Lane | Holds | Model |
 |---|---|---|---|
-| N0 | Mock-ups | The conversation page, who's in the room, the deal panel, texts, people coming to you, pick lists | Sonnet |
+| N0 | Mock-ups | The conversation page, who's in the room, the deal panel, texts, people coming to you, pick lists. Agreed by Cain 2026-11-15: six boards at https://claude.ai/artifact/9EPFSfZ8ysBHkZBwzEjAgj, sources in the project folder at `afm/live-talks/v3-mockups/` | Sonnet |
 | N1 | People | What he knows and tells (football too, section 9), wants and actions for every kind, heat and patience, the new stores (unseen breaks, the grapevine, lies, notebooks), people coming to you | Opus |
 | N2 | Terms | Measure readers and the football readers on the play log (section 9), every position's terms (8.4, which the promises thread is building now), terms on promises, incentives, NIL, picks, staff and boss goals, plan settings that keep them, the staff's warning | Opus |
-| N3 | Deals and requests | Valuing against his best option, asks and counters, deadlines, taking time, many people, requests run as actions, confirm cards | Opus |
+| N3 | Deals and requests | Valuing against his best option, asks and counters, deadlines, taking time, many people, requests run as actions, confirm cards. Built 2026-11-15 (`world/folk/persona/deals.rs`, `asks.rs`; how it works in `docs/reference/how-it-works/live-talks.md`, "lane N3"); its sizes proposed, not confirmed | Opus |
 | N4 | The conversation | The ear and the voice, cards, hits, turns, channels, groups, memory, saved readings; your players first | Opus |
 | N5a | Recruiting | Recruits, families, high school coaches and circles, transfers, visits, signing | Opus |
 | N5b | Negotiating | Agents, GMs, NIL, contracts, trades, the undrafted rush | Opus |
 | N5c | Staff, bosses, money | Coordinators, position coaches, scouts, the analyst, doctors, hiring and firing, the AD and owner, boosters, compliance | Opus |
 | N5d | Game day and the room | Speeches, the sideline, officials, captains, the council, team meetings | Opus |
 | N5e | Scouting and the draft | Prospects, sources, and whatever question 10 brings back | Opus |
-| N6 | Screens | After Cain okays N0 and N4's contract is set | Sonnet |
+| N6 | Screens | The six agreed N0 boards, on N4's contract (the ear and voice cards, the ticket chain) | Sonnet |
 | N7 | Checks | Labelled lines per facet, exploits, leaks, cost and time on Cain's Mac | Sonnet |
 | N8 | AI staffs on the same logic | Question 11. It changes every world, so it goes on the rebuild gate | Opus |
 
 Order: N0, N1 and N2 now, side by side. N3 and N4 after N1. N5a to N5e after N3 and N4, side by side (separate files). N6 after N0 and N4. N7 with each app build. N8 last. N1 to N7 change only your seat, so no world result changes. The build threads use the fake client; only Cain runs the real key.
 
-## 17. Questions
+## 17. Questions (all agreed 2026-11-15)
 
-1. **How your words land.** The AI, reading as him, says which of his real things your words touched, and must point at a real one. The game sizes each from how much it weighs for him and his traits, inside today's caps. My pick: yes.
-2. **What "Heard as" shows.** It names what you touched only when you already know that thing about him. Otherwise it says only whether it landed. My pick: yes.
-3. **His asks and counters.** The game builds them from what he wants most that you haven't given. The AI only says them. My pick: yes.
-4. **Confirm.** Anything that does something real (an offer, money, a hire, a trade, a cut, a benching) asks you to confirm first. A promise counts the moment you say it. My pick: yes.
-5. **Colour.** The voice may add details no system reads, kept in a notebook only the voice reads. My pick: yes.
-6. **Without a key.** The same asks, deals and requests work through pick lists. My pick: yes.
-7. **With a key.** No answer buttons. An "Ideas" list puts words in your box to change. My pick: yes.
-8. **Press conferences come in.** You answer reporters in your own words, and it reaches your players, recruits and boss as press answers already do. My pick: yes, since they already move real things.
-9. **Social media and fans stay out.** My pick: yes.
-10. **Bring back what you turned down on 2026-11-07** ("too focused on dialogue"). In this shape each one gives real information or real actions. My pick by item:
+Cain, 2026-11-15 03:22 UTC: "yes to all, hurry up and build". Every pick below is agreed as written, question 10's table included, so your typed notes graded by look-backs stay out.
 
-| Item | Bring back? |
-|---|---|
-| The live whiteboard (a prospect explains a play) | Yes: reads his football IQ |
-| Coached interview answers (agents prep prospects) | Yes: makes interviews honest work |
-| A prospect remembering you | Yes: everyone remembers now |
-| Asking a prospect's family | Yes |
-| Asking the team doctor (and pressure to clear a man) | Yes |
-| An NFL security director (background checks) | Yes |
-| Sending a scout with a question | Yes |
-| Asking pro scouts about other clubs' players | Yes |
-| A coach's references before you hire | Yes |
-| The draft room debate (your scouts argue on the clock) | Yes |
-| Reading smoke on calls | Yes |
-| Planting smoke | Yes |
-| The high school coach answering college calls in words | Yes |
-| Typing into Ground's calls | Yes, when Ground is built |
-| Your typed notes graded by look-backs | No: not a person |
+1. **How your words land.** The AI, reading as him, says which of his real things your words touched, and must point at a real one. The game sizes each from how much it weighs for him and his traits, inside today's caps. **Agreed:** yes.
+2. **What "Heard as" shows.** It names what you touched only when you already know that thing about him. Otherwise it says only whether it landed. **Agreed:** yes.
+3. **His asks and counters.** The game builds them from what he wants most that you haven't given. The AI only says them. **Agreed:** yes.
+4. **Confirm.** Anything that does something real (an offer, money, a hire, a trade, a cut, a benching) asks you to confirm first. A promise counts the moment you say it. **Agreed:** yes.
+5. **Colour.** The voice may add details no system reads, kept in a notebook only the voice reads. **Agreed:** yes.
+6. **Without a key.** The same asks, deals and requests work through pick lists. **Agreed:** yes.
+7. **With a key.** No answer buttons. An "Ideas" list puts words in your box to change. **Agreed:** yes.
+8. **Press conferences come in.** You answer reporters in your own words, and it reaches your players, recruits and boss as press answers already do. **Agreed:** yes, since they already move real things.
+9. **Social media and fans stay out.** **Agreed:** yes.
+10. **Bring back what you turned down on 2026-11-07** ("too focused on dialogue"). In this shape each one gives real information or real actions. **Agreed** by item, with the lane that builds each:
 
-11. **AI coaches, GMs and agents** use the same deals, asks and terms through the game's own logic, never the API, after your side works. It changes every world. My pick: yes.
-12. **People coming to you.** The urgent ones (a trade request, an agent's deadline, a family crisis, a boss meeting) stop Continue. The rest wait in the inbox, and they remember if you ignore them. My pick: yes.
-13. **Haiku 5.5** for both calls everywhere. The checks compare it with a bigger model so you can see the difference. My pick: yes.
-14. **The build** runs in lanes N0 to N8 (section 16.3), mock-ups first. My pick: yes.
+| Item | Bring back? | Lane |
+|---|---|---|
+| The live whiteboard (a prospect explains a play) | Yes: reads his football IQ | N5e |
+| Coached interview answers (agents prep prospects) | Yes: makes interviews honest work | N5e |
+| A prospect remembering you | Yes: everyone remembers now | N5e |
+| Asking a prospect's family | Yes | N5e |
+| Asking the team doctor (and pressure to clear a man) | Yes | N5c |
+| An NFL security director (background checks) | Yes | N5e |
+| Sending a scout with a question | Yes | N5e |
+| Asking pro scouts about other clubs' players | Yes | N5e |
+| A coach's references before you hire | Yes | N5c |
+| The draft room debate (your scouts argue on the clock) | Yes | N5e |
+| Reading smoke on calls | Yes | N5e |
+| Planting smoke | Yes | N5e |
+| The high school coach answering college calls in words | Yes | N5a |
+| Typing into Ground's calls | Yes, when Ground is built | Later, with Ground |
+| Your typed notes graded by look-backs | No: not a person | None |
+
+11. **AI coaches, GMs and agents** use the same deals, asks and terms through the game's own logic, never the API, after your side works. It changes every world. **Agreed:** yes.
+12. **People coming to you.** The urgent ones (a trade request, an agent's deadline, a family crisis, a boss meeting) stop Continue. The rest wait in the inbox, and they remember if you ignore them. **Agreed:** yes.
+13. **Haiku 5.5** for both calls everywhere. The checks compare it with a bigger model so you can see the difference. **Agreed:** yes.
+14. **The build** runs in lanes N0 to N8 (section 16.3), mock-ups first. **Agreed:** yes.

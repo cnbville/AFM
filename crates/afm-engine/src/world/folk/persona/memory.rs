@@ -144,6 +144,38 @@ pub struct Agreed {
     pub offer: Offer,
 }
 
+/// An answer he owes you (section 11, taking time): "let me talk to my
+/// mom". The game weighs the offer again on the day, with his decider's
+/// and his agent's say (lane N3, `deals::due`).
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Owed {
+    pub with: Them,
+    /// The day you made it, and the day he answers by.
+    pub made: Date,
+    pub by: Date,
+    pub offer: Offer,
+}
+
+/// The first number you put on the table with him (section 11, anchors):
+/// it moves what he asks for, a little. Kept a season.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Anchor {
+    pub with: Them,
+    pub day: Date,
+    /// Money a year, in dollars.
+    pub money: f64,
+}
+
+/// Someone who agreed to tell you when something happens (8.3): about one
+/// man, or anyone (lane N3; N1's unseen breaks read it through
+/// `asks::tells_you`).
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Watch {
+    pub by: Them,
+    pub about: Option<u32>,
+    pub day: Date,
+}
+
 /// One saved line of a talk: your words, the ear's reading and his reply,
 /// so a reload plays the same world (section 14, determinism).
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -181,6 +213,17 @@ pub struct Memory {
     pub agreed: Vec<Agreed>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub talks: Vec<Saved>,
+    /// The talks open now (lane N4, `talk::store::Open`): who's in the
+    /// room, the heat, his patience.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub open: Vec<super::talk::store::Open>,
+    /// Answers owed, anchors and watchers (lane N3).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub owed: Vec<Owed>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub anchors: Vec<Anchor>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub watch: Vec<Watch>,
 }
 
 impl Memory {
@@ -193,5 +236,9 @@ impl Memory {
             && self.secrets.is_empty()
             && self.agreed.is_empty()
             && self.talks.is_empty()
+            && self.open.is_empty()
+            && self.owed.is_empty()
+            && self.anchors.is_empty()
+            && self.watch.is_empty()
     }
 }

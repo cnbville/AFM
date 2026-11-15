@@ -109,3 +109,18 @@ fn travel_money_sends_a_coach_on_to_a_second_school_on_thursdays_only() {
     let share = on as f64 / days as f64;
     assert!((0.07..0.13).contains(&share), "share of coach days with a second school: {share}");
 }
+
+#[test]
+fn each_raise_he_already_gave_halves_his_next_yes_and_a_new_job_starts_fresh() {
+    use crate::world::folk::boss::{AskKind, given_cut};
+    let (mut w, _) = college();
+    assert_eq!(given_cut(&w, AskKind::RecruitingMoney), 1.0, "no raise yet, his full chance");
+    w.folk.staff.recruit_bonus = 0.1;
+    assert!((given_cut(&w, AskKind::RecruitingMoney) - 0.5).abs() < 1e-9, "one raise given: half");
+    w.folk.staff.recruit_bonus = 0.3;
+    assert!((given_cut(&w, AskKind::RecruitingMoney) - 0.125).abs() < 1e-9, "three given: an eighth");
+    assert_eq!(given_cut(&w, AskKind::StaffMoney), 1.0, "the staff pool counts its own raises");
+    w.folk.staff.pool_bonus = 0.2;
+    assert!((given_cut(&w, AskKind::StaffMoney) - 0.25).abs() < 1e-9, "two staff raises: a quarter");
+    assert_eq!(given_cut(&w, AskKind::Facility), 1.0, "other asks are untouched");
+}

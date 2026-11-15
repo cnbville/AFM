@@ -1767,7 +1767,7 @@ pub fn voice(
         }
         let rest: Vec<f64> = Attr::ALL
             .iter()
-            .filter(|a| !asks.contains(a) && super::file::matters(p.player.position, **a) > 0.4)
+            .filter(|a| !asks.contains(a) && super::file::matters_here(p.player.position, **a))
             .filter_map(|a| row[a.index()].map(|x| x.0))
             .collect();
         let avg = |v: &[f64]| v.iter().sum::<f64>() / v.len().max(1) as f64;

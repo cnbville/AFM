@@ -1629,6 +1629,7 @@ function afterRender() {
     if (h && line) (h.classList.contains("hero") ? h : h.parentElement).insertAdjacentHTML("afterend", `<div class="pad goto-pad">${line}</div>`);
   }
   bigWire();
+  if (typeof cvFit === "function") cvFit();
   // The depth strip and the four steps on the recruiting pages (depthview.js).
   if (typeof dvAfter === "function") dvAfter();
   // Big moments waiting from before this page loaded (a save, a reload).
@@ -1779,7 +1780,7 @@ screens.inbox = async (a) => {
   const none = M.q || M.key || M.saved || M.show !== "all" ? "No mail matches." : "No mail yet. It arrives each morning as the days play.";
   return `<div class="pad inbox ib">
     <header class="phead"><div class="phead-copy"><div class="st-label">${x.unread} unread · ${x.need} need you · kept 30 days</div><div class="h1">Inbox</div></div><div class="phead-act"><div class="msearch">${icon("search")}<input id="mq" value="${esc(M.q)}" placeholder="Search subject, sender and letters" autocomplete="off"></div></div></header>
-    <div class="mbar"><div class="seg">${seg}</div><span class="tspace"></span><button class="tbtn ${M.saved ? "on" : ""}" data-act="msaved">${icon("star")} Saved mails <small>${x.saved}</small></button><button class="tbtn" data-act="notes">${icon("note")} Notes <small>${x.notes}</small></button><button class="tbtn" data-act="mallread">Mark all read</button></div>
+    <div class="mbar"><div class="seg">${seg}</div><span class="tspace"></span><button class="tbtn ${M.saved ? "on" : ""}" data-act="msaved">${icon("star")} Saved mails <small>${x.saved}</small></button>${x.asking ? `<button class="tbtn" data-go="asking" title="Calls and texts that come to you">${icon("note")} Asking for you <small>${x.asking}</small></button>` : ""}<button class="tbtn" data-act="notes">${icon("note")} Notes <small>${x.notes}</small></button><button class="tbtn" data-act="mallread">Mark all read</button></div>
     <div class="ib-chips">${chips}</div>
     <div class="ib-panes"><div class="mlist ib-list" data-keep="iblist">${rows || `<div class="empty">${none}</div>`}</div><div class="ib-read"><div class="ib-empty"><b>Pick a message</b><span>${x.need ? `${x.need} wait${x.need === 1 ? "s" : ""} on you.` : "Nothing waits on you."} Arrow keys move between messages.</span></div></div></div></div>`;
 };

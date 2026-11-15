@@ -933,6 +933,27 @@ pub fn request_meeting(w: &mut World) -> Result<u32, String> {
 /// visits, from today (proposed, not confirmed).
 const RECRUIT_RAISE: f32 = 0.1;
 
+/// One yes to more money for the staff pool: a tenth more.
+const STAFF_RAISE: f32 = 0.1;
+
+/// What each raise he has already given you of the same kind leaves of his
+/// yes chance: half. A budget he has already stretched for you once is
+/// harder to stretch again, so the raises can't stack without end (a third
+/// yes comes at a quarter of the first's chance; proposed, not confirmed).
+const GIVEN_CUT: f64 = 0.5;
+
+/// His yes chance's share left after the raises of this kind he has
+/// already granted you in this job (the staff pool's and the recruiting
+/// budget's; a new job starts at none).
+pub(crate) fn given_cut(w: &World, k: AskKind) -> f64 {
+    let given = match k {
+        AskKind::StaffMoney => w.folk.staff.pool_bonus / STAFF_RAISE,
+        AskKind::RecruitingMoney => w.folk.staff.recruit_bonus / RECRUIT_RAISE,
+        _ => 0.0,
+    };
+    GIVEN_CUT.powf(given.max(0.0).round() as f64)
+}
+
 /// You ask for something (topic 12): his answer reads his money, his trust
 /// in you and his personality.
 fn ask(w: &mut World, s: &mut Scene, team: Team, k: AskKind) {
@@ -952,12 +973,13 @@ fn ask(w: &mut World, s: &mut Scene, team: Team, k: AskKind) {
         } else {
             0.0
         })
-    .clamp(0.03, 0.92);
+    .clamp(0.03, 0.92)
+        * given_cut(w, k);
     let yes = super::roll(w, 0xA5C0 ^ w.today.0 as u64, k.code() as u64) < p;
     let words = if yes {
         match k {
             AskKind::StaffMoney => {
-                w.folk.staff.pool_bonus += 0.1;
+                w.folk.staff.pool_bonus += STAFF_RAISE;
                 "Yes. Ten percent more for the staff pool, starting now."
             }
             AskKind::Facility => {
