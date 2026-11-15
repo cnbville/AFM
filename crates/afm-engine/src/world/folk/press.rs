@@ -975,6 +975,40 @@ pub(super) fn press_hour(w: &World, s: &Scene) -> Option<u16> {
     })
 }
 
+/// How your stance with the press moves the odds that a reporter with
+/// sources inside prints what he hears (talk facts lane L8, item 27): an
+/// open door lets more out, a closed shop less, fair to all as before. Only
+/// once you chose one (`Folk.media_chosen`). Claude's sizes (proposed, not
+/// confirmed).
+pub const LEAKS: [f64; 3] = [1.4, 0.5, 1.0];
+
+fn leak_share(w: &World) -> f64 {
+    if w.folk.media_chosen { LEAKS.get(w.folk.media_policy as usize).copied().unwrap_or(1.0) } else { 1.0 }
+}
+
+/// "A fence around the state" (talk facts lane L8, item 27): for a year
+/// after you say it, your state's recruits and their high school coaches
+/// hear a program that means to keep them home. A small lift in your
+/// program's appeal to in-state recruits, a third of an early offer's
+/// (`FENCE_PULL`), for `FENCE_DAYS`. Claude's sizes (proposed, not
+/// confirmed).
+pub const FENCE_PULL: f64 = 0.007;
+pub const FENCE_DAYS: i32 = 365;
+
+/// The fence's pull on recruit `p` for program `j` (`recruiting::appeal_in`).
+pub(crate) fn fence_pull(w: &World, p: &crate::world::Person, j: usize) -> f64 {
+    match w.folk.fence {
+        Some((st, said))
+            if p.home_state == st
+                && said.days_to(w.today) <= FENCE_DAYS
+                && w.seat.as_ref().and_then(|x| x.program) == Some(j) =>
+        {
+            FENCE_PULL
+        }
+        _ => 0.0,
+    }
+}
+
 pub(crate) fn day(w: &mut World, d: Date) {
     let Some(team) = Team::seat(w) else { return };
     let Some(since) = w.folk.mine.since else { return };
@@ -1038,7 +1072,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
         if let Some(r) = leaker {
             let sour = team.roster(w).into_iter().filter(|&i| w.people[i].trust < 0.3).collect::<Vec<_>>();
             let rt = w.folk.mine.trust_of(r.key()).unwrap_or(0.5);
-            if sour.len() >= 4 && rt < 0.5 && super::roll(w, 0x1EA4 ^ d.0 as u64, 1) < 0.35 {
+            if sour.len() >= 4 && rt < 0.5 && super::roll(w, 0x1EA4 ^ d.0 as u64, 1) < 0.35 * leak_share(w) {
                 let who = player_link(w, sour[0]);
                 let outlet = r.reporter.as_ref().map_or(String::new(), |x| x.outlet.clone());
                 let text = format!(
