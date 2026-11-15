@@ -58,6 +58,10 @@ pub enum Group {
     Council,
     /// A player's family (the player).
     Family(u32),
+    /// The players' parents (a high school's parents' meeting).
+    Parents,
+    /// Other schools' coaches (the feeder schools' coaches).
+    Coaches,
 }
 
 /// Why someone is in the room (5.6).
