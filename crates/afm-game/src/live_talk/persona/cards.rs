@@ -4,7 +4,6 @@
 
 use afm_engine::world::World;
 use afm_engine::world::folk::persona::ear::{Confirm, Ends, Turn};
-use afm_engine::world::folk::persona::{Them, office};
 use afm_engine::world::folk::persona::room::{Channel, Group, Place, Room, Seat};
 use afm_engine::world::folk::persona::talk::{self, Parts, channels, items, store, who};
 use afm_engine::world::folk::persona::wants::Boil;

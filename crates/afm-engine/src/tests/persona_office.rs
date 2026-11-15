@@ -223,3 +223,22 @@ fn a_typed_line_to_the_doctor_plays_on_the_office_parts() {
     conv.apply(&mut w, &t);
     assert!(store::open(&w, sid).is_some_and(|o| o.lines == 1));
 }
+
+#[test]
+fn a_goal_in_your_assistants_deal_is_a_clause_on_the_season() {
+    use crate::world::folk::persona::terms::{DealKind, Offer};
+    use crate::world::folk::terms::On;
+    let mut w = seat("college");
+    let c =
+        (0..w.coaches.len()).find(|&c| asks::on_your_staff(&w, c) && w.folk.staff.deals.iter().any(|d| d.coach == c));
+    let Some(c) = c else { return };
+    let wins = crate::world::folk::terms::read(None, "wins", Some(9.0), false).unwrap();
+    assert!(wins.season);
+    let o = Offer { kind: DealKind::Staff, terms: vec![wins], ..Offer::default() };
+    let out = office::deals::agree(&mut w, 0, Them::Coach(c), &o).unwrap();
+    assert!(!out.is_empty());
+    let cl = w.folk.clauses.last().expect("the goal is on the books");
+    assert_eq!(cl.on, On::Staff);
+    assert_eq!(cl.coach, Some(c));
+    assert!(cl.pays > 0.0);
+}

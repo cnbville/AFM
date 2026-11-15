@@ -56,6 +56,69 @@ pub fn terms(w: &World, c: usize, role: Role, o: &Offer) -> Terms {
     t
 }
 
+/// The terms as he weighs them: a goal bonus counts for what he thinks
+/// it's worth (`goal_worth`) on top of the salary.
+pub fn weighed_terms(w: &World, c: usize, role: Role, o: &Offer) -> Terms {
+    let mut t = terms(w, c, role, o);
+    // A goal bonus counts for what he thinks it's worth: its odds this
+    // season times the bonus (lane N2's `terms::likely`).
+    t.salary += goal_worth(w, o, t.salary);
+    t
+}
+
+/// A staff contract's goal bonus, as a share of his salary, for each
+/// season goal in the deal (the team's wins, a title, a rank: lane N2's
+/// season terms). Proposed, not confirmed.
+pub const GOAL_BONUS: f64 = 0.1;
+
+/// The season goals an offer carries for the team (lane N2's terms read
+/// on a season).
+pub fn goals(o: &Offer) -> Vec<crate::world::folk::usage::Usage> {
+    o.terms.iter().filter(|u| u.season).cloned().collect()
+}
+
+/// What the goals in an offer are worth to him now: each one's odds times
+/// its bonus.
+fn goal_worth(w: &World, o: &Offer, salary: f64) -> f64 {
+    let Some(team) = Team::seat(w) else { return 0.0 };
+    let year = crate::world::folk::terms::season_of(w.today);
+    goals(o)
+        .iter()
+        .map(|u| crate::world::folk::terms::likely(w, crate::world::folk::terms::Who::Team(team), u, year))
+        .sum::<f64>()
+        * GOAL_BONUS
+        * salary
+}
+
+/// Writes each season goal in an agreed staff deal as a clause on lane
+/// N2's books (`terms::add`): settled after the season, paid when met.
+fn add_goals(w: &mut World, c: usize, o: &Offer, salary: f64) -> Vec<String> {
+    use crate::world::folk::terms::{self as st, Clause, On, Who};
+    let Some(team) = Team::seat(w) else { return Vec::new() };
+    let season = st::season_of(w.today);
+    let made = w.today;
+    let name = w.coaches[c].name.clone();
+    let mut out = Vec::new();
+    for u in goals(o) {
+        out.push(format!("{name} gets a bonus if {}.", st::words(&u)));
+        st::add(
+            w,
+            Clause {
+                on: On::Staff,
+                who: Who::Team(team),
+                coach: Some(c),
+                term: u,
+                season,
+                pays: GOAL_BONUS * salary,
+                made,
+                met: None,
+                settled: false,
+            },
+        );
+    }
+    out
+}
+
 /// Under this share of his ask an offer insults him (the hiring talks warn
 /// at 12-40% under; this is past the deepest warning). Proposed, not
 /// confirmed.
@@ -81,19 +144,21 @@ pub fn weigh(w: &World, him: Them, o: &Offer) -> Option<Weighed> {
             if !staffing::openings(w).contains(&role) {
                 return Some(Weighed::No);
             }
-            let t = terms(w, c, role, o);
+            let t = weighed_terms(w, c, role, o);
             let now = hiring::pay_now(w, c);
-            if t.salary < LOWBALL * hiring::ask(w, c, role) {
+            if terms(w, c, role, o).salary < LOWBALL * hiring::ask(w, c, role) {
                 return Some(Weighed::Lowball);
             }
             let k = hiring::weigh(w, c, role, &t, now);
             if k.score > k.bar {
                 return Some(Weighed::Yes);
             }
+            // His number, less what the goals are worth to him.
+            let worth = t.salary - terms(w, c, role, o).salary;
             Some(match hiring::would_take(w, c, role, &t, now) {
                 Some(s) => Weighed::Counter(Counter {
                     asks: vec!["he'd need more money to take the job".into()],
-                    gives: vec![Give::Money(s)],
+                    gives: vec![Give::Money(s - worth)],
                     terms: Vec::new(),
                     why: None,
                 }),
@@ -153,7 +218,14 @@ pub fn agree(w: &mut World, _id: u32, him: Them, o: &Offer) -> Option<Vec<String
             }
             let role = role_for(w, c)?;
             let t = terms(w, c, role, o);
-            Some(vec![hiring::offer(w, c, role, t).unwrap_or_else(|e| e)])
+            let base = t.salary;
+            let done = hiring::offer(w, c, role, t);
+            let hired = done.is_ok();
+            let mut out = vec![done.unwrap_or_else(|e| e)];
+            if hired {
+                out.extend(add_goals(w, c, o, base));
+            }
+            Some(out)
         }
         Them::Cast(..) if super::super::makeup::kind(w, him) == super::super::wants::Kind::Boss => {
             if o.kind != DealKind::Yours && !o.gives.iter().any(|g| matches!(g, Give::Years(_) | Give::Money(_))) {
@@ -168,6 +240,9 @@ pub fn agree(w: &mut World, _id: u32, him: Them, o: &Offer) -> Option<Vec<String
 
 fn own_agree(w: &mut World, c: usize, o: &Offer) -> Vec<String> {
     let mut out = Vec::new();
+    if let Some(s) = w.folk.staff.deals.iter().find(|d| d.coach == c).map(|d| d.salary) {
+        out.extend(add_goals(w, c, o, s));
+    }
     let name = w.coaches[c].name.clone();
     for g in &o.gives {
         match g {
