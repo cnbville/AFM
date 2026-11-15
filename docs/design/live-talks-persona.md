@@ -461,7 +461,7 @@ Cain's idea, made general. A term is a measure, a number from your words, a scop
 - **A plan setting keeps it.** Each term has a setting on the game plan (`GameTeam.prep`, `game/roster.rs`, keyed by player). Your staff keeps it in every game your team plays, simmed or live. Your staff turns it on from your open promises, and you can turn one off. AI teams never set them, so AI games don't change. Before each game your staff warns you when the plan won't keep one.
 - **Belief:** a number past what he thinks is real at his level is believed less by a sharp kid and more by a big ego (agreed item 8, through P1's likely and shape parts). For a kicker, what's real is his range from his Kick Power. Ego stretches it and Football IQ tightens it.
 - **Recruits** get the same terms, checked from his first games once he signs.
-- **High school** keeps box scores, not snaps (`world-log.md`), so high school terms are per-game counts: carries, targets, attempts, kicks and returns.
+- **High school** keeps box scores, not snaps (`world-log.md`), so high school terms are per-game counts: carries, targets, attempts, kicks and returns. New: `usage.rs` judges plays only, so a high school game says nothing today. N2 builds the box score judge.
 - **Off the list** stays a talking point, and "Heard as" says the game can't hold you to it (agreed item 9).
 
 #### What every position can be promised
@@ -537,6 +537,16 @@ All recorded on every college and NFL snap (`on_field`, `roles`, `down`, `yardli
 | Coverage units | Gunner | His spot on a kick isn't kept (`roles` is empty on kicks) | | New |
 
 Outcomes stay off the list on purpose: catches, yards, sacks, picks, made kicks, the chips and doubles the other team calls. A man may still care about them, and he says so, but your word was never about them.
+
+#### What the usage lane builds, and what's left for N2
+
+The promises thread checked this table row by row against `world/folk/usage.rs` as it merges (2026-11-15). A term is `usage::Usage`: a measure with its flat key, a number, share or count, at least or at most, and slices (spot, down, inside a yard line, far, package, look). N2 and the other lanes use it as it is, with no second term type.
+
+- **A measure already:** starts and snaps; snaps by down, the red zone, the goal line and the two-minute drill; by package; his spot; not pulled; special teams; the QB's throws with play action, tempo, gun or under center; designed runs; protection; carries and goal-line carries; routes; screens; targets, deep and red zone targets; a receiver's carries; help; rushes; stunts; blitzes; man; field goals by distance; the field goal line; punts; kickoffs; returns.
+- **Kept on every snap, but no measure yet (a new reader each, N2):** the QB's freedom at the line; the run family (backs and guards); quick and RPO calls to the slot; a corner's boundary or field side (from the hash); help over the top and the single-high or robber safety (from the coverage in the call); other kickers used.
+- **Not usage terms:** the returner's kneel line is an `Instruction`, and the DT's one-gap front is the system (`world/systems.rs`). Both are kept as promises through those, not through `usage.rs`.
+- **Lumped, to split (proposed, not confirmed):** the spot keys put Sam and Will under one outside linebacker key and both guards under one guard key, though `roles` keeps them apart. A promise of "the Will" or "left guard" needs its own key.
+- **Plan settings built:** the field goal line, free him up, send him, take shots, feature him, help him, rush him, more man. **Not built:** every other setting in the table, turning one off, and the staff's warning before a game. Those are N2's.
 
 #### Off the field and the other terms
 
