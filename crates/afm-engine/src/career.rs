@@ -423,6 +423,11 @@ pub fn simulate_cohort(opts: CohortOptions) -> CohortResult {
             }
         },
     );
+    // The limit's read at 14, after placement (trial tooling: `prog_check`).
+    let mapped14: Vec<[f32; crate::progression::LIMITED_COUNT]> = records
+        .par_iter()
+        .map(|r| crate::progression::LIMITED.map(|a| crate::progression::mapped(&r.player, a) as f32))
+        .collect();
     // The pro league exists the whole time: it ages and changes staffs while the class grows up.
     let mut teams = make_league(&mut rng);
 
@@ -610,7 +615,9 @@ pub fn simulate_cohort(opts: CohortOptions) -> CohortResult {
     // --- College: four seasons of eligibility in five years --------------------
     let collegians: Vec<usize> = (0..size).filter(|&i| records[i].college.is_some()).collect();
     for &i in &collegians {
-        records[i].prog_probe = Some(Box::new(ProgProbe::at_entry(&records[i].player)));
+        let mut pp = ProgProbe::at_entry(&records[i].player);
+        pp.mapped14 = mapped14[i];
+        records[i].prog_probe = Some(Box::new(pp));
     }
     let mut active = vec![false; size];
     for &i in &collegians {
@@ -2283,6 +2290,10 @@ pub struct ProgProbe {
     pub limit: [f32; crate::progression::LIMITED_COUNT],
     /// What players with his tools reach (the rank map alone).
     pub mapped: [f32; crate::progression::LIMITED_COUNT],
+    /// The rank map's read at 14 (after placement) and after his last
+    /// college season.
+    pub mapped14: [f32; crate::progression::LIMITED_COUNT],
+    pub mapped_last: [f32; crate::progression::LIMITED_COUNT],
     pub best: [f32; crate::progression::LIMITED_COUNT],
     pub best_ceiling: [f32; crate::progression::LIMITED_COUNT],
     pub position: Position,
@@ -2298,6 +2309,8 @@ impl ProgProbe {
             ceiling: [0.0; crate::progression::LIMITED_COUNT],
             limit: [0.0; crate::progression::LIMITED_COUNT],
             mapped: [0.0; crate::progression::LIMITED_COUNT],
+            mapped14: [0.0; crate::progression::LIMITED_COUNT],
+            mapped_last: [0.0; crate::progression::LIMITED_COUNT],
             best: [0.0; crate::progression::LIMITED_COUNT],
             best_ceiling: [0.0; crate::progression::LIMITED_COUNT],
             position: p.position,
@@ -2323,6 +2336,7 @@ impl ProgProbe {
         for (k, &a) in crate::progression::LIMITED.iter().enumerate() {
             self.best[k] = self.best[k].max(p.attributes.get(a) as f32);
             self.best_ceiling[k] = self.best_ceiling[k].max(p.ceilings.get(a) as f32);
+            self.mapped_last[k] = crate::progression::mapped(p, a) as f32;
         }
     }
 }

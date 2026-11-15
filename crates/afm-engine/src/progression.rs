@@ -179,57 +179,176 @@ const FIT_SAMPLE: u32 = 60_000;
 fn maps() -> &'static Vec<Option<RankMap>> {
     static MAPS: OnceLock<Vec<Option<RankMap>>> = OnceLock::new();
     MAPS.get_or_init(|| {
-        use rayon::prelude::*;
-        let drawn: Vec<(Position, Attributes, f64)> = (0..FIT_SAMPLE)
-            .into_par_iter()
-            .map(|i| {
-                let mut rng = Rng::new(0x5EED_11A1u32 ^ i.wrapping_mul(0x9E37_79B1));
-                let talent = clamp(crate::player::talent_from_z(rng.normal(0.0, 1.0)), 20.0, 99.0);
-                let (ceilings, body, natural, _) = crate::athlete::create(&mut rng, talent);
-                (natural, ceilings, body.arm)
-            })
-            .collect();
-        let mut out = Vec::with_capacity(LIMITED_COUNT * POSITION_COUNT);
-        for &a in LIMITED.iter() {
-            let (ps, n) = parts(a);
-            for pos in Position::ALL {
-                if weight(pos, a) <= 0.0 {
-                    out.push(None);
-                    continue;
+        off_pool(|| {
+            use rayon::prelude::*;
+            let drawn: Vec<(Position, Attributes, f64)> = (0..FIT_SAMPLE)
+                .into_par_iter()
+                .map(|i| {
+                    let mut rng = Rng::new(0x5EED_11A1u32 ^ i.wrapping_mul(0x9E37_79B1));
+                    let talent = clamp(crate::player::talent_from_z(rng.normal(0.0, 1.0)), 20.0, 99.0);
+                    let (ceilings, body, natural, _) = crate::athlete::create(&mut rng, talent);
+                    (natural, ceilings, body.arm)
+                })
+                .collect();
+            let mut out = Vec::with_capacity(LIMITED_COUNT * POSITION_COUNT);
+            for &a in LIMITED.iter() {
+                let (ps, n) = parts(a);
+                for pos in Position::ALL {
+                    if weight(pos, a) <= 0.0 {
+                        out.push(None);
+                        continue;
+                    }
+                    let group: Vec<&(Position, Attributes, f64)> = drawn.iter().filter(|d| d.0 == pos).collect();
+                    if group.len() < 200 {
+                        out.push(None);
+                        continue;
+                    }
+                    let mut mean = [0.0; PARTS];
+                    let mut sd = [1.0; PARTS];
+                    for k in 0..n {
+                        let xs: Vec<f64> = group.iter().map(|d| part_value(&d.1, d.2, ps[k].0)).collect();
+                        let m = xs.iter().sum::<f64>() / xs.len() as f64;
+                        let v = xs.iter().map(|x| (x - m).powi(2)).sum::<f64>() / xs.len() as f64;
+                        mean[k] = m;
+                        sd[k] = v.sqrt().max(1e-6);
+                    }
+                    let score = |c: &Attributes, arm: f64| {
+                        (0..n).map(|k| ps[k].1 * (part_value(c, arm, ps[k].0) - mean[k]) / sd[k]).sum::<f64>()
+                    };
+                    let mut ts: Vec<f64> = group.iter().map(|d| score(&d.1, d.2)).collect();
+                    let mut cs: Vec<f64> = group.iter().map(|d| d.1.get(a)).collect();
+                    ts.sort_by(|x, y| x.total_cmp(y));
+                    cs.sort_by(|x, y| x.total_cmp(y));
+                    let at = |v: &[f64], q: f64| v[((q * (v.len() - 1) as f64).round() as usize).min(v.len() - 1)];
+                    let mut t = [0.0; Q];
+                    let mut c = [0.0; Q];
+                    for j in 0..Q {
+                        let q = j as f64 / (Q - 1) as f64;
+                        t[j] = at(&ts, q);
+                        c[j] = at(&cs, q);
+                    }
+                    out.push(Some(RankMap { mean, sd, t, c }));
                 }
-                let group: Vec<&(Position, Attributes, f64)> = drawn.iter().filter(|d| d.0 == pos).collect();
-                if group.len() < 200 {
-                    out.push(None);
-                    continue;
-                }
-                let mut mean = [0.0; PARTS];
-                let mut sd = [1.0; PARTS];
-                for k in 0..n {
-                    let xs: Vec<f64> = group.iter().map(|d| part_value(&d.1, d.2, ps[k].0)).collect();
-                    let m = xs.iter().sum::<f64>() / xs.len() as f64;
-                    let v = xs.iter().map(|x| (x - m).powi(2)).sum::<f64>() / xs.len() as f64;
-                    mean[k] = m;
-                    sd[k] = v.sqrt().max(1e-6);
-                }
-                let score = |c: &Attributes, arm: f64| {
-                    (0..n).map(|k| ps[k].1 * (part_value(c, arm, ps[k].0) - mean[k]) / sd[k]).sum::<f64>()
-                };
-                let mut ts: Vec<f64> = group.iter().map(|d| score(&d.1, d.2)).collect();
-                let mut cs: Vec<f64> = group.iter().map(|d| d.1.get(a)).collect();
-                ts.sort_by(|x, y| x.total_cmp(y));
-                cs.sort_by(|x, y| x.total_cmp(y));
-                let at = |v: &[f64], q: f64| v[((q * (v.len() - 1) as f64).round() as usize).min(v.len() - 1)];
-                let mut t = [0.0; Q];
-                let mut c = [0.0; Q];
-                for j in 0..Q {
-                    let q = j as f64 / (Q - 1) as f64;
-                    t[j] = at(&ts, q);
-                    c[j] = at(&cs, q);
-                }
-                out.push(Some(RankMap { mean, sd, t, c }));
             }
-        }
-        out
+            out
+        })
+    })
+}
+
+/// How the read's parts drift with age for a player who grows like his
+/// class: the mean ceiling at each age less the mean at 14, per position.
+/// The read takes it off, so his limit moves only with his own growth past
+/// his class's (a weight-room responder, a body project, makeup that grows
+/// faster than his peers'), his rank (design item 4), and not with the
+/// drift every boy has (natural rises, maturing reads). Fitted by growing
+/// boys of the generator through `develop_season` from 14 to 30 with the
+/// split ceiling off for them (high school to 17, college to 21, then the
+/// pros, a coach of 10, rotation snaps), so it follows any change to growth.
+struct Drift {
+    /// [position][part slot][age − 14]: the attributes, then arm length.
+    d: Vec<f32>,
+}
+
+const DRIFT_FROM: u32 = 14;
+const DRIFT_AGES: usize = 17;
+const SLOTS: usize = crate::attributes::Attr::ALL.len() + 1;
+const DRIFT_SAMPLE: u32 = 24_000;
+
+fn slot(p: Part) -> usize {
+    match p {
+        Part::A(a) => a.index(),
+        Part::Arms => SLOTS - 1,
+    }
+}
+
+impl Drift {
+    fn at(&self, pos: Position, p: Part, age: u32) -> f64 {
+        let i = (age.max(DRIFT_FROM) - DRIFT_FROM).min(DRIFT_AGES as u32 - 1) as usize;
+        self.d[(pos.index() * SLOTS + slot(p)) * DRIFT_AGES + i] as f64
+    }
+}
+
+thread_local! {
+    /// Set while the drift is fitted: the split ceiling is off for the
+    /// fitting boys (no draw, no closing), so the fit never reads itself.
+    static FITTING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+fn fitting() -> bool {
+    FITTING.with(|f| f.get())
+}
+
+fn drift() -> &'static Drift {
+    static DRIFT: OnceLock<Drift> = OnceLock::new();
+    DRIFT.get_or_init(|| {
+        off_pool(|| {
+            use crate::development::{SeasonContext, develop_season};
+            use crate::player::{ProspectOptions, generate_prospect};
+            use rayon::prelude::*;
+            // Each boy's part values at every age (his natural spot at 14).
+            let rows: Vec<(Position, Vec<[f32; SLOTS]>)> = (0..DRIFT_SAMPLE)
+                .into_par_iter()
+                .map(|i| {
+                    FITTING.with(|f| f.set(true));
+                    let mut rng = Rng::new(0xD21F_7A5Eu32 ^ i.wrapping_mul(0x9E37_79B1));
+                    let mut p = generate_prospect(
+                        &mut rng,
+                        ProspectOptions { id: Some(0xF000_0000 | i), ..Default::default() },
+                    );
+                    let read = |p: &Player| {
+                        let mut v = [0f32; SLOTS];
+                        for a in crate::attributes::Attr::ALL {
+                            v[a.index()] = p.ceilings.get(a) as f32;
+                        }
+                        v[SLOTS - 1] = p.body.arm as f32;
+                        v
+                    };
+                    let mut out = vec![read(&p)];
+                    for _ in 1..DRIFT_AGES {
+                        let level = match p.age {
+                            ..=17 => Level::HS,
+                            18..=21 => Level::FBS,
+                            _ => Level::NFL,
+                        };
+                        develop_season(&mut p, &SeasonContext::new(level, 10.0, PlayingTime::Rotation), &mut rng);
+                        out.push(read(&p));
+                    }
+                    FITTING.with(|f| f.set(false));
+                    (p.position, out)
+                })
+                .collect();
+            let mut d = vec![0f32; POSITION_COUNT * SLOTS * DRIFT_AGES];
+            for pos in Position::ALL {
+                let group: Vec<&Vec<[f32; SLOTS]>> = rows.iter().filter(|r| r.0 == pos).map(|r| &r.1).collect();
+                if group.len() < 100 {
+                    continue;
+                }
+                let n = group.len() as f64;
+                for s in 0..SLOTS {
+                    let mean = |t: usize| group.iter().map(|r| r[t][s] as f64).sum::<f64>() / n;
+                    let base = mean(0);
+                    for t in 0..DRIFT_AGES {
+                        d[(pos.index() * SLOTS + s) * DRIFT_AGES + t] = (mean(t) - base) as f32;
+                    }
+                }
+            }
+            Drift { d }
+        })
+    })
+}
+
+/// The class's drift in one attribute's ceiling at a position from 14 to
+/// an age (trial tooling: `prog_check drift`).
+pub fn drift_at(pos: Position, a: Attr, age: u32) -> f64 {
+    drift().at(pos, Part::A(a), age)
+}
+
+/// Runs a fit on its own thread and pool: a fit starts inside the world's
+/// parallel work, and a rayon worker waiting on it could otherwise pick up
+/// a job that waits on the same fit.
+fn off_pool<T: Send>(f: impl FnOnce() -> T + Send) -> T {
+    std::thread::scope(|s| {
+        s.spawn(|| rayon::ThreadPoolBuilder::new().build().expect("fit pool").install(f)).join().expect("fit")
     })
 }
 
@@ -253,11 +372,23 @@ fn map_position(pos: Position, a: Attr) -> Position {
 /// sample's best it carries on at the top tenth's slope, so a freak's body
 /// keeps adding room (no cap on freaks).
 pub fn mapped(p: &Player, a: Attr) -> f64 {
-    let Some(li) = limited_index(a) else { return p.ceilings.get(a) };
+    mapped_on(p, a, &p.ceilings, p.age)
+}
+
+/// `mapped` on a given set of ceilings at a given age (his read when the
+/// year opened, for `settle`).
+fn mapped_on(p: &Player, a: Attr, ceilings: &Attributes, age: u32) -> f64 {
+    let Some(li) = limited_index(a) else { return ceilings.get(a) };
     let pos = map_position(p.position, a);
-    let Some(m) = &maps()[li * POSITION_COUNT + pos.index()] else { return p.ceilings.get(a) };
+    let Some(m) = &maps()[li * POSITION_COUNT + pos.index()] else { return ceilings.get(a) };
     let (ps, n) = parts(a);
-    let s: f64 = (0..n).map(|k| ps[k].1 * (part_value(&p.ceilings, p.body.arm, ps[k].0) - m.mean[k]) / m.sd[k]).sum();
+    let d = drift();
+    let s: f64 = (0..n)
+        .map(|k| {
+            let v = part_value(ceilings, p.body.arm, ps[k].0) - d.at(pos, ps[k].0, age);
+            ps[k].1 * (v - m.mean[k]) / m.sd[k]
+        })
+        .sum();
     if s <= m.t[0] {
         return m.c[0];
     }
@@ -341,7 +472,7 @@ pub fn set_parts(on: u8) {
 }
 
 fn part(p: u8) -> bool {
-    enabled() && PARTS_OFF.load(Ordering::Relaxed) & p == 0
+    !fitting() && enabled() && PARTS_OFF.load(Ordering::Relaxed) & p == 0
 }
 
 fn stream(id: u32, salt: u32) -> Rng {
@@ -362,9 +493,21 @@ pub fn body_knack(p: &Player) -> f64 {
     p.prog.knack[6] as f64 / 25.0
 }
 
-/// How fast a knack closes room, 0-1 (design item 5): Φ(1.4 × (z − 0.3)),
-/// so about 1 in 5 has it (pace past 0.6), half are middling and about 1 in
-/// 3 have none (under 0.2).
+/// How fast a knack closes room, 0-1 (design item 5): Φ(1.4 × (z − 0.3)).
+/// About 1 in 5 has the knack (z past 0.84, pace past 0.77), half are
+/// middling and about 1 in 3 have none (z under -0.43, pace under 0.15):
+/// `tier`.
+pub fn tier(z: f64) -> u8 {
+    if z >= 0.84 {
+        0
+    } else if z >= -0.43 {
+        1
+    } else {
+        2
+    }
+}
+
+/// The knack's pace.
 pub fn pace(z: f64) -> f64 {
     crate::athlete::phi(1.4 * (z - 0.3))
 }
@@ -373,7 +516,7 @@ pub fn pace(z: f64) -> f64 {
 /// or once for a player from an older save, from where he is now). On his
 /// own keyed stream: no other draw moves.
 pub fn ensure(p: &mut Player) {
-    if p.prog.drawn {
+    if p.prog.drawn || fitting() {
         return;
     }
     let mut r = stream(p.id, 0x4B4E);
@@ -532,20 +675,24 @@ pub(crate) fn breakout(p: &mut Player, level: Level, hit: bool, mean: f64, teste
 
 /// After the year: a natural rise past the limit lifts it (everyday item
 /// 2), so neglect later reopens room he had (item 3). Only his ceiling's
-/// own rise counts (`before` is his ceilings when the year opened): a limit
-/// that falls with his body is left to fall (item 4), and `limit` keeps it
-/// at his ceiling, so a wobble in his body read never ratchets it up.
+/// own rise counts (`before` is his ceilings when the year opened), and
+/// only past the higher of his limit when the year opened and now: a limit
+/// that falls with his body is left to fall (item 4), `limit` keeps it at
+/// his ceiling, and a one-year dip in his body read never ratchets it up.
+/// Half points round to the nearest, so no rounding adds room either.
 pub(crate) fn settle(p: &mut Player, before: &Attributes) {
     if !p.prog.drawn {
         return;
     }
+    let was = p.age.saturating_sub(1);
     for (li, &a) in LIMITED.iter().enumerate() {
         let c = p.ceilings.get(a);
         let rose = c - before.get(a);
-        let l = mapped(p, a) + p.prog.over[li] as f64 / 2.0;
+        let over = p.prog.over[li] as f64 / 2.0;
+        let l = mapped(p, a).max(mapped_on(p, a, before, was)) + over;
         if c > l && rose > 0.0 {
-            let need = p.prog.over[li] as f64 / 2.0 + (c - l).min(rose);
-            p.prog.over[li] = (need * 2.0).ceil().clamp(0.0, 255.0) as u8;
+            let need = over + (c - l).min(rose);
+            p.prog.over[li] = (need * 2.0).round().clamp(0.0, 255.0) as u8;
         }
     }
 }
@@ -933,7 +1080,7 @@ pub const TRIM_UNTIL: u32 = 22;
 /// corner at 16 gives up corner's points then). An older save's players
 /// have none pending and keep their ceilings.
 pub fn ensure_new(p: &mut Player) {
-    if p.prog.drawn {
+    if p.prog.drawn || fitting() {
         return;
     }
     ensure(p);

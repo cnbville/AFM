@@ -39,11 +39,10 @@ fn knack_shares_follow_the_design() {
     for id in 0..4000u32 {
         let p = athlete(9_100_000 + id);
         for k in progression::KINDS {
-            let pace = progression::pace(progression::knack(&p, k));
-            if pace >= 0.6 {
-                has += 1;
-            } else if pace < 0.2 {
-                none += 1;
+            match progression::tier(progression::knack(&p, k)) {
+                0 => has += 1,
+                2 => none += 1,
+                _ => {}
             }
             n += 1;
         }
@@ -83,11 +82,11 @@ fn everyday_coaching_closes_room_by_the_knack_and_never_passes_the_limit() {
             assert!(p.ceilings.get(Attr::ManCoverage) <= l + 1e-9);
             let _ = before;
         }
-        gained.push((progression::pace(progression::knack(&p, progression::Kind::Coverage)), total));
+        gained.push((progression::tier(progression::knack(&p, progression::Kind::Coverage)), total));
     }
     let mean = |v: Vec<f64>| v.iter().sum::<f64>() / v.len().max(1) as f64;
-    let high = mean(gained.iter().filter(|g| g.0 >= 0.6).map(|g| g.1).collect());
-    let low = mean(gained.iter().filter(|g| g.0 < 0.2).map(|g| g.1).collect());
+    let high = mean(gained.iter().filter(|g| g.0 == 0).map(|g| g.1).collect());
+    let low = mean(gained.iter().filter(|g| g.0 == 2).map(|g| g.1).collect());
     assert!(high > 2.0 * low.max(0.01), "knack {high} against none {low}");
 }
 

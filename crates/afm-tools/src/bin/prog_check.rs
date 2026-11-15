@@ -58,12 +58,12 @@ const FAMILIES: &[(Position, afm_engine::attributes::Attr)] = {
 fn stars(rs: &afm_engine::career::CohortResult) -> Vec<[[u32; 2]; progression::LIMITED_COUNT]> {
     let mut out = vec![[[0u32; 2]; progression::LIMITED_COUNT]; Position::ALL.len()];
     for pp in rs.records.iter().filter_map(|r| r.prog_probe.as_ref()) {
-        for k in 0..progression::LIMITED_COUNT {
-            if pp.best[k] >= 70.0 {
-                out[pp.position.index()][k][0] += 1;
+        for (o, &b) in out[pp.position.index()].iter_mut().zip(pp.best.iter()) {
+            if b >= 70.0 {
+                o[0] += 1;
             }
-            if pp.best[k] >= 80.0 {
-                out[pp.position.index()][k][1] += 1;
+            if b >= 80.0 {
+                o[1] += 1;
             }
         }
     }
@@ -135,6 +135,34 @@ fn fit(args: &[String]) {
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if args.get(1).is_some_and(|a| a == "drift") {
+        use afm_engine::attributes::Attr as A;
+        for pos in Position::ALL {
+            print!("{pos:?}:");
+            for a in [
+                A::Speed,
+                A::Acceleration,
+                A::Agility,
+                A::Flexibility,
+                A::Strength,
+                A::Balance,
+                A::PlayRecognition,
+                A::FootballIq,
+                A::Toughness,
+                A::Motor,
+                A::Composure,
+            ] {
+                print!(
+                    "  {a:?} {:+.1}/{:+.1}/{:+.1}",
+                    progression::drift_at(pos, a, 18),
+                    progression::drift_at(pos, a, 22),
+                    progression::drift_at(pos, a, 26)
+                );
+            }
+            println!();
+        }
+        return;
+    }
     if args.get(1).is_some_and(|a| a == "fit") {
         fit(&args[2..]);
         return;
@@ -197,14 +225,7 @@ fn main() {
             if (pp.mapped[k] as f64) < t75 || (pp.rating[k] as f64) > f33 {
                 continue;
             }
-            let pace = progression::pace(progression::knack(&on.records[i].player, kind));
-            let tier = if pace >= 0.6 {
-                0
-            } else if pace >= 0.2 {
-                1
-            } else {
-                2
-            };
+            let tier = progression::tier(progression::knack(&on.records[i].player, kind)) as usize;
             tiers[tier].0.push(off.records[i].prog_probe.as_ref().unwrap().best[k] as f64);
             tiers[tier].1.push(pp.best[k] as f64);
         }
@@ -226,6 +247,29 @@ fn main() {
             tier(&mut tiers[0]),
             tier(&mut tiers[1]),
             tier(&mut tiers[2]),
+        );
+    }
+    // The read's move for a boy who grows like his class should sit near 0
+    // on average (the drift taken off): 14 to college entry, and to his
+    // last college season, by position (the off arm, the same players).
+    println!();
+    for &(pos, a) in FAMILIES {
+        let k = LIMITED.iter().position(|&x| x == a).unwrap();
+        let v: Vec<(f64, f64)> = off
+            .records
+            .iter()
+            .filter_map(|r| r.prog_probe.as_ref())
+            .filter(|pp| pp.position == pos && pp.mapped14[k] > 0.0)
+            .map(|pp| ((pp.mapped[k] - pp.mapped14[k]) as f64, (pp.mapped_last[k] - pp.mapped14[k]) as f64))
+            .collect();
+        let n = v.len().max(1) as f64;
+        println!(
+            "read move {:<5} {:<16} n {:>5}  14>entry {:+.2}  14>last {:+.2}",
+            format!("{pos:?}"),
+            format!("{a:?}"),
+            v.len(),
+            v.iter().map(|x| x.0).sum::<f64>() / n,
+            v.iter().map(|x| x.1).sum::<f64>() / n
         );
     }
     let picks = |rs: &afm_engine::career::CohortResult| rs.records.iter().filter(|r| r.draft_pick.is_some()).count();
