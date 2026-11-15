@@ -97,8 +97,9 @@ pub fn begin(w: &mut World) {
     w.folk.goals.clear();
     w.folk.asks.clear();
     w.folk.cases.clear();
-    // An athletic director's yes to more recruiting money was for that job.
+    // A boss's yes to more recruiting or staff money was for that job.
     w.folk.staff.recruit_bonus = 0.0;
+    w.folk.staff.pool_bonus = 0.0;
     let rush = rush_due(w, team, d0);
     w.folk.takeover =
         Some(Takeover { team: Some(team), started: Some(d0), old_coach: old, fit, rush, ..Default::default() });
