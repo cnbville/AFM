@@ -1,6 +1,6 @@
 # Progression: how it works today
 
-Checked against the progression update steps 1-2 branch over main 69db832 on 2026-11-15.
+Checked against the progression update steps 1-2 branch over main 69db832 on 2026-11-15; step 3 (the strength split, the bench, the weight room by body knack) over c2f99ef the same day.
 
 The split ceiling: the limit, the knacks, everyday closing, breakouts that close room, skill projects and the trims (designs `docs/design/progression.md` and `docs/design/progression-everyday.md`). Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`. Everything here is in `progression.rs` unless named.
 
@@ -58,7 +58,7 @@ The split ceiling: the limit, the knacks, everyday closing, breakouts that close
 
 ## What it does not do yet
 
-- The weight room inside the leashes, the body knack's own effect, the strength split, and the physical study items are steps 3-4 of the build.
+- Body projects (design item 2's leashes past the weight room) and the physical study's items 1-3 and 6-18 are step 4 of the build. The weight room inside the leashes, the body knack's own effect there and the strength split are built (step 3): see [body.md](body.md), "The normal weight room by body knack" and "Is strength one rating?".
 - The screens show none of it yet (step 6).
 - Your own staff's projects have no command yet: `start_project` with `yours` set is the hook.
 

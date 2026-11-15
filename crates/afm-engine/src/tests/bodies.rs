@@ -214,6 +214,7 @@ fn an_edge_who_bends_runs_a_fast_3_cone() {
             weight: 260.0,
             arm: 34.0,
             pos: Position::EDGE,
+            lift: 0.0,
         }
         .expected()
         .cone

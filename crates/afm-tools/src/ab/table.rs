@@ -264,7 +264,12 @@ const LB_SWAP: &[&str] =
 fn swap(knows: bool) -> Kind {
     use Attr as A;
     let lean = |d: f64| {
-        vec![Knob::Rating(A::Strength, d), Knob::Rating(A::BlockShedding, d), Knob::Rating(A::ZoneCoverage, -d)]
+        vec![
+            Knob::Rating(A::Strength, d),
+            Knob::Rating(A::LowerBody, d),
+            Knob::Rating(A::BlockShedding, d),
+            Knob::Rating(A::ZoneCoverage, -d),
+        ]
     };
     let mut ka = vec![Knob::Set(Part::Weight, 248.0), Knob::Set(Part::Forty, 4.68)];
     ka.extend(lean(6.0));
@@ -293,6 +298,7 @@ fn ot_swap() -> Kind {
             Knob::Rating(A::Agility, d),
             Knob::Rating(A::RunBlocking, -d),
             Knob::Rating(A::Strength, -d),
+            Knob::Rating(A::LowerBody, -d),
         ]
     };
     let mut ka = vec![Knob::Set(Part::Weight, 308.0)];
@@ -469,7 +475,7 @@ pub fn all() -> Vec<Test> {
             .chain(&["rb_mtf", "rb_yaco", "rb_ypc"])
             .real(&[("rb_mtf", "rb_brk_tkl_per_att"), ("rb_yaco", "rb_yaco_per_att")])
             .sign(1.0),
-        t("rb_strength", "rb", "Strength", rb, r(&[A::Strength]))
+        t("rb_strength", "rb", "Strength (both halves)", rb, r(&[A::Strength, A::LowerBody]))
             .chain(&["rb_yaco", "rb_mtf", "rb_short", "rb_ypc"])
             .real(&[("rb_mtf", "rb_brk_tkl_per_att"), ("rb_yaco", "rb_yaco_per_att")])
             .sign(1.0),
@@ -629,7 +635,7 @@ pub fn all() -> Vec<Test> {
             .chain(&["blk_lost_power", "blk_pass_lost", "blk_press", "off_sack"])
             .real(&[("off_sack", "team_sack_rate")])
             .sign(-1.0),
-        t("ot_strength", "ot", "Strength", ot, r(&[A::Strength]))
+        t("ot_strength", "ot", "Strength (both halves)", ot, r(&[A::Strength, A::LowerBody]))
             .chain(&["blk_lost_power", "blk_pass_lost", "blk_run_won", "off_sack"])
             .real(&[("off_sack", "team_sack_rate")])
             .sign(-1.0),
@@ -653,7 +659,7 @@ pub fn all() -> Vec<Test> {
         t("iol_runblock", "iol", "Run Blocking", iol, r(&[A::RunBlocking]))
             .chain(&["blk_run_won", "off_in_ypc", "off_ypc"])
             .sign(1.0),
-        t("iol_strength", "iol", "Strength", iol, r(&[A::Strength]))
+        t("iol_strength", "iol", "Strength (both halves)", iol, r(&[A::Strength, A::LowerBody]))
             .chain(&["blk_run_won", "blk_lost_power", "off_in_ypc"])
             .sign(1.0),
         t("iol_anchor", "iol", "Anchor", iol, r(&[A::Anchor]))
@@ -712,7 +718,7 @@ pub fn all() -> Vec<Test> {
         t("dt_shed", "dt", "Block Shedding", dt, r(&[A::BlockShedding]))
             .chain(&["dl_run_shed", "dl_tfl", "def_ypc"])
             .sign(1.0),
-        t("dt_strength", "dt", "Strength", dt, r(&[A::Strength]))
+        t("dt_strength", "dt", "Strength (both halves)", dt, r(&[A::Strength, A::LowerBody]))
             .chain(&["dl_run_shed", "dl_power_win", "dl_press", "def_ypc"])
             .real(&[("dl_press_snap", "dt_prss_per_snap")])
             .sign(1.0),
@@ -807,7 +813,7 @@ pub fn all() -> Vec<Test> {
             .chain(&["dl_finesse_win", "dl_win", "dl_press", "dl_sack_prs"])
             .chain(ED_BODY)
             .sign(1.0),
-        t("edge_strength", "edge", "Strength", ed, r(&[A::Strength]))
+        t("edge_strength", "edge", "Strength (both halves)", ed, r(&[A::Strength, A::LowerBody]))
             .chain(&["dl_power_win", "dl_win", "dl_press", "dl_run_shed"])
             .chain(ED_BODY)
             .sign(1.0),

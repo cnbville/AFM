@@ -62,6 +62,44 @@ const LEFT_HANDED: f64 = 0.1;
 const RIGHTY_LEFT_FOOTED: f64 = 0.12;
 
 /// A position's combine height and weight: (height mean, sd, weight mean, sd).
+/// Reps at 225 a point of upper-body strength within a position (physical
+/// study item 4, minor bug 385). The 0.137 in `Drills::means` is the slope
+/// across positions' means; at it a strength spread of 7 points moved the
+/// bench under a rep, so drafted men's bench spread half the real one and a
+/// college program barely showed. Set so drafted men's bench spreads as
+/// wide as the real combine's at each position (4.0 to 5.4 reps) with the
+/// test day's 2 reps and the lifting knack, on average over the positions
+/// (`bench_check`, four classes). Proposed, not confirmed.
+pub const BENCH_SLOPE: f64 = 0.40;
+
+/// The drafted men's mean upper-body strength at each position (four
+/// classes of 250,000, `bench_check`): the point the within-position slope
+/// turns about.
+pub const BENCH_CENTER: [f64; POSITION_COUNT] =
+    [71.3, 71.2, 66.5, 78.1, 84.0, 84.8, 76.9, 85.8, 70.6, 66.7, 65.0, 50.0, 50.0, 50.0];
+
+/// Reps each position's drafted men sat off the real combine's mean under
+/// the cross-position fit (the same four classes): added so each drafted
+/// position benches the real mean. Kickers, punters and snappers none.
+pub const BENCH_OFFSET: [f64; POSITION_COUNT] =
+    [0.3, 0.36, -2.88, -0.83, -1.37, -0.63, 1.32, 0.79, 2.24, -2.83, -0.47, 0.0, 0.0, 0.0];
+
+/// The slope's lean past the cross-position one. Kickers, punters and
+/// snappers keep the old read.
+fn bench_lean(pos: Position) -> f64 {
+    if pos.is_specialist() { 0.0 } else { BENCH_SLOPE - 0.137 }
+}
+
+/// The spread of the lifting knack (reps at 225): how a man presses beyond
+/// his strength, the groove, arch and grip that are his own for life.
+/// Proposed, not confirmed.
+pub const LIFT_SD: f64 = 1.5;
+
+/// His lifting knack (reps at 225), on his own keyed stream.
+pub fn lift_knack(p: &Player) -> f64 {
+    Rng::new(p.id ^ 0x11F7_B3C5).normal(0.0, LIFT_SD)
+}
+
 /// The real combine bench average at a position (nflverse 2000-2025).
 pub fn combine_bench_mean(pos: Position) -> f64 {
     [19.3, 19.95, 14.68, 20.24, 24.35, 25.81, 23.66, 27.41, 21.97, 14.51, 16.93, 15.2, 16.0][pos.index()]
@@ -304,6 +342,9 @@ pub struct Drills {
     pub arm: f64,
     /// His position: how wide the 3-cone and shuttle spread there.
     pub pos: Position,
+    /// His lifting knack, in reps at 225 (item 4 of the physical study):
+    /// his own for life (`lift_knack`), 0 for a made-up man.
+    pub lift: f64,
 }
 
 /// How the 3-cone and shuttle spread at each position (update 3, S14): as
@@ -349,6 +390,7 @@ impl Drills {
             weight: b.weight,
             arm: b.arm,
             pos: p.position,
+            lift: lift_knack(p),
         }
     }
 
@@ -380,7 +422,14 @@ impl Drills {
             // Long arms mean a longer press: fewer reps for the same strength.
             // Refit 2026-10-14 to drafted players' position means after
             // athlete-first creation (item 6; proposed, not confirmed).
-            8.05 + 0.137 * self.strength + 0.073 * w - 0.8 * (self.arm - 32.5),
+            // Within a position the bench reads upper-body strength at the
+            // real slope (`BENCH_SLOPE`, physical study item 4), about the
+            // drafted men's mean there, each position's drafted mean set on
+            // the real combine's.
+            8.05 + 0.137 * self.strength + 0.073 * w - 0.8 * (self.arm - 32.5)
+                + bench_lean(self.pos) * (self.strength - BENCH_CENTER[self.pos.index()])
+                + BENCH_OFFSET[self.pos.index()]
+                + self.lift,
             7.58 - 0.007 * bend + 0.0062 * w,
             4.59 - 0.0045 * quick + 0.0039 * w,
         ]

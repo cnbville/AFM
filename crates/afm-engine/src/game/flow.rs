@@ -513,7 +513,7 @@ impl<'a> Side<'a> {
             .map(|i| {
                 let p = &ps[i];
                 let skill = if receiving {
-                    0.3 * p.a(Attr::Speed) + 0.4 * p.a(Attr::BlockingInSpace) + 0.3 * p.a(Attr::Strength)
+                    0.3 * p.a(Attr::Speed) + 0.4 * p.a(Attr::BlockingInSpace) + 0.3 * p.whole()
                 } else {
                     0.4 * p.a(Attr::Speed) + 0.35 * p.a(Attr::Tackling) + 0.25 * p.a(Attr::BlockShedding)
                 };
