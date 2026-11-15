@@ -310,6 +310,17 @@ fn boss_of(w: &World, who: Who) -> Option<usize> {
     }
 }
 
+/// The head coach the market reads: none while an interim has the job (a
+/// college's interim isn't its head coach; an NFL club's in-season interim
+/// is, until Black Monday decides), so an interim changes nothing.
+fn permanent_boss(w: &World, who: Who) -> Option<usize> {
+    let b = boss_of(w, who)?;
+    match who {
+        Who::Club(t) if w.folk.staff.interims.iter().any(|x| x.0 as usize == t && x.1 as usize == b) => None,
+        _ => Some(b),
+    }
+}
+
 fn era_of(year: i32) -> f64 {
     clamp((year - 1996) as f64 / 30.0, 0.0, 1.0)
 }
@@ -505,7 +516,7 @@ fn fill(w: &mut World, rng: &mut Rng, mut open: Vec<(Who, Dept)>, ys: &Yardstick
         others.sort_by_key(|x| std::cmp::Reverse(x.0));
         for (r, o) in others.into_iter().take(3) {
             let s = d.post(support_of(w, o));
-            let tied = d == Dept::Strength && s.coach.is_some() && s.coach == boss_of(w, o);
+            let tied = d == Dept::Strength && s.coach.is_some() && s.coach == permanent_boss(w, o);
             if rng.chance(if tied { 0.25 } else { 0.6 }) {
                 best = (r, 2, None, Some(o));
                 break;
@@ -531,7 +542,7 @@ fn fill(w: &mut World, rng: &mut Rng, mut open: Vec<(Who, Dept)>, ys: &Yardstick
         };
         man.pay = pay.max(man.pay as f64) as f32;
         man.since = year;
-        man.coach = if d == Dept::Strength { boss_of(w, who) } else { None };
+        man.coach = if d == Dept::Strength { permanent_boss(w, who) } else { None };
         *d.post_mut(support_mut(w, who)) = man;
     }
 }
@@ -615,7 +626,7 @@ pub(crate) fn support_bosses(w: &mut World) {
     let year = w.year;
     let mut changed = Vec::new();
     for who in teams(w) {
-        let boss = boss_of(w, who);
+        let boss = permanent_boss(w, who);
         let s = support_mut(w, who);
         if !s.seen {
             // Older saves: the strength head is the head coach's man.
@@ -696,7 +707,7 @@ pub(crate) fn first_hires(w: &mut World, club: Option<usize>, program: usize) {
         depts(who).iter().copied().filter(|&d| d.post(support_of(w, who)).rating == 0).map(|d| (who, d)).collect();
     let ys = yardstick(w);
     fill(w, &mut rng, open, &ys);
-    let boss = boss_of(w, who);
+    let boss = permanent_boss(w, who);
     let s = support_mut(w, who);
     s.seen = true;
     s.boss = boss;
