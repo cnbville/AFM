@@ -265,7 +265,13 @@ pub(crate) fn week(w: &mut World, roster: &[usize], minutes: &HashMap<usize, (f6
                 || key_uniform(key ^ 0x3D, (id as u64) << 8 ^ s.code as u64) >= 0.05 * eyef
         });
         // The work (topics 5-7).
+        // A week with no individual time (his own time, winter's weight
+        // room, the summer program) moves nothing and keeps the minutes of
+        // his last week with it for the screens' projection.
         let (plain, film) = minutes.get(&i).copied().unwrap_or((0.0, 0.0));
+        if plain <= 0.0 && film <= 0.0 {
+            continue;
+        }
         let kept = (id, plain.round().clamp(0.0, 255.0) as u8, film.round().clamp(0.0, 255.0) as u8);
         match w.seat_minutes.iter_mut().find(|m| m.0 == id) {
             Some(m) => *m = kept,
@@ -280,6 +286,9 @@ pub(crate) fn week(w: &mut World, roster: &[usize], minutes: &HashMap<usize, (f6
         let buy = crate::craft::buy_in(&w.people[i].player, trust);
         for c in work {
             let m = if c.info().mental { film } else { plain } / share;
+            if m <= 0.0 {
+                continue;
+            }
             let t = Teach { teaching, minutes: m, buy_in: buy };
             let Some((before, after)) = crate::craft::work_week(&mut w.people[i].player, c, &t) else { continue };
             if after > before {
