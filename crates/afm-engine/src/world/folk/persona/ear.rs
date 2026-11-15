@@ -239,6 +239,10 @@ pub enum How {
     Doubted,
     Flattered,
     Threatened,
+    /// You staked yourself on him, said straight ("you're my guy, you're
+    /// going to break records for us"): a commitment he weighs by how much
+    /// he believes you (agreed 2026-11-15; `talk::hits::stake_belief`).
+    Staked,
 }
 
 /// One hit: which real item, how, and on whom in the room.

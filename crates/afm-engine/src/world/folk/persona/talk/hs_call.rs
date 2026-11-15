@@ -215,7 +215,7 @@ pub fn marks(w: &World, s: &Scene, reading: &Reading) -> u8 {
     }
     for h in &reading.hits {
         match (&h.item, h.how) {
-            (Item::Friend(k), How::Flattered | How::Reassured) if *k == s.a as u32 => m |= SOLD,
+            (Item::Friend(k), How::Flattered | How::Reassured | How::Staked) if *k == s.a as u32 => m |= SOLD,
             (Item::Point(k), How::Reassured) if k == "hscall.ask" && worry > 0 => m |= COVER | ADDRESSED,
             (Item::Point(k), How::Respected | How::Doubted) if k == "hscall.ask" => m |= STRAIGHT | ADDRESSED,
             _ => {}

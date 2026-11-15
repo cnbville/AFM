@@ -577,6 +577,10 @@ mod future_tests;
 pub(crate) mod n7_tests;
 
 #[cfg(test)]
+#[path = "stake_tests.rs"]
+mod stake_tests;
+
+#[cfg(test)]
 #[path = "meetings_tests.rs"]
 mod meetings_tests;
 
