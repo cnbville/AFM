@@ -45,6 +45,9 @@ pub enum GoalKind {
     Develop,
     /// Fill the stadium.
     Crowds,
+    /// A season term you bargained (lane N2; `terms.rs`): a rank, wins, a
+    /// postseason, a title, a player's season.
+    Measure(super::usage::Usage),
 }
 
 impl GoalKind {
@@ -69,6 +72,7 @@ impl GoalKind {
             },
             GoalKind::Develop => "develop the young players".into(),
             GoalKind::Crowds => "fill the stadium".into(),
+            GoalKind::Measure(u) => super::terms::words(&u),
         }
     }
 }
@@ -518,6 +522,7 @@ fn why_goal(w: &World, team: Team, g: GoalKind) -> String {
         GoalKind::Grades => "The academic people report to the board.".into(),
         GoalKind::Develop => "A rebuild: he wants to see the young players grow.".into(),
         GoalKind::Crowds => "Empty seats are lost money, and he counts it.".into(),
+        GoalKind::Measure(_) => "It's the bar you agreed with him.".into(),
     }
 }
 
@@ -660,6 +665,7 @@ pub fn goal_met(w: &World, team: Team, k: GoalKind, season: i32) -> bool {
         }
         GoalKind::Develop => true,
         GoalKind::Crowds => s.wins * 2 >= s.losses * 2,
+        GoalKind::Measure(u) => super::terms::met(w, super::terms::Who::Team(team), &u, season) == Some(true),
     }
 }
 

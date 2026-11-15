@@ -24,7 +24,7 @@ use serde_json::{Value, json};
 use crate::views::date_text;
 use crate::{Game, Reply};
 
-const COMMANDS: [&str; 29] = [
+const COMMANDS: [&str; 30] = [
     "people_agenda",
     "people_expect",
     "people_scene",
@@ -54,6 +54,7 @@ const COMMANDS: [&str; 29] = [
     "people_league",
     "people_log",
     "people_takeover",
+    "people_promise_plan",
 ];
 
 pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
@@ -63,6 +64,14 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     let Some(w) = game.world.as_mut() else { return Some(Err("No world is loaded.".into())) };
     Some(match cmd {
         "people_agenda" => Ok(agenda(w)),
+        // Turn the plan setting that keeps a promise on usage off or back
+        // on (lane N2): `index` in the agenda's promises, `off`.
+        "people_promise_plan" => (|| {
+            let k = num(args, "index")? as usize;
+            let off = args.get("off").and_then(Value::as_bool).unwrap_or(true);
+            folk::usage::set_off(w, k, off)?;
+            Ok(agenda(w))
+        })(),
         "people_scene" => num(args, "id").and_then(|id| scene(w, id as u32)),
         "people_answer" => (|| {
             let id = num(args, "id")? as u32;
@@ -479,11 +488,15 @@ fn agenda(w: &World) -> Value {
         .folk
         .promises
         .iter()
+        .enumerate()
         .rev()
-        .filter(|p| p.kept.is_none() || p.due.days_to(w.today) < 60)
+        .filter(|(_, p)| p.kept.is_none() || p.due.days_to(w.today) < 60)
         .take(12)
-        .map(|p| {
-            json!({ "who": p.who, "what": p.kind.words(), "made": date_text(p.made), "due": date_text(p.due), "kept": p.kept, "public": p.public })
+        .map(|(k, p)| {
+            // A promise on usage: its words, what keeps it, and whether you
+            // turned its plan setting off (lane N2).
+            let plan = p.terms.usage.map(|u| json!({ "kept_by": folk::usage::kept_by(&u), "off": p.terms.off }));
+            json!({ "index": k, "who": p.who, "what": p.words(), "made": date_text(p.made), "due": date_text(p.due), "kept": p.kept, "public": p.public, "plan": plan })
         })
         .collect();
     let due: Vec<Value> =
