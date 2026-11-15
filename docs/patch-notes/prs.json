@@ -1,0 +1,606 @@
+{
+ "318": {
+  "auto": true,
+  "bullets": [],
+  "h": "50d6b6708d8f",
+  "look": "",
+  "players": true,
+  "title": "Talks: what you hand his coach is sized by the man at the seat today (bug 377 follow-up)",
+  "tldr": "PR #298 made the forecast on a one-on-one come from the man at the player's position coach seat today."
+ },
+ "356": {
+  "auto": true,
+  "bullets": [],
+  "h": "bb1963f1c435",
+  "look": "",
+  "players": true,
+  "title": "Talk lane L8: discipline, booster promises, the four dead options",
+  "tldr": "Talk facts lane L8, items 14, 17 and 27 of afm/talk-facts/proposal.md (section 15)."
+ },
+ "374": {
+  "auto": true,
+  "bullets": [
+   "Squad roster rail and stat leaders filter: one position each."
+  ],
+  "h": "e2a7d5c2efd1",
+  "look": "",
+  "players": true,
+  "title": "Split position groups and show roles in recruiting and the Needs map",
+  "tldr": "Cain 2026-11-14: don't lump position groups at pivotal spots, mostly in recruiting and the maps."
+ },
+ "377": {
+  "auto": true,
+  "bullets": [
+   "Bug fixed: seniors who passed on their extra COVID year could \"withdraw\" and go back to school. On the test world that was 4,388 in the 2024 draft year and 394 in 2025.",
+   "The calendar check's floor goes back to 40 (it was 30 after #333)."
+  ],
+  "h": "43d3cb70b36d",
+  "look": "",
+  "players": true,
+  "title": "Early entrants: each underclassman weighs his whole situation; COVID decliners no longer withdraw",
+  "tldr": "His note says what weighed most (\"Declared early ..."
+ },
+ "378": {
+  "auto": true,
+  "bullets": [
+   "Each club's department: director, head of Canadian scouting, a Canada West/AUS scout and an American scout, with their own eyes; fall school calls, winter film, spring coaches' film.",
+   "The Bureau's three top 20s (Sep, Jan, Apr), the invitational and national combines, NCAA pro days."
+  ],
+  "h": "3c2c36022dcc",
+  "look": "",
+  "players": true,
+  "title": "SK77: CFL clubs scout their class and draft from their own reads",
+  "tldr": "SK77 from the missed-features list: a CFL club scouts players and makes its own draft picks."
+ },
+ "389": {
+  "auto": true,
+  "bullets": [
+   "The champion's row says \"champions\", and so does the place tile (\"1st · SEC champions\")."
+  ],
+  "h": "e2bc73095bde",
+  "look": "",
+  "players": true,
+  "title": "College conference tables: the champion first, one order everywhere",
+  "tldr": "Cain: \"the placement on the college makes no sense\"."
+ },
+ "392": {
+  "auto": true,
+  "bullets": [
+   "Verbal commitments elsewhere stay on the board as \"committed elsewhere\" (they can flip, and the daily scan reports flips); they leave when they sign, as before."
+  ],
+  "h": "3f047ce55d2f",
+  "look": "",
+  "players": true,
+  "title": "Keep recruits signed elsewhere off the inherited board",
+  "tldr": "At a new college job the board you inherit still listed recruits who had already signed with another school, with or without the old staff's offers."
+ },
+ "393": {
+  "auto": true,
+  "bullets": [
+   "Every person, 17 kinds, each with what you can learn, deal, ask and promise, what they come to you about, and which hooks are built or new. That covers your players, families, recruits and their circle, transfers…",
+   "Football talk (Cain's idea, section 9):"
+  ],
+  "h": "fba5450f8e60",
+  "look": "",
+  "players": true,
+  "title": "Design: live talks v3, exhaustive, every person, talk, term and rule, and football talk (proposed)",
+  "tldr": "Docs only."
+ },
+ "394": {
+  "auto": true,
+  "bullets": [],
+  "h": "b33b87440104",
+  "look": "",
+  "players": true,
+  "title": "Individual practice part 2: flaws and tools as an engine layer",
+  "tldr": "Every size is proposed, not confirmed."
+ },
+ "395": {
+  "auto": true,
+  "bullets": [],
+  "h": "6b9913ed9548",
+  "look": "",
+  "players": true,
+  "title": "One-on-ones: a subject chip only selects, and \"your grades\" gets a fitting answer",
+  "tldr": ""
+ },
+ "396": {
+  "auto": true,
+  "bullets": [
+   "The Attributes tab's tick marks and the Shape tab read the national pool too.",
+   "The squad boards still read a team against its state classification."
+  ],
+  "h": "1b9c6bfc5833",
+  "look": "",
+  "players": true,
+  "title": "Read a high schooler's marks nationally, with his state as Near home",
+  "tldr": "His overall headlines as a place in the class, in the services' steps: \"About top 500 nationally at cornerback, class of 2027\" (25, 50, 100, 300, 500, 1,000, 2,500, then a share)."
+ },
+ "397": {
+  "auto": true,
+  "bullets": [
+   "The rules every term follows:",
+   "judged game by game on the play log;"
+  ],
+  "h": "f3209afaf8f3",
+  "look": "",
+  "players": true,
+  "title": "Live talks v3: promises for every position (proposed)",
+  "tldr": "Docs only."
+ },
+ "398": {
+  "auto": true,
+  "bullets": [],
+  "h": "d1bbdf9427a3",
+  "look": "",
+  "players": true,
+  "title": "Team page: Every season moves into the left column",
+  "tldr": "Cain: \"look at the every season section, it has a massive/gap dead space\"."
+ },
+ "399": {
+  "auto": true,
+  "bullets": [
+   "Go-ahead (Cain, 23:27 UTC): \"18 hours it is\". Lanes N0-N8 build on the 18-hour plan, with the shared types first. The 14 questions in the spec's section 17 are still open, so the lanes follow Claude's picks (proposed…"
+  ],
+  "h": "fcfd2ae57602",
+  "look": "",
+  "players": true,
+  "title": "Decisions 22: the 18-hour live talks build go-ahead and the N0 mock-ups",
+  "tldr": "Docs only: two lines in docs/handoff/decisions.md, section 22."
+ },
+ "400": {
+  "auto": true,
+  "bullets": [],
+  "h": "896e57ae476c",
+  "look": "",
+  "players": true,
+  "title": "Design: the split ceiling in all growth (with the projects spec from #391)",
+  "tldr": "Docs only."
+ },
+ "401": {
+  "auto": true,
+  "bullets": [],
+  "h": "2963dfcec4c3",
+  "look": "",
+  "players": true,
+  "title": "Full tests: stat book prints the same every run; day-one inbox tests allow the world's portal mail",
+  "tldr": "Two of the three red Full tests issues on main."
+ },
+ "402": {
+  "auto": true,
+  "bullets": [],
+  "h": "fe70ec63f9f7",
+  "look": "",
+  "players": true,
+  "title": "Live talks v3: shared types for N1, N3 and N4 (no behaviour)",
+  "tldr": "The contract every live talks v3 lane builds on, from docs/design/live-talks-persona.md (sections 3, 5, 8, 10, 11, 16.3)."
+ },
+ "403": {
+  "auto": true,
+  "bullets": [
+   "which measures exist already;",
+   "which are kept on every snap but still need a reader (QB freedom at the line, run family, slot quick and RPO calls, corner side, help over the top and the single-high or robber safety, other kickers used);"
+  ],
+  "h": "4d4a9c47a83f",
+  "look": "",
+  "players": true,
+  "title": "Live talks v3, section 8.4: what the usage lane builds and what's left for N2",
+  "tldr": "New subsection, \"What the usage lane builds, and what's left for N2\":"
+ },
+ "404": {
+  "auto": true,
+  "bullets": [],
+  "h": "92fa2906b6df",
+  "look": "",
+  "players": true,
+  "title": "Usage promises for every position, judged on the play log",
+  "tldr": "Spot keys split: tailback, fullback, each guard, each DT, Sam, Mike, Will, each corner, nickel and dime."
+ },
+ "405": {
+  "auto": true,
+  "bullets": [],
+  "h": "4be51056e948",
+  "look": "",
+  "players": true,
+  "title": "Docs: the recruiting budget raise is already read (PR #371)",
+  "tldr": "Talk facts L8 (#356) listed staff.recruit_bonus as read by nothing."
+ },
+ "406": {
+  "auto": true,
+  "bullets": [],
+  "h": "1c44635bf40e",
+  "look": "",
+  "players": true,
+  "title": "Live talks v3, lane N1: people",
+  "tldr": "Lane N1 of live talks v3 (docs/design/live-talks-persona.md)."
+ },
+ "407": {
+  "auto": true,
+  "bullets": [
+   "Top prospects: the three best reads on the roster, each with the ratings he is strongest and shortest in and where he stands with you.",
+   "Talent by class: a dot per player, placed by the read that judges (yours, else your staff's, else film). Gold is offered or committed to you, outlined is committed elsewhere."
+  ],
+  "h": "14aad03c1f6e",
+  "look": "",
+  "players": true,
+  "title": "Team page: the high school middle",
+  "tldr": "The middle of a high school's team page, built from the mock-up Cain approved (https://claude.ai/artifact/DR7xPtSwGjthzr13HeauGQ)."
+ },
+ "408": {
+  "auto": true,
+  "bullets": [],
+  "h": "caccbc0b4229",
+  "look": "",
+  "players": true,
+  "title": "Individual practice part 3: working on flaws and tools",
+  "tldr": "The tape book: every tagged rep of your players from games and practice, one row a player a game, kept two years."
+ },
+ "409": {
+  "auto": true,
+  "bullets": [],
+  "h": "caca3518ee61",
+  "look": "",
+  "players": true,
+  "title": "Live talks v3, lane N4: the conversation",
+  "tldr": "Lane N4 of live talks v3 (docs/design/live-talks-persona.md, section 5), built on the shared contract (#402), lane N1's people (#406), lane N3's deals and requests and the usage promises (#404)."
+ },
+ "410": {
+  "auto": true,
+  "bullets": [
+   "Counters (question 3): built by the game from his heaviest want that the deal doesn't give.",
+   "Taking time: a family decider takes 3 days, a handler 5 and an agent 2. A deadline inside a week makes him answer now."
+  ],
+  "h": "45518c833c0b",
+  "look": "",
+  "players": true,
+  "title": "Live talks v3, lane N3: deals and requests",
+  "tldr": "Your own college player: his portal lean."
+ },
+ "411": {
+  "auto": true,
+  "bullets": [],
+  "h": "3a7a3e29e17b",
+  "look": "",
+  "players": true,
+  "title": "Scouting: one \"what matters at his position\" cutoff for the file, the fit line and the team page",
+  "tldr": ""
+ },
+ "412": {
+  "auto": true,
+  "bullets": [],
+  "h": "ed00d97c9661",
+  "look": "",
+  "players": true,
+  "title": "Each raise the AD already gave halves his next yes",
+  "tldr": "Before this, a yes to \"a bigger recruiting budget\" added a tenth with no ceiling."
+ },
+ "413": {
+  "auto": true,
+  "bullets": [
+   "the N6 row now says it builds from those boards on N4's contract."
+  ],
+  "h": "9ecb2712c411",
+  "look": "",
+  "players": true,
+  "title": "Live talks v3: N0 mock-ups agreed",
+  "tldr": "the N0 row links the boards (https://claude.ai/artifact/9EPFSfZ8ysBHkZBwzEjAgj) and their sources;"
+ },
+ "414": {
+  "auto": true,
+  "bullets": [
+   "Question 10's table: gets a lane column, so N5a, N5c and N5e each know which of the brought-back items are theirs. The typed notes graded by look-backs stay out, and typing into Ground's calls waits for Ground.",
+   "Facet lines: the ones that still called those items \"decided against\" now say they're back. The press cost row reads question 8 as yes."
+  ],
+  "h": "e5147cc2513b",
+  "look": "",
+  "players": true,
+  "title": "Live talks v3: all 14 questions agreed",
+  "tldr": "Section 17: every pick is marked agreed, with his words at the top."
+ },
+ "415": {
+  "auto": true,
+  "bullets": [],
+  "h": "4bef2d1afdc0",
+  "look": "",
+  "players": true,
+  "title": "Live talks v3, lane N6: the conversation screens",
+  "tldr": "Lane N6 of live talks v3 (docs/design/live-talks-persona.md, 16.3): the screens for the six boards Cain agreed on 2026-11-15."
+ },
+ "416": {
+  "auto": true,
+  "bullets": [
+   "Progress: each focus point with its stage ring, how often he lost the rep in its situation (his last four games against his first four), a chart from the tape book (games solid, practice dashed), weeks of work, minutes…",
+   "Focus (n/2): flaws his coaches have seen with their gain if fixed, new skills he could learn, or a plain rating; the one you pick shows its projection: the rating in that situation now and fixed, the rating by the…"
+  ],
+  "h": "d72136abfa37",
+  "look": "",
+  "players": true,
+  "title": "Individual practice part 4: the Development tab",
+  "tldr": "A slim strip (growth, the year, practice, load, role) above four sub-tabs."
+ },
+ "417": {
+  "auto": true,
+  "bullets": [],
+  "h": "4d06ab1e6c39",
+  "look": "",
+  "players": true,
+  "title": "Note the skipped Class standing column on the ratings page",
+  "tldr": "Docs only."
+ },
+ "418": {
+  "auto": true,
+  "bullets": [],
+  "h": "92abd58be9be",
+  "look": "",
+  "players": true,
+  "title": "Make the AD's staff money raise count",
+  "tldr": "Staffs::pool_bonus (the boss's yes to \"more money for your staff\") was shown on the staff screen and read by nothing."
+ },
+ "419": {
+  "auto": true,
+  "bullets": [],
+  "h": "181e155e470e",
+  "look": "",
+  "players": true,
+  "title": "Live talks v3, lane N2: the rest of the promises",
+  "tldr": ""
+ },
+ "420": {
+  "auto": true,
+  "bullets": [
+   "The browser fake's ear also hears \"promise\" and \"bench\" lines, so marks and the confirm card can be tried with no key."
+  ],
+  "h": "d3d86cc45605",
+  "look": "",
+  "players": true,
+  "title": "Live talks v3: wire the conversation page to N4",
+  "tldr": "Heard as and marks: kept by scene in memory and put on your typed lines in the scene reply, so a reload still shows them."
+ },
+ "421": {
+  "auto": true,
+  "bullets": [
+   "The leadership council meeting. Once a week, half an hour: \"How's the room?\" Each member tells what he sees of the unhappiest men by N1's rules (straight, partly, a lie, or won't say). Works with no key."
+  ],
+  "h": "60035b2a98f3",
+  "look": "",
+  "players": true,
+  "title": "Live talks v3, lane N5d: game day and the room",
+  "tldr": "Your speech, man by man (6.12)."
+ },
+ "422": {
+  "auto": true,
+  "bullets": [
+   "NIL and revenue share for your college player land through the NIL desk.",
+   "Requests: an agent's number, taking your offer to his client, holding other clubs off, getting a holdout to report, steering a client; a GM's heads-up and \"not to your division\". His own asks become real gives (question…"
+  ],
+  "h": "7e567511c1a4",
+  "look": "",
+  "players": true,
+  "title": "Live talks v3, lane N5b: negotiating",
+  "tldr": "Lane N5b of live talks v3 (docs/design/live-talks-persona.md, 16.3): agents, GMs, NIL, contracts, trades and the undrafted rush."
+ },
+ "423": {
+  "auto": true,
+  "bullets": [
+   "Rooms: his decider speaks for money and the school's questions; a family call goes through the decider."
+  ],
+  "h": "1458a6dcaef9",
+  "look": "",
+  "players": true,
+  "title": "Live talks v3, lane N5a: recruiting",
+  "tldr": "A promise counts as you say it (Q4), through the built pledges and portal promises, usage terms included."
+ },
+ "424": {
+  "auto": true,
+  "bullets": [],
+  "h": "482b7d7433c9",
+  "look": "",
+  "players": true,
+  "title": "Live talks v3, lane N5e: scouting and the draft",
+  "tldr": ""
+ },
+ "425": {
+  "auto": true,
+  "bullets": [
+   "a job offer through the hiring talks;",
+   "a raise, more years, a title or the play-calling for your own assistant;"
+  ],
+  "h": "30023b0dd67c",
+  "look": "",
+  "players": true,
+  "title": "Live talks v3, lane N5c: staff, bosses and money",
+  "tldr": "Lane N5c of live talks v3 (docs/design/live-talks-persona.md 16.3, plus the section 17 Q10 items for the team doctor and coach references)."
+ },
+ "426": {
+  "auto": true,
+  "bullets": [],
+  "h": "ff47800799a1",
+  "look": "",
+  "players": true,
+  "title": "Squad boards test: the Needs map has 26 spots",
+  "tldr": "Full tests on main at 5ed1d35 failed in squadboards (the_boards_at_every_seat, college: left: Some(26), right: Some(24))."
+ },
+ "427": {
+  "auto": true,
+  "bullets": [],
+  "h": "66ef4f8222e8",
+  "look": "",
+  "players": true,
+  "title": "Your practice plan moves only on weeks with individual time",
+  "tldr": "Every block but the six quiet weeks gave a point the full 30 minutes, winter and summer included."
+ },
+ "428": {
+  "auto": true,
+  "bullets": [],
+  "h": "2eb7714a46a0",
+  "look": "",
+  "players": true,
+  "title": "Live talks v3, lane N7: checks for the ear and the voice",
+  "tldr": "Lane N7 of live talks v3: the checks."
+ },
+ "429": {
+  "auto": false,
+  "bullets": [],
+  "h": "c663275b74f4",
+  "look": "",
+  "players": true,
+  "title": "Recruiting: AI offers and commitments on real days",
+  "tldr": "AI schools now offer and take commitments week by week through spring, summer and fall, not on five fixed dates. Each recruit commits on his own day, or sooner when one school clearly leads."
+ },
+ "430": {
+  "auto": true,
+  "bullets": [
+   "A line lands when a hit moves trust or mood, or a fresh question gets an answer (straight, partly or a lie).",
+   "Lines that go nowhere for other reasons keep N1's rate. Finding 1 (line weight) is not touched."
+  ],
+  "h": "ba850ff1b584",
+  "look": "",
+  "players": true,
+  "title": "Live talks: a dodged or repeated question wears his patience, by your Relationships",
+  "tldr": "N7 finding 2, Cain's yes on 2026-11-15 (\"Sounds good for now, we'll review the numbers later\")."
+ },
+ "431": {
+  "auto": true,
+  "bullets": [],
+  "h": "a8d14ef86a24",
+  "look": "",
+  "players": true,
+  "title": "Stop Continue for an open meeting until you hold it or hand it on",
+  "tldr": "Playtest bug: with a meeting open, Continue skipped it."
+ },
+ "432": {
+  "auto": false,
+  "bullets": [],
+  "h": "f9c836128aff",
+  "look": "",
+  "players": false,
+  "title": "Patch notes write themselves when a Mac build publishes",
+  "tldr": ""
+ },
+ "433": {
+  "auto": true,
+  "bullets": [],
+  "h": "2eb0691a3fcf",
+  "look": "",
+  "players": true,
+  "title": "Mac app: one build at a time, a newer merge replaces the waiting build",
+  "tldr": "Reverts the one-build-per-merge part of #382 in mac-app.yml."
+ },
+ "434": {
+  "auto": true,
+  "bullets": [
+   "Settings: Compare keeps the last finished run beside the new one, so each row shows both models' scores."
+  ],
+  "h": "493d10a56371",
+  "look": "",
+  "players": true,
+  "title": "Live talks checks: review fixes after lane N7",
+  "tldr": "Labels: lines that fish for ratings, a scout grade or the depth chart take not talk or a quiet question, because the ear's rules call those not talk."
+ },
+ "437": {
+  "auto": false,
+  "bullets": [
+   "Typing on a contract page calls his agent, and your words go into that call.",
+   "Typing on the trade desk calls their GM about the man you're after.",
+   "Typing on a recruit's NIL promise calls him, and the usual contact rules apply.",
+   "The old \"bring it up\" fact buttons are gone, so nothing tells you what to say."
+  ],
+  "h": "10903039586b",
+  "look": "a free agent's contract page, then type your offer and your reasons.",
+  "players": true,
+  "title": "Live talks v3: the money desks' boxes play on the call with the man across",
+  "tldr": "You can now type straight to the man across the money desks: an agent on a contract, another club's GM on a trade, or a recruit about NIL money. He answers in his own words on a real call."
+ },
+ "438": {
+  "auto": false,
+  "bullets": [
+   "A hot coach's pay is bid up by the schools and clubs that want him, and his own school can counter to keep him.",
+   "Winning coaches get raises and early extensions; NFL head coaches sign real deals that owners pay out when they fire them.",
+   "NFL owners can fire a head coach in season; a coordinator takes over as interim and may keep the job.",
+   "Coordinators and position coaches can be fired during the season at every level, high school included.",
+   "A head coach who keeps his job can now clean out as much of his staff as he wants."
+  ],
+  "h": "d04b013f487f",
+  "look": "the news during the season and the coaching carousel.",
+  "players": true,
+  "title": "A real coaching market and firings during the season (realism audit 6, 7, 8, 12)",
+  "tldr": "Coaches now get paid what the market will bear, and nobody's job is safe mid-season. Hot names get bid up, schools fight to keep their stars, and a collapsing season can cost anyone their job."
+ },
+ "440": {
+  "auto": true,
+  "bullets": [],
+  "h": "b51f3b50a8ed",
+  "look": "",
+  "players": true,
+  "title": "Film reads what your tape showed: a skill his record barely tested, blocking in space",
+  "tldr": "Cain watched all of a tight end's tape and his catching stayed wide while other reads narrowed."
+ },
+ "441": {
+  "auto": false,
+  "bullets": [
+   "The hand button now names who takes the meeting, or says plainly that nobody goes.",
+   "A sheet compares handing it on with doing it yourself, using your staff's read of the coach.",
+   "The holiday dialog lists the meetings that fall inside it, and you can pick any to stop for.",
+   "Each standing duty shows who runs it and what its next two weeks look like."
+  ],
+  "h": "f2cd95aeb2e8",
+  "look": "open any meeting's hand button, then Go on holiday.",
+  "players": true,
+  "title": "Hand-off projections: what each hand-off does, side by side",
+  "tldr": "Before you hand a meeting to your staff, you now see what each choice would do, side by side, and what you give up. Try handing a one-on-one or a recruit visit on, or opening the holiday dialog."
+ },
+ "442": {
+  "auto": true,
+  "bullets": [],
+  "h": "ee515c493688",
+  "look": "",
+  "players": true,
+  "title": "Depth chart: a man who is out keeps the place you give him",
+  "tldr": "The flat Depth chart (views::depth, which the hover card's Move up and Move down use) listed the order the engine dresses for a game."
+ },
+ "443": {
+  "auto": false,
+  "bullets": [],
+  "h": "754e86c20e59",
+  "look": "",
+  "players": false,
+  "title": "What's new lists every build's own additions",
+  "tldr": ""
+ },
+ "444": {
+  "auto": false,
+  "bullets": [
+   "No more stop at ten transfers a year for other programs before 2025.",
+   "Under the 105 roster limit a class has no fixed top: holes at each position decide it.",
+   "The compliance office no longer quotes a signing cap that the rules don't have."
+  ],
+  "h": "b6bf6baea18e",
+  "look": "the biggest transfer hauls on the portal pages of a new world.",
+  "players": true,
+  "title": "Recruiting: no AI transfer stop in any era, no class cap under the House limit",
+  "tldr": "Other college programs now build their rosters the way real ones do: a portal-heavy staff can bring in as many transfers as it has room for, and classes under the 105 limit are as big as the roster needs."
+ },
+ "445": {
+  "auto": false,
+  "bullets": [
+   "A parent's call, a discipline meeting, the captains, the parents' meeting, a coach who calls you and your own job interviews all answer your words as themselves.",
+   "Ask them things and they tell you what they know, by how much they trust you.",
+   "In a job interview, how the committee takes your talk counts toward whether you get the job.",
+   "The meeting's own buttons are still there to finish it, and everything plays as before without an AI key."
+  ],
+  "h": "d7c185328354",
+  "look": "type to a parent who calls about his son's playing time.",
+  "players": true,
+  "title": "Live talks v3: the older meetings play on the conversation, not on chips",
+  "tldr": "Typing in the older meetings is now a real conversation with the person across, not a pick of one of the buttons."
+ },
+ "446": {
+  "auto": false,
+  "bullets": [],
+  "h": "5a1438bb1a6e",
+  "look": "",
+  "players": false,
+  "title": "Mac app: two build lanes, two builds at once",
+  "tldr": "_Generated by Claude Code_"
+ }
+}

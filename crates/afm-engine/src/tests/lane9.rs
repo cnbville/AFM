@@ -1406,7 +1406,9 @@ fn a_kid_off_the_tape_comes_with_a_read_at_three_quarters() {
 /// role, your film reads its skills in your staff's file, as his record
 /// would, and before then the rating's card says why it is wide and what
 /// would narrow it. A lineman's or tight end's block on a man at the second
-/// level shows his blocking in space.
+/// level shows his blocking in space. His record counts his routes from his
+/// snaps on pass plays (Cain 2026-11-15), so a starter's record reads his
+/// hands and a backup's barely tests them.
 #[test]
 fn your_own_tape_reads_what_his_record_barely_tested() {
     use crate::attributes::Attr;
@@ -1435,12 +1437,25 @@ fn your_own_tape_reads_what_his_record_barely_tested() {
         .find(|&i| tape::player_tape(&w, w.people[i].player.id).is_ok())
         .expect("a high school tight end with tape");
     let (h, id) = (w.people[i].hs, w.people[i].player.id);
-    // Four catches last season: about 24 routes on his record.
+    // A starting tight end with four catches on 500 offensive snaps ran a
+    // route on most of his pass plays (Cain 2026-11-15): his record reads
+    // his routes and hands.
     let mut s = [0i16; crate::world::hs_year::HS_STAT_COUNT];
     s[H::SnapsOff as usize] = 500;
     s[H::Rec as usize] = 4;
-    w.people[i].hs_lines =
-        vec![crate::world::hs_year::HsLine { year: w.year as i16 - 1, school: h as u32, pos: P::TE, games: 10, s }];
+    let year = w.year as i16 - 1;
+    let line = |s| vec![crate::world::hs_year::HsLine { year, school: h as u32, pos: P::TE, games: 10, s }];
+    w.people[i].hs_lines = line(s);
+    let f = footage::footage(&w, i);
+    let routes = f.role[footage::ROUTES];
+    // About 150 at the high school average share (0.42); his school's own
+    // share moves it.
+    assert!((footage::ROLE_MIN..=300.0).contains(&routes), "routes from his pass snaps, not 24: {routes}");
+    assert!(footage::role_seen(&f, Attr::Catching, P::TE), "his record tested his hands");
+    // A backup with one catch on 60 snaps: about 18 routes on his record.
+    s[H::SnapsOff as usize] = 60;
+    s[H::Rec as usize] = 1;
+    w.people[i].hs_lines = line(s);
     let f = footage::footage(&w, i);
     assert!(f.role[footage::ROUTES] < footage::ROLE_MIN, "his record barely tested his routes");
     let (catching, blocking) = (Attr::Catching.index(), Attr::RunBlocking.index());

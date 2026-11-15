@@ -13,6 +13,7 @@ pub mod colors;
 pub mod depth_plan;
 pub mod files;
 pub mod jobs;
+pub mod joining;
 pub mod lane_boards;
 pub mod lane_calendar;
 pub mod lane_cfl;

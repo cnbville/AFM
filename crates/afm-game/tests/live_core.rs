@@ -46,6 +46,10 @@ fn game(name: &str, fake: bool) -> (Game, Arc<Fake>) {
     let job = Job::College(w.programs.iter().position(|p| p.division == Division::FBS).unwrap());
     w.start_career(&you(), job, 7);
     g.world = Some(w);
+    // This test drives lane 3's core: the reader and the writer on a scene's
+    // own chips. Since lane N5c an interview plays as a v3 talk, so v3 is
+    // off here, as in the lane's other tests (`say/recruit.rs`).
+    g.ai.persona_talks = false;
     let f = Arc::new(Fake::new());
     if fake {
         g.ai.use_fake(f.clone());

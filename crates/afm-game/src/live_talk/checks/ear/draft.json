@@ -91,7 +91,8 @@
    "text": "We'll take you in the first round. I promise.",
    "acts": [
     {
-     "act": "promise"
+     "act": "promise",
+     "what": "draft"
     }
    ]
   },

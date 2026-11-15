@@ -19,6 +19,10 @@ use crate::live_talk::card::{self, Spoken, Tagged, quoted};
 /// lists beyond the room. Proposed, not confirmed.
 pub const MAX_NAMED: usize = 10;
 
+/// The most men a staff coach's card lists of the ones he coaches (a
+/// coordinator's side runs past forty in college). Proposed, not confirmed.
+pub const MAX_COACHED: usize = 60;
+
 /// A person in words: name, role, class year.
 pub fn person(w: &World, who: Them) -> String {
     match who {
@@ -167,6 +171,13 @@ pub fn ear(w: &World, s: &Scene, room: &Room, parts: &Parts, line: &str) -> (Ear
     // the man a sit-down is about, the hurt men the doctor would talk of.
     for (who, why) in office::sit::named(w, s) {
         add(&mut c, &mut keys, who, why);
+    }
+    // A coach on your staff: the men he coaches, so a line can name one
+    // ("work with Hill on his releases").
+    if let Them::Coach(co) = him {
+        for pid in folk::talks::coached_by(w, co).into_iter().take(MAX_COACHED) {
+            add(&mut c, &mut keys, Them::Player(pid), "a player he coaches");
+        }
     }
     // One of the older meetings: the players it is about and the men on the
     // sheet in front of you.

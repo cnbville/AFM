@@ -8,6 +8,102 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.540 (15 Nov, shipped): keep recruits signed elsewhere off the inherited board (PR #392), college conference tables: the champion first, one order everywhere (PR #389), team page: Every season moves into the left column (PR #398), and 43 more
+**TLDR:** 46 changes ship together: keep recruits signed elsewhere off the inherited board; college conference tables: the champion first, one order everywhere; team page: Every season moves into the left column; read a high schooler's marks nationally, with his state as Near home; and 42 more.
+- Keep recruits signed elsewhere off the inherited board (PR #392): At a new college job the board you inherit still listed recruits who had already signed with another school, with or without the old staff's offers.
+- Verbal commitments elsewhere stay on the board as "committed elsewhere" (they can flip, and the daily scan reports flips); they leave when they sign, as before. (PR #392)
+- College conference tables: the champion first, one order everywhere (PR #389): Cain: "the placement on the college makes no sense".
+- The champion's row says "champions", and so does the place tile ("1st · SEC champions"). (PR #389)
+- Team page: Every season moves into the left column (PR #398): Cain: "look at the every season section, it has a massive/gap dead space".
+- Read a high schooler's marks nationally, with his state as Near home (PR #396): His overall headlines as a place in the class, in the services' steps: "About top 500 nationally at cornerback, class of 2027" (25, 50, 100, 300, 500, 1,000, 2,500, then a share).
+- The Attributes tab's tick marks and the Shape tab read the national pool too. (PR #396)
+- The squad boards still read a team against its state classification. (PR #396)
+- One-on-ones: a subject chip only selects, and "your grades" gets a fitting answer (PR #395): no summary in the PR
+- Early entrants: each underclassman weighs his whole situation; COVID decliners no longer withdraw (PR #377): His note says what weighed most ("Declared early ...
+- Bug fixed: seniors who passed on their extra COVID year could "withdraw" and go back to school. On the test world that was 4,388 in the 2024 draft year and 394 in 2025. (PR #377)
+- The calendar check's floor goes back to 40 (it was 30 after #333). (PR #377)
+- Full tests: stat book prints the same every run; day-one inbox tests allow the world's portal mail (PR #401): Two of the three red Full tests issues on main.
+- Live talks v3: shared types for N1, N3 and N4 (no behaviour) (PR #402): The contract every live talks v3 lane builds on, from docs/design/live-talks-persona.md (sections 3, 5, 8, 10, 11, 16.3).
+- Individual practice part 2: flaws and tools as an engine layer (PR #394): Every size is proposed, not confirmed.
+- Talk lane L8: discipline, booster promises, the four dead options (PR #356): Talk facts lane L8, items 14, 17 and 27 of afm/talk-facts/proposal.md (section 15).
+- Split position groups and show roles in recruiting and the Needs map (PR #374): Cain 2026-11-14: don't lump position groups at pivotal spots, mostly in recruiting and the maps.
+- Squad roster rail and stat leaders filter: one position each. (PR #374)
+- Live talks v3, lane N1: people (PR #406): Lane N1 of live talks v3 (docs/design/live-talks-persona.md).
+- Individual practice part 3: working on flaws and tools (PR #408): The tape book: every tagged rep of your players from games and practice, one row a player a game, kept two years.
+- Team page: the high school middle (PR #407): The middle of a high school's team page, built from the mock-up Cain approved (https://claude.ai/artifact/DR7xPtSwGjthzr13HeauGQ).
+- Top prospects: the three best reads on the roster, each with the ratings he is strongest and shortest in and where he stands with you. (PR #407)
+- Talent by class: a dot per player, placed by the read that judges (yours, else your staff's, else film). Gold is offered or committed to you, outlined is committed elsewhere. (PR #407)
+- SK77: CFL clubs scout their class and draft from their own reads (PR #378): SK77 from the missed-features list: a CFL club scouts players and makes its own draft picks.
+- Each club's department: director, head of Canadian scouting, a Canada West/AUS scout and an American scout, with their own eyes; fall school calls, winter film, spring coaches' film. (PR #378)
+- The Bureau's three top 20s (Sep, Jan, Apr), the invitational and national combines, NCAA pro days. (PR #378)
+- Usage promises for every position, judged on the play log (PR #404): Spot keys split: tailback, fullback, each guard, each DT, Sam, Mike, Will, each corner, nickel and dime.
+- Scouting: one "what matters at his position" cutoff for the file, the fit line and the team page (PR #411): no summary in the PR
+- Live talks v3, lane N3: deals and requests (PR #410): Your own college player: his portal lean.
+- Counters (question 3): built by the game from his heaviest want that the deal doesn't give. (PR #410)
+- Taking time: a family decider takes 3 days, a handler 5 and an agent 2. A deadline inside a week makes him answer now. (PR #410)
+- Each raise the AD already gave halves his next yes (PR #412): Before this, a yes to "a bigger recruiting budget" added a tenth with no ceiling.
+- Live talks v3, lane N6: the conversation screens (PR #415): Lane N6 of live talks v3 (docs/design/live-talks-persona.md, 16.3): the screens for the six boards Cain agreed on 2026-11-15.
+- Live talks v3, lane N4: the conversation (PR #409): Lane N4 of live talks v3 (docs/design/live-talks-persona.md, section 5), built on the shared contract (#402), lane N1's people (#406), lane N3's deals and requests and the usage promises (#404).
+- Make the AD's staff money raise count (PR #418): Staffs::pool_bonus (the boss's yes to "more money for your staff") was shown on the staff screen and read by nothing.
+- Live talks v3: wire the conversation page to N4 (PR #420): Heard as and marks: kept by scene in memory and put on your typed lines in the scene reply, so a reload still shows them.
+- The browser fake's ear also hears "promise" and "bench" lines, so marks and the confirm card can be tried with no key. (PR #420)
+- Live talks v3, lane N2: the rest of the promises (PR #419): no summary in the PR
+- Squad boards test: the Needs map has 26 spots (PR #426): Full tests on main at 5ed1d35 failed in squadboards (the_boards_at_every_seat, college: left: Some(26), right: Some(24)).
+- Live talks v3, lane N5c: staff, bosses and money (PR #425): Lane N5c of live talks v3 (docs/design/live-talks-persona.md 16.3, plus the section 17 Q10 items for the team doctor and coach references).
+- a job offer through the hiring talks; (PR #425)
+- a raise, more years, a title or the play-calling for your own assistant; (PR #425)
+- Live talks v3, lane N5e: scouting and the draft (PR #424): no summary in the PR
+- Live talks v3, lane N5b: negotiating (PR #422): Lane N5b of live talks v3 (docs/design/live-talks-persona.md, 16.3): agents, GMs, NIL, contracts, trades and the undrafted rush.
+- NIL and revenue share for your college player land through the NIL desk. (PR #422)
+- Requests: an agent's number, taking your offer to his client, holding other clubs off, getting a holdout to report, steering a client; a GM's heads-up and "not to your division". His own asks become real gives (question… (PR #422)
+- Individual practice part 4: the Development tab (PR #416): A slim strip (growth, the year, practice, load, role) above four sub-tabs.
+- Progress: each focus point with its stage ring, how often he lost the rep in its situation (his last four games against his first four), a chart from the tape book (games solid, practice dashed), weeks of work, minutes… (PR #416)
+- Focus (n/2): flaws his coaches have seen with their gain if fixed, new skills he could learn, or a plain rating; the one you pick shows its projection: the rating in that situation now and fixed, the rating by the… (PR #416)
+- Live talks v3, lane N5a: recruiting (PR #423): A promise counts as you say it (Q4), through the built pledges and portal promises, usage terms included.
+- Rooms: his decider speaks for money and the school's questions; a family call goes through the decider. (PR #423)
+- Live talks v3, lane N5d: game day and the room (PR #421): Your speech, man by man (6.12).
+- The leadership council meeting. Once a week, half an hour: "How's the room?" Each member tells what he sees of the unhappiest men by N1's rules (straight, partly, a lie, or won't say). Works with no key. (PR #421)
+- Your practice plan moves only on weeks with individual time (PR #427): Every block but the six quiet weeks gave a point the full 30 minutes, winter and summer included.
+- Live talks v3, lane N7: checks for the ear and the voice (PR #428): Lane N7 of live talks v3: the checks.
+- Talks: what you hand his coach is sized by the man at the seat today (bug 377 follow-up) (PR #318): PR #298 made the forecast on a one-on-one come from the man at the player's position coach seat today.
+- Live talks: a dodged or repeated question wears his patience, by your Relationships (PR #430): N7 finding 2, Cain's yes on 2026-11-15 ("Sounds good for now, we'll review the numbers later").
+- A line lands when a hit moves trust or mood, or a fresh question gets an answer (straight, partly or a lie). (PR #430)
+- Lines that go nowhere for other reasons keep N1's rate. Finding 1 (line weight) is not touched. (PR #430)
+- Stop Continue for an open meeting until you hold it or hand it on (PR #431): Playtest bug: with a meeting open, Continue skipped it.
+- Patch notes write themselves when a Mac build publishes (PR #432): no summary in the PR
+- Live talks checks: review fixes after lane N7 (PR #434): Labels: lines that fish for ratings, a scout grade or the depth chart take not talk or a quiet question, because the ear's rules call those not talk.
+- Settings: Compare keeps the last finished run beside the new one, so each row shows both models' scores. (PR #434)
+- Recruiting: AI offers and commitments on real days (PR #429): AI schools now offer and take commitments week by week through spring, summer and fall, not on five fixed dates. Each recruit commits on his own day, or sooner when one school clearly leads.
+- Live talks v3: the money desks' boxes play on the call with the man across (PR #437): You can now type straight to the man across the money desks: an agent on a contract, another club's GM on a trade, or a recruit about NIL money. He answers in his own words on a real call.
+- Typing on a contract page calls his agent, and your words go into that call. (PR #437)
+- Typing on the trade desk calls their GM about the man you're after. (PR #437)
+- Typing on a recruit's NIL promise calls him, and the usual contact rules apply. (PR #437)
+- The old "bring it up" fact buttons are gone, so nothing tells you what to say. (PR #437)
+- A real coaching market and firings during the season (realism audit 6, 7, 8, 12) (PR #438): Coaches now get paid what the market will bear, and nobody's job is safe mid-season. Hot names get bid up, schools fight to keep their stars, and a collapsing season can cost anyone their job.
+- A hot coach's pay is bid up by the schools and clubs that want him, and his own school can counter to keep him. (PR #438)
+- Winning coaches get raises and early extensions; NFL head coaches sign real deals that owners pay out when they fire them. (PR #438)
+- NFL owners can fire a head coach in season; a coordinator takes over as interim and may keep the job. (PR #438)
+- Coordinators and position coaches can be fired during the season at every level, high school included. (PR #438)
+- A head coach who keeps his job can now clean out as much of his staff as he wants. (PR #438)
+- Film reads what your tape showed: a skill his record barely tested, blocking in space (PR #440): Cain watched all of a tight end's tape and his catching stayed wide while other reads narrowed.
+- Hand-off projections: what each hand-off does, side by side (PR #441): Before you hand a meeting to your staff, you now see what each choice would do, side by side, and what you give up. Try handing a one-on-one or a recruit visit on, or opening the holiday dialog.
+- The hand button now names who takes the meeting, or says plainly that nobody goes. (PR #441)
+- A sheet compares handing it on with doing it yourself, using your staff's read of the coach. (PR #441)
+- The holiday dialog lists the meetings that fall inside it, and you can pick any to stop for. (PR #441)
+- Each standing duty shows who runs it and what its next two weeks look like. (PR #441)
+- Depth chart: a man who is out keeps the place you give him (PR #442): The flat Depth chart (views::depth, which the hover card's Move up and Move down use) listed the order the engine dresses for a game.
+- Recruiting: no AI transfer stop in any era, no class cap under the House limit (PR #444): Other college programs now build their rosters the way real ones do: a portal-heavy staff can bring in as many transfers as it has room for, and classes under the 105 limit are as big as the roster needs.
+- No more stop at ten transfers a year for other programs before 2025. (PR #444)
+- Under the 105 roster limit a class has no fixed top: holes at each position decide it. (PR #444)
+- The compliance office no longer quotes a signing cap that the rules don't have. (PR #444)
+- Live talks v3: the older meetings play on the conversation, not on chips (PR #445): Typing in the older meetings is now a real conversation with the person across, not a pick of one of the buttons.
+- A parent's call, a discipline meeting, the captains, the parents' meeting, a coach who calls you and your own job interviews all answer your words as themselves. (PR #445)
+- Ask them things and they tell you what they know, by how much they trust you. (PR #445)
+- In a job interview, how the committee takes your talk counts toward whether you get the job. (PR #445)
+- The meeting's own buttons are still there to finish it, and everything plays as before without an AI key. (PR #445)
+- Look at: a free agent's contract page, then type your offer and your reasons. (PR #437) the news during the season and the coaching carousel. (PR #438) open any meeting's hand button, then Go on holiday. (PR #441)
+- Docs and tooling merged too, no game change: Design: live talks v3, exhaustive, every person, talk, term and rule, and football talk… (PR #393); Live talks v3: promises for every position (proposed) (PR #397); Decisions 22: the 18-hour live talks build go-ahead and the N0 mock-ups (PR #399); Design: the split ceiling in all growth (with the projects spec from #391) (PR #400); Live talks v3, section 8.4: what the usage lane builds and what's left for N2 (PR #403); Docs: the recruiting budget raise is already read (PR #371) (PR #405); and 6 more.
+
 <!-- older entries below: hand-written, up to 0.2.492 -->
 
 ## 0.2.492 (15 Nov, shipped): live talks hear what a typed line said beyond its chip (PR #388)

@@ -1964,10 +1964,17 @@ screens.player = async (a) => {
     <div class="phero-in">${face({ ...p, colors: c }, 132)}<div class="copy">
       <div class="st-label"><span class="pos" title="${esc(posHist || p.pos)}">${esc(p.pos)}</span> · ${esc(p.class)} · ${p.team ? logoIn(p.team) + teamA(p.team) : esc(p.where)}</div>
       <h1>${esc(p.name)}${p.nick ? ` <span class="pnick" title="The name he goes by">“${esc(p.nick)}”</span>` : ""}</h1>
-      <div class="meta"><span>Age <b>${p.age}</b></span><span><b>${esc(p.ht)}</b>, <b>${p.wt}</b> lb</span><span>${esc(p.home)}</span>${p.high_school ? `<span>${p.high_school_id != null ? `<a class="link team" data-go="team" data-kind="hs" data-id="${p.high_school_id}">${esc(hsName(p.high_school))}</a>` : esc(hsName(p.high_school))}</span>` : ""}${p.national ? `<span>${esc(p.national)} <span class="muted">U Sports, Canada</span></span>` : ""}${p.stars ? `<span>${stars(p.stars)}</span>` : ""}${p.status ? `<span class="st-pill live">${esc(p.status)}</span>` : ""}${lr}</div>
+      <div class="meta"><span>Age <b>${p.age}</b></span><span><b>${esc(p.ht)}</b>, <b>${p.wt}</b> lb</span><span>${esc(p.home)}</span>${p.high_school ? `<span>${p.high_school_id != null ? `<a class="link team" data-go="team" data-kind="hs" data-id="${p.high_school_id}">${esc(hsName(p.high_school))}</a>` : esc(hsName(p.high_school))}</span>` : ""}${p.national ? `<span>${esc(p.national)} <span class="muted">U Sports, Canada</span></span>` : ""}${p.stars ? `<span>${stars(p.stars)}</span>` : ""}${p.status ? `<span class="st-pill live">${esc(p.status)}</span>` : ""}${lr}</div>${joinLine(p.joining)}
       <div class="st-actions">${heroMoves(p, listBtn)}${l7Stake(p)}${typeof l11Hunt === "function" ? l11Hunt(p) : ""}</div></div></div></div>
     <div class="pad" data-hpos="${esc(p.pos)}">${gotoFor("player", a, p)}${tabs("ptab", list, tab)}<div class="tabbody">${body}</div></div>`;
 };
+// When he can sign with your team and his first day with it, or the first
+// day he is due once he has signed (Cain, 2026-11-15; `joining.rs`).
+function joinLine(j) {
+  if (!j) return "";
+  const can = j.can ? `<span class="pj-can"> · ${esc(j.can[0].toUpperCase() + j.can.slice(1))}</span>` : "";
+  return `<div class="pjoin"><b>${esc(j.head)}</b>, first day <b>${esc(j.first)}</b>${j.why ? ` <span class="pj-why">(${esc(j.why)})</span>` : ""}${j.or ? `, or ${esc(j.or)}` : ""}${can}</div>`;
+}
 // The hero's moves (minor bug 63): the main ones as buttons, the rest
 // under More with Dynamic Links, a note and Compare.
 function heroMoves(p, listBtn) {
