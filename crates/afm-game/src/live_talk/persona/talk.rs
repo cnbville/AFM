@@ -555,3 +555,7 @@ pub(crate) mod n7_tests;
 #[cfg(test)]
 #[path = "meetings_tests.rs"]
 mod meetings_tests;
+
+#[cfg(test)]
+#[path = "weighed_tests.rs"]
+mod weighed_tests;

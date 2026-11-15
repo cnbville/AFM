@@ -362,6 +362,9 @@ impl Resolving for Conversation<'_> {
                             }
                         }
                     }
+                    // What someone in your building says about it beside
+                    // his answer (a coordinator's numbers on a plan ask).
+                    t.say.released.extend(super::office::asks::words(w, him, r, &wl));
                     t.asked.push((r.clone(), wl, None));
                 }
                 Act::Decision(d) => {

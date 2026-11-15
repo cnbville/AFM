@@ -50,6 +50,21 @@ pub struct CallWord {
     /// grades, 2 his character.
     pub concern: u8,
     pub settled: bool,
+    /// What a call in your own words came to (live talks v3, lane N5a):
+    /// how much you covered for him, were straight and sold him, each
+    /// line weighed as said. None for a chip, which `word` says alone.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub said: Option<CallSaid>,
+}
+
+/// Everything your own words on a college staff's call did, added up: a
+/// claim that covers for him by how far it is from the truth, a straight
+/// word, a word that sells him, each about 1 for one plain line.
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct CallSaid {
+    pub cover: f32,
+    pub straight: f32,
+    pub sold: f32,
 }
 
 /// A coordinator's case at the staff meeting (D12).
@@ -483,8 +498,8 @@ fn call_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     s.end();
 }
 
-/// Your word on a college staff's call, however you gave it (a chip, or
-/// your own words in live talks v3, lane N5a): 0 you sold him, 1 you were
+/// Your word on a college staff's call by a chip (your own words land
+/// through `call_said`, weighed as said): 0 you sold him, 1 you were
 /// straight, 2 you covered for him or kept it short. `concern` is the
 /// worry they asked about that your word is judged on a year later (1 his
 /// grades, 2 his character, 0 none). It reaches his recruitment as a call
@@ -508,7 +523,7 @@ pub(crate) fn call_word(w: &mut World, s: &mut Scene, word: u8, concern: u8) {
         settled: None,
         warmth: 0.0,
     });
-    w.folk.dialogue.calls.push(CallWord { id, program: j, date: w.today, word, concern, settled: false });
+    w.folk.dialogue.calls.push(CallWord { id, program: j, date: w.today, word, concern, settled: false, said: None });
     // Your word to a college staff reaches the trail (the promises design,
     // section 4).
     w.folk.mine.word(
@@ -535,6 +550,98 @@ pub(crate) fn call_outcome(word: u8, concern: u8) -> &'static str {
     }
 }
 
+/// How much a sharp caller discounts a sell or a cover he can't see on
+/// film, by his judgement (-1 to 1 around an ordinary man's), and what
+/// telling him two things about the same worry costs your word now with a
+/// sharp one. Proposed, not confirmed.
+pub const CALL_SHARP: f64 = 0.25;
+pub const CALL_MIXED: f64 = 0.03;
+
+/// Your word on a college staff's call in your own words (live talks v3,
+/// lane N5a), weighed as you said it rather than read as one of the chip's
+/// three words: how hard you pushed him reaches his recruitment on the
+/// promo's own scale (a sell and a cover push, a straight word on the
+/// worry holds him back, a sharp caller discounts what he can't see on
+/// film); the trail hears each part; a year on each part is settled
+/// against what came true (`settle_calls`). At one plain line each it lands
+/// where the chip does. `sharp` is the caller's judgement, -1 to 1.
+pub(crate) fn call_said(w: &mut World, s: &mut Scene, said: CallSaid, concern: u8, sharp: f64) {
+    let id = s.a as u32;
+    let j = s.b as usize;
+    let worry = concern > 0;
+    let (cover, straight, sold) =
+        (f64::from(said.cover).min(2.0), f64::from(said.straight).min(2.0), f64::from(said.sold).min(2.0));
+    let push =
+        1.0 + (0.6 * sold + 0.25 * cover) * (1.0 - CALL_SHARP * sharp) - if worry { 0.6 * straight } else { 0.0 };
+    let strength = push.clamp(0.0, 2.0).round() as u8;
+    w.scouting.hs.promoted.push(crate::world::scouting::hs::Promo {
+        id,
+        program: Some(j),
+        date: w.today,
+        strength,
+        settled: None,
+        warmth: 0.0,
+    });
+    // The word that stands for it where one word is read (the chip's
+    // order: a cover, a straight word, a sell, else short).
+    let word = if cover > 0.0 {
+        2
+    } else if straight > 0.0 {
+        1
+    } else if sold > 0.0 {
+        0
+    } else {
+        2
+    };
+    w.folk.dialogue.calls.push(CallWord {
+        id,
+        program: j,
+        date: w.today,
+        word,
+        concern,
+        settled: false,
+        said: Some(said),
+    });
+    let trail = 0.02 * straight.min(1.0) - if worry { 0.03 * cover.min(1.0) } else { 0.0 };
+    w.folk.mine.word(super::Name::Trail, trail as f32);
+    // Two things on the same worry: a sharp caller hears it now.
+    let mixed = worry && cover > 0.0 && straight > 0.0;
+    if mixed && sharp > 0.0 {
+        let now = crate::world::scouting::hs::credibility(w, j);
+        w.scouting.hs.credibility.insert(j, (now - CALL_MIXED * sharp).clamp(0.05, 0.95) as f32);
+    }
+    let about = if concern == 1 { "his grades" } else { "his character" };
+    let mut out: Vec<String> = Vec::new();
+    if cover > 0.0 && worry {
+        out.push(format!("You covered for him on {about}. If it comes out, they'll remember."));
+    }
+    if straight > 0.0 {
+        out.push(if worry {
+            format!("You were straight about {about}. They'll remember that.")
+        } else {
+            "You told them who he is.".into()
+        });
+    }
+    if mixed {
+        out.push(if sharp > 0.0 {
+            "They heard two different things from you, and they noticed.".into()
+        } else {
+            "They heard two different things from you.".into()
+        });
+    }
+    if sold > 0.0 {
+        out.push(match strength {
+            2 => "You sold him. They'll look harder at his film.".into(),
+            1 => "You put in a good word. They'll weigh it with the film.".into(),
+            _ => "Your good word didn't outweigh the rest.".into(),
+        });
+    }
+    if out.is_empty() {
+        out.push(call_outcome(word, if worry { concern } else { 0 }).to_string());
+    }
+    s.outcome.extend(out);
+}
+
 /// A year after each call: a worry you hid that came true costs you with
 /// that staff; one you told them about earns your word some weight,
 /// whatever he became.
@@ -554,11 +661,23 @@ pub(crate) fn settle_calls(w: &mut World, d: Date) {
             2 => p.cal.trouble || p.incident,
             _ => false,
         };
-        let delta = match (c.word, c.concern > 0, came_true) {
-            (1, true, _) => 0.04,
-            (2, true, true) => -0.10,
-            (0, true, true) => -0.06,
-            _ => 0.0,
+        let delta = match c.said {
+            // Your own words: each part settled on its own, by how much of
+            // it you said; one plain line of each is the chip's size.
+            Some(x) if c.concern > 0 => {
+                let (cover, straight, sold) =
+                    (f64::from(x.cover).min(1.5), f64::from(x.straight).min(1.0), f64::from(x.sold).min(1.0));
+                let told = 0.04 * straight * (1.0 - cover.min(1.0));
+                let hid = if came_true { 0.10 * cover + 0.06 * sold * (1.0 - straight) } else { 0.0 };
+                (told - hid).max(-0.16)
+            }
+            Some(_) => 0.0,
+            None => match (c.word, c.concern > 0, came_true) {
+                (1, true, _) => 0.04,
+                (2, true, true) => -0.10,
+                (0, true, true) => -0.06,
+                _ => 0.0,
+            },
         };
         changes.push((c.program, delta, k));
     }
@@ -1123,7 +1242,7 @@ fn meeting_game(w: &World, s: &Scene) -> Option<crate::world::seat::SeatGame> {
 /// case would move it, as shares (`shift_plan` moves it: `k` is 1.0 for
 /// agreeing, 0.5 for halfway). Pressure, man coverage and the run share are
 /// what the four cases move.
-fn plan_step(w: &World, kind: u8, k: f64) -> (f64, f64) {
+pub(crate) fn plan_step(w: &World, kind: u8, k: f64) -> (f64, f64) {
     let g = &w.plans.guide;
     match kind {
         0 => {
@@ -1153,8 +1272,12 @@ fn plan_step(w: &World, kind: u8, k: f64) -> (f64, f64) {
     }
 }
 
+/// One step of each move on the plan's guideline (`plan_step`): pressure
+/// 8 points, man coverage 10, the run share 6.
+pub(crate) const PLAN_STEP: [f64; 6] = [0.08, 0.1, 0.06, 0.06, 0.08, 0.1];
+
 /// What the plan's guideline is for each move, in words.
-const PLAN_WORDS: [&str; 6] =
+pub(crate) const PLAN_WORDS: [&str; 6] =
     ["Pressure", "Man coverage", "The run share", "The run share", "Pressure", "Man coverage"];
 
 fn pct(x: f64) -> i64 {
