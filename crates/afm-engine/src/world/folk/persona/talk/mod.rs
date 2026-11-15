@@ -457,6 +457,9 @@ impl Resolving for Conversation<'_> {
         if reading.dodged {
             t.hits.push(hits::dodged(w, him));
         }
+        if facet == Facet::Other {
+            hits::settle(&mut t.hits);
+        }
         match (facet, s) {
             (Facet::Recruit, Some(s)) => {
                 recruit::cap(w, s, &mut t.hits);
@@ -685,6 +688,10 @@ impl Resolving for Conversation<'_> {
         }
         if self.said.reading.dodged {
             store::treat(m, him, Treated::Dodged, today);
+        }
+        // A stake you made, so one made again soon counts less.
+        for h in t.hits.iter().filter(|h| h.hit.how == super::ear::How::Staked) {
+            store::treat(m, h.hit.on, Treated::Staked, today);
         }
         if t.weighed.iter().any(|(_, x)| *x == Weighed::Lowball) {
             store::treat(m, him, Treated::Lowballed, today);

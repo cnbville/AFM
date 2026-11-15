@@ -107,6 +107,8 @@ pub enum Treated {
     Dodged,
     /// You apologised.
     Apologised,
+    /// You staked yourself on him (a stake made again soon counts less).
+    Staked,
 }
 
 /// One thing he remembers about how you treated him.
