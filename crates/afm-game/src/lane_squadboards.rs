@@ -31,8 +31,10 @@ use crate::reads::{self, Read};
 use crate::views::{self, TeamRef};
 use crate::{Game, Reply};
 
-const COMMANDS: [&str; 11] = [
+const COMMANDS: [&str; 13] = [
     "sb_depth",
+    "sb_plan_pos",
+    "sb_plan_pos_put",
     "sb_depth_up",
     "sb_depth_put",
     "sb_depth_reset",
@@ -59,6 +61,21 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         };
         return Some(done.and_then(|note| {
             let mut v = depth::view(w, args)?;
+            v["note"] = json!(note);
+            Ok(v)
+        }));
+    }
+    if cmd == "sb_plan_pos" || cmd == "sb_plan_pos_put" {
+        // The By position tab's plan: the same file as the stadium's.
+        let path = crate::depth_plan::path_for(game);
+        let Some(w) = game.world.as_ref() else { return Some(Err("No world is loaded.".into())) };
+        let mut plan = crate::depth_plan::read(&path);
+        if cmd == "sb_plan_pos" {
+            return Some(plan::pos_view(w, &plan, args));
+        }
+        return Some(plan::pos_put(w, &mut plan, args).and_then(|note| {
+            crate::depth_plan::write(&path, &plan)?;
+            let mut v = plan::pos_view(w, &plan, args)?;
             v["note"] = json!(note);
             Ok(v)
         }));

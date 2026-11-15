@@ -792,6 +792,8 @@ pub fn profile(w: &World, id: u32) -> Result<Value, String> {
     // The name he goes by, wherever he shows (stories, A14).
     v["nick"] = json!(w.nickname_of(id));
     v["level_rating"] = json!(level_rating(w, k));
+    // When he can sign with your team and his first day with it (Cain, 2026-11-15).
+    v["joining"] = json!(crate::joining::line(w, id));
     v["level_marks"] = level_marks(w, k);
     v["measurables"] = json!(measurables(w, k));
     v["key_mental"] = json!(mental);

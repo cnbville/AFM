@@ -174,3 +174,70 @@ fn the_agent_and_gm_calls_send_cards_of_words_only() {
     let sid = ok(&mut g, "talk_gm", json!({ "club": club, "id": his }))["scene"].as_u64().unwrap() as u32;
     sweep(&mut g, "gm", sid);
 }
+
+/// A promise of a pick (Cain 2026-11-15): "we'll take you in the first
+/// round" is a real promise to a prospect, judged by the draft: kept if
+/// your club took him by that round, broken if he was still there at one
+/// of your picks by then, void if he was gone before your first chance or
+/// never entered the draft.
+#[test]
+fn a_promise_of_a_pick_is_kept_broken_or_void_by_the_draft() {
+    use afm_engine::world::Stage;
+    use afm_engine::world::folk::Name;
+    use afm_engine::world::folk::persona::{Them, makeup};
+    use afm_engine::world::folk::scene::PromiseRead;
+    use afm_engine::world::folk::talks::{self, DraftCall, PromiseKind, PromiseTo, draft_call, draft_round};
+    use afm_engine::world::pro::ProCareer;
+    assert_eq!(
+        (draft_round("in the first round"), draft_round("2nd"), draft_round("round 3"), draft_round("")),
+        (1, 2, 3, 7)
+    );
+    let (mut w, t, _) = world();
+    assert!(w.today < w.dates.draft[0].date, "the test world sits before the draft");
+    // The test world holds only pros: one of another club's men stands in
+    // as a college senior.
+    let other = (0..w.clubs.len()).find(|&c| c != t && !w.clubs[c].roster.is_empty()).unwrap();
+    let prospect = w.clubs[other].roster.pop().unwrap();
+    w.people[prospect].stage = Stage::College;
+    w.people[prospect].pro = None;
+    let id = w.people[prospect].player.id;
+    let made = w.today;
+    let said = PromiseRead { kind: "draft".into(), condition_words: "1".into(), ..PromiseRead::default() };
+    talks::typed_promise(&mut w, 0, id, &said);
+    let k = w.folk.promises.len() - 1;
+    assert_eq!((w.folk.promises[k].to, w.folk.promises[k].kind), (PromiseTo::Player(id), PromiseKind::Draft(1)));
+    let due = w.folk.promises[k].due;
+    assert_eq!(due, w.dates.draft[2].date.add(1), "judged the day after the draft");
+    // Your first pick is the 20th, in round 1 (a man of yours stands in).
+    let year = w.dates.draft[2].date.year();
+    let mine = w.clubs[t].roster[0];
+    w.people[mine].pro.as_mut().unwrap().draft = Some((year, 1, 20, t));
+    let base: ProCareer = (**w.people[mine].pro.as_ref().unwrap()).clone();
+    let went = |w: &mut afm_engine::world::World, d: Option<(i32, u32, u32, usize)>, stage: Stage| {
+        let mut c = base.clone();
+        c.draft = d;
+        w.people[prospect].pro = d.map(|_| Box::new(c));
+        w.people[prospect].stage = stage;
+        draft_call(w, prospect, 1, made)
+    };
+    assert_eq!(went(&mut w, Some((year, 1, 20, t)), Stage::Pro), DraftCall::Kept);
+    assert_eq!(went(&mut w, Some((year, 1, 8, other)), Stage::Pro), DraftCall::Void, "gone before your pick");
+    assert_eq!(went(&mut w, Some((year, 1, 25, other)), Stage::Pro), DraftCall::Broken, "you passed on him");
+    assert_eq!(went(&mut w, Some((year, 2, 52, t)), Stage::Pro), DraftCall::Broken, "a round later than you said");
+    assert_eq!(went(&mut w, None, Stage::Declared), DraftCall::Broken, "undrafted");
+    assert_eq!(went(&mut w, None, Stage::College), DraftCall::Void, "he went back to school");
+    // Broken, and he went elsewhere: his trust in you and your name with
+    // the agents drop; his new club takes no grudge.
+    went(&mut w, Some((year, 1, 25, other)), Stage::Pro);
+    let key = makeup::key(Them::Player(id));
+    let (trust, agents) = (w.folk.mine.trust_of(key).unwrap_or(0.5), w.folk.mine.name(Name::Agents));
+    w.today = due;
+    talks::check_promises(&mut w, due);
+    assert_eq!(w.folk.promises.iter().rev().find(|p| p.to == PromiseTo::Player(id)).unwrap().kept, Some(false));
+    assert!(w.folk.mine.trust_of(key).unwrap() < trust, "his trust in you drops");
+    assert!(w.folk.mine.name(Name::Agents) < agents, "the agents hear it");
+    // After the draft, a pick can't be promised.
+    let before = w.folk.promises.len();
+    talks::typed_promise(&mut w, 0, id, &said);
+    assert_eq!(w.folk.promises.len(), before);
+}

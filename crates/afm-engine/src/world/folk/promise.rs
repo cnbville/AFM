@@ -507,6 +507,12 @@ pub fn likely_own(w: &World, i: usize, kind: PromiseKind, t: &Terms) -> f64 {
     let best = ahead.iter().filter_map(|&a| super::person(w, a)).map(|j| looks(w, j)).fold(f64::MIN, f64::max);
     let gap = if best == f64::MIN { 6.0 } else { me - best };
     let mut k = match kind {
+        // A pick by a round: how it sits against where the scouts project
+        // him (December's read), as he and his agent hear it.
+        PromiseKind::Draft(r) => {
+            let pr = p.cal.draft_read.map_or(8, |d| d.round) as f64;
+            if f64::from(r) >= pr { 0.9 } else { 0.9 - 0.15 * (pr - f64::from(r)) }
+        }
         k if needs_passing(k) => 0.65 + 0.06 * gap,
         PromiseKind::Snaps | PromiseKind::Touches | PromiseKind::Join(_) | PromiseKind::Recruit(1, _) => {
             0.8 + 0.05 * gap

@@ -19,7 +19,7 @@ use afm_engine::world::{Stage, World};
 use serde_json::{Value, json};
 
 use super::depth::{self, Spot};
-use super::needs::{class_in, is_commit, portal_entry};
+use super::needs::{class_in, portal_entry};
 use super::{mid, my_team, own_read};
 use crate::depth_plan::Plan;
 use crate::views::{self, TeamRef};
@@ -73,14 +73,73 @@ pub(crate) fn avail(w: &World, t: TeamRef, i: usize, offset: i32, roster: &[usiz
             }
         };
         if here { Avail::Here } else { Avail::Gone }
-    } else if matches!(t, TeamRef::College(_))
-        && matches!(p.stage, Stage::HighSchool | Stage::PrepSchool)
-        && is_commit(w, i)
-        && p.class_of <= fall
-    {
-        Avail::Commit
     } else {
-        Avail::Gone
+        let arrives = match (incoming(w, i), p.stage) {
+            (None, _) => false,
+            (Some(_), Stage::HighSchool | Stage::PrepSchool) => p.class_of <= fall,
+            // A transfer who told you yes: his eligibility left decides, as
+            // it does for the men already here.
+            (Some(_), _) => match t {
+                TeamRef::College(j) => {
+                    afm_engine::world::eligibility::seasons_left(p, w.programs[j].division, f0) as i32 > offset
+                }
+                _ => false,
+            },
+        };
+        if arrives { Avail::Commit } else { Avail::Gone }
+    }
+}
+
+/// How a man who isn't on your college roster yet is coming: `Some(true)`
+/// signed (his letter is in), `Some(false)` committed and not signed yet (a
+/// verbal, or a transfer who told you yes and signs tonight). None for anyone
+/// else: a recruit who decommits, or signs elsewhere, drops out of the plan
+/// on his own, because nothing here keeps him.
+pub(crate) fn incoming(w: &World, i: usize) -> Option<bool> {
+    let p = &w.people[i];
+    let Some(TeamRef::College(c)) = views::mine(w) else { return None };
+    match p.stage {
+        Stage::HighSchool | Stage::PrepSchool => match p.cal.signed {
+            Some(s) => (s.program == c).then_some(true),
+            None => p.cal.commit.is_some_and(|x| x.0 == c).then_some(false),
+        },
+        Stage::College if p.college != Some(c) && p.cal.portal.is_some() => {
+            let id = p.player.id;
+            w.front_office
+                .college
+                .portal
+                .iter()
+                .any(|t| t.id == id && !t.settled && t.committed.is_some())
+                .then_some(false)
+        }
+        _ => None,
+    }
+}
+
+/// Everyone coming to you who is with you by a fall: your signed and
+/// committed recruits whose class has arrived, and transfers who told you yes.
+fn incoming_people(w: &World, t: TeamRef, offset: i32, roster: &[usize]) -> Vec<usize> {
+    if !matches!(t, TeamRef::College(_)) {
+        return Vec::new();
+    }
+    (0..w.people.len())
+        .filter(|&i| {
+            let p = &w.people[i];
+            matches!(p.stage, Stage::HighSchool | Stage::PrepSchool)
+                || (p.stage == Stage::College && p.cal.portal.is_some())
+        })
+        .filter(|&i| avail(w, t, i, offset, roster) == Avail::Commit)
+        .collect()
+}
+
+/// A man coming in, in words for his row: "Signed", "Committed, not signed",
+/// "Transfer, committed"; "Still here" for a man on the roster.
+fn status_words(w: &World, i: usize) -> &'static str {
+    match incoming(w, i) {
+        Some(true) => "Signed",
+        Some(false) if w.people[i].stage == Stage::College => "Transfer, not signed",
+        Some(false) => "Committed, not signed",
+        None => "Still here",
     }
 }
 
@@ -107,8 +166,12 @@ pub(crate) fn apply(w: &World, t: TeamRef, offset: i32, plan: &Plan, spots: &mut
     let mut cells: HashMap<Position, Vec<Option<u32>>> = HashMap::new();
     let mut used: HashSet<u32> = HashSet::new();
     for &pos in &seen {
-        if let Some(v) = plan.get(fall, pos.name()).filter(|v| v.len() == 3 * width(pos)) {
-            let c: Vec<Option<u32>> = v.iter().map(|id| id.filter(|&id| takes(w, t, id, offset, &roster))).collect();
+        // A list from the By position tab runs the whole position: its
+        // first three deep fill the spots.
+        if let Some(v) = plan.get(fall, pos.name()) {
+            let mut c: Vec<Option<u32>> =
+                v.iter().take(3 * width(pos)).map(|id| id.filter(|&id| takes(w, t, id, offset, &roster))).collect();
+            c.resize(3 * width(pos), None);
             used.extend(c.iter().flatten());
             cells.insert(pos, c);
         }
@@ -168,14 +231,9 @@ impl Ctx {
             .filter(|&i| !placed.contains(&w.people[i].player.id) && avail(w, t, i, offset, &roster) == Avail::Here)
             .map(|i| (i, false))
             .collect();
-        if matches!(t, TeamRef::College(_)) {
-            for (i, p) in w.people.iter().enumerate() {
-                if matches!(p.stage, Stage::HighSchool | Stage::PrepSchool)
-                    && !placed.contains(&p.player.id)
-                    && avail(w, t, i, offset, &roster) == Avail::Commit
-                {
-                    pool.push((i, true));
-                }
+        for i in incoming_people(w, t, offset, &roster) {
+            if !placed.contains(&w.people[i].player.id) {
+                pool.push((i, true));
             }
         }
         Ctx { pool }
@@ -206,8 +264,11 @@ pub(crate) fn man(w: &World, t: TeamRef, i: usize, num: Option<u8>, offset: i32)
     v["grp"] = json!(depth::grp_key(w, i, offset));
     v["health"] = json!("full");
     v["health_why"] = json!("");
-    v["ready"] = json!(if commit { "Commit" } else { "Still here" });
+    let signed = incoming(w, i);
+    v["ready"] = json!(status_words(w, i));
     v["commit"] = json!(commit);
+    // Committed and not signed yet: the * on his name, he can still go.
+    v["star"] = json!(signed == Some(false));
     v
 }
 
@@ -231,13 +292,27 @@ pub(crate) fn why(w: &World, t: TeamRef, ctx: &Ctx, pos: Position, spot: &str, o
         })
         .collect();
     alts.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.total_cmp(&b.1)));
-    alts.truncate(6);
+    // Six men, and every recruit coming at the position on top of them:
+    // the men you plan with.
+    let mut n = 0;
+    alts.retain(|a| {
+        n += 1;
+        n <= 6 || (a.3 && !a.0)
+    });
     let rows: Vec<Value> = alts
         .iter()
         .map(|&(cross, _, i, commit)| {
             let q = &w.people[i];
-            let note = if commit {
-                format!("Commit, in your {} class. Arrives by fall {fall}.", q.class_of)
+            let star = incoming(w, i) == Some(false);
+            let note = if commit && q.stage == Stage::College {
+                format!(
+                    "Transfer from {}: told you yes, not signed yet.",
+                    views::team_of(w, q).map_or_else(|| "his school".to_string(), |s| views::team_name(w, s))
+                )
+            } else if commit && star {
+                format!("Committed to your {} class, not signed yet. Arrives by fall {fall}.", q.class_of)
+            } else if commit {
+                format!("Signed with your {} class. Arrives by fall {fall}.", q.class_of)
             } else if cross {
                 format!("Plays {}: he would learn the spot.", q.player.position.name())
             } else {
@@ -246,7 +321,7 @@ pub(crate) fn why(w: &World, t: TeamRef, ctx: &Ctx, pos: Position, spot: &str, o
             json!({
                 "id": q.player.id, "name": q.name, "pos": q.player.position.name(),
                 "class": class_in(w, i, fall), "read": own_read(w, t, i).json(), "note": note,
-                "hurt": false, "commit": commit,
+                "hurt": false, "commit": commit, "star": star, "status": status_words(w, i),
             })
         })
         .collect();
@@ -358,7 +433,14 @@ pub(crate) fn put(w: &World, plan: &mut Plan, args: &Value) -> Result<Option<Str
             return Err(format!("{} is not yours to set. Your job covers {}.", p.name(), w.your_controls()));
         }
     }
-    for (p, c) in writes {
+    for (p, mut c) in writes {
+        // A list set on the By position tab runs past the three deep: the
+        // men below them keep their order.
+        let tail: Vec<Option<u32>> = plan
+            .get(fall, p.name())
+            .map(|v| v.iter().skip(c.len()).copied().filter(|x| x.is_some() && !c.contains(x)).collect())
+            .unwrap_or_default();
+        c.extend(tail);
         plan.set(fall, p.name(), c);
     }
     plan.prune(w.year);
@@ -384,4 +466,127 @@ pub(crate) fn reset(w: &World, plan: &mut Plan, args: &Value) -> Result<(), Stri
 pub(crate) fn is_yours(w: &World, plan: &Plan, spots: &[Spot], offset: i32) -> bool {
     let names: Vec<&str> = spots.iter().map(|s| s.pos.name()).collect();
     plan.has_any(w.year + offset, &names)
+}
+
+// ---------- the By position tab (Cain, 2026-11-15) ----------
+
+/// The base board a position stands on.
+fn board_of(pos: Position) -> &'static str {
+    match pos {
+        Position::K | Position::P | Position::LS => "specialists",
+        Position::EDGE | Position::DT | Position::LB | Position::CB | Position::S => "defense",
+        _ => "offense",
+    }
+}
+
+fn pos_arg(args: &Value) -> Result<Position, String> {
+    let name = args.get("pos").and_then(Value::as_str).ok_or("Missing position.")?;
+    Position::ALL.into_iter().find(|p| p.name() == name).ok_or_else(|| "No such position.".to_string())
+}
+
+/// One position's whole order in a fall to come, as the By position tab
+/// lists it: your plan where you set one, else the order the stadium's plan
+/// shows (your chart now, with the men who are gone taken out), then every
+/// other man at the position who is with you that fall, your signed and
+/// committed recruits and committed transfers among them, by your staff's
+/// read. Offset 0 (the chart now) gives only the falls, for the pills.
+pub(crate) fn pos_view(w: &World, plan: &Plan, args: &Value) -> Result<Value, String> {
+    let t = my_team(w)?;
+    let falls: Vec<i32> = (0..=AHEAD).map(|n| w.year + n).collect();
+    let offset = offset_of(args);
+    if offset == 0 {
+        return Ok(json!({ "falls": falls, "offset": 0 }));
+    }
+    let pos = pos_arg(args)?;
+    let fall = w.year + offset;
+    let roster = views::roster_people(w, t);
+    let spots = planned(w, t, board_of(pos), offset, plan).ok().filter(|s| s.iter().any(|s| s.pos == pos));
+    let here: Vec<&Spot> = spots.iter().flatten().filter(|s| s.pos == pos).collect();
+    let mine = plan.get(fall, pos.name());
+    let mut order: Vec<u32> = match (mine, &spots) {
+        (Some(v), _) => v.iter().flatten().copied().filter(|&id| takes(w, t, id, offset, &roster)).collect(),
+        (None, Some(sp)) => depth::pos_cells(sp, pos).into_iter().flatten().collect(),
+        (None, None) => Vec::new(),
+    };
+    let mut seen: HashSet<u32> = HashSet::new();
+    order.retain(|id| seen.insert(*id));
+    let mut rest: Vec<(f64, usize)> = roster
+        .iter()
+        .copied()
+        .filter(|&i| avail(w, t, i, offset, &roster) == Avail::Here)
+        .chain(incoming_people(w, t, offset, &roster))
+        .filter(|&i| w.people[i].player.position == pos && !seen.contains(&w.people[i].player.id))
+        .map(|i| (-mid(own_read(w, t, i)).unwrap_or(0.0), i))
+        .collect();
+    rest.sort_by(|a, b| a.0.total_cmp(&b.0));
+    order.extend(rest.iter().map(|&(_, i)| w.people[i].player.id));
+    let rows: Vec<Value> = order
+        .iter()
+        .filter_map(|&id| views::person_index(w, id))
+        .map(|i| {
+            let q = &w.people[i];
+            let coming = incoming(w, i);
+            json!({
+                "id": q.player.id, "name": q.name, "pos": q.player.position.name(),
+                "here": q.player.position == pos, "class": class_in(w, i, fall),
+                "ovr": own_read(w, t, i).json(), "status": status_words(w, i),
+                "commit": coming.is_some(), "star": coming == Some(false),
+            })
+        })
+        .collect();
+    // Who at the position is gone by then, and why, in a line.
+    let gone: Vec<Value> = roster
+        .iter()
+        .copied()
+        .filter(|&i| w.people[i].player.position == pos && avail(w, t, i, offset, &roster) == Avail::Gone)
+        .map(|i| json!({ "id": w.people[i].player.id, "name": w.people[i].name }))
+        .collect();
+    let set: Vec<&str> = Position::ALL.iter().map(|p| p.name()).filter(|p| plan.get(fall, p).is_some()).collect();
+    Ok(json!({
+        "falls": falls, "offset": offset, "fall": fall, "pos": pos.name(),
+        "starters": if here.is_empty() { afm_engine::game::roster::starters(pos) } else { here.len() },
+        "slots": here.iter().map(|s| s.slot.clone()).collect::<Vec<_>>(),
+        "controls": w.controls(pos),
+        "yours": mine.is_some(), "set": set, "rows": rows, "gone": gone,
+        "college": matches!(t, TeamRef::College(_)),
+    }))
+}
+
+/// Sets one position's whole order in a fall to come (the By position tab's
+/// Up and Down), or gives it back to your chart now (`reset`).
+pub(crate) fn pos_put(w: &World, plan: &mut Plan, args: &Value) -> Result<Option<String>, String> {
+    my_team(w)?;
+    let pos = pos_arg(args)?;
+    let offset = offset_of(args);
+    if offset == 0 {
+        return Err("Pick one of the next three falls.".into());
+    }
+    let fall = w.year + offset;
+    if !w.controls(pos) {
+        return Err(format!("{} is not yours to set. Your job covers {}.", pos.name(), w.your_controls()));
+    }
+    if args.get("reset").and_then(Value::as_bool).unwrap_or(false) {
+        plan.clear(fall, &[pos.name()]);
+        plan.prune(w.year);
+        return Ok(Some(format!("{} in fall {fall} follows your chart again.", pos.name())));
+    }
+    let t = my_team(w)?;
+    let roster = views::roster_people(w, t);
+    let mut ids: Vec<u32> = Vec::new();
+    for id in args.get("ids").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_u64) {
+        let id = id as u32;
+        let i = views::person_index(w, id).ok_or("A man on that list isn't in the game any more.")?;
+        if avail(w, t, i, offset, &roster) == Avail::Gone {
+            return Err(format!(
+                "{} won't be with you in fall {fall}, so he can't be planned there.",
+                w.people[i].name
+            ));
+        }
+        if !ids.contains(&id) {
+            ids.push(id);
+        }
+    }
+    plan.set(fall, pos.name(), ids.into_iter().map(Some).collect());
+    plan.prune(w.year);
+    Ok(None)
 }
