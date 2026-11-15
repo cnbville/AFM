@@ -1028,6 +1028,7 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
         designs: [None; 8],
         burner: 0.0,
         shots: 0.0,
+        lean: Default::default(),
     };
     let staff = team.staff;
     let two_from = inp.two_from;

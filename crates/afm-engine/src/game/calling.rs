@@ -178,6 +178,11 @@ pub struct Plan {
     /// on usage): the coordinator plays at least about this much (0 none).
     #[serde(default)]
     pub man_floor: f32,
+    /// The shells your word promised (lane N2): at least about this share
+    /// two-high (help over the top), single-high (a post safety) and Cover
+    /// 1 robber (0 none).
+    #[serde(default)]
+    pub shell_floor: [f32; 3],
 }
 
 /// Your defense's answer to one of their personnel groups (update 2,
@@ -484,7 +489,64 @@ pub struct OffCtx {
     /// promises on usage), 0 without one.
     #[serde(default)]
     pub shots: f64,
+    /// The game plan keeping your word (the promises on usage, lane N2):
+    /// nothing for a team whose plan holds none (every AI team).
+    #[serde(default)]
+    pub lean: Lean,
 }
+
+/// How the game plan leans the calls to keep your promises on usage
+/// (`roster::Keep`, set from your open promises; lane N2). Each part is 0
+/// (or None) unless a promise asks for it, so a plan without one calls
+/// exactly as before. Sizes are Claude's (proposed, not confirmed).
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct Lean {
+    /// Added to the pass rate (throws for the quarterback promised them).
+    pub pass: f64,
+    /// Play action concepts weigh 1 + this.
+    pub play_action: f64,
+    /// Added to the gun lean: more shotgun (+) or under center (-).
+    pub gun: f64,
+    /// A personnel group the caller goes to more (21 for a back promised a
+    /// fullback, 12 for a tight end promised the Y).
+    pub personnel: Option<Personnel>,
+    /// Run families (inside zone, outside zone, gap, option) weigh 1 + this.
+    pub family: [f64; 4],
+    /// The quarterback's designed runs weigh 1 + this; below 0, none.
+    pub qb_runs: f64,
+    /// Screens, the quick game (and RPO throws), jet sweeps and seven-man
+    /// protections weigh 1 + this.
+    pub screens: f64,
+    pub quick: f64,
+    pub jet: f64,
+    pub protect: f64,
+}
+
+/// A run concept's family for the promises on usage (8.4): 0 inside zone
+/// (with the zone read), 1 outside zone (with the toss), 2 gap (power,
+/// counter, duo, trap, iso, buck sweep, QB power), 3 option; None for the
+/// draw, the sneak and the jet sweep.
+pub fn run_family(rc: RunConcept) -> Option<usize> {
+    use RunConcept::*;
+    match rc {
+        InsideZone | ZoneRead => Some(0),
+        OutsideZone | Toss => Some(1),
+        Power | Counter | Duo | Trap | Iso | BuckSweep | QbPower => Some(2),
+        SpeedOption | TripleOption => Some(3),
+        Draw | Sneak | JetSweep => None,
+    }
+}
+
+/// The quarterback carries by design (a sneak, QB power, the zone read's
+/// keep, the speed option): what "no designed runs" takes off the sheet.
+pub fn qb_designed(rc: RunConcept) -> bool {
+    matches!(rc, RunConcept::Sneak | RunConcept::QbPower | RunConcept::ZoneRead | RunConcept::SpeedOption)
+}
+
+/// How hard the caller goes to the personnel group your word needs, as a
+/// head coach's firm guideline does (proposed, not confirmed).
+pub const PERSONNEL_LEAN: f64 = 0.8;
 
 /// The designed plays on a team's sheets, dry and wet, first eight.
 pub fn sheet_designs(prep: &super::roster::Prep) -> [Option<(u16, Personnel, Backfield, Set)>; 8] {
@@ -597,6 +659,8 @@ pub fn call_offense_memo(
     }
     // A line in your plan (G20): run it more.
     p_pass -= mem.plan.run_more;
+    // Your word to the quarterback (the promises on usage): throw more.
+    p_pass += ctx.lean.pass;
     // Bad weather: more runs, the same throws (`Game::weather_lean`).
     p_pass -= sit.weather;
     if sit.hurry() {
@@ -631,14 +695,16 @@ pub fn call_offense_memo(
     // A tell (topic 7.1): a predictable caller's personnel and formation
     // give the play away; a creative one shows the same looks for both.
     let tell = clamp(0.33 - 0.013 * c.creativity, 0.07, 0.33);
-    let personnel = pick_personnel(scheme, short, hurry, pass, tell, ctx, staff.guide.personnel.pull(), rng);
+    let want = staff.guide.personnel.pull().or(ctx.lean.personnel.map(|p| (p, PERSONNEL_LEAN)));
+    let personnel = pick_personnel(scheme, short, hurry, pass, tell, ctx, want, rng);
     let gun_lean = match scheme {
         OffScheme::AirRaid | OffScheme::SpreadOption => 0.92,
         OffScheme::WestCoast => 0.6,
         OffScheme::WideZone => 0.35,
         OffScheme::PowerGap => 0.4,
         OffScheme::WingT => 0.05,
-    } + if ctx.level == Level::NFL { 0.0 } else { 0.08 };
+    } + if ctx.level == Level::NFL { 0.0 } else { 0.08 }
+        + ctx.lean.gun;
     let gun = rng.chance(clamp(gun_lean + if pass { tell } else { -tell } + if hurry { 0.3 } else { 0.0 }, 0.0, 0.98));
     let backfield = if matches!(personnel, Personnel::P21 | Personnel::P22) && !hurry {
         Backfield::UnderCenter
@@ -944,7 +1010,9 @@ fn pick_run(
 ) -> RunConcept {
     use RunConcept::*;
     let backfield = f.backfield;
-    if short && rng.chance(0.25) && backfield == Backfield::UnderCenter {
+    // A promise of no designed runs (`Lean::qb_runs` below zero) takes the
+    // sneak away too; the draw stays, so every other game is the same.
+    if short && rng.chance(0.25) && backfield == Backfield::UnderCenter && ctx.lean.qb_runs >= 0.0 {
         return Sneak;
     }
     let rc = match memo {
@@ -1060,6 +1128,27 @@ fn run_weights(staff: &Staff, mem: &Memory, f: &Formation, ctx: &OffCtx, short: 
             }
         }
     }
+    // Your word (the promises on usage): the run family built on him, the
+    // quarterback's designed runs, jet sweeps for the man in motion.
+    let l = &ctx.lean;
+    if l.family != [0.0; 4] || l.qb_runs != 0.0 || l.jet != 0.0 {
+        let others = w.iter().filter(|x| !qb_designed(x.0) && x.1 > 0.0).count();
+        for x in w.iter_mut() {
+            if let Some(k) = run_family(x.0) {
+                x.1 *= 1.0 + l.family[k];
+            }
+            if qb_designed(x.0) {
+                if l.qb_runs < 0.0 && others > 0 {
+                    x.1 = 0.0;
+                } else if l.qb_runs > 0.0 {
+                    x.1 *= 1.0 + l.qb_runs;
+                }
+            }
+            if x.0 == JetSweep {
+                x.1 *= 1.0 + l.jet;
+            }
+        }
+    }
     // What the numbers say works against the fronts this defense shows
     // (topic 2), and what has worked today (topic 3.2), at his skill.
     let fronts = &mem.fronts_seen;
@@ -1111,7 +1200,7 @@ fn pick_rpo(
         Level::HS => 0.8,
         _ => 1.0,
     };
-    let p = scheme * level * era(staff.year, 2010, 8.0);
+    let p = scheme * level * era(staff.year, 2010, 8.0) * (1.0 + ctx.lean.quick);
     if !rng.chance(p) {
         return None;
     }
@@ -1294,6 +1383,20 @@ fn concept_weights(staff: &Staff, mem: &Memory, sit: &Situation, f: &Formation, 
             // A few more shots with a burner to throw them to (S10).
             if pc.depth == PassDepth::Deep {
                 w *= (1.0 + 0.3 * ctx.burner) * (1.0 + ctx.shots);
+            }
+            // Your word (the promises on usage): play action, screens, the
+            // quick game and max protection for the men promised them.
+            let l = &ctx.lean;
+            if pc.play_action {
+                w *= 1.0 + l.play_action;
+            }
+            match pc.depth {
+                PassDepth::Screen => w *= 1.0 + l.screens,
+                PassDepth::Quick => w *= 1.0 + l.quick,
+                _ => {}
+            }
+            if pc.protection != Protection::Standard {
+                w *= 1.0 + l.protect;
             }
             // Up big, a little less going deep (real NFL: 11.7% of throws
             // travel 20+ yards up 28+, 13.6% in close games).
@@ -1703,6 +1806,18 @@ pub fn call_defense_memo(
                 super::guide::steer_man(&mut w, 0.7 * (floor - now));
             }
         }
+        // Your word to a corner or a safety (lane N2): at least so much two-
+        // high, single-high or Cover 1 robber.
+        for (k, &f) in mem.plan.shell_floor.iter().enumerate() {
+            if f > 0.0 {
+                let pred: fn(Coverage) -> bool = match k {
+                    0 => |c| c.high() == 2,
+                    1 => |c| c.high() == 1,
+                    _ => |c| c == Coverage::Cover1Robber,
+                };
+                super::guide::steer_floor(&mut w, pred, f as f64 + 0.05);
+            }
+        }
         // A line in your plan (G20): a safety down against their run.
         if mem.plan.box_up {
             for x in w.iter_mut().filter(|x| x.0.high() == 2) {
@@ -1950,6 +2065,7 @@ pub fn make_plan(
         burner,
         fear,
         man_floor: 0.0,
+        shell_floor: [0.0; 3],
     }
 }
 

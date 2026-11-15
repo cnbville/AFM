@@ -33,6 +33,9 @@ pub enum Condition {
     Starts(u32),
     /// He makes the Pro Bowl.
     ProBowl,
+    /// A season term (lane N2; `folk::terms`): his snap share, his
+    /// numbers, an honor ("60% of the snaps", real deals' favourite).
+    Term(crate::world::folk::usage::Usage),
 }
 
 impl Condition {
@@ -41,6 +44,7 @@ impl Condition {
             Condition::Games(n) => format!("if he plays in {n} {}", crate::world::folk::noun(n, "game")),
             Condition::Starts(n) => format!("if he starts {n} {}", crate::world::folk::noun(n, "game")),
             Condition::ProBowl => "if he makes the Pro Bowl".into(),
+            Condition::Term(u) => format!("if he reaches {}", crate::world::folk::terms::words(&u)),
         }
     }
 }
@@ -203,6 +207,10 @@ pub(crate) fn met_chance(w: &World, t: usize, i: usize, c: Condition) -> f64 {
             }
         }
         Condition::ProBowl => clamp((crate::world::pro::market::consensus(w, i) - 78.0) / 20.0, 0.02, 0.6),
+        Condition::Term(u) => {
+            use crate::world::folk::terms;
+            terms::likely(w, terms::Who::Player(w.people[i].player.id), &u, w.year) * healthy
+        }
     }
 }
 
@@ -727,6 +735,10 @@ pub(crate) fn settle(w: &mut World, d: Date) {
                 Condition::Games(n) => s.games >= n,
                 Condition::Starts(n) => s.starts >= n,
                 Condition::ProBowl => s.pro_bowl,
+                Condition::Term(u) => {
+                    use crate::world::folk::terms;
+                    terms::met(w, terms::Who::Player(c.player), &u, c.season) == Some(true)
+                }
             });
         if !met {
             continue;

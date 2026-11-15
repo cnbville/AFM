@@ -88,6 +88,7 @@ mod tendencies;
 mod training;
 mod update3;
 mod usage;
+mod usage_terms;
 mod views;
 mod waivers;
 mod win_chance;
