@@ -26,6 +26,7 @@ mod game_stats;
 mod gameday_room;
 mod gameplan;
 mod growth_reps;
+mod handoff;
 mod hiring;
 mod hs_playoffs;
 mod hunt;
