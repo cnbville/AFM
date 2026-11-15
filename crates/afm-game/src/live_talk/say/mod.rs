@@ -327,6 +327,11 @@ pub fn people_say(g: &mut Game, args: &Value) -> Reply {
     if text.chars().count() > scene::LIMIT {
         return Err(format!("A line is {} characters at most.", scene::LIMIT));
     }
+    // A talk that ended on a meeting still waiting on your decision
+    // (`talk::wrap`): no more lines, the meeting's picks decide it.
+    if afm_engine::world::folk::persona::talk::store::is_over(w, id) {
+        return Err(super::persona::talk::OVER.into());
+    }
     // Your one-on-ones play as live talks v3 (lane N4).
     if super::persona::talk::plays(g, s) {
         return super::persona::talk::say(g, id, text);
