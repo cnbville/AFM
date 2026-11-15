@@ -152,7 +152,7 @@ function cvCenter(s, lead, T, key, box) {
   const left = T.minutes || s.clock;
   const big = left ? (left.left != null ? left.left : left.min) : s.hours != null ? Math.round(s.hours * 10) / 10 : null;
   const unit = left ? "min" : "h";
-  const sub = s.hours != null ? `${Math.round(s.hours * 10) / 10} of ${T.week || 10} h left this week` : "";
+  const sub = s.hours != null ? `${Math.round(s.hours * 10) / 10}${T.week ? ` of ${T.week}` : ""} h left this week` : "";
   const parts = [s.kindName, T.channel, s.place].filter(Boolean);
   const place = parts.filter((x, i) => !parts.slice(0, i).some((y) => y.toLowerCase().includes(x.toLowerCase()) || x.toLowerCase().includes(y.toLowerCase()))).map(esc).join(" · ");
   const ay = aiYours(key);
@@ -509,3 +509,13 @@ GOTO.asking = () => [["Inbox", "inbox"], ["People", "people"], ["Calendar", "cal
 Object.assign(CORE_MORE, {
   cvopen: (el) => { go("asking", { open: Number(el.dataset.id) || el.dataset.id }); },
 });
+
+// The page fills the window under whatever sits above it (the bar of meetings
+// that stop Continue), so each column scrolls by itself.
+function cvFit() {
+  for (const el of document.querySelectorAll(".cv.st-room")) {
+    const top = el.getBoundingClientRect().top;
+    el.style.height = window.innerWidth > 1100 ? `${Math.max(560, window.innerHeight - top)}px` : "";
+  }
+}
+window.addEventListener("resize", () => { if (typeof cvFit === "function") cvFit(); });

@@ -1629,6 +1629,7 @@ function afterRender() {
     if (h && line) (h.classList.contains("hero") ? h : h.parentElement).insertAdjacentHTML("afterend", `<div class="pad goto-pad">${line}</div>`);
   }
   bigWire();
+  if (typeof cvFit === "function") cvFit();
   // The depth strip and the four steps on the recruiting pages (depthview.js).
   if (typeof dvAfter === "function") dvAfter();
   // Big moments waiting from before this page loaded (a save, a reload).
