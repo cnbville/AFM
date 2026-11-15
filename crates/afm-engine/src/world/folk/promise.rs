@@ -206,6 +206,10 @@ pub struct Terms {
     pub written: bool,
     /// What he had before you said it: his snap share, or touches a game.
     pub base: f32,
+    /// How you'll use him (`PromiseKind::Usage`, a recruit's usage
+    /// promise): the term judged on the play log.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub usage: Option<super::usage::Usage>,
 }
 
 /// The day a promise's window opens: from its date, never before you said
@@ -507,6 +511,11 @@ pub fn likely_own(w: &World, i: usize, kind: PromiseKind, t: &Terms) -> f64 {
     };
     if t.cond == Cond::Stat {
         k *= bar_likely(w, i, kind, t);
+    }
+    // How you'll use him: what your football has given his spot (agreed
+    // item 8), not a man to pass.
+    if let Some(u) = t.usage.filter(|_| usage_kind(kind)) {
+        k = super::usage::likely(w, i, &u);
     }
     k.clamp(0.3, 1.0)
 }
@@ -912,7 +921,32 @@ pub fn over_games(kind: PromiseKind) -> bool {
             | PromiseKind::Place(1)
             | PromiseKind::Recruit(0, _)
             | PromiseKind::Recruit(1, _)
-    )
+    ) || usage_kind(kind)
+}
+
+/// A promise on how you'll use him (`usage`): your player's or a signed
+/// recruit's.
+pub fn usage_kind(kind: PromiseKind) -> bool {
+    matches!(kind, PromiseKind::Usage | PromiseKind::Recruit(super::pledge::USAGE, _))
+}
+
+/// A usage promise's game: 1 kept, 0 not, None when the game says nothing
+/// (a share with no chances in it).
+fn got_usage(w: &World, t: &Terms, g: &seen::Game, id: u32) -> Option<f64> {
+    let u = t.usage?;
+    let sg = w.seat_games.get(g.at)?;
+    // A game without its plays (a box score only) says nothing.
+    if sg.stats.plays.is_empty() {
+        return None;
+    }
+    let played = g.line.is_some() && g.snaps() + g.line.as_ref().map_or(0, |l| l.snaps_st) > 0;
+    u.game(&sg.stats.plays, g.side, id, played).map(|k| if k { 1.0 } else { 0.0 })
+}
+
+/// A "never" term broken in one of these games (the kicker's field goal
+/// line: one punt from inside it breaks it).
+fn never_broken(w: &World, t: &Terms, gs: &[seen::Game], id: u32) -> bool {
+    t.usage.is_some_and(|u| u.never()) && gs.iter().any(|g| got_usage(w, t, g, id) == Some(0.0))
 }
 
 /// Whether he met his condition, from what you both can see (None while it
@@ -986,10 +1020,20 @@ pub fn state(w: &World, p: &Promise) -> State {
     if !over_games(p.kind) {
         return State::Waiting;
     }
-    if (p.terms.cond == Cond::Health || p.kind != PromiseKind::Touches) && seen::hurt_on(w, id, w.today) {
+    let team_term = p.terms.usage.is_some_and(|u| u.team());
+    if !team_term && (p.terms.cond == Cond::Health || p.kind != PromiseKind::Touches) && seen::hurt_on(w, id, w.today) {
         return State::Paused;
     }
     let gs = window(w, p, w.today);
+    if usage_kind(p.kind) {
+        if never_broken(w, &p.terms, &gs, id) {
+            return State::Behind;
+        }
+        let Some(k) = gs.iter().rev().filter(|g| !g.hurt).find_map(|g| got_usage(w, &p.terms, g, id)) else {
+            return State::Waiting;
+        };
+        return if k > 0.0 { State::OnTrack } else { State::Behind };
+    }
     let Some(last) = gs.iter().rev().find(|g| !g.hurt) else { return State::Waiting };
     let met = cond_met(w, i, p, &gs);
     if got(p.kind, &p.terms, last) > 0.0 {
@@ -1027,6 +1071,10 @@ pub fn week(w: &mut World, d: Date) {
             w.folk.promises[k].said = b;
         }
         let st = state(w, &w.folk.promises[k]);
+        // A "never" term broken this week is judged today.
+        if usage_kind(p.kind) && never_broken(w, &p.terms, &window(w, &p, w.today), id) && p.due > d {
+            w.folk.promises[k].due = d;
+        }
         let x = &mut w.folk.promises[k];
         x.state = st as u8;
         match st {
@@ -1099,6 +1147,22 @@ pub fn judge(w: &World, p: &Promise) -> Option<Verdict> {
     let PromiseTo::Player(id) = p.to else { return None };
     let i = super::person(w, id)?;
     let gs = window(w, p, p.due.min(w.today));
+    if usage_kind(p.kind) {
+        // A "never" term breaks on its first broken game; the rest are
+        // kept in 3 of every 4 healthy games that say anything (a team
+        // term reads every game: his health doesn't change your punts).
+        if never_broken(w, &p.terms, &gs, id) {
+            return Some(Verdict::Broken(1.0));
+        }
+        let team_term = p.terms.usage.is_some_and(|u| u.team());
+        let said: Vec<f64> =
+            gs.iter().filter(|g| team_term || !g.hurt).filter_map(|g| got_usage(w, &p.terms, g, id)).collect();
+        if said.is_empty() {
+            return Some(Verdict::Lapsed);
+        }
+        let r = said.iter().sum::<f64>() / said.len() as f64;
+        return Some(if r >= KEPT_SHARE { Verdict::Kept } else { Verdict::Broken((1.0 - r).clamp(0.0, 1.0)) });
+    }
     let healthy: Vec<&seen::Game> = gs.iter().filter(|g| !g.hurt).collect();
     if healthy.is_empty() {
         return Some(Verdict::Lapsed);

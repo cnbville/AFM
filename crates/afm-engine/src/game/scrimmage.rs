@@ -192,6 +192,25 @@ pub struct Tactics {
     /// extra chance a snap that a player busts.
     #[serde(default)]
     pub learn: [f64; 2],
+    /// What the plan does this snap to keep your promises on usage
+    /// (`roster::Keep`): empty for every AI team.
+    #[serde(default)]
+    pub keep: KeepSnap,
+}
+
+/// The men a plan keeps a usage promise to on one snap, by player index:
+/// on defense the rusher freed up by a stunt, the man sent and the end who
+/// rushes; on offense the man the shots go to, the man featured and the
+/// lineman helped.
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct KeepSnap {
+    pub free_up: Option<usize>,
+    pub send: Option<usize>,
+    pub rush: Option<usize>,
+    pub shots: Option<usize>,
+    pub feature: Option<usize>,
+    pub help: Option<usize>,
 }
 
 impl Default for Tactics {
@@ -214,6 +233,7 @@ impl Default for Tactics {
             load: [super::roster::INSTALL; 2],
             double_moves: 0.0,
             learn: [0.0; 2],
+            keep: KeepSnap::default(),
         }
     }
 }
@@ -894,6 +914,30 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                     && !fed
                     && sim.rng.chance(0.5)
                 {
+                    let r = ps.reads.remove(k);
+                    ps.reads.insert(0, r);
+                }
+            }
+            // Your word on his usage (the promises on usage): the
+            // quarterback looks first to the man you promised shots when
+            // his route goes deep, and to the man you promised to feature.
+            if let Some(ps) = pass.as_mut()
+                && ps.reads.len() > 1
+                && !matches!(c.drop, Drop::Screen | Drop::Bubble)
+            {
+                let at = |p: Option<usize>| {
+                    p.and_then(|p| ps.reads.iter().position(|&r| sim.agents[r].p == p)).filter(|&k| k > 0)
+                };
+                let deep = |r: usize| match &sim.agents[r].job {
+                    Job::Route { pts, .. } => pts.iter().map(|q| q.x - los).fold(0.0, f64::max) >= DEEP_ROUTE,
+                    _ => false,
+                };
+                let first = match (at(s.tac.keep.shots), at(s.tac.keep.feature)) {
+                    (Some(k), _) if deep(ps.reads[k]) && sim.rng.chance(SHOTS_FIRST) => Some(k),
+                    (_, Some(k)) if sim.rng.chance(FEATURE_FIRST) => Some(k),
+                    _ => None,
+                };
+                if let Some(k) = first {
                     let r = ps.reads.remove(k);
                     ps.reads.insert(0, r);
                 }
@@ -2207,14 +2251,28 @@ fn assign_defense(
             if slots.contains(&Some(DSlot::NCB)) { DSlot::NCB } else { DSlot::SS },
         ],
     };
+    // Send him (the promises on usage): the man you promised blitzes come
+    // in place of the coordinator's pick from his group.
+    let slot_of = |p: Option<usize>| {
+        p.and_then(|p| (off_n..sim.agents.len()).find(|&k| sim.agents[k].p == p)).and_then(|k| slots[k])
+    };
+    if let Some(me) = slot_of(s.tac.keep.send)
+        && !blitzers.contains(&me)
+        && let Some(k) = blitzers.iter().position(|b| b.is_lb() == me.is_lb() && b.is_db() == me.is_db())
+    {
+        blitzers[k] = me;
+    }
     if cov == Coverage::Cover0 {
         blitzers.push(DSlot::FS);
         blitzers.push(DSlot::Mike);
     }
     blitzers.retain(|b| slots.contains(&Some(*b)));
-    // In simulated pressure the weak end drops into the flat.
+    // In simulated pressure the weak end drops into the flat; the end you
+    // promised to rush every down never does (the other end drops).
     let dropper = if matches!(s.dcall.pressure, Pressure::Simulated | Pressure::FireZone) {
-        Some(if st > 0.0 { DSlot::RE } else { DSlot::LE })
+        let weak = if st > 0.0 { DSlot::RE } else { DSlot::LE };
+        let other = if weak == DSlot::RE { DSlot::LE } else { DSlot::RE };
+        Some(if slot_of(s.tac.keep.rush) == Some(weak) { other } else { weak })
     } else {
         None
     };
@@ -2485,7 +2543,17 @@ fn assign_defense(
     // his partner's lane and the looper comes behind him. A line that has
     // played together passes it off (topic 4.9).
     if s.dcall.stunt != Stunt::None {
-        let side = if sim.rng.chance(0.5) { 1.0 } else { -1.0 };
+        let mut side = if sim.rng.chance(0.5) { 1.0 } else { -1.0 };
+        // Free him up (the promises on usage): the stunt goes to his side.
+        if let Some(d) =
+            s.tac.keep.free_up.and_then(|p| (off_n..n).find(|&k| sim.agents[k].p == p)).and_then(|k| slots[k])
+        {
+            match d {
+                DSlot::LE | DSlot::DTL => side = 1.0,
+                DSlot::RE | DSlot::DTR => side = -1.0,
+                _ => {}
+            }
+        }
         let on_side = |d: DSlot| match d {
             DSlot::LE | DSlot::DTL => side > 0.0,
             DSlot::RE | DSlot::DTR => side < 0.0,
@@ -2697,12 +2765,25 @@ fn pass_protection(sim: &mut Sim, off_n: usize) {
 /// side chips him on the way out. Real coaches do this every week against
 /// a dominant rusher; it frees others to win their one-on-ones.
 fn slide_to(sim: &mut Sim, s: &Snap, off_n: usize) {
-    let Some(star) = s.tac.help_on.and_then(|p| (off_n..sim.agents.len()).find(|&k| sim.agents[k].p == p)) else {
+    let rushing = |sim: &Sim, k: usize| matches!(sim.agents[k].job, Job::Rush { .. });
+    let named = s
+        .tac
+        .help_on
+        .and_then(|p| (off_n..sim.agents.len()).find(|&k| sim.agents[k].p == p))
+        .filter(|&k| rushing(sim, k));
+    // Your word to a lineman (the promises on usage): with no named rusher
+    // coming, the help goes to the man rushing at him.
+    let star = named.or_else(|| {
+        let b = s.tac.keep.help.and_then(|p| (0..off_n).find(|&k| sim.agents[k].p == p))?;
+        let by = sim.agents[b].pos.y;
+        let near = (off_n..sim.agents.len())
+            .filter(|&k| rushing(sim, k))
+            .min_by(|&a, &c| (sim.agents[a].pos.y - by).abs().total_cmp(&(sim.agents[c].pos.y - by).abs()))?;
+        sim.rng.chance(HELP).then_some(near)
+    });
+    let Some(star) = star else {
         return;
     };
-    if !matches!(sim.agents[star].job, Job::Rush { .. }) {
-        return;
-    }
     sim.help_on = Some(star);
     let sy = sim.agents[star].pos.y;
     // A spare blocker on his side moves toward him at the snap.
@@ -2773,6 +2854,16 @@ fn chart_rush(sim: &mut Sim, off_n: usize, slots: &[Option<DSlot>], ball_y: f64)
 /// much ground it costs the rusher in his block (block-win units).
 const CHIP_TIME: f64 = 0.6;
 const CHIP_W: f64 = 0.25;
+
+/// The plan keeping a usage promise (`roster::Keep`; proposed, not
+/// confirmed): the quarterback looks first to the man promised shots on 6
+/// in 10 of his deep routes (a route that reaches 15 yards), and to the man
+/// promised to be featured on 3 in 10 throws; the protection helps the
+/// lineman promised help on half his pass snaps.
+pub const SHOTS_FIRST: f64 = 0.6;
+pub const DEEP_ROUTE: f64 = 15.0;
+pub const FEATURE_FIRST: f64 = 0.3;
+pub const HELP: f64 = 0.5;
 
 /// A stunt against the protection (topic 4.9): the blocker whose man
 /// leaves takes the looper, and his neighbour takes the penetrator. A line
@@ -3000,6 +3091,12 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap) 
                 }
                 sim.agents[d].vel = sim.agents[d].vel.scale(0.5);
                 sim.chip = None;
+                // The line chart keeps it (the promises on usage): it
+                // changes nothing in the play.
+                let rid = sim.agents[d].id;
+                if let Some(r) = sim.notes.chart.as_mut().and_then(|c| c.rush.iter_mut().find(|r| r.id == rid)) {
+                    r.flags |= super::chart::Rusher::CHIPPED;
+                }
                 if let Job::Route { release_delay, .. } = &mut sim.agents[i].job {
                     *release_delay = t + 0.15;
                 }

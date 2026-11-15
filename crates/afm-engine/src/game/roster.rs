@@ -576,6 +576,44 @@ pub struct Prep {
     /// opponent's film at kickoff, the same way for every team.
     #[serde(default)]
     pub planned: bool,
+    /// What the plan does to keep your promises on usage (the promises on
+    /// usage, agreed 2026-11-14): set from your open promises, empty for
+    /// every AI team, so their games never change.
+    #[serde(default, skip_serializing_if = "Keep::is_empty")]
+    pub keep: Keep,
+}
+
+/// The plan settings that keep a usage promise (`world::folk::usage`), by
+/// player id. Sizes are Claude's (proposed, not confirmed).
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct Keep {
+    /// The field goal line, as the yard line (yards to their goal): inside
+    /// it the staff kicks where it would have punted. 0 none.
+    pub fg_line: u8,
+    /// Free him up: stunts with this pass rusher in them.
+    pub free_up: Vec<u32>,
+    /// Send him: this linebacker or back blitzes more.
+    pub send: Vec<u32>,
+    /// Take shots to him: more deep calls, and the quarterback looks to him
+    /// first when his route goes deep.
+    pub shots: Vec<u32>,
+    /// Feature him: the quarterback looks to him first more often.
+    pub feature: Vec<u32>,
+    /// Help him: the protection slides to the man across from this
+    /// lineman, a back doubles or chips him.
+    pub help: Vec<u32>,
+    /// Rush him: this end never drops in simulated pressure or a fire
+    /// zone; the other end does.
+    pub rush: Vec<u32>,
+    /// More man coverage: the share the answers play at least (0 none).
+    pub man: f32,
+}
+
+impl Keep {
+    pub fn is_empty(&self) -> bool {
+        *self == Keep::default()
+    }
 }
 
 /// The quarterback's checks at the line this week (G19), in the order of
@@ -677,6 +715,7 @@ impl Default for Prep {
             install_base: None,
             boost_added: Vec::new(),
             planned: false,
+            keep: Keep::default(),
         }
     }
 }
