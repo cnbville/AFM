@@ -194,9 +194,10 @@ pub fn recruit_money(w: &World, j: usize, i: usize) -> f64 {
     rec::offer_money(w, j, i)
 }
 
-/// The top of NIL Go's range for a collective's deal with recruit `i`.
-pub fn recruit_nil_go_top(w: &World, i: usize) -> f64 {
-    rec::nil_go_top_recruit(&w.people[i])
+/// The top of NIL Go's range for a collective's deal with recruit `i` at
+/// program `j` (the new NIL scheme: it reads the school's level).
+pub fn recruit_nil_go_top(w: &World, j: usize, i: usize) -> f64 {
+    rec::go_top_recruit(w, j, &w.people[i])
 }
 
 /// A portal entrant's race as his decision reads it today, as (program,

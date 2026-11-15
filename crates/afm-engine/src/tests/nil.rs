@@ -35,6 +35,10 @@ fn college(house: bool) -> (World, usize) {
     let c = &mut w.programs[j].collective;
     c.budget = 20.0e6;
     c.school = 12.0e6;
+    // NIL Go's book, as July 2025's payday would have read it.
+    if house {
+        w.nil_book = crate::world::nil_bid::NilBook::from_pots(&w);
+    }
     (w, j)
 }
 
@@ -64,7 +68,7 @@ fn the_school_pays_its_share_and_nil_go_reads_the_collectives() {
     let (w, j) = college(true);
     let prog = &w.programs[j];
     let i = w.people.iter().position(|p| p.stage == Stage::HighSchool).unwrap();
-    let top = rec::nil_go_top_recruit(&w.people[i]);
+    let top = rec::go_top_recruit(&w, j, &w.people[i]);
     assert!(top > 0.0);
     let money = 4.0 * top;
     // Before NIL Go opened (June 11, 2025) it is all the collective's, and
@@ -72,9 +76,13 @@ fn the_school_pays_its_share_and_nil_go_reads_the_collectives() {
     let (s, c) = rec::pots(prog, Date::ymd(2025, 6, 1), money, top, false);
     assert_eq!((s, c), (0.0, money));
     // After, the school's 12 of 20 million is its own; the collective's part
-    // is cleared to his top.
+    // is cleared to his top, and what NIL Go denies moves into the school's
+    // revenue share as far as its room under the cap goes (the new NIL
+    // scheme, item 11).
     let (s, c) = rec::pots(prog, w.today, money, top, false);
-    assert!((s - 0.6 * money).abs() < 1.0, "{s}");
+    let room = ncaa::share_room(prog, crate::world::nil_bid::deal_year(w.today));
+    let moved = (0.4 * money - top).min(room).max(0.0);
+    assert!((s - 0.6 * money - moved).abs() < 1.0, "{s}");
     assert!((c - top).abs() < 1.0, "{c} against {top}");
 }
 
@@ -479,7 +487,7 @@ fn lone_offer(house: bool) {
     // there is one number.
     if house {
         set_promise(&mut w, id, Some(50_000.0), Some(collective.max(10_000.0))).unwrap();
-        let top = rec::nil_go_top_recruit(&w.people[i]);
+        let top = rec::go_top_recruit(&w, j, &w.people[i]);
         let c = rec::nil_go(w.today, collective.max(10_000.0), top);
         assert!((weighed_offer(&w, j, id) - 50_000.0 - c).abs() < 1.0, "{} against {c}", weighed_offer(&w, j, id));
     } else {
