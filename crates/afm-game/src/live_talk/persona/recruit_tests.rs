@@ -319,8 +319,10 @@ fn a_college_call_keeps_everything_you_said_weighed() {
             acts: vec![Act::Claim(Stated { kind: "stat".into(), about: Some(id), value: v.into() })],
             ..Reading::default()
         };
-        let small = hs_call::weigh(w, &s, &claim("2.8 GPA")).cover;
-        let big = hs_call::weigh(w, &s, &claim("3.9 GPA")).cover;
+        // His real average, then a stretch of 0.4 over it and one of 1.5.
+        let gpa = afm_engine::world::scouting::file::gpa(&w.people[afm_engine::world::folk::person(w, id).unwrap()]);
+        let small = hs_call::weigh(w, &s, &claim(&format!("{:.1} GPA", gpa + 0.4))).cover;
+        let big = hs_call::weigh(w, &s, &claim(&format!("{:.1} GPA", (gpa + 1.5).min(4.0)))).cover;
         assert!(big > small && small > 0.0, "a bigger lie weighs more: {small} {big}");
     }
     say(
