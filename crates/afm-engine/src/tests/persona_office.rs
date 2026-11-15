@@ -242,3 +242,57 @@ fn a_goal_in_your_assistants_deal_is_a_clause_on_the_season() {
     assert_eq!(cl.coach, Some(c));
     assert!(cl.pays > 0.0);
 }
+
+/// His patience after each of `n` lines asking the doctor the same thing,
+/// with your Relationships at `rel`.
+fn grind(rel: f64, n: usize) -> Vec<f32> {
+    let (mut w, team, id) = hurt();
+    let you = w.career.as_ref().unwrap().coach;
+    w.coaches[you].ability.relationships = rel;
+    let doc = trainer(&w, team);
+    let sid = sit::start(&mut w, doc, None).unwrap();
+    let s = scene::open(&mut w, sid).unwrap();
+    let room = office::room(&w, &s).unwrap();
+    store::begin(&mut w, sid, room.clone());
+    let mut out = Vec::new();
+    for _ in 0..n {
+        let reading = Reading {
+            acts: vec![Act::Question { topic: Topic::Injury, about: Some(Them::Player(id)), words: String::new() }],
+            ..Reading::default()
+        };
+        let conv = Conversation {
+            parts: office::parts(),
+            said: Said { scene: sid, words: "Where's he at?".into(), reading, promises: Vec::new() },
+        };
+        let t = conv.turn(&w, &room, &conv.said.reading);
+        conv.apply(&mut w, &t);
+        out.push(t.patience.0);
+        if store::open(&w, sid).is_none() {
+            break;
+        }
+    }
+    out
+}
+
+#[test]
+fn asking_the_same_thing_again_wears_his_patience_by_your_relationships() {
+    use crate::world::folk::persona::talk::feel::repeat_wear;
+    assert!((repeat_wear(20.0) - 0.5).abs() < 1e-4);
+    assert!((repeat_wear(1.0) - 2.0).abs() < 1e-4);
+    assert!((repeat_wear(10.5) - 1.0).abs() < 1e-4);
+    assert!(repeat_wear(15.0) < 1.0 && repeat_wear(5.0) > 1.0);
+    let mid = grind(10.5, 4);
+    eprintln!("the same question four times, his patience after each line: {mid:?}");
+    // The first answer gets somewhere; every repeat wears him down.
+    assert!(mid.len() >= 3, "{mid:?}");
+    for k in 2..mid.len() {
+        assert!(mid[k] < mid[k - 1], "a repeat wears his patience: {mid:?}");
+    }
+    let (top, bottom) = (grind(20.0, 4), grind(1.0, 4));
+    let fall = |p: &[f32]| p[0] - p[p.len().min(3) - 1];
+    eprintln!("Relationships 20: {top:?}; 1: {bottom:?}");
+    assert!(fall(&top) < fall(&mid) && fall(&mid) < fall(&bottom), "{top:?} {mid:?} {bottom:?}");
+    // Half as fast at the top, twice as fast at the bottom.
+    assert!((fall(&top) / fall(&mid) - 0.5).abs() < 0.05, "{top:?} {mid:?}");
+    assert!((fall(&bottom) / fall(&mid) - 2.0).abs() < 0.1 || bottom.len() < 3, "{bottom:?} {mid:?}");
+}
