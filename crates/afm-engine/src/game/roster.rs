@@ -622,6 +622,51 @@ pub struct Keep {
     pub rush: Vec<u32>,
     /// More man coverage: the share the answers play at least (0 none).
     pub man: f32,
+    // Lane N2: the rest of the game plan's settings for your word.
+    /// Freedom at the line for this quarterback: 2 at least a kill call, 3
+    /// full audibles.
+    pub freedom: Vec<(u32, u8)>,
+    /// Keep him on: never spelled for a breather, never kept to base downs
+    /// (his snaps, by down or package, the lead back's carries).
+    pub on: Vec<u32>,
+    /// Release him: this back or tight end runs a route where the call
+    /// would keep him in to block.
+    pub release: Vec<u32>,
+    /// Lean the run calls toward a family: inside zone, outside zone, gap,
+    /// option (each 0 none, 1 the agreed lean).
+    pub family: [f32; 4],
+    /// Designed runs for this quarterback: 1 more, -1 none, 0 the staff's.
+    pub qb_runs: i8,
+    /// Throw more: the quarterback promised throws a game.
+    pub pass: bool,
+    /// More play action.
+    pub play_action: bool,
+    /// The backfield: 1 the gun more, -1 under center more.
+    pub backfield: i8,
+    /// A personnel group to lean toward (its code: 21, 12, 13...; 0 none).
+    pub personnel: u8,
+    /// Screens to him, the quick game and RPO throws to him, jet sweeps
+    /// with him the motion man.
+    pub screens: Vec<u32>,
+    pub quick: Vec<u32>,
+    pub gadget: Vec<u32>,
+    /// More max protection (seven kept in) for the quarterback promised it.
+    pub protect: bool,
+    /// A corner's side: 1 the boundary, 2 the field. He swaps sides with
+    /// the other outside corner by the hash.
+    pub side: Vec<(u32, u8)>,
+    /// Two-high shells at least this share (help over the top).
+    pub two_high: f32,
+    /// The post safety in single-high: at least this share single-high,
+    /// with him the free safety.
+    pub post: Vec<u32>,
+    pub one_high: f32,
+    /// The robber in Cover 1 robber: at least this share, with him the
+    /// strong safety.
+    pub robber: Vec<u32>,
+    pub rob: f32,
+    /// He returns: first on kickoff returns and the punt returner.
+    pub returner: Vec<u32>,
 }
 
 impl Keep {

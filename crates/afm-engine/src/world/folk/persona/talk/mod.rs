@@ -115,6 +115,9 @@ pub fn across(room: &Room) -> Option<Them> {
 pub fn trust_of(w: &World, who: Them) -> f32 {
     match who {
         Them::Player(id) => folk::person(w, id).map_or(0.5, |i| w.people[i].trust),
+        // Someone in your building: the trust his meeting's chips move
+        // (lane N5c).
+        _ if super::office::key(w, who).is_some() => super::office::trust(w, who),
         _ => w.folk.live.word_of(store::word_key(who)),
     }
 }
@@ -362,6 +365,9 @@ impl Resolving for Conversation<'_> {
         if let Some(s) = s {
             hits::cap(w, s, room, &mut t.hits);
         }
+        // Someone in your building: inside what his meeting's chips can do
+        // (lane N5c).
+        super::office::cap(w, room, &mut t.hits);
         // His own ask (5.4, question 3): what he wants most that you
         // haven't given, once a talk per want.
         if t.ends.is_none()
@@ -375,6 +381,11 @@ impl Resolving for Conversation<'_> {
                 gives: Vec::new(),
                 terms: Vec::new(),
             });
+        }
+        // Someone in your building asks for something the game can do
+        // (lane N5c): a raise, a title, the play-calling.
+        for a in t.his_asks.iter_mut() {
+            a.gives = super::office::asks::his_gives(w, him, a.why.kind);
         }
         // The stand-in for a lie he catches as you say it.
         let caught = t.claims.iter().filter(|(_, x)| *x == Truth::False).count();
@@ -430,6 +441,11 @@ impl Resolving for Conversation<'_> {
         for h in &t.hits {
             let Them::Player(pid) = h.hit.on else {
                 if h.hit.on != him || h.trust == 0.0 {
+                    continue;
+                }
+                // Someone in your building: the trust the world keeps for
+                // him (lane N5c); your word with anyone else.
+                if super::office::nudge(w, h.hit.on, h.trust) {
                     continue;
                 }
                 let k = store::word_key(h.hit.on);
@@ -581,6 +597,11 @@ pub fn end(w: &mut World, id: u32) {
     if s.kind == SceneKind::OneOnOne {
         let pid = s.a as u32;
         talks::finish_talk(w, &mut s, pid);
+    } else if super::office::plays(s.kind) && !super::office::talk_only(s.kind) {
+        // A built staff or boss meeting keeps its own picks to finish
+        // (lane N5c): the talk ending leaves the meeting open, and the
+        // talk's state stays so a man done talking stays done today.
+        return;
     } else {
         s.end();
     }

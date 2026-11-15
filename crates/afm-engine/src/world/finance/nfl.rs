@@ -457,7 +457,9 @@ pub(crate) fn open_year(w: &mut World, t: usize, year: i32) {
         .filter_map(|c| w.coaches.get(c).and_then(|c| c.contract))
         .map(|k| k.salary)
         .sum();
-    b.l[COACHES] = (coach_pay + 22.0e6 * pay * (0.8 + 0.4 * spend)) as f32;
+    // The assistants' pool: your owner's raises for the staff pool come on top.
+    let pooled = 1.0 + crate::world::folk::staffing::staff_bonus(w, crate::world::folk::Team::Nfl(t));
+    b.l[COACHES] = (coach_pay + 22.0e6 * pay * (0.8 + 0.4 * spend) * pooled) as f32;
     b.l[SCOUTING] = (9.0e6 * pay * (0.6 + 0.8 * spend)) as f32;
     b.l[MEDICAL] = (10.0e6 * pay * (0.6 + 0.8 * spend)) as f32;
     let (city, _) = city(w, t, year);
@@ -512,6 +514,24 @@ pub(crate) fn month(w: &mut World, m: u32) {
             net += if line.income { v } else { -v };
         }
         c.cash_month(m, net);
+    }
+}
+
+/// The assistants' pool inside the coaches' line, before any raise from your
+/// owner (`open_year`).
+fn assistant_pool(w: &World, t: usize) -> f64 {
+    22.0e6 * data::nfl_pay_index(w.year) * (0.8 + 0.4 * spend_level(w, t))
+}
+
+/// Your owner says yes to more money for the staff pool (people topic 12):
+/// this league year's coaches' line grows by `share` of the assistants' pool
+/// from today, the months still to come spending it (the next year's budget
+/// carries the raise from `open_year`).
+pub(crate) fn raise_staff(w: &mut World, t: usize, share: f64) {
+    let add = assistant_pool(w, t) * share;
+    let Some(c) = w.finance.nfl.get_mut(t) else { return };
+    if c.budget.year != 0 {
+        c.budget.l[COACHES] += add as f32;
     }
 }
 

@@ -164,6 +164,38 @@ pub struct Contract {
     /// a new deal, the year after for an extension (OverTheCap's "new money"
     /// headline; fix list S6.3).
     pub new_from: i32,
+    /// Incentives with terms (live talks lane N2): each pays on a season
+    /// term, likely ones on the cap now, the rest charged when earned.
+    /// Only your deals carry them (lane N5b makes them).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub clauses: Vec<Incentive>,
+}
+
+/// An incentive with a term (lane N2): what pays, in which league year,
+/// and whether it was likely to be earned when signed (met the season
+/// before, the NFL's rule).
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Incentive {
+    pub year: i32,
+    pub term: crate::world::folk::usage::Usage,
+    pub pays: f64,
+    pub likely: bool,
+    /// Settled after the regular season: earned or not.
+    #[serde(default)]
+    pub earned: Option<bool>,
+}
+
+impl Contract {
+    /// Adds an incentive with a term: a likely one counts on that year's cap
+    /// now (as `ltbe`), an unlikely one only when earned.
+    pub fn add_incentive(&mut self, inc: Incentive) {
+        if inc.likely
+            && let Some(y) = self.years.iter_mut().find(|y| y.year == inc.year)
+        {
+            y.ltbe += inc.pays;
+        }
+        self.clauses.push(inc);
+    }
 }
 
 impl Contract {
@@ -376,6 +408,7 @@ pub fn build(team: usize, kind: Kind, start: i32, t: &Terms) -> Contract {
         offsets: t.offsets,
         option: None,
         new_from: start,
+        clauses: Vec::new(),
     }
 }
 

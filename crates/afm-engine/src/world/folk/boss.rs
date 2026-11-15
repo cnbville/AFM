@@ -45,6 +45,9 @@ pub enum GoalKind {
     Develop,
     /// Fill the stadium.
     Crowds,
+    /// A season term you bargained (lane N2; `terms.rs`): a rank, wins, a
+    /// postseason, a title, a player's season.
+    Measure(super::usage::Usage),
 }
 
 impl GoalKind {
@@ -69,6 +72,7 @@ impl GoalKind {
             },
             GoalKind::Develop => "develop the young players".into(),
             GoalKind::Crowds => "fill the stadium".into(),
+            GoalKind::Measure(u) => super::terms::words(&u),
         }
     }
 }
@@ -125,7 +129,7 @@ impl AskKind {
             _ => AskKind::StaffMoney,
         }
     }
-    fn at(self, level: Level) -> bool {
+    pub fn at(self, level: Level) -> bool {
         match self {
             AskKind::NilMoney | AskKind::RecruitingMoney => level == Level::College,
             AskKind::RosterSpots => level == Level::Nfl,
@@ -518,6 +522,7 @@ fn why_goal(w: &World, team: Team, g: GoalKind) -> String {
         GoalKind::Grades => "The academic people report to the board.".into(),
         GoalKind::Develop => "A rebuild: he wants to see the young players grow.".into(),
         GoalKind::Crowds => "Empty seats are lost money, and he counts it.".into(),
+        GoalKind::Measure(_) => "It's the bar you agreed with him.".into(),
     }
 }
 
@@ -660,6 +665,7 @@ pub fn goal_met(w: &World, team: Team, k: GoalKind, season: i32) -> bool {
         }
         GoalKind::Develop => true,
         GoalKind::Crowds => s.wins * 2 >= s.losses * 2,
+        GoalKind::Measure(u) => super::terms::met(w, super::terms::Who::Team(team), &u, season) == Some(true),
     }
 }
 
@@ -748,17 +754,7 @@ fn meeting_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
             return;
         }
         22 => {
-            let patient = b.patience >= 11.0;
-            for g in w.folk.goals.iter_mut().filter(|g| g.season == season) {
-                g.deal = -1;
-                if patient && let GoalKind::Wins(n) = g.kind {
-                    g.kind = GoalKind::Wins(n.saturating_sub(2).max(2));
-                }
-            }
-            w.folk.goals.retain(|g| {
-                !(g.season == season && patient && matches!(g.kind, GoalKind::Title | GoalKind::Postseason))
-            });
-            w.folk.mine.nudge(b.key(), if patient { 0.0 } else { -0.05 });
+            let patient = ask_time(w, team);
             let (key, line) = if patient {
                 ("boss.goals.reply.lowered", "All right. A year to build. But I want to see it moving.")
             } else {
@@ -948,9 +944,10 @@ pub(crate) fn given_cut(w: &World, k: AskKind) -> f64 {
     GIVEN_CUT.powf(given.max(0.0).round() as f64)
 }
 
-/// You ask for something (topic 12): his answer reads his money, his trust
-/// in you and his personality.
-fn ask(w: &mut World, s: &mut Scene, team: Team, k: AskKind) {
+/// Whether he says yes to an ask today (topic 12): his money, his trust in
+/// you and his personality, through the day's keyed roll. The same answer
+/// whether you click it or say it (live talks lane N5c).
+pub fn ask_yes(w: &World, team: Team, k: AskKind) -> bool {
     let b = boss(w, team);
     let t = trust(w, team) as f64;
     let rich = match team {
@@ -969,11 +966,30 @@ fn ask(w: &mut World, s: &mut Scene, team: Team, k: AskKind) {
         })
     .clamp(0.03, 0.92)
         * given_cut(w, k);
-    let yes = super::roll(w, 0xA5C0 ^ w.today.0 as u64, k.code() as u64) < p;
+    super::roll(w, 0xA5C0 ^ w.today.0 as u64, k.code() as u64) < p
+}
+
+/// Whether you asked for this lately (the meeting offers it once in 300
+/// days).
+pub fn asked_lately(w: &World, k: AskKind) -> bool {
+    w.folk.asks.iter().any(|a| a.kind == k && a.date.days_to(w.today) < 300)
+}
+
+/// You ask for something (topic 12) and he answers: what a yes does, his
+/// trust, and the ask kept. Returns his yes and his words (the meeting's
+/// pick and a typed ask both come here).
+pub fn ask_now(w: &mut World, team: Team, k: AskKind) -> (bool, &'static str) {
+    let b = boss(w, team);
+    let yes = ask_yes(w, team, k);
     let words = if yes {
         match k {
             AskKind::StaffMoney => {
                 w.folk.staff.pool_bonus += STAFF_RAISE;
+                match team {
+                    Team::College(pg) => crate::world::finance::college::raise_staff(w, pg, STAFF_RAISE as f64),
+                    Team::Nfl(t) => crate::world::finance::nfl::raise_staff(w, t, STAFF_RAISE as f64),
+                    _ => {}
+                }
                 "Yes. Ten percent more for the staff pool, starting now."
             }
             AskKind::Facility => {
@@ -1015,12 +1031,40 @@ fn ask(w: &mut World, s: &mut Scene, team: Team, k: AskKind) {
         }
     };
     w.folk.mine.nudge(b.key(), if yes { -0.01 } else { -0.005 });
-    s.them(&b.name, words, None);
-    s.outcome.push(format!("You asked for {}: {}.", k.words(), if yes { "granted" } else { "no" }));
     w.folk.asks.push(Ask { kind: k, date: w.today, granted: yes, words: words.into() });
     if w.folk.asks.len() > 40 {
         w.folk.asks.remove(0);
     }
+    (yes, words)
+}
+
+/// You ask him for time (the goals meeting's "it's a rebuild"; live talks
+/// lane N5c's ask for time): a patient boss (11+) lowers this season's
+/// wins bar by two and drops a title or postseason goal; an impatient one
+/// keeps it and holds the asking against you. Returns whether he gave it.
+pub fn ask_time(w: &mut World, team: Team) -> bool {
+    let b = boss(w, team);
+    let season = goal_season(w, team);
+    let patient = b.patience >= 11.0;
+    for g in w.folk.goals.iter_mut().filter(|g| g.season == season) {
+        g.deal = -1;
+        if patient && let GoalKind::Wins(n) = g.kind {
+            g.kind = GoalKind::Wins(n.saturating_sub(2).max(2));
+        }
+    }
+    w.folk
+        .goals
+        .retain(|g| !(g.season == season && patient && matches!(g.kind, GoalKind::Title | GoalKind::Postseason)));
+    w.folk.mine.nudge(b.key(), if patient { 0.0 } else { -0.05 });
+    patient
+}
+
+/// You ask for something in the meeting (topic 12).
+fn ask(w: &mut World, s: &mut Scene, team: Team, k: AskKind) {
+    let b = boss(w, team);
+    let (yes, words) = ask_now(w, team, k);
+    s.them(&b.name, words, None);
+    s.outcome.push(format!("You asked for {}: {}.", k.words(), if yes { "granted" } else { "no" }));
 }
 
 pub(crate) fn open(w: &mut World, s: &mut Scene) {

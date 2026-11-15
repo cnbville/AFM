@@ -4390,6 +4390,8 @@ fn chart_seen(w: &mut World) {
 
 pub(crate) fn day(w: &mut World, d: Date) {
     check_promises(w, d);
+    super::terms::day(w, d);
+    super::usage::warn(w, d);
     super::claims::truth::check_lies(w, d);
     if !w.folk.mine.unseen.is_empty() {
         chart_seen(w);

@@ -84,6 +84,13 @@ pub enum Kind {
     /// A meeting with your leadership council, or your captains (live
     /// talks v3, lane N5d).
     Council,
+    // Live talks v3, lane N5c: staff, bosses and money.
+    /// A sit-down you call with someone in your building: an assistant, the
+    /// team doctor, the academic or compliance director, a booster
+    /// (`persona::office`).
+    Sitdown,
+    /// A reference call about a coach you might hire (question 10).
+    Reference,
 }
 
 impl Kind {
@@ -154,6 +161,8 @@ impl Kind {
             Kind::FamilyCall => "His family calls",
             Kind::OfficialTalk => "Official visit: your case",
             Kind::Council => "The leadership council",
+            Kind::Sitdown => "A sit-down",
+            Kind::Reference => "A reference call",
         }
     }
 }
@@ -824,7 +833,7 @@ fn log_scene(w: &mut World, s: &Scene) {
         | Kind::FamilyCall
         | Kind::OfficialTalk => "recruiting",
         Kind::JobInterview => "network",
-        Kind::StaffMeeting => "staff",
+        Kind::StaffMeeting | Kind::Sitdown | Kind::Reference => "staff",
         _ => "place",
     };
     super::note(w, topic, source, format!("{}: {text}", s.title), None);
@@ -858,6 +867,7 @@ fn dispatch_open(w: &mut World, s: &mut Scene) {
         | Kind::RecruitMessage
         | Kind::FamilyCall
         | Kind::OfficialTalk => super::dialogue::open(w, s),
+        Kind::Sitdown | Kind::Reference => super::persona::office::open(w, s),
         _ => super::takeover::open(w, s),
     }
 }
@@ -890,6 +900,7 @@ fn dispatch_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         | Kind::RecruitMessage
         | Kind::FamilyCall
         | Kind::OfficialTalk => super::dialogue::answer(w, s, code, picked),
+        Kind::Sitdown | Kind::Reference => super::persona::office::answer(w, s, code, picked),
         _ => super::takeover::answer(w, s, code, picked),
     }
 }
@@ -918,6 +929,7 @@ fn dispatch_hand(w: &mut World, s: &mut Scene) {
         | Kind::RecruitMessage
         | Kind::FamilyCall
         | Kind::OfficialTalk => super::dialogue::hand(w, s),
+        Kind::Sitdown | Kind::Reference => super::persona::office::hand(w, s),
         _ => super::takeover::hand(w, s),
     }
 }

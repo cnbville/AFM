@@ -15,6 +15,7 @@ use afm_engine::calendar::Level;
 use afm_engine::world::World;
 use afm_engine::world::coach::{Group, Role};
 use afm_engine::world::folk::cast::{self, CastRef};
+use afm_engine::world::folk::persona::{Them, office};
 use afm_engine::world::folk::rules::RuleKind;
 use afm_engine::world::folk::scene::{Kind, Scene, Who};
 use afm_engine::world::folk::talks::{self, Line, PromiseTo, Subject};
@@ -24,8 +25,10 @@ use serde_json::{Value, json};
 use crate::views::date_text;
 use crate::{Game, Reply};
 
-const COMMANDS: [&str; 30] = [
+const COMMANDS: [&str; 33] = [
     "people_agenda",
+    "people_sitdown",
+    "people_reference",
     "people_expect",
     "people_scene",
     "people_answer",
@@ -55,6 +58,7 @@ const COMMANDS: [&str; 30] = [
     "people_league",
     "people_log",
     "people_takeover",
+    "people_promise_plan",
 ];
 
 pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
@@ -64,7 +68,39 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     let Some(w) = game.world.as_mut() else { return Some(Err("No world is loaded.".into())) };
     Some(match cmd {
         "people_agenda" => Ok(agenda(w)),
+        // Turn the plan setting that keeps a promise on usage off or back
+        // on (lane N2): `index` in the agenda's promises, `off`.
+        "people_promise_plan" => (|| {
+            let k = num(args, "index")? as usize;
+            let off = args.get("off").and_then(Value::as_bool).unwrap_or(true);
+            folk::usage::set_off(w, k, off)?;
+            Ok(agenda(w))
+        })(),
         "people_scene" => num(args, "id").and_then(|id| scene(w, id as u32)),
+        // Live talks v3, lane N5c: a sit-down with someone in your building
+        // (`{coach}`, `{cast}` by link token, or `{compliance: true}`; an
+        // `about` player id) and a reference call about a coach
+        // (`{coach, source}`, the source's code from his page).
+        "people_sitdown" => (|| {
+            let who = if let Some(tok) = args.get("cast").and_then(Value::as_str) {
+                let c = afm_engine::world::folk::cast::from_token(w, tok).ok_or("No such person.")?;
+                Them::Cast(c.r, c.term)
+            } else if args.get("compliance").and_then(Value::as_bool) == Some(true) {
+                let team = Team::seat(w).ok_or("You have no team.")?;
+                office::rules::director(w, team).ok_or("Only a college has a compliance office.")?
+            } else {
+                Them::Coach(num(args, "coach")? as usize)
+            };
+            let about = num(args, "about").ok().map(|x| x as u32);
+            let id = office::sit::start(w, who, about)?;
+            scene(w, id)
+        })(),
+        "people_reference" => (|| {
+            let c = num(args, "coach")? as usize;
+            let src = args.get("source").and_then(Value::as_str).ok_or("Missing source.")?;
+            let id = office::refs::start(w, c, src)?;
+            scene(w, id)
+        })(),
         "people_answer" => (|| {
             let id = num(args, "id")? as u32;
             let code = num(args, "code")? as u32;
@@ -483,11 +519,15 @@ fn agenda(w: &World) -> Value {
         .folk
         .promises
         .iter()
+        .enumerate()
         .rev()
-        .filter(|p| p.kept.is_none() || p.due.days_to(w.today) < 60)
+        .filter(|(_, p)| p.kept.is_none() || p.due.days_to(w.today) < 60)
         .take(12)
-        .map(|p| {
-            json!({ "who": p.who, "what": p.kind.words(), "made": date_text(p.made), "due": date_text(p.due), "kept": p.kept, "public": p.public })
+        .map(|(k, p)| {
+            // A promise on usage: its words, what keeps it, and whether you
+            // turned its plan setting off (lane N2).
+            let plan = p.terms.usage.map(|u| json!({ "kept_by": folk::usage::kept_by(&u), "off": p.terms.off }));
+            json!({ "index": k, "who": p.who, "what": p.words(), "made": date_text(p.made), "due": date_text(p.due), "kept": p.kept, "public": p.public, "plan": plan })
         })
         .collect();
     let due: Vec<Value> =

@@ -24,11 +24,11 @@ use afm_ai::{Failure, Request};
 use afm_engine::world::World;
 use afm_engine::world::folk;
 use afm_engine::world::folk::persona::Them;
-use afm_engine::world::folk::persona::deals;
 use afm_engine::world::folk::persona::ear::{Confirm, Resolving, Turn};
 use afm_engine::world::folk::persona::gameday::{decide, group};
 use afm_engine::world::folk::persona::room::Room;
 use afm_engine::world::folk::persona::talk::{self, Conversation, Parts, Said, channels, store};
+use afm_engine::world::folk::persona::{deals, office};
 use afm_engine::world::folk::scene::{Kind, Scene};
 use serde_json::{Value, json};
 
@@ -40,23 +40,48 @@ use crate::{Game, Reply};
 pub const WAIT_TTL: Duration = Duration::from_secs(900);
 
 /// Whether a scene's typed lines play as a v3 talk: your one-on-ones, and
-/// the group talks (the team talk, the first team meeting, the council:
-/// lane N5d).
+/// the meetings with the people in your building (lane N5c), and the group
+/// talks (the team talk, the first team meeting, the council: lane N5d).
 pub fn plays(g: &Game, s: &Scene) -> bool {
-    g.ai.persona_talks && (s.kind == Kind::OneOnOne || group::is_group(s))
+    g.ai.persona_talks && (s.kind == Kind::OneOnOne || office::plays(s.kind) || group::is_group(s))
 }
 
-/// The room a scene's talk is played in: the one kept with the open talk,
-/// else a group's room (lane N5d), else him across from you.
+/// The room a scene's talk is held in: the open talk's, else the one its
+/// lane sets (someone in your building, lane N5c; a group's room, lane
+/// N5d), else a one-on-one.
 pub fn room_of(w: &World, s: &Scene) -> Room {
-    store::room(w, s.id).or_else(|| group::room(w, s)).unwrap_or_else(|| channels::one_on_one(s))
+    store::room(w, s.id)
+        .or_else(|| office::plays(s.kind).then(|| office::room(w, s)).flatten())
+        .or_else(|| group::room(w, s))
+        .unwrap_or_else(|| channels::one_on_one(s))
 }
 
-/// What waits on your confirm, by ticket.
+/// The parts a scene's talk is played with: lane N5c's for the people in
+/// your building, else lane N1's people and lane N3's deals and requests.
+pub fn parts_for(s: &Scene) -> Parts<'static> {
+    if office::plays(s.kind) { office::parts() } else { parts() }
+}
+
+/// What waits on your confirm, by ticket, and how each typed line was
+/// heard, so a page drawn again (a reload, another screen and back) still
+/// shows both. Neither is saved: a confirm is not in the world until you
+/// make it, and "Heard as" is the screen's note on the line.
 #[derive(Debug, Default)]
 pub struct Waits {
     map: BTreeMap<u64, Waiting>,
+    said: BTreeMap<u32, Vec<Heard>>,
 }
+
+/// One typed line's "Heard as" and marks.
+#[derive(Debug, Clone)]
+struct Heard {
+    words: String,
+    heard: String,
+    marks: Vec<Value>,
+}
+
+/// The most scenes whose lines are remembered. Proposed, not confirmed.
+const KEEP_SCENES: usize = 64;
 
 #[derive(Debug)]
 struct Waiting {
@@ -74,6 +99,37 @@ impl Waits {
     pub fn len(&self) -> usize {
         self.map.len()
     }
+    /// What waits on your confirm in a scene, as the page draws it.
+    pub fn pending(&self, scene: u32) -> Vec<Value> {
+        self.map
+            .iter()
+            .filter(|(_, w)| w.scene == scene)
+            .flat_map(|(ticket, w)| {
+                w.items.iter().enumerate().filter_map(move |(k, c)| {
+                    let c = c.as_ref()?;
+                    Some(json!({ "cmd": "talk_confirm", "args": { "id": w.scene, "ticket": ticket, "k": k },
+                        "text": confirm_words(c) }))
+                })
+            })
+            .collect()
+    }
+    fn remember(&mut self, scene: u32, words: &str, heard: &str, marks: &[Value]) {
+        if self.said.len() >= KEEP_SCENES && !self.said.contains_key(&scene) {
+            self.said.pop_first();
+        }
+        self.said.entry(scene).or_default().push(Heard {
+            words: words.to_string(),
+            heard: heard.to_string(),
+            marks: marks.to_vec(),
+        });
+    }
+    /// How your typed lines in a scene were heard, in the order you said them.
+    pub fn heard_lines(&self, scene: u32) -> Vec<(String, String, Vec<Value>)> {
+        self.said
+            .get(&scene)
+            .map(|v| v.iter().map(|h| (h.words.clone(), h.heard.clone(), h.marks.clone())).collect())
+            .unwrap_or_default()
+    }
     pub fn is_empty(&self) -> bool {
         self.map.is_empty()
     }
@@ -90,7 +146,7 @@ pub fn say(g: &mut Game, id: u32, text: String) -> Reply {
     let w = g.world.as_ref().ok_or("No world is loaded.")?;
     let s = w.folk.scenes.iter().find(|s| s.id == id).ok_or("No such meeting.")?;
     let room = room_of(w, s);
-    let p = parts();
+    let p = parts_for(s);
     let (card, keys) =
         if group::is_group(s) { super::group::ear(w, s, &room, &text) } else { cards::ear(w, s, &room, &p, &text) };
     let today = crate::views::date_text(w.today);
@@ -105,15 +161,29 @@ pub fn say(g: &mut Game, id: u32, text: String) -> Reply {
     tickets::start(g, req, next, false).map(|t| json!({ "ticket": t })).map_err(|f| f.note())
 }
 
-/// The browser build's stand-in ear (`AFM_AI_FAKE=1`): a question about
-/// how he's doing when the line asks something, else nothing touched.
+/// The browser build's stand-in ear (`AFM_AI_FAKE=1`): a line with a
+/// question mark is a question about how he's doing, one that says
+/// "promise" a promise of a start by midseason, one that says "bench" a
+/// decision to bench him (it waits on your confirm); anything else touches
+/// nothing. It lets the page's marks and confirm cards be checked in the
+/// browser with no key.
 fn stand_in(card: &super::EarCard) -> Value {
-    let q = card.line.contains('?');
-    let v = json!({
-        "acts": if q { json!([{ "act": "question", "topic": "Mood", "about": "", "claim": "none", "value": "",
-            "deal": "none", "what": "", "when": "", "words": "" }]) } else { json!([]) },
-        "hits": [], "dodged": false, "not_talk": false
-    });
+    let line = card.line.to_lowercase();
+    let mut acts = Vec::new();
+    let act = |kind: &str, what: &str, topic: &str, when: &str| {
+        json!({ "act": kind, "topic": topic, "about": "", "claim": "none", "value": "",
+            "deal": "none", "what": what, "when": when, "words": "" })
+    };
+    if line.contains('?') {
+        acts.push(act("question", "", "Mood", ""));
+    }
+    if line.contains("promise") {
+        acts.push(act("promise", "start", "none", "midseason"));
+    }
+    if line.contains("bench") {
+        acts.push(act("decision", "benched", "none", ""));
+    }
+    let v = json!({ "acts": acts, "hits": [], "dodged": false, "not_talk": false });
     afm_ai::fake::body(&v.to_string(), 900, 60)
 }
 
@@ -133,13 +203,6 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
         if s.done || s.lines.len() != at {
             return Step::Done(tickets::off(crate::live_talk::say::MOVED_ON));
         }
-        let pos = match talk::across(&channels::one_on_one(&s)) {
-            Some(Them::Player(pid)) => folk::person(w, pid).map(|i| w.people[i].player.position),
-            _ => None,
-        };
-        let tags = ear::Tags { today: w.today, pos };
-        let reading = tags.resolve(&er, &keys);
-        let promises = tags.promises(&er, &keys);
         let room = match store::room(w, id) {
             Some(r) => r,
             None => {
@@ -148,10 +211,18 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
                 r
             }
         };
+        let pos = match talk::across(&room) {
+            Some(Them::Player(pid)) => folk::person(w, pid).map(|i| w.people[i].player.position),
+            _ => None,
+        };
+        let tags = ear::Tags { today: w.today, pos };
+        let reading = tags.resolve(&er, &keys);
+        let promises = tags.promises(&er, &keys);
         let is_group = group::is_group(&s);
         // A line to the whole room is one hit on each man in it (lane N5d).
         let reading = if is_group { group::expand(&room, reading) } else { reading };
-        let conv = Conversation { parts: parts(), said: Said { scene: id, words: words.clone(), reading, promises } };
+        let conv =
+            Conversation { parts: parts_for(&s), said: Said { scene: id, words: words.clone(), reading, promises } };
         let t = conv.turn(w, &room, &conv.said.reading);
         let heard = cards::heard(w, &room, &t);
         let mut vc = cards::voice(w, &s, &room, &conv.parts, &t, &words, &keys);
@@ -167,6 +238,15 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
         {
             sc.narrate(line);
         }
+        // What lane N5c makes of it: a reference's read on the coach's page.
+        if office::plays(s.kind) {
+            let lines = office::after(w, id, &room, &conv.said.reading, &t);
+            if let Some(sc) = w.folk.scenes.iter_mut().find(|x| x.id == id) {
+                for l in lines {
+                    sc.narrate(l);
+                }
+            }
+        }
         let marks = marks(w, &t);
         let confirm = waits(g, id, &room, &t);
         let card_text = vc.text();
@@ -181,27 +261,19 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
                     Ok(afm_ai::fake::body(&json!({ "line": line, "colour": "" }).to_string(), 600, 40)),
                 );
             }
-            return Step::Call(req, voice_step(id, heard, marks, confirm, vc, card_text, t));
+            return Step::Call(req, voice_step(id, Outcome { words, heard, marks, confirm }, vc, card_text, t));
         }
         his_line(g, id, &vc, &t, None, &card_text);
-        Step::Done(done(g, id, &heard, marks, confirm))
+        Step::Done(done(g, id, Outcome { words, heard, marks, confirm }))
     })
 }
 
 /// The voice's step: his words, or the fallback.
-fn voice_step(
-    id: u32,
-    heard: String,
-    marks: Vec<Value>,
-    confirm: Vec<Value>,
-    vc: VoiceCard,
-    card_text: String,
-    t: Turn,
-) -> Next {
+fn voice_step(id: u32, out: Outcome, vc: VoiceCard, card_text: String, t: Turn) -> Next {
     Box::new(move |g, r| {
         let said = r.ok().and_then(|x| x.json);
         his_line(g, id, &vc, &t, said.as_ref(), &card_text);
-        Step::Done(done(g, id, &heard, marks, confirm))
+        Step::Done(done(g, id, out))
     })
 }
 
@@ -287,7 +359,7 @@ pub fn confirm(g: &mut Game, args: &Value) -> Reply {
     }
     let w = g.world.as_mut().ok_or("No world is loaded.")?;
     if yes {
-        let lines = run(w, him, &item);
+        let lines = office::confirm(w, id, him, &item).unwrap_or_else(|| run(w, him, &item));
         if let Some(s) = w.folk.scenes.iter_mut().find(|s| s.id == id) {
             for l in lines {
                 s.narrate(l);
@@ -319,9 +391,20 @@ fn run(w: &mut World, him: Them, c: &Confirm) -> Vec<String> {
     }
 }
 
+/// What a line came to: your words, how they were heard, the marks and what
+/// waits on your confirm.
+struct Outcome {
+    words: String,
+    heard: String,
+    marks: Vec<Value>,
+    confirm: Vec<Value>,
+}
+
 /// The poll's done answer: "Heard as", the marks, what waits on your
 /// confirm, and the scene's normal reply.
-fn done(g: &mut Game, id: u32, heard: &str, marks: Vec<Value>, confirm: Vec<Value>) -> Value {
+fn done(g: &mut Game, id: u32, out: Outcome) -> Value {
+    let Outcome { words, heard, marks, confirm } = out;
+    g.ai.persona.remember(id, &words, &heard, &marks);
     let reply = g.run("people_scene", &json!({ "id": id })).unwrap_or(Value::Null);
     let mut v = json!({ "state": "done", "heard": heard, "marks": marks, "reply": reply });
     if !confirm.is_empty() {

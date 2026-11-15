@@ -14,6 +14,7 @@
 // "Live talks v3, lane N6: the screens"). Every block is optional; nothing
 // is drawn for a block the game did not send.
 //
+//   talk.persona   true when the talk plays on the ear and the voice (N4): no moves list, ideas instead
 //   talk.channel   "In person" | "Phone call" | "Text" | ... (the header)
 //   talk.minutes   {left, of} minutes of this talk (outlined number), else the week's hours
 //   talk.left      sections down the left column, after his head card
@@ -24,7 +25,8 @@
 //                  read, built, staff)
 //   talk.ideas     [text]: a click puts the words in the box, to change
 //   talk.moves     {tabs: [{k, name, note}], builder: {...}}: the pick lists
-//   talk.confirm   [{text, cmd, args}]: what waits on your say-so (N4's talk_confirm)
+//   talk.confirm   [{text, cmd, args}]: what waits on your say-so (N4's talk_confirm; with talk.persona
+//                  the game lists it on every draw, so a reload keeps it)
 // A section is {k, label, note, ...} with k one of: text, entries, tiles, chips,
 // bars, split, clips, word, stand, asks, learned, rank, facts, deal, ideas.
 "use strict";
@@ -68,7 +70,10 @@ async function cvScene(s, lead, pp, cast, st) {
   const T = s.talk || {};
   const key = "scene:" + s.id;
   const box = aiBoxPeek(s, key);
-  const v3 = !!box && s.kind === "OneOnOne";
+  // A talk the game plays on the ear and the voice (`talk.persona`, set by the game
+  // with a key): no answer buttons, ideas take their place (question 7).
+  // When the typed line fails for good (the box says "off"), the moves come back.
+  const v3 = !!box && !!T.persona && !(aiState.boxes[key] && aiState.boxes[key].phase === "off");
   const peek = lead && lead.kind === "player" ? await api("peek", { kind: "player", id: lead.id }).catch(() => null) : null;
   const head = lead && lead.kind === "player" ? await cvHead(lead, s.face) : "";
   const moves = v3 ? "" : await cvMoves(s, st, T);
@@ -229,7 +234,9 @@ function cvChart(c) {
 // What waits on your say-so (an offer, a request, a decision): N4's
 // `talk_confirm`. Nothing here is done until you press the button.
 function cvConfirm(s, T, b) {
-  const list = [...(T.confirm || []), ...((b && b.confirm) || [])];
+  // On a talk the game plays (`talk.persona`) the game lists what waits on you each
+  // time the page is drawn, so a reload keeps it; the box's own copy is for the rest.
+  const list = T.persona ? T.confirm || [] : [...(T.confirm || []), ...((b && b.confirm) || [])];
   CV_CONFIRM[s.id] = list;
   if (!list.length) return "";
   return list.map((c, i) => `<div class="cv-confirm"><p>${cvT(c.text)}</p><div class="cv-acts"><button type="button" class="st-btn small glass" data-act="cvconfirm" data-i="${i}" data-id="${s.id}" data-yes="0">Not that</button><button type="button" class="st-btn small primary" data-act="cvconfirm" data-i="${i}" data-id="${s.id}" data-yes="1">Do it</button></div></div>`).join("");
