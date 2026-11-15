@@ -522,6 +522,10 @@ pub struct Player {
     /// staffs see what their eye finds.
     #[serde(default)]
     pub craft: crate::craft::Crafts,
+    /// The split ceiling's hidden state (`progression.rs`): his knacks and
+    /// each limit's own part. Hidden: staffs see only words.
+    #[serde(default)]
+    pub prog: crate::progression::Prog,
 }
 
 /// Hidden game-day traits on Football Manager's 1-20 scale (section 3). The
@@ -695,9 +699,12 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
         train: Default::default(),
         grow: 0.0,
         craft: Default::default(),
+        prog: Default::default(),
     };
     // His flaws and tools, from who he is (individual practice topic 3), on
     // his own keyed stream: no other draw moves.
     crate::craft::ensure(&mut p);
+    // His knacks and limits (the progression update), on their own stream.
+    crate::progression::ensure_new(&mut p);
     p
 }

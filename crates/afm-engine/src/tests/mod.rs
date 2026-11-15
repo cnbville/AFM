@@ -68,6 +68,7 @@ mod polls;
 mod portal_recruiting;
 mod portal_talks;
 mod praise;
+mod progression;
 mod promises;
 mod public_bar;
 mod pull_file;

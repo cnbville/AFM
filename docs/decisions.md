@@ -100,6 +100,17 @@ The full list with the numbers is in `docs/match-engine.md` ("Choices Claude mad
 ### World trial 3 fix list picks (2026-10-14, proposed, not confirmed)
 Listed in `docs/world-model.md` ("Trial 3 fix list"): the NIL position values and offer formula, the recruiting bond, facility steps, hiring read noise and age mark-downs, the bias fade, the bench refit, the leg-body lean for kickers, the name reweighting, and team schemes picked from the coach. Confirmed by Raichel 2026-10-14: every college game runs on the engine, history included (30 years in the game, 15 for trial 3).
 
+### Progression update steps 1-2 (built 2026-11-15)
+Built from `docs/design/progression.md` and `progression-everyday.md`, both agreed by Cain on 2026-11-14/15; how it works in `docs/reference/how-it-works/progression.md`. Cain's own picks in the build: AI staffs' project lean is the coach's own, moved by his seat (decision card, 2026-11-15), and the 12-point yearly growth cap is dropped (physical study item 16, 2026-11-15). The limit's read takes off the class's drift by age, so only a player's own growth past his class lifts it (the agreed rank, item 4, worked out with the physical study thread). Claude's picks, proposed, not confirmed:
+- The passing mechanics family is footwork only.
+- The makeup part of the read uses makeup ceilings, not today's ratings, so a boy's young reads don't hold his limit down.
+- The leans' shares: 3 in 10 developers, 4 balanced, 3 win-now (the prototype's).
+- High school staffs' time is 0.3 + 0.5 × resources.
+- NFL clubs run projects with a balanced lean.
+- A suspended or dismissed year closes no room.
+- The class's drift is fitted with a coach of 10 and rotation snaps.
+- The trims are the design's class-sim values until step 5 sizes them after the physical items. With them, today's 80+ counts run about 2-3 times higher on the class sim (corners 11 to 29 a class).
+
 ## Assumed, not yet confirmed
 - The rest of `docs/design/season-calendar-and-pacing.md` (week-by-week calendar, tension tiers, climax budget) is a draft for section 4.
 
