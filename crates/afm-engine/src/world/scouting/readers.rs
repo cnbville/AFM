@@ -19,6 +19,9 @@ pub enum Staff {
     Club(usize),
     Program(usize),
     School(usize),
+    /// A club in another league that scouts and drafts (SK77): a CFL
+    /// franchise, by its index in `pro::other`.
+    League(usize),
 }
 
 /// Reader codes beyond a club scout's place (0-249) and the built GM, HC,
@@ -42,6 +45,8 @@ pub fn seat_staff(w: &World) -> Option<Staff> {
     match s.level {
         crate::calendar::Level::Nfl => s.nfl_team.map(Staff::Club),
         crate::calendar::Level::HighSchool => s.program.map(Staff::School),
+        // Only the CFL drafts among the other leagues (SK77).
+        crate::calendar::Level::Other => crate::world::pro::cfl::seat_club(w).map(Staff::League),
         _ => s.program.map(Staff::Program),
     }
 }
@@ -223,11 +228,24 @@ pub fn reader(w: &World, staff: Staff, who: u32, group: usize) -> Option<Reader>
                     "Coach".into()
                 }
             }
+            Staff::League(fr) => {
+                let tm = &w.others.teams[fr];
+                if tm.head_coach == Some(c) {
+                    "Head coach".into()
+                } else if tm.oc == Some(c) {
+                    "Offensive coordinator".into()
+                } else if tm.dc == Some(c) {
+                    "Defensive coordinator".into()
+                } else {
+                    "Coach".into()
+                }
+            }
         };
         return Some(coach_reader(w, c, job, group));
     }
     match staff {
         Staff::Club(t) => club_reader(w, t, who, group),
+        Staff::League(fr) => league_reader(w, fr, who, group),
         Staff::Program(prog) => {
             if (PERSONNEL..HS_ASSISTANT).contains(&who) {
                 let k = (who - PERSONNEL) as usize;
@@ -327,7 +345,7 @@ pub fn has_analytics(w: &World, staff: Staff) -> bool {
     match staff {
         Staff::Club(_) => w.year >= 2003,
         Staff::Program(p) => w.year >= 2016 && w.programs[p].division == crate::world::data::Division::FBS,
-        Staff::School(_) => false,
+        Staff::School(_) | Staff::League(_) => false,
     }
 }
 
@@ -344,6 +362,45 @@ fn numbers_looks(w: &World, staff: Staff, i: usize) -> Vec<(u32, Kind, crate::ca
         .map(|r| (ANALYTICS, Kind::Numbers, crate::calendar::Date::ymd(r.year as i32, 12, 10)))
         .filter(|x| x.2 <= w.today)
         .collect()
+}
+
+/// A CFL club's people (SK77): its scouts by place, its head coach (the
+/// final say) and coordinators, its doctors.
+fn league_reader(w: &World, fr: usize, who: u32, group: usize) -> Option<Reader> {
+    let tm = w.others.teams.get(fr)?;
+    match who {
+        x if x == HC as u32 || x == OC as u32 || x == DC as u32 || x == GM as u32 => {
+            let c = match x as u8 {
+                OC => tm.oc.or(tm.head_coach),
+                DC => tm.dc.or(tm.head_coach),
+                _ => tm.head_coach,
+            }?;
+            let job = match x as u8 {
+                OC => "Offensive coordinator",
+                DC => "Defensive coordinator",
+                _ => "Head coach",
+            };
+            let mut r = coach_reader(w, c, job.into(), group);
+            if x as u8 != OC && x as u8 != DC {
+                r.say = 1.4;
+            }
+            Some(r)
+        }
+        MEDICAL => Some(staffer_reader("The club's doctors", "Team physician", 9, fr as u64 ^ 0x3ED)),
+        k if (k as usize) < tm.scouts.len() => {
+            let s = &tm.scouts[k as usize];
+            let job = match s.role {
+                Role::Director => "Director of player personnel",
+                Role::National => "Director of Canadian scouting",
+                Role::Area if s.region == 4 => "American scout",
+                Role::Area => "Scout",
+            };
+            let mut r = scout_reader(s, group, job);
+            r.contacts = None;
+            Some(r)
+        }
+        _ => None,
+    }
 }
 
 fn club_reader(w: &World, t: usize, who: u32, group: usize) -> Option<Reader> {
@@ -463,6 +520,11 @@ pub fn evidence(w: &World, staff: Staff, id: u32) -> (Vec<Reader>, Vec<Evidence>
     {
         raw.extend(f.iter().map(|l| (l.who as u32, Kind::from_nfl(l.kind), l.date)));
     }
+    if let Staff::League(fr) = staff
+        && let Some(f) = w.others.teams.get(fr).and_then(|c| c.files.get(&id))
+    {
+        raw.extend(f.iter().map(|l| (l.who as u32, Kind::from_nfl(l.kind), l.date)));
+    }
     if let Some(v) = w.scouting.dept.looks.get(&id) {
         raw.extend(v.iter().map(|l: &SeatLook| (l.who, l.kind, l.date)));
     }
@@ -513,6 +575,10 @@ fn own_roster(w: &World, staff: Staff, i: usize) -> Vec<(u32, Kind, crate::calen
             (on, pc.or(w.programs[prog].head_coach))
         }
         Staff::School(h) => (matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) && p.hs == h, None),
+        Staff::League(fr) => {
+            let tm = &w.others.teams[fr];
+            (p.stage == Stage::Pro && tm.roster.contains(&(i as u32)), tm.head_coach)
+        }
     };
     if !mine {
         return Vec::new();
@@ -563,6 +629,7 @@ pub fn medical_rating(w: &World, staff: Staff) -> f64 {
         Staff::Club(t) => w.clubs.get(t).map_or(10, |c| c.support.medical.rating),
         Staff::Program(p) => w.programs[p].support.medical.rating,
         Staff::School(_) => 7,
+        Staff::League(_) => 9,
     };
     if r == 0 { 10.0 } else { r as f64 }
 }
@@ -591,6 +658,7 @@ pub fn staff_key(staff: Staff) -> u64 {
         Staff::Club(t) => 0x1000 + t as u64,
         Staff::Program(p) => 0x10_0000 + p as u64,
         Staff::School(h) => 0x100_0000 + h as u64,
+        Staff::League(fr) => 0x1000_0000 + fr as u64,
     }
 }
 

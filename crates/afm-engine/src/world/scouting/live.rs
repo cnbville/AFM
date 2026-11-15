@@ -62,7 +62,7 @@ pub struct LiveDraft {
 
 /// Whether your war room holds the clock: open, on a night under way.
 pub fn holds(w: &World) -> bool {
-    w.scouting.live.as_ref().is_some_and(|l| !l.waiting)
+    w.scouting.live.as_ref().is_some_and(|l| !l.waiting) || crate::world::pro::cfl::holds(w)
 }
 
 /// The next night opens: the AI picks run to your turn again.
@@ -695,6 +695,8 @@ pub fn default_pfa(w: &World, l: &LiveDraft) -> Vec<(u32, u32, u32)> {
 /// your staff makes the night's picks left, and after the last night the
 /// rush runs on your list.
 pub(crate) fn finish(w: &mut World) {
+    // A CFL draft with your club's room open (SK77): your staff picks.
+    crate::world::pro::cfl::finish(w);
     // The night under way: your staff makes its picks left. After the last
     // night the rush runs on your list.
     while let Some(l) = w.scouting.live.as_ref() {

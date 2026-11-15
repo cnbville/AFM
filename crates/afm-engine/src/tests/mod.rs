@@ -5,6 +5,7 @@ mod ai_promises;
 mod assignments;
 mod bodies;
 mod carousel;
+mod cfl_draft;
 mod claims;
 mod coaching_people;
 mod compact;
