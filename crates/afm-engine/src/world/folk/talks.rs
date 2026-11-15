@@ -216,6 +216,12 @@ pub enum PromiseKind {
     /// How you'll use him: a term on the play log (`usage::Usage`, in
     /// `Terms::usage`; the promises on usage, agreed 2026-11-14).
     Usage,
+    /// A prospect before the draft: your club takes him by this round (1
+    /// to 7; 7 is "we'll draft you"). Judged when the draft is done: kept if
+    /// you took him by then, broken if he was still there at one of your
+    /// picks by then, void if he was gone before your first chance or never
+    /// entered the draft (Cain 2026-11-15).
+    Draft(u8),
 }
 
 impl PromiseKind {
@@ -243,6 +249,9 @@ impl PromiseKind {
                 )
             ),
             PromiseKind::Usage => "how you'd use him".into(),
+            PromiseKind::Draft(r) if r >= 7 => "that you'd draft him".into(),
+            PromiseKind::Draft(1) => "that you'd take him in the first round".into(),
+            PromiseKind::Draft(r) => format!("that you'd take him by round {r}"),
         }
     }
 }
@@ -420,6 +429,11 @@ fn promise_due(w: &World, kind: PromiseKind, seasons: u8) -> Date {
         PromiseKind::Stay | PromiseKind::Raise => today.add(330),
         PromiseKind::Booster(_) => end(w).max(today.add(60)),
         PromiseKind::Recruit(k, _) => super::pledge::due(w, k),
+        // The day after the draft's last night (the next one's, once it's done).
+        PromiseKind::Draft(_) => {
+            let d = w.dates.draft[2].date.add(1);
+            if d > today { d } else { d.add(365) }
+        }
     };
     base.add(
         365 * seasons.saturating_sub(1) as i32 * matches!(kind, PromiseKind::Booster(_) | PromiseKind::Stay) as i32,
@@ -431,7 +445,7 @@ fn promise_due(w: &World, kind: PromiseKind, seasons: u8) -> Date {
 /// healthy games, broken by the share missed, released when he missed his
 /// condition; the rest on their day as before. Keeping it pays more the
 /// more he doubted; breaking it costs by what he counted on.
-fn check_promises(w: &mut World, d: Date) {
+pub fn check_promises(w: &mut World, d: Date) {
     let due: Vec<usize> = (0..w.folk.promises.len())
         .filter(|&k| w.folk.promises[k].kept.is_none() && w.folk.promises[k].due <= d)
         .collect();
@@ -479,7 +493,11 @@ fn check_promises(w: &mut World, d: Date) {
         let text = format!("{} the promise of {} you made to {} on {}.", text, p.words(), p.who, p.made.pretty());
         let cost = if kept { 1.0 } else { scale * public };
         let p = w.folk.promises[k].clone();
-        settle_promise(w, &p, kept, cost);
+        if matches!(p.kind, PromiseKind::Draft(_)) {
+            settle_draft(w, &p, kept, cost);
+        } else {
+            settle_promise(w, &p, kept, cost);
+        }
         // A booster takes it further (talk facts lane L8).
         if !kept && let (PromiseTo::Cast(r, term), PromiseKind::Booster(_)) = (p.to, p.kind) {
             super::backers::broken(w, r, term);
@@ -607,6 +625,7 @@ pub(crate) fn kept(w: &World, p: &Promise) -> bool {
                         k.signed >= w.year && k.signed > p.made.year() - 1 && p.made.days_to(w.today) > 0
                     })
                 }
+                PromiseKind::Draft(r) => draft_call(w, i, r, p.made) == DraftCall::Kept,
                 _ => true,
             }
         }
@@ -622,6 +641,9 @@ pub(crate) fn kept(w: &World, p: &Promise) -> bool {
 /// football. A club that cut or traded him, or a program or school that
 /// dismissed him, broke it (`kept`).
 pub(crate) fn lapsed(w: &World, p: &Promise) -> bool {
+    if let (PromiseTo::Player(id), PromiseKind::Draft(r)) = (p.to, p.kind) {
+        return super::person(w, id).is_none_or(|i| draft_call(w, i, r, p.made) == DraftCall::Void);
+    }
     let (
         PromiseTo::Player(id),
         PromiseKind::Place(_)
@@ -653,6 +675,73 @@ pub(crate) fn lapsed(w: &World, p: &Promise) -> bool {
         }
         Team::High(h) => pp.stage != Stage::HighSchool || pp.hs != h,
     }
+}
+
+/// How a draft promise came out.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DraftCall {
+    Kept,
+    Broken,
+    /// He was gone before your first pick by that round, or he never
+    /// entered the draft: you never had the chance.
+    Void,
+}
+
+/// A draft promise (`PromiseKind::Draft`) against the draft that followed
+/// it: your club's picks by round `r` that year, and where he went.
+pub fn draft_call(w: &World, i: usize, r: u8, made: Date) -> DraftCall {
+    let Some(Team::Nfl(club)) = Team::seat(w) else { return DraftCall::Void };
+    let year = {
+        let d = w.dates.draft[2].date;
+        if d >= made { d.year() } else { d.year() + 1 }
+    };
+    let r = u32::from(r.clamp(1, 7));
+    // Your picks by that round, earliest first, as (round, pick).
+    let first_mine = w
+        .people
+        .iter()
+        .filter_map(|q| q.pro.as_ref()?.draft)
+        .filter(|&(y, round, _, t)| y == year && t == club && round <= r)
+        .map(|(_, round, pick, _)| (round, pick))
+        .min();
+    let his = w.people[i].pro.as_ref().and_then(|c| c.draft).filter(|d| d.0 == year);
+    match his {
+        Some((_, round, _, t)) if t == club && round <= r => DraftCall::Kept,
+        // Taken by another club before your first chance by that round.
+        Some((_, round, pick, _)) if round <= r && first_mine.is_none_or(|m| (round, pick) < m) => DraftCall::Void,
+        Some(_) => DraftCall::Broken,
+        // Undrafted: broken if he was in the draft (he's a pro now, or still
+        // waiting as a declared man); void if he went back to school.
+        None => {
+            if matches!(w.people[i].stage, Stage::Pro | Stage::Declared) {
+                DraftCall::Broken
+            } else {
+                DraftCall::Void
+            }
+        }
+    }
+}
+
+/// A draft promise kept or broken. With the man on your roster (you took
+/// him, or later than you said), it lands as any promise to your player
+/// does. With another club's man, what you broke is his trust in you, kept
+/// by his key, and your name with the agents; no grudge against his new
+/// club, which kept nothing from him.
+fn settle_draft(w: &mut World, p: &Promise, kept: bool, cost: f32) {
+    let PromiseTo::Player(id) = p.to else { return };
+    let Some(i) = super::person(w, id) else { return };
+    let yours = Team::seat(w).is_some_and(|t| t.roster(w).contains(&i));
+    if yours {
+        let names = [super::Name::Room, super::Name::Agents];
+        let why = if kept { Reason::PromiseKept } else { Reason::PromiseBroken };
+        settle(w, p.to, kept, cost, why, p.said, &names);
+        return;
+    }
+    let key = super::persona::makeup::key(super::persona::Them::Player(id));
+    let now = w.folk.mine.trust_of(key).unwrap_or(0.5);
+    let dt = if kept { super::promise::kept_trust(p.said) } else { -0.22 * cost };
+    w.folk.mine.set_trust(key, now + dt);
+    w.folk.mine.word(super::Name::Agents, if kept { 0.04 } else { -0.08 * cost });
 }
 
 /// A starter as he sees it (the promises design, section 2): with the
@@ -2027,6 +2116,31 @@ pub(crate) fn position_coach_now(w: &World, i: usize) -> Option<usize> {
     here(prog.position_coaches[group as usize]).or_else(|| here(coordinator)).or_else(|| here(prog.head_coach))
 }
 
+/// The men on your roster a coach on your staff coaches, by his job: a
+/// position coach his room, a coordinator his side of the ball (the rooms
+/// he covers and the ones he oversees), the head coach none (that's you,
+/// or the whole team). Player ids, in roster order. Empty for a coach not
+/// on your staff.
+pub fn coached_by(w: &World, c: usize) -> Vec<u32> {
+    use crate::world::coach::{Group, Role};
+    let Some(team) = Team::seat(w) else { return Vec::new() };
+    let Some(job) = w.coaches.get(c).and_then(|x| x.job) else { return Vec::new() };
+    if Team::from_employer(job.employer) != team {
+        return Vec::new();
+    }
+    let takes = |g: Group| match job.role {
+        Role::PositionCoach(x) => x == g,
+        Role::OffensiveCoordinator => g != Group::Specialists && g.offense(),
+        Role::DefensiveCoordinator => g != Group::Specialists && !g.offense(),
+        Role::HeadCoach => false,
+    };
+    team.roster(w)
+        .into_iter()
+        .filter(|&i| takes(Group::of(w.people[i].player.position)))
+        .map(|i| w.people[i].player.id)
+        .collect()
+}
+
 /// Whether a one-on-one takes typed lines (live talks lane 9): yes.
 pub const ONE_ON_ONE_TYPED: bool = true;
 
@@ -2150,14 +2264,40 @@ fn read_kind(w: &World, i: usize, p: &super::scene::PromiseRead) -> Option<Promi
         "contract" => PromiseKind::Contract,
         "stay" => PromiseKind::Stay,
         "usage" if p.usage.is_some() => PromiseKind::Usage,
+        // Only your NFL club, to a man in the coming draft, before it's done.
+        "draft" if draft_promise_open(w, i) => PromiseKind::Draft(draft_round(&p.condition_words)),
         _ => return None,
     })
+}
+
+/// Whether you can promise him a pick: you run an NFL club, he is in
+/// college or declared, and this year's draft isn't done yet.
+pub fn draft_promise_open(w: &World, i: usize) -> bool {
+    matches!(Team::seat(w), Some(Team::Nfl(_)))
+        && matches!(w.people[i].stage, Stage::College | Stage::Declared)
+        && w.today <= w.dates.draft[2].date
+}
+
+/// The round in a draft promise's words: a number or an ordinal ("1",
+/// "first", "2nd"), 7 (any round) when none is said.
+pub fn draft_round(words: &str) -> u8 {
+    let w = words.to_lowercase();
+    const ORD: [(&str, u8); 7] =
+        [("first", 1), ("second", 2), ("third", 3), ("fourth", 4), ("fifth", 5), ("sixth", 6), ("seventh", 7)];
+    let num = w
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .find_map(|x| x.trim_end_matches(|c: char| c.is_ascii_alphabetic()).parse::<u8>().ok());
+    num.or_else(|| ORD.iter().find(|(o, _)| w.contains(o)).map(|x| x.1)).map_or(7, |r| r.clamp(1, 7))
 }
 
 /// The terms a promise read from a typed line carries (the promise design,
 /// section 3): by when, on what condition, ahead of whom.
 fn read_terms(w: &World, i: usize, kind: PromiseKind, p: &super::scene::PromiseRead) -> super::promise::Terms {
     use super::promise::{By, Cond, Terms};
+    // A pick by a round carries no terms past its round (in the kind).
+    if matches!(kind, PromiseKind::Draft(_)) {
+        return Terms::default();
+    }
     let by = match p.by.as_str() {
         "midseason" => By::Midseason,
         "next_season" => By::NextSeason,

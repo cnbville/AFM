@@ -68,7 +68,7 @@ pub const TONES: [&str; 4] = ["fiery", "warm", "firm", "calm"];
 /// nothing from them yet.
 /// "early_chance" and "no_redshirt" are two of the five a recruit is
 /// promised (lane 10).
-pub const PROMISE_KINDS: [&str; 11] = [
+pub const PROMISE_KINDS: [&str; 12] = [
     "start",
     "role",
     "touches",
@@ -80,6 +80,7 @@ pub const PROMISE_KINDS: [&str; 11] = [
     "early_chance",
     "no_redshirt",
     "usage",
+    "draft",
 ];
 pub const PROMISE_BY: [&str; 6] = ["next_game", "opener", "midseason", "this_season", "next_season", "none"];
 pub const CONDITIONS: [&str; 7] = ["stat", "practice", "conduct", "grades", "body", "health", "none"];
