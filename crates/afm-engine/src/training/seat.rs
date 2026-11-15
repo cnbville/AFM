@@ -1167,6 +1167,73 @@ pub fn focus_minutes(
     base + (mins(extra) - mins(mine)).max(0.0)
 }
 
+/// A point's minutes on flaws and tools: a staff's week with no period
+/// that works it (winter's weight room, the summer program's lifting, a
+/// December with no bowl) gives none, however much he adds on his own.
+fn staff_minutes(neutral: &Week, mental: bool, mins: f64) -> f64 {
+    if staff_works(neutral, mental) { mins } else { 0.0 }
+}
+
+/// Whether a staff's week has a period with the staff that works a point
+/// (on the field, or in the film room for a film-room one). The players'
+/// own routes on air (`what` 1: winter, the summer program, the quiet
+/// weeks) have no coach in them.
+pub fn staff_works(neutral: &Week, mental: bool) -> bool {
+    neutral
+        .days
+        .iter()
+        .flat_map(|d| &d.periods)
+        .any(|p| works_focus(p, mental) && p.min > 0 && !(p.kind == Kind::OnAir && p.what == 1))
+}
+
+/// The coming weeks of your team's calendar, from the next week's pass:
+/// whether each has individual time for a point on the field and in the
+/// film room (individual practice: the plan moves only on these weeks, so
+/// the Development tab's dates count them). Each football year's own frame,
+/// its schedule for this one and the usual games after; a bowl in later
+/// years when this year has one.
+pub fn work_weeks(w: &World, n: u32) -> Vec<(bool, bool)> {
+    let y = w.dates.clone();
+    let frames = Frames::new(w, &y);
+    let Some(st) = seat_team(w, &frames) else { return vec![(true, true); n as usize] };
+    let mut m = w.today.on_or_after(crate::calendar::Weekday::Mon);
+    if w.training.log.last().is_some_and(|l| l.monday >= m) {
+        m = m.add(7);
+    }
+    let bowl_now = st.games.iter().any(|&g| st.frame.block(g) == Block::Postseason);
+    let mut frame = st.frame;
+    let mut out = Vec::with_capacity(n as usize);
+    for _ in 0..n {
+        while m > frame.end {
+            let next = crate::calendar::YearDates::new(frame.season + 1);
+            match seat_frame(w, &next) {
+                Some(f) => frame = f,
+                None => break,
+            }
+        }
+        let block = block_of_week(&frame, m);
+        let this_year = frame.season == st.frame.season;
+        let games: Vec<Date> = if this_year {
+            st.games.iter().copied().filter(|&g| g >= m && g < m.add(7)).collect()
+        } else {
+            super::week::usual_games(st.tier, block, m)
+        };
+        let bowl = block == Block::Postseason
+            && if this_year {
+                st.games.iter().any(|&g| g >= m && frame.block(g) == Block::Postseason)
+            } else {
+                bowl_now
+            };
+        let nk = super::week::staff_week(st.tier, &frame, m, &games, bowl, st.state, st.heat, &|s| {
+            super::plan::neutral(st.tier, s)
+        });
+        let coaches = books(&frame, m, st.state, st.heat).iter().any(|b| b.coaches);
+        out.push((coaches && staff_works(&nk, false), coaches && staff_works(&nk, true)));
+        m = m.add(7);
+    }
+    out
+}
+
 /// What a week's non-contact periods do beyond growth and prep (proposed,
 /// not confirmed): a third morning of mat drills costs mood (TR6); routes
 /// on air warm the quarterback's timing with his receivers (TR20); outings
@@ -1412,7 +1479,18 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
             focus_minutes(&plain, &pw.neutral, &mine, role, camp, false, own),
             focus_minutes(&plain, &pw.neutral, &mine, role, camp, true, own),
         );
-        craft_minutes.insert(i, mins);
+        // His flaws and tools move only on a week the staff has individual
+        // time (the season, camp, bowl practice, spring and, in the film
+        // room, the NCAA's two hours out of season): never on his own time
+        // or at a voluntary week he skips (`staff_minutes`).
+        craft_minutes.insert(
+            i,
+            if absent || own_time {
+                (0.0, 0.0)
+            } else {
+                (staff_minutes(&pw.neutral, false, mins.0), staff_minutes(&pw.neutral, true, mins.1))
+            },
+        );
         let focus_of = focus.get(&i).map(|&(a, b)| {
             let m = if family_of(a) == Family::Mental { mins.1 } else { mins.0 };
             crate::development::Focus::two(a, b, m)

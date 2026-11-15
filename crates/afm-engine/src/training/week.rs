@@ -214,7 +214,7 @@ pub fn work_out(
 
 /// The games a staff plans an earlier week of the block around: one a
 /// week in season, on the level's usual day.
-fn usual_games(tier: Tier, block: Block, monday: Date) -> Vec<Date> {
+pub(crate) fn usual_games(tier: Tier, block: Block, monday: Date) -> Vec<Date> {
     if block != Block::Season {
         return Vec::new();
     }

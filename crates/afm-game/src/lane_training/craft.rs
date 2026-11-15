@@ -329,7 +329,14 @@ pub(super) fn project(w: &World, i: usize, eye: f64, code: u8) -> Result<Value, 
         if c.is_flaw() && !q.craft.has(c) {
             q.craft.set(c, believed(w, i, c, reader));
         }
-        let weeks = |m: f64| craft::weeks_to_hold(&q, c, &Teach { teaching, minutes: m, buy_in: buy }, LOOK_WEEKS);
+        // Counted on your calendar: only the weeks your staff has
+        // individual time for it move it (on the field, or in the film room
+        // for a film-room one).
+        let on: Vec<bool> = afm_engine::training::seat::work_weeks(w, LOOK_WEEKS)
+            .into_iter()
+            .map(|(field, film)| if c.info().mental { film } else { field })
+            .collect();
+        let weeks = |m: f64| craft::weeks_to_hold_on(&q, c, &Teach { teaching, minutes: m, buy_in: buy }, &on);
         let left = seasons_left(w, i);
         let at = |wk: u32| w.today.add(7 * wk as i32);
         let hold = weeks(mins).map(|wk| {
