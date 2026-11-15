@@ -14,9 +14,9 @@
 //! Commands: `ai_status`, `ai_key_set {key}`, `ai_key_clear`, `ai_test`,
 //! `ai_poll {ticket}` and `ai_demo {state?}` (the fake only). The core
 //! (lane 3) adds `people_say` (a typed line in any scene), `talk_typed`
-//! (the pregame and halftime room), `fo_say` (contract talks, trade calls,
-//! NIL forms), `ai_ask` (every ask box), `ai_checks`, and question 5's two
-//! that need no key, `fo_fact` and `scout_source`. Each later lane fills its
+//! (the pregame and halftime room), `fo_say` (the money desks' box, played
+//! on the call with the man across), `ai_ask` (every ask box), `ai_checks`,
+//! and question 5's `scout_source`, which needs no key. Each later lane fills its
 //! own stub under `say/` and `ask/` and never edits this file.
 //!
 //! The rule under all of it: the AI only reads your words and writes theirs;
@@ -72,7 +72,6 @@ pub fn call(g: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "fo_say" => say::fo_say(g, args),
         "ai_ask" => ask::ask(g, args),
         "ai_checks" => checks::ai_checks(g, args),
-        "fo_fact" => say::money::fact(g, args),
         "scout_source" => ask::source::source_cmd(g, args),
         _ => return None,
     })
@@ -93,8 +92,6 @@ pub fn after(g: &mut Game, cmd: &str, _args: &Value, reply: &mut Reply) {
     if let Some(inner) = v.get_mut("reply") {
         say::typed_lines(inner);
     }
-    say::money::facts(g, cmd, v);
-    say::recruit::facts(g, cmd, v);
     ask::source::sources(g, cmd, v);
     if !g.ai.usable() {
         return;
@@ -490,7 +487,7 @@ mod tests {
         assert_eq!(flags["say"]["cmd"], "people_say");
         assert_eq!(flags["ask"].as_array().unwrap().len(), 4);
         assert_eq!(flags["ask"][3]["auto"], true);
-        assert!(flags["facts"]["list"].is_array() && flags["sources"]["topics"].is_array());
+        assert!(flags.get("facts").is_none() && flags["sources"]["topics"].is_array());
         for s in list["states"].as_array().unwrap() {
             let s = s.as_str().unwrap();
             let id = ok(&mut g, "ai_demo", json!({ "state": s }))["ticket"].as_u64().unwrap();
