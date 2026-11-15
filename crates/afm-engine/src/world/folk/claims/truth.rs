@@ -126,6 +126,10 @@ pub struct Live {
     /// trust in the agent, and not `market.fleece`, which AI trades write.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub word: Vec<(u64, f32)>,
+    /// Live talks v3's stores (`persona::memory`): his lies, the grapevine,
+    /// the colour notebook, unseen rule breaks and the rest.
+    #[serde(skip_serializing_if = "crate::world::folk::persona::memory::Memory::is_empty")]
+    pub persona: crate::world::folk::persona::memory::Memory,
 }
 
 /// The most lies kept: the oldest seen ones go first.
@@ -136,7 +140,7 @@ pub const WORD_START: f32 = 0.5;
 
 impl Live {
     pub fn is_empty(&self) -> bool {
-        self.lies.is_empty() && self.word.is_empty()
+        self.lies.is_empty() && self.word.is_empty() && self.persona.is_empty()
     }
 
     /// Someone's trust in your word (`WORD_START` until it moves).

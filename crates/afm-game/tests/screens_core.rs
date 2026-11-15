@@ -12,6 +12,14 @@ fn ok(g: &mut Game, cmd: &str, args: Value) -> Value {
     }
 }
 
+/// Unread portal memos: players of yours who entered the portal today.
+fn portal_mail(mail: &Value) -> u64 {
+    let rows = mail["rows"].as_array().unwrap();
+    rows.iter()
+        .filter(|r| r["unread"] == true && r["keys"].as_array().is_some_and(|k| k.iter().any(|x| x == "Portal")))
+        .count() as u64
+}
+
 #[test]
 fn the_desk_files_answers_and_clears_its_mail() {
     let dir = std::env::temp_dir().join(format!("afm-core-{}", std::process::id()));
@@ -23,8 +31,12 @@ fn the_desk_files_answers_and_clears_its_mail() {
 
     // The welcome letter is waiting, unread, with its big moment, beside
     // your No. 2's first note of the guided week (lane 8, H12).
+    // The world's own mail of that morning may come beside them: a player
+    // of yours entering the portal in a coaching-change window still open
+    // when you take the job (seed 11's Michigan on main b928a3c).
     let mail = ok(&mut g, "mail", json!({}));
-    assert_eq!(mail["unread"], 2, "{mail}");
+    let world = portal_mail(&mail);
+    assert_eq!(mail["unread"], 2 + world, "{mail}");
     let welcome =
         mail["rows"].as_array().unwrap().iter().find(|r| r["head"] == "school").unwrap_or_else(|| panic!("{mail}"));
     let id = welcome["id"].as_str().unwrap().to_string();
@@ -34,7 +46,7 @@ fn the_desk_files_answers_and_clears_its_mail() {
     assert_eq!(ok(&mut g, "status", json!({}))["reveals"], 0);
     let letter = ok(&mut g, "letter", json!({ "id": id }));
     assert_eq!(letter["head"], "school", "{letter}");
-    assert_eq!(ok(&mut g, "mail", json!({}))["unread"], 1);
+    assert_eq!(ok(&mut g, "mail", json!({}))["unread"], 1 + world);
 
     // Saved mail survives the 30-day clearing; the rest goes.
     ok(&mut g, "mail_set", json!({ "id": id, "saved": true }));

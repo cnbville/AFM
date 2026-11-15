@@ -23,6 +23,7 @@ pub(crate) mod college;
 pub mod data;
 pub mod deals;
 pub mod desk;
+pub(crate) mod early_entry;
 pub mod eligibility;
 pub mod ethnicity;
 pub mod fame;
@@ -456,6 +457,9 @@ pub struct PersonCal {
     pub hs_grade_out: u32,
     /// Plans to enter the draft if the reads hold (drawn in December).
     pub declare_plan: Option<bool>,
+    /// What weighed most in that plan (`early_entry::Why`), for his note.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub declare_why: Option<u8>,
     /// Graduated (a December graduate can transfer without sitting).
     pub graduated: bool,
     /// All-state selections in high school (A32): 1 = honorable mention or
@@ -1145,6 +1149,17 @@ pub struct CalendarLog {
     pub early_enrollees: u32,
     pub declared: u32,
     pub withdrew: u32,
+    /// Early entry by the December round (index round - 1, the last
+    /// projected undrafted): [underclassmen read, declared, withdrew].
+    #[serde(default)]
+    pub entry_by_round: [[u32; 3]; 8],
+    /// Declared underclassmen who had their degree (the NFL lists them
+    /// apart from those granted special eligibility).
+    #[serde(default)]
+    pub declared_graduates: u32,
+    /// Early entrants by the round they were drafted in (index 7: undrafted).
+    #[serde(default)]
+    pub early_drafted: [u32; 8],
     /// Declarations and withdrawals by day (part B 20): the title game's
     /// players declare and withdraw late.
     pub declared_by_day: Vec<(crate::calendar::Date, u32)>,
