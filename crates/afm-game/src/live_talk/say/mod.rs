@@ -326,6 +326,10 @@ pub fn people_say(g: &mut Game, args: &Value) -> Reply {
     if text.chars().count() > scene::LIMIT {
         return Err(format!("A line is {} characters at most.", scene::LIMIT));
     }
+    // Your one-on-ones play as live talks v3 (lane N4).
+    if super::persona::talk::plays(g, s) {
+        return super::persona::talk::say(g, id, text);
+    }
     let (mut card, keys) = one_on_one::card(w, s).unwrap_or_else(|| card::scene(w, s));
     hooks_reader(w, s, &mut card);
     let (rules, schema) =
@@ -419,6 +423,8 @@ fn scene_flag(g: &Game, v: &mut Value) {
     let Some(w) = g.world.as_ref() else { return };
     if w.folk.scenes.iter().find(|s| u64::from(s.id) == id).is_some_and(scene::takes_typed) {
         v["say"] = json!({ "cmd": "people_say", "args": { "id": id }, "limit": scene::LIMIT });
+        // A talk played on the ear and the voice: the page's `talk` block.
+        super::persona::view::flag(g, v);
     }
 }
 

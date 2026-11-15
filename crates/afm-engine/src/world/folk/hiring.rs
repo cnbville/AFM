@@ -443,7 +443,7 @@ fn talk_mut(w: &mut World, c: usize, role: Role) -> &mut Talk {
 
 /// The salary that would get him to yes with these terms (C33), if any
 /// under two and a half times his ask.
-fn would_take(w: &World, c: usize, role: Role, t: &Terms, now: f64) -> Option<f64> {
+pub(crate) fn would_take(w: &World, c: usize, role: Role, t: &Terms, now: f64) -> Option<f64> {
     let asked = ask(w, c, role).max(1.0);
     let at = |s: f64| {
         let mut x = t.clone();

@@ -211,6 +211,8 @@ pub struct KeepSnap {
     pub shots: Option<usize>,
     pub feature: Option<usize>,
     pub help: Option<usize>,
+    /// The backs or tight ends your word lets out on a route (lane N2).
+    pub release: [Option<usize>; 2],
 }
 
 impl Default for Tactics {
@@ -790,7 +792,15 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                     sim.agents[i].job = Job::Passer;
                     continue;
                 }
-                let route = route_for(c, r);
+                let mut route = route_for(c, r);
+                // Release him (the promises on usage, lane N2): the man your
+                // word lets out runs a route where the call keeps him in, a
+                // back to the flat, a tight end to sit in the hole at six.
+                if matches!(route, Route::Block | Route::CheckRelease)
+                    && s.tac.keep.release.contains(&Some(sim.agents[i].p))
+                {
+                    route = if r.is_back() { Route::Flat } else { Route::Sit(6.0) };
+                }
                 sim.agents[i].job = route_job(&sim.agents[i], route, los, by, s.hurry);
                 let late = silent_late(&sim, s, i);
                 if let Job::Route { release_delay, .. } = &mut sim.agents[i].job {

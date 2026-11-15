@@ -109,3 +109,58 @@ fn travel_money_sends_a_coach_on_to_a_second_school_on_thursdays_only() {
     let share = on as f64 / days as f64;
     assert!((0.07..0.13).contains(&share), "share of coach days with a second school: {share}");
 }
+
+#[test]
+fn each_raise_he_already_gave_halves_his_next_yes_and_a_new_job_starts_fresh() {
+    use crate::world::folk::boss::{AskKind, given_cut};
+    let (mut w, _) = college();
+    assert_eq!(given_cut(&w, AskKind::RecruitingMoney), 1.0, "no raise yet, his full chance");
+    w.folk.staff.recruit_bonus = 0.1;
+    assert!((given_cut(&w, AskKind::RecruitingMoney) - 0.5).abs() < 1e-9, "one raise given: half");
+    w.folk.staff.recruit_bonus = 0.3;
+    assert!((given_cut(&w, AskKind::RecruitingMoney) - 0.125).abs() < 1e-9, "three given: an eighth");
+    assert_eq!(given_cut(&w, AskKind::StaffMoney), 1.0, "the staff pool counts its own raises");
+    w.folk.staff.pool_bonus = 0.2;
+    assert!((given_cut(&w, AskKind::StaffMoney) - 0.25).abs() < 1e-9, "two staff raises: a quarter");
+    assert_eq!(given_cut(&w, AskKind::Facility), 1.0, "other asks are untouched");
+}
+
+// --- Your boss's yes to more money for the staff pool (people topic 12) ---
+
+#[test]
+fn a_staff_pool_yes_grows_the_support_staff_line_and_the_level_and_no_other_programs() {
+    use crate::world::finance::college::{STAFF, open_year, raise_staff};
+    use crate::world::folk::Team;
+    use crate::world::folk::staffing::staff_bonus;
+    let (mut w, mine) = college();
+    if w.finance.college.get(mine).is_none() || w.finance.college[mine].budget.year == 0 {
+        return;
+    }
+    let other = (0..w.programs.len()).find(|&p| p != mine && w.finance.college[p].budget.year != 0).unwrap();
+    assert_eq!(staff_bonus(&w, Team::College(mine)), 0.0, "a new job starts with no raise");
+    let usual = w.finance.college[mine].budget.l[STAFF] as f64;
+    let level = w.finance.college[mine].level as f64;
+    assert!(usual > 0.0, "an FBS program has a support staff line");
+    for k in 1..=2 {
+        w.folk.staff.pool_bonus += 0.1;
+        raise_staff(&mut w, mine, 0.1);
+        let now = w.finance.college[mine].budget.l[STAFF] as f64;
+        let want = usual * (1.0 + 0.1 * k as f64);
+        assert!((now - want).abs() < 1.0, "after {k} yes: {now} against {want}");
+    }
+    assert!(w.finance.college[mine].level as f64 >= level, "the level never falls with a raise");
+    assert_eq!(staff_bonus(&w, Team::College(other)), 0.0, "another program gets none of it");
+    // The next year's budget carries the raise, through the same line as the base pool.
+    let y = w.year;
+    let raised = w.finance.college[mine].budget.l[STAFF] as f64;
+    open_year(&mut w, mine, y);
+    assert!((w.finance.college[mine].budget.l[STAFF] as f64 - raised).abs() < 1.0, "open_year reads the raise");
+    w.folk.staff.pool_bonus = 0.0;
+    open_year(&mut w, mine, y);
+    assert!((w.finance.college[mine].budget.l[STAFF] as f64 - usual).abs() < 1.0, "no raise, the usual line");
+    // Every AI program's line is the usual one.
+    let before = w.finance.college[other].budget.l[STAFF];
+    w.folk.staff.pool_bonus = 0.5;
+    open_year(&mut w, other, y);
+    assert_eq!(w.finance.college[other].budget.l[STAFF], before, "only your seat's program reads the raise");
+}

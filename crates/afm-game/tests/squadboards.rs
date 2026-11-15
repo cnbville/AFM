@@ -86,7 +86,7 @@ fn every_board(g: &mut Game, level: &str) -> Vec<Value> {
     // The needs map's starters now are on the roster, with the roster's read.
     for year in 0..3 {
         let n = board(g, "sb_needs", json!({ "year": year }));
-        assert_eq!(n["spots"].as_array().map(Vec::len), Some(24), "{level}");
+        assert_eq!(n["spots"].as_array().map(Vec::len), Some(26), "{level}");
         assert_eq!(n["years"].as_array().map(Vec::len), Some(3), "{level}");
         if year > 0 {
             continue;

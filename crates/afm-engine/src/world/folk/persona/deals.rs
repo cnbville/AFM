@@ -214,6 +214,19 @@ fn meets(w: &World, i: Option<usize>, give: &Give, money: f64) -> Vec<(WantKind,
         Give::Stay => vec![(WantKind::Loyalty, 0.3), (WantKind::Development, 0.2)],
         Give::Pick(r) => vec![(WantKind::Club, (0.6 * (8.0 - r.clamp(1, 7) as f64) / 7.0).max(0.05))],
         Give::Favour => vec![(WantKind::Kids, 0.4), (WantKind::Name, 0.2)],
+        // Lane N5b: the rest of a contract counts toward his money and his
+        // security; a trade's parts toward a GM's club.
+        Give::Bonus(x) => vec![(WantKind::Security, (x / (2.0 * money.max(1.0))).clamp(0.0, 1.0))],
+        Give::Incentives(x) => vec![(WantKind::Money, (0.3 * x / money.max(1.0)).clamp(0.0, 1.0))],
+        Give::VoidYears(_) | Give::Draft(_) | Give::PickIf(_) => vec![],
+        Give::NoTrade => vec![(WantKind::Security, 0.3)],
+        Give::Player(_) => vec![(WantKind::Club, 0.3)],
+        Give::TheirPick(_) => vec![],
+        Give::RevenueShare(x) => vec![(WantKind::Money, (x / money.max(1.0)).clamp(0.0, 1.0))],
+        // A coach's title and the play-calling (lane N5c): his career and his
+        // say in the scheme.
+        Give::Title => vec![(WantKind::Career, 0.3), (WantKind::Name, 0.1)],
+        Give::Calling => vec![(WantKind::Career, 0.4), (WantKind::Scheme, 0.6)],
     }
 }
 
@@ -286,7 +299,7 @@ fn met(w: &World, who: Who, offer: &Offer, money: f64) -> Vec<(WantKind, f64)> {
             add(k, x * b);
         }
     }
-    for u in offer.terms.iter().filter(|u| !u.shown_only()) {
+    for u in offer.terms.iter().filter(|u| !u.shown_only() && !u.season) {
         let b = term_belief(w, who, u);
         for (k, x) in term_meets() {
             add(k, x * b);
@@ -309,15 +322,20 @@ fn money_bar(w: &World, who: Who) -> f64 {
     }
 }
 
-/// The money in an offer: its largest money give.
+/// The money in an offer: its largest money give (NIL and revenue share
+/// together, as both pots pay him).
 fn offer_money(offer: &Offer) -> Option<f64> {
+    let share: f64 =
+        offer.gives.iter().filter_map(|g| if let Give::RevenueShare(x) = g { Some(*x) } else { None }).sum();
     offer
         .gives
         .iter()
         .filter_map(|g| match g {
-            Give::Money(x) | Give::Outside(x) => Some(*x),
+            Give::Money(x) => Some(*x + share),
+            Give::Outside(x) => Some(*x),
             _ => None,
         })
+        .chain((share > 0.0).then_some(share))
         .reduce(f64::max)
 }
 
@@ -840,7 +858,10 @@ pub fn agree(w: &mut World, deals: &Deals, him: Them, offer: &Offer) -> Agreemen
     if let Some(to @ talks::PromiseTo::Player(_)) = to
         && matches!(whom, Who::Own(_) | Who::Pro(_, true))
     {
-        for u in offer.terms.iter().filter(|u| !u.shown_only()) {
+        // A season term (an incentive's, a clause's) is never a promise:
+        // it rides on the deal its facet lane signs.
+        out.left_terms.extend(offer.terms.iter().filter(|u| u.season).copied());
+        for u in offer.terms.iter().filter(|u| !u.shown_only() && !u.season) {
             talks::promise(w, to, PromiseKind::Usage, 0);
             let k = w.folk.promises.len() - 1;
             talks::set_terms(w, k, Terms { usage: Some(*u), ..Terms::default() });
@@ -867,11 +888,24 @@ pub fn kind_of(w: &World, him: Them, offer: &Offer) -> DealKind {
     let pro = matches!(who(w, him), Who::Pro(..));
     if offer.gives.iter().any(|g| matches!(g, Give::Outside(_))) {
         DealKind::Outside
-    } else if offer.gives.iter().any(|g| matches!(g, Give::Pick(_))) {
+    } else if offer.gives.iter().any(|g| matches!(g, Give::Pick(_) | Give::TheirPick(_) | Give::Player(_))) {
         DealKind::Trade
-    } else if pro && offer.gives.iter().any(|g| matches!(g, Give::Money(_) | Give::Years(_) | Give::Guaranteed(_))) {
+    } else if pro
+        && offer.gives.iter().any(|g| {
+            matches!(
+                g,
+                Give::Money(_)
+                    | Give::Years(_)
+                    | Give::Guaranteed(_)
+                    | Give::Bonus(_)
+                    | Give::Incentives(_)
+                    | Give::VoidYears(_)
+                    | Give::NoTrade
+            )
+        })
+    {
         DealKind::Contract
-    } else if offer.gives.iter().any(|g| matches!(g, Give::Money(_))) {
+    } else if offer.gives.iter().any(|g| matches!(g, Give::Money(_) | Give::RevenueShare(_))) {
         DealKind::Nil
     } else if offer.gives.iter().any(|g| matches!(g, Give::Scholarship(None))) {
         DealKind::Scholarship
