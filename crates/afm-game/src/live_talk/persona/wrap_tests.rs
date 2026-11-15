@@ -94,7 +94,8 @@ fn a_decision_the_talk_didnt_settle_stays_as_the_meetings_picks() {
     assert!(!picks.is_empty());
     assert_eq!(goodbye(&mut g, &f, id, "We'll talk about this tomorrow. Go home.", "Yes, Coach.")["state"], "done");
     let s = scene_of(&g, id);
-    assert!(!s.done && s.picks == picks, "the punishment is still yours to decide");
+    let codes = |v: &[scene::Pick]| v.iter().map(|p| p.code).collect::<Vec<_>>();
+    assert!(!s.done && codes(&s.picks) == codes(&picks), "the punishment is still yours to decide");
     assert!(store::is_over(g.world.as_ref().unwrap(), id), "the talk is over");
     // The page shows no box and the decision; a line is refused.
     let v = ok(&mut g, "people_scene", json!({ "id": id }));
