@@ -1,6 +1,6 @@
 # The hunt: how it works today
 
-Checked against main at (lane 11 branch, next update) on 2026-10-30. The new NIL scheme (hunters bid their top) on 2026-11-15.
+Checked against main at (lane 11 branch, next update) on 2026-10-30. The new NIL scheme (hunters bid their top) checked over main 356656b on 2026-11-15.
 
 One target chased over seasons (SK67): yours at a high school, a college or an NFL club, the AI's at every program and club, and the generational prospect the whole world chases once or twice a decade. Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 
