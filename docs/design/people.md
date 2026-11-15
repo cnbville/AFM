@@ -48,7 +48,7 @@ Topic order (Cain, 2026-10-18; the list was checked against the code on 2026-10-
 | Stability | Mental health | Built (`Background.stability`) |
 
 What each one moves, at every level (sizes in the next part). No trait decides anything alone; each one leans outcomes beside the rest (Raichel's rule: influences are noteworthy, rarely driving).
-- **Ambition:** declaring early (it joins his round, family money and NIL pay in `declare_chance`), entering the portal for playing time, a pro pushing for a bigger role or a trade, whether he keeps pushing after a big payday (it joins work ethic and competitiveness in section 2's complacency risk), and how a backup takes being a backup.
+- **Ambition:** declaring early (it joins his round, age, degree, family need and NIL pay in `early_entry::lean`), entering the portal for playing time, a pro pushing for a bigger role or a trade, whether he keeps pushing after a big payday (it joins work ethic and competitiveness in section 2's complacency risk), and how a backup takes being a backup.
 - **Loyalty:** high school transfers, decommitments and flips, staying in the portal or not, hometown and re-signing discounts, staying with a coach who stuck with him, and how hard a trade or a shopping rumor hits him (section 5 already uses it there).
 - **Greed:** choosing NIL money over fit, holdouts and hold-ins (section 5), and asking prices.
 - **Temper:** public spats, sideline blow-ups with coaches, firing his agent, how a benching or a broken promise turns into a scene instead of a quiet word, and the trouble roll in topic 7 (fights).
