@@ -179,6 +179,10 @@ fn moves_potential_both_ways_and_mostly_before_24() {
     // 5.7% (4.5-6.9% over ten seeds of 1,500), so 1,500 put it within one
     // draw's noise of the 5% bar; a change to any position's generator
     // reshuffled it under (the safety and linebacker leanings, 2026-11-08).
+    // The split ceiling's everyday coaching closes part of the room each
+    // year, so a ceiling that fell wins some of it back: on this sample the
+    // share falling 5+ goes from 5.6% (progression off) to 4.9%, and the
+    // share rising 5+ from 13% to 16% (2026-11-15).
     for mut p in prospects(6000, "drift", 2.0) {
         let p14 = p.potential();
         career(&mut p, &mut rng, 18, |_| {});
@@ -190,7 +194,7 @@ fn moves_potential_both_ways_and_mostly_before_24() {
     }
     let share = |xs: &[f64], f: fn(f64) -> bool| xs.iter().filter(|&&d| f(d)).count() as f64 / xs.len() as f64;
     assert!(share(&teen, |d| d >= 5.0) > 0.1);
-    assert!(share(&teen, |d| d <= -5.0) > 0.05);
+    assert!(share(&teen, |d| d <= -5.0) > 0.04);
     // From 24 to 27 the ceiling barely rises.
     assert!(share(&late, |d| d >= 5.0) < 0.02);
 }
