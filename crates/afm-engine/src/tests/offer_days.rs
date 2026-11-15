@@ -6,8 +6,8 @@
 //! window.
 
 use crate::calendar::{Date, YearDates};
-use crate::world::recruiting::{EARLY_OFFER_PASSES, commit_day, early_want, first_wave};
-use crate::world::{CommitTiming, World, WorldOptions, clock};
+use crate::world::recruiting::{EARLY_OFFER_PASSES, commit_day, early_want, first_wave, visited_leader};
+use crate::world::{CommitTiming, Visit, World, WorldOptions, clock};
 
 #[test]
 fn early_offers_climb_week_by_week() {
@@ -80,4 +80,21 @@ fn a_summer_committer_decides_on_his_own_day() {
     assert!(days.len() > 150, "his own day, not a wave's: {}", days.len());
     p.cal.commit_timing = Some(CommitTiming::Early);
     assert!(commit_day(7, &p).is_none());
+}
+
+#[test]
+fn an_official_to_the_leader_ends_the_wait() {
+    let mut w = World::empty(WorldOptions { seed: 7, scale: 0.001, history_years: 0, ..Default::default() });
+    w.add_class_aged(17);
+    let mut p = w.people.iter().find(|p| p.stage == crate::world::Stage::HighSchool).unwrap().clone();
+    p.cal.visits.clear();
+    let race = [(3usize, 0.5), (8usize, 0.45)];
+    let d = Date::ymd(2026, 6, 5);
+    assert!(!visited_leader(&p, &race), "no visits");
+    p.cal.visits.push((3, d, Visit::Unofficial));
+    p.cal.visits.push((8, d, Visit::Official));
+    assert!(!visited_leader(&p, &race), "an unofficial to the leader, an official to the next");
+    p.cal.visits.push((3, d, Visit::Official));
+    assert!(visited_leader(&p, &race));
+    assert!(!visited_leader(&p, &[]), "no race");
 }

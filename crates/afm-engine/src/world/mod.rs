@@ -1244,6 +1244,15 @@ pub struct CalendarLog {
     /// offer on real days").
     #[serde(default)]
     pub bar_commits: u32,
+    /// Blue chips signed (4 and 5 stars on the services' read, high school
+    /// and prep recruits), and those of them who committed to the school
+    /// they signed with before September 1 of the senior year (thread "Get
+    /// blue chips committing on time": counted at signing, since an early
+    /// enrollee's signing is gone once he is on campus).
+    #[serde(default)]
+    pub blue_signed: u32,
+    #[serde(default)]
+    pub blue_signed_summer: u32,
 }
 
 /// Where the manager works (N58): his level, and his NFL team, college
