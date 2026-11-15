@@ -1772,7 +1772,13 @@ fn play_week(w: &mut World, d: Date, li: usize, f: &Format) {
             if w.logging() {
                 log_game(w, (k, year, wk, round, neutral, d), teams, &r, [&sh.team, &sa.team]);
             }
+            if let Some(fr) =
+                w.seat.and_then(|s| s.other).filter(|_| w.seat_plays(crate::calendar::Level::Other, teams))
+            {
+                seat_arrivals(w, fr, d);
+            }
             w.keep_seat_game(crate::calendar::Level::Other, teams, &r.stats, r.replay.as_deref(), &r.talks);
+            super::games::seat_hurt(w, crate::calendar::Level::Other, teams, &r.injuries);
             w.seat_line(crate::calendar::Level::Other, teams, None, neutral);
             crate::world::stories::other_game(w, teams, &r.stats, round > 0);
             if let Some(o) = w.tape_watch(crate::calendar::Level::Other) {
@@ -1875,6 +1881,22 @@ fn playoff_pairs(live: &Live, f: &Format) -> Vec<(u16, u16)> {
 }
 
 /// A game's lines on each player's page, and its injuries.
+/// Your club's men, as a school's or an NFL club's practice week records
+/// them (there is no practice week in another league): the day each was
+/// first on your roster, so a game he sat says something about your word
+/// (`seen::games`; code oddity 29). The first time, everyone has been
+/// here a year.
+fn seat_arrivals(w: &mut World, fr: usize, d: Date) {
+    let ids: Vec<u32> = w.others.teams[fr].roster.iter().map(|&i| w.people[i as usize].player.id).collect();
+    let first = w.training.arrived.is_empty();
+    w.training.arrived.retain(|a| ids.contains(&a.0));
+    for id in ids {
+        if !w.training.arrived.iter().any(|a| a.0 == id) {
+            w.training.arrived.push((id, if first { d.add(-365) } else { d }));
+        }
+    }
+}
+
 fn record(w: &mut World, k: u8, teams: [u16; 2], r: &GameResult, who: [&HashMap<u32, usize>; 2]) {
     let year = w.year;
     for side in 0..2 {
@@ -1974,6 +1996,11 @@ fn finish(w: &mut World, d: Date, li: usize, f: &Format, note: &'static str) {
     let teams: Vec<usize> = table.iter().map(|r| r.fr as usize).collect();
     for &fr in &teams {
         let roster = w.others.teams[fr].roster.clone();
+        // Each man's role is the one this season gave him (code oddity 29),
+        // before the league lets him go.
+        let men: Vec<usize> = roster.iter().map(|&i| i as usize).collect();
+        let row_year = w.year;
+        super::role::write_league(w, &men, row_year);
         let mut keep = Vec::new();
         for i in roster {
             let i = i as usize;

@@ -123,6 +123,15 @@ impl Team {
         }
     }
 
+    /// The level its games are kept at (`SeatGame::level`): another
+    /// league's games are their own, though its men are pros (`level`).
+    pub fn games_level(self) -> Level {
+        match self {
+            Team::Other(_) => Level::Other,
+            t => t.level(),
+        }
+    }
+
     /// The coach employer this team is.
     pub fn employer(self) -> super::coach::Employer {
         match self {

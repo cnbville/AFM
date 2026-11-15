@@ -866,6 +866,11 @@ pub struct World {
     /// both when it loads.
     #[serde(default)]
     pub(crate) mix_rev: u8,
+    /// The version of the pros' roles (`pro::role::PRO_ROLE_REV`): a file
+    /// saved before code oddity 29's fix reads 0 and has every pro's role
+    /// written from his seasons when it loads.
+    #[serde(default)]
+    pub(crate) pro_role_rev: u8,
     /// Each position's typical score in each coaching system (S3).
     pub(crate) system_norms: systems::SystemNorms,
     /// Recruiting and portal records for trials (dynasty item 11 checks).
@@ -1566,6 +1571,7 @@ impl World {
             marks: Default::default(),
             tallies: tally::Tallies::new(),
             mix_rev: MIX_REV,
+            pro_role_rev: pro::role::PRO_ROLE_REV,
             system_norms: [[0.0; 11]; crate::positions::POSITION_COUNT],
             recruiting_log: RecruitingLog::default(),
             next_person: 1,

@@ -255,6 +255,8 @@ fn game_on(w: &mut World, p: usize, day: i32, snaps: &[(u32, u32)]) {
         spread: None,
         talks: Default::default(),
         whistle: None,
+        mine: None,
+        hurt: Vec::new(),
     });
 }
 
@@ -630,6 +632,8 @@ fn a_game_is_named_for_a_week_and_never_after() {
         spread: None,
         talks: Default::default(),
         whistle: None,
+        mine: None,
+        hurt: Vec::new(),
     });
     let s = claims::team(&w, team);
     well_formed(&s);

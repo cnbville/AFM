@@ -440,6 +440,7 @@ pub fn role_words(r: Option<crate::world::PlayingTime>) -> &'static str {
         Some(P::Rotation) => "in the rotation",
         Some(P::Backup) => "a backup",
         Some(P::Redshirt) => "a redshirt",
+        Some(P::PracticeSquad) => "on the practice squad",
         _ => "new",
     }
 }

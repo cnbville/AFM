@@ -45,6 +45,15 @@ pub struct SeatGame {
     /// games kept before.
     #[serde(default)]
     pub whistle: Option<Moment>,
+    /// The side you coached (0 home, 1 away). None for games kept before:
+    /// either side that is your team now.
+    #[serde(default)]
+    pub mine: Option<u8>,
+    /// Your pro club's men out hurt at kickoff or hurt in it
+    /// (`pro::games::seat_hurt`): a pro's injuries are not on your
+    /// trainers' list. Empty at a school, whose list has them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hurt: Vec<u32>,
 }
 
 /// A drawing on a paused frame of the film: a line, an arrow, a circle or
@@ -123,6 +132,8 @@ impl World {
             spread: None,
             talks: talks.clone(),
             whistle: self.calendar.now.map(|(_, m)| m),
+            mine: Some(mine as u8),
+            hurt: Vec::new(),
         });
         if self.seat_games.len() > KEEP_GAMES {
             let cut = self.seat_games.len() - KEEP_GAMES;
@@ -1597,6 +1608,12 @@ impl World {
             }
             super::refit_cultures(&mut self.states);
             self.mix_rev = super::MIX_REV;
+        }
+        // A file from before code oddity 29's fix: every pro's role from the
+        // season he last played, not his college one.
+        if self.pro_role_rev < super::pro::role::PRO_ROLE_REV {
+            super::pro::role::write_all(self);
+            self.pro_role_rev = super::pro::role::PRO_ROLE_REV;
         }
         let room = self.people.len() + self.people.len() / 3;
         self.people.shrink_to(room);

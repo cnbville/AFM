@@ -522,6 +522,8 @@ fn agenda(w: &World) -> Value {
         .enumerate()
         .rev()
         .filter(|(_, p)| p.kept.is_none() || p.due.days_to(w.today) < 60)
+        // Your promises here: the ones made at a job you left closed then.
+        .filter(|(_, p)| p.team.is_none_or(|t| Team::seat(w) == Some(t)))
         .take(12)
         .map(|(k, p)| {
             // A promise on usage: its words, what keeps it, and whether you

@@ -37,6 +37,8 @@ fn after(ago: i32) -> (World, Team) {
         spread: None,
         talks: Default::default(),
         whistle: None,
+        mine: None,
+        hurt: Vec::new(),
     });
     (w, team)
 }
@@ -143,6 +145,8 @@ fn nfl_after(ago: i32) -> World {
         spread: None,
         talks: Default::default(),
         whistle: None,
+        mine: None,
+        hurt: Vec::new(),
     });
     w
 }

@@ -18,6 +18,7 @@ pub mod market;
 pub mod money;
 pub mod office;
 pub mod other;
+pub mod role;
 pub mod scouts;
 pub mod squad;
 pub mod trades;
@@ -83,6 +84,12 @@ pub struct ProSeason {
     /// Playoff games started (the playoff line keeps games, not starts).
     #[serde(default)]
     pub playoff_starts: u32,
+    /// Regular-season games he started as he saw them:
+    /// on for half the most snaps on his side (`games::field_start`).
+    /// `starts` are the club's listed starters, whoever lined up. None
+    /// for a row from before, which never counted them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub field_starts: Option<u32>,
 }
 
 impl ProSeason {
@@ -264,7 +271,7 @@ impl ProCareer {
 
     pub fn season_mut(&mut self, year: i32) -> &mut ProSeason {
         if self.seasons.last().is_none_or(|s| s.year != year) {
-            self.seasons.push(ProSeason { year, team: self.team, ..Default::default() });
+            self.seasons.push(ProSeason { year, team: self.team, field_starts: Some(0), ..Default::default() });
         }
         self.seasons.last_mut().unwrap()
     }
@@ -976,6 +983,8 @@ pub(crate) fn after_draft(w: &mut World) {
 /// pick, a franchise move).
 pub(crate) fn transfer(w: &mut World, i: usize, to: usize, why: &str) {
     let Some(from) = w.people[i].pro.as_ref().and_then(|c| c.team) else { return };
+    // Your club's word to him (code oddity 29).
+    crate::world::folk::talks::let_go(w, i, from);
     w.clubs[from].roster.retain(|&x| x != i);
     w.clubs[to].roster.push(i);
     let name = w.nfl[to].name;
@@ -1462,6 +1471,10 @@ pub(crate) fn release_with(w: &mut World, i: usize, d: Date, why: &str, june1: b
             if waivers { "released (waivers)" } else { "released" },
             why,
         ));
+    }
+    // Your club's word to him (code oddity 29).
+    if let Some(t) = w.people[i].pro.as_ref().and_then(|c| c.team) {
+        crate::world::folk::talks::let_go(w, i, t);
     }
     let year = w.year;
     let june1 = june1 || after_june1(w, d);

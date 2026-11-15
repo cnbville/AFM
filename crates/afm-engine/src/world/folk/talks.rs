@@ -308,6 +308,13 @@ pub struct Promise {
     /// He missed his condition and released you (section 6).
     #[serde(default)]
     pub released: bool,
+    /// The team you coached when you said it. None for a promise from
+    /// before, until you leave that job (`job_left`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub team: Option<Team>,
+    /// Your NFL club cut or traded him while it was open (`let_go`).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub sent: bool,
 }
 
 impl Promise {
@@ -332,6 +339,8 @@ impl Promise {
             his_by: None,
             missed: 0.0,
             released: false,
+            team: None,
+            sent: false,
         }
     }
 }
@@ -351,7 +360,8 @@ pub fn promise(w: &mut World, to: PromiseTo, kind: PromiseKind, seasons: u8) {
         PromiseTo::Coach(c) => super::coach_link(w, c),
     };
     w.folk.promises.retain(|p| !(p.to == to && p.kind == kind && p.kept.is_none()));
-    w.folk.promises.push(Promise { made: today, due, who, ..Promise::blank(to, kind) });
+    let team = Team::seat(w);
+    w.folk.promises.push(Promise { made: today, due, who, team, ..Promise::blank(to, kind) });
     if w.folk.promises.len() > 120
         && let Some(k) = w.folk.promises.iter().position(|p| p.kept.is_some())
     {
@@ -399,8 +409,11 @@ fn due_for(w: &World, kind: PromiseKind, by: super::promise::By) -> Date {
 
 fn promise_due(w: &World, kind: PromiseKind, seasons: u8) -> Date {
     let today = w.today;
-    let end = |w: &World| match Team::seat(w).map(|t| t.level()) {
-        Some(Level::Nfl) => w.dates.black_monday,
+    // Another league's seat: the end of its next season (its own
+    // calendar; a CFL promise in December is for the coming season).
+    let end = |w: &World| match Team::seat(w) {
+        Some(Team::Other(_)) => super::promise::league_end(w, today.add(14)).unwrap_or(w.dates.black_monday),
+        Some(t) if t.level() == Level::Nfl => w.dates.black_monday,
         _ => w.dates.fbs_regular_end.add(3),
     };
     let base = match kind {
@@ -442,9 +455,15 @@ fn check_promises(w: &mut World, d: Date) {
             w.folk.promises[k].kept = Some(true);
             continue;
         }
-        let verdict = super::promise::judge(w, &p).unwrap_or_else(|| {
-            if kept(w, &p) { super::promise::Verdict::Kept } else { super::promise::Verdict::Broken(1.0) }
-        });
+        // A pro your club cut or traded: broken, whatever his games with
+        // you said.
+        let verdict = if sent_away(w, &p) {
+            super::promise::Verdict::Broken(1.0)
+        } else {
+            super::promise::judge(w, &p).unwrap_or_else(|| {
+                if kept(w, &p) { super::promise::Verdict::Kept } else { super::promise::Verdict::Broken(1.0) }
+            })
+        };
         let public = if p.public { 2.0 } else { 1.0 };
         let (kept, scale, text) = match verdict {
             super::promise::Verdict::Kept => (true, 1.0, "You kept"),
@@ -494,7 +513,12 @@ fn check_promises(w: &mut World, d: Date) {
 /// the public factor.
 fn settle_promise(w: &mut World, p: &Promise, kept: bool, cost: f32) {
     let names = super::promise::audiences(w, p);
-    settle(w, p.to, kept, cost, if kept { Reason::PromiseKept } else { Reason::PromiseBroken }, p.said, &names);
+    // The club that gave its word: where you said it.
+    let club = match p.team.or(Team::seat(w)) {
+        Some(Team::Nfl(c)) => Some(c),
+        _ => None,
+    };
+    settle(w, p.to, kept, cost, if kept { Reason::PromiseKept } else { Reason::PromiseBroken }, p.said, &names, club);
 }
 
 /// What your word kept or broken does (the cost of a promise, written
@@ -504,10 +528,25 @@ fn settle_promise(w: &mut World, p: &Promise, kept: bool, cost: f32) {
 /// `cost` is the share of the full cost (said in public, 2). A lie he sees
 /// runs through it with `Reason::LieSeen` (section 11).
 pub(crate) fn settle_word(w: &mut World, to: PromiseTo, kept: bool, cost: f32, why: Reason) {
-    settle(w, to, kept, cost, why, 0.0, &[super::Name::Room])
+    let club = match Team::seat(w) {
+        Some(Team::Nfl(c)) => Some(c),
+        _ => None,
+    };
+    settle(w, to, kept, cost, why, 0.0, &[super::Name::Room], club)
 }
 
-fn settle(w: &mut World, to: PromiseTo, kept: bool, cost: f32, why: Reason, said: f32, names: &[super::Name]) {
+/// `club` is the NFL club whose word it was, which a pro holds it against.
+#[allow(clippy::too_many_arguments)]
+fn settle(
+    w: &mut World,
+    to: PromiseTo,
+    kept: bool,
+    cost: f32,
+    why: Reason,
+    said: f32,
+    names: &[super::Name],
+    club: Option<usize>,
+) {
     match to {
         PromiseTo::Player(id) => {
             if let Some(i) = super::person(w, id) {
@@ -521,7 +560,8 @@ fn settle(w: &mut World, to: PromiseTo, kept: bool, cost: f32, why: Reason, said
                             w.people[j].trust = (w.people[j].trust - 0.04 * cost).max(0.0);
                         }
                     }
-                    if let Some(c) = w.people[i].pro.as_ref().and_then(|c| c.team) {
+                    // Against your club, not one that took him since.
+                    if let Some(c) = club.filter(|_| w.people[i].pro.is_some()) {
                         crate::world::people::grudge(&mut w.people[i], c, 0.6 * cost.min(1.0) as f64);
                     }
                     for &n in names {
@@ -545,6 +585,12 @@ fn settle(w: &mut World, to: PromiseTo, kept: bool, cost: f32, why: Reason, said
 }
 
 pub(crate) fn kept(w: &World, p: &Promise) -> bool {
+    // You're still at the team where you said you'd stay (`job_taken`
+    // judges it the day you start somewhere else).
+    let stayed = |w: &World| match p.team {
+        Some(t) => Team::seat(w) == Some(t),
+        None => w.folk.mine.since.is_some_and(|s| s <= p.made),
+    };
     match (p.to, p.kind) {
         (PromiseTo::Player(id), kind) => {
             let Some(i) = super::person(w, id) else { return true };
@@ -607,35 +653,42 @@ pub(crate) fn kept(w: &World, p: &Promise) -> bool {
                         k.signed >= w.year && k.signed > p.made.year() - 1 && p.made.days_to(w.today) > 0
                     })
                 }
+                PromiseKind::Stay => stayed(w),
                 _ => true,
             }
         }
-        (_, PromiseKind::Stay) => w.folk.mine.since.is_some_and(|s| s <= p.made),
+        (_, PromiseKind::Stay) => stayed(w),
         (_, PromiseKind::Booster(want)) => super::backers::kept(w, p.to, p.made, want),
         (PromiseTo::Coach(c), PromiseKind::Raise) => w.folk.staff.raised_since(c, p.made),
         _ => true,
     }
 }
 
+/// A promise to a player of his place on your team: the kinds that end
+/// with his time there.
+fn of_his_place(p: &Promise) -> Option<u32> {
+    match (p.to, p.kind) {
+        (
+            PromiseTo::Player(id),
+            PromiseKind::Place(_)
+            | PromiseKind::Join(_)
+            | PromiseKind::Recruit(..)
+            | PromiseKind::Start
+            | PromiseKind::Snaps
+            | PromiseKind::Touches
+            | PromiseKind::Position(_)
+            | PromiseKind::Usage,
+        ) => Some(id),
+        _ => None,
+    }
+}
+
 /// A promise of his place has lapsed once he left your team on his own:
 /// he graduated or moved up a level, transferred, declared or left
-/// football. A club that cut or traded him, or a program or school that
-/// dismissed him, broke it (`kept`).
+/// football. A club that cut or traded him (`sent_away`), or a program or
+/// school that dismissed him, broke it (`kept`).
 pub(crate) fn lapsed(w: &World, p: &Promise) -> bool {
-    let (
-        PromiseTo::Player(id),
-        PromiseKind::Place(_)
-        | PromiseKind::Join(_)
-        | PromiseKind::Recruit(..)
-        | PromiseKind::Start
-        | PromiseKind::Snaps
-        | PromiseKind::Touches
-        | PromiseKind::Position(_)
-        | PromiseKind::Usage,
-    ) = (p.to, p.kind)
-    else {
-        return false;
-    };
+    let Some(id) = of_his_place(p) else { return false };
     let Some(i) = super::person(w, id) else { return true };
     let Some(team) = Team::seat(w) else { return false };
     if team.roster(w).contains(&i) {
@@ -643,7 +696,10 @@ pub(crate) fn lapsed(w: &World, p: &Promise) -> bool {
     }
     let pp = &w.people[i];
     match team {
-        Team::Nfl(_) | Team::Other(_) => pp.stage == Stage::Done,
+        // Off a pro club's books on his own (his deal ran out, a club took
+        // him off your practice squad, he retired): your club didn't let
+        // him go (`sent_away`).
+        Team::Nfl(_) | Team::Other(_) => pp.stage == Stage::Done || !p.sent,
         Team::College(c) => {
             matches!(pp.stage, Stage::Pro | Stage::Declared | Stage::Done | Stage::Away)
                 || pp.college.is_some_and(|x| x != c)
@@ -652,6 +708,87 @@ pub(crate) fn lapsed(w: &World, p: &Promise) -> bool {
                 || matches!(p.kind, PromiseKind::Recruit(..)) && pp.college.is_none()
         }
         Team::High(h) => pp.stage != Stage::HighSchool || pp.hs != h,
+    }
+}
+
+/// A promise of his place to a pro your NFL club cut or traded while it
+/// was open (`let_go`), who is still playing and not back with you: you
+/// broke it, whatever his games with you said. A man who left on his own
+/// lapses it (`lapsed`). Proposed, not confirmed.
+pub(crate) fn sent_away(w: &World, p: &Promise) -> bool {
+    let Some(id) = of_his_place(p).filter(|_| p.sent) else { return false };
+    let Some(team) = Team::seat(w) else { return false };
+    if p.team.is_some_and(|x| x != team) {
+        return false;
+    }
+    let Some(i) = super::person(w, id) else { return false };
+    w.people[i].stage == Stage::Pro && !team.roster(w).contains(&i)
+}
+
+/// Your NFL club lets a man go, cut or traded (`pro::release_with`,
+/// `pro::transfer`): each open promise of his place made there is marked,
+/// so it is broken when it falls due unless he is back (`sent_away`).
+pub(crate) fn let_go(w: &mut World, i: usize, club: usize) {
+    let team = Team::Nfl(club);
+    if Team::seat(w) != Some(team) {
+        return;
+    }
+    let id = w.people[i].player.id;
+    for p in w.folk.promises.iter_mut().filter(|p| p.kept.is_none() && p.team.is_none_or(|t| t == team)) {
+        if of_his_place(p) == Some(id) {
+            p.sent = true;
+        }
+    }
+}
+
+/// You leave a job (`market::left`): each promise still open learns the
+/// team you made it at. Taken from you (fired, a school that dropped
+/// football), you can keep none of them, so they close quietly; for
+/// another job, `job_taken` settles them once you are there (a promotion
+/// at the same club keeps them). Proposed, not confirmed.
+pub(crate) fn job_left(w: &mut World, why: &str) {
+    let Some(old) = Team::seat(w) else { return };
+    let gone = why != "left for another job";
+    let today = w.today;
+    for p in w.folk.promises.iter_mut().filter(|p| p.kept.is_none()) {
+        p.team.get_or_insert(old);
+        if gone {
+            close_quietly(p, today);
+        }
+    }
+}
+
+/// A promise that ends with nothing to judge: closed today, released.
+fn close_quietly(p: &mut Promise, today: Date) {
+    p.kept = Some(true);
+    p.released = true;
+    p.due = today;
+}
+
+/// You start at a new job (`market::hired`): a promise made at another
+/// team can't be kept here. One that you'd stay is broken, judged today
+/// (`kept`); the rest close quietly, as when he leaves on his own.
+/// Proposed, not confirmed.
+pub(crate) fn job_taken(w: &mut World) {
+    let now = Team::seat(w);
+    let today = w.today;
+    for k in 0..w.folk.promises.len() {
+        let p = &w.folk.promises[k];
+        let Some(old) = p.team.filter(|&t| p.kept.is_none() && Some(t) != now) else { continue };
+        // A man who had already left that team has nothing to hold you to;
+        // a recruit still in high school does.
+        let still = match p.to {
+            PromiseTo::Player(id) => super::person(w, id).is_some_and(|i| {
+                old.roster(w).contains(&i) || matches!(old, Team::College(_)) && w.people[i].stage == Stage::HighSchool
+            }),
+            _ => true,
+        };
+        let p = &mut w.folk.promises[k];
+        if p.kind == PromiseKind::Stay && still {
+            p.due = today;
+        } else {
+            close_quietly(p, today);
+        }
     }
 }
 
@@ -1780,10 +1917,8 @@ fn add_talk_picks(w: &World, s: &mut Scene, i: usize, subject: Subject, used: &[
 /// A starter's place, as proof on the field for praise: what he sees of
 /// his place (the promises design, section 2), never your chart.
 pub(crate) fn starters_place(w: &World, i: usize) -> bool {
-    // A pro's `last_role` is still his last college season: only what he
-    // has seen with you counts.
-    let p = &w.people[i];
-    super::seen::first_now(w, i).unwrap_or(p.stage != Stage::Pro && p.last_role == Some(PlayingTime::Starter))
+    // A pro's last season is his pro one (`pro::role`, code oddity 29).
+    super::seen::starter(w, i)
 }
 
 /// How true praise rings to him, 0 (he knows he's coasting) to 1 (he has
@@ -2108,7 +2243,7 @@ pub fn topic_of_slot(n: u32) -> Option<Topic> {
 /// lane 9; lane P1's terms): its kind from the reading, not from a chip's
 /// label. A place keeps the rank the chip works out.
 fn read_kind(w: &World, i: usize, p: &super::scene::PromiseRead) -> Option<PromiseKind> {
-    let rank = if is_starter(w, i) { 0 } else { w.people[i].last_role.map_or(PlayingTime::Backup as u8, |r| r as u8) };
+    let rank = super::promise::place_rank(w, i);
     Some(match p.kind.as_str() {
         "start" | "ahead_of" => PromiseKind::Start,
         "role" => PromiseKind::Snaps,
@@ -2580,7 +2715,7 @@ fn move_promise_kind(w: &World, i: usize, topic: Topic, picked: &Pick) -> Promis
         Topic::Point(k) => tp::promise_kind(w, i, k),
         Topic::Subject(sub) => {
             let starter = is_starter(w, i);
-            let rank = if starter { 0 } else { w.people[i].last_role.map_or(PlayingTime::Backup as u8, |r| r as u8) };
+            let rank = super::promise::place_rank(w, i);
             match sub {
                 Subject::Money => PromiseKind::Contract,
                 Subject::Future if picked.label.contains("not going anywhere") => PromiseKind::Stay,
