@@ -43,7 +43,7 @@ function foBtn(fo, text, data = {}, cls = "glass") {
 // Who runs a duty; with your staff, a move you make yourself still stands (SC6).
 function foOwner(key, owner, label) {
   const note = owner === "staff" ? `<small class="muted fo-ownernote">${label ? esc(label) + ": y" : "Y"}our staff runs it; a move you make yourself stands.</small>` : label ? `<small class="muted fo-ownernote">${esc(label)}</small>` : "";
-  return `${note}<div class="seg fo-owner" title="Who decides this for your club"><button data-act="fo" data-fo="owner" data-duty="${key}" data-owner="you" aria-pressed="${owner === "you"}">You</button><button data-act="fo" data-fo="owner" data-duty="${key}" data-owner="staff" aria-pressed="${owner === "staff"}">Your staff</button></div>`;
+  return `${note}${typeof hoDutyLink === "function" ? hoDutyLink(key) : ""}<div class="seg fo-owner" title="Who decides this for your club"><button data-act="fo" data-fo="owner" data-duty="${key}" data-owner="you" aria-pressed="${owner === "you"}">You</button><button data-act="fo" data-fo="owner" data-duty="${key}" data-owner="staff" aria-pressed="${owner === "staff"}">Your staff</button></div>`;
 }
 function foPick(p) {
   return `<span class="fo-pick ${p.comp ? "comp" : ""}" title="${esc(p.text)} · ${p.points} point${p.points === 1 ? "" : "s"} on your chart">${mark(p.from, 18)}<b>${p.year} R${p.round}</b>${p.own ? "" : `<small>${esc(p.from.name.split(" ").pop())}</small>`}${p.comp ? "<small>comp</small>" : ""}</span>`;

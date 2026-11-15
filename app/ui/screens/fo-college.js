@@ -109,7 +109,7 @@ function fcDuty(duties, key) {
   if (!d) return "";
   const what = { board: "the recruiting board", visits: "your visits", portal: "the transfer portal", nil: "NIL" }[key];
   return `<div class="fc-duty ${d.yours ? "yours" : ""}"><span>${d.yours ? `<b>You run ${what}.</b>` : `<b>Your staff runs ${what}.</b> ${esc(d.staff)} A move you make yourself stands.`}</span>
-    <button class="st-btn small glass" data-fc="duty" data-duty="${d.key}" data-owner="${d.yours ? "staff" : "you"}">${d.yours ? "Hand it to your staff" : "Take it back"}</button></div>`;
+    <span><button class="st-btn small glass" data-fc="duty" data-duty="${d.key}" data-owner="${d.yours ? "staff" : "you"}">${d.yours ? "Hand it to your staff" : "Take it back"}</button>${hoDutyLink(d.key)}</span></div>`;
 }
 function fcPot(p) {
   if (!p) return '<span class="muted">Not worked yet</span>';
@@ -498,7 +498,7 @@ function fcPlan(x) {
         : c.aid === "shared" ? `${c.equiv} scholarships are shared out${c.aid_max ? ` among at most ${c.aid_max} players on aid` : ""}; your roster has room for ${c.room} more.`
         : `Your ${c.limit} scholarships leave room for ${c.room}.`}`;
   const duties = x.duties.list
-    .map((d) => `<div class="fc-dutyrow"><div><b>${esc(d.name)}</b><small class="sub">${d.yours ? "You run it. Your staff steps in only when you hand it over." : esc(d.staff)}</small></div>
+    .map((d) => `<div class="fc-dutyrow"><div><b>${esc(d.name)}</b><small class="sub">${d.yours ? "You run it. Your staff steps in only when you hand it over." : esc(d.staff)} ${hoDutyLink(d.key)}</small></div>
       <div class="seg"><button data-fc="duty" data-duty="${d.key}" data-owner="you" aria-pressed="${d.yours}">You</button><button data-fc="duty" data-duty="${d.key}" data-owner="staff" aria-pressed="${!d.yours}">Your staff</button></div></div>`)
     .join("");
   const fill = `<div class="fc-dutyrow"><div><b>Your coordinator fills the gaps</b><small class="sub">When your board leaves a spot open on a signing day, ${esc(x.duties.coordinator || "your coordinator")} offers the players your staff rates next. Each of his offers carries his reason.</small></div>

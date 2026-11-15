@@ -543,7 +543,16 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
         s.end();
         return;
     }
-    let resp = if s.b == COURT {
+    let resp = staff_ruling(w, s, team, &c, i);
+    rule(w, s, resp, true);
+}
+
+/// How your staff rules on an arrest or a court day when you leave it to
+/// them (read only: hand-off projections show it before you choose).
+pub(crate) fn staff_ruling(w: &World, s: &Scene, team: Team, c: &super::courts::Case, i: usize) -> Response {
+    let id = s.a as u32;
+    let case = Date(s.c as i32);
+    if s.b == COURT {
         let out = Outcome::of(s.f[0]);
         let ruled = last_ruling(w, id, case).cloned();
         let left =
@@ -556,6 +565,14 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
         }
     } else {
         staff_arrest(w, team, &c.what)
-    };
-    rule(w, s, resp, true);
+    }
+}
+
+/// What your staff would rule on an arrest or a court day, and the charge
+/// (hand-off projections).
+pub(crate) fn staff_ruling_for(w: &World, s: &Scene) -> Option<(Response, String)> {
+    let team = s.team.or(Team::seat(w))?;
+    let i = super::person(w, s.a as u32)?;
+    let c = case_of(w, s.a as u32, Date(s.c as i32))?;
+    Some((staff_ruling(w, s, team, &c, i), c.what.clone()))
 }
