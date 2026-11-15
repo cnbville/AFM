@@ -1306,6 +1306,16 @@ fn scan_portal(w: &mut World, j: usize, d: Date) {
     }
     for (id, kind) in promises {
         use crate::world::folk::talks::{self, PromiseKind, PromiseTo};
+        // How you'd use him (the promises on usage): his term, judged from
+        // his first game with you.
+        if kind == 2 {
+            let u = crate::world::folk::pledge::usage_on(w, id, j);
+            talks::promise(w, PromiseTo::Player(id), PromiseKind::Usage, 0);
+            let k = w.folk.promises.len() - 1;
+            let t = crate::world::folk::promise::Terms { usage: u, ..Default::default() };
+            talks::set_terms(w, k, t);
+            continue;
+        }
         talks::promise(w, PromiseTo::Player(id), PromiseKind::Join(kind), 0);
     }
 }
