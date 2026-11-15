@@ -3394,6 +3394,8 @@ pub(crate) fn finish(w: &mut World) {
             .chain(t.hurt.iter().filter(|h| h.until > f).map(|h| h.id))
             .collect()
     });
+    // His real injuries since camp name his row (audit item 1).
+    let mut book = std::mem::take(&mut w.training.year_hurt);
     for p in w.people.iter_mut() {
         if !matches!(p.stage, Stage::College | Stage::Declared) {
             continue;
@@ -3433,7 +3435,7 @@ pub(crate) fn finish(w: &mut World) {
         // (benched, or sitting out a transfer or academic year) he was a
         // backup (proposed, not confirmed).
         if on_engine && let Some(h) = p.player.history.last_mut().filter(|h| h.level.is_college()) {
-            season::mark_real_injury(h);
+            season::mark_real_injury(h, book.get_mut(&p.player.id));
         }
         let team = played_for(p, year).and_then(|c| team_games.get(c).copied()).unwrap_or(games);
         let started = starts.get(&p.player.id).copied().unwrap_or(0);
@@ -3455,6 +3457,7 @@ pub(crate) fn finish(w: &mut World) {
             p.last_role = Some(role);
         }
     }
+    w.training.year_hurt = book;
     w.college.as_mut().unwrap().snaps = snaps;
     w.college.as_mut().unwrap().starts = starts;
     if w.options.keep_game_log && w.recording {

@@ -77,15 +77,25 @@ pub const STRAIGHT_MOST: u8 = 3;
 /// with people (today's pitch skill, 0.3 to 1.5).
 pub fn skill(w: &World, coach: Option<usize>) -> f64 {
     let a = coach.map(|c| *w.coaches[c].ability());
-    (0.6 + 0.04 * a.map_or(0.0, |a| a.recruiting - 10.0) + 0.03 * a.map_or(0.0, |a| a.relationships - 10.0))
-        .clamp(0.3, 1.5)
+    skill_of(a.map_or(10.0, |a| a.recruiting), a.map_or(10.0, |a| a.relationships))
+}
+
+/// `skill` from the two ratings (a man's own, or the ends of your read of
+/// them: hand-off projections).
+pub fn skill_of(recruiting: f64, relationships: f64) -> f64 {
+    (0.6 + 0.04 * (recruiting - 10.0) + 0.03 * (relationships - 10.0)).clamp(0.3, 1.5)
 }
 
 /// What one point adds to a school's pull on him at a sit-down, in appeal
 /// points: how much he cares (1.0 as much as the rest), your proof next to
 /// his other schools, and how well the man saying it sells (section 6).
 pub fn lands(w: &World, care: f32, proof: Tier, coach: Option<usize>) -> f32 {
-    let mut lean = (RATE * skill(w, coach) * (care as f64 * (0.3 + 0.7 * proof.value() as f64) - CLEAR)) as f32;
+    lands_rated(skill(w, coach), care, proof)
+}
+
+/// `lands` for a given pitch skill.
+pub fn lands_rated(skill: f64, care: f32, proof: Tier) -> f32 {
+    let mut lean = (RATE * skill * (care as f64 * (0.3 + 0.7 * proof.value() as f64) - CLEAR)) as f32;
     if proof == Tier::Weak && care > 1.0 {
         lean -= OVERSELL;
     }
@@ -299,8 +309,12 @@ pub(crate) fn transfer_backing(w: &World, i: usize, j: usize, role: PlayingTime,
 /// How far a man's read of what a recruit weighs strays, by his recruiting
 /// rating (today's pick: 0.6 x (1.6 - 0.06 x rating), at least 0.12).
 pub(crate) fn read_noise(w: &World, coach: Option<usize>) -> f64 {
-    let r = coach.map_or(10.0, |c| w.coaches[c].ability().recruiting);
-    0.6 * (1.6 - 0.06 * r).max(0.2)
+    noise_of(coach.map_or(10.0, |c| w.coaches[c].ability().recruiting))
+}
+
+/// `read_noise` from a recruiting rating.
+pub(crate) fn noise_of(recruiting: f64) -> f64 {
+    0.6 * (1.6 - 0.06 * recruiting).max(0.2)
 }
 
 /// A staff's case in one step (section 6: "AI staffs build the same case in
@@ -323,7 +337,23 @@ pub(crate) fn one_step(
     seed: u64,
 ) -> Case {
     let care = super::claims::group_cares(&w.people[i], ear);
-    let sd = read_noise(w, coach);
+    one_step_rated(&care, back, skill(w, coach), read_noise(w, coach), j, points, scale, seed, w.today)
+}
+
+/// `one_step` for given cares (the listener's, or your file's read of them),
+/// pitch skill and read noise: what hand-off projections work with.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn one_step_rated(
+    care: &[f32; 7],
+    back: [f64; 7],
+    skill: f64,
+    sd: f64,
+    j: usize,
+    points: usize,
+    scale: f32,
+    seed: u64,
+    today: Date,
+) -> Case {
     let tier = |k: usize| Tier::of(back[k] as f32);
     let mut read: Vec<(f64, usize)> = (0..Group::ALL.len())
         .map(|k| {
@@ -338,7 +368,7 @@ pub(crate) fn one_step(
             break;
         }
         let g = Group::ALL[k];
-        c.add(g, scale * lands(w, care[k], tier(k), coach), 1.0, w.today);
+        c.add(g, scale * lands_rated(skill, care[k], tier(k)), 1.0, today);
     }
     c
 }

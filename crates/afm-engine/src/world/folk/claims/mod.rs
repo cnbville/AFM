@@ -67,8 +67,8 @@ pub use alumni::{Alum, Alumni};
 pub use kinds::{Family, Group, Kind, When, Whose};
 pub use memory::{KEEP_DAYS, Row, Talked};
 pub(crate) use player::GRADE_LINE;
+pub(crate) use program::{CARE_RANGE, NEED_MONEY, cares as group_cares, rival_for};
 pub use program::{Ear, hot_seat};
-pub(crate) use program::{NEED_MONEY, cares as group_cares, rival_for};
 pub use sheet::{Basis, Conduct, Point, Proof, Ref, Sheet, Tier};
 pub use truth::{Lie, Live, Stated, Truth};
 

@@ -11,7 +11,7 @@
 //! Every text the engine writes carries the screens' link marks
 //! (`[[p:12|Name]]` and the like); the screens draw them with `rich`.
 
-use afm_engine::calendar::Level;
+use afm_engine::calendar::{Date, Level};
 use afm_engine::world::World;
 use afm_engine::world::coach::{Group, Role};
 use afm_engine::world::folk::cast::{self, CastRef};
@@ -25,7 +25,7 @@ use serde_json::{Value, json};
 use crate::views::date_text;
 use crate::{Game, Reply};
 
-const COMMANDS: [&str; 33] = [
+const COMMANDS: [&str; 36] = [
     "people_agenda",
     "people_sitdown",
     "people_reference",
@@ -33,6 +33,9 @@ const COMMANDS: [&str; 33] = [
     "people_scene",
     "people_answer",
     "people_hand",
+    "people_handoff",
+    "people_holiday_preview",
+    "people_duty_preview",
     "people_talk",
     "people_subject",
     "people_subject_look",
@@ -116,6 +119,42 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
                 None => Value::Null,
             })
         })(),
+        // Both sides of handing a meeting on, before you choose (hand-off
+        // projections): nothing is changed.
+        "people_handoff" => (|| {
+            let id = num(args, "id")? as u32;
+            let h = folk::handoff::preview(w, id)?;
+            Ok(json!(h))
+        })(),
+        // A standing duty read ahead: who runs it, what you keep and give
+        // up, their next two weeks (hand-off projections, item 8).
+        "people_duty_preview" => (|| {
+            let key = args.get("duty").and_then(Value::as_str).ok_or("Missing duty.")?;
+            let d = afm_engine::world::front_office::Duty::from_key(key).ok_or("No such duty.")?;
+            let mut v = json!(afm_engine::world::front_office::preview::duty(w, d));
+            if let Some(plan) = v["plan"].as_array_mut() {
+                for r in plan.iter_mut() {
+                    if let Some(d) = r["date"].as_i64() {
+                        r["dateText"] = json!(date_text(Date(d as i32)));
+                    }
+                }
+            }
+            Ok(v)
+        })(),
+        // What a holiday of `days` would do to the meetings already set.
+        "people_holiday_preview" => {
+            let days = num(args, "days").unwrap_or(7) as i32;
+            let until = w.today.add(days);
+            let mut v = json!(folk::handoff::holiday(w, until));
+            if let Some(rows) = v["rows"].as_array_mut() {
+                for r in rows.iter_mut() {
+                    let d = r["date"].as_i64().unwrap_or(0) as i32;
+                    r["dateText"] = json!(date_text(Date(d)));
+                }
+            }
+            v["untilText"] = json!(date_text(until));
+            Ok(v)
+        }
         "people_hand" => (|| {
             let id = num(args, "id")? as u32;
             folk::scene::hand(w, id)?;
@@ -376,6 +415,7 @@ fn scene_brief(w: &World, s: &Scene) -> Value {
         "opened": s.opened,
         "done": s.done,
         "handed": s.handed,
+        "hand": { "tone": folk::handoff::label(w, s).0, "label": folk::handoff::label(w, s).1 },
         "outcome": s.outcome,
         "who": s.who.iter().take(4).map(|x| who_json(w, x)).collect::<Vec<_>>(),
     })

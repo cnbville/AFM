@@ -392,7 +392,7 @@ fn people_live() {
                 let worth = if old {
                     let read = afm_engine::world::pro::market::consensus(w, i);
                     money::price_cap(w.year)
-                        * money::top5_share(p.player.position)
+                        * afm_engine::world::pro::market::top5(w, w.year, p.player.position)
                         * ((read - 60.0) / 30.0).clamp(0.02, 1.0)
                 } else {
                     worth

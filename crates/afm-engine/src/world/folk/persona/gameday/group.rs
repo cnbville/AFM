@@ -34,7 +34,7 @@ pub const ASK_ABOUT: usize = 3;
 
 /// Whether a scene is a group talk.
 pub fn is_group(s: &Scene) -> bool {
-    matches!(s.kind, Kind::TeamTalk | Kind::TeamMeeting | Kind::Council)
+    matches!(s.kind, Kind::TeamTalk | Kind::TeamMeeting | Kind::Council) || super::super::meetings::is_group(s)
 }
 
 /// The council's members on the roster: your leadership council, else the
@@ -57,6 +57,10 @@ pub fn leads(w: &World, s: &Scene) -> Vec<Them> {
 pub fn room(w: &World, s: &Scene) -> Option<Room> {
     if !is_group(s) {
         return None;
+    }
+    // The captains, the parents, the feeder coaches (the older meetings).
+    if super::super::meetings::is_group(s) {
+        return super::super::meetings::room(w, s);
     }
     let team = s.team.or(Team::seat(w))?;
     let (group, lead, rest) = match s.kind {

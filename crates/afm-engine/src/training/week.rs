@@ -518,6 +518,8 @@ pub(crate) fn monday(w: &mut World, d: Date) {
     for i in seat_people {
         skip[i] = true;
     }
+    // The strength staffs' testing days (TR5) on the same key as yours.
+    let test_key = super::seat::seat_seed(w, d) ^ 0x7E57;
     let (people, programs, schools) = (&mut w.people, &w.programs, &w.high_schools);
     let others_hurt = &w.training.others_hurt;
     let n_progs = programs.len();
@@ -562,6 +564,19 @@ pub(crate) fn monday(w: &mut World, d: Date) {
             let out = p.pro.as_ref().is_some_and(|c| super::prep::out_this_week(c.out_weeks))
                 || others_hurt.get(&p.player.id).is_some_and(|x| x.0 > d.add(3));
             let absent = tw.is_some_and(|tw| !tw.own && tw.voluntary) && !attends(&p.player, pkey);
+            // Every team's strength staff tests on its level's testing days
+            // (TR5); the records stay with the team for whoever coaches it
+            // next. Hurt players and those away from a voluntary week don't.
+            if let Some(tw) = tw
+                && !tw.own
+                && !out
+                && !absent
+                && let Some(k) = super::plan::testing_day(frame, d)
+                && let Some(team) = super::testing::team_of(p)
+            {
+                let row = super::seat::test_row(&p.player, test_key);
+                p.tests.record(super::testing::Entry::new(d.add(k as i32), team, &row, false));
+            }
             // Not at a voluntary week, he doesn't take the team week's load
             // (update 3, F10).
             let load = match tw {

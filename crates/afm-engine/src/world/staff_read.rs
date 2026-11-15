@@ -901,6 +901,15 @@ pub fn read(w: &World, m: &Member, f: usize, at: Date) -> Option<(u8, u8)> {
     Some((lo, hi.max(lo)))
 }
 
+/// Your read of one rating of a coach on your staff, now (low and high on
+/// 1-20): None when he isn't on your staff or his job never shows it.
+/// Hand-off projections work from this, never his true rating.
+pub fn coach_read(w: &World, c: usize, key: &str) -> Option<(u8, u8)> {
+    let m = of_coach(w, c)?;
+    let f = m.facets.iter().position(|x| x.key == key)?;
+    now(w, &m, f)
+}
+
 /// Your read of one rating now.
 pub fn now(w: &World, m: &Member, f: usize) -> Option<(u8, u8)> {
     read(w, m, f, w.today)

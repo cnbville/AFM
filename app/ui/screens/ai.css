@@ -42,7 +42,7 @@
 .ai-btn.sm { height: 26px; padding: 0 10px; font-size: 12px; border-radius: 9px; }
 .ai-btn.dim, .ai-btn:disabled { opacity: .4; cursor: default; }
 .ai-f .ai-btn { height: 38px; }
-.ai-btn:focus-visible, .ai-rd:focus-visible, .ai-fchip:focus-visible, .ai-lnk:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.ai-btn:focus-visible, .ai-rd:focus-visible, .ai-lnk:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
 
 /* The wait: the words stay, a thin bar moves, one line says who is reading */
 .ai-pbar { display: block; position: relative; height: 3px; border-radius: 2px; background: var(--fill-2); overflow: hidden; }
@@ -119,11 +119,6 @@ html.calm .ai-pbar i, html.calm .ai-wbar i { animation: none; left: 33%; }
 .ai-setgroup { margin: 6px 0; }
 
 /* Facts you can bring up (they need no key) */
-.ai-fchips { display: flex; flex-wrap: wrap; gap: 8px; }
-.ai-fchip { display: inline-flex; align-items: center; gap: 8px; min-height: 30px; padding: 5px 12px; border: 0; border-radius: 12px; background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--edge); color: var(--fg); font: inherit; font-size: 13px; font-weight: 600; text-align: left; cursor: pointer; }
-.ai-fchip:hover { background: var(--fill-2); }
-.ai-fchip.used { box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ai-gold) 55%, transparent); background: color-mix(in oklab, var(--ai-gold) 6%, transparent); color: var(--ai-gold); cursor: default; }
-.ai-fchip.used i { font-style: normal; font-size: 11px; }
 
 /* The leads mail: the wait line inside the letter */
 .ai-wait { display: grid; gap: 8px; margin: 10px 0; padding: 10px 12px; border-radius: 10px; background: color-mix(in oklab, currentColor 6%, transparent); font-size: 13.5px; font-style: italic; }
