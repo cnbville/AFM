@@ -20,6 +20,7 @@ pub(crate) mod chemistry;
 pub(crate) mod clock;
 pub mod coach;
 pub(crate) mod college;
+pub mod craft_work;
 pub mod data;
 pub mod deals;
 pub mod desk;
@@ -964,6 +965,14 @@ pub struct World {
     /// attribute index.
     #[serde(default)]
     pub seat_focus: Vec<(u32, u8)>,
+    /// What your staff has named on your players (individual practice
+    /// topic 4; `craft_work`).
+    #[serde(default)]
+    pub seat_seen: Vec<craft_work::Seen>,
+    /// The tape book: reps a flaw or tool decided for your players, a row
+    /// a game or practice week (topic 4.4).
+    #[serde(default)]
+    pub seat_book: Vec<craft_work::Tag>,
     /// Your career once it has started: you, your coach id, your notes.
     #[serde(default)]
     pub career: Option<seat::Career>,
@@ -1591,6 +1600,8 @@ impl World {
             seat_depth: Vec::new(),
             seat_depth_log: Vec::new(),
             seat_focus: Vec::new(),
+            seat_seen: Vec::new(),
+            seat_book: Vec::new(),
             training: Default::default(),
             career: None,
             live: None,

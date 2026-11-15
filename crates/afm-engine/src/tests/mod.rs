@@ -9,6 +9,7 @@ mod claims;
 mod coaching_people;
 mod compact;
 mod craft;
+mod craft_work;
 mod decide;
 mod depth;
 mod development;

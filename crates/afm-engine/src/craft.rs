@@ -811,7 +811,9 @@ pub struct Item {
     /// comes back up to a third of the way (topic 6.3), fading over the
     /// next season.
     pub was: u8,
-    /// Weeks it has been worked on (saturating): the learning dip reads it.
+    /// Weeks it has been worked on (the low seven bits, saturating): the
+    /// learning dip reads it. The top bit: worked week by week this year
+    /// (your seat's plan), so the year's step leaves it alone.
     pub wk: u8,
 }
 
@@ -827,6 +829,14 @@ impl Item {
     }
     pub fn was(&self) -> f64 {
         self.was as f64 / 255.0
+    }
+    /// Weeks it has been worked on.
+    pub fn weeks(&self) -> u8 {
+        self.wk & 0x7F
+    }
+    /// Whether it was worked week by week this year.
+    pub fn worked(&self) -> bool {
+        self.wk & 0x80 != 0
     }
 }
 
@@ -845,6 +855,11 @@ pub struct Crafts {
     pub items: [Item; SLOTS],
     /// Whether they were drawn (an older save draws them once, at its age).
     pub drawn: bool,
+    /// The highest level he has played at (1 high school, 2 college, 3
+    /// the pros; 0 not yet read): a step up exposes habits the level
+    /// below never punished.
+    #[serde(default)]
+    pub lvl: u8,
 }
 
 impl Crafts {
@@ -864,17 +879,25 @@ impl Crafts {
         self.get(c).is_some()
     }
 
+    /// Whether he carries the craft of this index.
+    pub fn has_code(&self, code: u8) -> bool {
+        self.items.iter().any(|it| it.code == code + 1)
+    }
+
     /// Severity in games, 0 when he doesn't have it.
     pub fn sev(&self, c: Craft) -> f64 {
         self.get(c).map_or(0.0, |it| it.sev())
     }
 
+    /// The flaws he carries in games (a fixed one kept only for its stress
+    /// return doesn't count).
     pub fn flaws(&self) -> usize {
-        self.iter().filter(|(c, _)| c.is_flaw()).count()
+        self.iter().filter(|(c, it)| c.is_flaw() && it.sev() >= GONE).count()
     }
 
+    /// The tools he has in games (one he is still learning doesn't count).
     pub fn tools(&self) -> usize {
-        self.iter().filter(|(c, _)| !c.is_flaw()).count()
+        self.iter().filter(|(c, it)| !c.is_flaw() && it.sev() >= GONE).count()
     }
 
     /// Sets it at a severity (games and practice alike), taking a free
@@ -928,7 +951,7 @@ impl Crafts {
             let sign = if c.is_flaw() { -1.0 } else { 1.0 };
             // The learning dip (topic 6.1, sizes item 3): while a fix is new
             // he thinks about it, and the flaw costs up to a quarter more.
-            let dip = if c.is_flaw() && (1..=DIP_WEEKS).contains(&it.wk) { 1.0 + DIP } else { 1.0 };
+            let dip = if c.is_flaw() && (1..=DIP_WEEKS).contains(&it.weeks()) { 1.0 + DIP } else { 1.0 };
             w.code[k] = it.code;
             w.now[k] = (sign * FULL * it.sev() * dip) as f32;
             w.prac[k] = (sign * FULL * it.prac() * dip) as f32;
@@ -1136,18 +1159,21 @@ pub fn ensure(p: &mut Player) {
     draw_raw(p);
     for a in 14..age.max(14) {
         p.age = a;
-        year(p, 10.0, level_at(a), 0.6);
+        year(p, 10.0, level_at(a), 0.6, Some(10.0));
     }
     p.age = age;
 }
 
-/// The year's change at his checkpoint (topic 3.3-3.5; every size proposed,
-/// not confirmed): coaching fixes his flaws and adds tools, the better the
-/// staff, the more he takes coaching and the younger he is; a poor staff
-/// lets a habit grow. `coaching` is his staff on 1-20, `playing` his share
-/// of a starter's snaps (reps teach tools). A focus works on top of this,
-/// week by week (`training`).
-pub fn year(p: &mut Player, coaching: f64, level: Level, playing: f64) {
+/// The year's change at his checkpoint (topic 3.3-3.5 and 10; every size
+/// proposed, not confirmed): coaching fixes his flaws and adds tools, the
+/// better the staff, the more he takes coaching and the younger he is; a
+/// poor staff lets a habit grow. The staff's points of emphasis (`staff_points`,
+/// by its style: `staff` is its mould, 1-20, None for your seat, whose week
+/// works them) are worked on the weekly rule (`pace`) over a
+/// year's individual time; the rest move slowly. `coaching` is his staff on
+/// 1-20, `playing` his share of a starter's snaps (reps teach tools). One
+/// your plan worked week by week this year keeps where the weeks put it.
+pub fn year(p: &mut Player, coaching: f64, level: Level, playing: f64, staff: Option<f64>) {
     if !p.craft.drawn {
         ensure(p);
         return;
@@ -1166,9 +1192,36 @@ pub fn year(p: &mut Player, coaching: f64, level: Level, playing: f64) {
         Level::NFL => 1.1,
         _ => 1.0,
     };
-    let fix = 0.11 * coach * take * settle * lvl;
+    let fix = BACKGROUND * 0.11 * coach * take * settle * lvl;
     let pos = p.position;
+    // The staff's own points (topic 10): the same weekly rule as your plan,
+    // over a year of individual time at the usual minutes, shared.
+    let points = staff.map_or([None, None], |m| staff_points(&p.craft, pos, m));
+    let n_points = points.iter().flatten().count().max(1) as f64;
+    let teach = Teach {
+        teaching: coaching,
+        minutes: crate::development::USUAL_FOCUS_MINUTES / n_points,
+        buy_in: buy_in(p, 0.5),
+    };
     let mut cr = p.craft;
+    // A step up a level (topic 3.3): faster, stronger, smarter opponents
+    // expose habits the level below never punished (proposed, not
+    // confirmed: about a fifth of a raw player's share at each step).
+    let rank = match level {
+        Level::HS => 1,
+        Level::NFL => 3,
+        _ => 2,
+    };
+    if cr.lvl != 0 && rank > cr.lvl {
+        let share = raw_share(pos) * EXPOSED;
+        for c in Craft::for_position(pos).filter(|c| c.is_flaw()) {
+            let l = lean(p, c);
+            if !cr.has(c) && r.next() < share * l && cr.items.iter().any(|it| it.code == 0) {
+                cr.set(c, clamp(0.2 + 0.3 * r.next() * l, 0.15, 0.6));
+            }
+        }
+    }
+    cr.lvl = cr.lvl.max(rank);
     for k in 0..SLOTS {
         let it = cr.items[k];
         let Some(c) = it.craft() else { continue };
@@ -1179,13 +1232,24 @@ pub fn year(p: &mut Player, coaching: f64, level: Level, playing: f64) {
         }
         let u = r.next();
         let v = it.sev();
+        if it.worked() {
+            // Your plan worked it week by week: the weeks moved it, and only
+            // the stress return fades.
+            cr.items[k].was = byte(v.max(it.prac()) + 0.35 * (it.was() - v.max(it.prac())).max(0.0));
+            cr.items[k].wk &= 0x7F;
+            if c.is_flaw() && v < GONE && it.prac() < GONE && it.was() < GONE {
+                cr.items[k] = Item::default();
+            }
+            continue;
+        }
         let nv = if c.is_flaw() {
             // A poor staff lets a habit grow; otherwise it shrinks, unevenly.
             // Some habits run deeper than others: how easily this one goes
-            // for him is his own and fixed (0.4 to 1.6, its own stream).
-            let ease = 0.4 + 1.2 * Rng::new(p.id.wrapping_mul(0x2C1B_3C6D) ^ ((c as u32 + 1) << 8)).next();
+            // for him is his own and fixed (`ease`).
             let grow = if coaching < 7.0 { 0.06 * (7.0 - coaching) / 6.0 } else { 0.0 };
-            v - fix * ease * (0.4 + 1.2 * u) * (0.6 + 0.4 * v.max(0.3) / 0.3).min(2.0) / 1.6 + grow
+            let worked =
+                if points.contains(&Some(c)) { STAFF_WEEKS * lvl * pace(p, c, &teach) * (0.6 + 0.8 * u) } else { 0.0 };
+            v - fix * ease(p, c) * (0.4 + 1.2 * u) * (0.6 + 0.4 * v.max(0.3) / 0.3).min(2.0) / 1.6 + grow - worked
         } else {
             // A tool he has grows with reps and teaching.
             v + (0.12 + 0.18 * playing) * coach.min(1.5) * take * (0.5 + u) * settle.max(0.4)
@@ -1258,4 +1322,223 @@ pub fn moved(p: &mut Player) {
         }
     }
     p.craft = cr;
+}
+
+// --- Working on them (topics 5-8 and 10) --------------------------------
+
+/// How much of the year's fixing happens away from a point of emphasis:
+/// the habits that shrink with reps and plain coaching (proposed, not
+/// confirmed; tuned with `craft_check` so the counts held).
+pub const BACKGROUND: f64 = 0.75;
+
+/// Weeks of individual time in a year at the usual minutes, for a staff's
+/// own points (proposed, not confirmed: spring, camp and the season's
+/// individual periods, less the weeks off).
+pub const STAFF_WEEKS: f64 = 12.0;
+
+/// The share of a raw player's flaws a step up a level exposes.
+pub const EXPOSED: f64 = 0.4;
+
+/// A week's work on a full flaw at the ideal pace: a willing, coachable
+/// (16) 20-year-old with a strong teacher (15) at the usual 30 minutes
+/// takes a typical flaw (about half) to hold in games in 12 to 16 weeks
+/// (sizes item 2, confirmed); the factors below are proposed, not
+/// confirmed.
+pub const PACE: f64 = 0.04;
+
+/// Below this in games a flaw holds as fixed (and a tool above
+/// `TOOL_HOLD` holds as his).
+pub const HOLD: f64 = 0.08;
+pub const TOOL_HOLD: f64 = 0.4;
+
+/// How easily a flaw goes for him: his own and fixed, 0.4 to 1.6 (some
+/// habits run deeper than others).
+pub fn ease(p: &Player, c: Craft) -> f64 {
+    0.4 + 1.2 * Rng::new(p.id.wrapping_mul(0x2C1B_3C6D) ^ ((c as u32 + 1) << 8)).next()
+}
+
+/// A week of teaching on one point: the teacher's teaching in that group
+/// (1-20), the minutes he spends on it, and how much he buys in (0-1).
+#[derive(Clone, Copy, Debug)]
+pub struct Teach {
+    pub teaching: f64,
+    pub minutes: f64,
+    pub buy_in: f64,
+}
+
+/// What a week of work moves a flaw or tool, in severity (topic 6.4: the
+/// minutes, the teacher, his coachability and, for a film-room one, his
+/// football IQ, and his age; proposed, not confirmed). Steep in the
+/// teacher and the player: an average teacher (11) and player (10) take
+/// about a year over a typical flaw, a poor teacher (8) two.
+pub fn pace(p: &Player, c: Craft, t: &Teach) -> f64 {
+    let teach = clamp((t.teaching - 4.0) / 11.0, 0.1, 1.1).powf(1.5);
+    let take = clamp((p.personality.coachability - 2.0) / 14.0, 0.2, 1.15).powf(1.2);
+    // By about 26 a habit is set: a 30-year-old takes about twice as long
+    // (sizes item 2).
+    let age = clamp(1.0 - 0.0625 * (p.age as f64 - 22.0).max(0.0), 0.5, 1.0);
+    let mins = clamp(t.minutes / crate::development::USUAL_FOCUS_MINUTES, 0.0, 2.0);
+    let mind =
+        if c.info().mental { clamp(0.5 + (p.attributes.get(Attr::FootballIq) - 40.0) / 50.0, 0.5, 1.3) } else { 1.0 };
+    let e = if c.is_flaw() { ease(p, c) } else { 1.0 };
+    PACE * teach * take * age * mins * mind * e * clamp(t.buy_in, 0.0, 1.0)
+}
+
+/// How much of the work sticks (topic 8.1): his coachability, his trust in
+/// you and his coach (0-1), and a veteran's ego (proposed, not confirmed).
+pub fn buy_in(p: &Player, trust: f64) -> f64 {
+    let pe = &p.personality;
+    let vet = clamp((p.age as f64 - 24.0) / 6.0, 0.0, 1.0);
+    let ego = (pe.traits.ego as f64 - 10.0).max(0.0);
+    clamp(0.55 + 0.02 * (pe.coachability - 10.0) + 0.4 * (trust - 0.5) - 0.015 * ego * vet, 0.2, 1.0)
+}
+
+/// The chance a veteran star turns down work on a flaw he doesn't believe
+/// he has (topic 8.2): an ego past 12, past 25, the less he trusts you
+/// the likelier (proposed, not confirmed: at most about one in two).
+pub fn refuse_chance(p: &Player, trust: f64, star: bool) -> f64 {
+    let ego = (p.personality.traits.ego as f64 - 12.0).max(0.0) / 8.0;
+    let vet = clamp((p.age as f64 - 25.0) / 6.0, 0.0, 1.0);
+    let star = if star { 1.0 } else { 0.4 };
+    clamp(0.6 * ego * vet * star * (1.0 - trust), 0.0, 0.55)
+}
+
+/// The two flaws a staff works first (topic 10): an adapting staff (`mould`
+/// low) his biggest, a moulding one (high) the ones its system leans on at
+/// his spot (the rating's weight there).
+pub fn staff_points(cr: &Crafts, pos: Position, mould: f64) -> [Option<Craft>; 2] {
+    let m = clamp((mould - 1.0) / 19.0, 0.0, 1.0);
+    let top = Attr::ALL.iter().map(|&a| crate::positions::weight(pos, a)).fold(0.0, f64::max).max(1e-9);
+    let mut v: Vec<(Craft, f64)> = cr
+        .iter()
+        .filter(|(c, it)| c.is_flaw() && it.sev() >= GONE)
+        .map(|(c, it)| {
+            let w = crate::positions::weight(pos, c.owner()) / top;
+            (c, it.sev() * (1.0 - m + m * (0.3 + 0.7 * w)))
+        })
+        .collect();
+    v.sort_by(|a, b| b.1.total_cmp(&a.1).then((a.0 as u8).cmp(&(b.0 as u8))));
+    [v.first().map(|x| x.0), v.get(1).map(|x| x.0)]
+}
+
+/// One point of emphasis (topic 5): a flaw to fix, a tool to add, or a
+/// plain rating when the staff has named nothing.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Point {
+    Rating(Attr),
+    Craft(Craft),
+}
+
+impl Point {
+    /// Stored as one byte: a rating's index, or 100 plus the craft's.
+    pub fn code(self) -> u8 {
+        match self {
+            Point::Rating(a) => a.index() as u8,
+            Point::Craft(c) => 100 + c as u8,
+        }
+    }
+
+    pub fn from_code(v: u8) -> Option<Point> {
+        if v >= 100 {
+            Craft::from_index(v as usize - 100).map(Point::Craft)
+        } else {
+            Attr::ALL.get(v as usize).map(|&a| Point::Rating(a))
+        }
+    }
+
+    /// The rating it grows (topic 5b): a flaw's or tool's owner.
+    pub fn rating(self) -> Attr {
+        match self {
+            Point::Rating(a) => a,
+            Point::Craft(c) => c.owner(),
+        }
+    }
+
+    pub fn craft(self) -> Option<Craft> {
+        match self {
+            Point::Craft(c) => Some(c),
+            Point::Rating(_) => None,
+        }
+    }
+}
+
+/// How far a fix has landed (topic 6): learning it in drills, working in
+/// practice, holding in games.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Stage {
+    Learning,
+    Practice,
+    Games,
+}
+
+impl Stage {
+    /// In plain words (topic 9b.3).
+    pub fn words(self) -> &'static str {
+        match self {
+            Stage::Learning => "Learning",
+            Stage::Practice => "Works in practice",
+            Stage::Games => "Fixed in games",
+        }
+    }
+}
+
+/// Where one held flaw or tool stands.
+pub fn stage(c: Craft, it: &Item) -> Stage {
+    if c.is_flaw() {
+        if it.sev() < HOLD {
+            Stage::Games
+        } else if it.weeks() > DIP_WEEKS && (it.prac() < HOLD || it.prac() < 0.67 * it.was()) {
+            Stage::Practice
+        } else {
+            Stage::Learning
+        }
+    } else if it.sev() >= TOOL_HOLD {
+        Stage::Games
+    } else if it.prac() >= TOOL_HOLD {
+        Stage::Practice
+    } else {
+        Stage::Learning
+    }
+}
+
+/// A week of work on one point (topic 6): practice moves first by the
+/// week's pace and games follow a few weeks behind; the first weeks carry
+/// the learning dip (`Crafts::worn`). A tool he doesn't have yet starts
+/// from nothing; a flaw he doesn't have (the staff named the wrong one)
+/// moves nothing. Returns the stage before and after.
+pub fn work_week(p: &mut Player, c: Craft, t: &Teach) -> Option<(Stage, Stage)> {
+    if !c.fits(p.position) {
+        return None;
+    }
+    let r = pace(p, c, t);
+    let cr = &mut p.craft;
+    if !cr.has(c) {
+        if c.is_flaw() {
+            return None;
+        }
+        // A slot for a new tool: a free one, else the weakest tool's.
+        let slot = cr.items.iter().position(|it| it.code == 0).or_else(|| {
+            (0..SLOTS).filter(|&k| cr.items[k].craft().is_some_and(|x| !x.is_flaw())).min_by_key(|&k| cr.items[k].sev)
+        })?;
+        cr.items[slot] = Item { code: c as u8 + 1, ..Item::default() };
+    }
+    let it = cr.get_mut(c)?;
+    let before = stage(c, it);
+    let first = it.weeks() == 0;
+    if first && c.is_flaw() {
+        it.was = it.was.max(it.sev);
+    }
+    it.wk = (it.weeks() + 1).min(0x7F) | 0x80;
+    let lag = if first { 0.0 } else { 0.3 };
+    if c.is_flaw() {
+        let pr = (it.prac() - r).max(0.0);
+        it.prac = byte(pr);
+        it.sev = byte(it.sev() - lag * (it.sev() - pr).max(0.0));
+    } else {
+        let pr = (it.prac() + r).min(1.0);
+        it.prac = byte(pr);
+        it.sev = byte(it.sev() + lag * (pr - it.sev()).max(0.0));
+    }
+    let after = stage(c, it);
+    Some((before, after))
 }
