@@ -87,12 +87,9 @@ fn stand(w: &World, k: usize, me: Option<TeamRef>) -> (&'static str, String) {
 fn strong_and_short(w: &World, k: usize) -> (Vec<&'static str>, Vec<&'static str>) {
     let s = reads::seen(w, k);
     let pos = w.people[k].player.position;
-    // The weights are shares of his position's rating, so "matters" is
-    // judged against the position's biggest one.
-    let top = Attr::ALL.iter().map(|&a| file::matters(pos, a)).fold(0.0f64, f64::max);
     let mut rated: Vec<(f64, Attr)> = Attr::ALL
         .iter()
-        .filter(|a| file::matters(pos, **a) >= 0.4 * top && top > 0.0)
+        .filter(|a| file::matters_here(pos, **a))
         .filter_map(|&a| {
             let r = s.mine_attrs.get(a.index()).copied().flatten().or(s.attrs.get(a.index()).copied().flatten())?;
             Some(((r.0 as f64 + r.1 as f64) / 2.0, a))
