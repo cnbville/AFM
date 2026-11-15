@@ -1,6 +1,6 @@
 # Flaws and tools: how it works today
 
-Checked against main at a79b9b45 on 2026-11-15 (individual practice PR 3: working on them; PR 2, the engine layer, at 1bb7575). Every size on this page is proposed, not confirmed.
+Checked against main at 09047af on 2026-11-15 (individual practice PR 4: the Development tab; PR 3, working on them, at 05f50b1; PR 2, the engine layer, at 1bb7575). Every size on this page is proposed, not confirmed.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 
@@ -74,7 +74,20 @@ Your team's week (`training/seat.rs`, `week`, then `world/craft_work.rs`, `week`
 - The staff's eye (`craft_work::week`): each week each flaw or tool he carries and nobody has named is found with chance `0.06 × eye/10 × (0.3 + size) × (1 + 0.5 × reps on tape this week)`, eye/10 from 0.3 to 1.8. A weak eye names a neighbour instead (same position, same rating group, one he doesn't carry) with chance `0.32 − 0.016 × eye`, 0.04 to 0.3. A wrong name fades after four weeks, 0.05 × eye/10 a week, as the tape never shows it (`World.seat_seen`).
 - The tape book (`World.seat_book`, `craft_work::Tag`): for your players, one row a game (from `keep_seat_game`) or practice week (`practice::seat_battles`) and craft: reps it showed in and reps it lost him, kept two seasons.
 
-Not built yet: private trainers and camps (topic 7.3-7.4), a mentor passing a tool on (7.2), a player asking for a tool (8.3), the world's scouts and press reading a fix (9.5), and the screens (part 4).
+- Last week's minutes are kept for the screens (`World.seat_minutes`: on the field, in the film room; `minutes_of` gives the usual 30 and 30 before his first week).
+
+Not built yet: private trainers and camps (topic 7.3-7.4), a mentor passing a tool on (7.2), a player asking for a tool (8.3), the world's scouts and press reading a fix (9.5).
+
+## On screen (the Development tab)
+
+The player page's Development tab (`lane_training/craft.rs`, `training.js`; the layout in `docs/game.md`) reads all of this through your staff:
+
+- Gains: a flaw's size times 5 (a tool's, to 0.6), read with a lean and a half-width of `0.5 + (20 − eye)/12` points (`gain_read`). A flaw the staff named wrong is shown and projected at a believed size of 0.3 to 0.7 (`believed`).
+- Rates: the tape book counts every rep in the flaw's situation and whether he lost it, so the screen shows the share lost in his games (last 56 days on Focus; last four games against his first four on Progress), and the chart plots that share a game (solid) or a practice week (dashed). A fixed flaw moves the share only a few points (a test career's held flaw went 55% to 51%), since most reps in its situation are decided by everything else on the play.
+- When it holds (`craft::weeks_to_hold`): `work_week` run on a copy of him at last week's minutes split over his points, his room's teaching and his buy-in, up to 156 weeks; shown as a date range of ±(0.15 + (20 − eye)/40) of the weeks, with the seasons of payoff left (a season counts when it holds before October 15 of it; college from `eligibility::seasons_left`, high school from his class, none for a pro), and how much sooner 15 more minutes lands it.
+- The rating with it and without (`craft_work::focus_projection`): `develop_season` on two copies of him with the same dice, his room's teaching as coaching, his last role, `seat_plan` on; a year for "by the year's end" and his seasons left (1 to 4) for "by his last season". Each moves the staff's own read of him now by what the copy grew, widened by `(2 + (20 − eye)/5) × 0.5` for the last season.
+- How sure: `eye/20 + min(reps seen/30, 1)/2`: sure at 1, fairly sure at 0.7, not sure yet at 0.45, else only a guess. Spots flaws: sharp at 15, good at 11, fair at 7, else weak. On board: buy-in fully at 0.85, mostly 0.65, half 0.45.
+- Setting points: `practice_points` (codes as `Point::code`), checked against his position and your controls; a refusal comes back as a toast. The Squad's Development view shows his points (`points_now`: yours, else the staff's named flaws, else its rating focus).
 
 ## Counts by stage
 

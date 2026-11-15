@@ -978,6 +978,11 @@ pub struct World {
     /// a game or practice week (topic 4.4).
     #[serde(default)]
     pub seat_book: Vec<craft_work::Tag>,
+    /// Last week's individual minutes for each of your players: (player,
+    /// on the field, in the film room), for the Development tab's
+    /// projection.
+    #[serde(default)]
+    pub seat_minutes: Vec<(u32, u8, u8)>,
     /// Your career once it has started: you, your coach id, your notes.
     #[serde(default)]
     pub career: Option<seat::Career>,
@@ -1607,6 +1612,7 @@ impl World {
             seat_focus: Vec::new(),
             seat_seen: Vec::new(),
             seat_book: Vec::new(),
+            seat_minutes: Vec::new(),
             training: Default::default(),
             career: None,
             live: None,
