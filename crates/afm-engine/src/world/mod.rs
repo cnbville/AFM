@@ -18,6 +18,7 @@ pub mod buildings;
 pub mod charts;
 pub(crate) mod chemistry;
 pub(crate) mod clock;
+pub use clock::portal_windows_for;
 pub mod coach;
 pub(crate) mod college;
 pub mod craft_work;
