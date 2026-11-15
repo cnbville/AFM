@@ -3,7 +3,9 @@
 //! school classes (from the classes tally, walk-ons included; each fall's
 //! freshmen on and off aid for the seasons played here) and the transfers
 //! each program took from the portal: the average, the 90th percentile,
-//! the most, and how many programs took 10, 20 or 30 or more.
+//! the most, and how many programs took 10, 20 or 30 or more; then each
+//! fall's freshmen at the Division II, NAIA, Division III and junior
+//! college programs.
 //! Usage: class_check [scale] [history_years] [seed] [seasons]
 
 use afm_engine::calendar::Date;
@@ -61,9 +63,9 @@ fn main() {
             for p in &w.people {
                 if p.stage == Stage::College
                     && p.class_of == d.year()
-                    && !p.juco
                     && p.path.len() == 1
                     && let Some(j) = p.college
+                    && (!p.juco || w.programs[j].division == Division::JUCO)
                 {
                     by[j][p.walk_on as usize] += 1;
                 }
@@ -103,6 +105,15 @@ fn main() {
             "FBS transfers in (after y-1)",
             fbs.iter().map(|&j| moves.get(&(y - 1, j)).copied().unwrap_or(0)).collect(),
         );
+    }
+    // Below Division I: each fall's freshmen (on aid and walk-ons) a program.
+    for d in [Division::D2, Division::NAIA, Division::D3, Division::JUCO] {
+        let progs: Vec<usize> =
+            (0..w.programs.len()).filter(|&j| w.programs[j].division == d && w.programs[j].plays(w.year)).collect();
+        for (y, by) in &fresh {
+            line(&format!("{d:?} {y} freshmen, all"), progs.iter().map(|&j| by[j][0] + by[j][1]).collect());
+            line(&format!("{d:?} {y} freshmen on aid"), progs.iter().map(|&j| by[j][0]).collect());
+        }
     }
     let mut roster: Vec<usize> = fbs
         .iter()

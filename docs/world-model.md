@@ -113,7 +113,7 @@ How it works:
 
 Proposed, not confirmed (Claude's picks inside the approved wording):
 - D2 rosters stay at 110 (no cap on players on aid in D2); JUCO moves from 80 to the NJCAA's 85 for every JUCO, the California schools too (they give no athletic aid).
-- Where no NCAA yearly cap exists below Division I (D2, NAIA, D3, JUCO), staffs still sign at most about 1.4 normal classes (42, 42, 45, 56), the world's earlier pick. Under the House limit (FBS and opted-in FCS from 2025) nothing caps a class but the 105 (realism audit item 13, 2026-11-15).
+- Where no NCAA yearly cap exists (the House limit from 2025, D2, NAIA, D3, JUCO), nothing caps a class but the roster limit; the holes at each position decide it (realism audit item 13, 2026-11-15). Before, staffs stopped at about 1.4 normal classes (39, 33, 42, 42, 45, 56).
 - The 25-signee limit runs through 2024 as approved; the real NCAA waived it for 2022-23 and 2023-24 (CBS Sports, May 18, 2022), keeping the 85 cap. Raichel may want the waiver.
 - The NIL market ramp (each collective follows the Power 4 total), football's 75% of revenue sharing for every Power 4 school, the Group of 5 at the American's floor, and no revenue sharing in FCS and below.
 - Tight end offers top out at $300K and specialists at $50K (not in the data).
