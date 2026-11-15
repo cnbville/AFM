@@ -30,7 +30,7 @@ use afm_engine::world::folk::persona::negotiate::{self, Played};
 use afm_engine::world::folk::persona::room::Room;
 use afm_engine::world::folk::persona::talk::{self, Conversation, Parts, Said, channels, store};
 use afm_engine::world::folk::persona::terms::{Request as Ask, Valuing, Weighed};
-use afm_engine::world::folk::persona::{deals, office};
+use afm_engine::world::folk::persona::{deals, meetings, office};
 use afm_engine::world::folk::scene::{Kind, Scene};
 use serde_json::{Value, json};
 
@@ -45,11 +45,15 @@ pub const WAIT_TTL: Duration = Duration::from_secs(900);
 /// meetings with the people in your building (lane N5c), the draft side's
 /// talks (lane N5e), the negotiation calls (lane N5b), a recruit's and a
 /// transfer's talks and a college staff's call to you, the high school
-/// coach (lane N5a), and the group talks (the team talk, the first team
-/// meeting, the council: lane N5d). The interview rooms keep lane 6's typed
-/// path, where a typed question lands on its own chip (a flagged worry
-/// included).
+/// coach (lane N5a), the group talks (the team talk, the first team
+/// meeting, the council: lane N5d), and the older meetings (a parent's
+/// call, discipline, the captains, the parents, a call from someone you
+/// know, your job interview, the interview rooms...: `meetings`) when
+/// someone is across.
 pub fn plays(g: &Game, s: &Scene) -> bool {
+    if meetings::plays(s.kind) {
+        return g.ai.persona_talks && g.world.as_ref().is_some_and(|w| meetings::has_room(w, s));
+    }
     g.ai.persona_talks
         && (matches!(s.kind, Kind::OneOnOne | Kind::DraftTalk)
             || office::plays(s.kind)
@@ -59,6 +63,12 @@ pub fn plays(g: &Game, s: &Scene) -> bool {
             || group::is_group(s))
 }
 
+/// One of the older meetings with nobody across to talk to (a briefing
+/// with no staff): it takes no typed line, so none is read onto a chip.
+pub fn nobody(g: &Game, s: &Scene) -> bool {
+    g.ai.persona_talks && meetings::plays(s.kind) && g.world.as_ref().is_some_and(|w| !meetings::has_room(w, s))
+}
+
 /// The room a scene's talk is held in: the open talk's, else the one its
 /// lane sets (someone in your building, lane N5c; a negotiation's call,
 /// lane N5b; a group's room, lane N5d), else a one-on-one.
@@ -66,6 +76,7 @@ pub fn room_of(w: &World, s: &Scene) -> Room {
     store::room(w, s.id)
         .or_else(|| office::plays(s.kind).then(|| office::room(w, s)).flatten())
         .or_else(|| negotiate::room(w, s))
+        .or_else(|| meetings::room(w, s))
         .or_else(|| group::room(w, s))
         .unwrap_or_else(|| channels::room_for(w, s))
 }
@@ -75,18 +86,27 @@ pub fn room_of(w: &World, s: &Scene) -> Room {
 /// lane N3's deals and requests under a negotiation's own (lane N5b,
 /// `negotiate::Played`).
 pub fn parts_for<'a>(s: &Scene, played: &'a Played) -> Parts<'a> {
-    if office::plays(s.kind) || s.kind == Kind::DraftTalk { parts_of(s.kind) } else { played.parts() }
+    parts_for_kind(s.kind, played)
 }
 
 /// `parts_for` by the scene's kind.
 fn parts_for_kind(kind: Kind, played: &Played) -> Parts<'_> {
-    if office::plays(kind) || kind == Kind::DraftTalk { parts_of(kind) } else { played.parts() }
+    if office::plays(kind) || meetings::plays(kind) || kind == Kind::DraftTalk {
+        parts_of(kind)
+    } else {
+        played.parts()
+    }
 }
 
 /// The lanes' own parts by the scene's kind (lanes N5c and N5e), else lane
-/// N1's people and lane N3's deals and requests.
+/// N1's people and lane N3's deals and requests. The older meetings play on
+/// lane N5c's office parts (lane N1's people with what your staff, your
+/// boss and other coaches know and do; for anyone else they are lane N1's
+/// and N3's own), and the interview rooms on lane N5e's.
 pub fn parts_of(kind: Kind) -> Parts<'static> {
-    if office::plays(kind) {
+    if kind == Kind::CombineTalk {
+        afm_engine::world::folk::persona::draft::facet::parts()
+    } else if office::plays(kind) || meetings::plays(kind) {
         office::parts()
     } else if kind == Kind::DraftTalk {
         afm_engine::world::folk::persona::draft::facet::parts()
@@ -282,8 +302,12 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
         {
             sc.narrate(line);
         }
-        // What lane N5c makes of it: a reference's read on the coach's page.
-        if office::plays(s.kind) {
+        // What lane N5c makes of it: a reference's read on the coach's page,
+        // a boss's no kept on record (the older meetings' bosses too).
+        if meetings::plays(s.kind) {
+            meetings::after(w, id, &room, &conv.said.reading, &t);
+        }
+        if office::plays(s.kind) || meetings::plays(s.kind) {
             let lines = office::after(w, id, &room, &conv.said.reading, &t);
             if let Some(sc) = w.folk.scenes.iter_mut().find(|x| x.id == id) {
                 for l in lines {
@@ -523,3 +547,7 @@ mod recruit_tests;
 #[cfg(test)]
 #[path = "n7_tests.rs"]
 pub(crate) mod n7_tests;
+
+#[cfg(test)]
+#[path = "meetings_tests.rs"]
+mod meetings_tests;
