@@ -66,6 +66,8 @@ pub fn call(g: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "people_say" => say::people_say(g, args),
         "talk_confirm" => persona::talk::confirm(g, args),
         "talk_typed" => say::rooms::typed(g, args),
+        "word_typed" => persona::gameday::word_typed(g, args),
+        "official_talk" => persona::gameday::official_talk(g, args),
         "fo_say" => say::fo_say(g, args),
         "ai_ask" => ask::ask(g, args),
         "ai_checks" => checks::ai_checks(g),
@@ -100,11 +102,13 @@ pub fn after(g: &mut Game, cmd: &str, _args: &Value, reply: &mut Reply) {
         if let Some(inner) = v.get_mut("reply").filter(|r| r.is_object()) {
             say::flag(g, cmd, inner);
             ask::flags(g, cmd, inner);
+            persona::gameday::flag(g, cmd, inner);
         }
         return;
     }
     say::flag(g, cmd, v);
     ask::flags(g, cmd, v);
+    persona::gameday::flag(g, cmd, v);
 }
 
 /// A short card for the Test call, in the shape of a typed line to a player.

@@ -12,9 +12,12 @@
 //! reading and lands only when you confirm it (proposed, not confirmed).
 //!
 //! A reading that waits for you is carried by its pick: `readings[].pick` is
-//! the Pick packed into one number (`code`), and the box sends it back with
-//! `{moment, ticket, pick}`. Nothing waits in the game, so nothing expires.
-//! The room has no writer: nobody answers a team talk in words.
+//! `{code, tilts, words}`, the Pick packed into one number (`code`), each
+//! man's own part of the speech and your words (lane N5d), and the box
+//! sends it back with `{moment, ticket, pick}` (a bare code still works).
+//! Nothing waits in the game, so nothing expires. Since lane N5d a captain
+//! answers the talk in his own words (`persona::gameday::captain`): on the
+//! reader's ticket, or a ticket of its own once you confirm a reading.
 
 use afm_ai::Request;
 use afm_engine::game::talk::{Move, Pick, Subject, Tone};
@@ -26,7 +29,10 @@ use super::{MOVED_ON, NO_FOLLOW, READER_TOKENS, TONES};
 use crate::Game;
 use crate::lane_gameday::talk::{self, Typed};
 use crate::live_talk::card::{Card, Keys, quoted};
+use crate::live_talk::persona::gameday as gd;
 use crate::live_talk::tickets::{self, Next, Step};
+use afm_engine::game::talk::Tilt;
+use afm_engine::world::folk::persona::gameday::speech;
 
 /// The reader's label (the fake's queue uses it too).
 pub const READER: &str = "room_reader";
@@ -72,20 +78,27 @@ fn move_keys() -> Vec<&'static str> {
     MOVES.iter().map(|m| m.0.key()).chain(["none"]).collect()
 }
 
-/// The reader's schema: the room's own Pick, and nothing else.
+/// The reader's rules with lane N5d's hits.
+pub fn rules() -> String {
+    format!("{RULES}{}", gd::HITS_RULES)
+}
+
+/// The reader's schema: the room's own Pick, and which of each man's own
+/// things the line touched (lane N5d).
 pub fn schema() -> Value {
     let moves = move_keys();
     json!({
         "type": "object",
         "additionalProperties": false,
-        "required": ["move", "also", "tone", "subject", "who", "fit"],
+        "required": ["move", "also", "tone", "subject", "who", "fit", "hits"],
         "properties": {
             "move": { "type": "string", "enum": moves },
             "also": { "type": "string", "enum": moves },
             "tone": { "type": "string", "enum": TONES },
             "subject": { "type": "string", "enum": SUBJECTS.iter().map(|s| s.0).collect::<Vec<_>>() },
             "who": { "type": "string" },
-            "fit": { "type": "string", "enum": ["clear", "unsure", "not_a_line"] }
+            "fit": { "type": "string", "enum": ["clear", "unsure", "not_a_line"] },
+            "hits": gd::hits_schema()
         }
     })
 }
@@ -227,9 +240,20 @@ pub fn typed(g: &mut Game, args: &Value) -> crate::Reply {
     let w = g.world.as_ref().ok_or("No world is loaded.")?;
     let room = talk::typed_room(w, &moment)?;
     if args.get("ticket").is_some() {
-        let c = args.get("pick").and_then(Value::as_u64).ok_or("Missing pick.")?;
+        // A reading carries its pick as a number, or (with the men's own
+        // parts of the speech) as {code, tilts}.
+        let p = args.get("pick").ok_or("Missing pick.")?;
+        let c = p.as_u64().or_else(|| p.get("code").and_then(Value::as_u64)).ok_or("Missing pick.")?;
         let pick = decode(c).filter(|p| allowed(&room, p)).ok_or("That answer isn't on the table.")?;
-        return land(g, &room, pick);
+        let tilts = talk::tilts_of(p);
+        let words = p.get("words").and_then(Value::as_str).unwrap_or("").chars().take(scene::LIMIT).collect::<String>();
+        let done = land(g, &room, pick, &tilts)?;
+        // A captain answers for the room (lane N5d): his words come on a
+        // ticket of their own, else the talk's reply stands.
+        return Ok(match gd::captain(g, &room, &pick, &words, done.clone()) {
+            Step::Call(req, next) => tickets::start(g, req, next, false).map_or(done, |t| json!({ "ticket": t })),
+            Step::Done(v) => v,
+        });
     }
     let text = args.get("text").and_then(Value::as_str).unwrap_or("").trim().to_string();
     if text.is_empty() {
@@ -239,11 +263,13 @@ pub fn typed(g: &mut Game, args: &Value) -> crate::Reply {
         return Err(format!("A line is {} characters at most.", scene::LIMIT));
     }
     let (card, keys) = card_text(&room, &text);
-    let req = Request::new(READER, RULES, &card).schema(schema()).max_tokens(READER_TOKENS);
+    let (things, items) = gd::speech_items(w, &room.people);
+    let card = gd::with_items(card, &things);
+    let req = Request::new(READER, &rules(), &card).schema(schema()).max_tokens(READER_TOKENS);
     if let Some(f) = g.ai.browser_fake() {
         f.push(READER, Ok(stand_in(&room, &keys, &text)));
     }
-    let next = reader_step(moment, keys);
+    let next = reader_step(moment, keys, items, text);
     tickets::start(g, req, next, false).map(|t| json!({ "ticket": t })).map_err(|f| f.note())
 }
 
@@ -259,7 +285,7 @@ fn allowed(room: &Typed, p: &Pick) -> bool {
         }
 }
 
-fn unsure(room: &Typed, picks: &[Pick]) -> Value {
+fn unsure(room: &Typed, picks: &[Pick], tilts: &[Tilt], words: &str) -> Value {
     let why = if room.half {
         "The halftime talk is said once. It can't be taken back, or said again."
     } else {
@@ -267,13 +293,16 @@ fn unsure(room: &Typed, picks: &[Pick]) -> Value {
     };
     let readings: Vec<Value> = picks
         .iter()
-        .map(|p| json!({ "pick": code(p), "heard": heard_words(room, p), "final": room.half, "why": why }))
+        .map(|p| {
+            let pick = json!({ "code": code(p), "tilts": talk::tilts_json(tilts), "words": words });
+            json!({ "pick": pick, "heard": heard_words(room, p), "final": room.half, "why": why })
+        })
         .collect();
     json!({ "state": "unsure", "readings": readings })
 }
 
 /// The reader's step, inside `ai_poll` under the lock.
-fn reader_step(moment: String, keys: Keys) -> Next {
+fn reader_step(moment: String, keys: Keys, items: gd::Items, words: String) -> Next {
     Box::new(move |g, r| {
         let reply = match r {
             Ok(x) => x,
@@ -286,12 +315,14 @@ fn reader_step(moment: String, keys: Keys) -> Next {
         let Some((first, second)) = read(&room, &keys, &v) else {
             return Step::Done(json!({ "state": "none", "note": NO_FOLLOW }));
         };
+        // Each man's own part of the speech: what the line touched of his.
+        let tilts = speech::tilts(w, first.tone, &gd::touched(&items, &v));
         let picks: Vec<Pick> = std::iter::once(first).chain(second).collect();
         if room.half || picks.len() > 1 {
-            return Step::Done(unsure(&room, &picks));
+            return Step::Done(unsure(&room, &picks, &tilts, &words));
         }
-        match land(g, &room, first) {
-            Ok(done) => Step::Done(done),
+        match land(g, &room, first, &tilts) {
+            Ok(done) => gd::captain(g, &room, &first, &words, done),
             Err(e) => Step::Done(json!({ "state": "none", "note": e })),
         }
     })
@@ -299,8 +330,11 @@ fn reader_step(moment: String, keys: Keys) -> Next {
 
 /// Runs the room's own command for the Pick, then answers done with the
 /// room's normal reply.
-fn land(g: &mut Game, room: &Typed, p: Pick) -> crate::Reply {
-    let args = json!({ "move": p.mv.key(), "tone": p.tone.key(), "subject": p.subject.key(), "who": p.who });
+fn land(g: &mut Game, room: &Typed, p: Pick, tilts: &[Tilt]) -> crate::Reply {
+    let mut args = json!({ "move": p.mv.key(), "tone": p.tone.key(), "subject": p.subject.key(), "who": p.who });
+    if !tilts.is_empty() {
+        args["tilts"] = talk::tilts_json(tilts);
+    }
     if room.half {
         let mut a = args.clone();
         a["kind"] = json!("talk");
@@ -371,7 +405,7 @@ fn stand_in(room: &Typed, keys: &Keys, words: &str) -> Value {
     };
     let v = json!({
         "move": mv, "also": "none", "tone": tone, "subject": subject, "who": who,
-        "fit": if mv == "none" { "not_a_line" } else { "clear" },
+        "fit": if mv == "none" { "not_a_line" } else { "clear" }, "hits": [],
     });
     body(&v.to_string(), 600, 60)
 }

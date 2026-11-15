@@ -24,7 +24,7 @@ use serde_json::{Value, json};
 use crate::views::date_text;
 use crate::{Game, Reply};
 
-const COMMANDS: [&str; 29] = [
+const COMMANDS: [&str; 30] = [
     "people_agenda",
     "people_expect",
     "people_scene",
@@ -40,6 +40,7 @@ const COMMANDS: [&str; 29] = [
     "people_rules",
     "people_rules_set",
     "people_council",
+    "people_council_meet",
     "people_boss",
     "people_boss_meeting",
     "people_staff",
@@ -149,6 +150,9 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             w.folk.rules.council = ids;
             Ok(rules(w))
         })(),
+        "people_council_meet" => {
+            afm_engine::world::folk::persona::gameday::group::start_council(w).map(|sid| json!({ "scene": sid }))
+        }
         "people_boss" => Ok(boss_page(w)),
         "people_boss_meeting" => boss::request_meeting(w).map(|sid| json!({ "scene": sid })),
         "people_staff" => Ok(staff(w)),

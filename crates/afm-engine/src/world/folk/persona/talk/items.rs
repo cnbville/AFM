@@ -118,6 +118,7 @@ pub fn short(w: &World, him: Them, item: &Item) -> String {
         Item::Friend(f) => folk::person(w, *f).map_or("his friend".into(), |j| w.people[j].name.clone()),
         Item::Family => "his family".into(),
         Item::HisWord => "what he told you".into(),
+        Item::Room => "the team".into(),
         Item::Want(_) => String::new(),
     }
 }

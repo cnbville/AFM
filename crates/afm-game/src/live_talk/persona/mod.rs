@@ -29,6 +29,8 @@ use super::card::{Spoken, Tagged};
 
 pub mod cards;
 pub mod ear;
+pub mod gameday;
+pub mod group;
 pub mod talk;
 pub mod voice;
 

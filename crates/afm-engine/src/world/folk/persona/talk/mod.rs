@@ -440,7 +440,8 @@ impl Resolving for Conversation<'_> {
             let Some(i) = folk::person(w, pid) else { continue };
             let p = &mut w.people[i];
             p.trust = (p.trust + h.trust).clamp(0.0, 1.0);
-            if h.hit.on == him {
+            // In a group talk every man's mood lands at once (lane N5d).
+            if h.hit.on == him && !matches!(room.channel, super::room::Channel::Group(_)) {
                 if let Some(sc) = w.folk.scenes.iter_mut().find(|x| x.id == id) {
                     sc.f[0] += h.trust;
                     sc.f[1] += h.mood;

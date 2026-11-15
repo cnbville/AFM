@@ -304,3 +304,34 @@ fn with_no_key_the_one_on_one_is_unchanged() {
     assert!(g.world.as_ref().unwrap().folk.live.persona.is_empty(), "nothing of v3 is written");
     let _ = Them::Player(him);
 }
+
+#[test]
+fn a_line_to_the_team_reaches_every_man_in_the_room() {
+    let (mut g, f, him) = game("group", true);
+    let f = f.unwrap();
+    let sid = ok(&mut g, "people_team_talk", json!({}))["scene"].as_u64().unwrap() as u32;
+    let v = ok(&mut g, "people_scene", json!({ "id": sid }));
+    assert_eq!(v["say"]["cmd"], "people_say", "a team talk takes a typed line: {v}");
+    let roster: Vec<u32> = {
+        let w = g.world.as_ref().unwrap();
+        let team = afm_engine::world::folk::Team::seat(w).unwrap();
+        team.roster(w).iter().map(|&i| w.people[i].player.id).collect()
+    };
+    assert!(roster.contains(&him));
+    let before: Vec<f32> = roster.iter().map(|&id| trust(&g, id)).collect();
+    // The whole room, on the line meant for all of them.
+    f.push(EAR, Ok(ear(vec![], vec![json!({"on": "p0", "item": "c0", "how": "respected"})], false)));
+    f.push(VOICE, Ok(voice("We hear you, Coach.", "")));
+    let v = say(&mut g, sid, "I trust every one of you in this room.");
+    assert_eq!(v["state"], "done", "{v}");
+    let after: Vec<f32> = roster.iter().map(|&id| trust(&g, id)).collect();
+    let moved = before.iter().zip(&after).filter(|(a, b)| a != b).count();
+    assert_eq!(moved, roster.len(), "every man heard it: {before:?} {after:?}");
+    // The room's card names the room, not one man.
+    let w = g.world.as_ref().unwrap();
+    let s = scene_of(&g, sid);
+    let room = super::room_of(w, &s);
+    let (c, k) = super::super::group::ear(w, &s, &room, "");
+    assert_eq!(c.people[0].tag, "p0");
+    assert_eq!(k.items[0].1, afm_engine::world::folk::persona::ear::Item::Room);
+}

@@ -7,7 +7,7 @@
 use afm_engine::calendar::{Date, Level as CalLevel};
 use afm_engine::game::GameTeam;
 use afm_engine::game::live::{Ask, Input, WordOffer};
-use afm_engine::game::talk::{self, Ctx, Landing, Mind, Moment, Move, Pick, Record, Subject, Tone, Unit, Why};
+use afm_engine::game::talk::{self, Ctx, Landing, Mind, Moment, Move, Pick, Record, Subject, Tilt, Tone, Unit, Why};
 use afm_engine::player::Trait;
 use afm_engine::world::World;
 use afm_engine::world::folk::{Team, gametalk};
@@ -46,6 +46,38 @@ fn pick_of(a: &Value, base: Pick) -> Pick {
         subject: s("subject").and_then(Subject::from_key).unwrap_or(base.subject),
         who: a.get("who").and_then(Value::as_u64).map_or(base.who, |x| x as u32),
     }
+}
+
+/// Each man's own part of a typed speech (live talks v3, lane N5d), from a
+/// command's `tilts`: `[{id, move, tone, share}]`. A move a word to one man
+/// can't be is dropped, and a share is held to `speech::MAX_SHARE`.
+pub(crate) fn tilts_of(a: &Value) -> Vec<Tilt> {
+    use afm_engine::world::folk::persona::gameday::speech::MAX_SHARE;
+    a.get("tilts")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|t| {
+            let id = t.get("id").and_then(Value::as_u64)? as u32;
+            let mv = t.get("move").and_then(Value::as_str).and_then(Move::from_key)?;
+            if !matches!(mv, Move::Praise | Move::Straight | Move::Criticize | Move::Challenge | Move::Warn) {
+                return None;
+            }
+            let tone = t.get("tone").and_then(Value::as_str).and_then(Tone::from_key).unwrap_or_default();
+            let share = t.get("share").and_then(Value::as_f64)?.clamp(0.0, f64::from(MAX_SHARE)) as f32;
+            Some(Tilt { id, pick: Pick { mv, tone, subject: Subject::One, who: id }, share })
+        })
+        .take(26)
+        .collect()
+}
+
+/// Tilts as a command's args carry them.
+pub(crate) fn tilts_json(ts: &[Tilt]) -> Value {
+    json!(
+        ts.iter()
+            .map(|t| json!({ "id": t.id, "move": t.pick.mv.key(), "tone": t.pick.tone.key(), "share": t.share }))
+            .collect::<Vec<_>>()
+    )
 }
 
 fn pick_json(p: &Pick) -> Value {
@@ -248,7 +280,9 @@ fn room_json(
     half: bool,
     lcx: &gametalk::LineCx,
 ) -> Value {
-    let ls = talk::room(team, pick, cx);
+    // Your typed speech said before kickoff lands man by man (lane N5d).
+    let tilts: &[Tilt] = if !half && w.gameday.pregame == Some((date, *pick)) { &w.gameday.tilts } else { &[] };
+    let ls = talk::room_tilted(team, pick, cx, tilts);
     let wt = talk::weights(team);
     let mot = team.staff.motivation;
     let seed = seed_of(date, pick, half);
@@ -849,10 +883,13 @@ pub(super) fn say(w: &mut World, a: &Value) -> Reply {
         let cx = talk::ctx(team, s.params.rules.level, s.params.playoff, &s.params.context[side], Moment::Pregame);
         pick.who = captain_for(team, &cx, pick.who);
     }
+    let ids: Vec<u32> = team.players.iter().map(|p| p.id).collect();
     if a.get("undo").and_then(Value::as_bool).unwrap_or(false) {
         w.gameday.pregame = None;
+        w.gameday.tilts.clear();
     } else {
         w.gameday.pregame = Some((w.today, pick));
+        w.gameday.tilts = tilts_of(a).into_iter().filter(|t| ids.contains(&t.id)).collect();
     }
     room(w, &json!({}))
 }
@@ -860,7 +897,37 @@ pub(super) fn say(w: &mut World, a: &Value) -> Reply {
 /// Your halftime talk (D5): an answer to the halftime stop.
 pub(super) fn halftime_input(a: &Value) -> Input {
     let nothing = a.get("nothing").and_then(Value::as_bool).unwrap_or(false);
-    Input::Talk(if nothing { Pick { mv: Move::Nothing, ..Pick::default() } } else { pick_of(a, Pick::default()) })
+    let pick = if nothing { Pick { mv: Move::Nothing, ..Pick::default() } } else { pick_of(a, Pick::default()) };
+    let tilts = if nothing { Vec::new() } else { tilts_of(a) };
+    if tilts.is_empty() { Input::Talk(pick) } else { Input::Speech { pick, tilts } }
+}
+
+/// A typed word on the sideline (lane N5d): the word and how much of it
+/// reached him.
+pub(super) fn said_input(a: &Value) -> Result<Input, String> {
+    let id = a.get("id").and_then(Value::as_u64).ok_or("Missing player.")? as u32;
+    let pick = pick_of(a, Pick { mv: Move::Straight, tone: Tone::Calm, subject: Subject::One, who: id });
+    let share = a.get("share").and_then(Value::as_f64).unwrap_or(1.0).clamp(0.0, 1.0) as f32;
+    Ok(Input::Said { id, pick: Pick { subject: Subject::One, who: id, ..pick }, share })
+}
+
+/// How a word would land on one of your players waiting for one in your
+/// live game, with `share` of it reaching him.
+pub(crate) fn word_landing(w: &World, id: u32, pick: &Pick, share: f32) -> Option<Landing> {
+    let l = w.live.as_ref()?;
+    let mine = l.game.ctl.team;
+    let team = if mine == 0 { &l.game.home } else { &l.game.away };
+    let mut g = l.game.clone();
+    let o = g.run().pending?.words.into_iter().find(|o| o.id == id)?;
+    let p = team.players.iter().find(|p| p.id == id)?;
+    let cx = talk::ctx(
+        team,
+        l.game.params.rules.level,
+        l.game.params.playoff,
+        &l.game.params.context[mine],
+        Moment::Sideline { mistake: o.mistake },
+    );
+    Some(talk::land_share(p, &Pick { subject: Subject::One, who: id, ..*pick }, &cx, share))
 }
 
 /// A word on the sideline (D6): the answer that gives it.

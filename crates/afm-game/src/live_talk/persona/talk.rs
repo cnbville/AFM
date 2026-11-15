@@ -26,6 +26,7 @@ use afm_engine::world::folk;
 use afm_engine::world::folk::persona::Them;
 use afm_engine::world::folk::persona::deals;
 use afm_engine::world::folk::persona::ear::{Confirm, Resolving, Turn};
+use afm_engine::world::folk::persona::gameday::{decide, group};
 use afm_engine::world::folk::persona::room::Room;
 use afm_engine::world::folk::persona::talk::{self, Conversation, Parts, Said, channels, store};
 use afm_engine::world::folk::scene::{Kind, Scene};
@@ -38,9 +39,17 @@ use crate::{Game, Reply};
 /// How long a confirm waits. Proposed, not confirmed.
 pub const WAIT_TTL: Duration = Duration::from_secs(900);
 
-/// Whether a scene's typed lines play as a v3 talk: your one-on-ones.
+/// Whether a scene's typed lines play as a v3 talk: your one-on-ones, and
+/// the group talks (the team talk, the first team meeting, the council:
+/// lane N5d).
 pub fn plays(g: &Game, s: &Scene) -> bool {
-    g.ai.persona_talks && s.kind == Kind::OneOnOne
+    g.ai.persona_talks && (s.kind == Kind::OneOnOne || group::is_group(s))
+}
+
+/// The room a scene's talk is played in: the one kept with the open talk,
+/// else a group's room (lane N5d), else him across from you.
+pub fn room_of(w: &World, s: &Scene) -> Room {
+    store::room(w, s.id).or_else(|| group::room(w, s)).unwrap_or_else(|| channels::one_on_one(s))
 }
 
 /// What waits on your confirm, by ticket.
@@ -80,9 +89,10 @@ pub fn parts() -> Parts<'static> {
 pub fn say(g: &mut Game, id: u32, text: String) -> Reply {
     let w = g.world.as_ref().ok_or("No world is loaded.")?;
     let s = w.folk.scenes.iter().find(|s| s.id == id).ok_or("No such meeting.")?;
-    let room = store::room(w, id).unwrap_or_else(|| channels::one_on_one(s));
+    let room = room_of(w, s);
     let p = parts();
-    let (card, keys) = cards::ear(w, s, &room, &p, &text);
+    let (card, keys) =
+        if group::is_group(s) { super::group::ear(w, s, &room, &text) } else { cards::ear(w, s, &room, &p, &text) };
     let today = crate::views::date_text(w.today);
     let (y, m, d) = w.today.parts();
     let body = card.text(&format!("{today} ({y:04}-{m:02}-{d:02})"));
@@ -133,16 +143,30 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
         let room = match store::room(w, id) {
             Some(r) => r,
             None => {
-                let r = channels::one_on_one(&s);
+                let r = room_of(w, &s);
                 store::begin(w, id, r.clone());
                 r
             }
         };
+        let is_group = group::is_group(&s);
+        // A line to the whole room is one hit on each man in it (lane N5d).
+        let reading = if is_group { group::expand(&room, reading) } else { reading };
         let conv = Conversation { parts: parts(), said: Said { scene: id, words: words.clone(), reading, promises } };
         let t = conv.turn(w, &room, &conv.said.reading);
         let heard = cards::heard(w, &room, &t);
-        let vc = cards::voice(w, &s, &room, &conv.parts, &t, &words, &keys);
+        let mut vc = cards::voice(w, &s, &room, &conv.parts, &t, &words, &keys);
+        if is_group {
+            // A captain answers for the room; the voice hears the room, not
+            // a roll call.
+            vc.room = vec![format!("{}, every one of them listening", cards::channel_words(room.channel))];
+        }
         conv.apply(w, &t);
+        if is_group
+            && let Some(line) = group::landed(w, &t.hits)
+            && let Some(sc) = w.folk.scenes.iter_mut().find(|x| x.id == id)
+        {
+            sc.narrate(line);
+        }
         let marks = marks(w, &t);
         let confirm = waits(g, id, &room, &t);
         let card_text = vc.text();
@@ -290,9 +314,8 @@ fn run(w: &mut World, him: Them, c: &Confirm) -> Vec<String> {
             out.extend(a.done);
             out
         }
-        Confirm::Decision(d) => {
-            vec![format!("Make it real on its own screen: {}.", channels::decision_words(*d))]
-        }
+        Confirm::Decision(d) => decide::run(w, him, *d)
+            .unwrap_or_else(|| vec![format!("Make it real on its own screen: {}.", channels::decision_words(*d))]),
     }
 }
 

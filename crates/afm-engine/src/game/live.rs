@@ -256,6 +256,10 @@ pub struct Prep {
     /// Your pregame talk (dialogue D4); None: your own coach profile's.
     #[serde(default)]
     pub talk: Option<super::talk::Pick>,
+    /// Each man's own part of a typed pregame speech (live talks v3, lane
+    /// N5d); empty for a chip.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tilts: Vec<super::talk::Tilt>,
 }
 
 impl Prep {
@@ -307,6 +311,23 @@ pub enum Input {
         id: u32,
         pick: super::talk::Pick,
     },
+    /// A typed halftime speech (live talks v3, lane N5d): the room's pick
+    /// and each man's own part of it; the halftime stop then asks again.
+    Speech {
+        pick: super::talk::Pick,
+        tilts: Vec<super::talk::Tilt>,
+    },
+    /// A typed word on the sideline (lane N5d): the word, and how much of
+    /// it reached him (0-1); the snap then asks again.
+    Said {
+        id: u32,
+        pick: super::talk::Pick,
+        share: f32,
+    },
+    /// You went too far with an official between plays (lane N5d): an
+    /// unsportsmanlike flag on your sideline, 15 yards from the succeeding
+    /// spot; the snap then asks again.
+    BenchFlag,
 }
 
 /// The kinds of points where you may decide.

@@ -1364,10 +1364,13 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
         g.tempo = tempo;
     }
     // The pregame talks (dialogue D4): yours, or each head coach's own.
-    let mine = g.ctl.as_ref().and_then(|c| c.prep.talk.map(|p| (c.team, p)));
+    let mine = g.ctl.as_ref().and_then(|c| c.prep.talk.map(|p| (c.team, p, c.prep.tilts.clone())));
     for k in 0..2 {
-        let pick = mine.filter(|m| m.0 == k).map(|m| m.1);
-        g.room_talk(k, super::talk::Moment::Pregame, pick);
+        let (pick, tilts) = match mine.as_ref().filter(|m| m.0 == k) {
+            Some(m) => (Some(m.1), m.2.clone()),
+            None => (None, Vec::new()),
+        };
+        g.room_talk(k, super::talk::Moment::Pregame, pick, &tilts);
     }
     g.eye = live::draw_eye(&mut g.refs);
     g.challenges = [g.replay.challenges; 2];
@@ -1928,14 +1931,20 @@ impl<'a> Game<'a> {
                         Some(Input::Talk(pick)) if talked.is_none() => {
                             let k = self.ctl_team();
                             let margin = self.diff(k);
-                            self.room_talk(k, super::talk::Moment::Halftime { margin }, Some(pick));
+                            self.room_talk(k, super::talk::Moment::Halftime { margin }, Some(pick), &[]);
+                            talked = Some(pick);
+                        }
+                        Some(Input::Speech { pick, tilts }) if talked.is_none() => {
+                            let k = self.ctl_team();
+                            let margin = self.diff(k);
+                            self.room_talk(k, super::talk::Moment::Halftime { margin }, Some(pick), &tilts);
                             talked = Some(pick);
                         }
                         Some(Input::Halftime(pc)) => {
                             self.apply_plan(self.ctl_team(), pc);
                             break;
                         }
-                        Some(Input::Talk(_)) => {}
+                        Some(Input::Talk(_)) | Some(Input::Speech { .. }) => {}
                         _ => break,
                     }
                     again = true;
@@ -1952,7 +1961,7 @@ impl<'a> Game<'a> {
                         continue;
                     }
                     let margin = self.diff(k);
-                    self.room_talk(k, super::talk::Moment::Halftime { margin }, None);
+                    self.room_talk(k, super::talk::Moment::Halftime { margin }, None, &[]);
                 }
                 self.quarter = 3;
                 self.clock = self.rules().quarter;
@@ -2673,7 +2682,9 @@ impl<'a> Game<'a> {
                 match self.ask(Ask::Snap, again) {
                     Some(Input::Timeout) => self.user_timeout(self.poss),
                     Some(Input::Plan(pc)) => self.apply_plan(self.poss, pc),
-                    Some(Input::Word { id, pick }) => self.your_word(self.poss, id, pick),
+                    Some(Input::Word { id, pick }) => self.your_word(self.poss, id, pick, 1.0),
+                    Some(Input::Said { id, pick, share }) => self.your_word(self.poss, id, pick, share),
+                    Some(Input::BenchFlag) => self.bench_flag(self.poss),
                     Some(Input::Tempo(t)) => {
                         self.tempo = t;
                         let name = match t {
@@ -3815,7 +3826,9 @@ impl<'a> Game<'a> {
                 match self.ask(Ask::Defense, again) {
                     Some(Input::Timeout) => self.user_timeout(1 - o),
                     Some(Input::Plan(pc)) => self.apply_plan(1 - o, pc),
-                    Some(Input::Word { id, pick }) => self.your_word(1 - o, id, pick),
+                    Some(Input::Word { id, pick }) => self.your_word(1 - o, id, pick, 1.0),
+                    Some(Input::Said { id, pick, share }) => self.your_word(1 - o, id, pick, share),
+                    Some(Input::BenchFlag) => self.bench_flag(1 - o),
                     Some(Input::Tempo(_)) => {}
                     other => {
                         dinput = other;
@@ -6439,13 +6452,19 @@ impl<'a> Game<'a> {
     /// A talk to one side's whole room (dialogue D4, D5): yours, or the
     /// head coach's own read of his room. The halftime talk takes over from
     /// what is left of the pregame one.
-    fn room_talk(&mut self, k: usize, moment: super::talk::Moment, pick: Option<super::talk::Pick>) {
+    fn room_talk(
+        &mut self,
+        k: usize,
+        moment: super::talk::Moment,
+        pick: Option<super::talk::Pick>,
+        tilts: &[super::talk::Tilt],
+    ) {
         let team: &'a GameTeam = self.sides[k].team;
         let cx = self.talk_cx(k, moment);
         let half = matches!(moment, super::talk::Moment::Halftime { .. });
         let seed = self.s.seed ^ 0x7A1C_0000 ^ ((k as u64) << 40) ^ ((half as u64) << 44);
         let pick = pick.unwrap_or_else(|| super::talk::coach_pick(team, &cx, seed));
-        let ls = super::talk::room(team, &pick, &cx);
+        let ls = super::talk::room_tilted(team, &pick, &cx, tilts);
         for (i, l) in ls.iter().enumerate() {
             self.sides[k].pulse[i] = super::talk::Pulse::of(l);
         }
@@ -6480,13 +6499,17 @@ impl<'a> Game<'a> {
         super::talk::coach_word(p, &cx, self.s.seed ^ 0x5D1E_0000 ^ ((p.id as u64) << 24) ^ play as u64)
     }
 
-    fn give_word(&mut self, w: super::talk::WordDue, pick: super::talk::Pick, yours: bool) {
+    fn give_word(&mut self, w: super::talk::WordDue, pick: super::talk::Pick, yours: bool, share: f32) {
         let k = w.team;
         let Some(i) = self.sides[k].team.players.iter().position(|p| p.id == w.id) else { return };
         let team: &'a GameTeam = self.sides[k].team;
         let cx = self.talk_cx(k, super::talk::Moment::Sideline { mistake: w.mistake });
         let pick = super::talk::Pick { subject: super::talk::Subject::One, who: w.id, ..pick };
-        let l = super::talk::land(&team.players[i], &pick, &cx, None);
+        let l = if share >= 1.0 {
+            super::talk::land(&team.players[i], &pick, &cx, None)
+        } else {
+            super::talk::land_share(&team.players[i], &pick, &cx, share)
+        };
         self.sides[k].pulse[i].add(&l);
         // A word that lands takes some of the sting out of the mistake; one
         // that misses adds to it.
@@ -6512,12 +6535,39 @@ impl<'a> Game<'a> {
     }
 
     /// Your word to one of your players waiting for one.
-    fn your_word(&mut self, k: usize, id: u32, pick: super::talk::Pick) {
+    fn your_word(&mut self, k: usize, id: u32, pick: super::talk::Pick, share: f32) {
         let Some(at) = self.due.iter().position(|w| w.team == k && w.id == id && self.word_ready(w)) else {
             return;
         };
         let w = self.due.remove(at);
-        self.give_word(w, pick, true);
+        self.give_word(w, pick, true, share);
+    }
+
+    /// An unsportsmanlike flag on team `k`'s sideline between plays (live
+    /// talks v3, lane N5d: you went too far with an official): a dead-ball
+    /// foul, 15 yards from the succeeding spot, half the distance near a
+    /// goal line. Against the defense the NFL gives a first down too; at
+    /// every level the yards can reach the line to gain.
+    fn bench_flag(&mut self, k: usize) {
+        if k > 1 {
+            return;
+        }
+        let nfl = self.rules().level == Level::NFL;
+        if k == self.poss {
+            let back = 15.0f64.min(self.x / 2.0);
+            self.x -= back;
+            self.togo += back;
+        } else {
+            let fwd = 15.0f64.min((goal() - self.x) / 2.0);
+            self.x += fwd;
+            self.togo -= fwd;
+            if nfl || self.togo <= 0.0 {
+                self.down = 1;
+                self.togo = 10.0f64.min(goal() - self.x);
+            }
+        }
+        self.running = false;
+        self.log(k, "Unsportsmanlike conduct on your sideline: 15 yards.".into());
     }
 
     /// Before a snap: every word that can come now and wasn't given is the
@@ -6531,7 +6581,7 @@ impl<'a> Game<'a> {
         for w in ready {
             if let Some(i) = self.sides[w.team].team.players.iter().position(|p| p.id == w.id) {
                 let pick = self.staff_word(w.team, i, w.mistake, w.play);
-                self.give_word(w, pick, false);
+                self.give_word(w, pick, false, 1.0);
             }
         }
     }

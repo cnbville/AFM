@@ -70,7 +70,7 @@ pub fn channel_words(c: Channel) -> String {
     }
 }
 
-fn setting(w: &World, s: &Scene, room: &Room) -> String {
+pub(crate) fn setting(w: &World, s: &Scene, room: &Room) -> String {
     let mut out = format!("{}, {}", s.kind.name(), channel_words(room.channel));
     out.push_str(&format!(", {}", crate::views::date_text(s.date)));
     if let Some(t) = Team::seat(w) {
@@ -79,7 +79,7 @@ fn setting(w: &World, s: &Scene, room: &Room) -> String {
     out
 }
 
-fn coach(w: &World) -> String {
+pub(crate) fn coach(w: &World) -> String {
     let name = folk::scene::your_name(w);
     match Team::seat(w) {
         Some(t) => format!("{name}, head coach at {}", t.name(w)),
@@ -88,7 +88,7 @@ fn coach(w: &World) -> String {
 }
 
 /// The talk so far, from the scene: typed words where you typed them.
-fn so_far(s: &Scene) -> Vec<Spoken> {
+pub(crate) fn so_far(s: &Scene) -> Vec<Spoken> {
     let from = s.lines.len().saturating_sub(card::SO_FAR);
     s.lines[from..]
         .iter()

@@ -81,6 +81,9 @@ pub enum Kind {
     FamilyCall,
     /// Your case at the end of a recruit's official visit, in your office.
     OfficialTalk,
+    /// A meeting with your leadership council, or your captains (live
+    /// talks v3, lane N5d).
+    Council,
 }
 
 impl Kind {
@@ -150,6 +153,7 @@ impl Kind {
             Kind::RecruitMessage => "A message to a recruit",
             Kind::FamilyCall => "His family calls",
             Kind::OfficialTalk => "Official visit: your case",
+            Kind::Council => "The leadership council",
         }
     }
 }
