@@ -47,6 +47,9 @@ fn game(name: &str, fake: bool) -> (Game, Option<Arc<Fake>>) {
     let _ = std::fs::remove_dir_all(&p);
     std::fs::create_dir_all(&p).unwrap();
     let mut g = Game::new(p);
+    // The lanes' own readers and writers: the v3 talks (lanes N4, N5c) are
+    // off here.
+    g.ai.persona_talks = false;
     g.world = Some(world());
     let f = fake.then(|| {
         let f = Arc::new(Fake::new());

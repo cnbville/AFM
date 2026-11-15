@@ -349,3 +349,55 @@ fn with_no_key_the_one_on_one_is_unchanged() {
     assert!(g.world.as_ref().unwrap().folk.live.persona.is_empty(), "nothing of v3 is written");
     let _ = Them::Player(him);
 }
+
+/// Lane N5c: a typed line in a sit-down with the team doctor plays as a v3
+/// talk on the office parts: the ear's card names your hurt man, his chart
+/// is what he tells, and asking him to clear the man waits on your confirm
+/// when he would, or is refused by the medical staff's own rule.
+#[test]
+fn a_sit_down_with_the_team_doctor_plays_on_the_office_parts() {
+    use afm_engine::calendar::Date;
+    use afm_engine::training::seat::Hurt;
+    use afm_engine::world::folk::cast::{CastRef, Role as CastRole};
+    use afm_engine::world::folk::persona::office;
+    let (mut g, f, him) = game("doctor", true);
+    let f = f.unwrap();
+    let (team, doc) = {
+        let w = g.world.as_mut().unwrap();
+        let today = w.today;
+        w.training.hurt.push(Hurt {
+            id: him,
+            kind: None,
+            from: today,
+            until: Date(today.0 + 21),
+            how: "practice".into(),
+        });
+        let team = afm_engine::world::folk::Team::seat(w).unwrap();
+        (team, office::cast_them(w, CastRef::new(team, CastRole::Trainer, 0)))
+    };
+    let Them::Cast(r, _) = doc else { panic!() };
+    let v = ok(&mut g, "people_sitdown", json!({ "cast": r.token() }));
+    let id = v["id"].as_u64().unwrap() as u32;
+    let s = scene_of(&g, id);
+    let w = g.world.as_ref().unwrap();
+    let room = office::room(w, &s).unwrap();
+    let (card, keys) = cards::ear(w, &s, &room, &office::parts(), "");
+    let tag = keys.people.iter().find(|(_, x)| *x == Them::Player(him)).map(|(t, _)| t.clone()).expect("the hurt man");
+    assert!(card.them.contains(',') && !card.them.starts_with("He"), "named with his job: {}", card.them);
+    f.push(EAR, Ok(ear(vec![act("question", "", "Injury", &tag)], vec![], false)));
+    f.push(VOICE, Ok(voice("He's a few weeks out, Coach.", "")));
+    let v = say(&mut g, id, "Where's he at?");
+    assert_eq!(v["state"], "done", "{v}");
+    let w = g.world.as_ref().unwrap();
+    let o = store::open(w, id).unwrap();
+    assert_eq!(o.room.present[0].who, doc, "the doctor is across");
+    let rush = afm_engine::world::folk::life::would_rush(w, team);
+    // Now push him to clear the man.
+    f.push(EAR, Ok(ear(vec![act("request", "clear", "", &tag)], vec![], false)));
+    f.push(VOICE, Ok(voice("I hear you.", "")));
+    let v = say(&mut g, id, "I need him Saturday. Clear him.");
+    assert_eq!(v["state"], "done", "{v}");
+    if !rush {
+        assert!(v.get("confirm").is_none(), "a staff with good judgment never clears him: {v}");
+    }
+}

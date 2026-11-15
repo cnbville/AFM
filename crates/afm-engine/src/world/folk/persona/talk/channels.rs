@@ -145,7 +145,7 @@ pub fn name(w: &World, who: Them) -> String {
     match who {
         Them::Player(id) => folk::person(w, id).map_or_else(|| "He".into(), |i| w.people[i].name.clone()),
         Them::Coach(c) => w.coaches.get(c).map_or_else(|| "The coach".into(), |c| c.name.clone()),
-        _ => "He".into(),
+        _ => super::super::office::sit::name(w, who).unwrap_or_else(|| "He".into()),
     }
 }
 

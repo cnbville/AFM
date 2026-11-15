@@ -54,6 +54,12 @@ pub enum Give {
     Favour,
     /// Money outside the rules (`finals.rs`): read as one, with its risk.
     Outside(f64),
+    /// A coach's title: co-coordinator, assistant head coach (lane N5c,
+    /// `hiring::PROMISE_TITLE`).
+    Title,
+    /// A coordinator calls his side's plays (lane N5c,
+    /// `hiring::PROMISE_CALLING`).
+    Calling,
     // Lane N5b, negotiating: the rest of an NFL contract, a trade's
     // players and picks, revenue share.
     /// A signing bonus, in all.
@@ -126,6 +132,8 @@ impl Give {
             Give::Pick(r) => format!("a round {r} pick"),
             Give::Favour => "a clinic and camp invites".into(),
             Give::Outside(_) => "money outside the rules".into(),
+            Give::Title => "a better title".into(),
+            Give::Calling => "the play-calling for his side".into(),
             Give::Bonus(_) => "a signing bonus".into(),
             Give::Incentives(_) => "incentives".into(),
             Give::VoidYears(n) => format!("{n} void years"),
@@ -290,10 +298,14 @@ pub enum Request {
     Target(u32),
     /// A position coach: work with a player.
     WorkWith(u32),
-    /// A doctor: a second opinion, clearing a player.
+    /// A doctor: a second opinion on a player's injury.
     SecondOpinion(u32),
-    /// Your boss: money, time, a hire, backing with the boosters.
-    Money,
+    /// A doctor: clear a hurt player to play sooner than the timeline
+    /// (question 10, lane N5c): the pressure to clear a man.
+    Clear(u32),
+    /// Your boss: money (what for, in your words: the staff pool, recruiting,
+    /// the collective, a facility), time, a hire, backing with the boosters.
+    Money(String),
     Time,
     Hire(usize),
     Backing,

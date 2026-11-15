@@ -24,11 +24,11 @@ use afm_ai::{Failure, Request};
 use afm_engine::world::World;
 use afm_engine::world::folk;
 use afm_engine::world::folk::persona::Them;
-use afm_engine::world::folk::persona::deals;
 use afm_engine::world::folk::persona::ear::{Confirm, Resolving, Turn};
 use afm_engine::world::folk::persona::negotiate::{self, Played};
 use afm_engine::world::folk::persona::room::Room;
 use afm_engine::world::folk::persona::talk::{self, Conversation, Parts, Said, channels, store};
+use afm_engine::world::folk::persona::{deals, office};
 use afm_engine::world::folk::scene::{Kind, Scene};
 use serde_json::{Value, json};
 
@@ -39,16 +39,28 @@ use crate::{Game, Reply};
 /// How long a confirm waits. Proposed, not confirmed.
 pub const WAIT_TTL: Duration = Duration::from_secs(900);
 
-/// Whether a scene's typed lines play as a v3 talk: your one-on-ones and
-/// the negotiation calls (lane N5b).
+/// Whether a scene's typed lines play as a v3 talk: your one-on-ones, the
+/// meetings with the people in your building (lane N5c) and the
+/// negotiation calls (lane N5b).
 pub fn plays(g: &Game, s: &Scene) -> bool {
-    g.ai.persona_talks && (s.kind == Kind::OneOnOne || negotiate::is_call(s))
+    g.ai.persona_talks && (s.kind == Kind::OneOnOne || office::plays(s.kind) || negotiate::is_call(s))
 }
 
-/// The room a talk is in: the one it began in, a negotiation's call, or a
-/// one-on-one.
-fn room_of(w: &World, s: &Scene) -> Room {
-    store::room(w, s.id).or_else(|| negotiate::room(w, s)).unwrap_or_else(|| channels::one_on_one(s))
+/// The room a scene's talk is held in: the open talk's, else the one its
+/// lane sets (someone in your building, lane N5c; a negotiation's call,
+/// lane N5b), else a one-on-one.
+pub fn room_of(w: &World, s: &Scene) -> Room {
+    store::room(w, s.id)
+        .or_else(|| office::plays(s.kind).then(|| office::room(w, s)).flatten())
+        .or_else(|| negotiate::room(w, s))
+        .unwrap_or_else(|| channels::one_on_one(s))
+}
+
+/// The parts a scene's talk is played with: lane N5c's for the people in
+/// your building, else lane N1's people and lane N3's deals and requests
+/// under a negotiation's own (lane N5b, `negotiate::Played`).
+pub fn parts_for<'a>(s: &Scene, played: &'a Played) -> Parts<'a> {
+    if office::plays(s.kind) { office::parts() } else { played.parts() }
 }
 
 /// What waits on your confirm, by ticket, and how each typed line was
@@ -136,7 +148,7 @@ pub fn say(g: &mut Game, id: u32, text: String) -> Reply {
     let s = w.folk.scenes.iter().find(|s| s.id == id).ok_or("No such meeting.")?;
     let room = room_of(w, s);
     let played = Played::new(w, s);
-    let p = played.parts();
+    let p = parts_for(s, &played);
     let (card, keys) = cards::ear(w, s, &room, &p, &text);
     let today = crate::views::date_text(w.today);
     let (y, m, d) = w.today.parts();
@@ -192,18 +204,6 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
         if s.done || s.lines.len() != at {
             return Step::Done(tickets::off(crate::live_talk::say::MOVED_ON));
         }
-        let played = Played::new(w, &s);
-        // The man the talk is about: the player across, or a call's client,
-        // prospect or trade target.
-        let pos = match talk::across(&channels::one_on_one(&s)) {
-            Some(Them::Player(pid)) => Some(pid),
-            _ => negotiate::subject(w, played.facet),
-        }
-        .and_then(|pid| folk::person(w, pid))
-        .map(|i| w.people[i].player.position);
-        let tags = ear::Tags { today: w.today, pos };
-        let reading = tags.resolve(&er, &keys);
-        let promises = tags.promises(&er, &keys);
         let room = match store::room(w, id) {
             Some(r) => r,
             None => {
@@ -212,8 +212,22 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
                 r
             }
         };
-        let conv =
-            Conversation { parts: played.parts(), said: Said { scene: id, words: words.clone(), reading, promises } };
+        let played = Played::new(w, &s);
+        // The man the talk is about: the player across, or a call's client,
+        // prospect or trade target.
+        let pos = match talk::across(&room) {
+            Some(Them::Player(pid)) => Some(pid),
+            _ => negotiate::subject(w, played.facet),
+        }
+        .and_then(|pid| folk::person(w, pid))
+        .map(|i| w.people[i].player.position);
+        let tags = ear::Tags { today: w.today, pos };
+        let reading = tags.resolve(&er, &keys);
+        let promises = tags.promises(&er, &keys);
+        let conv = Conversation {
+            parts: parts_for(&s, &played),
+            said: Said { scene: id, words: words.clone(), reading, promises },
+        };
         let mut t = conv.turn(w, &room, &conv.said.reading);
         // A negotiation's own answer, claim and asks (lane N5b).
         let notes = negotiate::said(w, played.facet, &mut t);
@@ -221,6 +235,15 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
         let vc = cards::voice(w, &s, &room, &conv.parts, &t, &words, &keys);
         conv.apply(w, &t);
         negotiate::applied(w, played.facet, id, &t, &conv.said.promises);
+        // What lane N5c makes of it: a reference's read on the coach's page.
+        if office::plays(s.kind) {
+            let lines = office::after(w, id, &room, &conv.said.reading, &t);
+            if let Some(sc) = w.folk.scenes.iter_mut().find(|x| x.id == id) {
+                for l in lines {
+                    sc.narrate(l);
+                }
+            }
+        }
         let marks = marks(w, &t);
         let confirm = waits(g, id, &room, &t);
         let card_text = vc.text();
@@ -354,7 +377,7 @@ pub fn confirm(g: &mut Game, args: &Value) -> Reply {
     }
     let w = g.world.as_mut().ok_or("No world is loaded.")?;
     if yes {
-        let lines = run(w, id, him, &item);
+        let lines = office::confirm(w, id, him, &item).unwrap_or_else(|| run(w, id, him, &item));
         if let Some(s) = w.folk.scenes.iter_mut().find(|s| s.id == id) {
             for l in lines {
                 s.narrate(l);

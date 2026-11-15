@@ -3,12 +3,12 @@
 //! potential, true ratings, hidden numbers or the depth chart).
 
 use afm_engine::world::World;
-use afm_engine::world::folk::persona::Them;
 use afm_engine::world::folk::persona::ear::{Confirm, Ends, Turn};
 use afm_engine::world::folk::persona::negotiate;
 use afm_engine::world::folk::persona::room::{Channel, Group, Place, Room, Seat};
 use afm_engine::world::folk::persona::talk::{self, Parts, channels, items, store, who};
 use afm_engine::world::folk::persona::wants::Boil;
+use afm_engine::world::folk::persona::{Them, office};
 use afm_engine::world::folk::scene::{Scene, Who};
 use afm_engine::world::folk::{self as folk, Team, claims, talk_points as tp, ties};
 
@@ -24,6 +24,8 @@ pub fn person(w: &World, who: Them) -> String {
     match who {
         Them::Player(id) => card::person(w, &Who::Player(id)),
         Them::Coach(c) => card::person(w, &Who::Coach(c)),
+        Them::Cast(r, _) => card::person(w, &Who::Cast(r.token())),
+        Them::Drawn(..) => format!("{}, director of compliance", channels::name(w, who)),
         _ => channels::name(w, who),
     }
 }
@@ -156,6 +158,11 @@ pub fn ear(w: &World, s: &Scene, room: &Room, parts: &Parts, line: &str) -> (Ear
                 named += 1;
             }
         }
+    }
+    // Someone in your building (lane N5c): the coach a reference is about,
+    // the man a sit-down is about, the hurt men the doctor would talk of.
+    for (who, why) in office::sit::named(w, s) {
+        add(&mut c, &mut keys, who, why);
     }
     if let Some(team) = Team::seat(w) {
         for (k, co) in w.coaches.iter().enumerate() {

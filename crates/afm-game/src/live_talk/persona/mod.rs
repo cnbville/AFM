@@ -175,7 +175,7 @@ impl EarTerm {
 
 /// The things a deal can hold (`terms::Give`), by their keys in the ear's
 /// schema.
-pub const GIVE_KEYS: [&str; 32] = [
+pub const GIVE_KEYS: [&str; 34] = [
     "scholarship",
     "scholarship_for",
     "money",
@@ -209,6 +209,8 @@ pub const GIVE_KEYS: [&str; 32] = [
     "if_pro_bowl",
     "if_snaps",
     "revenue_share",
+    "title",
+    "play_calling",
 ];
 
 /// One thing in a deal as the ear reads it: its key, the number you said,
@@ -266,6 +268,8 @@ impl EarGive {
             "if_pro_bowl" => Give::PickIf(PickIf::ProBowl),
             "if_snaps" => Give::PickIf(PickIf::Snaps(small(n?).clamp(1, 99))),
             "revenue_share" => Give::RevenueShare(n?.max(0.0)),
+            "title" => Give::Title,
+            "play_calling" => Give::Calling,
             _ => return None,
         })
     }

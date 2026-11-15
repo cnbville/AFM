@@ -51,6 +51,9 @@ fn home(name: &str) -> PathBuf {
 /// A game on the tiny world and the fake.
 fn game(name: &str) -> (Game, Arc<Fake>) {
     let mut g = Game::new(home(name));
+    // The lanes' own readers and writers: the v3 talks (lanes N4, N5c) are
+    // off here.
+    g.ai.persona_talks = false;
     g.world = Some(world());
     let f = Arc::new(Fake::new());
     g.ai.use_fake(f.clone());
