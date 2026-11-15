@@ -423,6 +423,8 @@ fn scene_flag(g: &Game, v: &mut Value) {
     let Some(w) = g.world.as_ref() else { return };
     if w.folk.scenes.iter().find(|s| u64::from(s.id) == id).is_some_and(scene::takes_typed) {
         v["say"] = json!({ "cmd": "people_say", "args": { "id": id }, "limit": scene::LIMIT });
+        // A talk played on the ear and the voice: the page's `talk` block.
+        super::persona::view::flag(g, v);
     }
 }
 
