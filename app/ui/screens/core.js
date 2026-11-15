@@ -1331,16 +1331,19 @@ document.addEventListener("keydown", (ev) => {
 
 // ---------- holiday mode on screen ----------
 async function holiday() {
+  const picked = new Set();
   const { f: box } = dialog(`<b>Go on holiday</b><p class="sub">Your staff runs the team while you're away and makes every call for you, meetings and choices included. The game comes back early only for a huge moment: the draft, the NFL's cutdown day and trade deadline, the playoffs and title games, or one of your own team's biggest games. Signing days and the tag deadline don't bring you back.</p>
-    <div class="seg hseg">${[[7, "A week"], [14, "Two weeks"], [30, "A month"], [90, "Three months"]].map(([d, t], i) => `<button type="button" data-days="${d}" aria-pressed="${i === 0}">${t}</button>`).join("")}</div>`, "Go on holiday", async (b) => {
+    <div class="seg hseg">${[[7, "A week"], [14, "Two weeks"], [30, "A month"], [90, "Three months"]].map(([d, t], i) => `<button type="button" data-days="${d}" aria-pressed="${i === 0}">${t}</button>`).join("")}</div>
+    <div class="ho-prev"></div>`, "Go on holiday", async (b) => {
     const pressed = b.querySelector('.hseg [aria-pressed="true"]');
     const days = Number(pressed ? pressed.dataset.days : 7);
+    const stops = [...picked];
     const room = document.createElement("div");
     room.className = "holiday-room";
-    room.innerHTML = `<div class="hol-sun"></div><div class="hol-copy"><div class="st-label">On holiday</div><div class="h1">Your staff has the keys</div><p class="sub">Back in ${days} days, or sooner for a huge moment.</p><div class="st-bar"><i></i></div></div>`;
+    room.innerHTML = `<div class="hol-sun"></div><div class="hol-copy"><div class="st-label">On holiday</div><div class="h1">Your staff has the keys</div><p class="sub">Back in ${days} days, or sooner for a huge moment${stops.length ? " or the meeting you picked" : ""}.</p><div class="st-bar"><i></i></div></div>`;
     document.body.appendChild(room);
     try {
-      const r = await api("holiday", { days });
+      const r = await api("holiday", { days, stops });
       S.status = r.status;
       toast(`Back from holiday: ${r.days} day${r.days === 1 ? "" : "s"}, now ${r.today}.${r.why && r.why.length ? " " + r.why.map((w) => w.text).slice(0, 2).join(" · ") : ""}`);
       go("home", {}, { root: true });
@@ -1348,7 +1351,38 @@ async function holiday() {
     } catch (e) { toast(e.message); }
     room.remove();
   });
-  if (box) box.addEventListener("click", (e) => { const t = e.target.closest("[data-days]"); if (!t) return; box.querySelectorAll("[data-days]").forEach((x) => x.setAttribute("aria-pressed", String(x === t))); });
+  if (!box) return;
+  // What falls inside the holiday, meeting by meeting (hand-off projections).
+  box.classList.add("ho-wide");
+  const prev = box.querySelector(".ho-prev");
+  let seq = 0;
+  const preview = async () => {
+    const mine = ++seq;
+    const pressed = box.querySelector('.hseg [aria-pressed="true"]');
+    try {
+      const p = await api("people_holiday_preview", { days: Number(pressed ? pressed.dataset.days : 7) });
+      if (mine !== seq || !prev.isConnected) return;
+      // A pick whose meeting no longer falls inside is dropped.
+      const ids = new Set(p.rows.map((r) => r.id));
+      [...picked].forEach((id) => { if (!ids.has(id)) picked.delete(id); });
+      prev.innerHTML = typeof hoHolidayHtml === "function" ? hoHolidayHtml(p, picked) : "";
+    } catch (e) { if (mine === seq) prev.innerHTML = ""; }
+  };
+  box.addEventListener("click", (e) => {
+    const t = e.target.closest("[data-days]");
+    if (t) {
+      box.querySelectorAll("[data-days]").forEach((x) => x.setAttribute("aria-pressed", String(x === t)));
+      preview();
+      return;
+    }
+    const st = e.target.closest("[data-stop]");
+    if (st) {
+      const id = Number(st.dataset.stop);
+      if (picked.has(id)) picked.delete(id); else picked.add(id);
+      st.setAttribute("aria-pressed", String(picked.has(id)));
+    }
+  });
+  preview();
 }
 
 // ---------- clicks this lane answers ----------

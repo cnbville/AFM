@@ -1070,7 +1070,7 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
 }
 
 /// Who on your staff takes a meeting you hand off.
-fn staff_hand(w: &World, team: Team, kind: Kind) -> String {
+pub(crate) fn staff_hand(w: &World, team: Team, kind: Kind) -> String {
     let get = |r: Role| cast::has(w, team, r).then(|| cast::get(w, CastRef::new(team, r, 0)));
     let c = match (team, kind) {
         (Team::College(_), Kind::Booster | Kind::Media | Kind::Tour) => get(Role::ChiefOfStaff).or(get(Role::Ops)),

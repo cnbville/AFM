@@ -2113,6 +2113,122 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
     finish(w, s, &t, delta, made);
 }
 
+/// What handing a recruit or transfer talk to the man who would make it
+/// (hand-off projections): your pull from the same case against your staff
+/// man's, at both ends of your read of his ratings. His wants come from
+/// your file on him (`pulls::file`), never his true numbers.
+pub(crate) struct HandPitch {
+    pub caller: Option<usize>,
+    /// The man is you: your own coach record makes the case.
+    pub mine: bool,
+    /// Your read of his Recruiting and Relationships; None when nobody on
+    /// your staff would make the case.
+    pub rec: Option<(u8, u8)>,
+    pub rel: Option<(u8, u8)>,
+    /// The pull your best talk would make, and the handed talk's at the low
+    /// and high end of your read, in the case's appeal points.
+    pub yours: f32,
+    pub hand: [f32; 2],
+    /// Where his file leans (the first two groups with something behind
+    /// them) with your proof there.
+    pub top: Vec<(Group, Tier)>,
+    /// How often the man catches a polite answer at the ends of your read
+    /// of his Relationships, and how often you do.
+    pub catch: [f64; 2],
+    pub yours_catch: f64,
+    pub exchanges: usize,
+    /// You could promise something to a high school recruit here.
+    pub promise: bool,
+    /// The talk is already under way: nobody makes more of it for you.
+    pub stands: bool,
+    /// The recruit has made his choice or signed: there is nothing to say.
+    pub over: bool,
+}
+
+fn catch_rate(rel: f64) -> f64 {
+    CATCH.0 + (CATCH.1 - CATCH.0) * ((rel - 1.0) / 19.0).clamp(0.0, 1.0)
+}
+
+/// His wants as your file reads them: a group with rows behind it by its
+/// score, the rest at an even share.
+fn file_cares(w: &World, t: &Talk) -> [f32; 7] {
+    let mut care = [1.0f32; 7];
+    for r in super::pulls::file(w, t.i) {
+        if r.rows > 0 {
+            care[r.group as usize] = (1.0 + 0.5 * r.score).clamp(claims::CARE_RANGE.0, claims::CARE_RANGE.1);
+        }
+    }
+    care
+}
+
+pub(crate) fn hand_pitch(w: &World, s: &Scene) -> Option<HandPitch> {
+    if !s.kind.is_pitch() || s.done {
+        return None;
+    }
+    let t = talk(w, s)?;
+    let st = St::of(s);
+    let caller = dialogue::caller(w, t.i, t.j);
+    let you = &w.career.as_ref()?.you;
+    // With nobody else at the seat, the talk is handed to your own coach
+    // record: no read, you know your own ratings.
+    let is_you = caller == w.career.as_ref().map(|c| c.coach);
+    let own = |x: f64| (x.round() as u8, x.round() as u8);
+    let read = |key: &str| {
+        let c = caller?;
+        if is_you {
+            let a = w.coaches[c].ability();
+            return Some(own(if key == "recruiting" { a.recruiting } else { a.relationships }));
+        }
+        crate::world::staff_read::coach_read(w, c, key)
+    };
+    let (rec, rel) = (read("recruiting"), read("relationships"));
+    let care = file_cares(w, &t);
+    let back = backing(w, &t);
+    let points = t.limit() as usize;
+    let scale = t.scale();
+    let mine = case::one_step_rated(
+        &care,
+        back,
+        case::skill_of(you.recruiting, you.relationships),
+        0.0,
+        t.j,
+        points,
+        scale,
+        0,
+        w.today,
+    );
+    // The handed talk, over a fixed set of draws of his man's read of the
+    // listener, at each end of your read of his ratings.
+    let pull = |r: f64, p: f64| -> f32 {
+        const DRAWS: u64 = 48;
+        let (skill, sd) = (case::skill_of(r, p), case::noise_of(r));
+        (0..DRAWS)
+            .map(|k| case::one_step_rated(&care, back, skill, sd, t.j, points, scale, 0xBA5E ^ k << 8, w.today).total())
+            .sum::<f32>()
+            / DRAWS as f32
+    };
+    let (rl, rh) = rec.map_or((10.0, 10.0), |r| (r.0 as f64, r.1 as f64));
+    let (pl, ph) = rel.map_or((10.0, 10.0), |r| (r.0 as f64, r.1 as f64));
+    let mut file = super::pulls::file(w, t.i);
+    file.retain(|r| r.rows > 0 && r.score > 0.0);
+    let top = file.iter().take(2).map(|r| (r.group, Tier::of(back[r.group as usize] as f32))).collect();
+    Some(HandPitch {
+        caller,
+        mine: is_you,
+        rec,
+        rel,
+        yours: mine.total(),
+        hand: [pull(rl, pl), pull(rh, ph)],
+        top,
+        catch: [catch_rate(pl), catch_rate(ph)],
+        yours_catch: catch_rate(you.relationships),
+        exchanges: points,
+        promise: can_promise(w, &t),
+        stands: st.used > 0 || st.stage > 0,
+        over: over(w, &t).is_some(),
+    })
+}
+
 // ---------------------------------------------------------------------------
 // The recruit's other talks (lane L6): calls, messages, his family's call,
 // the official visit's sit-down, and promises to a high school recruit.
