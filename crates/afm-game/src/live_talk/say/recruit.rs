@@ -14,8 +14,8 @@
 //! - **The writer's card** carries his wants only as the reaction the game
 //!   picked to the point you made (`writer`), never his own numbers.
 //!
-//! NIL forms (`fo_say` with desk "nil", LT9) come after live lane 7, whose
-//! money facts they reuse: `say` and `facts` still answer "later update".
+//! The NIL promise's typed box (`fo_say` with desk "nil") plays on your
+//! call with him as a v3 talk (`say::money`, lane N5a's recruit call).
 
 use afm_engine::world::World;
 use afm_engine::world::folk::claims::check::recruit as truth;
@@ -190,14 +190,6 @@ pub fn reaction(ev: Ev) -> &'static str {
         _ => "",
     }
 }
-
-/// `fo_say` on a NIL form.
-pub fn say(_g: &mut Game, _args: &Value) -> crate::Reply {
-    Err(crate::live_talk::NOT_YET.into())
-}
-
-/// Question 5's fact chips on a NIL form, which need no key.
-pub fn facts(_g: &Game, _cmd: &str, _v: &mut Value) {}
 
 #[cfg(test)]
 mod tests {

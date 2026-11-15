@@ -1,0 +1,24 @@
+name: Patch note check
+# Asks every pull request that changes the game for a "## Patch note" section
+# (see .github/pull_request_template.md). It only warns, so it never blocks a
+# merge; set REQUIRE_PATCH_NOTE to "1" below to make a missing section fail.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+permissions:
+  contents: read
+  pull-requests: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the patch notes script
+        run: python3 .github/scripts/test_patch_notes.py
+      - name: Look for the Patch note section
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          REQUIRE_PATCH_NOTE: "0"
+        run: python3 .github/scripts/patch_notes.py check --pr ${{ github.event.pull_request.number }}
