@@ -271,6 +271,25 @@ impl Game {
             "card" => Ok(cards::card(self.w()?)),
             "continue" => {
                 let w = self.wm()?;
+                // A meeting that waits for you stops the clock until you hold
+                // it or hand it to your staff. `staff: true` (the tools and
+                // tests) hands every one on, as the day's end always did.
+                let waiting: Vec<u32> = afm_engine::world::folk::scene::waiting(w).iter().map(|s| s.id).collect();
+                if !waiting.is_empty() {
+                    if args.get("staff").and_then(Value::as_bool) == Some(true) {
+                        for id in waiting {
+                            afm_engine::world::folk::scene::hand(w, id)?;
+                        }
+                    } else {
+                        let first = afm_engine::world::folk::scene::waiting(w)[0];
+                        let text = lane_people::plain(&first.title);
+                        let more = waiting.len() - 1;
+                        return Ok(json!({
+                            "status": views::status(w),
+                            "blocked": { "meeting": first.id, "text": text, "more": more },
+                        }));
+                    }
+                }
                 let (from, filed) = (w.now(), views::desk_ids(w));
                 w.continue_until_needed();
                 lane_core::after_days(w);

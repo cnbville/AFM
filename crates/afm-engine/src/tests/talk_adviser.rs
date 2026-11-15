@@ -110,3 +110,116 @@ fn the_hallway_word_comes_from_the_seat_too() {
     assert!(said.contains(&coach_link(&w, now)) && !said.contains(&coach_link(&w, old)), "{said}");
     assert!(s.lines.iter().any(|l| l.name == "Position coach"), "the seat's own coach speaks as the position coach");
 }
+
+// The staff effects themselves (minor bug 377's follow-up, Cain 2026-11-13):
+// a talk you hand him, your weekly line, "stay on him" and a word to stay
+// are sized by the relationships rating of the man at the seat today, not
+// last season's coach.
+
+/// The room with last season's coach a poor people person and today's a
+/// fine one.
+fn rated_room(old_rel: f64, now_rel: f64) -> (World, usize, usize, usize, usize) {
+    let (mut w, p, i, old, now) = room();
+    w.coaches[old].ability.relationships = old_rel;
+    w.coaches[now].ability.relationships = now_rel;
+    (w, p, i, old, now)
+}
+
+#[test]
+fn a_talk_you_hand_over_is_had_by_the_seats_coach() {
+    let (mut w, _, i, _, _) = rated_room(1.0, 19.0);
+    let id = w.people[i].player.id;
+    let sid = talks::start_talk(&mut w, id, Subject::Role).unwrap();
+    scene::open(&mut w, sid).unwrap();
+    let (trust, mood) = (w.people[i].trust, w.people[i].mood);
+    let s = scene::hand(&mut w, sid).unwrap();
+    // 0.02 x (19 - 9) / 5 = 0.04: half of it to his trust, all to his mood.
+    // Last season's coach (1) would have cost him 0.032.
+    assert!((w.people[i].trust - trust - 0.02).abs() < 1e-4, "{} -> {}", trust, w.people[i].trust);
+    assert!((w.people[i].mood - mood - 0.04).abs() < 1e-4, "{} -> {}", mood, w.people[i].mood);
+    assert_eq!(s.handed.as_deref(), Some("his position coach"));
+}
+
+#[test]
+fn an_empty_seat_hands_the_talk_to_the_coordinator_by_name() {
+    let (mut w, p, i, _, now) = rated_room(1.0, 19.0);
+    let group = Group::of(w.people[i].player.position);
+    w.programs[p].position_coaches[group as usize] = None;
+    let mut job = w.coaches[now].job.unwrap();
+    if group.offense() {
+        w.programs[p].oc = Some(now);
+        job.role = Role::OffensiveCoordinator;
+    } else {
+        w.programs[p].dc = Some(now);
+        job.role = Role::DefensiveCoordinator;
+    }
+    w.coaches[now].job = Some(job);
+    let id = w.people[i].player.id;
+    let sid = talks::start_talk(&mut w, id, Subject::Role).unwrap();
+    let s = scene::hand(&mut w, sid).unwrap();
+    let side = if group.offense() { "offensive" } else { "defensive" };
+    assert_eq!(s.handed, Some(format!("his {side} coordinator")));
+    assert!(s.outcome.iter().any(|o| o.starts_with(&format!("His {side} coordinator "))), "{:?}", s.outcome);
+}
+
+#[test]
+fn your_weekly_line_is_carried_by_the_seats_coach() {
+    // "Keep him level": his mood eases by 0.15 x (rating - 6) / 10 a week.
+    // Today's coach (20) takes 21% off; last season's (4) would take none.
+    let (mut w, _, i, _, _) = rated_room(4.0, 20.0);
+    let id = w.people[i].player.id;
+    talks::set_line(&mut w, id, Some(talks::Line::Level));
+    w.people[i].mood = -0.6;
+    let mut d = w.today;
+    while d.weekday() != crate::calendar::Weekday::Mon {
+        d = d.add(1);
+    }
+    talks::day(&mut w, d);
+    let want = -0.6 * (1.0 - 0.15 * 1.4);
+    assert!((w.people[i].mood - want).abs() < 1e-4, "{} against {want}", w.people[i].mood);
+}
+
+#[test]
+fn stay_on_him_is_the_seats_coachs_word() {
+    // "Stay on him": 0.03 x (rating - 8) / 8 to his mood. Today's coach (16)
+    // lifts him 0.03; last season's (2) would have cost him 0.0225.
+    let (mut w, _, i, _, _) = rated_room(2.0, 16.0);
+    let id = w.people[i].player.id;
+    let mut sc = scene::Scene::new(Kind::StaffLine, w.today, "He is slipping");
+    sc.a = id as u64;
+    let sid = scene::add(&mut w, sc);
+    scene::open(&mut w, sid).unwrap();
+    let mood = w.people[i].mood;
+    let s = scene::answer(&mut w, sid, 401).unwrap();
+    assert!((w.people[i].mood - mood - 0.03).abs() < 1e-4, "{mood} -> {}", w.people[i].mood);
+    assert!(s.outcome.iter().any(|o| o == "His position coach stays on him."), "{:?}", s.outcome);
+}
+
+#[test]
+fn a_word_to_stay_comes_from_the_seats_coach() {
+    // His lean x (1 - 0.02 x (rating - 8)), held to 0.85-1.05: today's coach
+    // (18) takes it to 0.85 of itself; last season's (3) would have raised it.
+    let (mut w, p, i, _, now) = rated_room(3.0, 18.0);
+    w.people[i].cal.lean = 0.5;
+    crate::world::folk::takeover::position_coach_word(&mut w, i);
+    assert!((w.people[i].cal.lean - 0.5 * 0.85).abs() < 1e-9, "{}", w.people[i].cal.lean);
+    assert_eq!(w.people[i].cal.lean_events.last().map(|e| e.1), Some("his position coach asked him to stay"));
+    // With the seat empty, the coordinator on his side asks him.
+    let group = Group::of(w.people[i].player.position);
+    w.programs[p].position_coaches[group as usize] = None;
+    let mut job = w.coaches[now].job.unwrap();
+    if group.offense() {
+        w.programs[p].oc = Some(now);
+        job.role = Role::OffensiveCoordinator;
+    } else {
+        w.programs[p].dc = Some(now);
+        job.role = Role::DefensiveCoordinator;
+    }
+    w.coaches[now].job = Some(job);
+    crate::world::folk::takeover::position_coach_word(&mut w, i);
+    let side = if group.offense() { "offensive" } else { "defensive" };
+    assert_eq!(
+        w.people[i].cal.lean_events.last().map(|e| e.1.to_string()),
+        Some(format!("his {side} coordinator asked him to stay"))
+    );
+}

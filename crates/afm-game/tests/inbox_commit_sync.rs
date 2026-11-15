@@ -25,7 +25,7 @@ fn a_commitment_pop_up_and_its_letter_arrive_at_the_same_stop() {
     ok(&mut g, "start_career", json!({ "name": "Test Coach", "job": job, "seed": 3 }));
     // Reveals handed over so far (the welcome) are not the ones under test.
     ok(&mut g, "reveals", json!({}));
-    ok(&mut g, "continue", json!({}));
+    ok(&mut g, "continue", json!({ "staff": true }));
     ok(&mut g, "reveals", json!({}));
 
     // A four-star senior commits to us today, in the middle of the day.
@@ -42,7 +42,7 @@ fn a_commitment_pop_up_and_its_letter_arrive_at_the_same_stop() {
         p.cal.commit = Some((pi, today, false));
         (p.name.clone(), p.player.id)
     };
-    ok(&mut g, "continue", json!({}));
+    ok(&mut g, "continue", json!({ "staff": true }));
     {
         let w = g.world.as_ref().unwrap();
         let l = w.local_now();
@@ -61,7 +61,7 @@ fn a_commitment_pop_up_and_its_letter_arrive_at_the_same_stop() {
     assert!(popped, "the pop-up shows with it: {reveals}");
 
     // Told once: another stop writes neither again.
-    ok(&mut g, "continue", json!({}));
+    ok(&mut g, "continue", json!({ "staff": true }));
     assert!(
         !ok(&mut g, "reveals", json!({})).as_array().unwrap().iter().any(|r| r["name"] == name.as_str()),
         "the pop-up is not shown twice"
