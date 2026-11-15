@@ -18,6 +18,8 @@ Cain's words, 2026-11-14 (UTC):
 
 The decision log is `docs/handoff/decisions.md`, section 22.
 
+Built so far: the shared contract (PR #402) and lane N4, the conversation (2026-11-15: your one-on-ones play as two calls a line; how it works in `docs/reference/how-it-works/live-talks.md`, "Live talks v3, lane N4: the conversation"; its sizes are proposed, not confirmed).
+
 ## Contents
 
 1. What it does

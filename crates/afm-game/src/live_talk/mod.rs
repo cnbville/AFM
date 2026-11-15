@@ -64,6 +64,7 @@ pub fn call(g: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         },
         "ai_demo" => demo_cmd(g, args),
         "people_say" => say::people_say(g, args),
+        "talk_confirm" => persona::talk::confirm(g, args),
         "talk_typed" => say::rooms::typed(g, args),
         "fo_say" => say::fo_say(g, args),
         "ai_ask" => ask::ask(g, args),
@@ -83,6 +84,7 @@ pub fn call(g: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
 pub fn after(g: &mut Game, cmd: &str, _args: &Value, reply: &mut Reply) {
     g.ai.tickets.prune();
     g.ai.waiting.prune();
+    g.ai.persona.prune();
     let Ok(v) = reply else { return };
     say::typed_lines(v);
     if let Some(inner) = v.get_mut("reply") {

@@ -25,6 +25,11 @@ use afm_engine::world::folk::persona::terms::DealKind;
 
 use super::card::{Spoken, Tagged};
 
+pub mod cards;
+pub mod ear;
+pub mod talk;
+pub mod voice;
+
 /// What the ear is given: everything as words and tags.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct EarCard {
