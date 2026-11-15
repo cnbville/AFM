@@ -196,23 +196,113 @@ The list says the sizes are proposals, tuned in GR61's trial worlds and in play 
 
 ## The lanes
 
-Built in this order in the thread "Build the Ground scouting offseason", each merged to main on green (an agreed sequence). Each lane adds its how-it-works page (`docs/reference/how-it-works/ground.md`) in the same PR and carries a patch note.
+Cain, 2026-11-15 23:55 UTC: "make sure you plan individual threads for this build so we don't dump everything in one big thread with huge memory, use appropiate models and effort". So every lane below is its own fresh thread, started by the coordinator in dependency order, and each merges to main on green and sends one final reply (an agreed sequence). Game logic runs on Opus at high effort; screens from the agreed boards run on Sonnet at high effort.
 
-| Lane | What | Items | Checks |
-|---|---|---|---|
-| G1 | The areas, the people, the one memory and standing, seeded from the world's history for every program; roots; fade, warnings, moving up, the morning map's changes | GR1-GR8 (data), GR17-GR29, GR62 (store), GR7 | Unit tests on a tiny world; memory and speed on `memory_check` |
-| G2 | The map screen and the school page | GR1-GR8, GR11, GR70, GR79 | Screen checks in a browser |
-| G3 | The week: the meeting at the map, road days, trips, the ledger, the night calls, the in-flight list, the week's beat and the Monday letter, the May list, July's week off; the week screen | GR12-GR15, GR47-GR51, GR53, GR54, GR56-GR58, GR71 | Unit tests; a played spring on a tiny world |
-| G4 | News in order, leads and their blanks, finds, blooms and setbacks; your board from your ground; the lead card | Rule 2, GR16, GR19, GR20, GR64, GR66, GR67, GR73 | Unit tests |
-| G5 | The scenes on live talks, your eye in them, skips; the school visit screen | GR32, GR52, GR55, GR72 | Unit tests; the line bank without a key |
-| G6 | The campaign: the goal list, your AD's talk, the February meeting, the verdict, media days, the first offseason; the ground report | GR30, GR31, GR33-GR41, GR59, GR77 | Unit tests; a played offseason on a tiny world |
-| G7 | People in full: the person page, families, word travels, jobs that carry standing, the four old stores read through the one memory | GR18, GR26, GR62, GR63, GR74 | Unit tests |
-| G8 | A following and famous names | GR42-GR46 | A world check (cost asked first) |
-| G9 | The race and the AI on Ground; the rival page | GR65, GR75 | The world's recruiting against real, on GR61's trial worlds (cost asked first) |
-| G10 | Your staff's ground and the carousel; the assistant seat and desk | GR68, GR69, GR76, GR78 | Unit tests; an assistant seat's spring |
-| G11 | The chain reaction; favors, switched off; the GR61 trial | GR21, GR22, GR60, GR61, GR63 | The 30-year trial on three new seeds, with and without favors (cost asked first) |
+Every lane:
+- reads this spec, its part above and the round files it names, and nothing else "for context";
+- adds or extends `docs/reference/how-it-works/ground.md` in the same PR (one page for Ground, a section per lane) and bumps its commit line;
+- carries a `## Patch note` (or `Players: no`);
+- keeps every result of the world the same per seed unless its row says it changes the world; a lane that changes the world runs no world before Cain's yes on its cost;
+- adds to `World.ground` with `#[serde(default)]` fields, so old saves load; two lanes running side by side both add fields there, and the second to merge rebases;
+- builds engine tests the way the box allows (4 cores, about 15 GB: `cargo test -j 2 -p afm-engine --lib --config 'profile.test.package.afm-engine.opt-level=0' --config 'profile.test.package.afm-engine.debug=0' -- <filter>`; never two engine compiles at once).
 
-Lanes G1-G7 and G10 only add to your seat's play and the stores the world fills, and keep every check against real. G8, G9 and G11 change how the whole world recruits, so each waits for Cain's yes on its world run's cost before it runs.
+### The lane table
+
+| Lane | Thread title | Items | Starts after | Model, effort | Changes the world? |
+|---|---|---|---|---|---|
+| G1a | Build Ground's areas and map data | GR1, GR3, GR4 (data and travel), GR6 pins' data | now | Opus, high | No |
+| G1b | Build Ground's standing and one memory | GR7, GR17-GR29, GR62 (the store) | now | Opus, high | No |
+| G8 | Build a following and famous names | GR42-GR46 | now | Opus, high | Yes: world check, cost asked first |
+| G11a | Build the high school chain reaction | GR21 | now | Opus, high | Yes: world check, cost asked first |
+| S1 | Build the Ground map screen | GR2, GR5, GR6, GR8, GR11, GR70, GR79 | G1a, G1b | Sonnet, high | No |
+| G3 | Build Ground's week and road days | GR12-GR15, GR47-GR51, GR53, GR54, GR56-GR58 | G1a, G1b | Opus, high | No (your seat only) |
+| G4 | Build news order, leads and finds | Rule 2, GR16, GR19, GR20, GR64, GR66, GR67 | G1b | Opus, high | No (your seat only) |
+| G7 | Build Ground's people in full | GR18, GR26, GR62, GR63 | G1b | Opus, high | No |
+| S2 | Build the meeting at the map screen | GR71 | G3 | Sonnet, high | No |
+| S4 | Build the lead card screen | GR73 | G4 | Sonnet, high | No |
+| S5 | Build the person screen | GR74 | G7 | Sonnet, high | No |
+| G5 | Build Ground's scenes | GR32, GR52, GR55 | G3, G4 | Opus, high | No |
+| G6 | Build the offseason campaign | GR30, GR31, GR33-GR41, GR59 | G3, G4 | Opus, high | No |
+| G10 | Build your staff's ground and the assistant seat | GR68, GR69 | G3, G7 | Opus, high | No (your seat only) |
+| S3 | Build the school visit screen | GR72 | G5 | Sonnet, high | No |
+| S8 | Build the ground report screen | GR77 | G6 | Sonnet, high | No |
+| S7 | Build the staff carousel and assistant desk screens | GR76, GR78 | G10 | Sonnet, high | No |
+| G9 | Build the race and the AI on Ground | GR65 (with GR64 for the AI) | G3, G4, G7, G10 | Opus, high | Yes: the world's recruiting against real, cost asked first |
+| G11b | Build favors, switched off | GR22, GR60, GR63 | G7 | Opus, high | No (off) |
+| S6 | Build the rival screen | GR75 | G9 | Sonnet, high | No |
+| G12 | Run the favors trial | GR61 | G9, G11b | Sonnet, high | Yes: six 30-year worlds, cost asked first |
+
+Waves: G1a, G1b, G8 and G11a start at once. When G1a and G1b are in, S1, G3, G4 and G7 start. Then S2, S4, S5, G5, G6 and G10 as their rows allow, then S3, S8, S7, G9 and G11b, then S6 and G12.
+
+### What each lane needs to know
+
+**G1a, areas and map data (Opus, high).** Part A.
+- Write `data/real-world/ground_area_seeds.csv` by hand: per state, the areas real staffs use, each with its name, nickname, area codes and one to three core counties (about 200 areas: Texas about 19, California about 11, Florida about 10, small states one). Georgia is the mock-up's 12 areas, with full county lists in the project folder's `afm/ground/round8-boards/tools/map.py` (`AREAS`, plus Russell, Lee and Chambers in Alabama for the Valley).
+- `tools/ground/areas.py` builds `data/real-world/ground_areas.json` (each area's counties, center and label point; a county not seeded joins the nearest seed by centroid) and the drawn outlines for the map (`app/ui/art/ground/<ST>.json`: each area's fill path, its border arcs, and the projection, as in `map.py`: an arc shared by counties of two areas is a border).
+- County shapes: us-atlas 3.0.1 (ISC; Census cartographic boundaries) from `https://registry.npmjs.org/us-atlas/-/us-atlas-3.0.1.tgz`. The proxy blocks jsdelivr and unpkg.
+- 40 town rows in `hs_towns.csv` have county names the atlas spells differently (Virginia's independent cities "X city", Alaska's census areas, "La Salle", "Dona Ana", Shannon SD): match by name, then by the town's latitude and longitude to the nearest county centroid.
+- New `world/ground/areas.rs`: the area table (one shared table from the data, not saved), each school's ground area (`HighSchool` gets a ground area field filled at build and on load), drive and flight times from campus, schools a day, and each area's character words from the world's data (GR3). The built `World.areas` (one per county, for area pipelines) stays as it is.
+- Checks: unit tests (every school in an area, Georgia's split as the mock-up, travel times sane), the art files' size reported.
+
+**G1b, standing and one memory (Opus, high).** Parts B and C, and roots (GR7).
+- New `World.ground` store with `world/ground/people.rs`, `memory.rs` and `standing.rs`. A memory is keyed by person (a high school coach or coordinator, a trainer or 7v7 director from `world/former.rs`, a counselor made per school) and holder (a program, or a coach for his own ties: GR29). Sparse: only people someone has dealt with.
+- Day one for every program from the world's 30 years: `Program.hs_pipeline`, `area_pipeline`, `pipeline`, `footprint` (`world/program.rs`) and each coach's `Coach.ties` (a tie to a school becomes a bond with its head coach today). Until G9, the AI's ground is re-read from those each year, so the world's recruiting is unchanged.
+- Your seat: your roots (your hometown's coaches Known, your own high school's coach Trusted, your old jobs' schools Known), the points, gates, fade, warnings and moving up from "Starting sizes", the why in words, an area's level from its people weighted by talent (GR27; needs G1a's areas: if G1a isn't in yet, keep the weighting by school and let S1 roll it up by area).
+- Your seat's visits today are the evaluation days in `scouting/dept.rs` (`college_day`), camps and visits to campus: count them as contacts now; G3 replaces how they're spent.
+- Warnings and moving up post to your inbox at the person's hour (the six-part day, `world/sections.rs`).
+- Checks: unit tests on the tiny seat world (`crate::tests::legacy::seat("college")`), `engine_hash` or a seed comparison showing the world plays the same, the store's size on `memory_check`.
+
+**G8, a following and famous names (Opus, high).** Part I. Independent of the rest. Read `ground/goals.md`, "A following".
+- Built today: `world/fame.rs` (fame times Aura), `nil_go_top` in `world/recruiting.rs`, the brand-deals point in `folk/claims/program.rs`, the pros' storm in `storylines/detect/weekly.rs`, news loudness in `calendar/events.rs`, bloodlines in `world/background.rs` and your guys' sons in `world/legacy/guys.rs`.
+- GR44 and GR45 change how the world recruits: build, test, then ask Cain for a world check's cost (a new seed, not 51, 52, 74-96, 101, 111, 112, 121, 131 or 141) before running it.
+
+**G11a, the chain reaction (Opus, high).** Part M. Independent of the rest.
+- Today a school's prestige is fixed (`world/high_school.rs`) and kids change schools only on your pitch. Move-ins and transfers go on June 15 (`hs_year.rs`, `transfer_day`) by each state's transfer rule (`transfer_rule`).
+- It changes the world: build, test, then ask Cain for a world check's cost before running it.
+
+**S1, the map screen (Sonnet, high).** Part A's screen and GR70. Board 1 (render `afm/ground/round8-boards/renders/Main.png`, file `canvas/project/Main.dc.html`) and the school page (GR11). Adds the sidebar's Ground section. Data screens use the Press Box palette and people use the st-room glass look (GR79); the boards' `ground.css` is in `afm/ground/round8-boards/assets/`. See a screen in a browser with `cargo build --profile test -p afm-game --bin afm_play` and Playwright. A screens-only PR skips the engine in CI; its game commands go in `crates/afm-game` with a test.
+
+**G3, the week and road days (Opus, high).** Part E.
+- The built pieces it replaces or wraps for your seat: `scouting/dept.rs` `college_day` (evaluation days spent 14 every spring Thursday and the fall's over 12 weeks, assignments in turn, `second_schools` on the AD's raise, your June camps, visits as looks), `eval_limits`, `off_campus_recruiters`, the film queue (`film/queue.rs`), the ledger and tiredness (`film/time.rs`), the recruiting money (`finance/college.rs`), the recruiting desk's Monday digest (`crates/afm-game/src/lane_core/mail.rs`, `DIGEST_SPAN`), the six-part day and live moments (`world/sections.rs`), meetings that stop Continue (`folk/scene.rs`, `waiting`).
+- The week's beats are `ground/months.md`'s 35-week sheet, read from each year's calendar (`calendar/anchors.rs`, `calendar/mod.rs` `recruiting_period`), never hard-coded dates.
+- Scenes come as slots with the coordinator's reason; G5 makes them playable. Until then a scene is its one-line result.
+
+**G4, news, leads and finds (Opus, high).** Parts D and G (not the report screen).
+- Your board fills from your ground plus the public view, replacing stars and footprint for your seat (`scouting/dept.rs`, `watch`). Leads build on tips and each tipper's record (`folk/tips.rs`), the file's looks (`scouting/file.rs`), finds off another kid's tape (`film/finds.rs`), look-backs (`scouting/lookback.rs`), coverage (SK66) and the hunt (`world/hunt/`).
+- Finds and blooms are recorded for the ground report (G6, S8) and pay the memory (G1b).
+
+**G7, people in full (Opus, high).** Part B in full: GR18, GR26, GR62, GR63.
+- The four stores that track what a person thinks of you read through the one memory: `folk/network.rs` (contacts, warmth, favors, record), `scouting/hs.rs` (`HsSide.credibility`), `folk/promise.rs` (trust, your names). Keep their saves loading.
+- Families (`folk/ties.rs`: the decider, brothers), word travels, jobs that carry standing (the coaching changes on January 20, `world/clock.rs` `hs_carousel_day`; the college carousel, `world/staff.rs`), live talks reading the memory (talk facts, `folk/claims/`).
+
+**S2, the meeting at the map (Sonnet, high).** Board 2b (`afm/ground/round8-boards-redraw/WeekB.dc.html`, `weekb.png`) on G3's commands.
+
+**S4, the lead card (Sonnet, high).** Board 4b (`LeadB.dc.html`, `leadb.png`) on G4's commands.
+
+**S5, the person (Sonnet, high).** Board 5 (`Person.dc.html`, `Person.png`) on G7's commands. Drawn heads are `app/ui/screens/heads/`.
+
+**G5, the scenes (Opus, high).** Part F. The 15 scenes on the built scenes (`folk/scene.rs`) and live talks v3 (`folk/persona/`, `crates/afm-game/src/live_talk/persona/`), with chips and the line bank when there's no key. Your eye in a scene rolls the way film catches do (`film/`).
+
+**G6, the campaign (Opus, high).** Part H and the ground report's data.
+- Built pieces: the bosses (`folk/boss.rs`, the recruiting goal by class score), the Needs map (`crates/afm-game/src/lane_squadboards/needs.rs`), season terms and `terms::likely` (`folk/terms.rs`), the AD's office talk (`folk/persona/office/`, lane N5c), the state's best (`world/legacy/college.rs`, `state_top`) and the fence (L6), the takeover (`folk/takeover.rs`), the January portal window (`calendar/anchors.rs`, `january_window`).
+- Each of the 63 goals becomes a measure in live talks v3's catalogue (`docs/design/live-talks-persona.md`, section 8.4).
+
+**G10, your staff's ground and the assistant seat (Opus, high).** Part K.
+- Built pieces: areas by state (`scouting/dept.rs`: `Dept.areas`, `set_area`, `area_coach`, `default_area_coach`) become the map's areas; the offer chain and overruling (`front_office/chain.rs`, `heart`); hiring and its counters, titles and promises (`folk/staffing.rs`, `folk/hiring.rs`); the carousel (`world/staff.rs`); the assistant's job (`world/seat.rs`; `foIsHead` on the screens).
+
+**S3, the school visit (Sonnet, high).** Board 3 (`Visit.dc.html`) on G5's commands, in the st-room glass look.
+
+**S8, the ground report (Sonnet, high).** Board 8b (`ReportB.dc.html`, `reportb.png`) on G4's and G6's commands.
+
+**S7, the carousel and the desk (Sonnet, high).** Boards 7b (`StaffB.dc.html`, `staffb.png`) and 9 (`Assistant.dc.html`) on G10's commands.
+
+**G9, the race and the AI (Opus, high).** Part J. The AI's board from its men's ground replaces today's (`world/recruiting.rs`: boards from reach, pipelines, footprint and stars); rival recruiters as people with styles; the signs; flips with a warning and a scene; claims about rivals on the built lie check; money outside the rules on `folk/finals.rs`. It changes how the world recruits: build, test on small worlds, then ask Cain for the check's cost (the world's recruiting against real: where blue chips sign, flagships holding their state, how often low-star kids are drafted, the FCS share of draft picks).
+
+**G11b, favors, switched off (Opus, high).** Part L, on `ground/placement.md`, the built favors (`folk/network.rs`: `Favour`, `owe`) and `folk/backchannel.rs`, behind a world switch that is off.
+
+**S6, the rival (Sonnet, high).** Board 6 (`Rival.dc.html`) on G9's commands, in the st-room glass look.
+
+**G12, the favors trial (Sonnet, high).** GR61: three new seeds, each run 30 years with favors and without (six world builds, about an hour each), measured on GR61's tests (LSU keeps its Home schools, a 10-2 team signs more transfers who start, Georgia State signs more kids who outplay their stars, the top 10's share of the top 300 doesn't rise), and the favor sizes tuned. Cost asked first; the switch turns on only with Cain's yes on the result.
 
 ## Memory and speed
 
