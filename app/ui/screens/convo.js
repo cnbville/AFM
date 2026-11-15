@@ -250,7 +250,7 @@ function cvRight(s, pp, T, moves, v3, key, box) {
   else if (pp) out.push(cvStand(s, pp, T));
   const ideas = T.ideas && T.ideas.length ? cvSection({ k: "ideas", label: "Ideas", note: "A click puts the words in your box to change", items: T.ideas, key }) : "";
   if (box && ideas) out.push(ideas);
-  if (!s.done) out.push(`<div class="cv-foot"><button type="button" class="st-btn small glass" data-act="pphand" data-id="${s.id}" title="Your staff plays it the way they would">Hand it to your staff</button>${cvEnd(s)}</div>`);
+  if (!s.done) out.push(`<div class="cv-foot"><button type="button" class="st-btn small glass ${ppHandCls(s)}" data-act="pphand" data-id="${s.id}" title="See what you give up and what you get first">${esc(ppHandLabel(s))}</button>${cvEnd(s)}</div>`);
   return out.join("");
 }
 const cvEnd = (s) => {

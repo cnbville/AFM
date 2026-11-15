@@ -528,9 +528,15 @@ pub(crate) const HS_STARTER_SNAPS: u32 = 550;
 /// camp until the day after `last`, the last of his team's games he misses,
 /// with a torn ACL or a broken bone on a keyed draw (proposed, not
 /// confirmed).
+///
+/// A step that read his real injuries (realism audit item 1, `real_hurts`)
+/// rolled nothing, so there is nothing here to make real.
 pub(crate) fn camp_injury(w: &mut World, i: usize, last: Option<crate::calendar::Date>, yours: bool) {
     use crate::game::sim::InjuryKind as K;
     use crate::player::DevelopmentEvent as Ev;
+    if real_hurts(w, w.people[i].stage) {
+        return;
+    }
     let today = w.today;
     let seed = w.options.seed as u64 ^ 0xCA3F ^ (w.year as u64) << 20;
     let p = &mut w.people[i];
@@ -565,8 +571,39 @@ pub(crate) fn camp_injury(w: &mut World, i: usize, last: Option<crate::calendar:
 /// a minor one for one or two games, otherwise an injury. A major injury is
 /// the yearly step's alone (it takes growth and burst and is rehabbed next
 /// year), so a game's torn ACL reads as an injury with its games missed.
-pub(crate) fn mark_real_injury(h: &mut crate::player::SeasonRecord) {
+///
+/// With his real injuries logged (realism audit item 1) the row names the
+/// worst of the season by what it was and how long it kept him out (a
+/// torn ACL or eight weeks out a major injury, even one in the last game),
+/// and the log remembers the row has it, so his next step doesn't name it
+/// again.
+pub(crate) fn mark_real_injury(h: &mut crate::player::SeasonRecord, hurt: Option<&mut crate::development::YearHurt>) {
     use crate::player::DevelopmentEvent as Ev;
+    if let Some(y) = hurt
+        && let Some(e) = y.event()
+    {
+        const KINDS: [Ev; 3] = [Ev::MinorInjury, Ev::ModerateInjury, Ev::MajorInjury];
+        let rank = |x: Ev| KINDS.iter().position(|&k| k == x).unwrap_or(0);
+        // The games he missed can say more than his worst injury (two
+        // sprains back to back), and so can a label already there: the
+        // highest stands.
+        let mut best = e;
+        if h.games_missed > 0 {
+            let g = if h.games_missed <= 2 { Ev::MinorInjury } else { Ev::ModerateInjury };
+            if rank(g) > rank(best) {
+                best = g;
+            }
+        }
+        for k in KINDS {
+            if h.events.has(k) && rank(k) > rank(best) {
+                best = k;
+            }
+            h.events.remove(k);
+        }
+        h.events.add(best);
+        y.named = true;
+        return;
+    }
     if h.games_missed == 0
         || h.events.has(Ev::MinorInjury)
         || h.events.has(Ev::ModerateInjury)
@@ -617,6 +654,43 @@ pub(crate) fn reps_read(
 /// the design's 3%, measured on a full world (minor bug 112; proposed, not
 /// confirmed: no national college rate is on file).
 const COLLEGE_TROUBLE: f64 = 0.036;
+
+/// Whether a step at this stage reads his real injuries (realism audit
+/// item 1): his last season played on the engine, so its game injuries
+/// are logged beside its practice ones. A season on the stand-in, and a
+/// year away, a prep school or U Sports, keep the yearly roll.
+pub(crate) fn real_hurts(w: &World, stage: Stage) -> bool {
+    let last = w.year - 1;
+    match stage {
+        Stage::HighSchool => super::hs_year::hs_on_engine(w, last),
+        Stage::College | Stage::Pro => w.options.engine_from.is_none_or(|from| last >= from),
+        _ => false,
+    }
+}
+
+/// A real injury since his last season ended is named on the row the step
+/// opens; one before it, not named yet, on his last row (realism audit
+/// item 1). Spring ball and the summer are this many days before a step at
+/// camp at most; the last season's games are further back.
+pub(crate) const HURT_OFFSEASON_DAYS: i32 = 160;
+
+/// His real injuries for a step today: the worst one not on a row yet and
+/// from before his last season ended goes on his last row now, so the step
+/// leaves it there.
+pub(crate) fn hurt_for_step(
+    p: &mut crate::player::Player,
+    mut h: crate::development::YearHurt,
+    today: crate::calendar::Date,
+) -> crate::development::YearHurt {
+    if !h.named
+        && h.kind.is_some()
+        && h.on.days_to(today) > HURT_OFFSEASON_DAYS
+        && let Some(row) = p.history.last_mut()
+    {
+        mark_real_injury(row, Some(&mut h));
+    }
+    h
+}
 
 /// The season's development step (one checkpoint a year, `development.rs`)
 /// for the people given, with their roles. High school players develop when
@@ -800,6 +874,25 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
     // The AI staffs' skill projects (the progression update, design items
     // 8 and 13-15), room by room; your own staff's are yours to set.
     let projects = ai_projects(w, &role_of);
+    // Each player's real injuries since his last step (audit item 1), for
+    // a stage whose last season played on the engine.
+    let real = [Stage::HighSchool, Stage::College].map(|s| real_hurts(w, s));
+    let today = w.today;
+    let mut book = std::mem::take(&mut w.training.year_hurt);
+    let hurts: Vec<Option<crate::development::YearHurt>> = w
+        .people
+        .iter()
+        .zip(&role_of)
+        .map(|(p, r)| {
+            let on = match p.stage {
+                Stage::HighSchool => real[0],
+                Stage::College => real[1],
+                _ => false,
+            };
+            (r.is_some() && on).then(|| book.remove(&p.player.id).unwrap_or_default())
+        })
+        .collect();
+    let rehab_due: std::sync::Mutex<Vec<u32>> = std::sync::Mutex::new(Vec::new());
     let (people, schools, programs, coaches) = (&mut w.people, &w.high_schools, &w.programs, &w.coaches);
     people.par_iter_mut().zip(role_of.par_iter()).enumerate().for_each(|(i, (p, role))| {
         let Some(role) = *role else { return };
@@ -993,6 +1086,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                 Stage::HighSchool if hs_engine => Some(mode),
                 _ => None,
             },
+            hurt: hurts[i].map(|h| hurt_for_step(&mut p.player, h, today)),
             ..SeasonContext::new(level, clamp(coaching, 1.0, 20.0), role)
         };
         // Last season's results name its row (growth from results).
@@ -1009,6 +1103,9 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             crate::progression::apply(&mut p.player, c);
         }
         let report = develop_season(&mut p.player, &ctx, &mut p.rng);
+        if ctx.hurt.is_some() && report.rehab_due {
+            rehab_due.lock().unwrap().push(p.player.id);
+        }
         if let Some(log) = log {
             let staff = match p.stage {
                 Stage::College => {
@@ -1070,6 +1167,11 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             p.stage = Stage::Done;
         }
     });
+    // A healing major injury's rehab loss comes back at his next step.
+    for id in rehab_due.into_inner().unwrap() {
+        book.insert(id, crate::development::YearHurt { rehab: true, on: today, ..Default::default() });
+    }
+    w.training.year_hurt = book;
     // Each closed ledger starts the new season, its reads kept as his past.
     for (id, mut l) in closing {
         l.roll(w.year);

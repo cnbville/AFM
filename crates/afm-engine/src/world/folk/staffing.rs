@@ -67,6 +67,12 @@ pub struct Staffs {
     /// Deals carried over from another job were repriced once (older saves
     /// kept a coach's deal when he moved).
     pub repriced: bool,
+    /// Every college and NFL coach's market read on his rung (coach,
+    /// dollars a year), by coach (realism audit item 6; `staff::pay`).
+    pub market: Vec<(u32, f32)>,
+    /// This season's NFL interim head coaches: (team, coach, the team's
+    /// wins and losses when he took over; realism audit item 7).
+    pub interims: Vec<(u32, u32, u32, u32)>,
 }
 
 /// The share your athletic director added to program `p`'s recruiting
@@ -1398,10 +1404,32 @@ pub(crate) fn day(w: &mut World, d: Date) {
                     .map_or(1, |j| deal_terms(w, dl.coach, j.employer, j.role).0)
             })
             .collect();
-        for (dl, years) in w.folk.staff.deals.iter_mut().zip(lengths) {
+        // The new pay (realism audit item 6): the world's assistants re-sign
+        // at their market read when it says more than a 3% raise, never
+        // past what their employer can pay; your own staff's deals are
+        // yours to redo and take the 3%.
+        crate::world::staff::pay::refresh(w);
+        let mine = Team::seat(w).map(|t| t.employer());
+        let pays: Vec<f64> = w
+            .folk
+            .staff
+            .deals
+            .iter()
+            .map(|dl| {
+                let job = w.coaches.get(dl.coach).and_then(|co| co.job);
+                if dl.through >= year {
+                    dl.salary
+                } else if job.is_some_and(|j| Some(j.employer) == mine) {
+                    dl.salary * 1.03
+                } else {
+                    crate::world::staff::pay::renewed(w, dl.coach, dl.salary, 1.03)
+                }
+            })
+            .collect();
+        for ((dl, years), pay) in w.folk.staff.deals.iter_mut().zip(lengths).zip(pays) {
             if dl.through < year {
                 dl.through = year + years - 1;
-                dl.salary = (dl.salary * 1.03).round();
+                dl.salary = pay.round();
             }
         }
         // High school staffs turn over (about one school in seven a year).

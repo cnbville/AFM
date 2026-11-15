@@ -101,6 +101,8 @@ Acts: list what the line does, in order. Use only these kinds:
 - show: what is film, numbers, facility or alumni.
 - answer: the coach answers his ask: what is accept, counter or refuse.
 - end: the coach ends the talk.
+- future: the coach tells a player of his where he stands for next year. what is backed (a start or a real role next season, with a physical strength of his named as the reason: value is that strength, one of speed, burst, feet, strength, leaping, size, length or arm; a backed line is also a promise act), no_future (\"you don't have a future here\"), elsewhere (\"you'd play more somewhere else, I'll help you find a place\") or last_choice (\"if you stay, you'll be my last choice\").
+- amend: the coach changes a promise he already made him (tag that promise's item in hits). what is take_back (he takes it back), later (a later date: when is the new date, from the promise list), condition (a condition on it: value is the condition in his words), reason (he tells him the real reason it hasn't happened) or writing (he'll put it in writing).
 Give \"none\" for topic, claim or deal and leave the other fields empty when they don't apply. words: the act's own words, short.
 
 Hits: which of his real items the line touched, and how: reassured, respected, stung, insulted, doubted, flattered or threatened. item is an item tag from the card; on is the person's tag (empty for p1). Only items the line really touches, the way he'd take it: a line about exactly his problem touches it; \"great job, keep working\" touches nothing. Never invent an item.
@@ -173,6 +175,8 @@ pub fn schema() -> Value {
         "show",
         "answer",
         "end",
+        "future",
+        "amend",
     ]
     .iter()
     .map(|x| x.to_string())
@@ -462,6 +466,33 @@ impl Tags {
                 _ => return None,
             }),
             K::End => Act::End,
+            K::Future => {
+                let word = afm_engine::world::folk::future::Word::of_key(&a.what)?;
+                let v = a.value.trim().to_lowercase();
+                let strength = afm_engine::world::folk::future::STRENGTHS
+                    .iter()
+                    .find(|x| v == x.0 || v == x.1)
+                    .map_or_else(String::new, |x| x.0.to_string());
+                Act::Future { word, strength }
+            }
+            K::Amend => {
+                use afm_engine::world::folk::persona::ear::{Amend, AmendHow as H};
+                let how = match a.what.as_str() {
+                    "take_back" => H::TakeBack,
+                    "later" => H::Later,
+                    "condition" => H::Condition,
+                    "reason" => H::Reason,
+                    "writing" => H::Writing,
+                    _ => return None,
+                };
+                Act::Amend(Amend {
+                    promise: None,
+                    how,
+                    by: Some(a.when.as_str()).filter(|b| PROMISE_BY.contains(b) && *b != "none").unwrap_or("").into(),
+                    condition: condition(&a.value).to_string(),
+                    bar: a.value.split_whitespace().find_map(|x| x.parse::<f32>().ok()),
+                })
+            }
         })
     }
 
@@ -496,9 +527,9 @@ impl Resolve for Tags {
         if reply.not_talk {
             return Reading { not_talk: true, ..Reading::default() };
         }
-        let acts = reply.acts.iter().filter_map(|a| self.act(a, keys)).take(MAX_ACTS).collect();
+        let mut acts: Vec<Act> = reply.acts.iter().filter_map(|a| self.act(a, keys)).take(MAX_ACTS).collect();
         let first = keys.people.first().map(|x| x.1);
-        let hits = reply
+        let hits: Vec<Hit> = reply
             .hits
             .iter()
             .filter_map(|h| {
@@ -510,6 +541,17 @@ impl Resolve for Tags {
             })
             .take(MAX_HITS)
             .collect();
+        // A change to a promise is to the promise the line touches, if it
+        // tags one (else the game takes the one that slipped, or the latest).
+        let touched = hits.iter().find_map(|h| match h.item {
+            Item::Promise(k) => Some(k),
+            _ => None,
+        });
+        for a in acts.iter_mut() {
+            if let Act::Amend(x) = a {
+                x.promise = x.promise.or(touched);
+            }
+        }
         Reading { acts, hits, dodged: reply.dodged, not_talk: false }
     }
 }

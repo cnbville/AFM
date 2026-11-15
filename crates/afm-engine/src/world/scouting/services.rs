@@ -437,18 +437,16 @@ pub fn insider_record(w: &World, desk: usize, year: i32) -> (u16, u16) {
     w.scouting.rankings.records.iter().find(|r| r.0 as usize == desk && r.1 == year).map_or((0, 0), |r| (r.2, r.3))
 }
 
-/// The day a recruit means to decide, from his own timing: a commitment
-/// wave of his junior spring or senior year, the early period's first day,
+/// The day a recruit means to decide, from his own timing: his own day in
+/// a window of his junior spring or senior year (`recruiting::commit_day`),
+/// the early period's first day,
 /// or February's signing day. His own plan, hidden: the insiders time
 /// their calls on it, and a page shows only what he has let out.
 pub fn decision_day(w: &World, i: usize) -> Option<Date> {
     let p = &w.people[i];
     let season = p.class_of - 1;
     Some(match p.cal.commit_timing? {
-        CommitTiming::Summer(k) => {
-            let (m, day) = [(3, 20), (4, 30), (6, 15), (8, 31), (10, 31)][(k as usize).min(4)];
-            Date::ymd(season, m, day)
-        }
+        CommitTiming::Summer(_) => crate::world::recruiting::commit_day(w.options.seed, p)?,
         // Before 2017 there was no early period: an early decider enrolled
         // in January.
         CommitTiming::Early => {

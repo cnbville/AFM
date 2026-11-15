@@ -13,8 +13,8 @@
 //!
 //! Each later lane's file holds its own flags and hooks: `rooms` (the
 //! pregame and halftime room, `talk_typed`), `interview`, `staff`, `money`
-//! (contract talks and trade calls, `fo_say`, `fo_fact`), `boss`,
-//! `one_on_one` and `recruit` (NIL forms too). `hiring` is the core's
+//! (the money desks' box, `fo_say`: a contract, a trade, a recruit's NIL),
+//! `boss`, `one_on_one` and `recruit`. `hiring` is the core's
 //! proof, LT18.
 
 pub mod boss;
@@ -317,7 +317,7 @@ pub fn people_say(g: &mut Game, args: &Value) -> Reply {
     if s.done {
         return Err("That meeting is over.".into());
     }
-    if !scene::takes_typed(s) {
+    if !scene::takes_typed(s) || super::persona::talk::nobody(g, s) {
         return Err("This talk takes no typed lines.".into());
     }
     if text.is_empty() {
@@ -343,13 +343,11 @@ pub fn people_say(g: &mut Game, args: &Value) -> Reply {
     tickets::start(g, req, next, false).map(|t| json!({ "ticket": t })).map_err(|f| f.note())
 }
 
-/// `fo_say`: a typed line on a contract talk, a trade call (lane 7) or a
-/// NIL form (lane 10), which are not scenes: `{desk, ...}`.
+/// `fo_say`: a typed line on a money desk (a pro's contract page, the trade
+/// desk, a recruit's NIL promise), played on the call with the man across
+/// as a v3 talk (`money::say`): `{desk, ...}`.
 pub fn fo_say(g: &mut Game, args: &Value) -> Reply {
-    match args.get("desk").and_then(Value::as_str).unwrap_or("") {
-        "nil" => recruit::say(g, args),
-        _ => money::say(g, args),
-    }
+    money::say(g, args)
 }
 
 /// Every lane's reader hook, in a fixed order.
@@ -421,7 +419,12 @@ fn scene_flag(g: &Game, v: &mut Value) {
     }
     let Some(id) = o.get("id").and_then(Value::as_u64) else { return };
     let Some(w) = g.world.as_ref() else { return };
-    if w.folk.scenes.iter().find(|s| u64::from(s.id) == id).is_some_and(scene::takes_typed) {
+    if w.folk
+        .scenes
+        .iter()
+        .find(|s| u64::from(s.id) == id)
+        .is_some_and(|s| scene::takes_typed(s) && !super::persona::talk::nobody(g, s))
+    {
         v["say"] = json!({ "cmd": "people_say", "args": { "id": id }, "limit": scene::LIMIT });
         // A talk played on the ear and the voice: the page's `talk` block.
         super::persona::view::flag(g, v);

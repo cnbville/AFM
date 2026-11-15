@@ -25,7 +25,9 @@ pub fn person(w: &World, who: Them) -> String {
         Them::Player(id) => card::person(w, &Who::Player(id)),
         Them::Coach(c) => card::person(w, &Who::Coach(c)),
         Them::Cast(r, _) => card::person(w, &Who::Cast(r.token())),
-        Them::Drawn(..) => format!("{}, director of compliance", channels::name(w, who)),
+        Them::Drawn(afm_engine::world::folk::persona::wants::Kind::Compliance, _) => {
+            format!("{}, director of compliance", channels::name(w, who))
+        }
         _ => channels::name(w, who),
     }
 }
@@ -69,6 +71,8 @@ pub fn channel_words(c: Channel) -> String {
             Group::Staff => "your staff".into(),
             Group::Council => "the leadership council".into(),
             Group::Family(_) => "his family".into(),
+            Group::Parents => "the players' parents".into(),
+            Group::Coaches => "the feeder schools' coaches".into(),
         },
     }
 }
@@ -162,6 +166,11 @@ pub fn ear(w: &World, s: &Scene, room: &Room, parts: &Parts, line: &str) -> (Ear
     // Someone in your building (lane N5c): the coach a reference is about,
     // the man a sit-down is about, the hurt men the doctor would talk of.
     for (who, why) in office::sit::named(w, s) {
+        add(&mut c, &mut keys, who, why);
+    }
+    // One of the older meetings: the players it is about and the men on the
+    // sheet in front of you.
+    for (who, why) in afm_engine::world::folk::persona::meetings::named(w, s) {
         add(&mut c, &mut keys, who, why);
     }
     if let Some(team) = Team::seat(w) {

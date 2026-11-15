@@ -11,7 +11,7 @@
 use super::{DeadCharge, DeadWhy, Status, grade, money, office::Mode, payroll, release_with, space};
 use crate::calendar::{Date, Event, Kind, Level as CalLevel, Loudness};
 use crate::league::depth_slots;
-use crate::positions::Position;
+use crate::positions::{POSITION_COUNT, Position};
 use crate::rng::{Rng, clamp};
 use crate::world::front_office::{self as fo, Duty};
 use crate::world::news::count;
@@ -287,7 +287,36 @@ pub(crate) fn market_grade(w: &World, pos: Position, read: f64) -> f64 {
         // Below every place a team pays for: under the market's floor.
         return (66.0 - 4.0 * (s - 2.0)).max(50.0);
     }
-    66.0 + 24.0 * ladder_share(pos, s).powf(1.0 / 1.6)
+    let ladder = 66.0 + 24.0 * ladder_share(pos, s).powf(1.0 / 1.6);
+    top_grade(list, read).map_or(ladder, |t| ladder.max(t))
+}
+
+/// Grade points a read point above the market's top five is worth at the
+/// very top (realism audit items 1 and 4, Cain 2026-11-15: "there is top
+/// and there is elite"). Proposed, not confirmed: sized on the seed 1
+/// world so the league's best usually reads about where the real ladder's
+/// top sits (1.12-1.15 times the top five) and a clear best breaks far
+/// past it, as Mahomes did in 2020 (1.34 times) and Donald in 2018.
+pub const TOP_PER_POINT: f64 = 0.6;
+
+/// Where pay at the very top comes from: his edge over the market's best.
+/// For a read in the top five veterans at the position, those five, with
+/// him among them (in for the fifth when he isn't on the list at this
+/// read), set the bar; a read on
+/// it is top-five money (grade 90) and every point above it pays on up the
+/// price curve with no end. Before, rank alone set the top, so the best
+/// was paid the same however far ahead he stood.
+fn top_grade(list: &[f64], read: f64) -> Option<f64> {
+    // Only the top five: below them the ladder's rank sets the price.
+    if list.len() < 5 || read < list[4] {
+        return None;
+    }
+    let mut five = [list[0], list[1], list[2], list[3], list[4]];
+    if read > five[4] && !five.iter().any(|&g| (g - read).abs() < 1e-9) {
+        five[4] = read;
+    }
+    let bar = five.iter().sum::<f64>() / 5.0;
+    Some(90.0 + TOP_PER_POINT * (read - bar))
 }
 
 /// The real pay ladder: a contract's average a year as a share of the top
@@ -359,11 +388,89 @@ pub(crate) fn set_ladders(w: &mut World) {
     w.market.teams = super::super::franchise::active_teams_in(w, year).len();
 }
 
-/// What a veteran of this grade costs a year on the open market at his age,
-/// never past the position's record deal.
-pub(crate) fn market_price(year: i32, pos: Position, view: f64, credited: u32, age: u32) -> f64 {
-    let price = money::price_cap(year) * money::market_share(pos, view).min(money::top5_share(pos) * money::RECORD);
+/// What a veteran of this grade costs a year on the open market at his age
+/// (no record limit: realism audit item 4).
+pub(crate) fn market_price(w: &World, pos: Position, view: f64, credited: u32, age: u32) -> f64 {
+    let year = w.year;
+    let price = money::price_cap(year) * money::market_share(top5(w, year, pos), view);
     (price * decline(pos, age)).max(money::minimum(year, credited))
+}
+
+/// The position's top-five share of the cap in a league year: the real
+/// market's through 2026 (`money::REAL_TOP5`), then the world's own
+/// (`set_shares`).
+pub fn top5(w: &World, year: i32, pos: Position) -> f64 {
+    shares(w, year)[pos.index()]
+}
+
+/// Every position's top-five share in a league year (`top5`).
+pub fn shares(w: &World, year: i32) -> [f64; POSITION_COUNT] {
+    if year <= money::REAL_TO {
+        return std::array::from_fn(|k| money::real_top5(year, Position::ALL[k]));
+    }
+    w.market.shares.iter().rev().find(|x| x.0 <= year).map_or_else(|| shares(w, money::REAL_TO), |x| x.1)
+}
+
+/// How far a year's heat moves a market (proposed, not confirmed): half of
+/// what clubs paid over the going rate, against the heat of the first year
+/// the world measured, and a fifth of the way back toward the last real
+/// market each year, so a market moves with its deals and doesn't run off.
+const HEAT_MOVE: f64 = 0.5;
+const HEAT_PULL: f64 = 0.2;
+
+/// After the real years the markets move with the world's own (realism
+/// audit item 3, Cain 2026-11-15): each year a position's top-five share
+/// moves by how hot last year's deals were, what its clubs paid over the
+/// going rate for the players they signed (`note_heat`), against that
+/// position's usual heat (the first year measured, which holds what clubs
+/// always add: a contender's premium, need, bidding). The cap is shared, so
+/// the markets are then scaled together to keep the league's top pay the
+/// same share of it (each position weighed by its starters): one position
+/// gains what the others give. Set at the tag window, before the ladders.
+pub(crate) fn set_shares(w: &mut World) {
+    let year = w.year;
+    if year <= money::REAL_TO || w.market.shares.iter().any(|x| x.0 == year) {
+        return;
+    }
+    let prev = shares(w, year - 1);
+    let last = shares(w, money::REAL_TO);
+    let heat = |y: &MarketYear, k: usize| y.heat.get(k).filter(|h| h[1] > 0.0).map(|h| h[0] / h[1]);
+    let mut raw = [0.0; POSITION_COUNT];
+    for k in 0..POSITION_COUNT {
+        let base = w.market.years.iter().filter(|y| y.year >= money::REAL_TO).find_map(|y| heat(y, k));
+        let now = w.market.years.iter().find(|y| y.year == year - 1).and_then(|y| heat(y, k));
+        let moved = match (base, now) {
+            (Some(b), Some(n)) if b > 0.0 => (n / b).powf(HEAT_MOVE),
+            _ => 1.0,
+        };
+        raw[k] = prev[k] * moved * (last[k] / prev[k]).powf(HEAT_PULL);
+    }
+    let weigh = |v: &[f64; POSITION_COUNT]| -> f64 {
+        Position::ALL.iter().map(|&p| depth_slots(p).starters.max(1) as f64 * v[p.index()]).sum()
+    };
+    let scale = weigh(&prev) / weigh(&raw).max(1e-9);
+    let next: [f64; POSITION_COUNT] = std::array::from_fn(|k| raw[k] * scale);
+    w.market.shares.push((year, next));
+}
+
+/// A deal signed at the top of a market (its going rate at least half the
+/// top five's): what he got and his going rate at the consensus read, for
+/// next year's heat (`set_shares`).
+pub(crate) fn note_heat(w: &mut World, i: usize, apy: f64) {
+    let year = w.year;
+    let p = &w.people[i];
+    let pos = p.player.position;
+    let credited = p.pro.as_ref().map_or(0, |c| c.credited);
+    let going = market_price(w, pos, market_grade(w, pos, consensus(w, i)), credited, p.player.age);
+    if going < 0.5 * top5(w, year, pos) * money::price_cap(year) {
+        return;
+    }
+    let y = w.market.year_mut(year);
+    if y.heat.len() < POSITION_COUNT {
+        y.heat.resize(POSITION_COUNT, [0.0; 2]);
+    }
+    y.heat[pos.index()][0] += apy;
+    y.heat[pos.index()][1] += going;
 }
 
 /// Past his position's prime a team pays for the decline it expects over
@@ -530,7 +637,7 @@ fn worth_clean(w: &World, t: usize, i: usize) -> (f64, f64, f64) {
     }
     let credited = c.map_or(0, |c| c.credited);
     let rel = market_grade(w, pos, view);
-    let mut apy = market_price(year, pos, rel, credited, age);
+    let mut apy = market_price(w, pos, rel, credited, age);
     // Where he would play here.
     let slots = depth_slots(pos);
     let better =
@@ -628,13 +735,12 @@ pub(crate) fn ideal(w: &World, i: usize, d: Date) -> Ideal {
     let view = market_grade(w, p.player.position, consensus(w, i));
     let credited = c.map_or(0, |c| c.credited);
     let agent = c.and_then(|c| c.agent).map_or(8.0, |a| w.market.agents[a].skill);
-    // His money goal and his agent move the ask, never past the record
-    // deal at his position (moved for his age as the price is).
+    // His money goal and his agent move the ask, with no record limit
+    // (realism audit item 4): the best ask what their edge is worth.
     let pos = p.player.position;
-    let apy = (market_price(year, pos, view, credited, p.player.age)
+    let apy = market_price(w, pos, view, credited, p.player.age)
         * (1.0 + 0.2 * (g.money - 0.5))
-        * (1.0 + 0.004 * (agent - 10.0)))
-        .min(money::record_apy(year, pos) * decline(pos, p.player.age));
+        * (1.0 + 0.004 * (agent - 10.0));
     let base = if view >= 85.0 {
         0.55
     } else if view >= 78.0 {
@@ -852,6 +958,9 @@ pub(crate) fn sign_offer(w: &mut World, i: usize, o: &Offer, d: Date, kind: mone
     let name = w.nfl[t].name;
     let apy = deal.apy();
     let gtd = deal.guaranteed();
+    if kind == money::Kind::Veteran {
+        note_heat(w, i, apy);
+    }
     let (former, accrued) = w.people[i].pro.as_ref().map_or((None, 0), |c| (c.former.filter(|_| c.expired), c.accrued));
     super::settle_ended(w, i);
     let p = &mut w.people[i];
@@ -996,26 +1105,50 @@ pub(crate) fn market_day(w: &mut World, d: Date) {
             continue;
         };
         if let Some(k) = held {
-            // Inside his window: a clearly better offer sways him.
+            // Inside his window: a clearly better offer sways him, and the
+            // agent takes the one on the table to the other clubs, which
+            // may top it by a clear step (realism audit item 4).
             let cur = w.market.pending[k];
+            let (top, ts, topped) =
+                bid_up(w, i, &ideal, former, &offers, (cur.offer, cur.score), SWAY_STEP, &committed);
+            let (best, s) = if topped > 0 { (top, ts) } else { (best, s) };
+            let wins = topped > 0 || best.team != cur.offer.team && s > cur.score + SWAY_STEP;
+            w.market.year_mut(year).bids += topped;
             if w.logging() {
-                let outcome = if best.team != cur.offer.team && s > cur.score + 0.03 { "swayed" } else { "held" };
+                let outcome = if wins && best.team != cur.offer.team {
+                    "swayed"
+                } else if wins {
+                    "raised"
+                } else {
+                    "held"
+                };
                 let id = w.people[i].player.id;
                 let why = Why::Market { id, ideal, offers: offers.clone(), best: best.team, score: s, outcome };
                 w.log_why(why);
             }
-            if best.team != cur.offer.team && s > cur.score + 0.03 {
+            if wins {
                 committed[cur.offer.team] -= cur.offer.apy;
                 committed[best.team] += best.apy;
                 w.market.pending[k].offer = best;
                 w.market.pending[k].score = s;
-                w.market.year_mut(year).swayed += 1;
-                let (from, to) = (w.nfl[cur.offer.team].name, w.nfl[best.team].name);
-                let p = &mut w.people[i];
-                p.note(format!("Swayed from the {from} to the {to} inside his week to decide."));
+                if best.team != cur.offer.team {
+                    w.market.year_mut(year).swayed += 1;
+                    let (from, to) = (w.nfl[cur.offer.team].name, w.nfl[best.team].name);
+                    let p = &mut w.people[i];
+                    p.note(format!("Swayed from the {from} to the {to} inside his week to decide."));
+                }
             }
             continue;
         }
+        // More than one club in: the agent runs the bidding (realism audit
+        // item 4), each club topping the best offer until none will go on.
+        let (best, s) = if offers.len() > 1 {
+            let (top, ts, topped) = bid_up(w, i, &ideal, former, &offers, (best, s), BID_STEP, &committed);
+            w.market.year_mut(year).bids += topped;
+            (top, ts)
+        } else {
+            (best, s)
+        };
         // The agent's move: with no real competition, a less honest agent
         // claims other interest (topic 3 question 1).
         // Your own offer gets your answer from the agent instead (lane 10).
@@ -1064,6 +1197,78 @@ pub(crate) fn market_day(w: &mut World, d: Date) {
             decay(w, i, d, Some(best.apy));
         }
     }
+}
+
+/// How much better an offer must score to top the best one on the table
+/// in the same day's bidding, and to top a deal inside his week to weigh it
+/// (the old "clearly better" bar). A step of 0.01 is about 4-5% more money
+/// for a player who weighs money as most do (proposed, not confirmed).
+const BID_STEP: f64 = 0.01;
+const SWAY_STEP: f64 = 0.03;
+
+/// The bidding for a free agent (realism audit item 4, Cain 2026-11-15: a
+/// new record deal is set by the clubs bidding and their cap room). The
+/// agent takes the best offer to the other clubs; a club that values him
+/// more tops it by the least money that beats it by `step`, as long as its
+/// own price (`worth`) and its cap room (three quarters of the money free
+/// this year, as for any offer) allow, and the clubs topped can come back.
+/// It ends when no club will go higher, so the winner pays about what the
+/// runner-up would. Your club's offers are yours and are never raised for
+/// you. Returns the best offer, its score and how many times it was topped.
+#[allow(clippy::too_many_arguments)]
+fn bid_up(
+    w: &World,
+    i: usize,
+    ideal: &Ideal,
+    former: Option<usize>,
+    offers: &[(Offer, f64)],
+    lead: (Offer, f64),
+    step: f64,
+    committed: &[f64],
+) -> (Offer, f64, u32) {
+    let year = w.year;
+    // Each club's most: its price and its room (a club holding him now has
+    // its own money on the table back).
+    let tops: Vec<(Offer, f64)> = offers
+        .iter()
+        .filter(|(o, _)| !fo::yours(w, o.team, Duty::FreeAgency) && !fo::nfl::talking(w, o.team, i))
+        .map(|(o, _)| {
+            let back = if o.team == lead.0.team { lead.0.apy } else { 0.0 };
+            let room = (space(w, o.team, year) - committed[o.team] + back) / 0.75;
+            (*o, worth(w, o.team, i).1.min(room))
+        })
+        .collect();
+    let mut lead = lead;
+    let mut topped = 0;
+    for _ in 0..24 {
+        let mut next = None;
+        for &(o, most) in &tops {
+            if o.team == lead.0.team || most <= o.apy {
+                continue;
+            }
+            let at = |apy: f64| score(w, i, &Offer { apy, ..o }, ideal, former);
+            let bar = lead.1 + step;
+            if at(most) <= bar {
+                continue;
+            }
+            let (mut lo, mut hi) = (o.apy, most);
+            if at(lo) > bar {
+                hi = lo;
+            } else {
+                for _ in 0..12 {
+                    let mid = 0.5 * (lo + hi);
+                    if at(mid) > bar { hi = mid } else { lo = mid }
+                }
+            }
+            let up = Offer { apy: hi, ..o };
+            next = Some((up, at(hi)));
+            break;
+        }
+        let Some(n) = next else { break };
+        lead = n;
+        topped += 1;
+    }
+    (lead.0, lead.1, topped)
 }
 
 /// Unsigned, he reads the market: his ideal comes down toward the best
@@ -1222,7 +1427,7 @@ pub(crate) fn tags_and_tenders(w: &mut World, d: Date) {
     let shares = tag_shares_now(w);
     w.market.tag_shares.push((year, shares));
     w.market.tag_shares.retain(|(y, _)| *y > year - 5);
-    let bases = tag_bases(&w.market.tag_shares, year);
+    let bases = tag_bases(&w.market.tag_shares, year, &self::shares(w, year));
     let base = |pos: Position, franchise: bool| bases[pos.index()][usize::from(!franchise)];
     let qb_price = base(Position::QB, true);
     // The best expiring players first; one tag a team a year from 2011, a
@@ -1380,7 +1585,7 @@ pub(crate) fn tag_shares_now(w: &World) -> Vec<[f64; 2]> {
 
 /// The tag prices by position (franchise, transition) from the shares'
 /// history: the five-year average from 2011, the year's own before.
-pub(crate) fn tag_bases(hist: &[(i32, Vec<[f64; 2]>)], year: i32) -> Vec<[f64; 2]> {
+pub(crate) fn tag_bases(hist: &[(i32, Vec<[f64; 2]>)], year: i32, top: &[f64; POSITION_COUNT]) -> Vec<[f64; 2]> {
     let cap = money::price_cap(year);
     Position::ALL
         .iter()
@@ -1394,7 +1599,7 @@ pub(crate) fn tag_bases(hist: &[(i32, Vec<[f64; 2]>)], year: i32) -> Vec<[f64; 2
                 };
                 // A position with too few paid veterans in the world still
                 // has a real market (the floor sits well under the top five).
-                (share * cap).max(cap * money::top5_share(pos) * 0.45)
+                (share * cap).max(cap * top[pos.index()] * 0.45)
             };
             [one(0), one(1)]
         })
@@ -1649,7 +1854,7 @@ pub(crate) fn option_price(w: &World, i: usize) -> f64 {
     let pos = p.player.position;
     let pick = p.pro.as_ref().and_then(|c| c.draft).map_or(32, |d| d.2);
     let bowls = p.pro.as_ref().map_or(0, |c| c.seasons.iter().filter(|s| s.pro_bowl).count());
-    let top5 = money::price_cap(year + 1) * money::top5_share(pos);
+    let top5 = money::price_cap(year + 1) * top5(w, year + 1, pos);
     if year >= 2021 {
         // The 2020 CBA's four levels (minor bug B27): two Pro Bowls pay
         // the franchise tag, one the transition tag; the playing-time
@@ -1787,6 +1992,7 @@ pub(crate) fn extension_talks(w: &mut World, d: Date, deadline: bool) {
 /// the cap in one season).
 pub(crate) fn extend(w: &mut World, i: usize, o: &Offer, d: Date) {
     let year = w.year;
+    note_heat(w, i, o.apy);
     let tagged =
         w.people[i].pro.as_ref().and_then(|c| c.contract.as_ref()).is_some_and(|k| {
             matches!(k.kind, money::Kind::Franchise | money::Kind::Transition) && k.last_year() == year
@@ -1881,7 +2087,7 @@ pub(crate) fn holdouts(w: &mut World, d: Date, report_day: bool) {
             let Some(k) = c.contract.as_ref() else { continue };
             let seasons = c.seasons.iter().filter(|s| s.games > 0).count();
             let view = market_grade(w, w.people[i].player.position, consensus(w, i));
-            let market = market_price(year, w.people[i].player.position, view, c.credited, w.people[i].player.age);
+            let market = market_price(w, w.people[i].player.position, view, c.credited, w.people[i].player.age);
             let under = market / k.apy().max(1.0);
             // Stars only, far under their market (real: a handful a year,
             // Aiyuk and Lamb in 2024).
@@ -2639,6 +2845,13 @@ pub struct MarketYear {
     /// lowest, median and highest team.
     pub dead: [f64; 3],
     pub carryover: [f64; 3],
+    /// Deals signed at the top of each market (`note_heat`): what they
+    /// paid and their going rate, by position.
+    #[serde(default)]
+    pub heat: Vec<[f64; 2]>,
+    /// Offers topped by another club in a bidding war (`bid_up`).
+    #[serde(default)]
+    pub bids: u32,
 }
 
 /// The league's market state.
@@ -2671,6 +2884,10 @@ pub struct Market {
     pub tag_shares: Vec<(i32, Vec<[f64; 2]>)>,
     /// Off-field cases waiting on the league's ruling (section 6 topic 7).
     pub cases: Vec<super::super::people::Case>,
+    /// Each league year's top-five shares after the real years
+    /// (`set_shares`).
+    #[serde(default)]
+    pub shares: Vec<(i32, [f64; POSITION_COUNT])>,
 }
 
 impl Market {
@@ -2705,4 +2922,28 @@ pub(crate) fn post(
         e = e.club_link(t, club.name);
     }
     w.calendar.post(e);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Realism audit items 1 and 4: at the very top, pay keeps rising with
+    /// a player's edge over the market's best, with no end.
+    #[test]
+    fn pay_at_the_top_rises_with_the_edge() {
+        let list = [88.0, 87.0, 86.0, 85.0, 84.0, 80.0];
+        // A read on the top five's bar is top-five money.
+        assert!((top_grade(&list, 86.0).unwrap() - 90.0).abs() < 1e-9);
+        // Below the top five the ladder prices him.
+        assert!(top_grade(&list, 83.0).is_none());
+        // He steps in for the fifth when he isn't on the list.
+        let elite = top_grade(&list, 96.0).unwrap();
+        let top = top_grade(&list, 92.0).unwrap();
+        assert!(elite > top && top > 90.0, "{elite} {top}");
+        let share = |g: f64| money::market_share(0.07, g);
+        assert!(share(elite) > share(top) * 1.1);
+        // Too short a list has no bar.
+        assert!(top_grade(&list[..4], 99.0).is_none());
+    }
 }

@@ -357,6 +357,52 @@ fn your_best_talk_flips_only_close_races_and_never_down_a_level() {
     assert!(flips > 0, "with schools like yours on his list, your talks decide some close races");
 }
 
+/// Hand-off projections, item 9: for a recruit talk the projection says
+/// whether your best talk would pull him more than your staff man's, from
+/// your file on him and your read of the man (`handoff::lean`): yours,
+/// his, or close when your own pull sits inside the range your read gives
+/// his. Where it names a side, the real talks go that way three times in
+/// four; where it says close, neither side wins more than 7 in 10.
+#[test]
+fn the_recruit_projection_names_which_way_the_talks_go_three_in_four() {
+    use crate::world::folk::handoff::{Lean, lean};
+    let (mut w, mine, kids) = recruits_with(300, true);
+    let (mut named, mut right, mut close, mut close_yours) = (0, 0, 0, 0);
+    for &i in &kids {
+        let before = w.people[i].cal.cases.clone();
+        let s = visit(&mut w, i, mine);
+        if s.done {
+            continue;
+        }
+        let Some(hp) = pitch::hand_pitch(&w, &s) else { continue };
+        let said = lean(hp.yours, hp.hand);
+        scene::hand(&mut w, s.id).unwrap();
+        let handed = case::pull(&w.people[i], mine);
+        w.people[i].cal.cases = before;
+        best_talk(&mut w, i, mine);
+        let yours = case::pull(&w.people[i], mine) > handed;
+        match said {
+            Lean::Close => {
+                close += 1;
+                close_yours += usize::from(yours);
+            }
+            side => {
+                named += 1;
+                right += usize::from((side == Lean::Yours) == yours);
+            }
+        }
+    }
+    println!(
+        "the projection named a side {named} times and was right {right}; close {close} times, your best talk ahead {close_yours} of them"
+    );
+    assert!(named >= 40 && close >= 40, "both kinds of read are common: {named} named, {close} close");
+    assert!(right * 4 >= named * 3, "{right} of {named}");
+    assert!(
+        close_yours * 10 <= close * 7 && (close - close_yours) * 10 <= close * 7,
+        "close is close: {close_yours} of {close}"
+    );
+}
+
 /// The proof of section 7: after three talks the file names what pulls him
 /// most more often than your area recruiter's free guess alone, and more
 /// often the better you read people. You play each talk as a coach would:

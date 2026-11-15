@@ -556,11 +556,12 @@ pub(crate) fn known(w: &World, i: usize) -> Known {
             set(&mut vals, &mut source, &mut src, from, 3, b.hand, "Your staff's measurements", true);
             set(&mut vals, &mut source, &mut src, from, 4, b.wingspan, "Your staff's measurements", true);
         }
-        if let Some((day, r)) =
-            w.training.tests.iter().rev().find_map(|d| d.rows.iter().find(|r| r.id == id).map(|r| (d, *r)))
-        {
-            let s = format!("Your strength staff, {}", views::date_text(day.date));
-            from = (Src::Testing, Some(day.date));
+        let since = afm_engine::training::testing::seat_since(w);
+        if let Some((date, r, _)) = afm_engine::training::testing::seat_rows(w, i).last().copied() {
+            let whose =
+                if since.is_some_and(|s| date >= s) { "Your strength staff" } else { "The previous staff's testing" };
+            let s = format!("{whose}, {}", views::date_text(date));
+            from = (Src::Testing, Some(date));
             set(&mut vals, &mut source, &mut src, from, 5, r.forty as f64 / 100.0, &s, true);
             set(&mut vals, &mut source, &mut src, from, 6, r.split as f64 / 100.0, &s, true);
             set(&mut vals, &mut source, &mut src, from, 7, r.vertical as f64 / 2.0, &s, true);
@@ -796,12 +797,41 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
             weights.push(json!({ "label": format!("End of {}", r.season), "sort": r.season as f64 + 0.9, "wt": r.wt, "source": "Your staff's kept read" }));
         }
     }
-    for d in &w.training.tests {
-        if let Some(r) = d.rows.iter().find(|r| r.id == id).filter(|r| r.weight > 0) {
-            let (y, m, dd) = d.date.parts();
-            weights.push(json!({ "label": views::date_text(d.date), "sort": y as f64 + (m as f64 - 1.0 + dd as f64 / 31.0) / 12.0, "wt": r.weight, "source": if d.baseline { "Baseline testing" } else { "Testing day" } }));
-        }
+    // His testing days at your team: the staff before yours and your own.
+    let since = afm_engine::training::testing::seat_since(w);
+    let tested = afm_engine::training::testing::seat_rows(w, i);
+    let pro = p.stage == Stage::Pro;
+    for (date, r, baseline) in tested.iter().filter(|t| t.1.weight > 0) {
+        let (y, m, dd) = date.parts();
+        let source = if *baseline {
+            "Baseline testing"
+        } else if since.is_some_and(|s| *date >= s) {
+            "Testing day"
+        } else {
+            "The previous staff's testing day"
+        };
+        weights.push(json!({ "label": views::date_text(*date), "sort": y as f64 + (m as f64 - 1.0 + dd as f64 / 31.0) / 12.0, "wt": r.weight, "source": source }));
     }
+    let history: Vec<Value> = tested
+        .iter()
+        .rev()
+        .map(|(date, r, baseline)| {
+            let hurt = w.training.hurt.iter().any(|h| h.id == r.id && h.from <= *date && h.until > *date);
+            let dash = |s: String| if hurt { "—".to_string() } else { s };
+            json!({
+                "date": views::date_text(*date),
+                "who": if *baseline { "Your baseline" } else if since.is_some_and(|s| *date >= s) { "Your staff" } else { "Previous staff" },
+                "forty": dash(format!("{:.2}", r.forty as f64 / 100.0)),
+                "split": dash(format!("{:.2}", r.split as f64 / 100.0)),
+                "shuttle": dash(format!("{:.2}", r.shuttle as f64 / 100.0)),
+                "vertical": dash(format!("{:.1}\"", r.vertical as f64 / 2.0)),
+                "bench": if hurt { "rehab".to_string() } else if pro { format!("{} reps", r.reps) } else { format!("{} lb", r.bench) },
+                "squat": dash(if pro { "—".to_string() } else { format!("{} lb", r.squat) }),
+                "clean": dash(if pro { "—".to_string() } else { format!("{} lb", r.clean) }),
+                "weight": format!("{} lb", r.weight),
+            })
+        })
+        .collect();
     let now_wt = body_now(&p.player).weight.round();
     let (y, m, dd) = w.today.parts();
     weights.push(json!({ "label": "Today", "sort": y as f64 + (m as f64 - 1.0 + dd as f64 / 31.0) / 12.0, "wt": now_wt, "source": k.source[1].as_ref().map(|s| s.0.clone()) }));
@@ -836,6 +866,7 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
         "rows": rows,
         "targets": targets,
         "lifts": k.lifts.iter().map(|(a, b)| json!({ "label": a, "text": b })).collect::<Vec<_>>(),
+        "tests": history,
         "scores": scores,
         "plot": { "level": level_dots, "drafted": drafted_dots, "real": real_json },
         "alikes": alikes,

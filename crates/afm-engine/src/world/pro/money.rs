@@ -5,7 +5,7 @@
 //! (2011 on) and the rookie pool before it, and the tags and tenders.
 
 use crate::calendar::Date;
-use crate::positions::Position;
+use crate::positions::{POSITION_COUNT, Position};
 use crate::rng::clamp;
 
 /// The cap every price is read against. The real cap from 1994 (the
@@ -454,51 +454,83 @@ pub fn restructure(c: &mut Contract, y: i32, keep: f64, add_void: u32) -> f64 {
 
 // --- Market prices ---------------------------------------------------------------------
 
-/// The top five veteran deals at each position as a share of the cap
-/// (2025-26, OverTheCap averages; shared with the draft board). The
-/// quarterbacks' is the top five's pay against the cap they're paid under
-/// (2025: Prescott $60M, Allen, Burrow, Lawrence and Love $55M, on a
-/// $279.2M cap), not the share each deal had the year it was signed (0.234
-/// read a 2026 top five at $70M).
-pub fn top5_share(pos: Position) -> f64 {
-    match pos {
-        Position::QB => 0.2,
-        Position::EDGE => 0.158,
-        Position::WR => 0.136,
-        Position::DT => 0.117,
-        Position::CB => 0.108,
-        Position::OT => 0.0985,
-        Position::S => 0.081,
-        Position::IOL => 0.077,
-        Position::LB => 0.075,
-        Position::RB => 0.074,
-        Position::TE => 0.063,
-        Position::K => 0.023,
-        Position::P => 0.015,
-        Position::LS => 0.007,
-    }
-}
+/// The first and last league years of the real position markets.
+pub const REAL_FROM: i32 = 1994;
+pub const REAL_TO: i32 = 2026;
 
-/// The most a deal at a position pays a year: a new record sits a little
-/// above the top five's average (2024-25: Prescott at 1.07 times the
-/// quarterbacks' top five, Parsons 1.12 times the edge rushers', Chase
-/// 1.12 times the receivers'). No ask or offer goes past it.
-pub fn record_apy(year: i32, pos: Position) -> f64 {
-    price_cap(year) * top5_share(pos) * RECORD
-}
+/// The real top five veteran deals at each position as a share of the cap,
+/// league year by league year (realism audit item 3, Cain 2026-11-15: "make
+/// it mirror real life"). Each year is the five biggest average-a-year
+/// deals in force that season over that season's cap, the way OverTheCap
+/// lists a position (2025: Prescott $60M, Allen, Burrow, Lawrence and Love
+/// $55M on a $279.2M cap, 0.201). From OverTheCap's records of 53,739
+/// deals (nflverse `historical_contracts`, fetched 2026-11-15; the table
+/// and its script are `data/real-world/nfl_top5_shares.csv` and
+/// `scripts/nfl_top5_shares.py`). Its records thin out going back: a year
+/// with fewer than 40 deals in force at a position is the average of
+/// itself and its neighbours, and before a position's first year with 10
+/// deals (2009 for kickers, 2012 for punters, 2013 for snappers) its first
+/// such year holds. Some real moves: running backs 0.114 in 1999 (Barry
+/// Sanders and Emmitt Smith at 14-16% each), 0.089 in 2011 (Peterson's
+/// 11.4% deal), 0.058 in 2025; quarterbacks 0.122 in 2007, 0.232 in 2023;
+/// receivers 0.078 in 2010, 0.128 in 2022. Order: `Position::ALL`.
+#[rustfmt::skip]
+pub const REAL_TOP5: [[f64; POSITION_COUNT]; 33] = [
+    // QB     RB     WR     TE     OT    IOL   EDGE     DT     LB     CB      S      K      P     LS
+    [0.1525, 0.1010, 0.0702, 0.0449, 0.0875, 0.0457, 0.0788, 0.0924, 0.0848, 0.1031, 0.0413, 0.0180, 0.0297, 0.0084], // 1994
+    [0.1532, 0.1010, 0.0702, 0.0449, 0.0875, 0.0457, 0.0788, 0.0924, 0.0848, 0.1031, 0.0413, 0.0180, 0.0297, 0.0084], // 1995
+    [0.1609, 0.1010, 0.0702, 0.0449, 0.0875, 0.0457, 0.0788, 0.0924, 0.0848, 0.1031, 0.0413, 0.0180, 0.0297, 0.0084], // 1996
+    [0.1596, 0.1052, 0.0702, 0.0449, 0.0875, 0.0457, 0.0788, 0.0924, 0.0848, 0.1031, 0.0413, 0.0180, 0.0297, 0.0084], // 1997
+    [0.1572, 0.1113, 0.0702, 0.0449, 0.0875, 0.0457, 0.0788, 0.0924, 0.0848, 0.1031, 0.0413, 0.0180, 0.0297, 0.0084], // 1998
+    [0.1448, 0.1143, 0.0762, 0.0449, 0.0875, 0.0457, 0.0788, 0.0924, 0.0848, 0.1096, 0.0413, 0.0180, 0.0297, 0.0084], // 1999
+    [0.1448, 0.1104, 0.0831, 0.0449, 0.0875, 0.0457, 0.0788, 0.0924, 0.0835, 0.1135, 0.0413, 0.0180, 0.0297, 0.0084], // 2000
+    [0.1425, 0.1027, 0.0908, 0.0449, 0.0875, 0.0457, 0.0788, 0.0908, 0.0794, 0.1155, 0.0413, 0.0180, 0.0297, 0.0084], // 2001
+    [0.1407, 0.0975, 0.0914, 0.0449, 0.0875, 0.0435, 0.0801, 0.0832, 0.0750, 0.1043, 0.0413, 0.0180, 0.0297, 0.0084], // 2002
+    [0.1408, 0.0925, 0.0944, 0.0449, 0.0875, 0.0408, 0.0848, 0.0749, 0.0736, 0.0997, 0.0413, 0.0180, 0.0297, 0.0084], // 2003
+    [0.1459, 0.0898, 0.0974, 0.0449, 0.0846, 0.0374, 0.0879, 0.0670, 0.0735, 0.0965, 0.0400, 0.0180, 0.0297, 0.0084], // 2004
+    [0.1560, 0.0846, 0.1021, 0.0440, 0.0774, 0.0404, 0.0874, 0.0657, 0.0705, 0.0923, 0.0395, 0.0180, 0.0297, 0.0084], // 2005
+    [0.1307, 0.0803, 0.0884, 0.0447, 0.0705, 0.0482, 0.0816, 0.0659, 0.0641, 0.0766, 0.0408, 0.0180, 0.0297, 0.0084], // 2006
+    [0.1224, 0.0745, 0.0892, 0.0444, 0.0677, 0.0417, 0.0869, 0.0639, 0.0604, 0.0748, 0.0425, 0.0180, 0.0297, 0.0084], // 2007
+    [0.1216, 0.0712, 0.0852, 0.0469, 0.0704, 0.0575, 0.0917, 0.0668, 0.0612, 0.0824, 0.0438, 0.0180, 0.0297, 0.0084], // 2008
+    [0.1249, 0.0671, 0.0803, 0.0496, 0.0836, 0.0542, 0.1046, 0.0699, 0.0637, 0.0866, 0.0435, 0.0180, 0.0297, 0.0084], // 2009
+    [0.1329, 0.0657, 0.0778, 0.0556, 0.0873, 0.0613, 0.1022, 0.0930, 0.0699, 0.0902, 0.0587, 0.0226, 0.0297, 0.0084], // 2010
+    [0.1388, 0.0892, 0.0942, 0.0593, 0.0917, 0.0673, 0.1061, 0.1048, 0.0802, 0.0904, 0.0666, 0.0277, 0.0297, 0.0084], // 2011
+    [0.1517, 0.0896, 0.1042, 0.0630, 0.0915, 0.0701, 0.1126, 0.1002, 0.0801, 0.0911, 0.0673, 0.0277, 0.0294, 0.0084], // 2012
+    [0.1659, 0.0878, 0.1112, 0.0618, 0.0859, 0.0684, 0.1120, 0.0912, 0.0786, 0.0987, 0.0680, 0.0270, 0.0283, 0.0082], // 2013
+    [0.1535, 0.0812, 0.1028, 0.0617, 0.0815, 0.0653, 0.1061, 0.0973, 0.0726, 0.1105, 0.0652, 0.0258, 0.0267, 0.0079], // 2014
+    [0.1501, 0.0808, 0.1055, 0.0604, 0.0815, 0.0624, 0.1037, 0.1069, 0.0738, 0.1033, 0.0626, 0.0250, 0.0246, 0.0075], // 2015
+    [0.1480, 0.0746, 0.0982, 0.0604, 0.0804, 0.0652, 0.1071, 0.1106, 0.0679, 0.0941, 0.0683, 0.0252, 0.0227, 0.0072], // 2016
+    [0.1469, 0.0603, 0.0965, 0.0562, 0.0790, 0.0674, 0.1023, 0.1031, 0.0692, 0.0908, 0.0716, 0.0240, 0.0212, 0.0068], // 2017
+    [0.1648, 0.0657, 0.0947, 0.0524, 0.0818, 0.0703, 0.1059, 0.1044, 0.0652, 0.0830, 0.0686, 0.0237, 0.0197, 0.0065], // 2018
+    [0.1785, 0.0677, 0.1002, 0.0499, 0.0855, 0.0691, 0.1115, 0.0987, 0.0826, 0.0771, 0.0732, 0.0239, 0.0190, 0.0063], // 2019
+    [0.1882, 0.0742, 0.1095, 0.0610, 0.1007, 0.0718, 0.1184, 0.1010, 0.0787, 0.0908, 0.0721, 0.0233, 0.0180, 0.0061], // 2020
+    [0.2214, 0.0806, 0.1189, 0.0768, 0.1172, 0.0879, 0.1364, 0.1123, 0.0967, 0.1017, 0.0856, 0.0257, 0.0198, 0.0070], // 2021
+    [0.2271, 0.0689, 0.1284, 0.0716, 0.1027, 0.0821, 0.1220, 0.1116, 0.0819, 0.0961, 0.0826, 0.0246, 0.0170, 0.0065], // 2022
+    [0.2320, 0.0646, 0.1190, 0.0686, 0.1019, 0.0822, 0.1232, 0.1105, 0.0834, 0.0890, 0.0772, 0.0245, 0.0154, 0.0069], // 2023
+    [0.2178, 0.0592, 0.1261, 0.0625, 0.1055, 0.0783, 0.1139, 0.1094, 0.0718, 0.0857, 0.0734, 0.0231, 0.0127, 0.0060], // 2024
+    [0.2006, 0.0582, 0.1252, 0.0612, 0.0990, 0.0819, 0.1491, 0.0969, 0.0700, 0.0954, 0.0749, 0.0212, 0.0134, 0.0058], // 2025
+    [0.1919, 0.0686, 0.1246, 0.0604, 0.0954, 0.0817, 0.1478, 0.1131, 0.0692, 0.1055, 0.0734, 0.0219, 0.0130, 0.0059], // 2026
+];
 
-/// A record deal over the top five's average (see `record_apy`).
-pub const RECORD: f64 = 1.08;
+/// A real year's top-five share (`REAL_TOP5`): the first year before 1994,
+/// the last after 2026 (the world's own market moves it from there:
+/// `market::top5`).
+pub fn real_top5(year: i32, pos: Position) -> f64 {
+    REAL_TOP5[(year.clamp(REAL_FROM, REAL_TO) - REAL_FROM) as usize][pos.index()]
+}
 
 /// What a veteran of this grade costs a year on the open market, as a share
-/// of the cap: the minimum at 66 rising to the top five at 90, and past it
-/// to the record deal at the top of the pay ladder (`market::market_grade`
-/// reads the league's best at 1.12-1.15 times the top five). Minor bug
-/// 270: the grade stopped at 90, so no deal passed the top five's average
-/// and the world's best quarterback was paid like its fifth best.
-pub fn market_share(pos: Position, grade: f64) -> f64 {
+/// of the cap, given the position's top-five share this year: the minimum
+/// at 66, the top five at 90, and on past it with no end (realism audit
+/// items 1 and 4, Cain 2026-11-15): the grade rises with how far he stands
+/// above the market's best (`market::market_grade`), so a new record is as
+/// big as his edge and the clubs bidding for him make it. Before, the curve
+/// stopped at 1.08 times the top five (about grade 91.2), so a 98 cost what
+/// a 92 did; real records jumped far past that: Mahomes' 2020 deal ($45M)
+/// was 1.29 times Wilson's record, 1.34 times the top five.
+pub fn market_share(top5: f64, grade: f64) -> f64 {
     let min = 0.004;
-    min + (top5_share(pos) - min) * clamp((grade - 66.0) / 24.0, 0.0, RECORD.powf(1.0 / 1.6)).powf(1.6)
+    min + (top5 - min) * ((grade - 66.0) / 24.0).max(0.0).powf(1.6)
 }
 
 /// Contract length a team offers by age and grade (proposed, not
@@ -657,17 +689,26 @@ pub fn tender_price(year: i32, t: Tender) -> f64 {
 mod tests {
     use super::*;
 
-    /// Minor bug 270: the top of the pay ladder pays past the top five's
-    /// average, up to the record deal and never past it.
+    /// Minor bug 270 and realism audit item 4: the top of the pay ladder
+    /// pays past the top five's average and keeps rising with no end.
     #[test]
     fn the_best_at_a_position_can_pass_the_top_five() {
         for pos in [Position::QB, Position::EDGE, Position::WR] {
-            let top = top5_share(pos);
-            assert!((market_share(pos, 90.0) - top).abs() < 1e-9);
-            assert!(market_share(pos, 91.0) > top);
-            assert!((market_share(pos, 99.0) - (0.004 + (top - 0.004) * RECORD)).abs() < 1e-9);
-            assert!(market_share(pos, 99.0) <= top * RECORD);
+            let top = real_top5(2026, pos);
+            assert!((market_share(top, 90.0) - top).abs() < 1e-9);
+            assert!(market_share(top, 91.0) > top);
+            assert!(market_share(top, 95.0) > top * 1.2);
+            assert!(market_share(top, 99.0) > market_share(top, 95.0));
         }
+    }
+
+    /// Realism audit item 3: the markets are each year's real ones.
+    #[test]
+    fn position_markets_follow_their_era() {
+        assert!((real_top5(2025, Position::QB) - 0.2006).abs() < 1e-9);
+        assert!(real_top5(1999, Position::RB) > 0.11 && real_top5(2025, Position::RB) < 0.06);
+        assert!(real_top5(1980, Position::QB) == real_top5(1994, Position::QB));
+        assert!(real_top5(2040, Position::WR) == real_top5(2026, Position::WR));
     }
 
     #[test]
