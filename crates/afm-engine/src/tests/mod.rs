@@ -94,6 +94,7 @@ mod talks_matter;
 mod tallies;
 mod team_rooms;
 mod tendencies;
+mod testing_book;
 mod training;
 mod update3;
 mod usage;

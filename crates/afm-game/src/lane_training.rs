@@ -55,6 +55,12 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             set_practice_hour(w, args)?;
             practice(w)
         })(),
+        "practice_testing" => (|| {
+            let w = game.wm()?;
+            mine_head(w)?;
+            call_testing(w, args)?;
+            practice(w)
+        })(),
         "practice_week_reset" => (|| {
             let w = game.wm()?;
             mine_head(w)?;
@@ -206,6 +212,23 @@ fn set_practice_hour(w: &mut World, args: &Value) -> Result<(), String> {
     if keep_today && new != old && (begun(w, old) || begun(w, new)) {
         w.training.today_at = Some((today, was));
     }
+    Ok(())
+}
+
+/// Calls a testing day, or takes a call back (Cain 2026-11-15): the
+/// strength staff tests that day and the day's training goes.
+fn call_testing(w: &mut World, args: &Value) -> Result<(), String> {
+    let day = args.get("day").and_then(Value::as_i64).ok_or("Missing day.")?;
+    let d = Date(day as i32);
+    if let Some(k) = w.training.calls.iter().position(|&c| c == d) {
+        w.training.calls.remove(k);
+        return Ok(());
+    }
+    if !afm_engine::training::seat::callable_tests(w).contains(&d) {
+        return Err("Your staff can't test that day: it has no training to give up, it's a game day, or the week has already been run.".into());
+    }
+    w.training.calls.push(d);
+    w.training.calls.sort_unstable();
     Ok(())
 }
 
