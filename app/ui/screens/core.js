@@ -2189,6 +2189,58 @@ function tpTable(t) {
   const rec = (r) => (r.t ? `${r.w}-${r.l}-${r.t}` : `${r.w}-${r.l}`);
   return `<div class="panel"><h2>${t.ref.kind === "nfl" ? "Division" : t.ref.kind === "college" ? "Conference" : "Its group"} <small>${esc(x.name)}${x.year ? ` · ${x.year} final` : ""}</small></h2><div class="tbl warm box"><table><thead><tr><th class="l">Team</th>${conf ? '<th class="l">Conf</th>' : ""}<th class="l">Record</th>${pts ? '<th class="l">Points</th>' : ""}</tr></thead><tbody>${x.rows.map((r) => `<tr class="${r.this ? "tp-this" : ""} ${r.mine ? "tp-mine" : ""}"><td class="l">${teamChip(r.team, 18)}${r.champ ? ' <small class="muted">champions</small>' : ""}</td>${conf ? `<td class="l">${r.cw}-${r.cl}</td>` : ""}<td class="l">${rec(r)}</td>${pts ? `<td class="l">${r.diff > 0 ? "+" : r.diff < 0 ? "−" : ""}${Math.abs(r.diff || 0)}</td>` : ""}</tr>`).join("")}</tbody></table></div></div>`;
 }
+
+// ---- the high school middle (Cain's mock-up, 2026-11-14) ----
+// A school's page is read as a recruiter reads it: the three to know first,
+// the talent in each class, the rest of the roster, where its players go and
+// its coach. A college seat sees where each player stands with it; every
+// other seat sees his college interest. Gold marks what is yours.
+const TP_RANGE = (r) => (r ? `${r[0]}–${r[1]}` : "–");
+const tpStand = (p) => `<span class="st-pill${p.kind === "mine" ? " gold" : ""}">${esc(p.stand)}</span>`;
+function tpHsProspects(t) {
+  const h = t.hs;
+  if (!h || !h.prospects.length) return "";
+  return `<div class="panel"><h2>Top prospects <small>the three you should know first</small></h2><div class="tp-cards">${h.prospects.map((p) => `<div class="tp-pc"><div class="tp-pr">${tpRing(p.value)}<div>${playerLink(p.id, p.name)}<span>${esc(p.pos)} · ${esc(p.class)}</span></div></div><div class="tp-rd">${TP_RANGE(p.read)}<small>${esc(TP_WHOSE[p.whose] || "")}</small></div>${p.best.length ? `<p>Strongest: ${p.best.map(esc).join(", ")}.${p.worst.length ? ` Short: ${p.worst.map(esc).join(", ")}.` : ""}</p>` : ""}${tpStand(p)}</div>`).join("")}</div></div>`;
+}
+function tpHsClasses(t) {
+  const h = t.hs;
+  if (!h || !h.classes.length) return "";
+  const x = (v) => Math.max(2, Math.min(98, ((v - 40) / 40) * 100));
+  const rows = h.classes.map((c) => `<div class="tp-dr"><span>${esc({ Sr: "Seniors", Jr: "Juniors", So: "Sophomores", Fr: "Freshmen" }[c.class] || c.class)}</span><div class="tp-ax">${c.dots.map((d) => `<a class="tp-d ${d.kind}" data-go="player" data-id="${d.id}" style="left:${x(d.v).toFixed(1)}%" title="${esc(d.name)} · ${esc(d.pos)} · ${d.v} · ${esc(d.stand)}"></a>`).join("")}</div></div>`).join("");
+  const legend = h.college_seat
+    ? [["mine", "Offered or committed to you"], ["visited", "Visited or watching"], ["none", "Not contacted"], ["away", "Committed elsewhere"]]
+    : [["none", "Uncommitted"], ["away", "Committed to a college"]];
+  return `<div class="panel"><h2>Talent by class <small>each dot is a player, placed by ${h.mine_school ? "your staff's read" : "your read where you have one"}</small></h2>${rows}<div class="tp-scale"><span>40</span><span>50</span><span>60</span><span>70</span><span>80</span></div><div class="tp-leg">${legend.map(([k, l]) => `<span><i class="tp-d ${k}"></i>${l}</span>`).join("")}</div></div>`;
+}
+function tpHsRest(t) {
+  const h = t.hs;
+  if (!h || !h.rest.length) return "";
+  const rows = h.rest.map((p) => `<tr><td class="l">${playerLink(p.id, p.name)}</td><td class="l">${esc(p.pos)}</td><td class="l">${esc(p.class)}</td><td class="l"><span class="tp-rb"><i style="left:${Math.max(0, p.read[0])}%;width:${Math.max(2, p.read[1] - p.read[0])}%"></i></span>${TP_RANGE(p.read)}</td><td class="l${p.kind === "mine" ? " tp-gold-t" : ""}">${esc(p.stand)}</td></tr>`).join("");
+  return `<div class="panel"><h2>The rest of the roster <small>${h.rest.length} of ${Math.max(0, h.judged - h.prospects.length)} · the full list is on Squad</small></h2><div class="tbl warm box"><table><thead><tr><th class="l">Player</th><th class="l">Pos</th><th class="l">Class</th><th class="l">Read</th><th class="l">${h.college_seat ? "Where you stand" : "College interest"}</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+function tpHsTiles(t) {
+  const h = t.hs;
+  if (!h) return "";
+  const tiles = [[String(t.titles || 0), "State titles"]];
+  if (h.poll) tiles.push([`#${h.poll.rank}`, `${esc(h.poll.which)}${h.poll.when === "Final" ? ` · ${h.poll.year} final` : ""}`]);
+  if (h.places.to_college) tiles.push([String(h.places.per_year), "Players a year to college"]);
+  tiles.push([String(h.places.nfl), "Reached the NFL"]);
+  return `<div class="tp-tiles">${tiles.map(([b, s]) => `<div><b>${esc(b)}</b><span>${s}</span></div>`).join("")}</div>`;
+}
+function tpHsPlaces(t) {
+  const h = t.hs;
+  if (!h || !h.places.rows.length) return "";
+  const pl = h.places, top = Math.max(...pl.rows.map((r) => r.n), 1);
+  const rows = pl.rows.map((r) => `<div class="tp-ur tp-pipe"><span>${r.yours ? "Your school" : teamA({ ref: { kind: "college", id: r.id }, name: r.name })}</span><div class="tp-ub"><i class="${r.yours ? "tp-gold" : ""}" style="width:${(100 * r.n) / top}%"></i></div><b>${r.n}</b></div>`).join("");
+  const sg = pl.signed ? `<div class="kv"><dt>You signed</dt><dd><b>${pl.signed.n}</b> · ${pl.signed.list.map((x) => `${playerLink(x.id, x.name)} (${x.year})`).join(", ")}</dd></div>` : "";
+  return `<div class="panel"><h2>Where its players go <small>last ${pl.classes} classes · ${pl.to_college} went on to college</small></h2><div class="tp-units">${rows}</div>${sg}</div>`;
+}
+function tpHsCoach(t) {
+  const c = t.hs && t.hs.coach;
+  if (!c) return "";
+  const b = c.before;
+  return `<div class="panel"><h2>Head coach</h2><div class="kv"><dt>Coach</dt><dd><b>${coachLink(c.id, c.name)}</b>${c.since ? ` · since ${c.since}` : ""}${c.years && c.record ? ` · ${c.record} in ${c.years} season${c.years === 1 ? "" : "s"}` : ""}</dd>${b ? `<dt>Before</dt><dd>${coachLink(b.id, b.name)}, ${b.from === b.to ? b.from : `${b.from}–${b.to}`} · ${esc(b.record)}</dd>` : ""}</div></div>`;
+}
 screens.team = async (a) => {
   const t = await api("team_page", a.kind ? { kind: a.kind, id: a.id } : {});
   setColors(t.colors);
@@ -2205,11 +2257,12 @@ screens.team = async (a) => {
   const level = pro && t.table && t.table.name ? `NFL · ${t.table.name}` : t.level;
   const rivals = !pro && t.rivals.length ? `<div class="panel"><h2>${t.ref.kind === "hs" ? "Rivals and neighbours" : "Rivals"}</h2><div class="chips">${t.rivals.map((r) => teamChip(r, 20)).join("")}</div></div>` : "";
   const books = pro ? tpNflBooks(t) : t.ref.kind === "college" ? tpCollegeBooks(t) : "";
+  const hs = t.ref.kind === "hs";
   return `<div class="hero tp-hero" style="--c1:${t.colors[0]};--c2:${t.colors[1] || t.colors[0]}"><div class="art"></div>${(typeof logoHero === "function" && logoHero(t)) || `<div class="st-outline">${esc(initials(t.name))}</div>`}<div class="copy"><div class="st-label">${esc(level)}</div><h1>${esc(t.name)}</h1>
     <div class="meta"><span><b>${esc(t.record)}</b> ${esc(t.record_note || "this season")}</span>${t.place ? `<span>${esc(t.place)}</span>` : ""}${t.prestige ? `<span>${esc(t.prestige)}</span>` : ""}${t.coach ? `<span>Head coach ${coachLink(t.coach.id, t.coach.name)}</span>` : ""}${t.stadium ? `<span>${Number(t.stadium).toLocaleString()} seats</span>` : ""}</div>
     <div class="st-actions">${logoChange(t)}</div></div></div>
-    <div class="pad">${gotoFor("team", a, t)}${tpTiles(t)}<div class="grid2"><div class="col">${tpKeys(t)}${tpUnits(t)}${tpComing(t)}<div class="panel"><h2>Lately <small>the last 60 days</small></h2>${news}</div>${leaders}<div class="panel"><h2>Every season</h2>${seasons}</div></div>
-    <div class="col">${tpBars(t)}${books}${tpTable(t)}${rivals}</div></div></div>`;
+    <div class="pad">${gotoFor("team", a, t)}${tpTiles(t)}<div class="grid2"><div class="col">${hs ? tpHsProspects(t) + tpHsClasses(t) : tpKeys(t)}${tpUnits(t)}${tpComing(t)}${hs ? tpHsRest(t) : ""}<div class="panel"><h2>Lately <small>the last 60 days</small></h2>${news}</div>${leaders}<div class="panel"><h2>Every season</h2>${seasons}</div></div>
+    <div class="col">${hs ? tpHsTiles(t) : ""}${tpBars(t)}${hs ? tpHsPlaces(t) + tpHsCoach(t) : books}${tpTable(t)}${rivals}</div></div></div>`;
 };
 // The team's own screens are Go to chips, not hero buttons (topic 17 rule 7).
 GOTO.team = (a, t) => {
@@ -2341,7 +2394,8 @@ screens.myplayers = async () => {
 
 // ---------- leaderboards (S8) ----------
 const SCOPES = [["fbs", "FBS"], ["fcs", "FCS"], ["d2", "Division II"], ["d3", "Division III"], ["naia", "NAIA"], ["juco", "Junior college"], ["college", "All college"], ["nfl", "NFL"], ["hs", "High school"]];
-const POS_GROUPS = ["QB", "RB", "WR", "TE", "OL", "DL", "LB", "DB", "ST"];
+// One position each (Cain 2026-11-14: never lump jobs that differ).
+const POS_GROUPS = ["QB", "RB", "WR", "TE", "OT", "IOL", "EDGE", "DT", "LB", "CB", "S", "K", "P"];
 const fmtCell = (v, d) => (v == null ? "" : typeof v === "number" ? (d ? v.toFixed(d) : Math.round(v).toLocaleString()) : esc(v));
 screens.leaders = async (a) => {
   const L = keep("leaders", { per: "total" });

@@ -479,6 +479,10 @@ pub(crate) fn class_text(w: &World, p: &Person) -> String {
             Some(afm_engine::world::eligibility::AwayKind::Military) => "Serving".into(),
             _ => "On mission".into(),
         },
+        Stage::CflPool => match w.others.pool.get(&p.player.id) {
+            Some(x) if !x.global() => format!("Year {}", x.year),
+            _ => "Global".into(),
+        },
     }
 }
 
@@ -701,6 +705,9 @@ pub fn status(w: &World) -> Value {
         "my_players": w.career.as_ref().map_or(0, |c| c.desk.listed.len()),
         // The draft live from your chair: the sidebar shows the war room.
         "draft_live": w.scouting.live.is_some(),
+        // A CFL draft under way with your club in the room (SK77).
+        "cfl_live": w.others.room.is_some() && afm_engine::world::pro::cfl::seat_club(w).is_some(),
+        "cfl": afm_engine::world::pro::cfl::seat_club(w).is_some(),
         // Your stories waiting on you (This week's badge).
         "stories_need": crate::lane_storylines::need_count(w),
         // A team in its year before the first game (lane 10, SK68).
@@ -1003,7 +1010,11 @@ pub fn stopped(w: &World, from: afm_engine::calendar::Moment, filed: &[u64]) -> 
         })
         .map(|s| s.id)
         .min();
-    let studio = afm_engine::world::scouting::live::holds(w).then(|| json!({ "screen": "warroom" }));
+    let studio = if afm_engine::world::pro::cfl::holds(w) {
+        Some(json!({ "screen": "cfldraft", "cfltab": "Draft room" }))
+    } else {
+        afm_engine::world::scouting::live::holds(w).then(|| json!({ "screen": "warroom" }))
+    };
     let story = w
         .folk
         .scenes
@@ -1279,6 +1290,16 @@ pub(crate) fn where_now(w: &World, p: &Person) -> String {
             }
             None => "Away from football".into(),
         },
+        Stage::CflPool => {
+            let at = afm_engine::world::pro::cfl::pool_words(w, p.player.id).unwrap_or_else(|| "U Sports".into());
+            match w.others.rights.get(&p.player.id) {
+                Some(&(fr, _)) => format!(
+                    "{at}, back for his last year; {} hold his rights",
+                    afm_engine::world::pro::other::name(fr as usize, w.year)
+                ),
+                None => at,
+            }
+        }
     }
 }
 

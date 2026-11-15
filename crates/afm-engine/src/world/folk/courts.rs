@@ -192,6 +192,10 @@ fn mirror(w: &mut World) {
             guilty,
             outcome: None,
         });
+        // One of your players: your ruling waits for you (lane L8).
+        if mine(w, id) {
+            super::arrests::opened(w, id, today, what);
+        }
     }
     let n = w.folk.courts.seen.len();
     if n > 400 {
@@ -231,6 +235,8 @@ pub(crate) fn amateur(w: &mut World, i: usize, what: &str, nth: i32) {
     });
     // The arrest moves his mood: shame or anger (talk facts lane L4).
     super::talk_points::arrest_mood(w, i);
+    // And your ruling waits for you in the morning (lane L8).
+    super::arrests::opened(w, id, today, what);
 }
 
 fn step(w: &mut World, d: Date) {
@@ -244,9 +250,12 @@ fn step(w: &mut World, d: Date) {
         let name = super::person(w, c.id).map_or_else(|| "A former player".into(), |i| w.people[i].name.clone());
         let yours = mine(w, c.id);
         let roll = super::roll(w, 0xC0B1 ^ d.0 as u64, c.id as u64);
+        // How a police case ended, for your ruling on its court day (lane L8).
+        let mut ended = None;
         let (next, words): (Option<(Step, i32)>, Option<String>) = match c.step {
             Step::Arrest => {
                 if !c.guilty && roll < 0.3 {
+                    ended = Some(super::arrests::Outcome::Dropped);
                     (None, Some(format!("Prosecutors declined to charge {name} ({}).", c.what)))
                 } else {
                     (
@@ -257,13 +266,19 @@ fn step(w: &mut World, d: Date) {
             }
             Step::Charged => (Some((Step::Court, 30 + (roll * 90.0) as i32)), None),
             Step::Court => {
-                let out = if c.guilty {
-                    if roll < 0.7 { "pleaded to a lesser charge" } else { "was convicted" }
+                use super::arrests::Outcome as O;
+                let (out, how) = if c.guilty {
+                    if roll < 0.7 {
+                        ("pleaded to a lesser charge", O::Pleaded)
+                    } else {
+                        ("was convicted", O::Convicted)
+                    }
                 } else if roll < 0.6 {
-                    "had the charges dropped"
+                    ("had the charges dropped", O::Dropped)
                 } else {
-                    "was acquitted"
+                    ("was acquitted", O::Acquitted)
                 };
+                ended = Some(how);
                 (None, Some(format!("{name} {out} ({}).", c.what)))
             }
             Step::Appeal { games } => {
@@ -334,7 +349,12 @@ fn step(w: &mut World, d: Date) {
                 cc.next = d.add(days);
                 k += 1;
             }
-            None => close(w, k, words.unwrap_or_default()),
+            None => {
+                close(w, k, words.unwrap_or_default());
+                if let Some(how) = ended {
+                    super::arrests::settled(w, c.id, c.opened, how);
+                }
+            }
         }
     }
 }

@@ -179,6 +179,7 @@ pub fn seat(w: &World) -> Option<(Seat, usize)> {
         Staff::Club(t) => (Seat::Club, t),
         Staff::Program(j) => (Seat::College, j),
         Staff::School(h) => (Seat::School, h),
+        Staff::League(_) => return None,
     })
 }
 

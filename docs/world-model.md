@@ -764,7 +764,7 @@ Every program starts from its real past in the season it starts: its record over
   - **Nationals:** the Canadian ("national") players come from U Sports programs and from American colleges (three in ten) and are known by id (`Others::nationals`).
   - **Fill:** under the CFL each team fills its nationals first, by position share (most on the line, fewest at corner and quarterback).
   - **Starters:** the coaches start at least seven: 7 to 2013, 7 of 21 dressed from 2014 (`ratio`, `ratio_starters`, which swaps the cheapest bench national in for the weakest import).
-  - **The draft:** on 1 May the CFL drafts its nationals (`Others::draft`, school by school).
+  - **The draft:** the CFL's clubs scout a class of real people from the fall and draft it before camp, with the Bureau, the combines and the Global Draft (SK77, `pro/cfl.rs`; how it works in `docs/reference/how-it-works/nfl.md`, "The CFL scouts and drafts").
   - **Hometowns:** a national's hometown is a town in his school's province.
 - **Coaches:**
   - **Hiring:** every head coach and coordinator seat is filled before camp through the world's coaching market (`carousel`, `staff::fill_others`): out-of-work coaches, NFL and college assistants who want a head job, and the league's own.

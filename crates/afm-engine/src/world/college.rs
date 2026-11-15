@@ -362,6 +362,11 @@ pub(crate) fn start(w: &mut World) {
         if p.stage == Stage::Away {
             roles.push((i, PlayingTime::Unsigned));
         }
+        // A U Sports pick back at school for his last year starts there
+        // (SK77).
+        if p.stage == Stage::CflPool {
+            roles.push((i, PlayingTime::Starter));
+        }
     }
     season::develop(w, &roles);
     // On a season the engine plays his row counts the games he really

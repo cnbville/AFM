@@ -64,12 +64,20 @@ pub struct KickResult {
     pub frames: Option<Vec<Frame>>,
 }
 
+/// High snaps in the wet (individual practice): in rain or snow the
+/// snapper's skill reads the flaw lower (five rating points a step).
+fn wet_snaps(snapper: &GamePlayer, cond: &Conditions, level: Level) -> f64 {
+    if cond.rain || cond.snow { snapper.craft_vs(crate::craft::Craft::WetSnaps, level, 0.0) / 5.0 } else { 0.0 }
+}
+
 /// A kicker's accuracy on a field goal of this distance: short kick
 /// accuracy to 30 yards, long from 50, blended between (one kicker is
 /// lethal short, another long; Raichel, topic 7), so there is no cliff at 40.
 pub fn fg_accuracy(kicker: &GamePlayer, distance: f64) -> f64 {
     let t = clamp((distance - 30.0) / 20.0, 0.0, 1.0);
-    (1.0 - t) * kicker.a(Attr::ShortKickAccuracy) + t * kicker.a(Attr::LongKickAccuracy)
+    // Plant foot drift (individual practice): the long kicks miss more.
+    let drift = kicker.craft.pts(crate::craft::Craft::PlantDrift, 0.0);
+    (1.0 - t) * kicker.a(Attr::ShortKickAccuracy) + t * (kicker.a(Attr::LongKickAccuracy) + drift)
 }
 
 /// Kick distance for a leg (yards in the air), with weather and altitude:
@@ -142,7 +150,7 @@ pub fn field_goal(
     rng: &mut Rng,
 ) -> FieldGoal {
     // The snap and the hold are their own battles (topic 7).
-    let snap_skill = snapper.on20(Attr::LongSnapping);
+    let snap_skill = snapper.on20(Attr::LongSnapping) + wet_snaps(snapper, cond, level);
     let bad_snap = rng.chance(0.004 * (1.0 + (10.0 - snap_skill).max(-5.0) * 0.18));
     let hold = holder.a(Attr::Catching) * 0.5 + holder.a(Attr::Concentration) * 0.5;
     let bad_hold = !bad_snap && rng.chance(0.004 * (1.6 - hold / 100.0));
@@ -168,7 +176,11 @@ pub fn field_goal(
         fg.why = format!("Blocked: the rush got a hand on {}-yard try.", crate::text::with_article(&yards));
         return fg;
     }
-    let acc = fg_accuracy(kicker, distance);
+    // Plant foot drift read against the level's typical kicker (a coach's
+    // estimate, `fg_accuracy`, reads his own).
+    let t = clamp((distance - 30.0) / 20.0, 0.0, 1.0);
+    let acc = fg_accuracy(kicker, distance)
+        - t * super::synthetic::typical_craft(level, kicker.position, crate::craft::Craft::PlantDrift);
     // Spread in degrees: an average NFL kicker misses by about 2.5 degrees.
     let mut sd = (2.4 + 0.014 * (distance - 30.0)) * (1.82 - 0.0105 * acc).max(0.55);
     sd *= 1.18 - 0.018 * kicker.traits.consistency;
@@ -239,7 +251,9 @@ pub fn kickoff(
     let mut res = KickResult::default();
     if onside {
         // A short kick and a scramble for it; the hands team waits for it.
-        let acc = kicker.a(Attr::KickoffTechnique);
+        // The onside touch (individual practice).
+        let acc =
+            kicker.a(Attr::KickoffTechnique) + kicker.craft_vs(crate::craft::Craft::OnsideTouch, rules.level, 0.0);
         let p = clamp(0.08 + 0.0025 * (acc - 50.0) + if rules.nfl_kickoff { -0.02 } else { 0.03 }, 0.03, 0.25);
         // A true surprise is recovered about half the time (real NFL
         // 2009-2023, unexpected onside kicks).
@@ -446,7 +460,7 @@ pub fn punt(
     let snapper = &k.kick[k.snapper];
     let mut res = KickResult::default();
     // The snap.
-    let snap_skill = snapper.on20(Attr::LongSnapping);
+    let snap_skill = snapper.on20(Attr::LongSnapping) + wet_snaps(snapper, cond, rules.level);
     let bad = rng.chance(0.005 * (1.0 + (10.0 - snap_skill).max(-5.0) * 0.2));
     res.bad_snap = bad;
     // The rush against the shield; a slow operation gets blocked. Snap to
@@ -473,7 +487,12 @@ pub fn punt(
     // 0.90; proposed, not confirmed).
     let per = 0.14;
     let typ = super::synthetic::typical(rules.level, crate::positions::Position::P, Attr::PuntPower);
-    let max = leg(punter, Attr::PuntPower, 17.0 + (0.215 - per) * typ, per, cond, along) + 14.0 + rng.normal(0.0, 4.5);
+    // Drop inconsistency (individual practice): a wider spread, so more
+    // shanks.
+    let drop = punter.craft_vs(crate::craft::Craft::DropInconsistent, rules.level, 0.0);
+    let max = leg(punter, Attr::PuntPower, 17.0 + (0.215 - per) * typ, per, cond, along)
+        + 14.0
+        + rng.normal(0.0, 4.5 * (1.0 - 0.06 * drop));
     // Placement: from midfield he aims inside the 10 rather than the end zone.
     let dist_goal = from + 15.0;
     // Your plan's punt (update 2, G18): the coffin corner from their 45 in,
@@ -481,7 +500,10 @@ pub fn punt(
     // any other.
     let pin = from < 62.0;
     let coffin = k.style == 2 && from <= 45.0;
-    let acc = punter.a(Attr::PuntPlacement);
+    // The pooch and coffin corner (individual practice): pinning from
+    // midfield, his placement reads the tool higher.
+    let acc = punter.a(Attr::PuntPlacement)
+        + if pin { punter.craft_vs(crate::craft::Craft::CoffinCorner, rules.level, 0.0) } else { 0.0 };
     let aim_land = if pin { 8.0 + rng.normal(0.0, 6.0 - 0.04 * acc) } else { from - max };
     let land_x = aim_land.max(from - max);
     let _ = dist_goal;
@@ -840,6 +862,7 @@ fn run_return(
         carrier_side: 0,
         dead: false,
         out_of_bounds: false,
+        pocket: None,
         progress: catch.x,
         contact_force: 0.0,
         injury_scale,

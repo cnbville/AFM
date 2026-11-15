@@ -711,6 +711,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
     let seat_staff: Option<(usize, [Option<f64>; super::coach::GROUP_COUNT])> =
         w.seat_school().map(|h| (h, super::coach::Group::ALL.map(|g| w.hs_staff_teaching(h, g))));
     let focus = w.focus_by_person();
+    let seat_mine: std::collections::HashSet<usize> = w.seat_roster().iter().copied().collect();
     let defer = !w.options.yearly_growth;
     let staff_of = |h: usize, g: Group| seat_staff.and_then(|(s, t)| if s == h { t[g as usize] } else { None });
     // Each division's typical room teaching by group and strength head
@@ -826,6 +827,10 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             // A mission or a military term (A3): no coaching and no games, a
             // year older; he keeps himself in what shape he can.
             Stage::Away => (Level::SmallCollege, 2.0, 0.0, 0.002),
+            // A U Sports player (SK77): a season at his school, coached
+            // about like a small college; a global prospect in his own
+            // country's league (proposed, not confirmed).
+            Stage::CflPool => (Level::SmallCollege, 10.0, 0.0, 0.01),
             _ => return,
         };
         let role = if p.stage == Stage::PrepSchool { PlayingTime::Rotation } else { role };
@@ -923,7 +928,9 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             medical,
             physical_coaching,
             strength_dev,
-            focus: focus.get(&i).copied(),
+            focus: focus.get(&i).map(|x| x.0),
+            focus2: focus.get(&i).and_then(|x| x.1),
+            seat_plan: seat_mine.contains(&i),
             focus_minutes: p.player.train.focus_minutes(),
             defer,
             snaps,
@@ -942,7 +949,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         crate::results::settle_reps(&mut p.player, closing.get(&id));
         // Last year's growth that the calendar never reached lands first
         // (section 6b topic 12), so this row starts where he really is.
-        let year_focus = ctx.focus.map(|a| crate::development::Focus::new(a, ctx.focus_minutes));
+        let year_focus = ctx.focus.map(|a| crate::development::Focus::two(a, ctx.focus2, ctx.focus_minutes));
         crate::training::close_year(&mut p.player, year_focus);
         let report = develop_season(&mut p.player, &ctx, &mut p.rng);
         if let Some(log) = log {

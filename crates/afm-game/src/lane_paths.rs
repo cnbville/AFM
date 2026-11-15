@@ -325,6 +325,8 @@ fn coverage(w: &World) -> Value {
         Staff::Club(t) => nfl_coverage(w, t, &seen, &ever),
         Staff::Program(j) => college_coverage(w, j, &seen, &ever),
         Staff::School(h) => hs_coverage(w, h),
+        // A CFL club's coverage is its scouts' regions (the department).
+        Staff::League(_) => Value::Null,
     }
 }
 

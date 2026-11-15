@@ -343,6 +343,8 @@ pub fn bar(w: &World) -> f32 {
     use crate::world::data::Division;
     match readers::seat_staff(w) {
         Some(Staff::Club(_)) => 70.0,
+        // A CFL starter's level (SK77).
+        Some(Staff::League(_)) => 60.0,
         Some(Staff::Program(p)) => match w.programs[p].division {
             Division::FBS => 62.0,
             Division::FCS => 57.0,
@@ -458,6 +460,11 @@ fn room_coach(w: &World, pos: Position) -> Option<Room> {
             let c = if g.offense() { tm.oc } else { tm.dc }.filter(|&c| Some(c) != you)?;
             Some(mk(c, if g.offense() { "Offensive coordinator" } else { "Defensive coordinator" }))
         }
+        Staff::League(fr) => {
+            let tm = w.others.teams.get(fr)?;
+            let c = if g.offense() { tm.oc } else { tm.dc }.filter(|&c| Some(c) != you)?;
+            Some(mk(c, if g.offense() { "Offensive coordinator" } else { "Defensive coordinator" }))
+        }
         // A high school head coach's assistants are teachers the world
         // keeps no record of: you watch alone.
         Staff::School(_) => None,
@@ -474,7 +481,7 @@ fn room_analyst(w: &World) -> Option<(String, u8)> {
     let s = match staff {
         Staff::Club(t) => &w.clubs.get(t)?.support.analytics,
         Staff::Program(p) => &w.programs[p].support.analytics,
-        Staff::School(_) => return None,
+        Staff::School(_) | Staff::League(_) => return None,
     };
     let r = if s.rating == 0 { 10 } else { s.rating };
     Some((s.name.clone(), r))
@@ -489,6 +496,9 @@ pub fn is_ours(w: &World, id: u32) -> bool {
         Some(Staff::Club(t)) => p.stage == Stage::Pro && p.pro.as_ref().is_some_and(|c| c.team == Some(t)),
         Some(Staff::Program(c)) => p.stage == Stage::College && p.college == Some(c),
         Some(Staff::School(h)) => matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) && p.hs == h,
+        Some(Staff::League(fr)) => {
+            p.stage == Stage::Pro && w.others.teams.get(fr).is_some_and(|t| t.roster.contains(&(i as u32)))
+        }
         None => false,
     }
 }
@@ -842,6 +852,7 @@ fn room_coordinator(w: &World) -> Option<Room> {
     let c = match readers::seat_staff(w)? {
         Staff::Program(p) => w.programs[p].dc.or(w.programs[p].oc),
         Staff::Club(t) => w.nfl[t].dc.or(w.nfl[t].oc),
+        Staff::League(fr) => w.others.teams.get(fr).and_then(|t| t.dc.or(t.oc)),
         Staff::School(_) => None,
     }
     .filter(|&c| Some(c) != you)?;
@@ -1416,6 +1427,9 @@ fn finish(w: &mut World, s: Session, verdict: Option<u8>, read_says: bool) -> St
                     && w.nfl.get(c).and_then(|x| x.head_coach) == readers::you(w)
                 {
                     super::super::dept::club_copy(w, c, id, crate::world::pro::scouts::LookKind::Film, d);
+                }
+                if new && let Some(Staff::League(fr)) = readers::seat_staff(w) {
+                    super::super::dept::league_copy(w, fr, id, crate::world::pro::scouts::LookKind::Film, d);
                 }
                 if let Some(r) = &s.coach
                     && let Some(c) = r.coach

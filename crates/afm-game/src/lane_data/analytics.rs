@@ -1038,6 +1038,7 @@ pub(super) fn now_text(w: &World, id: u32) -> String {
             .and_then(|c| c.team)
             .map_or_else(|| "Pro football".to_string(), |t| format!("NFL · {}", w.nfl_team_name(t))),
         Stage::Done => "Out of football".into(),
+        Stage::CflPool => afm_engine::world::pro::cfl::pool_words(w, id).unwrap_or_else(|| "CFL draft pool".into()),
     }
 }
 
