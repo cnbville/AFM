@@ -40,9 +40,18 @@ fn takeover(level: &str, seed: u64) {
     ok(&mut g, "start_career", json!({ "name": "Test Coach", "job": job, "seed": 3 }));
 
     // Two letters on day one: the welcome, with the first two weeks in it,
-    // and your No. 2's first note of the guided week (lane 8, H12).
+    // and your No. 2's first note of the guided week (lane 8, H12). The
+    // world's own mail of that morning may come beside them: a player of
+    // yours entering the portal in a coaching-change window still open when
+    // you take the job (seed 11's Michigan on main b928a3c).
     let mail = ok(&mut g, "mail", json!({}));
-    assert_eq!(mail["unread"], 2, "{level}: {mail}");
+    let portal = mail["rows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|r| r["unread"] == true && r["keys"].as_array().is_some_and(|k| k.iter().any(|x| x == "Portal")))
+        .count();
+    assert_eq!(mail["unread"], 2 + portal as u64, "{level}: {mail}");
     let rows = mail["rows"].as_array().unwrap();
     assert!(rows.iter().any(|r| r["head"] == "memo"), "{level}: {mail}");
     let welcome = rows.iter().find(|r| r["head"] != "memo").unwrap_or_else(|| panic!("{level}: {mail}"));

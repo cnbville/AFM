@@ -1,6 +1,6 @@
 # Live talks: how it works today
 
-Checked against main at 7691db7 on 2026-11-13 (lane 2, the boxes, before it merged to main; lane 1 is on main since #314), and lane 3, the core, over main c04c172 on 2026-11-13, before it merged. Lane 5 (rooms on today's choices) was built over main 695d72d on 2026-11-13, before it merged. Lane 4, the desk, over main 65b1d0a on 2026-11-13, before it merged. Lane 6 (rooms that gain something) over main b1f10b5 on 2026-11-14, before it merged. Lane 10's recruit and transfer talks (LT2, LT3) over main 0957af5 on 2026-11-14, before it merged. Lane 9 (one-on-ones typed) over main 81f5b14 on 2026-11-14, before it merged. Lane 7 and lane 10's NIL forms (LT9) are not built yet: their sections below say so. What a line said beyond its option ("Also heard") over main 2026-11-14, after lanes 9 and 10 merged.
+Checked against main at 7691db7 on 2026-11-13 (lane 2, the boxes, before it merged to main; lane 1 is on main since #314), and lane 3, the core, over main c04c172 on 2026-11-13, before it merged. Lane 5 (rooms on today's choices) was built over main 695d72d on 2026-11-13, before it merged. Lane 4, the desk, over main 65b1d0a on 2026-11-13, before it merged. Lane 6 (rooms that gain something) over main b1f10b5 on 2026-11-14, before it merged. Lane 10's recruit and transfer talks (LT2, LT3) over main 0957af5 on 2026-11-14, before it merged. Lane 9 (one-on-ones typed) over main 81f5b14 on 2026-11-14, before it merged. Lane 7 and lane 10's NIL forms (LT9) are not built yet: their sections below say so. What a line said beyond its option ("Also heard") over main 2026-11-14, after lanes 9 and 10 merged. The v3 shared contract over main 814dea4 on 2026-11-14, before it merged.
 
 Live talks are typed lines to your players, recruits and staff, answered in character by Claude Haiku 5.5, on top of the chips and the line bank, which always still work. The rule under all of it: the AI only reads your words and writes theirs; the game decides every result. The design is `afm/live-talks/proposal.md` in the project folder; this page says what the code does.
 
@@ -360,6 +360,21 @@ Built 2026-11-14 for recruit and transfer talks (LT2, LT3): the home visit, a ca
 
 - Engine (`crates/afm-engine/src/tests/live_recruit.rs`): money and counts read from words; a true typed fact gives the chip's world byte for byte; a false one he can check costs the lift, the oversell and the trail name and is never saved; a NIL figure is a lie seen once he arrives (trust down by his belief, his mood's reason), after a save and load, re-checked while he hasn't arrived, and never seen if he signs elsewhere; every promise is in reach, asks first, and leaves the chip's case.
 - Game (`live_talk/say/recruit.rs`, `tests`): a typed promise the card doesn't list lands on its promise, asked first; the writer's card releases only his reaction.
+
+## Live talks v3: the shared contract
+
+The design is `docs/design/live-talks-persona.md` (version 3). This part is types, trait stubs and fakes only: nothing in it runs in the game yet, and no save or world result changes. Lanes N1 (people), N3 (deals and requests) and N4 (the conversation) fill the traits; N2 and the promises thread fill the measures.
+
+- Where is it? The world side is `crates/afm-engine/src/world/folk/persona/`; the cards and the ear's JSON are `crates/afm-game/src/live_talk/persona/`.
+- Who can you talk to? `persona::Them`: a player at any stage, a family member (`Kin`), a coach, a cast person, an agent, a pro scout, or someone the world doesn't store yet (`Drawn`). `wants::Kind` lists the 17 kinds of section 6.
+- What does he know? `knows::Known`: a topic (`Topic`, section 3.1's rows plus football), how it reached him (`Source`), his eye, the fact sheet point (`claims::Kind`) or a trait read (`source_says`' `SourceSays`), in words. `Knows` gives it, `Tells` answers one of four ways (`Answer`: straight, partly, deflects, lies) from `TellParts` (trust, professionalism, loyalty, interest, the room).
+- What does he want and do? `wants::Want` (a `WantKind` with its weight and whether you've met it), `Willing` and `Ran` for a request, `Heat` and `Patience` for the talk. Traits `Wanting` and `Acting`.
+- Deals: `terms::Offer`, `Weighed`, `Counter`, `Best`, `Request` (8.3's list), `Decision`. Trait `Valuing`. A term (measure, number, scope, horizon, "as long as") is the promises lane's `usage::Usage` with its `MEASURES` keys, not a type here: its slots on offers, counters, promises and his asks join once that file is on main. A promise is still logged as P1's `talks::Promise`.
+- The ear and the turn: `ear::Reading` is the ear's acts (`Act`, 5.1's 17 kinds) and hits (`Hit`: on whom, a real `Item` on his card, `How`). `Turn` is the game's answer: what he told, claims checked, offers weighed, requests, his counter and asks, hits sized, what waits on your confirm, heat, patience, the end, and `Say`, the only thing the voice may say. Trait `Resolving`.
+- Channels and the room: `room::Channel`, `Place`, `Group`, `Seat`, `Present`, `Room`.
+- Where is it saved? `claims::Live.persona` (`memory::Memory`): his lies (`HisLie`), the grapevine (`Heard`), the colour notebook (`Colour`), unseen rule breaks (`Unseen`), how you treated him, secrets, deals agreed with your words, and each talk's saved readings (`Saved`). An empty `Memory` is never written, so old saves load and write the same.
+- The cards: `EarCard` with `EarKeys` (tags p1, c1, m1 that never leave the game), the ear's JSON (`EarReply`, `EarAct`, `EarHit`), and `VoiceCard` (section 3.7, words only, as `card.rs`'s rule). Traits `Ear`, `Resolve` and `Voice`; a failed call is `afm_ai::Failure`.
+- Fakes: `persona::fake::Fake` for every world trait; `FakeEar`, `FakeResolve` and `FakeVoice` in afm-game. Tests: `crates/afm-engine/src/tests/persona.rs`, `crates/afm-game/src/live_talk/persona/tests.rs`.
 
 ## Where the knobs are
 

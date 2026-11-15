@@ -83,6 +83,10 @@ pub struct GamePlayer {
     /// 303, `sim::strength_guard`): 1 changes nothing.
     #[serde(default = "no_prep")]
     pub soft: f32,
+    /// His flaws and tools today (`craft.rs`): each a narrow cost or edge
+    /// in its own situation.
+    #[serde(default)]
+    pub craft: crate::craft::Worn,
 }
 
 fn half() -> f32 {
@@ -153,6 +157,7 @@ impl GamePlayer {
             mood: 0.0,
             belief: 0.5,
             soft: 1.0,
+            craft: p.craft.worn(),
         }
     }
 
@@ -169,6 +174,7 @@ impl GamePlayer {
         self.impression = crate::training::impression(&p.train);
         self.prep = prep_of(p);
         self.links = crate::links::measure(p.position, &b, &p.attributes, p.game.recovery);
+        self.craft = p.craft.worn();
         if self.position != p.position {
             self.position = p.position;
             self.spot = p.spot;
@@ -194,6 +200,14 @@ impl GamePlayer {
 
     pub fn overall_at(&self, pos: Position) -> f64 {
         overall_for(pos, &self.attrs)
+    }
+
+    /// His rating points in flaw or tool `c` under `stress` (0-1), read
+    /// against his level's typical starter at his position (individual
+    /// practice; `synthetic::typical_craft`).
+    #[inline]
+    pub fn craft_vs(&self, c: crate::craft::Craft, level: crate::player::Level, stress: f64) -> f64 {
+        self.craft.pts(c, stress) - super::synthetic::typical_craft(level, self.position, c)
     }
 
     /// An attribute on the 1-20 scale the engine's hidden traits used

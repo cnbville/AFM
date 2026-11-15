@@ -28,6 +28,7 @@ pub mod checks;
 pub mod demo;
 pub mod filter;
 pub mod key;
+pub mod persona;
 pub mod say;
 pub mod tickets;
 

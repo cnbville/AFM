@@ -1450,6 +1450,15 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         situation: OptF64::NONE,
         results: OptF64::NONE,
     });
+    // His flaws and tools through the year (individual practice topic 3):
+    // his staff fixes and adds, reps teach tools, on his own stream.
+    let playing = match pt {
+        PlayingTime::Starter => 1.0,
+        PlayingTime::Rotation => 0.6,
+        PlayingTime::Backup => 0.3,
+        _ => 0.1,
+    };
+    crate::craft::year(player, ctx.coaching, ctx.level, playing);
     player.age += 1;
     // The day's body stays where it was: a year of age moves out of `grow`.
     player.grow = (player.grow - 1.0).max(0.0);

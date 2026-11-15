@@ -137,6 +137,8 @@ struct LeanPlayer<'a> {
     game: &'a crate::player::GameTraits,
     tend: Tend,
     train: &'a crate::training::Train,
+    /// His flaws and tools (individual practice), as stored.
+    craft: &'a crate::craft::Crafts,
 }
 
 /// Tendencies in tenths (`tendencies::Tendencies`).
@@ -237,6 +239,7 @@ impl<'a> Lean<'a> {
                     contact_dip: q.tend.contact_dip,
                 },
                 train: &q.train,
+                craft: &q.craft,
             },
         }
     }

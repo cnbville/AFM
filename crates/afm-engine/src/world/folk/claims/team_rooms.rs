@@ -270,7 +270,8 @@ fn penalty_of(w: &World, id: u32, team: Team) -> Option<String> {
     let r = w.folk.rules.rulings.iter().rev().find(|x| x.id == id)?;
     let nfl = team.level() == crate::calendar::Level::Nfl;
     Some(match r.response {
-        R::Talk | R::Council | R::Dismiss => return None,
+        R::Talk | R::Council | R::Dismiss | R::Wait => return None,
+        R::Indefinite => "the indefinite suspension".into(),
         R::Fine => "the fine".into(),
         R::Running => "the early-morning running".into(),
         R::BenchStart => "the benching".into(),

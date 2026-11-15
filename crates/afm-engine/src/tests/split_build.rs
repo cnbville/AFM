@@ -9,9 +9,9 @@ use crate::world::{SPIN_UP_YEARS, World, WorldOptions};
 
 fn prints(w: &World) -> (Vec<u64>, Vec<(&'static str, u64)>) {
     let s = &w.stats;
-    // The stat book's norms are saved as a list in the map's walk order
-    // (`save::big_values`), which differs between two copies of one world,
-    // so they are printed as a map here.
+    // The stat book's norms are saved as a list (`save::big_values`, in
+    // key order since the red Full tests fix); printed as a map here, which
+    // reads the same either way.
     let norms: std::collections::HashMap<_, Vec<f32>> = s.norms.iter().map(|(k, v)| (*k, v.to_vec())).collect();
     let book = fp::of(&(
         (&s.seasons, &s.by_player, &s.year_index, norms, &s.books, &s.broken, &s.honors),
