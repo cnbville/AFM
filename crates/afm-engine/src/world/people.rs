@@ -189,7 +189,9 @@ pub(crate) fn staff_support(w: &mut World) {
         if !super::franchise::active_in(w, t, year) {
             continue;
         }
-        let budget = super::finance::nfl::spend_level(w, t);
+        // Your owner's raises to the staff pool lift the level your club hires at.
+        let budget = super::finance::nfl::spend_level(w, t)
+            * (1.0 + super::folk::staffing::staff_bonus(w, super::folk::Team::Nfl(t)));
         let s = &mut w.clubs[t].support;
         for post in [&mut s.strength, &mut s.medical, &mut s.analytics] {
             let leave = 0.1 + if post.rating >= 15 { 0.1 * (1.0 - budget) } else { 0.0 };

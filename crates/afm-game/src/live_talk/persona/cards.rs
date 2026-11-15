@@ -4,7 +4,7 @@
 
 use afm_engine::world::World;
 use afm_engine::world::folk::persona::Them;
-use afm_engine::world::folk::persona::ear::{Ends, Turn};
+use afm_engine::world::folk::persona::ear::{Confirm, Ends, Turn};
 use afm_engine::world::folk::persona::room::{Channel, Group, Place, Room, Seat};
 use afm_engine::world::folk::persona::talk::{self, Parts, channels, items, store, who};
 use afm_engine::world::folk::persona::wants::Boil;
@@ -345,6 +345,9 @@ pub fn heard(w: &World, room: &Room, t: &Turn) -> String {
     }
     if !t.asked.is_empty() {
         parts.push("a request".into());
+    }
+    if t.confirm.iter().any(|c| matches!(c, Confirm::Decision(_))) {
+        parts.push("a decision".into());
     }
     for h in t.hits.iter().filter(|h| h.hit.on == him && (h.trust + h.mood).abs() > 0.005) {
         if items::known(w, him, &h.hit.item) {
