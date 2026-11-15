@@ -32,6 +32,7 @@ pub mod fans;
 pub mod finals;
 pub mod future;
 pub mod gametalk;
+pub mod handoff;
 pub mod hiring;
 pub mod letters;
 pub mod life;

@@ -2481,11 +2481,34 @@ pub fn depth(w: &World) -> Value {
                 .as_ref()
                 .and_then(|g| g.iter().find(|(p, _)| *p == pos))
                 .map_or(Vec::new(), |(_, ids)| ids.clone());
-            // Your own order already stands in the spots' order.
-            let yours = w.seat_depth.iter().any(|(p, _)| *p == pos);
-            let ids = if yours { ids } else { crate::lane_training::seated_first(seating.as_ref(), names, ids) };
-            // The spot each first row plays, as far as the engine seats them
-            // (of the two outside corners either may line up on the left).
+            // Your own order is the chart as you set it, a man who is out
+            // (hurt, suspended, ineligible) where you put him: the game
+            // plays the next man who can go until he's back, so the order
+            // the engine dresses leaves him out (Cain, 2026-11-15: a starter
+            // out in the spring went to the bottom and could not be moved
+            // up). It already stands in the spots' order.
+            let mine = w.seat_depth.iter().find(|(p, _)| *p == pos).map(|(_, v)| v.as_slice());
+            let yours = mine.is_some();
+            let ids = match mine {
+                Some(v) => {
+                    let mut o: Vec<u32> = Vec::new();
+                    for &id in v.iter().filter(|&&id| by_id(id).is_some()) {
+                        if !o.contains(&id) {
+                            o.push(id);
+                        }
+                    }
+                    for id in ids {
+                        if !o.contains(&id) {
+                            o.push(id);
+                        }
+                    }
+                    o
+                }
+                None => crate::lane_training::seated_first(seating.as_ref(), names, ids),
+            };
+            // The spot each first row plays: the spots your order names, else
+            // as far as the engine seats them (of the two outside corners
+            // either may line up on the left).
             let slots: Vec<&str> = names
                 .iter()
                 .enumerate()
@@ -2494,12 +2517,16 @@ pub fn depth(w: &World) -> Value {
                     let here = ids.get(k).copied();
                     let seated =
                         (0..n).any(|j| seating.as_ref().and_then(|s| s.at(name, j)).is_some_and(|id| Some(id) == here));
-                    seated.then_some(*name)
+                    (here.is_some() && (yours || seated)).then_some(*name)
                 })
                 .collect();
             let mut list: Vec<usize> = ids.iter().filter_map(|&id| by_id(id)).collect();
             let slots = if list.len() == ids.len() { slots } else { Vec::new() };
-            let dressed = list.len();
+            // The men in the order who dress today.
+            let dressed = game
+                .as_ref()
+                .and_then(|g| g.iter().find(|(p, _)| *p == pos))
+                .map_or(0, |(_, g)| list.iter().filter(|&&k| g.contains(&w.people[k].player.id)).count());
             for k in own {
                 if !list.contains(&k) {
                     list.push(k);

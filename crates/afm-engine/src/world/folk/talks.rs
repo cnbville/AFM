@@ -2007,6 +2007,62 @@ fn rest_now(w: &World, i: usize, s: &Scene, m: Move) -> Rest {
 /// staff can be confidently wrong. Returns (what they expect, how sure, who
 /// says it), or None for a scene that isn't a one-on-one.
 pub fn expect(w: &World, s: &Scene, code: u32) -> Option<(String, String, String)> {
+    let e = expect_parts(w, s, code)?;
+    let what = match e.seen {
+        x if x > 0.14 => "He'll take it well. It should help with him.",
+        x if x > 0.05 => "It should land. Not a big swing either way.",
+        x if x > -0.03 => "Hard to say. It may not move him at all.",
+        x if x > -0.1 => "Careful. He may not like hearing it.",
+        _ => "It'll hurt. Expect him to take it badly.",
+    };
+    let risk = match e.m {
+        Some(Move::Promise) => " It's a promise: it goes in the ledger and he'll hold you to it.",
+        Some(Move::Criticize) if e.dt + e.dm < 0.0 => " Criticism in private still travels in a locker room.",
+        Some(Move::Warn) => " If he breaks the rule again, you'll have to follow through.",
+        _ => "",
+    };
+    let sure = match e.q {
+        x if x >= 0.75 => "They're sure",
+        x if x >= 0.55 => "Fairly sure",
+        x if x >= 0.4 => "A guess",
+        _ => "A guess, and they don't know him well",
+    };
+    let who = e.adviser.map_or_else(
+        || "Your staff".to_string(),
+        |c| format!("{} ({})", super::coach_link(w, c), super::facts::coach_role(w, c)),
+    );
+    Some((format!("{what}{risk}"), sure.to_string(), who))
+}
+
+/// What your staff makes of a move (`expect`'s numbers): the move's own
+/// landing (trust and mood), how it reads to them with their error, and how
+/// sure they are.
+pub(crate) struct Expected {
+    pub m: Option<Move>,
+    pub dt: f32,
+    pub dm: f32,
+    /// Their error, steady for this move in this talk: what they add.
+    pub err: f32,
+    /// What they see: `dt + dm + err`.
+    pub seen: f32,
+    /// How well they know him, 0.1 to 1.
+    pub q: f32,
+    pub adviser: Option<usize>,
+}
+
+/// The five words a projection speaks in (Cain 2026-11-15, hand-off
+/// projections item 2), on `expect`'s own scale.
+pub fn word_of(seen: f32) -> &'static str {
+    match seen {
+        x if x > 0.14 => "He'll take it well",
+        x if x > 0.05 => "Should land",
+        x if x > -0.03 => "Barely moves him",
+        x if x > -0.1 => "Careful",
+        _ => "It'll hurt",
+    }
+}
+
+pub(crate) fn expect_parts(w: &World, s: &Scene, code: u32) -> Option<Expected> {
     if s.kind != Kind::OneOnOne || s.done {
         return None;
     }
@@ -2035,31 +2091,7 @@ pub fn expect(w: &World, s: &Scene, code: u32) -> Option<(String, String, String
     let q = (0.45 * rel / 20.0 + 0.35 * you / 20.0 + 0.2 * known.min(1.0)).clamp(0.1, 1.0);
     // Their error: steady for this move in this talk, bigger for a weak staff.
     let err = super::roll_n(w, 0xE7EC ^ s.id as u64 ^ (code as u64) << 16, id as u64) as f32 * 0.09 * (1.0 - q);
-    let seen = dt + dm + err;
-    let what = match seen {
-        x if x > 0.14 => "He'll take it well. It should help with him.",
-        x if x > 0.05 => "It should land. Not a big swing either way.",
-        x if x > -0.03 => "Hard to say. It may not move him at all.",
-        x if x > -0.1 => "Careful. He may not like hearing it.",
-        _ => "It'll hurt. Expect him to take it badly.",
-    };
-    let risk = match m {
-        Some(Move::Promise) => " It's a promise: it goes in the ledger and he'll hold you to it.",
-        Some(Move::Criticize) if dt + dm < 0.0 => " Criticism in private still travels in a locker room.",
-        Some(Move::Warn) => " If he breaks the rule again, you'll have to follow through.",
-        _ => "",
-    };
-    let sure = match q {
-        x if x >= 0.75 => "They're sure",
-        x if x >= 0.55 => "Fairly sure",
-        x if x >= 0.4 => "A guess",
-        _ => "A guess, and they don't know him well",
-    };
-    let who = adviser.map_or_else(
-        || "Your staff".to_string(),
-        |c| format!("{} ({})", super::coach_link(w, c), super::facts::coach_role(w, c)),
-    );
-    Some((format!("{what}{risk}"), sure.to_string(), who))
+    Some(Expected { m, dt, dm, err, seen: dt + dm + err, q, adviser })
 }
 
 /// The man at his position coach's seat on your staff today. `college_staff`
@@ -4369,6 +4401,85 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
             }
         }
     }
+}
+
+/// What handing a one-on-one to his position coach would do (hand-off
+/// projections): the move of his trust and his mood at both ends of your
+/// read of the man's Relationships, by the same size `hand` uses.
+pub(crate) struct HandOne {
+    pub adviser: Option<usize>,
+    /// "his position coach", or the coordinator or head coach covering.
+    pub by: &'static str,
+    /// Your read of his Relationships (low, high); None with nobody on
+    /// your staff to read (a pro club's room coaches, an empty seat).
+    pub rel: Option<(u8, u8)>,
+    /// His trust moving, at your read's low and high end.
+    pub trust: [f32; 2],
+    /// His mood moving, at the low and high end.
+    pub mood: [f32; 2],
+    pub spoke: bool,
+    pub asked: bool,
+}
+
+/// The size `hand` moves a talk's mood by for a Relationships rating (and
+/// half of it for trust): 0.004 a point over 9.
+fn hand_step(rel: f64) -> f32 {
+    0.02 * (rel - 9.0) as f32 / 5.0
+}
+
+pub(crate) fn hand_one(w: &World, s: &Scene) -> Option<HandOne> {
+    if s.kind != Kind::OneOnOne || s.done {
+        return None;
+    }
+    let id = s.a as u32;
+    let i = super::person(w, id)?;
+    let adviser = position_coach_now(w, i);
+    let by = cover_words(covering(w, adviser)).1;
+    let rel = adviser.and_then(|c| crate::world::staff_read::coach_read(w, c, "relationships"));
+    let (lo, hi) = rel.map_or((9.0, 9.0), |r| (r.0 as f64, r.1 as f64));
+    let (a, b) = (hand_step(lo), hand_step(hi));
+    Some(HandOne {
+        adviser,
+        by,
+        rel,
+        trust: [a * 0.5, b * 0.5],
+        mood: [a, b],
+        spoke: s.lines.iter().any(|l| l.by == 1),
+        asked: asked_to_leave(w, id),
+    })
+}
+
+/// The best and the worst of your own moves in a one-on-one, as your staff
+/// would read them (the move words use `word_of` on what they see).
+pub(crate) struct HoldOne {
+    pub best: (Move, Tone, Expected),
+    pub worst: (Move, Tone, f32),
+    /// The most any one move does for his trust and his mood: how far a
+    /// talk can go.
+    pub reach: (f32, f32),
+}
+
+pub(crate) fn hold_one(w: &World, s: &Scene) -> Option<HoldOne> {
+    if s.kind != Kind::OneOnOne || s.done {
+        return None;
+    }
+    const SAFE: [Move; 6] = [Move::Straight, Move::Ask, Move::Listen, Move::Praise, Move::Challenge, Move::Hand];
+    let mut best: Option<(Move, Tone, Expected)> = None;
+    let mut worst: Option<(Move, Tone, f32)> = None;
+    let mut reach = (0.0f32, 0.0f32);
+    for m in SAFE.into_iter().chain([Move::Criticize, Move::Warn]) {
+        for t in [Tone::Calm, Tone::Warm, Tone::Firm] {
+            let Some(e) = expect_parts(w, s, code_of(m, t)) else { continue };
+            reach = (reach.0.max(e.dt), reach.1.max(e.dm));
+            if worst.as_ref().is_none_or(|x| e.seen < x.2) {
+                worst = Some((m, t, e.seen));
+            }
+            if SAFE.contains(&m) && best.as_ref().is_none_or(|x| e.seen > x.2.seen) {
+                best = Some((m, t, e));
+            }
+        }
+    }
+    Some(HoldOne { best: best?, worst: worst?, reach })
 }
 
 /// His position coach's relationships rating, which sizes a talk handed to

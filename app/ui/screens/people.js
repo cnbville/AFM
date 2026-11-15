@@ -47,12 +47,16 @@ function ppMoodDot(v) {
 function ppWho(list) {
   return (list || []).filter((x) => x.link).map((x) => `<span class="pp-who">${rich(x.link)}${x.pos ? ` <small>${esc(x.pos)}</small>` : x.role ? ` <small>${esc(ppCap(x.role))}</small>` : ""}</span>`).join("");
 }
+// The hand-off button names what happens (hand-off projections): a man on
+// your staff, a standard, or a skip.
+const ppHandLabel = (s) => (s.hand && s.hand.label) || "Hand to your staff";
+const ppHandCls = (s) => (s.hand && s.hand.tone === "skip" ? "ho-skip" : "");
 function ppSceneCard(s, opts = {}) {
   const when = s.today ? '<span class="tag due">Today</span>' : s.late ? '<span class="tag due">Waiting</span>' : `<span class="tag soft">${esc(s.dateText)}</span>`;
   const state = s.done ? (s.handed ? `<span class="tag soft">Handed to ${esc(s.handed)}</span>` : '<span class="tag gold">Held</span>') : when;
   const out = s.done && s.outcome && s.outcome.length ? `<div class="pp-out">${s.outcome.slice(0, 2).map((o) => `<p>${rich(o)}</p>`).join("")}</div>` : "";
   const hold = s.today || s.late || s.opened ? `<button class="st-btn small primary" data-act="ppopen" data-id="${s.id}">${s.opened ? "Go back in" : s.stops ? "Hold it" : "Take it"}</button>` : "";
-  const acts = s.done || opts.noActs ? "" : `<div class="pp-acts">${hold}<button class="st-btn small glass" data-act="pphand" data-id="${s.id}" title="Your staff plays it the way they would">Hand to staff</button></div>`;
+  const acts = s.done || opts.noActs ? "" : `<div class="pp-acts">${hold}<button class="st-btn small glass ${ppHandCls(s)}" data-act="pphand" data-id="${s.id}" title="See what you give up and what you get first">${esc(ppHandLabel(s))}</button></div>`;
   return `<article class="pp-card ${s.today ? "now" : ""} ${s.done ? "done" : ""}" data-act="ppopen" data-id="${s.id}">
     <div class="pp-card-top"><span class="st-label">${esc(s.kindName)}</span>${state}</div>
     <h3>${rich(s.title)}</h3>
@@ -268,7 +272,7 @@ screens.people_scene = async (a) => {
   let moves = "";
   if (s.future) {
     moves = `<aside class="pp-moves"><div class="st-label">On the calendar</div><p class="pp-quote">${esc(s.dateText)}${s.place ? ` · ${esc(s.place)}` : ""}</p><p class="muted small">It opens that morning, and Continue stops for it. Can't make it? Your staff will hold it the way they would and tell you how it went.</p>
-      <div class="pp-movefoot"><button class="st-btn small glass" data-act="pphand" data-id="${s.id}">Hand it to your staff</button></div></aside>`;
+      <div class="pp-movefoot"><button class="st-btn small glass ${ppHandCls(s)}" data-act="pphand" data-id="${s.id}" title="See what you give up and what you get first">${esc(ppHandLabel(s))}</button></div></aside>`;
   } else if (!s.done) {
     const talk = s.kind === "OneOnOne";
     const chosen = st.pick != null ? s.picks.find((p) => p.code === st.pick) || s.picks.find((p) => talk && p.code >= 100 && p.code < 190 && Math.floor((p.code - 100) / 10) === Math.floor((st.pick - 100) / 10)) : null;
@@ -287,7 +291,7 @@ screens.people_scene = async (a) => {
     }
     moves = `<aside class="pp-moves"><div class="st-label">Your move</div>${confirm || `<div class="pp-movelist">${list || '<div class="empty">Waiting on them.</div>'}</div>`}
       ${aiSayBox(s, "scene:" + s.id, { preset: { cmd: "people_say", args: { id: s.id }, limit: 400 }, log: "scene:" + s.id, words: { ph: "Type what you'd say. The moves above still work.", foot: "The moves above still work." } })}
-      <div class="pp-movefoot"><button class="st-btn small glass" data-act="pphand" data-id="${s.id}" title="Your staff plays it the way they would">Hand it to your staff</button><span class="muted small">${ppHours(s.hours)} left this week</span></div></aside>`;
+      <div class="pp-movefoot"><button class="st-btn small glass ${ppHandCls(s)}" data-act="pphand" data-id="${s.id}" title="See what you give up and what you get first">${esc(ppHandLabel(s))}</button><span class="muted small">${ppHours(s.hours)} left this week</span></div></aside>`;
   }
   // Who's in the room.
   const side = ppSide(s, lead, pp, cast);
@@ -423,10 +427,7 @@ async function ppGoScene(p) {
 }
 Object.assign(CORE_MORE, {
   ppopen: (el, ev) => { if (ev && ev.target.closest("[data-act]") !== el) return; go("people_scene", { id: Number(el.dataset.id) }); },
-  pphand: async (el, ev) => {
-    if (ev) ev.stopPropagation();
-    try { await api("people_hand", { id: Number(el.dataset.id) }); S.status = await api("status"); toast("Handed to your staff."); if (S.route.screen === "people_scene") refresh(); else refresh(el); } catch (e) { toast(e.message); }
-  },
+  pphand: (el, ev) => handOff(el, ev),
   pppick: (el) => { const st = keep("ppscene:" + el.dataset.id, {}); st.pick = Number(el.dataset.code); st.tone = el.dataset.tone; refresh(el); },
   ppunpick: (el) => { const st = keep("ppscene:" + el.dataset.id, {}); st.pick = null; st.tone = null; refresh(el); },
   pptone: (el) => { const st = keep("ppscene:" + el.dataset.id, {}); st.tone = el.dataset.v; refresh(el); },

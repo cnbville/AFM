@@ -39,6 +39,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 import urllib.request
 
 MARK = "<!-- older entries below: hand-written, up to 0.2.492 -->"
@@ -66,7 +67,12 @@ DEFAULT_IGNORE = [
 
 
 def sh(*args, check=True):
-    r = subprocess.run(args, capture_output=True, text=True)
+    # GitHub answers a 502 now and then (the first live run died on one): try a gh call 4 times.
+    for attempt in range(4 if args[0] == "gh" else 1):
+        r = subprocess.run(args, capture_output=True, text=True)
+        if r.returncode == 0 or not re.search(r"HTTP 5\d\d|timeout|reset", r.stderr):
+            break
+        time.sleep(3 * (attempt + 1))
     if check and r.returncode != 0:
         raise RuntimeError(f"{' '.join(args)}: {r.stderr.strip()}")
     return r.stdout
@@ -445,22 +451,54 @@ def render_team(e):
     return "\n".join(lines) + "\n"
 
 
+def plain_title(t):
+    """A PR title as one line for players: the lane label and bug numbers off, no design or test items."""
+    t = plain(t)
+    t = re.sub(r"^(live talks( v\d)?),?\s*lane \w+[:,]?\s*", r"\1: ", t, flags=re.I)
+    t = re.sub(r"^(lane|part|step) \w+:\s*", "", t, flags=re.I)
+    t = re.sub(r"\s*\((proposed|bug \d+[^)]*|minor bug \d+[^)]*|PR #\d+|#\d+)\)", "", t, flags=re.I)
+    t = t.strip(" :,")
+    if re.match(r"(?i)^(design|docs?|research|trial|tests?|ci)\b", t) or len(t) < 8:
+        return ""
+    return t[0].upper() + t[1:]
+
+
 def player_entry(e):
-    """The in-game page: only PRs with a real Patch note section, in plain words, no PR numbers."""
-    good = [x for x in e["items"] if x["game"] and x["info"] and not x["info"]["auto"] and (not x["info"].get("ai") or os.environ.get("AI_IN_GAME") == "1")
-            and x["info"]["players"] and x["info"]["tldr"]]
-    if not good:
+    """The in-game page, so a build never shows nothing new. A PR with a Patch note section (or the
+    plain-words rewrite) gives its TLDR and bullets; a PR without one gives a single line from its
+    summary. No PR numbers. A build whose merges are all docs and tooling gets no panel."""
+    items = [x for x in e["items"] if x["game"] and x["info"] and x["info"]["players"]]
+    written = [x for x in items if not x["info"]["auto"] and x["info"]["tldr"]]
+    rest = [x for x in items if x["info"]["auto"] or not x["info"]["tldr"]]
+    if not items:
         return None
+
+    def clean(t):
+        return re.sub(r"\s*\(PR #\d+\)", "", t).strip()
+
     notes = []
-    for x in good:
+    for x in written:
         for t in [x["info"]["tldr"]] + x["info"]["bullets"]:
-            t = re.sub(r"\s*\(PR #\d+\)", "", t)
+            t = clean(t)
             if t and t not in notes:
                 notes.append(t)
-    title = plain(good[0]["info"]["title"])
-    if len(good) > 1:
-        title += f" and {len(good) - 1} more"
-    return {"v": f"0.2.{e['n']}", "date": e["date"], "title": title, "notes": notes[:6]}
+    notes = notes[:6]
+    extra = 0
+    for x in reversed(rest):  # newest first
+        t = plain_title(x["info"]["title"])
+        if not t or t in notes:
+            continue
+        if len(notes) < 8:
+            notes.append(t)
+        else:
+            extra += 1
+    if extra:
+        notes.append(f"Plus {extra} smaller change{'s' if extra > 1 else ''} under the hood.")
+    first = (written or rest)[-1]["info"]
+    title = plain_title(first["title"]) or plain(first["title"])
+    if len(items) > 1:
+        title += f" and {len(items) - 1} more"
+    return {"v": f"0.2.{e['n']}", "date": e["date"], "title": title, "notes": notes}
 
 
 def js_entry(p):
