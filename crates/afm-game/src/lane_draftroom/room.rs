@@ -156,6 +156,8 @@ pub fn view(w: &World) -> Reply {
             Some(_) => "No concerns",
             None => "Not read yet",
         });
+        // The job your staff graded him for in your scheme.
+        r["job"] = json!(mine.and_then(|b| b.role.get(&i)).map(|j| j.words()));
         r["there"] = json!(th.map(|x| (x * 100.0).round()));
         r["gone"] = json!(gone.map(|&(pk, t)| json!({ "pick": pk, "team": team_brief(w, TeamRef::Nfl(t)) })));
         cards.push(r);

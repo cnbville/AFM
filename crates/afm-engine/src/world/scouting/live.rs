@@ -435,10 +435,14 @@ fn offers(w: &World, l: &LiveDraft) -> Vec<TradeOffer> {
     let run = &l.run;
     let slot = run.next as usize - 1;
     let pick = run.next;
-    let left: Vec<usize> = run.pool.iter().take(300).map(|x| x.0).collect();
     let value = |t: usize, i: usize| recruiting::draft_value(w, run, t, i, pick).map(|x| x.0);
+    // Each club weighs the men it would weigh at its own pick.
     let top_of = |t: usize, n: usize| -> Vec<(f64, usize)> {
-        let mut v: Vec<(f64, usize)> = left.iter().filter_map(|&i| value(t, i).map(|x| (x, i))).collect();
+        let mut v: Vec<(f64, usize)> = recruiting::candidates(run, t)
+            .into_iter()
+            .map(|idx| run.pool[idx].0)
+            .filter_map(|i| value(t, i).map(|x| (x, i)))
+            .collect();
         v.sort_by(|a, b| b.0.total_cmp(&a.0));
         v.truncate(n);
         v

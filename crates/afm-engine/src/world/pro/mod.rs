@@ -18,6 +18,7 @@ pub mod market;
 pub mod money;
 pub mod office;
 pub mod other;
+pub mod roles;
 pub mod scouts;
 pub mod squad;
 pub mod trades;
