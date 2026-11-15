@@ -556,58 +556,86 @@ fn opinion_open(w: &mut World, s: &mut Scene) {
 
 fn opinion_answer(w: &mut World, s: &mut Scene, code: u32) {
     let id = s.a as u32;
-    let Some(i) = super::person(w, id) else {
+    if super::person(w, id).is_none() {
         s.end();
         return;
-    };
-    let name = w.people[i].name.clone();
-    match code {
-        700 => {
-            let u = super::roll(w, 0x2A0C, id as u64);
-            w.people[i].trust = (w.people[i].trust + 0.08).min(1.0);
-            let change = if u < 0.2 {
-                -1
-            } else if u < 0.35 {
-                2
-            } else {
-                0
-            };
-            if let Some(c) = w.people[i].pro.as_mut() {
-                c.out_for((c.out_days as i32 + 7 * change).max(1) as u32);
-            }
-            s.outcome.push(match change {
-                -1 => format!(
-                    "The specialist agreed and saw a quicker path: {name} is a week ahead of the first estimate."
-                ),
-                2 => format!("The specialist found more than the scans showed: {name} needs another two weeks."),
-                _ => format!("The specialist agreed with your doctors. {name} trusts the plan now."),
-            });
-        }
+    }
+    let team = s.team.unwrap_or(Team::College(0));
+    let line = match code {
+        700 => second_opinion(w, id),
         701 => {
+            let i = super::person(w, id).unwrap_or(0);
+            let name = w.people[i].name.clone();
             w.people[i].trust = (w.people[i].trust - 0.06).max(0.0);
             talks::mood_event(w, id, Reason::Talk, -0.05);
-            s.outcome.push(format!("{name} stays with the team's doctors, and isn't happy about it."));
+            format!("{name} stays with the team's doctors, and isn't happy about it.")
         }
         _ => {
-            let team = s.team.unwrap_or(Team::College(0));
-            let trainer = super::cast::get(w, super::cast::CastRef::new(team, super::cast::Role::Trainer, 0));
-            if trainer.judgement >= 14.0 {
+            let (cleared, line) = rush_back(w, team, id);
+            if !cleared {
+                let trainer = super::cast::get(w, super::cast::CastRef::new(team, super::cast::Role::Trainer, 0));
                 s.them(&trainer.name, "No. Not with this injury. Put it on me if anyone asks.", None);
-                w.folk.mine.nudge(trainer.key(), -0.05);
-                s.outcome.push(format!("{} refused to rush {name}. The timeline holds.", trainer.name));
-            } else {
-                if let Some(c) = w.people[i].pro.as_mut() {
-                    c.out_for((c.out_days * 3 / 4).max(1));
-                }
-                w.folk.rushed.push((id, w.today));
-                let comp = w.people[i].player.personality.competitiveness;
-                talks::mood_event(w, id, Reason::Talk, if comp >= 14.0 { 0.04 } else { -0.08 });
-                s.outcome
-                    .push(format!("{name} will be back sooner than the doctors wanted. The risk is his, and yours."));
             }
+            line
         }
-    }
+    };
+    s.outcome.push(line);
     s.end();
+}
+
+/// The outside specialist looks at him (P3's "support the second opinion";
+/// live talks lane N5c asks it of the team doctor in words): his trust
+/// grows, and the specialist may see a quicker path or more than the scans
+/// showed. Returns the outcome in words.
+pub(crate) fn second_opinion(w: &mut World, id: u32) -> String {
+    let Some(i) = super::person(w, id) else { return String::new() };
+    let name = w.people[i].name.clone();
+    let u = super::roll(w, 0x2A0C, id as u64);
+    w.people[i].trust = (w.people[i].trust + 0.08).min(1.0);
+    let change = if u < 0.2 {
+        -1
+    } else if u < 0.35 {
+        2
+    } else {
+        0
+    };
+    if let Some(c) = w.people[i].pro.as_mut() {
+        c.out_for((c.out_days as i32 + 7 * change).max(1) as u32);
+    }
+    match change {
+        -1 => format!("The specialist agreed and saw a quicker path: {name} is a week ahead of the first estimate."),
+        2 => format!("The specialist found more than the scans showed: {name} needs another two weeks."),
+        _ => format!("The specialist agreed with your doctors. {name} trusts the plan now."),
+    }
+}
+
+/// Whether the team's medical staff would clear him early: a head trainer
+/// with good judgment (14+) never rushes a man back (P3's rule).
+pub fn would_rush(w: &World, team: Team) -> bool {
+    super::cast::get(w, super::cast::CastRef::new(team, super::cast::Role::Trainer, 0)).judgement < 14.0
+}
+
+/// You push the medical staff to bring him back early (P3's "bring him
+/// back early"; live talks lane N5c's pressure to clear a man). A trainer
+/// with good judgment refuses and holds it against you a little; else he's
+/// back in three quarters of the time, at the re-injury risk of a rushed
+/// man (`rushed_week`), and his mood follows his competitiveness. Returns
+/// whether he was cleared and the outcome in words.
+pub(crate) fn rush_back(w: &mut World, team: Team, id: u32) -> (bool, String) {
+    let Some(i) = super::person(w, id) else { return (false, String::new()) };
+    let name = w.people[i].name.clone();
+    let trainer = super::cast::get(w, super::cast::CastRef::new(team, super::cast::Role::Trainer, 0));
+    if !would_rush(w, team) {
+        w.folk.mine.nudge(trainer.key(), -0.05);
+        return (false, format!("{} refused to rush {name}. The timeline holds.", trainer.name));
+    }
+    if let Some(c) = w.people[i].pro.as_mut() {
+        c.out_for((c.out_days * 3 / 4).max(1));
+    }
+    w.folk.rushed.push((id, w.today));
+    let comp = w.people[i].player.personality.competitiveness;
+    talks::mood_event(w, id, Reason::Talk, if comp >= 14.0 { 0.04 } else { -0.08 });
+    (true, format!("{name} will be back sooner than the doctors wanted. The risk is his, and yours."))
 }
 
 // ---------------------------------------------------------------------------

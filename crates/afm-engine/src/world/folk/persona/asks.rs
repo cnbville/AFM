@@ -242,7 +242,7 @@ pub fn costs_you(r: &Request) -> bool {
             | Request::FindOut(..)
             | Request::Plant(_)
             | Request::Hire(_)
-            | Request::Money
+            | Request::Money(_)
             | Request::Time
             | Request::Fund
             | Request::SelfReport
@@ -251,6 +251,8 @@ pub fn costs_you(r: &Request) -> bool {
             | Request::Steer(_)
             | Request::TakeOffer
             | Request::NotOurDivision(_)
+            | Request::SecondOpinion(_)
+            | Request::Clear(_)
     )
 }
 
@@ -321,6 +323,8 @@ pub fn request_words(r: &Request) -> String {
         Request::FindOut(..) => "find something out about a prospect".into(),
         Request::Whiteboard => "go up to the whiteboard".into(),
         Request::Plant(_) => "let word out that you like a prospect".into(),
+        Request::SecondOpinion(_) => "get an outside specialist's opinion".into(),
+        Request::Clear(_) => "clear him to play sooner".into(),
         Request::Other(s) => s.clone(),
         other => format!("{other:?}").to_lowercase(),
     }
