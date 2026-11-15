@@ -393,7 +393,10 @@ pub fn numbers_see(f: &Footage, a: Attr, pos: Position) -> bool {
 
 /// The plain reasons a file shows for how its reads came out (never a
 /// true number): what the tape holds and how it leans.
-pub fn reasons(f: &Footage, pos: Position, seen_vs_good: bool, reel_only: bool) -> Vec<String> {
+/// `watched`: the snaps of his you have watched by role (`film::roles_watched`):
+/// a role your own tape has shown on 60 snaps reads on it, and one it
+/// hasn't yet says how many more.
+pub fn reasons(f: &Footage, pos: Position, seen_vs_good: bool, reel_only: bool, watched: &[u16; ROLES]) -> Vec<String> {
     let mut v = Vec::new();
     match f.level {
         2 => {
@@ -426,7 +429,7 @@ pub fn reasons(f: &Footage, pos: Position, seen_vs_good: bool, reel_only: bool) 
             "Dominated weak opponents and hasn't been seen against good players.".to_string()
         });
     }
-    let unseen: Vec<&str> = [
+    let thin: Vec<(usize, &str)> = [
         (PASS_PRO, "pass sets"),
         (RUN_BLOCK, "run blocking"),
         (PASS_RUSH, "pass rush"),
@@ -436,12 +439,28 @@ pub fn reasons(f: &Footage, pos: Position, seen_vs_good: bool, reel_only: bool) 
         (DROPBACKS, "throwing"),
         (CARRIES, "running the ball"),
     ]
-    .iter()
+    .into_iter()
     .filter(|(r, _)| f.known & (1 << r) != 0 && f.role[*r] < ROLE_MIN && wants(pos, *r))
-    .map(|x| x.1)
     .collect();
+    // What your own film of him has shown reads on it (the film room).
+    type Roles<'a> = Vec<(usize, &'a str)>;
+    let (yours, unseen): (Roles, Roles) = thin.into_iter().partition(|(r, _)| watched[*r] as f64 >= ROLE_MIN);
+    if !yours.is_empty() {
+        let names: Vec<&str> = yours.iter().map(|x| x.1).collect();
+        v.push(format!(
+            "His record barely tested his {}, but the film you watched shows it: your own looks read it.",
+            names.join(", ")
+        ));
+    }
     if !unseen.is_empty() {
-        v.push(format!("His role rarely tested his {}: not seen on tape.", unseen.join(", ")));
+        let names: Vec<&str> = unseen.iter().map(|x| x.1).collect();
+        let most = unseen.iter().map(|x| watched[x.0]).max().unwrap_or(0);
+        v.push(format!(
+            "His role rarely tested his {}: your staff's tape can't read it. Your own film reads it once you have watched him on {} snaps of it ({} so far).",
+            names.join(", "),
+            ROLE_MIN as u16,
+            most
+        ));
     }
     if f.context >= 0.6 {
         v.push("His numbers come in a system and with teammates that lift them.".to_string());
@@ -452,6 +471,67 @@ pub fn reasons(f: &Footage, pos: Position, seen_vs_good: bool, reel_only: bool) 
         v.push("Seen on his own highlight reel only: it shows his best snaps.".to_string());
     }
     v
+}
+
+/// What a role is in plain words.
+fn role_words(r: usize) -> &'static str {
+    match r {
+        PASS_PRO => "pass sets",
+        RUN_BLOCK => "run blocking",
+        PASS_RUSH => "pass rush",
+        MAN => "press and man coverage",
+        ZONE => "zone coverage",
+        ROUTES => "routes and hands",
+        DROPBACKS => "throwing",
+        CARRIES => "running the ball",
+        _ => "kicking",
+    }
+}
+
+/// Why your staff's read of a rating is still a wide guess and what would
+/// narrow it, for a rating his file can't read yet (`AttrRead::guess`).
+/// A skill his record barely tested (SK3) reads on your own film once you
+/// have watched him on 60 snaps of its role, or in person; one film never
+/// shows (communication) on the looks that do read it.
+pub fn why_guess(w: &World, i: usize, a: Attr) -> Option<String> {
+    use super::Kind;
+    let p = &w.people[i];
+    let pos = p.player.position;
+    let f = footage(w, i);
+    if let Some(r) = role_of(a, pos)
+        && f.known & (1 << r) != 0
+        && f.role[r] < ROLE_MIN
+    {
+        let mine = super::film::roles_watched(w, p.player.id, pos)[r];
+        let rec = if f.level == 1 { "high school record" } else { "record" };
+        let on =
+            if f.role[r] < 1.0 { "no snaps of it".to_string() } else { format!("about {:.0} snaps of it", f.role[r]) };
+        return Some(format!(
+            "His {rec} shows {on}, too few for film to read his {}. Your own film reads it once you have watched him on {} snaps of it ({mine} so far); a practice or a camp in person reads it too.",
+            role_words(r),
+            ROLE_MIN as u16
+        ));
+    }
+    if super::file::sees(Kind::Film, a).is_none() {
+        let ways: Vec<&str> = [
+            (Kind::Interview, "an interview"),
+            (Kind::Official, "a visit"),
+            (Kind::Practice, "a practice in person"),
+            (Kind::Camp, "a camp"),
+            (Kind::Call, "a call to his coach"),
+        ]
+        .into_iter()
+        .filter(|(k, _)| super::file::sees(*k, a).is_some())
+        .map(|x| x.1)
+        .collect();
+        let how = match ways.len() {
+            0 => "nothing your staff does reads it yet".to_string(),
+            1 => format!("{} reads it", ways[0]),
+            n => format!("{} or {} reads it", ways[..n - 1].join(", "), ways[n - 1]),
+        };
+        return Some(format!("Film never shows his {}: {how}.", a.label().to_lowercase()));
+    }
+    None
 }
 
 /// The roles a position's grade leans on (what a scout would miss).

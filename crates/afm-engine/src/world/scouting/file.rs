@@ -663,6 +663,16 @@ pub fn read_in(
     // his role never tested, and the shared leans every staff reads.
     let foot = super::footage::footage(w, i);
     let film_f = super::footage::film_factor(&foot);
+    // What your own tape of him showed (the film room): a skill his record
+    // barely tested reads on your film once you have watched him on 60
+    // snaps of its role, as his record would (Cain 2026-11-15: a tight
+    // end's catching stayed a wide guess after all his tape, since his box
+    // score had few catches).
+    let shown = if readers.iter().any(|r| r.link == Link::You) && foot.known != 0 {
+        super::film::roles_shown(w, p.player.id, pos)
+    } else {
+        0
+    };
     let (seen_vs_good, reel_only) = match context {
         Some(c) => tape_flags(&written(c)),
         None => tape_flags(&looks),
@@ -701,7 +711,11 @@ pub fn read_in(
             }
             let seen = if l.kind == Kind::Numbers {
                 super::footage::numbers_see(&foot, a, pos).then(|| super::footage::analytics_sd(&foot))
-            } else if l.kind.tape() && !super::footage::role_seen(&foot, a, pos) {
+            } else if l.kind.tape()
+                && !super::footage::role_seen(&foot, a, pos)
+                && !(readers[l.reader].link == Link::You
+                    && super::footage::role_of(a, pos).is_some_and(|r| shown & 1 << r != 0))
+            {
                 None
             } else {
                 sees(l.kind, a).map(|sd| {

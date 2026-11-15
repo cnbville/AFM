@@ -77,6 +77,7 @@ function rrPlayerHtml(x) {
     ${rrScale(x.range, [{ v: m.backup }, { v: m.starter }, { v: m.elite, cls: "e" }], lo0, hi0, true)}
     <div class="rr-marks"><span><small>Typical backup</small><b>${m.backup}</b></span><span><small>Typical starter</small><b>${m.starter}</b></span><span><small>Elite from</small><b>${m.elite}</b></span></div>
     <p>${x.rank ? `${esc(x.band)}. ` : ""}${esc(x.line)}</p>
+    ${x.wide ? `<p class="rr-rest"><span class="st-label">Why it's still wide</span>${esc(x.wide)}</p>` : ""}
     ${x.near ? `<p class="rr-near"><b>Near home.</b> ${esc(x.near.line)}</p>` : ""}
     ${x.combine ? `<p class="rr-comb"><span class="st-label">At the combine</span>${esc(x.combine)}${x.combine_now ? `<small class="rr-now">Today: ${esc(x.combine_now)}</small>` : ""}</p>` : ""}
     <p class="rr-pool">${esc(x.pool)}, ${esc(x.count)}.${x.widened ? ` ${esc(x.widened)}` : ""}</p>

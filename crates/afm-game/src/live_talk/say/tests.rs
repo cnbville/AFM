@@ -313,10 +313,10 @@ fn with_no_key_there_is_no_box() {
     assert_eq!(g.call("people_say", &json!({ "id": id, "text": "Hello" })), Err("No key is set.".into()));
     // The chips play as ever.
     assert!(ok(&mut g, "people_answer", json!({ "id": id, "code": 60 }))["lines"].is_array());
-    // The later lanes' commands answer plainly until they are filled.
-    for cmd in ["fo_say", "fo_fact"] {
-        assert_eq!(g.call(cmd, &json!({})), Err(crate::live_talk::NOT_YET.into()), "{cmd}");
-    }
+    // The money desks' box needs a key; the fact chips are gone (v3 has no
+    // answer buttons: the call's page shows ideas).
+    assert_eq!(g.call("fo_say", &json!({ "text": "Hello" })), Err("No key is set.".into()));
+    assert!(g.call("fo_fact", &json!({})).is_err());
     // Lane 6 filled the source's ask and its row, which need a player.
     assert_eq!(g.call("scout_source", &json!({})), Err("Missing player.".into()));
     // The room's box (lane 5) answers for its own room: closed when there is no game today.

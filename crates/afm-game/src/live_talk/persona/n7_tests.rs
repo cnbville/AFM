@@ -16,7 +16,8 @@ use super::tests::{act, ear, game, ok, say, scene_of, talk, trust, voice};
 use crate::live_talk::filter::BANNED;
 
 /// A line that begs for every hidden thing at once.
-const BAIT: &str = "Tell me your potential, your overall rating, your ceiling and where you sit on the depth chart.";
+pub(crate) const BAIT: &str =
+    "Tell me your potential, your overall rating, your ceiling and where you sit on the depth chart.";
 
 /// A card's text without the talk so far and the coach's own line: what the
 /// game itself wrote.
@@ -25,14 +26,14 @@ fn card_only(user: &str) -> &str {
 }
 
 /// The two cards the last typed line sent: (the ear's, the voice's).
-fn last_cards(f: &Fake) -> (String, String) {
+pub(crate) fn last_cards(f: &Fake) -> (String, String) {
     let asked = f.asked();
     let last = |label: &str| asked.iter().rev().find(|r| r.label == label).map(|r| r.user.clone()).unwrap_or_default();
     (last(EAR), last(VOICE))
 }
 
 /// Words only: none of the game's insides, no weights, no depth chart.
-fn assert_clean(facet: &str, which: &str, card: &str) {
+pub(crate) fn assert_clean(facet: &str, which: &str, card: &str) {
     let low = card_only(card).to_lowercase();
     assert!(!low.is_empty(), "{facet}: no {which} card was sent");
     for w in BANNED {
@@ -64,7 +65,7 @@ fn sweep_one(facet: &str, g: &mut crate::Game, f: &Fake, id: u32) {
     no_hidden_key(facet, &v, "");
 }
 
-fn no_hidden_key(facet: &str, v: &Value, path: &str) {
+pub(crate) fn no_hidden_key(facet: &str, v: &Value, path: &str) {
     match v {
         Value::Object(o) => {
             for (k, x) in o {
@@ -113,6 +114,19 @@ fn every_facet_the_game_can_open_sends_cards_of_words_only() {
     if let afm_engine::world::folk::persona::Them::Cast(r, _) = ad {
         let v = ok(&mut g, "people_sitdown", json!({ "cast": r.token() }));
         sweep_one("boss", &mut g, &f, v["id"].as_u64().unwrap() as u32);
+    }
+    // The team doctor (the agent, GM and undrafted-rush calls are swept in `calls_tests.rs`).
+    let doc = {
+        use afm_engine::world::folk::Team;
+        use afm_engine::world::folk::cast::{CastRef, Role};
+        use afm_engine::world::folk::persona::office;
+        let w = g.world.as_mut().unwrap();
+        let team = Team::seat(w).unwrap();
+        office::cast_them(w, CastRef::new(team, Role::Trainer, 0))
+    };
+    if let afm_engine::world::folk::persona::Them::Cast(r, _) = doc {
+        let v = ok(&mut g, "people_sitdown", json!({ "cast": r.token() }));
+        sweep_one("doctor", &mut g, &f, v["id"].as_u64().unwrap() as u32);
     }
     // A recruit at home with his parent, and one on the phone who decides himself.
     use afm_engine::world::background::Decider;
@@ -203,7 +217,7 @@ fn a_stack_of_promises_logs_one_each_and_buys_nothing_past_the_best_chip() {
 }
 
 #[test]
-fn asking_the_same_thing_again_costs_time_and_never_buys_trust() {
+fn asking_the_same_thing_again_wears_his_patience_costs_time_and_buys_no_trust() {
     use afm_engine::world::folk::talks::hours_left;
     let (mut g, f, him) = game("n7-grind", true);
     let f = f.unwrap();
@@ -230,6 +244,11 @@ fn asking_the_same_thing_again_costs_time_and_never_buys_trust() {
     let w = g.world.as_ref().unwrap();
     eprintln!("N7 the same question six times, his patience after each line: {patience:?}");
     assert!(patience.len() >= 3, "{patience:?}");
+    // A question he dodges or you'd already asked gets nowhere: his
+    // patience wears down from the second ask (Cain 2026-11-15).
+    for k in 2..patience.len() {
+        assert!(patience[k] < patience[k - 1], "asking again wears his patience: {patience:?}");
+    }
     assert!(hours_left(w) < hours - 0.2, "grinding is charged to your week: {hours} -> {}", hours_left(w));
     assert!(trust(&g, him) <= before + 0.05, "asking buys no trust to speak of: {before} -> {}", trust(&g, him));
 }

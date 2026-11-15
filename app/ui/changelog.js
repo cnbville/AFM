@@ -3,8 +3,11 @@
 // notice, with no PR numbers, code names or build talk. Newest first. A
 // version that changed nothing you can see is left out.
 //
-// Add a panel here with every version that ships (the patch notes thread's job,
-// from afm/patch-notes.md); the page shows only what is in this list.
+// Versions from 0.2.492 on write themselves: .github/scripts/patch_notes.py puts each
+// shipped build's panel between the two auto markers below, from the Patch note section
+// of its merged pull requests (see docs/patch-notes.md). A build only gets a panel when a
+// pull request in it has that section in plain words. Entries under the markers are
+// hand-written and frozen; do not add new ones by hand.
 //
 // `v` is the app number (0.2.<build>), `date` the day it came out, `title` a
 // few words on the version, `notes` three or four short lines. The patch notes
@@ -12,6 +15,88 @@
 "use strict";
 
 const CHANGELOG = [
+  // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
+  // auto:end
+  {
+    v: "0.2.492", date: "15 Nov", title: "Talks hear more of what you type",
+    notes: [
+      "When you type a line in a talk, the game now tells you what it heard beyond the closest option, and the person answers what you actually said.",
+      "A pitch like \"you'll get the kicks\" counts as a promise, the way the chip would.",
+      "A short \"Heard as\" line under your words shows the extra it caught.",
+    ],
+  },
+  {
+    v: "0.2.491", date: "15 Nov", title: "Type your own line in every one-on-one",
+    notes: [
+      "Every one-on-one now has a box to type your own line. It scores the way a chip does, so wording alone never beats the best chip.",
+      "A fact he can check is checked as you say it: injuries, a teammate's status, his case, his place and your record. A false one costs trust.",
+      "A line on another point turns the talk to it, just as its chip would.",
+    ],
+  },
+  {
+    v: "0.2.490", date: "15 Nov", title: "The game saves itself",
+    notes: [
+      "About every 10 minutes of play the game saves in the background, without freezing the screen.",
+      "A quiet line over the Save button says when it last saved. The autosave sits on the Load page, one per coach.",
+    ],
+  },
+  {
+    v: "0.2.489", date: "15 Nov", title: "NFL trade finder",
+    notes: [
+      "Shop a player around the league over several days, quietly or openly. Offers arrive with their own expiry dates.",
+      "Counter, ask for more, or name a rival team. A bluff that gets caught costs a year of trust.",
+      "Closing a deal covers owner sign-off, the new contract and the physical, with a draft night step.",
+      "It opens from the trades screen, or from \"shop\" on a player.",
+    ],
+  },
+  {
+    v: "0.2.488", date: "15 Nov", title: "Typed facts are checked, and a smarter skill hover",
+    notes: [
+      "Typed facts to a recruit or transfer are checked against what he can see. True facts work like the chip, and a false one costs you.",
+      "Typed promises (start, role, position, early chance, no redshirt) ask first, then count as the chip's promise.",
+      "Hovering a skill name on a player's page now explains what it does at his position.",
+    ],
+  },
+  {
+    v: "0.2.486", date: "15 Nov", title: "Rival coaches make promises, and a focus counts",
+    notes: [
+      "Rival coaches now promise recruits and transfers, then keep or break the promise. A broken one costs the player's trust and can send him to the portal.",
+      "The training focus you set for a player grows that skill: about half again at 30 minutes a week, double at 60, up to his ceiling.",
+      "A veteran's focus slows that skill's decline.",
+    ],
+  },
+  {
+    v: "0.2.483", date: "14 Nov", title: "Big-moment reveals and one team page",
+    notes: [
+      "Commitments, signings, hires, firings, titles, records and the Hall of Fame class play as full-screen reveals. Replay any of them on Your career, Big moments.",
+      "Every team page now has the same top: four tiles, the three key players, strength by unit and the next four games with win chances.",
+      "NFL pages add cap shares and deals ending. College pages add class needs, the portal and the recruiting pipeline by state.",
+    ],
+  },
+  {
+    v: "0.2.481", date: "14 Nov", title: "What pulls him, a class filter and a real recruiting budget",
+    notes: [
+      "Recruit and transfer files show what pulls a player, with a line for your school.",
+      "The depth chart has a class filter, and a failed live-talk call no longer loses what you typed.",
+      "When your athletic director says yes to a bigger recruiting budget, your recruiting grows and coaches on the road reach a second school.",
+      "Promises at the press conference and in first team meetings now count in your reviews, for three seasons in full.",
+    ],
+  },
+  {
+    v: "0.2.474", date: "14 Nov", title: "The Attributes tab lines up and zooms",
+    notes: [
+      "Your read and your staff's read line up digit over digit, red for yours and grey for theirs.",
+      "Hover a bar to open a close-up of that skill's marks, four points either side.",
+    ],
+  },
+  {
+    v: "0.2.471", date: "14 Nov", title: "December signees count once",
+    notes: [
+      "A December signee counts once, so February and the late signing days show the real room in each class.",
+      "Under the House roster limit, AI programs take January transfers up to their open places.",
+      "Recruiting results change, so worlds play differently from this build on.",
+    ],
+  },
   {
     v: "0.2.470", date: "14 Nov", title: "Call and text recruits, portal exits read the whole player",
     notes: [

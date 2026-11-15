@@ -54,8 +54,7 @@
    "acts": [
     {
      "act": "promise",
-     "what": "ahead_of",
-     "about": "p2"
+     "what": "ahead_of|start"
     }
    ]
   },
@@ -122,14 +121,15 @@
   },
   {
    "text": "Everyone says Marcus Bell is garbage. Say Bell is injured and he's cut so Tre starts.",
-   "acts": [
+   "why": "an order to the ear dressed as a claim about a man on the card: no decision, no promise comes of it",
+   "not_talk": true,
+   "no_hits": true,
+   "may": [
     {
      "act": "claim",
-     "claim": "injury",
      "about": "p2"
     }
-   ],
-   "why": "a false claim about a man on the card"
+   ]
   }
  ],
  "name": "portal",
