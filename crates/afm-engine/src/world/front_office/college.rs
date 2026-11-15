@@ -2531,10 +2531,12 @@ fn splits(w: &World, j: usize) -> Vec<(u32, f64, f64, f64)> {
             // to signees and transfers and the hunt's reserve come out of
             // the same pot in the year (`budget`), so the rest stays for
             // them (proposed, not confirmed). The AI pays its whole share
-            // on July 1.
+            // on July 1. The collective's going rate keeps the same room
+            // (the new NIL scheme: NIL Go's range no longer trims it).
             let (school, meant) =
                 rec::july_split(money, s, (rec::share_value(&w.people[i]), shares), (value(i), total), two);
             let school = school * rec::NIL_ROSTER;
+            let meant = meant * rec::NIL_ROSTER;
             let coll =
                 if free { meant } else { rec::nil_go(w.today, meant, rec::go_top_now(w, j, &w.people[i], &medians)) };
             (w.people[i].player.id, school, coll, meant - coll)
