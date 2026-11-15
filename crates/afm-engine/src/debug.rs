@@ -235,3 +235,23 @@ pub fn rich(programs: Vec<usize>, factor: f64) {
 pub fn transfer_money(w: &World, i: usize) -> Option<f64> {
     rec::transfer_money_of(w, i)
 }
+
+/// The support staff market on its own for `years` years (realism audit
+/// item 10's measure): each year a share `change` of the programs and
+/// clubs trade head coaches among themselves (a stand-in carousel), the
+/// morning step sees the new men, and the year's market runs.
+pub fn support_market_years(w: &mut crate::world::World, years: u32, change: f64) {
+    let mut rng = crate::rng::Rng::new(w.options.seed ^ 0xDEB0_5077);
+    for _ in 0..years {
+        let progs: Vec<usize> = (0..w.programs.len())
+            .filter(|&p| w.programs[p].plays(w.year) && w.programs[p].head_coach.is_some() && rng.chance(change))
+            .collect();
+        let coaches: Vec<Option<usize>> = progs.iter().map(|&p| w.programs[p].head_coach).collect();
+        for (k, &p) in progs.iter().enumerate() {
+            w.programs[p].head_coach = coaches[(k + 1) % coaches.len()];
+        }
+        crate::world::people::support_bosses(w);
+        w.year += 1;
+        crate::world::people::staff_support(w);
+    }
+}

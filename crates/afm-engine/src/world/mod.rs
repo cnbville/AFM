@@ -1022,6 +1022,10 @@ pub struct World {
     /// C13): coaches come from them, and your old teammates are among them.
     #[serde(default)]
     pub formers: former::Formers,
+    /// The support staff market (realism audit item 10): heads out of work
+    /// and each year's moves.
+    #[serde(default)]
+    pub support_market: people::SupportMarket,
     /// The poll and award voters (section 6 topic 9), each with his
     /// latest ballot; older files build them on load.
     #[serde(default)]
@@ -1622,6 +1626,7 @@ impl World {
             scouting: Default::default(),
             draft_run: None,
             formers: Default::default(),
+            support_market: Default::default(),
             front_office: Default::default(),
             stories: stories::Stories::default(),
             others: Default::default(),
