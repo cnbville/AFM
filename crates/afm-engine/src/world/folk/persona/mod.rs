@@ -25,6 +25,10 @@
 //!   section 11). A term is the promises lane's `usage::Usage` with its
 //!   `MEASURES` keys, never a second type; a promise's own record stays
 //!   P1's `talks::Promise`.
+//! - `deals`: lane N3's `Valuing`: a deal weighed against his best option,
+//!   his counter, taking time, anchors, what agreeing makes real.
+//! - `asks`: lane N3's `Acting`: whether he'll do what you ask, the action
+//!   the game runs, his report back, and what asks you to confirm.
 //! - `ear`: the ear's acts and hits (5.1, 5.2), and the game's turn (5.3).
 //! - `fake`: fakes for every trait, for the lanes' tests.
 //!
@@ -32,6 +36,8 @@
 //! (`live_talk::persona`), beside the whitelist card and the reply filter
 //! they reuse.
 
+pub mod asks;
+pub mod deals;
 pub mod ear;
 pub mod fake;
 pub mod knows;

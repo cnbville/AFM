@@ -110,6 +110,44 @@ pub(crate) fn bond(w: &mut World, a: u32, b: u32, by: u8) {
     }
 }
 
+/// You asked `a` to mentor `b` and he agreed (live talks v3, lane N3):
+/// `b`'s mentor from today, replacing any other on the roster. The yearly
+/// mentor step (`mentor_year`) then moves `b` as any mentor's would.
+pub(crate) fn mentor(w: &mut World, a: u32, b: u32, strength: u8) {
+    let year = w.year as i16;
+    let ties = &mut w.folk.ties;
+    ties.list.retain(|t| !(t.kind == Kind::Mentor && t.b == b));
+    ties.list.push(Tie { a, b, kind: Kind::Mentor, strength: strength.min(100), since: year, together: true });
+    ties.changed();
+}
+
+/// A talk between two players went wrong (lane N3): their friendship
+/// loses `by`, and goes under 15 it's dropped.
+pub(crate) fn strain(w: &mut World, a: u32, b: u32, by: u8) {
+    let ties = &mut w.folk.ties;
+    let same = |t: &Tie| t.kind == Kind::Friend && (t.a == a && t.b == b || t.a == b && t.b == a);
+    if let Some(t) = ties.list.iter_mut().find(|t| same(t)) {
+        t.strength = t.strength.saturating_sub(by);
+    }
+    let before = ties.list.len();
+    ties.list.retain(|t| !(same(t) && t.strength < 15));
+    if ties.list.len() != before {
+        ties.changed();
+    }
+}
+
+/// The strength of the friendship or family tie between two players (0
+/// none).
+pub fn between(w: &World, a: u32, b: u32) -> u8 {
+    w.folk
+        .ties
+        .of_id(a)
+        .filter(|t| t.kind != Kind::Mentor && (t.a == b || t.b == b))
+        .map(|t| t.strength)
+        .max()
+        .unwrap_or(0)
+}
+
 /// Every tie of a player, in words for his page: (other id, words).
 pub fn of(w: &World, id: u32) -> Vec<(u32, String)> {
     w.folk
