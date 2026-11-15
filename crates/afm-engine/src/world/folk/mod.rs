@@ -34,6 +34,7 @@ pub mod hiring;
 pub mod letters;
 pub mod life;
 pub mod network;
+pub mod persona;
 pub mod pitch;
 pub mod pledge;
 pub mod press;
