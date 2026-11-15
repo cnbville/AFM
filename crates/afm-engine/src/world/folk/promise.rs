@@ -210,6 +210,10 @@ pub struct Terms {
     /// promise): the term judged on the play log.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage: Option<super::usage::Usage>,
+    /// You turned off the plan setting that keeps it (lane N2): your staff
+    /// stops keeping it, and warns you before each game.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub off: bool,
 }
 
 /// The day a promise's window opens: from its date, never before you said
@@ -935,11 +939,17 @@ pub fn usage_kind(kind: PromiseKind) -> bool {
 fn got_usage(w: &World, t: &Terms, g: &seen::Game, id: u32) -> Option<f64> {
     let u = t.usage?;
     let sg = w.seat_games.get(g.at)?;
-    // A game without its plays (a box score only) says nothing.
-    if sg.stats.plays.is_empty() {
-        return None;
-    }
     let played = g.line.is_some() && g.snaps() + g.line.as_ref().map_or(0, |l| l.snaps_st) > 0;
+    // A game kept as a box score only (high school): its per-game counts
+    // (lane N2), nothing for a term with a situation.
+    if sg.stats.plays.is_empty() {
+        let mates = &sg.stats.players[g.side];
+        let c = u.box_count(mates, id)?;
+        if !played && !u.team() {
+            return Some(if u.most { 1.0 } else { 0.0 });
+        }
+        return u.judge(c).map(|k| if k { 1.0 } else { 0.0 });
+    }
     u.game(&sg.stats.plays, g.side, id, played).map(|k| if k { 1.0 } else { 0.0 })
 }
 

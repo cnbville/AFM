@@ -42,6 +42,11 @@ pub struct Ai {
     pub tickets: Tickets,
     /// Typed lines whose reading waits for you to confirm (the core).
     pub waiting: super::say::Waiting,
+    /// Live talks v3 (lane N4): what waits on your confirm in a talk.
+    pub persona: super::persona::talk::Waits,
+    /// Your one-on-ones play as v3 talks (lane N4); off, they play lane 9's
+    /// reader and writer. On by default.
+    pub persona_talks: bool,
 }
 
 impl fmt::Debug for Ai {
@@ -70,6 +75,8 @@ impl Ai {
             browser: false,
             tickets: Tickets::default(),
             waiting: Default::default(),
+            persona: Default::default(),
+            persona_talks: true,
         }
     }
 

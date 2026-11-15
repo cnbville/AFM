@@ -81,6 +81,21 @@ pub enum Kind {
     FamilyCall,
     /// Your case at the end of a recruit's official visit, in your office.
     OfficialTalk,
+    /// A negotiation (live talks v3, lane N5b): a call with a pro's agent,
+    /// another club's GM, a prospect in the undrafted rush, or an agent
+    /// calling back (`Scene.b`, `persona::negotiate`).
+    Negotiation,
+    /// The draft side's talks (lane N5e, `persona::draft::scene`): his
+    /// family, your security director, a scout, a pro scout, the draft
+    /// room, a rival GM, the draft-day call.
+    DraftTalk,
+    // Live talks v3, lane N5c: staff, bosses and money.
+    /// A sit-down you call with someone in your building: an assistant, the
+    /// team doctor, the academic or compliance director, a booster
+    /// (`persona::office`).
+    Sitdown,
+    /// A reference call about a coach you might hire (question 10).
+    Reference,
 }
 
 impl Kind {
@@ -138,6 +153,7 @@ impl Kind {
             Kind::Family => "At home",
             Kind::Story => "Storyline",
             Kind::Backchannel => "A call from someone you know",
+            Kind::Negotiation => "A negotiation",
             Kind::HomeVisit => "Home visit",
             Kind::CollegeCall => "A college calls",
             Kind::JobInterview => "Job interview",
@@ -150,6 +166,9 @@ impl Kind {
             Kind::RecruitMessage => "A message to a recruit",
             Kind::FamilyCall => "His family calls",
             Kind::OfficialTalk => "Official visit: your case",
+            Kind::DraftTalk => "The draft side",
+            Kind::Sitdown => "A sit-down",
+            Kind::Reference => "A reference call",
         }
     }
 }
@@ -816,9 +835,10 @@ fn log_scene(w: &mut World, s: &Scene) {
         | Kind::RecruitCall
         | Kind::RecruitMessage
         | Kind::FamilyCall
-        | Kind::OfficialTalk => "recruiting",
+        | Kind::OfficialTalk
+        | Kind::DraftTalk => "recruiting",
         Kind::JobInterview => "network",
-        Kind::StaffMeeting => "staff",
+        Kind::StaffMeeting | Kind::Sitdown | Kind::Reference => "staff",
         _ => "place",
     };
     super::note(w, topic, source, format!("{}: {text}", s.title), None);
@@ -837,6 +857,7 @@ fn dispatch_open(w: &mut World, s: &mut Scene) {
         Kind::StarPower | Kind::SecondOpinion | Kind::Family => super::life::open(w, s),
         Kind::Story => crate::world::storylines::moves::open(w, s),
         Kind::Backchannel => super::backchannel::open(w, s),
+        Kind::Negotiation => super::persona::negotiate::open(w, s),
         Kind::HomeVisit
         | Kind::CollegeCall
         | Kind::JobInterview
@@ -848,6 +869,8 @@ fn dispatch_open(w: &mut World, s: &mut Scene) {
         | Kind::RecruitMessage
         | Kind::FamilyCall
         | Kind::OfficialTalk => super::dialogue::open(w, s),
+        Kind::DraftTalk => super::persona::draft::scene::open(w, s),
+        Kind::Sitdown | Kind::Reference => super::persona::office::open(w, s),
         _ => super::takeover::open(w, s),
     }
 }
@@ -865,6 +888,7 @@ fn dispatch_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         Kind::StarPower | Kind::SecondOpinion | Kind::Family => super::life::answer(w, s, code, picked),
         Kind::Story => crate::world::storylines::moves::answer(w, s, code, picked),
         Kind::Backchannel => super::backchannel::answer(w, s, code, picked),
+        Kind::Negotiation => super::persona::negotiate::answer(w, s, code),
         Kind::HomeVisit
         | Kind::CollegeCall
         | Kind::JobInterview
@@ -876,6 +900,8 @@ fn dispatch_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         | Kind::RecruitMessage
         | Kind::FamilyCall
         | Kind::OfficialTalk => super::dialogue::answer(w, s, code, picked),
+        Kind::DraftTalk => super::persona::draft::scene::answer(w, s, code),
+        Kind::Sitdown | Kind::Reference => super::persona::office::answer(w, s, code, picked),
         _ => super::takeover::answer(w, s, code, picked),
     }
 }
@@ -893,6 +919,7 @@ fn dispatch_hand(w: &mut World, s: &mut Scene) {
         Kind::StarPower | Kind::SecondOpinion | Kind::Family => super::life::hand(w, s),
         Kind::Story => crate::world::storylines::moves::hand(w, s),
         Kind::Backchannel => super::backchannel::hand(w, s),
+        Kind::Negotiation => super::persona::negotiate::hand(w, s),
         Kind::HomeVisit
         | Kind::CollegeCall
         | Kind::JobInterview
@@ -904,6 +931,8 @@ fn dispatch_hand(w: &mut World, s: &mut Scene) {
         | Kind::RecruitMessage
         | Kind::FamilyCall
         | Kind::OfficialTalk => super::dialogue::hand(w, s),
+        Kind::DraftTalk => super::persona::draft::scene::hand(w, s),
+        Kind::Sitdown | Kind::Reference => super::persona::office::hand(w, s),
         _ => super::takeover::hand(w, s),
     }
 }

@@ -2490,6 +2490,37 @@ pub(crate) fn settle_incentives(w: &mut World) {
         if y.nltbe > 0.0 && (starts >= 12 || bowl) {
             charge += y.nltbe;
         }
+        // Incentives with terms (lane N2): judged on their own term. An
+        // earned unlikely one is paid and charged to next year's cap; an
+        // unearned likely one comes back as a credit.
+        let mut paid = 0.0;
+        let mut earned: Vec<(usize, bool)> = Vec::new();
+        let id = w.people[i].player.id;
+        for (j, inc) in k.clauses.iter().enumerate().filter(|(_, x)| x.year == year && x.earned.is_none()) {
+            use crate::world::folk::terms;
+            let met = terms::met(w, terms::Who::Player(id), &inc.term, year) == Some(true);
+            earned.push((j, met));
+            if met {
+                paid += inc.pays;
+                if !inc.likely {
+                    charge += inc.pays;
+                }
+            } else if inc.likely {
+                charge -= inc.pays;
+            }
+        }
+        if !earned.is_empty()
+            && let Some(c) = w.people[i].pro.as_mut()
+        {
+            if let Some(k) = c.contract.as_mut() {
+                for (j, met) in earned {
+                    k.clauses[j].earned = Some(met);
+                }
+            }
+            if let Some(s) = c.seasons.iter_mut().find(|s| s.year == year) {
+                s.pay += paid;
+            }
+        }
         if charge != 0.0 {
             let player = w.people[i].player.id;
             w.clubs[t].dead.push(DeadCharge { year: year + 1, amount: charge, player, why: DeadWhy::Incentives });

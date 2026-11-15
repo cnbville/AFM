@@ -2213,7 +2213,7 @@ pub(crate) fn same_move(a: u32, b: u32) -> bool {
 
 /// Your read of a reaction: what you catch depends on your relationships
 /// rating and how long you've known him (topic 5's tells).
-fn read_tell(w: &World, i: usize, sign: i32) -> Option<String> {
+pub(crate) fn read_tell(w: &World, i: usize, sign: i32) -> Option<String> {
     let p = &w.people[i];
     let sharp = sharpness(w);
     let tr = &p.player.personality.traits;
@@ -3491,7 +3491,7 @@ fn keep_made(w: &mut World, s: &mut Scene, id: u32) {
     }
 }
 
-fn finish_talk(w: &mut World, s: &mut Scene, id: u32) {
+pub(crate) fn finish_talk(w: &mut World, s: &mut Scene, id: u32) {
     keep_made(w, s, id);
     let (dt, dm) = (s.f[0], s.f[1]);
     mood_event(w, id, Reason::Talk, dm);
@@ -4388,6 +4388,8 @@ fn chart_seen(w: &mut World) {
 
 pub(crate) fn day(w: &mut World, d: Date) {
     check_promises(w, d);
+    super::terms::day(w, d);
+    super::usage::warn(w, d);
     super::claims::truth::check_lies(w, d);
     if !w.folk.mine.unseen.is_empty() {
         chart_seen(w);

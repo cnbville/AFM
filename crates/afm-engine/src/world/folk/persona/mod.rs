@@ -31,6 +31,9 @@
 //!   the game runs, his report back, and what asks you to confirm.
 //! - `ear`: the ear's acts and hits (5.1, 5.2), and the game's turn (5.3).
 //! - `fake`: fakes for every trait, for the lanes' tests.
+//! - `talk`: lane N4, the conversation: the game's turn (`Resolving`), the
+//!   hits sized, heat and patience, channels and the room, the saved
+//!   readings, and stand-in parts until N1 and N3 land.
 //!
 //! The voice card, the ear's card and the ear's JSON live in afm-game
 //! (`live_talk::persona`), beside the whitelist card and the reply filter
@@ -38,11 +41,15 @@
 
 pub mod asks;
 pub mod deals;
+// Lane N5e, scouting and the draft.
+pub mod draft;
 pub mod ear;
 pub mod fake;
 pub mod knows;
 pub mod memory;
+pub mod negotiate;
 pub mod room;
+pub mod talk;
 pub mod terms;
 pub mod wants;
 
@@ -57,6 +64,10 @@ pub mod people;
 pub mod stores;
 pub mod telling;
 pub mod wanting;
+
+// Lane N5c: staff, bosses and money (the facet's people, the team doctor,
+// references, staff contracts, your own deal, boosters, compliance).
+pub mod office;
 
 use super::cast::CastRef;
 

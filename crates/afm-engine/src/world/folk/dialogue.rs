@@ -1298,7 +1298,7 @@ fn meeting_hand(w: &mut World, s: &mut Scene) {
 }
 
 /// Moves the game plan's guideline toward the coordinator's case.
-fn shift_plan(w: &mut World, kind: u8, k: f64) {
+pub(crate) fn shift_plan(w: &mut World, kind: u8, k: f64) {
     use crate::game::guide::{Firm, Want};
     let g = &mut w.plans.guide;
     let firm = Firm::default();
@@ -1684,7 +1684,7 @@ pub fn start_combine_talk(w: &mut World, id: u32, room: &str) -> Result<u32, Str
     Ok(scene::add(w, s))
 }
 
-fn spent_of(s: &Scene) -> [u8; 5] {
+pub(crate) fn spent_of(s: &Scene) -> [u8; 5] {
     let mut v = [0u8; 5];
     for (k, x) in v.iter_mut().enumerate() {
         *x = ((s.b >> (6 * k)) & 0x3F) as u8;
@@ -1697,7 +1697,32 @@ fn set_spent(s: &mut Scene, v: [u8; 5]) {
     s.b = keep | v.iter().enumerate().fold(0u64, |a, (k, &x)| a | (x.min(63) as u64) << (6 * k));
 }
 
-fn combine_picks(s: &mut Scene) {
+/// The minutes spent on each interview topic so far (`own::TOPICS` order).
+pub(crate) fn spent_on(s: &Scene) -> [u8; 5] {
+    spent_of(s)
+}
+
+/// Adds minutes to an interview topic (live talks N5e: a typed question
+/// on it).
+pub(crate) fn spend_topic(s: &mut Scene, t: crate::world::scouting::own::Topic, minutes: u8) {
+    let mut v = spent_of(s);
+    let k = t as usize;
+    v[k] = v[k].saturating_add(minutes).min(63);
+    set_spent(s, v);
+    s.f[2] = k as f32;
+}
+
+/// A follow-up on a topic asks the worries your scouts flagged on it
+/// straight out (live talks N5e, lane 6's rule).
+pub(crate) fn ask_flagged(s: &mut Scene, t: crate::world::scouting::own::Topic) {
+    for k in worry_bits(s, FLAGGED) {
+        if crate::world::scouting::own::worry_topic(k) == t {
+            s.b |= 1u64 << (ASKED + k as u32);
+        }
+    }
+}
+
+pub(crate) fn combine_picks(s: &mut Scene) {
     let left = s.c.max(0) as u8;
     let spent = spent_of(s);
     for (k, t) in crate::world::scouting::own::TOPICS.iter().enumerate() {
@@ -1792,6 +1817,8 @@ fn combine_answer(w: &mut World, s: &mut Scene, code: u32) {
         let k = s.f[2] as usize;
         v[k.min(4)] = v[k.min(4)].saturating_add(press).min(63);
         set_spent(s, v);
+        // Pushed past the stock answer: his script peels (live talks N5e).
+        crate::world::folk::persona::draft::coached::press(w, id, crate::world::scouting::own::TOPICS[k.min(4)]);
     } else {
         let k = ((code - 961) as usize).min(4);
         let t = crate::world::scouting::own::TOPICS[k];
@@ -1803,8 +1830,13 @@ fn combine_answer(w: &mut World, s: &mut Scene, code: u32) {
         s.you(&scene::your_name(w), t.words());
         let answer = crate::world::scouting::own::answer_line(w, i, t);
         s.them(&name, answer, None);
-        // A follow-up fits the harder questions.
-        s.f[1] = if matches!(k, 1 | 2) { 1.0 } else { 0.0 };
+        // A coached answer your read hears (live talks N5e).
+        if let Some(tell) = crate::world::folk::persona::draft::coached::rehearsed(w, i, t) {
+            s.narrate(tell);
+        }
+        // A follow-up fits every question but the whiteboard (live talks
+        // N5e: the stock questions too, to get past a coached answer).
+        s.f[1] = if k != 0 { 1.0 } else { 0.0 };
         s.f[2] = k as f32;
     }
     if long > 0 {
@@ -1823,7 +1855,7 @@ fn combine_answer(w: &mut World, s: &mut Scene, code: u32) {
     combine_picks(s);
 }
 
-fn combine_close(w: &mut World, s: &mut Scene) {
+pub(crate) fn combine_close(w: &mut World, s: &mut Scene) {
     let id = s.a as u32;
     let spent: Vec<(crate::world::scouting::own::Topic, u8)> =
         crate::world::scouting::own::TOPICS.iter().zip(spent_of(s)).filter(|x| x.1 > 0).map(|(t, m)| (*t, m)).collect();

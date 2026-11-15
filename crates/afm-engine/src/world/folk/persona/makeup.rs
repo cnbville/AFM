@@ -379,6 +379,13 @@ fn drawn_makeup(w: &World, him: Them) -> Makeup {
     }
 }
 
+/// Whether this player's trust in his head coach is his trust in you: he
+/// is on your team. (His `trust_in` can lag a day behind a change of
+/// coach; the team he's on can't.)
+pub fn coached_by_you(w: &World, i: usize) -> bool {
+    your_coach(w).is_some() && Team::seat(w).is_some_and(|t| team_of(w, i) == Some(t))
+}
+
 /// His trust in you, 0-1, from the store that keeps it: a player's trust
 /// in his head coach when you're it, your contacts' warmth, your trust
 /// with the cast and coaches (`Mine.trust`), an agent's trust in your word
@@ -392,8 +399,7 @@ pub fn trust(w: &World, him: Them) -> f64 {
         Them::Player(_) => {
             let Some(i) = index(w, him) else { return 0.45 };
             let p = &w.people[i];
-            let you = your_coach(w);
-            if you.is_some_and(|c| p.trust_in as usize == c) && team_of(w, i) == Team::seat(w) {
+            if coached_by_you(w, i) {
                 return p.trust as f64;
             }
             if let Some(t) = mine.trust_of(key(him)) {

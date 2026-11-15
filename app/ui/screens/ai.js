@@ -322,3 +322,28 @@ async function aiPregameCard() {
 
 // The first look, once the page is up: is this the fake client?
 aiProbe();
+
+// ---------- negotiation calls (live talks v3, lane N5b) ----------
+// A desk's reply carries `call` ({cmd, args}) only with a usable key: the
+// button opens the call as a talk (an agent, another club's GM, a prospect
+// in the undrafted rush). `args` add to the flag's own.
+function aiCallBtn(x, label, args) {
+  const c = x && x.call;
+  if (!c) return "";
+  const a = { cmd: c.cmd, args: { ...(c.args || {}), ...(args || {}) } };
+  return `<button class="st-btn small glass" data-talkcall="${esc(JSON.stringify(a))}">${esc(label)}</button>`;
+}
+document.addEventListener("click", async (ev) => {
+  const b = ev.target.closest && ev.target.closest("[data-talkcall]");
+  if (!b) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  let a;
+  try { a = JSON.parse(b.dataset.talkcall); } catch (e) { return; }
+  try {
+    const r = await api(a.cmd, a.args);
+    go("people_scene", { id: r.scene });
+  } catch (e) {
+    toast(e.message || String(e));
+  }
+});

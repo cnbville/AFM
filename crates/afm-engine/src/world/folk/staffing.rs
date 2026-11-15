@@ -49,7 +49,8 @@ pub struct Staffs {
     pub deals: Vec<Deal>,
     /// Raises you gave (coach, day): a promise of a raise is kept by one.
     pub raises: Vec<(usize, Date)>,
-    /// More money from your boss for the staff pool and recruiting (shares).
+    /// Your boss's raises to the staff pool, as a share above the usual: 0.1
+    /// a yes. Read by [`staff_bonus`]; a new job starts at none.
     pub pool_bonus: f32,
     /// Your athletic director's raises to the recruiting budget for travel
     /// and visits (people topic 12), as a share above the usual: 0.1 a yes.
@@ -78,6 +79,23 @@ pub struct Staffs {
 pub fn recruit_bonus(w: &World, p: usize) -> f64 {
     match Team::seat(w) {
         Some(Team::College(q)) if q == p => w.folk.staff.recruit_bonus.max(0.0) as f64,
+        _ => 0.0,
+    }
+}
+
+/// The share your boss added to the staff pool of `team` (people topic 12;
+/// 0 for any other team, so the world runs as before until he says yes). At
+/// a college it is the football support staff line of the athletic budget
+/// (`finance::college`, `open_year`), at an NFL club the assistants' pool
+/// inside the coaches' line (`finance::nfl`, `open_year`); both raise the
+/// spending level that the support heads are hired at (`people::staff_support`).
+/// A high school has no such pool, and neither does another league's club
+/// (`ask` still takes the yes there). Sizes proposed, not confirmed.
+pub fn staff_bonus(w: &World, team: Team) -> f64 {
+    match Team::seat(w) {
+        Some(t) if t == team && matches!(team, Team::College(_) | Team::Nfl(_)) => {
+            w.folk.staff.pool_bonus.max(0.0) as f64
+        }
         _ => 0.0,
     }
 }

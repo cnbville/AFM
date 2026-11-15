@@ -193,6 +193,11 @@ pub struct PlayRecord {
     /// A punt's or a kickoff's hang time in seconds (0: not kept).
     #[serde(default)]
     pub hang: f32,
+    /// The freedom the quarterback had at the line (plays and tactics 3.3):
+    /// 0 not kept (a kick, or a play kept before), 1 none, 2 a kill call,
+    /// 3 full audibles. Read by the promises on usage.
+    #[serde(default, skip_serializing_if = "is_zero_u8")]
+    pub freedom: u8,
     /// Seconds from the snap to the first pressure (0: none, or not kept):
     /// Next Gen Stats' time to pressure.
     #[serde(default)]
@@ -306,6 +311,7 @@ impl PlayRecord {
             bad_snap: false,
             roles: [Vec::new(), Vec::new()],
             hang: 0.0,
+            freedom: 0,
             pressure_at: 0.0,
             contact: Vec::new(),
             moving: false,
@@ -1431,4 +1437,8 @@ pub fn as_reported(line: &StatLine, reports: bool, pads: f64) -> Option<StatLine
         l.tackles = (l.tackles as f64 * (1.0 + 2.0 * pads)).round() as u32;
     }
     Some(l)
+}
+
+fn is_zero_u8(v: &u8) -> bool {
+    *v == 0
 }

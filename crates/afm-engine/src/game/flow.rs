@@ -34,6 +34,28 @@ pub const FREE_UP: f64 = 0.42;
 pub const SEND: f64 = 0.33;
 pub const SHOTS_LEAN: f64 = 0.5;
 
+/// The calls' lean for the rest of the plan's settings (lane N2; proposed,
+/// not confirmed): 6 points more passing for the quarterback promised his
+/// throws, play action, screens and the quick game half again or double,
+/// the gun or under center a quarter more, the run family promised double,
+/// the quarterback's designed runs two and a half times, jet sweeps
+/// treble, seven-man protections double.
+pub const PASS_LEAN: f64 = 0.06;
+pub const PA_LEAN: f64 = 1.0;
+pub const GUN_LEAN: f64 = 0.25;
+pub const FAMILY_LEAN: f64 = 2.0;
+pub const QB_RUNS_LEAN: f64 = 1.5;
+pub const SCREENS_LEAN: f64 = 1.0;
+pub const QUICK_LEAN: f64 = 0.6;
+pub const JET_LEAN: f64 = 2.0;
+pub const PROTECT_LEAN: f64 = 1.0;
+
+/// The quarterback's freedom at the line (plays and tactics 3.3): from a
+/// kill call (two plays in the huddle) up, and full audibles (the staff's
+/// own lines). A promise of either sets him at least there.
+pub const KILL_FREEDOM: f64 = 0.35;
+pub const FULL_FREEDOM: f64 = 0.7;
+
 /// Who lines up where on a snap: the offense by role, the defense by slot.
 type Lineup = (Vec<(ORole, usize)>, Vec<(DSlot, usize)>);
 
@@ -267,7 +289,15 @@ const BLITZ_LEAN: f64 = 0.02;
 impl<'a> Side<'a> {
     fn new(team: &'a GameTeam, margin: f64, timeouts: u8) -> Side<'a> {
         let n = team.players.len();
-        let depth = depth_chart(team, margin);
+        let mut depth = depth_chart(team, margin);
+        // He returns (the promises on usage, lane N2): first on kickoff
+        // returns and the punt returner.
+        if let Some(i) = team.prep.keep.returner.iter().find_map(|id| team.players.iter().position(|p| p.id == *id)) {
+            depth.kick_returners.retain(|&j| j != i);
+            depth.kick_returners.insert(0, i);
+            depth.kick_returners.truncate(2);
+            depth.punt_returner = i;
+        }
         // The week's practice: the starters work at the spots they will
         // play, so a backup stepping in for a man out this week knows his
         // spot by Saturday. A coach keeps a man where he knows the job
@@ -379,11 +409,23 @@ impl<'a> Side<'a> {
             job,
             line,
             snaps: vec![0; n],
-            base_only: team.players.iter().map(|p| team.prep.base_only.contains(&p.id)).collect(),
+            // Keep him on (the promises on usage, lane N2): never base downs
+            // only, and on for the whole series like the rotation's first men.
+            base_only: team
+                .players
+                .iter()
+                .map(|p| team.prep.base_only.contains(&p.id) && !team.prep.keep.on.contains(&p.id))
+                .collect(),
             rot: team
                 .players
                 .iter()
-                .map(|p| team.prep.rotation.iter().find(|r| r.0 == p.id).map_or(0, |r| r.1))
+                .map(|p| {
+                    if team.prep.keep.on.contains(&p.id) {
+                        1
+                    } else {
+                        team.prep.rotation.iter().find(|r| r.0 == p.id).map_or(0, |r| r.1)
+                    }
+                })
                 .collect(),
             passing: false,
             series: 0,
@@ -842,6 +884,55 @@ impl<'a> Side<'a> {
         if ids.iter().any(up) { SHOTS_LEAN } else { 0.0 }
     }
 
+    /// The calls' lean for your promises on usage (lane N2), from the men
+    /// promised who can go: nothing for a plan without one.
+    fn lean(&self) -> calling::Lean {
+        let k = &self.team.prep.keep;
+        let mut l = calling::Lean::default();
+        if k.is_empty() {
+            return l;
+        }
+        let up = |id: &u32| {
+            self.team.players.iter().position(|p| p.id == *id).is_some_and(|i| !self.out[i] && !self.benched[i])
+        };
+        let any = |ids: &[u32]| ids.iter().any(up);
+        if k.pass {
+            l.pass = PASS_LEAN;
+        }
+        if k.play_action {
+            l.play_action = PA_LEAN;
+        }
+        l.gun = GUN_LEAN * k.backfield as f64;
+        l.personnel = match k.personnel {
+            21 => Some(Personnel::P21),
+            12 => Some(Personnel::P12),
+            13 => Some(Personnel::P13),
+            22 => Some(Personnel::P22),
+            11 => Some(Personnel::P11),
+            10 => Some(Personnel::P10),
+            _ => None,
+        };
+        l.family = k.family.map(|f| FAMILY_LEAN * f as f64);
+        l.qb_runs = match k.qb_runs {
+            1 => QB_RUNS_LEAN,
+            -1 => -1.0,
+            _ => 0.0,
+        };
+        if any(&k.screens) {
+            l.screens = SCREENS_LEAN;
+        }
+        if any(&k.quick) {
+            l.quick = QUICK_LEAN;
+        }
+        if any(&k.gadget) {
+            l.jet = JET_LEAN;
+        }
+        if k.protect {
+            l.protect = PROTECT_LEAN;
+        }
+        l
+    }
+
     /// How much the offense leans on its burner, while he can go (S10).
     fn burner_lean(&self) -> f64 {
         match self.depth.burner {
@@ -1253,6 +1344,8 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
     for side in sides.iter_mut() {
         side.mem.plan.answers = side.team.prep.answers;
         side.mem.plan.man_floor = side.team.prep.keep.man;
+        let k = &side.team.prep.keep;
+        side.mem.plan.shell_floor = [k.two_high, k.one_high, k.rob];
     }
     // Moves against the other team's habits (tendencies topic 4.4), from
     // what each staff's film study reads of them. Own stream, so the plans
@@ -2918,6 +3011,70 @@ impl<'a> Game<'a> {
         k.shots = find(&keep.shots, false);
         k.feature = find(&keep.feature, false);
         k.help = find(&keep.help, true);
+        let mut rel = off.iter().filter(|&&(rl, i)| !rl.is_line() && keep.release.contains(&players[i].id));
+        k.release = [rel.next().map(|x| x.1), rel.next().map(|x| x.1)];
+    }
+
+    /// Your word on where a man lines up this snap (the promises on usage,
+    /// lane N2): the receiver promised jet sweeps takes the motion spot on
+    /// one, the corner promised the boundary or the field side trades sides
+    /// with the other outside corner by the hash, the post safety plays free
+    /// in single-high and the robber strong in Cover 1 robber. Only men
+    /// already on the field move, and only for a plan that holds one.
+    fn keep_lineup(&self, call: &OffCall, dcall: &DefCall, off: &mut [(ORole, usize)], def: &mut [(DSlot, usize)]) {
+        let o = self.poss;
+        let ko = &self.sides[o].team.prep.keep;
+        if !ko.gadget.is_empty()
+            && call.kind == PlayKind::Run(RunConcept::JetSweep)
+            && let Some(m) = call.formation.motion_man()
+        {
+            let ps = &self.sides[o].team.players;
+            let me = off.iter().position(|&(r, i)| {
+                ko.gadget.contains(&ps[i].id)
+                    && matches!(r, ORole::X | ORole::Z | ORole::Slot | ORole::Slot2 | ORole::Slot3)
+            });
+            if let (Some(a), Some(b)) = (me, off.iter().position(|&(r, _)| r == m))
+                && a != b
+            {
+                let t = off[a].0;
+                off[a].0 = off[b].0;
+                off[b].0 = t;
+            }
+        }
+        let kd = &self.sides[1 - o].team.prep.keep;
+        if kd.side.is_empty() && kd.post.is_empty() && kd.robber.is_empty() {
+            return;
+        }
+        let ps = &self.sides[1 - o].team.players;
+        // Put him at `want` when he is at `from` (the two trade spots).
+        let put = |def: &mut [(DSlot, usize)], id: u32, want: DSlot, from: DSlot| {
+            let me = def.iter().position(|&(sl, i)| sl == from && ps[i].id == id);
+            if let (Some(a), Some(b)) = (me, def.iter().position(|&(sl, _)| sl == want)) {
+                def[a].0 = want;
+                def[b].0 = from;
+            }
+        };
+        // The boundary is the short side: the left hash puts it on the
+        // offense's left (the left corner's side).
+        let hash = super::sheet::hash_of(self.ball_y);
+        if hash > 0 {
+            let boundary = if hash == 1 { DSlot::CBL } else { DSlot::CBR };
+            let field = if hash == 1 { DSlot::CBR } else { DSlot::CBL };
+            for &(id, side) in &kd.side {
+                let (want, from) = if side == 1 { (boundary, field) } else { (field, boundary) };
+                put(def, id, want, from);
+            }
+        }
+        if dcall.coverage.high() == 1 {
+            for &id in &kd.post {
+                put(def, id, DSlot::FS, DSlot::SS);
+            }
+        }
+        if dcall.coverage == Coverage::Cover1Robber {
+            for &id in &kd.robber {
+                put(def, id, DSlot::SS, DSlot::FS);
+            }
+        }
     }
 
     fn chart_fourth(&self, o: usize, make: f64, in_range: bool) -> Option<FourthDown> {
@@ -3733,6 +3890,7 @@ impl<'a> Game<'a> {
             designs: calling::sheet_designs(&self.sides[o].team.prep),
             burner: self.sides[o].burner_lean(),
             shots: self.sides[o].shots_lean(),
+            lean: self.sides[o].lean(),
         };
         let mut call = calling::call_offense(&staff_o, &self.sides[o].mem, &sit, &ctx, &mut self.rng);
         // Your four-minute plan (update 2, G4): run it out, or keep
@@ -3909,8 +4067,9 @@ impl<'a> Game<'a> {
         let (off, def) = match &fake {
             Some((off, def, _)) => (off.clone(), def.clone()),
             None => {
-                let (mut off, def) = self.lineup(&call, &dcall);
+                let (mut off, mut def) = self.lineup(&call, &dcall);
                 self.speed_package(&call, &mut off);
+                self.keep_lineup(&call, &dcall, &mut off, &mut def);
                 (off, def)
             }
         };
@@ -3943,8 +4102,20 @@ impl<'a> Game<'a> {
         let blockers =
             5 + off.iter().filter(|x| matches!(x.0, ORole::TE | ORole::TE2 | ORole::TE3 | ORole::FB)).count() as i32;
         let numbers = box_n - blockers;
-        let freedom =
+        let mut freedom =
             clamp(0.85 - 0.035 * self.sides[o].team.staff.strictness + 0.04 * qp.experience.min(5.0), 0.1, 0.95);
+        // Your word to him (the promises on usage): the plan gives him at
+        // least a kill call, or full audibles.
+        if let Some(&(_, lv)) = self.sides[o].team.prep.keep.freedom.iter().find(|x| x.0 == qp.id) {
+            freedom = freedom.max(if lv >= 3 { FULL_FREEDOM } else { KILL_FREEDOM });
+        }
+        let freedom_level = if freedom >= FULL_FREEDOM {
+            3
+        } else if freedom >= KILL_FREEDOM {
+            2
+        } else {
+            1
+        };
         let iq = 0.5 * qp.a(Attr::PlayRecognition) + 0.5 * qp.a(Attr::FootballIq);
         // His read of the shell: a disguise fools him unless he out-thinks
         // the secondary (3.5).
@@ -4008,9 +4179,9 @@ impl<'a> Game<'a> {
                 && self.rng.chance(sees)
             {
                 let alt = call.alt.filter(|a| matches!(a, PlayKind::Pass(_)) == to_pass);
-                let new = if freedom >= 0.35 && alt.is_some() {
+                let new = if freedom >= KILL_FREEDOM && alt.is_some() {
                     alt
-                } else if freedom >= 0.7 {
+                } else if freedom >= FULL_FREEDOM {
                     Some(if to_pass {
                         PlayKind::Pass(calling::quick_check(sit.togo))
                     } else {
@@ -4056,6 +4227,9 @@ impl<'a> Game<'a> {
         };
         r.defense_call = dcall.describe();
         r.dpers = 1 + dcall.personnel as u8;
+        if fake.is_none() && call.kind != PlayKind::Kneel {
+            r.freedom = freedom_level;
+        }
         let mark = std::mem::take(&mut self.mark);
         r.yours = mark.0 as u8 | (mark.1 as u8) << 1;
         r.off_sheet = mark.2;
@@ -5385,6 +5559,7 @@ impl<'a> Game<'a> {
             designs: calling::sheet_designs(&self.sides[o].team.prep),
             burner: self.sides[o].burner_lean(),
             shots: self.sides[o].shots_lean(),
+            lean: self.sides[o].lean(),
         };
         (ctx, qb_threat)
     }
