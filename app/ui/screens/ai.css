@@ -159,6 +159,9 @@ html.calm .ai-pbar i, html.calm .ai-wbar i { animation: none; left: 33%; }
 .ai-cbar i { display: block; height: 100%; border-radius: 3px; background: color-mix(in oklab, var(--fg) 65%, transparent); }
 .ai-cbar u { position: absolute; top: -4px; bottom: -4px; width: 1.5px; background: color-mix(in oklab, var(--fg) 55%, transparent); text-decoration: none; }
 .ai-cbar.am i { background: var(--ai-amber); }
+.ai-mt { padding: 6px 14px 10px; font-size: 12px; color: var(--fg3); }
+.ai-mt summary { cursor: pointer; }
+.ai-ms { display: grid; grid-template-columns: 110px minmax(0, 1fr) minmax(0, 1fr); gap: 12px; padding: 5px 0; border-top: 1px solid var(--hair); }
 .ai-rf { display: flex; justify-content: space-between; gap: 12px; padding: 9px 14px; font-size: 12px; color: var(--fg3); }
 .ai-pg { margin-top: 10px; }
 .ai-pg .ai-card { background: transparent; padding: 0; box-shadow: none; }

@@ -784,7 +784,7 @@ A typical season is about half that. The $50 cap stays. A Sonnet 5.5 ear would c
 | N5d | Game day and the room | Speeches, the sideline, officials, captains, the council, team meetings | Opus |
 | N5e | Scouting and the draft | Prospects, sources, and whatever question 10 brings back | Opus |
 | N6 | Screens | The six agreed N0 boards, on N4's contract (the ear and voice cards, the ticket chain) | Sonnet |
-| N7 | Checks | Labelled lines per facet, exploits, leaks, cost and time on Cain's Mac | Sonnet |
+| N7 | Checks | Labelled lines per facet, exploits, leaks, cost and time on Cain's Mac. Built 2026-11-15 (`live_talk/checks/ear/*.json`, `ear.rs`, `voice.rs`, `persona/n7_tests.rs`; how it works in `docs/reference/how-it-works/live-talks.md`, "lane N7"); its bars proposed, not confirmed; not yet run on the real model, which Cain's Mac does from Settings | Sonnet |
 | N8 | AI staffs on the same logic | Question 11. It changes every world, so it goes on the rebuild gate | Opus |
 
 Order: N0, N1 and N2 now, side by side. N3 and N4 after N1. N5a to N5e after N3 and N4, side by side (separate files). N6 after N0 and N4. N7 with each app build. N8 last. N1 to N7 change only your seat, so no world result changes. The build threads use the fake client; only Cain runs the real key.
