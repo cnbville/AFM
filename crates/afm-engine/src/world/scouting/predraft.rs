@@ -28,6 +28,10 @@ pub struct Leak {
     pub real: bool,
     /// Your war room planted it.
     pub yours: bool,
+    /// Said to one club's GM only (lane N5e, `persona::draft::smoke::plant`):
+    /// only that club hears it. None is out in the open.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub to: Option<usize>,
 }
 
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -225,7 +229,14 @@ fn leaks(w: &mut World, d: Date) {
             continue;
         }
         let k = (key_uniform(0xC0DE ^ t as u64, d.0 as u64) * pick_from.len() as f64) as usize;
-        new.push(Leak { team: t, player: pick_from[k.min(pick_from.len() - 1)], date: d, real: !plant, yours: false });
+        new.push(Leak {
+            team: t,
+            player: pick_from[k.min(pick_from.len() - 1)],
+            date: d,
+            real: !plant,
+            yours: false,
+            to: None,
+        });
     }
     for l in new {
         if let Some(i) = super::place(w, l.player) {
@@ -252,7 +263,7 @@ pub fn plant(w: &mut World, id: u32, real: bool) -> Result<String, String> {
         w.nfl[t].name, p.name, p.player.position
     );
     w.calendar.post(Event::new(d.add(1), Level::Nfl, CalKind::Transfer, Loudness::Small, text.clone()).team(t));
-    w.scouting.predraft.leaks.push(Leak { team: t, player: id, date: d, real, yours: true });
+    w.scouting.predraft.leaks.push(Leak { team: t, player: id, date: d, real, yours: true, to: None });
     Ok(text)
 }
 
@@ -265,7 +276,7 @@ pub fn leak_pull(w: &World, team: usize, id: u32, slot_of: &dyn Fn(usize) -> Opt
     let gullible = (1.0 - club.office.gm.skill / 20.0).clamp(0.0, 0.8);
     let mut pull = 0.0;
     for l in &w.scouting.predraft.leaks {
-        if l.player != id || l.team == team {
+        if l.player != id || l.team == team || l.to.is_some_and(|x| x != team) {
             continue;
         }
         if let Some(s) = slot_of(l.team)

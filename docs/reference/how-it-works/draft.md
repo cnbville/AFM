@@ -1,6 +1,6 @@
 # The NFL draft: how it works today
 
-Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, the hunt (next update lane 11) on 2026-10-30, L12's league fixes (minor bugs 97, 134) on dd2ece1 on 2026-10-30, and the pick times (minor bug 159) on 2026-10-31. The six-part day (player immersion I1) checked on 2026-11-05, before it merged to main. Early entry (the early entrants lane) checked on 2026-11-14. The CFL's scouts and drafts (SK77) checked over main 24d6db0 on 2026-11-15, before it merged.
+Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, the hunt (next update lane 11) on 2026-10-30, L12's league fixes (minor bugs 97, 134) on dd2ece1 on 2026-10-30, and the pick times (minor bug 159) on 2026-10-31. The six-part day (player immersion I1) checked on 2026-11-05, before it merged to main. Early entry (the early entrants lane) checked on 2026-11-14. The CFL's scouts and drafts (SK77) checked over main 24d6db0 on 2026-11-15, before it merged. Live talks lane N5e (a leak told to one GM, your staff's smoke read, the rush's word of you) checked over main 149d810 on 2026-11-15, before it merged.
 
 ## Quick answers
 
@@ -79,7 +79,8 @@ Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, the hunt (ne
 - A round-1 QB throws for only some clubs: 40%. Words only.
 - Turn down a club's top-30 visit: round 1 and score 80+, 0.08 + 0.05 × ego z (positive ego only) per club; that club's file gets no visit (`declines`).
 - Leaks: Wednesdays in March-April, each club 35% a week; 0.15 + 0.2 × GM overconfidence of them are smokescreens (`leaks`). On draft morning a club picking within 10 places ahead of a leaking club adds up to 1.5 × (1 - GM skill/20, max 0.8) per leak (0.9 × for a fake), capped 2 points (`leak_pull`, `on_boards`).
-- Your war room can plant a leak (`plant`); other clubs read it the same way.
+- Your war room can plant a leak (`plant`); other clubs read it the same way. A leak you tell one GM on a call is heard by his club only (`Leak.to`, live talks lane N5e). Your staff's read of a leak (real or smoke) is `persona::draft::smoke::read`, from the club's record, its visits, its need and its slot, never the truth (`live-talks.md`, "Live talks v3, lane N5e").
+- In the undrafted rush your club's offer also weighs a man's word of you: 1.0 roster place of path per point of his trust in you over 0.5 (`persona::draft::remember::rush_pull`; proposed, not confirmed). Other clubs are unchanged.
 
 ## A club's board
 

@@ -39,9 +39,12 @@ use crate::{Game, Reply};
 pub const WAIT_TTL: Duration = Duration::from_secs(900);
 
 /// Whether a scene's typed lines play as a v3 talk: your one-on-ones, and
-/// the meetings with the people in your building (lane N5c).
+/// the meetings with the people in your building (lane N5c), and the
+/// draft side's talks (lane N5e). The interview rooms keep lane 6's typed
+/// path, where a typed question lands on its own chip (a flagged worry
+/// included).
 pub fn plays(g: &Game, s: &Scene) -> bool {
-    g.ai.persona_talks && (s.kind == Kind::OneOnOne || office::plays(s.kind))
+    g.ai.persona_talks && (matches!(s.kind, Kind::OneOnOne | Kind::DraftTalk) || office::plays(s.kind))
 }
 
 /// The room a scene's talk is held in: the open talk's, else the one its
@@ -53,9 +56,21 @@ pub fn room_of(w: &World, s: &Scene) -> Room {
 }
 
 /// The parts a scene's talk is played with: lane N5c's for the people in
-/// your building, else lane N1's people and lane N3's deals and requests.
+/// your building, lane N5e's for the draft side, else lane N1's people and
+/// lane N3's deals and requests.
 pub fn parts_for(s: &Scene) -> Parts<'static> {
-    if office::plays(s.kind) { office::parts() } else { parts() }
+    parts_of(s.kind)
+}
+
+/// The same, by the scene's kind.
+pub fn parts_of(kind: Kind) -> Parts<'static> {
+    if office::plays(kind) {
+        office::parts()
+    } else if kind == Kind::DraftTalk {
+        afm_engine::world::folk::persona::draft::facet::parts()
+    } else {
+        parts()
+    }
 }
 
 /// What waits on your confirm, by ticket, and how each typed line was
@@ -340,7 +355,8 @@ pub fn confirm(g: &mut Game, args: &Value) -> Reply {
     }
     let w = g.world.as_mut().ok_or("No world is loaded.")?;
     if yes {
-        let lines = office::confirm(w, id, him, &item).unwrap_or_else(|| run(w, him, &item));
+        let kind = w.folk.scenes.iter().find(|s| s.id == id).map_or(Kind::OneOnOne, |s| s.kind);
+        let lines = office::confirm(w, id, him, &item).unwrap_or_else(|| run(w, him, &item, kind));
         if let Some(s) = w.folk.scenes.iter_mut().find(|s| s.id == id) {
             for l in lines {
                 s.narrate(l);
@@ -353,10 +369,10 @@ pub fn confirm(g: &mut Game, args: &Value) -> Reply {
 /// Runs one confirmed item: a request through `Acting::run`, an offer
 /// through lane N3's `agree`, a decision
 /// on its own screen until its lane wires it.
-fn run(w: &mut World, him: Them, c: &Confirm) -> Vec<String> {
+fn run(w: &mut World, him: Them, c: &Confirm, kind: Kind) -> Vec<String> {
     match c {
         Confirm::Request(r) => {
-            let ran = parts().acting.run(w, him, r);
+            let ran = parts_of(kind).acting.run(w, him, r);
             ran.done
         }
         Confirm::Offer(o) => {
