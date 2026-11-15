@@ -244,6 +244,37 @@ pub fn steer_man(w: &mut [(super::playbook::Coverage, f64)], shift: f64) {
     }
 }
 
+/// Raise the coverages that pass `pred` to at least `floor` of the calls
+/// (your word on a shell, lane N2), keeping the shape within each side:
+/// 0.7 of the gap closed, as the man floor does. Nothing when it is
+/// already there.
+pub fn steer_floor(
+    w: &mut [(super::playbook::Coverage, f64)],
+    pred: fn(super::playbook::Coverage) -> bool,
+    floor: f64,
+) {
+    let yes: f64 = w.iter().filter(|x| pred(x.0)).map(|x| x.1).sum();
+    let all: f64 = w.iter().map(|x| x.1).sum();
+    if all <= 0.0 || yes / all >= floor {
+        return;
+    }
+    let target = clamp(yes / all + 0.7 * (floor - yes / all), 0.02, 0.97);
+    let (ky, kn) = (
+        if yes > 0.0 { target * all / yes } else { 1.0 },
+        if all - yes > 0.0 { (1.0 - target) * all / (all - yes) } else { 1.0 },
+    );
+    for x in w.iter_mut() {
+        x.1 *= if pred(x.0) { ky } else { kn };
+    }
+    // Nothing to scale: the first coverage that passes takes the share.
+    if yes <= 0.0
+        && let Some(x) = super::playbook::Coverage::ALL.iter().find(|c| pred(**c))
+        && let Some(y) = w.iter_mut().find(|y| y.0 == *x)
+    {
+        y.1 = target * all;
+    }
+}
+
 /// A head coach's guidelines drawn for a synthetic team (match checks):
 /// about half of head coaches say something on each side, mostly as a
 /// lean, rarely the opposite of what the staff already does (proposed,

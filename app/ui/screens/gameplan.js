@@ -185,7 +185,7 @@ function dpCoord(c) {
 async function dpIdentityTab(a) {
   const seg = keep("dpidseg", { v: "guide" });
   // A link can ask for a segment (game day asks for the rules).
-  if (a && (a.seg === "rules" || a.seg === "guide")) seg.v = a.seg;
+  if (a && (a.seg === "rules" || a.seg === "guide")) { seg.v = a.seg; a.seg = null; }
   const segHtml = dpSeg("dpkeep", [["guide", "Guidelines"], ["rules", "Game rules and call names"]], seg.v, { key: "dpidseg", f: "v" });
   if (seg.v === "rules") return dpRulesTab(segHtml);
   const x = await dpGet("dp_identity");
@@ -486,7 +486,8 @@ const dpGdBase = screens.gameday;
 screens.gameday = async (a) => {
   try {
     // A link can ask for a tab ("See game day" asks for the Game plan).
-    if (a && ["Report", "Film room", "Game plan", "Calling"].includes(a.tab)) S.keep.gdtab = { t: a.tab };
+    // (Once: kept on a redraw it undid every click on the tab bar.)
+    if (a && ["Report", "Film room", "Game plan", "Calling"].includes(a.tab)) { S.keep.gdtab = { t: a.tab }; a.tab = null; }
     return await dpGdBase(a);
   } finally {
     DP.reuse = false;

@@ -1460,15 +1460,20 @@ fn class_count(w: &World, p: usize) -> Bar {
     use afm_engine::world::front_office::college::{self as desk, Standing};
     let o = desk::outlook(w, p);
     // Every commitment and signature in the class, on your board or not.
-    let n = w
-        .people
-        .iter()
-        .filter(|pp| {
-            pp.class_of == o.sign_year
-                && matches!(desk::standing(pp, p), Standing::CommittedHere | Standing::SignedHere)
-        })
-        .count() as f64;
-    let slots = o.slots.max(1) as f64;
+    let (mut n, mut signed) = (0usize, 0usize);
+    for pp in w.people.iter().filter(|pp| pp.class_of == o.sign_year) {
+        match desk::standing(pp, p) {
+            Standing::CommittedHere => n += 1,
+            Standing::SignedHere => {
+                n += 1;
+                signed += 1;
+            }
+            _ => {}
+        }
+    }
+    let n = n as f64;
+    // The plan's slots are what is left after the signees.
+    let slots = (o.slots + signed).max(1) as f64;
     (n, slots, format!("{n:.0} of {slots:.0}"), false)
 }
 

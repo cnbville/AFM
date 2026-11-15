@@ -166,7 +166,7 @@ async function ppRules() {
   const t = r.trouble;
   const tw = t < 0.92 ? "Your book keeps trouble down" : t > 1.08 ? "A loose book: more trouble than usual" : "About the usual trouble";
   return `<div class="grid2"><div class="col"><section class="panel"><h2>Your rules <small>${esc(tw)}</small></h2><div class="pp-rules">${cards}</div></section></div>
-    <div class="col">${rit}<section class="panel"><h2>Leadership council</h2>${council}</section><section class="panel"><h2>Sitting now</h2>${out}</section><section class="panel"><h2>Your rulings <small>for consistency</small></h2>${rulings}</section></div></div>`;
+    <div class="col">${rit}<section class="panel"><h2>Leadership council <a class="link small" data-act="ppcouncilmeet">Meet them</a></h2>${council}</section><section class="panel"><h2>Sitting now</h2>${out}</section><section class="panel"><h2>Your rulings <small>for consistency</small></h2>${rulings}</section></div></div>`;
 }
 
 async function ppBoss() {
@@ -246,16 +246,19 @@ screens.people_scene = async (a) => {
   const cast = lead && lead.kind === "cast" && lead.tok ? await api("people_cast", { tok: lead.tok }).catch(() => null) : null;
   title(plainText(s.title), s.kindName);
   const st = keep("ppscene:" + s.id, { pick: null, tone: null });
-  if (st.pick != null && !s.picks.some((p) => p.code === st.pick || (s.kind === "OneOnOne" && Math.floor((p.code - 100) / 10) === Math.floor((st.pick - 100) / 10) && p.code >= 100 && p.code < 190))) st.pick = null;
+  if (st.pick != null && !st.turn && !s.picks.some((p) => p.code === st.pick || (s.kind === "OneOnOne" && Math.floor((p.code - 100) / 10) === Math.floor((st.pick - 100) / 10) && p.code >= 100 && p.code < 190))) st.pick = null;
   const colors = (S.status && S.status.mine && S.status.mine.colors) || ["#2b3140", "#11141b"];
   setColors(colors);
+  // Live talks v3, lane N6: a talk with a person across from you draws as the conversation page.
+  if (typeof cvWants === "function" && cvWants(s, lead)) return cvScene(s, lead, pp, cast, st);
   // A one-on-one and a timed interview room are face to face (lane 14, D1).
   if (s.face && !s.future && lead && lead.kind === "player" && typeof tkFaceToFace === "function") return tkFaceToFace(s, lead, pp, st);
-  // The conversation.
+  // The conversation. Under your lines: how a typed line was heard (live talks).
+  const ay = aiYours("scene:" + s.id);
   const lines = s.lines.map((l) => {
     if (l.by === 0) return `<p class="pp-n">${rich(l.text)}</p>`;
     const cls = l.by === 1 ? "you" : l.by === 2 ? "them" : "other";
-    return `<div class="pp-say ${cls}"><b>${esc(l.name)}</b><p>${rich(l.text)}</p>${l.tell ? `<em class="pp-tell">${esc(l.tell)}</em>` : ""}</div>`;
+    return `<div class="pp-say ${cls}"><b>${esc(l.name)}</b><p>${rich(l.text)}</p>${l.by === 1 ? `<div class="ai-heard">${ay(l)}</div>` : ""}${l.tell ? `<em class="pp-tell">${esc(l.tell)}</em>` : ""}</div>`;
   }).join("");
   const docs = s.docs.map((d) => `<section class="pp-doc"><h3>${esc(d.title)}</h3>${d.note ? `<p class="muted small">${rich(d.note)}</p>` : ""}<div class="tbl warm"><table><thead><tr>${d.cols.map((c, i) => `<th class="${i === 0 || i === d.cols.length - 1 ? "l" : "l"}">${esc(c)}</th>`).join("")}</tr></thead><tbody>${d.rows.map((r) => `<tr>${r.cells.map((c) => `<td class="l wrap">${rich(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div></section>`).join("");
   const outcome = s.done
@@ -283,6 +286,7 @@ screens.people_scene = async (a) => {
       confirm = `<div class="pp-confirm"><p class="pp-quote">${rich(chosen.label)}</p>${tones}${read}<div class="pp-acts"><button class="st-btn small primary" data-act="ppsay" data-id="${s.id}" data-code="${code}">${chosen.code === 900 ? "End it" : "Say it"}</button><button class="st-btn small glass" data-act="ppunpick" data-id="${s.id}">Something else</button></div></div>`;
     }
     moves = `<aside class="pp-moves"><div class="st-label">Your move</div>${confirm || `<div class="pp-movelist">${list || '<div class="empty">Waiting on them.</div>'}</div>`}
+      ${aiSayBox(s, "scene:" + s.id, { preset: { cmd: "people_say", args: { id: s.id }, limit: 400 }, log: "scene:" + s.id, words: { ph: "Type what you'd say. The moves above still work.", foot: "The moves above still work." } })}
       <div class="pp-movefoot"><button class="st-btn small glass" data-act="pphand" data-id="${s.id}" title="Your staff plays it the way they would">Hand it to your staff</button><span class="muted small">${ppHours(s.hours)} left this week</span></div></aside>`;
   }
   // Who's in the room.
@@ -443,6 +447,7 @@ Object.assign(CORE_MORE, {
   pptabgo: (el) => { keep("pptab", {}).t = el.dataset.t; go("people", { tab: el.dataset.t }, false); },
   ppteamtalk: () => ppGoScene(api("people_team_talk")),
   ppbossmeet: () => ppGoScene(api("people_boss_meeting")),
+  ppcouncilmeet: () => ppGoScene(api("people_council_meet")),
   pptalk: (el) => ppGoScene(api("people_talk", { id: Number(el.dataset.id), subject: el.dataset.s })),
   pptalkmenu: (el, ev) => {
     if (ev) ev.stopPropagation();

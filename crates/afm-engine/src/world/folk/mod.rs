@@ -16,27 +16,44 @@
 //! Every size no real source publishes is Claude's pick (proposed, not
 //! confirmed), listed in `docs/world-model.md`.
 
+pub mod ai_promise;
+pub mod arrests;
 pub mod backchannel;
+pub mod backers;
 pub mod boss;
+pub mod case;
 pub mod cast;
+pub mod claims;
 pub mod coach_look;
 pub mod courts;
 pub mod dialogue;
 pub mod facts;
 pub mod fans;
+pub mod finals;
+pub mod future;
 pub mod gametalk;
 pub mod hiring;
 pub mod letters;
 pub mod life;
 pub mod network;
+pub mod persona;
+pub mod pitch;
+pub mod pledge;
 pub mod press;
+pub mod promise;
+pub mod pulls;
+pub mod reach;
 pub mod rules;
 pub mod scene;
+pub mod seen;
 pub mod staffing;
 pub mod takeover;
+pub mod talk_points;
 pub mod talks;
+pub mod terms;
 pub mod ties;
 pub mod tips;
+pub mod usage;
 pub mod voice;
 
 use super::World;
@@ -246,7 +263,27 @@ pub struct Mine {
     /// How the world reads you: disciplinarian (+) or players' coach (-),
     /// and honest (+) or a salesman (-), each -1 to 1, built from what you do.
     pub hard: f32,
+    /// Your name for keeping your word as the world reads it in public:
+    /// the average of your three names (`names`), which stories and the
+    /// press read (the promises design, section 4).
     pub straight: f32,
+    /// Your name for keeping your word by who hears it (the promises
+    /// design, section 4, lane P1), each -1 to 1: your room (`Name::Room`),
+    /// the recruiting trail (`Name::Trail`), agents and clubs
+    /// (`Name::Agents`). Each moves only by what reaches that audience.
+    pub names: [f32; 3],
+    /// The three names have been split from `straight` (a save from
+    /// before lane P1 starts all three at its value).
+    pub named: bool,
+    /// Players you told straight what you could and couldn't promise, and
+    /// when: he believes your next promise more (the promises design,
+    /// section 5).
+    pub told_straight: Vec<(u32, Date)>,
+    /// Chart changes he hasn't seen yet (the promises design, section 2):
+    /// the player, the mood it brings and its reason's code, and the day
+    /// you made it. It lands at his next practice week if his group there
+    /// changed, and never if you undid it first.
+    pub unseen: Vec<(u32, f32, u8, Date)>,
     /// Hours used from this week's time budget (talks, calls, trips).
     pub week: Option<Date>,
     pub hours: f32,
@@ -256,7 +293,71 @@ pub fn coach_key(c: usize) -> u64 {
     0xC0AC_0000_0000_0000 | c as u64
 }
 
+/// Who hears what you did with your word (the promises design, section 4).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Name {
+    /// Your room: every promise to a player on your roster.
+    Room = 0,
+    /// The recruiting trail: promises to recruits, a transfer out who
+    /// blames a broken promise, your word as a high school coach to
+    /// college staffs.
+    Trail = 1,
+    /// Agents and clubs: every promise to an agent's client.
+    Agents = 2,
+}
+
+/// Each name fades this share of the way back to neutral a year
+/// (proposed, not confirmed).
+pub const NAME_FADE: f32 = 0.25;
+
 impl Mine {
+    /// Your name with one audience, -1 to 1.
+    pub fn name(&self, n: Name) -> f32 {
+        if self.named { self.names[n as usize] } else { self.straight }
+    }
+    fn split(&mut self) {
+        if !self.named {
+            self.names = [self.straight; 3];
+            self.named = true;
+        }
+    }
+    fn settle_straight(&mut self) {
+        self.straight = (self.names.iter().sum::<f32>() / 3.0).clamp(-1.0, 1.0);
+    }
+    /// Moves your name with one audience.
+    pub fn word(&mut self, n: Name, by: f32) {
+        self.split();
+        let v = &mut self.names[n as usize];
+        *v = (*v + by).clamp(-1.0, 1.0);
+        self.settle_straight();
+    }
+    /// Moves all three names: the press and stories reach everyone.
+    pub fn word_all(&mut self, by: f32) {
+        self.split();
+        for v in self.names.iter_mut() {
+            *v = (*v + by).clamp(-1.0, 1.0);
+        }
+        self.settle_straight();
+    }
+    /// A week's fade back toward neutral: a quarter of the way a year.
+    pub fn fade_week(&mut self) {
+        if !self.named {
+            return;
+        }
+        let k = (1.0 - NAME_FADE).powf(1.0 / 52.0);
+        for v in self.names.iter_mut() {
+            *v *= k;
+        }
+        self.settle_straight();
+    }
+    /// The names a new job starts from (section 4): a college or high
+    /// school room has heard of you along the trail, an NFL room through
+    /// the agents.
+    pub fn carried(&self, nfl: bool) -> [f32; 3] {
+        let (t, a) = (self.name(Name::Trail), self.name(Name::Agents));
+        [if nfl { a } else { t }, t, a]
+    }
+
     pub fn trust_of(&self, key: u64) -> Option<f32> {
         self.trust.iter().find(|x| x.0 == key).map(|x| x.1)
     }
@@ -291,6 +392,12 @@ pub struct Folk {
     /// Your people log: everything the meetings, talks and reports told you.
     pub log: Vec<Entry>,
     pub promises: Vec<talks::Promise>,
+    /// Clauses on a season term (lane N2): NIL clauses and staff goals,
+    /// settled after the season (`terms::day`).
+    pub clauses: Vec<terms::Clause>,
+    /// The AI staffs' promises and each AI head coach's name for keeping
+    /// his word (promises lane P2).
+    pub ai_promises: ai_promise::Book,
     /// The line versions each speaker has said to you and the day he said
     /// each one; a version rests a full season (topic 5, part 5; D3). Saves
     /// from before D3 kept `said` without days: it is dropped on load.
@@ -332,6 +439,11 @@ pub struct Folk {
     /// The recruiting coordinator's calls to wobbling commits: program, day,
     /// and whether you made them all yourself.
     pub commit_calls: Option<(usize, Date, bool)>,
+    /// Who those calls reached: player id, and whether you called him
+    /// yourself (read by the commitment's hold, `recruiting::heard`).
+    pub commits_heard: Vec<(u32, bool)>,
+    /// You chose a stance with the press (`media_policy` is read only then).
+    pub media_chosen: bool,
     /// Your stance with the press: 0 open door, 1 closed, 2 fair to all.
     pub media_policy: u8,
     /// The tones of your last team talks (a tone used too often wears out).
@@ -361,6 +473,31 @@ pub struct Folk {
     pub bulletin: Option<(Team, Date)>,
     /// "A fence around the state": the state and when you said it.
     pub fence: Option<(usize, Date)>,
+    /// What your promises to boosters hang on (talk facts lane L8).
+    pub backers: backers::Book,
+    /// What you have talked through with each person, kept for a season
+    /// (talk facts design, rule 6): a point counts once, and less each
+    /// time you come back to it. Nothing is written until a talk notes
+    /// one.
+    #[serde(skip_serializing_if = "claims::Talked::is_empty")]
+    pub talked: claims::Talked,
+    /// What your talks have shown you of what pulls each recruit and
+    /// transfer (talk facts design, section 7): his file's evidence.
+    #[serde(skip_serializing_if = "pulls::Pulls::is_empty")]
+    pub pulls: pulls::Pulls,
+    /// NFL alumni by program and position (`claims::Alumni`): built when a
+    /// fact sheet first asks, never saved.
+    #[serde(skip)]
+    pub alumni: claims::Alumni,
+    /// Live talks' one saved store (the core): the lies said in typed
+    /// lines that he can only check on a later day, and each agent's and
+    /// GM's trust in your word. Empty until a live lane writes it.
+    #[serde(skip_serializing_if = "claims::Live::is_empty")]
+    pub live: claims::Live,
+    /// Your promises on how you'd use a recruit (`pledge::make_usage`): his
+    /// id, the school and the term, until he signs or goes elsewhere.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub usage_pledges: Vec<(u32, usize, usage::Usage)>,
 }
 
 /// Fills what a world built before this build lacks (an old world or save
@@ -414,6 +551,7 @@ pub(crate) fn step(w: &mut World, d: Date, t: u16) {
             rules::day(w, d);
             boss::day(w, d);
             if w.seat.is_some() {
+                backers::day(w, d);
                 takeover::day(w, d);
                 scene::day(w, d);
             }
@@ -425,6 +563,7 @@ pub(crate) fn step(w: &mut World, d: Date, t: u16) {
         hour::PRACTICE => {
             ensure_base(w);
             talks::day(w, d);
+            ai_promise::day(w, d);
             dialogue::players_only_day(w, d);
         }
         hour::EVENING => {
@@ -436,6 +575,7 @@ pub(crate) fn step(w: &mut World, d: Date, t: u16) {
             if w.seat.is_some() {
                 dialogue::college_calls(w, d);
                 dialogue::settle_calls(w, d);
+                persona::talk::recruit::day(w, d);
             }
         }
         hour::OVERNIGHT => {

@@ -331,6 +331,99 @@ fn promise_answers(house: bool) {
     assert_eq!(w.people[i].cal.commit.map(|c| c.0), commit.map(|c| c.0), "his decision keeps its own clock");
 }
 
+// --- NIL pull (playtest item F3, Cain 2026-11-12) -------------------------------------------
+
+/// Money that tops every other offer counts once more by how many times it
+/// tops them, up to three, by his own money weight, and the hungrier the
+/// steeper.
+#[test]
+fn the_clear_top_offer_counts_once_more_by_its_ratio() {
+    let w = rec::top_money_weight(0.13, 1.0);
+    assert!((w - 0.6 * 0.13).abs() < 1e-12, "{w}");
+    // Money that tops no one gets nothing.
+    assert_eq!(rec::top_money(w, 100_000.0, 100_000.0), 0.0);
+    assert_eq!(rec::top_money(w, 80_000.0, 100_000.0), 0.0);
+    // Double is double at $40K or at $400K.
+    let (small, big) = (rec::top_money(w, 80_000.0, 40_000.0), rec::top_money(w, 800_000.0, 400_000.0));
+    assert!((small - big).abs() < 1e-12 && (small - w * 2f64.ln()).abs() < 1e-12, "{small} {big}");
+    // It stops growing at three times the next offer.
+    assert_eq!(rec::top_money(w, 1.0e6, 100_000.0), rec::top_money(w, 300_000.0, 100_000.0));
+    assert!(rec::top_money(w, 250_000.0, 100_000.0) < rec::top_money(w, 300_000.0, 100_000.0));
+    // A multiple of pocket money is no multiple: the next offer reads as $10,000 at least.
+    assert_eq!(rec::top_money(w, 9_000.0, 500.0), 0.0);
+    assert!((rec::top_money(w, 20_000.0, 500.0) - w * 2f64.ln()).abs() < 1e-12);
+    // The hungrier, the steeper; a transfer's heavier weight carries over.
+    assert!(rec::top_money_weight(0.26, 1.0) > 2.5 * w);
+    assert!(rec::top_money_weight(0.065, 1.0) < 0.4 * w);
+    assert!((rec::top_money_weight(0.13, 2.0) - 2.0 * w).abs() < 1e-12);
+}
+
+/// A transfer weighs money more than the recruit he was, by his situation.
+#[test]
+fn a_transfer_weighs_money_by_his_situation() {
+    let more = rec::transfer_more;
+    // Three seasons left at FBS and no pro future: the usual figure.
+    assert!((more(3, Some(0.0), true) - 1.75).abs() < 1e-12);
+    // His last season ahead and no pro future: the most.
+    assert!(more(1, Some(-3.0), true) > more(2, Some(-3.0), true));
+    assert!(more(2, Some(-3.0), true) > more(3, Some(-3.0), true));
+    // A real pro prospect weighs it less, whatever he has left.
+    assert!(more(1, Some(7.0), true) < more(3, Some(0.0), true));
+    assert!(more(3, Some(7.0), true) < more(3, Some(3.0), true));
+    // Coming from below FBS, more (Cain: "especially when coming from < FBS").
+    assert!(more(2, Some(-3.0), false) > more(2, Some(-3.0), true));
+    // Always more than a recruit, never past three times.
+    for left in 0..6 {
+        for over in [-10.0, 0.0, 3.0, 6.0, 12.0] {
+            for fbs in [true, false] {
+                let m = more(left, Some(over), fbs);
+                assert!((1.2..=3.0).contains(&m), "{left} {over} {fbs}: {m}");
+            }
+        }
+    }
+}
+
+/// In a recruit's race your money is read against the best other money on
+/// his list, and theirs against yours.
+#[test]
+fn double_the_money_moves_a_recruit_more_than_the_dollars_alone() {
+    let (mut w, j) = college(true);
+    let (i, id) = lone_recruit(&mut w, None);
+    let others: Vec<usize> =
+        (0..w.programs.len()).filter(|&x| x != j && w.programs[x].division == w.programs[j].division).take(2).collect();
+    for (&x, budget) in others.iter().zip([20.0e6, 10.0e6]) {
+        w.programs[x].collective.budget = budget;
+        w.programs[x].collective.school = 0.6 * budget;
+        w.people[i].cal.offers.push(x);
+    }
+    offer(&mut w, id).unwrap();
+    let money: Vec<f64> = others.iter().map(|&x| rec::usual_nil_offer(&w, x, i)).collect();
+    let (best, next) = (money[0].max(money[1]), money[0].min(money[1]));
+    assert!(next > 10_000.0 && best > next, "{money:?}");
+    let list = [j, others[0], others[1]];
+    let at = |m: f64| rec::appeals(&w, i, &list, Some((j, m)));
+    let weight = rec::reason_weights(&w, i)[2];
+    let lift = rec::top_money_weight(weight, 1.0);
+    assert!(lift > 0.0);
+    let dollars = |m: f64| weight * 1.5 * (m / 1.0e6).powf(0.6);
+    let (none, same, double, six) = (at(0.0), at(best), at(2.0 * best), at(6.0 * best));
+    // Matching the best money earns nothing extra; double earns ln 2 of his
+    // lift on top of the dollars; six times earns no more than three.
+    assert!((same[0] - none[0] - dollars(best)).abs() < 1e-9);
+    assert!((double[0] - same[0] - (dollars(2.0 * best) - dollars(best)) - lift * 2f64.ln()).abs() < 1e-9);
+    assert!((six[0] - same[0] - (dollars(6.0 * best) - dollars(best)) - lift * 3f64.ln()).abs() < 1e-9);
+    // The school that paid the most led the money until you topped it.
+    let rich = if money[0] > money[1] { 1 } else { 2 };
+    assert!((none[rich] - double[rich] - lift * (best / next).min(3.0).ln()).abs() < 1e-9);
+    assert!((none[3 - rich] - double[3 - rich]).abs() < 1e-12, "the third school never led the money");
+    // His reasons still add up to the appeal, with the lift under money.
+    set_promise(&mut w, id, Some(2.0 * best), None).unwrap();
+    let parts = rec::reason_parts(&w, i, j, None);
+    assert!((parts.iter().map(|x| x.0).sum::<f64>() - rec::appeal(&w, i, j, None)).abs() < 1e-9);
+    assert!((parts[2].0 - dollars(2.0 * best) - lift * 2f64.ln()).abs() < 1e-9, "{}", parts[2].0);
+    assert!((rec::appeal(&w, i, j, None) - double[0]).abs() < 1e-9);
+}
+
 // --- Cain's NIL bug report (2026-11-06) ----------------------------------------------------
 
 /// A four-star of the class signing next with no offers yet, as Cain's

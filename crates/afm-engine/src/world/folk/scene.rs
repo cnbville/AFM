@@ -72,9 +72,50 @@ pub enum Kind {
     /// A December signee asks to be let out of his signing once his head
     /// coach is gone (Jan 1 start).
     SigneeRelease,
+    // Talk facts lane L6: the recruit's other talks.
+    /// Your call to a high school recruit, on the era's contact rules.
+    RecruitCall,
+    /// Your message to a high school recruit: one exchange.
+    RecruitMessage,
+    /// Whoever decides for a recruit calls you about something that changed.
+    FamilyCall,
+    /// Your case at the end of a recruit's official visit, in your office.
+    OfficialTalk,
+    /// A meeting with your leadership council, or your captains (live
+    /// talks v3, lane N5d).
+    Council,
+    /// A negotiation (live talks v3, lane N5b): a call with a pro's agent,
+    /// another club's GM, a prospect in the undrafted rush, or an agent
+    /// calling back (`Scene.b`, `persona::negotiate`).
+    Negotiation,
+    /// The draft side's talks (lane N5e, `persona::draft::scene`): his
+    /// family, your security director, a scout, a pro scout, the draft
+    /// room, a rival GM, the draft-day call.
+    DraftTalk,
+    // Live talks v3, lane N5c: staff, bosses and money.
+    /// A sit-down you call with someone in your building: an assistant, the
+    /// team doctor, the academic or compliance director, a booster
+    /// (`persona::office`).
+    Sitdown,
+    /// A reference call about a coach you might hire (question 10).
+    Reference,
 }
 
 impl Kind {
+    /// A recruit or transfer conversation on the fact sheet (`pitch`).
+    pub fn is_pitch(self) -> bool {
+        matches!(
+            self,
+            Kind::HomeVisit
+                | Kind::PortalCall
+                | Kind::PortalVisit
+                | Kind::RecruitCall
+                | Kind::RecruitMessage
+                | Kind::FamilyCall
+                | Kind::OfficialTalk
+        )
+    }
+
     pub fn name(self) -> &'static str {
         match self {
             Kind::TeamMeeting => "Team meeting",
@@ -115,6 +156,7 @@ impl Kind {
             Kind::Family => "At home",
             Kind::Story => "Storyline",
             Kind::Backchannel => "A call from someone you know",
+            Kind::Negotiation => "A negotiation",
             Kind::HomeVisit => "Home visit",
             Kind::CollegeCall => "A college calls",
             Kind::JobInterview => "Job interview",
@@ -123,6 +165,14 @@ impl Kind {
             Kind::PortalCall => "A call to a transfer",
             Kind::PortalVisit => "Transfer visit",
             Kind::SigneeRelease => "A signee asks out",
+            Kind::RecruitCall => "A call to a recruit",
+            Kind::RecruitMessage => "A message to a recruit",
+            Kind::FamilyCall => "His family calls",
+            Kind::OfficialTalk => "Official visit: your case",
+            Kind::Council => "The leadership council",
+            Kind::DraftTalk => "The draft side",
+            Kind::Sitdown => "A sit-down",
+            Kind::Reference => "A reference call",
         }
     }
 }
@@ -150,6 +200,11 @@ pub struct Said {
     /// as far as your read catches it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub went: Option<String>,
+    /// Your own words, when you typed this line instead of picking a chip
+    /// (live talks): `text` keeps the chip's words, which the game read it
+    /// as, and the screen shows these.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub typed: Option<String>,
 }
 
 /// An answer you can pick: what you say, the move and tone it is, and what
@@ -162,6 +217,122 @@ pub struct Pick {
     pub tone: String,
     pub hint: String,
     pub code: u32,
+    /// The talking point it stands on: its kind's key (`claims::Kind::key`,
+    /// talk facts design, section 14). Empty on a plain pick.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub point: String,
+    /// What picking it does to the talk.
+    #[serde(skip_serializing_if = "PickKind::is_plain")]
+    pub kind: PickKind,
+}
+
+/// What picking an option does to the talk (talk facts design, section 14;
+/// a name shared with the live talks plan).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PickKind {
+    /// An answer: it uses an exchange of the talk.
+    #[default]
+    Plain,
+    /// It uses no exchange (asking what he is looking for).
+    Free,
+    /// It moves around the talk ("bring up something else", back). A typed
+    /// line is never read as one.
+    Nav,
+    /// It can't be undone (a firing, a release, a ruling): a typed line
+    /// that reaches it is asked about first.
+    Final,
+}
+
+impl PickKind {
+    pub fn is_plain(&self) -> bool {
+        *self == PickKind::Plain
+    }
+}
+
+impl Pick {
+    /// The same pick, standing on a talking point (its kind's key).
+    pub fn on(mut self, point: &str) -> Pick {
+        self.point = point.to_string();
+        self
+    }
+    /// The same pick, of a kind.
+    pub fn of(mut self, kind: PickKind) -> Pick {
+        self.kind = kind;
+        self
+    }
+}
+
+/// What a typed line carried (live talks, the core): the reader's labels,
+/// turned into the scene's own terms by the game. `say` puts it on
+/// `Scene.heard` for the one answer it lands on, so an answer function can
+/// read what it needs beyond the pick, and clears it right after. It is
+/// never saved: the reading is saved as the pick.
+///
+/// Every field a later lane needs is here, so no lane adds one: lane 6
+/// reads `words`, `len`, `facts` and `plan`; lane 7 `facts`; lanes 9 and 10
+/// `tone`, `facts` and `promise`.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Heard {
+    /// The option it landed on (a code in the scene's `picks` or `reach`).
+    pub pick: u32,
+    /// The tone it was said in: "fiery", "warm", "firm" or "calm", or empty.
+    pub tone: String,
+    /// Your words, as typed (at most `LIMIT` characters).
+    pub words: String,
+    /// Their length in characters.
+    pub len: u16,
+    /// Each fact you stated, as the reader labelled it. The game checks
+    /// them (`claims::check`), never the AI.
+    pub facts: Vec<super::claims::Stated>,
+    /// A promise the line made, as read, or none. The game judges it, never
+    /// the AI (the promise design, `afm/promises/proposal.md`, decides how).
+    pub promise: Option<PromiseRead>,
+    /// A game plan ask (a staff meeting): which setting, which way, how far.
+    pub plan: Option<PlanAsk>,
+    /// The people the line named, by their ids.
+    pub named: Vec<u32>,
+}
+
+/// The longest typed line a talk takes, in characters.
+pub const LIMIT: usize = 400;
+
+/// A promise as the reader heard it, in the terms a promise can carry
+/// (the promise design's section 3, proposed, not confirmed): what he gets,
+/// by when, on what condition and against whom. Labels, not sizes: the game
+/// decides what each means and what keeping it takes.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct PromiseRead {
+    /// "start", "role", "touches", "ahead_of", "position", "place",
+    /// "contract", "stay".
+    pub kind: String,
+    /// "next_game", "opener", "midseason", "this_season", "next_season" or
+    /// empty for none said.
+    pub by: String,
+    /// "stat", "practice", "conduct", "grades", "body", "health" or empty.
+    pub condition: String,
+    /// The condition in the coach's words ("three tackles a game"), empty
+    /// when none.
+    pub condition_words: String,
+    /// The teammate he would play ahead of, by id.
+    pub against: Option<u32>,
+    /// The claim it was heard from, when the line stated where he stands
+    /// rather than promising it in so many words (the promise design,
+    /// section 11: "you're my starter" is a promise about what he'll see).
+    pub claim: Option<super::claims::Stated>,
+    /// How you'll use him, when the kind is "usage" (`usage::read`).
+    pub usage: Option<super::usage::Usage>,
+}
+
+/// A game plan ask read from a typed line (lane 6's staff meeting).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct PlanAsk {
+    /// The setting's key ("pressure", "man", "run").
+    pub setting: String,
+    /// +1 more, -1 less.
+    pub direction: i8,
+    /// How far, in the setting's own steps (1 for one step).
+    pub step: u8,
 }
 
 /// A table beside a scene (a report): column heads and rows of cells with
@@ -217,6 +388,20 @@ pub struct Scene {
     /// stop).
     #[serde(default)]
     pub minute: Option<u16>,
+    /// The options behind "bring up something else" (talk facts design,
+    /// section 14): a talk shows a few answers at a time and keeps the
+    /// rest here, so a typed line can reach every one of them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reach: Vec<Pick>,
+    /// The talking points made in a one-on-one (talk facts lane L4): each
+    /// kind's key, what you did with it last, and what it did to trust and
+    /// mood together; kept in `Folk.talked` when the talk ends.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub made: Vec<(String, String, f32)>,
+    /// What a typed line carried beyond its pick (live talks), set by `say`
+    /// for the one answer it lands on and cleared right after. Never saved.
+    #[serde(skip)]
+    pub heard: Option<Heard>,
 }
 
 impl Scene {
@@ -243,27 +428,38 @@ impl Scene {
             f: [0.0; 4],
             team: None,
             minute: None,
+            reach: Vec::new(),
+            made: Vec::new(),
+            heard: None,
         }
     }
 
     pub fn narrate(&mut self, text: impl Into<String>) {
-        self.lines.push(Said { by: 0, name: String::new(), text: text.into(), tell: None, went: None });
+        self.lines.push(Said { by: 0, name: String::new(), text: text.into(), tell: None, went: None, typed: None });
     }
     pub fn you(&mut self, name: &str, text: impl Into<String>) {
-        self.lines.push(Said { by: 1, name: name.to_string(), text: text.into(), tell: None, went: None });
+        self.lines.push(Said { by: 1, name: name.to_string(), text: text.into(), tell: None, went: None, typed: None });
     }
     pub fn them(&mut self, name: &str, text: impl Into<String>, tell: Option<String>) {
-        self.lines.push(Said { by: 2, name: name.to_string(), text: text.into(), tell, went: None });
+        self.lines.push(Said { by: 2, name: name.to_string(), text: text.into(), tell, went: None, typed: None });
     }
     pub fn other(&mut self, name: &str, text: impl Into<String>) {
-        self.lines.push(Said { by: 3, name: name.to_string(), text: text.into(), tell: None, went: None });
+        self.lines.push(Said { by: 3, name: name.to_string(), text: text.into(), tell: None, went: None, typed: None });
     }
     pub fn pick(&mut self, code: u32, label: impl Into<String>, mv: &str, tone: &str, hint: &str) {
-        self.picks.push(Pick { label: label.into(), mv: mv.into(), tone: tone.into(), hint: hint.into(), code });
+        self.picks.push(Pick {
+            label: label.into(),
+            mv: mv.into(),
+            tone: tone.into(),
+            hint: hint.into(),
+            code,
+            ..Pick::default()
+        });
     }
     pub fn end(&mut self) {
         self.done = true;
         self.picks.clear();
+        self.reach.clear();
     }
 }
 
@@ -272,6 +468,26 @@ impl Scene {
 pub fn pen(w: &mut World, s: &Scene, k: u64) -> voice::Pen {
     let seed = (w.folk.base as u64) << 20 ^ (s.id as u64) << 8 ^ s.step as u64 ^ k << 40;
     voice::Pen::take(w, seed)
+}
+
+/// A line from the bank for one step of a scene, or `fallback` while the
+/// part has no version this speaker can say. A tree that reads the facts
+/// asks for its new part this way, so it plays from its first merge and
+/// never says something its facts don't back (talk facts design, section
+/// 15, rule 3).
+pub(super) fn bank_line(
+    w: &mut World,
+    s: &Scene,
+    k: u64,
+    key: &str,
+    who: &voice::Speaker,
+    f: &voice::Facts,
+    fallback: &str,
+) -> String {
+    let mut pen = pen(w, s, k);
+    let line = pen.line(&[key], who, f);
+    pen.put(w);
+    if line.is_empty() { fallback.to_string() } else { line }
 }
 
 /// Adds a scene for you: it gets its id and, when it stops Continue, a line
@@ -347,8 +563,106 @@ pub fn open(w: &mut World, id: u32) -> Option<Scene> {
 
 /// You pick an answer.
 pub fn answer(w: &mut World, id: u32, code: u32) -> Result<Scene, String> {
+    land(w, id, code, None)
+}
+
+/// The scene kinds that take no typed line (live talks, the core): press
+/// and media were decided against (Cain 2026-11-07), and a story meeting's
+/// moves are public statements on a page of their own. A one-on-one takes
+/// typed lines once its hook is filled (`talks::ONE_ON_ONE_TYPED`, lane 9).
+pub const NO_BOX: [Kind; 4] = [Kind::Press, Kind::PressIntro, Kind::Media, Kind::Story];
+
+/// What `say` answers when a typed line reaches a pick that can't be undone
+/// and the reading was not confirmed. The game layer asks first.
+pub const ASK_FIRST: &str = "That can't be undone, so say which you meant first.";
+
+/// The options a typed line can reach in this exchange: the picks on the
+/// table and those behind "bring up something else" (`reach`), never one
+/// that only moves around the talk.
+pub fn options(s: &Scene) -> Vec<&Pick> {
+    s.picks.iter().chain(s.reach.iter()).filter(|p| p.kind != PickKind::Nav).collect()
+}
+
+/// Whether a scene takes a typed line now: it is open and not over, its
+/// kind takes them, a person is in it, and it has an option a line can
+/// land on.
+pub fn takes_typed(s: &Scene) -> bool {
+    let kind_ok = !NO_BOX.contains(&s.kind) && (s.kind != Kind::OneOnOne || super::talks::ONE_ON_ONE_TYPED);
+    kind_ok && s.opened && !s.done && !s.who.is_empty() && !options(s).is_empty()
+}
+
+/// Whether landing on this pick from a typed line asks first: the pick is
+/// marked final, or the core's table lists it (`finals`).
+pub fn asks_first(s: &Scene, p: &Pick) -> bool {
+    p.kind == PickKind::Final || super::finals::is_final(s.kind, p.code)
+}
+
+/// A typed line (live talks, the core): it lands on one of the options the
+/// scene can reach in this exchange (`options`), through the same dispatch
+/// as a click, so the line bank picks its line with the same seeds and the
+/// world after is the same as after the chip. What the line carried beyond
+/// the pick rides on `Scene.heard` for that one answer. Your words go on the
+/// scene's own line for the pick (`Said.typed`), never on a second line.
+///
+/// A pick that can't be undone (`asks_first`) is refused unless the reading
+/// was confirmed, so no caller can skip the ask-first step. A one-on-one
+/// reads its option from its own hook (`talks::one_on_one_say`).
+pub fn say(w: &mut World, id: u32, mut heard: Heard, confirmed: bool) -> Result<Scene, String> {
+    let s = w.folk.scenes.iter().find(|s| s.id == id).ok_or("No such meeting.")?;
+    if s.done {
+        return Err("That meeting is over.".into());
+    }
+    if !takes_typed(s) {
+        return Err("This talk takes no typed lines.".into());
+    }
+    if heard.words.trim().is_empty() {
+        return Err("Say something first.".into());
+    }
+    if heard.words.chars().count() > LIMIT {
+        return Err(format!("A line is {LIMIT} characters at most."));
+    }
+    let code = if s.kind == Kind::OneOnOne {
+        super::talks::one_on_one_say(w, s, &heard).ok_or("That answer isn't on the table.")?
+    } else {
+        heard.pick
+    };
+    // A talk's move may be said in any tone (screens topic 8), typed as
+    // clicked (`talks::same_move`).
+    let talk = s.kind == Kind::OneOnOne;
+    let p = options(s)
+        .into_iter()
+        .find(|p| p.code == code || talk && super::talks::same_move(p.code, code))
+        .ok_or("That answer isn't on the table.")?;
+    if asks_first(s, p) && !confirmed {
+        return Err(ASK_FIRST.into());
+    }
+    heard.pick = code;
+    heard.len = heard.words.chars().count().min(u16::MAX as usize) as u16;
+    // A claim about where your player stands is a promise about what he'll
+    // see (the promise design, section 11).
+    if let Some(p) = super::claims::truth::standing_promise(w, s, &heard) {
+        heard.promise = Some(p);
+    }
+    let promise = heard.promise.clone().zip(super::claims::truth::your_player(w, s));
+    let (facts, before) = (heard.facts.clone(), super::claims::check::before(w, s));
+    let made = w.folk.promises.len();
+    land(w, id, code, Some(heard))?;
+    // The pick's own answer logs a promise on the reading's terms when it
+    // makes one (a one-on-one's promise); the line adds none beyond it.
+    if let Some((p, him)) = promise.filter(|_| w.folk.promises.len() == made) {
+        super::talks::typed_promise(w, id, him, &p);
+    }
+    super::claims::check::landed(w, id, &facts, before);
+    w.folk.scenes.iter().find(|s| s.id == id).cloned().ok_or_else(|| "No such meeting.".into())
+}
+
+/// Lands an answer, clicked (`heard` none) or typed. The scene is written
+/// back into the world after, and `heard` is cleared first and after, so a
+/// later chip never finds an old one.
+fn land(w: &mut World, id: u32, code: u32, heard: Option<Heard>) -> Result<Scene, String> {
     let k = w.folk.scenes.iter().position(|s| s.id == id).ok_or("No such meeting.")?;
     let mut s = w.folk.scenes[k].clone();
+    s.heard = None;
     if s.done {
         return Err("That meeting is over.".into());
     }
@@ -364,6 +678,7 @@ pub fn answer(w: &mut World, id: u32, code: u32) -> Result<Scene, String> {
     let Some(mut picked) = s
         .picks
         .iter()
+        .chain(s.reach.iter())
         .find(|p| p.code == code)
         .or_else(|| s.picks.iter().find(|p| talk && super::talks::same_move(p.code, code)))
         .cloned()
@@ -375,7 +690,14 @@ pub fn answer(w: &mut World, id: u32, code: u32) -> Result<Scene, String> {
         picked.code = code;
     }
     s.picks.clear();
+    let before = s.lines.len();
+    let words = heard.as_ref().map(|h| h.words.clone());
+    s.heard = heard;
     dispatch_answer(w, &mut s, code, &picked);
+    s.heard = None;
+    if let Some(words) = words {
+        put_typed(&mut s, before, &picked.label, words, your_name(w));
+    }
     s.step = s.step.saturating_add(1);
     if s.done {
         clear_mark(w, &s);
@@ -385,6 +707,24 @@ pub fn answer(w: &mut World, id: u32, code: u32) -> Result<Scene, String> {
         *slot = s.clone();
     }
     Ok(s)
+}
+
+/// Puts typed words on the line the answer wrote for you. An answer that
+/// ends the meeting without a line of yours gets one, with the chip's
+/// words, just before what it wrote, so the transcript still shows what you
+/// said. A meeting that goes on gets no extra line (scenes count your
+/// lines: an interview offers fewer questions after three), so there the
+/// words ride only on the poll's answer.
+fn put_typed(s: &mut Scene, before: usize, label: &str, words: String, name: String) {
+    let from = before.min(s.lines.len());
+    match s.lines[from..].iter_mut().find(|l| l.by == 1) {
+        Some(l) => l.typed = Some(words),
+        None if s.done => {
+            let line = Said { by: 1, name, text: label.to_string(), typed: Some(words), ..Said::default() };
+            s.lines.insert(from, line);
+        }
+        None => {}
+    }
 }
 
 /// Hands a scene to your staff: it plays out the way your staff would
@@ -397,7 +737,11 @@ pub fn hand(w: &mut World, id: u32) -> Result<Scene, String> {
     }
     if !s.opened {
         s.opened = true;
-        dispatch_open(w, &mut s);
+        // A recruit talk you never opened is your staff's alone: opening it
+        // would put his first question and the news on your own file.
+        if !s.kind.is_pitch() {
+            dispatch_open(w, &mut s);
+        }
     }
     dispatch_hand(w, &mut s);
     s.done = true;
@@ -408,6 +752,24 @@ pub fn hand(w: &mut World, id: u32) -> Result<Scene, String> {
         *slot = s.clone();
     }
     Ok(s)
+}
+
+/// Ends a scene you left open without handing it on: `end` writes what
+/// it came to, and what was said stands.
+pub(crate) fn leave(w: &mut World, id: u32, end: impl FnOnce(&mut World, &mut Scene)) {
+    let Some(k) = w.folk.scenes.iter().position(|s| s.id == id) else { return };
+    let mut s = w.folk.scenes[k].clone();
+    if s.done {
+        return;
+    }
+    end(w, &mut s);
+    s.done = true;
+    s.picks.clear();
+    clear_mark(w, &s);
+    log_scene(w, &s);
+    if let Some(slot) = w.folk.scenes.iter_mut().find(|x| x.id == id) {
+        *slot = s;
+    }
 }
 
 /// The meetings waiting for you on a morning: Continue stops for them.
@@ -463,7 +825,9 @@ fn log_scene(w: &mut World, s: &Scene) {
         Kind::Press | Kind::PressIntro | Kind::Media => "press",
         Kind::BossFirst | Kind::BossMeeting => "boss",
         Kind::Booster => "boosters",
-        Kind::OneOnOne | Kind::TeamMeeting | Kind::TeamTalk | Kind::Parents | Kind::ParentCall => "talk",
+        Kind::OneOnOne | Kind::TeamMeeting | Kind::TeamTalk | Kind::Parents | Kind::ParentCall | Kind::Council => {
+            "talk"
+        }
         Kind::Holdover | Kind::StaffLine | Kind::Interview | Kind::Firing | Kind::Proposal => "staff",
         Kind::Discipline | Kind::Ritual => "rules",
         Kind::ReachOut | Kind::Trip | Kind::JobCall | Kind::Backchannel => "network",
@@ -473,9 +837,14 @@ fn log_scene(w: &mut World, s: &Scene) {
         | Kind::CombineTalk
         | Kind::PortalCall
         | Kind::PortalVisit
-        | Kind::SigneeRelease => "recruiting",
+        | Kind::SigneeRelease
+        | Kind::RecruitCall
+        | Kind::RecruitMessage
+        | Kind::FamilyCall
+        | Kind::OfficialTalk
+        | Kind::DraftTalk => "recruiting",
         Kind::JobInterview => "network",
-        Kind::StaffMeeting => "staff",
+        Kind::StaffMeeting | Kind::Sitdown | Kind::Reference => "staff",
         _ => "place",
     };
     super::note(w, topic, source, format!("{}: {text}", s.title), None);
@@ -483,9 +852,13 @@ fn log_scene(w: &mut World, s: &Scene) {
 
 fn dispatch_open(w: &mut World, s: &mut Scene) {
     match s.kind {
-        Kind::OneOnOne | Kind::TeamMeeting | Kind::TeamTalk | Kind::Parents | Kind::ParentCall | Kind::StaffLine => {
-            super::talks::open(w, s)
-        }
+        Kind::OneOnOne
+        | Kind::TeamMeeting
+        | Kind::TeamTalk
+        | Kind::Parents
+        | Kind::ParentCall
+        | Kind::StaffLine
+        | Kind::Council => super::talks::open(w, s),
         Kind::Press | Kind::PressIntro => super::press::open(w, s),
         Kind::BossFirst | Kind::BossMeeting => super::boss::open(w, s),
         Kind::Discipline | Kind::Ritual => super::rules::open(w, s),
@@ -494,22 +867,33 @@ fn dispatch_open(w: &mut World, s: &mut Scene) {
         Kind::StarPower | Kind::SecondOpinion | Kind::Family => super::life::open(w, s),
         Kind::Story => crate::world::storylines::moves::open(w, s),
         Kind::Backchannel => super::backchannel::open(w, s),
+        Kind::Negotiation => super::persona::negotiate::open(w, s),
         Kind::HomeVisit
         | Kind::CollegeCall
         | Kind::JobInterview
         | Kind::StaffMeeting
         | Kind::CombineTalk
         | Kind::PortalCall
-        | Kind::PortalVisit => super::dialogue::open(w, s),
+        | Kind::PortalVisit
+        | Kind::RecruitCall
+        | Kind::RecruitMessage
+        | Kind::FamilyCall
+        | Kind::OfficialTalk => super::dialogue::open(w, s),
+        Kind::DraftTalk => super::persona::draft::scene::open(w, s),
+        Kind::Sitdown | Kind::Reference => super::persona::office::open(w, s),
         _ => super::takeover::open(w, s),
     }
 }
 
 fn dispatch_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     match s.kind {
-        Kind::OneOnOne | Kind::TeamMeeting | Kind::TeamTalk | Kind::Parents | Kind::ParentCall | Kind::StaffLine => {
-            super::talks::answer(w, s, code, picked)
-        }
+        Kind::OneOnOne
+        | Kind::TeamMeeting
+        | Kind::TeamTalk
+        | Kind::Parents
+        | Kind::ParentCall
+        | Kind::StaffLine
+        | Kind::Council => super::talks::answer(w, s, code, picked),
         Kind::Press | Kind::PressIntro => super::press::answer(w, s, code, picked),
         Kind::BossFirst | Kind::BossMeeting => super::boss::answer(w, s, code, picked),
         Kind::Discipline | Kind::Ritual => super::rules::answer(w, s, code, picked),
@@ -518,13 +902,20 @@ fn dispatch_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         Kind::StarPower | Kind::SecondOpinion | Kind::Family => super::life::answer(w, s, code, picked),
         Kind::Story => crate::world::storylines::moves::answer(w, s, code, picked),
         Kind::Backchannel => super::backchannel::answer(w, s, code, picked),
+        Kind::Negotiation => super::persona::negotiate::answer(w, s, code),
         Kind::HomeVisit
         | Kind::CollegeCall
         | Kind::JobInterview
         | Kind::StaffMeeting
         | Kind::CombineTalk
         | Kind::PortalCall
-        | Kind::PortalVisit => super::dialogue::answer(w, s, code, picked),
+        | Kind::PortalVisit
+        | Kind::RecruitCall
+        | Kind::RecruitMessage
+        | Kind::FamilyCall
+        | Kind::OfficialTalk => super::dialogue::answer(w, s, code, picked),
+        Kind::DraftTalk => super::persona::draft::scene::answer(w, s, code),
+        Kind::Sitdown | Kind::Reference => super::persona::office::answer(w, s, code, picked),
         _ => super::takeover::answer(w, s, code, picked),
     }
 }
@@ -542,13 +933,20 @@ fn dispatch_hand(w: &mut World, s: &mut Scene) {
         Kind::StarPower | Kind::SecondOpinion | Kind::Family => super::life::hand(w, s),
         Kind::Story => crate::world::storylines::moves::hand(w, s),
         Kind::Backchannel => super::backchannel::hand(w, s),
+        Kind::Negotiation => super::persona::negotiate::hand(w, s),
         Kind::HomeVisit
         | Kind::CollegeCall
         | Kind::JobInterview
         | Kind::StaffMeeting
         | Kind::CombineTalk
         | Kind::PortalCall
-        | Kind::PortalVisit => super::dialogue::hand(w, s),
+        | Kind::PortalVisit
+        | Kind::RecruitCall
+        | Kind::RecruitMessage
+        | Kind::FamilyCall
+        | Kind::OfficialTalk => super::dialogue::hand(w, s),
+        Kind::DraftTalk => super::persona::draft::scene::hand(w, s),
+        Kind::Sitdown | Kind::Reference => super::persona::office::hand(w, s),
         _ => super::takeover::hand(w, s),
     }
 }

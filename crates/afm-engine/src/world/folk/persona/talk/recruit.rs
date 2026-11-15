@@ -1,0 +1,578 @@
+//! Live talks v3, lane N5a: recruiting (`docs/design/live-talks-persona.md`,
+//! sections 6.3 to 6.5). Your home visits, calls, messages, his family's
+//! call, the official visit's sit-down and a transfer's call and visit play
+//! as v3 talks: the ear reads your line, the game decides, the voice
+//! answers as him (or as whoever decides for him).
+//!
+//! What a typed line does in a recruit's talk, all by the game's own rules:
+//!
+//! - **Your points land on your case** (`case.rs`), never on a mood: a hit
+//!   on one of his wants makes your best point in its group, a hit on a
+//!   point makes that point, each sized by the chips' own formula
+//!   (`case::lands`, `pitch::typed_point`). One point an exchange, as the
+//!   chips make them, and no more points than the talk has exchanges
+//!   (`cap`). Wording never beats the best chip (lane 9's rule).
+//! - **His trust in you** only falls on a line (an insult, a threat, a sting
+//!   to his family): no chip in a recruit's talk raises it, so no line does.
+//!   A straight answer ("doubted" his thing where your proof is weak) is the
+//!   chip's "be straight": no pull, and he believes your promises more.
+//! - **Questions** are lane N1's (what he knows and how he tells it); claims
+//!   are lane 10's checks, with lane 10's costs when he catches you.
+//! - **A promise** counts the moment you say it (question 4): the chip's
+//!   promise (`pledge::make`, a transfer's `portal::promise`).
+//! - **Offers** are lane N3's (`Deals`, against his best other school); a
+//!   yes or a "let me talk to my mom" waits on your confirm, and confirmed
+//!   it is made real on the recruiting desk (`real`).
+//! - **Asking him to commit** runs the desk's own commitment rule
+//!   (`college::board_check`, a transfer's `portal::check`): he says yes
+//!   only when he would commit to you today.
+//! - **An invitation to visit** waits on your confirm, then the desk sets
+//!   it on its first open date, and he may still say no (the built rule).
+//! - **The family's answer on its day** (`day`): weighed again with their
+//!   say, made real on a yes, and either way a line in your inbox.
+//!
+//! Every size here is Claude's (proposed, not confirmed).
+
+use super::super::Them;
+use super::super::deals::{self, Agreement};
+use super::super::ear::{Act, HisAsk, How, Item, Reading, Sized, Turn};
+use super::super::makeup;
+use super::super::room::{Channel, Place, Present, Room, Seat};
+use super::super::stores;
+use super::super::terms::{Give, Offer, Request, Valuing, Weighed};
+use super::super::wants::{Want, WantKind, Willing};
+use super::store::Open;
+use super::{DEALS, hits};
+use crate::calendar::{Date, Loudness};
+use crate::world::World;
+use crate::world::background::Decider;
+use crate::world::folk::claims::{self, Group, Stated, truth::STANDING};
+use crate::world::folk::pitch::{self, Typed, With};
+use crate::world::folk::pulls::{Ev, Where};
+use crate::world::folk::scene::{Kind as SceneKind, PromiseRead, Scene};
+use crate::world::folk::{self as folk, case, pledge};
+use crate::world::front_office::{self, college::VisitKind};
+
+/// The recruit's talks that play as v3.
+pub const KINDS: [SceneKind; 7] = [
+    SceneKind::HomeVisit,
+    SceneKind::OfficialTalk,
+    SceneKind::RecruitCall,
+    SceneKind::RecruitMessage,
+    SceneKind::FamilyCall,
+    SceneKind::PortalCall,
+    SceneKind::PortalVisit,
+];
+
+/// A flattering line sells at this share of the point it flatters.
+/// Proposed, not confirmed.
+pub const FLATTER: f32 = 0.5;
+/// The most one line can cost his trust in you (the worst chip in a
+/// recruit's talk is a caught oversell, lane 10). Proposed, not confirmed.
+pub const TRUST_FLOOR: f32 = -0.04;
+/// The most points his card lists that you could still make. Proposed, not
+/// confirmed.
+pub const MAX_POINTS: usize = 8;
+
+/// Whether a scene is a recruit's talk.
+pub fn is_recruit(k: SceneKind) -> bool {
+    KINDS.contains(&k)
+}
+
+/// Who the talk is with, if it's a recruit's talk.
+pub fn with(w: &World, s: &Scene) -> Option<With> {
+    if !is_recruit(s.kind) {
+        return None;
+    }
+    pitch::with(w, s)
+}
+
+/// Whether he decides for himself.
+fn decides_himself(w: &World, x: &With) -> bool {
+    x.transfer || w.people[x.i].family.decider == Decider::Himself
+}
+
+/// Who answers for him: his decider (family slot 0), or a parent when he
+/// decides himself.
+pub fn family_voice(w: &World, x: &With) -> (Them, Seat) {
+    if decides_himself(w, x) { (Them::Kin(x.id, 1), Seat::Family) } else { (Them::Kin(x.id, 0), Seat::Decider) }
+}
+
+/// The room (5.5, 5.6): a living room with whoever decides for him, your
+/// office at the end of an official visit with the family, a call or a
+/// text with him, his family's call through the one who called, a
+/// transfer on his own.
+pub fn room(w: &World, s: &Scene) -> Option<Room> {
+    let x = with(w, s)?;
+    let him = Present { who: Them::Player(x.id), seat: Seat::Across, speaks: true };
+    let (fam, seat) = family_voice(w, &x);
+    let family = Present { who: fam, seat, speaks: true };
+    let with_family = !decides_himself(w, &x);
+    let (channel, present) = match (s.kind, x.at) {
+        (SceneKind::FamilyCall, _) => (Channel::Through(fam), vec![him, family]),
+        (_, Where::Message) => (Channel::Text, vec![him]),
+        (_, Where::Call) => (Channel::Phone, vec![him]),
+        (_, Where::Home) if with_family => (Channel::InPerson(Place::Home), vec![him, family]),
+        (_, Where::Home) => (Channel::InPerson(Place::Home), vec![him]),
+        (_, _) if with_family => (Channel::InPerson(Place::Office), vec![him, family]),
+        _ => (Channel::InPerson(Place::Office), vec![him]),
+    };
+    Some(Room { channel, present })
+}
+
+/// The case group a want of his is about.
+pub fn group_of(k: WantKind) -> Option<Group> {
+    Some(match k {
+        WantKind::Role | WantKind::Security => Group::PlayingTime,
+        WantKind::Money => Group::Money,
+        WantKind::Academics => Group::School,
+        WantKind::Place | WantKind::Family => Group::Home,
+        WantKind::Friends | WantKind::Loyalty => Group::People,
+        WantKind::Development | WantKind::Career => Group::League,
+        WantKind::Winning | WantKind::Name => Group::Winning,
+        _ => return None,
+    })
+}
+
+/// His card (5.2): his wants (his decider's with his own), the points you
+/// could still make to him in this talk in your chips' words, his pride,
+/// your promise to him, his family, and what he told you before.
+pub fn items(w: &World, s: &Scene, wants: &[Want]) -> Option<Vec<(Item, String)>> {
+    let x = with(w, s)?;
+    let mut out = Vec::new();
+    for (k, v) in wants.iter().enumerate() {
+        out.push((Item::Want(k as u8), format!("what he wants: {}", super::items::want_words(v.kind))));
+    }
+    let cares = pitch::typed_cares(w, s).unwrap_or([1.0; 7]);
+    let mut pts = pitch::typed_points(w, s);
+    pts.sort_by(|a, b| {
+        let c = |k: &claims::Kind| k.group().map_or(0.0, |g| cares[g as usize]);
+        c(b).total_cmp(&c(a)).then(a.cmp(b))
+    });
+    for k in pts.into_iter().take(MAX_POINTS) {
+        let Some(g) = k.group() else { continue };
+        let words = pitch::typed_point_words(w, s, k).unwrap_or_default();
+        out.push((
+            Item::Point(k.key().to_string()),
+            format!("what you can tell him ({}): {}", g.name(), folk::plain(&words)),
+        ));
+    }
+    out.push((Item::Pride, "his pride".into()));
+    if let Some(p) = promise_words(w, &x) {
+        out.push((Item::HisWord, format!("your promise to him: {p}")));
+    }
+    out.push((Item::Family, "his family".into()));
+    Some(out)
+}
+
+/// Your promise to him in words, if you made one.
+fn promise_words(w: &World, x: &With) -> Option<String> {
+    if x.transfer {
+        return front_office::portal::promised(w, x.id)
+            .map(|(k, _)| if k == 0 { "a starting job".into() } else { "a real role".into() });
+    }
+    let pos = w.people[x.i].player.position;
+    pledge::on_case(w, x.i, x.j).map(|k| k.words(pos))
+}
+
+/// The point a hit makes, if any: a point on his card, or your best point
+/// in the group of the want, or his family's (close to home).
+fn target(w: &World, s: &Scene, item: &Item, wants: &[Want]) -> Option<Typed> {
+    match item {
+        Item::Point(key) => pitch::typed_point(w, s, claims::Kind::from_key(key), None),
+        Item::Want(k) => pitch::typed_point(w, s, None, group_of(wants.get(*k as usize)?.kind)),
+        Item::Family => pitch::typed_point(w, s, None, Some(Group::Home)),
+        _ => None,
+    }
+}
+
+/// The group a hit is about, when it has one.
+fn group_for(item: &Item, wants: &[Want]) -> Option<Group> {
+    match item {
+        Item::Point(key) => claims::Kind::from_key(key).and_then(|k| k.group()),
+        Item::Want(k) => wants.get(*k as usize).and_then(|x| group_of(x.kind)),
+        Item::Family => Some(Group::Home),
+        _ => None,
+    }
+}
+
+/// Whether a person in the room hears for his case: him, or his family.
+fn on_case(x: &With, who: Them) -> bool {
+    matches!(who, Them::Player(id) | Them::Kin(id, _) if id == x.id)
+}
+
+/// One hit, sized for a recruit (question 1): the case pull it makes
+/// (carried in `Sized.mood`: a recruit has no mood toward you) and what it
+/// costs his trust in you. None when it names nothing real for him.
+pub fn size(w: &World, s: &Scene, h: &super::super::ear::Hit, wants: &[Want], open: &Open) -> Option<Sized> {
+    let x = with(w, s)?;
+    if !on_case(&x, h.on) {
+        return None;
+    }
+    let fade = hits::AGAIN_IN_TALK.powi(open.times(h) as i32);
+    let ear = 0.6 + 0.8 * makeup::trust(w, h.on) as f32;
+    let floor = case::POINT_RANGE.0 * x.scale;
+    let pt = target(w, s, &h.item, wants);
+    let grouped = group_for(&h.item, wants).is_some();
+    let ego = super::z(w, Them::Player(x.id), crate::player::Trait::Ego).max(0.0);
+    let temper = super::z(w, Them::Player(x.id), crate::player::Trait::Temper).max(0.0);
+    let (trust, lean) = match h.how {
+        How::Reassured | How::Respected => (0.0, pt.map_or(0.0, |p| p.lean)),
+        How::Flattered => (0.0, pt.map_or(0.0, |p| FLATTER * p.lean)),
+        // A straight answer: no pull (applied as the chip's "be straight").
+        How::Doubted => (0.0, 0.0),
+        How::Stung => (-0.02 * ear, if grouped { 0.5 * floor } else { 0.0 }),
+        How::Insulted => (-(0.07 + 0.04 * ego) * ear, if grouped { floor } else { 0.0 }),
+        How::Threatened => (-(0.05 + 0.03 * temper) * ear, if grouped { floor } else { 0.0 }),
+    };
+    if trust == 0.0 && lean == 0.0 && h.how != How::Doubted {
+        return None;
+    }
+    Some(Sized { hit: h.clone(), trust: trust * fade, mood: lean * fade, faded: fade < 1.0 })
+}
+
+/// Holds a line inside the chips' caps: one point an exchange (the best
+/// positive pull, else the worst), none once the talk's exchanges are
+/// used, and each person's trust no lower than `TRUST_FLOOR`.
+pub fn cap(w: &World, s: &Scene, hits: &mut [Sized]) {
+    let left = pitch::exchanges_left(w, s);
+    let best = (0..hits.len()).filter(|&k| hits[k].mood > 0.0).max_by(|&a, &b| hits[a].mood.total_cmp(&hits[b].mood));
+    let worst = (0..hits.len()).filter(|&k| hits[k].mood < 0.0).min_by(|&a, &b| hits[a].mood.total_cmp(&hits[b].mood));
+    let keep = best.or(worst);
+    for (k, h) in hits.iter_mut().enumerate() {
+        if left == 0 || Some(k) != keep {
+            h.mood = 0.0;
+        }
+    }
+    let mut people: Vec<Them> = hits.iter().map(|h| h.hit.on).collect();
+    people.dedup();
+    for p in people {
+        let sum: f32 = hits.iter().filter(|h| h.hit.on == p).map(|h| h.trust).sum();
+        if sum < TRUST_FLOOR {
+            let k = TRUST_FLOOR / sum;
+            for h in hits.iter_mut().filter(|h| h.hit.on == p) {
+                h.trust *= k;
+            }
+        }
+    }
+}
+
+/// How he takes the point that landed, in words for the voice.
+pub fn reaction_words(ev: Ev) -> &'static str {
+    match ev {
+        Ev::TookWell => "He says that's what he came for.",
+        Ev::Polite => "He's polite about it, no more.",
+        Ev::Cool => "He says it isn't his thing.",
+        Ev::Doubted => "It matters to him, and he doesn't believe you can back it up.",
+        _ => "",
+    }
+}
+
+/// What the voice may say about the point the line made (after `cap`).
+pub fn released(w: &World, s: &Scene, hits: &[Sized], wants: &[Want]) -> Vec<String> {
+    let mut out = Vec::new();
+    if let Some(h) = hits.iter().find(|h| h.mood != 0.0)
+        && let Some(p) = target(w, s, &h.hit.item, wants)
+        && let Some(ev) = pitch::typed_reaction(w, s, &p, h.mood)
+    {
+        out.push(reaction_words(ev).to_string());
+    }
+    if pitch::exchanges_left(w, s) == 0 && hits.iter().any(|h| matches!(h.hit.how, How::Reassured | How::Respected)) {
+        out.push("He has heard your case for today.".into());
+    }
+    out
+}
+
+/// A claim about where he'll stand is a promise about what he'll see
+/// (lane 10's rule): a first place or ahead of a named player is a start,
+/// anything else a role.
+pub fn standing_promise(x: &With, facts: &[Stated]) -> Option<PromiseRead> {
+    let f =
+        facts.iter().find(|f| STANDING.contains(&f.kind.as_str()) && (f.about.is_none() || f.about == Some(x.id)))?;
+    let v = f.value.to_lowercase();
+    let first = ["start", "1st", "first", "the ones", "number one", "no. 1", "day one"].iter().any(|k| v.contains(k));
+    let kind = if f.kind == "depth_rank" && first || f.kind == "ahead_of_him" { "start" } else { "role" };
+    Some(PromiseRead { kind: kind.into(), claim: Some(f.clone()), ..PromiseRead::default() })
+}
+
+/// How a promise lands, for the voice, before it's made.
+pub fn promise_released(w: &World, s: &Scene, p: &PromiseRead) -> String {
+    if !pitch::can_promise_now(w, s) {
+        return "You've made him a promise already, or your offer isn't out: this one adds nothing.".into();
+    }
+    match pitch::promise_belief(w, s, &p.kind) {
+        Some(b) if b >= pledge::BELIEVES => "They believe you. It's what they wanted to hear.".into(),
+        Some(_) => "They've heard promises before. They aren't sure they believe yours.".into(),
+        None if p.kind == "usage" && p.usage.is_some() => "They take in how you'd use him.".into(),
+        None => "That isn't a promise this talk can make.".into(),
+    }
+}
+
+/// Whether he'd do what you ask, where the recruiting desk decides it:
+/// commit (its own rule), and shut it down (only once he's yours). None:
+/// lane N3's `Asks` decides.
+pub fn willing(w: &World, s: &Scene, r: &Request) -> Option<(Willing, String)> {
+    let x = with(w, s)?;
+    match r {
+        Request::Commit => Some(if ready(w, &x) {
+            (Willing::Yes, "He's ready: he commits to you.".into())
+        } else if !offered(w, &x) {
+            (Willing::No, "He'd need your offer before he could commit.".into())
+        } else {
+            (Willing::No, "He isn't ready to commit: he wants to see his other schools through.".into())
+        }),
+        Request::ShutDown if !committed_here(w, &x) => {
+            Some((Willing::No, "He hasn't committed to you: there's nothing to shut down for you.".into()))
+        }
+        _ => None,
+    }
+}
+
+/// Whether your offer is out to him.
+fn offered(w: &World, x: &With) -> bool {
+    if x.transfer { front_office::portal::offered_to(w, x.id) } else { front_office::college::offered_here(w, x.id) }
+}
+
+/// Whether he's committed to you.
+fn committed_here(w: &World, x: &With) -> bool {
+    if x.transfer {
+        front_office::portal::committed_to(w, x.id)
+    } else {
+        w.people[x.i].cal.commit.is_some_and(|c| c.0 == x.j)
+    }
+}
+
+/// Whether he'd commit to you today, by the desk's own rule.
+pub fn ready(w: &World, x: &With) -> bool {
+    if x.transfer { front_office::portal::ready(w, x.id) } else { front_office::college::commit_ready(w, x.j, x.id) }
+}
+
+/// Runs a request the recruiting desk owns, once he agreed: commit runs
+/// the desk's commitment (`board_check`, `portal::check`). None: lane
+/// N3's `Asks::run` runs it.
+pub fn run(w: &mut World, s: &Scene, r: &Request) -> Option<Vec<String>> {
+    let x = with(w, s)?;
+    match r {
+        Request::Commit => {
+            let said = if x.transfer {
+                front_office::portal::check(w, x.id)
+            } else {
+                front_office::college::board_check(w, x.j, x.id)
+            };
+            Some(vec![said.unwrap_or_else(|| "He holds off after all.".into())])
+        }
+        _ => None,
+    }
+}
+
+/// The first day an official visit could be set for him (a transfer's
+/// campus visit), with the desk's word for it.
+pub fn visit_day(w: &World, x: &With) -> Option<Date> {
+    let dates = if x.transfer {
+        front_office::portal::visit_dates(w, x.id, VisitKind::Official)
+    } else {
+        front_office::college::visit_dates(w, x.id, VisitKind::Official)
+    };
+    dates.first().map(|d| d.0)
+}
+
+/// Sets the visit you invited him to, on its first open date. He may
+/// still say no (the desk's own rule).
+pub fn set_visit(w: &mut World, s: &Scene) -> String {
+    let Some(x) = with(w, s) else { return "That talk is over.".into() };
+    let Some(d) = visit_day(w, &x) else { return "There's no open date for his visit.".into() };
+    let r = if x.transfer {
+        front_office::portal::set_visit(w, x.id, VisitKind::Official, d)
+    } else {
+        front_office::college::set_visit(w, x.id, VisitKind::Official, d)
+    };
+    match r {
+        Ok(t) | Err(t) => t,
+    }
+}
+
+/// The visit request's name on a confirm card (`Request::Other`).
+pub const VISIT: &str = "official visit";
+
+/// His own asks with what he'd want given (question 3): lane N3's counter
+/// to the deal you haven't made, from what he wants most.
+pub fn his_ask_gives(w: &World, him: Them, ask: &mut HisAsk) {
+    if let Weighed::Counter(c) = DEALS.weigh(w, him, &Offer::default()) {
+        ask.gives = c.gives;
+        ask.terms = c.terms;
+    }
+}
+
+/// Makes what lane N3 left real on the recruiting desk (question 4: you
+/// confirmed it): his scholarship, the money you said (a NIL promise; a
+/// transfer's offer), his brother's offer, how you'd use him. A staff job
+/// for his coach is the hiring screen's. Returns the desk's words.
+pub fn real(w: &mut World, him: Them, a: &Agreement) -> Vec<String> {
+    let Them::Player(id) = him else { return Vec::new() };
+    let Some(i) = folk::person(w, id) else { return Vec::new() };
+    let transfer = w.people[i].cal.portal.is_some() && w.people[i].stage != crate::world::Stage::HighSchool;
+    let mut out = Vec::new();
+    let money = a.left.iter().find_map(|g| if let Give::Money(x) = g { Some(*x) } else { None });
+    let scholarship = a.left.iter().any(|g| matches!(g, Give::Scholarship(None)));
+    let say = |r: Result<String, String>| match r {
+        Ok(t) | Err(t) => t,
+    };
+    if transfer {
+        if scholarship || money.is_some() {
+            out.push(say(front_office::college::portal_offer(w, id, money, None)));
+        }
+    } else {
+        if scholarship || (money.is_some() && !front_office::college::offered_here(w, id)) {
+            out.push(say(front_office::college::offer(w, id)));
+        }
+        if money.is_some() {
+            out.push(say(front_office::college::set_promise(w, id, money, None)));
+        }
+    }
+    for g in &a.left {
+        match g {
+            Give::Scholarship(Some(b)) => out.push(say(front_office::college::offer(w, *b))),
+            Give::StaffJob(_) => out.push("A job for his coach is set on the hiring screen.".into()),
+            Give::EarlyEnrol => out.push("Early enrolment is his to choose when he signs.".into()),
+            Give::Outside(_) => out.push("Your staff won't touch money outside the rules.".into()),
+            _ => {}
+        }
+    }
+    for u in &a.left_terms {
+        let made = if transfer {
+            front_office::portal::promise_usage(w, id, *u).is_some()
+        } else {
+            let (j, ear) = (front_office::program(w), claims::Ear::Decider);
+            j.and_then(|j| pledge::make_usage(w, i, j, *u, ear)).is_some()
+        };
+        if made {
+            out.push(format!("You promised {}. It's checked once he's yours.", u.words()));
+        }
+    }
+    out
+}
+
+/// The game's turn for a recruit's talk, on top of lane N4's (`turn`
+/// calls this once it has played the acts): his asks with gives, a
+/// family's "let me think" waiting on your confirm, and what the desk
+/// decides about commit.
+pub fn turn(w: &World, s: &Scene, reading: &Reading, t: &mut Turn) {
+    let Some(x) = with(w, s) else { return };
+    let him = Them::Player(x.id);
+    for a in &mut t.his_asks {
+        his_ask_gives(w, him, a);
+    }
+    for (o, wd) in &t.weighed {
+        if let Weighed::Later(_) = wd {
+            t.confirm.push(super::super::ear::Confirm::Offer(o.clone()));
+        }
+    }
+    for act in &reading.acts {
+        if let Act::Invite(super::super::ear::Invite::Visit) = act {
+            match visit_day(w, &x) {
+                Some(d) => {
+                    t.say.released.push(format!("You invite him to visit; the first open date is {}.", d));
+                    t.confirm.push(super::super::ear::Confirm::Request(Request::Other(VISIT.into())));
+                }
+                None => t.say.released.push("There's no open date for a visit now.".into()),
+            }
+        }
+    }
+}
+
+/// Makes a recruit's line real (`apply` calls this in place of the
+/// one-on-one's trust and mood): trust on whoever was hit, the one point
+/// on your case, a straight answer, and every promise said. Returns what
+/// the talk's outcome should say.
+pub fn apply(w: &mut World, id: u32, t: &Turn, promises: &[PromiseRead], wants: &[Want]) {
+    let Some(k) = w.folk.scenes.iter().position(|s| s.id == id) else { return };
+    let mut s = w.folk.scenes[k].clone();
+    let Some(x) = with(w, &s) else { return };
+    for h in &t.hits {
+        if h.trust != 0.0 {
+            stores::nudge_trust(w, h.hit.on, h.trust);
+        }
+    }
+    if let Some(h) = t.hits.iter().find(|h| h.mood != 0.0)
+        && let Some(p) = target(w, &s, &h.hit.item, wants)
+    {
+        let lean = if h.mood > 0.0 { h.mood.min(p.lean.max(0.0)) } else { h.mood };
+        let delta = pitch::land_typed(w, &mut s, &p, lean);
+        s.f[0] += delta;
+        s.outcome.push(format!(
+            "{}: {}",
+            p.group.name(),
+            match pitch::typed_reaction(w, &s, &p, lean) {
+                Some(Ev::TookWell) => "what he came for.",
+                Some(Ev::Doubted) => "he didn't believe you could back it up.",
+                Some(Ev::Cool) => "not his thing.",
+                _ => "polite.",
+            }
+        ));
+    } else if let Some(h) = t.hits.iter().find(|h| h.hit.how == How::Doubted)
+        && let Some(g) = group_for(&h.hit.item, wants)
+        && pitch::exchanges_left(w, &s) > 0
+    {
+        let kind = match &h.hit.item {
+            Item::Point(key) => claims::Kind::from_key(key),
+            _ => None,
+        };
+        pitch::straight_typed(w, &mut s, g, kind);
+        s.outcome.push(format!(
+            "{}: you were straight with him. No pull, and he believes your word a little more.",
+            g.name()
+        ));
+    }
+    // Promises count as you say them; a claim about where he'll stand is
+    // one too.
+    let facts: Vec<Stated> = t.claims.iter().map(|(f, _)| f.clone()).collect();
+    let standing = if promises.is_empty() { standing_promise(&x, &facts) } else { None };
+    for p in promises.iter().chain(standing.iter()) {
+        if let Some((what, belief)) = pitch::promise_typed(w, &s, &p.kind, p.usage) {
+            let words = if belief >= pledge::BELIEVES {
+                "They believe you. It binds you."
+            } else {
+                "They've heard promises before. They aren't sure they believe yours."
+            };
+            s.outcome.push(format!("You promised {what}. {words} It's checked once he's yours."));
+        }
+    }
+    w.folk.scenes[k] = s;
+}
+
+/// Ends a recruit's talk from typed lines as the chips end it: what the
+/// talk came to, and a transfer's file.
+pub fn end(w: &mut World, s: &mut Scene) {
+    let d = s.f[0];
+    pitch::end_typed(w, s, d);
+}
+
+/// Each evening: the answers recruits' families owe you come due (lane N3's
+/// `Owed`), weighed again with their say. A yes is made real (you
+/// confirmed the offer when you left it with them); every answer is a
+/// line in your inbox.
+pub fn day(w: &mut World, d: Date) {
+    if w.folk.live.persona.owed.is_empty() {
+        return;
+    }
+    let due = deals::due_where(w, &DEALS, deals::is_recruit);
+    for (o, wd) in due {
+        let Them::Player(id) = o.with else { continue };
+        let Some(i) = folk::person(w, id) else { continue };
+        let name = w.people[i].name.clone();
+        let offer = folk::plain(&o.offer.words);
+        let text = match wd {
+            Weighed::Yes => {
+                let a = deals::agree(w, &DEALS, o.with, &o.offer);
+                let done = real(w, o.with, &a);
+                format!("{name}'s family called back: yes to your offer ({offer}). {}", done.join(" "))
+            }
+            Weighed::Counter(c) => {
+                format!("{name}'s family called back about your offer ({offer}): {}", c.asks.join("; "))
+            }
+            Weighed::Lowball => format!("{name}'s family called back: your offer ({offer}) isn't close."),
+            _ => format!("{name}'s family called back: no to your offer ({offer})."),
+        };
+        folk::post_mine(w, d, Loudness::Small, true, "A family's answer on your offer", &text);
+    }
+}

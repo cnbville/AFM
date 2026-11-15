@@ -101,7 +101,7 @@ screens.nextopp = async (a) => {
   const last = (x.last || []).length ? tdPanel("Their last games", dkTable(["Date", "Opponent", "Score"], x.last.map((r) => [esc(r.date || `week ${r.week}`), `${r.home ? "vs" : "at"} ${dkTeam(r.opp)}`, `<b class="${r.score[0] > r.score[1] ? "td-up" : "td-dn"}">${r.score[0] > r.score[1] ? "W" : r.score[0] < r.score[1] ? "L" : "T"} ${r.score[0]}-${r.score[1]}</b>`]))) : "";
   const goto = gotoLine([["Game day", "gameday"], ["Their team data", "teamdata", o.ref], ["Your numbers", "yournum"], ["Situations", "situations"]]);
   return `<div class="pad sl dt dk">${pageHead({ kicker: `Data · advance scouting${x.group ? " · " + esc(x.group) : ""}`, title: `${mark(o, 30)} ${esc(o.name)}`, sub: `${when}${when ? " · " : ""}their ${x.year} numbers beside yours`, goto })}
-    ${x.error ? `<div class="empty">${esc(x.error)}</div>` : ""}${sides}<div class="dk-grid">${tilt}${team}</div>${best}${tend ? `<h3 class="dt-h3">Their calls</h3>${tend}` : ""}${last}${dtSource(x.source)}</div>`;
+    ${x.error ? `<div class="empty">${esc(x.error)}</div>` : ""}${sides}${aiAskBox(x.ask, ["opponent"], "opp:" + o.name, { wrap: "panel", heading: "Their calls, in your words", sub: "the plays your staff has charted of their games", presets: [{ cmd: "ai_ask", args: { kind: "opponent" }, limit: 400 }] })}<div class="dk-grid">${tilt}${team}</div>${best}${tend ? `<h3 class="dt-h3">Their calls</h3>${tend}` : ""}${last}${dtSource(x.source)}</div>`;
 };
 GOTO.nextopp = () => [["Game day", "gameday"], ["Your numbers", "yournum"]];
 // The game day hub links its opponent's numbers (section 9's advance scouting).

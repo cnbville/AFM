@@ -9,6 +9,8 @@
 //! `Member` lists, each carrying the person's index), so the strength,
 //! need and draft logic read real players.
 
+pub mod bargain;
+pub mod cfl;
 pub mod games;
 pub mod honors;
 pub mod leagues;
@@ -186,6 +188,11 @@ pub struct ProCareer {
     /// football, the spring leagues.
     #[serde(default)]
     pub other: Vec<other::OtherSeason>,
+    /// His last off-field case and the league's ruling on it (live talks
+    /// lane 8). It lives here and not in the market's lists, because a
+    /// person's index moves when the world is compacted.
+    #[serde(default)]
+    pub case: Option<super::people::PastCase>,
 }
 
 impl ProCareer {
@@ -230,6 +237,7 @@ impl ProCareer {
             suspended: 0,
             exempt: 0,
             other: Vec::new(),
+            case: None,
         }
     }
 
@@ -320,6 +328,9 @@ pub enum DeadWhy {
     /// season's weekly checks already paid, and the offseason bonuses once
     /// the season is on (minor bug 123).
     PaidBeforeTrade,
+    /// Salary a seller turned into a signing bonus and paid itself before
+    /// a trade, so the buyer takes less (the trade finder's pay-down, TF12).
+    PaidDown,
 }
 
 /// One dead-money charge, as real cap pages list them: the league year it
@@ -1219,8 +1230,11 @@ pub(crate) fn step(w: &mut World, d: Date, t: u16) {
             if d == y.nfl_kickoff {
                 // From the first game every contract counts against the cap.
                 market::cap_moves(w, d, false);
-                market::check_promises(w);
                 opening_day_cap(w);
+            }
+            // Free agency start promises, after the club's fourth game.
+            if y.nfl_weeks.get(3).is_some_and(|&g| d == g.add(2)) {
+                market::check_promises(w);
             }
             // In season, each Tuesday: injured players to reserve.
             if d >= y.cutdown.date && d.weekday() == crate::calendar::Weekday::Tue && d <= y.super_bowl {
@@ -1674,6 +1688,7 @@ fn camp(w: &mut World, d: Date) {
         }
     }
     let focus = w.focus_by_person();
+    let seat_mine: std::collections::HashSet<usize> = w.seat_roster().iter().copied().collect();
     let defer = !w.options.yearly_growth;
     // The league's typical staff and strength head (minor bug 302), so the
     // strength staff's share moves growth around the league's average.
@@ -1811,7 +1826,10 @@ fn camp(w: &mut World, d: Date) {
             medical,
             physical_coaching,
             strength_dev,
-            focus: focus.get(&i).copied(),
+            focus: focus.get(&i).map(|x| x.0),
+            focus2: focus.get(&i).and_then(|x| x.1),
+            seat_plan: seat_mine.contains(&i),
+            focus_minutes: p.player.train.focus_minutes(),
             defer,
             results,
             ..crate::development::SeasonContext::new(Level::NFL, clamp(coaching, 1.0, 20.0), role)
@@ -1823,12 +1841,13 @@ fn camp(w: &mut World, d: Date) {
         // A season whose snaps didn't land in season is read at this
         // opening, spring snaps with it (`develop_season`).
         let read_late = crate::development::reads_late(&p.player, Level::NFL);
-        crate::training::close_year(&mut p.player, ctx.focus);
+        let year_focus = ctx.focus.map(|a| crate::development::Focus::two(a, ctx.focus2, ctx.focus_minutes));
+        crate::training::close_year(&mut p.player, year_focus);
         let report = crate::development::develop_season(&mut p.player, &ctx, &mut p.rng);
         // His spring snaps (OTAs, minicamp) land now as reps of the new
         // year, as they added to last season's snaps before.
         let spring_landed = if results.is_some() && spring > 0.0 && !p.player.position.is_specialist() && !read_late {
-            crate::training::reps_land(&mut p.player, 0.0, spring, ctx.focus);
+            crate::training::reps_land(&mut p.player, 0.0, spring, year_focus);
             Some(spring)
         } else {
             None

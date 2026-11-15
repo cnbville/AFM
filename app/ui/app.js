@@ -97,7 +97,8 @@ function rateColor(v) {
 // `who` names whose read it is for the hover. `ctx` says whose rating it
 // is, so the range explains itself on hover against his level (update 2,
 // RR1-RR3; screens/ratings.js): { p: player id, k: "ovr", "at:QB" or an
-// attribute key } or { s: staff key, k: rating key }.
+// attribute key } or { s: staff key, k: rating key }. `own: true` marks your
+// own read (yourRange), which opens the same card titled "Your read".
 function range(r, who, ctx) {
   if (!r) return `<span class="rg ns" title="Nobody on your staff has seen this"><span class="t"></span><b>Not seen</b></span>`;
   const [lo, hi] = r;
@@ -110,11 +111,28 @@ function range(r, who, ctx) {
 // or a first impression from what reached your desk until you have seen
 // him yourself. `looks`: your own looks (0 a first impression; left out on
 // a table, where the tip stays general).
-function yourRange(r, looks) {
+function yourRange(r, looks, ctx) {
   if (!r) return `<span class="rg ns l7-yours" title="You have no read of your own on him"><span class="t"></span><b>-</b></span>`;
   const [lo, hi] = r;
   const tip = looks == null ? `Your own read: ${lo} to ${hi}, from your own looks or your first impression.` : looks ? `Your own read: ${lo} to ${hi}, from ${looks} look${looks === 1 ? "" : "s"} of your own.` : `Your first impression: ${lo} to ${hi}. You haven't seen him yourself yet, so it can be well off.`;
-  return `<span class="rg l7-yours${looks === 0 ? " l7-first" : ""}" title="${esc(tip)}"><span class="t"><i style="left:${lo}%;width:${Math.max(2, hi - lo)}%"></i></span><b>${lo}-${hi}</b></span>`;
+  const card = rrAttrs(ctx && { ...ctx, own: true }, lo, hi);
+  return `<span class="rg l7-yours${looks === 0 ? " l7-first" : ""}${card ? " rr-on" : ""}"${card || ` title="${esc(tip)}"`}><span class="t"><i style="left:${lo}%;width:${Math.max(2, hi - lo)}%"></i></span><b>${lo}-${hi}</b></span>`;
+}
+// Own potential (Cain 2026-11-13): a potential word is your own read from
+// your first own look of him, your staff's before; your staff's line
+// stays beside yours. `pot` is the game's potential words (whose, yours,
+// staff), or a list row's read (whose, staff_role, staff_sure).
+function potMine(pot) {
+  return !!(pot && pot.whose === "yours");
+}
+function potStaffText(pot) {
+  if (!potMine(pot)) return "";
+  if (pot.staff) return `Your staff: ${pot.staff.tier}, ${pot.staff.sure}`;
+  if (pot.staff_role) return `Your staff: ${pot.staff_role}${pot.staff_sure ? `, ${pot.staff_sure}` : ""}`;
+  return "Your staff has no read of their own";
+}
+function potTag(pot) {
+  return potMine(pot) ? ` <span class="pot-yours" title="${esc(potStaffText(pot))}">yours</span>` : "";
 }
 // "Senior level 89" -> { n: 89, words: "Senior level" } for the badge, and
 // the badge's hover: what each level means at his pool (minor bugs 55, 56).
@@ -131,7 +149,7 @@ function lvlTip(p) {
 function rrAttrs(ctx, lo, hi) {
   if (!ctx || (ctx.p == null && ctx.s == null)) return "";
   const w = ctx.p != null ? `p:${ctx.p}` : `s:${ctx.s}`;
-  return ` data-rr="${esc(w)}" data-rrk="${esc(ctx.k || "ovr")}" data-lo="${lo}" data-hi="${hi}" tabindex="0"`;
+  return ` data-rr="${esc(w)}" data-rrk="${esc(ctx.k || "ovr")}" data-lo="${lo}" data-hi="${hi}"${ctx.own ? ' data-own="1"' : ""} tabindex="0"`;
 }
 // "minorInjury" -> "minor injury"
 const words = (s) => String(s).replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
@@ -197,7 +215,7 @@ const keep = (k, d) => (S.keep[k] ??= d);
 
 // The opening, load and new-career pages sit outside a career: back and forward move
 // between the career's screens only, so they never lead out of it.
-const outside = (r) => r.screen === "start" || r.screen === "setup" || r.screen === "load";
+const outside = (r) => r.screen === "start" || r.screen === "setup" || r.screen === "load" || r.screen === "whatsnew";
 // The NFL desk's cap sheet holds every contract by year, so at the NFL a
 // link to the old Contracts table (a calendar line, search, an older
 // screen) opens the cap sheet instead.
@@ -364,6 +382,7 @@ function frame(content, crumb) {
     <aside class="side">
       <div class="brand">${me ? mark(me) : '<span class="st-mark">AFM</span>'}<div><b>${esc(me ? me.name : "AFM")}</b><small>${esc(st.you ? "Coach " + st.you : "American Football Manager")}</small>${st.sandbox ? '<button class="st-pill gold sb-badge" data-nav="settings" title="Sandbox mode is on: your own limits are lifted (Settings)">Sandbox</button>' : ""}</div></div>
       <nav class="navs">${navHtml}</nav>
+      <div class="autosave" id="autosave" aria-live="polite">${autosaveHtml()}</div>
       <div class="foot">
         <button class="nav save" data-act="save" title="Save game (⌘S)">${icon("save")}<span>Save</span></button>
         <button class="nav ico" data-act="holiday" title="Holiday" aria-label="Holiday">${icon("sun")}</button>
@@ -401,9 +420,12 @@ function pinnedHtml(st) {
 }
 
 // The path you took since your last sidebar click, each step a link (L7).
+// A sidebar click makes the page you land on the start of a new path, so
+// the old steps drop at once (Cain, 2026-11-13: the old path stayed after
+// a click). Only the steps after it, opened from it, add to the path.
 function crumbHtml() {
   const path = [];
-  for (let i = S.back.length - 1; i >= 0; i--) {
+  for (let i = S.back.length - 1; i >= 0 && !S.route.root; i--) {
     const r = S.back[i];
     if (outside(r)) break;
     path.unshift({ r, n: S.back.length - i });
@@ -461,7 +483,7 @@ screens.roster = async (a) => {
     { k: "home", t: "Hometown", l: true, wrap: true },
     { k: "stars", t: "★", tip: "Recruiting stars", f: (r) => (r.stars ? "★".repeat(r.stars) : '<span class="muted">-</span>') },
     { k: "ovr", t: "Rating", div: true, tip: "Your staff's read of his play now, as a range", v: (r) => mid(r.ovr), f: (r) => range(r.ovr, null, { p: r.id, k: "ovr" }) },
-    { k: "yours", t: "Yours", tip: "Your own read: what you have seen of him yourself", v: (r) => mid(r.yours), f: (r) => yourRange(r.yours) },
+    { k: "yours", t: "Yours", tip: "Your own read: what you have seen of him yourself", v: (r) => mid(r.yours), f: (r) => yourRange(r.yours, undefined, { p: r.id, k: "ovr" }) },
     { k: "mood", t: "Mood", l: true },
     { k: "status", t: "Status", l: true, f: (r) => (r.status ? `<span class="dot ${/Injur|Susp|ineligible/.test(r.status) ? "bad" : "warn"}"></span>${esc(r.status)}` : '<span class="muted">Available</span>') },
   ];
@@ -474,7 +496,7 @@ screens.roster = async (a) => {
       ${seg("cls", [["ALL", pro ? "Everyone" : "All classes"], ...bands.map(([v, t]) => [v, t, count((r) => band(r) === v)])])}
       <div class="seg"><button data-act="rinj" aria-pressed="${f.injured}">Injured only</button></div>
     </div>
-    ${qfBar(scope, x.qf, base, rows.length)}
+    ${qfBar(scope, x.qf, base, rows.length, x.ask)}
     ${table("roster", allCols, rows, {
       groupBy: (r) => r.pos,
       // The quick filter's columns sit in the Player group, after his class.
@@ -556,14 +578,17 @@ screens.depth = async () => {
   const seat = S.status && S.status.seat;
   const boss = seat && seat.boss ? seat.boss.name : "the head coach";
   const rows = cur.players.map((r, i) => {
-    const n = i < cur.starters ? `<b>${i + 1}</b>` : `<span class="muted">${i + 1}</span>`;
+    // The first rows name spots (LT, RT; LG, C, RG; SAM, MIKE, WILL...): the
+    // engine plays the man in that row there.
+    const spot = cur.slots && cur.slots[i] ? ` <small class="muted" title="The man in this row plays ${esc(cur.slots[i])}">${esc(cur.slots[i])}</small>` : "";
+    const n = (i < cur.starters ? `<b>${i + 1}</b>` : `<span class="muted">${i + 1}</span>`) + spot;
     const where = r.here ? esc(r.pos) : `<span class="st-pill gold" title="Listed at ${esc(r.pos)}: the staff plays him here too">${esc(r.pos)}</span>`;
     const deep = i >= cur.listed ? ' class="deep"' : "";
     return `<tr${deep}><td class="l">${n}</td><td class="l">${playerLink(r.id, r.name, "Development")}</td><td class="l">${where}</td><td class="l">${esc(r.class)}</td><td>${range(r.ovr, null, { p: r.id, k: "ovr" })}</td><td class="l">${esc(r.status)}</td>
       <td><button class="st-btn small glass" data-act="dmove" data-i="${i}" data-d="-1" ${i === 0 || !ctl ? "disabled" : ""}>Up</button> <button class="st-btn small glass" data-act="dmove" data-i="${i}" data-d="1" ${i === cur.players.length - 1 || !ctl ? "disabled" : ""}>Down</button></td></tr>`;
   }).join("");
   return `<div class="film"><div class="pad">
-    <div class="h1">Depth chart</div><p class="sub">The order your team plays on game day, as the staff will dress it: a player listed at another spot shows where they would use him too, as small schools play their best athletes both ways. Where you set an order, the engine plays yours. Players in grey after the line aren't in the game-day list.</p>
+    <div class="h1">Depth chart</div><p class="sub">The order your team plays on game day, as the staff will dress it: a player listed at another spot shows where they would use him too, as small schools play their best athletes both ways. Where you set an order, the engine plays yours. Where a row names a spot (LT, MIKE, FS), the man in that row plays it. Players in grey after the line aren't in the game-day list.</p>
     <div class="tabsline">${x.positions.map((p) => `<button data-act="dpos" data-p="${p.pos}" aria-selected="${p.pos === cur.pos}"${p.controls === false ? ` style="opacity:.5" title="${esc(boss)}'s call"` : ""}>${p.pos}${p.set_by_you ? " ●" : ""}</button>`).join("")}</div>
     <div class="panel warm"><h2>${esc(cur.pos)} <small>${cur.starters} start · ${cur.set_by_you ? "your order" : !ctl ? `${esc(boss)}'s call: your job covers ${esc(seat.controls)}` : seat && !seat.head ? `the staff's order · you propose it, ${esc(boss)} has the last word` : "the staff's order"}</small></h2>
     <div class="tbl"><table><thead><tr><th class="l">#</th><th class="l">Name</th><th class="l">Listed at</th><th class="l">Class</th><th>Rating</th><th class="l">Status</th><th>Move</th></tr></thead><tbody>
@@ -761,6 +786,37 @@ function fitBoxes() {
   }
 }
 window.addEventListener("resize", fitBoxes);
+
+// ---------- autosave ----------
+// Every 10 minutes of play the game saves itself in the background (the
+// game's autosave.rs: a copy of the process writes the file, so nothing
+// here waits). The screen only asks every 30 seconds whether it is time and
+// shows one quiet line over the Save button: "Saving in the background",
+// then "Autosaved 14:32". It is never a box and never takes focus.
+const AUTO = { state: "idle", at: null, note: "", ticking: false, poll: 0 };
+function autosaveHtml() {
+  if (AUTO.state === "saving") return '<i class="pulse"></i><span>Saving in the background</span>';
+  const t = AUTO.at ? AUTO.at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+  if (AUTO.state === "saved") return `<span>Autosaved ${esc(t)}</span>`;
+  if (AUTO.state === "failed") return `<span class="bad" title="${esc(AUTO.note)}">Autosave failed ${esc(t)}: save by hand</span>`;
+  return "";
+}
+function autosaveSee(r) {
+  AUTO.state = r && r.state ? r.state : "idle";
+  if (r && r.age != null) AUTO.at = new Date(Date.now() - r.age * 1000);
+  AUTO.note = (r && r.note) || "";
+  const el = $("#autosave");
+  if (el) el.innerHTML = autosaveHtml();
+  // While it writes, look again soon so the line clears when it is done.
+  clearTimeout(AUTO.poll);
+  if (AUTO.state === "saving") AUTO.poll = setTimeout(autosaveTick, 4000);
+}
+async function autosaveTick() {
+  if (AUTO.ticking || !(S.status && (S.status.mine || S.status.you)) || outside(S.route)) return;
+  AUTO.ticking = true;
+  try { autosaveSee(await api("autosave_tick")); } catch (e) { /* the next tick tries again */ } finally { AUTO.ticking = false; }
+}
+setInterval(autosaveTick, 30000);
 
 // ---------- Continue ----------
 async function cont() {
@@ -1055,7 +1111,8 @@ function sure(title, note, ok = "Go on") {
 function leaveCareer() {
   if (!(S.status && S.status.you)) return Promise.resolve(true);
   const since = S.savedOn ? (S.savedOn === S.status.today ? "You saved today." : `Your last save was on ${S.savedOn}; the days since then are lost.`) : "You haven't saved this career yet: all of it is lost.";
-  return sure("Close the career you have open?", `${since} Save first from the sidebar if you want to keep it.`, "Close it");
+  const auto = AUTO.state === "saved" && AUTO.at ? ` Your autosave from ${AUTO.at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} stays on the Load page.` : "";
+  return sure("Close the career you have open?", `${since}${auto} Save first from the sidebar if you want to keep it.`, "Close it");
 }
 
 // ---------- updates ----------

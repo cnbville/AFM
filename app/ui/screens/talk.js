@@ -99,6 +99,7 @@ function tkChoose(x) {
     <div class="tk-sub"><div class="tk-ph"><b>Your line, roughly</b><span>from your picks, in your voice</span></div>
       <p class="tk-line-q">${x.pick.move === "nothing" ? "You say nothing. They get dressed and go." : `“${esc(x.line)}”`}</p></div>
     ${tkStaff(x)}
+    ${aiSayBox(x, "talk:" + x.moment, { echo: true, preset: { cmd: "talk_typed", args: {}, limit: 400 }, words: { ph: "Type what you'd say to the room. The picks above still work.", foot: "The picks above still work." } })}
     ${others ? `<div class="tk-sub"><div class="tk-ph"><b>Other tones, roughly</b><span>same move and subject</span></div><table class="tk-others"><tbody>${others}</tbody></table></div>` : ""}
     <div class="tk-actions"><button class="st-btn primary" data-act="tk-say">Say it</button>
       ${cap && x.pick.move !== "captain" ? `<button class="st-btn glass" data-act="tk-captain" data-id="${cap.id}">Hand it to ${esc(cap.name.split(" ").slice(-1)[0])}</button>` : ""}
@@ -201,7 +202,8 @@ function tkWordCard(st) {
   if (!w) return "";
   const opts = w.options.map((o, i) => `<button class="tk-word ${o.staff ? "staff" : ""}" data-act="tk-word" data-id="${w.id}" data-i="${i}"><b>${esc(o.label)}</b><span>“${esc(o.line)}”</span><small class="${/rattle/.test(o.read) ? "tk-warn" : ""}">${esc(o.read)}${o.staff ? " · your position coach's word" : ""}</small></button>`).join("");
   return `<details class="tk-card" open><summary><span class="st-label">A word on the sideline</span> ${playerLink(w.id, w.name)} <small>${esc(w.pos)} · ${esc(w.mistake)}</small></summary>
-    <p class="tk-dim">${esc(w.tag)}. He's coming off now. Say nothing and his position coach has the word before the next snap.</p><div class="tk-words">${opts}</div></details>`;
+    <p class="tk-dim">${esc(w.tag)}. He's coming off now. Say nothing and his position coach has the word before the next snap.</p><div class="tk-words">${opts}</div>
+    ${typeof aiSayBox === "function" ? aiSayBox(w, "word:" + w.id, { echo: true, preset: { cmd: "word_typed", args: { id: w.id }, limit: 400 }, words: { ph: "Type what you'd say to him. The words above still work." } }) : ""}</details>`;
 }
 
 // ---------- actions ----------
@@ -318,17 +320,18 @@ async function tkFaceToFace(s, lead, pp, st) {
   // The talk so far, an exchange at a time: what you said, what he said and
   // what your read caught.
   const ex = [];
+  const ay = aiYours("scene:" + s.id);
   for (const l of s.lines) {
     if (l.by === 1 || !ex.length) ex.push({ you: null, them: [], notes: [] });
     const cur = ex[ex.length - 1];
-    if (l.by === 1) cur.you = l.text;
+    if (l.by === 1) { cur.you = l.text; cur.heard = ay(l); }
     else if (l.by === 0) cur.notes.push(l.text);
     else cur.them.push(l);
   }
   const lastThem = [...s.lines].reverse().find((l) => l.by === 2);
   // Under what he said: his tell, then how it went over as far as your read
   // catches it (new bugs, Cain 2026-11-03).
-  const so = ex.map((e, k) => `<li><span class="tk-fn">${k + 1}</span><div>${e.you ? `<p class="tk-fyou">${rich(e.you)}</p>` : ""}${e.notes.map((n) => `<p class="tk-fnote">${rich(n)}</p>`).join("")}${e.them.map((t) => `<p>"${rich(t.text)}"</p>${t.tell ? `<p class="tk-fnote">${esc(t.tell)}</p>` : ""}${t.went ? `<p class="tk-fwent">${esc(t.went)}</p>` : ""}`).join("")}</div></li>`).join("");
+  const so = ex.map((e, k) => `<li><span class="tk-fn">${k + 1}</span><div>${e.you ? `<p class="tk-fyou">${rich(e.you)}</p>` : ""}${e.heard ? `<div class="ai-heard">${e.heard}</div>` : ""}${e.notes.map((n) => `<p class="tk-fnote">${rich(n)}</p>`).join("")}${e.them.map((t) => `<p>"${rich(t.text)}"</p>${t.tell ? `<p class="tk-fnote">${esc(t.tell)}</p>` : ""}${t.went ? `<p class="tk-fwent">${esc(t.went)}</p>` : ""}`).join("")}</div></li>`).join("");
 
   // How he is: words with thin bars (yours only), and your staff's read. In a
   // one-on-one the bars move with each line, with a mark where he came in.
@@ -362,9 +365,20 @@ async function tkFaceToFace(s, lead, pp, st) {
   // Your move.
   const talk = s.kind === "OneOnOne";
   const isTalk = (c) => talk && c >= 100 && c < 190;
-  const chosen = st.pick != null ? s.picks.find((p) => p.code === st.pick) : null;
+  // A subject chip only selects: what you would say there waits on the
+  // table, with its tones, and nothing is said until you confirm (Cain
+  // 2026-11-14: a chip used to play your line and his answer at once).
+  let turn = talk && st.turn && st.turn !== s.subject ? st.turn : null;
+  let look = null;
+  if (turn) {
+    look = await api("people_subject_look", { id: s.id, subject: turn }).catch(() => null);
+    if (!look) { turn = null; st.turn = null; }
+  }
+  const tpicks = look ? look.picks : s.picks;
+  if (look && st.pick != null && !tpicks.some((p) => p.code === st.pick || (isTalk(p.code) && isTalk(st.pick) && Math.floor((p.code - 100) / 10) === Math.floor((st.pick - 100) / 10)))) st.pick = null;
+  const chosen = st.pick != null ? tpicks.find((p) => p.code === st.pick) || (look ? tpicks.find((p) => isTalk(p.code) && isTalk(st.pick) && Math.floor((p.code - 100) / 10) === Math.floor((st.pick - 100) / 10)) : null) : null;
   // Two picks with one move (two different promises) carry their first words.
-  const offered = s.picks.filter((p) => p.code !== 900 && p.code !== 969);
+  const offered = tpicks.filter((p) => p.code !== 900 && p.code !== 969);
   const twice = (mv) => offered.filter((p) => p.mv === mv).length > 1;
   const chipText = (p) => {
     if (!twice(p.mv)) return p.mv;
@@ -374,19 +388,24 @@ async function tkFaceToFace(s, lead, pp, st) {
   const moves = offered.map((p) => `<button class="tk-chip ${chosen && chosen.code === p.code ? "on" : ""}" data-act="pppick" data-id="${s.id}" data-code="${p.code}" data-tone="${esc(p.tone)}" title="${esc(plainText(p.label))}">${esc(chipText(p))}</button>`).join("");
   const tone = st.tone || (chosen && chosen.tone);
   const tones = talk ? `<div class="tk-fpick"><span>Tone</span><div>${PP_TONES.map(([k, t]) => `<button class="tk-chip ${tone === k ? "on" : ""}" data-act="pptone" data-id="${s.id}" data-v="${k}">${t}</button>`).join("")}</div></div>` : "";
-  const subjects = talk && s.subjects ? `<div class="tk-fpick"><span>Subject</span><div>${s.subjects.map((x) => `<button class="tk-chip ${x.key === s.subject ? "on" : ""}" data-act="tksubject" data-id="${s.id}" data-s="${x.key}">${esc(x.name)}</button>`).join("")}</div></div>` : "";
+  const subjects = talk && s.subjects ? `<div class="tk-fpick"><span>Subject</span><div>${s.subjects.map((x) => `<button class="tk-chip ${x.key === (turn || s.subject) ? "on" : ""}" data-act="tksubject" data-id="${s.id}" data-s="${x.key}">${esc(x.name)}</button>`).join("")}</div></div>` : "";
   let say = "";
   if (chosen) {
     const code = isTalk(chosen.code) ? chosen.code - (chosen.code % 10) + PP_TONE_CODE[tone || chosen.tone] : chosen.code;
-    const expect = talk ? await api("people_expect", { id: s.id, code }).catch(() => null) : null;
+    const expect = talk && !turn ? await api("people_expect", { id: s.id, code }).catch(() => null) : null;
     say = `<div class="tk-fsay"><p class="tk-fquote">${rich(chosen.label)}</p>${expect ? `<p class="tk-fnote">${rich(expect.who)} · ${esc(expect.sure)}: ${esc(expect.what)}</p>` : chosen.hint ? `<p class="tk-fnote">${esc(chosen.hint)}</p>` : ""}</div>
-      <button class="st-btn small primary" data-act="ppsay" data-id="${s.id}" data-code="${code}">Say it</button>`;
+      <button class="st-btn small primary" data-act="${turn ? "tkturn" : "ppsay"}" data-id="${s.id}" data-s="${esc(turn || "")}" data-code="${code}">Say it</button>`;
+  } else if (turn) {
+    const name = (s.subjects.find((x) => x.key === turn) || {}).name || "that";
+    say = `<div class="tk-fsay"><p class="tk-fnote">${look.asks_first ? `Nothing is said yet. He would ask you something first.` : `Nothing is said yet. Pick a move and a tone for it.`}</p></div>
+      <button class="st-btn small glass" data-act="tkturn" data-id="${s.id}" data-s="${esc(turn)}" data-code="">${look.asks_first ? `Turn the talk to ${esc(name.toLowerCase())}` : "Just bring it up"}</button>`;
   }
   const end = s.picks.find((p) => p.code === 900 || p.code === 969);
   const left = s.clock ? `${s.clock.left} minutes on the clock` : `${ppHours(s.hours)} left this week`;
   const bottom = s.done
     ? `<div class="tk-fend"><b>${s.handed ? `Handed to ${esc(s.handed)}` : "How it went"}</b>${(s.outcome.length ? s.outcome : ["It's done."]).map((o) => `<p>${rich(o)}</p>`).join("")}<div class="tk-factions">${s.next ? `<button class="st-btn small primary" data-act="ppopen" data-id="${s.next.id}">Next: ${esc(plainText(s.next.title))}</button>` : ""}<button class="st-btn small glass" data-nav="people">Back to People</button></div></div>`
     : `<div class="tk-fmoves"><div class="tk-fpick"><span>Move</span><div>${moves || '<em class="tk-fnote">Waiting on him.</em>'}</div></div>${tones}${subjects}
+      ${aiSayBox(s, "scene:" + s.id, { preset: { cmd: "people_say", args: { id: s.id }, limit: 400 }, log: "scene:" + s.id, words: { ph: "Type what you'd say to him. The chips above still work." } })}
       <div class="tk-factions">${say}<span class="tk-fnote">${left}</span>${end ? `<button class="st-btn small glass" data-act="ppsay" data-id="${s.id}" data-code="${end.code}">${esc(end.mv === "End" ? "End the talk" : end.mv)}</button>` : ""}<button class="st-btn small glass" data-act="pphand" data-id="${s.id}" title="Your staff plays it the way they would">Hand it to your staff</button></div></div>`;
 
   const first = plainText(lead.link).split(" ")[0] || "";
@@ -401,14 +420,29 @@ async function tkFaceToFace(s, lead, pp, st) {
     <div class="tk-fbottom tk-fglass">${bottom}</div></div>`;
 }
 Object.assign(CORE_MORE, {
-  tksubject: async (el) => {
+  // Picking a subject chip only selects it; nothing is said.
+  tksubject: (el) => {
+    const st = keep("ppscene:" + el.dataset.id, {});
+    st.turn = st.turn === el.dataset.s ? null : el.dataset.s;
+    st.pick = null;
+    st.tone = null;
+    refresh(el);
+  },
+  // Confirmed: turn the talk and say the move you set, in one step.
+  tkturn: async (el) => {
+    const id = Number(el.dataset.id);
+    el.disabled = true;
     try {
-      await api("people_subject", { id: Number(el.dataset.id), subject: el.dataset.s });
-      const st = keep("ppscene:" + el.dataset.id, {});
+      const args = { id, subject: el.dataset.s };
+      if (el.dataset.code) args.code = Number(el.dataset.code);
+      const r = await api("people_subject", args);
+      const st = keep("ppscene:" + id, {});
+      st.turn = null;
       st.pick = null;
       st.tone = null;
+      if (r.done) S.status = await api("status");
       refresh(el);
-    } catch (e) { toast(e.message); }
+    } catch (e) { toast(e.message); el.disabled = false; }
   },
 });
 

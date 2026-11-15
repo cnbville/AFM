@@ -461,6 +461,14 @@ pub struct SeatTraining {
     /// The strength staff's testing days, the last three (TR5).
     #[serde(default)]
     pub tests: Vec<TestDay>,
+    /// What each of your players saw of his place in the week's practice
+    /// (the promises design, section 2: players never see the chart): the
+    /// day a practice week was set and each man's group, `GROUP_ONES`,
+    /// `GROUP_TWOS` or `GROUP_APART` (the young players outside the
+    /// two-deep, working apart on a roster of 70 or more). Specialists have
+    /// no group. The last `GROUP_WEEKS` weeks.
+    #[serde(default)]
+    pub groups: Vec<(Date, Vec<(u32, u8)>)>,
     /// Your NFL club's practice risk from your own week, set by your week
     /// and read by the clubs' practice injuries (0 when there's none).
     #[serde(skip)]
@@ -1009,6 +1017,40 @@ pub fn save_this_week(w: &mut World, monday: Date, wk: Week, push: bool) -> Resu
 }
 
 /// Each player's role this week: his place on your depth chart.
+/// A practice group: with the ones, the twos, or apart.
+pub const GROUP_ONES: u8 = 0;
+pub const GROUP_TWOS: u8 = 1;
+pub const GROUP_APART: u8 = 2;
+/// Practice weeks of groups kept (what his place reads: his last two).
+pub const GROUP_WEEKS: usize = 4;
+/// From this roster size the young players outside the two-deep work
+/// apart; below it they practise with the twos (`practice::run`).
+pub const APART_ROSTER: usize = 70;
+
+/// Keeps each man's group in this week's practice (`SeatTraining::groups`).
+fn record_groups(w: &mut World, st: &SeatTeam, roles: &HashMap<usize, Role>, d: Date) {
+    let apart = st.roster.len() >= APART_ROSTER;
+    let mut g: Vec<(u32, u8)> = roles
+        .iter()
+        .filter_map(|(&i, &r)| {
+            let k = match r {
+                Role::Starter => GROUP_ONES,
+                Role::Backup => GROUP_TWOS,
+                Role::Young if apart => GROUP_APART,
+                Role::Young => GROUP_TWOS,
+                Role::Specialist => return None,
+            };
+            Some((w.people[i].player.id, k))
+        })
+        .collect();
+    g.sort_unstable();
+    let gs = &mut w.training.groups;
+    gs.retain(|x| x.0 != d);
+    gs.push((d, g));
+    let n = gs.len().saturating_sub(GROUP_WEEKS);
+    gs.drain(..n);
+}
+
 pub fn roles(w: &World, st: &SeatTeam) -> HashMap<usize, Role> {
     let mut out = HashMap::new();
     let mut by_pos: HashMap<Position, Vec<usize>> = HashMap::new();
@@ -1076,6 +1118,120 @@ pub fn own_week(base: &Week, plan: &Plan, hurt: bool, does_extra: bool) -> Week 
         }
     }
     wk
+}
+
+/// Whether a period's minutes work a focus (individual practice, topic
+/// 5.4): his position's individual work, one-on-ones, kicking stations,
+/// ball security, routes on air and the young players' period; for a
+/// mental skill the film room, installs and position meetings instead.
+fn works_focus(p: &Period, mental: bool) -> bool {
+    if mental {
+        matches!(p.kind, Kind::Film | Kind::Install | Kind::VrReps | Kind::Vision)
+            || (p.kind == Kind::Meeting && p.what == 2)
+    } else {
+        matches!(
+            p.kind,
+            Kind::Individual | Kind::OneOnOnes | Kind::KickStations | Kind::BallSecurity | Kind::OnAir | Kind::Young
+        )
+    }
+}
+
+/// The minutes a week a focus gets (individual practice, topic 5b;
+/// proposed, not confirmed): the position coach gives it the usual 30 of a
+/// neutral week's individual time, more or fewer as his own week has more
+/// or less of it (his reps in each period), and every minute of his own
+/// extra work after practice goes to it. On his own time, what he works
+/// on alone: 20 minutes times his own effort.
+pub fn focus_minutes(
+    mine: &Week,
+    neutral: &Week,
+    extra: &Week,
+    role: Role,
+    camp: bool,
+    mental: bool,
+    own_effort: Option<f64>,
+) -> f64 {
+    if let Some(e) = own_effort {
+        return 20.0 * e;
+    }
+    let mins = |wk: &Week| -> f64 {
+        wk.days
+            .iter()
+            .flat_map(|d| &d.periods)
+            .filter(|p| works_focus(p, mental))
+            .map(|p| p.min as f64 * super::work::reps(p.who, role, camp))
+            .sum()
+    };
+    let usual = mins(neutral);
+    let base = if usual > 0.0 { crate::development::USUAL_FOCUS_MINUTES * mins(mine) / usual } else { 0.0 };
+    base + (mins(extra) - mins(mine)).max(0.0)
+}
+
+/// A point's minutes on flaws and tools: a staff's week with no period
+/// that works it (winter's weight room, the summer program's lifting, a
+/// December with no bowl) gives none, however much he adds on his own.
+fn staff_minutes(neutral: &Week, mental: bool, mins: f64) -> f64 {
+    if staff_works(neutral, mental) { mins } else { 0.0 }
+}
+
+/// Whether a staff's week has a period with the staff that works a point
+/// (on the field, or in the film room for a film-room one). The players'
+/// own routes on air (`what` 1: winter, the summer program, the quiet
+/// weeks) have no coach in them.
+pub fn staff_works(neutral: &Week, mental: bool) -> bool {
+    neutral
+        .days
+        .iter()
+        .flat_map(|d| &d.periods)
+        .any(|p| works_focus(p, mental) && p.min > 0 && !(p.kind == Kind::OnAir && p.what == 1))
+}
+
+/// The coming weeks of your team's calendar, from the next week's pass:
+/// whether each has individual time for a point on the field and in the
+/// film room (individual practice: the plan moves only on these weeks, so
+/// the Development tab's dates count them). Each football year's own frame,
+/// its schedule for this one and the usual games after; a bowl in later
+/// years when this year has one.
+pub fn work_weeks(w: &World, n: u32) -> Vec<(bool, bool)> {
+    let y = w.dates.clone();
+    let frames = Frames::new(w, &y);
+    let Some(st) = seat_team(w, &frames) else { return vec![(true, true); n as usize] };
+    let mut m = w.today.on_or_after(crate::calendar::Weekday::Mon);
+    if w.training.log.last().is_some_and(|l| l.monday >= m) {
+        m = m.add(7);
+    }
+    let bowl_now = st.games.iter().any(|&g| st.frame.block(g) == Block::Postseason);
+    let mut frame = st.frame;
+    let mut out = Vec::with_capacity(n as usize);
+    for _ in 0..n {
+        while m > frame.end {
+            let next = crate::calendar::YearDates::new(frame.season + 1);
+            match seat_frame(w, &next) {
+                Some(f) => frame = f,
+                None => break,
+            }
+        }
+        let block = block_of_week(&frame, m);
+        let this_year = frame.season == st.frame.season;
+        let games: Vec<Date> = if this_year {
+            st.games.iter().copied().filter(|&g| g >= m && g < m.add(7)).collect()
+        } else {
+            super::week::usual_games(st.tier, block, m)
+        };
+        let bowl = block == Block::Postseason
+            && if this_year {
+                st.games.iter().any(|&g| g >= m && frame.block(g) == Block::Postseason)
+            } else {
+                bowl_now
+            };
+        let nk = super::week::staff_week(st.tier, &frame, m, &games, bowl, st.state, st.heat, &|s| {
+            super::plan::neutral(st.tier, s)
+        });
+        let coaches = books(&frame, m, st.state, st.heat).iter().any(|b| b.coaches);
+        out.push((coaches && staff_works(&nk, false), coaches && staff_works(&nk, true)));
+        m = m.add(7);
+    }
+    out
 }
 
 /// What a week's non-contact periods do beyond growth and prep (proposed,
@@ -1263,6 +1419,9 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
         c.add_week(&pw.week);
     }
     let own_time = pw.books.iter().all(|b| !b.coaches);
+    if !own_time {
+        record_groups(w, &st, &roles, d);
+    }
     // Who arrived when (TR8): a player new in the last two weeks reads as
     // new; a save from before this keeps everyone as he was.
     let ids: Vec<u32> = st.roster.iter().map(|&i| w.people[i].player.id).collect();
@@ -1292,6 +1451,7 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
     let nut = |wk: &Week| minutes(wk, |p| p.kind == Kind::Nutrition);
     let fuel = clamp(1.0 + 0.15 * (nut(&pw.week) - nut(&pw.neutral)) / (nut(&pw.neutral) + 30.0), 0.9, 1.15);
     let mut absent_ids: Vec<u32> = Vec::new();
+    let mut craft_minutes: HashMap<usize, (f64, f64)> = HashMap::new();
     for &i in &st.roster {
         let id = w.people[i].player.id;
         let role = *roles.get(&i).unwrap_or(&Role::Young);
@@ -1306,6 +1466,35 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
         // Extra work he says he'll do: whether he really does it.
         let does = does_extra(p, seed);
         let mine = own_week(&pw.week, &plan, hurt, does);
+        // The minutes his focus gets this week (individual practice, topic 5b).
+        // His week's individual minutes, on the field and in the film room:
+        // his points of emphasis work on them (flaws and tools as well).
+        let own = if absent || own_time {
+            Some(super::offseason::own_effort(&p.player, p.pro.as_ref().is_some_and(|c| c.paid), false))
+        } else {
+            None
+        };
+        let plain = own_week(&pw.week, &plan, hurt, false);
+        let mins = (
+            focus_minutes(&plain, &pw.neutral, &mine, role, camp, false, own),
+            focus_minutes(&plain, &pw.neutral, &mine, role, camp, true, own),
+        );
+        // His flaws and tools move only on a week the staff has individual
+        // time (the season, camp, bowl practice, spring and, in the film
+        // room, the NCAA's two hours out of season): never on his own time
+        // or at a voluntary week he skips (`staff_minutes`).
+        craft_minutes.insert(
+            i,
+            if absent || own_time {
+                (0.0, 0.0)
+            } else {
+                (staff_minutes(&pw.neutral, false, mins.0), staff_minutes(&pw.neutral, true, mins.1))
+            },
+        );
+        let focus_of = focus.get(&i).map(|&(a, b)| {
+            let m = if family_of(a) == Family::Mental { mins.1 } else { mins.0 };
+            crate::development::Focus::two(a, b, m)
+        });
         let r = if absent {
             // Not at a voluntary week: his own work, as on his own time.
             [super::offseason::own_effort(&p.player, p.pro.as_ref().is_some_and(|c| c.paid), false); FAMILIES]
@@ -1356,6 +1545,9 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
         }
         let p = &mut w.people[i];
         p.player.train.add_load(load);
+        if let Some(f) = focus_of {
+            p.player.train.add_focus_minutes(f.minutes);
+        }
         let prev = super::prep::latest(&p.player.train);
         super::prep::record(&mut p.player, pr.word, pr.mental);
         if pr.status == super::prep::Status::Out {
@@ -1384,7 +1576,7 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
                 s[f] += due[f];
             }
             let before = p.player.attributes;
-            let gain = land(&mut p.player, &s, focus.get(&i).copied(), seed);
+            let gain = land(&mut p.player, &s, focus_of, seed);
             if let Some(m) = moved.iter_mut().find(|m| m.0 == id) {
                 m.1 += gain as f32;
             } else {
@@ -1500,6 +1692,11 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
                 w.training.tests.remove(0);
             }
         }
+    }
+    // Flaws and tools: the staff's eye, the week's work on his points
+    // (individual practice topics 4-8).
+    for (id, text) in crate::world::craft_work::week(w, &st.roster, &craft_minutes) {
+        notes.push((id, "position", text));
     }
     // Installs: this week's team and situation periods put in the plan's
     // families and your designs (plays and tactics topic 4).
@@ -2042,6 +2239,13 @@ pub fn limber_of(week: &Week, neutral: &Week) -> f64 {
     clamp(1.0 - 0.1 * (m - n) / (n + 15.0), 0.9, 1.1)
 }
 
+/// A school player pushed back from rehab early gets hurt in practice this
+/// much more often for his first eight weeks back (the soft-tissue
+/// re-injury studies' rough ratio, as a club's rushed return in
+/// `folk/life.rs`). Claude's sizes (proposed, not confirmed).
+pub const RUSHED_RISK: f64 = 1.6;
+pub const RUSHED_DAYS: i32 = 56;
+
 /// Practice injuries on your team (topic 7): every rep carries risk from
 /// its contact, gear and tempo, his load against his usual, and his body.
 /// The neutral week lands on the NCAA's practice rates (proposed, not
@@ -2097,9 +2301,13 @@ fn practice_injuries(
         let exposure = if role == Role::Specialist { 0.25 } else { 1.0 };
         let spike = p.player.train.spike();
         let soft = soft_tissue(spike) * limber;
+        // Pushed back from rehab early (the takeover's trainer report, talk
+        // facts lane L8): the re-injury risk of the first weeks back.
+        let rushed = p.pro.is_none() && w.folk.rushed.iter().any(|x| x.0 == id && x.1 <= d && d < x.1.add(RUSHED_DAYS));
         let chance = injury_chance(st.tier, pw.block, practices, contact, p.player.injury_proneness, exposure, spike)
             * (0.77 + 0.23 * limber)
-            * practice_guarded(contact, soft, guard);
+            * practice_guarded(contact, soft, guard)
+            * if rushed { RUSHED_RISK } else { 1.0 };
         let mut rng = Rng::new(seed ^ id.wrapping_mul(0x9E37_79B1));
         if !rng.chance(chance / med) {
             continue;

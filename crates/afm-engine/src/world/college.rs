@@ -362,6 +362,11 @@ pub(crate) fn start(w: &mut World) {
         if p.stage == Stage::Away {
             roles.push((i, PlayingTime::Unsigned));
         }
+        // A U Sports pick back at school for his last year starts there
+        // (SK77).
+        if p.stage == Stage::CflPool {
+            roles.push((i, PlayingTime::Starter));
+        }
     }
     season::develop(w, &roles);
     // On a season the engine plays his row counts the games he really
@@ -989,6 +994,11 @@ fn play_games(w: &mut World, date: Date, now: impl Fn(&Game) -> bool) {
         let (wi, li) = if home_won { (home, away) } else { (away, home) };
         cs.results[wi].wins += 1;
         cs.results[li].losses += 1;
+        let [hs, as_] = played.score;
+        cs.results[home].points[0] += hs;
+        cs.results[home].points[1] += as_;
+        cs.results[away].points[0] += as_;
+        cs.results[away].points[1] += hs;
         if conference {
             cs.results[wi].conf_wins += 1;
             cs.results[li].conf_losses += 1;
@@ -3153,6 +3163,7 @@ pub(crate) fn record_regular_season(w: &mut World) {
             conference_won: t.conference_title.then(|| prog.conference.clone()),
             conference: (!prog.conference.is_empty()).then(|| prog.conference.clone()),
             division: Some(prog.division),
+            points: t.points,
         });
         let locker = clamp(t.incidents as f64 / t.roster.max(1) as f64 * 8.0, 0.0, 1.0);
         let staff = staff_of(prog, head);
@@ -3311,6 +3322,7 @@ pub(crate) fn finish(w: &mut World) {
                 s.national_title = t.national_title;
                 s.strength = t.strength;
                 s.totals = t.totals;
+                s.points = t.points;
             }
             if t.conference_title {
                 prog.conference_titles += 1;
@@ -3920,22 +3932,39 @@ pub(crate) const COACH_GONE: &str = "his head coach is gone";
 /// leans harder toward the portal, once a cycle (the events clear at fall
 /// camp). It hung on the Sunday after rivalry week, so a coach who left
 /// for another job after it, as most do, never moved his players (minor
-/// bug 88).
-pub(crate) fn coach_gone(w: &mut World, prog: usize) {
-    let factor = crate::career::PIPELINE.portal_entry.coaching_change;
+/// bug 88). How hard depends on how close he was to that coach (playtest
+/// bug 15, Cain's item 7, 2026-11-13): [`coach_gone_factor`].
+pub(crate) fn coach_gone(w: &mut World, prog: usize, coach: usize) {
     let today = w.today;
-    // Each player's own lean: any order gives the same world (world speed
-    // lane).
-    w.people.par_iter_mut().with_min_len(4096).for_each(|p| {
-        if p.stage == Stage::College
-            && p.college == Some(prog)
-            && p.cal.lean > 0.0
-            && !p.cal.lean_events.iter().any(|e| e.1 == COACH_GONE)
-        {
-            lean_push(p, today, COACH_GONE, factor);
-        }
-    });
+    let pushes: Vec<(usize, f64)> = (0..w.people.len())
+        .filter(|&i| {
+            let p = &w.people[i];
+            p.stage == Stage::College
+                && p.college == Some(prog)
+                && p.cal.lean > 0.0
+                && !p.cal.lean_events.iter().any(|e| e.1 == COACH_GONE)
+        })
+        .map(|i| (i, coach_gone_factor(super::folk::takeover::tie_to_old(w, i, Some(coach)))))
+        .collect();
+    for (i, f) in pushes {
+        lean_push(&mut w.people[i], today, COACH_GONE, f);
+    }
 }
+
+/// The push a head coach's exit gives one of his players, by his tie to
+/// that coach (`folk::takeover::tie_to_old`: seasons under him, whether he
+/// recruited him): 1 + 0.8 x min(1, 0.35 + tie), x1.28 with no tie (a coach
+/// who never coached a game with him), x1.8 for a man he recruited and
+/// coached (Cain's item 7, 2026-11-13; before, x1.8 for everyone).
+pub(crate) fn coach_gone_factor(tie: f32) -> f64 {
+    let full = crate::career::PIPELINE.portal_entry.coaching_change - 1.0;
+    1.0 + full * (0.35 + tie as f64).min(1.0)
+}
+
+/// The lean events a fall camp role sets as the base (the first event of a
+/// season's lean).
+pub(crate) const CAMP_ROLES: [&str; 4] =
+    ["a starter at fall camp", "a backup at fall camp", "in the rotation at fall camp", "redshirting this year"];
 
 /// Reads and moves each college player's lean toward leaving (T3). The base
 /// is the yearly entry chance by role (`PIPELINE.portal_entry`), how buried
@@ -3950,14 +3979,27 @@ pub(crate) fn lean_checkpoint(w: &mut World, check: LeanCheck) {
         LeanCheck::FallCamp => {
             // Starters' level at each position and division: the bar a backup measures himself against.
             let mut perf: [[Vec<f64>; crate::positions::POSITION_COUNT]; DIVISION_COUNT] = Default::default();
+            // Power 4 starters apart: the level a Group of 5 starter measures
+            // himself against (playtest bug 15, Cain's item 9).
+            let mut p4: [Vec<f64>; crate::positions::POSITION_COUNT] = Default::default();
             for p in w.people.iter() {
                 if p.stage == Stage::College
                     && p.last_role == Some(PlayingTime::Starter)
                     && let Some(c) = p.college
                 {
                     perf[w.programs[c].division as usize][p.player.position.index()].push(p.player.overall());
+                    if w.programs[c].division == Division::FBS && w.programs[c].power_conference(year) {
+                        p4[p.player.position.index()].push(p.player.overall());
+                    }
                 }
             }
+            let p4_med: Vec<f64> = p4
+                .iter_mut()
+                .map(|v| {
+                    v.sort_by(|a, b| a.total_cmp(b));
+                    if v.is_empty() { 99.0 } else { v[v.len() / 2] }
+                })
+                .collect();
             let med: Vec<Vec<f64>> = perf
                 .iter_mut()
                 .map(|d| {
@@ -4003,8 +4045,20 @@ pub(crate) fn lean_checkpoint(w: &mut World, check: LeanCheck) {
                 } else {
                     div
                 };
-                let m = med[up as usize][p.player.position.index()];
-                let buried = clamp(1.0 + 0.12 * (p.player.overall() - m), 0.6, 2.0);
+                // An FBS starter (playtest bug 15, Cain's item 9): a Power 4
+                // starter gets no push for being good, he starts already; a
+                // Group of 5 starter measures himself against Power 4
+                // starters. Before, every FBS starter measured himself
+                // against FBS starters, so a good one leaned out more.
+                let starter = p.last_role == Some(PlayingTime::Starter);
+                let power = div == Division::FBS && programs[c].power_conference(year);
+                let m = if starter && div == Division::FBS {
+                    p4_med[p.player.position.index()]
+                } else {
+                    med[up as usize][p.player.position.index()]
+                };
+                let buried =
+                    clamp(1.0 + 0.12 * (p.player.overall() - m), 0.6, if starter && power { 1.0 } else { 2.0 });
                 let comp = 1.0 + (p.player.personality.competitiveness - 10.0) * 0.04;
                 p.cal.lean = base;
                 let why = match p.last_role {
@@ -4057,12 +4111,9 @@ pub(crate) fn lean_checkpoint(w: &mut World, check: LeanCheck) {
                         lean_push(p, date, "no snaps by midseason", 1.15);
                     }
                 }
-                // Section 6 topics 1 and 3: his mood and his loyalty.
-                if p.mood < -0.15 {
-                    lean_push(p, date, "unhappy at the school", (1.0 - 0.6 * p.mood as f64).min(1.6));
-                } else if p.mood > 0.3 {
-                    lean_push(p, date, "happy at the school", 0.85);
-                }
+                // Section 6 topic 3: his loyalty. His mood is read on the day
+                // he decides instead (`stay_read`; playtest bug 15, Cain's
+                // item 8): it was read here once, months before a window.
                 let loyal = p.player.personality.traits.z(crate::player::Trait::Loyalty);
                 if loyal.abs() > 0.3 {
                     lean_push(
@@ -4244,23 +4295,30 @@ fn fall_term_check(w: &mut World) {
     }
 }
 
+/// Does he finish his degree this December (keyed, so the draft talk in
+/// mid-December knows it before the ceremony)? December is for the early
+/// finishers (part B 36): a good student in his fourth fall, or a
+/// fifth-year senior finishing his degree. Proposed, not confirmed: a third
+/// of the first, half of the second. Years away on a mission or in the
+/// service don't count (A3).
+pub(crate) fn graduates_in_december(p: &super::Person, year: i32, world_seed: u32) -> bool {
+    let seed = world_seed as u64 ^ (year as u64) << 20 ^ 0xDEC6;
+    let years = super::eligibility::school_year(p, year);
+    let early = years == 4 && p.bg.gpa >= 3.0 && key_uniform(seed, p.player.id as u64) < 0.35;
+    let fifth = years >= 5 && p.bg.gpa >= 2.3 && key_uniform(seed ^ 5, p.player.id as u64) < 0.5;
+    p.stage == Stage::College && (early || fifth) && p.college.is_some() && !p.cal.graduated
+}
+
 /// The week after finals: the fall term's eligibility check, then December
 /// graduation (A24): seniors with three years done and their degree in hand
 /// can transfer as graduates and play at once, under every era's rules.
 pub(crate) fn december_graduation(w: &mut World) {
     fall_term_check(w);
     let year = w.year;
-    let seed = w.options.seed as u64 ^ (year as u64) << 20 ^ 0xDEC6;
+    let seed = w.options.seed;
     let programs = &w.programs;
     for p in w.people.iter_mut() {
-        // December is for the early finishers (part B 36): a good student
-        // in his fourth fall, or a fifth-year senior finishing his degree.
-        // Proposed, not confirmed: a third of the first, half of the second.
-        // Years away on a mission or in the service don't count (A3).
-        let years = super::eligibility::school_year(p, year);
-        let early = years == 4 && p.bg.gpa >= 3.0 && key_uniform(seed, p.player.id as u64) < 0.35;
-        let fifth = years >= 5 && p.bg.gpa >= 2.3 && key_uniform(seed ^ 5, p.player.id as u64) < 0.5;
-        if p.stage == Stage::College && (early || fifth) && p.college.is_some() && !p.cal.graduated {
+        if graduates_in_december(p, year, seed) {
             p.cal.graduated = true;
             let age = p.row_age();
             // The year to use anywhere only when he has a season left.

@@ -219,6 +219,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
     match staff {
         Staff::Club(t) => nfl_day(w, t, d),
         Staff::Program(p) => college_day(w, p, d),
+        Staff::League(fr) => league_day(w, fr, d),
         Staff::School(_) => {}
     }
     asks_day(w, staff, d);
@@ -256,6 +257,12 @@ fn asks_day(w: &mut World, staff: Staff, d: Date) {
             Staff::Club(t) => w.nfl.get(t).and_then(|x| x.head_coach),
             Staff::Program(p) => w.programs[p].head_coach,
             Staff::School(h) => w.high_schools.get(h).and_then(|x| x.coach),
+            Staff::League(fr) => w.others.teams.get(fr).and_then(|x| x.head_coach),
+        };
+        // A CFL club's own scouts, by role (SK77).
+        let league_scout = |role: crate::world::pro::scouts::Role| match staff {
+            Staff::League(fr) => w.others.teams.get(fr)?.scouts.iter().position(|s| s.role == role),
+            _ => None,
         };
         let (who, ready): (Option<u32>, bool) = match kind {
             Kind::Background => (Some(readers::SECURITY), waited >= 5),
@@ -266,8 +273,9 @@ fn asks_day(w: &mut World, staff: Staff, d: Date) {
             }
             Kind::Workout => {
                 let throws = club.is_none_or(|t| super::predraft::throws_for(w, i, t));
-                let ok = stage == Stage::Declared && spring && matches!(wd, Weekday::Tue | Weekday::Thu) && waited >= 3;
-                if stage != Stage::Declared && d > draft_day && asked < draft_day {
+                let pool = stage == Stage::Declared || (stage == Stage::CflPool && matches!(staff, Staff::League(_)));
+                let ok = pool && spring && matches!(wd, Weekday::Tue | Weekday::Thu) && waited >= 3;
+                if !pool && d > draft_day && asked < draft_day {
                     done.push((id, kind));
                     continue;
                 }
@@ -283,14 +291,22 @@ fn asks_day(w: &mut World, staff: Staff, d: Date) {
                 (Some(who), waited >= days && wd != Weekday::Sun)
             }
             Kind::School | Kind::CrossCheck => {
-                let scout = club.and_then(|t| {
-                    let role = if kind == Kind::CrossCheck {
-                        crate::world::pro::scouts::Role::National
-                    } else {
-                        crate::world::pro::scouts::Role::Area
-                    };
-                    w.clubs.get(t)?.scouts.iter().position(|s| s.role == role)
-                });
+                let scout = club
+                    .and_then(|t| {
+                        let role = if kind == Kind::CrossCheck {
+                            crate::world::pro::scouts::Role::National
+                        } else {
+                            crate::world::pro::scouts::Role::Area
+                        };
+                        w.clubs.get(t)?.scouts.iter().position(|s| s.role == role)
+                    })
+                    .or_else(|| {
+                        league_scout(if kind == Kind::CrossCheck {
+                            crate::world::pro::scouts::Role::National
+                        } else {
+                            crate::world::pro::scouts::Role::Area
+                        })
+                    });
                 (scout.map(|k| k as u32), waited >= 7 && wd == Weekday::Wed)
             }
             Kind::ProFilm => (Some(readers::PRO_SCOUT), waited >= super::film::time::staff_days(w, 3)),
@@ -305,6 +321,7 @@ fn asks_day(w: &mut World, staff: Staff, d: Date) {
                         .get(t)
                         .and_then(|c| c.scouts.iter().position(|s| s.role == crate::world::pro::scouts::Role::Area))
                         .map(|k| k as u32),
+                    Staff::League(_) => league_scout(crate::world::pro::scouts::Role::Area).map(|k| k as u32),
                     Staff::School(_) => None,
                 };
                 (who, waited >= super::film::time::staff_days(w, 2) && wd != Weekday::Sun)
@@ -341,6 +358,16 @@ fn asks_day(w: &mut World, staff: Staff, d: Date) {
             (Some(t), Kind::CrossCheck) => club_look(w, t, id, who as u8, L::CrossCheck, d),
             (Some(t), Kind::CollegeFilm | Kind::HsFilm) if who < 250 => club_look(w, t, id, who as u8, L::Film, d),
             _ => {}
+        }
+        // A CFL club's board reads its own file too (SK77).
+        if let Staff::League(fr) = staff {
+            match kind_now {
+                Kind::Workout => league_copy(w, fr, id, L::Coach, d),
+                Kind::School if who < 250 => league_look(w, fr, id, who as u8, L::School, d),
+                Kind::CrossCheck if who < 250 => league_look(w, fr, id, who as u8, L::CrossCheck, d),
+                Kind::CollegeFilm | Kind::HsFilm if who < 250 => league_look(w, fr, id, who as u8, L::Film, d),
+                _ => {}
+            }
         }
         if who >= 250
             || club.is_none()
@@ -455,6 +482,103 @@ fn nfl_day(w: &mut World, t: usize, d: Date) {
     }
 }
 
+/// A CFL club (SK77): the club's own year keeps its file (`pro::cfl`);
+/// your assignments come on top, each Wednesday from September to April,
+/// as at an NFL club: a man on a player sees him every second week, on a
+/// group he files film on its top names five a week, on a region four of
+/// its best, on cross-checks three a week from the top of your board he
+/// hasn't seen. Your focus sends the director to five more of a group.
+fn league_day(w: &mut World, fr: usize, d: Date) {
+    use crate::world::pro::cfl;
+    use crate::world::pro::scouts::{LookKind, Role};
+    let (_, m, _) = d.parts();
+    if !matches!(m, 9..=12 | 1..=4) || d.weekday() != Weekday::Wed {
+        return;
+    }
+    let draft = cfl::coming_draft(w);
+    let mut class: Vec<(f64, usize)> =
+        cfl::class(w, draft, false).into_iter().map(|i| (cfl::consensus(w, i), i)).collect();
+    class.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+    let id_of = |w: &World, i: usize| w.people[i].player.id;
+    let week = (d.0 / 7) as usize;
+    let scouts = w.others.teams.get(fr).map_or(0, |c| c.scouts.len());
+    let fall = m >= 9;
+    for a in w.scouting.dept.assignments.clone() {
+        let who = a.who;
+        if who as usize >= scouts {
+            continue;
+        }
+        let k = who as u8;
+        match a.target {
+            Target::Player(id) => {
+                if week.is_multiple_of(2) && class.iter().any(|&(_, i)| id_of(w, i) == id) {
+                    league_look(w, fr, id, k, if fall { LookKind::School } else { LookKind::Film }, d);
+                }
+            }
+            Target::Group(g) => {
+                let ids: Vec<u32> = class
+                    .iter()
+                    .filter(|&&(_, i)| crate::world::coach::Group::of(w.people[i].player.position) as u8 == g)
+                    .take(40)
+                    .map(|&(_, i)| id_of(w, i))
+                    .collect();
+                let at = (week * 5) % ids.len().max(1);
+                for &id in ids.iter().cycle().skip(at).take(5.min(ids.len())) {
+                    league_look(w, fr, id, k, LookKind::Film, d);
+                }
+            }
+            Target::Region(r) => {
+                let ids: Vec<u32> = class
+                    .iter()
+                    .filter(|&&(_, i)| cfl::region(w, i) == r)
+                    .take(30)
+                    .map(|&(_, i)| id_of(w, i))
+                    .collect();
+                let at = (week * 4) % ids.len().max(1);
+                let kind = if fall { LookKind::School } else { LookKind::Film };
+                for &id in ids.iter().cycle().skip(at).take(4.min(ids.len())) {
+                    league_look(w, fr, id, k, kind, d);
+                }
+            }
+            Target::CrossCheck => {
+                let role = w.others.teams[fr].scouts[who as usize].role;
+                let kind = if role == Role::Director { LookKind::Director } else { LookKind::CrossCheck };
+                let files = &w.others.teams[fr].files;
+                let top: Vec<u32> = cfl::seat_board(w)
+                    .into_iter()
+                    .map(|(i, _)| id_of(w, i))
+                    .filter(|id| !files.get(id).is_some_and(|f| f.iter().any(|l| l.who == k)))
+                    .take(3)
+                    .collect();
+                for (j, id) in top.into_iter().enumerate() {
+                    league_look(w, fr, id, k, kind, d.add(j as i32));
+                }
+            }
+        }
+    }
+    let focus: Vec<u8> = w
+        .scouting
+        .dept
+        .instructions
+        .iter()
+        .filter_map(|i| if let Instruction::Focus(g) = i { Some(*g) } else { None })
+        .collect();
+    if let Some(dir) = w.others.teams.get(fr).and_then(|c| c.scouts.iter().position(|s| s.role == Role::Director)) {
+        for g in focus {
+            let ids: Vec<u32> = class
+                .iter()
+                .filter(|&&(_, i)| crate::world::coach::Group::of(w.people[i].player.position) as u8 == g)
+                .take(40)
+                .map(|&(_, i)| id_of(w, i))
+                .collect();
+            let at = (week * 5) % ids.len().max(1);
+            for &id in ids.iter().cycle().skip(at).take(5.min(ids.len())) {
+                league_look(w, fr, id, dir as u8, LookKind::Director, d);
+            }
+        }
+    }
+}
+
 /// Your scout on cross-checks (minor bug 265): a second look at the top of
 /// your board (`board::seat_grades`: your staff's grades, the public's read
 /// where you have no file yet), three a week on three days, at men he
@@ -494,6 +618,31 @@ pub(crate) fn club_copy(w: &mut World, t: usize, id: u32, kind: crate::world::pr
     if let Some(c) = w.clubs.get_mut(t) {
         let who = crate::world::pro::scouts::HC;
         c.files.entry(id).or_default().push(crate::world::pro::scouts::Look { who, kind, date: d });
+    }
+}
+
+/// A look for a CFL club's file (SK77), the club's own scouts or coaches.
+pub(crate) fn league_look(
+    w: &mut World,
+    fr: usize,
+    id: u32,
+    who: u8,
+    kind: crate::world::pro::scouts::LookKind,
+    d: Date,
+) {
+    if let Some(c) = w.others.teams.get_mut(fr) {
+        let f = c.files.entry(id).or_default();
+        if !f.iter().any(|l| l.who == who && l.kind == kind && l.date == d) {
+            f.push(crate::world::pro::scouts::Look { who, kind, date: d });
+        }
+    }
+}
+
+/// A CFL club file's copy of your new look as its head coach, as
+/// `club_copy` does at an NFL club.
+pub(crate) fn league_copy(w: &mut World, fr: usize, id: u32, kind: crate::world::pro::scouts::LookKind, d: Date) {
+    if w.others.teams.get(fr).is_some_and(|t| t.head_coach == readers::you(w)) {
+        league_look(w, fr, id, crate::world::pro::scouts::HC, kind, d);
     }
 }
 
@@ -666,6 +815,7 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
                     }
                 }
                 picks.truncate(today as usize);
+                let extra = second_schools(w, prog, d, &board, &picks, &seen);
                 for (who, i) in picks {
                     let id = w.people[i].player.id;
                     let kind = if wd == Weekday::Fri { Kind::Game } else { Kind::Practice };
@@ -677,6 +827,15 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
                     } else {
                         w.scouting.dept.eval_days.2 += 1;
                     }
+                }
+                // A second school on the same day is the same evaluation
+                // day by NCAA rule (one coach out one day), so it takes
+                // none of the staff's days.
+                for (who, i) in extra {
+                    let id = w.people[i].player.id;
+                    add(w, id, who, Kind::Practice, d);
+                    w.scouting.dept.days_log.push((d, who, id));
+                    w.scouting.dept.asks.retain(|a| a.0 != id || a.1 != Kind::Practice);
                 }
             }
         }
@@ -746,6 +905,50 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
             }
         }
     }
+}
+
+/// How far a coach goes on to a second school the same afternoon on
+/// travel money: a short flight or a drive the budget pays for (proposed,
+/// not confirmed).
+const SECOND_MILES: f64 = 250.0;
+
+/// Your athletic director's raises for travel (people topic 12) put your
+/// coaches on planes: on a Thursday out (practice, never Friday's game,
+/// which all kick off at once) each coach out on the road goes on to a
+/// second school with the raise's share as his chance (a tenth more money,
+/// about a tenth more schools), to see the best recruit on your board
+/// within `SECOND_MILES` of the first whom nobody of yours has seen in
+/// person this recruiting year. None without a raise.
+pub(crate) fn second_schools(
+    w: &World,
+    prog: usize,
+    d: Date,
+    board: &[usize],
+    picks: &[(u32, usize)],
+    seen: &dyn Fn(&World, usize) -> bool,
+) -> Vec<(u32, usize)> {
+    let bonus = crate::world::folk::staffing::recruit_bonus(w, prog);
+    if bonus <= 0.0 || d.weekday() != Weekday::Thu {
+        return Vec::new();
+    }
+    let mut extra: Vec<(u32, usize)> = Vec::new();
+    for &(who, i) in picks {
+        if who < COACH || !readers::chance(Staff::Program(prog), 0x2ECD ^ d.0 as u64, who, bonus.min(1.0)) {
+            continue;
+        }
+        let from = w.people[i].home_state;
+        let next = board.iter().copied().find(|&k| {
+            matches!(w.people[k].stage, Stage::HighSchool | Stage::PrepSchool)
+                && !seen(w, k)
+                && !picks.iter().any(|p| p.1 == k)
+                && !extra.iter().any(|p| p.1 == k)
+                && crate::world::geo::miles(from, w.people[k].home_state) <= SECOND_MILES
+        });
+        if let Some(k) = next {
+            extra.push((who, k));
+        }
+    }
+    extra
 }
 
 /// One Monday's film study by the personnel staff: a quarter of the board

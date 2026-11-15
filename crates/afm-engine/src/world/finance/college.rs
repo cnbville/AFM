@@ -16,6 +16,7 @@ use crate::rng::clamp;
 use crate::world::World;
 use crate::world::data::Division;
 use crate::world::deals::Money;
+use crate::world::folk::Team;
 use crate::world::schedule::GameKind;
 
 pub const CONFERENCE: usize = 0;
@@ -411,8 +412,14 @@ pub(crate) fn open_year(w: &mut World, p: usize, year: i32) {
         2 => (1.4e6, 0.3e6, 0.8e6),
         _ => (0.25e6, 0.05e6, 0.2e6),
     };
-    b.l[STAFF] = (staff_top * spend * idx) as f32;
-    b.l[RECRUITING] = (recruit_top * spend * idx) as f32;
+    // Your athletic director's raises to the staff pool come on top of the
+    // usual support staff line (people topic 12).
+    let pooled = 1.0 + crate::world::folk::staffing::staff_bonus(w, Team::College(p));
+    b.l[STAFF] = (staff_top * spend * idx * pooled) as f32;
+    // Your athletic director's raises for travel and visits (people topic
+    // 12) come on top of the usual line.
+    let raised = 1.0 + crate::world::folk::staffing::recruit_bonus(w, p);
+    b.l[RECRUITING] = (recruit_top * spend * idx * raised) as f32;
     b.l[TRAVEL] = (travel * idx) as f32;
     let coa = 48_000.0 * data::hs_index(year);
     b.l[SCHOLARSHIPS] = (football_aid(prog.division) * coa * 3.2) as f32;
@@ -476,7 +483,9 @@ pub(crate) fn open_year(w: &mut World, p: usize, year: i32) {
     let keep = if left > floor { 0.04 * (left - floor) } else { 0.0 };
     b.l[OTHER_COSTS] = ((other - keep) * 0.72) as f32;
     b.l[ADMIN] = ((other - keep) * 0.28) as f32;
-    let level = clamp((b.l[STAFF] + b.l[RECRUITING]) as f64 / ((staff_top + recruit_top) * idx), 0.0, 1.0);
+    // The level reads above 1 only with a raise from your boss (every other
+    // program's lines are at most the top of their tier).
+    let level = clamp((b.l[STAFF] + b.l[RECRUITING]) as f64 / ((staff_top + recruit_top) * idx), 0.0, LEVEL_MAX);
     let d = &mut w.finance.college[p];
     d.level = level as f32;
     d.budget = b;
@@ -486,6 +495,10 @@ pub(crate) fn open_year(w: &mut World, p: usize, year: i32) {
     d.sellouts = 0;
     d.attendance = 0;
 }
+
+/// The most a program's spending level reads: 1 at the top of its tier, a
+/// little above it with raises from your boss (proposed, not confirmed).
+const LEVEL_MAX: f64 = 1.5;
 
 fn default_pay(d: Division, t: u8) -> f64 {
     match (t, d) {
@@ -512,6 +525,47 @@ fn expected_crowd(w: &World, p: usize) -> f64 {
     let x = 0.2 + 0.62 * prog.fans + 0.12 * prog.recent + 0.06;
     let seats = prog.crowd_seats() as f64;
     (x * seats).min(prog.stadium as f64)
+}
+
+/// Your athletic director says yes to more recruiting money (people topic
+/// 12): this money year's recruiting line grows by `share` of its usual
+/// size from today, the months still to come spending it (the next year's
+/// budget carries the raise from `open_year`).
+pub(crate) fn raise_recruiting(w: &mut World, p: usize, share: f64) {
+    let bonus = crate::world::folk::staffing::recruit_bonus(w, p);
+    let Some(d) = w.finance.college.get_mut(p) else { return };
+    // The line already holds the raises before this one.
+    let before = 1.0 + (bonus - share).max(0.0);
+    let old = d.budget.l[RECRUITING] as f64;
+    let new = old / before * (1.0 + bonus);
+    d.budget.l[RECRUITING] = new as f32;
+    // The level is the two lines against their tier's top, so it moves with them.
+    let staff = d.budget.l[STAFF] as f64;
+    if old + staff > 0.0 {
+        d.level = clamp(d.level as f64 * (new + staff) / (old + staff), 0.0, LEVEL_MAX) as f32;
+    }
+}
+
+/// Your athletic director says yes to more money for the staff pool (people
+/// topic 12): this money year's support staff line grows by `share` of its
+/// usual size from today, and the spending level the support heads are hired
+/// at follows (the next year's budget carries the raise from `open_year`).
+pub(crate) fn raise_staff(w: &mut World, p: usize, share: f64) {
+    let bonus = crate::world::folk::staffing::staff_bonus(w, Team::College(p));
+    let Some(d) = w.finance.college.get_mut(p) else { return };
+    if d.budget.year == 0 {
+        return;
+    }
+    // The line already holds the raises before this one.
+    let before = 1.0 + (bonus - share).max(0.0);
+    let old = d.budget.l[STAFF] as f64;
+    let new = old / before * (1.0 + bonus);
+    d.budget.l[STAFF] = new as f32;
+    // The level is the two lines against their tier's top, so it moves with them.
+    let rec = d.budget.l[RECRUITING] as f64;
+    if old + rec > 0.0 {
+        d.level = clamp(d.level as f64 * (new + rec) / (old + rec), 0.0, LEVEL_MAX) as f32;
+    }
 }
 
 /// The month's money.

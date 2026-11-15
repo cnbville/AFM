@@ -110,7 +110,7 @@ const FR_COLLEGE = {
     { t: x.prev_since ? `Rank · since ${x.prev_since}` : "Rank", k: "nat", hw: true, f: (r) => frRank(r, true) },
     { t: "Ht · Wt", k: "ht", f: (r) => `<span class="fr-num">${esc(r.ht)}</span><div class="fr-l2 fr-num">${esc(r.wt)} lb</div>` },
     { t: "Your staff's read", k: "now", hw: true, f: (r) => frRead(r.read, r.id) },
-    { t: "Could play", k: "proj", f: (r) => (r.proj ? `${esc(r.proj)}<div class="fr-l2">${esc(r.sure || "")}</div>` : frMute("Not seen")) },
+    { t: "Could play", k: "proj", f: (r) => (r.proj ? `${esc(r.proj)}${r.proj_whose === "yours" ? '<span class="pot-yours" title="Your own read; sorts and filters read it too">yours</span>' : ""}<div class="fr-l2">${esc(r.sure || "")}</div>` : frMute("Not seen")) },
     { t: "You vs the services", k: "vs", hw: true, tip: FR_VS_TIP.services.head, f: (r) => frVs(r.vs) },
     { t: "Where it stands", f: frStands, wrap: true },
     { t: "Offers", k: "offers", r: true, f: frOffers },
@@ -458,7 +458,7 @@ screens.recruit_find = async (a) => {
   const foot = `<div class="fr-foot"><div class="fr-panel"><div class="fr-ph"><span class="fr-k">The services</span></div><ul class="fr-list">${x.services.map((s) => `<li><span>${esc(s.name)}</span><span>stars by service, in the Services view</span></li>`).join("")}${x.services.length > 1 ? "<li><span>Composite</span><span>their average, from 2012</span></li>" : ""}</ul></div>
     <div class="fr-panel"><div class="fr-ph"><span class="fr-k">The insiders</span></div>${x.insiders.length ? `<ul class="fr-list">${x.insiders.map((d) => `<li><span><a class="link" data-act="fr-insider" data-desk="${d.k}">${esc(d.name)}</a> <small class="fr-mute">${esc(d.desk)}</small></span><span>${d.pct != null ? `${d.pct}% right last year` : "no record yet"} · ${d.open} open</span></li>`).join("")}</ul>` : '<div class="fr-empty">No insiders log picks before 2011.</div>'}</div>
     <div class="fr-panel"><div class="fr-ph"><span class="fr-k">Your area recruiters</span></div>${x.recruiters.length ? `<ul class="fr-list">${x.recruiters.map((c) => `<li><span>${coachLink(c.id, c.name)}</span><span>${esc(c.states.slice(0, 6).join(", "))}${c.states.length > 6 ? ` +${c.states.length - 6}` : ""}</span></li>`).join("")}</ul>` : '<div class="fr-empty">No areas set.</div>'}</div></div>`;
-  return `<div class="pad fr">${head}${gotoFor("recruit_find")}${dvBlock("find")}${frBuilder(x, st, "college")}${frResults(x, st, FR_COLLEGE)}${foot}</div>`;
+  return `<div class="pad fr">${head}${gotoFor("recruit_find")}${dvBlock("find")}${aiAskBox(x.ask, ["find"], "find:college", { wrap: "panel", query: aiQueryFind, presets: [{ cmd: "ai_ask", args: { kind: "find" }, limit: 400 }] })}${frBuilder(x, st, "college")}${frResults(x, st, FR_COLLEGE)}${foot}</div>`;
 };
 
 screens.find_prospects = async () => {
@@ -485,7 +485,7 @@ screens.find_prospects = async () => {
   const foot = `<div class="fr-foot"><div class="fr-panel"><div class="fr-ph"><span class="fr-k">The desks' records</span></div><ul class="fr-list">${x.desks.map((d) => `<li><span>${esc(d.name)}</span><span>${d.top100 ? `top 100: ${d.top100.pct} of 100 went in the first 100 picks a year, ${esc(d.top100.years)}` : "no draft scored yet"}${d.mocks ? ` · mocks ${d.mocks.exact} exact, ${d.mocks.near} within three in ${d.mocks.drafts}` : ""}</span></li>`).join("")}<li><span>Consensus</span><span>the desks' weekly top 50, then their grades</span></li></ul></div>
     <div class="fr-panel"><div class="fr-ph"><span class="fr-k">Your board</span></div><p class="fr-mute">Your board's order and grades come from your scouts' files; ${linkTo("draftboard", {}, "the draft board")} sets them. "You vs the desks" marks a prospect at least 12 places (or a third of your rank) from the consensus.</p></div>
     <div class="fr-panel"><div class="fr-ph"><span class="fr-k">The year</span></div><ul class="fr-list"><li><span>Senior Bowl</span><span>${esc(x.senior_bowl)}</span></li><li><span>The combine</span><span>${esc(x.combine.join("-"))}</span></li><li><span>The draft</span><span>${esc(x.draft_date)}</span></li></ul></div></div>`;
-  return `<div class="pad fr">${head}${gotoFor("find_prospects")}${frBuilder(x, st, "nfl")}${frResults(x, st, FR_NFL)}${foot}</div>`;
+  return `<div class="pad fr">${head}${gotoFor("find_prospects")}${aiAskBox(x.ask, ["find"], "find:nfl", { wrap: "panel", query: aiQueryFind, presets: [{ cmd: "ai_ask", args: { kind: "find" }, limit: 400 }] })}${frBuilder(x, st, "nfl")}${frResults(x, st, FR_NFL)}${foot}</div>`;
 };
 
 // ---------- the high school coach: Colleges calling (FR15) ----------

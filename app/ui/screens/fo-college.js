@@ -113,7 +113,7 @@ function fcDuty(duties, key) {
 }
 function fcPot(p) {
   if (!p) return '<span class="muted">Not worked yet</span>';
-  return `<span title="How sure: ${esc(words(p.sure))}${p.hints && p.hints.length ? " · " + esc(p.hints.join(" · ")) : ""}">${esc(fcCap(p.tier))}</span>`;
+  return `<span title="How sure: ${esc(words(p.sure))}${p.hints && p.hints.length ? " · " + esc(p.hints.join(" · ")) : ""}">${esc(fcCap(p.tier))}</span>${potTag(p)}`;
 }
 const fcPublic = (r) => `<small>${esc(r.rank)}${r.camp ? ` · <span title="The kicking and snapping camps' own stars">${r.camp}★ camps</span>` : ""}</small>`;
 const fcTone = (t) => (t === "good" ? "good" : t === "bad" ? "bad" : t === "warn" ? "warn" : "");
@@ -237,7 +237,7 @@ function l7Word(ch) {
         { k: "school", t: "School", l: true, v: (r) => (r.hs ? r.hs.name : ""), f: (r) => (r.hs ? teamLink(r.hs) : "") },
         { k: "coach", t: "His coach", l: true, div: true, v: (r) => r.coach.name, f: who },
         { k: "read", t: "His read", tip: "Your staff's read the day he brought him, against the position's line", v: (r) => mid(r.read), f: (r) => `${range(r.read, null, { p: r.id, k: "ovr" })} <small class="sub">line ${r.line}</small>` },
-        { k: "yours", t: "Yours", tip: "Your own read: your looks only, or a first impression", v: (r) => mid(r.yours), f: (r) => yourRange(r.yours) },
+        { k: "yours", t: "Yours", tip: "Your own read: your looks only, or a first impression", v: (r) => mid(r.yours), f: (r) => yourRange(r.yours, undefined, { p: r.id, k: "ovr" }) },
         { k: "conviction", t: "How hard", l: true, tip: "How hard he argues for it", v: (r) => r.conviction, f: (r) => `<span title="${r.conviction} of 20">${esc(r.argue)}</span>` },
         { k: "why", t: "His word", l: true, wrap: true, f: (r) => `<small>${esc(r.why)}</small>` },
         { k: "act", t: "", l: true, f: (r) => `<span class="fc-rowacts"><button class="st-btn small primary" data-fc="l7sign" data-id="${r.id}">${r.pull ? "Pull it" : "Offer"}</button><button class="st-btn small glass" data-fc="l7decline" data-id="${r.id}">Decline</button></span>` },
@@ -259,7 +259,7 @@ function l7Passed(ch) {
       { k: "where", t: "Now", l: true, f: (r) => esc(r.where) },
       { k: "coach", t: "Who passed", l: true, div: true, v: (r) => r.coach.name, f: (r) => `${coachLink(r.coach.id, r.coach.name)} <small class="sub">${esc(r.date)}</small>` },
       { k: "now", t: "Staff read", tip: "Your staff's read today", v: (r) => mid(r.now), f: (r) => range(r.now, null, { p: r.id, k: "ovr" }) },
-      { k: "yours", t: "Yours", tip: "Your own read", v: (r) => mid(r.yours), f: (r) => yourRange(r.yours) },
+      { k: "yours", t: "Yours", tip: "Your own read", v: (r) => mid(r.yours), f: (r) => yourRange(r.yours, undefined, { p: r.id, k: "ovr" }) },
       { k: "why", t: "Why", l: true, wrap: true, f: (r) => `<small>${esc(r.why)}</small>` },
       { k: "act", t: "", l: true, f: (r) => `<span class="fc-rowacts">${r.back ? "" : `<button class="st-btn small glass" data-fc="l7back" data-id="${r.id}">Back on the board</button>`}<button class="st-btn small glass" data-fc="l7see" data-id="${r.id}">See him</button></span>` },
     ], ch.passed, { sort: null })}</div>`;
@@ -332,7 +332,7 @@ function fcFile(f, ctx, compact) {
         .map((s) => `<div class="fc-school ${s.yours ? "yours" : ""}"><span class="fc-n">${s.n}</span>${mark(s.team, 28)}<span><b>${teamLink(s.team)}</b><small>${esc(s.status)}</small></span>${s.pill ? `<span class="st-pill ${s.pill === "Leads" ? "good" : "gold"}">${esc(s.pill)}</span>` : ""}</div>`)
         .join("")
     : '<div class="empty">No offers yet. The first one is remembered.</div>';
-  const read = `<div class="fc-read"><div><span class="l7-pair">${range(f.read, null, { p: f.id, k: "ovr" })}${yourRange(f.yours)}</span></div><div><b>${fcPot(f.pot)}</b>${f.pot ? `<small class="sub">How sure: ${esc(words(f.pot.sure))}</small>` : ""}</div></div>
+  const read = `<div class="fc-read"><div><span class="l7-pair">${range(f.read, null, { p: f.id, k: "ovr" })}${yourRange(f.yours, undefined, { p: f.id, k: "ovr" })}</span></div><div><b>${fcPot(f.pot)}</b>${f.pot ? `<small class="sub">How sure: ${esc(words(f.pot.sure))}</small>` : ""}</div></div>
     ${f.pot && f.pot.hints && f.pot.hints.length ? `<div class="fc-hints">${f.pot.hints.map((h) => `<span class="st-fact">${esc(fcCap(h))}</span>`).join("")}</div>` : ""}
     <small class="sub">Read by ${esc(f.reader)}${f.reader_role ? `, your ${esc(f.reader_role)}` : ""}.${f.on_board ? "" : " Add him to your board and the read narrows as your staff works him."}</small>`;
   const nextLine = f.next ? `<b>${esc(f.next.date)}</b> · ${esc(f.next.what)}` : "Nothing set";
@@ -367,7 +367,7 @@ function fcFile(f, ctx, compact) {
   if (compact) {
     return `<section class="fc-file warm">${left}${mid}${right}</section>`;
   }
-  return `<section class="fc-file warm">${left}${mid}${right}</section><div class="grid3">${family}${history || '<div class="panel"><h2>Visits and contacts</h2><div class="empty">He hasn\'t been on your campus yet.</div></div>'}${early || '<div class="panel"><h2>His offers in order</h2><div class="empty">No offers yet.</div></div>'}</div>`;
+  return `<section class="fc-file warm">${left}${mid}${right}</section>${plPanel(f.pulls, { wrap: true })}<div class="grid3">${family}${history || '<div class="panel"><h2>Visits and contacts</h2><div class="empty">He hasn\'t been on your campus yet.</div></div>'}${early || '<div class="panel"><h2>His offers in order</h2><div class="empty">No offers yet.</div></div>'}</div>`;
 }
 
 // Your own film session on him (bug 82): today, on your own film hours;
@@ -423,6 +423,7 @@ function fcActions(f) {
         <div class="fc-nilrow">${box("Revenue share", "promise", f.nil)}${two ? box("Collective deal", "pcoll", f.nil_coll) : ""}<button class="st-btn small primary" data-fc="promise" data-id="${f.id}">Promise</button></div>
         <small class="sub">${state} ${market} The going rate for his position tops out near ${money(f.nil_max)}, but only your money limits you: ${left}.</small>
         ${fcAnswer(f.answer)}
+        ${aiSayBox(f, "nil:" + f.id, { wrap: "panel", preset: { cmd: "fo_say", args: { id: f.id, nil: true }, limit: 400 }, words: { ph: "Type what you'd say to him and his family about the money. The boxes above still work.", foot: "The boxes above still work." }, echo: true })}${aiFacts(f, "nil:" + f.id, { wrap: "panel", foot: "What you bring up can reach him and his family.", preset: { cmd: "fo_fact", args: { id: f.id, nil: true }, list: [{ fact: 1, label: "Schools like yours usually pay about this" }, { fact: 2, label: "Your collective has money left" }] } })}
         ${promised ? `<button class="st-btn small glass" data-fc="promiseclear" data-id="${f.id}">Take the promise back</button>` : ""}</div>`;
   }
   return `<div class="fc-block"><div class="fc-h"><span class="st-label">Your moves</span></div><div class="fc-acts">${b.join("")}</div>${nil}</div>`;
@@ -465,9 +466,9 @@ function fcBoardTable(x, k, yours) {
     { k: "nat", t: "Public", l: true, tip: "The services' rank at his position and in his state", v: (r) => -(r.nat || 9999), f: fcPublic },
     { k: "school", t: "School · Hometown", l: true, div: true, v: (r) => (r.hs ? r.hs.name : ""), f: (r) => `${fcSchool(r)} <small class="sub">· ${esc(r.town)}</small>` },
     { k: "read", t: "Read", div: true, tip: "Your staff's read of his play now", v: (r) => mid(r.read), f: (r) => range(r.read, null, { p: r.id, k: "ovr" }) },
-    { k: "yours", t: "Yours", tip: "Your own read: what you have seen of him yourself, or your first impression", v: (r) => mid(r.yours), f: (r) => yourRange(r.yours) },
+    { k: "yours", t: "Yours", tip: "Your own read: what you have seen of him yourself, or your first impression", v: (r) => mid(r.yours), f: (r) => yourRange(r.yours, undefined, { p: r.id, k: "ovr" }) },
     { k: "for_us", t: "For us", tip: "Best for us: his read with when he'd play here and how he fits what you run (his path on his page)", v: (r) => (r.for_us == null ? -99 : r.for_us), f: (r) => (r.for_us == null ? '<span class="muted">-</span>' : `<b>${Math.round(r.for_us)}</b>`) },
-    { k: "pot", t: "Ceiling", l: true, tip: "Your staff's words on how far he can go", v: (r) => (r.pot ? r.pot.tier : ""), f: (r) => fcPot(r.pot) },
+    { k: "pot", t: "Ceiling", l: true, tip: "How far he can go: your own words once you've seen him yourself, your staff's before", v: (r) => (r.pot ? r.pot.tier : ""), f: (r) => fcPot(r.pot) },
     { k: "interest", t: "His interest", l: true, div: true, f: (r) => `<span title="${esc(r.reason)}">${fcDot(fcTone(r.tone))}${esc(r.interest)}</span>` },
     { k: "leader", t: "Leader", l: true, v: (r) => (r.leader ? r.leader.name : ""), f: (r) => (r.leader ? teamLink(r.leader) : '<span class="muted">-</span>') },
     { k: "offers", t: "Offers" },
@@ -510,7 +511,7 @@ function fcPlan(x) {
     <div style="display:grid;gap:18px">
       <div class="panel"><h2>Class of ${c.year} by position <small>your staff's plan: how many it would chase at each spot</small></h2>
         <div class="tbl warm"><table><thead><tr><th class="l">Pos</th><th title="Recruits your staff would chase at the spot; the class itself takes only its places">Chase</th><th>Committed</th><th>Signed</th><th title="Live offers out">Offers</th><th>Open</th></tr></thead><tbody>${rows}</tbody></table></div>
-        <p class="sub">${esc(limit)} The class can take ${fcPlural(c.slots, "more commitment")}${c.slots ? "" : ": new yeses wait for a place"}.</p></div>
+        <p class="sub">${esc(limit)} The class can take ${fcPlural(Math.max(0, c.slots - c.commits), "more commitment")}${c.slots > c.commits ? "" : ": new yeses wait for a place"}.</p></div>
       <div class="panel"><h2>Who runs what <small>hand any of it to your staff, take it back any day</small></h2>${duties}${fill}</div>
     </div>
     <div style="display:grid;gap:18px">
@@ -574,13 +575,29 @@ function fcPortalVisits(f) {
     .join("");
   return `<div class="fc-block"><div class="fc-h"><span class="st-label">Plan a visit</span><small class="sub">24 to 48 hours, before he decides</small></div><div class="fc-vopts">${rows}</div></div>`;
 }
+// Where you stand with a transfer (Cain 2026-11-14): his reasons in the
+// order your staff thinks they count, you against his top three on each,
+// who wins the row and how your staff knows; your coordinator's word.
+function fcStand(x) {
+  if (!x || !x.columns.length) return "";
+  const sq = ([lo, hi]) => `<span class="fc-sw" title="Your staff's read: ${lo === hi ? lo : `${lo} to ${hi}`} of 5">${[1, 2, 3, 4, 5].map((q) => `<i class="${q <= lo ? "f" : q <= hi ? "o" : ""}"></i>`).join("")}</span>`;
+  const head = x.columns.map((c, i) => `<th class="l ${i === 0 ? "div" : ""}">${c.yours ? "You" : esc(c.name)}${c.yours ? "" : ` <small>${c.place}</small>`}</th>`).join("");
+  const body = x.rows.map((r) => `<tr><td class="l"><b>${esc(r.name)}</b></td><td class="l">${sq(r.weight)}</td>${r.cells.map((c, i) => `<td class="l wrap ${i === 0 ? "div" : ""}">${c.win ? '<i class="fc-swin" title="Wins this row"></i>' : ""}${esc(c.fact)}</td>`).join("")}<td class="l div"><span class="fc-src">${esc(r.source)}</span></td></tr>`).join("");
+  const read = x.contacts ? `${x.contacts === 1 ? "one talk" : `${x.contacts} talks and visits`} in` : "no talk yet, so the read is wide";
+  const sum = [x.ahead.length ? `ahead on ${x.ahead.join(", ")}` : "", x.behind.length ? `behind on ${x.behind.join(", ")}` : ""].filter(Boolean).join(" · ");
+  return `<div class="panel fc-stand"><h2>Where you stand <small>his reasons in the order your staff thinks they count, against his top schools · ${esc(read)}</small></h2>
+    <div class="fc-ssum"><b>${esc(x.place_text || "")}</b><span class="sub"><i class="fc-swin"></i>wins the row · of ${x.schools} ${x.schools === 1 ? "school" : "schools"} after him${x.versus && sum ? ` · against ${esc(x.versus)}: ${esc(sum)}` : ""}</span></div>
+    <div class="tbl warm box fc-stbl"><table><thead><tr><th class="l">His reason</th><th class="l">Counts to him</th>${head}<th class="l div">How you know</th></tr></thead><tbody>${body}</tbody></table></div>
+    ${x.says ? `<div class="fc-sstaff"><p><b>${x.who ? `${esc(x.who)}, your recruiting coordinator:` : "Your recruiting coordinator:"}</b> ${esc(x.says)}</p>${x.move ? `<p class="sub">What could move it: ${esc(x.move)}</p>` : ""}</div>` : ""}
+  </div>`;
+}
 screens.portal_file = async (a) => {
   const f = await api("portal_file", { id: a.id });
   const [c1, c2] = f.colors || ["#444", "#222"];
   const schools = f.schools.length
     ? f.schools.map((s) => `<div class="fc-school ${s.yours ? "yours" : ""}"><span class="fc-n">${s.n}</span>${mark(s.team, 28)}<span><b>${teamLink(s.team)}</b><small>${esc(s.status)}</small></span>${s.pill ? `<span class="st-pill good">${esc(s.pill)}</span>` : ""}</div>`).join("")
     : `<div class="empty">${f.shopping ? "Nobody has a place for him yet." : "He isn't shopping."}</div>`;
-  const read = `<div class="fc-read"><div><span class="l7-pair">${range(f.read, null, { p: f.id, k: "ovr" })}${yourRange(f.yours)}</span></div><div><b>${fcPot(f.pot)}</b>${f.pot ? `<small class="sub">How sure: ${esc(words(f.pot.sure))}</small>` : ""}</div></div>
+  const read = `<div class="fc-read"><div><span class="l7-pair">${range(f.read, null, { p: f.id, k: "ovr" })}${yourRange(f.yours, undefined, { p: f.id, k: "ovr" })}</span></div><div><b>${fcPot(f.pot)}</b>${f.pot ? `<small class="sub">How sure: ${esc(words(f.pot.sure))}</small>` : ""}</div></div>
     <small class="sub">Read by ${esc(f.reader)}${f.reader_role ? `, your ${esc(f.reader_role)}` : ""}, from his college tape.</small>`;
   const next = (f.visits || []).find((v) => v.state === "Set");
   const left = `<div class="st-room fc-idroom" style="--accent:${c1};--accent-2:${c2}"><i></i><i></i><i></i>
@@ -609,6 +626,8 @@ screens.portal_file = async (a) => {
   return `<div class="film"><div class="pad fc-pad">
     <div class="fc-bar"><div><div class="st-label">Transfer portal${f.from ? ` · from ${esc(f.from.name)}` : ""}</div><div class="h1">${esc(f.name)}</div></div>${go}</div>
     <section class="fc-file warm">${left}${mid}${right}</section>
+    ${fcStand(f.stand)}
+    ${plPanel(f.pulls, { wrap: true })}
     <div class="grid3"><div class="panel"><h2>Your talks <small>the latest at each place counts</small></h2>${talks}</div><div class="panel"><h2>Visits <small>with your program</small></h2>${visits}</div><div class="panel"><h2>How a transfer decides</h2><p class="sub">He weighs the same things a recruit's family does, for himself: playing time against who's ahead of him, the money, the school, home, the staff, his shot at the league and winning. Every staff with a place for him calls; his finalists host him. When one school clearly gives him what he needs, he stops shopping and says yes, often days before his date.</p></div></div>
   </div></div>`;
 };

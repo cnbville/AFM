@@ -23,24 +23,30 @@ pub(crate) fn season_of(d: afm_engine::calendar::Date) -> i32 {
 /// A group's key, its name, its positions and its starters by position.
 type Group = (&'static str, &'static str, &'static [Position], &'static [(Position, usize)]);
 
-/// The rail's groups and the starters each is ranked by.
-const GROUPS: [Group; 9] = {
+/// The rail's groups and the starters each is ranked by. One position each
+/// (Cain 2026-11-14: tackles and the interior line, edge rushers and
+/// defensive tackles, corners and safeties are recruited, coached and
+/// played as different jobs); only the specialists share a group.
+const GROUPS: [Group; 12] = {
     use Position::*;
     [
         ("QB", "Quarterbacks", &[QB], &[(QB, 1)]),
         ("RB", "Running backs", &[RB], &[(RB, 1)]),
         ("WR", "Wide receivers", &[WR], &[(WR, 3)]),
         ("TE", "Tight ends", &[TE], &[(TE, 1)]),
-        ("OL", "Offensive line", &[OT, IOL], &[(OT, 2), (IOL, 3)]),
-        ("DL", "Defensive line", &[EDGE, DT], &[(EDGE, 2), (DT, 2)]),
+        ("OT", "Offensive tackles", &[OT], &[(OT, 2)]),
+        ("IOL", "Interior line", &[IOL], &[(IOL, 3)]),
+        ("EDGE", "Edge rushers", &[EDGE], &[(EDGE, 2)]),
+        ("DT", "Defensive tackles", &[DT], &[(DT, 2)]),
         ("LB", "Linebackers", &[LB], &[(LB, 3)]),
-        ("DB", "Defensive backs", &[CB, S], &[(CB, 2), (S, 2)]),
+        ("CB", "Cornerbacks", &[CB], &[(CB, 2)]),
+        ("S", "Safeties", &[S], &[(S, 2)]),
         ("ST", "Specialists", &[K, P, LS], &[(K, 1), (P, 1), (LS, 1)]),
     ]
 };
 
 fn group_of(pos: Position) -> usize {
-    GROUPS.iter().position(|g| g.2.contains(&pos)).unwrap_or(8)
+    GROUPS.iter().position(|g| g.2.contains(&pos)).unwrap_or(GROUPS.len() - 1)
 }
 
 /// Money in a few characters: $850K, $12.5M.

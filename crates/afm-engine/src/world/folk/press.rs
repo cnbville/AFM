@@ -16,6 +16,7 @@
 //! Sizes are Claude's picks (proposed, not confirmed).
 
 use super::cast::{self, Cast, Role};
+use super::claims::{self, Point};
 use super::scene::{self, Kind, Pick, Scene, Who};
 use super::talks::{self, PromiseKind, PromiseTo, Reason};
 use super::voice::{Facts, Speaker};
@@ -150,11 +151,37 @@ fn questions(w: &World, team: Team, occasion: i64) -> (Vec<Q>, Vec<u32>) {
     (v, kept)
 }
 
-/// The man in trouble: an open case from the last three weeks.
-fn in_trouble(w: &World, team: Team) -> Option<usize> {
+/// Reporters ask about a case opened fewer than this many days ago.
+pub const TROUBLE_NEW_DAYS: i32 = 21;
+
+/// And about an arrest or court case whose next step (the charge, the
+/// court date, the ruling) is this many days away or fewer, so a case is
+/// asked about again as it comes back into the news. Cain's yes,
+/// 2026-11-13.
+pub const TROUBLE_NEXT_STEP_DAYS: i32 = 7;
+
+/// The man in trouble: a case opened in the last three weeks, or an arrest
+/// or court case with its next step a week or less away.
+pub(crate) fn in_trouble(w: &World, team: Team) -> Option<usize> {
     let ids: Vec<u32> = team.roster(w).iter().map(|&i| w.people[i].player.id).collect();
-    let c = w.folk.courts.open.iter().find(|c| ids.contains(&c.id) && c.opened.days_to(w.today) < 21)?;
+    let c = w.folk.courts.open.iter().find(|c| ids.contains(&c.id) && asked_about(c, w.today))?;
     super::person(w, c.id)
+}
+
+/// Whether reporters ask about a case today (`in_trouble`).
+fn asked_about(c: &super::courts::Case, today: Date) -> bool {
+    use super::courts::Step;
+    c.opened.days_to(today) < TROUBLE_NEW_DAYS
+        || (matches!(c.step, Step::Arrest | Step::Charged | Step::Court)
+            && today.days_to(c.next) <= TROUBLE_NEXT_STEP_DAYS)
+}
+
+/// The talking point behind a trouble question (talk facts item 13): the
+/// case he is in, with its charge, the day and the step it has reached
+/// (`arrest`, `charged`, `court`), read from the fact sheet. A case the
+/// courts are not handling (an appeal, a grievance) has none.
+fn case_of(sheet: &claims::Sheet) -> Option<Point> {
+    sheet.get(claims::Kind::Arrest).filter(|p| p.get("charge").is_some()).cloned()
 }
 
 /// A starter who is out hurt.
@@ -190,7 +217,8 @@ fn week_questions(w: &World, team: Team, occasion: i64) -> Vec<Q> {
         }
         return v;
     }
-    if facts::last_game(w, team).is_some() {
+    // Only a game from the last week is asked about (talk facts item 30).
+    if facts::fresh_game(w, team).is_some() {
         v.push(Q::LastGame);
     }
     if in_trouble(w, team).is_some() {
@@ -260,6 +288,17 @@ pub(crate) fn open(w: &mut World, s: &mut Scene) {
     ask_next(w, s, team, 0);
 }
 
+/// A reporter as the scene names him: his name and his outlet.
+fn reporter_name(r: Option<&Cast>) -> String {
+    r.map_or_else(
+        || "A reporter".to_string(),
+        |c| match &c.reporter {
+            Some(info) => format!("{}, {}", c.name, info.outlet),
+            None => c.name.clone(),
+        },
+    )
+}
+
 /// The reporter who asks question k.
 fn asker(w: &World, team: Team, k: u8) -> Option<Cast> {
     let rs = reporters(w, team);
@@ -282,7 +321,17 @@ fn ask_next(w: &mut World, s: &mut Scene, team: Team, k: u8) {
     if let Some(i) = sub {
         f.set("player", w.people[i].name.clone());
     }
-    if let Some((won, us, them, opp)) = facts::last_game(w, team) {
+    // A trouble or an injury question reads the man's sheet (talk facts item
+    // 13): the charge and the step he has reached, the injury and the weeks.
+    let sheet = sub.filter(|_| matches!(q, Q::Trouble | Q::Injury)).map(|i| claims::player(w, i));
+    let case = sheet.as_ref().filter(|_| q == Q::Trouble).and_then(case_of);
+    if let Some(c) = &case {
+        c.fill(&mut f);
+    }
+    // A line that names the score, the opponent or the result gets them only
+    // while the game is fresh; with none, such lines are skipped (talk facts
+    // item 30), so no question dates a game from months ago.
+    if let Some((won, us, them, opp)) = facts::fresh_game(w, team) {
         // Said the way a score is said: the winner's number first.
         f.set("score", format!("{}-{}", us.max(them), us.min(them)));
         f.set("opp", opp.name(w));
@@ -296,17 +345,19 @@ fn ask_next(w: &mut World, s: &mut Scene, team: Team, k: u8) {
     } else {
         let spk = r.as_ref().map_or_else(Speaker::default, |c| Speaker::cast(w, c));
         let mut pen = scene::pen(w, s, 10 + k as u64);
-        let line = pen.line(&[&format!("press.q.{}", q.key())], &spk, &f);
+        // The step he has reached picks the reporter's words; a step with
+        // no lines yet falls back to the plain question.
+        let mut line = String::new();
+        if let Some(step) = case.as_ref().and_then(|c| c.check("step")) {
+            line = pen.line(&[&format!("press.q.trouble.{step}")], &spk, &f);
+        }
+        if line.is_empty() {
+            line = pen.line(&[&format!("press.q.{}", q.key())], &spk, &f);
+        }
         pen.put(w);
         if line.is_empty() { q_fallback(w, q, &f, team) } else { line }
     };
-    let name = r.as_ref().map_or_else(
-        || "A reporter".to_string(),
-        |c| match &c.reporter {
-            Some(info) => format!("{}, {}", c.name, info.outlet),
-            None => c.name.clone(),
-        },
-    );
+    let name = reporter_name(r.as_ref());
     s.them(
         &name,
         text,
@@ -431,20 +482,25 @@ fn ask_next(w: &mut World, s: &mut Scene, team: Team, k: u8) {
             }
         }
         Q::Injury => {
+            // The injury and the weeks are his, from the sheet. Without
+            // them the answer says only what is known (talk facts item 13).
+            let hurt = sheet.as_ref().and_then(|x| x.get(claims::Kind::Hurt));
+            let weeks = hurt.and_then(|p| p.get("weeks")).and_then(|x| x.parse::<u32>().ok());
+            let injury = hurt.and_then(|p| p.get("injury"));
             s.pick(
                 base,
-                "\"It's a high ankle. He'll miss a few weeks.\"",
+                injury_straight(injury, weeks),
                 "Tell him straight",
                 "calm",
                 "Honest: the opponent knows too.",
             );
             s.pick(
                 base + 1,
-                "\"Day to day.\"",
+                injury_deflect(weeks),
                 "Deflect",
                 "calm",
                 if matches!(team, Team::Nfl(_)) {
-                    "The NFL fines clubs for injury reports that don't hold."
+                    "The NFL fines clubs over injury reports."
                 } else {
                     "Gives nothing away."
                 },
@@ -490,23 +546,27 @@ fn ask_next(w: &mut World, s: &mut Scene, team: Team, k: u8) {
             );
         }
         Q::Trouble => {
-            s.pick(
-                base,
-                "\"We're aware of it. It's being handled internally.\"",
-                "Deflect",
-                "calm",
-                "The standard line.",
-            );
-            s.pick(
-                base + 1,
-                "\"He's suspended indefinitely. We hold our players to a standard.\"",
-                "Warn",
-                "firm",
-                "Firm in public; he hears it from the TV first.",
-            );
+            // Your answers fit the case (talk facts item 13): what you say
+            // about the process fits the step it has reached, a man already
+            // out can't be suspended again, and a man who has been here
+            // before is not "a good kid" in the same breath.
+            let step = case.as_ref().and_then(|c| c.check("step"));
+            let charge = case.as_ref().and_then(|c| c.get("charge"));
+            let again = case.as_ref().is_some_and(|c| c.is("again", "yes"));
+            let out = sheet.as_ref().is_some_and(|x| x.has(claims::Kind::Suspended));
+            s.pick(base, trouble_deflect(step), "Deflect", "calm", "The standard line.");
+            if !out {
+                s.pick(
+                    base + 1,
+                    trouble_warn(charge),
+                    "Warn",
+                    "firm",
+                    "Firm in public; he hears it from the TV first.",
+                );
+            }
             s.pick(
                 base + 2,
-                "\"He's a good kid. Let the process play out.\"",
+                trouble_praise(again),
                 "Praise",
                 "warm",
                 "Loyal to him; the boss would rather you said less.",
@@ -552,6 +612,63 @@ fn ask_next(w: &mut World, s: &mut Scene, team: Team, k: u8) {
     }
 }
 
+/// What you tell the press about his injury: the real one and how long
+/// he is out, when the sheet has them.
+fn injury_straight(injury: Option<&str>, weeks: Option<u32>) -> String {
+    let out = weeks.map(|n| format!("He'll miss {}", claims::words::counted(n, "week")));
+    match (injury, out) {
+        (Some(i), Some(o)) => format!("\"It's {} {i}. {o}.\"", super::a_an(i)),
+        (Some(i), None) => format!("\"It's {} {i}.\"", super::a_an(i)),
+        (None, Some(o)) => format!("\"{o}.\""),
+        (None, None) => "\"He's hurt, and he'll miss some time.\"".into(),
+    }
+}
+
+/// The non-answer about his injury. "Day to day" is said only of a man
+/// who is, since the league fines a report that doesn't hold.
+fn injury_deflect(weeks: Option<u32>) -> &'static str {
+    if weeks.is_some_and(|n| n <= SHORT_WEEKS) {
+        "\"Day to day.\""
+    } else {
+        "\"We'll let the doctors speak to the timeline.\""
+    }
+}
+
+/// A man out this many weeks or fewer is day to day. Claude's size,
+/// proposed, not confirmed.
+const SHORT_WEEKS: u32 = 2;
+
+/// Your standard answer at the step his case has reached.
+fn trouble_deflect(step: Option<&str>) -> &'static str {
+    match step {
+        Some("arrest") => {
+            "\"We're aware he was arrested and we're gathering the facts. I won't say more until we have them.\""
+        }
+        Some("charged") => {
+            "\"He's been charged, and he'll have his day in court. I'm going to let that process work.\""
+        }
+        Some("court") => "\"It's in front of a judge. I'm not going to comment on a case that's in court.\"",
+        _ => "\"We're aware of it. It's being handled internally.\"",
+    }
+}
+
+/// Your firm answer. It names the charge when the sheet has it.
+fn trouble_warn(charge: Option<&str>) -> String {
+    match charge {
+        Some(c) => format!("\"He's suspended indefinitely while {c} plays out. We hold our players to a standard.\""),
+        None => "\"He's suspended indefinitely. We hold our players to a standard.\"".into(),
+    }
+}
+
+/// Your loyal answer. A man in trouble before is not simply "a good kid".
+fn trouble_praise(again: bool) -> &'static str {
+    if again {
+        "\"He's been through this before, and I'm standing by him while the process plays out.\""
+    } else {
+        "\"He's a good kid. Let the process play out.\""
+    }
+}
+
 /// The story a story question is about.
 fn story_of(s: &Scene, q: Q) -> Option<u32> {
     let id = match q {
@@ -573,6 +690,9 @@ fn q_fallback(w: &World, q: Q, f: &Facts, team: Team) -> String {
         Q::Injury => format!("What's the latest on {}?", get("player")),
         Q::Rival => format!("It's {} week. What does this game mean to you?", get("rival")),
         Q::HotSeat => format!("You're {}. Are you worried about your job?", get("record")),
+        Q::Trouble if f.get("charge").is_some() => {
+            format!("Can you address {} involving {}?", get("charge"), get("player"))
+        }
         Q::Trouble => format!("Can you address the situation with {}?", get("player")),
         Q::Recruiting => format!(
             "How do you plan to recruit the state of {}?",
@@ -614,7 +734,7 @@ pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         }
         (Q::Vision, 1) => {
             w.folk.mine.expectation = (w.folk.mine.expectation - 0.15).max(-1.0);
-            w.folk.mine.straight = (w.folk.mine.straight + 0.05).min(1.0);
+            w.folk.mine.word_all(0.05);
         }
         (Q::Vision, _) => w.folk.mine.nudge(boss.key(), 0.03),
         (Q::OldCoach, 0) => {
@@ -678,7 +798,7 @@ pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         }
         (Q::Injury, 1) => {
             if matches!(team, Team::Nfl(_)) && super::roll(w, 0x1A7, w.today.0 as u64) < 0.08 {
-                let text = "The league fined the club $25,000 for an inaccurate injury report.".to_string();
+                let text = "The league fined the club $25,000 over the injury report.".to_string();
                 super::post_mine(w, w.today.add(9), Loudness::Small, false, "league: injury report", &text);
                 s.outcome.push(text);
             }
@@ -703,7 +823,7 @@ pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         }
         (Q::HotSeat, 2) => {
             w.folk.mine.nudge(boss.key(), 0.02);
-            w.folk.mine.straight = (w.folk.mine.straight + 0.04).min(1.0);
+            w.folk.mine.word_all(0.04);
         }
         (Q::Trouble, 1) => {
             if let Some(i) = sub {
@@ -745,11 +865,41 @@ pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         }
         _ => {}
     }
+    if q == Q::Trouble {
+        follow_up(w, s, team, k, opt);
+    }
     let next = k + 1;
     if question(s, next).is_some() {
         ask_next(w, s, team, next);
     } else {
         wrap(w, s, team);
+    }
+}
+
+/// The reporter who asked about the man in trouble does not let it go: he
+/// follows up on what you just said, in words that fit the case as it
+/// stands now (talk facts item 13). It is a line and no new choice, so the
+/// answer you gave stands and nothing else moves.
+fn follow_up(w: &mut World, s: &mut Scene, team: Team, k: u8, opt: u32) {
+    let key = match opt {
+        0 => "deflect",
+        1 => "warn",
+        2 => "praise",
+        _ => return,
+    };
+    let Some(i) = (s.b != 0).then(|| super::person(w, s.b as u32)).flatten() else { return };
+    let mut f = super::takeover::base_facts(w, team);
+    f.set("player", w.people[i].name.clone());
+    if let Some(c) = case_of(&claims::player(w, i)) {
+        c.fill(&mut f);
+    }
+    let r = asker(w, team, k);
+    let spk = r.as_ref().map_or_else(Speaker::default, |c| Speaker::cast(w, c));
+    let mut pen = scene::pen(w, s, 40 + k as u64);
+    let line = pen.line(&[&format!("press.follow.trouble.{key}")], &spk, &f);
+    pen.put(w);
+    if !line.is_empty() {
+        s.them(&reporter_name(r.as_ref()), line, None);
     }
 }
 
@@ -825,6 +975,40 @@ pub(super) fn press_hour(w: &World, s: &Scene) -> Option<u16> {
     })
 }
 
+/// How your stance with the press moves the odds that a reporter with
+/// sources inside prints what he hears (talk facts lane L8, item 27): an
+/// open door lets more out, a closed shop less, fair to all as before. Only
+/// once you chose one (`Folk.media_chosen`). Claude's sizes (proposed, not
+/// confirmed).
+pub const LEAKS: [f64; 3] = [1.4, 0.5, 1.0];
+
+fn leak_share(w: &World) -> f64 {
+    if w.folk.media_chosen { LEAKS.get(w.folk.media_policy as usize).copied().unwrap_or(1.0) } else { 1.0 }
+}
+
+/// "A fence around the state" (talk facts lane L8, item 27): for a year
+/// after you say it, your state's recruits and their high school coaches
+/// hear a program that means to keep them home. A small lift in your
+/// program's appeal to in-state recruits, a third of an early offer's
+/// (`FENCE_PULL`), for `FENCE_DAYS`. Claude's sizes (proposed, not
+/// confirmed).
+pub const FENCE_PULL: f64 = 0.007;
+pub const FENCE_DAYS: i32 = 365;
+
+/// The fence's pull on recruit `p` for program `j` (`recruiting::appeal_in`).
+pub(crate) fn fence_pull(w: &World, p: &crate::world::Person, j: usize) -> f64 {
+    match w.folk.fence {
+        Some((st, said))
+            if p.home_state == st
+                && said.days_to(w.today) <= FENCE_DAYS
+                && w.seat.as_ref().and_then(|x| x.program) == Some(j) =>
+        {
+            FENCE_PULL
+        }
+        _ => 0.0,
+    }
+}
+
 pub(crate) fn day(w: &mut World, d: Date) {
     let Some(team) = Team::seat(w) else { return };
     let Some(since) = w.folk.mine.since else { return };
@@ -888,7 +1072,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
         if let Some(r) = leaker {
             let sour = team.roster(w).into_iter().filter(|&i| w.people[i].trust < 0.3).collect::<Vec<_>>();
             let rt = w.folk.mine.trust_of(r.key()).unwrap_or(0.5);
-            if sour.len() >= 4 && rt < 0.5 && super::roll(w, 0x1EA4 ^ d.0 as u64, 1) < 0.35 {
+            if sour.len() >= 4 && rt < 0.5 && super::roll(w, 0x1EA4 ^ d.0 as u64, 1) < 0.35 * leak_share(w) {
                 let who = player_link(w, sour[0]);
                 let outlet = r.reporter.as_ref().map_or(String::new(), |x| x.outlet.clone());
                 let text = format!(

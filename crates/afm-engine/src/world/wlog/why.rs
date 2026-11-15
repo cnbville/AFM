@@ -108,13 +108,13 @@ pub struct Pull {
 /// The schools that pulled recruit `i` most when he chose `j` (`j` always
 /// among them): his offers by appeal, the top three.
 pub(crate) fn choice(w: &World, i: usize, j: usize, stage: &'static str, walk_on: bool) -> Why {
-    use crate::world::recruiting::{appeal, reason_parts};
+    use crate::world::recruiting::{appeals, reason_parts};
     let p = &w.people[i];
     let mut schools: Vec<usize> = p.cal.offers.clone();
     if !schools.contains(&j) {
         schools.push(j);
     }
-    let mut pulls: Vec<(usize, f64)> = schools.iter().map(|&k| (k, appeal(w, i, k, None))).collect();
+    let mut pulls: Vec<(usize, f64)> = schools.iter().copied().zip(appeals(w, i, &schools, None)).collect();
     pulls.sort_by(|a, b| b.1.total_cmp(&a.1));
     let mut top: Vec<usize> = pulls.iter().take(3).map(|x| x.0).collect();
     if !top.contains(&j) {

@@ -95,6 +95,7 @@ pub fn rename_save(g: &Game, args: &Value) -> Result<Value, String> {
     std::fs::rename(&from, &to).map_err(|e| format!("Could not rename the save: {e}"))?;
     crate::lane_faces::on_rename(&from, &to);
     crate::notebook::on_rename(&from, &to);
+    crate::depth_plan::on_rename(&from, &to);
     crate::world_log::on_rename(&from, &to);
     crate::tallies::on_rename(&from, &to);
     Ok(json!({ "path": to.display().to_string() }))
@@ -123,6 +124,7 @@ pub fn delete_save(g: &Game, args: &Value) -> Result<Value, String> {
     std::fs::remove_file(&p).map_err(|e| format!("Could not delete the save: {e}"))?;
     crate::lane_faces::on_delete(&p);
     crate::notebook::on_delete(&p);
+    crate::depth_plan::on_delete(&p);
     crate::world_log::on_delete(&p);
     crate::tallies::on_delete(&p);
     Ok(json!({ "deleted": true }))

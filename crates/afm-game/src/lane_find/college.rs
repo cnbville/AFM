@@ -498,6 +498,8 @@ pub fn row(ctx: &Ctx, i: usize) -> Value {
         "tests": tests.as_ref().map(fields::tests_json),
         "read": now,
         "proj": proj,
+        // Whose ceiling read "proj" is (own potential): "yours" or "staff".
+        "proj_whose": read.filter(|r| r.ceiling.0 > 0.0).map(|r| if r.ceiling_yours { "yours" } else { "staff" }),
         "sure": sure,
         "looks": read.map_or(0, |r| r.looks),
         "vs": vs,

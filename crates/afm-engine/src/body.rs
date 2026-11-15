@@ -155,26 +155,51 @@ fn fill_offset(p: &Player) -> f64 {
     let mut r = Rng::new(p.id ^ 0xF111_0FF5);
     let wide = r.chance(0.15);
     let own = r.normal(0.0, 1.0) * if wide { 2.5 } else { 1.0 };
-    let line = matches!(p.position, Position::OT | Position::IOL | Position::DT);
+    fill_offset_of(p.position, p.bloom, own)
+}
+
+/// The share of his grown weight a fill offset stands for at a position,
+/// from his bloom and his own draw (`fill_offset`): public so a projection
+/// can draw the offsets it can't see (projected test numbers).
+pub fn fill_offset_of(pos: Position, bloom: f64, own: f64) -> f64 {
+    let line = matches!(pos, Position::OT | Position::IOL | Position::DT);
     let sd = if line { 0.032 } else { 0.02 };
-    sd * (-0.6 * clamp(p.bloom / 1.1, -2.5, 2.5) + 0.8 * own)
+    sd * (-0.6 * clamp(bloom / 1.1, -2.5, 2.5) + 0.8 * own)
+}
+
+/// A draw of the own part of a fill offset as `fill_offset` makes it: one
+/// in seven 2.5 times wider (`wide_u` and `z` are the draw's uniform and
+/// normal).
+pub fn fill_own_draw(wide_u: f64, z: f64) -> f64 {
+    z * if wide_u < 0.15 { 2.5 } else { 1.0 }
 }
 
 /// His share of his grown weight at an age: his group's curve plus his own
 /// offset, which fades as he fills out.
 pub fn fill_share(p: &Player, age: f64) -> f64 {
-    let (curve, full) = fill_curve(p.position);
+    fill_with(p.position, age, fill_offset(p))
+}
+
+/// His group's share of grown weight at an age, before his own offset.
+pub fn group_fill(pos: Position, age: f64) -> f64 {
+    let (curve, _) = fill_curve(pos);
     let k = (age - 14.0).floor();
-    let base = if k < 0.0 {
+    if k < 0.0 {
         curve[0] - 0.04 * (14.0 - age)
     } else {
         let i = (k as usize).min(curve.len() - 1);
         let j = (i + 1).min(curve.len() - 1);
         let f = clamp(age - 14.0 - k, 0.0, 1.0);
         curve[i] + (curve[j] - curve[i]) * f
-    };
+    }
+}
+
+/// The share of grown weight at an age for a given fill offset: his
+/// group's curve plus the offset, which fades as he fills out.
+pub fn fill_with(pos: Position, age: f64, offset: f64) -> f64 {
+    let (_, full) = fill_curve(pos);
     let fade = clamp((full - age) / (full - 18.0), 0.0, 1.0);
-    clamp(base + fill_offset(p) * fade, 0.6, 1.0)
+    clamp(group_fill(pos, age) + offset * fade, 0.6, 1.0)
 }
 
 /// How much of his grown height a boy still has to grow at 13 to 20, as a
@@ -187,6 +212,12 @@ fn height_left(age: f64) -> f64 {
     let x = clamp(age - 13.0, 0.0, 7.0);
     let k = (x.floor() as usize).min(6);
     HEIGHT_LEFT[k] + (HEIGHT_LEFT[k + 1] - HEIGHT_LEFT[k]) * (x - k as f64)
+}
+
+/// The share of his grown height a boy has at an age for a bloom (the
+/// median boy's curve, moved by his bloom's timing; 1 once grown).
+pub fn height_share(age: f64, bloom: f64) -> f64 {
+    1.0 - height_left(age - 0.6 * bloom)
 }
 
 /// His body now: boys grow through high school, late bloomers later, and
@@ -362,7 +393,34 @@ impl Drills {
         let [forty, vertical, broad, bench, cone, shuttle] = self.means();
         tested(forty, vertical, broad, bench, cone, shuttle)
     }
+
+    /// `expected` before it is rounded and held to the drills' limits, in
+    /// the order forty, vertical, broad, bench, 3-cone, shuttle (projected
+    /// test numbers work on these, then round as `rounded` does).
+    pub fn raw(&self) -> [f64; 6] {
+        self.means()
+    }
 }
+
+/// Six raw drill numbers (`Drills::raw`'s order) rounded and held to the
+/// drills' limits the way a test day writes them.
+pub fn rounded(v: [f64; 6]) -> Combine {
+    tested(v[0], v[1], v[2], v[3], v[4], v[5])
+}
+
+/// How far a man runs from his ratings on the track, as a stable sd in
+/// seconds (`combine`).
+pub const TRACK_SD: f64 = 0.04;
+
+/// The sd of the 3-cone and shuttle knacks at a position (`drill_knack`).
+pub fn knack_sd(pos: Position) -> (f64, f64) {
+    let (_, _, cone, _, _, shuttle) = AGILE_SPREAD[pos.index()];
+    (cone, shuttle)
+}
+
+/// A test day's own noise on each drill at the combine or a pro day, in
+/// `Drills::raw`'s order (`combine`).
+pub const DAY_SD: [f64; 6] = [0.03, 1.5, 3.0, 2.0, 0.08, 0.06];
 
 fn tested(forty: f64, vertical: f64, broad: f64, bench: f64, cone: f64, shuttle: f64) -> Combine {
     let r2 = |x: f64| (x * 100.0).round() / 100.0;

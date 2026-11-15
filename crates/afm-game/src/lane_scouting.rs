@@ -21,6 +21,41 @@ use serde_json::{Value, json};
 use crate::views::{TeamRef, date_text, team_brief, team_name};
 use crate::{Game, Reply};
 
+/// Which draft-side talk: `with` is family, security, scout, pro_scout,
+/// room, gm or call; `k` the scout's place or the club.
+fn draft_sub(with: &str, k: usize) -> Result<afm_engine::world::folk::persona::draft::Sub, String> {
+    use afm_engine::world::folk::persona::draft::Sub;
+    Ok(match with {
+        "family" => Sub::Family,
+        "security" => Sub::Security,
+        "scout" => Sub::Scout(k),
+        "pro_scout" => Sub::ProScout(k),
+        "room" => Sub::Room,
+        "gm" => Sub::Gm(k),
+        "call" => Sub::Call,
+        _ => return Err("Who do you want to talk to?".into()),
+    })
+}
+
+/// The draft room's debate on the clock (lane N5e): each man's case from
+/// your readers' own reads.
+fn draft_debate(w: &World) -> Value {
+    let cases: Vec<Value> = afm_engine::world::folk::persona::draft::debate::debate(w)
+        .into_iter()
+        .map(|c| {
+            json!({
+                "id": c.id,
+                "name": c.name,
+                "by": c.by.1,
+                "case": c.case,
+                "against": c.against.map(|a| json!({ "by": a.1, "case": a.2 })),
+                "flags": c.flags,
+            })
+        })
+        .collect();
+    json!({ "cases": cases })
+}
+
 pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     let num = |k: &str| args.get(k).and_then(Value::as_u64);
     let id = || num("id").map(|v| v as u32).ok_or_else(|| "Missing id.".to_string());
@@ -185,6 +220,21 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             Ok(json!({ "said": said, "hs": hs_side(w)? }))
         })(),
         "lookback" => (|| Ok(lookback_view(game.w()?)))(),
+        // Live talks v3, lane N5e: the draft side's talks.
+        "draft_talk" => (|| {
+            let w = game.wm()?;
+            let sub = draft_sub(&text("with"), num("k").unwrap_or(0) as usize)?;
+            let pid = num("id").unwrap_or(0) as u32;
+            let sid = afm_engine::world::folk::persona::draft::scene::start(w, sub, pid)?;
+            game.call("people_scene", &json!({ "id": sid }))
+        })(),
+        "draft_debate" => (|| Ok(draft_debate(game.w()?)))(),
+        "smoke_read" => (|| {
+            let w = game.w()?;
+            let team = num("team").ok_or("Missing team.")? as usize;
+            let r = afm_engine::world::folk::persona::draft::smoke::read(w, team, id()?, false);
+            Ok(json!({ "read": r.band, "why": r.why }))
+        })(),
         _ => return None,
     };
     Some(r)
@@ -324,13 +374,28 @@ fn speak(p: &Person) -> file::Speak {
     }
 }
 
+/// A read window `c - half ..= c + half` on the 1..99 scale, at least 2 wide:
+/// a centre near or past an end shifts the window inside the scale rather
+/// than collapsing it to one number (a staff's read is never that sure).
+fn read_window(c: f64, half: f64) -> [u8; 2] {
+    let lo = (c - half).floor().clamp(1.0, 99.0) as u8;
+    let hi = (c + half).ceil().clamp(1.0, 99.0) as u8;
+    if hi.saturating_sub(lo) >= 2 {
+        [lo, hi]
+    } else if hi >= 99 {
+        [97, 99]
+    } else {
+        [lo.min(97), lo.min(97) + 2]
+    }
+}
+
 /// The overall read as a range, or None.
 fn now_range(f: &file::FileRead) -> Option<[u8; 2]> {
     if f.now.1 <= 0.0 && f.now.0 <= 0.0 {
         return None;
     }
     let half = f.now.1.max(1.0);
-    Some([(f.now.0 - half).floor().clamp(1.0, 99.0) as u8, (f.now.0 + half).ceil().clamp(1.0, 99.0) as u8])
+    Some(read_window(f.now.0, half))
 }
 
 fn group_name(cat: Category) -> &'static str {
@@ -364,20 +429,52 @@ fn is_followed(w: &World, id: u32) -> bool {
 }
 
 /// A short read of a player for a list row: the now range, the role words
-/// and how many looks.
+/// and how many looks. The role is the read that judges (own potential,
+/// Cain 2026-11-13): yours from your first own look, with your staff's
+/// beside it (`staff_role`, `staff_sure`), and `whose` says which.
 pub(crate) fn brief_read(w: &World, staff: readers::Staff, id: u32) -> Value {
     let Some(i) = sc::place(w, id) else { return Value::Null };
     let p = &w.people[i];
+    let own = (readers::seat_staff(w) == Some(staff) && afm_engine::world::scouting::yours::looked(w, staff, id))
+        .then(|| crate::reads::seen(w, i));
+    let mine = own.as_ref().and_then(|s| s.mine_tier.zip(s.mine_sure));
     match readers::read(w, staff, id) {
-        Some((_, looks, f)) => json!({
-            "now": now_range(&f),
-            "role": file::tier_words(speak(p), f.ceiling.0),
-            "sure": file::sure_words(f.ceiling.1),
-            "looks": looks.len(),
-            "medical": file::medical_words(f.medical.grade),
-            "examined": f.medical.examined,
+        Some((_, looks, f)) => {
+            let (role, sure) = (file::tier_words(speak(p), f.ceiling.0), file::sure_words(f.ceiling.1));
+            let (r, su, whose) = mine.map_or((role, sure, "staff"), |(r, su)| (r, su, "yours"));
+            json!({
+                "now": now_range(&f),
+                "role": r,
+                "sure": su,
+                "whose": whose,
+                "staff_role": role,
+                "staff_sure": sure,
+                "looks": looks.len(),
+                "medical": file::medical_words(f.medical.grade),
+                "examined": f.medical.examined,
+            })
+        }
+        None => match mine {
+            Some((r, su)) => json!({ "now": Value::Null, "role": r, "sure": su, "whose": "yours", "looks": 0 }),
+            None => json!({ "now": Value::Null, "role": "Not seen", "looks": 0 }),
+        },
+    }
+}
+
+/// Your own read of his potential for the file (own potential, Cain
+/// 2026-11-13): the role, floor and ceiling words and hints your own eye
+/// gives on your own looks. Null until your first own look.
+fn yours_potential(w: &World, i: usize, p: &afm_engine::world::Person, physical: f64) -> Value {
+    let s = crate::reads::seen(w, i);
+    match (s.mine_ceiling, s.mine) {
+        (Some(c), Some(now)) => json!({
+            "role": file::tier_words(speak(p), c.0),
+            "floor": file::floor_words(now.0, c.0, c.1, p.player.age, physical),
+            "sure": file::sure_words(c.1),
+            "hints": s.mine_hints,
+            "looks": s.mine_looks,
         }),
-        None => json!({ "now": Value::Null, "role": "Not seen", "looks": 0 }),
+        _ => Value::Null,
     }
 }
 
@@ -411,7 +508,7 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
         // The best and worst of him, from the attributes that matter at his position.
         let mut strong: Vec<(f64, Attr)> = Attr::ALL
             .iter()
-            .filter(|a| f.attrs[a.index()].seen && file::matters(pos, **a) > 0.4)
+            .filter(|a| f.attrs[a.index()].seen && file::matters_here(pos, **a))
             .map(|&a| (f.attrs[a.index()].centre, a))
             .collect();
         strong.sort_by(|a, b| b.0.total_cmp(&a.0));
@@ -429,6 +526,9 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
             "medical": file::medical_words(f.medical.grade),
             "medical_grade": f.medical.grade,
             "examined": f.medical.examined,
+            // Your own read of where he could get to (own potential): your
+            // eye on your own looks; null until your first own look.
+            "yours": yours_potential(w, i, p, physical),
         })
     });
     // Ratings by group.
@@ -440,7 +540,8 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
         .filter(|s| s.timed && seen);
     let timed_range = |c: f64, sd: f64| {
         let half = sd.max(1.0);
-        ((c - half).floor().clamp(1.0, 99.0) as u8, ((c + half).ceil().clamp(1.0, 99.0) as u8).max(1))
+        let [lo, hi] = read_window(c, half);
+        (lo, hi)
     };
     let groups: Vec<Value> = CATS
         .iter()
@@ -460,7 +561,7 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
                                     let (c, sd) = v.get(a.index()).copied().flatten()?;
                                     Some(json!({
                                         "who": rds.get(k).map(|x| x.name.clone()),
-                                        "read": [(c - sd).floor().clamp(1.0, 99.0) as u8, (c + sd).ceil().clamp(1.0, 99.0) as u8],
+                                        "read": read_window(c, sd),
                                     }))
                                 })
                                 .collect()
@@ -476,7 +577,7 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
                         },
                         "chips": r.map_or(Vec::new(), |r| chips(r.chips)),
                         "readers": r.map_or(0, |r| r.readers),
-                        "matters": file::matters(pos, a) > 0.4,
+                        "matters": file::matters_here(pos, a),
                         "per": per,
                     })
                 })
@@ -870,6 +971,41 @@ fn staff_people(w: &World, staff: readers::Staff) -> Vec<(u32, String, String, V
                 }
             }
         }
+        readers::Staff::League(fr) => {
+            if let Some(tm) = w.others.teams.get(fr) {
+                for (k, s) in tm.scouts.iter().enumerate() {
+                    let r = afm_engine::world::scouting::readers::reader(w, staff, k as u32, 0);
+                    let job = r.map_or_else(|| "Scout".to_string(), |r| r.job);
+                    let area = if s.role == afm_engine::world::pro::scouts::Role::Director {
+                        "Top of the board".to_string()
+                    } else {
+                        afm_engine::world::pro::cfl::covers(s.region)
+                            .into_iter()
+                            .map(|r| afm_engine::world::pro::cfl::REGIONS[r as usize])
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    };
+                    v.push((
+                        k as u32,
+                        s.name.clone(),
+                        job,
+                        json!({ "area": area, "since": s.since, "age": w.year - s.born }),
+                    ));
+                }
+                for (c, job) in
+                    [(tm.head_coach, "Head coach"), (tm.oc, "Offensive coordinator"), (tm.dc, "Defensive coordinator")]
+                {
+                    if let Some(c) = c {
+                        v.push((
+                            readers::COACH + c as u32,
+                            w.coaches[c].name.clone(),
+                            job.into(),
+                            json!({ "coach": c }),
+                        ));
+                    }
+                }
+            }
+        }
         readers::Staff::Program(prog) => {
             let pg = &w.programs[prog];
             let mut coaches: Vec<(usize, String)> = Vec::new();
@@ -943,6 +1079,15 @@ pub fn department(w: &World) -> Value {
     }
     if let readers::Staff::Club(t) = staff
         && let Some(c) = w.clubs.get(t)
+    {
+        for v in c.files.values() {
+            for l in v.iter().filter(|l| l.date >= start) {
+                *by_who.entry(l.who as u32).or_default() += 1;
+            }
+        }
+    }
+    if let readers::Staff::League(fr) = staff
+        && let Some(c) = w.others.teams.get(fr)
     {
         for v in c.files.values() {
             for l in v.iter().filter(|l| l.date >= start) {
@@ -1039,6 +1184,9 @@ fn target_words(w: &World, t: dept::Target) -> String {
         }
         dept::Target::Region(r) => match w.seat.map(|s| s.level) {
             Some(CalLevel::Nfl) => REGION_NAMES.get(r as usize).map_or("A region".into(), |s| format!("The {s}")),
+            Some(CalLevel::Other) => {
+                afm_engine::world::pro::cfl::REGIONS.get(r as usize).map_or("A region".into(), |s| s.to_string())
+            }
             _ => w.states.get(r as usize).map_or("A state".into(), |s| s.code.to_string()),
         },
         dept::Target::Group(g) => {
@@ -1073,6 +1221,11 @@ fn assign_targets(w: &World, staff: readers::Staff) -> Vec<Value> {
         readers::Staff::Club(_) => {
             for (r, n) in REGION_NAMES.iter().enumerate() {
                 v.push(json!({ "key": format!("region{r}"), "words": format!("The {n}") }));
+            }
+        }
+        readers::Staff::League(_) => {
+            for (r, n) in afm_engine::world::pro::cfl::REGIONS.iter().enumerate() {
+                v.push(json!({ "key": format!("region{r}"), "words": n }));
             }
         }
         _ => {
@@ -1373,7 +1526,7 @@ fn board_list(w: &mut World, id: u32, list: u8, on: bool) -> Result<(), String> 
 
 // --- The war room (screens topic 8, scouting topic 11) -----------------------------------
 
-fn offer_json(w: &World, l: &live::LiveDraft, o: &live::TradeOffer, k: usize) -> Value {
+pub(crate) fn offer_json(w: &World, l: &live::LiveDraft, o: &live::TradeOffer, k: usize) -> Value {
     let slot_text = |s: usize| l.run.board.get(s).map_or(String::new(), |x| format!("pick {} (round {})", s + 1, x.1));
     let mut gets = vec![slot_text(o.their_slot)];
     if let Some(s) = o.slot_extra {
@@ -1637,8 +1790,14 @@ pub fn predraft_view(w: &World) -> Reply {
                 "date": date_text(l.date),
                 "team": team_brief(w, TeamRef::Nfl(l.team)),
                 "player": row(w, i),
-                // Your staff's read on whether it's real (the GM's habits).
-                "read": if l.yours { "Yours" } else if l.real { "Likely real" } else { "Smells like a smokescreen" },
+                // Your staff's read on whether it's real, from what they can
+                // see (the club's record, its visits, its need, the slot):
+                // never the truth (lane N5e, `draft::smoke::read`).
+                "read": if l.yours {
+                    "Yours".to_string()
+                } else {
+                    afm_engine::world::folk::persona::draft::smoke::read(w, l.team, l.player, false).band.to_string()
+                },
                 "yours": l.yours,
             }))
         })

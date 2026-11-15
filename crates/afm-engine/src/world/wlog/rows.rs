@@ -137,6 +137,8 @@ struct LeanPlayer<'a> {
     game: &'a crate::player::GameTraits,
     tend: Tend,
     train: &'a crate::training::Train,
+    /// His flaws and tools (individual practice), as stored.
+    craft: &'a crate::craft::Crafts,
 }
 
 /// Tendencies in tenths (`tendencies::Tendencies`).
@@ -237,6 +239,7 @@ impl<'a> Lean<'a> {
                     contact_dip: q.tend.contact_dip,
                 },
                 train: &q.train,
+                craft: &q.craft,
             },
         }
     }
@@ -421,7 +424,16 @@ pub(super) fn book(w: &World, season: i32) {
 
 /// Whether a stage is in football (a row) or has left it (an exit).
 fn in_football(s: Stage) -> bool {
-    matches!(s, Stage::HighSchool | Stage::College | Stage::PrepSchool | Stage::Declared | Stage::Pro | Stage::Away)
+    matches!(
+        s,
+        Stage::HighSchool
+            | Stage::College
+            | Stage::PrepSchool
+            | Stage::Declared
+            | Stage::Pro
+            | Stage::Away
+            | Stage::CflPool
+    )
 }
 
 fn level_of(w: &World, p: &Person) -> Option<crate::player::Level> {

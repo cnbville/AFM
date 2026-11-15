@@ -127,6 +127,16 @@ fn base_on(w: &World, d: Date) -> (f32, f32) {
             };
             (recruit, if game_week { 12.0 } else { 0.0 })
         }
+        // A CFL club (SK77): the class in the fall and winter, the
+        // combines and the board in March and April.
+        Some(Staff::League(_)) => {
+            let recruit = match m {
+                3 | 4 => 16.0,
+                9..=12 | 1 | 2 => 5.0,
+                _ => 3.0,
+            };
+            (recruit, if game_week { 12.0 } else { 0.0 })
+        }
         Some(Staff::School(_)) => {
             let recruit = match m {
                 8..=11 => 3.0,

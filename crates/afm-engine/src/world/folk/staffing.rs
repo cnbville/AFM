@@ -20,6 +20,7 @@
 //! Sizes and pay no table covers are Claude's picks (proposed, not
 //! confirmed).
 
+use super::claims::rooms;
 use super::scene::{self, Doc, DocRow, Kind, Pick, Scene, Who};
 use super::talks::{self, Reason};
 use super::{Team, coach_key, coach_link, facts, player_link};
@@ -48,8 +49,12 @@ pub struct Staffs {
     pub deals: Vec<Deal>,
     /// Raises you gave (coach, day): a promise of a raise is kept by one.
     pub raises: Vec<(usize, Date)>,
-    /// More money from your boss for the staff pool and recruiting (shares).
+    /// Your boss's raises to the staff pool, as a share above the usual: 0.1
+    /// a yes. Read by [`staff_bonus`]; a new job starts at none.
     pub pool_bonus: f32,
+    /// Your athletic director's raises to the recruiting budget for travel
+    /// and visits (people topic 12), as a share above the usual: 0.1 a yes.
+    /// Read by [`recruit_bonus`]; a new job starts at none.
     pub recruit_bonus: f32,
     /// Drawn jobs whose holder changed (job key, term).
     pub terms: Vec<(u64, u16)>,
@@ -62,6 +67,37 @@ pub struct Staffs {
     /// Deals carried over from another job were repriced once (older saves
     /// kept a coach's deal when he moved).
     pub repriced: bool,
+}
+
+/// The share your athletic director added to program `p`'s recruiting
+/// budget for travel and visits (people topic 12; 0 for any other program,
+/// so the world runs as before until he says yes). It buys more of the
+/// athletic budget's recruiting line (`finance::college`, `open_year`), a
+/// second school on a coach's Thursday on the road (`scouting::dept`,
+/// `college_day`) and a better-hosted visit (`recruiting::appeal`,
+/// `front_office::portal::effort`). Sizes proposed, not confirmed.
+pub fn recruit_bonus(w: &World, p: usize) -> f64 {
+    match Team::seat(w) {
+        Some(Team::College(q)) if q == p => w.folk.staff.recruit_bonus.max(0.0) as f64,
+        _ => 0.0,
+    }
+}
+
+/// The share your boss added to the staff pool of `team` (people topic 12;
+/// 0 for any other team, so the world runs as before until he says yes). At
+/// a college it is the football support staff line of the athletic budget
+/// (`finance::college`, `open_year`), at an NFL club the assistants' pool
+/// inside the coaches' line (`finance::nfl`, `open_year`); both raise the
+/// spending level that the support heads are hired at (`people::staff_support`).
+/// A high school has no such pool, and neither does another league's club
+/// (`ask` still takes the yes there). Sizes proposed, not confirmed.
+pub fn staff_bonus(w: &World, team: Team) -> f64 {
+    match Team::seat(w) {
+        Some(t) if t == team && matches!(team, Team::College(_) | Team::Nfl(_)) => {
+            w.folk.staff.pool_bonus.max(0.0) as f64
+        }
+        _ => 0.0,
+    }
 }
 
 impl Staffs {
@@ -829,6 +865,18 @@ fn interview_open(w: &mut World, s: &mut Scene) {
     s.pick(61, "Ask how he'd handle your most difficult player", "Ask", "firm", "How he handles people.");
     s.pick(62, "Ask where he recruits and who he'd bring", "Ask", "calm", "His ties and his tree.");
     s.pick(63, "Ask what he wants: money, title, play calling", "Ask", "calm", "What it will take.");
+    meet_pick(w, s, c, role);
+}
+
+/// While you owe a booster a say in hires, a coordinator candidate can meet
+/// him first (talk facts lane L8): hiring one he never met breaks your word.
+fn meet_pick(w: &World, s: &mut Scene, c: usize, role: Role) {
+    let coordinator = matches!(role, Role::OffensiveCoordinator | Role::DefensiveCoordinator);
+    if let Some((code, label)) = super::backers::meet_pick(w, c, coordinator)
+        && s.picks.iter().all(|p| p.code != code)
+    {
+        s.pick(code, label, "Hand him something", "calm", "Keeps your word to the booster. A proud candidate notices.");
+    }
 }
 
 fn interview_answer(w: &mut World, s: &mut Scene, code: u32) {
@@ -840,14 +888,35 @@ fn interview_answer(w: &mut World, s: &mut Scene, code: u32) {
     let a = *co.ability();
     let text = match code {
         60 => {
-            if read >= 13.0 {
+            let mut t = if read >= 13.0 {
                 "He goes to the whiteboard and doesn't stop for twenty minutes. Every answer has a clip behind it."
                     .to_string()
             } else if read >= 9.0 {
                 "Solid, if familiar: the things every coach says, said well.".to_string()
             } else {
                 "He talks about his old team's players more than yours.".to_string()
+            };
+            // His real record and the real player he would work with (talk
+            // facts item 23).
+            if let Some(r) = rooms::candidate(w, c).record {
+                let mut x = r.chars();
+                let r = x.next().map_or(String::new(), |f| f.to_uppercase().collect::<String>() + x.as_str());
+                t = format!("{t} {r}.");
             }
+            let group = match role {
+                Role::PositionCoach(g) => g,
+                Role::DefensiveCoordinator => Group::LB,
+                _ => Group::QB,
+            };
+            if let Some(i) = rooms::starter_in(w, group) {
+                let p = &w.people[i];
+                t = format!(
+                    "{t} He asks how he'd use {}, your {} starter.",
+                    player_link(w, i),
+                    super::claims::words::spot(p.player.position)
+                );
+            }
+            t
         }
         61 => {
             if a.relationships >= 13.0 {
@@ -860,8 +929,16 @@ fn interview_answer(w: &mut World, s: &mut Scene, code: u32) {
         }
         62 => {
             let ties = co.ties.len();
+            let known = rooms::candidate(w, c).ties;
             if ties >= 5 {
-                format!("He names a dozen high school coaches by their first names. His ties reach {ties} schools.")
+                format!(
+                    "He names a dozen high school coaches by their first names. His ties reach {ties} schools{}.",
+                    if known.is_empty() {
+                        String::new()
+                    } else {
+                        format!(", {} the strongest", super::claims::words::list(&known))
+                    }
+                )
             } else {
                 "He'd recruit where you tell him to. He doesn't have a territory of his own.".to_string()
             }
@@ -929,6 +1006,7 @@ fn interview_answer(w: &mut World, s: &mut Scene, code: u32) {
                 s.pick(*code2, *label, "Ask", "calm", "");
             }
         }
+        meet_pick(w, s, c, role);
         s.pick(69, "Thank him and wrap it up", "End", "calm", "");
     }
 }
@@ -965,12 +1043,31 @@ pub fn start_firing(w: &mut World, c: usize) -> Result<u32, String> {
 fn firing_open(w: &mut World, s: &mut Scene) {
     let c = s.a as usize;
     s.who.push(Who::Coach(c));
-    let co = &w.coaches[c];
     let owed = w.folk.staff.deal(c).map_or(0.0, |d| {
         d.salary * (d.through - w.year + 1).max(0) as f64 * if d.buyout > 0.0 { d.buyout as f64 } else { 0.25 }
     });
+    // His real record with you and his unit's year (talk facts item 23):
+    // what you say to him, and whether you may blame his unit, rests on it.
+    let unit = rooms::unit(w, c);
+    let mut about = String::new();
+    if let Some(u) = &unit {
+        about = format!(
+            " He has been your {} {}.",
+            u.role.name(),
+            match u.years {
+                1 => "this season".to_string(),
+                n => format!("for {n} seasons"),
+            }
+        );
+        if let Some(r) = u.record_words() {
+            about += &format!(" The team is {r} since he took the job.");
+        }
+        if let Some(y) = u.year_words() {
+            about += &format!(" {y}");
+        }
+    }
     s.narrate(format!(
-        "{} knows why you called him in. {}",
+        "{} knows why you called him in. {}{about}",
         coach_link(w, c),
         if owed > 0.0 {
             format!("Letting him go costs about ${} of his deal.", facts::thousands((owed / 1000.0) as u32) + ",000")
@@ -978,10 +1075,17 @@ fn firing_open(w: &mut World, s: &mut Scene) {
             "His deal is year to year.".into()
         }
     ));
-    let _ = co;
+    // "It's the results" is offered when his results don't contradict it,
+    // and blaming his unit only when it did badly. A good year changes
+    // the words and removes the blame; nothing else about the choices.
+    let good = unit.as_ref().is_some_and(|u| u.form == Some(rooms::Form::Good));
     s.pick(
         70,
-        "Tell him straight: it's the results",
+        if good {
+            "Tell him straight: it's not the results, it's the direction I'm taking"
+        } else {
+            "Tell him straight: it's the results"
+        },
         "Tell him straight",
         "calm",
         "He doesn't like it, but he respects it.",
@@ -993,13 +1097,15 @@ fn firing_open(w: &mut World, s: &mut Scene) {
         "warm",
         "He leaves a friend; your network keeps him.",
     );
-    s.pick(
-        72,
-        "Blame his unit in front of the staff",
-        "Criticize",
-        "fiery",
-        "The staff sees you protect yourself; he holds a grudge.",
-    );
+    if !good {
+        s.pick(
+            72,
+            "Blame his unit in front of the staff",
+            "Criticize",
+            "fiery",
+            "The staff sees you protect yourself; he holds a grudge.",
+        );
+    }
     s.pick(73, "Change your mind: he stays", "Listen", "calm", "Nothing happens; he knows how close it was.");
 }
 
@@ -1105,12 +1211,38 @@ fn proposal_open(w: &mut World, s: &mut Scene) {
             s.who.push(Who::Coach(c));
             s.who.push(Who::Player(y));
             s.who.push(Who::Player(s0));
-            s.narrate(format!("{} has the practice tape cued up.", coach_link(w, c)));
+            // The real players and what practice shows (talk facts item 23):
+            // who each is, and how they have gone at each other.
+            let (young, vet) = (w.people[yi].name.clone(), w.people[si].name.clone());
+            s.narrate(format!(
+                "{} has the practice tape cued up. {} is {}; {} is {}.",
+                coach_link(w, c),
+                young,
+                rooms::class_phrase(w, yi),
+                vet,
+                rooms::class_phrase(w, si)
+            ));
+            let duel = rooms::duel(w, y, s0);
+            let proof = match duel {
+                Some(d) if d.young_ahead() => {
+                    format!(" He is {} of {} in one-on-ones lately.", d.young.0, d.young.0 + d.young.1)
+                }
+                _ => String::new(),
+            };
             s.them(
                 &w.coaches[c].name.clone(),
-                format!("{} has passed {}. I'd start him this week.", w.people[yi].name, w.people[si].name),
+                format!("{young} has passed {vet}.{proof} I'd start him this week."),
                 Some("He's sure. He's been sure before.".into()),
             );
+            if let Some(d) = duel.filter(|d| !d.young_ahead()) {
+                s.narrate(format!(
+                    "The practice log doesn't back him: {vet} is {} of {} in one-on-ones lately to {young}'s {} of {}.",
+                    d.vet.0,
+                    d.vet.0 + d.vet.1,
+                    d.young.0,
+                    d.young.0 + d.young.1
+                ));
+            }
             s.pick(
                 75,
                 format!("Do it: start {}", w.people[yi].name),
@@ -1142,11 +1274,16 @@ fn proposal_open(w: &mut World, s: &mut Scene) {
             };
             s.who.push(Who::Player(id));
             s.narrate(format!("The head trainer stops you in the hall about {}.", player_link(w, i)));
-            s.them(
-                "Head trainer",
-                "His hamstring is tight and his numbers are down. A week off now saves us a month later.",
-                None,
-            );
+            // What the trainer says is true of this man (talk facts item
+            // 23): his age and his place, and his load when the trainers
+            // wrote it up.
+            let age = w.people[i].player.age;
+            let why = if rooms::load_note(w, id) {
+                "His workload is up sharply this week.".to_string()
+            } else {
+                format!("He's {age} and he's our starter; the wear adds up.")
+            };
+            s.them("Head trainer", format!("{why} A week off now saves us a month later."), None);
             s.pick(78, "Rest him", "Listen", "calm", "He sits a week. Lower risk of a soft-tissue injury.");
             s.pick(79, "He plays", "Tell him straight", "firm", "He plays; the risk is yours.");
         }
@@ -1160,16 +1297,12 @@ fn proposal_answer(w: &mut World, s: &mut Scene, code: u32) {
             let (y, s0) = ((s.b >> 32) as u32, (s.b & 0xFFFF_FFFF) as u32);
             if let Some(yi) = super::person(w, y) {
                 let pos = w.people[yi].player.position;
-                match w.seat_depth.iter_mut().find(|x| x.0 == pos) {
-                    Some(x) => {
-                        x.1.retain(|&i| i != y);
-                        x.1.insert(0, y);
-                    }
-                    None => w.seat_depth.push((pos, vec![y, s0])),
-                }
-                talks::mood_event(w, y, Reason::Praise, 0.15);
+                w.seat_start(y, s0, pos);
+                // He sees it at his next practice week, not on the chart
+                // (the promises design, section 2).
+                talks::when_seen(w, y, Reason::Praise, 0.15);
             }
-            talks::mood_event(w, s0, Reason::Benched, -0.2);
+            talks::when_seen(w, s0, Reason::Benched, -0.2);
             w.folk.mine.nudge(coach_key(s.a as usize), 0.06);
             s.outcome.push("Your depth chart changed: the young player starts.".into());
         }
@@ -1207,6 +1340,11 @@ pub(crate) fn open(w: &mut World, s: &mut Scene) {
 
 pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, _picked: &Pick) {
     match s.kind {
+        Kind::Interview if code == 68 => {
+            let c = s.a as usize;
+            super::backers::meet(w, s, c);
+            s.picks.retain(|p| p.code != 68);
+        }
         Kind::Interview if code == 69 => {
             s.outcome.push(format!("You interviewed {}.", w.coaches[s.a as usize].name));
             s.end();

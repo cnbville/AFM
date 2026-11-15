@@ -363,7 +363,7 @@ screens.statfind = async (a) => {
   const say = sfSay(K, x);
   // Saved searches are checked again once a game day has passed.
   setTimeout(() => sfCheckSaved(), 0);
-  return `<div class="pad sl dt tr sf">${pageHead({ kicker: "Data", title: "Stat finder", sub: "Every season, career, game or streak that meets your conditions, at any level and any year the game has kept.", goto: gotoLine([["Trends", "trends"], ["Compare", "dcompare"], ["Stat history", "stathist"]]) })}${dtSeg("sffind", SF_FINDS, K.find)}${filters}${condBar}<p class="sf-say">${esc(say)} <span class="muted">${x.total.toLocaleString()} found${x.total > x.rows.length ? `, the top ${x.rows.length} shown` : ""}.</span></p>${body}${saved}</div>`;
+  return `<div class="pad sl dt tr sf">${pageHead({ kicker: "Data", title: "Stat finder", sub: "Every season, career, game or streak that meets your conditions, at any level and any year the game has kept.", goto: gotoLine([["Trends", "trends"], ["Compare", "dcompare"], ["Stat history", "stathist"]]) })}${aiAskBox(x.ask, ["analyst"], "statfind", { wrap: "panel", query: aiQueryStat, presets: [{ cmd: "ai_ask", args: { kind: "analyst" }, limit: 400 }] })}${dtSeg("sffind", SF_FINDS, K.find)}${aiSetFrom(filters + condBar, K)}<p class="sf-say">${esc(say)} <span class="muted">${x.total.toLocaleString()} found${x.total > x.rows.length ? `, the top ${x.rows.length} shown` : ""}.</span></p>${body}${saved}</div>`;
 };
 GOTO.statfind = () => [["Trends", "trends"], ["Compare", "dcompare"], ["Stat history", "stathist"]];
 

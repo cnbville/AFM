@@ -26,11 +26,16 @@ use crate::views::{self, TeamRef};
 
 /// The starting spots: key, position, words, and where each stands
 /// (yards: depth from the line, across from the middle).
-const SPOTS: [(&str, Position, &str, f64, f64); 24] = {
+///
+/// The third-down back and the nickel corner are starters in their own
+/// role (Cain 2026-11-14): the back on passing downs, the nickel in the
+/// sub packages most snaps now see.
+const SPOTS: [(&str, Position, &str, f64, f64); 26] = {
     use Position::*;
     [
         ("QB", QB, "Quarterback", -5.0, 0.0),
-        ("RB", RB, "Running back", -7.5, 0.0),
+        ("RB", RB, "Every-down back", -7.5, 0.0),
+        ("RB3", RB, "Third-down back", -6.5, -4.0),
         ("X", WR, "Wide receiver (X)", 0.0, -21.0),
         ("Z", WR, "Wide receiver (Z)", -1.0, 21.0),
         ("SLOT", WR, "Slot receiver", -1.8, 13.0),
@@ -49,6 +54,7 @@ const SPOTS: [(&str, Position, &str, f64, f64); 24] = {
         ("SAM", LB, "Strongside linebacker", 4.5, 5.0),
         ("CB1", CB, "Cornerback", 6.0, -19.0),
         ("CB2", CB, "Cornerback", 6.0, 19.0),
+        ("NICKEL", CB, "Nickel corner", 5.5, 12.0),
         ("FS", S, "Free safety", 13.0, -6.0),
         ("SS", S, "Strong safety", 10.0, 6.0),
         ("K", K, "Kicker", -10.0, -12.0),
@@ -69,6 +75,126 @@ struct Man {
     draft_risk: bool,
     /// In the transfer portal: the map counts him as gone.
     portal: Option<InPortal>,
+    /// How much better or worse your staff reads him at each spot than at
+    /// his position as a whole (`spot_fit`): the center's calls and snap,
+    /// the guard's anchor, the left tackle's feet, the free safety's range.
+    fit: [f64; SPOTS.len()],
+}
+
+/// The role section a spot belongs to in a position's card (Cain's
+/// approved design, 2026-11-14) and the short word the class plan names
+/// an open place by: "open 2 (guard 1, center 1)".
+fn role_of(key: &str) -> (&'static str, &'static str) {
+    match key {
+        "RB" => ("Every-down back", "every-down"),
+        "RB3" => ("Third-down back", "third-down"),
+        "X" | "Z" => ("X and Z", "X/Z"),
+        "SLOT" => ("Slot", "slot"),
+        "LT" => ("Left tackle", "left tackle"),
+        "RT" => ("Right tackle", "right tackle"),
+        "LG" | "RG" => ("Guards", "guard"),
+        "C" => ("Center", "center"),
+        "LE" => ("Left end", "left end"),
+        "RE" => ("Right end", "right end"),
+        "DT1" | "DT2" => ("Defensive tackles", "tackle"),
+        "MIKE" => ("Mike", "Mike"),
+        "WILL" => ("Will", "Will"),
+        "SAM" => ("Sam", "Sam"),
+        "CB1" | "CB2" => ("Outside", "outside"),
+        "NICKEL" => ("Nickel", "nickel"),
+        "FS" => ("Free safety", "free safety"),
+        "SS" => ("Strong safety", "strong safety"),
+        "QB" => ("Quarterback", "quarterback"),
+        "TE" => ("Tight end", "tight end"),
+        "K" => ("Kicker", "kicker"),
+        "P" => ("Punter", "punter"),
+        _ => ("", ""),
+    }
+}
+
+/// What the map's own roles ask where the engine has no job for them yet
+/// (receivers and backs have one job each in the engine): the X's release
+/// against press and the contested ball, the Z's speed and routes, the
+/// slot's quickness and catches in traffic, the every-down back's vision
+/// and power, the third-down back's protection and hands. A staff read
+/// only: it picks who the map puts where and never touches a game.
+/// Proposed, not confirmed (Cain 2026-11-14).
+fn map_lean(key: &str) -> &'static [(afm_engine::attributes::Attr, f64)] {
+    use afm_engine::attributes::Attr::*;
+    match key {
+        "X" => &[(Release, 0.3), (ContestedCatch, 0.25), (Strength, 0.15), (BallTracking, 0.15), (Jumping, 0.15)],
+        "Z" => &[(Speed, 0.35), (RouteRunning, 0.3), (Acceleration, 0.15), (Elusiveness, 0.1), (BallTracking, 0.1)],
+        "SLOT" => &[(Agility, 0.3), (Acceleration, 0.25), (RouteRunning, 0.2), (Catching, 0.15), (Toughness, 0.1)],
+        "RB" => &[(BallCarrierVision, 0.3), (LegDrive, 0.2), (Balance, 0.2), (BallSecurity, 0.15), (Stamina, 0.15)],
+        "RB3" => {
+            &[(PassBlocking, 0.35), (Catching, 0.25), (RouteRunning, 0.2), (PlayRecognition, 0.1), (Elusiveness, 0.1)]
+        }
+        _ => &[],
+    }
+}
+
+/// How much a map role's lean moves his read, as the engine's spots do
+/// (`spots::LEAN`, half the gap to the position's other roles).
+const MAP_LEAN: f64 = 0.35;
+
+/// The engine's depth-chart job behind each spot of the map, where the
+/// position has more than one (`spots::spot_rating`): a center is picked as
+/// a center and a guard as a guard, not the best interior lineman anywhere
+/// (Cain 2026-11-14).
+fn spot_job(key: &str) -> Option<afm_engine::spots::Spot> {
+    use afm_engine::spots::Spot;
+    Some(match key {
+        "LT" => Spot::LT,
+        "RT" => Spot::RT,
+        "LG" | "RG" => Spot::G,
+        "C" => Spot::C,
+        "WILL" => Spot::OLB,
+        "MIKE" => Spot::MLB,
+        "SAM" => Spot::SAM,
+        "FS" => Spot::FS,
+        "SS" => Spot::SS,
+        "CB1" | "CB2" => Spot::CB,
+        "NICKEL" => Spot::NB,
+        _ => return None,
+    })
+}
+
+/// A man's fit at each spot of the map from your staff's read of his
+/// attributes and his listed body: his rating at the spot's job less his
+/// position's overall, both on the read. Zero where the spot has no job of
+/// its own or the staff has no read of him.
+fn spot_fit(w: &World, i: usize, pos: Position) -> [f64; SPOTS.len()] {
+    let mut out = [0.0; SPOTS.len()];
+    let read = reads::attributes(w, i);
+    if read.iter().any(|(_, r)| mid(*r).is_none()) {
+        return out;
+    }
+    let mut a = afm_engine::attributes::Attributes::default();
+    for (attr, r) in &read {
+        a.set(*attr, mid(*r).unwrap_or(50.0));
+    }
+    let body = afm_engine::body::body_now(&w.people[i].player);
+    let base = afm_engine::positions::overall_for(pos, &a);
+    let lean = |key: &str| -> f64 {
+        let v: f64 = map_lean(key).iter().map(|&(x, wt)| wt * a.get(x)).sum();
+        // The X is the big receiver outside: height counts as at the corner.
+        if key == "X" { 0.9 * v + 0.1 * (50.0 + 6.0 * (body.height - 73.0)).clamp(1.0, 99.0) } else { v }
+    };
+    for (k, s) in SPOTS.iter().enumerate() {
+        if s.1 != pos {
+            continue;
+        }
+        if let Some(job) = spot_job(s.0) {
+            out[k] = afm_engine::spots::spot_rating(job, &a, body.weight, body.height) - base;
+        } else if !map_lean(s.0).is_empty() {
+            // Each other role of his position once (X and Z are two).
+            let mut others: Vec<&str> = SPOTS.iter().filter(|o| o.1 == pos && o.0 != s.0).map(|o| o.0).collect();
+            others.dedup_by_key(|o| role_of(o).0);
+            let other = others.iter().map(|o| lean(o)).sum::<f64>() / others.len().max(1) as f64;
+            out[k] = MAP_LEAN * (lean(s.0) - other) / 2.0;
+        }
+    }
+    out
 }
 
 /// A man in the transfer portal: the reads he would have carried had he
@@ -85,7 +211,7 @@ struct InPortal {
 /// team's entrant has no day yet and plays the run out (`release_held`).
 /// Everyone else in the portal sits out the games left and is gone.
 /// `season_on`: this fall's season has started and the year hasn't turned.
-fn portal_entry(w: &World, p: &Person, season_on: bool) -> Option<(&'static str, bool)> {
+pub(super) fn portal_entry(w: &World, p: &Person, season_on: bool) -> Option<(&'static str, bool)> {
     let e = p.cal.portal.filter(|_| p.stage == Stage::College)?;
     Some((e.why, on_hold(e.held, e.entered.0, w.today.0, season_on)))
 }
@@ -131,31 +257,89 @@ fn pick_starters(
     val: &dyn Fn(usize, usize) -> Option<f64>,
 ) -> Vec<[Option<usize>; 3]> {
     let mut starters: Vec<[Option<usize>; 3]> = vec![[None; 3]; SPOTS.len()];
-    #[allow(clippy::needless_range_loop)] // n is the year, read from every man too
-    for n in 0..3 {
-        let mut used: Vec<usize> = Vec::new();
-        for (k, &(_, pos, _, _, _)) in SPOTS.iter().enumerate() {
-            let mut cands: Vec<(f64, usize)> = men
-                .iter()
-                .enumerate()
-                .filter(|(_, m)| m.pos == pos && !used.contains(&m.i))
-                .filter_map(|(j, _)| val(j, n).map(|v| (v, j)))
-                .collect();
-            cands.sort_by(|a, b| b.0.total_cmp(&a.0));
-            let mut pick = cands.first().map(|x| x.1);
+    let mut done: Vec<Position> = Vec::new();
+    for &(_, pos, _, _, _) in SPOTS.iter() {
+        if done.contains(&pos) {
+            continue;
+        }
+        done.push(pos);
+        let ks: Vec<usize> = (0..SPOTS.len()).filter(|&k| SPOTS[k].1 == pos).collect();
+        let at_pos: Vec<usize> = (0..men.len()).filter(|&j| men[j].pos == pos).collect();
+        #[allow(clippy::needless_range_loop)] // n is the fall, read from every man too
+        for n in 0..3 {
+            let here: Vec<(f64, usize)> = at_pos.iter().filter_map(|&j| val(j, n).map(|v| (v, j))).collect();
+            // Now, your depth order fills the spots in its own order (left
+            // guard, center, right guard), as the engine seats it.
             if n == 0
                 && let Some((_, ids)) = order.iter().find(|x| x.0 == pos)
             {
-                let by_order = ids.iter().find_map(|id| cands.iter().find(|c| men[c.1].id == *id).map(|c| c.1));
-                pick = by_order.or(pick);
+                let mut used: Vec<usize> = Vec::new();
+                for &k in &ks {
+                    let mut cands: Vec<&(f64, usize)> = here.iter().filter(|c| !used.contains(&c.1)).collect();
+                    cands.sort_by(|a, b| (b.0 + men[b.1].fit[k]).total_cmp(&(a.0 + men[a.1].fit[k])));
+                    let by_order = ids.iter().find_map(|id| cands.iter().find(|c| men[c.1].id == *id).map(|c| c.1));
+                    if let Some(j) = by_order.or(cands.first().map(|c| c.1)) {
+                        used.push(j);
+                        starters[k][n] = Some(j);
+                    }
+                }
+                continue;
             }
-            if let Some(j) = pick {
-                used.push(men[j].i);
+            // Later falls (and a position with no order): the men who read
+            // best at the spots' own jobs together, so a center goes to
+            // center and a slot to the slot.
+            for (k, j) in best_fill(men, &ks, &here) {
                 starters[k][n] = Some(j);
             }
         }
     }
     starters
+}
+
+/// The men who fill a position's spots best together: the most read at
+/// the spots' own jobs in all, from the best eight at the position (every
+/// spot gets its own man; ties go to the spots' order). `here`: each man
+/// there that fall with his read.
+fn best_fill(men: &[Man], ks: &[usize], here: &[(f64, usize)]) -> Vec<(usize, usize)> {
+    let at = |j: usize, k: usize| here.iter().find(|c| c.1 == j).map_or(0.0, |c| c.0) + men[j].fit[k];
+    let mut pool: Vec<usize> = here.iter().map(|c| c.1).collect();
+    pool.sort_by(|&a, &b| {
+        let best = |j: usize| ks.iter().map(|&k| at(j, k)).fold(f64::MIN, f64::max);
+        best(b).total_cmp(&best(a))
+    });
+    pool.truncate(8);
+    let mut best: (f64, Vec<(usize, usize)>) = (f64::MIN, Vec::new());
+    fn walk(
+        ks: &[usize],
+        pool: &[usize],
+        at: &dyn Fn(usize, usize) -> f64,
+        taken: &mut Vec<(usize, usize)>,
+        sum: f64,
+        best: &mut (f64, Vec<(usize, usize)>),
+    ) {
+        let Some((&k, rest)) = ks.split_first() else {
+            if taken.len() > best.1.len() || (taken.len() == best.1.len() && sum > best.0 + 1e-9) {
+                *best = (sum, taken.clone());
+            }
+            return;
+        };
+        let mut any = false;
+        for &j in pool {
+            if taken.iter().any(|t| t.1 == j) {
+                continue;
+            }
+            any = true;
+            taken.push((k, j));
+            walk(rest, pool, at, taken, sum + at(j, k), best);
+            taken.pop();
+        }
+        // Fewer men than spots: the spot is left empty.
+        if !any {
+            walk(rest, pool, at, taken, sum, best);
+        }
+    }
+    walk(ks, &pool, &at, &mut Vec::new(), 0.0, &mut best);
+    best.1
 }
 
 /// A man's place in a fall once the starters are picked.
@@ -251,7 +435,7 @@ fn verdict(v: Option<f64>, m: Option<&Marks>) -> &'static str {
 }
 
 /// His class in a fall to come: "Jr", "RS So", "Sr"; a pro's age.
-fn class_in(w: &World, i: usize, fall: i32) -> String {
+pub(super) fn class_in(w: &World, i: usize, fall: i32) -> String {
     let p = &w.people[i];
     match p.stage {
         Stage::HighSchool | Stage::PrepSchool if !is_commit(w, i) => {
@@ -269,7 +453,7 @@ fn class_in(w: &World, i: usize, fall: i32) -> String {
     }
 }
 
-fn is_commit(w: &World, i: usize) -> bool {
+pub(super) fn is_commit(w: &World, i: usize) -> bool {
     let p = &w.people[i];
     let Some(TeamRef::College(c)) = views::mine(w) else { return false };
     matches!(p.stage, Stage::HighSchool | Stage::PrepSchool)
@@ -397,7 +581,8 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
         let portal = portal_entry(w, p, season_on)
             .filter(|_| !commit)
             .map(|(why, on_hold)| leave_through_portal(&mut vals, &mut gone, &mut draft_risk, why, on_hold));
-        men.push(Man { i, id: p.player.id, pos, vals, read, commit, gone, draft_risk, portal });
+        let fit = spot_fit(w, i, pos);
+        men.push(Man { i, id: p.player.id, pos, vals, read, commit, gone, draft_risk, portal, fit });
     }
     // Starters each fall: now by the depth order (yours, else your
     // staff's), later by the carried reads.
@@ -562,6 +747,7 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
         }
         spots.push(json!({
             "key": key, "pos": pos.name(), "full": words, "x": x, "y": y,
+            "role": role_of(key).0, "role_short": role_of(key).1,
             "vals": vals.iter().map(|v| v.map(f64::round)).collect::<Vec<_>>(),
             "verdicts": verdicts, "names": names, "why": why.join(" "), "fix": fix.join(" "),
         }));
@@ -651,6 +837,17 @@ pub(crate) fn view(w: &World, args: &Value) -> Reply {
                     .collect::<Vec<_>>(),
                 "gone": m.gone.as_ref().map(|g| json!({ "at": g.0, "why": g.1 })),
                 "draft_risk": m.draft_risk,
+                // The spot whose job he reads best at, for a man who starts
+                // nowhere (the first of his position's spots on a tie).
+                "fit": SPOTS
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, s)| s.1 == m.pos)
+                    .fold(None::<(usize, f64)>, |b, (k, _)| match b {
+                        Some((_, f)) if f >= m.fit[k] - 1e-9 => b,
+                        _ => Some((k, m.fit[k])),
+                    })
+                    .map(|(k, _)| SPOTS[k].0),
             })
         })
         .collect();
@@ -780,6 +977,7 @@ mod tests {
             gone: None,
             draft_risk: false,
             portal: None,
+            fit: [0.0; SPOTS.len()],
         }
     }
 
@@ -843,6 +1041,30 @@ mod tests {
         assert_eq!(men[0].gone.as_ref().map(|g| g.0), Some(1));
         let st = pick_starters(&men, &[], &|j, n| men[j].vals[n]);
         assert_eq!(st[spot("QB")], [Some(0), Some(1), Some(1)]);
+    }
+
+    /// Cain 2026-11-14: the center is picked as a center. Three guards read
+    /// a little better overall, but the fourth man reads best at center: he
+    /// takes the center spot in the falls the map plans, the guards the
+    /// guard spots. Now your depth order still decides.
+    #[test]
+    fn the_center_is_picked_as_a_center() {
+        use Position::*;
+        let mut men: Vec<Man> = (0..4).map(|i| man(i, IOL, all(if i == 3 { 68.0 } else { 70.0 - i as f64 }))).collect();
+        men[3].fit[spot("C")] = 4.0;
+        for m in men.iter_mut().take(3) {
+            m.fit[spot("C")] = -2.0;
+        }
+        let st = pick_starters(&men, &[], &|j, n| men[j].vals[n]);
+        let (c, lg, rg) = (&st[spot("C")], &st[spot("LG")], &st[spot("RG")]);
+        for n in 1..3 {
+            assert_eq!(c[n], Some(3), "the best read at center takes it");
+            let guards = [lg[n], rg[n]];
+            assert!(guards.iter().all(|g| g.is_some_and(|j| j < 3)), "guards at guard: {guards:?}");
+        }
+        let order = vec![(IOL, vec![100, 101, 102, 103])];
+        let now = pick_starters(&men, &order, &|j, n| men[j].vals[n]);
+        assert_eq!([now[spot("LG")][0], now[spot("C")][0], now[spot("RG")][0]], [Some(0), Some(1), Some(2)]);
     }
 
     #[test]

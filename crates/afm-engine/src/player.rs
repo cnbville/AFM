@@ -518,6 +518,10 @@ pub struct Player {
     /// world.
     #[serde(default)]
     pub grow: f32,
+    /// His flaws and tools (`craft.rs`, individual practice). Hidden:
+    /// staffs see what their eye finds.
+    #[serde(default)]
+    pub craft: crate::craft::Crafts,
 }
 
 /// Hidden game-day traits on Football Manager's 1-20 scale (section 3). The
@@ -669,7 +673,7 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
         (id as u64) << 20 ^ personality.work_ethic.to_bits() ^ attributes.get(Attr::Speed).to_bits().rotate_left(17);
     personality.traits = Traits::draw(key, &personality);
     let tend = crate::tendencies::Tendencies::at_14(id, &ceilings, body.weight, body.height, &personality);
-    Player {
+    let mut p = Player {
         id,
         position,
         age,
@@ -690,5 +694,10 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
         tend,
         train: Default::default(),
         grow: 0.0,
-    }
+        craft: Default::default(),
+    };
+    // His flaws and tools, from who he is (individual practice topic 3), on
+    // his own keyed stream: no other draw moves.
+    crate::craft::ensure(&mut p);
+    p
 }

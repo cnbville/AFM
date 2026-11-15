@@ -97,9 +97,30 @@ pub fn footage(w: &World, i: usize) -> Footage {
     match p.stage {
         Stage::College | Stage::Declared => college(w, i, pos, &mut f),
         Stage::HighSchool | Stage::PrepSchool => high_school(w, i, pos, &mut f),
+        Stage::CflPool => pool(w, i, &mut f),
         _ => {}
     }
     f
+}
+
+/// A CFL prospect's tape (SK77): a U Sports player's school film, about
+/// three seasons' worth by his draft year, against opponents below the
+/// FBS's; a global prospect's league film, less of it and weaker
+/// (proposed, not confirmed).
+fn pool(w: &World, i: usize, f: &mut Footage) {
+    let p = &w.people[i];
+    let Some(x) = w.others.pool.get(&p.player.id) else { return };
+    f.level = 2;
+    if x.global() {
+        f.division = Some(Division::D3);
+        f.snaps = 600.0;
+        f.comp = -12.0;
+    } else {
+        f.division = Some(Division::D2);
+        f.snaps = if x.year >= 5 { 1500.0 } else { 1100.0 };
+        f.comp = div_offset(Division::D2);
+    }
+    f.starts = f.snaps / 700.0;
 }
 
 fn college(w: &World, i: usize, pos: Position, f: &mut Footage) {

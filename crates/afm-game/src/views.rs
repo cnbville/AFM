@@ -479,6 +479,10 @@ pub(crate) fn class_text(w: &World, p: &Person) -> String {
             Some(afm_engine::world::eligibility::AwayKind::Military) => "Serving".into(),
             _ => "On mission".into(),
         },
+        Stage::CflPool => match w.others.pool.get(&p.player.id) {
+            Some(x) if !x.global() => format!("Year {}", x.year),
+            _ => "Global".into(),
+        },
     }
 }
 
@@ -701,6 +705,9 @@ pub fn status(w: &World) -> Value {
         "my_players": w.career.as_ref().map_or(0, |c| c.desk.listed.len()),
         // The draft live from your chair: the sidebar shows the war room.
         "draft_live": w.scouting.live.is_some(),
+        // A CFL draft under way with your club in the room (SK77).
+        "cfl_live": w.others.room.is_some() && afm_engine::world::pro::cfl::seat_club(w).is_some(),
+        "cfl": afm_engine::world::pro::cfl::seat_club(w).is_some(),
         // Your stories waiting on you (This week's badge).
         "stories_need": crate::lane_storylines::need_count(w),
         // A team in its year before the first game (lane 10, SK68).
@@ -1003,7 +1010,11 @@ pub fn stopped(w: &World, from: afm_engine::calendar::Moment, filed: &[u64]) -> 
         })
         .map(|s| s.id)
         .min();
-    let studio = afm_engine::world::scouting::live::holds(w).then(|| json!({ "screen": "warroom" }));
+    let studio = if afm_engine::world::pro::cfl::holds(w) {
+        Some(json!({ "screen": "cfldraft", "cfltab": "Draft room" }))
+    } else {
+        afm_engine::world::scouting::live::holds(w).then(|| json!({ "screen": "warroom" }))
+    };
     let story = w
         .folk
         .scenes
@@ -1279,6 +1290,16 @@ pub(crate) fn where_now(w: &World, p: &Person) -> String {
             }
             None => "Away from football".into(),
         },
+        Stage::CflPool => {
+            let at = afm_engine::world::pro::cfl::pool_words(w, p.player.id).unwrap_or_else(|| "U Sports".into());
+            match w.others.rights.get(&p.player.id) {
+                Some(&(fr, _)) => format!(
+                    "{at}, back for his last year; {} hold his rights",
+                    afm_engine::world::pro::other::name(fr as usize, w.year)
+                ),
+                None => at,
+            }
+        }
     }
 }
 
@@ -1810,7 +1831,12 @@ pub fn team(w: &World, t: TeamRef) -> Value {
                         "nat_word": s.national_title
                             .then(|| upper_first(college_title(season_division(p, s)).one.trim_end_matches(" title"))),
                         "coach": s.coach.and_then(|c| w.coaches.get(c)).map(|c| c.name.clone()),
-                        "pf": s.totals.points_for, "pa": s.totals.points_against, "g": s.totals.games,
+                        // The engine's totals, else every game's score
+                        // (seasons played on the stand-in keep no totals).
+                        "pf": if s.totals.games > 0 { s.totals.points_for as i64 } else { s.points[0] as i64 },
+                        "pa": if s.totals.games > 0 { s.totals.points_against as i64 } else { s.points[1] as i64 },
+                        "g": if s.totals.games > 0 { s.totals.games } else if s.points != [0, 0] { s.wins + s.losses } else { 0 },
+                        "w": s.wins, "l": s.losses,
                     }))
                     .collect::<Vec<_>>()
             );
@@ -1845,7 +1871,7 @@ pub fn team(w: &World, t: TeamRef) -> Value {
                         };
                         let note = NFL_ROUNDS[s.round.min(5) as usize];
                         let coach = s.coach.and_then(|c| w.coaches.get(c)).map(|c| c.name.clone());
-                        json!({ "year": s.year, "record": record, "coach": coach, "note": note, "nat": s.round == 5 })
+                        json!({ "year": s.year, "record": record, "coach": coach, "note": note, "nat": s.round == 5, "w": s.wins, "l": s.losses, "round": s.round })
                     })
                     .collect::<Vec<_>>()
             );
@@ -1866,6 +1892,7 @@ pub fn team(w: &World, t: TeamRef) -> Value {
                         "year": h.year, "record": format!("{}-{}", h.wins, h.losses), "nat": h.state_title,
                         "coach": h.coach.and_then(|c| w.coaches.get(c)).map(|c| c.name.clone()),
                         "pf": h.points[0], "pa": h.points[1], "g": if h.points == [0, 0] { 0 } else { h.wins + h.losses },
+                        "w": h.wins, "l": h.losses, "playoff_wins": h.playoff_wins, "semi": h.semifinal,
                     }))
                     .collect::<Vec<_>>()
             );
@@ -2182,13 +2209,13 @@ pub fn standings(w: &World, args: &Value) -> Value {
         Some(TeamRef::College(p)) => Some(w.programs[p].division),
         _ => None,
     };
-    let mut teams: Vec<(usize, afm_engine::world::seat::Record)> = w
+    let ids: Vec<usize> = w
         .programs
         .iter()
         .filter(|p| p.conference == conf && div.is_none_or(|d| p.division == d))
-        .map(|p| (p.id, w.college_record(p.id)))
+        .map(|p| p.id)
         .collect();
-    teams.sort_by(|a, b| (b.1.conf_wins, b.1.wins, a.1.conf_losses).cmp(&(a.1.conf_wins, a.1.wins, b.1.conf_losses)));
+    let teams = w.college_conference_table(&ids, false);
     let mut confs: Vec<String> = w
         .programs
         .iter()
@@ -2201,7 +2228,7 @@ pub fn standings(w: &World, args: &Value) -> Value {
         "conferences": confs,
         "groups": [{ "name": w.conference_name(&conf), "teams": teams.iter().map(|(p, r)| json!({
             "team": team_brief(w, TeamRef::College(*p)),
-            "cw": r.conf_wins, "cl": r.conf_losses, "w": r.wins, "l": r.losses,
+            "cw": r.conf_wins, "cl": r.conf_losses, "w": r.wins, "l": r.losses, "champ": r.conf_title,
         })).collect::<Vec<_>>() }],
     })
 }
@@ -2415,15 +2442,32 @@ pub(crate) fn ats_text(w: &World, c: usize) -> Option<String> {
     })
 }
 
+/// The board spots a position's first rows name, in order: your order
+/// names them and the engine keeps them (`spots::board_jobs`; the line
+/// since playtest bug 12).
+pub(crate) fn slot_names(pos: Position) -> &'static [&'static str] {
+    match pos {
+        Position::OT => &["LT", "RT"],
+        Position::IOL => &["LG", "C", "RG"],
+        Position::LB => &["SAM", "MIKE", "WILL"],
+        Position::CB => &["CB", "CB", "NICKEL"],
+        Position::S => &["FS", "SS"],
+        _ => &[],
+    }
+}
+
 /// Your depth chart: the order the engine will play, position by position,
 /// built the way the engine builds it on game day (a two-way high schooler
 /// or a corner at receiver shows at the spot he would play), your own order
 /// first where you set one. The rest of the position's players follow.
+/// Where the first rows name spots (`slot_names`), they stand in the spots'
+/// order with the man the engine plays at each, and say the spot.
 pub fn depth(w: &World) -> Value {
     let Some(t) = mine(w) else { return json!({ "positions": [] }) };
     let people = roster_people(w, t);
     let reader = reader_key(w);
     let game = w.seat_game_depth();
+    let seating = w.seat_game_team().map(|(team, level)| afm_engine::game::flow::seating(&team, level));
     let by_id = |id: u32| people.iter().copied().find(|&k| w.people[k].player.id == id);
     let positions: Vec<Value> = Position::ALL
         .iter()
@@ -2432,23 +2476,42 @@ pub fn depth(w: &World) -> Value {
             // Without a game team (too few players to dress), the staff's read.
             let read = |k: usize| reads::centre(w, k).unwrap_or(0.0);
             own.sort_by(|&a, &b| read(b).total_cmp(&read(a)));
-            let mut list: Vec<usize> = game
+            let names = slot_names(pos);
+            let ids: Vec<u32> = game
                 .as_ref()
                 .and_then(|g| g.iter().find(|(p, _)| *p == pos))
-                .map_or(Vec::new(), |(_, ids)| ids.iter().filter_map(|&id| by_id(id)).collect());
+                .map_or(Vec::new(), |(_, ids)| ids.clone());
+            // Your own order already stands in the spots' order.
+            let yours = w.seat_depth.iter().any(|(p, _)| *p == pos);
+            let ids = if yours { ids } else { crate::lane_training::seated_first(seating.as_ref(), names, ids) };
+            // The spot each first row plays, as far as the engine seats them
+            // (of the two outside corners either may line up on the left).
+            let slots: Vec<&str> = names
+                .iter()
+                .enumerate()
+                .map_while(|(k, name)| {
+                    let n = names.iter().filter(|x| *x == name).count();
+                    let here = ids.get(k).copied();
+                    let seated =
+                        (0..n).any(|j| seating.as_ref().and_then(|s| s.at(name, j)).is_some_and(|id| Some(id) == here));
+                    seated.then_some(*name)
+                })
+                .collect();
+            let mut list: Vec<usize> = ids.iter().filter_map(|&id| by_id(id)).collect();
+            let slots = if list.len() == ids.len() { slots } else { Vec::new() };
             let dressed = list.len();
             for k in own {
                 if !list.contains(&k) {
                     list.push(k);
                 }
             }
-            let yours = w.seat_depth.iter().any(|(p, _)| *p == pos);
             json!({
                 "pos": pos.name(),
                 "controls": w.controls(pos),
                 "starters": afm_engine::game::roster::starters(pos),
                 "set_by_you": yours,
                 "listed": dressed,
+                "slots": slots,
                 "players": list.iter().map(|&k| {
                     let mut v = row(w, k, t, true, reader);
                     v["here"] = json!(w.people[k].player.position == pos);

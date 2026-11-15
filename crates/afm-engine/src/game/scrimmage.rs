@@ -192,6 +192,27 @@ pub struct Tactics {
     /// extra chance a snap that a player busts.
     #[serde(default)]
     pub learn: [f64; 2],
+    /// What the plan does this snap to keep your promises on usage
+    /// (`roster::Keep`): empty for every AI team.
+    #[serde(default)]
+    pub keep: KeepSnap,
+}
+
+/// The men a plan keeps a usage promise to on one snap, by player index:
+/// on defense the rusher freed up by a stunt, the man sent and the end who
+/// rushes; on offense the man the shots go to, the man featured and the
+/// lineman helped.
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct KeepSnap {
+    pub free_up: Option<usize>,
+    pub send: Option<usize>,
+    pub rush: Option<usize>,
+    pub shots: Option<usize>,
+    pub feature: Option<usize>,
+    pub help: Option<usize>,
+    /// The backs or tight ends your word lets out on a route (lane N2).
+    pub release: [Option<usize>; 2],
 }
 
 impl Default for Tactics {
@@ -214,6 +235,7 @@ impl Default for Tactics {
             load: [super::roster::INSTALL; 2],
             double_moves: 0.0,
             learn: [0.0; 2],
+            keep: KeepSnap::default(),
         }
     }
 }
@@ -460,6 +482,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         carrier_side: 0,
         dead: false,
         out_of_bounds: false,
+        pocket: None,
         progress: los,
         contact_force: 0.0,
         injury_scale: s.injury_scale,
@@ -579,10 +602,14 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
     // calibrate (proposed, not confirmed).
     let level_read = super::rules::trait_norm(sim.level, Attr::PlayRecognition)
         - super::rules::trait_norm(crate::Level::FBS, Attr::PlayRecognition);
+    let fooling = misdirection(s);
     for i in off_n..sim.agents.len() {
-        let pr = sim.agents[i].a(Attr::PlayRecognition);
-        let bite = clamp(1.5 - 0.05 * sim.trait20(i, Attr::Discipline), 0.5, 1.5);
         let slot = slot_of[i].unwrap_or(DSlot::Mike);
+        // Eyes in the backfield (individual practice): a lineman on a trap
+        // or misdirection reads it the flaw later.
+        let eyes = if fooling && slot.is_line() { sim.craft_at(i, crate::craft::Craft::EyesBackfield) } else { 0.0 };
+        let pr = sim.agents[i].a(Attr::PlayRecognition) + eyes;
+        let bite = clamp(1.5 - 0.05 * sim.trait20(i, Attr::Discipline), 0.5, 1.5);
         let hit = if matches!(slot, DSlot::FS | DSlot::SS) { hitter(sim.level, sim.player(i)) } else { 0.0 };
         sim.agents[i].hit = hit;
         // Flies downhill or reads first (tendencies): a linebacker or
@@ -765,7 +792,15 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                     sim.agents[i].job = Job::Passer;
                     continue;
                 }
-                let route = route_for(c, r);
+                let mut route = route_for(c, r);
+                // Release him (the promises on usage, lane N2): the man your
+                // word lets out runs a route where the call keeps him in, a
+                // back to the flat, a tight end to sit in the hole at six.
+                if matches!(route, Route::Block | Route::CheckRelease)
+                    && s.tac.keep.release.contains(&Some(sim.agents[i].p))
+                {
+                    route = if r.is_back() { Route::Flat } else { Route::Sit(6.0) };
+                }
                 sim.agents[i].job = route_job(&sim.agents[i], route, los, by, s.hurry);
                 let late = silent_late(&sim, s, i);
                 if let Job::Route { release_delay, .. } = &mut sim.agents[i].job {
@@ -894,6 +929,30 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                     && !fed
                     && sim.rng.chance(0.5)
                 {
+                    let r = ps.reads.remove(k);
+                    ps.reads.insert(0, r);
+                }
+            }
+            // Your word on his usage (the promises on usage): the
+            // quarterback looks first to the man you promised shots when
+            // his route goes deep, and to the man you promised to feature.
+            if let Some(ps) = pass.as_mut()
+                && ps.reads.len() > 1
+                && !matches!(c.drop, Drop::Screen | Drop::Bubble)
+            {
+                let at = |p: Option<usize>| {
+                    p.and_then(|p| ps.reads.iter().position(|&r| sim.agents[r].p == p)).filter(|&k| k > 0)
+                };
+                let deep = |r: usize| match &sim.agents[r].job {
+                    Job::Route { pts, .. } => pts.iter().map(|q| q.x - los).fold(0.0, f64::max) >= DEEP_ROUTE,
+                    _ => false,
+                };
+                let first = match (at(s.tac.keep.shots), at(s.tac.keep.feature)) {
+                    (Some(k), _) if deep(ps.reads[k]) && sim.rng.chance(SHOTS_FIRST) => Some(k),
+                    (_, Some(k)) if sim.rng.chance(FEATURE_FIRST) => Some(k),
+                    _ => None,
+                };
+                if let Some(k) = first {
                     let r = ps.reads.remove(k);
                     ps.reads.insert(0, r);
                 }
@@ -1152,7 +1211,13 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                         let speed = (d / (at - t).max(DT)).min(sim.agents[i].vmax * cap);
                         sim.steer(i, (mesh - me).norm().scale(if jet_man { sim.agents[i].vmax } else { speed }));
                     } else {
-                        sim.steer(i, (hole - me).norm().scale(sim.agents[i].vmax * if jet_man { 1.0 } else { 0.55 }));
+                        // Slow through the mesh (individual practice): his
+                        // press to the line starts the flaw slower.
+                        let slow = if jet_man { 0.0 } else { 0.012 * sim.craft_at(i, crate::craft::Craft::SlowMesh) };
+                        sim.steer(
+                            i,
+                            (hole - me).norm().scale(sim.agents[i].vmax * if jet_man { 1.0 } else { 0.55 + slow }),
+                        );
                     }
                     if (t >= at || jet_man && t > 0.1) && d < 1.3 && !handoff_done {
                         handoff_done = true;
@@ -2207,14 +2272,28 @@ fn assign_defense(
             if slots.contains(&Some(DSlot::NCB)) { DSlot::NCB } else { DSlot::SS },
         ],
     };
+    // Send him (the promises on usage): the man you promised blitzes come
+    // in place of the coordinator's pick from his group.
+    let slot_of = |p: Option<usize>| {
+        p.and_then(|p| (off_n..sim.agents.len()).find(|&k| sim.agents[k].p == p)).and_then(|k| slots[k])
+    };
+    if let Some(me) = slot_of(s.tac.keep.send)
+        && !blitzers.contains(&me)
+        && let Some(k) = blitzers.iter().position(|b| b.is_lb() == me.is_lb() && b.is_db() == me.is_db())
+    {
+        blitzers[k] = me;
+    }
     if cov == Coverage::Cover0 {
         blitzers.push(DSlot::FS);
         blitzers.push(DSlot::Mike);
     }
     blitzers.retain(|b| slots.contains(&Some(*b)));
-    // In simulated pressure the weak end drops into the flat.
+    // In simulated pressure the weak end drops into the flat; the end you
+    // promised to rush every down never does (the other end drops).
     let dropper = if matches!(s.dcall.pressure, Pressure::Simulated | Pressure::FireZone) {
-        Some(if st > 0.0 { DSlot::RE } else { DSlot::LE })
+        let weak = if st > 0.0 { DSlot::RE } else { DSlot::LE };
+        let other = if weak == DSlot::RE { DSlot::LE } else { DSlot::RE };
+        Some(if slot_of(s.tac.keep.rush) == Some(weak) { other } else { weak })
     } else {
         None
     };
@@ -2485,7 +2564,17 @@ fn assign_defense(
     // his partner's lane and the looper comes behind him. A line that has
     // played together passes it off (topic 4.9).
     if s.dcall.stunt != Stunt::None {
-        let side = if sim.rng.chance(0.5) { 1.0 } else { -1.0 };
+        let mut side = if sim.rng.chance(0.5) { 1.0 } else { -1.0 };
+        // Free him up (the promises on usage): the stunt goes to his side.
+        if let Some(d) =
+            s.tac.keep.free_up.and_then(|p| (off_n..n).find(|&k| sim.agents[k].p == p)).and_then(|k| slots[k])
+        {
+            match d {
+                DSlot::LE | DSlot::DTL => side = 1.0,
+                DSlot::RE | DSlot::DTR => side = -1.0,
+                _ => {}
+            }
+        }
         let on_side = |d: DSlot| match d {
             DSlot::LE | DSlot::DTL => side > 0.0,
             DSlot::RE | DSlot::DTR => side < 0.0,
@@ -2524,6 +2613,10 @@ fn assign_defense(
             if d.pos.x - los < 2.0 {
                 // Dynamic Links at the line: Length lands the jam (or keeps
                 // the receiver's frame clean), Sudden slips it.
+                // Flaws and tools at the line (individual practice): one
+                // release or a release package, a corner who lunges or
+                // mirrors, each its points on release or press.
+                use crate::craft::Craft;
                 let rel = 0.55 * r.a(Attr::Release)
                     + 0.25 * r.a(Attr::Agility)
                     + 0.2 * r.a(Attr::Strength)
@@ -2532,7 +2625,13 @@ fn assign_defense(
                     + 0.25 * d.a(Attr::Strength)
                     + 0.2 * d.a(Attr::Agility)
                     + sim.link(i, &[Link::Length, Link::Sudden]);
+                let rel = rel
+                    + 0.55 * (sim.craft_at(target, Craft::OneRelease) + sim.craft_at(target, Craft::ReleasePackage));
+                let lunge = sim.craft_at(i, Craft::Lunges);
+                let jam = jam + 0.55 * (lunge + sim.craft_at(i, Craft::MirrorPress));
                 let x = rel - jam + 9.0 * gauss(sim.rng);
+                // A lunge that misses leaves him beaten clean.
+                let x = if x > 9.0 { x - 2.0 * lunge } else { x };
                 if x < -9.0 {
                     if let Job::Route { release_delay, .. } = &mut sim.agents[target].job {
                         *release_delay += 0.45;
@@ -2609,6 +2708,41 @@ fn lb_hips(sim: &Sim, d: usize) -> f64 {
     clamp(0.1 * (g.weight - typ) / 10.0, -0.1, 0.15)
 }
 
+/// The flaws and tools in a man-to-man rep by the route's shape
+/// (individual practice), as points on the receiver's route running and
+/// the defender's man coverage: rounds his breaks on outs and comebacks,
+/// tips every break, a sudden stop on comebacks and hitches; the corner
+/// who opens his hips early against an inside break, the linebacker who
+/// loses a back on the wheel.
+fn route_craft(sim: &Sim, d: usize, r: usize) -> (f64, f64) {
+    use crate::craft::Craft;
+    let Job::Route { pts, .. } = &sim.agents[r].job else { return (0.0, 0.0) };
+    if pts.len() < 2 {
+        return (0.0, 0.0);
+    }
+    let (a, b) = (pts[0], pts[1]);
+    let goal = sim.goal;
+    let inside = (b.y - mid()).abs() + 1.0 < (a.y - mid()).abs();
+    let outside = (b.y - mid()).abs() > (a.y - mid()).abs() + 1.0;
+    let back = (b.x - a.x) * goal < -0.5;
+    let mut rr = sim.craft(r, Craft::TipsBreaks);
+    if outside || back {
+        rr += sim.craft(r, Craft::RoundsBreaks);
+    }
+    if back {
+        rr += sim.craft(r, Craft::SuddenStop);
+    }
+    let mut mc = 0.0;
+    if inside {
+        mc += sim.craft(d, Craft::OpensHips);
+    }
+    let deep = pts.last().is_some_and(|p| (p.x - sim.agents[r].pos.x) * goal > 10.0);
+    if deep && matches!(sim.agents[r].label, "RB" | "FB") {
+        mc += sim.craft(d, Craft::WheelLoss);
+    }
+    (rr, mc)
+}
+
 fn man_job(sim: &Sim, d: usize, r: usize) -> Job {
     let (da, ra) = (&sim.agents[d], &sim.agents[r]);
     // Reaction lag: route running against cover skill (topic 2). A tenth of
@@ -2629,10 +2763,11 @@ fn man_job(sim: &Sim, d: usize, r: usize) -> Job {
     let t_mc = super::synthetic::typical(sim.level, sim.player(d).position, Attr::ManCoverage);
     let s_mc = super::synthetic::typical_starter(sim.level, sim.player(d).position, Attr::ManCoverage);
     let gap_typ = t_rr - t_mc;
+    let (rr_c, mc_c) = route_craft(sim, d, r);
     let lag = clamp(
-        0.12 + 0.0065 * gap_typ + MAN_LAG_RR * (ra.a(Attr::RouteRunning) - t_rr)
+        0.12 + 0.0065 * gap_typ + MAN_LAG_RR * (ra.a(Attr::RouteRunning) + rr_c - t_rr)
             - MAN_LAG_RR * (s_mc - t_mc)
-            - MAN_LAG_MC * (da.a(Attr::ManCoverage) - s_mc)
+            - MAN_LAG_MC * (da.a(Attr::ManCoverage) + mc_c - s_mc)
             + 0.003 * (ra.a(Attr::Agility) - (0.6 * da.a(Attr::Agility) + 0.4 * da.a(Attr::Flexibility))),
         0.0,
         0.75,
@@ -2697,12 +2832,25 @@ fn pass_protection(sim: &mut Sim, off_n: usize) {
 /// side chips him on the way out. Real coaches do this every week against
 /// a dominant rusher; it frees others to win their one-on-ones.
 fn slide_to(sim: &mut Sim, s: &Snap, off_n: usize) {
-    let Some(star) = s.tac.help_on.and_then(|p| (off_n..sim.agents.len()).find(|&k| sim.agents[k].p == p)) else {
+    let rushing = |sim: &Sim, k: usize| matches!(sim.agents[k].job, Job::Rush { .. });
+    let named = s
+        .tac
+        .help_on
+        .and_then(|p| (off_n..sim.agents.len()).find(|&k| sim.agents[k].p == p))
+        .filter(|&k| rushing(sim, k));
+    // Your word to a lineman (the promises on usage): with no named rusher
+    // coming, the help goes to the man rushing at him.
+    let star = named.or_else(|| {
+        let b = s.tac.keep.help.and_then(|p| (0..off_n).find(|&k| sim.agents[k].p == p))?;
+        let by = sim.agents[b].pos.y;
+        let near = (off_n..sim.agents.len())
+            .filter(|&k| rushing(sim, k))
+            .min_by(|&a, &c| (sim.agents[a].pos.y - by).abs().total_cmp(&(sim.agents[c].pos.y - by).abs()))?;
+        sim.rng.chance(HELP).then_some(near)
+    });
+    let Some(star) = star else {
         return;
     };
-    if !matches!(sim.agents[star].job, Job::Rush { .. }) {
-        return;
-    }
     sim.help_on = Some(star);
     let sy = sim.agents[star].pos.y;
     // A spare blocker on his side moves toward him at the snap.
@@ -2773,6 +2921,16 @@ fn chart_rush(sim: &mut Sim, off_n: usize, slots: &[Option<DSlot>], ball_y: f64)
 /// much ground it costs the rusher in his block (block-win units).
 const CHIP_TIME: f64 = 0.6;
 const CHIP_W: f64 = 0.25;
+
+/// The plan keeping a usage promise (`roster::Keep`; proposed, not
+/// confirmed): the quarterback looks first to the man promised shots on 6
+/// in 10 of his deep routes (a route that reaches 15 yards), and to the man
+/// promised to be featured on 3 in 10 throws; the protection helps the
+/// lineman promised help on half his pass snaps.
+pub const SHOTS_FIRST: f64 = 0.6;
+pub const DEEP_ROUTE: f64 = 15.0;
+pub const FEATURE_FIRST: f64 = 0.3;
+pub const HELP: f64 = 0.5;
 
 /// A stunt against the protection (topic 4.9): the blocker whose man
 /// leaves takes the looper, and his neighbour takes the penetrator. A line
@@ -3000,6 +3158,12 @@ fn run_route(sim: &mut Sim, i: usize, pass: &Option<Pass>, qb: usize, s: &Snap) 
                 }
                 sim.agents[d].vel = sim.agents[d].vel.scale(0.5);
                 sim.chip = None;
+                // The line chart keeps it (the promises on usage): it
+                // changes nothing in the play.
+                let rid = sim.agents[d].id;
+                if let Some(r) = sim.notes.chart.as_mut().and_then(|c| c.rush.iter_mut().find(|r| r.id == rid)) {
+                    r.flags |= super::chart::Rusher::CHIPPED;
+                }
                 if let Job::Route { release_delay, .. } = &mut sim.agents[i].job {
                     *release_delay = t + 0.15;
                 }
@@ -3798,7 +3962,10 @@ fn quarterback(
     let mut soon = f64::INFINITY;
     // He feels the rush he can't see (pocket presence); what he knows
     // (football IQ) sets his hot reads.
-    let feel = sim.agents[qb].a(Attr::PocketPresence);
+    // Drops his eyes to the rush (individual practice): once a rusher is
+    // close, his feel shrinks by the flaw.
+    let feel = sim.agents[qb].a(Attr::PocketPresence)
+        + if ps.pressured_at.is_some() { sim.craft_at(qb, crate::craft::Craft::EyesDown) } else { 0.0 };
     let aw = sim.agents[qb].a(Attr::FootballIq);
     for d in 0..sim.agents.len() {
         let a = &sim.agents[d];
@@ -3892,7 +4059,10 @@ fn quarterback(
         }
     }
     // How fast he works through his reads: what he sees and how fast he decides.
-    let iq = 0.5 * sim.agents[qb].a(Attr::PlayRecognition) + 0.5 * sim.agents[qb].a(Attr::Decisions);
+    // Locks onto his first read (individual practice): every read past
+    // the first comes as much later as the flaw takes off his decisions.
+    let locked = if ps.read >= 1 { 0.5 * sim.craft_at(qb, crate::craft::Craft::FirstRead) } else { 0.0 };
+    let iq = 0.5 * sim.agents[qb].a(Attr::PlayRecognition) + 0.5 * sim.agents[qb].a(Attr::Decisions) + locked;
     let lv = sim.level;
     // His level's typical starter, the man a new within-level slope sits
     // about (minor bug 283).
@@ -3966,7 +4136,10 @@ fn quarterback(
     let over_run = ps.read >= ps.reads.len() || late_run || urgent_run || ps.extend.is_some();
     // A good quarterback holds the safety with his eyes before coming back.
     // (Eye manipulation: nothing for most, up to a full pull for the best.)
-    let manip = clamp((sim.agents[qb].a(Attr::EyeManipulation) - 60.0) / 30.0, 0.0, 1.0);
+    // A pump fake that moves safeties (individual practice): his eyes and
+    // shoulders hold the deep man as if his eye work were the tool better.
+    let pump = if ps.read == 0 && t - ps.read_since < 0.6 { sim.craft(qb, crate::craft::Craft::PumpFake) } else { 0.0 };
+    let manip = clamp((sim.agents[qb].a(Attr::EyeManipulation) + pump - 60.0) / 30.0, 0.0, 1.0);
     ps.look_off = if ps.read == 0 && t - ps.read_since < 0.6 { manip } else { 0.0 };
     let tired = t - ps.set_at;
     let caution = DECISIONS_CAUTION * (ts(Attr::Decisions) - typ(Attr::Decisions))
@@ -4169,7 +4342,10 @@ fn quarterback(
     // a clean, compact release. A free rusher who will be on him before the
     // ball is out doesn't let him throw: he has to escape, eat it or get it
     // away some other way.
-    let quick = 0.75 * sim.agents[qb].a(Attr::QuickRelease) + 0.25 * sim.agents[qb].a(Attr::Footwork);
+    // A long motion in traffic (individual practice): with a rusher about
+    // to reach him the release slows by the flaw.
+    let long = if soon < 1.0 { sim.craft_at(qb, crate::craft::Craft::LongMotion) } else { 0.0 };
+    let quick = 0.75 * (sim.agents[qb].a(Attr::QuickRelease) + long) + 0.25 * sim.agents[qb].a(Attr::Footwork);
     let release = clamp(0.34 - 0.00125 * (quick - 60.0), 0.26, 0.42);
     // A screen is a soft flick lofted over the rush: only a rusher who can
     // get a hand on his arm stops it.
@@ -4594,6 +4770,16 @@ fn throw(
             acc += 0.3 * mid * (sim.agents[qb].a(Attr::Touch) - acc);
         }
     }
+    // The back-shoulder throw (individual practice): on a covered throw
+    // near the sideline he puts it where only his man can turn for it, as
+    // if his touch were the tool better (touch's share of placement there
+    // is a third).
+    if air > 8.0 && (p.y < 9.0 || p.y > width() - 9.0) {
+        let covered = (0..sim.agents.len()).any(|d| sim.agents[d].side == 1 && sim.agents[d].pos.dist(p) < 2.0);
+        if covered {
+            acc += 0.35 * sim.craft_at(qb, crate::craft::Craft::BackShoulder);
+        }
+    }
     // A ball he can't reach falls short.
     let range = 25.0 + 0.45 * power;
     let mut target = p;
@@ -4631,7 +4817,10 @@ fn throw(
     // 53% in the NFL against 49% real, so the effect is about two thirds
     // stronger than it was (proposed, not confirmed).
     if pressure > 0.3 {
-        sd *= 1.0 + 0.9 * pressure.min(1.5) * (1.35 - poise / 100.0);
+        // Throws off his back foot (individual practice): the miss under
+        // pressure grows as if his poise were the flaw lower.
+        let back = sim.craft_at(qb, crate::craft::Craft::BackFoot);
+        sd *= 1.0 + 0.9 * pressure.min(1.5) * (1.35 - (poise + back) / 100.0);
     }
     if moving {
         sd *= 1.25 - 0.002 * sim.agents[qb].a(Attr::ThrowOnMove);
@@ -5519,6 +5708,17 @@ fn jump_route(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>,
     }
     let antic = sim.agents[i].a(Attr::Anticipation);
     let pr = sim.agents[i].a(Attr::PlayRecognition);
+    // Flaws and tools (individual practice), each as its points on his
+    // anticipation: a passer who stares down a short throw, a corner's
+    // bait coverage, a safety's robber bait in front of him.
+    let short = (window(sim, qb, w).1.x - s.los) * sim.goal < 10.0;
+    let stare = if short { -sim.craft_at(qb, crate::craft::Craft::StaresDown) } else { 0.0 };
+    let bait = sim.craft_at(i, crate::craft::Craft::Bait) + sim.craft_at(i, crate::craft::Craft::RobberBait);
+    // Peeks into the backfield (a corner's man coverage against double
+    // moves and play action).
+    let fooled_by = s.tac.double_moves > 0.0 || p.concept.play_action;
+    let peeks = if fooled_by { sim.craft_at(i, crate::craft::Craft::Peeks) } else { 0.0 };
+    let antic = antic + stare + bait + peeks;
     let p_right = clamp(0.35 + 0.012 * (antic - 60.0) + 0.006 * (pr - 60.0) - 0.25 * s.tac.double_moves, 0.1, 0.9);
     let right = play_draw(sim, i, 2) < p_right;
     let id = sim.agents[i].id;
@@ -5800,7 +6000,12 @@ fn cover_inner(sim: &mut Sim, i: usize, job: &Job, s: &Snap, qb: usize, pass: &O
                 // who anticipates bites less (proposed, not confirmed).
                 let held = pass.as_ref().map_or(0.0, |p| p.look_off);
                 if deep && held > 0.0 {
-                    let bite = clamp(1.0 - 0.01 * (antic - 60.0), 0.3, 1.5);
+                    // Eyes stuck on the quarterback (individual practice):
+                    // the look-off moves him as if he anticipated the flaw
+                    // less.
+                    let stuck = sim.craft_at(i, crate::craft::Craft::EyesOnQb);
+                    sim.craft_at(qb, crate::craft::Craft::PumpFake);
+                    let bite = clamp(1.0 - 0.01 * (antic + stuck - 60.0), 0.3, 1.5);
                     let pull = clamp(0.3 * held * bite * (ep.y - target.y), -4.0, 4.0);
                     target.y += pull;
                 }
@@ -6038,7 +6243,17 @@ fn catch_point(
             // the two at 0.004 from 60).
             let which = if matches!(da.job, Job::Man { .. }) { Attr::ManCoverage } else { Attr::ZoneCoverage };
             let s_cov = super::synthetic::typical_starter(sim.level, sim.player(d).position, which);
-            let cov_term = 0.004 * (s_cov - 60.0) + BREAKUP_COVER * (da.a(which) - s_cov);
+            // No depth in his drop (individual practice): a zone
+            // linebacker with the ball behind him.
+            let behind = (to.x - da.pos.x) * sim.goal > 1.0;
+            let nodepth = if which == Attr::ZoneCoverage && behind && da.label == "LB" {
+                sim.craft_at(d, crate::craft::Craft::NoDepth)
+            } else {
+                0.0
+            };
+            let cov_term = 0.004 * (s_cov - 60.0) + BREAKUP_COVER * (da.a(which) + nodepth - s_cov);
+            // Doesn't play the hands at the catch point.
+            let hp_d = hp_d + sim.craft_at(d, crate::craft::Craft::NoHands);
             let closeness = 1.0 - dd / d_reach;
             // He's in front of it: an interception chance.
             if dd < dr - 0.15 {
@@ -6102,7 +6317,10 @@ fn catch_point(
         }
     }
     // The catch itself.
-    let c = ra.a(Attr::Catching);
+    // A body catcher (individual practice): off his frame or with a man on
+    // him, his hands read the flaw lower.
+    let body = if dr / radius > 0.6 || dd < 1.4 { sim.craft_at(r, crate::craft::Craft::BodyCatcher) } else { 0.0 };
+    let c = ra.a(Attr::Catching) + body;
     let mut p = 1.0 - (0.15 - 0.00095 * c).max(0.012);
     let reach = dr / radius;
     // Inside his frame it is routine; reaching away from his body or
@@ -6123,7 +6341,9 @@ fn catch_point(
     if dd < 1.4 {
         // The size edge at the top (D1) counts like eighteen points of the
         // fight per ten inches of reach, on a ball up high.
-        let fight = 0.5 * (ra.a(Attr::ContestedCatch) + hp_r_all)
+        // Late hands (individual practice) win the contested catch.
+        let late = sim.craft_at(r, crate::craft::Craft::LateHands);
+        let fight = 0.5 * (ra.a(Attr::ContestedCatch) + hp_r_all + late)
             + 0.25 * ra.a(Attr::Strength)
             + 0.25 * ra.a(Attr::Jumping)
             + 18.0 * va_all;

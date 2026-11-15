@@ -198,6 +198,48 @@ pub struct PortalTarget {
     /// The day you last called him.
     #[serde(default)]
     pub called: Option<Date>,
+    /// Your case with him (talk facts lane L5, `folk::case`): the best
+    /// point made in each group across your calls and visits, under one
+    /// cap. It replaces the pull of `talks`, which a save from before it
+    /// still reads.
+    #[serde(default, skip_serializing_if = "crate::world::folk::case::Case::is_empty")]
+    pub case: crate::world::folk::case::Case,
+    /// Where you stood in his race the last time your desk read it
+    /// (`portal::stand`), kept for the why when he picks someone else.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stand: Option<Stand>,
+}
+
+/// Where you stand with a transfer, reason by reason (Cain 2026-11-14:
+/// "agree on all"): his top schools and yours as his decision weighs each
+/// today. The true parts stay here; the screens show them only through
+/// your staff's read (facts, ranges, who wins each row).
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Stand {
+    pub date: Date,
+    /// How many programs are after him.
+    pub schools: u16,
+    /// His top three besides you, then yours, each with its place.
+    pub rows: Vec<StandRow>,
+}
+
+/// One program in [`Stand`].
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct StandRow {
+    pub program: usize,
+    /// Its place in his race, from 1.
+    pub place: u16,
+    /// The money he weighs from it a year.
+    pub nil: f32,
+    /// The role he'd have there.
+    pub role: crate::player::PlayingTime,
+    /// The seven reasons in appeal points (close to home, the job, money,
+    /// development, winning and the name, academics, the rest); they add up
+    /// to what the program means to him.
+    pub parts: [f32; 7],
+    /// The day he took his finalist's visit there.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted: Option<Date>,
 }
 
 /// One of your talks with a transfer: where (0 on the phone, 1 at his
@@ -266,6 +308,9 @@ pub struct CollegeDesk {
     pub fresh_until: Option<Date>,
     /// Your open tryout this season (lane B): who came out and who you kept.
     pub tryout: Option<super::walk_ons::Tryout>,
+    /// Your calls and messages to recruits, and their families' calls to
+    /// you (talk facts lane L6): what the era's contact rules count.
+    pub reach: Vec<crate::world::folk::reach::Reach>,
 }
 
 /// How long a new head coach's fresh start lasts, the day he takes over
@@ -430,6 +475,8 @@ pub(crate) struct PortalOffer {
     pub bond: f64,
     pub promise: Option<u8>,
     pub called: bool,
+    /// Your case with him (what a staff sit-down on his visit adds to).
+    pub case: crate::world::folk::case::Case,
     pub visited: bool,
     pub committed: bool,
 }
@@ -449,6 +496,7 @@ const CONTACT_BOND: f64 = 0.05;
 pub(crate) fn portal_wants(w: &World) -> Option<PortalWants> {
     let j = super::program(w)?;
     let staff = mine(w, Duty::Portal).is_none();
+    let raised = 1.0 + crate::world::folk::staffing::recruit_bonus(w, j);
     let offers = w
         .front_office
         .college
@@ -465,9 +513,12 @@ pub(crate) fn portal_wants(w: &World) -> Option<PortalWants> {
                     // yours, Cain 2026-11-07).
                     nil: t.nil,
                     coll: t.nil_coll,
-                    bond: if t.contacted.is_some() { CONTACT_BOND } else { 0.0 } + super::portal::effort(t),
+                    bond: if t.contacted.is_some() { CONTACT_BOND } else { 0.0 } + super::portal::effort(t, raised),
                     promise: t.promise.map(|p| p.0),
-                    called: !t.talks.is_empty(),
+                    // A talk still open counts: your case is written as you
+                    // talk, before the talk goes on his list.
+                    called: !t.talks.is_empty() || !t.case.is_empty(),
+                    case: super::portal::case_now(t),
                     visited: super::portal::visited(t),
                     committed: t.committed.is_some(),
                 },
@@ -896,6 +947,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
     roll_class(w, j);
     scan_portal(w, j, d);
     super::portal::day(w, j, d);
+    crate::world::folk::reach::day(w, j, d);
     board_bar(w, j);
     reminders(w, j, d);
     if d == w.dates.start {
@@ -950,6 +1002,13 @@ pub fn seed(w: &mut World, j: usize) {
         // The class signing next and the younger ones; a class that has
         // signed is the roster's now.
         if !matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) || p.class_of < next {
+            continue;
+        }
+        // A letter signed elsewhere binds him (walk-on places too): he
+        // isn't a recruit for you any more, so he never lands on the board
+        // you inherit. A verbal commitment elsewhere is another matter: it
+        // can flip, so he stays, shown as committed elsewhere.
+        if p.cal.signed.is_some_and(|s| s.program != j) {
             continue;
         }
         let signed = p.cal.signed.is_some_and(|s| s.program == j && !s.walk_on);
@@ -1247,6 +1306,16 @@ fn scan_portal(w: &mut World, j: usize, d: Date) {
     }
     for (id, kind) in promises {
         use crate::world::folk::talks::{self, PromiseKind, PromiseTo};
+        // How you'd use him (the promises on usage): his term, judged from
+        // his first game with you.
+        if kind == 2 {
+            let u = crate::world::folk::pledge::usage_on(w, id, j);
+            talks::promise(w, PromiseTo::Player(id), PromiseKind::Usage, 0);
+            let k = w.folk.promises.len() - 1;
+            let t = crate::world::folk::promise::Terms { usage: u, ..Default::default() };
+            talks::set_terms(w, k, t);
+            continue;
+        }
         talks::promise(w, PromiseTo::Player(id), PromiseKind::Join(kind), 0);
     }
 }
@@ -1728,6 +1797,10 @@ fn run_visits(w: &mut World, j: usize, d: Date) {
         v.state = VisitState::Done;
         v.note = text.clone();
         tell(w, d, text, false);
+        // Your case at the end of his official visit (talk facts L6).
+        if kind == VisitKind::Official {
+            crate::world::folk::reach::official_talk(w, id, j, d);
+        }
         if kind == VisitKind::Official && stars >= 4 {
             let text = format!("{stars}-star {name} takes an official visit to {school}.");
             w.calendar.post(
@@ -1760,7 +1833,7 @@ fn feel_word(w: &World, i: usize, j: usize) -> String {
 
 // --- Board, offers and the money ------------------------------------------------------------
 
-fn offered_here(w: &World, id: u32) -> bool {
+pub(crate) fn offered_here(w: &World, id: u32) -> bool {
     w.front_office.college.board.iter().any(|t| t.id == id && t.offered.is_some() && t.pulled.is_none())
 }
 
@@ -2061,7 +2134,21 @@ pub fn reset_board(w: &mut World, keep_commits: bool) -> Result<String, String> 
     }
     let text = pull_many(w, &ids)?;
     w.front_office.college.board.retain(|t| !(t.pulled.is_some() && ids.contains(&t.id)));
+    drop_signed_elsewhere(w, super::program(w).unwrap_or(usize::MAX));
     Ok(format!("{text} They're off your board."))
+}
+
+/// Takes off the board every inherited name who signed with another school:
+/// a signed letter binds him, so the old staff's offer to him is no
+/// business of yours. Commitments elsewhere stay (they can flip).
+fn drop_signed_elsewhere(w: &mut World, j: usize) {
+    let ids: Vec<u32> = w.front_office.college.board.iter().map(|t| t.id).collect();
+    let at = indices(w, &ids);
+    let people = &w.people;
+    w.front_office.college.board.retain(|t| {
+        t.by != Source::Inherited
+            || !at.get(&t.id).is_some_and(|&i| matches!(standing(&people[i], j), Standing::SignedElsewhere))
+    });
 }
 
 /// A new save that starts with no offers out (the setup's switch): the
@@ -2080,6 +2167,7 @@ pub fn start_clean(w: &mut World) -> (usize, usize) {
     }
     let gone: Vec<u32> = out.iter().map(|x| x.0).collect();
     w.front_office.college.board.retain(|t| !gone.contains(&t.id));
+    drop_signed_elsewhere(w, j);
     if n > 0 {
         let today = w.today;
         let school = w.programs[j].name(w.options.names).to_string();
@@ -2640,10 +2728,6 @@ fn money_place(weights: &[f64; 6]) -> (usize, &'static str) {
     (place, WANTS[top])
 }
 
-fn own_weights(x: &crate::world::background::Wants) -> [f64; 6] {
-    [x.close_to_home, x.playing_time, x.money, x.development, x.prestige, x.academics]
-}
-
 /// Who speaks for a recruit: he, or whoever decides with him.
 fn speaker(d: crate::world::background::Decider) -> (&'static str, &'static str) {
     use crate::world::background::Decider as D;
@@ -2777,9 +2861,12 @@ fn promise_reaction(w: &World, i: usize, j: usize, before: Option<(f64, f64)>, a
         });
     } else {
         if offered_here(w, p.player.id) {
+            // Your money read against theirs and theirs against yours: money
+            // that tops his list counts once more (`rec::appeals`, F3).
+            let all: Vec<usize> = std::iter::once(j).chain(others.iter().map(|o| o.0)).collect();
             let rank = |m: f64| {
-                let a = rec::appeal(w, i, j, Some(m));
-                others.iter().filter(|o| o.2 > a).count()
+                let a = rec::appeals(w, i, &all, Some((j, m)));
+                a[1..].iter().filter(|&&o| o > a[0]).count()
             };
             let (r0, r1) = (rank(mine_before), rank(mine_after));
             v.push(if others.is_empty() {
@@ -2828,7 +2915,9 @@ fn portal_reaction(w: &World, i: usize, j: usize, after: Option<(f64, f64)>) -> 
     let money = after.map_or(0.0, |(x, c)| x + cleared(c));
     let now = (p.nil_income - p.brand as f64).max(0.0);
     let reference = now.max(usual);
-    let (place, top) = money_place(&own_weights(&p.family.own_wants));
+    // What he weighs as a transfer: money counts more than it did when he
+    // was a recruit (`rec::transfer_weights`, F3).
+    let (place, top) = money_place(&rec::transfer_weights(w, i));
     let cares = place < 3;
     let mood = match mood_of(money, reference) {
         Mood::Insulted if !cares => Mood::WantsMore,
@@ -2969,6 +3058,8 @@ pub(crate) fn portal_target(w: &mut World, id: u32) -> Result<&mut PortalTarget,
             promise: None,
             committed: None,
             called: None,
+            case: Default::default(),
+            stand: None,
         });
     }
     Ok(desk.portal.iter_mut().find(|t| t.id == id).unwrap())
@@ -3310,7 +3401,7 @@ pub fn official_cap(d: crate::calendar::Date) -> Option<usize> {
     rec::official_cap(d)
 }
 
-pub use rec::{four_year_transfers, multi_transfers_free, transfer_sits};
+pub use rec::{PortalReasons, four_year_transfers, multi_transfers_free, transfer_sits};
 
 pub fn next_class(w: &World) -> i32 {
     rec::next_class(w)
@@ -3342,7 +3433,8 @@ pub fn race_at(w: &World, i: usize) -> Vec<(usize, f64)> {
     }
     schools.sort_unstable();
     schools.dedup();
-    let mut v: Vec<(usize, f64)> = schools.into_iter().map(|x| (x, rec::appeal(w, i, x, None))).collect();
+    let appeals = rec::appeals(w, i, &schools, None);
+    let mut v: Vec<(usize, f64)> = schools.into_iter().zip(appeals).collect();
     v.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
     v
 }
@@ -3400,21 +3492,11 @@ fn board_bar(w: &mut World, j: usize) {
 /// flips), and signs at the first signing day open to him. Some words for
 /// you.
 pub(crate) fn board_check(w: &mut World, j: usize, id: u32) -> Option<String> {
+    if !commit_ready(w, j, id) {
+        return None;
+    }
     let i = super::index_of(w, id)?;
     let p = &w.people[i];
-    if p.stage != Stage::HighSchool
-        || p.cal.signed.is_some()
-        || p.class_of != rec::next_class(w)
-        || p.cal.commit.is_some_and(|c| c.0 == j)
-        || !offered_here(w, id)
-    {
-        return None;
-    }
-    let race = race_at(w, i);
-    let lead = super::portal::lead(&race, j, HS_ALONE)?;
-    if lead < hs_bar(w, i) {
-        return None;
-    }
     let from = p.cal.commit.map(|c| w.program_name(c.0).to_string());
     let today = w.today;
     rec::commit_now(w, i, j, today, false);
@@ -3435,6 +3517,25 @@ pub(crate) fn board_check(w: &mut World, j: usize, id: u32) -> Option<String> {
     note(w, text.clone(), Some(id));
     tell(w, today, text.clone(), false);
     Some(text)
+}
+
+/// Whether a recruit would commit to you today (`board_check`'s rule
+/// without doing it): of the class signing next, holding your offer, not
+/// yours already, and leading his race for you by his bar. Live talks v3
+/// (lane N5a): asking him to commit runs `board_check`.
+pub(crate) fn commit_ready(w: &World, j: usize, id: u32) -> bool {
+    let Some(i) = super::index_of(w, id) else { return false };
+    let p = &w.people[i];
+    if p.stage != Stage::HighSchool
+        || p.cal.signed.is_some()
+        || p.class_of != rec::next_class(w)
+        || p.cal.commit.is_some_and(|c| c.0 == j)
+        || !offered_here(w, id)
+    {
+        return false;
+    }
+    let race = race_at(w, i);
+    super::portal::lead(&race, j, HS_ALONE).is_some_and(|lead| lead >= hs_bar(w, i))
 }
 
 /// What program `j` means to a recruit today, in `race`'s units (your own

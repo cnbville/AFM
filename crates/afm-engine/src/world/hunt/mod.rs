@@ -179,6 +179,7 @@ pub fn seat(w: &World) -> Option<(Seat, usize)> {
         Staff::Club(t) => (Seat::Club, t),
         Staff::Program(j) => (Seat::College, j),
         Staff::School(h) => (Seat::School, h),
+        Staff::League(_) => return None,
     })
 }
 
@@ -327,7 +328,14 @@ pub fn loud(w: &mut World) -> Result<String, String> {
     }
     w.calendar.post(e);
     if s == Seat::Club {
-        w.scouting.predraft.leaks.push(sc::predraft::Leak { team, player: id, date: d, real: true, yours: true });
+        w.scouting.predraft.leaks.push(sc::predraft::Leak {
+            team,
+            player: id,
+            date: d,
+            real: true,
+            yours: true,
+            to: None,
+        });
     }
     if let Some(h) = w.hunt.yours.as_mut() {
         h.loud = Some(d);

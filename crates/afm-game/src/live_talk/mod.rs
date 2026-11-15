@@ -12,13 +12,24 @@
 //! `docs/reference/how-it-works/live-talks.md`.
 //!
 //! Commands: `ai_status`, `ai_key_set {key}`, `ai_key_clear`, `ai_test`,
-//! `ai_poll {ticket}` and `ai_demo {state?}` (the fake only).
+//! `ai_poll {ticket}` and `ai_demo {state?}` (the fake only). The core
+//! (lane 3) adds `people_say` (a typed line in any scene), `talk_typed`
+//! (the pregame and halftime room), `fo_say` (contract talks, trade calls,
+//! NIL forms), `ai_ask` (every ask box), `ai_checks`, and question 5's two
+//! that need no key, `fo_fact` and `scout_source`. Each later lane fills its
+//! own stub under `say/` and `ask/` and never edits this file.
 //!
 //! The rule under all of it: the AI only reads your words and writes theirs;
 //! the game decides every result. No API call runs inside a command.
 
+pub mod ask;
+pub mod card;
+pub mod checks;
 pub mod demo;
+pub mod filter;
 pub mod key;
+pub mod persona;
+pub mod say;
 pub mod tickets;
 
 use afm_ai::Request;
@@ -28,6 +39,10 @@ use crate::{Game, Reply};
 use tickets::{Next, Step};
 
 pub use key::Ai;
+
+/// What a box that comes with a later lane answers until that lane fills
+/// its stub (no flag shows it, so a screen never sends it).
+pub const NOT_YET: &str = "That box comes with a later update.";
 
 /// The game's lane for the live talks commands (`Game::run` asks each lane in
 /// turn). Returns `None` for a command that is not its own.
@@ -48,24 +63,75 @@ pub fn call(g: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             None => Err("Missing ticket.".into()),
         },
         "ai_demo" => demo_cmd(g, args),
+        "people_say" => say::people_say(g, args),
+        "talk_confirm" => persona::talk::confirm(g, args),
+        "talk_agent" | "talk_gm" | "talk_rush" => return persona::calls::call(g, cmd, args),
+        "talk_typed" => say::rooms::typed(g, args),
+        "word_typed" => persona::gameday::word_typed(g, args),
+        "official_talk" => persona::gameday::official_talk(g, args),
+        "fo_say" => say::fo_say(g, args),
+        "ai_ask" => ask::ask(g, args),
+        "ai_checks" => checks::ai_checks(g),
+        "fo_fact" => say::money::fact(g, args),
+        "scout_source" => ask::source::source_cmd(g, args),
         _ => return None,
     })
 }
 
 /// The one step after every command that worked, beside
-/// `lane_handbook::after_call`. It may change the reply. The core fills it
-/// (it adds `say` and `ask` to a reply only when `g.ai.usable()`, and the
-/// shapes are in the contract). In this lane it only tidies old tickets.
-pub fn after(g: &mut Game, _cmd: &str, _args: &Value, _reply: &mut Reply) {
+/// `lane_handbook::after_call`. It may change the reply: question 5's lists,
+/// which need no key, then, only when `g.ai.usable()`, the `say` box on a
+/// scene that takes a typed line and each lane's own boxes (the shapes are
+/// in the contract). A reply nested in a poll's answer gets its boxes the
+/// same way.
+pub fn after(g: &mut Game, cmd: &str, _args: &Value, reply: &mut Reply) {
     g.ai.tickets.prune();
+    g.ai.waiting.prune();
+    g.ai.persona.prune();
+    let Ok(v) = reply else { return };
+    say::typed_lines(v);
+    if let Some(inner) = v.get_mut("reply") {
+        say::typed_lines(inner);
+    }
+    say::money::facts(g, cmd, v);
+    say::recruit::facts(g, cmd, v);
+    ask::source::sources(g, cmd, v);
+    if !g.ai.usable() {
+        return;
+    }
+    if cmd == "ai_poll" {
+        if let Some(inner) = v.get_mut("reply").filter(|r| r.is_object()) {
+            say::flag(g, cmd, inner);
+            ask::flags(g, cmd, inner);
+            persona::gameday::flag(g, cmd, inner);
+        }
+        return;
+    }
+    say::flag(g, cmd, v);
+    ask::flags(g, cmd, v);
+    persona::gameday::flag(g, cmd, v);
 }
 
-/// The settings card's Test: one tiny call, to see that the key is accepted.
-/// It goes through even after a lasting failure, since a good test is how that
-/// is cleared.
+/// A short card for the Test call, in the shape of a typed line to a player.
+const TEST_CARD: &str = "<card>
+Setting: one-on-one, your office in the football building, Tuesday of week 6, college.
+Player: p1 Marcus Hill, QB, redshirt senior, benched last week for p2.
+Players he may name: p1 Marcus Hill (QB), p2 Jaylen Ortiz (QB, true freshman, 1st on the chart).
+Subjects: role (now), touches, behavior, life, team, future.
+Moves already used this talk: ask.
+</card>
+<coach_line>You're still my guy on third downs, but the freshman is reading it faster right now.</coach_line>";
+
+/// The settings card's Test: one call the size of a typed line (the scene
+/// reader's own rules and schema), so the key is checked and the seconds it
+/// shows are what a typed line takes. The call with a schema is also the first
+/// the API compiles, so it warms that reader's schema for the day. It goes
+/// through even after a lasting failure, since a good test is how that is
+/// cleared.
 fn test(g: &mut Game) -> Reply {
     let fake = g.ai.is_fake();
-    let req = Request::new("test", "Reply with the single word ok.", "ping").no_cache().max_tokens(16);
+    let req =
+        Request::new("test", &say::READER_RULES, TEST_CARD).schema(say::reader_schema()).max_tokens(say::READER_TOKENS);
     let next: Next = Box::new(move |g, r| match r {
         Ok(reply) => Step::Done(json!({
             "state": "done",
@@ -297,6 +363,8 @@ mod tests {
             let id = ok(&mut g, "ai_test", json!({}))["ticket"].as_u64().unwrap();
             let v = finish(&mut g, id);
             assert_eq!((v["state"].as_str(), v["note"].as_str()), (Some("off"), Some(f.note().as_str())), "{f:?}");
+            // A call that went wrong once keeps its box (the page keeps the words and may try again).
+            assert_eq!(v["retry"], true, "{f:?}");
             assert!(g.ai.usable(), "{f:?} does not stand in the way of the next call");
         }
         // Fake mode needs no key for the boxes.
@@ -309,7 +377,9 @@ mod tests {
         for f in [Failure::CreditGone, Failure::Api { status: 401, message: String::new() }] {
             fake.push("test", Err(f.clone()));
             let id = ok(&mut g, "ai_test", json!({}))["ticket"].as_u64().unwrap();
-            assert_eq!(finish(&mut g, id)["state"], "off");
+            let v = finish(&mut g, id);
+            assert_eq!(v["state"], "off");
+            assert!(v.get("retry").is_none(), "a lasting failure hides the box: {v}");
             assert!(!g.ai.usable());
             let s = ok(&mut g, "ai_status", json!({}));
             assert_eq!(s["usable"], false);

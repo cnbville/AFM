@@ -18,6 +18,7 @@ use std::collections::{HashMap, HashSet};
 use afm_engine::Rng;
 use afm_engine::attributes::{Attr, Attributes, MAX_RATING, MIN_RATING};
 use afm_engine::body::{Body, Drills, body_now, forty_weight};
+use afm_engine::game::playbook::ORole;
 use afm_engine::game::scrimmage::DSlot;
 use afm_engine::game::sim::{FoulKind, Move};
 use afm_engine::game::stats::{PlayRecord, PlayType};
@@ -134,6 +135,8 @@ pub enum Knob {
     Tend(Tend, f64),
     /// Set a Dynamic Link's strength (0 none, 1 full) after his body is read.
     Link(Link, f64),
+    /// Set a flaw or tool (individual practice): 0 without it, 1 full.
+    Craft(afm_engine::craft::Craft, f64),
     /// Set his hidden consistency (1-20).
     Consistency(f64),
     /// Swap him for a player the generator draws at his position, with this
@@ -373,7 +376,7 @@ fn change(gp: &mut GamePlayer, person: &Player, knobs: &[Knob], level: Level) {
             }
             Knob::Tend(t, v) => gp.tend.set(t, v),
             Knob::Consistency(v) => gp.traits.consistency = v,
-            Knob::Link(..) | Knob::Board(_) => {}
+            Knob::Link(..) | Knob::Craft(..) | Knob::Board(_) => {}
             Knob::Knows(s) => gp.spots_played |= s.bit(),
             Knob::Recruit(part, lo, hi) => {
                 if let Some(p) = recruit(gp, part, lo, hi, level) {
@@ -409,6 +412,9 @@ fn change(gp: &mut GamePlayer, person: &Player, knobs: &[Knob], level: Level) {
     for k in knobs {
         if let Knob::Link(l, v) = *k {
             gp.links.set(l, v);
+        }
+        if let Knob::Craft(c, v) = *k {
+            gp.craft.set(c, v);
         }
     }
 }
@@ -447,13 +453,23 @@ fn set_board(t: &mut GameTeam, boarded: &[(usize, Spot)]) {
     let pos = t.players[k0].position;
     let own = |i: usize| t.players[i].spot_r[t.players[i].spot.index()];
     let mut used: Vec<usize> = Vec::new();
+    let mut seen: Vec<Spot> = Vec::new();
     for &job in afm_engine::spots::board_jobs(pos) {
         let best = |pick: &dyn Fn(usize) -> bool, used: &[usize]| {
             (0..t.players.len())
                 .filter(|&i| t.players[i].position == pos && !used.contains(&i) && pick(i))
                 .max_by(|&a, &b| own(a).total_cmp(&own(b)))
         };
-        let i = best(&|i| boarded.iter().any(|&(k, s)| k == i && s == job), &used)
+        // A job the board holds twice (the two guards) takes one listed
+        // man: its second slot goes to the best man left whose own spot it
+        // is, so a swap moves two starters and no backup.
+        let listed = if seen.contains(&job) {
+            best(&|i| t.players[i].spot == job, &used)
+        } else {
+            best(&|i| boarded.iter().any(|&(k, s)| k == i && s == job), &used)
+        };
+        seen.push(job);
+        let i = listed
             .or_else(|| best(&|i| t.players[i].spot == job && !boarded.iter().any(|&(k, _)| k == i), &used))
             .or_else(|| best(&|i| !boarded.iter().any(|&(k, _)| k == i), &used));
         used.extend(i);
@@ -1992,6 +2008,7 @@ pub fn stats() -> Vec<Stat> {
         }),
     ];
     v.extend(lb_jobs());
+    v.extend(line_jobs());
     v
 }
 
@@ -2164,6 +2181,103 @@ fn lb_jobs() -> Vec<Stat> {
     v.extend(job!("mike", DSlot::Mike));
     v.extend(job!("sam", DSlot::Sam));
     v.extend(job!("will", DSlot::Will));
+    v
+}
+
+// ------------------------------------------------------------ line spots
+
+/// Focus men lined up at line spot `S` on this snap (`PlayRecord::roles`).
+fn at_line<'a, const S: u8>(r: &'a PlayRecord, c: &'a Cx) -> impl Iterator<Item = u32> + 'a {
+    r.on_field[0].iter().zip(&r.roles[0]).filter(move |(i, s)| **s == S && c.f(**i)).map(|(i, _)| *i)
+}
+fn o_wt<const S: u8>(r: &PlayRecord, c: &Cx) -> C {
+    if !(scrimmage(r) && c.my_off(r)) {
+        return Z;
+    }
+    let mut o = Z;
+    for i in at_line::<S>(r, c) {
+        o[0] += c.body.get(&i).map_or(0.0, |b| b[0]);
+        o[1] += 1.0;
+    }
+    o
+}
+/// His blocks at the spot: (lost, all) of his pass blocks, or (won, all)
+/// of his run blocks.
+fn o_blocks<const S: u8>(
+    r: &PlayRecord,
+    c: &Cx,
+    pass: bool,
+    count: impl Fn(&(u32, u32, bool, bool, f64, bool)) -> bool,
+) -> C {
+    let mut o = Z;
+    if !scrimmage(r) {
+        return o;
+    }
+    for b in r.blocks.iter().filter(|b| b.2 == pass && at_line::<S>(r, c).any(|i| i == b.0)) {
+        o[0] += bf(count(b));
+        o[1] += 1.0;
+    }
+    o
+}
+fn o_lost<const S: u8>(r: &PlayRecord, c: &Cx) -> C {
+    o_blocks::<S>(r, c, true, |b| !b.3)
+}
+fn o_press<const S: u8>(r: &PlayRecord, c: &Cx) -> C {
+    o_blocks::<S>(r, c, true, |b| pressured_by(r, b.1))
+}
+fn o_run<const S: u8>(r: &PlayRecord, c: &Cx) -> C {
+    o_blocks::<S>(r, c, false, |b| b.3)
+}
+
+/// The same rows for each spot on the line (LT, LG, C, RG, RT): who lines
+/// up there (his weight) and how the man there blocks. The swap tests read
+/// them: the man your order names plays the spot (playtest bug 12).
+fn line_jobs() -> Vec<Stat> {
+    use Unit::*;
+    macro_rules! job {
+        ($n:literal, $s:expr) => {
+            [
+                Stat {
+                    key: concat!("oj_", $n, "_wt"),
+                    label: concat!("weight of the man at ", $n),
+                    unit: Num,
+                    play: Some(o_wt::<{ $s as u8 }>),
+                    game: None,
+                    value: ratio,
+                },
+                Stat {
+                    key: concat!("oj_", $n, "_lost"),
+                    label: concat!("pass blocks lost at ", $n),
+                    unit: Pct,
+                    play: Some(o_lost::<{ $s as u8 }>),
+                    game: None,
+                    value: ratio,
+                },
+                Stat {
+                    key: concat!("oj_", $n, "_press"),
+                    label: concat!("his man pressures the QB, a pass block at ", $n),
+                    unit: Pct,
+                    play: Some(o_press::<{ $s as u8 }>),
+                    game: None,
+                    value: ratio,
+                },
+                Stat {
+                    key: concat!("oj_", $n, "_run"),
+                    label: concat!("run blocks won at ", $n),
+                    unit: Pct,
+                    play: Some(o_run::<{ $s as u8 }>),
+                    game: None,
+                    value: ratio,
+                },
+            ]
+        };
+    }
+    let mut v = Vec::new();
+    v.extend(job!("lt", ORole::LT));
+    v.extend(job!("lg", ORole::LG));
+    v.extend(job!("c", ORole::C));
+    v.extend(job!("rg", ORole::RG));
+    v.extend(job!("rt", ORole::RT));
     v
 }
 

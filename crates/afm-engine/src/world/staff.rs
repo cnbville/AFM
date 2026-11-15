@@ -346,7 +346,7 @@ pub(crate) fn leave(w: &mut World, coach: usize, why: &'static str) {
                 // departure after the cycle's window opened gets its own
                 // (minor bug 88). A second change in a cycle moves no one again.
                 if !again {
-                    super::college::coach_gone(w, p);
+                    super::college::coach_gone(w, p, coach);
                     late_window_due(w, p);
                 }
                 // His team still has games this season: a coach retiring or
@@ -1077,7 +1077,11 @@ fn nfl_firing(w: &mut World, c: usize, t: usize, tenure: i32, openings: &mut Vec
     let last = if n >= 1 { ws[n - 1] } else { 0.5 };
     let before = if n >= 2 { ws[n - 2] } else { 0.5 };
     let vs = w.coaches[c].recent.last().copied().unwrap_or(0.0);
-    let badness = 1.6 * (0.5 - last) + 0.6 * (0.5 - before) - 0.5 * vs;
+    let mut badness = 1.6 * (0.5 - last) + 0.6 * (0.5 - before) - 0.5 * vs;
+    // The public bar you set (`folk::boss::public_bar`), in win shares.
+    if market::is_you(w, c) {
+        badness += 1.6 * super::folk::boss::public_bar(w, tenure);
+    }
     let patience = clamp(1.0 - 0.03 * (w.nfl[t].owner - 10.0), 0.6, 1.4);
     let p = clamp((badness - 0.1) * 3.2 * patience, 0.0, 0.9)
         * match tenure {
@@ -1984,6 +1988,11 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
     let mut read = -(1.5 * last + 0.7 * before) + w.rng.normal(0.0, sd);
     // Your own boss's trust in you and last year's goals (section 6).
     read += super::folk::boss::review_push(w, c);
+    // The public bar you set, in seasons' shares at the last season's weight:
+    // the same season reads worse after a promise (`folk::boss::public_bar`).
+    if market::is_you(w, c) {
+        read += 1.5 * super::folk::boss::public_bar(w, tenure);
+    }
     // The stories around him (S4): a hot seat the fans believe in, and a
     // volatile job's patience for a coach hired into it.
     read += super::storylines::effects::review_push(w, c);

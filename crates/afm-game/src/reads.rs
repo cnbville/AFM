@@ -75,6 +75,15 @@ pub struct Seen {
     pub mine: Option<(f64, f64)>,
     pub mine_attrs: Vec<Option<(u8, u8)>>,
     pub mine_looks: usize,
+    /// Your staff's ceiling read: centre and sd (None: not seen).
+    pub ceiling: Option<(f64, f64)>,
+    /// Your own ceiling read and its words (own potential, Cain
+    /// 2026-11-13): None until your first own look, so your staff's read
+    /// judges until then.
+    pub mine_ceiling: Option<(f64, f64)>,
+    pub mine_tier: Option<&'static str>,
+    pub mine_sure: Option<&'static str>,
+    pub mine_hints: Vec<String>,
 }
 
 impl Seen {
@@ -83,6 +92,33 @@ impl Seen {
     }
     pub fn mine(&self) -> Read {
         Read::of(self.mine.map(yours::range))
+    }
+    /// The read that judges his potential (Cain's rule: your own where you
+    /// have one, your staff's otherwise): his overall now and his ceiling,
+    /// both from the same eyes, and whether they are yours.
+    pub fn judging(&self) -> Option<Judging> {
+        match (self.mine_ceiling, self.mine) {
+            (Some(ceiling), Some(now)) => Some(Judging { now, ceiling, yours: true }),
+            _ => Some(Judging { now: self.now?, ceiling: self.ceiling?, yours: false }),
+        }
+    }
+}
+
+/// The read that judges a player's potential and the projections built on
+/// it (`Seen::judging`): yours from your first own look, your staff's
+/// before. The screens say whose.
+#[derive(Clone, Copy, Debug)]
+pub struct Judging {
+    /// Overall now: centre and sd.
+    pub now: (f64, f64),
+    /// Where he could get to: centre and sd.
+    pub ceiling: (f64, f64),
+    pub yours: bool,
+}
+
+impl Judging {
+    pub fn whose(&self) -> &'static str {
+        if self.yours { "yours" } else { "staff" }
     }
 }
 
@@ -107,6 +143,7 @@ fn read_one(w: &World, staff: Staff, k: usize) -> Seen {
     if let Some((rds, looks, f)) = &staff_read {
         s.attrs = f.attrs.iter().map(|a| a.range()).collect();
         s.now = Some(f.now);
+        s.ceiling = Some(f.ceiling);
         s.tier = Some(file::tier_words(speak(p.stage), f.ceiling.0));
         s.sure = Some(file::sure_words(f.ceiling.1));
         s.hints = file::hints(w, k, rds, looks).into_iter().map(|h| h.0).collect();
@@ -122,6 +159,12 @@ fn read_one(w: &World, staff: Staff, k: usize) -> Seen {
         s.mine = Some(o.now);
         s.mine_attrs = o.attrs.iter().map(|a| a.map(yours::range)).collect();
         s.mine_looks = o.looks;
+        if let Some(c) = o.ceiling {
+            s.mine_ceiling = Some(c);
+            s.mine_tier = Some(file::tier_words(speak(p.stage), c.0));
+            s.mine_sure = Some(file::sure_words(c.1));
+            s.mine_hints = o.hints;
+        }
     }
     s
 }
@@ -203,15 +246,38 @@ pub fn centre(w: &World, k: usize) -> Option<f64> {
     seen(w, k).now.map(|n| n.0)
 }
 
-/// Potential in words only (scouting topic 7): the tier your staff's
-/// ceiling read lands in, how sure it is, and the hints its best eye for
-/// potential picked up. Null while not seen.
+/// Potential in words only (scouting topic 7): the tier a ceiling read
+/// lands in, how sure it is, and the hints its eye for potential picked
+/// up. Null while not seen.
+///
+/// Own potential (Cain 2026-11-13): the top-level `tier`, `sure` and
+/// `hints` are the read that judges (`Seen::judging`): yours from your
+/// first own look, your staff's before; `whose` says which ("yours" or
+/// "staff"). `yours` and `staff` carry each read on its own (null where
+/// there is none), so a screen can show yours first and your staff's line
+/// beside it.
 pub fn potential_words(w: &World, k: usize) -> serde_json::Value {
     let s = seen(w, k);
-    match s.tier {
-        Some(tier) => serde_json::json!({ "tier": tier, "sure": s.sure.unwrap_or("unsure"), "hints": s.hints }),
-        None => serde_json::Value::Null,
-    }
+    let staff =
+        s.tier.map(|tier| serde_json::json!({ "tier": tier, "sure": s.sure.unwrap_or("unsure"), "hints": s.hints }));
+    let mine = s.mine_tier.map(
+        |tier| serde_json::json!({ "tier": tier, "sure": s.mine_sure.unwrap_or("unsure"), "hints": s.mine_hints }),
+    );
+    let (top, whose) = match (&mine, &staff) {
+        (Some(m), _) => (m.clone(), "yours"),
+        (None, Some(st)) => (st.clone(), "staff"),
+        (None, None) => return serde_json::Value::Null,
+    };
+    let mut v = top;
+    v["whose"] = serde_json::json!(whose);
+    v["yours"] = mine.unwrap_or(serde_json::Value::Null);
+    v["staff"] = staff.unwrap_or(serde_json::Value::Null);
+    v
+}
+
+/// The read that judges his potential (`Seen::judging`).
+pub fn judging(w: &World, k: usize) -> Option<Judging> {
+    seen(w, k).judging()
 }
 
 /// The public read of another team's player nobody of yours has looked at,

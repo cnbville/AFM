@@ -879,7 +879,18 @@ fn visit_all(run: &mut Run, g: &mut Game, extra: &[(String, Value)], seat: &str)
     if let Some(sq) = if seat == "other" { None } else { run.call(g, "squad", json!({})) } {
         for r in sq["rows"].as_array().into_iter().flatten().take(6) {
             if let Some(i) = r["id"].as_u64() {
-                run.call(g, "player_dev", json!({ "id": i }));
+                // And the projection on its Focus sub-tab, for each thing
+                // it offers (individual practice topic 9c).
+                if let Some(d) = run.call(g, "player_dev", json!({ "id": i })) {
+                    let cr = &d["craft"];
+                    let codes: Vec<u64> = ["seen", "tools", "ratings"]
+                        .iter()
+                        .filter_map(|k| cr[*k].as_array().and_then(|a| a.first()).and_then(|x| x["code"].as_u64()))
+                        .collect();
+                    for c in codes {
+                        run.call(g, "player_dev_project", json!({ "id": i, "code": c }));
+                    }
+                }
             }
         }
     }

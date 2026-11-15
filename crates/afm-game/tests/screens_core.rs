@@ -12,6 +12,14 @@ fn ok(g: &mut Game, cmd: &str, args: Value) -> Value {
     }
 }
 
+/// Unread portal memos: players of yours who entered the portal today.
+fn portal_mail(mail: &Value) -> u64 {
+    let rows = mail["rows"].as_array().unwrap();
+    rows.iter()
+        .filter(|r| r["unread"] == true && r["keys"].as_array().is_some_and(|k| k.iter().any(|x| x == "Portal")))
+        .count() as u64
+}
+
 #[test]
 fn the_desk_files_answers_and_clears_its_mail() {
     let dir = std::env::temp_dir().join(format!("afm-core-{}", std::process::id()));
@@ -23,8 +31,12 @@ fn the_desk_files_answers_and_clears_its_mail() {
 
     // The welcome letter is waiting, unread, with its big moment, beside
     // your No. 2's first note of the guided week (lane 8, H12).
+    // The world's own mail of that morning may come beside them: a player
+    // of yours entering the portal in a coaching-change window still open
+    // when you take the job (seed 11's Michigan on main b928a3c).
     let mail = ok(&mut g, "mail", json!({}));
-    assert_eq!(mail["unread"], 2, "{mail}");
+    let world = portal_mail(&mail);
+    assert_eq!(mail["unread"], 2 + world, "{mail}");
     let welcome =
         mail["rows"].as_array().unwrap().iter().find(|r| r["head"] == "school").unwrap_or_else(|| panic!("{mail}"));
     let id = welcome["id"].as_str().unwrap().to_string();
@@ -34,7 +46,7 @@ fn the_desk_files_answers_and_clears_its_mail() {
     assert_eq!(ok(&mut g, "status", json!({}))["reveals"], 0);
     let letter = ok(&mut g, "letter", json!({ "id": id }));
     assert_eq!(letter["head"], "school", "{letter}");
-    assert_eq!(ok(&mut g, "mail", json!({}))["unread"], 1);
+    assert_eq!(ok(&mut g, "mail", json!({}))["unread"], 1 + world);
 
     // Saved mail survives the 30-day clearing; the rest goes.
     ok(&mut g, "mail_set", json!({ "id": id, "saved": true }));
@@ -230,7 +242,26 @@ fn titles_keep_the_level_they_were_won_at() {
     // The world card's national champions and story leave them out.
     let card = afm_game::cards::card(w);
     assert!(card["world"]["nc"].as_array().unwrap().iter().all(|r| r[0] != name.as_str()), "{}", card["world"]);
-    assert!(card["world"]["story"].to_string().find(&name).is_none(), "{}", card["world"]["story"]);
+    // The story's lines name champions by team, matched whole: a program
+    // whose name is part of another's ("Georgia" in "Georgia Tech", "Pitt"
+    // in "Pittsburgh Steelers") is not named by it.
+    eprintln!("the program: {name}");
+    for line in card["world"]["story"].as_array().unwrap() {
+        let text = line[1].as_str().unwrap_or("");
+        let teams: Vec<&str> = match line[0].as_str().unwrap_or("") {
+            "Dynasty" => text.split(" won ").take(1).collect(),
+            "The rival" => text.split(", ").take(1).collect(),
+            "Everyone else" => text
+                .split(". ")
+                .next()
+                .unwrap_or("")
+                .split(", ")
+                .filter_map(|x| x.rsplit_once(' ').map(|(t, _)| t))
+                .collect(),
+            _ => Vec::new(),
+        };
+        assert!(!teams.contains(&name.as_str()), "{}", card["world"]["story"]);
+    }
 
     // History's champions file them under FCS.
     let champs = ok(&mut g, "history", json!({ "tab": "champions" }));
@@ -248,6 +279,41 @@ fn titles_keep_the_level_they_were_won_at() {
     // The team page's seasons and the job file say FCS too.
     let page = ok(&mut g, "team_page", json!({ "kind": "college", "id": p }));
     assert!(page["seasons"].as_array().unwrap().iter().all(|s| s["nat_word"] == "FCS"), "{}", page["seasons"]);
+    // The shared template's blocks: twelve units, never lumped, key players
+    // from the roster, the conference table with this team in it, and the
+    // class and portal books.
+    assert_eq!(page["units"]["rows"].as_array().map(Vec::len), Some(12), "{}", page["units"]);
+    assert!(page["key_players"].as_array().is_some_and(|k| !k.is_empty() && k.len() <= 3), "{}", page["key_players"]);
+    if let Some(rows) = page["table"]["rows"].as_array() {
+        assert_eq!(rows.iter().filter(|r| r["this"] == true).count(), 1, "{}", page["table"]);
+    }
+    assert!(page["books"]["needs"].is_array() && page["books"]["portal"]["in"].is_number(), "{}", page["books"]);
+    assert!(page["seasons"].as_array().unwrap().iter().all(|s| s["w"].is_number()), "{}", page["seasons"]);
+    // A high school's page is read as a recruiter reads it: the three to
+    // know first with where each stands with you, the classes as dots, the
+    // rest of the roster, where its players go and its coach.
+    let hs_id = g
+        .world
+        .as_ref()
+        .unwrap()
+        .people
+        .iter()
+        .find(|x| x.stage == afm_engine::world::Stage::HighSchool)
+        .map(|x| x.hs)
+        .unwrap();
+    let school = ok(&mut g, "team_page", json!({ "kind": "hs", "id": hs_id }));
+    let hs = &school["hs"];
+    assert!(hs["prospects"].as_array().is_some_and(|k| !k.is_empty() && k.len() <= 3), "{hs}");
+    // No career here, so no college seat: he sees each man's own college interest.
+    assert_eq!(hs["college_seat"], false, "{hs}");
+    for pr in hs["prospects"].as_array().unwrap().iter().chain(hs["rest"].as_array().unwrap()) {
+        assert!(pr["read"].is_array() && pr["stand"].is_string(), "{pr}");
+        assert!(["mine", "visited", "none", "away"].contains(&pr["kind"].as_str().unwrap()), "{pr}");
+    }
+    let dots: usize = hs["classes"].as_array().unwrap().iter().map(|c| c["dots"].as_array().unwrap().len()).sum();
+    assert_eq!(dots, hs["judged"].as_u64().unwrap() as usize, "every judged player is a dot: {hs}");
+    assert!(hs["places"]["nfl"].is_number() && hs["places"]["rows"].is_array(), "{}", hs["places"]);
+    assert!(school["key_players"].is_null(), "a school's three come with its middle");
     let jobs = ok(&mut g, "jobs", json!({ "level": "college" }));
     let job = jobs["jobs"].as_array().unwrap().iter().find(|j| j["ref"]["id"] == p).unwrap();
     assert_eq!(job["titles_text"], format!("{n} FCS titles"), "{job}");

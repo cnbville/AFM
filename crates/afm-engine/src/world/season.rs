@@ -39,6 +39,10 @@ pub(crate) struct TeamResult {
     pub incidents: u32,
     pub roster: u32,
     pub totals: super::program::SeasonTotals,
+    /// Points scored and allowed in every game, the stand-in's too (the
+    /// team page's seasons; `totals` counts engine games only).
+    #[serde(default)]
+    pub points: [u32; 2],
 }
 
 impl TeamResult {
@@ -707,6 +711,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
     let seat_staff: Option<(usize, [Option<f64>; super::coach::GROUP_COUNT])> =
         w.seat_school().map(|h| (h, super::coach::Group::ALL.map(|g| w.hs_staff_teaching(h, g))));
     let focus = w.focus_by_person();
+    let seat_mine: std::collections::HashSet<usize> = w.seat_roster().iter().copied().collect();
     let defer = !w.options.yearly_growth;
     let staff_of = |h: usize, g: Group| seat_staff.and_then(|(s, t)| if s == h { t[g as usize] } else { None });
     // Each division's typical room teaching by group and strength head
@@ -739,6 +744,8 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         w.results.ledgers = rest;
         mine
     };
+    // The men you got help for after trouble (talk facts lane L4).
+    let helped = super::folk::talk_points::helped_ids(w);
     let (people, schools, programs, coaches) = (&mut w.people, &w.high_schools, &w.programs, &w.coaches);
     people.par_iter_mut().zip(role_of.par_iter()).enumerate().for_each(|(i, (p, role))| {
         let Some(role) = *role else { return };
@@ -820,6 +827,10 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             // A mission or a military term (A3): no coaching and no games, a
             // year older; he keeps himself in what shape he can.
             Stage::Away => (Level::SmallCollege, 2.0, 0.0, 0.002),
+            // A U Sports player (SK77): a season at his school, coached
+            // about like a small college; a global prospect in his own
+            // country's league (proposed, not confirmed).
+            Stage::CflPool => (Level::SmallCollege, 10.0, 0.0, 0.01),
             _ => return,
         };
         let role = if p.stage == Stage::PrepSchool { PlayingTime::Rotation } else { role };
@@ -843,7 +854,8 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                     1.0 - 0.12 * super::people::Support::z(programs[c].support.engagement.rating)
                 }
                 _ => 1.0,
-            };
+            }
+            * if helped.contains(&p.player.id) { 1.0 - super::folk::talk_points::HELP_CUT } else { 1.0 };
         let mut trouble = None;
         if p.rng.chance(trouble_p) {
             p.incident = true;
@@ -916,7 +928,10 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             medical,
             physical_coaching,
             strength_dev,
-            focus: focus.get(&i).copied(),
+            focus: focus.get(&i).map(|x| x.0),
+            focus2: focus.get(&i).and_then(|x| x.1),
+            seat_plan: seat_mine.contains(&i),
+            focus_minutes: p.player.train.focus_minutes(),
             defer,
             snaps,
             results: match p.stage {
@@ -934,7 +949,8 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         crate::results::settle_reps(&mut p.player, closing.get(&id));
         // Last year's growth that the calendar never reached lands first
         // (section 6b topic 12), so this row starts where he really is.
-        crate::training::close_year(&mut p.player, ctx.focus);
+        let year_focus = ctx.focus.map(|a| crate::development::Focus::two(a, ctx.focus2, ctx.focus_minutes));
+        crate::training::close_year(&mut p.player, year_focus);
         let report = develop_season(&mut p.player, &ctx, &mut p.rng);
         if let Some(log) = log {
             let staff = match p.stage {

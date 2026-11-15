@@ -321,6 +321,22 @@ pub fn on_save(home: &Path, from: Option<&Path>, to: &Path) {
     }
 }
 
+/// An autosave was written to `to`: the file goes beside it as it stands,
+/// a copy (never a move), from the career's own save or, before its first
+/// save, from the unsaved one.
+pub fn on_autosave(home: &Path, from: Option<&Path>, to: &Path) {
+    let dest = beside(to);
+    let src = from.map_or_else(|| unsaved(home), beside);
+    if same_file(&src, &dest) {
+        return;
+    }
+    if src.exists() {
+        let _ = std::fs::copy(&src, &dest);
+    } else {
+        let _ = std::fs::remove_file(&dest);
+    }
+}
+
 /// A save renamed: its notebook too.
 pub fn on_rename(from: &Path, to: &Path) {
     let (a, b) = (beside(from), beside(to));
@@ -536,6 +552,52 @@ mod tests {
         fresh.call("notebook_add", &json!({ "text": "scratch" })).unwrap();
         on_open(&d);
         assert_eq!(fresh.call("notebook", &json!({})).unwrap()["total"], 0);
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    /// Cain, 2026-11-13: the notebook is per career, never shared across careers.
+    #[test]
+    fn each_career_has_its_own_notebook() {
+        let d = temp();
+        let a = d.join("saves").join("a.afmsave");
+        let b = d.join("saves").join("b.afmsave");
+        std::fs::create_dir_all(d.join("saves")).unwrap();
+        std::fs::write(&a, "save").unwrap();
+        std::fs::write(&b, "save").unwrap();
+        let note =
+            |g: &mut Game, text: &str| g.call("notebook_add", &json!({ "text": text, "cat": "Baselines" })).unwrap();
+
+        // Career A is saved with its own note.
+        let mut g = Game::new(d.clone());
+        note(&mut g, "A's note");
+        on_save(&d, g.save_path.as_deref(), &a);
+        g.save_path = Some(a.clone());
+
+        // A new world is a new career: it starts with an empty notebook, and A's file is untouched.
+        on_open(&d);
+        g.save_path = None;
+        let r = g.call("notebook", &json!({})).unwrap();
+        assert_eq!(r["total"], 0, "a new career starts with no notes");
+        assert_eq!(r["categories"].as_array().unwrap().len(), 0, "and none of the old categories");
+        note(&mut g, "B's note");
+        on_save(&d, g.save_path.as_deref(), &b);
+        g.save_path = Some(b.clone());
+        assert_eq!(texts(&read(&beside(&a))), ["A's note"]);
+        assert_eq!(texts(&read(&beside(&b))), ["B's note"]);
+
+        // Loading A shows A's notes only; a note written there stays out of B.
+        on_open(&d);
+        g.save_path = Some(a.clone());
+        assert_eq!(g.call("notebook", &json!({})).unwrap()["notes"][0]["text"], "A's note");
+        note(&mut g, "More for A");
+        assert_eq!(texts(&read(&beside(&b))), ["B's note"], "a note in one career never reaches another");
+
+        // And back to B.
+        on_open(&d);
+        g.save_path = Some(b.clone());
+        let r = g.call("notebook", &json!({})).unwrap();
+        assert_eq!(r["total"], 1);
+        assert_eq!(r["notes"][0]["text"], "B's note");
         let _ = std::fs::remove_dir_all(d);
     }
 

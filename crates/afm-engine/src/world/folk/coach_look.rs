@@ -52,6 +52,10 @@ pub struct Asked {
     /// Which way his agenda leaned it, in rating points (+ oversold).
     pub lean: f32,
     pub words: String,
+    /// The one facet it was about (a reference asked in words, live talks
+    /// lane N5c); None reads every facet, as an honest read does (C43).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub facet: Option<u8>,
 }
 
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -204,7 +208,7 @@ fn evidence(w: &World, x: &Ctx, c: usize, f: usize) -> (f64, f64) {
             e += 3.0;
             bias += 3.0 * (read as f64 - truth(w, c, f));
         }
-        for a in &l.asked {
+        for a in l.asked.iter().filter(|a| a.facet.is_none_or(|x| x as usize == f)) {
             let k = if f < GROUP_COUNT && !teach_seen(f) { 1.5 } else { 4.0 };
             e += k * (0.5 + 0.5 * a.straight as f64);
             bias += k * a.lean as f64;
@@ -381,7 +385,7 @@ fn cap(s: &str) -> String {
     c.next().map_or(String::new(), |f| f.to_uppercase().chain(c).collect())
 }
 
-fn look_mut(w: &mut World, c: usize) -> &mut Look {
+pub(crate) fn look_mut(w: &mut World, c: usize) -> &mut Look {
     let today = w.today;
     let list = &mut w.folk.looks.list;
     let k = match list.iter().position(|l| l.coach == c) {
@@ -520,7 +524,7 @@ impl Source {
 }
 
 /// Whether two coaches were on the same staff in the same season.
-fn worked_with(w: &World, a: usize, b: usize) -> bool {
+pub(crate) fn worked_with(w: &World, a: usize, b: usize) -> bool {
     let spans = |c: usize| {
         let co = &w.coaches[c];
         let mut v: Vec<(Employer, i32, i32)> = co.history.iter().map(|s| (s.employer, s.from, s.to)).collect();
@@ -566,7 +570,14 @@ pub fn ask_for_read(w: &mut World, c: usize, src: Source) -> Result<String, Stri
     };
     let name = w.coaches[c].name.clone();
     let today = w.today;
-    look_mut(w, c).asked.push(Asked { who: label.clone(), date: today, straight: honest, lean, words: words.into() });
+    look_mut(w, c).asked.push(Asked {
+        who: label.clone(),
+        date: today,
+        straight: honest,
+        lean,
+        words: words.into(),
+        facet: None,
+    });
     // The favour (C43): you owe him one, on the ledger.
     match src {
         Source::Coach(k) => {
@@ -581,7 +592,7 @@ pub fn ask_for_read(w: &mut World, c: usize, src: Source) -> Result<String, Stri
     Ok(format!("{label}: \"{words}\" You owe him one."))
 }
 
-fn boss_of(w: &World, e: Employer) -> Option<usize> {
+pub(crate) fn boss_of(w: &World, e: Employer) -> Option<usize> {
     match e {
         Employer::College(p) => w.programs[p].head_coach,
         Employer::Nfl(t) => w.nfl[t].head_coach,

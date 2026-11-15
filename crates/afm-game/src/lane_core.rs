@@ -18,6 +18,8 @@ pub mod moves;
 pub mod pages;
 pub mod people;
 pub mod tables;
+pub mod team_page;
+pub mod team_page_hs;
 
 use afm_engine::calendar::Weekday;
 use afm_engine::world::World;
@@ -113,6 +115,8 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             afm_engine::world::front_office::redshirt::set(w, id_arg(args)? as u32, on).map(|t| json!({ "text": t }))
         })(),
         "reveals" => Ok(desk::take_reveals(w)),
+        "reveal_list" => Ok(desk::reveal_list(w)),
+        "reveal_again" => Ok(desk::reveal_again(w, args.get("n").and_then(Value::as_u64).unwrap_or(u64::MAX) as usize)),
         // The big tables.
         "leaders" => Ok(tables::leaders(w, args)),
         "finder" => Ok(tables::finder(w, args)),

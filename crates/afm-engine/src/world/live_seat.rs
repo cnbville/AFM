@@ -61,6 +61,14 @@ pub struct GameDay {
     /// of your tones and your hand-offs to a captain read them.
     #[serde(default)]
     pub talks: Vec<super::folk::gametalk::Given>,
+    /// Each man's own part of your typed pregame speech (live talks v3,
+    /// lane N5d), kept with `pregame` and cleared with it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tilts: Vec<crate::game::talk::Tilt>,
+    /// Your last word with an official (lane N5d): the day, the play it was
+    /// about, and how many times he has warned you that day.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub official: Option<(Date, u32, u8)>,
 }
 
 impl GameDay {
@@ -293,6 +301,7 @@ impl World {
             four: r.four,
             cells: r.cells,
             talk: gd.pregame.filter(|p| p.0 == self.today).map(|p| p.1),
+            tilts: if gd.pregame.is_some_and(|p| p.0 == self.today) { gd.tilts.clone() } else { Vec::new() },
         }
     }
 

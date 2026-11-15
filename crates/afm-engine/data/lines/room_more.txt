@@ -2243,7 +2243,7 @@ I'll back you up if you're straight with him.
 Ask anybody who's coached him. He's at his best when somebody believes in him.
 He's been asking for extra work. Nobody's given him any.
 He'll do the extra work. He always has. He just needs to know it counts.
-He reads the depth chart like it's a report card. Right now he thinks he's failing.
+He reads the depth chart like it's a report card. Right now he thinks he's failing. ~ saw_chart=yes
 I know you've got a lot of kids. I'm only asking you to look at him again.
 I know you see things I don't. Help me see them.
 I'm not saying you're wrong. I'm saying he deserves to know why.
@@ -2366,7 +2366,7 @@ He's got people online telling him to leave. I've been telling him to stay. Help
 I've kept my posts about him nice. I'd like a reason to keep them that way. ~ online
 The snap counts are out there for anybody to see. Everybody can see what's happening to him. ~ online
 I check the team's page every day for one mention of him. Nothing. ~ online
-Somebody posted a screenshot of the depth chart. He saw it before anybody told him. ~ online
+Somebody posted a screenshot of the depth chart. He saw it before anybody told him. ~ online saw_chart=yes
 I'd rather have this conversation with you than with a few thousand strangers. ~ online
 I've seen what happens when a kid gets buried and the internet notices. I don't want that for him. ~ online
 When I share his stuff, people love him. I wish his coaches did. ~ online

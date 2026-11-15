@@ -443,7 +443,7 @@ fn talk_mut(w: &mut World, c: usize, role: Role) -> &mut Talk {
 
 /// The salary that would get him to yes with these terms (C33), if any
 /// under two and a half times his ask.
-fn would_take(w: &World, c: usize, role: Role, t: &Terms, now: f64) -> Option<f64> {
+pub(crate) fn would_take(w: &World, c: usize, role: Role, t: &Terms, now: f64) -> Option<f64> {
     let asked = ask(w, c, role).max(1.0);
     let at = |s: f64| {
         let mut x = t.clone();
@@ -796,6 +796,9 @@ fn hire_now(w: &mut World, c: usize, role: Role, t: &Terms) -> Result<String, St
         crate::world::staff::leave(w, c, "left for another job");
     }
     crate::world::staff::hire(w, c, emp, role);
+    // A booster you promised a say in hires met him first, or not (talk
+    // facts lane L8).
+    super::backers::hired(w, c, matches!(role, Role::OffensiveCoordinator | Role::DefensiveCoordinator));
     let years = t.years.clamp(1, 5) as i32;
     w.folk.staff.deals.retain(|d| d.coach != c);
     let buy = if years >= 2 && matches!(emp, Employer::College(_)) { 0.4 } else { 0.0 };

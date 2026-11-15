@@ -603,9 +603,10 @@ pub(crate) fn set_club_spots(w: &mut World) {
     apply_spots(w, moves);
 }
 
-/// Your board's named jobs (linebackers, corners, safeties) replace your
-/// staff's for the men you named: a man named at another position's job
-/// learns it without leaving his own position's spot.
+/// Your board's named jobs (linebackers, corners, safeties, and the line's
+/// tackles, guards and center; `spots::board_jobs`) replace your staff's
+/// for the men you named: a man named at another position's job learns it
+/// without leaving his own position's spot.
 fn named_jobs(w: &World, moves: &mut [(usize, crate::spots::Spot)]) {
     for (pos, ids) in &w.seat_depth {
         for (&id, &job) in ids.iter().zip(crate::spots::board_jobs(*pos)) {

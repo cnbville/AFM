@@ -14,7 +14,7 @@ I work as hard as anybody in that building and I'm still on the bench. That's it
 I keep waiting for my shot, and every week it's somebody else's turn.
 I'm not asking to be handed anything. I just want a real chance to win the job.
 I feel invisible out there, Coach. Like the coaches already made up their minds.
-I see my name on that chart every Monday and it kills me a little.
+I see my name on that chart every Monday and it kills me a little. ~ saw_chart=yes
 I came here to play. Not to watch.
 It feels like I'm getting graded on a different scale than the guys in front of me.
 I'm doing my job in practice and nobody notices. Then the other guy messes up and keeps his spot.
@@ -269,7 +269,7 @@ What am I doing wrong? I keep asking myself and coming up empty.
 Every coaching point I get, I fix. Then nothing changes on the chart.
 They tell us every spot's open. I want to believe it. Right now I'm not sure I do.
 My game's grown a lot. I'm not sure the chart has noticed.
-My name on that chart looks like it belongs to an older version of me.
+My name on that chart looks like it belongs to an older version of me. ~ saw_chart=yes
 I want the kind of role where you plan around me showing up.
 If my spot's mine to lose, tell me. If it's mine to win, tell me how.
 Lately I've been playing not to mess up instead of playing to earn more. That comes from this.
@@ -416,7 +416,7 @@ What if I'm better than you think? Wouldn't you want to find out?
 Second-guessing every snap I do get. That's where my head's at.
 Nobody grows into a bigger role without getting one first.
 Wanting more doesn't make me a bad teammate. I hope you know that.
-When the new chart comes out, I don't even look at my spot first. I look for any change.
+When the new chart comes out, I don't even look at my spot first. I look for any change. ~ saw_chart=yes
 I didn't get into this to be a guy who's just around.
 My legs feel fresh and my head's clear. I'm ready for more than I'm getting.
 All this work has to be going somewhere. Tell me it is.
@@ -427,7 +427,7 @@ I'd rather fail with more snaps than never find out.
 Some guys need to be pushed to want it. I've wanted it from day one.
 On the drive in, I think about it. On the drive home, I think about it.
 Everybody has a role. I just think mine should be bigger.
-Just once I want to see the new chart and feel like I moved up.
+Just once I want to see the new chart and feel like I moved up. ~ saw_chart=yes
 Rhythm is everything in this game. Mine comes and goes because the snaps do.
 My teammates believe in me. I want to know the coaches do.
 It's been a long stretch of being patient. I'm running low.
@@ -658,7 +658,7 @@ My voice carries more when I'm out there. I want it to carry more. ~ leader
 I hold guys accountable. Hard to do that when I'm not in the fight with them as much. ~ leader
 I've kept it in. Didn't feel right complaining. But I want more snaps. ~ quiet
 Took me a long time to say this. More snaps. That's all. ~ quiet
-Every time I see the chart, I want to [throw something|yell]. I don't. But I want to. ~ hot
+Every time I see the chart, I want to [throw something|yell]. I don't. But I want to. ~ hot saw_chart=yes
 Trying to channel it. Some days it's more than I can hold. ~ hot
 I've weighed it out. I believe I've earned more time. ~ calm
 Steady breath, clear head. I still think I should be playing more. ~ calm

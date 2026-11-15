@@ -14,7 +14,7 @@ use super::live::{
 use super::playbook::*;
 use super::roster::*;
 use super::rules::{FirstDownStop, Overtime, Rules};
-use super::scrimmage::{self, DSlot, Snap, SnapResult};
+use super::scrimmage::{self, DSlot, KeepSnap, Snap, SnapResult};
 use super::sim::{Conditions, Crew, Foul, FoulKind, Frame, Injury, InjuryKind, Mood};
 use super::stats::*;
 use super::tables;
@@ -23,6 +23,38 @@ use crate::player::Level;
 use crate::positions::Position;
 use crate::rng::{Rng, clamp};
 use crate::spots::{self, Spot, best_order, fill_in};
+
+/// The defense's plan keeping a usage promise (`roster::Keep`; proposed,
+/// not confirmed): a four-man rush becomes a stunt with the man promised
+/// to be freed up 42 in 100 times, and a blitz with the man promised to be
+/// sent on 33 in 100 four-man calls: enough that a game gives him 1 in 4
+/// (the agreed floor) in 3 of every 4 games (`tests/usage.rs`). Deep calls lean half again as much toward the
+/// man promised shots.
+pub const FREE_UP: f64 = 0.42;
+pub const SEND: f64 = 0.33;
+pub const SHOTS_LEAN: f64 = 0.5;
+
+/// The calls' lean for the rest of the plan's settings (lane N2; proposed,
+/// not confirmed): 6 points more passing for the quarterback promised his
+/// throws, play action, screens and the quick game half again or double,
+/// the gun or under center a quarter more, the run family promised double,
+/// the quarterback's designed runs two and a half times, jet sweeps
+/// treble, seven-man protections double.
+pub const PASS_LEAN: f64 = 0.06;
+pub const PA_LEAN: f64 = 1.0;
+pub const GUN_LEAN: f64 = 0.25;
+pub const FAMILY_LEAN: f64 = 2.0;
+pub const QB_RUNS_LEAN: f64 = 1.5;
+pub const SCREENS_LEAN: f64 = 1.0;
+pub const QUICK_LEAN: f64 = 0.6;
+pub const JET_LEAN: f64 = 2.0;
+pub const PROTECT_LEAN: f64 = 1.0;
+
+/// The quarterback's freedom at the line (plays and tactics 3.3): from a
+/// kill call (two plays in the huddle) up, and full audibles (the staff's
+/// own lines). A promise of either sets him at least there.
+pub const KILL_FREEDOM: f64 = 0.35;
+pub const FULL_FREEDOM: f64 = 0.7;
 
 /// Who lines up where on a snap: the offense by role, the defense by slot.
 type Lineup = (Vec<(ORole, usize)>, Vec<(DSlot, usize)>);
@@ -199,6 +231,11 @@ struct Side<'a> {
     /// (L1, C1): yours from your board's order, else the staff's pick.
     /// On game day a named man plays his job; the engine doesn't re-sort.
     job: Vec<Option<Spot>>,
+    /// The line spot each tackle, guard and center is named to this week
+    /// (playtest bug 12): yours from your board's order, LT and RT, then
+    /// LG, C and RG. None for every man of a staff that sets its own line:
+    /// the engine seats those by fit on each snap, as before.
+    line: Vec<Option<ORole>>,
     /// Snaps played this game, and the most he may play (update 2, G17:
     /// a snap limit back from injury; u16::MAX none).
     snaps: Vec<u16>,
@@ -252,13 +289,22 @@ const BLITZ_LEAN: f64 = 0.02;
 impl<'a> Side<'a> {
     fn new(team: &'a GameTeam, margin: f64, timeouts: u8) -> Side<'a> {
         let n = team.players.len();
-        let depth = depth_chart(team, margin);
+        let mut depth = depth_chart(team, margin);
+        // He returns (the promises on usage, lane N2): first on kickoff
+        // returns and the punt returner.
+        if let Some(i) = team.prep.keep.returner.iter().find_map(|id| team.players.iter().position(|p| p.id == *id)) {
+            depth.kick_returners.retain(|&j| j != i);
+            depth.kick_returners.insert(0, i);
+            depth.kick_returners.truncate(2);
+            depth.punt_returner = i;
+        }
         // The week's practice: the starters work at the spots they will
         // play, so a backup stepping in for a man out this week knows his
         // spot by Saturday. A coach keeps a man where he knows the job
         // unless moving him is clearly better.
         let mut familiar: Vec<u32> = team.players.iter().map(|p| p.spots_played | p.spot.bit()).collect();
         let mut job: Vec<Option<Spot>> = vec![None; n];
+        let mut line: Vec<Option<ORole>> = vec![None; n];
         // A left-handed starter's blind side is his right (`spots::blind_side`).
         let lefty = depth.list(Position::QB).first().is_some_and(|&i| team.players[i].left_handed);
         for pos in Position::ALL {
@@ -281,6 +327,52 @@ impl<'a> Side<'a> {
                 let cost = if familiar[i] & sp.bit() != 0 { 0.0 } else { fill_in(sp, p.spot) };
                 p.spot_r[spots::blind_side(sp, lefty).index()] - 0.5 * cost
             };
+            // Your order names the line (playtest bug 12): the board's
+            // slots as you filled them, so the man you put at left tackle
+            // plays left tackle and your center stays at center when a
+            // guard can't dress. A slot whose man can't dress, or that your
+            // order doesn't reach, goes to the next men up, each at the
+            // open slot that suits him as his staff would seat him.
+            let named = team.order.iter().find(|(p, _)| *p == pos && !team.ranked.contains(p));
+            if let (Some(slots), Some((_, ids))) = (line_slots(pos), named) {
+                let mut at: Vec<Option<usize>> = Vec::with_capacity(slots.len());
+                for k in 0..slots.len() {
+                    let i = ids.get(k).and_then(|id| team.players.iter().position(|p| p.id == *id));
+                    let i = i.filter(|i| line[*i].is_none() && !at.contains(&Some(*i)));
+                    at.push(i);
+                }
+                let open: Vec<usize> = (0..slots.len()).filter(|&k| at[k].is_none()).collect();
+                if !open.is_empty() {
+                    // A man your order names on the line's other half (a
+                    // backup tackle you put at guard) stays for his spot.
+                    let elsewhere = |i: usize| {
+                        let id = team.players[i].id;
+                        team.order.iter().any(|(p, v)| {
+                            *p != pos
+                                && !team.ranked.contains(p)
+                                && line_slots(*p).is_some_and(|s| v.iter().take(s.len()).any(|&x| x == id))
+                        })
+                    };
+                    let next: Vec<usize> = depth
+                        .list(pos)
+                        .iter()
+                        .copied()
+                        .filter(|i| line[*i].is_none() && !at.contains(&Some(*i)) && !elsewhere(*i))
+                        .take(open.len())
+                        .collect();
+                    let want: Vec<Spot> = open.iter().map(|&k| orole_spot(slots[k])).collect();
+                    for (j, i) in best_order(&next, &want, &value).into_iter().enumerate() {
+                        at[open[j]] = i;
+                    }
+                }
+                for (k, i) in at.into_iter().enumerate() {
+                    if let Some(i) = i {
+                        line[i] = Some(slots[k]);
+                        familiar[i] |= orole_spot(slots[k]).bit();
+                    }
+                }
+                continue;
+            }
             let order = best_order(&list, spots, &value);
             for (k, i) in order.into_iter().enumerate() {
                 if let Some(i) = i {
@@ -315,12 +407,25 @@ impl<'a> Side<'a> {
             frozen: false,
             familiar,
             job,
+            line,
             snaps: vec![0; n],
-            base_only: team.players.iter().map(|p| team.prep.base_only.contains(&p.id)).collect(),
+            // Keep him on (the promises on usage, lane N2): never base downs
+            // only, and on for the whole series like the rotation's first men.
+            base_only: team
+                .players
+                .iter()
+                .map(|p| team.prep.base_only.contains(&p.id) && !team.prep.keep.on.contains(&p.id))
+                .collect(),
             rot: team
                 .players
                 .iter()
-                .map(|p| team.prep.rotation.iter().find(|r| r.0 == p.id).map_or(0, |r| r.1))
+                .map(|p| {
+                    if team.prep.keep.on.contains(&p.id) {
+                        1
+                    } else {
+                        team.prep.rotation.iter().find(|r| r.0 == p.id).map_or(0, |r| r.1)
+                    }
+                })
                 .collect(),
             passing: false,
             series: 0,
@@ -688,6 +793,64 @@ impl<'a> Side<'a> {
         at
     }
 
+    /// The line's men at a position (the tackles; the guards and the
+    /// center) for the slots on the field. Your package's men go to the
+    /// slots you gave them, then the men your order names go to theirs
+    /// (playtest bug 12); nobody named is re-sorted. Whoever is left takes
+    /// the open slots, each man where he plays best together with the
+    /// others, a fill-in paying for a spot he doesn't know (3.3). A staff
+    /// that names nobody (every AI staff, and yours until you set the
+    /// position) has all its men seated that way, as before.
+    fn pick_line(
+        &self,
+        pos: Position,
+        rs: &[ORole],
+        used: &mut Vec<usize>,
+        board: Option<u8>,
+        lefty: bool,
+    ) -> Vec<Option<usize>> {
+        let mut at: Vec<Option<usize>> = vec![None; rs.len()];
+        let mut loose: Vec<usize> = Vec::new();
+        let mine = self.pick_package(pos, rs.len(), used, board);
+        let n = mine.len();
+        for (label, i) in mine {
+            match (0..rs.len()).find(|&k| at[k].is_none() && super::scrimmage::orole_label(rs[k]) == label) {
+                Some(k) => at[k] = Some(i),
+                None => loose.push(i),
+            }
+        }
+        if n < rs.len() {
+            // The tackles are picked first: the men your order names inside
+            // stay there, so a backup tackle you put at guard isn't taken
+            // to spell a tackle. An AI staff names nobody: nothing held.
+            let held: Vec<usize> = if pos == Position::OT {
+                (0..self.line.len())
+                    .filter(|&i| self.line[i].is_some_and(|r| !rs.contains(&r)) && !used.contains(&i))
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            used.extend(held.iter().copied());
+            let got = self.pick(pos, rs.len() - n, used);
+            used.retain(|i| !held.contains(i));
+            for i in got {
+                match self.line[i].and_then(|r| rs.iter().position(|&x| x == r)).filter(|&k| at[k].is_none()) {
+                    Some(k) => at[k] = Some(i),
+                    None => loose.push(i),
+                }
+            }
+        }
+        let open: Vec<usize> = (0..rs.len()).filter(|&k| at[k].is_none()).collect();
+        if !open.is_empty() && !loose.is_empty() {
+            let spots: Vec<Spot> = open.iter().map(|&k| orole_spot(rs[k])).collect();
+            let fit = best_order(&loose, &spots, &|i, sp| self.on_line(i, sp, lefty));
+            for (j, i) in fit.into_iter().enumerate() {
+                at[open[j]] = i;
+            }
+        }
+        at
+    }
+
     /// The punt team's gunners (speed update S10): the two backups who play
     /// fastest and get off a jam best, receivers, corners or safeties (the
     /// burner among them), corners from the cover list when short.
@@ -709,6 +872,65 @@ impl<'a> Side<'a> {
             out.extend(self.cover_pick(Position::CB, 2 - out.len(), used));
         }
         out
+    }
+
+    /// How much more the offense calls deep shots for the man your word
+    /// promised them (the promises on usage), while he can go.
+    fn shots_lean(&self) -> f64 {
+        let ids = &self.team.prep.keep.shots;
+        let up = |id: &u32| {
+            self.team.players.iter().position(|p| p.id == *id).is_some_and(|i| !self.out[i] && !self.benched[i])
+        };
+        if ids.iter().any(up) { SHOTS_LEAN } else { 0.0 }
+    }
+
+    /// The calls' lean for your promises on usage (lane N2), from the men
+    /// promised who can go: nothing for a plan without one.
+    fn lean(&self) -> calling::Lean {
+        let k = &self.team.prep.keep;
+        let mut l = calling::Lean::default();
+        if k.is_empty() {
+            return l;
+        }
+        let up = |id: &u32| {
+            self.team.players.iter().position(|p| p.id == *id).is_some_and(|i| !self.out[i] && !self.benched[i])
+        };
+        let any = |ids: &[u32]| ids.iter().any(up);
+        if k.pass {
+            l.pass = PASS_LEAN;
+        }
+        if k.play_action {
+            l.play_action = PA_LEAN;
+        }
+        l.gun = GUN_LEAN * k.backfield as f64;
+        l.personnel = match k.personnel {
+            21 => Some(Personnel::P21),
+            12 => Some(Personnel::P12),
+            13 => Some(Personnel::P13),
+            22 => Some(Personnel::P22),
+            11 => Some(Personnel::P11),
+            10 => Some(Personnel::P10),
+            _ => None,
+        };
+        l.family = k.family.map(|f| FAMILY_LEAN * f as f64);
+        l.qb_runs = match k.qb_runs {
+            1 => QB_RUNS_LEAN,
+            -1 => -1.0,
+            _ => 0.0,
+        };
+        if any(&k.screens) {
+            l.screens = SCREENS_LEAN;
+        }
+        if any(&k.quick) {
+            l.quick = QUICK_LEAN;
+        }
+        if any(&k.gadget) {
+            l.jet = JET_LEAN;
+        }
+        if k.protect {
+            l.protect = PROTECT_LEAN;
+        }
+        l
     }
 
     /// How much the offense leans on its burner, while he can go (S10).
@@ -1121,6 +1343,9 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
     // Your answers to their personnel groups this week (update 2, G16).
     for side in sides.iter_mut() {
         side.mem.plan.answers = side.team.prep.answers;
+        side.mem.plan.man_floor = side.team.prep.keep.man;
+        let k = &side.team.prep.keep;
+        side.mem.plan.shell_floor = [k.two_high, k.one_high, k.rob];
     }
     // Moves against the other team's habits (tendencies topic 4.4), from
     // what each staff's film study reads of them. Own stream, so the plans
@@ -1232,10 +1457,13 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
         g.tempo = tempo;
     }
     // The pregame talks (dialogue D4): yours, or each head coach's own.
-    let mine = g.ctl.as_ref().and_then(|c| c.prep.talk.map(|p| (c.team, p)));
+    let mine = g.ctl.as_ref().and_then(|c| c.prep.talk.map(|p| (c.team, p, c.prep.tilts.clone())));
     for k in 0..2 {
-        let pick = mine.filter(|m| m.0 == k).map(|m| m.1);
-        g.room_talk(k, super::talk::Moment::Pregame, pick);
+        let (pick, tilts) = match mine.as_ref().filter(|m| m.0 == k) {
+            Some(m) => (Some(m.1), m.2.clone()),
+            None => (None, Vec::new()),
+        };
+        g.room_talk(k, super::talk::Moment::Pregame, pick, &tilts);
     }
     g.eye = live::draw_eye(&mut g.refs);
     g.challenges = [g.replay.challenges; 2];
@@ -1796,14 +2024,20 @@ impl<'a> Game<'a> {
                         Some(Input::Talk(pick)) if talked.is_none() => {
                             let k = self.ctl_team();
                             let margin = self.diff(k);
-                            self.room_talk(k, super::talk::Moment::Halftime { margin }, Some(pick));
+                            self.room_talk(k, super::talk::Moment::Halftime { margin }, Some(pick), &[]);
+                            talked = Some(pick);
+                        }
+                        Some(Input::Speech { pick, tilts }) if talked.is_none() => {
+                            let k = self.ctl_team();
+                            let margin = self.diff(k);
+                            self.room_talk(k, super::talk::Moment::Halftime { margin }, Some(pick), &tilts);
                             talked = Some(pick);
                         }
                         Some(Input::Halftime(pc)) => {
                             self.apply_plan(self.ctl_team(), pc);
                             break;
                         }
-                        Some(Input::Talk(_)) => {}
+                        Some(Input::Talk(_)) | Some(Input::Speech { .. }) => {}
                         _ => break,
                     }
                     again = true;
@@ -1820,7 +2054,7 @@ impl<'a> Game<'a> {
                         continue;
                     }
                     let margin = self.diff(k);
-                    self.room_talk(k, super::talk::Moment::Halftime { margin }, None);
+                    self.room_talk(k, super::talk::Moment::Halftime { margin }, None, &[]);
                 }
                 self.quarter = 3;
                 self.clock = self.rules().quarter;
@@ -2541,7 +2775,9 @@ impl<'a> Game<'a> {
                 match self.ask(Ask::Snap, again) {
                     Some(Input::Timeout) => self.user_timeout(self.poss),
                     Some(Input::Plan(pc)) => self.apply_plan(self.poss, pc),
-                    Some(Input::Word { id, pick }) => self.your_word(self.poss, id, pick),
+                    Some(Input::Word { id, pick }) => self.your_word(self.poss, id, pick, 1.0),
+                    Some(Input::Said { id, pick, share }) => self.your_word(self.poss, id, pick, share),
+                    Some(Input::BenchFlag) => self.bench_flag(self.poss),
                     Some(Input::Tempo(t)) => {
                         self.tempo = t;
                         let name = match t {
@@ -2627,6 +2863,12 @@ impl<'a> Game<'a> {
                 choice = if yl < 40.0 { FourthDown::Go } else { FourthDown::Punt };
             }
             choice = self.garbage_fourth(choice, yl);
+            // The field goal line your word set (the promises on usage):
+            // inside it the staff kicks where it would have punted.
+            let line = self.sides[o].team.prep.keep.fg_line;
+            if line > 0 && choice == FourthDown::Punt && yl <= line as f64 {
+                choice = FourthDown::FieldGoal;
+            }
             if let Some(c) = self.chart_fourth(o, make, fg_dist <= kicker_range + 3.0) {
                 choice = c;
             }
@@ -2719,6 +2961,133 @@ impl<'a> Game<'a> {
 
     /// Your 4th-down chart on your own snaps (topic 2): from the true win
     /// chance of each choice. None leaves the staff's judgment.
+    /// The defense's plan keeping your promises on usage on this snap
+    /// (`roster::Keep`): a four-man rush becomes a stunt with the man you
+    /// promised to free up, or a blitz with the man you promised to send,
+    /// and the snap carries who they are. Nothing for a plan without one.
+    fn keep_defense(&mut self, dcall: &mut DefCall, def: &[(DSlot, usize)]) -> KeepSnap {
+        let d = 1 - self.poss;
+        if self.sides[d].team.prep.keep.is_empty() {
+            return KeepSnap::default();
+        }
+        let keep = self.sides[d].team.prep.keep.clone();
+        let players = &self.sides[d].team.players;
+        let find = |ids: &[u32], ok: fn(DSlot) -> bool| {
+            def.iter().find(|&&(sl, i)| ok(sl) && ids.contains(&players[i].id)).copied()
+        };
+        let free = find(&keep.free_up, |sl| matches!(sl, DSlot::LE | DSlot::RE | DSlot::DTL | DSlot::DTR));
+        let send = find(&keep.send, |sl| sl.is_lb() || matches!(sl, DSlot::NCB | DSlot::DCB | DSlot::SS | DSlot::FS));
+        let rush = find(&keep.rush, |sl| matches!(sl, DSlot::LE | DSlot::RE));
+        let mut k = KeepSnap {
+            free_up: free.map(|x| x.1),
+            send: send.map(|x| x.1),
+            rush: rush.map(|x| x.1),
+            ..KeepSnap::default()
+        };
+        let four = matches!(dcall.pressure, Pressure::Four | Pressure::Simulated);
+        if let Some((sl, _)) = free
+            && four
+            && dcall.stunt == Stunt::None
+            && self.rng.chance(FREE_UP)
+        {
+            dcall.stunt = if matches!(sl, DSlot::LE | DSlot::RE) { Stunt::EndTackle } else { Stunt::TackleEnd };
+        }
+        if let Some((sl, _)) = send
+            && dcall.pressure == Pressure::Four
+            && dcall.stunt == Stunt::None
+            && self.rng.chance(SEND)
+        {
+            dcall.pressure = if sl.is_lb() { Pressure::LbBlitz } else { Pressure::DbBlitz };
+            *dcall = self.legal_defense(*dcall);
+        }
+        if dcall.stunt == Stunt::None {
+            k.free_up = None;
+        }
+        k
+    }
+
+    /// The offense's plan keeping your promises on usage on this snap: the
+    /// men on the field the shots go to, the man featured and the lineman
+    /// helped.
+    fn keep_offense(&self, k: &mut KeepSnap, off: &[(ORole, usize)]) {
+        let o = self.poss;
+        let keep = &self.sides[o].team.prep.keep;
+        if keep.is_empty() {
+            return;
+        }
+        let players = &self.sides[o].team.players;
+        let find = |ids: &[u32], line: bool| {
+            off.iter().find(|&&(rl, i)| rl.is_line() == line && ids.contains(&players[i].id)).map(|x| x.1)
+        };
+        k.shots = find(&keep.shots, false);
+        k.feature = find(&keep.feature, false);
+        k.help = find(&keep.help, true);
+        let mut rel = off.iter().filter(|&&(rl, i)| !rl.is_line() && keep.release.contains(&players[i].id));
+        k.release = [rel.next().map(|x| x.1), rel.next().map(|x| x.1)];
+    }
+
+    /// Your word on where a man lines up this snap (the promises on usage,
+    /// lane N2): the receiver promised jet sweeps takes the motion spot on
+    /// one, the corner promised the boundary or the field side trades sides
+    /// with the other outside corner by the hash, the post safety plays free
+    /// in single-high and the robber strong in Cover 1 robber. Only men
+    /// already on the field move, and only for a plan that holds one.
+    fn keep_lineup(&self, call: &OffCall, dcall: &DefCall, off: &mut [(ORole, usize)], def: &mut [(DSlot, usize)]) {
+        let o = self.poss;
+        let ko = &self.sides[o].team.prep.keep;
+        if !ko.gadget.is_empty()
+            && call.kind == PlayKind::Run(RunConcept::JetSweep)
+            && let Some(m) = call.formation.motion_man()
+        {
+            let ps = &self.sides[o].team.players;
+            let me = off.iter().position(|&(r, i)| {
+                ko.gadget.contains(&ps[i].id)
+                    && matches!(r, ORole::X | ORole::Z | ORole::Slot | ORole::Slot2 | ORole::Slot3)
+            });
+            if let (Some(a), Some(b)) = (me, off.iter().position(|&(r, _)| r == m))
+                && a != b
+            {
+                let t = off[a].0;
+                off[a].0 = off[b].0;
+                off[b].0 = t;
+            }
+        }
+        let kd = &self.sides[1 - o].team.prep.keep;
+        if kd.side.is_empty() && kd.post.is_empty() && kd.robber.is_empty() {
+            return;
+        }
+        let ps = &self.sides[1 - o].team.players;
+        // Put him at `want` when he is at `from` (the two trade spots).
+        let put = |def: &mut [(DSlot, usize)], id: u32, want: DSlot, from: DSlot| {
+            let me = def.iter().position(|&(sl, i)| sl == from && ps[i].id == id);
+            if let (Some(a), Some(b)) = (me, def.iter().position(|&(sl, _)| sl == want)) {
+                def[a].0 = want;
+                def[b].0 = from;
+            }
+        };
+        // The boundary is the short side: the left hash puts it on the
+        // offense's left (the left corner's side).
+        let hash = super::sheet::hash_of(self.ball_y);
+        if hash > 0 {
+            let boundary = if hash == 1 { DSlot::CBL } else { DSlot::CBR };
+            let field = if hash == 1 { DSlot::CBR } else { DSlot::CBL };
+            for &(id, side) in &kd.side {
+                let (want, from) = if side == 1 { (boundary, field) } else { (field, boundary) };
+                put(def, id, want, from);
+            }
+        }
+        if dcall.coverage.high() == 1 {
+            for &id in &kd.post {
+                put(def, id, DSlot::FS, DSlot::SS);
+            }
+        }
+        if dcall.coverage == Coverage::Cover1Robber {
+            for &id in &kd.robber {
+                put(def, id, DSlot::SS, DSlot::FS);
+            }
+        }
+    }
+
     fn chart_fourth(&self, o: usize, make: f64, in_range: bool) -> Option<FourthDown> {
         let prep = &self.ctl.as_ref().filter(|c| c.team == o)?.prep;
         let chart = prep.fourth;
@@ -3216,13 +3585,13 @@ impl<'a> Game<'a> {
                 }
             }
         };
-        // The line: each man to the spot he plays best together with the
-        // others, a fill-in paying for a spot he doesn't know (3.3).
-        let line = |list: Vec<usize>, rs: &[ORole], off: &mut Vec<(ORole, usize)>| {
+        // The line: the men your order or your package names at the slots
+        // you gave them; everyone else to the spot he plays best together
+        // with the others, a fill-in paying for a spot he doesn't know
+        // (3.3; `pick_line`).
+        let line = |pos: Position, rs: &[ORole], used: &mut Vec<usize>, off: &mut Vec<(ORole, usize)>, gl| {
             let lefty = off.iter().any(|&(r, i)| r == ORole::QB && o.team.players[i].left_handed);
-            let spots: Vec<Spot> = rs.iter().map(|&r| orole_spot(r)).collect();
-            let order = best_order(&list, &spots, &|i, sp| o.on_line(i, sp, lefty));
-            for (k, i) in order.into_iter().enumerate() {
+            for (k, i) in o.pick_line(pos, rs, used, gl, lefty).into_iter().enumerate() {
                 if let Some(i) = i {
                     off.push((rs[k], i));
                 }
@@ -3240,9 +3609,9 @@ impl<'a> Game<'a> {
         add(o.pick_pref(Position::QB, 1, &mut used, gl), &[ORole::QB], &mut off);
         // Arena football's line is a center and two guards (8 a side).
         if self.rules().code.players > 8 {
-            line(o.pick_pref(Position::OT, 2, &mut used, gl), &[ORole::LT, ORole::RT], &mut off);
+            line(Position::OT, &[ORole::LT, ORole::RT], &mut used, &mut off, gl);
         }
-        line(o.pick_pref(Position::IOL, 3, &mut used, gl), &[ORole::LG, ORole::C, ORole::RG], &mut off);
+        line(Position::IOL, &[ORole::LG, ORole::C, ORole::RG], &mut used, &mut off, gl);
         let backs: Vec<ORole> = roles.iter().copied().filter(|r| r.is_back() && *r != ORole::FB).collect();
         add(o.pick_pref(Position::RB, backs.len(), &mut used, gl), &backs, &mut off);
         let wrs: Vec<ORole> = roles
@@ -3429,7 +3798,11 @@ impl<'a> Game<'a> {
         // (tendencies topic 4.4).
         let vs = self.sides[o].mem.plan.vs.hard_count;
         let hard = if self.down >= 3 && self.togo <= 2.0 || vs > 0.0 && (self.down >= 3 || self.togo <= 3.0) {
-            clamp(1.5 + 0.05 * (qp.trait20(Attr::FootballIq, self.s.rules.level) - 10.0), 1.0, 2.5) * (1.0 + 0.5 * vs)
+            // A hard count that draws flags (individual practice): the
+            // tool's points on his football IQ, a quarter of a step each.
+            let count = 0.25 * qp.craft_vs(crate::craft::Craft::HardCount, self.s.rules.level, 0.0);
+            clamp(1.5 + 0.05 * (qp.trait20(Attr::FootballIq, self.s.rules.level) + count - 10.0), 1.0, 2.5)
+                * (1.0 + 0.5 * vs)
         } else {
             1.0
         };
@@ -3527,6 +3900,8 @@ impl<'a> Game<'a> {
             plan: self.sides[o].team.plan().0,
             designs: calling::sheet_designs(&self.sides[o].team.prep),
             burner: self.sides[o].burner_lean(),
+            shots: self.sides[o].shots_lean(),
+            lean: self.sides[o].lean(),
         };
         let mut call = calling::call_offense(&staff_o, &self.sides[o].mem, &sit, &ctx, &mut self.rng);
         // Your four-minute plan (update 2, G4): run it out, or keep
@@ -3609,7 +3984,9 @@ impl<'a> Game<'a> {
                 match self.ask(Ask::Defense, again) {
                     Some(Input::Timeout) => self.user_timeout(1 - o),
                     Some(Input::Plan(pc)) => self.apply_plan(1 - o, pc),
-                    Some(Input::Word { id, pick }) => self.your_word(1 - o, id, pick),
+                    Some(Input::Word { id, pick }) => self.your_word(1 - o, id, pick, 1.0),
+                    Some(Input::Said { id, pick, share }) => self.your_word(1 - o, id, pick, share),
+                    Some(Input::BenchFlag) => self.bench_flag(1 - o),
                     Some(Input::Tempo(_)) => {}
                     other => {
                         dinput = other;
@@ -3689,7 +4066,7 @@ impl<'a> Game<'a> {
         // A fake punt brings its own two units (`fake_punt_play`).
         let fake = self.fake.take();
         call.formation.personnel = call.formation.personnel.for_players(self.rules().code.players);
-        let dcall =
+        let mut dcall =
             self.legal_defense(dcall.unwrap_or(DefCall::new(DefPersonnel::Base, Coverage::Cover3, Pressure::Four)));
         self.sides[d].frozen = self.no_huddle;
         // Who sits by the week's plan this snap (G14, G15).
@@ -3703,8 +4080,9 @@ impl<'a> Game<'a> {
         let (off, def) = match &fake {
             Some((off, def, _)) => (off.clone(), def.clone()),
             None => {
-                let (mut off, def) = self.lineup(&call, &dcall);
+                let (mut off, mut def) = self.lineup(&call, &dcall);
                 self.speed_package(&call, &mut off);
+                self.keep_lineup(&call, &dcall, &mut off, &mut def);
                 (off, def)
             }
         };
@@ -3712,6 +4090,12 @@ impl<'a> Game<'a> {
             side.scrimmage = false;
         }
         self.sides[d].frozen = false;
+        // The defense's plan keeps your word (the promises on usage): a
+        // stunt with the man you promised to free up, a blitz with the man
+        // you promised to send. Never on a call you made yourself, and only
+        // for a team whose plan holds one (no AI team's does).
+        let keep_d =
+            if fake.is_none() && !self.mark.1 { self.keep_defense(&mut dcall, &def) } else { KeepSnap::default() };
         for &(_, i) in &off {
             self.sides[o].snaps[i] = self.sides[o].snaps[i].saturating_add(1);
         }
@@ -3731,8 +4115,20 @@ impl<'a> Game<'a> {
         let blockers =
             5 + off.iter().filter(|x| matches!(x.0, ORole::TE | ORole::TE2 | ORole::TE3 | ORole::FB)).count() as i32;
         let numbers = box_n - blockers;
-        let freedom =
+        let mut freedom =
             clamp(0.85 - 0.035 * self.sides[o].team.staff.strictness + 0.04 * qp.experience.min(5.0), 0.1, 0.95);
+        // Your word to him (the promises on usage): the plan gives him at
+        // least a kill call, or full audibles.
+        if let Some(&(_, lv)) = self.sides[o].team.prep.keep.freedom.iter().find(|x| x.0 == qp.id) {
+            freedom = freedom.max(if lv >= 3 { FULL_FREEDOM } else { KILL_FREEDOM });
+        }
+        let freedom_level = if freedom >= FULL_FREEDOM {
+            3
+        } else if freedom >= KILL_FREEDOM {
+            2
+        } else {
+            1
+        };
         let iq = 0.5 * qp.a(Attr::PlayRecognition) + 0.5 * qp.a(Attr::FootballIq);
         // His read of the shell: a disguise fools him unless he out-thinks
         // the secondary (3.5).
@@ -3740,7 +4136,17 @@ impl<'a> Game<'a> {
         let db_iq = def
             .iter()
             .filter(|(s, _)| s.is_db())
-            .map(|&(_, i)| self.sides[d].team.players[i].a(Attr::Disguise))
+            // Late rotation (individual practice): a safety who turns his
+            // disguise late shows the true shell the flaw sooner.
+            .map(|&(s, i)| {
+                let p = &self.sides[d].team.players[i];
+                let late = if matches!(s, DSlot::FS | DSlot::SS) {
+                    p.craft_vs(crate::craft::Craft::LateRotation, self.s.rules.level, 0.0)
+                } else {
+                    0.0
+                };
+                p.a(Attr::Disguise) + late
+            })
             .sum::<f64>()
             / def.iter().filter(|(s, _)| s.is_db()).count().max(1) as f64;
         let fooled =
@@ -3786,9 +4192,9 @@ impl<'a> Game<'a> {
                 && self.rng.chance(sees)
             {
                 let alt = call.alt.filter(|a| matches!(a, PlayKind::Pass(_)) == to_pass);
-                let new = if freedom >= 0.35 && alt.is_some() {
+                let new = if freedom >= KILL_FREEDOM && alt.is_some() {
                     alt
-                } else if freedom >= 0.7 {
+                } else if freedom >= FULL_FREEDOM {
                     Some(if to_pass {
                         PlayKind::Pass(calling::quick_check(sit.togo))
                     } else {
@@ -3834,6 +4240,9 @@ impl<'a> Game<'a> {
         };
         r.defense_call = dcall.describe();
         r.dpers = 1 + dcall.personnel as u8;
+        if fake.is_none() && call.kind != PlayKind::Kneel {
+            r.freedom = freedom_level;
+        }
         let mark = std::mem::take(&mut self.mark);
         r.yours = mark.0 as u8 | (mark.1 as u8) << 1;
         r.off_sheet = mark.2;
@@ -3950,6 +4359,13 @@ impl<'a> Game<'a> {
             ],
             double_moves: self.sides[o].mem.plan.vs.double_moves,
             learn: [self.sides[o].team.prep.learn[0], self.sides[d].team.prep.learn[1]],
+            keep: {
+                let mut k = keep_d;
+                if fake.is_none() && r.yours & 1 == 0 {
+                    self.keep_offense(&mut k, &off);
+                }
+                k
+            },
         };
         let snap = Snap {
             teams: [&self.sides[o].team.players, &self.sides[d].team.players],
@@ -4170,6 +4586,7 @@ impl<'a> Game<'a> {
         r.blocks = res.notes.blocks.clone();
         r.rush_wins = res.notes.rush_wins.clone();
         r.rush_moves = res.notes.rush_moves.clone();
+        r.craft = res.notes.craft.clone();
         r.line = res.notes.chart.clone();
         r.tend = res.notes.tend;
         r.busts = res.notes.busts.clone();
@@ -5154,6 +5571,8 @@ impl<'a> Game<'a> {
             plan: self.sides[o].team.plan().0,
             designs: calling::sheet_designs(&self.sides[o].team.prep),
             burner: self.sides[o].burner_lean(),
+            shots: self.sides[o].shots_lean(),
+            lean: self.sides[o].lean(),
         };
         (ctx, qb_threat)
     }
@@ -5972,6 +6391,14 @@ pub struct PracticeSnap {
 /// training model), so the engine's are cleared between snaps. The plays
 /// come back booked, with their grades, in a game's stats.
 pub fn practice_snaps(off: &GameTeam, def: &GameTeam, level: Level, snaps: &[PracticeSnap], seed: u64) -> GameStats {
+    // A fix shows on the practice field first (individual practice topic
+    // 6.2): practice reads each man's flaws and tools as they are there.
+    let practice = |t: &GameTeam| {
+        let mut t = t.clone();
+        t.players.iter_mut().for_each(|p| p.craft.to_practice());
+        t
+    };
+    let (off, def) = (&practice(off), &practice(def));
     let setup = GameSetup::new(off, def, level, seed);
     let mut g = bare_game(&setup, off, def, 35.0, seed);
     let fresh: [Vec<f64>; 2] = [g.sides[0].energy.clone(), g.sides[1].energy.clone()];
@@ -5996,6 +6423,93 @@ pub fn practice_snaps(off: &GameTeam, def: &GameTeam, level: Level, snaps: &[Pra
         stats.plays.push(r);
     }
     stats
+}
+
+/// The line's slots a position's men fill on your Offense board, left to
+/// right. Your order names them (`spots::board_jobs`).
+fn line_slots(pos: Position) -> Option<&'static [ORole]> {
+    match pos {
+        Position::OT => Some(&[ORole::LT, ORole::RT]),
+        Position::IOL => Some(&[ORole::LG, ORole::C, ORole::RG]),
+        _ => None,
+    }
+}
+
+/// Who lines up where at kickoff, every man fresh: the line by slot and the
+/// men named to the linebacker, corner and safety jobs, by player id. Your
+/// depth chart screens read it, so a spot you haven't set shows the man
+/// the game will play there, not your staff's order on the slots' names
+/// (playtest bug 12).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Seating {
+    /// The line, left to right: LT, LG, C, RG, RT (no tackles in arena
+    /// football).
+    pub line: Vec<(&'static str, u32)>,
+    /// The men named to a job, in the order the engine fills its slots: of
+    /// the two outside corners the first lines up on the left.
+    pub jobs: Vec<(Spot, u32)>,
+}
+
+impl Seating {
+    /// The man at a board slot the game keeps by name, the `nth` slot of
+    /// that name on the board (the second "CB" is 1): the line's five and
+    /// SAM, MIKE, WILL, CB, NICKEL, FS, SS. None for any other slot.
+    pub fn at(&self, slot: &str, nth: usize) -> Option<u32> {
+        let job = match slot {
+            "SAM" => Spot::SAM,
+            "MIKE" => Spot::MLB,
+            "WILL" => Spot::OLB,
+            "CB" => Spot::CB,
+            "NICKEL" => Spot::NB,
+            "FS" => Spot::FS,
+            "SS" => Spot::SS,
+            _ => return self.line.iter().filter(|x| x.0 == slot).nth(nth).map(|x| x.1),
+        };
+        self.jobs.iter().filter(|x| x.0 == job).nth(nth).map(|x| x.1)
+    }
+
+    /// The men at a position's board slots, in the board's order
+    /// (`spots::board_jobs`): LT, RT; LG, C, RG; SAM, MIKE, WILL; the two
+    /// corners and the nickel; FS, SS. Empty for any other position.
+    pub fn by_slot(&self, pos: Position) -> Vec<Option<u32>> {
+        if let Some(slots) = line_slots(pos) {
+            return slots.iter().map(|r| self.at(super::scrimmage::orole_label(*r), 0)).collect();
+        }
+        let jobs = if spots::named_jobs(pos) { spots::board_jobs(pos) } else { &[] };
+        (0..jobs.len())
+            .map(|k| {
+                let nth = jobs[..k].iter().filter(|j| **j == jobs[k]).count();
+                self.jobs.iter().filter(|x| x.0 == jobs[k]).nth(nth).map(|x| x.1)
+            })
+            .collect()
+    }
+}
+
+/// A team's seating at kickoff (`Seating`), worked out by the game's own
+/// lineup code: the same picks and the same fit.
+pub fn seating(team: &GameTeam, level: Level) -> Seating {
+    let setup = GameSetup::new(team, team, level, 0);
+    let side = Side::new(team, setup.two_way_margin[0], setup.rules.timeouts);
+    let mut used = Vec::new();
+    let qb = side.pick_pref(Position::QB, 1, &mut used, None);
+    let lefty = qb.first().is_some_and(|&i| team.players[i].left_handed);
+    let mut line: Vec<(ORole, u32)> = Vec::new();
+    let mut seat = |pos: Position, rs: &[ORole], used: &mut Vec<usize>| {
+        for (k, i) in side.pick_line(pos, rs, used, None, lefty).into_iter().enumerate() {
+            if let Some(i) = i {
+                line.push((rs[k], team.players[i].id));
+            }
+        }
+    };
+    if setup.rules.code.players > 8 {
+        seat(Position::OT, &[ORole::LT, ORole::RT], &mut used);
+    }
+    seat(Position::IOL, &[ORole::LG, ORole::C, ORole::RG], &mut used);
+    line.sort_by_key(|x| [ORole::LT, ORole::LG, ORole::C, ORole::RG, ORole::RT].iter().position(|r| *r == x.0));
+    Seating {
+        line: line.into_iter().map(|(r, id)| (super::scrimmage::orole_label(r), id)).collect(),
+        jobs: (0..team.players.len()).filter_map(|i| side.job[i].map(|s| (s, team.players[i].id))).collect(),
+    }
 }
 
 /// The depth-chart spot an offensive role asks for.
@@ -6113,13 +6627,19 @@ impl<'a> Game<'a> {
     /// A talk to one side's whole room (dialogue D4, D5): yours, or the
     /// head coach's own read of his room. The halftime talk takes over from
     /// what is left of the pregame one.
-    fn room_talk(&mut self, k: usize, moment: super::talk::Moment, pick: Option<super::talk::Pick>) {
+    fn room_talk(
+        &mut self,
+        k: usize,
+        moment: super::talk::Moment,
+        pick: Option<super::talk::Pick>,
+        tilts: &[super::talk::Tilt],
+    ) {
         let team: &'a GameTeam = self.sides[k].team;
         let cx = self.talk_cx(k, moment);
         let half = matches!(moment, super::talk::Moment::Halftime { .. });
         let seed = self.s.seed ^ 0x7A1C_0000 ^ ((k as u64) << 40) ^ ((half as u64) << 44);
         let pick = pick.unwrap_or_else(|| super::talk::coach_pick(team, &cx, seed));
-        let ls = super::talk::room(team, &pick, &cx);
+        let ls = super::talk::room_tilted(team, &pick, &cx, tilts);
         for (i, l) in ls.iter().enumerate() {
             self.sides[k].pulse[i] = super::talk::Pulse::of(l);
         }
@@ -6154,13 +6674,17 @@ impl<'a> Game<'a> {
         super::talk::coach_word(p, &cx, self.s.seed ^ 0x5D1E_0000 ^ ((p.id as u64) << 24) ^ play as u64)
     }
 
-    fn give_word(&mut self, w: super::talk::WordDue, pick: super::talk::Pick, yours: bool) {
+    fn give_word(&mut self, w: super::talk::WordDue, pick: super::talk::Pick, yours: bool, share: f32) {
         let k = w.team;
         let Some(i) = self.sides[k].team.players.iter().position(|p| p.id == w.id) else { return };
         let team: &'a GameTeam = self.sides[k].team;
         let cx = self.talk_cx(k, super::talk::Moment::Sideline { mistake: w.mistake });
         let pick = super::talk::Pick { subject: super::talk::Subject::One, who: w.id, ..pick };
-        let l = super::talk::land(&team.players[i], &pick, &cx, None);
+        let l = if share >= 1.0 {
+            super::talk::land(&team.players[i], &pick, &cx, None)
+        } else {
+            super::talk::land_share(&team.players[i], &pick, &cx, share)
+        };
         self.sides[k].pulse[i].add(&l);
         // A word that lands takes some of the sting out of the mistake; one
         // that misses adds to it.
@@ -6186,12 +6710,39 @@ impl<'a> Game<'a> {
     }
 
     /// Your word to one of your players waiting for one.
-    fn your_word(&mut self, k: usize, id: u32, pick: super::talk::Pick) {
+    fn your_word(&mut self, k: usize, id: u32, pick: super::talk::Pick, share: f32) {
         let Some(at) = self.due.iter().position(|w| w.team == k && w.id == id && self.word_ready(w)) else {
             return;
         };
         let w = self.due.remove(at);
-        self.give_word(w, pick, true);
+        self.give_word(w, pick, true, share);
+    }
+
+    /// An unsportsmanlike flag on team `k`'s sideline between plays (live
+    /// talks v3, lane N5d: you went too far with an official): a dead-ball
+    /// foul, 15 yards from the succeeding spot, half the distance near a
+    /// goal line. Against the defense the NFL gives a first down too; at
+    /// every level the yards can reach the line to gain.
+    fn bench_flag(&mut self, k: usize) {
+        if k > 1 {
+            return;
+        }
+        let nfl = self.rules().level == Level::NFL;
+        if k == self.poss {
+            let back = 15.0f64.min(self.x / 2.0);
+            self.x -= back;
+            self.togo += back;
+        } else {
+            let fwd = 15.0f64.min((goal() - self.x) / 2.0);
+            self.x += fwd;
+            self.togo -= fwd;
+            if nfl || self.togo <= 0.0 {
+                self.down = 1;
+                self.togo = 10.0f64.min(goal() - self.x);
+            }
+        }
+        self.running = false;
+        self.log(k, "Unsportsmanlike conduct on your sideline: 15 yards.".into());
     }
 
     /// Before a snap: every word that can come now and wasn't given is the
@@ -6205,7 +6756,7 @@ impl<'a> Game<'a> {
         for w in ready {
             if let Some(i) = self.sides[w.team].team.players.iter().position(|p| p.id == w.id) {
                 let pick = self.staff_word(w.team, i, w.mistake, w.play);
-                self.give_word(w, pick, false);
+                self.give_word(w, pick, false, 1.0);
             }
         }
     }

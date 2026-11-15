@@ -17,7 +17,8 @@ use afm_engine::world::scouting::Kind;
 use afm_engine::world::{Stage, World};
 use serde_json::{Value, json};
 
-use super::first_last;
+pub(crate) use super::projected::Src;
+use super::{cap, first_last};
 use crate::Reply;
 use crate::views::{self, TeamRef};
 
@@ -261,6 +262,228 @@ fn pools(w: &World, i: usize) -> (String, Pools) {
     v
 }
 
+/// The group his projected numbers are read against at a coming day:
+/// this season's seniors at his position for Senior year (his state's when
+/// it has 40, the nation's otherwise), the last three drafts' picks at his
+/// position (the men the combine tested lately) for At the combine, his
+/// level now for the rest. Kept for the day.
+fn target_pool(w: &World, i: usize, key: &str) -> Option<(String, Arc<Vec<Member>>)> {
+    type Kept = HashMap<(u32, i32, String, Position), (String, Arc<Vec<Member>>)>;
+    static CACHE: Mutex<Option<Kept>> = Mutex::new(None);
+    let p = &w.people[i];
+    let pos = p.player.position;
+    let (_, many) = crate::lane_ratings::pos_words(pos);
+    let seniors = if w.today < w.dates.hs_school_start { w.year } else { w.year + 1 };
+    let st = w.high_schools.get(p.hs).map(|s| s.state);
+    let tag = match key {
+        "senior" => format!("sr{}-{seniors}", st.unwrap_or(usize::MAX)),
+        "combine" => "draft".to_string(),
+        _ => return None,
+    };
+    let ck = (w.options.seed, w.today.0, tag, pos);
+    let mut g = CACHE.lock().unwrap_or_else(|e| e.into_inner());
+    let map = g.get_or_insert_with(HashMap::new);
+    map.retain(|k, _| k.0 == ck.0 && k.1 == ck.1);
+    if let Some(v) = map.get(&ck) {
+        return Some(v.clone());
+    }
+    let collect = |keep: &dyn Fn(&afm_engine::world::Person) -> bool| -> Vec<Member> {
+        w.people
+            .iter()
+            .enumerate()
+            .filter(|(_, q)| q.player.position == pos && keep(q))
+            .map(|(j, q)| Member {
+                vals: known(w, j).vals,
+                first: false,
+                name: q.name.clone(),
+                id: Some(q.player.id),
+                school: team_words(w, q),
+            })
+            .collect()
+    };
+    let hs = |q: &afm_engine::world::Person| matches!(q.stage, Stage::HighSchool | Stage::PrepSchool);
+    let v = if key == "senior" {
+        let in_state = collect(&|q| hs(q) && q.class_of == seniors && w.high_schools.get(q.hs).map(|s| s.state) == st);
+        if in_state.len() >= 40 {
+            let s = st.map_or("", |s| views::state_name(&w.states[s].code));
+            (format!("this season's {s} senior {many}"), in_state)
+        } else {
+            (format!("this season's high school senior {many}"), collect(&|q| hs(q) && q.class_of == seniors))
+        }
+    } else {
+        // The men the combine has tested lately: the last three drafts'
+        // picks at his position, with their combine numbers.
+        let (_, (_, drafted)) = pools(w, i);
+        let last = drafted.iter().map(|d| d.year).max().unwrap_or(w.year);
+        let v: Vec<Member> = drafted
+            .iter()
+            .filter(|d| d.year > last - 3)
+            .map(|d| Member {
+                vals: d.vals,
+                first: d.pick.is_some_and(|x| x <= 32),
+                name: d.name.clone(),
+                id: d.id,
+                school: if d.school.is_empty() { format!("{}", d.year) } else { format!("{} {}", d.school, d.year) },
+            })
+            .collect();
+        (format!("{many} drafted in the last three drafts"), v)
+    };
+    let v = (v.0, Arc::new(v.1));
+    map.insert(ck, v.clone());
+    Some(v)
+}
+
+/// Drafted men's arm length for their height at a position, for a
+/// projection of a man whose arms nobody has measured.
+fn arm_ratio(drafted: &[Past]) -> f64 {
+    let r: Vec<f64> = drafted.iter().filter_map(|d| Some(d.vals[2]? / d.vals[0]?)).collect();
+    if r.len() >= 10 { r.iter().sum::<f64>() / r.len() as f64 } else { 0.435 }
+}
+
+type Spread = Option<Vec<Option<(f64, f64)>>>;
+
+/// His percentile on each test against his level, the drafted and the
+/// real combine.
+fn pct_with(lv: &[[Option<f64>; 12]], dv: &[[Option<f64>; 12]], real: &Spread, t: usize, v: f64) -> [Option<f64>; 3] {
+    let col = |pool: &[[Option<f64>; 12]]| -> Vec<f64> { pool.iter().filter_map(|m| m[t]).collect() };
+    let lower = TESTS[t].2;
+    let a = col(lv);
+    let b = col(dv);
+    let c = real.as_ref().and_then(|r| r[t]).map(|(m, sd)| {
+        let z = (v - m) / sd;
+        100.0 * if lower { 1.0 - phi(z) } else { phi(z) }
+    });
+    [(a.len() >= 10).then(|| pct_in(&a, v, lower)), (b.len() >= 10).then(|| pct_in(&b, v, lower)), c]
+}
+
+/// The athletic score: the share of each comparison he beats, on 0-10,
+/// by size, speed, burst and agility, and over every test; and how many
+/// in the pool his score beats (each scored the same way).
+fn scores_of(
+    vals: &[Option<f64>; 12],
+    lv: &[[Option<f64>; 12]],
+    dv: &[[Option<f64>; 12]],
+    real: &Spread,
+) -> Vec<Value> {
+    let col = |pool: &[[Option<f64>; 12]], t: usize| -> Vec<f64> { pool.iter().filter_map(|m| m[t]).collect() };
+    let subs_def: [(&str, &[usize]); 4] =
+        [("Size", &[0, 1]), ("Speed", &[5]), ("Burst", &[7, 8]), ("Agility", &[9, 10])];
+    let all_tests = [0usize, 1, 5, 7, 8, 9, 10, 11];
+    let score_from = |pcts: &dyn Fn(usize) -> Option<f64>| -> (Vec<Option<f64>>, Option<f64>) {
+        let subs = subs_def
+            .iter()
+            .map(|(_, ts)| {
+                let v: Vec<f64> = ts.iter().filter_map(|&t| pcts(t)).collect();
+                (!v.is_empty()).then(|| v.iter().sum::<f64>() / v.len() as f64 / 10.0)
+            })
+            .collect();
+        let v: Vec<f64> = all_tests.iter().filter_map(|&t| pcts(t)).collect();
+        (subs, (v.len() >= 3).then(|| v.iter().sum::<f64>() / v.len() as f64 / 10.0))
+    };
+    let mut scores: Vec<Value> = Vec::new();
+    for c in 0..3 {
+        let (subs, score) = score_from(&|t| vals[t].and_then(|v| pct_with(lv, dv, real, t, v)[c]));
+        let better = score.map(|s| match c {
+            0 | 1 => {
+                let pool = if c == 0 { lv } else { dv };
+                let mut cols: Vec<Vec<f64>> = (0..12).map(|t| col(pool, t)).collect();
+                for v in &mut cols {
+                    v.sort_by(|a, b| a.total_cmp(b));
+                }
+                let theirs: Vec<f64> = pool
+                    .iter()
+                    .filter_map(|m| {
+                        let v: Vec<f64> =
+                            all_tests.iter().filter_map(|&t| m[t].map(|x| pct_in(&cols[t], x, TESTS[t].2))).collect();
+                        (v.len() >= 3).then(|| v.iter().sum::<f64>() / v.len() as f64 / 10.0)
+                    })
+                    .collect();
+                // Shown from 1 to 99, as a percentile is.
+                pct_in(&theirs, s, false).round().clamp(1.0, 99.0)
+            }
+            _ => (s * 10.0).round(),
+        });
+        scores.push(json!({
+            "score": score.map(|s| (s * 10.0).round() / 10.0),
+            "better": better,
+            "subs": subs_def.iter().zip(subs).map(|((n, _), v)| json!({ "k": n, "v": v.map(|x| (x * 10.0).round() / 10.0) })).collect::<Vec<_>>(),
+        }));
+    }
+    scores
+}
+
+/// His projections at each coming day (projected test numbers): every
+/// row's middle and band with its percentiles, the athletic score on them,
+/// the group "his level" means then, and his weight on the way.
+fn projections(
+    w: &World,
+    i: usize,
+    k: &Known,
+    drafted: &[Past],
+    dv: &[[Option<f64>; 12]],
+    real: &Spread,
+) -> Vec<Value> {
+    let p = &w.people[i];
+    let (_, many) = crate::lane_ratings::pos_words(p.player.position);
+    let ratio = arm_ratio(drafted);
+    super::projected::targets(w, i)
+        .iter()
+        .map(|t| {
+            let pr = match super::projected::project(w, i, k, t, ratio) {
+                Ok(pr) => pr,
+                Err(e) => return json!({ "key": t.key, "label": t.label, "note": t.note, "error": e }),
+            };
+            let (label, pool) = target_pool(w, i, t.key).unwrap_or_else(|| {
+                let (l, (lv, _)) = pools(w, i);
+                (l, lv)
+            });
+            let tlv: Vec<[Option<f64>; 12]> = pool.iter().map(|m| m.vals).collect();
+            let rows: Vec<Value> = TESTS
+                .iter()
+                .enumerate()
+                .map(|(r, &(key, label, lower, _))| {
+                    let v = pr.vals[r];
+                    let band = pr.band[r].map(|(a, b)| {
+                        let (ta, tb) = (text(r, a), text(r, b));
+                        let unit = [" reps", " lb"].into_iter().find(|u| ta.ends_with(u)).unwrap_or("");
+                        if ta == tb { ta } else if r == 0 { format!("{ta} to {tb}") } else { format!("{}-{tb}", ta.trim_end_matches(unit)) }
+                    });
+                    json!({
+                        "key": key, "label": label, "lower": lower,
+                        "value": v, "text": v.map(|v| text(r, v)), "band": band,
+                        "anchored": pr.anchored[r],
+                        "pct": v.map(|v| pct_with(&tlv, dv, real, r, v).map(|x| x.map(|v| v.round().clamp(1.0, 99.0)))),
+                    })
+                })
+                .collect();
+            let weights: Vec<Value> = pr
+                .weights
+                .iter()
+                .map(|&(d, wt)| {
+                    let (y, m, dd) = d.parts();
+                    json!({ "label": views::date_text(d), "sort": y as f64 + (m as f64 - 1.0 + dd as f64 / 31.0) / 12.0, "wt": wt.round() })
+                })
+                .collect();
+            let dots: Vec<Value> = pool
+                .iter()
+                .filter(|m| m.id != Some(p.player.id))
+                .map(|m| json!({ "v": m.vals.iter().map(|x| x.map(|v| (v * 100.0).round() / 100.0)).collect::<Vec<_>>(), "f": m.first, "n": m.name, "s": m.school, "id": m.id }))
+                .collect();
+            json!({
+                "key": t.key, "label": t.label, "note": t.note, "years": t.years,
+                "dots": dots,
+                "when": views::date_text(t.when),
+                "whose": pr.whose,
+                "level": { "label": cap(&label), "long": label, "n": pool.len() },
+                "rows": rows,
+                "scores": scores_of(&pr.vals, &tlv, dv, real),
+                "weights": weights,
+                "many": many,
+            })
+        })
+        .collect()
+}
+
 /// The share of a pool his number beats (0-100), better to the high side.
 fn pct_in(pool: &[f64], v: f64, lower: bool) -> f64 {
     if pool.is_empty() {
@@ -283,52 +506,66 @@ fn phi(z: f64) -> f64 {
 }
 
 /// His measurements as the game knows them, with where each came from.
-struct Known {
-    vals: [Option<f64>; 12],
+pub(crate) struct Known {
+    pub(crate) vals: [Option<f64>; 12],
     lifts: Vec<(&'static str, String)>,
-    source: [Option<(String, bool)>; 12],
+    pub(crate) source: [Option<(String, bool)>; 12],
+    /// What kind of day each number came from, and the day for a number
+    /// kept from the past (None: as of today).
+    pub(crate) src: [Option<(Src, Option<afm_engine::calendar::Date>)>; 12],
 }
 
-fn known(w: &World, i: usize) -> Known {
+pub(crate) fn known(w: &World, i: usize) -> Known {
     let p = &w.people[i];
     let id = p.player.id;
     let mut vals = [None; 12];
     let mut source: [Option<(String, bool)>; 12] = Default::default();
+    let mut src: [Option<(Src, Option<afm_engine::calendar::Date>)>; 12] = Default::default();
     let mut lifts = Vec::new();
     let team = views::team_of(w, p);
     let own = team.is_some_and(|t| views::is_mine(w, t));
     let b = body_now(&p.player);
-    let set = |vals: &mut [Option<f64>; 12],
-               source: &mut [Option<(String, bool)>; 12],
-               k: usize,
-               v: f64,
-               s: &str,
-               ver: bool| {
+    type From = (Src, Option<afm_engine::calendar::Date>);
+    #[allow(clippy::too_many_arguments)]
+    fn set(
+        vals: &mut [Option<f64>; 12],
+        source: &mut [Option<(String, bool)>; 12],
+        src: &mut [Option<From>; 12],
+        from: From,
+        k: usize,
+        v: f64,
+        s: &str,
+        ver: bool,
+    ) {
         if vals[k].is_none() {
             vals[k] = Some(v);
             source[k] = Some((s.to_string(), ver));
+            src[k] = Some(from);
         }
-    };
+    }
+    let mut from: From;
     let pro_side = matches!(p.stage, Stage::College | Stage::Declared | Stage::Pro | Stage::Done);
     // Your own staff measures and tests its players.
     if own {
         let hs = matches!(team, Some(TeamRef::HighSchool(_)));
-        set(&mut vals, &mut source, 0, b.height, "Your staff's measurements", true);
-        set(&mut vals, &mut source, 1, b.weight, "Your staff's measurements", true);
+        from = (Src::Measured, None);
+        set(&mut vals, &mut source, &mut src, from, 0, b.height, "Your staff's measurements", true);
+        set(&mut vals, &mut source, &mut src, from, 1, b.weight, "Your staff's measurements", true);
         if !hs {
-            set(&mut vals, &mut source, 2, b.arm, "Your staff's measurements", true);
-            set(&mut vals, &mut source, 3, b.hand, "Your staff's measurements", true);
-            set(&mut vals, &mut source, 4, b.wingspan, "Your staff's measurements", true);
+            set(&mut vals, &mut source, &mut src, from, 2, b.arm, "Your staff's measurements", true);
+            set(&mut vals, &mut source, &mut src, from, 3, b.hand, "Your staff's measurements", true);
+            set(&mut vals, &mut source, &mut src, from, 4, b.wingspan, "Your staff's measurements", true);
         }
         if let Some((day, r)) =
             w.training.tests.iter().rev().find_map(|d| d.rows.iter().find(|r| r.id == id).map(|r| (d, *r)))
         {
             let s = format!("Your strength staff, {}", views::date_text(day.date));
-            set(&mut vals, &mut source, 5, r.forty as f64 / 100.0, &s, true);
-            set(&mut vals, &mut source, 6, r.split as f64 / 100.0, &s, true);
-            set(&mut vals, &mut source, 7, r.vertical as f64 / 2.0, &s, true);
-            set(&mut vals, &mut source, 10, r.shuttle as f64 / 100.0, &s, true);
-            set(&mut vals, &mut source, 11, r.reps as f64, &s, true);
+            from = (Src::Testing, Some(day.date));
+            set(&mut vals, &mut source, &mut src, from, 5, r.forty as f64 / 100.0, &s, true);
+            set(&mut vals, &mut source, &mut src, from, 6, r.split as f64 / 100.0, &s, true);
+            set(&mut vals, &mut source, &mut src, from, 7, r.vertical as f64 / 2.0, &s, true);
+            set(&mut vals, &mut source, &mut src, from, 10, r.shuttle as f64 / 100.0, &s, true);
+            set(&mut vals, &mut source, &mut src, from, 11, r.reps as f64, &s, true);
             lifts.push(("Bench press", format!("{} lb", r.bench)));
             lifts.push(("Squat", format!("{} lb", r.squat)));
             lifts.push(("Power clean", format!("{} lb", r.clean)));
@@ -341,11 +578,12 @@ fn known(w: &World, i: usize) -> Known {
         let c = afm_engine::body::combine(&p.player, &mut afm_engine::rng::Rng::new(id ^ 0x00C0_FFEE));
         // A drafted man the combine didn't invite tested at his pro day.
         let s = if p.cal.combine_invite { "NFL combine" } else { "Pro day" };
+        from = (Src::Combine, None);
         for (k, v) in [(0, b.height), (1, b.weight), (2, b.arm), (3, b.hand), (4, b.wingspan)] {
-            set(&mut vals, &mut source, k, v, s, true);
+            set(&mut vals, &mut source, &mut src, from, k, v, s, true);
         }
         for (k, v) in [(5, c.forty), (7, c.vertical), (8, c.broad), (9, c.cone), (10, c.shuttle), (11, c.bench)] {
-            set(&mut vals, &mut source, k, v, s, true);
+            set(&mut vals, &mut source, &mut src, from, k, v, s, true);
         }
     }
     // His laser times as he ran them (speed update S6e, minor bug 23),
@@ -366,7 +604,8 @@ fn known(w: &World, i: usize) -> Known {
                     _ => "Regional showcase".to_string(),
                 };
                 let s = format!("Laser, {place}, {}", views::date_text(t.date));
-                set(&mut vals, &mut source, k, t.secs as f64, &s, true);
+                from = (Src::Laser, Some(t.date));
+                set(&mut vals, &mut source, &mut src, from, k, t.secs as f64, &s, true);
             }
         }
         // Your own high school's hand-timed forty is your staff's own
@@ -375,7 +614,8 @@ fn known(w: &World, i: usize) -> Known {
             let hand = w.times.of(id).iter().rev().find(|t| t.event == Event::Forty && t.at == At::School);
             if let Some(t) = hand {
                 let s = format!("Your staff's hand time, {}", views::date_text(t.date));
-                set(&mut vals, &mut source, 5, t.secs as f64, &s, false);
+                from = (Src::Hand, Some(t.date));
+                set(&mut vals, &mut source, &mut src, from, 5, t.secs as f64, &s, false);
             }
         }
     }
@@ -387,24 +627,48 @@ fn known(w: &World, i: usize) -> Known {
     if let Some(&(kind, date)) = looks.first() {
         let c = afm_engine::world::scouting::file::tests(&p.player, kind, date.year());
         let s = format!("{} your scouts saw, {}", kind.name(), views::date_text(date));
+        from = (Src::Seen(kind), None);
         for (k, v) in [(5, c.forty), (7, c.vertical), (8, c.broad), (9, c.cone), (10, c.shuttle), (11, c.bench)] {
-            set(&mut vals, &mut source, k, v, &s, true);
+            set(&mut vals, &mut source, &mut src, from, k, v, &s, true);
         }
     }
     // What a school or team lists him at.
     match p.stage {
         Stage::Pro => {
-            set(&mut vals, &mut source, 0, b.height, "Team-listed", false);
-            set(&mut vals, &mut source, 1, b.weight, "Team-listed", false);
+            from = (Src::TeamListed, None);
+            set(&mut vals, &mut source, &mut src, from, 0, b.height, "Team-listed", false);
+            set(&mut vals, &mut source, &mut src, from, 1, b.weight, "Team-listed", false);
         }
         _ => {
             let (h, wt) = afm_engine::world::scouting::file::listed(&p.player);
             let s = if pro_side { "School-listed" } else { "School-listed (high school roster)" };
-            set(&mut vals, &mut source, 0, h, s, false);
-            set(&mut vals, &mut source, 1, wt, s, false);
+            from = (Src::Listed, None);
+            set(&mut vals, &mut source, &mut src, from, 0, h, s, false);
+            set(&mut vals, &mut source, &mut src, from, 1, wt, s, false);
         }
     }
-    Known { vals, lifts, source }
+    Known { vals, lifts, source, src }
+}
+
+/// His projection at the combine (the hover card's "At the combine"
+/// line), with the day's words; None for a pro or when there is no read.
+pub(crate) fn combine_projection(w: &World, i: usize) -> Option<(super::projected::Target, super::projected::Proj)> {
+    let t = super::projected::targets(w, i).into_iter().find(|t| t.combine)?;
+    let k = known(w, i);
+    let (_, (_, drafted)) = pools(w, i);
+    let pr = super::projected::project(w, i, &k, &t, arm_ratio(&drafted)).ok()?;
+    Some((t, pr))
+}
+
+/// A projected row's number and band in the page's words ("4.47
+/// (4.43-4.52)").
+pub(crate) fn projected_text(pr: &super::projected::Proj, row: usize) -> Option<String> {
+    let v = pr.vals[row]?;
+    let m = text(row, v);
+    Some(match pr.band[row] {
+        Some((a, b)) if text(row, a) != text(row, b) => format!("{m} ({}-{})", text(row, a), text(row, b)),
+        _ => m,
+    })
 }
 
 /// His best verified forty with where it came from ("4.52 · NFL combine").
@@ -449,17 +713,8 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
     let col = |pool: &[[Option<f64>; 12]], t: usize| -> Vec<f64> { pool.iter().filter_map(|m| m[t]).collect() };
     let lv: Vec<[Option<f64>; 12]> = level.iter().map(|m| m.vals).collect();
     let dv: Vec<[Option<f64>; 12]> = drafted.iter().map(|m| m.vals).collect();
-    // His percentile on each test against each comparison.
-    let pct_of = |t: usize, v: f64| -> [Option<f64>; 3] {
-        let lower = TESTS[t].2;
-        let a = col(&lv, t);
-        let b = col(&dv, t);
-        let c = real.and_then(|r| r[t]).map(|(m, sd)| {
-            let z = (v - m) / sd;
-            100.0 * if lower { 1.0 - phi(z) } else { phi(z) }
-        });
-        [(a.len() >= 10).then(|| pct_in(&a, v, lower)), (b.len() >= 10).then(|| pct_in(&b, v, lower)), c]
-    };
+    let real_spread: Spread = real.cloned();
+    let pct_of = |t: usize, v: f64| -> [Option<f64>; 3] { pct_with(&lv, &dv, &real_spread, t, v) };
     let rows: Vec<Value> = TESTS
         .iter()
         .enumerate()
@@ -475,52 +730,8 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
             })
         })
         .collect();
-    // The athletic score: the share of each comparison he beats, on 0-10,
-    // by size, speed, burst and agility, and over every test.
-    let subs_def: [(&str, &[usize]); 4] =
-        [("Size", &[0, 1]), ("Speed", &[5]), ("Burst", &[7, 8]), ("Agility", &[9, 10])];
-    let all_tests = [0usize, 1, 5, 7, 8, 9, 10, 11];
-    let score_from = |pcts: &dyn Fn(usize) -> Option<f64>| -> (Vec<Option<f64>>, Option<f64>) {
-        let subs = subs_def
-            .iter()
-            .map(|(_, ts)| {
-                let v: Vec<f64> = ts.iter().filter_map(|&t| pcts(t)).collect();
-                (!v.is_empty()).then(|| v.iter().sum::<f64>() / v.len() as f64 / 10.0)
-            })
-            .collect();
-        let v: Vec<f64> = all_tests.iter().filter_map(|&t| pcts(t)).collect();
-        (subs, (v.len() >= 3).then(|| v.iter().sum::<f64>() / v.len() as f64 / 10.0))
-    };
-    let mut scores: Vec<Value> = Vec::new();
-    for c in 0..3 {
-        let (subs, score) = score_from(&|t| k.vals[t].and_then(|v| pct_of(t, v)[c]));
-        // How many in the pool his score beats (each scored the same way).
-        let better = score.map(|s| match c {
-            0 | 1 => {
-                let pool = if c == 0 { &lv } else { &dv };
-                let mut cols: Vec<Vec<f64>> = (0..12).map(|t| col(pool, t)).collect();
-                for v in &mut cols {
-                    v.sort_by(|a, b| a.total_cmp(b));
-                }
-                let theirs: Vec<f64> = pool
-                    .iter()
-                    .filter_map(|m| {
-                        let v: Vec<f64> =
-                            all_tests.iter().filter_map(|&t| m[t].map(|x| pct_in(&cols[t], x, TESTS[t].2))).collect();
-                        (v.len() >= 3).then(|| v.iter().sum::<f64>() / v.len() as f64 / 10.0)
-                    })
-                    .collect();
-                // Shown from 1 to 99, as a percentile is.
-                pct_in(&theirs, s, false).round().clamp(1.0, 99.0)
-            }
-            _ => (s * 10.0).round(),
-        });
-        scores.push(json!({
-            "score": score.map(|s| (s * 10.0).round() / 10.0),
-            "better": better,
-            "subs": subs_def.iter().zip(subs).map(|((n, _), v)| json!({ "k": n, "v": v.map(|x| (x * 10.0).round() / 10.0) })).collect::<Vec<_>>(),
-        }));
-    }
+    let scores = scores_of(&k.vals, &lv, &dv, &real_spread);
+    let targets = projections(w, i, &k, &drafted, &dv, &real_spread);
     // The scatter: each test against weight, for the level and the drafted.
     // Every man in the group (minor bug 30), named, with his page a click away.
     let dot = |m: &[Option<f64>; 12], f: bool, name: &str, school: &str, id: Option<u32>| json!({ "v": m.iter().map(|x| x.map(|v| (v * 100.0).round() / 100.0)).collect::<Vec<_>>(), "f": f, "n": name, "s": school, "id": id });
@@ -618,11 +829,12 @@ pub(crate) fn view(w: &World, id: u32) -> Reply {
     Ok(json!({
         "id": id, "name": p.name, "first": first, "last": last, "pos": pos.name(), "many": many,
         "compares": [
-            { "key": "level", "label": super::cap(&level_label), "long": level_label, "n": level.len() },
+            { "key": "level", "label": cap(&level_label), "long": level_label, "n": level.len() },
             { "key": "drafted", "label": format!("Drafted {}", pos.name()), "long": format!("every drafted {} the world remembers", pos.name()), "n": drafted.len() },
             { "key": "combine", "label": "Combine since 2000", "long": format!("{many} at the real NFL combine since 2000"), "n": null },
         ],
         "rows": rows,
+        "targets": targets,
         "lifts": k.lifts.iter().map(|(a, b)| json!({ "label": a, "text": b })).collect::<Vec<_>>(),
         "scores": scores,
         "plot": { "level": level_dots, "drafted": drafted_dots, "real": real_json },

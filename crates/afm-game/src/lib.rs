@@ -7,12 +7,15 @@
 //! ranges, potential as words, coaches as reputation (scouting topic 1,
 //! Q46). The engine's `debug` feature is never on in this crate.
 
+pub mod autosave;
 pub mod cards;
 pub mod colors;
+pub mod depth_plan;
 pub mod files;
 pub mod jobs;
 pub mod lane_boards;
 pub mod lane_calendar;
+pub mod lane_cfl;
 pub mod lane_coaching;
 pub mod lane_core;
 pub mod lane_data;
@@ -47,6 +50,7 @@ pub mod memory;
 pub mod notebook;
 pub mod quick_filter;
 pub mod reads;
+pub mod road;
 pub mod setup;
 pub mod tallies;
 pub mod views;
@@ -69,6 +73,8 @@ pub struct Game {
     /// Live talks: the API key (in memory only), the client, this month's
     /// spend and the calls in flight (`live_talk`).
     pub ai: live_talk::Ai,
+    /// The autosave every 10 minutes (`autosave.rs`).
+    pub autosave: autosave::Autosave,
 }
 
 pub type Reply = Result<Value, String>;
@@ -79,7 +85,7 @@ impl Game {
             let _ = std::fs::create_dir_all(home.join(d));
         }
         let ai = live_talk::Ai::new(&home);
-        Game { world: None, home, save_path: None, job: Default::default(), ai }
+        Game { world: None, home, save_path: None, job: Default::default(), ai, autosave: Default::default() }
     }
 
     fn w(&self) -> Result<&World, String> {
@@ -93,6 +99,7 @@ impl Game {
     /// Runs one command. Unknown commands and bad arguments come back as
     /// errors in plain words.
     pub fn call(&mut self, cmd: &str, args: &Value) -> Reply {
+        self.autosave.touch(cmd);
         let mut r = self.run(cmd, args);
         // The lines a screen showed you are heard: the same moment keeps
         // its words all day, and the next game day reaches for new ones
@@ -145,12 +152,14 @@ impl Game {
                     ..d
                 }));
                 self.save_path = None;
+                self.autosave.reset();
                 if let Some(w) = self.world.as_mut() {
                     world_log::on_open(&self.home, w, None);
                     tallies::on_open(&self.home, w, None);
                 }
                 lane_faces::on_open(self);
                 notebook::on_open(&self.home);
+                depth_plan::on_open(&self.home);
                 Ok(json!({ "built": true }))
             }
             // A full world built on this machine, into the library (hours).
@@ -175,6 +184,7 @@ impl Game {
                 let name = jobs::play_on(&self.job, &self.home.join("worlds"), &path)?;
                 // Only one full world in memory: the open one goes once the
                 // play-on has started (the screens closed its career first).
+                self.autosave.reset();
                 self.world = None;
                 self.save_path = None;
                 Ok(json!({ "name": name }))
@@ -200,7 +210,9 @@ impl Game {
                     Some(w) => w,
                     None => setup::read(path)?,
                 };
-                // The last world goes first, with its log's writer.
+                // The last world goes first, with its log's writer (and any
+                // autosave still writing it).
+                self.autosave.reset();
                 self.world = None;
                 lane_core::links::forget_names();
                 self.world = Some(w);
@@ -216,6 +228,7 @@ impl Game {
                 memory::hand_back();
                 lane_faces::on_open(self);
                 notebook::on_open(&self.home);
+                depth_plan::on_open(&self.home);
                 Ok(views::status(self.w()?))
             }
             "save" => {
@@ -224,11 +237,15 @@ impl Game {
                     Some(n) => self.home.join("saves").join(format!("{}.afmsave", setup::file_safe(n))),
                     None => self.save_path.clone().ok_or("Name the save first.")?,
                 };
+                // A save by hand ends an autosave still writing: never two at once.
+                self.autosave.cancel();
                 setup::write(self.w()?, &path)?;
+                self.autosave.saved_by_hand();
                 world_log::on_save(self.wm()?, &path);
                 tallies::on_save(self.wm()?, &path);
                 lane_faces::on_save(&self.home, self.save_path.as_deref(), &path);
                 notebook::on_save(&self.home, self.save_path.as_deref(), &path);
+                depth_plan::on_save(&self.home, self.save_path.as_deref(), &path);
                 self.save_path = Some(path.clone());
                 Ok(json!({ "saved": path.display().to_string() }))
             }
@@ -246,7 +263,9 @@ impl Game {
                 lane_frontoffice::college::start_clean(w, args);
                 lane_handbook::on_start(w, args);
                 lane_core::after_days(w);
-                Ok(views::status(w))
+                let r = Ok(views::status(w));
+                self.autosave.reset();
+                r
             }
             "status" => Ok(views::status(self.w()?)),
             "card" => Ok(cards::card(self.w()?)),
@@ -313,11 +332,16 @@ impl Game {
                 w.delete_note(pid, k);
                 views::player(w, pid)
             }
-            "bug" => setup::bug_pack(self, args),
+            "bug" => {
+                self.autosave.cancel();
+                setup::bug_pack(self, args)
+            }
+            "autosave_tick" => autosave::tick(self),
+            "autosave_status" => Ok(self.autosave.status()),
             _ => {
                 // The final build's lanes each answer their own commands.
                 type Lane = fn(&mut Game, &str, &Value) -> Option<Reply>;
-                const LANES: [Lane; 33] = [
+                const LANES: [Lane; 34] = [
                     lane_core::call,
                     lane_gameday::call,
                     lane_money::call,
@@ -337,6 +361,7 @@ impl Game {
                     lane_schedule::call,
                     lane_squadboards::call,
                     lane_draftroom::call,
+                    lane_cfl::call,
                     lane_evaluate::call,
                     lane_calendar::call,
                     lane_coaching::call,

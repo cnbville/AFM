@@ -33,6 +33,9 @@ pub enum Condition {
     Starts(u32),
     /// He makes the Pro Bowl.
     ProBowl,
+    /// A season term (lane N2; `folk::terms`): his snap share, his
+    /// numbers, an honor ("60% of the snaps", real deals' favourite).
+    Term(crate::world::folk::usage::Usage),
 }
 
 impl Condition {
@@ -41,6 +44,7 @@ impl Condition {
             Condition::Games(n) => format!("if he plays in {n} {}", crate::world::folk::noun(n, "game")),
             Condition::Starts(n) => format!("if he starts {n} {}", crate::world::folk::noun(n, "game")),
             Condition::ProBowl => "if he makes the Pro Bowl".into(),
+            Condition::Term(u) => format!("if he reaches {}", crate::world::folk::terms::words(&u)),
         }
     }
 }
@@ -100,6 +104,10 @@ pub struct TradeDesk {
     pub block: Vec<u32>,
     /// Trades you made (their text, newest last).
     pub made: Vec<(Date, String)>,
+    /// The trade finder: the player you're shopping now (TF1-TF19).
+    pub shop: Option<super::finder::Shop>,
+    /// GMs who caught you bluffing, until when (TF8).
+    pub distrust: Vec<(usize, Date)>,
 }
 
 /// The other GM's answer.
@@ -111,6 +119,10 @@ pub struct Answer {
     pub counter: Option<Vec<Pick>>,
     /// Your chart's points for each side (what you give, what you get).
     pub points: (f64, f64),
+    /// Not close: he gets less than half of what he gives on his chart
+    /// (a lowball to a talk, live talks lane N5b).
+    #[serde(skip)]
+    pub far: bool,
 }
 
 /// Whether trades can be made today: from the new league year to the
@@ -120,7 +132,7 @@ pub fn window_open(w: &World) -> bool {
 }
 
 /// The first draft whose picks can still be traded.
-fn first_draft(w: &World) -> i32 {
+pub(crate) fn first_draft(w: &World) -> i32 {
     if w.today < w.dates.draft[0].date { w.year } else { w.year + 1 }
 }
 
@@ -150,7 +162,7 @@ pub fn picks_of(w: &World, t: usize) -> Vec<Pick> {
     v
 }
 
-fn owns(w: &World, t: usize, p: &Pick) -> bool {
+pub(crate) fn owns(w: &World, t: usize, p: &Pick) -> bool {
     if p.comp {
         w.market.picks.comp.iter().any(|c| c.year == p.year && c.round == p.round && c.team == p.orig && c.owner == t)
     } else {
@@ -174,7 +186,7 @@ pub fn player_points(w: &World, t: usize, i: usize) -> f64 {
 
 /// How likely a condition is met, as the GM sees it: a starter plays and
 /// starts, a backup may not.
-fn met_chance(w: &World, t: usize, i: usize, c: Condition) -> f64 {
+pub(crate) fn met_chance(w: &World, t: usize, i: usize, c: Condition) -> f64 {
     let pos = w.people[i].player.position;
     let slots = crate::league::depth_slots(pos);
     let better = w.clubs[t]
@@ -199,6 +211,10 @@ fn met_chance(w: &World, t: usize, i: usize, c: Condition) -> f64 {
             }
         }
         Condition::ProBowl => clamp((crate::world::pro::market::consensus(w, i) - 78.0) / 20.0, 0.02, 0.6),
+        Condition::Term(u) => {
+            use crate::world::folk::terms;
+            terms::likely(w, terms::Who::Player(w.people[i].player.id), &u, w.year) * healthy
+        }
     }
 }
 
@@ -211,7 +227,12 @@ fn side_points(w: &World, t: usize, s: &Side, at: &std::collections::HashMap<u32
 
 /// Checks a proposal against the rules: the window, who owns what, the
 /// no-trade clauses, the injured, both caps after the deal.
-fn check(w: &World, me: usize, p: &Proposal, at: &std::collections::HashMap<u32, usize>) -> Result<(), String> {
+pub(crate) fn check(
+    w: &World,
+    me: usize,
+    p: &Proposal,
+    at: &std::collections::HashMap<u32, usize>,
+) -> Result<(), String> {
     if !window_open(w) {
         return Err(if w.today > w.dates.trade_deadline.date {
             "The trade deadline has passed. Trades open again with the new league year.".into()
@@ -309,7 +330,7 @@ fn check(w: &World, me: usize, p: &Proposal, at: &std::collections::HashMap<u32,
 
 /// A player with a no-trade clause at club `from` who won't waive it to go
 /// to club `to`: he waives it only for a club two points stronger.
-fn waives_not(w: &World, i: usize, from: usize, to: usize) -> bool {
+pub(crate) fn waives_not(w: &World, i: usize, from: usize, to: usize) -> bool {
     w.people[i].pro.as_ref().and_then(|c| c.contract.as_ref()).is_some_and(|k| k.no_trade)
         && w.nfl[to].strength() < w.nfl[from].strength() + 2.0
 }
@@ -320,9 +341,12 @@ fn ids(p: &Proposal) -> Vec<u32> {
 
 /// What the other GM needs: his gain on his own chart must clear a margin
 /// (a GM fleeced by you before asks more, a GM who fleeced you less).
-fn margin(w: &World, o: usize, me: usize) -> f64 {
+pub(crate) fn margin(w: &World, o: usize, me: usize) -> f64 {
     let fleece = w.market.fleece.get(o).and_then(|v| v.get(me)).copied().unwrap_or(0.0);
-    40.0 + (fleece / 5000.0).clamp(0.0, 0.3) * 400.0
+    // A GM who caught you bluffing wants more from you for a year (TF8).
+    let burned =
+        if w.front_office.trades.distrust.iter().any(|&(t, until)| t == o && w.today <= until) { 60.0 } else { 0.0 };
+    40.0 + (fleece / 5000.0).clamp(0.0, 0.3) * 400.0 + burned
 }
 
 /// The other GM's answer to your offer, without making it.
@@ -352,6 +376,7 @@ pub fn evaluate(w: &World, p: &Proposal) -> Result<Answer, String> {
                 text: format!("{} has a no-trade clause and won't waive it to come to you.", w.people[i].name),
                 counter: None,
                 points: yours,
+                far: false,
             });
         }
     }
@@ -364,6 +389,7 @@ pub fn evaluate(w: &World, p: &Proposal) -> Result<Answer, String> {
             text: format!("{gm_name}, the {team} GM: \"We can do that.\""),
             counter: None,
             points: yours,
+            far: false,
         });
     }
     // Short: the cheapest of your picks (on your own chart) that closes the gap.
@@ -393,6 +419,7 @@ pub fn evaluate(w: &World, p: &Proposal) -> Result<Answer, String> {
                 text: format!("{gm_name}, the {team} GM: \"Add {} and we have a deal.\"", words.join(" and ")),
                 counter: Some(extra),
                 points: yours,
+                far: false,
             }
         }
         _ => Answer {
@@ -407,6 +434,7 @@ pub fn evaluate(w: &World, p: &Proposal) -> Result<Answer, String> {
             ),
             counter: None,
             points: yours,
+            far,
         },
     })
 }
@@ -443,7 +471,7 @@ pub fn propose(w: &mut World, p: &Proposal) -> Result<Answer, String> {
 /// Private on purpose: every trade of yours goes through `propose` or an
 /// answered call, so the other GM's yes and both caps always hold (minor
 /// bug 323: the cutdown swap called this directly).
-fn execute(w: &mut World, me: usize, p: &Proposal) {
+pub(crate) fn execute(w: &mut World, me: usize, p: &Proposal) {
     let d = w.today;
     let year = w.year;
     let june1 = pro::after_june1(w, d);
@@ -492,27 +520,7 @@ fn execute(w: &mut World, me: usize, p: &Proposal) {
         }
     }
     for &(i, from, to) in &moved {
-        let (now, later) = w.people[i]
-            .pro
-            .as_ref()
-            .and_then(|c| c.contract.as_ref())
-            .map_or((0.0, 0.0), |k| trades::kept_bonus(k, year, june1));
-        let id = w.people[i].player.id;
-        w.clubs[from].add_dead(year, now, id, DeadWhy::Traded);
-        w.clubs[from].add_dead(year + 1, later, id, DeadWhy::Traded);
-        trades::keep_paid(w, i, from, d);
-        if let Some(k) = w.people[i].pro.as_mut().unwrap().contract.as_mut() {
-            for y in k.years.iter_mut().filter(|y| y.year >= year) {
-                y.proration = 0.0;
-            }
-        }
-        let hurt = trades::trade_hurt(w, i, from);
-        pro::transfer(w, i, to, "traded");
-        crate::world::people::grudge(&mut w.people[i], from, hurt);
-        let c = w.people[i].pro.as_mut().unwrap();
-        c.wants_out = false;
-        c.hold = pro::market::Hold::None;
-        c.status = Status::Roster;
+        move_player(w, i, from, to, d, june1);
     }
     for (side, to) in [(&p.give, o), (&p.get, me)] {
         for pk in &side.picks {
@@ -558,7 +566,34 @@ fn execute(w: &mut World, me: usize, p: &Proposal) {
     super::note(w, text, Some(player));
 }
 
-fn move_pick(w: &mut World, pk: &Pick, to: usize) {
+/// One player changes clubs in a trade: the club he leaves keeps his bonus
+/// and the pay it has handed him; he carries the rest of his deal.
+pub(crate) fn move_player(w: &mut World, i: usize, from: usize, to: usize, d: Date, june1: bool) {
+    let year = w.year;
+    let (now, later) = w.people[i]
+        .pro
+        .as_ref()
+        .and_then(|c| c.contract.as_ref())
+        .map_or((0.0, 0.0), |k| trades::kept_bonus(k, year, june1));
+    let id = w.people[i].player.id;
+    w.clubs[from].add_dead(year, now, id, DeadWhy::Traded);
+    w.clubs[from].add_dead(year + 1, later, id, DeadWhy::Traded);
+    trades::keep_paid(w, i, from, d);
+    if let Some(k) = w.people[i].pro.as_mut().unwrap().contract.as_mut() {
+        for y in k.years.iter_mut().filter(|y| y.year >= year) {
+            y.proration = 0.0;
+        }
+    }
+    let hurt = trades::trade_hurt(w, i, from);
+    pro::transfer(w, i, to, "traded");
+    crate::world::people::grudge(&mut w.people[i], from, hurt);
+    let c = w.people[i].pro.as_mut().unwrap();
+    c.wants_out = false;
+    c.hold = pro::market::Hold::None;
+    c.status = Status::Roster;
+}
+
+pub(crate) fn move_pick(w: &mut World, pk: &Pick, to: usize) {
     if pk.comp {
         if let Some(c) =
             w.market.picks.comp.iter_mut().find(|c| c.year == pk.year && c.round == pk.round && c.team == pk.orig)
@@ -638,13 +673,12 @@ pub(crate) fn on_block(w: &World, t: usize, i: usize) -> bool {
 
 /// An AI club's call about one of your players, from its own trade window:
 /// it waits for your answer for two days (the deadline's the same day).
-pub(crate) fn call_in(w: &mut World, d: Date, buyer: usize, _seller: usize, i: usize, package: Vec<(i32, u32, usize)>) {
+pub(crate) fn call_in(w: &mut World, d: Date, buyer: usize, _seller: usize, i: usize, picks: Vec<Pick>) {
     let id = w.people[i].player.id;
     if w.front_office.trades.calls.iter().any(|c| c.player == id && c.buyer == buyer && !c.answered) {
         return;
     }
     let until = if d >= w.dates.trade_deadline.date.add(-1) { w.dates.trade_deadline.date } else { d.add(2) };
-    let picks: Vec<Pick> = package.iter().map(|&(year, round, orig)| Pick { year, round, orig, comp: false }).collect();
     let words: Vec<String> = picks.iter().map(|p| pick_words(w, p)).collect();
     let name = w.people[i].name.clone();
     let text = format!(
@@ -692,6 +726,11 @@ pub(crate) fn day(w: &mut World, d: Date) {
         }
     }
     w.front_office.trades.calls.retain(|c| c.date.days_to(d) < 120);
+}
+
+/// Conditional picks settle after the season they read, every club's
+/// (TF20: the AI's trades carry conditions too), before any career check.
+pub(crate) fn settle(w: &mut World, d: Date) {
     let year = w.year;
     let due: Vec<Conditional> =
         w.front_office.trades.conditionals.iter().copied().filter(|c| c.season < year).collect();
@@ -704,6 +743,10 @@ pub(crate) fn day(w: &mut World, d: Date) {
                 Condition::Games(n) => s.games >= n,
                 Condition::Starts(n) => s.starts >= n,
                 Condition::ProBowl => s.pro_bowl,
+                Condition::Term(u) => {
+                    use crate::world::folk::terms;
+                    terms::met(w, terms::Who::Player(c.player), &u, c.season) == Some(true)
+                }
             });
         if !met {
             continue;
@@ -725,6 +768,8 @@ pub(crate) fn day(w: &mut World, d: Date) {
             w.nfl[c.to].name,
             round_word(up.round)
         );
-        super::tell(w, d, text, false);
+        if super::club(w).is_some_and(|me| me == c.from || me == c.to) {
+            super::tell(w, d, text, false);
+        }
     }
 }

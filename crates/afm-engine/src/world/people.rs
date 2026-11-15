@@ -189,7 +189,9 @@ pub(crate) fn staff_support(w: &mut World) {
         if !super::franchise::active_in(w, t, year) {
             continue;
         }
-        let budget = super::finance::nfl::spend_level(w, t);
+        // Your owner's raises to the staff pool lift the level your club hires at.
+        let budget = super::finance::nfl::spend_level(w, t)
+            * (1.0 + super::folk::staffing::staff_bonus(w, super::folk::Team::Nfl(t)));
         let s = &mut w.clubs[t].support;
         for post in [&mut s.strength, &mut s.medical, &mut s.analytics] {
             let leave = 0.1 + if post.rating >= 15 { 0.1 * (1.0 - budget) } else { 0.0 };
@@ -368,7 +370,7 @@ fn read(p: &mut Person, coach: Option<usize>, coach_motivation: f64, parts: Part
 
 /// His view of himself (topic 3): his real level, overrated by ego and
 /// ambition (proposed, not confirmed: up to about 4 points each).
-fn self_view(p: &Person) -> f64 {
+pub(crate) fn self_view(p: &Person) -> f64 {
     let t = &p.player.personality.traits;
     p.player.overall() + 4.0 * t.z(Trait::Ego).max(0.0) + 1.5 * t.z(Trait::Ambition)
 }
@@ -783,6 +785,74 @@ pub struct Case {
     pub ruling: Date,
     /// Convicted or pleaded (an acquittal or a dropped charge weighs far less).
     pub guilty: bool,
+    /// The day it happened (day 0 for a case opened before the day was kept).
+    #[serde(default)]
+    pub opened: Date,
+}
+
+/// A pro's last off-field case, kept on his career record from the day it
+/// happens (live talks lane 8; the market's list forgets a case at the
+/// ruling): the market prices a recent one (`market::case_cut`), and a
+/// contract talk can check a claim about it.
+/// Only what the public knows: the kind, the day and the league's ruling.
+/// Whether a court will find him guilty is not here.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct PastCase {
+    pub kind: Trouble,
+    /// The day it happened.
+    pub day: Date,
+    /// The league's ruling: none while the case is open, then the games he
+    /// was suspended (0 when it ended without a suspension). A cut on
+    /// appeal is written in.
+    pub games: Option<u8>,
+    /// Another case of his was still recent when this one happened.
+    pub again: bool,
+}
+
+impl PastCase {
+    /// How much of the case the market still holds against him on a day:
+    /// all of it for `CASE_FULL_DAYS`, then less in a straight line to
+    /// nothing at `CASE_GONE_DAYS`.
+    pub fn recent(&self, today: Date) -> f64 {
+        let days = self.day.days_to(today).max(0) as f64;
+        clamp((CASE_GONE_DAYS - days) / (CASE_GONE_DAYS - CASE_FULL_DAYS), 0.0, 1.0)
+    }
+}
+
+/// How long a case stays recent (proposed, not confirmed): at full weight
+/// for a year, gone after three. Real returns to a full price: Brandon
+/// Marshall (cases in 2007 and 2008, top receiver money in April 2010),
+/// Calvin Ridley (suspended March 2022, four years and $92M in March 2024),
+/// Kareem Hunt (February 2018, an extension at a running back's going rate
+/// in September 2020), Michael Vick (2007, six years and $100M in 2011).
+pub const CASE_FULL_DAYS: f64 = 365.0;
+pub const CASE_GONE_DAYS: f64 = 1095.0;
+
+/// The league's ruling goes onto his record. A ruling on an older case
+/// leaves a later one alone: the record is his last case.
+fn record_ruling(c: &mut pro::ProCareer, case: &Case, d: Date, games: u32) {
+    let games = Some(games.min(255) as u8);
+    match c.case.as_mut() {
+        Some(pc) if pc.kind == case.kind && pc.day == case.opened => pc.games = games,
+        Some(pc) if pc.day > case.opened => {}
+        // A case opened before records were kept (an older save): the
+        // ruling's day stands for its own.
+        _ => {
+            let day = if case.opened == Date::default() { d } else { case.opened };
+            c.case = Some(PastCase { kind: case.kind, day, games, again: false });
+        }
+    }
+}
+
+/// An appeal changed the games of a league suspension (`folk::courts`):
+/// the record follows, when it is the same case.
+pub(crate) fn record_appeal(c: &mut pro::ProCareer, what: &str, from: u32, to: u32) {
+    if let Some(pc) = c.case.as_mut()
+        && pc.kind.words() == what
+        && pc.games == Some(from.min(255) as u8)
+    {
+        pc.games = Some(to.min(255) as u8);
+    }
 }
 
 /// The real mix of kinds by era (USA Today's arrest database: DUI and
@@ -859,6 +929,8 @@ pub(crate) fn pro_arrests_day(w: &mut World, d: Date) {
     // the night it happens, not in Tuesday's batch).
     let base = if year < 2014 { 0.03 } else { 0.022 } / 365.25;
     let seed = w.options.seed as u64 ^ 0x7E0B_1E00 ^ (d.0 as u64) << 24;
+    // A man you got help for after trouble (talk facts lane L4).
+    let helped = super::folk::talk_points::helped_ids(w);
     // Every pro's roll is keyed by the day and the person, so the walk runs
     // on all cores and keeps person order (world speed lane).
     use rayon::prelude::*;
@@ -881,7 +953,8 @@ pub(crate) fn pro_arrests_day(w: &mut World, d: Date) {
                     0.25,
                     2.5,
                 ) * clamp(1.0 - 0.04 * (age - 25.0), 0.6, 1.3)
-                    * (1.0 - 0.15 * room);
+                    * (1.0 - 0.15 * room)
+                    * if helped.contains(&p.player.id) { 1.0 - super::folk::talk_points::HELP_CUT } else { 1.0 };
             if key_uniform(seed, i as u64) >= risk {
                 return None;
             }
@@ -911,11 +984,18 @@ pub(crate) fn pro_arrests_day(w: &mut World, d: Date) {
             || key_uniform(seed ^ 0x9117, i as u64) < 0.45;
         let weeks =
             if matches!(kind, Trouble::Ped) { 3 } else { 6 + (key_uniform(seed ^ 0x4EE, i as u64) * 14.0) as i32 };
-        w.market.cases.push(Case { person: i, kind, ruling: d.add(weeks * 7), guilty });
+        w.market.cases.push(Case { person: i, kind, ruling: d.add(weeks * 7), guilty, opened: d });
+        // His record (lane 8): this is now his last case.
+        if let Some(c) = w.people[i].pro.as_mut() {
+            let again = c.case.is_some_and(|pc| pc.recent(d) > 0.0);
+            c.case = Some(PastCase { kind, day: d, games: None, again });
+        }
         let team = w.people[i].pro.as_ref().and_then(|c| c.team);
         let age = w.people[i].row_age();
         w.people[i].note(format!("Off-field trouble at {age}: {}.", kind.words()));
         w.market.year_mut(year).trouble += 1;
+        // The arrest moves his mood: shame or anger (talk facts lane L4).
+        super::folk::talk_points::arrest_mood(w, i);
         // The commissioner exempt list (2015 on): paid leave while a
         // violent charge is open.
         if year >= 2015
@@ -974,6 +1054,7 @@ fn rule(w: &mut World, d: Date, case: &Case) {
     let games = games_for(case.kind, year, case.guilty, roll);
     let Some(c) = w.people[i].pro.as_mut() else { return };
     c.exempt = 0;
+    record_ruling(c, case, d, games);
     if games == 0 {
         let age = w.people[i].row_age();
         w.people[i].note(format!("At {age} the case ({}) ended without a suspension.", case.kind.words()));

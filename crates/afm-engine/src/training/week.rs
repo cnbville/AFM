@@ -214,7 +214,7 @@ pub fn work_out(
 
 /// The games a staff plans an earlier week of the block around: one a
 /// week in season, on the level's usual day.
-fn usual_games(tier: Tier, block: Block, monday: Date) -> Vec<Date> {
+pub(crate) fn usual_games(tier: Tier, block: Block, monday: Date) -> Vec<Date> {
     if block != Block::Season {
         return Vec::new();
     }
@@ -551,7 +551,9 @@ pub(crate) fn monday(w: &mut World, d: Date) {
                     let tw = team.and_then(|t| club_key.get(t)).and_then(|k| worked.get(k));
                     (&frames.pro, &frames.pro_weeks, tw, *pro_role.get(&i).unwrap_or(&Role::Young))
                 }
-                Stage::Done | Stage::Away => return None,
+                // A U Sports or global prospect trains with a school or
+                // club the world doesn't run (SK77).
+                Stage::Done | Stage::Away | Stage::CflPool => return None,
             };
             let block = block_of_week(frame, d);
             // A college or high school player hurt in a game or practice

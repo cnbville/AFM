@@ -13,6 +13,7 @@ use crate::world::desk::{Head, Mail};
 /// The inbox's keyword bits (the game crate's `KEYWORDS`).
 const JOB: u16 = 1;
 const PLAYERS: u16 = 1 << 1;
+const RECRUITING: u16 = 1 << 2;
 const PORTAL: u16 = 1 << 3;
 const INJURIES: u16 = 1 << 4;
 const STAFF: u16 = 1 << 8;
@@ -112,7 +113,12 @@ pub(crate) fn for_scene(w: &mut World, s: &Scene) {
         }
         Kind::Discipline => {
             let (n, t) = ops();
-            (Head::Memo, n, t, s.title.clone(), vec![format!("{} {}", plink.clone().unwrap_or_default(), "broke one of your rules. He's waiting to hear from you before practice.")], PLAYERS | PEOPLE)
+            let what = match s.b {
+                super::arrests::ARREST => "was arrested. He's waiting in your office to hear what happens to him.",
+                super::arrests::COURT => "is done in court. What happens with the team is your call.",
+                _ => "broke one of your rules. He's waiting to hear from you before practice.",
+            };
+            (Head::Memo, n, t, s.title.clone(), vec![format!("{} {}", plink.clone().unwrap_or_default(), what)], PLAYERS | PEOPLE)
         }
         Kind::SecondOpinion => {
             let (n, t) = match person_of(w, team, Role::Trainer) {
@@ -177,6 +183,12 @@ pub(crate) fn for_scene(w: &mut World, s: &Scene) {
             let keys = if s.title.ends_with("wants to talk about his future") { PLAYERS | PORTAL } else { PLAYERS };
             (Head::Memo, n, t, s.title.clone(), vec![format!("{} asked for time with you{when}.", plink.clone().unwrap_or_else(|| "A player".into()))], keys)
         }
+        // A recruit's family called (talk facts L6): a message to call back.
+        Kind::FamilyCall => {
+            let (n, t) = ops();
+            let about = plink.clone().unwrap_or_else(|| "a recruit".into());
+            (Head::Memo, n, t, s.title.clone(), vec![format!("{} called about {about} and would like to hear from you today.", s.place.trim_start_matches("A call from "))], RECRUITING)
+        }
         Kind::Parents => {
             let (n, t) = ops();
             (Head::Memo, n, t, s.title.clone(), vec![format!("The parents' meeting is set{when}. {}", s.place)], PEOPLE)
@@ -221,6 +233,7 @@ pub(crate) fn for_scene(w: &mut World, s: &Scene) {
         org_team: Some(team_code(team)),
         why: Vec::new(),
         count: 0,
+        leads: 0,
     });
     c.desk.mails.sort_by_key(|m| (m.date, m.minute));
 }

@@ -1,0 +1,139 @@
+# The recruit and portal conversation (talk facts lane L5): hand-written
+# lines for its most common new parts, until the bank run (lane L12) fills
+# every part of section 8 of afm/talk-facts/proposal.md. Every other new
+# part falls back to the recruiting lines (recruit_talks_run.txt) and then
+# to today's lines. Parts and what each takes as true:
+# docs/design/recruit-talk-lines.md, "The conversation's own parts".
+
+# A rival told him the same ({rival_school}: the school on his list whose
+# fact of that kind is at or over yours). Either side says it.
+@key recruit.compare.any
+{rival_school} told us the same thing.
+Funny, {rival_school} said almost those exact words.
+That's what {rival_school} is selling too.
+I've heard that one before. {rival_school} made the same pitch.
+{rival_school} can say that too, Coach.
+You and {rival_school} are telling the same story.
+{rival_school} put the same thing in front of us.
+Every school says that. {rival_school} said it with a straight face too.
+
+# You came back to a point that landed in an earlier talk, and he
+# remembers it.
+@key recruit.react.again.any
+You told us that last time, and it stuck.
+I remember that from the last time we talked. It still means something.
+You've said that before, Coach. It hasn't gotten old.
+We talked about that last time. Still the part that stays with us.
+That again? Good. That's the part that matters.
+You came back to that. We noticed.
+Same thing you said before, and it still lands.
+We haven't forgotten that one.
+
+# You, straight with him where your proof is weak.
+@key recruit.pitch.straight.any
+I won't sell you something we don't have. Others on your list can beat us on that.
+I'll be honest: that isn't our strength, and I won't pretend it is.
+Straight answer? Somebody on your list does that better than we do.
+I could dress that up, but you'd see through it. It isn't where we shine.
+That's not what we're best at. I'd rather tell you now than have you find out later.
+You'll hear better on that from other schools. What you'll get from me is the truth.
+I'm not going to oversell it. We're behind on that one.
+If that's the deciding thing, I'd be lying to say we're the best at it.
+
+# His side, when you were straight with him.
+@key recruit.react.straight.any
+I appreciate you being straight with us.
+Not many coaches say that. That counts for something.
+Honest. We'll remember that.
+Thank you for not selling us a story.
+Everybody else says they're the best at everything. That's refreshing.
+Fair enough. At least we know where you stand.
+That's more honest than we've heard all month.
+Good to know. Better to hear it from you now.
+
+# Who has the final say, in the voice of whoever does.
+@key recruit.tell.decides
+It's my call, Coach. My family's behind whatever I pick. ~ himself
+I'm the one deciding. They trust me with it. ~ himself
+It's on me. I'll talk it through at home, but it's my name on the paper. ~ himself
+We'll decide this together, but I'll have the last word. ~ parent
+He'll tell you what he wants, and then we'll sit down as a family. I sign off on it. ~ parent
+Nothing gets signed in this house without me. ~ parent
+He listens to me on this, Coach. Always has. ~ grandparent
+I've watched over him a long time. The last word is mine. ~ grandparent
+I've been with him a long time. He trusts my read on this. ~ handler
+Every school goes through me first. ~ handler
+
+# What changed since you last spoke: he opens on it. Your win ({opp},
+# {score}, {when}).
+@key recruit.open.your_win
+Saw you beat {opp} {when}. Congratulations.
+{score} over {opp}. That was fun to watch.
+We watched the {opp} game. Your team looked good.
+Big win over {opp}. Everybody here was talking about it.
+Congratulations on {opp}, Coach.
+That {opp} game, that's the kind of football we like to see.
+
+# Your loss ({opp}, {score}, {when}).
+@key recruit.open.your_loss
+Tough one against {opp} {when}.
+Sorry about the {opp} game, Coach.
+We saw the {opp} game. What happened?
+{opp} got you {when}. How's the team taking it?
+Rough result against {opp}. You'll bounce back.
+That {opp} loss had to sting.
+
+# His own school's game ({opp}, {when}); never its result.
+@key recruit.open.his_game
+Did you get a look at the {opp} game?
+We played {opp} {when}. Did your staff see it?
+First thing, Coach: did anybody from your staff see the {opp} game?
+The {opp} game is all anybody here is talking about.
+Before we start, did you see the film from {opp}?
+We had {opp} {when}. Curious what you thought.
+
+# Another school offered him ({school}, {when}).
+@key recruit.open.new_offer
+{school} offered {when}. Just so you know where things stand.
+We heard from {school} {when}. They offered.
+{school} came in with an offer {when}.
+You should know {school} offered {when}.
+Another offer came in {when}: {school}.
+{school} is in now too. They offered {when}.
+
+# He visited another school ({school}, {when}).
+@key recruit.open.visit_elsewhere
+We were up at {school} {when}.
+We visited {school} {when}. Nice place.
+Went to see {school} {when}. They made an impression.
+{school} had us on campus {when}.
+Spent some time at {school} {when}.
+We saw {school} {when}. Now we want to hear from you.
+
+# You took a commitment at his spot ({name}: the player who committed;
+# {spot}, {when}).
+@key recruit.open.commit_at_spot
+We saw {name} committed to you {when}. Where does that leave us?
+You took {name}. Is there still room for us?
+{name} is coming to you. How does that change things for us?
+We noticed {name} committed. What does that mean for us?
+Be straight with us: with {name} coming, where do we stand?
+{name} picked you {when}. Do you still need us?
+
+# A coach left your staff ({coach}: the man who left; {when}).
+@key recruit.open.coach_left
+We heard {coach} is gone. What happened?
+{coach} left {when}. That changes things for us.
+Where does {coach} leaving put us?
+We liked {coach}. What happens now?
+With {coach} gone, is the plan for us the same?
+Is it true about {coach}?
+
+# A transfer, in the weeks after he entered the portal ({when}).
+@key recruit.open.entered_portal
+My phone hasn't stopped since I went in the portal.
+Since I entered, everybody's been calling.
+I put my name in {when}. It's been a lot of calls.
+I knew going in it'd be crazy. It's been crazy.
+I'm taking every call. I want to get this right.
+Lot of coaches calling since I went in. Good to hear from you.

@@ -221,8 +221,43 @@ pub struct LineCx {
     /// The captain you hand it to, first name.
     pub captain: Option<String>,
     pub rival: bool,
+    /// The day's stakes, 0 to 1 (`game::talk::Ctx::stakes`).
+    pub stakes: f32,
+    /// A playoff game: lose and the season is over.
+    pub playoff: bool,
+    /// The seniors' last home game.
+    pub seniors: bool,
+    /// The starter the room plays without today, first name (`Day::hurt`).
+    pub hurt: Option<String>,
     /// Keys the wording: the same seed gives the same line.
     pub seed: u64,
+}
+
+/// Stakes this high are a big game in the words, this high everything
+/// (the room's own headline, `stakes_json`). Proposed, not confirmed.
+pub const BIG_STAKES: f32 = 0.6;
+pub const ALL_STAKES: f32 = 0.85;
+
+impl LineCx {
+    /// The day's own part (talk facts lane L9, item 26): what about today
+    /// reaches the words, most telling first. Before the game a playoff,
+    /// the seniors' last home game, a starter out, then big stakes; at
+    /// halftime a playoff or a starter out.
+    pub fn day_part(&self) -> Option<&'static str> {
+        let pregame = self.halftime.is_none();
+        if self.playoff {
+            Some("gameday.day.playoff")
+        } else if pregame && self.seniors {
+            Some("gameday.day.seniors")
+        } else if self.hurt.is_some() && self.hurt != self.player {
+            // A talk about him already names him.
+            Some("gameday.day.hurt")
+        } else if pregame && self.stakes >= BIG_STAKES {
+            Some("gameday.day.big")
+        } else {
+            None
+        }
+    }
 }
 
 fn line_facts(pick: &Pick, cx: &LineCx) -> Facts {
@@ -262,6 +297,21 @@ fn line_facts(pick: &Pick, cx: &LineCx) -> Facts {
     if cx.rival {
         f.set("rival", "yes");
     }
+    // The day (lane L9): the stakes, a playoff, the seniors, a starter out.
+    if cx.stakes >= ALL_STAKES {
+        f.set("stakes", "all");
+    } else if cx.stakes >= BIG_STAKES {
+        f.set("stakes", "big");
+    }
+    if cx.playoff {
+        f.set("playoff", "yes");
+    }
+    if cx.seniors {
+        f.set("seniors", "yes");
+    }
+    if let Some(h) = &cx.hurt {
+        f.set("hurt", h.clone());
+    }
     f
 }
 
@@ -280,7 +330,12 @@ pub fn talk_line(w: &World, pick: &Pick, cx: &LineCx) -> String {
     let open = format!("gameday.open.{}", pick.tone.key());
     let point = format!("gameday.{}", pick.mv.key());
     let close = format!("?gameday.close.{}", pick.tone.key());
-    pen.line(&[&open, &point, &close], &who, &f)
+    // What about today reaches the words (lane L9): said after the opening
+    // whenever the day has it, in the tone you picked.
+    match cx.day_part() {
+        Some(day) => pen.line(&[open.as_str(), day, point.as_str(), close.as_str()], &who, &f),
+        None => pen.line(&[open.as_str(), point.as_str(), close.as_str()], &who, &f),
+    }
 }
 
 /// What a captain says when you hand him the room (dialogue D4): his own
@@ -289,14 +344,19 @@ pub fn captain_lines(w: &World, i: usize, cx: &LineCx) -> Vec<String> {
     let who = Speaker::player(w, i);
     let f = line_facts(&Pick::default(), cx);
     let pen = Look::new(w, cx.seed ^ 0xCA97_A100);
+    // The captain names the day too (lane L9): the playoff, the seniors,
+    // the starter out, when the day has one.
+    let day = cx.day_part().map(|_| "gameday.captain.day");
     [
-        "gameday.captain.open",
-        "gameday.captain.own",
-        "gameday.captain.us",
-        "gameday.captain.job",
-        "gameday.captain.break",
+        Some("gameday.captain.open"),
+        Some("gameday.captain.own"),
+        day,
+        Some("gameday.captain.us"),
+        Some("gameday.captain.job"),
+        Some("gameday.captain.break"),
     ]
     .iter()
+    .flatten()
     .filter_map(|k| pen.part(k, &who, &f))
     .map(|s| super::voice::tidy(&s))
     .collect()

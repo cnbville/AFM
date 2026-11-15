@@ -21,8 +21,13 @@ use rayon::prelude::*;
 pub struct Read {
     /// Overall at his position now, and its spread.
     pub now: (f32, f32),
-    /// Where he could get to, and its spread.
+    /// Where he could get to, and its spread: the read that judges (own
+    /// potential, Cain 2026-11-13), yours from your first own look, your
+    /// staff's before, so every sort, filter and column reads it.
     pub ceiling: (f32, f32),
+    /// Whether `ceiling` is your own read; your staff's beside it.
+    pub ceiling_yours: bool,
+    pub staff_ceiling: (f32, f32),
     /// Each attribute: centre and spread (rounded), spread 0 when unseen.
     pub attrs: Box<[(u8, u8)]>,
     /// Each character trait: centre and spread, spread 0 when unread.
@@ -66,6 +71,11 @@ pub(crate) fn cache_key(w: &World, staff: Staff) -> (i32, u64, usize, u64) {
     {
         looks += c.files.values().map(|v| v.len()).sum::<usize>();
     }
+    if let Staff::League(fr) = staff
+        && let Some(c) = w.others.teams.get(fr)
+    {
+        looks += c.files.values().map(|v| v.len()).sum::<usize>();
+    }
     let who = match staff {
         Staff::Club(t) => w.nfl.get(t).map_or(0, |tm| {
             let id = |c: Option<usize>| c.map_or(0xFFFF, |c| c as u64 & 0xFFFF);
@@ -73,6 +83,10 @@ pub(crate) fn cache_key(w: &World, staff: Staff) -> (i32, u64, usize, u64) {
         }),
         Staff::Program(p) => w.programs.get(p).map_or(0, |pr| pr.head_coach.map_or(0xFFFF, |c| c as u64 & 0xFFFF)),
         Staff::School(_) => 0,
+        Staff::League(fr) => w.others.teams.get(fr).map_or(0, |tm| {
+            let id = |c: Option<usize>| c.map_or(0xFFFF, |c| c as u64 & 0xFFFF);
+            id(tm.head_coach) | id(tm.oc) << 16 | id(tm.dc) << 32
+        }),
     };
     let medical = readers::medical_rating(w, staff) as u64;
     let seat = who ^ medical << 48 ^ (w.options.seed as u64).rotate_left(24) ^ (w.scouting.film.version as u64) << 52;
@@ -83,16 +97,17 @@ pub(crate) fn cache_key(w: &World, staff: Staff) -> (i32, u64, usize, u64) {
 pub fn has_file(w: &World, staff: Staff, id: u32) -> bool {
     w.scouting.dept.looks.get(&id).is_some_and(|v| !v.is_empty())
         || matches!(staff, Staff::Club(t) if w.clubs.get(t).is_some_and(|c| c.files.get(&id).is_some_and(|v| !v.is_empty())))
+        || matches!(staff, Staff::League(fr) if w.others.teams.get(fr).is_some_and(|c| c.files.get(&id).is_some_and(|v| !v.is_empty())))
 }
 
 /// Your staff's contacts with a player: calls, home visits, his visits
-/// and your camps.
+/// and your camps, and your own calls and messages to him (talk facts L6).
 pub fn contacts(w: &World, id: u32) -> usize {
     w.scouting.dept.looks.get(&id).map_or(0, |v| {
         v.iter()
             .filter(|l| matches!(l.kind, Kind::Call | Kind::HomeVisit | Kind::Official | Kind::Unofficial | Kind::Camp))
             .count()
-    })
+    }) + afm_engine::world::folk::reach::contacts(w, id)
 }
 
 /// Whether your staff has been in touch with a player (what "Who decides"
@@ -142,9 +157,16 @@ fn read_one(w: &World, staff: Staff, id: u32) -> Option<Read> {
     let has = |k: &[Kind]| own.is_some_and(|v| v.iter().any(|l| k.contains(&l.kind)));
     let contact = contacts(w, id) as u16;
     let seen_now = f.now.1 > 0.0 || f.now.0 > 0.0;
+    let staff_ceiling = (f.ceiling.0 as f32, f.ceiling.1 as f32);
+    let mine = (readers::seat_staff(w) == Some(staff) && afm_engine::world::scouting::yours::looked(w, staff, id))
+        .then(|| afm_engine::world::scouting::yours::own_read(w, staff, id, Some(&f)))
+        .flatten()
+        .and_then(|o| o.ceiling);
     Some(Read {
         now: if seen_now { (f.now.0 as f32, f.now.1 as f32) } else { (0.0, 0.0) },
-        ceiling: (f.ceiling.0 as f32, f.ceiling.1 as f32),
+        ceiling: mine.map_or(staff_ceiling, |c| (c.0 as f32, c.1 as f32)),
+        ceiling_yours: mine.is_some(),
+        staff_ceiling,
         attrs,
         traits,
         medical: (f.medical.grade, f.medical.examined),

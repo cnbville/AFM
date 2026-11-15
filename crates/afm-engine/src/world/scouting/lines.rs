@@ -473,6 +473,144 @@ pub fn voice(v: &Voice, key: u64, id: u64) -> String {
     out
 }
 
+/// A player's answer in the interview room that names what is true of him
+/// (talk facts item 24): the trouble in his story by what it was, and his
+/// family as the scouting file has it (who raised him, a father who
+/// played, a brother at a school). None when the topic has nothing true to
+/// name, and the caller says the plain answer. Band 0 is a poor answer, 1 an
+/// ordinary one, 2 a strong one.
+pub fn room_answer(
+    topic: &str,
+    band: u8,
+    key: u64,
+    id: u64,
+    incident: Option<&crate::world::folk::claims::rooms::Incident>,
+    home: Option<&crate::world::folk::claims::rooms::Home>,
+) -> Option<String> {
+    use crate::world::background::{Bloodline, FamilyStructure as F};
+    match topic {
+        "incident" => {
+            let i = incident?;
+            let (kind, age) = (i.kind.as_str(), i.age);
+            let opts: [String; 2] = match band.min(2) {
+                2 => [
+                    format!(
+                        "\"I was {age} and I made a bad choice: {kind}. I let my team down, and here's what I changed.\""
+                    ),
+                    format!(
+                        "\"I won't make excuses about {kind}. I talked to my coach the next morning and I've owned it since.\""
+                    ),
+                ],
+                1 => [
+                    format!("\"It was {kind}. It got bigger than it was, but I know how it looks.\""),
+                    format!("\"It was {kind}. I know how it looks, and I handle things differently now.\""),
+                ],
+                _ => [
+                    format!("\"It was {kind}. I'd rather not go through it again.\""),
+                    format!("He said he didn't want to talk about {kind}."),
+                ],
+            };
+            let k = (key_uniform(key ^ 0x1BC1, id) * 2.0) as usize;
+            Some(opts[k.min(1)].clone())
+        }
+        "family" => {
+            let h = home?;
+            // Parents who are not around his football can't have been at
+            // every game, or be coming to the draft: he says what is true.
+            let away = h.parents_absent && matches!(h.structure, F::TwoParents | F::SingleParent);
+            let opts: [&str; 2] = match (h.structure, band.min(2)) {
+                (_, 2) if away => [
+                    "\"I've had to do a lot of this on my own. That's why I'm ready for it.\"",
+                    "\"Football is what I've had. I want to make something of it.\"",
+                ],
+                (_, 1) if away => [
+                    "\"My parents aren't around football much. I've handled most of this myself.\"",
+                    "\"I've been handling this on my own, and I'm fine with it.\"",
+                ],
+                (_, 0) if away => [
+                    "He said he'd rather not get into his family, and looked at his agent.",
+                    "He kept it short and looked at his agent.",
+                ],
+                (F::TwoParents, 2) => [
+                    "\"My parents were at every game I can remember. Everything I do is for them.\"",
+                    "\"Both my parents worked so I could play. I want to give that back.\"",
+                ],
+                (F::SingleParent, 2) => [
+                    "\"One parent raised me and never missed a game. Everything I do is for them.\"",
+                    "\"It was just the two of us. They worked so I could play, and I want to give that back.\"",
+                ],
+                (F::Grandparents, 2) => [
+                    "\"My grandparents raised me. Everything I do is for them.\"",
+                    "\"My grandparents gave up a lot so I could play. I want to give that back.\"",
+                ],
+                (F::Foster, 2) => [
+                    "\"I came up in foster care, and football gave me a family. I want to give back to the people who stuck with me.\"",
+                    "\"I moved around a lot in foster care. Football is the one thing that stayed.\"",
+                ],
+                (F::TwoParents, 1) => [
+                    "\"It's me and my parents. They're coming to the draft.\"",
+                    "\"My parents are my team. They'll be there.\"",
+                ],
+                (F::SingleParent, 1) => [
+                    "\"It's me and the parent who raised me. They're coming to the draft.\"",
+                    "\"It's been the two of us. They'll be there.\"",
+                ],
+                (F::Grandparents, 1) => [
+                    "\"It's me and my grandparents. They're coming to the draft.\"",
+                    "\"My grandparents will be there. They raised me.\"",
+                ],
+                (F::Foster, 1) => [
+                    "\"I came up in foster care. A few people from then are coming.\"",
+                    "\"I was in foster care. I'm still working out who to bring.\"",
+                ],
+                (F::TwoParents, _) => [
+                    "\"My parents have a lot of opinions about this. I'm handling it.\"",
+                    "He kept it short and looked at his agent.",
+                ],
+                (F::SingleParent, _) => [
+                    "\"The parent who raised me has a lot of opinions about this. I'm handling it.\"",
+                    "He kept it short and looked at his agent.",
+                ],
+                (F::Grandparents, _) => [
+                    "\"My grandparents want a lot from me now. I'm handling it.\"",
+                    "He kept it short and looked at his agent.",
+                ],
+                (F::Foster, _) => [
+                    "He said he'd rather not get into his family, and looked at his agent.",
+                    "He kept it short and looked at his agent.",
+                ],
+            };
+            let k = (key_uniform(key ^ 0x1BC2, id) * 2.0) as usize;
+            let base = opts[k.min(1)].to_string();
+            // What the file says about his family's football, in his own
+            // words, on an ordinary or strong answer.
+            // An answer that says it was only the two of them can't add a
+            // brother.
+            let alone = ["two of us", "me and my", "me and the parent"].iter().any(|x| base.contains(x));
+            let extra = if band == 0 || !base.ends_with('"') || away {
+                None
+            } else if h.bloodline == Bloodline::NflPlayer {
+                Some("My dad played in the league, so I grew up around this.".to_string())
+            } else if let Some((school, follows)) = h.brother.as_ref().filter(|_| !alone) {
+                Some(if *follows {
+                    format!("My brother plays at {school}, and I want to follow him.")
+                } else {
+                    format!("My brother plays at {school}, but I want to make my own name.")
+                })
+            } else if h.bloodline == Bloodline::CollegePlayer {
+                Some("My dad played in college, so I grew up around this.".to_string())
+            } else {
+                None
+            };
+            Some(match extra {
+                Some(x) => format!("{} {x}\"", &base[..base.len() - 1]),
+                None => base,
+            })
+        }
+        _ => None,
+    }
+}
+
 /// A player's answer in an interview (SK15), in his own voice: band 0 is a
 /// poor answer, 1 an ordinary one, 2 a strong one.
 pub fn interview_answer(topic: &str, band: u8, key: u64, id: u64) -> String {

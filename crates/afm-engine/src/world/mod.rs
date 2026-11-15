@@ -20,9 +20,11 @@ pub(crate) mod chemistry;
 pub(crate) mod clock;
 pub mod coach;
 pub(crate) mod college;
+pub mod craft_work;
 pub mod data;
 pub mod deals;
 pub mod desk;
+pub(crate) mod early_entry;
 pub mod eligibility;
 pub mod ethnicity;
 pub mod fame;
@@ -77,6 +79,7 @@ pub mod seat_names;
 pub mod sections;
 pub mod staff;
 pub mod staff_read;
+pub mod stay_read;
 pub mod stories;
 pub mod storylines;
 pub mod systems;
@@ -188,6 +191,11 @@ pub enum Stage {
     /// mission or a military term (A3, final build). `Person::roads.away`
     /// says which, when he comes back and to which program.
     Away,
+    /// In the CFL's draft pool from outside the world's colleges (SK77): a
+    /// Canadian at a U Sports school, or a player from abroad for the
+    /// Global Draft. `others.pool` holds where he plays; a pick back at
+    /// school for his last year stays here with his rights held.
+    CflPool,
 }
 
 /// One state's football setting.
@@ -455,6 +463,9 @@ pub struct PersonCal {
     pub hs_grade_out: u32,
     /// Plans to enter the draft if the reads hold (drawn in December).
     pub declare_plan: Option<bool>,
+    /// What weighed most in that plan (`early_entry::Why`), for his note.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub declare_why: Option<u8>,
     /// Graduated (a December graduate can transfer without sitting).
     pub graduated: bool,
     /// All-state selections in high school (A32): 1 = honorable mention or
@@ -499,6 +510,12 @@ pub struct PersonCal {
     /// relationship.
     #[serde(default)]
     pub home_talks: Vec<(usize, f32)>,
+    /// Each school's case with him (talk facts, lane L5; `folk::case`):
+    /// the best point it made in each group across every call, message and
+    /// visit, under one cap. It replaces `home_talks`, which a save from
+    /// before it still reads. Cleared when he enrolls.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cases: Vec<crate::world::folk::case::Case>,
 }
 
 /// A college cut (minor bug 60): the program, the day, and whether his
@@ -953,6 +970,19 @@ pub struct World {
     /// attribute index.
     #[serde(default)]
     pub seat_focus: Vec<(u32, u8)>,
+    /// What your staff has named on your players (individual practice
+    /// topic 4; `craft_work`).
+    #[serde(default)]
+    pub seat_seen: Vec<craft_work::Seen>,
+    /// The tape book: reps a flaw or tool decided for your players, a row
+    /// a game or practice week (topic 4.4).
+    #[serde(default)]
+    pub seat_book: Vec<craft_work::Tag>,
+    /// Last week's individual minutes for each of your players: (player,
+    /// on the field, in the film room), for the Development tab's
+    /// projection.
+    #[serde(default)]
+    pub seat_minutes: Vec<(u32, u8, u8)>,
     /// Your career once it has started: you, your coach id, your notes.
     #[serde(default)]
     pub career: Option<seat::Career>,
@@ -1138,6 +1168,17 @@ pub struct CalendarLog {
     pub early_enrollees: u32,
     pub declared: u32,
     pub withdrew: u32,
+    /// Early entry by the December round (index round - 1, the last
+    /// projected undrafted): [underclassmen read, declared, withdrew].
+    #[serde(default)]
+    pub entry_by_round: [[u32; 3]; 8],
+    /// Declared underclassmen who had their degree (the NFL lists them
+    /// apart from those granted special eligibility).
+    #[serde(default)]
+    pub declared_graduates: u32,
+    /// Early entrants by the round they were drafted in (index 7: undrafted).
+    #[serde(default)]
+    pub early_drafted: [u32; 8],
     /// Declarations and withdrawals by day (part B 20): the title game's
     /// players declare and withdraw late.
     pub declared_by_day: Vec<(crate::calendar::Date, u32)>,
@@ -1569,6 +1610,9 @@ impl World {
             seat_depth: Vec::new(),
             seat_depth_log: Vec::new(),
             seat_focus: Vec::new(),
+            seat_seen: Vec::new(),
+            seat_book: Vec::new(),
+            seat_minutes: Vec::new(),
             training: Default::default(),
             career: None,
             live: None,
@@ -2059,7 +2103,13 @@ impl World {
             .map(|p| {
                 let stays = matches!(
                     p.stage,
-                    Stage::HighSchool | Stage::College | Stage::PrepSchool | Stage::Declared | Stage::Pro | Stage::Away
+                    Stage::HighSchool
+                        | Stage::College
+                        | Stage::PrepSchool
+                        | Stage::Declared
+                        | Stage::Pro
+                        | Stage::Away
+                        | Stage::CflPool
                 );
                 stays.then(|| {
                     next += 1;

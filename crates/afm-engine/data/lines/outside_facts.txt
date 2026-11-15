@@ -1,0 +1,362 @@
+# The line bank: bosses and the outside, on the facts (talk facts lane L10,
+# items 13, 15, 16 and 22; format in src/world/folk/voice.rs). Written by hand
+# for the most common parts; the bank run (item 12) fills the rest.
+#
+# Each part is said only when the game has checked the fact it stands on:
+# the step a case has reached, where the season stands, who holds the final
+# say. A part with no version the speaker can say falls back to the line the
+# tree said before (src/world/folk/scene.rs, bank_line; the press asks the
+# plain press.q.trouble when there is no part for the step, as for a case
+# the league alone handles).
+
+# ---------------------------------------------------------------------------
+# Press: the reporter asks about the man in trouble. Facts: BASE, player,
+# charge (a DUI, an arrest after a fight), when (today, yesterday, on
+# Saturday, last week, on a date), step, again (yes when he has been
+# through a case before).
+
+# He was arrested and the charge hasn't come yet.
+@key press.q.trouble.arrest
+Coach, {player} was arrested {when}. What can you tell us about {charge} involving him?
+What do you know about {charge} involving {player}?
+{player} was arrested {when}. Have you spoken with him since?
+What is your reaction to {charge} involving {player}, Coach?
+Do you know yet whether {player} will be charged?
+Does {charge} involving {player} change your plans for him this week?
+What is the program's response to {player}'s arrest {when}? ~ !nfl
+Has the athletic director been briefed on {player}'s arrest? ~ college
+Has the league reached out to you about {player}'s arrest? ~ nfl
+Folks around town are asking about {player}'s arrest, Coach. What do you tell them? ~ hs
+Is {player} with the team today, or is he still dealing with the arrest?
+
+# The charge is official and a court date is set.
+@key press.q.trouble.charged
+{player} has been formally charged. Does {charge} involving him change his status with the team?
+Now that the charges are official, where does that leave {player}, Coach?
+{player} has a court date. Is he practicing while that hangs over him?
+What do you say to the people who want {player} off the field until {charge} is settled?
+Does {charge} involving {player} change anything in the locker room?
+Has {player} told you his side of {charge}, Coach?
+{player} was arrested {when} and has been charged since. Has anything changed for him on the depth chart?
+Is the university waiting for the court before it decides anything on {player}? ~ college
+Has the club decided anything about {player} before the court does? ~ nfl
+The parents here have a lot of questions about {player}'s charges, Coach. What are you hearing? ~ hs
+
+# The case is in front of a judge.
+@key press.q.trouble.court
+Coach, {player} is in court. Have you spoken with him?
+With {charge} involving {player} in front of a judge, is he still practicing?
+What happens to {player} on this team if the court rules against him?
+How hard has it been on the locker room to have {player}'s case open this long?
+{player}'s case is in court. Has your message to the team changed?
+Do you expect a ruling soon on {charge} involving {player}?
+What is the university's plan for {player} while the court decides? ~ college
+Has the league been in touch with you about {player} while his case is in court? ~ nfl
+Is the school standing by {player} while the case is in court, Coach? ~ hs
+
+# The reporter doesn't let it go: after you gave the standard answer.
+@key press.follow.trouble.deflect
+What does that look like, Coach? Is he practicing this week?
+Is he with the team today?
+Can you at least say whether he plays this week?
+Just to be clear, is he still on the roster?
+Are the other players asking you about it?
+Have you talked to him since?
+So no decision on his status yet?
+Is that the university's position as well, Coach? ~ college
+Is that the club's position as well, Coach? ~ nfl
+
+# After you suspended him in public.
+@key press.follow.trouble.warn
+Indefinitely, Coach? What would it take for him to come back?
+Does indefinitely mean the rest of the season?
+Did you tell him yourself, or did he hear it on TV?
+That is a strong statement while the case is still open. Are you sure about it?
+Have you talked to {player} since you made that call?
+Is that your decision, or the university's? ~ college
+Is that your decision, or the club's? ~ nfl
+Is that your call, or the principal's? ~ hs
+
+# After you stood by him.
+@key press.follow.trouble.praise
+With respect, some people will hear that as protecting him. How do you answer that?
+Will he play while this is open?
+Do the other players feel the same way about him right now?
+Is there a line, Coach? Where does a good kid stop getting the benefit of the doubt? ~ !again=yes
+You said let the process play out. Does he practice while it does?
+He has been through this before, Coach. How many chances does he get? ~ again=yes
+Have you spoken to him about the last time, Coach? ~ again=yes
+How do you balance standing by him with what the rest of the team sees?
+
+# ---------------------------------------------------------------------------
+# Your boss at the midseason check-in. The reply fits where the season
+# stands (ahead, on, behind his bar). Facts: BASE, boss, record.
+
+@key boss.mid.reply.ahead
+I will take {record}. Just don't tell me it's easy from here. It never is.
+Good. Keep me posted, and keep the players hungry.
+I like hearing it from you before I read it. Keep doing that.
+That's more than I expected, honestly. Don't let it go to anyone's head.
+Fine. The second half is what people remember.
+Then I owe you a thank you. I'll save the rest for the end of the year. ~ owner
+My phone has been quiet, which is the best compliment a boss gets. Keep it that way. ~ ad college
+The kids look like they're enjoying it. That matters to me more than the record. ~ principal
+Good. I won't pretend I'm not enjoying this. ~ warm
+
+@key boss.mid.reply.on
+That's a fair read. It's about where I thought we'd be.
+I appreciate the honesty. Nothing to panic about, nothing to celebrate.
+Okay. Keep me posted. I don't want to read it in the paper first.
+That's reasonable. I'll hold you to the rest of it.
+So the second half decides it. Fine. Tell me early if that changes.
+I've heard enough coaches dress up a middle record. You didn't, and I noticed. ~ blunt
+My partners will ask me what {record} means. I'll tell them it means we have work to do. ~ owner
+I'm watching how the kids handle it more than the number. ~ principal patient
+Good. I like a coach who can say where the team is without getting defensive.
+
+@key boss.mid.reply.behind
+I appreciate you saying it, because I wasn't going to enjoy saying it first.
+All right. I need to see something change in the next few weeks, not the next few months.
+Thank you for not dressing it up. Now fix it.
+People are already asking me about {record}. I'd like to have an answer by the time they ask again.
+I'm not going to wait until the end of the year to decide whether this is working. ~ owner impatient
+I'm not worried yet. I want you to be a little worried, though. ~ patient
+I care how the boys are holding up more than the number. But the number is not helping. ~ principal
+The boosters are calling me. I'd like to tell them there is a plan. ~ ad college
+I'd rather hear it from you than from the stands. Keep doing that, whatever the record.
+
+# When you say the injuries have hurt, and your own roster backs it.
+@key boss.mid.reply.injury_true
+I know. I've seen the injury list. That's a real part of this.
+I won't argue with the trainers' report. That's bad luck, and I know it.
+Fair. I'm not going to pretend that doesn't matter. Get them healthy.
+You're right. Too many names I recognize are on that report. Tell me what the doctors say.
+I've been told how bad it is. I'd still like to see us fight through it.
+That's legitimate. I'm not holding the injuries against you.
+
+# When you say it and the list doesn't back you.
+@key boss.mid.reply.injury_thin
+Everybody has injuries. I'd like to hear what you're doing about the ones we can control.
+Every team is hurt by midseason. That's not a plan.
+I hear that from every coach in the fall. Give me something else.
+I've seen the injury report, Coach. It isn't as bad as that makes it sound.
+If that's the reason, fine, but I wouldn't lead with it again.
+That's an excuse I've heard before. Let's not make it the only thing you say to me.
+
+# ---------------------------------------------------------------------------
+# The season's goals: what he says to the deal you took. Facts: BASE, boss.
+
+@key boss.goals.reply.higher
+Good. That's the coach I hired.
+I like that. I'll write the higher number down and I'll hold you to it.
+Then we both know where the bar is. I'll make sure you have what you need.
+That's what I wanted to hear. Don't make me regret writing it down.
+You set it higher than I did. I won't talk you out of it. ~ blunt
+Ambition I can work with. Excuses I can't. ~ impatient
+That's a bigger number than I asked for. I'll remember you offered it.
+Then I'll write the higher number down. Let's see you reach it.
+I'll remember you offered. ~ owner
+
+@key boss.goals.reply.fair
+Good. Then we understand each other.
+Fine. That's what I put on paper, and that's what we'll measure in the winter.
+Good. Nothing hidden, nothing to argue about in November.
+Glad we agree. Let's make it a good year.
+I'll take that. Come see me if anything changes before the fall.
+Straightforward. I like that about you. ~ warm
+Then we're done here. Let's go win some games. ~ cold
+
+@key boss.goals.reply.lowered
+All right. A year to build. But I want to see it moving.
+I can live with that, as long as November looks better than September.
+Fine. I'll adjust the numbers. Don't make me do it twice.
+You've got your year. The next conversation is a harder one.
+I'd rather hear it now than in December. Thank you. ~ patient
+I'll defend that to my partners. Give me something to defend. ~ owner patient
+I don't love it, but I appreciate the honesty. ~ blunt
+Fine. Show me progress by the middle of the year.
+You get the time you asked for. I'll check in at the midpoint.
+
+@key boss.goals.reply.kept
+I didn't hire you to ask for time.
+I hear you. The bar stays where it is.
+Asking once is fine. Don't make a habit of it.
+Everybody has a reason this is hard. The goals stand.
+I'm not going to move the number. Tell me what you need to hit it.
+My answer is no, and I'd like us to be clear it was not personal. ~ blunt
+My patience was spent before you got here. ~ impatient
+My partners will not accept a lower bar, and neither will I. ~ owner
+
+# ---------------------------------------------------------------------------
+# The season review, when you answer it. Facts: BASE, boss, review (good,
+# mixed, bad), met (how many goals), goal (the goal in words: a missed one
+# when you owned the miss or asked what he needs, a met one when you
+# pointed to what worked).
+
+@key boss.review.reply.own
+I appreciate you saying it. I'll hold you to it.
+I respect that you said it. Now I need to see the plan.
+We needed to {goal}, and we didn't. I'm glad you didn't hide behind it.
+That helps. I can defend a coach who owns a miss. It's harder when a coach ducks.
+Good. Write down what changes, and bring it to me before the winter ends. ~ review=bad
+It matters that you said it. It doesn't fix it. ~ review=bad
+Then we can start from the truth, and the rest is work. ~ review=mixed
+Fair. The misses in a decent year are something we can fix. ~ review=mixed
+
+@key boss.review.reply.point
+That's fair. It's the rest I'm worried about.
+Yes, we were able to {goal}. I won't take that away from you.
+That part counts. It doesn't make up for the rest, but it counts.
+I'll give you that one. Now tell me about the ones that didn't happen. ~ review=bad
+Agreed, and I'll say so when people ask. The misses are still the misses. ~ review=mixed
+I know. That's why this isn't a harder conversation. ~ !review=bad
+Good point, and I'd like to see more of it next year.
+
+@key boss.review.reply.ask
+Wins, a clean program, and fewer surprises. In that order.
+I need us to {goal} next year. That's the whole conversation.
+Show me the plan before the season starts. I don't want to find out in October.
+Show me we are better in the fourth quarter of the year than the first.
+I want to see a team that looks like you built it. Right now I can't tell. ~ review=bad
+More of the same, with what didn't work fixed. ~ review=mixed
+Something I can tell the people above me with a straight face. ~ review=bad !owner
+Keep doing what you are doing, and help us {goal}. ~ review=good
+
+# ---------------------------------------------------------------------------
+# A booster's reply to what you said in the meeting. His age, his temper and
+# his weight in the room pick the words. Facts: BASE, name, giver (big,
+# small, none), want (what he asked for, in words, when he asked).
+
+@key booster.reply.promise
+That's what I wanted to hear. You and I are going to get along.
+I'll hold you to that, Coach, and I'll tell you when I think you're slipping. ~ meddler
+Good. Someone who says it to my face is someone I can work with. ~ blunt
+I've heard a lot of promises from a lot of coaches. I remember the ones that were kept. ~ old
+Then we're fine. I'll make a couple of calls on your behalf this week. ~ giver=big
+That means a lot. I don't forget a favor, and I don't forget a broken word either. ~ ego
+You're all right, Coach. Let's get dinner on the calendar. ~ warm
+Fine. Write it down somewhere you'll see it. ~ cold
+I'll take that. Don't make me ask twice. ~ hot
+Thank you. That's a promise I'll remember. ~ !cold
+I'll hold you to that, and I mean it kindly.
+Good. That's all I ever ask of a coach.
+Then we understand each other. Call me if you need anything.
+
+@key booster.reply.straight
+Fair enough. We'll see how it goes.
+I respect a straight answer, Coach, even when I don't like it. ~ blunt
+I've put a lot into this program over the years. That's a lot of nerve. ~ ego giver=big !nfl
+Then you and I are going to have a different kind of relationship than I hoped. ~ meddler
+All right. I'll remember you said it, and you'll remember I took it well. ~ smooth
+I won't argue with you in your first meeting. I will bring it up again. ~ meddler
+That's your right, Coach. It's my right to keep an eye on how it goes. ~ old
+No hard feelings. I'd rather hear no than a promise you won't keep. ~ warm
+If you say so. ~ cold
+You're not the first coach to tell me no. You'll be the first one I remember doing it politely. ~ hot
+All right. I wanted to hear where you stand, and now I have.
+You didn't dodge it. I can work with that.
+I'd have liked a yes. I'll take an honest no.
+
+@key booster.reply.business
+Nobody asks about that. They only ask what I'll give. I like that you asked.
+It's long hours and thin margins, Coach, more than people think. Sit down, I'll tell you.
+Happy to. It takes a minute, and it explains a lot about how I think.
+You really want to hear about it? Everybody says they do. ~ blunt
+Thirty years of it. Let me tell you how I started. ~ old
+That's kind of you. The short version is I like winners, in business and out here.
+My family says I never stop talking about it. Stop me if I do.
+I'll give you the short version, and you'll get the long version at dinner. ~ warm
+
+@key booster.reply.thanks
+Glad to do it. Glad you're here.
+It's the least I can do. This program has been good to my family. ~ giver=big !nfl
+Thank you, Coach. Most people only come around when they want something. ~ blunt
+You're welcome. I'm just happy to be part of it.
+I appreciate that more than you know. ~ warm
+No need, but I'll take it. ~ ego
+Good of you to say. Come see me any time. ~ old
+Don't mention it. Win a few for us.
+Of course. I'm glad it helped.
+Happy to. Let me know what else the program needs. ~ !nfl
+
+# ---------------------------------------------------------------------------
+# The coach you replaced, answering as the man he is. Speaker: the old coach
+# (his age, his temper, his loyalty). Facts: BASE.
+
+@key takeover.oldcoach.reply.help
+I'd like that. These kids matter to me.
+I'll help any way I can. I just don't want to be in your way.
+You're asking a man who has had nothing to do with his afternoons. Yes. ~ old
+Careful, I might take you up on every day of the week. ~ warm
+I'll help, but I won't be a secret weapon you point at the other coaches. ~ hot
+These are my kids, too, and I'll be there for them. You don't have to ask twice. ~ loyal
+Thank you. I mean that. I was afraid I'd have to watch from the parking lot.
+Tell me where you want me, and I'll be there.
+I won't get in your way. I'd just like to see the kids.
+
+@key takeover.oldcoach.reply.respect
+Appreciate it. Good luck, Coach.
+That's kind of you. I'll be rooting for them from wherever I am.
+I appreciate you coming by and saying it to my face. Not everyone does.
+It means something coming from you. Thank you. ~ warm
+Thank you. We both know where we stand, and I'm fine with that. ~ calm
+Fine. That's all I wanted to hear. ~ cold
+Go win some games. That's the best way to respect any of it. ~ old
+I appreciate that. It wasn't just me; there were a lot of good people.
+Thank you, Coach. That's more than I expected.
+
+@key takeover.oldcoach.reply.mine
+Understood. It's yours.
+I know. I'll stay out of your way.
+It's your program now. I won't pretend that's easy to say. ~ old
+You don't have to tell me twice. ~ hot
+I heard you, Coach. Take care of those kids, and we won't have a problem.
+Understood. I wish you luck, and I mean it. ~ warm
+Fair. Just don't be surprised when some people still call me Coach. ~ loyal
+I know whose program it is. I'll be at the games.
+Understood. No hard feelings.
+
+# ---------------------------------------------------------------------------
+# Your general manager, answering what you said. Facts: BASE, power (gm,
+# coach, owner: who holds the final say on the roster), mode (contend,
+# middle, rebuild).
+
+@key gm.reply.say
+You'll be in the room. The decisions are mine; that's how the owner set it up. ~ power=gm
+I'll listen to you on every cut. I'll make the call. That's the arrangement. ~ power=gm blunt
+You'll get a say, and you'll get an answer. You won't get a vote. ~ power=gm hot
+Tell me what you see on every cut, and I'll weigh it. The decision is mine. ~ power=gm
+You'll have a voice in my room. The roster is my job. ~ power=gm
+I know where the line is, Coach. The final call is yours. I'd like to be in the room before you make it. ~ power=coach
+You hold the pen on the 53. I just want you to hear me before you sign off. ~ power=coach warm
+It's your call in the end, and I've made my peace with that. Don't make me read about it in the paper. ~ power=coach ego
+You have the final say, and I'll make sure my board is ready when you ask. ~ power=coach
+I'll be in the room, and I'll tell you what I think. After that it's yours. ~ power=coach
+The owner has the last word, so you and I are on the same side of that table. I'll carry your view into the room. ~ power=owner
+Neither of us gets the final say, and we both know it. I'll fight for yours if you'll fight for mine. ~ power=owner blunt
+You'll have your say in the room, but the owner decides. Let's make sure we walk in with one story. ~ power=owner
+Neither of us holds the pen. We'll make our case together. ~ power=owner
+I'll carry your view in with mine, and the owner will decide. ~ power=owner
+
+@key gm.reply.need
+That's how this works best. Tell me what you need and I'll go get it.
+You have the final say, so tell me early and I'll make it work. ~ power=coach
+Give me a list by the end of the week and I'll work through it. ~ power=gm
+I'll make the case to the owner for whatever you need, if you give me something to work with. ~ power=owner
+Good. Most coaches tell me what they want after the cap is gone. ~ blunt
+I appreciate that. I'll keep you in the loop on the board before it hardens. ~ warm
+Fine. Just remember I have a cap to live under. ~ power=gm tight
+Tell me the positions that keep you up at night, and we'll start there.
+I'll work the phones on whatever you give me. Just don't wait until the cap is gone.
+
+@key gm.reply.never
+In a rebuild, nobody is untouchable except the kids we're building around. Ask me again after the draft. ~ mode=rebuild
+Right now? The guys who got us here. Ask me again at the deadline. ~ mode=contend
+Honestly, not many. Ask me again once we know what kind of year it is. ~ mode=middle
+Ask me again after the draft. But you can guess the first one. ~ mode=rebuild
+I'll give you one now and two later. The one is easy. ~ mode=contend
+The list changes every time I talk to the owner. I'll tell you what it is today. ~ power=owner
+If I tell you, it's out in the building by lunch. Ask me when the door is closed. ~ blunt
+I'll tell you if you promise not to repeat a word of it to the agents.
+Give me until the owner and I talk. I'll tell you after that. ~ power=owner
+I'd rather show you the board than list it. Come by the office.

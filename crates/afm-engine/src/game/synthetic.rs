@@ -120,6 +120,10 @@ pub fn synthetic_team_people(
                 _ => 19 + (k % 4) as u32,
             };
             p.age = age;
+            // His flaws and tools grown through those years too (individual
+            // practice), not a raw 14-year-old's.
+            p.craft = Default::default();
+            crate::craft::ensure(&mut p);
             let share = match level {
                 Level::HS => 0.86,
                 Level::NFL => 1.0,
@@ -247,6 +251,8 @@ pub fn team_from_ratings(name: &str, level: Level, list: &[RatedPlayer], scheme:
             ProspectOptions { id: Some(id), position: Some(rp.position), age: Some(14), talent_z: Some(z_for(target)) },
         );
         p.age = 19 + (k % 4) as u32;
+        p.craft = Default::default();
+        crate::craft::ensure(&mut p);
         p.attributes = rp.attrs;
         p.ceilings = rp.attrs;
         p.tend.v = rp.tend.map(|x| x as f32);
@@ -278,6 +284,11 @@ struct Typical {
     /// player, a slope that is steeper than the old one lifts or sinks
     /// every starting lineup, since starters rate above the dressed mean).
     start: Vec<[f64; crate::attributes::ATTRIBUTE_COUNT]>,
+    /// The typical starter's flaws and tools (individual practice): the
+    /// mean rating points of each at the position, 0 for the men without
+    /// it. The engine reads a man's own against it, so a level plays as it
+    /// did and only how men differ changes.
+    craft: Vec<[f64; crate::craft::CRAFT_COUNT]>,
 }
 
 static TYPICAL: std::sync::LazyLock<Vec<Typical>> = std::sync::LazyLock::new(|| {
@@ -320,6 +331,7 @@ static TYPICAL: std::sync::LazyLock<Vec<Typical>> = std::sync::LazyLock::new(|| 
             let charts: Vec<super::roster::Depth> =
                 league.iter().map(|t| super::roster::depth_chart(t, margin)).collect();
             let mut start = attrs.clone();
+            let mut craft = vec![[0.0; crate::craft::CRAFT_COUNT]; POSITION_COUNT];
             for pos in Position::ALL {
                 let men: Vec<&GamePlayer> = league
                     .iter()
@@ -335,8 +347,11 @@ static TYPICAL: std::sync::LazyLock<Vec<Typical>> = std::sync::LazyLock::new(|| 
                 for a in Attr::ALL {
                     start[pos.index()][a.index()] = men.iter().map(|p| p.a(a)).sum::<f64>() / n;
                 }
+                for c in crate::craft::Craft::ALL {
+                    craft[pos.index()][c.index()] = men.iter().map(|p| p.craft.pts(c, 0.0)).sum::<f64>() / n;
+                }
             }
-            Typical { attrs, body, hit, start }
+            Typical { attrs, body, hit, start, craft }
         })
         .collect()
 });
@@ -354,6 +369,13 @@ fn level_slot(level: Level) -> usize {
 /// The typical rating in `a` of a player at `pos` at `level`.
 pub fn typical(level: Level, pos: Position, a: Attr) -> f64 {
     TYPICAL[level_slot(level)].attrs[pos.index()][a.index()]
+}
+
+/// The typical starter's rating points in flaw or tool `c` at `pos` at
+/// `level` (see `Typical`): signed, mostly a fraction of a point.
+#[inline]
+pub fn typical_craft(level: Level, pos: Position, c: crate::craft::Craft) -> f64 {
+    TYPICAL[level_slot(level)].craft[pos.index()][c.index()]
 }
 
 /// The typical starter's rating in `a` at `pos` at `level` (see `Typical`).

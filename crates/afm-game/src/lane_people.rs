@@ -15,6 +15,7 @@ use afm_engine::calendar::Level;
 use afm_engine::world::World;
 use afm_engine::world::coach::{Group, Role};
 use afm_engine::world::folk::cast::{self, CastRef};
+use afm_engine::world::folk::persona::{Them, office};
 use afm_engine::world::folk::rules::RuleKind;
 use afm_engine::world::folk::scene::{Kind, Scene, Who};
 use afm_engine::world::folk::talks::{self, Line, PromiseTo, Subject};
@@ -24,14 +25,17 @@ use serde_json::{Value, json};
 use crate::views::date_text;
 use crate::{Game, Reply};
 
-const COMMANDS: [&str; 28] = [
+const COMMANDS: [&str; 33] = [
     "people_agenda",
+    "people_sitdown",
+    "people_reference",
     "people_expect",
     "people_scene",
     "people_answer",
     "people_hand",
     "people_talk",
     "people_subject",
+    "people_subject_look",
     "people_team_talk",
     "people_line",
     "people_player",
@@ -39,6 +43,7 @@ const COMMANDS: [&str; 28] = [
     "people_rules",
     "people_rules_set",
     "people_council",
+    "people_council_meet",
     "people_boss",
     "people_boss_meeting",
     "people_staff",
@@ -53,6 +58,7 @@ const COMMANDS: [&str; 28] = [
     "people_league",
     "people_log",
     "people_takeover",
+    "people_promise_plan",
 ];
 
 pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
@@ -62,7 +68,39 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     let Some(w) = game.world.as_mut() else { return Some(Err("No world is loaded.".into())) };
     Some(match cmd {
         "people_agenda" => Ok(agenda(w)),
+        // Turn the plan setting that keeps a promise on usage off or back
+        // on (lane N2): `index` in the agenda's promises, `off`.
+        "people_promise_plan" => (|| {
+            let k = num(args, "index")? as usize;
+            let off = args.get("off").and_then(Value::as_bool).unwrap_or(true);
+            folk::usage::set_off(w, k, off)?;
+            Ok(agenda(w))
+        })(),
         "people_scene" => num(args, "id").and_then(|id| scene(w, id as u32)),
+        // Live talks v3, lane N5c: a sit-down with someone in your building
+        // (`{coach}`, `{cast}` by link token, or `{compliance: true}`; an
+        // `about` player id) and a reference call about a coach
+        // (`{coach, source}`, the source's code from his page).
+        "people_sitdown" => (|| {
+            let who = if let Some(tok) = args.get("cast").and_then(Value::as_str) {
+                let c = afm_engine::world::folk::cast::from_token(w, tok).ok_or("No such person.")?;
+                Them::Cast(c.r, c.term)
+            } else if args.get("compliance").and_then(Value::as_bool) == Some(true) {
+                let team = Team::seat(w).ok_or("You have no team.")?;
+                office::rules::director(w, team).ok_or("Only a college has a compliance office.")?
+            } else {
+                Them::Coach(num(args, "coach")? as usize)
+            };
+            let about = num(args, "about").ok().map(|x| x as u32);
+            let id = office::sit::start(w, who, about)?;
+            scene(w, id)
+        })(),
+        "people_reference" => (|| {
+            let c = num(args, "coach")? as usize;
+            let src = args.get("source").and_then(Value::as_str).ok_or("Missing source.")?;
+            let id = office::refs::start(w, c, src)?;
+            scene(w, id)
+        })(),
         "people_answer" => (|| {
             let id = num(args, "id")? as u32;
             let code = num(args, "code")? as u32;
@@ -86,15 +124,38 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "people_subject" => (|| {
             let id = num(args, "id")? as u32;
             let key = args.get("subject").and_then(Value::as_str).unwrap_or("role");
-            let sub = Subject::from_key(key).ok_or("Unknown subject.")?;
-            talks::change_subject(w, id, sub)?;
+            let topic = talks::Topic::from_key(key).ok_or("Unknown subject.")?;
+            // Turning the talk and the move you set for it are one confirmed
+            // step: nothing is said until you say it.
+            let code = args.get("code").and_then(Value::as_u64).map(|c| c as u32);
+            if let Some(code) = code {
+                let ok = talks::turn_preview(w, id, topic)?.is_some_and(|ps| ps.iter().any(|p| p.code == code));
+                if !ok {
+                    return Err("That isn't on the table for him.".to_string());
+                }
+            }
+            talks::change_topic(w, id, topic)?;
+            if let Some(code) = code {
+                folk::scene::answer(w, id, code)?;
+            }
             scene(w, id)
+        })(),
+        // What a subject chip would put on the table, before you say it:
+        // its moves and tones, and no words from him.
+        "people_subject_look" => (|| {
+            let id = num(args, "id")? as u32;
+            let key = args.get("subject").and_then(Value::as_str).unwrap_or("role");
+            let topic = talks::Topic::from_key(key).ok_or("Unknown subject.")?;
+            Ok(match talks::turn_preview(w, id, topic)? {
+                Some(picks) => json!({ "asks_first": false, "picks": picks }),
+                None => json!({ "asks_first": true, "picks": [] }),
+            })
         })(),
         "people_talk" => (|| {
             let id = num(args, "id")? as u32;
             let subject = args.get("subject").and_then(Value::as_str).unwrap_or("role");
-            let sub = Subject::from_key(subject).unwrap_or(Subject::Role);
-            let sid = talks::start_talk(w, id, sub)?;
+            let topic = talks::Topic::from_key(subject).unwrap_or(talks::Topic::Subject(Subject::Role));
+            let sid = talks::start_talk_on(w, id, topic)?;
             Ok(json!({ "scene": sid }))
         })(),
         "people_team_talk" => talks::start_team_talk(w).map(|sid| json!({ "scene": sid })),
@@ -125,6 +186,9 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             w.folk.rules.council = ids;
             Ok(rules(w))
         })(),
+        "people_council_meet" => {
+            afm_engine::world::folk::persona::gameday::group::start_council(w).map(|sid| json!({ "scene": sid }))
+        }
         "people_boss" => Ok(boss_page(w)),
         "people_boss_meeting" => boss::request_meeting(w).map(|sid| json!({ "scene": sid })),
         "people_staff" => Ok(staff(w)),
@@ -364,7 +428,7 @@ fn scene(w: &mut World, id: u32) -> Reply {
         });
     }
     if s.kind == Kind::OneOnOne {
-        v["subject"] = json!(Subject::from_u64(s.b).key());
+        v["subject"] = json!(talks::Topic::of(s.b).key());
         // His friend's leaving is a chip only while it weighs on him.
         v["subjects"] = json!(
             talks::subjects_for(w, s.a as u32)
@@ -455,11 +519,15 @@ fn agenda(w: &World) -> Value {
         .folk
         .promises
         .iter()
+        .enumerate()
         .rev()
-        .filter(|p| p.kept.is_none() || p.due.days_to(w.today) < 60)
+        .filter(|(_, p)| p.kept.is_none() || p.due.days_to(w.today) < 60)
         .take(12)
-        .map(|p| {
-            json!({ "who": p.who, "what": p.kind.words(), "made": date_text(p.made), "due": date_text(p.due), "kept": p.kept, "public": p.public })
+        .map(|(k, p)| {
+            // A promise on usage: its words, what keeps it, and whether you
+            // turned its plan setting off (lane N2).
+            let plan = p.terms.usage.map(|u| json!({ "kept_by": folk::usage::kept_by(&u), "off": p.terms.off }));
+            json!({ "index": k, "who": p.who, "what": p.words(), "made": date_text(p.made), "due": date_text(p.due), "kept": p.kept, "public": p.public, "plan": plan })
         })
         .collect();
     let due: Vec<Value> =

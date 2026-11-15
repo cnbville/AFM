@@ -42,8 +42,13 @@ const TAGS: &str = concat!(
 /// Every fact a caller hands the bank (`Facts::set` and `with` across
 /// `world/folk` and `world/storylines/tell.rs`). A version that needs any
 /// other fact would never be said.
+/// Facts no caller sets on purpose: their lines are held, never said.
+/// `saw_chart`: a player reading the depth chart (the promises design,
+/// section 2: players never see it; lane P1).
+const HELD: &[&str] = &["saw_chart"];
+
 const FACTS: &str = concat!(
-    "amateur at_college at_hs at_pro boss boss_title came_up coach coach_last count count_next friend full games ",
+    "about amateur at_college at_hs at_pro boss boss_title came_up coach coach_last count count_next friend full games ",
     "gameday gone lead lead_last made mark met milestone money n n_words name not_hs nth_week old old_last ",
     "old_school opp other other_name other_short outlet player pos question rank rank_of record record_mark ",
     "result rival rival_last rivalry role scope score season series since since_year starters stars_now stars_was ",
@@ -53,10 +58,37 @@ const FACTS: &str = concat!(
     "defense margin upset streak run mood qb star goat cost next mascot color place at from station late class move draft time ",
     // why your player asked to see you before the portal (talks.rs)
     "reason ",
-    // lines that deny or admit something about his own conduct: nothing sets
-    // these yet, so those lines wait for the talks' fact sheet (voice.rs,
-    // CLAIM_FACTS)
+    // the recruit and portal conversation (pitch.rs): a point's own facts and
+    // the rival school that told him the same
+    "school spot when rival_school score ",
+    // lines that deny or admit something about his own conduct: the
+    // one-on-ones set them from his fact sheet (voice.rs, CLAIM_FACTS)
     "blameless at_fault ",
+    // a one-on-one on a talking point (talk facts lane L4): the point, his
+    // stance, how your move went, and every point's holes and checks
+    "point stance went charge when step again outcome by rule punishment ruled why ahead ahead_class mistake ",
+    "line award injury life known promise days gap hold trade asked round pc parent prep forty bench squat ",
+    "weight forty_before bench_before weight_before test phase grade won lost battles shape pounds position ",
+    "stage names arrived change how system grasp picks tie out sport event meet school offers tag what his ",
+    "his_games finish margin ",
+    // the staff and scouting rooms (claims/rooms.rs, lane L11)
+    "yours strong weak worst pick_name pick_round pick_year form allowed scored pressure big ypc run_share ahead ",
+    // the bosses and the outside on the fact sheet (lane L10): the case's
+    // charge, day, step and whether it is his first; who gives and what a
+    // booster asked; who holds the final say and the club's mode; the goal
+    // in words and how the season review went
+    "charge when step again giver power mode goal review ",
+    // your own lines (lane L12): what your rules say comes next, the day it
+    // comes, whether he starts, a teammate who looks out for him, and the
+    // recruit pitch's holes
+    "book when_due starter mate ahead_all best best_round building clubs conference conference_titles first_round ",
+    "game guys home hours hs hs_coach leaving miles opens picks_words seasons seats state staying titles u ",
+    // the states that pick a pitch's words (pitch.rs `claim_words`)
+    "academics depth drive level new seat ",
+    // your team's rooms (claims/team_rooms.rs, lane L9): the week, the
+    // season before you, a family's complaint and what it sees, the day
+    "game next_when next_place next_rival season_was ahead_when last_year why_left complaint with group snaps ",
+    "starts seen penalty stakes playoff seniors hurt ",
 );
 
 /// The parts the code asks for (talks, press, boss, rules, staffing,
@@ -166,6 +198,85 @@ fn asked() -> Vec<String> {
     for k in ["knows", "believes", "doubts"] {
         v.push(format!("portal.promise.{k}"));
     }
+    // The recruit and portal conversation (talk facts lane L5, pitch.rs): the
+    // hand-written new parts and the recruiting lines' parts it asks for.
+    for k in [
+        "compare.any",
+        "react.again.any",
+        "pitch.straight.any",
+        "react.straight.any",
+        "tell.decides",
+        "open.your_win",
+        "open.your_loss",
+        "open.his_game",
+        "open.new_offer",
+        "open.visit_elsewhere",
+        "open.commit_at_spot",
+        "open.coach_left",
+        "open.entered_portal",
+        "record.ask",
+        "record.strong",
+        "record.mixed",
+        "record.weak",
+        "you.new",
+        "you.long",
+        "want.second",
+        "want.unsure",
+        "want.dealbreaker",
+        "history.first",
+        "history.again",
+        "history.silence",
+        "team.good_year",
+        "team.bad_year",
+        "committed.you",
+        "committed.elsewhere",
+        "other.money",
+        "other.closer",
+        "other.start",
+        "other.you_money",
+    ] {
+        v.push(format!("recruit.{k}"));
+    }
+    for s in ["call", "visit"] {
+        for m in ["warm", "polite", "guarded"] {
+            v.push(format!("recruit.open.{s}.{m}"));
+        }
+        for m in ["warm", "flat", "cool"] {
+            v.push(format!("recruit.close.{s}.{m}"));
+        }
+    }
+    for a in ["atmosphere", "brand", "campus", "conference", "facilities", "prestige", "tradition"] {
+        for m in ["good", "cool", "weak"] {
+            v.push(format!("recruit.aspect.{a}.{m}"));
+        }
+    }
+    for b in [
+        "ambitious",
+        "bloodline_college",
+        "bloodline_nfl",
+        "brother_follow",
+        "brother_own",
+        "death",
+        "family_move",
+        "foster",
+        "grades_low",
+        "grandparents",
+        "job_loss",
+        "mentor",
+        "money_fine",
+        "money_tight",
+        "new_baby",
+        "nil_changed",
+        "single_parent",
+    ] {
+        v.push(format!("recruit.bg.{b}"));
+    }
+    for k in ["choice", "coach", "grad", "money", "snaps", "up"] {
+        v.push(format!("transfer.why.{k}"));
+    }
+    for k in ["starter", "backup"] {
+        v.push(format!("transfer.role.{k}"));
+    }
     for m in ["good", "flat", "bad"] {
         v.push(format!("homevisit.react.{m}"));
         v.push(format!("interview.react.{m}"));
@@ -178,6 +289,19 @@ fn asked() -> Vec<String> {
     }
     for k in ["pressure", "zone", "run", "pass"] {
         v.push(format!("staffmeet.case.{k}"));
+        v.push(format!("staffmeet.case.{k}.facts"));
+    }
+    // The rooms read the facts (lane L11).
+    for k in ["plan", "past"] {
+        v.push(format!("interview.ask.{k}.facts"));
+    }
+    for k in ["failure", "results", "people"] {
+        v.push(format!("interview.react.past.{k}"));
+        v.push(format!("interview.react.past.against.{k}"));
+    }
+    v.push("takeover.holdover.record".into());
+    for k in ["role", "role.ahead", "winning.up", "winning.down", "city", "security", "home", "loyalty"] {
+        v.push(format!("agent.wants.{k}"));
     }
     for k in ["yes", "half", "no"] {
         v.push(format!("staffmeet.reply.{k}"));
@@ -191,10 +315,455 @@ fn asked() -> Vec<String> {
     for k in ["real", "bluff", "market", "stay"] {
         v.push(format!("agent.claim.{k}"));
     }
+    // The bosses and the outside on the facts (lane L10, outside_facts.txt).
+    for k in ["arrest", "charged", "court"] {
+        v.push(format!("press.q.trouble.{k}"));
+    }
+    for k in ["deflect", "warn", "praise"] {
+        v.push(format!("press.follow.trouble.{k}"));
+    }
+    for k in ["ahead", "on", "behind", "injury_true", "injury_thin"] {
+        v.push(format!("boss.mid.reply.{k}"));
+    }
+    for k in ["higher", "fair", "lowered", "kept"] {
+        v.push(format!("boss.goals.reply.{k}"));
+    }
+    for k in ["own", "point", "ask"] {
+        v.push(format!("boss.review.reply.{k}"));
+    }
+    for k in ["promise", "straight", "business", "thanks"] {
+        v.push(format!("booster.reply.{k}"));
+    }
+    for k in ["help", "respect", "mine"] {
+        v.push(format!("takeover.oldcoach.reply.{k}"));
+    }
+    for k in ["say", "need", "never"] {
+        v.push(format!("gm.reply.{k}"));
+    }
     // The fans (fans.rs).
     v.extend(crate::world::folk::fans::parts());
+    // One-on-ones on his talking points (talk facts lane L4): the parts
+    // written by hand; the others fall back to today's lines until L12.
+    for (point, stances) in [
+        ("arrest", &["owns", "plays_down", "denies", "defiant", "shaken"][..]),
+        ("lost_job", &["accepts", "pushes_back", "sulks", "fired_up"][..]),
+        ("won_job", &["humble", "proud"][..]),
+        ("big_game", &["humble", "proud"][..]),
+        ("bad_game", &["accepts", "pushes_back", "sulks", "fired_up"][..]),
+        ("hurt", &["opens_up", "guarded"][..]),
+        ("good", &["humble", "proud"][..]),
+    ] {
+        for st in stances {
+            v.push(format!("talk.point.open.{point}.{st}"));
+        }
+    }
+    for q in ["lost_job", "buried", "promise_open", "draft", "your_job"] {
+        v.push(format!("talk.point.ask.{q}"));
+    }
+    v.push("talk.point.again".into());
+    v.push("talk.point.open.plain".into());
+    // Discipline on the facts (talk facts lane L8, discipline_facts.txt).
+    for st in ["owns", "plays_down", "denies", "defiant", "shaken"] {
+        v.push(format!("rules.speak.{st}"));
+    }
+    for k in ["cleared", "guilty"] {
+        v.push(format!("rules.court.{k}"));
+    }
+    // Your own lines (lane L12, own_lines_run.txt): the moves and answers on
+    // a point, the moves on a subject and the pitch, each asked by the code.
+    v.extend(YOUR_PARTS.iter().map(|k| k.to_string()));
+    // Your team's rooms (lane L9, team_rooms.txt).
+    for k in ["lands", "mixed"] {
+        v.push(format!("teamtalk.react.{k}"));
+    }
+    for k in ["lost_job", "buried", "role", "suspended", "rule_break", "pay", "new_position"] {
+        v.push(format!("parents.call.{k}"));
+    }
+    for k in ["straight.fair", "straight.above", "listen", "promise", "warn"] {
+        v.push(format!("parents.reply.{k}"));
+    }
+    for k in ["oldcoach", "courted", "deal", "unhappy"] {
+        v.push(format!("talk.exit.open.{k}"));
+    }
+    for k in ["playoff", "seniors", "hurt", "big"] {
+        v.push(format!("gameday.day.{k}"));
+    }
+    v.push("gameday.captain.day".into());
     v
 }
+
+const YOUR_PARTS: &[&str] = &[
+    "recruit.pitch.after_football.elite",
+    "recruit.pitch.after_football.fair",
+    "recruit.pitch.after_football.strong",
+    "recruit.pitch.after_football.weak",
+    "recruit.pitch.brand.elite",
+    "recruit.pitch.brand.fair",
+    "recruit.pitch.brand.strong",
+    "recruit.pitch.brand.weak",
+    "recruit.pitch.brother.elite",
+    "recruit.pitch.brother.fair",
+    "recruit.pitch.brother.strong",
+    "recruit.pitch.brother.weak",
+    "recruit.pitch.buildings.elite",
+    "recruit.pitch.buildings.fair",
+    "recruit.pitch.buildings.strong",
+    "recruit.pitch.buildings.weak",
+    "recruit.pitch.childhood_team.elite",
+    "recruit.pitch.childhood_team.fair",
+    "recruit.pitch.childhood_team.strong",
+    "recruit.pitch.childhood_team.weak",
+    "recruit.pitch.conference.elite",
+    "recruit.pitch.conference.fair",
+    "recruit.pitch.conference.strong",
+    "recruit.pitch.conference.weak",
+    "recruit.pitch.degree.elite",
+    "recruit.pitch.degree.fair",
+    "recruit.pitch.degree.strong",
+    "recruit.pitch.degree.weak",
+    "recruit.pitch.drive.elite",
+    "recruit.pitch.drive.fair",
+    "recruit.pitch.drive.strong",
+    "recruit.pitch.drive.weak",
+    "recruit.pitch.exposure.elite",
+    "recruit.pitch.exposure.fair",
+    "recruit.pitch.exposure.strong",
+    "recruit.pitch.exposure.weak",
+    "recruit.pitch.family_need.elite",
+    "recruit.pitch.family_need.fair",
+    "recruit.pitch.family_need.strong",
+    "recruit.pitch.family_need.weak",
+    "recruit.pitch.home_state.elite",
+    "recruit.pitch.home_state.fair",
+    "recruit.pitch.home_state.strong",
+    "recruit.pitch.home_state.weak",
+    "recruit.pitch.hs_coach_tie.elite",
+    "recruit.pitch.hs_coach_tie.fair",
+    "recruit.pitch.hs_coach_tie.strong",
+    "recruit.pitch.hs_coach_tie.weak",
+    "recruit.pitch.hs_mates.elite",
+    "recruit.pitch.hs_mates.fair",
+    "recruit.pitch.hs_mates.strong",
+    "recruit.pitch.hs_mates.weak",
+    "recruit.pitch.offer_others.elite",
+    "recruit.pitch.offer_others.fair",
+    "recruit.pitch.offer_others.strong",
+    "recruit.pitch.offer_others.weak",
+    "recruit.pitch.offer_rate.elite",
+    "recruit.pitch.offer_rate.fair",
+    "recruit.pitch.offer_rate.strong",
+    "recruit.pitch.offer_rate.weak",
+    "recruit.pitch.picks_all.elite",
+    "recruit.pitch.picks_all.fair",
+    "recruit.pitch.picks_all.strong",
+    "recruit.pitch.picks_all.weak",
+    "recruit.pitch.picks_position.elite",
+    "recruit.pitch.picks_position.fair",
+    "recruit.pitch.picks_position.strong",
+    "recruit.pitch.picks_position.weak",
+    "recruit.pitch.position_coach.elite",
+    "recruit.pitch.position_coach.fair",
+    "recruit.pitch.position_coach.strong",
+    "recruit.pitch.position_coach.weak",
+    "recruit.pitch.position_u.elite",
+    "recruit.pitch.position_u.fair",
+    "recruit.pitch.position_u.strong",
+    "recruit.pitch.position_u.weak",
+    "recruit.pitch.pro_day.elite",
+    "recruit.pitch.pro_day.fair",
+    "recruit.pitch.pro_day.strong",
+    "recruit.pitch.pro_day.weak",
+    "recruit.pitch.qb_rivals.elite",
+    "recruit.pitch.qb_rivals.fair",
+    "recruit.pitch.qb_rivals.strong",
+    "recruit.pitch.qb_rivals.weak",
+    "recruit.pitch.rival.elite",
+    "recruit.pitch.rival.fair",
+    "recruit.pitch.rival.strong",
+    "recruit.pitch.rival.weak",
+    "recruit.pitch.role.elite",
+    "recruit.pitch.role.fair",
+    "recruit.pitch.role.strong",
+    "recruit.pitch.role.weak",
+    "recruit.pitch.room.elite",
+    "recruit.pitch.room.fair",
+    "recruit.pitch.room.strong",
+    "recruit.pitch.room.weak",
+    "recruit.pitch.scheme.elite",
+    "recruit.pitch.scheme.fair",
+    "recruit.pitch.scheme.strong",
+    "recruit.pitch.scheme.weak",
+    "recruit.pitch.stadium.elite",
+    "recruit.pitch.stadium.fair",
+    "recruit.pitch.stadium.strong",
+    "recruit.pitch.stadium.weak",
+    "recruit.pitch.straight.any",
+    "recruit.pitch.straight.home",
+    "recruit.pitch.straight.league",
+    "recruit.pitch.straight.money",
+    "recruit.pitch.straight.people",
+    "recruit.pitch.straight.playing_time",
+    "recruit.pitch.straight.school",
+    "recruit.pitch.straight.winning",
+    "recruit.pitch.support.elite",
+    "recruit.pitch.support.fair",
+    "recruit.pitch.support.strong",
+    "recruit.pitch.support.weak",
+    "recruit.pitch.tenure.elite",
+    "recruit.pitch.tenure.fair",
+    "recruit.pitch.tenure.strong",
+    "recruit.pitch.tenure.weak",
+    "recruit.pitch.title_odds.elite",
+    "recruit.pitch.title_odds.fair",
+    "recruit.pitch.title_odds.strong",
+    "recruit.pitch.title_odds.weak",
+    "recruit.pitch.titles.elite",
+    "recruit.pitch.titles.fair",
+    "recruit.pitch.titles.strong",
+    "recruit.pitch.titles.weak",
+    "recruit.pitch.why_left.elite",
+    "recruit.pitch.why_left.fair",
+    "recruit.pitch.why_left.strong",
+    "recruit.pitch.why_left.weak",
+    "recruit.pitch.your_guys.elite",
+    "recruit.pitch.your_guys.fair",
+    "recruit.pitch.your_guys.strong",
+    "recruit.pitch.your_guys.weak",
+    "recruit.pitch.your_word.elite",
+    "recruit.pitch.your_word.fair",
+    "recruit.pitch.your_word.strong",
+    "recruit.pitch.your_word.weak",
+    "talk.point.answer.draft.dodge",
+    "talk.point.answer.draft.soften",
+    "talk.point.answer.draft.straight",
+    "talk.point.answer.lost_job.dodge",
+    "talk.point.answer.lost_job.promise",
+    "talk.point.answer.lost_job.soften",
+    "talk.point.answer.lost_job.straight",
+    "talk.point.answer.promise_open.dodge",
+    "talk.point.answer.promise_open.promise",
+    "talk.point.answer.promise_open.soften",
+    "talk.point.answer.promise_open.straight",
+    "talk.point.answer.your_job.dodge",
+    "talk.point.answer.your_job.promise",
+    "talk.point.answer.your_job.soften",
+    "talk.point.answer.your_job.straight",
+    "talk.point.you.ahead.ask",
+    "talk.point.you.ahead.challenge",
+    "talk.point.you.ahead.straight",
+    "talk.point.you.arrest.ask",
+    "talk.point.you.arrest.hand",
+    "talk.point.you.arrest.promise",
+    "talk.point.you.arrest.straight",
+    "talk.point.you.arrest.warn",
+    "talk.point.you.award.ask",
+    "talk.point.you.award.challenge",
+    "talk.point.you.award.praise",
+    "talk.point.you.back.ask",
+    "talk.point.you.back.challenge",
+    "talk.point.you.back.straight",
+    "talk.point.you.bad_game.ask",
+    "talk.point.you.bad_game.challenge",
+    "talk.point.you.bad_game.criticize",
+    "talk.point.you.bad_game.straight",
+    "talk.point.you.big_game.ask",
+    "talk.point.you.big_game.challenge",
+    "talk.point.you.big_game.praise",
+    "talk.point.you.birth.ask",
+    "talk.point.you.birth.hand",
+    "talk.point.you.birth.listen",
+    "talk.point.you.buried.ask",
+    "talk.point.you.buried.challenge",
+    "talk.point.you.buried.promise",
+    "talk.point.you.buried.straight",
+    "talk.point.you.case_closed.ask",
+    "talk.point.you.case_closed.challenge",
+    "talk.point.you.case_closed.hand",
+    "talk.point.you.case_closed.listen",
+    "talk.point.you.case_closed.straight",
+    "talk.point.you.case_closed.warn",
+    "talk.point.you.chart_move.ask",
+    "talk.point.you.chart_move.challenge",
+    "talk.point.you.chart_move.praise",
+    "talk.point.you.chart_move.straight",
+    "talk.point.you.colleges.ask",
+    "talk.point.you.colleges.praise",
+    "talk.point.you.colleges.straight",
+    "talk.point.you.death.ask",
+    "talk.point.you.death.hand",
+    "talk.point.you.death.listen",
+    "talk.point.you.death.promise",
+    "talk.point.you.divorce.ask",
+    "talk.point.you.divorce.hand",
+    "talk.point.you.divorce.listen",
+    "talk.point.you.divorce.promise",
+    "talk.point.you.draft.ask",
+    "talk.point.you.draft.challenge",
+    "talk.point.you.draft.listen",
+    "talk.point.you.draft.straight",
+    "talk.point.you.effort.ask",
+    "talk.point.you.effort.challenge",
+    "talk.point.you.effort.criticize",
+    "talk.point.you.effort.straight",
+    "talk.point.you.failed_term.ask",
+    "talk.point.you.failed_term.hand",
+    "talk.point.you.failed_term.straight",
+    "talk.point.you.failed_term.warn",
+    "talk.point.you.grades.ask",
+    "talk.point.you.grades.hand",
+    "talk.point.you.grades.straight",
+    "talk.point.you.grades.warn",
+    "talk.point.you.homesick.ask",
+    "talk.point.you.homesick.hand",
+    "talk.point.you.homesick.listen",
+    "talk.point.you.homesick.promise",
+    "talk.point.you.hurt.ask",
+    "talk.point.you.hurt.listen",
+    "talk.point.you.hurt.promise",
+    "talk.point.you.hurt.straight",
+    "talk.point.you.lost_job.ask",
+    "talk.point.you.lost_job.challenge",
+    "talk.point.you.lost_job.listen",
+    "talk.point.you.lost_job.promise",
+    "talk.point.you.lost_job.straight",
+    "talk.point.you.money_lost.ask",
+    "talk.point.you.money_lost.hand",
+    "talk.point.you.money_lost.listen",
+    "talk.point.you.money_lost.promise",
+    "talk.point.you.new_coach.ask",
+    "talk.point.you.new_coach.listen",
+    "talk.point.you.new_coach.straight",
+    "talk.point.you.new_position.ask",
+    "talk.point.you.new_position.challenge",
+    "talk.point.you.new_position.praise",
+    "talk.point.you.new_position.straight",
+    "talk.point.you.new_system.ask",
+    "talk.point.you.new_system.challenge",
+    "talk.point.you.new_system.praise",
+    "talk.point.you.new_system.straight",
+    "talk.point.you.other_sport.ask",
+    "talk.point.you.other_sport.praise",
+    "talk.point.you.other_sport.straight",
+    "talk.point.you.parent_called.ask",
+    "talk.point.you.parent_called.listen",
+    "talk.point.you.parent_called.straight",
+    "talk.point.you.pay.ask",
+    "talk.point.you.pay.listen",
+    "talk.point.you.pay.promise",
+    "talk.point.you.pay.straight",
+    "talk.point.you.portal.ask",
+    "talk.point.you.portal.challenge",
+    "talk.point.you.portal.promise",
+    "talk.point.you.portal.straight",
+    "talk.point.you.practice_week.ask",
+    "talk.point.you.practice_week.challenge",
+    "talk.point.you.practice_week.praise",
+    "talk.point.you.practice_week.straight",
+    "talk.point.you.pro_spring.ask",
+    "talk.point.you.pro_spring.challenge",
+    "talk.point.you.pro_spring.listen",
+    "talk.point.you.pro_spring.straight",
+    "talk.point.you.promise_broken.ask",
+    "talk.point.you.promise_broken.listen",
+    "talk.point.you.promise_broken.promise",
+    "talk.point.you.promise_broken.straight",
+    "talk.point.you.promise_open.ask",
+    "talk.point.you.promise_open.listen",
+    "talk.point.you.promise_open.straight",
+    "talk.point.you.report_day.challenge",
+    "talk.point.you.report_day.criticize",
+    "talk.point.you.report_day.praise",
+    "talk.point.you.report_day.straight",
+    "talk.point.you.room_changed.ask",
+    "talk.point.you.room_changed.challenge",
+    "talk.point.you.room_changed.straight",
+    "talk.point.you.rule_break.ask",
+    "talk.point.you.rule_break.criticize",
+    "talk.point.you.rule_break.straight",
+    "talk.point.you.rule_break.warn",
+    "talk.point.you.season_ended.ask",
+    "talk.point.you.season_ended.challenge",
+    "talk.point.you.season_ended.praise",
+    "talk.point.you.season_ended.straight",
+    "talk.point.you.sick_parent.ask",
+    "talk.point.you.sick_parent.hand",
+    "talk.point.you.sick_parent.listen",
+    "talk.point.you.sick_parent.promise",
+    "talk.point.you.slump.ask",
+    "talk.point.you.slump.challenge",
+    "talk.point.you.slump.listen",
+    "talk.point.you.slump.straight",
+    "talk.point.you.spring_step.ask",
+    "talk.point.you.spring_step.challenge",
+    "talk.point.you.spring_step.praise",
+    "talk.point.you.spring_step.straight",
+    "talk.point.you.suspended.challenge",
+    "talk.point.you.suspended.listen",
+    "talk.point.you.suspended.promise",
+    "talk.point.you.suspended.straight",
+    "talk.point.you.teammate_drafted.ask",
+    "talk.point.you.teammate_drafted.challenge",
+    "talk.point.you.teammate_drafted.straight",
+    "talk.point.you.testing.ask",
+    "talk.point.you.testing.challenge",
+    "talk.point.you.testing.praise",
+    "talk.point.you.testing.straight",
+    "talk.point.you.wants_out.ask",
+    "talk.point.you.wants_out.challenge",
+    "talk.point.you.wants_out.promise",
+    "talk.point.you.wants_out.straight",
+    "talk.point.you.wedding.ask",
+    "talk.point.you.wedding.hand",
+    "talk.point.you.wedding.listen",
+    "talk.point.you.won_job.ask",
+    "talk.point.you.won_job.challenge",
+    "talk.point.you.won_job.praise",
+    "talk.you.behavior.ask",
+    "talk.you.behavior.criticize",
+    "talk.you.behavior.listen",
+    "talk.you.behavior.praise",
+    "talk.you.behavior.promise",
+    "talk.you.behavior.warn",
+    "talk.you.friend.ask",
+    "talk.you.friend.hand",
+    "talk.you.friend.listen",
+    "talk.you.friend.praise",
+    "talk.you.friend.promise",
+    "talk.you.friend.straight",
+    "talk.you.future.ask",
+    "talk.you.future.challenge",
+    "talk.you.future.listen",
+    "talk.you.future.praise",
+    "talk.you.future.promise",
+    "talk.you.future.straight",
+    "talk.you.life.ask",
+    "talk.you.life.hand",
+    "talk.you.life.listen",
+    "talk.you.life.praise",
+    "talk.you.life.promise",
+    "talk.you.money.ask",
+    "talk.you.money.listen",
+    "talk.you.money.praise",
+    "talk.you.money.promise",
+    "talk.you.money.straight",
+    "talk.you.role.ask",
+    "talk.you.role.challenge",
+    "talk.you.role.listen",
+    "talk.you.role.praise",
+    "talk.you.role.promise",
+    "talk.you.role.straight",
+    "talk.you.team.ask",
+    "talk.you.team.hand",
+    "talk.you.team.listen",
+    "talk.you.team.praise",
+    "talk.you.team.promise",
+    "talk.you.usage.ask",
+    "talk.you.usage.challenge",
+    "talk.you.usage.listen",
+    "talk.you.usage.praise",
+    "talk.you.usage.promise",
+    "talk.you.usage.straight",
+];
 
 #[test]
 fn the_bank_reads_clean() {
@@ -205,7 +774,7 @@ fn the_bank_reads_clean() {
     for (key, _) in b.keys() {
         for (text, need, not, fs, when) in b.versions(key) {
             for f in when {
-                if !facts.contains(f) {
+                if !facts.contains(f) && !HELD.contains(&f) {
                     bad.push(format!("{key}: said on an unknown fact {f}: {text}"));
                 }
             }
@@ -343,8 +912,9 @@ fn a_one_on_one_line_that_claims_his_conduct_waits_for_the_facts() {
 
 #[test]
 fn held_lines_come_back_when_a_fact_backs_them() {
-    // Nothing sets blameless or at_fault today, so no held line is said; set
-    // them and the lines are there (the talks' fact sheet does this).
+    // A held line is said only when blameless or at_fault is set; set them
+    // and the lines are there (the one-on-ones set them from his fact
+    // sheet, talk facts lane L4).
     let b = bank();
     let plain = Facts::new();
     let backed = Facts::new().with("blameless", "yes").with("at_fault", "yes");

@@ -9,12 +9,16 @@ use serde_json::Value;
 use crate::{Game, Reply};
 
 pub mod college;
+pub mod finder;
 pub mod nfl;
+pub(crate) mod pulls;
 pub mod school;
 pub mod setup;
+pub(crate) mod stand;
 
 pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     nfl::call(game, cmd, args)
+        .or_else(|| finder::call(game, cmd, args))
         .or_else(|| college::call(game, cmd, args))
         .or_else(|| school::call(game, cmd, args))
         .or_else(|| setup::call(game, cmd, args))

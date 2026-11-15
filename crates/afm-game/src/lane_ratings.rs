@@ -30,7 +30,9 @@ use crate::reads::{self, Read};
 use crate::views;
 use crate::{Game, Reply};
 
-const COMMANDS: [&str; 5] = ["rr_card", "rr_staff", "staff_quality", "staff_member", "coach_ratings"];
+pub(crate) mod attrs;
+
+const COMMANDS: [&str; 6] = ["rr_card", "rr_staff", "staff_quality", "staff_member", "coach_ratings", "attr_view"];
 
 pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     if !COMMANDS.contains(&cmd) {
@@ -52,13 +54,14 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "rr_card" => (|| {
             let id = num("p").ok_or("Missing p.")? as u32;
             let k = args.get("k").and_then(Value::as_str).unwrap_or("ovr");
-            card(w, id, k, range()?)
+            card(w, id, k, range()?, args.get("own").and_then(Value::as_bool).unwrap_or(false))
         })(),
         "rr_staff" => (|| {
             let m = sr::member(w, who()?).ok_or("He is no longer on your staff.")?;
             let k = args.get("k").and_then(Value::as_str).ok_or("Missing k.")?;
             staff_card(w, &m, k, range()?)
         })(),
+        "attr_view" => attrs::view(w, args),
         "staff_quality" => Ok(quality(w)),
         "staff_member" => (|| {
             let m = sr::member(w, who()?).ok_or("He is no longer on your staff.")?;
@@ -110,7 +113,7 @@ fn grade_words(w: &World, class_of: i32) -> String {
 }
 
 /// Who a pool is, in words: "Texas 6A juniors", "FBS", "the NFL".
-fn pool_words(w: &World, pool: Pool, school: Option<usize>) -> String {
+pub(crate) fn pool_words(w: &World, pool: Pool, school: Option<usize>) -> String {
     match pool {
         Pool::Nfl => "NFL".into(),
         Pool::College(0) => "FBS".into(),
@@ -126,6 +129,20 @@ fn pool_words(w: &World, pool: Pool, school: Option<usize>) -> String {
                 _ => format!("{g} across the country"),
             }
         }
+    }
+}
+
+/// Who a range is read against, in words: "Texas 6A juniors starting at
+/// quarterback", "NFL starting edge rushers".
+pub(crate) fn who_phrase(w: &World, m: &Marks, k: usize, at: Position) -> String {
+    let p = &w.people[k];
+    let school = matches!(p.stage, Stage::HighSchool | Stage::PrepSchool).then_some(p.hs);
+    let pw = pool_words(w, m.pool, school);
+    let (one, many) = pos_words(at);
+    match m.pool {
+        Pool::Hs { .. } => format!("{pw} starting at {one}"),
+        Pool::Nfl => format!("NFL starting {many}"),
+        _ => format!("{pw} starting {many}"),
     }
 }
 
@@ -145,6 +162,31 @@ pub(crate) fn marks_cached(w: &World, pool: Pool, pos: Position, rated: Rated) -
     let m = norms::marks(w, pool, pos, rated);
     map.insert(key, m.clone());
     m
+}
+
+/// How far down the class a place is still said as a rank, in the services'
+/// steps; beyond the last it is a share of the starters.
+const RANK_STEPS: [u32; 7] = [25, 50, 100, 300, 500, 1000, 2500];
+
+/// "About top 500 nationally" for a range, at a real-size class: the share of
+/// the world's starters at his spot who are ahead of its middle, on the real
+/// class's size (world scale). `None` when the pool can't say.
+fn national_rank_words(w: &World, m: &Marks, lo: u8, hi: u8, one: &str, class_of: i32) -> Option<Value> {
+    if m.starters.is_empty() {
+        return None;
+    }
+    let mid = (lo as f64 + hi as f64) / 2.0;
+    let above = 1.0 - m.below(mid);
+    let rank = above * norms::national_starters(w, m) / w.options.scale.max(1e-6);
+    let word = match RANK_STEPS.iter().find(|&&s| rank <= s as f64) {
+        Some(s) => format!("About top {} nationally", group_thousands(*s)),
+        None => format!("About the top {}% nationally", round5(above).max(5)),
+    };
+    Some(json!({ "word": word, "sub": format!("at {one}, class of {class_of}") }))
+}
+
+fn group_thousands(n: u32) -> String {
+    if n >= 1000 { format!("{},{:03}", n / 1000, n % 1000) } else { n.to_string() }
 }
 
 fn round5(x: f64) -> u32 {
@@ -245,8 +287,32 @@ fn combine_line(w: &World, k: usize, attr: Attr, lo: u8, hi: u8) -> Option<Strin
     })
 }
 
+/// A physical rating's drills projected to the combine (projected test
+/// numbers): "Projected 4.47 (4.43-4.52) at 214 lb at the 2029 combine,
+/// on your staff's read".
+fn combine_ahead(w: &World, k: usize, attr: Attr) -> Option<String> {
+    use crate::lane_squadboards::body::{combine_projection, projected_text};
+    let (t, pr) = combine_projection(w, k)?;
+    let lb = pr.vals[1]?.round();
+    let rows: &[(usize, &str)] = match attr {
+        Attr::Speed | Attr::Acceleration => &[(5, "forty")],
+        Attr::Agility => &[(10, "short shuttle"), (9, "3-cone")],
+        Attr::Strength => &[(11, "on the bench")],
+        Attr::Jumping => &[(7, "vertical"), (8, "broad jump")],
+        _ => return None,
+    };
+    let parts: Vec<String> =
+        rows.iter().filter_map(|&(r, name)| projected_text(&pr, r).map(|x| format!("{x} {name}"))).collect();
+    if parts.is_empty() {
+        return None;
+    }
+    let whose = if pr.whose == "yours" { "your read" } else { "your staff's read" };
+    let when = if t.years < 0.05 { "this spring".to_string() } else { format!("at the {} combine", t.when.year()) };
+    Some(format!("Projected {} at {lb} lb {when}, on {whose}", parts.join(", ")))
+}
+
 /// The hover card for a player's range.
-fn card(w: &World, id: u32, k: &str, (lo, hi): (u8, u8)) -> Reply {
+fn card(w: &World, id: u32, k: &str, (lo, hi): (u8, u8), own: bool) -> Reply {
     let i = views::person_index(w, id).ok_or("That player is no longer in football.")?;
     let p = &w.people[i];
     let pool = norms::pool_of(w, i).ok_or("He isn't playing anywhere now.")?;
@@ -264,24 +330,46 @@ fn card(w: &World, id: u32, k: &str, (lo, hi): (u8, u8)) -> Reply {
     let school = matches!(p.stage, Stage::HighSchool | Stage::PrepSchool).then_some(p.hs);
     let pw = pool_words(w, m.pool, school);
     let (one, many) = pos_words(at);
-    let who = match m.pool {
-        Pool::Hs { .. } => format!("{pw} starting at {one}"),
-        Pool::Nfl => format!("NFL starting {many}"),
-        _ => format!("{pw} starting {many}"),
-    };
+    let who = who_phrase(w, &m, i, at);
     let widened = m.pool != pool;
     let (word, line) = band(&m, lo, hi, &who);
-    let combine = match rated {
+    // A high schooler is read nationally; his state classification is the
+    // second, smaller read ("near home").
+    let high_school = matches!(m.pool, Pool::Hs { state: None, .. });
+    let near = norms::local_pool_of(w, i)
+        .and_then(|lp| marks_cached(w, lp, pos, rated))
+        .filter(|lm| lm.pool != m.pool)
+        .map(|lm| {
+            let (nw, nl) = band(&lm, lo, hi, "the starters there");
+            let lw = pool_words(w, lm.pool, school);
+            json!({ "who": lw, "band": nw, "line": format!("Against {lw} starting at {one}: {}. {nl}", nw.to_lowercase()) })
+        });
+    // His place in the class nationally, in the services' steps (overall only).
+    let rank = (high_school && k == "ovr").then(|| national_rank_words(w, &m, lo, hi, one, p.class_of)).flatten();
+    let combine_now = match rated {
         Rated::Attr(a) => combine_line(w, i, a, lo, hi),
         _ => None,
     };
+    // Projected test numbers: the combine from the same road as the
+    // Shape tab, on the read that judges him; a pro keeps what he'd run now.
+    let ahead = match rated {
+        Rated::Attr(a) if combine_now.is_some() => combine_ahead(w, i, a),
+        _ => None,
+    };
+    let (combine, combine_now) = match ahead {
+        Some(x) => (Some(x), combine_now),
+        None => (combine_now, None),
+    };
     // H2 (update 3, lane 6): how the read moved since last season, and why.
+    // Your own read is compared with your own kept middles, your staff's with
+    // theirs (lane 1, `Career::kept_attrs_of`).
     let change = match rated {
-        Rated::Attr(a) => crate::lane_help::last_year(w, i, a, (lo, hi)),
+        Rated::Attr(a) => crate::lane_help::last_year(w, i, a, (lo, hi), own),
         _ => None,
     };
     Ok(json!({
         "title": title,
+        "own": own,
         "range": [lo, hi],
         "pool": match m.pool {
             Pool::Hs { .. } => format!("Against {pw} at {one} this season"),
@@ -289,6 +377,8 @@ fn card(w: &World, id: u32, k: &str, (lo, hi): (u8, u8)) -> Reply {
             _ => format!("Against {pw} {many} this season"),
         },
         "widened": widened.then_some("Too few at his own classification to read: the wider pool is shown."),
+        "near": near,
+        "rank": rank,
         "marks": { "backup": m.backup.round(), "starter": m.starter.round(), "elite": m.elite.round() },
         "marks_line": format!(
             "Elite starts at {:.0}. A typical starter has {:.0}, a typical backup {:.0}.",
@@ -297,7 +387,13 @@ fn card(w: &World, id: u32, k: &str, (lo, hi): (u8, u8)) -> Reply {
         "band": word,
         "line": line,
         "combine": combine,
+        "combine_now": combine_now,
         "change": change,
+        // The Attributes page's weight line: where the rating counts toward his overall.
+        "weight_line": match rated {
+            Rated::Attr(a) => Some(attrs::weight_line(pos, a)),
+            _ => None,
+        },
         "dev": views::team_of(w, p).is_some_and(|t| views::is_mine(w, t)),
         "count": format!("{} starters on {} teams", m.starters.len(), m.teams),
     }))

@@ -49,3 +49,7 @@ A second job on the same machinery (Cain: 20,000 versions for the recruiting one
 2. `cargo test -p afm-engine --lib -- tests::lines tests::line_seasons tests::talks_matter tests::portal_talks tests::fans`, and the one-on-ones' 0.5% (`a_season_of_talks_counts_its_repeats`).
 3. A data-only PR with the eight files, the emptied list and the counts in `docs/reference/how-it-works/people.md`.
 4. Remind Cain to delete `AFM_LINEBANK_KEY` from the environment.
+
+## Your own lines (lane L12, 2026-11-13)
+
+`ownlines.py` holds 370 parts read from the Rust source by `ownlines_src.py` (the keys the code asks, each with the code's own wording, the facts its branches use and the states that pick between them); `run.py --job ownlines run --cap 16` fills them into `own_lines_run.txt` (`briefs/ownlines.md`). It cost about $10 for 9,448 versions of 9,536 asked. The pilot is `run.py --job ownlines pilot` (10 parts, $0.23). After a change to a move or point in `talk_points.rs`, `talks.rs` or `pitch.rs`, run `python3 ownlines.py` to see the new part list.

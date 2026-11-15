@@ -44,7 +44,7 @@ function scNow(read, id) {
 }
 function scRole(read) {
   if (!read || !read.role || read.role === "Not seen") return '<span class="muted">Not seen</span>';
-  return `<span class="sc-role">${esc(read.role)}</span>${read.sure ? ` <small class="muted">· ${esc(read.sure)}</small>` : ""}`;
+  return `<span class="sc-role">${esc(read.role)}</span>${potTag(read)}${read.sure ? ` <small class="muted">· ${esc(read.sure)}</small>` : ""}`;
 }
 function scMed(word) {
   if (!word) return '<span class="muted">-</span>';
@@ -84,7 +84,9 @@ I.clip = '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M8
 // The sidebar: a Scouting section for the NFL and college seats (between
 // your team and the world); a high school coach's calls sit with his team.
 if (!NAV_SECS.some(([k]) => k === "scout")) NAV_SECS.splice(NAV_SECS.findIndex(([k]) => k === "world"), 0, ["scout", "Scouting"]);
-navAdd({ go: "scouting", label: "Department", icon: "scout", sec: "scout", seats: ["nfl", "college"] });
+// A CFL club scouts and drafts too (SK77); the other leagues' clubs don't.
+const scCfl = () => scSeat() !== "other" || !!(S.status && S.status.cfl);
+navAdd({ go: "scouting", label: "Department", icon: "scout", sec: "scout", seats: ["nfl", "college", "other"], show: scCfl });
 navAdd({ go: "draftboard", label: "Draft board", icon: "board", sec: "scout", seats: ["nfl"] });
 navAdd({ go: "predraft", label: "Pre-draft", icon: "clip", sec: "scout", seats: ["nfl"] });
 // The war room shows while the draft is live from your chair.
@@ -108,7 +110,7 @@ Object.assign(CRUMBS, {
 });
 // Where each screen leads (topic 17).
 GOTO.scout = (a, f) => [["Player page", "player", { id: a.id }], f && f.team ? [f.team.name, "team", f.team.ref] : null, scSeat() === "nfl" ? ["Draft board", "draftboard"] : scSeat() === "college" ? ["Recruit board", "recruitboard"] : ["Colleges calling", "hsside"], ["My players", "myplayers"]];
-GOTO.scouting = () => (scSeat() === "nfl" ? [["Draft board", "draftboard"], ["Pre-draft", "predraft"], ["Pro scouting", "proscout"], ["Staff", "staff"], ["My players", "myplayers"]] : [["Recruit board", "recruitboard"], ["Recruiting", "recruiting"], ["Staff", "staff"], ["My players", "myplayers"]]);
+GOTO.scouting = () => (scSeat() === "other" ? [["CFL Draft", "cfldraft"], ["Evaluation", "evaluate"], ["Film room", "film"], ["Staff", "staff"]] : scSeat() === "nfl" ? [["Draft board", "draftboard"], ["Pre-draft", "predraft"], ["Pro scouting", "proscout"], ["Staff", "staff"], ["My players", "myplayers"]] : [["Recruit board", "recruitboard"], ["Recruiting", "recruiting"], ["Staff", "staff"], ["My players", "myplayers"]]);
 GOTO.draftboard = () => [["Pre-draft", "predraft"], ["Department", "scouting"], ["Cap sheet", "fo_cap"], ["Squad", "roster"]];
 GOTO.predraft = () => [["Draft board", "draftboard"], ["Department", "scouting"], ["Calendar", "calendar"]];
 GOTO.warroom = () => [["Draft board", "draftboard"], ["Pre-draft", "predraft"], ["Squad", "roster"], ["Cap sheet", "fo_cap"]];
@@ -149,7 +151,9 @@ screens.scout = async (a) => {
     f.followers ? `<span>${esc(f.followers)} followers</span>` : "",
     f.nil ? `<span>NIL ${money(f.nil)}</span>` : "",
   ].filter(Boolean).join("");
-  const staffCard = s
+  const staffCard = s && s.yours
+    ? `<b class="sc-hero-role">${esc(s.yours.role)}<span class="pot-yours" title="Your own read">yours</span></b><span>${esc(s.yours.floor)}. You're ${esc(s.yours.sure)}. Your staff: ${esc(s.role)}, ${esc(s.sure)}.</span><span class="sc-dim">${scPlural(f.looks_n, "look")} by ${scPlural(f.readers_n, "person", "people")}</span>`
+    : s
     ? `<b class="sc-hero-role">${esc(s.role)}</b><span>${esc(s.floor || "")}${s.floor ? ". " : ""}Staff ${esc(s.sure)}.</span><span class="sc-dim">${scPlural(f.looks_n, "look")} by ${scPlural(f.readers_n, "person", "people")}</span>`
     : `<b class="sc-hero-role">Not seen</b><span>Your staff hasn't looked at him yet.</span>`;
   const boardLine = [
@@ -181,7 +185,7 @@ screens.scout = async (a) => {
       <div><span class="st-label">Your staff${S.status && S.status.mine ? " · " + esc(S.status.mine.name) : ""}</span>${staffCard}</div>
     </div></div>${ask}`;
   let body = "";
-  if (tab.t === "Summary") body = scFileSummary(f);
+  if (tab.t === "Summary") body = scFileSummary(f) + aiScoutPanel(f);
   else if (tab.t === "Ratings") body = scFileRatings(f);
   else if (tab.t === "Looks") body = scFileLooks(f);
   else if (tab.t === "Tendencies") body = scFileTend(f);
@@ -209,7 +213,7 @@ function scFileSummary(f) {
   const reads = [
     b.rank ? `<li><b>Your board: No. ${b.rank}</b>${b.tier ? `, tier ${b.tier}` : ""}.</li>` : "",
     b.public ? `<li><b>The public: No. ${b.public}.</b> ${b.rank ? (Math.abs(b.public - b.rank) >= Math.max(12, Math.round(b.rank * 0.35)) ? (b.public > b.rank ? "You are out on a limb: higher on him than the public." : "You are out on a limb: lower on him than the public.") : "Close to your own order.") : ""}</li>` : "",
-    f.stars ? `<li><b>The services: ${f.stars}★.</b> ${s.role ? `Your staff: ${esc(s.role).toLowerCase()}.` : ""}</li>` : "",
+    f.stars ? `<li><b>The services: ${f.stars}★.</b> ${s.role ? `Your staff: ${esc(s.role)}.` : ""}</li>` : "",
     f.choices && f.choices.length ? `<li><b>His choices:</b> ${esc(f.choices.join(", "))}.</li>` : "",
   ].filter(Boolean).join("");
   const voices = f.voices.length
@@ -217,7 +221,8 @@ function scFileSummary(f) {
     : scEmpty("Nobody has three looks at him yet, so the room has no voices on him.");
   return `<div class="sc-sum">
     <div class="panel warm"><h2>Your staff's grade <small>${scPlural(f.looks_n, "look")} by ${scPlural(f.readers_n, "person", "people")}</small></h2>
-      <div class="sc-grade"><div><b class="sc-role-big">${esc(s.role)}</b><span class="sub">Staff ${esc(s.sure)}.</span></div><div class="sc-nowread"><span class="st-label">His level now</span>${range(s.now, null, { p: f.id, k: "ovr" })}</div></div>
+      ${s.yours ? `<div class="sc-grade"><div><span class="st-label">Your own read</span><b class="sc-role-big">${esc(s.yours.role)}</b><span class="sub">${esc(s.yours.floor)}. You're ${esc(s.yours.sure)}, from ${scPlural(s.yours.looks, "look")} of your own.${s.yours.hints && s.yours.hints.length ? " " + s.yours.hints.map(esc).join(". ") + "." : ""}</span></div></div>` : ""}
+      <div class="sc-grade"><div>${s.yours ? '<span class="st-label">Your staff</span>' : ""}<b class="sc-role-big">${esc(s.role)}</b><span class="sub">Staff ${esc(s.sure)}.</span></div><div class="sc-nowread"><span class="st-label">His level now</span>${range(s.now, null, { p: f.id, k: "ovr" })}</div></div>
       <dl class="kv"><dt>Floor and ceiling</dt><dd>${esc(s.floor || "Not read yet")}</dd>
       <dt>Best at</dt><dd>${esc(s.strengths.join(", ") || "-")}</dd><dt>Watch</dt><dd>${esc(s.weaknesses.join(", ") || "-")}</dd>
       <dt>Medical</dt><dd>${scMed(s.medical)}${s.examined ? "" : ' <small class="muted">· not examined, records only</small>'}</dd></dl></div>
@@ -326,6 +331,9 @@ screens.scouting = async () => {
   const me = st.mine;
   if (me && me.colors) setColors(me.colors);
   const nfl = d.seat === "Nfl";
+  // A CFL club (SK77): its scouts, your asks and days; the Bureau and the
+  // board are on the CFL Draft screen.
+  const cfl = d.seat === "Other";
   const lb = d.lookback || { drafts: [], classes: [] };
   const lbRows = nfl ? lb.drafts : lb.classes;
   const tab = scTabs("sc-dept", [
@@ -334,15 +342,14 @@ screens.scouting = async () => {
     ["Work", "Days and asks", d.asks.length || null],
     ["Mine", "My players", d.my_players.length],
     ["Seen", "Most seen", d.most_seen.length],
-    ["Back", "Look-back", lbRows.length || null],
-    ["Public", nfl ? "Analysts and boards" : "Public services", d.public.desks.length],
+    ...(cfl ? [] : [["Back", "Look-back", lbRows.length || null], ["Public", nfl ? "Analysts and boards" : "Public services", d.public.desks.length]]),
   ]);
   const looks = d.people.reduce((n, p) => n + p.looks, 0);
-  const evalDays = !nfl ? `${scSquares(d.eval.fall[0], d.eval.fall[1], "fall evaluation days")}${scSquares(d.eval.spring[0], d.eval.spring[1], "spring evaluation days")}` : "";
+  const evalDays = !nfl && !cfl ? `${scSquares(d.eval.fall[0], d.eval.fall[1], "fall evaluation days")}${scSquares(d.eval.spring[0], d.eval.spring[1], "spring evaluation days")}` : "";
   const hero = `<div class="sc-room st-room"><i></i><i></i><i></i><div class="sc-room-in">
-    <div><span class="st-label">${esc(me ? me.name : "")} · ${nfl ? "college scouting and pro personnel" : "your staff on the road"} · ${d.season}</span><h1 class="st-wide sc-room-h">Scouting</h1>
+    <div><span class="st-label">${esc(me ? me.name : "")} · ${nfl ? "college scouting and pro personnel" : cfl ? "player personnel and Canadian scouting" : "your staff on the road"} · ${d.season}</span><h1 class="st-wide sc-room-h">Scouting</h1>
       <div class="sc-room-facts"><span><b>${d.people.length}</b> people read players for you</span><span><b>${looks}</b> looks this football year</span><span><b>${d.my_players.length}</b> in My players</span>${d.asks.length ? `<span><b>${d.asks.length}</b> asks waiting</span>` : ""}</div></div>
-    ${evalDays ? `<div class="sc-room-card st-glass">${evalDays}<small class="sc-dim">One coach out for one day is one day.${d.eval.recruiters ? ` Only ${d.eval.recruiters} coaches, the head coach included, may recruit off campus.` : ""}</small></div>` : `<div class="sc-room-card st-glass"><span class="st-label">Your desk</span><b class="st-cond sc-big">${d.public.draft_year || d.season}</b><span>${d.public.consensus_date ? `Consensus board of ${esc(d.public.consensus_date)}` : "The public's boards come out in the fall"}</span></div>`}
+    ${evalDays ? `<div class="sc-room-card st-glass">${evalDays}<small class="sc-dim">One coach out for one day is one day.${d.eval.recruiters ? ` Only ${d.eval.recruiters} coaches, the head coach included, may recruit off campus.` : ""}</small></div>` : cfl ? `<div class="sc-room-card st-glass"><span class="st-label">Your desk</span><b class="st-cond sc-big">CFL</b><span>The Bureau, your board and the draft room are on the <a class="link" data-go="cfldraft">CFL Draft</a> screen</span></div>` : `<div class="sc-room-card st-glass"><span class="st-label">Your desk</span><b class="st-cond sc-big">${d.public.draft_year || d.season}</b><span>${d.public.consensus_date ? `Consensus board of ${esc(d.public.consensus_date)}` : "The public's boards come out in the fall"}</span></div>`}
   </div></div>`;
   let body = "";
   if (tab.t === "Staff") {

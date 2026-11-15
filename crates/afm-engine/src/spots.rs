@@ -332,6 +332,28 @@ pub fn fill_in(spot: Spot, from: Spot) -> f64 {
     }
 }
 
+/// A backup `y` takes a starter's place in a depth order whose first
+/// `slots` entries name spots (`board_jobs`): the spot of `s0` when he
+/// holds one, else of `last` (the starter who would have sat), else the
+/// last named spot. Nobody else moves, and the man he replaces becomes the
+/// first backup. With no named spots, or fewer men than spots, he goes to
+/// the top. An order where he already holds a spot comes back as it was.
+pub fn start_at(mut order: Vec<u32>, slots: usize, y: u32, s0: u32, last: Option<u32>) -> Vec<u32> {
+    if order.iter().take(slots).any(|&i| i == y) {
+        return order;
+    }
+    order.retain(|&i| i != y);
+    if slots == 0 || order.len() < slots {
+        order.insert(0, y);
+        return order;
+    }
+    let held = |id: u32| order.iter().take(slots).position(|&i| i == id);
+    let k = held(s0).or_else(|| last.and_then(held)).unwrap_or(slots - 1);
+    let out = std::mem::replace(&mut order[k], y);
+    order.insert(slots, out);
+    order
+}
+
 /// The spots a staff lists its starters at, by position, best player first.
 pub fn starter_spots(pos: Position) -> &'static [Spot] {
     use Position as P;
@@ -349,10 +371,14 @@ pub fn starter_spots(pos: Position) -> &'static [Spot] {
 /// The jobs your base board names, by depth order (section 8's Defense
 /// board: SAM, MIKE, WILL; the two corners, then the third corner as the
 /// nickel; FS, SS). Your order names the job; the engine keeps it
-/// (linebacker L1, 2026-11-07).
+/// (linebacker L1, 2026-11-07). The line too (playtest bug 12,
+/// 2026-11-13): the Offense board's LT, RT and LG, C, RG, so the man you
+/// put at left tackle plays left tackle (`game/flow.rs`, `line_slots`).
 pub fn board_jobs(pos: Position) -> &'static [Spot] {
     use Position as P;
     match pos {
+        P::OT => &[Spot::LT, Spot::RT],
+        P::IOL => &[Spot::G, Spot::C, Spot::G],
         P::LB => &[Spot::SAM, Spot::MLB, Spot::OLB],
         P::CB => &[Spot::CB, Spot::CB, Spot::NB],
         P::S => &[Spot::FS, Spot::SS],
@@ -360,10 +386,11 @@ pub fn board_jobs(pos: Position) -> &'static [Spot] {
     }
 }
 
-/// The positions whose men are named to a job on the depth chart and kept
-/// there on game day (L1, C1): linebackers, corners, safeties.
+/// The positions whose men are named to a job on defense and kept there
+/// on game day (L1, C1): linebackers, corners, safeties. Every staff names
+/// them, yours from your order. The line is named only by your order.
 pub fn named_jobs(pos: Position) -> bool {
-    !board_jobs(pos).is_empty()
+    matches!(pos, Position::LB | Position::CB | Position::S)
 }
 
 /// The spot whose demands a man at `spot` faces: with a left-handed

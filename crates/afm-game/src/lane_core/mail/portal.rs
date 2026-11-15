@@ -215,6 +215,15 @@ pub(super) fn day_messages(pen: &mut Pen, pi: usize, days: Vec<(Date, Vec<usize>
 /// The players you chased who decided that day (`lines` are the front
 /// office's own lines, `names` the players your board and portal list hold).
 pub(super) fn target_message(pen: &mut Pen, d: Date, lines: &[String], names: &[(u32, String)]) {
+    // A target who chose another school gets his own message, with why
+    // (Cain 2026-11-14); the rest share one.
+    let mut rest: Vec<String> = Vec::new();
+    for l in lines {
+        if !(l.ends_with(" over your offer.") && lost_message(pen, d, l, names)) {
+            rest.push(l.clone());
+        }
+    }
+    let lines = &rest[..];
     if lines.is_empty() {
         return;
     }
@@ -246,6 +255,49 @@ pub(super) fn target_message(pen: &mut Pen, d: Date, lines: &[String], names: &[
     pen.out.push(m);
 }
 
+/// "He chose X over your offer" as its own message: where you stood, his
+/// own word and why, as your staff has it (`lane_frontoffice::stand`).
+/// False when there is no kept read of his race to tell it from.
+fn lost_message(pen: &mut Pen, d: Date, line: &str, names: &[(u32, String)]) -> bool {
+    let w = pen.w;
+    let Some(TeamRef::College(pi)) = views::mine(w) else { return false };
+    let Some((id, name)) =
+        names.iter().filter(|(_, n)| line.starts_with(n.as_str())).max_by_key(|(_, n)| n.len()).cloned()
+    else {
+        return false;
+    };
+    let Some(k) = views::person_index(w, id) else { return false };
+    let Some(t) = w.front_office.college.portal.iter().find(|t| t.id == id) else { return false };
+    let Some(to) = line
+        .rsplit_once(" chose ")
+        .and_then(|(_, r)| r.strip_suffix(" over your offer."))
+        .and_then(|n| w.people[k].college.filter(|&c| w.program_name(c) == n))
+    else {
+        return false;
+    };
+    let Some((body, why)) = crate::lane_frontoffice::stand::lost(w, pi, k, t, to) else { return false };
+    let p = &w.people[k];
+    let from = w.program_name(t.from).to_string();
+    let mut m = pen.memo(
+        &format!("plost|{id}"),
+        d,
+        21 * 60 + 30,
+        Job::Personnel,
+        format!("{name} chose {} over your offer", w.program_name(to)),
+    );
+    let mut lines = body.into_iter();
+    let head = lines.next().unwrap_or_default();
+    m.body = vec![format!("{}, {} ({}, {from}) {head}", pen.dear, links::player(id, &name), p.player.position)];
+    m.body.extend(lines);
+    m.why = why;
+    m.ids = vec![id];
+    m.keys = PORTAL | RECRUITING;
+    m.about = Some((ABOUT_PLAYER, id));
+    m.loud = 2;
+    pen.out.push(m);
+    true
+}
+
 /// Where your own former portal players ended up (a landing, a return,
 /// or the end of his football), the first time it can be read; and where
 /// the day's other starters and 4-5 stars landed (`lines`, linked).
@@ -264,9 +316,18 @@ pub(super) fn landings_message(
     let told = |id: u32| c.desk.landed.iter().any(|&(i, on)| i == id && on < d && d.0 - on.0 <= 250);
     let mut mine: Vec<(usize, String)> = Vec::new();
     // Today's word on your own: they are read from where they are now, so
-    // only the last day of a stretch can tell it.
-    let ids: &[u32] = if d == today { &w.front_office.college.left } else { &[] };
-    for &id in ids {
+    // only the last day of a stretch can tell it. A day written again at a
+    // later stop (its letter was filed before the day was over) keeps the
+    // men it already told: the rewrite replaces the letter's body, so
+    // leaving them out dropped their line once the day's other landings
+    // grew it.
+    let left = &w.front_office.college.left;
+    let ids: Vec<u32> = if d == today {
+        left.clone()
+    } else {
+        c.desk.landed.iter().filter(|&&(i, on)| on == d && left.contains(&i)).map(|&(i, _)| i).collect()
+    };
+    for &id in &ids {
         // `seen`: told on an earlier day of this same stretch (not filed yet).
         if told(id) || seen.contains(&id) {
             continue;

@@ -98,6 +98,8 @@ impl World {
         }
         // The day booked your game: a live game of it is over.
         self.live_booked(level, teams);
+        // The tape's tags for your players (individual practice topic 4.4).
+        super::craft_work::book_plays(self, &stats.plays, false);
         // Your words land on your players' trust, and your talks go in the
         // log (dialogue D4-D6).
         let mine = self.seat_team().map_or(0, |(_, t)| if teams[0] == t { 0 } else { 1 });
@@ -205,6 +207,51 @@ impl World {
             if n > 40 {
                 self.seat_depth_log.drain(..n - 40);
             }
+        }
+    }
+
+    /// A backup takes a starter's place in your depth order (a staff
+    /// proposal you agreed to). At a position whose slots the order names
+    /// (`spots::board_jobs`: the line, linebackers, corners, safeties) he
+    /// takes that man's spot and nobody else moves (`spots::start_at`): it
+    /// used to put him first and push every man one spot over. Anywhere
+    /// else he goes to the top, as before.
+    pub fn seat_start(&mut self, y: u32, s0: u32, pos: Position) {
+        let slots = crate::spots::board_jobs(pos).len();
+        let mine = self.seat_depth.iter().find(|x| x.0 == pos).map(|x| x.1.clone());
+        let (order, last) = match mine {
+            // Your own order: he takes the spot in it.
+            Some(v) => (v, None),
+            None if slots == 0 => (vec![s0], None),
+            None => {
+                // The men the game seats at the named spots first, then
+                // the rest of the staff's order; the last starter on the
+                // staff's order is the one who sat before.
+                let staff = self
+                    .seat_game_depth()
+                    .and_then(|o| o.into_iter().find(|(p, _)| *p == pos))
+                    .map(|x| x.1)
+                    .unwrap_or_default();
+                let seats = self
+                    .seat_game_team()
+                    .map(|(t, level)| crate::game::flow::seating(&t, level).by_slot(pos))
+                    .unwrap_or_default();
+                let first: Vec<u32> = seats.iter().flatten().copied().filter(|id| staff.contains(id)).collect();
+                let last = staff.get(slots - 1).copied();
+                if first.len() == slots {
+                    (
+                        first.iter().copied().chain(staff.iter().copied().filter(|id| !first.contains(id))).collect(),
+                        last,
+                    )
+                } else {
+                    (staff, last)
+                }
+            }
+        };
+        let order = crate::spots::start_at(order, slots, y, s0, last);
+        match self.seat_depth.iter_mut().find(|x| x.0 == pos) {
+            Some(x) => x.1 = order,
+            None => self.seat_depth.push((pos, order)),
         }
     }
 
@@ -630,31 +677,42 @@ impl World {
         (pw + now.0, pl + now.1)
     }
 
-    /// Sets (or with None clears) a player's plan focus.
+    /// Sets (or with None clears) a player's plan focus: his first point
+    /// of emphasis as a plain rating, keeping a second point.
     pub fn set_focus(&mut self, player: u32, focus: Option<crate::attributes::Attr>) {
-        self.seat_focus.retain(|(id, _)| *id != player);
-        if let Some(a) = focus {
-            self.seat_focus.push((player, a.index() as u8));
+        let mut pts = self.points_of(player);
+        if !pts.is_empty() {
+            pts.remove(0);
         }
+        if let Some(a) = focus {
+            pts.insert(0, crate::craft::Point::Rating(a));
+        }
+        self.seat_focus.retain(|(id, _)| *id != player);
+        self.seat_focus.extend(pts.iter().map(|p| (player, p.code())));
     }
 
+    /// The rating his first point of emphasis grows (a flaw's or tool's
+    /// owner).
     pub fn focus_of(&self, player: u32) -> Option<crate::attributes::Attr> {
-        self.seat_focus.iter().find(|(id, _)| *id == player).map(|&(_, a)| crate::attributes::Attr::ALL[a as usize])
+        self.points_of(player).first().map(|p| p.rating())
     }
 
-    /// The plan focus of each player on your roster now, by person index
-    /// (a plan stays with your team: a player who leaves drops it).
-    pub(crate) fn focus_by_person(&self) -> std::collections::HashMap<usize, crate::attributes::Attr> {
-        let Some(seat) = self.seat else { return Default::default() };
-        if self.seat_focus.is_empty() {
+    /// The ratings each of your players' points grow, by person index (a
+    /// plan stays with your team: a player who leaves drops it).
+    pub(crate) fn focus_by_person(
+        &self,
+    ) -> std::collections::HashMap<usize, (crate::attributes::Attr, Option<crate::attributes::Attr>)> {
+        if self.seat.is_none() || self.seat_focus.is_empty() {
             return Default::default();
         }
-        let roster: &[usize] = match seat.level {
-            crate::calendar::Level::Nfl => seat.nfl_team.and_then(|t| self.clubs.get(t)).map_or(&[], |c| &c.roster),
-            crate::calendar::Level::HighSchool => seat.program.map_or(&[], |h| &self.high_schools[h].roster),
-            _ => seat.program.map_or(&[], |p| &self.programs[p].roster),
-        };
-        roster.iter().filter_map(|&i| self.focus_of(self.people[i].player.id).map(|a| (i, a))).collect()
+        self.seat_roster()
+            .iter()
+            .filter_map(|&i| {
+                let pts = self.points_of(self.people[i].player.id);
+                let first = pts.first()?.rating();
+                Some((i, (first, pts.get(1).map(|p| p.rating()))))
+            })
+            .collect()
     }
 
     /// Whether a college program is yours (its game team takes your order).
@@ -679,6 +737,8 @@ pub struct Record {
     pub losses: u32,
     pub conf_wins: u32,
     pub conf_losses: u32,
+    /// Won the conference: its title game, or first where there is none.
+    pub conf_title: bool,
 }
 
 /// A college game on this season's schedule, for the screens.
@@ -735,7 +795,27 @@ impl World {
             losses: r.losses,
             conf_wins: r.conf_wins,
             conf_losses: r.conf_losses,
+            conf_title: r.conference_title,
         })
+    }
+
+    /// A conference's table this season, or last (`prev`), as conferences
+    /// publish it: the champion first once the title is decided, then the
+    /// conference winning share (0-0 last), fewer conference losses, the
+    /// overall share and wins.
+    pub fn college_conference_table(&self, teams: &[usize], prev: bool) -> Vec<(usize, Record)> {
+        let mut v: Vec<(usize, Record)> = teams.iter().map(|&t| (t, self.college_record_in(t, prev))).collect();
+        let pct = |w: u32, l: u32| if w + l > 0 { w as f64 / (w + l) as f64 } else { -1.0 };
+        v.sort_by(|(a, x), (b, y)| {
+            y.conf_title
+                .cmp(&x.conf_title)
+                .then(pct(y.conf_wins, y.conf_losses).total_cmp(&pct(x.conf_wins, x.conf_losses)))
+                .then(x.conf_losses.cmp(&y.conf_losses))
+                .then(pct(y.wins, y.losses).total_cmp(&pct(x.wins, x.losses)))
+                .then(y.wins.cmp(&x.wins))
+                .then(a.cmp(b))
+        });
+        v
     }
 
     /// This college season's games for a program (all programs if None).
@@ -1061,6 +1141,7 @@ impl World {
             no_fire_since: None,
             spared: Vec::new(),
             sandbox: Default::default(),
+            kept_attrs: Vec::new(),
         });
         let home = employer.and_then(|e| super::front_office::market::state_of(self, e));
         if let Some(c) = self.career.as_mut() {
@@ -1086,6 +1167,9 @@ impl World {
         self.seat_depth.clear();
         self.seat_games.clear();
         self.seat_focus.clear();
+        self.seat_seen.clear();
+        self.seat_book.clear();
+        self.seat_minutes.clear();
         self.prune_tapes();
         // Your first two weeks: the meetings of a new job (takeover).
         super::folk::takeover::begin(self);
@@ -1164,6 +1248,43 @@ pub struct Career {
     /// before it loads with it off.
     #[serde(default)]
     pub sandbox: super::sandbox::Sandbox,
+    /// All 67 skills' middles per followed player per season, from your
+    /// staff's read and from your own, kept beside `kept_reads` so the
+    /// Attributes page can say what moved since last season (build lane 1).
+    /// Last in the struct, defaulted: a save from before loads empty.
+    #[serde(default)]
+    pub kept_attrs: Vec<KeptAttrsOf>,
+}
+
+/// One player's kept attribute middles, oldest season first.
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct KeptAttrsOf {
+    pub id: u32,
+    pub rows: Vec<KeptAttrs>,
+}
+
+/// The middle of each of the 67 skills as one season ended, once for your
+/// staff's read and once for your own (`Attr::index` order). Kept in half
+/// points, the range's low plus its high (2-198, 0 = not seen), so a
+/// middle like 61.5 is kept exactly: read it through `mid`. About 134
+/// bytes a player a season. `Vec<u8>` because serde has no array impl
+/// past 32.
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct KeptAttrs {
+    pub season: i16,
+    /// His position then (`Position::index`).
+    pub pos: u8,
+    pub staff: Vec<u8>,
+    pub mine: Vec<u8>,
+}
+
+impl KeptAttrs {
+    /// A skill's kept middle (`Attr::index`), from your own read or your
+    /// staff's: None where that read had not seen it.
+    pub fn mid(&self, mine: bool, a: usize) -> Option<f64> {
+        let v = *(if mine { &self.mine } else { &self.staff }).get(a)?;
+        (v > 0).then_some(v as f64 / 2.0)
+    }
 }
 
 /// One player's kept reads, oldest season first.
@@ -1171,6 +1292,12 @@ pub struct Career {
 pub struct KeptReads {
     pub id: u32,
     pub rows: Vec<KeptRead>,
+    /// Your own read of him as each season ended, beside your staff's
+    /// (own potential item 4, Cain 2026-11-13): the same shape, from your
+    /// own looks only; a season you never looked at him yourself has none.
+    /// A save from before this starts keeping at the next season's end.
+    #[serde(default)]
+    pub mine: Vec<KeptRead>,
 }
 
 /// Your staff's read of a player as one season ended: his overall and the
@@ -1195,17 +1322,59 @@ impl Career {
         self.kept_reads.iter().find(|k| k.id == id).map_or(&[], |k| k.rows.as_slice())
     }
 
+    /// Your own kept reads of one player, oldest first.
+    pub fn kept_mine(&self, id: u32) -> &[KeptRead] {
+        self.kept_reads.iter().find(|k| k.id == id).map_or(&[], |k| k.mine.as_slice())
+    }
+
+    /// Keeps a season's own read beside the staff's; a second read of the
+    /// same season replaces the first.
+    pub fn keep_mine(&mut self, id: u32, row: KeptRead) {
+        let at = match self.kept_reads.iter().position(|k| k.id == id) {
+            Some(i) => i,
+            None => {
+                self.kept_reads.push(KeptReads { id, rows: Vec::new(), mine: Vec::new() });
+                self.kept_reads.len() - 1
+            }
+        };
+        let rows = &mut self.kept_reads[at].mine;
+        rows.retain(|r| r.season != row.season);
+        rows.push(row);
+        rows.sort_by_key(|r| r.season);
+    }
+
     /// Keeps a season's read; a second read of the same season replaces
     /// the first.
     pub fn keep_read(&mut self, id: u32, row: KeptRead) {
         let at = match self.kept_reads.iter().position(|k| k.id == id) {
             Some(i) => i,
             None => {
-                self.kept_reads.push(KeptReads { id, rows: Vec::new() });
+                self.kept_reads.push(KeptReads { id, rows: Vec::new(), mine: Vec::new() });
                 self.kept_reads.len() - 1
             }
         };
         let rows = &mut self.kept_reads[at].rows;
+        rows.retain(|r| r.season != row.season);
+        rows.push(row);
+        rows.sort_by_key(|r| r.season);
+    }
+
+    /// The kept attribute middles of one player, oldest first.
+    pub fn kept_attrs_of(&self, id: u32) -> &[KeptAttrs] {
+        self.kept_attrs.iter().find(|k| k.id == id).map_or(&[], |k| k.rows.as_slice())
+    }
+
+    /// Keeps a season's attribute middles; a second keep of the same
+    /// season replaces the first.
+    pub fn keep_attrs(&mut self, id: u32, row: KeptAttrs) {
+        let at = match self.kept_attrs.iter().position(|k| k.id == id) {
+            Some(i) => i,
+            None => {
+                self.kept_attrs.push(KeptAttrsOf { id, rows: Vec::new() });
+                self.kept_attrs.len() - 1
+            }
+        };
+        let rows = &mut self.kept_attrs[at].rows;
         rows.retain(|r| r.season != row.season);
         rows.push(row);
         rows.sort_by_key(|r| r.season);

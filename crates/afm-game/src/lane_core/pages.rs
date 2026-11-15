@@ -408,6 +408,13 @@ fn measurables(w: &World, k: usize) -> Vec<Value> {
         Stage::HighSchool | Stage::PrepSchool => format!("{} roster, school-listed", w.school_name(p.hs)),
         Stage::College => format!("{} spring measurements", p.college.map_or("Team", |c| w.program_name(c))),
         Stage::Away => format!("{} roster, school-listed, before he left", w.school_name(p.hs)),
+        Stage::CflPool => {
+            if p.player.history.is_empty() {
+                "School-listed".to_string()
+            } else {
+                "CFL Combine".to_string()
+            }
+        }
         Stage::Declared | Stage::Pro | Stage::Done => {
             if p.pro.as_ref().and_then(|c| c.draft).is_some() || p.cal.combine_invite {
                 "NFL combine, Indianapolis".to_string()
@@ -1759,6 +1766,7 @@ pub fn team_page(w: &World, t: TeamRef) -> Value {
         }
         v["leaders"] = json!(leaders);
     }
+    super::team_page::blocks(w, t, &mut v);
     let _ = tables::COLS.len();
     v
 }

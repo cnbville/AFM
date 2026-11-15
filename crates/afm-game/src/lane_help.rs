@@ -37,6 +37,8 @@ use crate::reads::{self, Read};
 use crate::views::{self, TeamRef};
 use crate::{Game, Reply};
 
+mod roles;
+
 const COMMANDS: [&str; 3] = ["help_attr", "help_attrs", "help_level"];
 
 pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
@@ -47,7 +49,12 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "help_attr" => (|| {
             let k = args.get("k").and_then(Value::as_str).ok_or("Missing k.")?;
             let a = Attr::ALL.iter().copied().find(|a| a.key() == k).ok_or("No such rating.")?;
-            Ok(attr_help(a))
+            // The position of the player whose page the name sits on, if any.
+            let pos = args
+                .get("pos")
+                .and_then(Value::as_str)
+                .and_then(|n| Position::ALL.iter().copied().find(|p| p.name() == n));
+            Ok(attr_help(a, pos))
         })(),
         // The labels the page looks for in its text, with their keys.
         "help_attrs" => {
@@ -255,7 +262,7 @@ fn words(a: Attr) -> (&'static str, &'static str) {
             "Getting everyone on the same page.",
             "The quarterback, the center and the defense's signal caller keep their unit from busting.",
         ),
-        Toughness => ("Playing through pain and contact.", "Keeps playing hurt and doesn't shy from collisions."),
+        Toughness => ("Playing through pain.", "Decides whether he plays on through an injury instead of coming out."),
         Motor => (
             "Effort to the whistle.",
             "Chases plays down and doesn't let go of a block; with football IQ, a rusher's counter move.",
@@ -297,7 +304,40 @@ fn matters(a: Attr) -> Vec<String> {
     v.into_iter().take(4).map(|(_, p)| crate::lane_ratings::pos_words(p).1.to_string()).collect()
 }
 
-fn attr_help(a: Attr) -> Value {
+/// "an edge rusher" / "a running back".
+fn article(pos: Position) -> String {
+    let one = crate::lane_ratings::pos_words(pos).0;
+    format!("{} {one}", if one.starts_with(['a', 'e', 'i', 'o', 'u']) { "an" } else { "a" })
+}
+
+/// What the skill does for the position of the player being viewed
+/// (`roles.rs`), and in a short line what it does elsewhere.
+fn at_position(a: Attr, pos: Position) -> Value {
+    let all = roles::roles(a);
+    let here = all.iter().find(|r| r.at.contains(&pos));
+    let in_play = crate::lane_ratings::attrs::in_play(pos).contains(&a);
+    let line = match here {
+        Some(r) => Some(r.line.to_string()),
+        None if !in_play => Some(format!("Not part of {}'s job.", article(pos))),
+        None => None,
+    };
+    let names = |at: &[Position]| at.iter().map(|p| p.name()).collect::<Vec<_>>().join("/");
+    let elsewhere: Vec<String> = all
+        .iter()
+        .filter(|r| !r.at.contains(&pos) && r.short != "not read")
+        .take(4)
+        .map(|r| format!("{}: {}", names(r.at), r.short))
+        .collect();
+    json!({
+        "pos": pos.name(),
+        "line": line,
+        "elsewhere": if elsewhere.is_empty() { Value::Null } else { json!(elsewhere.join(" · ")) },
+        "unread": roles::unread(a, pos).then(|| format!("The match engine doesn't read this for {} yet: it only counts toward his rating.", article(pos))),
+        "weight": crate::lane_ratings::attrs::weight_line(pos, a),
+    })
+}
+
+fn attr_help(a: Attr, pos: Option<Position>) -> Value {
     let (what, field) = words(a);
     let m = matters(a);
     json!({
@@ -305,6 +345,7 @@ fn attr_help(a: Attr) -> Value {
         "label": a.label(),
         "what": what,
         "field": field,
+        "at": pos.map(|p| at_position(a, p)),
         "grows": grows(a),
         "matters": if m.is_empty() { "Little in anyone's overall: it shows in the moments it decides.".to_string() } else { format!("Weighs most for {}.", join_and(&m)) },
     })
@@ -312,12 +353,49 @@ fn attr_help(a: Attr) -> Value {
 
 // ---------- H2: how his read moved since last season ----------
 
+/// How your own read of skill `a` moved since the last season end you had
+/// one kept (like with like: only your own kept middles are compared).
+fn last_year_own(w: &World, i: usize, a: Attr, now: (u8, u8)) -> Option<Value> {
+    let c = w.career.as_ref()?;
+    let id = w.people[i].player.id;
+    let Some((row, m)) = c.kept_attrs_of(id).iter().rev().find_map(|r| r.mid(true, a.index()).map(|m| (r, m))) else {
+        return Some(json!({
+            "word": "No read of your own kept",
+            "line": "You had no read of your own on this skill at the end of a season yet, so there is nothing to compare today's with.",
+            "why": [],
+            "season": w.year - 1,
+        }));
+    };
+    let season = row.season as i32;
+    let delta = (now.0 as f64 + now.1 as f64) / 2.0 - m;
+    let word = if delta >= 3.0 {
+        "Up clearly"
+    } else if delta >= 1.5 {
+        "Up a little"
+    } else if delta > -1.5 {
+        "About the same"
+    } else if delta > -3.0 {
+        "Down a little"
+    } else {
+        "Down clearly"
+    };
+    Some(json!({
+        "word": word,
+        "line": format!("At the end of the {season} season you read it about {m:.0}; today {}-{}.", now.0, now.1),
+        "why": [],
+        "season": season,
+    }))
+}
+
 /// How your staff's read of rating `a` moved since the last season it kept,
 /// with the reasons it can see. `now` is the range shown today.
-pub(crate) fn last_year(w: &World, i: usize, a: Attr, now: (u8, u8)) -> Option<Value> {
+pub(crate) fn last_year(w: &World, i: usize, a: Attr, now: (u8, u8), own: bool) -> Option<Value> {
     let p = &w.people[i];
     let c = w.career.as_ref()?;
     let id = p.player.id;
+    if own {
+        return last_year_own(w, i, a, now);
+    }
     let Some(last) = c.kept_of(id).last() else {
         // Nothing kept yet (a new career, or someone just followed): the
         // first read is kept as this football year ends; last season's
@@ -344,6 +422,15 @@ pub(crate) fn last_year(w: &World, i: usize, a: Attr, now: (u8, u8)) -> Option<V
             Some([lo as u8, hi as u8]),
             format!("At the end of the {season} season your staff read it {lo:.0}-{hi:.0}; today {}-{}.", now.0, now.1),
             d,
+        )
+    } else if let Some(m) =
+        c.kept_attrs_of(id).iter().find(|r| r.season == last.season).and_then(|r| r.mid(false, a.index()))
+    {
+        // The season's middle for all 67 was kept: the move is this skill's own.
+        (
+            None,
+            format!("At the end of the {season} season your staff read it about {m:.0}; today {}-{}.", now.0, now.1),
+            nm - m,
         )
     } else if let Some((name, m)) = was_fam {
         // Only the family's middle was kept: the move is the family's.
@@ -936,6 +1023,9 @@ fn program_reads(w: &World, home: usize, prog: usize) -> [f64; 6] {
 /// (your program) when given, else what the school offered that he wanted.
 pub(crate) fn pick_why(w: &World, i: usize, chosen: usize, versus: Option<usize>) -> Vec<String> {
     use afm_engine::world::background::Decider;
+    if let Some(v) = versus {
+        return lost_why(w, i, chosen, v);
+    }
     let p = &w.people[i];
     let f = afm_engine::world::front_office::college::family_read(w, i);
     let wants = [f.close_to_home, f.prestige, f.playing_time, f.academics, f.development, f.money];
@@ -978,6 +1068,75 @@ pub(crate) fn pick_why(w: &World, i: usize, chosen: usize, versus: Option<usize>
     v.extend(scored.into_iter().filter(|x| x.0 > 0.004).take(2).map(|x| x.1));
     if v.len() == 1 {
         v.push(format!("No single edge: {name} was simply the better fit to the family"));
+    }
+    v
+}
+
+/// Why a recruit you offered committed to `chosen` over `yours` (Cain
+/// 2026-11-14): who decided, then the reasons that put `chosen` ahead as
+/// his decision weighs them today (`front_office::college::reasons`: the
+/// job, the money he was actually offered, home, development, the name,
+/// academics), each with its plain fact, and where you were better.
+fn lost_why(w: &World, i: usize, chosen: usize, yours: usize) -> Vec<String> {
+    use afm_engine::world::background::Decider;
+    use afm_engine::world::front_office::college as desk;
+    let p = &w.people[i];
+    let id = p.player.id;
+    let a = desk::reasons(w, i, chosen);
+    let b = desk::reasons(w, i, yours);
+    let name = w.program_name(chosen).to_string();
+    let miles = |prog: usize| afm_engine::world::geo::miles(p.home_state, w.programs[prog].state);
+    let pos = p.player.position;
+    let ahead = |prog: usize| {
+        w.programs[prog]
+            .roster
+            .iter()
+            .filter(|&&k| w.people[k].player.position == pos && w.people[k].college_seasons < 3)
+            .count()
+    };
+    let money = |prog: usize| desk::weighed_offer(w, prog, id);
+    let fact = |k: usize| -> String {
+        match k {
+            0 => format!("Closer to home: {:.0} miles against our {:.0}", miles(chosen), miles(yours)),
+            1 => format!(
+                "A clearer path to the field: {} {pos}s with a year or more left at {name}, {} here",
+                ahead(chosen),
+                ahead(yours)
+            ),
+            2 => {
+                let (x, y) = (money(chosen), money(yours));
+                let r = if y > 0.0 { x / y } else { f64::INFINITY };
+                let words = match r {
+                    r if r.is_infinite() => "real money where we offered none".to_string(),
+                    r if r >= 1.7 => format!("about {:.0} times ours", r.max(2.0)),
+                    r if r >= 1.15 => "more than ours".to_string(),
+                    _ => "about what we offered, and it counted more with him there".to_string(),
+                };
+                format!("The NIL money at {name}: {words}")
+            }
+            3 => format!("{name}'s record of developing pros, and its coaches"),
+            4 => format!("{name}'s name: titles, the stadium and television"),
+            _ => format!("{name}'s academics"),
+        }
+    };
+    let f = desk::family_read(w, i);
+    let decider = match f.decider {
+        Decider::Himself => "He decided himself",
+        Decider::Parent => "A parent made the call",
+        Decider::Grandparent => "His grandparents made the call",
+        Decider::Handler => "A trainer close to the family steered it",
+    };
+    let mut ks: Vec<usize> = (0..6).collect();
+    ks.sort_by(|&x, &y| (a[y].0 - b[y].0).total_cmp(&(a[x].0 - b[x].0)));
+    let mut v = vec![decider.to_string()];
+    v.extend(ks.iter().filter(|&&k| a[k].0 - b[k].0 > 0.004).take(2).map(|&k| fact(k)));
+    if v.len() == 1 {
+        v.push(format!("No single edge: {name} was simply the better fit to the family"));
+    }
+    let names = ["home", "playing time", "the money", "development", "the name", "academics"];
+    let better: Vec<&str> = (0..6).filter(|&k| b[k].0 - a[k].0 > 0.004).map(|k| names[k]).collect();
+    if !better.is_empty() {
+        v.push(format!("Where we were better: {}", better.join(", ")));
     }
     v
 }

@@ -119,6 +119,59 @@ pub fn race(w: &World, i: usize) -> Vec<(usize, f64)> {
     rec::portal_race(w, i)
 }
 
+/// Where you stand with him today, reason by reason: his top three besides
+/// you and yours, as his decision weighs each (None when he isn't
+/// shopping or you aren't in his race).
+pub fn stand(w: &World, i: usize) -> Option<super::college::Stand> {
+    let j = program(w)?;
+    stand_of(&rec::portal_reasons(w, i), j, w.today)
+}
+
+/// Your roster for the portal's season as a transfer counts it, and its
+/// limit (None outside a window): at the limit your offer is out of every
+/// race, unless the sandbox lifts the limits.
+pub fn your_room(w: &World) -> Option<(usize, usize)> {
+    let j = program(w)?;
+    if w.sandbox(crate::world::sandbox::Switch::RosterLimits) {
+        return None;
+    }
+    rec::portal_roster(w, j)
+}
+
+/// How much each of six reasons counts with a transfer (close to home,
+/// playing time, money, development, winning and the name, academics).
+/// True values: a screen shows them only through your staff's read.
+pub fn transfer_weights(w: &World, i: usize) -> [f64; 6] {
+    rec::transfer_weights(w, i)
+}
+
+/// Every program in his race with its reasons, best first (trial tooling
+/// and the screens' read; the numbers are his own).
+pub fn reasons(w: &World, i: usize) -> Vec<rec::PortalReasons> {
+    rec::portal_reasons(w, i)
+}
+
+fn stand_of(reasons: &[rec::PortalReasons], j: usize, today: crate::calendar::Date) -> Option<super::college::Stand> {
+    reasons.iter().position(|r| r.program == j)?;
+    let rows = reasons
+        .iter()
+        .enumerate()
+        .filter(|(n, r)| r.program == j || *n < 4)
+        .map(|(n, r)| super::college::StandRow {
+            program: r.program,
+            place: n as u16 + 1,
+            nil: r.nil as f32,
+            role: r.role,
+            parts: r.parts.map(|x| x.0 as f32),
+            hosted: r.hosted,
+        })
+        .collect::<Vec<_>>();
+    // Three others at most, then yours.
+    let mut others: Vec<super::college::StandRow> = rows.iter().filter(|r| r.program != j).take(3).cloned().collect();
+    others.extend(rows.into_iter().filter(|r| r.program == j));
+    Some(super::college::Stand { date: today, schools: reasons.len() as u16, rows: others })
+}
+
 fn target_mut(w: &mut World, id: u32) -> Option<&mut super::college::PortalTarget> {
     w.front_office.college.portal.iter_mut().find(|t| t.id == id && !t.settled)
 }
@@ -159,6 +212,23 @@ pub(crate) fn talked(w: &mut World, id: u32, at: f32, lean: f32, pitch: &str) {
     t.talks.push(PortalTalk { date: today, at, lean, pitch: pitch.to_string() });
 }
 
+/// Your case with an entrant you chase (talk facts lane L5), to change.
+/// A save from before the case starts it from the talks it kept.
+pub(crate) fn case_mut(w: &mut World, id: u32) -> Option<&mut crate::world::folk::case::Case> {
+    let j = program(w)?;
+    let t = target_mut(w, id)?;
+    if t.case.is_empty() && !t.talks.is_empty() {
+        t.case.again = t.talks.iter().map(|x| x.lean).sum();
+    }
+    t.case.prog = j as u16;
+    Some(&mut t.case)
+}
+
+/// Your case with an entrant you chase.
+pub(crate) fn case_of(w: &World, id: u32) -> Option<&crate::world::folk::case::Case> {
+    target(w, id).map(|t| &t.case)
+}
+
 /// Your promise of a role is on his file (0 a starting job, 1 a real role).
 pub(crate) fn promised(w: &World, id: u32) -> Option<(u8, Date)> {
     target(w, id).and_then(|t| t.promise)
@@ -181,6 +251,29 @@ pub(crate) fn promise(w: &mut World, id: u32, kind: u8) -> Option<(f64, f64, Pla
     Some((pull, belief, role))
 }
 
+/// You tell a transfer how you'd use him (the promises on usage): it pulls
+/// as a real role does, its term kept beside his file until he comes
+/// (`Folk::usage_pledges`), its belief read from the term.
+pub(crate) fn promise_usage(
+    w: &mut World,
+    id: u32,
+    u: crate::world::folk::usage::Usage,
+) -> Option<(f64, f64, PlayingTime)> {
+    let i = index_of(w, id)?;
+    let j = program(w)?;
+    let (role, _, perf, bar) = rec::portal_place(w, i, j)?;
+    let (pull, belief) = dialogue::promise_pull(w, i, 1, role, perf, bar);
+    let likely = crate::world::folk::usage::likely(w, i, &u);
+    let today = w.today;
+    let t = target_mut(w, id)?;
+    t.promise = Some((2, today));
+    w.folk.usage_pledges.retain(|x| !(x.0 == id && x.1 == j));
+    w.folk.usage_pledges.push((id, j, u));
+    let name = w.people[i].name.clone();
+    note(w, format!("Promised portal entrant {name} {}.", u.words()), Some(id));
+    Some((pull * likely, belief * likely, role))
+}
+
 /// After a talk: he may have heard enough.
 pub(crate) fn after_talk(w: &mut World, id: u32) -> Option<String> {
     check(w, id)
@@ -195,7 +288,13 @@ pub(crate) fn check(w: &mut World, id: u32) -> Option<String> {
     if t.offered.is_none() || t.committed.is_some() || !shopping(w, i) {
         return None;
     }
-    let race = rec::portal_race(w, i);
+    let reasons = rec::portal_reasons(w, i);
+    let race: Vec<(usize, f64)> = reasons.iter().map(|r| (r.program, r.total)).collect();
+    // Where you stand, kept for the why if he picks someone else.
+    let kept = stand_of(&reasons, j, w.today);
+    if let Some(t) = target_mut(w, id) {
+        t.stand = kept;
+    }
     let l = lead(&race, j, ALONE)?;
     if l < bar(w, i) {
         return None;
@@ -217,6 +316,29 @@ pub(crate) fn check(w: &mut World, id: u32) -> Option<String> {
     note(w, format!("{name} committed from the portal."), Some(id));
     tell(w, today, text.clone(), false);
     Some(text)
+}
+
+/// Whether your offer is out to a transfer (lane N5a).
+pub(crate) fn offered_to(w: &World, id: u32) -> bool {
+    target(w, id).is_some_and(|t| t.offered.is_some())
+}
+
+/// Whether a transfer told you yes (lane N5a).
+pub(crate) fn committed_to(w: &World, id: u32) -> bool {
+    target(w, id).is_some_and(|t| t.committed.is_some())
+}
+
+/// Whether a transfer would tell you yes today (`check`'s rule without
+/// doing it): your offer out, not settled, still shopping, and your lead
+/// over his bar. Live talks v3 (lane N5a): asking him to commit runs
+/// `check`.
+pub(crate) fn ready(w: &World, id: u32) -> bool {
+    let (Some(j), Some(i), Some(t)) = (program(w), index_of(w, id), target(w, id)) else { return false };
+    if t.offered.is_none() || t.committed.is_some() || !shopping(w, i) {
+        return false;
+    }
+    let race: Vec<(usize, f64)> = rec::portal_reasons(w, i).iter().map(|r| (r.program, r.total)).collect();
+    lead(&race, j, ALONE).is_some_and(|l| l >= bar(w, i))
 }
 
 /// Each morning at the desk: the day's visits, then anyone your offer now
@@ -460,12 +582,25 @@ fn run_visits(w: &mut World, j: usize, d: Date) {
     }
 }
 
-/// What your work with him adds at his decision: the quiet word before
-/// he entered, your talks (the latest at each place) and how your campus
-/// felt to him with the visit's own pull.
-pub(crate) fn effort(t: &super::college::PortalTarget) -> f64 {
-    let talks: f64 = t.talks.iter().map(|x| x.lean as f64).sum();
-    let visit = t.feel.map_or(0.0, |f| VISIT_PULL + f as f64);
+/// Your case with him as it counts today (a save from before the case:
+/// the leans its talks kept, in no group).
+pub(crate) fn case_now(t: &super::college::PortalTarget) -> crate::world::folk::case::Case {
+    let mut c = t.case;
+    if c.is_empty() {
+        c.again = t.talks.iter().map(|x| x.lean).sum();
+    }
+    c
+}
+
+/// What your work with him adds at his decision: your case from every
+/// call and visit (`folk::case`; for a save from before it, the talks it
+/// kept, the latest at each place) and how your campus felt to him with
+/// the visit's own pull, hosted better by `raised` (1 plus your athletic
+/// director's raises for travel and visits, people topic 12).
+pub(crate) fn effort(t: &super::college::PortalTarget, raised: f64) -> f64 {
+    let talks: f64 =
+        if t.case.is_empty() { t.talks.iter().map(|x| x.lean as f64).sum() } else { t.case.total() as f64 };
+    let visit = t.feel.map_or(0.0, |f| VISIT_PULL * raised + f as f64);
     talks + visit
 }
 

@@ -88,17 +88,24 @@ pub fn begin(w: &mut World) {
         s.picks.clear();
         s.handed = Some("nobody: you left the job".into());
     }
-    w.folk.mine = super::Mine { team: Some(team), since: Some(d0), ..Default::default() };
+    // Your names travel (the promises design, section 4): the new room
+    // starts from what it has heard of you.
+    let names = w.folk.mine.carried(team.level() == Level::Nfl);
+    let straight = names.iter().sum::<f32>() / 3.0;
+    w.folk.mine = super::Mine { team: Some(team), since: Some(d0), names, named: true, straight, ..Default::default() };
     w.folk.promises.clear();
     w.folk.goals.clear();
     w.folk.asks.clear();
     w.folk.cases.clear();
+    // A boss's yes to more recruiting or staff money was for that job.
+    w.folk.staff.recruit_bonus = 0.0;
+    w.folk.staff.pool_bonus = 0.0;
     let rush = rush_due(w, team, d0);
     w.folk.takeover =
         Some(Takeover { team: Some(team), started: Some(d0), old_coach: old, fit, rush, ..Default::default() });
     first_impressions(w, team, old, fit);
     if let Team::College(p) = team {
-        coach_change_window(w, p, d0);
+        coach_change_window(w, p, d0, old);
     }
     if let Team::Nfl(t) = team {
         nfl_interim(w, t);
@@ -170,26 +177,28 @@ pub(crate) fn rush_week(w: &World) -> Option<Date> {
 /// T-B: your hire opens the coaching-change transfer window for your
 /// players (15 days, starting five days after the hire, from 2025; 30 days
 /// in the 2022-24 windows era) and pushes the "his head coach is gone" lean.
-fn coach_change_window(w: &mut World, p: usize, d0: Date) {
+fn coach_change_window(w: &mut World, p: usize, d0: Date, old: Option<usize>) {
     let rule = w.rules.transfer;
     let days = match rule {
         crate::calendar::rules::TransferRule::Windows => Some(30),
         crate::calendar::rules::TransferRule::January => Some(15),
         _ => None,
     };
-    let factor = crate::career::PIPELINE.portal_entry.coaching_change;
     // Your window replaces the late one your predecessor's exit scheduled
     // before the career was set (minor bug 88).
     w.late_windows.retain(|x| x.0 != p);
     for i in 0..w.people.len() {
         let pp = &w.people[i];
         // The man you replaced already moved them the day he left
-        // (`college::coach_gone`): once a cycle.
+        // (`college::coach_gone`): once a cycle. Otherwise the push goes by
+        // each player's tie to him (playtest bug 15, Cain's item 7): a man
+        // who never coached a game with them moves them least.
         if pp.stage == Stage::College
             && pp.college == Some(p)
             && pp.cal.lean > 0.0
             && !pp.cal.lean_events.iter().any(|e| e.1 == crate::world::college::COACH_GONE)
         {
+            let factor = crate::world::college::coach_gone_factor(tie_to_old(w, i, old));
             crate::world::college::lean_push(&mut w.people[i], d0, crate::world::college::COACH_GONE, factor);
         }
     }
@@ -997,6 +1006,12 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
             s.outcome.push("You said a few plain words at the end of a workout instead. The room shrugged: no first impression either way.".into());
         }
         Kind::PressIntro => {}
+        Kind::Booster if super::backers::is_pass_test(s) => {
+            // Nobody else can pull his pass: it stands, and the room saw it.
+            if let Some(c) = booster_of(w, s, team) {
+                super::backers::pass_answer(w, s, team, &c, 142);
+            }
+        }
         Kind::Booster => {
             if let Some(c) = booster_of(w, s, team) {
                 w.folk.mine.nudge(c.key(), -0.08);
@@ -1039,6 +1054,13 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
             s.outcome.push("The general manager ran the meeting on his own terms and left you his notes.".into());
         }
         Kind::SigneeRelease => signee_hand(w, s, team, &who),
+        Kind::Trainer => {
+            // The trainers run their own plan: nobody is pushed.
+            rehab_holds(w, team, false);
+            if s.outcome.is_empty() {
+                s.outcome.push(format!("{who} took it and left you the notes."));
+            }
+        }
         _ => {
             if s.outcome.is_empty() {
                 s.outcome.push(format!("{who} took it and left you the notes."));
@@ -1116,11 +1138,15 @@ fn team_meeting_open(w: &mut World, s: &mut Scene, team: Team) {
     let n = roster.len();
     let close: Vec<usize> = roster.iter().copied().filter(|&i| tie_to_old(w, i, old) > 0.45).collect();
     let captains = captains_of(w, team);
+    // What the room knows on your first day (talk facts lane L9): the
+    // season before you, the man you replaced and why he left, what's next.
+    let arr = super::claims::team_rooms::arrival(w, team);
     s.who.push(Who::Group(format!("The team ({n} players)")));
     let mut pen = scene::pen(w, s, 1);
     let you = Speaker::you(w);
     let mut f = base_facts(w, team);
     f.set("count", n.to_string());
+    arr.fill(&mut f);
     let room = match team {
         Team::High(_) => "the field house bleachers",
         Team::Nfl(_) => "the auditorium",
@@ -1138,6 +1164,19 @@ fn team_meeting_open(w: &mut World, s: &mut Scene, team: Team) {
             _ => "Nobody here owes the last staff much.".to_string(),
         }
     ));
+    let mut known: Vec<String> = Vec::new();
+    if let (Some(y), Some(r)) = (arr.year, &arr.record) {
+        known.push(format!(
+            "The {y} team went {r}{}.",
+            arr.finish.as_ref().map(|x| format!(", {x}")).unwrap_or_default()
+        ));
+    }
+    if let Some((o, why)) = arr.old {
+        known.push(format!("As for {}, {why}.", coach_link(w, o)));
+    }
+    if !known.is_empty() {
+        s.narrate(format!("They all know the story. {}", known.join(" ")));
+    }
     if let Some(&c) = captains.first() {
         s.narrate(format!(
             "{} sits in the front row, arms folded. Everyone else watches him as much as you.",
@@ -1150,27 +1189,51 @@ fn team_meeting_open(w: &mut World, s: &mut Scene, team: Team) {
     }
     pen.put(w);
     s.narrate("What do you tell them?");
-    add_message_picks(s);
+    add_message_picks(w, s, &arr);
 }
 
-fn add_message_picks(s: &mut Scene) {
+/// The five messages, worded for what the room knows (lane L9): the
+/// codes and what each does are the same as they always were.
+fn add_message_picks(w: &World, s: &mut Scene, arr: &super::claims::team_rooms::Arrival) {
+    let what = arr.ahead.as_ref().and_then(|p| Some((p.get("what")?.to_string(), p.get("when")?.to_string())));
     s.pick(
         10,
-        "Every job is open. The depth chart starts over today.",
+        match &what {
+            Some((x, _)) => format!("Every job is open. The depth chart starts over at {x}."),
+            None => "Every job is open. The depth chart starts over today.".into(),
+        },
         "Challenge",
         "firm",
         "Competitors and backups lift; entrenched starters bristle.",
     );
+    let old_last = arr.old.map(|(o, _)| {
+        let n = &w.coaches[o].name;
+        format!("Coach {}", n.split_whitespace().last().unwrap_or(n))
+    });
     s.pick(
         11,
-        "I'm not here to erase what was built. I'm here to finish it.",
+        match (&old_last, &arr.record, arr.season_was) {
+            (Some(o), Some(r), Some("good")) => {
+                format!("{o} built something here: {r}. I'm not here to erase it. I'm here to finish it.")
+            }
+            (Some(o), Some(_), Some("bad")) => {
+                format!("I'm not here to erase what {o} built. I'm building on the men who stuck it out.")
+            }
+            _ => "I'm not here to erase what was built. I'm here to finish it.".into(),
+        },
         "Praise",
         "warm",
         "Loyal players and the old coach's people warm to you; ambitious ones hear nothing new.",
     );
     s.pick(
         12,
-        "We win now. The standard here is a championship, starting this year.",
+        match (&arr.record, arr.season_was) {
+            (Some(r), Some("good")) => {
+                format!("{r} was a start. The standard here is a championship, starting this year.")
+            }
+            (Some(r), Some(_)) => format!("{r} is behind us. The standard here is a championship, starting this year."),
+            _ => "We win now. The standard here is a championship, starting this year.".into(),
+        },
         "Promise",
         "fiery",
         "Lifts the room for now and raises the bar you'll be judged by.",
@@ -1184,7 +1247,10 @@ fn add_message_picks(s: &mut Scene) {
     );
     s.pick(
         14,
-        "Who I am, how we'll work, and when practice starts. That's it.",
+        match &what {
+            Some((x, when)) => format!("Who I am, how we'll work, and {x} {when}. That's it."),
+            None => "Who I am, how we'll work, and when practice starts. That's it.".into(),
+        },
         "Tell him straight",
         "calm",
         "Little lift and little risk: they judge you by the first workout.",
@@ -1200,9 +1266,11 @@ fn team_meeting_answer(w: &mut World, s: &mut Scene, team: Team, code: u32, pick
         _ => (Message::Plain, Tone::Calm),
     };
     s.you(&scene::your_name(w), picked.label.clone());
+    let before: Vec<(usize, f32)> = team.roster(w).into_iter().map(|i| (i, w.people[i].trust)).collect();
     let (up, down, gone) = team_effect(w, team, msg, tone, 1.0);
     let mut pen = scene::pen(w, s, 2);
-    let f = base_facts(w, team);
+    let mut f = base_facts(w, team);
+    super::claims::team_rooms::arrival(w, team).fill(&mut f);
     // A voice from the room: a leader's reaction.
     if let Some(&c) = captains_of(w, team).first() {
         let spk = Speaker::player(w, c);
@@ -1227,6 +1295,16 @@ fn team_meeting_answer(w: &mut World, s: &mut Scene, team: Team, code: u32, pick
         Message::Compete => "The backups sit up. A couple of starters don't.".to_string(),
         Message::Plain => "Nobody cheers and nobody walks out. They'll decide about you in the weight room.".to_string(),
     });
+    // Who it really moved (lane L9): the biggest rise and fall in trust.
+    let (best, worst) = super::talks::movers(w, &before);
+    match (best, worst) {
+        (Some(a), Some(b)) => {
+            s.narrate(format!("{} is with you already. {} isn't.", player_link(w, a), player_link(w, b)))
+        }
+        (Some(a), None) => s.narrate(format!("{} is with you already.", player_link(w, a))),
+        (None, Some(b)) => s.narrate(format!("{} has heard enough.", player_link(w, b))),
+        (None, None) => {}
+    }
     s.outcome.push(format!(
         "Your first team meeting: {} player{} warmed to you, {} cooled{}.",
         up,
@@ -1496,8 +1574,24 @@ fn holdover_open(w: &mut World, s: &mut Scene, team: Team) {
             "He wasn't the old coach's hire from his own tree, which may help him."
         }
     ));
+    // His real record with the program and his unit's year (talk facts item
+    // 23): in the narration, and for the pitch to name.
+    if let Some(u) = super::claims::rooms::unit(w, c) {
+        let mut about = String::new();
+        if let Some(r) = u.record_words() {
+            about += &format!(" The team is {r} since he took the job.");
+        }
+        if let Some(y) = u.year_words() {
+            about += &format!(" {y}");
+        }
+        if !about.is_empty() {
+            s.narrate(about.trim_start().to_string());
+        }
+        u.fill(&mut f);
+    }
     let mut pen = scene::pen(w, s, 1);
-    let pitch = pen.line(&["takeover.holdover.pitch", "?takeover.holdover.detail"], &spk, &f);
+    let pitch =
+        pen.line(&["takeover.holdover.pitch", "?takeover.holdover.detail", "takeover.holdover.record"], &spk, &f);
     pen.put(w);
     s.them(
         &name,
@@ -1592,10 +1686,13 @@ fn oversell(w: &World, team: Team, c: usize) -> Option<(usize, String)> {
             fa.total_cmp(&fb)
         })?;
     let p = &w.people[best];
+    // The real player: his class and last year's role, and no bowl practice
+    // he may not have had (talk facts item 23).
     let text = format!(
-        "And {} is ready. {} was {} last year, but you watch him in bowl practice and he's a starter. He's going to surprise people.",
+        "And {} is ready. {} is {} and was {} last year, but you watch him in practice and he's a starter. He's going to surprise people.",
         player_link(w, best),
         p.name.split_whitespace().next().unwrap_or(""),
+        super::claims::rooms::class_phrase(w, best),
         facts::role_words(p.last_role)
     );
     Some((best, text))
@@ -1974,6 +2071,7 @@ fn report_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
         61 => s.outcome.push("The academic staff handles it as they did.".into()),
         70 => {
             w.folk.mine.hard = (w.folk.mine.hard - 0.05).max(-1.0);
+            rehab_holds(w, team, false);
             s.outcome.push("Nobody rushes back. The trainers heard you say it.".into());
             if let Some(c) =
                 cast::has(w, team, Role::Trainer).then(|| cast::get(w, CastRef::new(team, Role::Trainer, 0)))
@@ -1989,6 +2087,13 @@ fn report_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
                 w.folk.mine.nudge(c.key(), -0.08);
             }
             w.folk.pushed_rehab = true;
+            let n = rehab_holds(w, team, true);
+            if n > 0 {
+                s.outcome.push(format!(
+                    "{n} {} back sooner than the trainers' plan, at a higher risk of getting hurt again.",
+                    if n == 1 { "player is" } else { "players are" }
+                ));
+            }
         }
         _ => s.outcome.push("Filed in the takeover file.".into()),
     }
@@ -2112,22 +2217,11 @@ fn trainer(w: &mut World, s: &mut Scene, team: Team) {
                 },
             )
         } else {
-            let Some(h) = p.player.history.last() else { continue };
-            use crate::player::DevelopmentEvent as Ev;
-            if h.events.has(Ev::MajorInjury) {
-                let surgery = super::roll(w, 0x5E6, p.player.id as u64) < 0.4;
-                (
-                    if surgery {
-                        "a major injury; surgery still to come".into()
-                    } else {
-                        "rehab from a major injury".into()
-                    },
-                    if surgery { "summer, maybe fall camp".into() } else { "late spring".into() },
-                )
-            } else if h.events.has(Ev::ModerateInjury) && h.games_missed > 2 {
-                ("rehab, finishing up".into(), "spring ball, limited".into())
-            } else {
-                continue;
+            let Some(tier) = rehab_of(w, i) else { continue };
+            match tier {
+                2 => ("a major injury; surgery still to come".into(), "summer, maybe fall camp".into()),
+                1 => ("rehab from a major injury".into(), "late spring".into()),
+                _ => ("rehab, finishing up".into(), "spring ball, limited".into()),
             }
         };
         doc.rows.push(DocRow {
@@ -2155,6 +2249,76 @@ fn trainer(w: &mut World, s: &mut Scene, team: Team) {
         "Some come back sooner; the re-injury risk rises, and the trainers notice.",
     );
 }
+
+/// Where a school player's rehab stands at the trainer's report, from his
+/// last season's injury: 2 a major one with surgery still to come, 1 rehab
+/// from a major one, 0 a moderate one finishing up; None healthy.
+fn rehab_of(w: &World, i: usize) -> Option<u8> {
+    use crate::player::DevelopmentEvent as Ev;
+    let p = &w.people[i];
+    let h = p.player.history.last()?;
+    if h.events.has(Ev::MajorInjury) {
+        Some(if super::roll(w, 0x5E6, p.player.id as u64) < 0.4 { 2 } else { 1 })
+    } else if h.events.has(Ev::ModerateInjury) && h.games_missed > 2 {
+        Some(0)
+    } else {
+        None
+    }
+}
+
+/// The days a rehab really ends, as the trainer's report says (talk facts
+/// lane L8, item 27: pushing rehab had no effect, and the report's dates
+/// held nobody out): surgery to come is back for fall camp, rehab from a
+/// major injury by the spring game, a moderate one two weeks into spring
+/// ball. Pushed, each comes back a step sooner: by the spring game, at the
+/// start of spring ball, and with no hold.
+fn rehab_back(w: &World, tier: u8, pushed: bool) -> Option<Date> {
+    let (start, game) = (w.dates.spring_practice.0, w.dates.spring_game);
+    match (tier, pushed) {
+        (2, false) => Some(w.dates.fall_camp),
+        (2, true) | (1, false) => Some(game),
+        (1, true) => Some(start),
+        (_, false) => Some(start.add(14)),
+        _ => None,
+    }
+}
+
+/// The report's holds become real (`training.hurt`): each player in rehab
+/// is off the practice field until his day. Pushed, he is back sooner and
+/// on the trainers' watch for re-injury (`Folk.rushed`, read by your
+/// practices: `training::seat`). At a club, pushed players' time out is
+/// cut by a quarter, as a second opinion's rush (`life.rs`). Returns how
+/// many came back sooner.
+pub(crate) fn rehab_holds(w: &mut World, team: Team, pushed: bool) -> usize {
+    let today = w.today;
+    let mut sooner = 0;
+    for i in team.roster(w) {
+        let id = w.people[i].player.id;
+        if let Some(c) = w.people[i].pro.as_mut() {
+            if pushed && c.out_weeks > 0 && !c.pup {
+                c.out_for((c.out_days * 3 / 4).max(1));
+                w.folk.rushed.push((id, today));
+                sooner += 1;
+            }
+            continue;
+        }
+        let Some(tier) = rehab_of(w, i) else { continue };
+        let normal = rehab_back(w, tier, false).filter(|d| *d > today);
+        let back = rehab_back(w, tier, pushed).filter(|d| *d > today);
+        if let Some(until) = back {
+            w.training.hurt.retain(|h| !(h.id == id && h.how == REHAB));
+            w.training.hurt.push(crate::training::seat::Hurt { id, kind: None, from: today, until, how: REHAB.into() });
+        }
+        if pushed && normal.is_some() && back != normal {
+            w.folk.rushed.push((id, back.unwrap_or(today)));
+            sooner += 1;
+        }
+    }
+    sooner
+}
+
+/// What a rehab hold says it is (`training.hurt`).
+const REHAB: &str = "rehab from last season's injury";
 
 // ---------------------------------------------------------------------------
 // Item 10: the academic and conduct report.
@@ -2355,10 +2519,11 @@ fn flight_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
                 let title = format!("One-on-one with {}", w.people[i].name);
                 let mut sc = Scene::new(Kind::OneOnOne, d, title);
                 sc.a = *id as u64;
-                sc.b = super::talks::Subject::Future as u64;
                 sc.place = "Your office".into();
                 sc.team = Some(team);
-                let _ = why;
+                // The reason on your staff's list carries into the talk
+                // (talk facts lane L9, item 21).
+                super::talks::exit_reason(w, &mut sc, i, Some(why));
                 scene::add(w, sc);
                 n += 1;
             }
@@ -2521,8 +2686,10 @@ fn recruiting_calls(w: &mut World, team: Team, all_you: bool) -> usize {
         })
         .collect();
     list.sort_by(|&a, &b| w.people[b].stars.cmp(&w.people[a].stars));
+    w.folk.commits_heard.clear();
     for (k, i) in list.into_iter().enumerate() {
         let you_called = all_you || k < 3;
+        w.folk.commits_heard.push((w.people[i].player.id, you_called));
         let pp = &mut w.people[i];
         pp.trust_in = w.career.as_ref().map_or(0, |c| c.coach) as u32;
         pp.trust = (0.45 + if you_called { 0.08 + 0.006 * (rec - 10.0) as f32 } else { 0.03 }).clamp(0.0, 1.0);
@@ -2819,6 +2986,11 @@ fn booster_open(w: &mut World, s: &mut Scene, team: Team) {
         s.end();
         return;
     };
+    // His pass put to the test (talk facts lane L8).
+    if super::backers::is_pass_test(s) {
+        super::backers::pass_open(w, s, team, &c);
+        return;
+    }
     let Some(b) = c.booster.clone() else {
         s.end();
         return;
@@ -2869,6 +3041,19 @@ fn booster_open(w: &mut World, s: &mut Scene, team: Team) {
         let line = pen.line(&[want_key(wt)], &spk, &f);
         s.them(&c.name, if line.is_empty() { want_fallback(w, wt, &b) } else { line }, None);
         s.c = 0;
+        // The local kid he means, by name (talk facts lane L8: the promise
+        // is held to his games).
+        if wt == Want::SayOnPlayer
+            && let Some(k) = super::backers::kid(w, team)
+        {
+            s.narrate(format!(
+                "He means {}, a {} from {} who hasn't been starting.",
+                player_link(w, k),
+                w.people[k].player.position.name().to_lowercase(),
+                facts::state_name(w.states.get(w.people[k].home_state).map_or("", |x| x.code.as_str()))
+            ));
+            s.c = w.people[k].player.id as i64 + 1;
+        }
         super::note(
             w,
             "boosters",
@@ -2884,6 +3069,14 @@ fn booster_open(w: &mut World, s: &mut Scene, team: Team) {
     pen.put(w);
     if let Some(wt) = want {
         add_want_picks(s, wt);
+        if wt == Want::SayOnPlayer
+            && let Some(k) = super::person(w, (s.c - 1).max(0) as u32).filter(|_| s.c > 0)
+            && let Some(p) = s.picks.iter_mut().find(|p| p.code == 100)
+        {
+            let first = w.people[k].name.split_whitespace().next().unwrap_or("").to_string();
+            p.label = format!("{first} will get a real look this season. You have my word.");
+            p.hint = "Logged: he plays real snaps by the season's end, or it's broken.".into();
+        }
     } else {
         s.pick(103, "Thank him for everything he does for the program.", "Praise", "warm", "Goodwill.");
     }
@@ -3045,6 +3238,10 @@ fn booster_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
         s.end();
         return;
     };
+    if super::backers::is_pass_test(s) {
+        super::backers::pass_answer(w, s, team, &c, code);
+        return;
+    }
     let b = c.booster.clone().unwrap_or_default();
     let want = b.wants.first().copied();
     let meddler = Cast::z(c.meddling) as f32;
@@ -3057,6 +3254,9 @@ fn booster_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
                     super::talks::PromiseKind::Booster(wt),
                     2,
                 );
+                if wt == Want::SayOnPlayer && s.c > 0 {
+                    super::backers::promised_kid(w, c.key(), (s.c - 1) as u32);
+                }
             }
             (
                 0.15,
@@ -3077,6 +3277,31 @@ fn booster_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
         _ => (0.06, "Glad to do it. Glad you're here.", format!("You thanked {}.", c.name)),
     };
     w.folk.mine.nudge(c.key(), dt);
+    // His reply is who he is (talk facts item 16): his age, his temper and
+    // his weight in the room, and what he asked for. The bank has the words;
+    // today's fixed line stands until a part has a version he can say.
+    let mut f = base_facts(w, team);
+    f.set("name", c.first().to_string());
+    f.set(
+        "giver",
+        if b.big {
+            "big"
+        } else if b.yearly > 0.0 {
+            "small"
+        } else {
+            "none"
+        },
+    );
+    if let Some(wt) = want {
+        f.set("want", wt.words());
+    }
+    let key = match code {
+        100 => "booster.reply.promise",
+        101 => "booster.reply.straight",
+        102 => "booster.reply.business",
+        _ => "booster.reply.thanks",
+    };
+    let line = scene::bank_line(w, s, 2, key, &Speaker::cast(w, &c), &f, line);
     s.them(&c.name, line, None);
     if code == 100
         && want == Some(Want::NilDeals)
@@ -3173,6 +3398,7 @@ fn media_open(w: &mut World, s: &mut Scene, team: Team) {
 
 fn media_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
     w.folk.media_policy = code as u8 - 110;
+    w.folk.media_chosen = true;
     let reporters = cast::all(w, team, Role::Reporter);
     for r in &reporters {
         let d = match code {
@@ -3570,15 +3796,16 @@ fn old_coach_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
         }
     }
     let name = w.coaches[o].name.clone();
-    s.them(
-        &name,
-        match code {
-            160 => "I'd like that. These kids matter to me.",
-            161 => "Appreciate it. Good luck, Coach.",
-            _ => "Understood. It's yours.",
-        },
-        None,
-    );
+    // He answers as the man he is (talk facts item 16): his age and his
+    // temper. Today's fixed line stands until a part has a version he can say.
+    let (key, line) = match code {
+        160 => ("takeover.oldcoach.reply.help", "I'd like that. These kids matter to me."),
+        161 => ("takeover.oldcoach.reply.respect", "Appreciate it. Good luck, Coach."),
+        _ => ("takeover.oldcoach.reply.mine", "Understood. It's yours."),
+    };
+    let f = base_facts(w, team);
+    let line = scene::bank_line(w, s, 2, key, &Speaker::coach(w, o), &f, line);
+    s.them(&name, line, None);
     s.outcome.push(match code {
         160 => format!("You asked {name} to stay around the program."),
         161 => format!("You paid your respects to {name}."),
@@ -3619,21 +3846,35 @@ fn gm_open(w: &mut World, s: &mut Scene, team: Team) {
             _ => "somewhere in between: compete and get younger",
         }
     ));
-    s.pick(
-        170,
-        "Tell him you want a say on every 53-man decision.",
-        "Challenge",
-        "firm",
-        "He gives a little and remembers it.",
-    );
-    s.pick(
-        171,
-        "Tell him you'll coach who he gives you, and tell him what you need.",
-        "Praise",
-        "warm",
-        "He trusts you; you live with his roster.",
-    );
+    // What you can say to him rests on who has the final say (talk facts
+    // item 16): you can't ask for a say you already hold.
+    let (say, need) = match power {
+        Some(crate::world::pro::office::Power::Coach) => (
+            "Tell him the final call on the 53 is yours, and you want him in the room.",
+            "Tell him you'll lean on his board, and tell him what you need.",
+        ),
+        Some(crate::world::pro::office::Power::Owner) => (
+            "Ask him to carry your view into the owner's room on every 53-man decision.",
+            "Tell him you'll coach who the owner and he give you, and tell him what you need.",
+        ),
+        _ => (
+            "Tell him you want a say on every 53-man decision.",
+            "Tell him you'll coach who he gives you, and tell him what you need.",
+        ),
+    };
+    s.pick(170, say, "Challenge", "firm", "He gives a little and remembers it.");
+    s.pick(171, need, "Praise", "warm", "He trusts you; you live with his roster.");
     s.pick(172, "Ask him which three players he'd never trade.", "Ask", "calm", "You learn who he believes in.");
+}
+
+/// Who holds the final say on the roster at an NFL club, as the bank checks
+/// it (`power=gm`).
+fn power_key(p: Option<crate::world::pro::office::Power>) -> &'static str {
+    match p {
+        Some(crate::world::pro::office::Power::Coach) => "coach",
+        Some(crate::world::pro::office::Power::Owner) => "owner",
+        _ => "gm",
+    }
 }
 
 fn gm_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
@@ -3644,15 +3885,33 @@ fn gm_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
         _ => 0.05,
     };
     w.folk.mine.nudge(gm.key(), d);
-    s.them(
-        &gm.name,
-        match code {
-            170 => "You'll be in the room. The decisions are mine; that's how the owner set it up.",
-            171 => "That's how this works best. Tell me what you need and I'll go get it.",
-            _ => "Ask me again after the draft. But you can guess the first one.",
+    // His reply fits the scene (talk facts item 16): it says who holds the
+    // final say as the scene did, never the other way. Today's fixed line
+    // stands only where it can't contradict that.
+    let (power, mode) = match team {
+        Team::Nfl(t) => w.clubs.get(t).map(|c| (c.office.power, c.office.mode)).unzip(),
+        _ => (None, None),
+    };
+    let mut f = base_facts(w, team);
+    f.set("power", power_key(power));
+    f.set(
+        "mode",
+        match mode {
+            Some(crate::world::pro::office::Mode::Contend) => "contend",
+            Some(crate::world::pro::office::Mode::Rebuild) => "rebuild",
+            _ => "middle",
         },
-        None,
     );
+    let (key, line) = match code {
+        170 if power.is_none_or(|p| p == crate::world::pro::office::Power::Gm) => {
+            ("gm.reply.say", "You'll be in the room. The decisions are mine; that's how the owner set it up.")
+        }
+        170 => ("gm.reply.say", "I'll be in the room, and I'll make my case."),
+        171 => ("gm.reply.need", "That's how this works best. Tell me what you need and I'll go get it."),
+        _ => ("gm.reply.never", "Ask me again after the draft. But you can guess the first one."),
+    };
+    let line = scene::bank_line(w, s, 2, key, &Speaker::cast(w, &gm), &f, line);
+    s.them(&gm.name, line, None);
     s.outcome.push("You sat down with your general manager.".into());
     s.end();
 }

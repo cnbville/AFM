@@ -29,6 +29,7 @@ pub mod live;
 pub mod lookback;
 pub mod outside;
 pub mod own;
+pub mod physical;
 pub mod pitch;
 pub mod predraft;
 pub mod pro;
@@ -416,6 +417,7 @@ pub(crate) fn day(w: &mut crate::world::World, d: Date) {
         own::day(w, d);
         stake::day(w, d);
         letters::day(w, d);
+        crate::world::folk::persona::draft::day(w, d);
         pitch::day(w, d);
         film::day(w, d);
     }
@@ -438,6 +440,9 @@ pub(crate) fn after_load(w: &mut crate::world::World) {
 /// for the look-back, the season's pre-draft store cleared.
 pub(crate) fn after_draft(w: &mut crate::world::World, board: &[(usize, u32)], tried: &HashMap<usize, Vec<usize>>) {
     public::score_mocks(w, board);
+    // The draft side's settling (lane N5e): what each club's word came to,
+    // and the men who thought you'd take them.
+    crate::world::folk::persona::draft::after_draft(w);
     lookback::after_draft(w);
     pro::after_draft(w, tried);
     own::after_draft(w);

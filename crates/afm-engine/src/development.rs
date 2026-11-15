@@ -58,9 +58,23 @@ pub struct SeasonContext {
     /// back from a minor or moderate injury (up to 15%).
     pub medical: f64,
     /// Section 6b topic 5: his plan's main focus, set by you. The focus
-    /// grows up to 1.5 times its share and his other skills pay for it
-    /// (choice 2, confirmed); how much sticks follows his coachability.
+    /// grows faster the more minutes he spends on it, his position's other
+    /// key skills pay a quarter of the gain, and a veteran's decline in it
+    /// slows (individual practice, topic 5b); how much sticks follows his
+    /// coachability.
     pub focus: Option<Attr>,
+    /// His second point of emphasis's rating, if he has two (individual
+    /// practice topic 5.1): the two share the minutes.
+    #[serde(default)]
+    pub focus2: Option<Attr>,
+    /// He plays for your seat: his flaws and tools are worked week by week
+    /// (`world::craft_work`), so the year's step works no staff points.
+    #[serde(default)]
+    pub seat_plan: bool,
+    /// The minutes a week he spends on the focus (individual practice,
+    /// topic 5b): the usual 30 when nothing says otherwise.
+    #[serde(default = "usual_focus_minutes")]
+    pub focus_minutes: f64,
     /// Section 6b topic 12 (choice 1, confirmed): the year's growth is
     /// decided here and lands week by week as the training happens
     /// (`training::land`), instead of all at once. Attributes that have
@@ -102,6 +116,9 @@ impl SeasonContext {
             physical: 0.0,
             medical: 0.0,
             focus: None,
+            focus2: None,
+            seat_plan: false,
+            focus_minutes: USUAL_FOCUS_MINUTES,
             defer: false,
             physical_coaching: None,
             strength_dev: 0.0,
@@ -109,6 +126,129 @@ impl SeasonContext {
         }
     }
 }
+
+/// The minutes a week a focus usually gets (individual practice, topic
+/// 5b): the position coach's emphasis inside the individual period.
+pub const USUAL_FOCUS_MINUTES: f64 = 30.0;
+
+fn usual_focus_minutes() -> f64 {
+    USUAL_FOCUS_MINUTES
+}
+
+/// A plan's focus as growth reads it (individual practice, topic 5b): the
+/// rating it grows and the minutes a week he spends on it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Focus {
+    pub attr: Attr,
+    pub minutes: f64,
+    /// A second focus point's rating (individual practice topic 5.1: one
+    /// or two points at a time). The two share his minutes.
+    pub second: Option<Attr>,
+}
+
+impl Focus {
+    pub fn new(attr: Attr, minutes: f64) -> Focus {
+        Focus { attr, minutes, second: None }
+    }
+
+    /// Two points of emphasis, each on its rating; the same rating twice is
+    /// one focus with all the minutes.
+    pub fn two(attr: Attr, second: Option<Attr>, minutes: f64) -> Focus {
+        Focus { attr, minutes, second: second.filter(|&b| b != attr) }
+    }
+
+    /// Whether a rating is one of his focus ratings.
+    pub fn has(self, a: Attr) -> bool {
+        self.attr == a || self.second == Some(a)
+    }
+
+    /// The ratings it grows (one or two).
+    pub fn attrs(self) -> impl Iterator<Item = Attr> {
+        std::iter::once(self.attr).chain(self.second)
+    }
+
+    /// The minutes on one of its ratings: two points split his time.
+    pub fn minutes_on(self, a: Attr) -> f64 {
+        if !self.has(a) {
+            0.0
+        } else if self.second.is_some() {
+            self.minutes / 2.0
+        } else {
+            self.minutes
+        }
+    }
+
+    /// The lift on one of its ratings (`lift` at that rating's minutes).
+    pub fn lift_on(self, a: Attr, take: f64) -> f64 {
+        Focus::new(a, self.minutes_on(a)).lift(take)
+    }
+
+    /// The lift on its growth rate, past 1 (proposed, not confirmed:
+    /// take x minutes / 60, the minutes capped at 60, so a coachable
+    /// player grows it 1.5 times as fast at the usual 30 minutes and twice
+    /// as fast at 60). `take` is how much of the work sticks (0.6-1.0).
+    pub fn lift(self, take: f64) -> f64 {
+        take * clamp(self.minutes, 0.0, 60.0) / 60.0
+    }
+}
+
+/// How much of a focus's work sticks with him, 0.6-1.0, from his
+/// coachability (section 6b topic 5).
+pub fn focus_take(coachability: f64) -> f64 {
+    clamp(0.6 + 0.02 * coachability, 0.6, 1.0)
+}
+
+/// The share of a focus's extra gain his other key skills give up
+/// (individual practice, topic 5b; proposed, not confirmed): the minutes
+/// come out of their work.
+pub const FOCUS_COST: f64 = 0.25;
+
+/// The skills that pay for a focus (individual practice, topic 5b): the
+/// skills with the most weight at his position, up to four, never the body
+/// (individual time is technique and reading, not the weight room) and
+/// never the focus itself, with their weights.
+pub fn focus_cost_skills(pos: Position, focus: Attr) -> Vec<(Attr, f64)> {
+    let mut v: Vec<(Attr, f64)> = Attr::ALL
+        .iter()
+        .copied()
+        .filter(|&a| a != focus && a.profile().group != AttributeGroup::Physical && weight(pos, a) > 0.0)
+        .map(|a| (a, weight(pos, a)))
+        .collect();
+    v.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.index().cmp(&b.0.index())));
+    v.truncate(4);
+    v
+}
+
+/// Takes a focus's cost out of what his other key skills just gained
+/// (individual practice, topic 5b): a quarter of the `extra` the focus gave
+/// (its rating's gain with the focus less without, the same noise), spread
+/// over the key skills by their weight, never more than each gained since
+/// `before` in the same landing, so a focus steers growth and never takes
+/// a skill down.
+pub(crate) fn focus_cost(pos: Position, before: &Attributes, after: &mut Attributes, focus: Attr, extra: f64) -> f64 {
+    if extra <= 0.0 {
+        return 0.0;
+    }
+    let skills = focus_cost_skills(pos, focus);
+    let total_w: f64 = skills.iter().map(|s| s.1).sum();
+    if total_w <= 0.0 {
+        return 0.0;
+    }
+    let mut paid = 0.0;
+    for (a, w) in skills {
+        let own = (after.get(a) - before.get(a)).max(0.0);
+        let take_off = (FOCUS_COST * extra * w / total_w).min(own);
+        if take_off > 0.0 {
+            after.add(a, -take_off);
+            paid += take_off;
+        }
+    }
+    paid
+}
+
+/// The most of the gap to his ceiling a focused skill closes in a year
+/// (topic 5b; proposed, not confirmed): the usual cap is half.
+const FOCUS_RATE_CAP: f64 = 0.85;
 
 /// What sets how fast he grows this year, besides each attribute's own
 /// profile and his age: the yearly step decides it, and the weekly landing
@@ -127,7 +267,7 @@ pub(crate) struct GrowthCtx {
     pub hs: bool,
     pub college: bool,
     pub redshirt: bool,
-    pub focus: Option<Attr>,
+    pub focus: Option<Focus>,
     pub focus_take: f64,
     /// The skills results test when results replace the dice (item 14),
     /// and the year's form for them: the dice's average.
@@ -136,6 +276,11 @@ pub(crate) struct GrowthCtx {
 }
 
 impl GrowthCtx {
+    /// The same year without the focus: what it adds is measured against it.
+    pub fn plain(&self) -> GrowthCtx {
+        GrowthCtx { focus: None, ..*self }
+    }
+
     /// The share of the gap to his ceiling an attribute closes in a full
     /// year (the yearly step's rate, unchanged).
     pub fn rate(&self, key: Attr, age_factor: f64) -> f64 {
@@ -153,12 +298,17 @@ impl GrowthCtx {
             1.0
         };
         let form = if crate::results::is_tested(self.tested, key) { self.form_tested } else { self.form };
+        // The focus grows faster by its minutes (individual practice, topic
+        // 5b); what it costs comes off the key skills' gains as they land
+        // (`focus_cost`), not off their rates.
         let focus_mult = match self.focus {
-            Some(f) if f == key => 1.0 + 0.5 * self.focus_take,
-            Some(f) if key.profile().group == f.profile().group => 1.0 - 0.035 * self.focus_take,
+            Some(f) if f.has(key) => 1.0 + f.lift_on(key, self.focus_take),
             _ => 1.0,
         };
-        clamp(
+        // The focus multiplies the year as it would have been, past the
+        // usual half of the gap a year (topic 5b: at 60 minutes about double
+        // his normal climb); the ceiling still caps it.
+        let rate = clamp(
             profile.growth_rate
                 * age_factor
                 * coaching
@@ -169,12 +319,29 @@ impl GrowthCtx {
                 * redshirt_lift
                 * hs_lag
                 * self.morale_mult
-                * focus_mult
                 * if profile.group == AttributeGroup::Physical { self.physical_mult } else { 1.0 },
             0.0,
             0.5,
-        )
+        );
+        if focus_mult > 1.0 { (rate * focus_mult).min(FOCUS_RATE_CAP) } else { rate }
     }
+}
+
+/// The weight the weight room pulls a grown frame toward (update 3, A4,
+/// A14): his position's weight for his talent, never past the position's
+/// combine weight, and at most about 30 lb past where his frame put him.
+pub fn weight_room_room(position: crate::positions::Position, talent: f64, frame: f64) -> f64 {
+    let target = crate::athlete::position_weight_for(talent, position).min(crate::body::combine_size(position).2);
+    target.min(crate::athlete::placed_weight(frame, target) + 30.0)
+}
+
+/// The share of the way to `weight_room_room` a year closes: a third in
+/// college and the pros, an eighth in high school, faster with his work
+/// ethic and a strength staff (proposed, not confirmed).
+pub fn weight_room_pace(hs: bool, work_ethic: f64, physical: f64) -> f64 {
+    (if hs { 0.12 } else { 0.33 })
+        * clamp(0.7 + 0.03 * work_ethic, 0.7, 1.3)
+        * (1.0 + 0.15 * clamp(physical, -1.0, 1.0))
 }
 
 /// Whether an attribute is past its decline onset this year, by the
@@ -1034,9 +1201,9 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     let physical_boost = 1.0 + (0.75 + physical_coaching * 0.025 - 1.0) * coachability_lean;
     let physical_mult = 1.0 + 0.08 * clamp(ctx.physical - 0.06 * ctx.strength_dev, -1.0, 1.0);
     let mut settling = [false; ATTRIBUTE_COUNT];
-    // The plan's focus (section 6b topic 5; proposed, not confirmed: the
-    // share each other skill gives up so the year's total stays about even).
-    let focus_take = clamp(0.6 + 0.02 * personality.coachability, 0.6, 1.0);
+    // The plan's focus (section 6b topic 5, individual practice topic 5b).
+    let focus_take = focus_take(personality.coachability);
+    let focus = ctx.focus.map(|a| Focus::two(a, ctx.focus2, ctx.focus_minutes));
     why.coaching_boost = coaching_boost;
     why.physical_boost = physical_boost;
     why.snaps_mult = snaps_mult;
@@ -1056,7 +1223,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         hs,
         college,
         redshirt: pt == PlayingTime::Redshirt,
-        focus: ctx.focus,
+        focus,
         focus_take,
         tested,
         form_tested,
@@ -1083,6 +1250,8 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             player.ceilings.set(key, (c * 1.025).min(MAX_RATING));
         }
     }
+    let grown_from = player.attributes;
+    let mut focus_extra: Vec<(Attr, f64)> = Vec::new();
     for key in Attr::ALL {
         let profile = &ATTRIBUTE_PROFILES[key.index()];
         let age_factor = growth_age_factor(development_age, profile.growth_window);
@@ -1091,11 +1260,14 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         if gap <= 0.0 || age_factor <= 0.01 {
             continue;
         }
-        let rate = if carries && matches!(key, Attr::Elusiveness | Attr::BallCarrierVision) {
-            (g.rate(key, age_factor) / hs_group_growth(profile.group)).min(0.5)
-        } else {
-            g.rate(key, age_factor)
+        let rate_of = |g: &GrowthCtx| {
+            if carries && matches!(key, Attr::Elusiveness | Attr::BallCarrierVision) {
+                (g.rate(key, age_factor) / hs_group_growth(profile.group)).min(0.5)
+            } else {
+                g.rate(key, age_factor)
+            }
         };
+        let rate = rate_of(&g);
         let noise = rng.normal(0.0, 0.5);
         // A skill his position has nothing to do with gets no practice (A6).
         if unrelated(position, key, hs) {
@@ -1114,8 +1286,16 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         // actually reach his ceiling instead of creeping towards it forever.
         // Even a monster year adds at most about a dozen points to one attribute.
         let add = gap.min(gap * rate + FINISHING_STEP * rate).min(MAX_YEARLY_GAIN) + noise;
+        if focus.is_some_and(|f| f.has(key)) {
+            let r0 = rate_of(&g.plain());
+            focus_extra.push((key, add - (gap.min(gap * r0 + FINISHING_STEP * r0).min(MAX_YEARLY_GAIN) + noise)));
+        }
         player.attributes.add(key, add);
         why.landed += add;
+    }
+    // What the focus grew here, its key skills pay for (topic 5b).
+    for (a, x) in focus_extra {
+        why.landed -= focus_cost(position, &grown_from, &mut player.attributes, a, x);
     }
     if ctx.defer {
         let old = player.train;
@@ -1138,6 +1318,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         player.train.grade = old.grade;
         player.train.prep = old.prep;
         player.train.rust = old.rust;
+        player.train.pos |= old.focus_bits();
     }
 
     for key in Attr::ALL {
@@ -1156,11 +1337,19 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             continue;
         }
         settling[key.index()] = true;
+        // A veteran's focus on a skill slows its decline, by up to a third
+        // at 60 minutes a week (individual practice, topic 5b; proposed, not
+        // confirmed). The body is not slowed by individual work.
+        let worked = match focus {
+            Some(f) if f.has(key) && !physical => 1.0 - f.lift_on(key, focus_take) / 3.0,
+            _ => 1.0,
+        };
         let loss = profile.decline_rate
             * years_past
             * decline_resistance
             * rng.log_normal(0.3)
-            * if physical { wear_mult } else { 1.0 };
+            * if physical { wear_mult } else { 1.0 }
+            * worked;
         player.attributes.add(key, -(loss));
         player.ceilings.add(key, -(loss));
         why.decline_points += loss;
@@ -1201,11 +1390,8 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // third of the way a year in college and the pros, an eighth in high
     // school, from 15 to 25).
     if (15.0..=25.0).contains(&age) && !position.is_specialist() {
-        let target = crate::athlete::position_weight(player, position).min(crate::body::combine_size(position).2);
-        let room = target.min(crate::athlete::placed_weight(player.body.frame_weight, target) + 30.0);
-        let pace = if hs { 0.12 } else { 0.33 }
-            * clamp(0.7 + 0.03 * personality.work_ethic, 0.7, 1.3)
-            * (1.0 + 0.15 * clamp(ctx.physical, -1.0, 1.0));
+        let room = weight_room_room(position, player.original_potential, player.body.frame_weight);
+        let pace = weight_room_pace(hs, personality.work_ethic, ctx.physical);
         let gap = room - player.body.weight;
         if gap > 0.0 {
             player.body.weight += gap * clamp(pace, 0.0, 1.0);
@@ -1309,6 +1495,16 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         situation: OptF64::NONE,
         results: OptF64::NONE,
     });
+    // His flaws and tools through the year (individual practice topic 3):
+    // his staff fixes and adds, reps teach tools, on his own stream.
+    let playing = match pt {
+        PlayingTime::Starter => 1.0,
+        PlayingTime::Rotation => 0.6,
+        PlayingTime::Backup => 0.3,
+        _ => 0.1,
+    };
+    let staff = (!ctx.seat_plan).then(|| ctx.style.map_or(10.0, |s| s.mould));
+    crate::craft::year(player, ctx.coaching, ctx.level, playing, staff);
     player.age += 1;
     // The day's body stays where it was: a year of age moves out of `grow`.
     player.grow = (player.grow - 1.0).max(0.0);

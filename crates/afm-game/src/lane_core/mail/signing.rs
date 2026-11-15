@@ -78,15 +78,20 @@ fn rank(w: &World, pi: usize, year: i32) -> Option<(usize, usize)> {
 
 /// A college class's places: committed or signed to us, and the places there are.
 fn college_class(w: &World, pi: usize, year: i32) -> (usize, Option<usize>) {
-    let filled = w
-        .people
-        .iter()
-        .filter(|p| {
-            p.class_of == year && matches!(desk::standing(p, pi), Standing::CommittedHere | Standing::SignedHere)
-        })
-        .count();
+    let (mut filled, mut signed) = (0usize, 0usize);
+    for p in w.people.iter().filter(|p| p.class_of == year) {
+        match desk::standing(p, pi) {
+            Standing::CommittedHere => filled += 1,
+            Standing::SignedHere => {
+                filled += 1;
+                signed += 1;
+            }
+            _ => {}
+        }
+    }
     let o = desk::outlook(w, pi);
-    (filled, (o.sign_year == year).then_some(o.slots))
+    // The plan's slots are what is left after the signees.
+    (filled, (o.sign_year == year).then_some(o.slots + signed))
 }
 
 /// The notice for the day `d` (`ranked`: the services' line, linked, once it

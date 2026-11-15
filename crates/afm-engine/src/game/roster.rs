@@ -83,6 +83,10 @@ pub struct GamePlayer {
     /// 303, `sim::strength_guard`): 1 changes nothing.
     #[serde(default = "no_prep")]
     pub soft: f32,
+    /// His flaws and tools today (`craft.rs`): each a narrow cost or edge
+    /// in its own situation.
+    #[serde(default)]
+    pub craft: crate::craft::Worn,
 }
 
 fn half() -> f32 {
@@ -153,6 +157,7 @@ impl GamePlayer {
             mood: 0.0,
             belief: 0.5,
             soft: 1.0,
+            craft: p.craft.worn(),
         }
     }
 
@@ -169,6 +174,7 @@ impl GamePlayer {
         self.impression = crate::training::impression(&p.train);
         self.prep = prep_of(p);
         self.links = crate::links::measure(p.position, &b, &p.attributes, p.game.recovery);
+        self.craft = p.craft.worn();
         if self.position != p.position {
             self.position = p.position;
             self.spot = p.spot;
@@ -194,6 +200,14 @@ impl GamePlayer {
 
     pub fn overall_at(&self, pos: Position) -> f64 {
         overall_for(pos, &self.attrs)
+    }
+
+    /// His rating points in flaw or tool `c` under `stress` (0-1), read
+    /// against his level's typical starter at his position (individual
+    /// practice; `synthetic::typical_craft`).
+    #[inline]
+    pub fn craft_vs(&self, c: crate::craft::Craft, level: crate::player::Level, stress: f64) -> f64 {
+        self.craft.pts(c, stress) - super::synthetic::typical_craft(level, self.position, c)
     }
 
     /// An attribute on the 1-20 scale the engine's hidden traits used
@@ -461,9 +475,15 @@ pub struct GameTeam {
     pub week: f64,
     /// Your own depth chart (section 8, topic 6): at each position you
     /// ordered, the player ids you listed, best first. Empty for every AI
-    /// team, whose staff orders it.
+    /// team, whose staff orders it, except a CFL club's ratio (`ranked`).
     #[serde(default)]
     pub order: Vec<(Position, Vec<u32>)>,
+    /// Positions whose order only says who starts, ranked by rating, and
+    /// names no spot: a CFL club meeting the ratio where you didn't set the
+    /// position (`world::pro::other`). The line there is seated by fit, as
+    /// a staff seats it (playtest bug 12).
+    #[serde(default)]
+    pub ranked: Vec<Position>,
     /// Your week of practice (section 6b): kickoff energy, packages and
     /// the call sheet. Empty for AI teams.
     #[serde(default)]
@@ -570,6 +590,89 @@ pub struct Prep {
     /// opponent's film at kickoff, the same way for every team.
     #[serde(default)]
     pub planned: bool,
+    /// What the plan does to keep your promises on usage (the promises on
+    /// usage, agreed 2026-11-14): set from your open promises, empty for
+    /// every AI team, so their games never change.
+    #[serde(default, skip_serializing_if = "Keep::is_empty")]
+    pub keep: Keep,
+}
+
+/// The plan settings that keep a usage promise (`world::folk::usage`), by
+/// player id. Sizes are Claude's (proposed, not confirmed).
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct Keep {
+    /// The field goal line, as the yard line (yards to their goal): inside
+    /// it the staff kicks where it would have punted. 0 none.
+    pub fg_line: u8,
+    /// Free him up: stunts with this pass rusher in them.
+    pub free_up: Vec<u32>,
+    /// Send him: this linebacker or back blitzes more.
+    pub send: Vec<u32>,
+    /// Take shots to him: more deep calls, and the quarterback looks to him
+    /// first when his route goes deep.
+    pub shots: Vec<u32>,
+    /// Feature him: the quarterback looks to him first more often.
+    pub feature: Vec<u32>,
+    /// Help him: the protection slides to the man across from this
+    /// lineman, a back doubles or chips him.
+    pub help: Vec<u32>,
+    /// Rush him: this end never drops in simulated pressure or a fire
+    /// zone; the other end does.
+    pub rush: Vec<u32>,
+    /// More man coverage: the share the answers play at least (0 none).
+    pub man: f32,
+    // Lane N2: the rest of the game plan's settings for your word.
+    /// Freedom at the line for this quarterback: 2 at least a kill call, 3
+    /// full audibles.
+    pub freedom: Vec<(u32, u8)>,
+    /// Keep him on: never spelled for a breather, never kept to base downs
+    /// (his snaps, by down or package, the lead back's carries).
+    pub on: Vec<u32>,
+    /// Release him: this back or tight end runs a route where the call
+    /// would keep him in to block.
+    pub release: Vec<u32>,
+    /// Lean the run calls toward a family: inside zone, outside zone, gap,
+    /// option (each 0 none, 1 the agreed lean).
+    pub family: [f32; 4],
+    /// Designed runs for this quarterback: 1 more, -1 none, 0 the staff's.
+    pub qb_runs: i8,
+    /// Throw more: the quarterback promised throws a game.
+    pub pass: bool,
+    /// More play action.
+    pub play_action: bool,
+    /// The backfield: 1 the gun more, -1 under center more.
+    pub backfield: i8,
+    /// A personnel group to lean toward (its code: 21, 12, 13...; 0 none).
+    pub personnel: u8,
+    /// Screens to him, the quick game and RPO throws to him, jet sweeps
+    /// with him the motion man.
+    pub screens: Vec<u32>,
+    pub quick: Vec<u32>,
+    pub gadget: Vec<u32>,
+    /// More max protection (seven kept in) for the quarterback promised it.
+    pub protect: bool,
+    /// A corner's side: 1 the boundary, 2 the field. He swaps sides with
+    /// the other outside corner by the hash.
+    pub side: Vec<(u32, u8)>,
+    /// Two-high shells at least this share (help over the top).
+    pub two_high: f32,
+    /// The post safety in single-high: at least this share single-high,
+    /// with him the free safety.
+    pub post: Vec<u32>,
+    pub one_high: f32,
+    /// The robber in Cover 1 robber: at least this share, with him the
+    /// strong safety.
+    pub robber: Vec<u32>,
+    pub rob: f32,
+    /// He returns: first on kickoff returns and the punt returner.
+    pub returner: Vec<u32>,
+}
+
+impl Keep {
+    pub fn is_empty(&self) -> bool {
+        *self == Keep::default()
+    }
 }
 
 /// The quarterback's checks at the line this week (G19), in the order of
@@ -671,6 +774,7 @@ impl Default for Prep {
             install_base: None,
             boost_added: Vec::new(),
             planned: false,
+            keep: Keep::default(),
         }
     }
 }
@@ -697,6 +801,7 @@ impl GameTeam {
             novelty: [0.0; FAMILY_COUNT],
             week: 1.0,
             order: Vec::new(),
+            ranked: Vec::new(),
             prep: Prep::default(),
             day: Default::default(),
         }
