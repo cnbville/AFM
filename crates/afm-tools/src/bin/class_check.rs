@@ -59,10 +59,13 @@ fn main() {
         if d.month() == 9 && d.day() == 1 {
             let mut by = vec![[0usize; 2]; w.programs.len()];
             for p in &w.people {
-                if p.stage == Stage::College && p.class_of == d.year() && !p.juco && p.path.len() == 1 {
-                    if let Some(j) = p.college {
-                        by[j][p.walk_on as usize] += 1;
-                    }
+                if p.stage == Stage::College
+                    && p.class_of == d.year()
+                    && !p.juco
+                    && p.path.len() == 1
+                    && let Some(j) = p.college
+                {
+                    by[j][p.walk_on as usize] += 1;
                 }
             }
             fresh.push((d.year(), by));
@@ -78,10 +81,11 @@ fn main() {
     }
     let mut moves: HashMap<(i32, usize), usize> = HashMap::new();
     for r in &w.recruiting_log.portal {
-        if let Some(j) = r.to_program {
-            if !r.returned && w.programs[j].division == Division::FBS {
-                *moves.entry((r.year, j)).or_default() += 1;
-            }
+        if let Some(j) = r.to_program
+            && !r.returned
+            && w.programs[j].division == Division::FBS
+        {
+            *moves.entry((r.year, j)).or_default() += 1;
         }
     }
     let lo = first - years as i32 + 2;
