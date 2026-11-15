@@ -450,22 +450,99 @@ Anything. What he answers is decided by 3.1 and 3.2. A question about something 
 
 ### 8.4 Measures for promises and terms
 
-Cain's idea, made general. A term is a measure, a number from your words, a scope (per game, per season, by a date), a horizon and "as long as". The same terms serve promises, incentives, NIL clauses, conditional picks and promises to coaches and bosses. Each is judged by P1's rules: on its games or its date, with costs scaled by belief. A term with a plan setting is kept by your staff in simmed games too. Before each game your staff warns you when the plan won't keep one.
+Cain's idea, made general. A term is a measure, a number from your words, a scope (a game, a season, by a date), a horizon and "as long as". The same terms serve promises, incentives, NIL clauses, conditional picks and promises to coaches and bosses.
+
+**Agreed 2026-11-14 in the promises thread:** the 9 football promise items, "as an baseline for every position with their own promises, don't treat it like a kicker or edge fix" (Cain, 23:08 UTC). The agreed 9: the kicker's field goal line and its plan setting; stunts for a pass rusher (EDGE or DT, at least 1 in 4 of his rushes, "free him up"), judged on the stunts he's in and never on chips; a blitzer (LB, S, nickel) rushing on at least 1 in 4 dropbacks ("send him"); touches with your number; deep shots ("take shots to him"); belief in a number past what he thinks is real; and anything off the list stays a talking point. The rows below are the reading of that answer for every position: proposed, not confirmed.
+
+#### The rules every term follows
+
+- **Judged on the play log,** game by game, kept or broken by its date, with P1's costs scaled by how far he believed it.
+- **Only what you control:** your calls, where you line him up, his assignment, his touches. Never the other team's calls (chips, doubles, their coverage) or luck (catches, drops, sacks). Those are saved and shown on his page, but nothing is judged on them.
+- **A plan setting keeps it.** Each term has a setting on the game plan (`GameTeam.prep`, `game/roster.rs`, keyed by player). Your staff keeps it in every game your team plays, simmed or live. Your staff turns it on from your open promises, and you can turn one off. AI teams never set them, so AI games don't change. Before each game your staff warns you when the plan won't keep one.
+- **Belief:** a number past what he thinks is real at his level is believed less by a sharp kid and more by a big ego (agreed item 8, through P1's likely and shape parts). For a kicker, what's real is his range from his Kick Power. Ego stretches it and Football IQ tightens it.
+- **Recruits** get the same terms, checked from his first games once he signs.
+- **High school** keeps box scores, not snaps (`world-log.md`), so high school terms are per-game counts: carries, targets, attempts, kicks and returns.
+- **Off the list** stays a talking point, and "Heard as" says the game can't hold you to it (agreed item 9).
+
+#### What every position can be promised
+
+All recorded on every college and NFL snap (`on_field`, `roles`, `down`, `yardline_100`, `clock`, `dpers` in `PlayRecord`):
+
+- starts, snaps and snap share;
+- snaps by situation: 3rd down, the red zone, the goal line, the two-minute drill;
+- snaps by package: base, nickel, dime, goal line (`dpers`), or the offense's personnel (11, 12, 21 in the call);
+- the spot he lines up at (`roles`: X, Z, slot, TE, LT to RT, and LE, RE, DT, NT, Sam, Mike, Will, the corners, nickel, dime, FS, SS);
+- ahead of a named teammate (built: P1);
+- not pulled after a mistake: his snaps after his turnover or bust (new reader);
+- on or off special teams (`on_field` on kicks).
+
+#### By position
+
+"Every snap" means the data is kept on every college and NFL snap. "Your games" means only your own games keep it (the line chart, lane 9). "New" means nothing keeps it yet.
+
+| Position | What you can promise | Judged on | Plan setting | Kept |
+|---|---|---|---|---|
+| QB | The job, and not pulled after a bad series | His snaps, and his snaps after a turnover | | Every snap |
+| QB | Freedom at the line | The freedom you give him: none, a kill call or full audibles (built: plays and tactics 3.3), and his audibles in the call | Full audibles | Every snap |
+| QB | Throws a game, play action, tempo, gun or under center | His attempts, `play_action`, `hurry`, the backfield in the call | Pass rate, play action, tempo, the backfield | Every snap |
+| QB | Use his legs, or no designed runs | Runs with him the carrier (not scrambles) | Designed runs on or off | Every snap |
+| QB | Protect him | Men kept in to block, a back in | Max protect, a back in | Your games |
+| RB, every down | Carries a game, the goal-line carries | His carries, his carries inside the 5 | Feature him, the goal-line back | Every snap |
+| RB, every down | The lead back, the run game built on him | His share of backfield snaps, the run family of his carries (inside zone, outside zone, gap, option) | Run family weights | Every snap |
+| RB, every down | A fullback in front of him | Snaps with a fullback beside him (`roles`) | 21 personnel | Every snap |
+| RB, 3rd down | The 3rd-down back | His 3rd-down snaps | 3rd-down back | Every snap |
+| RB, 3rd down | Targets, routes not pass pro, screens | Targets; let out on pass plays (on the field, not a pass blocker in `blocks`); screens to him | Release him, screens to him | Every snap |
+| X and Z | Outside, the X or the Z | His spot | Keep him outside | Every snap |
+| X and Z | Targets, deep shots, red zone targets | Targets; targets 20+ air yards (agreed item 7); targets inside the 20 | Feature him, take shots to him, red zone target | Every snap |
+| X and Z | Touches on the move (jet sweeps, reverses) | His carries | Gadget calls for him | Every snap |
+| Slot | Our slot, inside or moved around | His spot (slot, second slot) | Keep him inside, move him | Every snap |
+| Slot | Targets, 3rd-down targets, the quick game | Targets, targets on 3rd down, quick and RPO calls to him | 3rd-down target | Every snap |
+| TE | Let out, not kept in | Pass plays he's on and not a pass blocker | Release him | Every snap |
+| TE | Targets, red zone targets | Targets, targets inside the 20 | Feature him | Every snap |
+| TE | Flexed out, the Y in 12 personnel | His spot (slot or wide as a TE), 12 and 13 personnel | Flex him, 12 personnel | Every snap |
+| C | Our center, not moved to guard | His spot | | Every snap |
+| C | Line calls | Not modeled: a talking point | | New |
+| Guards | Left or right guard, not moved to tackle | His spot | | Every snap |
+| Guards | A gap team (power, counter) | The run family you call | Run family weights | Every snap |
+| Guards | Pulling | Not kept per man | | New |
+| Guards and tackles | Help on their best man | Pass reps with a helper on his man (`DOUBLE`), the slide to his side, chips on his man (the promises build's new chipped flag) | Help him (slide, double, chip) | Your games |
+| Tackles | The blind side, not moved inside | His spot (LT or RT) | Keep him at left tackle | Every snap |
+| EDGE | Stunts to free him up (agreed item 3) | Stunts he's in, at least 1 in 4 of his rushes (`STUNT`) | Free him up (agreed) | Your games |
+| EDGE | Rush, not drop | Pass plays he rushed against the ones he dropped | Rush him every down | Your games |
+| EDGE | The right side, or both sides | His spot (LE or RE) | Keep him on one side | Every snap |
+| EDGE | The 3rd-down rusher, every-down role | His snaps by down | Pass-rush package | Every snap |
+| DT | The 3-technique, not the nose | His spot (DT or NT) | Keep him at the 3-technique | Every snap |
+| DT | A one-gap front, get upfield | The front your system runs (built: `world/systems.rs`) | | Every snap |
+| DT | Stunts, and staying on for passing downs | Stunts he's in (agreed item 3), his 3rd-down snaps | Free him up, pass-rush package | Your games |
+| Off-ball LB | Blitzes (agreed item 5) | His rushes, at least 1 in 4 dropbacks | Send him (agreed) | Your games |
+| Off-ball LB | Mike, Will or Sam | His spot | | Every snap |
+| Off-ball LB | On the field in nickel and dime | His snaps in nickel and dime | Keep him on | Every snap |
+| Off-ball LB | Spy the QB | QB spy calls (in the call); who spies isn't kept | Spy with him | New |
+| Outside CB | Man coverage | Man snaps he's on (`coverage_man`) | More man | Every snap |
+| Outside CB | Boundary or field side, no slot duty | His side with the hash, his spot | Keep him outside | Every snap |
+| Outside CB | Help over the top | The coverage in the call (two-high, Cover 2, 4, 6) | Two-high to his side | Every snap |
+| Outside CB | Press, or shadowing their best receiver | Not kept per snap | | New |
+| Nickel | Our nickel, outside in base | His spot by package (nickel, dime, corner in base) | Nickel every pass down | Every snap |
+| Nickel | Blitzes off the slot (agreed item 5) | His rushes on dropbacks | Send him (agreed) | Your games |
+| FS and SS | The post safety, the robber, the box | His spot with the coverage in the call (single-high, Cover 1 robber) | Single-high with him deep, rob with him | Every snap |
+| FS and SS | Blitzes (agreed item 5) | His rushes on dropbacks | Send him (agreed) | Your games |
+| FS and SS | Covering tight ends | Who covers whom isn't kept, only the man on a target | | New |
+| K | The field goal line (agreed items 1 and 2) | The try is the yard line plus 17. Any punt from inside the line breaks it. Going for it doesn't count | The field goal line | Every snap |
+| K | The long tries, kickoffs, the only kicker | His tries by distance, kickoffs, other kickers used | | Every snap |
+| P | Our punter, the kicker won't punt | Punts by him | | Every snap |
+| P | Holding kicks | Not kept | | New |
+| LS | Our snapper | On the field for every kick | | Every snap |
+| Returners | Returns, the green light from deep, fair catches | Who returns; the kneel line and the fair catch rule (built: `Instruction`) | He returns, the kneel line | Every snap |
+| Coverage units | The punt team, the kickoff team | On the field on kicks | | Every snap |
+| Coverage units | Gunner | His spot on a kick isn't kept (`roles` is empty on kicks) | | New |
+
+Outcomes stay off the list on purpose: catches, yards, sacks, picks, made kicks, the chips and doubles the other team calls. A man may still care about them, and he says so, but your word was never about them.
+
+#### Off the field and the other terms
 
 | Measure | Recorded where | Built |
 |---|---|---|
-| Starts, snaps, snap share, by package | The play log (every college and NFL snap, `wlog/games.rs`), P1's `seen.rs` | Built |
 | His practice group | P1's `seen.rs` | Built |
-| Carries, targets, touches | The play log | Built (lane 9) |
-| Targets 20+ air yards | The play log | Usage thread |
-| Red zone touches | The play log | New reader |
-| Alignment (slot or outside, wide 9 or 5-tech) | The play log | New reader |
-| Pass rushes, stunts with him, blitzes | The line chart's stunt flag | Usage thread |
-| Chips | Not saved yet | Usage thread |
-| Coverage (man or zone, on the slot) | The play log | New reader |
-| Field goal tries and punts by spot and distance | `PlayRecord` (kind, yardline, kicker, fourth) | Usage thread |
-| Returns | The play log | New reader |
-| Position played | The play log | New reader |
 | Roster moves at his spot | Transactions | New reader |
 | Staff hires, the scheme | The staff, the game plan | New reader |
 | NIL paid | NIL | Built (lane 10 checks) |
@@ -474,8 +551,6 @@ Cain's idea, made general. A term is a measure, a number from your words, a scop
 | Your job (you stay) | The carousel | New reader |
 | Wins, a bowl, graduation, arrests | The world | Built (boss goals) |
 | Individual work with a coach | `training/seat.rs`, `focus_minutes` | When individual practice is built |
-
-High school games keep box scores, lines and drives but not every snap (`world-log.md`), so high school terms are box-score measures.
 
 ## 9. Football talk (Cain's idea)
 
@@ -511,7 +586,7 @@ His complaints, asks and answers come from his own snaps:
 | P | Distance, inside the 20, the coverage | Distance, inside the 20, touchbacks, return yards |
 | Returners | Returns, fair catches, the kneel line | Returns and yards, fair catches, touchbacks, the kneel instruction |
 
-So "I keep getting doubled" comes only when he is. "Their right tackle couldn't handle my speed rush" comes when the log has him beating that man with it. "I'm open and he doesn't look at me" comes when his separation is high and his targets are low. A guard who gave up three pressures to the nose knows it, and a proud one won't say so. The protection, the men kept in, the rushers' gaps and the stunt flag come from the line chart, so they're there for your own games. For a man from another team, his blocks and rush wins are there and the line chart isn't. Chips aren't saved yet (the usage thread adds them).
+So "I keep getting doubled" comes only when he is. "Their right tackle couldn't handle my speed rush" comes when the log has him beating that man with it. "I'm open and he doesn't look at me" comes when his separation is high and his targets are low. A guard who gave up three pressures to the nose knows it, and a proud one won't say so. The protection, the men kept in, the rushers' gaps and the stunt flag come from the line chart, so they're there for your own games. For a man from another team, his blocks and rush wins are there and the line chart isn't. Chips are being added to the line chart by the promises build (a chipped flag, your games only).
 
 ### 9.3 Football with your staff
 
@@ -526,7 +601,7 @@ So "I keep getting doubled" comes only when he is. "Their right tackle couldn't 
 - An instruction you give becomes the built one, and he keeps it by his discipline (built: `tendencies.rs`, `Instruction`): kneel deeper than so many yards, fair catch inside the 10, slide, take shots, protect the ball, high and tight, keep contain, no snap guessing, wrap up, stay home. "Don't chase their QB, keep contain" is the contain instruction.
 - "Watch more film" becomes home study (built: `training/plan.rs`, TR35).
 - A technique point ("get your hands inside") becomes a focus point when individual practice is built (`docs/design/individual-practice.md`).
-- Anything the game doesn't model does nothing, and your staff says so.
+- Anything the game doesn't model stays talk, and "Heard as" says the game can't hold you to it (agreed item 9).
 
 ### 9.5 Your football gets checked
 
@@ -536,7 +611,7 @@ So "I keep getting doubled" comes only when he is. "Their right tackle couldn't 
 
 ### 9.6 Football in promises and deals
 
-- The ear knows the game's football: the playbook's families, the fronts, coverages, pressures, stunts and spies of a defensive call (built: `game/calling.rs`, `DefCall`), protections (`game/chart.rs`), routes, personnel and the three rush moves. So "we'll run twists to free you up" is a term on the stunt flag, and "you'll get help on their best rusher" is one on the slide and the men kept in. Usage terms are in 8.4.
+- The ear knows the game's football: the playbook's families, the coverages, pressures, stunts and spies of a defensive call (built: `game/playbook.rs`, `DefCall`), protections (`game/chart.rs`), every spot a man lines up at (`roles`), routes, personnel and the three rush moves. So "we'll run twists to free you up" is a term on the stunt flag, and "you'll get help on their best rusher" is one on the slide, the doubles and the chips. Every position's terms are in 8.4.
 - A sharp player believes a football promise only as far as your football can keep it (new, on P1's belief): twists for an EDGE when your front never runs them, deep shots for a receiver when your QB can't throw deep, carries for a feature back in a pass-first system.
 - Your staff warns you before the game when the plan won't keep a term (8.4).
 - Agents and GMs argue with the stats book, each by his own judgment: sacks and pressures, separation, yards after contact, the expected numbers. A greedy agent picks the numbers that sell.
@@ -686,7 +761,7 @@ A typical season is about half that. The $50 cap stays. A Sonnet 5.5 ear would c
 |---|---|---|---|
 | N0 | Mock-ups | The conversation page, who's in the room, the deal panel, texts, people coming to you, pick lists | Sonnet |
 | N1 | People | What he knows and tells (football too, section 9), wants and actions for every kind, heat and patience, the new stores (unseen breaks, the grapevine, lies, notebooks), people coming to you | Opus |
-| N2 | Terms | Measure readers and the football readers on the play log (section 9), terms on promises, incentives, NIL, picks, staff and boss goals, plan settings that keep them, the staff's warning | Opus |
+| N2 | Terms | Measure readers and the football readers on the play log (section 9), every position's terms (8.4, which the promises thread is building now), terms on promises, incentives, NIL, picks, staff and boss goals, plan settings that keep them, the staff's warning | Opus |
 | N3 | Deals and requests | Valuing against his best option, asks and counters, deadlines, taking time, many people, requests run as actions, confirm cards | Opus |
 | N4 | The conversation | The ear and the voice, cards, hits, turns, channels, groups, memory, saved readings; your players first | Opus |
 | N5a | Recruiting | Recruits, families, high school coaches and circles, transfers, visits, signing | Opus |

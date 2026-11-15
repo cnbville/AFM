@@ -6,10 +6,13 @@
 //! middle starter in the pool, "a typical backup" the middle backup, and
 //! elite starts where the best tenth of the starters does.
 //!
-//! High school is read by state classification and graduating class (a
-//! junior against the juniors in Texas 6A), widened to the whole state and
-//! then the nation when a pool has too few starters to say anything;
-//! college by FBS, FCS and the smaller colleges; the NFL as one league.
+//! High school is read against his graduating class and position across the
+//! country (a junior against the juniors nationally, Cain 2026-11-14: no one
+//! should have to learn every state's leagues), with his state classification
+//! as a second, smaller read (`local_pool_of`: a junior against the juniors in
+//! Texas 6A, widened to the whole state and then the nation when a pool has
+//! too few starters to say anything); college by FBS, FCS and the smaller
+//! colleges; the NFL as one league.
 //!
 //! These are true values of the world's players, read in bulk: a mark
 //! tells what a rating means, never what any one player has. Sizes are
@@ -83,18 +86,35 @@ impl Marks {
     }
 }
 
-/// The pool a person's ratings are read against, by where he plays now.
+/// The pool a person's ratings are read against, by where he plays now. A
+/// high schooler is read against his graduating class across the country.
 pub fn pool_of(w: &World, k: usize) -> Option<Pool> {
+    let p = w.people.get(k)?;
+    match p.stage {
+        Stage::HighSchool | Stage::PrepSchool => Some(Pool::Hs { state: None, class: None, grade: p.class_of }),
+        Stage::College => Some(Pool::College(tier(w.programs.get(p.college?)?.division))),
+        Stage::Pro | Stage::Declared => Some(Pool::Nfl),
+        _ => None,
+    }
+}
+
+/// A high schooler's second read: his graduating class in his state's
+/// classification (None for anyone else).
+pub fn local_pool_of(w: &World, k: usize) -> Option<Pool> {
     let p = w.people.get(k)?;
     match p.stage {
         Stage::HighSchool | Stage::PrepSchool => {
             let s = w.high_schools.get(p.hs)?;
             Some(Pool::Hs { state: Some(s.state), class: Some(s.classification), grade: p.class_of })
         }
-        Stage::College => Some(Pool::College(tier(w.programs.get(p.college?)?.division))),
-        Stage::Pro | Stage::Declared => Some(Pool::Nfl),
         _ => None,
     }
+}
+
+/// How many starters the world has at a position in a national high school
+/// pool, counted from the sampled schools (`NATIONAL_SCHOOLS`).
+pub fn national_starters(w: &World, m: &Marks) -> f64 {
+    m.starters.len() as f64 * w.high_schools.len() as f64 / m.teams.max(1) as f64
 }
 
 /// A college division's tier: FBS, FCS or the smaller colleges.

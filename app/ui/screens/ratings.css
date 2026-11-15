@@ -12,6 +12,7 @@
 .rr-top .st-label { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .rr-top b { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .rr-word { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.15; }
+.rr-word small.rr-sub { display: block; margin-top: 3px; }
 .rr-word small { font-size: 12px; font-weight: 600; color: var(--sl-dim); letter-spacing: 0; }
 .rr-scale { position: relative; height: 8px; margin: 6px 0 2px; border-radius: 4px; background: var(--sl-track-dim); }
 .rr-scale span { position: absolute; top: 0; bottom: 0; border-radius: 4px; background: var(--sl-text2); }
@@ -24,6 +25,8 @@
 .rr-marks b { font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .rr-card .rr-comb { padding: 8px 10px; border-radius: 10px; background: var(--sl-gold-soft); color: var(--sl-text2); }
 .rr-card .rr-comb .rr-now { display: block; margin-top: 4px; color: var(--sl-dim); }
+.rr-card .rr-near { padding-top: 8px; border-top: 1px solid var(--sl-line); color: var(--sl-dim); }
+.rr-card .rr-near b { color: var(--sl-text2); font-weight: 600; }
 .rr-card .rr-pool { font-size: 11.5px; color: var(--sl-dim); }
 
 /* ---------- a read on the 1-20 scale ---------- */

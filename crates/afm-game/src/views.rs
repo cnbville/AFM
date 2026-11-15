@@ -2188,13 +2188,13 @@ pub fn standings(w: &World, args: &Value) -> Value {
         Some(TeamRef::College(p)) => Some(w.programs[p].division),
         _ => None,
     };
-    let mut teams: Vec<(usize, afm_engine::world::seat::Record)> = w
+    let ids: Vec<usize> = w
         .programs
         .iter()
         .filter(|p| p.conference == conf && div.is_none_or(|d| p.division == d))
-        .map(|p| (p.id, w.college_record(p.id)))
+        .map(|p| p.id)
         .collect();
-    teams.sort_by(|a, b| (b.1.conf_wins, b.1.wins, a.1.conf_losses).cmp(&(a.1.conf_wins, a.1.wins, b.1.conf_losses)));
+    let teams = w.college_conference_table(&ids, false);
     let mut confs: Vec<String> = w
         .programs
         .iter()
@@ -2207,7 +2207,7 @@ pub fn standings(w: &World, args: &Value) -> Value {
         "conferences": confs,
         "groups": [{ "name": w.conference_name(&conf), "teams": teams.iter().map(|(p, r)| json!({
             "team": team_brief(w, TeamRef::College(*p)),
-            "cw": r.conf_wins, "cl": r.conf_losses, "w": r.wins, "l": r.losses,
+            "cw": r.conf_wins, "cl": r.conf_losses, "w": r.wins, "l": r.losses, "champ": r.conf_title,
         })).collect::<Vec<_>>() }],
     })
 }
