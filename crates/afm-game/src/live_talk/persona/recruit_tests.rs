@@ -207,7 +207,7 @@ fn a_family_that_takes_time_waits_on_your_confirm_and_answers_on_its_day() {
     };
     assert_eq!(owed(&g), 0, "nothing is owed before you confirm");
     let c = &list[0];
-    ok(&mut g, &c["cmd"].as_str().unwrap().to_string(), c["args"].clone());
+    ok(&mut g, c["cmd"].as_str().unwrap(), c["args"].clone());
     let by = {
         let w = g.world.as_ref().unwrap();
         w.folk.live.persona.owed.iter().find(|o| o.with == Them::Player(id)).map(|o| o.by)

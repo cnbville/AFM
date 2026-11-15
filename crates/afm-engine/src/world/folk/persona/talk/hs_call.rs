@@ -247,7 +247,7 @@ pub fn turn(w: &World, s: &Scene, reading: &Reading, t: &mut Turn) {
     }
     let m = marks(w, s, reading);
     for h in &mut t.hits {
-        h.trust = h.trust.min(0.0).max(-0.03);
+        h.trust = h.trust.clamp(-0.03, 0.0);
         h.mood = 0.0;
     }
     let said = if m & COVER != 0 {
