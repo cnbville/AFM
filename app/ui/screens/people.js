@@ -166,7 +166,7 @@ async function ppRules() {
   const t = r.trouble;
   const tw = t < 0.92 ? "Your book keeps trouble down" : t > 1.08 ? "A loose book: more trouble than usual" : "About the usual trouble";
   return `<div class="grid2"><div class="col"><section class="panel"><h2>Your rules <small>${esc(tw)}</small></h2><div class="pp-rules">${cards}</div></section></div>
-    <div class="col">${rit}<section class="panel"><h2>Leadership council</h2>${council}</section><section class="panel"><h2>Sitting now</h2>${out}</section><section class="panel"><h2>Your rulings <small>for consistency</small></h2>${rulings}</section></div></div>`;
+    <div class="col">${rit}<section class="panel"><h2>Leadership council <a class="link small" data-act="ppcouncilmeet">Meet them</a></h2>${council}</section><section class="panel"><h2>Sitting now</h2>${out}</section><section class="panel"><h2>Your rulings <small>for consistency</small></h2>${rulings}</section></div></div>`;
 }
 
 async function ppBoss() {
@@ -447,6 +447,7 @@ Object.assign(CORE_MORE, {
   pptabgo: (el) => { keep("pptab", {}).t = el.dataset.t; go("people", { tab: el.dataset.t }, false); },
   ppteamtalk: () => ppGoScene(api("people_team_talk")),
   ppbossmeet: () => ppGoScene(api("people_boss_meeting")),
+  ppcouncilmeet: () => ppGoScene(api("people_council_meet")),
   pptalk: (el) => ppGoScene(api("people_talk", { id: Number(el.dataset.id), subject: el.dataset.s })),
   pptalkmenu: (el, ev) => {
     if (ev) ev.stopPropagation();

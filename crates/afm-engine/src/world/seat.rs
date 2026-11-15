@@ -1169,6 +1169,7 @@ impl World {
         self.seat_focus.clear();
         self.seat_seen.clear();
         self.seat_book.clear();
+        self.seat_minutes.clear();
         self.prune_tapes();
         // Your first two weeks: the meetings of a new job (takeover).
         super::folk::takeover::begin(self);

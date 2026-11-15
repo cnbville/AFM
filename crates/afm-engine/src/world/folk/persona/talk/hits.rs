@@ -86,6 +86,8 @@ pub fn weight(w: &World, on: Them, item: &Item, wants: &[Want]) -> Option<f32> {
             0.6 + wants.iter().find(|x| x.kind == super::super::wants::WantKind::Family).map_or(0.2, |x| x.weight)
         }
         Item::HisWord => 0.7,
+        // One of the room: a line to the whole team (lane N5d).
+        Item::Room => super::super::gameday::group::ROOM_WEIGHT,
     })
 }
 

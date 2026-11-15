@@ -99,7 +99,7 @@ function tkChoose(x) {
     <div class="tk-sub"><div class="tk-ph"><b>Your line, roughly</b><span>from your picks, in your voice</span></div>
       <p class="tk-line-q">${x.pick.move === "nothing" ? "You say nothing. They get dressed and go." : `“${esc(x.line)}”`}</p></div>
     ${tkStaff(x)}
-    ${aiSayBox(x, "talk:" + x.moment, { preset: { cmd: "talk_typed", args: {}, limit: 400 }, words: { ph: "Type what you'd say to the room. The picks above still work.", foot: "The picks above still work." } })}
+    ${aiSayBox(x, "talk:" + x.moment, { echo: true, preset: { cmd: "talk_typed", args: {}, limit: 400 }, words: { ph: "Type what you'd say to the room. The picks above still work.", foot: "The picks above still work." } })}
     ${others ? `<div class="tk-sub"><div class="tk-ph"><b>Other tones, roughly</b><span>same move and subject</span></div><table class="tk-others"><tbody>${others}</tbody></table></div>` : ""}
     <div class="tk-actions"><button class="st-btn primary" data-act="tk-say">Say it</button>
       ${cap && x.pick.move !== "captain" ? `<button class="st-btn glass" data-act="tk-captain" data-id="${cap.id}">Hand it to ${esc(cap.name.split(" ").slice(-1)[0])}</button>` : ""}
@@ -202,7 +202,8 @@ function tkWordCard(st) {
   if (!w) return "";
   const opts = w.options.map((o, i) => `<button class="tk-word ${o.staff ? "staff" : ""}" data-act="tk-word" data-id="${w.id}" data-i="${i}"><b>${esc(o.label)}</b><span>“${esc(o.line)}”</span><small class="${/rattle/.test(o.read) ? "tk-warn" : ""}">${esc(o.read)}${o.staff ? " · your position coach's word" : ""}</small></button>`).join("");
   return `<details class="tk-card" open><summary><span class="st-label">A word on the sideline</span> ${playerLink(w.id, w.name)} <small>${esc(w.pos)} · ${esc(w.mistake)}</small></summary>
-    <p class="tk-dim">${esc(w.tag)}. He's coming off now. Say nothing and his position coach has the word before the next snap.</p><div class="tk-words">${opts}</div></details>`;
+    <p class="tk-dim">${esc(w.tag)}. He's coming off now. Say nothing and his position coach has the word before the next snap.</p><div class="tk-words">${opts}</div>
+    ${typeof aiSayBox === "function" ? aiSayBox(w, "word:" + w.id, { echo: true, preset: { cmd: "word_typed", args: { id: w.id }, limit: 400 }, words: { ph: "Type what you'd say to him. The words above still work." } }) : ""}</details>`;
 }
 
 // ---------- actions ----------

@@ -58,6 +58,7 @@ pub mod wants;
 pub mod coming;
 pub mod feel;
 pub mod football;
+pub mod gameday;
 pub mod knowing;
 pub mod makeup;
 pub mod people;

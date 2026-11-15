@@ -31,6 +31,10 @@ pub mod store;
 pub mod today;
 pub mod who;
 
+// Facet lanes (N5a-N5e): each plays its own talks on this conversation.
+pub mod hs_call;
+pub mod recruit;
+
 use super::Them;
 use super::ear::{Act, Confirm, Ends, HisAsk, Item, Reading, Resolving, Say, Sized, Turn};
 use super::knows::{Answer, Knows, TellParts, Tells, Topic};
@@ -110,8 +114,10 @@ pub fn across(room: &Room) -> Option<Them> {
     room.present.first().map(|p| p.who)
 }
 
-/// His trust in you, 0-1, for anyone the world keeps it for (a player);
-/// your word with him otherwise.
+/// His trust in you, 0-1, from the store that keeps it (lane N1's
+/// `makeup::trust`): your own player's trust in you, someone else's player
+/// (a recruit, a transfer) through what he's heard of you, a family, a
+/// coach, an agent.
 pub fn trust_of(w: &World, who: Them) -> f32 {
     match who {
         // A man you don't coach keeps his trust in you apart from his
@@ -121,6 +127,30 @@ pub fn trust_of(w: &World, who: Them) -> f32 {
         // (lane N5c).
         _ if super::office::key(w, who).is_some() => super::office::trust(w, who),
         _ => w.folk.live.word_of(store::word_key(who)),
+    }
+}
+
+/// Which facet lane plays a scene's talk, if one does.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Facet {
+    /// Every other talk: your players' one-on-ones (lane N4) and the
+    /// lanes that run on the shared path (N5b-e).
+    Other,
+    /// A recruit's or a transfer's talk (lane N5a).
+    Recruit,
+    /// A college staff's call to you, the high school coach (lane N5a).
+    HsCall,
+}
+
+impl Facet {
+    pub fn of(s: &Scene) -> Facet {
+        if recruit::is_recruit(s.kind) {
+            Facet::Recruit
+        } else if hs_call::is_call(s.kind) {
+            Facet::HsCall
+        } else {
+            Facet::Other
+        }
     }
 }
 
@@ -174,6 +204,7 @@ impl Resolving for Conversation<'_> {
         }
         let wants = self.parts.wanting.wants(w, him);
         let s = scene(w, self.said.scene);
+        let facet = s.map_or(Facet::Other, Facet::of);
         let mut promise_k = 0usize;
         let mut facts: Vec<Stated> = Vec::new();
         for act in &reading.acts {
@@ -271,6 +302,14 @@ impl Resolving for Conversation<'_> {
                     }
                     t.weighed.push((o.clone(), wd));
                 }
+                Act::Promise { .. } if facet == Facet::Recruit => {
+                    // A recruit's promise is the recruiting desk's (`pledge`),
+                    // made in `apply`.
+                    if let (Some(s), Some(p)) = (s, self.said.promises.get(promise_k)) {
+                        t.say.released.push(recruit::promise_released(w, s, p));
+                    }
+                    promise_k += 1;
+                }
                 Act::Promise { .. } => {
                     // Logged through P1 in `apply`, in order: its index then.
                     if self.said.promises.get(promise_k).is_some() {
@@ -279,7 +318,12 @@ impl Resolving for Conversation<'_> {
                     promise_k += 1;
                 }
                 Act::Request(r) => {
-                    let wl = self.parts.acting.willing(w, him, r);
+                    // The recruiting desk answers what it owns (commit).
+                    let own = s.and_then(|s| recruit::willing(w, s, r));
+                    if let Some((_, words)) = &own {
+                        t.say.released.push(words.clone());
+                    }
+                    let wl = own.map_or_else(|| self.parts.acting.willing(w, him, r), |x| x.0);
                     match &wl {
                         Willing::Yes => {
                             // One that costs you waits on your confirm; a
@@ -357,15 +401,26 @@ impl Resolving for Conversation<'_> {
             if !room.present.iter().any(|p| p.who == h.on) {
                 continue;
             }
-            if let Some(sz) = hits::size(w, h, &wants, &open, line) {
+            let sized = match (facet, s) {
+                (Facet::Recruit, Some(s)) => recruit::size(w, s, h, &wants, &open),
+                (Facet::HsCall, Some(s)) => hs_call::size(w, s, h),
+                _ => hits::size(w, h, &wants, &open, line),
+            };
+            if let Some(sz) = sized {
                 t.hits.push(sz);
             }
         }
         if reading.dodged {
             t.hits.push(hits::dodged(w, him));
         }
-        if let Some(s) = s {
-            hits::cap(w, s, room, &mut t.hits);
+        match (facet, s) {
+            (Facet::Recruit, Some(s)) => {
+                recruit::cap(w, s, &mut t.hits);
+                t.say.released.extend(recruit::released(w, s, &t.hits, &wants));
+            }
+            (Facet::HsCall, Some(_)) => {}
+            (_, Some(s)) => hits::cap(w, s, room, &mut t.hits),
+            _ => {}
         }
         // Someone in your building: inside what his meeting's chips can do
         // (lane N5c).
@@ -388,6 +443,11 @@ impl Resolving for Conversation<'_> {
         // (lane N5c): a raise, a title, the play-calling.
         for a in t.his_asks.iter_mut() {
             a.gives = super::office::asks::his_gives(w, him, a.why.kind);
+        }
+        match (facet, s) {
+            (Facet::Recruit, Some(s)) => recruit::turn(w, s, reading, &mut t),
+            (Facet::HsCall, Some(s)) => hs_call::turn(w, s, reading, &mut t),
+            _ => {}
         }
         // The stand-in for a lie he catches as you say it.
         let caught = t.claims.iter().filter(|(_, x)| *x == Truth::False).count();
@@ -423,8 +483,13 @@ impl Resolving for Conversation<'_> {
     fn apply(&self, w: &mut World, t: &Turn) {
         let id = self.said.scene;
         let Some(s) = scene(w, id).cloned() else { return };
-        let room = store::room(w, id).unwrap_or_else(|| channels::one_on_one(&s));
+        let room = store::room(w, id).unwrap_or_else(|| channels::room_for(w, &s));
         let Some(him) = across(&room) else { return };
+        let facet = Facet::of(&s);
+        let wants = self.parts.wanting.wants(w, him);
+        // What a recruit's talk held before the line (lane 10: a claim he
+        // catches costs the line's lift).
+        let before = claims::check::before(w, &s);
         // Your words on the scene: what the screen shows (`Said.typed`).
         let you = folk::scene::your_name(w);
         let facts: Vec<Stated> = t.claims.iter().map(|(f, _)| f.clone()).collect();
@@ -440,7 +505,12 @@ impl Resolving for Conversation<'_> {
         // Every sized hit: trust now, mood on the scene's running total for
         // the man across (it lands when the talk ends, as a chip's does)
         // and at once for the others in the room.
-        for h in &t.hits {
+        match facet {
+            Facet::Recruit => recruit::apply(w, id, t, &self.said.promises, &wants),
+            Facet::HsCall => hs_call::apply(w, id, &self.said.reading, t),
+            Facet::Other => {}
+        }
+        for h in t.hits.iter().filter(|_| facet == Facet::Other) {
             let Them::Player(pid) = h.hit.on else {
                 if h.hit.on != him || h.trust == 0.0 {
                     continue;
@@ -464,7 +534,8 @@ impl Resolving for Conversation<'_> {
                 let now = super::makeup::trust(w, h.hit.on) as f32;
                 w.folk.mine.set_trust(super::makeup::key(h.hit.on), (now + h.trust).clamp(0.0, 1.0));
             }
-            if h.hit.on == him {
+            // In a group talk every man's mood lands at once (lane N5d).
+            if h.hit.on == him && !matches!(room.channel, super::room::Channel::Group(_)) {
                 if let Some(sc) = w.folk.scenes.iter_mut().find(|x| x.id == id) {
                     sc.f[0] += h.trust;
                     sc.f[1] += h.mood;
@@ -476,8 +547,11 @@ impl Resolving for Conversation<'_> {
                 talks::mood_event(w, pid, talks::Reason::Talk, h.mood);
             }
         }
-        // Promises count the moment you say them (question 4), through P1.
-        if let Them::Player(pid) = him {
+        // Promises count the moment you say them (question 4), through P1
+        // (a recruit's through the recruiting desk, above).
+        if let Them::Player(pid) = him
+            && facet == Facet::Other
+        {
             for p in self.said.promises.iter().chain(standing.iter()) {
                 talks::typed_promise(w, id, pid, p);
             }
@@ -487,13 +561,24 @@ impl Resolving for Conversation<'_> {
         for (o, wd) in &t.weighed {
             super::deals::offered(w, him, o, wd);
         }
+        // A recruit's family that takes time waits on your confirm to leave
+        // the offer with them (question 4): nothing is owed until you do.
+        if facet == Facet::Recruit && t.weighed.iter().any(|(_, x)| matches!(x, Weighed::Later(_))) {
+            w.folk.live.persona.owed.retain(|o| o.with != him);
+        }
+        // Lane 10's costs for a claim he catches now, and a lie he can see
+        // only on a day.
+        if facet == Facet::Recruit {
+            claims::check::landed(w, id, &facts, before);
+        }
         // A favour of goodwill he agreed to runs now (`Acting::run`); one
         // that costs you waits on your confirm.
         for (r, wl, _) in &t.asked {
             if *wl == Willing::Yes && !super::asks::costs_you(r) {
-                let ran = self.parts.acting.run(w, him, r);
+                let own = scene(w, id).cloned().and_then(|sc| recruit::run(w, &sc, r));
+                let done = own.unwrap_or_else(|| self.parts.acting.run(w, him, r).done);
                 if let Some(sc) = w.folk.scenes.iter_mut().find(|x| x.id == id) {
-                    for l in ran.done {
+                    for l in done {
                         sc.narrate(l);
                     }
                 }
@@ -604,16 +689,22 @@ pub fn end(w: &mut World, id: u32) {
     if s.done {
         return;
     }
-    if s.kind == SceneKind::OneOnOne {
-        let pid = s.a as u32;
-        talks::finish_talk(w, &mut s, pid);
-    } else if super::office::plays(s.kind) && !super::office::talk_only(s.kind) {
+    match Facet::of(&s) {
+        _ if s.kind == SceneKind::OneOnOne => {
+            let pid = s.a as u32;
+            talks::finish_talk(w, &mut s, pid);
+        }
+        Facet::Recruit => recruit::end(w, &mut s),
+        Facet::HsCall => hs_call::end(w, &mut s),
         // A built staff or boss meeting keeps its own picks to finish
         // (lane N5c): the talk ending leaves the meeting open, and the
         // talk's state stays so a man done talking stays done today.
-        return;
-    } else if !super::draft::end(w, &mut s) {
-        s.end();
+        Facet::Other if super::office::plays(s.kind) && !super::office::talk_only(s.kind) => return,
+        Facet::Other => {
+            if !super::draft::end(w, &mut s) {
+                s.end();
+            }
+        }
     }
     w.folk.scenes[k] = s;
     store::close(w, id);
@@ -623,8 +714,9 @@ pub fn end(w: &mut World, id: u32) {
 /// saved talk; a detail the voice added goes in his notebook (question 5).
 pub fn reply(w: &mut World, id: u32, words: &str, tell: Option<String>, colour: Option<String>) {
     let Some(s) = scene(w, id).cloned() else { return };
-    let room = store::room(w, id).unwrap_or_else(|| channels::one_on_one(&s));
+    let room = store::room(w, id).unwrap_or_else(|| channels::room_for(w, &s));
     let Some(him) = across(&room) else { return };
+    // The one who answered speaks the line (his decider, his agent).
     let name = channels::name(w, him);
     if let Some(sc) = w.folk.scenes.iter_mut().find(|x| x.id == id) {
         // A talk that ended on this line still shows his last words.

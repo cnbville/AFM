@@ -800,6 +800,27 @@ pub fn due(w: &mut World, deals: &Deals) -> Vec<(Owed, Weighed)> {
         .collect()
 }
 
+/// The answers owed today to the people `mine` picks, the rest left on
+/// the list: each facet lane takes its own (lane N5a: recruits and their
+/// families), so no lane answers for another's.
+pub fn due_where(w: &mut World, deals: &Deals, mine: impl Fn(&World, Them) -> bool) -> Vec<(Owed, Weighed)> {
+    let today = w.today;
+    let all = std::mem::take(&mut w.folk.live.persona.owed);
+    let (now, later): (Vec<Owed>, Vec<Owed>) = all.into_iter().partition(|o| o.by <= today && mine(w, o.with));
+    w.folk.live.persona.owed = later;
+    now.into_iter()
+        .map(|o| {
+            let v = deals.weigh_now(w, o.with, &o.offer);
+            (o, v)
+        })
+        .collect()
+}
+
+/// Whether he is a recruit or a transfer you recruit, as deals price him.
+pub fn is_recruit(w: &World, him: Them) -> bool {
+    matches!(who(w, him), Who::Recruit(..))
+}
+
 /// What agreeing did, after you confirmed: what the game made real, the
 /// promises logged (P1's indexes), and the gives its facet lane makes
 /// real (money, a scholarship, a contract, a pick).

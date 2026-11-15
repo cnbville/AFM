@@ -30,6 +30,8 @@ use super::card::{Spoken, Tagged};
 pub mod calls;
 pub mod cards;
 pub mod ear;
+pub mod gameday;
+pub mod group;
 pub mod talk;
 pub mod view;
 pub mod voice;

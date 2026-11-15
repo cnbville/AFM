@@ -137,6 +137,13 @@ impl World {
         v.into_iter().take(2).map(|x| x.0).collect()
     }
 
+    /// His individual minutes last week (on the field, in the film room);
+    /// the usual 30 and 30 before his first week with you.
+    pub fn minutes_of(&self, player: u32) -> (f64, f64) {
+        let usual = crate::development::USUAL_FOCUS_MINUTES;
+        self.seat_minutes.iter().find(|m| m.0 == player).map_or((usual, usual), |m| (m.1 as f64, m.2 as f64))
+    }
+
     /// The flaws and tools he works this week: yours if you set any, else
     /// the staff's; a plain rating point works no flaw.
     pub fn worked_on(&self, player: u32) -> Vec<Craft> {
@@ -161,7 +168,7 @@ fn seat_mould(w: &World) -> f64 {
 /// a college, the coordinator of his side at an NFL club or a high school
 /// (the world keeps no NFL position coaches), else the head coach; an
 /// empty room reads as a fair teacher (8).
-pub(crate) fn room(w: &World, pos: Position) -> (f64, f64) {
+pub fn room(w: &World, pos: Position) -> (f64, f64) {
     let g = Group::of(pos);
     let side = |oc: Option<usize>, dc: Option<usize>| if g.offense() { oc } else { dc };
     let c = match Team::seat(w) {
@@ -258,16 +265,30 @@ pub(crate) fn week(w: &mut World, roster: &[usize], minutes: &HashMap<usize, (f6
                 || key_uniform(key ^ 0x3D, (id as u64) << 8 ^ s.code as u64) >= 0.05 * eyef
         });
         // The work (topics 5-7).
+        // A week with no individual time (his own time, winter's weight
+        // room, the summer program) moves nothing and keeps the minutes of
+        // his last week with it for the screens' projection.
+        let (plain, film) = minutes.get(&i).copied().unwrap_or((0.0, 0.0));
+        if plain <= 0.0 && film <= 0.0 {
+            continue;
+        }
+        let kept = (id, plain.round().clamp(0.0, 255.0) as u8, film.round().clamp(0.0, 255.0) as u8);
+        match w.seat_minutes.iter_mut().find(|m| m.0 == id) {
+            Some(m) => *m = kept,
+            None => w.seat_minutes.push(kept),
+        }
         let work = w.worked_on(id);
         if work.is_empty() {
             continue;
         }
-        let (plain, film) = minutes.get(&i).copied().unwrap_or((0.0, 0.0));
         let share = work.len() as f64;
         let trust = w.people[i].trust as f64;
         let buy = crate::craft::buy_in(&w.people[i].player, trust);
         for c in work {
             let m = if c.info().mental { film } else { plain } / share;
+            if m <= 0.0 {
+                continue;
+            }
             let t = Teach { teaching, minutes: m, buy_in: buy };
             let Some((before, after)) = crate::craft::work_week(&mut w.people[i].player, c, &t) else { continue };
             if after > before {
@@ -285,4 +306,47 @@ pub(crate) fn week(w: &mut World, roster: &[usize], minutes: &HashMap<usize, (f6
         }
     }
     notes
+}
+
+/// His rating by each coming year's end with a focus on it and without
+/// (topic 5b.6, 9c.5 and 9c.7), grown on copies of him with the same dice
+/// under his room's teacher and his role: `years` pairs of (without, with).
+/// The truth: the screens read it through the staff's eye.
+pub fn focus_projection(
+    w: &World,
+    player: u32,
+    rating: crate::attributes::Attr,
+    minutes: f64,
+    years: u32,
+) -> Vec<(f64, f64)> {
+    use crate::development::{SeasonContext, develop_season};
+    let Some(i) = super::folk::person(w, player) else { return Vec::new() };
+    let p = &w.people[i];
+    let level = match p.stage {
+        super::Stage::HighSchool | super::Stage::PrepSchool => crate::player::Level::HS,
+        super::Stage::College => p
+            .college
+            .and_then(|c| w.programs.get(c))
+            .map_or(crate::player::Level::FBS, |g| super::division_level(g.division)),
+        _ => crate::player::Level::NFL,
+    };
+    let (teaching, _) = room(w, p.player.position);
+    let role = p.last_role.unwrap_or(crate::player::PlayingTime::Backup);
+    let arm = |focus: bool| -> Vec<f64> {
+        let mut q = p.player.clone();
+        let mut rng = crate::Rng::new(player ^ (w.year as u32).wrapping_mul(0x9E37_79B9) ^ 0x0F0C);
+        (0..years)
+            .map(|_| {
+                let mut ctx = SeasonContext::new(level, teaching.clamp(1.0, 20.0), role);
+                ctx.seat_plan = true;
+                if focus {
+                    ctx.focus = Some(rating);
+                    ctx.focus_minutes = minutes;
+                }
+                develop_season(&mut q, &ctx, &mut rng);
+                q.attributes.get(rating)
+            })
+            .collect()
+    };
+    arm(false).into_iter().zip(arm(true)).collect()
 }

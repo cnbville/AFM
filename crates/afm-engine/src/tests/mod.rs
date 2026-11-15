@@ -22,6 +22,7 @@ mod finder;
 mod foundations;
 mod front_office;
 mod game_stats;
+mod gameday_room;
 mod gameplan;
 mod growth_reps;
 mod hiring;

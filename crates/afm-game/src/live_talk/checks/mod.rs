@@ -5,16 +5,22 @@
 //! (`staff.json`); lanes 7 and 9 fill `deals.json` and `one_on_one.json`.
 //! A set's card is written out in its file, so a check needs no world.
 
+use std::sync::Arc;
+
 use afm_ai::Request;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::card::{Card, Keys, Spoken, Tagged};
+use super::persona::{ear as persona_ear, voice as persona_voice};
 use super::say::{self, stand_in};
 use super::tickets::{self, Next, Step};
 use crate::{Game, Reply};
 
-/// Every check set, in report order.
+pub mod ear;
+pub mod voice;
+
+/// Every reader check set, in report order.
 pub const SETS: [(&str, &str); 3] = [
     ("staff", include_str!("staff.json")),
     ("deals", include_str!("deals.json")),
@@ -123,47 +129,163 @@ pub fn matches(reading: &Value, keys: &Keys, want: &Value) -> bool {
     }
 }
 
+/// What one line is graded against.
+enum Check {
+    /// A reader set's line: the option it means.
+    Reader { keys: Keys, want: Value },
+    /// The ear's line: what a right reading lists.
+    Ear { set: Arc<ear::EarSet>, line: Arc<ear::EarLine> },
+    /// The voice's line: the card he was given and what must and mustn't show.
+    Voice { card: Arc<String>, line: Arc<voice::VoiceLine> },
+}
+
 struct Todo {
     set: usize,
-    keys: Keys,
-    want: Value,
+    check: Check,
     req: Request,
+    /// The line in words, for a miss.
+    text: String,
 }
 
 #[derive(Default)]
 struct Tally {
     names: Vec<String>,
+    /// The share of a set's lines that should pass (the tick on the card).
+    bars: Vec<f64>,
     score: Vec<u32>,
     of: Vec<u32>,
-    nano: u64,
-    millis: u64,
-    lines: u32,
+    nano: Vec<u64>,
+    millis: Vec<u64>,
+    /// Lines that missed: the set, the line and why.
+    misses: Vec<(String, String, String)>,
+    model: String,
 }
 
-/// `ai_checks`: a ticket for the whole run.
-pub fn ai_checks(g: &mut Game) -> Reply {
-    let sets = sets();
-    let mut tally = Tally::default();
-    let mut todo = Vec::new();
-    for (k, set) in sets.iter().enumerate() {
-        tally.names.push(set.name.clone());
-        tally.score.push(0);
-        tally.of.push(0);
-        let (card, keys) = set.card();
-        // A one-on-one's sets read on lane 9's own rules.
-        let (rules, schema) = if set.name.starts_with("one_on_one") {
-            (say::one_on_one::RULES.as_str(), say::one_on_one::schema())
-        } else {
-            (say::READER_RULES.as_str(), say::reader_schema())
-        };
-        for line in &set.lines {
-            let req = Request::new(say::READER, rules, &card.reader_text(&line.text))
-                .schema(schema.clone())
-                .max_tokens(say::READER_TOKENS);
-            if let Some(f) = g.ai.browser_fake() {
-                f.push(say::READER, Ok(stand_in::reading(&card, &line.text)));
+impl Tally {
+    fn add(&mut self, name: &str, bar: f64) -> usize {
+        self.names.push(name.to_string());
+        self.bars.push(bar);
+        self.score.push(0);
+        self.of.push(0);
+        self.nano.push(0);
+        self.millis.push(0);
+        self.names.len() - 1
+    }
+}
+
+/// The share of a reader set's lines that should pass (lane 9: bar 90,
+/// proposed, not confirmed).
+pub const READER_BAR: f64 = 0.90;
+
+/// What `ai_checks` runs: `only` is "reader" (the older sets), "ear" (the
+/// facets' labelled lines and exploits), "voice" (the leak baits) or
+/// everything; `model` runs the same lines on another model to compare.
+#[derive(Default)]
+struct Args {
+    only: String,
+    model: Option<String>,
+}
+
+impl Args {
+    fn from(v: &Value) -> Result<Args, String> {
+        let only = v.get("only").and_then(Value::as_str).unwrap_or("all").to_string();
+        if !["all", "reader", "ear", "voice"].contains(&only.as_str()) {
+            return Err("only is all, reader, ear or voice.".into());
+        }
+        let model = v.get("model").and_then(Value::as_str).filter(|m| !m.is_empty()).map(String::from);
+        if let Some(m) = &model
+            && afm_ai::Price::of(m).is_none()
+        {
+            return Err(format!("There is no price for {m}."));
+        }
+        Ok(Args { only, model })
+    }
+    fn runs(&self, part: &str) -> bool {
+        self.only == "all" || self.only == part
+    }
+}
+
+/// `ai_checks {only?, model?}`: a ticket for the whole run.
+pub fn ai_checks(g: &mut Game, args: &Value) -> Reply {
+    let args = Args::from(args)?;
+    let mut tally =
+        Tally { model: args.model.clone().unwrap_or_else(|| afm_ai::MODEL.to_string()), ..Tally::default() };
+    let mut todo: Vec<Todo> = Vec::new();
+    let fake = g.ai.browser_fake();
+    let finish = |req: Request| match &args.model {
+        Some(m) => req.model(m),
+        None => req,
+    };
+    if args.runs("reader") {
+        for set in sets() {
+            let bar = if set.name.ends_with("exploits") { ear::EXPLOIT_BAR } else { READER_BAR };
+            let k = tally.add(&set.name, bar);
+            let (card, keys) = set.card();
+            // A one-on-one's sets read on lane 9's own rules.
+            let (rules, schema) = if set.name.starts_with("one_on_one") {
+                (say::one_on_one::RULES.as_str(), say::one_on_one::schema())
+            } else {
+                (say::READER_RULES.as_str(), say::reader_schema())
+            };
+            for line in &set.lines {
+                let req = Request::new(say::READER, rules, &card.reader_text(&line.text))
+                    .schema(schema.clone())
+                    .max_tokens(say::READER_TOKENS);
+                if let Some(f) = &fake {
+                    f.push(say::READER, Ok(stand_in::reading(&card, &line.text)));
+                }
+                todo.push(Todo {
+                    set: k,
+                    check: Check::Reader { keys: keys.clone(), want: line.want.clone() },
+                    req: finish(req),
+                    text: line.text.clone(),
+                });
             }
-            todo.push(Todo { set: k, keys: keys.clone(), want: line.want.clone(), req });
+        }
+    }
+    if args.runs("ear") {
+        for set in ear::sets() {
+            let set = Arc::new(set);
+            let plain = tally.add(&format!("ear: {}", set.name), ear::BAR);
+            let exploits = tally.add(&format!("ear: {} exploits", set.name), ear::EXPLOIT_BAR);
+            for (k, lines) in [(plain, &set.lines), (exploits, &set.exploits)] {
+                for line in lines {
+                    let req = Request::new(persona_ear::EAR, persona_ear::EAR_RULES, &set.body(&line.text))
+                        .schema(persona_ear::schema())
+                        .max_tokens(persona_ear::EAR_TOKENS);
+                    if let Some(f) = &fake {
+                        let quiet = json!({ "acts": [], "hits": [], "dodged": false, "not_talk": false });
+                        f.push(persona_ear::EAR, Ok(afm_ai::fake::body(&quiet.to_string(), 900, 60)));
+                    }
+                    todo.push(Todo {
+                        set: k,
+                        check: Check::Ear { set: set.clone(), line: Arc::new(line.clone()) },
+                        req: finish(req),
+                        text: line.text.clone(),
+                    });
+                }
+            }
+        }
+    }
+    if args.runs("voice") {
+        let k = tally.add("voice leaks", voice::BAR);
+        for case in voice::cases() {
+            for line in &case.lines {
+                let card = case.card.card(&line.text).text();
+                let req = Request::new(persona_voice::VOICE, persona_voice::VOICE_RULES, &card)
+                    .schema(persona_voice::schema())
+                    .max_tokens(persona_voice::VOICE_TOKENS);
+                if let Some(f) = &fake {
+                    let said = json!({ "line": "I hear you, Coach.", "colour": "" });
+                    f.push(persona_voice::VOICE, Ok(afm_ai::fake::body(&said.to_string(), 600, 40)));
+                }
+                todo.push(Todo {
+                    set: k,
+                    check: Check::Voice { card: Arc::new(card), line: Arc::new(line.clone()) },
+                    req: finish(req),
+                    text: line.text.clone(),
+                });
+            }
         }
     }
     todo.reverse();
@@ -179,12 +301,28 @@ fn step(this: Todo, mut todo: Vec<Todo>, mut tally: Tally) -> Next {
             Ok(x) => x,
             Err(f) => return Step::off(&f),
         };
-        tally.nano += reply.nano;
-        tally.millis += reply.millis;
-        tally.lines += 1;
+        tally.nano[this.set] += reply.nano;
+        tally.millis[this.set] += reply.millis;
         tally.of[this.set] += 1;
-        if reply.json.as_ref().is_some_and(|v| matches(v, &this.keys, &this.want)) {
-            tally.score[this.set] += 1;
+        let verdict = match (&this.check, reply.json.as_ref()) {
+            (_, None) => Err("no JSON came back".to_string()),
+            (Check::Reader { keys, want }, Some(v)) => {
+                if matches(v, keys, want) {
+                    Ok(())
+                } else {
+                    Err("read it as another option".to_string())
+                }
+            }
+            (Check::Ear { set, line }, Some(v)) => ear::grade(v, set, line),
+            (Check::Voice { card, line }, Some(v)) => voice::grade(v, card, line),
+        };
+        match verdict {
+            Ok(()) => tally.score[this.set] += 1,
+            Err(why) => {
+                if tally.misses.len() < MAX_MISSES {
+                    tally.misses.push((tally.names[this.set].clone(), this.text.clone(), why));
+                }
+            }
         }
         match todo.pop() {
             Some(next) => {
@@ -196,24 +334,38 @@ fn step(this: Todo, mut todo: Vec<Todo>, mut tally: Tally) -> Next {
     })
 }
 
+/// The most missed lines the report lists.
+pub const MAX_MISSES: usize = 40;
+
 fn report(t: &Tally) -> Value {
     let rows: Vec<Value> = (0..t.names.len())
         .filter(|&k| t.of[k] > 0)
         .map(|k| {
+            let of = f64::from(t.of[k]);
             json!({
                 "name": t.names[k],
                 "score": t.score[k],
                 "of": t.of[k],
-                "bar": f64::from(t.score[k]) / f64::from(t.of[k]),
+                // The tick: how many lines should pass (the screen draws
+                // the row amber under it).
+                "bar": (of * t.bars[k]).ceil() as u32,
+                "rate": f64::from(t.score[k]) / of,
+                "cost": t.nano[k] as f64 / 1e9,
+                "seconds": (t.millis[k] as f64 / of / 10.0).round() / 100.0,
             })
         })
         .collect();
-    let lines = f64::from(t.lines.max(1));
+    let nano: u64 = t.nano.iter().sum();
+    let millis: u64 = t.millis.iter().sum();
+    let lines = f64::from(t.of.iter().sum::<u32>().max(1));
     json!({
         "state": "done",
+        "model": t.model,
         "rows": rows,
-        "cost": t.nano as f64 / 1e9,
-        "seconds": (t.millis as f64 / lines / 10.0).round() / 100.0,
+        "misses": t.misses.iter().map(|(set, text, why)| json!({ "set": set, "text": text, "why": why })).collect::<Vec<_>>(),
+        "calls": t.of.iter().sum::<u32>(),
+        "cost": nano as f64 / 1e9,
+        "seconds": (millis as f64 / lines / 10.0).round() / 100.0,
     })
 }
 
@@ -227,6 +379,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+    use crate::live_talk::persona::{ear as persona_ear, voice as persona_voice};
 
     #[test]
     fn every_set_parses_and_staff_holds_lt18s_thirty_lines() {
@@ -306,7 +459,7 @@ mod tests {
             let v = json!({ "pick": "none", "also": "none", "tone": "calm", "promise": null, "claims": [], "named": [], "fit": "not_a_line" });
             f.push(say::READER, Ok(body(&v.to_string(), 700, 60)));
         }
-        let t = g.call("ai_checks", &json!({})).unwrap()["ticket"].as_u64().unwrap();
+        let t = g.call("ai_checks", &json!({ "only": "reader" })).unwrap()["ticket"].as_u64().unwrap();
         let start = Instant::now();
         let v = loop {
             let v = g.call("ai_poll", &json!({ "ticket": t })).unwrap();
@@ -316,7 +469,16 @@ mod tests {
             std::thread::sleep(Duration::from_millis(2));
         };
         assert_eq!(v["state"], "done", "{v}");
-        assert_eq!(v["rows"][0], json!({ "name": "staff", "score": 28, "of": 30, "bar": 28.0 / 30.0 }));
+        let staff = &v["rows"][0];
+        assert_eq!(
+            (staff["name"].as_str(), staff["score"].as_u64(), staff["of"].as_u64()),
+            (Some("staff"), Some(28), Some(30))
+        );
+        // The tick is the count that should pass (90% of 30), not the score.
+        assert_eq!(staff["bar"], 27);
+        assert!((staff["rate"].as_f64().unwrap() - 28.0 / 30.0).abs() < 1e-9);
+        assert!(staff["cost"].as_f64().unwrap() > 0.0 && staff["seconds"].is_number());
+        assert_eq!(v["model"], "claude-haiku-5-5");
         // Lane 9's rows: only its not-a-line labels match a reading of none.
         assert_eq!(v["rows"][1]["name"], "one_on_one");
         assert_eq!(v["rows"][1]["of"], 100);
@@ -327,5 +489,149 @@ mod tests {
         // With no client there is no run.
         let mut h = Game::new(std::env::temp_dir().join(format!("afm-live-checks2-{}", std::process::id())));
         assert_eq!(h.call("ai_checks", &json!({})), Err("No key is set.".into()));
+    }
+
+    /// The size of each call and what a line costs on Haiku, from the real
+    /// rules, schema and card text (tokens are about four characters).
+    /// Prints the numbers (`--nocapture`) for the page's cost section.
+    #[test]
+    fn the_calls_are_the_size_the_cost_section_assumes() {
+        let tokens = |chars: usize| chars as f64 / 4.0;
+        let ear_rules = tokens(persona_ear::EAR_RULES.len() + persona_ear::schema().to_string().len());
+        let ear_cards: Vec<usize> =
+            ear::sets().iter().flat_map(|s| s.lines.iter().map(move |l| s.body(&l.text).len())).collect();
+        let ear_card = tokens(ear_cards.iter().sum::<usize>() / ear_cards.len());
+        let voice_rules = tokens(persona_voice::VOICE_RULES.len() + persona_voice::schema().to_string().len());
+        let voice_cards: Vec<usize> = voice::cases()
+            .iter()
+            .flat_map(|c| c.lines.iter().map(move |l| c.card.card(&l.text).text().len()))
+            .collect();
+        let voice_card = tokens(voice_cards.iter().sum::<usize>() / voice_cards.len());
+        let p = afm_ai::Price::of("claude-haiku-5-5").unwrap().short;
+        let dollars = |nano: f64| nano / 1e9;
+        let ear_cost = dollars(ear_rules * p.cache_read as f64 + ear_card * p.input as f64 + 300.0 * p.output as f64);
+        let voice_cost =
+            dollars(voice_rules * p.cache_read as f64 + voice_card * p.input as f64 + 150.0 * p.output as f64);
+        eprintln!(
+            "ear: rules+schema {ear_rules:.0} tokens, card {ear_card:.0}, a line ${ear_cost:.5}; voice: rules+schema {voice_rules:.0}, card {voice_card:.0}, a line ${voice_cost:.5}"
+        );
+        // Under the design's table (about 3,000 cached, 1,200 new): written-out cards are lighter than a live one.
+        assert!((1500.0..6000.0).contains(&ear_rules), "{ear_rules}");
+        assert!((100.0..1500.0).contains(&ear_card), "{ear_card}");
+        assert!((300.0..3000.0).contains(&voice_rules), "{voice_rules}");
+        assert!((100.0..1500.0).contains(&voice_card), "{voice_card}");
+        assert!(ear_cost + voice_cost < 0.001, "a line is a tenth of a cent or less: {}", ear_cost + voice_cost);
+    }
+
+    fn run(g: &mut Game, args: Value) -> Value {
+        let t = g.call("ai_checks", &args).unwrap()["ticket"].as_u64().unwrap();
+        let start = Instant::now();
+        loop {
+            let v = g.call("ai_poll", &json!({ "ticket": t })).unwrap();
+            if v["state"] != "wait" || start.elapsed() > Duration::from_secs(30) {
+                return v;
+            }
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    }
+
+    fn game(name: &str) -> (Game, Arc<Fake>) {
+        let home = std::env::temp_dir().join(format!("afm-live-checks-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&home);
+        std::fs::create_dir_all(&home).unwrap();
+        let mut g = Game::new(home);
+        let f = Arc::new(Fake::new());
+        g.ai.use_fake(f.clone());
+        (g, f)
+    }
+
+    #[test]
+    fn the_ear_and_voice_checks_run_on_the_fake_and_report_misses() {
+        let (mut g, f) = game("ear");
+        let sets = ear::sets();
+        let mut wrong = 0;
+        // A perfect ear, except it hears every fifth line as no line at all.
+        let mut n = 0;
+        for set in &sets {
+            for l in set.lines.iter().chain(&set.exploits) {
+                n += 1;
+                let v = if n % 5 == 0 && !l.not_talk {
+                    wrong += 1;
+                    json!({ "acts": [], "hits": [], "dodged": false, "not_talk": true })
+                } else {
+                    ear::perfect(l)
+                };
+                f.push(persona_ear::EAR, Ok(body(&v.to_string(), 4000, 200)));
+            }
+        }
+        let v = run(&mut g, json!({ "only": "ear" }));
+        assert_eq!(v["state"], "done", "{v}");
+        let rows = v["rows"].as_array().unwrap();
+        assert_eq!(rows.len(), sets.len() * 2, "a row for each facet and its exploits");
+        assert!(rows.iter().all(|r| r["name"].as_str().unwrap().starts_with("ear: ")));
+        let missed: u64 = rows.iter().map(|r| r["of"].as_u64().unwrap() - r["score"].as_u64().unwrap()).sum();
+        assert_eq!(missed, wrong, "{v}");
+        let misses = v["misses"].as_array().unwrap();
+        assert!(misses.iter().any(|m| m["why"].as_str().unwrap().contains("not talk")), "{v}");
+        assert!(misses.iter().all(|m| m["set"].is_string() && m["text"].is_string()));
+        let ear_lines: usize = sets.iter().map(|s| s.lines.len() + s.exploits.len()).sum();
+        assert_eq!(v["calls"], ear_lines);
+        assert!(v["cost"].as_f64().unwrap() > 0.0);
+        // The voice: each line says what the game released, or something plain.
+        let mut leaked = false;
+        for c in voice::cases() {
+            for l in &c.lines {
+                let said = match (l.must_any.first(), l.forbid.first()) {
+                    (Some(w), _) => format!("Well, Coach, {w}."),
+                    (None, Some(w)) if w == "mahomes" && !leaked => {
+                        leaked = true;
+                        format!("Honestly, {w} is the best there is.")
+                    }
+                    _ => "Not something I'll get into, Coach.".to_string(),
+                };
+                f.push(persona_voice::VOICE, Ok(body(&json!({ "line": said, "colour": "" }).to_string(), 1500, 40)));
+            }
+        }
+        let v = run(&mut g, json!({ "only": "voice" }));
+        assert_eq!(v["state"], "done", "{v}");
+        let rows = v["rows"].as_array().unwrap();
+        assert_eq!(rows.len(), 1);
+        let lines: usize = voice::cases().iter().map(|c| c.lines.len()).sum();
+        let row = &rows[0];
+        assert_eq!((row["name"].as_str(), row["of"].as_u64()), (Some("voice leaks"), Some(lines as u64)));
+        assert_eq!(row["bar"], (lines as f64 * voice::BAR).ceil() as u64);
+        // One bait got the forbidden word, and it is the one miss.
+        assert_eq!(row["score"].as_u64(), Some(lines as u64 - 1), "{v}");
+        assert!(v["misses"][0]["why"].as_str().unwrap().starts_with("said \""), "{v}");
+    }
+
+    #[test]
+    fn only_picks_the_part_and_model_picks_the_price() {
+        let (mut g, f) = game("args");
+        assert_eq!(
+            g.call("ai_checks", &json!({ "only": "nothing" })),
+            Err("only is all, reader, ear or voice.".into())
+        );
+        assert_eq!(g.call("ai_checks", &json!({ "model": "gpt-9" })), Err("There is no price for gpt-9.".into()));
+        let lines: usize = voice::cases().iter().map(|c| c.lines.len()).sum();
+        for _ in 0..lines {
+            f.push(persona_voice::VOICE, Ok(body(&json!({ "line": "Yeah.", "colour": "" }).to_string(), 900, 20)));
+        }
+        let v = run(&mut g, json!({ "only": "voice", "model": "claude-sonnet-5-5" }));
+        assert_eq!(v["state"], "done", "{v}");
+        assert_eq!(v["rows"].as_array().unwrap().len(), 1);
+        assert_eq!(v["model"], "claude-sonnet-5-5");
+        let asked = f.asked();
+        assert_eq!(asked.len(), lines);
+        assert!(asked.iter().all(|r| r.model == "claude-sonnet-5-5"), "the same lines on the bigger model");
+        // Sonnet's price: the same replies cost more than Haiku's.
+        let haiku = {
+            let (mut h, hf) = game("args-haiku");
+            for _ in 0..lines {
+                hf.push(persona_voice::VOICE, Ok(body(&json!({ "line": "Yeah.", "colour": "" }).to_string(), 900, 20)));
+            }
+            run(&mut h, json!({ "only": "voice" }))["cost"].as_f64().unwrap()
+        };
+        assert!(v["cost"].as_f64().unwrap() > haiku * 5.0, "{} vs {haiku}", v["cost"]);
     }
 }

@@ -25,9 +25,11 @@ use afm_engine::world::World;
 use afm_engine::world::folk;
 use afm_engine::world::folk::persona::Them;
 use afm_engine::world::folk::persona::ear::{Confirm, Resolving, Turn};
+use afm_engine::world::folk::persona::gameday::{decide, group};
 use afm_engine::world::folk::persona::negotiate::{self, Played};
 use afm_engine::world::folk::persona::room::Room;
 use afm_engine::world::folk::persona::talk::{self, Conversation, Parts, Said, channels, store};
+use afm_engine::world::folk::persona::terms::{Request as Ask, Valuing, Weighed};
 use afm_engine::world::folk::persona::{deals, office};
 use afm_engine::world::folk::scene::{Kind, Scene};
 use serde_json::{Value, json};
@@ -41,22 +43,31 @@ pub const WAIT_TTL: Duration = Duration::from_secs(900);
 
 /// Whether a scene's typed lines play as a v3 talk: your one-on-ones, the
 /// meetings with the people in your building (lane N5c), the draft side's
-/// talks (lane N5e) and the negotiation calls (lane N5b). The interview
-/// rooms keep lane 6's typed path, where a typed question lands on its own
-/// chip (a flagged worry included).
+/// talks (lane N5e), the negotiation calls (lane N5b), a recruit's and a
+/// transfer's talks and a college staff's call to you, the high school
+/// coach (lane N5a), and the group talks (the team talk, the first team
+/// meeting, the council: lane N5d). The interview rooms keep lane 6's typed
+/// path, where a typed question lands on its own chip (a flagged worry
+/// included).
 pub fn plays(g: &Game, s: &Scene) -> bool {
     g.ai.persona_talks
-        && (matches!(s.kind, Kind::OneOnOne | Kind::DraftTalk) || office::plays(s.kind) || negotiate::is_call(s))
+        && (matches!(s.kind, Kind::OneOnOne | Kind::DraftTalk)
+            || office::plays(s.kind)
+            || negotiate::is_call(s)
+            || talk::recruit::is_recruit(s.kind)
+            || talk::hs_call::is_call(s.kind)
+            || group::is_group(s))
 }
 
 /// The room a scene's talk is held in: the open talk's, else the one its
 /// lane sets (someone in your building, lane N5c; a negotiation's call,
-/// lane N5b), else a one-on-one.
+/// lane N5b; a group's room, lane N5d), else a one-on-one.
 pub fn room_of(w: &World, s: &Scene) -> Room {
     store::room(w, s.id)
         .or_else(|| office::plays(s.kind).then(|| office::room(w, s)).flatten())
         .or_else(|| negotiate::room(w, s))
-        .unwrap_or_else(|| channels::one_on_one(s))
+        .or_else(|| group::room(w, s))
+        .unwrap_or_else(|| channels::room_for(w, s))
 }
 
 /// The parts a scene's talk is played with: lane N5c's for the people in
@@ -170,7 +181,8 @@ pub fn say(g: &mut Game, id: u32, text: String) -> Reply {
     let room = room_of(w, s);
     let played = Played::new(w, s);
     let p = parts_for(s, &played);
-    let (card, keys) = cards::ear(w, s, &room, &p, &text);
+    let (card, keys) =
+        if group::is_group(s) { super::group::ear(w, s, &room, &text) } else { cards::ear(w, s, &room, &p, &text) };
     let today = crate::views::date_text(w.today);
     let (y, m, d) = w.today.parts();
     let body = card.text(&format!("{today} ({y:04}-{m:02}-{d:02})"));
@@ -245,6 +257,9 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
         let tags = ear::Tags { today: w.today, pos };
         let reading = tags.resolve(&er, &keys);
         let promises = tags.promises(&er, &keys);
+        let is_group = group::is_group(&s);
+        // A line to the whole room is one hit on each man in it (lane N5d).
+        let reading = if is_group { group::expand(&room, reading) } else { reading };
         let conv = Conversation {
             parts: parts_for(&s, &played),
             said: Said { scene: id, words: words.clone(), reading, promises },
@@ -253,9 +268,20 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
         // A negotiation's own answer, claim and asks (lane N5b).
         let notes = negotiate::said(w, played.facet, &mut t);
         let heard = cards::heard(w, &room, &t);
-        let vc = cards::voice(w, &s, &room, &conv.parts, &t, &words, &keys);
+        let mut vc = cards::voice(w, &s, &room, &conv.parts, &t, &words, &keys);
+        if is_group {
+            // A captain answers for the room; the voice hears the room, not
+            // a roll call.
+            vc.room = vec![format!("{}, every one of them listening", cards::channel_words(room.channel))];
+        }
         conv.apply(w, &t);
         negotiate::applied(w, played.facet, id, &t, &conv.said.promises);
+        if is_group
+            && let Some(line) = group::landed(w, &t.hits)
+            && let Some(sc) = w.folk.scenes.iter_mut().find(|x| x.id == id)
+        {
+            sc.narrate(line);
+        }
         // What lane N5c makes of it: a reference's read on the coach's page.
         if office::plays(s.kind) {
             let lines = office::after(w, id, &room, &conv.said.reading, &t);
@@ -373,6 +399,7 @@ fn waits(g: &mut Game, id: u32, room: &Room, t: &Turn) -> Vec<Value> {
 
 fn confirm_words(c: &Confirm) -> String {
     match c {
+        Confirm::Request(Ask::Other(x)) if x == talk::recruit::VISIT => "Set his official visit".into(),
         Confirm::Offer(o) => format!("Make the offer: {}", folk::plain(&o.words)),
         Confirm::Request(r) => format!("Go ahead: {r:?}"),
         Confirm::Decision(d) => format!("Make it so: {}", channels::decision_words(*d)),
@@ -409,16 +436,39 @@ pub fn confirm(g: &mut Game, args: &Value) -> Reply {
 }
 
 /// Runs one confirmed item: a request through `Acting::run`, an offer
-/// through its desk (a negotiation's, lane N5b) or lane N3's `agree`, a
-/// cut through the desk and any other decision on its own screen until
-/// its lane wires it.
+/// through its desk (a negotiation's, lane N5b; a recruit's, lane N5a) or
+/// lane N3's `agree`, a cut through the desk and any other decision on its
+/// own screen until its lane wires it.
 fn run(w: &mut World, scene: u32, him: Them, c: &Confirm) -> Vec<String> {
     let played = match w.folk.scenes.iter().find(|s| s.id == scene) {
         Some(s) => Played::new(w, s),
         None => Played::of(negotiate::Facet::None),
     };
     let kind = w.folk.scenes.iter().find(|s| s.id == scene).map_or(Kind::OneOnOne, |s| s.kind);
+    let recruit = w.folk.scenes.iter().find(|s| s.id == scene).cloned().filter(|s| talk::recruit::is_recruit(s.kind));
     match c {
+        // A recruit's visit: the desk sets it on its first open date, and
+        // he may still say no.
+        Confirm::Request(Ask::Other(x)) if x == talk::recruit::VISIT => {
+            vec![recruit.map_or_else(|| "That talk is over.".into(), |s| talk::recruit::set_visit(w, &s))]
+        }
+        // A recruit's offer: weighed again as you confirm (nothing moved
+        // in between). Taking time, it's left with his family and they
+        // answer on their day; a yes is made real on the recruiting desk.
+        Confirm::Offer(o) if recruit.is_some() => match talk::DEALS.weigh(w, him, o) {
+            Weighed::Later(by) => {
+                deals::offered(w, him, o, &Weighed::Later(by));
+                vec![format!("You leave it with them: {}. Their answer comes by {by}.", folk::plain(&o.words))]
+            }
+            Weighed::Yes => {
+                let a = deals::agree(w, &talk::DEALS, him, o);
+                let mut out = vec![format!("Agreed: {}.", folk::plain(&o.words))];
+                out.extend(a.done.iter().cloned());
+                out.extend(talk::recruit::real(w, him, &a));
+                out
+            }
+            _ => vec!["They've thought better of it: it's off the table.".into()],
+        },
         Confirm::Request(r) => {
             let ran = parts_for_kind(kind, &played).acting.run(w, him, r);
             ran.done
@@ -434,7 +484,8 @@ fn run(w: &mut World, scene: u32, him: Them, c: &Confirm) -> Vec<String> {
             out.extend(a.done);
             out
         }
-        Confirm::Decision(d) => negotiate::decide(w, him, *d)
+        Confirm::Decision(d) => decide::run(w, him, *d)
+            .or_else(|| negotiate::decide(w, him, *d))
             .unwrap_or_else(|| vec![format!("Make it real on its own screen: {}.", channels::decision_words(*d))]),
     }
 }
@@ -464,3 +515,11 @@ fn done(g: &mut Game, id: u32, out: Outcome) -> Value {
 #[cfg(test)]
 #[path = "talk_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "recruit_tests.rs"]
+mod recruit_tests;
+
+#[cfg(test)]
+#[path = "n7_tests.rs"]
+mod n7_tests;

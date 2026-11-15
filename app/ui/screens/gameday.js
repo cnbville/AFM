@@ -523,10 +523,22 @@
       foot = sideline();
     }
     const word = typeof tkWordCard === "function" ? tkWordCard(st) : "";
-    return `<div class="panel warm lv-decide">${clock}${word}${head}${ruling && p.ask !== "challenge" ? ruling : ""}${body}
+    return `<div class="panel warm lv-decide">${clock}${word}${officialCard(st)}${head}${ruling && p.ask !== "challenge" ? ruling : ""}${body}
       <div class="lv-row lv-keys"><button class="st-btn small glass" data-act="lv-staff" title="Your staff's call on this snap"><kbd>↵</kbd> Go with the staff</button>
       <button class="st-btn small glass" data-act="lv-watch" title="Your staff calls the snaps and you watch, stepping in at any one"><kbd>W</kbd> Watch</button>
       <button class="st-btn small glass" data-act="lv-sim" title="Your staff coaches the rest of the game at once"><kbd>E</kbd> Staff to the end</button></div>${foot}</div>`;
+  }
+
+  // The official (live talks v3, lane N5d): the last flag or close call
+  // against you, and what you take to him. Arguing earns a warning, then a
+  // flag on your sideline.
+  function officialCard(st) {
+    const o = st.official;
+    if (!o) return "";
+    const chips = o.options.map((c) => `<button class="st-btn small glass" data-act="lv-official" data-how="${esc(c.how)}">${esc(c.label)}</button>`).join("");
+    const box = typeof aiSayBox === "function" ? aiSayBox(o, "official:" + o.play, { echo: true, preset: { cmd: "official_talk", args: {}, limit: 400 }, words: { ph: "Type what you'd say to the official." } }) : "";
+    return `<details class="tk-card"><summary><span class="st-label">The official</span> <small>${esc(o.called)}${o.warned ? " · you've been warned" : ""}</small></summary>
+      <div class="lv-row">${chips}</div>${box}</details>`;
   }
 
   function halftimePanel(st) {
@@ -717,6 +729,15 @@
     "lv-onside": (d) => send({ kind: "onside", onside: d.v === "1" }),
     "lv-toss": (d) => send({ kind: "toss", choice: d.v }),
     "lv-chal": (d) => send({ kind: "challenge", throw: d.v === "1" }),
+    "lv-official": async (d) => {
+      try {
+        const st = await api("official_talk", { how: d.how });
+        LV.state = st;
+        LV.fresh = true;
+        render($(".view").scrollTop);
+        if (st.text) toast(st.text);
+      } catch (e) { toast(e.message); }
+    },
     "lv-timeout": () => send({ kind: "timeout" }),
     "lv-tempo": (d) => send({ kind: "tempo", tempo: d.v }),
     "lv-wordb": async (d) => wordSent(await send({ kind: "plan", [d.k]: d.v === "1" }), d.k === "spy" ? (d.v === "1" ? "spy their QB" : "no spy") : d.k === "kick_away" ? (d.v === "1" ? "kick away from the returner" : "kick deep") : d.v === "1" ? "draws and screens" : "their rush as usual"),

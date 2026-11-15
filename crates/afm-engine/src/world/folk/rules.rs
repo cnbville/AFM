@@ -322,7 +322,7 @@ pub fn sitting(w: &World, id: u32, d: Date) -> bool {
 }
 
 /// The day after the n-th next game of your team (for a suspension).
-fn after_games(w: &World, team: Team, n: u8) -> Date {
+pub(crate) fn after_games(w: &World, team: Team, n: u8) -> Date {
     let games = super::facts::team_games(w, team);
     let today = w.today;
     games.iter().map(|g| g.0).filter(|&d| d >= today).nth(n.max(1) as usize - 1).unwrap_or(today.add(7 * n as i32))

@@ -795,16 +795,121 @@ PLAYER_TABS.push({
   draw: async (p) => {
     const d = await api("player_dev", { id: p.id });
     if (!d.mine) return '<div class="empty">Only your own players have a development plan.</div>';
-    const pl = d.plan;
-    const dis = d.may_plan ? "" : 'disabled title="The head coach plans him"';
-    const t = d.teacher;
-    const teacher = t.name ? `${t.you ? "You" : coachLink(t.id, t.name)}, ${esc(t.title)}${t.you ? "" : ` · ${esc(t.words)}`}` : "Nobody on the staff";
-    const key = d.key.map((k) => `<div class="attr ${k.focus ? "tr-focus" : ""}"><span>${esc(k.label)} <small class="muted">${esc(k.family)}</small>${k.focus ? ' <span class="tag soft">Focus</span>' : ""}</span>${range(k.read, "your position coach", { p: p.id, k: k.key })}</div>`).join("");
-    const habit = d.habit ? `<div class="attr"><span>${esc(d.habit.label)} <small class="muted">now</small></span>${range(d.habit.read)}</div><div class="sub">Coaching it toward ${d.habit.target_read} of 99: a habit moves slowly, faster with a good teacher and a coachable player.</div>` : "";
-    const ex = pl.extra;
-    const plan = `<div class="gd-form">
-      <label>Main focus<small>${pl.focus_by === "you" ? "your pick" : pl.staff_focus ? `staff's pick: ${esc(pl.staff_focus)}` : "balanced"}</small></label>
-      <select class="tr-sel" data-act="tr-dev" data-id="${d.id}" data-f="focus" ${dis}><option value="">${esc(pl.staff_focus ? "Leave it to the staff (" + pl.staff_focus + ")" : "Balanced")}</option>${pl.options.map((o) => `<option value="${o.key}" ${o.key === pl.focus ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select>
+    const cr = d.craft;
+    const sub = keep("devsub", { t: "Progress" });
+    if (!DEV_SUBS.includes(sub.t)) sub.t = "Progress";
+    // A gold dot on Progress when a point moved up a stage lately (topic 9b.2).
+    const fresh = cr.points.some((x) => x.note && x.stage > 0);
+    const strip = `<div class="panel dv-strip"><div><span class="st-label">Growth</span><b>${trGrowth(d.growth)}</b></div><div><span class="st-label">This year's growth</span><b>${esc(d.year)}</b></div><div><span class="st-label">Practice</span><b>${esc(trCap(d.grade.words))}${d.grade.value ? ` · ${d.grade.value}` : ""}</b></div><div><span class="st-label">Load</span><b>${esc(trCap(d.load.level))}</b></div><div><span class="st-label">Practice role</span><b>${esc(d.role)}</b></div></div>`;
+    const subs = `<div class="dv-subline"><nav class="dv-subs" role="tablist">${DEV_SUBS.map((t) => `<button role="tab" data-act="tr-dvsub" data-t="${t}" aria-selected="${t === sub.t}">${t}${t === "Progress" && fresh ? '<span class="dv-dot"></span>' : ""}${t === "Focus" ? `<span class="dv-n">${cr.set}/2</span>` : ""}</button>`).join("")}</nav><span class="muted">${cr.set ? `${trPlural(cr.set, "focus point")} set by you` : cr.points.length ? "His position coach picks his focus" : "No focus yet"}</span></div>`;
+    const body = sub.t === "Progress" ? dvProgress(d) : sub.t === "Focus" ? await dvFocus(d) : sub.t === "Plan" ? dvPlan(d) : dvReports(d, p);
+    return `<div class="dv" data-pid="${d.id}">${strip}${subs}${body}</div>`;
+  },
+});
+const DEV_SUBS = ["Progress", "Focus", "Plan", "Reports"];
+const DV_KIND = { flaw: "a flaw", tool: "a new skill", rating: "a rating" };
+// The stage ring: one, two or three thirds (topic 6's three stages).
+function dvRing(stage, size) {
+  const r = size * 0.41, c = 2 * Math.PI * r, f = ((stage + 1) / 3) * c, h = size / 2;
+  return `<svg class="dv-ring" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="img" aria-label="Stage ${stage + 1} of 3"><circle cx="${h}" cy="${h}" r="${r}" class="bg"/><circle cx="${h}" cy="${h}" r="${r}" class="fg ${stage === 2 ? "done" : ""}" stroke-dasharray="${f.toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 ${h} ${h})"/>${size > 60 ? `<text x="${h}" y="${h - 1}" class="n">${stage + 1}/3</text><text x="${h}" y="${h + 14}" class="l">STAGE</text>` : ""}</svg>`;
+}
+// Practice (dashed) and games (solid) since it was named: reps it lost him.
+function dvChart(pt, today) {
+  // How often he lost the rep in its situation, a game or a practice week
+  // at a time (rows with too few reps left out).
+  const ok = (r) => r.shows >= 3;
+  const games = pt.games.filter(ok), practice = pt.practice.filter(ok), all = games.concat(practice);
+  if (all.length < 2) return '<div class="dv-chart empty">The chart starts once the tape has a few reps of it.</div>';
+  const W = 560, H = 150, x0 = Math.min(...all.map((r) => r.d)), x1 = Math.max(today, ...all.map((r) => r.d));
+  const rate = (r) => r.lost / r.shows;
+  const X = (d) => 10 + ((d - x0) / Math.max(1, x1 - x0)) * (W - 20), Y = (v) => 128 - v * 110;
+  const line = (rows, cls) => rows.length ? `<polyline class="${cls}" points="${rows.map((r) => `${X(r.d).toFixed(1)},${Y(rate(r)).toFixed(1)}`).join(" ")}"/>` : "";
+  const first = all.reduce((a, r) => (r.d < a.d ? r : a), all[0]);
+  return `<svg class="dv-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Reps it lost him, practice and games"><line x1="0" x2="${W}" y1="128" y2="128" class="ax"/><line x1="0" x2="${W}" y1="${Y(0.5)}" y2="${Y(0.5)}" class="ax half"/><text x="${W - 4}" y="${Y(0.5) + 14}" class="t" text-anchor="end">half lost</text>${line(practice, "pr")}${line(games, "gm")}<text x="10" y="146" class="t">${esc(first.date)}</text><text x="${W - 4}" y="146" class="t" text-anchor="end">Now</text></svg>`;
+}
+const dvPct = (lost, shows) => (shows ? Math.round((100 * lost) / shows) : 0);
+function dvBar(label, lost, shows, now) {
+  return `<span class="${now ? "b" : "muted"}">${label}</span><span class="dv-bar ${now ? "now" : ""}"><i style="width:${Math.max(3, dvPct(lost, shows))}%"></i></span><span class="muted">${shows ? `${dvPct(lost, shows)}% · ${lost} of ${shows}` : "-"}</span>`;
+}
+function dvProgress(d) {
+  const cr = d.craft;
+  if (!cr.points.length) return `<div class="panel warm"><div class="empty">No focus points yet. ${cr.seen.length ? "His coaches have seen something to work on." : "His coaches haven't named a flaw yet."} <a class="link" data-act="tr-dvsub" data-t="Focus">Pick his focus</a></div></div>`;
+  return cr.points.map((pt, k) => {
+    const head = `<span class="st-label">Focus ${pt.n} · ${DV_KIND[pt.kind]}${pt.by === "staff" ? " · his coach's pick" : ""}</span>`;
+    if (pt.kind === "rating") {
+      const key = d.key.find((x) => x.label === pt.rating);
+      return `<div class="panel dv-point slim">${dvRing(0, 44)}<div class="dv-pn">${head}<b>${esc(pt.name)}</b></div><span class="muted">${pt.minutes} min a week. It grows his ${esc(pt.rating.toLowerCase())} faster, but fixes no one situation.</span>${key ? range(key.read, "your position coach", { p: d.id, k: key.key }) : ""}</div>`;
+    }
+    const g = Math.min(4, pt.game_rows);
+    const hero = pt.game_rows && pt.now.shows ? `<span class="dv-hero">${dvPct(pt.now.lost, pt.now.shows)}%</span><span class="muted">of his reps in that situation lost, his last ${g === 1 ? "game" : `${g} games`}</span><div class="dv-bars">${pt.game_rows > 4 ? dvBar("First", pt.before.lost, pt.before.shows, false) : ""}${dvBar("Now", pt.now.lost, pt.now.shows, true)}</div>` : `<span class="dv-hero sm">No games yet</span><span class="muted">with this in his tape</span>`;
+    const note = pt.note ? `<div class="dv-note"><span class="st-label gold">${esc(pt.note.date)}</span><span>${rich(pt.note.text)}</span></div>` : "";
+    if (k > 0 && pt.stage < 2 && !pt.game_rows) {
+      return `<div class="panel dv-point slim">${dvRing(pt.stage, 44)}<div class="dv-pn">${head}<b>${esc(pt.name)}</b></div><span class="muted">${esc(pt.stage_words)} · ${trPlural(pt.weeks, "week")} in · ${pt.minutes} min a week${pt.stage === 0 && pt.weeks <= 4 ? ". A bit worse in team periods while he learns it, which is normal for 2 to 4 weeks." : "."}</span><button class="st-btn small glass" data-act="tr-dvsub" data-t="Focus">Focus ›</button></div>`;
+    }
+    return `<div class="panel dv-point ${pt.stage === 2 ? "held" : ""}"><div class="dv-pa">${dvRing(pt.stage, 84)}<div class="dv-pn">${head}<b class="big">${esc(pt.name)}</b><span class="dv-stage s${pt.stage}">${esc(pt.stage_words)}</span><span class="muted">${trPlural(pt.weeks, "week")} of work · ${pt.minutes} min a week${pt.since ? ` · seen ${esc(pt.since)}` : ""}</span></div></div>
+      <div class="dv-pb">${hero}</div><div class="dv-pc">${dvChart(pt, d.craft.today)}<div class="dv-legend"><span><i class="gm"></i>Games</span><span><i class="pr"></i>Practice</span><span class="muted">${esc(pt.tell)}</span></div>${note}</div></div>`;
+  }).join("");
+}
+function dvScale(r, cls) {
+  if (!r) return '<span class="muted">Not seen</span>';
+  const [lo, hi] = r, L = (v) => Math.max(0, Math.min(100, ((v - 40) / 60) * 100));
+  return `<span class="dv-scale"><i class="${cls || ""}" style="left:${L(lo)}%;width:${Math.max(2, L(hi) - L(lo))}%"></i></span><b class="${cls === "gold" ? "gold" : ""}">${lo}-${hi}</b>`;
+}
+function dvCand(c, on, pick) {
+  const held = c.stage === 2;
+  const rate = c.shows >= 5 ? ` Lost ${Math.round((100 * c.lost) / c.shows)}% of ${c.shows} reps in that situation in his games lately.` : "";
+  return `<button class="dv-cand ${pick ? "on" : ""}" data-act="tr-dvpick" data-code="${c.code}"><span><b>${esc(c.name)}</b>${on ? ` <span class="tag soft">Focus ${on}</span>` : ""}<small class="muted">${esc(c.what)}${rate}${c.sure ? ` ${esc(trCap(c.sure))}.` : ""}</small></span>${held ? `<span class="dv-gain gold dv-fixed">${c.kind === "flaw" ? "Fixed" : "His"}<small>in games</small></span>` : `<span class="dv-gain ${pick ? "gold" : ""}">+${c.gain}<small>${c.kind === "flaw" ? "if fixed" : "if learned"}</small></span>`}</button>`;
+}
+async function dvFocus(d) {
+  const cr = d.craft;
+  const codes = cr.points.map((x) => x.code);
+  const pk = keep("devpick:" + d.id, { code: codes[0] != null ? codes[0] : cr.seen.length ? cr.seen[0].code : cr.tools.length ? cr.tools[0].code : null });
+  const onOf = (code) => (cr.by === "you" ? codes.indexOf(code) + 1 : 0);
+  const coach = cr.teacher.name ? trLast(cr.teacher.name) : "His coach";
+  const flaws = cr.seen.filter((x) => x.kind === "flaw");
+  const list = `<div class="panel dv-list"><span class="st-label">Flaws his coaches have seen</span>${flaws.length ? flaws.map((c) => dvCand(c, onOf(c.code), pk.code === c.code)).join("") : '<div class="empty">Nothing named yet. His coaches name a flaw once the tape or practice shows it.</div>'}
+    ${cr.unexplained ? `<div class="dv-unx"><span class="muted">${trPlural(cr.unexplained, "loss", "losses")} on tape lately the staff can't explain yet.</span></div>` : ""}
+    <span class="st-label">New skills he could learn</span>${cr.seen.filter((x) => x.kind === "tool").concat(cr.tools).map((c) => dvCand(c, onOf(c.code), pk.code === c.code)).join("") || '<div class="empty">He already uses every new skill his position has.</div>'}
+    <span class="st-label">Or a rating, all round</span><select class="tr-sel" data-act="tr-dvrating"><option value="">Pick a rating</option>${cr.ratings.map((o) => `<option value="${o.code}" ${pk.code === o.code ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select>
+    <div class="dv-foot"><span class="st-label">Gains are ${esc(coach)}'s guesses</span><span class="muted">Rating points in that situation, the middle of his range. How well he spots flaws: ${esc(cr.eye)}.</span></div></div>`;
+  let proj = '<div class="panel warm"><div class="empty">Pick a flaw, a skill or a rating to see what working on it gets him.</div></div>';
+  if (pk.code != null) {
+    let x = null;
+    try { x = await api("player_dev_project", { id: d.id, code: pk.code }); } catch (e) { x = null; }
+    if (x) proj = dvProjection(d, x, onOf(x.code), coach);
+  }
+  return `<div class="dv-focus">${list}${proj}</div>`;
+}
+function dvProjection(d, x, on, coach) {
+  const dis = d.may_plan ? "" : 'disabled title="The head coach plans him"';
+  const sit = x.situation ? `<div class="dv-card"><span class="st-label">${esc(x.rating)} in that situation</span><div class="dv-rrow"><span class="muted">Now</span>${dvScale(x.situation.now)}</div><div class="dv-rrow"><span class="b">${x.kind === "flaw" ? "Fixed" : "Learned"}</span>${dvScale(x.situation.fixed, "gold")}</div><span class="muted">${esc(x.situation.tell)}</span></div>` : "";
+  const ye = x.year_end ? `<div class="dv-card"><span class="st-label">${esc(x.rating)} by the year's end</span><div class="dv-rrow"><span class="muted">Without</span>${dvScale(x.year_end.without)}</div><div class="dv-rrow"><span class="b">With it</span>${dvScale(x.year_end.with, "gold")}</div><span class="muted">${x.year_end.gap > 0 ? `About ${x.year_end.gap} more with it, at ${x.minutes} min a week.` : "Little difference this year: he is close to where he can get, or the minutes are thin."}</span></div>` : "";
+  let clock = "";
+  if (x.kind !== "rating") {
+    const h = x.hold;
+    const when = h ? (h.weeks === 0 ? "It already holds in games." : `${esc(trCap(h.from.split(" ").slice(2).join(" ")))} to ${esc(h.to.split(" ").slice(2).join(" "))}`) : "Not inside three years at this pace.";
+    const pay = h && h.payoff != null ? `<b class="gold">${h.payoff === 0 ? "No season" : trPlural(h.payoff, "season")}</b> <span class="muted">of payoff before his time with you runs out</span>` : x.seasons_left == null ? '<span class="muted">A pro: the payoff runs as long as he plays.</span>' : "";
+    const late = h && h.payoff === 0 ? `<span class="dv-warn">It likely won't land in time for his games here.</span>` : "";
+    clock = `<div class="dv-card"><div class="dv-ch"><span class="st-label">When it holds in games</span><span>${pay}</span></div><span class="dv-when">${when}</span>${late}<span class="muted">${x.minutes} min a week with ${esc(coach)}.${x.sooner ? ` 15 more a week lands it about ${trPlural(x.sooner, "week")} sooner.` : ""}${x.mine === false ? "" : ""}</span></div>`;
+  }
+  const last = x.last_season ? `<div class="dv-card"><span class="st-label">${esc(x.rating)} · by ${x.last_season.years > 1 ? `${x.last_season.years} seasons from now` : "next year"}</span><div class="dv-rrow"><span class="muted">Now</span>${dvScale(x.now)}</div><div class="dv-rrow"><span class="b">With it</span>${dvScale(x.last_season.with, "hatch")}</div><span class="muted">${esc(coach)}'s guess, not a promise.</span></div>` : "";
+  const sure = `<div class="dv-card"><span class="st-label">How sure</span><b class="dv-sure">${esc(trCap(x.sure || "only a guess"))}</b><span class="muted">${x.kind === "rating" ? "" : "about the fix · "}only a guess on the whole skill</span><div class="kv"><dt>Spots flaws</dt><dd>${esc(trCap(x.eye))}</dd><dt>On board</dt><dd>${esc(trCap(x.buy_in))}</dd></div></div>`;
+  const acts = on
+    ? `<button class="st-btn glass" data-act="tr-dvoff" data-id="${d.id}" data-code="${x.code}" ${dis}>Take it off his focus</button>`
+    : `${d.craft.set < 2 ? "" : '<span class="muted">Two points are set: this one replaces focus 2.</span>'}<button class="st-btn glass" data-act="tr-dvset" data-id="${d.id}" data-code="${x.code}" data-n="2" ${dis}>Make it focus 2</button><button class="st-btn primary" data-act="tr-dvset" data-id="${d.id}" data-code="${x.code}" data-n="1" ${dis}>Make it focus 1</button>`;
+  return `<div class="panel dv-proj"><div class="dv-ch"><span class="st-label gold">${esc(x.name)} · what ${x.kind === "flaw" ? "fixing" : "working on"} it gets you</span><span class="muted">${esc(coach)}'s projection</span></div>
+    <div class="dv-two">${sit || ye}${sit ? ye : sure}</div>${clock}<div class="dv-two">${last}${sit ? sure : ""}</div>
+    <div class="dv-acts"><span class="muted">On board: <b>${esc(x.buy_in)}</b>.</span>${acts}</div></div>`;
+}
+function dvPlan(d) {
+  const pl = d.plan;
+  const dis = d.may_plan ? "" : 'disabled title="The head coach plans him"';
+  const t = d.teacher;
+  const cr = d.craft;
+  const teacher = t.name ? `${t.you ? "You" : coachLink(t.id, t.name)}, ${esc(t.title)}${t.you ? "" : ` · ${esc(t.words)}`}` : "Nobody on the staff";
+  const habit = d.habit ? `<div class="attr"><span>${esc(d.habit.label)} <small class="muted">now</small></span>${range(d.habit.read)}</div><div class="sub">Coaching it toward ${d.habit.target_read} of 99: a habit moves slowly, faster with a good teacher and a coachable player.</div>` : "";
+  const ex = pl.extra;
+  const plan = `<div class="gd-form">
       <label>A habit to coach<small>how often he tries something, not how well</small></label>
       <div class="tr-row"><select class="tr-sel" data-act="tr-dev" data-id="${d.id}" data-f="habit" ${dis}><option value="">None</option>${d.habits.map((h) => `<option value="${h.k}" ${pl.habit && pl.habit.k === h.k ? "selected" : ""}>${esc(h.label)}</option>`).join("")}</select>
       ${pl.habit ? `<select class="tr-sel" data-act="tr-dev" data-id="${d.id}" data-f="habit_target" ${dis}>${[[4, "Much less often"], [7, "Less often"], [13, "More often"], [16, "Much more often"]].map(([v, l]) => `<option value="${v}" ${pl.habit.target === v ? "selected" : ""}>${l}</option>`).join("")}</select>` : ""}</div>
@@ -818,15 +923,20 @@ PLAYER_TABS.push({
       <label>Rest<small>days a week he sits out practice</small></label>
       <select class="tr-sel" data-act="tr-dev" data-id="${d.id}" data-f="rest" ${dis}>${[[0, "Practises every day"], [1, "One rest day"], [2, "Two rest days"], [3, "Three rest days"]].map(([v, l]) => `<option value="${v}" ${pl.rest === v ? "selected" : ""}>${l}</option>`).join("")}</select>
     </div>`;
-    const notes = d.notes.length ? `<div class="items">${d.notes.map((n) => `<div class="item"><span class="when">${esc(n.date)}</span><span><b>${esc(n.dept)}</b> ${rich(n.text)}</span></div>`).join("")}</div>` : '<div class="empty">No staff notes on him yet.</div>';
-    const log = d.practice_log.length ? `<div class="items">${d.practice_log.map((l) => `<div class="item"><span class="when">${esc(l.monday)}</span><span>${l.grade != null ? `Practice grade <b>${l.grade}</b>. ` : ""}${l.battles.map(rich).join(" · ")}</span></div>`).join("")}</div>` : '<div class="empty">No practice reps logged yet.</div>';
-    return `<div class="st-tiles tr-tiles"><div><b>${trGrowth(d.growth)}</b><small>your position coach's read this week</small></div><div><b class="tr-w">${esc(d.year)}</b><small>the year's development</small></div><div><b class="tr-w">${esc(trCap(d.grade.words))}</b><small>practice${d.grade.value ? ` · grade ${d.grade.value}` : ""}</small></div><div><b class="tr-w">${esc(trCap(d.load.level))}</b><small>load · ${esc(d.load.trend)}</small></div><div><b class="tr-w">${esc(d.role)}</b><small>in practice</small></div></div>
-      <div class="grid2"><div class="panel warm"><h2>His plan <small>${d.may_plan ? "yours to set" : "the head coach's"}</small></h2>${plan}</div>
-      <div class="sc-col"><div class="panel warm"><h2>Who teaches him</h2><p class="bigline tr-teach">${teacher}</p><div class="kv"><dt>Practice</dt><dd>${trDot(d.practice.status)}${esc(trCap(d.practice.status))}${d.practice.why ? ` · ${esc(d.practice.why)}` : ""}</dd><dt>Mood</dt><dd>${esc(d.mood)}</dd>${d.sport ? `<dt>Other sport</dt><dd>${esc(trCap(d.sport.name))}${d.sport.now ? " · in season now" : ""}</dd>` : ""}</div></div>
-      <div class="panel warm"><h2>What matters at ${esc(d.pos)} <small>your position coach's read, as ranges</small></h2>${key}${habit}<p class="sub">Your staff reads where he is, not where he could end up: nobody sees a ceiling.</p></div></div></div>
-      <div class="grid2"><div class="panel warm"><h2>Staff notes</h2>${notes}</div><div class="panel warm"><h2>Practice <small>grades and one-on-ones</small></h2>${log}</div></div>`;
-  },
-});
+  return `<div class="grid2"><div class="panel warm"><h2>The rest of his plan <small>${d.may_plan ? "yours to set" : "the head coach's"}</small></h2>${plan}</div>
+      <div class="sc-col"><div class="panel warm"><h2>Who teaches him</h2><p class="bigline tr-teach">${teacher}</p><div class="kv"><dt>Individual time</dt><dd>${cr.minutes.field} min a week on the field · ${cr.minutes.film} in the film room</dd><dt>Practice</dt><dd>${trDot(d.practice.status)}${esc(trCap(d.practice.status))}${d.practice.why ? ` · ${esc(d.practice.why)}` : ""}</dd><dt>Mood</dt><dd>${esc(d.mood)}</dd>${d.sport ? `<dt>Other sport</dt><dd>${esc(trCap(d.sport.name))}${d.sport.now ? " · in season now" : ""}</dd>` : ""}</div><p class="sub">His focus points share his individual time. The room's periods are set in the week.</p><div class="st-actions"><button class="st-btn small glass" data-go="training">The practice week</button></div></div>
+      ${habit ? `<div class="panel warm"><h2>The habit</h2>${habit}</div>` : ""}</div></div>`;
+}
+function dvReports(d, p) {
+  const key = d.key.map((k) => `<div class="attr ${k.focus ? "tr-focus" : ""}"><span>${esc(k.label)} <small class="muted">${esc(k.family)}</small>${k.focus ? ' <span class="tag soft">Focus</span>' : ""}</span>${range(k.read, "your position coach", { p: p.id, k: k.key })}</div>`).join("");
+  const notes = d.notes.length ? `<div class="items">${d.notes.map((n) => `<div class="item"><span class="when">${esc(n.date)}</span><span><b>${esc(n.dept)}</b> ${rich(n.text)}</span></div>`).join("")}</div>` : '<div class="empty">No staff notes on him yet.</div>';
+  const log = d.practice_log.length ? `<div class="items">${d.practice_log.map((l) => `<div class="item"><span class="when">${esc(l.monday)}</span><span>${l.grade != null ? `Practice grade <b>${l.grade}</b>. ` : ""}${l.battles.map(rich).join(" · ")}</span></div>`).join("")}</div>` : '<div class="empty">No practice reps logged yet.</div>';
+  return `<div class="dv-rep"><div class="panel warm"><h2>What matters at ${esc(d.pos)} <small>your position coach's read, as ranges</small></h2>${key}<p class="sub">Your staff reads where he is, not where he could end up: nobody sees a ceiling.</p></div><div class="panel warm"><h2>Staff notes</h2>${notes}</div><div class="panel warm"><h2>Practice <small>grades and one-on-ones</small></h2>${log}</div></div>`;
+}
+async function dvSetPoints(el, codes) {
+  const r = await trDo("practice_points", { id: Number(el.dataset.id), points: codes }, (x) => (x.refused ? `He doesn't believe he has it: "${x.refused.toLowerCase()}" is off his focus.` : "Focus saved."));
+  if (r) refresh(el);
+}
 
 // ======================================================================
 // Plans: the game plan, the call sheet, the playbook, installs
@@ -1339,6 +1449,27 @@ document.addEventListener("click", async (ev) => {
     case "tr-inst": await trDo("plans_install", { design: Number(d.k), on: el.checked }, el.checked ? "It goes in this week." : "Taken out of the install."); break;
     case "tr-dnew": TR.des = { k: null, d: newDesign(), role: null }; trRedraw(); break;
     case "tr-dopen": TR.des = null; go("designer", { k: Number(d.k) }, false); break;
+    case "tr-dvsub": keep("devsub", { t: d.t }).t = d.t; refresh(el); break;
+    case "tr-dvpick": {
+      const id = Number(el.closest(".dv").dataset.pid);
+      keep("devpick:" + id, {}).code = Number(d.code);
+      refresh(el);
+      break;
+    }
+    case "tr-dvset": {
+      const dv = await api("player_dev", { id: Number(d.id) });
+      const mine = dv.craft.by === "you" ? dv.craft.points.map((x) => x.code) : [];
+      const code = Number(d.code);
+      const rest = mine.filter((c) => c !== code);
+      const codes = d.n === "1" ? [code, ...rest].slice(0, 2) : [rest[0], code].filter((c) => c != null).slice(0, 2);
+      await dvSetPoints(el, codes);
+      break;
+    }
+    case "tr-dvoff": {
+      const dv = await api("player_dev", { id: Number(d.id) });
+      await dvSetPoints(el, dv.craft.points.map((x) => x.code).filter((c) => c !== Number(d.code)));
+      break;
+    }
     case "tr-drole": TR.des.role = TR.des.role === d.role ? null : d.role; trRedraw(); break;
     case "tr-dpa": TR.des.d.play_action = el.checked; trRedraw(); break;
     case "tr-dsave": {
@@ -1435,6 +1566,11 @@ document.addEventListener("change", async (ev) => {
       trRedraw();
     } break;
     case "tr-focus": await trDo("practice_plan", { id: Number(d.id), focus: el.value }, "Plan saved."); break;
+    case "tr-dvrating": if (el.value !== "") {
+      const box = el.closest(".dv");
+      keep("devpick:" + Number(box.dataset.pid), {}).code = Number(el.value);
+      refresh(el);
+    } break;
     case "tr-dev": {
       const id = Number(d.id);
       const dv = await api("player_dev", { id });

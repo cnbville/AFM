@@ -100,3 +100,67 @@ fn the_tape_book_keeps_your_players_reps() {
     assert_eq!((rows[0].shows, rows[0].lost, rows[0].practice), (2, 2, false));
     assert_eq!(w.seat_book.len(), 1, "only your players");
 }
+
+#[test]
+fn a_week_without_individual_time_moves_nothing() {
+    let (mut w, i) = tackle();
+    let id = w.people[i].player.id;
+    w.set_points(id, &[Point::Craft(Craft::Oversets)]);
+    let roster = vec![i];
+    let before = *w.people[i].player.craft.get(Craft::Oversets).unwrap();
+    // His own time, or winter's weight room: no minutes, no work.
+    let none: HashMap<usize, (f64, f64)> = [(i, (0.0, 0.0))].into_iter().collect();
+    for _ in 0..8 {
+        crate::world::craft_work::week(&mut w, &roster, &none);
+    }
+    assert_eq!(*w.people[i].player.craft.get(Craft::Oversets).unwrap(), before, "nothing moved, no weeks counted");
+    // A week with individual time on the field moves it; the minutes kept
+    // for the screens are that week's, not a dead week's.
+    let field: HashMap<usize, (f64, f64)> = [(i, (30.0, 0.0))].into_iter().collect();
+    crate::world::craft_work::week(&mut w, &roster, &field);
+    let after = *w.people[i].player.craft.get(Craft::Oversets).unwrap();
+    assert!(after.prac() < before.prac() && after.weeks() == 1);
+    crate::world::craft_work::week(&mut w, &roster, &none);
+    assert_eq!(w.minutes_of(id).0, 30.0);
+}
+
+/// Your plan counts only the weeks your staff has individual time (Cain
+/// 2026-11-15): a college year has about 30 on the field (camp, the
+/// season, bowl practice, spring), the film room a few more (the NCAA's
+/// two hours out of season); the summer program and the quiet weeks have
+/// none. The typical fix the coordinator measured, 15 weeks with one point
+/// and 28 with two, now takes that many of these weeks.
+#[test]
+fn your_plan_counts_only_the_weeks_with_individual_time() {
+    for level in ["college", "nfl", "hs"] {
+        let w = super::legacy::seat(level);
+        let on = crate::training::seat::work_weeks(&w, 156);
+        assert_eq!(on.len(), 156);
+        let years: Vec<(usize, usize)> =
+            on.chunks(52).map(|y| (y.iter().filter(|x| x.0).count(), y.iter().filter(|x| x.1).count())).collect();
+        // Calendar weeks to the n-th working week, over every start week.
+        let span = |n: usize| -> f64 {
+            let mut tot = 0.0;
+            for s in 0..52 {
+                let k = on[s..].iter().enumerate().filter(|x| x.1.0).nth(n - 1).map_or(104, |x| x.0 + 1);
+                tot += k as f64;
+            }
+            tot / 52.0
+        };
+        let (worst15, worst28) = (0..52)
+            .map(|s| {
+                let at = |n: usize| on[s..].iter().enumerate().filter(|x| x.1.0).nth(n - 1).map_or(104, |x| x.0 + 1);
+                (at(15), at(28))
+            })
+            .fold((0, 0), |a, b| (a.0.max(b.0), a.1.max(b.1)));
+        println!(
+            "{level}: working weeks a year (field, film) {years:?}; 15 working weeks take {:.1} calendar weeks on average (most {worst15}), 28 take {:.1} (most {worst28})",
+            span(15),
+            span(28)
+        );
+        for &(field, film) in &years {
+            assert!((18..=42).contains(&field), "{level}: {field} weeks on the field");
+            assert!(film >= field, "{level}: the film room has every field week");
+        }
+    }
+}

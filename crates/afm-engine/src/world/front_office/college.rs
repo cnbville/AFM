@@ -3492,21 +3492,11 @@ fn board_bar(w: &mut World, j: usize) {
 /// flips), and signs at the first signing day open to him. Some words for
 /// you.
 pub(crate) fn board_check(w: &mut World, j: usize, id: u32) -> Option<String> {
+    if !commit_ready(w, j, id) {
+        return None;
+    }
     let i = super::index_of(w, id)?;
     let p = &w.people[i];
-    if p.stage != Stage::HighSchool
-        || p.cal.signed.is_some()
-        || p.class_of != rec::next_class(w)
-        || p.cal.commit.is_some_and(|c| c.0 == j)
-        || !offered_here(w, id)
-    {
-        return None;
-    }
-    let race = race_at(w, i);
-    let lead = super::portal::lead(&race, j, HS_ALONE)?;
-    if lead < hs_bar(w, i) {
-        return None;
-    }
     let from = p.cal.commit.map(|c| w.program_name(c.0).to_string());
     let today = w.today;
     rec::commit_now(w, i, j, today, false);
@@ -3527,6 +3517,25 @@ pub(crate) fn board_check(w: &mut World, j: usize, id: u32) -> Option<String> {
     note(w, text.clone(), Some(id));
     tell(w, today, text.clone(), false);
     Some(text)
+}
+
+/// Whether a recruit would commit to you today (`board_check`'s rule
+/// without doing it): of the class signing next, holding your offer, not
+/// yours already, and leading his race for you by his bar. Live talks v3
+/// (lane N5a): asking him to commit runs `board_check`.
+pub(crate) fn commit_ready(w: &World, j: usize, id: u32) -> bool {
+    let Some(i) = super::index_of(w, id) else { return false };
+    let p = &w.people[i];
+    if p.stage != Stage::HighSchool
+        || p.cal.signed.is_some()
+        || p.class_of != rec::next_class(w)
+        || p.cal.commit.is_some_and(|c| c.0 == j)
+        || !offered_here(w, id)
+    {
+        return false;
+    }
+    let race = race_at(w, i);
+    super::portal::lead(&race, j, HS_ALONE).is_some_and(|lead| lead >= hs_bar(w, i))
 }
 
 /// What program `j` means to a recruit today, in `race`'s units (your own

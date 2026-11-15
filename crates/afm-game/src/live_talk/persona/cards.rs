@@ -73,7 +73,7 @@ pub fn channel_words(c: Channel) -> String {
     }
 }
 
-fn setting(w: &World, s: &Scene, room: &Room) -> String {
+pub(crate) fn setting(w: &World, s: &Scene, room: &Room) -> String {
     let mut out = format!("{}, {}", s.kind.name(), channel_words(room.channel));
     out.push_str(&format!(", {}", crate::views::date_text(s.date)));
     if let Some(t) = Team::seat(w) {
@@ -82,7 +82,7 @@ fn setting(w: &World, s: &Scene, room: &Room) -> String {
     out
 }
 
-fn coach(w: &World) -> String {
+pub(crate) fn coach(w: &World) -> String {
     let name = folk::scene::your_name(w);
     match Team::seat(w) {
         Some(t) => format!("{name}, head coach at {}", t.name(w)),
@@ -91,7 +91,7 @@ fn coach(w: &World) -> String {
 }
 
 /// The talk so far, from the scene: typed words where you typed them.
-fn so_far(s: &Scene) -> Vec<Spoken> {
+pub(crate) fn so_far(s: &Scene) -> Vec<Spoken> {
     let from = s.lines.len().saturating_sub(card::SO_FAR);
     s.lines[from..]
         .iter()
@@ -171,8 +171,16 @@ pub fn ear(w: &World, s: &Scene, room: &Room, parts: &Parts, line: &str) -> (Ear
             }
         }
     }
+    // A college staff's call: the player he called about can be named.
+    if talk::hs_call::is_call(s.kind) {
+        add(&mut c, &mut keys, Them::Player(s.a as u32), "your player, the one he called about");
+    }
     let wants = parts.wanting.wants(w, him);
-    for (k, (item, words)) in items::items(w, him, &wants).into_iter().chain(extra_items).enumerate() {
+    // A recruit's card and a caller's are their facet's (lane N5a).
+    let list = talk::recruit::items(w, s, &wants)
+        .or_else(|| talk::hs_call::items(w, s, &wants))
+        .unwrap_or_else(|| items::items(w, him, &wants));
+    for (k, (item, words)) in list.into_iter().chain(extra_items).enumerate() {
         let tag = format!("c{}", k + 1);
         c.items.push(Tagged { tag: tag.clone(), text: words });
         keys.items.push((tag, item));

@@ -1542,3 +1542,35 @@ pub fn work_week(p: &mut Player, c: Craft, t: &Teach) -> Option<(Stage, Stage)> 
     let after = stage(c, it);
     Some((before, after))
 }
+
+/// How many weeks of this work until it holds in games (topic 9c.4), on a
+/// copy of him, when every week has individual time: None when it never
+/// would inside `max` weeks or the flaw isn't his (a wrong name). Zero when
+/// it already holds.
+pub fn weeks_to_hold(p: &Player, c: Craft, t: &Teach, max: u32) -> Option<u32> {
+    weeks_to_hold_on(p, c, t, &vec![true; max as usize])
+}
+
+/// The same on the calendar: `on` says, week by week from the coming one,
+/// whether the staff's week has individual time for this point (a week
+/// without it moves nothing, `training::seat::work_weeks`). The count is
+/// calendar weeks, off weeks included; None when it never holds inside
+/// `on`'s weeks.
+pub fn weeks_to_hold_on(p: &Player, c: Craft, t: &Teach, on: &[bool]) -> Option<u32> {
+    if let Some(it) = p.craft.get(c)
+        && stage(c, it) == Stage::Games
+    {
+        return Some(0);
+    }
+    let mut q = p.clone();
+    for (k, &works) in on.iter().enumerate() {
+        if !works {
+            continue;
+        }
+        match work_week(&mut q, c, t)? {
+            (_, Stage::Games) => return Some(k as u32 + 1),
+            _ => continue,
+        }
+    }
+    None
+}

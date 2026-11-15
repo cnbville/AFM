@@ -318,6 +318,29 @@ pub(crate) fn check(w: &mut World, id: u32) -> Option<String> {
     Some(text)
 }
 
+/// Whether your offer is out to a transfer (lane N5a).
+pub(crate) fn offered_to(w: &World, id: u32) -> bool {
+    target(w, id).is_some_and(|t| t.offered.is_some())
+}
+
+/// Whether a transfer told you yes (lane N5a).
+pub(crate) fn committed_to(w: &World, id: u32) -> bool {
+    target(w, id).is_some_and(|t| t.committed.is_some())
+}
+
+/// Whether a transfer would tell you yes today (`check`'s rule without
+/// doing it): your offer out, not settled, still shopping, and your lead
+/// over his bar. Live talks v3 (lane N5a): asking him to commit runs
+/// `check`.
+pub(crate) fn ready(w: &World, id: u32) -> bool {
+    let (Some(j), Some(i), Some(t)) = (program(w), index_of(w, id), target(w, id)) else { return false };
+    if t.offered.is_none() || t.committed.is_some() || !shopping(w, i) {
+        return false;
+    }
+    let race: Vec<(usize, f64)> = rec::portal_reasons(w, i).iter().map(|r| (r.program, r.total)).collect();
+    lead(&race, j, ALONE).is_some_and(|l| l >= bar(w, i))
+}
+
 /// Each morning at the desk: the day's visits, then anyone your offer now
 /// satisfies (others' moves and his clock change the race too).
 pub(crate) fn day(w: &mut World, j: usize, d: Date) {

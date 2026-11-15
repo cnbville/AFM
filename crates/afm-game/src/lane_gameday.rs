@@ -1222,6 +1222,7 @@ fn live_state(w: &mut World) -> Reply {
         "after": after,
         "halftime": halftime,
         "words": words,
+        "official": crate::live_talk::persona::gameday::official_json(w, &step),
         "talks": talks,
         "frames": r.frames.iter().map(|f| f.0).collect::<Vec<_>>(),
         "signs": signs,
@@ -1446,6 +1447,8 @@ fn answer(w: &mut World, a: &Value) -> Reply {
             talk::halftime_input(a)
         }
         "word" => talk::word_input(a)?,
+        "said" => talk::said_input(a)?,
+        "bench_flag" => Input::BenchFlag,
         _ => Input::Staff,
     };
     // Settings may come with the answer (the stop mode changed on the
