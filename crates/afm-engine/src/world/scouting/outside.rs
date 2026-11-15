@@ -222,6 +222,9 @@ pub fn sign(w: &mut World, key: u64) -> Result<String, String> {
         Staff::Club(t) => crate::world::pro::leagues::outside_signing(w, t, pos, a.truth, a.age, seed),
         Staff::Program(j) => crate::world::pro::leagues::outside_freshman(w, j, pos, a.truth, a.age, seed),
         Staff::School(_) => return Err("At a high school, talk to the athletes in your building.".into()),
+        Staff::League(_) => {
+            return Err("Your club finds its players through the draft and its negotiation list.".into());
+        }
     };
     w.rename(i, name.clone());
     let p = &mut w.people[i];

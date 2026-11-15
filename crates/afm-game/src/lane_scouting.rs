@@ -458,7 +458,7 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
         // The best and worst of him, from the attributes that matter at his position.
         let mut strong: Vec<(f64, Attr)> = Attr::ALL
             .iter()
-            .filter(|a| f.attrs[a.index()].seen && file::matters(pos, **a) > 0.4)
+            .filter(|a| f.attrs[a.index()].seen && file::matters_here(pos, **a))
             .map(|&a| (f.attrs[a.index()].centre, a))
             .collect();
         strong.sort_by(|a, b| b.0.total_cmp(&a.0));
@@ -527,7 +527,7 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
                         },
                         "chips": r.map_or(Vec::new(), |r| chips(r.chips)),
                         "readers": r.map_or(0, |r| r.readers),
-                        "matters": file::matters(pos, a) > 0.4,
+                        "matters": file::matters_here(pos, a),
                         "per": per,
                     })
                 })
@@ -921,6 +921,41 @@ fn staff_people(w: &World, staff: readers::Staff) -> Vec<(u32, String, String, V
                 }
             }
         }
+        readers::Staff::League(fr) => {
+            if let Some(tm) = w.others.teams.get(fr) {
+                for (k, s) in tm.scouts.iter().enumerate() {
+                    let r = afm_engine::world::scouting::readers::reader(w, staff, k as u32, 0);
+                    let job = r.map_or_else(|| "Scout".to_string(), |r| r.job);
+                    let area = if s.role == afm_engine::world::pro::scouts::Role::Director {
+                        "Top of the board".to_string()
+                    } else {
+                        afm_engine::world::pro::cfl::covers(s.region)
+                            .into_iter()
+                            .map(|r| afm_engine::world::pro::cfl::REGIONS[r as usize])
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    };
+                    v.push((
+                        k as u32,
+                        s.name.clone(),
+                        job,
+                        json!({ "area": area, "since": s.since, "age": w.year - s.born }),
+                    ));
+                }
+                for (c, job) in
+                    [(tm.head_coach, "Head coach"), (tm.oc, "Offensive coordinator"), (tm.dc, "Defensive coordinator")]
+                {
+                    if let Some(c) = c {
+                        v.push((
+                            readers::COACH + c as u32,
+                            w.coaches[c].name.clone(),
+                            job.into(),
+                            json!({ "coach": c }),
+                        ));
+                    }
+                }
+            }
+        }
         readers::Staff::Program(prog) => {
             let pg = &w.programs[prog];
             let mut coaches: Vec<(usize, String)> = Vec::new();
@@ -994,6 +1029,15 @@ pub fn department(w: &World) -> Value {
     }
     if let readers::Staff::Club(t) = staff
         && let Some(c) = w.clubs.get(t)
+    {
+        for v in c.files.values() {
+            for l in v.iter().filter(|l| l.date >= start) {
+                *by_who.entry(l.who as u32).or_default() += 1;
+            }
+        }
+    }
+    if let readers::Staff::League(fr) = staff
+        && let Some(c) = w.others.teams.get(fr)
     {
         for v in c.files.values() {
             for l in v.iter().filter(|l| l.date >= start) {
@@ -1090,6 +1134,9 @@ fn target_words(w: &World, t: dept::Target) -> String {
         }
         dept::Target::Region(r) => match w.seat.map(|s| s.level) {
             Some(CalLevel::Nfl) => REGION_NAMES.get(r as usize).map_or("A region".into(), |s| format!("The {s}")),
+            Some(CalLevel::Other) => {
+                afm_engine::world::pro::cfl::REGIONS.get(r as usize).map_or("A region".into(), |s| s.to_string())
+            }
             _ => w.states.get(r as usize).map_or("A state".into(), |s| s.code.to_string()),
         },
         dept::Target::Group(g) => {
@@ -1124,6 +1171,11 @@ fn assign_targets(w: &World, staff: readers::Staff) -> Vec<Value> {
         readers::Staff::Club(_) => {
             for (r, n) in REGION_NAMES.iter().enumerate() {
                 v.push(json!({ "key": format!("region{r}"), "words": format!("The {n}") }));
+            }
+        }
+        readers::Staff::League(_) => {
+            for (r, n) in afm_engine::world::pro::cfl::REGIONS.iter().enumerate() {
+                v.push(json!({ "key": format!("region{r}"), "words": n }));
             }
         }
         _ => {

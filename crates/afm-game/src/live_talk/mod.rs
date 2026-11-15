@@ -126,7 +126,7 @@ Moves already used this talk: ask.
 fn test(g: &mut Game) -> Reply {
     let fake = g.ai.is_fake();
     let req =
-        Request::new("test", say::READER_RULES, TEST_CARD).schema(say::reader_schema()).max_tokens(say::READER_TOKENS);
+        Request::new("test", &say::READER_RULES, TEST_CARD).schema(say::reader_schema()).max_tokens(say::READER_TOKENS);
     let next: Next = Box::new(move |g, r| match r {
         Ok(reply) => Step::Done(json!({
             "state": "done",

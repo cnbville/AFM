@@ -52,6 +52,7 @@ pub mod talk_points;
 pub mod talks;
 pub mod ties;
 pub mod tips;
+pub mod usage;
 pub mod voice;
 
 use super::World;
@@ -489,6 +490,10 @@ pub struct Folk {
     /// GM's trust in your word. Empty until a live lane writes it.
     #[serde(skip_serializing_if = "claims::Live::is_empty")]
     pub live: claims::Live,
+    /// Your promises on how you'd use a recruit (`pledge::make_usage`): his
+    /// id, the school and the term, until he signs or goes elsewhere.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub usage_pledges: Vec<(u32, usize, usage::Usage)>,
 }
 
 /// Fills what a world built before this build lacks (an old world or save

@@ -18,10 +18,12 @@
 //! `say/mod.rs` already do.
 
 use afm_ai::Failure;
+use afm_engine::positions::Position;
 use afm_engine::world::folk::persona::Them;
 use afm_engine::world::folk::persona::ear::{ActKind, How, Item, Reading};
 use afm_engine::world::folk::persona::knows::Topic;
-use afm_engine::world::folk::persona::terms::DealKind;
+use afm_engine::world::folk::persona::terms::{DealKind, Give};
+use afm_engine::world::folk::usage::{self, Usage};
 
 use super::card::{Spoken, Tagged};
 
@@ -48,7 +50,7 @@ pub struct EarCard {
     pub items: Vec<Tagged>,
     /// The measures a term can be judged on (`usage::MEASURES`), tagged
     /// m1, m2... (cached with the rules). The ear's term shape is
-    /// `usage::Usage`'s and joins once that file is on main.
+    /// `EarTerm`, the usage reader's labels (`say::usage_schema`).
     pub measures: Vec<Tagged>,
     /// His ask or counter on the table, in words.
     pub on_table: Vec<String>,
@@ -93,6 +95,124 @@ pub struct EarAct {
     /// The words of the act, short.
     #[serde(default)]
     pub words: String,
+    /// An offer's or a promise's things, and how you'll use him (lane N3).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub gives: Vec<EarGive>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub terms: Vec<EarTerm>,
+}
+
+/// A usage term as the ear reads it: the usage reader's labels
+/// (`say::usage_schema`), the measure by its tag (m1...) or its key.
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct EarTerm {
+    pub measure: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub number: Option<f32>,
+    /// "game", "share" or "none".
+    pub per: String,
+    pub most: bool,
+    pub spot: String,
+    pub down: u8,
+    pub inside: u8,
+    pub far: u8,
+    pub package: String,
+    pub look: String,
+}
+
+impl EarTerm {
+    /// The term the game can hold you to for a man at `pos`
+    /// (`usage::read`): None when the measure doesn't fit his spot, isn't
+    /// one the game keeps, or is the other team's call.
+    pub fn usage(&self, pos: Position, keys: &EarKeys) -> Option<Usage> {
+        let key = keys.measures.iter().find(|m| m.0 == self.measure).map_or(self.measure.as_str(), |m| m.1.as_str());
+        if key == "none" || usage::SHOWN.contains(&key) {
+            return None;
+        }
+        let share = match self.per.as_str() {
+            "game" => Some(false),
+            "share" => Some(true),
+            _ => None,
+        };
+        let pkg = crate::live_talk::say::PACKAGES.iter().find(|x| x.0 == self.package).map_or(0, |x| x.1);
+        let look = crate::live_talk::say::LOOKS.iter().find(|x| x.0 == self.look).map_or(0, |x| x.1);
+        let spot = if self.spot.is_empty() { "any" } else { self.spot.as_str() };
+        usage::read(pos, key, self.number, share, self.most, spot, self.down, self.inside, self.far, pkg, look)
+    }
+}
+
+/// The things a deal can hold (`terms::Give`), by their keys in the ear's
+/// schema.
+pub const GIVE_KEYS: [&str; 20] = [
+    "scholarship",
+    "scholarship_for",
+    "money",
+    "years",
+    "guaranteed",
+    "start",
+    "role",
+    "place",
+    "position",
+    "no_redshirt",
+    "jersey",
+    "early_enrol",
+    "time_away",
+    "tutor",
+    "staff_job",
+    "council",
+    "stay",
+    "pick",
+    "favour",
+    "outside",
+];
+
+/// One thing in a deal as the ear reads it: its key, the number you said,
+/// and the person it's for by tag (a brother's scholarship).
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct EarGive {
+    pub give: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub number: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub who: Option<String>,
+}
+
+impl EarGive {
+    /// The game's give, with the person resolved through the keys; None
+    /// for a key the schema doesn't hold, or a number it needs and lacks.
+    pub fn give(&self, keys: &EarKeys) -> Option<Give> {
+        let n = self.number;
+        let small = |x: f64| x.round().clamp(0.0, 99.0) as u8;
+        let who = self.who.as_ref().and_then(|t| keys.people.iter().find(|p| &p.0 == t)).and_then(|p| match p.1 {
+            Them::Player(id) => Some(id),
+            _ => None,
+        });
+        Some(match self.give.as_str() {
+            "scholarship" => Give::Scholarship(None),
+            "scholarship_for" => Give::Scholarship(Some(who?)),
+            "money" => Give::Money(n?.max(0.0)),
+            "years" => Give::Years(small(n?).clamp(1, 7)),
+            "guaranteed" => Give::Guaranteed(n?.max(0.0)),
+            "start" => Give::Role(0),
+            "role" => Give::Role(1),
+            "place" => Give::Role(2),
+            "position" => Give::Position(small(n?)),
+            "no_redshirt" => Give::NoRedshirt,
+            "jersey" => Give::Jersey(small(n?)),
+            "early_enrol" => Give::EarlyEnrol,
+            "time_away" => Give::TimeAway,
+            "tutor" => Give::Tutor,
+            "staff_job" => Give::StaffJob(None),
+            "council" => Give::Council,
+            "stay" => Give::Stay,
+            "pick" => Give::Pick(small(n?).clamp(1, 7)),
+            "favour" => Give::Favour,
+            "outside" => Give::Outside(n.unwrap_or(0.0).max(0.0)),
+            _ => return None,
+        })
+    }
 }
 
 /// One hit as the ear reads it: an item's tag, how, and on whom (a

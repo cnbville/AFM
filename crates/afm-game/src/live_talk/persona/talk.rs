@@ -24,8 +24,8 @@ use afm_ai::{Failure, Request};
 use afm_engine::world::World;
 use afm_engine::world::folk;
 use afm_engine::world::folk::persona::Them;
+use afm_engine::world::folk::persona::deals;
 use afm_engine::world::folk::persona::ear::{Confirm, Resolving, Turn};
-use afm_engine::world::folk::persona::memory::Agreed;
 use afm_engine::world::folk::persona::room::Room;
 use afm_engine::world::folk::persona::talk::{self, Conversation, Parts, Said, channels, store};
 use afm_engine::world::folk::scene::{Kind, Scene};
@@ -70,8 +70,8 @@ impl Waits {
     }
 }
 
-/// The parts a talk is played with today: lane N1's people, and the
-/// stand-in for deals and requests until lane N3 puts its own here.
+/// The parts a talk is played with: lane N1's people and lane N3's deals
+/// and requests.
 pub fn parts() -> Parts<'static> {
     Parts::today()
 }
@@ -123,7 +123,11 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
         if s.done || s.lines.len() != at {
             return Step::Done(tickets::off(crate::live_talk::say::MOVED_ON));
         }
-        let tags = ear::Tags { today: w.today };
+        let pos = match talk::across(&channels::one_on_one(&s)) {
+            Some(Them::Player(pid)) => folk::person(w, pid).map(|i| w.people[i].player.position),
+            _ => None,
+        };
+        let tags = ear::Tags { today: w.today, pos };
         let reading = tags.resolve(&er, &keys);
         let promises = tags.promises(&er, &keys);
         let room = match store::room(w, id) {
@@ -269,8 +273,8 @@ pub fn confirm(g: &mut Game, args: &Value) -> Reply {
     g.run("people_scene", &json!({ "id": id }))
 }
 
-/// Runs one confirmed item: a request through `Acting::run`, an offer kept
-/// with your exact words (its terms are lane N3's to make real), a decision
+/// Runs one confirmed item: a request through `Acting::run`, an offer
+/// through lane N3's `agree`, a decision
 /// on its own screen until its lane wires it.
 fn run(w: &mut World, him: Them, c: &Confirm) -> Vec<String> {
     match c {
@@ -279,9 +283,12 @@ fn run(w: &mut World, him: Them, c: &Confirm) -> Vec<String> {
             ran.done
         }
         Confirm::Offer(o) => {
-            let today = w.today;
-            w.folk.live.persona.agreed.push(Agreed { with: him, day: today, offer: o.clone() });
-            vec![format!("Agreed: {}.", folk::plain(&o.words))]
+            // Lane N3 makes it real: its promises through P1, his lean,
+            // and the deal kept with your words.
+            let a = deals::agree(w, &talk::DEALS, him, o);
+            let mut out = vec![format!("Agreed: {}.", folk::plain(&o.words))];
+            out.extend(a.done);
+            out
         }
         Confirm::Decision(d) => {
             vec![format!("Make it real on its own screen: {}.", channels::decision_words(*d))]

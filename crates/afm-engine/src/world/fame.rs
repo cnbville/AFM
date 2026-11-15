@@ -154,6 +154,9 @@ pub fn fame(w: &World, i: usize) -> f64 {
         // and money do the fading; fame itself is his last stage's echo).
         // Away on a mission or in the service: known as he was, quietly.
         Stage::Done | Stage::Away => (0.12, 1.0, 0.0),
+        // A U Sports player or a global prospect (SK77): known at home,
+        // well below an FBS name.
+        Stage::CflPool => (0.08, 1.0, 0.0),
     };
     let play = 0.3 + 0.7 * perf.powf(1.5);
     clamp(stage * play * role.powf(0.6) * pos * market + honors, 0.0, 1.0)
@@ -313,6 +316,7 @@ fn follower_target(p: &Person, fame: f64, year: i32) -> f64 {
         Stage::College | Stage::Declared => (2.5e6, 3_000.0),
         Stage::HighSchool | Stage::PrepSchool => (4e5, 400.0),
         Stage::Done | Stage::Away => (0.0, 0.0),
+        Stage::CflPool => (2e5, 800.0),
     };
     reach(year) * (top * appeal.powf(2.2) + base)
 }

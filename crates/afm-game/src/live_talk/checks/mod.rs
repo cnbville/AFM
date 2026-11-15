@@ -154,7 +154,7 @@ pub fn ai_checks(g: &mut Game) -> Reply {
         let (rules, schema) = if set.name.starts_with("one_on_one") {
             (say::one_on_one::RULES.as_str(), say::one_on_one::schema())
         } else {
-            (say::READER_RULES, say::reader_schema())
+            (say::READER_RULES.as_str(), say::reader_schema())
         };
         for line in &set.lines {
             let req = Request::new(say::READER, rules, &card.reader_text(&line.text))

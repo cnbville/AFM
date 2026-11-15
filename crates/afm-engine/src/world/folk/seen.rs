@@ -67,6 +67,10 @@ pub struct Game {
     pub offense: bool,
     /// A named teammate's snaps, and whether he was out hurt.
     pub mate: Option<(u32, bool)>,
+    /// The game in `World::seat_games` and his team's side in it (0
+    /// home), for a promise read off its plays (`usage`).
+    pub at: usize,
+    pub side: usize,
 }
 
 impl Game {
@@ -96,7 +100,8 @@ pub fn games(w: &World, id: u32, from: Date, to: Date, mate: Option<u32>) -> Vec
     let off = offense(pos);
     let since = w.training.arrived.iter().find(|x| x.0 == id).map(|x| x.1);
     let mut out = Vec::new();
-    for g in w.seat_games.iter().filter(|g| g.date >= from && g.date <= to && g.date <= w.today) {
+    for (at, g) in w.seat_games.iter().enumerate().filter(|(_, g)| g.date >= from && g.date <= to && g.date <= w.today)
+    {
         let Some(side) = super::claims::side_of(g, team) else { continue };
         let line = g.stats.players[side].get(&id).cloned();
         let hurt = hurt_on(w, id, g.date);
@@ -107,7 +112,7 @@ pub fn games(w: &World, id: u32, from: Date, to: Date, mate: Option<u32>) -> Vec
         }
         let most = g.stats.players[side].values().map(|l| snaps(l, off)).max().unwrap_or(0);
         let mate = mate.map(|m| (g.stats.players[side].get(&m).map_or(0, |l| snaps(l, off)), hurt_on(w, m, g.date)));
-        out.push(Game { date: g.date, hurt, line, most, offense: off, mate });
+        out.push(Game { date: g.date, hurt, line, most, offense: off, mate, at, side });
     }
     out.sort_by_key(|g| g.date);
     out

@@ -57,15 +57,14 @@ pub struct Parts<'a> {
 }
 
 impl Parts<'static> {
-    /// The parts as built today: lane N1's people (`People`: what he
-    /// knows, how he tells it, what he wants, heat and patience on his
-    /// makeup), and the stand-in (`today`) for deals and requests until
-    /// lane N3 lands.
+    /// The parts as built: lane N1's people (`People`: what he knows, how
+    /// he tells it, what he wants, heat and patience on his makeup) and
+    /// lane N3's deals and requests (`Deals` on N1's wants, `Asks`).
     pub fn today() -> Parts<'static> {
         static P: super::people::People = super::people::People;
-        static T: today::Today = today::Today;
+        static A: super::asks::Asks = super::asks::Asks;
         static F: feel::Sized = feel::Sized;
-        Parts { knows: &P, tells: &P, wanting: &P, valuing: &T, acting: &T, feel: &F }
+        Parts { knows: &P, tells: &P, wanting: &P, valuing: &DEALS, acting: &A, feel: &F }
     }
 
     /// The old stand-in for every part (today's stores only), for tests.
@@ -75,6 +74,9 @@ impl Parts<'static> {
         Parts { knows: &T, tells: &T, wanting: &T, valuing: &T, acting: &T, feel: &F }
     }
 }
+
+/// Lane N3's deals, weighed on lane N1's wants.
+pub const DEALS: super::deals::Deals<'static> = super::deals::Deals { wants: &super::people::People };
 
 /// One line of a talk, as the game plays it: the talk it is in, your
 /// words, the ear's reading, and what the ear heard of each promise (lane
@@ -246,7 +248,20 @@ impl Resolving for Conversation<'_> {
                         Weighed::Later(d) => {
                             t.say.released.push(format!("He wants until {} to think it over.", d));
                         }
-                        Weighed::Lowball => t.say.released.push("He's insulted by the offer.".into()),
+                        Weighed::Lowball => {
+                            t.say.released.push("He's insulted by the offer.".into());
+                            // What a lowball costs (lane N3's `cost`),
+                            // held inside the caps with the other hits.
+                            let c = super::deals::cost(w, him, &wd, 0);
+                            if c.trust != 0.0 {
+                                t.hits.push(Sized {
+                                    hit: super::ear::Hit { on: him, item: Item::Pride, how: super::ear::How::Stung },
+                                    trust: c.trust,
+                                    mood: 0.0,
+                                    faded: false,
+                                });
+                            }
+                        }
                         Weighed::No => t.say.released.push("He doesn't take it up.".into()),
                     }
                     t.weighed.push((o.clone(), wd));
@@ -262,7 +277,11 @@ impl Resolving for Conversation<'_> {
                     let wl = self.parts.acting.willing(w, him, r);
                     match &wl {
                         Willing::Yes => {
-                            t.confirm.push(Confirm::Request(r.clone()));
+                            // One that costs you waits on your confirm; a
+                            // favour of goodwill runs as he agrees (`apply`).
+                            if super::asks::costs_you(r) {
+                                t.confirm.push(Confirm::Request(r.clone()));
+                            }
                             t.say.released.push("He'll do it.".into());
                         }
                         Willing::If(c) => {
@@ -349,7 +368,13 @@ impl Resolving for Conversation<'_> {
             && let Some(want) = wants.iter().find(|x| !x.met && x.weight >= ASK_WEIGHT && !open.raised(x.kind))
             && line >= 1
         {
-            t.his_asks.push(HisAsk { why: *want, question: ask_topic(want.kind), asks: vec![ask_words(want.kind)] });
+            t.his_asks.push(HisAsk {
+                why: *want,
+                question: ask_topic(want.kind),
+                asks: vec![ask_words(want.kind)],
+                gives: Vec::new(),
+                terms: Vec::new(),
+            });
         }
         // The stand-in for a lie he catches as you say it.
         let caught = t.claims.iter().filter(|(_, x)| *x == Truth::False).count();
@@ -431,6 +456,23 @@ impl Resolving for Conversation<'_> {
         if let Them::Player(pid) = him {
             for p in self.said.promises.iter().chain(standing.iter()) {
                 talks::typed_promise(w, id, pid, p);
+            }
+        }
+        // What an offer leaves behind (lane N3): your first number, an
+        // answer he owes you.
+        for (o, wd) in &t.weighed {
+            super::deals::offered(w, him, o, wd);
+        }
+        // A favour of goodwill he agreed to runs now (`Acting::run`); one
+        // that costs you waits on your confirm.
+        for (r, wl, _) in &t.asked {
+            if *wl == Willing::Yes && !super::asks::costs_you(r) {
+                let ran = self.parts.acting.run(w, him, r);
+                if let Some(sc) = w.folk.scenes.iter_mut().find(|x| x.id == id) {
+                    for l in ran.done {
+                        sc.narrate(l);
+                    }
+                }
             }
         }
         let today = w.today;

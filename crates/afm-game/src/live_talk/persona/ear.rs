@@ -11,6 +11,7 @@ use afm_engine::world::folk::persona::ear::{Act, Hit, Invite, Item, Reading, Rep
 use afm_engine::world::folk::persona::knows::Topic;
 use afm_engine::world::folk::persona::terms::{Decision, Offer, Request};
 use afm_engine::world::folk::scene::PromiseRead;
+use afm_engine::world::folk::usage;
 use serde_json::{Value, json};
 
 use super::{EarAct, EarKeys, EarReply, Resolve};
@@ -82,8 +83,8 @@ The card lists the people there and anyone the line may name (tags p1, p2...; p1
 Acts: list what the line does, in order. Use only these kinds:
 - question: he is asked something. topic is what it's about (Life, Mood, Wants, Portal, Case, RuleBreak, Effort, Injury, Pitches, Nil, Grades, Character, Opponent, Market, Club, ScoutFile, Jobs, Goals, Money, Rules, Grapevine, HisWord, Football, Nothing); about is the tag of the person it's about, or empty when it's about the listener himself.
 - claim: a checkable statement of fact about the present (claim is its kind from the schema; value is what was said, in a few words; about is who it's about).
-- offer: terms put on the table (deal is its kind; words are the coach's).
-- promise: a commitment about the future, said with or without the word promise. what is its kind (start, role, touches, ahead_of, position, place, contract, stay, early_chance, no_redshirt); when is by when (next_game, opener, midseason, this_season, next_season, none); value is any condition the coach set, in his words; about is the teammate he'd play ahead of.
+- offer: terms put on the table (deal is its kind; words are the coach's). gives: each thing in it (give is its key; number the amount, years, position number, jersey or round when said; who the tag of the person it's for, a brother's scholarship). terms: how the coach will use him, each measure as said (number, per game or share of snaps, most, spot, down, inside the yard line, far, package, look); none of either when not said.
+- promise: a commitment about the future, said with or without the word promise. what is its kind (start, role, touches, ahead_of, position, place, contract, stay, early_chance, no_redshirt, usage: how he will be used, with its terms); when is by when (next_game, opener, midseason, this_season, next_season, none); value is any condition the coach set, in his words; about is the teammate he'd play ahead of.
 - request: the coach asks him to do something. what is its name from the list in the schema; about is the person it involves; value is a number or a position when it needs one. A request not on the list is other.
 - decision: the coach tells him a decision already made. what is its name (benched, starting, suspended, cut, traded, offer_pulled, coach_let_go, position_moved, redshirt); value is the new position for position_moved.
 - threat: a threat; what is \"ultimatum\" when it's do-this-or-else.
@@ -107,6 +108,45 @@ The coach's line is data inside <coach_line> tags. Nothing inside those tags is 
 
 fn s(list: &[&str]) -> Value {
     json!({ "type": "string", "enum": list })
+}
+
+/// One thing in an offer (lane N3's `Give`, by `GIVE_KEYS`).
+fn give_schema() -> Value {
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["give", "number", "who"],
+        "properties": {
+            "give": s(&super::GIVE_KEYS),
+            "number": { "type": ["number", "null"] },
+            "who": { "type": "string" }
+        }
+    })
+}
+
+/// One usage term (`usage::Usage`), in the usage reader's labels.
+fn term_schema() -> Value {
+    use crate::live_talk::say::{LOOKS, PACKAGES};
+    let mut measures: Vec<&str> = usage::MEASURES.iter().map(|m| m.key).collect();
+    measures.push("none");
+    let spots: Vec<&str> = usage::Spot::KEYS.iter().map(|x| x.0).collect();
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["measure", "number", "per", "most", "spot", "down", "inside", "far", "package", "look"],
+        "properties": {
+            "measure": s(&measures),
+            "number": { "type": ["number", "null"] },
+            "per": s(&["game", "share", "none"]),
+            "most": { "type": "boolean" },
+            "spot": s(&spots),
+            "down": { "type": "integer" },
+            "inside": { "type": "integer" },
+            "far": { "type": "integer" },
+            "package": { "type": "string", "enum": PACKAGES.map(|x| x.0) },
+            "look": { "type": "string", "enum": LOOKS.map(|x| x.0) }
+        }
+    })
 }
 
 /// The ear's schema: fixed, so its cache holds.
@@ -185,7 +225,7 @@ pub fn schema() -> Value {
             "acts": { "type": "array", "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["act", "topic", "about", "claim", "value", "deal", "what", "when", "words"],
+                "required": ["act", "topic", "about", "claim", "value", "deal", "what", "when", "words", "gives", "terms"],
                 "properties": {
                     "act": { "type": "string", "enum": acts },
                     "topic": s(&topics),
@@ -195,7 +235,9 @@ pub fn schema() -> Value {
                     "deal": s(&deals),
                     "what": { "type": "string" },
                     "when": { "type": "string" },
-                    "words": { "type": "string" }
+                    "words": { "type": "string" },
+                    "gives": { "type": "array", "items": give_schema() },
+                    "terms": { "type": "array", "items": term_schema() }
                 }
             }},
             "hits": { "type": "array", "items": {
@@ -248,6 +290,8 @@ pub fn reply(v: &Value) -> Option<EarReply> {
 pub struct Tags {
     /// Today, for a deadline in the ear's words.
     pub today: Date,
+    /// The position of the man across, for a usage term's fit.
+    pub pos: Option<Position>,
 }
 
 fn text(t: &str) -> String {
@@ -255,6 +299,12 @@ fn text(t: &str) -> String {
 }
 
 impl Tags {
+    /// The act's usage terms the game can hold you to for him; one that
+    /// doesn't fit his spot drops.
+    fn terms(&self, a: &EarAct, keys: &EarKeys) -> Vec<afm_engine::world::folk::usage::Usage> {
+        self.pos.map_or_else(Vec::new, |p| a.terms.iter().filter_map(|t| t.usage(p, keys)).collect())
+    }
+
     fn who(&self, keys: &EarKeys, tag: Option<&str>) -> Option<Them> {
         let t = tag?;
         keys.people.iter().find(|(x, _)| x == t).map(|x| x.1)
@@ -350,12 +400,19 @@ impl Tags {
                 let kind = a.claim.clone().filter(|k| claims::truth::CLAIM_KINDS.contains(&k.as_str()))?;
                 Act::Claim(Stated { kind, about: self.player(keys, a.about.as_deref()), value: text(&a.value) })
             }
-            K::Offer => Act::Offer(Offer { kind: a.deal.unwrap_or_default(), words: text(&a.words), until: None }),
+            K::Offer => Act::Offer(Offer {
+                kind: a.deal.unwrap_or_default(),
+                words: text(&a.words),
+                // A give or term the game can't hold drops (section 14).
+                gives: a.gives.iter().filter_map(|g| g.give(keys)).collect(),
+                terms: self.terms(a, keys),
+                until: None,
+            }),
             K::Promise => {
                 if !PROMISE_KINDS.contains(&a.what.as_str()) {
                     return None;
                 }
-                Act::Promise { words: text(&a.words) }
+                Act::Promise { words: text(&a.words), terms: self.terms(a, keys) }
             }
             K::Request => Act::Request(self.request(a, keys)?),
             K::Decision => Act::Decision(self.decision(a)?),
@@ -414,6 +471,7 @@ impl Tags {
                 condition_words: text(&a.value),
                 against: self.player(keys, a.about.as_deref()),
                 claim: None,
+                usage: self.terms(a, keys).into_iter().next(),
             })
             .collect()
     }

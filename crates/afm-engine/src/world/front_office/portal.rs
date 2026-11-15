@@ -251,6 +251,29 @@ pub(crate) fn promise(w: &mut World, id: u32, kind: u8) -> Option<(f64, f64, Pla
     Some((pull, belief, role))
 }
 
+/// You tell a transfer how you'd use him (the promises on usage): it pulls
+/// as a real role does, its term kept beside his file until he comes
+/// (`Folk::usage_pledges`), its belief read from the term.
+pub(crate) fn promise_usage(
+    w: &mut World,
+    id: u32,
+    u: crate::world::folk::usage::Usage,
+) -> Option<(f64, f64, PlayingTime)> {
+    let i = index_of(w, id)?;
+    let j = program(w)?;
+    let (role, _, perf, bar) = rec::portal_place(w, i, j)?;
+    let (pull, belief) = dialogue::promise_pull(w, i, 1, role, perf, bar);
+    let likely = crate::world::folk::usage::likely(w, i, &u);
+    let today = w.today;
+    let t = target_mut(w, id)?;
+    t.promise = Some((2, today));
+    w.folk.usage_pledges.retain(|x| !(x.0 == id && x.1 == j));
+    w.folk.usage_pledges.push((id, j, u));
+    let name = w.people[i].name.clone();
+    note(w, format!("Promised portal entrant {name} {}.", u.words()), Some(id));
+    Some((pull * likely, belief * likely, role))
+}
+
 /// After a talk: he may have heard enough.
 pub(crate) fn after_talk(w: &mut World, id: u32) -> Option<String> {
     check(w, id)
