@@ -69,6 +69,7 @@ mod promises;
 mod public_bar;
 mod pull_file;
 mod ratings;
+mod real_injuries;
 mod recruit_budget;
 mod recruit_case;
 mod recruit_reach;

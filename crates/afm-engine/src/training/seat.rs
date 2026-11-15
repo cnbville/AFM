@@ -411,6 +411,11 @@ pub struct SeatTraining {
     /// only, never saved.
     #[serde(skip)]
     pub others_floor: Option<Date>,
+    /// Every player's real injuries since his last development step
+    /// (realism audit item 1): game and practice injuries at every level,
+    /// by id, read and cleared at his step (`development::YearHurt`).
+    #[serde(default)]
+    pub year_hurt: std::collections::BTreeMap<u32, crate::development::YearHurt>,
     pub notes: Vec<Note>,
     pub log: Vec<WeekLog>,
     pub reports: Vec<Report>,
@@ -715,6 +720,18 @@ impl SeatTraining {
     /// stands. A day on or before the sweep floor (`game_injuries`) means the
     /// floor no longer holds. Every writer of `others_hurt` comes through
     /// here, so the floor stays true (world speed lane).
+    /// A real injury lands (realism audit item 1): out `days` from `on`.
+    /// Every game and practice injury at every level comes through here, so
+    /// his next development step reads what really happened to him.
+    pub(crate) fn log_hurt(&mut self, id: u32, kind: InjuryKind, days: u32, on: Date) {
+        self.year_hurt.entry(id).or_default().add(kind, days, on);
+    }
+
+    /// His real injuries since his last step, taken for the step.
+    pub(crate) fn take_hurt(&mut self, id: u32) -> crate::development::YearHurt {
+        self.year_hurt.remove(&id).unwrap_or_default()
+    }
+
     pub(crate) fn note_other_hurt(&mut self, id: u32, back: Date, kind: InjuryKind) {
         if self.others_floor.is_some_and(|f| back <= f) {
             self.others_floor = None;
@@ -1756,6 +1773,7 @@ pub(crate) fn game_injuries(
         }
         let days = (inj.weeks * (1.0 - 0.12 * medical[*team]) * 7.0).ceil().max(1.0) as i32;
         let back = date.add(1 + days);
+        w.training.log_hurt(inj.id, inj.kind, 1 + days as u32, date);
         if seat == Some(*team) {
             if w.training.hurt.iter().any(|h| h.id == inj.id && h.until >= back) {
                 continue;

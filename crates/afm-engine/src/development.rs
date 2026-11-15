@@ -95,6 +95,109 @@ pub struct SeasonContext {
     /// lands), and with `Dice::Replaced` the hidden dice on the skills
     /// results test give way to results, their average kept.
     pub results: Option<crate::results::Mode>,
+    /// The injuries he really had since his last step (realism audit item
+    /// 1): game and practice injuries at every level, logged as they land
+    /// (`training::seat::SeatTraining::log_hurt`). Some when his last
+    /// season played on the engine: the worst of them decides the year's
+    /// injury cost, by what it was and how long it kept him out. None (the
+    /// class sim, a season on the stand-in): the yearly roll decides.
+    #[serde(default)]
+    pub hurt: Option<YearHurt>,
+}
+
+/// The injuries a player really had since his last development step
+/// (realism audit item 1): the worst one, what it was, how long it kept him
+/// out and the day it happened, and the days out over all of them.
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct YearHurt {
+    pub kind: Option<crate::game::sim::InjuryKind>,
+    pub days: u16,
+    pub on: crate::calendar::Date,
+    pub total: u16,
+    /// The worst one is already named on the season row it happened in
+    /// (`world::season::mark_real_injury`).
+    pub named: bool,
+    /// A major injury at his last step that heals: the rehab loss comes
+    /// back at this one (the year back).
+    pub rehab: bool,
+}
+
+impl YearHurt {
+    /// One injury landing: the worst stands (by class, then days out).
+    pub fn add(&mut self, kind: crate::game::sim::InjuryKind, days: u32, on: crate::calendar::Date) {
+        let days = days.min(u16::MAX as u32) as u16;
+        let c = hurt_class(kind, days as u32);
+        let now = self.kind.map_or(0, |k| hurt_class(k, self.days as u32));
+        if self.kind.is_none() || c > now || (c == now && days > self.days) {
+            self.kind = Some(kind);
+            self.days = days;
+            self.on = on;
+            self.named = false;
+        }
+        self.total = self.total.saturating_add(days);
+    }
+
+    /// The worst injury's class: 0 a knock, 1 minor, 2 moderate, 3 major.
+    pub fn class(&self) -> u8 {
+        self.kind.map_or(0, |k| hurt_class(k, self.days as u32))
+    }
+
+    /// The class as the row's event.
+    pub fn event(&self) -> Option<Ev> {
+        match self.class() {
+            1 => Some(Ev::MinorInjury),
+            2 => Some(Ev::ModerateInjury),
+            3 => Some(Ev::MajorInjury),
+            _ => None,
+        }
+    }
+}
+
+/// Days out from which a real injury is minor, moderate and major for his
+/// growth (realism audit item 1; proposed, not confirmed): under a week is
+/// a knock that costs nothing, a week to three minor, three to eight
+/// moderate, eight weeks or more major. A torn ACL is always major.
+pub const HURT_MINOR_DAYS: u32 = 7;
+pub const HURT_MODERATE_DAYS: u32 = 21;
+pub const HURT_MAJOR_DAYS: u32 = 56;
+
+/// A real injury's class for growth: 0 a knock, 1 minor, 2 moderate, 3 major.
+pub fn hurt_class(kind: crate::game::sim::InjuryKind, days: u32) -> u8 {
+    if kind == crate::game::sim::InjuryKind::Acl || days >= HURT_MAJOR_DAYS {
+        3
+    } else if days >= HURT_MODERATE_DAYS {
+        2
+    } else if days >= HURT_MINOR_DAYS {
+        1
+    } else {
+        0
+    }
+}
+
+/// How a major real injury heals, by what it was (realism audit item 1;
+/// proposed, not confirmed): the share that heals fully and the share that
+/// heals with a small lasting loss; the rest never get their burst back.
+/// None: it doesn't touch his legs (a shoulder, a neck, a concussion), so
+/// it costs the year's growth and no burst. A torn ACL keeps the roll's
+/// split (62-74% of NFL players back after a repair, fewer starts after);
+/// another leg injury long enough to be major (a broken bone, a Lisfranc
+/// foot, a bad high ankle) heals fully far more often.
+pub fn major_heal(kind: crate::game::sim::InjuryKind) -> Option<(f64, f64)> {
+    use crate::game::sim::InjuryKind as K;
+    match kind {
+        K::Acl => Some((0.55, 0.85)),
+        K::Fracture => Some((0.8, 0.96)),
+        K::Knee
+        | K::AnkleSprain
+        | K::HighAnkleSprain
+        | K::Foot
+        | K::Hamstring
+        | K::Calf
+        | K::Quad
+        | K::Groin
+        | K::Hip => Some((0.75, 0.95)),
+        _ => None,
+    }
 }
 
 impl SeasonContext {
@@ -123,6 +226,7 @@ impl SeasonContext {
             physical_coaching: None,
             strength_dev: 0.0,
             results: None,
+            hurt: None,
         }
     }
 }
@@ -592,6 +696,10 @@ pub struct SeasonReport {
     pub(crate) potential_after: f64,
     pub events: Events,
     pub games_missed: u32,
+    /// A major injury at this step that heals: its rehab loss comes back at
+    /// the next one (`YearHurt::rehab`, with real injuries).
+    #[serde(default)]
+    pub rehab_due: bool,
 }
 
 /// What one yearly step drew and why (world reader lane R2): every term
@@ -708,10 +816,16 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // The year back from a major injury (fix list 4.3): a player who healed
     // gets back the rehab loss his ceilings kept room for. One who never got
     // his burst back has no room to regain.
-    if let Some(last) = player.history.last()
-        && last.events.has(Ev::MajorInjury)
-        && !last.events.has(Ev::LostBurst)
-    {
+    // With real injuries (audit item 1) the step that took the loss says
+    // so itself, since the row naming the injury is the season it happened.
+    let year_back = match ctx.hurt {
+        Some(h) => h.rehab,
+        None => player
+            .history
+            .last()
+            .is_some_and(|last| last.events.has(Ev::MajorInjury) && !last.events.has(Ev::LostBurst)),
+    };
+    if year_back {
         let age_hit = injury_age_hit(age - 1.0);
         for key in Attr::ALL {
             if key.profile().injury_sensitive {
@@ -738,6 +852,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         crate::game::sim::strength_guard(10.0 + ctx.strength_dev, 10.0),
     )
     .1;
+    let real = ctx.hurt;
     let injury_chance = level_injury_rate(ctx.level)
         * position.profile().injury_risk
         * (0.55 + player.injury_proneness * 0.045)
@@ -746,9 +861,18 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         // His strength staff's guard on muscle strains and backs (minor bug
         // 303), on their share of the game mix.
         * guarded;
-    why.injury_chance = injury_chance;
-    if rng.chance(injury_chance) {
-        let roll = rng.next();
+    why.injury_chance = if real.is_some() { 0.0 } else { injury_chance };
+    // Real injuries (audit item 1): the worst one since his last step, by
+    // its days out (a torn ACL always major), in place of the roll. Its
+    // games are on the season rows already, counted game by game.
+    let real_severity = real.and_then(|h| h.event());
+    let hurt_now = match real {
+        Some(_) => real_severity.is_some(),
+        None => rng.chance(injury_chance),
+    };
+    let mut major = false;
+    if hurt_now {
+        let roll = if real.is_some() { 0.0 } else { rng.next() };
         // Strains and backs are minor or moderate, so the guard leaves the
         // major injury's chance where it was: its share of the roll moves
         // against the guard and minor and moderate split the rest 62:27.
@@ -758,24 +882,34 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             let major = (0.11 / guarded).min(1.0);
             ((1.0 - major) * 0.62 / 0.89, 1.0 - major)
         };
-        let severity = if roll < minor {
+        let severity = if let Some(e) = real_severity {
+            e
+        } else if roll < minor {
             Ev::MinorInjury
         } else if roll < moderate {
             Ev::ModerateInjury
         } else {
             Ev::MajorInjury
         };
-        events.add(severity);
+        // A real injury is named on the row of the season it happened in
+        // (`world::season::mark_real_injury`, or the caller for one before
+        // this row); one since the season ended is this row's.
+        let here = real.is_none_or(|h| !h.named);
+        if here {
+            events.add(severity);
+        }
         why.injury = Some(severity);
         let games = season_games(ctx.level) as f64;
-        games_missed = match severity {
-            Ev::MinorInjury => rng.int(0, 2),
-            Ev::ModerateInjury => rng.int(2, 6),
-            _ => rng.int(round_half_up(games * 0.5) as i32, games as i32),
-        } as u32;
+        if real.is_none() {
+            games_missed = match severity {
+                Ev::MinorInjury => rng.int(0, 2),
+                Ev::ModerateInjury => rng.int(2, 6),
+                _ => rng.int(round_half_up(games * 0.5) as i32, games as i32),
+            } as u32;
+        }
         // Some bodies heal faster (hidden recovery; proposed, not confirmed:
         // up to about a quarter quicker or slower than average).
-        if severity != Ev::MajorInjury {
+        if severity != Ev::MajorInjury && real.is_none() {
             games_missed = round_half_up(
                 games_missed as f64
                     * (1.3 - 0.03 * player.game.recovery)
@@ -795,6 +929,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
                 snaps_factor = 0.65;
             }
             _ => {
+                major = true;
                 growth_multiplier *= 0.5;
                 snaps_factor = 0.2;
                 // Torn ACLs and Achilles tendons take explosiveness, more so with
@@ -803,25 +938,41 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
                 // return start fewer games (81% before, 57% after). Proposed, not
                 // confirmed: 55% heal fully (the rehab loss comes back next year),
                 // 30% keep a small lasting loss and 15% never get their burst back.
+                // A real one heals by what it was (`major_heal`): one that
+                // isn't in his legs costs the year and no burst.
                 let age_hit = injury_age_hit(age);
-                let heal = rng.next();
-                let (now, lasting) = if heal < 0.55 {
+                let split = match real.and_then(|h| h.kind) {
+                    Some(k) => major_heal(k),
+                    None => Some((0.55, 0.85)),
+                };
+                let heal = if split.is_some() { rng.next() } else { 0.0 };
+                let (full, part) = split.unwrap_or((1.0, 1.0));
+                let (now, lasting) = if split.is_none() {
+                    ((0.0, 0.0), (0.0, 0.0))
+                } else if heal < full {
                     ((1.5, 5.0), (0.0, 0.0))
-                } else if heal < 0.85 {
+                } else if heal < part {
                     ((1.5, 5.0), (1.0, 3.0))
                 } else {
-                    events.add(Ev::LostBurst);
+                    if here {
+                        events.add(Ev::LostBurst);
+                    } else if let Some(row) = player.history.last_mut() {
+                        row.events.add(Ev::LostBurst);
+                    }
                     ((3.0, 7.0), (3.0, 7.0))
                 };
-                rehab = heal < 0.85;
-                why.heal = Some(if heal < 0.55 {
+                rehab = split.is_some() && heal < part;
+                why.heal = Some(if heal < full {
                     0
-                } else if heal < 0.85 {
+                } else if heal < part {
                     1
                 } else {
                     2
                 });
                 for key in Attr::ALL {
+                    if split.is_none() {
+                        break;
+                    }
                     if !key.profile().injury_sensitive {
                         continue;
                     }
@@ -1451,7 +1602,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         style: ctx.style,
         scheme: ctx.scheme,
         played,
-        major_injury: events.has(Ev::MajorInjury),
+        major_injury: major,
         speed_lost: (speed_before - player.attributes.get(Attr::Speed)).max(0.0),
         centre: ctx.tend_centre,
     };
@@ -1518,7 +1669,15 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         why.change[g] += player.attributes.get(key) - attrs_before.get(key);
     }
     LAST_WHY.with(|c| c.set(Some(why)));
-    SeasonReport { overall_before, overall_after, potential_before, potential_after, events, games_missed }
+    SeasonReport {
+        overall_before,
+        overall_after,
+        potential_before,
+        potential_after,
+        events,
+        games_missed,
+        rehab_due: rehab,
+    }
 }
 
 /// A major injury costs an older body more.
