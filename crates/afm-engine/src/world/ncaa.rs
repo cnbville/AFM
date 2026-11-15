@@ -102,21 +102,6 @@ pub fn scholarship_rules(d: Division, season: i32, opted_out: bool) -> (usize, O
     }
 }
 
-/// Where the NCAA sets no yearly cap below Division I (Division II, the NAIA,
-/// Division III and junior colleges), a staff still signs at most about 1.4
-/// normal classes (the world's earlier pick, proposed, not confirmed: classes
-/// of 28, 24, 30 and 40). The House limit has none (`roster_limits`).
-fn staff_cap(d: Division) -> usize {
-    match d {
-        Division::FBS => 39,
-        Division::FCS => 33,
-        Division::D2 => 42,
-        Division::NAIA => 42,
-        Division::D3 => 45,
-        Division::JUCO => 56,
-    }
-}
-
 /// A program's roster limit for a season, and the most new signees it may
 /// add, after any NCAA scholarship penalty. Every roster rule reads them here.
 pub fn roster_limits(prog: &Program, season: i32) -> (usize, usize) {
@@ -128,15 +113,13 @@ pub fn roster_limits(prog: &Program, season: i32) -> (usize, usize) {
     let opted_out = prog.division == Division::FCS && FCS_OPTED_OUT.contains(&prog.real_name.as_str());
     let (limit, yearly) = scholarship_rules(prog.division, season, opted_out);
     let cut = prog.era.cut_in(season) as usize;
-    // Under the House whole-roster limit nothing caps a class: the limit is
-    // the only bound (realism audit item 13, Cain 2026-11-15: "the 105
-    // roster limit is the only bound"). Before, a staff stopped at its 1.4
-    // normal classes there too, and the class plan at 30.
-    let yearly = match yearly {
-        Some(y) => y,
-        None if whole_roster_limit(prog, season) => limit,
-        None => staff_cap(prog.division),
-    };
+    // Where the NCAA sets no yearly cap (the House limit from 2025, Division
+    // II, the NAIA, Division III, junior colleges) nothing caps a class: the
+    // roster limit is the only bound, and the holes at each position decide
+    // the class (realism audit item 13, Cain 2026-11-15). Before, a staff
+    // stopped at about 1.4 normal classes (FBS 39, FCS 33, D2 and the NAIA
+    // 42, D3 45, junior colleges 56), a stand-in from the world's first build.
+    let yearly = yearly.unwrap_or(limit);
     (limit.saturating_sub(cut), yearly.saturating_sub(cut))
 }
 
