@@ -68,6 +68,15 @@ fn typed(g: &mut Game, f: &Fake, moment: &str, r: Value) -> Value {
     finish(g, t)
 }
 
+/// A confirmed reading's answer: since lane N5d a captain answers the talk
+/// on a ticket of its own.
+fn settled(g: &mut Game, v: Value) -> Value {
+    match v["ticket"].as_u64() {
+        Some(t) => finish(g, t),
+        None => v,
+    }
+}
+
 /// The staff's calls to the final whistle.
 fn play_out(g: &mut Game) -> Value {
     let mut st = ok(g, "live", json!({}));
@@ -130,6 +139,7 @@ fn a_typed_talk_in_the_room_is_the_chips_say_it() {
     assert_eq!(said(&g), Value::Null, "still nothing kept");
     let second = rs[1]["pick"].clone();
     let v = ok(&mut g, "talk_typed", json!({ "moment": "pregame", "ticket": 1, "pick": second }));
+    let v = settled(&mut g, v);
     assert_eq!(v["state"], "done", "{v}");
     assert_eq!(v["reply"]["status"], "said");
     assert_eq!(v["reply"]["pick"]["move"], "warn");
@@ -236,6 +246,7 @@ fn a_typed_talk_in_the_room_is_the_chips_say_it() {
     // Confirmed, it lands as the chip's talk, once.
     let pick = rs[0]["pick"].clone();
     let v = ok(&mut g, "talk_typed", json!({ "moment": "halftime", "ticket": 1, "pick": pick }));
+    let v = settled(&mut g, v);
     assert_eq!(v["state"], "done", "{v}");
     assert_eq!(v["reply"]["status"], "said");
     assert_eq!(v["reply"]["pick"]["move"], "challenge");

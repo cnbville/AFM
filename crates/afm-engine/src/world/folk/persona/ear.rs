@@ -170,6 +170,9 @@ pub enum Item {
     Family,
     /// Something he told you before.
     HisWord,
+    /// The team as a whole: a line to the room in a group talk (lane N5d),
+    /// heard by each man as one of the room.
+    Room,
 }
 
 /// How your words landed on it (5.2).

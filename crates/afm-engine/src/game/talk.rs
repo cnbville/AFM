@@ -869,6 +869,61 @@ pub fn room(team: &GameTeam, pick: &Pick, cx: &Ctx) -> Vec<Landing> {
     team.players.iter().map(|p| land(p, pick, cx, cap)).collect()
 }
 
+/// A typed speech's own word to one man (live talks v3, lane N5d): the
+/// word to him alone that his part of your speech was, in the talk's tone,
+/// and how much of his landing it takes, 0-1. His landing lies between the
+/// room's and that word's, so no typed line moves a man past what a chip
+/// could (lane 9's rule: wording alone never beats the best chip).
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Tilt {
+    pub id: u32,
+    pub pick: Pick,
+    pub share: f32,
+}
+
+/// One landing taken `s` of the way from `a` to `b` (0 keeps `a`).
+pub fn mix(a: &Landing, b: &Landing, s: f32) -> Landing {
+    let s = s.clamp(0.0, 1.0);
+    let l = |x: f32, y: f32| x + (y - x) * s;
+    let m =
+        |x: &Mind, y: &Mind| Mind { fire: l(x.fire, y.fire), poise: l(x.poise, y.poise), focus: l(x.focus, y.focus) };
+    Landing {
+        id: a.id,
+        before: a.before,
+        after: m(&a.after, &b.after),
+        lift: l(a.lift, b.lift),
+        focus: l(a.focus, b.focus),
+        poise: l(a.poise, b.poise),
+        heat: l(a.heat, b.heat),
+        half_life: l(a.half_life, b.half_life),
+        ear: l(a.ear, b.ear),
+        why: if s >= 0.5 { b.why } else { a.why },
+    }
+}
+
+/// A talk to the whole room with each man's own part of it (a typed
+/// speech): every landing, tilted toward the word to him alone by its
+/// share. No tilts: the same as `room`.
+pub fn room_tilted(team: &GameTeam, pick: &Pick, cx: &Ctx, tilts: &[Tilt]) -> Vec<Landing> {
+    let mut ls = room(team, pick, cx);
+    for t in tilts {
+        let Some(i) = team.players.iter().position(|p| p.id == t.id) else { continue };
+        let own = Pick { subject: Subject::One, who: t.id, ..t.pick };
+        let b = land(&team.players[i], &own, cx, None);
+        ls[i] = mix(&ls[i], &b, t.share);
+    }
+    ls
+}
+
+/// A word on the sideline with only `share` of it reaching him (a typed
+/// word that touched less than his heaviest thing): between saying
+/// nothing and the word itself.
+pub fn land_share(p: &GamePlayer, pick: &Pick, cx: &Ctx, share: f32) -> Landing {
+    let full = land(p, pick, cx, None);
+    let none = land(p, &Pick { mv: Move::Nothing, ..*pick }, cx, None);
+    mix(&none, &full, share)
+}
+
 /// What a room's landings are worth on the field, weighted to the men who
 /// will play: the head coach's read of a talk.
 pub fn worth(ls: &[Landing], w: &[f64]) -> f64 {
@@ -1146,6 +1201,20 @@ mod tests {
     fn a_kicker_is_never_better_for_a_fiery_talk_than_a_guard() {
         assert!(ideal_fire(Position::K) < ideal_fire(Position::IOL));
         assert!(ideal_fire(Position::QB) < ideal_fire(Position::DT));
+    }
+
+    #[test]
+    fn a_tilt_lies_between_the_room_and_the_word_to_him() {
+        let a = Landing { lift: 1.0, focus: -2.0, heat: 0.1, ear: 0.5, ..Landing::default() };
+        let b = Landing { lift: 3.0, focus: 2.0, heat: -0.1, ear: 1.0, ..Landing::default() };
+        let at = |s| mix(&a, &b, s);
+        assert_eq!((at(0.0).lift, at(0.0).focus), (a.lift, a.focus));
+        assert_eq!((at(1.0).lift, at(1.0).focus), (b.lift, b.focus));
+        assert_eq!(at(0.5).lift, 2.0);
+        assert_eq!(at(7.0).lift, b.lift, "never past the word itself");
+        assert_eq!(at(-1.0).lift, a.lift);
+        let m = at(0.3);
+        assert!(m.heat < a.heat && m.heat > b.heat && m.ear > a.ear && m.ear < b.ear);
     }
 
     #[test]
