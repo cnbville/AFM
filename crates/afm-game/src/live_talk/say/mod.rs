@@ -317,7 +317,7 @@ pub fn people_say(g: &mut Game, args: &Value) -> Reply {
     if s.done {
         return Err("That meeting is over.".into());
     }
-    if !scene::takes_typed(s) {
+    if !scene::takes_typed(s) || super::persona::talk::nobody(g, s) {
         return Err("This talk takes no typed lines.".into());
     }
     if text.is_empty() {
@@ -421,7 +421,12 @@ fn scene_flag(g: &Game, v: &mut Value) {
     }
     let Some(id) = o.get("id").and_then(Value::as_u64) else { return };
     let Some(w) = g.world.as_ref() else { return };
-    if w.folk.scenes.iter().find(|s| u64::from(s.id) == id).is_some_and(scene::takes_typed) {
+    if w.folk
+        .scenes
+        .iter()
+        .find(|s| u64::from(s.id) == id)
+        .is_some_and(|s| scene::takes_typed(s) && !super::persona::talk::nobody(g, s))
+    {
         v["say"] = json!({ "cmd": "people_say", "args": { "id": id }, "limit": scene::LIMIT });
         // A talk played on the ear and the voice: the page's `talk` block.
         super::persona::view::flag(g, v);
