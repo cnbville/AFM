@@ -422,6 +422,8 @@ fn dawn(w: &mut World, d: Date, y: &YearDates) {
         super::scouting::live::finish(w);
     }
     grow_bodies(w, d);
+    // A new head coach brings his strength coach (realism audit item 10).
+    super::people::support_bosses(w);
     // A live game left from a day gone by (called off, or never booked).
     if w.live.as_ref().is_some_and(|l| l.date < d) {
         w.live = None;

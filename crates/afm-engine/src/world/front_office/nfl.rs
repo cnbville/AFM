@@ -1150,7 +1150,7 @@ pub fn tag_prices(w: &World, i: usize) -> (f64, f64, f64) {
         hist.push((year, market::tag_shares_now(w)));
         hist.retain(|(y, _)| *y > year - 5);
     }
-    let bases = market::tag_bases(&hist, year);
+    let bases = market::tag_bases(&hist, year, &market::shares(w, year));
     let qb = bases[Position::QB.index()][0];
     let c = w.people[i].pro.as_ref();
     let own = c.and_then(|c| c.contract.as_ref()).map_or(0.0, |k| k.cap_hit(year - 1));
@@ -1575,8 +1575,8 @@ pub fn market_read(w: &World, i: usize) -> (f64, f64) {
     let p = &w.people[i];
     let view = market::market_grade(w, p.player.position, market::consensus(w, i));
     let credited = p.pro.as_ref().map_or(0, |c| c.credited);
-    let price = market::market_price(w.year, p.player.position, view, credited, p.player.age)
-        .max(money::minimum(w.year, credited));
+    let price =
+        market::market_price(w, p.player.position, view, credited, p.player.age).max(money::minimum(w.year, credited));
     let width = clamp(0.22 - 0.01 * (negotiating(w) - 10.0), 0.08, 0.35);
     let off = super::key_n(w, 0xCAB0, p.player.id as u64) * width * 0.3;
     let mid = price * (1.0 + off);

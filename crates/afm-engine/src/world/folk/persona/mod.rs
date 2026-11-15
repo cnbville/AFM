@@ -46,6 +46,7 @@ pub mod draft;
 pub mod ear;
 pub mod fake;
 pub mod knows;
+pub mod meetings;
 pub mod memory;
 pub mod negotiate;
 pub mod room;

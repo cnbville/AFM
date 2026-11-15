@@ -568,9 +568,11 @@ pub fn answer(w: &mut World, id: u32, code: u32) -> Result<Scene, String> {
 
 /// The scene kinds that take no typed line (live talks, the core): press
 /// and media were decided against (Cain 2026-11-07), and a story meeting's
-/// moves are public statements on a page of their own. A one-on-one takes
+/// moves are public statements on a page of their own, and how the world
+/// took your hire is the papers, with nobody across (the older meetings'
+/// thread, 2026-11-15). A one-on-one takes
 /// typed lines once its hook is filled (`talks::ONE_ON_ONE_TYPED`, lane 9).
-pub const NO_BOX: [Kind; 4] = [Kind::Press, Kind::PressIntro, Kind::Media, Kind::Story];
+pub const NO_BOX: [Kind; 5] = [Kind::Press, Kind::PressIntro, Kind::Media, Kind::Story, Kind::HireReaction];
 
 /// What `say` answers when a typed line reaches a pick that can't be undone
 /// and the reading was not confirmed. The game layer asks first.

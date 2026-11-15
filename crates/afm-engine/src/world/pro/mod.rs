@@ -790,6 +790,12 @@ fn veteran(w: &mut World, pos: Position, rating: f64, age: u32, seed: u32) -> Pe
 /// real roster by depth slot (the class model's background league), each
 /// on a contract with one to four years left, and a pool of unsigned
 /// veterans waits on the street.
+/// The opening league's deals are a stand-in from each man's raw rating,
+/// before there is a market to read him against, so they stop where the old
+/// price curve did (1.08 times the top five): the first real markets set
+/// the records from there (realism audit item 4; proposed, not confirmed).
+const SEED_TOP: f64 = 91.18;
+
 pub(crate) fn fill_league(w: &mut World) {
     let year = w.year;
     let n = w.nfl.len();
@@ -838,7 +844,7 @@ pub(crate) fn fill_league(w: &mut World) {
         .iter()
         .map(|(p, team, rating)| match team {
             Some(_) => (cap
-                * money::market_share(p.player.position, *rating)
+                * money::market_share(market::top5(w, year, p.player.position), rating.min(SEED_TOP))
                 * market::decline(p.player.position, p.player.age))
             .max(money::minimum(year, p.player.age.saturating_sub(22))),
             None => 0.0,
@@ -1194,7 +1200,10 @@ pub(crate) fn step(w: &mut World, d: Date, t: u16) {
                 set_carryover(w);
             }
             if d == y.tag_window_open {
-                // The year's pay ladders: the veterans by position after last season.
+                // The year's markets (after the real years, moved by last
+                // year's deals), then its pay ladders: the veterans by
+                // position after last season.
+                market::set_shares(w);
                 market::set_ladders(w);
                 // Cap cuts and restructures start right after the season, so teams
                 // can talk with their own free agents (real: February into March).
@@ -1552,7 +1561,7 @@ pub(crate) fn ask(w: &World, i: usize, year: i32, d: Date) -> (f64, u32) {
     let min = money::minimum(year, credited);
     let rel = market::market_grade(w, p.player.position, g);
     let price = money::price_cap(year)
-        * money::market_share(p.player.position, rel)
+        * money::market_share(market::top5(w, year, p.player.position), rel)
         * market::decline(p.player.position, p.player.age)
         * (1.0 - 0.04 * weeks as f64).max(0.0);
     (price.max(min), money::usual_years(p.player.position, g, p.player.age))
@@ -1678,6 +1687,10 @@ fn camp(w: &mut World, d: Date) {
         teams.iter().sum::<f64>() / teams.len().max(1) as f64
     };
     let pros: Vec<usize> = (0..w.people.len()).filter(|&i| w.people[i].stage == Stage::Pro).collect();
+    // Real injuries of men who never reached another step (retired, gone
+    // undrafted) leave the log after about two years (audit item 1).
+    let today = d;
+    w.training.year_hurt.retain(|_, h| h.on.days_to(today) < 730);
     // What the pros' tools support on average at each position (trial 8
     // finding 3): habits are read against it.
     let mut centres = crate::tendencies::Centres::new();
@@ -1775,7 +1788,12 @@ fn camp(w: &mut World, d: Date) {
         let closing = w.results.ledgers.remove(&w.people[i].player.id);
         let nfl_engine = w.options.engine_from.is_none_or(|from| w.year >= from) && !w.clubs.is_empty();
         let results = (w.options.results.on && team.is_some() && nfl_engine).then_some(w.options.results);
+        // His real injuries since his last step (realism audit item 1),
+        // when last season played on the engine.
+        let today = w.today;
+        let hurt = crate::world::season::real_hurts(w, Stage::Pro).then(|| w.training.take_hurt(w.people[i].player.id));
         let p = &mut w.people[i];
+        let hurt = hurt.map(|h| crate::world::season::hurt_for_step(&mut p.player, h, today));
         let mut adjustment = 0.0;
         if team.is_some() && (first || new_team) && role != PlayingTime::Unsigned {
             let step = if first {
@@ -1832,6 +1850,7 @@ fn camp(w: &mut World, d: Date) {
             focus_minutes: p.player.train.focus_minutes(),
             defer,
             results,
+            hurt,
             ..crate::development::SeasonContext::new(Level::NFL, clamp(coaching, 1.0, 20.0), role)
         };
         if let Some(l) = &closing {
@@ -1844,6 +1863,12 @@ fn camp(w: &mut World, d: Date) {
         let year_focus = ctx.focus.map(|a| crate::development::Focus::two(a, ctx.focus2, ctx.focus_minutes));
         crate::training::close_year(&mut p.player, year_focus);
         let report = crate::development::develop_season(&mut p.player, &ctx, &mut p.rng);
+        if ctx.hurt.is_some() && report.rehab_due {
+            let id = p.player.id;
+            w.training
+                .year_hurt
+                .insert(id, crate::development::YearHurt { rehab: true, on: today, ..Default::default() });
+        }
         // His spring snaps (OTAs, minicamp) land now as reps of the new
         // year, as they added to last season's snaps before.
         let spring_landed = if results.is_some() && spring > 0.0 && !p.player.position.is_specialist() && !read_late {
