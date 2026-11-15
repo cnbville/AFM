@@ -40,7 +40,7 @@ fn the_big_moments_carry_their_facts_and_play_again() {
     assert_eq!(again[0]["name"], hire["name"], "{again}");
     assert_eq!(ok(&mut g, "reveal_again", json!({ "n": 999 })), json!([]));
 
-    ok(&mut g, "continue", json!({}));
+    ok(&mut g, "continue", json!({ "staff": true }));
     ok(&mut g, "reveals", json!({}));
 
     // A recruit with three other offers commits to us today, and a walk-on
@@ -67,7 +67,7 @@ fn the_big_moments_carry_their_facts_and_play_again() {
         w.people[b].cal.commit = Some((pi, today, true));
         (w.people[a].name.clone(), w.people[b].name.clone())
     };
-    ok(&mut g, "continue", json!({}));
+    ok(&mut g, "continue", json!({ "staff": true }));
     let got = ok(&mut g, "reveals", json!({}));
     let list = got.as_array().unwrap();
     let r = list.iter().find(|r| r["name"] == star.as_str()).unwrap_or_else(|| panic!("his reveal: {got}"));

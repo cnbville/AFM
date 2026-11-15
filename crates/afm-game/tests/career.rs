@@ -139,7 +139,7 @@ fn a_college_career_plays_through_its_first_games() {
     let mut stopped_on_game = false;
     let mut game_morning = false;
     while ok(&mut g, "games", json!({}))["games"].as_array().unwrap().is_empty() && steps < 400 {
-        let r = ok(&mut g, "continue", json!({}));
+        let r = ok(&mut g, "continue", json!({ "staff": true }));
         stopped_on_game |= r["game"].is_object();
         game_morning |= r["morning"] == json!(true)
             && r["why"][0]["text"].as_str().is_some_and(|t| t.starts_with("Game day"))
@@ -467,7 +467,7 @@ fn a_college_career_plays_through_its_first_games() {
     let path = saved["saved"].as_str().unwrap().to_string();
     ok(&mut g, "load", json!({ "path": path }));
     assert_eq!(ok(&mut g, "player", json!({ "id": id }))["notes"].as_array().unwrap().len(), 1);
-    ok(&mut g, "continue", json!({}));
+    ok(&mut g, "continue", json!({ "staff": true }));
     let lib = ok(&mut g, "library", json!({}));
     assert_eq!(lib["saves"].as_array().unwrap().len(), 2);
     assert!(lib["saves"].as_array().unwrap().iter().any(|s| s["card"]["seat"].is_object()), "{lib}");

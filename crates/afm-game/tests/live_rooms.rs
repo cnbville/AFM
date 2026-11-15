@@ -49,7 +49,7 @@ fn to_kickoff(g: &mut Game) {
         if ok(g, "gameday_now", json!({}))["at_kick"] == json!(true) {
             return;
         }
-        ok(g, "continue", json!({}));
+        ok(g, "continue", json!({ "staff": true }));
     }
     panic!("never reached the kickoff");
 }
