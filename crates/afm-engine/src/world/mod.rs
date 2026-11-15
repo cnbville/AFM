@@ -320,6 +320,9 @@ pub struct Person {
     /// The school he grew up cheering for (fix list 2.3), usually in his state.
     pub childhood_team: Option<usize>,
     pub cal: PersonCal,
+    /// His testing days at his team, the team's records (`training::testing`).
+    #[serde(default)]
+    pub tests: crate::training::testing::TestBook,
     /// His pro career (section 5): None until he joins the league.
     pub pro: Option<Box<pro::ProCareer>>,
     /// Section 6 topic 3: his mood, -1 to 1 (0 is his own baseline), and
@@ -2377,6 +2380,7 @@ fn new_kid(
         stay_home: 0.0,
         childhood_team: None,
         cal: PersonCal::default(),
+        tests: Default::default(),
         pro: None,
         mood: 0.0,
         mood_why: 0,

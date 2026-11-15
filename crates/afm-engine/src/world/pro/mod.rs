@@ -775,6 +775,7 @@ fn veteran(w: &mut World, pos: Position, rating: f64, age: u32, seed: u32) -> Pe
         stay_home: 0.0,
         childhood_team: None,
         cal: PersonCal::default(),
+        tests: Default::default(),
         pro: None,
         mood: 0.0,
         mood_why: 0,

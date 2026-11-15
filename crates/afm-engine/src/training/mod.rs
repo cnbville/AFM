@@ -24,6 +24,7 @@ pub mod practice;
 pub mod prep;
 pub mod rules;
 pub mod seat;
+pub mod testing;
 pub mod week;
 pub mod work;
 

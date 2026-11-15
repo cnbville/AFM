@@ -1348,6 +1348,24 @@ pub fn extras(f: &super::rules::Frame, monday: Date, wk: &mut Week) {
     }
 }
 
+/// The testing days you call (Cain 2026-11-15): the day's training goes,
+/// the strength staff tests for an hour, the trainers' room and study hall
+/// stay. A game day can't be one; the rules still fit the day after.
+pub fn called(monday: Date, calls: &[Date], wk: &mut Week) {
+    for &c in calls {
+        if c < monday || c >= monday.add(7) {
+            continue;
+        }
+        let d = &mut wk.days[monday.days_to(c) as usize];
+        if d.game {
+            continue;
+        }
+        d.periods.retain(|q| matches!(q.kind, Recovery | StudyHall));
+        d.periods.insert(0, p(Testing, 60));
+        d.second = false;
+    }
+}
+
 /// The weekday (Monday 0) of a testing day in the week from `monday`.
 pub fn testing_day(f: &super::rules::Frame, monday: Date) -> Option<usize> {
     let in_week = |d: Date| (d >= monday && d < monday.add(7)).then(|| monday.days_to(d) as usize);
