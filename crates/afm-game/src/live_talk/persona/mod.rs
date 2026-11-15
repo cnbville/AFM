@@ -21,7 +21,7 @@ use afm_ai::Failure;
 use afm_engine::world::folk::persona::Them;
 use afm_engine::world::folk::persona::ear::{ActKind, How, Item, Reading};
 use afm_engine::world::folk::persona::knows::Topic;
-use afm_engine::world::folk::persona::terms::{Bound, DealKind};
+use afm_engine::world::folk::persona::terms::DealKind;
 
 use super::card::{Spoken, Tagged};
 
@@ -41,8 +41,9 @@ pub struct EarCard {
     /// his worries from the fact sheet, his pride, your promises to him,
     /// his friends, what he told you before. A hit must name one.
     pub items: Vec<Tagged>,
-    /// The measures a term can be judged on, tagged m1, m2... (cached with
-    /// the rules).
+    /// The measures a term can be judged on (`usage::MEASURES`), tagged
+    /// m1, m2... (cached with the rules). The ear's term shape is
+    /// `usage::Usage`'s and joins once that file is on main.
     pub measures: Vec<Tagged>,
     /// His ask or counter on the table, in words.
     pub on_table: Vec<String>,
@@ -56,34 +57,8 @@ pub struct EarCard {
 pub struct EarKeys {
     pub people: Vec<(String, Them)>,
     pub items: Vec<(String, Item)>,
-    /// A measure's tag and its reader's key (`terms::Measure::key`).
+    /// A measure's tag and its key in `usage::MEASURES`.
     pub measures: Vec<(String, String)>,
-}
-
-/// A term as the ear reads it from your words.
-#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(default)]
-pub struct EarTerm {
-    /// A measure's tag (m3); empty when your words name nothing the game
-    /// keeps (a talking point only, 8.4's last rule).
-    pub measure: String,
-    /// A person's tag when the term is about someone else.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub who: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub number: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub bound: Option<Bound>,
-    /// "game", "season", "once", or a day in words.
-    pub scope: String,
-    /// From when, in your words ("by week 4").
-    pub from: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub seasons: Option<u8>,
-    /// "As long as", in your words.
-    pub as_long_as: String,
-    /// Your words for this term.
-    pub words: String,
 }
 
 /// One act as the ear reads it.
@@ -103,8 +78,6 @@ pub struct EarAct {
     /// An offer's kind.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub deal: Option<DealKind>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub terms: Vec<EarTerm>,
     /// A request, a decision, a show or an invitation, by its name in the
     /// schema.
     #[serde(default, skip_serializing_if = "String::is_empty")]

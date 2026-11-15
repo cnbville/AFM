@@ -1,83 +1,16 @@
-//! Terms, offers, counters, requests and decisions (sections 8.2 to 8.4 and
-//! 11). Lane N3 values them (`Valuing`); lane N2 and the promises thread
-//! judge them (the measure readers).
+//! Offers, counters, requests and decisions (sections 8.2, 8.3 and 11).
+//! Lane N3 values them (`Valuing`).
 //!
-//! A term is a measure, a number from your words, a scope, a horizon and
-//! "as long as" (8.4). The same term serves promises, incentives, NIL
-//! clauses, conditional picks and promises to coaches and bosses. A
-//! promise's own record stays P1's `talks::Promise`; its `promise::Terms`
-//! (by when, the condition, ahead of whom) is what a term's horizon and
-//! "as long as" reuse, so a term said as a promise logs through P1
-//! unchanged.
+//! A term (8.4: a measure, a number from your words, a scope, a horizon and
+//! "as long as") is the promises lane's `usage::Usage` with its `MEASURES`
+//! keys, never a second type here. Its slots on `Offer`, `Counter`,
+//! `wants::Willing`, `ear::Act::Promise` and `ear::HisAsk` join once that
+//! file is on main. A promise's own record stays P1's `talks::Promise`.
 
 use super::Them;
 use super::wants::Want;
 use crate::calendar::Date;
 use crate::world::World;
-use crate::world::folk::promise;
-
-/// What a term is judged on: one measure reader's key, as the promises
-/// thread and lane N2 name them (8.4: "his carries inside the 5", "stunts
-/// he's in", "the field goal line"). A key, not an enum, so the readers own
-/// their list and this contract never repeats it. `who` is the man it's
-/// about when it isn't the person you're talking to (ahead of a named
-/// teammate, his brother's offer).
-#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(default)]
-pub struct Measure {
-    pub key: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub who: Option<u32>,
-}
-
-/// Over what a term's number is counted (8.4).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum Scope {
-    /// Every game: "at least 1 in 4 of his rushes", judged game by game.
-    #[default]
-    Game,
-    /// Over the season.
-    Season,
-    /// Once, by a date ("this is good till Friday", an early enrolment).
-    By(Date),
-    /// Done at once (a scholarship offer, a jersey number).
-    Once,
-}
-
-/// Which way the number holds.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum Bound {
-    /// At least the number.
-    #[default]
-    AtLeast,
-    /// At most ("the kicker won't punt from inside the 40").
-    AtMost,
-    /// Exactly it (his spot, a jersey number, a role).
-    Is,
-}
-
-/// One term (8.4).
-#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(default)]
-pub struct Term {
-    pub measure: Measure,
-    /// The number from your words: a count, a share, a yard line, dollars
-    /// in the contract's own unit. 0 for a term with no number.
-    pub number: f32,
-    pub bound: Bound,
-    pub scope: Scope,
-    /// From when, as P1 counts it (`promise::By`), and for how many
-    /// seasons from there (0 this one, as `talks::promise`'s horizon).
-    pub from: promise::By,
-    pub seasons: u8,
-    /// "As long as": the condition on him, P1's (`promise::Cond` with its
-    /// stat and bar in `promise::Terms`).
-    pub cond: promise::Cond,
-    pub cond_stat: promise::Stat,
-    pub cond_bar: f32,
-    /// Your exact words for it, kept as you said them (3.6).
-    pub words: String,
-}
 
 /// What a deal is for: what the game does with it once agreed (8.2).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -107,12 +40,14 @@ pub enum DealKind {
     Outside,
 }
 
-/// An offer: terms you put together, or he does (11).
+/// An offer: terms you put together, or he does (11). Its terms
+/// (`usage::Usage`) join once the promises lane's file is on main.
 #[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 pub struct Offer {
     pub kind: DealKind,
-    pub terms: Vec<Term>,
+    /// Your exact words for it (3.6).
+    pub words: String,
     /// A deadline on the offer: a real date, or your own ("good till
     /// Friday").
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -141,8 +76,9 @@ pub enum Weighed {
 /// that you haven't given, sized to close the gap. The AI only says it.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Counter {
-    /// The terms he wants changed or added.
-    pub asks: Vec<Term>,
+    /// What he wants changed or added, in words for the voice (the terms
+    /// themselves join with `usage::Usage`).
+    pub asks: Vec<String>,
     /// The want behind it.
     pub why: Option<Want>,
 }

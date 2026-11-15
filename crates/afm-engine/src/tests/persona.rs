@@ -10,24 +10,13 @@ use crate::world::folk::persona::fake::Fake;
 use crate::world::folk::persona::knows::{Answer, Knows, TellParts, Tells, Told, Topic};
 use crate::world::folk::persona::memory::{Colour, HisLie, Line, Memory, Saved, Unseen};
 use crate::world::folk::persona::room::{Channel, Place, Present, Room, Seat};
-use crate::world::folk::persona::terms::{Bound, Measure, Offer, Request, Scope, Term, Valuing, Weighed};
+use crate::world::folk::persona::terms::{Offer, Request, Valuing, Weighed};
 use crate::world::folk::persona::wants::{Acting, Kind, Wanting, Willing};
 use crate::world::folk::rules::RuleKind;
 use crate::world::{World, WorldOptions};
 
 fn named<T: serde::Serialize>(x: &T) -> Vec<u8> {
     rmp_serde::to_vec_named(x).unwrap()
-}
-
-fn term() -> Term {
-    Term {
-        measure: Measure { key: "kicker.fg_line".into(), who: None },
-        number: 37.0,
-        bound: Bound::AtMost,
-        scope: Scope::Game,
-        words: "you kick from the 37 in".into(),
-        ..Default::default()
-    }
 }
 
 #[test]
@@ -45,7 +34,7 @@ fn memory_round_trips_in_live() {
     let reading = Reading {
         acts: vec![
             Act::Question { topic: Topic::Mood, about: Some(Them::Player(9)), words: "how's Tre".into() },
-            Act::Promise(term()),
+            Act::Promise { words: "you kick from the 37 in".into() },
             Act::Claim(Stated { kind: "role".into(), about: Some(7), value: "starter".into() }),
             Act::Request(Request::Mentor(9)),
         ],

@@ -17,7 +17,7 @@ use super::Them;
 use super::knows::{Told, Topic};
 use super::memory::HisLie;
 use super::room::Seat;
-use super::terms::{Counter, Decision, Offer, Request, Term, Weighed};
+use super::terms::{Counter, Decision, Offer, Request, Weighed};
 use super::wants::{Boil, Heat, Patience, Ran, Want, Willing};
 use crate::calendar::Date;
 use crate::world::World;
@@ -93,7 +93,10 @@ pub enum Act {
     /// An offer: valued against his best option (11).
     Offer(Offer),
     /// A promise: logged with its terms through P1, his belief decided.
-    Promise(Term),
+    /// Its term (`usage::Usage`) joins once that file is on main.
+    Promise {
+        words: String,
+    },
     /// A request: whether he'll do it, then the game runs it (8.3).
     Request(Request),
     /// Telling him a decision: run once you confirm (question 4).
@@ -130,7 +133,7 @@ impl Act {
             Act::Question { .. } => ActKind::Question,
             Act::Claim(_) => ActKind::Claim,
             Act::Offer(_) => ActKind::Offer,
-            Act::Promise(_) => ActKind::Promise,
+            Act::Promise { .. } => ActKind::Promise,
             Act::Request(_) => ActKind::Request,
             Act::Decision(_) => ActKind::Decision,
             Act::Threat { .. } => ActKind::Threat,
@@ -227,8 +230,8 @@ pub struct HisAsk {
     pub why: Want,
     /// A question he asks you ("who's ahead of me at corner?").
     pub question: Option<Topic>,
-    /// Terms he asks for.
-    pub terms: Vec<Term>,
+    /// What he asks for, in words (the terms join with `usage::Usage`).
+    pub asks: Vec<String>,
 }
 
 /// How the talk ends this turn, if it does.

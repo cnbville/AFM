@@ -7,8 +7,7 @@ use afm_engine::world::folk::persona::ear::Act;
 const REPLY: &str = r#"{
   "acts": [
     {"act": "question", "topic": "Mood", "about": "p2", "words": "how's Tre doing"},
-    {"act": "promise", "terms": [{"measure": "m1", "number": 0.25, "bound": "AtLeast",
-      "scope": "game", "from": "now", "as_long_as": "", "words": "we'll stunt you on a quarter of your rushes"}]},
+    {"act": "promise", "words": "we'll stunt you on a quarter of your rushes"},
     {"act": "end"}
   ],
   "hits": [{"item": "c2", "how": "reassured"}, {"on": "p2", "item": "c4", "how": "stung"}]
@@ -20,7 +19,7 @@ fn ear_reply_reads() {
     assert_eq!(r.acts.len(), 3);
     assert_eq!(r.acts[0].act, ActKind::Question);
     assert_eq!(r.acts[0].topic, Some(Topic::Mood));
-    assert_eq!(r.acts[1].terms[0].bound, Some(Bound::AtLeast));
+    assert_eq!(r.acts[1].act, ActKind::Promise);
     assert_eq!(r.hits[0].on, None);
     assert_eq!(r.hits[1].how, How::Stung);
     assert!(!r.dodged && !r.not_talk);

@@ -3,7 +3,7 @@
 //! himself, from his real state in the world. This module is types, trait
 //! stubs and test fakes only. Nothing here runs in the game yet: lanes N1
 //! (people), N3 (deals and requests) and N4 (the conversation) fill the
-//! traits, and N2 and the promises thread fill the measures.
+//! traits, and the promises lane's `usage.rs` holds the terms and measures.
 //!
 //! The one rule (section 2): the AI reads your words and voices him. The
 //! game decides what's true, what he knows, what he says, whether he
@@ -21,9 +21,10 @@
 //!   terms agreed, and the saved readings. Kept in `claims::Live` (`Folk.live`),
 //!   the live talks' one saved store.
 //! - `room`: channels and who's in the room (5.5, 5.6).
-//! - `terms`: terms (measure, number, scope, horizon, "as long as"), offers,
-//!   counters, requests and decisions (8.2 to 8.4, section 11). A promise's
-//!   own record stays P1's `talks::Promise` with its `promise::Terms`.
+//! - `terms`: offers, counters, requests and decisions (8.2, 8.3,
+//!   section 11). A term is the promises lane's `usage::Usage` with its
+//!   `MEASURES` keys, never a second type; a promise's own record stays
+//!   P1's `talks::Promise`.
 //! - `ear`: the ear's acts and hits (5.1, 5.2), and the game's turn (5.3).
 //! - `fake`: fakes for every trait, for the lanes' tests.
 //!

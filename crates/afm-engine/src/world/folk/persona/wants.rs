@@ -115,7 +115,7 @@ pub enum Willing {
     /// He'll do it: the game runs the action by its own rules.
     Yes,
     /// He will if you give him something (a counter).
-    If(Vec<super::terms::Term>),
+    If(super::terms::Counter),
     /// He'll think about it, and answer by a day (taking time, section 11).
     Later(crate::calendar::Date),
     /// No.
