@@ -521,5 +521,9 @@ mod tests;
 mod recruit_tests;
 
 #[cfg(test)]
+#[path = "future_tests.rs"]
+mod future_tests;
+
+#[cfg(test)]
 #[path = "n7_tests.rs"]
 mod n7_tests;
