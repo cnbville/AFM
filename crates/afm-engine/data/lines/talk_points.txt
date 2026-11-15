@@ -6,6 +6,9 @@
 # talk.point.open.<point>.<stance>: he opens on the point, in his stance.
 # talk.point.open.good.<stance>: any good news with no part of its own
 # (an award, a job won, a big game, coming back): it names nothing.
+# talk.point.open.plain: a point with no opening of its own: he opens on
+# what you named ({about}, in his words: "my grades"), never on its
+# subject's line.
 # talk.point.ask.<point>: his question to you.
 # talk.point.again: he hears praise for the same thing a second time.
 #
@@ -243,3 +246,12 @@ I know, Coach. You told me.
 Thanks. Again.
 You keep saying that. I'm starting to believe it.
 I remember, Coach. It meant something the first time.
+
+@key talk.point.open.plain
+You want to talk about {about}? Alright, Coach.
+Okay, {about}. I'm listening, Coach.
+I figured {about} might come up. Go ahead.
+Alright, Coach. What about {about}?
+Sure. What did you want to say about {about}, Coach?
+Fine by me, Coach. {about}, then.
+Okay. Let's hear it, Coach.

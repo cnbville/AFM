@@ -196,6 +196,10 @@ pub struct ProgramSeason {
     pub conference: Option<String>,
     #[serde(default)]
     pub division: Option<Division>,
+    /// Points scored and allowed in every game, the stand-in's too; none
+    /// in an older file (then `totals` has the engine's).
+    #[serde(default)]
+    pub points: [u32; 2],
 }
 
 /// A team's season totals from its engine games.

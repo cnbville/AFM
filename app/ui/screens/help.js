@@ -228,12 +228,19 @@ function hpHide() {
   HP.el = null;
   HP.on = null;
 }
+// A skill's name on a player's page: what it does for his position (the
+// match engine's own use, lane_help/roles.rs), a short line for the other
+// positions and, where the game doesn't play it out yet, a plain note.
 function hpAttrHtml(x) {
-  return `<div class="rr-top"><span class="st-label">Rating</span><b class="hp-big">${esc(x.label)}</b></div>
+  const at = x.at;
+  const mine = at && at.line;
+  return `<div class="rr-top"><span class="st-label">${at ? `Rating · at ${esc(at.pos)}` : "Rating"}</span><b class="hp-big">${esc(x.label)}</b></div>
     <p class="hp-what">${esc(x.what)}</p>
-    <p>${esc(x.field)}</p>
+    <p${mine ? ' class="hp-at"' : ""}>${esc(mine ? at.line : x.field)}</p>
+    ${at && at.unread ? `<p class="hp-unread">${esc(at.unread)}</p>` : ""}
+    ${at && at.elsewhere ? `<p class="hp-else"><span class="st-label">Elsewhere</span>${esc(at.elsewhere)}</p>` : ""}
     <p class="rr-comb"><span class="st-label">How it grows</span>${esc(x.grows)}</p>
-    <p class="rr-pool">${esc(x.matters)} Hover a range for where he stands.</p>`;
+    <p class="rr-pool">${esc(at && at.weight ? at.weight : x.matters)} Hover a range for where he stands.</p>`;
 }
 function hpLevelHtml(x) {
   return `<div class="rr-top"><span class="st-label">Level rating</span><b>${x.rating}</b></div>
@@ -301,11 +308,14 @@ function hpOpen(t, delay) {
       const html = hpStatHtml(t);
       return html ? hpShow(t, html) : null;
     }
-    const ck = d.h1 ? `a|${d.h1}` : `l|${S.status ? S.status.today : ""}|${d.h3}`;
+    // A rating's name on a player's page carries his position (data-hpos).
+    const hp = d.h1 && t.closest ? (t.closest("[data-hpos]") || {}).dataset : null;
+    const pos = hp ? hp.hpos : "";
+    const ck = d.h1 ? `a|${d.h1}|${pos}` : `l|${S.status ? S.status.today : ""}|${d.h3}`;
     let x = HP.cache.get(ck);
     if (!x) {
       try {
-        x = d.h1 ? await api("help_attr", { k: d.h1 }) : await api("help_level", { p: Number(d.h3) });
+        x = d.h1 ? await api("help_attr", pos ? { k: d.h1, pos } : { k: d.h1 }) : await api("help_level", { p: Number(d.h3) });
       } catch (e) {
         x = { error: e.message || String(e) };
       }

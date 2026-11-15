@@ -396,7 +396,8 @@ pub(crate) fn unit_table(w: &World, t: TeamRef) -> std::sync::Arc<UnitTable> {
         TeamRef::Other(_) => (Vec::new(), String::new()),
     };
     let table = std::sync::Arc::new(UnitTable {
-        mine: team_reads(w, t, true),
+        // Another team's page reads its men as its rivals are read.
+        mine: team_reads(w, t, views::is_mine(w, t)),
         others: rivals.into_iter().map(|r| team_reads(w, r, false)).collect(),
         among,
     });

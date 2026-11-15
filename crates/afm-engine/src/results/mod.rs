@@ -1020,7 +1020,14 @@ pub fn season_snaps(level: Level) -> f64 {
 /// season, weighted by the opponent, moves the year's rate from a
 /// backup's toward a starter's as the yearly step's snaps did. Only a year
 /// opened with snaps landing in season takes it.
-pub fn reps(p: &mut Player, l: &mut Ledger, snaps: u32, level: Level, opp: f64, focus: Option<Attr>) -> f64 {
+pub fn reps(
+    p: &mut Player,
+    l: &mut Ledger,
+    snaps: u32,
+    level: Level,
+    opp: f64,
+    focus: Option<crate::development::Focus>,
+) -> f64 {
     if snaps == 0 || p.position.is_specialist() {
         return 0.0;
     }
@@ -1332,6 +1339,7 @@ pub(crate) fn world_game(
             l.roll(year);
         }
         let moved = apply_in(p, l, &m, level, &mode, &peers);
+        let focus = focus.map(|a| crate::development::Focus::new(a, p.train.focus_minutes()));
         reps(p, l, m.snaps, level, m.opp as f64, focus);
         if let (Some(t), Some((r, d))) = (team, moved.up)
             && d >= BIG_GAME

@@ -418,8 +418,8 @@ pub fn record(w: &World, i: usize, h: Hearer) -> f64 {
     r.clamp(0.0, 1.0)
 }
 
-/// What he's been through: a coach who left him, or a transfer over snaps
-/// or a coach.
+/// What he's been through: a coach who left him, a transfer over snaps
+/// or a coach, or a staff that broke its word to him (burned).
 pub fn past(w: &World, i: usize) -> f64 {
     let p = &w.people[i];
     let mut k: f64 = 1.0;
@@ -433,6 +433,10 @@ pub fn past(w: &World, i: usize) -> f64 {
         "playing time" | "spring depth chart" | "coaching change" => k *= 0.85,
         _ if p.transfers > 0 => k *= 0.92,
         _ => {}
+    }
+    // Burned: a staff broke a promise to him (promises lane P2).
+    if super::ai_promise::burned(w, p.player.id) {
+        k *= super::ai_promise::BURNED;
     }
     k.clamp(0.75, 1.0)
 }

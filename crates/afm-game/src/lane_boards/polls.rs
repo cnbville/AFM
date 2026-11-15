@@ -211,23 +211,11 @@ fn college(w: &World, j: usize, tab: Option<&str>) -> Reply {
     }));
 
     // The conference's standings.
-    let mut table: Vec<(usize, afm_engine::world::seat::Record)> = w
-        .programs
-        .iter()
-        .filter(|p| p.conference == conf && p.division == prog.division)
-        .map(|p| (p.id, w.college_record_in(p.id, prev)))
-        .collect();
-    // As conferences publish them: conference winning share (0-0 last),
-    // fewer conference losses, then the overall share and wins.
-    let pct = |w: u32, l: u32| if w + l > 0 { w as f64 / (w + l) as f64 } else { -1.0 };
-    table.sort_by(|a, b| {
-        let (x, y) = (&a.1, &b.1);
-        pct(y.conf_wins, y.conf_losses)
-            .total_cmp(&pct(x.conf_wins, x.conf_losses))
-            .then(x.conf_losses.cmp(&y.conf_losses))
-            .then(pct(y.wins, y.losses).total_cmp(&pct(x.wins, x.losses)))
-            .then(y.wins.cmp(&x.wins))
-    });
+    let ids: Vec<usize> =
+        w.programs.iter().filter(|p| p.conference == conf && p.division == prog.division).map(|p| p.id).collect();
+    // As conferences publish them: the champion first, then the
+    // conference winning share (0-0 last), fewer losses, the overall share.
+    let table = w.college_conference_table(&ids, prev);
     let ap = latest("ap").or(latest("cfp"));
     let standings = json!({
         "title": format!("{conf_name} standings"),

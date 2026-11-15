@@ -331,7 +331,7 @@ fn with_no_key_there_is_no_box() {
 }
 
 #[test]
-fn the_press_and_a_one_on_one_take_no_typed_line() {
+fn the_press_takes_no_typed_line_and_a_one_on_one_does() {
     let (mut g, _) = game("nobox");
     let today = w(&g).today;
     for kind in [Kind::Press, Kind::Media, Kind::Story, Kind::OneOnOne, Kind::Discipline] {
@@ -339,7 +339,7 @@ fn the_press_and_a_one_on_one_take_no_typed_line() {
         s.who.push(Who::Group("The room".into()));
         s.opened = true;
         s.pick(10, "Say something", "Ask", "calm", "");
-        assert_eq!(scene::takes_typed(&s), kind == Kind::Discipline, "{kind:?}");
+        assert_eq!(scene::takes_typed(&s), matches!(kind, Kind::Discipline | Kind::OneOnOne), "{kind:?}");
     }
     let _ = g.call("hello", &json!({}));
 }
@@ -438,4 +438,39 @@ fn a_typed_line_shows_your_words_with_no_markup() {
     assert_eq!(v["lines"][0]["text"], "Would Jones start for you?");
     assert_eq!(v["lines"][0]["chip"], "How would you use our players?");
     assert_eq!(v["lines"][1], json!({ "by": 2, "text": "Sure." }), "a line you didn't type is left as it was");
+}
+
+/// A reader's answer with what the line said beyond its option.
+fn reading_beyond(pick: &str, beyond: &str) -> Value {
+    let v = json!({ "pick": pick, "also": "none", "tone": "firm", "promise": null, "claims": [], "named": [],
+        "fit": "clear", "beyond": beyond });
+    body(&v.to_string(), 700, 60)
+}
+
+#[test]
+fn what_a_line_said_beyond_its_option_shows_and_reaches_the_writer() {
+    let (mut g, f) = game("beyond");
+    let id = interview(&mut g);
+    let o1 = tag(&g, id, 60);
+    f.push(READER, Ok(reading_beyond(&o1, "wants a no-huddle offense with 80 snaps a game")));
+    f.push_text(WRITER, "Eighty snaps is a lot, Coach, but I'd build it around what your quarterbacks do well.");
+    let done = say(&mut g, id, "I want to run no-huddle, 80 snaps a game. How would you use our quarterbacks?");
+    assert_eq!(done["state"], "done", "{done}");
+    assert_eq!(
+        done["heard"],
+        "ask about his scheme and how he'd use your players, firm. Also heard: wants a no-huddle offense with 80 snaps a game"
+    );
+    let card = &f.asked().iter().rev().find(|r| r.label == WRITER).expect("the writer was asked").user.clone();
+    assert!(card.contains("What the coach said beyond that, as he heard it: wants a no-huddle offense"), "{card}");
+}
+
+#[test]
+fn a_beyond_with_a_number_you_never_said_is_dropped() {
+    let (mut g, f) = game("beyond-number");
+    let id = interview(&mut g);
+    let o1 = tag(&g, id, 60);
+    f.push(READER, Ok(reading_beyond(&o1, "wants 90 snaps a game")));
+    f.push_text(WRITER, "I'd build it around your quarterbacks, Coach.");
+    let done = say(&mut g, id, "I want to play fast. How would you use our quarterbacks?");
+    assert_eq!(done["heard"], "ask about his scheme and how he'd use your players, firm");
 }

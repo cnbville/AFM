@@ -57,6 +57,10 @@ pub struct Card {
     pub tell: String,
     /// What the game released with this answer, in words (the writer's).
     pub released: Vec<String>,
+    /// What your line said beyond the option it landed on, in the reader's
+    /// few words (the writer's): his reply answers it, the game's line
+    /// decides how he takes it.
+    pub beyond: String,
     /// Facts the talk may use, from the fact sheet.
     pub facts: Vec<String>,
     /// Lines from players or staff like him, for his register.
@@ -250,6 +254,9 @@ impl Card {
         ));
         if !self.tell.is_empty() {
             out.push_str(&format!("How he comes across: {}\n", self.tell));
+        }
+        if !self.beyond.is_empty() {
+            out.push_str(&format!("What the coach said beyond that, as he heard it: {}\n", self.beyond));
         }
         if !self.released.is_empty() {
             out.push_str("What your read of him caught with this answer:\n");
