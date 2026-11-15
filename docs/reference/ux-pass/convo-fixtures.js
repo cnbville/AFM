@@ -19,7 +19,7 @@ const desmond = {
       line(1, "The chips are their call. Getting you free is ours. From Saturday we run twists with you in them, one rush in four, every game through the bowl.", { heard: "a promise about his rushes · hope, and some doubt" }),
       line(2, "Coach Kessler barely calls twists. If that changes, I'm all in. But I'll be counting.", { tell: "half a smile: he's heard promises before" }),
     ],
-    talk: {
+    talk: { persona: true,
       channel: "In person", minutes: { left: 11, of: 25 }, week: 10,
       left: [
         { k: "tiles", label: "His last 3 games", note: "from the play log", items: [{ n: 94, l: "pass rushes" }, { n: 11, l: "pressures" }, { n: 2, l: "sacks" }], text: "Slid to on 61%, chipped on 31%, doubled on 18%. Their calls." },
@@ -128,7 +128,7 @@ const film = {
       line(1, "We've been running twists for you all year.", { heard: "a claim about your scheme · he knows it isn't so" }),
       line(1, "Against their quarterback, keep contain on 3rd and short. Don't rush past him.", { heard: "coaching for Saturday · he gets it; it costs him a few wins" }),
     ],
-    talk: {
+    talk: { persona: true,
       channel: "Film room", minutes: { left: 18, of: 30 }, week: 10, compact: true, lede: "Desmond with you, Ron Kessler sitting in. What's said is checked against the tape.",
       left: [
         { k: "tiles", label: "His rushes, last 3 games", note: "from the play log", items: [{ n: 94, l: "pass rushes" }, { n: 14, l: "rush wins" }, { n: "2.6s", l: "to win, on average" }] },

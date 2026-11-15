@@ -30,6 +30,7 @@ use super::card::{Spoken, Tagged};
 pub mod cards;
 pub mod ear;
 pub mod talk;
+pub mod view;
 pub mod voice;
 
 /// What the ear is given: everything as words and tags.
