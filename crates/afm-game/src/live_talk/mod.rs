@@ -71,7 +71,7 @@ pub fn call(g: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         "official_talk" => persona::gameday::official_talk(g, args),
         "fo_say" => say::fo_say(g, args),
         "ai_ask" => ask::ask(g, args),
-        "ai_checks" => checks::ai_checks(g),
+        "ai_checks" => checks::ai_checks(g, args),
         "fo_fact" => say::money::fact(g, args),
         "scout_source" => ask::source::source_cmd(g, args),
         _ => return None,

@@ -25,7 +25,7 @@ use serde_json::{Value, json};
 use super::super::{cards, ear::EAR, voice::VOICE};
 use crate::Game;
 
-fn you() -> You {
+pub(super) fn you() -> You {
     let teaching = vec![12.0; afm_engine::world::coach::GROUP_COUNT];
     serde_json::from_value(json!({
         "name": "Test Coach", "age": 45, "ethnicity": "White", "home_state": 0, "ex_pro": false, "reputation": 60.0,
@@ -38,7 +38,7 @@ fn you() -> You {
 }
 
 /// The tiny world with your career at a college and a backup of yours.
-fn world() -> (World, u32) {
+pub(super) fn world() -> (World, u32) {
     let mut w = World::empty(WorldOptions { scale: 0.001, history_years: 0, start_year: 2037, ..Default::default() });
     let job = Job::College(w.programs.iter().position(|p| p.division == Division::FBS).unwrap());
     w.start_career(&you(), job, 7);
@@ -58,7 +58,7 @@ fn world() -> (World, u32) {
     (w, id)
 }
 
-fn game(name: &str, fake: bool) -> (Game, Option<Arc<Fake>>, u32) {
+pub(super) fn game(name: &str, fake: bool) -> (Game, Option<Arc<Fake>>, u32) {
     let p: PathBuf = std::env::temp_dir().join(format!("afm-live-n4-{}-{name}", std::process::id()));
     let _ = std::fs::remove_dir_all(&p);
     std::fs::create_dir_all(&p).unwrap();
@@ -73,11 +73,11 @@ fn game(name: &str, fake: bool) -> (Game, Option<Arc<Fake>>, u32) {
     (g, f, him)
 }
 
-fn ok(g: &mut Game, cmd: &str, args: Value) -> Value {
+pub(super) fn ok(g: &mut Game, cmd: &str, args: Value) -> Value {
     g.call(cmd, &args).unwrap_or_else(|e| panic!("{cmd}: {e}"))
 }
 
-fn finish(g: &mut Game, ticket: u64) -> Value {
+pub(super) fn finish(g: &mut Game, ticket: u64) -> Value {
     let t = Instant::now();
     loop {
         let v = ok(g, "ai_poll", json!({ "ticket": ticket }));
@@ -88,45 +88,45 @@ fn finish(g: &mut Game, ticket: u64) -> Value {
     }
 }
 
-fn scene_of(g: &Game, id: u32) -> Scene {
+pub(super) fn scene_of(g: &Game, id: u32) -> Scene {
     g.world.as_ref().unwrap().folk.scenes.iter().find(|s| s.id == id).unwrap().clone()
 }
 
 /// A one-on-one opened through the screen.
-fn talk(g: &mut Game, him: u32, subject: &str) -> u32 {
+pub(super) fn talk(g: &mut Game, him: u32, subject: &str) -> u32 {
     let sid = ok(g, "people_talk", json!({ "id": him, "subject": subject }))["scene"].as_u64().unwrap() as u32;
     ok(g, "people_scene", json!({ "id": sid }));
     sid
 }
 
-fn act(kind: &str, what: &str, topic: &str, about: &str) -> Value {
+pub(super) fn act(kind: &str, what: &str, topic: &str, about: &str) -> Value {
     json!({ "act": kind, "topic": topic, "about": about, "claim": "none", "value": "", "deal": "none",
         "what": what, "when": "", "words": "" })
 }
 
-fn ear(acts: Vec<Value>, hits: Vec<Value>, not_talk: bool) -> Value {
+pub(super) fn ear(acts: Vec<Value>, hits: Vec<Value>, not_talk: bool) -> Value {
     let v = json!({ "acts": acts, "hits": hits, "dodged": false, "not_talk": not_talk });
     body(&v.to_string(), 1200, 120)
 }
 
-fn voice(line: &str, colour: &str) -> Value {
+pub(super) fn voice(line: &str, colour: &str) -> Value {
     body(&json!({ "line": line, "colour": colour }).to_string(), 900, 60)
 }
 
-fn trust(g: &Game, him: u32) -> f32 {
+pub(super) fn trust(g: &Game, him: u32) -> f32 {
     let w = g.world.as_ref().unwrap();
     w.people[afm_engine::world::folk::person(w, him).unwrap()].trust
 }
 
 /// The tag of the first item on his card whose words start so.
-fn item_tag(g: &Game, id: u32, starts: &str) -> String {
+pub(super) fn item_tag(g: &Game, id: u32, starts: &str) -> String {
     let w = g.world.as_ref().unwrap();
     let s = scene_of(g, id);
     let (c, _) = cards::ear(w, &s, &channels::one_on_one(&s), &Parts::today(), "");
     c.items.iter().find(|i| i.text.starts_with(starts)).map(|i| i.tag.clone()).unwrap_or_else(|| panic!("{c:?}"))
 }
 
-fn say(g: &mut Game, id: u32, text: &str) -> Value {
+pub(super) fn say(g: &mut Game, id: u32, text: &str) -> Value {
     let t = ok(g, "people_say", json!({ "id": id, "text": text }))["ticket"].as_u64().unwrap();
     finish(g, t)
 }

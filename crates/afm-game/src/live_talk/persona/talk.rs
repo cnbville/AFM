@@ -519,3 +519,7 @@ mod tests;
 #[cfg(test)]
 #[path = "recruit_tests.rs"]
 mod recruit_tests;
+
+#[cfg(test)]
+#[path = "n7_tests.rs"]
+mod n7_tests;

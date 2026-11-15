@@ -39,7 +39,7 @@ fn you() -> You {
     .unwrap()
 }
 
-fn home(name: &str) -> PathBuf {
+pub(super) fn home(name: &str) -> PathBuf {
     let p = std::env::temp_dir().join(format!("afm-live-n5a-{}-{name}", std::process::id()));
     let _ = std::fs::remove_dir_all(&p);
     std::fs::create_dir_all(&p).unwrap();
@@ -49,7 +49,7 @@ fn home(name: &str) -> PathBuf {
 /// A game at a college on the fake, and a talk of `kind` with a senior
 /// holding your offer: (the game, the fake, the talk, his place, his id,
 /// your program).
-fn recruit_talk(name: &str, kind: Kind, decider: Decider) -> (Game, Arc<Fake>, u32, usize, u32, usize) {
+pub(super) fn recruit_talk(name: &str, kind: Kind, decider: Decider) -> (Game, Arc<Fake>, u32, usize, u32, usize) {
     let mut w = World::empty(WorldOptions { scale: 0.001, history_years: 0, start_year: 2037, ..Default::default() });
     let mine = w.programs.iter().position(|p| p.division == Division::FBS).unwrap();
     w.start_career(&you(), Job::College(mine), 7);
@@ -74,11 +74,11 @@ fn recruit_talk(name: &str, kind: Kind, decider: Decider) -> (Game, Arc<Fake>, u
     (g, f, sid, i, id, mine)
 }
 
-fn ok(g: &mut Game, cmd: &str, args: Value) -> Value {
+pub(super) fn ok(g: &mut Game, cmd: &str, args: Value) -> Value {
     g.call(cmd, &args).unwrap_or_else(|e| panic!("{cmd}: {e}"))
 }
 
-fn finish(g: &mut Game, ticket: u64) -> Value {
+pub(super) fn finish(g: &mut Game, ticket: u64) -> Value {
     let t = Instant::now();
     loop {
         let v = ok(g, "ai_poll", json!({ "ticket": ticket }));
@@ -89,28 +89,28 @@ fn finish(g: &mut Game, ticket: u64) -> Value {
     }
 }
 
-fn act(kind: &str, what: &str, value: &str, about: &str) -> Value {
+pub(super) fn act(kind: &str, what: &str, value: &str, about: &str) -> Value {
     json!({ "act": kind, "topic": "Nothing", "about": about, "claim": "none", "value": value, "deal": "none",
         "what": what, "when": "", "words": "", "gives": [], "terms": [] })
 }
 
-fn ear(acts: Vec<Value>, hits: Vec<Value>) -> Value {
+pub(super) fn ear(acts: Vec<Value>, hits: Vec<Value>) -> Value {
     body(&json!({ "acts": acts, "hits": hits, "dodged": false, "not_talk": false }).to_string(), 1200, 120)
 }
 
-fn voice(line: &str) -> Value {
+pub(super) fn voice(line: &str) -> Value {
     body(&json!({ "line": line, "colour": "" }).to_string(), 900, 60)
 }
 
 /// Says one line on the fake: the ear's reading, then his words.
-fn say(g: &mut Game, f: &Fake, sid: u32, text: &str, reading: Value) -> Value {
+pub(super) fn say(g: &mut Game, f: &Fake, sid: u32, text: &str, reading: Value) -> Value {
     f.push(EAR, Ok(reading));
     f.push(VOICE, Ok(voice("Okay, Coach.")));
     let t = ok(g, "people_say", json!({ "id": sid, "text": text }))["ticket"].as_u64().unwrap();
     finish(g, t)
 }
 
-fn scene_of(g: &Game, sid: u32) -> Scene {
+pub(super) fn scene_of(g: &Game, sid: u32) -> Scene {
     g.world.as_ref().unwrap().folk.scenes.iter().find(|s| s.id == sid).unwrap().clone()
 }
 
@@ -230,7 +230,7 @@ fn with_v3_off_a_recruits_talk_plays_as_lane_ten() {
 /// A high school seat, and a college staff's call about your player with
 /// a worry about his grades (a player whose grade point average is below
 /// `below`).
-fn college_call(name: &str, below: f64) -> (Game, Arc<Fake>, u32, u32) {
+pub(super) fn college_call(name: &str, below: f64) -> (Game, Arc<Fake>, u32, u32) {
     let mut w = World::empty(WorldOptions { scale: 0.001, history_years: 0, start_year: 2037, ..Default::default() });
     w.add_class_aged(17);
     let i = (0..w.people.len())
