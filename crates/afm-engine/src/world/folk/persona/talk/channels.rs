@@ -80,7 +80,13 @@ pub fn speaker(room: &Room, reading: &Reading) -> Option<(Them, Seat)> {
     room.present
         .iter()
         .filter(|p| p.speaks)
-        .find(|p| (p.seat == Seat::Agent && deal) || (p.seat == Seat::HsCoach && school))
+        .find(|p| {
+            (p.seat == Seat::Agent && deal)
+                || (p.seat == Seat::HsCoach && school)
+                // A recruit's decider answers the money and the deal, and
+                // what other schools have told the family (lane N5a).
+                || (p.seat == Seat::Decider && (deal || school))
+        })
         .map(|p| (p.who, p.seat))
 }
 
@@ -92,6 +98,12 @@ pub fn one_on_one(s: &Scene) -> Room {
         channel: Channel::InPerson(place),
         present: vec![Present { who: Them::Player(s.a as u32), seat: Seat::Across, speaks: false }],
     }
+}
+
+/// The room a scene's talk starts in: its facet's (a recruit's talk, a
+/// college staff's call: lane N5a), else a one-on-one.
+pub fn room_for(w: &World, s: &Scene) -> Room {
+    super::recruit::room(w, s).or_else(|| super::hs_call::room(s)).unwrap_or_else(|| one_on_one(s))
 }
 
 /// A place from a scene's words.
@@ -145,6 +157,23 @@ pub fn name(w: &World, who: Them) -> String {
     match who {
         Them::Player(id) => folk::person(w, id).map_or_else(|| "He".into(), |i| w.people[i].name.clone()),
         Them::Coach(c) => w.coaches.get(c).map_or_else(|| "The coach".into(), |c| c.name.clone()),
+        Them::Kin(id, k) => folk::person(w, id).map_or_else(
+            || "His family".into(),
+            |i| {
+                use crate::world::background::Decider;
+                let first = w.people[i].name.split_whitespace().next().unwrap_or("His").to_string();
+                let who = match (k, w.people[i].family.decider) {
+                    (0, Decider::Parent) => "parent",
+                    (0, Decider::Grandparent) => "grandparent",
+                    (0, Decider::Handler) => "handler",
+                    _ => "family",
+                };
+                format!("{first}'s {who}")
+            },
+        ),
+        Them::Drawn(super::super::wants::Kind::OtherCoach, prog) if (prog as usize) < w.programs.len() => {
+            format!("{}'s recruiting coordinator", w.program_name(prog as usize))
+        }
         _ => super::super::office::sit::name(w, who).unwrap_or_else(|| "He".into()),
     }
 }

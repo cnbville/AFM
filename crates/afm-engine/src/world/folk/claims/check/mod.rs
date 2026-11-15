@@ -59,6 +59,9 @@ pub fn fact(w: &World, s: &Scene, stated: &Stated) -> Truth {
         | Kind::FamilyCall
         | Kind::OfficialTalk => recruit::check(w, s, stated),
         Kind::Gm | Kind::BossFirst | Kind::BossMeeting => money::check(w, stated),
+        // You, the high school coach, about your player to a college staff
+        // (live talks v3, lane N5a).
+        Kind::CollegeCall => crate::world::folk::persona::talk::hs_call::check(w, s, stated),
         _ => roster::check(w, s, stated),
     }
 }

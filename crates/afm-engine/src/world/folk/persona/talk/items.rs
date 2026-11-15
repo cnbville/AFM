@@ -95,6 +95,8 @@ pub fn items(w: &World, him: Them, wants: &[Want]) -> Vec<(Item, String)> {
 /// what your read of him shows, so never by name here.
 pub fn known(w: &World, him: Them, item: &Item) -> bool {
     match item {
+        // Your own school's point to a recruit: yours to know (lane N5a).
+        Item::Point(key) if pitch_point(key).is_some() => true,
         Item::Point(key) => {
             let (Them::Player(id), Some(k)) = (him, claims::Kind::from_key(key)) else { return false };
             folk::person(w, id).and_then(|i| claims::player(w, i).get(k).map(|p| p.known)).unwrap_or(false)
@@ -107,6 +109,9 @@ pub fn known(w: &World, him: Them, item: &Item) -> bool {
 /// An item's short name for "Heard as", once you know it.
 pub fn short(w: &World, him: Them, item: &Item) -> String {
     match item {
+        Item::Point(key) if pitch_point(key).is_some() => {
+            pitch_point(key).and_then(|k| k.group()).map_or(String::new(), |g| g.name().to_lowercase())
+        }
         Item::Point(key) => {
             let (Them::Player(id), Some(k)) = (him, claims::Kind::from_key(key)) else { return String::new() };
             folk::person(w, id)
@@ -120,4 +125,9 @@ pub fn short(w: &World, him: Them, item: &Item) -> String {
         Item::HisWord => "what he told you".into(),
         Item::Want(_) => String::new(),
     }
+}
+
+/// A point of your school's case to a recruit (`Family::Pitch`), by key.
+fn pitch_point(key: &str) -> Option<claims::Kind> {
+    claims::Kind::from_key(key).filter(|k| matches!(k.family(), claims::Family::Pitch(_)))
 }
