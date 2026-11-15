@@ -3639,5 +3639,31 @@ pub fn injury_weeks(kind: InjuryKind, rng: &mut Rng) -> f64 {
         InjuryKind::Quad => (0.5, 6.0),
     };
     let u = rng.next();
-    lo + (hi - lo) * u * u
+    let weeks = lo + (hi - lo) * u * u;
+    weeks * complication(kind, u)
+}
+
+/// A rare complication that runs an injury far past its usual range
+/// (realism audit item 14): a graft that fails or gets infected, a bone
+/// that doesn't knit, nerve damage, symptoms that linger. Jaylon Smith's
+/// 2016 knee (nerve) cost about 20 months, Alex Smith's 2018 leg (infection)
+/// about two years, Teddy Bridgewater's 2016 knee about 16 months. Proposed,
+/// not confirmed: 6% of torn ACLs, 5% of broken bones and foot injuries, 3%
+/// of high ankle sprains and 2% of concussions, 1% of the rest, each 1.3 to
+/// 2.5 times its length, most near the low end. Read from the length's own
+/// draw (its low bits), so no other draw moves.
+pub fn complication(kind: InjuryKind, u: f64) -> f64 {
+    let chance = match kind {
+        InjuryKind::Acl => 0.06,
+        InjuryKind::Fracture | InjuryKind::Foot => 0.05,
+        InjuryKind::HighAnkleSprain => 0.03,
+        InjuryKind::Concussion => 0.02,
+        _ => 0.01,
+    };
+    let c = (u * 4096.0).fract();
+    if c >= chance {
+        return 1.0;
+    }
+    let size = (u * 16_777_216.0).fract();
+    1.3 + 1.2 * size * size
 }

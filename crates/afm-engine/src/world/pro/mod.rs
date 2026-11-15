@@ -775,6 +775,7 @@ fn veteran(w: &mut World, pos: Position, rating: f64, age: u32, seed: u32) -> Pe
         stay_home: 0.0,
         childhood_team: None,
         cal: PersonCal::default(),
+        tests: Default::default(),
         pro: None,
         mood: 0.0,
         mood_why: 0,
@@ -1687,6 +1688,10 @@ fn camp(w: &mut World, d: Date) {
         teams.iter().sum::<f64>() / teams.len().max(1) as f64
     };
     let pros: Vec<usize> = (0..w.people.len()).filter(|&i| w.people[i].stage == Stage::Pro).collect();
+    // Real injuries of men who never reached another step (retired, gone
+    // undrafted) leave the log after about two years (audit item 1).
+    let today = d;
+    w.training.year_hurt.retain(|_, h| h.on.days_to(today) < 730);
     // What the pros' tools support on average at each position (trial 8
     // finding 3): habits are read against it.
     let mut centres = crate::tendencies::Centres::new();
@@ -1784,7 +1789,12 @@ fn camp(w: &mut World, d: Date) {
         let closing = w.results.ledgers.remove(&w.people[i].player.id);
         let nfl_engine = w.options.engine_from.is_none_or(|from| w.year >= from) && !w.clubs.is_empty();
         let results = (w.options.results.on && team.is_some() && nfl_engine).then_some(w.options.results);
+        // His real injuries since his last step (realism audit item 1),
+        // when last season played on the engine.
+        let today = w.today;
+        let hurt = crate::world::season::real_hurts(w, Stage::Pro).then(|| w.training.take_hurt(w.people[i].player.id));
         let p = &mut w.people[i];
+        let hurt = hurt.map(|h| crate::world::season::hurt_for_step(&mut p.player, h, today));
         let mut adjustment = 0.0;
         if team.is_some() && (first || new_team) && role != PlayingTime::Unsigned {
             let step = if first {
@@ -1841,6 +1851,7 @@ fn camp(w: &mut World, d: Date) {
             focus_minutes: p.player.train.focus_minutes(),
             defer,
             results,
+            hurt,
             ..crate::development::SeasonContext::new(Level::NFL, clamp(coaching, 1.0, 20.0), role)
         };
         if let Some(l) = &closing {
@@ -1853,6 +1864,12 @@ fn camp(w: &mut World, d: Date) {
         let year_focus = ctx.focus.map(|a| crate::development::Focus::two(a, ctx.focus2, ctx.focus_minutes));
         crate::training::close_year(&mut p.player, year_focus);
         let report = crate::development::develop_season(&mut p.player, &ctx, &mut p.rng);
+        if ctx.hurt.is_some() && report.rehab_due {
+            let id = p.player.id;
+            w.training
+                .year_hurt
+                .insert(id, crate::development::YearHurt { rehab: true, on: today, ..Default::default() });
+        }
         // His spring snaps (OTAs, minicamp) land now as reps of the new
         // year, as they added to last season's snaps before.
         let spring_landed = if results.is_some() && spring > 0.0 && !p.player.position.is_specialist() && !read_late {

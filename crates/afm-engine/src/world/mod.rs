@@ -321,6 +321,9 @@ pub struct Person {
     /// The school he grew up cheering for (fix list 2.3), usually in his state.
     pub childhood_team: Option<usize>,
     pub cal: PersonCal,
+    /// His testing days at his team, the team's records (`training::testing`).
+    #[serde(default)]
+    pub tests: crate::training::testing::TestBook,
     /// His pro career (section 5): None until he joins the league.
     pub pro: Option<Box<pro::ProCareer>>,
     /// Section 6 topic 3: his mood, -1 to 1 (0 is his own baseline), and
@@ -1282,6 +1285,15 @@ pub struct CalendarLog {
     /// offer on real days").
     #[serde(default)]
     pub bar_commits: u32,
+    /// Blue chips signed (4 and 5 stars on the services' read, high school
+    /// and prep recruits), and those of them who committed to the school
+    /// they signed with before September 1 of the senior year (thread "Get
+    /// blue chips committing on time": counted at signing, since an early
+    /// enrollee's signing is gone once he is on campus).
+    #[serde(default)]
+    pub blue_signed: u32,
+    #[serde(default)]
+    pub blue_signed_summer: u32,
 }
 
 /// Where the manager works (N58): his level, and his NFL team, college
@@ -2423,6 +2435,7 @@ fn new_kid(
         stay_home: 0.0,
         childhood_team: None,
         cal: PersonCal::default(),
+        tests: Default::default(),
         pro: None,
         mood: 0.0,
         mood_why: 0,

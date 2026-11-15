@@ -104,7 +104,7 @@ fn testing(r: &Reader, m: &Man) -> Option<Point> {
     if !m.mine {
         return None;
     }
-    let tests = &r.w.training.tests;
+    let tests = crate::training::testing::seat_days(r.w);
     let (k, day) = tests.iter().enumerate().rev().find(|(_, d)| !d.baseline && d.date <= r.today)?;
     if !sheet::in_window(Kind::TestingDay, day.date, r.today) {
         return None;

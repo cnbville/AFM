@@ -176,7 +176,7 @@ screens.scout = async (a) => {
       <div class="st-actions">
         ${f.film_now ? scFilmNow(f) : ""}
         ${f.can_ask.length ? `<button class="st-btn glass" data-act="sc-askopen" aria-pressed="${SC.askOpen}">Ask for a new look</button>` : ""}
-        <button class="st-btn glass" data-act="sc-follow" data-id="${f.id}" data-on="${f.followed ? 0 : 1}">${f.followed ? "On my players" : "Add to my players"}</button>
+        <button class="st-btn glass" data-act="sc-follow" data-id="${f.id}" data-on="${f.followed ? 0 : 1}" aria-pressed="${f.followed ? "true" : "false"}">${f.followed ? iconOn("star") + " On my players" : icon("star") + " Add to my players"}</button>
         ${linkTo("player", { id: f.id }, "Player page ›")}
       </div>
     </div>

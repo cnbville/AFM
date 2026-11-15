@@ -220,6 +220,9 @@ pub(crate) fn practice_at(w: &mut World, d: Date, t: u16) {
     w.training.pending = keep;
     for (_, hurt, note) in mine {
         let (from, id) = (hurt.from, hurt.id);
+        if let Some(k) = hurt.kind {
+            w.training.log_hurt(id, k, from.days_to(hurt.until).max(1) as u32, from);
+        }
         // Already out (hurt in a game since the roll): the longer layoff
         // stands, and the trainers write only when practice adds time.
         match w.training.hurt.iter_mut().find(|h| h.id == id && h.until > from) {
@@ -237,7 +240,8 @@ pub(crate) fn practice_at(w: &mut World, d: Date, t: u16) {
     let (others, keep): (Vec<_>, Vec<_>) =
         std::mem::take(&mut w.training.others_pending).into_iter().partition(|x| due(x.0));
     w.training.others_pending = keep;
-    for (_, id, back, kind) in others {
+    for (at, id, back, kind) in others {
+        w.training.log_hurt(id, kind, at.date.days_to(back).max(1) as u32, at.date);
         w.training.note_other_hurt(id, back, kind);
     }
     let sessions = nfl_sessions(w, d);
