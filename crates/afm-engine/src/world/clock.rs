@@ -116,7 +116,7 @@ pub(crate) const COMMIT_WAVES: [(u32, u32); 5] = [(3, 20), (4, 30), (6, 15), (8,
 /// of November, and each wave's own day (the services' rating days), the
 /// staffs' boards and offers move and the recruits whose time has come
 /// decide. The window `d` falls in (the last wave on or before it).
-/// Proposed, not confirmed: a week, the cadence real staffs set their
+/// Cain agreed 2026-11-15: a week, the cadence real staffs set their
 /// boards and offers by.
 pub(crate) fn recruiting_week(y: &YearDates, d: Date) -> Option<u8> {
     let first = Date::ymd(y.season, COMMIT_WAVES[0].0, COMMIT_WAVES[0].1);

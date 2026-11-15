@@ -3882,7 +3882,7 @@ pub(crate) const EARLY_OFFER_PASSES: [(f64, f64); 5] =
 /// each rank holds by each day (`EARLY_OFFER_PASSES`); between two of them
 /// the count climbs a little each week, so an offer lands in the week a
 /// staff has seen enough, and the services look again only on the passes'
-/// own days. Proposed, not confirmed: each Monday and each pass's day.
+/// own days. Cain agreed 2026-11-15: each Monday and each pass's day.
 pub(crate) fn early_offer_week(w: &mut World, d: Date) {
     let season = w.year;
     let junior_days = w.dates.junior_days.0;
@@ -4768,7 +4768,7 @@ fn commit_timing(p: &Person, seed: u64, juco: bool) -> CommitTiming {
 /// May, to late August after June, 58 in the fall, 30 in November; July 4
 /// a favorite after June's official visits). He commits that day to the
 /// school he holds then, or the first week after it that he holds one.
-/// Proposed, not confirmed. None for an early or February signer.
+/// Cain agreed 2026-11-15. None for an early or February signer.
 pub(crate) fn commit_day(world_seed: u32, p: &Person) -> Option<Date> {
     let Some(CommitTiming::Summer(wave)) = p.cal.commit_timing else { return None };
     let k = wave.min(4) as usize;
@@ -4793,7 +4793,7 @@ const AI_ALONE: f64 = 0.06;
 /// times 1 + the weeks until his decision day / `WAIT_WEEKS`, so four
 /// weeks out he needs twice his bar and in his junior March (about 20
 /// weeks before a June day) six times it; on his day, his bar alone.
-/// Proposed, not confirmed: 4 (on seed 2031 at a quarter of the class, 2
+/// Cain agreed 2026-11-15: 4 (on seed 2031 at a quarter of the class, 2
 /// gives about a quarter of the summer's verbals before his day, 4 about
 /// 40%, 8 about half).
 pub(crate) const WAIT_WEEKS: f64 = 4.0;
