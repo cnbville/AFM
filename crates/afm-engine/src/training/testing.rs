@@ -109,7 +109,7 @@ impl Entry {
         b
     }
 
-    fn from_bytes(b: &[u8]) -> Entry {
+    fn from_bytes(b: &[u8; 20]) -> Entry {
         let u16_at = |k: usize| u16::from_le_bytes([b[k], b[k + 1]]);
         Entry {
             date: Date(i32::from_le_bytes([b[0], b[1], b[2], b[3]])),
@@ -177,7 +177,7 @@ impl<'de> serde::Deserialize<'de> for TestBook {
                 if !b.len().is_multiple_of(20) {
                     return Err(E::custom("testing days: not a whole number of rows"));
                 }
-                Ok(TestBook(b.chunks_exact(20).map(Entry::from_bytes).collect()))
+                Ok(TestBook(b.as_chunks::<20>().0.iter().map(Entry::from_bytes).collect()))
             }
             fn visit_byte_buf<E: serde::de::Error>(self, b: Vec<u8>) -> Result<TestBook, E> {
                 self.visit_bytes(&b)
