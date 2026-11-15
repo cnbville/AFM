@@ -2069,7 +2069,7 @@ fn finish_state(w: &mut World, s: usize, d: Date) {
                 if p.stage == Stage::HighSchool
                     && let Some(r) = p.player.history.last_mut().filter(|r| r.level == crate::player::Level::HS)
                 {
-                    season::mark_real_injury(r);
+                    season::mark_real_injury(r, w.training.year_hurt.get_mut(&p.player.id));
                 }
             }
         }

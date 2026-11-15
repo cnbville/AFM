@@ -636,6 +636,7 @@ pub(crate) fn record_preseason(w: &mut World, r: &GameResult, sides: &[Side; 2])
         // Your club decides its own list (minor bug 73).
         let you = crate::world::front_office::reserve::you_decide(w, i);
         w.hurt_pros.0.push(w.people[i].player.id);
+        w.training.log_hurt(inj.id, inj.kind, 1 + days, w.today);
         let Some(c) = w.people[i].pro.as_mut() else { continue };
         c.hurt_for(1 + days);
         if weeks >= 6 {
@@ -789,6 +790,7 @@ pub(crate) fn record(
         // recommends.
         let you = crate::world::front_office::reserve::you_decide(w, i);
         w.hurt_pros.0.push(w.people[i].player.id);
+        w.training.log_hurt(inj.id, inj.kind, 1 + days, w.today);
         let Some(c) = w.people[i].pro.as_mut() else { continue };
         c.hurt_for(1 + days);
         if ir && you && c.status == Status::Roster {
@@ -884,6 +886,7 @@ pub(crate) fn practice_injuries(w: &mut World, d: crate::calendar::Date, clubs: 
             let squad = c.status == Status::PracticeSquad;
             let you = crate::world::front_office::reserve::you_decide(w, i);
             w.hurt_pros.0.push(w.people[i].player.id);
+            w.training.log_hurt(w.people[i].player.id, kind, days, d);
             let c = w.people[i].pro.as_mut().unwrap();
             c.hurt_for(days);
             let due = if camp { weeks >= 6 && vested } else { weeks >= ir_minimum(year) && !squad };

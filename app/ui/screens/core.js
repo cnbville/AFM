@@ -1958,8 +1958,8 @@ screens.player = async (a) => {
   const posHist = (p.positions || []).map(([age, pos]) => `${pos} from age ${age}`).join(" · ");
   const lr = p.level_rating ? `<span class="lvlpill" data-h3="${p.id}" tabindex="0">${esc(p.level_rating)}</span>` : "";
   const listBtn = p.listed
-    ? `<button class="st-btn glass" data-act="listremove" data-id="${p.id}">${icon("star")} On my players</button>`
-    : `<button class="st-btn glass" data-act="listadd" data-id="${p.id}">${icon("star")} Add to my players</button>`;
+    ? `<button class="st-btn glass" data-act="listremove" data-id="${p.id}" aria-pressed="true">${iconOn("star")} On my players</button>`
+    : `<button class="st-btn glass" data-act="listadd" data-id="${p.id}" aria-pressed="false">${icon("star")} Add to my players</button>`;
   return `<div class="hero phero" style="--c1:${c[0]};--c2:${c[1] || c[0]}"><div class="art"></div><div class="jersey" aria-hidden="true">${esc(p.jersey != null ? p.jersey : p.pos)}</div>
     <div class="phero-in">${face({ ...p, colors: c }, 132)}<div class="copy">
       <div class="st-label"><span class="pos" title="${esc(posHist || p.pos)}">${esc(p.pos)}</span> · ${esc(p.class)} · ${p.team ? logoIn(p.team) + teamA(p.team) : esc(p.where)}</div>

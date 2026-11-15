@@ -320,6 +320,8 @@ const I = {
   fold: '<path d="M8 10l4 4 4-4"/>',
 };
 const icon = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${I[k] || ""}</svg>`;
+// The same icon drawn solid, for a switch that is on (the star on "On my players").
+const iconOn = (k) => `<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${I[k] || ""}</svg>`;
 
 // ---------- the sidebar (topic 1): every area of your job, by seat ----------
 // Other lanes add their screens with navAdd({go, label, icon, sec, seats,

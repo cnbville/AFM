@@ -130,6 +130,57 @@
    ]
   },
   {
+   "text": "I'll be honest with you. You don't have a future here.",
+   "acts": [
+    {
+     "act": "future",
+     "what": "no_future"
+    }
+   ]
+  },
+  {
+   "text": "You'd get more snaps somewhere else, and I'll make calls for you.",
+   "acts": [
+    {
+     "act": "future",
+     "what": "elsewhere"
+    }
+   ]
+  },
+  {
+   "text": "If you stay, you're the last guy I'm going to.",
+   "acts": [
+    {
+     "act": "future",
+     "what": "last_choice"
+    }
+   ]
+  },
+  {
+   "text": "Forget what I said about that start. I can't give it to you.",
+   "acts": [
+    {
+     "act": "amend",
+     "what": "take_back"
+    }
+   ],
+   "hits": [
+    {
+     "item": "c5"
+    }
+   ]
+  },
+  {
+   "text": "That start I promised you, let's call it next season instead.",
+   "acts": [
+    {
+     "act": "amend",
+     "what": "later",
+     "when": "next_season"
+    }
+   ]
+  },
+  {
    "text": "I'm sorry I went back on my word about the start.",
    "acts": [
     {

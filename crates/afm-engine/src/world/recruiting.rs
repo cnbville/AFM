@@ -3179,6 +3179,11 @@ const RECRUITED_EXTRA: usize = 3;
 /// confirmed), so a recruit still saves them for the schools he likes best.
 pub(crate) const OFFICIAL_VISITS: usize = 5;
 
+/// A committed recruit's chance of an official visit on a weekend open to
+/// one: what every recruit's was before his officials were spread over his
+/// offers (thread "Get blue chips committing on time").
+const OFFICIAL_COMMITTED: f64 = 0.12;
+
 /// The NCAA's cap on a recruit's official visits on a date: five to June
 /// 30, 2023, none since (unlimited, one a school, from July 1, 2023).
 pub fn official_cap(d: Date) -> Option<usize> {
@@ -4361,6 +4366,9 @@ struct VisitDay<'a> {
     junior_officials: bool,
     fall: bool,
     official_day: bool,
+    /// The official weekends left in the juniors' spring window, today's
+    /// included (0 outside it).
+    junior_weekends: u32,
     game_day: bool,
     drop_day: bool,
     junior_day: bool,
@@ -4390,6 +4398,7 @@ fn plan_visits(w: &World, i: usize, c: &VisitDay) -> Option<VisitPlan> {
         junior_officials,
         fall,
         official_day,
+        junior_weekends,
         game_day,
         drop_day,
         junior_day,
@@ -4443,19 +4452,52 @@ fn plan_visits(w: &World, i: usize, c: &VisitDay) -> Option<VisitPlan> {
                 ids.contains(&p.player.id) && !vs.iter().any(|u| u.0 == *pj && u.2 == Visit::Official)
             }));
         let yours_set = |j: usize| planned.is_some_and(|(pj, ids)| *pj == j && ids.contains(&p.player.id));
-        if official_cap(d).is_none_or(|cap| taken < cap) && key_uniform(seed ^ 1, id) < 0.12 {
-            official = p
-                .cal
-                .offers
+        // Every school that offered him, the early offers too: his list
+        // keeps eight, and the early offerers past them were the schools
+        // most often leading his race (thread "Get blue chips committing on
+        // time").
+        let mut offered: Vec<usize> =
+            p.cal.offers.iter().copied().chain(p.cal.early_offers.iter().map(|o| o.0)).collect();
+        offered.sort_unstable();
+        offered.dedup();
+        offered.retain(|&j| Some(j) != vj);
+        // How likely he takes one this weekend (thread "Get blue chips
+        // committing on time"). Still open, he means to see as many of the
+        // schools that offered him as his five allow, and spreads the ones
+        // left over the official weekends still to come: the junior window
+        // to its end, the fall to his decision day. A committed recruit
+        // takes one on 12% of weekends, as every recruit did before.
+        let chance = if p.cal.commit.is_some() {
+            OFFICIAL_COMMITTED
+        } else {
+            let left = OFFICIAL_VISITS.min(offered.len()).saturating_sub(taken);
+            let weekends = if d < Date::ymd(season, 9, 1) {
+                junior_weekends
+            } else {
+                super::scouting::services::decision_day(w, i).map_or(1, |e| (d.days_to(e) / 7).max(1) as u32)
+            };
+            left as f64 / weekends.max(1) as f64
+        };
+        if official_cap(d).is_none_or(|cap| taken < cap) && key_uniform(seed ^ 1, id) < chance {
+            official = offered
                 .iter()
                 .copied()
                 .filter(|&j| {
-                    Some(j) != vj
-                        && !yours_set(j)
+                    !yours_set(j)
                         && !p.cal.visits.iter().any(|v| v.0 == j && v.2 == Visit::Official)
                         && (!fall_officials || home_tomorrow.contains(&j))
                 })
                 .collect();
+            // He spends an official on the schools he likes best (thread
+            // "Get blue chips committing on time": they went to his offers
+            // in the order they came, so the top two of his race had almost
+            // never hosted him).
+            if official.len() > 1 {
+                let appeal = appeals(w, i, &official, None);
+                let mut by: Vec<(usize, f64)> = official.into_iter().zip(appeal).collect();
+                by.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+                official = by.into_iter().map(|x| x.0).collect();
+            }
         }
     }
     if game_day {
@@ -4546,6 +4588,17 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
     let fall_officials = official_day && fall;
     let home_tomorrow = if fall_officials { home_on(d.add(1)) } else { Default::default() };
     let seed = w.options.seed as u64 ^ (d.0 as u64) << 20 ^ 0x5649;
+    // The juniors' spring window's official weekends left, today's included.
+    let junior_weekends = if official_day && junior_officials && d < Date::ymd(season, 9, 1) {
+        let end = Date::ymd(season, 6, 30);
+        (0..)
+            .map(|k| d.add(7 * k))
+            .take_while(|&f| f <= end)
+            .filter(|&f| crate::calendar::recruiting_period(y, f).official_visits())
+            .count() as u32
+    } else {
+        0
+    };
     // Your program's visits are the ones you set (lane 10): nobody comes on his own.
     let vj = fo::college::visits_program(w);
     let planned = fo::college::planned_officials(w);
@@ -4572,6 +4625,7 @@ pub(crate) fn recruiting_day(w: &mut World, d: Date) {
         junior_officials,
         fall,
         official_day,
+        junior_weekends,
         game_day,
         drop_day,
         junior_day,
@@ -4793,6 +4847,19 @@ const AI_ALONE: f64 = 0.06;
 /// gives about a quarter of the summer's verbals before his day, 4 about
 /// 40%, 8 about half).
 pub(crate) const WAIT_WEEKS: f64 = 4.0;
+
+/// Whether a recruit has taken his official visit to the school leading
+/// his race (thread "Get blue chips committing on time"). What he waits
+/// for is that visit, not a date: once it is behind him he weighs the race
+/// on his bar alone (`WAIT_WEEKS` stops counting), as real recruits so
+/// often commit on or just after the official visit to the school they
+/// pick. Juniors' spring and June officials (from 2018,
+/// `junior_officials`) bring these commitments into the summer before the
+/// senior season, as real blue chips' have moved to June and July; before
+/// 2018 the officials came in the senior fall, and so did they.
+pub(crate) fn visited_leader(p: &Person, race: &[(usize, f64)]) -> bool {
+    race.first().is_some_and(|f| p.cal.visits.iter().any(|v| v.0 == f.0 && v.2 == super::Visit::Official))
+}
 
 /// Why a recruit ready to sign in December waits for February instead
 /// (part D 14; real FBS classes sign about 85-90% in December since 2018):
@@ -6955,8 +7022,12 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 let j = held[k]?.program;
                 let race = fo::college::race_at(wr, i);
                 let lead = fo::portal::lead(&race, j, AI_ALONE)?;
-                let weeks = super::scouting::services::decision_day(wr, i)
-                    .map_or(0.0, |d| (today.days_to(d) as f64 / 7.0).max(0.0));
+                let weeks = if visited_leader(&wr.people[i], &race) {
+                    0.0
+                } else {
+                    super::scouting::services::decision_day(wr, i)
+                        .map_or(0.0, |d| (today.days_to(d) as f64 / 7.0).max(0.0))
+                };
                 Some((k, lead / fo::college::hs_bar(wr, i).max(1e-6), weeks))
             })
             .collect();
@@ -7218,6 +7289,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 }
                 let flipped = p.cal.commit.is_some_and(|c| c.0 != j);
                 let committed = p.cal.commit.filter(|c| c.0 == j).map(|c| c.1);
+                let blue_summer = (!r.juco_mover && recruiting_stars(p) >= 4 && !p.player.position.is_specialist())
+                    .then(|| committed.is_some_and(|d| d < Date::ymd(year, 9, 1)));
                 p.cal.signed =
                     Some(super::Signed { program: j, walk_on, date: today, early_enrollee, flipped, committed });
                 p.cal.commit = None;
@@ -7237,6 +7310,10 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 }
                 if let Some(why) = why {
                     w.log_why(why);
+                }
+                if let Some(summer) = blue_summer {
+                    w.log.blue_signed += 1;
+                    w.log.blue_signed_summer += summer as u32;
                 }
                 let (stars_n, name) = (w.people[i].stars, w.people[i].name.clone());
                 if stars_n >= 4 && !r.juco_mover {

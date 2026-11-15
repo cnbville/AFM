@@ -761,6 +761,7 @@ A typical season is about half that. The $50 cap stays. A Sonnet 5.5 ear would c
 | Promises P1 and P2 | Kept. Every term is judged through P1. |
 | The usage promises thread | Its terms are the first measures. |
 | The line bank and chips | Kept for play without a key. |
+| The one-on-one's own answers (your word on his future, playtest bug 15; changing a promise, the promises design's sections 5 and 6) | Kept, restored 2026-11-15 after v3 hid them with the moves list: the ear's `future` and `amend` acts settle on the same code and odds (`future::plan`, `talks::rework`). The two cases the picks never met are proposed, not confirmed (live-talks.md, "lane N4"). |
 
 ### 16.2 The agreed items LT1-LT21 (2026-11-07)
 

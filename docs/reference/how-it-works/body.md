@@ -1,6 +1,6 @@
 # Body and combine: how it works today
 
-Checked against main at 6200524 with update 3 lanes 1 and 4 (bodies, the speed core, recorded times) on 2026-10-29. The first-contact miss without weight (minor bug 279) checked over main 460d534 on 2026-11-07. The strength staff's mix (minor bug 302) checked with that change on 2026-11-07. Linebacker weights and the safety and linebacker body leanings (bug 310, safeties D, linebackers L3) checked over main 8eba7e1 on 2026-11-08. The edge lane (E1's 3-cone and drill knacks, bug 330's tall-edge lean) checked over main dd9ac18 on 2026-11-08. Projected test numbers checked over main 0ca3b43 on 2026-11-14.
+Checked against main at 6200524 with update 3 lanes 1 and 4 (bodies, the speed core, recorded times) on 2026-10-29. The first-contact miss without weight (minor bug 279) checked over main 460d534 on 2026-11-07. The strength staff's mix (minor bug 302) checked with that change on 2026-11-07. Linebacker weights and the safety and linebacker body leanings (bug 310, safeties D, linebackers L3) checked over main 8eba7e1 on 2026-11-08. The edge lane (E1's 3-cone and drill knacks, bug 330's tall-edge lean) checked over main dd9ac18 on 2026-11-08. Projected test numbers checked over main 0ca3b43 on 2026-11-14. The team's testing history checked over main 69db832 on 2026-11-15, before it merged.
 
 ## Quick answers
 
@@ -144,14 +144,15 @@ A high schooler's forty, 10-yard split, 100 m and 200 m are times on record, run
 ## The Body and testing tab (update 2, lane 9A)
 
 What the game knows of a player's body, against three groups (`crates/afm-game/src/lane_squadboards/body.rs`):
-- Sources, first known wins: your staff's measurements (height and weight; arms, hands and wingspan from college on) and its latest testing day (forty, split, vertical, shuttle, bench reps, and the lifts); the combine (or a pro day for a drafted man it did not invite), seeded `id ^ 0x00C0FFEE` as on the player page; the latest camp, showcase, pro day or combine your scouts saw (`world/scouting/file.rs`, `tests`); the school's listing (`file.rs`, `listed`) or the team's. Only the listing is self-reported; the rest is marked verified (`known`).
+- Sources, first known wins: your staff's measurements (height and weight; arms, hands and wingspan from college on) and the team's latest testing day, yours or the staff's before you (forty, split, vertical, shuttle, bench reps, and the lifts; `training::testing::seat_rows`); the combine (or a pro day for a drafted man it did not invite), seeded `id ^ 0x00C0FFEE` as on the player page; the latest camp, showcase, pro day or combine your scouts saw (`world/scouting/file.rs`, `tests`); the school's listing (`file.rs`, `listed`) or the team's. Only the listing is self-reported; the rest is marked verified (`known`).
 - His level: his position at his level, from every player there through `Drills::expected` (no test-day noise): high schoolers in his state and graduating class, the nation's class when the state has under 40; college by FBS, FCS or smaller; NFL players on a roster (`level_pool`).
 - Drafted: every drafted player at his position the world remembers in full (alumni with a record, drafted pros), each with his combine (`drafted_pool`).
 - The real combine: the position's mean and spread from `data/real-world/combine_by_position.csv` (2000-2025), read as a normal curve (`REAL`, `phi`). Arms, hands, wingspan and the split have no real column.
 - Percentiles: the share of the group his number beats (faster is better on the clock), ties counted half (`pct_in`).
 - Athletic score on 0-10: the mean percentile over size (height, weight), speed (forty), burst (vertical, broad), agility (3-cone, shuttle) and bench, divided by 10, with at least three numbers known; "better than" scores each of the group the same way (`view`).
 - Built like him: the five drafted players nearest in height, weight, forty, vertical and 3-cone, each in the drafted pool's spreads, with at least three shared; match = 100 - 18 × distance (`view`).
-- Weight over time: his weight in each season's kept read (the ratings page, "Kept reads"), each testing day and today. Games missed hurt and seasons with an injury count only seasons played out (`view`, `record_season`).
+- Weight over time: his weight in each season's kept read (the ratings page, "Kept reads"), each of the team's testing days for him (the previous staff's too) and today.
+- Testing history: every testing day the team has for him, newest first, with whose day it was (your baseline, your staff, the previous staff) and his 40, split, shuttle, vertical, bench (reps for a pro), squat, clean and weight; "rehab" for a day your trainers had him out (`view`, `tests`; the testing books are on [training.md](training.md), "Testing days"). Games missed hurt and seasons with an injury count only seasons played out (`view`, `record_season`).
 - What it does not read: true ratings. The level cloud is drawn from each player's expected drills, the norms of his level, with no names.
 
 ## Projected test numbers (Cain 2026-11-14, items 1-6 and 8)

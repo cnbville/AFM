@@ -411,6 +411,11 @@ pub struct SeatTraining {
     /// only, never saved.
     #[serde(skip)]
     pub others_floor: Option<Date>,
+    /// Every player's real injuries since his last development step
+    /// (realism audit item 1): game and practice injuries at every level,
+    /// by id, read and cleared at his step (`development::YearHurt`).
+    #[serde(default)]
+    pub year_hurt: std::collections::BTreeMap<u32, crate::development::YearHurt>,
     pub notes: Vec<Note>,
     pub log: Vec<WeekLog>,
     pub reports: Vec<Report>,
@@ -458,9 +463,19 @@ pub struct SeatTraining {
     /// camp (TR32, TR33): friendships form a little more or less easily.
     #[serde(default)]
     pub bonds: f32,
-    /// The strength staff's testing days, the last three (TR5).
-    #[serde(default)]
+    /// Old saves only: your team's last three testing days, from before
+    /// each player kept his own book (`testing`); moved into the books on
+    /// the first week.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tests: Vec<TestDay>,
+    /// The team your staff ran its baseline at, and the day (TR5): a new
+    /// team gets a new one.
+    #[serde(default)]
+    pub tested: Option<(u32, Date)>,
+    /// The testing days you called (Cain 2026-11-15): each takes that
+    /// day's training. Kept until the day has passed.
+    #[serde(default)]
+    pub calls: Vec<Date>,
     /// What each of your players saw of his place in the week's practice
     /// (the promises design, section 2: players never see the chart): the
     /// day a practice week was set and each man's group, `GROUP_ONES`,
@@ -518,6 +533,59 @@ pub struct TestRow {
     pub shuttle: u16,
     pub vertical: u8,
     pub weight: u16,
+}
+
+/// The days you can call a testing day on (Cain 2026-11-15): the coming
+/// two weeks, in weeks your staff hasn't run yet (a week runs on its
+/// Monday), on a day with training to lose that isn't a game day, while
+/// your staff may require work, and not the level's own testing day. Days
+/// already called are in it.
+pub fn callable_tests(w: &World) -> Vec<Date> {
+    let Some(st) = w.training_team() else { return Vec::new() };
+    let today = w.today;
+    let rolled = |m: Date| w.training.log.last().is_some_and(|l| l.monday >= m);
+    let mut m = today.add(-(super::plan::weekday_index(today) as i32));
+    let mut out = Vec::new();
+    for _ in 0..3 {
+        if !rolled(m) {
+            let pw = planned(w, &st, m);
+            let level_day = super::plan::testing_day(&st.frame, m);
+            for k in 0..7 {
+                let d = m.add(k as i32);
+                let day = &pw.week.days[k];
+                if d <= today || d > today.add(14) || day.game || day.rest() || !pw.books[k].coaches {
+                    continue;
+                }
+                if level_day == Some(k) && !w.training.calls.contains(&d) {
+                    continue;
+                }
+                out.push(d);
+            }
+        }
+        m = m.add(7);
+    }
+    out
+}
+
+/// An old save's testing days (your team's last three) move into the
+/// players' books, and count as your staff's baseline at the team when
+/// any of them is still on it.
+fn old_tests(w: &mut World, team: u32, roster: &[usize]) {
+    if w.training.tests.is_empty() {
+        return;
+    }
+    let mut first: Option<Date> = None;
+    for day in std::mem::take(&mut w.training.tests) {
+        for r in &day.rows {
+            if let Some(&i) = roster.iter().find(|&&i| w.people[i].player.id == r.id) {
+                w.people[i].tests.record(super::testing::Entry::new(day.date, team, r, day.baseline));
+                first = Some(first.map_or(day.date, |f| f.min(day.date)));
+            }
+        }
+    }
+    if let Some(f) = first {
+        w.training.tested.get_or_insert((team, f));
+    }
 }
 
 /// A player's testing numbers today: the combine's expected results for his
@@ -715,6 +783,18 @@ impl SeatTraining {
     /// stands. A day on or before the sweep floor (`game_injuries`) means the
     /// floor no longer holds. Every writer of `others_hurt` comes through
     /// here, so the floor stays true (world speed lane).
+    /// A real injury lands (realism audit item 1): out `days` from `on`.
+    /// Every game and practice injury at every level comes through here, so
+    /// his next development step reads what really happened to him.
+    pub(crate) fn log_hurt(&mut self, id: u32, kind: InjuryKind, days: u32, on: Date) {
+        self.year_hurt.entry(id).or_default().add(kind, days, on);
+    }
+
+    /// His real injuries since his last step, taken for the step.
+    pub(crate) fn take_hurt(&mut self, id: u32) -> crate::development::YearHurt {
+        self.year_hurt.remove(&id).unwrap_or_default()
+    }
+
     pub(crate) fn note_other_hurt(&mut self, id: u32, back: Date, kind: InjuryKind) {
         if self.others_floor.is_some_and(|f| back <= f) {
             self.others_floor = None;
@@ -887,6 +967,8 @@ pub fn planned(w: &World, st: &SeatTeam, monday: Date) -> PlannedWeek {
             (wk, t.templates.iter().any(|(s, _)| *s == slot))
         }
     };
+    // A testing day you called takes the day's training (Cain 2026-11-15).
+    super::plan::called(monday, &t.calls, &mut wk);
     let before = wk.clone();
     // Sandbox mode's practice rules (a test switch): your own week or
     // template runs as written, like a pushed week, and nobody looks into
@@ -1300,7 +1382,7 @@ fn limber(pw: &PlannedWeek) -> f64 {
 }
 
 /// Your team's week seed (the same in the Monday pass and the screens).
-fn seat_seed(w: &World, d: Date) -> u64 {
+pub(crate) fn seat_seed(w: &World, d: Date) -> u64 {
     w.options.seed as u64 ^ (d.0 as u64) << 20 ^ 0x5EA7
 }
 
@@ -1682,14 +1764,40 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
         team_effects(w, &st, &pw);
         // The strength staff's testing day (TR5), and a new staff's
         // baseline in its first week.
-        let testing = super::plan::testing_day(&st.frame, d);
-        if testing.is_some() || w.training.tests.is_empty() {
-            let key = seed ^ 0x7E57;
-            let rows: Vec<TestRow> = st.roster.iter().map(|&i| test_row(&w.people[i].player, key)).collect();
-            let day = d.add(testing.unwrap_or(0) as i32);
-            w.training.tests.push(TestDay { date: day, rows, baseline: testing.is_none() });
-            if w.training.tests.len() > 3 {
-                w.training.tests.remove(0);
+        // The records are the team's: a staff that takes over finds the
+        // days the staff before it kept, and still runs its own baseline.
+        if let Some((team, _)) = super::testing::seat_roster(w) {
+            old_tests(w, team, &st.roster);
+            // The level's testing day and the days you called that kept
+            // their testing inside the rules.
+            let mut days: Vec<usize> = super::plan::testing_day(&st.frame, d).into_iter().collect();
+            for k in 0..7 {
+                let on = d.add(k as i32);
+                if w.training.calls.contains(&on)
+                    && pw.week.days[k].periods.iter().any(|q| q.kind == super::plan::Kind::Testing)
+                    && !days.contains(&k)
+                {
+                    days.push(k);
+                }
+            }
+            days.sort_unstable();
+            w.training.calls.retain(|&c| c >= d.add(7));
+            let fresh = w.training.tested.is_none_or(|t| t.0 != team);
+            let baseline = days.is_empty() && fresh;
+            if baseline {
+                days.push(0);
+            }
+            for (n, &k) in days.iter().enumerate() {
+                // Each day on its own key: the noise of a test day.
+                let key = seed ^ 0x7E57 ^ (n as u64) << 40;
+                let day = d.add(k as i32);
+                for &i in &st.roster {
+                    let row = test_row(&w.people[i].player, key);
+                    w.people[i].tests.record(super::testing::Entry::new(day, team, &row, baseline));
+                }
+            }
+            if fresh && let Some(&k) = days.first() {
+                w.training.tested = Some((team, d.add(k as i32)));
             }
         }
     }
@@ -1756,6 +1864,7 @@ pub(crate) fn game_injuries(
         }
         let days = (inj.weeks * (1.0 - 0.12 * medical[*team]) * 7.0).ceil().max(1.0) as i32;
         let back = date.add(1 + days);
+        w.training.log_hurt(inj.id, inj.kind, 1 + days as u32, date);
         if seat == Some(*team) {
             if w.training.hurt.iter().any(|h| h.id == inj.id && h.until >= back) {
                 continue;
