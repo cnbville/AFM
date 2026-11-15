@@ -217,6 +217,7 @@ fn knobs_for(kind: &Kind, end: usize) -> Vec<Knob> {
         Kind::RatingTend(a, _) => vec![Knob::Rating(*a, r)],
         Kind::Grid { part, v, .. } => vec![Knob::Set(*part, v[end])],
         Kind::Link(l) => vec![Knob::Link(*l, [0.0, 0.5, 1.0][end])],
+        Kind::Craft(c) => vec![Knob::Craft(*c, [0.0, 0.5, 1.0][end])],
         Kind::Swap { .. } => Vec::new(),
     }
 }
@@ -291,7 +292,7 @@ pub fn arms(t: &Test, with_mine: bool) -> Vec<Arm> {
                 v.push(mk(l, vec![(at(*a), ga), (at(*b), gb)], mine));
             }
         }
-        Kind::Link(_) => {
+        Kind::Link(_) | Kind::Craft(_) => {
             v.push(mk("lo", vec![(w(), knobs_for(&t.kind, 0))], mine));
             v.push(mk("hi", vec![(w(), knobs_for(&t.kind, 2))], mine));
         }
@@ -637,6 +638,7 @@ pub fn report(cx: &Ctx, tr: &TestRun, base: Option<&Rows>, real: &Real) -> Out {
         };
         let names = match &t.kind {
             Kind::Link(_) => ("off", "full"),
+            Kind::Craft(_) => ("without", "full"),
             Kind::Swap { .. } => ("named right", "swapped"),
             Kind::Tend(_) | Kind::Consistency => ("at 4", "at 16"),
             Kind::Rating(_) => ("−15", "+15"),

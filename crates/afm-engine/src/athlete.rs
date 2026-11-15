@@ -663,6 +663,8 @@ pub fn set_position(p: &mut Player, pos: Position) {
     } else {
         placed_weight(frame, target)
     };
+    // The new spot's technique he never learned (individual practice).
+    crate::craft::moved(p);
 }
 
 /// A position's playing weight for him: the combine's average there, less
