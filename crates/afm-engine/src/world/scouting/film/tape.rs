@@ -808,7 +808,15 @@ fn read_snap(
         });
     // Flat out: within a tenth of his top speed, where his speed shows.
     let flat_out = vmax > 0.0 && speed >= 0.9 * vmax;
-    let cues = cues_of(&p.player, role, r, mark, moving, flat_out);
+    // His block on a man at the second level (a linebacker or a defensive
+    // back): getting hands on a man in space, its own skill in the engine
+    // (`game::sim`, `lands_block`).
+    let in_space = role == Role::RunBlock
+        && key
+            .and_then(|ki| fr[0].players.get(ki))
+            .and_then(|x| pos_of(x.0))
+            .is_some_and(|x| matches!(x.1, Position::LB | Position::CB | Position::S));
+    let cues = cues_of(&p.player, role, r, mark, moving, flat_out, in_space);
     Snap {
         game,
         n: r.n,
@@ -1458,6 +1466,7 @@ fn cues_of(
     mark: f64,
     moving: bool,
     flat_out: bool,
+    in_space: bool,
 ) -> Vec<(Attr, u8)> {
     use Attr::*;
     let pos = p.position;
@@ -1547,7 +1556,9 @@ fn cues_of(
         },
         Role::RunBlock => match pos {
             Position::WR => vec![BlockingInSpace, Motor, Physicality],
+            Position::RB if in_space => vec![RunBlocking, BlockingInSpace, Physicality],
             Position::RB => vec![RunBlocking, Physicality],
+            _ if in_space => vec![RunBlocking, BlockingInSpace, HandUse, Strength, Physicality, Discipline],
             _ => vec![RunBlocking, LegDrive, HandUse, Strength, Physicality, Discipline],
         },
         Role::Rusher => {

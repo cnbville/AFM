@@ -938,7 +938,9 @@ fn interview_answer(w: &mut World, s: &mut Scene, code: u32) {
         s.step = q as u8;
         return;
     }
-    let score = s.f[0] + s.f[1] + s.f[2];
+    // What a typed talk did to the committee counts too (live talks v3,
+    // the older meetings: `persona::meetings::after`); 0 with no talk.
+    let score = s.f[0] + s.f[1] + s.f[2] + s.f[3];
     let e = employer_of(s.a);
     w.folk.dialogue.interviews.retain(|x| !(x.0 == e && x.1 == Role::HeadCoach));
     w.folk.dialogue.interviews.push((e, Role::HeadCoach, score, w.today));

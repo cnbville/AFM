@@ -697,6 +697,14 @@ fn afternoon(w: &mut World, d: Date, y: &YearDates) {
     if d.weekday() == Weekday::Sun && (4..=10).any(|k| y.cfb_weeks.get(k).is_some_and(|s| d == s.add(1))) {
         staff::in_season_firings(w);
     }
+    // The NFL's (realism audit items 7 and 8): the Mondays after weeks 4-15.
+    if d.weekday() == Weekday::Mon && (3..=14).any(|k| y.nfl_weeks.get(k).is_some_and(|s| d == s.add(1))) {
+        staff::nfl_in_season(w);
+    }
+    // And the high schools' (item 8): fall Mondays from mid-September.
+    if d.weekday() == Weekday::Mon && d >= y.hs_school_start.add(35) && d <= y.thanksgiving.add(-21) {
+        staff::hs_in_season(w);
+    }
 }
 
 /// 2:00 PM Sundays: the weekly polls.

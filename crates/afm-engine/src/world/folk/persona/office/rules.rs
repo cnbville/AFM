@@ -57,9 +57,16 @@ pub fn words(w: &World) -> Vec<String> {
     if crate::world::ncaa::revenue_cap(w.dates.season).is_some() {
         v.push("the school shares revenue with players directly, up to the cap".into());
     }
-    let (limit, signees) = crate::world::ncaa::roster_limits(&w.programs[p], w.dates.season);
-    if limit > 0 {
+    let prog = &w.programs[p];
+    let (limit, signees) = crate::world::ncaa::roster_limits(prog, w.dates.season);
+    // A yearly signing cap only where the NCAA sets one (realism audit item
+    // 13): under the House limit the roster limit is the only bound.
+    let capped = !crate::world::ncaa::whole_roster_limit(prog, w.dates.season)
+        && crate::world::ncaa::scholarship_rules(prog.division, w.dates.season, true).1.is_some();
+    if limit > 0 && capped {
         v.push(format!("our roster limit is {limit}, and we can add {signees} new signees"));
+    } else if limit > 0 {
+        v.push(format!("our roster limit is {limit}"));
     }
     v
 }

@@ -1398,3 +1398,102 @@ fn a_kid_off_the_tape_comes_with_a_read_at_three_quarters() {
     let gave = fm::finds::Watch { caught: &caught, games, live: false };
     assert!(fm::finds::pop(&mut w, on, &ids, session::CUT_SNAPS, eye, &gave).is_none());
 }
+
+/// Cain 2026-11-15: all of a high school tight end's tape and his catching
+/// still read as a wide guess, as his record had four catches (a skill his
+/// role barely tested on the record stays unseen on film, SK3). The tape
+/// you watched is what you saw: once you have watched him on 60 snaps of a
+/// role, your film reads its skills in your staff's file, as his record
+/// would, and before then the rating's card says why it is wide and what
+/// would narrow it. A lineman's or tight end's block on a man at the second
+/// level shows his blocking in space.
+#[test]
+fn your_own_tape_reads_what_his_record_barely_tested() {
+    use crate::attributes::Attr;
+    use crate::positions::Position as P;
+    use crate::world::hs_year::HsStat as H;
+    use crate::world::scouting::{footage, yours};
+    let mut w = World::empty(WorldOptions { scale: 0.01, history_years: 0, ..Default::default() });
+    for age in [15, 16, 17] {
+        w.add_class_aged(age);
+    }
+    w.rebuild_rosters();
+    let teaching = vec![12.0; crate::world::coach::GROUP_COUNT];
+    let you: You = serde_json::from_value(serde_json::json!({
+        "name": "Test Coach", "age": 45, "ethnicity": "White", "home_state": 0, "ex_pro": false, "reputation": 60.0,
+        "teaching": teaching, "scheme": 12.0, "game_management": 12.0,
+        "motivation": 12.0, "discipline": 12.0, "recruiting": 12.0, "network": 12.0, "relationships": 12.0,
+        "style": { "risk": 10.0, "freedom": 10.0, "physical": 10.0, "ball_hunting": 10.0, "mould": 10.0 },
+        "yours": { "play_calling": 12.0, "adaptation": 12.0, "evaluation": 12.0, "negotiating": 12.0 }
+    }))
+    .unwrap();
+    w.start_career(&you, Job::College(0), 7);
+    let staff = readers::seat_staff(&w).unwrap();
+    let i = (0..w.people.len())
+        .filter(|&i| w.people[i].stage == Stage::HighSchool && w.people[i].player.position == P::TE)
+        .take(80)
+        .find(|&i| tape::player_tape(&w, w.people[i].player.id).is_ok())
+        .expect("a high school tight end with tape");
+    let (h, id) = (w.people[i].hs, w.people[i].player.id);
+    // Four catches last season: about 24 routes on his record.
+    let mut s = [0i16; crate::world::hs_year::HS_STAT_COUNT];
+    s[H::SnapsOff as usize] = 500;
+    s[H::Rec as usize] = 4;
+    w.people[i].hs_lines =
+        vec![crate::world::hs_year::HsLine { year: w.year as i16 - 1, school: h as u32, pos: P::TE, games: 10, s }];
+    let f = footage::footage(&w, i);
+    assert!(f.role[footage::ROUTES] < footage::ROLE_MIN, "his record barely tested his routes");
+    let (catching, blocking) = (Attr::Catching.index(), Attr::RunBlocking.index());
+    // One watch: his catching is still a guess, and its card says why.
+    session::open_player(&mut w, id, tape::Cut::BestOpponent, session::Mode::Full, None).unwrap();
+    session::run_through(&mut w).unwrap();
+    let watched = fm::roles_watched(&w, id, P::TE)[footage::ROUTES];
+    let (_, _, file) = readers::read(&w, staff, id).expect("your look in his file");
+    if (watched as f64) < footage::ROLE_MIN {
+        assert!(file.attrs[catching].guess, "under 60 routes watched: still a guess");
+        let why = footage::why_guess(&w, i, Attr::Catching).expect("why it is wide");
+        assert!(why.contains("60 snaps") && why.contains(&format!("{watched} so far")), "{why}");
+    }
+    assert!(!file.attrs[blocking].guess, "what his record tested reads on film");
+    // More of his tape: once you have watched him on 60 routes, your film
+    // reads his hands in your staff's file, and the card has nothing to
+    // explain.
+    for cut in tape::Cut::ALL {
+        if fm::roles_watched(&w, id, P::TE)[footage::ROUTES] as f64 >= footage::ROLE_MIN {
+            break;
+        }
+        w.advance_day();
+        if session::open_player(&mut w, id, cut, session::Mode::Full, None).is_ok() {
+            session::run_through(&mut w).unwrap();
+        }
+    }
+    let watched = fm::roles_watched(&w, id, P::TE)[footage::ROUTES];
+    assert!(watched as f64 >= footage::ROLE_MIN, "{watched} routes watched");
+    let (_, _, file) = readers::read(&w, staff, id).unwrap();
+    let c = &file.attrs[catching];
+    assert!(c.seen && !c.guess, "your tape reads his hands: {c:?}");
+    assert!(c.sd < sc::file::GUESS_SD * sc::file::visibility(&w, i), "narrower than the guess: {c:?}");
+    assert!(!footage::role_seen(&f, Attr::Catching, P::TE), "his record alone still can't read it");
+    // The scouting file's tape line says your film reads it.
+    let lines = footage::reasons(&f, P::TE, false, false, &fm::roles_watched(&w, id, P::TE));
+    assert!(lines.iter().any(|l| l.contains("the film you watched shows it")), "{lines:?}");
+    // Your own read has it too.
+    let own = yours::own_read(&w, staff, id, None).unwrap();
+    assert!(own.attrs[catching].is_some_and(|x| x.1 < c.sd + 2.0), "{:?} vs {c:?}", own.attrs[catching]);
+    // The snaps are counted once a man.
+    let counted: usize = w.scouting.film.roles.iter().filter(|r| r.id == id).count();
+    assert_eq!(counted, 1, "one row a man");
+    // Film never shows communication: the card names what does.
+    let why = footage::why_guess(&w, i, Attr::Communication).expect("communication is a guess");
+    assert!(why.contains("interview"), "{why}");
+    // Blocking in space on a lineman's or tight end's tape.
+    let nfl = nfl_world();
+    let shows = pros(&nfl)
+        .into_iter()
+        .filter(|&id| matches!(nfl.people[sc::place(&nfl, id).unwrap()].player.position, P::TE | P::OT | P::IOL))
+        .any(|id| {
+            tape::player_tape(&nfl, id)
+                .is_ok_and(|t| t.snaps.iter().any(|sn| sn.cues.iter().any(|c| c.0 == Attr::BlockingInSpace)))
+        });
+    assert!(shows, "a block at the second level shows his blocking in space");
+}

@@ -115,3 +115,96 @@ fn a_spot_set_with_positions_saves_only_those_positions() {
     }
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// Cain, 2026-11-15: a man who is out (hurt, suspended, ineligible) can be
+/// put anywhere on your depth chart. He stays where you put him on every
+/// view of it, and on game day the next man who can go plays his place.
+#[test]
+fn a_man_who_is_out_keeps_the_place_you_give_him() {
+    let (mut g, dir) = head_coach_world("hurt");
+    let flat = |g: &mut Game| -> Vec<u32> {
+        let d = g.call("depth", &json!({})).unwrap();
+        let p = d["positions"].as_array().unwrap().iter().find(|p| p["pos"] == "TE").unwrap().clone();
+        p["players"].as_array().unwrap().iter().map(|x| x["id"].as_u64().unwrap() as u32).collect()
+    };
+    let sb = |g: &mut Game| -> Vec<Option<u32>> {
+        let v = g.call("sb_depth", &json!({ "tab": "offense", "form": "offense" })).unwrap();
+        let s = v["slots"].as_array().unwrap().iter().find(|s| s["pos"] == "TE").unwrap().clone();
+        s["picks"].as_array().unwrap().iter().map(|p| p["id"].as_u64().map(|x| x as u32)).collect()
+    };
+    let board_te = |g: &mut Game| {
+        offense(g)["slots"].as_array().unwrap().iter().find(|s| s["pos"] == "TE").unwrap()["player"]["id"]
+            .as_u64()
+            .map(|x| x as u32)
+    };
+    let game_te = |g: &Game| -> Vec<u32> {
+        g.w().unwrap().seat_game_depth().unwrap().into_iter().find(|x| x.0 == Position::TE).unwrap().1
+    };
+    // The staff's first tight end, sent off hurt for two months.
+    let before = flat(&mut g);
+    assert!(before.len() >= 3, "three tight ends: {before:?}");
+    let te = before[0];
+    {
+        let w = g.wm().unwrap();
+        let today = w.today;
+        w.training.hurt.push(afm_engine::training::seat::Hurt {
+            id: te,
+            kind: None,
+            from: today,
+            until: today.add(60),
+            how: "test".into(),
+        });
+        w.refresh_seat_team();
+    }
+    assert!(!game_te(&g).contains(&te), "a man who is out doesn't dress");
+    // The staff's chart drops him to the bottom; your Move up, one place at
+    // a time as the hover card does, takes him back to the top.
+    let mut at = flat(&mut g).iter().position(|&x| x == te).unwrap();
+    assert!(at > 0, "the staff plays the next man");
+    while at > 0 {
+        let mut ids = flat(&mut g);
+        ids.swap(at, at - 1);
+        g.call("set_depth", &json!({ "pos": "TE", "ids": ids })).unwrap();
+        let now = flat(&mut g).iter().position(|&x| x == te).unwrap();
+        assert_eq!(now, at - 1, "he moved up one place and stayed there");
+        at = now;
+    }
+    assert_eq!(flat(&mut g)[0], te, "the flat chart keeps him first");
+    assert_eq!(board_te(&mut g), Some(te), "the board shows him at his spot");
+    assert_eq!(sb(&mut g)[0], Some(te), "the stadium view shows him at his spot");
+    let game = game_te(&g);
+    assert!(!game.contains(&te), "he doesn't dress while he is out");
+    assert_eq!(Some(&game[0]), flat(&mut g).get(1), "the next man in your order plays his place");
+    // Back healthy, he plays where you put him.
+    {
+        let w = g.wm().unwrap();
+        w.training.hurt.retain(|h| h.id != te);
+        w.refresh_seat_team();
+    }
+    assert_eq!(game_te(&g)[0], te, "healthy again, he starts");
+
+    // The same on the stadium view: out again, given back to the staff, then
+    // dropped into the second string and moved up to start.
+    {
+        let w = g.wm().unwrap();
+        let today = w.today;
+        w.training.hurt.push(afm_engine::training::seat::Hurt {
+            id: te,
+            kind: None,
+            from: today,
+            until: today.add(60),
+            how: "test".into(),
+        });
+    }
+    g.call("sb_depth_reset", &json!({ "tab": "offense", "form": "offense" })).unwrap();
+    assert_ne!(sb(&mut g)[0], Some(te), "the staff starts the next man");
+    let v = g.call("sb_depth", &json!({ "tab": "offense", "form": "offense" })).unwrap();
+    let k = v["slots"].as_array().unwrap().iter().position(|s| s["pos"] == "TE").unwrap();
+    g.call("sb_depth_put", &json!({ "tab": "offense", "form": "offense", "slot": k, "n": 2, "pid": te })).unwrap();
+    assert_eq!(sb(&mut g)[1], Some(te), "dropped into the second string, he holds it");
+    g.call("sb_depth_up", &json!({ "tab": "offense", "form": "offense", "slot": k, "n": 2 })).unwrap();
+    assert_eq!(sb(&mut g)[0], Some(te), "moved up, he is the starter");
+    assert_eq!(flat(&mut g)[0], te, "and first on the flat chart");
+    assert!(!game_te(&g).contains(&te), "still out today");
+    let _ = std::fs::remove_dir_all(dir);
+}

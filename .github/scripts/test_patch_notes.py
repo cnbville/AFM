@@ -73,7 +73,7 @@ class T(unittest.TestCase):
         self.assertIn("no game change", pn.render_team(quiet))
         self.assertIsNone(pn.player_entry(quiet))
         auto = {**item, "info": {**info, "auto": True}}
-        self.assertIsNone(pn.player_entry({**e, "items": [auto]}))
+        self.assertIsNotNone(pn.player_entry({**e, "items": [auto]}))
         no = {**item, "info": {**info, "players": False}}
         self.assertIsNone(pn.player_entry({**e, "items": [no]}))
 
