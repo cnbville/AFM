@@ -1542,3 +1542,22 @@ pub fn work_week(p: &mut Player, c: Craft, t: &Teach) -> Option<(Stage, Stage)> 
     let after = stage(c, it);
     Some((before, after))
 }
+
+/// How many weeks of this work until it holds in games (topic 9c.4), on a
+/// copy of him: None when it never would inside `max` weeks or the flaw
+/// isn't his (a wrong name). Zero when it already holds.
+pub fn weeks_to_hold(p: &Player, c: Craft, t: &Teach, max: u32) -> Option<u32> {
+    if let Some(it) = p.craft.get(c)
+        && stage(c, it) == Stage::Games
+    {
+        return Some(0);
+    }
+    let mut q = p.clone();
+    for wk in 1..=max {
+        match work_week(&mut q, c, t)? {
+            (_, Stage::Games) => return Some(wk),
+            _ => continue,
+        }
+    }
+    None
+}

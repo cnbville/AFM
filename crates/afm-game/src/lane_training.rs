@@ -27,6 +27,7 @@ use afm_engine::training::{FAMILIES, Family};
 use afm_engine::world::{Stage, World};
 use serde_json::{Value, json};
 
+mod craft;
 mod week;
 
 #[cfg(test)]
@@ -79,6 +80,26 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             dev(w, id()?)
         })(),
         "player_dev" => (|| dev(game.w()?, id()?))(),
+        "practice_points" => (|| {
+            let w = game.wm()?;
+            let id = id()?;
+            let refused = set_points(w, id, args)?;
+            let mut v = dev(w, id)?;
+            v["refused"] = json!(refused);
+            Ok(v)
+        })(),
+        "player_dev_project" => (|| {
+            let w = game.wm()?;
+            let id = id()?;
+            let code = args.get("code").and_then(Value::as_u64).ok_or("Missing focus.")? as u8;
+            let i = person_index(w, id).ok_or("No such player.")?;
+            let t = mine(w).ok_or("You have no team.")?;
+            if !roster_people(w, t).contains(&i) {
+                return Err("He isn't on your team.".into());
+            }
+            let eye = eye_for(w, t, w.people[i].player.position);
+            craft::project(w, i, eye, code)
+        })(),
         "plans" => (|| plans(game.w()?))(),
         "plans_set" => (|| {
             let w = game.wm()?;
@@ -549,7 +570,7 @@ fn focus_options(pos: Position) -> Vec<Value> {
     let mut opts: Vec<(f64, Attr)> =
         Attr::ALL.iter().map(|&a| (afm_engine::positions::weight(pos, a), a)).filter(|x| x.0 > 0.0).collect();
     opts.sort_by(|a, b| b.0.total_cmp(&a.0));
-    opts.iter().take(16).map(|(_, a)| json!({ "key": a.key(), "label": a.label() })).collect()
+    opts.iter().take(16).map(|(_, a)| json!({ "key": a.key(), "label": a.label(), "code": a.index() })).collect()
 }
 
 fn plan_json(w: &World, id: u32, pos: Position) -> Value {
@@ -1136,6 +1157,24 @@ fn set_plan(w: &mut World, args: &Value) -> Result<(), String> {
     Ok(())
 }
 
+/// His points of emphasis from the Focus sub-tab (individual practice
+/// topic 5): on your roster, under your controls.
+fn set_points(w: &mut World, id: u32, args: &Value) -> Result<Option<String>, String> {
+    let t = mine(w).ok_or("You have no team.")?;
+    if !roster_people(w, t).iter().any(|&k| w.people[k].player.id == id) {
+        return Err("He isn't on your team.".into());
+    }
+    if !w.may_plan(id) {
+        return Err(format!("His plan is the head coach's. Your job covers {}.", w.your_controls()));
+    }
+    let codes: Vec<u8> = args
+        .get("points")
+        .and_then(Value::as_array)
+        .map(|a| a.iter().filter_map(Value::as_u64).map(|v| v.min(255) as u8).collect())
+        .unwrap_or_default();
+    craft::set(w, id, &codes)
+}
+
 // ---------- the Development tab (L8) ----------
 
 fn dev(w: &World, id: u32) -> Reply {
@@ -1223,6 +1262,7 @@ fn dev(w: &World, id: u32) -> Reply {
         "height": crate::views::ft_in(body.height),
         "sport": sport.map(|s| json!({ "name": s.name(), "now": s.in_season(w.today) })),
         "mood": mood_words(p),
+        "craft": craft::tab(w, t, i, eye),
         "notes": notes,
         "practice_log": log_lines,
         "habits": Tend::ALL.iter().enumerate().map(|(k, t)| json!({ "k": k, "label": t.label() })).collect::<Vec<_>>(),
@@ -1913,9 +1953,11 @@ pub(crate) fn squad(w: &World) -> Reply {
             v["practice"] = json!(status);
             v["practice_why"] = json!(why);
             v["growth"] = json!(by_id.get(&id).map(|&m| growth_words(m as f64, eye, lean(reader, id))));
-            let focus = w.focus_of(id).or(w.staff_focus(id));
-            v["focus"] = json!(focus.map(|a| a.label()));
-            v["focus_by"] = json!(if w.focus_of(id).is_some() { "you" } else { "staff" });
+            // His points of emphasis where the rating focus showed
+            // (individual practice topic 9b.1).
+            let (pts, by) = craft::points_now(w, id);
+            v["focus"] = json!((!pts.is_empty()).then(|| pts.iter().map(|&p| craft::point_label(p)).collect::<Vec<_>>().join(" · ")));
+            v["focus_by"] = json!(by);
             v["teacher"] = teacher(w, t, i);
             let plan = w.training.plan_of(id);
             v["moving"] = json!(plan.moving.map(|(to, prog)| format!("{} ({prog}%)", Position::ALL[to as usize % Position::ALL.len()].name())));

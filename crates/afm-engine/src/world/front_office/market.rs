@@ -710,6 +710,7 @@ pub(crate) fn hired(w: &mut World, e: Employer, r: Role) {
     w.seat_focus.clear();
     w.seat_seen.clear();
     w.seat_book.clear();
+    w.seat_minutes.clear();
     // The game plan starts over at the new team (update 2): its own
     // guidelines (a head coach sets his; an assistant's team plays to its
     // head coach's), its words, depth and keys; the old team's games stay
@@ -795,6 +796,7 @@ pub(crate) fn left(w: &mut World, why: &str) {
     w.seat_focus.clear();
     w.seat_seen.clear();
     w.seat_book.clear();
+    w.seat_minutes.clear();
     w.plans = Default::default();
     if let Some(c) = w.career.as_mut() {
         c.role = None;

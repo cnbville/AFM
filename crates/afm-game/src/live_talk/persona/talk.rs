@@ -29,6 +29,7 @@ use afm_engine::world::folk::persona::gameday::{decide, group};
 use afm_engine::world::folk::persona::negotiate::{self, Played};
 use afm_engine::world::folk::persona::room::Room;
 use afm_engine::world::folk::persona::talk::{self, Conversation, Parts, Said, channels, store};
+use afm_engine::world::folk::persona::terms::{Request as Ask, Valuing, Weighed};
 use afm_engine::world::folk::persona::{deals, office};
 use afm_engine::world::folk::scene::{Kind, Scene};
 use serde_json::{Value, json};
@@ -42,15 +43,19 @@ pub const WAIT_TTL: Duration = Duration::from_secs(900);
 
 /// Whether a scene's typed lines play as a v3 talk: your one-on-ones, the
 /// meetings with the people in your building (lane N5c), the draft side's
-/// talks (lane N5e), the negotiation calls (lane N5b) and the group talks
-/// (the team talk, the first team meeting, the council: lane N5d). The
-/// interview rooms keep lane 6's typed path, where a typed question lands
-/// on its own chip (a flagged worry included).
+/// talks (lane N5e), the negotiation calls (lane N5b), a recruit's and a
+/// transfer's talks and a college staff's call to you, the high school
+/// coach (lane N5a), and the group talks (the team talk, the first team
+/// meeting, the council: lane N5d). The interview rooms keep lane 6's typed
+/// path, where a typed question lands on its own chip (a flagged worry
+/// included).
 pub fn plays(g: &Game, s: &Scene) -> bool {
     g.ai.persona_talks
         && (matches!(s.kind, Kind::OneOnOne | Kind::DraftTalk)
             || office::plays(s.kind)
             || negotiate::is_call(s)
+            || talk::recruit::is_recruit(s.kind)
+            || talk::hs_call::is_call(s.kind)
             || group::is_group(s))
 }
 
@@ -62,7 +67,7 @@ pub fn room_of(w: &World, s: &Scene) -> Room {
         .or_else(|| office::plays(s.kind).then(|| office::room(w, s)).flatten())
         .or_else(|| negotiate::room(w, s))
         .or_else(|| group::room(w, s))
-        .unwrap_or_else(|| channels::one_on_one(s))
+        .unwrap_or_else(|| channels::room_for(w, s))
 }
 
 /// The parts a scene's talk is played with: lane N5c's for the people in
@@ -394,6 +399,7 @@ fn waits(g: &mut Game, id: u32, room: &Room, t: &Turn) -> Vec<Value> {
 
 fn confirm_words(c: &Confirm) -> String {
     match c {
+        Confirm::Request(Ask::Other(x)) if x == talk::recruit::VISIT => "Set his official visit".into(),
         Confirm::Offer(o) => format!("Make the offer: {}", folk::plain(&o.words)),
         Confirm::Request(r) => format!("Go ahead: {r:?}"),
         Confirm::Decision(d) => format!("Make it so: {}", channels::decision_words(*d)),
@@ -430,16 +436,39 @@ pub fn confirm(g: &mut Game, args: &Value) -> Reply {
 }
 
 /// Runs one confirmed item: a request through `Acting::run`, an offer
-/// through its desk (a negotiation's, lane N5b) or lane N3's `agree`, a
-/// cut through the desk and any other decision on its own screen until
-/// its lane wires it.
+/// through its desk (a negotiation's, lane N5b; a recruit's, lane N5a) or
+/// lane N3's `agree`, a cut through the desk and any other decision on its
+/// own screen until its lane wires it.
 fn run(w: &mut World, scene: u32, him: Them, c: &Confirm) -> Vec<String> {
     let played = match w.folk.scenes.iter().find(|s| s.id == scene) {
         Some(s) => Played::new(w, s),
         None => Played::of(negotiate::Facet::None),
     };
     let kind = w.folk.scenes.iter().find(|s| s.id == scene).map_or(Kind::OneOnOne, |s| s.kind);
+    let recruit = w.folk.scenes.iter().find(|s| s.id == scene).cloned().filter(|s| talk::recruit::is_recruit(s.kind));
     match c {
+        // A recruit's visit: the desk sets it on its first open date, and
+        // he may still say no.
+        Confirm::Request(Ask::Other(x)) if x == talk::recruit::VISIT => {
+            vec![recruit.map_or_else(|| "That talk is over.".into(), |s| talk::recruit::set_visit(w, &s))]
+        }
+        // A recruit's offer: weighed again as you confirm (nothing moved
+        // in between). Taking time, it's left with his family and they
+        // answer on their day; a yes is made real on the recruiting desk.
+        Confirm::Offer(o) if recruit.is_some() => match talk::DEALS.weigh(w, him, o) {
+            Weighed::Later(by) => {
+                deals::offered(w, him, o, &Weighed::Later(by));
+                vec![format!("You leave it with them: {}. Their answer comes by {by}.", folk::plain(&o.words))]
+            }
+            Weighed::Yes => {
+                let a = deals::agree(w, &talk::DEALS, him, o);
+                let mut out = vec![format!("Agreed: {}.", folk::plain(&o.words))];
+                out.extend(a.done.iter().cloned());
+                out.extend(talk::recruit::real(w, him, &a));
+                out
+            }
+            _ => vec!["They've thought better of it: it's off the table.".into()],
+        },
         Confirm::Request(r) => {
             let ran = parts_for_kind(kind, &played).acting.run(w, him, r);
             ran.done
@@ -486,3 +515,7 @@ fn done(g: &mut Game, id: u32, out: Outcome) -> Value {
 #[cfg(test)]
 #[path = "talk_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "recruit_tests.rs"]
+mod recruit_tests;

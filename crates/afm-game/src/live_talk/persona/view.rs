@@ -14,7 +14,7 @@
 use afm_engine::world::World;
 use afm_engine::world::folk::persona::Them;
 use afm_engine::world::folk::persona::room::{Channel, Group};
-use afm_engine::world::folk::persona::talk::{across, channels, store};
+use afm_engine::world::folk::persona::talk::across;
 use afm_engine::world::folk::{self as folk, claims, talk_points as tp, ties};
 use serde_json::{Value, json};
 
@@ -32,7 +32,7 @@ pub fn flag(g: &Game, v: &mut Value) {
     if v.get("say").is_none() || !plays(g, s) {
         return;
     }
-    let room = store::room(w, s.id).unwrap_or_else(|| channels::one_on_one(s));
+    let room = super::talk::room_of(w, s);
     let mut t = v.get("talk").filter(|t| t.is_object()).cloned().unwrap_or_else(|| json!({}));
     t["persona"] = json!(true);
     t["channel"] = json!(channel_words(room.channel));
