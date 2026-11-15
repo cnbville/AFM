@@ -2114,6 +2114,7 @@ fn finish_state(w: &mut World, s: usize, d: Date) {
                 yards_allowed: t.totals.yards_allowed.max(0.0) as u32,
             },
             sos: sos.get(&h).copied(),
+            pass_share: crate::world::high_school::pass_share_of(t.totals.att as f64, t.totals.carries as f64),
         });
         if t.state_title {
             school.state_titles += 1;

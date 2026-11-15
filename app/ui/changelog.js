@@ -16,6 +16,20 @@
 
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
+  {
+    v: "0.2.540", date: "15 Nov", title: "Live talks v3: the older meetings play on the conversation, not on chips and 44 more",
+    notes: [
+      "AI schools now offer and take commitments week by week through spring, summer and fall, not on five fixed dates. Each recruit commits on his own day, or sooner when one school clearly leads.",
+      "You can now type straight to the man across the money desks: an agent on a contract, another club's GM on a trade, or a recruit about NIL money. He answers in his own words on a real call.",
+      "Typing on a contract page calls his agent, and your words go into that call.",
+      "Typing on the trade desk calls their GM about the man you're after.",
+      "Typing on a recruit's NIL promise calls him, and the usual contact rules apply.",
+      "The old \"bring it up\" fact buttons are gone, so nothing tells you what to say.",
+      "Depth chart: a man who is out keeps the place you give him",
+      "Film reads what your tape showed: a skill his record barely tested, blocking in space",
+      "Plus 37 smaller changes under the hood.",
+    ],
+  },
   // auto:end
   {
     v: "0.2.492", date: "15 Nov", title: "Talks hear more of what you type",
