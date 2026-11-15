@@ -44,6 +44,18 @@ pub mod talk;
 pub mod terms;
 pub mod wants;
 
+// Lane N1, people: who he is, what he knows and tells, what he wants, heat
+// and patience, the stores, people coming to you.
+pub mod coming;
+pub mod feel;
+pub mod football;
+pub mod knowing;
+pub mod makeup;
+pub mod people;
+pub mod stores;
+pub mod telling;
+pub mod wanting;
+
 use super::cast::CastRef;
 
 /// Anyone you can talk to, by the store that holds him. A recruit, a

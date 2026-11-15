@@ -1,11 +1,14 @@
-//! Heat and patience during a talk (section 3.5). Lane N1 owns their
-//! sizes; `Plain` is the conversation's stand-in until then, every number
-//! proposed, not confirmed. The game decides when he boils over, never the
-//! voice.
+//! Heat and patience during a talk (section 3.5). `Sized` plays them on
+//! lane N1's sizes (`persona::feel`, from his makeup); `Plain` is the old
+//! stand-in, kept for tests. Every number is proposed, not confirmed. The
+//! game decides when he boils over, never the voice.
 
 use super::super::Them;
 use super::super::ear::{How, Turn};
-use super::super::wants::{Boil, Heat, Patience};
+use super::super::feel::{self as n1, Stir};
+use super::super::makeup;
+use super::super::terms::Weighed;
+use super::super::wants::{Boil, Heat, Patience, Willing};
 use super::store::Open;
 use crate::player::Trait;
 use crate::world::World;
@@ -32,6 +35,76 @@ pub trait Feeling: Sync {
     fn patience(&self, w: &World, him: Them, open: &Open, t: &Turn, landed: bool) -> Patience;
     /// What he does past his point, if he's there.
     fn boil(&self, w: &World, him: Them, open: &Open, heat: Heat) -> Option<Boil>;
+    /// The heat at which he boils over.
+    fn point(&self, _w: &World, _him: Them) -> f32 {
+        BOIL
+    }
+    /// His patience as the talk opens.
+    fn start(&self, _w: &World, _him: Them) -> Patience {
+        Patience::default()
+    }
+}
+
+/// Heat and patience on lane N1's sizes: what stirs him by his temper, ego
+/// and professionalism, cooling by the minute; patience wearing while the
+/// talk goes nowhere and with each time you ask again after a no.
+pub struct Sized;
+
+/// What each hit on him stirs (N1's `Stir`).
+fn stirs(him: Them, t: &Turn, caught: usize) -> Vec<Stir> {
+    use super::super::ear::Item;
+    let mut out = Vec::new();
+    for h in t.hits.iter().filter(|h| h.hit.on == him) {
+        let promise = matches!(h.hit.item, Item::Promise(_));
+        match h.hit.how {
+            How::Insulted => out.push(Stir::Insult),
+            How::Threatened => out.push(Stir::Threat),
+            How::Stung => out.push(Stir::Sting),
+            How::Doubted if h.hit.item == Item::HisWord => out.push(Stir::Dodged),
+            How::Reassured if promise && h.trust > 0.0 => out.push(Stir::Apology),
+            How::Reassured | How::Respected if h.trust > 0.0 => out.push(Stir::Respect),
+            _ => {}
+        }
+        if promise && matches!(h.hit.how, How::Insulted | How::Stung) {
+            out.push(Stir::BrokenPromise);
+        }
+    }
+    out.extend(std::iter::repeat_n(Stir::CaughtLie, caught));
+    out.extend(t.weighed.iter().filter(|(_, x)| *x == Weighed::Lowball).map(|_| Stir::Lowball));
+    out
+}
+
+impl Feeling for Sized {
+    fn heat(&self, w: &World, him: Them, open: &Open, t: &Turn, caught: usize) -> Heat {
+        let m = makeup::makeup(w, him);
+        let mut h = n1::cool(&m, open.heat, t.minutes);
+        for s in stirs(him, t, caught) {
+            h = n1::stir(&m, h, s);
+        }
+        h
+    }
+
+    fn patience(&self, w: &World, him: Them, open: &Open, t: &Turn, landed: bool) -> Patience {
+        let m = makeup::makeup(w, him);
+        let mut p = n1::wear(&m, open.patience, t.minutes, landed);
+        let again = t.asked.iter().filter(|(r, wl, _)| *wl == Willing::No && open.refused_before(r)).count();
+        if again > 0 {
+            p = n1::asked_again(&m, p, again.min(255) as u8);
+        }
+        if n1::done(p) { Patience(0.0) } else { p }
+    }
+
+    fn boil(&self, w: &World, him: Them, _open: &Open, heat: Heat) -> Option<Boil> {
+        n1::boil(&makeup::makeup(w, him), heat)
+    }
+
+    fn point(&self, w: &World, him: Them) -> f32 {
+        n1::point(&makeup::makeup(w, him))
+    }
+
+    fn start(&self, w: &World, him: Them) -> Patience {
+        n1::start(w, him)
+    }
 }
 
 /// The stand-in sizes.

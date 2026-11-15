@@ -115,7 +115,8 @@ pub fn begin(w: &mut World, scene: u32, room: Room) {
 
 /// After a line: the heat, his patience, what he raised, who's in the room
 /// now (someone brought in, someone asked to leave).
-pub fn advance(w: &mut World, scene: u32, room: &Room, t: &Turn, said: &Said) {
+/// `point` is the heat at which he boils over.
+pub fn advance(w: &mut World, scene: u32, room: &Room, t: &Turn, said: &Said, point: f32) {
     let mut people: Vec<Present> = room.present.clone();
     for act in &said.reading.acts {
         match act {
@@ -132,7 +133,7 @@ pub fn advance(w: &mut World, scene: u32, room: &Room, t: &Turn, said: &Said) {
             _ => {}
         }
     }
-    let boiled = if t.heat.0 >= super::feel::BOIL {
+    let boiled = if t.heat.0 >= point {
         Some(match t.ends {
             Some(super::super::ear::Ends::Him(Some(b))) => b,
             _ => {

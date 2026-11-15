@@ -174,7 +174,7 @@ fn on_table(w: &World, s: &Scene) -> Vec<String> {
 }
 
 /// The voice's card from the game's turn.
-pub fn voice(w: &World, s: &Scene, room: &Room, t: &Turn, line: &str, keys: &EarKeys) -> VoiceCard {
+pub fn voice(w: &World, s: &Scene, room: &Room, parts: &Parts, t: &Turn, line: &str, keys: &EarKeys) -> VoiceCard {
     let Some(him) = talk::across(room) else { return VoiceCard::default() };
     let who::Who { background, personality, mood, football, known_you, swears } = who::who(w, him, room);
     let (say, asks) = talk::say_of(t);
@@ -187,9 +187,10 @@ pub fn voice(w: &World, s: &Scene, room: &Room, t: &Turn, line: &str, keys: &Ear
         }),
         _ => false,
     };
-    let heat = match (t.heat.0, t.ends) {
+    // Heat against his own point (lane N1): a hothead is hot sooner.
+    let heat = match (t.heat.0 / parts.feel.point(w, him).max(0.01), t.ends) {
         (_, Some(Ends::Him(Some(Boil::WalksOut)))) => "past his point: he walks out".to_string(),
-        (h, _) if h >= talk::feel::BOIL => "past his point".into(),
+        (h, _) if h >= 1.0 => "past his point".into(),
         (h, _) if h >= 0.6 => "getting hot".into(),
         (h, _) if h >= 0.3 => "a little heated".into(),
         _ => "calm".into(),

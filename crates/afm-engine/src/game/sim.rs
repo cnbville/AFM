@@ -303,6 +303,12 @@ pub struct Agent {
 }
 
 impl Agent {
+    /// A lineman on either side of the ball, by his label.
+    #[inline]
+    pub fn pos_is_line(&self) -> bool {
+        matches!(self.label, "LT" | "LG" | "C" | "RG" | "RT" | "DE" | "DT")
+    }
+
     /// How far bodies around him push him off his line: a player who moves
     /// well through traffic slides past them (proposed, not confirmed).
     #[inline]
@@ -798,6 +804,10 @@ pub struct Notes {
     #[serde(skip)]
     pub rush_moves: Vec<(u32, Move)>,
     pub busts: Vec<u32>,
+    /// Reps a flaw or tool was in play (individual practice topic 4.4):
+    /// (player, craft, -1 lost the rep, 0 in play, +1 won it).
+    #[serde(default)]
+    pub craft: Vec<(u32, u8, i8)>,
     pub freelance: Vec<(u32, bool)>,
     pub fouls: Vec<Foul>,
     pub injuries: Vec<Injury>,
@@ -939,6 +949,9 @@ pub struct Sim<'a> {
     pub carrier_side: usize,
     pub dead: bool,
     pub out_of_bounds: bool,
+    /// Where the quarterback last held the ball in the pocket: the spot a
+    /// pass rush drives toward after the throw or a scramble.
+    pub pocket: Option<V2>,
     /// Farthest forward spot of the ball carrier (forward progress).
     pub progress: f64,
     pub contact_force: f64,
@@ -1254,6 +1267,74 @@ impl<'a> Sim<'a> {
     #[inline]
     pub fn link(&self, i: usize, links: &[crate::links::Link]) -> f64 {
         self.player(i).links.edge(links)
+    }
+
+    /// A flaw's or tool's rating points for agent `i` in its situation
+    /// (`craft.rs`): a flaw's are negative. Under stress (a big game, tired,
+    /// low composure) a fixed flaw comes back up to a third of the way, as
+    /// coached-down habits do (individual practice topic 6.3). 0 when he
+    /// doesn't carry it.
+    #[inline]
+    pub fn craft(&self, i: usize, c: crate::craft::Craft) -> f64 {
+        let gp = self.player(i);
+        self.craft_raw(i, c) - super::synthetic::typical_craft(self.level, gp.position, c)
+    }
+
+    /// His own rating points in it, not read against the level's typical
+    /// starter: 0 when he doesn't carry it.
+    #[inline]
+    pub fn craft_raw(&self, i: usize, c: crate::craft::Craft) -> f64 {
+        let a = &self.agents[i];
+        let gp = &self.teams[a.side][a.p];
+        if !gp.craft.any() {
+            return 0.0;
+        }
+        let v = gp.craft.pts(c, 0.0);
+        if v == 0.0 {
+            return 0.0;
+        }
+        let poise = (gp.trait20(Attr::Composure, self.level) + a.poise20).clamp(1.0, 20.0);
+        let stress = clamp(self.mood.stakes[a.side] + 0.8 * a.tired + 0.05 * (10.0 - poise), 0.0, 1.0);
+        gp.craft.pts(c, stress)
+    }
+
+    /// `craft`, noting it for the tape as in play when he carries it (the
+    /// hooks outside the blocks: the tape tag's outcome comes from the
+    /// play's, see `flow.rs`).
+    #[inline]
+    pub fn craft_at(&mut self, i: usize, c: crate::craft::Craft) -> f64 {
+        if self.craft_raw(i, c) != 0.0 {
+            self.tag(i, c, None);
+        }
+        self.craft(i, c)
+    }
+
+    /// `craft` as a share of a full one (for situations not on the rating
+    /// scale): -1 a full flaw, +1 a full tool.
+    #[inline]
+    pub fn craft_share(&self, i: usize, c: crate::craft::Craft) -> f64 {
+        self.craft(i, c) / crate::craft::FULL
+    }
+
+    /// Notes a rep where a flaw or tool was in play for the tape (topic
+    /// 4.4): `won` Some(false) when he lost the rep, Some(true) when he won
+    /// it, None when it was only in play. One tag per man and craft a snap;
+    /// a decided rep replaces an undecided one.
+    pub fn tag(&mut self, i: usize, c: crate::craft::Craft, won: Option<bool>) {
+        let id = self.agents[i].id;
+        let code = c as u8;
+        let v: i8 = match won {
+            Some(true) => 1,
+            Some(false) => -1,
+            None => 0,
+        };
+        if let Some(t) = self.notes.craft.iter_mut().find(|t| t.0 == id && t.1 == code) {
+            if v != 0 {
+                t.2 = v;
+            }
+        } else {
+            self.notes.craft.push((id, code, v));
+        }
     }
 
     /// Agent `i`'s tendency this snap (tendencies topics 3.7, 3.8, 4.3): an
@@ -1587,7 +1668,10 @@ impl<'a> Sim<'a> {
         // Dynamic Links: Big man who moves gets to the second level and
         // pulls; a Sudden man slips the hands in space.
         use crate::links::Link;
-        let skill = 0.5 * ba.a(Attr::BlockingInSpace) + 0.5 * ba.a(Attr::Agility) + self.link(b, &[Link::BigMover]);
+        // Heavy feet on the climb (individual practice): to a linebacker.
+        let climb = if da.label == "LB" { 0.5 * self.craft(b, crate::craft::Craft::HeavyClimb) } else { 0.0 };
+        let skill =
+            0.5 * ba.a(Attr::BlockingInSpace) + 0.5 * ba.a(Attr::Agility) + self.link(b, &[Link::BigMover]) + climb;
         let slip = 0.5 * da.a(Attr::Agility) + 0.5 * da.a(Attr::BlockShedding) + self.link(d, &[Link::Sudden]);
         // A defender running straight at him is easy to get hands on; one
         // crossing his face is not. Only the speed across counts.
@@ -1880,6 +1964,134 @@ impl<'a> Sim<'a> {
             }
     }
 
+    /// Short yardage: two and a half yards or less to the line to gain.
+    fn short(&self) -> bool {
+        self.mood.line.is_some_and(|l| (l - self.los).abs() <= 2.5)
+    }
+
+    /// A blocker's flaws and tools in this block (individual practice topic
+    /// 2), on the block's own scale: each is its owner's weight in the mix
+    /// times its rating points. Oversets: the pass set against speed and
+    /// the counter. Catches instead of punching: the anchor against power.
+    /// Over his toes: the run block against a finesse defender. High pad
+    /// level: run blocks on short yardage and in double teams.
+    fn block_craft(&self, b: usize, d: usize, mv: Move, pass: bool, countered: bool, double: bool) -> f64 {
+        use crate::craft::Craft::*;
+        if pass {
+            let pb = match mv {
+                Move::Speed => 0.5,
+                Move::Power => 0.4,
+                Move::Finesse => 0.45,
+            };
+            let set = if mv == Move::Speed || countered { pb * self.craft(b, Oversets) } else { 0.0 };
+            let anchor = if mv == Move::Power { 0.3 * self.craft(b, CatchesPunch) } else { 0.0 };
+            // A back in blitz pickup against a man who moves late.
+            let late = matches!(self.agents[b].label, "RB" | "FB") && !self.agents[d].pos_is_line();
+            let duck = if late { pb * self.craft(b, DucksPickup) } else { 0.0 };
+            set + anchor + duck
+        } else {
+            let de = &self.agents[d];
+            let finesse = de.a(Attr::FinesseRush) > de.a(Attr::PowerRush);
+            let toes = if finesse { 0.45 * self.craft(b, OverToes) } else { 0.0 };
+            let pads = if double || self.short() { 0.45 * self.craft(b, HighPadBlock) } else { 0.0 };
+            toes + pads
+        }
+    }
+
+    /// A pass rusher's flaws and tools against this set, on the rush's
+    /// scale (individual practice topic 2): Long arm on the power rush
+    /// (in full against a shorter-armed blocker), Spin on the finesse move
+    /// (in full against a tackle who oversets), and No plan or a Real
+    /// counter on his counter move. In the run game: Lets the blocker into
+    /// his chest on the shed.
+    fn rush_craft(&self, d: usize, b: usize, mv: Move, pass: bool, countered: bool) -> f64 {
+        use crate::craft::Craft::*;
+        if !pass {
+            // A linebacker against a lineman: catches blocks, or shocks
+            // and sheds.
+            let lb = if self.agents[d].label == "LB" && self.agents[b].pos_is_line() {
+                0.4 * (self.craft(d, CatchesBlocks) + self.craft(d, ShockShed))
+            } else {
+                0.0
+            };
+            return 0.4 * self.craft(d, ChestBlocker) + lb;
+        }
+        // A linebacker's A-gap rip against a guard.
+        let rip = if self.agents[d].label == "LB" && matches!(self.agents[b].label, "LG" | "RG") {
+            0.5 * self.craft(d, AGapRip)
+        } else {
+            0.0
+        };
+        let arm = match mv {
+            Move::Power => {
+                let short = self.player(b).arm < self.player(d).arm + 0.5;
+                0.4 * self.craft(d, LongArm) * if short { 1.0 } else { 0.5 }
+            }
+            Move::Finesse => {
+                let overset = self.player(b).craft.pts(Oversets, 0.0) < 0.0;
+                0.4 * self.craft(d, Spin) * if overset { 1.0 } else { 0.6 }
+            }
+            Move::Speed => 0.0,
+        };
+        let counter = if countered { 0.4 * (self.craft(d, NoPlan) + self.craft(d, RealCounter)) } else { 0.0 };
+        arm + counter + rip
+    }
+
+    /// Tags a finished block's flaws and tools for the tape (topic 4.4):
+    /// each one that was in play in it, won or lost with the rep.
+    fn block_tags(&mut self, k: usize, blocker_won: bool) {
+        use crate::craft::Craft::*;
+        let e = &self.eng[k];
+        let (b, d, pass, mv, countered, double) =
+            (e.blocker, e.defender, e.pass, e.mv, e.countered, e.helper.is_some());
+        if self.player(b).craft.any() {
+            let de = &self.agents[d];
+            let finesse = de.a(Attr::FinesseRush) > de.a(Attr::PowerRush);
+            let list: [(crate::craft::Craft, bool); 5] = [
+                (Oversets, pass && (mv == Move::Speed || countered)),
+                (CatchesPunch, pass && mv == Move::Power),
+                (OverToes, !pass && finesse),
+                (HighPadBlock, !pass && (double || self.short())),
+                (RefitsHands, pass),
+            ];
+            let late = matches!(self.agents[b].label, "RB" | "FB") && !self.agents[d].pos_is_line();
+            if pass && late && self.craft_raw(b, DucksPickup) != 0.0 {
+                self.tag(b, DucksPickup, Some(blocker_won));
+            }
+            for (c, on) in list {
+                if on && self.craft_raw(b, c) != 0.0 {
+                    self.tag(b, c, Some(blocker_won));
+                }
+            }
+        }
+        if self.player(d).craft.any() {
+            let list: [(crate::craft::Craft, bool); 6] = [
+                (ChestBlocker, !pass),
+                (LongArm, pass && mv == Move::Power),
+                (Spin, pass && mv == Move::Finesse),
+                (NoPlan, pass && countered),
+                (RealCounter, pass && countered),
+                (HighPadRush, double),
+            ];
+            let lb = self.agents[d].label == "LB";
+            let more: [(crate::craft::Craft, bool); 3] = [
+                (CatchesBlocks, lb && !pass),
+                (ShockShed, lb && !pass),
+                (AGapRip, lb && pass && matches!(self.agents[b].label, "LG" | "RG")),
+            ];
+            for (c, on) in more {
+                if on && self.craft_raw(d, c) != 0.0 {
+                    self.tag(d, c, Some(!blocker_won));
+                }
+            }
+            for (c, on) in list {
+                if on && self.craft_raw(d, c) != 0.0 {
+                    self.tag(d, c, Some(!blocker_won));
+                }
+            }
+        }
+    }
+
     fn block_power(&self, b: usize, mv: Move, pass: bool) -> f64 {
         self.block_base(b, mv, pass) + self.block_gift(b, mv, pass)
     }
@@ -1969,12 +2181,17 @@ impl<'a> Sim<'a> {
             + 0.2 * a.a(Attr::Balance)
             + (a.mass - 300.0) * 0.08
             + self.link(d, &[Link::Anchor, Link::BigMover])
+            // High pad level (individual practice): washed out by the double team.
+            + 0.6 * self.craft(d, crate::craft::Craft::HighPadRush)
     }
 
     /// One tick of every block. Pass blocks drift toward the quarterback as
     /// the rusher wins ground; run blocks move with whoever is winning.
     pub fn update_blocks(&mut self, qb: Option<usize>, carrier: Option<usize>) {
         let t = self.t;
+        if let Some(q) = qb {
+            self.pocket = Some(self.agents[q].pos);
+        }
         for k in 0..self.eng.len() {
             if self.eng[k].over {
                 continue;
@@ -1999,6 +2216,12 @@ impl<'a> Sim<'a> {
                     } else {
                         self.shed_power(d) - self.block_power(b, e.mv, false)
                     };
+                    // Flaws and tools in this block (individual practice).
+                    edge += self.rush_craft(d, b, e.mv, e.pass, e.countered)
+                        - self.block_craft(b, d, e.mv, e.pass, e.countered, e.helper.is_some());
+                    if let Some(h) = e.helper {
+                        edge -= 0.6 * self.block_craft(h, d, e.mv, e.pass, e.countered, true);
+                    }
                     if let Some(h) = e.helper {
                         // A stout man holds the point against two (proposed, not
                         // confirmed: 0.3 of his anchor above 60).
@@ -2014,9 +2237,12 @@ impl<'a> Sim<'a> {
                 self.eng[k].countered = true;
                 let plan = clamp(
                     0.45 + 0.008 * (self.agents[d].a(Attr::FootballIq) - 60.0)
-                        + 0.03 * (self.trait20(d, Attr::Motor) - 10.0),
-                    0.15,
-                    0.85,
+                        + 0.03 * (self.trait20(d, Attr::Motor) - 10.0)
+                        + 0.15
+                            * (self.craft_share(d, crate::craft::Craft::NoPlan)
+                                + self.craft_share(d, crate::craft::Craft::RealCounter)),
+                    0.1,
+                    0.9,
                 );
                 if self.rng.chance(plan) {
                     let (mv, picked) = self.pick_move(b, d);
@@ -2024,7 +2250,9 @@ impl<'a> Sim<'a> {
                         // The edge the pick worked out for it: the same
                         // number, as only draws came between (world speed
                         // lane).
-                        let to = picked.unwrap_or_else(|| self.rush_power(d, mv) - self.block_power(b, mv, true));
+                        let to = picked.unwrap_or_else(|| self.rush_power(d, mv) - self.block_power(b, mv, true))
+                            + self.rush_craft(d, b, mv, true, true)
+                            - self.block_craft(b, d, mv, true, true, e.helper.is_some());
                         if to > edge {
                             self.eng[k].mv = mv;
                             edge = to;
@@ -2045,6 +2273,11 @@ impl<'a> Sim<'a> {
                 0.0
             };
             let mut mu = base + if e.pass { 0.032 } else { RUN_EDGE } * edge;
+            // Re-fits his hands (individual practice): a pass rep that
+            // started to go wrong, won back with the hands.
+            if e.pass && e.w > 0.3 {
+                mu -= 0.032 * 0.5 * self.craft(b, crate::craft::Craft::RefitsHands);
+            }
             // The runner already past him: he turns and runs after him, and
             // the blocker can't hang on (that would be holding).
             if !e.pass
@@ -2198,7 +2431,11 @@ impl<'a> Sim<'a> {
             // Where the pair goes.
             let (bp, dp) = (self.agents[b].pos, self.agents[d].pos);
             let target = if e.pass {
-                qb.map(|q| self.agents[q].pos).unwrap_or(bp)
+                // Once the ball is gone (thrown, or the quarterback out of
+                // the pocket) the rush still fights toward where he stood.
+                // It drove at the blocker's own spot before: a fixed heading
+                // that could carry the pair off the field on a long play.
+                qb.map(|q| self.agents[q].pos).or(self.pocket).unwrap_or(bp)
             } else {
                 carrier.map(|c| self.agents[c].pos).unwrap_or(dp + v2(-self.goal, 0.0))
             };
@@ -2249,6 +2486,11 @@ impl<'a> Sim<'a> {
     }
 
     pub fn release(&mut self, k: usize) {
+        {
+            let e = &self.eng[k];
+            let won = e.shed_at.is_none() && e.w < 0.6;
+            self.block_tags(k, won);
+        }
         let e = &mut self.eng[k];
         e.over = true;
         let (b, d, h) = (e.blocker, e.defender, e.helper);
@@ -2634,7 +2876,14 @@ impl<'a> Sim<'a> {
             self.steer(i, want);
             return;
         }
-        let iq = 0.5 * a.a(Attr::PlayRecognition) + 0.5 * a.a(Attr::Pursuit);
+        // Overruns the ball and poor angles (individual practice): his
+        // pursuit reads the flaw lower.
+        let angles = {
+            use crate::craft::Craft;
+            0.5 * (self.craft(i, Craft::Overruns) + self.craft(i, Craft::PoorAngles))
+        };
+        let a = &self.agents[i];
+        let iq = 0.5 * a.a(Attr::PlayRecognition) + 0.5 * a.a(Attr::Pursuit) + angles;
         // The intercept point: where he can meet the runner at full speed.
         // Smart pursuers take most of that angle, others aim short of it.
         let rel = cp - a.pos;
@@ -2858,12 +3107,24 @@ impl<'a> Sim<'a> {
         let own = 0.8 * r.a(Attr::Elusiveness) + 0.2 * r.a(Attr::Speed);
         // His own evade over the typical man's counts `CARRIER_SPREAD` of it
         // (minor bug 334).
-        let evade = typ_evade + CARRIER_SPREAD * (own - typ_evade) + was + self.link(c, &[Link::Sudden]);
+        // Flaws and tools (individual practice), each its points on its
+        // rating's share: the jump cut on a linebacker filling in the
+        // backfield; diving at ankles and poor angles in the open field.
+        use crate::craft::Craft;
+        let behind = (r.pos.x - self.los) * self.goal < 0.5;
+        let cut = if behind && d.label == "LB" { 0.8 * CARRIER_SPREAD * self.craft_at(c, Craft::JumpCut) } else { 0.0 };
+        let open = if r.vel.len() > 5.0 {
+            0.6 * self.craft_at(i, Craft::AnkleDiver) + 0.2 * self.craft_at(i, Craft::PoorAngles)
+        } else {
+            0.0
+        };
+        let evade = typ_evade + CARRIER_SPREAD * (own - typ_evade) + was + self.link(c, &[Link::Sudden]) + cut;
         let tackle = 0.6 * d.a(Attr::Tackling)
             + 0.2 * d.a(Attr::Agility)
             + 0.2 * d.a(Attr::Pursuit)
             + self.link(i, &[Link::Sudden])
-            + self.body_tackle(i);
+            + self.body_tackle(i)
+            + open;
         // Out of control when arriving too fast, behind when chasing.
         let angle = if head_on > 0.5 {
             -0.3
@@ -2908,8 +3169,11 @@ impl<'a> Sim<'a> {
         // speed: it slows him, but he runs through it.
         // His balance against the tackler's will to finish the hit.
         // Low center of gravity and Battering ram run through the arm.
+        // The stiff arm (individual practice) breaks an arm tackle in the
+        // open field: its points on his balance here.
         let gift = if r.vel.len() > 4.0 {
             self.link(c, &[Link::LowCenter, Link::BatteringRam])
+                + if arm_only { self.craft_at(c, crate::craft::Craft::StiffArm) } else { 0.0 }
         } else {
             self.link(c, &[Link::LowCenter])
         };
@@ -2943,7 +3207,14 @@ impl<'a> Sim<'a> {
         // security. It was read on its own, so NFL carriers, rated far above
         // 60, almost never fumbled (0.27 lost a team game, real 0.45). Now
         // about 0.45 in the NFL and 0.4 in FBS (proposed, not confirmed).
-        let carry = r.a(Attr::BallSecurity);
+        // Carries it loose (individual practice): in a crowd, his ball
+        // security reads the flaw lower.
+        let crowd = (0..self.agents.len())
+            .filter(|&k| self.agents[k].side != r.side && self.agents[k].pos.dist(r.pos) < 2.0)
+            .count()
+            >= 2;
+        let loose = if crowd { self.craft_at(c, crate::craft::Craft::CarriesLoose) } else { 0.0 };
+        let carry = r.a(Attr::BallSecurity) + loose;
         let hit = d.a(Attr::Strength) * 0.5 + d.a(Attr::Tackling) * 0.5;
         let hit_typ = {
             let pos = self.player(i).position;
@@ -2984,12 +3255,15 @@ impl<'a> Sim<'a> {
         use crate::links::Link;
         let low = self.link(c, &[Link::LowCenter]);
         let ram = self.link(c, &[Link::BatteringRam]);
+        // Runs too upright (individual practice): at first contact his leg
+        // drive reads the flaw lower.
+        let upright = if t - self.fight_since < 0.5 { self.craft_at(c, crate::craft::Craft::Upright) } else { 0.0 };
         // Pad level and leg drive keep him going; balance keeps him up.
         let resist = 1.0
             + 0.003 * low
             + 0.003 * ram
             + 0.003 * (r.a(Attr::Strength) - 60.0)
-            + 0.005 * (r.a(Attr::LegDrive) - 60.0)
+            + 0.005 * (r.a(Attr::LegDrive) - 60.0 + upright)
             + 0.003 * (r.a(Attr::Balance) - 60.0)
             + 0.002 * (r.a(Attr::Elusiveness) - 60.0)
             + 0.006 * (self.trait20(c, Attr::Competitiveness) - 10.0)

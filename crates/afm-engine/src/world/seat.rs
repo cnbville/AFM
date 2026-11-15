@@ -98,6 +98,8 @@ impl World {
         }
         // The day booked your game: a live game of it is over.
         self.live_booked(level, teams);
+        // The tape's tags for your players (individual practice topic 4.4).
+        super::craft_work::book_plays(self, &stats.plays, false);
         // Your words land on your players' trust, and your talks go in the
         // log (dialogue D4-D6).
         let mine = self.seat_team().map_or(0, |(_, t)| if teams[0] == t { 0 } else { 1 });
@@ -675,31 +677,42 @@ impl World {
         (pw + now.0, pl + now.1)
     }
 
-    /// Sets (or with None clears) a player's plan focus.
+    /// Sets (or with None clears) a player's plan focus: his first point
+    /// of emphasis as a plain rating, keeping a second point.
     pub fn set_focus(&mut self, player: u32, focus: Option<crate::attributes::Attr>) {
-        self.seat_focus.retain(|(id, _)| *id != player);
-        if let Some(a) = focus {
-            self.seat_focus.push((player, a.index() as u8));
+        let mut pts = self.points_of(player);
+        if !pts.is_empty() {
+            pts.remove(0);
         }
+        if let Some(a) = focus {
+            pts.insert(0, crate::craft::Point::Rating(a));
+        }
+        self.seat_focus.retain(|(id, _)| *id != player);
+        self.seat_focus.extend(pts.iter().map(|p| (player, p.code())));
     }
 
+    /// The rating his first point of emphasis grows (a flaw's or tool's
+    /// owner).
     pub fn focus_of(&self, player: u32) -> Option<crate::attributes::Attr> {
-        self.seat_focus.iter().find(|(id, _)| *id == player).map(|&(_, a)| crate::attributes::Attr::ALL[a as usize])
+        self.points_of(player).first().map(|p| p.rating())
     }
 
-    /// The plan focus of each player on your roster now, by person index
-    /// (a plan stays with your team: a player who leaves drops it).
-    pub(crate) fn focus_by_person(&self) -> std::collections::HashMap<usize, crate::attributes::Attr> {
-        let Some(seat) = self.seat else { return Default::default() };
-        if self.seat_focus.is_empty() {
+    /// The ratings each of your players' points grow, by person index (a
+    /// plan stays with your team: a player who leaves drops it).
+    pub(crate) fn focus_by_person(
+        &self,
+    ) -> std::collections::HashMap<usize, (crate::attributes::Attr, Option<crate::attributes::Attr>)> {
+        if self.seat.is_none() || self.seat_focus.is_empty() {
             return Default::default();
         }
-        let roster: &[usize] = match seat.level {
-            crate::calendar::Level::Nfl => seat.nfl_team.and_then(|t| self.clubs.get(t)).map_or(&[], |c| &c.roster),
-            crate::calendar::Level::HighSchool => seat.program.map_or(&[], |h| &self.high_schools[h].roster),
-            _ => seat.program.map_or(&[], |p| &self.programs[p].roster),
-        };
-        roster.iter().filter_map(|&i| self.focus_of(self.people[i].player.id).map(|a| (i, a))).collect()
+        self.seat_roster()
+            .iter()
+            .filter_map(|&i| {
+                let pts = self.points_of(self.people[i].player.id);
+                let first = pts.first()?.rating();
+                Some((i, (first, pts.get(1).map(|p| p.rating()))))
+            })
+            .collect()
     }
 
     /// Whether a college program is yours (its game team takes your order).
@@ -1154,6 +1167,8 @@ impl World {
         self.seat_depth.clear();
         self.seat_games.clear();
         self.seat_focus.clear();
+        self.seat_seen.clear();
+        self.seat_book.clear();
         self.prune_tapes();
         // Your first two weeks: the meetings of a new job (takeover).
         super::folk::takeover::begin(self);

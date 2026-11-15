@@ -57,8 +57,19 @@ pub struct Parts<'a> {
 }
 
 impl Parts<'static> {
-    /// Today's stand-in parts (`today`).
+    /// The parts as built today: lane N1's people (`People`: what he
+    /// knows, how he tells it, what he wants, heat and patience on his
+    /// makeup), and the stand-in (`today`) for deals and requests until
+    /// lane N3 lands.
     pub fn today() -> Parts<'static> {
+        static P: super::people::People = super::people::People;
+        static T: today::Today = today::Today;
+        static F: feel::Sized = feel::Sized;
+        Parts { knows: &P, tells: &P, wanting: &P, valuing: &T, acting: &T, feel: &F }
+    }
+
+    /// The old stand-in for every part (today's stores only), for tests.
+    pub fn stand_in() -> Parts<'static> {
         static T: today::Today = today::Today;
         static F: feel::Plain = feel::Plain;
         Parts { knows: &T, tells: &T, wanting: &T, valuing: &T, acting: &T, feel: &F }
@@ -136,7 +147,13 @@ impl Resolving for Conversation<'_> {
     fn turn(&self, w: &World, room: &Room, reading: &Reading) -> Turn {
         let mut t = Turn::default();
         let Some(him) = across(room) else { return t };
-        let open = store::open(w, self.said.scene).cloned().unwrap_or_else(|| store::Open::new(self.said.scene, room));
+        let mut open =
+            store::open(w, self.said.scene).cloned().unwrap_or_else(|| store::Open::new(self.said.scene, room));
+        // A fresh talk starts from his own patience (lower after a hot
+        // talk lately).
+        if open.lines == 0 {
+            open.patience = self.parts.feel.start(w, him);
+        }
         let allows = channels::allows(room.channel);
         t.heat = open.heat;
         t.patience = open.patience;
@@ -374,6 +391,8 @@ impl Resolving for Conversation<'_> {
         let you = folk::scene::your_name(w);
         let facts: Vec<Stated> = t.claims.iter().map(|(f, _)| f.clone()).collect();
         let standing = self.standing(w, &s, &facts);
+        let point = self.parts.feel.point(w, him);
+        let hot = t.heat.0 >= point;
         if let Some(sc) = w.folk.scenes.iter_mut().find(|x| x.id == id) {
             sc.you(&you, self.said.words.clone());
             if let Some(l) = sc.lines.last_mut() {
@@ -444,7 +463,7 @@ impl Resolving for Conversation<'_> {
         if t.weighed.iter().any(|(_, x)| *x == Weighed::Lowball) {
             store::treat(m, him, Treated::Lowballed, today);
         }
-        if t.heat.0 >= feel::BOIL {
+        if hot {
             store::treat(m, him, Treated::Hot, today);
         }
         store::save_line(
@@ -453,7 +472,7 @@ impl Resolving for Conversation<'_> {
             s.date,
             Line { you: self.said.words.clone(), reading: self.said.reading.clone(), his: String::new() },
         );
-        store::advance(w, id, &room, t, &self.said);
+        store::advance(w, id, &room, t, &self.said, point);
         talks::charge(w, t.minutes / 60.0);
         if t.ends.is_some() {
             end(w, id);

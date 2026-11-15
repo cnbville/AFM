@@ -70,8 +70,8 @@ impl Waits {
     }
 }
 
-/// The parts a talk is played with today. Lanes N1 and N3 put their own
-/// parts here.
+/// The parts a talk is played with today: lane N1's people, and the
+/// stand-in for deals and requests until lane N3 puts its own here.
 pub fn parts() -> Parts<'static> {
     Parts::today()
 }
@@ -137,7 +137,7 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
         let conv = Conversation { parts: parts(), said: Said { scene: id, words: words.clone(), reading, promises } };
         let t = conv.turn(w, &room, &conv.said.reading);
         let heard = cards::heard(w, &room, &t);
-        let vc = cards::voice(w, &s, &room, &t, &words, &keys);
+        let vc = cards::voice(w, &s, &room, &conv.parts, &t, &words, &keys);
         conv.apply(w, &t);
         let marks = marks(w, &t);
         let confirm = waits(g, id, &room, &t);

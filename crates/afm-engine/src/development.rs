@@ -63,6 +63,14 @@ pub struct SeasonContext {
     /// slows (individual practice, topic 5b); how much sticks follows his
     /// coachability.
     pub focus: Option<Attr>,
+    /// His second point of emphasis's rating, if he has two (individual
+    /// practice topic 5.1): the two share the minutes.
+    #[serde(default)]
+    pub focus2: Option<Attr>,
+    /// He plays for your seat: his flaws and tools are worked week by week
+    /// (`world::craft_work`), so the year's step works no staff points.
+    #[serde(default)]
+    pub seat_plan: bool,
     /// The minutes a week he spends on the focus (individual practice,
     /// topic 5b): the usual 30 when nothing says otherwise.
     #[serde(default = "usual_focus_minutes")]
@@ -108,6 +116,8 @@ impl SeasonContext {
             physical: 0.0,
             medical: 0.0,
             focus: None,
+            focus2: None,
+            seat_plan: false,
             focus_minutes: USUAL_FOCUS_MINUTES,
             defer: false,
             physical_coaching: None,
@@ -131,11 +141,46 @@ fn usual_focus_minutes() -> f64 {
 pub struct Focus {
     pub attr: Attr,
     pub minutes: f64,
+    /// A second focus point's rating (individual practice topic 5.1: one
+    /// or two points at a time). The two share his minutes.
+    pub second: Option<Attr>,
 }
 
 impl Focus {
     pub fn new(attr: Attr, minutes: f64) -> Focus {
-        Focus { attr, minutes }
+        Focus { attr, minutes, second: None }
+    }
+
+    /// Two points of emphasis, each on its rating; the same rating twice is
+    /// one focus with all the minutes.
+    pub fn two(attr: Attr, second: Option<Attr>, minutes: f64) -> Focus {
+        Focus { attr, minutes, second: second.filter(|&b| b != attr) }
+    }
+
+    /// Whether a rating is one of his focus ratings.
+    pub fn has(self, a: Attr) -> bool {
+        self.attr == a || self.second == Some(a)
+    }
+
+    /// The ratings it grows (one or two).
+    pub fn attrs(self) -> impl Iterator<Item = Attr> {
+        std::iter::once(self.attr).chain(self.second)
+    }
+
+    /// The minutes on one of its ratings: two points split his time.
+    pub fn minutes_on(self, a: Attr) -> f64 {
+        if !self.has(a) {
+            0.0
+        } else if self.second.is_some() {
+            self.minutes / 2.0
+        } else {
+            self.minutes
+        }
+    }
+
+    /// The lift on one of its ratings (`lift` at that rating's minutes).
+    pub fn lift_on(self, a: Attr, take: f64) -> f64 {
+        Focus::new(a, self.minutes_on(a)).lift(take)
     }
 
     /// The lift on its growth rate, past 1 (proposed, not confirmed:
@@ -257,7 +302,7 @@ impl GrowthCtx {
         // 5b); what it costs comes off the key skills' gains as they land
         // (`focus_cost`), not off their rates.
         let focus_mult = match self.focus {
-            Some(f) if f.attr == key => 1.0 + f.lift(self.focus_take),
+            Some(f) if f.has(key) => 1.0 + f.lift_on(key, self.focus_take),
             _ => 1.0,
         };
         // The focus multiplies the year as it would have been, past the
@@ -1158,7 +1203,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     let mut settling = [false; ATTRIBUTE_COUNT];
     // The plan's focus (section 6b topic 5, individual practice topic 5b).
     let focus_take = focus_take(personality.coachability);
-    let focus = ctx.focus.map(|a| Focus::new(a, ctx.focus_minutes));
+    let focus = ctx.focus.map(|a| Focus::two(a, ctx.focus2, ctx.focus_minutes));
     why.coaching_boost = coaching_boost;
     why.physical_boost = physical_boost;
     why.snaps_mult = snaps_mult;
@@ -1206,7 +1251,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         }
     }
     let grown_from = player.attributes;
-    let mut focus_extra = 0.0;
+    let mut focus_extra: Vec<(Attr, f64)> = Vec::new();
     for key in Attr::ALL {
         let profile = &ATTRIBUTE_PROFILES[key.index()];
         let age_factor = growth_age_factor(development_age, profile.growth_window);
@@ -1241,16 +1286,16 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         // actually reach his ceiling instead of creeping towards it forever.
         // Even a monster year adds at most about a dozen points to one attribute.
         let add = gap.min(gap * rate + FINISHING_STEP * rate).min(MAX_YEARLY_GAIN) + noise;
-        if focus.is_some_and(|f| f.attr == key) {
+        if focus.is_some_and(|f| f.has(key)) {
             let r0 = rate_of(&g.plain());
-            focus_extra = add - (gap.min(gap * r0 + FINISHING_STEP * r0).min(MAX_YEARLY_GAIN) + noise);
+            focus_extra.push((key, add - (gap.min(gap * r0 + FINISHING_STEP * r0).min(MAX_YEARLY_GAIN) + noise)));
         }
         player.attributes.add(key, add);
         why.landed += add;
     }
     // What the focus grew here, its key skills pay for (topic 5b).
-    if let Some(f) = focus {
-        why.landed -= focus_cost(position, &grown_from, &mut player.attributes, f.attr, focus_extra);
+    for (a, x) in focus_extra {
+        why.landed -= focus_cost(position, &grown_from, &mut player.attributes, a, x);
     }
     if ctx.defer {
         let old = player.train;
@@ -1296,7 +1341,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         // at 60 minutes a week (individual practice, topic 5b; proposed, not
         // confirmed). The body is not slowed by individual work.
         let worked = match focus {
-            Some(f) if f.attr == key && !physical => 1.0 - f.lift(focus_take) / 3.0,
+            Some(f) if f.has(key) && !physical => 1.0 - f.lift_on(key, focus_take) / 3.0,
             _ => 1.0,
         };
         let loss = profile.decline_rate
@@ -1450,6 +1495,16 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         situation: OptF64::NONE,
         results: OptF64::NONE,
     });
+    // His flaws and tools through the year (individual practice topic 3):
+    // his staff fixes and adds, reps teach tools, on his own stream.
+    let playing = match pt {
+        PlayingTime::Starter => 1.0,
+        PlayingTime::Rotation => 0.6,
+        PlayingTime::Backup => 0.3,
+        _ => 0.1,
+    };
+    let staff = (!ctx.seat_plan).then(|| ctx.style.map_or(10.0, |s| s.mould));
+    crate::craft::year(player, ctx.coaching, ctx.level, playing, staff);
     player.age += 1;
     // The day's body stays where it was: a year of age moves out of `grow`.
     player.grow = (player.grow - 1.0).max(0.0);

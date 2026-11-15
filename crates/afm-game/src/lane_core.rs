@@ -19,6 +19,7 @@ pub mod pages;
 pub mod people;
 pub mod tables;
 pub mod team_page;
+pub mod team_page_hs;
 
 use afm_engine::calendar::Weekday;
 use afm_engine::world::World;
