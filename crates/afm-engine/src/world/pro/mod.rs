@@ -10,6 +10,7 @@
 //! need and draft logic read real players.
 
 pub mod bargain;
+pub mod cfl;
 pub mod games;
 pub mod honors;
 pub mod leagues;

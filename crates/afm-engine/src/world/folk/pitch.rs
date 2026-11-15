@@ -104,6 +104,9 @@ pub const AMBITIOUS: f64 = 15.0;
 const LOOKING: u32 = 709;
 const PROMISE_START: u32 = 711;
 const PROMISE_ROLE: u32 = 712;
+/// A transfer told how you'd use him (the promises on usage): only from
+/// your words.
+const PROMISE_USAGE: u32 = 713;
 const LEAVE: u32 = 719;
 const POINT: u32 = 7100;
 const STRAIGHT: u32 = 7300;
@@ -955,6 +958,19 @@ fn promise_picks(w: &World, s: &mut Scene, t: &Talk, back: bool) {
                 .of(PickKind::Final),
             );
         }
+        // How you'd use him (the promises on usage): only in your words,
+        // so a typed line reaches it and no chip shows it.
+        s.reach.push(
+            Pick {
+                label: pledge::Kind::Usage.label(pos),
+                mv: "Promise".into(),
+                tone: "firm".into(),
+                hint: pledge::Kind::Usage.hint().into(),
+                code: PROMISE_RECRUIT + pledge::USAGE as u32,
+                ..Pick::default()
+            }
+            .of(PickKind::Final),
+        );
     } else {
         transfer_promise_picks(s);
     }
@@ -1003,6 +1019,17 @@ fn transfer_promise_picks(s: &mut Scene) {
             tone: "warm".into(),
             hint: "Checked at the season's end.".into(),
             code: PROMISE_ROLE,
+            ..Pick::default()
+        }
+        .of(PickKind::Final),
+    );
+    s.reach.push(
+        Pick {
+            label: "\"Here's how we'll use you.\"".into(),
+            mv: "Promise".into(),
+            tone: "firm".into(),
+            hint: "Checked game by game, from the play log.".into(),
+            code: PROMISE_USAGE,
             ..Pick::default()
         }
         .of(PickKind::Final),
@@ -1103,8 +1130,9 @@ fn picks(w: &World, s: &mut Scene, t: &Talk, st: &St, sheet: &Sheet) {
     if out.iter().any(|p| p.code == PROMISE_MENU) {
         let mut v = s.clone();
         v.picks.clear();
+        v.reach.clear();
         promise_picks(w, &mut v, t, false);
-        s.reach.extend(v.picks.into_iter().filter(|p| p.kind == PickKind::Final));
+        s.reach.extend(v.picks.into_iter().chain(v.reach).filter(|p| p.kind == PickKind::Final));
     }
     s.picks = out;
 }
@@ -1123,6 +1151,12 @@ pub fn typed_promise(s: &Scene, kind: &str) -> Option<u32> {
         "no_redshirt" => Some(pledge::Kind::NoRedshirt),
         _ => None,
     };
+    // How you'd use him: only from your words, never a chip, so it is
+    // reachable wherever the five are.
+    if kind == "usage" {
+        let codes = [PROMISE_RECRUIT + pledge::USAGE as u32, PROMISE_USAGE];
+        return scene::options(s).into_iter().map(|p| p.code).find(|c| codes.contains(c));
+    }
     let transfer = match kind {
         "start" | "ahead_of" => Some(PROMISE_START),
         "role" | "touches" | "place" => Some(PROMISE_ROLE),
@@ -1913,8 +1947,10 @@ pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         BACK => st.nav = if st.ask == 0 { NAV_MENU } else { NAV_ASKED },
         PROMISE_MENU => st.nav = NAV_PROMISE,
         c if (GROUP..GROUP + 7).contains(&c) => st.nav = (c - GROUP) as u8 + 1,
-        PROMISE_START | PROMISE_ROLE => return promise(w, s, &t, st, (code - PROMISE_START) as u8, picked),
-        c if (PROMISE_RECRUIT..PROMISE_RECRUIT + 5).contains(&c) && !t.transfer => {
+        PROMISE_START | PROMISE_ROLE | PROMISE_USAGE => {
+            return promise(w, s, &t, st, (code - PROMISE_START) as u8, picked);
+        }
+        c if (PROMISE_RECRUIT..=PROMISE_RECRUIT + pledge::USAGE as u32).contains(&c) && !t.transfer => {
             return recruit_promise(w, s, &t, st, (c - PROMISE_RECRUIT) as u8, picked);
         }
         c if (NEWS..NEWS + 100).contains(&c) && t.at == Where::Message => {
@@ -1962,7 +1998,13 @@ pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
 fn promise(w: &mut World, s: &mut Scene, t: &Talk, st: St, kind: u8, picked: &Pick) {
     let me = scene::your_name(w);
     s.you(&me, picked.label.trim_matches('"'));
-    let Some(read) = portal::promise(w, t.id, kind) else {
+    let term = s.heard.as_ref().and_then(|h| h.promise.as_ref()).and_then(|p| p.usage);
+    let read = match (kind, term) {
+        (2, Some(u)) => portal::promise_usage(w, t.id, u),
+        (2, None) => None,
+        _ => portal::promise(w, t.id, kind),
+    };
+    let Some(read) = read else {
         s.outcome.push("Your staff has no place for him to promise: the roster is full, or he can't come.".into());
         return close(w, s, t, &st);
     };
@@ -1991,7 +2033,12 @@ fn promise(w: &mut World, s: &mut Scene, t: &Talk, st: St, kind: u8, picked: &Pi
         }
         .to_string(),
     );
-    s.outcome.push(format!("You promised {}.", if kind == 0 { "him a starting job" } else { "him a real role" }));
+    let what = match (kind, term) {
+        (2, Some(u)) => u.words(),
+        (0, _) => "him a starting job".into(),
+        _ => "him a real role".into(),
+    };
+    s.outcome.push(format!("You promised {what}."));
     close(w, s, t, &st);
 }
 
@@ -2248,7 +2295,14 @@ fn recruit_promise(w: &mut World, s: &mut Scene, t: &Talk, st: St, k: u8, picked
     }
     let sheet = claims::recruit(w, t.i, t.j, t.ear);
     let room = sheet.get(Kind::Room).and_then(|p| p.proof).map_or(0.5, |p| p.strength as f64);
-    let Some((_, belief)) = pledge::make(w, t.i, t.j, kind, t.ear, room) else { return close(w, s, t, &st) };
+    // How you'd use him: the term from your words.
+    let term = s.heard.as_ref().and_then(|h| h.promise.as_ref()).and_then(|p| p.usage);
+    let made = match (kind, term) {
+        (pledge::Kind::Usage, Some(u)) => pledge::make_usage(w, t.i, t.j, u, t.ear),
+        (pledge::Kind::Usage, None) => None,
+        _ => pledge::make(w, t.i, t.j, kind, t.ear, room),
+    };
+    let Some((_, belief)) = made else { return close(w, s, t, &st) };
     let key = if belief >= pledge::BELIEVES { "believes" } else { "doubts" };
     let sp = speaker(w, t);
     let f = base(w, t);
@@ -2266,6 +2320,10 @@ fn recruit_promise(w: &mut World, s: &mut Scene, t: &Talk, st: St, k: u8, picked
         .to_string(),
     );
     let pos = w.people[t.i].player.position;
-    s.outcome.push(format!("You promised {}. It's checked once he's yours.", kind.words(pos)));
+    let what = match (kind, term) {
+        (pledge::Kind::Usage, Some(u)) => u.words(),
+        _ => kind.words(pos),
+    };
+    s.outcome.push(format!("You promised {what}. It's checked once he's yours."));
     close(w, s, t, &st);
 }

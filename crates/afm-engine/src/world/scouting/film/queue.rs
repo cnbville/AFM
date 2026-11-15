@@ -203,7 +203,7 @@ pub(crate) fn week(w: &mut World, d: Date) {
                 }
             }
         }
-        Staff::School(_) => {}
+        Staff::School(_) | Staff::League(_) => {}
     }
     w.scouting.film.queue.extend(add);
 }

@@ -44,13 +44,21 @@ pub enum Kind {
     Position,
     Early,
     NoRedshirt,
+    /// How you'll use him (the promises on usage, `usage`): only from your
+    /// own words, never a chip and never an AI staff's, its term kept
+    /// beside the case (`Folk::usage_pledges`).
+    Usage,
 }
 
+/// The usage promise's kind number (`talks::PromiseKind::Recruit`).
+pub const USAGE: u8 = Kind::Usage as u8;
+
 impl Kind {
+    /// The five any staff makes from a chip.
     pub const ALL: [Kind; 5] = [Kind::Start, Kind::Role, Kind::Position, Kind::Early, Kind::NoRedshirt];
 
     pub fn of(k: u8) -> Option<Kind> {
-        Kind::ALL.get(k as usize).copied()
+        if k == USAGE { Some(Kind::Usage) } else { Kind::ALL.get(k as usize).copied() }
     }
 
     /// Its key in a line bank part (`recruit.promise.{key}.{believes|doubts}`).
@@ -61,6 +69,7 @@ impl Kind {
             Kind::Position => "position",
             Kind::Early => "early",
             Kind::NoRedshirt => "no_redshirt",
+            Kind::Usage => "usage",
         }
     }
 
@@ -72,6 +81,7 @@ impl Kind {
             Kind::Position => format!("that he'd stay at {}", super::claims::words::spot(pos)),
             Kind::Early => "an early chance to play".into(),
             Kind::NoRedshirt => "no redshirt year".into(),
+            Kind::Usage => "how you'd use him".into(),
         }
     }
 
@@ -85,6 +95,7 @@ impl Kind {
             }
             Kind::Early => "\"You'll get your chance early. You won't wait your turn.\"".into(),
             Kind::NoRedshirt => "\"You won't redshirt. You'll play as a freshman.\"".into(),
+            Kind::Usage => "\"Here's how we'll use you.\"".into(),
         }
     }
 
@@ -96,6 +107,7 @@ impl Kind {
             Kind::Position => "Checked at the end of his first season: still at his position.",
             Kind::Early => "Checked after his fourth game with you: he has played.",
             Kind::NoRedshirt => "Checked at the end of his first season: he played past a redshirt.",
+            Kind::Usage => "Checked game by game in his first season, from the play log.",
         }
     }
 }
@@ -103,11 +115,11 @@ impl Kind {
 /// Each promise's pull at its fullest, in appeal points (a starting job and
 /// a real role as a transfer's, `dialogue::PROMISE_PULL`). Proposed, not
 /// confirmed.
-pub const PULL: [f64; 5] = [0.06, 0.035, 0.02, 0.03, 0.025];
+pub const PULL: [f64; 6] = [0.06, 0.035, 0.02, 0.03, 0.025, 0.03];
 
 /// What each promise adds to what a freshman expects anyway (he rarely
 /// starts, often waits). Proposed, not confirmed.
-pub const ADDS: [f64; 5] = [1.0, 0.6, 0.5, 0.5, 0.4];
+pub const ADDS: [f64; 6] = [1.0, 0.6, 0.5, 0.5, 0.4, 0.6];
 
 /// He believes it from this much (as a transfer's "believes").
 pub const BELIEVES: f64 = 0.6;
@@ -121,6 +133,8 @@ pub(crate) fn likely(k: Kind, room: f64, stars: u8) -> f64 {
         Kind::Position => 1.0,
         Kind::NoRedshirt => 0.6 + 0.4 * room,
         Kind::Role | Kind::Early => 0.5 + 0.5 * room,
+        // Read from the term itself (`usage::likely`).
+        Kind::Usage => 0.85,
     }
 }
 
@@ -155,6 +169,38 @@ pub fn make(w: &mut World, i: usize, j: usize, k: Kind, ear: Ear, room: f64) -> 
     Some((pull, b))
 }
 
+/// A promise on how you'll use him (`usage`), from your own words: it goes
+/// on his case like the others, its term kept beside it, its belief read
+/// from the term (what your football has given his spot, his range for a
+/// kicker's line; agreed item 8). Returns (the pull, the belief), or None
+/// when a promise is already on his case.
+pub fn make_usage(w: &mut World, i: usize, j: usize, u: super::usage::Usage, ear: Ear) -> Option<(f64, f64)> {
+    let p = &w.people[i];
+    if case::of(p, j).is_some_and(|c| c.promise != 0) {
+        return None;
+    }
+    let care = super::claims::group_cares(p, ear)[Group::PlayingTime as usize] as f64;
+    let b = super::promise::belief_out(w, i, j, ear, super::usage::likely(w, i, &u));
+    let pull = PULL[USAGE as usize] * care * ADDS[USAGE as usize] * b;
+    let pos = p.player.position as u8;
+    let id = p.player.id;
+    let today = w.today;
+    let c = case::case_mut(w, i, j);
+    c.promise = USAGE + 1;
+    c.pledge = pull as f32;
+    c.pos = pos;
+    c.promised = today;
+    c.belief = b as f32;
+    w.folk.usage_pledges.retain(|x| !(x.0 == id && x.1 == j));
+    w.folk.usage_pledges.push((id, j, u));
+    Some((pull, b))
+}
+
+/// The term of a usage promise on his case with school `j`.
+pub fn usage_on(w: &World, id: u32, j: usize) -> Option<super::usage::Usage> {
+    w.folk.usage_pledges.iter().find(|x| x.0 == id && x.1 == j).map(|x| x.2)
+}
+
 /// The promise on his case with school `j`, if any.
 pub fn on_case(w: &World, i: usize, j: usize) -> Option<Kind> {
     case::of(&w.people[i], j).and_then(|c| c.promise.checked_sub(1)).and_then(Kind::of)
@@ -178,6 +224,11 @@ pub(crate) fn log_signed(w: &mut World, j: usize) {
         // games to its end (section 7); a role from the opener.
         if Kind::of(c.promise - 1) == Some(Kind::Start) {
             let t = super::promise::Terms { by: super::promise::By::Week4, dated: true, ..Default::default() };
+            super::talks::set_terms(w, k, t);
+        }
+        // How you'd use him: its term, judged from his first game.
+        if c.promise - 1 == USAGE {
+            let t = super::promise::Terms { usage: usage_on(w, id, j), ..Default::default() };
             super::talks::set_terms(w, k, t);
         }
         w.folk.promises[k].made = c.promised;
@@ -216,7 +267,8 @@ pub(crate) fn kept(w: &World, i: usize, k: u8, pos: u8, games: u32, starts: u32)
                 games >= 1
             }
         }
-        None => true,
+        // Judged over his games (`promise::judge`).
+        Some(Kind::Usage) | None => true,
     }
 }
 

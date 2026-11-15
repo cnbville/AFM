@@ -14,7 +14,7 @@ use super::live::{
 use super::playbook::*;
 use super::roster::*;
 use super::rules::{FirstDownStop, Overtime, Rules};
-use super::scrimmage::{self, DSlot, Snap, SnapResult};
+use super::scrimmage::{self, DSlot, KeepSnap, Snap, SnapResult};
 use super::sim::{Conditions, Crew, Foul, FoulKind, Frame, Injury, InjuryKind, Mood};
 use super::stats::*;
 use super::tables;
@@ -23,6 +23,16 @@ use crate::player::Level;
 use crate::positions::Position;
 use crate::rng::{Rng, clamp};
 use crate::spots::{self, Spot, best_order, fill_in};
+
+/// The defense's plan keeping a usage promise (`roster::Keep`; proposed,
+/// not confirmed): a four-man rush becomes a stunt with the man promised
+/// to be freed up 42 in 100 times, and a blitz with the man promised to be
+/// sent on 33 in 100 four-man calls: enough that a game gives him 1 in 4
+/// (the agreed floor) in 3 of every 4 games (`tests/usage.rs`). Deep calls lean half again as much toward the
+/// man promised shots.
+pub const FREE_UP: f64 = 0.42;
+pub const SEND: f64 = 0.33;
+pub const SHOTS_LEAN: f64 = 0.5;
 
 /// Who lines up where on a snap: the offense by role, the defense by slot.
 type Lineup = (Vec<(ORole, usize)>, Vec<(DSlot, usize)>);
@@ -822,6 +832,16 @@ impl<'a> Side<'a> {
         out
     }
 
+    /// How much more the offense calls deep shots for the man your word
+    /// promised them (the promises on usage), while he can go.
+    fn shots_lean(&self) -> f64 {
+        let ids = &self.team.prep.keep.shots;
+        let up = |id: &u32| {
+            self.team.players.iter().position(|p| p.id == *id).is_some_and(|i| !self.out[i] && !self.benched[i])
+        };
+        if ids.iter().any(up) { SHOTS_LEAN } else { 0.0 }
+    }
+
     /// How much the offense leans on its burner, while he can go (S10).
     fn burner_lean(&self) -> f64 {
         match self.depth.burner {
@@ -1232,6 +1252,7 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
     // Your answers to their personnel groups this week (update 2, G16).
     for side in sides.iter_mut() {
         side.mem.plan.answers = side.team.prep.answers;
+        side.mem.plan.man_floor = side.team.prep.keep.man;
     }
     // Moves against the other team's habits (tendencies topic 4.4), from
     // what each staff's film study reads of them. Own stream, so the plans
@@ -2738,6 +2759,12 @@ impl<'a> Game<'a> {
                 choice = if yl < 40.0 { FourthDown::Go } else { FourthDown::Punt };
             }
             choice = self.garbage_fourth(choice, yl);
+            // The field goal line your word set (the promises on usage):
+            // inside it the staff kicks where it would have punted.
+            let line = self.sides[o].team.prep.keep.fg_line;
+            if line > 0 && choice == FourthDown::Punt && yl <= line as f64 {
+                choice = FourthDown::FieldGoal;
+            }
             if let Some(c) = self.chart_fourth(o, make, fg_dist <= kicker_range + 3.0) {
                 choice = c;
             }
@@ -2830,6 +2857,69 @@ impl<'a> Game<'a> {
 
     /// Your 4th-down chart on your own snaps (topic 2): from the true win
     /// chance of each choice. None leaves the staff's judgment.
+    /// The defense's plan keeping your promises on usage on this snap
+    /// (`roster::Keep`): a four-man rush becomes a stunt with the man you
+    /// promised to free up, or a blitz with the man you promised to send,
+    /// and the snap carries who they are. Nothing for a plan without one.
+    fn keep_defense(&mut self, dcall: &mut DefCall, def: &[(DSlot, usize)]) -> KeepSnap {
+        let d = 1 - self.poss;
+        if self.sides[d].team.prep.keep.is_empty() {
+            return KeepSnap::default();
+        }
+        let keep = self.sides[d].team.prep.keep.clone();
+        let players = &self.sides[d].team.players;
+        let find = |ids: &[u32], ok: fn(DSlot) -> bool| {
+            def.iter().find(|&&(sl, i)| ok(sl) && ids.contains(&players[i].id)).copied()
+        };
+        let free = find(&keep.free_up, |sl| matches!(sl, DSlot::LE | DSlot::RE | DSlot::DTL | DSlot::DTR));
+        let send = find(&keep.send, |sl| sl.is_lb() || matches!(sl, DSlot::NCB | DSlot::DCB | DSlot::SS | DSlot::FS));
+        let rush = find(&keep.rush, |sl| matches!(sl, DSlot::LE | DSlot::RE));
+        let mut k = KeepSnap {
+            free_up: free.map(|x| x.1),
+            send: send.map(|x| x.1),
+            rush: rush.map(|x| x.1),
+            ..KeepSnap::default()
+        };
+        let four = matches!(dcall.pressure, Pressure::Four | Pressure::Simulated);
+        if let Some((sl, _)) = free
+            && four
+            && dcall.stunt == Stunt::None
+            && self.rng.chance(FREE_UP)
+        {
+            dcall.stunt = if matches!(sl, DSlot::LE | DSlot::RE) { Stunt::EndTackle } else { Stunt::TackleEnd };
+        }
+        if let Some((sl, _)) = send
+            && dcall.pressure == Pressure::Four
+            && dcall.stunt == Stunt::None
+            && self.rng.chance(SEND)
+        {
+            dcall.pressure = if sl.is_lb() { Pressure::LbBlitz } else { Pressure::DbBlitz };
+            *dcall = self.legal_defense(*dcall);
+        }
+        if dcall.stunt == Stunt::None {
+            k.free_up = None;
+        }
+        k
+    }
+
+    /// The offense's plan keeping your promises on usage on this snap: the
+    /// men on the field the shots go to, the man featured and the lineman
+    /// helped.
+    fn keep_offense(&self, k: &mut KeepSnap, off: &[(ORole, usize)]) {
+        let o = self.poss;
+        let keep = &self.sides[o].team.prep.keep;
+        if keep.is_empty() {
+            return;
+        }
+        let players = &self.sides[o].team.players;
+        let find = |ids: &[u32], line: bool| {
+            off.iter().find(|&&(rl, i)| rl.is_line() == line && ids.contains(&players[i].id)).map(|x| x.1)
+        };
+        k.shots = find(&keep.shots, false);
+        k.feature = find(&keep.feature, false);
+        k.help = find(&keep.help, true);
+    }
+
     fn chart_fourth(&self, o: usize, make: f64, in_range: bool) -> Option<FourthDown> {
         let prep = &self.ctl.as_ref().filter(|c| c.team == o)?.prep;
         let chart = prep.fourth;
@@ -3642,6 +3732,7 @@ impl<'a> Game<'a> {
             plan: self.sides[o].team.plan().0,
             designs: calling::sheet_designs(&self.sides[o].team.prep),
             burner: self.sides[o].burner_lean(),
+            shots: self.sides[o].shots_lean(),
         };
         let mut call = calling::call_offense(&staff_o, &self.sides[o].mem, &sit, &ctx, &mut self.rng);
         // Your four-minute plan (update 2, G4): run it out, or keep
@@ -3804,7 +3895,7 @@ impl<'a> Game<'a> {
         // A fake punt brings its own two units (`fake_punt_play`).
         let fake = self.fake.take();
         call.formation.personnel = call.formation.personnel.for_players(self.rules().code.players);
-        let dcall =
+        let mut dcall =
             self.legal_defense(dcall.unwrap_or(DefCall::new(DefPersonnel::Base, Coverage::Cover3, Pressure::Four)));
         self.sides[d].frozen = self.no_huddle;
         // Who sits by the week's plan this snap (G14, G15).
@@ -3827,6 +3918,12 @@ impl<'a> Game<'a> {
             side.scrimmage = false;
         }
         self.sides[d].frozen = false;
+        // The defense's plan keeps your word (the promises on usage): a
+        // stunt with the man you promised to free up, a blitz with the man
+        // you promised to send. Never on a call you made yourself, and only
+        // for a team whose plan holds one (no AI team's does).
+        let keep_d =
+            if fake.is_none() && !self.mark.1 { self.keep_defense(&mut dcall, &def) } else { KeepSnap::default() };
         for &(_, i) in &off {
             self.sides[o].snaps[i] = self.sides[o].snaps[i].saturating_add(1);
         }
@@ -4075,6 +4172,13 @@ impl<'a> Game<'a> {
             ],
             double_moves: self.sides[o].mem.plan.vs.double_moves,
             learn: [self.sides[o].team.prep.learn[0], self.sides[d].team.prep.learn[1]],
+            keep: {
+                let mut k = keep_d;
+                if fake.is_none() && r.yours & 1 == 0 {
+                    self.keep_offense(&mut k, &off);
+                }
+                k
+            },
         };
         let snap = Snap {
             teams: [&self.sides[o].team.players, &self.sides[d].team.players],
@@ -5280,6 +5384,7 @@ impl<'a> Game<'a> {
             plan: self.sides[o].team.plan().0,
             designs: calling::sheet_designs(&self.sides[o].team.prep),
             burner: self.sides[o].burner_lean(),
+            shots: self.sides[o].shots_lean(),
         };
         (ctx, qb_threat)
     }

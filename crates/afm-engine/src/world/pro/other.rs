@@ -569,6 +569,14 @@ pub struct Team {
     /// Each finished season's share of wins, most recent last (the owner's
     /// read of his coach).
     pub win_share: Vec<f32>,
+    /// A CFL club's personnel department (SK77): a director of player
+    /// personnel, a director of Canadian scouting and scouts.
+    #[serde(default)]
+    pub scouts: Vec<super::scouts::Scout>,
+    /// Its scouting file: every look at a draft prospect by player id,
+    /// cleared after the draft.
+    #[serde(default)]
+    pub files: HashMap<u32, Vec<super::scouts::Look>>,
 }
 
 /// The other leagues in the world.
@@ -582,6 +590,25 @@ pub struct Others {
     pub nationals: HashMap<u32, u8>,
     /// The CFL draft, every pick of every year.
     pub draft: Vec<Pick>,
+    /// The CFL's draft pool from outside the world's colleges (SK77): U
+    /// Sports players and global prospects, by player id.
+    #[serde(default)]
+    pub pool: HashMap<u32, super::cfl::Prospect>,
+    /// Canadians from American colleges who were in a CFL draft class
+    /// (SK77): nationals under the ratio, their hometowns their own.
+    #[serde(default)]
+    pub canadians: HashSet<u32>,
+    /// CFL rights a club holds to a pick who isn't with it yet (an NCAA
+    /// Canadian in an NFL camp, a U Sports pick back at school): by player
+    /// id, the franchise and the draft.
+    #[serde(default)]
+    pub rights: HashMap<u32, (u16, i32)>,
+    /// The CFL Scouting Bureau's top 20, three editions a year.
+    #[serde(default)]
+    pub bureau: Vec<super::cfl::Bureau>,
+    /// The CFL draft while your club's room is open.
+    #[serde(default)]
+    pub room: Option<super::cfl::Room>,
 }
 
 /// A pick in the CFL draft (the name kept: the record outlives him).
@@ -594,6 +621,13 @@ pub struct Pick {
     pub name: String,
     pub pos: Position,
     pub school: u8,
+    /// The Global Draft (SK77), not the national one.
+    #[serde(default)]
+    pub global: bool,
+    /// Where he came from in words (a U Sports school, an American college
+    /// or a country), kept with the record.
+    #[serde(default)]
+    pub from: String,
 }
 
 impl Others {
@@ -618,9 +652,10 @@ impl Others {
                 t.roster.iter().filter_map(|&i| map.get(i as usize).copied().flatten().map(|j| j as u32)).collect();
         }
     }
-    /// Whether a player is a Canadian (a national under the CFL's ratio).
+    /// Whether a player is a Canadian (a national under the CFL's ratio):
+    /// one of the CFL's own, or an NCAA Canadian a club drafted (SK77).
     pub fn national(&self, id: u32) -> bool {
-        self.nationals.contains_key(&id)
+        self.nationals.contains_key(&id) || self.canadians.contains(&id)
     }
 }
 
@@ -814,15 +849,12 @@ pub(crate) fn day(w: &mut World, d: Date) {
         }
         let f = format(k, year).unwrap();
         let camp = f.start.add(-21);
-        // The CFL draft in early May, before camp once the season moves to
-        // May (review of minor bug B43; proposed, not confirmed).
-        // A save from before the day moved holds it late, to May 1.
-        if k == CFL
-            && d >= draft_day(year, camp)
-            && d <= Date::ymd(year, 5, 1)
-            && !w.others.draft.iter().any(|p| p.year == year)
-        {
-            draft(w, d);
+        // The CFL's scouting year and its drafts (SK77): the class, the
+        // Bureau, the combines, the national draft before camp once the
+        // season moves to May (review of minor bug B43; proposed, not
+        // confirmed), the Global Draft the next day.
+        if k == CFL {
+            super::cfl::day(w, d, camp);
         }
         // Camp opens on its day, or late (up to the regular season's end)
         // when a save's dates moved past it (review of B43/B44: the 2026
@@ -950,7 +982,7 @@ pub(crate) fn schedule(teams: &[usize], games: u8, key: u64) -> Vec<Vec<(u16, u1
 }
 
 /// A player leaves a team: back to the street.
-fn release(w: &mut World, i: usize, k: u8) {
+pub(super) fn release(w: &mut World, i: usize, k: u8) {
     let p = &mut w.people[i];
     if p.stage != Stage::Pro {
         return;
@@ -991,6 +1023,10 @@ fn fill(w: &mut World, d: Date, k: u8, fr: usize, size: usize) {
     // The street, by position, best first (the consensus read).
     let taken: HashSet<u32> = w.others.teams.iter().flat_map(|t| t.roster.iter().copied()).collect();
     let mut pool: HashMap<Position, Vec<(usize, f64)>> = HashMap::new();
+    // Canadians on the street (SK77): an undrafted U Sports player, a
+    // national let go, an NCAA Canadian back from an NFL camp; the club
+    // holding a man's rights calls him first.
+    let mut nat_street: HashMap<Position, Vec<(usize, f64)>> = HashMap::new();
     for i in 0..w.people.len() {
         let p = &w.people[i];
         if p.stage != Stage::Pro || p.player.age > 33 || taken.contains(&(i as u32)) {
@@ -1001,6 +1037,13 @@ fn fill(w: &mut World, d: Date, k: u8, fr: usize, size: usize) {
             continue;
         }
         let v = super::market::consensus(w, i);
+        if k == CFL && w.others.national(p.player.id) && v >= lo - 8.0 {
+            let rights = w.others.rights.get(&p.player.id).map(|r| r.0 as usize);
+            if rights.is_none_or(|r| r == fr) {
+                let ours = if rights == Some(fr) { 10.0 } else { 0.0 };
+                nat_street.entry(p.player.position).or_default().push((i, v + ours));
+            }
+        }
         if !(lo..hi).contains(&v) {
             continue;
         }
@@ -1011,7 +1054,7 @@ fn fill(w: &mut World, d: Date, k: u8, fr: usize, size: usize) {
         }
         pool.entry(p.player.position).or_default().push((i, v));
     }
-    for v in pool.values_mut() {
+    for v in pool.values_mut().chain(nat_street.values_mut()) {
         v.sort_by(|a, b| b.1.total_cmp(&a.1));
     }
     // The CFL's ratio: the Canadians it needs come first, at the spots
@@ -1042,6 +1085,16 @@ fn fill(w: &mut World, d: Date, k: u8, fr: usize, size: usize) {
             let mut got = have.get(&pos).copied().unwrap_or(0);
             let mut nat = nat_at.get(&pos).copied().unwrap_or(0);
             while nat < target && got < n {
+                if let Some((i, _)) =
+                    nat_street.get_mut(&pos).and_then(|v| if v.is_empty() { None } else { Some(v.remove(0)) })
+                {
+                    w.others.rights.remove(&w.people[i].player.id);
+                    sign(w, i, k, fr);
+                    roster.push(i as u32);
+                    got += 1;
+                    nat += 1;
+                    continue;
+                }
                 let key = (fr * 100 + got) as u64 ^ 0xCA00;
                 let rating = clamp(lvl - 4.0 + 4.0 * key_normal(0xF112 ^ year as u64, key), lo - 6.0, hi);
                 let age = 22 + (key_uniform(0xA6F ^ year as u64, key) * 7.0) as u32;
@@ -1059,7 +1112,11 @@ fn fill(w: &mut World, d: Date, k: u8, fr: usize, size: usize) {
     for &(pos, n) in &need {
         let mut got = have.get(&pos).copied().unwrap_or(0);
         while got < n {
-            let next = pool.get_mut(&pos).and_then(|v| if v.is_empty() { None } else { Some(v.remove(0)) });
+            let mut next = pool.get_mut(&pos).and_then(|v| if v.is_empty() { None } else { Some(v.remove(0)) });
+            // A Canadian the ratio already brought in isn't signed twice.
+            while next.is_some_and(|(i, _)| roster.contains(&(i as u32))) {
+                next = pool.get_mut(&pos).and_then(|v| if v.is_empty() { None } else { Some(v.remove(0)) });
+            }
             let i = match next {
                 Some((i, _)) => i,
                 None => {
@@ -1111,7 +1168,7 @@ fn fill(w: &mut World, d: Date, k: u8, fr: usize, size: usize) {
 }
 
 /// A player signs with a team in another league.
-fn sign(w: &mut World, i: usize, k: u8, fr: usize) {
+pub(super) fn sign(w: &mut World, i: usize, k: u8, fr: usize) {
     let year = w.year;
     let p = &mut w.people[i];
     if let Some(c) = p.pro.as_mut() {
@@ -1129,7 +1186,7 @@ fn sign(w: &mut World, i: usize, k: u8, fr: usize) {
 /// a U Sports program or abroad. Built like the market's veterans.
 /// `national`: a Canadian, with the school he came from (`U_SPORTS`).
 #[allow(clippy::too_many_arguments)]
-fn new_player(
+pub(super) fn new_player(
     w: &mut World,
     pos: Position,
     rating: f64,
@@ -1159,7 +1216,7 @@ fn new_player(
 
 /// A U Sports school for a generated Canadian (three in ten from an
 /// American college), keyed so it never changes.
-fn national_school(key: u64) -> u8 {
+pub(super) fn national_school(key: u64) -> u8 {
     let u = key_uniform(0x5C40, key);
     if u < 0.3 { (U_SPORTS.len() - 1) as u8 } else { ((u - 0.3) / 0.7 * (U_SPORTS.len() - 1) as f64) as u8 }
 }
@@ -1234,97 +1291,6 @@ pub fn national_home(id: u32, school: u8) -> String {
 /// earlier (proposed, not confirmed).
 pub fn draft_day(year: i32, camp: Date) -> Date {
     Date::ymd(year, 5, 1).min(camp.add(-7))
-}
-
-/// The CFL draft (early May): Canadians from U Sports programs and
-/// American colleges, eight rounds, worst team first. Real: about 72
-/// picks a year from 2016 (nine teams, eight rounds), the best ready to
-/// play, most special teams and backups (proposed, not confirmed: grades
-/// 44-60).
-fn draft(w: &mut World, d: Date) {
-    let year = d.year();
-    let teams = teams_in(CFL, year);
-    if teams.is_empty() {
-        return;
-    }
-    // Worst record last season first.
-    let last = w.others.seasons.iter().rev().find(|s| s.league == CFL);
-    let mut order: Vec<usize> = teams.clone();
-    order.sort_by(|&a, &b| {
-        let r = |fr: usize| last.and_then(|s| s.table.iter().find(|r| r.fr as usize == fr)).map_or(0.5, |r| r.pct());
-        r(a).total_cmp(&r(b)).then(a.cmp(&b))
-    });
-    let rounds = 8;
-    let n = rounds * order.len();
-    use Position::*;
-    let mix = [
-        (IOL, 12.0),
-        (OT, 8.0),
-        (DT, 7.0),
-        (EDGE, 6.0),
-        (LB, 15.0),
-        (S, 10.0),
-        (CB, 9.0),
-        (WR, 14.0),
-        (RB, 8.0),
-        (TE, 2.0),
-        (K, 2.0),
-        (P, 2.0),
-        (QB, 2.0),
-    ];
-    let mut rng = Rng::new(w.options.seed ^ 0xCF1D ^ year as u32);
-    let mut prospects: Vec<(Position, f64, u32, u8)> = (0..n)
-        .map(|r| {
-            let pos = rng.weighted(&mix.map(|(p, x)| (p, x)));
-            let rating = clamp(58.0 - 0.17 * r as f64 + rng.normal(0.0, 2.0), 40.0, 62.0);
-            let age = rng.int(21, 24) as u32;
-            let school =
-                if rng.chance(0.3) { U_SPORTS.len() - 1 } else { rng.int(0, U_SPORTS.len() as i32 - 2) as usize };
-            (pos, rating, age, school as u8)
-        })
-        .collect();
-    prospects.sort_by(|a, b| b.1.total_cmp(&a.1));
-    let mut pick = 0u16;
-    for _ in 0..rounds {
-        for &fr in &order {
-            if prospects.is_empty() {
-                break;
-            }
-            // The best left, a little toward a need.
-            let have = |pos: Position, w: &World| {
-                w.others.teams[fr].roster.iter().filter(|&&i| w.people[i as usize].player.position == pos).count()
-            };
-            let best = (0..prospects.len().min(6))
-                .max_by(|&a, &b| {
-                    let s = |j: usize| prospects[j].1 - 0.8 * have(prospects[j].0, w) as f64;
-                    s(a).total_cmp(&s(b))
-                })
-                .unwrap_or(0);
-            let (pos, rating, age, school) = prospects.remove(best);
-            pick += 1;
-            let seed = rng.next_u32();
-            let i = new_player(w, pos, rating, age, seed, fr, Some(school));
-            let round = (pick - 1) / order.len() as u16 + 1;
-            let from = U_SPORTS[school as usize];
-            let p = &mut w.people[i];
-            p.notes.clear();
-            let age_now = p.row_age();
-            p.note(format!(
-                "Drafted by the {} in round {round} of the {year} CFL draft (pick {pick}) out of {from}, at {age_now}.",
-                name(fr, year)
-            ));
-            if let Some(c) = p.pro.as_mut() {
-                c.status = Status::Other(CFL);
-            }
-            w.others.teams[fr].roster.push(i as u32);
-            let (id, name) = (w.people[i].player.id, w.people[i].name.clone());
-            w.others.draft.push(Pick { year, pick, team: fr as u16, id, name, pos, school });
-        }
-    }
-    if w.recording {
-        let text = format!("The {year} CFL draft: {pick} Canadians picked over {rounds} rounds.");
-        super::market::post(w, d, None, None, Loudness::Small, Kind::News, text);
-    }
 }
 
 /// One team ready for a game: the healthy roster, its staff calling plays.

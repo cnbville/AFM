@@ -221,6 +221,58 @@ mod tests {
     }
 
     #[test]
+    fn a_kickers_field_goal_line_is_a_promise_on_how_youll_use_him() {
+        let (mut g, f, sid, i, mine) = call("usage");
+        {
+            let w = g.world.as_mut().unwrap();
+            w.people[i].player.position = afm_engine::positions::Position::K;
+        }
+        // "From the 35 in, you're kicking": the try's length is 52.
+        let usage = json!({ "measure": "fg_line", "number": null, "per": "none", "most": true, "spot": "any",
+            "down": 0, "inside": 0, "far": 52, "package": "none", "look": "none" });
+        let promise = json!({ "kind": "usage", "by": "none", "condition": "none", "condition_words": "",
+            "against": "none", "usage": usage });
+        f.push(READER, Ok(reading("none", promise)));
+        let t = ok(
+            &mut g,
+            "people_say",
+            json!({ "id": sid, "text": "From the 35 in, you're kicking. We don't punt there." }),
+        )["ticket"]
+            .as_u64()
+            .unwrap();
+        let v = finish(&mut g, t);
+        assert_eq!(v["state"], "unsure", "a promise asks first: {v}");
+        let r = &v["readings"].as_array().unwrap()[0];
+        assert_eq!((r["pick"].as_u64(), r["final"].as_bool()), (Some(731 + 5), Some(true)), "{v}");
+        let heard = r["heard"].as_str().unwrap();
+        assert!(heard.contains("no punts inside the 35") && heard.contains("52-yard"), "Heard as: {heard}");
+        let t2 = ok(&mut g, "people_say", json!({ "id": sid, "ticket": t, "pick": 736 }))["ticket"].as_u64().unwrap();
+        let v = finish(&mut g, t2);
+        assert_eq!(v["state"], "done", "{v}");
+        let w = g.world.as_ref().unwrap();
+        let id = w.people[i].player.id;
+        assert_eq!(pledge::on_case(w, i, mine), Some(pledge::Kind::Usage));
+        assert_eq!(
+            pledge::usage_on(w, id, mine),
+            Some(afm_engine::world::folk::usage::Usage::fg_line(52)),
+            "the term from his words"
+        );
+        // The same words to a quarterback promise nothing the game can hold.
+        let (mut g, f, sid, i, mine) = call("usage-qb");
+        g.world.as_mut().unwrap().people[i].player.position = afm_engine::positions::Position::QB;
+        let usage = json!({ "measure": "stunts", "number": null, "per": "none", "most": false, "spot": "any",
+            "down": 0, "inside": 0, "far": 0, "package": "none", "look": "none" });
+        let promise = json!({ "kind": "usage", "by": "none", "condition": "none", "condition_words": "",
+            "against": "none", "usage": usage });
+        f.push(READER, Ok(reading("none", promise)));
+        let t = ok(&mut g, "people_say", json!({ "id": sid, "text": "We'll run twists for you." }))["ticket"]
+            .as_u64()
+            .unwrap();
+        let _ = finish(&mut g, t);
+        assert!(pledge::on_case(g.world.as_ref().unwrap(), i, mine).is_none(), "a talking point, no promise");
+    }
+
+    #[test]
     fn the_writers_card_for_a_recruit_holds_only_his_reaction() {
         let (mut g, f, sid, i, _) = call("writer");
         let s = g.world.as_ref().unwrap().folk.scenes.iter().find(|s| s.id == sid).unwrap().clone();

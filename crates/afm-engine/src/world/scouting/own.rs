@@ -642,6 +642,9 @@ pub fn trip_kinds(staff: Staff) -> &'static [TripKind] {
         Staff::Club(_) => &[TripKind::Game, TripKind::ProDay, TripKind::Workout, TripKind::AllStar],
         Staff::Program(_) => &[TripKind::Game, TripKind::Practice],
         Staff::School(_) => &[TripKind::OldFilm, TripKind::MiddleSchool],
+        // A CFL club: U Sports and college games in the fall, the combines
+        // and pro days in the spring (SK77).
+        Staff::League(_) => &[TripKind::Game, TripKind::ProDay, TripKind::Workout],
     }
 }
 
@@ -896,6 +899,12 @@ fn take_trips(w: &mut World, d: Date) {
                 _ => scouts::LookKind::Coach,
             };
             super::dept::club_copy(w, c, t.id, lk, d);
+        }
+        if new
+            && let Some(Staff::League(fr)) = staff
+            && who == you
+        {
+            super::dept::league_copy(w, fr, t.id, scouts::LookKind::Coach, d);
         }
         if let Some(Staff::Program(_)) = staff
             && matches!(t.kind, TripKind::Game | TripKind::Practice)
@@ -1685,6 +1694,15 @@ fn meeting_today(w: &World, d: Date) -> Option<&'static str> {
                 None
             }
         }
+        // A CFL club meets after the winter Bureau and stacks its board
+        // the week before the draft (SK77).
+        Staff::League(_) => {
+            if (m == 1 && day == 20) || (m == 4 && day == 22) {
+                Some(if m == 1 { "Winter draft meetings" } else { "Final board" })
+            } else {
+                None
+            }
+        }
         Staff::School(_) => None,
     }
 }
@@ -1715,7 +1733,7 @@ fn seat_systems(w: &World) -> Option<&crate::world::systems::Installed> {
     match readers::seat_staff(w)? {
         Staff::Club(t) => w.clubs.get(t).map(|c| &c.installed),
         Staff::Program(p) => w.programs.get(p).map(|c| &c.installed),
-        Staff::School(_) => None,
+        Staff::School(_) | Staff::League(_) => None,
     }
 }
 
@@ -1777,6 +1795,9 @@ fn hold_meeting(w: &mut World, d: Date, kind: &str) {
             }
             v.truncate(60);
             v
+        }
+        Staff::League(_) => {
+            crate::world::pro::cfl::seat_board(w).into_iter().take(60).map(|(i, _)| w.people[i].player.id).collect()
         }
         Staff::School(_) => return,
     };

@@ -174,6 +174,10 @@ pub struct Plan {
     pub burner: Option<usize>,
     #[serde(default)]
     pub fear: f64,
+    /// The man coverage share your word promised a corner (the promises
+    /// on usage): the coordinator plays at least about this much (0 none).
+    #[serde(default)]
+    pub man_floor: f32,
 }
 
 /// Your defense's answer to one of their personnel groups (update 2,
@@ -476,6 +480,10 @@ pub struct OffCtx {
     /// 0-1; 0 without one who can go.
     #[serde(default)]
     pub burner: f64,
+    /// How much more the caller goes deep for the man promised shots (the
+    /// promises on usage), 0 without one.
+    #[serde(default)]
+    pub shots: f64,
 }
 
 /// The designed plays on a team's sheets, dry and wet, first eight.
@@ -1285,7 +1293,7 @@ fn concept_weights(staff: &Staff, mem: &Memory, sit: &Situation, f: &Formation, 
             w *= 1.0 + 0.03 * (agg - 10.0) * if pc.depth == PassDepth::Deep { 1.0 } else { -0.3 };
             // A few more shots with a burner to throw them to (S10).
             if pc.depth == PassDepth::Deep {
-                w *= 1.0 + 0.3 * ctx.burner;
+                w *= (1.0 + 0.3 * ctx.burner) * (1.0 + ctx.shots);
             }
             // Up big, a little less going deep (real NFL: 11.7% of throws
             // travel 20+ yards up 28+, 13.6% in close games).
@@ -1685,6 +1693,16 @@ pub fn call_defense_memo(
             let now = w.iter().filter(|x| x.0.is_man()).map(|x| x.1).sum::<f64>() / all.max(1e-9);
             super::guide::steer_man(&mut w, 0.7 * (m as f64 - now));
         }
+        // Your word to a corner (the promises on usage): at least so much
+        // man coverage.
+        if mem.plan.man_floor > 0.0 {
+            let all: f64 = w.iter().map(|x| x.1).sum();
+            let now = w.iter().filter(|x| x.0.is_man()).map(|x| x.1).sum::<f64>() / all.max(1e-9);
+            let floor = mem.plan.man_floor as f64 + 0.05;
+            if now < floor {
+                super::guide::steer_man(&mut w, 0.7 * (floor - now));
+            }
+        }
         // A line in your plan (G20): a safety down against their run.
         if mem.plan.box_up {
             for x in w.iter_mut().filter(|x| x.0.high() == 2) {
@@ -1931,6 +1949,7 @@ pub fn make_plan(
         run_more: 0.0,
         burner,
         fear,
+        man_floor: 0.0,
     }
 }
 
