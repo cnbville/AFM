@@ -213,6 +213,9 @@ pub enum PromiseKind {
     Touches,
     /// You won't move him from his position (the position's index; lane P1).
     Position(u8),
+    /// How you'll use him: a term on the play log (`usage::Usage`, in
+    /// `Terms::usage`; the promises on usage, agreed 2026-11-14).
+    Usage,
 }
 
 impl PromiseKind {
@@ -239,6 +242,19 @@ impl PromiseKind {
                     crate::positions::Position::ALL[pos as usize % crate::positions::POSITION_COUNT]
                 )
             ),
+            PromiseKind::Usage => "how you'd use him".into(),
+        }
+    }
+}
+
+impl Promise {
+    /// What you promised, in words, with a usage term's own words.
+    pub fn words(&self) -> String {
+        match self.terms.usage {
+            Some(u) if matches!(self.kind, PromiseKind::Usage | PromiseKind::Recruit(super::pledge::USAGE, _)) => {
+                u.words()
+            }
+            _ => self.kind.words(),
         }
     }
 }
@@ -395,7 +411,8 @@ fn promise_due(w: &World, kind: PromiseKind, seasons: u8) -> Date {
         | PromiseKind::Touches
         | PromiseKind::Place(_)
         | PromiseKind::Join(_)
-        | PromiseKind::Position(_) => {
+        | PromiseKind::Position(_)
+        | PromiseKind::Usage => {
             let e = end(w);
             if e > today.add(14) { e } else { e.add(365) }
         }
@@ -443,7 +460,7 @@ fn check_promises(w: &mut World, d: Date) {
                     let text = format!(
                         "{} missed the condition on the promise of {} you made on {}: you're released.",
                         p.who,
-                        p.kind.words(),
+                        p.words(),
                         p.made.pretty()
                     );
                     super::note(w, "talk", "Your promises".into(), text, None);
@@ -459,7 +476,7 @@ fn check_promises(w: &mut World, d: Date) {
         };
         w.folk.promises[k].kept = Some(kept);
         w.folk.promises[k].missed = if kept { 0.0 } else { scale };
-        let text = format!("{} the promise of {} you made to {} on {}.", text, p.kind.words(), p.who, p.made.pretty());
+        let text = format!("{} the promise of {} you made to {} on {}.", text, p.words(), p.who, p.made.pretty());
         let cost = if kept { 1.0 } else { scale * public };
         let p = w.folk.promises[k].clone();
         settle_promise(w, &p, kept, cost);
@@ -609,7 +626,8 @@ pub(crate) fn lapsed(w: &World, p: &Promise) -> bool {
         | PromiseKind::Start
         | PromiseKind::Snaps
         | PromiseKind::Touches
-        | PromiseKind::Position(_),
+        | PromiseKind::Position(_)
+        | PromiseKind::Usage,
     ) = (p.to, p.kind)
     else {
         return false;
@@ -2095,6 +2113,7 @@ fn read_kind(w: &World, i: usize, p: &super::scene::PromiseRead) -> Option<Promi
         "place" => PromiseKind::Place(rank),
         "contract" => PromiseKind::Contract,
         "stay" => PromiseKind::Stay,
+        "usage" if p.usage.is_some() => PromiseKind::Usage,
         _ => return None,
     })
 }
@@ -2118,6 +2137,9 @@ fn read_terms(w: &World, i: usize, kind: PromiseKind, p: &super::scene::PromiseR
         _ => Cond::None,
     };
     let mut t = Terms { by, dated: !p.by.is_empty(), cond, ahead: p.against, ..Terms::default() };
+    if kind == PromiseKind::Usage {
+        t.usage = p.usage;
+    }
     if cond == Cond::Stat
         && let Some(st) = super::promise::Stat::of(w.people[i].player.position)
     {

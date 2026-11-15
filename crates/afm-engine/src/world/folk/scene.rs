@@ -297,6 +297,8 @@ pub struct PromiseRead {
     /// rather than promising it in so many words (the promise design,
     /// section 11: "you're my starter" is a promise about what he'll see).
     pub claim: Option<super::claims::Stated>,
+    /// How you'll use him, when the kind is "usage" (`usage::read`).
+    pub usage: Option<super::usage::Usage>,
 }
 
 /// A game plan ask read from a typed line (lane 6's staff meeting).

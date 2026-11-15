@@ -79,6 +79,7 @@ mod team_rooms;
 mod tendencies;
 mod training;
 mod update3;
+mod usage;
 mod views;
 mod waivers;
 mod win_chance;

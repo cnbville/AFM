@@ -1027,6 +1027,7 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
         plan: team.plan().0,
         designs: [None; 8],
         burner: 0.0,
+        shots: 0.0,
     };
     let staff = team.staff;
     let two_from = inp.two_from;
@@ -1873,6 +1874,9 @@ pub(crate) fn prepare(w: &World, team: &mut GameTeam) {
     prep.ifs = wk.ifs.clone().filter(|_| this).unwrap_or_else(|| staff_ifs(&film));
     prep.planned = true;
     prep.base_only = if this { wk.base_only.clone() } else { Vec::new() };
+    // Your promises on how you'd use a man (the promises on usage): the
+    // plan settings that keep them, in every game your team plays.
+    prep.keep = super::folk::usage::keep(w);
     // Instructions for this opponent (G19): take back last time's, give
     // this week's.
     let old = std::mem::take(&mut prep.orders);

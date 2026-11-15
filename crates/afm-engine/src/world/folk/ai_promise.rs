@@ -505,7 +505,8 @@ fn verdict(w: &World, x: &AiPromise) -> promise::Verdict {
         Some(Kind::NoRedshirt) => {
             f64::from(if w.changes.rules(x.season).four_game_redshirt { played > 4 } else { played >= 1 })
         }
-        None => return V::Lapsed,
+        // AI staffs never make one (`pledge::Kind::Usage`).
+        Some(Kind::Usage) | None => return V::Lapsed,
     };
     if r >= 1.0 { V::Kept } else { V::Broken((1.0 - r).clamp(0.0, 1.0)) }
 }
