@@ -463,9 +463,14 @@ fn raw(w: &World, ctx: &Ctx, i: usize) -> Vec<(&'static str, f64)> {
     {
         let m = (6.0 * p.family.own_wants.money).clamp(0.0, 2.0);
         let wants_out = parts.iter().map(|x| x.1).product::<f64>() > 1.0 || p.mood < -0.15;
-        if p.nil_income < 0.5 * rate {
+        // His school's keep-him offer is his money now (the new NIL scheme,
+        // item 9); a richer school's top bid well past it pulls him out as
+        // being underpaid does (proposed, not confirmed: past 1.5 times).
+        let (keep, rival) = p.cal.nil_keep.unwrap_or((0.0, 0.0));
+        let money = p.nil_income.max(keep);
+        if money < 0.5 * rate || rival > 1.5 * money.max(1.0) {
             parts.push((UNDERPAID, 1.0 + UNDERPAID_PUSH * m));
-        } else if p.nil_income >= rate && wants_out && m > 0.0 {
+        } else if money >= rate && wants_out && m > 0.0 {
             parts.push((PAID, 1.0 - PAID_HOLD * m));
         }
     }

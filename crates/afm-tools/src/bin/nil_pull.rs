@@ -539,8 +539,11 @@ fn recruits(w: &World, conference: &str) {
                 moved(j, schools.len(), debug::recruit_money(w, j, i), &mut fresh);
             }
             let field = money.iter().copied().fold(0.0, f64::max);
-            if field >= 1_000.0 {
-                clears[p.stars.min(5) as usize].push(debug::recruit_nil_go_top(w, i) / field);
+            let best = schools.iter().zip(&money).max_by(|a, b| a.1.total_cmp(b.1)).map(|x| *x.0);
+            if field >= 1_000.0
+                && let Some(j) = best
+            {
+                clears[p.stars.min(5) as usize].push(debug::recruit_nil_go_top(w, j, i) / field);
             }
         }
     }

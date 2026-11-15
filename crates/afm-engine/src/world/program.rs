@@ -153,13 +153,19 @@ pub struct Collective {
     pub trend: NilTrend,
     /// How many years in a row it has been drying up (drives warning strength).
     pub drying_years: u32,
+    /// Third-party money NIL Go denied that moved into football's revenue
+    /// share this money year (the new NIL scheme, item 11), against the
+    /// room under the cap (`ncaa::share_room`). Cleared on July 1.
+    #[serde(default)]
+    pub moved: f64,
 }
 
 impl Collective {
-    /// What the booster base gives a year, within the ceiling of the biggest
-    /// real collectives (dynasty item 11.7).
+    /// What the booster base gives a year. No national ceiling (the new NIL
+    /// scheme, item 1: the old $20M one is gone); its growth slows near the
+    /// program's own target instead (`update_collective`).
     pub fn boosters(&self) -> f64 {
-        (self.base + self.big_booster.unwrap_or(0.0)).min(super::ncaa::COLLECTIVE_CEILING)
+        self.base + self.big_booster.unwrap_or(0.0)
     }
 }
 
@@ -643,6 +649,7 @@ pub fn program_from_row(id: usize, row: &CollegeRow, season: i32, seed: u32, rng
             big_booster,
             trend: NilTrend::Steady,
             drying_years: 0,
+            moved: 0.0,
         },
         footprint: [0.0; 51],
         pipeline: [0.0; 51],
@@ -688,6 +695,45 @@ pub fn nil_target(d: Division, p4: bool, fans: f64, recent: f64) -> f64 {
         Division::FCS => 0.08e6 + 0.5e6 * fans,
         _ => 0.02e6 + 0.1e6 * fans,
     }
+}
+
+/// The third-party pot's 2026 refit (the new NIL scheme, item 1, Cain
+/// 2026-11-15): from 2026 a Power 4 program's NIL pot is its boosters plus
+/// the school's marketing partners, the deals its brand brings in. Its
+/// size in 2026 dollars follows the fan base on a curve that saturates at
+/// the top: [`POT_TOP`] × σ((fans − [`POT_MID`]) / [`POT_SPREAD`]), a
+/// little more after winning (0.75 + 0.35 × recent form). Real 2026
+/// (The Athletic's roster estimates less football's $16.2M revenue
+/// share): SEC $17-22M on average, the Big Ten $11-15M, the ACC $5-9M,
+/// the Big 12 $2-6M, the richest $30-38M. Each program keeps its own
+/// place against its donor base's target (a rich base), so the lift is the
+/// refit target over the old one, and it lifts the wider base only: one
+/// big booster's money is his own (`third_party`). 1 below the Power 4 and
+/// before 2026. Sizes proposed, not confirmed, fitted on seed 41.
+pub fn nil_lift(p: &Program, year: i32) -> f64 {
+    if year < 2026 || p.division != Division::FBS || !p.power_four() {
+        return 1.0;
+    }
+    let refit = POT_TOP / (1.0 + (-(p.fans - POT_MID) / POT_SPREAD).exp()) * (0.75 + 0.35 * p.recent);
+    refit / nil_target(p.division, true, p.fans, p.recent).max(1.0)
+}
+
+/// The refit pot's top, middle and spread in fans (`nil_lift`). On seed 41
+/// in 2026 (`nil_scheme pots`): SEC $16.4M on average, the Big Ten $11.7M,
+/// the ACC $8.9M, the Big 12 $2.9M, the richest $38.2M (Georgia); whole
+/// budgets SEC $32.5M, Big Ten $27.9M, ACC $25.1M, Big 12 $19.1M, Georgia
+/// $54.4M (agreed targets in the new NIL scheme, item 1: SEC $17-22M, Big
+/// Ten $11-15M, ACC $5-9M, Big 12 $2-6M, the richest $30-38M). At $32M the
+/// richest budgets ran past The Athletic's top seven ($40-54M).
+pub const POT_TOP: f64 = 30.0e6;
+pub const POT_MID: f64 = 0.83;
+pub const POT_SPREAD: f64 = 0.12;
+
+/// A program's third-party NIL money for a year before the market's scale
+/// (`ncaa::nil_market`): its booster base, lifted from 2026 by the
+/// marketing partners (`nil_lift`), and a big booster's own money.
+pub fn third_party(p: &Program, year: i32) -> f64 {
+    p.collective.base * nil_lift(p, year) + p.collective.big_booster.unwrap_or(0.0)
 }
 
 /// Overall prestige from its parts (topic 7). Recent results count most.
@@ -949,10 +995,11 @@ pub fn update_collective(p: &mut Program, win_pct: f64, next: i32, walk: f64, rn
     // (a move to a new conference lands with that season's realignment).
     let target = nil_target(p.division, p.power_conference(next - 1), p.fans, p.recent);
     let c = &mut p.collective;
-    // New money gets harder to find as the boosters near what the biggest
-    // real collectives raise, and they never pass it (11.7). Losses aren't
-    // slowed.
-    let room = (1.0 - c.boosters() / super::ncaa::COLLECTIVE_CEILING).max(0.0);
+    // New money gets harder to find as the boosters pass what the brand
+    // can raise: full growth up to the program's own target, none at twice
+    // it (the new NIL scheme, item 1: it was a national $20M ceiling).
+    // Losses aren't slowed.
+    let room = (2.0 - c.boosters() / target.max(1.0)).clamp(0.0, 1.0);
     let grow = |g: f64| if g > 0.0 { g * room } else { g };
     c.base = (c.base * (1.0 + grow(mood + rng.normal(0.0, 0.04)))).max(5_000.0);
     c.base += 0.08 * (target - c.base);
@@ -987,6 +1034,8 @@ pub fn update_collective(p: &mut Program, win_pct: f64, next: i32, walk: f64, rn
     let level = c.drying_years;
     p.collective.budget = super::ncaa::nil_budget(p, next);
     p.collective.school = super::ncaa::revenue_share(p, next);
+    // A new money year's room under the cap (item 11).
+    p.collective.moved = 0.0;
     level
 }
 
