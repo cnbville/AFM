@@ -71,12 +71,13 @@ async function cvScene(s, lead, pp, cast, st) {
   const key = "scene:" + s.id;
   const box = aiBoxPeek(s, key);
   // A talk the game plays on the ear and the voice (`talk.persona`, set by the game
-  // with a key): no answer buttons, ideas take their place (question 7).
-  // When the typed line fails for good (the box says "off"), the moves come back.
+  // with a key) keeps its chips beside the typed box, side by side but apart (Cain
+  // 2026-11-15): a chip plays the classic way, with every option it ever had, and a
+  // typed line plays on the ear and the voice. Neither is read onto the other.
   const v3 = !!box && !!T.persona && !(aiState.boxes[key] && aiState.boxes[key].phase === "off");
   const peek = lead && lead.kind === "player" ? await api("peek", { kind: "player", id: lead.id }).catch(() => null) : null;
   const head = lead && lead.kind === "player" ? await cvHead(lead, s.face) : "";
-  const moves = v3 ? "" : await cvMoves(s, st, T);
+  const moves = await cvMoves(s, st, T, v3);
   const left = cvLeft(s, lead, pp, cast, peek, head, T);
   const mid = cvCenter(s, lead, T, key, box);
   const right = cvRight(s, pp, T, moves, v3, key, box);
@@ -189,7 +190,7 @@ function cvCenter(s, lead, T, key, box) {
   if (to && s.say) s.say = { ...s.say, args: { ...(s.say.args || {}), to: to.who } };
   const toBar = to ? `<div class="cv-to"><span>${esc(T.to.label || "Say something")}</span>${T.to.list.map((n) => `<button type="button" class="cv-chip ${n === to.who ? "on" : ""}" data-act="cvto" data-id="${s.id}" data-v="${esc(n)}">${esc(n)}</button>`).join("")}</div>` : "";
   const composer = !s.done && box
-    ? `<div class="cv-comp">${toBar}${aiSayBox(s, key, { preset: { cmd: "people_say", args: { id: s.id }, limit: 400 }, log: key, words: { ph: s.kind === "OneOnOne" ? "Say it the way you would say it to him." : "Type what you'd say. The moves still work.", title: "Say it your way" } })}</div>`
+    ? `<div class="cv-comp">${toBar}${aiSayBox(s, key, { preset: { cmd: "people_say", args: { id: s.id }, limit: 400 }, log: key, words: { ph: s.kind === "OneOnOne" ? "Say it the way you would say it to him." : "Type what you'd say. The chips beside it still work.", title: "Typed · say it your way" } })}</div>`
     : "";
   return `<header class="cv-top"><div><div class="st-label">${place}</div><h2 class="cv-title">${cvT(s.title)}</h2>${T.lede ? `<p class="cv-lede">${cvT(T.lede)}</p>` : ""}</div>${big != null ? `<div class="cv-time"><span class="st-label">Talk time</span><span class="cv-n"><b class="st-outline">${esc(big)}</b><span class="cv-unit">${unit}</span></span><small>${sub}</small></div>` : ""}</header>
     <div class="cv-log"><div>${bits.join("")}${docs}${confirm}${ended}</div></div>${composer}`;
@@ -336,7 +337,7 @@ function cvDeal(x) {
 // ---------- your move (no key, or a talk that is not played yet) ----------
 // Moves and tones and the subject you turn the talk to, as the first
 // playable has them; the builder below them comes from `talk.moves`.
-async function cvMoves(s, st, T) {
+async function cvMoves(s, st, T, v3) {
   if (s.done) return "";
   const talk = s.kind === "OneOnOne";
   const isTalk = (c) => talk && c >= 100 && c < 190;
@@ -373,9 +374,11 @@ async function cvMoves(s, st, T) {
   }
   const builder = T.moves ? cvBuilder(s, T.moves) : "";
   const nokey = aiBoxPeek(s) ? "" : '<span class="cv-off-note">Live talks off</span>';
+  // Beside a typed talk the chips are their own lane: the header says so.
+  const head = v3 ? '<em>Chips</em><span>The classic way. Apart from what you type.</span>' : `<em>Your move</em>${nokey}`;
   const tabs = cvMoveTabs(s, T);
   if (!chips && !subjects && !builder && !say && !tabs) return "";
-  return `<div class="cv-sec cv-move"><div class="cv-h"><em>Your move</em>${nokey}</div>${tabs}${chips || !tabs ? `<div class="cv-opts">${chips || '<p class="cv-small">Waiting on him.</p>'}</div>` : ""}${chips ? tones : ""}${say}${builder}</div>${subjects}`;
+  return `<div class="cv-sec cv-move${v3 ? " cv-chiplane" : ""}"><div class="cv-h">${head}</div>${tabs}${chips || !tabs ? `<div class="cv-opts">${chips || '<p class="cv-small">Waiting on him.</p>'}</div>` : ""}${chips ? tones : ""}${say}${builder}</div>${subjects}`;
 }
 
 // The pick lists (board 6): Ask, Tell, Offer or promise, Ask him to. The game
