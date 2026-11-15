@@ -736,7 +736,7 @@ fn rework_and_future(w: &mut World, i: usize, t: &Turn) -> Vec<String> {
     let name = w.people[i].name.clone();
     let mut out = Vec::new();
     let mut rw = t.reworked.clone();
-    rw.sort_by(|a, b| b.0.cmp(&a.0));
+    rw.sort_by_key(|a| std::cmp::Reverse(a.0));
     rw.dedup_by_key(|x| x.0);
     for (k, a, bar) in rw {
         let k = k as usize;
