@@ -1298,7 +1298,7 @@ fn meeting_hand(w: &mut World, s: &mut Scene) {
 }
 
 /// Moves the game plan's guideline toward the coordinator's case.
-fn shift_plan(w: &mut World, kind: u8, k: f64) {
+pub(crate) fn shift_plan(w: &mut World, kind: u8, k: f64) {
     use crate::game::guide::{Firm, Want};
     let g = &mut w.plans.guide;
     let firm = Firm::default();
