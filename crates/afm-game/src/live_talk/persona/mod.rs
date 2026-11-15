@@ -31,6 +31,7 @@ pub mod calls;
 pub mod cards;
 pub mod ear;
 pub mod talk;
+pub mod view;
 pub mod voice;
 
 /// What the ear is given: everything as words and tags.
@@ -120,6 +121,29 @@ pub struct EarTerm {
     pub far: u8,
     pub package: String,
     pub look: String,
+    /// Judged on his whole season (lane N2's season terms): an incentive's,
+    /// an NIL clause's or a pick's condition.
+    pub season: bool,
+}
+
+/// The measure keys the ear may name: the usage measures, then lane N2's
+/// season-only keys (stat lines, honors, ranks, starts, wins...).
+pub fn measure_keys() -> Vec<&'static str> {
+    use afm_engine::world::folk::terms;
+    let mut v: Vec<&str> = usage::MEASURES.iter().map(|m| m.key).collect();
+    let more = terms::LINES
+        .iter()
+        .map(|l| l.key)
+        .chain(terms::HONORS.iter().map(|h| h.0))
+        .chain(terms::RANKS.iter().map(|r| r.0))
+        .chain(terms::SEASON_KEYS.iter().map(|k| k.0));
+    for k in more {
+        if !v.contains(&k) {
+            v.push(k);
+        }
+    }
+    v.push("none");
+    v
 }
 
 impl EarTerm {
@@ -128,7 +152,13 @@ impl EarTerm {
     /// one the game keeps, or is the other team's call.
     pub fn usage(&self, pos: Position, keys: &EarKeys) -> Option<Usage> {
         let key = keys.measures.iter().find(|m| m.0 == self.measure).map_or(self.measure.as_str(), |m| m.1.as_str());
-        if key == "none" || usage::SHOWN.contains(&key) {
+        if key == "none" {
+            return None;
+        }
+        if self.season {
+            return afm_engine::world::folk::terms::read(Some(pos), key, self.number, self.most);
+        }
+        if usage::SHOWN.contains(&key) {
             return None;
         }
         let share = match self.per.as_str() {

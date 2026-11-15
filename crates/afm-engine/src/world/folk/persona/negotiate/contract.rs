@@ -14,8 +14,10 @@ use super::super::wants::{Want, WantKind};
 use super::{Facet, agent_of};
 use crate::world::World;
 use crate::world::folk::scene::Scene;
+use crate::world::folk::terms as season;
 use crate::world::front_office::{self as fo, nfl};
 use crate::world::pro::market;
+use crate::world::pro::money::Incentive;
 
 /// An offer under this share of the agent's own score is a lowball: he
 /// ends talks soonest after it (`judge`'s heaviest patience hurt).
@@ -268,6 +270,9 @@ pub fn sign(w: &mut World, i: usize, offer: &Offer) -> (Vec<String>, bool) {
         Ok(a) => {
             let signed = matches!(a.verdict, nfl::Verdict::Signed | nfl::Verdict::Agreed);
             let mut v = vec![a.text];
+            if signed {
+                v.extend(incentive_terms(w, i, offer));
+            }
             if a.verdict == nfl::Verdict::Standing {
                 v.push("Your offer is on the table.".into());
             }
@@ -275,6 +280,40 @@ pub fn sign(w: &mut World, i: usize, offer: &Offer) -> (Vec<String>, bool) {
         }
         Err(e) => (vec![e], false),
     }
+}
+
+/// Incentives said with season terms ("a million if he gets 10 sacks")
+/// become lane N2's incentives on the deal he just signed: each year's
+/// incentive money is split across the terms and judged on them instead
+/// of the desk's flat rule; one he met last season is likely to be earned
+/// and counts on the cap now (the NFL's rule).
+fn incentive_terms(w: &mut World, i: usize, offer: &Offer) -> Vec<String> {
+    let terms: Vec<_> = offer.terms.iter().filter(|u| u.season).copied().collect();
+    if terms.is_empty() {
+        return Vec::new();
+    }
+    let pid = id(w, i);
+    let first = w.year;
+    let likely: Vec<bool> = terms.iter().map(|u| season::ltbe(w, season::Who::Player(pid), u, first)).collect();
+    let Some(k) = w.people[i].pro.as_mut().and_then(|c| c.contract.as_mut()) else { return Vec::new() };
+    if !k.clauses.is_empty() {
+        return Vec::new();
+    }
+    let years: Vec<(i32, f64)> = k.years.iter().filter(|y| y.nltbe > 0.0).map(|y| (y.year, y.nltbe)).collect();
+    if years.is_empty() {
+        return Vec::new();
+    }
+    let n = terms.len() as f64;
+    for (year, money) in years {
+        if let Some(y) = k.years.iter_mut().find(|y| y.year == year) {
+            y.nltbe = 0.0;
+        }
+        for (u, &l) in terms.iter().zip(&likely) {
+            k.add_incentive(Incentive { year, term: *u, pays: money / n, likely: l, earned: None });
+        }
+    }
+    let words: Vec<String> = terms.iter().map(season::words).collect();
+    vec![format!("His incentives pay on {}.", words.join(" and "))]
 }
 
 /// His own asks as the game can give them (question 3): his number on the

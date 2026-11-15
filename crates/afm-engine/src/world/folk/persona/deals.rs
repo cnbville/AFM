@@ -295,7 +295,7 @@ fn met(w: &World, who: Who, offer: &Offer, money: f64) -> Vec<(WantKind, f64)> {
             add(k, x * b);
         }
     }
-    for u in offer.terms.iter().filter(|u| !u.shown_only()) {
+    for u in offer.terms.iter().filter(|u| !u.shown_only() && !u.season) {
         let b = term_belief(w, who, u);
         for (k, x) in term_meets() {
             add(k, x * b);
@@ -854,7 +854,10 @@ pub fn agree(w: &mut World, deals: &Deals, him: Them, offer: &Offer) -> Agreemen
     if let Some(to @ talks::PromiseTo::Player(_)) = to
         && matches!(whom, Who::Own(_) | Who::Pro(_, true))
     {
-        for u in offer.terms.iter().filter(|u| !u.shown_only()) {
+        // A season term (an incentive's, a clause's) is never a promise:
+        // it rides on the deal its facet lane signs.
+        out.left_terms.extend(offer.terms.iter().filter(|u| u.season).copied());
+        for u in offer.terms.iter().filter(|u| !u.shown_only() && !u.season) {
             talks::promise(w, to, PromiseKind::Usage, 0);
             let k = w.folk.promises.len() - 1;
             talks::set_terms(w, k, Terms { usage: Some(*u), ..Terms::default() });

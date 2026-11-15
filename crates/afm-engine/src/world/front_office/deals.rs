@@ -33,11 +33,9 @@ pub enum Condition {
     Starts(u32),
     /// He makes the Pro Bowl.
     ProBowl,
-    /// He plays at least this share of his side's snaps, in percent (live
-    /// talks lane N5b: "a third that becomes a second if he plays 60% of
-    /// the snaps"). His side's snaps are the most any teammate played on
-    /// that side that season (a quarterback or a center plays them all).
-    Snaps(u8),
+    /// A season term (lane N2; `folk::terms`): his snap share, his
+    /// numbers, an honor ("60% of the snaps", real deals' favourite).
+    Term(crate::world::folk::usage::Usage),
 }
 
 impl Condition {
@@ -46,7 +44,7 @@ impl Condition {
             Condition::Games(n) => format!("if he plays in {n} {}", crate::world::folk::noun(n, "game")),
             Condition::Starts(n) => format!("if he starts {n} {}", crate::world::folk::noun(n, "game")),
             Condition::ProBowl => "if he makes the Pro Bowl".into(),
-            Condition::Snaps(n) => format!("if he plays {n}% of the snaps"),
+            Condition::Term(u) => format!("if he reaches {}", crate::world::folk::terms::words(&u)),
         }
     }
 }
@@ -213,11 +211,9 @@ pub(crate) fn met_chance(w: &World, t: usize, i: usize, c: Condition) -> f64 {
             }
         }
         Condition::ProBowl => clamp((crate::world::pro::market::consensus(w, i) - 78.0) / 20.0, 0.02, 0.6),
-        // Proposed, not confirmed: a starter clears a modest share most
-        // years, a backup seldom.
-        Condition::Snaps(n) => {
-            let share = n as f64 / 100.0;
-            if starter { healthy * clamp(1.4 - 0.8 * share, 0.3, 1.0) } else { clamp(0.35 - 0.4 * share, 0.03, 0.3) }
+        Condition::Term(u) => {
+            use crate::world::folk::terms;
+            terms::likely(w, terms::Who::Player(w.people[i].player.id), &u, w.year) * healthy
         }
     }
 }
@@ -732,33 +728,6 @@ pub(crate) fn day(w: &mut World, d: Date) {
     w.front_office.trades.calls.retain(|c| c.date.days_to(d) < 120);
 }
 
-/// His share of his side's snaps in a season, 0-1: his snaps on his side of
-/// the ball (special teams for a kicker, a punter or a snapper) over the
-/// most any teammate of his club that season played there.
-pub fn snap_share(w: &World, i: usize, season: i32) -> f64 {
-    let Some(s) = w.people[i].pro.as_ref().and_then(|p| p.seasons.iter().find(|s| s.year == season)) else {
-        return 0.0;
-    };
-    let Some(team) = s.team else { return 0.0 };
-    let pos = w.people[i].player.position;
-    let side = if pos.is_specialist() {
-        2
-    } else if crate::world::coach::Group::of(pos).offense() {
-        0
-    } else {
-        1
-    };
-    let most = w
-        .people
-        .iter()
-        .filter_map(|p| p.pro.as_ref())
-        .filter_map(|p| p.seasons.iter().find(|x| x.year == season && x.team == Some(team)))
-        .map(|x| x.snaps[side])
-        .max()
-        .unwrap_or(0);
-    if most == 0 { 0.0 } else { s.snaps[side] as f64 / most as f64 }
-}
-
 /// Conditional picks settle after the season they read, every club's
 /// (TF20: the AI's trades carry conditions too), before any career check.
 pub(crate) fn settle(w: &mut World, d: Date) {
@@ -768,13 +737,16 @@ pub(crate) fn settle(w: &mut World, d: Date) {
     w.front_office.trades.conditionals.retain(|c| c.season >= year);
     for c in due {
         let met = super::index_of(w, c.player)
-            .and_then(|i| w.people[i].pro.as_ref().map(|p| (i, p)))
-            .and_then(|(i, p)| p.seasons.iter().find(|s| s.year == c.season).map(|s| (i, s)))
-            .is_some_and(|(i, s)| match c.cond {
+            .and_then(|i| w.people[i].pro.as_ref())
+            .and_then(|p| p.seasons.iter().find(|s| s.year == c.season))
+            .is_some_and(|s| match c.cond {
                 Condition::Games(n) => s.games >= n,
                 Condition::Starts(n) => s.starts >= n,
                 Condition::ProBowl => s.pro_bowl,
-                Condition::Snaps(n) => snap_share(w, i, c.season) * 100.0 >= n as f64,
+                Condition::Term(u) => {
+                    use crate::world::folk::terms;
+                    terms::met(w, terms::Who::Player(c.player), &u, c.season) == Some(true)
+                }
             });
         if !met {
             continue;

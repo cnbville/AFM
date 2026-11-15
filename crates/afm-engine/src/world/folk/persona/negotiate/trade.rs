@@ -9,6 +9,7 @@ use super::super::wants::{Want, WantKind};
 use crate::league::depth_slots;
 use crate::world::World;
 use crate::world::folk::scene::Scene;
+use crate::world::folk::terms as season;
 use crate::world::front_office::{self as fo, deals};
 use crate::world::pro::office::Mode;
 
@@ -27,13 +28,18 @@ fn pick(w: &World, t: usize, year: i32, round: u32, taken: &[deals::Pick]) -> Op
         .min_by_key(|p| (p.comp, p.orig != t))
 }
 
-fn condition(c: PickIf) -> deals::Condition {
-    match c {
+/// A pick's condition on the man it reads: a snap share is lane N2's
+/// season term (`folk::terms`), judged on his season's snaps.
+fn condition(w: &World, c: PickIf, pid: u32) -> Option<deals::Condition> {
+    Some(match c {
         PickIf::Games(n) => deals::Condition::Games(n as u32),
         PickIf::Starts(n) => deals::Condition::Starts(n as u32),
         PickIf::ProBowl => deals::Condition::ProBowl,
-        PickIf::Snaps(n) => deals::Condition::Snaps(n.clamp(1, 100)),
-    }
+        PickIf::Snaps(n) => {
+            let pos = crate::world::folk::person(w, pid).map(|i| w.people[i].player.position)?;
+            deals::Condition::Term(season::read(Some(pos), "snaps", Some(n.clamp(1, 100) as f32), false)?)
+        }
+    })
 }
 
 /// The trade an offer in words makes: your men and picks go, his come; a
@@ -63,15 +69,20 @@ pub fn proposal(w: &World, club: usize, offer: &Offer) -> Option<deals::Proposal
                     get.picks.push(p);
                 }
             }
-            Give::PickIf(c) => cond = Some(condition(c)),
+            Give::PickIf(c) => cond = Some(c),
             _ => {}
         }
     }
     if give.players.is_empty() && give.picks.is_empty() && get.players.is_empty() && get.picks.is_empty() {
         return None;
     }
-    let conditional = match (cond, give.picks.iter().find(|p| p.round >= 2), get.players.first()) {
-        (Some(c), Some(p), Some(&pid)) => Some((*p, c, pid)),
+    // The condition: a named one, else a season term said with the offer
+    // ("if he gets 8 sacks").
+    let conditional = match (give.picks.iter().find(|p| p.round >= 2), get.players.first()) {
+        (Some(p), Some(&pid)) => cond
+            .and_then(|c| condition(w, c, pid))
+            .or_else(|| offer.terms.iter().find(|u| u.season).map(|u| deals::Condition::Term(*u)))
+            .map(|c| (*p, c, pid)),
         _ => None,
     };
     Some(deals::Proposal { other: club, give, get, conditional })

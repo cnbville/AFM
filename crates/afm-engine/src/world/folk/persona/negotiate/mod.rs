@@ -591,7 +591,48 @@ fn nil_deal(w: &mut World, i: usize, offer: &Offer) -> Vec<String> {
     } else {
         fo::college::set_deal(w, id, money.or(share), None)
     };
-    vec![r.unwrap_or_else(|e| e)]
+    let ok = r.is_ok();
+    let mut v = vec![r.unwrap_or_else(|e| e)];
+    if ok {
+        v.extend(nil_clauses(w, id, offer));
+    }
+    v
+}
+
+/// The NIL deal's clauses (lane N2's `terms::Clause`): a bonus or
+/// incentive money said with season terms ("ten thousand more if he runs
+/// for 1,000 yards") pays your player after the season when he meets
+/// them, split across the terms.
+fn nil_clauses(w: &mut World, id: u32, offer: &Offer) -> Vec<String> {
+    use crate::world::folk::terms::{self as season, Clause, On, Who};
+    let terms: Vec<_> = offer.terms.iter().filter(|u| u.season).copied().collect();
+    let pays = offer.gives.iter().find_map(|g| match g {
+        Give::Incentives(x) | Give::Bonus(x) => Some(contract::amount(*x)),
+        _ => None,
+    });
+    let Some(pays) = pays.filter(|x| *x > 0.0 && !terms.is_empty()) else { return Vec::new() };
+    let each = pays / terms.len() as f64;
+    let year = season::season_of(w.today);
+    let made = w.today;
+    let mut out = Vec::new();
+    for u in terms {
+        season::add(
+            w,
+            Clause {
+                on: On::Nil,
+                who: Who::Player(id),
+                coach: None,
+                term: u,
+                season: year,
+                pays: each,
+                made,
+                met: None,
+                settled: false,
+            },
+        );
+        out.push(format!("A {} clause: {}.", fo::dollars(each), season::words(&u)));
+    }
+    out
 }
 
 /// A decision you told him that this lane makes real once you confirm: a

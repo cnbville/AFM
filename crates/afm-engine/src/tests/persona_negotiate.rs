@@ -9,6 +9,8 @@ use crate::world::folk::persona::ear::Turn;
 use crate::world::folk::persona::negotiate::{self, BACK, Facet, Market, SIGN, contract, trade};
 use crate::world::folk::persona::terms::{DealKind, Give, Offer, PickIf, Valuing, Weighed};
 use crate::world::folk::scene::Kind;
+use crate::world::folk::terms;
+use crate::world::folk::usage::What;
 use crate::world::front_office::{deals, nfl};
 use crate::world::pro::{Status, money};
 use crate::world::seat::{Job, You};
@@ -150,7 +152,21 @@ fn a_trade_in_words_is_weighed_on_his_chart() {
         ..Offer::default()
     };
     let p = trade::proposal(&w, o, &mid).unwrap();
-    assert_eq!(p.conditional.map(|c| (c.0.round, c.1)), Some((3, deals::Condition::Snaps(60))));
+    let (pick, cond, _) = p.conditional.expect("a condition");
+    assert_eq!(pick.round, 3);
+    // A snap share is lane N2's season term.
+    let deals::Condition::Term(u) = cond else { panic!("a season term: {cond:?}") };
+    assert!(u.season && u.share && (u.n - 0.6).abs() < 1e-6 && u.what == What::Snaps);
+    assert!(cond.words().contains("60%"), "{}", cond.words());
+    // Any season term said with the offer is a condition too.
+    let sacks = terms::read(Some(w.people[man].player.position), "games", Some(10.0), false).unwrap();
+    let said = Offer {
+        kind: DealKind::Trade,
+        gives: vec![Give::Pick(3), Give::Player(w.people[man].player.id)],
+        terms: vec![sacks],
+        ..Offer::default()
+    };
+    assert_eq!(trade::proposal(&w, o, &said).unwrap().conditional.map(|c| c.1), Some(deals::Condition::Term(sacks)));
     // Made: the picks change hands, as the desk makes it.
     let p = trade::proposal(&w, o, &good).unwrap();
     trade::make(&mut w, o, &good);
@@ -158,13 +174,31 @@ fn a_trade_in_words_is_weighed_on_his_chart() {
 }
 
 #[test]
-fn a_bigger_snap_share_is_a_harder_condition() {
-    let (w, t) = nfl_world();
-    let i = w.clubs[t].roster[0];
-    let easy = deals::met_chance(&w, t, i, deals::Condition::Snaps(20));
-    let hard = deals::met_chance(&w, t, i, deals::Condition::Snaps(90));
-    assert!((0.0..=1.0).contains(&easy) && (0.0..=1.0).contains(&hard) && easy >= hard, "{easy} {hard}");
-    assert_eq!(deals::Condition::Snaps(60).words(), "if he plays 60% of the snaps");
+fn incentives_said_with_season_terms_pay_on_those_terms() {
+    let (mut w, t) = nfl_world();
+    let i = expiring(&mut w, t, false);
+    let id = w.people[i].player.id;
+    let f = Facet::Pro { i };
+    let pos = w.people[i].player.position;
+    let games = terms::read(Some(pos), "games", Some(14.0), false).unwrap();
+    let starts = terms::read(Some(pos), "starts", Some(10.0), false).unwrap();
+    let ask = nfl::asking(&w, id).unwrap();
+    let mut yes = offer(contract::gives_of(&ask));
+    yes.gives.push(Give::Incentives(1.0e6));
+    yes.terms = vec![games, starts];
+    let lines = negotiate::make_real(&mut w, f, Them::Player(id), &yes).unwrap();
+    let k = w.people[i].pro.as_ref().unwrap().contract.as_ref().unwrap();
+    assert!(k.team == t, "he signed: {lines:?}");
+    // Each year's incentive money is split across the two terms, and the
+    // desk's flat rule no longer pays it.
+    let first = k.years.first().unwrap().year;
+    let on_first: Vec<_> = k.clauses.iter().filter(|c| c.year == first).collect();
+    assert_eq!(on_first.len(), 2, "{lines:?}");
+    assert!(on_first.iter().all(|c| (c.pays - 0.5e6).abs() < 1.0));
+    assert!(k.years.iter().all(|y| y.nltbe == 0.0));
+    assert!(lines.iter().any(|l| l.contains("incentives pay on")), "{lines:?}");
+    // A season term is never a usage promise.
+    assert!(w.folk.promises.iter().all(|p| p.terms.usage.is_none_or(|u| !u.season)));
 }
 
 #[test]

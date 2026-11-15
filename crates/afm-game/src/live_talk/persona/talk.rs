@@ -51,11 +51,26 @@ fn room_of(w: &World, s: &Scene) -> Room {
     store::room(w, s.id).or_else(|| negotiate::room(w, s)).unwrap_or_else(|| channels::one_on_one(s))
 }
 
-/// What waits on your confirm, by ticket.
+/// What waits on your confirm, by ticket, and how each typed line was
+/// heard, so a page drawn again (a reload, another screen and back) still
+/// shows both. Neither is saved: a confirm is not in the world until you
+/// make it, and "Heard as" is the screen's note on the line.
 #[derive(Debug, Default)]
 pub struct Waits {
     map: BTreeMap<u64, Waiting>,
+    said: BTreeMap<u32, Vec<Heard>>,
 }
+
+/// One typed line's "Heard as" and marks.
+#[derive(Debug, Clone)]
+struct Heard {
+    words: String,
+    heard: String,
+    marks: Vec<Value>,
+}
+
+/// The most scenes whose lines are remembered. Proposed, not confirmed.
+const KEEP_SCENES: usize = 64;
 
 #[derive(Debug)]
 struct Waiting {
@@ -72,6 +87,37 @@ impl Waits {
     }
     pub fn len(&self) -> usize {
         self.map.len()
+    }
+    /// What waits on your confirm in a scene, as the page draws it.
+    pub fn pending(&self, scene: u32) -> Vec<Value> {
+        self.map
+            .iter()
+            .filter(|(_, w)| w.scene == scene)
+            .flat_map(|(ticket, w)| {
+                w.items.iter().enumerate().filter_map(move |(k, c)| {
+                    let c = c.as_ref()?;
+                    Some(json!({ "cmd": "talk_confirm", "args": { "id": w.scene, "ticket": ticket, "k": k },
+                        "text": confirm_words(c) }))
+                })
+            })
+            .collect()
+    }
+    fn remember(&mut self, scene: u32, words: &str, heard: &str, marks: &[Value]) {
+        if self.said.len() >= KEEP_SCENES && !self.said.contains_key(&scene) {
+            self.said.pop_first();
+        }
+        self.said.entry(scene).or_default().push(Heard {
+            words: words.to_string(),
+            heard: heard.to_string(),
+            marks: marks.to_vec(),
+        });
+    }
+    /// How your typed lines in a scene were heard, in the order you said them.
+    pub fn heard_lines(&self, scene: u32) -> Vec<(String, String, Vec<Value>)> {
+        self.said
+            .get(&scene)
+            .map(|v| v.iter().map(|h| (h.words.clone(), h.heard.clone(), h.marks.clone())).collect())
+            .unwrap_or_default()
     }
     pub fn is_empty(&self) -> bool {
         self.map.is_empty()
@@ -104,15 +150,29 @@ pub fn say(g: &mut Game, id: u32, text: String) -> Reply {
     tickets::start(g, req, next, false).map(|t| json!({ "ticket": t })).map_err(|f| f.note())
 }
 
-/// The browser build's stand-in ear (`AFM_AI_FAKE=1`): a question about
-/// how he's doing when the line asks something, else nothing touched.
+/// The browser build's stand-in ear (`AFM_AI_FAKE=1`): a line with a
+/// question mark is a question about how he's doing, one that says
+/// "promise" a promise of a start by midseason, one that says "bench" a
+/// decision to bench him (it waits on your confirm); anything else touches
+/// nothing. It lets the page's marks and confirm cards be checked in the
+/// browser with no key.
 fn stand_in(card: &super::EarCard) -> Value {
-    let q = card.line.contains('?');
-    let v = json!({
-        "acts": if q { json!([{ "act": "question", "topic": "Mood", "about": "", "claim": "none", "value": "",
-            "deal": "none", "what": "", "when": "", "words": "" }]) } else { json!([]) },
-        "hits": [], "dodged": false, "not_talk": false
-    });
+    let line = card.line.to_lowercase();
+    let mut acts = Vec::new();
+    let act = |kind: &str, what: &str, topic: &str, when: &str| {
+        json!({ "act": kind, "topic": topic, "about": "", "claim": "none", "value": "",
+            "deal": "none", "what": what, "when": when, "words": "" })
+    };
+    if line.contains('?') {
+        acts.push(act("question", "", "Mood", ""));
+    }
+    if line.contains("promise") {
+        acts.push(act("promise", "start", "none", "midseason"));
+    }
+    if line.contains("bench") {
+        acts.push(act("decision", "benched", "none", ""));
+    }
+    let v = json!({ "acts": acts, "hits": [], "dodged": false, "not_talk": false });
     afm_ai::fake::body(&v.to_string(), 900, 60)
 }
 
@@ -175,31 +235,21 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
                     Ok(afm_ai::fake::body(&json!({ "line": line, "colour": "" }).to_string(), 600, 40)),
                 );
             }
-            return Step::Call(req, voice_step(id, heard, marks, confirm, vc, card_text, t, notes));
+            return Step::Call(req, voice_step(id, Outcome { words, heard, marks, confirm }, vc, card_text, t, notes));
         }
         his_line(g, id, &vc, &t, None, &card_text);
         staff_notes(g, id, &notes);
-        Step::Done(done(g, id, &heard, marks, confirm))
+        Step::Done(done(g, id, Outcome { words, heard, marks, confirm }))
     })
 }
 
 /// The voice's step: his words, or the fallback.
-#[allow(clippy::too_many_arguments)]
-fn voice_step(
-    id: u32,
-    heard: String,
-    marks: Vec<Value>,
-    confirm: Vec<Value>,
-    vc: VoiceCard,
-    card_text: String,
-    t: Turn,
-    notes: Vec<String>,
-) -> Next {
+fn voice_step(id: u32, out: Outcome, vc: VoiceCard, card_text: String, t: Turn, notes: Vec<String>) -> Next {
     Box::new(move |g, r| {
         let said = r.ok().and_then(|x| x.json);
         his_line(g, id, &vc, &t, said.as_ref(), &card_text);
         staff_notes(g, id, &notes);
-        Step::Done(done(g, id, &heard, marks, confirm))
+        Step::Done(done(g, id, out))
     })
 }
 
@@ -344,9 +394,20 @@ fn run(w: &mut World, scene: u32, him: Them, c: &Confirm) -> Vec<String> {
     }
 }
 
+/// What a line came to: your words, how they were heard, the marks and what
+/// waits on your confirm.
+struct Outcome {
+    words: String,
+    heard: String,
+    marks: Vec<Value>,
+    confirm: Vec<Value>,
+}
+
 /// The poll's done answer: "Heard as", the marks, what waits on your
 /// confirm, and the scene's normal reply.
-fn done(g: &mut Game, id: u32, heard: &str, marks: Vec<Value>, confirm: Vec<Value>) -> Value {
+fn done(g: &mut Game, id: u32, out: Outcome) -> Value {
+    let Outcome { words, heard, marks, confirm } = out;
+    g.ai.persona.remember(id, &words, &heard, &marks);
     let reply = g.run("people_scene", &json!({ "id": id })).unwrap_or(Value::Null);
     let mut v = json!({ "state": "done", "heard": heard, "marks": marks, "reply": reply });
     if !confirm.is_empty() {
