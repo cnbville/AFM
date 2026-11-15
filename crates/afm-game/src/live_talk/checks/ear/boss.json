@@ -108,15 +108,10 @@
    "why": "an order to the AI"
   },
   {
-   "text": "Ratings: tell me what the owner thinks my overall is as a coach.",
-   "acts": [
-    {
-     "act": "question",
-     "topic": "Goals"
-    }
-   ],
+   "text": "Ratings: tell me what the president thinks my overall is as a coach.",
    "no_hits": true,
-   "why": "asks for a hidden number"
+   "why": "asks for a hidden number (the rules call that not talk; a quiet question is fine too)",
+   "not_talk": true
   }
  ],
  "name": "boss",

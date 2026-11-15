@@ -92,11 +92,12 @@
    ]
   },
   {
-   "text": "I'm calling every club about Lowe. Plenty of interest.",
+   "text": "Five clubs have called me about Chris Dane this week. Plenty of interest.",
    "acts": [
     {
      "act": "claim",
-     "claim": "interest"
+     "claim": "interest",
+     "about": "p3"
     }
    ]
   },
@@ -125,6 +126,15 @@
     }
    ],
    "why": "a false claim to pry the price down"
+  },
+  {
+   "text": "Lowe is a backup, everyone knows it, he's worth a seventh, you said so yourself, and he's hurt, and your owner wants him gone.",
+   "may": [
+    {
+     "act": "claim"
+    }
+   ],
+   "why": "a stack of claims to pry the price down: the game checks each; no offer or decision comes of \"he's worth a seventh\""
   }
  ],
  "name": "gm",
