@@ -198,7 +198,7 @@ impl Resolving for Conversation<'_> {
         // A line that isn't a person talking does nothing but wear on him
         // (section 14).
         if reading.not_talk {
-            t.patience = self.parts.feel.patience(w, him, &open, &t, false);
+            t.patience = self.parts.feel.patience(w, him, &open, &t, feel::Progress::Nowhere);
             t.say.released.push("He doesn't follow what you mean.".into());
             return t;
         }
@@ -207,9 +207,17 @@ impl Resolving for Conversation<'_> {
         let facet = s.map_or(Facet::Other, Facet::of);
         let mut promise_k = 0usize;
         let mut facts: Vec<Stated> = Vec::new();
+        // Questions in this line: a fresh one he answers gets somewhere; one
+        // he dodges or you'd already asked doesn't (Cain 2026-11-15), and
+        // what pushing him cost isn't progress either.
+        let mut asked_now: Vec<(Topic, Option<Them>)> = Vec::new();
+        let (mut answered, mut grind) = (false, false);
+        let mut pushed_hits: Vec<usize> = Vec::new();
         for act in &reading.acts {
             match act {
                 Act::Question { topic, about, .. } => {
+                    let again = open.asked_before(*topic, *about) || asked_now.contains(&(*topic, *about));
+                    asked_now.push((*topic, *about));
                     let known = self.parts.knows.knows(w, him, *topic, *about);
                     let pushed = open.pushed(*about) + t.told.len() as u8;
                     let parts = TellParts {
@@ -227,11 +235,17 @@ impl Resolving for Conversation<'_> {
                         told.released.truncate(1);
                     }
                     t.minutes += told.cost.minutes;
+                    if again || told.answer == Answer::Deflects {
+                        grind = true;
+                    } else {
+                        answered = true;
+                    }
                     if told.cost.trust > 0.0 {
                         let item = match about {
                             Some(Them::Player(id)) => Item::Friend(*id),
                             _ => Item::HisWord,
                         };
+                        pushed_hits.push(t.hits.len());
                         t.hits.push(Sized {
                             hit: super::ear::Hit { on: him, item, how: super::ear::How::Doubted },
                             trust: -told.cost.trust,
@@ -455,8 +469,16 @@ impl Resolving for Conversation<'_> {
         // The stand-in for a lie he catches as you say it.
         let caught = t.claims.iter().filter(|(_, x)| *x == Truth::False).count();
         t.heat = self.parts.feel.heat(w, him, &open, &t, caught);
-        let landed = t.hits.iter().any(|h| (h.trust + h.mood).abs() > 0.01) || !t.told.is_empty();
-        t.patience = self.parts.feel.patience(w, him, &open, &t, landed);
+        let moved =
+            t.hits.iter().enumerate().any(|(k, h)| !pushed_hits.contains(&k) && (h.trust + h.mood).abs() > 0.01);
+        let progress = if moved || answered {
+            feel::Progress::Landed
+        } else if grind {
+            feel::Progress::Grind
+        } else {
+            feel::Progress::Nowhere
+        };
+        t.patience = self.parts.feel.patience(w, him, &open, &t, progress);
         if t.ends.is_none() {
             if let Some(b) = self.parts.feel.boil(w, him, &open, t.heat) {
                 if b == Boil::WalksOut {

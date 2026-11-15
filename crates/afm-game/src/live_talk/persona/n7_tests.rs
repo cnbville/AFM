@@ -203,7 +203,7 @@ fn a_stack_of_promises_logs_one_each_and_buys_nothing_past_the_best_chip() {
 }
 
 #[test]
-fn asking_the_same_thing_again_costs_time_and_never_buys_trust() {
+fn asking_the_same_thing_again_wears_his_patience_costs_time_and_buys_no_trust() {
     use afm_engine::world::folk::talks::hours_left;
     let (mut g, f, him) = game("n7-grind", true);
     let f = f.unwrap();
@@ -230,6 +230,11 @@ fn asking_the_same_thing_again_costs_time_and_never_buys_trust() {
     let w = g.world.as_ref().unwrap();
     eprintln!("N7 the same question six times, his patience after each line: {patience:?}");
     assert!(patience.len() >= 3, "{patience:?}");
+    // A question he dodges or you'd already asked gets nowhere: his
+    // patience wears down from the second ask (Cain 2026-11-15).
+    for k in 2..patience.len() {
+        assert!(patience[k] < patience[k - 1], "asking again wears his patience: {patience:?}");
+    }
     assert!(hours_left(w) < hours - 0.2, "grinding is charged to your week: {hours} -> {}", hours_left(w));
     assert!(trust(&g, him) <= before + 0.05, "asking buys no trust to speak of: {before} -> {}", trust(&g, him));
 }

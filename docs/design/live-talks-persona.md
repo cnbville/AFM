@@ -136,7 +136,7 @@ Every kind of person has a list of real actions (the full list is 8.3). Whether 
 - His mood and trust move as the talk goes (built: the talk screen's bars).
 - His stance on a hard topic: owns it, plays it down, denies, defiant, shaken, pushes back, sulks, fired up (built: `talk_points.rs`, `stance`).
 - **Heat (new):** a talk can get hot. Insults, a lie he catches or a promise you broke raise it, by his temper. Past a point he goes quiet, raises his voice or walks out. The game decides, never the voice.
-- **Patience (new for everyone):** an agent's patience is built. Everyone gets it. A long talk that goes nowhere wears it down.
+- **Patience (new for everyone):** an agent's patience is built. Everyone gets it. A long talk that goes nowhere wears it down. A question he dodges, or one you already asked, gets nowhere and wears it too, half as fast with your Relationships at the top and twice as fast at the bottom (Cain 2026-11-15; the numbers are proposed, not confirmed).
 
 ### 3.6 What he remembers
 
