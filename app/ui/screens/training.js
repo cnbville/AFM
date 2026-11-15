@@ -704,7 +704,11 @@ function weekTab(x) {
     <div class="tw-stack"><div class="panel tw-panel">${twPh("Why your staff plans it this way", x.cards.gp.game ? "this opponent" : "this block")}<ul class="tw-why">${x.reasons.map((r) => `<li>${esc(r)}</li>`).join("") || "<li>No notes.</li>"}</ul></div><div class="panel tw-panel">${twFamilies(x, draft.days)}</div></div>
     <div class="tw-stack"><div class="panel tw-panel">${twGroups(x, draft.days)}</div><div class="panel tw-panel">${twBody(x)}</div></div></div>`;
   const n = x.numbers;
-  const numbers = `<div class="tw-sect"><h2>The strength coach's numbers</h2><span class="muted">${n.date ? `${n.baseline ? "Your staff's baseline" : "Testing day"}, ${esc(n.date)}` : "No testing yet"}${n.next ? ` · next testing day ${esc(n.next)}` : ""} · from ${esc(x.staff.str ? x.staff.str.name : "the strength staff")}</span></div>${twNumbers(x)}`;
+  // Testing days you call (Cain 2026-11-15): each costs that day's training.
+  const calls = n.calls || [];
+  const called = calls.filter((c) => c.called);
+  const callPick = calls.length ? `<label class="tw-hour" title="The strength staff tests for an hour and the day's training goes. Pick a called day again to take it back."><span class="st-label">Call a testing day</span><select data-act="tr-testday"><option value="" selected>${called.length ? `Called: ${called.map((c) => esc(c.text)).join(", ")}` : "Pick a day (costs its training)"}</option>${calls.map((c) => `<option value="${c.day}">${esc(c.text)}${c.called ? " · called, pick to take back" : ""}</option>`).join("")}</select></label>` : "";
+  const numbers = `<div class="tw-sect"><h2>The strength coach's numbers</h2><span class="muted">${n.date ? `${n.baseline ? "Your staff's baseline" : n.previous ? "The previous staff's testing day" : "Testing day"}, ${esc(n.date)}` : "No testing yet"}${n.next ? ` · next testing day ${esc(n.next)}` : ""} · ${n.date && n.previous && !n.baseline ? "from the team's records" : `from ${esc(x.staff.str ? x.staff.str.name : "the strength staff")}`}${n.older && n.older.length ? ` · ${n.older.length} earlier ${n.older.length === 1 ? "day" : "days"} on each player's Body and testing tab` : ""}</span>${callPick}</div>${twNumbers(x)}`;
   const where = `<div class="tw-sect"><h2>Who's where</h2><span class="muted">Rehab, new arrivals, other sports, study hall</span></div>${twWhere(x)}`;
   return `<div class="tw">${head}${cards}${breaches}${grid}${prep}${panels}${numbers}${where}</div>${twSide(x, draft, edit)}`;
 }
@@ -1562,6 +1566,10 @@ document.addEventListener("change", async (ev) => {
     }
     case "tr-hour": if (await trDo("practice_hour", { at: el.value === "" ? null : Number(el.value) }, "Practice hour set.")) {
       // The day's clock moves with the hour; a week you're still editing stays.
+      if (!TR.week || !TR.week.dirty) TR.week = null;
+      trRedraw();
+    } break;
+    case "tr-testday": if (el.value !== "" && (await trDo("practice_testing", { day: Number(el.value) }, "Testing days saved."))) {
       if (!TR.week || !TR.week.dirty) TR.week = null;
       trRedraw();
     } break;

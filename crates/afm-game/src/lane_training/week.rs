@@ -1104,14 +1104,29 @@ pub(super) fn numbers(w: &World, st: &SeatTeam, monday: Date, today: Date) -> Va
             }
             m = m.add(7);
         }
-        found
+        // A testing day you called comes first when it is sooner.
+        let called = w.training.calls.iter().copied().filter(|&c| c > today).min();
+        match (found, called) {
+            (Some(a), Some(b)) => Some(a.min(b)),
+            (a, b) => a.or(b),
+        }
     };
-    let Some(day) = w.training.tests.iter().rev().find(|t| t.date <= today) else {
+    // Testing days you can call (Cain 2026-11-15): each costs that day's
+    // training.
+    let calls: Vec<Value> = ts::callable_tests(w)
+        .into_iter()
+        .map(|d| json!({ "day": d.0, "text": date_text(d), "called": w.training.calls.contains(&d) }))
+        .collect();
+    // The team's records: the days the staff before yours kept, then yours.
+    let days = afm_engine::training::testing::seat_days(w);
+    let since = afm_engine::training::testing::seat_since(w);
+    let Some(day) = days.iter().rev().find(|t| t.date <= today) else {
         return json!({
             "date": null,
             "next": next.map(date_text),
             "rows": [],
             "pro": pro,
+            "calls": calls,
         });
     };
     let mut rows: Vec<(usize, Value)> = day
@@ -1151,7 +1166,9 @@ pub(super) fn numbers(w: &World, st: &SeatTeam, monday: Date, today: Date) -> Va
         "next": next.map(date_text),
         "rows": rows.into_iter().map(|r| r.1).collect::<Vec<_>>(),
         "pro": pro,
-        "older": w.training.tests.iter().rev().skip(1).map(|t| date_text(t.date)).collect::<Vec<_>>(),
+        "previous": since.is_none_or(|s| day.date < s),
+        "calls": calls,
+        "older": days.iter().rev().filter(|t| t.date < day.date).map(|t| date_text(t.date)).collect::<Vec<_>>(),
     })
 }
 
