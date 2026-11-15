@@ -571,7 +571,7 @@ fn one_on_one(w: &World, s: &Scene) -> Option<Handoff> {
         "A promise: only you can make one.".to_string(),
     ];
     if h.asked {
-        let (lo, hi) = h.rel.map_or((9, 9), |r| r);
+        let (lo, hi) = h.rel.unwrap_or((9, 9));
         let pc = |r: u8| ((0.02 * (r as f32 - 8.0)) * 100.0).round() as i32;
         give.push(format!(
             "Keeping him: {by_whom} asks him to stay, and his lean to leave eases by {} to {} in 100, by your read.",
