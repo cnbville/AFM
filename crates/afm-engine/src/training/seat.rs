@@ -1384,6 +1384,7 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
     let nut = |wk: &Week| minutes(wk, |p| p.kind == Kind::Nutrition);
     let fuel = clamp(1.0 + 0.15 * (nut(&pw.week) - nut(&pw.neutral)) / (nut(&pw.neutral) + 30.0), 0.9, 1.15);
     let mut absent_ids: Vec<u32> = Vec::new();
+    let mut craft_minutes: HashMap<usize, (f64, f64)> = HashMap::new();
     for &i in &st.roster {
         let id = w.people[i].player.id;
         let role = *roles.get(&i).unwrap_or(&Role::Young);
@@ -1399,16 +1400,22 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
         let does = does_extra(p, seed);
         let mine = own_week(&pw.week, &plan, hurt, does);
         // The minutes his focus gets this week (individual practice, topic 5b).
-        let focus_of = focus.get(&i).map(|&a| {
-            let mental = family_of(a) == Family::Mental;
-            let own = if absent || own_time {
-                Some(super::offseason::own_effort(&p.player, p.pro.as_ref().is_some_and(|c| c.paid), false))
-            } else {
-                None
-            };
-            let plain = own_week(&pw.week, &plan, hurt, false);
-            let m = focus_minutes(&plain, &pw.neutral, &mine, role, camp, mental, own);
-            crate::development::Focus::new(a, m)
+        // His week's individual minutes, on the field and in the film room:
+        // his points of emphasis work on them (flaws and tools as well).
+        let own = if absent || own_time {
+            Some(super::offseason::own_effort(&p.player, p.pro.as_ref().is_some_and(|c| c.paid), false))
+        } else {
+            None
+        };
+        let plain = own_week(&pw.week, &plan, hurt, false);
+        let mins = (
+            focus_minutes(&plain, &pw.neutral, &mine, role, camp, false, own),
+            focus_minutes(&plain, &pw.neutral, &mine, role, camp, true, own),
+        );
+        craft_minutes.insert(i, mins);
+        let focus_of = focus.get(&i).map(|&(a, b)| {
+            let m = if family_of(a) == Family::Mental { mins.1 } else { mins.0 };
+            crate::development::Focus::two(a, b, m)
         });
         let r = if absent {
             // Not at a voluntary week: his own work, as on his own time.
@@ -1607,6 +1614,11 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
                 w.training.tests.remove(0);
             }
         }
+    }
+    // Flaws and tools: the staff's eye, the week's work on his points
+    // (individual practice topics 4-8).
+    for (id, text) in crate::world::craft_work::week(w, &st.roster, &craft_minutes) {
+        notes.push((id, "position", text));
     }
     // Installs: this week's team and situation periods put in the plan's
     // families and your designs (plays and tactics topic 4).

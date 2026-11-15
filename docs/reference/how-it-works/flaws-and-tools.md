@@ -1,6 +1,6 @@
 # Flaws and tools: how it works today
 
-Checked against main at 1bb7575 on 2026-11-14 (individual practice PR 2: the engine layer). Every size on this page is proposed, not confirmed.
+Checked against main at a79b9b45 on 2026-11-15 (individual practice PR 3: working on them; PR 2, the engine layer, at 1bb7575). Every size on this page is proposed, not confirmed.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 
@@ -50,10 +50,31 @@ Tacklers: Dives at ankles (Tackling, at a runner moving over 5 yards a second, `
 
 ## The year
 
-- Fixing: `fix = 0.11 × coach × take × settle × level`, coach = `sqrt(clamp((coaching − 4) / 8, 0, 2))`, take = `clamp(0.6 + 0.02 × coachability, 0.6, 1)`, settle = `clamp((26.5 − age) / 4.5, 0.12, 1)`, level HS 0.75, college 1.0, NFL 1.1. Each flaw shrinks by `fix × ease × (0.4 + 1.2u) × …`, ease his own for that flaw (0.4 to 1.6, keyed on his id and the flaw); under 0.06 it is gone (`GONE`).
+- The staff's own points (topic 10): each year his staff works two flaws on the weekly rule below (`pace`), over `STAFF_WEEKS` (12) weeks at the usual 30 minutes shared between them, times the level factor and `0.6 + 0.8u` (`craft::year`, `staff_points`). An adapting staff (style mould 1) picks his two biggest; a moulding one (20) weighs each by its rating's weight at his spot, so a tackle's pass-set flaws come before his climb to the second level. Your own players skip this: your week works their points (below).
+- A step up a level exposes habits the level below never punished: on his first year at a higher level (college, the pros) each flaw he doesn't carry comes with chance `raw share × 0.4 × lean` (`EXPOSED`), size 0.15 to 0.6, while a slot is free (`Crafts.lvl` keeps the highest level).
+- The rest move slowly (`BACKGROUND`, 0.75 of the old rule): `fix = 0.75 × 0.11 × coach × take × settle × level`, coach = `sqrt(clamp((coaching − 4) / 8, 0, 2))`, take = `clamp(0.6 + 0.02 × coachability, 0.6, 1)`, settle = `clamp((26.5 − age) / 4.5, 0.12, 1)`, level HS 0.75, college 1.0, NFL 1.1. Each flaw shrinks by `fix × ease × (0.4 + 1.2u) × …`, ease his own for that flaw (0.4 to 1.6, keyed on his id and the flaw); under 0.06 it is gone (`GONE`).
 - A poor staff (coaching under 7): each flaw grows `0.06 × (7 − coaching) / 6` a year, and a new one comes with chance `0.08 × (7 − coaching) / 6`.
 - Tools grow `(0.12 + 0.18 × playing) × min(coach, 1.5) × take × (0.5 + u) × max(settle, 0.4)` a year; playing is 1 for a starter, 0.6 rotation, 0.3 backup, 0.1 otherwise (`development.rs`).
 - A new tool: chance `0.3 × gift × min(coach, 1.5) × (0.4 + 0.6 × playing) × take × max(settle, 0.3) / (1 + tools held)`, gift the mean lean toward the ones left to learn, squared; picked by lean.
+
+## Working on them (your seat)
+
+Your team's week (`training/seat.rs`, `week`, then `world/craft_work.rs`, `week`):
+
+- Points of emphasis: one or two a player, each a flaw, a tool or a plain rating (`craft::Point`, stored in `World.seat_focus` as one byte: a rating's index, or 100 plus the craft's). Set with `World::set_points`; the old `set_focus` sets the first point to a rating and keeps a second. Every point grows its rating (a flaw's or tool's owner) on the part 1 rule; two points split his minutes (`development::Focus::two`, `minutes_on`). With none of yours, his position coach works the two he has named that cost him most on tape in the last eight weeks (`staff_points_of`, weighted by style as above); a staff point grows no rating, as AI staffs' don't.
+- Minutes: his week's individual minutes on the field and in the film room (`focus_minutes`, plain and mental), split between his points; a film-room flaw (`Info.mental`) works on the film minutes.
+- A week's work (`craft::work_week`): practice moves first by `pace`, games follow at 0.3 of the gap a week, and the first three weeks carry the learning dip (`DIP`). `pace = 0.04 × teach × take × age × minutes/30 × mind × ease × buy-in`: teach `clamp((teaching − 4) / 11, 0.1, 1.1)^1.5`, take `clamp((coachability − 2) / 14, 0.2, 1.15)^1.2`, age `1 − 0.0625 × (age − 22)` from 0.5 to 1, mind (film-room flaws) `0.5 + (IQ − 40) / 50` from 0.5 to 1.3. Measured (`tests/craft.rs`): a typical overset (0.5) on a coachable (16) 20-year-old with a strong teacher (15) at 30 minutes holds in games after 13 weeks (sizes item 2: 12 to 16); at 30 he takes 24; a poor teacher (7) or a low coachability (6) takes over 40.
+- Stages (`craft::stage`): Learning, Works in practice (past the dip and practice under two thirds of where it was), Fixed in games (games under 0.08, `HOLD`); a tool holds at 0.4 (`TOOL_HOLD`). A tool he doesn't have starts from nothing. A flaw he doesn't carry (the staff named the wrong one) moves nothing, though its rating still grows.
+- Against an AI staff: your week works a point every week of the year at his real minutes, where an AI staff's year counts 12 weeks at the usual minutes (kept that low so the world's counts hold). So a point you give real minutes moves several times as fast as the same teacher's own point would (not measured on a season yet; proposed, not confirmed, and an open choice for Cain).
+- The year leaves what the weeks worked (`Item.wk` top bit), and only its stress return fades.
+- Who teaches (`craft_work::room`): the position coach at a college, the coordinator of his side at an NFL club or a high school, else the head coach; his teaching in that group and his eye. An empty room reads as 8.
+- Buy-in (`craft::buy_in`): `0.55 + 0.02 × (coachability − 10) + 0.4 × (trust − 0.5) − 0.015 × (ego − 10) × veteran`, 0.2 to 1, veteran rising from 24 to 30.
+- He can refuse (`set_points`): a new flaw point on a veteran with an ego past 12 is turned down with chance `0.6 × (ego − 12)/8 × veteran × star × (1 − trust)`, at most 0.55 (star 1 for a starter, 0.4 otherwise). The point is left off, his trust in you drops 0.03 and his mood 0.03.
+- He feels it: when a point reaches practice or holds in games, his position coach's note says so in the week's notes, and a hold lifts his mood 0.03.
+- The staff's eye (`craft_work::week`): each week each flaw or tool he carries and nobody has named is found with chance `0.06 × eye/10 × (0.3 + size) × (1 + 0.5 × reps on tape this week)`, eye/10 from 0.3 to 1.8. A weak eye names a neighbour instead (same position, same rating group, one he doesn't carry) with chance `0.32 − 0.016 × eye`, 0.04 to 0.3. A wrong name fades after four weeks, 0.05 × eye/10 a week, as the tape never shows it (`World.seat_seen`).
+- The tape book (`World.seat_book`, `craft_work::Tag`): for your players, one row a game (from `keep_seat_game`) or practice week (`practice::seat_battles`) and craft: reps it showed in and reps it lost him, kept two seasons.
+
+Not built yet: private trainers and camps (topic 7.3-7.4), a mentor passing a tool on (7.2), a player asking for a tool (8.3), the world's scouts and press reading a fix (9.5), and the screens (part 4).
 
 ## Counts by stage
 
@@ -61,9 +82,11 @@ Measured with `craft_check 300 97 <staff>` (300 players a position, every positi
 
 | Staff | At 14 | At 18 (freshman) | At 22 | At 26 | At 30 |
 | --- | --- | --- | --- | --- | --- |
-| 11 | 3.1 flaws (0.63) | 3.1 (0.43), 0.6 tools | 2.4 (0.28), 1.0 tools | 1.5 (0.24), 1.1 | 1.4 (0.24), 1.2 |
-| 16 | 3.1 (0.63) | 3.0 (0.38), 0.7 | 1.7 (0.25), 1.1 | 0.9 (0.21), 1.3 | 0.8 (0.21), 1.3 |
-| 5 | 3.1 (0.63) | 3.2 (0.62), 0.3 | 3.3 (0.59), 0.5 | 3.3 (0.59), 0.6 | 3.4 (0.65), 0.7 |
+| 11 | 3.1 flaws (0.63) | 3.1 (0.43), 0.6 tools | 2.6 (0.26), 1.0 tools | 1.7 (0.21), 1.1 | 1.3 (0.21), 1.2 |
+| 16 | 3.1 (0.63) | 2.9 (0.35), 0.7 | 1.4 (0.22), 1.1 | 0.7 (0.18), 1.3 | 0.4 (0.18), 1.3 |
+| 5 | 3.1 (0.63) | 3.2 (0.64), 0.3 | 3.5 (0.61), 0.5 | 3.7 (0.61), 0.6 | 3.7 (0.67), 0.7 |
+
+With part 3 (2026-11-15: the staff's two points, the step-up exposure and the slower background). Part 2 alone gave 2.4, 1.5 and 1.4 flaws at 22, 26 and 30 under staff 11, and 1.7 at 22 under staff 16: a strong staff now cleans a player up faster, and a poor one's players pick up new habits at each step up.
 
 Kickers, punters and snappers carry under 1; the rest 3 to 4.4 at 14. A flaw's ease of fixing is his own and fixed (0.4 to 1.6), so some habits outlast a good staff.
 
@@ -79,7 +102,7 @@ Kickers, punters and snappers carry under 1; the rest 3 to 4.4 at 14. A flaw's e
 
 ## Where the knobs are
 
-`craft.rs`: `FULL`, `SLOTS`, `GONE`, `DIP`, `DIP_WEEKS`, `raw_share`, `draw_raw`, `lean`, `year`, `moved`. The situation weights sit at each hook in `game/sim.rs`, `game/scrimmage.rs`, `game/kicking.rs` and `game/flow.rs` (search `individual practice`).
+`craft.rs`: `FULL`, `SLOTS`, `GONE`, `DIP`, `DIP_WEEKS`, `raw_share`, `draw_raw`, `lean`, `year`, `moved`, `BACKGROUND`, `STAFF_WEEKS`, `EXPOSED`, `PACE`, `HOLD`, `TOOL_HOLD`, `pace`, `buy_in`, `refuse_chance`, `staff_points`. `world/craft_work.rs`: the eye's chances, `BOOK_DAYS`. The situation weights sit at each hook in `game/sim.rs`, `game/scrimmage.rs`, `game/kicking.rs` and `game/flow.rs` (search `individual practice`).
 
 ## Related pages
 

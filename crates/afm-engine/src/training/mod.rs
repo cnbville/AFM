@@ -331,7 +331,7 @@ pub fn land_after(
     let dev_age = p.train.development_age();
     let mut rng = Rng::new((key ^ (p.id as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ 0x7A11) as u32);
     let (mut attrs, mut ceil) = (p.attributes, p.ceilings);
-    let mut extra = 0.0;
+    let mut extra: Vec<(Attr, f64)> = Vec::new();
     for a in Attr::ALL {
         let s = share[family_of(a) as usize];
         if s <= 0.0 || !deferred(p, a) {
@@ -341,17 +341,16 @@ pub fn land_after(
         let rate = g.rate(a, af);
         let noise = 0.5 * s.sqrt() * quick_normal(&mut rng);
         let d = done[family_of(a) as usize];
-        if focus.is_some_and(|f| f.attr == a) {
-            extra = focus_extra(&attrs, &ceil, a, g.plain().rate(a, af), s, d, noise);
-        }
+        let focused = focus.is_some_and(|f| f.has(a));
+        let plain = if focused { focus_extra(&attrs, &ceil, a, g.plain().rate(a, af), s, d, noise) } else { 0.0 };
         grow_share(&mut attrs, &mut ceil, a, rate, s, d, noise);
-        if focus.is_some_and(|f| f.attr == a) {
-            extra = attrs.get(a) - extra;
+        if focused {
+            extra.push((a, attrs.get(a) - plain));
         }
     }
     // What the focus grew, his other key skills pay for (topic 5b).
-    if let Some(f) = focus {
-        focus_cost(p.position, &p.attributes, &mut attrs, f.attr, extra);
+    for (a, x) in extra {
+        focus_cost(p.position, &p.attributes, &mut attrs, a, x);
     }
     p.attributes = attrs;
     p.ceilings = ceil;
@@ -390,7 +389,7 @@ pub fn reps_land(p: &mut Player, before: f64, share: f64, focus: Option<Focus>) 
     let dev_age = p.train.development_age();
     let (r0, r1) = (crate::development::reps_ratio(before), crate::development::reps_ratio(before + share));
     let (mut attrs, mut ceil) = (p.attributes, p.ceilings);
-    let mut gave = 0.0;
+    let mut gave: Vec<(Attr, f64)> = Vec::new();
     for a in Attr::ALL {
         if !deferred(p, a) {
             continue;
@@ -403,16 +402,15 @@ pub fn reps_land(p: &mut Player, before: f64, share: f64, focus: Option<Focus>) 
         let af = growth_age_factor(dev_age, a.profile().growth_window);
         let rate = g.rate(a, af);
         let done = p.train.landed(family_of(a));
-        if focus.is_some_and(|f| f.attr == a) {
-            gave = focus_extra(&attrs, &ceil, a, g.plain().rate(a, af), extra, done, 0.0);
-        }
+        let focused = focus.is_some_and(|f| f.has(a));
+        let plain = if focused { focus_extra(&attrs, &ceil, a, g.plain().rate(a, af), extra, done, 0.0) } else { 0.0 };
         grow_share(&mut attrs, &mut ceil, a, rate, extra, done, 0.0);
-        if focus.is_some_and(|f| f.attr == a) {
-            gave = attrs.get(a) - gave;
+        if focused {
+            gave.push((a, attrs.get(a) - plain));
         }
     }
-    if let Some(f) = focus {
-        focus_cost(p.position, &p.attributes, &mut attrs, f.attr, gave);
+    for (a, x) in gave {
+        focus_cost(p.position, &p.attributes, &mut attrs, a, x);
     }
     p.attributes = attrs;
     p.ceilings = ceil;

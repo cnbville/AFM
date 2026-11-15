@@ -340,6 +340,8 @@ pub(crate) fn seat_battles(
     let practice_results = w.options.results.on && w.options.results.practice && engine_practice;
     let b = run(&team, level, &snaps, 150, &starters, &backups, true, practice_results, seed ^ 0xBA7);
     log.snaps = b.snaps;
+    // The practice tape's tags (individual practice topic 9.2).
+    crate::world::craft_work::book_plays(w, &b.plays, true);
     if practice_results {
         let ids: HashMap<u32, (usize, Option<crate::world::stories::TeamKey>)> =
             st.roster.iter().map(|&i| (w.people[i].player.id, (i, None))).collect();

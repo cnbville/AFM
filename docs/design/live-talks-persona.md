@@ -18,6 +18,8 @@ Cain's words, 2026-11-14 (UTC):
 
 The decision log is `docs/handoff/decisions.md`, section 22.
 
+Built so far: the shared contract (PR #402) and lane N1, people (2026-11-15): who each of the 17 kinds is and his makeup, what he knows and how he tells it (football from his snaps too), his wants, heat and patience, the stores and people coming to you (`world/folk/persona/`, how it works in `docs/reference/how-it-works/live-talks.md`, "Live talks v3, lane N1: people"). Every size N1 set is proposed, not confirmed.
+
 ## Contents
 
 1. What it does
