@@ -81,6 +81,10 @@ pub enum Kind {
     FamilyCall,
     /// Your case at the end of a recruit's official visit, in your office.
     OfficialTalk,
+    /// The draft side's talks (lane N5e, `persona::draft::scene`): his
+    /// family, your security director, a scout, a pro scout, the draft
+    /// room, a rival GM, the draft-day call.
+    DraftTalk,
 }
 
 impl Kind {
@@ -150,6 +154,7 @@ impl Kind {
             Kind::RecruitMessage => "A message to a recruit",
             Kind::FamilyCall => "His family calls",
             Kind::OfficialTalk => "Official visit: your case",
+            Kind::DraftTalk => "The draft side",
         }
     }
 }
@@ -816,7 +821,8 @@ fn log_scene(w: &mut World, s: &Scene) {
         | Kind::RecruitCall
         | Kind::RecruitMessage
         | Kind::FamilyCall
-        | Kind::OfficialTalk => "recruiting",
+        | Kind::OfficialTalk
+        | Kind::DraftTalk => "recruiting",
         Kind::JobInterview => "network",
         Kind::StaffMeeting => "staff",
         _ => "place",
@@ -848,6 +854,7 @@ fn dispatch_open(w: &mut World, s: &mut Scene) {
         | Kind::RecruitMessage
         | Kind::FamilyCall
         | Kind::OfficialTalk => super::dialogue::open(w, s),
+        Kind::DraftTalk => super::persona::draft::scene::open(w, s),
         _ => super::takeover::open(w, s),
     }
 }
@@ -876,6 +883,7 @@ fn dispatch_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         | Kind::RecruitMessage
         | Kind::FamilyCall
         | Kind::OfficialTalk => super::dialogue::answer(w, s, code, picked),
+        Kind::DraftTalk => super::persona::draft::scene::answer(w, s, code),
         _ => super::takeover::answer(w, s, code, picked),
     }
 }
@@ -904,6 +912,7 @@ fn dispatch_hand(w: &mut World, s: &mut Scene) {
         | Kind::RecruitMessage
         | Kind::FamilyCall
         | Kind::OfficialTalk => super::dialogue::hand(w, s),
+        Kind::DraftTalk => super::persona::draft::scene::hand(w, s),
         _ => super::takeover::hand(w, s),
     }
 }

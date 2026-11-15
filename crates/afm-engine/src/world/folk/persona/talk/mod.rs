@@ -114,7 +114,9 @@ pub fn across(room: &Room) -> Option<Them> {
 /// your word with him otherwise.
 pub fn trust_of(w: &World, who: Them) -> f32 {
     match who {
-        Them::Player(id) => folk::person(w, id).map_or(0.5, |i| w.people[i].trust),
+        // A man you don't coach keeps his trust in you apart from his
+        // trust in his own head coach (`makeup::trust`).
+        Them::Player(_) => super::makeup::trust(w, who) as f32,
         _ => w.folk.live.word_of(store::word_key(who)),
     }
 }
@@ -438,8 +440,14 @@ impl Resolving for Conversation<'_> {
                 continue;
             };
             let Some(i) = folk::person(w, pid) else { continue };
-            let p = &mut w.people[i];
-            p.trust = (p.trust + h.trust).clamp(0.0, 1.0);
+            if super::makeup::coached_by_you(w, i) {
+                let p = &mut w.people[i];
+                p.trust = (p.trust + h.trust).clamp(0.0, 1.0);
+            } else if h.trust != 0.0 {
+                // Someone else's player: his trust in you, kept by his key.
+                let now = super::makeup::trust(w, h.hit.on) as f32;
+                w.folk.mine.set_trust(super::makeup::key(h.hit.on), (now + h.trust).clamp(0.0, 1.0));
+            }
             if h.hit.on == him {
                 if let Some(sc) = w.folk.scenes.iter_mut().find(|x| x.id == id) {
                     sc.f[0] += h.trust;
@@ -515,6 +523,9 @@ impl Resolving for Conversation<'_> {
             Line { you: self.said.words.clone(), reading: self.said.reading.clone(), his: String::new() },
         );
         store::advance(w, id, &room, t, &self.said, point);
+        // The draft side's rooms (lane N5e): the interview clock, a press,
+        // a GM's word, a family's answer for the file.
+        super::draft::after_line(w, id, &self.said, t);
         talks::charge(w, t.minutes / 60.0);
         if t.ends.is_some() {
             end(w, id);
@@ -580,7 +591,7 @@ pub fn end(w: &mut World, id: u32) {
     if s.kind == SceneKind::OneOnOne {
         let pid = s.a as u32;
         talks::finish_talk(w, &mut s, pid);
-    } else {
+    } else if !super::draft::end(w, &mut s) {
         s.end();
     }
     w.folk.scenes[k] = s;

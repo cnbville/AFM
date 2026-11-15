@@ -38,9 +38,10 @@ use crate::{Game, Reply};
 /// How long a confirm waits. Proposed, not confirmed.
 pub const WAIT_TTL: Duration = Duration::from_secs(900);
 
-/// Whether a scene's typed lines play as a v3 talk: your one-on-ones.
+/// Whether a scene's typed lines play as a v3 talk: your one-on-ones, and
+/// the draft side's rooms (lane N5e: a combine interview, the draft talks).
 pub fn plays(g: &Game, s: &Scene) -> bool {
-    g.ai.persona_talks && s.kind == Kind::OneOnOne
+    g.ai.persona_talks && matches!(s.kind, Kind::OneOnOne | Kind::CombineTalk | Kind::DraftTalk)
 }
 
 /// What waits on your confirm, by ticket, and how each typed line was
@@ -122,12 +123,21 @@ pub fn parts() -> Parts<'static> {
     Parts::today()
 }
 
+/// The parts a scene's talk is played with: the draft side's rooms on lane
+/// N5e's facet, every other talk on `parts`.
+pub fn parts_for(kind: Kind) -> Parts<'static> {
+    match kind {
+        Kind::CombineTalk | Kind::DraftTalk => afm_engine::world::folk::persona::draft::facet::parts(),
+        _ => parts(),
+    }
+}
+
 /// `people_say` on a talk that plays v3: `{id, text}`.
 pub fn say(g: &mut Game, id: u32, text: String) -> Reply {
     let w = g.world.as_ref().ok_or("No world is loaded.")?;
     let s = w.folk.scenes.iter().find(|s| s.id == id).ok_or("No such meeting.")?;
     let room = store::room(w, id).unwrap_or_else(|| channels::one_on_one(s));
-    let p = parts();
+    let p = parts_for(s.kind);
     let (card, keys) = cards::ear(w, s, &room, &p, &text);
     let today = crate::views::date_text(w.today);
     let (y, m, d) = w.today.parts();
@@ -198,7 +208,10 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
                 r
             }
         };
-        let conv = Conversation { parts: parts(), said: Said { scene: id, words: words.clone(), reading, promises } };
+        let conv = Conversation {
+            parts: parts_for(s.kind),
+            said: Said { scene: id, words: words.clone(), reading, promises },
+        };
         let t = conv.turn(w, &room, &conv.said.reading);
         let heard = cards::heard(w, &room, &t);
         let vc = cards::voice(w, &s, &room, &conv.parts, &t, &words, &keys);
@@ -315,7 +328,8 @@ pub fn confirm(g: &mut Game, args: &Value) -> Reply {
     }
     let w = g.world.as_mut().ok_or("No world is loaded.")?;
     if yes {
-        let lines = run(w, him, &item);
+        let kind = w.folk.scenes.iter().find(|s| s.id == id).map_or(Kind::OneOnOne, |s| s.kind);
+        let lines = run(w, him, &item, kind);
         if let Some(s) = w.folk.scenes.iter_mut().find(|s| s.id == id) {
             for l in lines {
                 s.narrate(l);
@@ -328,10 +342,10 @@ pub fn confirm(g: &mut Game, args: &Value) -> Reply {
 /// Runs one confirmed item: a request through `Acting::run`, an offer
 /// through lane N3's `agree`, a decision
 /// on its own screen until its lane wires it.
-fn run(w: &mut World, him: Them, c: &Confirm) -> Vec<String> {
+fn run(w: &mut World, him: Them, c: &Confirm, kind: Kind) -> Vec<String> {
     match c {
         Confirm::Request(r) => {
-            let ran = parts().acting.run(w, him, r);
+            let ran = parts_for(kind).acting.run(w, him, r);
             ran.done
         }
         Confirm::Offer(o) => {
