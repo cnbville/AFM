@@ -974,6 +974,11 @@ fn ask(w: &mut World, s: &mut Scene, team: Team, k: AskKind) {
         match k {
             AskKind::StaffMoney => {
                 w.folk.staff.pool_bonus += STAFF_RAISE;
+                match team {
+                    Team::College(pg) => crate::world::finance::college::raise_staff(w, pg, STAFF_RAISE as f64),
+                    Team::Nfl(t) => crate::world::finance::nfl::raise_staff(w, t, STAFF_RAISE as f64),
+                    _ => {}
+                }
                 "Yes. Ten percent more for the staff pool, starting now."
             }
             AskKind::Facility => {
