@@ -17,39 +17,55 @@ pub fn read_world(path: &Path) -> Result<World, String> {
     Ok(w)
 }
 
-/// The time of the commit this game was built from, in the header's form
-/// ("2026-11-15 02:38 UTC"); none in a build without git.
-const CODE_TIME: Option<&str> = option_env!("AFM_CODE_TIME");
-
 /// Why a world file whose header reads fine won't load, in plain words. A
 /// world made by a newer game can hold what this one has never heard of (a
-/// new career stage, say): the header's date written, later than this
-/// game's code, says so, and the answer is to update the game. The reader's
-/// own words come last, short, for a bug report.
+/// new career stage, say): the writer's code time in the header (or, in a
+/// file from before it, the date written), later than this engine's code,
+/// says so, and the answer is to update the game. The reader's own words
+/// come last, short, for a bug report.
 fn unreadable(path: &Path, e: std::io::Error) -> String {
     use std::io::ErrorKind::{InvalidData, Other};
     let Ok(meta) = afm_engine::save::read_meta(path) else { return e.to_string() };
     if !matches!(e.kind(), Other | InvalidData) {
         return e.to_string();
     }
-    unreadable_why(&meta.written, CODE_TIME, &e.to_string())
+    unreadable_why(&meta.written, meta.code.as_deref(), afm_engine::save::CODE_TIME, &e.to_string())
 }
 
-fn unreadable_why(written: &str, code: Option<&str>, detail: &str) -> String {
+/// `written` is when the file was written, `writer` the code time of the
+/// game that wrote it (none before 2026-11-15) and `ours` this game's.
+fn unreadable_why(written: &str, writer: Option<&str>, ours: Option<&str>, detail: &str) -> String {
     // The reader's first clause: "unknown variant `CflPool`", without the
     // list of what it expected.
     let detail = detail.split(", expected").next().unwrap_or(detail);
-    // Both times are "YYYY-MM-DD HH:MM UTC", so they compare as text.
+    // Times are "YYYY-MM-DD HH:MM UTC", so they compare as text.
     let dated = |t: &str| t.len() == 20 && t.ends_with(" UTC") && t.as_bytes()[4] == b'-';
-    match code {
-        Some(code) if dated(written) && dated(code) && written > code => format!(
-            "this world was made by a newer version of AFM (written {written}; this app's code is from {code}). \
+    let newer = |ours: &str| {
+        format!(
+            "this world was made by a newer version of AFM (written {written}; this app's code is from {ours}). \
              Update the game, then open it again. (What this version can't read: {detail}.)"
-        ),
-        Some(code) if dated(written) && dated(code) => format!(
-            "this world file is damaged or this version of AFM can't read it (written {written}, \
-             before this app's code from {code}): {detail}"
-        ),
+        )
+    };
+    let damaged =
+        || format!("this world file is damaged or this version of AFM can't read it (written {written}): {detail}");
+    match (writer.filter(|t| dated(t)), ours.filter(|t| dated(t))) {
+        // The writer's code against ours: a save from this very game that
+        // won't load is a bug, never "update".
+        (Some(writer), Some(ours)) => {
+            if writer > ours {
+                newer(ours)
+            } else {
+                damaged()
+            }
+        }
+        // A file from before the stamp: when it was written.
+        (None, Some(ours)) if dated(written) => {
+            if written > ours {
+                newer(ours)
+            } else {
+                damaged()
+            }
+        }
         _ => format!(
             "this version of AFM can't read this world (written {written}). It was most likely made by a newer \
              version: update the game, then open it again. (What this version can't read: {detail}.)"
@@ -208,24 +224,32 @@ mod tests {
     #[test]
     fn a_world_from_a_newer_game_says_update() {
         let detail = "unknown variant `CflPool`, expected one of `HighSchool`, `PrepSchool`, `College`";
-        let m = unreadable_why("2026-11-15 18:40 UTC", Some("2026-11-14 22:30 UTC"), detail);
+        let (app, later, earlier) = (Some("2026-11-14 22:30 UTC"), "2026-11-15 18:40 UTC", "2026-11-01 09:00 UTC");
+        // A file from before the stamp, written after this code.
+        let m = unreadable_why(later, None, app, detail);
         assert!(m.starts_with("this world was made by a newer version of AFM"), "{m}");
         assert!(m.contains("Update the game") && m.contains("unknown variant `CflPool`"), "{m}");
         assert!(!m.contains("expected one of"), "{m}");
-        // Written before the code: not a newer game, so no update advice.
-        let m = unreadable_why("2026-11-01 09:00 UTC", Some("2026-11-14 22:30 UTC"), detail);
+        // Written before this code: not a newer game, so no update advice.
+        let m = unreadable_why(earlier, None, app, detail);
+        assert!(m.contains("damaged") && !m.contains("Update the game"), "{m}");
+        // The writer's stamp decides when there is one: a newer writer...
+        let m = unreadable_why(earlier, Some(later), app, detail);
+        assert!(m.contains("Update the game"), "{m}");
+        // ...and a save this game wrote itself, today, that won't load is a bug.
+        let m = unreadable_why(later, app, app, detail);
         assert!(m.contains("damaged") && !m.contains("Update the game"), "{m}");
         // No code time (a build without git) or an odd date: most likely newer.
-        for (w, c) in [("2026-11-15 18:40 UTC", None), ("someday", Some("2026-11-14 22:30 UTC"))] {
-            let m = unreadable_why(w, c, detail);
+        for (w, c) in [(later, None), ("someday", app)] {
+            let m = unreadable_why(w, None, c, detail);
             assert!(m.contains("most likely made by a newer version"), "{m}");
         }
     }
 
-    /// This build knows when its code is from (the build script).
+    /// The engine knows when its code is from (its build script).
     #[test]
-    fn the_game_knows_its_code_time() {
-        let t = super::CODE_TIME.expect("built with git");
+    fn the_engine_knows_its_code_time() {
+        let t = afm_engine::save::CODE_TIME.expect("built with git");
         assert!(t.len() == 20 && t.ends_with(" UTC"), "{t}");
     }
 }

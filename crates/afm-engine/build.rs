@@ -1,19 +1,19 @@
-//! Stamps the game with the time of the commit it was built from
+//! Stamps the engine with the time of the commit it was built from
 //! (`AFM_CODE_TIME`, "YYYY-MM-DD HH:MM UTC", the same form a world file's
-//! header writes), so a world that this build can't read can be told apart:
-//! written after this code, it needs a newer game; written before, it is
-//! damaged or this build broke an old file (`files::unreadable`). Left out
-//! when git isn't there (a build from a copy of the code).
+//! header writes; `save::CODE_TIME`). Every world file carries its writer's
+//! stamp, so a game that can't read a world can tell a newer game's world
+//! (update the game) from a damaged one (`afm-game`, `files::unreadable`).
+//! Left out when git isn't there (a build from a copy of the code). A clean
+//! build (every Mac and world build) stamps fresh; a local build restamps
+//! when the checkout moves (`.git/HEAD`), not on every commit, so the
+//! engine isn't rebuilt for a commit alone.
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     let root = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("../..");
-    // A new commit moves the branch's ref (or HEAD itself when detached).
-    for f in [".git/HEAD", ".git/logs/HEAD"] {
-        let p = root.join(f);
-        if p.exists() {
-            println!("cargo:rerun-if-changed={}", p.display());
-        }
+    let head = root.join(".git/HEAD");
+    if head.exists() {
+        println!("cargo:rerun-if-changed={}", head.display());
     }
     let time = std::process::Command::new("git")
         .args(["log", "-1", "--format=%cd", "--date=format-local:%Y-%m-%d %H:%M UTC"])
