@@ -16,6 +16,7 @@ pub mod attributes;
 pub mod body;
 pub mod calendar;
 pub mod career;
+pub mod craft;
 pub mod development;
 pub mod game;
 pub mod league;

@@ -32,6 +32,9 @@ pub enum Kind {
     Grid { part: Part, v: [f64; 3], other: Who, opart: Part, ov: [f64; 3] },
     /// A Dynamic Link off and full.
     Link(Link),
+    /// A flaw or tool (individual practice) without and full, on every man
+    /// at the positions that carry it.
+    Craft(afm_engine::craft::Craft),
     /// One team's man built for job `a` and man built for job `b`, named
     /// right ("lo") and swapped ("hi") on the board (linebacker L1: "if i
     /// put a will in sam the results reflect that?"). `knows`: both have
@@ -1241,6 +1244,7 @@ pub fn all() -> Vec<Test> {
     v.push(link("link_bend", Link::Bend, &[P::EDGE], &["dl_speed_win", "dl_press"]));
     v.push(link("link_lungs", Link::Lungs, &[P::EDGE, P::DT], &["st_snaps", "st_q4_press"]));
     v.push(link("link_pocket", Link::PocketFrame, &[P::QB], &["qb_batted", "qb_sack_press", "qb_ttt"]).sign(-1.0));
+    v.extend(craft_tests());
     // Every stat with a real number is measured, after the chain.
     for t in &mut v {
         for (s, _) in t.real.clone() {
@@ -1250,6 +1254,87 @@ pub fn all() -> Vec<Test> {
         }
     }
     v
+}
+
+/// The 56 flaws and tools (individual practice topic 2), each without and
+/// full on every man at the positions that carry it: the stats its
+/// situation moves, the headline first, and the sign full minus without
+/// should have (0: no call; the engine has no row for it).
+fn craft_tests() -> Vec<Test> {
+    use afm_engine::craft::Craft::{self, *};
+    let rows = |c: Craft| -> (&'static [&'static str], f64) {
+        match c {
+            EyesDown => (&["qb_sack_press", "qb_press_cmp", "qb_sack"], 1.0),
+            BackFoot => (&["qb_press_cmp", "qb_press_int", "qb_cmp"], -1.0),
+            FirstRead => (&["qb_ttt", "qb_sack", "qb_cmp"], 1.0),
+            StaresDown => (&["qb_int", "qb_short_cmp", "cv_int"], 1.0),
+            LongMotion => (&["qb_sack_press", "qb_batted", "qb_sack"], 1.0),
+            PumpFake => (&["qb_deep_cmp", "qb_ypa"], 1.0),
+            HardCount => (&["dl_off", "qb_epa"], 0.0),
+            BackShoulder => (&["qb_cmp", "rc_cont", "qb_ypa"], 1.0),
+            DucksPickup => (&["rb_pp_lost", "qb_sack", "qb_press"], 1.0),
+            Upright => (&["rb_yaco", "rb_mtf", "rb_ypc"], -1.0),
+            SlowMesh => (&["rb_ybc", "rb_ypc", "rb_stuff"], -1.0),
+            JumpCut => (&["rb_ybc", "rb_stuff", "rb_ypc"], 1.0),
+            StiffArm => (&["rb_mtf", "rb_yaco", "rc_mtf"], 1.0),
+            RoundsBreaks => (&["rc_sep", "rc_catch", "rc_ypt"], -1.0),
+            TipsBreaks => (&["rc_sep", "rc_catch", "rc_ypt"], -1.0),
+            BodyCatcher => (&["rc_drop", "rc_catch", "rc_cont"], 1.0),
+            OneRelease => (&["rc_sep", "rc_catch"], -1.0),
+            ReleasePackage => (&["rc_sep", "rc_catch"], 1.0),
+            LateHands => (&["rc_cont", "rc_catch"], 1.0),
+            SuddenStop => (&["rc_sep", "rc_catch"], 1.0),
+            Oversets => (&["blk_lost_speed", "blk_pass_lost", "blk_sack"], 1.0),
+            CatchesPunch => (&["blk_lost_power", "blk_pass_lost", "blk_sack"], 1.0),
+            OverToes => (&["blk_run_won", "off_ypc"], -1.0),
+            HighPadBlock => (&["blk_run_won", "rb_short", "off_ypc"], -1.0),
+            HeavyClimb => (&["blk_run_won", "off_ypc"], -1.0),
+            RefitsHands => (&["blk_pass_lost", "blk_sack"], -1.0),
+            NoPlan => (&["dl_win", "dl_press", "dl_sack"], -1.0),
+            HighPadRush => (&["def_ypc", "dl_run_shed"], 1.0),
+            ChestBlocker => (&["dl_run_shed", "def_ypc"], -1.0),
+            EyesBackfield => (&["def_ypc", "def_run_succ"], 1.0),
+            RealCounter => (&["dl_win", "dl_press", "dl_sack"], 1.0),
+            LongArm => (&["dl_power_win", "dl_press"], 1.0),
+            Spin => (&["dl_finesse_win", "dl_press"], 1.0),
+            CatchesBlocks => (&["def_ypc", "def_run_succ"], 1.0),
+            Overruns => (&["def_ypc", "tk_run_long"], 1.0),
+            NoDepth => (&["cv_ypt", "cv_cmp"], 1.0),
+            WheelLoss => (&["cv_back_cmp", "cv_ypt"], 1.0),
+            ShockShed => (&["def_ypc", "def_run_succ"], -1.0),
+            AGapRip => (&["def_press", "def_sack"], 1.0),
+            Peeks => (&["cv_ypt", "cv_deep"], 1.0),
+            OpensHips => (&["cv_cmp", "cv_ypt"], 1.0),
+            Lunges => (&["cv_sep", "cv_cmp"], 1.0),
+            NoHands => (&["cv_pbu", "cv_cmp"], -1.0),
+            MirrorPress => (&["cv_sep", "cv_cmp"], -1.0),
+            Bait => (&["cv_int", "cv_cmp"], 1.0),
+            PoorAngles => (&["tk_run_long", "tk_miss", "def_ypc"], 1.0),
+            EyesOnQb => (&["cv_deep", "cv_ypt"], 1.0),
+            LateRotation => (&["def_cmp", "cv_ypt"], 1.0),
+            RobberBait => (&["cv_int", "cv_cmp"], 1.0),
+            PlantDrift => (&["k_fg50", "k_fg40"], -1.0),
+            DropInconsistent => (&["p_net", "p_gross"], -1.0),
+            WetSnaps => (&["bad_snap"], 0.0),
+            CoffinCorner => (&["p_in20", "p_net"], 1.0),
+            OnsideTouch => (&["k_ko_dist"], 0.0),
+            AnkleDiver => (&["tk_miss", "tk_run_long"], 1.0),
+            CarriesLoose => (&["rb_fum"], 1.0),
+        }
+    };
+    Craft::ALL
+        .iter()
+        .map(|&c| {
+            let pos: Vec<Position> = Position::ALL.iter().copied().filter(|p| c.fits(*p)).collect();
+            let id: &'static str = Box::leak(format!("craft_{}", c.index()).into_boxed_str());
+            let (chain, sign) = rows(c);
+            let mut t = t(id, "craft", c.name(), &pos, Kind::Craft(c)).chain(chain).sign(sign);
+            if sign == 0.0 {
+                t = t.note("no row for its situation: wet snaps need rain games, onside kicks and the hard count have no rate of their own");
+            }
+            t
+        })
+        .collect()
 }
 
 fn l_name(l: Link) -> &'static str {
@@ -1286,9 +1371,10 @@ pub fn group_name(g: &str) -> &'static str {
         "st" => "Kicker, punter, snapper, returners",
         "all" => "Every position",
         "links" => "The 12 Dynamic Links",
+        "craft" => "The 56 flaws and tools",
         _ => "Other",
     }
 }
 
-pub const GROUPS: [&str; 14] =
-    ["qb", "rb", "wr", "te", "ot", "iol", "dt", "edge", "lb", "cb", "s", "st", "all", "links"];
+pub const GROUPS: [&str; 15] =
+    ["qb", "rb", "wr", "te", "ot", "iol", "dt", "edge", "lb", "cb", "s", "st", "all", "links", "craft"];
