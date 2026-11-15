@@ -252,3 +252,62 @@ fn asking_the_same_thing_again_wears_his_patience_costs_time_and_buys_no_trust()
     assert!(hours_left(w) < hours - 0.2, "grinding is charged to your week: {hours} -> {}", hours_left(w));
     assert!(trust(&g, him) <= before + 0.05, "asking buys no trust to speak of: {before} -> {}", trust(&g, him));
 }
+
+/// A coach on your staff has the men he coaches on his card (Cain
+/// 2026-11-15), so "work with him" names a man and lands as the "push him"
+/// line his position coach carries out.
+#[test]
+fn a_staff_coachs_card_names_the_men_he_coaches_so_work_with_lands() {
+    use afm_engine::world::folk::Team;
+    use afm_engine::world::folk::persona::Them;
+    use afm_engine::world::folk::persona::ear::Act;
+    use afm_engine::world::folk::persona::terms::Request;
+
+    use super::super::Resolve;
+    use super::super::ear::{Tags, reply};
+    let (mut g, _, him) = game("n7-coached", false);
+    let w = g.world.as_mut().unwrap();
+    let team = Team::seat(w).unwrap();
+    let pos = w.people[afm_engine::world::folk::person(w, him).unwrap()].player.position;
+    let group = afm_engine::world::coach::Group::of(pos);
+    // His position coach, else whoever covers his room.
+    let coach = (0..w.coaches.len())
+        .find(|&k| {
+            w.coaches[k].job.is_some_and(|j| {
+                Team::from_employer(j.employer) == team
+                    && j.role == afm_engine::world::coach::Role::PositionCoach(group)
+            })
+        })
+        .or_else(|| {
+            (0..w.coaches.len()).find(|&k| {
+                w.coaches[k].job.is_some_and(|j| {
+                    Team::from_employer(j.employer) == team
+                        && j.role
+                            == if group.offense() {
+                                afm_engine::world::coach::Role::OffensiveCoordinator
+                            } else {
+                                afm_engine::world::coach::Role::DefensiveCoordinator
+                            }
+                })
+            })
+        })
+        .expect("a coach for his room");
+    let coached = afm_engine::world::folk::talks::coached_by(w, coach);
+    assert!(coached.contains(&him), "he coaches him");
+    let v = ok(&mut g, "people_sitdown", json!({ "coach": coach }));
+    let id = v["id"].as_u64().unwrap() as u32;
+    let w = g.world.as_ref().unwrap();
+    let s = scene_of(&g, id);
+    let room = afm_engine::world::folk::persona::office::room(w, &s).unwrap();
+    let (card, keys) = cards::ear(w, &s, &room, &Parts::today(), "");
+    let tag = keys.people.iter().find(|(_, x)| *x == Them::Player(him)).map(|(t, _)| t.clone()).expect("named");
+    assert!(card.people.iter().any(|p| p.tag == tag && p.text.contains("a player he coaches")), "{:?}", card.people);
+    // "Work with him on his releases" resolves to a man, not to nothing.
+    let said =
+        json!({ "acts": [act("request", "work_with", "none", &tag)], "hits": [], "dodged": false, "not_talk": false });
+    let er = reply(&said).unwrap();
+    let read = Tags { today: w.today, pos: None }.resolve(&er, &keys);
+    assert!(read.acts.contains(&Act::Request(Request::WorkWith(him))), "{:?}", read.acts);
+    // Another club's coach, or nobody's, names no one.
+    assert!(afm_engine::world::folk::talks::coached_by(w, usize::MAX).is_empty());
+}
