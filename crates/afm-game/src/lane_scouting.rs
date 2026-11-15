@@ -458,7 +458,7 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
         // The best and worst of him, from the attributes that matter at his position.
         let mut strong: Vec<(f64, Attr)> = Attr::ALL
             .iter()
-            .filter(|a| f.attrs[a.index()].seen && file::matters(pos, **a) > 0.4)
+            .filter(|a| f.attrs[a.index()].seen && file::matters_here(pos, **a))
             .map(|&a| (f.attrs[a.index()].centre, a))
             .collect();
         strong.sort_by(|a, b| b.0.total_cmp(&a.0));
@@ -527,7 +527,7 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
                         },
                         "chips": r.map_or(Vec::new(), |r| chips(r.chips)),
                         "readers": r.map_or(0, |r| r.readers),
-                        "matters": file::matters(pos, a) > 0.4,
+                        "matters": file::matters_here(pos, a),
                         "per": per,
                     })
                 })
