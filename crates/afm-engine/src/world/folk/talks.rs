@@ -3121,7 +3121,7 @@ fn follow_up(w: &mut World, s: &mut Scene, i: usize) -> bool {
 }
 
 /// The open promise to him that slipped (behind, owed or missed).
-fn slipped(w: &World, id: u32) -> Option<usize> {
+pub fn slipped(w: &World, id: u32) -> Option<usize> {
     use super::promise::State;
     (0..w.folk.promises.len()).rev().find(|&k| {
         let p = &w.folk.promises[k];
@@ -3180,19 +3180,29 @@ fn slipped_picks(w: &World, s: &mut Scene, i: usize) {
     add(PAct::Dodge, "\"Let's see how the week goes.\"", "calm", "He notices a dodge.");
 }
 
-/// Your answer to a follow-up or to an open promise that slipped: it
-/// reshapes the promise and his belief through the part it touches.
-fn promise_act(w: &mut World, s: &mut Scene, i: usize, a: PAct, picked: &Pick) {
+/// What reworking a promise did (`rework`).
+pub struct Reworked {
+    /// The promise is gone: taken back, ended with the real reason, or
+    /// ended by helping him find a place.
+    pub gone: bool,
+    /// His belief in it now (0 when gone).
+    pub belief: f32,
+    /// What happened, in words.
+    pub outcome: Vec<String>,
+    /// The line part his answer takes, when the act names one.
+    pub hear_key: String,
+}
+
+/// Your answer on promise `k` to him: it reshapes the promise and his
+/// belief through the part it touches (the promises design, sections 5 and
+/// 6). The moves list's answers and a typed line that changes a promise
+/// (live talks v3, `persona::talk`) both land here. `bar` is a stat bar
+/// you named, for a stat condition.
+pub fn rework(w: &mut World, i: usize, k: usize, a: PAct, bar: Option<f32>) -> Reworked {
     use super::promise::{By, Cond};
     let id = w.people[i].player.id;
     let name = w.people[i].name.clone();
-    s.you(&scene::your_name(w), picked.label.clone());
-    let slip = matches!(a, PAct::Deliver | PAct::Real | PAct::NewDate | PAct::NewCond | PAct::Help | PAct::Dodge);
-    let k = if slip { slipped(w, id) } else { super::promise::fresh(w, id) };
-    let Some(k) = k else {
-        add_picks(w, s, i, Topic::of(s.b), &[]);
-        return;
-    };
+    let mut out: Vec<String> = Vec::new();
     let before = w.folk.promises[k].clone();
     let old_pull = super::promise::portal_pull(w, i, &before);
     let ego = w.people[i].player.personality.traits.z(Trait::Ego).clamp(0.0, 1.5) as f32;
@@ -3225,7 +3235,7 @@ fn promise_act(w: &mut World, s: &mut Scene, i: usize, a: PAct, picked: &Pick) {
                 let (fair, high) = super::promise::bars(w, i, before.kind, st, t.by);
                 t.cond = Cond::Stat;
                 t.stat = st;
-                t.bar = if a == PAct::BarFair { fair } else { high };
+                t.bar = bar.unwrap_or(if a == PAct::BarFair { fair } else { high });
             }
         }
         PAct::Practice => t.cond = Cond::Practice,
@@ -3266,7 +3276,7 @@ fn promise_act(w: &mut World, s: &mut Scene, i: usize, a: PAct, picked: &Pick) {
             t.by = By::Now;
             let b = &mut w.folk.promises[k].belief;
             *b = (*b + 0.1).min(0.97);
-            s.outcome.push(format!("{name} goes to the top of your depth chart at his spot."));
+            out.push(format!("{name} goes to the top of your depth chart at his spot."));
         }
         PAct::Real => {
             // The real reason, a true fact: it ends here, judged on what
@@ -3299,7 +3309,7 @@ fn promise_act(w: &mut World, s: &mut Scene, i: usize, a: PAct, picked: &Pick) {
             if super::promise::State::of(before.state) == super::promise::State::Owed {
                 let q = &mut w.people[i];
                 q.trust = (q.trust - super::promise::GOALPOSTS - 0.04 * ego).max(0.0);
-                s.outcome.push(format!("{name} hears the goalposts moved."));
+                out.push(format!("{name} hears the goalposts moved."));
             }
             t.cond = Cond::Practice;
         }
@@ -3351,6 +3361,57 @@ fn promise_act(w: &mut World, s: &mut Scene, i: usize, a: PAct, picked: &Pick) {
             q.cal.lean_events.push((today, "his head coach's promise, reshaped", f));
         }
     }
+    Reworked { gone, belief, outcome: out, hear_key }
+}
+
+/// The answer a typed line that changes promise `k` is (live talks v3's
+/// `amend` act), with a stat bar you named: on a promise that slipped,
+/// section 6's answers (the real reason, a new date, a new condition);
+/// on one that hasn't, the follow-ups (a date, a condition, in writing).
+/// Taking it back is the same either way. None when the line names no
+/// change the game can make.
+pub fn amend_act(w: &World, i: usize, k: usize, a: &super::persona::ear::Amend) -> Option<(PAct, Option<f32>)> {
+    use super::persona::ear::AmendHow as H;
+    let slip = slipped(w, w.people[i].player.id) == Some(k);
+    Some(match a.how {
+        H::TakeBack => (PAct::TakeBack, None),
+        H::Reason => (PAct::Real, None),
+        H::Writing => (PAct::Writing, None),
+        H::Later if slip => (PAct::NewDate, None),
+        H::Later => match a.by.as_str() {
+            "midseason" => (PAct::Midseason, None),
+            "next_season" => (PAct::NextSeason, None),
+            _ => (PAct::NewDate, None),
+        },
+        H::Condition if slip => (PAct::NewCond, None),
+        H::Condition => match a.condition.as_str() {
+            "stat" => (PAct::BarFair, a.bar),
+            "practice" => (PAct::Practice, None),
+            "conduct" => (PAct::Conduct, None),
+            "grades" => (PAct::Grades, None),
+            "body" => (PAct::Weight, None),
+            "health" => (PAct::Health, None),
+            _ => return None,
+        },
+    })
+}
+
+/// Your answer to a follow-up or to an open promise that slipped: it
+/// reshapes the promise and his belief through the part it touches.
+fn promise_act(w: &mut World, s: &mut Scene, i: usize, a: PAct, picked: &Pick) {
+    use super::promise::Cond;
+    let id = w.people[i].player.id;
+    let name = w.people[i].name.clone();
+    s.you(&scene::your_name(w), picked.label.clone());
+    let slip = matches!(a, PAct::Deliver | PAct::Real | PAct::NewDate | PAct::NewCond | PAct::Help | PAct::Dodge);
+    let k = if slip { slipped(w, id) } else { super::promise::fresh(w, id) };
+    let Some(k) = k else {
+        add_picks(w, s, i, Topic::of(s.b), &[]);
+        return;
+    };
+    let r = rework(w, i, k, a, None);
+    s.outcome.extend(r.outcome);
+    let (gone, belief, mut hear_key) = (r.gone, r.belief, r.hear_key);
     // His answer: by how he heard a condition, else by belief.
     let fair = if gone { 0 } else { w.folk.promises[k].terms.fair };
     if hear_key.is_empty() {
