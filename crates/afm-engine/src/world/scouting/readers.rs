@@ -648,6 +648,8 @@ pub fn read(w: &World, staff: Staff, id: u32) -> Option<(Vec<Reader>, Vec<Eviden
     if seat_staff(w) == Some(staff) {
         super::own::interview_traits(w, id, &mut f.traits);
         super::own::source_traits(w, id, &mut f.traits);
+        // The whiteboard's read of his football mind (live talks N5e).
+        crate::world::folk::persona::draft::whiteboard::file(w, id, &mut f);
     }
     Some((readers, looks, f))
 }

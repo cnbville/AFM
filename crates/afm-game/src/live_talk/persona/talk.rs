@@ -40,10 +40,13 @@ use crate::{Game, Reply};
 pub const WAIT_TTL: Duration = Duration::from_secs(900);
 
 /// Whether a scene's typed lines play as a v3 talk: your one-on-ones, the
-/// meetings with the people in your building (lane N5c) and the
-/// negotiation calls (lane N5b).
+/// meetings with the people in your building (lane N5c), the draft side's
+/// talks (lane N5e) and the negotiation calls (lane N5b). The interview
+/// rooms keep lane 6's typed path, where a typed question lands on its own
+/// chip (a flagged worry included).
 pub fn plays(g: &Game, s: &Scene) -> bool {
-    g.ai.persona_talks && (s.kind == Kind::OneOnOne || office::plays(s.kind) || negotiate::is_call(s))
+    g.ai.persona_talks
+        && (matches!(s.kind, Kind::OneOnOne | Kind::DraftTalk) || office::plays(s.kind) || negotiate::is_call(s))
 }
 
 /// The room a scene's talk is held in: the open talk's, else the one its
@@ -57,10 +60,28 @@ pub fn room_of(w: &World, s: &Scene) -> Room {
 }
 
 /// The parts a scene's talk is played with: lane N5c's for the people in
-/// your building, else lane N1's people and lane N3's deals and requests
-/// under a negotiation's own (lane N5b, `negotiate::Played`).
+/// your building, lane N5e's for the draft side, else lane N1's people and
+/// lane N3's deals and requests under a negotiation's own (lane N5b,
+/// `negotiate::Played`).
 pub fn parts_for<'a>(s: &Scene, played: &'a Played) -> Parts<'a> {
-    if office::plays(s.kind) { office::parts() } else { played.parts() }
+    if office::plays(s.kind) || s.kind == Kind::DraftTalk { parts_of(s.kind) } else { played.parts() }
+}
+
+/// `parts_for` by the scene's kind.
+fn parts_for_kind(kind: Kind, played: &Played) -> Parts<'_> {
+    if office::plays(kind) || kind == Kind::DraftTalk { parts_of(kind) } else { played.parts() }
+}
+
+/// The lanes' own parts by the scene's kind (lanes N5c and N5e), else lane
+/// N1's people and lane N3's deals and requests.
+pub fn parts_of(kind: Kind) -> Parts<'static> {
+    if office::plays(kind) {
+        office::parts()
+    } else if kind == Kind::DraftTalk {
+        afm_engine::world::folk::persona::draft::facet::parts()
+    } else {
+        parts()
+    }
 }
 
 /// What waits on your confirm, by ticket, and how each typed line was
@@ -396,9 +417,10 @@ fn run(w: &mut World, scene: u32, him: Them, c: &Confirm) -> Vec<String> {
         Some(s) => Played::new(w, s),
         None => Played::of(negotiate::Facet::None),
     };
+    let kind = w.folk.scenes.iter().find(|s| s.id == scene).map_or(Kind::OneOnOne, |s| s.kind);
     match c {
         Confirm::Request(r) => {
-            let ran = played.parts().acting.run(w, him, r);
+            let ran = parts_for_kind(kind, &played).acting.run(w, him, r);
             ran.done
         }
         Confirm::Offer(o) => {

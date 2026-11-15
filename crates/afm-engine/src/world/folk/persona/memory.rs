@@ -224,6 +224,9 @@ pub struct Memory {
     pub anchors: Vec<Anchor>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub watch: Vec<Watch>,
+    /// The draft side's stores (lane N5e, `draft::Book`).
+    #[serde(skip_serializing_if = "super::draft::Book::is_empty")]
+    pub draft: super::draft::Book,
     /// Contract offers sent to your own pro's agent, until he calls back,
     /// and the deals he called back to say yes to, until you answer on his
     /// call (lane N5b).
@@ -259,5 +262,6 @@ impl Memory {
             && self.anchors.is_empty()
             && self.watch.is_empty()
             && self.ready.is_empty()
+            && self.draft.is_empty()
     }
 }

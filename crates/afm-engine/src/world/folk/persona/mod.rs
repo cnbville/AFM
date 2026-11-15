@@ -41,6 +41,8 @@
 
 pub mod asks;
 pub mod deals;
+// Lane N5e, scouting and the draft.
+pub mod draft;
 pub mod ear;
 pub mod fake;
 pub mod knows;

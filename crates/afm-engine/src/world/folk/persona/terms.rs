@@ -292,6 +292,12 @@ pub enum Request {
     NotOurDivision(u32),
     /// A scout: a trip, a file, a question to find out (question 10).
     Scout(u32),
+    /// Your scout or security director: find this out about him (lane N5e).
+    FindOut(u32, super::knows::Topic),
+    /// A prospect in your interview room: go to the whiteboard (lane N5e).
+    Whiteboard,
+    /// A GM or an agent: plant word that you like this man (lane N5e).
+    Plant(u32),
     /// A coordinator: a plan setting, by the plan's own key.
     Plan(String),
     /// An assistant: target or call a recruit.

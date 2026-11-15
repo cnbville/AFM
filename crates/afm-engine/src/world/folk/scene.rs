@@ -85,6 +85,10 @@ pub enum Kind {
     /// another club's GM, a prospect in the undrafted rush, or an agent
     /// calling back (`Scene.b`, `persona::negotiate`).
     Negotiation,
+    /// The draft side's talks (lane N5e, `persona::draft::scene`): his
+    /// family, your security director, a scout, a pro scout, the draft
+    /// room, a rival GM, the draft-day call.
+    DraftTalk,
     // Live talks v3, lane N5c: staff, bosses and money.
     /// A sit-down you call with someone in your building: an assistant, the
     /// team doctor, the academic or compliance director, a booster
@@ -162,6 +166,7 @@ impl Kind {
             Kind::RecruitMessage => "A message to a recruit",
             Kind::FamilyCall => "His family calls",
             Kind::OfficialTalk => "Official visit: your case",
+            Kind::DraftTalk => "The draft side",
             Kind::Sitdown => "A sit-down",
             Kind::Reference => "A reference call",
         }
@@ -830,7 +835,8 @@ fn log_scene(w: &mut World, s: &Scene) {
         | Kind::RecruitCall
         | Kind::RecruitMessage
         | Kind::FamilyCall
-        | Kind::OfficialTalk => "recruiting",
+        | Kind::OfficialTalk
+        | Kind::DraftTalk => "recruiting",
         Kind::JobInterview => "network",
         Kind::StaffMeeting | Kind::Sitdown | Kind::Reference => "staff",
         _ => "place",
@@ -863,6 +869,7 @@ fn dispatch_open(w: &mut World, s: &mut Scene) {
         | Kind::RecruitMessage
         | Kind::FamilyCall
         | Kind::OfficialTalk => super::dialogue::open(w, s),
+        Kind::DraftTalk => super::persona::draft::scene::open(w, s),
         Kind::Sitdown | Kind::Reference => super::persona::office::open(w, s),
         _ => super::takeover::open(w, s),
     }
@@ -893,6 +900,7 @@ fn dispatch_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         | Kind::RecruitMessage
         | Kind::FamilyCall
         | Kind::OfficialTalk => super::dialogue::answer(w, s, code, picked),
+        Kind::DraftTalk => super::persona::draft::scene::answer(w, s, code),
         Kind::Sitdown | Kind::Reference => super::persona::office::answer(w, s, code, picked),
         _ => super::takeover::answer(w, s, code, picked),
     }
@@ -923,6 +931,7 @@ fn dispatch_hand(w: &mut World, s: &mut Scene) {
         | Kind::RecruitMessage
         | Kind::FamilyCall
         | Kind::OfficialTalk => super::dialogue::hand(w, s),
+        Kind::DraftTalk => super::persona::draft::scene::hand(w, s),
         Kind::Sitdown | Kind::Reference => super::persona::office::hand(w, s),
         _ => super::takeover::hand(w, s),
     }
