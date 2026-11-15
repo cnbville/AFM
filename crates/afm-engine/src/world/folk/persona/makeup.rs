@@ -379,10 +379,11 @@ fn drawn_makeup(w: &World, him: Them) -> Makeup {
     }
 }
 
-/// Whether this player's trust in his head coach is his trust in you:
-/// you coach him now.
+/// Whether this player's trust in his head coach is his trust in you: he
+/// is on your team. (His `trust_in` can lag a day behind a change of
+/// coach; the team he's on can't.)
 pub fn coached_by_you(w: &World, i: usize) -> bool {
-    your_coach(w).is_some_and(|c| w.people[i].trust_in as usize == c) && team_of(w, i) == Team::seat(w)
+    your_coach(w).is_some() && Team::seat(w).is_some_and(|t| team_of(w, i) == Some(t))
 }
 
 /// His trust in you, 0-1, from the store that keeps it: a player's trust

@@ -39,9 +39,11 @@ use crate::{Game, Reply};
 pub const WAIT_TTL: Duration = Duration::from_secs(900);
 
 /// Whether a scene's typed lines play as a v3 talk: your one-on-ones, and
-/// the draft side's rooms (lane N5e: a combine interview, the draft talks).
+/// the draft side's talks (lane N5e). The interview rooms keep lane 6's
+/// typed path, where a typed question lands on its own chip (a flagged
+/// worry included).
 pub fn plays(g: &Game, s: &Scene) -> bool {
-    g.ai.persona_talks && matches!(s.kind, Kind::OneOnOne | Kind::CombineTalk | Kind::DraftTalk)
+    g.ai.persona_talks && matches!(s.kind, Kind::OneOnOne | Kind::DraftTalk)
 }
 
 /// What waits on your confirm, by ticket, and how each typed line was
