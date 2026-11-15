@@ -2713,10 +2713,6 @@ fn plan_count(target: f64, now: f64, staying: f64) -> usize {
     this_year.max(ahead).max(0.0) as usize
 }
 
-/// The most scholarship signees a class takes under the House roster limit
-/// (part D 10; proposed, not confirmed).
-const HOUSE_CLASS_MAX: usize = 30;
-
 /// A signing a class plan counts at the new school: signed and not yet
 /// enrolled there. A junior college player who signed with a four-year
 /// school stays on his old roster until he enrolls; he counts at the
@@ -2851,11 +2847,11 @@ fn class_plan(
         .sum();
     plan.walk_on_room = under + outside;
     // The era's yearly signing cap (11.4) bounds the class. Under the
-    // House roster limit the new places fill over several classes, through
-    // walk-ons and the portal; a high school class stays near its usual
-    // size (part D 10: real 2025 and 2026 classes stayed about 20-30).
-    let usual = if whole_roster { HOUSE_CLASS_MAX } else { usize::MAX };
-    plan.slots = (room - under).min(signees.saturating_sub(signed_class)).min(usual.saturating_sub(signed_class));
+    // House roster limit there is none (`ncaa::roster_limits`): the 105 is
+    // the only bound, so the class is the holes at each position
+    // (`plan_count`) within the room, as a real staff's is (realism audit
+    // item 13, Cain 2026-11-15). Before, a class stopped at 30 there.
+    plan.slots = (room - under).min(signees.saturating_sub(signed_class));
     // Under the House limit the places the class can't fill go to
     // walk-ons on partial aid or none, signed in the final period after
     // the January portal window has had its turn (proposed, not
@@ -8479,14 +8475,14 @@ fn suitors(
             let room = counted[j] + today_adds[j] + 5 <= limit;
             let deep = if room { 3 } else { 2 };
             let wanted = ahead < deep * slots || (mk.open[j][k] > 0 && perf > mk.backups_best[j][k]);
-            // An AI staff stops at ten transfers a cycle, a stand-in from
-            // the world's first build. Under the House whole-roster limit
-            // it takes them up to its open places instead: one January
-            // window is the whole year there, and its roster lost about
-            // 28 men to the portal, so ten left the rest to a February
-            // high school bulge (minor bug 384's lane, Cain 2026-11-14).
-            let capped = mk.adds[j] >= 10 && !super::ncaa::whole_roster_limit(&wr.programs[j], season);
-            if (!wanted && bond == 0.0) || j == c || capped || counted[j] + today_adds[j] >= limit {
+            // No count of transfers stops a staff: only its places under
+            // the roster limit and whether he'd make its two-deep (realism
+            // audit item 11, Cain 2026-11-15: "if there are no boundaries,
+            // there are no boundaries"). Before, an AI staff stopped at ten
+            // a cycle until the House limit, a stand-in from the world's
+            // first build; real portal-heavy programs took 20-30 a cycle in
+            // 2022-24, Colorado about 50 in 2023.
+            if (!wanted && bond == 0.0) || j == c || counted[j] + today_adds[j] >= limit {
                 return None;
             }
             // A Division II, NAIA or Division III staff works the portal
