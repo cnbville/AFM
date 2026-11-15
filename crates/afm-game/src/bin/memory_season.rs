@@ -170,7 +170,7 @@ fn main() {
         }
     }
     loop {
-        let r = g.call("continue", &json!({})).expect("continue");
+        let r = g.call("continue", &json!({ "staff": true })).expect("continue");
         // The draft live from your chair (lane 7): the staff picks, then the rush.
         if r["studio"]["screen"] == json!("warroom") {
             line("war room open", &t);

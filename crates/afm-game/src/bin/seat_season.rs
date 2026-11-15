@@ -1260,7 +1260,7 @@ fn main() {
             let day0 = g.world.as_ref().map(|w| w.today.0).unwrap_or_default();
             // AFM_SEAT_CMD=day plays whole days without the section stops,
             // to weigh what the stops themselves cost.
-            let r = run.call(&mut g, step_cmd.as_str(), json!({}));
+            let r = run.call(&mut g, step_cmd.as_str(), json!({ "staff": true }));
             let e = by_day.entry(day0).or_default();
             e.0 += tc.elapsed().as_secs_f64();
             e.1 += 1;

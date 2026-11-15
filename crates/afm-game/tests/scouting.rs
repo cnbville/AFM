@@ -52,7 +52,7 @@ fn an_nfl_war_room_runs_the_draft() {
     // The first morning (the day after the Super Bowl, before it runs)
     // already reads this April's order.
     let first_morning = ok(&mut g, "draft_board", json!({}))["picks"].clone();
-    ok(&mut g, "continue", json!({}));
+    ok(&mut g, "continue", json!({ "staff": true }));
     assert_eq!(ok(&mut g, "draft_board", json!({}))["picks"], first_morning, "the first morning's draft order");
     // The department and the public's word.
     let dept = ok(&mut g, "scouting", json!({}));
@@ -98,7 +98,7 @@ fn an_nfl_war_room_runs_the_draft() {
     }
     // Your first pick may come on a later night: Continue on to it.
     while ok(&mut g, "draft_live", json!({}))["waiting"] == json!(true) && steps < 340 {
-        ok(&mut g, "continue", json!({}));
+        ok(&mut g, "continue", json!({ "staff": true }));
         steps += 1;
     }
     let room = ok(&mut g, "draft_live", json!({}));
@@ -106,7 +106,7 @@ fn an_nfl_war_room_runs_the_draft() {
     println!("to the draft in {:.0}s", t.elapsed().as_secs_f64());
     // Continue doesn't move past an open war room, and sends you to it.
     let before = ok(&mut g, "status", json!({}));
-    let r = ok(&mut g, "continue", json!({}));
+    let r = ok(&mut g, "continue", json!({ "staff": true }));
     assert_eq!(r["studio"]["screen"], json!("warroom"));
     assert_eq!(ok(&mut g, "status", json!({}))["date"], before["date"]);
     // The pre-draft page and the public's boards are there.
@@ -135,7 +135,7 @@ fn an_nfl_war_room_runs_the_draft() {
     while room["live"].as_bool().unwrap() && !room["rush"].as_bool().unwrap() && guard < 120 {
         if room["waiting"] == json!(true) {
             // Between the draft's nights: the clock runs on to the next.
-            ok(&mut g, "continue", json!({}));
+            ok(&mut g, "continue", json!({ "staff": true }));
             room = ok(&mut g, "draft_live", json!({}));
         } else if room["on_clock"].as_bool().unwrap() {
             if !traded && !room["offers"].as_array().unwrap().is_empty() {
