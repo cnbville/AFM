@@ -70,7 +70,7 @@ fn each_kind_is_read_from_where_the_world_holds_him() {
     w.people[t].cal.portal = Some(crate::world::PortalEntry {
         entered: w.today,
         decide_by: w.today.add(30),
-        why: "playing time".into(),
+        why: "playing time",
         held: false,
         looking: false,
     });

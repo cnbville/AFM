@@ -657,9 +657,7 @@ fn market(w: &World, him: Them, i: usize, about: Option<Them>, m: &Makeup, s: &S
     for pd in w.market.pending.iter().filter(|x| x.person == i) {
         let from = if s.own {
             Source::Himself
-        } else if s.agent || s.family {
-            Source::Job
-        } else if gm_of(pd.offer.team) {
+        } else if s.agent || s.family || gm_of(pd.offer.team) {
             Source::Job
         } else {
             continue;
