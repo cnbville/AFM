@@ -523,3 +523,7 @@ mod recruit_tests;
 #[cfg(test)]
 #[path = "n7_tests.rs"]
 mod n7_tests;
+
+#[cfg(test)]
+#[path = "stake_tests.rs"]
+mod stake_tests;

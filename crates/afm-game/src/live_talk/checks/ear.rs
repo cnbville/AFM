@@ -183,7 +183,7 @@ fn act_fits(a: &Value, want: &ActLabel) -> bool {
 fn hit_fits(h: &Value, want: &HitLabel) -> bool {
     let on = field(h, "on");
     let on = if on.is_empty() { "p1" } else { on };
-    field(h, "item") == want.item
+    is(&want.item, field(h, "item"))
         && want.how.as_deref().is_none_or(|w| is(w, field(h, "how")))
         && want.on.as_deref().is_none_or(|w| is(w, on))
 }
@@ -288,7 +288,7 @@ pub(crate) fn perfect(l: &EarLine) -> Value {
         .hits
         .iter()
         .map(|h| {
-            json!({ "on": h.on.clone().unwrap_or_default(), "item": h.item,
+            json!({ "on": h.on.clone().unwrap_or_default(), "item": h.item.split('|').next().unwrap_or(""),
                 "how": h.how.as_deref().and_then(|x| x.split('|').next()).unwrap_or("reassured") })
         })
         .collect();
@@ -367,7 +367,9 @@ mod tests {
                     }
                 }
                 for h in &l.hits {
-                    assert!(set.has_item(&h.item), "{ctx}: item {}", h.item);
+                    for item in h.item.split('|') {
+                        assert!(set.has_item(item), "{ctx}: item {item}");
+                    }
                     for how in h.how.iter().flat_map(|x| x.split('|')) {
                         assert!(hows.iter().any(|x| x == how), "{ctx}: how {how}");
                     }
