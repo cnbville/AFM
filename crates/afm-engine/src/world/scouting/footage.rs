@@ -285,7 +285,7 @@ fn high_school(w: &World, i: usize, pos: Position, f: &mut Footage) {
         f.snaps += l.get(H::SnapsOff) + l.get(H::SnapsDef);
         f.role[DROPBACKS] += l.get(H::Att);
         f.role[CARRIES] += l.get(H::Rush);
-        f.role[ROUTES] += 6.0 * l.get(H::Rec);
+        f.role[ROUTES] += hs_routes(w.high_schools.get(l.school as usize), &p.player, l);
         f.role[KICKS] += l.get(H::FgAtt) + l.get(H::XpMade);
         games += l.games as f64;
         prod += match pos {
@@ -303,6 +303,58 @@ fn high_school(w: &World, i: usize, pos: Position, f: &mut Footage) {
     if games > 0.0 {
         f.dom = clamp((prod / games - 0.7) / 0.5, 0.0, 1.5);
     }
+}
+
+/// A high school season's pass share where his school's isn't kept (a
+/// world saved before it): the engine's high school average, attempts over
+/// attempts and carries (1,280 synthetic high school games).
+pub const HS_PASS_SHARE: f64 = 0.42;
+
+/// Routes a man at each offensive spot runs for each of his high school
+/// offensive snaps on a pass play, from the engine's own counts (his routes
+/// over his offensive snaps times his team's pass share, the passes and
+/// carries a box score counts; a sack or scramble still had his route): a
+/// receiver is out on nearly every pass play and on the field more when the
+/// offense throws, a tight end or back stays in to block on some (1,280
+/// synthetic high school games). Linemen and quarterbacks run none.
+fn route_rate(pos: Position) -> f64 {
+    match pos {
+        Position::WR => 1.06,
+        Position::TE => 0.73,
+        Position::RB => 0.90,
+        _ => 0.0,
+    }
+}
+
+/// The offensive spot a season's snaps were at: his line's own, or for a
+/// defender who also played offense (small schools play their best
+/// athletes both ways) the skill spot he fits best.
+fn offense_spot(player: &crate::player::Player, pos: Position) -> Position {
+    use Position::*;
+    if matches!(pos, QB | RB | WR | TE | OT | IOL) || pos.is_specialist() {
+        return pos;
+    }
+    [RB, WR, TE]
+        .into_iter()
+        .max_by(|&a, &b| {
+            crate::positions::overall_for(a, &player.attributes)
+                .total_cmp(&crate::positions::overall_for(b, &player.attributes))
+        })
+        .unwrap_or(WR)
+}
+
+/// His routes in a high school season (Cain 2026-11-15): the line keeps no
+/// route count, so his offensive snaps on his school's pass plays at his
+/// spot's route rate, and never fewer than his catches.
+pub(crate) fn hs_routes(
+    school: Option<&crate::world::high_school::HighSchool>,
+    player: &crate::player::Player,
+    l: &crate::world::hs_year::HsLine,
+) -> f64 {
+    use crate::world::hs_year::HsStat as H;
+    let share = school.and_then(|h| h.pass_share(l.year as i32)).unwrap_or(HS_PASS_SHARE);
+    let rate = route_rate(offense_spot(player, l.pos));
+    (l.get(H::SnapsOff) * share * rate).max(l.get(H::Rec))
 }
 
 /// SK1: how far a film look can narrow a read (a multiple of its misread).
