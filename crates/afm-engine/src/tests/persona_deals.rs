@@ -329,3 +329,18 @@ fn offers_decisions_and_costly_asks_wait_for_your_confirm() {
     let c = asks::confirm(&Act::Request(Request::Position(2))).unwrap();
     assert!(c.words().starts_with("Ask him: move to"));
 }
+
+#[test]
+fn deals_read_lane_n1s_people() {
+    use crate::world::folk::persona::people::People;
+    let (mut w, p) = college();
+    let i = own(&mut w, p, &[], 0.6);
+    let him = Them::Player(w.people[i].player.id);
+    let d = Deals { wants: &People };
+    // His wants are N1's, and a leaver with nothing on the table says what
+    // would keep him, or no.
+    assert!(!crate::world::folk::persona::wants::Wanting::wants(&People, &w, him).is_empty());
+    assert!(matches!(d.weigh(&w, him, &Offer::default()), Weighed::Counter(_) | Weighed::No));
+    let more = Offer { gives: vec![Give::Role(0), Give::Stay, Give::Council], ..Default::default() };
+    assert!(deals::lean_after(&w, &d, him, &more).unwrap() < 0.6);
+}
