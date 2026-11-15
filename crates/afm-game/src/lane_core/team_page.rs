@@ -48,7 +48,7 @@ const NEED_POS: [Position; 11] = {
 };
 
 /// The read that judges a player here, and whose it is.
-fn judged(w: &World, k: usize, own: bool) -> (Read, &'static str) {
+pub(super) fn judged(w: &World, k: usize, own: bool) -> (Read, &'static str) {
     match reads::mine(w, k) {
         r @ Read::Range(..) => (r, "yours"),
         Read::NotSeen => match reads::overall(w, k) {
@@ -394,7 +394,10 @@ pub fn blocks(w: &World, t: TeamRef, v: &mut Value) {
     if matches!(t, TeamRef::Other(_)) {
         return;
     }
-    v["key_players"] = json!(key_players(w, t));
+    // A school's three to know first come with the rest of its middle.
+    if !matches!(t, TeamRef::HighSchool(_)) {
+        v["key_players"] = json!(key_players(w, t));
+    }
     v["units"] = units(w, t);
     v["table"] = table(w, t);
     v["coming"] = json!(crate::lane_data::teams::coming_games(w, t, 4));
@@ -405,6 +408,7 @@ pub fn blocks(w: &World, t: TeamRef, v: &mut Value) {
             let s = &w.high_schools[h];
             v["roster_count"] = json!(s.roster.len());
             v["alive"] = json!(w.hs_alive(h));
+            v["hs"] = super::team_page_hs::books(w, h);
         }
         TeamRef::Other(_) => {}
     }

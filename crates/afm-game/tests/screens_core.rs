@@ -277,6 +277,31 @@ fn titles_keep_the_level_they_were_won_at() {
     }
     assert!(page["books"]["needs"].is_array() && page["books"]["portal"]["in"].is_number(), "{}", page["books"]);
     assert!(page["seasons"].as_array().unwrap().iter().all(|s| s["w"].is_number()), "{}", page["seasons"]);
+    // A high school's page is read as a recruiter reads it: the three to
+    // know first with where each stands with you, the classes as dots, the
+    // rest of the roster, where its players go and its coach.
+    let hs_id = g
+        .world
+        .as_ref()
+        .unwrap()
+        .people
+        .iter()
+        .find(|x| x.stage == afm_engine::world::Stage::HighSchool)
+        .map(|x| x.hs)
+        .unwrap();
+    let school = ok(&mut g, "team_page", json!({ "kind": "hs", "id": hs_id }));
+    let hs = &school["hs"];
+    assert!(hs["prospects"].as_array().is_some_and(|k| !k.is_empty() && k.len() <= 3), "{hs}");
+    // No career here, so no college seat: he sees each man's own college interest.
+    assert_eq!(hs["college_seat"], false, "{hs}");
+    for pr in hs["prospects"].as_array().unwrap().iter().chain(hs["rest"].as_array().unwrap()) {
+        assert!(pr["read"].is_array() && pr["stand"].is_string(), "{pr}");
+        assert!(["mine", "visited", "none", "away"].contains(&pr["kind"].as_str().unwrap()), "{pr}");
+    }
+    let dots: usize = hs["classes"].as_array().unwrap().iter().map(|c| c["dots"].as_array().unwrap().len()).sum();
+    assert_eq!(dots, hs["judged"].as_u64().unwrap() as usize, "every judged player is a dot: {hs}");
+    assert!(hs["places"]["nfl"].is_number() && hs["places"]["rows"].is_array(), "{}", hs["places"]);
+    assert!(school["key_players"].is_null(), "a school's three come with its middle");
     let jobs = ok(&mut g, "jobs", json!({ "level": "college" }));
     let job = jobs["jobs"].as_array().unwrap().iter().find(|j| j["ref"]["id"] == p).unwrap();
     assert_eq!(job["titles_text"], format!("{n} FCS titles"), "{job}");
