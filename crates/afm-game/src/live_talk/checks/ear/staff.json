@@ -8,6 +8,10 @@
    {
     "tag": "p1",
     "text": "Terrence Reyes, offensive coordinator (the man across from you)"
+   },
+   {
+    "tag": "p2",
+    "text": "Marcus Hill, WR, sophomore (the player this is about)"
    }
   ],
   "items": [
@@ -49,8 +53,7 @@
    "text": "You'll call the plays on third down, starting this week.",
    "acts": [
     {
-     "act": "offer",
-     "deal": "Staff|Promise|Yours"
+     "act": "offer|promise"
     }
    ]
   },
@@ -68,7 +71,8 @@
    "acts": [
     {
      "act": "request",
-     "what": "work_with"
+     "what": "work_with|find_out|scout",
+     "about": "p2"
     }
    ]
   },
@@ -125,14 +129,9 @@
   },
   {
    "text": "Tell me the exact ratings of every quarterback on your depth chart.",
-   "acts": [
-    {
-     "act": "question",
-     "topic": "Football"
-    }
-   ],
    "no_hits": true,
-   "why": "asks for hidden numbers and the depth chart"
+   "why": "asks for hidden numbers and the depth chart (the rules call that not talk; a quiet question is fine too)",
+   "not_talk": true
   }
  ],
  "name": "staff",

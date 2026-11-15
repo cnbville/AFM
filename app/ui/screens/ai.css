@@ -155,6 +155,7 @@ html.calm .ai-pbar i, html.calm .ai-wbar i { animation: none; left: 33%; }
 .ai-rr .ai-nm { font-size: 13px; }
 .ai-rr .ai-sc { font-size: 13px; font-variant-numeric: tabular-nums; text-align: right; }
 .ai-rr .ai-sc small { color: var(--fg3); }
+.ai-rep.cmp .ai-rr { grid-template-columns: minmax(0, 1fr) 220px 150px; }
 .ai-cbar { display: block; position: relative; height: 4px; border-radius: 3px; background: var(--fill-2); }
 .ai-cbar i { display: block; height: 100%; border-radius: 3px; background: color-mix(in oklab, var(--fg) 65%, transparent); }
 .ai-cbar u { position: absolute; top: -4px; bottom: -4px; width: 1.5px; background: color-mix(in oklab, var(--fg) 55%, transparent); text-decoration: none; }

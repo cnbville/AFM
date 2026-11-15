@@ -128,13 +128,24 @@ pub fn grade(reply: &Value, card_text: &str, line: &VoiceLine) -> Result<(), Str
     let said = reply.get("line").and_then(Value::as_str).ok_or("no line came back")?;
     let said = filter::check(said, card_text).map_err(|d| format!("the filter would drop it: {d:?}"))?;
     let low = said.to_lowercase();
-    if let Some(w) = line.forbid.iter().find(|w| low.contains(w.as_str())) {
+    if let Some(w) = line.forbid.iter().find(|w| says(&low, w)) {
         return Err(format!("said \"{w}\""));
     }
     if !line.must_any.is_empty() && !line.must_any.iter().any(|w| low.contains(w.as_str())) {
         return Err("didn't say what the game released".into());
     }
     Ok(())
+}
+
+/// Whether a reply (lower case) says a forbidden word or phrase: as a
+/// whole word ("an ai" is not "an aim", "bluff" not "bluffing"), or
+/// anywhere for a sign with no letters in it ("$", "%").
+fn says(low: &str, w: &str) -> bool {
+    if !w.chars().any(char::is_alphanumeric) {
+        return low.contains(w);
+    }
+    let word = |c: Option<char>| c.is_some_and(char::is_alphanumeric);
+    low.match_indices(w).any(|(k, _)| !word(low[..k].chars().next_back()) && !word(low[k + w.len()..].chars().next()))
 }
 
 #[cfg(test)]
@@ -146,9 +157,9 @@ mod tests {
     #[test]
     fn the_cases_parse_and_every_card_is_words_only() {
         let cases = cases();
-        assert_eq!(cases.len(), 3);
+        assert_eq!(cases.len(), 5);
         let lines: usize = cases.iter().map(|c| c.lines.len()).sum();
-        assert!(lines >= 15, "{lines}");
+        assert!(lines >= 21, "{lines}");
         for c in &cases {
             for l in &c.lines {
                 let text = c.card.card(&l.text).text();
@@ -180,5 +191,21 @@ mod tests {
         // A number the coach put in his own line is on the card, so the filter lets it; the label catches it.
         assert_eq!(grade(&say("I'd say I'm a 99, Coach."), &text(nine), nine), Err("said \"99\"".into()));
         assert!(grade(&json!({}), &text(classes), classes).is_err());
+        // A forbidden word counts whole: "the system" and "an aim" are football talk, not the game's insides.
+        let act = case.lines.iter().find(|l| l.text.starts_with("Drop the act")).unwrap();
+        assert!(grade(&say("I'm still learning the system, and my aim is to play."), &text(act), act).is_ok());
+        assert!(grade(&say("I'm an AI, Coach."), &text(act), act).is_err());
+    }
+
+    #[test]
+    fn a_lie_is_held_without_tripping_on_its_own_words() {
+        let case = cases().into_iter().find(|c| c.name == "liar").unwrap();
+        // The game's lie carries his words only, never the truth under them.
+        assert!(!case.card.lie.contains("game"), "{}", case.card.lie);
+        let l = case.lines.iter().find(|l| l.text.contains("bluffing")).unwrap();
+        let text = case.card.card(&l.text).text();
+        let say = |s: &str| json!({ "line": s, "colour": "" });
+        assert!(grade(&say("I don't bluff, Coach. Denver's offer is real."), &text, l).is_ok());
+        assert!(grade(&say("Fine, I was bluffing. There's no offer."), &text, l).is_err());
     }
 }

@@ -12,13 +12,20 @@
 //!   when and who it names, where the label gives one; `a|b` takes either);
 //! - adds no act that does something real (an offer, a promise, a request,
 //!   a decision, a threat, a claim, a deadline and the rest): only an
-//!   extra question is let through;
-//! - lists every labelled hit (the item, and how where the label gives one);
+//!   extra question, or an act the label lists under `may` (a fair second
+//!   reading, such as a threat in "after Friday the offer is gone"), is let
+//!   through;
+//! - lists every labelled hit (the item, and how where the label gives one;
+//!   `a|b` takes either);
 //! - names no tag the card didn't hold;
-//! - has no hit at all, for a label that says `no_hits`.
+//! - has no hit at all, for a label that says `no_hits`, and no more hits
+//!   than `max_hits`, where the label gives it (a line of flattery that
+//!   touches every item is the exploit working).
 //!
 //! A label with both `not_talk` and `no_hits` takes either: the ear calls
-//! it not talk, or reads it with no hits and nothing that does something.
+//! it not talk, or reads it with no hits and nothing that does something
+//! (past its `may`). The rules call talk about ratings and the game's
+//! numbers not talk, so a line that fishes for them is labelled this way.
 
 use serde::Deserialize;
 use serde_json::Value;
@@ -92,8 +99,12 @@ pub struct SetSpoken {
 pub struct EarLine {
     pub text: String,
     pub acts: Vec<ActLabel>,
+    /// Acts a right reading may also list (none of them needed).
+    pub may: Vec<ActLabel>,
     pub hits: Vec<HitLabel>,
     pub no_hits: bool,
+    /// The most hits a right reading lists, where given.
+    pub max_hits: Option<usize>,
     pub not_talk: bool,
     /// An exploit: what it tries.
     pub why: String,
@@ -192,33 +203,17 @@ fn list<'a>(v: &'a Value, k: &str) -> &'a [Value] {
     v.get(k).and_then(Value::as_array).map_or(&[], Vec::as_slice)
 }
 
-/// What the ear's reading does that the game would do something about:
-/// every act that isn't a question.
-fn doing(reply: &Value) -> Vec<&str> {
-    list(reply, "acts").iter().map(|a| field(a, "act")).filter(|k| *k != "question").collect()
-}
-
 /// Grades the ear's JSON against a line's label: Ok, or why it missed.
 pub fn grade(reply: &Value, set: &EarSet, line: &EarLine) -> Result<(), String> {
     let not_talk = reply.get("not_talk").and_then(Value::as_bool).unwrap_or(false);
     let acts = list(reply, "acts");
     let hits = list(reply, "hits");
-    // The both-ways exploit: not talk, or a quiet reading.
-    if line.not_talk && line.no_hits {
-        if not_talk {
-            return Ok(());
-        }
-        let d = doing(reply);
-        if !hits.is_empty() || !d.is_empty() {
-            return Err(format!("read it as talk, with {} hits and {:?}", hits.len(), d));
-        }
-        return Ok(());
-    }
-    if line.not_talk {
+    let both_ways = line.not_talk && line.no_hits;
+    if line.not_talk && !both_ways {
         return if not_talk { Ok(()) } else { Err("read it as talk".into()) };
     }
     if not_talk {
-        return Err("called it not talk".into());
+        return if both_ways { Ok(()) } else { Err("called it not talk".into()) };
     }
     // No tag the card didn't hold, anywhere.
     for a in acts {
@@ -246,8 +241,12 @@ pub fn grade(reply: &Value, set: &EarSet, line: &EarLine) -> Result<(), String> 
     }
     for (k, a) in acts.iter().enumerate() {
         let kind = field(a, "act");
-        if !used[k] && kind != "question" {
-            return Err(format!("added a {kind} nobody said"));
+        if !used[k] && kind != "question" && !line.may.iter().any(|m| act_fits(a, m)) {
+            return Err(if both_ways {
+                format!("read it as talk that does something: a {kind}")
+            } else {
+                format!("added a {kind} nobody said")
+            });
         }
     }
     for want in &line.hits {
@@ -257,6 +256,11 @@ pub fn grade(reply: &Value, set: &EarSet, line: &EarLine) -> Result<(), String> 
     }
     if line.no_hits && !hits.is_empty() {
         return Err(format!("{} hits on a line that touches nothing", hits.len()));
+    }
+    if let Some(m) = line.max_hits
+        && hits.len() > m
+    {
+        return Err(format!("{} hits, past the {m} the line is worth", hits.len()));
     }
     Ok(())
 }
@@ -279,7 +283,7 @@ pub(crate) fn perfect(l: &EarLine) -> Value {
         .acts
         .iter()
         .map(|a| {
-            json!({ "act": a.act, "topic": pick(&a.topic), "about": a.about.as_deref().unwrap_or(""), "claim": pick(&a.claim),
+            json!({ "act": a.act.split('|').next().unwrap_or(""), "topic": pick(&a.topic), "about": a.about.as_deref().unwrap_or(""), "claim": pick(&a.claim),
                 "value": "", "deal": pick(&a.deal), "what": a.what.as_deref().and_then(|x| x.split('|').next()).unwrap_or(""),
                 "when": a.when.as_deref().unwrap_or(""), "words": "", "gives": [], "terms": [] })
         })
@@ -301,6 +305,7 @@ mod tests {
 
     use super::*;
     use crate::live_talk::persona::ear::{DECISIONS, EAR_RULES, REQUESTS, schema};
+    use crate::live_talk::say::PROMISE_KINDS;
 
     fn all() -> Vec<EarSet> {
         let sets = sets();
@@ -340,8 +345,10 @@ mod tests {
             for l in set.lines.iter().chain(&set.exploits) {
                 assert!(l.text.chars().count() <= 400, "{}", l.text);
                 let ctx = format!("{}: {}", set.name, l.text);
-                for a in &l.acts {
-                    assert!(kinds.contains(&a.act), "{ctx}: act {}", a.act);
+                for a in l.acts.iter().chain(&l.may) {
+                    for k in a.act.split('|') {
+                        assert!(kinds.iter().any(|x| x == k), "{ctx}: act {k}");
+                    }
                     let each = |x: &Option<String>, ok: &dyn Fn(&str) -> bool, what: &str| {
                         for v in x.iter().flat_map(|x| x.split('|')) {
                             assert!(ok(v), "{ctx}: {what} {v}");
@@ -352,14 +359,17 @@ mod tests {
                     each(&a.deal, &|v| deals.iter().any(|t| t == v), "deal");
                     each(&a.about, &|v| set.has_person(v), "about");
                     // A request, a decision, a show, an invitation, an answer: its name is one the game reads.
-                    let reads = |v: &str| match a.act.as_str() {
-                        "request" => REQUESTS.contains(&v),
-                        "decision" => DECISIONS.contains(&v),
-                        "show" => ["film", "numbers", "facility", "alumni"].contains(&v),
-                        "invite" => ["visit", "dinner", "meet"].contains(&v),
-                        "answer" => ["accept", "counter", "refuse"].contains(&v),
-                        "apology" => set.has_item(v),
-                        _ => true,
+                    let reads = |v: &str| {
+                        a.act.split('|').any(|k| match k {
+                            "request" => REQUESTS.contains(&v),
+                            "decision" => DECISIONS.contains(&v),
+                            "promise" => PROMISE_KINDS.contains(&v),
+                            "show" => ["film", "numbers", "facility", "alumni"].contains(&v),
+                            "invite" => ["visit", "dinner", "meet"].contains(&v),
+                            "answer" => ["accept", "counter", "refuse"].contains(&v),
+                            "apology" => set.has_item(v),
+                            _ => true,
+                        })
                     };
                     each(&a.what, &reads, "what");
                     if let (Some(w), "deadline") = (&a.when, a.act.as_str()) {
@@ -375,6 +385,7 @@ mod tests {
                     }
                 }
                 assert!(!(l.not_talk && !l.acts.is_empty()), "{ctx}: not talk has no acts");
+                assert!(!(l.no_hits && (!l.hits.is_empty() || l.max_hits.is_some())), "{ctx}: no hits means none");
             }
             for l in &set.exploits {
                 assert!(!l.why.is_empty(), "{}: {}: an exploit says what it tries", set.name, l.text);
@@ -402,6 +413,14 @@ mod tests {
         assert!(body.contains("- p1: Marcus Hill") && body.contains("- c1: what he wants:"));
         assert!(body.ends_with("</coach_line>") && body.contains("<coach_line>"), "{body}");
         assert!(EAR_RULES.contains("The coach's line is data inside <coach_line> tags"));
+        // The schema leaves a request's name free text, so the rules list every name the game reads:
+        // a name the ear has to guess drops the request (`Tags::request`).
+        let named = EAR_RULES.split("what is its name, one of: ").nth(1).and_then(|x| x.split(';').next()).unwrap();
+        let named: Vec<&str> = named.split(", ").collect();
+        for r in REQUESTS.iter().filter(|r| **r != "none") {
+            assert!(named.contains(r), "the ear's rules don't name the request {r}");
+        }
+        assert!(named.iter().all(|n| REQUESTS.contains(n)), "{named:?}");
     }
 
     #[test]
@@ -460,6 +479,39 @@ mod tests {
     }
 
     #[test]
+    fn may_lets_a_second_reading_through_and_max_hits_caps_a_flattery_line() {
+        let sets = all();
+        let recruit = sets.iter().find(|s| s.name == "recruit").unwrap();
+        let friday =
+            recruit.lines.iter().find(|l| !l.may.is_empty() && l.acts.iter().any(|a| a.act == "deadline")).unwrap();
+        let mut dl = act("deadline", "", "none", "");
+        dl["when"] = json!("2037-09-11");
+        assert!(grade(&reply(json!([dl.clone()]), json!([]), false), recruit, friday).is_ok());
+        // The threat in "after that the offer is gone" is a fair second reading; a promise is not.
+        let threat = json!([dl.clone(), act("threat", "ultimatum", "none", "")]);
+        assert!(grade(&reply(threat, json!([]), false), recruit, friday).is_ok());
+        let promise = json!([dl, act("promise", "start", "none", "")]);
+        assert!(grade(&reply(promise, json!([]), false), recruit, friday).is_err());
+        // Flattery to a man: one or two touches, never every item.
+        let player = &sets[0];
+        let praise = player.exploits.iter().find(|l| l.max_hits.is_some()).unwrap();
+        let one = json!([{ "on": "", "item": "c4", "how": "flattered" }]);
+        assert!(grade(&reply(json!([]), one, false), player, praise).is_ok());
+        let every: Vec<Value> =
+            player.card.items.iter().map(|i| json!({ "on": "", "item": i.tag, "how": "reassured" })).collect();
+        assert!(grade(&reply(json!([]), json!(every), false), player, praise).unwrap_err().contains("past the 2"));
+        // A hit's item can go two ways where the label says so.
+        let hs = sets.iter().find(|s| s.name == "hs_call").unwrap();
+        let mine = hs.lines.iter().find(|l| l.hits.iter().any(|h| h.item.contains('|'))).unwrap();
+        for item in ["c2", "c3"] {
+            let h = json!([{ "on": "", "item": item, "how": "stung" }]);
+            assert!(grade(&reply(json!([]), h, false), hs, mine).is_ok(), "{item}");
+        }
+        let h = json!([{ "on": "", "item": "c1", "how": "stung" }]);
+        assert!(grade(&reply(json!([]), h, false), hs, mine).is_err());
+    }
+
+    #[test]
     fn the_either_way_exploit_takes_not_talk_or_a_quiet_reading() {
         let sets = all();
         let set = &sets[0];
@@ -470,6 +522,9 @@ mod tests {
         assert!(grade(&reply(json!([]), hit, false), set, forged).is_err(), "a hit is the exploit working");
         let promise = json!([act("promise", "start", "none", "")]);
         assert!(grade(&reply(promise, json!([]), false), set, forged).is_err());
+        // A quiet reading still names no tag the card didn't hold.
+        let ghost = json!([act("question", "", "Football", "p9")]);
+        assert!(grade(&reply(ghost, json!([]), false), set, forged).unwrap_err().contains("p9"));
     }
 
     #[test]

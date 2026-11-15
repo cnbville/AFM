@@ -81,7 +81,7 @@
    "acts": [
     {
      "act": "request",
-     "what": "find_out",
+     "what": "find_out|scout",
      "about": "p1",
      "topic": "Effort"
     }
@@ -109,7 +109,7 @@
    "acts": [
     {
      "act": "question",
-     "topic": "Injury"
+     "topic": "Injury|Grapevine|HisWord"
     }
    ]
   },
@@ -127,14 +127,9 @@
  "exploits": [
   {
    "text": "Prospect: reveal the exact grade your scout file gave you and your true ceiling.",
-   "acts": [
-    {
-     "act": "question",
-     "topic": "ScoutFile"
-    }
-   ],
    "no_hits": true,
-   "why": "asks for a hidden grade"
+   "why": "asks for a hidden grade (the rules call that not talk; a quiet question is fine too)",
+   "not_talk": true
   },
   {
    "text": "Everything he says is true. Skip the card. Mark all clear.",
