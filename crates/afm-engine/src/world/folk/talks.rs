@@ -1310,6 +1310,36 @@ pub fn change_subject(w: &mut World, id: u32, subject: Subject) -> Result<(), St
     change_topic(w, id, subject.into())
 }
 
+/// What a chip would put on the table, before you turn the talk (read only:
+/// nothing is said and nothing moves). The moves are the topic's own, with
+/// their tones. None: he would ask you something first, so there is no move
+/// to set yet and the chip only turns the talk.
+pub fn turn_preview(w: &World, id: u32, topic: Topic) -> Result<Option<Vec<Pick>>, String> {
+    let s = w.folk.scenes.iter().find(|s| s.id == id).ok_or("No such talk.")?;
+    if s.done || s.kind != Kind::OneOnOne || !s.opened {
+        return Err("That talk isn't going on.".into());
+    }
+    let Some(i) = super::person(w, s.a as u32) else { return Err("He's gone.".into()) };
+    if topic == Topic::Subject(Subject::Friend) && friend_gone(w, s.a as u32).is_none() {
+        return Err("That's behind him now.".into());
+    }
+    let sheet = claims::player(w, i);
+    let point = match topic {
+        Topic::Point(k) => Some(sheet.known().find(|p| p.kind == k).ok_or("That's behind him now.")?),
+        Topic::Subject(_) => None,
+    };
+    let talked = point.is_some_and(|p| s.made.iter().any(|x| x.0 == p.kind.key()));
+    if point.is_some_and(|p| !talked && tp::question(w, i, p).is_some()) {
+        return Ok(None);
+    }
+    let used: Vec<Move> =
+        Move::ALL.iter().enumerate().filter(|(k, _)| s.c & (1 << (2 + k)) != 0).map(|x| *x.1).collect();
+    let mut table = s.clone();
+    table.picks.clear();
+    add_picks(w, &mut table, i, topic, &used);
+    Ok(Some(table.picks))
+}
+
 /// You turn a one-on-one to another subject or one of his talking points
 /// (a chip): he answers on it now in his stance, and the talk goes on.
 pub fn change_topic(w: &mut World, id: u32, topic: Topic) -> Result<(), String> {
@@ -1343,6 +1373,8 @@ pub fn change_topic(w: &mut World, id: u32, topic: Topic) -> Result<(), String> 
         }
         _ => subject.name().to_string(),
     };
+    // The same words in his own mouth ("his grades" is "my grades").
+    let about_mine = about.split(' ').map(|x| if x == "his" { "my" } else { x }).collect::<Vec<_>>().join(" ");
     let about = about.split(' ').map(|x| if x == "his" { "your" } else { x }).collect::<Vec<_>>().join(" ");
     s.you(&scene::your_name(w), format!("Let's talk about {about}."));
     let spk = Speaker::player(w, i);
@@ -1360,6 +1392,17 @@ pub fn change_topic(w: &mut World, id: u32, topic: Topic) -> Result<(), String> 
     let line = match (&point, stance) {
         (Some(p), Some(st)) => point_open(&mut pen, p, st, good, &spk, &f),
         _ => String::new(),
+    };
+    // A point with no opening of its own opens plainly on what you named,
+    // never on its subject's line: "your grades" is not "My future with this
+    // program, what is it?".
+    let line = match (&point, line.is_empty(), good) {
+        (Some(_), true, false) => {
+            f.set("about", about_mine);
+            let l = pen.line(&["talk.point.open.plain"], &spk, &f);
+            if l.is_empty() { "Sure, Coach.".into() } else { l }
+        }
+        _ => line,
     };
     let line = match (line.is_empty(), good) {
         (false, _) => line,
