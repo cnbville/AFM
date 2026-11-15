@@ -14,6 +14,7 @@
 // "Live talks v3, lane N6: the screens"). Every block is optional; nothing
 // is drawn for a block the game did not send.
 //
+//   talk.v3        true when the game plays this talk on live talks v3 (ideas replace the moves)
 //   talk.channel   "In person" | "Phone call" | "Text" | ... (the header)
 //   talk.minutes   {left, of} minutes of this talk (outlined number), else the week's hours
 //   talk.left      sections down the left column, after his head card
@@ -68,7 +69,8 @@ async function cvScene(s, lead, pp, cast, st) {
   const T = s.talk || {};
   const key = "scene:" + s.id;
   const box = aiBoxPeek(s, key);
-  const v3 = !!box && s.kind === "OneOnOne";
+  // A talk the game plays on v3 says so (talk.v3); a one-on-one always does.
+  const v3 = !!box && (s.kind === "OneOnOne" || !!T.v3);
   const peek = lead && lead.kind === "player" ? await api("peek", { kind: "player", id: lead.id }).catch(() => null) : null;
   const head = lead && lead.kind === "player" ? await cvHead(lead, s.face) : "";
   const moves = v3 ? "" : await cvMoves(s, st, T);

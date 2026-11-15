@@ -571,6 +571,7 @@ pub(crate) fn step(w: &mut World, d: Date, t: u16) {
             if w.seat.is_some() {
                 dialogue::college_calls(w, d);
                 dialogue::settle_calls(w, d);
+                persona::talk::recruit::day(w, d);
             }
         }
         hour::OVERNIGHT => {

@@ -401,7 +401,7 @@ pub(crate) fn college_calls(w: &mut World, d: Date) {
 
 /// A real worry a college staff would ask about: 1 his grades, 2 his
 /// character, 0 none.
-fn concern(p: &crate::world::Person) -> u8 {
+pub(crate) fn concern(p: &crate::world::Person) -> u8 {
     let trouble = p.incident
         || p.player.history.iter().any(|h| {
             h.events.has(crate::player::DevelopmentEvent::Suspended)
@@ -476,10 +476,22 @@ fn call_open(w: &mut World, s: &mut Scene) {
 }
 
 fn call_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
-    let id = s.a as u32;
-    let j = s.b as usize;
     let word = (code.saturating_sub(901)).min(2) as u8;
     let concern = s.c.clamp(0, 2) as u8;
+    s.you(&scene::your_name(w), picked.label.trim_matches('"'));
+    call_word(w, s, word, concern);
+    s.end();
+}
+
+/// Your word on a college staff's call, however you gave it (a chip, or
+/// your own words in live talks v3, lane N5a): 0 you sold him, 1 you were
+/// straight, 2 you covered for him or kept it short. `concern` is the
+/// worry they asked about that your word is judged on a year later (1 his
+/// grades, 2 his character, 0 none). It reaches his recruitment as a call
+/// you made would, goes on the trail, and is settled by `settle_calls`.
+pub(crate) fn call_word(w: &mut World, s: &mut Scene, word: u8, concern: u8) {
+    let id = s.a as u32;
+    let j = s.b as usize;
     // Selling and a straight word both reach his recruitment the way a
     // call you made would (scouting/hs.rs promos).
     let strength = match word {
@@ -509,18 +521,18 @@ fn call_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
             0.0
         },
     );
-    s.you(&scene::your_name(w), picked.label.trim_matches('"'));
-    s.outcome.push(
-        match (word, concern) {
-            (0, _) => "You sold him. They'll look harder at his film.",
-            (1, 0) => "You told them who he is. They'll weigh it with the film.",
-            (1, _) => "You told them. They'll weigh it, and they'll remember you were straight.",
-            (_, 0) => "You kept it short.",
-            _ => "You covered for him. If it comes out, they'll remember that too.",
-        }
-        .to_string(),
-    );
-    s.end();
+    s.outcome.push(call_outcome(word, concern).to_string());
+}
+
+/// What your word on a college staff's call came to, in words.
+pub(crate) fn call_outcome(word: u8, concern: u8) -> &'static str {
+    match (word, concern) {
+        (0, _) => "You sold him. They'll look harder at his film.",
+        (1, 0) => "You told them who he is. They'll weigh it with the film.",
+        (1, _) => "You told them. They'll weigh it, and they'll remember you were straight.",
+        (_, 0) => "You kept it short.",
+        _ => "You covered for him. If it comes out, they'll remember that too.",
+    }
 }
 
 /// A year after each call: a worry you hid that came true costs you with

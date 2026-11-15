@@ -777,7 +777,7 @@ A typical season is about half that. The $50 cap stays. A Sonnet 5.5 ear would c
 | N2 | Terms | Measure readers and the football readers on the play log (section 9), every position's terms (8.4, which the promises thread is building now), terms on promises, incentives, NIL, picks, staff and boss goals, plan settings that keep them, the staff's warning | Opus |
 | N3 | Deals and requests | Valuing against his best option, asks and counters, deadlines, taking time, many people, requests run as actions, confirm cards. Built 2026-11-15 (`world/folk/persona/deals.rs`, `asks.rs`; how it works in `docs/reference/how-it-works/live-talks.md`, "lane N3"); its sizes proposed, not confirmed | Opus |
 | N4 | The conversation | The ear and the voice, cards, hits, turns, channels, groups, memory, saved readings; your players first | Opus |
-| N5a | Recruiting | Recruits, families, high school coaches and circles, transfers, visits, signing | Opus |
+| N5a | Recruiting | Recruits, families, high school coaches and circles, transfers, visits, signing. Built 2026-11-15 with question 10's high school coach answering college calls in words (`persona/talk/recruit.rs`, `hs_call.rs`; how it works in `docs/reference/how-it-works/live-talks.md`, "lane N5a"); its sizes proposed, not confirmed | Opus |
 | N5b | Negotiating | Agents, GMs, NIL, contracts, trades, the undrafted rush | Opus |
 | N5c | Staff, bosses, money | Coordinators, position coaches, scouts, the analyst, doctors, hiring and firing, the AD and owner, boosters, compliance | Opus |
 | N5d | Game day and the room | Speeches, the sideline, officials, captains, the council, team meetings | Opus |

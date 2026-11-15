@@ -28,6 +28,7 @@ use afm_engine::world::folk::persona::deals;
 use afm_engine::world::folk::persona::ear::{Confirm, Resolving, Turn};
 use afm_engine::world::folk::persona::room::Room;
 use afm_engine::world::folk::persona::talk::{self, Conversation, Parts, Said, channels, store};
+use afm_engine::world::folk::persona::terms::{Request as Ask, Valuing, Weighed};
 use afm_engine::world::folk::scene::{Kind, Scene};
 use serde_json::{Value, json};
 
@@ -38,9 +39,12 @@ use crate::{Game, Reply};
 /// How long a confirm waits. Proposed, not confirmed.
 pub const WAIT_TTL: Duration = Duration::from_secs(900);
 
-/// Whether a scene's typed lines play as a v3 talk: your one-on-ones.
+/// Whether a scene's typed lines play as a v3 talk: your one-on-ones,
+/// and a recruit's and a transfer's talks and a college staff's call to
+/// you, the high school coach (lane N5a).
 pub fn plays(g: &Game, s: &Scene) -> bool {
-    g.ai.persona_talks && s.kind == Kind::OneOnOne
+    g.ai.persona_talks
+        && (s.kind == Kind::OneOnOne || talk::recruit::is_recruit(s.kind) || talk::hs_call::is_call(s.kind))
 }
 
 /// What waits on your confirm, by ticket.
@@ -80,7 +84,7 @@ pub fn parts() -> Parts<'static> {
 pub fn say(g: &mut Game, id: u32, text: String) -> Reply {
     let w = g.world.as_ref().ok_or("No world is loaded.")?;
     let s = w.folk.scenes.iter().find(|s| s.id == id).ok_or("No such meeting.")?;
-    let room = store::room(w, id).unwrap_or_else(|| channels::one_on_one(s));
+    let room = store::room(w, id).unwrap_or_else(|| channels::room_for(w, s));
     let p = parts();
     let (card, keys) = cards::ear(w, s, &room, &p, &text);
     let today = crate::views::date_text(w.today);
@@ -123,7 +127,7 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
         if s.done || s.lines.len() != at {
             return Step::Done(tickets::off(crate::live_talk::say::MOVED_ON));
         }
-        let pos = match talk::across(&channels::one_on_one(&s)) {
+        let pos = match talk::across(&channels::room_for(w, &s)) {
             Some(Them::Player(pid)) => folk::person(w, pid).map(|i| w.people[i].player.position),
             _ => None,
         };
@@ -133,7 +137,7 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
         let room = match store::room(w, id) {
             Some(r) => r,
             None => {
-                let r = channels::one_on_one(&s);
+                let r = channels::room_for(w, &s);
                 store::begin(w, id, r.clone());
                 r
             }
@@ -238,6 +242,7 @@ fn waits(g: &mut Game, id: u32, room: &Room, t: &Turn) -> Vec<Value> {
 
 fn confirm_words(c: &Confirm) -> String {
     match c {
+        Confirm::Request(Ask::Other(x)) if x == talk::recruit::VISIT => "Set his official visit".into(),
         Confirm::Offer(o) => format!("Make the offer: {}", folk::plain(&o.words)),
         Confirm::Request(r) => format!("Go ahead: {r:?}"),
         Confirm::Decision(d) => format!("Make it so: {}", channels::decision_words(*d)),
@@ -263,7 +268,7 @@ pub fn confirm(g: &mut Game, args: &Value) -> Reply {
     }
     let w = g.world.as_mut().ok_or("No world is loaded.")?;
     if yes {
-        let lines = run(w, him, &item);
+        let lines = run(w, id, him, &item);
         if let Some(s) = w.folk.scenes.iter_mut().find(|s| s.id == id) {
             for l in lines {
                 s.narrate(l);
@@ -276,8 +281,31 @@ pub fn confirm(g: &mut Game, args: &Value) -> Reply {
 /// Runs one confirmed item: a request through `Acting::run`, an offer
 /// through lane N3's `agree`, a decision
 /// on its own screen until its lane wires it.
-fn run(w: &mut World, him: Them, c: &Confirm) -> Vec<String> {
+fn run(w: &mut World, id: u32, him: Them, c: &Confirm) -> Vec<String> {
+    let recruit = w.folk.scenes.iter().find(|s| s.id == id).cloned().filter(|s| talk::recruit::is_recruit(s.kind));
     match c {
+        // A recruit's visit: the desk sets it on its first open date, and
+        // he may still say no.
+        Confirm::Request(Ask::Other(x)) if x == talk::recruit::VISIT => {
+            vec![recruit.map_or_else(|| "That talk is over.".into(), |s| talk::recruit::set_visit(w, &s))]
+        }
+        // A recruit's offer: weighed again as you confirm (nothing moved
+        // in between). Taking time, it's left with his family and they
+        // answer on their day; a yes is made real on the recruiting desk.
+        Confirm::Offer(o) if recruit.is_some() => match talk::DEALS.weigh(w, him, o) {
+            Weighed::Later(by) => {
+                deals::offered(w, him, o, &Weighed::Later(by));
+                vec![format!("You leave it with them: {}. Their answer comes by {by}.", folk::plain(&o.words))]
+            }
+            Weighed::Yes => {
+                let a = deals::agree(w, &talk::DEALS, him, o);
+                let mut out = vec![format!("Agreed: {}.", folk::plain(&o.words))];
+                out.extend(a.done.iter().cloned());
+                out.extend(talk::recruit::real(w, him, &a));
+                out
+            }
+            _ => vec!["They've thought better of it: it's off the table.".into()],
+        },
         Confirm::Request(r) => {
             let ran = parts().acting.run(w, him, r);
             ran.done
@@ -310,3 +338,7 @@ fn done(g: &mut Game, id: u32, heard: &str, marks: Vec<Value>, confirm: Vec<Valu
 #[cfg(test)]
 #[path = "talk_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "recruit_tests.rs"]
+mod recruit_tests;

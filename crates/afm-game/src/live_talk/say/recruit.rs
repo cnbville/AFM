@@ -29,8 +29,105 @@ use crate::Game;
 use crate::live_talk::card::Card;
 
 /// Adds this lane's own box to a reply (`live_talk::after`, only with a
-/// usable key). A recruit's talk box is the core's scene box.
-pub fn flag(_g: &Game, _cmd: &str, _v: &mut Value) {}
+/// usable key). A recruit's talk box is the core's scene box; on v3 (lane
+/// N5a) a recruit's talk and a college staff's call to you also carry the
+/// screen's `talk` block (`talk_block`).
+pub fn flag(g: &Game, _cmd: &str, v: &mut Value) {
+    let Some(o) = v.as_object() else { return };
+    if !(o.contains_key("lines") && o.contains_key("picks") && o.contains_key("step")) {
+        return;
+    }
+    let Some(id) = o.get("id").and_then(Value::as_u64) else { return };
+    let Some(w) = g.world.as_ref() else { return };
+    let Some(s) = w.folk.scenes.iter().find(|s| u64::from(s.id) == id) else { return };
+    if !crate::live_talk::persona::talk::plays(g, s) || s.kind == afm_engine::world::folk::scene::Kind::OneOnOne {
+        return;
+    }
+    if let Some(t) = talk_block(w, s) {
+        v["talk"] = t;
+    }
+}
+
+/// The screen's `talk` block for a recruit's talk or a college staff's call
+/// (lane N6's page, lane N5a's fill): it plays on v3 (the ideas take the
+/// moves' place), the channel, who is in the room, what pulls him from
+/// your file in words only, and ideas in your chips' own words to change.
+pub fn talk_block(w: &World, s: &Scene) -> Option<Value> {
+    use afm_engine::world::folk::persona::room::{Channel, Seat};
+    use afm_engine::world::folk::persona::talk::{channels, hs_call, recruit as facet, store};
+    use serde_json::json;
+    let room = store::room(w, s.id).unwrap_or_else(|| channels::room_for(w, s));
+    let channel = match room.channel {
+        Channel::InPerson(_) => "In person",
+        Channel::Phone => "Phone call",
+        Channel::Text => "Text",
+        Channel::Through(_) => "His family's call",
+        Channel::Video => "Video call",
+        Channel::Letter => "Letter",
+        Channel::Group(_) => "Group",
+    };
+    let seat = |x: Seat| match x {
+        Seat::Across => "",
+        Seat::Decider => "Decides",
+        Seat::Family => "Family",
+        Seat::HsCoach => "His coach",
+        Seat::Agent => "Agent",
+        Seat::YourStaff => "Your staff",
+        Seat::FormerPlayer => "Former player",
+        Seat::Listener => "Listening",
+    };
+    let mut t = json!({ "v3": true, "channel": channel });
+    if room.present.len() > 1 {
+        let people: Vec<Value> = room
+            .present
+            .iter()
+            .enumerate()
+            .map(|(k, p)| {
+                let name = channels::name(w, p.who);
+                let ini: String = name.split_whitespace().filter_map(|x| x.chars().next()).take(2).collect();
+                let line = match p.seat {
+                    Seat::Decider => "Has the final say on where he goes.",
+                    Seat::Family => "His family.",
+                    _ => "",
+                };
+                json!({ "lead": k == 0, "name": name, "ini": ini, "tag": seat(p.seat), "line": line })
+            })
+            .collect();
+        t["room"] = Value::Array(people);
+    }
+    let ideas: Vec<String> = afm_engine::world::folk::scene::options(s)
+        .into_iter()
+        .filter(|p| p.label.starts_with('"'))
+        .take(3)
+        .map(|p| afm_engine::world::folk::plain(p.label.trim_matches('"')))
+        .collect();
+    if !ideas.is_empty() {
+        t["ideas"] = json!(ideas);
+    }
+    if let Some(x) = facet::with(w, s) {
+        let reads: Vec<Value> = w
+            .folk
+            .pulls
+            .order(x.id, None)
+            .into_iter()
+            .filter(|r| r.rows > 0)
+            .take(4)
+            .enumerate()
+            .map(|(k, r)| json!({ "name": r.group.name(), "tag": if k == 0 { "Strongest" } else { "" } }))
+            .collect();
+        let text = if reads.is_empty() {
+            "Nothing on his file yet: what he asks about and how he takes your points will show here."
+        } else {
+            "Strongest first, from what he's asked about and how he took your points."
+        };
+        t["right"] = json!([{ "k": "rank", "label": "What pulls him", "note": "From your file · words only, no numbers", "items": reads, "text": text }]);
+    } else if hs_call::is_call(s.kind) {
+        let about = ["his football", "his grades", "his character"][s.c.clamp(0, 2) as usize];
+        t["right"] = json!([{ "k": "text", "label": "What he asked", "text": format!("About {about}."),
+            "small": "Your word is judged a year on, when they've seen him for themselves." }]);
+    }
+    Some(t)
+}
 
 /// Adds what this lane's scenes need to the reader's card: nothing, since
 /// the promises he can be made are among the talk's options.
@@ -171,6 +268,8 @@ mod tests {
         g.world = Some(w);
         let f = Arc::new(Fake::new());
         g.ai.use_fake(f.clone());
+        // Lane 10's reader and writer, as they play with v3 off.
+        g.ai.persona_talks = false;
         g.call("people_scene", &json!({ "id": sid })).unwrap();
         (g, f, sid, i, mine)
     }

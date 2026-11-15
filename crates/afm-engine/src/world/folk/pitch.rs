@@ -2327,3 +2327,284 @@ fn recruit_promise(w: &mut World, s: &mut Scene, t: &Talk, st: St, k: u8, picked
     s.outcome.push(format!("You promised {what}. It's checked once he's yours."));
     close(w, s, t, &st);
 }
+
+// ---------------------------------------------------------------------------
+// Live talks v3, lane N5a: the same talk from typed lines. A typed line
+// makes the same points, the same promises and the same end as the chips,
+// through these doors, without the chips' lines (the voice says his).
+
+/// Who a recruit's or a transfer's talk is with (lane N5a).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct With {
+    /// His place in the people, and his id.
+    pub i: usize,
+    pub id: u32,
+    /// Your program.
+    pub j: usize,
+    pub transfer: bool,
+    /// Who hears it: him, or whoever decides for him.
+    pub ear: Ear,
+    pub at: Where,
+    /// A call lands at half of a sit-down, a message at a quarter.
+    pub scale: f32,
+    /// The exchanges the talk allows (a call 3, a sit-down 6, a message 1,
+    /// the family's call 2: Cain's 3 and 6, 2026-11-12).
+    pub limit: u8,
+}
+
+/// Who a recruit's or a transfer's talk is with, if it is one.
+pub fn with(w: &World, s: &Scene) -> Option<With> {
+    let t = talk(w, s)?;
+    Some(With {
+        i: t.i,
+        id: t.id,
+        j: t.j,
+        transfer: t.transfer,
+        ear: t.ear,
+        at: t.at,
+        scale: t.scale(),
+        limit: t.limit(),
+    })
+}
+
+/// A point a typed line makes: the point itself, its group, what it adds
+/// in full at this talk's scale (`case::lands`, the chip's own size), how
+/// much of it counts again (`Talked::again`), how much he cares and your
+/// proof.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Typed {
+    pub kind: Kind,
+    pub group: Group,
+    pub lean: f32,
+    pub again: f32,
+    pub care: f32,
+    pub tier: Tier,
+}
+
+/// The points you can still make in this talk: the sheet's pitch points
+/// you know, not made yet in it (the chips' own list, `on_table`).
+pub fn typed_points(w: &World, s: &Scene) -> Vec<Kind> {
+    let Some(t) = talk(w, s) else { return Vec::new() };
+    let sheet = claims::recruit(w, t.i, t.j, t.ear);
+    on_table(w, &t, s.id, &sheet).into_iter().map(|p| p.kind).collect()
+}
+
+/// The point a typed line makes: `kind` when you can make it now, else
+/// your best point in `group` (the best chip in that group). None when
+/// there's nothing left to say there in this talk.
+pub fn typed_point(w: &World, s: &Scene, kind: Option<Kind>, group: Option<Group>) -> Option<Typed> {
+    let t = talk(w, s)?;
+    if exchanges_left(w, s) == 0 {
+        return None;
+    }
+    let sheet = claims::recruit(w, t.i, t.j, t.ear);
+    let pts = on_table(w, &t, s.id, &sheet);
+    let pt = match kind {
+        Some(k) => pts.iter().find(|p| p.kind == k).copied(),
+        None => best_in(&pts, group?).first().copied(),
+    }?;
+    let g = pt.kind.group()?;
+    let tier = pt.tier().unwrap_or(Tier::Fair);
+    let lean = t.scale() * case::lands(w, pt.care, tier, you(w));
+    let place = place_of(pt.kind) as usize;
+    let case = if t.transfer { portal::case_of(w, t.id) } else { case::of(&w.people[t.i], t.j) };
+    let fresh = case.is_none_or(|c| !c.heard(place));
+    let again = if fresh { 1.0 } else { w.folk.talked.again_in(w.today, s.id, t.id, pt) };
+    Some(Typed { kind: pt.kind, group: g, lean, again, care: pt.care, tier })
+}
+
+/// His reaction to a typed point, as he shows it (the chip's own rule:
+/// he may dress it up, keep it close or be polite).
+pub fn typed_reaction(w: &World, s: &Scene, p: &Typed, lean: f32) -> Option<Ev> {
+    let t = talk(w, s)?;
+    Some(words_ev(shown(w, &t, p.group, truth(p.care, lean, p.tier))))
+}
+
+/// Makes a typed point real as `make_point` does, without its lines: the
+/// case (the best point in each group, comebacks at a half and a quarter),
+/// what he has heard from you and the row on his file. `lean` is what the
+/// game sized it to, never over the chip's `Typed.lean`. Returns what the
+/// case moved.
+pub fn land_typed(w: &mut World, s: &mut Scene, p: &Typed, lean: f32) -> f32 {
+    let Some(t) = talk(w, s) else { return 0.0 };
+    let mut st = St::of(s);
+    st.made |= bit(p.group);
+    st.used += 1;
+    st.put(s);
+    let sheet = claims::recruit(w, t.i, t.j, t.ear);
+    let Some(pt) = sheet.get(p.kind).cloned() else { return 0.0 };
+    let today = w.today;
+    let place = place_of(p.kind) as usize;
+    let fresh = case_for(w, &t).is_some_and(|c| !c.heard(place));
+    if fresh {
+        w.folk.talked.forget_point(t.id, &pt);
+    }
+    let again = if fresh { 1.0 } else { w.folk.talked.again_in(today, s.id, t.id, &pt) };
+    let delta = match case_for(w, &t) {
+        Some(c) => {
+            c.hear(place);
+            c.add(p.group, lean, again, today)
+        }
+        None => 0.0,
+    };
+    let code = (POINT + place_of(p.kind)).to_string();
+    w.folk.talked.note_in(today, s.id, t.id, &pt, lean > 0.0, &code);
+    let says = shown(w, &t, p.group, truth(p.care, lean, p.tier));
+    note(w, &t, p.group as u8, words_ev(says), None);
+    delta
+}
+
+/// A typed straight answer on a group (the chip's "be straight"): no pull,
+/// and he believes your promises a little more.
+pub fn straight_typed(w: &mut World, s: &mut Scene, g: Group, kind: Option<Kind>) {
+    let Some(t) = talk(w, s) else { return };
+    let mut st = St::of(s);
+    st.straight = st.straight.saturating_add(1);
+    st.made |= bit(g);
+    st.used += 1;
+    st.put(s);
+    let today = w.today;
+    if let Some(c) = case_for(w, &t) {
+        c.straight = c.straight.saturating_add(1);
+        c.on = c.on.max(today);
+    }
+    let sheet = claims::recruit(w, t.i, t.j, t.ear);
+    if let Some(pt) = kind.and_then(|k| sheet.get(k)).cloned() {
+        w.folk.talked.note_in(today, s.id, t.id, &pt, false, "straight");
+    }
+}
+
+/// The exchanges this talk still has for your points (a call 3, a
+/// sit-down 6, a message 1, the family's call 2): one point an exchange,
+/// as the chips make them.
+pub fn exchanges_left(w: &World, s: &Scene) -> u8 {
+    talk(w, s).map_or(0, |t| t.limit().saturating_sub(St::of(s).used))
+}
+
+/// A point in your words, as its chip would say it (the ear's card and
+/// the screen's ideas).
+pub fn typed_point_words(w: &World, s: &Scene, k: Kind) -> Option<String> {
+    let t = talk(w, s)?;
+    let sheet = claims::recruit(w, t.i, t.j, t.ear);
+    let pt = sheet.get(k)?;
+    let tier = pt.tier().unwrap_or(Tier::Fair);
+    Some(pitch_words(w, s, &t, pt, tier, false))
+}
+
+/// What he weighs in each group (1.0 as much as the rest), from where he
+/// sits in this talk: his own or his decider's.
+pub fn typed_cares(w: &World, s: &Scene) -> Option<[f32; 7]> {
+    let t = talk(w, s)?;
+    Some(care(w, &t))
+}
+
+/// Whether a promise can be made in this talk now: a high school recruit
+/// with your offer out and no promise on his case yet (not by message), or
+/// a transfer with none yet.
+pub fn can_promise_now(w: &World, s: &Scene) -> bool {
+    let Some(t) = talk(w, s) else { return false };
+    if t.transfer {
+        return portal::promised(w, t.id).is_none();
+    }
+    can_promise(w, &t)
+}
+
+/// How far he would believe a promise of this kind ("start", "role",
+/// "position", "early_chance", "no_redshirt"), before you make it (the
+/// voice says how he takes it). A transfer's start or role is read as
+/// `portal::promise` reads it.
+pub fn promise_belief(w: &World, s: &Scene, kind: &str) -> Option<f64> {
+    let t = talk(w, s)?;
+    if t.transfer {
+        let k = transfer_kind(kind)?;
+        let (role, _, perf, bar) = crate::world::recruiting::portal_place(w, t.i, t.j)?;
+        return Some(dialogue::promise_pull(w, t.i, k, role, perf, bar).1);
+    }
+    let k = hs_kind(kind)?;
+    let sheet = claims::recruit(w, t.i, t.j, t.ear);
+    let room = sheet.get(Kind::Room).and_then(|p| p.proof).map_or(0.5, |p| p.strength as f64);
+    Some(pledge::belief(w, k, room, w.people[t.i].stars, t.i, t.j, t.ear))
+}
+
+fn hs_kind(kind: &str) -> Option<pledge::Kind> {
+    Some(match kind {
+        "start" | "ahead_of" => pledge::Kind::Start,
+        "role" | "touches" | "place" => pledge::Kind::Role,
+        "position" => pledge::Kind::Position,
+        "early_chance" => pledge::Kind::Early,
+        "no_redshirt" => pledge::Kind::NoRedshirt,
+        _ => return None,
+    })
+}
+
+fn transfer_kind(kind: &str) -> Option<u8> {
+    match kind {
+        "start" | "ahead_of" => Some(0),
+        "role" | "touches" | "place" => Some(1),
+        _ => None,
+    }
+}
+
+/// A promise said in a typed line, counted the moment you say it (live
+/// talks v3, question 4): the chip's promise (`pledge::make`, or a
+/// transfer's `portal::promise`), with a usage term when your words named
+/// one. Returns your promise in words and how far he believes it, or None
+/// when the talk can't make one (one made already, your offer isn't out,
+/// no place for him).
+pub fn promise_typed(w: &mut World, s: &Scene, kind: &str, term: Option<super::usage::Usage>) -> Option<(String, f64)> {
+    let t = talk(w, s)?;
+    if !can_promise_now(w, s) {
+        return None;
+    }
+    if t.transfer {
+        let (_, belief, _) = match (kind, term) {
+            ("usage", Some(u)) => portal::promise_usage(w, t.id, u)?,
+            _ => portal::promise(w, t.id, transfer_kind(kind)?)?,
+        };
+        let what = match (kind, term) {
+            ("usage", Some(u)) => u.words(),
+            _ if transfer_kind(kind) == Some(0) => "him a starting job".into(),
+            _ => "him a real role".into(),
+        };
+        return Some((what, belief));
+    }
+    let pos = w.people[t.i].player.position;
+    let (k, made) = match (kind, term) {
+        ("usage", Some(u)) => (pledge::Kind::Usage, pledge::make_usage(w, t.i, t.j, u, t.ear)),
+        _ => {
+            let k = hs_kind(kind)?;
+            let sheet = claims::recruit(w, t.i, t.j, t.ear);
+            let room = sheet.get(Kind::Room).and_then(|p| p.proof).map_or(0.5, |p| p.strength as f64);
+            (k, pledge::make(w, t.i, t.j, k, t.ear, room))
+        }
+    };
+    let (_, belief) = made?;
+    let what = match (k, term) {
+        (pledge::Kind::Usage, Some(u)) => u.words(),
+        _ => k.words(pos),
+    };
+    Some((what, belief))
+}
+
+/// The talk's end from typed lines, as the chips end it: a transfer's talk
+/// goes on his file, and he may have heard enough. `delta` is what the
+/// talk moved the case.
+pub fn end_typed(w: &mut World, s: &mut Scene, delta: f32) {
+    let Some(t) = talk(w, s) else { return s.end() };
+    let made = Group::ALL.iter().filter(|&&g| typed_made(w, &t, g)).fold(0u8, |m, &g| m | bit(g));
+    s.outcome.push(
+        match mood_at(delta, t.scale()) {
+            "warm" => "He leans your way: the talk gave him what he came for.",
+            "flat" => "Polite. He'll think it over.",
+            _ => "It cooled him: you sold what he doesn't weigh, or what you can't back up.",
+        }
+        .to_string(),
+    );
+    finish(w, s, &t, delta, made);
+}
+
+/// Whether this case has a point in a group (for the file's words).
+fn typed_made(w: &World, t: &Talk, g: Group) -> bool {
+    let case = if t.transfer { portal::case_of(w, t.id) } else { case::of(&w.people[t.i], t.j) };
+    case.is_some_and(|c| c.has(g))
+}
