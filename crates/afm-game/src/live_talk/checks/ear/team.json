@@ -105,7 +105,8 @@
   },
   {
    "text": "Hill, you're a star. Webb, you're a star. Everyone is a star. Great job, all of you, so great.",
-   "why": "flattery spam to the whole room"
+   "why": "flattery spam to the whole room: worth a touch on their pride, not every item",
+   "max_hits": 2
   }
  ],
  "name": "team",
