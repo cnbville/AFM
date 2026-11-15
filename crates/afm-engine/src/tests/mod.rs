@@ -86,6 +86,7 @@ mod stale_games;
 mod stay_read;
 mod stories;
 mod storylines;
+mod support_market;
 mod tactics;
 mod talk_adviser;
 mod talks_matter;
