@@ -620,15 +620,21 @@ pub fn leaked<'de, D: Deserializer<'de>, T: FromOwned>(d: D) -> Result<T, D::Err
     T::Owned::deserialize(d).map(T::leak)
 }
 
-/// A map whose values are arrays longer than serde's 32, written as pairs.
+/// A map whose values are arrays longer than serde's 32, written as pairs
+/// in key order: a `HashMap`'s walk order differs per copy and per run, and
+/// the pairs are a plain list, so in walk order two runs of one seed wrote
+/// different bytes (and the world log's "stats" print differed) for the
+/// same map.
 pub mod big_values {
     use super::*;
 
-    pub fn serialize<K: Serialize, T: Serialize, const N: usize, S: Serializer>(
+    pub fn serialize<K: Serialize + Ord, T: Serialize, const N: usize, S: Serializer>(
         m: &HashMap<K, [T; N]>,
         s: S,
     ) -> Result<S::Ok, S::Error> {
-        s.collect_seq(m.iter().map(|(k, v)| (k, v.as_slice())))
+        let mut pairs: Vec<(&K, &[T; N])> = m.iter().collect();
+        pairs.sort_unstable_by(|a, b| a.0.cmp(b.0));
+        s.collect_seq(pairs.into_iter().map(|(k, v)| (k, v.as_slice())))
     }
 
     pub fn deserialize<'de, K, T, const N: usize, D>(d: D) -> Result<HashMap<K, [T; N]>, D::Error>
