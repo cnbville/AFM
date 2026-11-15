@@ -396,7 +396,13 @@ Cain, 2026-11-14 20:22 UTC: the AI should play the person, never steer him to op
 
 Cain, 15:22 UTC: "Making it worth taking risks". Spec: `docs/design/progression.md`, 17 items, all Cain's yes the same day (17:41 to 22:26 UTC).
 - **Agreed:** physical ceilings move on their own leashes with a hidden body knack (strength about +7 typical, +14 big responder; speed 1 at most, pounds cost speed at the combine's rate); vague clues only; technique room from his tools' rank plus 4 plus the tools-ahead gap; technique knack 1 in 5 / half / 1 in 3, one per kind of skill; each limit reads makeup too (toughness for tackling, hands for contested catch); body and skill projects can stack for extra wear; projects per room QB 1, RB 1, WR 2, TE 2, OL 2, DL 2, LB 1, CB 2, S 1; a quarter of the room a year with the knack; the click; no age rule through the senior or redshirt senior year; the focus's cost; AI staffs run projects by style (no sandbox switch, 21:47: "i just want a teeny tiny edge"); high school projects; your edge (AI reads clues less sharply, keeps dead ends a year longer); pro projects by pro season; converts keep their limits.
-- **Open:** the one star-count trim and everyday growth, in the sibling thread "Design split ceilings for all progression".
+- **Settled in section 24:** the trims and everyday growth.
+
+## 24. The split ceiling in all growth (thread "Design split ceilings for all progression", 2026-11-14/15)
+
+Cain, 2026-11-14 18:27 UTC: "i was hoping to have it be for everything". Spec: `docs/design/progression-everyday.md`, 12 items, Cain's "yes to all" on 2026-11-15 00:02 UTC, after the per-position test he asked for (21:37).
+- **Agreed:** everyday coaching closes room every year (a third of a project year, times knack, coach and snaps; no age rule in school); the limit lifts with natural rises (holding them back cut 80+ cover men 49 to 14); neglect lowers the everyday ceiling, never the limit; a falling limit never takes ratings away; a breakout closes room at the click's size; the normal weight room inside the leashes by the body knack; bug 385 fixed in the same build; gifts and the mental reads have no limit; limits for leg drive, pursuit, blitzing and throw on the move; makeup in the limit grows with him; one trim per skill family (2 to 5 points), sized again on a world; the build checks that a hit project moves draft stock, else scouts lean more on a position's key skills.
+- **Proposed, not confirmed:** everyday closing in the pros on the pro-season curve.
 
 ## Superseded decisions
 

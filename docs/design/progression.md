@@ -1,6 +1,6 @@
 # The progression update: projects, the body limit and the knack
 
-Design done with Cain on 2026-11-14 (thread "Design the progression update"). Not built. The build comes after the individual practice build (`docs/design/individual-practice.md`), because both touch `development.rs` and `athlete.rs`. The sibling design, "Design split ceilings for all progression" (`/mnt/project-files/afm/progression/all-growth.md`), covers how the split drives everyday growth and the one star-count trim. Its items were still open when this was written.
+Design done with Cain on 2026-11-14 (thread "Design the progression update"). Not built. The build comes after the individual practice build (`docs/design/individual-practice.md`), because both touch `development.rs` and `athlete.rs`. The sibling design, `docs/design/progression-everyday.md` (thread "Design split ceilings for all progression", 12 items, all Cain's yes on 2026-11-15), covers how the split drives everyday growth, the trims and the build checks; the two are built together.
 
 Sizes come from a class-sim prototype (`/mnt/project-files/afm/progression/proposal.md`, `prog-probe.patch`, `prog_probe.rs`, `an.py`, `body_check.rs`; man coverage, seeds lbprobe, lbB, lbC). They are the agreed working values. The build checks them on a real world.
 
@@ -69,8 +69,9 @@ Sizes come from a class-sim prototype (`/mnt/project-files/afm/progression/propo
 
 ## Left to the sibling design or the build
 
-- The one star-count trim for the whole system (the sibling's item 11; on this design alone 1.5 points off natural man coverage ceilings of 65+ held 80+ at 44 against 49 and 70+ at 430 against 439; with everyday closing as well, about 3.5 off 60+).
-- Everyday growth closing room, the limit lifting with natural rises, neglect, breakouts closing room at the click's size, the normal weight room inside the leashes, the no-limit list and makeup that grows (the sibling's items 1-10).
-- Minor bug 385: a college strength program barely shows on the bench (receivers +2.4 reps from 18 to 22 against roughly +8 to +13 real).
+Settled in `docs/design/progression-everyday.md` (Cain's yes to all 12 on 2026-11-15): everyday growth closing room, the limit lifting with natural rises, neglect, a falling limit, breakouts closing room at the click's size, the normal weight room inside the leashes, minor bug 385 in the same build, the no-limit list, four more limited skills, makeup that grows, one trim per skill family (2 to 5 points; this design alone needed 1.5 off man coverage ceilings of 65+), and a check that a hit project moves draft stock.
+
+Still for the build:
+
 - The screens: a project is chosen and followed on the player page's Development tab (the individual practice design's Focus and Plan sub-tabs), with the clues in Reports.
-- World checks at the build: the star count per skill family, the bet outcomes by knack, AI projects by style, converts, pro projects.
+- World checks at the build: the star count per skill family, the bet outcomes by knack, AI projects by style, converts, pro projects (the full list with the sibling's in `progression-everyday.md`, "Checks at the build").
