@@ -113,6 +113,9 @@ struct Lean<'a> {
     trust: f32,
     trust_in: u32,
     roads: &'a crate::world::eligibility::Roads,
+    /// His testing days at his team (`training::testing`), as stored: the
+    /// bytes of up to 15 rows.
+    tests: &'a crate::training::testing::TestBook,
     player: LeanPlayer<'a>,
 }
 
@@ -215,6 +218,7 @@ impl<'a> Lean<'a> {
             trust: p.trust,
             trust_in: p.trust_in,
             roads: &p.roads,
+            tests: &p.tests,
             player: LeanPlayer {
                 position: q.position,
                 age: q.age,
