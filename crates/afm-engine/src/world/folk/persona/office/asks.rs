@@ -521,9 +521,9 @@ fn your_boss(w: &World, him: Them) -> Option<Team> {
 
 /// What a money request asks for and what you put up for it, from the
 /// ear's words for it (`money_kind`, `asked::Case`).
-pub fn money_of(team: Team, r: &Request) -> Option<(AskKind, Case)> {
+pub fn money_of(w: &World, team: Team, r: &Request) -> Option<(AskKind, Case)> {
     match r {
-        Request::Money(words) => Some((money_kind(words), Case::read(words, team.level()))),
+        Request::Money(words) => Some((money_kind(asked::strip_goal(words)), Case::read_in(w, team, words))),
         Request::Hire(_) => Some((AskKind::StaffMoney, Case::default())),
         _ => None,
     }
@@ -538,7 +538,7 @@ pub fn weighed(w: &World, him: Them, ask: &Request) -> Option<(Answer, String, b
         let she = across_she(w, him);
         let (a, what) = match ask {
             Request::Money(_) | Request::Hire(_) => {
-                let (k, case) = money_of(team, ask)?;
+                let (k, case) = money_of(w, team, ask)?;
                 (asked::money(w, team, k, &case), k.words().to_string())
             }
             Request::Time => (asked::time(w, team), "more time".to_string()),
@@ -679,7 +679,7 @@ pub fn run(w: &mut World, him: Them, ask: &Request) -> Option<Ran> {
         // He said yes in the talk (`willing`); your confirm makes it real.
         match ask {
             Request::Money(_) | Request::Hire(_) => {
-                let (k, case) = money_of(team, ask)?;
+                let (k, case) = money_of(w, team, ask)?;
                 ran.done.extend(asked::take(w, team, k, &case, across_she(w, him)));
                 return Some(ran);
             }
@@ -764,7 +764,7 @@ pub fn after(w: &mut World, him: Them, t: &Turn) -> Vec<String> {
         let said = Said { level: team.level(), what: &what, she };
         match r {
             Request::Money(_) | Request::Hire(_) => {
-                let Some((k, case)) = money_of(team, r) else { continue };
+                let Some((k, case)) = money_of(w, team, r) else { continue };
                 if a.why.contains(&asked::Why::NotHere) {
                     out.push(format!("You asked for {}: there's no such money here.", k.words()));
                 } else {

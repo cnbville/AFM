@@ -43,6 +43,7 @@ pub fn touchy(t: Topic) -> f64 {
         Topic::Jobs | Topic::Grapevine | Topic::Opponent => 0.2,
         Topic::HisWord => 0.5,
         Topic::Rules | Topic::Football | Topic::Nothing => 0.0,
+        Topic::Job => 0.1,
         Topic::Effort => 0.2,
     }
 }
@@ -229,6 +230,8 @@ pub fn tell(w: &World, him: Them, known: &[Known], parts: &TellParts) -> Told {
     // Football and what he saw on the tape, a man tells straight unless
     // it's touchy; nothing about football is a secret worth a lie.
     let answer = if topic == Topic::Football && answer == Answer::Lies { Answer::Partly } else { answer };
+    // Asked about his own job, a man makes his case: he wants to keep it.
+    let answer = if topic == Topic::Job && !about_other { Answer::Straight } else { answer };
     let mut told = Told { answer, cost, ..Told::default() };
     match answer {
         Answer::Straight => told.released = known.iter().map(|k| k.words.clone()).collect(),

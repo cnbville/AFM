@@ -121,6 +121,9 @@ pub fn stakes(w: &World, s: &Scene, him: Them, wants: &[Want]) -> Vec<String> {
     if let Some(x) = this_talk(s, him, kind, hold) {
         out.push(x);
     }
+    if kind == Kind::Boss && matches!(s.kind, SceneKind::BossMeeting | SceneKind::BossFirst) {
+        out.extend(boss_talk(w, s));
+    }
     let staff = matches!(kind, Kind::Staff | Kind::OtherCoach);
     let named: Vec<String> = wants
         .iter()
@@ -242,6 +245,92 @@ fn this_talk(s: &Scene, him: Them, kind: Kind, hold: Option<Holdover>) -> Option
         }
         _ => return None,
     })
+}
+
+/// What rides on a meeting with your boss, for him (Cain 2026-11-16: the
+/// athletic director asked the coach what he'd be judged on, in the meeting
+/// where he sets it): the meeting he called and the goals on the table, in
+/// his own terms. The goals meeting: he sets the goals for the season and
+/// the coach is judged on them at the review; the coach may argue one down
+/// or take on more, and what the coach commits to, he writes down.
+fn boss_talk(w: &World, s: &Scene) -> Vec<String> {
+    let Some(team) = s.team.or(Team::seat(w)) else { return Vec::new() };
+    let level = team.level();
+    let you = folk::scene::your_name(w);
+    let goals_of = |season: i32| -> Vec<String> {
+        w.folk
+            .goals
+            .iter()
+            .filter(|g| g.season == season)
+            .map(|g| {
+                let words = folk::commit::goal_words(w, g.kind, level);
+                if g.talk && g.deal == 1 { format!("{words} (his own bar: he took it on)") } else { words }
+            })
+            .collect()
+    };
+    let mut out = Vec::new();
+    match s.c {
+        // The season's goals meeting (and your first meeting).
+        0 => {
+            let season = folk::boss::goal_season(w, team);
+            out.push(format!(
+                "This is your goals meeting with {you}: you set his goals for the {season} season, the sheet in front of you both, and at the season's review you judge him on them. You lead with them, one by one, and why you want each"
+            ));
+            let g = goals_of(season);
+            if !g.is_empty() {
+                out.push(format!("Your goals for {season}: {}", g.join("; ")));
+            }
+            out.push(format!(
+                "{you} may argue a goal down (he asks for time) or take on more: what he commits to that you can judge, you write down and hold him to. A plan or a slogan isn't a goal: ask him what you can measure it by"
+            ));
+        }
+        1 => {
+            let season = w.dates.season;
+            let g = goals_of(season);
+            out.push(format!(
+                "This is the midseason check-in: you look at where the season stands against the goals you set{}",
+                if g.is_empty() { String::new() } else { format!(" ({})", g.join("; ")) }
+            ));
+        }
+        2 => out.push(format!(
+            "This is the season review: you judge {you} on the goals you set for {}, the sheet in front of you both",
+            s.b
+        )),
+        3 => out.push(format!("{you} asked for this meeting: hear what he wants, then decide")),
+        _ => {}
+    }
+    out
+}
+
+/// What a coach of yours can point to, as facts he holds about himself
+/// (`Topic::Job`, released when you ask about his job): his years here,
+/// the team since he came, his unit's year, that he knows the players when
+/// he's a holdover, and his deal.
+pub fn case_facts(w: &World, c: usize) -> Vec<String> {
+    let mut out = Vec::new();
+    let role = facts::coach_role(w, c);
+    if let Some(u) = rooms::unit(w, c) {
+        out.push(format!(
+            "he has been the {role} here {}",
+            match u.years {
+                1 => "one season".to_string(),
+                n => format!("{n} seasons"),
+            }
+        ));
+        if let Some(r) = u.record_words() {
+            out.push(format!("the team is {r} since he took the job"));
+        }
+        if let Some(y) = u.year_words() {
+            out.push(lower_first(y.trim_end_matches('.')));
+        }
+    }
+    if holdover(w, c).is_some() {
+        out.push("he knows these players and the recruits".into());
+    }
+    if let Some(d) = w.folk.staff.deal(c) {
+        out.push(format!("his deal runs through the {} season", d.through));
+    }
+    out
 }
 
 /// What a coach of yours can point to: his years here, the team's record

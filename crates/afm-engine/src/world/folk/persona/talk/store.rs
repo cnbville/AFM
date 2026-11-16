@@ -57,6 +57,12 @@ pub struct Open {
     /// Requests he said no to.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub refused: Vec<Request>,
+    /// The line count when he last raised an ask of his own: his ask is on
+    /// the table only for the line right after it (Cain 2026-11-16: an ask
+    /// raised once stayed "on the table" all talk, so every later line read
+    /// as dodging it). 0 in a file from before it.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub raised_at: u8,
     /// The talk is over but the meeting holds a decision still to make
     /// (`wrap::decides`): no more lines, the meeting's picks decide it.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -77,8 +83,15 @@ impl Open {
             asked: Vec::new(),
             questions: Vec::new(),
             refused: Vec::new(),
+            raised_at: 0,
             over: false,
         }
+    }
+
+    /// His ask still on the table: the one his last line raised, if it
+    /// raised one.
+    pub fn asking(&self) -> Option<WantKind> {
+        if self.raised_at > 0 && self.raised_at == self.lines { self.raised.last().copied() } else { None }
     }
 
     /// How many times this hit was already made in the talk.
@@ -180,6 +193,9 @@ pub fn advance(w: &mut World, scene: u32, room: &Room, t: &Turn, said: &Said, po
         o.boiled = boiled;
     }
     o.raised.extend(t.his_asks.iter().map(|a| a.why.kind));
+    if !t.his_asks.is_empty() {
+        o.raised_at = o.lines;
+    }
     o.hits.extend(t.hits.iter().map(|h| (h.hit.on, h.hit.item.clone(), h.hit.how)));
     for act in &said.reading.acts {
         if let Act::Question { topic, about, .. } = act {
@@ -293,4 +309,8 @@ pub fn notebook(w: &World, who: Them) -> Vec<String> {
 /// The lines of an open talk saved so far (the ear's readings with them).
 pub fn lines(w: &World, who: Them, day: Date) -> &[Line] {
     w.folk.live.persona.talks.iter().rev().find(|t| t.with == who && t.day == day).map_or(&[], |t| t.lines.as_slice())
+}
+
+fn is_zero(x: &u8) -> bool {
+    *x == 0
 }

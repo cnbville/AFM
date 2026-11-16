@@ -602,3 +602,7 @@ mod wrap_tests;
 #[cfg(test)]
 #[path = "goals_tests.rs"]
 mod goals_tests;
+
+#[cfg(test)]
+#[path = "commit_tests.rs"]
+mod commit_tests;
