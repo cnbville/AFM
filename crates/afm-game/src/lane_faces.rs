@@ -244,7 +244,7 @@ fn settings_path(g: &Game) -> PathBuf {
 
 /// Drawn heads are on unless you turned them off (Cain okayed the
 /// comparison picture 2026-10-24).
-fn drawn_on(g: &Game) -> bool {
+pub(crate) fn drawn_on(g: &Game) -> bool {
     read_json(&settings_path(g)).get("drawn").and_then(Value::as_bool).unwrap_or(true)
 }
 
@@ -384,7 +384,7 @@ fn pos_words(p: Position) -> &'static str {
 
 /// His heritage in words, with the family's origin where the surname
 /// tells it.
-fn heritage_words(p_name: &str, f: &Face) -> String {
+pub(crate) fn heritage_words(p_name: &str, f: &Face) -> String {
     let g = &f.genes;
     let main = match g.heritage {
         Ethnicity::White => "White American".to_string(),
@@ -572,12 +572,17 @@ fn drawn_key(key: &str, logo: Option<&Value>) -> String {
     }
 }
 
+/// A drawn head already saved for `id` and `key`, as a data URL.
+pub(crate) fn saved_drawn(g: &Game, id: u32, key: &str) -> Option<String> {
+    to_data_url(&drawn_path(g, id, key))
+}
+
 fn drawn_path(g: &Game, id: u32, key: &str) -> PathBuf {
     dir(g).join("drawn").join(format!("{id}-{key}-v{RENDER_VERSION}.webp"))
 }
 
 /// What the drawn head needs: genes, looks, headshot and team colours.
-fn spec(w: &World, f: &Face, colors: &[String; 2]) -> Value {
+pub(crate) fn spec(w: &World, f: &Face, colors: &[String; 2]) -> Value {
     json!({
         "genes": f.genes,
         "look": f.appearance,

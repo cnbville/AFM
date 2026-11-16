@@ -8,6 +8,14 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.575 (16 Nov, shipped): ground lane S2: the meeting at the map (PR #486)
+**TLDR:** Monday's meeting is a screen: your coordinator's letter, a map of where he wants to send each man, and the week day by day, which you can change by dragging.
+- A new Ground screen, The meeting, with the road days and your free hours for the week. (PR #486)
+- Each place that wants a man is a numbered stop on the map, with who goes and where you stand there. (PR #486)
+- Your coordinator puts one call to you each week; make it or leave it to him. (PR #486)
+- Drag a man to another day to change his road, or hand the whole week to your coordinator. (PR #486)
+- Look at: open The meeting from the Ground section on a spring Monday. (PR #486)
+
 ## 0.2.574 (16 Nov, shipped): ground lane G1b: standing and one memory (PR #474), weigh typed plan asks and college calls as said, not as a chip (PR #462), ground lane G3: your week and road days (PR #481), and 2 more
 **TLDR:** 5 changes ship together. The people around the kids now remember you. Every high school coach and counselor you deal with has a standing with your staff, from Stranger to Home, and it moves with the work you put in. Your coordinators and college recruiters now react to what you actually say. Ask for a lot or a little, give an order, or mix truth and spin on a call, and the answer follows. Plus 3 more below.
 - Ground lane G1b: standing and one memory (PR #474): The people around the kids now remember you. Every high school coach and counselor you deal with has a standing with your staff, from Stranger to Home, and it moves with the work you put in.

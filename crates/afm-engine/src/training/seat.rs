@@ -597,9 +597,10 @@ fn old_tests(w: &mut World, team: u32, roster: &[usize]) {
 /// confirmed: strength staffs' usual ratios).
 pub fn test_row(p: &crate::player::Player, key: u64) -> TestRow {
     let c = crate::body::Drills::of(p).expected();
+    let raw = crate::body::Drills::of(p).raw();
     let wt = crate::body::body_now(p).weight;
     let n = |k: u64, sd: f64| crate::world::season::key_normal(key ^ k, p.id as u64) * sd;
-    let reps = (c.bench + n(1, 1.5)).round().clamp(0.0, 50.0);
+    let reps = (c.bench + n(1, 1.5)).round().clamp(0.0, 99.0);
     // His max: the combine's reps are fitted at draft weights, so read his
     // strength at 220 lb and scale it by his weight to the two-thirds power
     // (the way strength goes with size; a 160 lb receiver doesn't press
@@ -621,7 +622,7 @@ pub fn test_row(p: &crate::player::Player, key: u64) -> TestRow {
     let legs = max(p.attributes.get(Attr::LowerBody), n(1, 1.5), false);
     let five = |x: f64| ((x / 5.0).round() * 5.0).clamp(0.0, 900.0) as u16;
     let bench = one * (1.0 + n(2, 0.02));
-    let forty = (c.forty + n(5, 0.03)).clamp(4.2, 6.5);
+    let forty = (c.forty + n(5, 0.03)).clamp(3.5, 9.0);
     TestRow {
         id: p.id,
         bench: five(bench),
@@ -630,8 +631,11 @@ pub fn test_row(p: &crate::player::Player, key: u64) -> TestRow {
         clean: five(legs * 0.88 * (1.0 + n(4, 0.04))),
         forty: (forty * 100.0).round() as u16,
         split: ((0.375 * forty - 0.15 + n(6, 0.015)) * 100.0).round() as u16,
-        shuttle: ((c.shuttle + crate::body::drill_knack(p).1 + n(7, 0.04)).clamp(3.8, 6.0) * 100.0).round() as u16,
-        vertical: ((c.vertical + n(8, 0.8)).clamp(14.0, 46.0) * 2.0).round() as u8,
+        shuttle: ((crate::body::thin_shuttle(p.position, raw[5] + crate::body::drill_knack(p).1) + n(7, 0.04))
+            .clamp(3.0, 9.0)
+            * 100.0)
+            .round() as u16,
+        vertical: ((c.vertical + crate::body::jump_knack(p).0 + n(8, 0.8)).clamp(0.0, 70.0) * 2.0).round() as u8,
         weight: wt.round().clamp(0.0, 500.0) as u16,
     }
 }
