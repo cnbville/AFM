@@ -14,12 +14,13 @@
 //! - `ground_finds`: your finds with their blooms and setbacks, your
 //!   misses, your men's records and your name as a finder.
 
+use afm_engine::calendar::Date;
 use afm_engine::world::ground::finds::{self, Find};
 use afm_engine::world::ground::leads::{self, Blank, Lead};
 use afm_engine::world::ground::news::{self, News};
 use afm_engine::world::ground::people::{self, Who};
 use afm_engine::world::ground::standing::{self, Level};
-use afm_engine::world::scouting::{self as sc, readers};
+use afm_engine::world::scouting::{self as sc, readers, services};
 use afm_engine::world::{Stage, World};
 use serde_json::{Value, json};
 
@@ -58,6 +59,11 @@ fn your_program(w: &World) -> Option<usize> {
     }
 }
 
+fn iso(d: Date) -> String {
+    let (y, m, dd) = d.parts();
+    format!("{y:04}-{m:02}-{dd:02}")
+}
+
 fn level_name(k: u8) -> &'static str {
     Level::ALL[(k as usize).min(3)].name()
 }
@@ -73,6 +79,8 @@ fn person(w: &World, who: Who) -> Value {
         "level": prog.map(|p| standing::level(w, p, who).name()),
         "why": prog.map(|p| standing::why(w, p, who)),
         "record": leads::record_words(w, who),
+        "held": leads::record(w, who).0,
+        "of": leads::record(w, who).1,
     })
 }
 
@@ -117,6 +125,7 @@ fn row(w: &World, l: &Lead) -> Option<Value> {
         "from": l.from.map(|who| people::name(w, who)).or(l.tipper.clone()),
         "claim": l.claim.map(|c| afm_engine::world::folk::tips::CLAIMS[c as usize]),
         "filled": filled,
+        "ready": filled == 5,
         "find": w.ground.finds.iter().any(|f| f.kid == l.kid),
         "word": l.word,
         "news": l.news.len(),
@@ -125,7 +134,7 @@ fn row(w: &World, l: &Lead) -> Option<Value> {
 
 fn list(w: &World) -> Value {
     let rows: Vec<Value> = leads::open(w).into_iter().filter_map(|l| row(w, l)).collect();
-    json!({ "leads": rows, "finder": finds::finder_words(w) })
+    json!({ "leads": rows, "finder": finds::finder_words(w), "today": iso(w.today) })
 }
 
 fn news_json(w: &World, n: &News) -> Value {
@@ -133,18 +142,21 @@ fn news_json(w: &World, n: &News) -> Value {
         "what": n.what.key(),
         "line": n.line,
         "date": date_text(n.date),
+        "iso": iso(n.date),
         "from": n.source.map(|s| people::name(w, s)),
         "order": n.order.iter().map(|h| json!({
             "program": w.program_name(h.prog as usize),
             "program_id": h.prog,
             "day": news::when(h.day, n.date),
+            "iso": iso(h.day),
             "level": level_name(h.level),
             "why": h.why.key(),
             "you": n.place > 0 && h.prog == n.you.prog,
         })).collect::<Vec<_>>(),
         "before_public": n.before_public,
         "public": news::when(n.public, n.date),
-        "you": { "day": news::when(n.you.day, n.date), "place": n.place, "why": n.you.why.key() },
+        "public_iso": iso(n.public),
+        "you": { "day": news::when(n.you.day, n.date), "iso": iso(n.you.day), "place": n.place, "why": n.you.why.key() },
         "order_words": news::order_words(w, n),
         "why_words": news::why_words(w, n),
     })
@@ -166,15 +178,19 @@ fn word(w: &World, i: usize, open: &[Blank]) -> Value {
     };
     let low = p.stars <= line && others <= 5;
     let pay = finds::pay(p.stars, line, others);
-    let mut options = vec![json!({
-        "key": "offer",
-        "label": "Offer now",
-        "risk": if low {
-            format!("He becomes your find. A scholarship spent on {} open blanks.", open.len())
-        } else {
-            "The world rates him already: an offer now isn't a find.".to_string()
-        },
-    })];
+    let offered = p.cal.offers.contains(&prog) || p.cal.early_offers.iter().any(|o| o.0 == prog);
+    let mut options = Vec::new();
+    if !offered {
+        options.push(json!({
+            "key": "offer",
+            "label": "Offer now",
+            "risk": if low {
+                format!("He becomes your find. A scholarship spent with {} of five blanks open.", open.len())
+            } else {
+                "The world rates him already: an offer now isn't a find.".to_string()
+            },
+        }));
+    }
     if p.class_of - w.dates.season >= 2 {
         options.push(json!({
             "key": "wait",
@@ -198,6 +214,7 @@ fn word(w: &World, i: usize, open: &[Blank]) -> Value {
     ];
     let size = ["a little", "more", "a lot"];
     json!({
+        "offered": offered,
         "options": options,
         "find_if_offered": low,
         "pays": if low { pay_words(pay) } else { String::new() },
@@ -248,6 +265,80 @@ fn find_json(w: &World, f: &Find) -> Value {
     })
 }
 
+/// The look that filled a blank, by its kind's name ("Your camp", "Calls").
+fn look_kind(w: &World, id: u32, d: Date, code: u32) -> Option<&'static str> {
+    w.scouting.dept.looks.get(&id)?.iter().find(|l| l.date == d && l.who == code).map(|l| l.kind.name())
+}
+
+/// A program's marks on a kid: the day (if known) and what happened.
+type Marks = Vec<(Option<Date>, String)>;
+
+/// The race in signs (GR73): the three programs that show most on him, each
+/// with the days it heard (the order the news went) or offered, and your own
+/// days: when you heard and each look that filled a blank. Dates are ISO;
+/// an offer with no date is a mark with `iso: null`.
+fn race(w: &World, id: u32, you: Option<usize>, blanks: &[leads::Filled; 5], filler: &dyn Fn(u32) -> String) -> Value {
+    use std::collections::BTreeMap;
+    let mut by: BTreeMap<usize, Marks> = BTreeMap::new();
+    for n in leads::news_of(w, id) {
+        for h in &n.order {
+            let j = h.prog as usize;
+            if Some(j) != you {
+                by.entry(j).or_default().push((Some(h.day), format!("heard {}", n.what.words())));
+            }
+        }
+    }
+    if let Some(i) = sc::place(w, id) {
+        let p = &w.people[i];
+        for &(j, d) in &p.cal.early_offers {
+            if Some(j) != you {
+                by.entry(j).or_default().push((Some(d), "offered".into()));
+            }
+        }
+        for &j in &p.cal.offers {
+            let dated = p.cal.early_offers.iter().any(|o| o.0 == j);
+            if Some(j) != you && !dated {
+                by.entry(j).or_default().push((None, "offered".into()));
+            }
+        }
+    }
+    let mut rivals: Vec<(usize, Marks)> = by.into_iter().collect();
+    for r in &mut rivals {
+        r.1.sort_by_key(|m| m.0);
+        r.1.dedup_by(|a, b| a.0 == b.0 && a.1 == b.1);
+    }
+    rivals.sort_by_key(|r| (!r.1.iter().any(|m| m.1 == "offered"), r.1.iter().filter_map(|m| m.0).min()));
+    rivals.truncate(3);
+    let mut mine: Vec<Value> = Vec::new();
+    if let Some(l) = leads::lead(w, id) {
+        mine.push(json!({ "iso": iso(l.since), "what": "you heard", "by": l.from.map(|who| people::name(w, who)).or(l.tipper.clone()) }));
+    }
+    if let (Some(j), Some(i)) = (you, sc::place(w, id))
+        && let Some(&(_, d)) = w.people[i].cal.early_offers.iter().find(|o| o.0 == j)
+    {
+        mine.push(json!({ "iso": iso(d), "what": "your offer", "by": Value::Null }));
+    }
+    for f in blanks {
+        if let Some((d, code)) = f.filled {
+            mine.push(json!({
+                "iso": iso(d),
+                "what": look_kind(w, id, d, code).unwrap_or("a look"),
+                "blank": f.blank.name(),
+                "by": filler(code),
+            }));
+        }
+    }
+    mine.sort_by(|a, b| a["iso"].as_str().cmp(&b["iso"].as_str()));
+    json!({
+        "rivals": rivals.iter().map(|(j, ms)| json!({
+            "program": w.program_name(*j),
+            "id": j,
+            "marks": ms.iter().map(|m| json!({ "iso": m.0.map(iso), "what": m.1 })).collect::<Vec<_>>(),
+        })).collect::<Vec<_>>(),
+        "you": mine,
+    })
+}
+
 fn card(w: &World, id: u32) -> Result<Value, String> {
     let i = sc::place(w, id).ok_or("No such player.")?;
     let l = leads::lead(w, id);
@@ -261,6 +352,15 @@ fn card(w: &World, id: u32) -> Result<Value, String> {
     let open: Vec<Blank> = blanks.iter().filter(|f| f.filled.is_none()).map(|f| f.blank).collect();
     let measured = blanks.iter().any(|f| f.blank == Blank::Size && f.filled.is_some());
     let body = afm_engine::body::body_now(&p.player);
+    let rated = services::class_ranks(w, p.class_of).is_some_and(|c| c.ids.contains(&id));
+    let next = services::next_update(w.today);
+    let prog_of_you = your_program(w);
+    let offers_all: Vec<&str> = {
+        let mut v: Vec<usize> = p.cal.offers.iter().chain(p.cal.early_offers.iter().map(|o| &o.0)).copied().collect();
+        v.sort_unstable();
+        v.dedup();
+        v.iter().map(|&j| w.program_name(j)).collect()
+    };
     let times: Vec<Value> = w
         .times
         .of(id)
@@ -271,6 +371,7 @@ fn card(w: &World, id: u32) -> Result<Value, String> {
         "kid": kid(w, i),
         "lead": l.map(|l| json!({
             "since": date_text(l.since),
+            "since_iso": iso(l.since),
             "how": l.how.key(),
             "how_words": l.how.words(),
             "from": l.from.map(|who| person(w, who)),
@@ -287,16 +388,43 @@ fn card(w: &World, id: u32) -> Result<Value, String> {
         "growth": {
             "measured": measured.then(|| json!({
                 "height": afm_engine::body::height_text(body.height.round()),
+                "height_in": body.height.round(),
                 "weight": body.weight.round(),
             })),
+            // A year back on his own growth curve: shown only once your
+            // staff has measured him (the same curve the spring weigh-in's
+            // news reads).
+            "then": measured.then(|| {
+                let age = p.player.age as f64 + f64::from(p.player.grow);
+                let a = p.player.body;
+                let h = (a.height * afm_engine::body::height_share(age - 1.0, p.player.bloom)).round();
+                json!({
+                    "height": afm_engine::body::height_text(h),
+                    "height_in": h,
+                    "weight": (a.weight * afm_engine::body::fill_share(&p.player, age - 1.0)).round(),
+                })
+            }),
             "times": times,
         },
+        "services": {
+            "rated": rated,
+            "stars": rated.then_some(p.stars),
+            "next": { "date": iso(next.0), "season": next.1 },
+        },
+        "today": iso(w.today),
+        "offers_all": offers_all,
+        "race": race(w, id, prog_of_you, &blanks, &filler),
         "blanks": blanks.iter().map(|f| {
             let (what, time) = f.blank.fills();
             json!({
                 "key": f.blank.key(),
                 "name": f.blank.name(),
-                "filled": f.filled.map(|(d, code)| json!({ "date": date_text(d), "by": filler(code) })),
+                "filled": f.filled.map(|(d, code)| json!({
+                    "date": date_text(d),
+                    "iso": iso(d),
+                    "by": filler(code),
+                    "how": look_kind(w, id, d, code),
+                })),
                 "asked": f.asked,
                 "fills": what,
                 "time": time,
@@ -397,6 +525,10 @@ mod tests {
             let text = c.to_string();
             assert!(!text.contains("NaN") && !text.contains("{}"), "{text}");
             assert_eq!(c["blanks"].as_array().unwrap().len(), 5);
+            // What board 4b draws: the services' next update, the race's marks, your days.
+            assert!(c["services"]["next"]["date"].is_string());
+            assert!(c["race"]["you"].as_array().is_some_and(|y| !y.is_empty()), "you heard on a day");
+            assert!(c["race"]["rivals"].is_array() && c["today"].is_string());
         }
         let first = rows[0]["kid"]["id"].as_u64().unwrap();
         println!("{}", serde_json::to_string_pretty(&g.call("ground_lead", &json!({ "id": first })).unwrap()).unwrap());
@@ -409,6 +541,17 @@ mod tests {
         if let Some(k) = open {
             let r = g.call("ground_fill", &json!({ "id": first, "blank": k })).unwrap();
             assert!(r["text"].as_str().is_some_and(|s| !s.is_empty()));
+        }
+        // The card's offer button sends the desk's offer; once it is out the word drops the option.
+        let id = first as u32;
+        let had = |c: &serde_json::Value| {
+            c["word"]["options"].as_array().is_some_and(|o| o.iter().any(|x| x["key"] == "offer"))
+        };
+        let before = g.call("ground_lead", &json!({ "id": id })).unwrap();
+        if had(&before) && g.call("recruit_offer", &json!({ "id": id })).is_ok() {
+            let after = g.call("ground_lead", &json!({ "id": id })).unwrap();
+            assert!(after["word"]["offered"].as_bool().unwrap_or(false), "offered shows on the card");
+            assert!(!had(&after), "an offer you've made isn't offered twice");
         }
         assert!(g.call("ground_finds", &json!({})).unwrap()["finder"].is_string());
         assert!(g.call("ground_lead_drop", &json!({ "id": first })).is_ok());
