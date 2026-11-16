@@ -265,8 +265,11 @@ impl super::wants::Acting for Office {
             None => super::asks::Asks.run(w, him, ask),
         }
     }
-    fn why(&self, w: &World, him: Them, ask: &super::terms::Request, _wl: &Willing) -> Vec<String> {
-        asks::why(w, him, ask)
+    fn why(&self, w: &World, him: Them, ask: &super::terms::Request, wl: &Willing) -> Vec<String> {
+        let mut v = asks::why(w, him, ask);
+        // A coordinator's numbers and stance on a plan ask.
+        v.extend(asks::words(w, him, ask, wl));
+        v
     }
 }
 
