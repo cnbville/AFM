@@ -28,6 +28,9 @@ pub mod lane_find;
 pub mod lane_frontoffice;
 pub mod lane_gameday;
 pub mod lane_gameplan;
+pub mod lane_ground;
+pub mod lane_ground_people;
+pub mod lane_groundweek;
 pub mod lane_groundzero;
 pub mod lane_handbook;
 pub mod lane_help;
@@ -54,6 +57,7 @@ pub mod reads;
 pub mod road;
 pub mod setup;
 pub mod tallies;
+pub mod versions;
 pub mod views;
 pub mod world_log;
 
@@ -254,6 +258,13 @@ impl Game {
             "delete_save" => setup::delete_save(self, args),
             "delete_world" => setup::delete_world(self, args),
             "reveal" => setup::reveal(self, args),
+            // Going back to an older version (Settings): what it can't open, a
+            // copy of your saves, and the pause on updates.
+            "versions_check" => versions::check(self, args),
+            "versions_backup" => versions::backup(self, args),
+            "update_pin_get" => Ok(versions::pin_get(self)),
+            "update_pin_set" => versions::pin_set(self, args),
+            "update_pin_clear" => versions::pin_clear(self),
             "setup" => Ok(setup::options(self.w()?)),
             "similar" => Ok(setup::similar(self.w()?, args)),
             "towns" => Ok(setup::towns(self.w()?, args.get("state").and_then(Value::as_str).unwrap_or("TX"))),
@@ -376,7 +387,7 @@ impl Game {
             _ => {
                 // The final build's lanes each answer their own commands.
                 type Lane = fn(&mut Game, &str, &Value) -> Option<Reply>;
-                const LANES: [Lane; 34] = [
+                const LANES: &[Lane] = &[
                     lane_core::call,
                     lane_gameday::call,
                     lane_money::call,
@@ -407,6 +418,9 @@ impl Game {
                     lane_film::call,
                     lane_handbook::call,
                     lane_groundzero::call,
+                    lane_ground_people::call,
+                    lane_ground::call,
+                    lane_groundweek::call,
                     lane_hunt::call,
                     lane_data::call,
                     notebook::call,

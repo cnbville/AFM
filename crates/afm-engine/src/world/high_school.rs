@@ -80,6 +80,10 @@ pub struct HighSchool {
     /// The recruiting area (state and county, or town where the county is
     /// unknown) for area pipelines (note 4) and nearby schedules.
     pub area: usize,
+    /// Ground's area (`ground::areas`): staffs' areas, not the county. Read
+    /// from the shared table when the world is built and when it is read.
+    #[serde(skip)]
+    pub ground_area: u16,
     pub name: String,
     pub fictional_name: String,
     /// One of the state's real top programs.
@@ -369,6 +373,7 @@ pub fn generate_state_schools(
             town,
             county,
             area: 0,
+            ground_area: 0,
             name,
             fictional_name,
             real,

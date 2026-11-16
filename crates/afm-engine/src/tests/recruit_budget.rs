@@ -1,16 +1,13 @@
 //! Your athletic director's yes to a bigger recruiting budget (people topic
 //! 12; `folk::staffing::recruit_bonus`, missed feature 5): it is your
 //! program's alone, grows the athletic budget's recruiting line, hosts your
-//! official visits better and puts a coach out on a Thursday on to a second
-//! school, without spending an NCAA evaluation day. Nothing moves without a
+//! official visits better and buys your staff more flights on the road
+//! (Ground lane G3, GR49). Nothing moves without a
 //! raise, and a new job starts without one.
 
 use super::legacy::seat;
-use crate::calendar::{Date, Weekday};
 use crate::world::finance::college::{RECRUITING, raise_recruiting};
 use crate::world::folk::staffing::recruit_bonus;
-use crate::world::scouting::dept::second_schools;
-use crate::world::scouting::readers::COACH;
 use crate::world::{Stage, Visit, World, recruiting};
 
 fn college() -> (World, usize) {
@@ -69,45 +66,20 @@ fn a_raise_hosts_your_official_visits_better_and_no_one_elses() {
 }
 
 #[test]
-fn travel_money_sends_a_coach_on_to_a_second_school_on_thursdays_only() {
+fn travel_money_buys_your_staff_more_flights() {
+    // Ground lane G3 (GR49): the raise grows the recruiting line, and the
+    // week's road money with it, so more of your men can fly.
     let (mut w, mine) = college();
-    w.add_class_aged(17);
-    // Ten kids from one state on the board; two coaches out on the first two.
-    let st = w.people.iter().find(|p| p.stage == Stage::HighSchool).unwrap().home_state;
-    let board: Vec<usize> = (0..w.people.len())
-        .filter(|&i| w.people[i].stage == Stage::HighSchool && w.people[i].home_state == st)
-        .take(10)
-        .collect();
-    assert!(board.len() >= 4, "enough kids in one state");
-    let picks = vec![(COACH + 1, board[0]), (COACH + 2, board[1])];
-    let unseen = |_: &World, _: usize| false;
-    let mut thu = Date::ymd(w.year, 9, 1);
-    while thu.weekday() != Weekday::Thu {
-        thu = thu.add(1);
+    if w.finance.college.get(mine).is_none() {
+        return;
     }
-    assert!(second_schools(&w, mine, thu, &board, &picks, &unseen).is_empty(), "no raise, no second school");
-    // A raise of the whole budget: every coach out goes on.
+    let before = crate::world::ground::week::road::purse(&w, mine, &[]);
+    assert!(!before.raised, "no raise yet");
     w.folk.staff.recruit_bonus = 1.0;
-    let extra = second_schools(&w, mine, thu, &board, &picks, &unseen);
-    assert_eq!(extra, vec![(COACH + 1, board[2]), (COACH + 2, board[3])], "the next best unseen near the first");
-    // Friday's games kick off at once: no second school.
-    assert!(second_schools(&w, mine, thu.add(1), &board, &picks, &unseen).is_empty());
-    // Someone already seen is skipped.
-    let seen = |_: &World, k: usize| k == board[2];
-    let extra = second_schools(&w, mine, thu, &board, &picks, &seen);
-    assert_eq!(extra, vec![(COACH + 1, board[3]), (COACH + 2, board[4])]);
-    // At a tenth more money about a tenth of coach days go on.
-    w.folk.staff.recruit_bonus = 0.1;
-    let mut days = 0;
-    let mut on = 0;
-    let mut d = thu;
-    for _ in 0..400 {
-        days += picks.len();
-        on += second_schools(&w, mine, d, &board, &picks, &unseen).len();
-        d = d.add(7);
-    }
-    let share = on as f64 / days as f64;
-    assert!((0.07..0.13).contains(&share), "share of coach days with a second school: {share}");
+    raise_recruiting(&mut w, mine, 1.0);
+    let after = crate::world::ground::week::road::purse(&w, mine, &[]);
+    assert!(after.raised, "the raise is in the week's money");
+    assert!(after.flights > before.flights, "flights {} to {}", before.flights, after.flights);
 }
 
 #[test]

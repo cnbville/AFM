@@ -290,10 +290,17 @@ impl Resolving for Conversation<'_> {
                 }
                 Act::Offer(o) => {
                     let wd = self.parts.valuing.weigh(w, him, o);
+                    // His own reasons, where the game weighed them, in
+                    // place of the plain words.
+                    let why = self.parts.valuing.why(w, him, o, &wd);
+                    let plain = why.is_empty();
+                    t.say.released.extend(why);
                     match &wd {
                         Weighed::Yes => {
                             t.confirm.push(Confirm::Offer(o.clone()));
-                            t.say.released.push("He'd take that.".into());
+                            if plain {
+                                t.say.released.push("He'd take that.".into());
+                            }
                         }
                         Weighed::Counter(c) => {
                             t.say.released.extend(c.asks.iter().cloned());
@@ -316,7 +323,8 @@ impl Resolving for Conversation<'_> {
                                 });
                             }
                         }
-                        Weighed::No => t.say.released.push("He doesn't take it up.".into()),
+                        Weighed::No if plain => t.say.released.push("He doesn't take it up.".into()),
+                        Weighed::No => {}
                     }
                     t.weighed.push((o.clone(), wd));
                 }
@@ -341,7 +349,14 @@ impl Resolving for Conversation<'_> {
                     if let Some((_, words)) = &own {
                         t.say.released.push(words.clone());
                     }
+                    let desk = own.is_some();
                     let wl = own.map_or_else(|| self.parts.acting.willing(w, him, r), |x| x.0);
+                    // His own reasons, where the game weighed them (your
+                    // boss's and a booster's asks, a coordinator's plan
+                    // ask), in place of the plain words.
+                    let why = if desk { Vec::new() } else { self.parts.acting.why(w, him, r, &wl) };
+                    let plain = why.is_empty();
+                    t.say.released.extend(why);
                     match &wl {
                         Willing::Yes => {
                             // One that costs you waits on your confirm; a
@@ -349,7 +364,13 @@ impl Resolving for Conversation<'_> {
                             if super::asks::costs_you(r) {
                                 t.confirm.push(Confirm::Request(r.clone()));
                             }
-                            t.say.released.push("He'll do it.".into());
+                            if plain {
+                                t.say.released.push("He'll do it.".into());
+                            }
+                            // Asked for his read on a man, he gives it now.
+                            if let super::terms::Request::Evaluate(pid) = r {
+                                t.say.released.extend(super::evaluate::words(w, him, *pid));
+                            }
                         }
                         Willing::If(c) => {
                             t.say.released.extend(c.asks.iter().cloned());
@@ -357,7 +378,9 @@ impl Resolving for Conversation<'_> {
                         }
                         Willing::Later(d) => t.say.released.push(format!("He'll let you know by {}.", d)),
                         Willing::No => {
-                            t.say.released.push("He won't do that.".into());
+                            if plain {
+                                t.say.released.push("He won't do that.".into());
+                            }
                             if open.refused_before(r) {
                                 t.patience.0 -= feel::ASKED_AGAIN;
                             }

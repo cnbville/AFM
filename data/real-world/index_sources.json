@@ -589,6 +589,25 @@
     "C29"
    ]
   },
+  "ground_area_seeds.csv": {
+   "source": "hand-written from how college staffs split their states (area names, nicknames, area codes and core counties); Georgia's split from the agreed Ground map mock-up",
+   "years": "current",
+   "level": "high school",
+   "status": "estimate",
+   "areas": [
+    "C23"
+   ]
+  },
+  "ground_areas.json": {
+   "source": "ground_area_seeds.csv with the Census county shapes (us-atlas 3.0.1, Census cartographic boundaries) and hs_towns.csv",
+   "years": "current",
+   "level": "high school",
+   "status": "computed",
+   "script": "../../tools/ground/areas.py",
+   "areas": [
+    "C23"
+   ]
+  },
   "hs_playoff_formats.csv": {
    "source": "state association handbooks (docs/research/hs-playoff-formats.md)",
    "years": "2025-2026",

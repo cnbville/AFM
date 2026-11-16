@@ -208,3 +208,50 @@ fn an_older_save_draws_it_once_from_where_he_is() {
     let back: Player = rmp_serde::from_slice(&bytes).unwrap();
     assert_eq!(back.prog, p.prog);
 }
+
+/// One receiver's four college years at 18-22 with or without a strength
+/// project: (strength ceiling, weight, expected forty) at 22.
+fn receiver_years(id: u32, project: bool, knack: f64) -> (f64, f64, f64) {
+    let mut p = boy(id, Position::WR);
+    let mut rng = Rng::new(id ^ 0xB0D);
+    for _ in 14..18 {
+        develop_season(&mut p, &SeasonContext::new(Level::HS, 10.0, PlayingTime::Starter), &mut rng);
+    }
+    progression::ensure(&mut p);
+    p.prog.knack[6] = (knack * 25.0).round() as i8;
+    if project {
+        assert!(progression::start_body(&mut p, progression::BodyKind::Strength, true));
+    }
+    for _ in 18..22 {
+        develop_season(&mut p, &SeasonContext::new(Level::FBS, 12.0, PlayingTime::Starter), &mut rng);
+    }
+    let d = crate::body::Drills::of(&p).expected();
+    (p.ceilings.get(Attr::Strength), crate::body::body_now(&p).weight, d.forty)
+}
+
+#[test]
+fn a_strength_project_builds_a_big_responder_and_barely_moves_a_non_responder() {
+    // The design's lanky burner (item 2's example): a big responder's
+    // strength ceiling rises about 14, he carries about 15 lb more and runs
+    // about 0.05 slower; a non-responder gains almost nothing.
+    let n = 120u32;
+    let mut out = Vec::new();
+    for knack in [1.6, -1.6] {
+        let (mut ds, mut dw, mut df) = (0.0, 0.0, 0.0);
+        for id in 0..n {
+            let a = receiver_years(9_900_000 + id, false, knack);
+            let b = receiver_years(9_900_000 + id, true, knack);
+            ds += b.0 - a.0;
+            dw += b.1 - a.1;
+            df += b.2 - a.2;
+        }
+        let n = n as f64;
+        out.push((ds / n, dw / n, df / n));
+        eprintln!("knack {knack}: strength ceiling {:+.1}, weight {:+.1} lb, forty {:+.3}", ds / n, dw / n, df / n);
+    }
+    let (big, none) = (out[0], out[1]);
+    assert!(big.0 > 9.0 && big.0 < 16.0, "big responder {:.1}", big.0);
+    assert!(big.1 > 8.0 && big.1 < 20.0, "big responder's pounds {:.1}", big.1);
+    assert!(big.2 > 0.02 && big.2 < 0.09, "big responder's forty {:+.3}", big.2);
+    assert!(none.0 < 1.5 && none.1 < 3.0, "non-responder {:.1} and {:.1} lb", none.0, none.1);
+}

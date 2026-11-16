@@ -1589,7 +1589,9 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     if (15.0..=25.0).contains(&age) && !position.is_specialist() {
         let room = weight_room_room(position, player.original_potential, player.body.frame_weight);
         let pace = weight_room_pace(hs, personality.work_ethic, ctx.physical);
-        let gap = room - player.body.weight;
+        // A body project's pounds sit past this room (design item 2), so
+        // they never count against it.
+        let gap = room + player.prog.body_lbs as f64 - player.body.weight;
         if gap > 0.0 {
             player.body.weight += gap * clamp(pace, 0.0, 1.0);
         }
@@ -1598,6 +1600,9 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // The normal weight room inside the leashes (everyday item 6): his body
     // knack moves his physical ceilings from the typical path.
     crate::progression::weight_room(player, ctx.level, ctx.trouble.is_some());
+    // His body project, if he has one (design items 1, 2 and 7): the
+    // strength staff moves his ceilings on its leash and puts weight on him.
+    crate::progression::body_year(player, ctx.level, physical_coaching, ctx.trouble.is_some());
 
     // --- Wear (update 3, F14) ------------------------------------------------------
     // Every season played wears a body down, in college at half the pros'

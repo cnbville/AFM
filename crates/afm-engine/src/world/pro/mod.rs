@@ -18,6 +18,7 @@ pub mod market;
 pub mod money;
 pub mod office;
 pub mod other;
+pub mod roles;
 pub mod scouts;
 pub mod squad;
 pub mod trades;
@@ -1708,7 +1709,7 @@ fn camp(w: &mut World, d: Date) {
     // by pro season inside the step, the same room counts; your club's are
     // yours to set. NFL staffs run them as balanced staffs (proposed, not
     // confirmed).
-    let projects: std::collections::HashMap<usize, crate::progression::Change> = {
+    let projects: std::collections::HashMap<usize, Vec<crate::progression::Change>> = {
         use crate::progression::{Lean, Room, ai_room};
         let mut rooms: std::collections::HashMap<(usize, Room), Vec<usize>> = Default::default();
         for &i in &pros {
@@ -1727,7 +1728,7 @@ fn camp(w: &mut World, d: Date) {
             let members: Vec<&crate::player::Player> = ids.iter().map(|&i| &w.people[i].player).collect();
             let seed = (year as u32).wrapping_mul(0x51_7CC1) ^ (k.0 as u32).wrapping_mul(0x2F0B) ^ (k.1 as u32) << 24;
             for (m, c) in ai_room(&members, k.1, Lean::BALANCED, w.nfl[k.0].coaching, 1.0, seed) {
-                out.insert(ids[m], c);
+                out.entry(ids[m]).or_insert_with(Vec::new).push(c);
             }
         }
         out
@@ -1891,7 +1892,7 @@ fn camp(w: &mut World, d: Date) {
         let read_late = crate::development::reads_late(&p.player, Level::NFL);
         let year_focus = ctx.focus.map(|a| crate::development::Focus::two(a, ctx.focus2, ctx.focus_minutes));
         crate::training::close_year(&mut p.player, year_focus);
-        if let Some(&c) = projects.get(&i) {
+        for &c in projects.get(&i).into_iter().flatten() {
             crate::progression::apply(&mut p.player, c);
         }
         let report = crate::development::develop_season(&mut p.player, &ctx, &mut p.rng);

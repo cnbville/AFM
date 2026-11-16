@@ -259,11 +259,171 @@ pub fn count_in(log: &mut super::CalendarLog, coll: f64, r: &Review) {
 /// stay. July 1 pays it.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct NilDeal {
-    /// The money year (from July 1 of it) it pays.
+    /// The money year (from July 1 of it) it pays next.
     pub year: i32,
-    /// What he gets: both pots, the third party's part as NIL Go cleared it.
+    /// What he gets a year: both pots, the third party's part as NIL Go
+    /// cleared it.
     pub amount: f64,
     pub kind: DealKind,
+    /// A multi-year deal's last money year (item 12); 0 for a one-year
+    /// deal. Each July pays a year and moves `year` on until this one.
+    #[serde(default)]
+    pub through: i32,
+}
+
+impl NilDeal {
+    /// The last money year it pays.
+    pub fn last(&self) -> i32 {
+        self.through.max(self.year)
+    }
+
+    /// Does it pay money year `y`?
+    pub fn pays(&self, y: i32) -> bool {
+        self.year <= y && y <= self.last()
+    }
+
+    /// A multi-year deal (item 12), with years still to pay.
+    pub fn contract(&self) -> bool {
+        self.through > 0
+    }
+
+    /// The money years still to pay from `year` on.
+    pub fn years_left(&self) -> i32 {
+        (self.last() - self.year + 1).max(0)
+    }
+
+    /// What leaving costs (item 12, the Big 12 template): half the fee
+    /// still to pay, due within 30 days; nothing on a one-year deal.
+    pub fn buyout(&self) -> f64 {
+        if self.contract() { BUYOUT * self.amount * self.years_left() as f64 } else { 0.0 }
+    }
+
+    /// After July 1 of `paid`: the next year it pays, or None once done.
+    pub fn after_payday(self, paid: i32) -> Option<NilDeal> {
+        if self.year > paid {
+            Some(self)
+        } else if self.through > paid {
+            Some(NilDeal { year: paid + 1, ..self })
+        } else {
+            None
+        }
+    }
+}
+
+/// Multi-year deals (the new NIL scheme, item 12; Cain 2026-11-15, "agree
+/// on all"). Real since the House settlement (July 2025): most players
+/// sign one year at a time (On3), the blue-chips and the top transfers a
+/// school most fears losing are offered two to four, and a transfer out
+/// owes a buyout (the Big 12's template: half the remaining fee within 30
+/// days), which the school that takes him usually pays and counts on its
+/// own cap (NCAA guidance). The sizes below are proposed, not confirmed,
+/// fitted on seed 41 so about 5% of recruits sign one (`nil_scheme run`).
+///
+/// A recruit's talent (`star_bid` × his chance to play early) from which a
+/// school offers him a term: a five-star who will play, a four-star who
+/// starts early.
+pub const TERM_TALENT: f64 = 0.15;
+/// A transfer a school offers a term: a starter there, this many points
+/// over the level's starters at his spot, with two seasons or more left.
+pub const TERM_EDGE: f64 = 3.0;
+/// No school guarantees small money for years: a term only on a deal of
+/// this much a year or more (proposed, not confirmed).
+pub const TERM_FLOOR: f64 = 100_000.0;
+/// A recruit's term: three money years, to the draft he can first enter.
+pub const TERM_RECRUIT: u8 = 3;
+/// The longest term a transfer is offered (his seasons left, up to this).
+pub const TERM_MOST: u8 = 3;
+/// Later budgets are bound: a school's multi-year deals for any coming
+/// money year stay under this share of its NIL budget now.
+pub const TERM_BOUND: f64 = 0.35;
+/// The buyout: half of what the deal still owes him (Big 12 template).
+pub const BUYOUT: f64 = 0.5;
+
+/// What each guaranteed year after the first is worth to him now, as a
+/// share of a year's money (item 12: he weighs the guarantee by his
+/// makeup). A family that needs the money wants it guaranteed, and so does
+/// a loyal man who means to stay; an ambitious or vain one wants to sell
+/// himself again after he breaks out; parents or a handler deciding lean
+/// to the sure money. At or under 0 he signs for one year only. Proposed,
+/// not confirmed.
+pub fn guarantee(p: &Person) -> f64 {
+    let t = &p.player.personality.traits;
+    let need = super::background::hardship(&p.bg);
+    let family = if p.family.decider == super::background::Decider::Himself { 0.0 } else { GUARANTEE_FAMILY };
+    let x = GUARANTEE_BASE + GUARANTEE_NEED * need + GUARANTEE_TRAIT * (t.loyalty as f64 - 10.0)
+        - GUARANTEE_TRAIT * (t.ambition as f64 - 10.0)
+        - 0.7 * GUARANTEE_TRAIT * (t.ego as f64 - 10.0)
+        + family;
+    x.min(GUARANTEE_TOP)
+}
+
+pub const GUARANTEE_BASE: f64 = -0.06;
+pub const GUARANTEE_NEED: f64 = 0.3;
+pub const GUARANTEE_TRAIT: f64 = 0.015;
+pub const GUARANTEE_FAMILY: f64 = 0.04;
+pub const GUARANTEE_TOP: f64 = 0.3;
+
+/// What a deal of `years` weighs with him against one year of the same
+/// money: 1 + his guarantee × the years after the first; 1 when he'd
+/// rather sign one year (and so he does).
+pub fn term_weight(gv: f64, years: u8) -> f64 {
+    1.0 + gv.max(0.0) * (years.max(1) - 1) as f64
+}
+
+/// The term he signs for when a school offers `offered` years: all of it
+/// when he values the guarantee, else one year.
+pub fn term_taken(gv: f64, offered: u8) -> u8 {
+    if gv > 0.0 && offered >= 2 { offered } else { 1 }
+}
+
+/// A recruit's term from a school: `TERM_RECRUIT` years to a talent past
+/// `TERM_TALENT`, in two pots only.
+pub fn recruit_term(today: Date, talent: f64) -> u8 {
+    if super::ncaa::two_pots(today) && talent >= TERM_TALENT { TERM_RECRUIT } else { 1 }
+}
+
+/// A transfer's term from a school: a starter there `TERM_EDGE` or more
+/// over its level's starters at his spot, his seasons left up to
+/// `TERM_MOST`, in two pots only.
+pub fn transfer_term(today: Date, role: PlayingTime, edge: f64, left: u32) -> u8 {
+    if super::ncaa::two_pots(today) && role == PlayingTime::Starter && edge >= TERM_EDGE && left >= 2 {
+        (left as u8).min(TERM_MOST)
+    } else {
+        1
+    }
+}
+
+/// Each program's multi-year money already promised for each coming money
+/// year from `from` (index 0) on: the deals of the players it holds.
+pub fn committed(w: &World, from: i32) -> Vec<[f64; 4]> {
+    let mut v = vec![[0.0; 4]; w.programs.len()];
+    for p in w.people.iter().filter(|p| p.stage == Stage::College || p.stage == Stage::HighSchool) {
+        let (Some(d), Some(j)) =
+            (p.cal.nil_deal.filter(|d| d.contract()), p.college.or(p.cal.signed.as_ref().map(|s| s.program)))
+        else {
+            continue;
+        };
+        for (k, y) in (from..from + 4).enumerate() {
+            if d.pays(y) && j < v.len() {
+                v[j][k] += d.amount;
+            }
+        }
+    }
+    v
+}
+
+/// The longest term up to `years` that keeps program `j`'s multi-year
+/// money for each of its years under `TERM_BOUND` of its budget, with
+/// `amount` a year more; 1 when even two years don't fit.
+pub fn bound_term(budget: f64, held: &[f64; 4], amount: f64, years: u8) -> u8 {
+    let bar = TERM_BOUND * budget.max(0.0);
+    let mut t = 1u8;
+    for n in 2..=years.min(4) {
+        if (0..n as usize).all(|k| held[k] + amount <= bar) {
+            t = n;
+        }
+    }
+    t
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -365,6 +525,10 @@ pub(crate) fn keep_offers(w: &mut World, label: i32) {
         .collect();
     let free = super::recruiting::nil_go_free(w);
     for (i, keep, rival, edge) in offers {
+        // Under a multi-year deal at or past what keeps him, nothing to offer.
+        if w.people[i].cal.nil_deal.is_some_and(|d| d.contract() && d.pays(year) && d.amount >= keep) {
+            continue;
+        }
         let j = w.people[i].college.expect("a college player");
         let prog = &w.programs[j];
         let b = prog.collective.budget;
@@ -377,8 +541,20 @@ pub(crate) fn keep_offers(w: &mut World, label: i32) {
         w.programs[j].collective.moved += r.moved;
         let amount = keep * s + r.cleared + r.moved;
         let p = &mut w.people[i];
+        // A man under a multi-year deal (item 12) is kept by raising it, as
+        // schools renegotiate: past his deal it pays the raise for the rest
+        // of the term; at or under it he stays on his deal as written.
+        if let Some(d) = p.cal.nil_deal.filter(|d| d.contract() && d.pays(year)) {
+            if amount > d.amount {
+                p.cal.nil_keep = Some((amount, rival));
+                p.cal.nil_deal = Some(NilDeal { amount, ..d });
+                let age = p.row_age();
+                p.note(format!("At {age} his school raised his multi-year NIL deal to keep him from the portal."));
+            }
+            continue;
+        }
         p.cal.nil_keep = Some((amount, rival));
-        p.cal.nil_deal = Some(NilDeal { year, amount, kind: DealKind::Keep });
+        p.cal.nil_deal = Some(NilDeal { year, amount, kind: DealKind::Keep, through: 0 });
     }
 }
 

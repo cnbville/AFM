@@ -151,6 +151,7 @@ async function drFileCard(c, dr, w, tab) {
     const note = s ? [s.role ? `Your staff sees ${s.role}.` : "", s.strengths && s.strengths.length ? `Best at ${s.strengths.slice(0, 3).join(", ").toLowerCase()}.` : "", s.weaknesses && s.weaknesses.length ? `Watch ${s.weaknesses.slice(0, 2).join(", ").toLowerCase()}.` : ""].filter(Boolean).join(" ") : "Your staff hasn't seen him: only his listed size and the public's word.";
     body = `<div class="dr-cells"><div><span class="dr-lbl">Our grade</span><b>${esc(c.grade_words)}</b></div><div><span class="dr-lbl">Fit</span><b class="${fit === "Top need" ? "gold" : ""}">${fit}</b></div><div><span class="dr-lbl">There at ${at || "–"}</span><b class="${c.there != null && c.there < 50 ? "dr-dim" : ""}">${c.gone ? "–" : drPct(c.there ?? (at ? 100 : null))}</b></div></div>
       ${s ? `<div class="dr-kv"><span>His level now</span><span>${range(s.now, "your staff", { p: c.id, k: "ovr" })}</span></div>` : ""}
+      ${c.job ? `<div class="dr-kv"><span>Graded as</span><b>${esc(c.job)}</b></div>` : ""}
       <div class="dr-kv"><span>Value</span><b>${value}</b></div>
       <div class="dr-kv"><span>Public rank</span><b class="${c.limb > 0 ? "gold" : ""}">${c.public ? drOrd(c.public) + limbW : "Unranked"}</b></div>
       <div class="dr-kv"><span>Size</span><b>${f ? `${esc(f.ht)} · ${f.wt}` : "–"}</b></div>

@@ -56,11 +56,12 @@ const HAPPY: &str = "happy where he is";
 const UNHAPPY: &str = "unhappy where he is";
 const PAID: &str = "well paid where he is";
 const UNDERPAID: &str = "underpaid where he is";
+const CONTRACT: &str = "a multi-year NIL deal with a buyout";
 const LIMIT: &str = "the day's read held at its limit";
 pub(crate) const LEVEL: &str = "against every player's read at his level";
 
 /// Every lean event the day's read writes.
-const READS: [&str; 16] = [
+const READS: [&str; 17] = [
     READ_UNDO,
     OLD_ROLE_HALF,
     YOUR_WORD,
@@ -75,6 +76,7 @@ const READS: [&str; 16] = [
     UNHAPPY,
     PAID,
     UNDERPAID,
+    CONTRACT,
     LIMIT,
     LEVEL,
 ];
@@ -98,6 +100,12 @@ const BROKEN_PUSH: f64 = 1.4;
 /// NIL (item 10): his money want, ×6 (six wants sum to 1), held to 0-2.
 const PAID_HOLD: f64 = 0.15;
 const UNDERPAID_PUSH: f64 = 0.2;
+/// A multi-year deal's buyout holds him (the new NIL scheme, item 12): up
+/// to this much less lean once the buyout reaches a year at his level's
+/// going rate. Courts haven't held these contracts binding (Duke couldn't
+/// keep Darian Mensah, January 2026), so it is a cost to leaving, not a
+/// lock (proposed, not confirmed).
+const CONTRACT_HOLD: f64 = 0.2;
 
 /// His place next fall as he guesses it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -467,11 +475,18 @@ fn raw(w: &World, ctx: &Ctx, i: usize) -> Vec<(&'static str, f64)> {
         // item 9); a richer school's top bid well past it pulls him out as
         // being underpaid does (proposed, not confirmed: past 1.5 times).
         let (keep, rival) = p.cal.nil_keep.unwrap_or((0.0, 0.0));
-        let money = p.nil_income.max(keep);
-        if money < 0.5 * rate || rival > 1.5 * money.max(1.0) {
+        // A multi-year deal is his money now; a school taking him pays its
+        // buyout out of what it would give him (item 12).
+        let deal = p.cal.nil_deal.filter(|d| d.contract());
+        let buyout = deal.map_or(0.0, |d| d.buyout());
+        let money = p.nil_income.max(keep).max(deal.map_or(0.0, |d| d.amount));
+        if money < 0.5 * rate || rival - buyout > 1.5 * money.max(1.0) {
             parts.push((UNDERPAID, 1.0 + UNDERPAID_PUSH * m));
         } else if money >= rate && wants_out && m > 0.0 {
             parts.push((PAID, 1.0 - PAID_HOLD * m));
+        }
+        if buyout > 0.0 {
+            parts.push((CONTRACT, 1.0 - CONTRACT_HOLD * (buyout / rate).min(1.0)));
         }
     }
     parts

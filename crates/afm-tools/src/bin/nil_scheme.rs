@@ -38,6 +38,7 @@ fn main() {
                 .collect();
             let mut landed: Vec<Landed> = Vec::new();
             let mut classes = std::collections::HashSet::new();
+            let mut window: Option<Window> = None;
             while w.today.year() < until || w.today.month() < month {
                 w.advance_day();
                 let (m, d) = (w.today.month(), w.today.day());
@@ -55,6 +56,18 @@ fn main() {
                     offers(&w, w.today.year());
                     transfers(&landed);
                     denials(&w);
+                    multi(&w);
+                }
+                // Multi-year deals and the portal (item 12): who holds one
+                // as the winter window opens, and who left by February.
+                if m == 1 && d == 1 {
+                    window = Some(under_contract(&w));
+                }
+                if m == 2
+                    && d == 1
+                    && let Some(win) = window.take()
+                {
+                    left_on_contract(&w, &win);
                 }
                 for p in w.people.iter().filter(|p| p.stage == Stage::College) {
                     let e = seen.entry(p.player.id).or_insert((p.transfers, p.nil_income));
@@ -497,4 +510,150 @@ fn offers(w: &World, year: i32) {
         .map(|&(x, j)| format!("{} at {} ({})", m(x), w.program_name(j), m(w.programs[j].collective.budget)))
         .collect();
     println!("  five-star QBs: {}", t.join("; "));
+}
+
+/// Multi-year deals (the new NIL scheme, item 12): the class just signed,
+/// the transfers who landed on one, and everyone holding one. Real: about
+/// 5% of recruits sign multi-year, mostly blue-chips; most players sign one
+/// year at a time (On3).
+fn multi(w: &World) {
+    use afm_engine::world::nil_bid::DealKind;
+    let g = &w.log;
+    println!(
+        "== multi-year deals (real: ~5% of recruits, mostly blue-chips; most players one year at a time) ==\n  this year's log: {} recruits on one (by stars 5★ {} 4★ {} 3★ {} other {}), {} in all over their terms; {} cut to one year by the bound; {} transfers landed on one; {} buyouts paid, {}",
+        g.nil_multi,
+        g.nil_multi_stars[5],
+        g.nil_multi_stars[4],
+        g.nil_multi_stars[3],
+        g.nil_multi_stars[0] + g.nil_multi_stars[1] + g.nil_multi_stars[2],
+        m(g.nil_multi_money),
+        g.nil_multi_bound,
+        g.nil_multi_transfers,
+        g.nil_buyouts,
+        m(g.nil_buyout_money)
+    );
+    // The class waiting to enroll: signees with a deal, by level and stars.
+    for lv in ["P4", "G5", "FCS"] {
+        let mut n = [0u32; 6];
+        let mut multi = [0u32; 6];
+        let mut per: Vec<f64> = Vec::new();
+        let mut one: Vec<f64> = Vec::new();
+        let mut terms = [0u32; 5];
+        for p in w.people.iter().filter(|p| p.stage == Stage::HighSchool) {
+            let Some(s) = p.cal.signed.as_ref() else { continue };
+            if level(w, s.program) != Some(lv) || s.walk_on {
+                continue;
+            }
+            let k = p.stars.min(5) as usize;
+            n[k] += 1;
+            match p.cal.nil_deal.filter(|d| d.kind == DealKind::Signed) {
+                Some(d) if d.contract() => {
+                    multi[k] += 1;
+                    per.push(d.amount);
+                    terms[d.years_left().clamp(0, 4) as usize] += 1;
+                }
+                Some(d) if k >= 4 => one.push(d.amount),
+                _ => {}
+            }
+        }
+        let all: u32 = n.iter().sum();
+        let on: u32 = multi.iter().sum();
+        println!(
+            "  {lv} signees: {on} of {all} on a multi-year deal ({:.1}%); 5★ {}/{} 4★ {}/{} 3★ {}/{}; terms 2y {} 3y {} 4y {}; a year on one {}; blue-chips on one year {}",
+            100.0 * on as f64 / all.max(1) as f64,
+            multi[5],
+            n[5],
+            multi[4],
+            n[4],
+            multi[3],
+            n[3],
+            terms[2],
+            terms[3],
+            terms[4],
+            spread(&mut per),
+            spread(&mut one)
+        );
+    }
+    let mut held = 0;
+    let mut money = 0.0;
+    for p in w.people.iter().filter(|p| p.stage == Stage::College) {
+        if let Some(d) = p.cal.nil_deal.filter(|d| d.contract()) {
+            held += 1;
+            money += d.amount;
+        }
+    }
+    println!("  college players holding one: {held}, {} a year", m(money));
+}
+
+/// Who holds a multi-year deal as the winter window opens, and the
+/// players like them who don't, at FBS: by group (a transfer who landed
+/// last year, a blue-chip in his first season, everyone else) and his role
+/// last season.
+struct Window {
+    rows: Vec<(u32, u32, bool, usize, usize)>,
+}
+
+const GROUPS: [&str; 3] = ["landed a year ago", "4-5★ first season", "the rest"];
+const ROLES: [&str; 3] = ["starter", "rotation", "backup"];
+
+fn under_contract(w: &World) -> Window {
+    let mut rows = Vec::new();
+    for p in w.people.iter().filter(|p| p.stage == Stage::College) {
+        let Some(j) = p.college else { continue };
+        if w.programs[j].division != Division::FBS {
+            continue;
+        }
+        let on = p.cal.nil_deal.is_some_and(|d| d.contract() && d.years_left() >= 1);
+        let group =
+            if p.transfers > 0 && p.path.last() == Some(&j) && p.college_seasons >= 1 && p.cal.nil_role.is_none() {
+                // Landed before last season and played it there.
+                if p.path.len() >= 2 { 0 } else { 2 }
+            } else if p.stars >= 4 && p.college_seasons <= 1 && p.transfers == 0 {
+                1
+            } else {
+                2
+            };
+        let role = match p.last_role {
+            Some(PlayingTime::Starter) => 0,
+            Some(PlayingTime::Rotation) => 1,
+            _ => 2,
+        };
+        rows.push((p.player.id, p.transfers, on, group, role));
+    }
+    Window { rows }
+}
+
+fn left_on_contract(w: &World, win: &Window) {
+    let at: HashMap<u32, &Person> = w.people.iter().map(|p| (p.player.id, p)).collect();
+    let mut n = [[[0u32; 2]; 3]; 3];
+    let mut gone = [[[0u32; 2]; 3]; 3];
+    for &(id, t, on, g, r) in &win.rows {
+        n[g][r][on as usize] += 1;
+        if at.get(&id).is_some_and(|p| p.cal.portal.is_some() || p.transfers > t) {
+            gone[g][r][on as usize] += 1;
+        }
+    }
+    println!(
+        "== the winter window (item 12), FBS players who entered the portal by Feb 1, on a multi-year deal against not; buyouts paid this year {} ({}) ==",
+        w.log.nil_buyouts,
+        m(w.log.nil_buyout_money)
+    );
+    for g in 0..3 {
+        let cells: Vec<String> = (0..3)
+            .map(|r| {
+                let pct = |k: usize| 100.0 * gone[g][r][k] as f64 / n[g][r][k].max(1) as f64;
+                format!(
+                    "{} {}/{} ({:.1}%) vs {}/{} ({:.1}%)",
+                    ROLES[r],
+                    gone[g][r][1],
+                    n[g][r][1],
+                    pct(1),
+                    gone[g][r][0],
+                    n[g][r][0],
+                    pct(0)
+                )
+            })
+            .collect();
+        println!("  {}: {}", GROUPS[g], cells.join("; "));
+    }
 }

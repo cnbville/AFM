@@ -863,7 +863,22 @@ fn grapevine(w: &World, him: Them, about: Option<Them>) -> Vec<Known> {
 /// What he told you before, and whether it was true (10.2): he knows his
 /// own lies.
 fn his_word(w: &World, him: Them, about: Option<Them>) -> Vec<Known> {
-    w.folk
+    // What is between you, from the one memory (Ground, GR62): the moments
+    // he keeps, in his words.
+    let mut kept: Vec<Known> = if about.is_none() {
+        crate::world::ground::card::talk_lines(w, him)
+            .into_iter()
+            .map(|(d, m)| {
+                let mut kn = k(Topic::HisWord, None, Source::Himself, 20.0, format!("remembers \"{m}\""));
+                kn.day = Some(d);
+                kn
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let lies: Vec<Known> = w
+        .folk
         .live
         .persona
         .his_lies
@@ -880,7 +895,9 @@ fn his_word(w: &World, him: Them, about: Option<Them>) -> Vec<Known> {
             kn.day = Some(l.said);
             kn
         })
-        .collect()
+        .collect();
+    kept.extend(lies);
+    kept
 }
 
 /// An injury as he feels it (3.1): the sheet's diagnosis for the trainer,

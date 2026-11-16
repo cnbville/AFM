@@ -160,7 +160,7 @@ pub(crate) fn d1_since(w: &World, team: TeamKey, year: i32) -> u32 {
 /// Why the jump is in reach.
 pub(crate) fn jump_why(w: &World, h: usize) -> String {
     let state = crate::world::folk::facts::state_name(&w.states[w.high_schools[h].state].code);
-    let staffs = w.scouting.hs.credibility.values().filter(|&&c| c >= 0.6).count();
+    let staffs = crate::world::ground::stores::credits(w).iter().filter(|x| x.1 >= 0.6).count();
     if staffs > 0 {
         format!("{staffs} college staffs trust your word. Gus Malzahn went from Springdale High to Arkansas in 2006.")
     } else {
@@ -493,7 +493,7 @@ fn vote(w: &mut World, h: usize, b: &Bond) {
 /// coach whose word they trust.
 fn college_calls(w: &mut World, h: usize) {
     let year = w.year;
-    let trusted = w.scouting.hs.credibility.values().filter(|&&c| c >= 0.6).count() as f64;
+    let trusted = crate::world::ground::stores::credits(w).iter().filter(|x| x.1 >= 0.6).count() as f64;
     let titles = super::seasons_at(w, TeamKey::Hs(h as u32)).iter().filter(|s| s.champion).count() as f64;
     let named = w.legacy.scheme.named.is_some() as u8 as f64;
     let u = crate::world::season::key_uniform(w.options.seed as u64 ^ 0xCA11, (h as u64) << 20 ^ year as u64);

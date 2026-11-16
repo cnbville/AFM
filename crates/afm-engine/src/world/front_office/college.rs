@@ -90,6 +90,10 @@ pub struct Target {
     /// as the revenue share is (Cain 2026-11-07); NIL Go reviews it.
     #[serde(default)]
     pub nil_coll: Option<f64>,
+    /// The years your NIL promise is guaranteed for (the new NIL scheme,
+    /// item 12): 2-4 a multi-year deal, 0 or 1 one year at a time.
+    #[serde(default)]
+    pub years: u8,
     /// Your coordinator's reason, when he made the offer.
     #[serde(default)]
     pub why: Option<String>,
@@ -172,6 +176,10 @@ pub struct PortalTarget {
     /// reviews it.
     #[serde(default)]
     pub nil_coll: Option<f64>,
+    /// The years your NIL offer is guaranteed for (item 12): 2-4 a
+    /// multi-year deal, 0 or 1 one year.
+    #[serde(default)]
+    pub years: u8,
     /// A quiet word before he entered (tampering), and whether it leaked.
     pub contacted: Option<Date>,
     pub leaked: bool,
@@ -311,6 +319,10 @@ pub struct CollegeDesk {
     /// Your calls and messages to recruits, and their families' calls to
     /// you (talk facts lane L6): what the era's contact rules count.
     pub reach: Vec<crate::world::folk::reach::Reach>,
+    /// Buyouts you paid to bring in transfers under a multi-year deal at
+    /// another school (item 12): (id, dollars, the money year it came out
+    /// of your revenue share).
+    pub buyouts: Vec<(u32, f64, i32)>,
 }
 
 /// How long a new head coach's fresh start lasts, the day he takes over
@@ -437,7 +449,8 @@ pub(crate) fn stage_board(w: &World) -> Option<StageBoard> {
         .iter()
         .filter_map(|t| {
             let person = *at.get(&t.id)?;
-            let nil = Some(promised(t).map_or(0.0, |(x, c)| weighed(w, person, x, c)));
+            let nil =
+                Some(promised(t).map_or(0.0, |(x, c)| weighed(w, person, x, c)) * term_weight(w, person, t.years));
             Some(StageOffer { person, priority: t.priority, nil })
         })
         .collect();
@@ -472,6 +485,8 @@ pub(crate) struct PortalOffer {
     pub nil: Option<f64>,
     /// Your collective deal for him in two pots; NIL Go reviews it.
     pub coll: Option<f64>,
+    /// Its term (item 12).
+    pub years: u8,
     pub bond: f64,
     pub promise: Option<u8>,
     pub called: bool,
@@ -513,6 +528,7 @@ pub(crate) fn portal_wants(w: &World) -> Option<PortalWants> {
                     // yours, Cain 2026-11-07).
                     nil: t.nil,
                     coll: t.nil_coll,
+                    years: t.years,
                     bond: if t.contacted.is_some() { CONTACT_BOND } else { 0.0 } + super::portal::effort(t, raised),
                     promise: t.promise.map(|p| p.0),
                     // A talk still open counts: your case is written as you
@@ -841,6 +857,7 @@ pub(crate) fn after_stage(w: &mut World, j: usize, coordinator: &[u32], final_da
                         priority: false,
                         nil: None,
                         nil_coll: None,
+                        years: 0,
                         why: Some(why),
                         seen: Standing::Open,
                     });
@@ -1071,6 +1088,7 @@ pub fn seed(w: &mut World, j: usize) {
             priority: false,
             nil: None,
             nil_coll: None,
+            years: 0,
             why: Some("Your staff offered him before you took over the board.".into()),
             seen: Standing::Open,
         });
@@ -1845,8 +1863,127 @@ pub(crate) fn money_from(w: &World, j: usize, i: usize) -> Option<f64> {
         return None;
     }
     let id = w.people[i].player.id;
-    let mine = w.front_office.college.board.iter().find(|t| t.id == id).and_then(promised);
-    Some(mine.map_or(0.0, |(x, c)| weighed(w, i, x, c)))
+    let t = w.front_office.college.board.iter().find(|t| t.id == id);
+    let years = t.map_or(0, |t| t.years);
+    Some(t.and_then(promised).map_or(0.0, |(x, c)| weighed(w, i, x, c)) * term_weight(w, i, years))
+}
+
+/// What your term weighs with him against one year of the same money (the
+/// new NIL scheme, item 12): his own read of a guarantee.
+fn term_weight(w: &World, i: usize, years: u8) -> f64 {
+    crate::world::nil_bid::term_weight(crate::world::nil_bid::guarantee(&w.people[i]), years)
+}
+
+/// Your promise to a recruit as he'd be paid it a year (his numbers, NIL
+/// Go clearing your collective deal) and its term as he takes it: the
+/// multi-year deal he signs with you (item 12).
+pub(crate) fn signee_term(w: &World, j: usize, i: usize) -> Option<(u8, f64)> {
+    if super::program(w) != Some(j) || !ncaa::two_pots(w.today) {
+        return None;
+    }
+    let id = w.people[i].player.id;
+    let t = w.front_office.college.board.iter().find(|t| t.id == id)?;
+    let years = crate::world::nil_bid::term_taken(crate::world::nil_bid::guarantee(&w.people[i]), t.years);
+    let amount = promised(t).map_or(0.0, |(x, c)| weighed(w, i, x, c));
+    (years >= 2 && amount > 0.0).then_some((years, amount))
+}
+
+/// The years on your promise to a recruit (item 12); 0 with none.
+pub(crate) fn promise_years(w: &World, id: u32) -> u8 {
+    w.front_office.college.board.iter().find(|t| t.id == id).map_or(0, |t| t.years)
+}
+
+/// The term of your portal offer to `id` at program `j` (item 12); 0 when
+/// it isn't yours.
+pub(crate) fn portal_years(w: &World, j: usize, id: u32) -> u8 {
+    if super::program(w) != Some(j) {
+        return 0;
+    }
+    w.front_office.college.portal.iter().find(|t| t.id == id && t.offered.is_some()).map_or(0, |t| t.years)
+}
+
+/// A buyout program `j` paid to bring `id` in (item 12): yours comes out
+/// of this money year's revenue share.
+pub(crate) fn paid_buyout(w: &mut World, j: usize, id: u32, amount: f64) {
+    if super::program(w) == Some(j) {
+        let year = crate::world::nil_bid::deal_year(w.today);
+        w.front_office.college.buyouts.push((id, amount, year));
+    }
+}
+
+/// Sets the years of your NIL offer to a recruit on your board or a
+/// transfer you chase, or offers one of your players a multi-year deal on
+/// what he has now (the new NIL scheme, item 12). A recruit or transfer
+/// weighs the guarantee as he decides; a player of yours answers at once:
+/// he takes it if he values a guarantee, and from then on his deal can be
+/// raised but not lowered until it runs out, and leaving owes half of what
+/// is left. 1 is one year at a time.
+pub fn set_term(w: &mut World, id: u32, years: u8) -> Result<String, String> {
+    let j = super::program(w).ok_or("You have no college job.")?;
+    if !ncaa::two_pots(w.today) {
+        return Err("Multi-year NIL deals come with revenue sharing, from July 1, 2025.".into());
+    }
+    if !(1..=4).contains(&years) {
+        return Err("A deal runs one to four years.".into());
+    }
+    let i = super::index_of(w, id).ok_or("No such player.")?;
+    let name = w.people[i].name.clone();
+    let words = |n: u8| if n >= 2 { format!("guaranteed for {n} years") } else { "one year at a time".to_string() };
+    let on_roster = w.people[i].college == Some(j) && w.people[i].stage == Stage::College;
+    if !on_roster {
+        let desk = &mut w.front_office.college;
+        if let Some(t) = desk.board.iter_mut().find(|t| t.id == id) {
+            t.years = years;
+            return Ok(format!("Your NIL promise to {name} is {}.", words(years)));
+        }
+        if let Some(t) = desk.portal.iter_mut().find(|t| t.id == id) {
+            t.years = years;
+            return Ok(format!("Your NIL offer to {name} is {}.", words(years)));
+        }
+        return Err("He isn't on your board, your portal list or your roster.".into());
+    }
+    let year = deals_year(w);
+    let now = w.people[i].cal.nil_deal.filter(|d| d.contract() && d.last() >= year);
+    if let Some(d) = now {
+        return Err(format!("His deal is already guaranteed through the {} money year.", d.last()));
+    }
+    if years < 2 {
+        return Ok(format!("{name} stays on a one-year deal."));
+    }
+    // The seasons his money years pay for, from the first one on.
+    let seasons = crate::world::eligibility::seasons_left(&w.people[i], w.programs[j].division, year);
+    if (seasons as u8) < years {
+        return Err(format!("He has {seasons} seasons left to play."));
+    }
+    fill_deals(w);
+    let (s, c) = deal_of(w, id).unwrap_or((0.0, 0.0));
+    let amount = s + coll_cleared(w, j, id, c);
+    if amount <= 0.0 {
+        return Err("Set his deal first: a multi-year deal guarantees the money he has.".into());
+    }
+    let gv = crate::world::nil_bid::guarantee(&w.people[i]);
+    if crate::world::nil_bid::term_taken(gv, years) < 2 {
+        let text = format!("{name} would rather sign one year at a time and sell himself again next year.");
+        return Ok(text);
+    }
+    let p = &mut w.people[i];
+    p.cal.nil_deal = Some(crate::world::nil_bid::NilDeal {
+        year,
+        amount,
+        kind: crate::world::nil_bid::DealKind::Keep,
+        through: year + years as i32 - 1,
+    });
+    let age = p.row_age();
+    p.note(format!("At {age} he signed a multi-year NIL deal: {} a year for {years} years.", dollars(amount)));
+    Ok(format!("{name} signed for {} a year, {}.", dollars(amount), words(years)))
+}
+
+/// The money year your player's multi-year deal runs through, and what it
+/// guarantees him a year, while it has years to pay (item 12).
+pub fn contract_of(w: &World, id: u32) -> Option<(i32, f64)> {
+    let i = super::index_of(w, id)?;
+    let year = deals_year(w);
+    w.people[i].cal.nil_deal.filter(|d| d.contract() && d.last() >= year).map(|d| (d.last(), d.amount))
 }
 
 /// What a recruit weighs from your numbers (B18): in two pots your
@@ -1918,6 +2055,7 @@ pub fn add(w: &mut World, id: u32) -> Result<String, String> {
         priority: false,
         nil: None,
         nil_coll: None,
+        years: 0,
         why: None,
         seen,
     });
@@ -2469,7 +2607,13 @@ pub fn budget(w: &World, j: usize) -> Budget {
         (0.0, 0.0, 0.0, 0.0)
     };
     let hunt = crate::world::hunt::reserve(w, j);
-    let yours = if two_pots { revenue_share } else { total };
+    // Buyouts (item 12): paid in by schools that took your players under a
+    // multi-year deal, and paid out of this money year's revenue share for
+    // the transfers you took under one.
+    let year = crate::world::nil_bid::deal_year(w.today);
+    let buyouts_in = if mine_here { prog.collective.buyouts } else { 0.0 };
+    let buyouts_out: f64 = if mine_here { desk.buyouts.iter().filter(|b| b.2 == year).map(|b| b.1).sum() } else { 0.0 };
+    let yours = if two_pots { revenue_share } else { total } + buyouts_in - buyouts_out;
     let collective = (total - revenue_share).max(0.0);
     let coll_pot = if two_pots { collective } else { 0.0 };
     Budget {
@@ -2600,6 +2744,8 @@ pub fn clear_deals(w: &mut World) -> Result<usize, String> {
         .filter(|p| p.stage == Stage::College && p.college == Some(j))
         .map(|p| p.player.id)
         .collect();
+    // Multi-year deals stand (item 12).
+    let ids: Vec<u32> = ids.into_iter().filter(|&id| contract_of(w, id).is_none()).collect();
     let two = ncaa::two_pots(w.today);
     let desk = &mut w.front_office.college;
     desk.deals.retain(|d| !ids.contains(&d.0));
@@ -2637,6 +2783,13 @@ fn put_deal(w: &mut World, id: u32, school: Option<f64>, coll: Option<f64>) -> R
     // The deals he has stand (`fill_deals` gives him his first).
     fill_deals(w);
     let (old_s, old_c) = deal_of(w, id).unwrap_or((0.0, 0.0));
+    // A multi-year deal (item 12) can be raised, never lowered, until it
+    // runs out.
+    if let Some((last, _)) = contract_of(w, id)
+        && (school.is_some_and(|x| x < old_s - 0.5) || coll.is_some_and(|x| x < old_c - 0.5))
+    {
+        return Err(format!("His deal is guaranteed through the {last} money year: you can raise it, not lower it."));
+    }
     let b = budget(w, j);
     if let Some(x) = school
         && !b.fits(x - old_s)
@@ -2660,6 +2813,14 @@ fn put_deal(w: &mut World, id: u32, school: Option<f64>, coll: Option<f64>) -> R
     if let Some(x) = coll {
         desk.coll_deals.retain(|d| d.0 != id);
         desk.coll_deals.push((id, x));
+    }
+    // A raise on a multi-year deal raises it for the rest of its term.
+    if contract_of(w, id).is_some() {
+        let (s, c) = deal_of(w, id).unwrap_or((0.0, 0.0));
+        let amount = s + coll_cleared(w, j, id, c);
+        if let Some(d) = w.people[i].cal.nil_deal.as_mut() {
+            d.amount = d.amount.max(amount);
+        }
     }
     Ok((j, i))
 }
@@ -3048,6 +3209,7 @@ pub(crate) fn portal_target(w: &mut World, id: u32) -> Result<&mut PortalTarget,
             offered: None,
             nil: None,
             nil_coll: None,
+            years: 0,
             contacted: None,
             leaked: false,
             from,
@@ -3316,6 +3478,8 @@ pub fn cut(w: &mut World, id: u32) -> Result<String, String> {
     };
     w.programs[j].roster.retain(|&x| x != i);
     drop_deals(w, id);
+    // A multi-year deal ends with no buyout: you sent him away (item 12).
+    w.people[i].cal.nil_deal = None;
     if let Some(cs) = w.college.as_mut() {
         cs.out.insert(id, "cut from the team");
     }

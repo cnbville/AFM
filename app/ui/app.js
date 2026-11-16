@@ -349,7 +349,7 @@ const NAV = [
   { go: "team", label: "Team history", icon: "team", sec: "world" },
   { go: "you", label: "Your career", icon: "you", sec: "world" },
 ];
-const NAV_SECS = [["top", ""], ["team", "Your team"], ["world", "World"]];
+const NAV_SECS = [["top", ""], ["ground", "Ground"], ["team", "Your team"], ["world", "World"]];
 function navAdd(item) {
   const i = NAV.findIndex((n) => n.go === item.go);
   if (i >= 0) { NAV[i] = { ...NAV[i], ...item }; return; }
@@ -1141,9 +1141,14 @@ function updateBar(html) {
   }
   b.innerHTML = html;
 }
-async function checkUpdate() {
+// `manual` is the Check for updates button and "Go back to the latest": it says
+// so when updates are paused (versions.js), where the automatic check just waits.
+async function checkUpdate(manual) {
   const T = window.__TAURI__;
   if (!T || !T.updater || updating) return;
+  // Updates are paused while you stay on a build you went back to (Settings,
+  // Other versions): the page stays on it until you go back to the latest.
+  if (typeof verPin === "function" && (await verPin())) return manual ? "paused" : null;
   let up = null;
   try { up = await T.updater.check(); } catch (e) { console.warn("update check", e); return false; }
   if (!up) return null;

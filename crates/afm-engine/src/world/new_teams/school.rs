@@ -118,6 +118,7 @@ pub fn open(w: &mut World, parent: usize, opens: i32, rng: &mut Rng) -> usize {
         town: p.town.clone(),
         county: p.county.clone(),
         area: p.area,
+        ground_area: p.ground_area,
         name: name.clone(),
         fictional_name,
         real: false,
