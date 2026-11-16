@@ -544,12 +544,13 @@ pub fn numbers(link: Link, b: &Body, attrs: &Attributes) -> String {
     parts.join(", ")
 }
 
-/// The ten-yard split (about 0.345 of the forty for a fast man, more for a
-/// slow starter), the shuttle, the three-cone and the bench, without the
-/// test-day noise (the combine's fits, `body::combine`).
+/// The ten-yard split his ratings give (about 0.345 of the forty), run as
+/// the engine runs him (`body::ten_split`) without his first-step gift or
+/// the test-day noise; then the shuttle, the three-cone and the bench (the
+/// combine's fits, `body::combine`).
 pub fn ten_split(attrs: &Attributes, weight: f64) -> f64 {
-    let tau = clamp(0.78 + 0.003 * (60.0 - attrs.get(Attr::Acceleration)) + 0.0006 * (weight - 220.0), 0.55, 1.0);
-    forty(attrs, weight) * (0.29 + 0.07 * tau)
+    let (f, acc) = (forty(attrs, weight), attrs.get(Attr::Acceleration));
+    crate::body::ten_split(f, crate::body::sprint_tau(acc, weight, 0.0, f), crate::body::grip(acc, weight))
 }
 
 fn shuttle(attrs: &Attributes, weight: f64) -> f64 {

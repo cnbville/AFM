@@ -957,6 +957,21 @@
   "title": "Ground lane G1a: areas and map data",
   "tldr": ""
  },
+ "473": {
+  "auto": false,
+  "bullets": [
+   "A school's name grows each summer with its former players who are in college and the NFL.",
+   "Rising schools get more exposure, so their kids get seen and recruited more.",
+   "Standouts transfer in to the risers, and families move into the district so their son can play right away where the state allows it.",
+   "Each state's transfer rule now decides how many kids move.",
+   "The news tells you when a school joins or drops out of its state's powerhouses."
+  ],
+  "h": "a5a17d963931",
+  "look": "a high school's page and the June news.",
+  "players": true,
+  "title": "Ground lane G11a: the high school chain reaction",
+  "tldr": "High schools now rise and fall on their players. A school that sends kids to college and the NFL grows its name, and one that stops producing slowly fades."
+ },
  "474": {
   "auto": false,
   "bullets": [
@@ -1052,6 +1067,20 @@
   "title": "Ground lane G3: your week and road days",
   "tldr": "Your recruiting week now has a shape: a Monday letter from your coordinator, your staff out on the road day by day inside the real evaluation limits, and coaches who call you back when they're out of class."
  },
+ "482": {
+  "auto": false,
+  "bullets": [
+   "A recruit's family remembers you for his younger brother, and never forgets a lie.",
+   "Word gets around: what you do for one coach's kid reaches his staff and his area.",
+   "When a coach moves on, your standing goes with him, and his successor may already know you.",
+   "Each person tells you a new level in their own words, and their page shows why you stand where you do."
+  ],
+  "h": "b28f0820c851",
+  "look": "a high school coach you visit often, and the family of a recruit you call.",
+  "players": true,
+  "title": "Ground lane G7: people in full",
+  "tldr": "The people on your recruiting ground now feel like people: coaches, families, counselors, trainers and 7v7 men each remember you, talk to each other and take what you built with them to their next job."
+ },
  "483": {
   "auto": false,
   "bullets": [
@@ -1065,6 +1094,21 @@
   "players": true,
   "title": "Ground lane S1: the map screen and the school page",
   "tldr": "Ground has a map: see which programs hold each recruiting area in your state, where you stand, and who the people are."
+ },
+ "484": {
+  "auto": false,
+  "bullets": [
+   "News about a kid reaches the staffs his coach trusts first, and everyone else later.",
+   "High school coaches give you their list, and they tell you more the better they know you.",
+   "Each lead shows what you still don't know about the kid, and you can send your staff to fill it in.",
+   "Offer a kid the world rates low and he becomes your find. Every step he climbs lifts the coach who told you and your name as a finder.",
+   "Your board now shows the kids your own ground found, next to the ones everyone rates."
+  ],
+  "h": "a85161f8329c",
+  "look": "your leads list in spring, then a lead's card and its blanks.",
+  "players": true,
+  "title": "Ground lane G4: news in order, leads, finds and your board from your ground",
+  "tldr": "The ground now feeds your recruiting board. Coaches you know call you first with news and point you to kids nobody rates yet, and the kids you find early pay back when they bloom."
  },
  "485": {
   "auto": false,
@@ -1093,5 +1137,63 @@
   "players": true,
   "title": "Ground lane S2: the meeting at the map",
   "tldr": "Monday's meeting is a screen: your coordinator's letter, a map of where he wants to send each man, and the week day by day, which you can change by dragging."
+ },
+ "487": {
+  "auto": false,
+  "bullets": [
+   "Arm length, hand size and wingspan follow each position's real spread.",
+   "Receivers, backs and defensive backs vary in height and weight like real players.",
+   "Linemen have a long heavy side, so a few very big men show up.",
+   "High school coaches fill their rosters closer to real position shares."
+  ],
+  "h": "01deae840b51",
+  "look": "the measurables on a college player's page.",
+  "players": true,
+  "title": "Progression step 4a: real body sizes, arms, hands and wingspans, and placement's fractional need",
+  "tldr": "Players now come in the real range of body shapes for their position, so you'll find short-armed tackles, long-armed corners, light receivers and the occasional huge guard."
+ },
+ "489": {
+  "auto": false,
+  "bullets": [
+   "Open a coach from the map or a school to see his memory of you, dated, newest first.",
+   "See your staff's read of how good and how straight he is, and what kind of man he is.",
+   "See what Known gets you with him, and what Trusted would.",
+   "See where he stands with every other staff, and who he is tied to.",
+   "The new People page lists everyone you have dealt with."
+  ],
+  "h": "3db055a69c47",
+  "look": "pick a coach on the map's \"Who matters here\" list.",
+  "players": true,
+  "title": "Ground lane S5: the person screen",
+  "tldr": "Every coach, trainer and family on your ground now has a page: his face, what he keeps of you in his own words, and what your standing gets you."
+ },
+ "490": {
+  "auto": false,
+  "bullets": [
+   "The vertical and broad jump spread like real ones, and strong legs help.",
+   "Quarterbacks and backs no longer broad jump like receivers.",
+   "The very fastest 3-cones and shuttles are rare, as they are in real life.",
+   "Drill results are no longer capped, so a record-breaking day prints as it happened."
+  ],
+  "h": "0327f0ce9007",
+  "look": "a draft class's combine results.",
+  "players": true,
+  "title": "Progression step 4b: drills on real, a jump knack, thin fast 3-cone and shuttle, no printed limits",
+  "tldr": "Combine numbers now look like a real combine: real jump averages by position, the odd explosive leaper, and agility records that are hard to touch."
+ },
+ "493": {
+  "auto": false,
+  "bullets": [
+   "Talk your AD's goals down, take them bigger or ask why, and pick your own from a list of 63.",
+   "Every Monday you can change your own goal, and your coordinator warns you when one slips.",
+   "Long shots pay the most when you make them; sure things cost the most when you miss.",
+   "In your first offseason your coordinator walks you through your ground, three schools at a time, until you send him off.",
+   "After the verdict, a ground report sums up the spring: your goals, finds, areas and who outworked you."
+  ],
+  "h": "24df88e48c1e",
+  "look": "your coordinator's February meeting memo and the AD's office the day after signing day.",
+  "players": true,
+  "title": "Ground lane G6: the offseason campaign",
+  "tldr": "Your first college spring now has a shape: your AD sets his goals for the class the day after signing day, your coordinator brings his at the February meeting, and the verdict comes the week before your first game."
  }
 }

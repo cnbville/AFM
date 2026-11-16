@@ -319,6 +319,9 @@ pub struct VoiceCard {
     pub football: String,
     /// How long he's known you, and how it's gone.
     pub known_you: String,
+    /// What the talk is to him (`talk::stakes`): who you are to him, what
+    /// rides on it, what he wants from it, what he can point to.
+    pub stakes: Vec<String>,
     /// Who else is in the room and how they sit.
     pub room: Vec<String>,
     /// He'd swear, in this setting.

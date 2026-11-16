@@ -31,6 +31,7 @@ pub mod ethnicity;
 pub mod fame;
 pub mod finance;
 pub mod folk;
+pub mod following;
 pub mod former;
 pub mod franchise;
 pub mod front_office;
@@ -154,6 +155,12 @@ pub struct WorldOptions {
     /// A/B test's switches (items 14-16).
     #[serde(default)]
     pub results: crate::results::Mode,
+    /// Ground's favor economy (lane G11b, GR61): placing kids builds
+    /// standing. Off in every world until the 30-year trial (lane G12)
+    /// shows each tier gains while the top 10's share of the top 300
+    /// doesn't rise; with it off, placing a kid works as before.
+    #[serde(default)]
+    pub favors: bool,
 }
 
 impl Default for WorldOptions {
@@ -171,6 +178,7 @@ impl Default for WorldOptions {
             yearly_growth: false,
             stop_jan1: false,
             results: crate::results::Mode::default(),
+            favors: false,
         }
     }
 }
@@ -254,6 +262,12 @@ pub struct Person {
     /// with fame and Aura from the late 2000s.
     #[serde(default)]
     pub followers: u32,
+    /// His following as a share of his high school class's biggest, 0-1
+    /// (`following::class_tops`, set at the year's book): how much a
+    /// program's brand exposure weighs in his pick (GR45). 0 out of high
+    /// school.
+    #[serde(default)]
+    pub spotlight: f32,
     /// His yearly money from ads, brand NIL deals and endorsements, in
     /// dollars (`fame::brand_money`), last set at the year's book.
     #[serde(default)]
@@ -1094,6 +1108,11 @@ pub struct World {
     /// scheme, your guys, the Hall of Fame race and each level's five.
     #[serde(default)]
     pub legacy: legacy::Legacy,
+    /// A following and famous names (Ground, part I: GR42-GR46): the boys
+    /// who carry a famous name, each class's biggest followings and the
+    /// commitments lifting a program's brand exposure.
+    #[serde(default)]
+    pub following: following::Following,
     /// The deeper game plan (update 2, lane 5): your identity, standing
     /// game rules, call words, the staff's drafted call sheet and the
     /// week's plan beyond the matchups.
@@ -1719,6 +1738,7 @@ impl World {
             level_scales: Vec::new(),
             storylines: Default::default(),
             legacy: Default::default(),
+            following: Default::default(),
             plans: Default::default(),
             deals: Vec::new(),
             prev_polls: Vec::new(),
@@ -1904,7 +1924,10 @@ impl World {
     }
 
     fn add_class(&mut self) {
+        let start = self.people.len();
         self.add_class_aged(14);
+        // The famous men's sons and nephews among them (GR42).
+        following::names(self, start);
     }
 
     pub fn add_class_aged(&mut self, age: u32) {
@@ -2436,6 +2459,7 @@ fn new_kid(
         class_of: year + 18 - age as i32 + years,
         born,
         followers: 0,
+        spotlight: 0.0,
         brand: 0.0,
         stars: 0,
         camp_stars: 0,

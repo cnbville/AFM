@@ -145,7 +145,7 @@ Each part names its items, what it is in one or two lines, and where it lives. "
 - **A favor buys one answer one level above your standing** (GR60), behind the staffs who already hold that level, and never faster than standing's minimum times.
 - **Favors and your word show in words, never numbers** (GR63); other college staffs, junior college and prep school coaches and brokers get standing like everyone; your coordinator places the routine no's by a rule you set, and you take the Trusted and Home schools.
 - **It ships switched off** (GR61). It turns on after a 30-year trial on three new seeds, each run with and without it, shows every tier gains on its own measure (LSU keeps its Home schools, a 10-2 team signs more transfers who start, Georgia State signs more kids who outplay their stars) while the top 10's share of the top 300 recruits doesn't rise. The trial also tunes the favor sizes. Until then, placing a kid works as it does today.
-- **Code:** `world/ground/favors.rs`, behind a world switch that is off.
+- **Code:** `world/ground/favors.rs`, behind a world switch that is off (`WorldOptions.favors`). Built 2026-11-16 in lane G11b for your seat; the AI's side comes with lane G9 (`docs/reference/how-it-works/ground.md`, "Lane G11b").
 
 ### M. The chain reaction (GR21)
 

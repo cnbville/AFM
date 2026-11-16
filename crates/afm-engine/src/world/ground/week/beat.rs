@@ -167,6 +167,17 @@ pub fn beat(w: &World, monday: Date) -> Beat {
     }
     let nsd = if prev.signing_day.year() == s { prev.signing_day } else { y.signing_day };
     add(nsd, "Signing day, 7 AM");
+    // Lane G6: your AD's talk the day after, the February meeting the
+    // Monday after, the coordinator at your door in your first season, and
+    // the verdict the week before your first game.
+    add(nsd.add(1), "Your AD's office: the class and what's next");
+    add(nsd.add(1).on_or_after(Weekday::Mon), "The February meeting");
+    if let Some(door) = w.ground.campaign.guide.door {
+        add(door, "Your coordinator at your door");
+    }
+    if let Some(prog) = crate::world::ground::campaign::seat(w) {
+        add(crate::world::ground::campaign::verdict_day(w, prog, y.season), "The verdict at the map");
+    }
     let jd = y.junior_days;
     for k in 0..9 {
         let sat = jd.0.on_or_after(Weekday::Sat).add(7 * k);
@@ -214,6 +225,10 @@ pub fn beat(w: &World, monday: Date) -> Beat {
     let open = |d: Date| matches!(period_on(w, d), Period::Contact | Period::Evaluation);
     let (beat, stake): (String, &str) = if let Some(d) = has("Signing day") {
         (format!("signing day is {}, then your AD's office", day(d)), "The class you start from")
+    } else if has("The February meeting").is_some() {
+        ("the February meeting: the spring's goals, then the road plan".into(), "Your goals")
+    } else if has("The verdict at the map").is_some() {
+        ("the verdict before the season".into(), "The verdict")
     } else if sun.month() == 1 && monday <= pc {
         ("Ground waits: the takeover and the portal come first".into(), "Your roster")
     } else if monday.month() == 1 && nsd > sun {

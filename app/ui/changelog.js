@@ -17,6 +17,28 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.582", date: "16 Nov", title: "Ground lane G6: the offseason campaign and 2 more",
+    notes: [
+      "Combine numbers now look like a real combine: real jump averages by position, the odd explosive leaper, and agility records that are hard to touch.",
+      "The vertical and broad jump spread like real ones, and strong legs help.",
+      "Quarterbacks and backs no longer broad jump like receivers.",
+      "The very fastest 3-cones and shuttles are rare, as they are in real life.",
+      "Drill results are no longer capped, so a record-breaking day prints as it happened.",
+      "Every coach, trainer and family on your ground now has a page: his face, what he keeps of you in his own words, and what your standing gets you.",
+    ],
+  },
+  {
+    v: "0.2.579", date: "16 Nov", title: "Ground lane G4: news in order, leads, finds and your board from your ground and 3 more",
+    notes: [
+      "The people on your recruiting ground now feel like people: coaches, families, counselors, trainers and 7v7 men each remember you, talk to each other and take what you built with them to their next job.",
+      "A recruit's family remembers you for his younger brother, and never forgets a lie.",
+      "Word gets around: what you do for one coach's kid reaches his staff and his area.",
+      "When a coach moves on, your standing goes with him, and his successor may already know you.",
+      "Each person tells you a new level in their own words, and their page shows why you stand where you do.",
+      "Players now come in the real range of body shapes for their position, so you'll find short-armed tackles, long-armed corners, light receivers and the occasional huge guard.",
+    ],
+  },
+  {
     v: "0.2.575", date: "16 Nov", title: "Ground lane S2: the meeting at the map",
     notes: [
       "Monday's meeting is a screen: your coordinator's letter, a map of where he wants to send each man, and the week day by day, which you can change by dragging.",
