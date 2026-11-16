@@ -71,6 +71,9 @@ jobs:
         with:
           shared-key: test
           save-if: false
+      # The engine's unit tests need about 13 GB to compile, beside the other
+      # test builds: without swap a 16 GB runner can run out of memory.
+      - run: .github/scripts/add-swap.sh
       # The engine lib and its unit-test binary each take about 8 GB to compile.
       # Building the libraries first keeps the two from compiling at once.
       - run: cargo build ${{ matrix.packages }} --lib --profile test

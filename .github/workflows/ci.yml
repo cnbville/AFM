@@ -75,6 +75,9 @@ jobs:
         with:
           shared-key: test
           save-if: ${{ github.ref == 'refs/heads/main' }}
+      # The engine's unit tests need about 13 GB to compile, beside the other
+      # test builds: without swap the runner ran out of memory and shut down.
+      - run: .github/scripts/add-swap.sh
       - run: cargo fmt --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       # The engine lib and its unit-test binary each take about 8 GB to compile.
