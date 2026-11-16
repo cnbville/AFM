@@ -75,14 +75,17 @@ jobs:
         with:
           shared-key: test
           save-if: ${{ github.ref == 'refs/heads/main' }}
-      # The engine's unit tests need about 13 GB to compile, beside the other
-      # test builds: without swap the runner ran out of memory and shut down.
-      - run: .github/scripts/add-swap.sh
       - run: cargo fmt --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       # The engine lib and its unit-test binary each take about 8 GB to compile.
       # Building the libraries first keeps the two from compiling at once.
       - run: cargo build --workspace --lib --profile test
+      # The engine's unit-test binary now takes about 13 GB to compile, so it
+      # gets a step of its own too: beside the other test builds it ran the
+      # 16 GB runner out of memory and the machine shut down (three quick
+      # checks on 2026-11-16). afm-ai and the debug feature make this the
+      # very build the test step selects, so that step finds it done.
+      - run: cargo test -p afm-engine -p afm-ai --features afm-engine/debug --lib --no-run
       # Every unit test and the two quick integration tests. A test that builds
       # a world goes in the skips here and runs in full-tests.yml.
       - name: Quick tests
