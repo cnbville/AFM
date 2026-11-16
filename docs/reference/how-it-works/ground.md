@@ -1,6 +1,7 @@
 # Ground: how it works today
 
 Checked against branch commit 28f13b8 on 2026-11-16 (lane G1a, areas and map data), main bf92e7d plus lane G1b on 2026-11-16 (standing and one memory), main d291de54 plus lane G3 on 2026-11-16 (your week and road days), branch lane S2 on 2026-11-16 (the meeting at the map), main fd85a4f9 plus lane G7 on 2026-11-16 (people in full), main plus lane G11a on 2026-11-16 (the high school chain reaction), main 6aed06fd plus lane G4 on 2026-11-16 (news in order, leads and finds), branch lane S5 on 2026-11-16 (the person screen) and main 256934ee plus lane G6 on 2026-11-16 (the campaign).
+
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`, `app/`, `data/` or `tools/`. Ground's spec is `docs/design/ground.md`; each lane adds its section here.
 
 ## Quick answers
