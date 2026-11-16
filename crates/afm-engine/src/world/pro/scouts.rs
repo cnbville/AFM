@@ -1929,6 +1929,9 @@ pub struct Board {
     /// can read.
     #[serde(default)]
     pub fit: HashMap<usize, f32>,
+    /// The job it graded each filed prospect for in its scheme (`roles`).
+    #[serde(default)]
+    pub role: HashMap<usize, super::roles::Job>,
 }
 
 /// Each club's board from its own files (topic 9): its read of each
@@ -1990,6 +1993,8 @@ fn board_from(
     use crate::world::scouting::dept::Instruction as In;
     let said = |x: In| seat && w.scouting.dept.instructions.contains(&x);
     let (ask_first, fit_first, numbers_first) = (said(In::AskBeforeDnd), said(In::SchemeFit), said(In::Analytics));
+    // Each job grade's lift, centred per position after the loop.
+    let mut lifts: Vec<(usize, f64)> = Vec::new();
     for &(i, public) in pool {
         let p = &w.people[i];
         let id = p.player.id as u64;
@@ -2040,6 +2045,13 @@ fn board_from(
                     g += pts;
                     b.fit.insert(i, pts as f32);
                 }
+                // The job he'd play for us, read from the same file
+                // (centred on the position after the loop).
+                if let Some((job, lift)) = file.as_ref().and_then(|f| club_role(w, t, i, f)) {
+                    g += lift;
+                    b.role.insert(i, job);
+                    lifts.push((i, lift));
+                }
                 if fit_first {
                     g += 3.0 * fit.unwrap_or(0.0);
                 }
@@ -2054,7 +2066,41 @@ fn board_from(
             }
         }
     }
+    // The job grades centred on the club's filed prospects at each
+    // position, so they move men within a position and leave the
+    // position's place on the board as it was.
+    let pos_of = |i: usize| {
+        let p = &w.people[i];
+        p.cal.pro_position.unwrap_or(p.player.position).index()
+    };
+    let mut sum = [(0.0f64, 0usize); crate::positions::POSITION_COUNT];
+    for &(i, lift) in &lifts {
+        let s = &mut sum[pos_of(i)];
+        s.0 += lift;
+        s.1 += 1;
+    }
+    for &(i, _) in &lifts {
+        let s = sum[pos_of(i)];
+        if let Some(g) = b.grade.get_mut(&i) {
+            *g -= s.0 / s.1.max(1) as f64;
+        }
+    }
     b
+}
+
+/// The job a club grades a filed prospect for in its scheme and what it
+/// adds to his grade before the board centres it (`roles::role`), read
+/// from the club's own file (each attribute's centre) with his listed size.
+fn club_role(
+    w: &World,
+    t: usize,
+    i: usize,
+    f: &crate::world::scouting::file::FileRead,
+) -> Option<(super::roles::Job, f64)> {
+    let p = &w.people[i];
+    let pos = p.cal.pro_position.unwrap_or(p.player.position);
+    let (height, weight) = crate::world::scouting::file::listed(&p.player);
+    super::roles::role(pos, &f.centres, weight, height, &w.clubs.get(t)?.installed)
 }
 
 /// Grade points a unit of scheme fit adds to every club's board, times the

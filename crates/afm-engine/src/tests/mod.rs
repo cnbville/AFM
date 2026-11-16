@@ -80,6 +80,7 @@ mod real_injuries;
 mod recruit_budget;
 mod recruit_case;
 mod recruit_reach;
+mod roles;
 mod rooms;
 mod roster_moves;
 mod sandbox;

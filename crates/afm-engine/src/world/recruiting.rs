@@ -1716,6 +1716,33 @@ pub(crate) fn draft_begin(w: &mut World) -> DraftRun {
     DraftRun { year: draft_year, board, pool, boards, public_rank, next: 1, hunts, ..Default::default() }
 }
 
+/// The men a club weighs at its pick, by their places in the pool: the
+/// best 300 left on the public order, plus the best 60 left on its own
+/// board below them (a club can take anyone on its board, so a sleeper
+/// its scouts love is in reach; proposed, not confirmed: 60).
+pub(crate) fn candidates(run: &DraftRun, t: usize) -> Vec<usize> {
+    const PUBLIC: usize = 300;
+    const OWN: usize = 60;
+    let mut out: Vec<usize> = (0..run.pool.len().min(PUBLIC)).collect();
+    if let Some(b) = run.boards.get(t) {
+        let mut own: Vec<(f64, usize)> = run
+            .pool
+            .iter()
+            .enumerate()
+            .skip(PUBLIC)
+            .filter_map(|(idx, x)| b.grade.get(&x.0).map(|&g| (g, idx)))
+            .collect();
+        let by = |a: &(f64, usize), b: &(f64, usize)| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1));
+        if own.len() > OWN {
+            own.select_nth_unstable_by(OWN - 1, by);
+            own.truncate(OWN);
+        }
+        own.sort_by_key(|x| x.1);
+        out.extend(own.into_iter().map(|x| x.1));
+    }
+    out
+}
+
 /// The draft's picks at full size: a small world's few picks stand for a
 /// whole draft, and its class is a bigger share of a full one than its
 /// picks are, so specialists are placed against the full draft (a small
@@ -1810,7 +1837,8 @@ pub(crate) fn draft_step(w: &mut World, run: &mut DraftRun, seat: Option<usize>,
         }),
         None => {
             let mut best: Option<(usize, f64, f64, f64, f64)> = None;
-            for (idx, &(i, _)) in run.pool.iter().enumerate().take(300) {
+            for idx in candidates(run, t) {
+                let i = run.pool[idx].0;
                 let Some((v, pv, need, g)) = draft_value(w, run, t, i, pick) else { continue };
                 if best.is_none_or(|b| v > b.1) {
                     best = Some((idx, v, pv, need, g));
