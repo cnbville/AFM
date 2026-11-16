@@ -298,7 +298,8 @@ fn the_ground_store_saves_and_an_old_file_loads_empty() {
 }
 
 /// The world plays the same with the ground on: it only writes its own
-/// store, your inbox and (lane G7) your own network's ground people.
+/// store, your inbox, (lane G4) your seat's own file and (lane G7) your
+/// own network's ground people.
 #[test]
 fn the_world_plays_the_same_with_the_ground() {
     // Values, so the maps compare by key whatever their order in memory.
@@ -307,7 +308,6 @@ fn the_world_plays_the_same_with_the_ground() {
             serde_json::to_value(&w.people).unwrap(),
             serde_json::to_value(&w.programs).unwrap(),
             serde_json::to_value(&w.coaches).unwrap(),
-            serde_json::to_value(&w.scouting.dept.looks).unwrap(),
             serde_json::to_value(&w.folk).unwrap(),
         ]
     };
@@ -363,23 +363,9 @@ fn the_world_plays_the_same_with_the_ground() {
     }
     // Everything but your own network plays the same; in your network only
     // the people on your ground differ, since their ties read your
-    // standing with them (lane G7, `ground::stores`). And which of your
-    // own men made a look differs: the man on the area goes (lane G10,
-    // `ground::staff::beats`), always one of your staff.
-    let yours: Vec<u64> = crate::world::ground::staff::men(&on, prog)
-        .iter()
-        .map(|&c| (crate::world::scouting::readers::COACH + c as u32) as u64)
-        .collect();
+    // standing with them (lane G7, `ground::stores`).
     let strip = |mut v: Vec<serde_json::Value>| {
-        v[4].as_object_mut().unwrap().remove("network");
-        for list in v[3].as_object_mut().unwrap().values_mut() {
-            for l in list.as_array_mut().unwrap() {
-                let l = l.as_object_mut().unwrap();
-                if l.get("who").and_then(|x| x.as_u64()).is_some_and(|x| yours.contains(&x)) {
-                    l.remove("who");
-                }
-            }
-        }
+        v[3].as_object_mut().unwrap().remove("network");
         v
     };
     let (fa, fb) = (strip(fp(&on)), strip(fp(&off)));
@@ -392,6 +378,11 @@ fn the_world_plays_the_same_with_the_ground() {
             assert_eq!(serde_json::to_value(x).unwrap(), serde_json::to_value(y).unwrap(), "{}", x.how);
         }
     }
+    // Your seat's own file is its own (lane G4): its board reads your
+    // ground, a Trusted coach's word on a kid is a look and his tape comes
+    // before you ask, so who was seen when can differ; the world can't.
+    let count = |w: &World| w.scouting.dept.looks.values().map(Vec::len).sum::<usize>();
+    println!("your file: {} looks with the ground, {} without", count(&on), count(&off));
     let kinds: Vec<String> = on.scouting.dept.looks.values().flatten().map(|l| format!("{:?}", l.kind)).collect();
     println!("looks: {} {:?}", kinds.len(), kinds.iter().take(20).collect::<Vec<_>>());
     assert!(off.ground.memories.is_empty());
