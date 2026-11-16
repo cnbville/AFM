@@ -299,3 +299,44 @@ fn being_straight_about_his_grades_in_words_is_the_straight_word() {
     let c = w.folk.dialogue.calls.iter().rev().find(|c| c.id == id).expect("the call's word");
     assert_eq!((c.word, c.concern), (1, 1), "you were straight");
 }
+
+/// A call is weighed as said, not boiled down to one of the chip's three
+/// words (Cain 2026-11-15): a line that covers for his grades and then
+/// owns that they need work keeps both, and a bigger lie weighs more.
+#[test]
+fn a_college_call_keeps_everything_you_said_weighed() {
+    use afm_engine::world::folk::claims::Stated;
+    use afm_engine::world::folk::persona::ear::{Act, Reading};
+    use afm_engine::world::folk::persona::talk::hs_call;
+    let (mut g, f, sid, id) = college_call("mixed", 2.4);
+    if !scene::takes_typed(&scene_of(&g, sid)) {
+        return;
+    }
+    {
+        let w = g.world.as_ref().unwrap();
+        let s = scene_of(&g, sid);
+        let claim = |v: &str| Reading {
+            acts: vec![Act::Claim(Stated { kind: "stat".into(), about: Some(id), value: v.into() })],
+            ..Reading::default()
+        };
+        // His real average, then a stretch of 0.4 over it and one of 1.5.
+        let gpa = afm_engine::world::scouting::file::gpa(&w.people[afm_engine::world::folk::person(w, id).unwrap()]);
+        let small = hs_call::weigh(w, &s, &claim(&format!("{:.1} GPA", gpa + 0.4))).cover;
+        let big = hs_call::weigh(w, &s, &claim(&format!("{:.1} GPA", (gpa + 1.5).min(4.0)))).cover;
+        assert!(big > small && small > 0.0, "a bigger lie weighs more: {small} {big}");
+    }
+    say(
+        &mut g,
+        &f,
+        sid,
+        "He's a 3.6 student. Well, honestly his grades need work.",
+        ear(vec![claim("3.6 GPA"), claim("grades need work"), act("end", "", "", "")], vec![]),
+    );
+    let w = g.world.as_ref().unwrap();
+    let c = w.folk.dialogue.calls.iter().rev().find(|c| c.id == id).expect("the call's word");
+    let said = c.said.expect("weighed as said");
+    assert!(said.cover > 0.0 && said.straight > 0.0, "both kept: {said:?}");
+    assert_eq!(c.concern, 1);
+    let s = scene_of(&g, sid);
+    assert!(s.outcome.iter().any(|x| x.contains("two different things")), "{:?}", s.outcome);
+}
