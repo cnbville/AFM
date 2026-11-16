@@ -957,6 +957,21 @@
   "title": "Ground lane G1a: areas and map data",
   "tldr": ""
  },
+ "472": {
+  "auto": false,
+  "bullets": [
+   "Sons and nephews of the world's Pro Bowlers and Hall of Famers come through high school with the family name and its hype.",
+   "The commitments of the class's best-known recruits make big news, and the biggest one leads the national news.",
+   "Landing a recruit with one of the class's biggest followings lifts your brand exposure for a year.",
+   "Recruits with big followings care more about a program's stage.",
+   "College players and recruits with huge followings can now land in a social media storm."
+  ],
+  "h": "2f7e96490d28",
+  "look": "a recruit's family notes for a famous father, and the recruiting news when the class's biggest following commits.",
+  "players": true,
+  "title": "Ground lane G8: a following and famous names (GR42-GR46)",
+  "tldr": "Famous NFL names now run in families, and a recruit's following matters: the hype kid makes national news, lifts your brand and weighs your stage when he picks."
+ },
  "473": {
   "auto": false,
   "bullets": [
@@ -1051,6 +1066,21 @@
   "players": true,
   "title": "Weigh a typed ask to your boss or a booster as said, not on the meeting's chip",
   "tldr": "When you ask your boss or a booster for something in your own words, they now weigh what you actually said and tell you why. Put something on the line, like a top-3 class or nine wins, and see if they buy it."
+ },
+ "480": {
+  "auto": false,
+  "bullets": [
+   "A coordinator you inherit fights for his job: he makes his case from his record, asks where he stands and takes bad news his own way.",
+   "Everyone knows who you are in the room, so nobody mixes you up with the coach you replaced.",
+   "Small talk stays small: ask about the family and he tells you about his family.",
+   "An offer gets a real answer before he brings up his own worries.",
+   "The talk page now shows what's at stake before you start."
+  ],
+  "h": "32bf508f7d04",
+  "look": "meet a holdover coordinator in your first week and ask him why you should keep him.",
+  "players": true,
+  "title": "Live talks: every person plays toward his own goals, and stays on topic",
+  "tldr": "The people you talk to now know what the talk means to them, and they answer what you actually said."
  },
  "481": {
   "auto": false,
@@ -1151,6 +1181,15 @@
   "players": true,
   "title": "Progression step 4a: real body sizes, arms, hands and wingspans, and placement's fractional need",
   "tldr": "Players now come in the real range of body shapes for their position, so you'll find short-armed tackles, long-armed corners, light receivers and the occasional huge guard."
+ },
+ "488": {
+  "auto": false,
+  "bullets": [],
+  "h": "4e5dd9238c17",
+  "look": "",
+  "players": false,
+  "title": "Ground lane G11b: favors, switched off",
+  "tldr": ""
  },
  "489": {
   "auto": false,

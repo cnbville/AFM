@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.585", date: "16 Nov", title: "Ground lane G8: a following and famous names (GR42-GR46) and 1 more",
+    notes: [
+      "The people you talk to now know what the talk means to them, and they answer what you actually said.",
+      "A coordinator you inherit fights for his job: he makes his case from his record, asks where he stands and takes bad news his own way.",
+      "Everyone knows who you are in the room, so nobody mixes you up with the coach you replaced.",
+      "Small talk stays small: ask about the family and he tells you about his family.",
+      "An offer gets a real answer before he brings up his own worries.",
+      "The talk page now shows what's at stake before you start.",
+    ],
+  },
+  {
     v: "0.2.582", date: "16 Nov", title: "Ground lane G6: the offseason campaign and 2 more",
     notes: [
       "Combine numbers now look like a real combine: real jump averages by position, the odd explosive leaper, and agility records that are hard to touch.",

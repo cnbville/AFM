@@ -8,6 +8,23 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.585 (16 Nov, shipped): live talks: every person plays toward his own goals, and stays on topic (PR #480), ground lane G8: a following and famous names (GR42-GR46) (PR #472), ground lane G11b: favors, switched off (PR #488)
+**TLDR:** 3 changes ship together. The people you talk to now know what the talk means to them, and they answer what you actually said. Famous NFL names now run in families, and a recruit's following matters: the hype kid makes national news, lifts your brand and weighs your stage when he picks. Plus 1 more below.
+- Live talks: every person plays toward his own goals, and stays on topic (PR #480): The people you talk to now know what the talk means to them, and they answer what you actually said.
+- A coordinator you inherit fights for his job: he makes his case from his record, asks where he stands and takes bad news his own way. (PR #480)
+- Everyone knows who you are in the room, so nobody mixes you up with the coach you replaced. (PR #480)
+- Small talk stays small: ask about the family and he tells you about his family. (PR #480)
+- An offer gets a real answer before he brings up his own worries. (PR #480)
+- The talk page now shows what's at stake before you start. (PR #480)
+- Ground lane G8: a following and famous names (GR42-GR46) (PR #472): Famous NFL names now run in families, and a recruit's following matters: the hype kid makes national news, lifts your brand and weighs your stage when he picks.
+- Sons and nephews of the world's Pro Bowlers and Hall of Famers come through high school with the family name and its hype. (PR #472)
+- The commitments of the class's best-known recruits make big news, and the biggest one leads the national news. (PR #472)
+- Landing a recruit with one of the class's biggest followings lifts your brand exposure for a year. (PR #472)
+- Recruits with big followings care more about a program's stage. (PR #472)
+- College players and recruits with huge followings can now land in a social media storm. (PR #472)
+- Ground lane G11b: favors, switched off (PR #488): no summary in the PR
+- Look at: meet a holdover coordinator in your first week and ask him why you should keep him. (PR #480) a recruit's family notes for a famous father, and the recruiting news when the class's biggest following commits. (PR #472)
+
 ## 0.2.582 (16 Nov, shipped): progression step 4b: drills on real, a jump knack, thin fast 3-cone and shuttle, no printed limits (PR #490), ground lane S5: the person screen (PR #489), ground lane G6: the offseason campaign (PR #493)
 **TLDR:** 3 changes ship together. Combine numbers now look like a real combine: real jump averages by position, the odd explosive leaper, and agility records that are hard to touch. Every coach, trainer and family on your ground now has a page: his face, what he keeps of you in his own words, and what your standing gets you. Plus 1 more below.
 - Progression step 4b: drills on real, a jump knack, thin fast 3-cone and shuttle, no printed limits (PR #490): Combine numbers now look like a real combine: real jump averages by position, the odd explosive leaper, and agility records that are hard to touch.
