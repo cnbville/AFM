@@ -5,6 +5,8 @@
 //! nobody, which the strip uses to ask for the portal's counts without the
 //! entrants' rows.
 
+mod common;
+
 use afm_engine::calendar::Date;
 use afm_engine::world::{PortalEntry, Stage};
 use afm_game::Game;
@@ -40,7 +42,7 @@ const ASKS: [(&str, &[&str]); 7] = [
 fn the_portal_takes_a_group_as_a_position() {
     let dir = std::env::temp_dir().join(format!("afm-depth-{}", std::process::id()));
     let mut g = Game::new(dir);
-    ok(&mut g, "build_world", json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     let job = ok(&mut g, "jobs", json!({ "level": "college" }))["jobs"][0]["ref"].clone();
     ok(
         &mut g,

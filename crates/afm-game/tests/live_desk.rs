@@ -59,7 +59,7 @@ fn home(name: &str) -> PathBuf {
 /// A college seat on a small world with a season of numbers.
 fn college() -> Game {
     let mut g = Game::new(home("college"));
-    ok(&mut g, "build_world", json!({ "seed": 66, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 66, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     let job = ok(&mut g, "jobs", json!({ "level": "college" }))["jobs"][0]["ref"].clone();
     ok(
         &mut g,

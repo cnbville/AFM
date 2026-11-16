@@ -2,6 +2,8 @@
 //! leads each, where you stand, fog where your ground hasn't opened it, the
 //! area you picked in full, what people kept of you, and a school as a place.
 
+mod common;
+
 use afm_game::Game;
 use serde_json::{Value, json};
 
@@ -16,7 +18,7 @@ fn ok(g: &mut Game, cmd: &str, args: Value) -> Value {
 fn the_map_and_a_school_read_from_the_world() {
     let dir = std::env::temp_dir().join(format!("afm-ground-map-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 21, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 21, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     // Ground is a college seat's game: before one, the screens say so.
     assert!(g.call("ground_map", &json!({})).is_err(), "no seat, no map");
     let jobs = ok(&mut g, "jobs", json!({ "level": "college" }));

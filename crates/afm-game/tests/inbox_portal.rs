@@ -3,6 +3,8 @@
 //! entrants are one message, your own are another that needs you, and where
 //! your former players landed is told once.
 
+mod common;
+
 use afm_engine::calendar::{Event, Kind, Level as CalLevel, Loudness};
 use afm_engine::player::PlayingTime;
 use afm_engine::world::{PortalEntry, Stage};
@@ -29,7 +31,7 @@ fn subject_starting<'a>(rows: &'a [Value], start: &str) -> Vec<&'a Value> {
 fn the_portal_comes_as_messages_with_the_names_matched() {
     let dir = std::env::temp_dir().join(format!("afm-inbox-portal-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 12, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 12, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     let jobs = ok(&mut g, "jobs", json!({ "level": "college" }));
     let job = jobs["jobs"][0]["ref"].clone();
     ok(&mut g, "start_career", json!({ "name": "Test Coach", "job": job, "seed": 3 }));
