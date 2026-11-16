@@ -16,6 +16,8 @@
 //! Lane G6: the offseason campaign (`campaign`): goals in February, the
 //! race through spring, a verdict in August, your first offseason's guide
 //! and the ground report's data.
+//! Lane G11b: favors (`favors`), the economy of placing kids, switched off
+//! with `WorldOptions.favors`.
 //!
 //! The store is sparse: only your seat's holders (your program, you and
 //! your staff's men) keep memories, and only with people someone has dealt
@@ -26,6 +28,7 @@
 pub mod areas;
 pub mod campaign;
 pub mod card;
+pub mod favors;
 pub mod finds;
 pub mod jobs;
 pub mod leads;
@@ -95,6 +98,8 @@ pub struct Ground {
     pub week: week::Week,
     /// Your offseason campaign (lane G6): goals, the verdict, the guide.
     pub campaign: campaign::Campaign,
+    /// The favor book (lane G11b): switched off with `WorldOptions.favors`.
+    pub favors: favors::Favors,
     /// Test switch: the seat's ground stands still (the same-world check).
     #[serde(skip)]
     pub(crate) off: bool,
@@ -185,6 +190,7 @@ pub(crate) fn day(w: &mut crate::world::World, d: crate::calendar::Date) {
     }
     word::day(w, d);
     jobs::day(w, d);
+    favors::day(w, d);
     stores::sync(w);
     campaign::day(w, d);
     let cut = d.add(-60);

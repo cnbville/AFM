@@ -1,6 +1,6 @@
 # Ground: how it works today
 
-Checked against branch commit 28f13b8 on 2026-11-16 (lane G1a, areas and map data), main bf92e7d plus lane G1b on 2026-11-16 (standing and one memory), main d291de54 plus lane G3 on 2026-11-16 (your week and road days), branch lane S2 on 2026-11-16 (the meeting at the map), main fd85a4f9 plus lane G7 on 2026-11-16 (people in full), main plus lane G11a on 2026-11-16 (the high school chain reaction), main 6aed06fd plus lane G4 on 2026-11-16 (news in order, leads and finds), branch lane S5 on 2026-11-16 (the person screen), main 256934ee plus lane G6 on 2026-11-16 (the campaign) and branch lane S8 on 2026-11-16 (the ground report screen).
+Checked against branch commit 28f13b8 on 2026-11-16 (lane G1a, areas and map data), main bf92e7d plus lane G1b on 2026-11-16 (standing and one memory), main d291de54 plus lane G3 on 2026-11-16 (your week and road days), branch lane S2 on 2026-11-16 (the meeting at the map), main fd85a4f9 plus lane G7 on 2026-11-16 (people in full), main plus lane G11a on 2026-11-16 (the high school chain reaction), main 6aed06fd plus lane G4 on 2026-11-16 (news in order, leads and finds), branch lane S5 on 2026-11-16 (the person screen) and main 256934ee plus lane G6 on 2026-11-16 (the campaign), main plus lane G8 on 2026-11-16 (a following and famous names), main 80ce85c plus lane G11b on 2026-11-16 (favors, switched off) and branch lane S8 on 2026-11-16 (the ground report screen).
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`, `app/`, `data/` or `tools/`. Ground's spec is `docs/design/ground.md`; each lane adds its section here.
 
@@ -37,6 +37,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`,
 - Does the AI have ground (G1b)? Yes, read from the world's 30 years whenever asked: nothing is stored, so the world's recruiting is unchanged until lane G9 (`derived`).
 - Do my roots count? Your own high school's coach starts Trusted, your hometown's coaches and the high schools you coached at Known, and a kid from your hometown knows your name (`seed`, `roots`, `knows_your_name`).
 - What does an area's level read? Each school's head coach's standing, weighted by the talent the school sent out over the last four classes (`area_points`, `talents`).
+- Are favors on? No. The favor economy (lane G11b) ships switched off in every world (`WorldOptions.favors`, false); with it off nothing in `world/ground/favors.rs` runs and placing a kid works as before (`folk/backchannel.rs`, `place_player`). Lane G12's trial turns it on. See "Lane G11b" below.
 
 - Who hears news first (G4)? The people closest to the kid (his coach, his trainer, the camp that timed him) tell programs by standing: Home the day it happens, Trusted a day later, Known on day 3; within a level a busy coach (school prestige 0.5 or more) calls by his nature, a loyal one the staff he's closest to, a self-serving one the biggest program, three calls a day; a small-school coach calls everyone he knows at once, eight a day (`world/ground/news.rs`, `order`).
 - When does the public hear? By the news: an offer the same day from 2018, a big game the next day, a college camp's laser time two days on, a move 3 days, a test score 30, a growth spurt 45 (more before the 2010s, 3 more at a small school); track results, all-state and a new coach are the paper, everyone at once (`public_lag`, `What::paper`).
@@ -65,6 +66,15 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`,
 - A stadium your town paid for (`legacy/hs.rs`) adds 0.03 to its prestige and its name.
 - Where is its form? `Chain::form`, in standard deviations.
 - An old save gets each school's start from its prestige on load (`chain_after_load`, from `World::after_load` in `world/seat.rs`).
+- Can a recruit have a famous father? Yes, from lane G8: a son or nephew of a world player with a Pro Bowl or more, or a Heisman, carries his name (`world/following.rs`, `names`, `man_fame`).
+- How often? Per famous man, 45% have one son who plays and 13% two, each 14 when the man is 36 to 50; 30% have a nephew, 14 when the man is 30 to 55 (`kin`).
+- Does it change how many boys have an NFL father? No. A son is one of the class's boys whose father already played in the NFL (1 in 200); now the father has a name (`names`; `world/background.rs`, `generate_family`).
+- How much does the name add? To his fame, 0.35 × the man's fame for a son, 0.18 × for a nephew, in high school and college, half of it as a pro (`HYPE_SON`, `HYPE_NEPHEW`; `world/fame.rs`, `fame`).
+- When is a commitment big news? When his following is one of his class's 10 biggest (and at least 10,000), huge for the class's biggest; otherwise his stars decide as before (`commit_news`; `world/recruiting.rs`, `commit_now`).
+- What does the hype kid's commitment do for the program? When his following is one of his class's 10 biggest, it lifts the program's brand exposure grade for a year by 3 × his share of the class's biggest following; a program holds its biggest lift, not the sum (`committed`, `day`, `LIFT_TOP`).
+- Does it stay if he flips or decommits? No. The lift is his while he is committed to, signed with or playing for that program; a flip moves it (`holds`, `committed_in`).
+- Does a recruit's following change his own pick? Yes: brand exposure counts 1 + his share of the class's biggest following in the prestige part of a school's appeal, so up to twice (`world/recruiting.rs`, `stage_weight`, `utility_fit`, `six_parts`).
+- Can a college player have a social media storm? Yes, a college player or recruit with 500,000 followers, the same weekly chance as a pro (`world/storylines/detect/weekly.rs`, `chances`; `STORM_FOLLOWERS`).
 
 ## Lane S2: the meeting at the map (the screen)
 
@@ -195,7 +205,7 @@ Screens in `app/ui/screens/ground.js` and `ground.css` (Press Box for the map, t
 
 ## What it does not do yet
 
-- The AI working its ground: lane G9. Favors: lane G11b.
+- The AI working its ground: lane G9. Favors: lane G11b, switched off (below).
 - An area's level on lane G1a's areas: `area_level` (any list of schools: `area_points`, `leader`).
 
 ## Lane G7: people in full
@@ -263,6 +273,75 @@ Every size here is the spec's (word travels at half and a quarter) or the build'
 ### What G7 does not do
 
 - The favor board and spending favors (lane G11b, switched off), news in order and the lead card (G4), the week's plan (G3), the AI working its ground (G9). Counselors don't move to another school; they end a tenure.
+
+## Lane G11b: favors, switched off (GR22, GR60, GR63)
+
+Every size here is the build's pick, proposed, not confirmed, to be tuned in GR61's trial (lane G12). The design is `docs/design/ground/placement.md`.
+
+### The switch (GR61)
+
+- `WorldOptions.favors` (`world/mod.rs`), false in every world and in old world files (`#[serde(default)]`). `favors::on` needs it and a college seat. With it off: `favors::day` returns at once, `place`, `ask` and `set_rule` refuse, the board says `on: false`, and every hook below takes its old path, with no new draw. So every seed plays the same.
+- Your seat only. The AI's own placements and its spending of favors come with the AI working its ground (lane G9, GR65); the rules here take any holder, so it uses the same ones.
+
+### A look costs a favor (`place`)
+
+- You (or your coordinator) call a man on another college staff about a kid: a senior you passed on (not yet signed), a player of yours in the portal, or another school's player in the portal. A Division I staff's call comes only after he enters the portal. Any direction, up or down.
+- Guards: a real hole on the taker's roster (`hole`: he would make its two-deep at his spot, or the spot is short of twice a 53-man roster's numbers scaled to the level, for next fall); one call per staff; three calls a kid a year (`MAX_CALLS`); one home a kid a year (one favor chain).
+- His staff looks: a senior gets a call on his file (`scouting/hs.rs`, `Promo`), as hard as your word with that man is good (`word_read`: 0.5 until a claim settles, then toward your record, levelling off near six to eight claims, `WORD_SETTLE` 2). A portal kid's look lets a small school outside its region take him (`recruiting.rs`, `looked`).
+- You owe the man one, or two in a scarce week (signing day and the day after, the early signing period's first three days, the portal window's last three: `scarce`); what he owed you is spent first. The call is 15 minutes on your week's ledger.
+- A claim from the tips' words (worth a look, can play for you, a sure thing) and a worry you name (his grades, his temper, his health, his work). A worry reaches the kid's family that evening as a moment. A real worry you didn't name is noted at the call (temper 15+ or an incident, grades under 2.5, injury-prone 15+, work ethic under 6).
+
+### A home found (`sign`, `hardness`)
+
+- When he signs there (a portal kid: lands there), his coach owes you by how hard the home was: 2 for a scholarship where he had none at that level or above; 1 for a step up at the same level (a loyal coach counts a starting chance, a self-serving one the bigger name); 0 for a place any staff would give (junior college, Division III, an NAIA walk-on), a step down, or a kid whose offer you pulled. His best standing counts every offer he held, yours included.
+- One comes at signing and the rest at the settle. A home in your coaching tree counts half; a second home from the same coach in a year counts one less. His coach's standing gains 4 a favor (`HOME_POINTS`), with a moment ("You found Simmons a home at Elon.").
+- The no you placed: a pulled offer's 20 points come back to a quarter of the cost (15 back, outside the gates, and the pull is no longer held for years) when he has a home by signing day, unless he was committed to you or it is your second pull at his school in three years (`restore`).
+- Your other calls for him lapse; a look lapses after 400 days or when he goes elsewhere.
+
+### Your word settles (`settle`)
+
+- After a year for a transfer and two for a high school signee, on his last season's role at the level you claimed: worth a look needs him to play (150 snaps or a starter or rotation role), can play for you a starter or rotation role at that level or above, a sure thing a starter. A pro holds every claim.
+- Everyone who heard it records it: the man you called and the kid's coach, in your own and your program's memory (`your_word`, "your word held up 4 of 5 times").
+- Held: the taker's man owes you one, two if he starts; the kid's coach pays the rest of the home and his standing gains 5. Not held: the rest never comes. A worry you hid that came true costs 12 with both ("You never mentioned Reyes's grades."). A quit or a move in year one takes back what his coach paid.
+
+### A favor buys one answer one level up (`ask`, GR60)
+
+- At Stranger his real list (his kids in his own order, by his eye), at Known the truth about one kid (his work, his grades, his temper, his health, in words), at Trusted his first call on one kid. Home buys nothing more.
+- Never past the gates (GR28): no answer from a man you never met, no Trusted answer inside a year of Known or while he holds a broken word, no Home answer before a kid of his did well with you (or five years).
+- The lift is stored (`Lift`) for the news on that kid. `news::make` reads `favors::lifted` and puts you at that level, behind the staffs already there (`Why::Favor`, "he owed you one"). `news::keep` spends it once the answer comes (`spend_lift`). With the switch off `lifted` is always None, so the order is G4's own.
+- A self-serving man dodges 60% × (1 − 2 × his loyalty) of the time when a bigger program already holds that level with him: nothing is spent, and his memory keeps "he dodged your ask when Georgia wanted the same". Asking for more than he owes: he answers, it costs 3 points, and you owe him.
+- It never buys a commitment, a signature or a transfer (rule 3).
+
+### What you owe, and what he owes (`calls_in`, `refused`, `fade`)
+
+- A man you owe calls it in through his weekly ask (`folk/network.rs`, `asks_week`): 6% a week, and always once the debt is 330 days old. His line opens "You owe me one, Coach." A yes pays it back; a no, or never calling back, is a broken promise: 20 points and a big moment he holds ("I called in what you owed me, and you said no."). A college colleague's tie cools by 0.15 instead.
+- What he owes you fades by one each January after two years without a favor between you. What you owe never fades.
+
+### Rule 3 in the portal
+
+- With the switch on, a placement adds nothing to his choice and skips no depth check (`backchannel::bonds` leaves placements out); placing a kid goes through `favors::place` (`backchannel::place_player`).
+
+### Your coordinator's rule (GR63, `coordinator`, `set_rule`)
+
+- Each Monday your recruiting coordinator places the routine no's (the kids whose offers you pulled in the last 120 days, your players in the portal) with the rule's calls (default 1, up to 3), as "worth a look", to the programs with a hole (`takers`: his home state first, near his best standing, then the bigger name). The favors are his own.
+- A kid from a school where your staff is Trusted or Home comes to you instead, as a memo ("Yours to call: ...").
+
+### Your leavers (`leavers`, `judge_leavers`)
+
+- Your players who enter the portal are noted on Mondays. On September 1 his high school coach judges: helped to land (placed and landed) +3 ("You helped Reyes land at Troy."), drifted out of football −4 ("Reyes drifted after he left you."), landed on his own nothing.
+
+### The board and the commands
+
+- `favors::board`: your haves (pulled offers without a home, your players in the portal), your calls and where each stands, who owes you and whom you owe in words ("He owes you a big one, for a look at Simmons"; your coordinator's marked), and the rule.
+- Game commands (`crates/afm-game/src/lane_favors.rs`): `ground_favors`, `ground_favor_takers` (`kid`), `ground_favor_place` (`kid`, `coach`, `claim` 0-2, `worry`), `ground_favor_ask` (`kind`, `id`, `kid`), `ground_favor_rule` (`calls`). Off, every call but the board refuses. No screen yet.
+
+### What G11b does not do
+
+- The AI's books, placements and spending (lane G9), access asks (his juniors at your camp, a word in a job search), stashes at a junior college or prep school, the eras' rules (a release before October 15, 2018, grayshirts under the 25 cap, NIL as a step up from February 2024), the era's warnings on asks for a prospect's relatives, brokers placing kids, and the NFL and high school seats.
+
+### Where the knobs are
+
+- `world/ground/favors.rs`: `HOME_POINTS` 4, `MAX_CALLS` 3, `LOOK_DAYS` 400, `SETTLE_TRANSFER` 365, `SETTLE_SIGNEE` 730, `DODGE` 0.6, `OVERASK` −3, `PLACED_NO_SHARE` 0.25, `SECOND_PULL_YEARS` 3, `WORD_SETTLE` 2, `CALL_IN_BY` 330, `CALL_IN_WEEK` 0.06, `OWED_FADE` 730, `LEAVER_HELD` 3, `LEAVER_DRIFT` −4, `DEFAULT_CALLS` 1; the worries' lines in `real_worry`; the hole in `hole`; a scarce week in `scarce`.
 
 ## Where the knobs are
 
@@ -436,6 +515,37 @@ On June 15 the standouts (the top 3% of their state's age 15-17) weigh a move to
 - June moves, classes 2021-2026: 26-36 per 1,000 against main's 32-36; transfers to a powerhouse 105-149 a class against main's 123-189, a fifth to a quarter of them move-ins.
 - Blue chips, classes 2020-2026, at today's powerhouses: 36.2% against main's 39.7%. FBS signees by home state match main to 0.3 points.
 - A world's talent per school is flat (the top tenth of schools hold 20% of the old players' score), so a free walk on production alone took the real powerhouses down (two earlier rules: real top-five schools to 0.79 and 0.75, powerhouses to 219 and 177). Prestige swings around the name for that reason.
+
+## Lane G8: a following and famous names (GR42-GR46)
+
+**Famous men.** A world player is famous from his career and books: a Hall of Famer 1.0; an MVP, Offensive or Defensive Player of the Year, Super Bowl MVP or three first-team All-Pros 0.85; a first-team All-Pro, four Pro Bowls or a Heisman 0.65; a Pro Bowl 0.4; anyone else 0 (`world/following.rs`, `man_fame`). It reads his alumni record's pro career when he has retired, his live career when he still plays (`World::alumni`, `Alumnus::pro`), the Hall (`nfl_book.hall`) and the Heisman (`stats.honors`). Only men in the world's books count: the recorded years from 1996 on in a 2026 world, so the first famous sons arrive around 2012.
+
+**His kin.** Keyed on the man (his player id): 45% one son who plays, 13% two, 42% none; each son 14 when the man is 36 to 50 (even odds each year). A nephew for 30%, 14 when the man is 30 to 55 (`kin`). All proposed, not confirmed.
+
+**The class day.** After the new class is in (`World::add_class`), each famous man's kin due this year joins it (`names`). A son is a boy of the new class whose father played in the NFL (`Bloodline::NflPlayer`), of the man's ethnicity, in the man's home state if one fits there, any state otherwise; a nephew a boy whose father didn't play (`Bloodline::None`). A boy already your former player's son is skipped, and your guys' sons skip a famous name (`world/legacy/guys.rs`, `sons`). The pick is keyed, so a seed always makes the same family. A son takes the man's surname; about one in eight is named for him ("Darnell Hayes Jr."). A nephew takes the surname two times in three (a brother's son), keeps his own otherwise (a sister's). Stored in `World::following.names` (`Name`: the boy, the man, son or nephew, the man in words, his fame, the hype).
+
+**What the name does.**
+- Fame: the hype adds to his fame like an honor, 0.35 × the man's fame for a son, 0.18 × for a nephew, in high school and college; half of it as a pro (`world/fame.rs`, `fame`). A Hall of Famer's son adds 0.35, about what a fifth star adds in high school (0.55 for 5 stars against 0.32 for 4). Followers, NIL brand deals, NIL Go's range and a storyline's weight all read fame, so all of them follow.
+- Staffs notice him: his recruiting visibility takes 0.15 × the man's fame more (half for a nephew), beside the NFL bloodline's 0.15 (`world/recruiting.rs`, `recruit_visibility`).
+- His file: "His father is Darnell Hayes, a four-time Pro Bowl receiver." leads the family notes, in place of "His father played in the NFL." (`world/scouting/lines.rs`, `family_notes`). The news says "son of four-time Pro Bowl receiver Darnell Hayes" (`news_name`, `Name::tag`).
+- What it does not do: his ratings, ceilings and stars are the boy's own (a son keeps the NFL bloodline's small edge he already had).
+
+**The class's biggest followings.** At February's book, after followers move, each high school class's biggest and tenth-biggest following is kept (`World::following.classes`, `class_tops`), and every high schooler's spotlight is set: his following ÷ his class's biggest, 0 to 1 (`Person::spotlight`; 0 out of high school). A world file from before this lane fills them on load (`after_load`).
+
+**News (GR43).** A commitment, a flip and a signing-day flip post their news when he has 4 or 5 stars, as before, or a following in his class's 10 biggest (and at least 10,000, `NEWS_FLOOR`). Loudness is the louder of his stars' (5 stars medium, else small; a signing-day flip medium) and his following's: big for the 10 biggest, huge for the biggest. The news then adds "He has 412,000 followers." (`commit_news`, `followers_words`; `world/recruiting.rs`, `commit_now`, `run_signing_stage`). Big news gets its own screen and stops Continue; huge is the full show (`calendar/events.rs`, `Loudness`).
+
+**Brand exposure (GR44).** A commitment (or a signature without one) from one of the class's 10 biggest followings (and at least 10,000) lifts the program's brand exposure grade by 3 × his spotlight (`committed`, `committed_in`). Each morning (5 AM, after the class day) a lift ends after 365 days or once he no longer holds it (committed to, signed with, or in college at the program), and each program's grade carries its biggest lift, at most 3 points and never past 99 (`day`, `set_lift`, `LIFT_TOP`, `LIFT_DAYS`; `Program::brand_lift` is what is in the grade now). At the year's grades the lift comes off first, so the grade moves from its own read, and goes back on after (`world/staff.rs`; `strip`). The top-10 rule and the biggest-not-sum rule are proposed, not confirmed: with every commitment lifting and the lifts summed, a seed 152 test world (scale 0.05) had 515 programs lifted, most at the 3-point cap.
+
+**His pick (GR45).** In a school's appeal, the prestige part is (title chances + stadium + tradition + w × brand exposure) / 4 with w = 1 + his spotlight: 1 for a boy nobody follows, 2 for the class's biggest following (`world/recruiting.rs`, `stage_weight`, `utility_fit`, `six_parts`). A transfer's spotlight is 0, so the portal weighs it once, as before.
+
+**Storms (GR46).** Each week a college player, high schooler or prep player with 500,000 followers or more rolls the pro's storm: 0.15% × (1 + his temper's z above 0), about 1 in 670 a week (`world/storylines/detect/weekly.rs`, `chances`; `STORM_FOLLOWERS`). The story ("A post that blew up") is open at every level. High school followers top out at 400,000 × reach, so a recruit reaches it only in a big-reach year or as a famous name with Aura.
+
+**Measured (2026-11-16).** On the seed 1 world (history on the engine) played on 600 days with games on the stand-in (`crates/afm-tools/src/bin/follow_check.rs`): 31 famous names joined the 2026 class and 28 the 2027 class (43 sons, 16 nephews; by the man's fame 24 at 0.4, 17 at 0.65, 12 at 0.85, 6 at 1.0); a Hall of Famer's son led his freshman class's followings (11,410); 9 programs held a brand lift in mid-2027, the biggest Florida's +2.56; no college player or recruit had 500,000 followers, so no storm came at those levels (14 NFL storms kept). Seed 151 at a tenth of the size, this lane against main with history on the stand-in: the two worlds are the same until 2008 (no followers before social media's reach), and recruiting after stays within the noise of a world that small (5-stars drafted 70% against 77% of 91, 2-stars 1.3% against 1.4%, FBS players from the school's state median 48% in both). The stand-in history gives no Pro Bowls, so it has no famous names.
+
+### Where the knobs are (lane G8)
+
+- `world/following.rs`: `HYPE_SON` 0.35, `HYPE_NEPHEW` 0.18, `FAMOUS` 0.4, the tiers in `man_fame`, the odds in `kin`, the Jr. 12% and the nephew's name 65% in `names`, `LIFT_TOP` 3, `LIFT_DAYS` 365, `BIG_NEWS` 10, `NEWS_FLOOR` 10,000, `STORM_FOLLOWERS` 500,000.
+- `world/recruiting.rs`: `stage_weight`; the visibility's 0.15 in `recruit_visibility`.
 
 ## Related pages
 

@@ -14,7 +14,7 @@
 use afm_engine::world::World;
 use afm_engine::world::folk::persona::Them;
 use afm_engine::world::folk::persona::room::{Channel, Group};
-use afm_engine::world::folk::persona::talk::across;
+use afm_engine::world::folk::persona::talk::{across, stakes};
 use afm_engine::world::folk::{self as folk, claims, talk_points as tp, ties};
 use serde_json::{Value, json};
 
@@ -36,6 +36,16 @@ pub fn flag(g: &Game, v: &mut Value) {
     let mut t = v.get("talk").filter(|t| t.is_object()).cloned().unwrap_or_else(|| json!({}));
     t["persona"] = json!(true);
     t["channel"] = json!(channel_words(room.channel));
+    // What the talk is about, as a coach in your seat would know it: his
+    // standing with you, his deal, the portal, the draft (`stakes::situation`).
+    if let Some(him) = across(&room) {
+        let about = stakes::situation(w, s, him);
+        if !about.is_empty() {
+            let mut left = t.get("left").and_then(Value::as_array).cloned().unwrap_or_default();
+            left.insert(0, json!({ "k": "text", "label": "What's at stake", "paras": about }));
+            t["left"] = json!(left);
+        }
+    }
     if let Some(Them::Player(pid)) = across(&room) {
         let ideas = ideas(w, pid);
         if !ideas.is_empty() && t.get("ideas").is_none() {

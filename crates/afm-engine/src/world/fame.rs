@@ -117,7 +117,7 @@ pub fn fame(w: &World, i: usize) -> f64 {
             // Recruits are known by their stars before they play a down.
             let stars = [0.08, 0.08, 0.1, 0.16, 0.32, 0.55][p.stars.min(5) as usize];
             let all_state = if p.cal.all_state >= 2 { 0.06 } else { 0.0 };
-            (stars, 1.0, all_state)
+            (stars, 1.0, all_state + w.following.hype(p.player.id))
         }
         Stage::College | Stage::Declared => {
             let stage = match p.college.map(|c| &w.programs[c]) {
@@ -128,7 +128,7 @@ pub fn fame(w: &World, i: usize) -> f64 {
             };
             // A 5-star's name follows him to campus.
             let stars = 0.04 * p.stars.saturating_sub(3) as f64;
-            (stage, 1.0, stars)
+            (stage, 1.0, stars + w.following.hype(p.player.id))
         }
         Stage::Pro => {
             let c = p.pro.as_ref();
@@ -147,7 +147,7 @@ pub fn fame(w: &World, i: usize) -> f64 {
                     }
                 });
                 (0.03 * pro_bowls + 0.05 * all_pros).min(0.25) + latest
-            });
+            }) + 0.5 * w.following.hype(p.player.id);
             (if team.is_some() { 0.6 } else { 0.35 }, market, honors)
         }
         // Out of the game: a name lives on, fading (the stored followers
@@ -361,6 +361,9 @@ pub(crate) fn year_book(w: &mut World) {
         hs_payday(p, money);
         p.brand = money as f32;
     });
+    // Each class's biggest followings, and each recruit's share of them
+    // (GR43-GR45).
+    super::following::class_tops(w);
     post_hs_news(w, &news);
 }
 
@@ -475,6 +478,7 @@ pub(crate) fn fill(w: &mut World) {
         p.followers = follower_target(p, f, year).round() as u32;
         p.brand = money as f32;
     });
+    super::following::class_tops(w);
 }
 
 /// A scout's or reporter's word for his Aura (the game shows only this):
