@@ -117,7 +117,7 @@ pub fn fame(w: &World, i: usize) -> f64 {
             // Recruits are known by their stars before they play a down.
             let stars = [0.08, 0.08, 0.1, 0.16, 0.32, 0.55][p.stars.min(5) as usize];
             let all_state = if p.cal.all_state >= 2 { 0.06 } else { 0.0 };
-            (stars, 1.0, all_state)
+            (stars, 1.0, all_state + w.following.hype(p.player.id))
         }
         Stage::College | Stage::Declared => {
             let stage = match p.college.map(|c| &w.programs[c]) {
@@ -128,7 +128,7 @@ pub fn fame(w: &World, i: usize) -> f64 {
             };
             // A 5-star's name follows him to campus.
             let stars = 0.04 * p.stars.saturating_sub(3) as f64;
-            (stage, 1.0, stars)
+            (stage, 1.0, stars + college_honors(w, p.player.id) + w.following.hype(p.player.id))
         }
         Stage::Pro => {
             let c = p.pro.as_ref();
@@ -147,7 +147,7 @@ pub fn fame(w: &World, i: usize) -> f64 {
                     }
                 });
                 (0.03 * pro_bowls + 0.05 * all_pros).min(0.25) + latest
-            });
+            }) + 0.5 * w.following.hype(p.player.id);
             (if team.is_some() { 0.6 } else { 0.35 }, market, honors)
         }
         // Out of the game: a name lives on, fading (the stored followers
@@ -160,6 +160,43 @@ pub fn fame(w: &World, i: usize) -> f64 {
     };
     let play = 0.3 + 0.7 * perf.powf(1.5);
     clamp(stage * play * role.powf(0.6) * pos * market + honors, 0.0, 1.0)
+}
+
+/// What a college player's honors add to his fame, read like a pro's Pro
+/// Bowls and All-Pros (proposed, not confirmed): each first-team
+/// All-America season and each national award 0.05 (an FCS All-America
+/// half that), the Heisman 0.15, together up to 0.25; and last season's
+/// biggest honor again on top, 0.2 for the Heisman and 0.1 for the rest.
+/// Real followings follow the honors: the Heisman winner and the
+/// All-Americans at the big programs are the most followed players in the
+/// country (Travis Hunter about 2.1 million across platforms in his
+/// Heisman season, Jeremiah Smith about a million after his All-America
+/// year; `docs/reference/how-it-works/people.md`).
+fn college_honors(w: &World, id: u32) -> f64 {
+    let Some(h) = w.stats.honors.get(&id) else { return 0.0 };
+    // The last finished college season: this one once its awards are in.
+    let last = if w.college.as_ref().is_some_and(|c| c.year == w.year && c.finished) { w.year } else { w.year - 1 };
+    let mut sum: f64 = 0.0;
+    let mut latest: f64 = 0.0;
+    for &(y, d) in &h.all_america {
+        let v = match d {
+            super::data::Division::FBS => 0.05,
+            super::data::Division::FCS => 0.025,
+            _ => 0.0,
+        };
+        sum += v;
+        if y == last && v > 0.0 {
+            latest = latest.max(0.1);
+        }
+    }
+    for &(y, a) in &h.awards {
+        let heisman = a.contains("Heisman");
+        sum += if heisman { 0.15 } else { 0.05 };
+        if y == last {
+            latest = latest.max(if heisman { 0.2 } else { 0.1 });
+        }
+    }
+    sum.min(0.25) + latest
 }
 
 /// Aura's multiplier on fame (proposed, not confirmed): 0.4 at Aura 1, 0.85
@@ -178,7 +215,7 @@ pub fn aura_appeal(p: &Person, fame: f64) -> f64 {
 /// How far social media reaches in a year: nothing before Facebook and
 /// Twitter opened to everyone (2006), the full reach of today's platforms
 /// by about 2016, a little more each year after.
-fn reach(year: i32) -> f64 {
+pub fn reach(year: i32) -> f64 {
     match year {
         ..=2005 => 0.0,
         2006..=2015 => (year - 2005) as f64 / 11.0,
@@ -309,17 +346,35 @@ pub fn brand_money(w: &World, i: usize, fame: f64) -> f64 {
 /// The followers his fame and Aura would hold today (proposed, not
 /// confirmed: an elite NFL star about 5 million, a backup about 40,000, an
 /// FBS starter tens of thousands, a 5-star recruit about 100,000).
-fn follower_target(p: &Person, fame: f64, year: i32) -> f64 {
+///
+/// College runs steeper than the other levels (`COLLEGE_TOP`,
+/// `COLLEGE_POWER`): its following gathers on a few national names. Real
+/// 2025: Jeremiah Smith about 683,000 and Arch Manning 522,000 across
+/// platforms, sixth and ninth among college players (SponsorUnited, Sept
+/// 2025), so about ten over 500,000 and the biggest near a million; Travis
+/// Hunter about 2.1 million and Shedeur Sanders about 2.5 million in 2024.
+/// The 2020 AP first-team All-Americans averaged about 53,000 Instagram
+/// followers, so most good players stay far below.
+pub fn follower_target(p: &Person, fame: f64, year: i32) -> f64 {
     let appeal = aura_appeal(p, fame);
-    let (top, base) = match p.stage {
-        Stage::Pro => (6e6, 25_000.0),
-        Stage::College | Stage::Declared => (2.5e6, 3_000.0),
-        Stage::HighSchool | Stage::PrepSchool => (4e5, 400.0),
-        Stage::Done | Stage::Away => (0.0, 0.0),
-        Stage::CflPool => (2e5, 800.0),
+    let (top, power, base) = match p.stage {
+        Stage::Pro => (6e6, 2.2, 25_000.0),
+        Stage::College | Stage::Declared => (COLLEGE_TOP, COLLEGE_POWER, 3_000.0),
+        Stage::HighSchool | Stage::PrepSchool => (4e5, 2.2, 400.0),
+        Stage::Done | Stage::Away => (0.0, 2.2, 0.0),
+        Stage::CflPool => (2e5, 2.2, 800.0),
     };
-    reach(year) * (top * appeal.powf(2.2) + base)
+    reach(year) * (top * appeal.powf(power) + base)
 }
+
+/// College followers at full appeal, before reach (proposed, not
+/// confirmed; was 2.5 million on a power of 2.2, when no college player
+/// reached 500,000). Measured on the seed 1 world (2026): about 7 over
+/// 500,000 at the next book and 18 once followers catch up, the biggest
+/// about 700,000 to 970,000; 100,000 or more about 470 (was 341).
+pub const COLLEGE_TOP: f64 = 8e6;
+/// The power on appeal for college followers (proposed, not confirmed).
+pub const COLLEGE_POWER: f64 = 3.0;
 
 /// The year's book for fame (February, with `people::year_book`): Aura
 /// grows a little, followers move toward what fame and Aura hold, and the
@@ -361,6 +416,9 @@ pub(crate) fn year_book(w: &mut World) {
         hs_payday(p, money);
         p.brand = money as f32;
     });
+    // Each class's biggest followings, and each recruit's share of them
+    // (GR43-GR45).
+    super::following::class_tops(w);
     post_hs_news(w, &news);
 }
 
@@ -475,6 +533,7 @@ pub(crate) fn fill(w: &mut World) {
         p.followers = follower_target(p, f, year).round() as u32;
         p.brand = money as f32;
     });
+    super::following::class_tops(w);
 }
 
 /// A scout's or reporter's word for his Aura (the game shows only this):

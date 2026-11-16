@@ -180,10 +180,26 @@ pub fn weigh(w: &World, him: Them, o: &Offer) -> Option<Weighed> {
     }
 }
 
-/// Whether an offer to your boss is your extension: your own deal, or years
-/// or money.
+/// An offer to your boss that isn't your extension: he doesn't weigh it as
+/// a deal (a plan for a recruit, "get me the money and I'll sign him").
+/// What you need from him is an ask (`folk::asked`), what you'll deliver a
+/// goal (`folk::commit`).
+pub fn not_a_deal(w: &World, him: Them, o: &Offer) -> bool {
+    your_boss_she(w, him).is_some() && !extension(o)
+}
+
+/// Whether an offer to your boss is your extension: your own deal, or a
+/// contract with years or money in it. An NIL deal, a scholarship or a
+/// trade is never your extension, whatever money is in it (Cain
+/// 2026-11-16: "we're gonna offer him more than Clemson" read as a deal).
 pub fn extension(o: &Offer) -> bool {
-    o.kind == DealKind::Yours || o.gives.iter().any(|g| matches!(g, Give::Years(_) | Give::Money(_)))
+    match o.kind {
+        DealKind::Yours => true,
+        DealKind::Contract | DealKind::Restructure | DealKind::Staff => {
+            o.gives.iter().any(|g| matches!(g, Give::Years(_) | Give::Money(_)))
+        }
+        _ => false,
+    }
 }
 
 /// What you put up for your extension: a bar in your words, else a season

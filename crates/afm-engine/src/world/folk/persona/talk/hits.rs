@@ -352,6 +352,21 @@ pub fn chip_range(w: &World, i: usize, topic: Topic, seed: u64) -> ((f32, f32), 
     (t, m)
 }
 
+/// What a line must move him by to read as landed, and as not landing:
+/// a player's chips move him far more than anyone else's can (a person in
+/// your building is held between -0.05 and +0.02 a line, a parent between
+/// -0.06 and +0.04), so the bars are his own: half the most a line can do
+/// for him, and two-fifths of the worst. Before this one bar (0.06) read
+/// everyone, so no line to your boss could ever land (Cain 2026-11-16).
+/// Proposed, not confirmed.
+pub fn landed_bars(him: Them) -> (f32, f32) {
+    match him {
+        Them::Player(_) => (tp::LANDED, -0.03),
+        Them::Kin(..) => (0.5 * super::super::meetings::PARENT_UP, 0.4 * super::super::meetings::PARENT_DOWN),
+        _ => (0.5 * super::super::office::CAP_UP, 0.4 * super::super::office::CAP_DOWN),
+    }
+}
+
 /// What your read catches from how the line went over, when nothing else
 /// set a tell: the way a chip's answer reads him (`talks::read_tell`).
 pub fn tell(w: &World, him: Them, hits: &[Sized]) -> String {

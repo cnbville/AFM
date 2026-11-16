@@ -9,6 +9,8 @@
 //! The scan catches the other ways a key could get out: a note, a log, the
 //! spend book, a copy in the folder.
 
+mod common;
+
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -47,9 +49,8 @@ fn the_key_is_in_no_file_after_a_save_and_a_bug_pack() {
     let dir = std::env::temp_dir().join(format!("afm-ai-key-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let mut g = Game::new(dir.clone());
-    ok(
+    common::build_world(
         &mut g,
-        "build_world",
         json!({ "seed": 17, "history_years": 1, "scale": 0.04, "engine_from": 2026, "hs_engine_years": 0 }),
     );
     ok(&mut g, "ai_key_set", json!({ "key": MARKER }));

@@ -88,7 +88,7 @@ pub fn facets(w: &World, c: usize, topic: Topic) -> Vec<usize> {
         Topic::Character | Topic::HisWord => vec![13, 12, 11],
         Topic::Pitches | Topic::Nil => vec![14, 15],
         Topic::Effort => vec![11, 16],
-        Topic::Jobs | Topic::Wants | Topic::Market => vec![AMBITION],
+        Topic::Jobs | Topic::Job | Topic::Wants | Topic::Market => vec![AMBITION],
         _ => Vec::new(),
     }
 }

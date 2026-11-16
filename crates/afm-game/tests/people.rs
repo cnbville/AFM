@@ -4,6 +4,8 @@
 //! handed to the staff, and every people page's data comes back. Then the
 //! clock runs a month: the staff holds what you didn't, nothing panics.
 
+mod common;
+
 use afm_game::Game;
 use serde_json::{Value, json};
 
@@ -34,7 +36,7 @@ fn hold(g: &mut Game, id: u64) -> Value {
 fn takeover(level: &str, seed: u64) {
     let dir = std::env::temp_dir().join(format!("afm-people-{level}-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": seed, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": seed, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     let jobs = ok(&mut g, "jobs", json!({ "level": level }));
     let job = jobs["jobs"][0]["ref"].clone();
     ok(&mut g, "start_career", json!({ "name": "Test Coach", "job": job, "seed": 3 }));

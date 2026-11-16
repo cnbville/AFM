@@ -185,6 +185,19 @@
      "act": "threat"
     }
    ]
+  },
+  {
+   "text": "Convince me why I should let you stay OC.",
+   "acts": [
+    {
+     "act": "question",
+     "topic": "Job"
+    }
+   ]
+  },
+  {
+   "text": "You're awfully confident, aren't you?",
+   "acts": []
   }
  ],
  "exploits": [

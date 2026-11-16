@@ -105,7 +105,7 @@ fn a_typed_talk_in_the_room_is_the_chips_say_it() {
     let dir: PathBuf = std::env::temp_dir().join(format!("afm-live-rooms-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 21, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 21, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     let job = ok(&mut g, "jobs", json!({ "level": "college" }))["jobs"][0]["ref"].clone();
     ok(
         &mut g,

@@ -2,6 +2,8 @@
 //! (the campus on the map, the areas of your state, the coordinator, the
 //! fronts the plan sends a man to, his one call), on top of lane G3's plan.
 
+mod common;
+
 use afm_game::Game;
 use serde_json::{Value, json};
 
@@ -16,7 +18,7 @@ fn ok(g: &mut Game, cmd: &str, args: Value) -> Value {
 fn the_week_carries_what_the_board_draws() {
     let dir = std::env::temp_dir().join(format!("afm-ground-week-screen-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 22, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 22, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     assert!(g.call("ground_week", &json!({})).is_err(), "no seat, no week");
     let jobs = ok(&mut g, "jobs", json!({ "level": "college" }));
     let job = jobs["jobs"][0]["ref"].clone();

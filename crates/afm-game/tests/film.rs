@@ -2,6 +2,8 @@
 //! game is played again from its seed with frames on and every snap comes
 //! out whole, in the stadium's frame, with a jersey number for every man.
 
+mod common;
+
 use afm_game::Game;
 use serde_json::{Value, json};
 
@@ -21,7 +23,7 @@ fn a_kept_game_plays_back_as_film() {
     if let Ok(p) = std::env::var("AFM_FILM_LOAD") {
         ok(&mut g, "load", json!({ "path": p }));
     } else {
-        ok(&mut g, "build_world", json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+        common::build_world(&mut g, json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
         let jobs = ok(&mut g, "jobs", json!({ "level": "college" }));
         let job = jobs["jobs"][0]["ref"].clone();
         ok(

@@ -1,0 +1,58 @@
+name: CI retry
+# Some of GitHub's Linux machines shut down in the middle of a job: "The
+# runner has received a shutdown signal" or "The hosted runner lost
+# communication with the server". On 2026-11-16 five quick checks ended
+# that way (PR #480 twice, PR #495 three times, main's 738a6fd once), each
+# on runner image 20261111.82.6 outside Azure, at any step (once with only
+# the engine compiling, 2 minutes in); every run on the Azure image
+# (20261111.196.1) finished, green or with a real test failure. Nothing in
+# the code ends a job that way, so this runs the failed jobs once more. A
+# job that failed any other way is a real failure and is left alone, and
+# only a branch's newest run is retried (an older one is replaced anyway).
+on:
+  workflow_run:
+    workflows: ["CI", "Full tests"]
+    types: [completed]
+permissions:
+  actions: write
+  checks: read
+  contents: read
+jobs:
+  retry:
+    if: >-
+      github.event.workflow_run.conclusion == 'failure'
+      && github.event.workflow_run.run_attempt < 2
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      RUN_ID: ${{ github.event.workflow_run.id }}
+      ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+      WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
+      BRANCH: ${{ github.event.workflow_run.head_branch }}
+    steps:
+      - name: Run jobs whose machine shut down again
+        run: |
+          newest=$(gh api -X GET "repos/$REPO/actions/workflows/$WORKFLOW_ID/runs" \
+            -f branch="$BRANCH" -F per_page=1 --jq '.workflow_runs[0].id')
+          if [ "$newest" != "$RUN_ID" ]; then
+            echo "Run $newest is newer than run $RUN_ID on $BRANCH: nothing to retry."
+            exit 0
+          fi
+          lost=0
+          for job in $(gh api "repos/$REPO/actions/runs/$RUN_ID/attempts/$ATTEMPT/jobs?per_page=100" \
+              --jq '.jobs[] | select(.conclusion == "failure") | .id'); do
+            if gh api "repos/$REPO/check-runs/$job/annotations" --jq '.[].message' \
+                | grep -qE 'runner has received a shutdown signal|lost communication with the server'; then
+              echo "Job $job: its machine shut down."
+              lost=$((lost + 1))
+            else
+              echo "Job $job: a real failure."
+            fi
+          done
+          if [ "$lost" = "0" ]; then
+            echo "No machine shut down: nothing to retry."
+            exit 0
+          fi
+          gh run rerun "$RUN_ID" --repo "$REPO" --failed
