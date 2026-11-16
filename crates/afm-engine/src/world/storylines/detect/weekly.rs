@@ -1547,6 +1547,19 @@ fn chances(w: &mut World, _d: Date) {
             }
         }
     }
+    // The spotlight cuts both ways (GR46): a college player or a recruit
+    // with a pro's following has a pro's chance of a storm.
+    for (i, p) in w.people.iter().enumerate() {
+        if p.followers < crate::world::following::STORM_FOLLOWERS
+            || !matches!(p.stage, Stage::College | Stage::HighSchool | Stage::PrepSchool)
+        {
+            continue;
+        }
+        let temper = p.player.personality.traits.z(crate::player::Trait::Temper);
+        if roll(w, 0x5051, p.player.id as u64) < 0.0015 * (1.0 + temper.max(0.0)) {
+            opens.push((K::SocialStorm, i));
+        }
+    }
     let d = w.today;
     for (kind, i) in opens {
         let mut s = player_spot(w, kind, i);

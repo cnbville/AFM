@@ -3409,6 +3409,17 @@ pub(crate) fn home_weight(programs: &[Program], p: &Person, year: i32) -> f64 {
     HOME_FADE_FLOOR + (1.0 - HOME_FADE_FLOOR) * (-(away as f64) / HOME_FADE_OFFERS).exp()
 }
 
+/// How much a recruit weighs a program's brand exposure (GR45): once for a
+/// boy nobody follows, up to twice for the class's biggest following, by
+/// his following's share of it (`following::class_tops`): the stage is part
+/// of his business.
+fn stage_weight(p: &Person) -> f64 {
+    match p.stage {
+        Stage::HighSchool | Stage::PrepSchool => 1.0 + p.spotlight.clamp(0.0, 1.0) as f64,
+        _ => 1.0,
+    }
+}
+
 /// How much a school appeals to a recruit, from the wants of whoever decides (topic 5).
 #[allow(clippy::too_many_arguments)]
 fn utility(
@@ -3448,7 +3459,7 @@ fn utility_fit(
     let prestige = (g(GradeCat::TitleChances)
         + g(GradeCat::StadiumAtmosphere)
         + g(GradeCat::Tradition)
-        + g(GradeCat::BrandExposure))
+        + stage_weight(p) * g(GradeCat::BrandExposure))
         / 4.0;
     // Money on a real scale (note 13): $3.5M is clearly more than $2M. How
     // much it matters is his family's need, which ambition pulls against.
@@ -4390,13 +4401,21 @@ pub(crate) fn commit_now(w: &mut World, i: usize, j: usize, d: Date, walk_on: bo
         Some(old) => format!("Flipped his commitment from {old} to {prog_name} at {age}, {when}."),
         None => format!("Committed to {prog_name} at {age}, {when}."),
     });
-    if stars >= 4 {
+    // His commitment lifts the program's brand exposure for a year (GR44),
+    // and his following makes news as well as his stars (GR43).
+    super::following::committed(w, i, j, d);
+    let hype = super::following::commit_news(w, i);
+    if stars >= 4 || hype.is_some() {
         let pos = w.people[i].player.position;
-        let text = match &flipped {
-            Some(old) => format!("{stars}-star {pos} {name} flips from {old} to {prog_name}."),
-            None => format!("{stars}-star {pos} {name} commits to {prog_name}."),
+        let who = super::following::news_name(w, i);
+        let mut text = match &flipped {
+            Some(old) => format!("{stars}-star {pos} {who} flips from {old} to {prog_name}."),
+            None => format!("{stars}-star {pos} {who} commits to {prog_name}."),
         };
-        let loud = if stars == 5 { Loudness::Medium } else { Loudness::Small };
+        if hype.is_some() {
+            text.push_str(&format!(" He has {}.", super::following::followers_words(w.people[i].followers)));
+        }
+        let loud = if stars == 5 { Loudness::Medium } else { Loudness::Small }.max(hype.unwrap_or(Loudness::Small));
         let id = w.people[i].player.id;
         let e = Event::new(d, CalLevel::Recruiting, Kind::Commitment, loud, text)
             .program(j)
@@ -5108,6 +5127,11 @@ fn recruit_visibility(w: &World, p: &Person, film: f64, all_mean_sd: (f64, f64),
         super::background::Bloodline::CollegePlayer => 0.05,
         super::background::Bloodline::None => 0.0,
     };
+    // A famous name puts him in front of every staff in the country (GR42):
+    // up to 0.15 more for a Hall of Famer's son, half for a nephew
+    // (proposed, not confirmed).
+    let bloodline = bloodline
+        + w.following.name_of(p.player.id).map_or(0.0, |n| 0.15 * n.fame as f64 * if n.nephew { 0.5 } else { 1.0 });
     // All-state honors (A32) put a name in front of every staff in the state.
     let honors = 0.04 * p.cal.all_state.min(2) as f64;
     let visibility = clamp(
@@ -7294,22 +7318,33 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                         format!("Flipped his commitment from {from} to {prog_name} at {age}.")
                     };
                     w.people[i].note(text);
-                    if w.people[i].stars >= 4 {
-                        let name = &w.people[i].name;
-                        let text = if scrambled[k] {
+                    let hype = super::following::commit_news(w, i);
+                    if w.people[i].stars >= 4 || hype.is_some() {
+                        let name = super::following::news_name(w, i);
+                        let mut text = if scrambled[k] {
                             format!("{name} signs with {prog_name} after his commitment to {from} fell through.")
                         } else {
                             format!("{name} flips from {from} to {prog_name}.")
                         };
+                        if hype.is_some() {
+                            let n = w.people[i].followers;
+                            text.push_str(&format!(" He has {}.", super::following::followers_words(n)));
+                        }
+                        let loud = Loudness::Medium.max(hype.unwrap_or(Loudness::Medium));
                         let id = w.people[i].player.id;
                         let name = w.people[i].name.clone();
                         w.calendar.post(
-                            Event::new(today, CalLevel::Recruiting, Kind::Commitment, Loudness::Medium, text)
+                            Event::new(today, CalLevel::Recruiting, Kind::Commitment, loud, text)
                                 .program(j)
                                 .person(id, &name)
                                 .school_link(j, &prog_name),
                         );
                     }
+                }
+                // A signature where he wasn't committed is his commitment:
+                // it lifts the program's brand exposure (GR44).
+                if committed != Some(j) {
+                    super::following::committed_in(&mut w.following, &w.people[i], j, today);
                 }
                 // His reasons as he chose: before the signature's own hold
                 // is on him (minor bug 118: read after it, the +10 that
@@ -10633,7 +10668,7 @@ fn six_parts(
     let prestige = (g(GradeCat::TitleChances)
         + g(GradeCat::StadiumAtmosphere)
         + g(GradeCat::Tradition)
-        + g(GradeCat::BrandExposure))
+        + stage_weight(p) * g(GradeCat::BrandExposure))
         / 4.0;
     let money = (nil.max(0.0) / 1.0e6).powf(0.6);
     let (money_w, path_w) = money_weights(p, wants, crisis);
