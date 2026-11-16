@@ -68,6 +68,20 @@ const PHYSICAL: [Attr; 8] = [
     Attr::Stamina,
 ];
 
+/// How much the lower and upper body's own parts go together (physical
+/// study item 4b; proposed, not confirmed: bench and squat strength go
+/// together about 0.7 to 0.8 among trained athletes, McGuigan and
+/// Winchester 2008).
+pub const LOWER_TIE: f64 = 0.75;
+
+/// The lower body's own part given the upper body's (`upper`, drawn at
+/// spread `sd`): tied at `LOWER_TIE`, the rest drawn on a stream keyed to
+/// what is already drawn, so no other draw in the generator moves.
+pub(crate) fn lower_with(upper: f64, sd: f64, key: u32) -> f64 {
+    let z = Rng::new(key ^ (upper as f32).to_bits() ^ 0x10B0_D1E5).normal(0.0, 1.0);
+    LOWER_TIE * upper + (1.0 - LOWER_TIE * LOWER_TIE).sqrt() * sd * z
+}
+
 /// Standard normal cumulative distribution (Abramowitz and Stegun 7.1.26).
 pub fn phi(x: f64) -> f64 {
     let t = 1.0 / (1.0 + 0.3275911 * x.abs() / std::f64::consts::SQRT_2);
@@ -135,7 +149,11 @@ fn draw_shape(rng: &mut Rng) -> (Attributes, (f64, f64), f64, f64) {
     shape.add(Acceleration, 4.0 * explosive + rng.normal(0.0, 3.0));
     shape.add(Jumping, 4.0 * explosive + rng.normal(0.0, 3.0));
     shape.add(Agility, 2.5 * explosive + rng.normal(0.0, 3.5));
-    shape.add(Strength, rng.normal(0.0, 5.0));
+    let own_strength = rng.normal(0.0, 5.0);
+    shape.add(Strength, own_strength);
+    // The lower body moves with the upper mostly, but men differ (physical
+    // study item 4b), on its own stream so no other draw moves.
+    shape.set(LowerBody, shape.get(Strength) - own_strength + lower_with(own_strength, 5.0, fh.to_bits() as u32));
     shape.add(Stamina, rng.normal(0.0, 5.0));
     // Balance and bend are their own gifts (proposed, not confirmed: about
     // as spread as agility).
@@ -405,9 +423,19 @@ pub(crate) fn create(rng: &mut Rng, talent: f64) -> (Attributes, Body, Position,
     // range and coverage, at the same overall.
     body_lean(&mut base, natural, talent, fw, roll, speed_share);
     let mut ceilings = Attributes::default();
+    let mut strength_noise = 0.0;
     for a in Attr::ALL {
-        ceilings.set(a, clamp(base.get(a) + rng.normal(0.0, 4.0), MIN_RATING, MAX_RATING));
+        if a == Attr::LowerBody {
+            continue;
+        }
+        let n = rng.normal(0.0, 4.0);
+        if a == Attr::Strength {
+            strength_noise = n;
+        }
+        ceilings.set(a, clamp(base.get(a) + n, MIN_RATING, MAX_RATING));
     }
+    let n = lower_with(strength_noise, 4.0, base.get(Attr::LowerBody).to_bits() as u32);
+    ceilings.set(Attr::LowerBody, clamp(base.get(Attr::LowerBody) + n, MIN_RATING, MAX_RATING));
     // His best spot is his best spot: where another position would rate him
     // higher, the skills only that position uses are trimmed until it doesn't.
     let best = overall_for(natural, &ceilings) * 0.95;
@@ -513,11 +541,11 @@ const LEAN_LB_SLOW: f64 = 1.5;
 fn body_lean(base: &mut Attributes, natural: Position, talent: f64, fw: f64, roll: f64, speed_share: f64) {
     let (hit, range): (&[Attr], &[Attr]) = match natural {
         Position::S => (
-            &[Attr::Tackling, Attr::Strength, Attr::Physicality],
+            &[Attr::Tackling, Attr::Strength, Attr::LowerBody, Attr::Physicality],
             &[Attr::ZoneCoverage, Attr::ManCoverage, Attr::Pursuit],
         ),
         Position::LB => (
-            &[Attr::Tackling, Attr::BlockShedding, Attr::Strength],
+            &[Attr::Tackling, Attr::BlockShedding, Attr::Strength, Attr::LowerBody],
             &[Attr::ZoneCoverage, Attr::ManCoverage, Attr::Pursuit],
         ),
         _ => return,

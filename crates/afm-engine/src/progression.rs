@@ -466,9 +466,10 @@ pub const PART_EVERYDAY: u8 = 1;
 pub const PART_BREAKOUT: u8 = 2;
 pub const PART_PROJECTS: u8 = 4;
 pub const PART_TRIMS: u8 = 8;
+pub const PART_BODY: u8 = 16;
 
 pub fn set_parts(on: u8) {
-    PARTS_OFF.store(!on & 15, Ordering::Relaxed);
+    PARTS_OFF.store(!on & 31, Ordering::Relaxed);
 }
 
 fn part(p: u8) -> bool {
@@ -627,6 +628,87 @@ pub(crate) fn everyday(p: &mut Player, coaching: f64, level: Level, pt: PlayingT
         added += close;
     }
     added
+}
+
+/// The normal weight room inside the leashes (everyday item 6): how far
+/// his body knack moves each physical ceiling from the typical man's path
+/// over his college years, in rating points, and the most a big responder
+/// gets (design item 2's leashes: strength about 7 for a responder and 14
+/// for a big one, speed 1, burst 1.5, agility and hips 2, balance 3).
+/// Each half of his strength has the whole strength leash.
+pub const WEIGHT_ROOM: [(Attr, f64, f64); 8] = [
+    (Attr::Strength, 7.0, 14.0),
+    (Attr::LowerBody, 7.0, 14.0),
+    (Attr::Speed, 1.0, 1.0),
+    (Attr::Acceleration, 1.5, 1.5),
+    (Attr::Jumping, 1.5, 1.5),
+    (Attr::Agility, 2.0, 2.0),
+    (Attr::Flexibility, 2.0, 2.0),
+    (Attr::Balance, 3.0, 3.0),
+];
+
+/// How a knack z reads as a weight-room response: 0.8 a standard
+/// deviation, a non-responder at -1 (the typical gain less a whole leash),
+/// the typical man 0, a big responder up to his leash's most. Mean about 0
+/// over the class, so the class's average path (already real) holds.
+pub fn response(z: f64) -> f64 {
+    0.8 * z
+}
+
+/// The share of the college weight room's work a year at this age does:
+/// front-loaded, most of it in the first two years (Jacobson et al. 2013),
+/// burst only then (design item 2). Proposed, not confirmed.
+pub fn weight_room_share(age: u32, a: Attr) -> f64 {
+    let burst = matches!(a, Attr::Acceleration | Attr::Jumping);
+    match age {
+        ..=17 => 0.0,
+        18 => {
+            if burst {
+                0.55
+            } else {
+                0.30
+            }
+        }
+        19 => {
+            if burst {
+                0.45
+            } else {
+                0.25
+            }
+        }
+        _ if burst => 0.0,
+        20 => 0.20,
+        21 => 0.15,
+        22 => 0.10,
+        _ => 0.0,
+    }
+}
+
+/// The year's normal weight room (everyday item 6): every college and pro
+/// player's strength program moves his physical ceilings by his body
+/// knack, a big responder up toward his leash and a non-responder down,
+/// never under his rating today (a ceiling at his rating just stops his
+/// gains). High school isn't a college program. Returns the points moved,
+/// up and down summed by size.
+pub(crate) fn weight_room(p: &mut Player, level: Level, trouble: bool) -> f64 {
+    if level == Level::HS || trouble || !part(PART_BODY) {
+        return 0.0;
+    }
+    ensure(p);
+    let r = response(body_knack(p));
+    let mut moved = 0.0;
+    for &(a, leash, most) in WEIGHT_ROOM.iter() {
+        let share = weight_room_share(p.age, a);
+        if share <= 0.0 {
+            continue;
+        }
+        let d = clamp(r, -1.0, most / leash) * leash * share;
+        let (now, c) = (p.attributes.get(a), p.ceilings.get(a));
+        let to = (c + d).max(now);
+        p.ceilings.set(a, to);
+        moved += (to - c).abs();
+    }
+    moved
 }
 
 /// A click's size on the ceiling (design item 10): 6 to 10 points.

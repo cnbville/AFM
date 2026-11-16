@@ -1,11 +1,11 @@
 # Ratings: how it works today
 
-Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28 and lane 6 on 2026-10-29; the kicking spots at placement (minor bug 165) at 3817c01 on 2026-10-31; the kept 67-skill middles (Kept reads, last bullets) at 695d72d on 2026-11-13; the Attributes page's data (`attr_view`, its lists and the hover's weight line) at 8a0192b on 2026-11-14. The Attributes tab screen (attributes page, lane 3) at 28d5e87 on 2026-11-14. The position-aware name hover (H1) over main b928a3c on 2026-11-14. The high school marks read nationally with a "Near home" line (Cain 2026-11-14), checked over main 1bb7575 on 2026-11-14, before it merged.
+Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28 and lane 6 on 2026-10-29; the kicking spots at placement (minor bug 165) at 3817c01 on 2026-10-31; the kept 67-skill middles (Kept reads, last bullets) at 695d72d on 2026-11-13; the Attributes page's data (`attr_view`, its lists and the hover's weight line) at 8a0192b on 2026-11-14. The Attributes tab screen (attributes page, lane 3) at 28d5e87 on 2026-11-14. The position-aware name hover (H1) over main b928a3c on 2026-11-14. The high school marks read nationally with a "Near home" line (Cain 2026-11-14), checked over main 1bb7575 on 2026-11-14, before it merged. Upper and lower body strength (68 visible, physical study item 4b) checked over main c2f99ef on 2026-11-15, before it merged.
 
 ## Quick answers
 
 - What scale are attributes on? 1-99 (`MIN_RATING` 1.0, `MAX_RATING` 99.0) (`attributes.rs`).
-- How many attributes? 67 visible in 8 groups, plus 5 hidden game-day/body traits (`attributes.rs`, `Attr::ALL`, `ATTRIBUTE_COUNT`; `player.rs`, `GameTraits`, `Player`).
+- How many attributes? 68 visible in 8 groups (67 until 2026-11-15, when Strength was split into upper body and Lower Body; see [body.md](body.md)), plus 5 hidden game-day/body traits (`attributes.rs`, `Attr::ALL`, `ATTRIBUTE_COUNT`; `player.rs`, `GameTraits`, `Player`).
 - Are attributes whole numbers? No. Stored as `f32`, read and written as `f64`; screens round (`attributes.rs`, `Attributes`).
 - What is "overall"? The weighted mean of his attributes at his listed position, weights normalised to sum to 1 (`positions.rs`, `overall_for`; `player.rs`, `Player::overall`).
 - What is "potential"? The same formula on his hidden ceilings (`player.rs`, `Player::potential`). Never shown; screens show words (`crates/afm-game/src/reads.rs`, `potential_words`).
@@ -63,7 +63,7 @@ The code comment names five hidden: consistency, injury proneness, recovery, lon
 
 ## Stored vs shown
 
-- Stored: `Attributes` is `[f32; 67]` per player for current ability and the same for hidden ceilings (`attributes.rs`, `Attributes`; `player.rs`, `Player.attributes`, `Player.ceilings`). Default fill is 1.0.
+- Stored: `Attributes` is `[f32; 68]` per player (a save from before loads its 67 with Lower Body set to his Strength) for current ability and the same for hidden ceilings (`attributes.rs`, `Attributes`; `player.rs`, `Player.attributes`, `Player.ceilings`). Default fill is 1.0.
 - Every rating write is clamped to 1-99 at the end of a development year (`development.rs`, `develop_season`, the "Tidy up" loop). A rating above its ceiling lifts the ceiling.
 - Shown: screens never show a true attribute. `reads::range` centres on truth + lean × half × 0.6, where lean is a fixed -1..1 per reader, player and attribute (so a range doesn't jump day to day), then rounds lo and hi and clamps to 1-99 (`crates/afm-game/src/reads.rs`, `range`, `lean`).
   - Half-width for your own players: 2 + (20 - eye) × 0.12, eye being the reading coach's 1-20 (so ±2 to ±4.28) (`reads.rs`, `attributes`).

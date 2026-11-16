@@ -198,6 +198,12 @@ impl GamePlayer {
         self.attrs.get(a)
     }
 
+    /// Strength where the whole body works (physical study item 4b).
+    #[inline]
+    pub fn whole(&self) -> f64 {
+        0.5 * (self.attrs.get(Attr::Strength) + self.attrs.get(Attr::LowerBody))
+    }
+
     pub fn overall_at(&self, pos: Position) -> f64 {
         overall_for(pos, &self.attrs)
     }
