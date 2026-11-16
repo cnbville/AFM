@@ -109,6 +109,9 @@ const BANKS: &[&str] = &[
     // parent's real complaint and his answers, an exit meeting's reason,
     // and what about game day reaches your words.
     include_str!("../../../data/lines/team_rooms.txt"),
+    // Ground's scenes (lane G5): a high school coach greeting you in his
+    // office and on the phone.
+    include_str!("../../../data/lines/ground.txt"),
 ];
 
 /// The facts that gate a line which denies (`blameless`) or admits

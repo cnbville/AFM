@@ -13,6 +13,8 @@
 //! Lane G4: news in order of standing (`news`), leads and their
 //! blanks (`leads`), and finds, blooms, setbacks and misses (`finds`),
 //! for your seat.
+//! Lane G5: the week's scenes played (`scenes`): the school visit, the
+//! calls, your campus and the coaches' side, on the built scenes.
 //!
 //! The store is sparse: only your seat's holders (your program, you and
 //! your staff's men) keep memories, and only with people someone has dealt
@@ -28,6 +30,7 @@ pub mod leads;
 pub mod memory;
 pub mod news;
 pub mod people;
+pub mod scenes;
 pub mod standing;
 pub mod stores;
 pub mod week;
@@ -89,6 +92,8 @@ pub struct Ground {
     pub(crate) vacated: Vec<(u32, Who, crate::calendar::Date)>,
     /// Your week (lane G3): the plan, the road, the phone, the ledger.
     pub week: week::Week,
+    /// The week's scenes played (lane G5).
+    pub scenes: scenes::Book,
     /// Test switch: the seat's ground stands still (the same-world check).
     #[serde(skip)]
     pub(crate) off: bool,

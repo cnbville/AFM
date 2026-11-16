@@ -480,6 +480,11 @@ fn dawn(w: &mut World, d: Date, y: &YearDates) {
     // the training blocks of every level (T7).
     timed("rhythm", || rhythm(w, d, y));
     nfl_year::training_blocks(w, d, y);
+    // Your seat's ground scenes for the day (lane G5): only the seat plays
+    // them, so the world is the same on every seed.
+    if w.seat.is_some() {
+        super::ground::scenes::dawn(w, d);
+    }
 }
 
 /// 7:00 AM: staffs in early, and on Mondays every team's training week

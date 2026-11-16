@@ -80,6 +80,11 @@ pub enum SlotKind {
     Official,
     Camp,
     Film,
+    /// Lane G5: your clinic, open practice, the spring game, the convention.
+    Clinic,
+    OpenPractice,
+    SpringGame,
+    Convention,
 }
 
 impl SlotKind {
@@ -94,6 +99,10 @@ impl SlotKind {
             SlotKind::Official => "official",
             SlotKind::Camp => "camp",
             SlotKind::Film => "film",
+            SlotKind::Clinic => "clinic",
+            SlotKind::OpenPractice => "open_practice",
+            SlotKind::SpringGame => "spring_game",
+            SlotKind::Convention => "convention",
         }
     }
 }

@@ -44,7 +44,7 @@ use crate::world::folk::{self as folk, Team, facts, takeover};
 /// JobCall and Family never took a typed line (nobody stored is across:
 /// a trip you go on or skip, a game director or search firm on the line,
 /// your own family), and HireReaction is the papers (`scene::NO_BOX`).
-pub const KINDS: [Kind; 18] = [
+pub const KINDS: [Kind; 19] = [
     Kind::Plan,
     Kind::Tour,
     Kind::Recruiting,
@@ -63,6 +63,7 @@ pub const KINDS: [Kind; 18] = [
     Kind::JobInterview,
     Kind::Backchannel,
     Kind::CombineTalk,
+    Kind::Ground,
 ];
 
 /// Whether a meeting is one of these.
@@ -79,7 +80,7 @@ pub fn keeps_open(k: Kind) -> bool {
 
 /// A room of people: the captains, the parents, the feeder coaches.
 pub fn is_group(s: &Scene) -> bool {
-    matches!(s.kind, Kind::Leaders | Kind::Parents | Kind::Feeder)
+    matches!(s.kind, Kind::Leaders | Kind::Parents | Kind::Feeder) || crate::world::ground::scenes::is_group(s)
 }
 
 /// The whole room in words, for the ear's card (its one item for a line
@@ -89,6 +90,7 @@ pub fn whole_words(s: &Scene) -> &'static str {
         Kind::Leaders => "the team's leaders as a whole",
         Kind::Parents => "the parents as a whole",
         Kind::Feeder => "the feeder coaches as a whole",
+        Kind::Ground => crate::world::ground::scenes::whole_words(s),
         _ => "the team as a whole",
     }
 }
@@ -228,6 +230,9 @@ pub fn room(w: &World, s: &Scene) -> Option<Room> {
             present.extend(v.into_iter().skip(1).map(listener));
             Some(Room { channel: Channel::InPerson(place_of(&s.place, Place::Office)), present })
         }
+        // Ground's week scenes (lane G5): the coach across, your man, the
+        // families on campus or a room of coaches.
+        Kind::Ground => crate::world::ground::scenes::room(w, s),
         // Everyone else: the first person the meeting names, else (a
         // briefing your staff gives) your first assistant.
         _ => {
@@ -372,6 +377,18 @@ pub const TALK_SCORE_MAX: f32 = 0.45;
 pub fn after(w: &mut World, id: u32, room: &Room, _reading: &Reading, t: &Turn) {
     super::office::prune(w);
     let Some(k) = w.folk.scenes.iter().position(|s| s.id == id) else { return };
+    // A ground scene: what the line did to each person's trust lands as
+    // standing (lane G5).
+    if w.folk.scenes[k].kind == Kind::Ground {
+        let hits: Vec<(Them, f32)> = t
+            .hits
+            .iter()
+            .filter(|h| room.present.iter().any(|p| p.who == h.hit.on))
+            .map(|h| (h.hit.on, h.trust))
+            .collect();
+        crate::world::ground::scenes::after_talk(w, id, &hits);
+        return;
+    }
     if w.folk.scenes[k].kind != Kind::JobInterview {
         return;
     }

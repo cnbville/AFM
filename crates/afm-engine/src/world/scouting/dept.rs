@@ -181,6 +181,38 @@ pub fn add(w: &mut World, id: u32, who: u32, kind: Kind, date: Date) -> bool {
     true
 }
 
+/// Who comes to your one-day camp on a camp day (people indexes): the
+/// board's high school recruits within a day's drive whose families can
+/// pay (minor bug 22: a family with no money comes at 0.3 the rate), and
+/// every kid you invited to fill his blanks (Ground lane G4). Keyed, so
+/// the camp's scene in the morning (lane G5) sees the same campers the
+/// day's looks get that night.
+pub(crate) fn campers(w: &World, prog: usize, d: Date) -> Vec<usize> {
+    let mut board = watch(w, prog);
+    let home = w.programs[prog].state;
+    let invited: Vec<u32> = w.scouting.dept.asks.iter().filter(|a| a.1 == Kind::Camp).map(|a| a.0).collect();
+    for &id in &invited {
+        if let Some(i) = super::place(w, id)
+            && !board.contains(&i)
+        {
+            board.push(i);
+        }
+    }
+    board
+        .into_iter()
+        .filter(|&i| {
+            let q = &w.people[i];
+            if q.stage != Stage::HighSchool {
+                return false;
+            }
+            let near = crate::world::geo::miles(home, q.home_state) <= 400.0;
+            let can = 0.45 * (0.3 + 0.7 * q.bg.money);
+            invited.contains(&q.player.id)
+                || (near && readers::chance(Staff::Program(prog), 0xCA4B ^ d.0 as u64, q.player.id, can))
+        })
+        .collect()
+}
+
 /// Your college program's board: the recruits it looks at (topic 15): the
 /// ones it offered, who visited, who committed, and the best in its
 /// footprint and pipelines for the next two classes, by the public's word
@@ -746,35 +778,16 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
     // with no money comes at 0.3 the rate). The times are stored that day
     // (minor bug 23).
     if d == Date::nth_weekday(season, 6, Weekday::Sat, 2) || d == Date::nth_weekday(season, 6, Weekday::Sat, 3) {
-        let mut board = watch(w, prog);
-        let home = w.programs[prog].state;
         let hc = w.programs[prog].head_coach;
-        // A kid you invited to fill his blanks comes (Ground lane G4).
-        let invited: Vec<u32> = w.scouting.dept.asks.iter().filter(|a| a.1 == Kind::Camp).map(|a| a.0).collect();
-        for &id in &invited {
-            if let Some(i) = super::place(w, id)
-                && !board.contains(&i)
-            {
-                board.push(i);
-            }
-        }
-        for &i in &board {
+        for i in campers(w, prog, d) {
             let q = &w.people[i];
-            if q.stage != Stage::HighSchool {
-                continue;
+            let who = evaluator_for(w, prog, i).or(hc).map_or(PERSONNEL, |c| COACH + c as u32);
+            let (id, kicker) = (q.player.id, q.player.position.is_specialist());
+            if !kicker {
+                crate::world::times::your_camp(w, i, prog, d);
             }
-            let near = crate::world::geo::miles(home, q.home_state) <= 400.0;
-            let can = 0.45 * (0.3 + 0.7 * q.bg.money);
-            let asked = invited.contains(&q.player.id);
-            if asked || (near && readers::chance(Staff::Program(prog), 0xCA4B ^ d.0 as u64, q.player.id, can)) {
-                let who = evaluator_for(w, prog, i).or(hc).map_or(PERSONNEL, |c| COACH + c as u32);
-                let (id, kicker) = (q.player.id, q.player.position.is_specialist());
-                if !kicker {
-                    crate::world::times::your_camp(w, i, prog, d);
-                }
-                add(w, id, who, Kind::Camp, d);
-                w.scouting.dept.asks.retain(|a| a.0 != id || a.1 != Kind::Camp);
-            }
+            add(w, id, who, Kind::Camp, d);
+            w.scouting.dept.asks.retain(|a| a.0 != id || a.1 != Kind::Camp);
         }
     }
     // Visits the recruits took with you become looks (junior days,

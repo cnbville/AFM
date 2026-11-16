@@ -31,6 +31,7 @@ mod ground;
 mod ground_areas;
 mod ground_leads;
 mod ground_people;
+mod ground_scenes;
 mod ground_week;
 mod growth_reps;
 mod handoff;

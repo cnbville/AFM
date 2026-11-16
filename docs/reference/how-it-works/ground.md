@@ -1,6 +1,6 @@
 # Ground: how it works today
 
-Checked against branch commit 28f13b8 on 2026-11-16 (lane G1a, areas and map data), main bf92e7d plus lane G1b on 2026-11-16 (standing and one memory), main d291de54 plus lane G3 on 2026-11-16 (your week and road days), branch lane S2 on 2026-11-16 (the meeting at the map), main fd85a4f9 plus lane G7 on 2026-11-16 (people in full), main plus lane G11a on 2026-11-16 (the high school chain reaction) and main 6aed06fd plus lane G4 on 2026-11-16 (news in order, leads and finds).
+Checked against branch commit 28f13b8 on 2026-11-16 (lane G1a, areas and map data), main bf92e7d plus lane G1b on 2026-11-16 (standing and one memory), main d291de54 plus lane G3 on 2026-11-16 (your week and road days), branch lane S2 on 2026-11-16 (the meeting at the map), main fd85a4f9 plus lane G7 on 2026-11-16 (people in full), main plus lane G11a on 2026-11-16 (the high school chain reaction), main 6aed06fd plus lane G4 on 2026-11-16 (news in order, leads and finds) and main plus lane G5 on 2026-11-16 (the scenes).
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`, `app/`, `data/` or `tools/`. Ground's spec is `docs/design/ground.md`; each lane adds its section here.
 
@@ -16,6 +16,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`,
 - How many schools a day? 1 to 5 by how close the area's schools sit (`schools_a_day`).
 - What are an area's words? Up to three, from the world's own data, each against the nation: talent per school, how many programs sign there, speed or linemen, school size, money and the state's football culture (`characters`).
 - What are the map's pins? Your program's signees from the area, its legends (round 1-3 picks, All-Americans, the Hall) and the six strongest rivals' pipelines into it (`pins`). Your finds are in `Ground.finds` (lane G4).
+- How do the week's scenes play? As folk scenes of their own kind at their hour, your eye rolled the way a film catch is, chips or live talks v3 with a key, one line each, your coordinator's when you hand one on (lane G5, below; `world/ground/scenes/`).
 - Do the areas change the world? No. Nothing in the world reads them yet; every seed plays the same. (The chain reaction, lane G11a, does change it: below.)
 - Who is on my ground? At college: high school head coaches and coordinators, junior college coaches and other college staffs' men (world coaches), private trainers and 7v7 directors with their kids (former players), each school's counselor by name, each recruit's family and the prep schools' coaches (`world/ground/people.rs`, `Who`, `Kind`).
 - Does a younger brother start from scratch? No. A family is one memory, keyed by the oldest brother the world knows; a cousin's family starts a level lower (`people::family_of`, `cousin_of`; `standing::from_cousin`).
@@ -74,7 +75,7 @@ Screen: `app/ui/screens/groundweek.js` and `.css` ("The meeting" under Ground in
 - **The board** draws your state from `art/ground/<ST>.json` with the front areas lifted, a route from the campus to each front, numbered pins and a pill with the men and days. A front past the frame (a flight to another state) runs to the frame's edge and is listed under the map with its trip. Rivals' dotted lines and each front's sign-in sheet against its rival come with the race (lane G9); until then a front shows who you know there.
 - **The week by day:** each man on his days (a flight striped), the scenes at their hour (the ones that come to you in gold), the men still at home with the rule that keeps one home. Drag a man's chip to another day to move that day, or a man at home to a day to send him to the area picked beside his name; the × on a chip takes him off that day (his last day clears the road).
 - **The letter** shows its first line as the quote and what moved; the plan and the calls it repeats stay under "The whole letter".
-- **What it does not do yet:** the scenes are one-line results until lane G5; the coordinator's one call is a call on your list (his goals and the race come with G6 and G9).
+- **What it does not do yet:** the screen shows each scene's line; lane G5 plays them (each slot names its scene for the screens, and lane S3 builds the school visit's); the coordinator's one call is a call on your list (his goals and the race come with G6 and G9).
 - Test: `crates/afm-game/tests/ground_week_screen.rs` (builds a small world).
 
 ## The areas (GR1)
@@ -269,7 +270,7 @@ Every size here is the build's pick unless the spec gave it, proposed, not confi
 - **How many days:** the window's pace: the days left × this week's open days / the window's open days ahead (school days in the spring and January, Thursday and Friday in the fall), up to 3 days a man (2 in the fall), Tuesday first (Monday is the meeting), never more men out a day than the rules allow. A flight goes only while the week's money covers one.
 - **Your changes:** `set_road` (a man, an area, the days; checked against the window, the head coach's spring, the men at once and the flights), `clear_road`, `hand` (the week to your coordinator: only live moments stop you).
 - **Your calls** (GR53): up to 5 a week: coaches slipping (a warning out), a Stranger one contact from Known with a kid on your board, a coach with a 3-star or better in an area nobody of yours reaches this week. The ones you don't make, your coordinator makes on Saturday as his own (`plan::coordinator_calls`).
-- **The scenes** (GR51): the meeting, an official weekend, a junior day, your camp, unofficial visits, your calls and your own road days, ranked (the meeting, officials, junior day and camp, a slipping coach's call and your road, then the rest); the top five are yours, the rest your coordinator's. Until lane G5 each is its one-line result (`plan::draft_slots`; the game fills the line from the log).
+- **The scenes** (GR51): the meeting, an official weekend, a junior day, your camp, unofficial visits, your calls and your own road days, and (lane G5) your clinic, the spring game, the convention and open practices, ranked (the meeting 9, officials 8, junior day, camp, the clinic and the spring game 7, a slipping coach's call and your road 6, the convention 5, unofficials 4, a call 3, an open practice 2); the top five are yours, the rest your coordinator's. Lane G5 plays them (`plan::draft_slots`, `scenes::coach_slots`).
 
 ### Road days (GR48) and trips (GR49)
 
@@ -290,7 +291,7 @@ Every size here is the build's pick unless the spec gave it, proposed, not confi
 
 ### What it does not do yet
 
-- The scenes are slots with their one-line result: lane G5 plays them. The goals the coordinator ranks against come with lane G6, your men's own ground and areas on the map with lane G10, the AI's weeks with lane G9.
+- Lane G5 plays the scenes (below). The goals the coordinator ranks against come with lane G6, your men's own ground and areas on the map with lane G10, the AI's weeks with lane G9.
 - The 2027 recruiting model (one pool of 300 from January to May) isn't in the game's rule book; `road::pool` is where it goes.
 - FCS runs the FBS recruiting calendar (`recruiting_period` has one).
 
@@ -300,6 +301,54 @@ Every size here is the build's pick unless the spec gave it, proposed, not confi
 - `week/plan.rs`: `DAYS_PER_MAN` (3, 2, 3), `CALLS` 5, `YOURS` (3, 5), `PER_WEEKEND` (10, 6, 4); the second man past 12 of need.
 - `week/phone.rs`: `CALL_HOURS` 0.25, `WAITS` 60 minutes, who picks up (his hour's 50 minutes, a coach's evening 7 to 9:30 PM).
 - `week/mod.rs`: `BOOKED_FREE` 12; the hosted hours in `hosted`.
+
+## Lane G5: the scenes
+
+Every size here is the build's pick unless the spec gave it, proposed, not confirmed. Code: `crates/afm-engine/src/world/ground/scenes/` (`mod.rs` the store, the eye's roll, the life of a scene and the room for live talks; `visit.rs` the school visit; `calls.rs` the meeting, a coach's call and the night calls; `campus.rs` junior day, the visits, the spring game, your camp and the announcement; `coaches.rs` your clinic, open practice and the convention); the line bank `data/lines/ground.txt`; game commands `crates/afm-game/src/lane_groundweek.rs`. Only your seat plays them, so the world plays the same on every seed.
+
+### How a scene plays (GR32, GR52)
+
+- **One folk scene kind,** `scene::Kind::Ground`, with Ground's own kind in `Scene.b` (`scenes::Kind`, the 15 of GR55). Its running state (the person, the school, the kids, the stops, standing moved, the people gathered) is a table titled "ground:state" on the scene's docs that the screens skip (`state`, `is_state`).
+- **Where they come from:** at 5 AM, each of today's slots that is yours becomes a scene at its hour (Continue stops for it; at the next office hour it goes to your staff if you haven't held it, the built rule in `folk::scene::day`). Your coordinator's slots of yesterday play on his skill and get their line (`dawn`, `staff_plays`; his road days are the road's own). Only in Ground's months: January after the takeover's weeks to August, and not in a week off (`in_season`). A night call that matters becomes a scene after the road's day (`after_road`, `calls::night`).
+- **What you notice** rolls on your eye (your evaluation, less the day's tiredness) the way a film catch does: 0.30 + 0.035 × (eye − 10) − 0.40 × how hard it is to see, 0.04 to 0.95, × (1 − 0.5 × tiredness). A 16 eye catches a plain thing about half the time, a 9 eye about a quarter (`notice_chance`; keyed, so a scene rolls the same). Your man's eye when he plays it.
+- **The talk:** the scene's picks (chips), with the line bank's greetings when there's no key. With a usable key a typed line plays on live talks v3 with the person across (`folk::persona::meetings`, `Kind::Ground` in `KINDS`; who is across in `scenes::room`): the coach in his office or on the phone, your coordinator at the map, your man on the night line, the families on campus or the coaches at a clinic, sideline, camp or convention as a room, the kid and his family the morning he decides. What a line does to each person's trust lands as standing at 50 points a unit of trust, inside the gates (`after_talk`, `TALK_POINTS`).
+- **A pick that gives him what he wants** (people.md's wants: asked about his kids, the truth, a clinic talk; a family's questions answered by the head coach himself) is 2 points × his warmth with your program and your head coach, inside the gates, with his words kept as a moment (`wanted`, `WANT`, `standing::grant`).
+- **What you walk away with** (rule 1): every scene ends on one line, kept in `Ground.scenes.played` (the last 300) with its kids, new names, standing moved and stops, and on its slot (`line_for`).
+- **Handed on,** your coordinator plays the default stops on his skill with people and his eye: one line (GR32). The hand-off button names him (`hand_label`, `folk::handoff`).
+
+### The scenes
+
+- **The meeting at the map** (Monday 8 AM): his draft on the map; go with it, change it at the map, or hand him the week (`plan::hand`).
+- **A school visit** (GR72, board 3; your road day's first school, `road::first_school`): four hours. The sign-in sheet first (every college at this school's kids in the last 60 days, by their offers and their kids' campus visits, newest first: `visit::sheet`). Then the stops in any order while the hours last: his office (60 minutes, two exchanges: ask about his kids for his list by where you stand, tell him straight where his best kid stands, ask him to your clinic, sell your program), the weight room (30: your eye on the six best kids nobody of yours has, each a lead you saw yourself when it catches: `leads::seen`), the counselor (30: transcripts), practice in April, May and the fall (60: a live look). Leaving is the visit with him (and his coordinators sitting in), his list if you never asked, and a visit on the week's log so the road doesn't send a man back the same day.
+- **A coach's call** (at his hour; GR53): he picks up or the call waits, the greeting by your level, his newest news, then ask, straight, the clinic invite.
+- **The night calls** (GR13, GR14): your man's night call that mattered; send him back later this week (one more road day, inside the rules), get his tape, ask what he saw himself (his eye's words), or let him sleep.
+- **Junior day, an unofficial, an official weekend (Friday to Sunday), the spring game** (your campus): the kids on campus, your offer first. Sit with three families (your name with them and the question their top want asks), hear a kid's player host, offer on the spot (`front_office::college::offer`), and at the spring game an hour in the coaches' suite (the coaches within 400 miles who know you). From 2027 the spring game is yours to hold or skip (`set_spring_game`); a skipped one makes no slot and its Saturday's visits stay unofficial.
+- **Your camp** (June's camp days): the campers (`dept::campers`, the department's own pick), walk the stations (your eye catches the walk-up nobody listed), coach a group, sit with the coach who brought the most, offer on the spot; the coaches who brought kids get the event.
+- **The announcement** (7:30 AM, the morning a kid decides): yours flipping first, else the biggest on your board who committed since yesterday, one call a morning. Welcome him, be gracious, or keep the door open until he signs.
+- **Your clinic** (the Friday of spring practice's third week, week 12 in 2026): 80 coaches at the smallest program to 300 at the biggest, by prestige, from within 400 miles, the ones who know you first and every coach you asked. Your hour on the stage is an event with every coach in the room (+3 × his warmth, the spec's table) × the scheme fit: 1.0 + 0.5 × how well he knows your offense, or your front and coverage, so the ones who run it warm fastest; a recruiting talk is 1.15 with everyone. Then the hallway: the coaches who know you (up to five) give their lists, and your eye catches who sells a name too hard (straightness under 9) or talks his kids down (15 and up).
+- **Open practice** (Tuesday 4 PM of the other spring practice weeks): 8 to 30 coaches on your sideline from within 150 miles, half an event each; a quarter of them bring their best junior, and your eye can catch him at the fence (a lead you saw yourself). The walk to the lot is the hallway.
+- **The convention** (the Tuesday after the third Monday of July, week 30): your state's head coaches, about 55% come and your session draws 25% to 75% of those by prestige; the talk and the hallway as at the clinic, with no scheme multiplier.
+- **A recruit's call and film** are the built ones (a recruit's page, the film room).
+
+### The commands (`crates/afm-game/src/lane_groundweek.rs`)
+
+- `ground_week`: each slot carries `scene` (the folk scene to play) and `sceneKind`; its line is what the scene came to.
+- `ground_scenes`: the 15 scenes, the last 40 played (line, kids, new names, standing moved, stops, where he stands now), the spring game's date and whether it's your call, the clinic and the convention dates, the coaches you asked to the clinic.
+- `ground_scene` {id}: one scene's ground part for the school visit screen (lane S3): its kind, time, the person and his level, the school, your man, the minutes left, the stops so far, the kids with the new names marked, standing moved, the tables (the sign-in sheet, his list, who came) and the hand-off.
+- `ground_spring_game` {hold}. A scene plays on the people commands (`people_scene`, `people_answer`, `people_hand`, a typed line).
+
+### What it does not do yet
+
+- The screens for the scenes are lane S3's (the school visit) and the scene pages the game already has.
+- The 2027 practice periods aren't in the calendar: the clinic and open practices use spring practice's dates every year.
+- The campaign's goals (lane G6) don't weigh which scenes come to you yet; the ranking is G3's.
+
+### Where the knobs are (G5)
+
+- `scenes/mod.rs`: `WANT` 2.0, `TALK_POINTS` 50, `KEEP` 300, `SPRING_GAME_CHOICE` 2027, the notice formula.
+- `scenes/visit.rs`: `MINUTES` 240, the stops' minutes (60, 30, 30, 60), two exchanges, `LOOK_AT` 6.
+- `scenes/campus.rs`: three families a day.
+- `scenes/coaches.rs`: `CLINIC` (80, 300), `CLINIC_MILES` 400, `SIDELINE` (8, 30), `SIDELINE_MILES` 150, `SIDELINE_SCALE` 0.5, `CONVENTION_COMES` 0.55, `SESSION` (0.25, 0.75), `RECRUITING_FIT` 1.15, `HALLWAY` 5, `BROUGHT` 0.25.
 
 ## Lane G4: news in order, leads and finds
 
