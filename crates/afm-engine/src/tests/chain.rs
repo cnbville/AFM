@@ -3,7 +3,9 @@
 
 use crate::player::PlayingTime;
 use crate::world::data::Division;
-use crate::world::high_school::{self, CLIMB_DOWN, CLIMB_UP, Chain, alumni_value, climb, transfer_rule};
+use crate::world::high_school::{
+    self, CLIMB_CAP, CLIMB_DOWN, CLIMB_MIN_SCHOOLS, CLIMB_UP, Chain, alumni_value, climb, state_moves, transfer_rule,
+};
 use crate::world::recruiting::move_in_chance;
 use crate::world::{Stage, World, WorldOptions};
 
@@ -42,65 +44,74 @@ fn alumni(w: &mut World, h: usize, n: usize) {
     }
 }
 
+/// Old players in line with each school's name: about 20 at the top of
+/// the state, none at the bottom.
+fn in_line(w: &mut World, schools: &[usize]) {
+    for &h in schools {
+        let n = (w.high_schools[h].prestige * 20.0).round() as usize;
+        alumni(w, h, n);
+    }
+}
+
+fn mean(w: &World, schools: &[usize]) -> f64 {
+    schools.iter().map(|&h| w.high_schools[h].prestige).sum::<f64>() / schools.len() as f64
+}
+
 #[test]
 fn a_school_whose_players_make_it_climbs_and_a_quiet_one_falls_slowly() {
     let mut w = world();
     let schools = quiet_state(&mut w);
-    assert!(schools.len() >= 6, "a state with schools");
+    assert!(schools.len() >= CLIMB_MIN_SCHOOLS, "a state with schools");
     let (low, top) = (schools[0], *schools.last().unwrap());
-    let ladder_top = schools.iter().map(|&h| w.high_schools[h].chain.start).fold(0.0, f64::max);
     let (low0, top0) = (w.high_schools[low].prestige, w.high_schools[top].prestige);
+    let mean0 = mean(&w, &schools);
+    in_line(&mut w, &schools);
+    // The low school sends 30 to power programs; the top school's stop.
     alumni(&mut w, low, 30);
+    let top_count = (top0 * 20.0).round() as usize;
+    let mut gone = 0;
+    for p in w.people.iter_mut().filter(|p| p.hs == top && p.stage == Stage::College) {
+        p.stage = Stage::Done;
+        gone += 1;
+    }
+    assert_eq!(gone, top_count);
     let rng = w.rng.clone();
     climb(&mut w);
     // The climb draws nothing from the world's stream.
     assert_eq!(rng.clone().next(), w.rng.clone().next());
-    // The low school takes the top place on the ladder, 15% of the way a year.
-    let low1 = w.high_schools[low].prestige;
-    assert!((low1 - (low0 + CLIMB_UP * (ladder_top - low0))).abs() < 1e-6, "{low0} -> {low1}");
+    // A year's step: the riser up at most its cap, the quiet one down, slower.
+    let (low1, top1) = (w.high_schools[low].prestige, w.high_schools[top].prestige);
+    assert!(low1 > low0 && low1 - low0 <= CLIMB_UP * CLIMB_CAP + 0.01, "{low0} -> {low1}");
+    assert!(top1 < top0 && top0 - top1 <= CLIMB_DOWN * CLIMB_CAP + 0.01, "{top0} -> {top1}");
+    assert!(low1 - low0 > top0 - top1, "a climb takes hold faster than a name fades");
+    // The state's average holds.
+    assert!((mean(&w, &schools) - mean0).abs() < 1e-3, "{mean0} -> {}", mean(&w, &schools));
     let c = &w.high_schools[low].chain;
-    assert_eq!((c.college, c.power, c.nfl), (30, 30, 0));
-    assert!((c.made - 45.0).abs() < 1e-3, "30 power starters at 1.5 each: {}", c.made);
+    assert_eq!(
+        (c.college as usize, c.power as usize, c.nfl),
+        ((low0 * 20.0).round() as usize + 30, (low0 * 20.0).round() as usize + 30, 0)
+    );
     assert_eq!(c.years, vec![(w.year, low1 as f32)]);
-    // The old top school, with nobody playing, falls a step, slowly.
-    let top1 = w.high_schools[top].prestige;
-    assert!(top1 < top0 && top0 - top1 < 0.08 * top0, "{top0} -> {top1}");
-    // Years on, the riser holds the top place and the fallen school sits low.
-    for y in 1..30 {
+    // Years on, the riser has climbed far and the quiet school fallen.
+    let first = w.year;
+    for _ in 1..15 {
         w.year += 1;
-        let _ = y;
         climb(&mut w);
     }
-    assert!((w.high_schools[low].prestige - ladder_top).abs() < 0.02, "{}", w.high_schools[low].prestige);
-    assert!(w.high_schools[low].is_powerhouse() || ladder_top < 0.75);
-    // With nobody else playing either, it keeps the next place down.
-    let mut ladder: Vec<f64> = schools.iter().map(|&h| w.high_schools[h].chain.start).collect();
-    ladder.sort_by(|a, b| b.total_cmp(a));
-    assert!(w.high_schools[top].prestige < top0, "{top0} -> {}", w.high_schools[top].prestige);
-    assert!((w.high_schools[top].prestige - ladder[1]).abs() < 0.02, "{}", w.high_schools[top].prestige);
-    // The fall is slower than the climb.
-    const { assert!(CLIMB_DOWN < CLIMB_UP) };
+    assert!(w.high_schools[low].prestige > low0 + 0.3, "{low0} -> {}", w.high_schools[low].prestige);
+    assert!(w.high_schools[top].prestige < top0 - 0.1, "{top0} -> {}", w.high_schools[top].prestige);
     // Its why says where it stood and what its players do.
-    let first = w.high_schools[low].chain.years[0].0;
     let why = high_school::chain_why(&w.high_schools[low], first);
-    assert!(
-        why.starts_with("climbed from") && why.contains("30 old players in college (30 at power programs)"),
-        "{why}"
-    );
+    assert!(why.starts_with("climbed from") && why.contains("old players in college"), "{why}");
     let fell = high_school::chain_why(&w.high_schools[top], first);
     assert!(fell.starts_with("fell back"), "{fell}");
 }
 
 #[test]
-fn a_state_keeps_its_ladder_while_who_holds_it_moves() {
+fn the_order_follows_the_players_and_the_state_average_holds() {
     let mut w = world();
     let schools = quiet_state(&mut w);
-    let starts = |w: &World| {
-        let mut v: Vec<f64> = schools.iter().map(|&h| w.high_schools[h].chain.start).collect();
-        v.sort_by(|a, b| a.total_cmp(b));
-        v
-    };
-    let before = starts(&w);
+    let mean0 = mean(&w, &schools);
     // Every school's old players, in reverse of its name.
     for (k, &h) in schools.iter().enumerate() {
         alumni(&mut w, h, schools.len() - k);
@@ -109,14 +120,17 @@ fn a_state_keeps_its_ladder_while_who_holds_it_moves() {
         w.year += 1;
         climb(&mut w);
     }
-    let mut now: Vec<f64> = schools.iter().map(|&h| w.high_schools[h].prestige).collect();
-    now.sort_by(|a, b| a.total_cmp(b));
-    for (a, b) in now.iter().zip(&before) {
-        assert!((a - b).abs() < 0.01, "the ladder holds: {a} against {b}");
-    }
     // The order turned over: the old bottom is on top.
     assert!(w.high_schools[schools[0]].prestige > w.high_schools[*schools.last().unwrap()].prestige);
-    assert_eq!(starts(&w), before, "the starts never move");
+    assert!((mean(&w, &schools) - mean0).abs() < 0.03, "{mean0} -> {}", mean(&w, &schools));
+    let starts: Vec<f64> = schools.iter().map(|&h| w.high_schools[h].chain.start).collect();
+    assert!(starts.iter().zip(&schools).all(|(s, &h)| *s > 0.0 && w.high_schools[h].chain.years.len() == 60));
+}
+
+#[test]
+fn a_small_state_holds() {
+    let few: Vec<(f64, f64)> = (0..CLIMB_MIN_SCHOOLS - 1).map(|k| (k as f64 / 10.0, (10 - k) as f64)).collect();
+    assert!(state_moves(&few).iter().all(|&d| d == 0.0));
 }
 
 #[test]

@@ -16,6 +16,11 @@ fn main() {
     let w = afm_engine::save::read_world(Path::new(&path)).expect("read the world");
     transfers(&w);
     blue_chips(&w);
+    // AFM_STATE=GA: that state's schools by their old players' score.
+    if let Ok(code) = std::env::var("AFM_STATE") {
+        state_table(&w, &code);
+        return;
+    }
     if w.high_schools.iter().any(|h| !h.chain.years.is_empty()) {
         ladder(&w);
     } else {
@@ -175,4 +180,41 @@ fn ladder(w: &World) {
     );
     let entries: usize = w.high_schools.iter().map(|h| h.chain.years.len()).sum();
     println!("Chain store: {entries} yearly entries ({:.1} MB).", entries as f64 * 8.0 / 1e6);
+}
+
+/// One state's schools, best score first: score, counts, prestige now and
+/// at the start, enrollment.
+fn state_table(w: &World, code: &str) {
+    let s = w.states.iter().position(|x| x.code == code).expect("a state");
+    let mut score = vec![0.0f64; w.high_schools.len()];
+    for p in &w.people {
+        if let Some((v, _, _)) = afm_engine::world::high_school::alumni_value(w, p) {
+            score[p.hs] += v;
+        }
+    }
+    let schools = w.states[s].schools.clone();
+    let moves = afm_engine::world::high_school::state_moves(
+        &schools.iter().map(|&h| (w.high_schools[h].prestige, score[h])).collect::<Vec<_>>(),
+    );
+    let mut rows: Vec<usize> = (0..schools.len()).collect();
+    rows.sort_by(|&a, &b| w.high_schools[schools[b]].prestige.total_cmp(&w.high_schools[schools[a]].prestige));
+    println!("school                          score  college  power  nfl  prestige  start  enroll  real  move now");
+    for k in rows.into_iter().take(25) {
+        let h = schools[k];
+        let x = &w.high_schools[h];
+        let c = &x.chain;
+        println!(
+            "{:<30} {:>6.1} {:>8} {:>6} {:>4} {:>9.2} {:>6.2} {:>7} {:>5} {:>+8.3}",
+            w.school_name(h).chars().take(30).collect::<String>(),
+            score[h],
+            c.college,
+            c.power,
+            c.nfl,
+            x.prestige,
+            c.start,
+            x.enrollment,
+            x.real,
+            moves[k]
+        );
+    }
 }
