@@ -2476,10 +2476,10 @@ pub fn talk_of(w: &World, id: u32) -> Option<u8> {
 pub const SPORTS: [(&str, Position, &[Attr]); 6] = [
     ("Soccer", Position::K, &[Attr::KickPower, Attr::ShortKickAccuracy, Attr::Stamina]),
     ("Basketball", Position::TE, &[Attr::Jumping, Attr::BodyControl, Attr::Catching]),
-    ("Wrestling", Position::IOL, &[Attr::Strength, Attr::Balance, Attr::HandUse]),
+    ("Wrestling", Position::IOL, &[Attr::Strength, Attr::LowerBody, Attr::Balance, Attr::HandUse]),
     ("Track (sprints)", Position::CB, &[Attr::Speed, Attr::Acceleration]),
     ("Baseball", Position::QB, &[Attr::ArmStrength, Attr::QuickRelease, Attr::BallTracking]),
-    ("Track (throws)", Position::DT, &[Attr::Strength, Attr::Flexibility]),
+    ("Track (throws)", Position::DT, &[Attr::Strength, Attr::LowerBody, Attr::Flexibility]),
 ];
 
 /// An athlete in your building who doesn't play football: drawn by key from

@@ -1,0 +1,210 @@
+//! The split ceiling, projects and the trims (the progression update,
+//! `docs/design/progression.md` and `progression-everyday.md`).
+
+use crate::attributes::Attr;
+use crate::development::{SeasonContext, develop_season};
+use crate::player::{Level, Player, PlayingTime, ProspectOptions, generate_prospect};
+use crate::positions::Position;
+use crate::progression::{self, LIMITED, Room};
+use crate::rng::Rng;
+
+fn boy(id: u32, pos: Position) -> Player {
+    let mut rng = Rng::new(id);
+    generate_prospect(&mut rng, ProspectOptions { id: Some(id), position: Some(pos), age: None, talent_z: None })
+}
+
+fn athlete(id: u32) -> Player {
+    let mut rng = Rng::new(id ^ 0x77);
+    generate_prospect(&mut rng, ProspectOptions { id: Some(id), position: None, age: None, talent_z: None })
+}
+
+#[test]
+fn limits_never_sit_under_the_ceiling_and_knacks_are_his_own() {
+    for id in 0..400u32 {
+        let p = athlete(9_000_000 + id);
+        assert!(p.prog.drawn);
+        for &a in LIMITED.iter() {
+            let l = progression::limit(&p, a).unwrap();
+            assert!(l >= p.ceilings.get(a) - 1e-9, "{a:?}: limit {l} under ceiling {}", p.ceilings.get(a));
+        }
+        // The same boy draws the same knacks.
+        assert_eq!(athlete(9_000_000 + id).prog.knack, p.prog.knack);
+    }
+}
+
+#[test]
+fn knack_shares_follow_the_design() {
+    // Design item 5: about 1 in 5 has it, half middling, about 1 in 3 none.
+    let (mut has, mut none, mut n) = (0, 0, 0);
+    for id in 0..4000u32 {
+        let p = athlete(9_100_000 + id);
+        for k in progression::KINDS {
+            match progression::tier(progression::knack(&p, k)) {
+                0 => has += 1,
+                2 => none += 1,
+                _ => {}
+            }
+            n += 1;
+        }
+    }
+    let (has, none) = (has as f64 / n as f64, none as f64 / n as f64);
+    assert!((0.14..0.26).contains(&has), "has the knack {has}");
+    assert!((0.25..0.40).contains(&none), "no knack {none}");
+}
+
+#[test]
+fn a_freak_body_keeps_adding_room() {
+    // No cap on freaks: past the best boy in the fit the map carries on up.
+    let mut p = boy(9_200_001, Position::CB);
+    let before = progression::mapped(&p, Attr::ManCoverage);
+    for a in [Attr::Speed, Attr::Acceleration, Attr::Agility, Attr::Flexibility, Attr::PlayRecognition] {
+        p.ceilings.set(a, 99.0);
+    }
+    let top = progression::mapped(&p, Attr::ManCoverage);
+    assert!(top > before, "{top} against {before}");
+    assert!(top >= 80.0, "a freak's tools map high: {top}");
+}
+
+#[test]
+fn everyday_coaching_closes_room_by_the_knack_and_never_passes_the_limit() {
+    let mut gained = Vec::new();
+    for id in 0..300u32 {
+        let mut p = boy(9_300_000 + id, Position::CB);
+        let mut rng = Rng::new(id);
+        let mut total = 0.0;
+        for age in 14..22 {
+            let level = if age < 18 { Level::HS } else { Level::FBS };
+            let before = p.ceilings.get(Attr::ManCoverage);
+            develop_season(&mut p, &SeasonContext::new(level, 15.0, PlayingTime::Starter), &mut rng);
+            let why = crate::development::take_why().unwrap();
+            total += why.room_closed;
+            let l = progression::limit(&p, Attr::ManCoverage).unwrap();
+            assert!(p.ceilings.get(Attr::ManCoverage) <= l + 1e-9);
+            let _ = before;
+        }
+        gained.push((progression::tier(progression::knack(&p, progression::Kind::Coverage)), total));
+    }
+    let mean = |v: Vec<f64>| v.iter().sum::<f64>() / v.len().max(1) as f64;
+    let high = mean(gained.iter().filter(|g| g.0 == 0).map(|g| g.1).collect());
+    let low = mean(gained.iter().filter(|g| g.0 == 2).map(|g| g.1).collect());
+    assert!(high > 2.0 * low.max(0.01), "knack {high} against none {low}");
+}
+
+#[test]
+fn a_natural_rise_lifts_the_limit_and_neglect_reopens_room() {
+    let mut p = boy(9_400_001, Position::CB);
+    let l0 = progression::limit(&p, Attr::ManCoverage).unwrap();
+    // A natural rise past the limit (everyday item 2).
+    let before = p.ceilings;
+    p.ceilings.set(Attr::ManCoverage, (l0 + 5.0).min(99.0));
+    progression::settle(&mut p, &before);
+    let l1 = progression::limit(&p, Attr::ManCoverage).unwrap();
+    assert!(l1 >= p.ceilings.get(Attr::ManCoverage) - 1e-9);
+    // Neglect lowers the everyday ceiling, never the limit (item 3).
+    p.ceilings.add(Attr::ManCoverage, -6.0);
+    let l2 = progression::limit(&p, Attr::ManCoverage).unwrap();
+    assert!((l2 - l1).abs() < 0.51, "{l2} against {l1}");
+    assert!(progression::room(&p, Attr::ManCoverage) >= 5.4);
+}
+
+#[test]
+fn a_falling_body_never_takes_ratings_away() {
+    let mut p = boy(9_500_001, Position::CB);
+    let (r, c) = (p.attributes.get(Attr::ManCoverage), p.ceilings.get(Attr::ManCoverage));
+    let before = p.ceilings;
+    p.ceilings.add(Attr::Speed, -25.0);
+    p.ceilings.add(Attr::Acceleration, -25.0);
+    progression::settle(&mut p, &before);
+    assert_eq!(p.attributes.get(Attr::ManCoverage), r);
+    assert_eq!(p.ceilings.get(Attr::ManCoverage), c);
+    assert!(progression::limit(&p, Attr::ManCoverage).unwrap() >= c);
+}
+
+#[test]
+fn a_project_opens_his_ceiling_and_his_other_skills_pay() {
+    // The same corners with and without a man coverage project at 18-21.
+    let (mut with, mut without, mut other_with, mut other_without) = (0.0, 0.0, 0.0, 0.0);
+    let n = 200u32;
+    for id in 0..n {
+        for proj in [false, true] {
+            let mut p = boy(9_600_000 + id, Position::CB);
+            let mut rng = Rng::new(id);
+            for _ in 14..18 {
+                develop_season(&mut p, &SeasonContext::new(Level::HS, 10.0, PlayingTime::Starter), &mut rng);
+            }
+            let (m0, z0) = (p.attributes.get(Attr::ManCoverage), p.attributes.get(Attr::ZoneCoverage));
+            if proj {
+                assert!(progression::start_project(&mut p, Attr::ManCoverage, true));
+            }
+            for _ in 18..22 {
+                develop_season(&mut p, &SeasonContext::new(Level::FBS, 14.0, PlayingTime::Starter), &mut rng);
+                let l = progression::limit(&p, Attr::ManCoverage).unwrap();
+                assert!(p.ceilings.get(Attr::ManCoverage) <= l + 1e-9);
+            }
+            let (m, z) = (p.attributes.get(Attr::ManCoverage) - m0, p.attributes.get(Attr::ZoneCoverage) - z0);
+            if proj {
+                with += m;
+                other_with += z;
+            } else {
+                without += m;
+                other_without += z;
+            }
+        }
+    }
+    let n = n as f64;
+    assert!(with / n > without / n + 3.0, "project {} against {}", with / n, without / n);
+    assert!(other_with < other_without, "his other key skills pay: {other_with} against {other_without}");
+}
+
+#[test]
+fn room_counts_are_cains() {
+    assert_eq!(Room::Qb.slots(), 1);
+    assert_eq!(Room::Rb.slots(), 1);
+    assert_eq!(Room::Wr.slots(), 2);
+    assert_eq!(Room::Te.slots(), 2);
+    assert_eq!(Room::Ol.slots(), 2);
+    assert_eq!(Room::Dl.slots(), 2);
+    assert_eq!(Room::Lb.slots(), 1);
+    assert_eq!(Room::Cb.slots(), 2);
+    assert_eq!(Room::S.slots(), 1);
+    assert_eq!(Room::of(Position::K), None);
+    assert_eq!(Room::of(Position::LS), None);
+}
+
+#[test]
+fn trims_land_at_his_spot_and_keep_the_limit_where_it_was() {
+    let mut checked = 0;
+    let t = progression::trim(Position::CB, Attr::ManCoverage);
+    assert!(t > 0.0);
+    for id in 0..2000u32 {
+        let mut p = boy(9_700_000 + id, Position::CB);
+        let (c, l) = (p.ceilings.get(Attr::ManCoverage), progression::limit(&p, Attr::ManCoverage).unwrap());
+        progression::land_trims(&mut p);
+        if c >= progression::TRIM_FROM {
+            assert!((p.ceilings.get(Attr::ManCoverage) - (c - t)).abs() < 1e-9);
+            assert!(progression::limit(&p, Attr::ManCoverage).unwrap() >= l - 0.51);
+            checked += 1;
+        } else {
+            assert_eq!(p.ceilings.get(Attr::ManCoverage), c);
+        }
+        // Landed once.
+        let c1 = p.ceilings.get(Attr::ManCoverage);
+        progression::land_trims(&mut p);
+        assert_eq!(p.ceilings.get(Attr::ManCoverage), c1);
+    }
+    assert!(checked > 20);
+}
+
+#[test]
+fn an_older_save_draws_it_once_from_where_he_is() {
+    let mut p = boy(9_800_001, Position::WR);
+    p.prog = Default::default();
+    let c = p.ceilings;
+    progression::ensure(&mut p);
+    assert!(p.prog.drawn);
+    progression::land_trims(&mut p);
+    assert_eq!(p.ceilings, c, "no trim on a player from an older save");
+    let bytes = rmp_serde::to_vec_named(&p).unwrap();
+    let back: Player = rmp_serde::from_slice(&bytes).unwrap();
+    assert_eq!(back.prog, p.prog);
+}

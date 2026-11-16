@@ -282,7 +282,8 @@ fn a_season_moves_a_skill_as_far_as_its_sample_says() {
     // weight tops out at what teammates and scheme leave him).
     let far = 2.0 * results::CAP / f.weight(50.0 * season, results::CHANGE, 1.0);
     let (q, up) = moved(&top, &[pass_blocks(50.0 * season, far)], &on);
-    assert!(up <= results::CAP + 1e-6 && up > results::CAP - 1e-3, "capped at a season's most: {up}");
+    // Ratings are kept as f32, so the season's most lands within a rounding.
+    assert!(up <= results::CAP + 1e-4 && up > results::CAP - 1e-3, "capped at a season's most: {up}");
     assert!(q.ceilings.get(a) >= q.attributes.get(a));
     // At his top, a move takes the ceiling with it either way; below it,
     // the ceiling stays and the yearly step grows him back (no ratchet).

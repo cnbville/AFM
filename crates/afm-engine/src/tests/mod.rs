@@ -3,6 +3,7 @@
 
 mod ai_promises;
 mod assignments;
+mod board_fit;
 mod bodies;
 mod carousel;
 mod cfl_draft;
@@ -68,6 +69,7 @@ mod polls;
 mod portal_recruiting;
 mod portal_talks;
 mod praise;
+mod progression;
 mod promises;
 mod public_bar;
 mod pull_file;
@@ -87,6 +89,7 @@ mod stale_games;
 mod stay_read;
 mod stories;
 mod storylines;
+mod strength_split;
 mod support_market;
 mod tactics;
 mod talk_adviser;

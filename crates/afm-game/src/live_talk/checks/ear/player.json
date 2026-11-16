@@ -103,6 +103,15 @@
    ]
   },
   {
+   "text": "Man, I'm not going to fuck around here. You're my guy, you're going to break records for us.",
+   "hits": [
+    {
+     "item": "c1|c4",
+     "how": "staked"
+    }
+   ]
+  },
+  {
    "text": "What's going on back home? Is your family doing okay?",
    "acts": [
     {

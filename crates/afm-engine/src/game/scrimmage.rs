@@ -1950,7 +1950,7 @@ pub(crate) fn hitter(level: crate::player::Level, p: &GamePlayer) -> f64 {
 /// The hitter read against a typical safety's ratings and weight.
 pub(crate) fn hit_read(p: &GamePlayer, typ: &dyn Fn(Attr) -> f64, typ_weight: f64) -> f64 {
     let gap = |g: &dyn Fn(Attr) -> f64| {
-        (g(Attr::Tackling) + g(Attr::Strength) + g(Attr::PlayRecognition)) / 3.0
+        (g(Attr::Tackling) + 0.5 * (g(Attr::Strength) + g(Attr::LowerBody)) + g(Attr::PlayRecognition)) / 3.0
             - (g(Attr::Speed) + g(Attr::ZoneCoverage) + g(Attr::ManCoverage)) / 3.0
     };
     (p.weight - typ_weight) / 10.0 + (gap(&|a| p.attrs.get(a)) - gap(typ)) / 20.0
@@ -5268,11 +5268,10 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
     // Dynamic Links: Pocket frame shrugs off the arm tackle; Length wraps
     // him up from farther.
     // His moves read his weight (A3); strength stays his own.
-    let esc = 0.4 * q.a(Attr::Elusiveness) + 0.3 * q.a(Attr::Agility) + 0.3 * q.a(Attr::Strength)
+    let esc = 0.4 * q.a(Attr::Elusiveness) + 0.3 * q.a(Attr::Agility) + 0.3 * q.whole()
         - 0.7 * super::sim::size_cost(q.mass, 222.0)
         + if grabbing { sim.link(qb, &[Link::PocketFrame]) } else { 0.0 };
-    let tk =
-        0.6 * r.a(Attr::Tackling) + 0.2 * r.a(Attr::Strength) + 0.2 * r.a(Attr::Agility) + sim.link(d, &[Link::Length]);
+    let tk = 0.6 * r.a(Attr::Tackling) + 0.2 * r.whole() + 0.2 * r.a(Attr::Agility) + sim.link(d, &[Link::Length]);
     let seen = sim.sees(qb, r.pos);
     let logit = -2.4
         + (esc - tk) / 12.0
@@ -6397,10 +6396,8 @@ fn hit_at_catch(sim: &Sim, d: usize, r: usize, to: V2, from: V2, closeness: f64)
     if speed <= 0.0 {
         return 0.0;
     }
-    let power = 0.35 * da.a(Attr::Tackling)
-        + 0.25 * da.a(Attr::Physicality)
-        + 0.2 * da.a(Attr::Strength)
-        + 0.2 * da.a(Attr::Pursuit);
+    let power =
+        0.35 * da.a(Attr::Tackling) + 0.25 * da.a(Attr::Physicality) + 0.2 * da.whole() + 0.2 * da.a(Attr::Pursuit);
     let hold = 0.5 * ra.a(Attr::ContestedCatch) + 0.25 * ra.a(Attr::Strength) + 0.25 * ra.a(Attr::Catching);
     let g = sim.player(d);
     let tw = super::synthetic::typical_body(sim.level, g.position).1;
