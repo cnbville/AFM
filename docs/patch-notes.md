@@ -8,6 +8,32 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.579 (16 Nov, shipped): ground lane G7: people in full (PR #482), progression step 4a: real body sizes, arms, hands and wingspans, and placement's fractional need (PR #487), ground lane G11a: the high school chain reaction (PR #473), and 1 more
+**TLDR:** 4 changes ship together. The people on your recruiting ground now feel like people: coaches, families, counselors, trainers and 7v7 men each remember you, talk to each other and take what you built with them to their next job. Players now come in the real range of body shapes for their position, so you'll find short-armed tackles, long-armed corners, light receivers and the occasional huge guard. Plus 2 more below.
+- Ground lane G7: people in full (PR #482): The people on your recruiting ground now feel like people: coaches, families, counselors, trainers and 7v7 men each remember you, talk to each other and take what you built with them to their next job.
+- A recruit's family remembers you for his younger brother, and never forgets a lie. (PR #482)
+- Word gets around: what you do for one coach's kid reaches his staff and his area. (PR #482)
+- When a coach moves on, your standing goes with him, and his successor may already know you. (PR #482)
+- Each person tells you a new level in their own words, and their page shows why you stand where you do. (PR #482)
+- Progression step 4a: real body sizes, arms, hands and wingspans, and placement's fractional need (PR #487): Players now come in the real range of body shapes for their position, so you'll find short-armed tackles, long-armed corners, light receivers and the occasional huge guard.
+- Arm length, hand size and wingspan follow each position's real spread. (PR #487)
+- Receivers, backs and defensive backs vary in height and weight like real players. (PR #487)
+- Linemen have a long heavy side, so a few very big men show up. (PR #487)
+- High school coaches fill their rosters closer to real position shares. (PR #487)
+- Ground lane G11a: the high school chain reaction (PR #473): High schools now rise and fall on their players. A school that sends kids to college and the NFL grows its name, and one that stops producing slowly fades.
+- A school's name grows each summer with its former players who are in college and the NFL. (PR #473)
+- Rising schools get more exposure, so their kids get seen and recruited more. (PR #473)
+- Standouts transfer in to the risers, and families move into the district so their son can play right away where the state allows it. (PR #473)
+- Each state's transfer rule now decides how many kids move. (PR #473)
+- The news tells you when a school joins or drops out of its state's powerhouses. (PR #473)
+- Ground lane G4: news in order, leads, finds and your board from your ground (PR #484): The ground now feeds your recruiting board. Coaches you know call you first with news and point you to kids nobody rates yet, and the kids you find early pay back when they bloom.
+- News about a kid reaches the staffs his coach trusts first, and everyone else later. (PR #484)
+- High school coaches give you their list, and they tell you more the better they know you. (PR #484)
+- Each lead shows what you still don't know about the kid, and you can send your staff to fill it in. (PR #484)
+- Offer a kid the world rates low and he becomes your find. Every step he climbs lifts the coach who told you and your name as a finder. (PR #484)
+- Your board now shows the kids your own ground found, next to the ones everyone rates. (PR #484)
+- Look at: a high school coach you visit often, and the family of a recruit you call. (PR #482) the measurables on a college player's page. (PR #487) a high school's page and the June news. (PR #473)
+
 ## 0.2.575 (16 Nov, shipped): ground lane S2: the meeting at the map (PR #486)
 **TLDR:** Monday's meeting is a screen: your coordinator's letter, a map of where he wants to send each man, and the week day by day, which you can change by dragging.
 - A new Ground screen, The meeting, with the road days and your free hours for the week. (PR #486)
