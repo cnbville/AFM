@@ -19,6 +19,7 @@
 
 use afm_engine::world::World;
 use afm_engine::world::ground::campaign::{self, Held, Slot, goals};
+use afm_engine::world::ground::standing;
 use serde_json::{Value, json};
 
 use crate::views::date_text;
@@ -229,20 +230,80 @@ fn report(w: &World, year: Option<i32>) -> Reply {
         Some(y) => c.reports.iter().find(|r| r.year == y),
         None => c.reports.last(),
     };
+    let years: Vec<Value> = c.reports.iter().rev().map(|r| json!({ "year": r.year, "title": r.title })).collect();
     let Some(r) = r else {
         let v = campaign::verdict_day(w, campaign::seat(w).unwrap_or(0), w.today.year());
-        return Ok(json!({ "ready": false, "verdict": date_text(v) }));
+        return Ok(json!({ "ready": false, "verdict": date_text(v), "years": years }));
     };
     let mut v = serde_json::to_value(r).map_err(|e| e.to_string())?;
     v["ready"] = json!(true);
     v["date"] = json!(date_text(r.date));
+    v["years"] = json!(years);
+    v["from"] = json!(date_text(campaign::Spring::of(r.year).meeting));
     if let Some(gs) = v["goals"].as_array_mut() {
         for (g, line) in gs.iter_mut().zip(r.goals.iter()) {
             g["verdict"] = json!(line.verdict.words());
             g["slot"] = json!(line.slot.key());
+            g["slot_words"] = json!(line.slot.words());
         }
     }
+    // Your standing marks on the screen's 0 to 100 line: the points kept
+    // with the report, or the level's floor for one saved before they were.
+    if let Some(rows) = v["areas"].as_array_mut() {
+        for (row, a) in rows.iter_mut().zip(r.areas.iter()) {
+            if a.feb_pts == 0.0 && a.pts == 0.0 {
+                let floor =
+                    |name: &str| standing::Level::ALL.iter().find(|l| l.name() == name).map_or(0.0, |l| l.floor());
+                row["feb_pts"] = json!(floor(&a.feb));
+                row["pts"] = json!(floor(&a.aug));
+            }
+        }
+    }
+    // Each rival as a name and a count, each man of yours as a record.
+    if let Some(rows) = v["outworked"].as_array_mut() {
+        for (row, o) in rows.iter_mut().zip(r.outworked.iter()) {
+            row["rival"] = match &o.rival {
+                Some((name, n)) => json!({ "name": name, "n": n }),
+                None => Value::Null,
+            };
+        }
+    }
+    v["men"] = json!(
+        r.men
+            .iter()
+            .map(|(id, name, finds, blooms, big)| json!({ "id": id, "name": name, "finds": finds, "blooms": blooms, "big": big }))
+            .collect::<Vec<_>>()
+    );
+    // The words the screen sets apart: the AD's line, the paper's, the miss
+    // and the setback each split into who says it and what.
+    v["ad_parts"] = split_quote(&r.ad);
+    v["paper_parts"] = split_quote(r.paper.strip_prefix("The paper: ").unwrap_or(&r.paper));
+    v["miss_parts"] = r.miss.as_deref().map_or(Value::Null, split_colon);
+    v["setback_parts"] = r.setback.as_deref().map_or(Value::Null, split_colon);
     Ok(v)
+}
+
+/// `Name: "the line" and what follows` as who, the line and the rest.
+fn split_quote(s: &str) -> Value {
+    let (who, rest) = match s.split_once(": ") {
+        Some((who, rest)) if !who.contains('"') => (who, rest),
+        _ => ("", s),
+    };
+    let rest = rest.trim();
+    if let Some(body) = rest.strip_prefix('"')
+        && let Some(end) = body.rfind('"')
+    {
+        return json!({ "who": who, "line": &body[..end], "after": body[end + 1..].trim() });
+    }
+    json!({ "who": who, "line": rest, "after": "" })
+}
+
+/// `Head: what happened` as the head and the body.
+fn split_colon(s: &str) -> Value {
+    match s.split_once(": ") {
+        Some((a, b)) => json!({ "head": a, "body": b }),
+        None => json!({ "head": s, "body": "" }),
+    }
 }
 
 #[cfg(test)]
@@ -303,6 +364,36 @@ mod tests {
         assert_eq!(r["ready"], json!(true), "{text}");
         assert!(!text.contains("NaN") && !text.contains("{}"), "{text}");
         assert!(!r["goals"].as_array().unwrap().is_empty());
+        // What the report screen draws (lane S8): the spring's years, the
+        // dates, the marks on the 0 to 100 line, rivals and men as objects.
+        assert_eq!(r["years"][0]["year"], json!(year));
+        assert!(r["from"].is_string() && r["date"].is_string());
+        for g in r["goals"].as_array().unwrap() {
+            assert!(g["slot_words"].is_string() && g["verdict"].is_string());
+        }
+        for a in r["areas"].as_array().unwrap() {
+            let (f, p) = (a["feb_pts"].as_f64().unwrap(), a["pts"].as_f64().unwrap());
+            assert!((0.0..=100.0).contains(&f) && (0.0..=100.0).contains(&p), "{a}");
+        }
+        for o in r["outworked"].as_array().unwrap() {
+            assert!(o["rival"].is_null() || o["rival"]["n"].is_u64(), "{o}");
+        }
+        assert!(r["men"].is_array());
+        assert!(r["ad_parts"]["line"].as_str().is_some_and(|l| !l.is_empty()), "{}", r["ad_parts"]);
+        assert!(r["paper_parts"].is_object());
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn the_reports_words_split_into_who_and_what() {
+        let v = super::split_quote("Dana Hill: \"That's what I asked for.\" He trusts you a little more.");
+        assert_eq!(v["who"], json!("Dana Hill"));
+        assert_eq!(v["line"], json!("That's what I asked for."));
+        assert_eq!(v["after"], json!("He trusts you a little more."));
+        let p = super::split_quote("\"A class running 3rd in the conference.\"");
+        assert_eq!(p["line"], json!("A class running 3rd in the conference."));
+        let m = super::split_colon("Ty Reed (LB, Madison County) at Georgia Southern: signed. Nobody went.");
+        assert_eq!(m["head"], json!("Ty Reed (LB, Madison County) at Georgia Southern"));
+        assert_eq!(m["body"], json!("signed. Nobody went."));
     }
 }
