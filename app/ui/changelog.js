@@ -17,6 +17,16 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.575", date: "16 Nov", title: "Ground lane S2: the meeting at the map",
+    notes: [
+      "Monday's meeting is a screen: your coordinator's letter, a map of where he wants to send each man, and the week day by day, which you can change by dragging.",
+      "A new Ground screen, The meeting, with the road days and your free hours for the week.",
+      "Each place that wants a man is a numbered stop on the map, with who goes and where you stand there.",
+      "Your coordinator puts one call to you each week; make it or leave it to him.",
+      "Drag a man to another day to change his road, or hand the whole week to your coordinator.",
+    ],
+  },
+  {
     v: "0.2.574", date: "16 Nov", title: "Ground lane S1: the map screen and the school page and 4 more",
     notes: [
       "The people around the kids now remember you. Every high school coach and counselor you deal with has a standing with your staff, from Stranger to Home, and it moves with the work you put in.",
