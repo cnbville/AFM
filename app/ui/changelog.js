@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.558", date: "16 Nov", title: "Progression update steps 1-2: the split ceiling, knacks, skill projects, AI bets, no yearly cap and 2 more",
+    notes: [
+      "When you tell a player he's your guy and mean it, he weighs it like a real commitment. Players who trust you take it to heart, and empty praise stops piling up.",
+      "A line where you stake yourself on a player now counts for far more than a pile of compliments.",
+      "How much he buys it depends on his trust in you, the promises you've kept or broken with him, and where he sees himself on the team.",
+      "A player who doesn't trust you shrugs off the big line and trusts you a little less.",
+      "Saying it again right away adds nothing, and saying it again soon adds little.",
+      "Generic praise counts a little each time and stops adding up after three or four lines.",
+    ],
+  },
+  {
     v: "0.2.555", date: "16 Nov", title: "A world from a newer game says \"update the game\", not a reader error and 2 more",
     notes: [
       "A high school receiver's film now shows the routes he really ran, so a starting tight end's hands and route running read from his tape even when he caught few balls.",

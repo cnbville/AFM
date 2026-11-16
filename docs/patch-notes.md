@@ -8,6 +8,27 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.558 (16 Nov, shipped): live talks: one strong line against generic praise (PR #435), the new NIL scheme, lane A: bidding, keep-him offers, NIL Go from the market, refit pots (PR #439), progression update steps 1-2: the split ceiling, knacks, skill projects, AI bets, no yearly cap (PR #456)
+**TLDR:** 3 changes ship together. When you tell a player he's your guy and mean it, he weighs it like a real commitment. Players who trust you take it to heart, and empty praise stops piling up. College money now works like a real market: schools bid for the players they want, and the best players go where they're wanted most. Plus 1 more below.
+- Live talks: one strong line against generic praise (PR #435): When you tell a player he's your guy and mean it, he weighs it like a real commitment. Players who trust you take it to heart, and empty praise stops piling up.
+- A line where you stake yourself on a player now counts for far more than a pile of compliments. (PR #435)
+- How much he buys it depends on his trust in you, the promises you've kept or broken with him, and where he sees himself on the team. (PR #435)
+- A player who doesn't trust you shrugs off the big line and trusts you a little less. (PR #435)
+- Saying it again right away adds nothing, and saying it again soon adds little. (PR #435)
+- Generic praise counts a little each time and stops adding up after three or four lines. (PR #435)
+- The new NIL scheme, lane A: bidding, keep-him offers, NIL Go from the market, refit pots (PR #439): College money now works like a real market: schools bid for the players they want, and the best players go where they're wanted most.
+- Every recruit and transfer gets the price that wins him, not a fixed rate for his position. (PR #439)
+- Schools make offers to keep their starters before the January window. (PR #439)
+- The biggest programs have real 2026 money, and Group of 5 and FCS schools share revenue by what they can afford. (PR #439)
+- NIL Go checks deals against what similar players are actually paid. (PR #439)
+- Progression update steps 1-2: the split ceiling, knacks, skill projects, AI bets, no yearly cap (PR #456): Raw players with the right tools can now be coached into real technicians, and every staff, yours and the AI's, bets on its own projects.
+- Every technique skill now has room above it that a player's body and makeup set, and coaching closes some of that room each year. (PR #456)
+- Some players pick up technique fast and some never do. Staffs only see hints of it. (PR #456)
+- Breakout years can lift a raw player's skill by a big jump. (PR #456)
+- Other staffs now run skill projects on raw players, by how much they like to develop and how safe their job is. (PR #456)
+- Growth no longer stops at 12 points in a year. (PR #456)
+- Look at: in a one-on-one with a starter who trusts you, tell him he's your guy once, then compare that with a few rounds of praise. (PR #435) a top quarterback in the January portal, and what his school offered to keep him. (PR #439) raw college corners and edge rushers with big tools, over a few seasons. (PR #456)
+
 ## 0.2.555 (16 Nov, shipped): high school routes from his pass snaps, not 6 a catch (PR #459), recruiting: no staff cap on a class where the NCAA sets none (PR #460), a world from a newer game says "update the game", not a reader error (PR #461)
 **TLDR:** 3 changes ship together. A high school receiver's film now shows the routes he really ran, so a starting tight end's hands and route running read from his tape even when he caught few balls. Small colleges now sign classes the way real ones do: as many as their roster has room and need for. Plus 1 more below.
 - High school routes from his pass snaps, not 6 a catch (PR #459): A high school receiver's film now shows the routes he really ran, so a starting tight end's hands and route running read from his tape even when he caught few balls.
