@@ -337,6 +337,7 @@ pub fn request_words(r: &Request) -> String {
         Request::Plan(k) => format!("set the game plan: {k}"),
         Request::WorkWith(_) => "work with a player".into(),
         Request::FindOut(..) => "find something out about a prospect".into(),
+        Request::Evaluate(_) => "give you his read on a player".into(),
         Request::Whiteboard => "go up to the whiteboard".into(),
         Request::Plant(_) => "let word out that you like a prospect".into(),
         Request::SecondOpinion(_) => "get an outside specialist's opinion".into(),
@@ -513,6 +514,11 @@ impl Acting for Asks {
             (Them::Coach(_), Request::TellMe(Some(pid))) => {
                 talks::set_line(w, *pid, Some(talks::Line::Watch));
                 ran.done.push("Your position coach will tell you if he's slipping.".into());
+            }
+            // His read is said in the line itself (`evaluate::words`).
+            (Them::Coach(_), Request::Evaluate(pid)) => {
+                let name = person(w, *pid).map_or_else(|| "the player".into(), |j| w.people[j].name.clone());
+                ran.done.push(format!("He gave you his read on {name}."));
             }
             (Them::Coach(_), Request::WorkWith(pid)) => {
                 talks::set_line(w, *pid, Some(talks::Line::Push));

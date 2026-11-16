@@ -367,6 +367,10 @@ impl Resolving for Conversation<'_> {
                             if plain {
                                 t.say.released.push("He'll do it.".into());
                             }
+                            // Asked for his read on a man, he gives it now.
+                            if let super::terms::Request::Evaluate(pid) = r {
+                                t.say.released.extend(super::evaluate::words(w, him, *pid));
+                            }
                         }
                         Willing::If(c) => {
                             t.say.released.extend(c.asks.iter().cloned());
