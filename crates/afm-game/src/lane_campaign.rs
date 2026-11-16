@@ -278,8 +278,8 @@ fn report(w: &World, year: Option<i32>) -> Reply {
     // and the setback each split into who says it and what.
     v["ad_parts"] = split_quote(&r.ad);
     v["paper_parts"] = split_quote(r.paper.strip_prefix("The paper: ").unwrap_or(&r.paper));
-    v["miss_parts"] = r.miss.as_deref().map_or(Value::Null, |m| split_colon(m));
-    v["setback_parts"] = r.setback.as_deref().map_or(Value::Null, |m| split_colon(m));
+    v["miss_parts"] = r.miss.as_deref().map_or(Value::Null, split_colon);
+    v["setback_parts"] = r.setback.as_deref().map_or(Value::Null, split_colon);
     Ok(v)
 }
 
