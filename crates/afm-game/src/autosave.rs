@@ -105,7 +105,18 @@ impl Default for Autosave {
 
 /// Commands that change nothing and so don't count as play.
 fn is_idle_call(cmd: &str) -> bool {
-    cmd.starts_with("autosave_") || matches!(cmd, "hello" | "library" | "job" | "online_worlds" | "ai_status")
+    cmd.starts_with("autosave_")
+        || matches!(
+            cmd,
+            "hello"
+                | "library"
+                | "job"
+                | "online_worlds"
+                | "ai_status"
+                | "update_pin_get"
+                | "versions_check"
+                | "versions_backup"
+        )
 }
 
 impl Autosave {

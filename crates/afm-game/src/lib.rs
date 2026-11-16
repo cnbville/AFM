@@ -54,6 +54,7 @@ pub mod reads;
 pub mod road;
 pub mod setup;
 pub mod tallies;
+pub mod versions;
 pub mod views;
 pub mod world_log;
 
@@ -254,6 +255,13 @@ impl Game {
             "delete_save" => setup::delete_save(self, args),
             "delete_world" => setup::delete_world(self, args),
             "reveal" => setup::reveal(self, args),
+            // Going back to an older version (Settings): what it can't open, a
+            // copy of your saves, and the pause on updates.
+            "versions_check" => versions::check(self, args),
+            "versions_backup" => versions::backup(self, args),
+            "update_pin_get" => Ok(versions::pin_get(self)),
+            "update_pin_set" => versions::pin_set(self, args),
+            "update_pin_clear" => versions::pin_clear(self),
             "setup" => Ok(setup::options(self.w()?)),
             "similar" => Ok(setup::similar(self.w()?, args)),
             "towns" => Ok(setup::towns(self.w()?, args.get("state").and_then(Value::as_str).unwrap_or("TX"))),

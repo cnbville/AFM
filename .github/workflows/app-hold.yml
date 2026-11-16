@@ -1,0 +1,29 @@
+name: App hold
+# Puts the downloads page and "latest" where .github/app-hold says, the minute
+# the file changes on main, instead of at the end of the next Mac build (two
+# hours or more). The same script the Mac build's last job runs
+# (.github/scripts/mac-publish.sh), in the same one-at-a-time queue, so the two
+# can never fight over the page. A hold only applies to a build that already
+# has a finished release. By hand too (Actions, App hold, Run workflow).
+on:
+  push:
+    branches: [main]
+    paths: [".github/app-hold"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: mac-app-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Put the downloads where the hold says
+        env:
+          REPO: ${{ github.repository }}
+          AFM_TOKEN: ${{ github.token }}
+          WORLDS_TOKEN: ${{ secrets.WORLDS_TOKEN }}
+        run: bash .github/scripts/mac-publish.sh
