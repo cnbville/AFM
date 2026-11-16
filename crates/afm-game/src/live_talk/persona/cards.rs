@@ -10,7 +10,7 @@ use afm_engine::world::folk::persona::talk::{self, Parts, channels, items, store
 use afm_engine::world::folk::persona::wants::Boil;
 use afm_engine::world::folk::persona::{Them, office};
 use afm_engine::world::folk::scene::{Scene, Who};
-use afm_engine::world::folk::{self as folk, Team, claims, talk_points as tp, ties};
+use afm_engine::world::folk::{self as folk, Team, claims, ties};
 
 use super::{EarCard, EarKeys, VoiceCard};
 use crate::live_talk::card::{self, Spoken, Tagged, quoted};
@@ -216,14 +216,17 @@ pub fn ear(w: &World, s: &Scene, room: &Room, parts: &Parts, line: &str) -> (Ear
         c.items.push(Tagged { tag: tag.clone(), text: words });
         keys.items.push((tag, item));
     }
-    c.on_table = on_table(w, s);
+    c.on_table = on_table(w, s, him);
     (c, keys)
 }
 
-/// His asks still on the table: the last line he raised.
-fn on_table(w: &World, s: &Scene) -> Vec<String> {
+/// His ask still on the table: the one he raised on his last line, in
+/// his own words for what it means to him. Once the coach has answered a
+/// line it is off the table, so an answer to an older ask is never read
+/// as a dodge.
+fn on_table(w: &World, s: &Scene, him: Them) -> Vec<String> {
     let Some(o) = store::open(w, s.id) else { return Vec::new() };
-    o.raised.last().map(|k| talk::ask_words(*k)).into_iter().collect()
+    o.asking().map(|k| talk::ask_words_of(w, him, k)).into_iter().collect()
 }
 
 /// The voice's card from the game's turn.
@@ -409,18 +412,43 @@ pub fn heard(w: &World, room: &Room, t: &Turn) -> String {
     if t.confirm.iter().any(|c| matches!(c, Confirm::Decision(_))) {
         parts.push("a decision".into());
     }
-    for h in t.hits.iter().filter(|h| h.hit.on == him && (h.trust + h.mood).abs() > 0.005) {
-        if items::known(w, him, &h.hit.item) {
-            let what = items::short(w, him, &h.hit.item);
-            if !what.is_empty() {
-                parts.push(format!("{} on {what}", format!("{:?}", h.hit.how).to_lowercase()));
-            }
+    // A commitment: what he did with it (wrote it down, already had it,
+    // asked for something he can measure).
+    for (_, took) in &t.committed {
+        parts.push(took.heard().into());
+    }
+    if t.dodged {
+        parts.push("you didn't answer his question".into());
+    }
+    // The dodge's own hit is said above, not as a doubt on his word.
+    let dodge = |h: &afm_engine::world::folk::persona::ear::Sized| {
+        t.dodged
+            && h.hit.item == afm_engine::world::folk::persona::ear::Item::HisWord
+            && h.hit.how == afm_engine::world::folk::persona::ear::How::Doubted
+    };
+    // Each hit by what it touched, once you know that; one on something
+    // he hasn't shown you (what he wants) by how it hit alone, so a line
+    // to someone whose hits are all on his wants still says how it went.
+    let mut bare: Vec<String> = Vec::new();
+    for h in t.hits.iter().filter(|h| h.hit.on == him && (h.trust + h.mood).abs() > 0.005 && !dodge(h)) {
+        let how = format!("{:?}", h.hit.how).to_lowercase();
+        let what = if items::known(w, him, &h.hit.item) { items::short(w, him, &h.hit.item) } else { String::new() };
+        if !what.is_empty() {
+            parts.push(format!("{how} on {what}"));
+        } else if !bare.contains(&how) {
+            bare.push(how);
         }
     }
-    let net: f32 = t.hits.iter().filter(|h| h.hit.on == him).map(|h| h.trust + h.mood).sum();
-    let landed = if net > tp::LANDED {
+    parts.extend(bare);
+    // What moved with him: the hits, and a commitment he wrote down.
+    let net: f32 = t.hits.iter().filter(|h| h.hit.on == him).map(|h| h.trust + h.mood).sum::<f32>()
+        + t.committed.iter().map(|(_, k)| k.trust()).sum::<f32>();
+    // His own bars: a person in your building moves less in a line than a
+    // player does (`hits::landed_bars`).
+    let (up, down) = talk::hits::landed_bars(him);
+    let landed = if net > up {
         "it landed"
-    } else if net < -0.03 {
+    } else if net < down {
         "it didn't land"
     } else {
         "hard to tell how it landed"

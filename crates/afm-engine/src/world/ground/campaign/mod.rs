@@ -784,9 +784,16 @@ pub(crate) fn set_ad(w: &mut World, prog: usize, set: Vec<motives::Motive>) {
 }
 
 /// Your AD set his goals for this season in the spring talk: the summer
-/// meeting leaves his class goal to them.
+/// meeting leaves his class goal to them. A class goal you took on
+/// yourself (`folk::commit`, a bar you put up for an ask) is yours, on top
+/// of his.
 pub fn ad_set(w: &World, season: i32) -> bool {
-    w.folk.goals.iter().any(|g| g.season == season && matches!(g.kind, crate::world::folk::boss::GoalKind::Campaign(_)))
+    w.folk.goals.iter().any(|g| match g.kind {
+        crate::world::folk::boss::GoalKind::Campaign(a) if g.season == season => {
+            w.ground.campaign.goals.iter().any(|h| h.slot == Slot::Ad && h.aim == a && h.dropped.is_none())
+        }
+        _ => false,
+    })
 }
 
 /// Whether one of your AD's campaign goals is met now: its classes so far

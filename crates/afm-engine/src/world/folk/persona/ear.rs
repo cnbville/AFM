@@ -50,6 +50,8 @@ pub enum ActKind {
     Future,
     /// A change to a promise you made him.
     Amend,
+    /// A commitment to someone you answer to: a goal (`folk::commit`).
+    Commit,
 }
 
 /// What you can show (5.1): only real things.
@@ -143,6 +145,9 @@ pub enum Act {
     /// A change to a promise you made him (the promises design, sections
     /// 5 and 6).
     Amend(Amend),
+    /// A commitment to someone you answer to: a goal he can hold you to
+    /// (`folk::commit`).
+    Commit(crate::world::folk::commit::Commitment),
 }
 
 /// How a line changes a promise you made him.
@@ -187,6 +192,7 @@ impl Act {
             Act::Claim(_) => ActKind::Claim,
             Act::Offer(_) => ActKind::Offer,
             Act::Promise { .. } => ActKind::Promise,
+            Act::Commit(_) => ActKind::Commit,
             Act::Request(_) => ActKind::Request,
             Act::Decision(_) => ActKind::Decision,
             Act::Threat { .. } => ActKind::Threat,
@@ -360,6 +366,10 @@ pub struct Turn {
     /// Promises your line changes: (P1's index, the answer it is, a stat
     /// bar you named), made real through `talks::rework`.
     pub reworked: Vec<(u32, crate::world::folk::talks::PAct, Option<f32>)>,
+    /// You didn't answer the question his last line asked (5.4).
+    pub dodged: bool,
+    /// Each commitment and how he took it (`folk::commit`).
+    pub committed: Vec<(crate::world::folk::commit::Commitment, crate::world::folk::commit::Took)>,
 }
 
 /// The game's side of a line (lane N4).

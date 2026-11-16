@@ -298,6 +298,11 @@ impl Resolving for Conversation<'_> {
                     facts.push(st.clone());
                     t.claims.push((st.clone(), truth));
                 }
+                // Your boss weighs your own deal as an offer; anything else
+                // put to him as terms is an ask or a goal, never a deal he
+                // values like a player's (Cain 2026-11-16: "get me the NIL and
+                // I'll sign the #1" came back as a player's counter-offer).
+                Act::Offer(o) if super::office::deals::not_a_deal(w, him, o) => {}
                 Act::Offer(o) => {
                     let wd = self.parts.valuing.weigh(w, him, o);
                     // His own reasons, where the game weighed them, in
@@ -348,10 +353,22 @@ impl Resolving for Conversation<'_> {
                 }
                 Act::Promise { .. } => {
                     // Logged through P1 in `apply`, in order: its index then.
-                    if self.said.promises.get(promise_k).is_some() {
+                    // Only one that has a home with him (`promise_home`): a
+                    // promise to a player, to a parent about his son, or a
+                    // stay or a raise to someone in your building.
+                    if self.said.promises.get(promise_k).is_some_and(|p| promise_home(w, him, p).is_some()) {
                         t.promised.push((w.folk.promises.len() + t.promised.len()) as u32);
                     }
                     promise_k += 1;
+                }
+                Act::Commit(c) => {
+                    // A commitment to someone you answer to: your boss
+                    // writes down a goal he can judge, a booster hears it on
+                    // what he wants (`folk::commit`).
+                    if let Some(took) = folk::commit::took(w, him, c) {
+                        t.say.released.extend(folk::commit::said(w, c, took));
+                        t.committed.push((c.clone(), took));
+                    }
                 }
                 Act::Request(r) => {
                     // The recruiting desk answers what it owns (commit).
@@ -488,7 +505,12 @@ impl Resolving for Conversation<'_> {
                 t.hits.push(sz);
             }
         }
-        if reading.dodged {
+        // A dodge needs a question to dodge: his own last line asked one.
+        // The ear may hear a dodge of something he asked lines ago, or of a
+        // demand he never put to you (Cain 2026-11-16: "any other
+        // questions?" heard as doubting him).
+        if reading.dodged && s.is_some_and(asked_last) {
+            t.dodged = true;
             t.hits.push(hits::dodged(w, him));
         }
         if facet == Facet::Other {
@@ -517,7 +539,15 @@ impl Resolving for Conversation<'_> {
         // request, a decision) gets his answer, not a change of subject:
         // his own concern waits for a later line.
         let put_to_him = reading.acts.iter().any(|a| {
-            matches!(a, Act::Offer(_) | Act::Promise { .. } | Act::Request(_) | Act::Decision(_) | Act::Future { .. })
+            matches!(
+                a,
+                Act::Offer(_)
+                    | Act::Promise { .. }
+                    | Act::Commit(_)
+                    | Act::Request(_)
+                    | Act::Decision(_)
+                    | Act::Future { .. }
+            )
         });
         if t.ends.is_none()
             && !put_to_him
@@ -527,7 +557,7 @@ impl Resolving for Conversation<'_> {
             t.his_asks.push(HisAsk {
                 why: *want,
                 question: ask_topic(want.kind),
-                asks: vec![ask_words(want.kind)],
+                asks: vec![ask_words_of(w, him, want.kind)],
                 gives: Vec::new(),
                 terms: Vec::new(),
             });
@@ -656,12 +686,26 @@ impl Resolving for Conversation<'_> {
             }
         }
         // Promises count the moment you say them (question 4), through P1
-        // (a recruit's through the recruiting desk, above).
-        if let Them::Player(pid) = him
-            && facet == Facet::Other
-        {
+        // (a recruit's through the recruiting desk, above): to a player, to
+        // a parent about his son, a stay or a raise to someone in your
+        // building (`promise_home`).
+        if facet == Facet::Other {
             for p in self.said.promises.iter().chain(standing.iter()) {
-                talks::typed_promise(w, id, pid, p);
+                match promise_home(w, him, p) {
+                    Some(Home::Player(pid)) => talks::typed_promise(w, id, pid, p),
+                    Some(Home::To(to, kind)) => talks::promise(w, to, kind, 0),
+                    None => {}
+                }
+            }
+        }
+        // A commitment he took: the goal on your boss's list, a booster's
+        // promise on his want (`folk::commit`).
+        for (_, took) in &t.committed {
+            if let Some(line) = folk::commit::land(w, him, *took) {
+                if let Some(sc) = w.folk.scenes.iter_mut().find(|x| x.id == id) {
+                    sc.outcome.push(line);
+                }
+                folk::commit::show(w, id);
             }
         }
         // Promises your line changes, then your word on his future (after
@@ -727,7 +771,8 @@ impl Resolving for Conversation<'_> {
                 _ => {}
             }
         }
-        if self.said.reading.dodged {
+        // Only a dodge the game counted (his own last line asked).
+        if t.dodged {
             store::treat(m, him, Treated::Dodged, today);
         }
         // A stake you made, so one made again soon counts less.
@@ -851,9 +896,21 @@ fn ask_topic(k: WantKind) -> Option<Topic> {
     Some(match k {
         WantKind::Role | WantKind::Development | WantKind::Scheme => Topic::Football,
         WantKind::Money | WantKind::Security | WantKind::Fee | WantKind::Club => Topic::Market,
-        WantKind::Career | WantKind::Goals => Topic::Jobs,
+        WantKind::Career => Topic::Jobs,
+        WantKind::Goals => Topic::Goals,
         _ => return None,
     })
+}
+
+/// His ask in words by who he is: your boss sets the goals you're judged
+/// on, so he goes through them and asks how you'll meet them; anyone else
+/// asks as `ask_words` says (Cain 2026-11-16: the athletic director asked
+/// the coach what he'd be judged on).
+pub fn ask_words_of(w: &World, him: Them, k: WantKind) -> String {
+    if k == WantKind::Goals && super::makeup::kind(w, him) == super::wants::Kind::Boss {
+        return "he goes through the goals he holds you to and asks how you'll meet them".into();
+    }
+    ask_words(k)
 }
 
 /// His ask in words, for the voice (`HisAsk.asks`).
@@ -957,4 +1014,42 @@ pub fn lie(by: Them, topic: Topic, words: &str, said: crate::calendar::Date) -> 
 /// Who sits where, for the cards: the man across first.
 pub fn seat_of(room: &Room, who: Them) -> Option<Seat> {
     room.present.iter().find(|p| p.who == who).map(|p| p.seat)
+}
+
+/// Where a typed promise is kept: a player's own (P1), or P1's promise to
+/// someone else of a kind the world judges for him.
+pub enum Home {
+    /// A player, or a parent's son: P1's typed promise to him.
+    Player(u32),
+    /// Someone in your building: a stay (you won't leave for another job)
+    /// to a coach on your staff or your boss, a raise to a coach on your
+    /// staff.
+    To(talks::PromiseTo, talks::PromiseKind),
+}
+
+/// Where a promise has a home, or None: before this a typed promise to
+/// anyone but a player was dropped (Cain 2026-11-16).
+pub fn promise_home(w: &World, him: Them, p: &PromiseRead) -> Option<Home> {
+    use super::wants::Kind;
+    match him {
+        Them::Player(pid) => Some(Home::Player(pid)),
+        // A promise to his family is about the son (the parent call's chip
+        // carries one): P1 keeps it with him.
+        Them::Kin(pid, _) => Some(Home::Player(pid)),
+        // A coach on your staff: a stay, or a raise or a title.
+        Them::Coach(c) if super::makeup::kind(w, him) == Kind::Staff => match p.kind.as_str() {
+            "stay" => Some(Home::To(talks::PromiseTo::Coach(c), talks::PromiseKind::Stay)),
+            "contract" => Some(Home::To(talks::PromiseTo::Coach(c), talks::PromiseKind::Raise)),
+            _ => None,
+        },
+        Them::Cast(r, n) if p.kind == "stay" && super::makeup::kind(w, him) == Kind::Boss => {
+            Some(Home::To(talks::PromiseTo::Cast(r, n), talks::PromiseKind::Stay))
+        }
+        _ => None,
+    }
+}
+
+/// Whether the man's last line in the scene asked you something.
+fn asked_last(s: &Scene) -> bool {
+    s.lines.iter().rev().find(|l| l.by != 0).is_some_and(|l| l.by != 1 && l.text.contains('?'))
 }

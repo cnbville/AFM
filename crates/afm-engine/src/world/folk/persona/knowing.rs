@@ -792,22 +792,62 @@ pub fn habits(w: &World, team: Team, offense: bool, eye: f64) -> Option<String> 
 }
 
 /// What the man's boss knows about your job (3.1: "your boss's goals and
-/// trust in you"; `boss.rs`).
+/// trust in you"; `boss.rs`): the goals he set for the season they're for
+/// (the one his goals meeting sets, else the one being played), and where
+/// you stand with him.
 fn goals(w: &World, him: Them) -> Vec<Known> {
     if makeup::kind(w, him) != super::wants::Kind::Boss {
         return Vec::new();
     }
     let Some(team) = Team::seat(w) else { return Vec::new() };
     let mut v = Vec::new();
-    let season = w.dates.season;
-    let goals: Vec<String> =
-        w.folk.goals.iter().filter(|g| g.season == season).map(|g| g.kind.words(team.level())).collect();
+    let ahead = crate::world::folk::boss::goal_season(w, team);
+    let season = [ahead, w.dates.season]
+        .into_iter()
+        .find(|s| w.folk.goals.iter().any(|g| g.season == *s))
+        .unwrap_or(w.dates.season);
+    let goals: Vec<String> = w
+        .folk
+        .goals
+        .iter()
+        .filter(|g| g.season == season)
+        .map(|g| crate::world::folk::commit::goal_words(w, g.kind, team.level()))
+        .collect();
     if !goals.is_empty() {
-        v.push(k(Topic::Goals, None, Source::Himself, 20.0, format!("this season's goals: {}", goals.join(", "))));
+        v.push(k(Topic::Goals, None, Source::Himself, 20.0, format!("the goals for {season}: {}", goals.join(", "))));
     }
     let t = crate::world::folk::boss::trust(w, team);
     v.push(k(Topic::Goals, None, Source::Himself, 20.0, crate::world::folk::boss::trust_short(t).to_string()));
     v
+}
+
+/// His own job here (`Topic::Job`): a coach of yours makes his case from
+/// what he can point to (his years, the team since he came, his unit, his
+/// deal; the facts `talk::stakes` puts on his card); your boss tells you
+/// where you stand with him (his goals and his trust). Nobody else holds a
+/// job of his you'd ask about.
+fn own_job(w: &World, him: Them, about: Option<Them>) -> Vec<Known> {
+    if about.is_some_and(|a| a != him) {
+        return Vec::new();
+    }
+    let kind = makeup::kind(w, him);
+    if kind == super::wants::Kind::Boss {
+        return goals(w, him)
+            .into_iter()
+            .map(|mut x| {
+                x.topic = Topic::Job;
+                x
+            })
+            .collect();
+    }
+    let Them::Coach(c) = him else { return Vec::new() };
+    if kind != super::wants::Kind::Staff {
+        return Vec::new();
+    }
+    super::talk::stakes::case_facts(w, c)
+        .into_iter()
+        .map(|words| k(Topic::Job, None, Source::Himself, 20.0, words))
+        .collect()
 }
 
 /// Jobs opening (3.1: coaches in the network, agents, ADs know).
@@ -933,6 +973,9 @@ pub fn knows(w: &World, him: Them, topic: Topic, about: Option<Them>) -> Vec<Kno
         Topic::Opponent => return opponent(w, him, about, &m),
         Topic::Goals => return goals(w, him),
         Topic::Jobs => return jobs(w, him, &m),
+        // A player's "job" is his place: what he wants and where he stands.
+        Topic::Job if matches!(him, Them::Player(_) | Them::Kin(..)) => return knows(w, him, Topic::Wants, about),
+        Topic::Job => return own_job(w, him, about),
         Topic::Football => return super::football::knows(w, him, about, &m),
         Topic::Nothing => return Vec::new(),
         _ => {}

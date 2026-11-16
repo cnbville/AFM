@@ -348,7 +348,7 @@ pub(crate) fn draft_goals(w: &World, team: Team) -> Vec<GoalKind> {
 }
 
 /// The season the goals are for: the next one before kickoff.
-pub(crate) fn goal_season(w: &World, team: Team) -> i32 {
+pub fn goal_season(w: &World, team: Team) -> i32 {
     let kickoff = match team {
         // Another league's opener (the CFL's June, a spring league's
         // March; minor bug B40).
@@ -458,6 +458,10 @@ fn meeting_open(w: &mut World, s: &mut Scene) {
         }
         _ => {
             let season = goal_season(w, team);
+            // His lines name the season he sets the goals for, not the
+            // calendar year the meeting falls in (a December takeover sets
+            // next season's goals).
+            f.set("year", season.to_string());
             // A bar you put up in a talk stays, in place of his own of that
             // kind (`asked::hold`).
             let same = |a: &GoalKind, b: &GoalKind| std::mem::discriminant(a) == std::mem::discriminant(b);
@@ -547,7 +551,7 @@ fn boss_tell(b: &Cast, t: f32) -> String {
     }
 }
 
-fn why_goal(w: &World, team: Team, g: GoalKind) -> String {
+pub(crate) fn why_goal(w: &World, team: Team, g: GoalKind) -> String {
     let last = facts::seasons(w, team, 1);
     match g {
         GoalKind::Wins(_) => {
