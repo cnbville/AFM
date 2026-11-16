@@ -6273,12 +6273,33 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             field
         })
         .collect();
+    // The term an AI school offers him and the one he takes, with what it
+    // weighs with him against one year of the same money (the new NIL
+    // scheme, item 12): a school offers a blue-chip who will play early a
+    // multi-year deal, and he takes it when he values the guarantee. Your
+    // own terms are in your promise already (`fo::college::stage_board`).
+    let term_of = |j: usize, k: usize, gross: f64| -> (u8, f64) {
+        let p = &w.people[pool[k].person];
+        let stars = super::nil_bid::star_bid(recruiting_stars(p));
+        if Some(j) == mj
+            || stars < super::nil_bid::TERM_TALENT
+            || gross < super::nil_bid::TERM_FLOOR
+            || programs[j].collective.budget <= 0.0
+        {
+            return (1, 1.0);
+        }
+        let chance = room0.play_chance(j, pool[k].person, p.player.position, p.player.overall() + 6.0);
+        let gv = super::nil_bid::guarantee(p);
+        let t = super::nil_bid::term_taken(gv, super::nil_bid::recruit_term(w.today, stars * chance));
+        (t, super::nil_bid::term_weight(gv, t))
+    };
     // What a school's money is to him: its two pots as NIL Go clears the
-    // third party's part, plus a rogue booster's cash before NIL (11.6).
+    // third party's part, plus a rogue booster's cash before NIL (11.6),
+    // weighed with its term.
     let weigh = |j: usize, k: usize, gross: f64| -> f64 {
         let prog = &programs[j];
         let p = &w.people[pool[k].person];
-        cleared(prog, w.today, gross, go_top_recruit(w, j, p), go_free == Some(j))
+        cleared(prog, w.today, gross, go_top_recruit(w, j, p), go_free == Some(j)) * term_of(j, k, gross).1
             + super::ncaa::booster_cash(prog, pool[k].person) * rich(j)
     };
     // A school's offer: (what he weighs, the bid itself). A rising program
@@ -6483,6 +6504,8 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         u + super::legacy::college::u_lean(w, j, p.player.position, p.stars)
     };
     let mut held_offer = vec![0.0f64; pool.len()];
+    // The term of the offer he holds (item 12): (program, years).
+    let mut held_term: Vec<Option<(usize, u8)>> = vec![None; pool.len()];
     // The bid behind it (the new NIL scheme): his deal, as NIL Go reviews it.
     let mut held_gross = vec![0.0f64; pool.len()];
     // His fit at the school he holds, kept until that room changes: (program, room version, fit).
@@ -6717,6 +6740,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                 view.join(j, pos, who, overall + 4.0, 0);
                 held_offer[k] = offer;
                 held_gross[k] = gross;
+                held_term[k] = Some((j, if walk_on { 1 } else { term_of(j, k, gross).0 }));
                 if walk_on {
                     taken_walk_on[j] += 1;
                 } else {
@@ -6809,6 +6833,7 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
             held[k] = Some(Held { program: j, base: u, special, walk_on, pos: i });
             offers[k].push(j);
             scrambled[k] = true;
+            held_term[k] = None;
             view.join(j, pos, who, p.player.overall() + 4.0, 0);
             if walk_on {
                 taken_walk_on[j] += 1;
@@ -7095,6 +7120,9 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
         }
     }
     let month = today.month() as usize - 1;
+    // Each program's multi-year money for the coming money years (item
+    // 12), read when the first term is signed.
+    let mut multi: Option<Vec<[f64; 4]>> = None;
     for (k, early_enrollee) in decided {
         let r = pool[k];
         let i = r.person;
@@ -7239,7 +7267,49 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                     super::nil_bid::count_in(&mut w.log, coll, &r);
                     w.programs[j].collective.moved += r.moved;
                 }
+                // What he weighed was his money times its term (item 12);
+                // what he is paid a year is the money. Later budgets are
+                // bound: a term that would carry the school's multi-year
+                // money past its bound is cut short.
+                let offered = held_term[k].filter(|t| t.0 == j && !walk_on).map_or(1, |t| t.1);
+                // Your promise weighed your own term (`fo::college::stage_board`).
+                let weighed_term =
+                    if Some(j) == mj { fo::college::promise_years(w, w.people[i].player.id) } else { offered };
+                let nil =
+                    held_offer[k] / super::nil_bid::term_weight(super::nil_bid::guarantee(&w.people[i]), weighed_term);
+                let deal_year = super::nil_bid::deal_year(today);
+                let term = if offered >= 2 && Some(j) != mj && nil > 0.0 && super::ncaa::nil_era(year) {
+                    let m = multi.get_or_insert_with(|| super::nil_bid::committed(w, deal_year));
+                    let t = super::nil_bid::bound_term(w.programs[j].collective.budget, &m[j], nil, offered);
+                    if t >= 2 {
+                        for y in m[j].iter_mut().take(t as usize) {
+                            *y += nil;
+                        }
+                        w.log.nil_multi += 1;
+                        w.log.nil_multi_stars[recruiting_stars(&w.people[i]).min(5) as usize] += 1;
+                        w.log.nil_multi_money += nil * t as f64;
+                    } else {
+                        w.log.nil_multi_bound += 1;
+                    }
+                    t
+                } else {
+                    1
+                };
+                // Your term on your numbers (item 12): what he signed for
+                // stays on your desk; the term goes on his file.
+                let yours = if Some(j) == mj && !walk_on { fo::college::signee_term(w, j, i) } else { None };
+                if yours.is_some() {
+                    w.log.nil_multi += 1;
+                }
                 let p = &mut w.people[i];
+                if let Some((t, amount)) = yours {
+                    p.cal.nil_deal = Some(super::nil_bid::NilDeal {
+                        year: deal_year,
+                        amount,
+                        kind: super::nil_bid::DealKind::Signed,
+                        through: deal_year + t as i32 - 1,
+                    });
+                }
                 p.walk_on = walk_on;
                 let step = match (r.juco_mover, division) {
                     (true, Division::JUCO) => Step::Sideways,
@@ -7292,14 +7362,15 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                             division.name()
                         ));
                     }
-                    let nil = held_offer[k];
                     // What he signed for is his deal for his first money year
-                    // (the new NIL scheme, item 5). Yours are on your desk.
+                    // (the new NIL scheme, item 5), and with a term the years
+                    // after it (item 12). Yours are on your desk.
                     if Some(j) != mj && nil > 0.0 && super::ncaa::nil_era(year) {
                         p.cal.nil_deal = Some(super::nil_bid::NilDeal {
-                            year: super::nil_bid::deal_year(today),
+                            year: deal_year,
                             amount: nil,
                             kind: super::nil_bid::DealKind::Signed,
+                            through: if term >= 2 { deal_year + term as i32 - 1 } else { 0 },
                         });
                     }
                     if nil >= 10_000.0 && super::ncaa::nil_era(year) {
@@ -7312,7 +7383,12 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                             format!("${:.0}K", nil / 1.0e3)
                         };
                         let why = if reach[j] { " in a big reach by a rising program" } else { "" };
-                        p.note(format!("His NIL deal there: about {amount} a year{why}."));
+                        let years = if term >= 2 {
+                            format!(", guaranteed for {term} years (half the rest owed if he transfers)")
+                        } else {
+                            String::new()
+                        };
+                        p.note(format!("His NIL deal there: about {amount} a year{years}{why}."));
                     }
                     if offer_names.len() > 1 {
                         let n = offer_names.len();
@@ -7905,6 +7981,17 @@ fn enter_portal(w: &mut World, i: usize, c: usize, entered: Date, decide_by: Dat
     let id = w.people[i].player.id;
     fo::college::drop_deals(w, id);
     let p = &mut w.people[i];
+    // A multi-year deal ends too, and leaving costs half of what it still
+    // owes him (the new NIL scheme, item 12; the Big 12 template): the
+    // school that takes him pays it to this one (`land`). A school that
+    // sends him away owes him nothing back.
+    p.cal.nil_buyout = 0.0;
+    if let Some(d) = p.cal.nil_deal.filter(|d| d.contract()) {
+        if !matches!(why, Why::Dismissed | Why::Cut | Why::ProgramDropped) {
+            p.cal.nil_buyout = d.buyout();
+        }
+        p.cal.nil_deal = None;
+    }
     p.cal.portal = Some(super::PortalEntry { entered, decide_by, why: why.reason(), held: false, looking: false });
     if p.nil_income > 0.0 {
         p.nil_income = 0.0;
@@ -8766,6 +8853,8 @@ fn suitors(
                 }
                 let p = &wr.people[i];
                 let (role, nil, perf, edge) = place_at(wr, mk, i, from, j, Some((o.nil, o.coll)));
+                // Your term weighs with him as an AI school's does (item 12).
+                let nil = nil * super::nil_bid::term_weight(super::nil_bid::guarantee(p), o.years);
                 let fit =
                     mk.view.fit(j, i, p.player.position, &p.family.own_wants, perf, 3, 0.0, early_weight(p.stars));
                 let mut u =
@@ -8879,8 +8968,13 @@ fn bid_for(w: &World, i: usize, out: &mut [Suitor], money: &TransferMoney, norms
             + money.extra(nil)
             + super::folk::dialogue::staff_call(w, i, j, role, nil)
     };
+    // A suitor pays his buyout out of its bid (item 12: the school that
+    // takes a man under contract pays it, on its own cap), and its term
+    // weighs with him as a recruit's does.
+    let buyout = p.cal.nil_buyout.max(0.0);
     let weigh = |s: &Suitor, g: f64| -> f64 {
-        cleared(&w.programs[s.0], w.today, g, go_top(w, s.0, p, s.3, s.4), go_free == Some(s.0))
+        cleared(&w.programs[s.0], w.today, (g - buyout).max(0.0), go_top(w, s.0, p, s.3, s.4), go_free == Some(s.0))
+            * portal_term(w, p, s.3, s.4, money.left, g - buyout).1
     };
     // Each AI suitor's top bid and its appeal without the money terms.
     let tops: Vec<Option<f64>> = out.iter().map(|s| s.6).collect();
@@ -8950,13 +9044,19 @@ struct TransferMoney {
     more: f64,
     /// His own money weight ([`money_weights`]).
     weight: f64,
+    /// His seasons left (a multi-year deal's term, item 12).
+    left: u32,
 }
 
 impl TransferMoney {
     fn of(w: &World, mk: &PortalMarket, i: usize) -> TransferMoney {
         let p = &w.people[i];
         let crisis = p.bg.story.iter().rev().take(1).any(|s| s.contains("death") || s.contains("lost a job"));
-        TransferMoney { more: transfer_money(w, mk, i), weight: money_weights(p, &p.family.own_wants, crisis).0 }
+        TransferMoney {
+            more: transfer_money(w, mk, i),
+            weight: money_weights(p, &p.family.own_wants, crisis).0,
+            left: portal_left(w, mk, i),
+        }
     }
 
     /// `utility`'s money term again, `more` - 1 times.
@@ -8988,12 +9088,31 @@ fn transfer_money(w: &World, mk: &PortalMarket, i: usize) -> f64 {
     let from = p.college.map_or(Division::FBS, |c| w.programs[c].division);
     let median = mk.medians[Division::FBS as usize][p.player.position.index()];
     let play = p.last_performance.unwrap_or(p.player.overall()) - competition_discount(from);
-    // The season just played counts on January 2 (`settle_eligibility`): a
-    // December entrant has it behind him already.
+    let left = portal_left(w, mk, i);
+    transfer_more(left, median.is_finite().then_some(play - median), from == Division::FBS)
+}
+
+/// An entrant's seasons left to play. The season just played counts on
+/// January 2 (`settle_eligibility`): a December entrant has it behind him
+/// already.
+fn portal_left(w: &World, mk: &PortalMarket, i: usize) -> u32 {
+    let p = &w.people[i];
+    let from = p.college.map_or(Division::FBS, |c| w.programs[c].division);
     let used = p.college_seasons + p.cal.count_pending as u32;
     let clock = (super::eligibility::clock_last(p) - mk.season + 1).max(0) as u32;
-    let left = super::eligibility::seasons_allowed(mk.season, from).saturating_sub(used).min(clock);
-    transfer_more(left, median.is_finite().then_some(play - median), from == Division::FBS)
+    super::eligibility::seasons_allowed(mk.season, from).saturating_sub(used).min(clock)
+}
+
+/// The term an AI suitor offers an entrant and the one he takes (the new
+/// NIL scheme, item 12), with what it weighs against one year: (years,
+/// weight).
+fn portal_term(w: &World, p: &Person, role: PlayingTime, edge: f64, left: u32, money: f64) -> (u8, f64) {
+    if money < super::nil_bid::TERM_FLOOR {
+        return (1, 1.0);
+    }
+    let gv = super::nil_bid::guarantee(p);
+    let t = super::nil_bid::term_taken(gv, super::nil_bid::transfer_term(w.today, role, edge, left));
+    (t, super::nil_bid::term_weight(gv, t))
 }
 
 /// [`transfer_money`] from his situation: the seasons he has `left`, his
@@ -9513,13 +9632,47 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         landings.push((i, j));
         // An AI head coach's word to him goes in the book (promises lane P2).
         super::folk::ai_promise::log_transfer(w, i, j, role);
+        // His multi-year deal's buyout (the new NIL scheme, item 12): the
+        // school that takes him pays it to his old one out of its bid (an
+        // AI school) or its revenue share (yours); his term there, and the
+        // money a year he weighed with it.
+        let buyout = std::mem::take(&mut w.people[i].cal.nil_buyout);
+        let your_years = fo::college::portal_years(w, j, w.people[i].player.id);
+        let (term, nil) = {
+            let p = &w.people[i];
+            let gv = super::nil_bid::guarantee(p);
+            match bid {
+                Some(_) => {
+                    let g = bid.unwrap_or(0.0) - buyout;
+                    let (t, wt) = portal_term(w, p, role, edge, portal_left(w, &market, i), g);
+                    (t, nil / wt)
+                }
+                None => {
+                    let t = super::nil_bid::term_taken(gv, your_years);
+                    (t, nil / super::nil_bid::term_weight(gv, your_years))
+                }
+            }
+        };
+        if term >= 2 {
+            w.log.nil_multi_transfers += 1;
+        }
+        if buyout > 0.0 {
+            w.programs[c].collective.buyouts += buyout;
+            w.log.nil_buyouts += 1;
+            w.log.nil_buyout_money += buyout;
+            fo::college::paid_buyout(w, j, w.people[i].player.id, buyout);
+            let to_name = w.program_name(j).to_string();
+            let paid =
+                if buyout >= 1.0e6 { format!("${:.1}M", buyout / 1.0e6) } else { format!("${:.0}K", buyout / 1.0e3) };
+            w.people[i].note(format!("{to_name} paid the {paid} buyout on his multi-year NIL deal."));
+        }
         // NIL Go reviews the third party's part of the bid that won him
-        // (B18; the new NIL scheme, items 10 and 11).
+        // (B18; the new NIL scheme, items 10 and 11), less the buyout.
         if let Some(g) = bid.filter(|_| super::ncaa::two_pots(today)) {
             let prog = &w.programs[j];
             let b = prog.collective.budget;
             let s = if b > 0.0 { (super::ncaa::school_pot(prog, today) / b).clamp(0.0, 1.0) } else { 0.0 };
-            let coll = g * (1.0 - s);
+            let coll = (g - buyout).max(0.0) * (1.0 - s);
             let top = go_top(w, j, &w.people[i], role, edge);
             let room = super::ncaa::share_room(prog, super::nil_bid::deal_year(today));
             let r = super::nil_bid::review(today, coll, top, room, nil_go_free(w) == Some(j));
@@ -9561,11 +9714,19 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         // new NIL scheme, item 5); a deal or keep offer from his old school
         // ends with his move.
         p.cal.nil_keep = None;
-        p.cal.nil_deal = bid.map(|_| super::nil_bid::NilDeal {
-            year: super::nil_bid::deal_year(today),
+        let year = super::nil_bid::deal_year(today);
+        let through = if term >= 2 { year + term as i32 - 1 } else { 0 };
+        // Your offer's term goes on his file too (your desk pays the money).
+        p.cal.nil_deal = (bid.is_some() || through > 0).then_some(super::nil_bid::NilDeal {
+            year,
             amount: nil,
             kind: super::nil_bid::DealKind::Transfer,
+            through,
         });
+        if term >= 2 {
+            let years = format!("His NIL deal there is guaranteed for {term} years.");
+            p.note(years);
+        }
         if sits {
             p.cal.transfer_sit = true;
             p.note(format!("Under the transfer rules of the day he had to sit out a season at {to_name}."));
@@ -10031,7 +10192,10 @@ pub(crate) fn nil_payouts(w: &mut World) {
     // payroll weight: next year's book.
     let mut book: Vec<(usize, f64)> = Vec::new();
     for j in 0..pn {
-        let year_money = w.programs[j].collective.budget * super::legacy::college::split_q(w, j, 0);
+        // Buyouts paid in by the schools that took its players under
+        // contract (item 12) are this year's money too.
+        let buyouts = std::mem::take(&mut w.programs[j].collective.buyouts);
+        let year_money = w.programs[j].collective.budget * super::legacy::college::split_q(w, j, 0) + buyouts;
         let roster = w.programs[j].roster.clone();
         if roster.is_empty() {
             continue;
@@ -10108,7 +10272,7 @@ pub(crate) fn nil_payouts(w: &mut World) {
                     .iter()
                     .map(|&i| {
                         let p = &w.people[i];
-                        let dealt = p.cal.nil_deal.is_some_and(|d| d.year == year);
+                        let dealt = p.cal.nil_deal.is_some_and(|d| d.pays(year));
                         let place = share_value(p) / share_weight(Some(PlayingTime::Starter), p.player.position);
                         (dealt, place, p.player.overall(), i)
                     })
@@ -10140,7 +10304,7 @@ pub(crate) fn nil_payouts(w: &mut World) {
                         let p = &w.people[i];
                         let (school, coll) =
                             july_split(year_money, s, (paid_share(p, i), shares), (coll_value(p, i), total), two);
-                        let fixed = p.cal.nil_deal.filter(|d| d.year == year).and_then(|d| match d.kind {
+                        let fixed = p.cal.nil_deal.filter(|d| d.pays(year)).and_then(|d| match d.kind {
                             DealKind::Keep => (d.amount > school + coll).then_some(d.amount),
                             _ => Some(d.amount),
                         });
@@ -10196,8 +10360,9 @@ pub(crate) fn nil_payouts(w: &mut World) {
             if money > 250_000.0 && p.nil_income <= 250_000.0 {
                 p.cal.payday = true;
             }
-            // The year's deals are paid: next year's come in the winter.
-            p.cal.nil_deal = p.cal.nil_deal.filter(|d| d.year > year);
+            // The year's deals are paid: next year's come in the winter, and
+            // a multi-year deal moves on to its next year (item 12).
+            p.cal.nil_deal = p.cal.nil_deal.and_then(|d| d.after_payday(year));
             p.cal.nil_keep = None;
             // Collectives pay most of it (about 82%); brand deals, which
             // follow fame and Aura (F15), come on top.
