@@ -351,4 +351,11 @@ pub trait Valuing {
     fn best(&self, w: &World, him: Them) -> Best;
     /// How he takes an offer against it.
     fn weigh(&self, w: &World, him: Them, offer: &Offer) -> Weighed;
+    /// His answer in words when the game weighed it with its own reasons
+    /// (your extension with your boss, `folk::asked`), in place of the plain
+    /// "He'd take that." or "He doesn't take it up."; empty keeps the
+    /// plain words.
+    fn why(&self, _w: &World, _him: Them, _offer: &Offer, _wd: &Weighed) -> Vec<String> {
+        Vec::new()
+    }
 }
