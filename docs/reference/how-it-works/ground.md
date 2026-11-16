@@ -1,6 +1,6 @@
 # Ground: how it works today
 
-Checked against branch commit 28f13b8 on 2026-11-16 (lane G1a, areas and map data), main bf92e7d plus lane G1b on 2026-11-16 (standing and one memory), main d291de54 plus lane G3 on 2026-11-16 (your week and road days), branch lane S2 on 2026-11-16 (the meeting at the map), and main fd85a4f9 plus lane G7 on 2026-11-16 (people in full).
+Checked against branch commit 28f13b8 on 2026-11-16 (lane G1a, areas and map data), main bf92e7d plus lane G1b on 2026-11-16 (standing and one memory), main d291de54 plus lane G3 on 2026-11-16 (your week and road days), branch lane S2 on 2026-11-16 (the meeting at the map), main fd85a4f9 plus lane G7 on 2026-11-16 (people in full), and main 8163ecf plus lane G11b on 2026-11-16 (favors, switched off).
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`, `app/`, `data/` or `tools/`. Ground's spec is `docs/design/ground.md`; each lane adds its section here.
 
@@ -37,6 +37,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`,
 - Does the AI have ground (G1b)? Yes, read from the world's 30 years whenever asked: nothing is stored, so the world's recruiting is unchanged until lane G9 (`derived`).
 - Do my roots count? Your own high school's coach starts Trusted, your hometown's coaches and the high schools you coached at Known, and a kid from your hometown knows your name (`seed`, `roots`, `knows_your_name`).
 - What does an area's level read? Each school's head coach's standing, weighted by the talent the school sent out over the last four classes (`area_points`, `talents`).
+- Are favors on? No. The favor economy (lane G11b) ships switched off in every world (`WorldOptions.favors`, false); with it off nothing in `world/ground/favors.rs` runs and placing a kid works as before (`folk/backchannel.rs`, `place_player`). Lane G12's trial turns it on. See "Lane G11b" below.
 
 
 ## Lane S2: the meeting at the map (the screen)
@@ -140,7 +141,7 @@ Screens in `app/ui/screens/ground.js` and `ground.css` (Press Box for the map, t
 
 ## What it does not do yet
 
-- News in order of standing and the lead card: lane G4. The AI working its ground: lane G9. Favors: lane G11b.
+- News in order of standing and the lead card: lane G4. The AI working its ground: lane G9. Favors: lane G11b, switched off (below).
 - An area's level on lane G1a's areas: `area_level` (any list of schools: `area_points`, `leader`).
 
 ## Lane G7: people in full
@@ -208,6 +209,75 @@ Every size here is the spec's (word travels at half and a quarter) or the build'
 ### What G7 does not do
 
 - The favor board and spending favors (lane G11b, switched off), news in order and the lead card (G4), the week's plan (G3), the AI working its ground (G9). Counselors don't move to another school; they end a tenure.
+
+## Lane G11b: favors, switched off (GR22, GR60, GR63)
+
+Every size here is the build's pick, proposed, not confirmed, to be tuned in GR61's trial (lane G12). The design is `docs/design/ground/placement.md`.
+
+### The switch (GR61)
+
+- `WorldOptions.favors` (`world/mod.rs`), false in every world and in old world files (`#[serde(default)]`). `favors::on` needs it and a college seat. With it off: `favors::day` returns at once, `place`, `ask` and `set_rule` refuse, the board says `on: false`, and every hook below takes its old path, with no new draw. So every seed plays the same.
+- Your seat only. The AI's own placements and its spending of favors come with the AI working its ground (lane G9, GR65); the rules here take any holder, so it uses the same ones.
+
+### A look costs a favor (`place`)
+
+- You (or your coordinator) call a man on another college staff about a kid: a senior you passed on (not yet signed), a player of yours in the portal, or another school's player in the portal. A Division I staff's call comes only after he enters the portal. Any direction, up or down.
+- Guards: a real hole on the taker's roster (`hole`: he would make its two-deep at his spot, or the spot is short of twice a 53-man roster's numbers scaled to the level, for next fall); one call per staff; three calls a kid a year (`MAX_CALLS`); one home a kid a year (one favor chain).
+- His staff looks: a senior gets a call on his file (`scouting/hs.rs`, `Promo`), as hard as your word with that man is good (`word_read`: 0.5 until a claim settles, then toward your record, levelling off near six to eight claims, `WORD_SETTLE` 2). A portal kid's look lets a small school outside its region take him (`recruiting.rs`, `looked`).
+- You owe the man one, or two in a scarce week (signing day and the day after, the early signing period's first three days, the portal window's last three: `scarce`); what he owed you is spent first. The call is 15 minutes on your week's ledger.
+- A claim from the tips' words (worth a look, can play for you, a sure thing) and a worry you name (his grades, his temper, his health, his work). A worry reaches the kid's family that evening as a moment. A real worry you didn't name is noted at the call (temper 15+ or an incident, grades under 2.5, injury-prone 15+, work ethic under 6).
+
+### A home found (`sign`, `hardness`)
+
+- When he signs there (a portal kid: lands there), his coach owes you by how hard the home was: 2 for a scholarship where he had none at that level or above; 1 for a step up at the same level (a loyal coach counts a starting chance, a self-serving one the bigger name); 0 for a place any staff would give (junior college, Division III, an NAIA walk-on), a step down, or a kid whose offer you pulled. His best standing counts every offer he held, yours included.
+- One comes at signing and the rest at the settle. A home in your coaching tree counts half; a second home from the same coach in a year counts one less. His coach's standing gains 4 a favor (`HOME_POINTS`), with a moment ("You found Simmons a home at Elon.").
+- The no you placed: a pulled offer's 20 points come back to a quarter of the cost (15 back, outside the gates, and the pull is no longer held for years) when he has a home by signing day, unless he was committed to you or it is your second pull at his school in three years (`restore`).
+- Your other calls for him lapse; a look lapses after 400 days or when he goes elsewhere.
+
+### Your word settles (`settle`)
+
+- After a year for a transfer and two for a high school signee, on his last season's role at the level you claimed: worth a look needs him to play (150 snaps or a starter or rotation role), can play for you a starter or rotation role at that level or above, a sure thing a starter. A pro holds every claim.
+- Everyone who heard it records it: the man you called and the kid's coach, in your own and your program's memory (`your_word`, "your word held up 4 of 5 times").
+- Held: the taker's man owes you one, two if he starts; the kid's coach pays the rest of the home and his standing gains 5. Not held: the rest never comes. A worry you hid that came true costs 12 with both ("You never mentioned Reyes's grades."). A quit or a move in year one takes back what his coach paid.
+
+### A favor buys one answer one level up (`ask`, GR60)
+
+- At Stranger his real list (his kids in his own order, by his eye), at Known the truth about one kid (his work, his grades, his temper, his health, in words), at Trusted his first call on one kid. Home buys nothing more.
+- Never past the gates (GR28): no answer from a man you never met, no Trusted answer inside a year of Known or while he holds a broken word, no Home answer before a kid of his did well with you (or five years).
+- The lift is stored (`Lift`) for the news on that kid; `favors::lifted` gives the level, behind the staffs who hold it, for lane G4's news order to read. `spend_lift` spends it once heard.
+- A self-serving man dodges 60% × (1 − 2 × his loyalty) of the time when a bigger program already holds that level with him: nothing is spent, and his memory keeps "he dodged your ask when Georgia wanted the same". Asking for more than he owes: he answers, it costs 3 points, and you owe him.
+- It never buys a commitment, a signature or a transfer (rule 3).
+
+### What you owe, and what he owes (`calls_in`, `refused`, `fade`)
+
+- A man you owe calls it in through his weekly ask (`folk/network.rs`, `asks_week`): 6% a week, and always once the debt is 330 days old. His line opens "You owe me one, Coach." A yes pays it back; a no, or never calling back, is a broken promise: 20 points and a big moment he holds ("I called in what you owed me, and you said no."). A college colleague's tie cools by 0.15 instead.
+- What he owes you fades by one each January after two years without a favor between you. What you owe never fades.
+
+### Rule 3 in the portal
+
+- With the switch on, a placement adds nothing to his choice and skips no depth check (`backchannel::bonds` leaves placements out); placing a kid goes through `favors::place` (`backchannel::place_player`).
+
+### Your coordinator's rule (GR63, `coordinator`, `set_rule`)
+
+- Each Monday your recruiting coordinator places the routine no's (the kids whose offers you pulled in the last 120 days, your players in the portal) with the rule's calls (default 1, up to 3), as "worth a look", to the programs with a hole (`takers`: his home state first, near his best standing, then the bigger name). The favors are his own.
+- A kid from a school where your staff is Trusted or Home comes to you instead, as a memo ("Yours to call: ...").
+
+### Your leavers (`leavers`, `judge_leavers`)
+
+- Your players who enter the portal are noted on Mondays. On September 1 his high school coach judges: helped to land (placed and landed) +3 ("You helped Reyes land at Troy."), drifted out of football −4 ("Reyes drifted after he left you."), landed on his own nothing.
+
+### The board and the commands
+
+- `favors::board`: your haves (pulled offers without a home, your players in the portal), your calls and where each stands, who owes you and whom you owe in words ("He owes you a big one, for a look at Simmons"; your coordinator's marked), and the rule.
+- Game commands (`crates/afm-game/src/lane_favors.rs`): `ground_favors`, `ground_favor_takers` (`kid`), `ground_favor_place` (`kid`, `coach`, `claim` 0-2, `worry`), `ground_favor_ask` (`kind`, `id`, `kid`), `ground_favor_rule` (`calls`). Off, every call but the board refuses. No screen yet.
+
+### What G11b does not do
+
+- The AI's books, placements and spending (lane G9), the news order reading the lift (lane G4's order, once both are in), access asks (his juniors at your camp, a word in a job search), stashes at a junior college or prep school, the eras' rules (a release before October 15, 2018, grayshirts under the 25 cap, NIL as a step up from February 2024), the era's warnings on asks for a prospect's relatives, brokers placing kids, and the NFL and high school seats.
+
+### Where the knobs are
+
+- `world/ground/favors.rs`: `HOME_POINTS` 4, `MAX_CALLS` 3, `LOOK_DAYS` 400, `SETTLE_TRANSFER` 365, `SETTLE_SIGNEE` 730, `DODGE` 0.6, `OVERASK` −3, `PLACED_NO_SHARE` 0.25, `SECOND_PULL_YEARS` 3, `WORD_SETTLE` 2, `CALL_IN_BY` 330, `CALL_IN_WEEK` 0.06, `OWED_FADE` 730, `LEAVER_HELD` 3, `LEAVER_DRIFT` −4, `DEFAULT_CALLS` 1; the worries' lines in `real_worry`; the hole in `hole`; a scarce week in `scarce`.
 
 ## Where the knobs are
 

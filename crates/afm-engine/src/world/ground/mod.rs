@@ -10,6 +10,8 @@
 //! page (`card`).
 //! Lane G3: your week (`week`): the meeting at the map, road days,
 //! trips, the ledger, the day's calls and the beats.
+//! Lane G11b: favors (`favors`), the economy of placing kids, switched off
+//! with `WorldOptions.favors`.
 //!
 //! The store is sparse: only your seat's holders (your program, you and
 //! your staff's men) keep memories, and only with people someone has dealt
@@ -19,6 +21,7 @@
 
 pub mod areas;
 pub mod card;
+pub mod favors;
 pub mod jobs;
 pub mod memory;
 pub mod people;
@@ -57,6 +60,8 @@ pub struct Ground {
     pub(crate) vacated: Vec<(u32, Who, crate::calendar::Date)>,
     /// Your week (lane G3): the plan, the road, the phone, the ledger.
     pub week: week::Week,
+    /// The favor book (lane G11b): switched off with `WorldOptions.favors`.
+    pub favors: favors::Favors,
     /// Test switch: the seat's ground stands still (the same-world check).
     #[serde(skip)]
     pub(crate) off: bool,
@@ -147,6 +152,7 @@ pub(crate) fn day(w: &mut crate::world::World, d: crate::calendar::Date) {
     }
     word::day(w, d);
     jobs::day(w, d);
+    favors::day(w, d);
     stores::sync(w);
     let cut = d.add(-60);
     w.ground.ups.retain(|u| u.0 >= cut);

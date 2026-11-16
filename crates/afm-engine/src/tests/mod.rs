@@ -28,6 +28,7 @@ mod gameday_room;
 mod gameplan;
 mod ground;
 mod ground_areas;
+mod ground_favors;
 mod ground_people;
 mod ground_week;
 mod growth_reps;
