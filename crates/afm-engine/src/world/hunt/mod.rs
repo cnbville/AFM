@@ -43,9 +43,6 @@ pub const HUNT_TIME: f64 = 1.8;
 /// The share of the head coach's time his other own targets lose while a
 /// hunt runs in their class.
 pub const HUNT_COST: f64 = 0.12;
-/// What an AI college hunter will pay the kid at most, as a share of its
-/// NIL money (a buying program's blue-chip share).
-pub const HUNT_SHARE: f64 = 0.06;
 /// An NFL club's draft-day value of the man it hunts, in board points:
 /// it takes him at its pick and trades up for him more readily.
 pub const HUNT_EDGE: f64 = 2.0;

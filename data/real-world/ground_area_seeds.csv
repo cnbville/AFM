@@ -1,0 +1,209 @@
+state,key,name,nickname,area_codes,counties
+AL,bham,Birmingham,the Magic City,205;659,Jefferson;Shelby;St. Clair
+AL,hsv,Huntsville and North Alabama,the Rocket City,256;938,Madison;Morgan;Limestone
+AL,mob,Mobile and the Gulf Coast,the Port City,251,Mobile;Baldwin
+AL,mgm,Montgomery and the River Region,the River Region,334,Montgomery;Elmore;Autauga
+AL,ttown,Tuscaloosa and West Alabama,T-Town,205,Tuscaloosa;Walker
+AL,wire,The Wiregrass,the Wiregrass,334,Houston;Dale;Coffee
+AL,east,East Alabama,Anniston and Gadsden,256,Calhoun;Etowah
+AK,ak,Alaska,the Last Frontier,907,Anchorage;Matanuska-Susitna
+AZ,phx,Phoenix and the Valley,the Valley of the Sun,602;480;623,Maricopa;Pinal
+AZ,tuc,Tucson and Southern Arizona,the Old Pueblo,520,Pima;Cochise;Santa Cruz
+AZ,north,Northern Arizona,the high country,928,Coconino;Yavapai;Mohave
+AR,lr,Little Rock and Central Arkansas,the 501,501,Pulaski;Saline;Faulkner
+AR,nwa,Northwest Arkansas,NWA,479,Benton;Washington;Sebastian
+AR,ne,Northeast Arkansas,the Delta,870,Craighead;Crittenden;Greene
+AR,south,South Arkansas,Pine Bluff to Texarkana,870,Jefferson;Union;Miller
+CA,la,Los Angeles,LA,213;310;323;818,Los Angeles
+CA,ie,The Inland Empire,the IE,909;951,San Bernardino;Riverside
+CA,oc,Orange County,the OC,714;949,Orange
+CA,sd,San Diego,America's Finest City,619;858;760,San Diego;Imperial
+CA,bay,The Bay Area,the Bay,510;415;650,Alameda;Contra Costa;San Francisco
+CA,sj,San Jose and the South Bay,the South Bay,408;831,Santa Clara;Monterey
+CA,sac,Sacramento,Sac-Town,916,Sacramento;Placer;Yolo
+CA,cv,The Central Valley,the Valley,559;209,Fresno;Tulare;Stanislaus
+CA,kern,Bakersfield,the 661,661,Kern
+CA,805,Ventura and the Central Coast,the 805,805,Ventura;Santa Barbara;San Luis Obispo
+CA,north,Northern California,the North State,530;707,Shasta;Butte;Humboldt
+CO,den,Denver,the Mile High,303;720,Denver;Arapahoe;Jefferson
+CO,cos,Colorado Springs and the south,the Springs,719,El Paso;Pueblo
+CO,noco,Northern Colorado,NoCo,970,Larimer;Weld
+CO,slope,The Western Slope,the Slope,970,Mesa;Garfield
+CT,203,Fairfield and New Haven,the 203,203;475,Fairfield;New Haven
+CT,860,Hartford and the east,the 860,860;959,Hartford;New London
+DE,de,Delaware,the First State,302,New Castle;Kent;Sussex
+DC,dc,Washington,the DMV,202,District of Columbia
+FL,305,Miami-Dade,the 305,305;786,Miami-Dade
+FL,954,Broward,the 954,954;754,Broward
+FL,561,Palm Beach and the Treasure Coast,the 561,561;772,Palm Beach;St. Lucie;Martin
+FL,bay,Tampa Bay,the Bay,813;727,Hillsborough;Pinellas;Pasco
+FL,407,Orlando and Central Florida,the 407,407;321;386,Orange;Seminole;Osceola
+FL,904,Jacksonville and the First Coast,the 904,904,Duval;Clay;St. Johns
+FL,bigbend,Tallahassee and the Big Bend,the Big Bend,850,Leon;Gadsden
+FL,pan,Pensacola and the Panhandle,the Panhandle,850,Escambia;Okaloosa;Bay
+FL,352,Gainesville and North Central Florida,the 352,352,Alachua;Marion
+FL,863,Lakeland and the Heartland,the 863,863,Polk;Highlands
+FL,swfl,Southwest Florida,SWFL,239;941,Lee;Collier;Sarasota
+GA,south,South Atlanta,the south metro,770;678,Clayton;Henry;Fayette;Coweta;Spalding;Butts;Lamar;Pike;Heard
+GA,404,In-town Atlanta,the 404,404;470,Fulton;DeKalb
+GA,gwin,Gwinnett,the east metro,770;678,Gwinnett;Rockdale;Newton;Walton;Barrow;Morgan;Jasper
+GA,cobb,Cobb and the northwest,the west metro,770;706,Cobb;Douglas;Paulding;Carroll;Haralson;Polk;Bartow;Floyd;Gordon;Chattooga;Walker;Catoosa;Whitfield;Murray;Dade
+GA,north,North Georgia,the mountains,706;770,Cherokee;Forsyth;Hall;Dawson;Pickens;Gilmer;Fannin;Union;Towns;Rabun;Habersham;White;Lumpkin;Banks;Stephens;Franklin;Hart;Jackson
+GA,athens,Athens,the Classic City,706;762,Clarke;Oconee;Madison;Oglethorpe;Elbert;Wilkes;Greene;Lincoln;Taliaferro
+GA,aug,Augusta,the CSRA,706;762,Richmond;Columbia;McDuffie;Burke;Jefferson;Glascock;Warren;Washington;Jenkins;Screven;Emanuel
+GA,macon,Middle Georgia,Macon and the Robins base,478,Bibb;Houston;Peach;Jones;Monroe;Crawford;Twiggs;Baldwin;Putnam;Hancock;Wilkinson;Laurens;Bleckley;Pulaski;Dodge;Upson;Taylor;Macon;Dooly;Johnson;Treutlen
+GA,col,Columbus and the Valley,the 706 west,706;762,Muscogee;Harris;Troup;Meriwether;Talbot;Chattahoochee;Marion;Stewart;Webster;Quitman;Schley;Sumter;AL:Russell;AL:Lee;AL:Chambers
+GA,sav,Savannah and the coast,the 912,912,Chatham;Effingham;Bryan;Liberty;Long;McIntosh;Glynn;Camden;Bulloch;Evans;Tattnall;Candler;Wayne
+GA,229,Southwest Georgia,the 229,229,Dougherty;Lee;Terrell;Randolph;Clay;Calhoun;Early;Miller;Baker;Mitchell;Seminole;Decatur;Grady;Thomas;Colquitt;Worth;Tift;Turner;Crisp;Wilcox;Ben Hill;Irwin;Berrien;Cook;Brooks;Lowndes;Lanier;Echols
+GA,se,Southeast Georgia,the wiregrass,912,Ware;Pierce;Brantley;Charlton;Bacon;Appling;Jeff Davis;Coffee;Telfair;Wheeler;Montgomery;Toombs;Clinch;Atkinson
+HI,hi,Hawaii,the islands,808,Honolulu
+ID,tv,Boise and the Treasure Valley,the Treasure Valley,208;986,Ada;Canyon
+ID,east,Eastern Idaho,Idaho Falls and Pocatello,208;986,Bonneville;Bannock;Twin Falls
+ID,north,North Idaho,the Panhandle,208;986,Kootenai;Latah
+IL,cook,Chicago and Cook County,the city,312;773;708;847,Cook
+IL,collar,The collar counties,the suburbs,630;847;815;331,DuPage;Lake;Will
+IL,rock,Rockford and Northern Illinois,the 815,815;779,Winnebago;Kane;McHenry
+IL,cent,Central Illinois,the 217 and the 309,217;309,Sangamon;Champaign;Peoria
+IL,me,The Metro East and Southern Illinois,the Metro East,618,St. Clair;Madison;Jackson
+IN,indy,Indianapolis,Circle City,317,Marion;Hamilton;Johnson
+IN,region,Northwest Indiana,the Region,219,Lake;Porter
+IN,ne,Fort Wayne and the north,the 260 and the 574,260;574,Allen;St. Joseph;Elkhart
+IN,south,Southern Indiana,the 812,812;930,Vanderburgh;Clark;Monroe
+IA,dsm,Des Moines and Central Iowa,the 515,515,Polk;Story;Dallas
+IA,east,Eastern Iowa,the Corridor,319;563,Linn;Johnson;Scott
+IA,west,Western Iowa,the 712,712,Woodbury;Pottawattamie
+KS,kc,Kansas City and Northeast Kansas,the KC side,913;785,Johnson;Wyandotte;Shawnee
+KS,ict,Wichita and South Central Kansas,the Air Capital,316;620,Sedgwick;Reno;Butler
+KS,west,Western Kansas,the 620 west,620;785,Finney;Ford;Ellis
+KY,lou,Louisville,Derby City,502,Jefferson;Oldham;Bullitt
+KY,lex,Lexington and the Bluegrass,the Bluegrass,859,Fayette;Madison;Scott
+KY,nky,Northern Kentucky,NKY,859,Boone;Kenton;Campbell
+KY,west,Western Kentucky,the 270,270;364,Warren;Daviess;McCracken
+KY,east,Eastern Kentucky,the mountains,606,Pike;Laurel;Boyd
+LA,nola,New Orleans,the Big Easy,504,Orleans;Jefferson;St. Tammany
+LA,br,Baton Rouge,the Red Stick,225,East Baton Rouge;Ascension;Livingston
+LA,acad,Acadiana,Acadiana,337,Lafayette;Iberia;St. Landry
+LA,swla,Lake Charles,SWLA,337,Calcasieu;Beauregard
+LA,shv,Shreveport and the ArkLaTex,the ArkLaTex,318,Caddo;Bossier
+LA,mon,Monroe and Northeast Louisiana,the 318 east,318,Ouachita;Lincoln
+LA,cenla,Central Louisiana,Cenla,318,Rapides;Natchitoches
+ME,me,Maine,the Pine Tree State,207,Cumberland;York;Androscoggin
+MD,pg,Prince George's and Southern Maryland,PG,301;240,Prince George's;Charles
+MD,moco,Montgomery and Frederick,MoCo,301;240,Montgomery;Frederick
+MD,bal,Baltimore,Charm City,410;443,Baltimore city;Baltimore;Anne Arundel
+MD,shore,The Eastern Shore,the Shore,410;443,Wicomico;Talbot
+MD,west,Western Maryland,the mountain side,301;240,Washington;Allegany
+MA,bos,Boston and Eastern Mass,the 617,617;781;508;978,Suffolk;Middlesex;Norfolk
+MA,413,Central and Western Mass,the 413,413;508;774,Worcester;Hampden
+MI,det,Detroit,the D,313,Wayne
+MI,248,Oakland and Macomb,the 248,248;586;947,Oakland;Macomb
+MI,west,Grand Rapids and West Michigan,West Michigan,616;269,Kent;Ottawa;Kalamazoo
+MI,mid,Mid-Michigan,Lansing and Flint,517;810;989,Ingham;Genesee;Saginaw
+MI,north,Northern Michigan and the UP,up north,231;906,Grand Traverse;Marquette
+MN,cities,The Twin Cities,the Cities,612;651;952;763,Hennepin;Ramsey;Dakota
+MN,out,Greater Minnesota,outstate,507;218;320,Olmsted;Stearns;St. Louis
+MS,jxn,Jackson and the metro,the 601,601;769,Hinds;Rankin;Madison
+MS,coast,The Gulf Coast,the Coast,228,Harrison;Jackson;Hancock
+MS,pine,The Pine Belt,Hattiesburg and Laurel,601;769,Forrest;Lamar;Jones
+MS,north,North Mississippi,the 662,662,Lee;DeSoto;Lafayette
+MS,delta,The Delta,the Delta,662,Washington;Bolivar;Sunflower
+MO,stl,St. Louis,the Lou,314;636,St. Louis city;St. Louis;St. Charles
+MO,kc,Kansas City,KC,816,Jackson;Clay;Platte
+MO,ozarks,Springfield and the Ozarks,the Ozarks,417,Greene;Jasper;Christian
+MO,mid,Mid-Missouri,CoMo,573,Boone;Cole
+MT,mt,Montana,Big Sky,406,Yellowstone;Gallatin;Missoula
+NE,402,Omaha and Lincoln,the 402,402;531,Douglas;Sarpy;Lancaster
+NE,308,Greater Nebraska,the 308,308,Hall;Buffalo;Lincoln
+NV,lv,Las Vegas,Vegas,702;725,Clark
+NV,775,Reno and Northern Nevada,the 775,775,Washoe;Carson City
+NH,nh,New Hampshire,the Granite State,603,Hillsborough;Rockingham
+NJ,north,North Jersey,the 201 and the 973,201;973;551,Bergen;Essex;Passaic
+NJ,cent,Central Jersey,the 732,732;908;848,Middlesex;Monmouth;Union
+NJ,south,South Jersey,the 856,856;609,Camden;Gloucester;Burlington
+NJ,shore,The Shore,down the shore,609;732,Ocean;Atlantic;Cape May
+NM,abq,Albuquerque and the north,the Duke City,505,Bernalillo;Sandoval;Santa Fe
+NM,575,Southern New Mexico,the 575,575,Doña Ana;Lea;Chaves
+NY,nyc,New York City,the five boroughs,718;212;347;917,Kings;Queens;Bronx
+NY,li,Long Island,the Island,516;631,Nassau;Suffolk
+NY,hv,Westchester and the Hudson Valley,the Hudson Valley,914;845,Westchester;Orange;Dutchess
+NY,cap,Albany and the Capital Region,the Capital Region,518,Albany;Schenectady;Saratoga
+NY,cny,Syracuse and Central New York,CNY,315;607,Onondaga;Oneida;Broome
+NY,roc,Rochester and the Finger Lakes,the 585,585,Monroe;Ontario
+NY,wny,Buffalo and Western New York,WNY,716,Erie;Niagara;Chautauqua
+NC,clt,Charlotte,the Queen City,704;980,Mecklenburg;Gaston;Union
+NC,tri,The Triangle,the Triangle,919;984,Wake;Durham;Johnston
+NC,triad,The Triad,the 336,336;743,Guilford;Forsyth;Davidson
+NC,252,Eastern Carolina,the 252,252,Pitt;Wayne;Nash
+NC,sand,Fayetteville and the Sandhills,the Sandhills,910,Cumberland;Robeson;Moore
+NC,cape,Wilmington and the coast,the Cape Fear,910,New Hanover;Onslow;Brunswick
+NC,828,Western Carolina,the 828,828,Buncombe;Catawba;Henderson
+ND,nd,North Dakota,the Peace Garden State,701,Cass;Burleigh
+OH,cle,Cleveland and Northeast Ohio,the Land,216;440,Cuyahoga;Lorain;Lake
+OH,330,Akron and Canton,the 330,330;234,Summit;Stark;Mahoning
+OH,614,Columbus and Central Ohio,the 614,614;380,Franklin;Delaware;Licking
+OH,cin,Cincinnati,the Queen City,513,Hamilton;Butler;Warren
+OH,937,Dayton and the Miami Valley,the 937,937,Montgomery;Greene;Clark
+OH,419,Toledo and Northwest Ohio,the 419,419;567,Lucas;Wood;Allen
+OH,740,Southeast Ohio,the 740,740,Athens;Muskingum;Scioto
+OK,405,Oklahoma City,the 405,405,Oklahoma;Cleveland;Canadian
+OK,918,Tulsa and Green Country,Green Country,918,Tulsa;Wagoner;Rogers
+OK,580,Western and Southern Oklahoma,the 580,580,Comanche;Garfield;Carter
+OR,pdx,Portland,PDX,503;971,Multnomah;Washington;Clackamas
+OR,541,The Willamette Valley and the south,the 541,541;458,Lane;Marion;Jackson
+PA,phl,Philadelphia,Philly,215;267,Philadelphia
+PA,610,The Philly suburbs,the 610,610;484,Montgomery;Delaware;Bucks
+PA,wpial,Pittsburgh and the WPIAL,the WPIAL,412;724,Allegheny;Westmoreland;Washington
+PA,717,Central Pennsylvania,the 717,717;223,Dauphin;York;Lancaster
+PA,coal,The Lehigh Valley and the coal region,the 570,610;570,Lehigh;Northampton;Luzerne
+PA,814,Erie and the northwest,the 814,814,Erie;Centre;Blair
+RI,ri,Rhode Island,the Ocean State,401,Providence;Kent
+SC,mid,Columbia and the Midlands,the Midlands,803,Richland;Lexington
+SC,up,The Upstate,the Upstate,864,Greenville;Spartanburg;Anderson
+SC,low,Charleston and the Lowcountry,the Lowcountry,843,Charleston;Berkeley;Dorchester
+SC,pee,The Pee Dee and the Grand Strand,the Pee Dee,843,Florence;Darlington;Horry
+SD,sd,South Dakota,the Mount Rushmore State,605,Minnehaha;Pennington
+TN,901,Memphis,the 901,901,Shelby;Tipton
+TN,nash,Nashville and Middle Tennessee,Music City,615;629,Davidson;Williamson;Rutherford
+TN,865,Knoxville and East Tennessee,the 865,865,Knox;Blount;Sevier
+TN,chatt,Chattanooga,the Scenic City,423,Hamilton;Bradley
+TN,tri,The Tri-Cities,the Tri-Cities,423,Sullivan;Washington
+TN,731,West Tennessee,the 731,731,Madison;Gibson
+TX,hou,Houston,H-Town,713;281;832,Harris
+TX,bend,Fort Bend and Brazoria,the southwest side,281;832;979,Fort Bend;Brazoria;Wharton
+TX,north,Montgomery County and north Houston,the Woodlands side,936;281,Montgomery;Walker;Liberty
+TX,409,Galveston and the Golden Triangle,the Golden Triangle,409,Galveston;Jefferson;Orange
+TX,dal,Dallas,Big D,214;469;972,Dallas;Ellis;Kaufman
+TX,fw,Fort Worth,Cowtown,817;682,Tarrant;Parker;Johnson
+TX,collin,Collin and Denton,the north suburbs,972;469;940,Collin;Denton;Rockwall
+TX,etx,East Texas,the Piney Woods,903;430;936,Smith;Gregg;Angelina
+TX,210,San Antonio,the 210,210;726,Bexar;Comal;Guadalupe
+TX,512,Austin,the 512,512;737,Travis;Williamson;Hays
+TX,ctx,Central Texas,Waco and Killeen,254,McLennan;Bell;Coryell
+TX,brazos,The Brazos Valley,Aggieland,979,Brazos;Washington
+TX,361,Corpus Christi and the Coastal Bend,the Coastal Bend,361,Nueces;San Patricio;Victoria
+TX,rgv,The Rio Grande Valley,the Valley,956,Hidalgo;Cameron;Webb
+TX,915,El Paso,the Sun City,915,El Paso
+TX,432,The Permian Basin,the Permian,432,Midland;Ector
+TX,lbk,Lubbock and the South Plains,the South Plains,806,Lubbock;Hale
+TX,pan,Amarillo and the Panhandle,the Panhandle,806,Potter;Randall
+TX,wctx,Abilene and West Central Texas,the Big Country,325;940,Taylor;Tom Green;Wichita
+UT,wf,The Wasatch Front,the Wasatch Front,801;385,Salt Lake;Utah;Davis
+UT,dixie,Southern Utah,Dixie,435,Washington;Iron
+VT,vt,Vermont,the Green Mountain State,802,Chittenden;Rutland
+VA,757,Hampton Roads,the 757,757,Virginia Beach city;Norfolk city;Chesapeake city
+VA,nova,Northern Virginia,NoVA,703;571,Fairfax;Prince William;Loudoun
+VA,rva,Richmond,RVA,804,Henrico;Chesterfield;Richmond city
+VA,swva,Roanoke and Southwest Virginia,the 540 and the 276,540;276,Roanoke;Montgomery;Washington
+VA,434,Central and Southside Virginia,the 434,434,Albemarle;Campbell;Pittsylvania
+VA,valley,The Shenandoah Valley,the Valley,540,Rockingham;Augusta;Frederick
+WA,206,Seattle and the north,the 206,206;425,King;Snohomish
+WA,253,Tacoma and the South Sound,the 253,253;360,Pierce;Thurston;Kitsap
+WA,360,Vancouver and Southwest Washington,the 360,360,Clark;Cowlitz
+WA,509,Spokane and Eastern Washington,the 509,509,Spokane;Yakima;Benton
+WV,kan,Charleston and Huntington,the Kanawha Valley,304;681,Kanawha;Cabell;Raleigh
+WV,mon,North Central and the Panhandle,the Mon Valley,304;681,Monongalia;Harrison;Berkeley
+WI,414,Milwaukee,the 414,414;262,Milwaukee;Waukesha
+WI,mad,Madison and the south,Mad City,608,Dane;Rock
+WI,fox,Green Bay and the Fox Valley,the Fox Valley,920,Brown;Outagamie;Winnebago
+WI,715,The Northwoods and Western Wisconsin,the 715,715;534,Marathon;Eau Claire
+WY,wy,Wyoming,the Cowboy State,307,Laramie;Natrona

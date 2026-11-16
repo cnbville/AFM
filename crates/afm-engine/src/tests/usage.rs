@@ -294,7 +294,10 @@ fn the_field_goal_line_ends_punts_inside_it() {
 #[test]
 fn shots_and_help_go_to_the_man_you_promised() {
     let t = league(74);
-    let base = games(&t[0], &t[1], 24, 4_000);
+    // 96 games: a receiver sees about one deep target a game, so 24 games
+    // left the promise's lift (about half again) inside one draw's noise
+    // when the rosters changed (the strength split, 2026-11-15).
+    let base = games(&t[0], &t[1], 96, 4_000);
     let deep = Usage { what: What::Targets, far: 20, ..Usage::default() };
     let help = Usage { what: What::Help, share: true, ..Usage::default() };
     let wrs: Vec<u32> = t[0].players.iter().filter(|p| p.position == Position::WR).map(|p| p.id).collect();
@@ -306,7 +309,7 @@ fn shots_and_help_go_to_the_man_you_promised() {
     let mut home = t[0].clone();
     home.prep.keep.shots = vec![wr];
     home.prep.keep.help = vec![lt];
-    let kept = games(&home, &t[1], 24, 4_000);
+    let kept = games(&home, &t[1], 96, 4_000);
     let (d0, d1) = (pooled(&base, &deep, wr).0, pooled(&kept, &deep, wr).0);
     let rate = |rs: &[GameResult]| {
         let (n, of) = pooled(rs, &help, lt);

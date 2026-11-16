@@ -170,6 +170,7 @@ fn a_player_who_enters_the_portal_leaves_your_nil_budget() {
         offered: Some(today.add(-290)),
         nil: Some(200_000.0),
         nil_coll: Some(100_000.0),
+        years: 0,
         contacted: None,
         leaked: false,
         from: if p == 0 { 1 } else { 0 },

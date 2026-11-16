@@ -1069,6 +1069,36 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
     }
 }
 
+/// A meeting you held and wrapped up by talking, with its picks left
+/// (live talks, `persona::talk::wrap`): the staff's own routine runs as it
+/// would have, with no cost for leaving. The recruiting coordinator calls
+/// the commits, the position coaches talk to the flight risks, the
+/// trainers run their own plan.
+pub(crate) fn settle(w: &mut World, s: &mut Scene) {
+    let Some(team) = s.team.or(Team::seat(w)) else { return };
+    match s.kind {
+        Kind::Recruiting => {
+            recruiting_calls(w, team, false);
+            s.outcome.push("The recruiting staff made the calls to the commits.".into());
+        }
+        Kind::FlightRisks => {
+            let risks: Vec<u32> =
+                w.folk.takeover.as_ref().map(|t| t.risks.iter().map(|r| r.0).collect()).unwrap_or_default();
+            for id in risks {
+                if let Some(i) = super::person(w, id) {
+                    position_coach_word(w, i);
+                }
+            }
+            s.outcome.push("Their position coaches talked to the flight risks.".into());
+        }
+        Kind::Trainer => {
+            rehab_holds(w, team, false);
+            s.outcome.push("The trainers run their own plan: nobody is pushed.".into());
+        }
+        _ => {}
+    }
+}
+
 /// Who on your staff takes a meeting you hand off.
 pub(crate) fn staff_hand(w: &World, team: Team, kind: Kind) -> String {
     let get = |r: Role| cast::has(w, team, r).then(|| cast::get(w, CastRef::new(team, r, 0)));

@@ -63,6 +63,8 @@ pub enum Part {
     Agility,
     Balance,
     Strength,
+    /// Lower body strength (physical study item 4b): the anchor's base.
+    Lower,
     Flexibility,
     Jumping,
     /// Jumping power, the broad jump.
@@ -168,7 +170,7 @@ impl Link {
             Link::BatteringRam => &[Weight, Speed, Strength],
             Link::Length => &[Arm, Wingspan, Hand],
             Link::BigMover => &[Weight, Acceleration, Agility],
-            Link::Anchor => &[Weight, Strength, Balance],
+            Link::Anchor => &[Weight, Lower, Balance],
             Link::GetOff => &[Acceleration, Explosion],
             Link::Bend => &[Flexibility, Balance, Speed],
             Link::Lungs => &[Stamina, Recovery],
@@ -331,8 +333,16 @@ static COMBINE: LazyLock<[Combine; POSITION_COUNT]> = LazyLock::new(|| {
 /// The athletic traits the combine has no test for, read against the
 /// position's combine class as the game makes it: draft prospects at about
 /// 22, near their grown ratings (the player model's own calibration).
-const NORM_ATTRS: [Attr; 7] =
-    [Attr::Acceleration, Attr::Agility, Attr::Balance, Attr::Strength, Attr::Flexibility, Attr::Jumping, Attr::Stamina];
+const NORM_ATTRS: [Attr; 8] = [
+    Attr::Acceleration,
+    Attr::Agility,
+    Attr::Balance,
+    Attr::Strength,
+    Attr::Flexibility,
+    Attr::Jumping,
+    Attr::Stamina,
+    Attr::LowerBody,
+];
 
 static NORMS: LazyLock<[[(f64, f64); NORM_ATTRS.len()]; POSITION_COUNT]> = LazyLock::new(|| {
     use crate::player::{ProspectOptions, generate_prospect};
@@ -423,6 +433,7 @@ pub fn part_z(part: Part, pos: Position, b: &Body, attrs: &Attributes, recovery:
         Part::Agility => norm_z(pos, Attr::Agility, attrs.get(Attr::Agility)),
         Part::Balance => norm_z(pos, Attr::Balance, attrs.get(Attr::Balance)),
         Part::Strength => norm_z(pos, Attr::Strength, attrs.get(Attr::Strength)),
+        Part::Lower => norm_z(pos, Attr::LowerBody, attrs.get(Attr::LowerBody)),
         Part::Flexibility => norm_z(pos, Attr::Flexibility, attrs.get(Attr::Flexibility)),
         Part::Jumping => norm_z(pos, Attr::Jumping, attrs.get(Attr::Jumping)),
         Part::Stamina => norm_z(pos, Attr::Stamina, attrs.get(Attr::Stamina)),

@@ -177,12 +177,19 @@ fn a_recruit_counters_with_the_money_that_tops_his_best_school_and_his_mom_takes
     let f = Fake { wants: wants(&[WantKind::Money, WantKind::Place]), ..Default::default() };
     let d = Deals { wants: &f };
     let small = Offer { gives: vec![Give::Scholarship(None), Give::Money(1000.0)], ..Default::default() };
+    // A rich program of yours: the most he can ask is the best top bid for
+    // him, and only money your budget can reach closes the gap (the new NIL
+    // scheme, item 5).
+    w.programs[p].collective.budget = 40.0e6;
     let mut seen = 0;
     let mut used = Vec::new();
     for _ in 0..200 {
         let r = fresh(&w, &used, 17);
         used.push(r);
         w.people[r].cal.offers = vec![other];
+        // A five-star, whom the market pays real money: the most he can ask
+        // is the best top bid for him (the new NIL scheme, item 5).
+        w.people[r].stars = 5;
         w.people[r].family.decider = crate::world::background::Decider::Himself;
         let him = Them::Player(w.people[r].player.id);
         assert_eq!(d.best(&w, him), Best::School(other));

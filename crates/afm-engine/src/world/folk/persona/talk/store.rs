@@ -57,6 +57,10 @@ pub struct Open {
     /// Requests he said no to.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub refused: Vec<Request>,
+    /// The talk is over but the meeting holds a decision still to make
+    /// (`wrap::decides`): no more lines, the meeting's picks decide it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub over: bool,
 }
 
 impl Open {
@@ -73,6 +77,7 @@ impl Open {
             asked: Vec::new(),
             questions: Vec::new(),
             refused: Vec::new(),
+            over: false,
         }
     }
 
@@ -189,6 +194,28 @@ pub fn advance(w: &mut World, scene: u32, room: &Room, t: &Turn, said: &Said, po
             o.refused.push(r.clone());
         }
     }
+}
+
+/// The talk is over and the meeting waits on a decision: the talk's state
+/// stays (a man done talking stays done today), marked over.
+pub fn over(w: &mut World, scene: u32) {
+    let m = &mut w.folk.live.persona.open;
+    match m.iter_mut().find(|o| o.scene == scene) {
+        Some(o) => o.over = true,
+        None => {
+            let room = w.folk.scenes.iter().find(|s| s.id == scene).map(|s| super::channels::room_for(w, s));
+            if let Some(room) = room {
+                let mut o = Open::new(scene, &room);
+                o.over = true;
+                w.folk.live.persona.open.push(o);
+            }
+        }
+    }
+}
+
+/// Whether a scene's talk is over while its meeting waits on a decision.
+pub fn is_over(w: &World, scene: u32) -> bool {
+    open(w, scene).is_some_and(|o| o.over)
 }
 
 /// The talk is over: its open state goes.

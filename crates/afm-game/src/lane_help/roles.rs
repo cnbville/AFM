@@ -159,31 +159,53 @@ pub(super) fn roles(a: Attr) -> Vec<Role> {
             ),
         ],
         Strength => vec![
-            r(QBS, "Only through a sack: it is a third of his escape roll.", "escaping a sack"),
+            r(QBS, "Only through a sack: half of his strength in a third of his escape roll.", "escaping a sack"),
             r(
                 RBS,
-                "Breaking tackles and moving the pile: half of his broken-tackle score, and a part of his resistance once he is wrapped up.",
-                "breaks tackles, moves the pile",
+                "The stiff arm and the fight through the wrap-up: half of the strength in his broken-tackle score.",
+                "stiff arms, breaks tackles",
             ),
             r(
                 RECS,
-                "Beating the jam (a fifth) and a quarter of the fight at the catch point. A tight end's block power reads a fifth of it.",
-                "the jam, the catch point, blocks",
+                "Beating the jam (a fifth) and a quarter of the fight at the catch point.",
+                "the jam, the catch point",
             ),
             r(
                 OL,
-                "A fifth of block power and of the run set, and a fifth of his anchor against power. With his mass it decides who wins the hand fight.",
-                "blocking and anchoring",
+                "The hand fight: a twentieth of his block against a hands rusher, about a sixteenth of run block power, and catching a punch.",
+                "the hand fight",
             ),
             r(
                 RUSH,
-                "A quarter of a power rush, paid in full with mass (an edge up to 20 lb over the typical edge). It also helps shed blocks and hold a tackle.",
-                "power rush, shedding",
+                "The long arm and the hands in a power rush (a tenth), and shedding blocks (a tenth).",
+                "power rush hands, shedding",
             ),
             r(
                 SEVEN,
-                "Taking on blockers and finishing tackles; a corner's jam at the line reads a quarter of it, and a safety's hit at the catch point a fifth.",
-                "blockers, tackles, the jam",
+                "Shedding blockers, a corner's jam at the line (a quarter) and punching the ball out.",
+                "sheds, the jam, strips",
+            ),
+        ],
+        LowerBody => vec![
+            r(
+                RBS,
+                "Moving the pile and driving through contact: half of the strength in his broken-tackle score, and a part of his resistance once he is wrapped up.",
+                "moves the pile, runs through contact",
+            ),
+            r(
+                OL,
+                "About a seventh of run block power, a fifth of the run set, and a sixth of his anchor against power. It drives the pancake.",
+                "drive blocking and anchoring",
+            ),
+            r(
+                RUSH,
+                "The push in a power rush (about a sixth), paid in full with mass (an edge up to 20 lb over the typical edge), and the anchor against a double team.",
+                "the bull rush push, holding the double",
+            ),
+            r(
+                SEVEN,
+                "Driving through a tackle: the thump at contact and half of the strength in a wrap-up.",
+                "finishing tackles",
             ),
         ],
         Balance => vec![
