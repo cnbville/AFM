@@ -2180,6 +2180,8 @@ fn offer_at(w: &mut World, j: usize, id: u32, by: Source, why: Option<String>) -
             .program(j),
         );
     }
+    // Your find, if the world still rates him low (Ground lane G4).
+    crate::world::ground::finds::on_offer(w, j, id, today);
     let gpa = rec::eligibility_gpa(w.people[i].bg.gpa, w.people[i].cal.test_score, w.people[i].class_of);
     let warn = if rec::ncaa_tier(w.programs[j].division, gpa) == rec::Eligibility::NonQualifier {
         " His transcript is under the academic line today: he can't sign unless it comes up."

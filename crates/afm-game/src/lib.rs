@@ -36,6 +36,7 @@ pub mod lane_handbook;
 pub mod lane_help;
 pub mod lane_hiring;
 pub mod lane_hunt;
+pub mod lane_leads;
 pub mod lane_legacy;
 pub mod lane_logos;
 pub mod lane_money;
@@ -422,6 +423,7 @@ impl Game {
                     lane_ground::call,
                     lane_groundweek::call,
                     lane_hunt::call,
+                    lane_leads::call,
                     lane_data::call,
                     notebook::call,
                     live_talk::call,
