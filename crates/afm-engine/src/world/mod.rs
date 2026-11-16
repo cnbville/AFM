@@ -36,6 +36,7 @@ pub mod franchise;
 pub mod front_office;
 pub mod game_log;
 pub mod geo;
+pub mod ground;
 pub mod guide;
 pub mod help;
 pub mod high_school;
@@ -51,6 +52,7 @@ pub mod ncaa;
 pub mod new_teams;
 pub mod news;
 pub(crate) mod nfl_year;
+pub mod nil_bid;
 pub mod norms;
 pub use nfl_year::NflTeamSeason;
 pub use recruiting::DraftRun;
@@ -500,6 +502,24 @@ pub struct PersonCal {
     /// 100). Cleared at fall camp.
     #[serde(default)]
     pub nil_role: Option<(PlayingTime, f32)>,
+    /// His deal for the coming money year (the new NIL scheme, items 5 and
+    /// 9): what he signed for, landed on, or was offered to stay. Paid on
+    /// July 1, then cleared.
+    #[serde(default)]
+    pub nil_deal: Option<nil_bid::NilDeal>,
+    /// December's keep-him offer before the January window (item 9): (his
+    /// offer, the best rival's top bid for him). Cleared on July 1.
+    #[serde(default)]
+    pub nil_keep: Option<(f64, f64)>,
+    /// The buyout he carries into the portal from a multi-year deal (the
+    /// new NIL scheme, item 12): half of what it still owed him, which the
+    /// school that takes him pays his old one. Cleared when he lands or
+    /// goes back.
+    #[serde(default)]
+    pub nil_buyout: f64,
+    /// His school's revenue share in July's money (item 13: who is paid it).
+    #[serde(default)]
+    pub nil_school: f32,
     /// Cut from a college team (minor bug 60): it holds while he is still
     /// at that program (`Person::cut_here`), until the next window moves him.
     #[serde(default)]
@@ -870,6 +890,14 @@ pub struct World {
     /// both when it loads.
     #[serde(default)]
     pub(crate) mix_rev: u8,
+    /// The new NIL scheme's version of the money (`nil_bid::NIL_REV`): a
+    /// file from before reads 0 and refits its budgets when it loads.
+    #[serde(default)]
+    pub(crate) nil_rev: u8,
+    /// NIL Go's comparisons (the new NIL scheme, item 10): what similar
+    /// players cleared last July, by money level.
+    #[serde(default)]
+    pub nil_book: nil_bid::NilBook,
     /// Each position's typical score in each coaching system (S3).
     pub(crate) system_norms: systems::SystemNorms,
     /// Recruiting and portal records for trials (dynasty item 11 checks).
@@ -1196,6 +1224,37 @@ pub struct CalendarLog {
     pub portal_by_division: [u32; data::DIVISION_COUNT],
     pub portal_by_day: Vec<(crate::calendar::Date, u32)>,
     pub portal_landed: u32,
+    /// NIL Go's year (the new NIL scheme, item 10): third-party deals
+    /// reviewed and denied, their dollars, and the denied money that moved
+    /// into football's revenue share (item 11).
+    #[serde(default)]
+    pub nil_go_reviewed: u32,
+    #[serde(default)]
+    pub nil_go_denied: u32,
+    #[serde(default)]
+    pub nil_go_reviewed_money: f64,
+    #[serde(default)]
+    pub nil_go_denied_money: f64,
+    #[serde(default)]
+    pub nil_go_moved: f64,
+    /// Multi-year deals (the new NIL scheme, item 12): recruits signed on
+    /// one (and by stars), their whole money, terms cut short by the bound
+    /// on later budgets, transfers landed on one, multi-year deals raised
+    /// to keep a man, and buyouts paid when one transferred out.
+    #[serde(default)]
+    pub nil_multi: u32,
+    #[serde(default)]
+    pub nil_multi_stars: [u32; 6],
+    #[serde(default)]
+    pub nil_multi_money: f64,
+    #[serde(default)]
+    pub nil_multi_bound: u32,
+    #[serde(default)]
+    pub nil_multi_transfers: u32,
+    #[serde(default)]
+    pub nil_buyouts: u32,
+    #[serde(default)]
+    pub nil_buyout_money: f64,
     pub portal_returned: u32,
     pub whispers: u32,
     pub sit_out_transfers: u32,
@@ -1555,6 +1614,8 @@ impl World {
                 }
             };
         }
+        // Ground's areas, as staffs split their states (lane G1a).
+        ground::areas::place_schools(&mut high_schools);
         let overflow = overflow_by_state(&programs, year);
         let nfl = crate::league::make_league(&mut rng);
         let changes = crate::calendar::ChangeState::default();
@@ -1588,6 +1649,8 @@ impl World {
             marks: Default::default(),
             tallies: tally::Tallies::new(),
             mix_rev: MIX_REV,
+            nil_rev: nil_bid::NIL_REV,
+            nil_book: Default::default(),
             system_norms: [[0.0; 11]; crate::positions::POSITION_COUNT],
             recruiting_log: RecruitingLog::default(),
             next_person: 1,

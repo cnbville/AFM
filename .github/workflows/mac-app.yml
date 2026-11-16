@@ -21,7 +21,9 @@ name: Mac app
 # never marked latest). The last job, "publish", runs one at a time and moves
 # "latest" and the public downloads page to the highest finished build, never
 # back, so a lane that finishes late can never put an older build on top
-# (.github/scripts/mac-publish.sh).
+# (.github/scripts/mac-publish.sh). The one exception is a hold: a build
+# number in .github/app-hold keeps both on that build (app-hold.yml applies a
+# change to it at once).
 on:
   push:
     branches: [main]
@@ -29,7 +31,7 @@ on:
       "crates/afm-reader-app/**", "reader/**", ".github/workflows/reader-app.yml",
       "data/real-world/ab_real.json", "data/real-world/scripts/**",
       ".github/workflows/ci.yml", ".github/workflows/full-tests.yml", ".github/workflows/build-world.yml", ".github/workflows/mac-app.yml",
-      ".github/scripts/**"]
+      ".github/scripts/**", ".github/app-hold", ".github/workflows/app-hold.yml"]
   workflow_dispatch:
 permissions:
   contents: write

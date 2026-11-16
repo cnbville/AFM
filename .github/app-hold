@@ -1,0 +1,6 @@
+# The downloads hold. Put a build number on a line of its own (for example 492)
+# and the downloads page, the in-app update and "latest" show exactly that
+# build, older or newer than the newest, until this file is empty again.
+# Normally empty: the page shows the newest finished build and only moves
+# forward. A merge that changes this file puts the page right within minutes
+# (.github/workflows/app-hold.yml, .github/scripts/mac-publish.sh).

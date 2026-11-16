@@ -591,8 +591,10 @@ fn old_tests(w: &mut World, team: u32, roster: &[usize]) {
 /// A player's testing numbers today: the combine's expected results for his
 /// ratings and body with a test day's noise (keyed), the lifts from his
 /// bench max (his strength at 220 lb scaled by his weight to the two-thirds
-/// power; squat about 1.45 times it, the power clean about 0.88; proposed,
-/// not confirmed: strength staffs' usual ratios).
+/// power). The squat and the power clean read his lower body the same way
+/// (physical study item 4b): about 1.45 and 0.88 times the bench a man as
+/// strong in the legs as in the upper body would press (proposed, not
+/// confirmed: strength staffs' usual ratios).
 pub fn test_row(p: &crate::player::Player, key: u64) -> TestRow {
     let c = crate::body::Drills::of(p).expected();
     let wt = crate::body::body_now(p).weight;
@@ -602,13 +604,21 @@ pub fn test_row(p: &crate::player::Player, key: u64) -> TestRow {
     // strength at 220 lb and scale it by his weight to the two-thirds power
     // (the way strength goes with size; a 160 lb receiver doesn't press
     // what the fit gives a 200 lb one).
-    let at_220 = crate::body::Drills { weight: 220.0, ..crate::body::Drills::of(p) }.expected().bench + n(1, 1.5);
-    let strength = p.attributes.get(Attr::Strength);
-    let one = if at_220 >= 1.0 {
-        225.0 * (1.0 + at_220 / 30.0) * (wt.max(100.0) / 220.0).powf(0.67)
-    } else {
-        (wt * clamp(0.55 + 0.011 * (strength - 25.0), 0.45, 1.6)).min(220.0)
+    // The legs read the same way without the bench's own knack (his groove
+    // and arch on the press).
+    let max = |strength: f64, noise: f64, bench: bool| {
+        let base = crate::body::Drills::of(p);
+        let lift = if bench { base.lift } else { 0.0 };
+        let d = crate::body::Drills { weight: 220.0, strength, lift, ..base };
+        let at_220 = d.expected().bench + noise;
+        if at_220 >= 1.0 {
+            225.0 * (1.0 + at_220 / 30.0) * (wt.max(100.0) / 220.0).powf(0.67)
+        } else {
+            (wt * clamp(0.55 + 0.011 * (strength - 25.0), 0.45, 1.6)).min(220.0)
+        }
     };
+    let one = max(p.attributes.get(Attr::Strength), n(1, 1.5), true);
+    let legs = max(p.attributes.get(Attr::LowerBody), n(1, 1.5), false);
     let five = |x: f64| ((x / 5.0).round() * 5.0).clamp(0.0, 900.0) as u16;
     let bench = one * (1.0 + n(2, 0.02));
     let forty = (c.forty + n(5, 0.03)).clamp(4.2, 6.5);
@@ -616,8 +626,8 @@ pub fn test_row(p: &crate::player::Player, key: u64) -> TestRow {
         id: p.id,
         bench: five(bench),
         reps: reps as u8,
-        squat: five(bench * 1.45 * (1.0 + n(3, 0.04))),
-        clean: five(bench * 0.88 * (1.0 + n(4, 0.04))),
+        squat: five(legs * 1.45 * (1.0 + n(3, 0.04))),
+        clean: five(legs * 0.88 * (1.0 + n(4, 0.04))),
         forty: (forty * 100.0).round() as u16,
         split: ((0.375 * forty - 0.15 + n(6, 0.015)) * 100.0).round() as u16,
         shuttle: ((c.shuttle + crate::body::drill_knack(p).1 + n(7, 0.04)).clamp(3.8, 6.0) * 100.0).round() as u16,
@@ -2210,6 +2220,7 @@ pub fn body_change(p: &mut crate::player::Player, lbs: f64) {
     p.body.weight = clamp(p.body.weight + lbs * k, 120.0, 400.0);
     for (a, per) in [
         (Attr::Strength, 0.05),
+        (Attr::LowerBody, 0.05),
         (Attr::Anchor, 0.04),
         (Attr::Speed, -0.03),
         (Attr::Acceleration, -0.02),

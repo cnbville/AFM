@@ -235,7 +235,7 @@ pub fn marks(w: &World, s: &Scene, reading: &Reading) -> u8 {
     }
     for h in &reading.hits {
         match (&h.item, h.how) {
-            (Item::Friend(k), How::Flattered | How::Reassured) if *k == s.a as u32 => m |= SOLD,
+            (Item::Friend(k), How::Flattered | How::Reassured | How::Staked) if *k == s.a as u32 => m |= SOLD,
             (Item::Point(k), How::Reassured) if k == "hscall.ask" && worry > 0 => m |= COVER | ADDRESSED,
             (Item::Point(k), How::Respected | How::Doubted) if k == "hscall.ask" => m |= STRAIGHT | ADDRESSED,
             _ => {}
@@ -283,6 +283,8 @@ pub fn weigh(w: &World, s: &Scene, reading: &Reading) -> CallSaid {
     for h in &reading.hits {
         match (&h.item, h.how) {
             (Item::Friend(k), How::Flattered | How::Reassured) if *k == s.a as u32 => x.sold += WORDING,
+            // One strong line on what he really is sells like a claim.
+            (Item::Friend(k), How::Staked) if *k == s.a as u32 => x.sold += 1.0,
             (Item::Point(k), How::Reassured) if k == "hscall.ask" && worry > 0 => x.cover += WORDING,
             (Item::Point(k), How::Respected | How::Doubted) if k == "hscall.ask" => x.straight += WORDING,
             _ => {}

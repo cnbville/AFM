@@ -374,8 +374,12 @@ fn show(w: &mut World, id: u32, key: &str) -> String {
             line(v, "The team period goes by without him touching much.")
         }
         "testing" => {
-            let v =
-                watch(w, id, &[Attr::Speed, Attr::Acceleration, Attr::Strength, Attr::Jumping, Attr::Agility], 0x3A04);
+            let v = watch(
+                w,
+                id,
+                &[Attr::Speed, Attr::Acceleration, Attr::Strength, Attr::LowerBody, Attr::Jumping, Attr::Agility],
+                0x3A04,
+            );
             line(v, "The testing goes about as his tape said it would.")
         }
         "sideline" => {

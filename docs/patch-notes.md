@@ -8,6 +8,74 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.555 (16 Nov, shipped): high school routes from his pass snaps, not 6 a catch (PR #459), recruiting: no staff cap on a class where the NCAA sets none (PR #460), a world from a newer game says "update the game", not a reader error (PR #461)
+**TLDR:** 3 changes ship together. A high school receiver's film now shows the routes he really ran, so a starting tight end's hands and route running read from his tape even when he caught few balls. Small colleges now sign classes the way real ones do: as many as their roster has room and need for. Plus 1 more below.
+- High school routes from his pass snaps, not 6 a catch (PR #459): A high school receiver's film now shows the routes he really ran, so a starting tight end's hands and route running read from his tape even when he caught few balls.
+- Routes on a high school record come from his snaps on pass plays, not his catches. (PR #459)
+- Tight ends who mostly block but start get their hands and routes read on film. (PR #459)
+- Backs and receivers are counted by how often each really runs a route. (PR #459)
+- A pass-heavy school's receivers show more routes than a run-heavy school's. (PR #459)
+- Recruiting: no staff cap on a class where the NCAA sets none (PR #460): Small colleges now sign classes the way real ones do: as many as their roster has room and need for.
+- Division II, NAIA, Division III and junior college staffs no longer stop at a fixed number of signees a year. (PR #460)
+- A Division III program with a lot of holes can now sign a class in the 50s. (PR #460)
+- A world from a newer game says "update the game", not a reader error (PR #461): If you open a world made by a newer version of the game, it now tells you plainly to update instead of showing a cryptic error.
+- A world your version of the game can't read says it was made by a newer version and asks you to update. (PR #461)
+- A world that is truly damaged says so instead. (PR #461)
+- The technical reason still shows at the end, short, for bug reports. (PR #461)
+- Look at: a high school tight end with few catches in your scouting file. (PR #459) the biggest small-college classes in a new world. (PR #460) nothing to try unless your game is behind; the message only shows when a world can't be read. (PR #461)
+
+## 0.2.552 (15 Nov, shipped): college spending from what it earns, support heads on a market (realism audit items 9 and 10) (PR #448), fill the star when a player is on my players (PR #453), injuries drive lost growth: the yearly step reads his real injuries (realism audit 1, 2, 14) (PR #450), and 8 more
+**TLDR:** 11 changes ship together. College programs now spend on their support staff from what they really earn, and strength coaches, trainers and other support heads move between jobs like real people. The star on a player's page now fills in once he's on your players, so you can tell at a glance. Plus 9 more below.
+- College spending from what it earns, support heads on a market (realism audit items 9 and 10) (PR #448): College programs now spend on their support staff from what they really earn, and strength coaches, trainers and other support heads move between jobs like real people.
+- The richest athletic departments spend the most on staff and recruiting, with no ceiling per level. (PR #448)
+- Support staff heads have an age and a salary, and the best get hired away by programs and clubs that pay more. (PR #448)
+- A new head coach usually brings his own strength coach with him. (PR #448)
+- An interim head coach leaves the support staff as it is. (PR #448)
+- Fill the star when a player is on my players (PR #453): The star on a player's page now fills in once he's on your players, so you can tell at a glance.
+- The star is solid when a player is on My players and an outline when he isn't. (PR #453)
+- Same star on the scouting file's button. (PR #453)
+- Clicking again still takes him off. (PR #453)
+- Injuries drive lost growth: the yearly step reads his real injuries (realism audit 1, 2, 14) (PR #450): Injuries now shape a player's growth the way they really happened, so a torn ACL in week 6 costs him, and a healthy season doesn't.
+- When a player tears an ACL or breaks a bone, the injury he actually had now decides the growth he loses and whether his burst comes back. (PR #450)
+- Shoulder, neck and concussion injuries cost a year's growth but never take a player's speed. (PR #450)
+- A few injuries hit complications and keep a player out far longer than usual. (PR #450)
+- A player who played every game no longer loses his burst to bad luck. (PR #450)
+- Recruiting: blue chips counted at signing, officials to the schools he likes best (PR #452): Recruits now take their official visits to the schools they like most, and many commit right after the visit to their favorite.
+- A recruit's official visits go to the schools at the top of his list, not to whoever offered first. (PR #452)
+- After his official visit to the school he leans to, he can commit as soon as it clearly leads. (PR #452)
+- More recruits commit in the spring and summer before their senior season. (PR #452)
+- Every team keeps its testing history; call your own testing day (PR #451): Take over a team and you now get its strength staff's testing records on every player, seasons of them. You can also call your own testing day whenever you want, at the cost of that day's training.
+- Every team at every level tests its players on its usual testing days, and the records stay with the team. (PR #451)
+- A new job comes with the team's testing history, and your staff still runs its own baseline in its first week. (PR #451)
+- Each player's Body and testing tab lists all his testing days at your team, with whose staff ran each one. (PR #451)
+- From the training screen, pick a coming day to test on. That day's practice goes. (PR #451)
+- Live talks: your word on his future and promise changes work when typed (PR #436): You can now tell a player where he stands for next year, and change a promise you made him, just by typing it in a conversation.
+- Typing "you don't have a future here", "you'd play more somewhere else" or "you'll be my last choice" to a backup, a benched starter or a man eyeing the portal now settles his year, the same way the old answer buttons did. (PR #436)
+- Naming one of his real strengths when you promise him a role makes him believe you more. If you name one that isn't really above his teammates, it sounds like a line. (PR #436)
+- You can take back a promise, push its date, add a condition, put it in writing or tell him the real reason it hasn't happened, all in your own words. (PR #436)
+- Recruiting: an open recruit spreads his official visits over his offers (PR #454): Recruits now plan their official visits around the schools that offered them, so more top recruits decide in the spring and summer before their senior season.
+- A recruit with several offers takes his official visits through the spring and June, not on a random weekend here and there. (PR #454)
+- Schools that offered him early get his visits too. (PR #454)
+- More blue chips are committed by the start of their senior season. (PR #454)
+- Plan ahead on By position, with signed and committed recruits (PR #455): Plan next season's depth chart position by position, with your incoming recruits already in it.
+- The By position tab now has the Plan ahead row: pick a future fall and set each position's order for it. (PR #455)
+- Signed recruits and committed recruits show up in the falls they arrive, ready to move up or down. (PR #455)
+- A gold * marks a recruit or transfer who has committed but not signed yet. (PR #455)
+- If a recruit backs out, he drops off your plan by himself. (PR #455)
+- The stadium's plan shows the same * on its spots. (PR #455)
+- Live talks: staff cards name the men they coach, and a draft-pick promise (PR #449): Talks with your staff and draft prospects now take you at your word. You can name the players a coach works with, and a promise to draft someone is judged on draft day.
+- Your coaches know the players they coach, so "work with him on his releases" lands on the right man. (PR #449)
+- Promising a prospect a round is now a real promise, kept or broken by your picks. (PR #449)
+- If another team takes him before your pick, or he goes back to school, the promise falls away and nobody holds it against you. (PR #449)
+- A broken draft promise costs his trust and your name with agents. (PR #449)
+- Fix red live core test on main (PR #457): no summary in the PR
+- Player page: when he can sign and his first day with you (PR #458): Every player page now tells you when he can sign with you and the first day he'd be with your team, or the day your signee arrives.
+- Recruits show the early period, signing day, and January or summer enrollment. (PR #458)
+- Transfers show the next portal window and when they'd arrive. (PR #458)
+- NFL players show the draft, minicamp, the offseason program, camp or trades. (PR #458)
+- Other leagues and high school seats get their own dates too. (PR #458)
+- Look at: a program that just changed head coach, and who runs its weight room now. (PR #448) open any player and press Add to my players. (PR #453) the development history on the page of a player coming off a long injury. (PR #450)
+
 ## 0.2.541 (15 Nov, shipped): NFL pay: records can jump, the elite out-earn the top, real markets by era (realism audit 1, 3, 4) (PR #447)
 **TLDR:** The NFL's money now works like the real market: the very best at a position can set records far above everyone else, and clubs bid against each other for the top free agents.
 - An elite player is paid for how far he stands above the rest, so the best back costs much more than a good starter. (PR #447)

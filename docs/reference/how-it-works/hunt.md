@@ -1,6 +1,6 @@
 # The hunt: how it works today
 
-Checked against main at (lane 11 branch, next update) on 2026-10-30.
+Checked against main at (lane 11 branch, next update) on 2026-10-30. The new NIL scheme (hunters bid their top) checked over main 356656b on 2026-11-15.
 
 One target chased over seasons (SK67): yours at a high school, a college or an NFL club, the AI's at every program and club, and the generational prospect the whole world chases once or twice a decade. Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 
@@ -32,7 +32,7 @@ One target chased over seasons (SK67): yours at a high school, a college or an N
 ## The world's hunts
 
 - Programs (14 July): each FBS or FCS program with a head coach hunts with chance 0.2 + 0.03(ambition - 10) + 0.02(recruiting - 10), from 0.05 to 0.6. It reaches for stars 2 + ceil(3 x relative prestige) (3 to 5) and one below, and picks by the services' read + 3 in state + 2 x its footprint in his home state + a coach's taste (normal, sd 2) (`college`, `reach`).
-- Programs hunting a recruit put him first on their board, hold his scholarship, give him the head coach's 1.8, and pay him at least 6% of their collective's budget when they bid (`world/recruiting.rs`, `run_signing_stage`; `HUNT_SHARE`).
+- Programs hunting a recruit put him first on their board, hold his scholarship, give him the head coach's 1.8, and offer him their whole top bid at once, without pricing it against the other schools (the new NIL scheme, 2026-11-15: the 6% floor, `HUNT_SHARE`, is gone, since every recruit is priced by bidding; `world/recruiting.rs`, `run_signing_stage`, `offer_for`).
 - Clubs (1 September): candidates are the top 64 by the pro scouts' read; clubs go weakest first; a club hunts with chance 0.25, + 0.35 without a franchise quarterback, + 0.2 x its GM's impatience (at most 0.85). Among the best k + 7 by the read (k is its place from the weakest, from 0, so a weak club reaches higher) it takes the top by read + 4 at quarterback without a franchise one + 0.5 x need + 1.5 x taste (normal) (`clubs`). Saturday looks from September to December go in its file as GM looks (`looks`).
 - Schools (15 January): private powerhouses and national schools hunt with chance 0.35 + 0.03(ambition - 10), from 0.1 to 0.7, among the top 3% of freshmen and sophomores in the state (national schools: each state's best two); + 3 in the same county, + 2 x taste. A hunted kid's transfer pull to that school is 1.8 times (`schools`; `world/recruiting.rs`, `high_school_transfers`).
 - Piling on: a program at your level or above (relative prestige no more than 0.15 under yours) whose reach covers his stars, one of the five most prestigious, drops its own hunt for yours (`pile_on`).
@@ -52,7 +52,7 @@ One target chased over seasons (SK67): yours at a high school, a college or an N
 
 ## Where the knobs are
 
-- `world/hunt/mod.rs`: `HUNT_TIME` 1.8, `HUNT_COST` 0.12, `HUNT_SHARE` 0.06, `HUNT_EDGE` 2.0, `FILM_HS` 1.0, `FILM_COLLEGE` 1.5, `PAST_MAX` 12; heat weights in `heat`; the boss in `patience` and `close`; cold weeks in `door`; look-back reputation in `look_backs`.
+- `world/hunt/mod.rs`: `HUNT_TIME` 1.8, `HUNT_COST` 0.12, `HUNT_EDGE` 2.0, `FILM_HS` 1.0, `FILM_COLLEGE` 1.5, `PAST_MAX` 12; heat weights in `heat`; the boss in `patience` and `close`; cold weeks in `door`; look-back reputation in `look_backs`.
 - `world/hunt/ai.rs`: `GEN_PRESTIGE` 0.6; chances in `college`, `clubs`, `schools`; `pile_on` chances and caps.
 - `world/hunt/generational.rs`: `RECORD` 9.
 

@@ -1141,9 +1141,14 @@ function updateBar(html) {
   }
   b.innerHTML = html;
 }
-async function checkUpdate() {
+// `manual` is the Check for updates button and "Go back to the latest": it says
+// so when updates are paused (versions.js), where the automatic check just waits.
+async function checkUpdate(manual) {
   const T = window.__TAURI__;
   if (!T || !T.updater || updating) return;
+  // Updates are paused while you stay on a build you went back to (Settings,
+  // Other versions): the page stays on it until you go back to the latest.
+  if (typeof verPin === "function" && (await verPin())) return manual ? "paused" : null;
   let up = null;
   try { up = await T.updater.check(); } catch (e) { console.warn("update check", e); return false; }
   if (!up) return null;

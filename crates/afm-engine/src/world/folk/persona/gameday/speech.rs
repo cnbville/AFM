@@ -24,7 +24,7 @@ use crate::world::World;
 /// challenge, a threat is a warning).
 pub fn move_of(how: How) -> Move {
     match how {
-        How::Reassured | How::Flattered => Move::Praise,
+        How::Reassured | How::Flattered | How::Staked => Move::Praise,
         How::Respected => Move::Straight,
         How::Stung | How::Insulted => Move::Criticize,
         How::Doubted => Move::Challenge,

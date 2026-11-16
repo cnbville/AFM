@@ -24,6 +24,7 @@ pub mod level_rating;
 pub mod links;
 pub mod player;
 pub mod positions;
+pub mod progression;
 pub mod results;
 pub mod rng;
 pub mod save;

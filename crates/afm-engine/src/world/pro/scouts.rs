@@ -1923,6 +1923,12 @@ pub struct Board {
     /// (F21, "Ask me before taking anyone off the board"), with why.
     #[serde(default)]
     pub asked: HashMap<usize, String>,
+    /// What his fit to the club's own systems added to its grade (section
+    /// 7, topic 9: a 3-4 club and a 4-3 club see the same edge rusher
+    /// differently), in grade points, for the prospects whose fit its file
+    /// can read.
+    #[serde(default)]
+    pub fit: HashMap<usize, f32>,
 }
 
 /// Each club's board from its own files (topic 9): its read of each
@@ -2017,8 +2023,25 @@ fn board_from(
                         b.dnd.insert(i);
                     }
                 }
+                // Scheme fit (topic 9): how he fits what this club runs, as
+                // its own file reads him attribute by attribute
+                // (`readers::read`), weighed by who has the final say (a
+                // coach with it wants players for his system now), at the
+                // market's size.
+                let file = crate::world::scouting::readers::read(
+                    w,
+                    crate::world::scouting::readers::Staff::Club(t),
+                    p.player.id,
+                )
+                .map(|x| x.2);
+                let fit = file.as_ref().and_then(|f| club_fit(w, t, i, f));
+                if let Some(f) = fit {
+                    let pts = FIT_BOARD * w.clubs[t].office.power.fit_weight() * f;
+                    g += pts;
+                    b.fit.insert(i, pts as f32);
+                }
                 if fit_first {
-                    g += 3.0 * seat_fit(w, t, i).unwrap_or(0.0);
+                    g += 3.0 * fit.unwrap_or(0.0);
                 }
                 if numbers_first {
                     g += numbers_lean(w, i);
@@ -2034,14 +2057,19 @@ fn board_from(
     b
 }
 
-/// F21 "Players who fit what we run": his fit to your club's systems as
-/// your scouts' file reads him (`systems::read_fit`), None until the file
-/// has seen what the systems ask about. A good fit (0.3) is worth about a
-/// point on your board (proposed, not confirmed: 3 points a unit).
-fn seat_fit(w: &World, t: usize, i: usize) -> Option<f64> {
-    use crate::world::scouting::readers;
+/// Grade points a unit of scheme fit adds to every club's board, times the
+/// final say's fit weight (`Power::fit_weight`: coach 1.4, GM 1.0, owner
+/// 0.9): the size the NFL market prices fit at (`market.rs`, `worth`).
+/// Proposed, not confirmed.
+pub const FIT_BOARD: f64 = 2.0;
+
+/// His fit to a club's systems as its own scouts' file reads him
+/// (`systems::read_fit`), None until the file has seen what the systems
+/// ask about. Every board reads it (topic 9); F21's "Players who fit what
+/// we run" adds 3 points a unit on your board on top (proposed, not
+/// confirmed).
+pub fn club_fit(w: &World, t: usize, i: usize, f: &crate::world::scouting::file::FileRead) -> Option<f64> {
     let p = &w.people[i];
-    let (_, _, f) = readers::read(w, readers::Staff::Club(t), p.player.id)?;
     let inst = &w.clubs.get(t)?.installed;
     crate::world::systems::read_fit(
         w,
