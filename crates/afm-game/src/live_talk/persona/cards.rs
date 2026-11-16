@@ -93,7 +93,7 @@ pub(crate) fn setting(w: &World, s: &Scene, room: &Room) -> String {
 pub(crate) fn coach(w: &World) -> String {
     let name = folk::scene::your_name(w);
     match Team::seat(w) {
-        Some(t) => format!("{name}, head coach at {}", t.name(w)),
+        Some(t) => format!("{name}, {} at {}", talk::stakes::your_role(w), t.name(w)),
         None => name,
     }
 }
@@ -184,12 +184,23 @@ pub fn ear(w: &World, s: &Scene, room: &Room, parts: &Parts, line: &str) -> (Ear
     for (who, why) in afm_engine::world::folk::persona::meetings::named(w, s) {
         add(&mut c, &mut keys, who, why);
     }
+    // Your staff, never yourself: your own name on the list read to the
+    // voice as a third man in the room ("does Coach Buu know?").
+    let me = w.career.as_ref().map(|x| x.coach);
     if let Some(team) = Team::seat(w) {
         for (k, co) in w.coaches.iter().enumerate() {
-            if co.job.is_some_and(|j| Team::from_employer(j.employer) == team) {
+            if Some(k) != me && co.job.is_some_and(|j| Team::from_employer(j.employer) == team) {
                 add(&mut c, &mut keys, Them::Coach(k), "your staff");
             }
         }
+    }
+    // A holdover can name the head coach you replaced.
+    if let Them::Coach(co) = him
+        && talk::stakes::holdover(w, co).is_some()
+        && let Some(o) = w.folk.takeover.as_ref().and_then(|t| t.old_coach)
+        && w.coaches.get(o).is_some()
+    {
+        add(&mut c, &mut keys, Them::Coach(o), "the head coach you replaced");
     }
     // A college staff's call: the player he called about can be named.
     if talk::hs_call::is_call(s.kind) {
@@ -239,6 +250,9 @@ pub fn voice(w: &World, s: &Scene, room: &Room, parts: &Parts, t: &Turn, line: &
     };
     let speaker =
         t.speaker.map(|(x, seat)| format!("{} ({}) answers this one for him", person(w, x), seat_words(seat)));
+    // What the talk is to him: who you are to him, what rides on it, what
+    // he wants from it (Cain 2026-11-15: "give the AI targets").
+    let stakes = talk::stakes::stakes(w, s, him, &parts.wanting.wants(w, him));
     let mut room_words: Vec<String> =
         room.present.iter().skip(1).map(|p| format!("{} ({})", person(w, p.who), seat_words(p.seat))).collect();
     room_words.extend(speaker);
@@ -251,6 +265,7 @@ pub fn voice(w: &World, s: &Scene, room: &Room, parts: &Parts, t: &Turn, line: &
         mood,
         football,
         known_you,
+        stakes,
         room: room_words,
         swears,
         care,
@@ -325,6 +340,7 @@ impl VoiceCard {
         put("Your mood", &self.mood);
         put("Your football", &self.football);
         put("You and the coach", &self.known_you);
+        put("What this talk is to you (play toward it)", &self.stakes.join(". "));
         put("Also in the room", &self.room.join("; "));
         put("Language", if self.swears { "you may swear, as you would here" } else { "no swearing here" });
         if self.care {
@@ -347,7 +363,9 @@ impl VoiceCard {
             out.push_str(&format!("- {r}\n"));
         }
         if !self.asks.is_empty() {
-            out.push_str("What you ask the coach yourself:\n");
+            out.push_str(
+                "What you ask the coach yourself (after you answer his line, as a natural follow-on to it):\n",
+            );
             for a in &self.asks {
                 out.push_str(&format!("- {a}\n"));
             }
