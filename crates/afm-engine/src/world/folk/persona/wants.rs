@@ -180,4 +180,11 @@ pub trait Acting {
     fn willing(&self, w: &World, him: Them, ask: &Request) -> Willing;
     /// Runs what he agreed to, by the game's own rules.
     fn run(&self, w: &mut World, him: Them, ask: &Request) -> Ran;
+    /// His answer in words when the game weighed it with its own reasons
+    /// (your boss's and a booster's asks, `folk::asked`), in place of the
+    /// plain "He'll do it." or "He won't do that."; empty keeps the plain
+    /// words.
+    fn why(&self, _w: &World, _him: Them, _ask: &Request, _wl: &Willing) -> Vec<String> {
+        Vec::new()
+    }
 }
