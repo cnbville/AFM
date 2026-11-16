@@ -63,6 +63,7 @@ mod outside_talks;
 mod persona;
 mod persona_deals;
 mod persona_draft;
+mod persona_evaluate;
 mod persona_negotiate;
 mod persona_office;
 mod persona_people;
