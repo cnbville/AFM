@@ -13,6 +13,11 @@
 //! Lane G4: news in order of standing (`news`), leads and their
 //! blanks (`leads`), and finds, blooms, setbacks and misses (`finds`),
 //! for your seat.
+//! Lane G6: the offseason campaign (`campaign`): goals in February, the
+//! race through spring, a verdict in August, your first offseason's guide
+//! and the ground report's data.
+//! Lane G11b: favors (`favors`), the economy of placing kids, switched off
+//! with `WorldOptions.favors`.
 //! Lane G5: the week's scenes played (`scenes`): the school visit, the
 //! calls, your campus and the coaches' side, on the built scenes.
 //!
@@ -23,7 +28,9 @@
 //! until lane G9 the world's recruiting is unchanged.
 
 pub mod areas;
+pub mod campaign;
 pub mod card;
+pub mod favors;
 pub mod finds;
 pub mod jobs;
 pub mod leads;
@@ -92,6 +99,10 @@ pub struct Ground {
     pub(crate) vacated: Vec<(u32, Who, crate::calendar::Date)>,
     /// Your week (lane G3): the plan, the road, the phone, the ledger.
     pub week: week::Week,
+    /// Your offseason campaign (lane G6): goals, the verdict, the guide.
+    pub campaign: campaign::Campaign,
+    /// The favor book (lane G11b): switched off with `WorldOptions.favors`.
+    pub favors: favors::Favors,
     /// The week's scenes played (lane G5).
     pub scenes: scenes::Book,
     /// Test switch: the seat's ground stands still (the same-world check).
@@ -184,7 +195,9 @@ pub(crate) fn day(w: &mut crate::world::World, d: crate::calendar::Date) {
     }
     word::day(w, d);
     jobs::day(w, d);
+    favors::day(w, d);
     stores::sync(w);
+    campaign::day(w, d);
     let cut = d.add(-60);
     w.ground.ups.retain(|u| u.0 >= cut);
 }

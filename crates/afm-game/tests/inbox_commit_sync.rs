@@ -3,6 +3,8 @@
 //! are now one event: the letter is stamped at the stop that shows the news,
 //! and the pop-up is held until its letter is filed.
 
+mod common;
+
 use afm_engine::world::Stage;
 use afm_game::Game;
 use afm_game::views::{self, TeamRef};
@@ -19,7 +21,7 @@ fn ok(g: &mut Game, cmd: &str, args: Value) -> Value {
 fn a_commitment_pop_up_and_its_letter_arrive_at_the_same_stop() {
     let dir = std::env::temp_dir().join(format!("afm-inbox-commit-sync-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 12, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 12, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     let jobs = ok(&mut g, "jobs", json!({ "level": "college" }));
     let job = jobs["jobs"][0]["ref"].clone();
     ok(&mut g, "start_career", json!({ "name": "Test Coach", "job": job, "seed": 3 }));

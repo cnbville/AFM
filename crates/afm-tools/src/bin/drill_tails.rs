@@ -214,12 +214,12 @@ fn main() {
         let n = tests.iter().filter(|t| if low { t.1[k] <= at } else { t.1[k] >= at }).count() as f64;
         println!("{} {} {at}: {:.2} a draft (real {real})", NAMES[k], if low { "<=" } else { ">=" }, n / drafts);
     }
-    for k in 0..6 {
+    for (k, name) in NAMES.iter().enumerate() {
         let mut v: Vec<f64> = tests.iter().map(|t| t.1[k]).collect();
         let low = matches!(k, 0 | 4 | 5);
         v.sort_by(|a, b| a.total_cmp(b));
         let best = if low { v[0] } else { v[v.len() - 1] };
         let same = v.iter().filter(|&&x| x == best).count();
-        println!("{} best {best} ({same} men at it)", NAMES[k]);
+        println!("{name} best {best} ({same} men at it)");
     }
 }

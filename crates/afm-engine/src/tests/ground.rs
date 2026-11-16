@@ -299,7 +299,8 @@ fn the_ground_store_saves_and_an_old_file_loads_empty() {
 
 /// The world plays the same with the ground on: it only writes its own
 /// store, your inbox, (lane G4) your seat's own file, (lane G7) your
-/// own network's ground people and (lane G5) your seat's scenes.
+/// own network's ground people, (lane G5) your seat's scenes and (lane
+/// G6) your AD's goals and talks.
 #[test]
 fn the_world_plays_the_same_with_the_ground() {
     // Values, so the maps compare by key whatever their order in memory.
@@ -363,10 +364,13 @@ fn the_world_plays_the_same_with_the_ground() {
     }
     // Everything but your own network plays the same; in your network only
     // the people on your ground differ, since their ties read your
-    // standing with them (lane G7, `ground::stores`).
+    // standing with them (lane G7, `ground::stores`). Your AD's goals and
+    // your meetings are your seat's own: the campaign sets his goals in
+    // his talk (lane G6).
     let strip = |mut v: Vec<serde_json::Value>| {
         let f = v[3].as_object_mut().unwrap();
         f.remove("network");
+        f.remove("goals");
         // Your seat's own scenes (lane G5): Ground's are yours alone, so
         // their ids, the scenes and the meeting log are compared below
         // without them.
@@ -375,15 +379,6 @@ fn the_world_plays_the_same_with_the_ground() {
         f.remove("log");
         v
     };
-    let others = |w: &World| -> Vec<(String, String, String)> {
-        w.folk
-            .scenes
-            .iter()
-            .filter(|s| s.kind != crate::world::folk::scene::Kind::Ground)
-            .map(|s| (format!("{:?}", s.kind), s.title.clone(), s.outcome.join(" ")))
-            .collect()
-    };
-    assert_eq!(others(&on), others(&off), "the other scenes play the same");
     assert!(off.folk.scenes.iter().all(|s| s.kind != crate::world::folk::scene::Kind::Ground));
     assert!(strip(fp(&on)) == strip(fp(&off)), "the world moved with the ground");
     let (a, b) = (&on.folk.network.contacts, &off.folk.network.contacts);

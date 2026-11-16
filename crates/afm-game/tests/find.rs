@@ -5,6 +5,8 @@
 //! the recruiting map and a recruit's race (boards 7 and 8); an NFL club's
 //! Find prospects; a high school coach's Colleges calling.
 
+mod common;
+
 use std::time::Instant;
 
 use afm_engine::world::front_office::{college as desk, race};
@@ -29,7 +31,7 @@ fn timed(g: &mut Game, cmd: &str, args: Value) -> (Value, u128) {
 fn a_college_staff_searches_a_class() {
     let dir = std::env::temp_dir().join(format!("afm-find-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     let fresh = ok(&mut g, "save", json!({ "name": "fresh" }))["saved"].as_str().unwrap().to_string();
     let job = ok(&mut g, "jobs", json!({ "level": "college" }))["jobs"][0]["ref"].clone();
     ok(

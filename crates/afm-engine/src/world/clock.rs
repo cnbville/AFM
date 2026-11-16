@@ -476,6 +476,8 @@ fn dawn(w: &mut World, d: Date, y: &YearDates) {
         college::finals_week(w);
     }
     hs_year::dawn(w, d);
+    // The commitments lifting a brand exposure grade (GR44).
+    super::following::day(w, d);
     // The week's rhythm, for the record and the future screens (T6), and
     // the training blocks of every level (T7).
     timed("rhythm", || rhythm(w, d, y));

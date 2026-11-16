@@ -2,6 +2,8 @@
 //! job, set a depth chart and a training focus, play into the season and
 //! read every screen; then the same world from a high school job.
 
+mod common;
+
 use afm_game::Game;
 use serde_json::{Value, json};
 
@@ -29,7 +31,7 @@ fn a_college_career_plays_through_its_first_games() {
     let t = std::time::Instant::now();
     let dir = std::env::temp_dir().join(format!("afm-career-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     println!("world built in {:.0}s", t.elapsed().as_secs_f64());
     let fresh = ok(&mut g, "save", json!({ "name": "fresh world" }))["saved"].as_str().unwrap().to_string();
     let setup = ok(&mut g, "setup", json!({}));

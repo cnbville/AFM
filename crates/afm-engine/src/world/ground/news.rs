@@ -116,6 +116,9 @@ pub enum Why {
     Public,
     /// The paper reaches everyone at once.
     Paper,
+    /// A favor lifted you one level, behind those already there (GR60,
+    /// lane G11b; only with the favors switch on).
+    Favor,
 }
 
 impl Why {
@@ -129,6 +132,7 @@ impl Why {
             Why::Stopped => "stopped",
             Why::Public => "public",
             Why::Paper => "paper",
+            Why::Favor => "favor",
         }
     }
 }
@@ -280,6 +284,22 @@ pub fn order(
     salt: u64,
     host: Option<usize>,
 ) -> Order {
+    lifted_order(w, what, source, school, date, salt, host, None)
+}
+
+/// The order with your program lifted to `lift` (a favor, GR60): you go
+/// behind the staffs already at that level. With no lift it is `order`.
+#[allow(clippy::too_many_arguments)]
+fn lifted_order(
+    w: &World,
+    what: What,
+    source: Option<Who>,
+    school: usize,
+    date: Date,
+    salt: u64,
+    host: Option<usize>,
+    lift: Option<Level>,
+) -> Order {
     let you = readers::seat_staff(w)
         .and_then(|s| if let readers::Staff::Program(p) = s { Some(p) } else { None })
         .unwrap_or(usize::MAX);
@@ -295,7 +315,7 @@ pub fn order(
     let mut stopped_you = false;
     if let Some(who) = source {
         let loyal = people::makeup(w, who).loyal >= 0.5;
-        let mut list: Vec<(usize, f32, Level)> = Vec::new();
+        let mut list: Vec<(usize, f32, Level, bool)> = Vec::new();
         for (p, pts, stopped) in standings(w, who, you) {
             if Some(p) == host {
                 continue;
@@ -306,14 +326,24 @@ pub fn order(
                 }
                 continue;
             }
-            let lv = Level::of(pts);
+            let mut lv = Level::of(pts);
+            let mut up = false;
+            if p == you
+                && let Some(l) = lift
+                && l > lv
+            {
+                lv = l;
+                up = true;
+            }
             if lv >= Level::Known {
-                list.push((p, pts, lv));
+                list.push((p, pts, lv, up));
             }
         }
-        // By level, then by his nature within it (GR64), then by id.
+        // By level, a lifted you behind the rest of it, then by his nature
+        // within it (GR64), then by id.
         list.sort_by(|a, b| {
             b.2.cmp(&a.2)
+                .then(a.3.cmp(&b.3))
                 .then_with(|| {
                     if loyal {
                         b.1.total_cmp(&a.1)
@@ -326,7 +356,7 @@ pub fn order(
         let mut last = date;
         let mut k_in = 0usize;
         let mut lv_now: Option<Level> = None;
-        for (k, &(p, _, lv)) in list.iter().enumerate() {
+        for (k, &(p, _, lv, up)) in list.iter().enumerate() {
             if lv_now != Some(lv) {
                 lv_now = Some(lv);
                 k_in = 0;
@@ -344,6 +374,7 @@ pub fn order(
                 break;
             }
             last = day;
+            let why = if up { Why::Favor } else { why };
             heard.push(Heard { prog: p as u32, day, level: lv as u8, why });
         }
     }
@@ -405,6 +436,7 @@ pub fn why_words(w: &World, n: &News) -> String {
         Why::Stopped => format!("{who} stopped calling you after your word broke with him."),
         Why::Public => format!("You're a {lv} to {who}, so you heard it with the public."),
         Why::Pushes => format!("{who} calls everyone he knows when a kid of his does something."),
+        Why::Favor => format!("{who} owed you one: he called you as a {lv}, behind the staffs already there."),
         Why::Standing | Why::Closest | Why::Biggest => {
             let ahead = n.place.saturating_sub(1);
             let first = n.order.first().map(|h| w.program_name(h.prog as usize)).unwrap_or("nobody");
@@ -422,10 +454,16 @@ pub fn why_words(w: &World, n: &News) -> String {
 
 /// Keeps a news item for your seat, once by its key: false if it was kept.
 pub(crate) fn keep(w: &mut World, n: News) -> bool {
-    let g = &mut w.ground;
-    if g.news.iter().any(|x| x.key == n.key) {
+    if w.ground.news.iter().any(|x| x.key == n.key) {
         return false;
     }
+    // A favor's lift is spent once its answer has come (GR60).
+    if n.you.why == Why::Favor
+        && let Some(s) = n.source
+    {
+        super::favors::spend_lift(w, s, n.kid);
+    }
+    let g = &mut w.ground;
     g.news.push(n);
     if g.news.len() > KEPT {
         let drop = g.news.iter().position(|x| x.delivered).unwrap_or(0);
@@ -448,7 +486,12 @@ pub(crate) fn make(
     once: u64,
 ) -> News {
     let k = key(&[0x6E35, kid as u64, what_key(what), once]);
-    let o = order(w, what, if what.paper() { None } else { source }, school, date, k, host);
+    let source = if what.paper() { None } else { source };
+    let lift = match (source, crate::world::ground::standing::seat_program(w)) {
+        (Some(s), Some(you)) => super::favors::lifted(w, you, s, kid),
+        _ => None,
+    };
+    let o = lifted_order(w, what, source, school, date, k, host, lift);
     let before = o.heard.len() as u16;
     let mut kept: Vec<Heard> = o.heard.iter().take(ORDER_KEPT).copied().collect();
     if o.place as usize > ORDER_KEPT {
@@ -460,7 +503,7 @@ pub(crate) fn make(
         what,
         line,
         date,
-        source: if what.paper() { None } else { source },
+        source,
         order: kept,
         before_public: before,
         public: o.public,

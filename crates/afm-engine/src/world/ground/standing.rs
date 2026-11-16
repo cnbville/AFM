@@ -682,7 +682,7 @@ pub fn knows_your_name(w: &World, person: usize) -> bool {
 /// Pays one thing into the memories of your program and its head coach
 /// with a person, with a moment in his words.
 #[allow(clippy::too_many_arguments)]
-fn pay(
+pub(crate) fn pay(
     w: &mut World,
     prog: usize,
     who: Who,

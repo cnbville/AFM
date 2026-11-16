@@ -16,6 +16,7 @@ pub mod jobs;
 pub mod joining;
 pub mod lane_boards;
 pub mod lane_calendar;
+pub mod lane_campaign;
 pub mod lane_cfl;
 pub mod lane_coaching;
 pub mod lane_core;
@@ -23,6 +24,7 @@ pub mod lane_data;
 pub mod lane_draftroom;
 pub mod lane_evaluate;
 pub mod lane_faces;
+pub mod lane_favors;
 pub mod lane_film;
 pub mod lane_find;
 pub mod lane_frontoffice;
@@ -420,10 +422,12 @@ impl Game {
                     lane_handbook::call,
                     lane_groundzero::call,
                     lane_ground_people::call,
+                    lane_favors::call,
                     lane_ground::call,
                     lane_groundweek::call,
                     lane_hunt::call,
                     lane_leads::call,
+                    lane_campaign::call,
                     lane_data::call,
                     notebook::call,
                     live_talk::call,

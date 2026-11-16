@@ -3,7 +3,8 @@
 //! decider's wants (`decider_wants`), a college player his own
 //! (`own_wants`), a pro and a prospect the market's goals
 //! (`market::goals`), a booster his `cast::Want`s, a boss his goals for you
-//! (`boss.rs`); a coach, an agent and a GM want what their makeup says.
+//! (`boss.rs`); a coach, an agent and a GM want what their makeup says,
+//! and a coach on your staff wants to keep his job (`talk::stakes`).
 //! A want you've already met (an open or kept promise, a deal agreed) is
 //! marked, so what he asks next is what he wants most that you haven't
 //! given (question 3).
@@ -110,7 +111,7 @@ pub fn raw(w: &World, him: Them) -> Vec<(WantKind, f32)> {
             from_wants(&f.decider_wants, if slot == 0 { 1.0 } else { 0.7 }, &mut out);
             out.push((WantKind::Family, if slot == 0 { 0.12 } else { 0.3 }));
         }
-        Them::Coach(_) => match kind {
+        Them::Coach(c) => match kind {
             Kind::HsCoach => {
                 out.push((WantKind::Kids, 0.45 + 0.1 * z(m.warmth)));
                 out.push((WantKind::Name, 0.2 + 0.1 * z(m.ego)));
@@ -124,6 +125,11 @@ pub fn raw(w: &World, him: Them) -> Vec<(WantKind, f32)> {
                 out.push((WantKind::Winning, 0.2));
                 out.push((WantKind::Loyalty, 0.1 + 0.1 * z(m.loyalty)));
                 out.push((WantKind::Family, 0.08));
+                // A man on your staff wants to keep his job: most of all a
+                // holdover you haven't decided on (`talk::stakes`).
+                if kind == Kind::Staff {
+                    out.push((WantKind::Security, super::talk::stakes::job_weight(w, c)));
+                }
             }
         },
         Them::Cast(r, _) => match kind {

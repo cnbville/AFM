@@ -17,6 +17,50 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.588", date: "16 Nov", title: "College followers retuned so the biggest stars reach 500,000 and 2 more",
+    notes: [
+      "At the end of your first spring, Ground writes you a report: your goals as verdicts, the kids you found, where your ground grew and who outworked whom.",
+      "Your goals read as Met, Mostly, Partly or Missed, each with why",
+      "Your finds show with their faces and how far they have bloomed",
+      "Your ground by area, February to August, with lost ground marked",
+      "Who outworked whom in each area, counted in signs",
+      "The miss, a setback, your AD's word and the paper's",
+    ],
+  },
+  {
+    v: "0.2.585", date: "16 Nov", title: "Ground lane G8: a following and famous names (GR42-GR46) and 1 more",
+    notes: [
+      "The people you talk to now know what the talk means to them, and they answer what you actually said.",
+      "A coordinator you inherit fights for his job: he makes his case from his record, asks where he stands and takes bad news his own way.",
+      "Everyone knows who you are in the room, so nobody mixes you up with the coach you replaced.",
+      "Small talk stays small: ask about the family and he tells you about his family.",
+      "An offer gets a real answer before he brings up his own worries.",
+      "The talk page now shows what's at stake before you start.",
+    ],
+  },
+  {
+    v: "0.2.582", date: "16 Nov", title: "Ground lane G6: the offseason campaign and 2 more",
+    notes: [
+      "Combine numbers now look like a real combine: real jump averages by position, the odd explosive leaper, and agility records that are hard to touch.",
+      "The vertical and broad jump spread like real ones, and strong legs help.",
+      "Quarterbacks and backs no longer broad jump like receivers.",
+      "The very fastest 3-cones and shuttles are rare, as they are in real life.",
+      "Drill results are no longer capped, so a record-breaking day prints as it happened.",
+      "Every coach, trainer and family on your ground now has a page: his face, what he keeps of you in his own words, and what your standing gets you.",
+    ],
+  },
+  {
+    v: "0.2.579", date: "16 Nov", title: "Ground lane G4: news in order, leads, finds and your board from your ground and 3 more",
+    notes: [
+      "The people on your recruiting ground now feel like people: coaches, families, counselors, trainers and 7v7 men each remember you, talk to each other and take what you built with them to their next job.",
+      "A recruit's family remembers you for his younger brother, and never forgets a lie.",
+      "Word gets around: what you do for one coach's kid reaches his staff and his area.",
+      "When a coach moves on, your standing goes with him, and his successor may already know you.",
+      "Each person tells you a new level in their own words, and their page shows why you stand where you do.",
+      "Players now come in the real range of body shapes for their position, so you'll find short-armed tackles, long-armed corners, light receivers and the occasional huge guard.",
+    ],
+  },
+  {
     v: "0.2.575", date: "16 Nov", title: "Ground lane S2: the meeting at the map",
     notes: [
       "Monday's meeting is a screen: your coordinator's letter, a map of where he wants to send each man, and the week day by day, which you can change by dragging.",
