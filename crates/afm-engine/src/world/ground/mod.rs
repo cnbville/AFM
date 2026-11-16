@@ -2,7 +2,9 @@
 //! areas and the map's data (`areas`). Lane G1b: the
 //! people on your ground (`people`), one memory per person and holder
 //! (`memory`) and standing on the four-level ladder (`standing`), with
-//! day one read from the world's 30 years and your roots.
+//! day one read from the world's 30 years and your roots. Lane G3: your
+//! week (`week`): the meeting at the map, road days, trips, the ledger,
+//! the day's calls and the beats.
 //!
 //! The store is sparse: only your seat's holders (your program, you and
 //! your staff's men) keep memories, and only with people someone has dealt
@@ -14,6 +16,7 @@ pub mod areas;
 pub mod memory;
 pub mod people;
 pub mod standing;
+pub mod week;
 
 pub use memory::{Memory, Moment};
 pub use people::{Holder, Who};
@@ -34,6 +37,8 @@ pub struct Ground {
     /// Things already paid into the memory (a kid who started, a pulled
     /// offer, a promise judged), by key. Sorted.
     pub(crate) done: Vec<u64>,
+    /// Your week (lane G3): the plan, the road, the phone, the ledger.
+    pub week: week::Week,
     /// Test switch: the seat's ground stands still (the same-world check).
     #[serde(skip)]
     pub(crate) off: bool,

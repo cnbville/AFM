@@ -199,49 +199,66 @@ fn an_nfl_scout_on_cross_checks_takes_the_top_of_your_board() {
 }
 
 /// A college seat with recruits from one state: pros made into high
-/// school juniors and seniors at home in `st`.
+/// school juniors and seniors at home in `st`, at its schools (Ground's
+/// road goes to schools, so a kid's school is in his home state).
 fn college_world() -> (World, usize, u8) {
     let mut w = empty();
     let prog = w.programs.iter().position(|p| p.division == Division::FBS).unwrap();
     w.start_career(&you(), Job::College(prog), 7);
     let st = w.programs[prog].state as u8;
     let season = w.dates.season;
+    let schools_in = |w: &World, s: usize| -> Vec<usize> {
+        (0..w.high_schools.len())
+            .filter(|&h| w.high_schools[h].state == s && w.high_schools[h].coach.is_some())
+            .collect()
+    };
+    let by_state: Vec<Vec<usize>> = (0..51).map(|s| schools_in(&w, s)).collect();
+    let others: Vec<usize> = (0..51).filter(|&s| s != st as usize && !by_state[s].is_empty()).collect();
     for (k, p) in w.people.iter_mut().filter(|p| p.stage == Stage::Pro).take(240).enumerate() {
         p.stage = Stage::HighSchool;
         p.pro = None;
         p.class_of = season + 1 + (k % 2) as i32;
         p.player.age = 17;
-        p.home_state = if k % 3 == 0 { st as usize } else { (st as usize + 1 + k % 40) % 51 };
+        p.home_state = if k % 3 == 0 || others.is_empty() { st as usize } else { others[k % others.len()] };
+        let list = &by_state[p.home_state];
+        if !list.is_empty() {
+            p.hs = list[k % list.len()];
+        }
         p.stars = 3;
     }
     (w, prog, st)
 }
 
-/// The fall's evaluation days: Thursdays and Fridays in the evaluation
-/// period from September to November.
-fn eval_days(w: &World) -> Vec<Date> {
+/// The fall's first two weeks of evaluation days, every day of them (the
+/// week is planned Monday, the road runs Thursday and Friday).
+fn fall_weeks(w: &World) -> Vec<Date> {
     let s = w.dates.season;
-    (0..91)
+    let first = (0..91)
         .map(|k| Date::ymd(s, 9, 1).add(k))
-        .filter(|&d| matches!(d.weekday(), Weekday::Thu | Weekday::Fri))
-        .filter(|&d| crate::calendar::recruiting_period(&w.dates, d) == Period::Evaluation)
-        .collect()
+        .find(|&d| crate::calendar::recruiting_period(&w.dates, d) == Period::Evaluation && d.weekday() == Weekday::Mon)
+        .unwrap();
+    (0..14).map(|k| first.add(k)).collect()
+}
+
+fn play(w: &mut World, days: &[Date]) {
+    for &d in days {
+        w.today = d;
+        crate::world::ground::week::day(w, d);
+        dept::day(w, d);
+    }
 }
 
 #[test]
 fn a_college_coach_sent_to_a_state_or_a_group_spends_his_days_there() {
+    // Ground lane G3: an assignment is the man's row in the week's plan.
     let (mut w, prog, st) = college_world();
-    let days = eval_days(&w);
-    assert!(days.len() >= 4, "a fall with evaluation days");
+    let days = fall_weeks(&w);
     let coaches: Vec<usize> = w.programs[prog].position_coaches.iter().flatten().copied().collect();
     let (a, b) = (coaches[0], coaches[1]);
     let g = 3u8;
     w.scouting.dept.assignments.push(Assignment { who: COACH + a as u32, target: Target::Region(st), since: days[0] });
     w.scouting.dept.assignments.push(Assignment { who: COACH + b as u32, target: Target::Group(g), since: days[0] });
-    for &d in days.iter().take(4) {
-        w.today = d;
-        dept::day(&mut w, d);
-    }
+    play(&mut w, &days);
     let in_person = |w: &World, who: u32| -> Vec<usize> {
         w.scouting
             .dept
@@ -252,28 +269,45 @@ fn a_college_coach_sent_to_a_state_or_a_group_spends_his_days_there() {
             .collect()
     };
     let by_a = in_person(&w, COACH + a as u32);
-    assert_eq!(by_a.len(), 4, "one recruit a day, a new one each day");
-    assert!(by_a.iter().all(|&i| w.people[i].home_state as u8 == st), "all from the state he was sent to");
-    let by_b = in_person(&w, COACH + b as u32);
-    assert_eq!(by_b.len(), 4, "one recruit a day at his group");
+    assert!(!by_a.is_empty(), "he spent days on the road");
     assert!(
-        by_b.iter().all(|&i| crate::world::coach::Group::of(w.people[i].player.position) as u8 == g),
-        "all at the group he was sent to"
+        by_a.iter().all(|&i| w.high_schools[w.people[i].hs].state == st as usize),
+        "all in the state he was sent to"
     );
-    // A third coach on cross-checks: the top of the board another coach
-    // saw (alone, as the staff sends two a day).
+    let by_b = in_person(&w, COACH + b as u32);
+    assert!(
+        by_b.iter().any(|&i| crate::world::coach::Group::of(w.people[i].player.position) as u8 == g),
+        "the schools of his group's kids first"
+    );
+    let why = |w: &World, c: usize| w.ground.week.roads.iter().find(|r| r.man == c as u32).map(|r| r.why.clone());
+    // The second week's plan still puts them first.
+    assert!(why(&w, a).is_some_and(|x| x.starts_with("Your assignment")), "{:?}", why(&w, a));
+    // A third coach on cross-checks: a recruit another coach saw.
     w.scouting.dept.assignments.clear();
     let c = coaches[2];
-    w.scouting.dept.assignments.push(Assignment { who: COACH + c as u32, target: Target::CrossCheck, since: days[4] });
-    w.today = days[4];
-    dept::day(&mut w, days[4]);
-    let by_c = in_person(&w, COACH + c as u32);
-    assert_eq!(by_c.len(), 1, "his day's cross-check");
-    let id = w.people[by_c[0]].player.id;
+    let more: Vec<Date> = (14..21).map(|k| days[0].add(k)).collect();
+    w.scouting.dept.assignments.push(Assignment { who: COACH + c as u32, target: Target::CrossCheck, since: more[0] });
+    play(&mut w, &more);
+    let by_c: Vec<usize> = w
+        .scouting
+        .dept
+        .looks
+        .iter()
+        .filter(|(_, v)| {
+            v.iter().any(|l| {
+                l.who == COACH + c as u32 && matches!(l.kind, Kind::Practice | Kind::Game) && l.date >= more[0]
+            })
+        })
+        .filter_map(|(&id, _)| crate::world::scouting::place(&w, id))
+        .collect();
+    assert!(!by_c.is_empty(), "his cross-checks");
     assert!(
-        w.scouting.dept.looks[&id]
-            .iter()
-            .any(|l| l.who != COACH + c as u32 && matches!(l.kind, Kind::Practice | Kind::Game)),
+        by_c.iter().any(|&i| {
+            let id = w.people[i].player.id;
+            w.scouting.dept.looks[&id]
+                .iter()
+                .any(|l| l.who != COACH + c as u32 && matches!(l.kind, Kind::Practice | Kind::Game))
+        }),
         "a second look at a recruit another coach saw"
     );
 }
