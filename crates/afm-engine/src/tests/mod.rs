@@ -29,6 +29,7 @@ mod gameday_room;
 mod gameplan;
 mod ground;
 mod ground_areas;
+mod ground_campaign;
 mod ground_leads;
 mod ground_people;
 mod ground_week;
