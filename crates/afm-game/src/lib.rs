@@ -28,6 +28,7 @@ pub mod lane_find;
 pub mod lane_frontoffice;
 pub mod lane_gameday;
 pub mod lane_gameplan;
+pub mod lane_groundweek;
 pub mod lane_groundzero;
 pub mod lane_handbook;
 pub mod lane_help;
@@ -385,7 +386,7 @@ impl Game {
             _ => {
                 // The final build's lanes each answer their own commands.
                 type Lane = fn(&mut Game, &str, &Value) -> Option<Reply>;
-                const LANES: [Lane; 35] = [
+                const LANES: [Lane; 36] = [
                     lane_core::call,
                     lane_gameday::call,
                     lane_money::call,
@@ -416,6 +417,7 @@ impl Game {
                     lane_film::call,
                     lane_handbook::call,
                     lane_groundzero::call,
+                    lane_groundweek::call,
                     lane_hunt::call,
                     lane_leads::call,
                     lane_data::call,

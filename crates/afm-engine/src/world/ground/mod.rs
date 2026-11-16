@@ -2,9 +2,11 @@
 //! areas and the map's data (`areas`). Lane G1b: the
 //! people on your ground (`people`), one memory per person and holder
 //! (`memory`) and standing on the four-level ladder (`standing`), with
-//! day one read from the world's 30 years and your roots. Lane G4: news
-//! in order of standing (`news`), leads and their blanks (`leads`), and
-//! finds, blooms, setbacks and misses (`finds`), for your seat.
+//! day one read from the world's 30 years and your roots. Lane G3: your
+//! week (`week`): the meeting at the map, road days, trips, the ledger,
+//! the day's calls and the beats. Lane G4: news in order of standing
+//! (`news`), leads and their blanks (`leads`), and finds, blooms,
+//! setbacks and misses (`finds`), for your seat.
 //!
 //! The store is sparse: only your seat's holders (your program, you and
 //! your staff's men) keep memories, and only with people someone has dealt
@@ -19,6 +21,7 @@ pub mod memory;
 pub mod news;
 pub mod people;
 pub mod standing;
+pub mod week;
 
 pub use memory::{Memory, Moment};
 pub use people::{Holder, Who};
@@ -65,6 +68,8 @@ pub struct Ground {
     /// The day's class values for the coach's read (not saved).
     #[serde(skip)]
     pub(crate) classes: leads::Classes,
+    /// Your week (lane G3): the plan, the road, the phone, the ledger.
+    pub week: week::Week,
     /// Test switch: the seat's ground stands still (the same-world check).
     #[serde(skip)]
     pub(crate) off: bool,
