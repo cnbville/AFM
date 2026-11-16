@@ -298,7 +298,7 @@ fn the_ground_store_saves_and_an_old_file_loads_empty() {
 }
 
 /// The world plays the same with the ground on: it only writes its own
-/// store and your inbox.
+/// store, your inbox and (lane G4) your seat's own file.
 #[test]
 fn the_world_plays_the_same_with_the_ground() {
     // Values, so the maps compare by key whatever their order in memory.
@@ -307,7 +307,6 @@ fn the_world_plays_the_same_with_the_ground() {
             serde_json::to_value(&w.people).unwrap(),
             serde_json::to_value(&w.programs).unwrap(),
             serde_json::to_value(&w.coaches).unwrap(),
-            serde_json::to_value(&w.scouting.dept.looks).unwrap(),
             serde_json::to_value(&w.folk).unwrap(),
         ]
     };
@@ -362,6 +361,11 @@ fn the_world_plays_the_same_with_the_ground() {
         off.advance_day();
     }
     assert!(fp(&on) == fp(&off), "the world moved with the ground");
+    // Your seat's own file is its own (lane G4): its board reads your
+    // ground, a Trusted coach's word on a kid is a look and his tape comes
+    // before you ask, so who was seen when can differ; the world can't.
+    let count = |w: &World| w.scouting.dept.looks.values().map(Vec::len).sum::<usize>();
+    println!("your file: {} looks with the ground, {} without", count(&on), count(&off));
     let kinds: Vec<String> = on.scouting.dept.looks.values().flatten().map(|l| format!("{:?}", l.kind)).collect();
     println!("looks: {} {:?}", kinds.len(), kinds.iter().take(20).collect::<Vec<_>>());
     assert!(off.ground.memories.is_empty());

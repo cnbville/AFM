@@ -175,6 +175,9 @@ pub fn add(w: &mut World, id: u32, who: u32, kind: Kind, date: Date) -> bool {
     v.push(SeatLook { who, kind, date });
     // A look with a recruit is a contact with the people around him (Ground).
     crate::world::ground::standing::on_look(w, id, who, kind, date);
+    // And it can bring leads: his coach's list, a camp walk-up, a kid off
+    // another kid's tape (Ground lane G4).
+    crate::world::ground::leads::on_look(w, id, who, kind, date);
     true
 }
 
@@ -185,6 +188,10 @@ pub fn add(w: &mut World, id: u32, who: u32, kind: Kind, date: Date) -> bool {
 pub fn watch(w: &World, prog: usize) -> Vec<usize> {
     let p = &w.programs[prog];
     let season = w.dates.season;
+    // Ground (lane G4, GR67): your seat's board fills from your ground plus
+    // the public view: your leads, and your staff's standing with each
+    // recruit's coach in place of footprint and pipelines.
+    let mut ground = crate::world::ground::leads::Board::of(w, prog);
     let mut scored: Vec<(f64, usize)> = Vec::new();
     for (i, q) in w.people.iter().enumerate() {
         let recruit = matches!(q.stage, Stage::HighSchool | Stage::PrepSchool)
@@ -199,6 +206,20 @@ pub fn watch(w: &World, prog: usize) -> Vec<usize> {
             || q.cal.visits.iter().any(|v| v.0 == prog)
             || q.cal.commit.is_some_and(|c| c.0 == prog)
             || q.cal.signed.is_some_and(|s| s.program == prog);
+        if let Some(g) = ground.as_mut() {
+            let lead = if recruit { g.lead(q.player.id) } else { 0.0 };
+            if !ours && lead <= 0.0 && q.stars < 3 && !portal {
+                continue;
+            }
+            let near = if recruit { g.near(w, q.hs) } else { 0.0 };
+            let s = if ours { 100.0 } else { 0.0 }
+                + lead
+                + q.stars as f64 * 2.0
+                + near * 3.0
+                + if portal { 4.0 } else { 0.0 };
+            scored.push((s, i));
+            continue;
+        }
         let near = p.footprint[q.home_state.min(50)] + 0.5 * p.pipeline[q.home_state.min(50)];
         let s = if ours { 100.0 } else { 0.0 } + q.stars as f64 * 2.0 + near * 3.0 + if portal { 4.0 } else { 0.0 };
         if ours || q.stars >= 3 || near > 0.6 {
@@ -848,9 +869,18 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
     // with no money comes at 0.3 the rate). The times are stored that day
     // (minor bug 23).
     if d == Date::nth_weekday(season, 6, Weekday::Sat, 2) || d == Date::nth_weekday(season, 6, Weekday::Sat, 3) {
-        let board = watch(w, prog);
+        let mut board = watch(w, prog);
         let home = w.programs[prog].state;
         let hc = w.programs[prog].head_coach;
+        // A kid you invited to fill his blanks comes (Ground lane G4).
+        let invited: Vec<u32> = w.scouting.dept.asks.iter().filter(|a| a.1 == Kind::Camp).map(|a| a.0).collect();
+        for &id in &invited {
+            if let Some(i) = super::place(w, id)
+                && !board.contains(&i)
+            {
+                board.push(i);
+            }
+        }
         for &i in &board {
             let q = &w.people[i];
             if q.stage != Stage::HighSchool {
@@ -858,13 +888,15 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
             }
             let near = crate::world::geo::miles(home, q.home_state) <= 400.0;
             let can = 0.45 * (0.3 + 0.7 * q.bg.money);
-            if near && readers::chance(Staff::Program(prog), 0xCA4B ^ d.0 as u64, q.player.id, can) {
+            let asked = invited.contains(&q.player.id);
+            if asked || (near && readers::chance(Staff::Program(prog), 0xCA4B ^ d.0 as u64, q.player.id, can)) {
                 let who = evaluator_for(w, prog, i).or(hc).map_or(PERSONNEL, |c| COACH + c as u32);
                 let (id, kicker) = (q.player.id, q.player.position.is_specialist());
-                add(w, id, who, Kind::Camp, d);
                 if !kicker {
                     crate::world::times::your_camp(w, i, prog, d);
                 }
+                add(w, id, who, Kind::Camp, d);
+                w.scouting.dept.asks.retain(|a| a.0 != id || a.1 != Kind::Camp);
             }
         }
     }

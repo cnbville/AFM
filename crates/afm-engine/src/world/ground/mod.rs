@@ -2,7 +2,9 @@
 //! areas and the map's data (`areas`). Lane G1b: the
 //! people on your ground (`people`), one memory per person and holder
 //! (`memory`) and standing on the four-level ladder (`standing`), with
-//! day one read from the world's 30 years and your roots.
+//! day one read from the world's 30 years and your roots. Lane G4: news
+//! in order of standing (`news`), leads and their blanks (`leads`), and
+//! finds, blooms, setbacks and misses (`finds`), for your seat.
 //!
 //! The store is sparse: only your seat's holders (your program, you and
 //! your staff's men) keep memories, and only with people someone has dealt
@@ -11,13 +13,18 @@
 //! until lane G9 the world's recruiting is unchanged.
 
 pub mod areas;
+pub mod finds;
+pub mod leads;
 pub mod memory;
+pub mod news;
 pub mod people;
 pub mod standing;
 
 pub use memory::{Memory, Moment};
 pub use people::{Holder, Who};
 pub use standing::Level;
+
+use crate::calendar::Date;
 
 /// The ground store on `World.ground`.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -34,6 +41,30 @@ pub struct Ground {
     /// Things already paid into the memory (a kid who started, a pulled
     /// offer, a promise judged), by key. Sorted.
     pub(crate) done: Vec<u64>,
+    /// Lane G4: the news your seat keeps, with its order (`news`).
+    pub news: Vec<news::News>,
+    /// Your leads, sorted by kid (`leads`).
+    pub leads: Vec<leads::Lead>,
+    /// Each teller's record with your staff, sorted by who.
+    pub records: Vec<leads::Record>,
+    /// When each coach last gave you his list, sorted by who.
+    pub(crate) lists: Vec<(Who, Date)>,
+    /// Your finds (`finds`), in the order you made them.
+    pub finds: Vec<finds::Find>,
+    /// Kids from your ground nobody of yours saw, who bloomed elsewhere.
+    pub misses: Vec<finds::Miss>,
+    /// Your men's records as finders, sorted by coach.
+    pub men: Vec<finds::Man>,
+    /// Your name as a finder (noteworthy, never driving): points from blooms.
+    pub finder: f32,
+    /// Seniors under the academic line, by player id (sorted): crossing it is news.
+    pub(crate) notq: Vec<u32>,
+    /// The head coach of each school whose coach your staff knows, by school
+    /// (sorted): a new man is news.
+    pub(crate) heads: Vec<(u32, u32)>,
+    /// The day's class values for the coach's read (not saved).
+    #[serde(skip)]
+    pub(crate) classes: leads::Classes,
     /// Test switch: the seat's ground stands still (the same-world check).
     #[serde(skip)]
     pub(crate) off: bool,
