@@ -220,9 +220,11 @@ fn keeps_every_rating_within_bounds_and_current_at_or_below_its_ceiling() {
                     p.age
                 );
                 // No 99 wall, but a thin top: past 95 nothing but the
-                // strength pair gets far (the bound thins to 103.9).
+                // strength pair gets far. The curve has no top, and these
+                // 4.5-sigma prospects pass 105 (a draw of 176), but 110 is a
+                // draw of 540: only a rise left unthinned gets there.
                 if !matches!(k, Attr::Strength | Attr::LowerBody) {
-                    assert!(c < 104.0, "{} {} at age {}: ceiling {c}", p.id, k.key(), p.age);
+                    assert!(c < 110.0, "{} {} at age {}: ceiling {c}", p.id, k.key(), p.age);
                 }
             }
         }
