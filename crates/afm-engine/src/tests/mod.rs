@@ -67,6 +67,7 @@ mod persona_office;
 mod persona_people;
 mod pipeline;
 mod placement;
+mod playing_time_grade;
 mod polls;
 mod portal_recruiting;
 mod portal_talks;
