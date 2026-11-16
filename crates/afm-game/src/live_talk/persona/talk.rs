@@ -459,6 +459,30 @@ pub fn confirm(g: &mut Game, args: &Value) -> Reply {
     g.run("people_scene", &json!({ "id": id }))
 }
 
+/// What a line to a talk that is over gets: the meeting waits on your
+/// decision.
+pub const OVER: &str = "The talk is over. What's left is your call.";
+
+/// `talk_wrap`: `{id}` ends the talk the way a goodbye does, with no cost
+/// for leaving (thread "Let talking end meetings cleanly"): a one-on-one
+/// lands as its end chip does, a meeting closes with what you didn't argue
+/// standing, and one that holds a decision keeps it as its own picks
+/// (`talk::wrap`). Only on a talk that plays v3.
+pub fn wrap(g: &mut Game, args: &Value) -> Reply {
+    let id = args.get("id").and_then(Value::as_u64).ok_or("Missing id.")? as u32;
+    let w = g.world.as_ref().ok_or("No world is loaded.")?;
+    let s = w.folk.scenes.iter().find(|s| s.id == id).ok_or("No such meeting.")?;
+    if s.done {
+        return Err("That meeting is over.".into());
+    }
+    if !plays(g, s) {
+        return Err("This talk ends on its own picks.".into());
+    }
+    let w = g.world.as_mut().ok_or("No world is loaded.")?;
+    talk::end(w, id);
+    g.run("people_scene", &json!({ "id": id }))
+}
+
 /// Runs one confirmed item: a request through `Acting::run`, an offer
 /// through its desk (a negotiation's, lane N5b; a recruit's, lane N5a) or
 /// lane N3's `agree`, a cut through the desk and any other decision on its
@@ -553,5 +577,13 @@ mod future_tests;
 pub(crate) mod n7_tests;
 
 #[cfg(test)]
+#[path = "stake_tests.rs"]
+mod stake_tests;
+
+#[cfg(test)]
 #[path = "meetings_tests.rs"]
 mod meetings_tests;
+
+#[cfg(test)]
+#[path = "wrap_tests.rs"]
+mod wrap_tests;

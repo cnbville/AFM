@@ -196,7 +196,11 @@ fn treats_potential_as_dynamic_not_fixed_at_birth() {
     // A falling rating is never labelled a breakout, and by their mid-30s veterans have no upside left.
     assert_eq!(p.falling_breakouts, 0);
     // (The TypeScript model gave 0.61-1.06 over six seeds; the Rust engine 0.63-1.27 over nine.)
-    assert!(s().nfl.veteran_potential_gap < 1.5);
+    // The split ceiling opens room in college and early pro years that a
+    // veteran's slow-growing technique skills are still closing: on four
+    // classes (`calibrate`, AFM_PROG=off against on, 2026-11-15) 0.83-1.13
+    // off and 1.23-1.57 on, 1.57 on this class's seed.
+    assert!(s().nfl.veteran_potential_gap < 1.75);
 }
 
 #[test]
@@ -252,11 +256,15 @@ fn ends_running_back_careers_sooner_than_quarterback_careers() {
     // quarterbacks, so each median gets 2.5 years. (The check before read
     // only retirements after 3+ seasons, 7 quarterbacks a class, whose
     // median moved from 35 to 28 with minor bug 165's placement fix.)
+    // The split ceiling doesn't move it (four classes with `calibrate`,
+    // 2026-11-15: quarterbacks 31-32 off, 31-34 on; backs 27-29 both), but
+    // this class's seed draws 34 with it on, so each median gets 3 years
+    // (about two of a dozen men's medians' spreads).
     let records = &result().records;
     let (rb, qb) = (median_last_age(records, Position::RB), median_last_age(records, Position::QB));
     assert!(rb < qb, "backs' careers end at {rb}, quarterbacks' at {qb}");
     assert!(
-        (qb - 31.1).abs() <= 2.5 && (rb - 28.9).abs() <= 2.5,
+        (qb - 31.1).abs() <= 3.0 && (rb - 28.9).abs() <= 3.0,
         "quarterbacks {qb} (real 31.1), backs {rb} (real 28.9)"
     );
 }

@@ -1,0 +1,8982 @@
+{
+"source": "tools/ground/areas.py from ground_area_seeds.csv and us-atlas 3.0.1 counties-10m (ISC; Census cartographic boundaries)",
+"areas": [
+{
+"state": "AL",
+"key": "bham",
+"name": "Birmingham",
+"nickname": "the Magic City",
+"codes": [
+"205",
+"659"
+],
+"seeds": [
+"Jefferson",
+"Shelby",
+"St. Clair"
+],
+"counties": [
+"Blount",
+"Jefferson",
+"Shelby",
+"St. Clair",
+"Talladega"
+],
+"center": [
+33.5577,
+-86.5614
+],
+"label": [
+33.7148,
+-86.3158
+],
+"sq_miles": 3988,
+"schools": 68,
+"near": 2.1
+},
+{
+"state": "AL",
+"key": "hsv",
+"name": "Huntsville and North Alabama",
+"nickname": "the Rocket City",
+"codes": [
+"256",
+"938"
+],
+"seeds": [
+"Madison",
+"Morgan",
+"Limestone"
+],
+"counties": [
+"Colbert",
+"Cullman",
+"Jackson",
+"Lauderdale",
+"Lawrence",
+"Limestone",
+"Madison",
+"Morgan"
+],
+"center": [
+34.6412,
+-86.917
+],
+"label": [
+34.8111,
+-86.9817
+],
+"sq_miles": 5955,
+"schools": 68,
+"near": 1.24
+},
+{
+"state": "AL",
+"key": "mob",
+"name": "Mobile and the Gulf Coast",
+"nickname": "the Port City",
+"codes": [
+"251"
+],
+"seeds": [
+"Mobile",
+"Baldwin"
+],
+"counties": [
+"Baldwin",
+"Choctaw",
+"Clarke",
+"Escambia",
+"Mobile",
+"Monroe",
+"Washington"
+],
+"center": [
+31.2683,
+-87.8301
+],
+"label": [
+31.4077,
+-88.2086
+],
+"sq_miles": 8225,
+"schools": 65,
+"near": 1.12
+},
+{
+"state": "AL",
+"key": "mgm",
+"name": "Montgomery and the River Region",
+"nickname": "the River Region",
+"codes": [
+"334"
+],
+"seeds": [
+"Montgomery",
+"Elmore",
+"Autauga"
+],
+"counties": [
+"Autauga",
+"Bullock",
+"Butler",
+"Chilton",
+"Coosa",
+"Dallas",
+"Elmore",
+"Lowndes",
+"Macon",
+"Marengo",
+"Montgomery",
+"Perry",
+"Tallapoosa",
+"Wilcox"
+],
+"center": [
+32.3808,
+-86.6422
+],
+"label": [
+32.5359,
+-86.6417
+],
+"sq_miles": 10549,
+"schools": 68,
+"near": 0.77
+},
+{
+"state": "AL",
+"key": "ttown",
+"name": "Tuscaloosa and West Alabama",
+"nickname": "T-Town",
+"codes": [
+"205"
+],
+"seeds": [
+"Tuscaloosa",
+"Walker"
+],
+"counties": [
+"Bibb",
+"Fayette",
+"Franklin",
+"Greene",
+"Hale",
+"Lamar",
+"Marion",
+"Pickens",
+"Sumter",
+"Tuscaloosa",
+"Walker",
+"Winston"
+],
+"center": [
+33.4472,
+-87.7318
+],
+"label": [
+33.2898,
+-87.5253
+],
+"sq_miles": 9169,
+"schools": 73,
+"near": 0.86
+},
+{
+"state": "AL",
+"key": "wire",
+"name": "The Wiregrass",
+"nickname": "the Wiregrass",
+"codes": [
+"334"
+],
+"seeds": [
+"Houston",
+"Dale",
+"Coffee"
+],
+"counties": [
+"Barbour",
+"Coffee",
+"Conecuh",
+"Covington",
+"Crenshaw",
+"Dale",
+"Geneva",
+"Henry",
+"Houston",
+"Pike"
+],
+"center": [
+31.4752,
+-85.9664
+],
+"label": [
+31.4021,
+-85.9879
+],
+"sq_miles": 7063,
+"schools": 50,
+"near": 0.89
+},
+{
+"state": "AL",
+"key": "east",
+"name": "East Alabama",
+"nickname": "Anniston and Gadsden",
+"codes": [
+"256"
+],
+"seeds": [
+"Calhoun",
+"Etowah"
+],
+"counties": [
+"Calhoun",
+"Cherokee",
+"Clay",
+"Cleburne",
+"DeKalb",
+"Etowah",
+"Marshall",
+"Randolph"
+],
+"center": [
+33.907,
+-85.8057
+],
+"label": [
+33.7712,
+-85.8259
+],
+"sq_miles": 4921,
+"schools": 52,
+"near": 1.23
+},
+{
+"state": "AK",
+"key": "ak",
+"name": "Alaska",
+"nickname": "the Last Frontier",
+"codes": [
+"907"
+],
+"seeds": [
+"Anchorage",
+"Matanuska-Susitna"
+],
+"counties": [
+"Aleutians East",
+"Aleutians West",
+"Anchorage",
+"Bethel",
+"Bristol Bay",
+"Denali",
+"Dillingham",
+"Fairbanks North Star",
+"Haines",
+"Hoonah-Angoon",
+"Juneau",
+"Kenai Peninsula",
+"Ketchikan Gateway",
+"Kodiak Island",
+"Kusilvak",
+"Lake and Peninsula",
+"Matanuska-Susitna",
+"Nome",
+"North Slope",
+"Northwest Arctic",
+"Petersburg",
+"Prince of Wales-Hyder",
+"Sitka",
+"Skagway",
+"Southeast Fairbanks",
+"Valdez-Cordova",
+"Wrangell",
+"Yakutat",
+"Yukon-Koyukuk"
+],
+"center": [
+63.6751,
+-152.425
+],
+"label": [
+63.6715,
+-150.0124
+],
+"sq_miles": 590073,
+"schools": 26,
+"near": 0.24
+},
+{
+"state": "AZ",
+"key": "phx",
+"name": "Phoenix and the Valley",
+"nickname": "the Valley of the Sun",
+"codes": [
+"602",
+"480",
+"623"
+],
+"seeds": [
+"Maricopa",
+"Pinal"
+],
+"counties": [
+"Gila",
+"La Paz",
+"Maricopa",
+"Pinal",
+"Yuma"
+],
+"center": [
+33.2905,
+-112.503
+],
+"label": [
+33.3486,
+-112.4917
+],
+"sq_miles": 29404,
+"schools": 155,
+"near": 1.08
+},
+{
+"state": "AZ",
+"key": "tuc",
+"name": "Tucson and Southern Arizona",
+"nickname": "the Old Pueblo",
+"codes": [
+"520"
+],
+"seeds": [
+"Pima",
+"Cochise",
+"Santa Cruz"
+],
+"counties": [
+"Cochise",
+"Graham",
+"Greenlee",
+"Pima",
+"Santa Cruz"
+],
+"center": [
+32.2642,
+-110.607
+],
+"label": [
+31.5256,
+-110.8465
+],
+"sq_miles": 23137,
+"schools": 57,
+"near": 0.31
+},
+{
+"state": "AZ",
+"key": "north",
+"name": "Northern Arizona",
+"nickname": "the high country",
+"codes": [
+"928"
+],
+"seeds": [
+"Coconino",
+"Yavapai",
+"Mohave"
+],
+"counties": [
+"Apache",
+"Coconino",
+"Mohave",
+"Navajo",
+"Yavapai"
+],
+"center": [
+35.4934,
+-111.6528
+],
+"label": [
+35.8387,
+-111.7704
+],
+"sq_miles": 61632,
+"schools": 50,
+"near": 0.11
+},
+{
+"state": "AR",
+"key": "lr",
+"name": "Little Rock and Central Arkansas",
+"nickname": "the 501",
+"codes": [
+"501"
+],
+"seeds": [
+"Pulaski",
+"Saline",
+"Faulkner"
+],
+"counties": [
+"Baxter",
+"Clark",
+"Cleburne",
+"Conway",
+"Faulkner",
+"Garland",
+"Hot Spring",
+"Izard",
+"Lonoke",
+"Marion",
+"Montgomery",
+"Perry",
+"Pope",
+"Prairie",
+"Pulaski",
+"Saline",
+"Searcy",
+"Stone",
+"Van Buren",
+"White",
+"Yell"
+],
+"center": [
+35.1484,
+-92.5813
+],
+"label": [
+35.2614,
+-92.7005
+],
+"sq_miles": 15072,
+"schools": 73,
+"near": 0.72
+},
+{
+"state": "AR",
+"key": "nwa",
+"name": "Northwest Arkansas",
+"nickname": "NWA",
+"codes": [
+"479"
+],
+"seeds": [
+"Benton",
+"Washington",
+"Sebastian"
+],
+"counties": [
+"Benton",
+"Boone",
+"Carroll",
+"Crawford",
+"Franklin",
+"Johnson",
+"Logan",
+"Madison",
+"Newton",
+"Polk",
+"Scott",
+"Sebastian",
+"Washington"
+],
+"center": [
+35.6324,
+-93.8574
+],
+"label": [
+35.5144,
+-93.8913
+],
+"sq_miles": 9680,
+"schools": 53,
+"near": 1.0
+},
+{
+"state": "AR",
+"key": "ne",
+"name": "Northeast Arkansas",
+"nickname": "the Delta",
+"codes": [
+"870"
+],
+"seeds": [
+"Craighead",
+"Crittenden",
+"Greene"
+],
+"counties": [
+"Clay",
+"Craighead",
+"Crittenden",
+"Cross",
+"Fulton",
+"Greene",
+"Independence",
+"Jackson",
+"Lawrence",
+"Lee",
+"Mississippi",
+"Phillips",
+"Poinsett",
+"Randolph",
+"Sharp",
+"St. Francis",
+"Woodruff"
+],
+"center": [
+35.6311,
+-90.876
+],
+"label": [
+35.5743,
+-90.6633
+],
+"sq_miles": 11347,
+"schools": 41,
+"near": 0.44
+},
+{
+"state": "AR",
+"key": "south",
+"name": "South Arkansas",
+"nickname": "Pine Bluff to Texarkana",
+"codes": [
+"870"
+],
+"seeds": [
+"Jefferson",
+"Union",
+"Miller"
+],
+"counties": [
+"Arkansas",
+"Ashley",
+"Bradley",
+"Calhoun",
+"Chicot",
+"Cleveland",
+"Columbia",
+"Dallas",
+"Desha",
+"Drew",
+"Grant",
+"Hempstead",
+"Howard",
+"Jefferson",
+"Lafayette",
+"Lincoln",
+"Little River",
+"Miller",
+"Monroe",
+"Nevada",
+"Ouachita",
+"Pike",
+"Sevier",
+"Union"
+],
+"center": [
+33.7435,
+-92.5543
+],
+"label": [
+33.5584,
+-92.5041
+],
+"sq_miles": 17054,
+"schools": 40,
+"near": 0.27
+},
+{
+"state": "CA",
+"key": "la",
+"name": "Los Angeles",
+"nickname": "LA",
+"codes": [
+"213",
+"310",
+"323",
+"818"
+],
+"seeds": [
+"Los Angeles"
+],
+"counties": [
+"Los Angeles"
+],
+"center": [
+34.3208,
+-118.2251
+],
+"label": [
+34.3208,
+-118.2251
+],
+"sq_miles": 4114,
+"schools": 264,
+"near": 6.42
+},
+{
+"state": "CA",
+"key": "ie",
+"name": "The Inland Empire",
+"nickname": "the IE",
+"codes": [
+"909",
+"951"
+],
+"seeds": [
+"San Bernardino",
+"Riverside"
+],
+"counties": [
+"Riverside",
+"San Bernardino"
+],
+"center": [
+34.5496,
+-116.1294
+],
+"label": [
+34.8414,
+-116.178
+],
+"sq_miles": 27474,
+"schools": 130,
+"near": 0.62
+},
+{
+"state": "CA",
+"key": "oc",
+"name": "Orange County",
+"nickname": "the OC",
+"codes": [
+"714",
+"949"
+],
+"seeds": [
+"Orange"
+],
+"counties": [
+"Orange"
+],
+"center": [
+33.7031,
+-117.7614
+],
+"label": [
+33.7031,
+-117.7614
+],
+"sq_miles": 801,
+"schools": 92,
+"near": 11.49
+},
+{
+"state": "CA",
+"key": "sd",
+"name": "San Diego",
+"nickname": "America's Finest City",
+"codes": [
+"619",
+"858",
+"760"
+],
+"seeds": [
+"San Diego",
+"Imperial"
+],
+"counties": [
+"Imperial",
+"San Diego"
+],
+"center": [
+33.0368,
+-116.0336
+],
+"label": [
+33.0398,
+-115.3662
+],
+"sq_miles": 8735,
+"schools": 98,
+"near": 2.0
+},
+{
+"state": "CA",
+"key": "bay",
+"name": "The Bay Area",
+"nickname": "the Bay",
+"codes": [
+"510",
+"415",
+"650"
+],
+"seeds": [
+"Alameda",
+"Contra Costa",
+"San Francisco"
+],
+"counties": [
+"Alameda",
+"Contra Costa",
+"Marin",
+"San Francisco",
+"San Mateo",
+"Solano"
+],
+"center": [
+37.9064,
+-122.1069
+],
+"label": [
+37.9195,
+-121.929
+],
+"sq_miles": 3463,
+"schools": 148,
+"near": 11.36
+},
+{
+"state": "CA",
+"key": "sj",
+"name": "San Jose and the South Bay",
+"nickname": "the South Bay",
+"codes": [
+"408",
+"831"
+],
+"seeds": [
+"Santa Clara",
+"Monterey"
+],
+"counties": [
+"Monterey",
+"San Benito",
+"Santa Clara",
+"Santa Cruz"
+],
+"center": [
+36.5642,
+-121.349
+],
+"label": [
+36.6062,
+-121.0747
+],
+"sq_miles": 6446,
+"schools": 83,
+"near": 3.15
+},
+{
+"state": "CA",
+"key": "sac",
+"name": "Sacramento",
+"nickname": "Sac-Town",
+"codes": [
+"916"
+],
+"seeds": [
+"Sacramento",
+"Placer",
+"Yolo"
+],
+"counties": [
+"Alpine",
+"Amador",
+"Calaveras",
+"Colusa",
+"El Dorado",
+"Lake",
+"Napa",
+"Nevada",
+"Placer",
+"Sacramento",
+"Sierra",
+"Sonoma",
+"Sutter",
+"Yolo"
+],
+"center": [
+38.831,
+-121.3976
+],
+"label": [
+39.0334,
+-121.6941
+],
+"sq_miles": 15099,
+"schools": 102,
+"near": 2.21
+},
+{
+"state": "CA",
+"key": "cv",
+"name": "The Central Valley",
+"nickname": "the Valley",
+"codes": [
+"559",
+"209"
+],
+"seeds": [
+"Fresno",
+"Tulare",
+"Stanislaus"
+],
+"counties": [
+"Fresno",
+"Inyo",
+"Kings",
+"Madera",
+"Mariposa",
+"Merced",
+"Mono",
+"San Joaquin",
+"Stanislaus",
+"Tulare",
+"Tuolumne"
+],
+"center": [
+36.9355,
+-119.0632
+],
+"label": [
+36.7581,
+-119.6503
+],
+"sq_miles": 36367,
+"schools": 113,
+"near": 0.74
+},
+{
+"state": "CA",
+"key": "kern",
+"name": "Bakersfield",
+"nickname": "the 661",
+"codes": [
+"661"
+],
+"seeds": [
+"Kern"
+],
+"counties": [
+"Kern"
+],
+"center": [
+35.3425,
+-118.729
+],
+"label": [
+35.3425,
+-118.729
+],
+"sq_miles": 8164,
+"schools": 27,
+"near": 0.33
+},
+{
+"state": "CA",
+"key": "805",
+"name": "Ventura and the Central Coast",
+"nickname": "the 805",
+"codes": [
+"805"
+],
+"seeds": [
+"Ventura",
+"Santa Barbara",
+"San Luis Obispo"
+],
+"counties": [
+"San Luis Obispo",
+"Santa Barbara",
+"Ventura"
+],
+"center": [
+34.9216,
+-119.961
+],
+"label": [
+34.6737,
+-120.0167
+],
+"sq_miles": 7941,
+"schools": 54,
+"near": 0.92
+},
+{
+"state": "CA",
+"key": "north",
+"name": "Northern California",
+"nickname": "the North State",
+"codes": [
+"530",
+"707"
+],
+"seeds": [
+"Shasta",
+"Butte",
+"Humboldt"
+],
+"counties": [
+"Butte",
+"Del Norte",
+"Glenn",
+"Humboldt",
+"Lassen",
+"Mendocino",
+"Modoc",
+"Plumas",
+"Shasta",
+"Siskiyou",
+"Tehama",
+"Trinity",
+"Yuba"
+],
+"center": [
+40.6589,
+-122.1463
+],
+"label": [
+40.7637,
+-122.0402
+],
+"sq_miles": 39645,
+"schools": 31,
+"near": 0.19
+},
+{
+"state": "CO",
+"key": "den",
+"name": "Denver",
+"nickname": "the Mile High",
+"codes": [
+"303",
+"720"
+],
+"seeds": [
+"Denver",
+"Arapahoe",
+"Jefferson"
+],
+"counties": [
+"Adams",
+"Arapahoe",
+"Boulder",
+"Broomfield",
+"Chaffee",
+"Clear Creek",
+"Denver",
+"Douglas",
+"Elbert",
+"Gilpin",
+"Jefferson",
+"Kit Carson",
+"Lake",
+"Park",
+"Summit",
+"Washington",
+"Yuma"
+],
+"center": [
+39.5569,
+-104.2302
+],
+"label": [
+39.6498,
+-104.3387
+],
+"sq_miles": 18173,
+"schools": 105,
+"near": 5.9
+},
+{
+"state": "CO",
+"key": "cos",
+"name": "Colorado Springs and the south",
+"nickname": "the Springs",
+"codes": [
+"719"
+],
+"seeds": [
+"El Paso",
+"Pueblo"
+],
+"counties": [
+"Alamosa",
+"Baca",
+"Bent",
+"Cheyenne",
+"Conejos",
+"Costilla",
+"Crowley",
+"Custer",
+"El Paso",
+"Fremont",
+"Huerfano",
+"Kiowa",
+"Las Animas",
+"Lincoln",
+"Otero",
+"Prowers",
+"Pueblo",
+"Rio Grande",
+"Saguache",
+"Teller"
+],
+"center": [
+38.0122,
+-104.2558
+],
+"label": [
+38.1735,
+-104.5126
+],
+"sq_miles": 34998,
+"schools": 44,
+"near": 0.57
+},
+{
+"state": "CO",
+"key": "noco",
+"name": "Northern Colorado",
+"nickname": "NoCo",
+"codes": [
+"970"
+],
+"seeds": [
+"Larimer",
+"Weld"
+],
+"counties": [
+"Grand",
+"Jackson",
+"Larimer",
+"Logan",
+"Morgan",
+"Phillips",
+"Sedgwick",
+"Weld"
+],
+"center": [
+40.5388,
+-104.6385
+],
+"label": [
+40.5545,
+-104.3929
+],
+"sq_miles": 14500,
+"schools": 36,
+"near": 0.4
+},
+{
+"state": "CO",
+"key": "slope",
+"name": "The Western Slope",
+"nickname": "the Slope",
+"codes": [
+"970"
+],
+"seeds": [
+"Mesa",
+"Garfield"
+],
+"counties": [
+"Archuleta",
+"Delta",
+"Dolores",
+"Eagle",
+"Garfield",
+"Gunnison",
+"Hinsdale",
+"La Plata",
+"Mesa",
+"Mineral",
+"Moffat",
+"Montezuma",
+"Montrose",
+"Ouray",
+"Pitkin",
+"Rio Blanco",
+"Routt",
+"San Juan",
+"San Miguel"
+],
+"center": [
+39.0025,
+-107.8173
+],
+"label": [
+38.861,
+-107.8629
+],
+"sq_miles": 36288,
+"schools": 39,
+"near": 0.17
+},
+{
+"state": "CT",
+"key": "203",
+"name": "Fairfield and New Haven",
+"nickname": "the 203",
+"codes": [
+"203",
+"475"
+],
+"seeds": [
+"Fairfield",
+"New Haven"
+],
+"counties": [
+"Fairfield",
+"Middlesex",
+"New Haven"
+],
+"center": [
+41.3672,
+-73.0196
+],
+"label": [
+41.411,
+-72.9316
+],
+"sq_miles": 1654,
+"schools": 82,
+"near": 5.25
+},
+{
+"state": "CT",
+"key": "860",
+"name": "Hartford and the east",
+"nickname": "the 860",
+"codes": [
+"860",
+"959"
+],
+"seeds": [
+"Hartford",
+"New London"
+],
+"counties": [
+"Hartford",
+"Litchfield",
+"New London",
+"Tolland",
+"Windham"
+],
+"center": [
+41.7457,
+-72.5808
+],
+"label": [
+41.8065,
+-72.7333
+],
+"sq_miles": 3325,
+"schools": 91,
+"near": 3.53
+},
+{
+"state": "DE",
+"key": "de",
+"name": "Delaware",
+"nickname": "the First State",
+"codes": [
+"302"
+],
+"seeds": [
+"New Castle",
+"Kent",
+"Sussex"
+],
+"counties": [
+"Kent",
+"New Castle",
+"Sussex"
+],
+"center": [
+38.9919,
+-75.5002
+],
+"label": [
+39.0872,
+-75.5678
+],
+"sq_miles": 2021,
+"schools": 52,
+"near": 2.73
+},
+{
+"state": "DC",
+"key": "dc",
+"name": "Washington",
+"nickname": "the DMV",
+"codes": [
+"202"
+],
+"seeds": [
+"District of Columbia"
+],
+"counties": [
+"District of Columbia"
+],
+"center": [
+38.9034,
+-77.0154
+],
+"label": [
+38.9034,
+-77.0154
+],
+"sq_miles": 67,
+"schools": 17,
+"near": 25.32
+},
+{
+"state": "FL",
+"key": "305",
+"name": "Miami-Dade",
+"nickname": "the 305",
+"codes": [
+"305",
+"786"
+],
+"seeds": [
+"Miami-Dade"
+],
+"counties": [
+"Miami-Dade",
+"Monroe"
+],
+"center": [
+25.4704,
+-80.7956
+],
+"label": [
+25.6148,
+-80.5586
+],
+"sq_miles": 3541,
+"schools": 67,
+"near": 2.84
+},
+{
+"state": "FL",
+"key": "954",
+"name": "Broward",
+"nickname": "the 954",
+"codes": [
+"954",
+"754"
+],
+"seeds": [
+"Broward"
+],
+"counties": [
+"Broward"
+],
+"center": [
+26.1519,
+-80.4872
+],
+"label": [
+26.1519,
+-80.4872
+],
+"sq_miles": 1222,
+"schools": 52,
+"near": 4.26
+},
+{
+"state": "FL",
+"key": "561",
+"name": "Palm Beach and the Treasure Coast",
+"nickname": "the 561",
+"codes": [
+"561",
+"772"
+],
+"seeds": [
+"Palm Beach",
+"St. Lucie",
+"Martin"
+],
+"counties": [
+"Indian River",
+"Martin",
+"Okeechobee",
+"Palm Beach",
+"St. Lucie"
+],
+"center": [
+27.0447,
+-80.5535
+],
+"label": [
+27.0774,
+-80.4318
+],
+"sq_miles": 4965,
+"schools": 61,
+"near": 1.57
+},
+{
+"state": "FL",
+"key": "bay",
+"name": "Tampa Bay",
+"nickname": "the Bay",
+"codes": [
+"813",
+"727"
+],
+"seeds": [
+"Hillsborough",
+"Pinellas",
+"Pasco"
+],
+"counties": [
+"Hernando",
+"Hillsborough",
+"Pasco",
+"Pinellas",
+"Sumter"
+],
+"center": [
+28.2506,
+-82.3516
+],
+"label": [
+28.3084,
+-82.3962
+],
+"sq_miles": 3290,
+"schools": 89,
+"near": 4.62
+},
+{
+"state": "FL",
+"key": "407",
+"name": "Orlando and Central Florida",
+"nickname": "the 407",
+"codes": [
+"407",
+"321",
+"386"
+],
+"seeds": [
+"Orange",
+"Seminole",
+"Osceola"
+],
+"counties": [
+"Brevard",
+"Lake",
+"Orange",
+"Osceola",
+"Seminole",
+"Volusia"
+],
+"center": [
+28.526,
+-81.2029
+],
+"label": [
+28.5137,
+-81.3232
+],
+"sq_miles": 6573,
+"schools": 103,
+"near": 2.14
+},
+{
+"state": "FL",
+"key": "904",
+"name": "Jacksonville and the First Coast",
+"nickname": "the 904",
+"codes": [
+"904"
+],
+"seeds": [
+"Duval",
+"Clay",
+"St. Johns"
+],
+"counties": [
+"Baker",
+"Bradford",
+"Clay",
+"Duval",
+"Flagler",
+"Nassau",
+"Putnam",
+"St. Johns"
+],
+"center": [
+30.0392,
+-81.7588
+],
+"label": [
+29.9839,
+-81.8577
+],
+"sq_miles": 5068,
+"schools": 56,
+"near": 1.83
+},
+{
+"state": "FL",
+"key": "bigbend",
+"name": "Tallahassee and the Big Bend",
+"nickname": "the Big Bend",
+"codes": [
+"850"
+],
+"seeds": [
+"Leon",
+"Gadsden"
+],
+"counties": [
+"Franklin",
+"Gadsden",
+"Jackson",
+"Jefferson",
+"Leon",
+"Liberty",
+"Madison",
+"Taylor",
+"Wakulla"
+],
+"center": [
+30.3363,
+-84.3483
+],
+"label": [
+30.4574,
+-84.2776
+],
+"sq_miles": 6671,
+"schools": 19,
+"near": 0.65
+},
+{
+"state": "FL",
+"key": "pan",
+"name": "Pensacola and the Panhandle",
+"nickname": "the Panhandle",
+"codes": [
+"850"
+],
+"seeds": [
+"Escambia",
+"Okaloosa",
+"Bay"
+],
+"counties": [
+"Bay",
+"Calhoun",
+"Escambia",
+"Gulf",
+"Holmes",
+"Okaloosa",
+"Santa Rosa",
+"Walton",
+"Washington"
+],
+"center": [
+30.5521,
+-86.1989
+],
+"label": [
+30.6431,
+-86.1694
+],
+"sq_miles": 7201,
+"schools": 36,
+"near": 0.68
+},
+{
+"state": "FL",
+"key": "352",
+"name": "Gainesville and North Central Florida",
+"nickname": "the 352",
+"codes": [
+"352"
+],
+"seeds": [
+"Alachua",
+"Marion"
+],
+"counties": [
+"Alachua",
+"Citrus",
+"Columbia",
+"Dixie",
+"Gilchrist",
+"Hamilton",
+"Lafayette",
+"Levy",
+"Marion",
+"Suwannee",
+"Union"
+],
+"center": [
+29.642,
+-82.6171
+],
+"label": [
+29.7266,
+-82.7991
+],
+"sq_miles": 8334,
+"schools": 43,
+"near": 0.7
+},
+{
+"state": "FL",
+"key": "863",
+"name": "Lakeland and the Heartland",
+"nickname": "the 863",
+"codes": [
+"863"
+],
+"seeds": [
+"Polk",
+"Highlands"
+],
+"counties": [
+"DeSoto",
+"Glades",
+"Hardee",
+"Highlands",
+"Polk"
+],
+"center": [
+27.498,
+-81.558
+],
+"label": [
+27.4931,
+-81.8094
+],
+"sq_miles": 5379,
+"schools": 28,
+"near": 0.8
+},
+{
+"state": "FL",
+"key": "swfl",
+"name": "Southwest Florida",
+"nickname": "SWFL",
+"codes": [
+"239",
+"941"
+],
+"seeds": [
+"Lee",
+"Collier",
+"Sarasota"
+],
+"counties": [
+"Charlotte",
+"Collier",
+"Hendry",
+"Lee",
+"Manatee",
+"Sarasota"
+],
+"center": [
+26.6266,
+-81.665
+],
+"label": [
+26.5776,
+-81.8392
+],
+"sq_miles": 6361,
+"schools": 59,
+"near": 1.52
+},
+{
+"state": "GA",
+"key": "south",
+"name": "South Atlanta",
+"nickname": "the south metro",
+"codes": [
+"770",
+"678"
+],
+"seeds": [
+"Clayton",
+"Henry",
+"Fayette",
+"Coweta",
+"Spalding",
+"Butts",
+"Lamar",
+"Pike",
+"Heard"
+],
+"counties": [
+"Butts",
+"Clayton",
+"Coweta",
+"Fayette",
+"Heard",
+"Henry",
+"Lamar",
+"Pike",
+"Spalding"
+],
+"center": [
+33.3149,
+-84.471
+],
+"label": [
+33.4118,
+-84.4925
+],
+"sq_miles": 2213,
+"schools": 38,
+"near": 2.58
+},
+{
+"state": "GA",
+"key": "404",
+"name": "In-town Atlanta",
+"nickname": "the 404",
+"codes": [
+"404",
+"470"
+],
+"seeds": [
+"Fulton",
+"DeKalb"
+],
+"counties": [
+"DeKalb",
+"Fulton"
+],
+"center": [
+33.7823,
+-84.3861
+],
+"label": [
+33.7893,
+-84.4678
+],
+"sq_miles": 809,
+"schools": 53,
+"near": 6.59
+},
+{
+"state": "GA",
+"key": "gwin",
+"name": "Gwinnett",
+"nickname": "the east metro",
+"codes": [
+"770",
+"678"
+],
+"seeds": [
+"Gwinnett",
+"Rockdale",
+"Newton",
+"Walton",
+"Barrow",
+"Morgan",
+"Jasper"
+],
+"counties": [
+"Barrow",
+"Gwinnett",
+"Jasper",
+"Morgan",
+"Newton",
+"Rockdale",
+"Walton"
+],
+"center": [
+33.682,
+-83.7776
+],
+"label": [
+33.7815,
+-83.733
+],
+"sq_miles": 2071,
+"schools": 42,
+"near": 3.48
+},
+{
+"state": "GA",
+"key": "cobb",
+"name": "Cobb and the northwest",
+"nickname": "the west metro",
+"codes": [
+"770",
+"706"
+],
+"seeds": [
+"Cobb",
+"Douglas",
+"Paulding",
+"Carroll",
+"Haralson",
+"Polk",
+"Bartow",
+"Floyd",
+"Gordon",
+"Chattooga",
+"Walker",
+"Catoosa",
+"Whitfield",
+"Murray",
+"Dade"
+],
+"counties": [
+"Bartow",
+"Carroll",
+"Catoosa",
+"Chattooga",
+"Cobb",
+"Dade",
+"Douglas",
+"Floyd",
+"Gordon",
+"Haralson",
+"Murray",
+"Paulding",
+"Polk",
+"Walker",
+"Whitfield"
+],
+"center": [
+34.2656,
+-85.0343
+],
+"label": [
+34.2629,
+-85.2146
+],
+"sq_miles": 5039,
+"schools": 80,
+"near": 2.62
+},
+{
+"state": "GA",
+"key": "north",
+"name": "North Georgia",
+"nickname": "the mountains",
+"codes": [
+"706",
+"770"
+],
+"seeds": [
+"Cherokee",
+"Forsyth",
+"Hall",
+"Dawson",
+"Pickens",
+"Gilmer",
+"Fannin",
+"Union",
+"Towns",
+"Rabun",
+"Habersham",
+"White",
+"Lumpkin",
+"Banks",
+"Stephens",
+"Franklin",
+"Hart",
+"Jackson"
+],
+"counties": [
+"Banks",
+"Cherokee",
+"Dawson",
+"Fannin",
+"Forsyth",
+"Franklin",
+"Gilmer",
+"Habersham",
+"Hall",
+"Hart",
+"Jackson",
+"Lumpkin",
+"Pickens",
+"Rabun",
+"Stephens",
+"Towns",
+"Union",
+"White"
+],
+"center": [
+34.5269,
+-83.868
+],
+"label": [
+34.5726,
+-84.004
+],
+"sq_miles": 5348,
+"schools": 57,
+"near": 1.46
+},
+{
+"state": "GA",
+"key": "athens",
+"name": "Athens",
+"nickname": "the Classic City",
+"codes": [
+"706",
+"762"
+],
+"seeds": [
+"Clarke",
+"Oconee",
+"Madison",
+"Oglethorpe",
+"Elbert",
+"Wilkes",
+"Greene",
+"Lincoln",
+"Taliaferro"
+],
+"counties": [
+"Clarke",
+"Elbert",
+"Greene",
+"Lincoln",
+"Madison",
+"Oconee",
+"Oglethorpe",
+"Taliaferro",
+"Wilkes"
+],
+"center": [
+33.8461,
+-82.9782
+],
+"label": [
+33.8794,
+-83.0823
+],
+"sq_miles": 2741,
+"schools": 21,
+"near": 1.41
+},
+{
+"state": "GA",
+"key": "aug",
+"name": "Augusta",
+"nickname": "the CSRA",
+"codes": [
+"706",
+"762"
+],
+"seeds": [
+"Richmond",
+"Columbia",
+"McDuffie",
+"Burke",
+"Jefferson",
+"Glascock",
+"Warren",
+"Washington",
+"Jenkins",
+"Screven",
+"Emanuel"
+],
+"counties": [
+"Burke",
+"Columbia",
+"Emanuel",
+"Glascock",
+"Jefferson",
+"Jenkins",
+"McDuffie",
+"Richmond",
+"Screven",
+"Warren",
+"Washington"
+],
+"center": [
+33.0203,
+-82.2408
+],
+"label": [
+33.0539,
+-82.4176
+],
+"sq_miles": 5083,
+"schools": 27,
+"near": 1.03
+},
+{
+"state": "GA",
+"key": "macon",
+"name": "Middle Georgia",
+"nickname": "Macon and the Robins base",
+"codes": [
+"478"
+],
+"seeds": [
+"Bibb",
+"Houston",
+"Peach",
+"Jones",
+"Monroe",
+"Crawford",
+"Twiggs",
+"Baldwin",
+"Putnam",
+"Hancock",
+"Wilkinson",
+"Laurens",
+"Bleckley",
+"Pulaski",
+"Dodge",
+"Upson",
+"Taylor",
+"Macon",
+"Dooly",
+"Johnson",
+"Treutlen"
+],
+"counties": [
+"Baldwin",
+"Bibb",
+"Bleckley",
+"Crawford",
+"Dodge",
+"Dooly",
+"Hancock",
+"Houston",
+"Johnson",
+"Jones",
+"Laurens",
+"Macon",
+"Monroe",
+"Peach",
+"Pulaski",
+"Putnam",
+"Taylor",
+"Treutlen",
+"Twiggs",
+"Upson",
+"Wilkinson"
+],
+"center": [
+32.6683,
+-83.467
+],
+"label": [
+32.6684,
+-83.4274
+],
+"sq_miles": 7649,
+"schools": 43,
+"near": 0.93
+},
+{
+"state": "GA",
+"key": "col",
+"name": "Columbus and the Valley",
+"nickname": "the 706 west",
+"codes": [
+"706",
+"762"
+],
+"seeds": [
+"Muscogee",
+"Harris",
+"Troup",
+"Meriwether",
+"Talbot",
+"Chattahoochee",
+"Marion",
+"Stewart",
+"Webster",
+"Quitman",
+"Schley",
+"Sumter",
+"Russell",
+"Lee",
+"Chambers"
+],
+"counties": [
+"AL:Chambers",
+"AL:Lee",
+"AL:Russell",
+"Chattahoochee",
+"Harris",
+"Marion",
+"Meriwether",
+"Muscogee",
+"Quitman",
+"Schley",
+"Stewart",
+"Sumter",
+"Talbot",
+"Troup",
+"Webster"
+],
+"center": [
+32.5206,
+-84.8788
+],
+"label": [
+32.51,
+-84.8749
+],
+"sq_miles": 6009,
+"schools": 48,
+"near": 1.16
+},
+{
+"state": "GA",
+"key": "sav",
+"name": "Savannah and the coast",
+"nickname": "the 912",
+"codes": [
+"912"
+],
+"seeds": [
+"Chatham",
+"Effingham",
+"Bryan",
+"Liberty",
+"Long",
+"McIntosh",
+"Glynn",
+"Camden",
+"Bulloch",
+"Evans",
+"Tattnall",
+"Candler",
+"Wayne"
+],
+"counties": [
+"Bryan",
+"Bulloch",
+"Camden",
+"Candler",
+"Chatham",
+"Effingham",
+"Evans",
+"Glynn",
+"Liberty",
+"Long",
+"McIntosh",
+"Tattnall",
+"Wayne"
+],
+"center": [
+31.8068,
+-81.6318
+],
+"label": [
+31.752,
+-81.7453
+],
+"sq_miles": 6269,
+"schools": 41,
+"near": 0.93
+},
+{
+"state": "GA",
+"key": "229",
+"name": "Southwest Georgia",
+"nickname": "the 229",
+"codes": [
+"229"
+],
+"seeds": [
+"Dougherty",
+"Lee",
+"Terrell",
+"Randolph",
+"Clay",
+"Calhoun",
+"Early",
+"Miller",
+"Baker",
+"Mitchell",
+"Seminole",
+"Decatur",
+"Grady",
+"Thomas",
+"Colquitt",
+"Worth",
+"Tift",
+"Turner",
+"Crisp",
+"Wilcox",
+"Ben Hill",
+"Irwin",
+"Berrien",
+"Cook",
+"Brooks",
+"Lowndes",
+"Lanier",
+"Echols"
+],
+"counties": [
+"Baker",
+"Ben Hill",
+"Berrien",
+"Brooks",
+"Calhoun",
+"Clay",
+"Colquitt",
+"Cook",
+"Crisp",
+"Decatur",
+"Dougherty",
+"Early",
+"Echols",
+"Grady",
+"Irwin",
+"Lanier",
+"Lee",
+"Lowndes",
+"Miller",
+"Mitchell",
+"Randolph",
+"Seminole",
+"Terrell",
+"Thomas",
+"Tift",
+"Turner",
+"Wilcox",
+"Worth"
+],
+"center": [
+31.299,
+-83.9675
+],
+"label": [
+31.1891,
+-83.7687
+],
+"sq_miles": 10821,
+"schools": 50,
+"near": 0.64
+},
+{
+"state": "GA",
+"key": "se",
+"name": "Southeast Georgia",
+"nickname": "the wiregrass",
+"codes": [
+"912"
+],
+"seeds": [
+"Ware",
+"Pierce",
+"Brantley",
+"Charlton",
+"Bacon",
+"Appling",
+"Jeff Davis",
+"Coffee",
+"Telfair",
+"Wheeler",
+"Montgomery",
+"Toombs",
+"Clinch",
+"Atkinson"
+],
+"counties": [
+"Appling",
+"Atkinson",
+"Bacon",
+"Brantley",
+"Charlton",
+"Clinch",
+"Coffee",
+"Jeff Davis",
+"Montgomery",
+"Pierce",
+"Telfair",
+"Toombs",
+"Ware",
+"Wheeler"
+],
+"center": [
+31.4025,
+-82.4938
+],
+"label": [
+31.5526,
+-82.4511
+],
+"sq_miles": 6753,
+"schools": 28,
+"near": 0.61
+},
+{
+"state": "HI",
+"key": "hi",
+"name": "Hawaii",
+"nickname": "the islands",
+"codes": [
+"808"
+],
+"seeds": [
+"Honolulu"
+],
+"counties": [
+"Hawaii",
+"Honolulu",
+"Kalawao",
+"Kauai",
+"Maui"
+],
+"center": [
+20.248,
+-156.3449
+],
+"label": [
+20.8642,
+-156.57
+],
+"sq_miles": 6463,
+"schools": 56,
+"near": 3.19
+},
+{
+"state": "ID",
+"key": "tv",
+"name": "Boise and the Treasure Valley",
+"nickname": "the Treasure Valley",
+"codes": [
+"208",
+"986"
+],
+"seeds": [
+"Ada",
+"Canyon"
+],
+"counties": [
+"Ada",
+"Adams",
+"Boise",
+"Camas",
+"Canyon",
+"Custer",
+"Elmore",
+"Gem",
+"Lemhi",
+"Owyhee",
+"Payette",
+"Valley",
+"Washington"
+],
+"center": [
+43.8775,
+-115.4243
+],
+"label": [
+43.989,
+-115.7296
+],
+"sq_miles": 32381,
+"schools": 34,
+"near": 0.95
+},
+{
+"state": "ID",
+"key": "east",
+"name": "Eastern Idaho",
+"nickname": "Idaho Falls and Pocatello",
+"codes": [
+"208",
+"986"
+],
+"seeds": [
+"Bonneville",
+"Bannock",
+"Twin Falls"
+],
+"counties": [
+"Bannock",
+"Bear Lake",
+"Bingham",
+"Blaine",
+"Bonneville",
+"Butte",
+"Caribou",
+"Cassia",
+"Clark",
+"Franklin",
+"Fremont",
+"Gooding",
+"Jefferson",
+"Jerome",
+"Lincoln",
+"Madison",
+"Minidoka",
+"Oneida",
+"Power",
+"Teton",
+"Twin Falls"
+],
+"center": [
+43.1083,
+-112.8242
+],
+"label": [
+43.2164,
+-112.3984
+],
+"sq_miles": 29656,
+"schools": 39,
+"near": 0.23
+},
+{
+"state": "ID",
+"key": "north",
+"name": "North Idaho",
+"nickname": "the Panhandle",
+"codes": [
+"208",
+"986"
+],
+"seeds": [
+"Kootenai",
+"Latah"
+],
+"counties": [
+"Benewah",
+"Bonner",
+"Boundary",
+"Clearwater",
+"Idaho",
+"Kootenai",
+"Latah",
+"Lewis",
+"Nez Perce",
+"Shoshone"
+],
+"center": [
+46.7637,
+-115.9598
+],
+"label": [
+46.6729,
+-115.6588
+],
+"sq_miles": 21258,
+"schools": 24,
+"near": 0.25
+},
+{
+"state": "IL",
+"key": "cook",
+"name": "Chicago and Cook County",
+"nickname": "the city",
+"codes": [
+"312",
+"773",
+"708",
+"847"
+],
+"seeds": [
+"Cook"
+],
+"counties": [
+"Cook"
+],
+"center": [
+41.8401,
+-87.8168
+],
+"label": [
+41.8401,
+-87.8168
+],
+"sq_miles": 956,
+"schools": 141,
+"near": 14.75
+},
+{
+"state": "IL",
+"key": "collar",
+"name": "The collar counties",
+"nickname": "the suburbs",
+"codes": [
+"630",
+"847",
+"815",
+"331"
+],
+"seeds": [
+"DuPage",
+"Lake",
+"Will"
+],
+"counties": [
+"DuPage",
+"Grundy",
+"Kankakee",
+"Lake",
+"Livingston",
+"Will"
+],
+"center": [
+41.3641,
+-88.1792
+],
+"label": [
+41.445,
+-87.979
+],
+"sq_miles": 3807,
+"schools": 108,
+"near": 6.7
+},
+{
+"state": "IL",
+"key": "rock",
+"name": "Rockford and Northern Illinois",
+"nickname": "the 815",
+"codes": [
+"815",
+"779"
+],
+"seeds": [
+"Winnebago",
+"Kane",
+"McHenry"
+],
+"counties": [
+"Boone",
+"Carroll",
+"DeKalb",
+"Jo Daviess",
+"Kane",
+"Kendall",
+"LaSalle",
+"Lee",
+"McHenry",
+"Ogle",
+"Stephenson",
+"Whiteside",
+"Winnebago"
+],
+"center": [
+41.9508,
+-89.2028
+],
+"label": [
+42.0429,
+-89.3199
+],
+"sq_miles": 7860,
+"schools": 97,
+"near": 1.83
+},
+{
+"state": "IL",
+"key": "cent",
+"name": "Central Illinois",
+"nickname": "the 217 and the 309",
+"codes": [
+"217",
+"309"
+],
+"seeds": [
+"Sangamon",
+"Champaign",
+"Peoria"
+],
+"counties": [
+"Adams",
+"Brown",
+"Bureau",
+"Cass",
+"Champaign",
+"Christian",
+"Clark",
+"Coles",
+"Crawford",
+"Cumberland",
+"De Witt",
+"Douglas",
+"Edgar",
+"Ford",
+"Fulton",
+"Hancock",
+"Henderson",
+"Henry",
+"Iroquois",
+"Jasper",
+"Knox",
+"Lawrence",
+"Logan",
+"Macon",
+"Marshall",
+"Mason",
+"McDonough",
+"McLean",
+"Menard",
+"Mercer",
+"Morgan",
+"Moultrie",
+"Peoria",
+"Piatt",
+"Pike",
+"Putnam",
+"Rock Island",
+"Sangamon",
+"Schuyler",
+"Scott",
+"Shelby",
+"Stark",
+"Tazewell",
+"Vermilion",
+"Warren",
+"Woodford"
+],
+"center": [
+40.2353,
+-89.3943
+],
+"label": [
+40.1243,
+-89.3671
+],
+"sq_miles": 27034,
+"schools": 134,
+"near": 0.85
+},
+{
+"state": "IL",
+"key": "me",
+"name": "The Metro East and Southern Illinois",
+"nickname": "the Metro East",
+"codes": [
+"618"
+],
+"seeds": [
+"St. Clair",
+"Madison",
+"Jackson"
+],
+"counties": [
+"Alexander",
+"Bond",
+"Calhoun",
+"Clay",
+"Clinton",
+"Edwards",
+"Effingham",
+"Fayette",
+"Franklin",
+"Gallatin",
+"Greene",
+"Hamilton",
+"Hardin",
+"Jackson",
+"Jefferson",
+"Jersey",
+"Johnson",
+"Macoupin",
+"Madison",
+"Marion",
+"Massac",
+"Monroe",
+"Montgomery",
+"Perry",
+"Pope",
+"Pulaski",
+"Randolph",
+"Richland",
+"Saline",
+"St. Clair",
+"Union",
+"Wabash",
+"Washington",
+"Wayne",
+"White",
+"Williamson"
+],
+"center": [
+38.4025,
+-89.1878
+],
+"label": [
+38.353,
+-89.4111
+],
+"sq_miles": 16594,
+"schools": 102,
+"near": 1.11
+},
+{
+"state": "IN",
+"key": "indy",
+"name": "Indianapolis",
+"nickname": "Circle City",
+"codes": [
+"317"
+],
+"seeds": [
+"Marion",
+"Hamilton",
+"Johnson"
+],
+"counties": [
+"Bartholomew",
+"Boone",
+"Carroll",
+"Cass",
+"Clinton",
+"Decatur",
+"Delaware",
+"Fayette",
+"Fountain",
+"Franklin",
+"Grant",
+"Hamilton",
+"Hancock",
+"Hendricks",
+"Henry",
+"Howard",
+"Johnson",
+"Madison",
+"Marion",
+"Miami",
+"Montgomery",
+"Morgan",
+"Putnam",
+"Randolph",
+"Rush",
+"Shelby",
+"Tippecanoe",
+"Tipton",
+"Union",
+"Warren",
+"Wayne"
+],
+"center": [
+39.9916,
+-86.0579
+],
+"label": [
+40.0724,
+-86.051
+],
+"sq_miles": 11935,
+"schools": 128,
+"near": 2.49
+},
+{
+"state": "IN",
+"key": "region",
+"name": "Northwest Indiana",
+"nickname": "the Region",
+"codes": [
+"219"
+],
+"seeds": [
+"Lake",
+"Porter"
+],
+"counties": [
+"Benton",
+"Jasper",
+"LaPorte",
+"Lake",
+"Newton",
+"Porter",
+"Pulaski",
+"Starke",
+"White"
+],
+"center": [
+41.132,
+-87.0265
+],
+"label": [
+41.0229,
+-87.1164
+],
+"sq_miles": 4151,
+"schools": 39,
+"near": 2.23
+},
+{
+"state": "IN",
+"key": "ne",
+"name": "Fort Wayne and the north",
+"nickname": "the 260 and the 574",
+"codes": [
+"260",
+"574"
+],
+"seeds": [
+"Allen",
+"St. Joseph",
+"Elkhart"
+],
+"counties": [
+"Adams",
+"Allen",
+"Blackford",
+"DeKalb",
+"Elkhart",
+"Fulton",
+"Huntington",
+"Jay",
+"Kosciusko",
+"LaGrange",
+"Marshall",
+"Noble",
+"St. Joseph",
+"Steuben",
+"Wabash",
+"Wells",
+"Whitley"
+],
+"center": [
+41.1625,
+-85.54
+],
+"label": [
+41.1393,
+-85.5048
+],
+"sq_miles": 6852,
+"schools": 88,
+"near": 1.66
+},
+{
+"state": "IN",
+"key": "south",
+"name": "Southern Indiana",
+"nickname": "the 812",
+"codes": [
+"812",
+"930"
+],
+"seeds": [
+"Vanderburgh",
+"Clark",
+"Monroe"
+],
+"counties": [
+"Brown",
+"Clark",
+"Clay",
+"Crawford",
+"Daviess",
+"Dearborn",
+"Dubois",
+"Floyd",
+"Gibson",
+"Greene",
+"Harrison",
+"Jackson",
+"Jefferson",
+"Jennings",
+"Knox",
+"Lawrence",
+"Martin",
+"Monroe",
+"Ohio",
+"Orange",
+"Owen",
+"Parke",
+"Perry",
+"Pike",
+"Posey",
+"Ripley",
+"Scott",
+"Spencer",
+"Sullivan",
+"Switzerland",
+"Vanderburgh",
+"Vermillion",
+"Vigo",
+"Warrick",
+"Washington"
+],
+"center": [
+38.7517,
+-86.6268
+],
+"label": [
+38.8412,
+-86.484
+],
+"sq_miles": 13196,
+"schools": 101,
+"near": 1.05
+},
+{
+"state": "IA",
+"key": "dsm",
+"name": "Des Moines and Central Iowa",
+"nickname": "the 515",
+"codes": [
+"515"
+],
+"seeds": [
+"Polk",
+"Story",
+"Dallas"
+],
+"counties": [
+"Adair",
+"Appanoose",
+"Boone",
+"Butler",
+"Calhoun",
+"Carroll",
+"Cerro Gordo",
+"Clarke",
+"Dallas",
+"Decatur",
+"Floyd",
+"Franklin",
+"Greene",
+"Grundy",
+"Guthrie",
+"Hamilton",
+"Hancock",
+"Hardin",
+"Humboldt",
+"Jasper",
+"Kossuth",
+"Lucas",
+"Madison",
+"Mahaska",
+"Marion",
+"Marshall",
+"Mitchell",
+"Monroe",
+"Polk",
+"Ringgold",
+"Story",
+"Union",
+"Warren",
+"Wayne",
+"Webster",
+"Winnebago",
+"Worth",
+"Wright"
+],
+"center": [
+42.0253,
+-93.6373
+],
+"label": [
+42.036,
+-93.4636
+],
+"sq_miles": 21038,
+"schools": 111,
+"near": 1.11
+},
+{
+"state": "IA",
+"key": "east",
+"name": "Eastern Iowa",
+"nickname": "the Corridor",
+"codes": [
+"319",
+"563"
+],
+"seeds": [
+"Linn",
+"Johnson",
+"Scott"
+],
+"counties": [
+"Allamakee",
+"Benton",
+"Black Hawk",
+"Bremer",
+"Buchanan",
+"Cedar",
+"Chickasaw",
+"Clayton",
+"Clinton",
+"Davis",
+"Delaware",
+"Des Moines",
+"Dubuque",
+"Fayette",
+"Henry",
+"Howard",
+"Iowa",
+"Jackson",
+"Jefferson",
+"Johnson",
+"Jones",
+"Keokuk",
+"Lee",
+"Linn",
+"Louisa",
+"Muscatine",
+"Poweshiek",
+"Scott",
+"Tama",
+"Van Buren",
+"Wapello",
+"Washington",
+"Winneshiek"
+],
+"center": [
+42.0004,
+-91.6655
+],
+"label": [
+42.0793,
+-91.5993
+],
+"sq_miles": 18838,
+"schools": 130,
+"near": 1.05
+},
+{
+"state": "IA",
+"key": "west",
+"name": "Western Iowa",
+"nickname": "the 712",
+"codes": [
+"712"
+],
+"seeds": [
+"Woodbury",
+"Pottawattamie"
+],
+"counties": [
+"Adams",
+"Audubon",
+"Buena Vista",
+"Cass",
+"Cherokee",
+"Clay",
+"Crawford",
+"Dickinson",
+"Emmet",
+"Fremont",
+"Harrison",
+"Ida",
+"Lyon",
+"Mills",
+"Monona",
+"Montgomery",
+"O'Brien",
+"Osceola",
+"Page",
+"Palo Alto",
+"Plymouth",
+"Pocahontas",
+"Pottawattamie",
+"Sac",
+"Shelby",
+"Sioux",
+"Taylor",
+"Woodbury"
+],
+"center": [
+42.1867,
+-95.4386
+],
+"label": [
+42.0374,
+-95.3815
+],
+"sq_miles": 16285,
+"schools": 65,
+"near": 0.51
+},
+{
+"state": "KS",
+"key": "kc",
+"name": "Kansas City and Northeast Kansas",
+"nickname": "the KC side",
+"codes": [
+"913",
+"785"
+],
+"seeds": [
+"Johnson",
+"Wyandotte",
+"Shawnee"
+],
+"counties": [
+"Allen",
+"Anderson",
+"Atchison",
+"Bourbon",
+"Brown",
+"Clay",
+"Coffey",
+"Crawford",
+"Dickinson",
+"Doniphan",
+"Douglas",
+"Franklin",
+"Geary",
+"Jackson",
+"Jefferson",
+"Johnson",
+"Leavenworth",
+"Linn",
+"Lyon",
+"Marshall",
+"Miami",
+"Morris",
+"Nemaha",
+"Osage",
+"Pottawatomie",
+"Riley",
+"Shawnee",
+"Wabaunsee",
+"Washington",
+"Wyandotte"
+],
+"center": [
+38.9426,
+-95.8707
+],
+"label": [
+39.0419,
+-95.758
+],
+"sq_miles": 18487,
+"schools": 111,
+"near": 1.53
+},
+{
+"state": "KS",
+"key": "ict",
+"name": "Wichita and South Central Kansas",
+"nickname": "the Air Capital",
+"codes": [
+"316",
+"620"
+],
+"seeds": [
+"Sedgwick",
+"Reno",
+"Butler"
+],
+"counties": [
+"Barber",
+"Butler",
+"Chase",
+"Chautauqua",
+"Cherokee",
+"Cowley",
+"Elk",
+"Ellsworth",
+"Greenwood",
+"Harper",
+"Harvey",
+"Kingman",
+"Labette",
+"Marion",
+"McPherson",
+"Montgomery",
+"Neosho",
+"Ottawa",
+"Pratt",
+"Reno",
+"Rice",
+"Saline",
+"Sedgwick",
+"Stafford",
+"Sumner",
+"Wilson",
+"Woodson"
+],
+"center": [
+37.7921,
+-97.191
+],
+"label": [
+37.6852,
+-97.4611
+],
+"sq_miles": 22420,
+"schools": 92,
+"near": 1.03
+},
+{
+"state": "KS",
+"key": "west",
+"name": "Western Kansas",
+"nickname": "the 620 west",
+"codes": [
+"620",
+"785"
+],
+"seeds": [
+"Finney",
+"Ford",
+"Ellis"
+],
+"counties": [
+"Barton",
+"Cheyenne",
+"Clark",
+"Cloud",
+"Comanche",
+"Decatur",
+"Edwards",
+"Ellis",
+"Finney",
+"Ford",
+"Gove",
+"Graham",
+"Grant",
+"Gray",
+"Greeley",
+"Hamilton",
+"Haskell",
+"Hodgeman",
+"Jewell",
+"Kearny",
+"Kiowa",
+"Lane",
+"Lincoln",
+"Logan",
+"Meade",
+"Mitchell",
+"Morton",
+"Ness",
+"Norton",
+"Osborne",
+"Pawnee",
+"Phillips",
+"Rawlins",
+"Republic",
+"Rooks",
+"Rush",
+"Russell",
+"Scott",
+"Seward",
+"Sheridan",
+"Sherman",
+"Smith",
+"Stanton",
+"Stevens",
+"Thomas",
+"Trego",
+"Wallace",
+"Wichita"
+],
+"center": [
+38.6355,
+-100.1485
+],
+"label": [
+38.4798,
+-99.9147
+],
+"sq_miles": 41271,
+"schools": 51,
+"near": 0.17
+},
+{
+"state": "KY",
+"key": "lou",
+"name": "Louisville",
+"nickname": "Derby City",
+"codes": [
+"502"
+],
+"seeds": [
+"Jefferson",
+"Oldham",
+"Bullitt"
+],
+"counties": [
+"Bullitt",
+"Carroll",
+"Green",
+"Hardin",
+"Henry",
+"Jefferson",
+"Larue",
+"Marion",
+"Meade",
+"Nelson",
+"Oldham",
+"Shelby",
+"Spencer",
+"Taylor",
+"Trimble",
+"Washington"
+],
+"center": [
+37.9047,
+-85.5246
+],
+"label": [
+37.8048,
+-85.4671
+],
+"sq_miles": 4903,
+"schools": 54,
+"near": 3.19
+},
+{
+"state": "KY",
+"key": "lex",
+"name": "Lexington and the Bluegrass",
+"nickname": "the Bluegrass",
+"codes": [
+"859"
+],
+"seeds": [
+"Fayette",
+"Madison",
+"Scott"
+],
+"counties": [
+"Anderson",
+"Bath",
+"Bourbon",
+"Boyle",
+"Casey",
+"Clark",
+"Estill",
+"Fayette",
+"Fleming",
+"Franklin",
+"Garrard",
+"Harrison",
+"Jessamine",
+"Lee",
+"Lincoln",
+"Madison",
+"Menifee",
+"Mercer",
+"Montgomery",
+"Nicholas",
+"Owen",
+"Powell",
+"Robertson",
+"Scott",
+"Wolfe",
+"Woodford"
+],
+"center": [
+37.9589,
+-84.3303
+],
+"label": [
+38.0429,
+-84.4587
+],
+"sq_miles": 6657,
+"schools": 43,
+"near": 1.12
+},
+{
+"state": "KY",
+"key": "nky",
+"name": "Northern Kentucky",
+"nickname": "NKY",
+"codes": [
+"859"
+],
+"seeds": [
+"Boone",
+"Kenton",
+"Campbell"
+],
+"counties": [
+"Boone",
+"Bracken",
+"Campbell",
+"Gallatin",
+"Grant",
+"Kenton",
+"Mason",
+"Pendleton"
+],
+"center": [
+38.7652,
+-84.3954
+],
+"label": [
+38.6957,
+-84.3611
+],
+"sq_miles": 1688,
+"schools": 27,
+"near": 2.52
+},
+{
+"state": "KY",
+"key": "west",
+"name": "Western Kentucky",
+"nickname": "the 270",
+"codes": [
+"270",
+"364"
+],
+"seeds": [
+"Warren",
+"Daviess",
+"McCracken"
+],
+"counties": [
+"Adair",
+"Allen",
+"Ballard",
+"Barren",
+"Breckinridge",
+"Butler",
+"Caldwell",
+"Calloway",
+"Carlisle",
+"Christian",
+"Crittenden",
+"Cumberland",
+"Daviess",
+"Edmonson",
+"Fulton",
+"Graves",
+"Grayson",
+"Hancock",
+"Hart",
+"Henderson",
+"Hickman",
+"Hopkins",
+"Livingston",
+"Logan",
+"Lyon",
+"Marshall",
+"McCracken",
+"McLean",
+"Metcalfe",
+"Monroe",
+"Muhlenberg",
+"Ohio",
+"Simpson",
+"Todd",
+"Trigg",
+"Union",
+"Warren",
+"Webster"
+],
+"center": [
+37.1401,
+-87.1951
+],
+"label": [
+37.2161,
+-87.1414
+],
+"sq_miles": 14944,
+"schools": 67,
+"near": 0.62
+},
+{
+"state": "KY",
+"key": "east",
+"name": "Eastern Kentucky",
+"nickname": "the mountains",
+"codes": [
+"606"
+],
+"seeds": [
+"Pike",
+"Laurel",
+"Boyd"
+],
+"counties": [
+"Bell",
+"Boyd",
+"Breathitt",
+"Carter",
+"Clay",
+"Clinton",
+"Elliott",
+"Floyd",
+"Greenup",
+"Harlan",
+"Jackson",
+"Johnson",
+"Knott",
+"Knox",
+"Laurel",
+"Lawrence",
+"Leslie",
+"Letcher",
+"Lewis",
+"Magoffin",
+"Martin",
+"McCreary",
+"Morgan",
+"Owsley",
+"Perry",
+"Pike",
+"Pulaski",
+"Rockcastle",
+"Rowan",
+"Russell",
+"Wayne",
+"Whitley"
+],
+"center": [
+37.426,
+-83.5271
+],
+"label": [
+37.4199,
+-83.6842
+],
+"sq_miles": 12172,
+"schools": 56,
+"near": 0.59
+},
+{
+"state": "LA",
+"key": "nola",
+"name": "New Orleans",
+"nickname": "the Big Easy",
+"codes": [
+"504"
+],
+"seeds": [
+"Orleans",
+"Jefferson",
+"St. Tammany"
+],
+"counties": [
+"Jefferson",
+"Lafourche",
+"Orleans",
+"Plaquemines",
+"St. Bernard",
+"St. Charles",
+"St. Tammany",
+"Terrebonne",
+"Washington"
+],
+"center": [
+29.8177,
+-90.1538
+],
+"label": [
+29.7419,
+-90.1129
+],
+"sq_miles": 7842,
+"schools": 74,
+"near": 1.57
+},
+{
+"state": "LA",
+"key": "br",
+"name": "Baton Rouge",
+"nickname": "the Red Stick",
+"codes": [
+"225"
+],
+"seeds": [
+"East Baton Rouge",
+"Ascension",
+"Livingston"
+],
+"counties": [
+"Ascension",
+"Assumption",
+"East Baton Rouge",
+"East Feliciana",
+"Iberville",
+"Livingston",
+"St. Helena",
+"St. James",
+"St. John the Baptist",
+"Tangipahoa",
+"West Baton Rouge",
+"West Feliciana"
+],
+"center": [
+30.4613,
+-90.8995
+],
+"label": [
+30.4395,
+-90.7287
+],
+"sq_miles": 5496,
+"schools": 68,
+"near": 1.76
+},
+{
+"state": "LA",
+"key": "acad",
+"name": "Acadiana",
+"nickname": "Acadiana",
+"codes": [
+"337"
+],
+"seeds": [
+"Lafayette",
+"Iberia",
+"St. Landry"
+],
+"counties": [
+"Acadia",
+"Evangeline",
+"Iberia",
+"Lafayette",
+"Pointe Coupee",
+"St. Landry",
+"St. Martin",
+"St. Mary",
+"Vermilion"
+],
+"center": [
+30.2027,
+-91.9779
+],
+"label": [
+30.2059,
+-92.0627
+],
+"sq_miles": 6629,
+"schools": 51,
+"near": 1.22
+},
+{
+"state": "LA",
+"key": "swla",
+"name": "Lake Charles",
+"nickname": "SWLA",
+"codes": [
+"337"
+],
+"seeds": [
+"Calcasieu",
+"Beauregard"
+],
+"counties": [
+"Allen",
+"Beauregard",
+"Calcasieu",
+"Cameron",
+"Jefferson Davis",
+"Vernon"
+],
+"center": [
+30.4443,
+-93.1657
+],
+"label": [
+30.6482,
+-93.3437
+],
+"sq_miles": 6666,
+"schools": 29,
+"near": 0.65
+},
+{
+"state": "LA",
+"key": "shv",
+"name": "Shreveport and the ArkLaTex",
+"nickname": "the ArkLaTex",
+"codes": [
+"318"
+],
+"seeds": [
+"Caddo",
+"Bossier"
+],
+"counties": [
+"Bossier",
+"Caddo",
+"De Soto",
+"Webster"
+],
+"center": [
+32.4889,
+-93.6688
+],
+"label": [
+32.6798,
+-93.6044
+],
+"sq_miles": 3310,
+"schools": 35,
+"near": 1.13
+},
+{
+"state": "LA",
+"key": "mon",
+"name": "Monroe and Northeast Louisiana",
+"nickname": "the 318 east",
+"codes": [
+"318"
+],
+"seeds": [
+"Ouachita",
+"Lincoln"
+],
+"counties": [
+"Bienville",
+"Caldwell",
+"Claiborne",
+"East Carroll",
+"Franklin",
+"Jackson",
+"Lincoln",
+"Madison",
+"Morehouse",
+"Ouachita",
+"Richland",
+"Tensas",
+"Union",
+"West Carroll"
+],
+"center": [
+32.4882,
+-92.0933
+],
+"label": [
+32.4781,
+-92.1555
+],
+"sq_miles": 8830,
+"schools": 45,
+"near": 0.65
+},
+{
+"state": "LA",
+"key": "cenla",
+"name": "Central Louisiana",
+"nickname": "Cenla",
+"codes": [
+"318"
+],
+"seeds": [
+"Rapides",
+"Natchitoches"
+],
+"counties": [
+"Avoyelles",
+"Catahoula",
+"Concordia",
+"Grant",
+"LaSalle",
+"Natchitoches",
+"Rapides",
+"Red River",
+"Sabine",
+"Winn"
+],
+"center": [
+31.558,
+-92.5708
+],
+"label": [
+31.5999,
+-92.5582
+],
+"sq_miles": 8718,
+"schools": 46,
+"near": 0.66
+},
+{
+"state": "ME",
+"key": "me",
+"name": "Maine",
+"nickname": "the Pine Tree State",
+"codes": [
+"207"
+],
+"seeds": [
+"Cumberland",
+"York",
+"Androscoggin"
+],
+"counties": [
+"Androscoggin",
+"Aroostook",
+"Cumberland",
+"Franklin",
+"Hancock",
+"Kennebec",
+"Knox",
+"Lincoln",
+"Oxford",
+"Penobscot",
+"Piscataquis",
+"Sagadahoc",
+"Somerset",
+"Waldo",
+"Washington",
+"York"
+],
+"center": [
+45.3459,
+-69.2296
+],
+"label": [
+45.401,
+-68.649
+],
+"sq_miles": 33035,
+"schools": 62,
+"near": 0.94
+},
+{
+"state": "MD",
+"key": "pg",
+"name": "Prince George's and Southern Maryland",
+"nickname": "PG",
+"codes": [
+"301",
+"240"
+],
+"seeds": [
+"Prince George's",
+"Charles"
+],
+"counties": [
+"Calvert",
+"Charles",
+"Prince George's",
+"St. Mary's"
+],
+"center": [
+38.561,
+-76.7908
+],
+"label": [
+38.5068,
+-76.9932
+],
+"sq_miles": 1632,
+"schools": 51,
+"near": 4.35
+},
+{
+"state": "MD",
+"key": "moco",
+"name": "Montgomery and Frederick",
+"nickname": "MoCo",
+"codes": [
+"301",
+"240"
+],
+"seeds": [
+"Montgomery",
+"Frederick"
+],
+"counties": [
+"Carroll",
+"Frederick",
+"Howard",
+"Montgomery"
+],
+"center": [
+39.3741,
+-77.1924
+],
+"label": [
+39.4728,
+-77.3971
+],
+"sq_miles": 1876,
+"schools": 67,
+"near": 4.56
+},
+{
+"state": "MD",
+"key": "bal",
+"name": "Baltimore",
+"nickname": "Charm City",
+"codes": [
+"410",
+"443"
+],
+"seeds": [
+"Baltimore city",
+"Baltimore",
+"Anne Arundel"
+],
+"counties": [
+"Anne Arundel",
+"Baltimore",
+"Baltimore city",
+"Cecil",
+"Harford",
+"Kent"
+],
+"center": [
+39.3768,
+-76.373
+],
+"label": [
+39.5618,
+-76.3163
+],
+"sq_miles": 2306,
+"schools": 86,
+"near": 7.82
+},
+{
+"state": "MD",
+"key": "shore",
+"name": "The Eastern Shore",
+"nickname": "the Shore",
+"codes": [
+"410",
+"443"
+],
+"seeds": [
+"Wicomico",
+"Talbot"
+],
+"counties": [
+"Caroline",
+"Dorchester",
+"Queen Anne's",
+"Somerset",
+"Talbot",
+"Wicomico",
+"Worcester"
+],
+"center": [
+38.5181,
+-75.7949
+],
+"label": [
+38.4692,
+-76.0239
+],
+"sq_miles": 3041,
+"schools": 20,
+"near": 0.78
+},
+{
+"state": "MD",
+"key": "west",
+"name": "Western Maryland",
+"nickname": "the mountain side",
+"codes": [
+"301",
+"240"
+],
+"seeds": [
+"Washington",
+"Allegany"
+],
+"counties": [
+"Allegany",
+"Garrett",
+"Washington"
+],
+"center": [
+39.5772,
+-78.6747
+],
+"label": [
+39.6196,
+-78.6966
+],
+"sq_miles": 1562,
+"schools": 10,
+"near": 1.15
+},
+{
+"state": "MA",
+"key": "bos",
+"name": "Boston and Eastern Mass",
+"nickname": "the 617",
+"codes": [
+"617",
+"781",
+"508",
+"978"
+],
+"seeds": [
+"Suffolk",
+"Middlesex",
+"Norfolk"
+],
+"counties": [
+"Barnstable",
+"Bristol",
+"Dukes",
+"Essex",
+"Middlesex",
+"Nantucket",
+"Norfolk",
+"Plymouth",
+"Suffolk"
+],
+"center": [
+42.1229,
+-70.9781
+],
+"label": [
+42.1622,
+-71.2077
+],
+"sq_miles": 3789,
+"schools": 228,
+"near": 8.59
+},
+{
+"state": "MA",
+"key": "413",
+"name": "Central and Western Mass",
+"nickname": "the 413",
+"codes": [
+"413",
+"508",
+"774"
+],
+"seeds": [
+"Worcester",
+"Hampden"
+],
+"counties": [
+"Berkshire",
+"Franklin",
+"Hampden",
+"Hampshire",
+"Worcester"
+],
+"center": [
+42.3611,
+-72.4932
+],
+"label": [
+42.3403,
+-72.6634
+],
+"sq_miles": 4420,
+"schools": 86,
+"near": 2.58
+},
+{
+"state": "MI",
+"key": "det",
+"name": "Detroit",
+"nickname": "the D",
+"codes": [
+"313"
+],
+"seeds": [
+"Wayne"
+],
+"counties": [
+"Lenawee",
+"Monroe",
+"Washtenaw",
+"Wayne"
+],
+"center": [
+42.0897,
+-83.7082
+],
+"label": [
+42.2535,
+-83.8381
+],
+"sq_miles": 2679,
+"schools": 95,
+"near": 6.48
+},
+{
+"state": "MI",
+"key": "248",
+"name": "Oakland and Macomb",
+"nickname": "the 248",
+"codes": [
+"248",
+"586",
+"947"
+],
+"seeds": [
+"Oakland",
+"Macomb"
+],
+"counties": [
+"Macomb",
+"Oakland",
+"Sanilac",
+"St. Clair"
+],
+"center": [
+42.9687,
+-82.9684
+],
+"label": [
+42.9317,
+-82.6808
+],
+"sq_miles": 3112,
+"schools": 102,
+"near": 4.88
+},
+{
+"state": "MI",
+"key": "west",
+"name": "Grand Rapids and West Michigan",
+"nickname": "West Michigan",
+"codes": [
+"616",
+"269"
+],
+"seeds": [
+"Kent",
+"Ottawa",
+"Kalamazoo"
+],
+"counties": [
+"Allegan",
+"Barry",
+"Berrien",
+"Branch",
+"Calhoun",
+"Cass",
+"Ionia",
+"Kalamazoo",
+"Kent",
+"Mecosta",
+"Montcalm",
+"Muskegon",
+"Newaygo",
+"Oceana",
+"Ottawa",
+"St. Joseph",
+"Van Buren"
+],
+"center": [
+42.7418,
+-85.643
+],
+"label": [
+42.5913,
+-85.888
+],
+"sq_miles": 10707,
+"schools": 143,
+"near": 1.75
+},
+{
+"state": "MI",
+"key": "mid",
+"name": "Mid-Michigan",
+"nickname": "Lansing and Flint",
+"codes": [
+"517",
+"810",
+"989"
+],
+"seeds": [
+"Ingham",
+"Genesee",
+"Saginaw"
+],
+"counties": [
+"Alcona",
+"Arenac",
+"Bay",
+"Clinton",
+"Eaton",
+"Genesee",
+"Gladwin",
+"Gratiot",
+"Hillsdale",
+"Huron",
+"Ingham",
+"Iosco",
+"Isabella",
+"Jackson",
+"Lapeer",
+"Livingston",
+"Midland",
+"Ogemaw",
+"Saginaw",
+"Shiawassee",
+"Tuscola"
+],
+"center": [
+43.3336,
+-84.0432
+],
+"label": [
+43.3352,
+-84.052
+],
+"sq_miles": 12807,
+"schools": 137,
+"near": 1.5
+},
+{
+"state": "MI",
+"key": "north",
+"name": "Northern Michigan and the UP",
+"nickname": "up north",
+"codes": [
+"231",
+"906"
+],
+"seeds": [
+"Grand Traverse",
+"Marquette"
+],
+"counties": [
+"Alger",
+"Alpena",
+"Antrim",
+"Baraga",
+"Benzie",
+"Charlevoix",
+"Cheboygan",
+"Chippewa",
+"Clare",
+"Crawford",
+"Delta",
+"Dickinson",
+"Emmet",
+"Gogebic",
+"Grand Traverse",
+"Houghton",
+"Iron",
+"Kalkaska",
+"Keweenaw",
+"Lake",
+"Leelanau",
+"Luce",
+"Mackinac",
+"Manistee",
+"Marquette",
+"Mason",
+"Menominee",
+"Missaukee",
+"Montmorency",
+"Ontonagon",
+"Osceola",
+"Oscoda",
+"Otsego",
+"Presque Isle",
+"Roscommon",
+"Schoolcraft",
+"Wexford"
+],
+"center": [
+45.6679,
+-86.3417
+],
+"label": [
+45.9191,
+-86.9236
+],
+"sq_miles": 28946,
+"schools": 81,
+"near": 0.48
+},
+{
+"state": "MN",
+"key": "cities",
+"name": "The Twin Cities",
+"nickname": "the Cities",
+"codes": [
+"612",
+"651",
+"952",
+"763"
+],
+"seeds": [
+"Hennepin",
+"Ramsey",
+"Dakota"
+],
+"counties": [
+"Anoka",
+"Blue Earth",
+"Brown",
+"Carver",
+"Chisago",
+"Cottonwood",
+"Dakota",
+"Goodhue",
+"Hennepin",
+"Isanti",
+"Jackson",
+"Kanabec",
+"Le Sueur",
+"Martin",
+"McLeod",
+"Nicollet",
+"Pine",
+"Ramsey",
+"Rice",
+"Scott",
+"Sherburne",
+"Sibley",
+"Waseca",
+"Washington",
+"Watonwan",
+"Wright"
+],
+"center": [
+44.7473,
+-93.7492
+],
+"label": [
+44.8211,
+-93.8032
+],
+"sq_miles": 14673,
+"schools": 183,
+"near": 4.34
+},
+{
+"state": "MN",
+"key": "out",
+"name": "Greater Minnesota",
+"nickname": "outstate",
+"codes": [
+"507",
+"218",
+"320"
+],
+"seeds": [
+"Olmsted",
+"Stearns",
+"St. Louis"
+],
+"counties": [
+"Aitkin",
+"Becker",
+"Beltrami",
+"Benton",
+"Big Stone",
+"Carlton",
+"Cass",
+"Chippewa",
+"Clay",
+"Clearwater",
+"Cook",
+"Crow Wing",
+"Dodge",
+"Douglas",
+"Faribault",
+"Fillmore",
+"Freeborn",
+"Grant",
+"Houston",
+"Hubbard",
+"Itasca",
+"Kandiyohi",
+"Kittson",
+"Koochiching",
+"Lac qui Parle",
+"Lake",
+"Lake of the Woods",
+"Lincoln",
+"Lyon",
+"Mahnomen",
+"Marshall",
+"Meeker",
+"Mille Lacs",
+"Morrison",
+"Mower",
+"Murray",
+"Nobles",
+"Norman",
+"Olmsted",
+"Otter Tail",
+"Pennington",
+"Pipestone",
+"Polk",
+"Pope",
+"Red Lake",
+"Redwood",
+"Renville",
+"Rock",
+"Roseau",
+"St. Louis",
+"Stearns",
+"Steele",
+"Stevens",
+"Swift",
+"Todd",
+"Traverse",
+"Wabasha",
+"Wadena",
+"Wilkin",
+"Winona",
+"Yellow Medicine"
+],
+"center": [
+46.5926,
+-94.4258
+],
+"label": [
+46.483,
+-94.0715
+],
+"sq_miles": 69444,
+"schools": 150,
+"near": 0.43
+},
+{
+"state": "MS",
+"key": "jxn",
+"name": "Jackson and the metro",
+"nickname": "the 601",
+"codes": [
+"601",
+"769"
+],
+"seeds": [
+"Hinds",
+"Rankin",
+"Madison"
+],
+"counties": [
+"Adams",
+"Attala",
+"Choctaw",
+"Claiborne",
+"Copiah",
+"Franklin",
+"Hinds",
+"Holmes",
+"Jefferson",
+"Kemper",
+"Leake",
+"Lincoln",
+"Madison",
+"Neshoba",
+"Newton",
+"Rankin",
+"Scott",
+"Simpson",
+"Smith",
+"Warren",
+"Wilkinson",
+"Winston",
+"Yazoo"
+],
+"center": [
+32.3325,
+-90.0553
+],
+"label": [
+32.2635,
+-89.9464
+],
+"sq_miles": 14992,
+"schools": 85,
+"near": 0.73
+},
+{
+"state": "MS",
+"key": "coast",
+"name": "The Gulf Coast",
+"nickname": "the Coast",
+"codes": [
+"228"
+],
+"seeds": [
+"Harrison",
+"Jackson",
+"Hancock"
+],
+"counties": [
+"George",
+"Hancock",
+"Harrison",
+"Jackson",
+"Pearl River",
+"Stone"
+],
+"center": [
+30.6427,
+-89.1084
+],
+"label": [
+30.5051,
+-89.1126
+],
+"sq_miles": 3611,
+"schools": 25,
+"near": 0.89
+},
+{
+"state": "MS",
+"key": "pine",
+"name": "The Pine Belt",
+"nickname": "Hattiesburg and Laurel",
+"codes": [
+"601",
+"769"
+],
+"seeds": [
+"Forrest",
+"Lamar",
+"Jones"
+],
+"counties": [
+"Amite",
+"Clarke",
+"Covington",
+"Forrest",
+"Greene",
+"Jasper",
+"Jefferson Davis",
+"Jones",
+"Lamar",
+"Lauderdale",
+"Lawrence",
+"Marion",
+"Perry",
+"Pike",
+"Walthall",
+"Wayne"
+],
+"center": [
+31.5327,
+-89.3709
+],
+"label": [
+31.6332,
+-89.5538
+],
+"sq_miles": 9298,
+"schools": 58,
+"near": 0.71
+},
+{
+"state": "MS",
+"key": "north",
+"name": "North Mississippi",
+"nickname": "the 662",
+"codes": [
+"662"
+],
+"seeds": [
+"Lee",
+"DeSoto",
+"Lafayette"
+],
+"counties": [
+"Alcorn",
+"Benton",
+"Calhoun",
+"Chickasaw",
+"Clay",
+"DeSoto",
+"Grenada",
+"Itawamba",
+"Lafayette",
+"Lee",
+"Lowndes",
+"Marshall",
+"Monroe",
+"Noxubee",
+"Oktibbeha",
+"Panola",
+"Pontotoc",
+"Prentiss",
+"Tate",
+"Tippah",
+"Tishomingo",
+"Tunica",
+"Union",
+"Webster",
+"Yalobusha"
+],
+"center": [
+34.2002,
+-89.1266
+],
+"label": [
+34.2252,
+-89.0371
+],
+"sq_miles": 12843,
+"schools": 98,
+"near": 0.86
+},
+{
+"state": "MS",
+"key": "delta",
+"name": "The Delta",
+"nickname": "the Delta",
+"codes": [
+"662"
+],
+"seeds": [
+"Washington",
+"Bolivar",
+"Sunflower"
+],
+"counties": [
+"Bolivar",
+"Carroll",
+"Coahoma",
+"Humphreys",
+"Issaquena",
+"Leflore",
+"Montgomery",
+"Quitman",
+"Sharkey",
+"Sunflower",
+"Tallahatchie",
+"Washington"
+],
+"center": [
+33.5609,
+-90.5042
+],
+"label": [
+33.6017,
+-90.5893
+],
+"sq_miles": 7000,
+"schools": 37,
+"near": 0.62
+},
+{
+"state": "MO",
+"key": "stl",
+"name": "St. Louis",
+"nickname": "the Lou",
+"codes": [
+"314",
+"636"
+],
+"seeds": [
+"St. Louis city",
+"St. Louis",
+"St. Charles"
+],
+"counties": [
+"Bollinger",
+"Butler",
+"Cape Girardeau",
+"Carter",
+"Dunklin",
+"Franklin",
+"Iron",
+"Jefferson",
+"Lincoln",
+"Madison",
+"Mississippi",
+"Montgomery",
+"New Madrid",
+"Pemiscot",
+"Perry",
+"Pike",
+"Reynolds",
+"Scott",
+"St. Charles",
+"St. Francois",
+"St. Louis",
+"St. Louis city",
+"Ste. Genevieve",
+"Stoddard",
+"Warren",
+"Washington",
+"Wayne"
+],
+"center": [
+37.6765,
+-90.4518
+],
+"label": [
+37.8116,
+-90.4738
+],
+"sq_miles": 15773,
+"schools": 127,
+"near": 9.13
+},
+{
+"state": "MO",
+"key": "kc",
+"name": "Kansas City",
+"nickname": "KC",
+"codes": [
+"816"
+],
+"seeds": [
+"Jackson",
+"Clay",
+"Platte"
+],
+"counties": [
+"Andrew",
+"Atchison",
+"Bates",
+"Buchanan",
+"Caldwell",
+"Carroll",
+"Cass",
+"Clay",
+"Clinton",
+"Daviess",
+"DeKalb",
+"Gentry",
+"Grundy",
+"Harrison",
+"Henry",
+"Holt",
+"Jackson",
+"Johnson",
+"Lafayette",
+"Livingston",
+"Mercer",
+"Nodaway",
+"Platte",
+"Ray",
+"Sullivan",
+"Worth"
+],
+"center": [
+39.5646,
+-94.184
+],
+"label": [
+39.6012,
+-94.4042
+],
+"sq_miles": 14636,
+"schools": 74,
+"near": 2.45
+},
+{
+"state": "MO",
+"key": "ozarks",
+"name": "Springfield and the Ozarks",
+"nickname": "the Ozarks",
+"codes": [
+"417"
+],
+"seeds": [
+"Greene",
+"Jasper",
+"Christian"
+],
+"counties": [
+"Barry",
+"Barton",
+"Cedar",
+"Christian",
+"Dade",
+"Dallas",
+"Douglas",
+"Greene",
+"Hickory",
+"Howell",
+"Jasper",
+"Laclede",
+"Lawrence",
+"McDonald",
+"Newton",
+"Oregon",
+"Ozark",
+"Polk",
+"Ripley",
+"Shannon",
+"St. Clair",
+"Stone",
+"Taney",
+"Texas",
+"Vernon",
+"Webster",
+"Wright"
+],
+"center": [
+37.1823,
+-92.9931
+],
+"label": [
+37.2807,
+-92.8757
+],
+"sq_miles": 18484,
+"schools": 80,
+"near": 0.8
+},
+{
+"state": "MO",
+"key": "mid",
+"name": "Mid-Missouri",
+"nickname": "CoMo",
+"codes": [
+"573"
+],
+"seeds": [
+"Boone",
+"Cole"
+],
+"counties": [
+"Adair",
+"Audrain",
+"Benton",
+"Boone",
+"Callaway",
+"Camden",
+"Chariton",
+"Clark",
+"Cole",
+"Cooper",
+"Crawford",
+"Dent",
+"Gasconade",
+"Howard",
+"Knox",
+"Lewis",
+"Linn",
+"Macon",
+"Maries",
+"Marion",
+"Miller",
+"Moniteau",
+"Monroe",
+"Morgan",
+"Osage",
+"Pettis",
+"Phelps",
+"Pulaski",
+"Putnam",
+"Ralls",
+"Randolph",
+"Saline",
+"Schuyler",
+"Scotland",
+"Shelby"
+],
+"center": [
+39.0374,
+-92.3208
+],
+"label": [
+38.9901,
+-92.3093
+],
+"sq_miles": 20742,
+"schools": 68,
+"near": 0.5
+},
+{
+"state": "MT",
+"key": "mt",
+"name": "Montana",
+"nickname": "Big Sky",
+"codes": [
+"406"
+],
+"seeds": [
+"Yellowstone",
+"Gallatin",
+"Missoula"
+],
+"counties": [
+"Beaverhead",
+"Big Horn",
+"Blaine",
+"Broadwater",
+"Carbon",
+"Carter",
+"Cascade",
+"Chouteau",
+"Custer",
+"Daniels",
+"Dawson",
+"Deer Lodge",
+"Fallon",
+"Fergus",
+"Flathead",
+"Gallatin",
+"Garfield",
+"Glacier",
+"Golden Valley",
+"Granite",
+"Hill",
+"Jefferson",
+"Judith Basin",
+"Lake",
+"Lewis and Clark",
+"Liberty",
+"Lincoln",
+"Madison",
+"McCone",
+"Meagher",
+"Mineral",
+"Missoula",
+"Musselshell",
+"Park",
+"Petroleum",
+"Phillips",
+"Pondera",
+"Powder River",
+"Powell",
+"Prairie",
+"Ravalli",
+"Richland",
+"Roosevelt",
+"Rosebud",
+"Sanders",
+"Sheridan",
+"Silver Bow",
+"Stillwater",
+"Sweet Grass",
+"Teton",
+"Toole",
+"Treasure",
+"Valley",
+"Wheatland",
+"Wibaux",
+"Yellowstone"
+],
+"center": [
+47.0098,
+-109.6411
+],
+"label": [
+47.2637,
+-109.2238
+],
+"sq_miles": 146616,
+"schools": 76,
+"near": 0.12
+},
+{
+"state": "NE",
+"key": "402",
+"name": "Omaha and Lincoln",
+"nickname": "the 402",
+"codes": [
+"402",
+"531"
+],
+"seeds": [
+"Douglas",
+"Sarpy",
+"Lancaster"
+],
+"counties": [
+"Burt",
+"Butler",
+"Cass",
+"Cedar",
+"Colfax",
+"Cuming",
+"Dakota",
+"Dixon",
+"Dodge",
+"Douglas",
+"Fillmore",
+"Gage",
+"Jefferson",
+"Johnson",
+"Lancaster",
+"Nemaha",
+"Otoe",
+"Pawnee",
+"Pierce",
+"Platte",
+"Richardson",
+"Saline",
+"Sarpy",
+"Saunders",
+"Seward",
+"Stanton",
+"Thayer",
+"Thurston",
+"Washington",
+"Wayne"
+],
+"center": [
+41.1841,
+-96.7892
+],
+"label": [
+41.2251,
+-96.6369
+],
+"sq_miles": 15896,
+"schools": 86,
+"near": 1.84
+},
+{
+"state": "NE",
+"key": "308",
+"name": "Greater Nebraska",
+"nickname": "the 308",
+"codes": [
+"308"
+],
+"seeds": [
+"Hall",
+"Buffalo",
+"Lincoln"
+],
+"counties": [
+"Adams",
+"Antelope",
+"Arthur",
+"Banner",
+"Blaine",
+"Boone",
+"Box Butte",
+"Boyd",
+"Brown",
+"Buffalo",
+"Chase",
+"Cherry",
+"Cheyenne",
+"Clay",
+"Custer",
+"Dawes",
+"Dawson",
+"Deuel",
+"Dundy",
+"Franklin",
+"Frontier",
+"Furnas",
+"Garden",
+"Garfield",
+"Gosper",
+"Grant",
+"Greeley",
+"Hall",
+"Hamilton",
+"Harlan",
+"Hayes",
+"Hitchcock",
+"Holt",
+"Hooker",
+"Howard",
+"Kearney",
+"Keith",
+"Keya Paha",
+"Kimball",
+"Knox",
+"Lincoln",
+"Logan",
+"Loup",
+"Madison",
+"McPherson",
+"Merrick",
+"Morrill",
+"Nance",
+"Nuckolls",
+"Perkins",
+"Phelps",
+"Polk",
+"Red Willow",
+"Rock",
+"Scotts Bluff",
+"Sheridan",
+"Sherman",
+"Sioux",
+"Thomas",
+"Valley",
+"Webster",
+"Wheeler",
+"York"
+],
+"center": [
+41.6027,
+-100.5849
+],
+"label": [
+41.5666,
+-100.4817
+],
+"sq_miles": 61288,
+"schools": 60,
+"near": 0.29
+},
+{
+"state": "NV",
+"key": "lv",
+"name": "Las Vegas",
+"nickname": "Vegas",
+"codes": [
+"702",
+"725"
+],
+"seeds": [
+"Clark"
+],
+"counties": [
+"Clark",
+"Lincoln",
+"Nye",
+"White Pine"
+],
+"center": [
+37.8976,
+-115.5407
+],
+"label": [
+37.6434,
+-114.8766
+],
+"sq_miles": 45782,
+"schools": 59,
+"near": 0.68
+},
+{
+"state": "NV",
+"key": "775",
+"name": "Reno and Northern Nevada",
+"nickname": "the 775",
+"codes": [
+"775"
+],
+"seeds": [
+"Washoe",
+"Carson City"
+],
+"counties": [
+"Carson City",
+"Churchill",
+"Douglas",
+"Elko",
+"Esmeralda",
+"Eureka",
+"Humboldt",
+"Lander",
+"Lyon",
+"Mineral",
+"Pershing",
+"Storey",
+"Washoe"
+],
+"center": [
+40.3271,
+-117.4267
+],
+"label": [
+39.9333,
+-117.0393
+],
+"sq_miles": 64749,
+"schools": 28,
+"near": 0.25
+},
+{
+"state": "NH",
+"key": "nh",
+"name": "New Hampshire",
+"nickname": "the Granite State",
+"codes": [
+"603"
+],
+"seeds": [
+"Hillsborough",
+"Rockingham"
+],
+"counties": [
+"Belknap",
+"Carroll",
+"Cheshire",
+"Coos",
+"Grafton",
+"Hillsborough",
+"Merrimack",
+"Rockingham",
+"Strafford",
+"Sullivan"
+],
+"center": [
+43.6795,
+-71.5787
+],
+"label": [
+43.5181,
+-71.4226
+],
+"sq_miles": 9263,
+"schools": 71,
+"near": 1.63
+},
+{
+"state": "NJ",
+"key": "north",
+"name": "North Jersey",
+"nickname": "the 201 and the 973",
+"codes": [
+"201",
+"973",
+"551"
+],
+"seeds": [
+"Bergen",
+"Essex",
+"Passaic"
+],
+"counties": [
+"Bergen",
+"Essex",
+"Hudson",
+"Morris",
+"Passaic",
+"Sussex",
+"Warren"
+],
+"center": [
+40.955,
+-74.551
+],
+"label": [
+40.8623,
+-74.5453
+],
+"sq_miles": 2003,
+"schools": 157,
+"near": 17.05
+},
+{
+"state": "NJ",
+"key": "cent",
+"name": "Central Jersey",
+"nickname": "the 732",
+"codes": [
+"732",
+"908",
+"848"
+],
+"seeds": [
+"Middlesex",
+"Monmouth",
+"Union"
+],
+"counties": [
+"Hunterdon",
+"Mercer",
+"Middlesex",
+"Monmouth",
+"Somerset",
+"Union"
+],
+"center": [
+40.4364,
+-74.5416
+],
+"label": [
+40.4408,
+-74.4098
+],
+"sq_miles": 1880,
+"schools": 114,
+"near": 9.92
+},
+{
+"state": "NJ",
+"key": "south",
+"name": "South Jersey",
+"nickname": "the 856",
+"codes": [
+"856",
+"609"
+],
+"seeds": [
+"Camden",
+"Gloucester",
+"Burlington"
+],
+"counties": [
+"Burlington",
+"Camden",
+"Gloucester",
+"Salem"
+],
+"center": [
+39.7783,
+-74.9342
+],
+"label": [
+39.8043,
+-74.9591
+],
+"sq_miles": 1730,
+"schools": 58,
+"near": 5.4
+},
+{
+"state": "NJ",
+"key": "shore",
+"name": "The Shore",
+"nickname": "down the shore",
+"codes": [
+"609",
+"732"
+],
+"seeds": [
+"Ocean",
+"Atlantic",
+"Cape May"
+],
+"counties": [
+"Atlantic",
+"Cape May",
+"Cumberland",
+"Ocean"
+],
+"center": [
+39.5524,
+-74.6517
+],
+"label": [
+39.4779,
+-74.6621
+],
+"sq_miles": 2153,
+"schools": 44,
+"near": 2.35
+},
+{
+"state": "NM",
+"key": "abq",
+"name": "Albuquerque and the north",
+"nickname": "the Duke City",
+"codes": [
+"505"
+],
+"seeds": [
+"Bernalillo",
+"Sandoval",
+"Santa Fe"
+],
+"counties": [
+"Bernalillo",
+"Catron",
+"Cibola",
+"Colfax",
+"Guadalupe",
+"Harding",
+"Los Alamos",
+"McKinley",
+"Mora",
+"Rio Arriba",
+"San Juan",
+"San Miguel",
+"Sandoval",
+"Santa Fe",
+"Socorro",
+"Taos",
+"Torrance",
+"Union",
+"Valencia"
+],
+"center": [
+35.425,
+-106.4999
+],
+"label": [
+35.6883,
+-106.8653
+],
+"sq_miles": 67937,
+"schools": 67,
+"near": 0.65
+},
+{
+"state": "NM",
+"key": "575",
+"name": "Southern New Mexico",
+"nickname": "the 575",
+"codes": [
+"575"
+],
+"seeds": [
+"Doña Ana",
+"Lea",
+"Chaves"
+],
+"counties": [
+"Chaves",
+"Curry",
+"De Baca",
+"Doña Ana",
+"Eddy",
+"Grant",
+"Hidalgo",
+"Lea",
+"Lincoln",
+"Luna",
+"Otero",
+"Quay",
+"Roosevelt",
+"Sierra"
+],
+"center": [
+33.0916,
+-105.6162
+],
+"label": [
+32.6136,
+-105.7427
+],
+"sq_miles": 53629,
+"schools": 30,
+"near": 0.12
+},
+{
+"state": "NY",
+"key": "nyc",
+"name": "New York City",
+"nickname": "the five boroughs",
+"codes": [
+"718",
+"212",
+"347",
+"917"
+],
+"seeds": [
+"Kings",
+"Queens",
+"Bronx"
+],
+"counties": [
+"Bronx",
+"Kings",
+"New York",
+"Queens",
+"Richmond"
+],
+"center": [
+40.6965,
+-73.9258
+],
+"label": [
+40.6407,
+-73.94
+],
+"sq_miles": 358,
+"schools": 199,
+"near": 66.57
+},
+{
+"state": "NY",
+"key": "li",
+"name": "Long Island",
+"nickname": "the Island",
+"codes": [
+"516",
+"631"
+],
+"seeds": [
+"Nassau",
+"Suffolk"
+],
+"counties": [
+"Nassau",
+"Suffolk"
+],
+"center": [
+40.8404,
+-73.0097
+],
+"label": [
+40.8693,
+-72.8462
+],
+"sq_miles": 1481,
+"schools": 123,
+"near": 10.95
+},
+{
+"state": "NY",
+"key": "hv",
+"name": "Westchester and the Hudson Valley",
+"nickname": "the Hudson Valley",
+"codes": [
+"914",
+"845"
+],
+"seeds": [
+"Westchester",
+"Orange",
+"Dutchess"
+],
+"counties": [
+"Dutchess",
+"Orange",
+"Putnam",
+"Rockland",
+"Sullivan",
+"Ulster",
+"Westchester"
+],
+"center": [
+41.6164,
+-74.1969
+],
+"label": [
+41.4015,
+-74.3073
+],
+"sq_miles": 4744,
+"schools": 101,
+"near": 5.7
+},
+{
+"state": "NY",
+"key": "cap",
+"name": "Albany and the Capital Region",
+"nickname": "the Capital Region",
+"codes": [
+"518"
+],
+"seeds": [
+"Albany",
+"Schenectady",
+"Saratoga"
+],
+"counties": [
+"Albany",
+"Clinton",
+"Columbia",
+"Essex",
+"Franklin",
+"Fulton",
+"Greene",
+"Hamilton",
+"Montgomery",
+"Rensselaer",
+"Saratoga",
+"Schenectady",
+"Schoharie",
+"Warren",
+"Washington"
+],
+"center": [
+43.5368,
+-74.0057
+],
+"label": [
+43.5612,
+-73.8463
+],
+"sq_miles": 13407,
+"schools": 48,
+"near": 1.07
+},
+{
+"state": "NY",
+"key": "cny",
+"name": "Syracuse and Central New York",
+"nickname": "CNY",
+"codes": [
+"315",
+"607"
+],
+"seeds": [
+"Onondaga",
+"Oneida",
+"Broome"
+],
+"counties": [
+"Broome",
+"Cayuga",
+"Chemung",
+"Chenango",
+"Cortland",
+"Delaware",
+"Herkimer",
+"Jefferson",
+"Lewis",
+"Madison",
+"Oneida",
+"Onondaga",
+"Oswego",
+"Otsego",
+"St. Lawrence",
+"Tioga",
+"Tompkins"
+],
+"center": [
+43.2322,
+-75.5758
+],
+"label": [
+43.2413,
+-75.436
+],
+"sq_miles": 17420,
+"schools": 66,
+"near": 0.95
+},
+{
+"state": "NY",
+"key": "roc",
+"name": "Rochester and the Finger Lakes",
+"nickname": "the 585",
+"codes": [
+"585"
+],
+"seeds": [
+"Monroe",
+"Ontario"
+],
+"counties": [
+"Genesee",
+"Livingston",
+"Monroe",
+"Ontario",
+"Schuyler",
+"Seneca",
+"Steuben",
+"Wayne",
+"Yates"
+],
+"center": [
+42.7249,
+-77.399
+],
+"label": [
+42.8526,
+-77.3007
+],
+"sq_miles": 5574,
+"schools": 49,
+"near": 2.52
+},
+{
+"state": "NY",
+"key": "wny",
+"name": "Buffalo and Western New York",
+"nickname": "WNY",
+"codes": [
+"716"
+],
+"seeds": [
+"Erie",
+"Niagara",
+"Chautauqua"
+],
+"counties": [
+"Allegany",
+"Cattaraugus",
+"Chautauqua",
+"Erie",
+"Niagara",
+"Orleans",
+"Wyoming"
+],
+"center": [
+42.5314,
+-78.6311
+],
+"label": [
+42.7633,
+-78.7317
+],
+"sq_miles": 6001,
+"schools": 50,
+"near": 2.51
+},
+{
+"state": "NC",
+"key": "clt",
+"name": "Charlotte",
+"nickname": "the Queen City",
+"codes": [
+"704",
+"980"
+],
+"seeds": [
+"Mecklenburg",
+"Gaston",
+"Union"
+],
+"counties": [
+"Anson",
+"Cabarrus",
+"Cleveland",
+"Gaston",
+"Mecklenburg",
+"Stanly",
+"Union"
+],
+"center": [
+35.1935,
+-80.6948
+],
+"label": [
+35.2474,
+-80.8322
+],
+"sq_miles": 3311,
+"schools": 64,
+"near": 3.03
+},
+{
+"state": "NC",
+"key": "tri",
+"name": "The Triangle",
+"nickname": "the Triangle",
+"codes": [
+"919",
+"984"
+],
+"seeds": [
+"Wake",
+"Durham",
+"Johnston"
+],
+"counties": [
+"Durham",
+"Granville",
+"Johnston",
+"Orange",
+"Person",
+"Vance",
+"Wake"
+],
+"center": [
+35.9697,
+-78.6775
+],
+"label": [
+36.0365,
+-78.8759
+],
+"sq_miles": 3559,
+"schools": 60,
+"near": 2.52
+},
+{
+"state": "NC",
+"key": "triad",
+"name": "The Triad",
+"nickname": "the 336",
+"codes": [
+"336",
+"743"
+],
+"seeds": [
+"Guilford",
+"Forsyth",
+"Davidson"
+],
+"counties": [
+"Alamance",
+"Alleghany",
+"Caswell",
+"Davidson",
+"Davie",
+"Forsyth",
+"Guilford",
+"Randolph",
+"Rockingham",
+"Rowan",
+"Stokes",
+"Surry",
+"Yadkin"
+],
+"center": [
+36.0871,
+-80.104
+],
+"label": [
+36.132,
+-80.2556
+],
+"sq_miles": 6217,
+"schools": 85,
+"near": 2.0
+},
+{
+"state": "NC",
+"key": "252",
+"name": "Eastern Carolina",
+"nickname": "the 252",
+"codes": [
+"252"
+],
+"seeds": [
+"Pitt",
+"Wayne",
+"Nash"
+],
+"counties": [
+"Beaufort",
+"Bertie",
+"Camden",
+"Chowan",
+"Currituck",
+"Dare",
+"Duplin",
+"Edgecombe",
+"Franklin",
+"Gates",
+"Greene",
+"Halifax",
+"Hertford",
+"Hyde",
+"Lenoir",
+"Martin",
+"Nash",
+"Northampton",
+"Pamlico",
+"Pasquotank",
+"Perquimans",
+"Pitt",
+"Tyrrell",
+"Warren",
+"Washington",
+"Wayne",
+"Wilson"
+],
+"center": [
+35.8237,
+-77.1758
+],
+"label": [
+35.8428,
+-77.1086
+],
+"sq_miles": 12684,
+"schools": 69,
+"near": 0.78
+},
+{
+"state": "NC",
+"key": "sand",
+"name": "Fayetteville and the Sandhills",
+"nickname": "the Sandhills",
+"codes": [
+"910"
+],
+"seeds": [
+"Cumberland",
+"Robeson",
+"Moore"
+],
+"counties": [
+"Bladen",
+"Chatham",
+"Cumberland",
+"Harnett",
+"Hoke",
+"Lee",
+"Montgomery",
+"Moore",
+"Richmond",
+"Robeson",
+"Sampson",
+"Scotland"
+],
+"center": [
+35.0713,
+-79.0749
+],
+"label": [
+35.0176,
+-79.2378
+],
+"sq_miles": 7411,
+"schools": 56,
+"near": 0.92
+},
+{
+"state": "NC",
+"key": "cape",
+"name": "Wilmington and the coast",
+"nickname": "the Cape Fear",
+"codes": [
+"910"
+],
+"seeds": [
+"New Hanover",
+"Onslow",
+"Brunswick"
+],
+"counties": [
+"Brunswick",
+"Carteret",
+"Columbus",
+"Craven",
+"Jones",
+"New Hanover",
+"Onslow",
+"Pender"
+],
+"center": [
+34.5833,
+-77.7156
+],
+"label": [
+34.5243,
+-77.9056
+],
+"sq_miles": 5654,
+"schools": 42,
+"near": 1.21
+},
+{
+"state": "NC",
+"key": "828",
+"name": "Western Carolina",
+"nickname": "the 828",
+"codes": [
+"828"
+],
+"seeds": [
+"Buncombe",
+"Catawba",
+"Henderson"
+],
+"counties": [
+"Alexander",
+"Ashe",
+"Avery",
+"Buncombe",
+"Burke",
+"Caldwell",
+"Catawba",
+"Cherokee",
+"Clay",
+"Graham",
+"Haywood",
+"Henderson",
+"Iredell",
+"Jackson",
+"Lincoln",
+"Macon",
+"Madison",
+"McDowell",
+"Mitchell",
+"Polk",
+"Rutherford",
+"Swain",
+"Transylvania",
+"Watauga",
+"Wilkes",
+"Yancey"
+],
+"center": [
+35.6536,
+-82.2775
+],
+"label": [
+35.6817,
+-82.0497
+],
+"sq_miles": 11068,
+"schools": 85,
+"near": 1.01
+},
+{
+"state": "ND",
+"key": "nd",
+"name": "North Dakota",
+"nickname": "the Peace Garden State",
+"codes": [
+"701"
+],
+"seeds": [
+"Cass",
+"Burleigh"
+],
+"counties": [
+"Adams",
+"Barnes",
+"Benson",
+"Billings",
+"Bottineau",
+"Bowman",
+"Burke",
+"Burleigh",
+"Cass",
+"Cavalier",
+"Dickey",
+"Divide",
+"Dunn",
+"Eddy",
+"Emmons",
+"Foster",
+"Golden Valley",
+"Grand Forks",
+"Grant",
+"Griggs",
+"Hettinger",
+"Kidder",
+"LaMoure",
+"Logan",
+"McHenry",
+"McIntosh",
+"McKenzie",
+"McLean",
+"Mercer",
+"Morton",
+"Mountrail",
+"Nelson",
+"Oliver",
+"Pembina",
+"Pierce",
+"Ramsey",
+"Ransom",
+"Renville",
+"Richland",
+"Rolette",
+"Sargent",
+"Sheridan",
+"Sioux",
+"Slope",
+"Stark",
+"Steele",
+"Stutsman",
+"Towner",
+"Traill",
+"Walsh",
+"Ward",
+"Wells",
+"Williams"
+],
+"center": [
+47.4322,
+-100.4681
+],
+"label": [
+47.5754,
+-100.3451
+],
+"sq_miles": 70469,
+"schools": 71,
+"near": 0.19
+},
+{
+"state": "OH",
+"key": "cle",
+"name": "Cleveland and Northeast Ohio",
+"nickname": "the Land",
+"codes": [
+"216",
+"440"
+],
+"seeds": [
+"Cuyahoga",
+"Lorain",
+"Lake"
+],
+"counties": [
+"Ashland",
+"Ashtabula",
+"Cuyahoga",
+"Erie",
+"Geauga",
+"Huron",
+"Lake",
+"Lorain",
+"Medina",
+"Richland"
+],
+"center": [
+41.2836,
+-81.8518
+],
+"label": [
+41.1177,
+-81.8988
+],
+"sq_miles": 4421,
+"schools": 129,
+"near": 4.58
+},
+{
+"state": "OH",
+"key": "330",
+"name": "Akron and Canton",
+"nickname": "the 330",
+"codes": [
+"330",
+"234"
+],
+"seeds": [
+"Summit",
+"Stark",
+"Mahoning"
+],
+"counties": [
+"Carroll",
+"Columbiana",
+"Harrison",
+"Holmes",
+"Jefferson",
+"Mahoning",
+"Portage",
+"Stark",
+"Summit",
+"Trumbull",
+"Tuscarawas",
+"Wayne"
+],
+"center": [
+40.7961,
+-81.2219
+],
+"label": [
+40.8137,
+-81.3665
+],
+"sq_miles": 5863,
+"schools": 158,
+"near": 3.08
+},
+{
+"state": "OH",
+"key": "614",
+"name": "Columbus and Central Ohio",
+"nickname": "the 614",
+"codes": [
+"614",
+"380"
+],
+"seeds": [
+"Franklin",
+"Delaware",
+"Licking"
+],
+"counties": [
+"Crawford",
+"Delaware",
+"Fairfield",
+"Franklin",
+"Knox",
+"Licking",
+"Marion",
+"Morrow",
+"Pickaway",
+"Union"
+],
+"center": [
+40.2048,
+-82.8531
+],
+"label": [
+40.2783,
+-83.0042
+],
+"sq_miles": 4877,
+"schools": 95,
+"near": 3.42
+},
+{
+"state": "OH",
+"key": "cin",
+"name": "Cincinnati",
+"nickname": "the Queen City",
+"codes": [
+"513"
+],
+"seeds": [
+"Hamilton",
+"Butler",
+"Warren"
+],
+"counties": [
+"Brown",
+"Butler",
+"Clermont",
+"Clinton",
+"Hamilton",
+"Highland",
+"Warren"
+],
+"center": [
+39.2253,
+-84.0823
+],
+"label": [
+39.0478,
+-84.1528
+],
+"sq_miles": 3213,
+"schools": 80,
+"near": 3.65
+},
+{
+"state": "OH",
+"key": "937",
+"name": "Dayton and the Miami Valley",
+"nickname": "the 937",
+"codes": [
+"937"
+],
+"seeds": [
+"Montgomery",
+"Greene",
+"Clark"
+],
+"counties": [
+"Champaign",
+"Clark",
+"Darke",
+"Fayette",
+"Greene",
+"Madison",
+"Miami",
+"Montgomery",
+"Preble"
+],
+"center": [
+39.8876,
+-84.0362
+],
+"label": [
+39.9163,
+-83.7837
+],
+"sq_miles": 4018,
+"schools": 68,
+"near": 2.49
+},
+{
+"state": "OH",
+"key": "419",
+"name": "Toledo and Northwest Ohio",
+"nickname": "the 419",
+"codes": [
+"419",
+"567"
+],
+"seeds": [
+"Lucas",
+"Wood",
+"Allen"
+],
+"counties": [
+"Allen",
+"Auglaize",
+"Defiance",
+"Fulton",
+"Hancock",
+"Hardin",
+"Henry",
+"Logan",
+"Lucas",
+"Mercer",
+"Ottawa",
+"Paulding",
+"Putnam",
+"Sandusky",
+"Seneca",
+"Shelby",
+"Van Wert",
+"Williams",
+"Wood",
+"Wyandot"
+],
+"center": [
+41.035,
+-83.932
+],
+"label": [
+41.0225,
+-84.1318
+],
+"sq_miles": 8771,
+"schools": 138,
+"near": 1.98
+},
+{
+"state": "OH",
+"key": "740",
+"name": "Southeast Ohio",
+"nickname": "the 740",
+"codes": [
+"740"
+],
+"seeds": [
+"Athens",
+"Muskingum",
+"Scioto"
+],
+"counties": [
+"Adams",
+"Athens",
+"Belmont",
+"Coshocton",
+"Gallia",
+"Guernsey",
+"Hocking",
+"Jackson",
+"Lawrence",
+"Meigs",
+"Monroe",
+"Morgan",
+"Muskingum",
+"Noble",
+"Perry",
+"Pike",
+"Ross",
+"Scioto",
+"Vinton",
+"Washington"
+],
+"center": [
+39.4267,
+-82.1923
+],
+"label": [
+39.3341,
+-82.0455
+],
+"sq_miles": 10106,
+"schools": 120,
+"near": 1.38
+},
+{
+"state": "OK",
+"key": "405",
+"name": "Oklahoma City",
+"nickname": "the 405",
+"codes": [
+"405"
+],
+"seeds": [
+"Oklahoma",
+"Cleveland",
+"Canadian"
+],
+"counties": [
+"Blaine",
+"Caddo",
+"Canadian",
+"Cleveland",
+"Custer",
+"Dewey",
+"Ellis",
+"Grady",
+"Hughes",
+"Kingfisher",
+"Lincoln",
+"Logan",
+"McClain",
+"Oklahoma",
+"Payne",
+"Pottawatomie",
+"Roger Mills",
+"Seminole"
+],
+"center": [
+35.5779,
+-98.0212
+],
+"label": [
+35.5422,
+-97.9818
+],
+"sq_miles": 16046,
+"schools": 89,
+"near": 1.73
+},
+{
+"state": "OK",
+"key": "918",
+"name": "Tulsa and Green Country",
+"nickname": "Green Country",
+"codes": [
+"918"
+],
+"seeds": [
+"Tulsa",
+"Wagoner",
+"Rogers"
+],
+"counties": [
+"Adair",
+"Cherokee",
+"Craig",
+"Creek",
+"Delaware",
+"Haskell",
+"Latimer",
+"Le Flore",
+"Mayes",
+"McCurtain",
+"McIntosh",
+"Muskogee",
+"Nowata",
+"Okfuskee",
+"Okmulgee",
+"Osage",
+"Ottawa",
+"Pawnee",
+"Pittsburg",
+"Pushmataha",
+"Rogers",
+"Sequoyah",
+"Tulsa",
+"Wagoner",
+"Washington"
+],
+"center": [
+35.633,
+-95.4752
+],
+"label": [
+35.6159,
+-95.3794
+],
+"sq_miles": 22091,
+"schools": 125,
+"near": 1.22
+},
+{
+"state": "OK",
+"key": "580",
+"name": "Western and Southern Oklahoma",
+"nickname": "the 580",
+"codes": [
+"580"
+],
+"seeds": [
+"Comanche",
+"Garfield",
+"Carter"
+],
+"counties": [
+"Alfalfa",
+"Atoka",
+"Beaver",
+"Beckham",
+"Bryan",
+"Carter",
+"Choctaw",
+"Cimarron",
+"Coal",
+"Comanche",
+"Cotton",
+"Garfield",
+"Garvin",
+"Grant",
+"Greer",
+"Harmon",
+"Harper",
+"Jackson",
+"Jefferson",
+"Johnston",
+"Kay",
+"Kiowa",
+"Love",
+"Major",
+"Marshall",
+"Murray",
+"Noble",
+"Pontotoc",
+"Stephens",
+"Texas",
+"Tillman",
+"Washita",
+"Woods",
+"Woodward"
+],
+"center": [
+35.5289,
+-98.6471
+],
+"label": [
+35.2904,
+-98.9933
+],
+"sq_miles": 31721,
+"schools": 75,
+"near": 0.4
+},
+{
+"state": "OR",
+"key": "pdx",
+"name": "Portland",
+"nickname": "PDX",
+"codes": [
+"503",
+"971"
+],
+"seeds": [
+"Multnomah",
+"Washington",
+"Clackamas"
+],
+"counties": [
+"Baker",
+"Clackamas",
+"Clatsop",
+"Columbia",
+"Crook",
+"Gilliam",
+"Grant",
+"Hood River",
+"Jefferson",
+"Morrow",
+"Multnomah",
+"Sherman",
+"Tillamook",
+"Umatilla",
+"Union",
+"Wallowa",
+"Wasco",
+"Washington",
+"Wheeler",
+"Yamhill"
+],
+"center": [
+45.0832,
+-119.9319
+],
+"label": [
+45.3774,
+-120.2123
+],
+"sq_miles": 35923,
+"schools": 84,
+"near": 2.63
+},
+{
+"state": "OR",
+"key": "541",
+"name": "The Willamette Valley and the south",
+"nickname": "the 541",
+"codes": [
+"541",
+"458"
+],
+"seeds": [
+"Lane",
+"Marion",
+"Jackson"
+],
+"counties": [
+"Benton",
+"Coos",
+"Curry",
+"Deschutes",
+"Douglas",
+"Harney",
+"Jackson",
+"Josephine",
+"Klamath",
+"Lake",
+"Lane",
+"Lincoln",
+"Linn",
+"Malheur",
+"Marion",
+"Polk"
+],
+"center": [
+43.2295,
+-120.9351
+],
+"label": [
+42.7932,
+-120.3869
+],
+"sq_miles": 60758,
+"schools": 85,
+"near": 0.5
+},
+{
+"state": "PA",
+"key": "phl",
+"name": "Philadelphia",
+"nickname": "Philly",
+"codes": [
+"215",
+"267"
+],
+"seeds": [
+"Philadelphia"
+],
+"counties": [
+"Philadelphia"
+],
+"center": [
+40.007,
+-75.1356
+],
+"label": [
+40.007,
+-75.1356
+],
+"sq_miles": 142,
+"schools": 40,
+"near": 28.18
+},
+{
+"state": "PA",
+"key": "610",
+"name": "The Philly suburbs",
+"nickname": "the 610",
+"codes": [
+"610",
+"484"
+],
+"seeds": [
+"Montgomery",
+"Delaware",
+"Bucks"
+],
+"counties": [
+"Bucks",
+"Chester",
+"Delaware",
+"Montgomery"
+],
+"center": [
+40.1336,
+-75.4314
+],
+"label": [
+40.2107,
+-75.3678
+],
+"sq_miles": 2052,
+"schools": 124,
+"near": 8.4
+},
+{
+"state": "PA",
+"key": "wpial",
+"name": "Pittsburgh and the WPIAL",
+"nickname": "the WPIAL",
+"codes": [
+"412",
+"724"
+],
+"seeds": [
+"Allegheny",
+"Westmoreland",
+"Washington"
+],
+"counties": [
+"Allegheny",
+"Armstrong",
+"Beaver",
+"Butler",
+"Clarion",
+"Fayette",
+"Greene",
+"Indiana",
+"Lawrence",
+"Somerset",
+"Washington",
+"Westmoreland"
+],
+"center": [
+40.4376,
+-79.6804
+],
+"label": [
+40.3111,
+-79.4673
+],
+"sq_miles": 8802,
+"schools": 127,
+"near": 3.41
+},
+{
+"state": "PA",
+"key": "717",
+"name": "Central Pennsylvania",
+"nickname": "the 717",
+"codes": [
+"717",
+"223"
+],
+"seeds": [
+"Dauphin",
+"York",
+"Lancaster"
+],
+"counties": [
+"Adams",
+"Cumberland",
+"Dauphin",
+"Juniata",
+"Lancaster",
+"Lebanon",
+"Northumberland",
+"Perry",
+"Snyder",
+"York"
+],
+"center": [
+40.2565,
+-76.8473
+],
+"label": [
+40.4161,
+-76.778
+],
+"sq_miles": 5631,
+"schools": 104,
+"near": 2.32
+},
+{
+"state": "PA",
+"key": "coal",
+"name": "The Lehigh Valley and the coal region",
+"nickname": "the 570",
+"codes": [
+"610",
+"570"
+],
+"seeds": [
+"Lehigh",
+"Northampton",
+"Luzerne"
+],
+"counties": [
+"Berks",
+"Bradford",
+"Carbon",
+"Columbia",
+"Lackawanna",
+"Lehigh",
+"Luzerne",
+"Monroe",
+"Montour",
+"Northampton",
+"Pike",
+"Schuylkill",
+"Sullivan",
+"Susquehanna",
+"Wayne",
+"Wyoming"
+],
+"center": [
+41.2213,
+-75.882
+],
+"label": [
+41.1781,
+-75.9889
+],
+"sq_miles": 9534,
+"schools": 131,
+"near": 2.48
+},
+{
+"state": "PA",
+"key": "814",
+"name": "Erie and the northwest",
+"nickname": "the 814",
+"codes": [
+"814"
+],
+"seeds": [
+"Erie",
+"Centre",
+"Blair"
+],
+"counties": [
+"Bedford",
+"Blair",
+"Cambria",
+"Cameron",
+"Centre",
+"Clearfield",
+"Clinton",
+"Crawford",
+"Elk",
+"Erie",
+"Forest",
+"Franklin",
+"Fulton",
+"Huntingdon",
+"Jefferson",
+"Lycoming",
+"McKean",
+"Mercer",
+"Mifflin",
+"Potter",
+"Tioga",
+"Union",
+"Venango",
+"Warren"
+],
+"center": [
+41.155,
+-78.4463
+],
+"label": [
+41.0003,
+-78.4742
+],
+"sq_miles": 19078,
+"schools": 95,
+"near": 0.82
+},
+{
+"state": "RI",
+"key": "ri",
+"name": "Rhode Island",
+"nickname": "the Ocean State",
+"codes": [
+"401"
+],
+"seeds": [
+"Providence",
+"Kent"
+],
+"counties": [
+"Bristol",
+"Kent",
+"Newport",
+"Providence",
+"Washington"
+],
+"center": [
+41.6758,
+-71.5519
+],
+"label": [
+41.6715,
+-71.5923
+],
+"sq_miles": 1104,
+"schools": 49,
+"near": 5.26
+},
+{
+"state": "SC",
+"key": "mid",
+"name": "Columbia and the Midlands",
+"nickname": "the Midlands",
+"codes": [
+"803"
+],
+"seeds": [
+"Richland",
+"Lexington"
+],
+"counties": [
+"Aiken",
+"Barnwell",
+"Calhoun",
+"Chester",
+"Edgefield",
+"Fairfield",
+"Kershaw",
+"Lancaster",
+"Lexington",
+"Newberry",
+"Richland",
+"Saluda",
+"Sumter"
+],
+"center": [
+34.0293,
+-81.175
+],
+"label": [
+33.9027,
+-81.2729
+],
+"sq_miles": 8464,
+"schools": 73,
+"near": 1.09
+},
+{
+"state": "SC",
+"key": "up",
+"name": "The Upstate",
+"nickname": "the Upstate",
+"codes": [
+"864"
+],
+"seeds": [
+"Greenville",
+"Spartanburg",
+"Anderson"
+],
+"counties": [
+"Abbeville",
+"Anderson",
+"Cherokee",
+"Greenville",
+"Greenwood",
+"Laurens",
+"McCormick",
+"Oconee",
+"Pickens",
+"Spartanburg",
+"Union",
+"York"
+],
+"center": [
+34.6581,
+-82.1878
+],
+"label": [
+34.4828,
+-82.0066
+],
+"sq_miles": 7252,
+"schools": 84,
+"near": 1.46
+},
+{
+"state": "SC",
+"key": "low",
+"name": "Charleston and the Lowcountry",
+"nickname": "the Lowcountry",
+"codes": [
+"843"
+],
+"seeds": [
+"Charleston",
+"Berkeley",
+"Dorchester"
+],
+"counties": [
+"Allendale",
+"Bamberg",
+"Beaufort",
+"Berkeley",
+"Charleston",
+"Clarendon",
+"Colleton",
+"Dorchester",
+"Hampton",
+"Jasper",
+"Orangeburg"
+],
+"center": [
+33.0076,
+-80.5575
+],
+"label": [
+33.0781,
+-80.4044
+],
+"sq_miles": 8481,
+"schools": 70,
+"near": 1.04
+},
+{
+"state": "SC",
+"key": "pee",
+"name": "The Pee Dee and the Grand Strand",
+"nickname": "the Pee Dee",
+"codes": [
+"843"
+],
+"seeds": [
+"Florence",
+"Darlington",
+"Horry"
+],
+"counties": [
+"Chesterfield",
+"Darlington",
+"Dillon",
+"Florence",
+"Georgetown",
+"Horry",
+"Lee",
+"Marion",
+"Marlboro",
+"Williamsburg"
+],
+"center": [
+34.0478,
+-79.6036
+],
+"label": [
+34.0234,
+-79.7036
+],
+"sq_miles": 6936,
+"schools": 53,
+"near": 0.92
+},
+{
+"state": "SD",
+"key": "sd",
+"name": "South Dakota",
+"nickname": "the Mount Rushmore State",
+"codes": [
+"605"
+],
+"seeds": [
+"Minnehaha",
+"Pennington"
+],
+"counties": [
+"Aurora",
+"Beadle",
+"Bennett",
+"Bon Homme",
+"Brookings",
+"Brown",
+"Brule",
+"Buffalo",
+"Butte",
+"Campbell",
+"Charles Mix",
+"Clark",
+"Clay",
+"Codington",
+"Corson",
+"Custer",
+"Davison",
+"Day",
+"Deuel",
+"Dewey",
+"Douglas",
+"Edmunds",
+"Fall River",
+"Faulk",
+"Grant",
+"Gregory",
+"Haakon",
+"Hamlin",
+"Hand",
+"Hanson",
+"Harding",
+"Hughes",
+"Hutchinson",
+"Hyde",
+"Jackson",
+"Jerauld",
+"Jones",
+"Kingsbury",
+"Lake",
+"Lawrence",
+"Lincoln",
+"Lyman",
+"Marshall",
+"McCook",
+"McPherson",
+"Meade",
+"Mellette",
+"Miner",
+"Minnehaha",
+"Moody",
+"Oglala Lakota",
+"Pennington",
+"Perkins",
+"Potter",
+"Roberts",
+"Sanborn",
+"Spink",
+"Stanley",
+"Sully",
+"Todd",
+"Tripp",
+"Turner",
+"Union",
+"Walworth",
+"Yankton",
+"Ziebach"
+],
+"center": [
+44.424,
+-100.2293
+],
+"label": [
+44.3902,
+-99.9954
+],
+"sq_miles": 76915,
+"schools": 61,
+"near": 0.34
+},
+{
+"state": "TN",
+"key": "901",
+"name": "Memphis",
+"nickname": "the 901",
+"codes": [
+"901"
+],
+"seeds": [
+"Shelby",
+"Tipton"
+],
+"counties": [
+"Fayette",
+"Lauderdale",
+"Shelby",
+"Tipton"
+],
+"center": [
+35.3656,
+-89.677
+],
+"label": [
+35.4961,
+-89.7563
+],
+"sq_miles": 2466,
+"schools": 41,
+"near": 2.49
+},
+{
+"state": "TN",
+"key": "nash",
+"name": "Nashville and Middle Tennessee",
+"nickname": "Music City",
+"codes": [
+"615",
+"629"
+],
+"seeds": [
+"Davidson",
+"Williamson",
+"Rutherford"
+],
+"counties": [
+"Bedford",
+"Cannon",
+"Cheatham",
+"Clay",
+"Coffee",
+"Davidson",
+"DeKalb",
+"Dickson",
+"Franklin",
+"Giles",
+"Hickman",
+"Houston",
+"Humphreys",
+"Jackson",
+"Lawrence",
+"Lewis",
+"Lincoln",
+"Macon",
+"Marshall",
+"Maury",
+"Montgomery",
+"Moore",
+"Overton",
+"Putnam",
+"Robertson",
+"Rutherford",
+"Smith",
+"Stewart",
+"Sumner",
+"Trousdale",
+"Warren",
+"Williamson",
+"Wilson"
+],
+"center": [
+35.9068,
+-86.6669
+],
+"label": [
+35.894,
+-86.8983
+],
+"sq_miles": 14427,
+"schools": 135,
+"near": 1.4
+},
+{
+"state": "TN",
+"key": "865",
+"name": "Knoxville and East Tennessee",
+"nickname": "the 865",
+"codes": [
+"865"
+],
+"seeds": [
+"Knox",
+"Blount",
+"Sevier"
+],
+"counties": [
+"Anderson",
+"Blount",
+"Campbell",
+"Claiborne",
+"Cocke",
+"Fentress",
+"Grainger",
+"Hamblen",
+"Jefferson",
+"Knox",
+"Loudon",
+"Monroe",
+"Morgan",
+"Pickett",
+"Roane",
+"Scott",
+"Sevier",
+"Union"
+],
+"center": [
+36.0561,
+-84.0608
+],
+"label": [
+35.9932,
+-83.9387
+],
+"sq_miles": 7472,
+"schools": 82,
+"near": 1.44
+},
+{
+"state": "TN",
+"key": "chatt",
+"name": "Chattanooga",
+"nickname": "the Scenic City",
+"codes": [
+"423"
+],
+"seeds": [
+"Hamilton",
+"Bradley"
+],
+"counties": [
+"Bledsoe",
+"Bradley",
+"Cumberland",
+"Grundy",
+"Hamilton",
+"Marion",
+"McMinn",
+"Meigs",
+"Polk",
+"Rhea",
+"Sequatchie",
+"Van Buren",
+"White"
+],
+"center": [
+35.4693,
+-85.1287
+],
+"label": [
+35.5971,
+-85.2053
+],
+"sq_miles": 5220,
+"schools": 44,
+"near": 1.45
+},
+{
+"state": "TN",
+"key": "tri",
+"name": "The Tri-Cities",
+"nickname": "the Tri-Cities",
+"codes": [
+"423"
+],
+"seeds": [
+"Sullivan",
+"Washington"
+],
+"counties": [
+"Carter",
+"Greene",
+"Hancock",
+"Hawkins",
+"Johnson",
+"Sullivan",
+"Unicoi",
+"Washington"
+],
+"center": [
+36.3477,
+-82.5598
+],
+"label": [
+36.2926,
+-82.4975
+],
+"sq_miles": 2949,
+"schools": 31,
+"near": 1.27
+},
+{
+"state": "TN",
+"key": "731",
+"name": "West Tennessee",
+"nickname": "the 731",
+"codes": [
+"731"
+],
+"seeds": [
+"Madison",
+"Gibson"
+],
+"counties": [
+"Benton",
+"Carroll",
+"Chester",
+"Crockett",
+"Decatur",
+"Dyer",
+"Gibson",
+"Hardeman",
+"Hardin",
+"Haywood",
+"Henderson",
+"Henry",
+"Lake",
+"Madison",
+"McNairy",
+"Obion",
+"Perry",
+"Wayne",
+"Weakley"
+],
+"center": [
+35.7415,
+-88.6133
+],
+"label": [
+35.6541,
+-88.3886
+],
+"sq_miles": 9594,
+"schools": 57,
+"near": 0.7
+},
+{
+"state": "TX",
+"key": "hou",
+"name": "Houston",
+"nickname": "H-Town",
+"codes": [
+"713",
+"281",
+"832"
+],
+"seeds": [
+"Harris"
+],
+"counties": [
+"Harris"
+],
+"center": [
+29.8567,
+-95.3928
+],
+"label": [
+29.8567,
+-95.3928
+],
+"sq_miles": 1780,
+"schools": 87,
+"near": 4.89
+},
+{
+"state": "TX",
+"key": "bend",
+"name": "Fort Bend and Brazoria",
+"nickname": "the southwest side",
+"codes": [
+"281",
+"832",
+"979"
+],
+"seeds": [
+"Fort Bend",
+"Brazoria",
+"Wharton"
+],
+"counties": [
+"Brazoria",
+"Colorado",
+"Fort Bend",
+"Matagorda",
+"Wharton"
+],
+"center": [
+29.2419,
+-95.9603
+],
+"label": [
+29.2787,
+-96.2219
+],
+"sq_miles": 5800,
+"schools": 47,
+"near": 1.21
+},
+{
+"state": "TX",
+"key": "north",
+"name": "Montgomery County and north Houston",
+"nickname": "the Woodlands side",
+"codes": [
+"936",
+"281"
+],
+"seeds": [
+"Montgomery",
+"Walker",
+"Liberty"
+],
+"counties": [
+"Hardin",
+"Houston",
+"Leon",
+"Liberty",
+"Madison",
+"Montgomery",
+"San Jacinto",
+"Walker"
+],
+"center": [
+30.7108,
+-95.3218
+],
+"label": [
+30.5796,
+-95.1672
+],
+"sq_miles": 7380,
+"schools": 44,
+"near": 0.7
+},
+{
+"state": "TX",
+"key": "409",
+"name": "Galveston and the Golden Triangle",
+"nickname": "the Golden Triangle",
+"codes": [
+"409"
+],
+"seeds": [
+"Galveston",
+"Jefferson",
+"Orange"
+],
+"counties": [
+"Chambers",
+"Galveston",
+"Jasper",
+"Jefferson",
+"Newton",
+"Orange"
+],
+"center": [
+30.2228,
+-94.1609
+],
+"label": [
+30.1195,
+-93.893
+],
+"sq_miles": 4344,
+"schools": 37,
+"near": 1.28
+},
+{
+"state": "TX",
+"key": "dal",
+"name": "Dallas",
+"nickname": "Big D",
+"codes": [
+"214",
+"469",
+"972"
+],
+"seeds": [
+"Dallas",
+"Ellis",
+"Kaufman"
+],
+"counties": [
+"Dallas",
+"Ellis",
+"Freestone",
+"Kaufman",
+"Navarro",
+"Rains",
+"Van Zandt"
+],
+"center": [
+32.3484,
+-96.3724
+],
+"label": [
+32.5991,
+-96.288
+],
+"sq_miles": 5764,
+"schools": 115,
+"near": 5.94
+},
+{
+"state": "TX",
+"key": "fw",
+"name": "Fort Worth",
+"nickname": "Cowtown",
+"codes": [
+"817",
+"682"
+],
+"seeds": [
+"Tarrant",
+"Parker",
+"Johnson"
+],
+"counties": [
+"Erath",
+"Hill",
+"Hood",
+"Jack",
+"Johnson",
+"Palo Pinto",
+"Parker",
+"Somervell",
+"Stephens",
+"Tarrant"
+],
+"center": [
+32.5841,
+-97.9031
+],
+"label": [
+32.43,
+-97.8328
+],
+"sq_miles": 8077,
+"schools": 97,
+"near": 3.59
+},
+{
+"state": "TX",
+"key": "collin",
+"name": "Collin and Denton",
+"nickname": "the north suburbs",
+"codes": [
+"972",
+"469",
+"940"
+],
+"seeds": [
+"Collin",
+"Denton",
+"Rockwall"
+],
+"counties": [
+"Collin",
+"Cooke",
+"Delta",
+"Denton",
+"Fannin",
+"Grayson",
+"Hopkins",
+"Hunt",
+"Lamar",
+"Montague",
+"Rockwall",
+"Wise"
+],
+"center": [
+33.4055,
+-96.6167
+],
+"label": [
+33.188,
+-96.5725
+],
+"sq_miles": 9507,
+"schools": 119,
+"near": 1.67
+},
+{
+"state": "TX",
+"key": "etx",
+"name": "East Texas",
+"nickname": "the Piney Woods",
+"codes": [
+"903",
+"430",
+"936"
+],
+"seeds": [
+"Smith",
+"Gregg",
+"Angelina"
+],
+"counties": [
+"Anderson",
+"Angelina",
+"Bowie",
+"Camp",
+"Cass",
+"Cherokee",
+"Franklin",
+"Gregg",
+"Harrison",
+"Henderson",
+"Marion",
+"Morris",
+"Nacogdoches",
+"Panola",
+"Polk",
+"Red River",
+"Rusk",
+"Sabine",
+"San Augustine",
+"Shelby",
+"Smith",
+"Titus",
+"Trinity",
+"Tyler",
+"Upshur",
+"Wood"
+],
+"center": [
+32.1408,
+-94.7989
+],
+"label": [
+32.1081,
+-94.7617
+],
+"sq_miles": 19441,
+"schools": 133,
+"near": 0.81
+},
+{
+"state": "TX",
+"key": "210",
+"name": "San Antonio",
+"nickname": "the 210",
+"codes": [
+"210",
+"726"
+],
+"seeds": [
+"Bexar",
+"Comal",
+"Guadalupe"
+],
+"counties": [
+"Atascosa",
+"Bandera",
+"Bexar",
+"Caldwell",
+"Comal",
+"Frio",
+"Gillespie",
+"Gonzales",
+"Guadalupe",
+"Karnes",
+"Kendall",
+"Kerr",
+"Kinney",
+"Mason",
+"Medina",
+"Real",
+"Uvalde",
+"Wilson"
+],
+"center": [
+29.5492,
+-98.8983
+],
+"label": [
+29.3554,
+-99.11
+],
+"sq_miles": 17608,
+"schools": 118,
+"near": 1.89
+},
+{
+"state": "TX",
+"key": "512",
+"name": "Austin",
+"nickname": "the 512",
+"codes": [
+"512",
+"737"
+],
+"seeds": [
+"Travis",
+"Williamson",
+"Hays"
+],
+"counties": [
+"Bastrop",
+"Blanco",
+"Burnet",
+"Hays",
+"Llano",
+"Travis",
+"Williamson"
+],
+"center": [
+30.4485,
+-97.9792
+],
+"label": [
+30.3352,
+-97.7824
+],
+"sq_miles": 6446,
+"schools": 78,
+"near": 2.01
+},
+{
+"state": "TX",
+"key": "ctx",
+"name": "Central Texas",
+"nickname": "Waco and Killeen",
+"codes": [
+"254"
+],
+"seeds": [
+"McLennan",
+"Bell",
+"Coryell"
+],
+"counties": [
+"Bell",
+"Bosque",
+"Comanche",
+"Coryell",
+"Falls",
+"Hamilton",
+"Lampasas",
+"Limestone",
+"McLennan",
+"Milam",
+"Mills",
+"San Saba"
+],
+"center": [
+31.4072,
+-97.7344
+],
+"label": [
+31.391,
+-97.7997
+],
+"sq_miles": 11326,
+"schools": 72,
+"near": 1.0
+},
+{
+"state": "TX",
+"key": "brazos",
+"name": "The Brazos Valley",
+"nickname": "Aggieland",
+"codes": [
+"979"
+],
+"seeds": [
+"Brazos",
+"Washington"
+],
+"counties": [
+"Austin",
+"Brazos",
+"Burleson",
+"Fayette",
+"Grimes",
+"Lee",
+"Robertson",
+"Waller",
+"Washington"
+],
+"center": [
+30.3465,
+-96.4669
+],
+"label": [
+30.2131,
+-96.4039
+],
+"sq_miles": 6338,
+"schools": 41,
+"near": 0.7
+},
+{
+"state": "TX",
+"key": "361",
+"name": "Corpus Christi and the Coastal Bend",
+"nickname": "the Coastal Bend",
+"codes": [
+"361"
+],
+"seeds": [
+"Nueces",
+"San Patricio",
+"Victoria"
+],
+"counties": [
+"Aransas",
+"Bee",
+"Calhoun",
+"DeWitt",
+"Goliad",
+"Jackson",
+"Jim Wells",
+"Kleberg",
+"Lavaca",
+"Live Oak",
+"Nueces",
+"Refugio",
+"San Patricio",
+"Victoria"
+],
+"center": [
+28.4136,
+-97.3803
+],
+"label": [
+28.3248,
+-97.1618
+],
+"sq_miles": 11724,
+"schools": 49,
+"near": 0.73
+},
+{
+"state": "TX",
+"key": "rgv",
+"name": "The Rio Grande Valley",
+"nickname": "the Valley",
+"codes": [
+"956"
+],
+"seeds": [
+"Hidalgo",
+"Cameron",
+"Webb"
+],
+"counties": [
+"Brooks",
+"Cameron",
+"Dimmit",
+"Duval",
+"Hidalgo",
+"Jim Hogg",
+"Kenedy",
+"La Salle",
+"Maverick",
+"McMullen",
+"Starr",
+"Webb",
+"Willacy",
+"Zapata",
+"Zavala"
+],
+"center": [
+27.5351,
+-98.8398
+],
+"label": [
+27.6823,
+-98.5087
+],
+"sq_miles": 20952,
+"schools": 69,
+"near": 1.1
+},
+{
+"state": "TX",
+"key": "915",
+"name": "El Paso",
+"nickname": "the Sun City",
+"codes": [
+"915"
+],
+"seeds": [
+"El Paso"
+],
+"counties": [
+"Culberson",
+"El Paso",
+"Hudspeth"
+],
+"center": [
+31.4862,
+-105.1249
+],
+"label": [
+31.4571,
+-105.3869
+],
+"sq_miles": 9419,
+"schools": 26,
+"near": 2.37
+},
+{
+"state": "TX",
+"key": "432",
+"name": "The Permian Basin",
+"nickname": "the Permian",
+"codes": [
+"432"
+],
+"seeds": [
+"Midland",
+"Ector"
+],
+"counties": [
+"Andrews",
+"Brewster",
+"Crane",
+"Ector",
+"Gaines",
+"Glasscock",
+"Howard",
+"Jeff Davis",
+"Loving",
+"Martin",
+"Midland",
+"Pecos",
+"Presidio",
+"Reagan",
+"Reeves",
+"Terrell",
+"Upton",
+"Ward",
+"Winkler"
+],
+"center": [
+30.9528,
+-102.9544
+],
+"label": [
+30.7806,
+-102.7237
+],
+"sq_miles": 35189,
+"schools": 28,
+"near": 0.23
+},
+{
+"state": "TX",
+"key": "lbk",
+"name": "Lubbock and the South Plains",
+"nickname": "the South Plains",
+"codes": [
+"806"
+],
+"seeds": [
+"Lubbock",
+"Hale"
+],
+"counties": [
+"Bailey",
+"Borden",
+"Briscoe",
+"Cochran",
+"Cottle",
+"Crosby",
+"Dawson",
+"Dickens",
+"Floyd",
+"Garza",
+"Hale",
+"Hall",
+"Hockley",
+"Kent",
+"King",
+"Lamb",
+"Lubbock",
+"Lynn",
+"Motley",
+"Terry",
+"Yoakum"
+],
+"center": [
+33.6548,
+-101.5526
+],
+"label": [
+33.6145,
+-101.3
+],
+"sq_miles": 19026,
+"schools": 45,
+"near": 0.57
+},
+{
+"state": "TX",
+"key": "pan",
+"name": "Amarillo and the Panhandle",
+"nickname": "the Panhandle",
+"codes": [
+"806"
+],
+"seeds": [
+"Potter",
+"Randall"
+],
+"counties": [
+"Armstrong",
+"Carson",
+"Castro",
+"Collingsworth",
+"Dallam",
+"Deaf Smith",
+"Donley",
+"Gray",
+"Hansford",
+"Hartley",
+"Hemphill",
+"Hutchinson",
+"Lipscomb",
+"Moore",
+"Ochiltree",
+"Oldham",
+"Parmer",
+"Potter",
+"Randall",
+"Roberts",
+"Sherman",
+"Swisher",
+"Wheeler"
+],
+"center": [
+35.4951,
+-101.6055
+],
+"label": [
+35.4035,
+-101.3546
+],
+"sq_miles": 23357,
+"schools": 45,
+"near": 0.29
+},
+{
+"state": "TX",
+"key": "wctx",
+"name": "Abilene and West Central Texas",
+"nickname": "the Big Country",
+"codes": [
+"325",
+"940"
+],
+"seeds": [
+"Taylor",
+"Tom Green",
+"Wichita"
+],
+"counties": [
+"Archer",
+"Baylor",
+"Brown",
+"Callahan",
+"Childress",
+"Clay",
+"Coke",
+"Coleman",
+"Concho",
+"Crockett",
+"Eastland",
+"Edwards",
+"Fisher",
+"Foard",
+"Hardeman",
+"Haskell",
+"Irion",
+"Jones",
+"Kimble",
+"Knox",
+"McCulloch",
+"Menard",
+"Mitchell",
+"Nolan",
+"Runnels",
+"Schleicher",
+"Scurry",
+"Shackelford",
+"Sterling",
+"Stonewall",
+"Sutton",
+"Taylor",
+"Throckmorton",
+"Tom Green",
+"Val Verde",
+"Wichita",
+"Wilbarger",
+"Young"
+],
+"center": [
+31.9403,
+-100.0513
+],
+"label": [
+31.8318,
+-99.9767
+],
+"sq_miles": 42355,
+"schools": 91,
+"near": 0.42
+},
+{
+"state": "UT",
+"key": "wf",
+"name": "The Wasatch Front",
+"nickname": "the Wasatch Front",
+"codes": [
+"801",
+"385"
+],
+"seeds": [
+"Salt Lake",
+"Utah",
+"Davis"
+],
+"counties": [
+"Box Elder",
+"Cache",
+"Carbon",
+"Daggett",
+"Davis",
+"Duchesne",
+"Emery",
+"Grand",
+"Juab",
+"Morgan",
+"Rich",
+"Salt Lake",
+"Sanpete",
+"Sevier",
+"Summit",
+"Tooele",
+"Uintah",
+"Utah",
+"Wasatch",
+"Wayne",
+"Weber"
+],
+"center": [
+40.1374,
+-111.5054
+],
+"label": [
+40.1201,
+-111.67
+],
+"sq_miles": 51634,
+"schools": 103,
+"near": 1.58
+},
+{
+"state": "UT",
+"key": "dixie",
+"name": "Southern Utah",
+"nickname": "Dixie",
+"codes": [
+"435"
+],
+"seeds": [
+"Washington",
+"Iron"
+],
+"counties": [
+"Beaver",
+"Garfield",
+"Iron",
+"Kane",
+"Millard",
+"Piute",
+"San Juan",
+"Washington"
+],
+"center": [
+37.9897,
+-111.9381
+],
+"label": [
+38.336,
+-112.127
+],
+"sq_miles": 33151,
+"schools": 14,
+"near": 0.16
+},
+{
+"state": "VT",
+"key": "vt",
+"name": "Vermont",
+"nickname": "the Green Mountain State",
+"codes": [
+"802"
+],
+"seeds": [
+"Chittenden",
+"Rutland"
+],
+"counties": [
+"Addison",
+"Bennington",
+"Caledonia",
+"Chittenden",
+"Essex",
+"Franklin",
+"Grand Isle",
+"Lamoille",
+"Orange",
+"Orleans",
+"Rutland",
+"Washington",
+"Windham",
+"Windsor"
+],
+"center": [
+44.068,
+-72.6649
+],
+"label": [
+44.2733,
+-72.6144
+],
+"sq_miles": 9591,
+"schools": 33,
+"near": 0.74
+},
+{
+"state": "VA",
+"key": "757",
+"name": "Hampton Roads",
+"nickname": "the 757",
+"codes": [
+"757"
+],
+"seeds": [
+"Virginia Beach city",
+"Norfolk city",
+"Chesapeake city"
+],
+"counties": [
+"Accomack",
+"Chesapeake city",
+"Franklin city",
+"Gloucester",
+"Hampton city",
+"Isle of Wight",
+"Mathews",
+"Newport News city",
+"Norfolk city",
+"Northampton",
+"Poquoson city",
+"Portsmouth city",
+"Southampton",
+"Suffolk city",
+"Surry",
+"Virginia Beach city",
+"Williamsburg city",
+"York"
+],
+"center": [
+37.0646,
+-76.4125
+],
+"label": [
+37.0559,
+-76.3613
+],
+"sq_miles": 3977,
+"schools": 54,
+"near": 4.59
+},
+{
+"state": "VA",
+"key": "nova",
+"name": "Northern Virginia",
+"nickname": "NoVA",
+"codes": [
+"703",
+"571"
+],
+"seeds": [
+"Fairfax",
+"Prince William",
+"Loudoun"
+],
+"counties": [
+"Alexandria city",
+"Arlington",
+"Culpeper",
+"Fairfax",
+"Fairfax city",
+"Fauquier",
+"Fredericksburg city",
+"King George",
+"Loudoun",
+"Manassas Park city",
+"Manassas city",
+"Prince William",
+"Spotsylvania",
+"Stafford"
+],
+"center": [
+38.6497,
+-77.5973
+],
+"label": [
+38.7044,
+-77.4818
+],
+"sq_miles": 3256,
+"schools": 88,
+"near": 12.89
+},
+{
+"state": "VA",
+"key": "rva",
+"name": "Richmond",
+"nickname": "RVA",
+"codes": [
+"804"
+],
+"seeds": [
+"Henrico",
+"Chesterfield",
+"Richmond city"
+],
+"counties": [
+"Amelia",
+"Brunswick",
+"Caroline",
+"Charles City",
+"Chesterfield",
+"Colonial Heights city",
+"Cumberland",
+"Dinwiddie",
+"Emporia city",
+"Essex",
+"Goochland",
+"Greensville",
+"Hanover",
+"Henrico",
+"Hopewell city",
+"James City",
+"King William",
+"King and Queen",
+"Lancaster",
+"Lunenburg",
+"Middlesex",
+"New Kent",
+"Northumberland",
+"Nottoway",
+"Petersburg city",
+"Powhatan",
+"Prince George",
+"Richmond",
+"Richmond city",
+"Sussex",
+"Westmoreland"
+],
+"center": [
+37.42,
+-77.4416
+],
+"label": [
+37.5274,
+-77.4727
+],
+"sq_miles": 8310,
+"schools": 74,
+"near": 3.8
+},
+{
+"state": "VA",
+"key": "swva",
+"name": "Roanoke and Southwest Virginia",
+"nickname": "the 540 and the 276",
+"codes": [
+"540",
+"276"
+],
+"seeds": [
+"Roanoke",
+"Montgomery",
+"Washington"
+],
+"counties": [
+"Alleghany",
+"Bland",
+"Botetourt",
+"Bristol city",
+"Buchanan",
+"Carroll",
+"Covington city",
+"Craig",
+"Dickenson",
+"Floyd",
+"Franklin",
+"Galax city",
+"Giles",
+"Grayson",
+"Lee",
+"Montgomery",
+"Norton city",
+"Patrick",
+"Pulaski",
+"Radford city",
+"Roanoke",
+"Roanoke city",
+"Russell",
+"Salem city",
+"Scott",
+"Smyth",
+"Tazewell",
+"Washington",
+"Wise",
+"Wythe"
+],
+"center": [
+37.0321,
+-81.1577
+],
+"label": [
+37.1334,
+-81.1333
+],
+"sq_miles": 10312,
+"schools": 76,
+"near": 2.32
+},
+{
+"state": "VA",
+"key": "434",
+"name": "Central and Southside Virginia",
+"nickname": "the 434",
+"codes": [
+"434"
+],
+"seeds": [
+"Albemarle",
+"Campbell",
+"Pittsylvania"
+],
+"counties": [
+"Albemarle",
+"Amherst",
+"Appomattox",
+"Bedford",
+"Buckingham",
+"Campbell",
+"Charlotte",
+"Charlottesville city",
+"Danville city",
+"Fluvanna",
+"Greene",
+"Halifax",
+"Henry",
+"Louisa",
+"Lynchburg city",
+"Madison",
+"Martinsville city",
+"Mecklenburg",
+"Nelson",
+"Orange",
+"Pittsylvania",
+"Prince Edward"
+],
+"center": [
+37.3676,
+-78.8208
+],
+"label": [
+37.3723,
+-78.8105
+],
+"sq_miles": 9318,
+"schools": 65,
+"near": 1.21
+},
+{
+"state": "VA",
+"key": "valley",
+"name": "The Shenandoah Valley",
+"nickname": "the Valley",
+"codes": [
+"540"
+],
+"seeds": [
+"Rockingham",
+"Augusta",
+"Frederick"
+],
+"counties": [
+"Augusta",
+"Bath",
+"Buena Vista city",
+"Clarke",
+"Frederick",
+"Harrisonburg city",
+"Highland",
+"Lexington city",
+"Page",
+"Rappahannock",
+"Rockbridge",
+"Rockingham",
+"Shenandoah",
+"Staunton city",
+"Warren",
+"Waynesboro city",
+"Winchester city"
+],
+"center": [
+38.4488,
+-78.9356
+],
+"label": [
+38.4363,
+-78.8743
+],
+"sq_miles": 5356,
+"schools": 35,
+"near": 3.72
+},
+{
+"state": "WA",
+"key": "206",
+"name": "Seattle and the north",
+"nickname": "the 206",
+"codes": [
+"206",
+"425"
+],
+"seeds": [
+"King",
+"Snohomish"
+],
+"counties": [
+"Chelan",
+"Douglas",
+"King",
+"Okanogan",
+"Skagit",
+"Snohomish",
+"Whatcom"
+],
+"center": [
+48.1982,
+-120.7736
+],
+"label": [
+47.868,
+-120.6186
+],
+"sq_miles": 18362,
+"schools": 120,
+"near": 1.94
+},
+{
+"state": "WA",
+"key": "253",
+"name": "Tacoma and the South Sound",
+"nickname": "the 253",
+"codes": [
+"253",
+"360"
+],
+"seeds": [
+"Pierce",
+"Thurston",
+"Kitsap"
+],
+"counties": [
+"Clallam",
+"Grays Harbor",
+"Island",
+"Jefferson",
+"Kitsap",
+"Mason",
+"Pacific",
+"Pierce",
+"San Juan",
+"Thurston"
+],
+"center": [
+47.4006,
+-123.2919
+],
+"label": [
+47.3482,
+-123.1917
+],
+"sq_miles": 10853,
+"schools": 82,
+"near": 1.53
+},
+{
+"state": "WA",
+"key": "360",
+"name": "Vancouver and Southwest Washington",
+"nickname": "the 360",
+"codes": [
+"360"
+],
+"seeds": [
+"Clark",
+"Cowlitz"
+],
+"counties": [
+"Clark",
+"Cowlitz",
+"Lewis",
+"Skamania",
+"Wahkiakum"
+],
+"center": [
+46.2579,
+-122.3723
+],
+"label": [
+46.1923,
+-122.6799
+],
+"sq_miles": 6208,
+"schools": 31,
+"near": 1.57
+},
+{
+"state": "WA",
+"key": "509",
+"name": "Spokane and Eastern Washington",
+"nickname": "the 509",
+"codes": [
+"509"
+],
+"seeds": [
+"Spokane",
+"Yakima",
+"Benton"
+],
+"counties": [
+"Adams",
+"Asotin",
+"Benton",
+"Columbia",
+"Ferry",
+"Franklin",
+"Garfield",
+"Grant",
+"Kittitas",
+"Klickitat",
+"Lincoln",
+"Pend Oreille",
+"Spokane",
+"Stevens",
+"Walla Walla",
+"Whitman",
+"Yakima"
+],
+"center": [
+47.0987,
+-118.9457
+],
+"label": [
+46.9835,
+-118.5621
+],
+"sq_miles": 32235,
+"schools": 77,
+"near": 0.57
+},
+{
+"state": "WV",
+"key": "kan",
+"name": "Charleston and Huntington",
+"nickname": "the Kanawha Valley",
+"codes": [
+"304",
+"681"
+],
+"seeds": [
+"Kanawha",
+"Cabell",
+"Raleigh"
+],
+"counties": [
+"Boone",
+"Cabell",
+"Calhoun",
+"Clay",
+"Fayette",
+"Greenbrier",
+"Jackson",
+"Kanawha",
+"Lincoln",
+"Logan",
+"Mason",
+"McDowell",
+"Mercer",
+"Mingo",
+"Monroe",
+"Nicholas",
+"Putnam",
+"Raleigh",
+"Roane",
+"Summers",
+"Wayne",
+"Wirt",
+"Wood",
+"Wyoming"
+],
+"center": [
+38.1401,
+-81.411
+],
+"label": [
+38.3387,
+-81.5271
+],
+"sq_miles": 11768,
+"schools": 63,
+"near": 0.86
+},
+{
+"state": "WV",
+"key": "mon",
+"name": "North Central and the Panhandle",
+"nickname": "the Mon Valley",
+"codes": [
+"304",
+"681"
+],
+"seeds": [
+"Monongalia",
+"Harrison",
+"Berkeley"
+],
+"counties": [
+"Barbour",
+"Berkeley",
+"Braxton",
+"Brooke",
+"Doddridge",
+"Gilmer",
+"Grant",
+"Hampshire",
+"Hancock",
+"Hardy",
+"Harrison",
+"Jefferson",
+"Lewis",
+"Marion",
+"Marshall",
+"Mineral",
+"Monongalia",
+"Morgan",
+"Ohio",
+"Pendleton",
+"Pleasants",
+"Pocahontas",
+"Preston",
+"Randolph",
+"Ritchie",
+"Taylor",
+"Tucker",
+"Tyler",
+"Upshur",
+"Webster",
+"Wetzel"
+],
+"center": [
+39.1048,
+-79.8716
+],
+"label": [
+39.1334,
+-80.0041
+],
+"sq_miles": 12422,
+"schools": 61,
+"near": 1.14
+},
+{
+"state": "WI",
+"key": "414",
+"name": "Milwaukee",
+"nickname": "the 414",
+"codes": [
+"414",
+"262"
+],
+"seeds": [
+"Milwaukee",
+"Waukesha"
+],
+"counties": [
+"Dodge",
+"Jefferson",
+"Kenosha",
+"Milwaukee",
+"Ozaukee",
+"Racine",
+"Washington",
+"Waukesha"
+],
+"center": [
+43.1239,
+-88.3841
+],
+"label": [
+43.0181,
+-88.3046
+],
+"sq_miles": 3591,
+"schools": 101,
+"near": 5.51
+},
+{
+"state": "WI",
+"key": "mad",
+"name": "Madison and the south",
+"nickname": "Mad City",
+"codes": [
+"608"
+],
+"seeds": [
+"Dane",
+"Rock"
+],
+"counties": [
+"Columbia",
+"Crawford",
+"Dane",
+"Grant",
+"Green",
+"Iowa",
+"Juneau",
+"Lafayette",
+"Richland",
+"Rock",
+"Sauk",
+"Vernon",
+"Walworth"
+],
+"center": [
+43.1395,
+-89.9576
+],
+"label": [
+43.0008,
+-90.1356
+],
+"sq_miles": 10147,
+"schools": 78,
+"near": 1.21
+},
+{
+"state": "WI",
+"key": "fox",
+"name": "Green Bay and the Fox Valley",
+"nickname": "the Fox Valley",
+"codes": [
+"920"
+],
+"seeds": [
+"Brown",
+"Outagamie",
+"Winnebago"
+],
+"counties": [
+"Adams",
+"Brown",
+"Calumet",
+"Door",
+"Fond du Lac",
+"Green Lake",
+"Kewaunee",
+"Manitowoc",
+"Marinette",
+"Marquette",
+"Menominee",
+"Oconto",
+"Outagamie",
+"Shawano",
+"Sheboygan",
+"Waupaca",
+"Waushara",
+"Winnebago"
+],
+"center": [
+44.4624,
+-88.484
+],
+"label": [
+44.4156,
+-88.4654
+],
+"sq_miles": 11524,
+"schools": 99,
+"near": 1.21
+},
+{
+"state": "WI",
+"key": "715",
+"name": "The Northwoods and Western Wisconsin",
+"nickname": "the 715",
+"codes": [
+"715",
+"534"
+],
+"seeds": [
+"Marathon",
+"Eau Claire"
+],
+"counties": [
+"Ashland",
+"Barron",
+"Bayfield",
+"Buffalo",
+"Burnett",
+"Chippewa",
+"Clark",
+"Douglas",
+"Dunn",
+"Eau Claire",
+"Florence",
+"Forest",
+"Iron",
+"Jackson",
+"La Crosse",
+"Langlade",
+"Lincoln",
+"Marathon",
+"Monroe",
+"Oneida",
+"Pepin",
+"Pierce",
+"Polk",
+"Portage",
+"Price",
+"Rusk",
+"Sawyer",
+"St. Croix",
+"Taylor",
+"Trempealeau",
+"Vilas",
+"Washburn",
+"Wood"
+],
+"center": [
+45.3383,
+-90.775
+],
+"label": [
+45.2113,
+-90.5017
+],
+"sq_miles": 30741,
+"schools": 108,
+"near": 0.58
+},
+{
+"state": "WY",
+"key": "wy",
+"name": "Wyoming",
+"nickname": "the Cowboy State",
+"codes": [
+"307"
+],
+"seeds": [
+"Laramie",
+"Natrona"
+],
+"counties": [
+"Albany",
+"Big Horn",
+"Campbell",
+"Carbon",
+"Converse",
+"Crook",
+"Fremont",
+"Goshen",
+"Hot Springs",
+"Johnson",
+"Laramie",
+"Lincoln",
+"Natrona",
+"Niobrara",
+"Park",
+"Platte",
+"Sheridan",
+"Sublette",
+"Sweetwater",
+"Teton",
+"Uinta",
+"Washakie",
+"Weston"
+],
+"center": [
+42.9801,
+-107.551
+],
+"label": [
+42.9618,
+-106.7981
+],
+"sq_miles": 97511,
+"schools": 42,
+"near": 0.05
+}
+],
+"aliases": [
+{
+"state": "AK",
+"county": "Anchorage Municipality",
+"area": "ak"
+},
+{
+"state": "AK",
+"county": "Juneau City and",
+"area": "ak"
+},
+{
+"state": "AK",
+"county": "Sitka City and",
+"area": "ak"
+},
+{
+"state": "AK",
+"county": "Southeast Fairbanks Census Area",
+"area": "ak"
+},
+{
+"state": "AK",
+"county": "Valdez-Cordova Census Area",
+"area": "ak"
+},
+{
+"state": "AZ",
+"county": "San Juan",
+"area": "north"
+},
+{
+"state": "LA",
+"county": "La Salle",
+"area": "cenla"
+},
+{
+"state": "NM",
+"county": "Dona Ana",
+"area": "575"
+},
+{
+"state": "SD",
+"county": "Shannon",
+"area": "sd"
+}
+]
+}

@@ -1352,13 +1352,13 @@ document.addEventListener("click", async (ev) => {
       const h = PG.hello || {};
       const lib = PG.lib || (await api("library"));
       const { f, answer } = dialog(`<b>Settings</b><div class="pg-kv" style="padding:0"><span>Version</span><span>${esc(h.version || "")}</span><span>Game folder</span><span style="word-break:break-all">${esc(lib.home)}</span><span>Worlds</span><span>${lib.worlds.length}</span><span>Saves</span><span>${lib.saves.length}</span></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">${isMac() ? '<button type="button" class="pg-btn s" data-pg="reveal-home">Show the game folder</button>' : ""}${isMac() && window.__TAURI__.updater ? '<button type="button" class="pg-btn s" data-pg="update-now">Check for updates</button>' : ""}</div>${await aiPregameCard()}`, "Close", () => true);
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${isMac() ? '<button type="button" class="pg-btn s" data-pg="reveal-home">Show the game folder</button>' : ""}${isMac() && window.__TAURI__.updater ? '<button type="button" class="pg-btn s" data-pg="update-now">Check for updates</button>' : ""}${await verButtons()}</div>${(await verNote()) ? `<small class="sub">${await verNote()}</small>` : ""}${await aiPregameCard()}`, "Close", () => true);
       f.querySelector("[data-dlg=no]").remove();
       await answer;
       break;
     }
     case "reveal-home": api("reveal", { path: (PG.lib || (await api("library"))).home }).catch((e) => toast(e.message)); break;
-    case "update-now": toast("Looking for a newer version…"); checkUpdate().then((r) => { if (r === false) toast("The update page can't be reached right now."); else if (!updating) toast("AFM is up to date."); }); break;
+    case "update-now": toast("Looking for a newer version…"); checkUpdate(true).then((r) => { if (r === false) toast("The update page can't be reached right now."); else if (r === "paused") toast("Updates are paused: you went back to this version. Other versions, Go back to the latest ends the pause."); else if (!updating) toast("AFM is up to date."); }); break;
     case "quit": {
       if (!(await leaveCareer())) break;
       const j = await api("job").catch(() => null);

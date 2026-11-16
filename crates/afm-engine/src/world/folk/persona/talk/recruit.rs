@@ -217,7 +217,9 @@ pub fn size(w: &World, s: &Scene, h: &super::super::ear::Hit, wants: &[Want], op
     let ego = super::z(w, Them::Player(x.id), crate::player::Trait::Ego).max(0.0);
     let temper = super::z(w, Them::Player(x.id), crate::player::Trait::Temper).max(0.0);
     let (trust, lean) = match h.how {
-        How::Reassured | How::Respected => (0.0, pt.map_or(0.0, |p| p.lean)),
+        // A stake reads as reassurance on the recruiting desk, which
+        // prices its own pitch (`pitch`).
+        How::Reassured | How::Respected | How::Staked => (0.0, pt.map_or(0.0, |p| p.lean)),
         How::Flattered => (0.0, pt.map_or(0.0, |p| FLATTER * p.lean)),
         // A straight answer: no pull (applied as the chip's "be straight").
         How::Doubted => (0.0, 0.0),
@@ -277,7 +279,9 @@ pub fn released(w: &World, s: &Scene, hits: &[Sized], wants: &[Want]) -> Vec<Str
     {
         out.push(reaction_words(ev).to_string());
     }
-    if pitch::exchanges_left(w, s) == 0 && hits.iter().any(|h| matches!(h.hit.how, How::Reassured | How::Respected)) {
+    if pitch::exchanges_left(w, s) == 0
+        && hits.iter().any(|h| matches!(h.hit.how, How::Reassured | How::Respected | How::Staked))
+    {
         out.push("He has heard your case for today.".into());
     }
     out
