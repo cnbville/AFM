@@ -79,10 +79,10 @@ pub const BENCH_CENTER: [f64; POSITION_COUNT] =
     [71.3, 71.2, 66.5, 78.1, 84.0, 84.8, 76.9, 85.8, 70.6, 66.7, 65.0, 50.0, 50.0, 50.0];
 
 /// Reps each position's drafted men sat off the real combine's mean under
-/// the cross-position fit (the same four classes): added so each drafted
-/// position benches the real mean. Kickers, punters and snappers none.
+/// the cross-position fit (the same four classes, refitted with real arms
+/// in step 4a): added so each drafted position benches the real mean. Kickers, punters and snappers none.
 pub const BENCH_OFFSET: [f64; POSITION_COUNT] =
-    [0.3, 0.36, -2.88, -0.83, -1.37, -0.63, 1.32, 0.79, 2.24, -2.83, -0.47, 0.0, 0.0, 0.0];
+    [1.7, 0.96, -0.88, -1.43, -1.37, -0.03, 2.52, 2.49, 3.13, -1.73, -0.57, 0.0, 0.0, 0.0];
 
 /// The slope's lean past the cross-position one. Kickers, punters and
 /// snappers keep the old read.
@@ -109,13 +109,59 @@ pub fn combine_size(pos: Position) -> (f64, f64, f64, f64) {
     SIZES[pos.index()]
 }
 
+/// Drafted men's arms, hands and wingspan by position (MockDraftable,
+/// draft classes 2005-2025, `data/real-world/ab_real.json`): (arm mean, sd,
+/// hand mean, sd, wingspan mean, sd). Linebackers' arm sd is the other
+/// spots' 1.05 (one bad row sets theirs at 1.8). Specialists are the
+/// quarterbacks'.
+const LIMBS: [(f64, f64, f64, f64, f64, f64); POSITION_COUNT] = [
+    (31.89, 1.16, 9.58, 0.47, 75.85, 2.14),  // QB
+    (30.89, 1.08, 9.27, 0.47, 74.29, 2.40),  // RB
+    (31.84, 1.30, 9.38, 0.51, 76.32, 3.02),  // WR
+    (32.99, 0.94, 9.83, 0.49, 79.09, 2.04),  // TE
+    (34.21, 0.95, 10.07, 0.52, 82.35, 2.15), // OT
+    (33.14, 1.00, 9.93, 0.51, 79.94, 2.14),  // IOL
+    (33.38, 1.04, 9.83, 0.51, 80.15, 2.56),  // EDGE
+    (33.25, 1.05, 9.95, 0.52, 80.15, 2.43),  // DT
+    (32.22, 1.05, 9.60, 0.47, 77.25, 2.25),  // LB
+    (31.46, 1.04, 9.13, 0.48, 75.80, 2.22),  // CB
+    (31.50, 0.99, 9.33, 0.47, 75.77, 2.13),  // S
+    (31.89, 1.16, 9.58, 0.47, 75.85, 2.14),  // K
+    (31.89, 1.16, 9.58, 0.47, 75.85, 2.14),  // P
+    (31.89, 1.16, 9.58, 0.47, 75.85, 2.14),  // LS
+];
+
+/// How much arm comes with an inch of height (physical study item 12):
+/// real linemen 0.16-0.23, everyone else 0.33-0.41, so a short lineman who
+/// makes it often has long arms. Proposed, not confirmed: 0.20 and 0.37.
+pub fn arm_per_inch(pos: Position) -> f64 {
+    if lineman(pos) { 0.20 } else { 0.37 }
+}
+
+/// A hand's inch per inch of height (kept from the 2025 lists).
+const HAND_PER_INCH: f64 = 0.08;
+
+/// Wingspan per inch of arm (both arms plus the shoulders).
+const WING_PER_ARM: f64 = 2.03;
+
+/// His arms, hands and wingspan (physical study items 11-13): each spot's
+/// real mean at its real height, his height's share at the spot's own
+/// slope, and his own part, sized so each spread is real's.
+fn limbs(pos: Position, height: f64, rng: &mut Rng) -> (f64, f64, f64) {
+    let (am, asd, hm_, hsd, wm, wsd) = LIMBS[pos.index()];
+    let (h0, h_sd, _, _) = SIZES[pos.index()];
+    let own = |sd: f64, tied: f64| (sd * sd - tied * tied).max(0.0).sqrt().max(0.3 * sd);
+    let b = arm_per_inch(pos);
+    let arm = am + b * (height - h0) + rng.normal(0.0, own(asd, b * h_sd));
+    let hand = hm_ + HAND_PER_INCH * (height - h0) + rng.normal(0.0, own(hsd, HAND_PER_INCH * h_sd));
+    let wingspan = wm + WING_PER_ARM * (arm - am) + rng.normal(0.0, own(wsd, WING_PER_ARM * asd));
+    (arm, hand, wingspan)
+}
+
 impl Body {
-    /// Arms, hands and wingspan follow height (see the module notes).
-    pub(crate) fn grown(height: f64, weight: f64, rng: &mut Rng) -> Body {
-        let heavy = weight >= 285.0;
-        let arm = 0.425 * height + if heavy { 0.3 } else { 0.0 } + rng.normal(0.0, 0.8);
-        let hand = 9.45 + 0.08 * (height - 74.0) + if heavy { 0.35 } else { 0.0 } + rng.normal(0.0, 0.35);
-        let wingspan = 2.03 * arm + 12.3 + rng.normal(0.0, 1.0);
+    /// Arms, hands and wingspan by his spot's real ones (`limbs`).
+    pub(crate) fn grown(pos: Position, height: f64, weight: f64, rng: &mut Rng) -> Body {
+        let (arm, hand, wingspan) = limbs(pos, height, rng);
         let left_handed = rng.chance(LEFT_HANDED);
         let left_footed = rng.chance(if left_handed { 0.6 } else { RIGHTY_LEFT_FOOTED });
         Body { height, weight, arm, hand, wingspan, frame_weight: weight, left_handed, left_footed }
@@ -142,18 +188,11 @@ pub fn adult_body(id: u32, pos: Position, potential: f64, strength_z: f64, speed
     // confirmed).
     let off = if pos == Position::LB { 0.6 } else { 0.0 };
     let w_z = 0.3 + 1.3 * size + 0.45 * strength_z - 0.3 * speed_z + 0.25 * h_z + rng.normal(0.0, 0.8) - off;
-    let height = clamp(hm + hs * h_z, 64.0, 82.0);
-    let weight = clamp(wm + ws * w_z, 150.0, 380.0);
-    let arm_offset = if lineman(pos) {
-        0.3
-    } else if pos == Position::QB {
-        -0.5
-    } else {
-        0.0
-    };
-    let arm = 0.425 * height + arm_offset + rng.normal(0.0, 0.8);
-    let hand = 9.45 + 0.08 * (height - 74.0) + if lineman(pos) { 0.35 } else { 0.0 } + rng.normal(0.0, 0.35);
-    let wingspan = 2.03 * arm + 12.3 + rng.normal(0.0, 1.0);
+    let (h_lo, h_hi) = crate::athlete::HEIGHT_RANGE;
+    let (w_lo, w_hi) = crate::athlete::WEIGHT_RANGE;
+    let height = clamp(hm + hs * h_z, h_lo, h_hi);
+    let weight = clamp(wm + ws * w_z, w_lo, w_hi);
+    let (arm, hand, wingspan) = limbs(pos, height, &mut rng);
     let left_handed = rng.chance(LEFT_HANDED);
     let left_footed = rng.chance(if left_handed { 0.6 } else { RIGHTY_LEFT_FOOTED });
     Body { height, weight, arm, hand, wingspan, frame_weight: weight, left_handed, left_footed }
