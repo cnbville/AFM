@@ -1170,6 +1170,35 @@ pub(crate) fn post(w: &mut World, who: Who, d: Date, head: Head, subject: String
     c.desk.mails.sort_by_key(|m| (m.date, m.minute));
 }
 
+/// A staff memo about a person (lane G4: an oversold kid), at his hour.
+pub(crate) fn post_memo(w: &mut World, who: Who, d: Date, subject: String, body: Vec<String>, loud: u8) {
+    post(w, who, d, Head::Memo, subject, body, loud);
+}
+
+/// A person's own call or letter (lane G4: news, a bloom), at his hour.
+pub(crate) fn post_call(w: &mut World, who: Who, d: Date, subject: String, body: Vec<String>, loud: u8) {
+    post(w, who, d, Head::Email, subject, body, loud);
+}
+
+/// A bloom pays the person who told you (lane G4, GR67): points inside the
+/// gates with your program and your head coach, and the moment in his words.
+pub(crate) fn bloom(w: &mut World, prog: usize, who: Who, by: f32, words: String, big: bool, d: Date) {
+    let before = level(w, prog, who);
+    let mut targets = vec![Holder::Program(prog as u32)];
+    if let Some(h) = head_holder(w, prog) {
+        targets.push(h);
+    }
+    for holder in targets {
+        let start = derived(w, who, holder);
+        let m = entry(&mut w.ground, start, who, holder, d);
+        gain(m, by, d);
+        if !m.moments.iter().any(|x| x.words == words) {
+            m.keep(Moment { date: d, words: words.clone(), good: true, big, holds_to: None });
+        }
+    }
+    announce(w, prog, who, before, d);
+}
+
 fn who_key(who: Who) -> u64 {
     match who {
         Who::Coach(c) => (1 << 40) | c as u64,

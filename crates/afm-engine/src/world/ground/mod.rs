@@ -10,6 +10,9 @@
 //! page (`card`).
 //! Lane G3: your week (`week`): the meeting at the map, road days,
 //! trips, the ledger, the day's calls and the beats.
+//! Lane G4: news in order of standing (`news`), leads and their
+//! blanks (`leads`), and finds, blooms, setbacks and misses (`finds`),
+//! for your seat.
 //! Lane G11b: favors (`favors`), the economy of placing kids, switched off
 //! with `WorldOptions.favors`.
 //!
@@ -22,8 +25,11 @@
 pub mod areas;
 pub mod card;
 pub mod favors;
+pub mod finds;
 pub mod jobs;
+pub mod leads;
 pub mod memory;
+pub mod news;
 pub mod people;
 pub mod standing;
 pub mod stores;
@@ -33,6 +39,8 @@ pub mod word;
 pub use memory::{Memory, Moment};
 pub use people::{Holder, Who};
 pub use standing::Level;
+
+use crate::calendar::Date;
 
 /// The ground store on `World.ground`.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -49,6 +57,30 @@ pub struct Ground {
     /// Things already paid into the memory (a kid who started, a pulled
     /// offer, a promise judged), by key. Sorted.
     pub(crate) done: Vec<u64>,
+    /// Lane G4: the news your seat keeps, with its order (`news`).
+    pub news: Vec<news::News>,
+    /// Your leads, sorted by kid (`leads`).
+    pub leads: Vec<leads::Lead>,
+    /// Each teller's record with your staff, sorted by who.
+    pub records: Vec<leads::Record>,
+    /// When each coach last gave you his list, sorted by who.
+    pub(crate) lists: Vec<(Who, Date)>,
+    /// Your finds (`finds`), in the order you made them.
+    pub finds: Vec<finds::Find>,
+    /// Kids from your ground nobody of yours saw, who bloomed elsewhere.
+    pub misses: Vec<finds::Miss>,
+    /// Your men's records as finders, sorted by coach.
+    pub men: Vec<finds::Man>,
+    /// Your name as a finder (noteworthy, never driving): points from blooms.
+    pub finder: f32,
+    /// Seniors under the academic line, by player id (sorted): crossing it is news.
+    pub(crate) notq: Vec<u32>,
+    /// The head coach of each school whose coach your staff knows, by school
+    /// (sorted): a new man is news.
+    pub(crate) heads: Vec<(u32, u32)>,
+    /// The day's class values for the coach's read (not saved).
+    #[serde(skip)]
+    pub(crate) classes: leads::Classes,
     /// Word on its way to a man's ties and his area (GR62), by the day it
     /// lands.
     pub(crate) travel: Vec<word::Travel>,

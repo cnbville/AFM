@@ -3,6 +3,7 @@
 use crate::calendar::Date;
 use crate::player::PlayingTime;
 use crate::world::ground::favors::{self, State, Worry};
+use crate::world::ground::news::{What, Why};
 use crate::world::ground::standing::{self, Level};
 use crate::world::ground::{Holder, Who, people};
 use crate::world::{Signed, Stage, World};
@@ -210,7 +211,14 @@ fn a_favor_buys_one_answer_one_level_up_and_never_past_the_gates() {
     assert_eq!(favors::lifted(&w, prog, sender, id), Some(Level::Trusted));
     assert_eq!(favors::balance(&w, sender, yh), 0, "the favor is spent");
     assert!(favors::ask(&mut w, sender, Some(id)).is_err(), "one answer at a time");
-    favors::spend_lift(&mut w, sender, id);
+    // The next news on him reaches you as a Trusted staff would hear it,
+    // and hearing it spends the lift (lane G4's order).
+    let n = crate::world::ground::news::make(&w, id, What::Grew(20), "He grew.".into(), d, Some(sender), h, None, 1);
+    assert_eq!(n.you.why, Why::Favor, "{:?}", n.order);
+    assert_eq!(n.you.level, Level::Trusted as u8);
+    assert!(n.place > 0 && n.you.day < n.public);
+    assert!(crate::world::ground::news::why_words(&w, &n).contains("owed you one"));
+    crate::world::ground::news::keep(&mut w, n);
     assert_eq!(favors::lifted(&w, prog, sender, id), None);
     // Asking for more than he owes: he answers, it costs warmth, and you owe him.
     let before = standing::points(&w, sender, ph);
