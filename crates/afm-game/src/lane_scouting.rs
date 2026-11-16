@@ -648,7 +648,7 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
                 .collect()
         })
         .unwrap_or_default();
-    let family: Vec<String> = if seen { lines::family_notes(p, key) } else { Vec::new() };
+    let family: Vec<String> = if seen { lines::family_notes(w, p, key) } else { Vec::new() };
     // Medical and academics.
     let medical = f.as_ref().map(|f| {
         json!({ "grade": f.medical.grade, "words": file::medical_words(f.medical.grade), "examined": f.medical.examined, "notes": f.medical.notes })

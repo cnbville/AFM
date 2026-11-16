@@ -280,7 +280,7 @@ pub fn trait_note(k: usize, centre: f64, shade: super::file::Shade, key: u64, id
 }
 
 /// A family note (topic 5): the parents at games and online, who decides.
-pub fn family_notes(p: &crate::world::Person, key: u64) -> Vec<String> {
+pub fn family_notes(w: &crate::world::World, p: &crate::world::Person, key: u64) -> Vec<String> {
     use crate::world::background::{Bloodline, Decider, ParentStyle};
     let id = p.player.id as u64;
     let f = &p.family;
@@ -331,8 +331,15 @@ pub fn family_notes(p: &crate::world::Person, key: u64) -> Vec<String> {
         }
         .to_string(),
     );
+    // A famous name (GR42) is the first thing anyone says about him.
+    let famous = w.following.name_of(p.player.id);
+    if let Some(n) = famous {
+        v.push(n.line());
+    }
     if f.bloodline == Bloodline::NflPlayer {
-        v.push("His father played in the NFL.".to_string());
+        if famous.is_none_or(|n| n.nephew) {
+            v.push("His father played in the NFL.".to_string());
+        }
     } else if f.bloodline == Bloodline::CollegePlayer {
         v.push("His father played college football.".to_string());
     }

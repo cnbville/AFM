@@ -297,6 +297,10 @@ pub struct Program {
     /// dropped football.
     pub base: Option<(Division, String)>,
     pub grades: [f64; GRADE_COUNT],
+    /// What the commitments it holds add to its brand exposure grade now,
+    /// in grade points (GR44, `following::day`): already in `grades`.
+    #[serde(default)]
+    pub brand_lift: f64,
     /// Last year's grades, for the trend arrows.
     pub last_grades: [f64; GRADE_COUNT],
     /// Grades at the end of each recorded year.
@@ -638,6 +642,7 @@ pub fn program_from_row(id: usize, row: &CollegeRow, season: i32, seed: u32, rng
         base: Some((row.division, row.conference.clone())),
         season_records: [None, None, None, None],
         grades: [70.0; GRADE_COUNT],
+        brand_lift: 0.0,
         last_grades: [70.0; GRADE_COUNT],
         grade_history: Vec::new(),
         prestige_history: Vec::new(),

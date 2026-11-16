@@ -1740,5 +1740,6 @@ impl World {
             super::fame::fill(self);
         }
         super::fame::hs_nil_after_load(self);
+        super::following::after_load(self);
     }
 }
