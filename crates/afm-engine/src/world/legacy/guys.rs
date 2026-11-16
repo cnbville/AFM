@@ -876,6 +876,8 @@ fn sons(w: &mut World) {
             .enumerate()
             .filter(|(_, p)| p.stage == Stage::HighSchool && p.home_state == state && p.class_of == year + 2)
             .filter(|(_, p)| p.family.older_brother_at.is_none() && !w.legacy.sons.iter().any(|s| s.0 == p.player.id))
+            // A boy with a famous name has his family already (GR42).
+            .filter(|(_, p)| w.following.name_of(p.player.id).is_none())
             .min_by_key(|(_, p)| p.player.id ^ father)
             .map(|(i, _)| i);
         let Some(i) = son else { continue };

@@ -197,7 +197,7 @@ pub struct ProCareer {
 }
 
 impl ProCareer {
-    fn new(team: Option<usize>, status: Status, year: i32) -> ProCareer {
+    pub(crate) fn new(team: Option<usize>, status: Status, year: i32) -> ProCareer {
         ProCareer {
             team,
             status,
@@ -744,6 +744,7 @@ fn veteran(w: &mut World, pos: Position, rating: f64, age: u32, seed: u32) -> Pe
         class_of: year - age as i32 + 18,
         born: crate::calendar::born::birth_date(super::born_key(w.options.seed, id), age, year),
         followers: 0,
+        spotlight: 0.0,
         brand: 0.0,
         stars: 0,
         camp_stars: 0,

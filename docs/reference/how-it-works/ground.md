@@ -1,6 +1,6 @@
 # Ground: how it works today
 
-Checked against branch commit 28f13b8 on 2026-11-16 (lane G1a, areas and map data), main bf92e7d plus lane G1b on 2026-11-16 (standing and one memory), main d291de54 plus lane G3 on 2026-11-16 (your week and road days), branch lane S2 on 2026-11-16 (the meeting at the map), main fd85a4f9 plus lane G7 on 2026-11-16 (people in full), main plus lane G11a on 2026-11-16 (the high school chain reaction), main 6aed06fd plus lane G4 on 2026-11-16 (news in order, leads and finds), branch lane S5 on 2026-11-16 (the person screen) and main 256934ee plus lane G6 on 2026-11-16 (the campaign).
+Checked against branch commit 28f13b8 on 2026-11-16 (lane G1a, areas and map data), main bf92e7d plus lane G1b on 2026-11-16 (standing and one memory), main d291de54 plus lane G3 on 2026-11-16 (your week and road days), branch lane S2 on 2026-11-16 (the meeting at the map), main fd85a4f9 plus lane G7 on 2026-11-16 (people in full), main plus lane G11a on 2026-11-16 (the high school chain reaction), main 6aed06fd plus lane G4 on 2026-11-16 (news in order, leads and finds), branch lane S5 on 2026-11-16 (the person screen) and main 256934ee plus lane G6 on 2026-11-16 (the campaign), and main plus lane G8 on 2026-11-16 (a following and famous names).
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`, `app/`, `data/` or `tools/`. Ground's spec is `docs/design/ground.md`; each lane adds its section here.
 
@@ -65,6 +65,15 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`,
 - A stadium your town paid for (`legacy/hs.rs`) adds 0.03 to its prestige and its name.
 - Where is its form? `Chain::form`, in standard deviations.
 - An old save gets each school's start from its prestige on load (`chain_after_load`, from `World::after_load` in `world/seat.rs`).
+- Can a recruit have a famous father? Yes, from lane G8: a son or nephew of a world player with a Pro Bowl or more, or a Heisman, carries his name (`world/following.rs`, `names`, `man_fame`).
+- How often? Per famous man, 45% have one son who plays and 13% two, each 14 when the man is 36 to 50; 30% have a nephew, 14 when the man is 30 to 55 (`kin`).
+- Does it change how many boys have an NFL father? No. A son is one of the class's boys whose father already played in the NFL (1 in 200); now the father has a name (`names`; `world/background.rs`, `generate_family`).
+- How much does the name add? To his fame, 0.35 × the man's fame for a son, 0.18 × for a nephew, in high school and college, half of it as a pro (`HYPE_SON`, `HYPE_NEPHEW`; `world/fame.rs`, `fame`).
+- When is a commitment big news? When his following is one of his class's 10 biggest (and at least 10,000), huge for the class's biggest; otherwise his stars decide as before (`commit_news`; `world/recruiting.rs`, `commit_now`).
+- What does the hype kid's commitment do for the program? When his following is one of his class's 10 biggest, it lifts the program's brand exposure grade for a year by 3 × his share of the class's biggest following; a program holds its biggest lift, not the sum (`committed`, `day`, `LIFT_TOP`).
+- Does it stay if he flips or decommits? No. The lift is his while he is committed to, signed with or playing for that program; a flip moves it (`holds`, `committed_in`).
+- Does a recruit's following change his own pick? Yes: brand exposure counts 1 + his share of the class's biggest following in the prestige part of a school's appeal, so up to twice (`world/recruiting.rs`, `stage_weight`, `utility_fit`, `six_parts`).
+- Can a college player have a social media storm? Yes, a college player or recruit with 500,000 followers, the same weekly chance as a pro (`world/storylines/detect/weekly.rs`, `chances`; `STORM_FOLLOWERS`).
 
 ## Lane S2: the meeting at the map (the screen)
 
@@ -422,6 +431,37 @@ On June 15 the standouts (the top 3% of their state's age 15-17) weigh a move to
 - June moves, classes 2021-2026: 26-36 per 1,000 against main's 32-36; transfers to a powerhouse 105-149 a class against main's 123-189, a fifth to a quarter of them move-ins.
 - Blue chips, classes 2020-2026, at today's powerhouses: 36.2% against main's 39.7%. FBS signees by home state match main to 0.3 points.
 - A world's talent per school is flat (the top tenth of schools hold 20% of the old players' score), so a free walk on production alone took the real powerhouses down (two earlier rules: real top-five schools to 0.79 and 0.75, powerhouses to 219 and 177). Prestige swings around the name for that reason.
+
+## Lane G8: a following and famous names (GR42-GR46)
+
+**Famous men.** A world player is famous from his career and books: a Hall of Famer 1.0; an MVP, Offensive or Defensive Player of the Year, Super Bowl MVP or three first-team All-Pros 0.85; a first-team All-Pro, four Pro Bowls or a Heisman 0.65; a Pro Bowl 0.4; anyone else 0 (`world/following.rs`, `man_fame`). It reads his alumni record's pro career when he has retired, his live career when he still plays (`World::alumni`, `Alumnus::pro`), the Hall (`nfl_book.hall`) and the Heisman (`stats.honors`). Only men in the world's books count: the recorded years from 1996 on in a 2026 world, so the first famous sons arrive around 2012.
+
+**His kin.** Keyed on the man (his player id): 45% one son who plays, 13% two, 42% none; each son 14 when the man is 36 to 50 (even odds each year). A nephew for 30%, 14 when the man is 30 to 55 (`kin`). All proposed, not confirmed.
+
+**The class day.** After the new class is in (`World::add_class`), each famous man's kin due this year joins it (`names`). A son is a boy of the new class whose father played in the NFL (`Bloodline::NflPlayer`), of the man's ethnicity, in the man's home state if one fits there, any state otherwise; a nephew a boy whose father didn't play (`Bloodline::None`). A boy already your former player's son is skipped, and your guys' sons skip a famous name (`world/legacy/guys.rs`, `sons`). The pick is keyed, so a seed always makes the same family. A son takes the man's surname; about one in eight is named for him ("Darnell Hayes Jr."). A nephew takes the surname two times in three (a brother's son), keeps his own otherwise (a sister's). Stored in `World::following.names` (`Name`: the boy, the man, son or nephew, the man in words, his fame, the hype).
+
+**What the name does.**
+- Fame: the hype adds to his fame like an honor, 0.35 × the man's fame for a son, 0.18 × for a nephew, in high school and college; half of it as a pro (`world/fame.rs`, `fame`). A Hall of Famer's son adds 0.35, about what a fifth star adds in high school (0.55 for 5 stars against 0.32 for 4). Followers, NIL brand deals, NIL Go's range and a storyline's weight all read fame, so all of them follow.
+- Staffs notice him: his recruiting visibility takes 0.15 × the man's fame more (half for a nephew), beside the NFL bloodline's 0.15 (`world/recruiting.rs`, `recruit_visibility`).
+- His file: "His father is Darnell Hayes, a four-time Pro Bowl receiver." leads the family notes, in place of "His father played in the NFL." (`world/scouting/lines.rs`, `family_notes`). The news says "son of four-time Pro Bowl receiver Darnell Hayes" (`news_name`, `Name::tag`).
+- What it does not do: his ratings, ceilings and stars are the boy's own (a son keeps the NFL bloodline's small edge he already had).
+
+**The class's biggest followings.** At February's book, after followers move, each high school class's biggest and tenth-biggest following is kept (`World::following.classes`, `class_tops`), and every high schooler's spotlight is set: his following ÷ his class's biggest, 0 to 1 (`Person::spotlight`; 0 out of high school). A world file from before this lane fills them on load (`after_load`).
+
+**News (GR43).** A commitment, a flip and a signing-day flip post their news when he has 4 or 5 stars, as before, or a following in his class's 10 biggest (and at least 10,000, `NEWS_FLOOR`). Loudness is the louder of his stars' (5 stars medium, else small; a signing-day flip medium) and his following's: big for the 10 biggest, huge for the biggest. The news then adds "He has 412,000 followers." (`commit_news`, `followers_words`; `world/recruiting.rs`, `commit_now`, `run_signing_stage`). Big news gets its own screen and stops Continue; huge is the full show (`calendar/events.rs`, `Loudness`).
+
+**Brand exposure (GR44).** A commitment (or a signature without one) from one of the class's 10 biggest followings (and at least 10,000) lifts the program's brand exposure grade by 3 × his spotlight (`committed`, `committed_in`). Each morning (5 AM, after the class day) a lift ends after 365 days or once he no longer holds it (committed to, signed with, or in college at the program), and each program's grade carries its biggest lift, at most 3 points and never past 99 (`day`, `set_lift`, `LIFT_TOP`, `LIFT_DAYS`; `Program::brand_lift` is what is in the grade now). At the year's grades the lift comes off first, so the grade moves from its own read, and goes back on after (`world/staff.rs`; `strip`). The top-10 rule and the biggest-not-sum rule are proposed, not confirmed: with every commitment lifting and the lifts summed, a seed 152 test world (scale 0.05) had 515 programs lifted, most at the 3-point cap.
+
+**His pick (GR45).** In a school's appeal, the prestige part is (title chances + stadium + tradition + w × brand exposure) / 4 with w = 1 + his spotlight: 1 for a boy nobody follows, 2 for the class's biggest following (`world/recruiting.rs`, `stage_weight`, `utility_fit`, `six_parts`). A transfer's spotlight is 0, so the portal weighs it once, as before.
+
+**Storms (GR46).** Each week a college player, high schooler or prep player with 500,000 followers or more rolls the pro's storm: 0.15% × (1 + his temper's z above 0), about 1 in 670 a week (`world/storylines/detect/weekly.rs`, `chances`; `STORM_FOLLOWERS`). The story ("A post that blew up") is open at every level. High school followers top out at 400,000 × reach, so a recruit reaches it only in a big-reach year or as a famous name with Aura.
+
+**Measured (2026-11-16).** On the seed 1 world (history on the engine) played on 600 days with games on the stand-in (`crates/afm-tools/src/bin/follow_check.rs`): 31 famous names joined the 2026 class and 28 the 2027 class (43 sons, 16 nephews; by the man's fame 24 at 0.4, 17 at 0.65, 12 at 0.85, 6 at 1.0); a Hall of Famer's son led his freshman class's followings (11,410); 9 programs held a brand lift in mid-2027, the biggest Florida's +2.56; no college player or recruit had 500,000 followers, so no storm came at those levels (14 NFL storms kept). Seed 151 at a tenth of the size, this lane against main with history on the stand-in: the two worlds are the same until 2008 (no followers before social media's reach), and recruiting after stays within the noise of a world that small (5-stars drafted 70% against 77% of 91, 2-stars 1.3% against 1.4%, FBS players from the school's state median 48% in both). The stand-in history gives no Pro Bowls, so it has no famous names.
+
+### Where the knobs are (lane G8)
+
+- `world/following.rs`: `HYPE_SON` 0.35, `HYPE_NEPHEW` 0.18, `FAMOUS` 0.4, the tiers in `man_fame`, the odds in `kin`, the Jr. 12% and the nephew's name 65% in `names`, `LIFT_TOP` 3, `LIFT_DAYS` 365, `BIG_NEWS` 10, `NEWS_FLOOR` 10,000, `STORM_FOLLOWERS` 500,000.
+- `world/recruiting.rs`: `stage_weight`; the visibility's 0.15 in `recruit_visibility`.
 
 ## Related pages
 

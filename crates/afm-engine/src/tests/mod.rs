@@ -22,6 +22,7 @@ mod faces;
 mod facilities;
 mod fans;
 mod finder;
+mod following;
 mod foundations;
 mod front_office;
 mod game_stats;
