@@ -29,6 +29,7 @@ pub mod lane_frontoffice;
 pub mod lane_gameday;
 pub mod lane_gameplan;
 pub mod lane_ground;
+pub mod lane_ground_people;
 pub mod lane_groundweek;
 pub mod lane_groundzero;
 pub mod lane_handbook;
@@ -417,6 +418,7 @@ impl Game {
                     lane_film::call,
                     lane_handbook::call,
                     lane_groundzero::call,
+                    lane_ground_people::call,
                     lane_ground::call,
                     lane_groundweek::call,
                     lane_hunt::call,

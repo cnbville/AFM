@@ -385,8 +385,10 @@ pub fn trust_part(w: &World, i: usize, h: Hearer) -> f64 {
             // A family that runs it reads you warier than the boy does.
             let family = if ear == Ear::Decider { -0.03 } else { 0.0 };
             let rel = you(w).map_or(10.0, |c| w.coaches[c].ability().relationships);
-            (0.5 + 0.25 * w.folk.mine.name(Name::Trail) as f64 + 0.01 * (rel - 10.0) + 2.0 * straight + family)
-                .clamp(0.1, 0.9)
+            // The trail's name is what a stranger reads; a family that
+            // knows you reads you from its own memory (Ground, GR62).
+            let name = crate::world::ground::stores::family_name(w, i).unwrap_or_else(|| w.folk.mine.name(Name::Trail));
+            (0.5 + 0.25 * name as f64 + 0.01 * (rel - 10.0) + 2.0 * straight + family).clamp(0.1, 0.9)
         }
     }
 }

@@ -412,7 +412,7 @@ pub(crate) fn day(w: &mut crate::world::World, d: Date) {
     if w.seat.is_some() {
         crate::world::ground::week::day(w, d);
         dept::day(w, d);
-        crate::world::ground::standing::day(w, d);
+        crate::world::ground::day(w, d);
         pro::day(w, d);
         hs::day(w, d);
         lookback::day(w, d);
