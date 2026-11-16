@@ -2,7 +2,12 @@
 //! areas and the map's data (`areas`). Lane G1b: the
 //! people on your ground (`people`), one memory per person and holder
 //! (`memory`) and standing on the four-level ladder (`standing`), with
-//! day one read from the world's 30 years and your roots.
+//! day one read from the world's 30 years and your roots. Lane G7: people
+//! in full (families, junior college and prep coaches, other college
+//! staffs, trainers and 7v7 men with their kids, counselors with names),
+//! the older stores reading through the one memory (`stores`), word that
+//! travels (`word`), jobs that carry standing (`jobs`) and each person's
+//! page (`card`).
 //!
 //! The store is sparse: only your seat's holders (your program, you and
 //! your staff's men) keep memories, and only with people someone has dealt
@@ -11,9 +16,13 @@
 //! until lane G9 the world's recruiting is unchanged.
 
 pub mod areas;
+pub mod card;
+pub mod jobs;
 pub mod memory;
 pub mod people;
 pub mod standing;
+pub mod stores;
+pub mod word;
 
 pub use memory::{Memory, Moment};
 pub use people::{Holder, Who};
@@ -34,6 +43,15 @@ pub struct Ground {
     /// Things already paid into the memory (a kid who started, a pulled
     /// offer, a promise judged), by key. Sorted.
     pub(crate) done: Vec<u64>,
+    /// Word on its way to a man's ties and his area (GR62), by the day it
+    /// lands.
+    pub(crate) travel: Vec<word::Travel>,
+    /// The new levels people told you lately: (day, who, level), for the
+    /// morning map's shading (GR26). Kept 60 days.
+    pub ups: Vec<(crate::calendar::Date, Who, u8)>,
+    /// High school head jobs whose man moved on: (school, the man, the
+    /// day), until the next man is in (`jobs`).
+    pub(crate) vacated: Vec<(u32, Who, crate::calendar::Date)>,
     /// Test switch: the seat's ground stands still (the same-world check).
     #[serde(skip)]
     pub(crate) off: bool,
@@ -113,4 +131,24 @@ pub(crate) fn unit(seed: u32, parts: &[u64]) -> f64 {
     z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
     z ^= z >> 31;
     (z >> 11) as f64 / (1u64 << 53) as f64
+}
+
+/// Your seat's ground each day: standing (lane G1b), then word on its way,
+/// moves on the coaching carousel, and the older stores folded in.
+pub(crate) fn day(w: &mut crate::world::World, d: crate::calendar::Date) {
+    standing::day(w, d);
+    if w.ground.off || standing::seat_program(w).is_none() {
+        return;
+    }
+    word::day(w, d);
+    jobs::day(w, d);
+    stores::sync(w);
+    let cut = d.add(-60);
+    w.ground.ups.retain(|u| u.0 >= cut);
+}
+
+/// A file from before lane G7: the high school coach's credit with each
+/// college staff moves into the memory.
+pub(crate) fn after_load(w: &mut crate::world::World) {
+    stores::after_load(w);
 }

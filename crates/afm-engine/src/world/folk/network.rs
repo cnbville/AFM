@@ -1219,9 +1219,13 @@ pub(crate) fn day(w: &mut World, d: Date) {
     }
     if d.day() == 1 {
         let today = w.today;
-        for x in w.folk.network.contacts.iter_mut() {
+        // A person on your ground fades in his memory instead (Ground,
+        // GR24: `ground::stores`).
+        let skip: Vec<bool> =
+            w.folk.network.contacts.iter().map(|x| crate::world::ground::stores::fades_in_memory(w, x)).collect();
+        for (x, skip) in w.folk.network.contacts.iter_mut().zip(skip) {
             let quiet = x.last.is_none_or(|l| l.days_to(today) > 60);
-            if quiet && x.warmth > 0.12 {
+            if quiet && x.warmth > 0.12 && !skip {
                 x.warmth -= 0.01;
             }
         }

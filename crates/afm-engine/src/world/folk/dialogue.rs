@@ -566,7 +566,7 @@ pub(crate) fn settle_calls(w: &mut World, d: Date) {
         w.folk.dialogue.calls[k].settled = true;
         if delta != 0.0 {
             let now = crate::world::scouting::hs::credibility(w, prog);
-            w.scouting.hs.credibility.insert(prog, (now + delta).clamp(0.05, 0.95) as f32);
+            crate::world::ground::stores::set_credit(w, prog, (now + delta).clamp(0.05, 0.95) as f32);
         }
     }
     w.folk.dialogue.calls.retain(|c| !c.settled || c.date.add(800) > d);
