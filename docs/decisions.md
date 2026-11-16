@@ -119,6 +119,24 @@ Cain's picks (18:29 UTC placement, physical study answers): Strength split into 
 - The weight room's response 0.8 × body knack z, bounded at a whole leash under the typical path and the leash's most over it, front-loaded 0.30/0.25/0.20/0.15/0.10 at 18-22 (burst only at 18-19).
 - Measured with `bench_check`: the college bench gain is +23-29% at the skill spots (real +34%) and +27-31% on the lines (real +18%), and 35+ reps come 0.8 a draft (real 3.4) with the 99 wall still on strength. The wall comes off in step 4 (item 1), and the counts get measured again then.
 
+### Progression update step 3c, body projects (built 2026-11-16)
+Design items 1, 2, 7, 8 and 11 (`docs/design/progression.md`): a strength or speed project on its own leash, the body knack deciding who responds, the frame deciding how far, running beside a skill project at the price of wear, limited by the strength staff, on the body's clock. How it works: `docs/reference/how-it-works/progression.md`, "Body projects". Claude's picks, proposed, not confirmed:
+- The leash share Φ(1.2 × body knack z) (half the leash for a typical responder, nearly all for a big one) and the frame's room 0.6 to 1.05 from height, frame weight and arms against the position's combine sizes.
+- A year closes 0.45 of what's left of the leash, by the strength staff and U(0.7, 1.3); 0.25 wear a year.
+- Pounds follow the strength built: 1.2 lb a point on a 190 lb frame, scaled by frame weight, at most 25.
+- AI staffs: one body project a room at a time in college and the NFL, on the man whose strength trails the typical FBS starter at his spot most (a read of 8+); none run by AI high school staffs.
+
+### Progression update step 4a, bodies at creation (built 2026-11-16)
+Physical study items 9-15 (Cain 2026-11-15: realism by default): no creation limits inside what people are, heavy linemen at the real rate, real arm lengths and the arm-height tie, real hands, receivers' heights, defensive backs' and receivers' weights. How it works: `docs/reference/how-it-works/body.md`, "How a body is created". Measured with `body_sizes` (eight 250,000 classes, 2,056 drafted men, against the combine 2000-2026 and MockDraftable 2005-2025). Claude's picks, proposed, not confirmed:
+- Arms, hands and wingspans by each spot's real drafted mean and spread; arms 0.20 in an inch of height for linemen and edges, 0.37 for everyone else (the study's real 0.16-0.23 and 0.33-0.41).
+- Each spot's size fit after his spot is chosen (`SIZE_FIT`): inches, an extra height spread, pounds, and a weight spread scale, fitted so drafted means and spreads land on real.
+- A tackle's, guard's or defensive tackle's heavy side 1.6 times as spread as the combine's, applied after his spot is chosen.
+- A high school coach's pull to an open spot grows with how open it is (0.08 a boy, at most 0.08) and the push starts at the first boy over (0.12 a boy): the old flat pull to half a boy open, with no push until half a boy over, rounded each spot to whole boys in a class of 18, which put tackles at two a class (11.8-12.4% of freshmen, real 8.5%) and guards and centers at two of 2.2.
+- The weight room now pulls a frame 60% of the way to his position's weight (the share a position move already took), not all the way: before, the light half of every position was gone by the draft.
+- Creation bounds 58-88 in and 120-480 lb.
+- The bench's per-position offsets refitted with the real arms (longer arms bench fewer reps at the same strength).
+Measured (eight classes, 2,056 drafted): every spot's mean height within 0.3 in and weight within 4 lb of the combine, arms, hands and wingspans on real; freshmen by position within the test's band (tackles 10.9%, real 8.5%); `match_check` NFL 25.0 points a team game (24.4 before; the synthetic rosters' longer arms), FBS 23.7; `freak_check 10 86-95` on its last measure (top 1% of edge seasons 19.5 sacks, 20+ sack seasons 9.8 a 1,000, before 9.4). Still off: guards and centers 0.75 in short (tall ones move to tackle as they grow), receivers 6'4 or taller 8% (real 10%) and 5'8 or shorter 0.7% (real 3.7%), FBS and FCS men listed 350+ 0.14% (real 0.41%) and drafted tackles' heaviest 1% 346 lb (real 365), and the class sim drafts tackles at 12% of picks (real 8%; it drafts by overall with no position value).
+
 ## Assumed, not yet confirmed
 - The rest of `docs/design/season-calendar-and-pacing.md` (week-by-week calendar, tension tiers, climax budget) is a draft for section 4.
 

@@ -1127,6 +1127,10 @@ pub struct World {
     /// last checkpoint (`crate::results`).
     #[serde(default)]
     pub results: crate::results::Book,
+    /// Ground (lane G1b): one memory per person and holder, and standing
+    /// on the four-level ladder (`ground`).
+    #[serde(default)]
+    pub ground: ground::Ground,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -1584,7 +1588,7 @@ impl World {
         let mut infos: Vec<StateInfo> = (0..51)
             .map(|i| StateInfo {
                 code: geo::STATE_CENTERS[i].0.to_string(),
-                transfer: TransferRule { sit_out: 0.5, free_once: false },
+                transfer: TransferRule { sit_out: 0.5, free_once: false, move_exempt: true },
                 hs_nil: false,
                 culture: 0.0,
                 class_share: 0.0,
@@ -1725,6 +1729,7 @@ impl World {
             hunt: Default::default(),
             nfl_units: Vec::new(),
             results: crate::results::Book::default(),
+            ground: Default::default(),
         };
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);

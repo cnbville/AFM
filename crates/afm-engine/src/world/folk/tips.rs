@@ -103,7 +103,7 @@ pub fn rank(d: Division) -> u8 {
 /// (proposed, not confirmed: FBS signs about the top 1.5% of a class,
 /// FCS 3%, Division II 4.5%, JUCO and NAIA 6%, Division III 8%; the
 /// draft about the top 1.5% of college players two seasons in).
-fn bar(nfl: bool, level: u8) -> f64 {
+pub(crate) fn bar(nfl: bool, level: u8) -> f64 {
     if nfl {
         return 0.985;
     }
@@ -121,7 +121,7 @@ fn bar(nfl: bool, level: u8) -> f64 {
 /// kid below it (proposed, not confirmed: FBS the top 2.25% of a class,
 /// the NFL the top 2.25% of college players two seasons in, which takes in
 /// the undrafted who sign right after the draft).
-fn floor(nfl: bool, level: u8) -> f64 {
+pub(crate) fn floor(nfl: bool, level: u8) -> f64 {
     let b = bar(nfl, level);
     b - 0.5 * (1.0 - b)
 }
@@ -439,8 +439,9 @@ fn claim(w: &World, f: &From, i: usize, read: f64, nfl: bool, level: u8, key: u6
 
 /// What only his camp saw (C14): laser times and a real height, shaded a
 /// little when he's selling; how the kid took coaching, by his eye; the
-/// kid's real top three; whether anyone's on him.
-fn camp_lines(w: &World, f: &From, i: usize, key: u64) -> Vec<String> {
+/// kid's real top three; whether anyone's on him. With the forty and
+/// height it gave, for the lead (Ground lane G4).
+fn camp_said(w: &World, f: &From, i: usize, key: u64) -> (Vec<String>, f64, f64) {
     let p = &w.people[i];
     let id = p.player.id as u64;
     let lean = (f.agenda * (1.0 - f.straight / 20.0) * (1.2 - f.warmth as f64)).clamp(0.0, 1.0);
@@ -469,7 +470,7 @@ fn camp_lines(w: &World, f: &From, i: usize, key: u64) -> Vec<String> {
         let top: Vec<&str> = offers.iter().take(3).map(|&(_, j)| w.program_name(j)).collect();
         out.push(format!("His real top {}: {}.", top.len(), top.join(", ")));
     }
-    out
+    (out, forty, height)
 }
 
 /// Sends the tip: the note in your inbox, the tape to your staff (SK72:
@@ -487,7 +488,12 @@ fn send(
     key: u64,
 ) -> String {
     let d = w.today;
-    let lines = if camp { camp_lines(w, f, i, key) } else { Vec::new() };
+    let (lines, nums) = if camp {
+        let (l, forty, height) = camp_said(w, f, i, key);
+        (l, Some((forty, height)))
+    } else {
+        (Vec::new(), None)
+    };
     let (coach, other) = {
         let x = &mut w.folk.network.contacts[f.k];
         x.last = Some(d);
@@ -535,6 +541,10 @@ fn send(
     }
     text.push_str(" Your staff will watch his film this week.");
     super::note(w, "tips", f.link.clone(), text.clone(), None);
+    // A lead on your ground (Ground lane G4).
+    if !nfl {
+        crate::world::ground::leads::from_tip(w, (coach, other), id, claim, &text, nums);
+    }
     text
 }
 

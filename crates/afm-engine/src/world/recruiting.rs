@@ -143,12 +143,24 @@ pub(crate) fn high_school_transfers(w: &mut World) {
             if hunter == Some(t) {
                 pull *= 1.8;
             }
+            // The state's rule (Ground GR21): a transfer without a family
+            // move sits what the rule says, so fewer go; a family with the
+            // means moves into the new school's district so he plays at once
+            // (a move-in), where the rule lets a move do that.
+            let rule = w.states[dest.state].transfer;
+            let sit = if rule.free_once && p.transfers == 0 { 0.0 } else { rule.sit_out };
+            let move_in = if !out_of_state && sit > 0.0 && rule.move_exempt { move_in_chance(p.bg.money) } else { 0.0 };
+            let sits = if out_of_state { if rule.move_exempt { 0.0 } else { sit } } else { sit * (1.0 - move_in) };
+            pull *= 1.0 - SIT_WEIGHT * sits;
             if escape {
                 pull += 0.015;
             }
             if w.rng.chance(clamp(pull, 0.0, 0.4)) {
                 // A move out of state moves the family, and he enrolls fresh.
-                let family_moves = out_of_state || escape && w.rng.chance(0.5);
+                let family_moves = out_of_state
+                    || escape && w.rng.chance(0.5)
+                    || key_uniform(w.options.seed as u64 ^ 0x40BE_0000 ^ ((year as u64) << 32), p.player.id as u64)
+                        < move_in;
                 moves.push((i, t, family_moves, out_of_state));
             }
         }
@@ -162,10 +174,17 @@ pub(crate) fn high_school_transfers(w: &mut World) {
         let st = w.high_schools[t].state;
         let rule = w.states[st].transfer;
         let boards = boarding(&w.high_schools[t]);
+        let kind = if w.high_schools[t].is_powerhouse() { "powerhouse " } else { "" };
         let p = &mut w.people[i];
         let first = p.transfers == 0;
-        // An out-of-state boarder is a new enrollee, not a transfer inside the state.
-        p.sit_out = if family_moved || (national && boards) || (rule.free_once && first) { 0.0 } else { rule.sit_out };
+        // An out-of-state boarder is a new enrollee, not a transfer inside
+        // the state; a family move frees him where the state's rule says so.
+        p.sit_out = if (family_moved && rule.move_exempt) || (national && boards) || (rule.free_once && first) {
+            0.0
+        } else {
+            rule.sit_out
+        };
+        let moved_in = family_moved && !national && !boards && p.home_state == st;
         if boards {
             let age = p.player.age;
             p.note(format!("At {age} he left home to board at {to_name}."));
@@ -183,10 +202,12 @@ pub(crate) fn high_school_transfers(w: &mut World) {
         };
         let why = if p.bg.safety < 0.3 && p.bg.home_stability < 0.35 {
             " to get away from a rough home situation"
+        } else if moved_in {
+            ", his family moving into its district so he could play at once"
         } else {
             ""
         };
-        p.note(format!("At {age} he transferred from {from_name} to powerhouse {to_name}{why}{sit}."));
+        p.note(format!("At {age} he transferred from {from_name} to {kind}{to_name}{why}{sit}."));
     }
     // Boarding away from home costs homesick kids (topic 4): one who wants
     // to be near home may go back after a year (proposed, not confirmed: up
@@ -284,6 +305,18 @@ pub(crate) fn high_school_transfers(w: &mut World) {
         }
     });
     let _ = year;
+}
+
+/// How much sitting out keeps a standout home (Ground GR21; proposed, not
+/// confirmed): a full year's sit-out cuts the pull of a move by 60%, half a
+/// season's by 30%.
+pub const SIT_WEIGHT: f64 = 0.6;
+
+/// The chance a family moves into the new school's district so their son
+/// plays at once, when the state's rule would sit him (Ground GR21; proposed,
+/// not confirmed): 10% for a family with nothing to 60% for the richest.
+pub fn move_in_chance(money: f64) -> f64 {
+    clamp(0.1 + 0.5 * money, 0.0, 0.6)
 }
 
 /// Places a boarding academy fills in each class, and the miles at which a
@@ -1716,6 +1749,33 @@ pub(crate) fn draft_begin(w: &mut World) -> DraftRun {
     DraftRun { year: draft_year, board, pool, boards, public_rank, next: 1, hunts, ..Default::default() }
 }
 
+/// The men a club weighs at its pick, by their places in the pool: the
+/// best 300 left on the public order, plus the best 60 left on its own
+/// board below them (a club can take anyone on its board, so a sleeper
+/// its scouts love is in reach; proposed, not confirmed: 60).
+pub(crate) fn candidates(run: &DraftRun, t: usize) -> Vec<usize> {
+    const PUBLIC: usize = 300;
+    const OWN: usize = 60;
+    let mut out: Vec<usize> = (0..run.pool.len().min(PUBLIC)).collect();
+    if let Some(b) = run.boards.get(t) {
+        let mut own: Vec<(f64, usize)> = run
+            .pool
+            .iter()
+            .enumerate()
+            .skip(PUBLIC)
+            .filter_map(|(idx, x)| b.grade.get(&x.0).map(|&g| (g, idx)))
+            .collect();
+        let by = |a: &(f64, usize), b: &(f64, usize)| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1));
+        if own.len() > OWN {
+            own.select_nth_unstable_by(OWN - 1, by);
+            own.truncate(OWN);
+        }
+        own.sort_by_key(|x| x.1);
+        out.extend(own.into_iter().map(|x| x.1));
+    }
+    out
+}
+
 /// The draft's picks at full size: a small world's few picks stand for a
 /// whole draft, and its class is a bigger share of a full one than its
 /// picks are, so specialists are placed against the full draft (a small
@@ -1810,7 +1870,8 @@ pub(crate) fn draft_step(w: &mut World, run: &mut DraftRun, seat: Option<usize>,
         }),
         None => {
             let mut best: Option<(usize, f64, f64, f64, f64)> = None;
-            for (idx, &(i, _)) in run.pool.iter().enumerate().take(300) {
+            for idx in candidates(run, t) {
+                let i = run.pool[idx].0;
                 let Some((v, pv, need, g)) = draft_value(w, run, t, i, pick) else { continue };
                 if best.is_none_or(|b| v > b.1) {
                     best = Some((idx, v, pv, need, g));

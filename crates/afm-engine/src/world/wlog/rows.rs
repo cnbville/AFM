@@ -113,6 +113,9 @@ struct Lean<'a> {
     trust: f32,
     trust_in: u32,
     roads: &'a crate::world::eligibility::Roads,
+    /// His testing days at his team (`training::testing`), as stored: the
+    /// bytes of up to 15 rows.
+    tests: &'a crate::training::testing::TestBook,
     player: LeanPlayer<'a>,
 }
 
@@ -139,6 +142,9 @@ struct LeanPlayer<'a> {
     train: &'a crate::training::Train,
     /// His flaws and tools (individual practice), as stored.
     craft: &'a crate::craft::Crafts,
+    /// His hidden progression state: knacks, limits' own parts and project
+    /// (`progression.rs`), as stored.
+    prog: &'a crate::progression::Prog,
 }
 
 /// Tendencies in tenths (`tendencies::Tendencies`).
@@ -215,6 +221,7 @@ impl<'a> Lean<'a> {
             trust: p.trust,
             trust_in: p.trust_in,
             roads: &p.roads,
+            tests: &p.tests,
             player: LeanPlayer {
                 position: q.position,
                 age: q.age,
@@ -240,6 +247,7 @@ impl<'a> Lean<'a> {
                 },
                 train: &q.train,
                 craft: &q.craft,
+                prog: &q.prog,
             },
         }
     }

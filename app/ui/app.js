@@ -349,7 +349,7 @@ const NAV = [
   { go: "team", label: "Team history", icon: "team", sec: "world" },
   { go: "you", label: "Your career", icon: "you", sec: "world" },
 ];
-const NAV_SECS = [["top", ""], ["team", "Your team"], ["world", "World"]];
+const NAV_SECS = [["top", ""], ["ground", "Ground"], ["team", "Your team"], ["world", "World"]];
 function navAdd(item) {
   const i = NAV.findIndex((n) => n.go === item.go);
   if (i >= 0) { NAV[i] = { ...NAV[i], ...item }; return; }

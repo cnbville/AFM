@@ -452,11 +452,16 @@ impl GrowthCtx {
 }
 
 /// The weight the weight room pulls a grown frame toward (update 3, A4,
-/// A14): his position's weight for his talent, never past the position's
-/// combine weight, and at most about 30 lb past where his frame put him.
+/// A14): 60% of the way from his frame to his position's weight for his
+/// talent (`athlete::placed_weight`, the same share a move to a new
+/// position takes), never past the position's combine weight. Until the
+/// physical study (item 15, 2026-11-16) it took every frame under the
+/// position's weight all the way there, so the light half of a position
+/// vanished by the draft: drafted receivers ran 7.6 lb heavy and corners
+/// 3.5 (proposed, not confirmed).
 pub fn weight_room_room(position: crate::positions::Position, talent: f64, frame: f64) -> f64 {
     let target = crate::athlete::position_weight_for(talent, position).min(crate::body::combine_size(position).2);
-    target.min(crate::athlete::placed_weight(frame, target) + 30.0)
+    target.min(crate::athlete::placed_weight(frame, target))
 }
 
 /// The share of the way to `weight_room_room` a year closes: a third in
@@ -1589,7 +1594,9 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     if (15.0..=25.0).contains(&age) && !position.is_specialist() {
         let room = weight_room_room(position, player.original_potential, player.body.frame_weight);
         let pace = weight_room_pace(hs, personality.work_ethic, ctx.physical);
-        let gap = room - player.body.weight;
+        // A body project's pounds sit past this room (design item 2), so
+        // they never count against it.
+        let gap = room + player.prog.body_lbs as f64 - player.body.weight;
         if gap > 0.0 {
             player.body.weight += gap * clamp(pace, 0.0, 1.0);
         }
@@ -1598,6 +1605,9 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     // The normal weight room inside the leashes (everyday item 6): his body
     // knack moves his physical ceilings from the typical path.
     crate::progression::weight_room(player, ctx.level, ctx.trouble.is_some());
+    // His body project, if he has one (design items 1, 2 and 7): the
+    // strength staff moves his ceilings on its leash and puts weight on him.
+    crate::progression::body_year(player, ctx.level, physical_coaching, ctx.trouble.is_some());
 
     // --- Wear (update 3, F14) ------------------------------------------------------
     // Every season played wears a body down, in college at half the pros'

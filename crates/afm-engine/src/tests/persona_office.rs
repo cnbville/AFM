@@ -3,17 +3,19 @@
 //! hurt man's chart and never clears him when the chip wouldn't; a
 //! reference call puts his read on the coach's page and you owe him one;
 //! a line to someone in your building moves the trust the world keeps for
-//! him, held inside the chips; your boss says yes in words exactly when
-//! his meeting would, with the same effect; a coordinator moves the plan
+//! him, held inside the chips; your boss weighs an ask in your words as
+//! you said it (what you put up, his trust, his budget), never on his
+//! meeting's chip, and says why; a coordinator moves the plan
 //! by the staff meeting's own step; and a sit-down with no key plays as
 //! chips on the same conversation and ends when you end it.
 
 use super::legacy::seat;
-use crate::calendar::Date;
+use crate::calendar::{Date, Level};
 use crate::player::PlayingTime;
 use crate::training::seat::Hurt;
 use crate::world::coach::Role;
-use crate::world::folk::boss::{self, AskKind};
+use crate::world::folk::asked::{self, Case};
+use crate::world::folk::boss::{self, AskKind, Goal, GoalKind};
 use crate::world::folk::cast::{self, CastRef, Role as CastRole};
 use crate::world::folk::coach_look;
 use crate::world::folk::persona::Them;
@@ -151,20 +153,184 @@ fn trust_moves_where_the_world_keeps_it() {
 }
 
 #[test]
-fn your_boss_says_yes_in_words_exactly_when_his_meeting_would() {
-    let mut w = seat("college");
+fn your_boss_weighs_a_typed_money_ask_as_said_never_on_the_meetings_chip() {
+    let w = seat("college");
     let team = Team::seat(&w).unwrap();
     let bossman = office::cast_them(&w, CastRef::new(team, cast::boss_role(team), 0));
-    let chip = boss::ask_yes(&w, team, AskKind::StaffMoney) && !boss::asked_lately(&w, AskKind::StaffMoney);
-    let words = asks::willing(&w, bossman, &Request::Money("more for the staff".into())).unwrap();
-    assert_eq!(words == Willing::Yes, chip);
-    // The same effect as the chip.
-    let mut by_chip = seat("college");
-    let (yes, _) = boss::ask_now(&mut by_chip, team, AskKind::StaffMoney);
-    let ran = office::parts().acting.run(&mut w, bossman, &Request::Money("more for the staff".into()));
-    assert!(!ran.done.is_empty());
-    assert_eq!(w.folk.staff.pool_bonus, by_chip.folk.staff.pool_bonus);
-    assert_eq!(yes, chip);
+    // What you put up, read from what you said the money is for.
+    let line = "more NIL, and I'll be able to get a top 3 class in the conference";
+    let case = Case::read(line, Level::College);
+    assert_eq!(case.bar, Some(GoalKind::Recruiting(3)));
+    assert_eq!(Case::read("give me nine wins", Level::College).bar, Some(GoalKind::Wins(9)));
+    assert_eq!(Case::read("a 10-win season", Level::Nfl).bar, Some(GoalKind::Wins(10)));
+    assert_eq!(Case::read("more for the staff", Level::College).bar, None);
+    // The first number that is a bar, and only a bar said as one.
+    assert_eq!(Case::read("from a top 40 class to a top 3 class", Level::College).bar, Some(GoalKind::Recruiting(3)));
+    assert_eq!(Case::read("win 1 more game, get us to 8 wins", Level::College).bar, Some(GoalKind::Wins(8)));
+    assert_eq!(Case::read("we lost 5 games last year", Level::College).bar, None);
+    assert_eq!(Case::read("on arrival", Level::College).bar, None);
+    // What the money is for is named first; a class you put up is a bar.
+    assert_eq!(asks::money_kind(line), AskKind::NilMoney);
+    assert_eq!(asks::money_kind("more for my staff, and a top-3 recruiting class"), AskKind::StaffMoney);
+    assert_eq!(asks::money_kind("more NIL money, and we'll fill the stadium"), AskKind::NilMoney);
+    assert_eq!(asks::money_kind("a bigger recruiting budget"), AskKind::RecruitingMoney);
+    assert_eq!(asks::money_kind("vanilla"), AskKind::StaffMoney);
+    // His answer in words is the weighed one, with its reasons, never the
+    // meeting's canned line.
+    let ask = Request::Money(line.into());
+    let a = asked::money(&w, team, AskKind::NilMoney, &case);
+    let wl = asks::willing(&w, bossman, &ask);
+    assert_eq!(wl, Some(if a.yes { Willing::Yes } else { Willing::No }));
+    let said = asks::why(&w, bossman, &ask);
+    assert_eq!(said[0], format!("{} to more NIL and revenue-sharing money.", if a.yes { "Yes" } else { "No" }));
+    assert!(a.yes || said.len() > 1, "a no comes with its reason: {said:?}");
+    assert!(!said.iter().any(|l| l.contains("right now.\"") || l.contains("I can't do it")), "{said:?}");
+}
+
+#[test]
+fn a_yes_holds_you_to_your_bar_and_a_no_is_kept_with_his_reasons() {
+    let mut w = seat("college");
+    let team = Team::seat(&w).unwrap();
+    // A class's rank is held for the class being signed now: the season
+    // after this one is the one the boss judges it by.
+    let season = w.year + 1;
+    let today = w.today;
+    w.folk.goals.push(Goal { kind: GoalKind::Recruiting(6), season, deal: 0, met: None, set_on: today, talk: false });
+    let p = w.seat.and_then(|s| s.program).unwrap();
+    let pool = w.programs[p].collective.base;
+    let lines = asked::take(&mut w, team, AskKind::NilMoney, &Case { bar: Some(GoalKind::Recruiting(3)) }, false);
+    assert!(w.programs[p].collective.base > pool, "the money moves");
+    let ours: Vec<&Goal> = w.folk.goals.iter().filter(|g| g.season == season).collect();
+    assert!(
+        ours.iter().any(|g| g.kind == GoalKind::Recruiting(3) && g.talk)
+            && !ours.iter().any(|g| g.kind == GoalKind::Recruiting(6)),
+        "{ours:?}"
+    );
+    assert!(lines.iter().any(|l| l.contains("hold you to it")), "{lines:?}");
+    assert!(w.folk.asks.last().is_some_and(|x| x.granted && x.kind == AskKind::NilMoney));
+    // The same money isn't found twice in a year: asked again it's a no
+    // with its reason, and a second confirm moves nothing.
+    let again = asked::money(&w, team, AskKind::NilMoney, &Case::default());
+    assert_eq!(again, asked::Answer { yes: false, why: vec![asked::Why::Stretched(0)] });
+    let base = w.programs[p].collective.base;
+    let twice = asked::take(&mut w, team, AskKind::NilMoney, &Case::default(), false);
+    assert_eq!(w.programs[p].collective.base, base, "{twice:?}");
+    // A bar that asks no more than his own is nothing on the table.
+    assert_eq!(
+        asked::money(&w, team, AskKind::StaffMoney, &Case { bar: Some(GoalKind::Recruiting(5)) }),
+        asked::money(&w, team, AskKind::StaffMoney, &Case::default())
+    );
+    // A no, with his reason on record; each no weighs on the next.
+    let no = asked::Answer { yes: false, why: vec![asked::Why::Budget] };
+    let line = asked::refuse(&mut w, team, AskKind::Facility, &Case::default(), &no, false);
+    assert!(line.starts_with("You asked for a facility project: no.") && line.contains("budget"), "{line}");
+    assert!(w.folk.asks.last().is_some_and(|x| !x.granted && x.words == line));
+    let after_no = asked::money(&w, team, AskKind::Facility, &Case::default());
+    assert!(after_no.yes || after_no.why.contains(&asked::Why::AskedNo(0)), "{after_no:?}");
+}
+
+#[test]
+fn the_goals_meeting_keeps_a_bar_you_put_up_and_one_below_his_is_nothing() {
+    let mut w = seat("college");
+    let team = Team::seat(&w).unwrap();
+    // Before he sets the season's goals, a bar is weighed against the one
+    // he would set.
+    let season = boss::goal_season(&w, team);
+    w.folk.goals.retain(|g| g.season != season);
+    let Some(n) =
+        boss::draft_goals(&w, team).iter().find_map(|g| if let GoalKind::Wins(n) = g { Some(*n) } else { None })
+    else {
+        return;
+    };
+    assert_eq!(asked::on_table(&w, team, &Case { bar: Some(GoalKind::Wins(n)) }).bar, None);
+    let more = GoalKind::Wins(n + 1);
+    assert_eq!(asked::on_table(&w, team, &Case { bar: Some(more) }).bar, Some(more));
+    // A yes holds it, and the goals meeting for that season keeps it in
+    // place of his own of that kind.
+    asked::take(&mut w, team, AskKind::StaffMoney, &Case { bar: Some(more) }, false);
+    let mut s = scene::Scene::new(scene::Kind::BossMeeting, w.today, "The season's goals");
+    s.c = 0;
+    s.team = Some(team);
+    boss::open(&mut w, &mut s);
+    let wins: Vec<&Goal> =
+        w.folk.goals.iter().filter(|g| g.season == season && matches!(g.kind, GoalKind::Wins(_))).collect();
+    assert_eq!(wins.len(), 1, "{wins:?}");
+    assert!(wins[0].talk && wins[0].kind == more, "{wins:?}");
+    assert!(s.docs.iter().any(|d| d.rows.iter().any(|r| r.cells.iter().any(|c| c.contains("put up yourself")))));
+}
+
+#[test]
+fn time_reads_the_goals_in_force() {
+    let mut w = seat("college");
+    let team = Team::seat(&w).unwrap();
+    // Before he sets any goals there is nothing to settle.
+    w.folk.goals.clear();
+    assert_eq!(asked::time(&w, team), asked::Answer { yes: false, why: vec![asked::Why::NoBar] });
+    // This season's goals, past the season's first month: time reads them,
+    // not next season's (none yet).
+    let season = w.year;
+    w.today = w.dates.fall_camp.add(45);
+    let today = w.today;
+    w.folk.goals.push(Goal { kind: GoalKind::Wins(9), season, deal: 0, met: None, set_on: today, talk: false });
+    assert_eq!(boss::goal_season(&w, team), w.year + 1);
+    assert_eq!(asked::in_force(&w, team), Some(season));
+    let line = asked::settle_time(&mut w, team, &asked::Answer { yes: true, why: Vec::new() }, false);
+    assert!(w.folk.goals.iter().any(|g| g.season == season && g.kind == GoalKind::Wins(7) && g.deal == -1), "{line}");
+    // Asked again, it was already answered.
+    assert_eq!(asked::time(&w, team).why, vec![asked::Why::TimeAsked]);
+}
+
+#[test]
+fn a_booster_puts_money_in_once_a_year() {
+    let mut w = seat("college");
+    let team = Team::seat(&w).unwrap();
+    let Some(r) = cast::all(&w, team, CastRole::Booster).first().map(|c| c.r) else { return };
+    let him = office::cast_them(&w, r);
+    let c = cast::get(&w, r);
+    let p = w.seat.and_then(|s| s.program).unwrap();
+    assert_eq!(asked::gave_lately(&w, &c), None);
+    let base = w.programs[p].collective.base;
+    let ran = office::parts().acting.run(&mut w, him, &Request::Fund);
+    assert!(w.programs[p].collective.base > base, "{:?}", ran.done);
+    assert_eq!(asked::gave_lately(&w, &c), Some(0));
+    assert_eq!(asked::fund(&w, team, &c, 0.9), asked::Answer { yes: false, why: vec![asked::Why::Gave(0)] });
+    // A second yes puts nothing more in, and your boss's own NIL record
+    // doesn't read the booster's gift as his.
+    let once = w.programs[p].collective.base;
+    office::parts().acting.run(&mut w, him, &Request::Fund);
+    assert_eq!(w.programs[p].collective.base, once);
+    assert_eq!(asked::granted(&w, AskKind::NilMoney), None);
+}
+
+#[test]
+fn a_sharp_boss_doubts_a_bar_your_record_doesnt_back() {
+    let w0 = seat("college");
+    let team = Team::seat(&w0).unwrap();
+    let Team::College(p) = team else { return };
+    let mut w = w0;
+    // Your last class ranked last in the conference.
+    let conf = w.programs[p].conference.clone();
+    let year = w.year;
+    let mut n = 0;
+    for (k, q) in w.programs.iter_mut().enumerate() {
+        if q.conference == conf {
+            q.class_scores.retain(|x| x.0 != year);
+            q.class_scores.push((year, if k == p { 0.0 } else { 100.0 + k as f64 }));
+            n += 1;
+        }
+    }
+    let b = boss::boss(&w, team);
+    if n < 8 || b.judgement < 6.0 {
+        return;
+    }
+    assert_eq!(boss::class_rank(&w, p, year), Some(n));
+    let a = asked::money(&w, team, AskKind::NilMoney, &Case { bar: Some(GoalKind::Recruiting(1)) });
+    if a.yes {
+        // He may still say yes, and then he holds you to what you put up.
+        assert_eq!(a.why, vec![asked::Why::Bar(GoalKind::Recruiting(1))]);
+    } else {
+        assert!(matches!(a.why[0], asked::Why::Doubts(GoalKind::Recruiting(1), Some(r)) if r == n), "{:?}", a.why);
+    }
 }
 
 #[test]

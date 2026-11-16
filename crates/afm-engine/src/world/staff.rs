@@ -6,13 +6,14 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use super::coach::{
     Coach, CoachTier, Employer, Group, HiringNeeds, Job, Role, Stint, candidate_score, generate_coach, hiring_needs,
 };
-use super::data::{AcademicTier, Division};
+use super::data::{self, AcademicTier, Division};
 use super::ethnicity::{CoachPool, Ethnicity, coach_ethnicity, hiring_bias};
 use super::former::Want;
 use super::news::{self, Channel, NewsItem, NewsKind};
 use super::program::{self, GRADE_COUNT, GradeCat, NilTrend};
 use super::{Stage, World, names};
 use crate::player::PlayingTime;
+use crate::positions::{POSITION_COUNT, Position};
 use crate::rng::{Rng, clamp};
 
 use super::front_office::{market, school};
@@ -3309,6 +3310,75 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
     pool
 }
 
+/// How far a returning holder above the level's typical starter at his
+/// spot shuts a job to a newcomer: 4 points above leaves it about a quarter
+/// open, 4 below about three quarters (proposed, not confirmed).
+pub(crate) const HOLD_SPREAD: f64 = 4.0;
+
+/// One program's playing time read (Cain 2026-11-15, "play time ranked low
+/// on a 2-10 team"): for every starting spot at every position, the player
+/// who holds it next fall (the room's best returners, best first) against
+/// the level's typical starter at that position (`norm`). A spot with no
+/// returner is open; a holder at the typical starter's level leaves it
+/// half open; a better one shuts it, a weaker one opens it. The mean over
+/// the starting spots, kickers aside. `rooms` holds each position's
+/// returners' overalls, best first.
+pub(crate) fn open_spots(rooms: &[Vec<f64>; POSITION_COUNT], norm: &[f64; POSITION_COUNT]) -> f64 {
+    let (mut sum, mut spots) = (0.0f64, 0.0f64);
+    for pos in Position::ALL.into_iter().filter(|p| !p.is_specialist()) {
+        let k = pos.index();
+        for slot in 0..crate::game::roster::starters(pos) {
+            sum += rooms[k].get(slot).map_or(1.0, |&o| 1.0 / (1.0 + ((o - norm[k]) / HOLD_SPREAD).exp()));
+            spots += 1.0;
+        }
+    }
+    sum / spots.max(1.0)
+}
+
+/// Every program's playing time read at the year-end book (`open_spots`).
+/// Next fall's room is today's roster without the players who are going:
+/// out of eligibility after `season`, declared for the draft, or in the
+/// portal. The typical starter is this season's, each level's mean of its
+/// programs' starters by position. Before 2026-11-15 the grade counted
+/// only the share of starters in their third season or later, less a
+/// hundredth of team strength, so a losing team that started underclassmen
+/// read as having no openings at all.
+fn openings(w: &World, season: i32) -> Vec<f64> {
+    let n = w.programs.len();
+    let mut all = vec![[(); POSITION_COUNT].map(|_| Vec::<f64>::new()); n];
+    let mut back = vec![[(); POSITION_COUNT].map(|_| Vec::<f64>::new()); n];
+    for (j, prog) in w.programs.iter().enumerate() {
+        for &i in &prog.roster {
+            let p = &w.people[i];
+            if p.stage != Stage::College || p.college != Some(j) {
+                continue;
+            }
+            let (k, o) = (p.player.position.index(), p.player.overall());
+            all[j][k].push(o);
+            if p.cal.portal.is_none() && !super::eligibility::exhausted_after(p, prog.division, season) {
+                back[j][k].push(o);
+            }
+        }
+        for v in all[j].iter_mut().chain(back[j].iter_mut()) {
+            v.sort_by(|a, b| b.total_cmp(a));
+        }
+    }
+    let mut sums = [[(0.0f64, 0.0f64); POSITION_COUNT]; data::DIVISION_COUNT];
+    for (j, prog) in w.programs.iter().enumerate() {
+        for pos in Position::ALL {
+            let v = &all[j][pos.index()];
+            let s = crate::game::roster::starters(pos).min(v.len());
+            if s > 0 {
+                let e = &mut sums[prog.division as usize][pos.index()];
+                e.0 += v[..s].iter().sum::<f64>() / s as f64;
+                e.1 += 1.0;
+            }
+        }
+    }
+    let norm = sums.map(|d| d.map(|(t, c)| if c > 0.0 { t / c } else { 0.0 }));
+    (0..n).map(|j| open_spots(&back[j], &norm[w.programs[j].division as usize])).collect()
+}
+
 /// Prestige, grades, NIL and footprints after the season (topic 7, 8, 4).
 pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResult]) {
     let year = w.year;
@@ -3328,19 +3398,8 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
     // Raw values per grade, then graded within each division.
     let n = w.programs.len();
     let mut raw = vec![[0.0f64; GRADE_COUNT]; n];
-    // Playing time: starters about to leave open spots; a weak roster opens more.
-    let mut leaving = vec![(0.0f64, 0.0f64); n];
-    for p in w.people.iter() {
-        if p.stage == Stage::College
-            && let Some(c) = p.college
-            && p.last_role == Some(PlayingTime::Starter)
-        {
-            leaving[c].1 += 1.0;
-            if p.college_seasons >= 3 {
-                leaving[c].0 += 1.0;
-            }
-        }
-    }
+    // Playing time: how open next fall's depth chart is to a newcomer.
+    let open = openings(w, year);
     for i in 0..n {
         let t = &results[i];
         let win = if t.games() > 0 { t.win_pct() } else { 0.5 };
@@ -3439,7 +3498,6 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
                 _ => 1.0,
             })
             .sum();
-        let (leave, starters) = leaving[i];
         let academics = match p.academic_tier {
             AcademicTier::Aau => 0.9,
             AcademicTier::R1 => 0.7,
@@ -3449,7 +3507,7 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
         let titles_recent: f64 = p.seasons.iter().rev().take(2).filter(|s| s.conference_title).count() as f64;
         raw[i][GradeCat::Academics as usize] = academics;
         raw[i][GradeCat::ProPipeline as usize] = picks;
-        raw[i][GradeCat::PlayingTime as usize] = leave / starters.max(1.0) - 0.01 * t.strength;
+        raw[i][GradeCat::PlayingTime as usize] = open[i];
         raw[i][GradeCat::Tradition as usize] = p.tradition;
         raw[i][GradeCat::TitleChances as usize] = 0.02 * t.strength + (0.6 * titles_recent + win) * conf_strength(p);
         raw[i][GradeCat::CoachPrestige as usize] = hc_rep;

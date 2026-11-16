@@ -521,8 +521,11 @@ fn every_question_reads_ratings_his_snaps_show() {
     for pos in [QB, RB, WR, TE, OT, IOL, EDGE, DT, LB, CB, S] {
         let mut shows = [0usize; ATTRIBUTE_COUNT];
         let mut tapes = 0;
+        // Six men's tapes: with three, a receiver room whose first three
+        // starters drew no deep shot showed no ball tracking (step 4a's
+        // bodies reshuffled the test world's rosters).
         for id in of_pos(&w, pos) {
-            if tapes == 3 {
+            if tapes == 6 {
                 break;
             }
             let Ok(t) = tape::player_tape(&w, id) else { continue };
