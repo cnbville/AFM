@@ -35,6 +35,14 @@ pub struct AreaLine {
     /// Your standing in words then and now, and the points.
     pub feb: String,
     pub aug: String,
+    /// Your standing points then and now (0 to 100; the level bands are
+    /// 25, 50 and 75), for the screen's February-to-August marks. Reports
+    /// saved before these fields read 0 and the screen falls back on the
+    /// level's floor.
+    #[serde(default)]
+    pub feb_pts: f32,
+    #[serde(default)]
+    pub pts: f32,
     pub moved: f32,
     /// Lost a level.
     pub lost: bool,
@@ -179,6 +187,8 @@ pub(crate) fn build(w: &World, prog: usize, d: Date) -> Report {
             name: areas::area(a).name.to_string(),
             feb: lv(then),
             aug: lv(now),
+            feb_pts: then,
+            pts: now,
             moved: now - then,
             lost: standing::Level::of(now) < standing::Level::of(then),
             leader,
