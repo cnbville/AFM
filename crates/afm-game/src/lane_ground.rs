@@ -249,7 +249,7 @@ fn map(w: &World, args: &Value) -> Reply {
             ));
         }
     }
-    lately.sort_by(|a, b| b.0.cmp(&a.0));
+    lately.sort_by_key(|a| std::cmp::Reverse(a.0));
     lately.truncate(6);
 
     // The states you can look at: every state, with how many areas it has.
