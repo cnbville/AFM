@@ -30,7 +30,7 @@ use afm_engine::world::folk::persona::negotiate::{self, Played};
 use afm_engine::world::folk::persona::room::Room;
 use afm_engine::world::folk::persona::talk::{self, Conversation, Parts, Said, channels, store};
 use afm_engine::world::folk::persona::terms::{Request as Ask, Valuing, Weighed};
-use afm_engine::world::folk::persona::{deals, meetings, office};
+use afm_engine::world::folk::persona::{asks, deals, meetings, office};
 use afm_engine::world::folk::scene::{Kind, Scene};
 use serde_json::{Value, json};
 
@@ -142,6 +142,9 @@ struct Waiting {
     him: Them,
     /// Each item, until it's confirmed or dropped.
     items: Vec<Option<Confirm>>,
+    /// Each item's line as first drawn, read against the world then (a
+    /// redraw has no world to read).
+    words: Vec<String>,
     born: Instant,
 }
 
@@ -160,8 +163,9 @@ impl Waits {
             .flat_map(|(ticket, w)| {
                 w.items.iter().enumerate().filter_map(move |(k, c)| {
                     let c = c.as_ref()?;
+                    let text = w.words.get(k).cloned().unwrap_or_else(|| confirm_words(c));
                     Some(json!({ "cmd": "talk_confirm", "args": { "id": w.scene, "ticket": ticket, "k": k },
-                        "text": confirm_words(c) }))
+                        "text": text }))
                 })
             })
             .collect()
@@ -406,6 +410,9 @@ fn waits(g: &mut Game, id: u32, room: &Room, t: &Turn) -> Vec<Value> {
             (Confirm::Offer(o), Some((w, s))) => {
                 negotiate::confirm_words(w, negotiate::facet(w, s), o).unwrap_or_else(|| confirm_words(c))
             }
+            (Confirm::Request(r @ Ask::Money(_)), Some((w, _))) => {
+                format!("Go ahead: {}", asks::request_words_in(w, r))
+            }
             _ => confirm_words(c),
         })
         .collect();
@@ -416,7 +423,7 @@ fn waits(g: &mut Game, id: u32, room: &Room, t: &Turn) -> Vec<Value> {
         .collect();
     g.ai.persona.map.insert(
         ticket,
-        Waiting { scene: id, him, items: t.confirm.iter().cloned().map(Some).collect(), born: Instant::now() },
+        Waiting { scene: id, him, items: t.confirm.iter().cloned().map(Some).collect(), words, born: Instant::now() },
     );
     list
 }
@@ -425,7 +432,7 @@ fn confirm_words(c: &Confirm) -> String {
     match c {
         Confirm::Request(Ask::Other(x)) if x == talk::recruit::VISIT => "Set his official visit".into(),
         Confirm::Offer(o) => format!("Make the offer: {}", folk::plain(&o.words)),
-        Confirm::Request(r) => format!("Go ahead: {r:?}"),
+        Confirm::Request(r) => format!("Go ahead: {}", asks::request_words(r)),
         Confirm::Decision(d) => format!("Make it so: {}", channels::decision_words(*d)),
     }
 }

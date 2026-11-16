@@ -11,9 +11,10 @@
 //!   own step (`dialogue::shift_plan`), kept as its case;
 //! - your boss: money (the staff pool, recruiting, the collective, a
 //!   facility, practice-squad money), a hire's money, time and his backing
-//!   with the big booster, answered by the meeting's own odds and roll
-//!   (`boss::ask_yes`, `ask_now`, `ask_time`);
-//! - a booster: money for the collective;
+//!   with the big booster, weighed as you said it (`folk::asked`): what you
+//!   put up for it, his trust, his budget and his nature, never the
+//!   meeting's pick and its canned answer;
+//! - a booster: money for the collective, weighed the same way;
 //! - the compliance office: what the rules allow.
 //!
 //! Anything else falls to lane N3's requests.
@@ -23,9 +24,9 @@ use super::super::ear::Turn;
 use super::super::terms::{Give, Request};
 use super::super::wants::{Kind as WhoKind, Ran, WantKind, Willing};
 use super::doctor;
-use crate::calendar::Level;
 use crate::world::World;
 use crate::world::coach::{Employer, Role};
+use crate::world::folk::asked::{self, Answer, Case, Said};
 use crate::world::folk::boss::{self, AskKind};
 use crate::world::folk::cast::{self, Role as CastRole};
 use crate::world::folk::{self as folk, Team};
@@ -46,21 +47,30 @@ pub fn on_your_staff(w: &World, c: usize) -> bool {
 
 /// The boss ask a money request is, from what you said it's for: the staff
 /// pool unless you named recruiting, the collective, a facility or
-/// practice-squad money.
+/// practice-squad money. The kind named first wins, since what the money is
+/// for comes before what you put up for it ("more NIL, and we'll fill the
+/// stadium" is the collective), and a class you put up ("a top-3
+/// recruiting class") is a bar, not recruiting money.
 pub fn money_kind(words: &str) -> AskKind {
-    let w = words.to_lowercase();
-    let has = |xs: &[&str]| xs.iter().any(|x| w.contains(x));
-    if has(&["facilit", "building", "weight room", "stadium", "locker room", "indoor"]) {
-        AskKind::Facility
-    } else if has(&["nil", "collective", "revenue"]) {
-        AskKind::NilMoney
-    } else if has(&["recruit", "travel", "visit"]) {
-        AskKind::RecruitingMoney
-    } else if has(&["practice squad", "practice-squad", "roster"]) {
-        AskKind::RosterSpots
-    } else {
-        AskKind::StaffMoney
-    }
+    const KINDS: [(AskKind, &[&str]); 5] = [
+        (AskKind::Facility, &["facilit", "building", "weight room", "stadium", "locker room", "indoor"]),
+        (AskKind::NilMoney, &["nil", "collective", "revenue"]),
+        (AskKind::RecruitingMoney, &["recruit", "travel", "visit"]),
+        (AskKind::RosterSpots, &["practice squad", "practice-squad", "roster"]),
+        (AskKind::StaffMoney, &["staff", "assistant", "salar"]),
+    ];
+    let w = words.to_lowercase().replace("recruiting class", "class").replace("recruit class", "class");
+    // Where a word starts: "nil" in "vanilla" isn't the collective.
+    let at = |x: &str| {
+        w.match_indices(x)
+            .map(|(i, _)| i)
+            .find(|&i| i == 0 || !w[..i].chars().next_back().is_some_and(|c| c.is_ascii_alphanumeric()))
+    };
+    KINDS
+        .iter()
+        .filter_map(|(k, xs)| xs.iter().filter_map(|x| at(x)).min().map(|i| (i, *k)))
+        .min_by_key(|x| x.0)
+        .map_or(AskKind::StaffMoney, |x| x.1)
 }
 
 /// The sit-down's plan chips, by the staff meeting's move (`dialogue::
@@ -509,14 +519,67 @@ fn your_boss(w: &World, him: Them) -> Option<Team> {
     (super::super::makeup::kind(w, him) == WhoKind::Boss && matches!(him, Them::Cast(..))).then_some(team)
 }
 
-/// Whether you already asked him for time this season (the goals meeting
-/// keeps it on the goals).
-fn asked_time(w: &World, team: Team) -> bool {
-    let season = match team.level() {
-        Level::Nfl | Level::College | Level::HighSchool => w.year,
-        _ => w.year,
-    };
-    w.folk.goals.iter().any(|g| g.season >= season && g.deal == -1)
+/// What a money request asks for and what you put up for it, from the
+/// ear's words for it (`money_kind`, `asked::Case`).
+pub fn money_of(team: Team, r: &Request) -> Option<(AskKind, Case)> {
+    match r {
+        Request::Money(words) => Some((money_kind(words), Case::read(words, team.level()))),
+        Request::Hire(_) => Some((AskKind::StaffMoney, Case::default())),
+        _ => None,
+    }
+}
+
+/// Your boss's or a booster's answer to an ask in your words, weighed as
+/// said (`folk::asked`), with what you asked for in words and the pronoun
+/// of the one across the table; None for anyone or anything else.
+pub fn weighed(w: &World, him: Them, ask: &Request) -> Option<(Answer, String, bool)> {
+    let team = Team::seat(w)?;
+    if let Some(team) = your_boss(w, him) {
+        let she = across_she(w, him);
+        let (a, what) = match ask {
+            Request::Money(_) | Request::Hire(_) => {
+                let (k, case) = money_of(team, ask)?;
+                (asked::money(w, team, k, &case), k.words().to_string())
+            }
+            Request::Time => (asked::time(w, team), "more time".to_string()),
+            Request::Backing => {
+                let big = big_booster(w, team);
+                let what = big.as_ref().map_or("vouching for the coach with the boosters".to_string(), |x| {
+                    format!("vouching for the coach with {}", x.name)
+                });
+                (asked::backing(w, team, big.is_some()), what)
+            }
+            _ => return None,
+        };
+        return Some((a, what, she));
+    }
+    if super::super::makeup::kind(w, him) == WhoKind::Booster
+        && let Them::Cast(r, _) = him
+        && r.team == team
+        && matches!(ask, Request::Fund)
+    {
+        let c = cast::get(w, r);
+        let a = asked::fund(w, team, &c, super::trust(w, him));
+        return Some((a, "more money for the collective".to_string(), c.she));
+    }
+    None
+}
+
+/// The pronoun of the one across the table (your athletic director or the
+/// president, a booster).
+fn across_she(w: &World, him: Them) -> bool {
+    match him {
+        Them::Cast(r, _) => cast::get(w, r).she,
+        _ => false,
+    }
+}
+
+/// His answer in words for the voice, when it was weighed as said.
+pub fn why(w: &World, him: Them, ask: &Request) -> Vec<String> {
+    let Some(team) = Team::seat(w) else { return Vec::new() };
+    weighed(w, him, ask)
+        .map(|(a, what, she)| asked::voice(&Said { level: team.level(), what: &what, she }, &a))
+        .unwrap_or_default()
 }
 
 /// How willing he is, for the people and asks this lane plays; None
@@ -548,35 +611,17 @@ pub fn willing(w: &World, him: Them, ask: &Request) -> Option<Willing> {
             _ => None,
         };
     }
-    if let Some(team) = your_boss(w, him) {
-        let level = team.level();
-        let money = |k: AskKind| Some(yes(k.at(level) && !boss::asked_lately(w, k) && boss::ask_yes(w, team, k)));
-        return match ask {
-            Request::Money(words) => money(money_kind(words)),
-            Request::Hire(_) => money(AskKind::StaffMoney),
-            Request::Time => {
-                let b = boss::boss(w, team);
-                Some(yes(!asked_time(w, team) && b.patience >= 11.0))
-            }
-            Request::Backing => {
-                let Team::College(_) = team else { return Some(Willing::No) };
-                Some(yes(boss::trust(w, team) >= BACKING_TRUST && big_booster(w, team).is_some()))
-            }
-            _ => None,
-        };
+    if let Some((a, ..)) = weighed(w, him, ask) {
+        return Some(yes(a.yes));
+    }
+    if your_boss(w, him).is_some() {
+        return None;
     }
     if super::super::makeup::kind(w, him) == WhoKind::Booster
         && let Them::Cast(r, _) = him
         && r.team == team
     {
-        return match ask {
-            Request::Fund => {
-                let Team::College(_) = team else { return Some(Willing::No) };
-                let t = super::trust(w, him);
-                Some(yes(t >= FUND_TRUST && !boss::asked_lately(w, AskKind::NilMoney)))
-            }
-            _ => None,
-        };
+        return None;
     }
     if matches!(him, Them::Drawn(WhoKind::Compliance, _)) {
         return match ask {
@@ -587,17 +632,12 @@ pub fn willing(w: &World, him: Them, ask: &Request) -> Option<Willing> {
     None
 }
 
-/// Your boss's trust he needs before he'll vouch for you to the big
-/// booster. Proposed, not confirmed.
-pub const BACKING_TRUST: f32 = 0.5;
 /// What his backing does: the big booster's trust in you, and what it
 /// costs your boss's. Proposed, not confirmed.
 pub const BACKING_LIFT: f32 = 0.04;
 pub const BACKING_COST: f32 = -0.01;
-/// A booster's trust in you before he'll put money in the collective, and
-/// how much more it holds (the boss's own NIL yes is 8%). Proposed, not
-/// confirmed.
-pub const FUND_TRUST: f32 = 0.5;
+/// How much more a booster's yes puts in the collective (the boss's own
+/// NIL yes is 8%). Proposed, not confirmed.
 pub const FUND_RAISE: f64 = 0.05;
 
 fn big_booster(w: &World, team: Team) -> Option<cast::Cast> {
@@ -636,21 +676,16 @@ pub fn run(w: &mut World, him: Them, ask: &Request) -> Option<Ran> {
         return plan_run(w, c, words);
     }
     if let Some(team) = your_boss(w, him) {
-        let k = match ask {
-            Request::Money(words) => money_kind(words),
-            Request::Hire(_) => AskKind::StaffMoney,
+        // He said yes in the talk (`willing`); your confirm makes it real.
+        match ask {
+            Request::Money(_) | Request::Hire(_) => {
+                let (k, case) = money_of(team, ask)?;
+                ran.done.extend(asked::take(w, team, k, &case, across_she(w, him)));
+                return Some(ran);
+            }
             Request::Time => {
-                let gave = boss::ask_time(w, team);
-                ran.done.push(if gave {
-                    "He lowered the bar for this year.".into()
-                } else {
-                    "He kept the bar where it was, and noted that you asked.".into()
-                });
-                ran.report.push(if gave {
-                    "All right. A year to build. But I want to see it moving.".into()
-                } else {
-                    "I didn't hire you to ask for time.".into()
-                });
+                let yes = Answer { yes: true, why: Vec::new() };
+                ran.done.push(asked::settle_time(w, team, &yes, across_she(w, him)));
                 return Some(ran);
             }
             Request::Backing => {
@@ -659,30 +694,30 @@ pub fn run(w: &mut World, him: Them, ask: &Request) -> Option<Ran> {
                     w.folk.mine.nudge(big.key(), BACKING_LIFT);
                     w.folk.mine.nudge(b.key(), BACKING_COST);
                     ran.done.push(format!("{} talked to {} for you.", b.name, big.name));
-                    ran.report.push("I'll make the call. He'll hear it from me.".into());
                 }
                 return Some(ran);
             }
             _ => return None,
-        };
-        let (yes, words) = boss::ask_now(w, team, k);
-        ran.done.push(format!("You asked for {}: {}.", k.words(), if yes { "granted" } else { "no" }));
-        ran.report.push(words.into());
-        return Some(ran);
+        }
     }
     if super::super::makeup::kind(w, him) == WhoKind::Booster {
         let Request::Fund = ask else { return None };
         let (Team::College(p), Them::Cast(r, _)) = (team, him) else { return None };
+        let c = cast::get(w, r);
+        let name = c.name.clone();
+        // Two yeses (two confirms, or asking again) put money in once.
+        if asked::gave_lately(w, &c).is_some() {
+            ran.done.push(format!("{name} already put money in this year, and it stands as it was."));
+            return Some(ran);
+        }
         w.programs[p].collective.base *= 1.0 + FUND_RAISE;
-        let name = cast::get(w, r).name;
         w.folk.asks.push(boss::Ask {
             kind: AskKind::NilMoney,
             date: w.today,
             granted: true,
-            words: format!("{name} put more into the collective."),
+            words: format!("{name}{}", asked::GIFT),
         });
         ran.done.push(format!("{name} puts more money into the collective."));
-        ran.report.push("I'll make some calls. You'll see it.".into());
         return Some(ran);
     }
     if matches!(him, Them::Drawn(WhoKind::Compliance, _)) {
@@ -694,10 +729,12 @@ pub fn run(w: &mut World, him: Them, ask: &Request) -> Option<Ran> {
     None
 }
 
-/// After a turn: a no from your boss to a money ask is kept as the
-/// meeting keeps it (`ask_now`: the ask on record, a little trust), a no
-/// to time costs what the goals meeting's does (`ask_time`), and a doctor
-/// pushed to clear a man holds it against you (`doctor::REFUSED_*`).
+/// After a turn: a no from your boss to a money ask is kept on record with
+/// his reasons and costs a little trust (`asked::refuse`), a no to time is
+/// noted on this season's goals at a cost to his trust (`asked::
+/// settle_time`), a no to his backing or a booster's money is told with its
+/// reasons, and a doctor pushed to clear a man holds it against you
+/// (`doctor::REFUSED_*`).
 pub fn after(w: &mut World, him: Them, t: &Turn) -> Vec<String> {
     let mut out = Vec::new();
     let Some(team) = Team::seat(w) else { return out };
@@ -719,22 +756,31 @@ pub fn after(w: &mut World, him: Them, t: &Turn) -> Vec<String> {
             }
             continue;
         }
-        if your_boss(w, him).is_some() {
-            let k = match r {
-                Request::Money(words) => Some(money_kind(words)),
-                Request::Hire(_) => Some(AskKind::StaffMoney),
-                _ => None,
-            };
-            if let Some(k) = k
-                && k.at(team.level())
-                && !boss::asked_lately(w, k)
-            {
-                let (_, words) = boss::ask_now(w, team, k);
-                out.push(format!("You asked for {}: no. \"{words}\"", k.words()));
+        // The answer the talk gave, with its reasons (a no stays a no).
+        let Some((mut a, what, she)) = weighed(w, him, r) else { continue };
+        if a.yes {
+            a = Answer { yes: false, why: vec![asked::Why::Close] };
+        }
+        let said = Said { level: team.level(), what: &what, she };
+        match r {
+            Request::Money(_) | Request::Hire(_) => {
+                let Some((k, case)) = money_of(team, r) else { continue };
+                if a.why.contains(&asked::Why::NotHere) {
+                    out.push(format!("You asked for {}: there's no such money here.", k.words()));
+                } else {
+                    out.push(asked::refuse(w, team, k, &case, &a, she));
+                }
             }
-            if matches!(r, Request::Time) && !asked_time(w, team) {
-                boss::ask_time(w, team);
-                out.push("He kept the bar where it was, and noted that you asked.".into());
+            Request::Time => out.push(asked::settle_time(w, team, &a, she)),
+            _ => {
+                let Them::Cast(c, _) = him else { continue };
+                let name = cast::get(w, c).name;
+                let what = if matches!(r, Request::Backing) {
+                    "to vouch for you with the big booster"
+                } else {
+                    "to put more into the collective"
+                };
+                out.push(format!("You asked {name} {what}: no. {}", asked::because(&said, &a)));
             }
         }
     }
