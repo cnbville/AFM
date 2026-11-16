@@ -142,6 +142,9 @@ struct LeanPlayer<'a> {
     train: &'a crate::training::Train,
     /// His flaws and tools (individual practice), as stored.
     craft: &'a crate::craft::Crafts,
+    /// His hidden progression state: knacks, limits' own parts and project
+    /// (`progression.rs`), as stored.
+    prog: &'a crate::progression::Prog,
 }
 
 /// Tendencies in tenths (`tendencies::Tendencies`).
@@ -244,6 +247,7 @@ impl<'a> Lean<'a> {
                 },
                 train: &q.train,
                 craft: &q.craft,
+                prog: &q.prog,
             },
         }
     }
