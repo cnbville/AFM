@@ -25,6 +25,8 @@
 //                  read, built, staff)
 //   talk.ideas     [text]: a click puts the words in the box, to change
 //   talk.moves     {tabs: [{k, name, note}], builder: {...}}: the pick lists
+//   talk.over      true when the talk ended on a meeting that still holds a decision: no box,
+//                  the meeting's own picks as "Still yours to decide" (talk_wrap ends a talk)
 //   talk.confirm   [{text, cmd, args}]: what waits on your say-so (N4's talk_confirm; with talk.persona
 //                  the game lists it on every draw, so a reload keeps it)
 // A section is {k, label, note, ...} with k one of: text, entries, tiles, chips,
@@ -74,12 +76,15 @@ async function cvScene(s, lead, pp, cast, st) {
   // with a key): no answer buttons, ideas take their place (question 7).
   // When the typed line fails for good (the box says "off"), the moves come back.
   const v3 = !!box && !!T.persona && !(aiState.boxes[key] && aiState.boxes[key].phase === "off");
+  // The talk ended on a meeting that still holds a decision (`talk.over`): no box,
+  // the meeting's own picks as one decision.
+  const over = !!T.over && !s.done;
   const peek = lead && lead.kind === "player" ? await api("peek", { kind: "player", id: lead.id }).catch(() => null) : null;
   const head = lead && lead.kind === "player" ? await cvHead(lead, s.face) : "";
-  const moves = v3 ? "" : await cvMoves(s, st, T);
+  const moves = over ? cvDecide(s) : v3 ? "" : await cvMoves(s, st, T);
   const left = cvLeft(s, lead, pp, cast, peek, head, T);
-  const mid = cvCenter(s, lead, T, key, box);
-  const right = cvRight(s, pp, T, moves, v3, key, box);
+  const mid = cvCenter(s, lead, T, key, over ? null : box);
+  const right = cvRight(s, pp, T, moves, v3 && !over, key, box);
   return `<div class="cv st-room" style="--accent:${esc(colors[0])};--accent-2:${esc(colors[1] || colors[0])}"><i></i><i></i><i></i>
     <div class="cv-grid ${T.room ? "cv-grid-room" : ""} ${(T.right || []).some((x) => x.k === "deal") ? "cv-grid-deal" : ""}"><section class="cv-col st-glass cv-left" data-keep="cvL">${left}</section>
     <section class="cv-col st-glass cv-mid">${mid}</section>
@@ -250,8 +255,21 @@ function cvRight(s, pp, T, moves, v3, key, box) {
   else if (pp) out.push(cvStand(s, pp, T));
   const ideas = T.ideas && T.ideas.length ? cvSection({ k: "ideas", label: "Ideas", note: "A click puts the words in your box to change", items: T.ideas, key }) : "";
   if (box && ideas) out.push(ideas);
-  if (!s.done) out.push(`<div class="cv-foot"><button type="button" class="st-btn small glass ${ppHandCls(s)}" data-act="pphand" data-id="${s.id}" title="See what you give up and what you get first">${esc(ppHandLabel(s))}</button>${cvEnd(s)}</div>`);
+  // While you talk (a v3 talk you've said a line in) the way out is a goodbye, typed
+  // or this button: it ends the meeting with no cost, and what you didn't argue stands.
+  // Before your first line you can still hand the meeting on.
+  const talking = v3 && (s.lines || []).some((l) => l.by === 1);
+  const end = cvEnd(s);
+  const wrap = v3 && !end ? `<button type="button" class="st-btn small glass" data-act="cvdo" data-cmd="talk_wrap" data-args='${esc(JSON.stringify({ id: s.id }))}' title="Say your goodbyes. What you didn't argue stands; nothing is held against you for leaving.">Wrap it up</button>` : "";
+  const hand = talking ? "" : `<button type="button" class="st-btn small glass ${ppHandCls(s)}" data-act="pphand" data-id="${s.id}" title="See what you give up and what you get first">${esc(ppHandLabel(s))}</button>`;
+  if (!s.done) out.push(`<div class="cv-foot">${hand}${end}${wrap}</div>`);
   return out.join("");
+}
+// The decision a talk didn't settle: the meeting's own picks, in full, one click each.
+function cvDecide(s) {
+  const picks = s.picks.filter((p) => p.code !== 900 && p.code !== 969);
+  if (!picks.length) return "";
+  return `<div class="cv-sec cv-move"><div class="cv-h"><em>Still yours to decide</em><span>The talk is over</span></div>${picks.map((p) => `<button type="button" class="cv-opt cv-row" data-act="ppsay" data-id="${s.id}" data-code="${p.code}" title="${esc(p.hint || "")}"><span>${cvT(p.label)}</span></button>`).join("")}</div>`;
 }
 const cvEnd = (s) => {
   const end = s.picks.find((p) => p.code === 900 || p.code === 969);

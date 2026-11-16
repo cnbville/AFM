@@ -100,7 +100,7 @@ Acts: list what the line does, in order. Use only these kinds:
 - bring_in: the coach brings someone into the talk (about). ask_to_leave: the coach asks someone to leave (about).
 - show: what is film, numbers, facility or alumni.
 - answer: the coach answers his ask: what is accept, counter or refuse.
-- end: the coach ends the talk.
+- end: the coach ends the talk: a goodbye or goodnight, \"that's all\", \"thanks for your time\", \"let's pick this up later\", wrapping up or walking out. A sign-off (\"sounds good, see you then\") is an end too; agreeing alone is not.
 - future: the coach tells a player of his where he stands for next year. what is backed (a start or a real role next season, with a physical strength of his named as the reason: value is that strength, one of speed, burst, feet, strength, leaping, size, length or arm; a backed line is also a promise act), no_future (\"you don't have a future here\"), elsewhere (\"you'd play more somewhere else, I'll help you find a place\") or last_choice (\"if you stay, you'll be my last choice\").
 - amend: the coach changes a promise he already made him (tag that promise's item in hits). what is take_back (he takes it back), later (a later date: when is the new date, from the promise list), condition (a condition on it: value is the condition in his words), reason (he tells him the real reason it hasn't happened) or writing (he'll put it in writing).
 Give \"none\" for topic, claim or deal and leave the other fields empty when they don't apply. words: the act's own words, short.

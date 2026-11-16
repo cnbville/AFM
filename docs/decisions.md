@@ -111,6 +111,14 @@ Built from `docs/design/progression.md` and `progression-everyday.md`, both agre
 - The class's drift is fitted with a coach of 10 and rotation snaps.
 - The trims are the design's class-sim values until step 5 sizes them after the physical items. With them, today's 80+ counts run about 2-3 times higher on the class sim (corners 11 to 29 a class).
 
+### Progression update step 3 (built 2026-11-15)
+Cain's picks (18:29 UTC placement, physical study answers): Strength split into upper body and Lower Body, tied like real (item 4b); the bench at the real slope plus a fixed lifting knack, which fixes minor bug 385 through the slope rather than faster strength (item 4); freaks from the body knack with no wider leash (item 5); the normal weight room inside the leashes by the body knack (everyday item 6). How it works: `docs/reference/how-it-works/body.md` and `match-engine.md`, "Upper and lower body". Claude's picks, proposed, not confirmed:
+- The tie: the legs are 0.75 times the upper body's draw plus his own; an old save's legs equal his Strength.
+- Which engine reads take which half (the sort on `match-engine.md`), and each position's split of the old strength weight in the overall (0.4 to 0.6 legs).
+- The within-position bench slope 0.40 reps a point, set so the drafted spread matches the real one on average; each position's offset so its drafted mean is the real one; the lifting knack sd 1.5 reps; the squat and clean without the knack.
+- The weight room's response 0.8 × body knack z, bounded at a whole leash under the typical path and the leash's most over it, front-loaded 0.30/0.25/0.20/0.15/0.10 at 18-22 (burst only at 18-19).
+- Measured with `bench_check`: the college bench gain is +23-29% at the skill spots (real +34%) and +27-31% on the lines (real +18%), and 35+ reps come 0.8 a draft (real 3.4) with the 99 wall still on strength. The wall comes off in step 4 (item 1), and the counts get measured again then.
+
 ## Assumed, not yet confirmed
 - The rest of `docs/design/season-calendar-and-pacing.md` (week-by-week calendar, tension tiers, climax budget) is a draft for section 4.
 

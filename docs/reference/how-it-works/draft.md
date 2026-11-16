@@ -1,6 +1,6 @@
 # The NFL draft: how it works today
 
-Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, the hunt (next update lane 11) on 2026-10-30, L12's league fixes (minor bugs 97, 134) on dd2ece1 on 2026-10-30, and the pick times (minor bug 159) on 2026-10-31. The six-part day (player immersion I1) checked on 2026-11-05, before it merged to main. Early entry (the early entrants lane) checked on 2026-11-14. The CFL's scouts and drafts (SK77) checked over main 24d6db0 on 2026-11-15, before it merged. Live talks lane N5e (a leak told to one GM, your staff's smoke read, the rush's word of you) checked over main 149d810 on 2026-11-15, before it merged.
+Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, the hunt (next update lane 11) on 2026-10-30, L12's league fixes (minor bugs 97, 134) on dd2ece1 on 2026-10-30, and the pick times (minor bug 159) on 2026-10-31. The six-part day (player immersion I1) checked on 2026-11-05, before it merged to main. Early entry (the early entrants lane) checked on 2026-11-14. The CFL's scouts and drafts (SK77) checked over main 24d6db0 on 2026-11-15, before it merged. Live talks lane N5e (a leak told to one GM, your staff's smoke read, the rush's word of you) checked over main 149d810 on 2026-11-15, before it merged. Scheme fit on every board checked over main fe1a33e on 2026-11-15, before it merged.
 
 ## Quick answers
 
@@ -93,7 +93,8 @@ Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, the hunt (ne
 - Hard minimums (SK17): do-not-draft under one of the GM's own lines (`own::ai_minimums`, keyed by the GM; about a third hold one), or at your club under one of yours set to drop.
 - The read itself carries the shared tape tilt, the analytics look, a member club's service list in the fall, area contacts and your word as a college coach (`own::word_lift`) ([scouting.md](scouting.md), "The fresh look").
 - A prospect it never filed: the public grade + 3 × a keyed draw.
-- What it does not read: the GM's position fixation (only the market reads it, `world/pro/market.rs`), the GM's film lean, or the Power's fit weight.
+- Scheme fit (every club, yours too): + 2.0 × the final say's fit weight (coach 1.4, GM 1.0, owner 0.9; `office::Power::fit_weight`) × his fit to the club's own systems as its own file reads him (`readers::read`, then `systems::read_fit` on the attribute centres it has seen). No fit until the file has seen every attribute the systems ask about. Stored per prospect in `Board.fit` (`FIT_BOARD`, `club_fit`; proposed, not confirmed: the market's size). A 3-4 club and a 4-3 club grade the same edge rusher apart this way.
+- What it does not read: the GM's position fixation (only the market reads it, `world/pro/market.rs`) or the GM's film lean.
 
 ## Picking
 
@@ -199,7 +200,7 @@ Checked against main at 7933e49 with update 3 lane 7 on 2026-10-28, the hunt (ne
 
 - The December read's second look reads at accuracy 18 against everyone else's 13 (F4; `world/scouting/predraft.rs`).
 - A quarterback who throws only for some clubs throws for the first twelve in the order and a few his agent picks; the rest see his pro day numbers (F20; `predraft.rs`, `throws_for`). Private workouts wait for it (F22; `world/scouting/dept.rs`, `asks_day`).
-- Your department's instructions reach your board: "Players who fit what we run" adds 3 points a unit of fit, "Lean on the analytics" gives the numbers a voice of 1.1 and a point each for youth, production and testing (F21; `world/pro/scouts.rs`, `seat_fit`, `numbers_lean`; `world/scouting/readers.rs`).
+- Your department's instructions reach your board: "Players who fit what we run" adds 3 points a unit of fit on top of every board's own fit read, "Lean on the analytics" gives the numbers a voice of 1.1 and a point each for youth, production and testing (F21; `world/pro/scouts.rs`, `club_fit`, `numbers_lean`; `world/scouting/readers.rs`).
 - AI boards read medicals: the combine's invitees and a club's top-30 visitors by its own doctors, the rest from the records; a minor concern about 1.5 grade points, a major one 3-6, a failed physical off the board (F23; `scouts.rs`, `medical_cost`).
 - The public analysts' production lean reads his production, not a flat bonus (bug 28; `world/scouting/public.rs`, `desk_grade`).
 
