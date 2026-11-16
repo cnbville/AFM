@@ -438,12 +438,37 @@ pub struct Prog {
     /// The trims still to land, by place in `LIMITED` (everyday item 11).
     #[serde(default)]
     pub pending: u32,
+    /// His body project (design items 1, 2 and 7): 0 none, 1 strength, 2
+    /// speed (`BodyKind`).
+    #[serde(default)]
+    pub body: u8,
+    /// Years on the body project, and what it has added to each of its
+    /// ratings so far (half points, in `BodyKind::ratings` order).
+    #[serde(default)]
+    pub body_years: u8,
+    #[serde(default)]
+    pub body_used: [u8; 5],
+    /// Pounds the strength project has put on him.
+    #[serde(default)]
+    pub body_lbs: u8,
+    /// Your strength staff set it (an AI staff never ends it).
+    #[serde(default)]
+    pub body_yours: bool,
 }
 
 impl Prog {
     /// The skill his project works, if any.
     pub fn project(&self) -> Option<Attr> {
         (self.project > 0).then(|| LIMITED[(self.project as usize - 1).min(LIMITED_COUNT - 1)])
+    }
+
+    /// His body project, if any.
+    pub fn body_project(&self) -> Option<BodyKind> {
+        match self.body {
+            1 => Some(BodyKind::Strength),
+            2 => Some(BodyKind::Speed),
+            _ => None,
+        }
     }
 }
 
@@ -1007,6 +1032,8 @@ pub fn ai_keeps(p: &Player) -> bool {
 pub enum Change {
     End,
     Start(Attr),
+    EndBody,
+    StartBody(BodyKind),
 }
 
 /// An AI staff's projects for one room at the checkpoint (design items 8,
@@ -1028,6 +1055,25 @@ pub fn ai_room(members: &[&Player], room: Room, lean: Lean, eye: f64, scale: f64
                 running += 1;
             } else {
                 out.push((i, Change::End));
+            }
+        }
+    }
+    // The strength staff's body projects (design items 7 and 8): its own
+    // slot a room, on the men whose bodies trail the spot most.
+    if part(PART_BODY) && scale >= 1.0 {
+        let body_running = members.iter().filter(|p| p.prog.body_project().is_some()).count();
+        if body_running < BODY_SLOTS {
+            let best = members
+                .iter()
+                .enumerate()
+                .filter(|(_, p)| p.prog.drawn && p.prog.body_project().is_none() && p.age <= BODY_UNTIL - 2)
+                .map(|(i, p)| (i, body_bet(p, eye, &mut r)))
+                .filter(|c| c.1 >= BODY_BET_FLOOR)
+                .max_by(|a, b| a.1.total_cmp(&b.1));
+            if let Some((i, _)) = best
+                && r.chance(lean.fill())
+            {
+                out.push((i, Change::StartBody(BodyKind::Strength)));
             }
         }
     }
@@ -1065,6 +1111,10 @@ pub fn apply(p: &mut Player, c: Change) {
         Change::Start(a) => {
             start_project(p, a, false);
         }
+        Change::EndBody => end_body(p),
+        Change::StartBody(k) => {
+            start_body(p, k, false);
+        }
     }
 }
 
@@ -1077,6 +1127,17 @@ pub fn ai_single(p: &mut Player, lean: Lean, eye: f64, hs: bool, coaching: f64) 
     }
     ensure(p);
     let mut r = stream(p.id, 0x5E1 ^ p.age.wrapping_mul(0x3B));
+    // A college strength staff's body project: about one a room at a time
+    // (`BODY_SLOTS`), so a man's chance a year is about a room's share.
+    if !hs
+        && part(PART_BODY)
+        && p.prog.body_project().is_none()
+        && p.age <= BODY_UNTIL - 2
+        && body_bet(p, eye, &mut r) >= BODY_BET_FLOOR
+        && r.chance(0.08 * lean.fill())
+    {
+        start_body(p, BodyKind::Strength, false);
+    }
     if p.prog.project().is_some() {
         if !(p.prog.yours || ai_keeps(p)) {
             end_project(p);
@@ -1097,6 +1158,196 @@ pub fn ai_single(p: &mut Player, lean: Lean, eye: f64, hs: bool, coaching: f64) 
         start_project(p, a, false);
     }
 }
+
+// ---------------------------------------------------------------------------
+// Body projects (design items 1, 2, 7, 8 and 11)
+// ---------------------------------------------------------------------------
+
+/// A body project: the strength staff rebuilding his body. Strength is the
+/// long leash (both halves, balance and up to 25 lb), speed the short one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum BodyKind {
+    Strength,
+    Speed,
+}
+
+impl BodyKind {
+    /// The ratings it moves and the most each takes for a big responder
+    /// (design item 2's leashes).
+    pub fn ratings(self) -> &'static [(Attr, f64)] {
+        match self {
+            BodyKind::Strength => &[(Attr::Strength, 14.0), (Attr::LowerBody, 14.0), (Attr::Balance, 3.0)],
+            BodyKind::Speed => &[
+                (Attr::Speed, 1.0),
+                (Attr::Acceleration, 1.5),
+                (Attr::Jumping, 1.5),
+                (Attr::Agility, 2.0),
+                (Attr::Flexibility, 2.0),
+            ],
+        }
+    }
+
+    fn code(self) -> u8 {
+        match self {
+            BodyKind::Strength => 1,
+            BodyKind::Speed => 2,
+        }
+    }
+}
+
+/// The most a strength project puts on him (design item 2): 25 lb past
+/// where the weight room takes him.
+pub const BODY_LBS: f64 = 25.0;
+
+/// Pounds a point of strength ceiling built carries on a 190 lb frame,
+/// more on a bigger one by his frame weight, so the design's lanky
+/// receiver carries about 15 lb for his 14 and a big responder at tackle
+/// reaches the 25 (proposed, not confirmed).
+pub const BODY_LBS_PER_POINT: f64 = 1.2;
+
+/// The share of what's left of a body project's leash a year closes with a
+/// typical strength staff, so a big responder reaches about his whole
+/// leash in four years (design's lanky receiver: about +14 strength).
+/// Proposed, not confirmed.
+pub const BODY_YEAR: f64 = 0.45;
+
+/// The body clock (design item 11): strength builds to about 24-25, so a
+/// body project stops after 25 whatever his level.
+pub const BODY_UNTIL: u32 = 25;
+
+/// A body project year's extra wear (design item 7: more injury risk and
+/// less in the tank). Proposed, not confirmed.
+pub const BODY_WEAR: f64 = 0.25;
+
+/// How much of a body leash his body knack opens (design item 2: about 7
+/// of strength's 14 for a typical responder, all of it for a big one,
+/// close to none for a non-responder): Φ(1.2 z).
+pub fn body_share(z: f64) -> f64 {
+    crate::athlete::phi(1.2 * z)
+}
+
+/// How far his frame lets a strength project go (design item 2: his
+/// height, arms and frame weight): a tall, light frame for his position
+/// has the most to fill, a short, heavy one the least, 0.6 to 1.05 (so a
+/// lanky big responder's strength leash is the design's 14). Proposed, not
+/// confirmed.
+pub fn frame_room(p: &Player) -> f64 {
+    let (hm, hs, wm, ws) = crate::body::combine_size(p.position);
+    let hz = (p.body.height - hm) / hs.max(0.5);
+    let wz = (p.body.frame_weight - wm) / ws.max(1.0);
+    let az = (p.body.arm - 0.425 * p.body.height) / 0.8;
+    clamp(1.0 + 0.15 * (hz - wz) + 0.05 * az, 0.6, 1.05)
+}
+
+/// The most this body project can add to a rating for him.
+pub fn body_leash(p: &Player, kind: BodyKind, most: f64) -> f64 {
+    let frame = if kind == BodyKind::Strength { frame_room(p) } else { 1.0 };
+    most * body_share(body_knack(p)) * frame
+}
+
+/// Starts a body project (you, or an AI strength staff's pick).
+pub fn start_body(p: &mut Player, kind: BodyKind, yours: bool) -> bool {
+    if p.position.is_specialist() || p.age > BODY_UNTIL {
+        return false;
+    }
+    ensure(p);
+    if p.prog.body_project() != Some(kind) {
+        p.prog.body_years = 0;
+        p.prog.body_used = [0; 5];
+        p.prog.body_lbs = 0;
+    }
+    p.prog.body = kind.code();
+    p.prog.body_yours = yours;
+    true
+}
+
+/// Ends his body project (what it built stays).
+pub fn end_body(p: &mut Player) {
+    p.prog.body = 0;
+    p.prog.body_yours = false;
+}
+
+/// What a body project year did.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct BodyYear {
+    pub kind: Option<BodyKind>,
+    /// Ceiling points added, all its ratings summed.
+    pub lift: f64,
+    pub lbs: f64,
+}
+
+/// A body project year at his checkpoint (design items 1, 2, 7, 11): each
+/// of its ratings' ceilings closes `BODY_YEAR` of what's left of his leash
+/// there, by his strength staff (`coach_mult`) and U(0.7, 1.3); a strength
+/// project also puts on the pounds the strength built carries
+/// (`BODY_LBS_PER_POINT`, at most `BODY_LBS`), with what each pound does to
+/// a body (`training::seat::body_change`). It runs on the body's clock, not
+/// the school's, and a year away from the staff does nothing. His wear
+/// rises `BODY_WEAR` a year. A full leash ends it.
+pub(crate) fn body_year(p: &mut Player, level: Level, strength_staff: f64, trouble: bool) -> BodyYear {
+    let Some(kind) = p.prog.body_project() else { return BodyYear::default() };
+    if !part(PART_BODY) || p.age > BODY_UNTIL || p.position.is_specialist() {
+        end_body(p);
+        return BodyYear::default();
+    }
+    if trouble || level == Level::HS && !p.prog.body_yours {
+        return BodyYear { kind: Some(kind), ..BodyYear::default() };
+    }
+    ensure(p);
+    let mut r = stream(p.id, 0xB0D7 ^ p.age.wrapping_mul(0x2D1));
+    let pace = BODY_YEAR * coach_mult(strength_staff) * r.range(0.7, 1.3);
+    let mut lift = 0.0;
+    let mut left_all = 0.0;
+    for (k, &(a, most)) in kind.ratings().iter().enumerate() {
+        let leash = body_leash(p, kind, most);
+        let used = p.prog.body_used[k] as f64 / 2.0;
+        let left = (leash - used).max(0.0);
+        let add = (left * pace).min(left);
+        p.ceilings.add(a, add);
+        p.prog.body_used[k] = ((used + add) * 2.0).round().clamp(0.0, 255.0) as u8;
+        lift += add;
+        left_all += left - add;
+    }
+    let mut lbs = 0.0;
+    if kind == BodyKind::Strength {
+        let built = (p.prog.body_used[0] as f64 + p.prog.body_used[1] as f64) / 4.0;
+        let room = (built * BODY_LBS_PER_POINT * p.body.frame_weight / 190.0).min(BODY_LBS);
+        let done = p.prog.body_lbs as f64;
+        lbs = (room.floor() - done).max(0.0);
+        if lbs > 0.0 {
+            crate::training::seat::body_change(p, lbs);
+            p.prog.body_lbs = (done + lbs).clamp(0.0, 255.0) as u8;
+        }
+    }
+    p.wear += BODY_WEAR;
+    p.prog.body_years = p.prog.body_years.saturating_add(1);
+    if left_all < 0.5 && !p.prog.body_yours {
+        end_body(p);
+    }
+    BodyYear { kind: Some(kind), lift, lbs }
+}
+
+/// An AI strength staff's read of how far his body trails what his spot
+/// asks of it (design item 13: from its own read, never true values): the
+/// typical college starter's upper and lower strength at his position less
+/// his, with the staff's error, times his frame's room. 0 for a man who
+/// doesn't trail.
+pub fn body_bet(p: &Player, eye: f64, r: &mut Rng) -> f64 {
+    let typ = |a: Attr| crate::game::synthetic::typical_starter(Level::FBS, p.position, a);
+    let gap = 0.5 * (typ(Attr::Strength) - p.attributes.get(Attr::Strength))
+        + 0.5 * (typ(Attr::LowerBody) - p.attributes.get(Attr::LowerBody));
+    let err = r.normal(0.0, 6.0 * (1.5 - clamp(eye / 20.0, 0.0, 1.0)));
+    ((gap + err) * frame_room(p)).max(0.0)
+}
+
+/// A gap that's worth a strength project to an AI staff (proposed, not
+/// confirmed).
+pub const BODY_BET_FLOOR: f64 = 8.0;
+
+/// Body projects an AI program's strength staff runs a year for a room
+/// (design item 8: the strength staff, not the room, limits them; one a
+/// room, about nine a program, proposed, not confirmed).
+pub const BODY_SLOTS: usize = 1;
 
 // ---------------------------------------------------------------------------
 // The trims (everyday item 11)

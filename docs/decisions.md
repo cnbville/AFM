@@ -119,6 +119,13 @@ Cain's picks (18:29 UTC placement, physical study answers): Strength split into 
 - The weight room's response 0.8 × body knack z, bounded at a whole leash under the typical path and the leash's most over it, front-loaded 0.30/0.25/0.20/0.15/0.10 at 18-22 (burst only at 18-19).
 - Measured with `bench_check`: the college bench gain is +23-29% at the skill spots (real +34%) and +27-31% on the lines (real +18%), and 35+ reps come 0.8 a draft (real 3.4) with the 99 wall still on strength. The wall comes off in step 4 (item 1), and the counts get measured again then.
 
+### Progression update step 3c, body projects (built 2026-11-16)
+Design items 1, 2, 7, 8 and 11 (`docs/design/progression.md`): a strength or speed project on its own leash, the body knack deciding who responds, the frame deciding how far, running beside a skill project at the price of wear, limited by the strength staff, on the body's clock. How it works: `docs/reference/how-it-works/progression.md`, "Body projects". Claude's picks, proposed, not confirmed:
+- The leash share Φ(1.2 × body knack z) (half the leash for a typical responder, nearly all for a big one) and the frame's room 0.6 to 1.05 from height, frame weight and arms against the position's combine sizes.
+- A year closes 0.45 of what's left of the leash, by the strength staff and U(0.7, 1.3); 0.25 wear a year.
+- Pounds follow the strength built: 1.2 lb a point on a 190 lb frame, scaled by frame weight, at most 25.
+- AI staffs: one body project a room at a time in college and the NFL, on the man whose strength trails the typical FBS starter at his spot most (a read of 8+); none run by AI high school staffs.
+
 ## Assumed, not yet confirmed
 - The rest of `docs/design/season-calendar-and-pacing.md` (week-by-week calendar, tension tiers, climax budget) is a draft for section 4.
 
