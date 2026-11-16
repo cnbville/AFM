@@ -294,6 +294,10 @@ pub enum Request {
     Scout(u32),
     /// Your scout or security director: find this out about him (lane N5e).
     FindOut(u32, super::knows::Topic),
+    /// A coach or staff man: give you his read on a player (whether to
+    /// keep, cut, start or move him), from his own looks
+    /// (`persona::evaluate`).
+    Evaluate(u32),
     /// A prospect in your interview room: go to the whiteboard (lane N5e).
     Whiteboard,
     /// A GM or an agent: plant word that you like this man (lane N5e).
