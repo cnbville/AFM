@@ -8877,6 +8877,9 @@ struct Shop<'a> {
     norms: &'a super::systems::SystemNorms,
     pwant: Option<&'a fo::college::PortalWants>,
     bonds: &'a std::collections::HashMap<(u32, usize), f64>,
+    /// Entrants a placement call made a staff look at (Ground's favors,
+    /// lane G11b; empty while they are switched off).
+    looked: &'a std::collections::HashSet<(u32, usize)>,
     counted: &'a [usize],
     adds: &'a [usize],
     season: i32,
@@ -9001,7 +9004,7 @@ fn suitors(
             let prog = &wr.programs[j];
             let near =
                 prog.footprint[wr.people[i].home_state] >= SMALL_PORTAL_REACH || prog.state == wr.programs[c].state;
-            if small && !near && bond == 0.0 {
+            if small && !near && bond == 0.0 && !s.looked.contains(&(wr.people[i].player.id, j)) {
                 return None;
             }
             // A dismissed player starts over a level down or at JUCO; a
@@ -9392,6 +9395,7 @@ fn portal_ranked_hosts(w: &World, i: usize, swap: Option<(usize, f64)>) -> (Vec<
     let followed = w.coach_follows.iter().find(|f| f.0 == id).map(|f| f.1);
     let pwant = fo::college::portal_wants(w);
     let mut bonds = super::folk::backchannel::bonds(w);
+    let looked = super::ground::favors::looked(w);
     for &(pid, j, b) in &w.coach_follows {
         let x = bonds.entry((pid, j)).or_insert(0.0);
         *x = x.max(b as f64);
@@ -9412,6 +9416,7 @@ fn portal_ranked_hosts(w: &World, i: usize, swap: Option<(usize, f64)>) -> (Vec<
         norms: &w.system_norms,
         pwant: pwant.as_ref(),
         bonds: &bonds,
+        looked: &looked,
         counted: &counted,
         adds: &adds,
         season: mk.season,
@@ -9530,6 +9535,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
     // him; so does a head coach who took a new job and wants him along
     // (minor bug 86).
     let mut bonds = super::folk::backchannel::bonds(w);
+    let looked = super::ground::favors::looked(w);
     for &(id, j, b) in &w.coach_follows {
         let e = bonds.entry((id, j)).or_insert(0.0);
         *e = e.max(b as f64);
@@ -9597,6 +9603,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                 norms: &norms,
                 pwant: pwant.as_ref(),
                 bonds: &bonds,
+                looked: &looked,
                 counted: &counted,
                 adds: &today_adds,
                 season,

@@ -155,6 +155,12 @@ pub struct WorldOptions {
     /// A/B test's switches (items 14-16).
     #[serde(default)]
     pub results: crate::results::Mode,
+    /// Ground's favor economy (lane G11b, GR61): placing kids builds
+    /// standing. Off in every world until the 30-year trial (lane G12)
+    /// shows each tier gains while the top 10's share of the top 300
+    /// doesn't rise; with it off, placing a kid works as before.
+    #[serde(default)]
+    pub favors: bool,
 }
 
 impl Default for WorldOptions {
@@ -172,6 +178,7 @@ impl Default for WorldOptions {
             yearly_growth: false,
             stop_jan1: false,
             results: crate::results::Mode::default(),
+            favors: false,
         }
     }
 }
