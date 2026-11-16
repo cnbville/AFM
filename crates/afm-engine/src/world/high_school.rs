@@ -107,6 +107,11 @@ pub struct HighSchool {
     pub roster: Vec<usize>,
     pub seasons: Vec<HsSeason>,
     pub state_titles: u32,
+    /// The chain reaction (Ground GR21): where its old players are and its
+    /// prestige by year. Empty in a world saved before it, until
+    /// `chain_after_load` fills its start.
+    #[serde(default)]
+    pub chain: Chain,
 }
 
 impl HighSchool {
@@ -133,6 +138,15 @@ pub struct TransferRule {
     pub sit_out: f64,
     /// A one-time free transfer exists.
     pub free_once: bool,
+    /// A bona fide family move into the new school's district makes him
+    /// eligible at once (every state but Arizona, whose transfers sit "even
+    /// with a residence change"). True in a world saved before it.
+    #[serde(default = "yes")]
+    pub move_exempt: bool,
+}
+
+fn yes() -> bool {
+    true
 }
 
 pub fn transfer_rule(summary: &str) -> TransferRule {
@@ -152,7 +166,8 @@ pub fn transfer_rule(summary: &str) -> TransferRule {
     } else {
         0.25
     };
-    TransferRule { sit_out, free_once }
+    let move_exempt = !s.contains("even with a residence change");
+    TransferRule { sit_out, free_once, move_exempt }
 }
 
 #[derive(Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -371,6 +386,7 @@ pub fn generate_state_schools(
             roster: Vec::new(),
             seasons: Vec::new(),
             state_titles: 0,
+            chain: Chain::new(prestige),
         });
     }
     // Classifications by enrollment, biggest first, as in most states.
@@ -381,4 +397,209 @@ pub fn generate_state_schools(
         schools[i].classification = (rank * classes / schools.len().max(1)) as u32;
     }
     schools
+}
+
+/// The chain reaction (Ground GR21, Cain's idea): a high school whose old
+/// players do well in college and the NFL climbs, and one that stops
+/// producing slowly falls back. Its prestige is its exposure to the
+/// services and the staffs (`recruiting::recruit_visibility`) and what draws
+/// transfers and move-ins (`recruiting::high_school_transfers`), so the
+/// climb feeds itself through the kids, never by a flat rule.
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct Chain {
+    /// Its prestige when the world began: its name from the build. The
+    /// state's ladder of places is the set of its schools' starts, so a
+    /// state keeps its number of powerhouses while who holds them moves.
+    pub start: f64,
+    /// A lasting lift on top of what its players earn (the stadium your
+    /// town paid for, `legacy::hs`).
+    pub lift: f64,
+    /// This June's alumni score (`alumni_value`) and what it counts: old
+    /// players in college, at power programs, and in the NFL.
+    pub made: f32,
+    pub college: u16,
+    pub power: u16,
+    pub nfl: u16,
+    /// Its prestige each June 15, after the step: (year, prestige).
+    pub years: Vec<(i32, f32)>,
+}
+
+impl Chain {
+    pub fn new(prestige: f64) -> Chain {
+        Chain { start: prestige, ..Default::default() }
+    }
+}
+
+/// How far a school moves toward the prestige its players earn each June:
+/// a climb takes hold faster than a name fades (proposed, not confirmed:
+/// 15% of the gap a year up, about half the way in four years; 8% down,
+/// half the way in eight).
+pub const CLIMB_UP: f64 = 0.15;
+pub const CLIMB_DOWN: f64 = 0.08;
+
+/// What one old player is worth to his high school's name this June
+/// (proposed, not confirmed): in college, 1.0 at a power program, 0.6 in
+/// the rest of FBS, 0.3 in FCS and 0.1 lower, half again as much if he
+/// started last season; in the NFL, 2.0 on a roster or injured reserve,
+/// 3.0 if he started half of last season, 0.8 on a practice squad, 0.3 in
+/// another league. Players out of football count nothing: a school lives
+/// on the ones still playing. Returns the value, and whether he is at a
+/// power program and whether in the NFL.
+pub fn alumni_value(w: &super::World, p: &super::Person) -> Option<(f64, bool, bool)> {
+    use super::Stage;
+    use super::data::Division;
+    use super::pro::Status;
+    match p.stage {
+        Stage::College | Stage::Declared => {
+            let c = &w.programs[p.college?];
+            let power = c.division == Division::FBS && c.power_conference(w.year);
+            let level = match c.division {
+                Division::FBS if power => 1.0,
+                Division::FBS => 0.6,
+                Division::FCS => 0.3,
+                _ => 0.1,
+            };
+            let started = p.last_role == Some(crate::player::PlayingTime::Starter);
+            Some((level * if started { 1.5 } else { 1.0 }, power, false))
+        }
+        Stage::Pro => {
+            let pro = p.pro.as_ref()?;
+            let v = match pro.status {
+                Status::Roster | Status::Reserve if pro.team.is_some() => {
+                    let starts = pro.seasons.last().map_or(0, |s| s.starts);
+                    if starts >= 9 { 3.0 } else { 2.0 }
+                }
+                Status::PracticeSquad if pro.team.is_some() => 0.8,
+                Status::Other(_) => 0.3,
+                _ => return None,
+            };
+            Some((v, false, matches!(pro.status, Status::Roster | Status::Reserve | Status::PracticeSquad)))
+        }
+        _ => None,
+    }
+}
+
+/// The chain reaction's step, each June 15 before the transfers: every
+/// school's old players are counted, each state's schools are ranked by
+/// them, and each school moves toward the place on the state's ladder its
+/// rank earns (ties keep today's order). It reads only the world, draws
+/// nothing, and posts a line when a school becomes a powerhouse or stops
+/// being one.
+pub(crate) fn climb(w: &mut super::World) {
+    use rayon::prelude::*;
+    let n = w.high_schools.len();
+    let found: Vec<(usize, f64, bool, bool)> = w
+        .people
+        .par_iter()
+        .with_min_len(4096)
+        .filter_map(|p| alumni_value(w, p).map(|(v, power, nfl)| (p.hs, v, power, nfl)))
+        .collect();
+    let mut made = vec![(0.0f64, 0u16, 0u16, 0u16); n];
+    for (h, v, power, nfl) in found {
+        if let Some(m) = made.get_mut(h) {
+            m.0 += v;
+            if nfl {
+                m.3 = m.3.saturating_add(1);
+            } else {
+                m.1 = m.1.saturating_add(1);
+                m.2 = m.2.saturating_add(power as u16);
+            }
+        }
+    }
+    let year = w.year;
+    let mut news: Vec<(usize, bool)> = Vec::new();
+    for s in 0..w.states.len() {
+        let schools = &w.states[s].schools;
+        if schools.is_empty() {
+            continue;
+        }
+        let mut ladder: Vec<f64> = schools.iter().map(|&h| w.high_schools[h].chain.start).collect();
+        ladder.sort_by(|a, b| b.total_cmp(a));
+        let mut order = schools.clone();
+        order.sort_by(|&a, &b| {
+            made[b]
+                .0
+                .total_cmp(&made[a].0)
+                .then(w.high_schools[b].prestige.total_cmp(&w.high_schools[a].prestige))
+                .then(a.cmp(&b))
+        });
+        for (rank, &h) in order.iter().enumerate() {
+            let school = &mut w.high_schools[h];
+            let earned = (ladder[rank] + school.chain.lift).min(1.0);
+            let was = school.prestige;
+            let rate = if earned > was { CLIMB_UP } else { CLIMB_DOWN };
+            school.prestige = clamp(was + rate * (earned - was), 0.02, 1.0);
+            let (v, college, power, nfl) = made[h];
+            school.chain.made = v as f32;
+            school.chain.college = college;
+            school.chain.power = power;
+            school.chain.nfl = nfl;
+            school.chain.years.push((year, school.prestige as f32));
+            if (was >= 0.75) != school.is_powerhouse() {
+                news.push((h, school.is_powerhouse()));
+            }
+        }
+    }
+    if w.recording {
+        let d = super::hs_year::transfer_day(year);
+        for (h, up) in news {
+            let school = &w.high_schools[h];
+            let name = w.school_name(h).to_string();
+            let code = &w.states[school.state].code;
+            let (college, nfl) = (school.chain.college, school.chain.nfl);
+            let text = if up {
+                format!(
+                    "{name} is now one of {code}'s powerhouses: {college} of its old players are in college and {nfl} in the NFL."
+                )
+            } else {
+                format!(
+                    "{name} has slipped out of {code}'s powerhouses: {college} of its old players are in college and {nfl} in the NFL."
+                )
+            };
+            let e = crate::calendar::Event::new(
+                d,
+                crate::calendar::Level::HighSchool,
+                crate::calendar::Kind::News,
+                crate::calendar::Loudness::Small,
+                text,
+            )
+            .link(crate::calendar::Link::School(h as u32), &name);
+            w.calendar.post(e);
+        }
+    }
+}
+
+/// A world saved before the chain reaction: each school's start is its
+/// prestige, which never moved before it.
+pub(crate) fn chain_after_load(w: &mut super::World) {
+    for h in w.high_schools.iter_mut() {
+        if h.chain.start <= 0.0 {
+            h.chain.start = h.prestige;
+        }
+    }
+}
+
+/// Its prestige in a past June, when the chain kept it; today's otherwise.
+pub fn prestige_in(h: &HighSchool, year: i32) -> f64 {
+    h.chain.years.iter().find(|y| y.0 == year).map_or(h.prestige, |y| y.1 as f64)
+}
+
+/// The why of its climb or fall in words, for the school page and the
+/// trial: where it stood, where it stands and what its old players are
+/// doing.
+pub fn chain_why(h: &HighSchool, since: i32) -> String {
+    let then = prestige_in(h, since);
+    let now = h.prestige;
+    let c = &h.chain;
+    let move_word = if now > then + 0.02 {
+        "climbed"
+    } else if now < then - 0.02 {
+        "fell back"
+    } else {
+        "held"
+    };
+    format!(
+        "{move_word} from {:.2} in {since} to {:.2}: {} old players in college ({} at power programs) and {} in the NFL",
+        then, now, c.college, c.power, c.nfl
+    )
 }

@@ -1614,6 +1614,8 @@ impl World {
             g.teams.iter().all(|&t| t < n)
         });
         super::scouting::after_load(self);
+        // The chain reaction (Ground GR21): each school's start.
+        super::high_school::chain_after_load(self);
         self.fill_final_build_fields();
         // Faces (F3, F4): looks numbers and the Asian groups for an older file.
         self.faces_after_load();

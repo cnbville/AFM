@@ -6,6 +6,7 @@ mod assignments;
 mod bodies;
 mod carousel;
 mod cfl_draft;
+mod chain;
 mod claims;
 mod coach_market;
 mod coaching_people;

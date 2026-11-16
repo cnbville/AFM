@@ -319,6 +319,8 @@ pub(crate) fn day(w: &mut World, d: Date) {
             }
         }
         w.high_schools[h].prestige = (w.high_schools[h].prestige + 0.03).min(1.0);
+        // It lasts: the chain reaction adds it on top of what the players earn.
+        w.high_schools[h].chain.lift += 0.03;
         memo(
             w,
             "legacy-bond-open",
