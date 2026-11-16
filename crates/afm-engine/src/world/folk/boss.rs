@@ -48,6 +48,10 @@ pub enum GoalKind {
     /// A season term you bargained (lane N2; `terms.rs`): a rank, wins, a
     /// postseason, a title, a player's season.
     Measure(super::usage::Usage),
+    /// A recruiting goal from the list of 63 (Ground lane G6,
+    /// `ground::campaign::goals`): the one or two he holds you to in his
+    /// talk after signing day.
+    Campaign(crate::world::ground::campaign::goals::Aim),
 }
 
 impl GoalKind {
@@ -82,6 +86,13 @@ impl GoalKind {
                     super::usage::What::Rank => format!("finish {s}"),
                     _ => format!("reach {s}"),
                 }
+            }
+            GoalKind::Campaign(a) => {
+                let d = a.def();
+                let name = d.name.replace("{n}", &a.n.to_string());
+                let mut c = name.chars();
+                let name = c.next().map_or(String::new(), |f| f.to_lowercase().collect::<String>() + c.as_str());
+                format!("meet the class goal you agreed: {name}")
             }
         }
     }
@@ -303,7 +314,11 @@ pub(crate) fn draft_goals(w: &World, team: Team) -> Vec<GoalKind> {
             if avg_wp > 0.7 {
                 v.push(GoalKind::Title);
             }
-            v.push(GoalKind::Recruiting(if avg_wp > 0.6 { 3 } else { 6 }));
+            // His class goal came in his talk after signing day when he
+            // held you to one there (Ground lane G6).
+            if !crate::world::ground::campaign::ad_set(w, goal_season(w, team)) {
+                v.push(GoalKind::Recruiting(if avg_wp > 0.6 { 3 } else { 6 }));
+            }
             v.push(GoalKind::Grades);
         }
         _ => {
@@ -418,6 +433,11 @@ fn meeting_open(w: &mut World, s: &mut Scene) {
             }
         }
         2 => review_open(w, s, team, &b, &mut pen, &mut f),
+        crate::world::ground::campaign::talk::CODE => {
+            pen.put(w);
+            crate::world::ground::campaign::talk::open(w, s, team);
+            return;
+        }
         3 => {
             // You asked for the meeting: he gives you the time and waits.
             s.narrate(format!(
@@ -550,6 +570,7 @@ fn why_goal(w: &World, team: Team, g: GoalKind) -> String {
         GoalKind::Develop => "A rebuild: he wants to see the young players grow.".into(),
         GoalKind::Crowds => "Empty seats are lost money, and he counts it.".into(),
         GoalKind::Measure(_) => "It's the bar you agreed with him.".into(),
+        GoalKind::Campaign(_) => "He set it the day after signing day.".into(),
     }
 }
 
@@ -697,6 +718,7 @@ pub fn goal_met(w: &World, team: Team, k: GoalKind, season: i32) -> bool {
         GoalKind::Develop => true,
         GoalKind::Crowds => s.wins * 2 >= s.losses * 2,
         GoalKind::Measure(u) => super::terms::met(w, super::terms::Who::Team(team), &u, season) == Some(true),
+        GoalKind::Campaign(a) => crate::world::ground::campaign::met(w, team, &a),
     }
 }
 
@@ -754,6 +776,10 @@ fn meeting_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         s.end();
         return;
     };
+    if s.c == crate::world::ground::campaign::talk::CODE {
+        crate::world::ground::campaign::talk::answer(w, s, code, picked);
+        return;
+    }
     let b = boss(w, team);
     s.you(&scene::your_name(w), picked.label.clone());
     let season = goal_season(w, team);
@@ -1134,6 +1160,10 @@ pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
 }
 
 pub(crate) fn hand(w: &mut World, s: &mut Scene) {
+    if s.c == crate::world::ground::campaign::talk::CODE {
+        crate::world::ground::campaign::talk::hand(w, s);
+        return;
+    }
     let Some(team) = s.team.or(Team::seat(w)) else { return };
     let b = boss(w, team);
     w.folk.mine.nudge(b.key(), -0.06);

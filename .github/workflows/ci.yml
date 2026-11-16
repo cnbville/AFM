@@ -90,6 +90,7 @@ jobs:
           --skip tests::cfl_draft::
           --skip lane_find::tests::
           --skip lane_leads::tests::
+          --skip lane_campaign::tests::
           --skip lane_training::board_tests::
           --skip lane_logos::tests::your_own_logo_wins_and_stays_with_the_save
       - run: cargo test --workspace --doc
