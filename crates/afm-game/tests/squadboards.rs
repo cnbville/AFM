@@ -8,6 +8,7 @@
 
 mod common;
 
+use afm_engine::attributes::ATTRIBUTE_COUNT;
 use afm_game::Game;
 use serde_json::{Value, json};
 
@@ -156,7 +157,9 @@ fn projected(level: &str, body: &Value) {
         assert_eq!(t["scores"].as_array().map(Vec::len), Some(3), "{level}");
         for r in rows {
             let Some(v) = r["value"].as_f64() else { continue };
-            assert!(v.is_finite() && v > 0.0, "{level}: {} {v}", r["key"]);
+            // A weak lifter can't put up 225 once: no reps is a real bench.
+            let least = if r["key"] == "reps" { 0.0 } else { f64::MIN_POSITIVE };
+            assert!(v.is_finite() && v >= least, "{level}: {} {v}", r["key"]);
         }
         let forty = rows.iter().find(|r| r["key"] == "forty").unwrap();
         let v = forty["value"].as_f64().expect("a projected forty");
@@ -180,7 +183,11 @@ fn quick_filter(level: &str, v: &Value) {
         .iter()
         .flat_map(|g| g["fields"].as_array().unwrap())
         .collect();
-    assert_eq!(fields.iter().filter(|f| f["kind"] == "read").count(), 68, "{level}: the rating and the 67 attributes");
+    assert_eq!(
+        fields.iter().filter(|f| f["kind"] == "read").count(),
+        1 + ATTRIBUTE_COUNT,
+        "{level}: the rating and every attribute"
+    );
     assert!(fields.iter().any(|f| f["label"] == "Speed"), "{level}");
     for f in &fields {
         let l = f["label"].as_str().unwrap().to_lowercase();
@@ -188,7 +195,7 @@ fn quick_filter(level: &str, v: &Value) {
     }
     for r in v["rows"].as_array().unwrap() {
         let a = r["attrs"].as_array().unwrap_or_else(|| panic!("{level}: {} has no attributes", r["name"]));
-        assert_eq!(a.len(), 67, "{level}");
+        assert_eq!(a.len(), ATTRIBUTE_COUNT, "{level}");
         for x in a.iter().filter(|x| !x.is_null()) {
             let (lo, hi) = (x[0].as_f64().unwrap(), x[1].as_f64().unwrap());
             let least = if lo <= 1.0 || hi >= 99.0 { 1.0 } else { 2.0 };
@@ -866,7 +873,11 @@ fn the_boards_at_every_seat() {
         assert_eq!(rows.len(), 1, "the season's middles are kept with the read");
         let r = &rows[0];
         assert_eq!((r.season, r.pos), (kept.season, kept.pos));
-        assert_eq!((r.staff.len(), r.mine.len()), (67, 67), "one middle for each skill, both sources");
+        assert_eq!(
+            (r.staff.len(), r.mine.len()),
+            (ATTRIBUTE_COUNT, ATTRIBUTE_COUNT),
+            "one middle for each skill, both sources"
+        );
         assert!(r.staff.iter().any(|&m| m > 0), "the staff's read of a rostered player is kept");
         for k in kept.keys.iter().filter(|k| k[1] > 0) {
             let m = r.mid(false, k[0] as usize).expect("a kept key was seen");
@@ -895,7 +906,8 @@ fn the_boards_at_every_seat() {
         let c = w.career.as_mut().unwrap();
         let mut row = c.kept_attrs_of(id)[0].clone();
         let key0 = kept.keys[0][0] as usize;
-        let skill = (0..67).find(|a| !kept.keys.iter().any(|k| k[0] as usize == *a && k[1] > 0) && row.staff[*a] > 0);
+        let skill = (0..ATTRIBUTE_COUNT)
+            .find(|a| !kept.keys.iter().any(|k| k[0] as usize == *a && k[1] > 0) && row.staff[*a] > 0);
         if let Some(a) = skill {
             row.staff[a] = 20; // half points: a middle of 10, far below any real read
             c.keep_attrs(id, row);

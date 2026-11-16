@@ -6,7 +6,7 @@
 
 mod common;
 
-use afm_engine::attributes::Attr;
+use afm_engine::attributes::{ATTRIBUTE_COUNT, Attr};
 use afm_engine::world::Stage;
 use afm_game::Game;
 use serde_json::{Value, json};
@@ -26,7 +26,7 @@ fn mid(r: &Value) -> Option<f64> {
 /// One answer's rules, whatever the player.
 fn check(v: &Value) {
     let skills = v["skills"].as_array().unwrap();
-    assert_eq!(skills.len(), 67, "all 67 skills");
+    assert_eq!(skills.len(), ATTRIBUTE_COUNT, "every skill");
     let fams = v["default_view"]["families"].as_array().unwrap();
     assert_eq!(fams.len(), 8, "the eight families");
     let also = v["default_view"]["also"].as_array().unwrap();
@@ -137,7 +137,7 @@ fn the_attributes_page_data() {
         let v = ok(&mut g, "attr_view", json!({ "id": q, "with": first }));
         let w = &v["with"];
         assert_eq!(w["id"].as_u64(), Some(first as u64));
-        assert_eq!(w["skills"].as_array().map(Vec::len), Some(67));
+        assert_eq!(w["skills"].as_array().map(Vec::len), Some(ATTRIBUTE_COUNT));
         for gap in w["gaps"].as_array().unwrap() {
             let key = gap["key"].as_str().unwrap();
             let a = v["skills"].as_array().unwrap().iter().find(|s| s["key"] == key).unwrap();
