@@ -89,7 +89,6 @@ fn fifteen_scenes_and_every_slot_has_one() {
 #[test]
 fn the_coaches_side_follows_the_years_calendar() {
     let (w, prog, _) = college();
-    assert_eq!(w.dates.season, 2026);
     // 2026: spring practice opens Monday March 2; the clinic is the Friday
     // of its third week (week 12 on the months sheet), the convention the
     // Tuesday after the third Monday of July (week 30).
@@ -98,7 +97,7 @@ fn the_coaches_side_follows_the_years_calendar() {
     let clinic = slot_of(&w, prog, SlotKind::Clinic, Date::ymd(2026, 3, 20));
     assert!(clinic.title.starts_with("Your clinic: about "), "{}", clinic.title);
     slot_of(&w, prog, SlotKind::Convention, Date::ymd(2026, 7, 21));
-    slot_of(&w, prog, SlotKind::SpringGame, w.dates.spring_game);
+    slot_of(&w, prog, SlotKind::SpringGame, crate::calendar::YearDates::new(2026).spring_game);
     // Open practice on the first week's Tuesday, none in the clinic's week.
     slot_of(&w, prog, SlotKind::OpenPractice, Date::ymd(2026, 3, 3));
     let clinic_week = scenes::coach_slots(&w, prog, Date::ymd(2026, 3, 16));

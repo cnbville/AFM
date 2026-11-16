@@ -542,19 +542,6 @@ fn beats_view(w: &World, year: i32) -> Value {
     json!({ "year": year, "weeks": v })
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn people_keys_go_both_ways() {
-        for who in [Who::Coach(12), Who::Counselor(4), Who::Trainer(9), Who::SevenOnSeven(3)] {
-            assert_eq!(who_arg(Some(&json!(who_key(who)))), Some(who));
-        }
-        assert_eq!(who_arg(Some(&json!("nobody:1"))), None);
-    }
-}
-
 fn played_json(w: &World, prog: Option<usize>, p: &scenes::Played) -> Value {
     json!({
         "date": iso(p.date),
@@ -649,4 +636,17 @@ pub fn scene_part(w: &World, s: &afm_engine::world::folk::scene::Scene) -> Value
         "done": s.done,
         "outcome": s.outcome,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn people_keys_go_both_ways() {
+        for who in [Who::Coach(12), Who::Counselor(4), Who::Trainer(9), Who::SevenOnSeven(3)] {
+            assert_eq!(who_arg(Some(&json!(who_key(who)))), Some(who));
+        }
+        assert_eq!(who_arg(Some(&json!("nobody:1"))), None);
+    }
 }

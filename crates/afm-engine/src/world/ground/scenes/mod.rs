@@ -687,6 +687,7 @@ pub(crate) fn moved(st: &mut State, who: Who, before: Level, after: Level) {
 }
 
 /// A contact with the scene's book keeping the level move.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn touch(
     w: &mut World,
     prog: usize,
