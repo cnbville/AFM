@@ -8,6 +8,27 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.582 (16 Nov, shipped): progression step 4b: drills on real, a jump knack, thin fast 3-cone and shuttle, no printed limits (PR #490), ground lane S5: the person screen (PR #489), ground lane G6: the offseason campaign (PR #493)
+**TLDR:** 3 changes ship together. Combine numbers now look like a real combine: real jump averages by position, the odd explosive leaper, and agility records that are hard to touch. Every coach, trainer and family on your ground now has a page: his face, what he keeps of you in his own words, and what your standing gets you. Plus 1 more below.
+- Progression step 4b: drills on real, a jump knack, thin fast 3-cone and shuttle, no printed limits (PR #490): Combine numbers now look like a real combine: real jump averages by position, the odd explosive leaper, and agility records that are hard to touch.
+- The vertical and broad jump spread like real ones, and strong legs help. (PR #490)
+- Quarterbacks and backs no longer broad jump like receivers. (PR #490)
+- The very fastest 3-cones and shuttles are rare, as they are in real life. (PR #490)
+- Drill results are no longer capped, so a record-breaking day prints as it happened. (PR #490)
+- Ground lane S5: the person screen (PR #489): Every coach, trainer and family on your ground now has a page: his face, what he keeps of you in his own words, and what your standing gets you.
+- Open a coach from the map or a school to see his memory of you, dated, newest first. (PR #489)
+- See your staff's read of how good and how straight he is, and what kind of man he is. (PR #489)
+- See what Known gets you with him, and what Trusted would. (PR #489)
+- See where he stands with every other staff, and who he is tied to. (PR #489)
+- The new People page lists everyone you have dealt with. (PR #489)
+- Ground lane G6: the offseason campaign (PR #493): Your first college spring now has a shape: your AD sets his goals for the class the day after signing day, your coordinator brings his at the February meeting, and the verdict comes the week before your first game.
+- Talk your AD's goals down, take them bigger or ask why, and pick your own from a list of 63. (PR #493)
+- Every Monday you can change your own goal, and your coordinator warns you when one slips. (PR #493)
+- Long shots pay the most when you make them; sure things cost the most when you miss. (PR #493)
+- In your first offseason your coordinator walks you through your ground, three schools at a time, until you send him off. (PR #493)
+- After the verdict, a ground report sums up the spring: your goals, finds, areas and who outworked you. (PR #493)
+- Look at: a draft class's combine results. (PR #490) pick a coach on the map's "Who matters here" list. (PR #489) your coordinator's February meeting memo and the AD's office the day after signing day. (PR #493)
+
 ## 0.2.579 (16 Nov, shipped): ground lane G7: people in full (PR #482), progression step 4a: real body sizes, arms, hands and wingspans, and placement's fractional need (PR #487), ground lane G11a: the high school chain reaction (PR #473), and 1 more
 **TLDR:** 4 changes ship together. The people on your recruiting ground now feel like people: coaches, families, counselors, trainers and 7v7 men each remember you, talk to each other and take what you built with them to their next job. Players now come in the real range of body shapes for their position, so you'll find short-armed tackles, long-armed corners, light receivers and the occasional huge guard. Plus 2 more below.
 - Ground lane G7: people in full (PR #482): The people on your recruiting ground now feel like people: coaches, families, counselors, trainers and 7v7 men each remember you, talk to each other and take what you built with them to their next job.

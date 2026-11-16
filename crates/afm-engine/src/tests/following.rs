@@ -167,3 +167,44 @@ fn a_flip_moves_the_lift() {
     assert!((w.programs[a].grades[be] - base_a).abs() < 1e-6);
     assert!((w.programs[b].grades[be] - base_b - LIFT_TOP).abs() < 1e-6);
 }
+
+/// A college player's honors add to his fame as a pro's do (the college
+/// followings retune): each FBS All-America season and each national award
+/// 0.05, the Heisman 0.15, up to 0.25 in all, and last season's biggest
+/// honor again on top (0.2 for the Heisman, 0.1 for the rest); an FCS
+/// All-America counts half. Honors from before last season add no
+/// "latest" part.
+#[test]
+fn a_college_players_honors_raise_his_fame() {
+    use crate::world::data::Division;
+    let mut w = tiny();
+    let i = w.people.iter().position(|p| p.stage == Stage::HighSchool).unwrap();
+    w.people[i].stage = Stage::College;
+    w.people[i].stars = 3;
+    let id = w.people[i].player.id;
+    let base = crate::world::fame::fame(&w, i);
+    let last = w.year - 1;
+    let add = |w: &mut World, aa: Option<(i32, Division)>, award: Option<(i32, &'static str)>| {
+        let h = w.stats.honors.entry(id).or_default();
+        h.all_america.extend(aa);
+        h.awards.extend(award);
+        crate::world::fame::fame(w, i) - base
+    };
+    // An All-America season two years back: 0.05, nothing for "latest".
+    let d = add(&mut w, Some((last - 1, Division::FBS)), None);
+    assert!((d - 0.05).abs() < 1e-9, "{d}");
+    // Last season's FCS All-America: half the season, and 0.1 as the latest.
+    let d = add(&mut w, Some((last, Division::FCS)), None);
+    assert!((d - (0.075 + 0.1)).abs() < 1e-9, "{d}");
+    // Last season's Heisman: 0.15 more, and the latest becomes 0.2.
+    let d = add(&mut w, None, Some((last, "Heisman Trophy")));
+    assert!((d - (0.225 + 0.2)).abs() < 1e-9, "{d}");
+    // More honors stop at 0.25 for the seasons.
+    let d = add(&mut w, None, Some((last - 1, "Davey O'Brien Award")));
+    assert!((d - (0.25 + 0.2)).abs() < 1e-9, "{d}");
+    // High schoolers read no college honors.
+    w.people[i].stage = Stage::HighSchool;
+    let hs = crate::world::fame::fame(&w, i);
+    w.stats.honors.remove(&id);
+    assert_eq!(hs, crate::world::fame::fame(&w, i));
+}
