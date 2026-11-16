@@ -845,5 +845,55 @@
   "players": true,
   "title": "A world from a newer game says \"update the game\", not a reader error",
   "tldr": "If you open a world made by a newer version of the game, it now tells you plainly to update instead of showing a cryptic error."
+ },
+ "463": {
+  "auto": false,
+  "bullets": [
+   "Say goodbye, goodnight or \"that's all\" and the meeting wraps up, or press Wrap it up.",
+   "Your boss's goals stand as he set them when you don't argue them.",
+   "When a real call is still yours (keeping a holdover, a punishment, a release), the talk ends and that choice waits for you on the page.",
+   "The meeting's old answer buttons stay out of the way while you're talking."
+  ],
+  "h": "fd188bf9725c",
+  "look": "your boss's first meeting. Hear his goals, then say goodnight.",
+  "players": true,
+  "title": "Let a goodbye end a meeting cleanly",
+  "tldr": "You can now end any meeting just by saying goodbye. Nothing is held against you for leaving, and anything you didn't argue stands as it was."
+ },
+ "468": {
+  "auto": false,
+  "bullets": [
+   "A 3-4 club and a 4-3 club now see the same edge rusher or tackle differently.",
+   "Clubs where the head coach has the final say lean hardest on fit; owners a little less than GMs.",
+   "Your own board reads fit too, and \"Players who fit what we run\" still leans on it more."
+  ],
+  "h": "875671985253",
+  "look": "your war room board against the mock drafts, for front-seven players.",
+  "players": true,
+  "title": "Every club's draft board reads scheme fit",
+  "tldr": "Every NFL club now grades draft prospects for its own scheme, so boards split the way real ones do."
+ },
+ "469": {
+  "auto": false,
+  "bullets": [
+   "A player's legs and his upper body are now rated apart: the squat and power clean read the legs, the bench the upper body.",
+   "Leg strength drives blocks, bull rushes and runs after contact, and hand strength wins the hand fight and sheds blocks.",
+   "College strength programs now show on the bench: a receiver can add a third to his max over four years.",
+   "Some players respond to the weight room far better than others, and it shows in their strength and testing numbers."
+  ],
+  "h": "240ea1ff2daa",
+  "look": "your strength coach's testing days over a player's first two college years.",
+  "players": true,
+  "title": "Progression step 3: upper and lower body strength, the bench at the real slope, the weight room by body knack",
+  "tldr": "Players now have separate upper and lower body strength, and the weight room builds some bodies far more than others."
+ },
+ "470": {
+  "auto": true,
+  "bullets": [],
+  "h": "e11bed0e19a4",
+  "look": "",
+  "players": true,
+  "title": "Ground: the spec and the round files",
+  "tldr": "The spec for Ground, the offseason game (college), from the Ground list GR1-GR79, every item agreed by Cain 2026-11-06 to 2026-11-15 (\"Okay start the build\", 2026-11-15 23:47 UTC)."
  }
 }

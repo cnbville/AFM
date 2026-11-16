@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.561", date: "16 Nov", title: "Progression step 3: upper and lower body strength, the bench at the real slope, the weight room by body knack and 2 more",
+    notes: [
+      "You can now end any meeting just by saying goodbye. Nothing is held against you for leaving, and anything you didn't argue stands as it was.",
+      "Say goodbye, goodnight or \"that's all\" and the meeting wraps up, or press Wrap it up.",
+      "Your boss's goals stand as he set them when you don't argue them.",
+      "When a real call is still yours (keeping a holdover, a punishment, a release), the talk ends and that choice waits for you on the page.",
+      "The meeting's old answer buttons stay out of the way while you're talking.",
+      "Every NFL club now grades draft prospects for its own scheme, so boards split the way real ones do.",
+    ],
+  },
+  {
     v: "0.2.558", date: "16 Nov", title: "Progression update steps 1-2: the split ceiling, knacks, skill projects, AI bets, no yearly cap and 2 more",
     notes: [
       "When you tell a player he's your guy and mean it, he weighs it like a real commitment. Players who trust you take it to heart, and empty praise stops piling up.",

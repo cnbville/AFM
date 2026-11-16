@@ -8,6 +8,25 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.561 (16 Nov, shipped): let a goodbye end a meeting cleanly (PR #463), every club's draft board reads scheme fit (PR #468), progression step 3: upper and lower body strength, the bench at the real slope, the weight room by body knack (PR #469)
+**TLDR:** 3 changes ship together. You can now end any meeting just by saying goodbye. Nothing is held against you for leaving, and anything you didn't argue stands as it was. Every NFL club now grades draft prospects for its own scheme, so boards split the way real ones do. Plus 1 more below.
+- Let a goodbye end a meeting cleanly (PR #463): You can now end any meeting just by saying goodbye. Nothing is held against you for leaving, and anything you didn't argue stands as it was.
+- Say goodbye, goodnight or "that's all" and the meeting wraps up, or press Wrap it up. (PR #463)
+- Your boss's goals stand as he set them when you don't argue them. (PR #463)
+- When a real call is still yours (keeping a holdover, a punishment, a release), the talk ends and that choice waits for you on the page. (PR #463)
+- The meeting's old answer buttons stay out of the way while you're talking. (PR #463)
+- Every club's draft board reads scheme fit (PR #468): Every NFL club now grades draft prospects for its own scheme, so boards split the way real ones do.
+- A 3-4 club and a 4-3 club now see the same edge rusher or tackle differently. (PR #468)
+- Clubs where the head coach has the final say lean hardest on fit; owners a little less than GMs. (PR #468)
+- Your own board reads fit too, and "Players who fit what we run" still leans on it more. (PR #468)
+- Progression step 3: upper and lower body strength, the bench at the real slope, the weight room by body knack (PR #469): Players now have separate upper and lower body strength, and the weight room builds some bodies far more than others.
+- A player's legs and his upper body are now rated apart: the squat and power clean read the legs, the bench the upper body. (PR #469)
+- Leg strength drives blocks, bull rushes and runs after contact, and hand strength wins the hand fight and sheds blocks. (PR #469)
+- College strength programs now show on the bench: a receiver can add a third to his max over four years. (PR #469)
+- Some players respond to the weight room far better than others, and it shows in their strength and testing numbers. (PR #469)
+- Look at: your boss's first meeting. Hear his goals, then say goodnight. (PR #463) your war room board against the mock drafts, for front-seven players. (PR #468) your strength coach's testing days over a player's first two college years. (PR #469)
+- Docs and tooling merged too, no game change: Ground: the spec and the round files (PR #470).
+
 ## 0.2.558 (16 Nov, shipped): live talks: one strong line against generic praise (PR #435), the new NIL scheme, lane A: bidding, keep-him offers, NIL Go from the market, refit pots (PR #439), progression update steps 1-2: the split ceiling, knacks, skill projects, AI bets, no yearly cap (PR #456)
 **TLDR:** 3 changes ship together. When you tell a player he's your guy and mean it, he weighs it like a real commitment. Players who trust you take it to heart, and empty praise stops piling up. College money now works like a real market: schools bid for the players they want, and the best players go where they're wanted most. Plus 1 more below.
 - Live talks: one strong line against generic praise (PR #435): When you tell a player he's your guy and mean it, he weighs it like a real commitment. Players who trust you take it to heart, and empty praise stops piling up.
