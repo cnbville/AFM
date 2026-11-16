@@ -3,6 +3,7 @@
 
 mod ai_promises;
 mod assignments;
+mod board_fit;
 mod bodies;
 mod carousel;
 mod cfl_draft;

@@ -525,7 +525,10 @@ pub fn evidence(w: &World, staff: Staff, id: u32) -> (Vec<Reader>, Vec<Evidence>
     {
         raw.extend(f.iter().map(|l| (l.who as u32, Kind::from_nfl(l.kind), l.date)));
     }
-    if let Some(v) = w.scouting.dept.looks.get(&id) {
+    // Your department's looks are in your staff's file only.
+    if seat_staff(w) == Some(staff)
+        && let Some(v) = w.scouting.dept.looks.get(&id)
+    {
         raw.extend(v.iter().map(|l: &SeatLook| (l.who, l.kind, l.date)));
     }
     raw.extend(own_roster(w, staff, i));
