@@ -155,14 +155,7 @@ fn coordinator(w: &World, him: Them) -> Option<bool> {
 
 /// A plan move as a coordinator hears it, by the staff meeting's index.
 fn plan_words(m: u8) -> &'static str {
-    match m {
-        0 => "Bring more pressure.",
-        1 => "Play more zone.",
-        2 => "Run the ball more.",
-        3 => "Throw it more.",
-        4 => "Back off the blitz.",
-        _ => "Play more man.",
-    }
+    super::asks::CHIP_WORDS[(m as usize).min(5)]
 }
 
 /// The plan moves on each side.

@@ -352,8 +352,8 @@ impl Resolving for Conversation<'_> {
                     let desk = own.is_some();
                     let wl = own.map_or_else(|| self.parts.acting.willing(w, him, r), |x| x.0);
                     // His own reasons, where the game weighed them (your
-                    // boss's and a booster's asks), in place of the plain
-                    // words.
+                    // boss's and a booster's asks, a coordinator's plan
+                    // ask), in place of the plain words.
                     let why = if desk { Vec::new() } else { self.parts.acting.why(w, him, r, &wl) };
                     let plain = why.is_empty();
                     t.say.released.extend(why);
