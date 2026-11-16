@@ -6,6 +6,8 @@
 //! staff plays, and the reads kept at a season's end survive a save while
 //! a save from before them still loads.
 
+mod common;
+
 use afm_game::Game;
 use serde_json::{Value, json};
 
@@ -715,7 +717,7 @@ fn the_boards_at_every_seat() {
     let t = std::time::Instant::now();
     let dir = std::env::temp_dir().join(format!("afm-squadboards-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 17, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 17, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     println!("world built in {:.0}s", t.elapsed().as_secs_f64());
     let fresh = ok(&mut g, "save", json!({ "name": "fresh" }))["saved"].as_str().unwrap().to_string();
     let base =

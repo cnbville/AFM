@@ -49,8 +49,8 @@ jobs:
           - part: units
             packages: --workspace
             run: cargo test --workspace --lib --bins --no-fail-fast
-          # The game's screen tests, each on its own small world: about 50
-          # minutes, on the engine as the game builds it.
+          # The game's screen tests: each small world is built once and
+          # opened from its file by every test that asks for it.
           - part: screens
             packages: -p afm-game
             run: cargo test -p afm-game --test '*' --no-fail-fast
@@ -75,7 +75,11 @@ jobs:
       # Building the libraries first keeps the two from compiling at once.
       - run: cargo build ${{ matrix.packages }} --lib --profile test
       # Every test binary runs even when one fails, so a run names every
-      # failing test, not only the first.
+      # failing test, not only the first. The game's screen tests build each
+      # small world once and share it through this folder (new to each run,
+      # so no world outlives the code that built it).
       - run: ${{ matrix.run }}
+        env:
+          AFM_TEST_WORLDS: ${{ runner.temp }}/test-worlds
       - if: ${{ matrix.part == 'units' && !cancelled() }}
         run: cargo test --workspace --doc --no-fail-fast

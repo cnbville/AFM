@@ -4,6 +4,8 @@
 //! don't play live is the one the morning showed; a game saved mid-way
 //! plays on after loading.
 
+mod common;
+
 use afm_engine::game::play_game;
 use afm_game::Game;
 use serde_json::{Value, json};
@@ -98,7 +100,7 @@ fn game_day_from_the_morning_to_the_game_page() {
     let t = std::time::Instant::now();
     let dir = std::env::temp_dir().join(format!("afm-gameday-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 11, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 11, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     let job = ok(&mut g, "jobs", json!({ "level": "college" }))["jobs"][0]["ref"].clone();
     ok(
         &mut g,
@@ -226,7 +228,7 @@ fn game_day_from_the_morning_to_the_game_page() {
 fn a_new_careers_opener_has_last_seasons_film() {
     let dir = std::env::temp_dir().join(format!("afm-opener-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 12, "history_years": 1, "scale": 0.04, "engine_from": 2025 }));
+    common::build_world(&mut g, json!({ "seed": 12, "history_years": 1, "scale": 0.04, "engine_from": 2025 }));
     {
         let w = g.world.as_ref().unwrap();
         let tapes = &w.gameday.tapes;

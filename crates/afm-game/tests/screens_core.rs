@@ -2,6 +2,8 @@
 //! opens, is answered and saved, notes and "my players" keep, and every core
 //! page's data comes back on a small world at a college seat.
 
+mod common;
+
 use afm_game::Game;
 use serde_json::{Value, json};
 
@@ -24,7 +26,7 @@ fn portal_mail(mail: &Value) -> u64 {
 fn the_desk_files_answers_and_clears_its_mail() {
     let dir = std::env::temp_dir().join(format!("afm-core-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 11, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 11, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     let jobs = ok(&mut g, "jobs", json!({ "level": "college" }));
     let job = jobs["jobs"][0]["ref"].clone();
     ok(&mut g, "start_career", json!({ "name": "Test Coach", "job": job, "seed": 3 }));
@@ -219,7 +221,7 @@ fn titles_keep_the_level_they_were_won_at() {
     use afm_game::views::TeamRef;
     let dir = std::env::temp_dir().join(format!("afm-titles-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 11, "history_years": 2, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 11, "history_years": 2, "scale": 0.04, "engine_from": 2026 }));
     let jobs = ok(&mut g, "jobs", json!({ "level": "college" }));
     let job =
         jobs["jobs"].as_array().unwrap().iter().find(|j| j["division"] == "FBS").unwrap_or_else(|| panic!("{jobs}"));

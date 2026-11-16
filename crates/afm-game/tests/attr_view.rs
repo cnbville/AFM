@@ -4,6 +4,8 @@
 //! nobody has looked at returns Not seen rows without a panic, a kicker's
 //! default view is the families only, and a second player gives the gaps.
 
+mod common;
+
 use afm_engine::attributes::Attr;
 use afm_engine::world::Stage;
 use afm_game::Game;
@@ -72,7 +74,7 @@ fn check(v: &Value) {
 fn the_attributes_page_data() {
     let dir = std::env::temp_dir().join(format!("afm-attrview-{}", std::process::id()));
     let mut g = Game::new(dir);
-    ok(&mut g, "build_world", json!({ "seed": 17, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 17, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     let base =
         json!({ "name": "Test Coach", "age": 46, "background": "college_assistant", "seed": 5, "calls": "none" });
     let job = ok(&mut g, "jobs", json!({ "level": "college" }))["jobs"][0]["ref"].clone();

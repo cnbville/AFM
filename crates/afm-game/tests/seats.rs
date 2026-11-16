@@ -32,7 +32,7 @@ fn every_seat_starts_and_the_school_desk_runs() {
     let t = std::time::Instant::now();
     let dir = std::env::temp_dir().join(format!("afm-seats-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 11, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 11, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     println!("world built in {:.0}s", t.elapsed().as_secs_f64());
     let fresh = ok(&mut g, "save", json!({ "name": "fresh" }))["saved"].as_str().unwrap().to_string();
     let colleges = ok(&mut g, "jobs", json!({ "level": "college" }));

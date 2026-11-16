@@ -4,6 +4,8 @@
 //! undrafted rush; then a college staff's recruit and portal boards and a
 //! high school coach's calls to colleges.
 
+mod common;
+
 use afm_game::Game;
 use serde_json::{Value, json};
 
@@ -19,7 +21,7 @@ fn an_nfl_war_room_runs_the_draft() {
     let t = std::time::Instant::now();
     let dir = std::env::temp_dir().join(format!("afm-scouting-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     let fresh = ok(&mut g, "save", json!({ "name": "fresh" }))["saved"].as_str().unwrap().to_string();
     // A small world's draft keeps only a sample of the full order: take a
     // job at the club with the earliest pick this spring. The later places

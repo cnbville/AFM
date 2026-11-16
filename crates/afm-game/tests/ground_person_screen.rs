@@ -2,6 +2,8 @@
 //! face, your staff's read in words, his moments dated, what each level gets
 //! you, where he stands with every staff) and the People page's list.
 
+mod common;
+
 use afm_game::Game;
 use serde_json::{Value, json};
 
@@ -16,7 +18,7 @@ fn ok(g: &mut Game, cmd: &str, args: Value) -> Value {
 fn a_person_page_carries_what_the_board_draws() {
     let dir = std::env::temp_dir().join(format!("afm-ground-person-screen-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 22, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 22, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     assert!(g.call("ground_person", &json!({ "kind": "coach", "id": 0 })).is_err(), "no seat, no page");
     let jobs = ok(&mut g, "jobs", json!({ "level": "college" }));
     let job = jobs["jobs"][0]["ref"].clone();
