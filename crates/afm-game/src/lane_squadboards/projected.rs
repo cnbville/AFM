@@ -532,7 +532,7 @@ pub(crate) fn project(w: &World, i: usize, k: &Known, t: &Target, arm_ratio: f64
         }
         vals[row] = Some(m);
     }
-    let shown = body::rounded(body::thin_drills(st.pos, mid));
+    let shown = body::rounded(body::thin_drills(st.pos, mid), 0.0);
     let show = |c: body::Combine| [c.forty, c.vertical, c.broad, c.bench, c.cone, c.shuttle];
     for (n, &row) in DRILL_ROW.iter().enumerate() {
         vals[row] = Some(show(shown)[n]);
@@ -551,8 +551,10 @@ pub(crate) fn project(w: &World, i: usize, k: &Known, t: &Target, arm_ratio: f64
     // Round the drills' bands the way a test day writes them.
     let lo: [f64; 6] = std::array::from_fn(|n| band[DRILL_ROW[n]].map_or(mid[n], |b| b.0));
     let hi: [f64; 6] = std::array::from_fn(|n| band[DRILL_ROW[n]].map_or(mid[n], |b| b.1));
-    let (lo, hi) =
-        (show(body::rounded(body::thin_drills(st.pos, lo))), show(body::rounded(body::thin_drills(st.pos, hi))));
+    let (lo, hi) = (
+        show(body::rounded(body::thin_drills(st.pos, lo), 0.0)),
+        show(body::rounded(body::thin_drills(st.pos, hi), 0.0)),
+    );
     for (n, &row) in DRILL_ROW.iter().enumerate() {
         band[row] = Some((lo[n].min(hi[n]), lo[n].max(hi[n])));
     }

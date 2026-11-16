@@ -630,7 +630,8 @@ pub fn test_row(p: &crate::player::Player, key: u64) -> TestRow {
         squat: five(legs * 1.45 * (1.0 + n(3, 0.04))),
         clean: five(legs * 0.88 * (1.0 + n(4, 0.04))),
         forty: (forty * 100.0).round() as u16,
-        split: ((0.375 * forty - 0.15 + n(6, 0.015)) * 100.0).round() as u16,
+        split: ((crate::body::split_of(p, forty) + n(6, crate::body::SPLIT_DAY_SD)).clamp(1.0, 3.5) * 100.0).round()
+            as u16,
         shuttle: ((crate::body::thin_shuttle(p.position, raw[5] + crate::body::drill_knack(p).1) + n(7, 0.04))
             .clamp(3.0, 9.0)
             * 100.0)
