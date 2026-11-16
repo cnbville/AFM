@@ -240,6 +240,7 @@ fn combine_line(w: &World, k: usize, attr: Attr, lo: u8, hi: u8) -> Option<Strin
             strength: mid(Attr::Strength),
             jumping: mid(Attr::Jumping),
             flexibility: mid(Attr::Flexibility),
+            lower: mid(Attr::LowerBody),
             ..base
         };
         match attr {

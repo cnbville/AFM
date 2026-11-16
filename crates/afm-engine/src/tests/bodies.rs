@@ -215,11 +215,16 @@ fn an_edge_who_bends_runs_a_fast_3_cone() {
             arm: 34.0,
             pos: Position::EDGE,
             lift: 0.0,
+            lower: 80.0,
         }
         .expected()
         .cone
     };
     assert!(edge(92.0) < 7.0, "a bender: {}", edge(92.0));
-    assert!(edge(81.0) > 7.2 && edge(81.0) < 7.4, "the average edge: {}", edge(81.0));
-    assert!(edge(70.0) > 7.5, "a stiff edge: {}", edge(70.0));
+    // An 81 across the board is about the drafted edge's middle; the
+    // position's offset (step 4b) puts the drafted edges' 3-cone on the
+    // real 7.24, which takes the middle man to about 7.18 and a stiff
+    // one to 7.50.
+    assert!(edge(81.0) > 7.1 && edge(81.0) < 7.4, "the average edge: {}", edge(81.0));
+    assert!(edge(70.0) > 7.4, "a stiff edge: {}", edge(70.0));
 }

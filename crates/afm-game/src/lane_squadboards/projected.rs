@@ -343,6 +343,9 @@ fn drills(st: &Start, r: [f64; 6], weight: f64, arm: f64) -> [f64; 6] {
         arm,
         pos: st.pos,
         lift: st.lift,
+        // His legs are read with his upper body here (the staff's six
+        // athletic reads have no lower body of their own).
+        lower: r[5],
     }
     .raw()
 }
@@ -363,12 +366,15 @@ fn slopes(st: &Start, r: [f64; 6], weight: f64, arm: f64) -> [[f64; 6]; 6] {
     out
 }
 
-/// A drill's lasting knack as a sd (the track for the forty, the 3-cone
-/// and shuttle knacks), 0 for the rest.
+/// A drill's lasting knack as a sd (the track for the forty, the jump
+/// knack, the 3-cone and shuttle knacks), 0 for the bench.
 fn knack(pos: Position, k: usize) -> f64 {
     let (cone, shuttle) = body::knack_sd(pos);
+    let (vert, broad) = body::jump_knack_sd(pos);
     match k {
         0 => TRACK_SD,
+        1 => vert,
+        2 => broad,
         4 => cone,
         5 => shuttle,
         _ => 0.0,
@@ -389,8 +395,9 @@ fn day_of(src: Src, k: usize) -> Option<(f64, f64, bool)> {
             };
             Some((shift, DAY_SD[k], true))
         }
-        // A testing day reads his shuttle knack and none other.
-        Src::Testing => Some((0.0, testing[k], k == 5)),
+        // A testing day reads his shuttle and jump knacks (its vertical)
+        // and none other.
+        Src::Testing => Some((0.0, testing[k], k == 5 || k == 1)),
         Src::Laser if k == 0 => Some((0.0, 0.05, false)),
         _ => None,
     }
@@ -525,7 +532,7 @@ pub(crate) fn project(w: &World, i: usize, k: &Known, t: &Target, arm_ratio: f64
         }
         vals[row] = Some(m);
     }
-    let shown = body::rounded(mid);
+    let shown = body::rounded(body::thin_drills(st.pos, mid));
     let show = |c: body::Combine| [c.forty, c.vertical, c.broad, c.bench, c.cone, c.shuttle];
     for (n, &row) in DRILL_ROW.iter().enumerate() {
         vals[row] = Some(show(shown)[n]);
@@ -544,7 +551,8 @@ pub(crate) fn project(w: &World, i: usize, k: &Known, t: &Target, arm_ratio: f64
     // Round the drills' bands the way a test day writes them.
     let lo: [f64; 6] = std::array::from_fn(|n| band[DRILL_ROW[n]].map_or(mid[n], |b| b.0));
     let hi: [f64; 6] = std::array::from_fn(|n| band[DRILL_ROW[n]].map_or(mid[n], |b| b.1));
-    let (lo, hi) = (show(body::rounded(lo)), show(body::rounded(hi)));
+    let (lo, hi) =
+        (show(body::rounded(body::thin_drills(st.pos, lo))), show(body::rounded(body::thin_drills(st.pos, hi))));
     for (n, &row) in DRILL_ROW.iter().enumerate() {
         band[row] = Some((lo[n].min(hi[n]), lo[n].max(hi[n])));
     }

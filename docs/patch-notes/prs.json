@@ -1079,5 +1079,19 @@
   "players": true,
   "title": "Live talks: the ear reads asks and hedges as said, and a coach gives his read on a player",
   "tldr": "Your staff now hear \"take a look at him, I want to decide if we should cut him\" as a request for their read, not as a cut, and they answer with what they actually think of the player."
+ },
+ "486": {
+  "auto": false,
+  "bullets": [
+   "A new Ground screen, The meeting, with the road days and your free hours for the week.",
+   "Each place that wants a man is a numbered stop on the map, with who goes and where you stand there.",
+   "Your coordinator puts one call to you each week; make it or leave it to him.",
+   "Drag a man to another day to change his road, or hand the whole week to your coordinator."
+  ],
+  "h": "4318e6440c92",
+  "look": "open The meeting from the Ground section on a spring Monday.",
+  "players": true,
+  "title": "Ground lane S2: the meeting at the map",
+  "tldr": "Monday's meeting is a screen: your coordinator's letter, a map of where he wants to send each man, and the week day by day, which you can change by dragging."
  }
 }

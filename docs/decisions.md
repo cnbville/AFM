@@ -137,6 +137,15 @@ Physical study items 9-15 (Cain 2026-11-15: realism by default): no creation lim
 - The bench's per-position offsets refitted with the real arms (longer arms bench fewer reps at the same strength).
 Measured (eight classes, 2,056 drafted): every spot's mean height within 0.3 in and weight within 4 lb of the combine, arms, hands and wingspans on real; freshmen by position within the test's band (tackles 10.9%, real 8.5%); `match_check` NFL 25.0 points a team game (24.4 before; the synthetic rosters' longer arms), FBS 23.7; `freak_check 10 86-95` on its last measure (top 1% of edge seasons 19.5 sacks, 20+ sack seasons 9.8 a 1,000, before 9.4). Still off: guards and centers 0.75 in short (tall ones move to tackle as they grow), receivers 6'4 or taller 8% (real 10%) and 5'8 or shorter 0.7% (real 3.7%), FBS and FCS men listed 350+ 0.14% (real 0.41%) and drafted tackles' heaviest 1% 346 lb (real 365), and the class sim drafts tackles at 12% of picks (real 8%; it drafts by overall with no position value).
 
+### Progression update step 4b, the drills (built 2026-11-16)
+Physical study items 5-8 (Cain 2026-11-15: realism by default; the legs in the jumps). How it works: `docs/reference/how-it-works/body.md`, "Combine drills". Measured with the new `drill_tails` (eight 250,000 classes, 2,056 drafted men, one test day each, against the nflverse combine's drafted men 2000-2025). Claude's picks, proposed, not confirmed:
+- The jumps read 0.8 his spring (Jumping, or his burst when more) and 0.2 his lower body.
+- A jump knack of his own for life, one spring for both jumps (they go together 0.7), drawn with real's fat tail (a t of 5 degrees), sized by position to the part of real's spread the ratings leave.
+- Each position's offsets on the vertical, broad, 3-cone and shuttle, so drafted averages are real's.
+- The 3-cone and shuttle's fast end thins past 0.9 sd under the position's real mean and never reaches past 1.9 sd more.
+- No printed drill limits, only bounds no man reaches.
+Measured: every position's vertical, broad, 3-cone and shuttle mean within 0.3 in and 0.01 s of real, spreads within 0.9 in and 0.03 s; a draft brings 0.38 3-cones of 6.50 or faster (real 0.35 of the men who ran it; 4.1 before), 0.75 shuttles of 3.85 (real 0.58; 3.75), 2.6 verticals of 42 in (real 2.3; 0.6) and 0.5 of 44 (real 0.35; none), 0.38 broads of 140 in (real 0.15); the best 3-cone 6.36 and shuttle 3.78 (11 and 18 men had sat on the printed 6.40 and 3.80). Still open for step 4c: the forty's fast tail (3.1 a draft at 4.30 or faster, real 1.3) and the bench's fat top (35+ reps 0.6 a draft, real 3.5), both with the wall.
+
 ## Assumed, not yet confirmed
 - The rest of `docs/design/season-calendar-and-pacing.md` (week-by-week calendar, tension tiers, climax budget) is a draft for section 4.
 
