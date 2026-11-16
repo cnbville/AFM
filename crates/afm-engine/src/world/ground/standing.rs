@@ -993,8 +993,8 @@ pub fn talents(w: &World) -> Vec<f32> {
 }
 
 /// A program's standing over a set of schools (GR27): each school's head
-/// coach's standing, weighted by the talent the school controls. Lane G1a's
-/// areas give the sets; until then a caller passes any list of schools.
+/// coach's standing, weighted by the talent the school controls; any list
+/// of schools (`area_level` for one of lane G1a's areas).
 pub fn area_points(w: &World, prog: usize, schools: &[usize], talent: &[f32]) -> f32 {
     let (mut sum, mut weight) = (0.0f32, 0.0f32);
     for &h in schools {
@@ -1004,6 +1004,13 @@ pub fn area_points(w: &World, prog: usize, schools: &[usize], talent: &[f32]) ->
         weight += t;
     }
     if weight > 0.0 { sum / weight } else { 0.0 }
+}
+
+/// A program's standing in one of Ground's areas (GR27, lane G1a's
+/// `areas`): its schools' head coaches weighted by talent.
+pub fn area_level(w: &World, prog: usize, area: u16, talent: &[f32]) -> f32 {
+    let schools: Vec<usize> = (0..w.high_schools.len()).filter(|&h| w.high_schools[h].ground_area == area).collect();
+    area_points(w, prog, &schools, talent)
 }
 
 /// The program that leads a set of schools, with its points: what the

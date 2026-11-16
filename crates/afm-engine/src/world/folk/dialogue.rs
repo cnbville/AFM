@@ -938,6 +938,19 @@ fn interview_answer(w: &mut World, s: &mut Scene, code: u32) {
         s.step = q as u8;
         return;
     }
+    interview_close(w, s, against);
+}
+
+/// A job interview you wrapped up by talking before its last question
+/// (live talks, `persona::talk::wrap`): the committee scores what it heard.
+pub(crate) fn settle(w: &mut World, s: &mut Scene) {
+    if s.kind == Kind::JobInterview {
+        interview_close(w, s, false);
+    }
+}
+
+/// The committee's verdict on the interview, and the seat filled after.
+fn interview_close(w: &mut World, s: &mut Scene, against: bool) {
     // What a typed talk did to the committee counts too (live talks v3,
     // the older meetings: `persona::meetings::after`); 0 with no talk.
     let score = s.f[0] + s.f[1] + s.f[2] + s.f[3];

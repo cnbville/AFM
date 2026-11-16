@@ -30,6 +30,7 @@ pub mod items;
 pub mod store;
 pub mod today;
 pub mod who;
+pub mod wrap;
 
 // Facet lanes (N5a-N5e): each plays its own talks on this conversation.
 pub mod hs_call;
@@ -844,13 +845,14 @@ pub fn end(w: &mut World, id: u32) {
         }
         Facet::Recruit => recruit::end(w, &mut s),
         Facet::HsCall => hs_call::end(w, &mut s),
-        // A built staff or boss meeting keeps its own picks to finish
-        // (lane N5c): the talk ending leaves the meeting open, and the
-        // talk's state stays so a man done talking stays done today.
-        Facet::Other if super::office::plays(s.kind) && !super::office::talk_only(s.kind) => return,
-        // So does one of the older meetings (a parent's call, discipline,
-        // the captains, a call from someone you know...).
-        Facet::Other if super::meetings::keeps_open(s.kind) => return,
+        // A built staff or boss meeting (lane N5c) or one of the older
+        // meetings: a goodbye ends it with no cost, what you didn't argue
+        // stands, and a decision the talk didn't settle stays as the
+        // meeting's own picks with the talk over (`wrap`).
+        Facet::Other if wrap::kept_open(s.kind) => {
+            wrap::close(w, id);
+            return;
+        }
         Facet::Other => {
             if !super::draft::end(w, &mut s) {
                 s.end();

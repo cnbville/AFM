@@ -189,6 +189,7 @@ fn standing_fades_warns_and_a_pulled_offer_is_held_for_years() {
             priority: false,
             nil: None,
             nil_coll: None,
+            years: 0,
             why: None,
             seen: Default::default(),
         });

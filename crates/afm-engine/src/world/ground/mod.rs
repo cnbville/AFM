@@ -1,4 +1,5 @@
-//! Ground, the offseason game (`docs/design/ground.md`). Lane G1b: the
+//! Ground, the offseason game (`docs/design/ground.md`). Lane G1a: the
+//! areas and the map's data (`areas`). Lane G1b: the
 //! people on your ground (`people`), one memory per person and holder
 //! (`memory`) and standing on the four-level ladder (`standing`), with
 //! day one read from the world's 30 years and your roots.
@@ -9,6 +10,7 @@
 //! footprint and its coaches' ties when asked (`standing::derived`), so
 //! until lane G9 the world's recruiting is unchanged.
 
+pub mod areas;
 pub mod memory;
 pub mod people;
 pub mod standing;

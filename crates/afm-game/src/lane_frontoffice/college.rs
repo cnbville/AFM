@@ -55,6 +55,7 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
         | "portal_visit_cancel"
         | "keep_talk"
         | "nil_set"
+        | "nil_term"
         | "nil_usual"
         | "nil_clear"
         | "college_duty"
@@ -203,6 +204,12 @@ fn act(game: &mut Game, cmd: &str, args: &Value) -> Reply {
             }
         }
         "portal_offer" => desk::portal_offer(w, id_arg(args)?, money_arg(args, "nil"), money_arg(args, "coll"))?,
+        // A multi-year NIL deal (the new NIL scheme, item 12): the years on
+        // a recruit's promise, a transfer's offer, or one of your players'.
+        "nil_term" => {
+            let years = args.get("years").and_then(Value::as_u64).ok_or("Missing years.")?;
+            desk::set_term(w, id_arg(args)?, years.min(9) as u8)?
+        }
         "portal_pull" => desk::portal_pull(w, id_arg(args)?)?,
         "portal_forget" => desk::portal_forget(w, id_arg(args)?)?,
         "portal_contact" => desk::portal_contact(w, id_arg(args)?)?,
@@ -830,6 +837,7 @@ fn recruit_row(
     v["inherited"] = json!(t.is_some_and(|t| t.by == Source::Inherited));
     // Your collective deal beside your revenue share (two pots, B18).
     v["nil_coll"] = json!(t.and_then(|t| t.nil_coll));
+    v["years"] = json!(t.map_or(0, |t| t.years));
     v["usual_coll"] = json!(usual_coll);
     v["free_pull"] = json!(t.is_some_and(|t| desk::free_pull(w, t)));
     v
@@ -1699,7 +1707,7 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
                 "why": e.why, "entered": short_date(e.entered), "decide": short_date(e.decide_by),
                 "days": today.days_to(e.decide_by).max(0), "held": e.on_hold(),
                 "offered": t.is_some_and(|t| t.offered.is_some()), "nil": t.and_then(|t| t.nil),
-                "coll": t.and_then(|t| t.nil_coll),
+                "coll": t.and_then(|t| t.nil_coll), "years": t.map_or(0, |t| t.years),
                 "contacted": t.is_some_and(|t| t.contacted.is_some()), "sits": sits,
                 "committed": t.is_some_and(|t| t.committed.is_some()),
                 "usual": if ncaa::nil_era(w.year) { pot / 40.0 } else { 0.0 },
@@ -2062,7 +2070,7 @@ fn portal_file(w: &World, j: usize, args: &Value) -> Reply {
         // reasons against his top three, once your offer is out.
         "stand": t.filter(|t| shopping && t.offered.is_some() && t.committed.is_none()).and_then(|t| super::stand::panel(w, j, i, t)),
         "bar": meter.map(|m| { let (w2, tone) = bar_words(m); json!({ "m": (m * 100.0).round() / 100.0, "words": w2, "tone": tone }) }),
-        "offered": t.is_some_and(|t| t.offered.is_some()), "nil": t.and_then(|t| t.nil), "coll": t.and_then(|t| t.nil_coll),
+        "offered": t.is_some_and(|t| t.offered.is_some()), "nil": t.and_then(|t| t.nil), "coll": t.and_then(|t| t.nil_coll), "years": t.map_or(0, |t| t.years),
         "usual": if ncaa::nil_era(w.year) { pot_total / 40.0 } else { 0.0 },
         "coll_usual": if ncaa::nil_era(w.year) { coll_pot / 40.0 } else { 0.0 },
         "answer": desk::reaction(w, id, desk::MoneyKind::Portal).map(answer_json),
@@ -2135,6 +2143,10 @@ fn nil(w: &World, j: usize) -> Reply {
             "coll_usual": own.get(&p.player.id).copied().unwrap_or(0.0),
             "coll": coll.get(&p.player.id).copied(),
             "cleared": coll.get(&p.player.id).filter(|_| two).map(|&x| desk::coll_cleared(w, j, p.player.id, x)),
+            // A multi-year deal (the new NIL scheme, item 12): the last money
+            // year it guarantees and its money a year.
+            "through": desk::contract_of(w, p.player.id).map(|c| c.0),
+            "guaranteed": desk::contract_of(w, p.player.id).map(|c| c.1),
             "answer": desk::reaction(w, p.player.id, desk::MoneyKind::Deal).map(answer_json),
             "now": p.nil_income, "stars": stars_of(p), "left": eligibility_left(w, p),
             // Public: his followers and the brand money he earns himself,

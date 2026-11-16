@@ -2,7 +2,8 @@
 //! can be tuned against real-world rates.
 //! Usage: cargo run --release --bin calibrate -- [size] [seed]
 //! `AFM_PROG=off` turns the split ceiling off and `AFM_PROG_PARTS` picks
-//! its parts (everyday 1, breakouts 2, projects 4, trims 8), for the
+//! its parts (everyday 1, breakouts 2, projects 4, trims 8, the weight
+//! room 16), for the
 //! build's A/B checks; it also prints the quarterbacks' and backs' median
 //! last season.
 

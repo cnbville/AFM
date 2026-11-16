@@ -89,8 +89,12 @@ fn words(a: Attr) -> (&'static str, &'static str) {
             "Cuts in the open field, breaks at the top of routes and mirrors a receiver in man coverage. It shows in the shuttle and the 3-cone.",
         ),
         Strength => (
-            "Raw strength, as the weight room measures it.",
-            "With balance, bend, hand use and his mass it decides how strong he plays: holding a block, shedding one, finishing a tackle, breaking an arm tackle. It shows in the bench press.",
+            "Upper body strength, as the weight room measures it.",
+            "The hands, the arms and the chest: the hand fight, the jam, a shed, a stiff arm, holding on at the catch point. It shows in the bench press.",
+        ),
+        LowerBody => (
+            "Lower body strength, as the weight room measures it.",
+            "The legs and the base: the anchor, the drive block, the bull rush's push, driving through a tackle, moving the pile. It shows in the squat and the power clean, never at the combine.",
         ),
         Balance => (
             "Staying on his feet through contact.",

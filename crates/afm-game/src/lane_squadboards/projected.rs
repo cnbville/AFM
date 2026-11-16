@@ -215,6 +215,8 @@ struct Start {
     weight: f64,
     height: f64,
     arm: f64,
+    /// His lifting knack (`body::lift_knack`), reps at 225.
+    lift: f64,
     /// Your body plan's target for your own player.
     plan: Option<f64>,
     /// The road's coming seasons, for its middle.
@@ -340,6 +342,7 @@ fn drills(st: &Start, r: [f64; 6], weight: f64, arm: f64) -> [f64; 6] {
         weight,
         arm,
         pos: st.pos,
+        lift: st.lift,
     }
     .raw()
 }
@@ -428,6 +431,7 @@ pub(crate) fn project(w: &World, i: usize, k: &Known, t: &Target, arm_ratio: f64
         weight,
         height,
         arm,
+        lift: body::lift_knack(&p.player),
         plan,
         seasons,
         years,

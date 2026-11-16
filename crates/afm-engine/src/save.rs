@@ -335,6 +335,8 @@ pub fn read_world(path: &Path) -> std::io::Result<World> {
     };
     // The game keeps no trial game log.
     w.options.keep_game_log = false;
+    // Ground's areas come from the shared table, never the file.
+    crate::world::ground::areas::place_schools(&mut w.high_schools);
     // A file from before the contract books (update 2, lane 6): fill them.
     crate::world::deals::ensure(&mut w);
     // A file from before lane 18: real junior posts and high school

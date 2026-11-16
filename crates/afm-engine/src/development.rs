@@ -401,7 +401,11 @@ impl GrowthCtx {
         let redshirt_lift = if self.redshirt && profile.group == AttributeGroup::Physical { 1.35 } else { 1.0 };
         // College staffs teach the technique and the reads high school never did, so the raw catch up there.
         let hs_lag = if self.hs {
-            if key == Attr::Strength { HS_STRENGTH_GROWTH } else { hs_group_growth(profile.group) }
+            if matches!(key, Attr::Strength | Attr::LowerBody) {
+                HS_STRENGTH_GROWTH
+            } else {
+                hs_group_growth(profile.group)
+            }
         } else if self.college && profile.group != AttributeGroup::Physical {
             COLLEGE_TEACHING
         } else {
@@ -1302,7 +1306,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
                 d += physical_extra;
             }
             if spurt && physical {
-                d += rng.range(2.0, 6.0) * if key == Attr::Strength { 1.3 } else { 0.8 };
+                d += rng.range(2.0, 6.0) * if matches!(key, Attr::Strength | Attr::LowerBody) { 1.3 } else { 0.8 };
             }
             if stalled && d > 0.0 && physical {
                 d = 0.0;
@@ -1590,6 +1594,10 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             player.body.weight += gap * clamp(pace, 0.0, 1.0);
         }
     }
+
+    // The normal weight room inside the leashes (everyday item 6): his body
+    // knack moves his physical ceilings from the typical path.
+    crate::progression::weight_room(player, ctx.level, ctx.trouble.is_some());
 
     // --- Wear (update 3, F14) ------------------------------------------------------
     // Every season played wears a body down, in college at half the pros'
