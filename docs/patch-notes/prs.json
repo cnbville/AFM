@@ -846,6 +846,20 @@
   "title": "A world from a newer game says \"update the game\", not a reader error",
   "tldr": "If you open a world made by a newer version of the game, it now tells you plainly to update instead of showing a cryptic error."
  },
+ "462": {
+  "auto": false,
+  "bullets": [
+   "A coordinator weighs your plan change against his own read of the last game and can push back or offer to meet you halfway.",
+   "Make it your call and he'll put it in, but he'll remember if it goes wrong.",
+   "On a college staff's call, every claim you make counts, and a bigger stretch of the truth costs more when it comes out.",
+   "A sharp recruiter notices when you tell him two different things."
+  ],
+  "h": "7734bcbfb848",
+  "look": "a sit-down with your defensive coordinator, and the next college call about one of your players.",
+  "players": true,
+  "title": "Weigh typed plan asks and college calls as said, not as a chip",
+  "tldr": "Your coordinators and college recruiters now react to what you actually say. Ask for a lot or a little, give an order, or mix truth and spin on a call, and the answer follows."
+ },
  "463": {
   "auto": false,
   "bullets": [
@@ -943,6 +957,21 @@
   "title": "Ground lane G1a: areas and map data",
   "tldr": ""
  },
+ "474": {
+  "auto": false,
+  "bullets": [
+   "Your evaluation days, calls, camps and campus visits build standing with each kid's coach, his coordinators and his counselor.",
+   "When a coach moves up a level he tells you himself, in his own words, after lunch in his planning period.",
+   "Ground you stop working fades, and your staff warns you before a level slips, with who was there instead.",
+   "Pulling an offer or breaking a promise costs you with his coach for years. His kids starting, graduating and getting drafted with you pays.",
+   "Your own high school and hometown know you from day one."
+  ],
+  "h": "e6480145b412",
+  "look": "your inbox after a few spring evaluation weeks.",
+  "players": true,
+  "title": "Ground lane G1b: standing and one memory",
+  "tldr": "The people around the kids now remember you. Every high school coach and counselor you deal with has a standing with your staff, from Stranger to Home, and it moves with the work you put in."
+ },
  "475": {
   "auto": false,
   "bullets": [
@@ -1007,5 +1036,48 @@
   "players": true,
   "title": "Weigh a typed ask to your boss or a booster as said, not on the meeting's chip",
   "tldr": "When you ask your boss or a booster for something in your own words, they now weigh what you actually said and tell you why. Put something on the line, like a top-3 class or nine wins, and see if they buy it."
+ },
+ "481": {
+  "auto": false,
+  "bullets": [
+   "Every week opens with one line on what matters, taken from the real recruiting calendar.",
+   "Your coordinator plans who goes where and why; you can change any man's days or hand the week over.",
+   "Road days come off the spring and fall limits as your coaches travel, and your budget decides who flies.",
+   "Calls to busy high school coaches leave a message, and they call back in their planning period; your men phone in from the road at night.",
+   "The May list arrives the day after Memorial Day, and you can take a week off in July."
+  ],
+  "h": "18d35c70b098",
+  "look": "the recruiting desk's Monday digest during the spring evaluation period.",
+  "players": true,
+  "title": "Ground lane G3: your week and road days",
+  "tldr": "Your recruiting week now has a shape: a Monday letter from your coordinator, your staff out on the road day by day inside the real evaluation limits, and coaches who call you back when they're out of class."
+ },
+ "483": {
+  "auto": false,
+  "bullets": [
+   "A new Ground section in the sidebar with The map.",
+   "Each recruiting area is shaded by who leads it, with your standing beside it and fog where you haven't worked yet.",
+   "Pick an area to see who leads it, where you stand and its head coaches by name.",
+   "Open any school for its coaches, where its kids went, its seasons and the players you've signed from it."
+  ],
+  "h": "7ac8e1d9e4f4",
+  "look": "open The map in the Ground section and click your home area.",
+  "players": true,
+  "title": "Ground lane S1: the map screen and the school page",
+  "tldr": "Ground has a map: see which programs hold each recruiting area in your state, where you stand, and who the people are."
+ },
+ "485": {
+  "auto": false,
+  "bullets": [
+   "Saying you're thinking about benching, cutting or moving someone no longer counts as having decided it.",
+   "Ask a coach for his read on a player and he tells you where that player stands at his spot, how high he could go, and whether he'd keep him.",
+   "If you tell a coach about a cut you've made to someone else, that cut no longer lands on the coach.",
+   "Softened announcements like \"I think I'm going to have to let you go\" still count as decisions."
+  ],
+  "h": "0bd340e4db2b",
+  "look": "sit down with a position coach and ask him to look at one of his players before you decide on a cut.",
+  "players": true,
+  "title": "Live talks: the ear reads asks and hedges as said, and a coach gives his read on a player",
+  "tldr": "Your staff now hear \"take a look at him, I want to decide if we should cut him\" as a request for their read, not as a cut, and they answer with what they actually think of the player."
  }
 }

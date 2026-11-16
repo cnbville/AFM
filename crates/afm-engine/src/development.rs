@@ -452,11 +452,16 @@ impl GrowthCtx {
 }
 
 /// The weight the weight room pulls a grown frame toward (update 3, A4,
-/// A14): his position's weight for his talent, never past the position's
-/// combine weight, and at most about 30 lb past where his frame put him.
+/// A14): 60% of the way from his frame to his position's weight for his
+/// talent (`athlete::placed_weight`, the same share a move to a new
+/// position takes), never past the position's combine weight. Until the
+/// physical study (item 15, 2026-11-16) it took every frame under the
+/// position's weight all the way there, so the light half of a position
+/// vanished by the draft: drafted receivers ran 7.6 lb heavy and corners
+/// 3.5 (proposed, not confirmed).
 pub fn weight_room_room(position: crate::positions::Position, talent: f64, frame: f64) -> f64 {
     let target = crate::athlete::position_weight_for(talent, position).min(crate::body::combine_size(position).2);
-    target.min(crate::athlete::placed_weight(frame, target) + 30.0)
+    target.min(crate::athlete::placed_weight(frame, target))
 }
 
 /// The share of the way to `weight_room_room` a year closes: a third in

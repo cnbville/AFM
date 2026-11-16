@@ -2217,7 +2217,7 @@ pub fn staff_teaching(w: &World, st: &SeatTeam, i: usize) -> f64 {
 pub fn body_change(p: &mut crate::player::Player, lbs: f64) {
     let now = crate::body::body_now(p).weight.max(100.0);
     let k = p.body.weight / now;
-    p.body.weight = clamp(p.body.weight + lbs * k, 120.0, 400.0);
+    p.body.weight = clamp(p.body.weight + lbs * k, crate::athlete::WEIGHT_RANGE.0, crate::athlete::WEIGHT_RANGE.1);
     for (a, per) in [
         (Attr::Strength, 0.05),
         (Attr::LowerBody, 0.05),
