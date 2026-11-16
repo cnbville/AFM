@@ -2,7 +2,7 @@
 //! roster at a level's typical strength, built from the same player model.
 
 use super::roster::*;
-use crate::attributes::{Attr, MAX_RATING, MIN_RATING};
+use crate::attributes::{Attr, MIN_RATING, RATING_BOUND};
 use crate::player::{Level, ProspectOptions, generate_prospect, talent_from_z};
 use crate::positions::{POSITION_COUNT, Position, overall_for};
 use crate::rng::{Rng, clamp};
@@ -130,13 +130,13 @@ pub fn synthetic_team_people(
                 _ => 0.95,
             };
             for a in Attr::ALL {
-                p.attributes.set(a, clamp(p.ceilings.get(a) * share, MIN_RATING, MAX_RATING));
+                p.attributes.set(a, clamp(p.ceilings.get(a) * share, MIN_RATING, RATING_BOUND));
             }
             // A snapper is as good as his snap: set it so his rating fits the level.
             if pos == Position::LS {
                 let w = crate::positions::weight(Position::LS, Attr::LongSnapping);
                 let rest = overall_for(Position::LS, &p.attributes) - w * p.attributes.get(Attr::LongSnapping);
-                p.attributes.set(Attr::LongSnapping, clamp((target - rest) / w, MIN_RATING, MAX_RATING));
+                p.attributes.set(Attr::LongSnapping, clamp((target - rest) / w, MIN_RATING, RATING_BOUND));
             }
             // Habits at the level's spread (tendencies topic 3.2).
             p.tend = crate::tendencies::Tendencies::at_level(

@@ -2,7 +2,7 @@
 
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use crate::attributes::{ATTRIBUTE_PROFILES, Attr, Attributes, MAX_RATING, MIN_RATING};
+use crate::attributes::{ATTRIBUTE_PROFILES, Attr, Attributes, MIN_RATING, RATING_BOUND};
 use crate::positions::{Position, elite_shape_overall, elite_shape_value, overall_for};
 use crate::rng::{Rng, clamp, round_half_up};
 
@@ -616,7 +616,7 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
         Some(z) => z,
         None => rng.normal(0.0, 1.0),
     };
-    let talent = clamp(talent_from_z(z), 20.0, 99.0);
+    let talent = clamp(talent_from_z(z), 20.0, RATING_BOUND);
     let id = opts.id.unwrap_or_else(|| NEXT_ID.fetch_add(1, Ordering::Relaxed));
 
     // Athlete first (topic 5.2): body, athletic traits and skill leanings come
@@ -636,7 +636,7 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
                 }
                 ceilings.set(
                     key,
-                    clamp(elite_shape_value(position, key) * scale + rng.normal(0.0, 4.0), MIN_RATING, MAX_RATING),
+                    clamp(elite_shape_value(position, key) * scale + rng.normal(0.0, 4.0), MIN_RATING, RATING_BOUND),
                 );
             }
             // The lower body from the upper (item 4b), with no draw of its own
@@ -644,7 +644,8 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
             let upper = ceilings.get(Attr::Strength) - elite_shape_value(position, Attr::Strength) * scale;
             let lower = elite_shape_value(position, Attr::LowerBody) * scale
                 + crate::athlete::lower_with(upper, 4.0, id ^ 0x4C0B);
-            ceilings.set(Attr::LowerBody, clamp(lower, MIN_RATING, MAX_RATING));
+            ceilings.set(Attr::LowerBody, clamp(lower, MIN_RATING, RATING_BOUND));
+            crate::athlete::thin_tops(&mut ceilings);
             let potential = overall_for(position, &ceilings);
             // His build: how his strength and speed ceilings sit against his position's norm.
             let dev = |a: Attr| (ceilings.get(a) - elite_shape_value(position, a) * scale) / 4.0;

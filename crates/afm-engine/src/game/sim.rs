@@ -322,7 +322,7 @@ impl Agent {
         let mut r = [0.0; ATTRIBUTE_COUNT];
         for (i, v) in gp.attrs.values().enumerate() {
             let fat = 1.0 - FATIGUE[i] * tired;
-            r[i] = clamp(v * fat + edge, 1.0, 99.0);
+            r[i] = clamp(v * fat + edge, 1.0, crate::attributes::RATING_BOUND);
         }
         let vmax = gp.top_speed() * (1.0 - 0.08 * tired);
         use crate::links::Link;
