@@ -27,6 +27,7 @@ pub mod channels;
 pub mod feel;
 pub mod hits;
 pub mod items;
+pub mod stakes;
 pub mod store;
 pub mod today;
 pub mod who;
@@ -233,6 +234,15 @@ impl Resolving for Conversation<'_> {
                         pushed,
                     };
                     let mut told = self.parts.tells.tell(w, him, &known, &parts);
+                    // Asked about his own life and nothing's stored: there's
+                    // no news, not a thing he doesn't know ("How's the
+                    // family?" is never "I'd rather not guess").
+                    if known.is_empty()
+                        && about.is_none_or(|a| a == him)
+                        && let Some(x) = own_nothing(*topic)
+                    {
+                        told.released = vec![x.into()];
+                    }
                     // Hot past his point and gone quiet: the safe half at most.
                     if open.boiled == Some(Boil::Quiet) && told.answer == Answer::Straight {
                         told.answer = Answer::Partly;
@@ -480,7 +490,14 @@ impl Resolving for Conversation<'_> {
         }
         // His own ask (5.4, question 3): what he wants most that you
         // haven't given, once a talk per want.
+        // A line that puts something to him (an offer, a promise, a
+        // request, a decision) gets his answer, not a change of subject:
+        // his own concern waits for a later line.
+        let put_to_him = reading.acts.iter().any(|a| {
+            matches!(a, Act::Offer(_) | Act::Promise { .. } | Act::Request(_) | Act::Decision(_) | Act::Future { .. })
+        });
         if t.ends.is_none()
+            && !put_to_him
             && let Some(want) = wants.iter().find(|x| !x.met && x.weight >= ASK_WEIGHT && !open.raised(x.kind))
             && line >= 1
         {
@@ -792,6 +809,17 @@ fn loyalty(w: &World, him: Them, about: Option<Them>) -> f64 {
     w.folk.ties.of_id(a).filter(|t| t.a == b || t.b == b).map(|t| f64::from(t.strength) / 100.0).fold(0.0, f64::max)
 }
 
+/// His answer about his own life when nothing's stored on it: no news.
+pub fn own_nothing(topic: Topic) -> Option<&'static str> {
+    Some(match topic {
+        Topic::Life => "Nothing new at home to tell: his people are doing fine, as far as he knows",
+        Topic::Mood => "He's doing all right; nothing in particular on his mind",
+        Topic::Injury => "He feels fine; nothing's bothering him",
+        Topic::Wants | Topic::Portal | Topic::Grades | Topic::Effort => "Nothing new there to tell",
+        _ => return None,
+    })
+}
+
 /// A want heavy enough that he raises it himself. Proposed, not confirmed.
 pub const ASK_WEIGHT: f32 = 0.22;
 
@@ -810,7 +838,7 @@ pub fn ask_words(k: WantKind) -> String {
     match k {
         WantKind::Role => "he asks where he stands and what it takes to play more",
         WantKind::Money => "he asks about his money",
-        WantKind::Security => "he asks how safe his spot is",
+        WantKind::Security => "he asks how safe his place here is",
         WantKind::Winning => "he asks if this team can win now",
         WantKind::Place => "he asks about getting home more",
         WantKind::Development => "he asks what you'll do to get him to the next level",

@@ -587,3 +587,7 @@ mod meetings_tests;
 #[cfg(test)]
 #[path = "wrap_tests.rs"]
 mod wrap_tests;
+
+#[cfg(test)]
+#[path = "goals_tests.rs"]
+mod goals_tests;
