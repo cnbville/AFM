@@ -744,7 +744,7 @@ pub(crate) fn club_strength_head(w: &World, t: usize) -> f64 {
 /// progression update): each college program's and high school's rooms
 /// (`progression::Room`), by the head coach's lean and the position
 /// coach's eye. Your seat's team is left to you.
-fn ai_projects(w: &World, role_of: &[Option<PlayingTime>]) -> HashMap<usize, crate::progression::Change> {
+fn ai_projects(w: &World, role_of: &[Option<PlayingTime>]) -> HashMap<usize, Vec<crate::progression::Change>> {
     use crate::progression::{Lean, Room, ai_room};
     let mut rooms: HashMap<(bool, usize, Room), Vec<usize>> = HashMap::new();
     for (i, p) in w.people.iter().enumerate() {
@@ -788,7 +788,11 @@ fn ai_projects(w: &World, role_of: &[Option<PlayingTime>]) -> HashMap<usize, cra
             ai_room(&members, k.2, lean, eye, scale, seed).into_iter().map(|(m, c)| (ids[m], c)).collect()
         })
         .collect();
-    out.into_iter().flatten().collect()
+    let mut by: HashMap<usize, Vec<crate::progression::Change>> = HashMap::new();
+    for (i, c) in out.into_iter().flatten() {
+        by.entry(i).or_default().push(c);
+    }
+    by
 }
 
 pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
@@ -1099,7 +1103,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         // (section 6b topic 12), so this row starts where he really is.
         let year_focus = ctx.focus.map(|a| crate::development::Focus::two(a, ctx.focus2, ctx.focus_minutes));
         crate::training::close_year(&mut p.player, year_focus);
-        if let Some(&c) = projects.get(&i) {
+        for &c in projects.get(&i).into_iter().flatten() {
             crate::progression::apply(&mut p.player, c);
         }
         let report = develop_season(&mut p.player, &ctx, &mut p.rng);
