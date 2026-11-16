@@ -4,7 +4,8 @@
 use crate::player::PlayingTime;
 use crate::world::data::Division;
 use crate::world::high_school::{
-    self, CLIMB_CAP, CLIMB_DOWN, CLIMB_MIN_SCHOOLS, CLIMB_UP, Chain, alumni_value, climb, state_moves, transfer_rule,
+    self, CLIMB_CAP, CLIMB_MIN_SCHOOLS, CLIMB_SWING, Chain, FORM_DOWN, FORM_UP, alumni_value, climb, state_form,
+    transfer_rule,
 };
 use crate::world::recruiting::move_in_chance;
 use crate::world::{Stage, World, WorldOptions};
@@ -79,13 +80,13 @@ fn a_school_whose_players_make_it_climbs_and_a_quiet_one_falls_slowly() {
     climb(&mut w);
     // The climb draws nothing from the world's stream.
     assert_eq!(rng.clone().next(), w.rng.clone().next());
-    // A year's step: the riser up at most its cap, the quiet one down, slower.
+    // A year's step: the riser's form a third of the way to its reading,
+    // the quiet one's a sixth, so the climb is quicker than the fade.
     let (low1, top1) = (w.high_schools[low].prestige, w.high_schools[top].prestige);
-    assert!(low1 > low0 && low1 - low0 <= CLIMB_UP * CLIMB_CAP + 0.01, "{low0} -> {low1}");
-    assert!(top1 < top0 && top0 - top1 <= CLIMB_DOWN * CLIMB_CAP + 0.01, "{top0} -> {top1}");
+    assert!(low1 > low0 && low1 - low0 <= CLIMB_SWING * FORM_UP * CLIMB_CAP + 1e-9, "{low0} -> {low1}");
+    assert!(top1 < top0 && top0 - top1 <= CLIMB_SWING * FORM_DOWN * CLIMB_CAP + 1e-9, "{top0} -> {top1}");
     assert!(low1 - low0 > top0 - top1, "a climb takes hold faster than a name fades");
-    // The state's average holds.
-    assert!((mean(&w, &schools) - mean0).abs() < 1e-3, "{mean0} -> {}", mean(&w, &schools));
+    let _ = mean0;
     let c = &w.high_schools[low].chain;
     assert_eq!(
         (c.college as usize, c.power as usize, c.nfl),
@@ -98,8 +99,13 @@ fn a_school_whose_players_make_it_climbs_and_a_quiet_one_falls_slowly() {
         w.year += 1;
         climb(&mut w);
     }
-    assert!(w.high_schools[low].prestige > low0 + 0.3, "{low0} -> {}", w.high_schools[low].prestige);
-    assert!(w.high_schools[top].prestige < top0 - 0.1, "{top0} -> {}", w.high_schools[top].prestige);
+    assert!(w.high_schools[low].prestige > low0 + 0.2, "{low0} -> {}", w.high_schools[low].prestige);
+    assert!(w.high_schools[top].prestige < top0 - 0.05, "{top0} -> {}", w.high_schools[top].prestige);
+    // Never more than the swing from its name.
+    for &h in &schools {
+        let x = &w.high_schools[h];
+        assert!((x.prestige - x.chain.start).abs() <= CLIMB_SWING * CLIMB_CAP + 1e-9);
+    }
     // Its why says where it stood and what its players do.
     let why = high_school::chain_why(&w.high_schools[low], first);
     assert!(why.starts_with("climbed from") && why.contains("old players in college"), "{why}");
@@ -108,7 +114,7 @@ fn a_school_whose_players_make_it_climbs_and_a_quiet_one_falls_slowly() {
 }
 
 #[test]
-fn the_order_follows_the_players_and_the_state_average_holds() {
+fn a_name_swings_with_its_players_but_never_far_and_the_state_holds() {
     let mut w = world();
     let schools = quiet_state(&mut w);
     let mean0 = mean(&w, &schools);
@@ -120,17 +126,21 @@ fn the_order_follows_the_players_and_the_state_average_holds() {
         w.year += 1;
         climb(&mut w);
     }
-    // The order turned over: the old bottom is on top.
-    assert!(w.high_schools[schools[0]].prestige > w.high_schools[*schools.last().unwrap()].prestige);
-    assert!((mean(&w, &schools) - mean0).abs() < 0.03, "{mean0} -> {}", mean(&w, &schools));
-    let starts: Vec<f64> = schools.iter().map(|&h| w.high_schools[h].chain.start).collect();
-    assert!(starts.iter().zip(&schools).all(|(s, &h)| *s > 0.0 && w.high_schools[h].chain.years.len() == 60));
+    let (bottom, top) = (&w.high_schools[schools[0]], &w.high_schools[*schools.last().unwrap()]);
+    assert!(bottom.prestige > bottom.chain.start + 0.05, "the old bottom climbed: {}", bottom.prestige);
+    assert!(top.prestige < top.chain.start - 0.03, "the old top fell: {}", top.prestige);
+    for &h in &schools {
+        let x = &w.high_schools[h];
+        assert!((x.prestige - x.chain.start).abs() <= CLIMB_SWING * CLIMB_CAP + 1e-9, "never far from its name");
+        assert_eq!(x.chain.years.len(), 60);
+    }
+    assert!((mean(&w, &schools) - mean0).abs() < 0.05, "{mean0} -> {}", mean(&w, &schools));
 }
 
 #[test]
 fn a_small_state_holds() {
     let few: Vec<(f64, f64)> = (0..CLIMB_MIN_SCHOOLS - 1).map(|k| (k as f64 / 10.0, (10 - k) as f64)).collect();
-    assert!(state_moves(&few).iter().all(|&d| d == 0.0));
+    assert!(state_form(&few).iter().all(Option::is_none));
 }
 
 #[test]

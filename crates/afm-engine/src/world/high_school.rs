@@ -407,9 +407,15 @@ pub fn generate_state_schools(
 /// climb feeds itself through the kids, never by a flat rule.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Chain {
-    /// Its prestige when the world began: its name from the build, kept
-    /// to show how far it has come.
+    /// Its name: its prestige when the world began, from the build (its
+    /// tradition, money and pull), plus what its town built since. Its
+    /// prestige swings around it with its players' form.
     pub start: f64,
+    /// Its old players' form: how far their score has sat above or below
+    /// what its prestige predicts in its state, in standard deviations,
+    /// smoothed over the years (`state_form`).
+    #[serde(default)]
+    pub form: f32,
     /// This June's alumni score (`alumni_value`) and what it counts: old
     /// players in college, at power programs, and in the NFL.
     pub made: f32,
@@ -426,14 +432,16 @@ impl Chain {
     }
 }
 
-/// How far a school moves each June for each standard deviation its old
-/// players' score sits above or below what its prestige predicts in its
-/// state: a climb takes hold faster than a name fades (proposed, not
-/// confirmed: 0.03 a year up, 0.015 down, at most 2.5 deviations either
-/// way, so a school far out-producing its name gains about 0.075 a year).
-pub const CLIMB_UP: f64 = 0.03;
-pub const CLIMB_DOWN: f64 = 0.015;
+/// The chain reaction's sizes (proposed, not confirmed): a school's
+/// prestige is its name plus 0.12 for each standard deviation of form, so
+/// at most 0.3 either way (form is read up to 2.5 deviations). Form moves
+/// 30% of the way to this June's reading when it rises and 15% when it
+/// falls: a climb takes hold in about three years, and a name fades over
+/// about six.
+pub const CLIMB_SWING: f64 = 0.12;
 pub const CLIMB_CAP: f64 = 2.5;
+pub const FORM_UP: f64 = 0.3;
+pub const FORM_DOWN: f64 = 0.15;
 /// A state with fewer schools than this holds its prestige: too few to
 /// read what a school's name predicts (proposed, not confirmed).
 pub const CLIMB_MIN_SCHOOLS: usize = 8;
@@ -482,12 +490,12 @@ pub fn alumni_value(w: &super::World, p: &super::Person) -> Option<(f64, bool, b
 
 /// The chain reaction's step, each June 15 before the transfers: every
 /// school's old players are counted; in each state the score is read
-/// against what each school's prestige predicts there (a straight-line fit
-/// of score on prestige over the state's schools), and a school moves by
-/// how many standard deviations it sits above or below it. A name is
-/// relative, so each state's average prestige holds: the moves are
-/// centred on the state. It reads only the world, draws nothing, and posts
-/// a line when a school becomes a powerhouse or stops being one.
+/// against what each school's prestige predicts there (`state_form`), its
+/// form moves toward that reading, and its prestige is its name plus its
+/// form (`CLIMB_SWING`). A name built on tradition and money doesn't
+/// vanish with a few thin classes, and a school can't climb without end on
+/// one good run. It reads only the world, draws nothing, and posts a line
+/// when a school becomes a powerhouse or stops being one.
 pub(crate) fn climb(w: &mut super::World) {
     use rayon::prelude::*;
     let n = w.high_schools.len();
@@ -513,11 +521,16 @@ pub(crate) fn climb(w: &mut super::World) {
     let mut news: Vec<(usize, bool)> = Vec::new();
     for s in 0..w.states.len() {
         let schools = w.states[s].schools.clone();
-        let moves = state_moves(&schools.iter().map(|&h| (w.high_schools[h].prestige, made[h].0)).collect::<Vec<_>>());
+        let reads = state_form(&schools.iter().map(|&h| (w.high_schools[h].prestige, made[h].0)).collect::<Vec<_>>());
         for (k, &h) in schools.iter().enumerate() {
             let school = &mut w.high_schools[h];
             let was = school.prestige;
-            school.prestige = clamp(was + moves[k], 0.02, 1.0);
+            if let Some(z) = reads[k] {
+                let f = school.chain.form as f64;
+                let rate = if z > f { FORM_UP } else { FORM_DOWN };
+                school.chain.form = (f + rate * (z - f)) as f32;
+                school.prestige = clamp(school.chain.start + CLIMB_SWING * school.chain.form as f64, 0.02, 1.0);
+            }
             let (v, college, power, nfl) = made[h];
             school.chain.made = v as f32;
             school.chain.college = college;
@@ -558,16 +571,15 @@ pub(crate) fn climb(w: &mut super::World) {
     }
 }
 
-/// Each school's move this June from (prestige, old players' score) for
-/// one state's schools, in order: the score against the state's fit of
-/// score on prestige, in standard deviations (at most `CLIMB_CAP`), times
-/// `CLIMB_UP` or `CLIMB_DOWN`, then centred so the state's average holds
-/// (prestige stays within 0.02-1.0).
-/// No move in a small state or when every school scores alike.
-pub fn state_moves(schools: &[(f64, f64)]) -> Vec<f64> {
+/// This June's reading of each school's form from (prestige, old players'
+/// score) for one state's schools, in order: its score against the state's
+/// straight-line fit of score on prestige, in standard deviations, at most
+/// `CLIMB_CAP` either way. None in a small state (`CLIMB_MIN_SCHOOLS`) or
+/// when every school scores alike: then nobody's form moves.
+pub fn state_form(schools: &[(f64, f64)]) -> Vec<Option<f64>> {
     let n = schools.len();
     if n < CLIMB_MIN_SCHOOLS {
-        return vec![0.0; n];
+        return vec![None; n];
     }
     let nf = n as f64;
     let mx = schools.iter().map(|s| s.0).sum::<f64>() / nf;
@@ -578,33 +590,9 @@ pub fn state_moves(schools: &[(f64, f64)]) -> Vec<f64> {
     let resid: Vec<f64> = schools.iter().map(|s| s.1 - (my + b * (s.0 - mx))).collect();
     let sd = (resid.iter().map(|r| r * r).sum::<f64>() / nf).sqrt();
     if sd < 1e-9 {
-        return vec![0.0; n];
+        return vec![None; n];
     }
-    let raw: Vec<f64> = resid
-        .iter()
-        .map(|r| {
-            let z = (r / sd).clamp(-CLIMB_CAP, CLIMB_CAP);
-            if z > 0.0 { CLIMB_UP * z } else { CLIMB_DOWN * z }
-        })
-        .collect();
-    // Centred so the state's average holds, with schools held at the
-    // floor or the top left out of the share.
-    let mut new: Vec<f64> = schools.iter().zip(&raw).map(|(s, d)| s.0 + d).collect();
-    for _ in 0..4 {
-        for v in new.iter_mut() {
-            *v = v.clamp(0.02, 1.0);
-        }
-        let gap = new.iter().sum::<f64>() / nf - mx;
-        let free = new.iter().filter(|&&v| v > 0.02 && v < 1.0).count();
-        if gap.abs() < 1e-12 || free == 0 {
-            break;
-        }
-        let share = gap * nf / free as f64;
-        for v in new.iter_mut().filter(|v| **v > 0.02 && **v < 1.0) {
-            *v -= share;
-        }
-    }
-    new.iter().zip(schools).map(|(v, s)| v.clamp(0.02, 1.0) - s.0).collect()
+    resid.iter().map(|r| Some((r / sd).clamp(-CLIMB_CAP, CLIMB_CAP))).collect()
 }
 
 /// A world saved before the chain reaction: each school's start is its

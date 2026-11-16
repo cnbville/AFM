@@ -193,12 +193,12 @@ fn state_table(w: &World, code: &str) {
         }
     }
     let schools = w.states[s].schools.clone();
-    let moves = afm_engine::world::high_school::state_moves(
+    let moves = afm_engine::world::high_school::state_form(
         &schools.iter().map(|&h| (w.high_schools[h].prestige, score[h])).collect::<Vec<_>>(),
     );
     let mut rows: Vec<usize> = (0..schools.len()).collect();
     rows.sort_by(|&a, &b| w.high_schools[schools[b]].prestige.total_cmp(&w.high_schools[schools[a]].prestige));
-    println!("school                          score  college  power  nfl  prestige  start  enroll  real  move now");
+    println!("school                          score  college  power  nfl  prestige  start  enroll  real  form now");
     for k in rows.into_iter().take(25) {
         let h = schools[k];
         let x = &w.high_schools[h];
@@ -214,7 +214,7 @@ fn state_table(w: &World, code: &str) {
             c.start,
             x.enrollment,
             x.real,
-            moves[k]
+            moves[k].unwrap_or(0.0)
         );
     }
 }
