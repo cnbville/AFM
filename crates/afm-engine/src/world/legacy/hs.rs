@@ -319,6 +319,8 @@ pub(crate) fn day(w: &mut World, d: Date) {
             }
         }
         w.high_schools[h].prestige = (w.high_schools[h].prestige + 0.03).min(1.0);
+        // The town's stadium lifts its name, which its players' form swings around.
+        w.high_schools[h].chain.start = (w.high_schools[h].chain.start + 0.03).min(1.0);
         memo(
             w,
             "legacy-bond-open",

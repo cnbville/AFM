@@ -165,7 +165,18 @@ fn inherited_signees_old_desks_and_screens_keep_their_money() {
     let (mut w, j) = college(true);
     // He signed with the program before your desk existed.
     let class = rec::next_class(&w);
-    let k = w.people.iter().position(|p| p.stage == Stage::HighSchool && p.class_of == class).unwrap();
+    // The senior the old staff would have paid the most, so its usual
+    // money is more than nothing (a boy no other school offered is priced
+    // at next to nothing, and the first senior in the list can be one).
+    let usual_of = |w: &World, i: usize| {
+        let (s, c) = crate::world::front_office::college::usual_parts(w, j, w.people[i].player.id);
+        s + c
+    };
+    let k = (0..w.people.len())
+        .filter(|&i| w.people[i].stage == Stage::HighSchool && w.people[i].class_of == class)
+        .max_by(|&a, &b| usual_of(&w, a).total_cmp(&usual_of(&w, b)))
+        .unwrap();
+    assert!(usual_of(&w, k) > 500.0, "a senior worth the old staff's money: {}", usual_of(&w, k));
     let signee = w.people[k].player.id;
     w.people[k].cal.signed = Some(crate::world::Signed {
         program: j,
