@@ -510,6 +510,12 @@ pub struct PersonCal {
     /// offer, the best rival's top bid for him). Cleared on July 1.
     #[serde(default)]
     pub nil_keep: Option<(f64, f64)>,
+    /// The buyout he carries into the portal from a multi-year deal (the
+    /// new NIL scheme, item 12): half of what it still owed him, which the
+    /// school that takes him pays his old one. Cleared when he lands or
+    /// goes back.
+    #[serde(default)]
+    pub nil_buyout: f64,
     /// His school's revenue share in July's money (item 13: who is paid it).
     #[serde(default)]
     pub nil_school: f32,
@@ -1230,6 +1236,24 @@ pub struct CalendarLog {
     pub nil_go_denied_money: f64,
     #[serde(default)]
     pub nil_go_moved: f64,
+    /// Multi-year deals (the new NIL scheme, item 12): recruits signed on
+    /// one (and by stars), their whole money, terms cut short by the bound
+    /// on later budgets, transfers landed on one, multi-year deals raised
+    /// to keep a man, and buyouts paid when one transferred out.
+    #[serde(default)]
+    pub nil_multi: u32,
+    #[serde(default)]
+    pub nil_multi_stars: [u32; 6],
+    #[serde(default)]
+    pub nil_multi_money: f64,
+    #[serde(default)]
+    pub nil_multi_bound: u32,
+    #[serde(default)]
+    pub nil_multi_transfers: u32,
+    #[serde(default)]
+    pub nil_buyouts: u32,
+    #[serde(default)]
+    pub nil_buyout_money: f64,
     pub portal_returned: u32,
     pub whispers: u32,
     pub sit_out_transfers: u32,
