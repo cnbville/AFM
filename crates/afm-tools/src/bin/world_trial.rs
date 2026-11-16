@@ -2440,11 +2440,8 @@ fn following(w: &World) {
         *tiers.entry(format!("{:.2}", n.fame)).or_default() += 1;
     }
     println!("  by the man's fame: {tiers:?}");
-    let live: Vec<_> = f
-        .names
-        .iter()
-        .filter_map(|n| w.people.iter().find(|p| p.player.id == n.id).map(|p| (n, p)))
-        .collect();
+    let live: Vec<_> =
+        f.names.iter().filter_map(|n| w.people.iter().find(|p| p.player.id == n.id).map(|p| (n, p))).collect();
     let stars: Vec<u32> = (0..=5).map(|s| live.iter().filter(|(_, p)| p.stars == s).count() as u32).collect();
     println!("  still in the world: {}, by stars 0-5: {stars:?}", live.len());
     let mut best: Vec<_> = live.iter().collect();
