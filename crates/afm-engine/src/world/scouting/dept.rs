@@ -173,6 +173,8 @@ pub fn add(w: &mut World, id: u32, who: u32, kind: Kind, date: Date) -> bool {
         return false;
     }
     v.push(SeatLook { who, kind, date });
+    // A look with a recruit is a contact with the people around him (Ground).
+    crate::world::ground::standing::on_look(w, id, who, kind, date);
     true
 }
 
