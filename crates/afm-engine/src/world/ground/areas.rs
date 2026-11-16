@@ -490,33 +490,34 @@ pub fn pins(w: &World, program: Option<usize>) -> Vec<Pins> {
     // Signees: people still in the world and those who have left it.
     if let Some(prog) = program {
         for p in &w.people {
-            if p.stage != Stage::HighSchool && p.path.first() == Some(&prog) {
-                if let Some(k) = area_of(p.hs) {
-                    out[k].signees.push(Pin {
-                        school: p.hs,
-                        name: p.name.clone(),
-                        class_of: p.class_of,
-                        position: p.player.position,
-                        stars: p.stars,
-                        what: format!("signed {}", p.class_of),
-                        player: Some(p.player.id),
-                    });
-                }
+            if p.stage != Stage::HighSchool
+                && p.path.first() == Some(&prog)
+                && let Some(k) = area_of(p.hs)
+            {
+                out[k].signees.push(Pin {
+                    school: p.hs,
+                    name: p.name.clone(),
+                    class_of: p.class_of,
+                    position: p.player.position,
+                    stars: p.stars,
+                    what: format!("signed {}", p.class_of),
+                    player: Some(p.player.id),
+                });
             }
         }
         for a in &w.alumni {
-            if a.colleges.first() == Some(&prog) {
-                if let Some(k) = area_of(a.high_school) {
-                    out[k].signees.push(Pin {
-                        school: a.high_school,
-                        name: a.name.clone(),
-                        class_of: a.class_of,
-                        position: a.position,
-                        stars: a.stars,
-                        what: format!("signed {}", a.class_of),
-                        player: a.player.as_ref().map(|p| p.id),
-                    });
-                }
+            if a.colleges.first() == Some(&prog)
+                && let Some(k) = area_of(a.high_school)
+            {
+                out[k].signees.push(Pin {
+                    school: a.high_school,
+                    name: a.name.clone(),
+                    class_of: a.class_of,
+                    position: a.position,
+                    stars: a.stars,
+                    what: format!("signed {}", a.class_of),
+                    player: a.player.as_ref().map(|p| p.id),
+                });
             }
         }
     }
@@ -538,7 +539,7 @@ pub fn pins(w: &World, program: Option<usize>) -> Vec<Pins> {
         let mut what = Vec::new();
         let mut fame = 0.0;
         if let (Some(r), Some(pick)) = (round, a.pick) {
-            let team = a.nfl_team.as_deref().map(|t| format!(", {t}")).unwrap_or_default();
+            let team = a.nfl_team.map(|t| format!(", {t}")).unwrap_or_default();
             what.push(format!("round {r}, {}{team}", a.year));
             fame += (8 - r) as f64 + if pick <= 10 { 3.0 } else { 0.0 };
         }
