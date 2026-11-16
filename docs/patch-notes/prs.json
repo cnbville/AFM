@@ -1151,5 +1151,49 @@
   "players": true,
   "title": "Progression step 4a: real body sizes, arms, hands and wingspans, and placement's fractional need",
   "tldr": "Players now come in the real range of body shapes for their position, so you'll find short-armed tackles, long-armed corners, light receivers and the occasional huge guard."
+ },
+ "489": {
+  "auto": false,
+  "bullets": [
+   "Open a coach from the map or a school to see his memory of you, dated, newest first.",
+   "See your staff's read of how good and how straight he is, and what kind of man he is.",
+   "See what Known gets you with him, and what Trusted would.",
+   "See where he stands with every other staff, and who he is tied to.",
+   "The new People page lists everyone you have dealt with."
+  ],
+  "h": "3db055a69c47",
+  "look": "pick a coach on the map's \"Who matters here\" list.",
+  "players": true,
+  "title": "Ground lane S5: the person screen",
+  "tldr": "Every coach, trainer and family on your ground now has a page: his face, what he keeps of you in his own words, and what your standing gets you."
+ },
+ "490": {
+  "auto": false,
+  "bullets": [
+   "The vertical and broad jump spread like real ones, and strong legs help.",
+   "Quarterbacks and backs no longer broad jump like receivers.",
+   "The very fastest 3-cones and shuttles are rare, as they are in real life.",
+   "Drill results are no longer capped, so a record-breaking day prints as it happened."
+  ],
+  "h": "0327f0ce9007",
+  "look": "a draft class's combine results.",
+  "players": true,
+  "title": "Progression step 4b: drills on real, a jump knack, thin fast 3-cone and shuttle, no printed limits",
+  "tldr": "Combine numbers now look like a real combine: real jump averages by position, the odd explosive leaper, and agility records that are hard to touch."
+ },
+ "493": {
+  "auto": false,
+  "bullets": [
+   "Talk your AD's goals down, take them bigger or ask why, and pick your own from a list of 63.",
+   "Every Monday you can change your own goal, and your coordinator warns you when one slips.",
+   "Long shots pay the most when you make them; sure things cost the most when you miss.",
+   "In your first offseason your coordinator walks you through your ground, three schools at a time, until you send him off.",
+   "After the verdict, a ground report sums up the spring: your goals, finds, areas and who outworked you."
+  ],
+  "h": "24df88e48c1e",
+  "look": "your coordinator's February meeting memo and the AD's office the day after signing day.",
+  "players": true,
+  "title": "Ground lane G6: the offseason campaign",
+  "tldr": "Your first college spring now has a shape: your AD sets his goals for the class the day after signing day, your coordinator brings his at the February meeting, and the verdict comes the week before your first game."
  }
 }
