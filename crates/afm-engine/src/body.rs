@@ -70,24 +70,35 @@ const RIGHTY_LEFT_FOOTED: f64 = 0.12;
 /// wide as the real combine's at each position (4.0 to 5.4 reps) with the
 /// test day's 2 reps and the lifting knack, on average over the positions
 /// (`bench_check`, four classes). Proposed, not confirmed.
-pub const BENCH_SLOPE: f64 = 0.40;
+pub const BENCH_SLOPE: f64 = 0.35;
 
-/// The drafted men's mean upper-body strength at each position (four
-/// classes of 250,000, `bench_check`): the point the within-position slope
-/// turns about.
+/// The drafted men's mean upper-body strength at each position (sixteen
+/// classes of 250,000, `top_check`, refitted in step 4c with the thin top
+/// and the 94 rule gone): the point the within-position slope turns about.
 pub const BENCH_CENTER: [f64; POSITION_COUNT] =
-    [71.3, 71.2, 66.5, 78.1, 84.0, 84.8, 76.9, 85.8, 70.6, 66.7, 65.0, 50.0, 50.0, 50.0];
+    [69.4, 71.7, 66.7, 80.5, 86.2, 84.2, 78.4, 86.2, 73.5, 66.6, 67.7, 50.0, 50.0, 50.0];
 
 /// Reps each position's drafted men sat off the real combine's mean under
-/// the cross-position fit (the same four classes, refitted with real arms
-/// in step 4a): added so each drafted position benches the real mean. Kickers, punters and snappers none.
+/// the cross-position fit (refitted with real arms in step 4a, and on the
+/// same sixteen classes in step 4c): added so each drafted position benches
+/// the real mean. Kickers, punters and snappers none.
 pub const BENCH_OFFSET: [f64; POSITION_COUNT] =
-    [1.7, 0.96, -0.88, -1.43, -1.37, -0.03, 2.52, 2.49, 3.13, -1.73, -0.57, 0.0, 0.0, 0.0];
+    [1.39, 0.91, -1.9, -0.86, -1.41, -0.09, 2.37, 1.85, 2.22, -1.88, -0.27, 0.0, 0.0, 0.0];
 
-/// The slope's lean past the cross-position one. Kickers, punters and
-/// snappers keep the old read.
-fn bench_lean(pos: Position) -> f64 {
-    if pos.is_specialist() { 0.0 } else { BENCH_SLOPE - 0.137 }
+/// The drafted men's mean weight (eight classes, `top_check`): the weight
+/// `BENCH_SLOPE` holds at.
+pub const BENCH_WEIGHT: f64 = 249.0;
+
+/// The slope's lean past the cross-position one. Reps at 225 follow the
+/// pounds on the bar (Epley: reps = 30 × (max ÷ 225 − 1)), and a strength
+/// point is a share of his own body's pull, so a point is worth more reps
+/// the heavier he is: a 305 lb tackle about 0.49 a point, a 200 lb receiver
+/// 0.32 (physical study item 3). With one slope for all, big men's bench
+/// spread 4.1-4.3 reps (real 4.8-5.5) and the skill spots' 4.9-5.7 (real
+/// 4.0-4.2), and the 35-rep tail fell short. Kickers, punters and snappers
+/// keep the old read. Proposed, not confirmed.
+fn bench_lean(pos: Position, weight: f64) -> f64 {
+    if pos.is_specialist() { 0.0 } else { BENCH_SLOPE * weight / BENCH_WEIGHT - 0.137 }
 }
 
 /// The spread of the lifting knack (reps at 225): how a man presses beyond
@@ -570,7 +581,7 @@ impl Drills {
             // drafted men's mean there, each position's drafted mean set on
             // the real combine's.
             8.05 + 0.137 * self.strength + 0.073 * w - 0.8 * (self.arm - 32.5)
-                + bench_lean(self.pos) * (self.strength - BENCH_CENTER[self.pos.index()])
+                + bench_lean(self.pos, self.weight) * (self.strength - BENCH_CENTER[self.pos.index()])
                 + BENCH_OFFSET[self.pos.index()]
                 + self.lift,
             7.58 - 0.007 * bend + 0.0062 * w + spot(&CONE_OFFSET, pos),
@@ -652,18 +663,15 @@ pub fn drill_knack(p: &Player) -> (f64, f64) {
 /// How high and far he jumps beyond his ratings, in inches (physical study
 /// item 5): his own for life, on his own stream, one spring for both jumps
 /// (real drafted men's vertical and broad go together about 0.7 within a
-/// position), with real's fat tail (a t of 5 degrees, scaled to the spread).
-/// Test days only, like the agility knacks.
+/// position). A plain normal: the fat tail it had (a t of 5 degrees) ran
+/// drafted verticals to 52 inches over 24 drafts and 44+ to 1.4 a draft
+/// (real best 46.5 in 25 years, 0.35 a draft); the normal gives 47.5 and
+/// 0.50 (`drill_tails`, step 4c). Test days only, like the agility knacks.
 pub fn jump_knack(p: &Player) -> (f64, f64) {
     let pos = p.position;
     let mut rng = Rng::new(p.id ^ 0x1A_3B7);
-    let fat = |rng: &mut Rng| {
-        let z = rng.normal(0.0, 1.0);
-        let chi: f64 = (0..5).map(|_| rng.normal(0.0, 1.0).powi(2)).sum::<f64>() / 5.0;
-        z / chi.sqrt() / (5.0f64 / 3.0).sqrt()
-    };
-    let a = fat(&mut rng);
-    let b = fat(&mut rng);
+    let a = rng.normal(0.0, 1.0);
+    let b = rng.normal(0.0, 1.0);
     let r = JUMP_TOGETHER;
     (spot(&VERT_KNACK, pos) * a, spot(&BROAD_KNACK, pos) * (r * a + (1.0 - r * r).sqrt() * b))
 }
