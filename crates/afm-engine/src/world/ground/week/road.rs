@@ -332,6 +332,29 @@ pub(crate) fn day(w: &mut World, prog: usize, d: Date) -> bool {
         }
         super::phone::night_call(w, man, r.area, &lines, night, d);
         night += 1;
+        // Lane G10: his road days count for his mood, and a young man riding
+        // along meets the same coaches (both men's days).
+        let spring = win == Window::Spring;
+        crate::world::ground::staff::beats::count_day(w, man, spring);
+        if let Some(y) = crate::world::ground::staff::beats::rider(w, man, d)
+            && out < cap
+            && left != Some(0)
+            && !w.ground.week.roads.iter().any(|x| x.man == y as u32 && x.days & (1 << k) != 0)
+            && may_go(w, prog, y, d).is_ok()
+        {
+            out += 1;
+            if let Some(l) = left.as_mut() {
+                *l -= 1;
+            }
+            match win {
+                Window::Spring => w.scouting.dept.eval_days.2 += 1,
+                Window::Fall => w.scouting.dept.eval_days.1 += 1,
+                Window::Winter => {}
+            }
+            crate::world::ground::staff::beats::count_day(w, y, spring);
+            let visited: Vec<usize> = lines.iter().map(|v| v.school).collect();
+            crate::world::ground::staff::beats::ride_day(w, prog, y, man, &visited, d);
+        }
     }
     true
 }

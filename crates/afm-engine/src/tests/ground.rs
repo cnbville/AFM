@@ -363,12 +363,27 @@ fn the_world_plays_the_same_with_the_ground() {
     }
     // Everything but your own network plays the same; in your network only
     // the people on your ground differ, since their ties read your
-    // standing with them (lane G7, `ground::stores`).
+    // standing with them (lane G7, `ground::stores`). And which of your
+    // own men made a look differs: the man on the area goes (lane G10,
+    // `ground::staff::beats`), always one of your staff.
+    let yours: Vec<u64> = crate::world::ground::staff::men(&on, prog)
+        .iter()
+        .map(|&c| (crate::world::scouting::readers::COACH + c as u32) as u64)
+        .collect();
     let strip = |mut v: Vec<serde_json::Value>| {
         v[4].as_object_mut().unwrap().remove("network");
+        for list in v[3].as_object_mut().unwrap().values_mut() {
+            for l in list.as_array_mut().unwrap() {
+                let l = l.as_object_mut().unwrap();
+                if l.get("who").and_then(|x| x.as_u64()).is_some_and(|x| yours.contains(&x)) {
+                    l.remove("who");
+                }
+            }
+        }
         v
     };
-    assert!(strip(fp(&on)) == strip(fp(&off)), "the world moved with the ground");
+    let (fa, fb) = (strip(fp(&on)), strip(fp(&off)));
+    assert!(fa == fb, "the world moved with the ground");
     let (a, b) = (&on.folk.network.contacts, &off.folk.network.contacts);
     assert_eq!(a.len(), b.len());
     for (x, y) in a.iter().zip(b) {

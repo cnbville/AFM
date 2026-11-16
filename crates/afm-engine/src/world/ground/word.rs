@@ -36,6 +36,10 @@ pub struct Travel {
     pub words: String,
     /// A close tie keeps it as a moment.
     pub close: bool,
+    /// Whose memory it reaches (lane G10: a man's own, the assistant's
+    /// push); none is the program's.
+    #[serde(default)]
+    pub holder: Option<Holder>,
 }
 
 /// Something happened between your program and a person: it travels.
@@ -76,6 +80,7 @@ pub(crate) fn spread(
             good,
             words: words.clone(),
             close: true,
+            holder: None,
         });
     }
     // His area: lane G1a's ground area of his school.
@@ -100,10 +105,43 @@ pub(crate) fn spread(
                 good,
                 words: words.clone(),
                 close: false,
+                holder: None,
             });
         }
     }
     w.ground.travel.extend(out);
+    w.ground.travel.sort_by_key(|t| t.due);
+}
+
+/// Word about you from one person to his close ties, at half, into a
+/// holder's own memory (lane G10: the high school coach who saw you push
+/// for a kid tells his ties; it goes with you, GR29).
+pub(crate) fn spread_to(w: &mut World, holder: Holder, from: Who, by: f32, about: Option<String>, d: Date) {
+    let Some(prog) = standing::seat_program(w) else { return };
+    if w.ground.off || by == 0.0 {
+        return;
+    }
+    let words = match &about {
+        Some(k) => format!("he heard you pushed for {k} before anybody did"),
+        None => format!("he heard good things from {}", people::name(w, from)),
+    };
+    let ties = people::ties(w, from);
+    for (k, t) in ties.iter().enumerate() {
+        if matches!(t, Who::Family(_)) {
+            continue;
+        }
+        let lag = 2 + (people::u(w, *t, 0x3A9 + k as u64) * 4.0) as i32;
+        w.ground.travel.push(Travel {
+            due: d.add(lag),
+            prog: prog as u32,
+            to: *t,
+            by: by * TIES_SHARE,
+            good: true,
+            words: words.clone(),
+            close: true,
+            holder: Some(holder),
+        });
+    }
     w.ground.travel.sort_by_key(|t| t.due);
 }
 
@@ -120,7 +158,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
             continue;
         }
         let before = standing::level(w, prog, t.to);
-        let holder = Holder::Program(prog as u32);
+        let holder = t.holder.unwrap_or(Holder::Program(prog as u32));
         let start = standing::derived(w, t.to, holder);
         let m = standing::entry(&mut w.ground, start, t.to, holder, d);
         standing::gain(m, t.by, d);

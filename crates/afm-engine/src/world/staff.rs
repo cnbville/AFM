@@ -965,6 +965,11 @@ fn weigh_offer_at(w: &mut World, c: usize, o: Opening, rank: usize) -> Option<(S
     if over > 2 {
         parts.push((0.015 * (over - 2).min(4) as f64, "a head coach who keeps overruling him".to_string()));
     }
+    // His mood on your staff (Ground lane G10): a happy man stays, an
+    // unhappy one listens.
+    if let Some((by, why)) = super::ground::staff::offer_pull(w, c) {
+        parts.push((by, why));
+    }
     // A seat getting hot: a way out before he is pushed.
     if job.role == Role::HeadCoach {
         let n = coach.recent.len();
@@ -1714,7 +1719,23 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
             market::offer(w, o.employer, o.role, o.prestige);
             return;
         }
+        // One of your men (Ground lane G10): his answer once you've had
+        // your chance to counter; the job waits for it.
+        if let Some(ans) = super::ground::staff::carousel::courted_answer(w, c, o.employer, o.role) {
+            match ans {
+                Some((reason, pay)) => {
+                    hired = Some(c);
+                    why = reason;
+                    price = Some(pay);
+                    break;
+                }
+                None => continue,
+            }
+        }
         if let Some((reason, pay)) = weigh_offer_at(w, c, o, rank) {
+            if super::ground::staff::carousel::courting(w, c, o.employer, o.role, o.prestige, &reason, pay) {
+                return;
+            }
             hired = Some(c);
             why = reason;
             price = Some(pay);
@@ -2272,7 +2293,9 @@ fn staff_review(w: &mut World, p: usize, form: f64, hot: bool, openings: &mut Ve
         }
         let coordinator = matches!(role, Role::OffensiveCoordinator | Role::DefensiveCoordinator);
         let seat = if hot && coordinator { 1.6 } else { 1.0 };
-        let weak = clamp((-0.15 * (quality(w, a, role) - mean)).exp(), 0.5, 2.0);
+        // Your August verdict at the assistant seat (Ground lane G10).
+        let weak = clamp((-0.15 * (quality(w, a, role) - mean)).exp(), 0.5, 2.0)
+            * super::ground::staff::desk::review_factor(w, a);
         let rate = STAFF_TURN * if coordinator { STAFF_TURN_COORDINATOR } else { 1.0 } * season * seat * weak;
         if w.rng.chance(clamp(rate, 0.0, 0.6)) {
             marked.push((role, a, weak));
