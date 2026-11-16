@@ -39,10 +39,8 @@ fn run(gp: &GamePlayer) -> (f64, f64) {
         a.steer(v2(a.vmax, 0.0));
         a.pos = a.pos + a.vel.scale(DT);
         let after = a.pos.x;
-        for (mark, out) in [(10.0, &mut ten)] {
-            if before < mark && after >= mark {
-                *out = t + DT * (mark - before) / (after - before).max(1e-9);
-            }
+        if before < 10.0 && after >= 10.0 {
+            ten = t + DT * (10.0 - before) / (after - before).max(1e-9);
         }
         if after >= 40.0 {
             return (ten, t + DT * (40.0 - before) / (after - before).max(1e-9));
