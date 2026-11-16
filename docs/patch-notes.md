@@ -8,6 +8,75 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.574 (16 Nov, shipped): ground lane G1b: standing and one memory (PR #474), weigh typed plan asks and college calls as said, not as a chip (PR #462), ground lane G3: your week and road days (PR #481), and 2 more
+**TLDR:** 5 changes ship together. The people around the kids now remember you. Every high school coach and counselor you deal with has a standing with your staff, from Stranger to Home, and it moves with the work you put in. Your coordinators and college recruiters now react to what you actually say. Ask for a lot or a little, give an order, or mix truth and spin on a call, and the answer follows. Plus 3 more below.
+- Ground lane G1b: standing and one memory (PR #474): The people around the kids now remember you. Every high school coach and counselor you deal with has a standing with your staff, from Stranger to Home, and it moves with the work you put in.
+- Your evaluation days, calls, camps and campus visits build standing with each kid's coach, his coordinators and his counselor. (PR #474)
+- When a coach moves up a level he tells you himself, in his own words, after lunch in his planning period. (PR #474)
+- Ground you stop working fades, and your staff warns you before a level slips, with who was there instead. (PR #474)
+- Pulling an offer or breaking a promise costs you with his coach for years. His kids starting, graduating and getting drafted with you pays. (PR #474)
+- Your own high school and hometown know you from day one. (PR #474)
+- Weigh typed plan asks and college calls as said, not as a chip (PR #462): Your coordinators and college recruiters now react to what you actually say. Ask for a lot or a little, give an order, or mix truth and spin on a call, and the answer follows.
+- A coordinator weighs your plan change against his own read of the last game and can push back or offer to meet you halfway. (PR #462)
+- Make it your call and he'll put it in, but he'll remember if it goes wrong. (PR #462)
+- On a college staff's call, every claim you make counts, and a bigger stretch of the truth costs more when it comes out. (PR #462)
+- A sharp recruiter notices when you tell him two different things. (PR #462)
+- Ground lane G3: your week and road days (PR #481): Your recruiting week now has a shape: a Monday letter from your coordinator, your staff out on the road day by day inside the real evaluation limits, and coaches who call you back when they're out of class.
+- Every week opens with one line on what matters, taken from the real recruiting calendar. (PR #481)
+- Your coordinator plans who goes where and why; you can change any man's days or hand the week over. (PR #481)
+- Road days come off the spring and fall limits as your coaches travel, and your budget decides who flies. (PR #481)
+- Calls to busy high school coaches leave a message, and they call back in their planning period; your men phone in from the road at night. (PR #481)
+- The May list arrives the day after Memorial Day, and you can take a week off in July. (PR #481)
+- Live talks: the ear reads asks and hedges as said, and a coach gives his read on a player (PR #485): Your staff now hear "take a look at him, I want to decide if we should cut him" as a request for their read, not as a cut, and they answer with what they actually think of the player.
+- Saying you're thinking about benching, cutting or moving someone no longer counts as having decided it. (PR #485)
+- Ask a coach for his read on a player and he tells you where that player stands at his spot, how high he could go, and whether he'd keep him. (PR #485)
+- If you tell a coach about a cut you've made to someone else, that cut no longer lands on the coach. (PR #485)
+- Softened announcements like "I think I'm going to have to let you go" still count as decisions. (PR #485)
+- Ground lane S1: the map screen and the school page (PR #483): Ground has a map: see which programs hold each recruiting area in your state, where you stand, and who the people are.
+- A new Ground section in the sidebar with The map. (PR #483)
+- Each recruiting area is shaded by who leads it, with your standing beside it and fog where you haven't worked yet. (PR #483)
+- Pick an area to see who leads it, where you stand and its head coaches by name. (PR #483)
+- Open any school for its coaches, where its kids went, its seasons and the players you've signed from it. (PR #483)
+- Look at: your inbox after a few spring evaluation weeks. (PR #474) a sit-down with your defensive coordinator, and the next college call about one of your players. (PR #462) the recruiting desk's Monday digest during the spring evaluation period. (PR #481)
+
+## 0.2.569 (16 Nov, shipped): ground lane G1a: areas and map data (PR #471), NIL lane B: multi-year deals (the new NIL scheme, item 12) (PR #476), settings: install an older version and go back to the latest (PR #475), and 5 more
+**TLDR:** 8 changes ship together. Ground lane G1a: areas and map data You can now sign recruits, transfers and your own players to NIL deals of up to four years. Locking in a star costs a buyout for anyone who wants to poach him. Plus 6 more below.
+- Ground lane G1a: areas and map data (PR #471): no summary in the PR
+- NIL lane B: multi-year deals (the new NIL scheme, item 12) (PR #476): You can now sign recruits, transfers and your own players to NIL deals of up to four years. Locking in a star costs a buyout for anyone who wants to poach him.
+- A Years box sits beside every NIL promise and portal offer, and a Term column is on the NIL desk. (PR #476)
+- Some players value a guaranteed deal and take less a year for it. Others would rather sign year to year and sell themselves again. (PR #476)
+- A player who transfers out of a multi-year deal owes half of what's left. The school that takes him pays it to you. (PR #476)
+- Rival schools now lock up their own blue-chips and top transfers, and renegotiate to keep them. (PR #476)
+- Settings: install an older version and go back to the latest (PR #475): If a new build is too buggy to play, Settings can now put an older one back, and your saves are copied aside first.
+- Settings has Other versions: every published build with its date and what changed, and an Install button. (PR #475)
+- Before it installs, AFM tells you which saves a newer build wrote, and keeps a copy of all of them. (PR #475)
+- While you stay on the older build AFM stops updating itself; Go back to the latest ends that. (PR #475)
+- Progression step 3c: body projects on their leashes, by body knack and frame (PR #478): Strength staffs can now rebuild a player's body over several years, and some bodies take to it far better than others.
+- College and pro strength staffs pick players whose bodies trail their position and put them on a strength program. (PR #478)
+- A player who takes to it can add a lot of strength and carry more weight. One who doesn't gains almost nothing. (PR #478)
+- Tall, light frames have the most room to fill. Short, heavy ones have less. (PR #478)
+- A rebuild costs a little speed for the added pounds and adds some wear. (PR #478)
+- World log: carry a person's testing days in his yearly row (PR #464): _Generated by Claude Code_
+- Weigh a typed ask to your boss or a booster as said, not on the meeting's chip (PR #479): When you ask your boss or a booster for something in your own words, they now weigh what you actually said and tell you why. Put something on the line, like a top-3 class or nine wins, and see if they buy it.
+- Asking your athletic director for NIL, staff or recruiting money in your own words is weighed on what you offer in return, your record, their trust in you and the budget, not a fixed answer. (PR #479)
+- If you put up a bar like a top-3 class or a bowl, a yes makes it a goal your boss holds you to, and the next goals meeting keeps it. (PR #479)
+- A yes stands for most of a year. Ask again for the same money before then and you'll hear why not. (PR #479)
+- A no comes with the real reason: the budget, a recent no, a record that doesn't back your promise, or not enough trust yet. (PR #479)
+- Asking for more time, for your boss to vouch for you with the big booster, or for a booster's money works the same way. (PR #479)
+- Draft boards grade prospects for the job they'd play in each club's scheme; clubs can pick their own sleepers (PR #466): NFL clubs now grade draft prospects for the job they'd do in their own scheme, so boards differ from club to club and a 3-4 team chases a different edge rusher than a 4-3 team.
+- A 3-4 club values the bendy stand-up rusher; a 4-3 club the power end who sets the edge. (PR #466)
+- Slot receivers and nickel corners grade higher with clubs that play three wide or a lot of nickel, lower with two-receiver offenses. (PR #466)
+- Single-high defenses look for a true deep safety and a box safety; two-high defenses want safeties who do both. (PR #466)
+- Clubs can now take a sleeper their own scouts love even when the public boards barely rank him. (PR #466)
+- Your war room's player card says what job your staff graded him for. (PR #466)
+- Playing time grade reads next fall's depth chart (PR #467): A school's playing time grade now comes from its real depth chart, so a struggling team with weak starters shows the openings recruits expect.
+- Playing time looks at every starting spot for next fall and how good the player holding it is. (PR #467)
+- Teams with weak starters grade higher on playing time, even if those starters are young. (PR #467)
+- Strong teams with good backups waiting behind their seniors grade lower. (PR #467)
+- Recruits and transfers weigh the new grade when they pick a school. (PR #467)
+- Look at: your NIL desk's Term column, and the Years box on a five-star's promise. (PR #476) Settings, Other versions (shows up after the next build is out). (PR #475) a lanky receiver's strength and weight over his college years. (PR #478)
+- Docs and tooling merged too, no game change: Docs: multi-year deals, five-star money decision (by proxy) (PR #477).
+
 ## 0.2.561 (16 Nov, shipped): let a goodbye end a meeting cleanly (PR #463), every club's draft board reads scheme fit (PR #468), progression step 3: upper and lower body strength, the bench at the real slope, the weight room by body knack (PR #469)
 **TLDR:** 3 changes ship together. You can now end any meeting just by saying goodbye. Nothing is held against you for leaving, and anything you didn't argue stands as it was. Every NFL club now grades draft prospects for its own scheme, so boards split the way real ones do. Plus 1 more below.
 - Let a goodbye end a meeting cleanly (PR #463): You can now end any meeting just by saying goodbye. Nothing is held against you for leaving, and anything you didn't argue stands as it was.

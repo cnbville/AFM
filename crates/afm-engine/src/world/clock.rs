@@ -533,6 +533,9 @@ fn office(w: &mut World, d: Date, y: &YearDates) {
     }
     if d == hs_transfer_day(y) {
         hs_nil_states(w);
+        // The chain reaction (Ground GR21): schools climb or fall on their
+        // old players before the families decide.
+        timed("hs climb", || super::high_school::climb(w));
         timed("hs transfers", || recruiting::high_school_transfers(w));
         w.rebuild_rosters();
         // High schoolers' NIL deals follow the new rules and the moves (N3).

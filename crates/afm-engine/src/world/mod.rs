@@ -1595,7 +1595,7 @@ impl World {
         let mut infos: Vec<StateInfo> = (0..51)
             .map(|i| StateInfo {
                 code: geo::STATE_CENTERS[i].0.to_string(),
-                transfer: TransferRule { sit_out: 0.5, free_once: false },
+                transfer: TransferRule { sit_out: 0.5, free_once: false, move_exempt: true },
                 hs_nil: false,
                 culture: 0.0,
                 class_share: 0.0,
