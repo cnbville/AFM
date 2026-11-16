@@ -17,8 +17,10 @@ pub enum Attr {
     Speed,
     Acceleration,
     Agility,
-    /// Raw strength: what the weight room builds and the bench press reads.
-    /// How strong he plays comes from strength, balance, bend, hands and mass together.
+    /// Upper body strength: what the bench press reads, and the hand fight,
+    /// the press, the shed, the stiff arm and the contested hold (physical
+    /// study item 4b). How strong he plays comes from both halves, balance,
+    /// bend, hands and mass together.
     Strength,
     /// Stays on his feet and in control through contact and at full speed.
     Balance,
@@ -137,9 +139,15 @@ pub enum Attr {
     Competitiveness,
     /// Willing to hit: strikes on contact, takes on blocks, finishes.
     Physicality,
+    /// Lower body strength (physical study item 4b): what the squat and the
+    /// clean read, and the anchor, the drive block, the bull rush's push,
+    /// the tackler's drive and the carrier's drive after contact. Moves with
+    /// upper body strength mostly, but men differ. Last in the list so the
+    /// other 67 keep their places in older saves.
+    LowerBody,
 }
 
-pub const ATTRIBUTE_COUNT: usize = 67;
+pub const ATTRIBUTE_COUNT: usize = 68;
 
 /// The groups a player's page shows (the proposal's nine, hidden aside).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -223,6 +231,7 @@ impl Attr {
         Attr::Motor,
         Attr::Competitiveness,
         Attr::Physicality,
+        Attr::LowerBody,
     ];
 
     #[inline]
@@ -247,7 +256,9 @@ impl Attr {
     pub fn category(self) -> Category {
         use Attr::*;
         match self {
-            Speed | Acceleration | Agility | Strength | Balance | Flexibility | Jumping | Stamina => Category::Physical,
+            Speed | Acceleration | Agility | Strength | Balance | Flexibility | Jumping | Stamina | LowerBody => {
+                Category::Physical
+            }
             ArmStrength | ShortAccuracy | MediumAccuracy | DeepAccuracy | Touch | ThrowOnMove | QuickRelease
             | Footwork | PocketPresence | BallHandling | EyeManipulation => Category::Passing,
             BallSecurity | BallCarrierVision | Elusiveness | LegDrive => Category::Running,
@@ -333,13 +344,14 @@ pub const ATTRIBUTE_KEYS: [&str; ATTRIBUTE_COUNT] = [
     "motor",
     "competitiveness",
     "physicality",
+    "lowerBody",
 ];
 
 pub const ATTRIBUTE_LABELS: [&str; ATTRIBUTE_COUNT] = [
     "Speed",
     "Acceleration",
     "Agility",
-    "Strength",
+    "Upper Body Strength",
     "Balance",
     "Flexibility",
     "Jumping",
@@ -403,6 +415,7 @@ pub const ATTRIBUTE_LABELS: [&str; ATTRIBUTE_COUNT] = [
     "Motor",
     "Competitiveness",
     "Physicality",
+    "Lower Body Strength",
 ];
 
 /// How an attribute develops: physical ones grow with the body, technical
@@ -562,6 +575,8 @@ pub const ATTRIBUTE_PROFILES: [AttributeProfile; ATTRIBUTE_COUNT] = [
     mental(0.62, 0.08, (14.0, 22.0), 0.3, 0.3, 31.0, 0.6, 0.04), // motor
     mental(0.68, 0.06, (14.0, 22.0), 0.2, 0.2, 34.0, 0.3, 0.02), // competitiveness
     mental(0.6, 0.1, (14.0, 23.0), 0.3, 0.4, 32.0, 0.5, 0.06), // physicality
+    // Lower body strength is built in the weight room as the upper body is.
+    physical(0.48, 0.2, (15.0, 24.0), 0.8, 31.0, 0.6, false, 0.12), // lowerBody
 ];
 
 /// One value per attribute. Stored as 4-byte numbers (section 8, memory):
@@ -569,8 +584,44 @@ pub const ATTRIBUTE_PROFILES: [AttributeProfile; ATTRIBUTE_COUNT] = [
 /// player and his ceilings were 0.45 GB of a full world as 8-byte numbers.
 /// Reads and writes go through f64, so every formula keeps working in f64.
 /// A world file written with 8-byte numbers loads into it.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+///
+/// A save written before lower body strength (67 values) loads with it
+/// equal to his strength (physical study item 4b; proposed, not confirmed).
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
 pub struct Attributes(#[serde(with = "serde_big_array::BigArray")] [f32; ATTRIBUTE_COUNT]);
+
+/// How many values a save from before lower body strength holds.
+pub const OLD_ATTRIBUTE_COUNT: usize = 67;
+
+impl<'de> serde::Deserialize<'de> for Attributes {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> serde::de::Visitor<'de> for V {
+            type Value = Attributes;
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(f, "{OLD_ATTRIBUTE_COUNT} or {ATTRIBUTE_COUNT} ratings")
+            }
+            fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut seq: A) -> Result<Attributes, A::Error> {
+                let mut v = [0f32; ATTRIBUTE_COUNT];
+                let mut n = 0;
+                while let Some(x) = seq.next_element::<f32>()? {
+                    if n == ATTRIBUTE_COUNT {
+                        return Err(serde::de::Error::invalid_length(n + 1, &self));
+                    }
+                    v[n] = x;
+                    n += 1;
+                }
+                match n {
+                    ATTRIBUTE_COUNT => {}
+                    OLD_ATTRIBUTE_COUNT => v[Attr::LowerBody as usize] = v[Attr::Strength as usize],
+                    _ => return Err(serde::de::Error::invalid_length(n, &self)),
+                }
+                Ok(Attributes(v))
+            }
+        }
+        d.deserialize_tuple(ATTRIBUTE_COUNT, V)
+    }
+}
 
 impl Attributes {
     pub const fn filled(value: f64) -> Self {

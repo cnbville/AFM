@@ -30,7 +30,7 @@ use afm_engine::world::folk::persona::negotiate::{self, Played};
 use afm_engine::world::folk::persona::room::Room;
 use afm_engine::world::folk::persona::talk::{self, Conversation, Parts, Said, channels, store};
 use afm_engine::world::folk::persona::terms::{Request as Ask, Valuing, Weighed};
-use afm_engine::world::folk::persona::{deals, meetings, office};
+use afm_engine::world::folk::persona::{asks, deals, meetings, office};
 use afm_engine::world::folk::scene::{Kind, Scene};
 use serde_json::{Value, json};
 
@@ -142,6 +142,9 @@ struct Waiting {
     him: Them,
     /// Each item, until it's confirmed or dropped.
     items: Vec<Option<Confirm>>,
+    /// Each item's line as first drawn, read against the world then (a
+    /// redraw has no world to read).
+    words: Vec<String>,
     born: Instant,
 }
 
@@ -160,8 +163,9 @@ impl Waits {
             .flat_map(|(ticket, w)| {
                 w.items.iter().enumerate().filter_map(move |(k, c)| {
                     let c = c.as_ref()?;
+                    let text = w.words.get(k).cloned().unwrap_or_else(|| confirm_words(c));
                     Some(json!({ "cmd": "talk_confirm", "args": { "id": w.scene, "ticket": ticket, "k": k },
-                        "text": confirm_words(c) }))
+                        "text": text }))
                 })
             })
             .collect()
@@ -406,6 +410,9 @@ fn waits(g: &mut Game, id: u32, room: &Room, t: &Turn) -> Vec<Value> {
             (Confirm::Offer(o), Some((w, s))) => {
                 negotiate::confirm_words(w, negotiate::facet(w, s), o).unwrap_or_else(|| confirm_words(c))
             }
+            (Confirm::Request(r @ Ask::Money(_)), Some((w, _))) => {
+                format!("Go ahead: {}", asks::request_words_in(w, r))
+            }
             _ => confirm_words(c),
         })
         .collect();
@@ -416,7 +423,7 @@ fn waits(g: &mut Game, id: u32, room: &Room, t: &Turn) -> Vec<Value> {
         .collect();
     g.ai.persona.map.insert(
         ticket,
-        Waiting { scene: id, him, items: t.confirm.iter().cloned().map(Some).collect(), born: Instant::now() },
+        Waiting { scene: id, him, items: t.confirm.iter().cloned().map(Some).collect(), words, born: Instant::now() },
     );
     list
 }
@@ -425,7 +432,7 @@ fn confirm_words(c: &Confirm) -> String {
     match c {
         Confirm::Request(Ask::Other(x)) if x == talk::recruit::VISIT => "Set his official visit".into(),
         Confirm::Offer(o) => format!("Make the offer: {}", folk::plain(&o.words)),
-        Confirm::Request(r) => format!("Go ahead: {r:?}"),
+        Confirm::Request(r) => format!("Go ahead: {}", asks::request_words(r)),
         Confirm::Decision(d) => format!("Make it so: {}", channels::decision_words(*d)),
     }
 }
@@ -456,6 +463,30 @@ pub fn confirm(g: &mut Game, args: &Value) -> Reply {
             }
         }
     }
+    g.run("people_scene", &json!({ "id": id }))
+}
+
+/// What a line to a talk that is over gets: the meeting waits on your
+/// decision.
+pub const OVER: &str = "The talk is over. What's left is your call.";
+
+/// `talk_wrap`: `{id}` ends the talk the way a goodbye does, with no cost
+/// for leaving (thread "Let talking end meetings cleanly"): a one-on-one
+/// lands as its end chip does, a meeting closes with what you didn't argue
+/// standing, and one that holds a decision keeps it as its own picks
+/// (`talk::wrap`). Only on a talk that plays v3.
+pub fn wrap(g: &mut Game, args: &Value) -> Reply {
+    let id = args.get("id").and_then(Value::as_u64).ok_or("Missing id.")? as u32;
+    let w = g.world.as_ref().ok_or("No world is loaded.")?;
+    let s = w.folk.scenes.iter().find(|s| s.id == id).ok_or("No such meeting.")?;
+    if s.done {
+        return Err("That meeting is over.".into());
+    }
+    if !plays(g, s) {
+        return Err("This talk ends on its own picks.".into());
+    }
+    let w = g.world.as_mut().ok_or("No world is loaded.")?;
+    talk::end(w, id);
     g.run("people_scene", &json!({ "id": id }))
 }
 
@@ -559,3 +590,11 @@ mod stake_tests;
 #[cfg(test)]
 #[path = "meetings_tests.rs"]
 mod meetings_tests;
+
+#[cfg(test)]
+#[path = "weighed_tests.rs"]
+mod weighed_tests;
+
+#[cfg(test)]
+#[path = "wrap_tests.rs"]
+mod wrap_tests;

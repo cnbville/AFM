@@ -56,6 +56,10 @@ Object.assign(CRUMBS, {
 // ---------- small pieces ----------
 const fcStars = (n) => (n ? `<span class="fc-stars" title="${n}-star recruit (the services)">${"★".repeat(n)}<i>${"★".repeat(Math.max(0, 5 - n))}</i></span>` : '<span class="muted">-</span>');
 const fcDot = (tone) => `<span class="dot ${tone || ""}"></span>`;
+// The years a deal is guaranteed (the new NIL scheme, item 12): one to four
+// money years. It saves on change; a recruit or transfer weighs the
+// guarantee by his makeup, and leaving owes half of what is left.
+const fcTerm = (id, years, what) => `<label class="fc-moneyin" title="${esc(what)}"><span class="fc-pot">Years</span><select data-fcterm="${id}">${[1, 2, 3, 4].map((n) => `<option value="${n}"${(years || 1) === n ? " selected" : ""}>${n === 1 ? "1 year" : n + " years"}</option>`).join("")}</select></label>`;
 const fcSum = (list, k) => list.reduce((a, r) => a + (r[k] || 0), 0);
 const fcIn = (n) => (n == null ? "" : n <= 0 ? "today" : n === 1 ? "tomorrow" : `in ${n} days`);
 const fcPlural = (n, one, many) => `${n} ${n === 1 ? one : many || one + "s"}`;
@@ -420,7 +424,7 @@ function fcActions(f) {
       : `Schools like yours usually pay ${kind} about ${money(f.usual)}.`;
     const left = two ? `${money(f.budget.left)} left in the revenue share and ${money(f.budget.coll_left)} in the collective` : `${money(f.budget.left)} left this year`;
     nil = `<div class="fc-nil"><span class="st-label">NIL promise <small>optional</small></span>
-        <div class="fc-nilrow">${box("Revenue share", "promise", f.nil)}${two ? box("Collective deal", "pcoll", f.nil_coll) : ""}<button class="st-btn small primary" data-fc="promise" data-id="${f.id}">Promise</button></div>
+        <div class="fc-nilrow">${box("Revenue share", "promise", f.nil)}${two ? box("Collective deal", "pcoll", f.nil_coll) + fcTerm(f.id, f.years, "How many years your promise is guaranteed. A guarantee is worth more to some recruits than others; if he transfers he owes half of what is left.") : ""}<button class="st-btn small primary" data-fc="promise" data-id="${f.id}">Promise</button></div>
         <small class="sub">${state} ${market} The going rate for his position tops out near ${money(f.nil_max)}, but only your money limits you: ${left}.</small>
         ${fcAnswer(f.answer)}
         ${aiSayBox(f, "nil:" + f.id, { wrap: "panel", hand: true, preset: { cmd: "fo_say", args: { desk: "nil", id: f.id }, limit: 400 }, words: { title: "Talk money with him", ph: "Type what you'd say to him about the money. It goes on a call with him, by the contact rules.", foot: "The boxes above still work.", btn: "Call and say it" } })}
@@ -554,7 +558,7 @@ function fcPortalMoves(f) {
   if (f.shopping && !f.committed && f.nil_era) {
     const what = f.two_pots ? "revenue share" : "NIL";
     pay = `<div class="fc-nil"><span class="st-label">Your offer <small>${what} a year, optional</small></span>
-      <div class="fc-nilrow">${nilIn}<button class="st-btn small ${f.offered ? "glass" : "primary"}" data-fc="poffer" data-id="${f.id}">${f.offered ? "Change it" : "Offer"}</button></div>
+      <div class="fc-nilrow">${nilIn}${f.two_pots ? fcTerm(f.id, f.years, "How many years your offer is guaranteed, up to his seasons left. If he has a multi-year deal where he is, you pay his buyout on top.") : ""}<button class="st-btn small ${f.offered ? "glass" : "primary"}" data-fc="poffer" data-id="${f.id}">${f.offered ? "Change it" : "Offer"}</button></div>
       <small class="sub">${f.nil != null || f.coll != null ? (f.two_pots ? `You offered ${money(f.nil || 0)} of revenue share and a ${money(f.coll || 0)} collective deal a year.` : `You offered ${money(f.nil)} a year.`) : f.offered ? "Your offer is the place alone: no money." : "A blank box is no money."} About ${money(f.usual)} is usual from a budget like yours, only a guide; ${money(f.budget.left)} left this year.</small>${fcAnswer(f.answer)}</div>`;
   } else if (f.shopping && !f.committed) {
     b.push(`<button class="st-btn small ${f.offered ? "glass" : "primary"}" data-fc="poffer" data-id="${f.id}">${f.offered ? "Offer stands" : "Offer a place"}</button>`);
@@ -911,6 +915,9 @@ screens.nil_desk = async () => {
           { k: "cleared", t: "NIL Go", l: true, tip: "What NIL Go clears of your collective deal: past the top of his range it holds the rest back, and it isn't paid this year", v: (r) => r.cleared || 0, f: (r) => (!r.coll ? '<span class="muted">-</span>' : r.cleared + 1 < r.coll ? `<span class="st-pill gold" title="${esc(`NIL Go clears ${money(r.cleared)} of your ${money(r.coll)}; ${money(r.coll - r.cleared)} isn't paid`)}">${money(r.cleared)}</span>` : '<span class="st-pill good">Cleared</span>') },
         ]
       : []),
+    ...(two
+      ? [{ k: "term", t: "Guaranteed", l: true, div: true, tip: "A multi-year deal: its money a year is his through that money year, you can raise it but not lower it, and if he transfers the new school pays you half of what is left. Pick years to offer him one on what he has now.", v: (r) => r.through || 0, f: (r) => (r.through ? `<span class="st-pill good" title="${esc(`${money(r.guaranteed)} a year guaranteed`)}">Through ${r.through}-${String(r.through + 1).slice(2)}</span>` : fcTerm(r.id, 1, "Offer him a multi-year deal on the deal he has now")) }]
+      : []),
     { k: "answer", t: "His answer", l: true, div: true, tip: "His first word on the numbers you set", v: (r) => (r.answer ? r.answer.word : ""), f: (r) => (r.answer ? `<span class="st-pill ${FC_MOOD_TONE[r.answer.mood] || ""}" title="${esc(r.answer.text)}">${esc(r.answer.word)}</span>` : '<span class="muted">-</span>') },
   ];
   const groups = [
@@ -918,6 +925,7 @@ screens.nil_desk = async () => {
     { t: "For reference", span: 4, div: true },
     { t: two ? "Revenue share" : "Your deal", who: two ? "you set it, the school pays" : "you set it, the collective pays", span: 2, div: true },
     ...(two ? [{ t: "Collective deal", who: "you set it, boosters pay, NIL Go reviews", span: 3, div: true }] : []),
+    ...(two ? [{ t: "Term", span: 1, div: true }] : []),
     { t: "His answer", span: 1, div: true },
   ];
   const parts = (p) => (two && p.coll ? ` <small class="sub">${money(p.school || 0)} + ${money(p.coll)} collective</small>` : "");
@@ -1208,6 +1216,10 @@ document.addEventListener("change", (ev) => {
     if (t.dataset.fcinv === "id") Object.assign(k, { id: Number(t.value), kind: null });
     else k.kind = t.value;
     render($(".view") && $(".view").scrollTop);
+    return;
+  }
+  if (t.dataset.fcterm) {
+    fcDo("nil_term", { id: Number(t.dataset.fcterm), years: Number(t.value) });
     return;
   }
   if (t.dataset.fcarea) {

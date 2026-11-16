@@ -214,6 +214,10 @@ impl World {
         for (at, what) in meetings {
             add(at, &what);
         }
+        // Ground's calls that stop the day at their minute (GR14).
+        for (at, what) in super::ground::week::phone::moments(self, d) {
+            add(at, &what);
+        }
         v.sort_by_key(|x| x.minute);
         v
     }

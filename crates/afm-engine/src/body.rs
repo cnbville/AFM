@@ -62,6 +62,44 @@ const LEFT_HANDED: f64 = 0.1;
 const RIGHTY_LEFT_FOOTED: f64 = 0.12;
 
 /// A position's combine height and weight: (height mean, sd, weight mean, sd).
+/// Reps at 225 a point of upper-body strength within a position (physical
+/// study item 4, minor bug 385). The 0.137 in `Drills::means` is the slope
+/// across positions' means; at it a strength spread of 7 points moved the
+/// bench under a rep, so drafted men's bench spread half the real one and a
+/// college program barely showed. Set so drafted men's bench spreads as
+/// wide as the real combine's at each position (4.0 to 5.4 reps) with the
+/// test day's 2 reps and the lifting knack, on average over the positions
+/// (`bench_check`, four classes). Proposed, not confirmed.
+pub const BENCH_SLOPE: f64 = 0.40;
+
+/// The drafted men's mean upper-body strength at each position (four
+/// classes of 250,000, `bench_check`): the point the within-position slope
+/// turns about.
+pub const BENCH_CENTER: [f64; POSITION_COUNT] =
+    [71.3, 71.2, 66.5, 78.1, 84.0, 84.8, 76.9, 85.8, 70.6, 66.7, 65.0, 50.0, 50.0, 50.0];
+
+/// Reps each position's drafted men sat off the real combine's mean under
+/// the cross-position fit (the same four classes, refitted with real arms
+/// in step 4a): added so each drafted position benches the real mean. Kickers, punters and snappers none.
+pub const BENCH_OFFSET: [f64; POSITION_COUNT] =
+    [1.7, 0.96, -0.88, -1.43, -1.37, -0.03, 2.52, 2.49, 3.13, -1.73, -0.57, 0.0, 0.0, 0.0];
+
+/// The slope's lean past the cross-position one. Kickers, punters and
+/// snappers keep the old read.
+fn bench_lean(pos: Position) -> f64 {
+    if pos.is_specialist() { 0.0 } else { BENCH_SLOPE - 0.137 }
+}
+
+/// The spread of the lifting knack (reps at 225): how a man presses beyond
+/// his strength, the groove, arch and grip that are his own for life.
+/// Proposed, not confirmed.
+pub const LIFT_SD: f64 = 1.5;
+
+/// His lifting knack (reps at 225), on his own keyed stream.
+pub fn lift_knack(p: &Player) -> f64 {
+    Rng::new(p.id ^ 0x11F7_B3C5).normal(0.0, LIFT_SD)
+}
+
 /// The real combine bench average at a position (nflverse 2000-2025).
 pub fn combine_bench_mean(pos: Position) -> f64 {
     [19.3, 19.95, 14.68, 20.24, 24.35, 25.81, 23.66, 27.41, 21.97, 14.51, 16.93, 15.2, 16.0][pos.index()]
@@ -71,13 +109,59 @@ pub fn combine_size(pos: Position) -> (f64, f64, f64, f64) {
     SIZES[pos.index()]
 }
 
+/// Drafted men's arms, hands and wingspan by position (MockDraftable,
+/// draft classes 2005-2025, `data/real-world/ab_real.json`): (arm mean, sd,
+/// hand mean, sd, wingspan mean, sd). Linebackers' arm sd is the other
+/// spots' 1.05 (one bad row sets theirs at 1.8). Specialists are the
+/// quarterbacks'.
+const LIMBS: [(f64, f64, f64, f64, f64, f64); POSITION_COUNT] = [
+    (31.89, 1.16, 9.58, 0.47, 75.85, 2.14),  // QB
+    (30.89, 1.08, 9.27, 0.47, 74.29, 2.40),  // RB
+    (31.84, 1.30, 9.38, 0.51, 76.32, 3.02),  // WR
+    (32.99, 0.94, 9.83, 0.49, 79.09, 2.04),  // TE
+    (34.21, 0.95, 10.07, 0.52, 82.35, 2.15), // OT
+    (33.14, 1.00, 9.93, 0.51, 79.94, 2.14),  // IOL
+    (33.38, 1.04, 9.83, 0.51, 80.15, 2.56),  // EDGE
+    (33.25, 1.05, 9.95, 0.52, 80.15, 2.43),  // DT
+    (32.22, 1.05, 9.60, 0.47, 77.25, 2.25),  // LB
+    (31.46, 1.04, 9.13, 0.48, 75.80, 2.22),  // CB
+    (31.50, 0.99, 9.33, 0.47, 75.77, 2.13),  // S
+    (31.89, 1.16, 9.58, 0.47, 75.85, 2.14),  // K
+    (31.89, 1.16, 9.58, 0.47, 75.85, 2.14),  // P
+    (31.89, 1.16, 9.58, 0.47, 75.85, 2.14),  // LS
+];
+
+/// How much arm comes with an inch of height (physical study item 12):
+/// real linemen 0.16-0.23, everyone else 0.33-0.41, so a short lineman who
+/// makes it often has long arms. Proposed, not confirmed: 0.20 and 0.37.
+pub fn arm_per_inch(pos: Position) -> f64 {
+    if lineman(pos) { 0.20 } else { 0.37 }
+}
+
+/// A hand's inch per inch of height (kept from the 2025 lists).
+const HAND_PER_INCH: f64 = 0.08;
+
+/// Wingspan per inch of arm (both arms plus the shoulders).
+const WING_PER_ARM: f64 = 2.03;
+
+/// His arms, hands and wingspan (physical study items 11-13): each spot's
+/// real mean at its real height, his height's share at the spot's own
+/// slope, and his own part, sized so each spread is real's.
+fn limbs(pos: Position, height: f64, rng: &mut Rng) -> (f64, f64, f64) {
+    let (am, asd, hm_, hsd, wm, wsd) = LIMBS[pos.index()];
+    let (h0, h_sd, _, _) = SIZES[pos.index()];
+    let own = |sd: f64, tied: f64| (sd * sd - tied * tied).max(0.0).sqrt().max(0.3 * sd);
+    let b = arm_per_inch(pos);
+    let arm = am + b * (height - h0) + rng.normal(0.0, own(asd, b * h_sd));
+    let hand = hm_ + HAND_PER_INCH * (height - h0) + rng.normal(0.0, own(hsd, HAND_PER_INCH * h_sd));
+    let wingspan = wm + WING_PER_ARM * (arm - am) + rng.normal(0.0, own(wsd, WING_PER_ARM * asd));
+    (arm, hand, wingspan)
+}
+
 impl Body {
-    /// Arms, hands and wingspan follow height (see the module notes).
-    pub(crate) fn grown(height: f64, weight: f64, rng: &mut Rng) -> Body {
-        let heavy = weight >= 285.0;
-        let arm = 0.425 * height + if heavy { 0.3 } else { 0.0 } + rng.normal(0.0, 0.8);
-        let hand = 9.45 + 0.08 * (height - 74.0) + if heavy { 0.35 } else { 0.0 } + rng.normal(0.0, 0.35);
-        let wingspan = 2.03 * arm + 12.3 + rng.normal(0.0, 1.0);
+    /// Arms, hands and wingspan by his spot's real ones (`limbs`).
+    pub(crate) fn grown(pos: Position, height: f64, weight: f64, rng: &mut Rng) -> Body {
+        let (arm, hand, wingspan) = limbs(pos, height, rng);
         let left_handed = rng.chance(LEFT_HANDED);
         let left_footed = rng.chance(if left_handed { 0.6 } else { RIGHTY_LEFT_FOOTED });
         Body { height, weight, arm, hand, wingspan, frame_weight: weight, left_handed, left_footed }
@@ -104,18 +188,11 @@ pub fn adult_body(id: u32, pos: Position, potential: f64, strength_z: f64, speed
     // confirmed).
     let off = if pos == Position::LB { 0.6 } else { 0.0 };
     let w_z = 0.3 + 1.3 * size + 0.45 * strength_z - 0.3 * speed_z + 0.25 * h_z + rng.normal(0.0, 0.8) - off;
-    let height = clamp(hm + hs * h_z, 64.0, 82.0);
-    let weight = clamp(wm + ws * w_z, 150.0, 380.0);
-    let arm_offset = if lineman(pos) {
-        0.3
-    } else if pos == Position::QB {
-        -0.5
-    } else {
-        0.0
-    };
-    let arm = 0.425 * height + arm_offset + rng.normal(0.0, 0.8);
-    let hand = 9.45 + 0.08 * (height - 74.0) + if lineman(pos) { 0.35 } else { 0.0 } + rng.normal(0.0, 0.35);
-    let wingspan = 2.03 * arm + 12.3 + rng.normal(0.0, 1.0);
+    let (h_lo, h_hi) = crate::athlete::HEIGHT_RANGE;
+    let (w_lo, w_hi) = crate::athlete::WEIGHT_RANGE;
+    let height = clamp(hm + hs * h_z, h_lo, h_hi);
+    let weight = clamp(wm + ws * w_z, w_lo, w_hi);
+    let (arm, hand, wingspan) = limbs(pos, height, &mut rng);
     let left_handed = rng.chance(LEFT_HANDED);
     let left_footed = rng.chance(if left_handed { 0.6 } else { RIGHTY_LEFT_FOOTED });
     Body { height, weight, arm, hand, wingspan, frame_weight: weight, left_handed, left_footed }
@@ -304,6 +381,11 @@ pub struct Drills {
     pub arm: f64,
     /// His position: how wide the 3-cone and shuttle spread there.
     pub pos: Position,
+    /// His lifting knack, in reps at 225 (item 4 of the physical study):
+    /// his own for life (`lift_knack`), 0 for a made-up man.
+    pub lift: f64,
+    /// His lower body (`Attr::LowerBody`): the legs in the jumps.
+    pub lower: f64,
 }
 
 /// How the 3-cone and shuttle spread at each position (update 3, S14): as
@@ -349,6 +431,8 @@ impl Drills {
             weight: b.weight,
             arm: b.arm,
             pos: p.position,
+            lift: lift_knack(p),
+            lower: at(Attr::LowerBody),
         }
     }
 
@@ -369,20 +453,30 @@ impl Drills {
 
     fn means(&self) -> [f64; 6] {
         let w = self.weight - 220.0;
-        let burst = self.jumping.max(0.95 * self.accel);
-        let (bm, ck, _, qm, sk, _) = AGILE_SPREAD[self.pos.index()];
+        let pos = self.pos;
+        // The jumps read his spring and his legs (physical study item 5,
+        // Cain 2026-11-15: lower-body strength in the jumps).
+        let burst = (1.0 - JUMP_LEGS) * self.jumping.max(0.95 * self.accel) + JUMP_LEGS * self.lower;
+        let (bm, ck, _, qm, sk, _) = AGILE_SPREAD[pos.index()];
         let bend = bm + ck * (self.bend() - bm);
         let quick = qm + sk * (self.quick() - qm);
         [
             5.56 - 0.0124 * (0.75 * self.speed + 0.25 * self.accel) + forty_weight(self.weight),
-            20.9 + 0.182 * burst - 0.035 * w,
-            87.6 + 0.448 * burst - 0.089 * w,
+            20.9 + 0.182 * burst - 0.035 * w + spot(&VERT_OFFSET, pos),
+            87.6 + 0.448 * burst - 0.089 * w + spot(&BROAD_OFFSET, pos),
             // Long arms mean a longer press: fewer reps for the same strength.
             // Refit 2026-10-14 to drafted players' position means after
             // athlete-first creation (item 6; proposed, not confirmed).
-            8.05 + 0.137 * self.strength + 0.073 * w - 0.8 * (self.arm - 32.5),
-            7.58 - 0.007 * bend + 0.0062 * w,
-            4.59 - 0.0045 * quick + 0.0039 * w,
+            // Within a position the bench reads upper-body strength at the
+            // real slope (`BENCH_SLOPE`, physical study item 4), about the
+            // drafted men's mean there, each position's drafted mean set on
+            // the real combine's.
+            8.05 + 0.137 * self.strength + 0.073 * w - 0.8 * (self.arm - 32.5)
+                + bench_lean(self.pos) * (self.strength - BENCH_CENTER[self.pos.index()])
+                + BENCH_OFFSET[self.pos.index()]
+                + self.lift,
+            7.58 - 0.007 * bend + 0.0062 * w + spot(&CONE_OFFSET, pos),
+            4.59 - 0.0045 * quick + 0.0039 * w + spot(&SHUTTLE_OFFSET, pos),
         ]
     }
 
@@ -390,7 +484,7 @@ impl Drills {
     /// noise or how he runs on a track (update 2, RR4): the number a rating
     /// range is read as.
     pub fn expected(&self) -> Combine {
-        let [forty, vertical, broad, bench, cone, shuttle] = self.means();
+        let [forty, vertical, broad, bench, cone, shuttle] = thin_drills(self.pos, self.means());
         tested(forty, vertical, broad, bench, cone, shuttle)
     }
 
@@ -422,15 +516,20 @@ pub fn knack_sd(pos: Position) -> (f64, f64) {
 /// `Drills::raw`'s order (`combine`).
 pub const DAY_SD: [f64; 6] = [0.03, 1.5, 3.0, 2.0, 0.08, 0.06];
 
+/// A test day writes what he did: the forty and the agility drills to the
+/// hundredth, the vertical to the half inch, the broad to the inch. No
+/// printed limits (physical study item 8: real men have run past every one
+/// the game had, Byron Jones's 147-inch broad among them); only bounds no
+/// man reaches, so a broken number can't print.
 fn tested(forty: f64, vertical: f64, broad: f64, bench: f64, cone: f64, shuttle: f64) -> Combine {
     let r2 = |x: f64| (x * 100.0).round() / 100.0;
     Combine {
-        forty: r2(clamp(forty, 4.2, 6.0)),
-        bench: clamp(bench, 0.0, 50.0).round(),
-        vertical: (clamp(vertical, 18.0, 46.0) * 2.0).round() / 2.0,
-        broad: clamp(broad, 80.0, 145.0).round(),
-        cone: r2(clamp(cone, 6.4, 9.0)),
-        shuttle: r2(clamp(shuttle, 3.8, 5.5)),
+        forty: r2(clamp(forty, 3.5, 9.0)),
+        bench: clamp(bench, 0.0, 99.0).round(),
+        vertical: (clamp(vertical, 0.0, 70.0) * 2.0).round() / 2.0,
+        broad: clamp(broad, 0.0, 200.0).round(),
+        cone: r2(clamp(cone, 5.0, 14.0)),
+        shuttle: r2(clamp(shuttle, 3.0, 9.0)),
     }
 }
 
@@ -445,6 +544,137 @@ pub fn drill_knack(p: &Player) -> (f64, f64) {
     // independent knacks the engine's drafted edges gave 0.41.
     let r = if p.position == Position::EDGE { EDGE_KNACK_TOGETHER } else { 0.0 };
     (cone * a, shuttle * (r * a + (1.0 - r * r).sqrt() * b))
+}
+
+/// How high and far he jumps beyond his ratings, in inches (physical study
+/// item 5): his own for life, on his own stream, one spring for both jumps
+/// (real drafted men's vertical and broad go together about 0.7 within a
+/// position), with real's fat tail (a t of 5 degrees, scaled to the spread).
+/// Test days only, like the agility knacks.
+pub fn jump_knack(p: &Player) -> (f64, f64) {
+    let pos = p.position;
+    let mut rng = Rng::new(p.id ^ 0x1A_3B7);
+    let fat = |rng: &mut Rng| {
+        let z = rng.normal(0.0, 1.0);
+        let chi: f64 = (0..5).map(|_| rng.normal(0.0, 1.0).powi(2)).sum::<f64>() / 5.0;
+        z / chi.sqrt() / (5.0f64 / 3.0).sqrt()
+    };
+    let a = fat(&mut rng);
+    let b = fat(&mut rng);
+    let r = JUMP_TOGETHER;
+    (spot(&VERT_KNACK, pos) * a, spot(&BROAD_KNACK, pos) * (r * a + (1.0 - r * r).sqrt() * b))
+}
+
+/// The jump knack's sd by position (vertical, broad), in inches.
+pub fn jump_knack_sd(pos: Position) -> (f64, f64) {
+    (spot(&VERT_KNACK, pos), spot(&BROAD_KNACK, pos))
+}
+
+/// Real drafted men's 3-cone and shuttle by position (nflverse 2000-2025):
+/// (mean, sd), the scale `thin_fast` reads. Specialists none.
+const CONE_REAL: [(f64, f64); POSITION_COUNT] = [
+    (7.12, 0.22),
+    (7.08, 0.24),
+    (6.94, 0.20),
+    (7.15, 0.22),
+    (7.80, 0.28),
+    (7.76, 0.28),
+    (7.24, 0.25),
+    (7.68, 0.27),
+    (7.11, 0.21),
+    (6.93, 0.21),
+    (6.97, 0.21),
+    (0.0, 0.0),
+    (0.0, 0.0),
+    (0.0, 0.0),
+];
+const SHUTTLE_REAL: [(f64, f64); POSITION_COUNT] = [
+    (4.30, 0.16),
+    (4.27, 0.16),
+    (4.21, 0.15),
+    (4.34, 0.15),
+    (4.73, 0.18),
+    (4.69, 0.19),
+    (4.38, 0.16),
+    (4.64, 0.18),
+    (4.26, 0.14),
+    (4.16, 0.15),
+    (4.18, 0.14),
+    (0.0, 0.0),
+    (0.0, 0.0),
+    (0.0, 0.0),
+];
+
+/// The fast end of a change-of-direction drill thins out (physical study
+/// item 7): real tails are thinner than a bell (past 2.5 sd 1.6 and 3.7 a
+/// thousand at the 3-cone and shuttle, a bell 6.2), a body can only turn so
+/// fast. Past `knee` sds under his position's real mean, each further
+/// stretch counts for less and never past `knee + room` sds.
+pub fn thin_cone(pos: Position, time: f64) -> f64 {
+    thin_fast(time, CONE_REAL[pos.index()])
+}
+
+/// The shuttle's thin fast end (`thin_fast`).
+pub fn thin_shuttle(pos: Position, time: f64) -> f64 {
+    thin_fast(time, SHUTTLE_REAL[pos.index()])
+}
+
+/// Six raw drill numbers (`Drills::raw`'s order) with the 3-cone and
+/// shuttle's thin fast end, as a body can run them (`thin_fast`).
+pub fn thin_drills(pos: Position, mut v: [f64; 6]) -> [f64; 6] {
+    v[4] = thin_cone(pos, v[4]);
+    v[5] = thin_shuttle(pos, v[5]);
+    v
+}
+
+fn thin_fast(time: f64, (m, sd): (f64, f64)) -> f64 {
+    if sd <= 0.0 {
+        return time;
+    }
+    let z = (time - m) / sd;
+    if z >= -THIN_KNEE {
+        return time;
+    }
+    m + sd * (-THIN_KNEE - THIN_ROOM * ((-z - THIN_KNEE) / THIN_ROOM).tanh())
+}
+
+/// The lower body's share of what the jumps read (Cain 2026-11-15:
+/// lower-body strength in the jumps), the rest his spring (Jumping, or his
+/// burst when it is more). Proposed, not confirmed.
+pub const JUMP_LEGS: f64 = 0.2;
+
+/// Each position's inches and seconds on the jumps and agility drills
+/// (physical study items 5-7), in the order QB, RB, WR, TE, OT, IOL, EDGE,
+/// DT, LB, CB, S, so drafted men's averages are the real combine's
+/// (nflverse 2000-2025): the broad ran 9 in long at quarterback, 5-6 at
+/// backs and 3-4 at receivers, corners and safeties before. Fitted with
+/// `drill_tails` (eight 250,000 classes). Specialists none.
+const VERT_OFFSET: [f64; 11] = [-2.8, -1.1, -0.3, -0.1, -1.0, -1.1, -0.1, -1.3, 0.3, -0.1, 0.3];
+const BROAD_OFFSET: [f64; 11] = [-8.7, -4.8, -2.7, -1.1, -5.2, -5.0, -2.3, -5.0, -1.4, -2.7, -2.8];
+const CONE_OFFSET: [f64; 11] = [0.10, 0.11, 0.05, -0.03, 0.14, 0.05, -0.06, 0.09, -0.03, 0.10, -0.02];
+const SHUTTLE_OFFSET: [f64; 11] = [0.05, 0.04, 0.05, -0.01, 0.12, 0.04, -0.02, 0.04, -0.07, 0.06, 0.01];
+
+/// The jump knack's spread by position, in inches (vertical, then broad),
+/// the part of real's spread the ratings and the day's noise leave
+/// (`jump_knack`). Fitted with `drill_tails`. Proposed, not confirmed.
+const VERT_KNACK: [f64; 11] = [1.95, 2.24, 2.5, 1.69, 1.46, 1.65, 2.3, 1.65, 2.1, 2.4, 2.6];
+const BROAD_KNACK: [f64; 11] = [2.8, 3.5, 4.3, 1.5, 1.5, 3.2, 4.05, 3.2, 2.9, 4.3, 4.4];
+
+/// How much his vertical and broad knacks go together (real drafted men's
+/// two jumps about 0.7 within a position). Proposed, not confirmed.
+const JUMP_TOGETHER: f64 = 0.7;
+
+/// Where the fast end of the 3-cone and shuttle starts to thin, in sds
+/// under the position's real mean, and how much further it can reach
+/// (`thin_fast`). Fitted with `drill_tails`: 3-cones of 6.50 or faster
+/// 0.38 a draft (real 0.35 of the men who ran it), shuttles of 3.85 0.75
+/// (real 0.58). Proposed, not confirmed.
+const THIN_KNEE: f64 = 0.9;
+const THIN_ROOM: f64 = 1.0;
+
+/// A position's entry in an 11-spot table (specialists 0).
+fn spot(t: &[f64; 11], pos: Position) -> f64 {
+    t.get(pos.index()).copied().unwrap_or(0.0)
 }
 
 /// How much an edge's 3-cone and shuttle knacks go together (E1), set so
@@ -462,12 +692,13 @@ pub fn combine(p: &Player, rng: &mut Rng) -> Combine {
     // adds its own 0.03 s (proposed, not confirmed).
     let track = Rng::new(p.id ^ 0x40_7AC4).normal(0.0, 0.04);
     let forty = forty + track + rng.normal(0.0, 0.03);
-    let vertical = vertical + rng.normal(0.0, 1.5);
-    let broad = broad + rng.normal(0.0, 3.0);
+    let (vert_knack, broad_knack) = jump_knack(p);
+    let vertical = vertical + vert_knack + rng.normal(0.0, 1.5);
+    let broad = broad + broad_knack + rng.normal(0.0, 3.0);
     let bench = bench + rng.normal(0.0, 2.0);
     let (cone_knack, shuttle_knack) = drill_knack(p);
-    let cone = cone + cone_knack + rng.normal(0.0, 0.08);
-    let shuttle = shuttle + shuttle_knack + rng.normal(0.0, 0.06);
+    let cone = thin_cone(p.position, cone + cone_knack) + rng.normal(0.0, 0.08);
+    let shuttle = thin_shuttle(p.position, shuttle + shuttle_knack) + rng.normal(0.0, 0.06);
     tested(forty, vertical, broad, bench, cone, shuttle)
 }
 

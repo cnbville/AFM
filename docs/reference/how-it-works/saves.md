@@ -1,6 +1,6 @@
 # Saves and world files: how it works today
 
-Checked against main at d41bed5 on 2026-10-28 (update 3, lane 19). The tallies folder beside each save over main a0dfde3 on 2026-11-04 (lane NB1). Deleting worlds over main 4d881d5 on 2026-11-06. The Jan 1 start (lane A) checked on 2026-11-08, before it merged to main. The notebook beside each save over main 5247199 on 2026-11-12; per career, never shared, over main 8e62944 on 2026-11-13. The plan ahead file beside each save over main 0ca3b43 on 2026-11-14. The autosave over main ddc308e on 2026-11-14. A newer world on an older game over main fc57156 on 2026-11-15.
+Checked against main at d41bed5 on 2026-10-28 (update 3, lane 19). The tallies folder beside each save over main a0dfde3 on 2026-11-04 (lane NB1). Deleting worlds over main 4d881d5 on 2026-11-06. The Jan 1 start (lane A) checked on 2026-11-08, before it merged to main. The notebook beside each save over main 5247199 on 2026-11-12; per career, never shared, over main 8e62944 on 2026-11-13. The plan ahead file beside each save over main 0ca3b43 on 2026-11-14. The autosave over main ddc308e on 2026-11-14. A newer world on an older game over main fc57156 on 2026-11-15. Going back to an older version added on 2026-11-16 (before it merged to main).
 
 ## Quick answers
 
@@ -60,3 +60,11 @@ Checked against main at d41bed5 on 2026-10-28 (update 3, lane 19). The tallies f
 
 - [README.md](README.md)
 - [tallies.md](tallies.md)
+
+## Going back to an older version
+
+- Where do I go back to an older build? Settings, "Other versions…" (Mac app): the list of installable builds with Install on each (`app/ui/versions.js`; the install itself is `install_version` in `app/src-tauri/src/main.rs`).
+- Which builds are listed? Those whose release on the AFM repository carries a `downgrade.json`, the signed update pointed at that release's own app file; `.github/scripts/mac-publish.sh` writes one for each build that has an app file (builds before 486 have none).
+- Are my saves safe? The page keeps every file of the saves folder in `saves-backup/before-<version>-<time>/` first: `.afmsave` files by hard link (saves are written to a temporary file and renamed, never in place, so the old bytes survive being written over), other files copied up to 64 MB (`crates/afm-game/src/versions.rs`, `backup`; test `the_backup_keeps_a_save_whole_when_a_newer_one_is_written_over_it`). Nothing in `saves/` is moved.
+- How does it know what the older build can't open? A save's or library world's header holds the writer's code time (`code`); later than the target build's commit time means newer (`versions.rs`, `check`; test `the_check_names_what_a_build_cannot_read`). Files before 2026-11-15 have no stamp and are never counted. This is a warning only; the older game's own refusal is in the answers above.
+- Do updates undo it? Not on a build that has this change: going back writes `update-pin.json` in the game folder (`versions.rs`, `pin_set`) and `checkUpdate` (`app/ui/app.js`) skips while it names the build running. A build from before this change doesn't read it. The downloads page can be held at a build (`.github/app-hold`, `mac-publish.sh`, `app-hold.yml`); there is no hold unless a build number is in that file.

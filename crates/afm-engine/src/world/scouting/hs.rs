@@ -34,7 +34,9 @@ pub struct Promo {
 
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct HsSide {
-    /// Each college staff's credit for your word (0-1).
+    /// Each college staff's credit for your word (0-1), from a file before
+    /// Ground's lane G7: it lives in each staff's memory of you now
+    /// (`ground::stores::credit`), and a file's map moves there on load.
     #[serde(default)]
     pub credibility: HashMap<usize, f32>,
     #[serde(default)]
@@ -49,7 +51,7 @@ pub fn school(w: &World) -> Option<usize> {
 /// A staff's credit for you: your own record with it, or where your
 /// network puts you before you have one.
 pub fn credibility(w: &World, prog: usize) -> f64 {
-    if let Some(&c) = w.scouting.hs.credibility.get(&prog) {
+    if let Some(c) = crate::world::ground::stores::credit(w, prog) {
         return c as f64;
     }
     let net = school(w)
@@ -105,8 +107,12 @@ pub fn promos(w: &World) -> HashMap<u32, f64> {
 
 /// Your average credit with the staffs that know you.
 fn area_credit(w: &World) -> f64 {
-    let v = &w.scouting.hs.credibility;
-    if v.is_empty() { credibility(w, usize::MAX) } else { v.values().map(|&c| c as f64).sum::<f64>() / v.len() as f64 }
+    let v = crate::world::ground::stores::credits(w);
+    if v.is_empty() {
+        credibility(w, usize::MAX)
+    } else {
+        v.iter().map(|&(_, c)| c as f64).sum::<f64>() / v.len() as f64
+    }
 }
 
 /// September 1: calls two seasons old are settled. A player who became a
@@ -145,6 +151,6 @@ pub(crate) fn day(w: &mut World, d: Date) {
         w.scouting.hs.promoted[k].settled = Some(delta > 0.0);
         let Some(c) = prog else { continue };
         let now = credibility(w, c);
-        w.scouting.hs.credibility.insert(c, (now + delta).clamp(0.05, 0.95) as f32);
+        crate::world::ground::stores::set_credit(w, c, (now + delta).clamp(0.05, 0.95) as f32);
     }
 }

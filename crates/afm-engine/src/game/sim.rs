@@ -494,6 +494,12 @@ impl Agent {
     pub fn a(&self, a: Attr) -> f64 {
         self.r[a.index()]
     }
+    /// Strength where the whole body works (physical study item 4b): the
+    /// upper and lower body's mean.
+    #[inline]
+    pub fn whole(&self) -> f64 {
+        0.5 * (self.r[Attr::Strength.index()] + self.r[Attr::LowerBody.index()])
+    }
     #[inline]
     pub fn up(&self, t: f64) -> bool {
         t >= self.down_until && !matches!(self.job, Job::Out)
@@ -736,7 +742,7 @@ impl InjuryKind {
                 (Attr::MediumAccuracy, 0.08),
                 (Attr::DeepAccuracy, 0.08),
             ],
-            InjuryKind::Back => &[(Attr::Strength, 0.08), (Attr::Agility, 0.06)],
+            InjuryKind::Back => &[(Attr::Strength, 0.08), (Attr::LowerBody, 0.08), (Attr::Agility, 0.06)],
             // The new kinds' costs are Claude's picks (proposed, not confirmed).
             InjuryKind::Foot => &[(Attr::Speed, 0.08), (Attr::Acceleration, 0.10), (Attr::Agility, 0.10)],
             InjuryKind::Groin => &[(Attr::Agility, 0.10), (Attr::Acceleration, 0.08), (Attr::KickPower, 0.10)],
@@ -1761,7 +1767,7 @@ impl<'a> Sim<'a> {
         let set = if pass {
             bl.a(Attr::PassBlocking) * 0.5 + bl.a(Attr::Agility) * 0.3 + bl.a(Attr::FootballIq) * 0.2
         } else {
-            bl.a(Attr::RunBlocking) * 0.5 + bl.a(Attr::Acceleration) * 0.3 + bl.a(Attr::Strength) * 0.2
+            bl.a(Attr::RunBlocking) * 0.5 + bl.a(Attr::Acceleration) * 0.3 + bl.a(Attr::LowerBody) * 0.2
         } + self.link(b, &[Link::GetOff])
             + self.link(b, &[Link::Length]);
         // Silent count (trial 4 topic 3): a road line in a loud stadium
@@ -1928,14 +1934,17 @@ impl<'a> Sim<'a> {
                     // wins with it.
                     let heft = if edge {
                         let (_, tw, _) = super::synthetic::typical_body(self.level, self.player(d).position);
-                        let typ = super::synthetic::typical(self.level, self.player(d).position, Attr::Strength);
+                        let typ = super::synthetic::typical(self.level, self.player(d).position, Attr::LowerBody);
                         EDGE_STRENGTH_MASS * (a.mass - tw).clamp(0.0, EDGE_MASS_SPAN) / 10.0
-                            * (a.a(Attr::Strength) - typ)
+                            * (a.a(Attr::LowerBody) - typ)
                     } else {
                         0.0
                     };
+                    // The push is the legs, the long arm and the hands the
+                    // upper body (item 4b).
                     0.4 * a.a(Attr::PowerRush)
-                        + 0.25 * a.a(Attr::Strength)
+                        + 0.15 * a.a(Attr::LowerBody)
+                        + 0.1 * a.a(Attr::Strength)
                         + 0.15 * a.a(Attr::HandUse)
                         + 0.1 * a.a(Attr::Balance)
                         + 0.1 * a.a(Attr::BlockShedding)
@@ -2116,8 +2125,11 @@ impl<'a> Sim<'a> {
         // How strong he plays: raw strength with his hands, balance and
         // mass, not the bench press alone.
         if !pass {
+            // The drive is the legs, the fit and the control the upper body
+            // (physical study item 4b).
             return 0.45 * a.a(Attr::RunBlocking)
-                + 0.2 * a.a(Attr::Strength)
+                + 0.14 * a.a(Attr::LowerBody)
+                + 0.06 * a.a(Attr::Strength)
                 + 0.15 * a.a(Attr::HandUse)
                 + 0.1 * a.a(Attr::Balance)
                 + 0.1 * a.a(Attr::Acceleration)
@@ -2148,13 +2160,17 @@ impl<'a> Sim<'a> {
                 Move::Power => {
                     0.4 * pb
                         + 0.3 * a.a(Attr::Anchor)
-                        + 0.15 * a.a(Attr::Strength)
+                        + 0.15 * a.a(Attr::LowerBody)
                         + 0.15 * a.a(Attr::Balance)
                         + (a.mass - 300.0) * 0.08
                 }
-                // Hands against hands.
+                // Hands against hands, with the upper body behind them.
                 Move::Finesse => {
-                    0.45 * pb + 0.3 * a.a(Attr::HandUse) + 0.15 * a.a(Attr::Agility) + 0.1 * a.a(Attr::FootballIq)
+                    0.45 * pb
+                        + 0.3 * a.a(Attr::HandUse)
+                        + 0.1 * a.a(Attr::Agility)
+                        + 0.05 * a.a(Attr::Strength)
+                        + 0.1 * a.a(Attr::FootballIq)
                 }
             }
     }
@@ -2177,7 +2193,7 @@ impl<'a> Sim<'a> {
         // Anchor holds the double team; Big man who moves splits it.
         use crate::links::Link;
         0.6 * a.a(Attr::Anchor)
-            + 0.2 * a.a(Attr::Strength)
+            + 0.2 * a.a(Attr::LowerBody)
             + 0.2 * a.a(Attr::Balance)
             + (a.mass - 300.0) * 0.08
             + self.link(d, &[Link::Anchor, Link::BigMover])
@@ -2415,7 +2431,7 @@ impl<'a> Sim<'a> {
                 // man's balance (proposed, not confirmed).
                 let finish = clamp(
                     1.0 + 0.04 * (self.trait20(b, Attr::Physicality) - 10.0)
-                        + 0.006 * (self.agents[b].a(Attr::Strength) - 60.0)
+                        + 0.006 * (self.agents[b].a(Attr::LowerBody) - 60.0)
                         - 0.008 * (self.agents[d].a(Attr::Balance) - 60.0),
                     0.4,
                     1.8,
@@ -3262,7 +3278,7 @@ impl<'a> Sim<'a> {
         let resist = 1.0
             + 0.003 * low
             + 0.003 * ram
-            + 0.003 * (r.a(Attr::Strength) - 60.0)
+            + 0.003 * (r.a(Attr::LowerBody) - 60.0)
             + 0.005 * (r.a(Attr::LegDrive) - 60.0 + upright)
             + 0.003 * (r.a(Attr::Balance) - 60.0)
             + 0.002 * (r.a(Attr::Elusiveness) - 60.0)
@@ -3276,7 +3292,7 @@ impl<'a> Sim<'a> {
             // The thumper (Battering ram on defense): five tackling points.
             let f = 1.0
                 + 0.03 * (d.a(Attr::Tackling) + self.link(i, &[Link::BatteringRam]) - 60.0)
-                + 0.012 * (d.a(Attr::Strength) - 60.0)
+                + 0.012 * (d.a(Attr::LowerBody) - 60.0)
                 + 0.01 * (self.trait20(i, Attr::Competitiveness) - 10.0)
                 - 0.12 * self.lean(i, Tend::Strip)
                 + (d.mass - 215.0) / 300.0;
@@ -3290,14 +3306,16 @@ impl<'a> Sim<'a> {
             let i = self.fight[0];
             let d = &self.agents[i];
             let tk = 0.6 * d.a(Attr::Tackling)
-                + 0.4 * d.a(Attr::Strength)
+                + 0.4 * d.whole()
                 + (d.mass - 215.0) * 0.08
                 + self.link(i, &[Link::BatteringRam, Link::Length]);
             let pos = self.player(c).position;
             let typ = |a: Attr| super::synthetic::typical(self.level, pos, a);
             let tw = super::synthetic::typical_body(self.level, pos).1;
-            let typ_rb = 0.5 * typ(Attr::Strength) + 0.5 * typ(Attr::Elusiveness) + (tw - 215.0) * 0.08;
-            let own = 0.5 * r.a(Attr::Strength) + 0.5 * r.a(Attr::Elusiveness) + (r.mass - 215.0) * 0.08;
+            let typ_rb = 0.25 * (typ(Attr::Strength) + typ(Attr::LowerBody))
+                + 0.5 * typ(Attr::Elusiveness)
+                + (tw - 215.0) * 0.08;
+            let own = 0.5 * r.whole() + 0.5 * r.a(Attr::Elusiveness) + (r.mass - 215.0) * 0.08;
             let rb = typ_rb + CARRIER_SPREAD * (own - typ_rb) + self.link(c, &[Link::BatteringRam, Link::LowCenter]);
             let p_break = 0.026 * (1.0 + (rb - tk) / 60.0).max(0.05);
             if self.rng.chance(p_break) {
@@ -3321,7 +3339,7 @@ impl<'a> Sim<'a> {
         // The pile moves: legs churning against the weight on him (2.2
         // before minor bug 164: a lineman's stop gained 0.8 yards, real 2.5;
         // proposed, not confirmed).
-        let drive = (r.mass * (3.0 + 0.03 * (r.a(Attr::Strength) - 60.0)) - 0.35 * hold) / (r.mass + 0.6 * hold);
+        let drive = (r.mass * (3.0 + 0.03 * (r.a(Attr::LowerBody) - 60.0)) - 0.35 * hold) / (r.mass + 0.6 * hold);
         let v = self.agents[c].vel.x * self.goal;
         let nv = (0.6 * v + 0.4 * drive * 2.0).clamp(-1.5, 4.0);
         self.agents[c].vel = v2(nv * self.goal, self.agents[c].vel.y * 0.5);

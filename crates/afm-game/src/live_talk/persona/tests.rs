@@ -100,3 +100,32 @@ fn the_draft_sides_requests_read() {
         ]
     );
 }
+
+#[test]
+fn an_ask_for_his_read_is_a_request_and_a_decision_on_another_man_drops() {
+    use afm_engine::world::folk::persona::terms::{Decision, Request};
+    // "Take a look at Strand, I want to decide if we should cut him", to
+    // his position coach: his read on Strand, never a cut of the coach.
+    let json = r#"{"acts": [
+        {"act": "request", "what": "evaluate", "about": "p2"},
+        {"act": "decision", "what": "cut", "about": "p2"},
+        {"act": "decision", "what": "coach_let_go", "about": "p1"},
+        {"act": "decision", "what": "coach_let_go"},
+        {"act": "request", "what": "evaluate"}]}"#;
+    let r: EarReply = serde_json::from_str(json).unwrap();
+    let keys =
+        EarKeys { people: vec![("p1".into(), Them::Coach(3)), ("p2".into(), Them::Player(9))], ..Default::default() };
+    let tags = ear::Tags { today: afm_engine::calendar::Date::ymd(2030, 3, 1), pos: None };
+    let got = tags.resolve(&r, &keys).acts;
+    // A decision tagged on someone else is news about him, not a decision
+    // on the man across; an evaluation with nobody named drops.
+    assert_eq!(
+        got,
+        vec![
+            Act::Request(Request::Evaluate(9)),
+            Act::Decision(Decision::CoachLetGo),
+            Act::Decision(Decision::CoachLetGo),
+        ]
+    );
+    assert!(ear::EAR_RULES.contains("Still deciding is never a decision"));
+}

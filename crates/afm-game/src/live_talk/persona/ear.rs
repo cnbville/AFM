@@ -28,7 +28,7 @@ pub const MAX_ACTS: usize = 8;
 pub const MAX_HITS: usize = 8;
 
 /// Every request the ear may name, in the schema's words.
-pub const REQUESTS: [&str; 44] = [
+pub const REQUESTS: [&str; 45] = [
     "mentor",
     "talk_to",
     "recruit",
@@ -53,6 +53,7 @@ pub const REQUESTS: [&str; 44] = [
     "not_our_division",
     "scout",
     "find_out",
+    "evaluate",
     "whiteboard",
     "plant",
     "plan",
@@ -84,13 +85,19 @@ pub const EAR_RULES: &str = "You are the ear in a football management game. A fo
 
 The card lists the people there and anyone the line may name (tags p1, p2...; p1 is the person across from the coach), and his real items (tags c1, c2...): what he wants, what's on his mind, his pride, the coach's promises to him, his friends, his family, what he told the coach before.
 
+Read intent as said. List a decision, promise, offer or request only when the coach does it in this very line. Words that weigh it (\"I'm thinking about\", \"I might\", \"I want to decide if\", \"whether\", \"should we\", \"before I decide\") mean he has not done it: never a decision for those.
+
 Acts: list what the line does, in order. Use only these kinds:
 - question: he is asked something. topic is what it's about (Life, Mood, Wants, Portal, Case, RuleBreak, Effort, Injury, Pitches, Nil, Grades, Character, Opponent, Market, Club, ScoutFile, Jobs, Goals, Money, Rules, Grapevine, HisWord, Football, Nothing); about is the tag of the person it's about, or empty when it's about the listener himself.
 - claim: a checkable statement of fact about the present (claim is its kind from the schema; value is what was said, in a few words; about is who it's about).
 - offer: terms put on the table (deal is its kind; words are the coach's). gives: each thing in it (give is its key; number the amount, years, position number, jersey or round when said; who the tag of the person it's for, a brother's scholarship). A coach's title or the play-calling, offered to a coach, are the gives title and play_calling. Money and incentives are a year, guaranteed and bonus in all, in dollars as said ($12 million is 12000000). In a trade: player is a man who moves either way (who is his tag); pick is the coach's club's pick by round, their_pick the other club's; draft the year the picks are in; if_games, if_starts, if_snaps (a percent) and if_pro_bowl a condition that moves the coach's pick up a round. revenue_share is a college player's share beside his NIL money. terms: how the coach will use him, each measure as said (number, per game or share of snaps, most, spot, down, inside the yard line, far, package, look); none of either when not said. season is true for a term on his whole season that money or a pick rides on (an incentive, an NIL clause, a pick's condition: 10 sacks, 1,000 rushing yards, the Pro Bowl, 60% of the snaps this season), false for how he'll be used.
 - promise: a commitment about the future, said with or without the word promise. what is its kind (start, role, touches, ahead_of, position, place, contract, stay, early_chance, no_redshirt, usage: how he will be used, with its terms; draft: the coach's club will draft him, with the round as a number in value, empty for any round); when is by when (next_game, opener, midseason, this_season, next_season, none); value is any condition the coach set, in his words; about is the teammate he'd play ahead of. A coach staking himself on him with nothing checkable in it (\"you're my guy\", \"you're going to break records here\") is a staked hit, not a promise; when the line also commits to something checkable (a start, a role), list that promise too.
-- request: the coach asks him to do something. what is its name, one of: mentor, talk_to, recruit, host, keep_quiet, position, special_teams, weight, class, tell_me, report, pay_cut, play_hurt, commit, shut_down, enrol_early, steer, take_offer, hold_off, give_number, heads_up, not_our_division, scout, find_out, whiteboard, plant, plan, target, work_with, second_opinion, clear, money, time, hire, backing, fund, back_off, self_report, rules_question, waiver, appeal, calm, other; about is the person it involves; value is a number or a position when it needs one. Asking a doctor to clear a hurt player to play sooner is clear (about is the player). For scout or find_out, topic is what to find out (Character, Injury, Effort, Life, ScoutFile...). whiteboard: the coach sends a prospect in the interview room to the board. plant: the coach wants word out that his club likes a prospect (about). A request not on the list is other.
-- decision: the coach tells him a decision already made. what is its name (benched, starting, suspended, cut, traded, offer_pulled, coach_let_go, position_moved, redshirt); value is the new position for position_moved.
+- request: the coach asks the listener (p1) to do something; what the coach says he'll ask someone else to do is not a request. what is its name, one of: mentor, talk_to, recruit, host, keep_quiet, position, special_teams, weight, class, tell_me, report, pay_cut, play_hurt, commit, shut_down, enrol_early, steer, take_offer, hold_off, give_number, heads_up, not_our_division, scout, find_out, evaluate, whiteboard, plant, plan, target, work_with, second_opinion, clear, money, time, hire, backing, fund, back_off, self_report, rules_question, waiver, appeal, calm, other; about is the person it involves; value is a number or a position when it needs one. Asking a doctor to clear a hurt player to play sooner is clear (about is the player). For money, value is what the money is for (the staff, recruiting, NIL or the collective, a facility, practice-squad spots) and anything the coach puts up for it in return, in his words (a top-3 recruiting class, nine wins, a bowl). For scout or find_out, topic is what to find out (Character, Injury, Effort, Life, ScoutFile...). evaluate: the coach asks a coach or staff man for his read on a player (about), to help him decide something: \"take a look at him\", \"watch his film and tell me\", \"what do you make of him\", \"should we keep him, cut him, start him?\". A plain question about the player's football (\"how did he look Saturday?\") stays a question; finding out why something keeps happening (\"find out why he keeps fumbling\") is find_out or work_with. whiteboard: the coach sends a prospect in the interview room to the board. plant: the coach wants word out that his club likes a prospect (about). plan: the coach asks his coordinator to change the game plan; value is the setting (pressure, man, zone, run or pass), more or less, how much as said (a little, a lot, or a share such as 40%), and order when he makes it his call rather than asking (\"more pressure, a lot, order\"). A request not on the list is other.
+- decision: the coach tells the person across from him (p1) a decision about p1 himself that is already made. what is its name (benched, starting, suspended, cut, traded, offer_pulled, coach_let_go, position_moved, redshirt; coach_let_go is the coach firing p1, a coach on his staff); value is the new position for position_moved; about stays empty. Read intent as said:
+  - Still deciding is never a decision: \"I want to decide if we should cut him\", \"should we bench him?\", \"I'm thinking about benching you\", \"I want to decide by Friday whether you start\", \"I'm thinking about moving you to guard\", \"I might have to make a change\", \"I'll decide by Friday\", \"before I decide anything\". That is a question, a request (evaluate when he's asked for his read) or a threat, never a decision, and no decision act is listed.
+  - Softening words don't undo a decision he is announcing: \"I think I'm going to have to let you go\", \"I'm afraid you're not starting Saturday\", \"I've decided to bench you\" are decisions.
+  - Only those nine names are decisions; a raise, the play-calling or anything else he gives is an offer or a promise, and taking back a promise is amend.
+  - A decision about someone else (\"we're cutting Hill\", said to his position coach) is not a decision act: the listener is being told news. List it as confide when it's private, else nothing.
 - threat: a threat; what is \"ultimatum\" when it's do-this-or-else.
 - deadline: a date on an offer; when is that date as YYYY-MM-DD, worked out from today's date on the card.
 - apology: the coach says sorry; what is the item tag it's for, when it's for one.
@@ -100,12 +107,12 @@ Acts: list what the line does, in order. Use only these kinds:
 - bring_in: the coach brings someone into the talk (about). ask_to_leave: the coach asks someone to leave (about).
 - show: what is film, numbers, facility or alumni.
 - answer: the coach answers his ask: what is accept, counter or refuse.
-- end: the coach ends the talk.
+- end: the coach ends the talk: a goodbye or goodnight, \"that's all\", \"thanks for your time\", \"let's pick this up later\", wrapping up or walking out. A sign-off (\"sounds good, see you then\") is an end too; agreeing alone is not.
 - future: the coach tells a player of his where he stands for next year. what is backed (a start or a real role next season, with a physical strength of his named as the reason: value is that strength, one of speed, burst, feet, strength, leaping, size, length or arm; a backed line is also a promise act), no_future (\"you don't have a future here\"), elsewhere (\"you'd play more somewhere else, I'll help you find a place\") or last_choice (\"if you stay, you'll be my last choice\").
 - amend: the coach changes a promise he already made him (tag that promise's item in hits). what is take_back (he takes it back), later (a later date: when is the new date, from the promise list), condition (a condition on it: value is the condition in his words), reason (he tells him the real reason it hasn't happened) or writing (he'll put it in writing).
-Give \"none\" for topic, claim or deal and leave the other fields empty when they don't apply. words: the act's own words, short.
+Whenever an act is about someone the card names, about is his tag, even when the line uses only his last name. Give \"none\" for topic, claim or deal and leave the other fields empty when they don't apply. words: the act's own words, short.
 
-Hits: which of his real items the line touched, and how: reassured, respected, stung, insulted, doubted, flattered, threatened or staked. item is an item tag from the card; on is the person's tag (empty for p1). Only items the line really touches, the way he'd take it: a line about exactly his problem touches it; \"great job, keep working\" touches nothing. Never invent an item.
+Hits: which of his real items the line touched, and how: reassured, respected, stung, insulted, doubted, flattered, threatened or staked. item is an item tag from the card; on is the person's tag (empty for p1). Only items the line really touches, the way he'd take it: a line about exactly his problem touches it; \"great job, keep working\" touches nothing. Never invent an item. A request for his read, or a decision you are still weighing about someone else, touches none of his items unless it says something about him; it never doubts what he told you before.
 - staked: the coach puts himself on the line for him, said straight and personal: he's the coach's guy, the coach is building around him, he's going to break records here. Plain compliments (\"you're a good addition to our room\", \"I like your work\") are never staked: at most respected or flattered on his pride.
 
 dodged: true when he asked the coach something and the line doesn't answer it.
@@ -364,6 +371,7 @@ impl Tags {
                 None if a.what == "find_out" => Request::FindOut(p()?, Topic::ScoutFile),
                 None => Request::Scout(p()?),
             },
+            "evaluate" => Request::Evaluate(p()?),
             "whiteboard" => Request::Whiteboard,
             "plant" => Request::Plant(p()?),
             "plan" => Request::Plan(text(&a.value)),
@@ -433,7 +441,15 @@ impl Tags {
                 Act::Promise { words: text(&a.words), terms: self.terms(a, keys) }
             }
             K::Request => Act::Request(self.request(a, keys)?),
-            K::Decision => Act::Decision(self.decision(a)?),
+            // A decision is about the man across: the game runs it on him.
+            // One the ear tags on someone else is news about that man, not
+            // a decision on this one, and drops.
+            K::Decision => {
+                if about().is_some_and(|x| keys.people.first().is_none_or(|f| f.1 != x)) {
+                    return None;
+                }
+                Act::Decision(self.decision(a)?)
+            }
             K::Threat => Act::Threat { ultimatum: a.what == "ultimatum", words: text(&a.words) },
             K::Deadline => Act::Deadline(date(&a.when).filter(|d| *d >= self.today)?),
             K::Apology => {

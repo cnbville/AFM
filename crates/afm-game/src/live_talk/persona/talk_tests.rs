@@ -432,3 +432,47 @@ fn a_sit_down_with_the_team_doctor_plays_on_the_office_parts() {
         assert!(v.get("confirm").is_none(), "a staff with good judgment never clears him: {v}");
     }
 }
+
+/// Cain's bug: a typed NIL ask to your boss was read onto the boss
+/// meeting's chip and settled by its roll and canned "I can't do it right
+/// now.", whatever you put up for it. Now it is weighed as said: the voice
+/// gets the game's answer with its reasons in place of the plain words, and
+/// neither the talk nor the outcome holds the chip's line.
+#[test]
+fn a_typed_money_ask_to_your_boss_is_weighed_as_said() {
+    use afm_engine::world::folk::Team;
+    use afm_engine::world::folk::boss::AskKind;
+    use afm_engine::world::folk::cast::{self, CastRef};
+    let (mut g, f, _) = game("boss-money", true);
+    let f = f.unwrap();
+    let token = {
+        let w = g.world.as_ref().unwrap();
+        let team = Team::seat(w).unwrap();
+        CastRef::new(team, cast::boss_role(team), 0).token()
+    };
+    let id = ok(&mut g, "people_sitdown", json!({ "cast": token }))["id"].as_u64().unwrap() as u32;
+    let mut a = act("request", "money", "", "");
+    a["value"] = json!("more NIL, for a top 3 class in the conference");
+    f.push(EAR, Ok(ear(vec![a], vec![], false)));
+    f.push(VOICE, Ok(voice("Let me think about how to put this.", "")));
+    let v = say(&mut g, id, "If you can get me more NIL, I'll be able to get a top 3 class in the conference");
+    assert_eq!(v["state"], "done", "{v}");
+    let (_, vc) = super::n7_tests::last_cards(&f);
+    assert!(vc.contains("to more NIL and revenue-sharing money."), "{vc}");
+    assert!(!vc.contains("He won't do that.") && !vc.contains("He'll do it."), "{vc}");
+    let s = scene_of(&g, id);
+    let all: Vec<String> = s.lines.iter().map(|l| l.text.clone()).chain(s.outcome.iter().cloned()).collect();
+    assert!(!all.iter().any(|l| l.contains("I can't do it right now")), "{all:?}");
+    // A no is kept with his reasons; a yes waits on your confirm.
+    let w = g.world.as_ref().unwrap();
+    let filed: Vec<_> = w.folk.asks.iter().filter(|x| x.date == w.today && x.kind == AskKind::NilMoney).collect();
+    if vc.contains("No to more NIL") {
+        assert!(
+            filed.iter().any(|x| !x.granted && x.words.starts_with("You asked for more NIL and revenue-sharing money")),
+            "{:?}",
+            filed.iter().map(|x| &x.words).collect::<Vec<_>>()
+        );
+    } else {
+        assert!(filed.iter().all(|x| !x.granted), "a yes waits on your confirm");
+    }
+}

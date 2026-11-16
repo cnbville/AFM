@@ -68,6 +68,20 @@ const PHYSICAL: [Attr; 8] = [
     Attr::Stamina,
 ];
 
+/// How much the lower and upper body's own parts go together (physical
+/// study item 4b; proposed, not confirmed: bench and squat strength go
+/// together about 0.7 to 0.8 among trained athletes, McGuigan and
+/// Winchester 2008).
+pub const LOWER_TIE: f64 = 0.75;
+
+/// The lower body's own part given the upper body's (`upper`, drawn at
+/// spread `sd`): tied at `LOWER_TIE`, the rest drawn on a stream keyed to
+/// what is already drawn, so no other draw in the generator moves.
+pub(crate) fn lower_with(upper: f64, sd: f64, key: u32) -> f64 {
+    let z = Rng::new(key ^ (upper as f32).to_bits() ^ 0x10B0_D1E5).normal(0.0, 1.0);
+    LOWER_TIE * upper + (1.0 - LOWER_TIE * LOWER_TIE).sqrt() * sd * z
+}
+
 /// Standard normal cumulative distribution (Abramowitz and Stegun 7.1.26).
 pub fn phi(x: f64) -> f64 {
     let t = 1.0 / (1.0 + 0.3275911 * x.abs() / std::f64::consts::SQRT_2);
@@ -113,6 +127,69 @@ fn draw_frame(rng: &mut Rng) -> (f64, f64) {
     }
 }
 
+/// The heavy side of a tackle's, guard's or defensive tackle's weight
+/// against its light side (item 10): real linemen's heavy tail runs long
+/// (0.41% of FBS and FCS listings at 350+, drafted tackles' heaviest 1%
+/// 365 lb). It widens his weight once his spot is chosen (`fitted_size`),
+/// not his frame, so who becomes a lineman and where stays as drawn.
+/// Proposed, not confirmed: sized on `body_sizes`. One stretch can't give
+/// real's narrow middle and long tail: the placement's weight program
+/// takes a heavy boy 60% of the way back (at most 25 lb). At 1.6 drafted
+/// tackles weigh 315 (sd 15, real 13), their heaviest 1% 346 (real 365);
+/// at 2.0 the tail reaches 353 but the class sim then drafts tackles at
+/// 16% of picks (real 8%, its own 12% at 1.6).
+pub const HEAVY_SIDE: f64 = 1.6;
+
+/// The widest body a boy can be drawn with (physical study item 9: no
+/// creation limits inside what people are). Real combine men run 64 to 82
+/// in and up to 384 lb, real rosters list men past 400.
+pub const HEIGHT_RANGE: (f64, f64) = (58.0, 88.0);
+pub const WEIGHT_RANGE: (f64, f64) = (120.0, 480.0);
+
+/// Each position's size fit at creation, after his spot is chosen
+/// (physical study items 14 and 15, and the rest of the real combine's
+/// heights and weights): (inches added, the extra height spread's sd,
+/// pounds added, the weight spread's scale about the combine's mean; for
+/// tackles, guards and defensive tackles only on the light side, the heavy
+/// side taking `HEAVY_SIDE`).
+/// Without it the spots that share a frame squeeze each other's sizes:
+/// receivers' heights ran sd 1.51 (real 2.26) with no 5'8 man in a
+/// thousand drafts (real 3.7%), and receivers 7.6 lb, corners 3.5 and
+/// safeties 2.2 heavy. Fitted on `body_sizes` (four 250,000 classes,
+/// drafted men against the combine 2000-2026). Proposed, not confirmed.
+pub const SIZE_FIT: [(f64, f64, f64, f64); POSITION_COUNT] = [
+    (0.70, 0.0, -8.6, 0.84),    // QB
+    (-0.27, 1.29, 4.3, 1.07),   // RB
+    (-0.39, 1.68, -12.7, 0.95), // WR
+    (0.14, 0.0, -7.0, 0.57),    // TE
+    (0.16, 0.0, -6.8, 0.76),    // OT
+    (0.0, 0.0, -0.5, 0.64),     // IOL
+    (-0.05, 0.0, -2.6, 0.79),   // EDGE
+    (0.0, 0.0, -14.5, 0.83),    // DT
+    (-0.33, 1.13, -0.2, 0.92),  // LB
+    (0.26, 0.97, -6.2, 0.49),   // CB
+    (0.41, 1.25, -9.6, 0.65),   // S
+    (0.0, 0.0, 0.0, 1.0),       // K
+    (0.0, 0.0, 0.0, 1.0),       // P
+    (0.0, 0.0, 0.0, 1.0),       // LS
+];
+
+/// His height and weight after his spot's size fit (`SIZE_FIT`), from his
+/// frame and the talent's shrink. The extra height draw is on its own
+/// stream keyed by his frame, so no other draw moves.
+pub(crate) fn fitted_size(natural: Position, fh: f64, fw: f64, talent: f64) -> (f64, f64) {
+    let (dh, dw) = talent_size(talent);
+    let (fit_h, extra, fit_w, scale) = SIZE_FIT[natural.index()];
+    let mut r = Rng::new(fh.to_bits() as u32 ^ (fw.to_bits() >> 20) as u32 ^ 0x51_2E5F);
+    let height = clamp(fh + dh + fit_h + r.normal(0.0, extra), HEIGHT_RANGE.0, HEIGHT_RANGE.1);
+    let wm = combine_size(natural).2;
+    let w = lb_weight(natural, fw + dw + fit_w);
+    // An interior lineman's heavy side runs long (item 10).
+    let heavy = matches!(natural, Position::OT | Position::IOL | Position::DT) && w > wm;
+    let weight = clamp(wm + if heavy { HEAVY_SIDE } else { scale } * (w - wm), WEIGHT_RANGE.0, WEIGHT_RANGE.1);
+    (height, weight)
+}
+
 /// The athlete's shape: what each attribute would be if he became an elite
 /// player, before talent scales it. Returns the shape, the frame, his will
 /// to compete (a standard normal, which his personality shares) and his
@@ -135,7 +212,11 @@ fn draw_shape(rng: &mut Rng) -> (Attributes, (f64, f64), f64, f64) {
     shape.add(Acceleration, 4.0 * explosive + rng.normal(0.0, 3.0));
     shape.add(Jumping, 4.0 * explosive + rng.normal(0.0, 3.0));
     shape.add(Agility, 2.5 * explosive + rng.normal(0.0, 3.5));
-    shape.add(Strength, rng.normal(0.0, 5.0));
+    let own_strength = rng.normal(0.0, 5.0);
+    shape.add(Strength, own_strength);
+    // The lower body moves with the upper mostly, but men differ (physical
+    // study item 4b), on its own stream so no other draw moves.
+    shape.set(LowerBody, shape.get(Strength) - own_strength + lower_with(own_strength, 5.0, fh.to_bits() as u32));
     shape.add(Stamina, rng.normal(0.0, 5.0));
     // Balance and bend are their own gifts (proposed, not confirmed: about
     // as spread as agility).
@@ -405,9 +486,19 @@ pub(crate) fn create(rng: &mut Rng, talent: f64) -> (Attributes, Body, Position,
     // range and coverage, at the same overall.
     body_lean(&mut base, natural, talent, fw, roll, speed_share);
     let mut ceilings = Attributes::default();
+    let mut strength_noise = 0.0;
     for a in Attr::ALL {
-        ceilings.set(a, clamp(base.get(a) + rng.normal(0.0, 4.0), MIN_RATING, MAX_RATING));
+        if a == Attr::LowerBody {
+            continue;
+        }
+        let n = rng.normal(0.0, 4.0);
+        if a == Attr::Strength {
+            strength_noise = n;
+        }
+        ceilings.set(a, clamp(base.get(a) + n, MIN_RATING, MAX_RATING));
     }
+    let n = lower_with(strength_noise, 4.0, base.get(Attr::LowerBody).to_bits() as u32);
+    ceilings.set(Attr::LowerBody, clamp(base.get(Attr::LowerBody) + n, MIN_RATING, MAX_RATING));
     // His best spot is his best spot: where another position would rate him
     // higher, the skills only that position uses are trimmed until it doesn't.
     let best = overall_for(natural, &ceilings) * 0.95;
@@ -438,10 +529,8 @@ pub(crate) fn create(rng: &mut Rng, talent: f64) -> (Attributes, Body, Position,
             }
         }
     }
-    let (dh, dw) = talent_size(talent);
-    let height = clamp(fh + dh, 64.0, 82.0);
-    let weight = lb_weight(natural, clamp(fw + dw, 140.0, 380.0));
-    let body = Body::grown(height, weight, rng);
+    let (height, weight) = fitted_size(natural, fh, fw, talent);
+    let body = Body::grown(natural, height, weight, rng);
     if natural == Position::EDGE {
         edge_lean(&mut ceilings, body.height);
     }
@@ -513,16 +602,16 @@ const LEAN_LB_SLOW: f64 = 1.5;
 fn body_lean(base: &mut Attributes, natural: Position, talent: f64, fw: f64, roll: f64, speed_share: f64) {
     let (hit, range): (&[Attr], &[Attr]) = match natural {
         Position::S => (
-            &[Attr::Tackling, Attr::Strength, Attr::Physicality],
+            &[Attr::Tackling, Attr::Strength, Attr::LowerBody, Attr::Physicality],
             &[Attr::ZoneCoverage, Attr::ManCoverage, Attr::Pursuit],
         ),
         Position::LB => (
-            &[Attr::Tackling, Attr::BlockShedding, Attr::Strength],
+            &[Attr::Tackling, Attr::BlockShedding, Attr::Strength, Attr::LowerBody],
             &[Attr::ZoneCoverage, Attr::ManCoverage, Attr::Pursuit],
         ),
         _ => return,
     };
-    let w = lb_weight(natural, clamp(fw + talent_size(talent).1, 140.0, 380.0));
+    let w = fitted_size(natural, 0.0, fw, talent).1;
     let z = (w - combine_size(natural).2) / 10.0;
     let x = match natural {
         Position::S => LEAN_S * z,
@@ -745,14 +834,16 @@ pub fn place_class(players: &mut [&mut Player], eye: Eye) {
                 let score = |pos: Position| {
                     let k = pos.index();
                     let open = target[k] - filled[k];
-                    // An open spot pulls a little; an overfilled one pushes harder.
-                    let need = if open >= 0.5 {
-                        0.08
-                    } else if open > -0.5 {
-                        0.0
-                    } else {
-                        0.12 * open
-                    };
+                    // An open spot pulls a little, by how open it is; an
+                    // overfilled one pushes harder. A class is a quarter
+                    // of a roster, so a spot's share of 18 boys is a
+                    // fraction (tackles 1.5): with a flat pull to half a
+                    // boy open and no push until half a boy over, each
+                    // spot rounded to whole boys, which sent tackles to
+                    // two a class (11-12% of freshmen against a real 8.5%)
+                    // and left guards and centers at two of 2.2 (proposed,
+                    // not confirmed).
+                    let need = if open > 0.0 { 0.08 * open.min(1.0) } else { 0.12 * open };
                     fit[i][k] / scale + need + premium(pos)
                 };
                 score(a).total_cmp(&score(b))

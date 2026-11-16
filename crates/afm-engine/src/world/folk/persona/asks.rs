@@ -293,6 +293,22 @@ pub fn decision_words(d: super::terms::Decision) -> String {
     }
 }
 
+/// A request in words for the confirm card, read against your world: a
+/// money ask names the bar you put up when it's on the table, the bar a
+/// yes holds you to (`asked::on_table`, read at your level: a class rank
+/// is college only).
+pub fn request_words_in(w: &crate::world::World, r: &Request) -> String {
+    use crate::world::folk::{Team, asked};
+    if let (Request::Money(s), Some(team)) = (r, Team::seat(w)) {
+        let what = super::office::asks::money_kind(s).words();
+        return match asked::on_table(w, team, &asked::Case::read(s, team.level())).bar {
+            Some(g) => format!("find {what}, and you're held to {}", asked::bar_words(g)),
+            None => format!("find {what}"),
+        };
+    }
+    request_words(r)
+}
+
 /// A request in words for the confirm card and the voice.
 pub fn request_words(r: &Request) -> String {
     match r {
@@ -321,10 +337,16 @@ pub fn request_words(r: &Request) -> String {
         Request::Plan(k) => format!("set the game plan: {k}"),
         Request::WorkWith(_) => "work with a player".into(),
         Request::FindOut(..) => "find something out about a prospect".into(),
+        Request::Evaluate(_) => "give you his read on a player".into(),
         Request::Whiteboard => "go up to the whiteboard".into(),
         Request::Plant(_) => "let word out that you like a prospect".into(),
         Request::SecondOpinion(_) => "get an outside specialist's opinion".into(),
         Request::Clear(_) => "clear him to play sooner".into(),
+        Request::Money(s) => format!("find {}", super::office::asks::money_kind(s).words()),
+        Request::Hire(_) => "find the money for a hire".into(),
+        Request::Time => "give you more time".into(),
+        Request::Backing => "back you with the big booster".into(),
+        Request::Fund => "put more into the collective".into(),
         Request::Other(s) => s.clone(),
         other => format!("{other:?}").to_lowercase(),
     }
@@ -492,6 +514,11 @@ impl Acting for Asks {
             (Them::Coach(_), Request::TellMe(Some(pid))) => {
                 talks::set_line(w, *pid, Some(talks::Line::Watch));
                 ran.done.push("Your position coach will tell you if he's slipping.".into());
+            }
+            // His read is said in the line itself (`evaluate::words`).
+            (Them::Coach(_), Request::Evaluate(pid)) => {
+                let name = person(w, *pid).map_or_else(|| "the player".into(), |j| w.people[j].name.clone());
+                ran.done.push(format!("He gave you his read on {name}."));
             }
             (Them::Coach(_), Request::WorkWith(pid)) => {
                 talks::set_line(w, *pid, Some(talks::Line::Push));

@@ -535,4 +535,61 @@ mod tests {
             }
         }
     }
+    /// The sets on the real ear, for a thread with a key: every line of the
+    /// sets named in `AFM_EAR_SETS` (all when empty), or only those holding
+    /// `AFM_EAR_ONLY`, on `AFM_EAR_MODEL` (the game's model when empty), with
+    /// the rules in `AFM_EAR_RULES_FILE` when set (to compare versions).
+    /// Ignored, so CI never runs it:
+    /// `AFM_AI_KEY="$AFM_LINEBANK_KEY" AFM_AI_PROXY=1 AFM_EAR_SETS=staff cargo test --release -p afm-game real_ear -- --ignored --nocapture`
+    #[test]
+    #[ignore = "calls the real API; run alone with AFM_AI_KEY set"]
+    fn real_ear_on_the_sets() {
+        use crate::live_talk::persona::ear::{EAR, EAR_RULES, EAR_TOKENS, schema};
+        use afm_ai::{Key, Model, Real, Request};
+        let raw = std::env::var("AFM_AI_KEY").unwrap_or_default();
+        if raw.trim().is_empty() {
+            println!("skipped: AFM_AI_KEY is empty");
+            return;
+        }
+        let mut real =
+            Real::new(Key::parse(&raw).expect("an Anthropic key")).with_timeout(std::time::Duration::from_secs(60));
+        if std::env::var("AFM_AI_PROXY").is_ok_and(|v| v == "1") {
+            real = real.with_proxy_from_env();
+        }
+        let names = std::env::var("AFM_EAR_SETS").unwrap_or_default();
+        let only = std::env::var("AFM_EAR_ONLY").unwrap_or_default();
+        let model = std::env::var("AFM_EAR_MODEL").unwrap_or_default();
+        // Another version of the rules, to compare (`AFM_EAR_RULES_FILE`).
+        let rules = std::env::var("AFM_EAR_RULES_FILE")
+            .ok()
+            .and_then(|f| std::fs::read_to_string(f).ok())
+            .unwrap_or_else(|| EAR_RULES.to_string());
+        let (mut ok, mut all_lines) = (0, 0);
+        for set in all() {
+            if !names.is_empty() && !names.split(',').any(|n| n == set.name) {
+                continue;
+            }
+            for l in set.lines.iter().chain(&set.exploits) {
+                if !only.is_empty() && !l.text.contains(&only) {
+                    continue;
+                }
+                let mut req = Request::new(EAR, &rules, &set.body(&l.text)).schema(schema()).max_tokens(EAR_TOKENS);
+                if !model.is_empty() {
+                    req = req.model(&model);
+                }
+                all_lines += 1;
+                let got = real.call(&req).map_err(|e| format!("the call failed: {e:?}")).and_then(|mut r| {
+                    r.classify(&req).map_err(|e| format!("no use: {e:?}"))?;
+                    r.json.ok_or_else(|| "no JSON".to_string())
+                });
+                let verdict = got.as_ref().map_err(|e| e.clone()).and_then(|v| grade(v, &set, l));
+                let got = got.unwrap_or_default();
+                match &verdict {
+                    Ok(()) => ok += 1,
+                    Err(e) => println!("MISS {}: {} -- {e}\n  {got}", set.name, l.text),
+                }
+            }
+        }
+        println!("{ok} of {all_lines} read as labelled");
+    }
 }

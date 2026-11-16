@@ -33,11 +33,11 @@ These pages describe what the code does on `main`, not what the design docs plan
 | [help.md](help.md) | The Handbook's pages and live examples, the "?" on each screen, the guided first week, first-time notes, the Help setting |
 | [world-log.md](world-log.md) | The world log beside each world and save: what it keeps, every why, snapshots, sizes, how to read it |
 | [hunt.md](hunt.md) | The hunt: your one target over seasons at each seat, heat, his say, the boss, look-backs, the AI's hunts and the generational prospect |
-| [ground.md](ground.md) | Ground, the offseason game, by lane: a following and famous names (G8) |
 | [book.md](book.md) | The world reader's book: one SQLite file per world, its tables, checks against real, odd things, known issues, knobs, coverage, `afm_read` |
 | [records-and-data.md](records-and-data.md) | Record books at every level, single games, team books, rate records, the era column, records that fell, chasing now, player analytics and seasons like his |
 | [squad-filter.md](squad-filter.md) | The squad's quick filter: search, any attribute or stat against a number, positions; what it reads (your staff's ranges, your games) |
 | [tallies.md](tallies.md) | The Data section's running tallies: players, teams, games, classes, people and squads files per season beside each world and save, the expected pass model, charting depth and delay by your analytics head |
+| [ground.md](ground.md) | Ground, the offseason game: the areas staffs split each state into, each school's area, the map art, travel and schools a day, each area's character in words, the map's history pins, the people on your ground, one memory per person, standing (Stranger, Known, Trusted, Home), day one from the world's history, your roots, fade, warnings, an area's level, the high school chain reaction (prestige on old players, move-ins by the state's rule), a following and famous names |
 | [live-talks.md](live-talks.md) | Live talks, the typed lines answered by the AI on top of the chips: the key and the Keychain, the client and its fake, the spend book and the $50 cap, tickets, the contract with the screens, a section for each lane |
 
 Code that does something its comment or design says it shouldn't: [oddities.md](oddities.md).

@@ -1923,6 +1923,15 @@ pub struct Board {
     /// (F21, "Ask me before taking anyone off the board"), with why.
     #[serde(default)]
     pub asked: HashMap<usize, String>,
+    /// What his fit to the club's own systems added to its grade (section
+    /// 7, topic 9: a 3-4 club and a 4-3 club see the same edge rusher
+    /// differently), in grade points, for the prospects whose fit its file
+    /// can read.
+    #[serde(default)]
+    pub fit: HashMap<usize, f32>,
+    /// The job it graded each filed prospect for in its scheme (`roles`).
+    #[serde(default)]
+    pub role: HashMap<usize, super::roles::Job>,
 }
 
 /// Each club's board from its own files (topic 9): its read of each
@@ -1984,6 +1993,8 @@ fn board_from(
     use crate::world::scouting::dept::Instruction as In;
     let said = |x: In| seat && w.scouting.dept.instructions.contains(&x);
     let (ask_first, fit_first, numbers_first) = (said(In::AskBeforeDnd), said(In::SchemeFit), said(In::Analytics));
+    // Each job grade's lift, centred per position after the loop.
+    let mut lifts: Vec<(usize, f64)> = Vec::new();
     for &(i, public) in pool {
         let p = &w.people[i];
         let id = p.player.id as u64;
@@ -2017,8 +2028,32 @@ fn board_from(
                         b.dnd.insert(i);
                     }
                 }
+                // Scheme fit (topic 9): how he fits what this club runs, as
+                // its own file reads him attribute by attribute
+                // (`readers::read`), weighed by who has the final say (a
+                // coach with it wants players for his system now), at the
+                // market's size.
+                let file = crate::world::scouting::readers::read(
+                    w,
+                    crate::world::scouting::readers::Staff::Club(t),
+                    p.player.id,
+                )
+                .map(|x| x.2);
+                let fit = file.as_ref().and_then(|f| club_fit(w, t, i, f));
+                if let Some(f) = fit {
+                    let pts = FIT_BOARD * w.clubs[t].office.power.fit_weight() * f;
+                    g += pts;
+                    b.fit.insert(i, pts as f32);
+                }
+                // The job he'd play for us, read from the same file
+                // (centred on the position after the loop).
+                if let Some((job, lift)) = file.as_ref().and_then(|f| club_role(w, t, i, f)) {
+                    g += lift;
+                    b.role.insert(i, job);
+                    lifts.push((i, lift));
+                }
                 if fit_first {
-                    g += 3.0 * seat_fit(w, t, i).unwrap_or(0.0);
+                    g += 3.0 * fit.unwrap_or(0.0);
                 }
                 if numbers_first {
                     g += numbers_lean(w, i);
@@ -2031,17 +2066,56 @@ fn board_from(
             }
         }
     }
+    // The job grades centred on the club's filed prospects at each
+    // position, so they move men within a position and leave the
+    // position's place on the board as it was.
+    let pos_of = |i: usize| {
+        let p = &w.people[i];
+        p.cal.pro_position.unwrap_or(p.player.position).index()
+    };
+    let mut sum = [(0.0f64, 0usize); crate::positions::POSITION_COUNT];
+    for &(i, lift) in &lifts {
+        let s = &mut sum[pos_of(i)];
+        s.0 += lift;
+        s.1 += 1;
+    }
+    for &(i, _) in &lifts {
+        let s = sum[pos_of(i)];
+        if let Some(g) = b.grade.get_mut(&i) {
+            *g -= s.0 / s.1.max(1) as f64;
+        }
+    }
     b
 }
 
-/// F21 "Players who fit what we run": his fit to your club's systems as
-/// your scouts' file reads him (`systems::read_fit`), None until the file
-/// has seen what the systems ask about. A good fit (0.3) is worth about a
-/// point on your board (proposed, not confirmed: 3 points a unit).
-fn seat_fit(w: &World, t: usize, i: usize) -> Option<f64> {
-    use crate::world::scouting::readers;
+/// The job a club grades a filed prospect for in its scheme and what it
+/// adds to his grade before the board centres it (`roles::role`), read
+/// from the club's own file (each attribute's centre) with his listed size.
+fn club_role(
+    w: &World,
+    t: usize,
+    i: usize,
+    f: &crate::world::scouting::file::FileRead,
+) -> Option<(super::roles::Job, f64)> {
     let p = &w.people[i];
-    let (_, _, f) = readers::read(w, readers::Staff::Club(t), p.player.id)?;
+    let pos = p.cal.pro_position.unwrap_or(p.player.position);
+    let (height, weight) = crate::world::scouting::file::listed(&p.player);
+    super::roles::role(pos, &f.centres, weight, height, &w.clubs.get(t)?.installed)
+}
+
+/// Grade points a unit of scheme fit adds to every club's board, times the
+/// final say's fit weight (`Power::fit_weight`: coach 1.4, GM 1.0, owner
+/// 0.9): the size the NFL market prices fit at (`market.rs`, `worth`).
+/// Proposed, not confirmed.
+pub const FIT_BOARD: f64 = 2.0;
+
+/// His fit to a club's systems as its own scouts' file reads him
+/// (`systems::read_fit`), None until the file has seen what the systems
+/// ask about. Every board reads it (topic 9); F21's "Players who fit what
+/// we run" adds 3 points a unit on your board on top (proposed, not
+/// confirmed).
+pub fn club_fit(w: &World, t: usize, i: usize, f: &crate::world::scouting::file::FileRead) -> Option<f64> {
+    let p = &w.people[i];
     let inst = &w.clubs.get(t)?.installed;
     crate::world::systems::read_fit(
         w,

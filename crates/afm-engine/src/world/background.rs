@@ -296,7 +296,13 @@ pub fn apply_background(p: &mut Player, bg: &mut Background, family: &Family, rn
     match family.bloodline {
         Bloodline::NflPlayer => {
             for key in [Attr::Strength, Attr::Speed, Attr::FootballIq] {
-                p.ceilings.set(key, clamp(p.ceilings.get(key) + rng.range(0.0, 2.5), 1.0, 99.0));
+                let up = rng.range(0.0, 2.5);
+                p.ceilings.set(key, clamp(p.ceilings.get(key) + up, 1.0, 99.0));
+                // The lower body with the upper (item 4b), no draw of its own.
+                if key == Attr::Strength {
+                    let l = Attr::LowerBody;
+                    p.ceilings.set(l, clamp(p.ceilings.get(l) + up, 1.0, 99.0));
+                }
             }
             p.attributes.set(
                 Attr::FootballIq,

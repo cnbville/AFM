@@ -173,6 +173,11 @@ pub fn add(w: &mut World, id: u32, who: u32, kind: Kind, date: Date) -> bool {
         return false;
     }
     v.push(SeatLook { who, kind, date });
+    // A look with a recruit is a contact with the people around him (Ground).
+    crate::world::ground::standing::on_look(w, id, who, kind, date);
+    // And it can bring leads: his coach's list, a camp walk-up, a kid off
+    // another kid's tape (Ground lane G4).
+    crate::world::ground::leads::on_look(w, id, who, kind, date);
     true
 }
 
@@ -183,6 +188,10 @@ pub fn add(w: &mut World, id: u32, who: u32, kind: Kind, date: Date) -> bool {
 pub fn watch(w: &World, prog: usize) -> Vec<usize> {
     let p = &w.programs[prog];
     let season = w.dates.season;
+    // Ground (lane G4, GR67): your seat's board fills from your ground plus
+    // the public view: your leads, and your staff's standing with each
+    // recruit's coach in place of footprint and pipelines.
+    let mut ground = crate::world::ground::leads::Board::of(w, prog);
     let mut scored: Vec<(f64, usize)> = Vec::new();
     for (i, q) in w.people.iter().enumerate() {
         let recruit = matches!(q.stage, Stage::HighSchool | Stage::PrepSchool)
@@ -197,6 +206,20 @@ pub fn watch(w: &World, prog: usize) -> Vec<usize> {
             || q.cal.visits.iter().any(|v| v.0 == prog)
             || q.cal.commit.is_some_and(|c| c.0 == prog)
             || q.cal.signed.is_some_and(|s| s.program == prog);
+        if let Some(g) = ground.as_mut() {
+            let lead = if recruit { g.lead(q.player.id) } else { 0.0 };
+            if !ours && lead <= 0.0 && q.stars < 3 && !portal {
+                continue;
+            }
+            let near = if recruit { g.near(w, q.hs) } else { 0.0 };
+            let s = if ours { 100.0 } else { 0.0 }
+                + lead
+                + q.stars as f64 * 2.0
+                + near * 3.0
+                + if portal { 4.0 } else { 0.0 };
+            scored.push((s, i));
+            continue;
+        }
         let near = p.footprint[q.home_state.min(50)] + 0.5 * p.pipeline[q.home_state.min(50)];
         let s = if ours { 100.0 } else { 0.0 } + q.stars as f64 * 2.0 + near * 3.0 + if portal { 4.0 } else { 0.0 };
         if ours || q.stars >= 3 || near > 0.6 {
@@ -711,144 +734,30 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
                 }
             }
         }
-        // Evaluation days: Thursdays and Fridays (practice and the game) in
-        // the fall evaluation period, weekdays in the spring window, up to
-        // the staff's limit; your assignments first, then the coordinator's
-        // asks, then the top of the board nobody has seen in person.
-        let fall = period == Period::Evaluation && matches!(d.parts().1, 9..=11);
-        let spring = matches!(d.parts().1, 4 | 5) && matches!(period, Period::Contact | Period::Evaluation);
-        if (fall && (wd == Weekday::Thu || wd == Weekday::Fri)) || (spring && wd == Weekday::Thu) {
-            let (lim_fall, lim_spring) = eval_limits(season, service_academy(&w.programs[prog]));
-            let (_, used_f, used_s) = w.scouting.dept.eval_days;
-            // Sandbox mode's staff time: the season's days never run out
-            // (the weekly pace stays).
-            let left = if w.sandbox(crate::world::sandbox::Switch::StaffTime) {
-                u16::MAX
-            } else if fall {
-                lim_fall.saturating_sub(used_f)
-            } else {
-                lim_spring.saturating_sub(used_s)
-            };
-            // How many days a week the staff spends (the fall's days spread
-            // over its 12 weeks; the spring's over six).
-            let per = if fall { ((lim_fall as f64) / 24.0).ceil() as u16 } else { 14 };
-            let today = left.min(per);
-            if today > 0 {
-                // Seen this recruiting year: since the fall's first day
-                // (the spring window reads back to last fall; before, it
-                // read from the coming fall and saw no one, so the spring
-                // picked the fall's kids again).
-                let seen_since = recruiting_year(d);
-                let seen = |w: &World, i: usize| {
-                    w.scouting.dept.looks.get(&w.people[i].player.id).is_some_and(|v| {
-                        v.iter()
-                            .any(|l| matches!(l.kind, Kind::Practice | Kind::Game | Kind::Camp) && l.date >= seen_since)
-                    })
-                };
-                // Your coaches on assignments go first, one place a day
-                // each (minor bug 265): his player; the best recruit of his
-                // state or his position group nobody of yours has seen in
-                // person this season; or, on cross-checks, the top of the
-                // board another coach has seen and he hasn't. A coach no
-                // longer on the staff goes nowhere, and with more coaches
-                // out than the day's quota they take turns.
-                let mut picks: Vec<(u32, usize)> = Vec::new();
-                let mut sent: Vec<Assignment> = w
-                    .scouting
-                    .dept
-                    .assignments
-                    .iter()
-                    .filter(|a| a.who >= COACH && on_staff(&w.programs[prog], (a.who - COACH) as usize))
-                    .cloned()
-                    .collect();
-                if !sent.is_empty() {
-                    let used = if fall { used_f } else { used_s } as usize;
-                    let n = sent.len();
-                    sent.rotate_left(used % n);
-                }
-                for a in sent {
-                    let open =
-                        |w: &World, i: usize, picks: &[(u32, usize)]| !seen(w, i) && !picks.iter().any(|p| p.1 == i);
-                    let pick = match a.target {
-                        Target::Player(id) => super::place(w, id)
-                            .filter(|&i| matches!(w.people[i].stage, Stage::HighSchool | Stage::PrepSchool)),
-                        Target::Region(st) => recruits_where(w, prog, |q| q.home_state as u8 == st)
-                            .into_iter()
-                            .find(|&i| open(w, i, &picks)),
-                        Target::Group(g) => {
-                            recruits_where(w, prog, |q| crate::world::coach::Group::of(q.player.position) as u8 == g)
-                                .into_iter()
-                                .find(|&i| open(w, i, &picks))
-                        }
-                        Target::CrossCheck => cross_check_list(w, &board, a.who, Some(seen_since))
-                            .into_iter()
-                            .find(|&i| !picks.iter().any(|p| p.1 == i)),
-                    };
-                    if let Some(i) = pick {
-                        picks.push((a.who, i));
-                    }
-                }
-                let out: Vec<u32> = picks.iter().map(|p| p.0).collect();
-                let asks: Vec<u32> =
-                    w.scouting.dept.asks.iter().filter(|a| a.1 == Kind::Practice).map(|a| a.0).collect();
-                for id in asks {
-                    if let Some(i) = super::place(w, id)
-                        && let Some(c) = evaluator_for(w, prog, i)
-                    {
-                        picks.push((COACH + c as u32, i));
-                    }
-                }
-                for &i in &board {
-                    if picks.len() >= today as usize {
-                        break;
-                    }
-                    if w.people[i].stage == Stage::College {
-                        continue;
-                    }
-                    // A coach out on your assignment is not here to see him.
-                    if !seen(w, i)
-                        && !picks.iter().any(|p| p.1 == i)
-                        && let Some(c) = evaluator_for(w, prog, i)
-                        && !out.contains(&(COACH + c as u32))
-                    {
-                        picks.push((COACH + c as u32, i));
-                    }
-                }
-                picks.truncate(today as usize);
-                let extra = second_schools(w, prog, d, &board, &picks, &seen);
-                for (who, i) in picks {
-                    let id = w.people[i].player.id;
-                    let kind = if wd == Weekday::Fri { Kind::Game } else { Kind::Practice };
-                    add(w, id, who, kind, d);
-                    w.scouting.dept.days_log.push((d, who, id));
-                    w.scouting.dept.asks.retain(|a| a.0 != id || a.1 != Kind::Practice);
-                    if fall {
-                        w.scouting.dept.eval_days.1 += 1;
-                    } else {
-                        w.scouting.dept.eval_days.2 += 1;
-                    }
-                }
-                // A second school on the same day is the same evaluation
-                // day by NCAA rule (one coach out one day), so it takes
-                // none of the staff's days.
-                for (who, i) in extra {
-                    let id = w.people[i].player.id;
-                    add(w, id, who, Kind::Practice, d);
-                    w.scouting.dept.days_log.push((d, who, id));
-                    w.scouting.dept.asks.retain(|a| a.0 != id || a.1 != Kind::Practice);
-                }
-            }
-        }
     }
+    // Road days (Ground lane G3): your staff's days on the road are
+    // the week's plan, the coordinator's draft and your changes to it
+    // (`ground::week::road`), in place of the built pace of 14 every
+    // spring Thursday and the fall's Thursdays and Fridays.
+    crate::world::ground::week::road::day(w, prog, d);
     // Camps: your one-day camps in June (laser times, a day of coaching),
     // for the board's recruits within a day's drive whose families can pay
     // (minor bug 22: as the world's camps, `times::camps_wanted`, a family
     // with no money comes at 0.3 the rate). The times are stored that day
     // (minor bug 23).
     if d == Date::nth_weekday(season, 6, Weekday::Sat, 2) || d == Date::nth_weekday(season, 6, Weekday::Sat, 3) {
-        let board = watch(w, prog);
+        let mut board = watch(w, prog);
         let home = w.programs[prog].state;
         let hc = w.programs[prog].head_coach;
+        // A kid you invited to fill his blanks comes (Ground lane G4).
+        let invited: Vec<u32> = w.scouting.dept.asks.iter().filter(|a| a.1 == Kind::Camp).map(|a| a.0).collect();
+        for &id in &invited {
+            if let Some(i) = super::place(w, id)
+                && !board.contains(&i)
+            {
+                board.push(i);
+            }
+        }
         for &i in &board {
             let q = &w.people[i];
             if q.stage != Stage::HighSchool {
@@ -856,13 +765,15 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
             }
             let near = crate::world::geo::miles(home, q.home_state) <= 400.0;
             let can = 0.45 * (0.3 + 0.7 * q.bg.money);
-            if near && readers::chance(Staff::Program(prog), 0xCA4B ^ d.0 as u64, q.player.id, can) {
+            let asked = invited.contains(&q.player.id);
+            if asked || (near && readers::chance(Staff::Program(prog), 0xCA4B ^ d.0 as u64, q.player.id, can)) {
                 let who = evaluator_for(w, prog, i).or(hc).map_or(PERSONNEL, |c| COACH + c as u32);
                 let (id, kicker) = (q.player.id, q.player.position.is_specialist());
-                add(w, id, who, Kind::Camp, d);
                 if !kicker {
                     crate::world::times::your_camp(w, i, prog, d);
                 }
+                add(w, id, who, Kind::Camp, d);
+                w.scouting.dept.asks.retain(|a| a.0 != id || a.1 != Kind::Camp);
             }
         }
     }
@@ -905,50 +816,6 @@ fn college_day(w: &mut World, prog: usize, d: Date) {
             }
         }
     }
-}
-
-/// How far a coach goes on to a second school the same afternoon on
-/// travel money: a short flight or a drive the budget pays for (proposed,
-/// not confirmed).
-const SECOND_MILES: f64 = 250.0;
-
-/// Your athletic director's raises for travel (people topic 12) put your
-/// coaches on planes: on a Thursday out (practice, never Friday's game,
-/// which all kick off at once) each coach out on the road goes on to a
-/// second school with the raise's share as his chance (a tenth more money,
-/// about a tenth more schools), to see the best recruit on your board
-/// within `SECOND_MILES` of the first whom nobody of yours has seen in
-/// person this recruiting year. None without a raise.
-pub(crate) fn second_schools(
-    w: &World,
-    prog: usize,
-    d: Date,
-    board: &[usize],
-    picks: &[(u32, usize)],
-    seen: &dyn Fn(&World, usize) -> bool,
-) -> Vec<(u32, usize)> {
-    let bonus = crate::world::folk::staffing::recruit_bonus(w, prog);
-    if bonus <= 0.0 || d.weekday() != Weekday::Thu {
-        return Vec::new();
-    }
-    let mut extra: Vec<(u32, usize)> = Vec::new();
-    for &(who, i) in picks {
-        if who < COACH || !readers::chance(Staff::Program(prog), 0x2ECD ^ d.0 as u64, who, bonus.min(1.0)) {
-            continue;
-        }
-        let from = w.people[i].home_state;
-        let next = board.iter().copied().find(|&k| {
-            matches!(w.people[k].stage, Stage::HighSchool | Stage::PrepSchool)
-                && !seen(w, k)
-                && !picks.iter().any(|p| p.1 == k)
-                && !extra.iter().any(|p| p.1 == k)
-                && crate::world::geo::miles(from, w.people[k].home_state) <= SECOND_MILES
-        });
-        if let Some(k) = next {
-            extra.push((who, k));
-        }
-    }
-    extra
 }
 
 /// One Monday's film study by the personnel staff: a quarter of the board
@@ -1043,7 +910,7 @@ fn recruits_where(w: &World, prog: usize, f: impl Fn(&crate::world::Person) -> b
 /// The top of the board seen by someone else of yours and not by `who`:
 /// in person since `in_person` (a coach's cross-check, this recruiting
 /// year) or by any look (a staffer's film cross-check).
-fn cross_check_list(w: &World, board: &[usize], who: u32, in_person: Option<Date>) -> Vec<usize> {
+pub(crate) fn cross_check_list(w: &World, board: &[usize], who: u32, in_person: Option<Date>) -> Vec<usize> {
     let counts = |l: &SeatLook| {
         in_person.is_none_or(|since| matches!(l.kind, Kind::Practice | Kind::Game | Kind::Camp) && l.date >= since)
     };
@@ -1057,19 +924,6 @@ fn cross_check_list(w: &World, board: &[usize], who: u32, in_person: Option<Date
             })
         })
         .collect()
-}
-
-/// The recruiting year a day belongs to starts with the fall's evaluation
-/// period: September 1 of this year from September, else of last year.
-fn recruiting_year(d: Date) -> Date {
-    let (y, m, _) = d.parts();
-    Date::ymd(if m >= 9 { y } else { y - 1 }, 9, 1)
-}
-
-/// Whether a coach is on a program's staff now: head coach, a coordinator
-/// or a position coach.
-fn on_staff(p: &crate::world::program::Program, c: usize) -> bool {
-    p.head_coach == Some(c) || p.oc == Some(c) || p.dc == Some(c) || p.position_coaches.contains(&Some(c))
 }
 
 /// The first day of your present job (the career's first day for the job

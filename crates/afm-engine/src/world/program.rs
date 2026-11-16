@@ -158,6 +158,11 @@ pub struct Collective {
     /// room under the cap (`ncaa::share_room`). Cleared on July 1.
     #[serde(default)]
     pub moved: f64,
+    /// Buyouts paid in this money year by the schools that took its
+    /// players under a multi-year deal (the new NIL scheme, item 12): next
+    /// July's money. Cleared on July 1.
+    #[serde(default)]
+    pub buyouts: f64,
 }
 
 impl Collective {
@@ -655,6 +660,7 @@ pub fn program_from_row(id: usize, row: &CollegeRow, season: i32, seed: u32, rng
             trend: NilTrend::Steady,
             drying_years: 0,
             moved: 0.0,
+            buyouts: 0.0,
         },
         footprint: [0.0; 51],
         pipeline: [0.0; 51],

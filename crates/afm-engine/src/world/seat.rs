@@ -1614,12 +1614,15 @@ impl World {
             g.teams.iter().all(|&t| t < n)
         });
         super::scouting::after_load(self);
+        // The chain reaction (Ground GR21): each school's start.
+        super::high_school::chain_after_load(self);
         self.fill_final_build_fields();
         // Faces (F3, F4): looks numbers and the Asian groups for an older file.
         self.faces_after_load();
         // Your designed plays become concepts again (section 6b).
         self.training.register_designs();
         super::folk::after_load(self);
+        super::ground::after_load(self);
         // A save that had the no-fire override on: sandbox mode with that switch.
         super::sandbox::after_load(self);
         super::storylines::after_load(self);

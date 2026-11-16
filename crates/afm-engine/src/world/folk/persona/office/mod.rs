@@ -250,6 +250,9 @@ impl Valuing for Office {
     fn weigh(&self, w: &World, him: Them, offer: &Offer) -> Weighed {
         deals::weigh(w, him, offer).unwrap_or_else(|| super::talk::DEALS.weigh(w, him, offer))
     }
+    fn why(&self, w: &World, him: Them, offer: &Offer, _wd: &Weighed) -> Vec<String> {
+        deals::why(w, him, offer)
+    }
 }
 
 impl super::wants::Acting for Office {
@@ -261,6 +264,12 @@ impl super::wants::Acting for Office {
             Some(r) => r,
             None => super::asks::Asks.run(w, him, ask),
         }
+    }
+    fn why(&self, w: &World, him: Them, ask: &super::terms::Request, wl: &Willing) -> Vec<String> {
+        let mut v = asks::why(w, him, ask);
+        // A coordinator's numbers and stance on a plan ask.
+        v.extend(asks::words(w, him, ask, wl));
+        v
     }
 }
 
@@ -281,6 +290,17 @@ pub fn after(w: &mut World, id: u32, room: &Room, reading: &Reading, t: &Turn) -
     let Some(him) = room.present.first().map(|p| p.who) else { return out };
     out.extend(refs::after(w, id, him, reading, t));
     out.extend(asks::after(w, him, t));
+    // A no to your extension, kept on record with his reasons (your boss
+    // across the table, not your head coach when you're his assistant).
+    if let Some(she) = deals::your_boss_she(w, him)
+        && let Some(team) = Team::seat(w)
+    {
+        for (o, wd) in &t.weighed {
+            if *wd == Weighed::No && deals::extension(o) {
+                out.push(deals::refused(w, team, o, she));
+            }
+        }
+    }
     out
 }
 

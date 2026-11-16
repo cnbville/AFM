@@ -80,6 +80,10 @@ pub struct HighSchool {
     /// The recruiting area (state and county, or town where the county is
     /// unknown) for area pipelines (note 4) and nearby schedules.
     pub area: usize,
+    /// Ground's area (`ground::areas`): staffs' areas, not the county. Read
+    /// from the shared table when the world is built and when it is read.
+    #[serde(skip)]
+    pub ground_area: u16,
     pub name: String,
     pub fictional_name: String,
     /// One of the state's real top programs.
@@ -107,6 +111,11 @@ pub struct HighSchool {
     pub roster: Vec<usize>,
     pub seasons: Vec<HsSeason>,
     pub state_titles: u32,
+    /// The chain reaction (Ground GR21): where its old players are and its
+    /// prestige by year. Empty in a world saved before it, until
+    /// `chain_after_load` fills its start.
+    #[serde(default)]
+    pub chain: Chain,
 }
 
 impl HighSchool {
@@ -133,6 +142,15 @@ pub struct TransferRule {
     pub sit_out: f64,
     /// A one-time free transfer exists.
     pub free_once: bool,
+    /// A bona fide family move into the new school's district makes him
+    /// eligible at once (every state but Arizona, whose transfers sit "even
+    /// with a residence change"). True in a world saved before it.
+    #[serde(default = "yes")]
+    pub move_exempt: bool,
+}
+
+fn yes() -> bool {
+    true
 }
 
 pub fn transfer_rule(summary: &str) -> TransferRule {
@@ -152,7 +170,8 @@ pub fn transfer_rule(summary: &str) -> TransferRule {
     } else {
         0.25
     };
-    TransferRule { sit_out, free_once }
+    let move_exempt = !s.contains("even with a residence change");
+    TransferRule { sit_out, free_once, move_exempt }
 }
 
 #[derive(Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -354,6 +373,7 @@ pub fn generate_state_schools(
             town,
             county,
             area: 0,
+            ground_area: 0,
             name,
             fictional_name,
             real,
@@ -371,6 +391,7 @@ pub fn generate_state_schools(
             roster: Vec::new(),
             seasons: Vec::new(),
             state_titles: 0,
+            chain: Chain::new(prestige),
         });
     }
     // Classifications by enrollment, biggest first, as in most states.
@@ -381,4 +402,235 @@ pub fn generate_state_schools(
         schools[i].classification = (rank * classes / schools.len().max(1)) as u32;
     }
     schools
+}
+
+/// The chain reaction (Ground GR21, Cain's idea): a high school whose old
+/// players do well in college and the NFL climbs, and one that stops
+/// producing slowly falls back. Its prestige is its exposure to the
+/// services and the staffs (`recruiting::recruit_visibility`) and what draws
+/// transfers and move-ins (`recruiting::high_school_transfers`), so the
+/// climb feeds itself through the kids, never by a flat rule.
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+pub struct Chain {
+    /// Its name: its prestige when the world began, from the build (its
+    /// tradition, money and pull), plus what its town built since. Its
+    /// prestige swings around it with its players' form.
+    pub start: f64,
+    /// Its old players' form: how far their score has sat above or below
+    /// what its prestige predicts in its state, in standard deviations,
+    /// smoothed over the years (`state_form`).
+    #[serde(default)]
+    pub form: f32,
+    /// This June's alumni score (`alumni_value`) and what it counts: old
+    /// players in college, at power programs, and in the NFL.
+    pub made: f32,
+    pub college: u16,
+    pub power: u16,
+    pub nfl: u16,
+    /// Its prestige each June 15, after the step: (year, prestige).
+    pub years: Vec<(i32, f32)>,
+}
+
+impl Chain {
+    pub fn new(prestige: f64) -> Chain {
+        Chain { start: prestige, ..Default::default() }
+    }
+}
+
+/// The chain reaction's sizes (proposed, not confirmed): a school's
+/// prestige is its name plus 0.12 for each standard deviation of form, so
+/// at most 0.3 either way (form is read up to 2.5 deviations). Form moves
+/// 30% of the way to this June's reading when it rises and 15% when it
+/// falls: a climb takes hold in about three years, and a name fades over
+/// about six.
+pub const CLIMB_SWING: f64 = 0.12;
+pub const CLIMB_CAP: f64 = 2.5;
+pub const FORM_UP: f64 = 0.3;
+pub const FORM_DOWN: f64 = 0.15;
+/// A state with fewer schools than this holds its prestige: too few to
+/// read what a school's name predicts (proposed, not confirmed).
+pub const CLIMB_MIN_SCHOOLS: usize = 8;
+
+/// What one old player is worth to his high school's name this June
+/// (proposed, not confirmed): in college, 1.0 at a power program, 0.6 in
+/// the rest of FBS, 0.3 in FCS and 0.1 lower, half again as much if he
+/// started last season; in the NFL, 2.0 on a roster or injured reserve,
+/// 3.0 if he started half of last season, 0.8 on a practice squad, 0.3 in
+/// another league. Players out of football count nothing: a school lives
+/// on the ones still playing. Returns the value, and whether he is at a
+/// power program and whether in the NFL.
+pub fn alumni_value(w: &super::World, p: &super::Person) -> Option<(f64, bool, bool)> {
+    use super::Stage;
+    use super::data::Division;
+    use super::pro::Status;
+    match p.stage {
+        Stage::College | Stage::Declared => {
+            let c = &w.programs[p.college?];
+            let power = c.division == Division::FBS && c.power_conference(w.year);
+            let level = match c.division {
+                Division::FBS if power => 1.0,
+                Division::FBS => 0.6,
+                Division::FCS => 0.3,
+                _ => 0.1,
+            };
+            let started = p.last_role == Some(crate::player::PlayingTime::Starter);
+            Some((level * if started { 1.5 } else { 1.0 }, power, false))
+        }
+        Stage::Pro => {
+            let pro = p.pro.as_ref()?;
+            let v = match pro.status {
+                Status::Roster | Status::Reserve if pro.team.is_some() => {
+                    let starts = pro.seasons.last().map_or(0, |s| s.starts);
+                    if starts >= 9 { 3.0 } else { 2.0 }
+                }
+                Status::PracticeSquad if pro.team.is_some() => 0.8,
+                Status::Other(_) => 0.3,
+                _ => return None,
+            };
+            Some((v, false, matches!(pro.status, Status::Roster | Status::Reserve | Status::PracticeSquad)))
+        }
+        _ => None,
+    }
+}
+
+/// The chain reaction's step, each June 15 before the transfers: every
+/// school's old players are counted; in each state the score is read
+/// against what each school's prestige predicts there (`state_form`), its
+/// form moves toward that reading, and its prestige is its name plus its
+/// form (`CLIMB_SWING`). A name built on tradition and money doesn't
+/// vanish with a few thin classes, and a school can't climb without end on
+/// one good run. It reads only the world, draws nothing, and posts a line
+/// when a school becomes a powerhouse or stops being one.
+pub(crate) fn climb(w: &mut super::World) {
+    use rayon::prelude::*;
+    let n = w.high_schools.len();
+    let found: Vec<(usize, f64, bool, bool)> = w
+        .people
+        .par_iter()
+        .with_min_len(4096)
+        .filter_map(|p| alumni_value(w, p).map(|(v, power, nfl)| (p.hs, v, power, nfl)))
+        .collect();
+    let mut made = vec![(0.0f64, 0u16, 0u16, 0u16); n];
+    for (h, v, power, nfl) in found {
+        if let Some(m) = made.get_mut(h) {
+            m.0 += v;
+            if nfl {
+                m.3 = m.3.saturating_add(1);
+            } else {
+                m.1 = m.1.saturating_add(1);
+                m.2 = m.2.saturating_add(power as u16);
+            }
+        }
+    }
+    let year = w.year;
+    let mut news: Vec<(usize, bool)> = Vec::new();
+    for s in 0..w.states.len() {
+        let schools = w.states[s].schools.clone();
+        let reads = state_form(&schools.iter().map(|&h| (w.high_schools[h].prestige, made[h].0)).collect::<Vec<_>>());
+        for (k, &h) in schools.iter().enumerate() {
+            let school = &mut w.high_schools[h];
+            let was = school.prestige;
+            if let Some(z) = reads[k] {
+                let f = school.chain.form as f64;
+                let rate = if z > f { FORM_UP } else { FORM_DOWN };
+                school.chain.form = (f + rate * (z - f)) as f32;
+                school.prestige = clamp(school.chain.start + CLIMB_SWING * school.chain.form as f64, 0.02, 1.0);
+            }
+            let (v, college, power, nfl) = made[h];
+            school.chain.made = v as f32;
+            school.chain.college = college;
+            school.chain.power = power;
+            school.chain.nfl = nfl;
+            school.chain.years.push((year, school.prestige as f32));
+            if (was >= 0.75) != school.is_powerhouse() {
+                news.push((h, school.is_powerhouse()));
+            }
+        }
+    }
+    if w.recording {
+        let d = super::hs_year::transfer_day(year);
+        for (h, up) in news {
+            let school = &w.high_schools[h];
+            let name = w.school_name(h).to_string();
+            let code = &w.states[school.state].code;
+            let (college, nfl) = (school.chain.college, school.chain.nfl);
+            let text = if up {
+                format!(
+                    "{name} is now one of {code}'s powerhouses: {college} of its old players are in college and {nfl} in the NFL."
+                )
+            } else {
+                format!(
+                    "{name} has slipped out of {code}'s powerhouses: {college} of its old players are in college and {nfl} in the NFL."
+                )
+            };
+            let e = crate::calendar::Event::new(
+                d,
+                crate::calendar::Level::HighSchool,
+                crate::calendar::Kind::News,
+                crate::calendar::Loudness::Small,
+                text,
+            )
+            .link(crate::calendar::Link::School(h as u32), &name);
+            w.calendar.post(e);
+        }
+    }
+}
+
+/// This June's reading of each school's form from (prestige, old players'
+/// score) for one state's schools, in order: its score against the state's
+/// straight-line fit of score on prestige, in standard deviations, at most
+/// `CLIMB_CAP` either way. None in a small state (`CLIMB_MIN_SCHOOLS`) or
+/// when every school scores alike: then nobody's form moves.
+pub fn state_form(schools: &[(f64, f64)]) -> Vec<Option<f64>> {
+    let n = schools.len();
+    if n < CLIMB_MIN_SCHOOLS {
+        return vec![None; n];
+    }
+    let nf = n as f64;
+    let mx = schools.iter().map(|s| s.0).sum::<f64>() / nf;
+    let my = schools.iter().map(|s| s.1).sum::<f64>() / nf;
+    let sxx: f64 = schools.iter().map(|s| (s.0 - mx).powi(2)).sum();
+    let sxy: f64 = schools.iter().map(|s| (s.0 - mx) * (s.1 - my)).sum();
+    let b = if sxx > 1e-12 { sxy / sxx } else { 0.0 };
+    let resid: Vec<f64> = schools.iter().map(|s| s.1 - (my + b * (s.0 - mx))).collect();
+    let sd = (resid.iter().map(|r| r * r).sum::<f64>() / nf).sqrt();
+    if sd < 1e-9 {
+        return vec![None; n];
+    }
+    resid.iter().map(|r| Some((r / sd).clamp(-CLIMB_CAP, CLIMB_CAP))).collect()
+}
+
+/// A world saved before the chain reaction: each school's start is its
+/// prestige, which never moved before it.
+pub(crate) fn chain_after_load(w: &mut super::World) {
+    for h in w.high_schools.iter_mut() {
+        if h.chain.start <= 0.0 {
+            h.chain.start = h.prestige;
+        }
+    }
+}
+
+/// Its prestige in a past June, when the chain kept it; today's otherwise.
+pub fn prestige_in(h: &HighSchool, year: i32) -> f64 {
+    h.chain.years.iter().find(|y| y.0 == year).map_or(h.prestige, |y| y.1 as f64)
+}
+
+/// The why of its climb or fall in words, for the school page and the
+/// trial: where it stood, where it stands and what its old players are
+/// doing.
+pub fn chain_why(h: &HighSchool, since: i32) -> String {
+    let then = prestige_in(h, since);
+    let now = h.prestige;
+    let c = &h.chain;
+    let move_word = if now > then + 0.02 {
+        "climbed"
+    } else if now < then - 0.02 {
+        "fell back"
+    } else {
+        "held"
+    };
+    format!(
+        "{move_word} from {:.2} in {since} to {:.2}: {} old players in college ({} at power programs) and {} in the NFL",
+        then, now, c.college, c.power, c.nfl
+    )
 }

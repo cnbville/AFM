@@ -17,6 +17,71 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.575", date: "16 Nov", title: "Ground lane S2: the meeting at the map",
+    notes: [
+      "Monday's meeting is a screen: your coordinator's letter, a map of where he wants to send each man, and the week day by day, which you can change by dragging.",
+      "A new Ground screen, The meeting, with the road days and your free hours for the week.",
+      "Each place that wants a man is a numbered stop on the map, with who goes and where you stand there.",
+      "Your coordinator puts one call to you each week; make it or leave it to him.",
+      "Drag a man to another day to change his road, or hand the whole week to your coordinator.",
+    ],
+  },
+  {
+    v: "0.2.574", date: "16 Nov", title: "Ground lane S1: the map screen and the school page and 4 more",
+    notes: [
+      "The people around the kids now remember you. Every high school coach and counselor you deal with has a standing with your staff, from Stranger to Home, and it moves with the work you put in.",
+      "Your evaluation days, calls, camps and campus visits build standing with each kid's coach, his coordinators and his counselor.",
+      "When a coach moves up a level he tells you himself, in his own words, after lunch in his planning period.",
+      "Ground you stop working fades, and your staff warns you before a level slips, with who was there instead.",
+      "Pulling an offer or breaking a promise costs you with his coach for years. His kids starting, graduating and getting drafted with you pays.",
+      "Your own high school and hometown know you from day one.",
+    ],
+  },
+  {
+    v: "0.2.569", date: "16 Nov", title: "Playing time grade reads next fall's depth chart and 5 more",
+    notes: [
+      "You can now sign recruits, transfers and your own players to NIL deals of up to four years. Locking in a star costs a buyout for anyone who wants to poach him.",
+      "A Years box sits beside every NIL promise and portal offer, and a Term column is on the NIL desk.",
+      "Some players value a guaranteed deal and take less a year for it. Others would rather sign year to year and sell themselves again.",
+      "A player who transfers out of a multi-year deal owes half of what's left. The school that takes him pays it to you.",
+      "Rival schools now lock up their own blue-chips and top transfers, and renegotiate to keep them.",
+      "If a new build is too buggy to play, Settings can now put an older one back, and your saves are copied aside first.",
+    ],
+  },
+  {
+    v: "0.2.561", date: "16 Nov", title: "Progression step 3: upper and lower body strength, the bench at the real slope, the weight room by body knack and 2 more",
+    notes: [
+      "You can now end any meeting just by saying goodbye. Nothing is held against you for leaving, and anything you didn't argue stands as it was.",
+      "Say goodbye, goodnight or \"that's all\" and the meeting wraps up, or press Wrap it up.",
+      "Your boss's goals stand as he set them when you don't argue them.",
+      "When a real call is still yours (keeping a holdover, a punishment, a release), the talk ends and that choice waits for you on the page.",
+      "The meeting's old answer buttons stay out of the way while you're talking.",
+      "Every NFL club now grades draft prospects for its own scheme, so boards split the way real ones do.",
+    ],
+  },
+  {
+    v: "0.2.558", date: "16 Nov", title: "Progression update steps 1-2: the split ceiling, knacks, skill projects, AI bets, no yearly cap and 2 more",
+    notes: [
+      "When you tell a player he's your guy and mean it, he weighs it like a real commitment. Players who trust you take it to heart, and empty praise stops piling up.",
+      "A line where you stake yourself on a player now counts for far more than a pile of compliments.",
+      "How much he buys it depends on his trust in you, the promises you've kept or broken with him, and where he sees himself on the team.",
+      "A player who doesn't trust you shrugs off the big line and trusts you a little less.",
+      "Saying it again right away adds nothing, and saying it again soon adds little.",
+      "Generic praise counts a little each time and stops adding up after three or four lines.",
+    ],
+  },
+  {
+    v: "0.2.555", date: "16 Nov", title: "A world from a newer game says \"update the game\", not a reader error and 2 more",
+    notes: [
+      "A high school receiver's film now shows the routes he really ran, so a starting tight end's hands and route running read from his tape even when he caught few balls.",
+      "Routes on a high school record come from his snaps on pass plays, not his catches.",
+      "Tight ends who mostly block but start get their hands and routes read on film.",
+      "Backs and receivers are counted by how often each really runs a route.",
+      "A pass-heavy school's receivers show more routes than a run-heavy school's.",
+      "Small colleges now sign classes the way real ones do: as many as their roster has room and need for.",
+    ],
+  },
+  {
     v: "0.2.552", date: "15 Nov", title: "Player page: when he can sign and his first day with you and 9 more",
     notes: [
       "College programs now spend on their support staff from what they really earn, and strength coaches, trainers and other support heads move between jobs like real people.",
