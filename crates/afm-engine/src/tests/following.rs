@@ -1,7 +1,8 @@
 //! A following and famous names (Ground, part I: GR42-GR46): a famous
 //! man's son carries his name and hype; the class's biggest followings make
 //! big and huge news; a commitment lifts the program's brand exposure for a
-//! year, up to 3 points, and only while he holds it; a recruit weighs brand
+//! year, up to 3 points, for the class's 10 biggest followings, and only
+//! while he holds it; a recruit weighs brand
 //! exposure up to twice by his following.
 
 use crate::calendar::events::Loudness;
@@ -123,7 +124,8 @@ fn a_commitment_lifts_brand_exposure_for_a_year_while_he_holds_it() {
     following::committed(&mut w, top, j, d);
     following::day(&mut w, d);
     assert!((w.programs[j].grades[be] - base - LIFT_TOP).abs() < 1e-6);
-    // A second big one adds nothing past the cap; a kid nobody follows adds nothing.
+    // A second big one doesn't add: the program holds its biggest lift. A kid
+    // outside the class's 10 biggest followings lifts nothing.
     let second = kids[6];
     w.people[second].cal.commit = Some((j, d, false));
     following::committed(&mut w, second, j, d);

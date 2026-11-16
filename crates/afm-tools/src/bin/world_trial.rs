@@ -1360,7 +1360,7 @@ fn trial1_notes(w: &World, years: u32) {
     for (k, (c, n)) in &roles {
         println!("FBS {k} of color now: {c} of {n} ({:.0}%)", 100.0 * *c as f64 / (*n).max(1) as f64);
     }
-    let mut fbs = [0usize; 5];
+    let mut fbs = [0usize; afm_engine::world::ethnicity::ETHNICITY_COUNT];
     for p in w.people.iter() {
         if p.stage == afm_engine::world::Stage::College
             && p.college.is_some_and(|c| w.programs[c].division == Division::FBS)
@@ -1377,7 +1377,7 @@ fn trial1_notes(w: &World, years: u32) {
             .collect::<Vec<_>>()
             .join(", ")
     );
-    let mut hs = [0usize; 5];
+    let mut hs = [0usize; afm_engine::world::ethnicity::ETHNICITY_COUNT];
     for p in w.people.iter().filter(|p| p.stage == afm_engine::world::Stage::HighSchool) {
         hs[p.ethnicity as usize] += 1;
     }

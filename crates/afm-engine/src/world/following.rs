@@ -30,15 +30,15 @@ use crate::calendar::Date;
 use crate::world::background::Bloodline;
 use crate::world::season::key_uniform;
 
-/// The biggest single lift on a brand exposure grade, in grade points: the
-/// class's biggest following (GR44). Lifts add up to this cap (the cap is
-/// proposed, not confirmed).
+/// The biggest lift on a brand exposure grade, in grade points: the class's
+/// biggest following (GR44). Only the class's 10 biggest followings lift a
+/// grade (the ones that make big news), and a program holds its biggest
+/// lift, not the sum (both proposed, not confirmed: with every commitment
+/// lifting and the lifts summed, 515 programs held a lift on a small test
+/// world, most at the cap, so the hype kid stood out from nobody).
 pub const LIFT_TOP: f64 = 3.0;
 /// How long a commitment lifts the grade (GR44).
 pub const LIFT_DAYS: i32 = 365;
-/// A lift smaller than this is not kept (most commitments: a kid with a
-/// fiftieth of the class's biggest following).
-const LIFT_FLOOR: f64 = 0.05;
 /// The class's biggest followings that make big news (GR43).
 pub const BIG_NEWS: usize = 10;
 /// A following too small to make news on its own, whatever its rank (a
@@ -397,8 +397,8 @@ pub fn followers_words(n: u32) -> String {
 // --- Brand exposure (GR44) ---------------------------------------------------
 
 /// His commitment to program `j` on day `d` lifts its brand exposure for a
-/// year by his share of the class's biggest following (GR44). A flip moves
-/// the lift with him.
+/// year by his share of the class's biggest following, when his is one of
+/// the class's 10 biggest (GR44). A flip moves the lift with him.
 pub(crate) fn committed(w: &mut World, i: usize, j: usize, d: Date) {
     committed_in(&mut w.following, &w.people[i], j, d);
 }
@@ -411,8 +411,9 @@ pub(crate) fn committed_in(f: &mut Following, p: &super::Person, j: usize, d: Da
     if !matches!(p.stage, Stage::HighSchool | Stage::PrepSchool) {
         return;
     }
+    let big = f.class(p.class_of).is_some_and(|c| p.followers >= c.tenth.max(NEWS_FLOOR));
     let points = LIFT_TOP * p.spotlight as f64;
-    if points >= LIFT_FLOOR {
+    if big && points > 0.0 {
         f.lifts.push(Lift { id, program: j as u32, day: d, points: points as f32 });
     }
 }
@@ -433,8 +434,8 @@ fn holds(w: &World, l: &Lift) -> bool {
 }
 
 /// Each morning: lifts end after a year or when the commitment does, and
-/// every program's brand exposure grade carries the lifts it holds now
-/// (adding up to `LIFT_TOP`).
+/// every program's brand exposure grade carries the biggest lift it holds
+/// now.
 pub(crate) fn day(w: &mut World, d: Date) {
     if w.following.lifts.is_empty() && w.programs.iter().all(|p| p.brand_lift == 0.0) {
         return;
@@ -445,7 +446,7 @@ pub(crate) fn day(w: &mut World, d: Date) {
     let mut sum = vec![0.0f64; w.programs.len()];
     for l in &w.following.lifts {
         if let Some(s) = sum.get_mut(l.program as usize) {
-            *s += l.points as f64;
+            *s = s.max(l.points as f64);
         }
     }
     for (p, s) in w.programs.iter_mut().zip(sum) {

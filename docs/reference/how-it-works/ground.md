@@ -11,7 +11,7 @@ Ground is the offseason game (`docs/design/ground.md`). It is built in lanes, on
 - Does it change how many boys have an NFL father? No. A son is one of the class's boys whose father already played in the NFL (1 in 200); now the father has a name (`names`; `world/background.rs`, `generate_family`).
 - How much does the name add? To his fame, 0.35 × the man's fame for a son, 0.18 × for a nephew, in high school and college, half of it as a pro (`HYPE_SON`, `HYPE_NEPHEW`; `world/fame.rs`, `fame`).
 - When is a commitment big news? When his following is one of his class's 10 biggest (and at least 10,000), huge for the class's biggest; otherwise his stars decide as before (`commit_news`; `world/recruiting.rs`, `commit_now`).
-- What does the hype kid's commitment do for the program? Lifts its brand exposure grade for a year, by 3 × his share of the class's biggest following, all lifts together capped at 3 points (`committed`, `day`, `LIFT_TOP`).
+- What does the hype kid's commitment do for the program? When his following is one of his class's 10 biggest, it lifts the program's brand exposure grade for a year by 3 × his share of the class's biggest following; a program holds its biggest lift, not the sum (`committed`, `day`, `LIFT_TOP`).
 - Does it stay if he flips or decommits? No. The lift is his while he is committed to, signed with or playing for that program; a flip moves it (`holds`, `committed_in`).
 - Does a recruit's following change his own pick? Yes: brand exposure counts 1 + his share of the class's biggest following in the prestige part of a school's appeal, so up to twice (`world/recruiting.rs`, `stage_weight`, `utility_fit`, `six_parts`).
 - Can a college player have a social media storm? Yes, a college player or recruit with 500,000 followers, the same weekly chance as a pro (`world/storylines/detect/weekly.rs`, `chances`; `STORM_FOLLOWERS`).
@@ -34,7 +34,7 @@ Ground is the offseason game (`docs/design/ground.md`). It is built in lanes, on
 
 **News (GR43).** A commitment, a flip and a signing-day flip post their news when he has 4 or 5 stars, as before, or a following in his class's 10 biggest (and at least 10,000, `NEWS_FLOOR`). Loudness is the louder of his stars' (5 stars medium, else small; a signing-day flip medium) and his following's: big for the 10 biggest, huge for the biggest. The news then adds "He has 412,000 followers." (`commit_news`, `followers_words`; `world/recruiting.rs`, `commit_now`, `run_signing_stage`). Big news gets its own screen and stops Continue; huge is the full show (`calendar/events.rs`, `Loudness`).
 
-**Brand exposure (GR44).** A commitment (or a signature without one) lifts the program's brand exposure grade by 3 × his spotlight, kept when it is at least 0.05 (`committed`, `LIFT_FLOOR`). Each morning (5 AM, after the class day) a lift ends after 365 days or once he no longer holds it (committed to, signed with, or in college at the program), and each program's grade carries the sum of its lifts, at most 3 points and never past 99 (`day`, `set_lift`, `LIFT_TOP`, `LIFT_DAYS`; `Program::brand_lift` is what is in the grade now). At the year's grades the lift comes off first, so the grade moves from its own read, and goes back on after (`world/staff.rs`; `strip`). The cap on the sum is proposed, not confirmed.
+**Brand exposure (GR44).** A commitment (or a signature without one) from one of the class's 10 biggest followings (and at least 10,000) lifts the program's brand exposure grade by 3 × his spotlight (`committed`, `committed_in`). Each morning (5 AM, after the class day) a lift ends after 365 days or once he no longer holds it (committed to, signed with, or in college at the program), and each program's grade carries its biggest lift, at most 3 points and never past 99 (`day`, `set_lift`, `LIFT_TOP`, `LIFT_DAYS`; `Program::brand_lift` is what is in the grade now). At the year's grades the lift comes off first, so the grade moves from its own read, and goes back on after (`world/staff.rs`; `strip`). The top-10 rule and the biggest-not-sum rule are proposed, not confirmed: with every commitment lifting and the lifts summed, a seed 152 test world (scale 0.05) had 515 programs lifted, most at the 3-point cap.
 
 **His pick (GR45).** In a school's appeal, the prestige part is (title chances + stadium + tradition + w × brand exposure) / 4 with w = 1 + his spotlight: 1 for a boy nobody follows, 2 for the class's biggest following (`world/recruiting.rs`, `stage_weight`, `utility_fit`, `six_parts`). A transfer's spotlight is 0, so the portal weighs it once, as before.
 
@@ -42,7 +42,7 @@ Ground is the offseason game (`docs/design/ground.md`). It is built in lanes, on
 
 ## Where the knobs are
 
-- `world/following.rs`: `HYPE_SON` 0.35, `HYPE_NEPHEW` 0.18, `FAMOUS` 0.4, the tiers in `man_fame`, the odds in `kin`, the Jr. 12% and the nephew's name 65% in `names`, `LIFT_TOP` 3, `LIFT_DAYS` 365, `LIFT_FLOOR` 0.05, `BIG_NEWS` 10, `NEWS_FLOOR` 10,000, `STORM_FOLLOWERS` 500,000.
+- `world/following.rs`: `HYPE_SON` 0.35, `HYPE_NEPHEW` 0.18, `FAMOUS` 0.4, the tiers in `man_fame`, the odds in `kin`, the Jr. 12% and the nephew's name 65% in `names`, `LIFT_TOP` 3, `LIFT_DAYS` 365, `BIG_NEWS` 10, `NEWS_FLOOR` 10,000, `STORM_FOLLOWERS` 500,000.
 - `world/recruiting.rs`: `stage_weight`; the visibility's 0.15 in `recruit_visibility`.
 
 ## Related pages
