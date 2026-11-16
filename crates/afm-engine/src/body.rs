@@ -329,6 +329,99 @@ pub fn forty_weight(weight: f64) -> f64 {
     0.0033 * (weight.max(175.0) - 220.0)
 }
 
+/// The sd of his first-step gift, in seconds of his sprint's time constant
+/// (`start_knack`).
+pub const START_KNACK: f64 = 0.08;
+
+/// His first step beyond his ratings (physical study item 2, the 10-yard
+/// split): his own for life, on his own stream, added to his sprint's time
+/// constant (less is quicker). Real drafted men at the same forty and weight
+/// split 0.04 s apart (nflverse 2000-2025); the ratings alone gave 0.01 in
+/// the engine, since speed and acceleration share one draw. 0.08 is about
+/// 0.036 s of split, the rest is the test day. Held to 2.5 sd. Cain's
+/// option A, chosen 2026-11-16.
+pub fn start_knack(id: u32) -> f64 {
+    clamp(Rng::new(id ^ 0x5_7A27).normal(0.0, START_KNACK), -2.5 * START_KNACK, 2.5 * START_KNACK)
+}
+
+/// How fast he builds to top speed: the time constant of his sprint, in
+/// seconds, from his acceleration, his weight and his first-step gift
+/// (`start_knack`; 0 for a typical man). Fit with `ten_split` so every
+/// weight band's drafted men split within 0.01 s of real (1.55 under 200 lb
+/// to 1.81 over 315), 0.346-0.350 of the forty (real 0.345), with the
+/// big men's split moving 0.33 s a second of forty (real 0.28; split_check).
+/// Held so his top speed stays under 11.8 yards a second (24 mph): a man
+/// who runs a 4.30 doesn't start slowly.
+pub fn sprint_tau(accel: f64, weight: f64, knack: f64, forty: f64) -> f64 {
+    let tau = clamp(0.84 + 0.0015 * (60.0 - accel) + 0.0004 * (weight - 220.0) + knack, 0.5, 1.3);
+    tau.min((forty - 3.4) / SPRINT_TAU_K).max(0.3)
+}
+
+/// How much of his sprint's time constant his top speed makes up
+/// (`top_speed`): 0.92 keeps his run in the engine the same 0.06 s under his
+/// forty whatever his start (it was 1.0, which made a slow starter run his
+/// forty 0.03 s quicker than a quick one at the same rating).
+pub const SPRINT_TAU_K: f64 = 0.92;
+
+/// Top speed, yards per second, from his forty and his sprint's time
+/// constant: with the build-up in `ten_split` he runs his forty in the
+/// engine (0.06 s quick, as it always has).
+pub fn top_speed(forty: f64, tau: f64) -> f64 {
+    40.0 / (forty - SPRINT_TAU_K * tau).max(3.4)
+}
+
+/// His grip for braking and cutting, yards per second squared, from his
+/// acceleration and weight (`GamePlayer::accel`). The burst from a standing
+/// start is `sprint_tau`.
+pub fn grip(accel: f64, weight: f64) -> f64 {
+    // Fit with `drills` so the sim's 5-10-5 shuttle and 3-cone move per
+    // point as the combine model does (`combine`), the way the 40 was fit
+    // (dynasty item 1; was 0.035 a point, which made a quick player 3-8
+    // times quicker in the sim than at the combine). Below the pro range
+    // (most high school players) the gap narrows (proposed, not confirmed).
+    let ac = if accel >= 60.0 { 4.65 + 0.008 * (accel - 60.0) } else { 4.65 + 0.0046 * (accel - 60.0) };
+    clamp(ac - 0.006 * (weight - 220.0), 2.2, 7.5)
+}
+
+/// The 10-yard split of a man with this forty, sprint and grip, run the
+/// way the engine runs him from a standing start (`Agent::steer`, 0.1 s
+/// steps): the test day's split is the one he plays with.
+pub fn ten_split(forty: f64, tau: f64, grip: f64) -> f64 {
+    const DT: f64 = 0.1;
+    let vmax = top_speed(forty, tau);
+    let (mut v, mut x, mut t) = (0.0f64, 0.0f64, 0.0f64);
+    while t < 6.0 {
+        let up = ((vmax - v).max(0.0) / tau).max(grip * 0.2) * DT;
+        v += up.min((vmax - v).max(0.0));
+        let was = x;
+        x += v * DT;
+        if x >= 10.0 {
+            return t + DT * (10.0 - was) / (x - was);
+        }
+        t += DT;
+    }
+    t
+}
+
+/// What his first-step gift does to his 10-yard split on a run with this
+/// forty, seconds (negative is quicker): `split_of` against the split his
+/// ratings give.
+pub fn knack_split(p: &Player, forty: f64) -> f64 {
+    let d = Drills::of(p);
+    split_of(p, forty) - ten_split(forty, sprint_tau(d.accel, d.weight, 0.0, forty), grip(d.accel, d.weight))
+}
+
+/// The spread of the first-step gift in seconds of split, about 0.036
+/// (`START_KNACK` through `ten_split` at a typical start).
+pub const KNACK_SPLIT_SD: f64 = 0.036;
+
+/// His own 10-yard split on a run with this forty: his acceleration,
+/// weight and first-step gift (`start_knack`), no test-day noise.
+pub fn split_of(p: &Player, forty: f64) -> f64 {
+    let d = Drills::of(p);
+    ten_split(forty, sprint_tau(d.accel, d.weight, start_knack(p.id), forty), grip(d.accel, d.weight))
+}
+
 /// How fast he plays (speed update S2b): one number mixed from his burst
 /// (acceleration, the first 10 yards) and his top speed, by how much each
 /// matters at his position. Interior linemen almost never run past 10
@@ -363,6 +456,11 @@ pub struct Combine {
     pub cone: f64,
     /// 20-yard shuttle, seconds.
     pub shuttle: f64,
+    /// The forty's 10-yard split, seconds (physical study item 2): run the
+    /// way the engine runs him, with his first-step gift (`split_of`). 0 in
+    /// a test day saved before it was kept.
+    #[serde(default)]
+    pub split: f64,
 }
 
 /// The six drills' expected results from the ratings that drive them and
@@ -483,9 +581,12 @@ impl Drills {
     /// What the ratings stand for at the combine, without the test-day
     /// noise or how he runs on a track (update 2, RR4): the number a rating
     /// range is read as.
+    /// The split is the one his ratings give at that forty, without his
+    /// first-step gift (`start_knack`).
     pub fn expected(&self) -> Combine {
         let [forty, vertical, broad, bench, cone, shuttle] = thin_drills(self.pos, self.means());
-        tested(forty, vertical, broad, bench, cone, shuttle)
+        let split = ten_split(forty, sprint_tau(self.accel, self.weight, 0.0, forty), grip(self.accel, self.weight));
+        tested(forty, vertical, broad, bench, cone, shuttle, split)
     }
 
     /// `expected` before it is rounded and held to the drills' limits, in
@@ -497,9 +598,10 @@ impl Drills {
 }
 
 /// Six raw drill numbers (`Drills::raw`'s order) rounded and held to the
-/// drills' limits the way a test day writes them.
-pub fn rounded(v: [f64; 6]) -> Combine {
-    tested(v[0], v[1], v[2], v[3], v[4], v[5])
+/// drills' limits the way a test day writes them, with the split they go
+/// with (`ten_split`, or 0 where none is shown).
+pub fn rounded(v: [f64; 6], split: f64) -> Combine {
+    tested(v[0], v[1], v[2], v[3], v[4], v[5], split)
 }
 
 /// How far a man runs from his ratings on the track, as a stable sd in
@@ -521,9 +623,10 @@ pub const DAY_SD: [f64; 6] = [0.03, 1.5, 3.0, 2.0, 0.08, 0.06];
 /// printed limits (physical study item 8: real men have run past every one
 /// the game had, Byron Jones's 147-inch broad among them); only bounds no
 /// man reaches, so a broken number can't print.
-fn tested(forty: f64, vertical: f64, broad: f64, bench: f64, cone: f64, shuttle: f64) -> Combine {
+fn tested(forty: f64, vertical: f64, broad: f64, bench: f64, cone: f64, shuttle: f64, split: f64) -> Combine {
     let r2 = |x: f64| (x * 100.0).round() / 100.0;
     Combine {
+        split: if split > 0.0 { r2(clamp(split, 1.0, 3.5)) } else { 0.0 },
         forty: r2(clamp(forty, 3.5, 9.0)),
         bench: clamp(bench, 0.0, 99.0).round(),
         vertical: (clamp(vertical, 0.0, 70.0) * 2.0).round() / 2.0,
@@ -699,8 +802,14 @@ pub fn combine(p: &Player, rng: &mut Rng) -> Combine {
     let (cone_knack, shuttle_knack) = drill_knack(p);
     let cone = thin_cone(p.position, cone + cone_knack) + rng.normal(0.0, 0.08);
     let shuttle = thin_shuttle(p.position, shuttle + shuttle_knack) + rng.normal(0.0, 0.06);
-    tested(forty, vertical, broad, bench, cone, shuttle)
+    // The split of that same run, with its own 0.02 s (laser timing at 10
+    // yards; drawn last so the six drills keep their draws).
+    let split = split_of(p, forty) + rng.normal(0.0, SPLIT_DAY_SD);
+    tested(forty, vertical, broad, bench, cone, shuttle, split)
 }
+
+/// A test day's own noise on the 10-yard split, seconds (`combine`).
+pub const SPLIT_DAY_SD: f64 = 0.02;
 
 /// Feet and inches, the way the combine writes it: "6'3 1/2\"", to the eighth.
 pub fn height_text(inches: f64) -> String {

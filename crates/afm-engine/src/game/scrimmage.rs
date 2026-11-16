@@ -5114,13 +5114,18 @@ fn rush_feet(sim: &mut Sim, i: usize) -> (f64, f64) {
     // edge's Acceleration, his own weight and how tired he is; he keeps
     // whichever burst is quicker, his own or that one. Compared on the burst
     // itself, not his game-day rating, so the day's form and a pulse never
-    // decide which he gets (his burst reads neither).
+    // decide which he gets (his burst reads neither). His first-step gift
+    // stays out of both (`body::start_knack`): real edges' split says
+    // nothing about their pressures (minor bug 286), and the gift is what
+    // moves a split at the same forty.
     let w = a.mass;
-    let tau = clamp(0.78 + 0.003 * (60.0 - t) + 0.0006 * (w - 220.0), 0.55, 1.0) * (1.0 + 0.1 * a.tired);
-    let ac = if t >= 60.0 { 4.65 + 0.008 * (t - 60.0) } else { 4.65 + 0.0046 * (t - 60.0) };
-    let accel = clamp(ac - 0.006 * (w - 220.0), 2.2, 7.5) * (1.0 - 0.1 * a.tired);
+    let gp = sim.player(i);
+    let (forty, own) = (gp.forty(), gp.a(Attr::Acceleration));
+    let tired = 1.0 + 0.1 * a.tired;
+    let tau = crate::body::sprint_tau(t, w, 0.0, forty).min(crate::body::sprint_tau(own, w, 0.0, forty)) * tired;
+    let accel = crate::body::grip(t, w) * (1.0 - 0.1 * a.tired);
     let a = &mut sim.agents[i];
-    (a.tau, a.accel) = (tau.min(keep.0), accel.max(keep.1));
+    (a.tau, a.accel) = (tau, accel.max(keep.1));
     keep
 }
 

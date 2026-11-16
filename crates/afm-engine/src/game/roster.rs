@@ -231,30 +231,31 @@ impl GamePlayer {
 
     /// Top speed, yards per second. A 4.35 forty gives about 10.7 (21.9 mph),
     /// a 5.2 lineman about 9, in line with Next Gen Stats tracking. With the
-    /// sprint build-up below, a player runs his own forty in the sim.
+    /// sprint build-up below, a player runs his own forty in the sim
+    /// (`body::top_speed`).
     pub fn top_speed(&self) -> f64 {
-        40.0 / (self.forty() - self.sprint_tau() + 0.06).max(3.4)
+        crate::body::top_speed(self.forty(), self.sprint_tau())
     }
 
     /// How fast he builds to top speed: the time constant of his sprint, in
-    /// seconds. Fit so the sim gives real 10-yard splits (about 0.345 of the
-    /// forty: 1.5 for a 4.35 runner, 1.8 for a 5.2 lineman).
+    /// seconds, from his acceleration, weight and first-step gift
+    /// (`body::sprint_tau`, `body::start_knack`): the sim gives real 10-yard
+    /// splits (about 0.345 of the forty: 1.5 for a 4.35 runner, 1.8 for a
+    /// 5.2 lineman), 0.04 s apart at the same forty and weight as real.
     pub fn sprint_tau(&self) -> f64 {
-        clamp(0.78 + 0.003 * (60.0 - self.a(Attr::Acceleration)) + 0.0006 * (self.weight - 220.0), 0.55, 1.0)
+        crate::body::sprint_tau(
+            self.a(Attr::Acceleration),
+            self.weight,
+            crate::body::start_knack(self.id),
+            self.forty(),
+        )
     }
 
     /// Acceleration, yards per second squared: his grip for braking and
-    /// cutting. The burst from a standing start is `sprint_tau`.
+    /// cutting (`body::grip`). The burst from a standing start is
+    /// `sprint_tau`.
     pub fn accel(&self) -> f64 {
-        // Fit with `drills` so the sim's 5-10-5 shuttle and 3-cone move per
-        // point as the combine model does (`body::combine`), the way the 40
-        // was fit (dynasty item 1; was 0.035 a point, which made a quick
-        // player 3-8 times quicker in the sim than at the combine). Below the
-        // pro range (most high school players) the gap narrows (proposed,
-        // not confirmed).
-        let ac = self.a(Attr::Acceleration);
-        let ac = if ac >= 60.0 { 4.65 + 0.008 * (ac - 60.0) } else { 4.65 + 0.0046 * (ac - 60.0) };
-        clamp(ac - 0.006 * (self.weight - 220.0), 2.2, 7.5)
+        crate::body::grip(self.a(Attr::Acceleration), self.weight)
     }
 
     /// How hard he can cut, as a share of his acceleration spent sideways.
