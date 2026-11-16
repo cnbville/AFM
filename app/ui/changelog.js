@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.574", date: "16 Nov", title: "Ground lane S1: the map screen and the school page and 4 more",
+    notes: [
+      "The people around the kids now remember you. Every high school coach and counselor you deal with has a standing with your staff, from Stranger to Home, and it moves with the work you put in.",
+      "Your evaluation days, calls, camps and campus visits build standing with each kid's coach, his coordinators and his counselor.",
+      "When a coach moves up a level he tells you himself, in his own words, after lunch in his planning period.",
+      "Ground you stop working fades, and your staff warns you before a level slips, with who was there instead.",
+      "Pulling an offer or breaking a promise costs you with his coach for years. His kids starting, graduating and getting drafted with you pays.",
+      "Your own high school and hometown know you from day one.",
+    ],
+  },
+  {
     v: "0.2.569", date: "16 Nov", title: "Playing time grade reads next fall's depth chart and 5 more",
     notes: [
       "You can now sign recruits, transfers and your own players to NIL deals of up to four years. Locking in a star costs a buyout for anyone who wants to poach him.",

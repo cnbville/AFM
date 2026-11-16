@@ -8,6 +8,37 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.574 (16 Nov, shipped): ground lane G1b: standing and one memory (PR #474), weigh typed plan asks and college calls as said, not as a chip (PR #462), ground lane G3: your week and road days (PR #481), and 2 more
+**TLDR:** 5 changes ship together. The people around the kids now remember you. Every high school coach and counselor you deal with has a standing with your staff, from Stranger to Home, and it moves with the work you put in. Your coordinators and college recruiters now react to what you actually say. Ask for a lot or a little, give an order, or mix truth and spin on a call, and the answer follows. Plus 3 more below.
+- Ground lane G1b: standing and one memory (PR #474): The people around the kids now remember you. Every high school coach and counselor you deal with has a standing with your staff, from Stranger to Home, and it moves with the work you put in.
+- Your evaluation days, calls, camps and campus visits build standing with each kid's coach, his coordinators and his counselor. (PR #474)
+- When a coach moves up a level he tells you himself, in his own words, after lunch in his planning period. (PR #474)
+- Ground you stop working fades, and your staff warns you before a level slips, with who was there instead. (PR #474)
+- Pulling an offer or breaking a promise costs you with his coach for years. His kids starting, graduating and getting drafted with you pays. (PR #474)
+- Your own high school and hometown know you from day one. (PR #474)
+- Weigh typed plan asks and college calls as said, not as a chip (PR #462): Your coordinators and college recruiters now react to what you actually say. Ask for a lot or a little, give an order, or mix truth and spin on a call, and the answer follows.
+- A coordinator weighs your plan change against his own read of the last game and can push back or offer to meet you halfway. (PR #462)
+- Make it your call and he'll put it in, but he'll remember if it goes wrong. (PR #462)
+- On a college staff's call, every claim you make counts, and a bigger stretch of the truth costs more when it comes out. (PR #462)
+- A sharp recruiter notices when you tell him two different things. (PR #462)
+- Ground lane G3: your week and road days (PR #481): Your recruiting week now has a shape: a Monday letter from your coordinator, your staff out on the road day by day inside the real evaluation limits, and coaches who call you back when they're out of class.
+- Every week opens with one line on what matters, taken from the real recruiting calendar. (PR #481)
+- Your coordinator plans who goes where and why; you can change any man's days or hand the week over. (PR #481)
+- Road days come off the spring and fall limits as your coaches travel, and your budget decides who flies. (PR #481)
+- Calls to busy high school coaches leave a message, and they call back in their planning period; your men phone in from the road at night. (PR #481)
+- The May list arrives the day after Memorial Day, and you can take a week off in July. (PR #481)
+- Live talks: the ear reads asks and hedges as said, and a coach gives his read on a player (PR #485): Your staff now hear "take a look at him, I want to decide if we should cut him" as a request for their read, not as a cut, and they answer with what they actually think of the player.
+- Saying you're thinking about benching, cutting or moving someone no longer counts as having decided it. (PR #485)
+- Ask a coach for his read on a player and he tells you where that player stands at his spot, how high he could go, and whether he'd keep him. (PR #485)
+- If you tell a coach about a cut you've made to someone else, that cut no longer lands on the coach. (PR #485)
+- Softened announcements like "I think I'm going to have to let you go" still count as decisions. (PR #485)
+- Ground lane S1: the map screen and the school page (PR #483): Ground has a map: see which programs hold each recruiting area in your state, where you stand, and who the people are.
+- A new Ground section in the sidebar with The map. (PR #483)
+- Each recruiting area is shaded by who leads it, with your standing beside it and fog where you haven't worked yet. (PR #483)
+- Pick an area to see who leads it, where you stand and its head coaches by name. (PR #483)
+- Open any school for its coaches, where its kids went, its seasons and the players you've signed from it. (PR #483)
+- Look at: your inbox after a few spring evaluation weeks. (PR #474) a sit-down with your defensive coordinator, and the next college call about one of your players. (PR #462) the recruiting desk's Monday digest during the spring evaluation period. (PR #481)
+
 ## 0.2.569 (16 Nov, shipped): ground lane G1a: areas and map data (PR #471), NIL lane B: multi-year deals (the new NIL scheme, item 12) (PR #476), settings: install an older version and go back to the latest (PR #475), and 5 more
 **TLDR:** 8 changes ship together. Ground lane G1a: areas and map data You can now sign recruits, transfers and your own players to NIL deals of up to four years. Locking in a star costs a buyout for anyone who wants to poach him. Plus 6 more below.
 - Ground lane G1a: areas and map data (PR #471): no summary in the PR
