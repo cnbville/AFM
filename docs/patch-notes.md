@@ -8,6 +8,22 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.555 (16 Nov, shipped): high school routes from his pass snaps, not 6 a catch (PR #459), recruiting: no staff cap on a class where the NCAA sets none (PR #460), a world from a newer game says "update the game", not a reader error (PR #461)
+**TLDR:** 3 changes ship together. A high school receiver's film now shows the routes he really ran, so a starting tight end's hands and route running read from his tape even when he caught few balls. Small colleges now sign classes the way real ones do: as many as their roster has room and need for. Plus 1 more below.
+- High school routes from his pass snaps, not 6 a catch (PR #459): A high school receiver's film now shows the routes he really ran, so a starting tight end's hands and route running read from his tape even when he caught few balls.
+- Routes on a high school record come from his snaps on pass plays, not his catches. (PR #459)
+- Tight ends who mostly block but start get their hands and routes read on film. (PR #459)
+- Backs and receivers are counted by how often each really runs a route. (PR #459)
+- A pass-heavy school's receivers show more routes than a run-heavy school's. (PR #459)
+- Recruiting: no staff cap on a class where the NCAA sets none (PR #460): Small colleges now sign classes the way real ones do: as many as their roster has room and need for.
+- Division II, NAIA, Division III and junior college staffs no longer stop at a fixed number of signees a year. (PR #460)
+- A Division III program with a lot of holes can now sign a class in the 50s. (PR #460)
+- A world from a newer game says "update the game", not a reader error (PR #461): If you open a world made by a newer version of the game, it now tells you plainly to update instead of showing a cryptic error.
+- A world your version of the game can't read says it was made by a newer version and asks you to update. (PR #461)
+- A world that is truly damaged says so instead. (PR #461)
+- The technical reason still shows at the end, short, for bug reports. (PR #461)
+- Look at: a high school tight end with few catches in your scouting file. (PR #459) the biggest small-college classes in a new world. (PR #460) nothing to try unless your game is behind; the message only shows when a world can't be read. (PR #461)
+
 ## 0.2.552 (15 Nov, shipped): college spending from what it earns, support heads on a market (realism audit items 9 and 10) (PR #448), fill the star when a player is on my players (PR #453), injuries drive lost growth: the yearly step reads his real injuries (realism audit 1, 2, 14) (PR #450), and 8 more
 **TLDR:** 11 changes ship together. College programs now spend on their support staff from what they really earn, and strength coaches, trainers and other support heads move between jobs like real people. The star on a player's page now fills in once he's on your players, so you can tell at a glance. Plus 9 more below.
 - College spending from what it earns, support heads on a market (realism audit items 9 and 10) (PR #448): College programs now spend on their support staff from what they really earn, and strength coaches, trainers and other support heads move between jobs like real people.

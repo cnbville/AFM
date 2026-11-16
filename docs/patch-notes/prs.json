@@ -762,5 +762,44 @@
   "players": true,
   "title": "Player page: when he can sign and his first day with you",
   "tldr": "Every player page now tells you when he can sign with you and the first day he'd be with your team, or the day your signee arrives."
+ },
+ "459": {
+  "auto": false,
+  "bullets": [
+   "Routes on a high school record come from his snaps on pass plays, not his catches.",
+   "Tight ends who mostly block but start get their hands and routes read on film.",
+   "Backs and receivers are counted by how often each really runs a route.",
+   "A pass-heavy school's receivers show more routes than a run-heavy school's."
+  ],
+  "h": "16ee2bfd3d5c",
+  "look": "a high school tight end with few catches in your scouting file.",
+  "players": true,
+  "title": "High school routes from his pass snaps, not 6 a catch",
+  "tldr": "A high school receiver's film now shows the routes he really ran, so a starting tight end's hands and route running read from his tape even when he caught few balls."
+ },
+ "460": {
+  "auto": false,
+  "bullets": [
+   "Division II, NAIA, Division III and junior college staffs no longer stop at a fixed number of signees a year.",
+   "A Division III program with a lot of holes can now sign a class in the 50s."
+  ],
+  "h": "0a506c0151c5",
+  "look": "the biggest small-college classes in a new world.",
+  "players": true,
+  "title": "Recruiting: no staff cap on a class where the NCAA sets none",
+  "tldr": "Small colleges now sign classes the way real ones do: as many as their roster has room and need for."
+ },
+ "461": {
+  "auto": false,
+  "bullets": [
+   "A world your version of the game can't read says it was made by a newer version and asks you to update.",
+   "A world that is truly damaged says so instead.",
+   "The technical reason still shows at the end, short, for bug reports."
+  ],
+  "h": "d09278bfe3cd",
+  "look": "nothing to try unless your game is behind; the message only shows when a world can't be read.",
+  "players": true,
+  "title": "A world from a newer game says \"update the game\", not a reader error",
+  "tldr": "If you open a world made by a newer version of the game, it now tells you plainly to update instead of showing a cryptic error."
  }
 }

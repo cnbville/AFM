@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.555", date: "16 Nov", title: "A world from a newer game says \"update the game\", not a reader error and 2 more",
+    notes: [
+      "A high school receiver's film now shows the routes he really ran, so a starting tight end's hands and route running read from his tape even when he caught few balls.",
+      "Routes on a high school record come from his snaps on pass plays, not his catches.",
+      "Tight ends who mostly block but start get their hands and routes read on film.",
+      "Backs and receivers are counted by how often each really runs a route.",
+      "A pass-heavy school's receivers show more routes than a run-heavy school's.",
+      "Small colleges now sign classes the way real ones do: as many as their roster has room and need for.",
+    ],
+  },
+  {
     v: "0.2.552", date: "15 Nov", title: "Player page: when he can sign and his first day with you and 9 more",
     notes: [
       "College programs now spend on their support staff from what they really earn, and strength coaches, trainers and other support heads move between jobs like real people.",
