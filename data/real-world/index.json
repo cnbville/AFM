@@ -9,8 +9,8 @@
   "unconfirmed": "a proposal Raichel hasn't answered"
  },
  "counts": {
-  "files": 67,
-  "figures": 691,
+  "files": 69,
+  "figures": 694,
   "debug_lab_figures": 15,
   "in_code": 146,
   "memory_notes": 320,
@@ -648,6 +648,27 @@
     "C29"
    ],
    "bytes": 670610
+  },
+  "ground_area_seeds.csv": {
+   "source": "hand-written from how college staffs split their states (area names, nicknames, area codes and core counties); Georgia's split from the agreed Ground map mock-up",
+   "years": "current",
+   "level": "high school",
+   "status": "estimate",
+   "areas": [
+    "C23"
+   ],
+   "bytes": 14946
+  },
+  "ground_areas.json": {
+   "source": "ground_area_seeds.csv with the Census county shapes (us-atlas 3.0.1, Census cartographic boundaries) and hs_towns.csv",
+   "years": "current",
+   "level": "high school",
+   "status": "computed",
+   "script": "../../tools/ground/areas.py",
+   "areas": [
+    "C23"
+   ],
+   "bytes": 96397
   },
   "hs_playoff_formats.csv": {
    "source": "state association handbooks (docs/research/hs-playoff-formats.md)",
@@ -1315,6 +1336,8 @@
   "ab_real.json",
   "college_candidates.csv",
   "college_expected_points.csv",
+  "ncaa_contact_rules.csv",
+  "nfl_top5_shares.csv",
   "results_real.json"
  ],
  "figures": [
@@ -7383,6 +7406,33 @@
    "rows": 11928
   },
   {
+   "key": "ground_area_seeds.csv",
+   "file": "ground_area_seeds.csv",
+   "years": "current",
+   "status": "estimate",
+   "columns": [
+    "state",
+    "key",
+    "name",
+    "nickname",
+    "area_codes",
+    "counties"
+   ],
+   "rows": 208
+  },
+  {
+   "key": "ground_areas.json:areas",
+   "file": "ground_areas.json",
+   "years": "current",
+   "status": "computed"
+  },
+  {
+   "key": "ground_areas.json:aliases",
+   "file": "ground_areas.json",
+   "years": "current",
+   "status": "computed"
+  },
+  {
    "key": "hs_playoff_formats.csv",
    "file": "hs_playoff_formats.csv",
    "years": "2025-2026",
@@ -11261,49 +11311,49 @@
   },
   {
    "file": "crates/afm-engine/src/world/recruiting.rs",
-   "line": 1368,
+   "line": 1383,
    "text": "// snapper (from memory, to verify): two of each at most, however well",
    "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/recruiting.rs",
-   "line": 1550,
+   "line": 1565,
    "text": "/// the last day (real recent drafts, from memory: round 1 about 6 minutes a",
    "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/recruiting.rs",
-   "line": 2269,
+   "line": 2293,
    "text": "/// participation counts over teams, from memory, to verify).",
    "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/college.rs",
-   "line": 1977,
+   "line": 1990,
    "text": "// The real fields (from memory, to verify): Division III 16 teams",
    "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/college.rs",
-   "line": 2170,
+   "line": 2183,
    "text": "// The Stagg Bowl (from memory, to verify): Phenix City 1985-89,",
    "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/college.rs",
-   "line": 2180,
+   "line": 2193,
    "text": "// The NAIA final (from memory, to verify): Rome, Georgia 2008-13,",
    "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/college.rs",
-   "line": 2638,
+   "line": 2651,
    "text": "/// now and then and almost never to a defender (2000-2024, from memory, to",
    "status": "from memory"
   },
   {
    "file": "crates/afm-engine/src/world/college.rs",
-   "line": 3810,
+   "line": 3828,
    "text": "/// Clemson 2018, and a few dozen a year since (from memory, to verify).",
    "status": "from memory"
   },
@@ -11384,7 +11434,7 @@
   },
   {
    "file": "crates/afm-engine/src/world/finance/college.rs",
-   "line": 346,
+   "line": 347,
    "text": "/// contributions run about $4-8M (Knight-Newhouse, from memory). Proposed,",
    "status": "from memory"
   },
@@ -11420,7 +11470,7 @@
   },
   {
    "file": "crates/afm-engine/src/world/pro/market.rs",
-   "line": 1141,
+   "line": 1434,
    "text": "// franchise and a transition tag before (from memory, to check).",
    "status": "from memory"
   },
@@ -11504,7 +11554,7 @@
   },
   {
    "file": "crates/afm-engine/src/calendar/anchors.rs",
-   "line": 801,
+   "line": 810,
    "text": "/// The NFL's dated steps by era (from memory, to verify): the trade",
    "status": "from memory"
   },
@@ -12089,25 +12139,25 @@
   },
   {
    "file": "docs/game.md",
-   "line": 661,
+   "line": 675,
    "text": "- College kickoffs and networks are set 12 days ahead (the real 6- and 12-day picks), the first weeks from June 1; which game of a window goes to which network is by the game's draw (ranks, rivalry, the programs' standin",
    "status": "from memory"
   },
   {
    "file": "docs/game.md",
-   "line": 668,
+   "line": 682,
    "text": "- The stadium names of the FBS schools, the NFL's, the bowls' and the neutral sites' by their years, from memory.",
    "status": "from memory"
   },
   {
    "file": "docs/game.md",
-   "line": 1367,
+   "line": 1383,
    "text": "- Hall: the seniors' bar 16, the coach's case NFL wins / 10 + 5 a title with a bar of 20; contributors are not in the world. The Hall check counts players from 2010 against 6.3 (from memory) and coaches against 0.33.",
    "status": "from memory"
   },
   {
    "file": "docs/game.md",
-   "line": 1368,
+   "line": 1384,
    "text": "- Holdouts: the rookie-deal bar (push over 0.55, was from 2020) from 2011, when that CBA made a rookie-deal holdout's fines unwaivable (from memory).",
    "status": "from memory"
   },
@@ -13106,6 +13156,8 @@
   "C23": [
    "hs_states.csv",
    "hs_towns.csv",
+   "ground_area_seeds.csv",
+   "ground_areas.json",
    "in code: National powerhouses"
   ],
   "C24": [

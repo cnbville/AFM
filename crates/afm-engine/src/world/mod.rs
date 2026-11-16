@@ -36,6 +36,7 @@ pub mod franchise;
 pub mod front_office;
 pub mod game_log;
 pub mod geo;
+pub mod ground;
 pub mod guide;
 pub mod help;
 pub mod high_school;
@@ -1589,6 +1590,8 @@ impl World {
                 }
             };
         }
+        // Ground's areas, as staffs split their states (lane G1a).
+        ground::areas::place_schools(&mut high_schools);
         let overflow = overflow_by_state(&programs, year);
         let nfl = crate::league::make_league(&mut rng);
         let changes = crate::calendar::ChangeState::default();
