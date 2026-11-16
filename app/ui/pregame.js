@@ -1358,7 +1358,7 @@ document.addEventListener("click", async (ev) => {
       break;
     }
     case "reveal-home": api("reveal", { path: (PG.lib || (await api("library"))).home }).catch((e) => toast(e.message)); break;
-    case "update-now": toast("Looking for a newer version…"); checkUpdate(true).then((r) => { if (r === false) toast("The update page can't be reached right now."); else if (r === "paused") toast("Updates are paused: you went back to this version. Other versions, Go back to the latest ends the pause."); else if (!updating) toast("AFM is up to date."); }); break;
+    case "update-now": toast("Looking for a newer version…"); checkUpdate(true).then((r) => { if (r === false) toast("The update page can't be reached right now."); else if (r === "paused") toast("Updates are paused: you went back to this version. Other versions, Go back to the latest ends the pause."); else if (r === "pending") toast("The newest version is already installed. Restart to use it."); else if (!updating) toast("AFM is up to date."); }); break;
     case "quit": {
       if (!(await leaveCareer())) break;
       const j = await api("job").catch(() => null);
