@@ -1,6 +1,6 @@
 # Ground: how it works today
 
-Checked against branch commit 28f13b8 on 2026-11-16 (lane G1a, areas and map data), main bf92e7d plus lane G1b on 2026-11-16 (standing and one memory), main d291de54 plus lane G3 on 2026-11-16 (your week and road days), and main 46e34b81 plus lane G7 on 2026-11-16 (people in full).
+Checked against branch commit 28f13b8 on 2026-11-16 (lane G1a, areas and map data), main bf92e7d plus lane G1b on 2026-11-16 (standing and one memory), main d291de54 plus lane G3 on 2026-11-16 (your week and road days), branch lane S2 on 2026-11-16 (the meeting at the map), and main fd85a4f9 plus lane G7 on 2026-11-16 (people in full).
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`, `app/`, `data/` or `tools/`. Ground's spec is `docs/design/ground.md`; each lane adds its section here.
 
@@ -38,6 +38,17 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`,
 - Do my roots count? Your own high school's coach starts Trusted, your hometown's coaches and the high schools you coached at Known, and a kid from your hometown knows your name (`seed`, `roots`, `knows_your_name`).
 - What does an area's level read? Each school's head coach's standing, weighted by the talent the school sent out over the last four classes (`area_points`, `talents`).
 
+
+## Lane S2: the meeting at the map (the screen)
+
+Screen: `app/ui/screens/groundweek.js` and `.css` ("The meeting" under Ground in the sidebar, a college seat only; board 2b, GR71). It reads `ground_week` and writes `ground_road_set`, `ground_road_clear`, `ground_hand` and `ground_call` (lane G3). Every size is the build's pick, proposed, not confirmed.
+
+- **What `ground_week` adds for it** (`crates/afm-game/src/lane_groundweek.rs`): `today`; `home` (your state's code, your campus as latitude and longitude, your state's areas); `coordinator` (name and job); `road.closes` (the last day of the window's run); `fronts` (one per area the plan sends a man to, in the plan's order: its number, area, centre and label point, your men there, their days, the coordinator's reason, how many of the area's head coaches you are Known with, the trip, and a kind: "your call" when you set the row, "new door" when you know none of its head coaches, else "the plan"); `one_call` (the first call on your list still to make, with its reason, your level with him, its 15 minutes and how many more wait).
+- **The board** draws your state from `art/ground/<ST>.json` with the front areas lifted, a route from the campus to each front, numbered pins and a pill with the men and days. A front past the frame (a flight to another state) runs to the frame's edge and is listed under the map with its trip. Rivals' dotted lines and each front's sign-in sheet against its rival come with the race (lane G9); until then a front shows who you know there.
+- **The week by day:** each man on his days (a flight striped), the scenes at their hour (the ones that come to you in gold), the men still at home with the rule that keeps one home. Drag a man's chip to another day to move that day, or a man at home to a day to send him to the area picked beside his name; the × on a chip takes him off that day (his last day clears the road).
+- **The letter** shows its first line as the quote and what moved; the plan and the calls it repeats stay under "The whole letter".
+- **What it does not do yet:** the scenes are one-line results until lane G5; the coordinator's one call is a call on your list (his goals and the race come with G6 and G9).
+- Test: `crates/afm-game/tests/ground_week_screen.rs` (builds a small world).
 
 ## The areas (GR1)
 

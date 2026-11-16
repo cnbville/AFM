@@ -212,6 +212,7 @@ fn week_view(w: &mut World) -> Reply {
                 "used": pool.map(|p| p.1),
                 "left": road::left(w, prog, win),
                 "days_ahead": road::open_days_from(w, win, monday.add(k as i32)),
+                "closes": iso(window_ends(w, win, monday.add(k as i32))),
                 "men_at_once": afm_engine::world::scouting::dept::off_campus_recruiters(&w.programs[prog], monday.add(k as i32)),
             })
         }
@@ -263,8 +264,27 @@ fn week_view(w: &mut World) -> Reply {
         .map(|a| json!({ "who": a.who, "target": format!("{:?}", a.target), "since": iso(a.since) }))
         .collect();
     use afm_engine::world::scouting::film::time;
+    let (clat, clon) = areas::campus(w, prog);
+    let home = afm_engine::world::geo::STATE_CENTERS[w.programs[prog].state.min(50)].0;
+    let coordinator = week::coordinator(w, prog).map(|c| {
+        json!({
+            "id": c,
+            "name": w.coaches[c].name,
+            "job": afm_engine::world::folk::facts::coach_role(w, c),
+        })
+    });
+    let (fronts, one_call) = fronts_and_call(w, prog);
     Ok(json!({
         "monday": iso(monday),
+        "today": iso(w.today),
+        "home": {
+            "state": home,
+            "campus": [clat, clon],
+            "areas": areas::in_state(w.programs[prog].state).iter().map(|&a| area_json(a)).collect::<Vec<_>>(),
+        },
+        "coordinator": coordinator,
+        "fronts": fronts,
+        "one_call": one_call,
         "beat": {
             "week": b.week, "line": b.line(), "period": b.period, "beat": b.beat, "stake": b.stake,
             "on": b.on.iter().map(|x| json!({ "date": iso(x.0), "what": x.1 })).collect::<Vec<_>>(),
@@ -292,6 +312,81 @@ fn week_view(w: &mut World) -> Reply {
         "assignments": assignments,
         "off": wk.off.map(|(a, b)| json!([iso(a), iso(b)])),
     }))
+}
+
+/// The last day of the window's run that holds `from` (the day the road
+/// closes), looking up to 120 days ahead.
+fn window_ends(w: &World, win: road::Window, from: Date) -> Date {
+    let mut last = from;
+    for k in 0..120 {
+        let d = from.add(k);
+        if road::window(w, d) == Some(win) {
+            last = d;
+        } else if k > 3 {
+            break;
+        }
+    }
+    last
+}
+
+/// The places that want a man this week, one per area the plan sends someone
+/// to (your men by name, their days, the coordinator's reason, where you
+/// stand with the area's head coaches), and the one call of your list the
+/// coordinator would put to you first. Rivals' sign-in sheets come with the
+/// race (lane G9).
+fn fronts_and_call(w: &World, prog: usize) -> (Vec<Value>, Value) {
+    let wk = &w.ground.week;
+    let by_area = areas::schools_by_area(w);
+    let mut order: Vec<u16> = Vec::new();
+    for r in &wk.roads {
+        if !order.contains(&r.area) {
+            order.push(r.area);
+        }
+    }
+    let fronts: Vec<Value> = order
+        .iter()
+        .enumerate()
+        .map(|(k, &a)| {
+            let rows: Vec<&week::Road> = wk.roads.iter().filter(|r| r.area == a).collect();
+            let heads: Vec<Who> =
+                by_area[a as usize].iter().filter_map(|&h| people::head_coach_of(w, h)).collect();
+            let known = heads.iter().filter(|&&who| standing::level(w, prog, who) >= standing::Level::Known).count();
+            let bits = rows.iter().fold(0u8, |b, r| b | r.days);
+            let yours = rows.iter().any(|r| r.yours);
+            let kind = if yours {
+                "your call"
+            } else if known == 0 {
+                "new door"
+            } else {
+                "the plan"
+            };
+            let ar = areas::area(a);
+            json!({
+                "n": k + 1,
+                "area": area_json(a),
+                "center": [ar.center.0, ar.center.1],
+                "label": [ar.label.0, ar.label.1],
+                "kind": kind,
+                "men": rows.iter().map(|r| json!({ "man": r.man, "name": week::last_name(w, r.man) })).collect::<Vec<_>>(),
+                "days": (0..7).filter(|k| bits & (1 << k) != 0).collect::<Vec<u32>>(),
+                "days_words": plan::days_words(bits),
+                "flight": rows.iter().any(|r| r.flight),
+                "why": rows.iter().find(|r| !r.yours).or(rows.first()).map(|r| r.why.clone()).unwrap_or_default(),
+                "known": known,
+                "of": heads.len(),
+                "trip": areas::trip_to_area(w, prog, a).words(),
+            })
+        })
+        .collect();
+    let pending: Vec<&week::Planned> = wk.calls.iter().filter(|c| c.state == 0).collect();
+    let one = pending.first().map_or(Value::Null, |c| {
+        let mut v = person_json(w, prog, c.who);
+        v["why"] = json!(c.why);
+        v["more"] = json!(pending.len() - 1);
+        v["hours"] = json!(phone::CALL_HOURS);
+        v
+    });
+    (fronts, one)
 }
 
 /// A slot's one line from what happened (until lane G5 plays scenes).
