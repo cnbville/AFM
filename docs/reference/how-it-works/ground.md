@@ -1,6 +1,6 @@
 # Ground: how it works today
 
-Checked against branch commit 28f13b8 on 2026-11-16 (lane G1a, areas and map data), main bf92e7d plus lane G1b on 2026-11-16 (standing and one memory), and main d291de5 plus lane G7 on 2026-11-16 (people in full).
+Checked against branch commit 28f13b8 on 2026-11-16 (lane G1a, areas and map data), main bf92e7d plus lane G1b on 2026-11-16 (standing and one memory), main d291de54 plus lane G3 on 2026-11-16 (your week and road days), and main 46e34b81 plus lane G7 on 2026-11-16 (people in full).
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`, `app/`, `data/` or `tools/`. Ground's spec is `docs/design/ground.md`; each lane adds its section here.
 
@@ -25,7 +25,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`,
 - What does the person screen read? `ground::card::card` (the `ground_person`, `ground_family` and `ground_school_people` commands): words only, never a hidden number.
 - What are the levels? Stranger 0-24, Known 25-49, Trusted 50-74, Home 75-100 points (`world/ground/standing.rs`, `Level::of`).
 - Who holds standing? A program (its ties stay) or a coach (his own ties, which go with him). A staff's standing with a person is the higher of its program's and its best current man's (`standing.rs`, `staff`, `holders`).
-- What builds it today? Your staff's looks with recruits: an evaluation day at his school is a visit, a call is a call, your June camp is an event, a visit to campus is the host's call (`standing.rs`, `on_look`, hooked in `world/scouting/dept.rs`, `add`). Lane G3 replaces how the days are spent.
+- What builds it today? Your staff's looks with recruits: an evaluation day at his school is a visit, a call is a call, your June camp is an event, a visit to campus is the host's call (`standing.rs`, `on_look`, hooked in `world/scouting/dept.rs`, `add`). Since lane G3 the days are the week's plan (below).
 - How big is a visit? 6 points × the man's people skill (0.6 + 0.04 × relationships, 1-20) × the person's warmth (0.7-1.3) × the program's pull (0.9 + 0.2 × prestige) (`contact`).
 - And a call? An assistant's call is a third of a visit. Your head coach's call or visit is a visit × his name, 0.8 + 1.3 × prestige² (about 1.85 at prestige 0.9, about 0.85 at 0.2) (`contact`).
 - A second visit the same week? Half the first, then half again, down to a sixteenth (`contact`, `week`).
@@ -114,7 +114,7 @@ Every size below is the spec's "Starting sizes" (proposed, not confirmed) unless
 
 ## What it does not do yet
 
-- News in order of standing and the lead card: lane G4. The week's plan and road days: lane G3. The AI working its ground: lane G9. Favors: lane G11b.
+- News in order of standing and the lead card: lane G4. The AI working its ground: lane G9. Favors: lane G11b.
 - An area's level on lane G1a's areas: `area_level` (any list of schools: `area_points`, `leader`).
 
 ## Lane G7: people in full
@@ -195,6 +195,57 @@ Every size here is the spec's (word travels at half and a quarter) or the build'
 - `world/ground/word.rs`: `TIES_SHARE` 0.5, `AREA_SHARE` 0.25, `AREA_MAX` 40, the lags in `spread`.
 - `world/ground/jobs.rs`: `VACANT_DAYS` 150.
 
+
+## Lane G3: your week and road days
+
+Every size here is the build's pick unless the spec gave it, proposed, not confirmed. Code: `crates/afm-engine/src/world/ground/week/` (`mod.rs` the store and the day, `beat.rs`, `plan.rs`, `road.rs`, `phone.rs`); game commands `crates/afm-game/src/lane_groundweek.rs`. Only a college seat has a week; no other program reads it, so the world plays the same on every seed.
+
+### The day (on the six-part day)
+
+- **5 AM, the morning map** (GR15): levels reached and lost since yesterday's morning with everyone your seat keeps a memory with, yesterday's road by man ("Davis in Gwinnett: 4 schools, 7 recruits seen") and calls you missed (`phone::morning`; `Week.overnight`).
+- **Monday, the week turns** (GR47): the coordinator drafts the plan and writes the Monday letter (`plan::turn`). The plan is drafted the first time it is asked for in a week too (`plan::ensure`).
+- **The in-flight list** (GR12): your men on the road (their night calls), coaches calling back with their hour, your staff's film queue with its date, your asks for a live look, what you host this week, the May list (`phone::in_flight`).
+- **7 to 10 PM, the night calls** (GR13): each man out that day, 25 minutes apart from 7 PM, in his own words: his schools, who he saw, where he stands with the coaches (`phone::night_call`).
+- **Live moments** (GR14): a coach calling back who matters (his school has a 3-star or better or your offer in the next two classes, or he's Trusted) and a night call that matters (a coach reached Known or better with him, or he saw a 4-star nobody of yours had seen in person) stop the day at their minute (`phone::moments`, read by `World::live_moments`).
+
+### The plan (GR47)
+
+- **Who goes:** your on-field staff (coordinators and position coaches); the head coach only in January's and December's contact periods and at FCS in the spring; never the FBS head coach in the spring window (`road::may_go`).
+- **Where:** your assignments first (a player's school, a state's neediest area, the area and schools with a position group's kids, the cross-checks' schools), then your asks for a live look (to the kid's position coach), then each man to the area of his recruiting states (`Dept.areas`, else the staff's split) that needs him most: each board recruit by stars (0.5, 0.5, 1, 2, 4, 8), a quarter for one already seen in person this recruiting year. An area takes a second man past 12 of need.
+- **How many days:** the window's pace: the days left × this week's open days / the window's open days ahead (school days in the spring and January, Thursday and Friday in the fall), up to 3 days a man (2 in the fall), Tuesday first (Monday is the meeting), never more men out a day than the rules allow. A flight goes only while the week's money covers one.
+- **Your changes:** `set_road` (a man, an area, the days; checked against the window, the head coach's spring, the men at once and the flights), `clear_road`, `hand` (the week to your coordinator: only live moments stop you).
+- **Your calls** (GR53): up to 5 a week: coaches slipping (a warning out), a Stranger one contact from Known with a kid on your board, a coach with a 3-star or better in an area nobody of yours reaches this week. The ones you don't make, your coordinator makes on Saturday as his own (`plan::coordinator_calls`).
+- **The scenes** (GR51): the meeting, an official weekend, a junior day, your camp, unofficial visits, your calls and your own road days, ranked (the meeting, officials, junior day and camp, a slipping coach's call and your road, then the rest); the top five are yours, the rest your coordinator's. Until lane G5 each is its one-line result (`plan::draft_slots`; the game fills the line from the log).
+
+### Road days (GR48) and trips (GR49)
+
+- **The windows:** the spring (contact, or evaluation before 2024, in April to June), the fall evaluation period (September to November) and the winter contact periods (`road::window`). The days come off `Dept.eval_days` as the built ones did, so the department screen's squares still count them.
+- **A man's day:** his focus schools first, then the schools with the most board need, then the area's schools by talent where he stands lowest with the coach; a school he saw this week goes last (GR54: a second visit buys half anyway, in `standing::contact`). Each board recruit there gets a look (practice; a fall Friday's game), and the coach's time counts through `on_look`; at a school with none on the board the coach and his coordinators get the visit directly.
+- **The money:** see the quick answers. With no books yet the tier's usual line stands in (Power $5M, Group of 5 $0.8M, FCS $0.3M, below $0.05M), and older years scale by `hs_index`. Your AD's raise grows the line, so it buys flights (`tests/recruit_budget.rs`).
+
+### One ledger (GR50)
+
+- `Week.ledger`: each entry's day, what, hours, and whether you chose it. Chosen hours (calls) come out of the week's free hours film uses (`film::time::used` adds them); booked hours (your road day, what you host) don't, but every hour counts for the day's tiredness (`film::time::today`) and booked hours past 12 a week count for the week's wear (`film::time::week`, `BOOKED_FREE`).
+
+### The beat (GR56), the letter, the May list (GR57), the week off (GR58)
+
+- **The beat:** week 1 holds January 1. Each week lists what is on the calendar (the portal, the coaching changes, the services' updates, signing day, junior days, the combine, spring practice, officials for juniors, the spring road's first and last day, the spring game, the draft, term's end, Memorial Day, the May list, your signees, your camps, the transfers, the dead period, NIL payday, the Fourth, media days, the polls, fall camp, high schools, Week 0), read from `YearDates` and `recruiting_period`, and picks the beat and the stake by what is in it (`beat::beat`). The 2026 reading matches `ground/months.md`'s sheet; weeks 3 and 7 (the coordinator at your door, the February meeting) wait for lane G6.
+- **The Monday letter:** the beat line first ("Week 16: the road opens Wednesday, the spring game is Saturday."), then what last week bought (new names on the board, levels reached, school visits and recruits seen, your calls), the road days left, the week's flights, the plan, your scenes and your calls, and the stake. The recruiting desk's Monday digest opens with it and carries its subject (`crates/afm-game/src/lane_core/mail.rs`, `people_mail`).
+- **The May list:** the day after Memorial Day, each man's rising seniors he saw in person since April 1 (not signed, not committed elsewhere), ranked by your offer, then stars, then how many of your men saw him; your open official spots are the weekends from Friday to the dead period × 10 at FBS (6 FCS, 4 below), less those set. A memo from your coordinator; `may_invite` books the top on each one's first open weekend through the built visit rules (`plan::may_list`, `may_invite`).
+- **The week off:** one or two weeks inside June's and July's dead period (`week::take_off`): your eye's wear goes to zero the first day, no film, your calls go to your coordinator and the calls back he takes count as his (`phone::lapse`).
+
+### What it does not do yet
+
+- The scenes are slots with their one-line result: lane G5 plays them. The goals the coordinator ranks against come with lane G6, your men's own ground and areas on the map with lane G10, the AI's weeks with lane G9.
+- The 2027 recruiting model (one pool of 300 from January to May) isn't in the game's rule book; `road::pool` is where it goes.
+- FCS runs the FBS recruiting calendar (`recruiting_period` has one).
+
+### Where the knobs are
+
+- `week/road.rs`: `ROAD_SHARE` 0.12, `ROAD_WEEKS` 24, `DAY_COST` 180, `MILE_COST` 0.70, `FLIGHT_COST` 700, the stars' `WEIGHT`.
+- `week/plan.rs`: `DAYS_PER_MAN` (3, 2, 3), `CALLS` 5, `YOURS` (3, 5), `PER_WEEKEND` (10, 6, 4); the second man past 12 of need.
+- `week/phone.rs`: `CALL_HOURS` 0.25, `WAITS` 60 minutes, who picks up (his hour's 50 minutes, a coach's evening 7 to 9:30 PM).
+- `week/mod.rs`: `BOOKED_FREE` 12; the hosted hours in `hosted`.
 
 ## Related pages
 

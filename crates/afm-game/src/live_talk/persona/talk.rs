@@ -592,5 +592,9 @@ mod stake_tests;
 mod meetings_tests;
 
 #[cfg(test)]
+#[path = "weighed_tests.rs"]
+mod weighed_tests;
+
+#[cfg(test)]
 #[path = "wrap_tests.rs"]
 mod wrap_tests;

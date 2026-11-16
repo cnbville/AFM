@@ -8,6 +8,8 @@
 //! the older stores reading through the one memory (`stores`), word that
 //! travels (`word`), jobs that carry standing (`jobs`) and each person's
 //! page (`card`).
+//! Lane G3: your week (`week`): the meeting at the map, road days,
+//! trips, the ledger, the day's calls and the beats.
 //!
 //! The store is sparse: only your seat's holders (your program, you and
 //! your staff's men) keep memories, and only with people someone has dealt
@@ -22,6 +24,7 @@ pub mod memory;
 pub mod people;
 pub mod standing;
 pub mod stores;
+pub mod week;
 pub mod word;
 
 pub use memory::{Memory, Moment};
@@ -52,6 +55,8 @@ pub struct Ground {
     /// High school head jobs whose man moved on: (school, the man, the
     /// day), until the next man is in (`jobs`).
     pub(crate) vacated: Vec<(u32, Who, crate::calendar::Date)>,
+    /// Your week (lane G3): the plan, the road, the phone, the ledger.
+    pub week: week::Week,
     /// Test switch: the seat's ground stands still (the same-world check).
     #[serde(skip)]
     pub(crate) off: bool,
