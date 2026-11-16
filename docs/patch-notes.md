@@ -8,6 +8,27 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.588 (16 Nov, shipped): ground lane S8: the ground report screen (PR #496), progression step 4b part 2: the 10-yard split from his own run, with a first-step gift (PR #497), college followers retuned so the biggest stars reach 500,000 (PR #499)
+**TLDR:** 3 changes ship together. At the end of your first spring, Ground writes you a report: your goals as verdicts, the kids you found, where your ground grew and who outworked whom. The 10-yard split is now each player's own first step. Two men with the same forty can split 0.1 s apart, the way real quick-twitch players stand out. Plus 1 more below.
+- Ground lane S8: the ground report screen (PR #496): At the end of your first spring, Ground writes you a report: your goals as verdicts, the kids you found, where your ground grew and who outworked whom.
+- Your goals read as Met, Mostly, Partly or Missed, each with why (PR #496)
+- Your finds show with their faces and how far they have bloomed (PR #496)
+- Your ground by area, February to August, with lost ground marked (PR #496)
+- Who outworked whom in each area, counted in signs (PR #496)
+- The miss, a setback, your AD's word and the paper's (PR #496)
+- Progression step 4b part 2: the 10-yard split from his own run, with a first-step gift (PR #497): The 10-yard split is now each player's own first step. Two men with the same forty can split 0.1 s apart, the way real quick-twitch players stand out.
+- Every testing day's 10-yard split comes from the same run the player has on the field. (PR #497)
+- Some players have an explosive first step for life, and some start slowly, at the same forty. (PR #497)
+- Big men's splits follow the real curve by weight. (PR #497)
+- Players get going a touch slower on the field, in line with real tracking, so scoring and sacks sit a bit closer to the NFL's. (PR #497)
+- College followers retuned so the biggest stars reach 500,000 (PR #499): The biggest college stars now build national followings, and a Heisman or an All-America season makes a player famous, so college players can now have social media storms.
+- College honors such as All-America seasons, national awards and the Heisman now raise a player's fame and following. (PR #499)
+- The best-known college names now reach hundreds of thousands of followers, and a few reach close to a million. (PR #499)
+- A college star with a huge following can now get caught in a social media storm, just like a pro. (PR #499)
+- Most college players keep modest followings, the way they do in real life. (PR #499)
+- Look at: Ground, Ground report, after the week before your first game. (PR #496) your linemen's 10-yard splits on the Body and testing tab. (PR #497) the follower count on a Heisman winner's player page after the February update. (PR #499)
+- Docs and tooling merged too, no game change: Fix conflict markers in draft.md (PR #498).
+
 ## 0.2.585 (16 Nov, shipped): live talks: every person plays toward his own goals, and stays on topic (PR #480), ground lane G8: a following and famous names (GR42-GR46) (PR #472), ground lane G11b: favors, switched off (PR #488)
 **TLDR:** 3 changes ship together. The people you talk to now know what the talk means to them, and they answer what you actually said. Famous NFL names now run in families, and a recruit's following matters: the hype kid makes national news, lifts your brand and weighs your stage when he picks. Plus 1 more below.
 - Live talks: every person plays toward his own goals, and stays on topic (PR #480): The people you talk to now know what the talk means to them, and they answer what you actually said.

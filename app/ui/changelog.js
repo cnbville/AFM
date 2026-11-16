@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.588", date: "16 Nov", title: "College followers retuned so the biggest stars reach 500,000 and 2 more",
+    notes: [
+      "At the end of your first spring, Ground writes you a report: your goals as verdicts, the kids you found, where your ground grew and who outworked whom.",
+      "Your goals read as Met, Mostly, Partly or Missed, each with why",
+      "Your finds show with their faces and how far they have bloomed",
+      "Your ground by area, February to August, with lost ground marked",
+      "Who outworked whom in each area, counted in signs",
+      "The miss, a setback, your AD's word and the paper's",
+    ],
+  },
+  {
     v: "0.2.585", date: "16 Nov", title: "Ground lane G8: a following and famous names (GR42-GR46) and 1 more",
     notes: [
       "The people you talk to now know what the talk means to them, and they answer what you actually said.",
