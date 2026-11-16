@@ -1823,6 +1823,8 @@ fn engine_games(
         let game_key = g.data.and_then(|p| w.tally_game(p));
         // Lane NB11: the prospects' game lines.
         w.tally_hs_lines(day, game_key, [h, a], &g.lines, g.score, g.neutral);
+        // Ground lane G4: a big game for a kid your seat follows is news.
+        super::ground::news::on_hs_game(w, day, [h, a], &g.lines);
         if let Some((full, film, replay, talks)) = g.full.as_ref() {
             w.keep_seat_game(Level::HighSchool, [h, a], full, replay.as_deref(), talks);
             w.seat_line(Level::HighSchool, [h, a], None, g.neutral);
