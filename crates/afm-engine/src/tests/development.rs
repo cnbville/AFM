@@ -1,5 +1,5 @@
 use super::{career, context_for, mean, prospects};
-use crate::attributes::{Attr, MAX_RATING, MIN_RATING};
+use crate::attributes::{Attr, MIN_RATING, RATING_BOUND};
 use crate::development::{MAX_POTENTIAL_SHIFT, develop_season};
 use crate::player::{DevelopmentEvent as Ev, Player, PlayingTime, ProspectOptions, generate_prospect};
 use crate::positions::Position;
@@ -200,7 +200,7 @@ fn moves_potential_both_ways_and_mostly_before_24() {
 }
 
 #[test]
-fn keeps_every_rating_within_1_99_and_current_at_or_below_its_ceiling() {
+fn keeps_every_rating_within_bounds_and_current_at_or_below_its_ceiling() {
     let mut rng = Rng::new("bounds");
     let mut all = prospects(300, "bounds", 4.5);
     all.extend(prospects(300, "bounds-low", -2.0));
@@ -213,12 +213,17 @@ fn keeps_every_rating_within_1_99_and_current_at_or_below_its_ceiling() {
             for k in Attr::ALL {
                 let (a, c) = (p.attributes.get(k), p.ceilings.get(k));
                 assert!(
-                    a >= MIN_RATING && c <= MAX_RATING && a <= c,
+                    a >= MIN_RATING && c <= RATING_BOUND && a <= c,
                     "{} {} at age {}: {a} / {c}",
                     p.id,
                     k.key(),
                     p.age
                 );
+                // No 99 wall, but a thin top: past 95 nothing but the
+                // strength pair gets far (the bound thins to 103.9).
+                if !matches!(k, Attr::Strength | Attr::LowerBody) {
+                    assert!(c < 104.0, "{} {} at age {}: ceiling {c}", p.id, k.key(), p.age);
+                }
             }
         }
     }

@@ -92,8 +92,8 @@ pub const BENCH_WEIGHT: f64 = 249.0;
 /// The slope's lean past the cross-position one. Reps at 225 follow the
 /// pounds on the bar (Epley: reps = 30 × (max ÷ 225 − 1)), and a strength
 /// point is a share of his own body's pull, so a point is worth more reps
-/// the heavier he is: a 305 lb tackle about 0.49 a point, a 200 lb receiver
-/// 0.32 (physical study item 3). With one slope for all, big men's bench
+/// the heavier he is: a 305 lb tackle about 0.43 a point, a 200 lb receiver
+/// 0.28 (physical study item 3, step 4c). With one slope for all, big men's bench
 /// spread 4.1-4.3 reps (real 4.8-5.5) and the skill spots' 4.9-5.7 (real
 /// 4.0-4.2), and the 35-rep tail fell short. Kickers, punters and snappers
 /// keep the old read. Proposed, not confirmed.

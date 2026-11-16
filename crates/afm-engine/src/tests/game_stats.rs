@@ -43,11 +43,15 @@ fn player_lines_stay_on_their_own_team() {
 /// Chemistry (X5): the same offense completes more with its receivers in
 /// step with the quarterback than with a cold group, by a few points, and a
 /// cold secondary gives up more. Typical chemistry changes nothing.
+/// Measured over four leagues, since the gap depends on the roster: over
+/// 8 leagues (2026-11-16) it ran 2.0 to 3.5 points with the 99 wall and
+/// -0.3 to 4.1 without it (mean 2.1), once elite men's ratings came out as
+/// uneven as anyone's. One league tests its own quarterback and receivers
+/// more than chemistry.
 #[test]
 fn chemistry_moves_completions_a_little() {
     use crate::positions::Position;
     let level = Level::NFL;
-    let teams = synthetic_league(level, 2, 31);
     let with = |chem: f32, pos: &[Position], t: &crate::game::roster::GameTeam| {
         let mut t = t.clone();
         for p in t.players.iter_mut().filter(|p| pos.contains(&p.position) || p.position == Position::QB) {
@@ -67,8 +71,12 @@ fn chemistry_moves_completions_a_little() {
         c as f64 / a.max(1) as f64
     };
     let recv = [Position::WR, Position::TE, Position::RB];
-    let warm = rate(&with(0.95, &recv, &teams[0]), &teams[1]);
-    let cold = rate(&with(0.05, &recv, &teams[0]), &teams[1]);
+    let (mut warm, mut cold) = (0.0, 0.0);
+    for seed in 31..35 {
+        let teams = synthetic_league(level, 2, seed);
+        warm += rate(&with(0.95, &recv, &teams[0]), &teams[1]) / 4.0;
+        cold += rate(&with(0.05, &recv, &teams[0]), &teams[1]) / 4.0;
+    }
     let gap = warm - cold;
     assert!(gap > 0.01 && gap < 0.08, "warm {warm:.3} cold {cold:.3}");
 }
