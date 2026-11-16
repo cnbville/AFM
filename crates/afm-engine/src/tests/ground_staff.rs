@@ -80,7 +80,7 @@ fn the_coordinator_gives_each_man_areas_by_his_own_ground() {
     assert!(mine.why.contains("Home") || mine.why.contains("Trusted"), "{}", mine.why);
     for &c in &staff {
         let n = s.beats.iter().filter(|b| b.man == c as u32).count();
-        assert!(n >= 1 && n <= beats::PER_MAN, "every man works one to three areas: {n}");
+        assert!((1..=beats::PER_MAN).contains(&n), "every man works one to three areas: {n}");
     }
     assert!(s.proposal.letter.iter().all(|l| whole(l)), "{:?}", s.proposal.letter);
     // The man on a school's area recruits it.

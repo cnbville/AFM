@@ -456,7 +456,7 @@ fn orphans(w: &mut World, prog: usize, d: Date) {
     for a in lost {
         let load = |m: usize, s: &[Beat]| s.iter().filter(|b| b.man == m as u32).count();
         let Some(&m) = staff.iter().min_by_key(|&&m| (load(m, &w.ground.staff.beats), m)) else { continue };
-        if load(m, &w.ground.staff.beats) >= PER_MAN + 1 {
+        if load(m, &w.ground.staff.beats) > PER_MAN {
             continue;
         }
         let why = format!("covering until a new man climbs: {}", why_words(w, m, a, &by_area[a as usize]));
