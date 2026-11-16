@@ -1,6 +1,6 @@
 # Ground: how it works today
 
-Checked against branch commit 28f13b8 on 2026-11-16 (lane G1a, areas and map data), main bf92e7d plus lane G1b on 2026-11-16 (standing and one memory), main d291de54 plus lane G3 on 2026-11-16 (your week and road days), branch lane S2 on 2026-11-16 (the meeting at the map), main fd85a4f9 plus lane G7 on 2026-11-16 (people in full), main plus lane G11a on 2026-11-16 (the high school chain reaction), main 6aed06fd plus lane G4 on 2026-11-16 (news in order, leads and finds), and main dd7735f4 plus lane G10 on 2026-11-16 (your staff's ground and the assistant seat).
+Checked against branch commit 28f13b8 on 2026-11-16 (lane G1a, areas and map data), main bf92e7d plus lane G1b on 2026-11-16 (standing and one memory), main d291de54 plus lane G3 on 2026-11-16 (your week and road days), branch lane S2 on 2026-11-16 (the meeting at the map), main fd85a4f9 plus lane G7 on 2026-11-16 (people in full), main plus lane G11a on 2026-11-16 (the high school chain reaction), main 6aed06fd plus lane G4 on 2026-11-16 (news in order, leads and finds), branch lane S5 on 2026-11-16 (the person screen) and main 256934ee plus lane G6 on 2026-11-16 (the campaign), main plus lane G8 on 2026-11-16 (a following and famous names), main 80ce85c plus lane G11b on 2026-11-16 (favors, switched off), branch lane S8 on 2026-11-16 (the ground report screen), and main d64b44f plus the college followings retune on 2026-11-16 (storms reach college), and main plus lane G10 on 2026-11-16 (your staff's ground and the assistant seat).
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`, `app/`, `data/` or `tools/`. Ground's spec is `docs/design/ground.md`; each lane adds its section here.
 
@@ -37,6 +37,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`,
 - Does the AI have ground (G1b)? Yes, read from the world's 30 years whenever asked: nothing is stored, so the world's recruiting is unchanged until lane G9 (`derived`).
 - Do my roots count? Your own high school's coach starts Trusted, your hometown's coaches and the high schools you coached at Known, and a kid from your hometown knows your name (`seed`, `roots`, `knows_your_name`).
 - What does an area's level read? Each school's head coach's standing, weighted by the talent the school sent out over the last four classes (`area_points`, `talents`).
+- Are favors on? No. The favor economy (lane G11b) ships switched off in every world (`WorldOptions.favors`, false); with it off nothing in `world/ground/favors.rs` runs and placing a kid works as before (`folk/backchannel.rs`, `place_player`). Lane G12's trial turns it on. See "Lane G11b" below.
 
 - Who hears news first (G4)? The people closest to the kid (his coach, his trainer, the camp that timed him) tell programs by standing: Home the day it happens, Trusted a day later, Known on day 3; within a level a busy coach (school prestige 0.5 or more) calls by his nature, a loyal one the staff he's closest to, a self-serving one the biggest program, three calls a day; a small-school coach calls everyone he knows at once, eight a day (`world/ground/news.rs`, `order`).
 - When does the public hear? By the news: an offer the same day from 2018, a big game the next day, a college camp's laser time two days on, a move 3 days, a test score 30, a growth spurt 45 (more before the 2010s, 3 more at a small school); track results, all-state and a new coach are the paper, everyone at once (`public_lag`, `What::paper`).
@@ -65,6 +66,15 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`,
 - A stadium your town paid for (`legacy/hs.rs`) adds 0.03 to its prestige and its name.
 - Where is its form? `Chain::form`, in standard deviations.
 - An old save gets each school's start from its prestige on load (`chain_after_load`, from `World::after_load` in `world/seat.rs`).
+- Can a recruit have a famous father? Yes, from lane G8: a son or nephew of a world player with a Pro Bowl or more, or a Heisman, carries his name (`world/following.rs`, `names`, `man_fame`).
+- How often? Per famous man, 45% have one son who plays and 13% two, each 14 when the man is 36 to 50; 30% have a nephew, 14 when the man is 30 to 55 (`kin`).
+- Does it change how many boys have an NFL father? No. A son is one of the class's boys whose father already played in the NFL (1 in 200); now the father has a name (`names`; `world/background.rs`, `generate_family`).
+- How much does the name add? To his fame, 0.35 × the man's fame for a son, 0.18 × for a nephew, in high school and college, half of it as a pro (`HYPE_SON`, `HYPE_NEPHEW`; `world/fame.rs`, `fame`).
+- When is a commitment big news? When his following is one of his class's 10 biggest (and at least 10,000), huge for the class's biggest; otherwise his stars decide as before (`commit_news`; `world/recruiting.rs`, `commit_now`).
+- What does the hype kid's commitment do for the program? When his following is one of his class's 10 biggest, it lifts the program's brand exposure grade for a year by 3 × his share of the class's biggest following; a program holds its biggest lift, not the sum (`committed`, `day`, `LIFT_TOP`).
+- Does it stay if he flips or decommits? No. The lift is his while he is committed to, signed with or playing for that program; a flip moves it (`holds`, `committed_in`).
+- Does a recruit's following change his own pick? Yes: brand exposure counts 1 + his share of the class's biggest following in the prestige part of a school's appeal, so up to twice (`world/recruiting.rs`, `stage_weight`, `utility_fit`, `six_parts`).
+- Can a college player have a social media storm? Yes, a college player or recruit with 500,000 followers, the same weekly chance as a pro (`world/storylines/detect/weekly.rs`, `chances`; `STORM_FOLLOWERS`).
 
 ## Lane S2: the meeting at the map (the screen)
 
@@ -74,8 +84,36 @@ Screen: `app/ui/screens/groundweek.js` and `.css` ("The meeting" under Ground in
 - **The board** draws your state from `art/ground/<ST>.json` with the front areas lifted, a route from the campus to each front, numbered pins and a pill with the men and days. A front past the frame (a flight to another state) runs to the frame's edge and is listed under the map with its trip. Rivals' dotted lines and each front's sign-in sheet against its rival come with the race (lane G9); until then a front shows who you know there.
 - **The week by day:** each man on his days (a flight striped), the scenes at their hour (the ones that come to you in gold), the men still at home with the rule that keeps one home. Drag a man's chip to another day to move that day, or a man at home to a day to send him to the area picked beside his name; the × on a chip takes him off that day (his last day clears the road).
 - **The letter** shows its first line as the quote and what moved; the plan and the calls it repeats stay under "The whole letter".
-- **What it does not do yet:** the scenes are one-line results until lane G5; the coordinator's one call is a call on your list (his goals and the race come with G6 and G9).
+- **What it does not do yet:** the scenes are one-line results until lane G5; the coordinator's one call is a call on your list (his goals are lane G6's, the race lane G9's).
 - Test: `crates/afm-game/tests/ground_week_screen.rs` (builds a small world).
+
+## Lane S5: the person (the screen)
+
+Screen: `app/ui/screens/groundperson.js` and `.css` ("People" under Ground in the sidebar, a college seat only; board 5, GR74, GR79). It reads `ground_person` and `ground_people` and writes `ground_call` (lane G3) and `face_drawn_store`. Every size and every word below is the build's pick, proposed, not confirmed.
+
+- **Where it opens from:** a coach's row on the map's "Who matters here" and on the school page, and any tie on a person page, open the person (`data-go="groundperson"` with `kind` and `id`). The school is one click from his role line. "People" in the sidebar lists everyone your staff has dealt with, the last in touch first (`ground_people`, at most 60, with the total).
+- **What `ground_person` adds to the card** (`crates/afm-game/src/lane_ground_people.rs`): `age` (a coach's, a former player's from his birth date, a prep coach's 48; none for a counselor or a family), `school`, `lv` (his level as ticks), `staff_read`, `moments` (dated, five at most, newest first: `new` for the newest if it is under a week old, `fade` for a small one over a year old, a note for a big one: "He keeps it at full weight for years" or "He holds it against you until 2029"), `next` and `gets` (see below), `staffs`, `talked`, `last`, `met`, `call` (the key `ground_call` takes), `today` and `face`.
+- **Your staff's read** (`staff_read`): words only. His eye ("Good. 4 of his 6 kids held up.") and how straight he is read his record with you once three of his tips have settled, else "Too early to say" at Known or better and nothing at Stranger. His nature ("Loyal. Holds a debt a long time, a grudge longer.") shows from Known: loyal at 0.65 or more, self-serving at 0.35 or less; a long grudge at 4.5 years or more, a short one at 3.5 or less.
+- **What a level gets you** (`gets`): for his kind and each level, the words in the build's own wording from people.md's "What he can tell you". `next` says when the next level can come from the gates (GR28): Known after two contacts; Trusted not before a year after Known with no broken word in it; Home not before three years (a kid who did well) or five since you met.
+- **His standing with every staff** (`staffs`): the programs that are Known or better with him by day one's read (`standing::points`), the five best, then yours last with the date you first dealt with him. A note says "took N of his kids" (his school's kids whose first college it is) or "his old school" (a trainer's or 7v7 man's college). Not shown for a counselor or a family.
+- **What you've talked through** (`talked`): the number of live talks with him and the last one's day (`Folk.live.persona.talks`); for a family also the groups of points made to the kid (`Folk.talked`). A coach's talks are not recorded by topic, so no topic chips show for him.
+- **His head:** drawn from his recipe by the page, the way the faces are (`face`: `spec`, `colors`, `drawn_on`, the saved picture). A coach is `World::coach_face`; a trainer, a 7v7 director and a prep coach are `World::adult_face` (the coach's own method, from his looks number, heritage and age: a former player's age from his birth date, a prep coach's 48). The drawn head has the place's colors on the jersey (his school's or program's). A counselor and a family keep their initials on the place's colors (the heads are men's). The picture is kept in the save's faces folder under an id in a range of its own (2,147,483,648 and up, by kind and id), so it never takes a player's head.
+- **No hidden number:** the page carries the card's words and the words above; the test checks the read is words.
+- **Test:** `crates/afm-game/tests/ground_person_screen.rs` (builds a small world).
+
+## Lane S8: the ground report (the screen)
+
+Screen: `app/ui/screens/groundreport.js` and `.css` ("Ground report" under Ground in the sidebar, after People, a college seat only; board 8b, GR77, GR79). It reads `ground_report` (lane G6) and writes nothing; heads come from `face` and are kept with `face_drawn_store`. Every size and word below is the build's pick, proposed, not confirmed.
+
+- **When there is one:** the report is written at the verdict (the Monday before your first game). Before it the page says when it comes and what it will read, with links to the meeting and the map. Every earlier spring stays (the last 6, newest first) and a Spring picker shows when there are two or more.
+- **The top:** the date, your goals as a count ("3 met, 1 mostly"), your finds ("2, and 1 blooming"), your misses (0 or 1), and a button to the verdict memo in your inbox.
+- **The hero:** the title with its last word "spring" outlined ("Your first spring"; a later spring adds "at Georgia State" under it), one line of what the spring came to, and one tile per goal (`goals`): the slot (Your needs, Your AD's, Your goal, The hunt, a bold goal marked), the verdict (Done reads "Met" with a check; Mostly and Partly a part-filled amber ring; Missed an amber cross; a dropped goal reads "Dropped"), the goal's words and why from the world.
+- **Finds** (`finds`): his head (drawn from his recipe, the photo you set, else his initials), his state (signed, committed, lost to a rival, still open), "BLOOMING" or "BLOOMED" and "A NAME" by `steps` (1, 2, 3) with three bars and their words (World catches up, He plays, A name), his stars then and now and the latest bloom's words. Under them "Who found them": each of your men with finds, blooms and big blooms (`men`).
+- **Your ground, February to August** (`areas`): one row per area read at the February meeting, sorted by how far it moved. The line is your standing 0 to 100 with the four levels' bands (Stranger, Known, Trusted, Home at 25, 50 and 75): an open dot for February, a filled dot for August, a bar between, amber where a level was lost (`lost`). The headline area (`headline`, the one that moved most past 0.5 points) is called out and its row lit gold. `feb_pts` and `pts` are new on `AreaLine` (`#[serde(default)]`); a report saved before them reads the level's floor.
+- **Who outworked whom** (`outworked`): up to 8 areas, your staff's dated contacts against the busiest other staff's, as a split bar and a sentence, in signs ("your staff was in 4 times; Auburn's name was on 9 of the sheets"), never their numbers or boards. "Close" when within one, the rival's name in amber when he is ahead by two or more, "You" when you are.
+- **The miss, a setback, the words:** `miss` and `setback` are split at their first colon into a headline and the rest (`miss_parts`, `setback_parts`); the miss's fix is a link to the map. `ad_parts` and `paper_parts` split your AD's line and the paper's into who and the quoted line.
+- **Not yet:** the setback's trainer-against-camp scale (the data is one sentence), faces for the rival's recruiters (the race is lane G9) and the people counts under an area ("Known with 6 of 13"): the chart reads standing points.
+- **Test:** `crates/afm-game/src/lane_campaign.rs` (`a_first_spring_runs_from_the_meeting_to_the_report` checks every field the screen draws; `the_reports_words_split_into_who_and_what`).
 
 ## The areas (GR1)
 
@@ -163,11 +201,11 @@ Screens in `app/ui/screens/ground.js` and `ground.css` (Press Box for the map, t
 - **Lately.** What people kept of you in the last seven days, in their own words, newest first, from the moments on your program's and your own memories (`Memory::moments`). Only moments on your own memories show; the news order comes with lane G4.
 - **The area picked.** Who leads it and how many of its head coaches stand at Home, Trusted and Known with them and their head coach's years there; where you stand; the area's words once you're Known; its biggest schools' head coaches by name with your level with each (the biggest first); the drive or flight from your campus, schools a day, your signees and its schools.
 - **A school (GR11).** Its colors (`colors::high_school`), town, enrollment, public or private, whether it plays in the state's biggest class, titles, the drive or flight; its people (head coach, coordinators, counselor) with your level with each and, once Known, the why in words and the newest moment he keeps; where its kids went (first college of every alum and every kid past high school, with how many were drafted); its last six seasons; your signees and its legends from there (the area's top 12 legends only, `areas::LEGENDS`). Its season records go back as far as the school's record does. Online film (Hudl) from 2008, as the film rules read (`scouting/dept.rs`, `hudl`); the spec says 2006, so one of them is wrong (open question).
-- **Not built here.** Your men's routes and faces, road days and the week's hours (lane G3), the overnight news in order of standing (lane G4), Friday nights on the map (GR5, needs G3's calendar), a stadium (the world has none), the person screen for a coach (lane S5; his row opens his school).
+- **Not built here.** Your men's routes and faces, road days and the week's hours (lane G3), the overnight news in order of standing (lane G4), Friday nights on the map (GR5, needs G3's calendar), a stadium (the world has none). A coach's row now opens his person page (lane S5).
 
 ## What it does not do yet
 
-- The AI working its ground: lane G9. Favors: lane G11b.
+- The AI working its ground: lane G9. Favors: lane G11b, switched off (below).
 - An area's level on lane G1a's areas: `area_level` (any list of schools: `area_points`, `leader`).
 
 ## Lane G7: people in full
@@ -236,6 +274,75 @@ Every size here is the spec's (word travels at half and a quarter) or the build'
 
 - The favor board and spending favors (lane G11b, switched off), news in order and the lead card (G4), the week's plan (G3), the AI working its ground (G9). Counselors don't move to another school; they end a tenure.
 
+## Lane G11b: favors, switched off (GR22, GR60, GR63)
+
+Every size here is the build's pick, proposed, not confirmed, to be tuned in GR61's trial (lane G12). The design is `docs/design/ground/placement.md`.
+
+### The switch (GR61)
+
+- `WorldOptions.favors` (`world/mod.rs`), false in every world and in old world files (`#[serde(default)]`). `favors::on` needs it and a college seat. With it off: `favors::day` returns at once, `place`, `ask` and `set_rule` refuse, the board says `on: false`, and every hook below takes its old path, with no new draw. So every seed plays the same.
+- Your seat only. The AI's own placements and its spending of favors come with the AI working its ground (lane G9, GR65); the rules here take any holder, so it uses the same ones.
+
+### A look costs a favor (`place`)
+
+- You (or your coordinator) call a man on another college staff about a kid: a senior you passed on (not yet signed), a player of yours in the portal, or another school's player in the portal. A Division I staff's call comes only after he enters the portal. Any direction, up or down.
+- Guards: a real hole on the taker's roster (`hole`: he would make its two-deep at his spot, or the spot is short of twice a 53-man roster's numbers scaled to the level, for next fall); one call per staff; three calls a kid a year (`MAX_CALLS`); one home a kid a year (one favor chain).
+- His staff looks: a senior gets a call on his file (`scouting/hs.rs`, `Promo`), as hard as your word with that man is good (`word_read`: 0.5 until a claim settles, then toward your record, levelling off near six to eight claims, `WORD_SETTLE` 2). A portal kid's look lets a small school outside its region take him (`recruiting.rs`, `looked`).
+- You owe the man one, or two in a scarce week (signing day and the day after, the early signing period's first three days, the portal window's last three: `scarce`); what he owed you is spent first. The call is 15 minutes on your week's ledger.
+- A claim from the tips' words (worth a look, can play for you, a sure thing) and a worry you name (his grades, his temper, his health, his work). A worry reaches the kid's family that evening as a moment. A real worry you didn't name is noted at the call (temper 15+ or an incident, grades under 2.5, injury-prone 15+, work ethic under 6).
+
+### A home found (`sign`, `hardness`)
+
+- When he signs there (a portal kid: lands there), his coach owes you by how hard the home was: 2 for a scholarship where he had none at that level or above; 1 for a step up at the same level (a loyal coach counts a starting chance, a self-serving one the bigger name); 0 for a place any staff would give (junior college, Division III, an NAIA walk-on), a step down, or a kid whose offer you pulled. His best standing counts every offer he held, yours included.
+- One comes at signing and the rest at the settle. A home in your coaching tree counts half; a second home from the same coach in a year counts one less. His coach's standing gains 4 a favor (`HOME_POINTS`), with a moment ("You found Simmons a home at Elon.").
+- The no you placed: a pulled offer's 20 points come back to a quarter of the cost (15 back, outside the gates, and the pull is no longer held for years) when he has a home by signing day, unless he was committed to you or it is your second pull at his school in three years (`restore`).
+- Your other calls for him lapse; a look lapses after 400 days or when he goes elsewhere.
+
+### Your word settles (`settle`)
+
+- After a year for a transfer and two for a high school signee, on his last season's role at the level you claimed: worth a look needs him to play (150 snaps or a starter or rotation role), can play for you a starter or rotation role at that level or above, a sure thing a starter. A pro holds every claim.
+- Everyone who heard it records it: the man you called and the kid's coach, in your own and your program's memory (`your_word`, "your word held up 4 of 5 times").
+- Held: the taker's man owes you one, two if he starts; the kid's coach pays the rest of the home and his standing gains 5. Not held: the rest never comes. A worry you hid that came true costs 12 with both ("You never mentioned Reyes's grades."). A quit or a move in year one takes back what his coach paid.
+
+### A favor buys one answer one level up (`ask`, GR60)
+
+- At Stranger his real list (his kids in his own order, by his eye), at Known the truth about one kid (his work, his grades, his temper, his health, in words), at Trusted his first call on one kid. Home buys nothing more.
+- Never past the gates (GR28): no answer from a man you never met, no Trusted answer inside a year of Known or while he holds a broken word, no Home answer before a kid of his did well with you (or five years).
+- The lift is stored (`Lift`) for the news on that kid. `news::make` reads `favors::lifted` and puts you at that level, behind the staffs already there (`Why::Favor`, "he owed you one"). `news::keep` spends it once the answer comes (`spend_lift`). With the switch off `lifted` is always None, so the order is G4's own.
+- A self-serving man dodges 60% × (1 − 2 × his loyalty) of the time when a bigger program already holds that level with him: nothing is spent, and his memory keeps "he dodged your ask when Georgia wanted the same". Asking for more than he owes: he answers, it costs 3 points, and you owe him.
+- It never buys a commitment, a signature or a transfer (rule 3).
+
+### What you owe, and what he owes (`calls_in`, `refused`, `fade`)
+
+- A man you owe calls it in through his weekly ask (`folk/network.rs`, `asks_week`): 6% a week, and always once the debt is 330 days old. His line opens "You owe me one, Coach." A yes pays it back; a no, or never calling back, is a broken promise: 20 points and a big moment he holds ("I called in what you owed me, and you said no."). A college colleague's tie cools by 0.15 instead.
+- What he owes you fades by one each January after two years without a favor between you. What you owe never fades.
+
+### Rule 3 in the portal
+
+- With the switch on, a placement adds nothing to his choice and skips no depth check (`backchannel::bonds` leaves placements out); placing a kid goes through `favors::place` (`backchannel::place_player`).
+
+### Your coordinator's rule (GR63, `coordinator`, `set_rule`)
+
+- Each Monday your recruiting coordinator places the routine no's (the kids whose offers you pulled in the last 120 days, your players in the portal) with the rule's calls (default 1, up to 3), as "worth a look", to the programs with a hole (`takers`: his home state first, near his best standing, then the bigger name). The favors are his own.
+- A kid from a school where your staff is Trusted or Home comes to you instead, as a memo ("Yours to call: ...").
+
+### Your leavers (`leavers`, `judge_leavers`)
+
+- Your players who enter the portal are noted on Mondays. On September 1 his high school coach judges: helped to land (placed and landed) +3 ("You helped Reyes land at Troy."), drifted out of football −4 ("Reyes drifted after he left you."), landed on his own nothing.
+
+### The board and the commands
+
+- `favors::board`: your haves (pulled offers without a home, your players in the portal), your calls and where each stands, who owes you and whom you owe in words ("He owes you a big one, for a look at Simmons"; your coordinator's marked), and the rule.
+- Game commands (`crates/afm-game/src/lane_favors.rs`): `ground_favors`, `ground_favor_takers` (`kid`), `ground_favor_place` (`kid`, `coach`, `claim` 0-2, `worry`), `ground_favor_ask` (`kind`, `id`, `kid`), `ground_favor_rule` (`calls`). Off, every call but the board refuses. No screen yet.
+
+### What G11b does not do
+
+- The AI's books, placements and spending (lane G9), access asks (his juniors at your camp, a word in a job search), stashes at a junior college or prep school, the eras' rules (a release before October 15, 2018, grayshirts under the 25 cap, NIL as a step up from February 2024), the era's warnings on asks for a prospect's relatives, brokers placing kids, and the NFL and high school seats.
+
+### Where the knobs are
+
+- `world/ground/favors.rs`: `HOME_POINTS` 4, `MAX_CALLS` 3, `LOOK_DAYS` 400, `SETTLE_TRANSFER` 365, `SETTLE_SIGNEE` 730, `DODGE` 0.6, `OVERASK` −3, `PLACED_NO_SHARE` 0.25, `SECOND_PULL_YEARS` 3, `WORD_SETTLE` 2, `CALL_IN_BY` 330, `CALL_IN_WEEK` 0.06, `OWED_FADE` 730, `LEAVER_HELD` 3, `LEAVER_DRIFT` −4, `DEFAULT_CALLS` 1; the worries' lines in `real_worry`; the hole in `hole`; a scarce week in `scarce`.
+
 ## Where the knobs are
 
 - `world/ground/areas.rs`: `ROAD_FACTOR` 1.25, `ROAD_MPH` 55, `FLY_OVER_HOURS` 5, `FLIGHT_GROUND_HOURS` 2.5, `FLIGHT_MPH` 450, `LEGENDS` 12, `PIPELINES` 6; the cut points in `schools_a_day`; the word thresholds in `characters`.
@@ -283,14 +390,14 @@ Every size here is the build's pick unless the spec gave it, proposed, not confi
 
 ### The beat (GR56), the letter, the May list (GR57), the week off (GR58)
 
-- **The beat:** week 1 holds January 1. Each week lists what is on the calendar (the portal, the coaching changes, the services' updates, signing day, junior days, the combine, spring practice, officials for juniors, the spring road's first and last day, the spring game, the draft, term's end, Memorial Day, the May list, your signees, your camps, the transfers, the dead period, NIL payday, the Fourth, media days, the polls, fall camp, high schools, Week 0), read from `YearDates` and `recruiting_period`, and picks the beat and the stake by what is in it (`beat::beat`). The 2026 reading matches `ground/months.md`'s sheet; weeks 3 and 7 (the coordinator at your door, the February meeting) wait for lane G6.
+- **The beat:** week 1 holds January 1. Each week lists what is on the calendar (the portal, the coaching changes, the services' updates, signing day, junior days, the combine, spring practice, officials for juniors, the spring road's first and last day, the spring game, the draft, term's end, Memorial Day, the May list, your signees, your camps, the transfers, the dead period, NIL payday, the Fourth, media days, the polls, fall camp, high schools, Week 0), read from `YearDates` and `recruiting_period`, and picks the beat and the stake by what is in it (`beat::beat`). The 2026 reading matches `ground/months.md`'s sheet; weeks 3 and 7 (the coordinator at your door, the February meeting) come from lane G6 (`campaign`), as do the AD's talk and the verdict.
 - **The Monday letter:** the beat line first ("Week 16: the road opens Wednesday, the spring game is Saturday."), then what last week bought (new names on the board, levels reached, school visits and recruits seen, your calls), the road days left, the week's flights, the plan, your scenes and your calls, and the stake. The recruiting desk's Monday digest opens with it and carries its subject (`crates/afm-game/src/lane_core/mail.rs`, `people_mail`).
 - **The May list:** the day after Memorial Day, each man's rising seniors he saw in person since April 1 (not signed, not committed elsewhere), ranked by your offer, then stars, then how many of your men saw him; your open official spots are the weekends from Friday to the dead period × 10 at FBS (6 FCS, 4 below), less those set. A memo from your coordinator; `may_invite` books the top on each one's first open weekend through the built visit rules (`plan::may_list`, `may_invite`).
 - **The week off:** one or two weeks inside June's and July's dead period (`week::take_off`): your eye's wear goes to zero the first day, no film, your calls go to your coordinator and the calls back he takes count as his (`phone::lapse`).
 
 ### What it does not do yet
 
-- The scenes are slots with their one-line result: lane G5 plays them. The goals the coordinator ranks against come with lane G6, your men's own ground and areas on the map came with lane G10 (below), the AI's weeks with lane G9.
+- The scenes are slots with their one-line result: lane G5 plays them. The goals are lane G6's (the May list ranks by them); your men's own ground and areas on the map came with lane G10 (below), the AI's weeks with lane G9.
 - The 2027 recruiting model (one pool of 300 from January to May) isn't in the game's rule book; `road::pool` is where it goes.
 - FCS runs the FBS recruiting calendar (`recruiting_period` has one).
 
@@ -335,7 +442,7 @@ Every size below is the build's pick (proposed, not confirmed, tuned in GR61's t
 - **Blooms** (`day`, `reached`, each day): a small bloom, a fourth star above his stars then, or an offer from a program a level above yours and above his offers then (`tier`: division, then a power conference above the rest of FBS); a bloom, a starter in his first two college seasons, or all-conference; a big bloom, drafted, or a first-team All-American. Each new step: your man's record (blooms, big blooms; `Man`, `Ground.men`), your name as a finder + 0.5, 1 or 2 × the pay (`FINDER`, `Ground.finder`, in words by `finder_words`), the teller + 2, 4 or 8 points × the pay inside the gates with your program and your head coach, the moment in his words and his call at his hour (`TELLER`, `standing::bloom`), his kid held up on his record; a big bloom posts news naming the program that believed first.
 - **Setbacks:** the flip (he signs elsewhere: still your find, `lost`), the grades (a prep school or a junior college after his class signed), the bust (September 1, four years past his class with no bloom: the teller's word didn't hold).
 - **Misses** (`misses`, September 1): kids one or two college seasons in, at your division or higher, from the areas where your staff has people, whom nobody of yours ever looked at or had as a lead, who made all-conference or started there; the 12 strongest (`MISSES`, all-conference first, the lower his stars the higher), each with his school's coach, your level with him and why you didn't hear ("His coach at Monroe is a Stranger to you: nobody on your staff has been to his school since 2025."). Up to 60 kept (`MISSES_KEPT`).
-- **Not yet:** your man's mood (no staff mood store yet: lane G10), your name as a finder read by athletic directors and coaches (lanes G6 and G7), pipelines that grow from blooms (the built pipelines grow from signees), the race's signs (lane G9), the ground report (lanes G6 and S8, which read `Ground.finds`, `misses` and `men`).
+- **Not yet:** your man's mood (no staff mood store yet: lane G10), your name as a finder read by athletic directors and coaches (lane G7), pipelines that grow from blooms (the built pipelines grow from signees), the race's signs (lane G9), the ground report's screen (lane S8; its data is lane G6's `report`).
 
 ### The commands (`crates/afm-game/src/lane_leads.rs`)
 
@@ -348,6 +455,41 @@ Every size below is the build's pick (proposed, not confirmed, tuned in GR61's t
 - `world/ground/news.rs`: `ORDER_KEPT` 8, `KEPT` 1500, `CALLS_A_DAY` 3, `SMALL_CALLS` 8, `BUSY` 0.5, `LEVEL_DAYS` [0, 1, 3], `public_lag`, `fast`, `FAST_100` 10.75, `GREW` 1.5, `big_line`, `region`.
 - `world/ground/leads.rs`: `KEPT` 3,000, `LIST_EVERY` 30, `LIST_MAX` 6, `teller` (agendas), `numbers` (the shading), `truth`, the board's weights in `Board::of` and `Board::near`, the oversold margins in `measured` (1 inch, 0.10 s).
 - `world/ground/finds.rs`: `TELLER` [2, 4, 8], `FINDER` [0.5, 1, 2], `low`, `LOW_OFFERS` 5, `pay`, `MISSES` 12, `MISSES_KEPT` 60.
+## Lane G6: the campaign (part H, GR30-GR41, GR59; the report's data, GR77)
+
+Every size here is the build's pick unless the spec gave it, proposed, not confirmed. Code: `world/ground/campaign/` (`mod.rs` the store, the dates, the day, the meeting, Monday changes, the verdict and what it pays; `goals.rs` the 63 goals and their readers; `motives.rs` your AD's motives; `talk.rs` his talk; `report.rs` the ground report); game commands `crates/afm-game/src/lane_campaign.rs`. Only a college head coach's seat has a campaign (`campaign::seat`); nothing in the world reads it, so the world plays the same on every seed.
+
+### Quick answers
+
+- **When does a spring run?** From the AD's talk the day after signing day (`Spring::talk`) and the February meeting the Monday after it (`Spring::meeting`) to the verdict, the Monday of the week before your first game (`verdict_day`; the season's Week 1 when you have no game yet). The class is next year's (`class_now`: this year's until signing day, then the next).
+- **What is a goal?** An `Aim` (goal 1 to 63, a number `n`, what it's about `of`, the first class), read every day against the world (`goals::read`): a share of the way there, its words ("2 of 3 blue-chips committed") and whether it can only be judged later. The list of 63 by group, who raises each, its classes (one, or two for the two-class goals) and whether it's judged later (a starter, an All-American) is `goals::GOALS`.
+- **The scale:** Done at the whole way, Mostly from two thirds, Partly from a third, else Missed (`Verdict::of`); a later goal shows the pace and settles when the class has played.
+- **The slots** (GR33): Needs (your coordinator's, from the plan's biggest hole: `needs_goal`), your AD's (one, two if he meddles 12+ or has patience 8 or less: `motives::held`), Yours (your coordinator's ground goal until you pick: `ground_goal`, hold an area you lead, take one you're close to, open one where nobody knows you) and the Hunt (goal 44, on or off).
+- **Your AD's talk** (GR35, GR36): a boss meeting the day after signing day (`talk::schedule`, `Scene.c == 4`). He reads his motives (the conference bar, the national rank at a power program, the generational kid, the state's best and the fence at a flagship, the hype kid, a famous name, the donor's old school, the rival, clean, qualifies, the city's best, a reach: `motives::motives`) and puts each one he holds you to on the table: take it (+0.02 trust), argue it down (he gives by his patience and his trust in you, else −0.01), take it bigger (+0.04 and a word for recruiting money: granted at trust 0.35+), swap it for one of his wishes (when he has patience 8+ or trust 0.55+, else −0.01), or ask why (his reason, the goal stays on the table). Skipping it costs −0.04 and his goals stand. With a key it plays as a live office talk. The goals become his boss goals for the season (`GoalKind::Campaign`), and his review reads them; the class rank goal he used to draft isn't drafted that year (`boss::draft_goals`, `ad_set`).
+- **The February meeting** (GR30): your coordinator's memo "The February meeting: our goals for the class of {class}": the class you signed and its rank, the Needs goal and why, your AD's word, a ground goal and why, the hunt, and that Mondays change them. Your ground's area levels are kept for the report.
+- **Changing them** (GR37, GR38): only at a Monday meeting. `pick` any goal on the list for Yours (or the hunt): the one you held counts as a miss with whoever you told (`drop_at`). Your AD's can't be dropped. A two-class goal holds its slot until its last class signs.
+- **Who knows** (GR39): your staff always; tell your AD (`tell_ad`) or name it at media days (`name_at_media_days`, July's media days only), and it's public.
+- **The race** (GR40): every Monday each goal's reading is kept, and a memo "A goal is slipping" when one drops a step from Partly or better. The Monday letter carries one line per goal (`letter_lines`). The May list ranks a kid who counts toward an open goal ahead of the rest at the same offer (`serves`). Flips in and commitments lost are tracked every day for goals 8, 39, 40 and 42 (`track`).
+- **The verdict** (GR30, GR41): the memo "The verdict at the map": each goal on the scale (the pace for later ones), the wishes you met, your AD's line and the paper's. A goal pays by how likely it looked when you picked it (`worth`: a sure thing pays 0.4 and costs 1.2, a long shot pays 1.3 and costs 0.4); a bold goal (0.15 or more less likely than your coordinator's ground goal) pays × (1 + how much bolder, up to 0.6), and your AD reads a told bold goal by your level (`salt`). What moves: your AD's trust (his goals 0.04 a step, yours he knows 0.025, public ones 0.015 more, a wish met 0.015), your staff's warmth 0.02 a step (0.02 more lost on a bold miss), and 0.8 standing points with the coaches who know your program (Known or better). A little each, never a firing on its own. Classes settle the day after their signing day and later goals at each signing day and verdict after (`settle`, "Your goals" note).
+- **Your first offseason** (GR31, GR59): with a January takeover, Ground waits until the January window closes (`waits`; the week doesn't turn). Then your coordinator is at your door (the memo "Our ground"): where you stand, three schools in one area (one where the coach knows you, one where he knows the program, one with a kid he's heard about: `guide_schools`), the road day he'd put you on (`guide_go`) and that you can send him off (`guide_off`). The tools open as you need them: the map that day, the leads board with your first lead, the rivals page with your first flip or loss, the week planner at the February meeting (`tool_open`); everything after the verdict.
+- **The ground report** (GR77, for screen S8): built at the verdict (`report::build`, `Campaign.reports`, the last 6): its title ("Your first spring"), each goal's line and why, your finds, your areas February to August, the headline, who outworked you in your areas (visits by program from the meeting to the verdict), your men, the miss, the setback, your AD's line and the paper's.
+
+### Stand-ins until their lanes
+
+- No staff mood store yet (lane G10): your staff's warmth goes through the network's warmth.
+- G8's loud news isn't built: a famous name reads the NFL bloodline, a loud commitment (goal 27) a top-10 rank or top-10 followers.
+
+### The commands (`crates/afm-game/src/lane_campaign.rs`)
+
+- `ground_campaign`: this spring's goals by slot (reading, verdict so far, how likely it looked, bold, who knows, parts by class), past goals, your AD's wishes, the guide (his three schools, the tools open), the dates, whether today is a Monday meeting or media days, the reports.
+- `ground_goals`: the 63 by group, who raises each, its classes and how likely it looks for your class today.
+- `ground_goal_pick` (`goal` as number or key, `n`, `of`), `ground_goal_drop` (`slot`: `yours`, `hunt`), `ground_hunt` (`on`), `ground_goal_tell` (`slot`), `ground_goal_name` (`slot`), `ground_guide_go`, `ground_guide_off`, `ground_report` (`year`, the newest by default).
+
+### Where the knobs are (G6)
+
+- `campaign/mod.rs`: `AD_TRUST` 0.04, `TOLD_TRUST` 0.025, `PRESS_TRUST` 0.015, `WISH` 0.015, `STAFF_WARMTH` 0.02, `BOLD_MISS` 0.02, `NAME_POINTS` 0.8, `worth`, `salt`, the bold margin 0.15 and cap 0.6 in `hold`, `chance_words`, the ground goal's scores in `ground_goal`.
+- `campaign/talk.rs`: the talk's trust moves and `yields`. `campaign/motives.rs`: each motive's bar and weight, `held`, `conference_bar`. `campaign/goals.rs`: each goal's reader, the starter bars in `fits` (68, 61, 54, 48).
+
 ## The chain reaction (lane G11a, GR21)
 
 Every June 15, before the transfers, `climb` counts each school's old players on all cores (`alumni_value`). In each state with 8 or more schools, `state_form` fits score on prestige over the state's schools and reads each school's gap to the line in standard deviations (at most 2.5). Its form (`Chain::form`) moves 30% of the way to the reading when the reading is higher and 15% when lower, and its prestige becomes its name (`Chain::start`, set at the build in `generate_state_schools` and for a new school in `new_teams/school.rs`) plus 0.12 × form, within 0.02-1.0.
@@ -373,6 +515,37 @@ On June 15 the standouts (the top 3% of their state's age 15-17) weigh a move to
 - June moves, classes 2021-2026: 26-36 per 1,000 against main's 32-36; transfers to a powerhouse 105-149 a class against main's 123-189, a fifth to a quarter of them move-ins.
 - Blue chips, classes 2020-2026, at today's powerhouses: 36.2% against main's 39.7%. FBS signees by home state match main to 0.3 points.
 - A world's talent per school is flat (the top tenth of schools hold 20% of the old players' score), so a free walk on production alone took the real powerhouses down (two earlier rules: real top-five schools to 0.79 and 0.75, powerhouses to 219 and 177). Prestige swings around the name for that reason.
+
+## Lane G8: a following and famous names (GR42-GR46)
+
+**Famous men.** A world player is famous from his career and books: a Hall of Famer 1.0; an MVP, Offensive or Defensive Player of the Year, Super Bowl MVP or three first-team All-Pros 0.85; a first-team All-Pro, four Pro Bowls or a Heisman 0.65; a Pro Bowl 0.4; anyone else 0 (`world/following.rs`, `man_fame`). It reads his alumni record's pro career when he has retired, his live career when he still plays (`World::alumni`, `Alumnus::pro`), the Hall (`nfl_book.hall`) and the Heisman (`stats.honors`). Only men in the world's books count: the recorded years from 1996 on in a 2026 world, so the first famous sons arrive around 2012.
+
+**His kin.** Keyed on the man (his player id): 45% one son who plays, 13% two, 42% none; each son 14 when the man is 36 to 50 (even odds each year). A nephew for 30%, 14 when the man is 30 to 55 (`kin`). All proposed, not confirmed.
+
+**The class day.** After the new class is in (`World::add_class`), each famous man's kin due this year joins it (`names`). A son is a boy of the new class whose father played in the NFL (`Bloodline::NflPlayer`), of the man's ethnicity, in the man's home state if one fits there, any state otherwise; a nephew a boy whose father didn't play (`Bloodline::None`). A boy already your former player's son is skipped, and your guys' sons skip a famous name (`world/legacy/guys.rs`, `sons`). The pick is keyed, so a seed always makes the same family. A son takes the man's surname; about one in eight is named for him ("Darnell Hayes Jr."). A nephew takes the surname two times in three (a brother's son), keeps his own otherwise (a sister's). Stored in `World::following.names` (`Name`: the boy, the man, son or nephew, the man in words, his fame, the hype).
+
+**What the name does.**
+- Fame: the hype adds to his fame like an honor, 0.35 × the man's fame for a son, 0.18 × for a nephew, in high school and college; half of it as a pro (`world/fame.rs`, `fame`). A Hall of Famer's son adds 0.35, about what a fifth star adds in high school (0.55 for 5 stars against 0.32 for 4). Followers, NIL brand deals, NIL Go's range and a storyline's weight all read fame, so all of them follow.
+- Staffs notice him: his recruiting visibility takes 0.15 × the man's fame more (half for a nephew), beside the NFL bloodline's 0.15 (`world/recruiting.rs`, `recruit_visibility`).
+- His file: "His father is Darnell Hayes, a four-time Pro Bowl receiver." leads the family notes, in place of "His father played in the NFL." (`world/scouting/lines.rs`, `family_notes`). The news says "son of four-time Pro Bowl receiver Darnell Hayes" (`news_name`, `Name::tag`).
+- What it does not do: his ratings, ceilings and stars are the boy's own (a son keeps the NFL bloodline's small edge he already had).
+
+**The class's biggest followings.** At February's book, after followers move, each high school class's biggest and tenth-biggest following is kept (`World::following.classes`, `class_tops`), and every high schooler's spotlight is set: his following ÷ his class's biggest, 0 to 1 (`Person::spotlight`; 0 out of high school). A world file from before this lane fills them on load (`after_load`).
+
+**News (GR43).** A commitment, a flip and a signing-day flip post their news when he has 4 or 5 stars, as before, or a following in his class's 10 biggest (and at least 10,000, `NEWS_FLOOR`). Loudness is the louder of his stars' (5 stars medium, else small; a signing-day flip medium) and his following's: big for the 10 biggest, huge for the biggest. The news then adds "He has 412,000 followers." (`commit_news`, `followers_words`; `world/recruiting.rs`, `commit_now`, `run_signing_stage`). Big news gets its own screen and stops Continue; huge is the full show (`calendar/events.rs`, `Loudness`).
+
+**Brand exposure (GR44).** A commitment (or a signature without one) from one of the class's 10 biggest followings (and at least 10,000) lifts the program's brand exposure grade by 3 × his spotlight (`committed`, `committed_in`). Each morning (5 AM, after the class day) a lift ends after 365 days or once he no longer holds it (committed to, signed with, or in college at the program), and each program's grade carries its biggest lift, at most 3 points and never past 99 (`day`, `set_lift`, `LIFT_TOP`, `LIFT_DAYS`; `Program::brand_lift` is what is in the grade now). At the year's grades the lift comes off first, so the grade moves from its own read, and goes back on after (`world/staff.rs`; `strip`). The top-10 rule and the biggest-not-sum rule are proposed, not confirmed: with every commitment lifting and the lifts summed, a seed 152 test world (scale 0.05) had 515 programs lifted, most at the 3-point cap.
+
+**His pick (GR45).** In a school's appeal, the prestige part is (title chances + stadium + tradition + w × brand exposure) / 4 with w = 1 + his spotlight: 1 for a boy nobody follows, 2 for the class's biggest following (`world/recruiting.rs`, `stage_weight`, `utility_fit`, `six_parts`). A transfer's spotlight is 0, so the portal weighs it once, as before.
+
+**Storms (GR46).** Each week a college player, high schooler or prep player with 500,000 followers or more rolls the pro's storm: 0.15% × (1 + his temper's z above 0), about 1 in 670 a week (`world/storylines/detect/weekly.rs`, `chances`; `STORM_FOLLOWERS`). The story ("A post that blew up") is open at every level. High school followers top out at 400,000 × reach, so a recruit reaches it only in a big-reach year or as a famous name with Aura. College followers were retuned on 2026-11-16 so the biggest college names get there: about 7 to 18 college players over 500,000 on the seed 1 world, the biggest near a million (`world/fame.rs`, `COLLEGE_TOP`, `COLLEGE_POWER`, `college_honors`; people.md, "Fame, Aura, followers and brand money"). At 1 in 670 a week, ten such players give about one college storm a year. Seed 1 played on 600 days to mid-2028 with games on the stand-in (`follow_check`): 8 college players over 500,000, the biggest 1.02 million (a five-star receiver at Texas A&M), the 10th 463,000, 462 over 100,000; no college storm came in that time (under one was due at 1 in 670 a week, so none is within chance), 13 NFL storms kept.
+
+**Measured (2026-11-16).** On the seed 1 world (history on the engine) played on 600 days with games on the stand-in (`crates/afm-tools/src/bin/follow_check.rs`): 31 famous names joined the 2026 class and 28 the 2027 class (43 sons, 16 nephews; by the man's fame 24 at 0.4, 17 at 0.65, 12 at 0.85, 6 at 1.0); a Hall of Famer's son led his freshman class's followings (11,410); 9 programs held a brand lift in mid-2027, the biggest Florida's +2.56; no college player or recruit had 500,000 followers, so no storm came at those levels (14 NFL storms kept). Seed 151 at a tenth of the size, this lane against main with history on the stand-in: the two worlds are the same until 2008 (no followers before social media's reach), and recruiting after stays within the noise of a world that small (5-stars drafted 70% against 77% of 91, 2-stars 1.3% against 1.4%, FBS players from the school's state median 48% in both). The stand-in history gives no Pro Bowls, so it has no famous names.
+
+### Where the knobs are (lane G8)
+
+- `world/following.rs`: `HYPE_SON` 0.35, `HYPE_NEPHEW` 0.18, `FAMOUS` 0.4, the tiers in `man_fame`, the odds in `kin`, the Jr. 12% and the nephew's name 65% in `names`, `LIFT_TOP` 3, `LIFT_DAYS` 365, `BIG_NEWS` 10, `NEWS_FLOOR` 10,000, `STORM_FOLLOWERS` 500,000.
+- `world/recruiting.rs`: `stage_weight`; the visibility's 0.15 in `recruit_visibility`.
 
 ## Lane G10: your staff's ground and the assistant seat
 

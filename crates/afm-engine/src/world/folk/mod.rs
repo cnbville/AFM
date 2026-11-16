@@ -26,6 +26,7 @@ pub mod case;
 pub mod cast;
 pub mod claims;
 pub mod coach_look;
+pub mod commit;
 pub mod courts;
 pub mod dialogue;
 pub mod facts;

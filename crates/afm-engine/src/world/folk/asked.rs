@@ -122,6 +122,19 @@ impl Case {
         Case::default()
     }
 
+    /// The bar in an ask's words read against your world: the goal the ear
+    /// named by its key after `goal:` (the commitment keys,
+    /// `commit::keys`: "NIL money, goal:state_one", "goal:wins 9"), else
+    /// the bar in the words themselves (`read`).
+    pub fn read_in(w: &World, team: Team, words: &str) -> Case {
+        if let Some(c) = goal_in(words)
+            && let Ok(g) = super::commit::goal_of(w, team, &c)
+        {
+            return Case { bar: Some(g) };
+        }
+        Case::read(strip_goal(words), team.level())
+    }
+
     /// A key for the day's roll, so the same ask with the same bar gets the
     /// same answer that day and a new bar is weighed on its own.
     fn key(&self) -> u64 {
@@ -134,6 +147,28 @@ impl Case {
             Some(GoalKind::BeatRival) => 0x500,
             Some(_) => 0x600,
         }
+    }
+}
+
+/// Where `goal:` starts in an ask's words, in any case.
+fn goal_at(words: &str) -> Option<usize> {
+    words.char_indices().map(|(i, _)| i).find(|&i| words.get(i..i + 5).is_some_and(|x| x.eq_ignore_ascii_case("goal:")))
+}
+
+/// The goal an ask's words name by key after `goal:`, with its number.
+pub fn goal_in(words: &str) -> Option<super::commit::Commitment> {
+    let l = words[goal_at(words)? + 5..].to_lowercase();
+    let mut it = l.split(|c: char| c.is_whitespace() || c == ',' || c == ';' || c == ')').filter(|x| !x.is_empty());
+    let key = it.next()?.trim().to_string();
+    let n = it.next().and_then(|x| x.trim_start_matches("top").trim_start_matches('-').parse::<u32>().ok());
+    Some(super::commit::Commitment { key, n, every: false, words: String::new() })
+}
+
+/// An ask's words without the goal the ear named by key.
+pub fn strip_goal(words: &str) -> &str {
+    match goal_at(words) {
+        Some(i) => words[..i].trim_end_matches([' ', ',', ';', '(']),
+        None => words,
     }
 }
 
@@ -335,9 +370,12 @@ fn answer(yes: bool, bar: Option<GoalKind>, drags: Vec<Why>) -> Answer {
 
 /// One goal and another of the same kind (a season term only when it is
 /// the same term).
-fn same(a: &GoalKind, b: &GoalKind) -> bool {
+pub(crate) fn same(a: &GoalKind, b: &GoalKind) -> bool {
     match (a, b) {
         (GoalKind::Measure(_), GoalKind::Measure(_)) => a == b,
+        // Two class goals from the list are the same goal when they are the
+        // same goal on the list (a class rank and the state's #1 are two).
+        (GoalKind::Campaign(x), GoalKind::Campaign(y)) => x.goal == y.goal,
         _ => std::mem::discriminant(a) == std::mem::discriminant(b),
     }
 }
@@ -346,7 +384,7 @@ fn same(a: &GoalKind, b: &GoalKind) -> bool {
 /// rank is the class being signed now, which the boss judges after next
 /// season (`boss::goal_met` reads a season's class); any other bar is for
 /// the season the goals are for (`boss::goal_season`).
-fn bar_season(w: &World, team: Team, g: GoalKind) -> i32 {
+pub(crate) fn bar_season(w: &World, team: Team, g: GoalKind) -> i32 {
     match g {
         GoalKind::Recruiting(_) => w.year + 1,
         _ => boss::goal_season(w, team),
@@ -356,7 +394,7 @@ fn bar_season(w: &World, team: Team, g: GoalKind) -> i32 {
 /// Whether a bar is above the one he set for its season, or, before he
 /// sets that season's goals, above the one he would set
 /// (`boss::draft_goals`); a goal he wouldn't set at all is above.
-fn raises(w: &World, team: Team, g: GoalKind) -> bool {
+pub(crate) fn raises(w: &World, team: Team, g: GoalKind) -> bool {
     let season = bar_season(w, team, g);
     let set = w.folk.goals.iter().find(|x| x.season == season && same(&x.kind, &g)).map(|x| x.kind);
     match set.or_else(|| boss::draft_goals(w, team).into_iter().find(|x| same(x, &g))) {
@@ -370,7 +408,7 @@ fn raises(w: &World, team: Team, g: GoalKind) -> bool {
 /// How believable a bar is from the record (0 to 1), and the record it
 /// reads: your program's better class in the conference of the last two,
 /// or last season's wins.
-fn credible(w: &World, team: Team, g: GoalKind) -> (f64, Option<u32>) {
+pub(crate) fn credible(w: &World, team: Team, g: GoalKind) -> (f64, Option<u32>) {
     let last = facts::seasons(w, team, 1).into_iter().last();
     let share = last.as_ref().map(|s| s.wins as f64 / (s.wins + s.losses).max(1) as f64);
     match g {
@@ -391,6 +429,12 @@ fn credible(w: &World, team: Team, g: GoalKind) -> (f64, Option<u32>) {
             let won = last.as_ref().is_some_and(|s| s.note.contains("champion") || s.note.contains("won"));
             (if won { 0.9 } else { share.map_or(0.4, |x| 0.2 + 1.2 * (x - 0.5).max(0.0)) }, last.map(|s| s.wins))
         }
+        // A goal on the recruiting list: the same goal read on the last
+        // class (`goals::likely`, as the campaign reads it).
+        GoalKind::Campaign(a) => match team {
+            Team::College(p) => (crate::world::ground::campaign::goals::likely(w, p, &a, 0.0) as f64, None),
+            _ => (0.5, None),
+        },
         _ => (0.6, None),
     }
 }
@@ -518,7 +562,7 @@ fn ago(days: u32) -> String {
 
 /// The record a doubt reads, in words for him ("the better of the last two
 /// classes ranked 9th in the conference").
-fn record(g: GoalKind, r: Option<u32>) -> String {
+pub(crate) fn record(g: GoalKind, r: Option<u32>) -> String {
     match (g, r) {
         (GoalKind::Recruiting(_), Some(r)) => {
             format!("the better of the last two classes ranked {} in the conference", nth(r))
@@ -630,11 +674,18 @@ fn file(w: &mut World, k: AskKind, granted: bool, words: String) {
 
 /// The bar you put up on his goals for its season, in place of his own of
 /// that kind, kept by the goals meeting; the public bar a little higher.
-fn hold(w: &mut World, team: Team, g: GoalKind) {
+pub(crate) fn hold(w: &mut World, team: Team, g: GoalKind) {
+    hold_goal(w, team, g);
+    w.folk.mine.expectation = (w.folk.mine.expectation + BAR_EXPECT).min(1.0);
+}
+
+/// The bar on his goals for its season, in place of his own of that kind,
+/// and nothing else: a commitment said in his office (`commit::hold`) puts
+/// up no public bar.
+pub(crate) fn hold_goal(w: &mut World, team: Team, g: GoalKind) {
     let season = bar_season(w, team, g);
     w.folk.goals.retain(|x| !(x.season == season && same(&x.kind, &g)));
     w.folk.goals.push(Goal { kind: g, season, deal: 1, met: None, set_on: w.today, talk: true });
-    w.folk.mine.expectation = (w.folk.mine.expectation + BAR_EXPECT).min(1.0);
 }
 
 /// A yes you confirmed: the money moves (`boss::grant`), your bar goes on

@@ -21,7 +21,7 @@ pub fn want_words(k: WantKind) -> &'static str {
     match k {
         WantKind::Role => "his role: playing time, the job he sees for himself",
         WantKind::Money => "money: NIL, his pay",
-        WantKind::Security => "security: a spot that lasts",
+        WantKind::Security => "security: a spot or a job that lasts",
         WantKind::Winning => "winning, and being somewhere that matters",
         WantKind::Place => "being close to home",
         WantKind::Development => "getting better, a path to the next level",

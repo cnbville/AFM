@@ -3,6 +3,8 @@
 //! never empty and you can approve it, the standing game rules are the
 //! ones game day starts from, and game day changes them for one game only.
 
+mod common;
+
 use afm_game::Game;
 use serde_json::{Value, json};
 
@@ -34,7 +36,7 @@ fn the_game_plan_from_the_identity_to_game_day() {
     let t = std::time::Instant::now();
     let dir = std::env::temp_dir().join(format!("afm-gameplan-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 13, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 13, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     // The best job whose two coordinators are in place: a head coach hired
     // in late January can still be searching for his in February.
     let jobs = ok(&mut g, "jobs", json!({ "level": "college" }));

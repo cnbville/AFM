@@ -276,7 +276,10 @@ pub fn set_areas(w: &mut World, man: usize, list: &[u16]) -> Result<String, Stri
 /// The beats exist for your program (the coordinator's first proposal on
 /// the first day of a job, or a file from before lane G10).
 pub(crate) fn ensure(w: &mut World, prog: usize, d: Date) {
-    if w.ground.staff.program == Some(prog as u32) && w.ground.staff.beats.is_empty() && !men(w, prog).is_empty() {
+    // Once a job: an empty proposal (no area worth a man yet) waits for the
+    // February meeting rather than running again every day.
+    let s = &w.ground.staff;
+    if s.program == Some(prog as u32) && s.beats.is_empty() && s.proposal.date.is_none() && !men(w, prog).is_empty() {
         apply(w, prog, d, "Your staff's areas");
     }
 }

@@ -328,6 +328,11 @@ pub fn booked_over(w: &World, monday: Date) -> f32 {
 /// that lapsed, the May list, your week off.
 pub(crate) fn day(w: &mut World, d: Date) {
     let Some(prog) = seat_program(w) else { return };
+    // Your first season from a Jan 1 start: Ground waits until the
+    // January window has closed (GR31, lane G6).
+    if super::campaign::waits(w, d) {
+        return;
+    }
     phone::morning(w, prog, d);
     if d.weekday() == Weekday::Mon || w.ground.week.monday.is_none_or(|m| m != monday_of(d)) {
         plan::turn(w, prog, d);

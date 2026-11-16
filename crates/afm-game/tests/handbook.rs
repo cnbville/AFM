@@ -2,6 +2,8 @@
 //! your level first, the guided week's card and your No. 2's first memo,
 //! a task ticking, and Help set to Off ending the week and the warnings.
 
+mod common;
+
 use afm_game::Game;
 use serde_json::{Value, json};
 
@@ -16,7 +18,7 @@ fn ok(g: &mut Game, cmd: &str, args: Value) -> Value {
 fn the_handbook_and_the_first_week_at_each_level() {
     let dir = std::env::temp_dir().join(format!("afm-handbook-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 13, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 13, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     let fresh = ok(&mut g, "save", json!({ "name": "fresh" }))["saved"].as_str().unwrap().to_string();
 
     for (level, bg, extra) in

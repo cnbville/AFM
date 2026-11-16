@@ -175,6 +175,7 @@ async function verLatest() {
   toast("Looking for the latest version…");
   const r = await checkUpdate(true);
   if (r === false) toast("The update page can't be reached right now. Updates are no longer paused; AFM tries again by itself.");
+  else if (r === "pending") toast("The latest version is installed. Restart to use it.");
   else if (!updating) toast("AFM is on the latest version.");
 }
 

@@ -3545,6 +3545,9 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
             (p.crowd_seats() as f64).sqrt() * (0.5 + p.fans) * (0.7 + 0.3 * p.recent);
         raw[i][GradeCat::CampusLife as usize] = (p.enrollment as f64).ln() + 0.3 * academics;
     }
+    // The commitments' lifts come off while the grades move from their own
+    // reads, and go back on after (GR44).
+    super::following::strip(w);
     for division in Division::ALL {
         let ids: Vec<usize> = (0..n).filter(|&i| w.programs[i].division == division).collect();
         for cat in GradeCat::ALL {
@@ -3567,6 +3570,9 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
             }
         }
     }
+
+    let today = w.today;
+    super::following::day(w, today);
 
     // --- NIL collectives and their warnings -------------------------------------------
     for i in 0..n {

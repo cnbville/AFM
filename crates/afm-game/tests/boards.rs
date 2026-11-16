@@ -3,6 +3,8 @@
 //! boards add up to the contracts and the NIL deals, the line chart and the
 //! throws are kept on your games and your coming opponents' film only.
 
+mod common;
+
 use afm_engine::game::PlayType;
 use afm_game::Game;
 use serde_json::{Value, json};
@@ -26,7 +28,7 @@ fn world(tag: &str) -> (Game, String) {
     let p = FRESH
         .get_or_init(|| {
             let mut g = Game::new(base.join("world"));
-            ok(&mut g, "build_world", json!({ "seed": 13, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+            common::build_world(&mut g, json!({ "seed": 13, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
             ok(&mut g, "save", json!({ "name": "fresh" }))["saved"].as_str().unwrap().to_string()
         })
         .clone();

@@ -5,6 +5,8 @@
 //! college and a high school the draft outlook answers before and after
 //! the draft.
 
+mod common;
+
 use afm_game::Game;
 use serde_json::{Value, json};
 
@@ -77,7 +79,7 @@ fn the_draft_room_and_the_outlook() {
     let t = std::time::Instant::now();
     let dir = std::env::temp_dir().join(format!("afm-draftroom-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     let fresh = ok(&mut g, "save", json!({ "name": "fresh" }))["saved"].as_str().unwrap().to_string();
     let start = |g: &mut Game, job: &Value, bg: &str| {
         ok(g, "load", json!({ "path": &fresh }));

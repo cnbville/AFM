@@ -803,6 +803,9 @@ fn letter(w: &World, prog: usize, monday: Date, old_board: Option<&Vec<u32>>, bo
     if !calls.is_empty() {
         lines.push(format!("Calls for you: {}.", calls.join(", ")));
     }
+    // Your goals, a line each (lane G6), and your coordinator's read while
+    // he guides your first offseason.
+    lines.extend(crate::world::ground::campaign::letter_lines(w, prog));
     lines.push(format!("At stake: {}.", b.stake.to_lowercase()));
     lines
 }
@@ -827,7 +830,8 @@ pub fn letter_for(w: &World, monday: Date) -> Option<&Vec<String>> {
 /// The day after Memorial Day: each man's list from the spring road (the
 /// rising seniors he saw in person), ranked by your coordinator (your
 /// offers first, then the services' word, then how often your staff saw
-/// him; lane G6 brings your goals into it), and your open official visit
+/// him, with the kids your goals need ahead of the rest at the same
+/// offer: lane G6), and your open official visit
 /// spots from this weekend to the dead period.
 pub(crate) fn may_list(w: &mut World, prog: usize, d: Date) {
     if w.ground.week.may.date == Some(d) {
@@ -874,7 +878,12 @@ pub(crate) fn may_list(w: &mut World, prog: usize, d: Date) {
     let key = |id: u32| {
         let i = place(w, id).unwrap_or(0);
         let q = &w.people[i];
-        (q.cal.offers.contains(&prog), q.stars, count.get(&id).copied().unwrap_or(0))
+        (
+            q.cal.offers.contains(&prog),
+            crate::world::ground::campaign::serves(w, prog, i),
+            q.stars,
+            count.get(&id).copied().unwrap_or(0),
+        )
     };
     all.sort_by(|a, b| key(*b).cmp(&key(*a)).then(a.cmp(b)));
     // Your officials still open: the weekends from Friday to the dead
@@ -976,7 +985,7 @@ pub fn may_invite(w: &mut World, n: usize) -> Result<Vec<String>, String> {
 }
 
 /// A memo to your inbox from your staff.
-fn memo(w: &mut World, d: Date, minute: u16, from: &str, subject: String, body: Vec<String>) {
+pub(crate) fn memo(w: &mut World, d: Date, minute: u16, from: &str, subject: String, body: Vec<String>) {
     use crate::world::desk::{Head, Mail};
     let you = crate::world::folk::scene::your_name(w);
     let text: Vec<u64> = subject.bytes().map(u64::from).collect();

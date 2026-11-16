@@ -300,8 +300,8 @@ pub fn decision_words(d: super::terms::Decision) -> String {
 pub fn request_words_in(w: &crate::world::World, r: &Request) -> String {
     use crate::world::folk::{Team, asked};
     if let (Request::Money(s), Some(team)) = (r, Team::seat(w)) {
-        let what = super::office::asks::money_kind(s).words();
-        return match asked::on_table(w, team, &asked::Case::read(s, team.level())).bar {
+        let what = super::office::asks::money_kind(asked::strip_goal(s)).words();
+        return match asked::on_table(w, team, &asked::Case::read_in(w, team, s)).bar {
             Some(g) => format!("find {what}, and you're held to {}", asked::bar_words(g)),
             None => format!("find {what}"),
         };
@@ -342,7 +342,9 @@ pub fn request_words(r: &Request) -> String {
         Request::Plant(_) => "let word out that you like a prospect".into(),
         Request::SecondOpinion(_) => "get an outside specialist's opinion".into(),
         Request::Clear(_) => "clear him to play sooner".into(),
-        Request::Money(s) => format!("find {}", super::office::asks::money_kind(s).words()),
+        Request::Money(s) => {
+            format!("find {}", super::office::asks::money_kind(crate::world::folk::asked::strip_goal(s)).words())
+        }
         Request::Hire(_) => "find the money for a hire".into(),
         Request::Time => "give you more time".into(),
         Request::Backing => "back you with the big booster".into(),

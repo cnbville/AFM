@@ -3,6 +3,8 @@
 //! whole scale and sharpen it with film, offer low and get a warning, not
 //! the end, then make an offer he can weigh; coaches to watch come back.
 
+mod common;
+
 use afm_game::Game;
 use serde_json::{Value, json};
 
@@ -31,7 +33,7 @@ fn hold(g: &mut Game, id: u64) {
 fn a_college_coach_finds_reads_and_offers_any_coach() {
     let dir = std::env::temp_dir().join(format!("afm-hiring-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 21, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 21, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     let jobs = ok(&mut g, "jobs", json!({ "level": "college" }));
     let job = jobs["jobs"][0]["ref"].clone();
     ok(&mut g, "start_career", json!({ "name": "Test Coach", "job": job, "seed": 3 }));

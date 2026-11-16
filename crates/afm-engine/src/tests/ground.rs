@@ -298,8 +298,8 @@ fn the_ground_store_saves_and_an_old_file_loads_empty() {
 }
 
 /// The world plays the same with the ground on: it only writes its own
-/// store, your inbox, (lane G4) your seat's own file and (lane G7) your
-/// own network's ground people.
+/// store, your inbox, (lane G4) your seat's own file, (lane G7) your
+/// own network's ground people and (lane G6) your AD's goals and talks.
 #[test]
 fn the_world_plays_the_same_with_the_ground() {
     // Values, so the maps compare by key whatever their order in memory.
@@ -363,9 +363,14 @@ fn the_world_plays_the_same_with_the_ground() {
     }
     // Everything but your own network plays the same; in your network only
     // the people on your ground differ, since their ties read your
-    // standing with them (lane G7, `ground::stores`).
+    // standing with them (lane G7, `ground::stores`). Your AD's goals and
+    // your meetings are your seat's own: the campaign sets his goals in
+    // his talk (lane G6).
     let strip = |mut v: Vec<serde_json::Value>| {
-        v[3].as_object_mut().unwrap().remove("network");
+        let f = v[3].as_object_mut().unwrap();
+        f.remove("network");
+        f.remove("goals");
+        f.remove("scenes");
         v
     };
     let (fa, fb) = (strip(fp(&on)), strip(fp(&off)));

@@ -87,7 +87,7 @@
    "acts": [
     {
      "act": "question",
-     "topic": "Jobs"
+     "topic": "Job|Jobs"
     }
    ]
   },
@@ -97,6 +97,42 @@
     {
      "act": "claim",
      "claim": "record|stat|status"
+    }
+   ]
+  },
+  {
+   "text": "We'll keep the state's #1 kid away from Clemson, every year.",
+   "acts": [
+    {
+     "act": "commit",
+     "what": "state_one",
+     "when": "every_year"
+    }
+   ]
+  },
+  {
+   "text": "We'll win at least 6 games.",
+   "acts": [
+    {
+     "act": "commit",
+     "what": "wins"
+    }
+   ]
+  },
+  {
+   "text": "In 2026, it's about NIL and relationships.",
+   "acts": []
+  },
+  {
+   "text": "We're gonna offer him more than Clemson.",
+   "acts": []
+  },
+  {
+   "text": "If you get me the NIL money, I'll make sure the number one gets signed.",
+   "acts": [
+    {
+     "act": "request",
+     "what": "money"
     }
    ]
   }
