@@ -298,7 +298,8 @@ fn the_ground_store_saves_and_an_old_file_loads_empty() {
 }
 
 /// The world plays the same with the ground on: it only writes its own
-/// store, your inbox and (lane G4) your seat's own file.
+/// store, your inbox, (lane G4) your seat's own file and (lane G7) your
+/// own network's ground people.
 #[test]
 fn the_world_plays_the_same_with_the_ground() {
     // Values, so the maps compare by key whatever their order in memory.
@@ -360,7 +361,22 @@ fn the_world_plays_the_same_with_the_ground() {
         on.advance_day();
         off.advance_day();
     }
-    assert!(fp(&on) == fp(&off), "the world moved with the ground");
+    // Everything but your own network plays the same; in your network only
+    // the people on your ground differ, since their ties read your
+    // standing with them (lane G7, `ground::stores`).
+    let strip = |mut v: Vec<serde_json::Value>| {
+        v[3].as_object_mut().unwrap().remove("network");
+        v
+    };
+    assert!(strip(fp(&on)) == strip(fp(&off)), "the world moved with the ground");
+    let (a, b) = (&on.folk.network.contacts, &off.folk.network.contacts);
+    assert_eq!(a.len(), b.len());
+    for (x, y) in a.iter().zip(b) {
+        assert_eq!((x.coach, x.other, &x.how), (y.coach, y.other, &y.how));
+        if crate::world::ground::stores::ground_who(&on, x).is_none() {
+            assert_eq!(serde_json::to_value(x).unwrap(), serde_json::to_value(y).unwrap(), "{}", x.how);
+        }
+    }
     // Your seat's own file is its own (lane G4): its board reads your
     // ground, a Trusted coach's word on a kid is a look and his tape comes
     // before you ask, so who was seen when can differ; the world can't.

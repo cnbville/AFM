@@ -100,6 +100,18 @@ pub const HELD: f32 = 0.25;
 pub const WARN_MAX: usize = 5;
 /// Day one: points for a coach's recruiting tie to a school (0-1).
 pub const TIE_POINTS: f32 = 85.0;
+// Lane G7's day one (the build's picks, proposed, not confirmed).
+/// A family whose older son plays for the program.
+pub const BROTHER: f32 = 40.0;
+/// A former player and his old school.
+pub const ALUM: f32 = 30.0;
+/// A former player and a man who coached him (C13: Known).
+pub const OLD_PLAYER: f32 = 40.0;
+/// Your coaching tree (people.md: Trusted, or Home on good terms).
+pub const TREE: f32 = 55.0;
+pub const TREE_HOME: f32 = 78.0;
+/// A cousin's family starts a level below the family it knows (GR62).
+pub const COUSIN_DROP: f32 = 25.0;
 
 /// A contact: what someone on your staff did with a person.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -137,22 +149,45 @@ pub fn derived(w: &World, who: Who, holder: Holder) -> f32 {
             Some((h, _)) => SAT_IN * program_part(w, p as usize, h),
             None => 0.0,
         },
-        (Who::Coach(c), Holder::Coach(k)) => match people::coach_school(w, c as usize) {
-            Some((h, Role::HeadCoach)) => w
-                .coaches
-                .get(k as usize)
-                .and_then(|k| k.ties.get(&h))
-                .map_or(0.0, |&t| TIE_POINTS * t.clamp(0.0, 1.0) as f32),
-            _ => 0.0,
-        },
+        (Who::Coach(c), Holder::Coach(k)) => coach_part(w, c, k),
         // A counselor knows the programs his kids went to and stayed in.
         (Who::Counselor(h), Holder::Program(p)) => w
             .programs
             .get(p as usize)
             .and_then(|q| q.hs_pipeline.get(&(h as usize)))
             .map_or(0.0, |x| (60.0 * x.0.clamp(0.0, 1.0)) as f32),
+        // A family whose older son plays for the program knows it (lane G7).
+        (Who::Family(k), Holder::Program(p)) => crate::world::folk::person(w, k)
+            .filter(|&i| w.people[i].family.older_brother_at == Some(p as usize))
+            .map_or(0.0, |_| BROTHER),
+        // A former player knows his old school, and the men who coached him
+        // (C13: Known; one coaching high school Trusted).
+        (Who::Trainer(f) | Who::SevenOnSeven(f), Holder::Program(p)) => {
+            w.formers.get(f).filter(|x| x.colleges.iter().any(|c| c.0 as u32 == p)).map_or(0.0, |_| ALUM)
+        }
+        (Who::Trainer(f) | Who::SevenOnSeven(f), Holder::Coach(k)) => {
+            w.formers.get(f).filter(|x| x.coached_by.contains(&k)).map_or(0.0, |_| OLD_PLAYER)
+        }
         _ => 0.0,
     }
+}
+
+/// Day one for a coach and one of your men: his own recruiting tie to the
+/// coach's school, and (lane G7) a four-year college's man is your
+/// network's tie to him (other college staffs get standing like everyone,
+/// GR63). Your coaching tree and your old players are stored when your job
+/// starts (`seed`).
+fn coach_part(w: &World, c: u32, k: u32) -> f32 {
+    let mut v: f32 = 0.0;
+    let Some(man) = w.coaches.get(k as usize) else { return 0.0 };
+    if let Some((h, Role::HeadCoach)) = people::coach_school(w, c as usize) {
+        v = v.max(man.ties.get(&h).map_or(0.0, |&t| TIE_POINTS * t.clamp(0.0, 1.0) as f32));
+    }
+    let you = w.career.as_ref().map(|x| x.coach as u32);
+    if Some(k) == you && people::kind(w, Who::Coach(c)) == people::Kind::College {
+        v = v.max(100.0 * crate::world::folk::network::warmth(w, c as usize));
+    }
+    v
 }
 
 /// A holder's points with a person: his memory, or day one.
@@ -207,7 +242,7 @@ pub fn cap(m: &Memory, d: Date) -> f32 {
 }
 
 /// Adds points inside the gates (a loss is never gated) and notes Known.
-fn gain(m: &mut Memory, by: f32, d: Date) {
+pub(crate) fn gain(m: &mut Memory, by: f32, d: Date) {
     if by >= 0.0 {
         let top = cap(m, d).max(m.points);
         m.points = (m.points + by).min(top);
@@ -221,7 +256,7 @@ fn gain(m: &mut Memory, by: f32, d: Date) {
 }
 
 /// The memory, made from day one the first time.
-fn entry(g: &mut Ground, w_derived: f32, who: Who, holder: Holder, d: Date) -> &mut Memory {
+pub(crate) fn entry(g: &mut Ground, w_derived: f32, who: Who, holder: Holder, d: Date) -> &mut Memory {
     g.entry(who, holder, || {
         let mut m = Memory::new(who, holder, w_derived, d);
         if w_derived > 0.0 {
@@ -249,7 +284,7 @@ fn day_one(m: &mut Memory, d: Date) {
 }
 
 /// The head coach of a program, as a holder.
-fn head_holder(w: &World, prog: usize) -> Option<Holder> {
+pub(crate) fn head_holder(w: &World, prog: usize) -> Option<Holder> {
     w.programs.get(prog)?.head_coach.map(|c| Holder::Coach(c as u32))
 }
 
@@ -334,16 +369,48 @@ fn holder_man(holder: Holder, man: Option<usize>) -> Holder {
     }
 }
 
+/// Your college seat's program, when the seat keeps ground (a college
+/// staff with a career, the ground on).
+pub fn seat_program(w: &World) -> Option<usize> {
+    if w.ground.off || w.career.is_none() {
+        return None;
+    }
+    match readers::seat_staff(w) {
+        Some(readers::Staff::Program(p)) => Some(p),
+        _ => None,
+    }
+}
+
+/// A cousin's family starts from the family it knows, a level lower
+/// (GR62): its points less one level's width, as old acquaintances.
+fn from_cousin(w: &mut World, prog: usize, fam: Who, cousin: Who, d: Date) {
+    let hs: Vec<Holder> = holders(w, prog);
+    for holder in hs {
+        let Some(c) = w.ground.get(cousin, holder) else { continue };
+        let pts = (c.points - COUSIN_DROP).max(0.0);
+        if pts <= 0.0 {
+            continue;
+        }
+        let met = c.met;
+        let m = w.ground.entry(fam, holder, || Memory::new(fam, holder, 0.0, d));
+        m.points = m.points.max(pts);
+        m.met = m.met.min(met);
+        m.contacts = m.contacts.max(2);
+        if m.points >= 25.0 && m.known_since.is_none() {
+            m.known_since = Some(met.max(d.add(-365)));
+        }
+        m.roots.family = true;
+        m.heard = Some("his cousins' family told them about you".into());
+    }
+}
+
 /// Your staff's look with a recruit (`scouting::dept::add`) as contacts
 /// with the people around him: an evaluation day is a visit with his head
 /// coach (his coordinators sit in), a call reaches his coach and his
 /// counselor, your camp is an event with his coach, a visit to campus is
 /// the host's call with his coach. Only a college seat keeps ground.
 pub(crate) fn on_look(w: &mut World, id: u32, code: u32, kind: Kind, d: Date) {
-    if w.ground.off || w.career.is_none() {
-        return;
-    }
-    let Some(readers::Staff::Program(prog)) = readers::seat_staff(w) else { return };
+    let Some(prog) = seat_program(w) else { return };
     let c = match kind {
         Kind::Practice | Kind::Game => Contact::Visit,
         Kind::Call => Contact::Call,
@@ -352,12 +419,41 @@ pub(crate) fn on_look(w: &mut World, id: u32, code: u32, kind: Kind, d: Date) {
         _ => return,
     };
     let Some(i) = crate::world::scouting::place(w, id) else { return };
-    let q = &w.people[i];
-    if !matches!(q.stage, Stage::HighSchool | Stage::PrepSchool) {
+    let (stage, college, hs) = (w.people[i].stage, w.people[i].college, w.people[i].hs);
+    let man = (code >= readers::COACH).then(|| (code - readers::COACH) as usize).filter(|&c| c < w.coaches.len());
+    // A junior college kid's coach is his head coach there (lane G7).
+    if stage == Stage::College {
+        let juco = college.and_then(|p| w.programs.get(p)).filter(|p| p.division == crate::world::Division::JUCO);
+        if let Some(hc) = juco.and_then(|p| p.head_coach) {
+            contact(w, prog, man, Who::Coach(hc as u32), c, 1.0, d);
+        }
         return;
     }
-    let hs = q.hs;
-    let man = (code >= readers::COACH).then(|| (code - readers::COACH) as usize).filter(|&c| c < w.coaches.len());
+    if !matches!(stage, Stage::HighSchool | Stage::PrepSchool) {
+        return;
+    }
+    // His family hears from you the way he does: calls, home visits and his
+    // visits to campus (the recruiting calendar's contact rules, GR62).
+    if matches!(c, Contact::Call | Contact::Campus) {
+        let fam = people::family_of(w, i);
+        if w.ground.get(fam, Holder::Program(prog as u32)).is_none()
+            && let Some(cousin) = people::cousin_of(w, i)
+        {
+            from_cousin(w, prog, fam, cousin, d);
+        }
+        contact(w, prog, man, fam, c, 1.0, d);
+    }
+    // A prep year's kid is at his prep school: its coach takes the visit.
+    if stage == Stage::PrepSchool
+        && let Some(prep) = people::prep_of(w, i)
+    {
+        if c != Contact::Event(1.0) {
+            contact(w, prog, man, prep, c, 1.0, d);
+        }
+        if c == Contact::Visit {
+            return;
+        }
+    }
     let Some(h) = w.high_schools.get(hs) else { return };
     let (head, oc, dc) = (h.coach, h.oc, h.dc);
     if let Some(hc) = head {
@@ -378,10 +474,7 @@ pub(crate) fn on_look(w: &mut World, id: u32, code: u32, kind: Kind, d: Date) {
 /// offers as they happen, his kids' seasons on their dates, and on the
 /// first of each month the fade and the warnings.
 pub(crate) fn day(w: &mut World, d: Date) {
-    if w.ground.off || w.career.is_none() {
-        return;
-    }
-    let Some(readers::Staff::Program(prog)) = readers::seat_staff(w) else { return };
+    let Some(prog) = seat_program(w) else { return };
     let you = w.career.as_ref().map_or(0, |c| c.coach);
     if w.ground.seeded != Some((you as u32, prog as u32)) {
         seed(w, prog, you, d);
@@ -403,7 +496,10 @@ fn seed(w: &mut World, prog: usize, you: usize, d: Date) {
     // The program's ties stay with it and your own go with you: drop
     // whatever another program held.
     let keep = holders(w, prog);
-    w.ground.memories.retain(|m| keep.contains(&m.holder) || m.holder == Holder::Coach(you as u32));
+    // Your own word's credit with each college staff (you as the person,
+    // `scouting/hs.rs`) stays wherever you go.
+    let me = Who::Coach(you as u32);
+    w.ground.memories.retain(|m| keep.contains(&m.holder) || m.holder == Holder::Coach(you as u32) || m.who == me);
     w.ground.told.clear();
     let ph = Holder::Program(prog as u32);
     for h in 0..w.high_schools.len() {
@@ -456,11 +552,69 @@ fn seed(w: &mut World, prog: usize, you: usize, d: Date) {
             m.keep(Moment { date: d, words, good: true, big: kind == Root::OwnSchool, holds_to: None });
         }
     }
+    tree(w, you, d);
     let mut whos: Vec<Who> = w.ground.memories.iter().map(|m| m.who).collect();
     whos.dedup();
     for who in whos {
         let lv = level(w, prog, who) as u8;
         w.ground.set_told(who, lv);
+    }
+}
+
+/// Your coaching tree and your old players (lane G7, people.md): your
+/// mentor and the men who learned under you start Trusted, Home when he
+/// is a loyal man; a former player of yours coaching high school starts
+/// Trusted, one coaching elsewhere or training kids Known.
+fn tree(w: &mut World, you: usize, d: Date) {
+    let yh = Holder::Coach(you as u32);
+    let mut v: Vec<(Who, f32, &str)> = Vec::new();
+    for (c, co) in w.coaches.iter().enumerate() {
+        if c == you || co.retired || co.job.is_none() {
+            continue;
+        }
+        let tie = co.mentor == Some(you) || w.coaches[you].mentor == Some(c);
+        if tie {
+            let pts = if co.personality.loyalty >= 14.0 { TREE_HOME } else { TREE };
+            let words =
+                if co.mentor == Some(you) { "I learned this job from you." } else { "You were always one of mine." };
+            v.push((Who::Coach(c as u32), pts, words));
+        }
+    }
+    for f in w.formers.list.iter().filter(|f| f.coached_by.contains(&(you as u32))) {
+        match (f.coach, f.life) {
+            (Some(c), _) => {
+                let hs = people::coach_school(w, c as usize).is_some();
+                v.push((Who::Coach(c), if hs { TREE } else { OLD_PLAYER }, "You coached me. I don't forget that."));
+            }
+            (None, crate::world::former::Life::Trainer) => {
+                v.push((Who::Trainer(f.id), OLD_PLAYER, "You coached me. I don't forget that."))
+            }
+            (None, crate::world::former::Life::Camp) => {
+                v.push((Who::SevenOnSeven(f.id), OLD_PLAYER, "You coached me. I don't forget that."))
+            }
+            _ => {}
+        }
+    }
+    for (who, pts, words) in v {
+        let m = w.ground.entry(who, yh, || Memory::new(who, yh, 0.0, d));
+        if m.points < pts {
+            m.points = pts;
+        }
+        m.met = m.met.min(d.add(-6 * 365));
+        m.contacts = m.contacts.max(6);
+        let ks = d.add(-4 * 365);
+        m.known_since = Some(m.known_since.map_or(ks, |k| k.min(ks)));
+        if pts >= TREE_HOME {
+            m.did_well = true;
+        }
+        if words.starts_with("You coached") {
+            m.roots.old_player = true;
+        } else {
+            m.roots.tree = true;
+        }
+        if !m.moments.iter().any(|x| x.words == words) {
+            m.keep(Moment { date: d, words: words.into(), good: true, big: false, holds_to: None });
+        }
     }
 }
 
@@ -560,6 +714,40 @@ fn pay(
         }
     }
     announce(w, prog, who, before, d);
+    // People talk (GR62): it reaches a coach's close ties and his area.
+    // (A family and a counselor are paid with him, so they don't pass it
+    // on again.)
+    if let Some((_, good, big)) = &moment
+        && matches!(who, Who::Coach(_))
+    {
+        let about = kid.map(|k| k.1.to_string());
+        super::word::spread(w, prog, who, by, *good, *big, about, d);
+    }
+}
+
+/// A son who graduated with you or was drafted from your program makes
+/// his family Home (people.md, "Families").
+fn family_home(w: &mut World, prog: usize, fam: Who, d: Date, id: u32, last: &str, how: Fared) {
+    let before = level(w, prog, fam);
+    let mut hs = vec![Holder::Program(prog as u32)];
+    hs.extend(head_holder(w, prog));
+    let words = match how {
+        Fared::Drafted => "You got our son to the league.".to_string(),
+        _ => "He came home with a degree. That was the promise.".to_string(),
+    };
+    for holder in hs {
+        let start = derived(w, fam, holder);
+        let m = entry(&mut w.ground, start, fam, holder, d);
+        m.kid(id, last, how);
+        m.did_well = true;
+        m.points = m.points.max(Level::Home.floor());
+        m.contacts = m.contacts.max(2);
+        m.known_since.get_or_insert(d);
+        if !m.moments.iter().any(|x| x.words == words) {
+            m.keep(Moment { date: d, words: words.clone(), good: true, big: true, holds_to: None });
+        }
+    }
+    announce(w, prog, fam, before, d);
 }
 
 /// Promises judged and offers pulled reach the kid's high school coach
@@ -594,9 +782,28 @@ fn word(w: &mut World, prog: usize, d: Date) {
     for (k, id, kept, what) in todo {
         w.ground.once(k);
         let Some(i) = crate::world::scouting::place(w, id) else { continue };
-        let q = &w.people[i];
-        let Some(who) = people::head_coach_of(w, q.hs) else { continue };
-        let last = crate::world::names::surname_of(&q.name).to_string();
+        let hs = w.people[i].hs;
+        let last = crate::world::names::surname_of(&w.people[i].name).to_string();
+        // His family remembers too, for every brother (GR62): lie to them
+        // and the whole family remembers.
+        let fam = people::family_of(w, i);
+        match (kept, what.as_str()) {
+            (true, _) => pay(
+                w,
+                prog,
+                fam,
+                WORD_HELD,
+                d,
+                None,
+                Some(("You did right by our son, like you said.".into(), true, false)),
+            ),
+            (false, "pulled") => {
+                let words = format!("You pulled his offer in {}.", MONTH[d.parts().1 as usize - 1]);
+                pay(w, prog, fam, PROMISE_BROKEN, d, None, Some((words, false, true)));
+            }
+            (false, _) => pay(w, prog, fam, PROMISE_BROKEN, d, None, Some(("You lied to us.".into(), false, true))),
+        }
+        let Some(who) = people::head_coach_of(w, hs) else { continue };
         match (kept, what.as_str()) {
             (true, _) => pay(
                 w,
@@ -677,6 +884,22 @@ fn kids(w: &mut World, prog: usize, d: Date) {
         if let Some(who) = people::head_coach_of(w, hs) {
             pay(w, prog, who, by, d, Some((id, &last, how)), Some(moment));
         }
+        // A son who played for you and did well makes his family Home.
+        if let Some(i) = crate::world::folk::person(w, id) {
+            let fam = people::family_of(w, i);
+            match how {
+                Fared::Started => pay(
+                    w,
+                    prog,
+                    fam,
+                    by,
+                    d,
+                    Some((id, &last, how)),
+                    Some(("Our boy started for you.".into(), true, false)),
+                ),
+                _ => family_home(w, prog, fam, d, id, &last, how),
+            }
+        }
         // A counselor wants a kid placed where he'll graduate.
         if how == Fared::Graduated {
             pay(w, prog, Who::Counselor(hs as u32), by, d, Some((id, &last, how)), None);
@@ -714,7 +937,8 @@ fn month(w: &mut World, prog: usize, d: Date) {
     // A man who left your staff took his own ties with him.
     let keep = holders(w, prog);
     let you = w.career.as_ref().map(|c| Holder::Coach(c.coach as u32));
-    w.ground.memories.retain(|m| keep.contains(&m.holder) || Some(m.holder) == you);
+    let me = w.career.as_ref().map(|c| Who::Coach(c.coach as u32));
+    w.ground.memories.retain(|m| keep.contains(&m.holder) || Some(m.holder) == you || Some(m.who) == me);
     let riv = rivals(w, prog, d);
     let at: Vec<Option<usize>> = w.ground.memories.iter().map(|m| people::school(w, m.who)).collect();
     let more = |g: &Ground, i: usize| -> f32 {
@@ -725,7 +949,8 @@ fn month(w: &mut World, prog: usize, d: Date) {
     for i in 0..w.ground.memories.len() {
         let r = more(&w.ground, i);
         let m = &mut w.ground.memories[i];
-        if m.last.days_to(d) > FADE_AFTER {
+        // A family keeps its memory for the younger brother (GR62).
+        if m.last.days_to(d) > FADE_AFTER && !matches!(m.who, Who::Family(_)) {
             m.points = (m.points - FADE - FADE_RIVAL * r).max(0.0);
         }
     }
@@ -742,7 +967,7 @@ fn month(w: &mut World, prog: usize, d: Date) {
         }
         let Ok(i) = w.ground.memories.binary_search_by(|m| (m.who, m.holder).cmp(&(who, holder))) else { continue };
         let m = &w.ground.memories[i];
-        if lv == Level::Stranger || m.warned == lv as u8 + 1 {
+        if lv == Level::Stranger || m.warned == lv as u8 + 1 || matches!(who, Who::Family(_)) {
             continue;
         }
         let r = more(&w.ground, i);
@@ -799,7 +1024,7 @@ fn words(n: usize) -> String {
 
 /// Moving up is a moment (GR26): a new level comes in his own words, at
 /// his hour, and he keeps it.
-fn announce(w: &mut World, prog: usize, who: Who, before: Level, d: Date) {
+pub(crate) fn announce(w: &mut World, prog: usize, who: Who, before: Level, d: Date) {
     let after = level(w, prog, who);
     let told = Level::from_u8(w.ground.told(who));
     if after <= before.max(told) {
@@ -809,42 +1034,88 @@ fn announce(w: &mut World, prog: usize, who: Who, before: Level, d: Date) {
         return;
     }
     w.ground.set_told(who, after as u8);
-    let line = up_words(who, after);
+    w.ground.ups.push((d, who, after as u8));
+    let line = up_words(w, who, after);
     let (_, holder) = staff(w, prog, who);
     if let Some(m) = w.ground.get_mut(who, holder) {
-        m.keep(Moment { date: d, words: line.to_string(), good: true, big: after == Level::Home, holds_to: None });
+        m.keep(Moment { date: d, words: line.clone(), good: true, big: after == Level::Home, holds_to: None });
     }
     let subject = match after {
         Level::Known => "Call me any time",
         Level::Trusted => "Between us",
         _ => "You'll hear first",
     };
-    post(
-        w,
-        who,
-        d,
-        Head::Email,
-        subject.into(),
-        vec!["Coach,".into(), line.into()],
-        if after == Level::Home { 2 } else { 1 },
-    );
+    post(w, who, d, Head::Email, subject.into(), vec!["Coach,".into(), line], if after == Level::Home { 2 } else { 1 });
 }
 
-fn up_words(who: Who, lv: Level) -> &'static str {
-    match (who, lv) {
-        (Who::Counselor(_), Level::Known) => "Send me what you need on any of our seniors and I'll get it to you.",
-        (Who::Counselor(_), Level::Trusted) => {
-            "I'll tell you where his grades really stand, not what the transcript says."
-        }
-        (Who::Counselor(_), _) => "When one of ours is ready, you'll hear it from me first.",
-        (_, Level::Known) => "You've been by enough. Call me any time and I'll give you my list.",
-        (_, Level::Trusted) => "I'll tell you what I really think of my kids.",
-        (_, _) => "From now on you hear about my guys first.",
+/// A new level in his own words (GR26), by who he is and his nature: a
+/// loyal man says it plainly, a self-serving one with his price on it.
+fn up_words(w: &World, who: Who, lv: Level) -> String {
+    use people::Kind as K;
+    let loyal = people::makeup(w, who).loyal >= 0.5;
+    let i = (lv as usize).clamp(1, 3) - 1;
+    let pick = |x: [&str; 3]| x[i].to_string();
+    match people::kind(w, who) {
+        K::HsHead if loyal => pick([
+            "You've been by enough. Call me any time and I'll give you my list.",
+            "I'll tell you what I really think of my kids.",
+            "From now on you hear about my guys first.",
+        ]),
+        K::HsHead => pick([
+            "You keep showing up, so I'll give you my list. Call me any time.",
+            "You've been straight with me, so I'll tell you what I really think of my kids. Look after my guys.",
+            "From now on you hear about my guys first. Don't make me regret it.",
+        ]),
+        K::HsCoordinator | K::HsCoach => pick([
+            "Coach says you're good people. Ask me about the weight room any time.",
+            "I'll tell you who really works and who's hurting.",
+            "Anything moves in our building, you'll know.",
+        ]),
+        K::Counselor => pick([
+            "Send me what you need on any of our seniors and I'll get it to you.",
+            "I'll tell you where his grades really stand, not what the transcript says.",
+            "When one of ours is ready, you'll hear it from me first.",
+        ]),
+        K::Juco => pick([
+            "Call me when you need a body. I'll tell you who's real.",
+            "I'll tell you which of mine can handle the jump, and which can't.",
+            "My best ones, you see them before anybody.",
+        ]),
+        K::Prep => pick([
+            "Our guys are here for one year. Call me and I'll tell you where they stand.",
+            "I'll tell you which ones have the grades now and which never will.",
+            "When one of mine is ready, you're my first call.",
+        ]),
+        K::Trainer if loyal => pick([
+            "Come by a session. I'll show you what my guys really run.",
+            "I'll give you the real times, not the ones on the internet.",
+            "Anybody new comes through my gym, you hear about him first.",
+        ]),
+        K::Trainer => pick([
+            "Come by a session. My guys are the best in the state, you'll see.",
+            "I'll give you the real times. Just remember who sent them.",
+            "Anybody new comes through my gym, you hear about him first. Take care of my clients.",
+        ]),
+        K::SevenOnSeven => pick([
+            "Come out when we're in town. You'll see my guys.",
+            "I'll tell you who's rising on the circuit before the camps do.",
+            "Somebody pops this spring, you'll hear it from me first.",
+        ]),
+        K::Family => pick([
+            "Coach, thank you for calling. We're listening.",
+            "We'll tell you what he really wants.",
+            "Whatever comes next in this family, you'll hear it from us first.",
+        ]),
+        K::College => pick([
+            "Call me when you're looking. I'll tell you who's leaving.",
+            "I'll tell you about my leavers before they hit the portal.",
+            "You get my first call on anybody I can't keep.",
+        ]),
     }
 }
 
 /// A letter or memo to your inbox at the person's hour.
-fn post(w: &mut World, who: Who, d: Date, head: Head, subject: String, body: Vec<String>, loud: u8) {
+pub(crate) fn post(w: &mut World, who: Who, d: Date, head: Head, subject: String, body: Vec<String>, loud: u8) {
     let mk = people::makeup(w, who);
     let from = people::name(w, who);
     let role = people::role(w, who);
@@ -934,6 +1205,8 @@ fn who_key(who: Who) -> u64 {
         Who::Trainer(f) => (2 << 40) | f as u64,
         Who::SevenOnSeven(f) => (3 << 40) | f as u64,
         Who::Counselor(h) => (4 << 40) | h as u64,
+        Who::Family(k) => (5 << 40) | k as u64,
+        Who::Prep(k) => (6 << 40) | k as u64,
     }
 }
 
@@ -970,17 +1243,64 @@ pub fn why(w: &World, prog: usize, who: Who) -> String {
         if m.roots.old_job {
             parts.push("you coached at his school".into());
         }
+        // Lane G7: the rest of the memory, in words.
+        if m.roots.tree {
+            parts.push("your coaching tree".into());
+        }
+        if m.roots.old_player {
+            parts.push("you coached him".into());
+        }
+        if let Some(h) = &m.heard {
+            parts.push(h.clone());
+        }
+        if let Some(f) = m.favor_words() {
+            parts.push(f);
+        }
+        if let Some(x) = m.your_word_words() {
+            parts.push(x);
+        }
+        if let Some(x) = m.his_word_words() {
+            parts.push(x);
+        }
+        if let Some(g) = m.moments.iter().filter(|x| x.good && x.big).max_by_key(|x| x.date)
+            && !matches!(m.roots, r if r.own_school)
+        {
+            parts.push(format!("he remembers \"{}\"", g.words));
+        }
         if m.contacts > 0 && m.last.days_to(d) > FADE_AFTER {
             parts.push(format!("no visit since {}", MONTH[m.last.parts().1 as usize - 1]));
         }
     }
     let from_day_one = w.ground.get(who, holder).is_none_or(|m| m.roots.program || m.roots.tie);
-    if from_day_one && pts >= 1.0 {
+    if from_day_one && pts >= 1.0 && w.ground.get(who, holder).is_none() && !matches!(who, Who::Coach(_)) {
+        // Lane G7's people from the world's own facts.
+        let words = match (who, holder) {
+            (Who::Family(_), Holder::Program(p)) => format!("his brother plays for {}", w.program_name(p as usize)),
+            (Who::Trainer(_) | Who::SevenOnSeven(_), Holder::Program(p)) => {
+                format!("he played at {}", w.program_name(p as usize))
+            }
+            (Who::Trainer(_) | Who::SevenOnSeven(_), Holder::Coach(c)) => format!(
+                "{} coached him",
+                if Some(c) == you {
+                    "you".to_string()
+                } else {
+                    w.coaches.get(c as usize).map_or("a coach".into(), |c| c.name.clone())
+                }
+            ),
+            _ => String::new(),
+        };
+        if !words.is_empty() {
+            parts.push(words);
+        }
+    } else if from_day_one && pts >= 1.0 {
         match holder {
             Holder::Coach(c) if Some(c) != you => parts.push(format!(
                 "{}'s own tie to his school",
                 w.coaches.get(c as usize).map_or("a coach", |c| c.name.as_str())
             )),
+            Holder::Coach(_) if people::kind(w, who) == people::Kind::College => {
+                parts.push("your own tie to him".into())
+            }
             Holder::Coach(_) => parts.push("your own tie to his school".into()),
             Holder::Program(p) => {
                 let school = people::school(w, who).unwrap_or(0);

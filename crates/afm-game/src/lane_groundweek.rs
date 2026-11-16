@@ -14,7 +14,8 @@
 //! - `ground_week_off` {from "YYYY-MM-DD", weeks}, `ground_may`,
 //!   `ground_may_invite` {n}, `ground_beats` {year}.
 //!
-//! A person is "coach:ID", "counselor:SCHOOL", "trainer:ID" or "7v7:ID".
+//! A person is "coach:ID", "counselor:SCHOOL", "trainer:ID", "7v7:ID",
+//! "family:PLAYER" (the oldest brother) or "prep:N".
 
 use afm_engine::calendar::Date;
 use afm_engine::world::World;
@@ -124,6 +125,8 @@ pub fn who_arg(v: Option<&Value>) -> Option<Who> {
         "counselor" => Who::Counselor(id),
         "trainer" => Who::Trainer(id),
         "7v7" => Who::SevenOnSeven(id),
+        "family" => Who::Family(id),
+        "prep" => Who::Prep(u16::try_from(id).ok()?),
         _ => return None,
     })
 }
@@ -134,6 +137,8 @@ pub fn who_key(who: Who) -> String {
         Who::Counselor(h) => format!("counselor:{h}"),
         Who::Trainer(f) => format!("trainer:{f}"),
         Who::SevenOnSeven(f) => format!("7v7:{f}"),
+        Who::Family(p) => format!("family:{p}"),
+        Who::Prep(p) => format!("prep:{p}"),
     }
 }
 

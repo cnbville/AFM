@@ -2062,7 +2062,7 @@ pub fn hs_side(w: &World) -> Reply {
             *staffs.entry(o).or_default() += 1;
         }
     }
-    for &c in w.scouting.hs.credibility.keys() {
+    for (c, _) in afm_engine::world::ground::stores::credits(w) {
         staffs.entry(c).or_default();
     }
     let mut staffs: Vec<(usize, u32)> = staffs.into_iter().collect();

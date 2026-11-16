@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.569", date: "16 Nov", title: "Playing time grade reads next fall's depth chart and 5 more",
+    notes: [
+      "You can now sign recruits, transfers and your own players to NIL deals of up to four years. Locking in a star costs a buyout for anyone who wants to poach him.",
+      "A Years box sits beside every NIL promise and portal offer, and a Term column is on the NIL desk.",
+      "Some players value a guaranteed deal and take less a year for it. Others would rather sign year to year and sell themselves again.",
+      "A player who transfers out of a multi-year deal owes half of what's left. The school that takes him pays it to you.",
+      "Rival schools now lock up their own blue-chips and top transfers, and renegotiate to keep them.",
+      "If a new build is too buggy to play, Settings can now put an older one back, and your saves are copied aside first.",
+    ],
+  },
+  {
     v: "0.2.561", date: "16 Nov", title: "Progression step 3: upper and lower body strength, the bench at the real slope, the weight room by body knack and 2 more",
     notes: [
       "You can now end any meeting just by saying goodbye. Nothing is held against you for leaving, and anything you didn't argue stands as it was.",

@@ -1,6 +1,6 @@
 # Ground: how it works today
 
-Checked against branch commit 28f13b8 on 2026-11-16 (lane G1a, areas and map data), main bf92e7d plus lane G1b on 2026-11-16 (standing and one memory), main d291de54 plus lane G3 on 2026-11-16 (your week and road days), branch lane S2 on 2026-11-16 (the meeting at the map) and main fd85a4f9 plus lane G4 on 2026-11-16 (news in order, leads and finds).
+Checked against branch commit 28f13b8 on 2026-11-16 (lane G1a, areas and map data), main bf92e7d plus lane G1b on 2026-11-16 (standing and one memory), main d291de54 plus lane G3 on 2026-11-16 (your week and road days), branch lane S2 on 2026-11-16 (the meeting at the map), main fd85a4f9 plus lane G7 on 2026-11-16 (people in full) and main 8163ecfa plus lane G4 on 2026-11-16 (news in order, leads and finds).
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`, `app/`, `data/` or `tools/`. Ground's spec is `docs/design/ground.md`; each lane adds its section here.
 
@@ -17,7 +17,12 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`,
 - What are an area's words? Up to three, from the world's own data, each against the nation: talent per school, how many programs sign there, speed or linemen, school size, money and the state's football culture (`characters`).
 - What are the map's pins? Your program's signees from the area, its legends (round 1-3 picks, All-Americans, the Hall) and the six strongest rivals' pipelines into it (`pins`). Your finds are in `Ground.finds` (lane G4).
 - Does any of this change the world? No. Nothing in the world reads it yet; every seed plays the same.
-- Who is on my ground? At college: high school head coaches and coordinators (world coaches), private trainers and 7v7 directors (former players, keyed only so far) and each school's counselor (`world/ground/people.rs`, `Who`).
+- Who is on my ground? At college: high school head coaches and coordinators, junior college coaches and other college staffs' men (world coaches), private trainers and 7v7 directors with their kids (former players), each school's counselor by name, each recruit's family and the prep schools' coaches (`world/ground/people.rs`, `Who`, `Kind`).
+- Does a younger brother start from scratch? No. A family is one memory, keyed by the oldest brother the world knows; a cousin's family starts a level lower (`people::family_of`, `cousin_of`; `standing::from_cousin`).
+- Does word get around? Yes: what happens with one person reaches his close ties in 2-5 days at half its weight and his area in 5-12 days at a quarter (`world/ground/word.rs`).
+- What happens when a coach changes jobs? Your standing goes with him (the memory is keyed by the man), you get a memo, and the new head coach at his old school starts Known if he sat in on your visits or the man before him was Trusted with you (`world/ground/jobs.rs`).
+- Does my old Contacts list still count? For people on your ground at a college seat, a contact's warmth, favors and tip record live in the memory; the contact shows a copy refreshed each day (`world/ground/stores.rs`, `sync`).
+- What does the person screen read? `ground::card::card` (the `ground_person`, `ground_family` and `ground_school_people` commands): words only, never a hidden number.
 - What are the levels? Stranger 0-24, Known 25-49, Trusted 50-74, Home 75-100 points (`world/ground/standing.rs`, `Level::of`).
 - Who holds standing? A program (its ties stay) or a coach (his own ties, which go with him). A staff's standing with a person is the higher of its program's and its best current man's (`standing.rs`, `staff`, `holders`).
 - What builds it today? Your staff's looks with recruits: an evaluation day at his school is a visit, a call is a call, your June camp is an event, a visit to campus is the host's call (`standing.rs`, `on_look`, hooked in `world/scouting/dept.rs`, `add`). Since lane G3 the days are the week's plan (below).
@@ -115,7 +120,7 @@ Every size below is the spec's "Starting sizes" (proposed, not confirmed) unless
 - One record per person and holder, sorted, sparse: only your seat's holders keep memories (your program, you and your men), and only with people someone has dealt with (`world/ground/mod.rs`, `Ground`; `World.ground`, saved with `#[serde(default)]`).
 - It holds: points, the day they met, the day it reached Known, the last contact and the last eight, contacts in all, this year's visits and calls, this week's contacts, the last broken word, whether a kid of his did well with you, his kids and how they fared (started, graduated, drafted, buried), where it started (day one from the program or a coach's tie, your hometown, your own school, an old job), up to five moments in his words, and the level last warned about (`world/ground/memory.rs`, `Memory`).
 - Moments: the five he keeps are the big ones first, then the newest (`Memory::keep`). A big bad one holds 3-5 years (`holding`).
-- Not on it yet: your claims about kids, favors, promises' trust and what you've talked through. Lane G7 moves `folk/network.rs`, `scouting/hs.rs` and `folk/promise.rs` onto it.
+- Lane G7 adds: favors either way with their words, his tips' record with you and your word's with him, a staff's credit for a high school coach's word, what reached him through others (`heard`), where he worked when you last looked (`at`), and the network values last folded in (`seen`). See "Lane G7" below.
 
 ## Day one (GR7, part C)
 
@@ -149,9 +154,74 @@ Screens in `app/ui/screens/ground.js` and `ground.css` (Press Box for the map, t
 
 ## What it does not do yet
 
-- Families, word travelling to a man's ties, jobs carrying standing in full and talks reading the memory: lane G7.
 - The AI working its ground: lane G9. Favors: lane G11b.
 - An area's level on lane G1a's areas: `area_level` (any list of schools: `area_points`, `leader`).
+
+## Lane G7: people in full
+
+Every size here is the spec's (word travels at half and a quarter) or the build's own pick, proposed, not confirmed.
+
+### Who they are (GR62, GR63)
+
+- `Who`: `Coach(id)` (any coach: a high school head coach or coordinator, a junior college coach, another college staff's man), `Trainer(id)`, `SevenOnSeven(id)`, `Counselor(school)`, `Family(oldest brother's player id)`, `Prep(index)`. New kinds are added at the end so stored lists stay sorted (`world/ground/people.rs`).
+- `Kind`: high school head coach, coordinator, other high school coach, junior college coach, college coach (a four-year program), trainer, 7v7 director, counselor, family, prep school coach (`kind`).
+- Makeup, hidden, the same every run: loyal, warmth, grudge and hour as lane G1b, plus his eye (a coach's recruiting rating; a former player's own `eye`; a counselor 8-11; a family 4-10; a prep coach 9-15), how straight he talks (a coach's keyed straightness, the same one the tips read, `folk/tips.rs`; a former player's own; a counselor 14-19; a family and a prep coach 6-16) and his agenda (his kids, his clients, his team seen, a kid who graduates, the family's wants, homes for his kids moving up, homes for his leavers). A family's loyalty leans on the kid's own. His hour: a college man 11 AM-noon, a prep coach 3-4 PM, families in the evening (`makeup`).
+- Counselors: each school's counselors serve 4 to 14 years in turn; the name ("Ms. Alvarez") is made from the tenure's key with a surname at the job's national heritage shares (`counselor`, `made_name`).
+- Families: a younger kid at the same high school with the same surname, one to six classes later, with an older brother in college (`older_brother_at`) or a family tie, reads his oldest brother's memory. A cousin (a family tie to a kid at another school) starts from the cousin family's points less 25. The decider speaks for it ("his mother", `family_voice`). What it wants: the truth, then its two strongest wants (`wants`).
+- Prep schools: the real postgraduate programs (Fork Union, Hargrave, Milford, Bridgton, Avon Old Farms, Cheshire, Kimball Union, Tilton, Worcester, Valley Forge, IMG); a prep year's kid is at the one in his state, else one keyed to him (`PREPS`, `prep_of`).
+- Trainers and 7v7 directors: a recruit with two stars or more has a trainer in his state, and a skill player (QB, RB, WR, TE, LB, CB, S) a 7v7 team, the same ones every time (`trainer_of`, `seven_of`); `clients` lists a man's kids.
+- His ties (whom word reaches first): a head coach's coordinators and counselor and the trainers, 7v7 men and families of his best four kids; a coordinator's or counselor's head coach; a family's coach and trainer; a trainer's clients' coaches (`ties`).
+- His life in words: years in the job, last season, the hot seat (three losing seasons), near retirement (62), wants a college job (ambition 13+ under 50); a former player's business; a counselor's years at the school (`life`).
+- Faces: a coach's own recipe, a former player's own, everyone else a keyed recipe; heritage for the head (`looks`, `heritage`).
+
+### Day one for the new people
+
+- A family whose older son plays for the program: 40. A former player and his old school: 30; and a man who coached him: 40 (`derived`).
+- A four-year college's man and you: your network's warmth × 100 (other college staffs get standing like everyone, read from the one tie) (`coach_part`).
+- Your coaching tree (your mentor, the men who learned under you): 55, or 78 when he is loyal (14+); a former player of yours coaching high school 55, coaching elsewhere or training kids 40. Stored for you when a job starts (`seed`, `tree`).
+
+### Contacts for the new people
+
+- A call, a home visit or his visit to campus reaches the kid's family the way it reaches him; a junior college kid's look reaches his head coach there; a prep year's kid's look reaches his prep coach (a visit there skips his old high school coach) (`on_look`).
+
+### His kids and your word reach the family
+
+- A promise kept: +5 with his family ("You did right by our son, like you said."). An offer pulled or a promise broken: −20 and a big moment ("You lied to us."), held 3-5 years, so the younger brother hears it too.
+- A son who started: +6. A son who graduated with you or was drafted from your program makes his family Home (`family_home`).
+- A family keeps its memory for the younger brother: it doesn't fade with time and sends no warnings (`month`).
+
+### Word travels (`word.rs`)
+
+- Every payment with a moment (a kid who started, graduated or was drafted, your word held, a pulled offer, a broken promise) travels: to his close ties in 2-5 days at half (`TIES_SHARE`), to his area's head coaches in 5-12 days at a quarter (`AREA_SHARE`). A big moment reaches the area's 40 schools with the most talent (`AREA_MAX`), a small one only the people there who already know you.
+- It travels from a coach (his family and counselor are paid with him, so they don't pass it on again), and word about one of his kids skips that kid's family, which was paid already.
+- It reaches your program's memory, isn't a contact (it never opens a gate) and a loss is never gated. A close tie keeps it as a moment ("I heard what you did for Reyes."); anyone new to you gets it as the start of his why ("he heard what you did for Reyes").
+
+### Jobs carry standing (`jobs.rs`)
+
+- Each day the memory notes where each coach and counselor is (`at`, `people::post_key`). A coach who moved keeps every memory (it is keyed by the man); with your staff at Known or better you get a memo ("... has left Columbus for Valdosta State's staff. What you built with him goes with him: he can take the kids you pass on now.") and his why reads "followed him from Columbus".
+- A high school head job he left waits for its next man (up to 150 days, `VACANT_DAYS`). The new man starts Known with each holder where he sat in on your visits there, or where the man before him was Trusted or better ("Coach Hill told him about you"); otherwise a Stranger.
+- A counselor's tenure ends: the memory with that counselor goes, and the new one starts Known ("the school vouched for you") where you were Trusted with the last one.
+
+### The older stores read through the memory (`stores.rs`)
+
+- Your network (`folk/network.rs`): at a college seat, a contact who is a high school or junior college coach, a trainer or a 7v7 director has his warmth in your own memory (holder: you), his favor balance in `owes` and his tips' record in `his_word`. Each day `sync` folds in what the network's code changed since (a warmer tie: points × 100 inside the gates; a favor either way with its words from the ledger; a tip settled) and writes the memory back into the contact, so every older reader sees the memory. The first time, the contact's tie comes in as an old acquaintance. The network's own monthly cooling skips these people: they fade in the memory (`fades_in_memory`).
+- The high school coach's credit with each college staff (`scouting/hs.rs`): kept as that staff's memory of you (`credit`, `set_credit`, `credits`), the same numbers; a file's old map moves in on load (`after_load`). These memories stay with you through job moves.
+- Promises' trust (`folk/promise.rs`, `trust_part`): a recruit's family that knows you (Known or better) reads you from its memory, (points − 25) / 50 in the trail name's units, or at the bottom while it holds a broken word; your trail name until then.
+- Live talks: a family's trust reads its memory (0.25 + 0.6 × points / 100, 0.15 while it holds a broken word), and a ground coach with no network tie reads your staff's standing (`persona/makeup.rs`, `trust`). His card in a talk lists where you stand and up to three moments he keeps, and what he knows on "his word" includes them (`persona/talk/items.rs`, `persona/knowing.rs`, `ground::card::talk_lines`).
+
+### Moving up in his own words (GR26) and the why (GR18)
+
+- Each kind says each new level its own way, and a self-serving head coach or trainer puts his price on it ("From now on you hear about my guys first. Don't make me regret it.") (`standing::up_words`). Each new level is kept 60 days in `Ground.ups` for the morning map.
+- The why adds your tree, your old players, how he heard of you, favors in words ("he owes you a big one"), your word ("your word held up 4 of 5 times"), his ("4 of his 6 tips held up"), his biggest good moment, and for the new people their day one ("his brother plays for LSU", "he played at LSU", "you coached him") (`why`).
+
+### A person's page (`card.rs`)
+
+- `card(w, prog, who)`: name, role, kind, face recipe and heritage, level and why, who holds it, agenda, wants, life, ties with their levels, moments (newest first), his kids with you, favors in words with their list, your word, his word and your staff's read of it once three tips have settled ("his word holds up", "he oversells a little", "he oversells his kids"), his kids now, and his hour. No hidden number is on it.
+- Game commands (`crates/afm-game/src/lane_ground_people.rs`): `ground_person` (`kind`: coach, trainer, seven, counselor, family, prep; `id`), `ground_family` (a recruit's player id), `ground_school_people` (a school id: its coaches and counselor, then the families, trainers and 7v7 men around its six best kids).
+
+### What G7 does not do
+
+- The favor board and spending favors (lane G11b, switched off), news in order and the lead card (G4), the week's plan (G3), the AI working its ground (G9). Counselors don't move to another school; they end a tenure.
 
 ## Where the knobs are
 
@@ -159,8 +229,11 @@ Screens in `app/ui/screens/ground.js` and `ground.css` (Press Box for the map, t
 - `tools/ground/areas.py`: `W` 800, `PAD` 10, `TOL` 0.6 (the map art).
 - `data/real-world/ground_area_seeds.csv`: the areas themselves.
 - `world/ground/standing.rs`: `VISIT`, `CALL_SHARE`, `EVENT`, `WORD_HELD`, `WORD_BROKEN` (unused until claims), `PROMISE_BROKEN`, `STARTED`, `GRADUATED`, `DRAFTED`, `FADE_AFTER`, `FADE`, `FADE_RIVAL`, `PROGRAM_SHARE`, `SAT_IN`, `HELD`, `WARN_MAX`, `TIE_POINTS`, `STAR` (talent weights 0.2, 0.3, 1, 3, 8, 20 by stars).
-- `world/ground/memory.rs`: `MOMENTS` (5).
-- `world/ground/people.rs`: `makeup`.
+- `world/ground/memory.rs`: `MOMENTS` (5), `FAVORS` (6).
+- `world/ground/people.rs`: `makeup`, `counselor` (4-14 years), `PREPS`, the two-star line in `trainer_of` and `seven_of`, the brother rule in `older_brother`.
+- `world/ground/standing.rs` (lane G7): `BROTHER` 40, `ALUM` 30, `OLD_PLAYER` 40, `TREE` 55, `TREE_HOME` 78, `COUSIN_DROP` 25, `up_words`.
+- `world/ground/word.rs`: `TIES_SHARE` 0.5, `AREA_SHARE` 0.25, `AREA_MAX` 40, the lags in `spread`.
+- `world/ground/jobs.rs`: `VACANT_DAYS` 150.
 
 
 ## Lane G3: your week and road days
@@ -222,7 +295,7 @@ Every size below is the build's pick (proposed, not confirmed, tuned in GR61's t
 
 - **What starts it** (`world/ground/news.rs`, `week`, Mondays, the week before): a laser forty at a college's camp or a showcase at 4.45 or better for backs, receivers and DBs, 4.65 for backers, ends, tight ends and quarterbacks, 5.00 for the big men (`fast`); a fully timed 100 meters at 10.75 or better at a meet (`FAST_100`); another program's dated offer from your division's rank or one below (`PersonCal.early_offers`, `folk::tips::rank`; an FBS seat hears FBS and FCS offers, not Division II's); a kid whose last season was at another school (moved in); the spring weigh-in, the first Monday from April 1 to 7, when he grew 1.5 inches or more in the year (his height on his growth curve a year apart, `body::height_share`; `GREW`); a senior crossing the academic line, October to May (`recruiting::ncaa_tier` on his eligibility GPA, `Ground.notq`); first-team all-state from December; a new head coach at a school whose old one was Known or better with your staff, for kids you have leads on (`Ground.heads`). A big game is read off each high school game on the engine: 300 passing yards or 4 touchdown passes, 200 rushing or 3 rushing touchdowns, 150 receiving or 3 receiving touchdowns, 3 sacks, 4 tackles for loss, 2 interceptions (`on_hs_game`, `big_line`, hooked in `world/hs_year.rs` beside the prospects' tally).
 - **Whose** (`follows`): sophomores to seniors in high school or prep school, unsigned (`recruit`), whose coach is Known or better with your staff, or three-stars or better in your states (`region`: your staff's areas, else your state, footprint 0.3+ and 400 miles).
-- **Who knows first:** his head coach; for a laser time his trainer if he has one (a family with money 0.4+ and a private trainer in his state, the same one every time, `trainer`), and the program whose camp timed him first of all (`Why::There`). The paper (track, all-state, a new coach, a showcase's times) has no teller.
+- **Who knows first:** his head coach; for a laser time his trainer if he has one (lane G7's `people::trainer_of`: two stars or more, one in his state, the same one every time), and the program whose camp timed him first of all (`Why::There`). The paper (track, all-state, a new coach, a showcase's times) has no teller.
 - **The order** (`order`): every program at Known or better with the teller (its program's or best current man's standing, `standing::staff`), and yours. By level first; within a level a busy coach (his school's prestige 0.5+ or national, `BUSY`) orders a loyal man's calls by standing points (loyalty 0.5+ on his makeup: `Why::Closest`) and a self-serving man's by the program's prestige (`Why::Biggest`); Home hears on day 0, Trusted day 1, Known day 3 (`LEVEL_DAYS`), three calls a day within a level (`CALLS_A_DAY`). A small-school coach calls everyone he knows from day 0, eight a day, whatever the level (`SMALL_CALLS`, `Why::Pushes`). Each day may slip one (a 30% chance from the world's seed and the news), never ahead of the call before it. Anyone whose day reaches the public's hears with it. A staff he holds a big bad moment against isn't called (`Why::Stopped`). A Stranger hears a day or two after the public (`Why::Public`); the paper reaches everyone on its day (`Why::Paper`).
 - **The public's day** (`public_lag`): an offer 0 days from 2018 (1 from 2010, 7 before); a big game 1; a college camp's laser time 2 from 2010 (14 before); a move 3 from 2018 (7 before); a test score 30; a growth spurt 45 from 2010 (60 before); the paper 0. A small school (prestige under 0.35, not national) adds 3, except for the paper.
 - **What your seat keeps** (`News`, `Ground.news`, up to 1,500, the oldest delivered first out): the line in words, the day, the teller, the first eight programs in the order and yours wherever it falls, how many heard before the public, the public's day, your day, place and why. Each is kept once by its key (the kid, what, and the year, the offer's program, the school he left, the day). Nothing in the world reads it.
@@ -232,7 +305,7 @@ Every size below is the build's pick (proposed, not confirmed, tuned in GR61's t
 ### Leads (GR19, GR67)
 
 - **A lead** (`world/ground/leads.rs`, `Lead`, `Ground.leads`, sorted by kid, up to 3,000, the oldest dropped or settled out first): the kid, the day you heard, how (`How`: his coach's list, a call with news, told when you called, a tip, the camp walk-up, off another kid's tape, the paper), who told you (a ground person, or a tipper's name), your man who heard (your area man for his state, else his position coach), your level with the teller then, what he said in his own voice, the height and forty he gave, his claim (worth a look, can play for you, a sure thing), the news that reached you, whether his word held, and dropped. A kid's first lead stays: later news joins it.
-- **His coach's list** (`coach_list`, when your staff's practice, game or call look is at his school, once every 30 days a coach, `LIST_EVERY`, at most 6 names, `LIST_MAX`): a Stranger gives the names everyone has (three stars or an offer) one or two days later; Known gives his real list the same day: each kid his read places at or above your level's floor (the tips' bar and floor, `folk/tips.rs`; his read is the kid's film plus noise of 1.5 + 0.45 × (20 − his eye), placed in the kid's class), with his claim (a level up when he leans) and the kid's size and speed as he gives them: height + 0.6 × lean + up to half an inch of blur, forty − 0.08 × lean + up to 0.05 of blur (`numbers`; lean is his agenda × (1 − straightness/20) × (1.2 − your standing/100): a coach's agenda 0.6, a trainer's 0.8, a 7v7 man's 0.5; a coach's straightness and eye are the ones tips read). Trusted adds the truth (his work ethic, his family, games missed hurt last fall) to his words, a call look by your man in your file (the grades and character blank) and his tape asked for (`truth`).
+- **His coach's list** (`coach_list`, when your staff's practice, game or call look is at his school, once every 30 days a coach, `LIST_EVERY`, at most 6 names, `LIST_MAX`): a Stranger gives the names everyone has (three stars or an offer) one or two days later; Known gives his real list the same day: each kid his read places at or above your level's floor (the tips' bar and floor, `folk/tips.rs`; his read is the kid's film plus noise of 1.5 + 0.45 × (20 − his eye), placed in the kid's class), with his claim (a level up when he leans) and the kid's size and speed as he gives them: height + 0.6 × lean + up to half an inch of blur, forty − 0.08 × lean + up to 0.05 of blur (`numbers`; lean is his agenda × (1 − straightness/20) × (1.2 − your standing/100): his eye and straightness are his makeup's (lane G7, `people::makeup`), his agenda's push a family's 0.9, a trainer's 0.8, a high school, junior college or prep coach's 0.6, a 7v7 man's 0.5, another college staff's 0.4, a counselor's 0.2). Trusted adds the truth (his work ethic, his family, games missed hurt last fall) to his words, a call look by your man in your file (the grades and character blank) and his tape asked for (`truth`).
 - **From tips** (`from_tip`, hooked in `folk/tips.rs`, `send`): a high school coach, a trainer or a 7v7 man becomes the lead's teller; an alum or a youth coach is a tipper by name. A camp man's laser time and height are the lead's size and speed.
 - **From your looks** (`on_look`, hooked in `scouting/dept.rs`, `add`): a kid at your camp with two stars or fewer, no lead and no offer from you walked up; a kid off another kid's tape (`Kind::SideFilm`) with no lead is one.
 - **From news** (`from_news`): a call (Trusted or Home with the teller, before the public) or told (Known); otherwise the paper. A new lead only from news that names a prospect (not a new coach or a test score) and only while the public doesn't rate him: two stars or fewer from the paper, three from a person; an offer makes one only from your division's rank or above. Only a Home coach with a kid you didn't have writes you at his hour, with the order; a Trusted one's call lands on the board without a mail (build's pick, proposed, not confirmed: a spring with every Trusted call as mail sent 136 in five months).

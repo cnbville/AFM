@@ -81,6 +81,8 @@ fn who_json(who: Who) -> Value {
         Who::Trainer(f) => json!({ "kind": "trainer", "id": f }),
         Who::SevenOnSeven(f) => json!({ "kind": "seven", "id": f }),
         Who::Counselor(h) => json!({ "kind": "counselor", "id": h }),
+        Who::Family(p) => json!({ "kind": "family", "id": p }),
+        Who::Prep(p) => json!({ "kind": "prep", "id": p }),
     }
 }
 

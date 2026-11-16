@@ -543,26 +543,10 @@ fn follows(w: &World, i: usize, lv: &mut Levels, region: &[bool; 51]) -> bool {
     lv.school(w, p.hs) >= Level::Known || (region[p.home_state.min(50)] && p.stars >= 3)
 }
 
-/// His trainer (GR62): a private trainer in his state, if his family can
-/// pay for one; the same one every time.
+/// His trainer (GR62): lane G7's, the same one every time.
 pub(crate) fn trainer(w: &World, i: usize) -> Option<Who> {
-    let p = &w.people[i];
-    if p.bg.money < 0.4 {
-        return None;
-    }
-    let st = p.home_state as u8;
-    let v: Vec<u32> = w
-        .formers
-        .list
-        .iter()
-        .filter(|f| f.area == st && f.life == crate::world::former::Life::Trainer)
-        .map(|f| f.id)
-        .collect();
-    if v.is_empty() {
-        return None;
-    }
-    let k = (unit(w.options.seed, &[0x7A1E, p.player.id as u64]) * v.len() as f64) as usize;
-    Some(Who::Trainer(v[k.min(v.len() - 1)]))
+    // One trainer per kid, the same one lane G7's people know.
+    people::trainer_of(w, i)
 }
 
 /// A laser forty that makes news at his spot (build's picks): 4.45 for the

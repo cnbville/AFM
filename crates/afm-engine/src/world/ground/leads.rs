@@ -359,22 +359,23 @@ fn percentile(c: &Classes, class_of: i32, read: f64) -> f64 {
 }
 
 /// A person's eye (1-20) and straightness (1-20, how little he oversells),
-/// and how hard his agenda pushes his kids (0-1): a coach's are his own,
-/// as tips read them; a trainer pushes his paying clients, a 7v7 man his
-/// team's name.
+/// from his makeup (lane G7), and how hard his agenda pushes his kids
+/// (0-1, build's picks): a trainer pushes his paying clients hardest, a
+/// family loves its son, a coach his kids, a 7v7 man his team's name, a
+/// junior college or prep coach his movers, a counselor least.
 fn teller(w: &World, who: Who) -> (f64, f64, f64) {
-    match who {
-        Who::Coach(c) => {
-            let eye = w.coaches.get(c as usize).map_or(10.0, |c| c.ability().recruiting);
-            (eye, 6.0 + 12.0 * crate::world::folk::roll(w, 0x57A1, c as u64), 0.6)
-        }
-        Who::Trainer(f) | Who::SevenOnSeven(f) => {
-            let x = w.formers.get(f);
-            let agenda = if matches!(who, Who::Trainer(_)) { 0.8 } else { 0.5 };
-            (x.map_or(10.0, |x| x.eye as f64), x.map_or(10.0, |x| x.straight as f64), agenda)
-        }
-        Who::Counselor(_) => (8.0, 16.0, 0.2),
-    }
+    use super::people::Agenda as A;
+    let m = super::people::makeup(w, who);
+    let push = match m.agenda {
+        A::Clients => 0.8,
+        A::Family => 0.9,
+        A::HisKids => 0.6,
+        A::MovingUp => 0.6,
+        A::Exposure => 0.5,
+        A::Leavers => 0.4,
+        A::Graduates => 0.2,
+    };
+    (m.eye as f64, m.straight as f64, push)
 }
 
 /// How far his word leans his way: his agenda, how little he holds back,

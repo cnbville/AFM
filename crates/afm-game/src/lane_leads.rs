@@ -76,13 +76,9 @@ fn person(w: &World, who: Who) -> Value {
     })
 }
 
+/// The person's key, the one every ground screen uses.
 fn who_key(who: Who) -> String {
-    match who {
-        Who::Coach(c) => format!("coach:{c}"),
-        Who::Trainer(f) => format!("trainer:{f}"),
-        Who::SevenOnSeven(f) => format!("7v7:{f}"),
-        Who::Counselor(h) => format!("counselor:{h}"),
-    }
+    crate::lane_groundweek::who_key(who)
 }
 
 /// A man of yours with his record as a finder.
