@@ -1335,9 +1335,18 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
             // Offers and official visits: one digest a week, the Monday
             // after (8 AM), so a busy staff's work doesn't bury the inbox.
             // It waits for its Monday whole (`DIGEST_SPAN`).
-            if !offers.is_empty() || !visits.is_empty() || !around.is_empty() {
+            // Ground's Monday letter from your coordinator (lane G3, GR56)
+            // opens the digest: the week's beat, what last week bought, the
+            // road and the plan. A Monday with a letter gets its memo even
+            // when the board was quiet.
+            let letters: Vec<(Date, Vec<String>)> =
+                w.ground.week.letters.iter().filter(|x| inside(x.0)).cloned().collect();
+            if !offers.is_empty() || !visits.is_empty() || !around.is_empty() || !letters.is_empty() {
                 type Week = (Vec<usize>, Vec<usize>, Vec<(Date, usize, trail::Step)>);
                 let mut weeks: HashMap<i32, Week> = HashMap::new();
+                for (d, _) in &letters {
+                    weeks.entry(d.0).or_default();
+                }
                 let week_of = |d: Date| d.add(1).on_or_after(Weekday::Mon).0;
                 for (d, k) in offers {
                     weeks.entry(week_of(d)).or_default().0.push(k);
@@ -1360,13 +1369,20 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                         vi.len(),
                         afm_engine::world::folk::noun(vi.len(), "visit")
                     );
-                    let subject = match (of.is_empty() && vi.is_empty(), part.total) {
-                        (_, 0) => format!("{DIGEST} {ours}"),
-                        (true, n) => format!("{DIGEST} {n} around the trail"),
-                        (false, n) => format!("{DIGEST} {ours}, {n} around the trail"),
+                    let letter = letters.iter().find(|x| x.0 == d).map(|x| &x.1);
+                    let subject = match (letter, of.is_empty() && vi.is_empty(), part.total) {
+                        (Some(l), _, _) if !l.is_empty() => {
+                            format!("{DIGEST} {}", l[0].trim_end_matches('.').replacen(": ", ", ", 1))
+                        }
+                        (_, _, 0) => format!("{DIGEST} {ours}"),
+                        (_, true, n) => format!("{DIGEST} {n} around the trail"),
+                        (_, false, n) => format!("{DIGEST} {ours}, {n} around the trail"),
                     };
                     let mut m = pen.memo(&format!("recruiting|{wk}"), d, 8 * 60, Job::Personnel, subject);
-                    m.body = vec![format!("{}, the week on the recruiting board:", pen.dear)];
+                    m.body = letter.cloned().unwrap_or_default();
+                    if !of.is_empty() || !vi.is_empty() || part.total > 0 {
+                        m.body.push(format!("{}, the week on the recruiting board:", pen.dear));
+                    }
                     m.table =
                         vec![vec!["Player".into(), "Pos".into(), "Stars".into(), "High school".into(), "What".into()]];
                     if part.total > 0 && !(of.is_empty() && vi.is_empty()) {
@@ -1385,6 +1401,9 @@ fn people_mail(pen: &mut Pen, from: Date, to: Date, reveals: &mut Vec<Reveal>) {
                         ]);
                     }
                     m.table.extend(part.table);
+                    if m.table.len() <= 1 {
+                        m.table.clear();
+                    }
                     if part.more > 0 {
                         m.body.push(format!(
                             "{} more happened around the trail. [[s:recruit_board|The recruiting board]] has each file.",
