@@ -1,6 +1,6 @@
 # Ground: how it works today
 
-Checked against main at COMMIT on 2026-11-16 (lane G1a, areas and map data).
+Checked against branch commit 28f13b8 on 2026-11-16 (lane G1a, areas and map data).
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`, `app/`, `data/` or `tools/`. Ground's spec is `docs/design/ground.md`; each lane adds its section here.
 
