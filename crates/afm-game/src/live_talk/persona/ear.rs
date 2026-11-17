@@ -621,6 +621,7 @@ impl Tags {
                 gives: a.gives.iter().filter_map(|g| g.give(keys)).collect(),
                 terms: self.terms(a, keys),
                 until: None,
+                argued: 0.0,
             }),
             K::Promise => {
                 if !PROMISE_KINDS.contains(&a.what.as_str()) {

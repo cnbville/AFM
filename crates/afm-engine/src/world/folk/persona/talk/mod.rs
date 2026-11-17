@@ -44,6 +44,7 @@ use super::Them;
 use super::ear::{Act, ActKind, Confirm, Ends, HisAsk, Item, Reading, Resolving, Say, Sized, Turn};
 use super::knowing;
 use super::knows::{Answer, Known, Knows, TellParts, Tells, Topic};
+use super::negotiate::points;
 use super::memory::{HisLie, Line, Secret, Treated};
 use super::room::{Room, Seat};
 use super::terms::{Valuing, Weighed};
@@ -171,6 +172,34 @@ pub(crate) fn z(w: &World, who: Them, t: Trait) -> f32 {
     }
 }
 
+/// Your college player whose money a line talks about (negotiation items
+/// 3a-c): a one-on-one's NIL facet.
+fn money_subject(w: &World, s: &Scene) -> Option<usize> {
+    match super::negotiate::facet(w, s) {
+        super::negotiate::Facet::Nil { i } => Some(i),
+        _ => None,
+    }
+}
+
+/// Keeps a money talk's stat points (negotiation items 3a and 3c): each
+/// true one lands (a pull kept for the season, or a cherry-pick caught),
+/// and one that moved his number costs what his makeup makes of it: his
+/// trust in you, and his portal lean.
+fn keep_points(w: &mut World, s: &Scene, t: &Turn) {
+    let Some(i) = money_subject(w, s) else { return };
+    let him = Them::Player(w.people[i].player.id);
+    let skill = points::skill(w, i, him);
+    for rd in &t.points {
+        if points::land(w, i, him, rd, skill) <= 0.0 {
+            continue;
+        }
+        let (trust, lean) = points::makeup_cost(w, i, rd);
+        super::stores::nudge_trust(w, him, trust);
+        let p = &mut w.people[i];
+        p.cal.lean = (p.cal.lean + lean).min(1.0);
+    }
+}
+
 /// The scene a line is said in.
 pub fn scene(w: &World, id: u32) -> Option<&Scene> {
     w.folk.scenes.iter().find(|s| s.id == id)
@@ -243,6 +272,30 @@ impl Resolving for Conversation<'_> {
             self.said.promises.iter().any(|p| role(&p.kind))
                 || s.and_then(|s| self.standing(w, s, &claimed)).is_some_and(|p| role(&p.kind))
         };
+        // The stat points made in a money talk with your college player
+        // (negotiation item 3a): each read against his season, his side's
+        // answer said, and their pull counted for an offer in this line.
+        let money = s.and_then(|s| money_subject(w, s));
+        let mut argued = 0.0f64;
+        if let Some(i) = money {
+            let id = w.people[i].player.id;
+            let skill = points::skill(w, i, Them::Player(id));
+            for act in &reading.acts {
+                let Act::Claim(st) = act else { continue };
+                if st.kind != "stat" || st.about.is_some_and(|a| a != id) {
+                    continue;
+                }
+                let Some(rd) = points::read(w, i, st) else { continue };
+                let adds = points::adds(w, i, &rd, skill);
+                argued += adds;
+                if rd.true_ && rd.cherry && points::caught(w, i, skill) {
+                    t.say.released.push("He points out his whole season says otherwise.".into());
+                } else if let Some(b) = rd.back.filter(|_| rd.true_ && rd.bad > 0.0) {
+                    t.say.released.push(format!("He pushes back: {b}."));
+                }
+                t.points.push(rd);
+            }
+        }
         for act in &reading.acts {
             match act {
                 // An open floor has nothing to look up: never "he doesn't
@@ -326,7 +379,13 @@ impl Resolving for Conversation<'_> {
                     t.told.push(told);
                 }
                 Act::Claim(st) => {
-                    let truth = s.map_or(Truth::Unknown, |s| claims::check::fact(w, s, st));
+                    // A stat point in a money talk is checked on his season.
+                    let stat = money.filter(|_| st.kind == "stat").and_then(|i| points::read(w, i, st));
+                    let truth = match stat {
+                        Some(rd) if rd.true_ => Truth::True,
+                        Some(_) => Truth::False,
+                        None => s.map_or(Truth::Unknown, |s| claims::check::fact(w, s, st)),
+                    };
                     if truth == Truth::False {
                         // He knows it isn't so as you say it (lane 9's
                         // rule): it costs what a move against the facts
@@ -351,6 +410,8 @@ impl Resolving for Conversation<'_> {
                 // I'll sign the #1" came back as a player's counter-offer).
                 Act::Offer(o) if super::office::deals::not_a_deal(w, him, o) => {}
                 Act::Offer(o) => {
+                    // The points made in this line count for its offer.
+                    let o = &super::terms::Offer { argued: argued.min(1.0) as f32, ..o.clone() };
                     let wd = self.parts.valuing.weigh(w, him, o);
                     // His own reasons, where the game weighed them, in
                     // place of the plain words.
@@ -890,6 +951,9 @@ impl Resolving for Conversation<'_> {
                 sc.outcome.extend(out);
             }
         }
+        // A money talk's points (negotiation items 3a and 3c), before what
+        // its offers leave behind.
+        keep_points(w, &s, t);
         // What an offer leaves behind (lane N3): your first number, an
         // answer he owes you.
         for (o, wd) in &t.weighed {

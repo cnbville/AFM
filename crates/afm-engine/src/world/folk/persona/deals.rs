@@ -52,6 +52,17 @@ pub const DEAL_CUT: f64 = 0.75;
 /// for your club (`pro::market::discount`). Proposed, not confirmed.
 pub const ASK_GREED: f64 = 0.12;
 pub const ASK_EGO: f64 = 0.05;
+/// Your college player staying calls an offer under this share of his
+/// lowest number a lowball (negotiation item 5). Proposed, not confirmed.
+pub const OWN_LOWBALL: f64 = 0.5;
+/// An offer under his lowest number raises a staying college player's
+/// portal lean the day you make it by this much x (1 - offer / lowest) x
+/// his money goal (item 5): half his number at full money care adds
+/// 0.075. Proposed, not confirmed.
+pub const LOWBALL_LEAN: f64 = 0.15;
+/// And takes this much x the same share off his mood, with pay its
+/// reason. Proposed, not confirmed.
+pub const LOWBALL_MOOD: f64 = 0.2;
 /// A pro calls an offer under this share of his ask a lowball.
 /// Proposed, not confirmed.
 pub const LOWBALL: f64 = 0.75;
@@ -323,6 +334,107 @@ fn money_bar(w: &World, who: Who) -> f64 {
     }
 }
 
+/// His closeness to you (coach and player bonds). 0 until the bonds build
+/// is on main.
+fn bond_with_you(_w: &World, _i: usize) -> f64 {
+    0.0
+}
+
+/// How much your program wins, as a college player who wants to win reads
+/// it: its last finished season's win share, 0 at .500 or worse, 1 at
+/// .800, a conference title a fifth more (negotiation item 1, proposed,
+/// not confirmed). 0 before a season is on the books.
+fn program_contending(w: &World, j: usize) -> f64 {
+    let label = if w.today < w.dates.fall_camp { w.year - 1 } else { w.year };
+    w.programs[j].seasons.iter().rev().find(|s| s.year <= label && s.wins + s.losses > 0).map_or(0.0, |s| {
+        let share = (s.wins as f64 / (s.wins + s.losses) as f64 - 0.5) / 0.3;
+        (share + if s.conference_title { 0.2 } else { 0.0 }).clamp(0.0, 1.0)
+    })
+}
+
+/// Your college player's discount for you (negotiation item 1, college),
+/// on the NFL's parts and sizes (`pro::market::discount`): your bond, his
+/// trust in you over half, your winning times his winning goal over half,
+/// home (his home state's school, or within 250 miles) times his home goal;
+/// the sum times his money factor and the money he has made (a
+/// seven-figure year from his school and collective), at most
+/// `FLOOR_MAX`. His goals are his own (`pro::market::goals`): a college
+/// player answers for himself. Proposed, not confirmed.
+pub fn college_discount(w: &World, i: usize) -> crate::world::pro::market::Discount {
+    use crate::world::pro::market::{self as pm, Discount};
+    let p = &w.people[i];
+    let Some(j) = p.college.filter(|_| p.stage == Stage::College) else { return Discount::default() };
+    let g = pm::goals(w, i);
+    let bond = pm::FLOOR_BOND * bond_with_you(w, i);
+    let trust = super::makeup::trust(w, Them::Player(p.player.id));
+    let trust = pm::FLOOR_TRUST * ((trust - 0.5) / 0.5).clamp(0.0, 1.0);
+    let win = pm::FLOOR_WIN * program_contending(w, j) * ((g.winning - 0.5) / 0.5).clamp(0.0, 1.0);
+    let st = w.programs[j].state;
+    let at_home = st == p.home_state || crate::world::geo::miles(p.home_state, st) <= 250.0;
+    let home = if at_home { pm::FLOOR_HOME * g.home } else { 0.0 };
+    let money = 1.6 - 1.2 * g.money;
+    let made = (p.nil_paid() / 1.0e6).clamp(0.0, 1.0);
+    let total = ((bond + trust + win + home) * money * (1.0 + pm::FLOOR_MADE * made)).clamp(0.0, pm::FLOOR_MAX);
+    Discount { bond, trust, win, home, money, made, total }
+}
+
+/// Your college player's money numbers a year (negotiation items 5, 1 and
+/// 3a), engine numbers never shown.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Numbers {
+    /// His market (M): his market price, or last July's pay when higher.
+    pub market: f64,
+    /// His ask (A): his market moved by greed and ego, less his discount,
+    /// pulled toward your first number.
+    pub ask: f64,
+    /// His lowest number for you (F): his market less his discount.
+    pub lowest: f64,
+    /// His bar (B): from his ask toward his lowest number by the true
+    /// points made this season (and in this line, `argued`).
+    pub bar: f64,
+}
+
+/// Your college player's numbers (`Numbers`). `argued` is the pull of the
+/// points made in the line that carries the offer (`Offer::argued`).
+pub fn own_numbers(w: &World, him: Them, i: usize, argued: f64) -> Numbers {
+    let market = money_bar(w, Who::Own(i));
+    let d = college_discount(w, i).total;
+    let lowest = market * (1.0 - d);
+    let ask = market * (1.0 + ASK_GREED * z(w, i, Trait::Greed) + ASK_EGO * z(w, i, Trait::Ego)) * (1.0 - d);
+    let ask = anchored(w, him, ask).max(lowest);
+    let pull = (super::negotiate::points::pull(w, w.people[i].player.id) + argued).clamp(0.0, 1.0);
+    Numbers { market, ask, lowest, bar: lowest + (ask - lowest) * (1.0 - pull) }
+}
+
+/// Your college player's counter at his bar (negotiation items 5 and 3b).
+/// Once a true performance point has landed this season and his bar
+/// still sits above your offer, it comes back as a prove-it deal: a
+/// smaller base (your number, at least his lowest) and the rest of his
+/// bar as a clause on the stat his side wants paid (`points::earn_back`),
+/// a year's deal. A man who wants security takes half the gap in his base;
+/// a big ego wants all of it on the clause. Else his bar, in money.
+fn own_counter(w: &World, i: usize, offer: &Offer, n: &Numbers) -> Counter {
+    use super::negotiate::points;
+    let bar = n.bar.round();
+    let id = w.people[i].player.id;
+    let x = offer_money(offer).unwrap_or(0.0);
+    let back = points::named(w, id).and_then(|s| points::earn_back(w, i, s));
+    if let Some(u) = back {
+        let g = crate::world::pro::market::goals(w, i);
+        let floor = x.max(n.lowest);
+        let base = if g.security > 0.6 && z(w, i, Trait::Ego) < 0.5 { floor + 0.5 * (bar - floor) } else { floor };
+        let base = base.round();
+        let extra = (bar - base).max(0.0).round();
+        if extra > 0.0 {
+            let gives = vec![Give::Money(base), Give::Incentives(extra), Give::Years(1)];
+            let mut asks: Vec<String> = gives.iter().map(|g| g.words()).collect();
+            asks.push(format!("paid on {}", u.words()));
+            return Counter { asks, gives, terms: vec![u], why: None };
+        }
+    }
+    Counter { asks: vec![Give::Money(bar).words()], gives: vec![Give::Money(bar)], terms: vec![], why: None }
+}
+
 /// The money in an offer: its largest money give (NIL and revenue share
 /// together, as both pots pay him).
 fn offer_money(offer: &Offer) -> Option<f64> {
@@ -483,7 +595,7 @@ impl Deals<'_> {
         let verdict = match who {
             Who::Pro(i, mine) => self.pro(w, him, i, mine, &wants, offer),
             Who::Recruit(i, j) => self.recruit(w, i, j, &wants, offer),
-            Who::Own(i) => self.own(w, i, &wants, offer),
+            Who::Own(i) => self.own(w, him, i, &wants, offer),
             Who::Other => self.other(w, him, &wants, offer),
         };
         match verdict {
@@ -625,9 +737,26 @@ impl Deals<'_> {
     }
 
     /// Your own player: what the deal takes off his lean to leave.
-    fn own(&self, w: &World, i: usize, wants: &[Want], offer: &Offer) -> Weighed {
+    ///
+    /// A college player staying has his number (negotiation item 5): an
+    /// offer at his bar is a yes, one under half his lowest number a
+    /// lowball, and in between he counters at his bar (a prove-it shape
+    /// once a performance point has landed, item 3b). Before, a player not
+    /// thinking of leaving took any amount.
+    fn own(&self, w: &World, him: Them, i: usize, wants: &[Want], offer: &Offer) -> Weighed {
         let lean = lean_of(w, i);
+        let college = w.people[i].stage == Stage::College;
         if lean <= STAY_LEAN {
+            if college && let Some(x) = offer_money(offer) {
+                let n = own_numbers(w, him, i, offer.argued as f64);
+                return if x >= n.bar {
+                    Weighed::Yes
+                } else if x < OWN_LOWBALL * n.lowest {
+                    Weighed::Lowball
+                } else {
+                    Weighed::Counter(own_counter(w, i, offer, &n))
+                };
+            }
             // He isn't going anywhere: more is welcome, if it meets
             // anything he wants at all.
             return if met(w, Who::Own(i), offer, money_bar(w, Who::Own(i))).iter().any(|x| x.1 > 0.0) {
@@ -782,9 +911,44 @@ pub fn cost(w: &World, him: Them, weighed: &Weighed, again: u8) -> Cost {
     c
 }
 
+/// An offer under a staying college player's lowest number upsets him the
+/// day you make it (negotiation item 5), not on July 1: his portal lean
+/// rises by `LOWBALL_LEAN` and his mood falls by `LOWBALL_MOOD`, each x
+/// (1 - offer / lowest) x his money goal, pay the mood's reason. A lowball's
+/// trust cost is the talk's (`cost`); an offer under his number that isn't
+/// one costs the same trust here. Nothing for an offer he took.
+fn upset_on_the_day(w: &mut World, him: Them, offer: &Offer, weighed: &Weighed) {
+    if matches!(weighed, Weighed::Yes) {
+        return;
+    }
+    let Who::Own(i) = who(w, him) else { return };
+    if w.people[i].stage != Stage::College || lean_of(w, i) > STAY_LEAN {
+        return;
+    }
+    let Some(x) = offer_money(offer) else { return };
+    // The line's points are kept by now (`talk::keep_points` runs first).
+    let n = own_numbers(w, him, i, 0.0);
+    if n.lowest <= 0.0 || x >= n.lowest {
+        return;
+    }
+    let short = 1.0 - x / n.lowest;
+    let care = crate::world::pro::market::goals(w, i).money;
+    if !matches!(weighed, Weighed::Lowball) {
+        let c = cost(w, him, &Weighed::Lowball, 0);
+        super::stores::nudge_trust(w, him, c.trust);
+    }
+    let p = &mut w.people[i];
+    p.cal.lean = (p.cal.lean + LOWBALL_LEAN * short * care).min(1.0);
+    p.mood = (p.mood - (LOWBALL_MOOD * short * care) as f32).max(-1.0);
+    if p.mood < -0.15 {
+        p.mood_why = crate::world::people::Why::Money as u8;
+    }
+}
+
 /// Keeps what an offer leaves behind: your first number (an anchor), and
 /// an answer he owes you when he took time.
 pub fn offered(w: &mut World, him: Them, offer: &Offer, weighed: &Weighed) {
+    upset_on_the_day(w, him, offer, weighed);
     let today = w.today;
     let m = &mut w.folk.live.persona;
     if let Some(x) = offer_money(offer) {
@@ -951,4 +1115,14 @@ pub fn kind_of(w: &World, him: Them, offer: &Offer) -> DealKind {
     } else {
         DealKind::Promise
     }
+}
+
+/// Whether your player agreed a money deal with you in a talk since
+/// `since` (negotiation item 5: no second upset on July 1).
+pub fn agreed_money(w: &World, id: u32, since: Date) -> bool {
+    w.folk.live.persona.agreed.iter().any(|a| {
+        a.with == Them::Player(id)
+            && a.day >= since
+            && a.offer.gives.iter().any(|g| matches!(g, Give::Money(_) | Give::RevenueShare(_)))
+    })
 }

@@ -197,6 +197,16 @@ pub struct Offer {
     /// Friday").
     #[serde(skip_serializing_if = "Option::is_none")]
     pub until: Option<Date>,
+    /// The pull of the true points made in the line that carries it
+    /// (negotiation item 3a), so a point said with the offer counts for it;
+    /// points from earlier lines are kept for the season
+    /// (`negotiate::points::pull`). 0-1, an engine number.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub argued: f32,
+}
+
+fn is_zero(x: &f32) -> bool {
+    *x == 0.0
 }
 
 /// How he takes an offer, against his best option (11).

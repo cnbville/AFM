@@ -72,6 +72,7 @@ mod live_rooms;
 mod manner;
 mod marks;
 mod matters_here;
+mod negotiation_college;
 mod negotiation_floor;
 mod new_teams;
 mod nil;
