@@ -8,6 +8,14 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.593 (17 Nov, shipped): ground lane G5: the week's scenes played (PR #494)
+**TLDR:** Your recruiting week now plays out as real scenes: walk into a high school coach's office, run your own clinic, sit with families on junior day and take the call the morning a kid decides.
+- A school visit goes stop by stop: the sign-in sheet shows who was in before you, the coach's office gives you his list, and your eye can catch a kid in the weight room nobody listed. (PR #494)
+- Your clinic, open practices and the state coaches' convention warm many coaches at once, fastest with the ones who run your scheme, and the hallway is where the names come out. (PR #494)
+- Junior days, visit weekends and the spring game let you sit with families, hear from player hosts and offer on the spot; from 2027 the spring game is yours to hold or skip. (PR #494)
+- Every scene ends on one line of what you walked away with, and any scene you hand to your coordinator still comes back with his line. (PR #494)
+- Look at: your next school visit or your spring clinic from the week's plan. (PR #494)
+
 ## 0.2.592 (17 Nov, shipped): progression step 4c: no 99 wall, a thin top past 99, the bench by body weight (PR #502)
 **TLDR:** The best players can now go past 99 under the hood, so true freaks stand out from merely great players. Big men's bench numbers now follow their weight, as they do at the real combine.
 - Ratings no longer stop at 99. Past the mid-90s each extra point gets harder, so a 100+ arm is about as rare as a 4.25 forty. (PR #502)
