@@ -788,6 +788,10 @@ struct Parts {
     money: f64,
     life: f64,
     room: f64,
+    /// An AI head coach's manner on him over the season (coach voice,
+    /// `persona::manner::ai_fit`): a trust change. 0 under you, whose
+    /// lines land one by one.
+    coach_fit: f64,
 }
 
 /// One mood read (topic 3): the parts weighted by what he is, then
@@ -803,7 +807,7 @@ fn read(p: &mut Person, coach: Option<usize>, coach_motivation: f64, parts: Part
         p.trust = clamp(0.5 + 0.08 * t.z(Trait::Loyalty) + 0.08 * t.z(Trait::Adaptability), 0.2, 0.8) as f32;
     }
     let fair = if parts.role >= 0.0 { 0.06 } else { 0.18 * parts.role };
-    let trust = clamp(p.trust as f64 + fair + 0.03 * (coach_motivation - 10.0) / 10.0, 0.0, 1.0);
+    let trust = clamp(p.trust as f64 + fair + 0.03 * (coach_motivation - 10.0) / 10.0 + parts.coach_fit, 0.0, 1.0);
     p.trust = trust as f32;
     let comp = (pers.competitiveness - 10.0) / 10.0;
     let greed = t.z(Trait::Greed);
@@ -900,6 +904,7 @@ pub(crate) fn college_camp_mood(w: &mut World, roles: &[(usize, PlayingTime)]) {
                 money: 0.0,
                 life: 0.5 * (p.bg.stability - 10.0) / 10.0,
                 room,
+                coach_fit: super::folk::persona::manner::ai_fit(w, coach, i),
             };
             read(&mut w.people[i], coach, motivation, parts);
         }
@@ -945,6 +950,7 @@ pub(crate) fn hs_camp_mood(w: &mut World, schools: &[usize], roles: &[(usize, Pl
                     money: 0.0,
                     life: 0.5 * (p.bg.stability - 10.0) / 10.0,
                     room: 0.0,
+                    coach_fit: super::folk::persona::manner::ai_fit(world, coach, i),
                 };
                 out.push((i, coach, motivation, parts));
             }
@@ -1091,6 +1097,7 @@ pub(crate) fn pro_mood(w: &mut World) {
                 money,
                 life: 0.5 * (p.bg.stability - 10.0) / 10.0,
                 room,
+                coach_fit: super::folk::persona::manner::ai_fit(w, coach, i),
             };
             let role = parts.role;
             read(&mut w.people[i], coach, motivation, parts);

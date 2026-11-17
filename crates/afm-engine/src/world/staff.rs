@@ -970,6 +970,11 @@ fn weigh_offer_at(w: &mut World, c: usize, o: Opening, rank: usize) -> Option<(S
     if let Some((by, why)) = super::ground::staff::offer_pull(w, c) {
         parts.push((by, why));
     }
+    // How his head coach talks to him and his guys (coach voice): a man
+    // gone at takes the first good offer; one who gets on with it stays.
+    if let Some((by, why)) = super::folk::persona::manner::offer_pull(w, c) {
+        parts.push((by, why));
+    }
     // A seat getting hot: a way out before he is pushed.
     if job.role == Role::HeadCoach {
         let n = coach.recent.len();
@@ -2113,6 +2118,13 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
     // A "prove it" year: a third bad season ends it; a good one clears it.
     let mut fire = false;
     let mut why = "fired";
+    // An outside review of how he treats his players (coach voice, AI
+    // coaches on the same rules): a pattern ends it for cause.
+    if super::folk::persona::manner::for_cause(w, c, p) {
+        fire = true;
+        why = "fired for cause";
+        w.coaches[c].contract = None;
+    }
     match w.coaches[c].prove_it {
         Some(granted) if granted == year - 1 => {
             if !contending && (wp_last < 0.5 || (last < -0.08 && wp_last < 0.65)) {
@@ -2195,6 +2207,9 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
             "not retained when his contract ran out" => {
                 format!("{name} lets head coach {coach_name}'s contract run out after {seasons}.")
             }
+            "fired for cause" => format!(
+                "{name} fires head coach {coach_name} for cause after an outside review of how his program treats its players."
+            ),
             _ => format!(
                 "{name} fires head coach {coach_name} after {} prove-it season ({seasons} in all).",
                 crate::world::pronoun::coach(w, c).his()

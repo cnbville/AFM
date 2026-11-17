@@ -6489,7 +6489,12 @@ fn run_signing_stage(w: &mut World, stage: SignStage, season: i32) {
                         // C8: a famous name pulls recruits too.
                         let hc_skill = 0.6 * hc.map_or(9.0, |a| a.recruiting)
                             + 0.4 * hc.map_or(9.0, |a| a.relationships)
-                            + prog.head_coach.map_or(0.0, |c| w.coaches[c].name_pull(w.dates.season));
+                            + prog.head_coach.map_or(0.0, |c| w.coaches[c].name_pull(w.dates.season))
+                            // How the head coach talks, as the kid hears it
+                            // from his host and the trail (coach voice):
+                            // some want a hard coach, most don't want one
+                            // who goes at the man.
+                            + prog.head_coach.map_or(0.0, |c| super::folk::persona::manner::recruit_fit(w, c, p));
                         let pc_skill =
                             prog.position_coaches[group as usize].map_or(9.0, |c| w.coaches[c].ability().recruiting);
                         // Most of a staff's recruiting time goes to its own state

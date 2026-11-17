@@ -2532,6 +2532,12 @@ fn one_on_one_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     let rest = tp::rest(w, i, &sheet, topic, m, revealed);
     let (rest, caught) = typed_against(w, s, i, m, rest);
     let (dt, dm) = landing(w, i, m, t, subject, rest, s.id as u64 ^ (s.step as u64) << 8);
+    // The chip's tone is how you said it (coach voice): he keeps it.
+    super::persona::manner::chip(
+        w,
+        super::persona::Them::Player(w.people[i].player.id),
+        super::persona::manner::Manner::of_talk(t),
+    );
     s.f[0] += dt;
     s.f[1] += dm;
     let p = &mut w.people[i];
@@ -4028,6 +4034,7 @@ fn team_talk_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         weight *= 0.5;
     }
     w.folk.mine_tones.push(t);
+    super::persona::manner::room_tone(w, super::persona::manner::Manner::of_talk(tone));
     if w.folk.mine_tones.len() > 8 {
         w.folk.mine_tones.remove(0);
     }

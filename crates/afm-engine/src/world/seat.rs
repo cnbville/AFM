@@ -1032,6 +1032,10 @@ pub struct Profile {
     pub facial_hair: String,
     /// Your own photo as a JPEG data URL, small (about 320 by 400).
     pub photo: Option<String>,
+    /// Your starting reputation for how you talk (coach voice, Cain's
+    /// answer 1): a prototype's key (`persona::manner::Prototype`), or
+    /// empty for a blank start. Your real lines take over within a season.
+    pub manner: String,
 }
 
 /// Where you start (section 8, topic 2).

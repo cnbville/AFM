@@ -2,7 +2,7 @@
 
 Design for live talks v3, section 4 "Your style" (thread "Design coach talk styles and reactions", 2026-11-16/17). Cain, 2026-11-16 23:41 UTC: "I'm naturaly a very intense guy, cursing and intense. I don't want to show the league what we got... i want to fucking destroy the SEC conference. I feel like making that distinction with players and coaches, both OC and supporting staff an important step."
 
-Status: agreed. Cain said "yes to all" on 2026-11-17 00:44 UTC to the whole proposal and its three questions (section 9). Every size below (fades, weights, the 30 tokens, the rival's fire lift) is proposed, not confirmed, until the build measures it. Not built.
+Status: agreed. Cain said "yes to all" on 2026-11-17 00:44 UTC to the whole proposal and its three questions (section 9). Every size below (fades, weights, the 30 tokens, the rival's fire lift) is proposed, not confirmed, until the build measures it. Built 2026-11-17 (`world/folk/persona/manner.rs`; how it works and the small-world numbers in `docs/reference/how-it-works/live-talks.md`, "How you talk"); every size the build set is marked proposed, not confirmed, in the code.
 
 ## What already covers part of it (not re-asked)
 

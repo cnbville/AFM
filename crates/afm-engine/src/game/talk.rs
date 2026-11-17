@@ -205,6 +205,10 @@ pub struct Day {
     pub captains: Vec<u32>,
     /// A starter out today (the room plays for him).
     pub hurt: Option<u32>,
+    /// The other side's head coach handed this room bulletin-board
+    /// material this week (coach voice: your fiery words about them at the
+    /// press conference).
+    pub provoked: bool,
 }
 
 /// The groups a room splits into on the screens.
@@ -480,6 +484,11 @@ pub fn ideal_fire(p: Position) -> f64 {
     }
 }
 
+/// The fire a room takes from the other coach's words in the paper this
+/// week: under a rivalry week's 0.05 (coach voice). Proposed, not
+/// confirmed.
+pub const PROVOKED_FIRE: f64 = 0.03;
+
 /// His mind going in: the stakes, his temper, his years and his week.
 pub fn mind_now(p: &GamePlayer, cx: &Ctx) -> Mind {
     let t = &p.personality.traits;
@@ -499,6 +508,11 @@ pub fn mind_now(p: &GamePlayer, cx: &Ctx) -> Mind {
         + 0.06 * week_of(p);
     if cx.day.rival {
         fire += 0.05;
+    }
+    // Their coach's words on the locker room wall (coach voice): a small
+    // lift, never past a rivalry week's. Proposed, not confirmed.
+    if cx.day.provoked {
+        fire += PROVOKED_FIRE;
     }
     match cx.moment {
         Moment::Pregame => {}

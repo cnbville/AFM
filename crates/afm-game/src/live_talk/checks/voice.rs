@@ -117,6 +117,8 @@ impl SetVoice {
             asked_before: Vec::new(),
             pressing: false,
             heat: self.heat.clone(),
+            manner: String::new(),
+            coach_read: String::new(),
             notebook: self.notebook.clone(),
             so_far: self.so_far.iter().map(|s| Spoken { who: s.who.clone(), text: s.text.clone() }).collect(),
             line: quoted(line),

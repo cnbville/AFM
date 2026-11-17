@@ -721,6 +721,21 @@ pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         w.folk.mine.nudge(r.key(), if deflect { -0.015 } else { 0.01 });
     }
     let boss = super::boss::boss(w, team);
+    // Your public line, as the press has it (coach voice): the chip's tone,
+    // aimed at the man when you criticize one of yours, at the rival when
+    // you take him on.
+    if let Some(t) = crate::game::talk::Tone::from_key(&picked.tone.to_lowercase()) {
+        let mut m = super::persona::manner::Manner::of_tone(t);
+        match (q, opt) {
+            (Q::LastGame, 2) | (Q::Player, 1) => m.aim = 0.8,
+            (Q::Rival, 0) | (Q::HotSeat, 1) => {
+                m.heat = m.heat.max(0.75);
+                m.aim = 0.05;
+            }
+            _ => {}
+        }
+        super::persona::manner::public(w, m);
+    }
     match (q, opt) {
         (Q::Story | Q::Story2, o) => {
             if let Some(id) = story_of(s, q) {
