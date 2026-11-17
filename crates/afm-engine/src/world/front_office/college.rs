@@ -2750,10 +2750,10 @@ pub fn market_price(w: &World, i: usize) -> Option<f64> {
 ///   NIL Go to the top of his range and the rest moved into the revenue
 ///   share where the cap has room.
 /// - The raises come out of the money left for new offers this year (after
-///   the class that signed and the hunt's reserve). Only where a pot can't
-///   hold them does everyone on the split take the same cut, never below
-///   nothing, as an AI school's July 1 spreads what its fixed deals leave
-///   (proposed, not confirmed).
+///   the class that signed and the hunt's reserve). Where a pot can't hold
+///   them, the raises shrink first, then every split takes the same cut,
+///   never below nothing (`fit`; proposed, not confirmed). Only deals he
+///   signed can leave a pot short.
 fn inherited_deals(w: &World, j: usize) -> Vec<(u32, f64, f64)> {
     let two = ncaa::two_pots(w.today);
     let year = deals_year(w);
@@ -2771,14 +2771,15 @@ fn inherited_deals(w: &World, j: usize) -> Vec<(u32, f64, f64)> {
         let top = if free { f64::INFINITY } else { rec::go_top_now(w, j, &w.people[i], &medians) };
         rec::pots(prog, w.today, money, top, free)
     };
-    // (id, school, collective, on the split, NIL Go holds some back).
-    let mut rows: Vec<(u32, f64, f64, bool, bool)> = Vec::new();
+    // Each row: (id, how it was priced, school, collective, his split in
+    // each pot, NIL Go holds some of his split back).
+    let mut rows: Vec<(u32, Priced, f64, f64, f64, f64, bool)> = Vec::new();
     for (id, s, c, held) in splits(w, j) {
         let Some(&i) = at.get(&id) else { continue };
         let p = &w.people[i];
         let signed = p.cal.nil_deal.filter(|d| d.pays(year) && d.kind != crate::world::nil_bid::DealKind::Keep);
-        let price = match signed {
-            Some(d) => Some(d.amount),
+        let (kind, price) = match signed {
+            Some(d) => (Priced::Signed, Some(d.amount)),
             // A man leaving (no season left, headed to the draft or the
             // portal, cut) has no market here: the split, as before.
             None if p.cal.declare_plan == Some(true)
@@ -2786,40 +2787,87 @@ fn inherited_deals(w: &World, j: usize) -> Vec<(u32, f64, f64)> {
                 || p.cut_here().is_some()
                 || crate::world::college::no_season_left(p, prog.division, label) =>
             {
-                None
+                (Priced::Split, None)
             }
             None => {
                 let x = market.get(&id).copied().unwrap_or(0.0).max(p.nil_paid());
-                (x > s + c).then_some(x)
+                (Priced::Market, (x > s + c).then_some(x))
             }
         };
         match price {
             Some(x) => {
                 let (school, coll) = parts(i, x);
-                rows.push((id, school, coll, false, false));
+                rows.push((id, kind, school, coll, s, c, held > 0.5));
             }
-            None => rows.push((id, s, c, true, held > 0.5)),
+            None => rows.push((id, Priced::Split, s, c, s, c, held > 0.5)),
         }
     }
     // What a pot has left for the roster once the signed class and the
     // hunt's reserve are counted (no deal is set yet).
     let b = budget(w, j);
-    let cut = |left: f64, pick: fn(&(u32, f64, f64, bool, bool)) -> f64| -> f64 {
-        let fixed: f64 = rows.iter().filter(|r| !r.3).map(pick).sum();
-        let rest: f64 = rows.iter().filter(|r| r.3).map(pick).sum();
-        if rest <= 0.0 { 1.0 } else { ((left - fixed) / rest).clamp(0.0, 1.0) }
+    let school = fit(b.left, b.unlimited, &rows.iter().map(|r| (r.1, r.2, r.4)).collect::<Vec<_>>());
+    let coll = if two {
+        fit(b.coll_left, b.unlimited, &rows.iter().map(|r| (r.1, r.3, r.5)).collect::<Vec<_>>())
+    } else {
+        vec![0.0; rows.len()]
     };
-    let ls = if b.unlimited { 1.0 } else { cut(b.left, |r| r.1) };
-    let lc = if b.unlimited || !two { 1.0 } else { cut(b.coll_left, |r| r.2) };
     rows.into_iter()
-        .map(|(id, s, c, split, held)| {
-            if split {
-                (id, round_rate(s * ls), round_coll(c * lc, if held { 1.0 } else { 0.0 }))
+        .zip(school.into_iter().zip(coll))
+        .map(|(r, (s, c))| {
+            // A priced collective deal is cleared to his range: rounding
+            // never takes it past; the split's rounds as the going rate does.
+            let c = if r.1 == Priced::Split {
+                round_coll(c, if r.6 { 1.0 } else { 0.0 })
             } else {
-                // The collective's part is cleared to his range: rounding
-                // never takes it past.
-                (id, round_rate(s), (c / 500.0).floor() * 500.0)
-            }
+                (c / 500.0).floor() * 500.0
+            };
+            (r.0, round_rate(s), c)
+        })
+        .collect()
+}
+
+/// How an inherited deal was priced (`inherited_deals`).
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Priced {
+    /// A deal he signed for the coming year: it stands as written.
+    Signed,
+    /// His market price or last year's pay, above the split.
+    Market,
+    /// The payroll split.
+    Split,
+}
+
+/// One pot's inherited deals fitted to what it has left (`left`): rows of
+/// (how priced, the amount, his split). Signed deals stand. Where the pot
+/// can't hold everything, the market raises over the split shrink first,
+/// by the same share; where it can't hold even the splits, every split
+/// takes the same cut, never below nothing (proposed, not confirmed).
+pub(crate) fn fit(left: f64, unlimited: bool, rows: &[(Priced, f64, f64)]) -> Vec<f64> {
+    let sum = |k: Priced, f: fn(&(Priced, f64, f64)) -> f64| -> f64 { rows.iter().filter(|r| r.0 == k).map(f).sum() };
+    let signed = sum(Priced::Signed, |r| r.1);
+    let market = sum(Priced::Market, |r| r.1);
+    let floor = sum(Priced::Market, |r| r.1.min(r.2));
+    let split = sum(Priced::Split, |r| r.1);
+    if unlimited || signed + market + split <= left {
+        return rows.iter().map(|r| r.1).collect();
+    }
+    if market > floor && signed + floor + split <= left {
+        let mu = (left - signed - floor - split) / (market - floor);
+        return rows
+            .iter()
+            .map(|r| match r.0 {
+                Priced::Market => r.1.min(r.2) + mu * (r.1 - r.1.min(r.2)),
+                _ => r.1,
+            })
+            .collect();
+    }
+    let base = floor + split;
+    let lambda = if base > 0.0 { ((left - signed) / base).clamp(0.0, 1.0) } else { 1.0 };
+    rows.iter()
+        .map(|r| match r.0 {
+            Priced::Signed => r.1,
+            Priced::Market => r.1.min(r.2) * lambda,
+            Priced::Split => r.1 * lambda,
         })
         .collect()
 }

@@ -806,3 +806,19 @@ fn the_roster_you_inherit_keeps_its_market_price() {
     let r = reaction(&w, star, MoneyKind::Deal).unwrap();
     assert!(r.text.contains("cut from"), "{}", r.text);
 }
+
+/// The inherited deals fitted to a pot (Codex's review of #544): signed
+/// deals stand, the market raises shrink first, then every split.
+#[test]
+fn inherited_deals_fit_the_pot_raises_first() {
+    use crate::world::front_office::college::{Priced, fit};
+    let rows = [(Priced::Signed, 100.0, 10.0), (Priced::Market, 300.0, 100.0), (Priced::Split, 50.0, 50.0)];
+    assert_eq!(fit(1_000.0, false, &rows), vec![100.0, 300.0, 50.0], "room for all");
+    assert_eq!(fit(10.0, true, &rows), vec![100.0, 300.0, 50.0], "no limit");
+    // 350 left: the raise of 200 halves to 100.
+    assert_eq!(fit(350.0, false, &rows), vec![100.0, 200.0, 50.0]);
+    // 175 left: raises gone, the splits (100 + 50) take half.
+    assert_eq!(fit(175.0, false, &rows), vec![100.0, 50.0, 25.0]);
+    // Less than the signed deal: only it stands.
+    assert_eq!(fit(50.0, false, &rows), vec![100.0, 0.0, 0.0]);
+}

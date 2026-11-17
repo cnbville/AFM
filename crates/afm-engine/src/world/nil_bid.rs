@@ -474,10 +474,16 @@ impl Market {
     /// (the best rival's top bid, never past his own school's, that rival
     /// bid, his play over his level's starters at his spot). His own
     /// school's top bid reads his role there (a starter's, for December's
-    /// keep-him offers); a rival is any FBS or FCS program where he would
+    /// keep-him offers; a landed transfer's, the place he landed in); a rival is any FBS or FCS program where he would
     /// start or rotate, his play read at its level. None with no season's
     /// play to read or no bid.
     pub(crate) fn bid(&self, w: &World, i: usize) -> Option<(f64, f64, f64)> {
+        self.bid_read(w, i, true)
+    }
+
+    /// [`Market::bid`], with `landed` false reading a landed transfer by his
+    /// last role, as December's keep-him offers always have.
+    fn bid_read(&self, w: &World, i: usize, landed: bool) -> Option<(f64, f64, f64)> {
         let p = &w.people[i];
         let c = p.college?;
         let from = w.programs[c].division;
@@ -487,15 +493,16 @@ impl Market {
         let stars = super::recruiting::recruiting_stars(p);
         let slots = crate::league::depth_slots(pos).starters;
         let medians = &self.medians;
-        let own_edge = perf - medians[from as usize][k];
+        // A transfer who hasn't played here yet is read in the place he
+        // landed in (`nil_role`, cleared at fall camp).
+        let (own_role, own_edge) = match p.cal.nil_role.filter(|_| landed) {
+            Some((role, edge)) => (role, edge as f64),
+            None => (p.last_role.unwrap_or(PlayingTime::Backup), perf - medians[from as usize][k]),
+        };
         let own = top_bid(
             w.programs[c].collective.budget,
             pos,
-            bid_talent(
-                Some(p.last_role.unwrap_or(PlayingTime::Backup)),
-                stars,
-                if own_edge.is_finite() { own_edge } else { 0.0 },
-            ),
+            bid_talent(Some(own_role), stars, if own_edge.is_finite() { own_edge } else { 0.0 }),
         );
         let mut rival = 0.0f64;
         for &r in self.rivals.iter().filter(|&&r| r != c) {
@@ -550,7 +557,7 @@ pub(crate) fn keep_offers(w: &mut World, label: i32) {
             if super::college::no_season_left(p, wr.programs[c].division, label) {
                 return None;
             }
-            market.bid(wr, i).map(|(keep, rival, edge)| (i, keep, rival, edge))
+            market.bid_read(wr, i, false).map(|(keep, rival, edge)| (i, keep, rival, edge))
         })
         .collect();
     let free = super::recruiting::nil_go_free(w);
