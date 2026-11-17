@@ -121,7 +121,7 @@ fn beside(w: &World, prog: usize) -> Option<(usize, Option<String>)> {
 /// read against the conference's best moves by the same number of levels,
 /// so the gold squares and the ivory ones are on one scale (a room already
 /// at the best stays at 5: the best rises with it).
-fn after(p: &afm_engine::world::program::Program, r: Room, physical: f64) -> u8 {
+pub(crate) fn after(p: &afm_engine::world::program::Program, r: Room, physical: f64) -> u8 {
     let k = r as usize;
     (p.campus.read[k] as f64 + (physical - p.campus.level[k] as f64)).round().clamp(1.0, 5.0) as u8
 }
