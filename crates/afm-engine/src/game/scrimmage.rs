@@ -421,7 +421,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         let pos = if s.fake_punt.is_some() { punt_spot(&f, r, los, by, s.rules.level) } else { align(&f, r, los, by) };
         let mut a = Agent::new(0, p, &gp, orole_label(r), pos, s.energy[0][p], s.edge[0][p]);
         if let Some(t) = s.pulse[0].get(p) {
-            (a.focus20, a.poise20, a.heat) = (t.focus, t.poise, t.heat);
+            a.fire_up(t);
         }
         agents.push(a);
         role_of.push(Some(r));
@@ -458,7 +458,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         let spot = def_spots[k];
         let mut a = Agent::new(1, p, &gp, d.label(), spot, s.energy[1][p], s.edge[1][p]);
         if let Some(t) = s.pulse[1].get(p) {
-            (a.focus20, a.poise20, a.heat) = (t.focus, t.poise, t.heat);
+            a.fire_up(t);
         }
         agents.push(a);
         role_of.push(None);
@@ -501,6 +501,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         stunt: None,
         level: s.rules.level,
         mood: super::sim::Mood { line: Some(s.los + s.togo), snap_y: s.ball_y, ..s.mood },
+        targeting: s.rules.targeting,
         tend_memo: super::sim::tend_memo(),
         reach_memo: super::sim::reach_memo(),
     };
@@ -3621,9 +3622,64 @@ fn slide(sim: &mut Sim, c: usize, s: &Snap) -> bool {
         sim.dead = true;
         sim.ball = Ball::Dead(me);
         sim.notes.tend.slid = true;
+        late_on_slide(sim, c);
         return true;
     }
     false
+}
+
+/// The share of hit fouls at the catch point that are high and led with
+/// the helmet: targeting under the college and high school rules, the
+/// rest unnecessary roughness (coach fire, item 4). Proposed, not
+/// confirmed: a defenseless receiver is where most targeting is called;
+/// with the tackles' share (`sim::HIGH_ON_TACKLE`) FBS calls about 0.04
+/// targeting fouls a team game (cfbfastR 2022-2025: 0.031 to 0.043).
+pub const HIGH_AT_CATCH: f64 = 0.7;
+/// The same share on a hit on a sliding quarterback (he is going down, so
+/// the hit is high). Proposed, not confirmed.
+pub const HIGH_ON_SLIDE: f64 = 0.6;
+/// The chance a defender closing fast on a sliding quarterback hits him
+/// anyway, for a typical man at full speed and close (coach fire, item 4).
+/// Proposed, not confirmed, and a guess: no real count of flags on slides
+/// was found. Few defenders are that close and fast as he goes down, so
+/// about 1 in 100 of the test league's slides draws a flag (`fire_check
+/// hits`, 400 games a level).
+const SLIDE_HIT: f64 = 0.3;
+/// Tendency points of flinch at which a short-armed ball over the middle
+/// gets the "heard footsteps" tag (coach fire, item 8).
+pub const FOOTSTEPS_TAG: f64 = 0.5;
+
+/// A hit on a sliding quarterback (coach fire, item 4): the nearest free
+/// defender, coming on fast and close as he goes down, doesn't pull up. His
+/// Discipline, Big Hit habit and temper read as at the catch point; the
+/// flag is unnecessary roughness, or targeting where the rule has it.
+fn late_on_slide(sim: &mut Sim, c: usize) {
+    let me = sim.agents[c].pos;
+    let Some(d) = (0..sim.agents.len())
+        .filter(|&d| sim.agents[d].side == 1 && sim.agents[d].up(sim.t) && sim.agents[d].engaged.is_none())
+        .min_by(|&x, &y| sim.agents[x].pos.dist_sq(me).total_cmp(&sim.agents[y].pos.dist_sq(me)))
+    else {
+        return;
+    };
+    let dist = sim.agents[d].pos.dist(me);
+    let closing = sim.agents[d].vel.dot((me - sim.agents[d].pos).norm());
+    if dist > 2.5 || closing < 4.0 {
+        return;
+    }
+    let disc = sim.trait20(d, Attr::Discipline);
+    let wild = (1.0 + 0.7 * sim.lean(d, Tend::BigHit)).max(0.2);
+    let p = SLIDE_HIT
+        * (1.0 - dist / 2.5)
+        * ((closing - 4.0) / 3.0).min(1.0)
+        * (1.35 - disc / 20.0).max(0.2)
+        * wild
+        * sim.temper(d);
+    if sim.rng.chance(p) {
+        let force = sim.hit_force(d, c, 1.0);
+        sim.note_hit(d, c, force);
+        sim.hit_foul(d, me.x, HIGH_ON_SLIDE, true);
+        sim.injury_check(c, force, 1.0);
+    }
 }
 
 /// The zone read: keep it if the backside end crashes on the back.
@@ -5311,6 +5367,9 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
         .min_by(|&x, &y| sim.agents[x].pos.dist(me).total_cmp(&sim.agents[y].pos.dist(me)));
     sim.notes.sackers = std::iter::once(d).chain(other).map(|k| sim.agents[k].id).collect();
     sim.notes.hits.push(sim.agents[d].id);
+    // The sack as a hit (coach fire: the big hit and the spark).
+    let hit = sim.hit_force(d, qb, 1.0);
+    sim.note_hit(d, qb, hit);
     let force = sim.agents[d].mass * sim.agents[d].vel.len();
     let carry = sim.agents[qb].a(Attr::BallSecurity);
     // His blind side is behind his throwing shoulder: the left for a
@@ -6303,17 +6362,16 @@ fn catch_point(
             // His hit as the ball arrives (S-C): it can knock it loose.
             let p_hit = hit_at_catch(sim, d, r, to, from, closeness);
             if p_hit > 0.0 && sim.rng.chance(p_hit) {
+                let force = sim.hit_force(d, r, 1.0);
+                sim.note_hit(d, r, force);
                 // A hit on a defenseless receiver can draw a flag, read
-                // from his Discipline like the other personal fouls.
+                // from his Discipline like the other personal fouls, and
+                // his temper (coach fire, item 4): targeting where the
+                // level's rule has it.
                 let disc = sim.trait20(d, Attr::Discipline);
                 let wild = (1.0 + 0.7 * sim.lean(d, Tend::BigHit)).max(0.2);
-                if sim.rng.chance(0.05 * (1.35 - disc / 20.0).max(0.2) * wild) {
-                    sim.notes.fouls.push(Foul {
-                        kind: FoulKind::UnnecessaryRoughness,
-                        side: 1,
-                        player: da.id,
-                        at: to.x,
-                    });
+                if sim.rng.chance(0.05 * (1.35 - disc / 20.0).max(0.2) * wild * sim.temper(d)) {
+                    sim.hit_foul(d, to.x, HIGH_AT_CATCH, true);
                 }
                 return Catch::Incomplete { drop: false, pbu: Some(da.id), sep };
             }
@@ -6374,6 +6432,11 @@ fn catch_point(
     if sim.rng.chance(p) {
         Catch::Complete(sep)
     } else {
+        // He heard footsteps (coach fire, item 5): a ball over the middle
+        // with a man on him, a big hit still on his mind.
+        if dd < 1.4 && (to.y - mid()).abs() < 9.0 && sim.agents[r].flinch >= FOOTSTEPS_TAG {
+            sim.notes.fire.footsteps = Some(ra.id);
+        }
         // A ball off his hands can pop up to a defender close by.
         if let Some(d) = dbest
             && dd < 3.0

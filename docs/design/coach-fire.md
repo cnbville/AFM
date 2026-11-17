@@ -2,7 +2,7 @@
 
 Thread "Let coach fire carry onto the field", 2026-11-17. Cain, 01:01 UTC: "if i'm a fired up coach, playing with a fired up safety, it should cause a pivotal play. Like a strong safety taking the head of a tight end i.e Brian Branch". 01:02 UTC: "but also it could have a negative effect on a pocket passer, who'd be better of with an patient gentle coach".
 
-Status: agreed. Cain said "yes" on 2026-11-17 01:11 UTC to the whole proposal and its three questions (section "Cain's answers"). Every size below is proposed, not confirmed, until the build measures it, except the caps of question 2. Not built.
+Status: agreed. Cain said "yes" on 2026-11-17 01:11 UTC to the whole proposal and its three questions (section "Cain's answers"). Every size below is proposed, not confirmed, until the build measures it, except the caps of question 2. Built 2026-11-17 in one engine lane (thread "Build the coach fire engine lane"): how it works in `docs/reference/how-it-works/match-engine.md`, "Fire on the field", with every size the build picked (all proposed, not confirmed); what it measured in `docs/match-engine.md`, "Coach fire" (`fire_check`).
 
 This extends `docs/design/coach-voice.md` section 5: still no flat bonus, but the built fire channel now works by the kind of work and through habits, so the coach's voice and the player's temperament reach the field.
 

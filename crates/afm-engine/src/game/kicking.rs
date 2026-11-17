@@ -883,6 +883,7 @@ fn run_return(
         level: rules.level,
         // The sim's side 0 is the return team.
         mood: k.mood.swap(),
+        targeting: rules.targeting,
         tend_memo: super::sim::tend_memo(),
         reach_memo: super::sim::reach_memo(),
     };

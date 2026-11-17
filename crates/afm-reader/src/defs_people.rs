@@ -2810,7 +2810,7 @@ pub const PANELS: &[Panel] = &[
         area: "P22",
         title: r#"Fines, hit suspensions and ejections a year"#,
         kind: "line",
-        note: r#"The league book's years (`folk.discipline.years`): NFL fines, NFL suspensions for hits, college targeting ejections (about 0.2 a week per FBS team), high school ejections."#,
+        note: r#"The league book's years (`folk.discipline.years`): NFL fines, NFL suspensions for hits, college targeting ejections, high school ejections. From coach fire (2026-11-17) the league office rules on the hits the officials flagged in the games on the engine: FBS calls about 0.04 targeting fouls a team game (real 0.031-0.043, cfbfastR 2022-2025); a week of stand-in games keeps the old draws (about 0.2 college ejections a week per FBS team)."#,
         sql: r#"SELECT _0 AS year, _1 AS nfl_fines, _2 AS nfl_hit_suspensions, _3 AS targeting_ejections, _4 AS hs_ejections FROM folk__discipline__years ORDER BY _0"#,
         says: None,
         needs: W,
