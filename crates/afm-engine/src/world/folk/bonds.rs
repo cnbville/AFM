@@ -526,7 +526,7 @@ fn coach_home(w: &World, c: usize) -> (FamilyStructure, bool) {
     {
         return r;
     }
-    let u = super::roll(w, 0xB0_4D_0001, c as u64);
+    let u = super::roll(w, 0xB04D_0001, c as u64);
     let s = if u < 0.58 {
         FamilyStructure::TwoParents
     } else if u < 0.88 {
@@ -536,7 +536,7 @@ fn coach_home(w: &World, c: usize) -> (FamilyStructure, bool) {
     } else {
         FamilyStructure::Foster
     };
-    (s, super::roll(w, 0xB0_4D_0002, c as u64) < 0.22)
+    (s, super::roll(w, 0xB04D_0002, c as u64) < 0.22)
 }
 
 /// Your profile's line on how you grew up (`Profile::raised`).
@@ -575,7 +575,7 @@ pub fn fit(w: &World, i: usize, c: usize) -> f32 {
     let temper = t.get(Trait::Temper);
     let (ct, cl) = (co.personality.temper, co.personality.loyalty);
     if temper >= 14.0 && ct >= 14.0 {
-        f += if super::roll(w, 0xB0_4D_0003 ^ c as u64, p.player.id as u64) < 0.5 { 0.08 } else { -0.08 };
+        f += if super::roll(w, 0xB04D_0003 ^ c as u64, p.player.id as u64) < 0.5 { 0.08 } else { -0.08 };
     }
     if t.get(Trait::Ego) >= 14.0 && ct >= 14.0 {
         f -= 0.05;
@@ -840,7 +840,7 @@ pub(crate) fn hard_moment(w: &mut World, id: u32, there: What, alone: What, up: 
         let shows =
             (0.35 + 0.05 * (a.relationships - 10.0) - 0.02 * (w.coaches[c].personality.temper - 10.0)).clamp(0.1, 0.9);
         let key = (id as u64) << 20 ^ today.0 as u64;
-        if super::roll(w, 0xB0_4D_0010 ^ c as u64, key) < shows {
+        if super::roll(w, 0xB04D_0010 ^ c as u64, key) < shows {
             moment(w, id, c, there, up);
         } else {
             moment(w, id, c, alone, down);
@@ -982,7 +982,7 @@ pub(crate) fn graduation(w: &mut World, ids: &[u32]) {
                 continue;
             }
             let shows = Some(c) == me
-                || super::roll(w, 0xB0_4D_0020 ^ c as u64, id as u64)
+                || super::roll(w, 0xB04D_0020 ^ c as u64, id as u64)
                     < (0.4 + 0.04 * (w.coaches[c].ability().relationships - 10.0)).clamp(0.1, 0.85);
             if shows {
                 moment(w, id, c, What::Graduation, 0.05);
@@ -1308,7 +1308,7 @@ pub fn seen(w: &World, i: usize) -> Vec<Seen> {
             .filter(|m| m.coach == b.coach)
             .map(|m| (m.on, m.what.words().to_string()))
             .collect();
-        moments.sort_by(|a, b| b.0.cmp(&a.0));
+        moments.sort_by_key(|a| std::cmp::Reverse(a.0));
         let role = w.coaches[c].job.map_or_else(|| "former coach".to_string(), |j| j.role.name().to_string());
         out.push((
             if Some(c) == me { 2.0 } else { b.close },
@@ -1390,6 +1390,6 @@ pub fn with_you(w: &World, id: u32) -> Option<(String, Vec<What>)> {
     let step = Step::of(b).words(kind(w, i, me)).to_string();
     let mut ms: Vec<&Moment> =
         w.folk.bonds.moments.get(&id).into_iter().flatten().filter(|m| m.coach == me as u32).collect();
-    ms.sort_by(|a, b| b.on.cmp(&a.on));
+    ms.sort_by_key(|a| std::cmp::Reverse(a.on));
     Some((step, ms.into_iter().map(|m| m.what).collect()))
 }
