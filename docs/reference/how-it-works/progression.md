@@ -1,6 +1,6 @@
 # Progression: how it works today
 
-Checked against the progression update steps 1-2 branch over main 69db832 on 2026-11-15; step 3 (the strength split, the bench, the weight room by body knack) over c2f99ef the same day; step 3c (body projects) over c2baa49 on 2026-11-16.
+Checked against the progression update steps 1-2 branch over main 69db832 on 2026-11-15; step 3 (the strength split, the bench, the weight room by body knack) over c2f99ef the same day; step 3c (body projects) over c2baa49 on 2026-11-16; the thinned limit (step 4c) over main 66cf9e1 the same day, before it merged.
 
 The split ceiling: the limit, the knacks, everyday closing, breakouts that close room, skill projects and the trims (designs `docs/design/progression.md` and `docs/design/progression-everyday.md`). Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`. Everything here is in `progression.rs` unless named.
 
@@ -33,6 +33,7 @@ The split ceiling: the limit, the knacks, everyday closing, breakouts that close
 - The class's drift: 24,000 generator boys grown through `develop_season` from 14 to 30, with the split ceiling off for them (high school to 17, college to 21, then the pros, a coach of 10, rotation snaps). It is stored as each part's mean ceiling at each age minus its mean at 14, per position (`drift`, `Drift`, `DRIFT_SAMPLE`). It takes about 2 seconds, once per run, on its own thread pool (`off_pool`). At 22 a corner's speed ceiling has drifted about +3.5 and his play recognition about +1.0 (`prog_check drift`).
 - A convert reads the position that leans on the skill most when his own doesn't use it (`map_position`).
 - Each limit's own part (`Prog.over`, half points): 4, plus max(map − ceiling, 0) at the draw, plus every natural rise past the limit since (`ensure`, `settle`).
+- The limit is the map plus its own part taken as a rise from the map, so past 95 it thins like every rating (`limit_of`, `athlete::top_up`; step 4c, physical study item 17). The maps read strength's fat top (rushing, blocking, tackling), and without it a strong man's power rush or press limit ran to 150. `settle` keeps the part on the same scale (`raw_top`).
 - `settle` lifts the limit only by the ceiling's own rise that year, and only past the higher of his limit when the year opened and now. So a one-year dip in his read never ratchets it up (`settle`).
 - An older save draws once, from where the player is now, with no trims pending (`ensure`; `player.rs`, `#[serde(default)] prog`).
 
@@ -71,7 +72,7 @@ The split ceiling: the limit, the knacks, everyday closing, breakouts that close
 
 ## What it does not do yet
 
-- The physical study's items 1-3 and 6-18 are step 4 of the build. Your own strength staff's body projects have no command yet: `start_body` with `yours` set is the hook. The weight room inside the leashes, the body knack's own effect there and the strength split are built (step 3): see [body.md](body.md), "The normal weight room by body knack" and "Is strength one rating?".
+- The physical study's items 1-3 and 6-18 are step 4 of the build (4a bodies, 4b the drills and the split, 4c no 99 wall: see [ratings.md](ratings.md), "Past 99"). Your own strength staff's body projects have no command yet: `start_body` with `yours` set is the hook. The weight room inside the leashes, the body knack's own effect there and the strength split are built (step 3): see [body.md](body.md), "The normal weight room by body knack" and "Is strength one rating?".
 - The screens show none of it yet (step 6).
 - Your own staff's projects have no command yet: `start_project` with `yours` set is the hook.
 

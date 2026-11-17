@@ -13,6 +13,13 @@
 //!   the night calls and the calls waiting.
 //! - `ground_week_off` {from "YYYY-MM-DD", weeks}, `ground_may`,
 //!   `ground_may_invite` {n}, `ground_beats` {year}.
+//! - Lane G5, the scenes: `ground_scenes` (the 15 and what each came to
+//!   lately, the spring game's call), `ground_scene` {id} (one scene's
+//!   ground part: its stops, the school, the kids, the new names, standing
+//!   moved, its tables), `ground_spring_game` {hold}. A scene plays on the
+//!   people commands (`people_scene`, `people_answer`, `people_hand`, a
+//!   typed line on live talks v3); each slot of `ground_week` names its
+//!   scene.
 //!
 //! A person is "coach:ID", "counselor:SCHOOL", "trainer:ID", "7v7:ID",
 //! "family:PLAYER" (the oldest brother) or "prep:N".
@@ -21,6 +28,7 @@ use afm_engine::calendar::Date;
 use afm_engine::world::World;
 use afm_engine::world::ground::areas;
 use afm_engine::world::ground::people::{self, Who};
+use afm_engine::world::ground::scenes;
 use afm_engine::world::ground::standing;
 use afm_engine::world::ground::week::{self, DoneKind, beat, phone, plan, road};
 use serde_json::{Value, json};
@@ -84,6 +92,22 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             let n = args.get("n").and_then(Value::as_u64).unwrap_or(99) as usize;
             let said = plan::may_invite(w, n)?;
             let mut v = may_view(w);
+            v["said"] = json!(said);
+            Ok(v)
+        }),
+        "ground_scenes" => game.w().map(scenes_view),
+        "ground_scene" => game.w().and_then(|w| {
+            let id = args.get("id").and_then(Value::as_u64).ok_or("Missing the scene.")? as u32;
+            let s = w.folk.scenes.iter().find(|s| s.id == id).ok_or("No such scene.")?;
+            if scenes::kind_of(s).is_none() {
+                return Err("That isn't a ground scene.".into());
+            }
+            Ok(scene_part(w, s))
+        }),
+        "ground_spring_game" => game.wm().and_then(|w| {
+            let hold = args.get("hold").and_then(Value::as_bool).unwrap_or(true);
+            let said = scenes::set_spring_game(w, hold)?;
+            let mut v = scenes_view(w);
             v["said"] = json!(said);
             Ok(v)
         }),
@@ -241,8 +265,10 @@ fn week_view(w: &mut World) -> Reply {
                 "title": s.title,
                 "reason": s.reason,
                 "yours": s.yours,
-                "line": s.line.clone().or_else(|| slot_line(w, s)),
+                "line": s.line.clone().or_else(|| scenes::line_for(w, s)).or_else(|| slot_line(w, s)),
                 "who": s.who.map(who_key),
+                "scene": scenes::made(w, s).filter(|&id| id > 0),
+                "sceneKind": scenes::Kind::of_slot(s.kind).map(|k| k.key()),
             })
         })
         .collect();
@@ -389,7 +415,7 @@ fn fronts_and_call(w: &World, prog: usize) -> (Vec<Value>, Value) {
     (fronts, one)
 }
 
-/// A slot's one line from what happened (until lane G5 plays scenes).
+/// A slot's one line from the week's log, for a slot no scene played.
 fn slot_line(w: &World, s: &week::Slot) -> Option<String> {
     let log = &w.ground.week.log;
     match s.kind {
@@ -514,6 +540,102 @@ fn beats_view(w: &World, year: i32) -> Value {
         })
         .collect();
     json!({ "year": year, "weeks": v })
+}
+
+fn played_json(w: &World, prog: Option<usize>, p: &scenes::Played) -> Value {
+    json!({
+        "date": iso(p.date),
+        "time": phone::clock(p.minute),
+        "kind": p.kind.key(),
+        "name": p.kind.name(),
+        "title": p.title,
+        "line": p.line,
+        "yours": p.yours,
+        "by": p.by.and_then(|c| w.coaches.get(c as usize)).map(|c| c.name.clone()),
+        "who": p.who.map(who_key),
+        "school": p.school.map(|h| w.school_name(h as usize).to_string()),
+        "kids": p.kids,
+        "leads": p.leads,
+        "levels": p.levels.iter().map(|x| json!({
+            "who": who_key(x.0),
+            "name": people::name(w, x.0),
+            "from": standing::Level::from_u8(x.1).name(),
+            "to": standing::Level::from_u8(x.2).name(),
+        })).collect::<Vec<_>>(),
+        "stops": p.stops.iter().map(|x| json!({ "key": x.0, "text": x.1 })).collect::<Vec<_>>(),
+        "scene": (p.scene > 0).then_some(p.scene),
+        "now": prog.zip(p.who).map(|(g, who)| standing::level(w, g, who).name()),
+    })
+}
+
+/// The 15 scenes (GR55), what each came to lately, and this year's spring
+/// game.
+fn scenes_view(w: &World) -> Value {
+    let prog = week::seat_program(w);
+    let kinds: Vec<Value> =
+        scenes::Kind::ALL.iter().map(|k| json!({ "key": k.key(), "name": k.name(), "playsIn": k.built() })).collect();
+    let played: Vec<Value> = w.ground.scenes.played.iter().rev().take(40).map(|p| played_json(w, prog, p)).collect();
+    let y = beat::dates_for(w, w.today);
+    let season = y.spring_game.year();
+    json!({
+        "kinds": kinds,
+        "played": played,
+        "springGame": {
+            "date": iso(y.spring_game),
+            "hold": scenes::holds_spring_game(w, season),
+            "choice": season >= scenes::SPRING_GAME_CHOICE && w.today <= y.spring_game,
+        },
+        "clinic": prog.and_then(|g| scenes::clinic_day(w, g, w.today)).map(iso),
+        "convention": iso(scenes::convention_day(y.season)),
+        "invited": w.ground.scenes.invited.iter().filter(|x| x.1 == y.season).map(|x| json!({ "who": who_key(x.0), "name": people::name(w, x.0) })).collect::<Vec<_>>(),
+    })
+}
+
+/// A ground scene's own part for the screens (S3 builds on it): its kind,
+/// the school and the person, the stops so far, the kids it touched with
+/// the new names marked, standing moved, and where each person stands now.
+pub fn scene_part(w: &World, s: &afm_engine::world::folk::scene::Scene) -> Value {
+    let prog = week::seat_program(w);
+    let st = scenes::state(s);
+    let k = scenes::kind_of(s);
+    let kid = |id: &u32| {
+        let p = afm_engine::world::scouting::place(w, *id).map(|i| &w.people[i]);
+        json!({
+            "id": id,
+            "name": p.map(|p| p.name.clone()),
+            "pos": p.map(|p| p.player.position.name()),
+            "new": st.leads.contains(id),
+        })
+    };
+    json!({
+        "id": s.id,
+        "kind": k.map(|k| k.key()),
+        "name": k.map(|k| k.name()),
+        "time": s.minute.map(phone::clock),
+        "who": st.who.map(|who| {
+            let mut v = json!({ "key": who_key(who), "name": people::name(w, who) });
+            if let Some(g) = prog {
+                v["level"] = json!(standing::level(w, g, who).name());
+            }
+            v
+        }),
+        "school": st.school.map(|h| json!({ "id": h, "name": w.school_name(h as usize) })),
+        "man": st.man.and_then(|c| w.coaches.get(c as usize)).map(|c| c.name.clone()),
+        "minutesLeft": st.minutes,
+        "stops": st.stops.iter().map(|x| json!({ "key": x.0, "text": x.1 })).collect::<Vec<_>>(),
+        "kids": st.kids.iter().map(kid).collect::<Vec<_>>(),
+        "levels": st.levels.iter().map(|x| json!({
+            "who": who_key(x.0),
+            "name": people::name(w, x.0),
+            "from": standing::Level::from_u8(x.1).name(),
+            "to": standing::Level::from_u8(x.2).name(),
+        })).collect::<Vec<_>>(),
+        "people": st.people.len(),
+        "docs": s.docs.iter().filter(|d| !scenes::is_state(d)).collect::<Vec<_>>(),
+        "hand": scenes::hand_label(w, s),
+        "done": s.done,
+        "outcome": s.outcome,
+    })
 }
 
 #[cfg(test)]

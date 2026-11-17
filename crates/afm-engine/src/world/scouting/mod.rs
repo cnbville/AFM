@@ -413,6 +413,7 @@ pub(crate) fn day(w: &mut crate::world::World, d: Date) {
         crate::world::ground::week::day(w, d);
         dept::day(w, d);
         crate::world::ground::day(w, d);
+        crate::world::ground::scenes::after_road(w, d);
         crate::world::ground::leads::day(w, d);
         pro::day(w, d);
         hs::day(w, d);

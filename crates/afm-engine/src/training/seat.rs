@@ -2233,8 +2233,9 @@ pub fn body_change(p: &mut crate::player::Player, lbs: f64) {
         (Attr::Stamina, -0.02),
     ] {
         let dv = per * lbs;
-        p.attributes.add(a, dv);
-        p.ceilings.add(a, dv);
+        let was = p.attributes.get(a);
+        p.attributes.set(a, crate::athlete::top_up_attr(a, was, was + dv));
+        crate::athlete::move_ceiling(&mut p.ceilings, a, dv);
     }
 }
 

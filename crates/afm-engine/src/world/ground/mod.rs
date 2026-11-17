@@ -18,6 +18,8 @@
 //! and the ground report's data.
 //! Lane G11b: favors (`favors`), the economy of placing kids, switched off
 //! with `WorldOptions.favors`.
+//! Lane G5: the week's scenes played (`scenes`): the school visit, the
+//! calls, your campus and the coaches' side, on the built scenes.
 //! Lane G10: your staff's ground and the assistant seat (`staff`): your
 //! men's areas on the map, each man's ground and mood, losing a man,
 //! hiring for ground, and the assistant's desk.
@@ -38,6 +40,7 @@ pub mod leads;
 pub mod memory;
 pub mod news;
 pub mod people;
+pub mod scenes;
 pub mod staff;
 pub mod standing;
 pub mod stores;
@@ -104,6 +107,8 @@ pub struct Ground {
     pub campaign: campaign::Campaign,
     /// The favor book (lane G11b): switched off with `WorldOptions.favors`.
     pub favors: favors::Favors,
+    /// The week's scenes played (lane G5).
+    pub scenes: scenes::Book,
     /// Your staff's ground and the assistant seat (lane G10).
     pub staff: staff::StaffGround,
     /// Test switch: the seat's ground stands still (the same-world check).

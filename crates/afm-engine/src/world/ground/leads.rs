@@ -47,6 +47,9 @@ pub enum How {
     Tape,
     /// The paper: everyone read it the same day.
     Paper,
+    /// You picked him out yourself, in person (a school's weight room, your
+    /// camp's stations: lane G5's scenes).
+    Seen,
 }
 
 impl How {
@@ -59,6 +62,7 @@ impl How {
             How::Camp => "camp",
             How::Tape => "tape",
             How::Paper => "paper",
+            How::Seen => "seen",
         }
     }
 
@@ -71,6 +75,7 @@ impl How {
             How::Camp => "walked up at your camp",
             How::Tape => "popped off another kid's tape",
             How::Paper => "the paper",
+            How::Seen => "you saw him yourself",
         }
     }
 }
@@ -633,6 +638,36 @@ pub(crate) fn on_look(w: &mut World, id: u32, code: u32, kind: Kind, d: Date) {
         }
         _ => {}
     }
+}
+
+/// A kid your own eye picked out in person (lane G5: a school's weight
+/// room, your camp's stations): a lead you found yourself, unless he is
+/// one already. True when it's new.
+pub(crate) fn seen(w: &mut World, man: Option<u32>, id: u32, d: Date, said: String) -> bool {
+    if lead(w, id).is_some_and(|l| !l.dropped) {
+        return false;
+    }
+    add(w, walk_up(id, d, How::Seen, man, said))
+}
+
+/// Where a kid's film ranks in his class (0-1) when it is at or above your
+/// level's floor (the tips' floor, `folk/tips.rs`): a kid worth noticing
+/// in person. His real film, not anyone's read: whether you notice him is
+/// your eye's roll.
+pub(crate) fn worth(w: &mut World, prog: usize, i: usize) -> Option<f64> {
+    let level = crate::world::folk::tips::rank(w.programs[prog].division);
+    let played = crate::world::recruiting::hs_played(w);
+    let (value, class_of) = {
+        let p = w.people.get(i)?;
+        (crate::world::recruiting::film_raw(p, &played), p.class_of)
+    };
+    let pct = percentile(classes(w), class_of, value);
+    (pct >= crate::world::folk::tips::floor(false, level)).then_some(pct)
+}
+
+/// "senior", "junior"...
+pub(crate) fn class_name(w: &World, class_of: i32) -> &'static str {
+    class_word(w, class_of)
 }
 
 fn walk_up(kid: u32, d: Date, how: How, man: Option<u32>, said: String) -> Lead {

@@ -310,7 +310,13 @@ pub(crate) fn day(w: &mut World, prog: usize, d: Date) -> bool {
             n = n.div_ceil(2).max(1);
         }
         let schools = pick_schools(w, man, r.area, n, &r.focus, &by_area, &by_school, &talent, since, d);
-        if schools.is_empty() {
+        // A school visit you played yourself today (lane G5) was this day's
+        // first school: the day counts even when it was the only one.
+        let played =
+            w.ground.week.log.iter().any(|x| {
+                x.kind == DoneKind::Visit && x.man == Some(man as u32) && x.date == d && x.area == Some(r.area)
+            });
+        if schools.is_empty() && !played {
             continue;
         }
         out += 1;
@@ -330,8 +336,10 @@ pub(crate) fn day(w: &mut World, prog: usize, d: Date) -> bool {
         if w.programs[prog].head_coach == Some(man) {
             w.ground.week.book(d, &format!("On the road: {}", areas::area(r.area).name), 10.0, false);
         }
-        super::phone::night_call(w, man, r.area, &lines, night, d);
-        night += 1;
+        if !lines.is_empty() {
+            super::phone::night_call(w, man, r.area, &lines, night, d);
+            night += 1;
+        }
         // Lane G10: his road days count for his mood, and a young man riding
         // along meets the same coaches (both men's days).
         let spring = win == Window::Spring;
@@ -357,6 +365,16 @@ pub(crate) fn day(w: &mut World, prog: usize, d: Date) -> bool {
         }
     }
     true
+}
+
+/// The first school a man's day would take him to in an area (lane G5:
+/// the school your own road day opens with, played as a scene).
+pub(crate) fn first_school(w: &World, prog: usize, man: usize, area: u16, focus: &[u32], d: Date) -> Option<usize> {
+    let board = dept::watch(w, prog);
+    let by_school = board_by_school(w, &board);
+    let by_area = areas::schools_by_area(w);
+    let talent = standing::talents(w);
+    pick_schools(w, man, area, 1, focus, &by_area, &by_school, &talent, recruiting_year(d), d).into_iter().next()
 }
 
 /// One school on a man's day.
@@ -412,7 +430,7 @@ fn pick_schools(
 /// there (an evaluation day; on a fall Friday, the game) and the coach's
 /// time; with none on the board, the coach's time alone (his coordinators
 /// sit in).
-fn visit(w: &mut World, prog: usize, man: usize, h: usize, kids: &[usize], d: Date) -> Visited {
+pub(crate) fn visit(w: &mut World, prog: usize, man: usize, h: usize, kids: &[usize], d: Date) -> Visited {
     let coach = people::head_coach_of(w, h);
     let before = coach.map_or(Level::Stranger, |c| standing::level(w, prog, c));
     let fall_game = window(w, d) == Some(Window::Fall) && d.weekday() == Weekday::Fri;
