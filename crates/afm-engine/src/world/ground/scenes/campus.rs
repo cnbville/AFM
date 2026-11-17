@@ -28,6 +28,11 @@ const SIT: u32 = 200;
 const OFFER: u32 = 300;
 const HOST: u32 = 400;
 const SUITE: u32 = 5;
+/// Capital lane C4 (CP20): choose a kid's tour (+ his place), a room on it
+/// (+ the room), or your staff's usual tour.
+const TOUR: u32 = 500;
+const TOUR_ROOM: u32 = 600;
+const USUAL_TOUR: u32 = 699;
 
 /// The kids on campus for a slot, your board's first (your offer, then
 /// stars): an official weekend from Friday to Sunday.
@@ -137,6 +142,11 @@ pub(super) fn open(w: &mut World, prog: usize, s: &mut Scene, k: Kind) {
 
 fn picks(w: &World, prog: usize, s: &mut Scene, k: Kind, st: &State) {
     s.picks.retain(|p| p.code == SUITE && !st.stops.iter().any(|x| x.0 == "suite"));
+    // Choosing a tour's rooms (CP20): only the rooms until it's set.
+    if let Some(id) = st.at.strip_prefix("tour").and_then(|v| v.parse::<u32>().ok()) {
+        tour_picks(w, prog, s, st, id);
+        return;
+    }
     let sat = st.stops.iter().filter(|x| x.0.starts_with("sit")).count();
     if sat < FAMILIES {
         for (n, &id) in st.ids.iter().take(6).enumerate() {
@@ -165,6 +175,28 @@ fn picks(w: &World, prog: usize, s: &mut Scene, k: Kind, st: &State) {
                 "Ask",
                 "",
                 "What he was like off the clock",
+            );
+        }
+    }
+    if k == Kind::Official && crate::world::capital::week::your_program(w) == Some(prog) {
+        for (n, &id) in st.ids.iter().take(4).enumerate() {
+            if st.stops.iter().any(|x| x.0 == format!("tour{id}")) {
+                continue;
+            }
+            let Some(i) = folk::person(w, id) else { continue };
+            if crate::world::capital::tour::visit_day(w, i, prog).is_none() {
+                continue;
+            }
+            s.picks.push(
+                crate::world::folk::scene::Pick {
+                    label: format!("Choose the three rooms {} tours", first(&w.people[i].name)),
+                    mv: "Plan".into(),
+                    tone: String::new(),
+                    hint: "What he sees on Saturday".into(),
+                    code: TOUR + n as u32,
+                    ..Default::default()
+                }
+                .of(crate::world::folk::scene::PickKind::Free),
             );
         }
     }
@@ -215,6 +247,59 @@ pub(super) fn answer(w: &mut World, prog: usize, s: &mut Scene, k: Kind, code: u
                 st.kids.push(id);
             }
         }
+        c if (TOUR..TOUR + 4).contains(&c) => {
+            let Some(&id) = st.ids.get((c - TOUR) as usize) else { return };
+            let Some(i) = folk::person(w, id) else { return };
+            let heard = if st.stops.iter().any(|x| x.0 == format!("sit{id}")) {
+                people::wants(w, people::family_of(w, i)).get(1).map(|x| x.to_string())
+            } else {
+                None
+            };
+            let read = crate::world::capital::tour::staff_read(&w.people[i], heard.as_deref());
+            let usual = crate::world::capital::tour::usual(&w.programs[prog]);
+            let usual: Vec<&str> = usual.iter().map(|r| r.words()).collect();
+            s.narrate(format!("{read} Your staff's usual tour: the {}.", usual.join(", the ")));
+            st.at = format!("tour{id}");
+            st.stops.push((format!("tourpick{id}"), String::new()));
+            put_state(s, &st);
+            picks(w, prog, s, k, &st);
+            return;
+        }
+        c if (TOUR_ROOM..TOUR_ROOM + 13).contains(&c) || c == USUAL_TOUR => {
+            let Some(id) = st.at.strip_prefix("tour").and_then(|v| v.parse::<u32>().ok()) else { return };
+            let key = format!("tourpick{id}");
+            if c == USUAL_TOUR {
+                st.stops.retain(|x| x.0 != key);
+                st.stops.push((format!("tour{id}"), "Your staff's usual tour.".into()));
+                s.narrate("Your staff walks him through the usual tour.");
+                st.at.clear();
+            } else {
+                let room = (c - TOUR_ROOM) as u8;
+                let Some(x) = st.stops.iter_mut().find(|x| x.0 == key) else { return };
+                if !x.1.is_empty() {
+                    x.1.push(',');
+                }
+                x.1.push_str(&room.to_string());
+                let chosen: Vec<crate::world::capital::rooms::Room> =
+                    x.1.split(',')
+                        .filter_map(|v| v.parse::<u8>().ok())
+                        .filter_map(crate::world::capital::rooms::Room::from_index)
+                        .collect();
+                if chosen.len() >= crate::world::capital::tour::STOPS {
+                    let line = crate::world::capital::tour::set(w, id, &chosen).unwrap_or_else(|e| e);
+                    s.narrate(line.clone());
+                    st.stops.retain(|x| x.0 != key);
+                    st.stops.push((format!("tour{id}"), line));
+                    st.at.clear();
+                    if !st.kids.contains(&id) {
+                        st.kids.push(id);
+                    }
+                }
+            }
+            put_state(s, &st);
+            picks(w, prog, s, k, &st);
+            return;
+        }
         c if (OFFER..OFFER + 4).contains(&c) => {
             let Some(&id) = st.ids.get((c - OFFER) as usize) else { return };
             let line = match crate::world::front_office::college::offer(w, id) {
@@ -233,13 +318,42 @@ pub(super) fn answer(w: &mut World, prog: usize, s: &mut Scene, k: Kind, code: u
             return;
         }
     }
-    let used = st.stops.len();
+    // A tour is your staff's walk, not one of your hours.
+    let used = st.stops.iter().filter(|x| !x.0.starts_with("tour")).count();
     if used >= FAMILIES + 2 {
         finish(w, prog, s, k, &mut st);
     } else {
         picks(w, prog, s, k, &st);
     }
     put_state(s, &st);
+}
+
+/// The rooms to choose for a kid's tour (CP20): each room you have, by how
+/// it reads against the conference, until three are chosen.
+fn tour_picks(w: &World, prog: usize, s: &mut Scene, st: &State, id: u32) {
+    use crate::world::capital::{rooms::Room, tour};
+    let key = format!("tourpick{id}");
+    let chosen: Vec<u8> = st
+        .stops
+        .iter()
+        .find(|x| x.0 == key)
+        .map(|x| x.1.split(',').filter_map(|v| v.parse::<u8>().ok()).collect())
+        .unwrap_or_default();
+    let pr = &w.programs[prog];
+    for r in tour::tourable(pr) {
+        if chosen.contains(&(r as u8)) {
+            continue;
+        }
+        let shown = pr.campus.shown(r);
+        s.pick(
+            TOUR_ROOM + r as u32,
+            format!("The {} ({shown} of 5)", r.words()),
+            "Show",
+            "",
+            if r == Room::Locker { "Every kid walks through it" } else { "" },
+        );
+    }
+    s.pick(USUAL_TOUR, "Your staff's usual tour", "Plan", "", "The three rooms that read best");
 }
 
 /// You sit with a family yourself (GR53: your name with them), hear their
@@ -352,6 +466,10 @@ fn finish(w: &mut World, prog: usize, s: &mut Scene, k: Kind, st: &mut State) {
     }
     if st.stops.iter().any(|x| x.0 == "suite") {
         line.push_str(", the suite worked");
+    }
+    let tours = st.stops.iter().filter(|x| x.0.starts_with("tour") && !x.0.starts_with("tourpick")).count();
+    if tours > 0 {
+        line.push_str(&format!(", {tours} {} chosen", if tours == 1 { "tour" } else { "tours" }));
     }
     if k == Kind::Official {
         line.push_str("; your sit-downs are Sunday");

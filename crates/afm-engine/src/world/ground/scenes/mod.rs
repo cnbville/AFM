@@ -157,7 +157,7 @@ impl Kind {
             SlotKind::OpenPractice => Kind::OpenPractice,
             SlotKind::SpringGame => Kind::SpringGame,
             SlotKind::Convention => Kind::Convention,
-            SlotKind::Film => return None,
+            SlotKind::Film | SlotKind::Donor | SlotKind::DonorRoom => return None,
         })
     }
 }
@@ -673,7 +673,7 @@ pub(crate) fn put_doc(s: &mut Scene, title: &str, note: &str, cols: &[&str], row
 
 /// Whether a scene's table is the running state (the screens skip it).
 pub fn is_state(d: &crate::world::folk::scene::Doc) -> bool {
-    d.title == STATE_TITLE
+    d.title == STATE_TITLE || d.title == crate::world::capital::scenes::STATE_TITLE
 }
 
 /// A level moved with someone, kept for the scene's book.
