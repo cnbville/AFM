@@ -63,7 +63,7 @@ impl Level {
         ["Stranger", "Known", "Trusted", "Home"][self as usize]
     }
 
-    fn from_u8(k: u8) -> Level {
+    pub fn from_u8(k: u8) -> Level {
         Level::ALL[(k as usize).min(3)]
     }
 }
@@ -722,6 +722,28 @@ pub(crate) fn pay(
     {
         let about = kid.map(|k| k.1.to_string());
         super::word::spread(w, prog, who, by, *good, *big, about, d);
+    }
+}
+
+/// Points from a scene (lane G5): what you said and did with him in the
+/// room, into the memories of your program and its head coach, inside the
+/// gates, with a moment in his words when it's one he keeps. A loss here is
+/// a talk gone badly, not your word broken.
+pub(crate) fn grant(w: &mut World, prog: usize, who: Who, by: f32, words: Option<String>, d: Date) {
+    if w.ground.off {
+        return;
+    }
+    let mut hs = vec![Holder::Program(prog as u32)];
+    hs.extend(head_holder(w, prog));
+    for holder in hs {
+        let start = derived(w, who, holder);
+        let m = entry(&mut w.ground, start, who, holder, d);
+        gain(m, by, d);
+        if let Some(words) = &words
+            && !m.moments.iter().any(|x| &x.words == words)
+        {
+            m.keep(Moment { date: d, words: words.clone(), good: by >= 0.0, big: false, holds_to: None });
+        }
     }
 }
 

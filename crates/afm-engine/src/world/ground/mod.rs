@@ -18,6 +18,8 @@
 //! and the ground report's data.
 //! Lane G11b: favors (`favors`), the economy of placing kids, switched off
 //! with `WorldOptions.favors`.
+//! Lane G5: the week's scenes played (`scenes`): the school visit, the
+//! calls, your campus and the coaches' side, on the built scenes.
 //!
 //! The store is sparse: only your seat's holders (your program, you and
 //! your staff's men) keep memories, and only with people someone has dealt
@@ -35,6 +37,7 @@ pub mod leads;
 pub mod memory;
 pub mod news;
 pub mod people;
+pub mod scenes;
 pub mod standing;
 pub mod stores;
 pub mod week;
@@ -100,6 +103,8 @@ pub struct Ground {
     pub campaign: campaign::Campaign,
     /// The favor book (lane G11b): switched off with `WorldOptions.favors`.
     pub favors: favors::Favors,
+    /// The week's scenes played (lane G5).
+    pub scenes: scenes::Book,
     /// Test switch: the seat's ground stands still (the same-world check).
     #[serde(skip)]
     pub(crate) off: bool,
