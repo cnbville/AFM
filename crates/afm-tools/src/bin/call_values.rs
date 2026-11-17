@@ -5,6 +5,9 @@
 //! poor one barely uses it. Rerun after engine changes (2,000 snaps a cell
 //! since minor bug 135; at 400 one cell could be off by a yard or more):
 //! `cargo run --release --bin call_values -- 2000 > crates/afm-engine/data/call_values.csv`
+//! While minor bug 405 is open (the fixed teams' picks into the Cover 1
+//! robber), the straight pass rows wait: write the run to a file and build
+//! the table with `tools/call_values/compose.py` from the committed one.
 //! Each value is mean yards on the snap (capped at 40) minus 45 for a turnover.
 //! Every concept that can carry the run fake has a second row with it,
 //! "play-action <name>" (scheme-fit item 3), so a caller weighs the fake

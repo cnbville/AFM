@@ -21,6 +21,7 @@ pub mod arrests;
 pub mod asked;
 pub mod backchannel;
 pub mod backers;
+pub mod bonds;
 pub mod boss;
 pub mod case;
 pub mod cast;
@@ -506,6 +507,10 @@ pub struct Folk {
     /// id, the school and the term, until he signs or goes elsewhere.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub usage_pledges: Vec<(u32, usize, usage::Usage)>,
+    /// Coach and player bonds (`bonds`): every player's closeness and trust
+    /// with each coach who works with him, and the moments that built it.
+    #[serde(skip_serializing_if = "bonds::Bonds::is_empty")]
+    pub bonds: bonds::Bonds,
 }
 
 /// Fills what a world built before this build lacks (an old world or save
@@ -579,6 +584,7 @@ pub(crate) fn step(w: &mut World, d: Date, t: u16) {
             ensure_base(w);
             ties::day(w, d);
             life::day(w, d);
+            bonds::day(w, d);
             network::day(w, d);
             backchannel::day(w, d);
             if w.seat.is_some() {

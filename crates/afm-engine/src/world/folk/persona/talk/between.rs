@@ -157,6 +157,7 @@ pub fn words(w: &World, him: Them) -> Vec<String> {
     if let Them::Player(id) = him {
         discipline(w, id, &mut out);
         moods(w, id, &mut out);
+        bond(w, id, &mut out);
     }
     between(w, him, &mut out);
     let known = matches!(him, Them::Coach(c) if w.folk.network.contacts.iter().any(|x| x.coach_id() == Some(c)));
@@ -166,6 +167,23 @@ pub fn words(w: &World, him: Them) -> Vec<String> {
     out.extend(trust(w, him, kind, new && talked == 0));
     out.extend(name(w, kind));
     out
+}
+
+/// What the coach means to him, and the moments that built it (coach and
+/// player bonds, section 9): the voice speaks to him as to a father, a big
+/// brother or a man he barely knows.
+fn bond(w: &World, id: u32, out: &mut Vec<String>) {
+    let Some((step, moments)) = folk::bonds::with_you(w, id) else { return };
+    out.push(match step.as_str() {
+        "Just met" => "You barely know the coach yet".to_string(),
+        "Knows you" => "You know the coach a little: you answer him, not much more".to_string(),
+        "Trusts you" => "You go to the coach with your problems".to_string(),
+        "In his corner" => "The coach is in your corner, and you're in his".to_string(),
+        top => format!("The coach is {} to you", top.to_lowercase()),
+    });
+    for m in moments.iter().take(MAX_MOODS) {
+        out.push(format!("The coach {}", m.to_him()));
+    }
 }
 
 /// The team's history with you, for a line to the whole room: its

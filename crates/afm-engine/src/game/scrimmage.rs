@@ -508,6 +508,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         screen: None,
         open_reach: SCRIMMAGE_REACH,
         press: 0.0,
+        designed_run: false,
         lane: None,
         bites: Vec::new(),
         two_gap: s.two_gap,
@@ -848,7 +849,8 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                 // the side the quarterback rolls to (scheme-fit item 3: a
                 // back behind the ball always broke to the offense's left,
                 // so half the boots sent the fullback's flat away from the
-                // throw).
+                // throw). The back who fakes the run away from the roll
+                // takes his route later, from where the fake left him.
                 let out = (boot && r.is_back() && (sim.agents[i].pos.y - by).abs() < 0.5).then_some(side);
                 sim.agents[i].job = route_job_to(&sim.agents[i], route, los, by, s.hurry, out);
                 let late = silent_late(&sim, s, i);
@@ -988,7 +990,12 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             }
             stunt_pickup(&mut sim, s.tac.chem);
             slide_to(&mut sim, s, off_n);
-            chart_rush(&mut sim, off_n, &slot_of, by);
+            // A back who blocks once he has carried out the fake is in the
+            // protection the chart keeps, with the man the half-slide gave
+            // him (`Job::Handoff` until then).
+            let fake_block =
+                pass.as_ref().and_then(|ps| ps.fake.as_ref()).filter(|fk| fk.route == Route::Block).map(|fk| fk.man);
+            chart_rush(&mut sim, off_n, &slot_of, by, fake_block);
             // The matchup plan (topic 5.4): the quarterback looks first at
             // the receiver on the corner the staff wants to attack, when that
             // man is in the progression.
@@ -1071,6 +1078,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             let aim_pt = v2(los + 1.0, by + aim_y * dir);
             aim = Some(aim_pt);
             sim.press = rc.press();
+            sim.designed_run = true;
             let mesh = match (rc, f.backfield) {
                 (RunConcept::Sneak, _) => sim.agents[qb].pos,
                 (_, Backfield::UnderCenter) => v2(los - 4.0, by + 0.6 * dir),
@@ -1383,6 +1391,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                                 sim.agents[i].job = Job::RunBlock { target: None, pull: false };
                                 res.passer = Some(sim.agents[qb].id);
                                 sim.notes.rpo_pulled = true;
+                                sim.designed_run = false;
                                 let q = sim.agents[qb].pos;
                                 pass = Some(Pass {
                                     reads,
@@ -3179,8 +3188,10 @@ fn slide_to(sim: &mut Sim, s: &Snap, off_n: usize) {
 
 /// The rush and the protection for the line chart (lane 9), when the snap
 /// keeps one: the gap each rusher aimed at from the line's spots, whether a
-/// blocker took him, and the protection the offense used.
-fn chart_rush(sim: &mut Sim, off_n: usize, slots: &[Option<DSlot>], ball_y: f64) {
+/// blocker took him, and the protection the offense used. `fake_block` is
+/// the play fake's back when he blocks after it, with his man if he has
+/// one (scheme-fit item 3).
+fn chart_rush(sim: &mut Sim, off_n: usize, slots: &[Option<DSlot>], ball_y: f64, fake_block: Option<Option<usize>>) {
     if sim.notes.chart.is_none() {
         return;
     }
@@ -3196,7 +3207,7 @@ fn chart_rush(sim: &mut Sim, off_n: usize, slots: &[Option<DSlot>], ball_y: f64)
         if slots.get(i).copied().flatten().is_some_and(|d| d.is_line()) {
             flags |= Rusher::LINEMAN;
         }
-        if taken(sim, i) {
+        if taken(sim, i) || fake_block.flatten() == Some(i) {
             flags |= Rusher::PICKED;
         }
         if sim.stunt.is_some_and(|(a, b)| a == i || b == i) {
@@ -3204,7 +3215,8 @@ fn chart_rush(sim: &mut Sim, off_n: usize, slots: &[Option<DSlot>], ball_y: f64)
         }
         rush.push(Rusher { id: sim.agents[i].id, gap: gap_at(lane, &ol), flags });
     }
-    let blockers = (0..off_n).filter(|&i| matches!(sim.agents[i].job, Job::PassBlock { .. })).count();
+    let blockers = (0..off_n).filter(|&i| matches!(sim.agents[i].job, Job::PassBlock { .. })).count()
+        + usize::from(fake_block.is_some());
     let protection = if blockers >= 7 {
         Protection::Max
     } else if let Some(star) = sim.help_on {
@@ -4479,13 +4491,18 @@ fn quarterback(
     // nobody picked up was a sure sack.
     let eyes = if s.call.formation.backfield == Backfield::UnderCenter { PA_EYES_UC } else { 0.0 };
     let hot_off_fake = urgent && ps.fake.as_ref().is_some_and(|fk| t >= fk.at + eyes);
-    if (t < ps.set_at + READ_START && !hot_off_fake) || ps.reads.is_empty() {
+    // Before he sets, outside that window, only a throw he decided on in it
+    // is live: it goes as any other does, even if the free man is picked up
+    // before it comes out (it used to wait for the set and go then to
+    // wherever its man had got to). He reads nothing new until he sets.
+    let early = t < ps.set_at + READ_START && !hot_off_fake;
+    if (early && ps.commit.is_none()) || ps.reads.is_empty() {
         return None;
     }
     // Hot read: an unblocked blitzer gets the ball thrown early (by
     // `HOT_BY`, later by the fake's own time on play action).
     let pa = if ps.fake.is_some() { PA_TIME } else { 0.0 };
-    if pressure > 0.6 && t < HOT_BY + pa && !ps.hot && !screen {
+    if pressure > 0.6 && t < HOT_BY + pa && !ps.hot && !screen && !early {
         ps.hot = true;
         if aw > 45.0 || sim.rng.chance(0.4) {
             ps.read = 0;
@@ -4593,9 +4610,13 @@ fn quarterback(
     // the random stream and the pass's notes change, and `window` reads
     // neither), so they reuse it instead of playing the route forward again.
     let mut wins: [Option<(f64, V2, f64)>; 8] = [None; 8];
-    let looked: &[usize] = if screen { &[] } else { cand };
+    let looked: &[usize] = if screen || early { &[] } else { cand };
     for (k, &r) in looked.iter().enumerate() {
-        if !sim.agents[r].up(t) || matches!(sim.agents[r].job, Job::PassBlock { .. } | Job::RunBlock { .. }) {
+        // A back still carrying out the play fake (`Job::Handoff`) is no
+        // target until he takes his job in the pass (scheme-fit item 3).
+        if !sim.agents[r].up(t)
+            || matches!(sim.agents[r].job, Job::PassBlock { .. } | Job::RunBlock { .. } | Job::Handoff { .. })
+        {
             continue;
         }
         if let Job::Route { release_delay, .. } = sim.agents[r].job
@@ -4671,6 +4692,9 @@ fn quarterback(
             // The bubble: throw it now, to the side with the numbers.
             best = None;
             for &r in &ps.reads {
+                if matches!(sim.agents[r].job, Job::Handoff { .. }) {
+                    continue;
+                }
                 let (w, p, flight) = window(sim, qb, r);
                 let w = w + noise * 0.5 * gauss(sim.rng);
                 if best.is_none_or(|b| w > b.1) {
@@ -4697,7 +4721,7 @@ fn quarterback(
     // away. The catch point then decides: a contested catch, a breakup or
     // a pick.
     let ck_at = clock + 0.7 * sling.min(0.0);
-    if best.is_none() && (t > ck_at || urgent) && !screen {
+    if best.is_none() && (t > ck_at || urgent) && !screen && !early {
         let force = t > clock + 0.5 - 0.4 * sling.max(0.0) || urgent && soon < 0.5;
         let mut ck: Option<(usize, f64, V2, f64)> = None;
         for (k, &r) in cand.iter().enumerate() {
@@ -4810,6 +4834,10 @@ fn quarterback(
             return Some(throw(sim, ps, qb, r, p, flight, pressure, s));
         }
         ps.commit = None;
+    }
+    // That throw called off before he sets: he finishes his drop.
+    if early {
+        return None;
     }
     if let Some((r, _, p, flight)) = best {
         return Some(throw(sim, ps, qb, r, p, flight, pressure, s));
@@ -6138,8 +6166,9 @@ fn jump_route(sim: &mut Sim, i: usize, s: &Snap, qb: usize, pass: &Option<Pass>,
     let stare = if short { -sim.craft_at(qb, crate::craft::Craft::StaresDown) } else { 0.0 };
     let bait = sim.craft_at(i, crate::craft::Craft::Bait) + sim.craft_at(i, crate::craft::Craft::RobberBait);
     // Peeks into the backfield (a corner's man coverage against double
-    // moves and play action).
-    let fooled_by = s.tac.double_moves > 0.0 || sim.fake.is_some();
+    // moves and play action, and the run action of an RPO the quarterback
+    // pulled).
+    let fooled_by = s.tac.double_moves > 0.0 || sim.fake.is_some() || is_rpo_half(p.concept);
     let peeks = if fooled_by { sim.craft_at(i, crate::craft::Craft::Peeks) } else { 0.0 };
     let antic = antic + stare + bait + peeks;
     let p_right = clamp(0.35 + 0.012 * (antic - 60.0) + 0.006 * (pr - 60.0) - 0.25 * s.tac.double_moves, 0.1, 0.9);
