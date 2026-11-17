@@ -183,6 +183,10 @@ fn moves_potential_both_ways_and_mostly_before_24() {
     // year, so a ceiling that fell wins some of it back: on this sample the
     // share falling 5+ goes from 5.6% (progression off) to 4.9%, and the
     // share rising 5+ from 13% to 16% (2026-11-15).
+    // Speed and burst no longer ride the yearly drive (the speed lane,
+    // 2026-11-17): two of a skill player's biggest ceilings now hold, so his
+    // overall ceiling moves less both ways: falling 5+ 4.9% to 3.3%, rising
+    // 5+ 16% to 14% on this sample. The bar for falls goes to 2.5%.
     for mut p in prospects(6000, "drift", 2.0) {
         let p14 = p.potential();
         career(&mut p, &mut rng, 18, |_| {});
@@ -194,7 +198,7 @@ fn moves_potential_both_ways_and_mostly_before_24() {
     }
     let share = |xs: &[f64], f: fn(f64) -> bool| xs.iter().filter(|&&d| f(d)).count() as f64 / xs.len() as f64;
     assert!(share(&teen, |d| d >= 5.0) > 0.1);
-    assert!(share(&teen, |d| d <= -5.0) > 0.04);
+    assert!(share(&teen, |d| d <= -5.0) > 0.025);
     // From 24 to 27 the ceiling barely rises.
     assert!(share(&late, |d| d >= 5.0) < 0.02);
 }

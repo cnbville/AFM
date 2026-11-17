@@ -1289,6 +1289,17 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         let coaching_p = ((physical_coaching - 10.0) / 10.0) * 0.35;
         // Grouped so equal mixes give exactly 0 (no strength staff: as before).
         let physical_extra = ((coachability_p - coachability) + (coaching_p - coaching)) * 1.7 * plasticity;
+        // Speed and burst read only the strength head's own part: the same
+        // drive at his staff's mix against the mix with a typical strength
+        // head in it, so the position coach and the room don't move them.
+        let staff_mix = |c: f64| {
+            ((personality.coachability - 10.0) / 10.0) * 0.25 * ((c - 10.0) / 10.0 + 0.5) + ((c - 10.0) / 10.0) * 0.35
+        };
+        let speed_staff = if ctx.physical_coaching.is_some() {
+            (staff_mix(physical_coaching) - staff_mix(physical_coaching - 0.4 * ctx.strength_dev)) * 1.7 * plasticity
+        } else {
+            0.0
+        };
         why.drive_physical = physical_extra;
         why.plasticity = plasticity;
         why.drive = drive;
@@ -1313,6 +1324,19 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             }
             if spurt && physical {
                 d += rng.range(2.0, 6.0) * if matches!(key, Attr::Strength | Attr::LowerBody) { 1.3 } else { 0.8 };
+            }
+            // Speed and burst are his body's (the speed lane, 2026-11-17):
+            // his work, his coaches, his snaps and the year's luck don't move
+            // what he can run. Measured on the class sim, this drive lifted a
+            // drafted man's speed ceiling 8.8 points from 14 (about 0.11 s of
+            // forty, sd 6), against real college forties that don't change
+            // over four years (Jacobson et al. 2013) and the weight room's
+            // 1-point speed leash. The strength head's own part over the
+            // level's typical one stays (minor bug 302), and so do a growth
+            // spurt and the year's own noise; the weight room and a speed
+            // project train them on their leashes. Proposed, not confirmed.
+            if matches!(key, Attr::Speed | Attr::Acceleration) {
+                d += speed_staff - shared - physical_extra;
             }
             if stalled && d > 0.0 && physical {
                 d = 0.0;
