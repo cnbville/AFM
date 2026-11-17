@@ -649,8 +649,9 @@ pub struct DayWeather {
     /// "outside", "inside" (moved to the indoor field), "delayed" (a
     /// lightning hold took half an hour) or "lost" (the field work lost).
     pub place: &'static str,
-    /// What moved it: "rain", "snow", "cold", "wind", "lightning",
-    /// "severe weather", or "" for a normal day.
+    /// What moved it: "rain", "rain on grass" (a high school with no turf,
+    /// Capital lane C6), "snow", "cold", "wind", "lightning", "severe
+    /// weather", or "" for a normal day.
     pub why: &'static str,
 }
 
@@ -660,7 +661,7 @@ pub struct DayWeather {
 pub fn indoor_field(w: &World, st: &SeatTeam) -> bool {
     let Some(seat) = w.seat else { return false };
     match st.tier {
-        Tier::Pro => true,
+        Tier::Pro => seat.nfl_team.is_none_or(|t| crate::world::capital::nfl::has_indoor(&w.capital, t)),
         Tier::College => {
             seat.program.and_then(|p| w.programs.get(p)).is_some_and(crate::world::capital::rooms::has_indoor)
         }
@@ -697,6 +698,10 @@ pub fn practice_weather(w: &World, st: &SeatTeam, monday: Date, wk: &Week) -> [O
     let Some((state, code, town)) = practice_town(w, st) else { return [None; 7] };
     let inside = indoor_field(w, st);
     let seed = w.options.seed as u64;
+    let grass = st.tier == Tier::High
+        && w.seat
+            .and_then(|s| s.program)
+            .is_some_and(|h| !w.capital.hs.is_empty() && !crate::world::capital::hs::has_turf(w, h));
     std::array::from_fn(|k| {
         let day = &wk.days[k];
         if day.game || !day.periods.iter().any(|p| p.kind.on_field() && !p.own()) {
@@ -722,7 +727,13 @@ pub fn practice_weather(w: &World, st: &SeatTeam, monday: Date, wk: &Week) -> [O
             (if inside { "inside" } else { "outside" }, "wind")
         } else if wx.rain {
             let moved = inside && crate::world::season::key_uniform(seed ^ 0x2A1, d.0 as u64) < 0.5;
-            (if moved { "inside" } else { "outside" }, "rain")
+            // A high school with no turf keeps its team off a wet grass
+            // field for a while (Capital lane C6, CP33).
+            if !moved && grass {
+                ("delayed", "rain on grass")
+            } else {
+                (if moved { "inside" } else { "outside" }, "rain")
+            }
         } else {
             ("outside", "")
         };
@@ -1549,6 +1560,10 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
             .and_then(|s| s.program)
             .and_then(|p| w.programs.get(p))
             .map_or(1.0, crate::world::capital::rooms::body_plan_rate),
+        // The club's cafeteria and nutrition (Capital lane C6).
+        Tier::Pro => {
+            w.seat.and_then(|s| s.nfl_team).map_or(1.0, |t| crate::world::capital::nfl::body_plan_rate(&w.capital, t))
+        }
         _ => 1.0,
     };
     let mut absent_ids: Vec<u32> = Vec::new();

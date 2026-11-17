@@ -579,13 +579,16 @@ impl World {
                 let p = &self.programs[t];
                 0.35 * (eye(p.oc.or(p.head_coach)) + eye(p.dc.or(p.head_coach))) + 7.0 * super::capital::rooms::film(p)
             }
+            // The film rooms around the typical ones (Capital lane C6).
             Level::Nfl => {
                 let tm = &self.nfl[t];
-                0.35 * (eye(tm.oc.or(tm.head_coach)) + eye(tm.dc.or(tm.head_coach))) + 6.3
+                0.35 * (eye(tm.oc.or(tm.head_coach)) + eye(tm.dc.or(tm.head_coach)))
+                    + 6.3
+                    + super::capital::nfl::film_lift(&self.capital, t)
             }
             _ => {
                 let s = &self.high_schools[t];
-                0.7 * eye(s.coach) + 7.0 * s.resources
+                0.7 * eye(s.coach) + 7.0 * s.resources + super::capital::hs::film_lift(self, t)
             }
         };
         v.clamp(1.0, 20.0)

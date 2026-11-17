@@ -287,7 +287,12 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
     // takes the budget's place.
     let analytics = crate::world::people::Support::z(club.support.analytics.rating);
     let budget = clamp(0.85 + 0.15 * analytics, 0.7, 1.0);
-    let film_study = clamp(0.35 * (eye(tm.oc) + eye(tm.dc)) + 7.0 * budget, 1.0, 20.0);
+    // The film rooms around the league's typical (Capital lane C6).
+    let film_study = clamp(
+        0.35 * (eye(tm.oc) + eye(tm.dc)) + 7.0 * budget + crate::world::capital::nfl::film_lift(&w.capital, t),
+        1.0,
+        20.0,
+    );
     let oc_call = crate::world::season::play_caller(w, tm.oc, head, true);
     let dc_call = crate::world::season::play_caller(w, tm.dc, head, false);
     let dc = dc_call;
@@ -333,10 +338,11 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
     team.film = club.film.clone();
     team.line_chem = 0.25 + 0.15 * back as f64;
     // The strength staff's guard on muscle strains and backs (minor bug 303).
-    let guard = crate::game::sim::strength_guard(
+    // The sports science lab's guard too (Capital lane C6).
+    let guard = (crate::game::sim::strength_guard(
         crate::world::season::club_strength_head(w, t),
         crate::world::season::nfl_typical_strength(w),
-    ) as f32;
+    ) * crate::world::capital::nfl::soft_tissue_guard(&w.capital, t)) as f32;
     team.players.iter_mut().for_each(|g| g.soft = guard);
     super::super::chemistry::apply(w, &mut team, super::super::chemistry::Unit::Nfl);
     Some(Side { team, who })
@@ -782,7 +788,9 @@ pub(crate) fn record(
         // The medical staff's head: a good one brings a player back sooner
         // (section 6 topic 10; proposed, not confirmed: up to 12%).
         let t = teams[team];
-        let med = w.clubs.get(t).map_or(0.0, |c| crate::world::people::Support::z(c.support.medical.rating));
+        // And the training room (Capital lane C6).
+        let med = w.clubs.get(t).map_or(0.0, |c| crate::world::people::Support::z(c.support.medical.rating))
+            + crate::world::capital::nfl::recovery_units(&w.capital, t);
         let days = (inj.weeks * (1.0 - 0.12 * med) * 7.0).ceil().max(1.0) as u32;
         let weeks = days.div_ceil(7);
         let ir = weeks >= ir_minimum(year);

@@ -898,6 +898,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         .collect();
     let rehab_due: std::sync::Mutex<Vec<u32>> = std::sync::Mutex::new(Vec::new());
     let (people, schools, programs, coaches) = (&mut w.people, &w.high_schools, &w.programs, &w.coaches);
+    let capital = &w.capital;
     people.par_iter_mut().zip(role_of.par_iter()).enumerate().for_each(|(i, (p, role))| {
         let Some(role) = *role else { return };
         p.incident = false;
@@ -928,7 +929,14 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                 };
                 let staff = staff_of(p.hs, group)
                     .unwrap_or_else(|| coord.map_or(base, |c| 0.5 * coaches[c].teaching(group) + 0.5 * base));
-                (Level::HS, 0.6 * teach + 0.4 * staff, (s.resources - 0.5) * 0.1, 0.012)
+                let coaching = 0.6 * teach + 0.4 * staff;
+                // The weight room, read around the high schools' typical
+                // one (Capital lane C6, CP33).
+                let lift = super::capital::hs::physical_lift(capital, p.hs);
+                if lift != 0.0 {
+                    physical_coaching = Some(coaching + lift);
+                }
+                (Level::HS, coaching, (s.resources - 0.5) * 0.1, 0.012)
             }
             Stage::College => {
                 let prog = &programs[p.college.unwrap_or(0)];
@@ -1077,7 +1085,12 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         let snaps = reps_read(p.reps.take(), year as i32, p.stage, role, trouble.is_some(), p.player.position);
         // Section 6: his mood and his room's, his strength and medical staff.
         let prog = (p.stage == Stage::College).then(|| &programs[p.college.unwrap_or(0)]);
-        let room = prog.map_or(0.0, |g| g.team_mood);
+        let room = match prog {
+            Some(g) => g.team_mood,
+            // A high school's locker room (Capital lane C6).
+            None if p.stage == Stage::HighSchool => super::capital::hs::mood_lift(capital, p.hs) as f32,
+            None => 0.0,
+        };
         let morale = super::people::morale(p, room);
         let (physical, medical) = super::people::support_ctx(prog.map(|g| &g.support), &p.player.personality);
         let ctx = SeasonContext {
