@@ -84,7 +84,8 @@ fn the_autosave_is_the_world_at_the_tick_and_never_in_the_way() {
     assert_eq!(s["state"], "saving", "{s}");
     // A second tick while it writes starts nothing more.
     assert_eq!(ok(&mut g, "autosave_tick", json!({}))["state"], "saving");
-    // The game plays on at once; the file must still be the world at the tick.
+    // Days wait for the save to be written (they would copy half the world
+    // under the child), then play on; the file must be the world at the tick.
     for _ in 0..3 {
         ok(&mut g, "day", json!({}));
     }
