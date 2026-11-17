@@ -1196,7 +1196,13 @@ fn settle_room(w: &mut World, room: Room, roster: &[usize], roles: &std::collect
             / captains.len().max(1) as f64;
         mood *= clamp(1.0 - 0.4 * lead, 0.6, 1.2);
     }
-    let mood = clamp(mood * 1.5, -1.0, 1.0) as f32;
+    // The locker room and the players' lounge, less a build year's
+    // temporary space (Capital lane C2).
+    let rooms = match room {
+        Room::College(k) => super::capital::rooms::mood_lift(&w.programs[k]),
+        Room::Club(_) => 0.0,
+    };
+    let mood = clamp(mood * 1.5 + rooms, -1.0, 1.0) as f32;
     match room {
         Room::College(k) => {
             w.programs[k].team_mood = mood;

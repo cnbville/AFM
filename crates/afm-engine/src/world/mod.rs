@@ -15,6 +15,7 @@ pub mod analytics;
 pub mod background;
 pub mod broadcast;
 pub mod buildings;
+pub mod capital;
 pub mod charts;
 pub(crate) mod chemistry;
 pub(crate) mod clock;
@@ -1751,6 +1752,8 @@ impl World {
             results: crate::results::Book::default(),
             ground: Default::default(),
         };
+        // Every program's rooms from its number (Capital lane C2).
+        capital::rooms::after_load(&mut w);
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);
         systems::spring_install(&mut w);
