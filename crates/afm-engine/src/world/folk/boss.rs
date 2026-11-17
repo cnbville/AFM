@@ -1092,6 +1092,14 @@ pub(crate) fn grant(w: &mut World, team: Team, k: AskKind) -> &'static str {
         }
         AskKind::Facility => {
             if let Team::College(pg) = team {
+                // Once the rooms live a yes opens a drive's study (Capital
+                // lane C3); before that the old lift.
+                if crate::world::capital::live(w) {
+                    if crate::world::capital::drive::ask_drive(w, pg).is_ok_and(|d| d.is_some()) {
+                        return "Yes. The development office opens a study this fall, and we set the drive's goal together.";
+                    }
+                    return "Not while a drive or a building is under way.";
+                }
                 w.programs[pg].facilities = (w.programs[pg].facilities + 0.03).min(1.0);
             }
             "Yes. We'll break ground after the season."

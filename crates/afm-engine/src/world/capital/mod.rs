@@ -14,14 +14,22 @@
 //! aging read against the conference (CP22, CP23), renovations and new
 //! buildings (CP18, CP21) and the build year in temporary space (CP26).
 //!
-//! The store only keeps people and their memory: nothing else in the world
-//! reads it yet (lanes C3 and C4 do), so every result of a world stays the
-//! same per seed. Every draw here is keyed on the world's seed and the
+//! Lane C3, the money and the drive: big moments start the fever (`fever`,
+//! CP7, CP8); donors give donor by donor between NIL and buildings, some
+//! gifts with a catch (`gifts`, CP9, CP10); every program's capital
+//! campaign in its real stages, with your goal, an early launch, borrowing,
+//! overruns and the development office (`drive`, CP11, CP12, CP14-CP16,
+//! CP24), on the same rules for the AI (CP27). From the season the world
+//! hands over, drives replace the ADs' old July decisions, so the world's
+//! future changes; its past stays the same per seed. Every draw here is keyed on the world's seed and the
 //! donor, never on a shared stream. Sizes are Claude's (proposed, not
 //! confirmed) unless the spec gives them.
 
 pub mod donors;
+pub mod drive;
 pub mod expros;
+pub mod fever;
+pub mod gifts;
 pub mod pledges;
 pub mod rooms;
 pub mod screen;
@@ -30,6 +38,9 @@ use crate::calendar::Date;
 use crate::world::World;
 
 pub use donors::{Bond, Circle, Donor, Estate, Money};
+pub use drive::{Drive, Fix, Size, Stage};
+pub use fever::{Moment, What};
+pub use gifts::{Answer, Catch, CatchKind, Side};
 pub use pledges::Pledge;
 
 /// The Capital store on `World.capital`.
@@ -45,6 +56,17 @@ pub struct Capital {
     pub pledges: Vec<Pledge>,
     /// Estate gifts left by donors who died, for lane C3 to pay.
     pub estates: Vec<Estate>,
+    /// Every program's drives (lane C3), oldest first.
+    pub drives: Vec<Drive>,
+    /// The moments behind the fever (lane C3), the last two years or so.
+    pub moments: Vec<Moment>,
+    /// The catches gifts carried (CP10).
+    pub catches: Vec<Catch>,
+    /// The college season and the draft year last looked at for moments.
+    pub(crate) scanned: i32,
+    pub(crate) drafted: i32,
+    /// Your NIL asks this year (donor, year): one a donor a year.
+    pub(crate) nil_asks: Vec<(u32, i32)>,
     /// Pros already weighed as ex-pro donors (player ids, sorted): one look
     /// at his first big deal after his rookie contract.
     pub(crate) pros: Vec<u32>,
@@ -87,6 +109,19 @@ pub(crate) fn day(w: &mut World, d: Date) {
         w.capital.year = w.year;
     }
     pledges::day(w, d);
+    fever::day(w, d);
+    if live(w) {
+        gifts::catches(w, d);
+        if d.day() == 1 {
+            drive::month(w, d);
+        }
+    }
+}
+
+/// The drives run: from the season the world hands over (the rooms live),
+/// in a recorded world.
+pub(crate) fn live(w: &World) -> bool {
+    w.year >= w.options.start_year && w.recording && !w.capital.off
 }
 
 /// A keyed draw in 0-1 for a purpose and a key (its own stream: no other
