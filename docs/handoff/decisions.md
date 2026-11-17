@@ -411,6 +411,12 @@ Cain, 2026-11-14 18:27 UTC: "i was hoping to have it be for everything". Spec: `
 - **Agreed:** everyday coaching closes room every year (a third of a project year, times knack, coach and snaps; no age rule in school); the limit lifts with natural rises (holding them back cut 80+ cover men 49 to 14); neglect lowers the everyday ceiling, never the limit; a falling limit never takes ratings away; a breakout closes room at the click's size; the normal weight room inside the leashes by the body knack; bug 385 fixed in the same build; gifts and the mental reads have no limit; limits for leg drive, pursuit, blitzing and throw on the move; makeup in the limit grows with him; one trim per skill family (2 to 5 points), sized again on a world; the build checks that a hit project moves draft stock, else scouts lean more on a position's key skills.
 - **Proposed, not confirmed:** everyday closing in the pros on the pro-season curve.
 
+## 25. How you talk: your coaching voice (thread "Design coach talk styles and reactions", 2026-11-16/17)
+
+Cain, 2026-11-16 23:41 UTC: "I'm naturaly a very intense guy, cursing and intense... i want to fucking destroy the SEC conference." Spec: `docs/design/coach-voice.md`, Cain's "yes to all" on 2026-11-17 00:44 UTC.
+- **Agreed:** the ear reads five dials on every line (heat, language, aim at the job or the man, care, tell or ask); each person keeps what he has seen of you and what he heard; eight prototype words; aim matters most and the relationship buffers it; players, staff, trainers and doctors, bosses, boosters, press and recruits each react by their makeup, role and level; firing for cause only after a pattern of abuse, complaints and a review; no new on-field bonus, only built channels; wear on typed lines; your starting reputation picked in your profile; AI coaches on the same rules (measured on one small world); one Opus build lane after the relationship layer thread merges.
+- **Proposed, not confirmed:** every size (fades, weights, the rival's fire lift).
+
 ## Superseded decisions
 
 | Old | Replaced by | When |
