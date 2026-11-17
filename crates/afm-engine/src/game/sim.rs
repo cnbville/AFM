@@ -1341,14 +1341,16 @@ const FIRE_HIT: f64 = 0.01;
 /// fitted to about 6 NFL ejections for hits a season (21 ejections in all
 /// in 2023, fights and contact with officials among them; Football
 /// Zebras). At 0.025 the test league threw out 0.014 men a team game,
-/// about 7.6 a season (`fire_check hits nfl`, 400 games).
+/// about 7.6 a season; at 0.02, 0.009, about 5 (`fire_check hits nfl`,
+/// 400 games: small counts).
 const FLAGRANT: f64 = 0.02;
 
 /// The share of late and extra hits on a tackle that lead with the crown of
 /// the helmet: targeting under the college and high school rules (coach
 /// fire, item 4). Proposed, not confirmed: with the hits at the catch point
-/// and on a slide, fitted so FBS calls about 0.037 targeting fouls a team
-/// game (cfbfastR 2022-2025: 0.031 to 0.043).
+/// and on a slide, fitted so FBS calls about 0.04 targeting fouls a team
+/// game (0.042 on `match_check` seeds 1-12; cfbfastR 2022-2025: 0.031 to
+/// 0.043).
 pub const HIGH_ON_TACKLE: f64 = 0.07;
 
 /// Print plays as they run (debug tooling only).

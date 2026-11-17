@@ -3630,7 +3630,7 @@ fn slide(sim: &mut Sim, c: usize, s: &Snap) -> bool {
 /// the helmet: targeting under the college and high school rules, the
 /// rest unnecessary roughness (coach fire, item 4). Proposed, not
 /// confirmed: a defenseless receiver is where most targeting is called;
-/// with the tackles' share (`sim::HIGH_ON_TACKLE`) FBS calls about 0.037
+/// with the tackles' share (`sim::HIGH_ON_TACKLE`) FBS calls about 0.04
 /// targeting fouls a team game (cfbfastR 2022-2025: 0.031 to 0.043).
 pub const HIGH_AT_CATCH: f64 = 0.7;
 /// The same share on a hit on a sliding quarterback (he is going down, so
