@@ -1757,6 +1757,8 @@ impl World {
             ground: Default::default(),
             capital: Default::default(),
         };
+        // Every program's rooms from its number (Capital lane C2).
+        capital::rooms::after_load(&mut w);
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);
         systems::spring_install(&mut w);

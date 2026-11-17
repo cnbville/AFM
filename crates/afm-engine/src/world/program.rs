@@ -278,6 +278,10 @@ pub struct Program {
     pub tradition: f64,
     pub recent: f64,
     pub facilities: f64,
+    /// Its rooms and campus (Capital lane C2): the facilities number above
+    /// is worked out from them once they live.
+    #[serde(default)]
+    pub campus: super::capital::rooms::Campus,
     /// Why the program moved: facility projects, boosters, hires (note 15C).
     pub story: Vec<(i32, String)>,
     pub fans: f64,
@@ -636,6 +640,7 @@ pub fn program_from_row(id: usize, row: &CollegeRow, season: i32, seed: u32, rng
         tradition,
         recent,
         facilities,
+        campus: Default::default(),
         story: Vec::new(),
         fans,
         prestige: 0.0,
