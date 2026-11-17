@@ -24,7 +24,7 @@ const POS: [&str; 14] = ["QB", "RB", "WR", "TE", "OT", "IOL", "EDGE", "DT", "LB"
 const OPS: [(&str, &str); 5] = [("<", "under"), ("≤", "at most"), ("=", "exactly"), ("≥", "at least"), (">", "over")];
 
 /// One field of the catalog.
-struct Field {
+pub(super) struct Field {
     k: String,
     label: String,
     kind: String,
@@ -87,7 +87,7 @@ The fields:{list}"
     )
 }
 
-fn schema(groups: &[(String, Vec<Field>)]) -> Value {
+pub(super) fn schema(groups: &[(String, Vec<Field>)]) -> Value {
     let keys: Vec<&str> = groups.iter().flat_map(|(_, fs)| fs.iter().map(|f| f.k.as_str())).collect();
     json!({
         "type": "object",

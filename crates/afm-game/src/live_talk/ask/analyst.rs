@@ -11,7 +11,7 @@
 //! (`question`, `start`, `reading`, `none`, `line_call`), since a lane never
 //! adds a module to the core's list.
 
-use afm_ai::{Failure, Reply as AiReply, Request};
+use afm_ai::{Failure, Reply as AiReply, Request, nullable_enum};
 use afm_engine::positions::Position;
 use afm_engine::world::World;
 use afm_engine::world::data::Division;
@@ -170,13 +170,8 @@ The numbers:{list}"
     )
 }
 
-fn schema(stats: &[Stat]) -> Value {
+pub(super) fn schema(stats: &[Stat]) -> Value {
     let keys: Vec<&str> = stats.iter().map(|s| s.key.as_str()).collect();
-    let nullable = |ty: &str, vals: Vec<Value>| {
-        let mut all = vals;
-        all.push(Value::Null);
-        json!({ "type": [ty, "null"], "enum": all })
-    };
     let strs = |l: &[&str]| l.iter().map(|s| json!(s)).collect::<Vec<_>>();
     let pos: Vec<Value> = positions().iter().map(|p| json!(p)).collect();
     json!({
@@ -185,14 +180,14 @@ fn schema(stats: &[Stat]) -> Value {
         "required": ["fit", "find", "level", "division", "from", "to", "pos", "class", "rs", "age_min", "age_max", "min_len", "conds"],
         "properties": {
             "fit": { "type": "string", "enum": ["clear", "not_a_search"] },
-            "find": nullable("string", strs(&FINDS)),
-            "level": nullable("string", strs(&LEVELS)),
+            "find": nullable_enum("string", strs(&FINDS)),
+            "level": nullable_enum("string", strs(&LEVELS)),
             "division": { "type": ["string", "null"] },
             "from": { "type": ["integer", "null"] },
             "to": { "type": ["integer", "null"] },
-            "pos": nullable("string", pos),
-            "class": nullable("string", strs(&CLASSES)),
-            "rs": nullable("string", strs(&["yes", "no"])),
+            "pos": nullable_enum("string", pos),
+            "class": nullable_enum("string", strs(&CLASSES)),
+            "rs": nullable_enum("string", strs(&["yes", "no"])),
             "age_min": { "type": ["integer", "null"] },
             "age_max": { "type": ["integer", "null"] },
             "min_len": { "type": ["integer", "null"] },
