@@ -1099,9 +1099,76 @@ Still off:
 - **NFL sacks a pressure fell to 0.258** (real 0.283) with the pocket feel, while sacks a team game are at real. NFL points rose 0.27 (24.03, real 22.51), about what 0.18 fewer sacks a game is worth.
 - **FBS sacks are still over real** (2.34 a team game, real 2.00).
 
+## A blocked man is out of the play (scheme-fit lane SF3, 2026-11-17)
+
+Scheme-fit item 7 (`docs/design/scheme-fit.md`), in Cain's words: a defender in a block he isn't winning can't tackle the runner, and he has to shed first; one who is beating his blocker can still get an arm out. The target: the league's run game stays where it is, and the line explains real-sized gaps (backs' yards before contact have a true spread of 0.36 a carry between seasons, PFR 2018-25).
+
+What was wrong on main (4,000 `match_check nfl` games on seed 11, `AFM_RUNDIAG=1`, with a count at the hit):
+
+- **The shed as the runner comes read nobody.** Every run block that wasn't sealed got the same pull off it as the runner came within 2.2 yards (`SHED_RUNNER`, minor bugs 164 and 253), whoever was winning it, so a back met the same men at the same spots behind a good line or a bad one. The line's edge (its five blockers' Run Blocking less the other side's four linemen's Block Shedding) moved the backs' yards before contact 0.030 a carry a point, and on world seed 1's NFL clubs nothing (-0.006).
+- **The tackle from a block was small.** The audit's 34% (first tackles by a man in a block he never shed) reads the play log's block records, which also hold a man put down earlier or picked up by a blocker after his hit (minor bug 404). Counted at the hit, 4.9% of the hits that start the tackle on designed runs came from a man on a block, and 0.5% from one he wasn't winning (the gate let him try from w -0.2, at 0.25 + 0.3 × w).
+- **The runner counted a sealed man as 0.15 of a free one** when he picked his lane.
+
+What changed (`game/sim.rs`; every size proposed, not confirmed):
+
+- **The shed reads the block** (`update_blocks`, `SHED_EDGE`): the pull is scaled by e^(edge / 9), the edge being the defender's lead in rating points (his shed power against the blocker's block power, a helper's and both men's flaws and tools). A man beating his blocker by 9 points comes off 2.7 times as hard as one on an even block, and one losing by 9 at 0.37 of it.
+- **The tackle** (`tackles`, `ARM_OUT`): a man on a block tries only while he is winning it (w above 0), with chance 0.55 × w a try (the same 0.55 at the shed as before), inside his reach less 0.55 yards.
+- **The runner's read** (`run_carrier`): a man on a block counts as 0.5 × (w + 1) / 2 of a free man: nothing sealed, a quarter on an even block, a half at the shed (0.15 to 0.5 before).
+- **Tools:** `match_check` prints who starts the tackle by his block at the hit (`sim::FIRST_TACKLE_BLOCK`), the line's edge against yards before contact and the backs' lasting spread before contact, and plays a world's 32 NFL clubs with `AFM_AB_WORLD`.
+
+4,000 `match_check nfl` games, main and after, on the test rosters (seed 11) and on world seed 1's NFL clubs (seed 1):
+
+| NFL | test, main | test, after | world, main | world, after | real |
+|---|---|---|---|---|---|
+| yards a carry | 4.45 | 4.50 | 4.46 | 4.52 | 4.50 |
+| designed runs for 0 or less | 18.4% | 19.4% | 18.7% | 19.3% | 18.2% |
+| inside / outside the tackles | 3.56 / 5.38 | 3.73 / 5.35 | 3.60 / 6.26 | 3.74 / 6.34 | 4.05 / 5.06 |
+| 8 or more in the box, a carry | 3.18 | 3.24 | 3.26 | 3.31 | 3.40 |
+| first tackle: line / linebackers / backs | 43.8 / 21.0 / 35.2% | 42.4 / 21.7 / 35.9% | 42.9 / 22.3 / 34.8% | 40.9 / 23.7 / 35.4% | 43.1 / 27.8 / 29.1% |
+| the hit that starts the tackle from a man on a block | 4.9% | 2.1% | 3.9% | 1.8% | – |
+| the same, a block he isn't winning | 0.5% | 0 | 0.4% | 0 | – |
+| backs' yards before contact a point of the line's edge | 0.030 | 0.064 | -0.006 | 0.025 | – |
+| backs' yards before contact, lasting spread (204-carry blocks) | 0.34 | 0.45 | 0.32 | 0.35 | 0.36 between seasons |
+| backs' yards a carry, sd over 204-carry blocks | 0.56 | 0.68 | 0.51 | 0.55 | 0.57 |
+| missed tackles a run | 0.143 | 0.126 | 0.118 | 0.104 | – |
+| points a team game | 24.0 | 24.1 | 26.2 | 26.2 | 22.5 |
+| points sd / games within 8 | 11.1 / 41.5% | 11.4 / 39.8% | 9.6 / 56.6% | 9.9 / 54.2% | 9.9 / 53.5% |
+
+The lasting spread is the covariance of one back's consecutive 204-carry blocks (a real season's carries), so it is what stays with a back and his team. In `match_check` the rosters never change, so it keeps all of the line's part, where real seasons lose some to line changes. The test rosters are wider apart than the world's clubs or the real NFL (points sd 11.1, real 9.9; 41.5% of games within 8, real 53.5%), so the line's new reach shows larger there: their backs' yards a carry spread 0.68 over 204-carry blocks against real 0.57, where the world's clubs come to 0.55. On the world's clubs every row in the table moves toward real but the stuffs and the line's share of first tackles. Fewer missed tackles: a man on a block tried with an arm (the miss logit +1.5), and those tries are fewer.
+
+FBS (4,000 games, seed 11): yards a carry 4.76 to 4.74, runs for 0 or less 16.4% to 18.0%, first tackles by the line 43.9% to 43.7%, the line's edge 0.037 to 0.078 a point, points 23.2 to 23.2, points sd 12.1 to 12.8 and games within 8 35.2% to 31.7%. High school (2,000 games): 5.74 to 5.76 a carry, the line's first tackles 44.2% to 44.8%, points 18.6 to 18.9, points sd 15.0 to 16.4. Kick and punt returns don't move (NFL 25.4 and 8.2 yards a return, both before and after).
+
+`fit_check` (team 0 the typical team, each arm one change on the same games; FBS seed 151 at 3,000 games an arm and NFL seed 161 at 2,400; * past the noise), main and after:
+
+| +15 on team 0 | FBS 151, main | FBS 151, after | NFL 161, main | NFL 161, after |
+|---|---|---|---|---|
+| a lineman's Run Blocking: yards a carry | -0.00 to +0.08 (5 of 13 arms*) | +0.04 to +0.13 (12 of 13*) | -0.02 to +0.04 (0 of 13*) | +0.01 to +0.15 (10 of 13*) |
+| the same: run blocks won, of 100 | +7.3 to +11.6 | +8.9 to +16.9 | +6.0 to +10.3 | +5.9 to +13.9 |
+| the same: team run success, points | -0.0 to +0.8 | +0.1 to +1.5 | -0.1 to +0.7 | +0.3 to +1.9 |
+| a tight end's Run Blocking: yards a carry | +0.01 to +0.06 | +0.06 to +0.08 | +0.01 to +0.10 | +0.03 to +0.16 |
+| a tackle's Block Shedding: yards a carry allowed | -0.02 to -0.01 (0 of 5*) | -0.15 to -0.06 (5 of 5*) | -0.03 to +0.01 (0 of 5*) | -0.11 to -0.08 (5 of 5*) |
+| the same: his first tackles on runs a season | -2.8 to +2.0 | +0.8 to +7.2 | -6.9 to +2.1 | -1.6 to +7.2 |
+| an edge's Block Shedding: yards a carry allowed | -0.05 to -0.03 | -0.15 to -0.10 | -0.03 to -0.00 | -0.13 to -0.11 |
+| the Mike's Block Shedding: yards a carry allowed | -0.05 to -0.04 | -0.11 to -0.10 | -0.07 to -0.05 | -0.08 to -0.06 |
+| the back's Speed: yards a carry | +0.12 to +0.13 | +0.07 to +0.11 | +0.09 to +0.11 | +0.10 to +0.11 |
+| the back's Ball Carrier Vision: yards a carry | +0.03 to +0.11 | +0.00 to +0.05 | +0.02 to +0.06 | +0.02 to +0.04 |
+
+The arms are the center, left guard and left tackle in power gap, West Coast and wide zone, the right guard and right tackle in the first two, the tight ends in 12 and 13 personnel and West Coast, and the defensive tackles, edges and the Mike in the West Coast and 3-4 contexts (`fit_check list`). Points move little either way: a lineman's +15 is -0.2 to +0.6 points a game (2 of 26 past the noise) and a tackle's -0.9 to -0.2 allowed, since one man is a fifth of the line and runs are under half the snaps. The right tackle moves the least (+0.01 to +0.06 a carry). The back's own ratings keep about what they had: Speed is the same, and Ball Carrier Vision is small before and after (the wide zone arm's +0.11 at FBS was the largest before).
+
+Tried and dropped (NFL test rosters, seed 11):
+
+- **The tackle rule alone** (the gate and `ARM_OUT`): the line's edge 0.031 a point, 4.48 a carry. The stop came from the shed, not the tackle.
+- **The gate and the runner's read:** 0.034 a point.
+- **No floor on the pull** (2 × 0.9 × (0.5 + w)₊, so a man well behind on his block gets none): 5.03 a carry, linemen 33.9% of first tackles (real 43.1%).
+- **An added drift of 0.2 × the edge while the runner is near:** 0.058 a point but 4.58 a carry and 2.54 yards before contact, so the league's run game moves.
+- **e^(edge / 6) and e^(edge / 12):** 0.070 and 0.058 a point, 20.2% and 19.0% of runs for 0 or less; 9 sits between.
+- **A blocker can't pick up a man already in the tackle** (minor bug 404): the play log's count falls from 37.5% to 24.8% and yards a carry rise to 4.47 with the pile and yards after contact, a change outside item 7, so it is left for its own call.
+
+Still off: inside runs 0.3 a carry short and outside runs 0.3 long (world clubs 1.3), linebackers make too few first tackles, and runs of 20+ are half of real (item 9, lane SF9). Short yardage (item 8) is measured again after this lane, as its spec asks: team 0's backs convert 77-78% of designed runs on 3rd and 4th and 2 or less at the NFL (78-80% before) and 81-83% at FBS (82-83% before), against 67% real, and its quarterbacks 88-93% (real 79%), so it stays lane SF9's. Runs of 20+ don't move (NFL 1.0-1.2% of the backs' carries, FBS 1.3-1.8%, real 2.2%).
+
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).
-- `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl2022|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, college only; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams.
+- `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl2022|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, college only; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams, `AFM_AB_WORLD=<world file>` plays a world's 32 NFL clubs (NFL only), and `AFM_RUNDIAG=1` adds the run diagnostic (lane SF3: who starts the tackle by his block at the hit, the line's edge against yards before contact, the backs' lasting spread).
 - `cargo run --release --bin dynasty_check -- value [games] [seed]`: what each position and the play callers are worth (`AFM_LEVEL`, `AFM_ONLY`). `cargo run --release --bin call_values -- 400`: rebuilds the coaches' what-beats-what table (`AFM_CELL=concept:Coverage` shows one cell's outcomes).
 - `cargo run --release --bin fit_check -- run <fbs|nfl|hs> [games] [seed] [out] [arms]`: the scheme-fit check (`docs/design/scheme-fit.md`, lane SF0): does a man's skill pay inside his team's scheme? Team 0 is the level's typical team; each arm changes one thing on it (a rating, a body number, a drawn man, the scheme) and replays the same games as its context's typical arm. `fit_check read <dir>` writes the tables (each job's measures, the items' measures against real, as recruited, personnel, where men lined up, ratings nothing reads, the world's fit weights against what +15 moved); `fit_check repeat` compares runs on the claims behind the items.
 - `cargo run --release --bin garbage_check -- fbs|nfl|hs [games] [quality sd] [seed]`: garbage time against real play-by-play (who plays the 4th quarter by lead, run-out, 4th downs, sample why lines).
