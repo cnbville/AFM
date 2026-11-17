@@ -1314,6 +1314,18 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
             if spurt && physical {
                 d += rng.range(2.0, 6.0) * if matches!(key, Attr::Strength | Attr::LowerBody) { 1.3 } else { 0.8 };
             }
+            // Speed and burst are his body's (the speed lane, 2026-11-17):
+            // work, coaching, snaps and the year's luck don't move what he
+            // can run. Measured on the class sim, this drive lifted a drafted
+            // man's speed ceiling 8.8 points from 14 (about 0.11 s of forty,
+            // sd 6), against real college forties that don't change over four
+            // years (Jacobson et al. 2013) and the weight room's 1-point speed
+            // leash. A growth spurt and the year's own noise still move them;
+            // the weight room and a speed project train them on their leashes.
+            // Proposed, not confirmed.
+            if matches!(key, Attr::Speed | Attr::Acceleration) {
+                d -= shared + physical_extra;
+            }
             if stalled && d > 0.0 && physical {
                 d = 0.0;
             }
