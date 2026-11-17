@@ -372,6 +372,12 @@ fn tidy(people: &mut [Aide]) {
 /// there are too many, fresh people come where there are too few.
 fn size_team(w: &mut World, who: Who, rng: &mut Rng, ys: &Yardstick) -> (u16, u16) {
     let mut people = std::mem::take(&mut people::support_mut(w, who).people);
+    // Shares follow the team's level now (a program that moved up keeps its
+    // people at the new level's hours).
+    let lvl = level(w, who);
+    for a in people.iter_mut() {
+        a.share = a.job.share(lvl);
+    }
     let (mut hired, mut gone) = (0u16, 0u16);
     for job in Job::ALL {
         let want = target(w, who, job, ys);
