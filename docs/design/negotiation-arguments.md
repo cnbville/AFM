@@ -59,7 +59,7 @@ Agreed: "Each player gets his own lowest number, built from your bond with him, 
 
 Real hometown discounts mostly run 5 to 15% under market (Tom Brady's later deals and Patrick Mahomes's 2023 restructure were the rare quarter to half); they come from players who already earned their big money, love the place and expect to win.
 
-- **His discount** d, for your club or school only (proposed, not confirmed):
+- **His discount** d for a club or school (proposed, not confirmed). His own club or school gets every part; a new one only its winning and his home (the ring chaser and the hometown man):
   - Bond: 0.06 x his closeness to you (`folk::bonds::close`, from the bonds build, PR #542; 0 until it merges).
   - Trust: 0.03 x his trust in you over half (`(trust - 0.5) / 0.5`, at least 0), one trust (item 2).
   - Contending: 0.04 x how much your team wins, read as his want reads it (`want_fit`'s Winning: +1 at a .800 season, 0 at .500, nothing below; college: your last season and your final rank) x his winning want over half.

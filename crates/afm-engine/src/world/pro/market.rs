@@ -804,11 +804,126 @@ pub(crate) fn state_tax(w: &World, t: usize, year: i32) -> f64 {
     }
 }
 
+// --- His lowest number (negotiation overhaul, items 1 and 2) -----------------------------
+
+/// The parts of a player's own discount for a club (`docs/design/
+/// negotiation-arguments.md`, item 1): what he would give up below his
+/// market to play there. Each part at full is its size; the sum is scaled
+/// by how little money matters to him and whether he has made his money,
+/// and kept to `FLOOR_MAX`. Proposed, not confirmed.
+pub const FLOOR_BOND: f64 = 0.06;
+pub const FLOOR_TRUST: f64 = 0.03;
+pub const FLOOR_WIN: f64 = 0.04;
+pub const FLOOR_HOME: f64 = 0.03;
+/// Having made his money (career earnings against a tenth of the year's
+/// cap) raises the discount up to this much more.
+pub const FLOOR_MADE: f64 = 0.6;
+pub const FLOOR_MAX: f64 = 0.25;
+
+/// A player's discount for one club, part by part (engine numbers, never
+/// shown).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Discount {
+    pub bond: f64,
+    pub trust: f64,
+    pub win: f64,
+    pub home: f64,
+    /// 1.6 - 1.2 x his money goal: 0.4 for a man who lives for money.
+    pub money: f64,
+    /// 0-1: how far he has made his money.
+    pub made: f64,
+    /// The discount, 0 to `FLOOR_MAX`.
+    pub total: f64,
+}
+
+/// One trust (item 2): his trust in the club (trade rumors, promises the
+/// front office broke), and for your own club his trust in you as your
+/// talks and kept promises move it, the two averaged. An AI club's player
+/// has only his trust in the club: the world keeps no pro's trust in an AI
+/// head coach.
+pub fn one_trust(w: &World, i: usize, t: usize) -> f64 {
+    let club = w.people[i].pro.as_ref().map_or(1.0, |c| c.trust);
+    if crate::world::folk::Team::seat(w) == Some(crate::world::folk::Team::Nfl(t)) && w.career.is_some() {
+        let you = crate::world::folk::persona::makeup::trust(
+            w,
+            crate::world::folk::persona::Them::Player(w.people[i].player.id),
+        );
+        0.5 * (club + you)
+    } else {
+        club
+    }
+}
+
+/// His closeness to the club's head coach (coach and player bonds). 0
+/// until the bonds build stores a pro's bond with his head coach.
+fn bond_close(_w: &World, _i: usize, _t: usize) -> f64 {
+    0.0
+}
+
+/// How much the club wins, as a player who wants to win reads it: last
+/// season's win share, 0 at .500 or worse, 1 at .800 (the agent's read,
+/// `front_office::nfl::want_fit`). 0 before a season is on the books.
+fn contending(w: &World, t: usize) -> f64 {
+    w.nfl_seasons
+        .iter()
+        .rev()
+        .take(64)
+        .find(|s| s.team == t && s.year <= w.year && s.wins + s.losses > 0)
+        .map_or(0.0, |s| clamp((s.wins as f64 / (s.wins + s.losses) as f64 - 0.5) / 0.3, 0.0, 1.0))
+}
+
+/// His discount for club `t` (item 1). His own club (`own`) gets every
+/// part; a new club only its winning and his home state, the ring chaser's
+/// and the hometown man's.
+pub fn discount(w: &World, i: usize, t: usize, own: bool) -> Discount {
+    let g = goals(w, i);
+    let p = &w.people[i];
+    let year = w.year;
+    let bond = if own { FLOOR_BOND * bond_close(w, i, t) } else { 0.0 };
+    let trust = if own { FLOOR_TRUST * clamp((one_trust(w, i, t) - 0.5) / 0.5, 0.0, 1.0) } else { 0.0 };
+    let win = FLOOR_WIN * contending(w, t) * clamp((g.winning - 0.5) / 0.5, 0.0, 1.0);
+    let at_home = super::super::franchise::era_in(w, t, year)
+        .and_then(|e| super::super::geo::state_index(e.state))
+        .is_some_and(|s| s == p.home_state);
+    let home = if at_home { FLOOR_HOME * g.home } else { 0.0 };
+    let money = 1.6 - 1.2 * g.money;
+    let made = p.pro.as_ref().map_or(0.0, |c| clamp(c.earnings / (money::price_cap(year) * 0.1), 0.0, 1.0));
+    let total = ((bond + trust + win + home) * money * (1.0 + FLOOR_MADE * made)).clamp(0.0, FLOOR_MAX);
+    Discount { bond, trust, win, home, money, made, total }
+}
+
+/// His market, a year: his ideal without what his own money goal adds
+/// (`ideal`'s money factor), never under the minimum.
+pub fn market_apy(w: &World, i: usize, ideal: &Ideal) -> f64 {
+    let g = goals(w, i);
+    let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
+    (ideal.apy / (1.0 + 0.2 * (g.money - 0.5))).max(money::minimum(w.year, credited))
+}
+
+/// His lowest number for club `t`, a year: his market less his discount
+/// there (item 1), never under the minimum.
+pub fn lowest(w: &World, i: usize, t: usize, ideal: &Ideal, own: bool) -> f64 {
+    let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
+    (market_apy(w, i, ideal) * (1.0 - discount(w, i, t, own).total)).max(money::minimum(w.year, credited))
+}
+
 /// How close an offer comes to his ideal, 0 to about 1.1: each part met
 /// against what he wants, weighted by his own goals. "Balanced" (Cain): no
 /// single term covers the rest, so an offer short on the money or the
 /// guarantees he cares about can't pass 85%, whatever the role or the city.
 pub(crate) fn score(w: &World, i: usize, o: &Offer, ideal: &Ideal, own: Option<usize>) -> f64 {
+    let (s, gtd_short) = raw_score(w, i, o, ideal, own);
+    // His lowest number (item 1): under it, money he cares about at all
+    // isn't met, whatever the rest. Before, a flat 0.82 of his ideal after
+    // tax for anyone whose money goal passed 0.3, and no floor at all
+    // under it (a cliff).
+    let short = o.apy < lowest(w, i, o.team, ideal, own == Some(o.team));
+    if short || gtd_short { s.min(0.84) } else { s }
+}
+
+/// The offer's score before the money and guarantee floors, and whether
+/// the guarantee is short of what a man who wants security takes.
+pub(crate) fn raw_score(w: &World, i: usize, o: &Offer, ideal: &Ideal, own: Option<usize>) -> (f64, bool) {
     let year = w.year;
     let g = goals(w, i);
     let p = &w.people[i];
@@ -828,8 +943,8 @@ pub(crate) fn score(w: &World, i: usize, o: &Offer, ideal: &Ideal, own: Option<u
     } else {
         1.0
     };
-    let trust = p.pro.as_ref().map_or(1.0, |c| c.trust);
-    let loyal_q = if own == Some(o.team) { 0.9 + 0.25 * trust } else { 1.0 };
+    let mine = own == Some(o.team);
+    let loyal_q = if mine { 0.9 + 0.25 * one_trust(w, i, o.team) } else { 1.0 };
     // Section 6 topic 2: a grudge against the team, or a coach he played for.
     let ties_q = super::super::people::ties_q(w, i, o.team);
     let parts = [
@@ -852,7 +967,7 @@ pub(crate) fn score(w: &World, i: usize, o: &Offer, ideal: &Ideal, own: Option<u
     if !w.folk.backchannel.first.is_empty() && super::super::folk::backchannel::first_word(w, i, o.team) {
         s *= 1.02;
     }
-    if (money_q < 0.82 && g.money > 0.3) || (gtd_q < 0.75 && g.security > 0.5) { s.min(0.84) } else { s }
+    (s, gtd_q < 0.75 && g.security > 0.5)
 }
 
 /// A team's offer to a player: up to its walk-away price, opening below his
