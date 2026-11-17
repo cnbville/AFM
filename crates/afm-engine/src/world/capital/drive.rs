@@ -639,7 +639,7 @@ fn asks(w: &mut World, k: usize, d: Date, fever: f64, list: &[usize]) {
             }
             (None, false)
         };
-        let o = gifts::odds(w, p, don, rooms, who.or(if courtesy { None } else { coach }), fever);
+        let o = gifts::odds(w, p, don, rooms, who, fever);
         let chance = o.chance * if stalled { STALL } else { 1.0 };
         let yes = super::draw(w, 36, key) < chance;
         let room = don.rooms.iter().copied().find(|&r| rooms & (1u16 << r) != 0);

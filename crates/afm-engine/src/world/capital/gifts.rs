@@ -93,11 +93,17 @@ pub fn wins(w: &World, p: usize) -> f64 {
 /// A donor's odds for a building holding `rooms` at program `p`, with
 /// `coach` in the room (None: the office alone).
 pub fn odds(w: &World, p: usize, d: &Donor, rooms: u16, coach: Option<u32>, fever: f64) -> Odds {
+    let fit = if d.rooms.iter().any(|&r| rooms & (1u16 << r) != 0) { 1.0 } else { OFF_ROOM };
+    odds_fit(w, p, d, fit, coach, fever)
+}
+
+/// The odds with the room fit given: 1.0 where no building is in it (an
+/// NIL ask), else how well the drive's rooms match his own.
+fn odds_fit(w: &World, p: usize, d: &Donor, fit: f64, coach: Option<u32>, fever: f64) -> Odds {
     let a = d.affinity as f64;
     let warm = coach.map_or(STRANGER, |c| d.warmth_to(c)) as f64;
     let wp = wins(w, p);
     let side = building_side(d);
-    let fit = if d.rooms.iter().any(|&r| rooms & (1u16 << r) != 0) { 1.0 } else { OFF_ROOM };
     let chance =
         clamp(BASE_YES + YES_AFFINITY * (a - 0.5) + YES_WARMTH * (warm - 0.5) + YES_WINS * (wp - 0.5), 0.03, 0.9)
             * (1.0 + FEVER_CHANCE * fever)
@@ -388,7 +394,11 @@ pub fn ask(w: &mut World, p: usize, donor: u32, side: Side, push: bool) -> Resul
     super::donors::met(w, donor, you, today);
     let bside = building_side(&d);
     let fever = super::fever::fever(w, p);
-    let mut o = odds(w, p, &d, rooms, Some(you), fever);
+    // An NIL ask has no building in it, so no room fit.
+    let mut o = match side {
+        Side::Building => odds(w, p, &d, rooms, Some(you), fever),
+        Side::Nil => odds_fit(w, p, &d, 1.0, Some(you), fever),
+    };
     // The NIL ask reads his NIL side the same way.
     if side == Side::Nil {
         let flip = (0.4 + 0.6 * (1.0 - bside)) / (0.4 + 0.6 * bside);
