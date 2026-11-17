@@ -857,7 +857,7 @@ function dvProgress(d) {
 function dvScale(r, cls) {
   if (!r) return '<span class="muted">Not seen</span>';
   const [lo, hi] = r, L = (v) => Math.max(0, Math.min(100, ((v - 40) / 60) * 100));
-  return `<span class="dv-scale"><i class="${cls || ""}" style="left:${L(lo)}%;width:${Math.max(2, L(hi) - L(lo))}%"></i></span><b class="${cls === "gold" ? "gold" : ""}">${lo}-${hi}</b>`;
+  return `<span class="dv-scale"><i class="${cls || ""}" style="left:${L(lo)}%;width:${Math.max(2, L(hi) - L(lo))}%"></i></span><b class="${cls === "gold" ? "gold" : ""}">${rpair(r)}</b>`;
 }
 function dvCand(c, on, pick) {
   const held = c.stage === 2;
@@ -1228,7 +1228,7 @@ function slotCard(s, k, b, sel, fr) {
   const prop = s.fill ? `<em title="Nobody is listed for this spot; the engine sends the best man left in the room">next man up</em>` : s.proposal && (!p || s.proposal.id !== p.id) ? `<em title="Your position coach would put ${esc(s.proposal.name)} here">Coach: ${esc(trLast(s.proposal.name))}</em>` : "";
   const drag = s.controls && p ? `data-drag="1" data-name="${esc(p.name)}"` : "";
   return `<div class="tr-slot ${sel ? "sel" : ""} ${p ? "" : "empty"} ${s.controls ? "" : "locked"} ${p && p.practice !== "full" ? "p-" + p.practice : ""}" style="left:${bdX(s.y)}%;top:${fr.y(s.x)}%" data-act="tr-slot" data-k="${k}" data-board="${esc(b.key)}" ${drag} ${p ? `data-pid="${p.id}"` : ""}>
-    <small>${esc(s.slot)}</small><b>${p ? esc(trLast(p.name)) : "Open"}</b>${p ? `<span class="tr-sr">${p.ovr ? `${p.ovr[0]}-${p.ovr[1]}` : "?"}${p.pos !== s.pos ? ` · ${esc(p.pos)}` : ""}</span>` : ""}${prop}</div>`;
+    <small>${esc(s.slot)}</small><b>${p ? esc(trLast(p.name)) : "Open"}</b>${p ? `<span class="tr-sr">${p.ovr ? rpair(p.ovr) : "?"}${p.pos !== s.pos ? ` · ${esc(p.pos)}` : ""}</span>` : ""}${prop}</div>`;
 }
 screens.depth = async (a) => {
   if (a.kind && !trMine(a)) return depthBase(a);
