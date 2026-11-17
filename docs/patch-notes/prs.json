@@ -1484,6 +1484,19 @@
   "title": "Ground lane S7: your men and your desk (the staff carousel and assistant desk screens)",
   "tldr": "Your staff now has a home on the Ground menu: see who another school is after, counter before he walks, and see every man's ground, mood and record in one place. Assistants get their own desk."
  },
+ "512": {
+  "auto": false,
+  "bullets": [
+   "Very fast prospects at the combine come up about as often as in the real NFL draft.",
+   "A player's top speed comes from his body. Hard work in the weight room still trims a little, but no longer turns a 4.5 man into a 4.4 man.",
+   "Freaks still exist: the fastest men still run 4.2s, and big men who fly are as common as real ones."
+  ],
+  "h": "699974a58643",
+  "look": "the combine results in your first draft class.",
+  "players": true,
+  "title": "Speed lane: very fast players as rare as real ones",
+  "tldr": "Burners are as rare as in real football now: a 4.2 forty is a once-a-draft event, not a handful every spring."
+ },
  "513": {
   "auto": false,
   "bullets": [],
@@ -1530,5 +1543,34 @@
   "players": false,
   "title": "Progression step 5: slower closing near the top and fitted trims hold the star count",
   "tldr": ""
+ },
+ "519": {
+  "auto": false,
+  "bullets": [
+   "Pick how you talk in your coach profile, then let your real words reshape your reputation over a season.",
+   "Fire aimed at the opponent reads as passion; aimed at a player with no trust behind it, it reads as abuse.",
+   "Players answer in kind, from \"Hell yeah, coach\" to going quiet.",
+   "A pattern of mistreatment brings complaints, an outside review and possibly a firing for cause.",
+   "AI coaches have their own styles, and their players and staff react by the same rules."
+  ],
+  "h": "9f5ff7b64345",
+  "look": "your coach page's \"How you come across\" after a few heated talks.",
+  "players": true,
+  "title": "Coach voice: how you talk, read and reacted to",
+  "tldr": "How you talk now matters. Your players, staff, boss and recruits hear your heat, your language and who you aim it at, and they react the way real people would."
+ },
+ "520": {
+  "auto": false,
+  "bullets": [
+   "Big moments set off a giving fever that builds over a run and fades over two years.",
+   "Each program's drive runs a feasibility study, a quiet phase, a public launch and a close, and rival schools run theirs on the same rules.",
+   "Donors choose between NIL and buildings one by one. Pushing a donor toward the building leaves less for NIL.",
+   "Some gifts come with strings that show up later. You can go public early, push your athletic director to borrow, or answer a cost overrun."
+  ],
+  "h": "cf36a673169e",
+  "look": "the news after a conference title or a top-10 pick.",
+  "players": true,
+  "title": "Capital lane C3: the money and the drive",
+  "tldr": "Winning now brings in money. Titles, a Heisman and top-10 picks set your donors giving, and every program raises its buildings through a real campaign with choices that matter."
  }
 }

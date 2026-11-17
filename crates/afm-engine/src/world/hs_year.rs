@@ -1384,7 +1384,12 @@ pub(crate) fn squad_team(
             nickel: coach.map_or(0.88, |c| clamp(0.88 + 0.08 * key_normal(0x41C8, c as u64), 0.55, 0.99)),
             year: w.year,
             // His eye and what the school's budget buys (proposed, not confirmed).
-            film_study: clamp(0.7 * ab.map_or(9.0, |a| a.scheme) + 7.0 * school.resources, 1.0, 20.0),
+            // The film room around the typical one (Capital lane C6).
+            film_study: clamp(
+                0.7 * ab.map_or(9.0, |a| a.scheme) + 7.0 * school.resources + super::capital::hs::film_lift(w, h),
+                1.0,
+                20.0,
+            ),
             install,
             style: coach.map_or_else(Default::default, |c| w.coaches[c].style()),
             guide: Default::default(),
