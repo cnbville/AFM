@@ -439,6 +439,83 @@ pub fn deal_year(d: Date) -> i32 {
     if d.month() >= 7 { d.year() + 1 } else { d.year() }
 }
 
+/// The market for college players (item 9): each program's play at each
+/// spot, best first, and the programs that bid (FBS and FCS, with money).
+pub(crate) struct Market {
+    depth: Vec<[Vec<f64>; POSITION_COUNT]>,
+    rivals: Vec<usize>,
+    medians: [[f64; POSITION_COUNT]; super::data::DIVISION_COUNT],
+}
+
+impl Market {
+    pub(crate) fn new(w: &World) -> Market {
+        let pn = w.programs.len();
+        let mut depth: Vec<[Vec<f64>; POSITION_COUNT]> = vec![Default::default(); pn];
+        for p in w.people.iter().filter(|p| p.stage == Stage::College) {
+            if let (Some(j), Some(x)) = (p.college, p.last_performance) {
+                depth[j][p.player.position.index()].push(x);
+            }
+        }
+        for d in depth.iter_mut() {
+            for v in d.iter_mut() {
+                v.sort_by(|a, b| b.total_cmp(a));
+            }
+        }
+        let rivals: Vec<usize> = (0..pn)
+            .filter(|&k| {
+                let p = &w.programs[k];
+                matches!(p.division, Division::FBS | Division::FCS) && p.collective.budget > 0.0
+            })
+            .collect();
+        Market { depth, rivals, medians: super::recruiting::nil_medians(w) }
+    }
+
+    /// What wins college player `i` from the rest of the market (item 9):
+    /// (the best rival's top bid, never past his own school's, that rival
+    /// bid, his play over his level's starters at his spot). His own
+    /// school's top bid reads his role there (a starter's, for December's
+    /// keep-him offers); a rival is any FBS or FCS program where he would
+    /// start or rotate, his play read at its level. None with no season's
+    /// play to read or no bid.
+    pub(crate) fn bid(&self, w: &World, i: usize) -> Option<(f64, f64, f64)> {
+        let p = &w.people[i];
+        let c = p.college?;
+        let from = w.programs[c].division;
+        let perf = p.last_performance?;
+        let pos = p.player.position;
+        let k = pos.index();
+        let stars = super::recruiting::recruiting_stars(p);
+        let slots = crate::league::depth_slots(pos).starters;
+        let medians = &self.medians;
+        let own_edge = perf - medians[from as usize][k];
+        let own = top_bid(
+            w.programs[c].collective.budget,
+            pos,
+            bid_talent(
+                Some(p.last_role.unwrap_or(PlayingTime::Backup)),
+                stars,
+                if own_edge.is_finite() { own_edge } else { 0.0 },
+            ),
+        );
+        let mut rival = 0.0f64;
+        for &r in self.rivals.iter().filter(|&&r| r != c) {
+            let prog = &w.programs[r];
+            let d = prog.division;
+            let at = perf - super::recruiting::competition_discount(from) + super::recruiting::competition_discount(d);
+            let ahead = self.depth[r][k].partition_point(|&v| v >= at);
+            let role = super::recruiting::role_at(ahead, slots);
+            if role == PlayingTime::Backup {
+                continue;
+            }
+            let m = medians[d as usize][k];
+            let edge = if m.is_finite() { at - m } else { 0.0 };
+            rival = rival.max(top_bid(prog.collective.budget, pos, bid_talent(Some(role), stars, edge)));
+        }
+        let keep = own.min(rival);
+        (keep > 0.0).then_some((keep, rival, own_edge))
+    }
+}
+
 /// December's keep-him offers before the January window (item 9): each AI
 /// program prices every starter it wants back (one with a season left who
 /// isn't leaving) at the best rival's top bid for him and offers up to its
@@ -451,26 +528,7 @@ pub(crate) fn keep_offers(w: &mut World, label: i32) {
         return;
     }
     let yours = super::front_office::college::paying(w);
-    let pn = w.programs.len();
-    let medians = super::recruiting::nil_medians(w);
-    // Each program's play at each spot, best first.
-    let mut depth: Vec<[Vec<f64>; POSITION_COUNT]> = vec![Default::default(); pn];
-    for p in w.people.iter().filter(|p| p.stage == Stage::College) {
-        if let (Some(j), Some(x)) = (p.college, p.last_performance) {
-            depth[j][p.player.position.index()].push(x);
-        }
-    }
-    for d in depth.iter_mut() {
-        for v in d.iter_mut() {
-            v.sort_by(|a, b| b.total_cmp(a));
-        }
-    }
-    let rivals: Vec<usize> = (0..pn)
-        .filter(|&k| {
-            let p = &w.programs[k];
-            matches!(p.division, Division::FBS | Division::FCS) && p.collective.budget > 0.0
-        })
-        .collect();
+    let market = Market::new(w);
     let today = w.today;
     let year = deal_year(today);
     let wr: &World = w;
@@ -489,38 +547,10 @@ pub(crate) fn keep_offers(w: &mut World, label: i32) {
             {
                 return None;
             }
-            let from = wr.programs[c].division;
-            if super::college::no_season_left(p, from, label) {
+            if super::college::no_season_left(p, wr.programs[c].division, label) {
                 return None;
             }
-            let perf = p.last_performance?;
-            let pos = p.player.position;
-            let k = pos.index();
-            let stars = super::recruiting::recruiting_stars(p);
-            let slots = crate::league::depth_slots(pos).starters;
-            let own_edge = perf - medians[from as usize][k];
-            let own = top_bid(
-                wr.programs[c].collective.budget,
-                pos,
-                bid_talent(Some(PlayingTime::Starter), stars, if own_edge.is_finite() { own_edge } else { 0.0 }),
-            );
-            let mut rival = 0.0f64;
-            for &r in rivals.iter().filter(|&&r| r != c) {
-                let prog = &wr.programs[r];
-                let d = prog.division;
-                let at =
-                    perf - super::recruiting::competition_discount(from) + super::recruiting::competition_discount(d);
-                let ahead = depth[r][k].partition_point(|&v| v >= at);
-                let role = super::recruiting::role_at(ahead, slots);
-                if role == PlayingTime::Backup {
-                    continue;
-                }
-                let m = medians[d as usize][k];
-                let edge = if m.is_finite() { at - m } else { 0.0 };
-                rival = rival.max(top_bid(prog.collective.budget, pos, bid_talent(Some(role), stars, edge)));
-            }
-            let keep = own.min(rival);
-            (keep > 0.0).then_some((i, keep, rival, own_edge))
+            market.bid(wr, i).map(|(keep, rival, edge)| (i, keep, rival, edge))
         })
         .collect();
     let free = super::recruiting::nil_go_free(w);

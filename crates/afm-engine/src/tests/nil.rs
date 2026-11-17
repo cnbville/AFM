@@ -742,3 +742,67 @@ fn the_school_spreads_its_whole_share_by_role_and_position() {
     assert!(w(R::Backup, P::WR) >= 0.25 * w(R::Starter, P::WR));
     assert_eq!(rec::share_weight(None, P::WR), w(R::Backup, P::WR));
 }
+
+/// Cain 2026-11-17 ("go"): the roster you inherit at a new job keeps each
+/// player's market price, not the payroll split. A star paid $4.2M last
+/// July keeps at least that, a deal signed for the coming year stands as
+/// written, the rest stay on the split, the old staff's deals are marked
+/// until you set your own, and a star feels paid, not cheated.
+#[test]
+fn the_roster_you_inherit_keeps_its_market_price() {
+    use crate::world::front_office::college::{deals_year, market_prices, ready};
+    use crate::world::nil_bid::{DealKind, NilDeal};
+    let (mut w, j) = college(true);
+    // The sandbox's NIL Go switch, so every dollar clears and the sums read
+    // plainly.
+    w.set_sandbox_switch(crate::world::sandbox::Switch::NilGo, true);
+    let usual: Vec<(u32, f64)> = usual_deals(&w, j);
+    let coll: std::collections::HashMap<u32, f64> = collective_deals(&w, j).into_iter().map(|x| (x.0, x.1)).collect();
+    let split = |id: u32| usual.iter().find(|x| x.0 == id).unwrap().1 + coll.get(&id).copied().unwrap_or(0.0);
+    let ids: Vec<u32> = usual.iter().map(|x| x.0).collect();
+    let (star, signed, rest) = (ids[0], ids[1], ids[2]);
+    let at = |w: &World, id: u32| w.people.iter().position(|p| p.player.id == id).unwrap();
+    // No season's play to read: no rival bids, so the sums are plain.
+    for id in [star, signed, rest] {
+        let x = at(&w, id);
+        w.people[x].last_performance = None;
+        w.people[x].cal.nil_deal = None;
+        w.people[x].cal.nil_paid = 0.0;
+        w.people[x].nil_income = 0.0;
+    }
+    // The star: $4.2M from the school and collective last July.
+    let i = at(&w, star);
+    w.people[i].cal.nil_paid = 4.2e6;
+    w.people[i].brand = 300_000.0;
+    w.people[i].nil_income = 4.5e6;
+    // A transfer who signed for the coming money year.
+    let k = at(&w, signed);
+    let year = deals_year(&w);
+    w.people[k].cal.nil_deal = Some(NilDeal { year, amount: 123_000.0, kind: DealKind::Transfer, through: 0 });
+    assert!(w.front_office.college.deals.is_empty() && !w.front_office.college.seeded);
+    ready(&mut w);
+    let pay = |w: &World, id: u32| deal_of(w, id).map(|d| d.0 + d.1).unwrap();
+    assert!((pay(&w, star) - 4.2e6).abs() <= 1_000.0, "his pay last July, brand apart: {}", pay(&w, star));
+    assert!((pay(&w, signed) - 123_000.0).abs() <= 1_000.0, "what he signed for: {}", pay(&w, signed));
+    let r = pay(&w, rest);
+    assert!(r <= split(rest) + 1_000.0, "the rest keep at most the split: {r} against {}", split(rest));
+    // The market price never reads a player without a season's play.
+    assert!(market_prices(&w, j).values().all(|&x| x > 0.0));
+    let desk = &w.front_office.college;
+    assert!(desk.inherited.contains(&star) && desk.inherited.contains(&rest), "marked as the old staff's");
+    // He feels paid at the old staff's number, not cheated: last July's pay
+    // is his bar, without his own brand money.
+    let (s, c) = deal_of(&w, star).unwrap();
+    let now = (w.today, w.played);
+    set_deal(&mut w, star, Some(s), Some(c)).unwrap();
+    to_next_section(&mut w);
+    let r = reaction(&w, star, MoneyKind::Deal).unwrap();
+    assert!(!matches!(r.mood, Mood::Insulted | Mood::WantsMore), "{:?}: {}", r.mood, r.text);
+    assert!(!w.front_office.college.inherited.contains(&star), "your number now");
+    // A cut from it is heard as one.
+    (w.today, w.played) = now;
+    set_deal(&mut w, star, Some(s / 4.0), Some(c / 4.0)).unwrap();
+    to_next_section(&mut w);
+    let r = reaction(&w, star, MoneyKind::Deal).unwrap();
+    assert!(r.text.contains("cut from"), "{}", r.text);
+}

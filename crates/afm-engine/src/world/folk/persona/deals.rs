@@ -313,10 +313,12 @@ fn money_bar(w: &World, who: Who) -> f64 {
     match who {
         Who::Pro(i, _) => crate::world::people::pay_and_worth(w, i).map_or(1.0, |x| x.1.max(x.0)),
         Who::Recruit(i, j) => crate::world::recruiting::usual_nil_offer(w, j, i).max(1.0),
+        // One of yours: his market price (what a rival would pay to take
+        // him) or what his school and collective paid him last July, the
+        // higher; his own brand deals are not your money (Cain 2026-11-17).
         Who::Own(i) => {
-            let p = &w.people[i];
-            let market = p.college.map_or(0.0, |j| crate::world::recruiting::usual_nil_offer(w, j, i));
-            market.max(p.nil_income).max(1.0)
+            let market = crate::world::front_office::college::market_price(w, i).unwrap_or(0.0);
+            market.max(w.people[i].nil_paid()).max(1.0)
         }
         Who::Other => 1.0,
     }

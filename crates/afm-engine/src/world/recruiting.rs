@@ -10477,6 +10477,7 @@ pub(crate) fn nil_payouts(w: &mut World) {
             p.cal.nil_keep = None;
             // Collectives pay most of it (about 82%); brand deals, which
             // follow fame and Aura (F15), come on top.
+            p.cal.nil_paid = money as f32;
             let money = money + p.brand as f64;
             p.nil_income = money;
             // The top earners on a team: payouts can bring jealousy, complacency or pressure.
