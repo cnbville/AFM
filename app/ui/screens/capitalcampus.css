@@ -1,0 +1,72 @@
+/* Lane styles: Capital's Campus screen (lane CS1, board 1, CP21, CP37, CP39).
+   Press Box: dark panels, ivory text, hairlines, one gold for what a building
+   adds, amber where a room is behind. No dollars. Every class is cc- so the
+   app's global names never restyle it. */
+
+.cc { --cp-panel: #101217; --cp-amber: #ffb340; --cp-gold: #ffd60a; --cp-ivory: #e8e6e0; padding-bottom: 48px; font-variant-numeric: tabular-nums; display: grid; gap: 14px; align-content: start; }
+:root[data-theme="light"] .cc { --cp-panel: #ffffff; --cp-amber: #b9771a; --cp-gold: #a67c00; --cp-ivory: #1d2026; }
+.cc .amb { color: var(--cp-amber); }
+.cc .gld { color: color-mix(in oklab, var(--cp-gold) 70%, var(--fg)); }
+
+.cc-top { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.cc-top > div:first-child { flex: 1 1 260px; display: grid; gap: 2px; }
+.cc-top h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.01em; line-height: 1.1; }
+.cc-lab { font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--sl-dim); }
+.cc-date { font-size: 12.5px; color: var(--sl-dim); }
+.cc-said { padding: 10px 14px; border-radius: 14px; background: var(--cp-panel); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--cp-gold) 45%, transparent); font-size: 13.5px; }
+
+.cc-grid { display: grid; grid-template-columns: minmax(0, 1.9fr) minmax(300px, 1fr); gap: 14px; align-items: start; }
+.cc-col { display: grid; gap: 14px; min-width: 0; align-content: start; }
+@media (max-width: 1180px) { .cc-grid { grid-template-columns: 1fr; } }
+
+.cc-pb { background: var(--cp-panel); border-radius: 18px; box-shadow: inset 0 0 0 1px var(--hair); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.cc-pb h2 { margin: 0; font-size: 17px; font-weight: 800; }
+.cc-pb.warn { box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--cp-amber) 45%, transparent); }
+.cc-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.cc-head > div { flex: 1 1 240px; display: grid; gap: 2px; }
+.cc-note { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--fg2); }
+.cc-dim { color: var(--sl-dim); }
+.cc-empty { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--sl-dim); }
+
+/* the map: a stylized layout, not real geography (CP21) */
+.cc-map { position: relative; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--hair); padding: 22px 18px; overflow: hidden;
+  background-color: color-mix(in oklab, var(--cp-panel) 70%, #000);
+  background-image: linear-gradient(var(--fill-1) 1px, transparent 1px), linear-gradient(90deg, var(--fill-1) 1px, transparent 1px); background-size: 32px 32px; }
+.cc-halls { position: relative; display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 26px 28px; align-items: start; }
+.cc-halls::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1.5px dashed var(--fill-2); opacity: .7; pointer-events: none; }
+.cc-bld, .cc-plot, .cc-free { position: relative; border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+.cc-bld { background: var(--cp-panel); box-shadow: inset 0 0 0 1px var(--hair), 0 14px 22px -18px rgba(0, 0, 0, .85); }
+.cc-plot { background: repeating-linear-gradient(135deg, color-mix(in oklab, var(--cp-gold) 9%, transparent) 0 10px, color-mix(in oklab, var(--cp-gold) 3%, transparent) 10px 20px), var(--cp-panel); box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--cp-gold) 60%, transparent); }
+.cc-free { background: transparent; box-shadow: inset 0 0 0 1.5px var(--fill-2); }
+.cc-bh { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.cc-bh b { font-size: 14px; }
+.cc-bh small { font-size: 11px; color: var(--sl-dim); white-space: nowrap; }
+.cc-bh small.amb { color: var(--cp-amber); }
+.cc-plot .cc-bh b, .cc-plot .cc-bh small { color: color-mix(in oklab, var(--cp-gold) 70%, var(--fg)); }
+.cc-rm { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--fg2); }
+.cc-rm > span:first-child { flex: 1; min-width: 0; }
+.cc-rm small { display: block; font-size: 10.5px; color: var(--sl-dim); }
+.cc-rm.temp > span:first-child { color: var(--cp-amber); }
+
+/* against the conference's best */
+.cc-room { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; align-items: center; padding: 8px 0; border-top: 1px solid var(--hair); }
+.cc-room:first-of-type { border-top: 0; }
+.cc-room b { font-size: 13px; font-weight: 600; }
+.cc-room small { grid-column: 1; font-size: 11.5px; line-height: 1.35; color: var(--sl-dim); }
+.cc-rr { grid-column: 2; grid-row: 1 / span 2; display: grid; justify-items: end; gap: 3px; }
+.cc-rr .cc-rd { font-size: 12px; font-weight: 700; color: var(--fg2); }
+.cc-rr .cc-rd.bad { color: var(--cp-amber); }
+.cc-rr .cc-rd.top { color: color-mix(in oklab, var(--cp-gold) 70%, var(--fg)); }
+.cc-btn { font: inherit; font-size: 11.5px; font-weight: 700; color: var(--fg); background: var(--fill-1); border: 0; border-radius: 999px; padding: 5px 11px; min-height: 28px; box-shadow: inset 0 0 0 1px var(--hair); cursor: pointer; white-space: nowrap; }
+.cc-btn:hover { background: var(--fill-2); }
+.cc-btn:focus-visible { outline: 2px solid var(--cp-gold); outline-offset: 2px; }
+.cc-btn.big { font-size: 13px; padding: 9px 15px; min-height: 40px; }
+.cc-chip { display: inline-flex; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; color: color-mix(in oklab, var(--cp-gold) 70%, var(--fg)); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--cp-gold) 45%, transparent); white-space: nowrap; }
+.cc-odds { font-size: 10.5px; color: var(--sl-dim); }
+
+/* the program beside yours */
+.cc-vs { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px 16px; font-size: 13px; align-items: baseline; }
+.cc-vs .h { color: var(--sl-dim); font-size: 11px; }
+.cc-vs .n { text-align: right; }
+.cc-vs .n.amb { font-weight: 700; }
+.cc-next p { margin: 0; font-size: 14px; line-height: 1.45; }

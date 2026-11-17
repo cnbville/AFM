@@ -1,6 +1,6 @@
 # Capital: how it works today
 
-Checked against main b9fa58d (lanes C4 to C6) plus lane CS3 (the drive screen) on 2026-11-17.
+Checked against main cb3818f (lanes C4 to C6, CS1) plus lane CS3 (the drive screen) on 2026-11-17.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`, `app/` or `data/`. Capital's spec is `docs/design/capital.md`; each lane adds its section here. Every size on this page is Claude's (proposed, not confirmed) unless the spec gives it.
 
@@ -68,7 +68,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`,
 - Do rooms age? From the handover season, every room loses 0.1 of a level each July (CP22), never below the level's everyday rooms (5 × level scale × `buildings::BASE`) (`age`, `AGE_A_YEAR`). Before that, the old 0.006 a year on the number stands.
 - Do rooms add to growth on top of facilities? No (CP19). The body's part of college coaching reads 0.55 weight room + 0.2 nutrition + 0.15 sports science + 0.1 recovery; the rest reads 0.5 film + 0.3 indoor field + 0.2 recovery. With every room at the number each part is the number, so the old +0.61 by 22 for the best complex stands (`physical`, `teaching`; `world/season.rs`, `develop`).
 - Who sees what? A recruit's room tools read the room against the best in his conference (`Campus.read`, CP23): the best reads 5 and each level behind one less, never under 1. The body's tools read the room itself (`Campus::value`).
-- Can I renovate? Yes, one room a year through your athletic director (`ask_renovation`; no screen calls it yet, lane CS1's Campus screen will): a level up, done over the summer, open next season. A new building lifts its rooms to 4 or 5 by its money (`open`).
+- Can I renovate? Yes, one room a year through your athletic director (`ask_renovation`; the Campus screen's Renovate button calls it, lane CS1): a level up, done over the summer, open next season. A new building lifts its rooms to 4 or 5 by its money (`open`).
 - Do AI programs renovate? Yes, each July once the rooms live, on the same rules: the room furthest behind the department's target, by how far behind and the money (`renovations`, `most_behind`, `renovation_chance`).
 - What is temporary space? In a new building's last year before it opens, the team works without the rooms it already has that the building moves: those rooms read a level lower for their tools and the room's mood pays 0.04 (`read_all`, `Campus.temporary`, `TEMPORARY_MOOD`, CP26). A summer renovation, the stadium and the indoor field don't count.
 - Does campus life matter to a recruit now? Yes: each kid weighs it by his own keyed draw, most a little, some a lot, the less professional kid more (`campus_life_want`), times the campus life grade around 0.77 (`world/recruiting.rs`, the recruit's utility and its parts). It also adds a little to off-field trouble (`trouble_factor`).
@@ -289,6 +289,23 @@ Yes, from the season the world hands over (`capital::live`): the high school roo
 
 - `world/capital/hs.rs`: `AGE_A_YEAR` 0.1, `WEIGHT_COACHING` 1.8, `FILM_STUDY` 3.5, `LOCKER_MOOD` 0.12, `STADIUM_CROWD` 0.3, `TURF_UPKEEP` 0.25, `DISTRICT_MAX` 6, `WORK_DAYS` 70, `ORDER_DAYS` 78, `NIGHT_SD` 0.06; `target`, `turf_chance`, `call_chance`, `package_for`, `expected_yes`, `needs`, `Work::size`, `coach_work`, `ask_chance`.
 - `world/capital/nfl.rs`: `weight`, `owner_target`, `renovation_cost`, `leverage`, `ask_chance`, the tools' slopes and caps above.
+
+## Lane CS1: the Campus screen
+
+### Quick answers
+
+- Where is it? `app/ui/screens/capitalcampus.js` and `.css` (screen `capitalcampus`, sidebar section Capital, college seats). The shared frame every Capital screen uses, the sidebar section and the tab row (`capTabs`, `CAP_TABS`, `capPips`), is `app/ui/screens/capital.js`: a tab shows only once its screen exists, so the other five screens (`capitaldonors`, `capitaldrive`, `capitalproject`, `capitalpecking`, `capitalseat`) join the row as their lanes merge.
+- What does it read? `capital_campus` (`crates/afm-game/src/lane_capital_campus.rs`): the program's `Campus.halls` with each room in the newest building that holds it, the room's level as shown (the read against the conference's best, `Campus::shown`, CP23), a building under way from the books' projects with the rooms it holds (`drive::rooms_of_project`) and the levels it opens them at (`rooms::opening_levels`), the open plots (`open_plots` less the buildings under way), every room against the conference with its tool (`Room::unlocks`), the program beside yours and what is next.
+- How do the squares read? Ivory squares are the level today, gold squares what a renovation this summer or a building under way adds (4 or 5 for a building's rooms). A room a building moves stays in its old hall with the gold squares and a note ("moves to the football performance center"); a room the building adds is listed on its plot as new.
+- Which program sits beside mine? The other side of your rivalry game this year if you have one (`calendar::data::RIVALRIES`, same division, playing), else the conference neighbour whose campus number is closest to yours. The page names the room where they are furthest ahead and lists the five rooms where you differ most. Only the levels shown to every recruit (`Campus::shown`) leave the page, never a rival's quiet phase (CP30).
+- Can I renovate from it? Yes, as the head coach: a Renovate button on each room that can be asked (`rooms::renovation_block` says why not: a project under way, no such room, as good as they come, one renovation a year) with the athletic director's read in words from his chance (`rooms::renovation_yes`: likely, better than even, a coin flip, a long shot). `capital_renovate` {room} asks him (`rooms::ask_renovation`, unchanged), then sends the page again with his answer in `said`. Nobody but the head coach asks.
+- Are there dollars on screen? No (CP39): costs and the athletic director's chance never leave as numbers; money reads in words.
+- What is a dated building? One opened 12 or more years ago, marked amber on its header (CP22: a room drops a level about every ten years unless renovated).
+
+### The command (`crates/afm-game/src/lane_capital_campus.rs`)
+
+- `capital_campus`: `program`, `conference`, `today`, `head`, `halls` (name, opened, dated, rooms with `level`, `target`, `note`, `temporary`), `buildings` (name, opens, status, rooms new or moving), `free_plots`, `rooms` (13, each with `read`, `tone`, `can`, `block`, `odds`, `renovating`), `rival`, `next`. College seats only; other seats get a plain error that their own screen answers (lane CS6).
+- `capital_renovate` {room 0-12}: as above.
 
 ## Related pages
 

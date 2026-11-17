@@ -15,19 +15,10 @@
 "use strict";
 
 I.capdrive = '<path d="M4 20.5h16"/><path d="M6 20.5V9l6-4.5L18 9v11.5"/><path d="M9.5 20.5v-5h5v5"/><path d="M12 11v1"/>';
-// The Capital section is shared by the six screens: whichever loads first
-// adds it, the rest find it there.
-if (!NAV_SECS.some((s) => s[0] === "capital")) NAV_SECS.splice(Math.max(1, NAV_SECS.findIndex((s) => s[0] === "team")), 0, ["capital", "Capital"]);
 navAdd({ go: "capitaldrive", label: "The drive", icon: "capdrive", sec: "capital", seats: ["college"] });
 CRUMBS.capitaldrive = "The drive";
 
 const cdrDate = (iso, opt) => (iso ? new Date(iso + "T12:00:00").toLocaleDateString("en-US", opt || { month: "short", year: "numeric" }) : "");
-const CDR_NAV = [["capital", "Campus"], ["capitaldonors", "Donors"], ["capitaldrive", "The drive"], ["capitalproject", "Project"], ["capitalpecking", "Pecking order"], ["capitalseat", "Your seat"]];
-
-function cdrNav() {
-  const here = CDR_NAV.filter((n) => n[0] === "capitaldrive" || screens[n[0]]);
-  return `<nav class="cdr-nav" aria-label="Capital screens">${here.map((n) => `<button class="${n[0] === "capitaldrive" ? "on" : ""}" data-go="${n[0]}">${n[1]}</button>`).join("")}</nav>`;
-}
 
 // The bar: paid in, pledged, then what is left to raise, with the pledges
 // donors pulled marked inside that space (they were never raised).
@@ -98,7 +89,7 @@ screens.capitaldrive = async () => {
     return `<div class="pad sl cdr"><section class="cdr-card"><div class="cdr-k">Capital</div><p class="cdr-empty">${esc(e.message || String(e))}</p></section></div>`;
   }
   title("The drive", x.program);
-  const top = `<div class="cdr-top"><div class="cdr-t"><div class="cdr-k">Capital · ${esc(x.program)}</div><h1>The drive</h1></div>${cdrNav()}<small class="cdr-dim">${esc(cdrDate(x.today, { weekday: "short", month: "long", day: "numeric", year: "numeric" }))}</small></div>`;
+  const top = `<div class="cdr-top"><div class="cdr-t"><div class="cdr-k">Capital · ${esc(x.program)}</div><h1>The drive</h1></div>${capTabs("capitaldrive")}<small class="cdr-dim">${esc(cdrDate(x.today, { weekday: "short", month: "long", day: "numeric", year: "numeric" }))}</small></div>`;
   const d = x.drive;
   if (!d) {
     const msg = x.ready
