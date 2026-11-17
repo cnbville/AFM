@@ -921,12 +921,11 @@ pub struct SeasonSoFar {
 /// booked on Black Monday. `None` when no season is open or he has no
 /// games in it.
 pub fn season_so_far(w: &World, id: u32) -> Option<SeasonSoFar> {
-    if let Some(cs) = w.college.as_ref().filter(|c| c.started) {
-        if let Some(l) = cs.book.get(&id).filter(|l| l.games > 0) {
-            if let Some(pos) = l.pos {
-                return Some(SeasonSoFar { year: cs.year, pos, stats: from_line(&l.line), pro: false });
-            }
-        }
+    if let Some(cs) = w.college.as_ref().filter(|c| c.started)
+        && let Some(l) = cs.book.get(&id).filter(|l| l.games > 0)
+        && let Some(pos) = l.pos
+    {
+        return Some(SeasonSoFar { year: cs.year, pos, stats: from_line(&l.line), pro: false });
     }
     let ns = w.nfl_season.as_ref().filter(|s| s.started && !s.booked)?;
     let i = w.people.binary_search_by_key(&id, |p| p.player.id).ok()?;
