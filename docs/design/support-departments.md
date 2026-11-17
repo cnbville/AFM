@@ -1,6 +1,6 @@
 # Support staff as full departments
 
-World additions item 4 (thread "Find what the world is still missing", 2026-11-17). Proposal for Cain, 2026-11-17. **Everything here is proposed, not confirmed** unless it cites a decision.
+World additions item 4 (thread "Find what the world is still missing", 2026-11-17). Proposal for Cain, 2026-11-17. **Agreed in full 2026-11-17** (Cain, 16:53 UTC: "agree on all", all seven questions below). Not built: one lane after the world rebuild.
 
 ## What it does in the game
 
@@ -102,7 +102,7 @@ Hidden ratings, read from their work (decided). New: the staff screen's drawn su
 
 About 13,000 stored people in college and the NFL and several thousand high school trainers (one school per 35,000 people, about two in three with a trainer): a few megabytes. Their work is a few numbers a week per player. The yearly market grows from 5 posts a team to about 15-60.
 
-## Questions for Cain
+## Questions for Cain (all agreed 2026-11-17)
 
 1. Head at 60% of a department's effect, his people's reach at 40%.
 2. Reach per person: a trainer about 30 players, a strength assistant about 25, a dietitian about 60, a sports scientist about 60, an academic adviser about 40 (tutors 10 each).
@@ -112,6 +112,6 @@ About 13,000 stored people in college and the NFL and several thousand high scho
 6. A top behavioral health clinician brings stability back up to 30% faster after a hard event than a typical one.
 7. Build it as one lane after the world rebuild, measured on a fresh seed world.
 
-Cain's answers go here. Until then every item above is proposed, not confirmed.
+Cain answered "agree on all" (2026-11-17, 16:53 UTC): every question above is yes, and the whole proposal stands as written. The build lane measures sizes 1, 2, 5 and 6 on a fresh seed world against question 3 (a typical department gives today's results).
 
 Sources: NFL-NFLPA CBA Article 39; Harvard Football Players Health Study, ch. 3 (2016); Sports Illustrated, 2014-12-05; Professional Football Registered Dietitian Society (sportsrd.org/pfrds); ESPN NFL analytics staff list (2023); Alabama 2023 media guide via CBS Sports; CBS Sports support staff survey; Saturday Down South support staff spending; CATCH ON study (2015-2018).
