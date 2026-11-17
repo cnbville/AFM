@@ -283,9 +283,13 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
     // NFL budget buys a full one, a cheap owner a little less (proposed,
     // not confirmed).
     let eye = |c: Option<usize>| ab(c.or(head)).map_or(10.0, |a| a.scheme);
-    // Section 6 topic 10: the analytics and quality-control head's work
-    // takes the budget's place.
-    let analytics = crate::world::people::Support::z(club.support.analytics.rating);
+    // Section 6 topic 10: the analytics department's work takes the
+    // budget's place (support departments: the head and his analysts).
+    let analytics = crate::world::people::Support::zf(crate::world::departments::team(
+        w,
+        crate::world::people::Who::Club(t),
+        crate::world::departments::Area::Analytics,
+    ));
     let budget = clamp(0.85 + 0.15 * analytics, 0.7, 1.0);
     // The film rooms around the league's typical (Capital lane C6).
     let film_study = clamp(
@@ -337,12 +341,11 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
     }
     team.film = club.film.clone();
     team.line_chem = 0.25 + 0.15 * back as f64;
-    // The strength staff's guard on muscle strains and backs (minor bug 303).
-    // The sports science lab's guard too (Capital lane C6).
-    let guard = (crate::game::sim::strength_guard(
-        crate::world::season::club_strength_head(w, t),
-        crate::world::season::nfl_typical_strength(w),
-    ) * crate::world::capital::nfl::soft_tissue_guard(&w.capital, t)) as f32;
+    // The strength staff's guard on muscle strains and backs (minor bug 303)
+    // with the sports scientists' (support departments, question 5). The
+    // sports science lab's guard too (Capital lane C6).
+    let guard = (crate::world::departments::game_guard(w, crate::world::people::Who::Club(t), nfl_lab(w, t))
+        * crate::world::capital::nfl::soft_tissue_guard(&w.capital, t)) as f32;
     team.players.iter_mut().for_each(|g| g.soft = guard);
     super::super::chemistry::apply(w, &mut team, super::super::chemistry::Unit::Nfl);
     Some(Side { team, who })
@@ -785,12 +788,20 @@ pub(crate) fn record(
             continue;
         }
         let Some(&(i, _)) = sides[team].who.get(&inj.id) else { continue };
-        // The medical staff's head: a good one brings a player back sooner
-        // (section 6 topic 10; proposed, not confirmed: up to 12%).
+        // The medical staff: a good one brings a player back sooner
+        // (section 6 topic 10; proposed, not confirmed: up to 12%); the
+        // injured get the department's time first (support departments).
         let t = teams[team];
         // And the training room (Capital lane C6).
-        let med = w.clubs.get(t).map_or(0.0, |c| crate::world::people::Support::z(c.support.medical.rating))
-            + crate::world::capital::nfl::recovery_units(&w.capital, t);
+        let med = if t < w.clubs.len() {
+            crate::world::people::Support::zf(crate::world::departments::first(
+                w,
+                crate::world::people::Who::Club(t),
+                crate::world::departments::Area::Medical,
+            ))
+        } else {
+            0.0
+        } + crate::world::capital::nfl::recovery_units(&w.capital, t);
         let days = (inj.weeks * (1.0 - 0.12 * med) * 7.0).ceil().max(1.0) as u32;
         let weeks = days.div_ceil(7);
         let ir = weeks >= ir_minimum(year);
@@ -854,11 +865,17 @@ pub(crate) fn practice_injuries(w: &mut World, d: crate::calendar::Date, clubs: 
         (K::Fracture, 2.0),
     ];
     let seed = w.options.seed as u64 ^ 0x9AC7 ^ (d.0 as u64) << 20;
-    let typical = crate::world::season::nfl_typical_strength(w);
     for &t in clubs {
-        let med = crate::world::people::Support::z(w.clubs[t].support.medical.rating);
-        // The strength staff's guard on muscle strains and backs (minor bug 303).
-        let guard = crate::game::sim::strength_guard(crate::world::season::club_strength_head(w, t), typical);
+        // The medical department, the injured first (support departments).
+        let who = crate::world::people::Who::Club(t);
+        let med = crate::world::people::Support::zf(crate::world::departments::first(
+            w,
+            who,
+            crate::world::departments::Area::Medical,
+        ));
+        // The strength staff's guard on muscle strains and backs (minor bug
+        // 303) with the sports scientists' (support departments).
+        let guard = crate::world::departments::game_guard(w, who, nfl_lab(w, t));
         let (mix, guarded) = crate::game::sim::guarded_mix(&MIX, guard);
         let name = w.nfl[t].name;
         let roster = w.clubs[t].roster.clone();
@@ -958,4 +975,11 @@ pub fn ir_returns(year: i32) -> u32 {
 pub fn ir_returns_on(w: &World) -> u32 {
     let n = ir_returns(w.year);
     if w.year >= 2024 && w.today >= w.dates.wild_card { n + 2 } else { n }
+}
+
+/// A club's sports science lab level, 0-5 (Capital lane C6), for the
+/// sports scientists' read (support departments).
+pub(crate) fn nfl_lab(w: &crate::world::World, t: usize) -> f64 {
+    crate::world::capital::nfl::rooms_of(&w.capital, t)
+        .map_or(0.0, |r| r.level(crate::world::capital::rooms::Room::SportsScience))
 }

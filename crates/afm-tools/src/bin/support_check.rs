@@ -183,6 +183,96 @@ fn heads(w: &World) {
     println!("  free agents on the market: {}", w.support_market.free.len());
 }
 
+/// The support departments (support departments): people a team by job
+/// and pay level, their rating, each read's level mean against the level's
+/// typical head (question 3) and the spread between rich and poor staffs,
+/// and the high schools' trainers.
+fn departments(w: &World) {
+    use afm_engine::world::departments::{self as dp, Area, Job};
+    use afm_engine::world::people::Who;
+    println!("\n== Support departments ({}): people a team (mean rating) by pay level", w.year);
+    let names = ["Power 4", "Group of 5", "FCS", "D2/NAIA/JUCO", "D3", "NFL"];
+    let mut teams: Vec<Who> = (0..w.programs.len()).filter(|&p| w.programs[p].plays(w.year)).map(Who::Prog).collect();
+    teams.extend((0..w.clubs.len()).filter(|&t| afm_engine::world::franchise::active_in(w, t, w.year)).map(Who::Club));
+    print!("  {:<28}", "job");
+    for n in names {
+        print!("{n:>14}");
+    }
+    println!();
+    for job in Job::ALL {
+        print!("  {:<28}", job.title());
+        for lvl in 0..6 {
+            let list: Vec<Who> = teams.iter().copied().filter(|&who| dp::level(w, who) == lvl).collect();
+            let (mut n, mut r) = (0.0, 0.0);
+            for &who in &list {
+                for a in dp::people_of(w, who).iter().filter(|a| a.job == job) {
+                    n += 1.0;
+                    r += a.rating as f64;
+                }
+            }
+            let per = n / list.len().max(1) as f64;
+            if n > 0.0 {
+                print!("{:>8.1} ({:>4.1})", per, r / n);
+            } else {
+                print!("{:>14}", "-");
+            }
+        }
+        println!();
+    }
+    println!(
+        "\n  Reads by level: mean of the team reads against the mean head (headed areas: a head's 1-20 scale), p10-p90, FBS richest 20 against poorest 20 by staff line"
+    );
+    let groups: [(&str, fn(&World, Who) -> bool); 5] = [
+        ("FBS", |w, who| matches!(who, Who::Prog(p) if w.programs[p].division == Division::FBS)),
+        ("FCS", |w, who| matches!(who, Who::Prog(p) if w.programs[p].division == Division::FCS)),
+        (
+            "D2/NAIA/JUCO",
+            |w, who| matches!(who, Who::Prog(p) if matches!(w.programs[p].division, Division::D2 | Division::NAIA | Division::JUCO)),
+        ),
+        ("D3", |w, who| matches!(who, Who::Prog(p) if w.programs[p].division == Division::D3)),
+        ("NFL", |_, who| matches!(who, Who::Club(_))),
+    ];
+    for area in Area::ALL {
+        for (name, keep) in groups {
+            let list: Vec<Who> = teams.iter().copied().filter(|&who| keep(w, who)).collect();
+            let mut reads: Vec<f64> = list.iter().map(|&who| dp::team(w, who, area)).collect();
+            let typ = list.first().and_then(|&who| dp::typical_head(w, who, area)).unwrap_or(0.0);
+            let mean = reads.iter().sum::<f64>() / reads.len().max(1) as f64;
+            println!(
+                "  {:<11} {:<13} mean {mean:>5.2} (typical head {typ:>5.2})  p10-p90 {:>5.2} to {:<5.2}",
+                format!("{area:?}"),
+                name,
+                q(&mut reads, 0.1),
+                q(&mut reads, 0.9)
+            );
+        }
+        let mut fbs: Vec<(f64, f64)> = (0..w.programs.len())
+            .filter(|&p| w.programs[p].plays(w.year) && w.programs[p].division == Division::FBS)
+            .map(|p| (w.finance.college[p].budget.l[STAFF] as f64, dp::team(w, Who::Prog(p), area)))
+            .collect();
+        fbs.sort_by(|a, b| b.0.total_cmp(&a.0));
+        let top = fbs.iter().take(20).map(|x| x.1).sum::<f64>() / 20.0;
+        let bot = fbs.iter().rev().take(20).map(|x| x.1).sum::<f64>() / 20.0;
+        println!("  {:<11} FBS richest 20 {top:.2}, poorest 20 {bot:.2}", format!("{area:?}"));
+    }
+    let (mut full, mut part, mut none) = (0, 0, 0);
+    for s in &w.high_schools {
+        match &s.trainer {
+            Some(a) if a.share >= 1.0 => full += 1,
+            Some(_) => part += 1,
+            None => none += 1,
+        }
+    }
+    let n = (full + part + none).max(1) as f64;
+    println!(
+        "  High school trainers: full-time {:.0}%, part-time {:.0}%, none {:.0}% of {} schools",
+        100.0 * full as f64 / n,
+        100.0 * part as f64 / n,
+        100.0 * none as f64 / n,
+        full + part + none
+    );
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let t = std::time::Instant::now();
@@ -191,6 +281,7 @@ fn main() {
     w.options.engine_from = Some(2100);
     books(&w);
     heads(&w);
+    departments(&w);
     // `market <years>`: the market on its own, with a stand-in carousel.
     if args.get(2).map(String::as_str) == Some("market") {
         let years: u32 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(10);
@@ -202,6 +293,7 @@ fn main() {
                     println!("{y:?}");
                 }
                 heads(&w);
+                departments(&w);
             }
         }
         return;
@@ -219,6 +311,7 @@ fn main() {
             }
             books(&w);
             heads(&w);
+            departments(&w);
         }
     }
     if days > 0 {

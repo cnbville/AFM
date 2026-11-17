@@ -1566,6 +1566,15 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
         }
         _ => 1.0,
     };
+    // The dietitians move a body plan faster (support departments, Q4).
+    let diet = crate::world::departments::seat_team(w).map_or(1.0, |who| {
+        crate::world::departments::diet_pace(crate::world::departments::team(
+            w,
+            who,
+            crate::world::departments::Area::Diet,
+        ))
+    });
+    let kitchen = kitchen * diet;
     let mut absent_ids: Vec<u32> = Vec::new();
     let mut craft_minutes: HashMap<usize, (f64, f64)> = HashMap::new();
     for &i in &st.roster {
@@ -1969,13 +1978,18 @@ fn report_day(w: &mut World, st: &SeatTeam, d: Date, seed: u64) {
     }
     let away = std::mem::take(&mut w.training.away);
     let (mut tested, mut failed, mut heavy) = (0, Vec::new(), Vec::new());
+    // The strength department wrote the summer's program: a better one
+    // than the level's typical sends fewer men to the list (support
+    // departments).
+    let staff =
+        crate::world::departments::seat_team(w).map_or(1.0, |who| crate::world::departments::conditioning(w, who));
     for a in away {
         let Some(i) = st.roster.iter().copied().find(|&i| w.people[i].player.id == a.id) else { continue };
         let effort = a.effort as f64 / a.weeks.max(1) as f64;
         let p = &w.people[i];
         let stamina = p.player.attributes.get(Attr::Stamina);
         tested += 1;
-        let chance = super::offseason::fail_chance(effort, stamina, st.tier);
+        let chance = super::offseason::fail_chance(effort, stamina, st.tier) * staff;
         let name = p.name.clone();
         if crate::world::season::key_uniform(seed ^ 0x7E57, a.id as u64) < chance {
             let days = 3 + (crate::world::season::key_uniform(seed ^ 0x7E58, a.id as u64) * 8.0) as i32;
@@ -2418,18 +2432,17 @@ fn practice_injuries(
     // The strength staff's guard on muscle strains and backs (minor bug
     // 303): a college program's or a club's head against the level's typical.
     let seat = w.seat.as_ref();
+    // With the sports scientists' (support departments, question 5).
     let guard = match st.tier {
         Tier::College => seat.and_then(|s| s.program).map_or(1.0, |c| {
-            let g = &w.programs[c];
-            crate::game::sim::strength_guard(
-                crate::world::season::strength_head(g),
-                crate::world::season::typical_strength(w, g.division),
-            )
+            let lab = w.programs[c].campus.level(crate::world::capital::rooms::Room::SportsScience);
+            crate::world::departments::game_guard(w, crate::world::people::Who::Prog(c), lab)
         }),
         Tier::Pro => seat.and_then(|s| s.nfl_team).map_or(1.0, |t| {
-            crate::game::sim::strength_guard(
-                crate::world::season::club_strength_head(w, t),
-                crate::world::season::nfl_typical_strength(w),
+            crate::world::departments::game_guard(
+                w,
+                crate::world::people::Who::Club(t),
+                crate::world::pro::games::nfl_lab(w, t),
             )
         }),
         _ => 1.0,
