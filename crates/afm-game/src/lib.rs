@@ -19,6 +19,7 @@ pub mod lane_calendar;
 pub mod lane_campaign;
 pub mod lane_capital;
 pub mod lane_capital_campus;
+pub mod lane_capital_drive;
 pub mod lane_cfl;
 pub mod lane_coaching;
 pub mod lane_core;
@@ -443,6 +444,7 @@ impl Game {
                     lane_leads::call,
                     lane_campaign::call,
                     lane_capital::call,
+                    lane_capital_drive::call,
                     lane_capital_campus::call,
                     lane_data::call,
                     notebook::call,
