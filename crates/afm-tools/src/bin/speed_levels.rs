@@ -142,8 +142,10 @@ fn main() {
             }
         }
     }
-    let per = classes.max(1) as f64;
-    println!("speed_levels: {classes} classes of {size}; men a class at or under each forty");
+    // Counts are per 250,000-boy class (a real national class), whatever
+    // size was simulated: the draft and the colleges scale with the class.
+    let per = classes.max(1) as f64 * size as f64 / 250_000.0;
+    println!("speed_levels: {classes} classes of {size}; men per 250,000-boy class at or under each forty");
     line("made at 14 (ceilings)", &made, per);
     line("college (ratings)", &college, per);
     line("drafted (ratings)", &drafted_rated, per);
