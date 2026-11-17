@@ -9,6 +9,7 @@ mod capital;
 mod capital_drive;
 mod capital_race;
 mod capital_rooms;
+mod capital_seats;
 mod capital_week;
 mod carousel;
 mod cfl_draft;

@@ -131,7 +131,9 @@ fn crowd(w: &World, h: usize) -> u32 {
     let base = 350.0 + 0.9 * s.enrollment as f64;
     let pull = (0.45 + 1.3 * s.prestige) * (1.0 + 0.35 * culture.clamp(-1.0, 1.5));
     let noise = 0.85 + 0.3 * draw(w, 0x45C0, h as u64, 0);
-    (base * pull * noise).clamp(150.0, 14_000.0) as u32
+    // The stadium's pull once the rooms live (Capital lane C6).
+    let stadium = crate::world::capital::hs::crowd_factor(w, h);
+    (base * pull * noise * stadium).clamp(150.0, 14_000.0) as u32
 }
 
 /// The fee where the school charges one (a keyed draw against the state's
@@ -171,7 +173,9 @@ fn budget(w: &World, h: usize) -> Book<N> {
     b.l[EQUIPMENT] = ((roster * 95.0 + 1_500.0) * idx * (0.7 + 0.6 * s.resources)) as f32;
     b.l[TRAVEL] = ((homes + extra) * (380.0 + 300.0 * s.area_money) * idx) as f32;
     b.l[GAME_DAY] = (homes * (700.0 + crowd * 0.35) * idx) as f32;
-    b.l[STADIUM] = ((4_000.0 + 9_000.0 * s.resources + crowd * 2.0) * idx) as f32;
+    // A turf field needs no mowing, watering or paint (Capital lane C6).
+    b.l[STADIUM] =
+        ((4_000.0 + 9_000.0 * s.resources + crowd * 2.0) * idx * crate::world::capital::hs::upkeep_factor(w, h)) as f32;
     b.l[MEALS] = ((10.0 + extra) * roster * 6.0 * idx * s.area_money.max(0.2)) as f32;
     // JV and freshman games: four of each team's home games need a crew and
     // its road games a bus (bug 150; proposed, not confirmed: four officials

@@ -253,7 +253,7 @@ Paths are in `world/pro/cfl.rs` unless named. Cain agreed to the design and the 
 
 - **Franchises**: 28 teams to 1994, Carolina and Jacksonville in 1995, the Browns' move to Baltimore in 1996 (dark until 1999), Houston in 2002 with 8 divisions. Each keeps its `World::nfl` index (`world/franchise.rs`, `ERAS`, `active`, `round_order`). From 2027 the owners' meeting can vote a move (24 of 32 needed) (`world/nfl_year.rs`, `league_meeting`, `relocate`). From 2027 it can also vote two expansion clubs in, at the real rate; they get indices from 32 on, an expansion draft and the first and last picks of their first draft ([new-teams.md](new-teams.md); `world/new_teams/nfl.rs`, `vote`; every lookup past index 31 reads `World::expansion` through `franchise::*_in`).
 - **Stand-in games** (when the engine is off): win odds are a logit of 0.52 x strength gap in sd + 0.24 x staff gap + 0.2 home. Ties 0.3% (`world/nfl_year.rs`, `PER_SD`, `win_prob`).
-- **Club finance**: revenue and cost lines, gates, stadiums and NFLPA report cards (`world/finance/nfl.rs`). The cards feed free agents' scores (`card_pull`). `spend_level` sets support-staff budgets (`world/people.rs`, `staff_support`).
+- **Club finance**: revenue and cost lines, gates, stadiums and NFLPA report cards (`world/finance/nfl.rs`). The cards feed free agents' scores (`card_pull`). From the handover the training building's eight rooms move the locker room, training room, weight room, food, nutritionist and families lines, and the owner renovates room by room (`world/capital/nfl.rs`; [capital.md](capital.md), "Lane C6"). `spend_level` sets support-staff budgets (`world/people.rs`, `staff_support`).
 
 ### Schedules, numbers and news (update 3, lane 4)
 

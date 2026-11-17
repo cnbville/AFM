@@ -152,6 +152,9 @@ pub struct Boosters {
 /// What the boosters can pay for beyond the running costs, with its price
 /// (2026 dollars) and how much it adds to the school's resources (weight
 /// room, film, staff help: the number every high school's development reads).
+/// Once the rooms live the room projects (the racks, the locker room, the
+/// meeting room, the field house, the turf field) lift their rooms instead
+/// (Capital lane C6, `capital::hs::project_rooms`).
 /// Proposed, not confirmed: the prices are typical quotes, the gains small.
 pub const PROJECTS: [(&str, f64, f64); 7] = [
     ("Speed and agility equipment (sleds, ladders, a timing system)", 7_500.0, 0.006),
@@ -1672,8 +1675,13 @@ fn booster_day(w: &mut World, h: usize, d: Date) {
             if b.balance - cost >= reserve {
                 money_out(w, d, 3, name.to_string(), cost);
                 w.front_office.school.boosters.done.push((y, k));
-                let s = &mut w.high_schools[h];
-                s.resources = (s.resources + gain).min(1.0);
+                // A room on the booster club's list lifts the room itself
+                // once the rooms live (Capital lane C6, CP33); equipment is
+                // the school's resources, as before.
+                if !crate::world::capital::hs::booster_project(w, h, k as usize) {
+                    let s = &mut w.high_schools[h];
+                    s.resources = (s.resources + gain).min(1.0);
+                }
                 post(w, d, format!("The booster club voted to pay for {}.", name.to_lowercase()), false);
             } else {
                 let short = cost + reserve - b.balance;

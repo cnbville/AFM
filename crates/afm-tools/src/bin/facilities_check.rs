@@ -24,7 +24,10 @@
 //!     July: the FBS spread, each room's mean level and read by tier, and
 //!     the year's new buildings and renovations; each level's facilities,
 //!     new buildings and boosters' money (LEVELS), and lane C3's drives by
-//!     stage and the hottest fevers (DRIVES, FEVER).
+//!     stage and the hottest fevers (DRIVES, FEVER); lane C6's high
+//!     school rooms and stadium bonds (HS, BONDS) and the NFL clubs' rooms,
+//!     renovations and report cards (NFL). `AFM_C6_OFF=1` plays the
+//!     same world with lane C6's rooms reading neutral.
 //!   facilities_check pool <A file> <B or C file> <treated list>
 //!     is done in Python (`pooled.py` in the project folder's
 //!     afm/facilities/tools).
@@ -219,6 +222,63 @@ fn levels_table(w: &World) {
 }
 
 /// Capital lane C3: the drives by stage and what they raised.
+fn seats_table(w: &World) {
+    use afm_engine::world::capital::hs::HsRoom;
+    use afm_engine::world::capital::nfl::{self, ROOMS_NFL};
+    let cap = &w.capital;
+    let today = w.today;
+    let n = cap.hs.len().max(1) as f64;
+    let rooms: Vec<String> = HsRoom::ALL
+        .iter()
+        .map(|&r| format!("{} {:.2}", r.key(), cap.hs.iter().map(|c| c.level(r)).sum::<f64>() / n))
+        .collect();
+    let turf = cap.hs.iter().filter(|c| c.level(HsRoom::Turf) > 0.0).count() as f64 / n;
+    println!("HS schools={} mean levels: {} turf_share={turf:.2}", cap.hs.len(), rooms.join(", "));
+    let recent = |d: afm_engine::calendar::Date| d.days_to(today) < 365 && d <= today;
+    let called = cap.bonds.iter().filter(|b| recent(b.called)).count();
+    let voted: Vec<_> = cap.bonds.iter().filter(|b| b.yes.is_some() && recent(b.day)).collect();
+    let passed = voted.iter().filter(|b| b.passed).count();
+    let new = voted.iter().filter(|b| b.passed && b.package == afm_engine::world::capital::hs::Package::New).count();
+    let yes = voted.iter().filter_map(|b| b.yes).map(|y| y as f64).sum::<f64>() / voted.len().max(1) as f64;
+    let opened = cap.bonds.iter().filter(|b| b.opened && b.opens.is_some_and(&recent)).count();
+    let shared = cap.bonds.iter().filter(|b| b.opened && b.schools.len() > 1 && b.opens.is_some_and(&recent)).count();
+    let districts = cap.bonds.iter().filter(|b| b.pending()).count();
+    println!(
+        "BONDS last 12 months: called={called} voted={} passed={passed} (new stadiums {new}) mean_yes={yes:.3} opened={opened} (shared {shared}) pending_now={districts}",
+        voted.len()
+    );
+    let clubs: Vec<_> = cap.clubs.iter().filter(|c| c.set).collect();
+    let m = clubs.len().max(1) as f64;
+    let rooms: Vec<String> = ROOMS_NFL
+        .iter()
+        .map(|&r| format!("{} {:.2}", nfl::key(r), clubs.iter().map(|c| c.level(r)).sum::<f64>() / m))
+        .collect();
+    let builds = cap.club_builds.iter().filter(|b| recent(b.started)).count();
+    let year = w.finance.cards.iter().map(|c| c.year).max().unwrap_or(0);
+    let cards: Vec<f64> = w
+        .finance
+        .cards
+        .iter()
+        .filter(|c| c.year == year)
+        .map(|c| c.grades.iter().map(|&g| g as f64).sum::<f64>() / 11.0)
+        .collect();
+    let mean = cards.iter().sum::<f64>() / cards.len().max(1) as f64;
+    let lines = |k: usize| {
+        let v: Vec<f64> = w.finance.cards.iter().filter(|c| c.year == year).map(|c| c.grades[k] as f64).collect();
+        v.iter().sum::<f64>() / v.len().max(1) as f64
+    };
+    println!(
+        "NFL clubs={} mean levels: {} renovations_last_12={builds} cards {year}: mean grade index {mean:.2} (locker {:.2}, training room {:.2}, weight {:.2}, food {:.2}, families {:.2})",
+        clubs.len(),
+        rooms.join(", "),
+        lines(3),
+        lines(4),
+        lines(6),
+        lines(1),
+        lines(0)
+    );
+}
+
 fn drives_table(w: &World) {
     use afm_engine::world::capital::drive::{self, Stage};
     let year = w.year;
@@ -299,6 +359,13 @@ fn main() {
             let mut w = World::new_watched(opts, |w, s| {
                 eprintln!("season {} done in {:.0} s ({:.0} s in all)", w.year - 1, s, t.elapsed().as_secs_f64())
             });
+            // Lane C6's arm without it: the high school and club rooms
+            // read neutral (as the world before the lane).
+            if std::env::var("AFM_C6_OFF").is_ok_and(|v| v == "1") {
+                w.capital.hs_off = true;
+                w.capital.nfl_off = true;
+                eprintln!("lane C6 off");
+            }
             fac_table(&w);
             rooms_table(&w);
             levels_table(&w);
@@ -310,6 +377,7 @@ fn main() {
                 rooms_table(&w);
                 levels_table(&w);
                 drives_table(&w);
+                seats_table(&w);
             }
         }
         Some("arm") => {

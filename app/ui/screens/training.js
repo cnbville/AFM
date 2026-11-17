@@ -387,7 +387,7 @@ function twDay(x, d, k, meta, edit) {
   const off = meta && meta.off ? `<div class="tw-off ${meta.off === "req" ? "req" : ""}"><b>${meta.off === "req" ? "Required day off" : "Day off"}</b><span>${esc(meta.off === "req" ? meta.off_why : "Your staff's choice")}</span></div>` : "";
   const none = !d.periods.length && !d.game && !off ? `<div class="tw-off"><b>${meta && meta.allowed && !meta.allowed.coaches ? "No coaches allowed" : "Nothing planned"}</b></div>` : "";
   const wx = meta && meta.weather && field ? meta.weather : null;
-  const wxText = wx ? `${wx.temp}°${wx.why ? ` · ${wx.why}` : ""}${wx.place === "inside" ? " · moved indoors" : wx.place === "lost" ? " · field work lost" : wx.place === "delayed" ? " · lightning hold" : ""}` : "";
+  const wxText = wx ? `${wx.temp}°${wx.why ? ` · ${wx.why}` : ""}${wx.place === "inside" ? " · moved indoors" : wx.place === "lost" ? " · field work lost" : wx.place === "delayed" ? (wx.why === "lightning" ? " · lightning hold" : " · held off the field") : ""}` : "";
   const add = edit && !d.game ? `<button class="tw-addp" data-act="tr-padd" data-d="${k}">+ Period</button>` : "";
   const foot = d.game ? "3 h counted" : `${twHm(counted)} counted${field ? ` · ${twHm(field)} on the field` : ""}`;
   return `<div class="tw-day ${meta && meta.today ? "today" : ""} ${meta && meta.past ? "past" : ""}"><div class="tw-dh"><b>${esc(meta ? meta.weekday : DAY_SHORT[k])}</b><span>${esc(meta ? String(meta.date).split(" ").slice(1, 3).join(" ") : "")}</span></div>${wxText ? `<div class="tw-wx ${wx.place !== "outside" ? "moved" : ""}">${esc(wxText)}</div>` : ""}${off}${none}${body}${add}<div class="tw-df"><span>${foot}</span></div></div>`;
