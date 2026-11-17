@@ -12,7 +12,7 @@ use afm_ai::fake::body;
 use afm_engine::world::background::Decider;
 use afm_engine::world::folk::persona::Them;
 use afm_engine::world::folk::persona::ear::{Hit, How, Item, Landing, Sized};
-use afm_engine::world::folk::persona::talk::{Parts, channels, hits};
+use afm_engine::world::folk::persona::talk::{Parts, channels, hits, recruit};
 use afm_engine::world::folk::scene::{self, Kind, Scene};
 use afm_engine::world::folk::{Team, case, facts, pitch, takeover};
 use serde_json::{Value, json};
@@ -142,6 +142,17 @@ fn best_point(g: &Game, sid: u32) -> (String, f32) {
         .expect("a point of yours on his card")
 }
 
+/// The landing read's yardstick for a recruit's talk, on the turn's own
+/// wants.
+fn best_now(g: &Game, sid: u32) -> f32 {
+    let w = g.world.as_ref().unwrap();
+    let s = rt::scene_of(g, sid);
+    let room = super::room_of(w, &s);
+    let him = afm_engine::world::folk::persona::talk::across(&room).expect("a recruit across");
+    let wants = super::parts_of(s.kind).wanting.wants(w, him);
+    recruit::best_now(w, &s, &wants)
+}
+
 fn case_total(g: &Game, i: usize, j: usize) -> f32 {
     case::of(&g.world.as_ref().unwrap().people[i], j).map_or(0.0, |c| c.total())
 }
@@ -200,7 +211,7 @@ fn a_recruit_reads_on_your_case_and_your_care_never_takes_the_points_place() {
         let (mut g, f, sid, i, _, mine) =
             rt::recruit_talk(&format!("landing-rcare-{k}"), Kind::HomeVisit, Decider::Parent);
         let (point, best) = best_point(&g, sid);
-        let now = pitch::typed_best(g.world.as_ref().unwrap(), &rt::scene_of(&g, sid));
+        let now = best_now(&g, sid);
         assert!(best > 0.0 && best >= 0.5 * now, "your best point on his card moves your case: {best} of {now}");
         let before = case_total(&g, i, mine);
         let v = line(&mut g, &f, sid, "Our degree opens doors.", vec![], vec![hit(&point, "reassured")], manner);
@@ -214,6 +225,12 @@ fn a_recruit_reads_on_your_case_and_your_care_never_takes_the_points_place() {
     let pride = tag(&items(&g, &rt::scene_of(&g, sid), false), "his pride");
     let v = line(&mut g, &f, sid, "That's a soft question.", vec![], vec![hit(&pride, "insulted")], Value::Null);
     assert!(heard(&v).ends_with("it didn't land"), "{v}");
+    // A warm word on his pride alone moves nothing with a recruit (only how
+    // you said it reaches his trust): it touched him, and didn't move him.
+    let (mut g, f, sid, ..) = rt::recruit_talk("landing-rpride", Kind::HomeVisit, Decider::Parent);
+    let pride = tag(&items(&g, &rt::scene_of(&g, sid), false), "his pride");
+    let v = line(&mut g, &f, sid, "You're a special player.", vec![], vec![hit(&pride, "reassured")], Value::Null);
+    assert!(heard(&v).ends_with("it didn't move him"), "{v}");
     let (mut g, f, sid, ..) = rt::recruit_talk("landing-rtask", Kind::HomeVisit, Decider::Parent);
     let ask = task("other", "send me your transcript");
     let v = line(&mut g, &f, sid, "Send me your transcript this week.", vec![ask], vec![], Value::Null);

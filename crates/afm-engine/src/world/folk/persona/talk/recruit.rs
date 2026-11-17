@@ -313,17 +313,34 @@ fn backed(w: &World, s: &Scene, item: &Item, wants: &[Want]) -> bool {
     }
 }
 
+/// The most a point you can make to him could move your case right now,
+/// said in full: the landing read's yardstick. Only a point a line can
+/// make counts: each point his card lists, and the best point in the
+/// group of each want of his or of his family (`target`). A point the card
+/// leaves off can't be named, so it sets no bar.
+pub fn best_now(w: &World, s: &Scene, wants: &[Want]) -> f32 {
+    if pitch::exchanges_left(w, s) == 0 {
+        return 0.0;
+    }
+    items(w, s, wants)
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|(item, _)| target(w, s, item, wants))
+        .map(|p| pitch::typed_moves(w, s, &p, p.lean))
+        .fold(0.0, f32::max)
+}
+
 /// A recruit's line read on your case, in the case's own size (the landing
 /// read, agreed by Cain 2026-11-17). It landed when its point moved your
-/// case at least `LANDED_SHARE` of what your best point could right now,
-/// and helped a little when it moved it less. It didn't land when it cost
-/// his trust past a player's lower bar (`hits::PLAYER_BARS`) or cost your
-/// case, and cost you a little when it cost his trust less. A line that
-/// named a point and moved nothing says when the talk's exchanges are
-/// spent or nothing of yours backs it; said again in the same talk, it
-/// moved nothing. With no point, a straight answer or a warm word that
-/// lifts his trust helps a little. Read in `turn` after `cap`, before
-/// anything lands.
+/// case at least `LANDED_SHARE` of what your best point could right now
+/// (`best_now`), and helped a little when it moved it less. It didn't land
+/// when it cost his trust past a player's lower bar (`hits::PLAYER_BARS`)
+/// or cost your case, and cost you a little when it cost his trust less.
+/// A line that named a point and moved nothing says when the talk's
+/// exchanges are spent or nothing of yours backs it; said again in the
+/// same talk, it moved nothing. With no point, a straight answer or a warm
+/// word that lifts his trust helps a little. Read in `turn` after `cap`,
+/// before anything lands.
 pub fn landing(w: &World, s: &Scene, room: &Room, reading: &Reading, hits: &[Sized], wants: &[Want]) -> Landing {
     let Some(x) = with(w, s) else { return Landing::Untouched };
     let here = |who: Them| on_case(&x, who) && room.present.iter().any(|p| p.who == who);
@@ -332,7 +349,10 @@ pub fn landing(w: &World, s: &Scene, room: &Room, reading: &Reading, hits: &[Siz
     let warm = |how: How| matches!(how, How::Reassured | How::Respected | How::Staked | How::Flattered);
     let named: Vec<&Hit> = reading.hits.iter().filter(|h| here(h.on) && on_point(&h.item) && warm(h.how)).collect();
     let mine: Vec<&Sized> = hits.iter().filter(|h| on_case(&x, h.hit.on)).collect();
-    if mine.is_empty() && named.is_empty() {
+    // Nothing on him or his family touched nothing of his. A hit the game
+    // sizes as nothing (a warm word on his pride: only how you said it
+    // reaches his trust) still touched him, and moved nothing.
+    if mine.is_empty() && !reading.hits.iter().any(|h| here(h.on)) {
         return Landing::Untouched;
     }
     let trust: f32 = mine.iter().map(|h| h.trust).sum();
@@ -343,7 +363,7 @@ pub fn landing(w: &World, s: &Scene, room: &Room, reading: &Reading, hits: &[Siz
         return Landing::Missed;
     }
     if moved > MOVED {
-        return if moved >= LANDED_SHARE * pitch::typed_best(w, s) { Landing::Landed } else { Landing::Little };
+        return if moved >= LANDED_SHARE * best_now(w, s, wants) { Landing::Landed } else { Landing::Little };
     }
     if trust < -small {
         return Landing::Cost;

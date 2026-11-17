@@ -2544,21 +2544,6 @@ pub fn typed_moves(w: &World, s: &Scene, p: &Typed, lean: f32) -> f32 {
     case.map_or(0.0, |mut c| c.add(p.group, lean, p.again, w.today))
 }
 
-/// The most one of your points could move your case right now, said in
-/// full: the landing read's yardstick for a recruit's line.
-pub fn typed_best(w: &World, s: &Scene) -> f32 {
-    let Some(t) = talk(w, s) else { return 0.0 };
-    if exchanges_left(w, s) == 0 {
-        return 0.0;
-    }
-    let sheet = claims::recruit(w, t.i, t.j, t.ear);
-    on_table(w, &t, s.id, &sheet)
-        .into_iter()
-        .filter_map(|pt| typed_of(w, &t, s, pt))
-        .map(|p| typed_moves(w, s, &p, p.lean))
-        .fold(0.0, f32::max)
-}
-
 /// Whether you have something that backs a point (`kind`, else anything in
 /// `group`), made in this talk already or not: a point you know, from the
 /// pitch.
