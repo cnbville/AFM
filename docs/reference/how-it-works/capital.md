@@ -1,6 +1,6 @@
 # Capital: how it works today
 
-Checked against main b1dda22 (lanes C4 and C5) plus lane C6 (high school and NFL facilities) on 2026-11-17.
+Checked against main 7bc88f6 (lanes C1-C6, CS1 and CS3) plus lane CS2 (the Donors screen) on 2026-11-17.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`, `app/` or `data/`. Capital's spec is `docs/design/capital.md`; each lane adds its section here. Every size on this page is Claude's (proposed, not confirmed) unless the spec gives it.
 
@@ -9,7 +9,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`,
 - How many donors does a program have? The Power 4 22-30, the rest of the FBS 15-22, FCS 8-14, Division II, NAIA and Division III 3-5, by prestige; junior colleges none. The boosters the talks know are on top of that, and ex-pros join besides (`world/capital/donors.rs`, `target`).
 - Are the boosters in the talks the same people? Yes. Each booster slot the talks draw (`folk/cast.rs`, `Role::Booster`) is a donor with his name, age, traits, wants and business; a new man in a slot is a new donor and the old one stays on as a plain donor (`donors.rs`, `sync_boosters`, `from_booster`).
 - Where is a donor's wealth? Hidden: `Donor::capacity` is what he can truly give over a drive, `Donor::paper` what his assets show. About 12% are stretched thin: paper 2-4 times capacity (`donors.rs`, `draw_donor`, `STRETCHED`).
-- What does the player see of it? Only the development office's read, a range of words such as "Could name a room, maybe fund a whole building." It reads paper wealth, so a stretched man reads richer than he is (`world/capital/screen.rs`, `read`, `words`). No screen shows it yet (lane CS2).
+- What does the player see of it? Only the development office's read, a range of words such as "Could name a room, maybe fund a whole building." It reads paper wealth, so a stretched man reads richer than he is (`world/capital/screen.rs`, `read`, `words`). The Donors screen shows it (lane CS2, `app/ui/screens/capitaldonors.js`).
 - Old money or new? A new donor is new money 30% of the time in 1990, rising to 50% by 2026 (`donors.rs`, `new_money_share`); ex-pros are always new money.
 - Does a broken promise spread? Yes, through his circle: his own warmth toward you -0.25, each old-money friend in the circle -0.12, each new-money friend -0.02, times 0.6 in a new-money circle (`donors.rs`, `word`). A promise to a college booster in the talks reaches his donor when it is judged (`folk/talks.rs`, `check_promises`, calls `booster_word`).
 - Can a pledge be tied to me? Yes: a pledge the closing coach made while the donor's warmth toward him was 0.7 or more is tied to him (`world/capital/pledges.rs`, `make`, `TIE_WARMTH`). If he stops working at that school the rest is pulled that day (`pledges.rs`, `day`).
@@ -68,7 +68,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`,
 - Do rooms age? From the handover season, every room loses 0.1 of a level each July (CP22), never below the level's everyday rooms (5 × level scale × `buildings::BASE`) (`age`, `AGE_A_YEAR`). Before that, the old 0.006 a year on the number stands.
 - Do rooms add to growth on top of facilities? No (CP19). The body's part of college coaching reads 0.55 weight room + 0.2 nutrition + 0.15 sports science + 0.1 recovery; the rest reads 0.5 film + 0.3 indoor field + 0.2 recovery. With every room at the number each part is the number, so the old +0.61 by 22 for the best complex stands (`physical`, `teaching`; `world/season.rs`, `develop`).
 - Who sees what? A recruit's room tools read the room against the best in his conference (`Campus.read`, CP23): the best reads 5 and each level behind one less, never under 1. The body's tools read the room itself (`Campus::value`).
-- Can I renovate? Yes, one room a year through your athletic director (`ask_renovation`; no screen calls it yet, lane CS1's Campus screen will): a level up, done over the summer, open next season. A new building lifts its rooms to 4 or 5 by its money (`open`).
+- Can I renovate? Yes, one room a year through your athletic director (`ask_renovation`; the Campus screen's Renovate button calls it, lane CS1): a level up, done over the summer, open next season. A new building lifts its rooms to 4 or 5 by its money (`open`).
 - Do AI programs renovate? Yes, each July once the rooms live, on the same rules: the room furthest behind the department's target, by how far behind and the money (`renovations`, `most_behind`, `renovation_chance`).
 - What is temporary space? In a new building's last year before it opens, the team works without the rooms it already has that the building moves: those rooms read a level lower for their tools and the room's mood pays 0.04 (`read_all`, `Campus.temporary`, `TEMPORARY_MOOD`, CP26). A summer renovation, the stadium and the indoor field don't count.
 - Does campus life matter to a recruit now? Yes: each kid weighs it by his own keyed draw, most a little, some a lot, the less professional kid more (`campus_life_want`), times the campus life grade around 0.77 (`world/recruiting.rs`, the recruit's utility and its parts). It also adds a little to off-field trouble (`trouble_factor`).
@@ -106,6 +106,13 @@ What isn't built yet: more official visitors a weekend (the game has no weekend 
 - A number moved by hand once the rooms live (a tool, a test, the boss's yes) moves every room in step (`sync_program`).
 - An old save fits its rooms from its number on load (`after_load`).
 
+### The Donors screen (lane CS2)
+
+- What is on it? `capitaldonors` (`app/ui/screens/capitaldonors.js`, sidebar: Capital, Donors; head coaches of a college program only). The fever across the top with its moments; the list of your program's donors (`donors::of`) sorted by what the office thinks is worth your time (a lead donor of an open drive first, then the richer read, then the warmer), or by closeness to you or by longest unseen; his page with what drives him (his wants and rooms), what he remembers of you (meetings, last day, promises kept and broken, broken ones heard through his circle), who he talks to, and the development director's read (the wealth range and the staff's read on strings); this week's donor slots; and a lunch or dinner you book on any weekday from tomorrow to eight weeks out, January to August (`capital_book`, `capital_unbook`).
+- Where does it read? `capital_donors` (`lane_capital.rs`, `donors_view`, `fever_view`) and `capital_week`. Wealth is the office's range in words (`screen::read`), never a number; his lean to NIL or buildings ("Buildings", "Both", "NIL only" from his hidden `nil_lean`: at least 0.4 or at most -0.4 is one side) shows only once you have met him (`met > 0` or a last day); hidden `capacity`, `paper`, `nil_lean` and `collects` never leave the engine.
+- The fever word? `fever_view`: under 0.05 Cold, under 0.2 Cool, under 0.4 Warm, under 0.65 Hot, else Blazing (proposed, not confirmed). The bar splits today's fever by each moment's share (strength x fade); "fades by" is the first day a fortnight's steps reach below 0.05 if nothing new happens.
+- No dollar figure is on it (CP39); loyalty is his warmth toward you, 0.5 a stranger (`donors::STRANGER`), shown as a bar and a word (devoted from 0.8, close 0.65, friendly 0.45, cool 0.3, else cold), amber under 0.35 once you have met.
+
 ### Where the knobs are
 
 `world/capital/rooms.rs`: `Room::weight` (each room's share), `AGE_A_YEAR` 0.1, `built_level` ($4M a room reads 3, each doubling 0.83 more, 1.5-5), `optional_share`, `plots`, `renovation_cost` (the tier's building × the room's share / 0.85 × 0.4), `renovation_chance` (0.02 + 0.265 × levels behind, at most 0.7, 0.4 times with the department in the red, none under half a level), `TEMPORARY_MOOD` 0.04, each tool's slope and caps above, `campus_life_want` (0.02 + 0.14 × u³ − 0.02 × professionalism z, 0.01-0.22).
@@ -117,7 +124,7 @@ What isn't built yet: more official visitors a weekend (the game has no weekend 
 - What starts the fever? Big moments (CP7): a national title 1.0, the Heisman 0.75, a conference title and a top-10 pick 0.5 each (the pick is half a national title), the playoff 0.25, a bowl win 0.12, a rivalry win 0.08 (`world/capital/fever.rs`, `What::strength`). They are read off the college season once it is over (titles, the bracket, bowls, rivalry games, the Heisman) and off the draft on 15 May (its first ten picks, by the college each came from) (`fever::day`).
 - How does it fade and stack? Each moment counts (1 - months / 24)² of its strength, so it fades fast at first and is gone at two years; the fever is 1 - e^-sum, so a run stacks toward the top without passing it (`fade`, `fever_on`). A conference title alone reads 0.39 the day it is won and 0.056 by the spring after the next season; a title in 2027 and a title and the playoff in 2028 read 0.49 in March 2029 (`tests/capital_drive.rs`, `the_fever_starts_on_big_moments_stacks_and_fades`).
 - What does the fever do? A donor's yes chance x (1 + 0.5 x fever) and his gift x (1 + 0.4 x fever) (`gifts.rs`, `FEVER_CHANCE`, `FEVER_SIZE`); a drive starts more often (`drive.rs`, `START_FEVER`); and the collective's yearly growth gains 0.05 x fever once the drives live (`program.rs`, `COLLECTIVE_FEVER`, CP9). Your program's every moment is a news line ("Donors answer the title"), and the big ones at the Power 4.
-- What is the drive? Every program's capital campaign for one building, in its real stages: a five-month feasibility study, the quiet phase, the public phase and the close, the building going up on its own clock (`drive.rs`, `Drive`, `Stage`). On screen it is "the drive" (CP12). No screen shows it yet (lane CS3).
+- What is the drive? Every program's capital campaign for one building, in its real stages: a five-month feasibility study, the quiet phase, the public phase and the close, the building going up on its own clock (`drive.rs`, `Drive`, `Stage`). On screen it is "the drive" (CP12). The drive screen shows it (lane CS3, below).
 - Who starts one? Each July once the rooms live, every program's AD on the same rule (CP27): 4% + 0.7 x (the AD's target over the facilities number) + 0.2 x fever + up to 10% for money in the bank (less in the red) + 5% for a big booster, at most 45%; not while a drive or a project is under way, nor for three years after a shelved one (`drive::year`). It replaces the ADs' old July decisions (`finance/college.rs`, `facility_decisions`), which still build the world's past. Asking your AD for a facility (`ask_facility`, the boss's facility ask) opens a study once the rooms live.
 - What building? The tier's: the Power 4 a football building ($140M in 2024 dollars), the rest of the FBS an operations center ($40M), FCS an indoor practice facility ($14M), below a weight room and locker room ($3M), each x 0.85-1.15 (`kind_for`). A size holds the full building's rooms, biggest first, to its share of their weight: the full complex, mid-size (0.75) or smaller (0.5) (`Size`, `rooms_for`).
 - What is the goal? The share of the cost the drive raises from donors: Power 4 0.75, the rest of the FBS 0.4, FCS 0.12, below 0.06; the department's bonds and the university carry the rest, more the smaller the program (`FUND_SHARE`, `goal_for`; fitted on the world check below so each level builds about as before).
@@ -136,9 +143,9 @@ What isn't built yet: more official visitors a weekend (the game has no weekend 
 - What about estates? Lane C1's estate gifts go into the program's drive, one restricted to a room once a drive holds it, or after three years (`gifts::estates`). Pledges pay a year each July (`gifts::pay`).
 - Does it change the world? Yes, from the handover season: the drives decide every program's buildings, and the fever lifts the collectives. The past is the same per seed (the drives and the collective's lift wait for the rooms to live, `capital::live`).
 
-### Your calls (no screen yet; lane CS3)
+### Your calls (the drive screen, lane CS3)
 
-`drive::set_goal`, `go_public`, `hands_on`, `push_borrow`, `fix_overrun`; `gifts::ask` (building or NIL, pushed or not; lane C4's donor slots call it) and `answer_catch`. Each is the engine's; no `Game::call` command wraps them yet.
+`drive::set_goal`, `go_public`, `hands_on`, `push_borrow`, `fix_overrun`; `gifts::ask` (building or NIL, pushed or not; lane C4's donor slots call it) and `answer_catch`. Each is the engine's. The drive screen wraps `set_goal`, `go_public`, `hands_on` and `push_borrow` as game commands (lane CS3, below); `fix_overrun` and `answer_catch` wait for the project screen (lane CS4).
 
 ### Where the knobs are
 
@@ -187,13 +194,13 @@ Every size here is the build's pick, proposed, not confirmed. Code: `world/capit
 
 ### The commands (`crates/afm-game/src/lane_capital.rs`)
 
-`capital_week` (this week's donor slots with their scene, your bookings, the office's list with its reasons), `capital_book` {donor, date, dinner}, `capital_unbook` {donor, date}, `capital_tour` {kid} and `capital_tour_set` {kid, rooms}, `capital_names`, `capital_name_call` {id, down}, `capital_moments`. A donor scene plays on the people commands. No dollar figure is on any of them (CP39): a gift on the stage reads as its share of the goal.
+`capital_week` (this week's donor slots with their scene, your bookings, the office's list with its reasons), `capital_book` {donor, date, dinner}, `capital_unbook` {donor, date}, `capital_tour` {kid} and `capital_tour_set` {kid, rooms}, `capital_names`, `capital_name_call` {id, down}, `capital_moments`, and lane CS2's `capital_donors` (below). A donor scene plays on the people commands. No dollar figure is on any of them (CP39): a gift on the stage reads as its share of the goal.
 
 ### What it does not do yet
 
 - Typed lines in a donor scene land on its picks through the core reader; donors are not live talks v3 people (`persona`), so nobody "plays himself" yet.
 - The AI's donors have no week: an AI head coach meets his lead donors on lane C3's monthly chance, and AI programs' named donors have no scandals (they would change the world; a later lane with a world check).
-- The screens are lanes CS2 (donors) and CS7 (the big moments).
+- The screens still to come are CS7 (the big moments) and the others in the spec's table.
 
 ### Where the knobs are
 
@@ -221,6 +228,18 @@ Every size here is the build's pick, proposed, not confirmed. Code: `world/capit
 ### Where the knobs are
 
 `world/capital/race.rs`: `NEW_SEASONS` 3, `cares`, `TELL_DIRECT` 0.3, `GRAPEVINE` 0.012, `GRAPEVINE_MAX` 0.25, `OUT_OF_STATE` 0.35, `EAR_DONORS` 6, `ERROR_DIRECT` 0.08, `ERROR_GRAPEVINE` 0.2, `NAMES_BUILDING` 0.7, `KEEP_YEARS` 4, `press_weight`, `SHINE` 0.5, `KEEP_PECKING` 30. `world/recruiting.rs`: `FACILITIES_GRADE` 0.1, `GAME_DAY_PULL` 0.004, `OFFICIAL_PULL` 0.02 (the decision's own, read here).
+## Lane CS3: the drive screen
+
+Code: `crates/afm-game/src/lane_capital_drive.rs` (the commands), `app/ui/screens/capitaldrive.js` and `.css` (the screen, route `capitaldrive`, in the Capital section of the sidebar for a college seat). Board 3 of the mock-ups.
+
+### Quick answers
+
+- What does the screen show? Your program's latest drive (`drive::latest`): the building and size as the title, the study's word against your goal as a story line, the share of the goal in (a big percent), the bar (paid in, pledged, pulled, still to raise), the four stages with dates, every pledge to it newest first with the moment that brought it, the lead donors who have not given (they wait for you), your AD's read, and your calls (`capital_drive`, `view`). Everything is a share of the goal or words: no dollar figure (CP39; the test checks the reply has no `$`).
+- How is the bar made? Paid in is every pledge's paid part plus the small gifts; pledged is what open pledges still owe; pulled is what donors who pulled took back (`Pledge::left`, `Drive::crowd`, `drive::raised`). The mock-up's "slipping" for a donor's bad year has no number in the engine, so the amber part is pulled pledges only.
+- What brought a gift? A pledge now keeps the moment the fever held the day he said yes (`Pledge::moment`, set in `gifts::give` from `fever::brought`: the moment with the biggest strength x fade that still reads 0.04 or more); "Carter Hale, top-10 pick", "Conference title". With no moment it is the stage: "Quiet phase" or "Public phase". The small gifts are one row, "Public launch". Pledges made before this lane have no moment and read as their stage.
+- What is the AD's word? Templated from the drive's real state (shelved, hit, missed, study, quiet under or over half, stalled, early, bold, plain), with his trust in a few words (`boss::trust_short`).
+- Which calls are on it? Only the ones open today: the goal's three sizes before it goes public (`capital_goal` {size small, mid, full}), going public (`capital_public`; "Go early" under half), hands on or off (`capital_hands` {on}), and the push to borrow once half is in (`capital_borrow` {bigger}). The overrun answer and a gift's catch are the project screen's.
+- Does it change the world? No. `Pledge::moment` is a stored note with a `#[serde(default)]`; no draw moves.
 
 ## Lane C6: high school and NFL facilities
 
@@ -277,6 +296,23 @@ Yes, from the season the world hands over (`capital::live`): the high school roo
 
 - `world/capital/hs.rs`: `AGE_A_YEAR` 0.1, `WEIGHT_COACHING` 1.8, `FILM_STUDY` 3.5, `LOCKER_MOOD` 0.12, `STADIUM_CROWD` 0.3, `TURF_UPKEEP` 0.25, `DISTRICT_MAX` 6, `WORK_DAYS` 70, `ORDER_DAYS` 78, `NIGHT_SD` 0.06; `target`, `turf_chance`, `call_chance`, `package_for`, `expected_yes`, `needs`, `Work::size`, `coach_work`, `ask_chance`.
 - `world/capital/nfl.rs`: `weight`, `owner_target`, `renovation_cost`, `leverage`, `ask_chance`, the tools' slopes and caps above.
+
+## Lane CS1: the Campus screen
+
+### Quick answers
+
+- Where is it? `app/ui/screens/capitalcampus.js` and `.css` (screen `capitalcampus`, sidebar section Capital, college seats). The shared frame every Capital screen uses, the sidebar section and the tab row (`capTabs`, `CAP_TABS`, `capPips`), is `app/ui/screens/capital.js`: a tab shows only once its screen exists, so the other five screens (`capitaldonors`, `capitaldrive`, `capitalproject`, `capitalpecking`, `capitalseat`) join the row as their lanes merge.
+- What does it read? `capital_campus` (`crates/afm-game/src/lane_capital_campus.rs`): the program's `Campus.halls` with each room in the newest building that holds it, the room's level as shown (the read against the conference's best, `Campus::shown`, CP23), a building under way from the books' projects with the rooms it holds (`drive::rooms_of_project`) and the levels it opens them at (`rooms::opening_levels`), the open plots (`open_plots` less the buildings under way), every room against the conference with its tool (`Room::unlocks`), the program beside yours and what is next.
+- How do the squares read? Ivory squares are the level today, gold squares what a renovation this summer or a building under way adds (4 or 5 for a building's rooms). A room a building moves stays in its old hall with the gold squares and a note ("moves to the football performance center"); a room the building adds is listed on its plot as new.
+- Which program sits beside mine? The other side of your rivalry game this year if you have one (`calendar::data::RIVALRIES`, same division, playing), else the conference neighbour whose campus number is closest to yours. The page names the room where they are furthest ahead and lists the five rooms where you differ most. Only the levels shown to every recruit (`Campus::shown`) leave the page, never a rival's quiet phase (CP30).
+- Can I renovate from it? Yes, as the head coach: a Renovate button on each room that can be asked (`rooms::renovation_block` says why not: a project under way, no such room, as good as they come, one renovation a year) with the athletic director's read in words from his chance (`rooms::renovation_yes`: likely, better than even, a coin flip, a long shot). `capital_renovate` {room} asks him (`rooms::ask_renovation`, unchanged), then sends the page again with his answer in `said`. Nobody but the head coach asks.
+- Are there dollars on screen? No (CP39): costs and the athletic director's chance never leave as numbers; money reads in words.
+- What is a dated building? One opened 12 or more years ago, marked amber on its header (CP22: a room drops a level about every ten years unless renovated).
+
+### The command (`crates/afm-game/src/lane_capital_campus.rs`)
+
+- `capital_campus`: `program`, `conference`, `today`, `head`, `halls` (name, opened, dated, rooms with `level`, `target`, `note`, `temporary`), `buildings` (name, opens, status, rooms new or moving), `free_plots`, `rooms` (13, each with `read`, `tone`, `can`, `block`, `odds`, `renovating`), `rival`, `next`. College seats only; other seats get a plain error that their own screen answers (lane CS6).
+- `capital_renovate` {room 0-12}: as above.
 
 ## Related pages
 

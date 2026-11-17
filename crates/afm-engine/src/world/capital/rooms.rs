@@ -946,24 +946,24 @@ pub fn after_load(w: &mut World) {
     }
 }
 
-/// Your program's athletic director on renovating one room (CP18): he reads
-/// the department's money and how far the room trails; yes means it is
-/// done over the summer, a level up when next season opens.
-pub fn ask_renovation(w: &mut World, p: usize, r: Room) -> Result<String, String> {
-    use crate::world::finance::{Owner, Project, ProjectKind};
+/// Why your program's room can't be put to the athletic director now (CP18),
+/// if it can't: a project already under way, no such room yet, a room as
+/// good as they come, or a room already renovated this year.
+pub fn renovation_block(w: &World, p: usize, r: Room) -> Option<String> {
+    use crate::world::finance::Owner;
     let year = w.year;
     if p >= w.programs.len() || p >= w.finance.college.len() {
-        return Err("No program.".into());
+        return Some("No program.".into());
     }
     if w.finance.projects.iter().any(|x| x.owner == Owner::College(p) && !x.done) {
-        return Err("A project is already under way.".into());
+        return Some("A project is already under way.".into());
     }
     let prog = &w.programs[p];
     if prog.campus.level(r) <= 0.0 {
-        return Err(format!("There is no {} to renovate: it comes with a new building.", r.words()));
+        return Some(format!("There is no {} to renovate: it comes with a new building.", r.words()));
     }
     if prog.campus.level(r) >= 4.95 {
-        return Err(format!("The {} is as good as they come.", r.words()));
+        return Some(format!("The {} is as good as they come.", r.words()));
     }
     let renovated = w
         .finance
@@ -971,13 +971,50 @@ pub fn ask_renovation(w: &mut World, p: usize, r: Room) -> Result<String, String
         .iter()
         .any(|x| x.owner == Owner::College(p) && x.started == year && x.name.ends_with(" renovation"));
     if renovated {
-        return Err("You renovated a room this year already.".into());
+        return Some("You renovated a room this year already.".into());
     }
+    None
+}
+
+/// The chance your athletic director says yes to a renovation of one room
+/// (CP18): the department's money and how far the room trails.
+pub fn renovation_yes(w: &World, p: usize, r: Room) -> f64 {
+    let year = w.year;
+    let prog = &w.programs[p];
     let tier = crate::world::finance::college::tier(w, p, year);
     let cost = renovation_cost(tier, r, year);
     let reserves = w.finance.college[p].reserves as f64;
     let behind = (prog.campus.read[r as usize] as f64 - 5.0).abs();
-    let yes = clamp(0.35 + 0.15 * behind + clamp(reserves / cost.max(1.0) * 0.1, -0.3, 0.3), 0.05, 0.9);
+    clamp(0.35 + 0.15 * behind + clamp(reserves / cost.max(1.0) * 0.1, -0.3, 0.3), 0.05, 0.9)
+}
+
+/// The levels a new building holding `mask` would open its rooms at, for the
+/// campus screen's gold squares (the same levels `open_rooms` sets, 0 for a
+/// room it doesn't hold).
+pub fn opening_levels(p: &Program, mask: u16, cost: f64, year: i32) -> [f32; ROOMS] {
+    let money = cost / crate::world::finance::data::college_index(year).max(0.05);
+    let levels = spread(mask, money);
+    let mut out = [0.0f32; ROOMS];
+    for r in Room::ALL.iter().filter(|r| mask & r.bit() != 0) {
+        let k = *r as usize;
+        out[k] = p.campus.level[k].max(levels[k].clamp(4.0, 5.0));
+    }
+    out
+}
+
+/// Your program's athletic director on renovating one room (CP18): he reads
+/// the department's money and how far the room trails; yes means it is
+/// done over the summer, a level up when next season opens.
+pub fn ask_renovation(w: &mut World, p: usize, r: Room) -> Result<String, String> {
+    use crate::world::finance::{Owner, Project, ProjectKind};
+    let year = w.year;
+    if let Some(why) = renovation_block(w, p, r) {
+        return Err(why);
+    }
+    let prog = &w.programs[p];
+    let tier = crate::world::finance::college::tier(w, p, year);
+    let cost = renovation_cost(tier, r, year);
+    let yes = renovation_yes(w, p, r);
     let ad = prog.ad.as_ref().map_or("The athletic director".to_string(), |a| a.name.clone());
     let draw = crate::world::finance::draw(w, 0xC2_A5, p as u64 ^ (r as u64) << 16, year);
     if draw >= yes {
