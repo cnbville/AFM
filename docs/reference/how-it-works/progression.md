@@ -1,6 +1,6 @@
 # Progression: how it works today
 
-Checked against the progression update steps 1-2 branch over main 69db832 on 2026-11-15; step 3 (the strength split, the bench, the weight room by body knack) over c2f99ef the same day; step 3c (body projects) over c2baa49 on 2026-11-16; the thinned limit (step 4c) over main 66cf9e1 the same day, before it merged.
+Checked against the progression update steps 1-2 branch over main 69db832 on 2026-11-15; step 3 (the strength split, the bench, the weight room by body knack) over c2f99ef the same day; step 3c (body projects) over c2baa49 on 2026-11-16; the thinned limit (step 4c) over main 66cf9e1 the same day, before it merged; slower closing near the top and the fitted trims (step 5) over main 1cc9d78 on 2026-11-17.
 
 The split ceiling: the limit, the knacks, everyday closing, breakouts that close room, skill projects and the trims (designs `docs/design/progression.md` and `docs/design/progression-everyday.md`). Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`. Everything here is in `progression.rs` unless named.
 
@@ -11,7 +11,8 @@ The split ceiling: the limit, the knacks, everyday closing, breakouts that close
 - What are "his tools"? Two-thirds body (his physical ceilings, plus arm length for rushers and blockers) and one-third makeup (his makeup ceilings), read for each skill (`spec`, `parts`).
 - Does the limit move? Yes. It reads his ceilings as they are now, minus how much his class drifts by his age at his position, so it moves only with his own growth past his class's (`mapped`, `drift`).
 - Can a freak be capped? No. Above the best tools in the fit sample, the map keeps rising at the top tenth's slope (`mapped`).
-- What closes room every year? Everyday coaching: room × 0.10 × knack pace × coaching × snaps × stage (`everyday`).
+- What closes room every year? Everyday coaching: room × 0.10 × knack pace × coaching × snaps × stage × near_top (`everyday`).
+- Does closing slow near the top? Yes. Past a ceiling of 55 each point is harder: a 60 closes at half pace, a 70 at a quarter, an 80 at a sixth (1 / (1 + (ceiling − 55) / 5)). It never reaches zero. Everyday closing, breakouts and project years (clicks too) all take it; the weight room and natural rises don't (`near_top`, `SLOW_FROM`, `TOP_SLOW`).
 - What is the knack? Six hidden technique knacks (coverage, routes, blocking, rushing, passing, tackling) and one body knack. Each is drawn at 14 and about a third of a technique knack is coachability (`ensure`, `knack`).
 - How fast does a knack close room? Pace is Φ(1.4 × (z − 0.3)). About 1 in 5 has the knack (z 0.84 or more), half are middling, and about 1 in 3 has none (z under −0.43) (`pace`, `tier`).
 - Does a breakout close room? Yes, on one skill: the one his position needs that has the most room. It closes 6 to 10 points, never past the limit (`breakout`, `CLICK`).
@@ -21,7 +22,7 @@ The split ceiling: the limit, the knacks, everyday closing, breakouts that close
 - What does a project cost? His other technique skills at the position grow at 0.75 of their rate. The project skill grows at the 60-minute focus multiplier (`PROJECT_COST`, `cost_mask`; `development.rs`, `GrowthCtx::rate`).
 - How many projects can a room run? QB 1, RB 1, WR 2, TE 2, OL 2, DL 2, LB 1, CB 2, S 1. Kickers, punters and snappers get none (`Room::slots`).
 - How do AI staffs pick? By their own lean, moved by their seat, reading room and the knack's clues a bit less sharply than your staff (`Lean::of_coach`, `ai_room`, `AI_SHARP` 0.6).
-- What are the trims? Points taken off natural ceilings of 60+ in one skill at one position, the first year he plays that spot (age 22 or under). The limit stays where it was, so investment can win them back (`TRIMS`, `land_trims`).
+- What are the trims? Points taken off natural ceilings of 60+ in one skill at one position, the first year he plays that spot (age 22 or under). The size depends on his natural ceiling there: most in the 65-80 band, almost nothing near 60, and in most families little or nothing for a natural 85+. The limit stays where it was, so investment can win them back (`TRIMS`, `trim_at`, `land_trims`).
 - What is a body project? The strength staff rebuilding his body on its own leash: a strength project moves his upper and lower strength ceilings (up to 14 each) and balance (up to 3) and puts on weight; a speed project moves speed (1), burst (1.5 each for acceleration and jumping) and agility and hips (2 each). His body knack opens Φ(1.2 z) of each leash, so a typical responder gets about half and a big one nearly all (`BodyKind`, `body_share`, `body_leash`).
 - Can a body project and a skill project run together? Yes: the body side is the strength staff's time, the skill side the room's. A body project year adds 0.25 wear (`BODY_WEAR`).
 - Is there a yearly growth limit? No. The old 12-point yearly cap is gone (physical study item 16; `development.rs`).
@@ -39,7 +40,7 @@ The split ceiling: the limit, the knacks, everyday closing, breakouts that close
 
 ## Everyday closing
 
-- Every year, every limited skill his position works: ceiling += room × 0.10 × pace × coach_mult × snaps_mult × stage_mult (`everyday`, `EVERYDAY`).
+- Every year, every limited skill his position works: ceiling += room × 0.10 × pace × coach_mult × snaps_mult × stage_mult × near_top(ceiling) (`everyday`, `EVERYDAY`, `near_top`).
 - coach_mult = 0.5 + coaching / 20, from 0.5 to 1.5 (`coach_mult`).
 - snaps_mult: starter 1, rotation 0.8, redshirt 0.6, other 0.5. A suspended or dismissed year closes nothing (`snaps_mult`).
 - stage_mult: 1 in high school and every college season, whatever his age. In the pros it is 0.5 in seasons 1-2, 0.2 in seasons 3-4, and 0 after (`stage_mult`).
@@ -67,13 +68,14 @@ The split ceiling: the limit, the knacks, everyday closing, breakouts that close
 
 ## The trims
 
-- Design values, before the build sizes them on a world: DT power rush 2; edge finesse rush, RB pass blocking, LB zone coverage, CB man coverage and QB footwork 3.5; WR routes 4; OT and IOL pass blocking, TE run blocking and S tackling 5 (`TRIM_TABLE`).
+- Each family (one skill at one position) has two slopes `[a, b]`: a points for each point of natural ceiling past 60, and b more for each point past 75 (most often negative, so the trim eases off), never under 0. A higher natural ceiling always keeps a higher trimmed one (`trim_at`, `TRIM_TABLE`, `TRIM_STEEP` 75).
+- Sizes at a natural 70 and 80 (fitted on the class sim, `prog_check fit`): OT pass blocking 5.9 and 8.2; RB leg drive 5.3 and 4.9; WR routes 3.2 and 1.8; CB man coverage 2.1 and 2.7; QB footwork 1.1 and 1.4; edge finesse rush 0.9 and 1.9; LB pursuit 0.1 and none. The rest are in `TRIM_TABLE`.
 - They are pending for every boy drawn at 15 or younger (`ensure_new`) and land the first year he plays a spot with a trim, if his ceiling there is 60+ (`TRIM_FROM`). They are dropped after 22 (`TRIM_UNTIL`). His rating comes down with the ceiling if it sat above it (`land_trims`).
 
 ## What it does not do yet
 
 - The physical study's items 1-3 and 6-18 are step 4 of the build (4a bodies, 4b the drills and the split, 4c no 99 wall: see [ratings.md](ratings.md), "Past 99"). Your own strength staff's body projects have no command yet: `start_body` with `yours` set is the hook. The weight room inside the leashes, the body knack's own effect there and the strength split are built (step 3): see [body.md](body.md), "The normal weight room by body knack" and "Is strength one rating?".
-- The screens show none of it yet (step 6).
+- The screens show none of it yet, apart from reads past 99 showing "99+" (step 6, [ratings.md](ratings.md)).
 - Your own staff's projects have no command yet: `start_project` with `yours` set is the hook.
 
 ## Measured (class sim, `prog_check 250000 progA`)
@@ -93,8 +95,8 @@ Projects run in 2-7% of college seasons by position. The design trims don't hold
 
 ## Where the knobs are
 
-- `progression.rs`: `LIMITED`, `spec`, `MARGIN` 4, `FIT_SAMPLE` 60,000, `DRIFT_SAMPLE` 24,000, `EVERYDAY` 0.10, `CLICK` (6, 10), `PROJECT` 0.30, `CLICK_CHANCE` 0.25, `PROJECT_COST` 0.25, `Room::slots`, `Lean`, `AI_SHARP` 0.6, `YOUR_SHARP` 1.0, `BET_FLOOR` 3, `BodyKind::ratings`, `BODY_YEAR` 0.45, `BODY_LBS` 25, `BODY_LBS_PER_POINT` 1.2, `BODY_UNTIL` 25, `BODY_WEAR` 0.25, `BODY_BET_FLOOR` 8, `BODY_SLOTS` 1, `TRIM_TABLE`, `TRIM_FROM` 60, `TRIM_UNTIL` 22.
-- Tooling switches: `set_enabled`, `set_parts` (everyday 1, breakouts 2, projects 4, trims 8, body 16), `set_trims`. `crates/afm-tools/src/bin/prog_check.rs` (`AFM_PROG_PARTS`, `AFM_TRIM_ALL`, `fit`, `drift`).
+- `progression.rs`: `LIMITED`, `spec`, `MARGIN` 4, `FIT_SAMPLE` 60,000, `DRIFT_SAMPLE` 24,000, `EVERYDAY` 0.10, `CLICK` (6, 10), `PROJECT` 0.30, `CLICK_CHANCE` 0.25, `PROJECT_COST` 0.25, `Room::slots`, `Lean`, `AI_SHARP` 0.6, `YOUR_SHARP` 1.0, `BET_FLOOR` 3, `BodyKind::ratings`, `BODY_YEAR` 0.45, `BODY_LBS` 25, `BODY_LBS_PER_POINT` 1.2, `BODY_UNTIL` 25, `BODY_WEAR` 0.25, `BODY_BET_FLOOR` 8, `BODY_SLOTS` 1, `SLOW_FROM` 55, `TOP_SLOW` 5, `TRIM_TABLE`, `TRIM_FROM` 60, `TRIM_STEEP` 75, `TRIM_UNTIL` 22.
+- Tooling switches: `set_enabled`, `set_parts` (everyday 1, breakouts 2, projects 4, trims 8, body 16), `set_trims`, `set_slow_from`, `set_top_slow`, `set_trim_limit_share`. `crates/afm-tools/src/bin/prog_check.rs` (`AFM_PROG_PARTS`, `AFM_TRIM_ALL`, `AFM_SLOW_FROM`, `AFM_TOP_SLOW`, `AFM_TRIM_LIMIT`, `fit`, `drift`).
 
 ## Related pages
 
