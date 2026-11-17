@@ -85,6 +85,7 @@ mod persona_negotiate;
 mod persona_office;
 mod persona_people;
 mod persona_standing;
+mod personnel_fit;
 mod pipeline;
 mod placement;
 mod playing_time_grade;

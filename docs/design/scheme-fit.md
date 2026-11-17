@@ -2,7 +2,7 @@
 
 On 2026-11-15 Cain asked whether the engine rewards a player's skills inside his team's scheme. His examples were a ballhawk free safety behind a blitz defense (Kerby Joseph), a strong safety who plays the run and man coverage (Brian Branch), 13 personnel that shouldn't feed the wide receivers, a power back against a burner on the draw, a Vikings-like defense, a Lions-like offense, and AI staffs that build and recruit to fit.
 
-The audit measured all of it. The full pass ran on 2026-11-16, and its report is `afm/scheme-fit/full-pass.md` in the project folder, with the tools in `tools/` and the raw numbers in `raw/` beside it. Cain answered its 25 items one by one on 2026-11-16 and 17 and agreed to all of them. This file says what gets built and in which lane. Only SF0, the measuring tool, is built (2026-11-17).
+The audit measured all of it. The full pass ran on 2026-11-16, and its report is `afm/scheme-fit/full-pass.md` in the project folder, with the tools in `tools/` and the raw numbers in `raw/` beside it. Cain answered its 25 items one by one on 2026-11-16 and 17 and agreed to all of them. This file says what gets built and in which lane. SF0, the measuring tool, and SF2, personnel and tight ends, are built (2026-11-17).
 
 The engine lanes start after the world rebuild. Cain's rule (2026-11-14): nothing in the engine is touched before the next world builds are done (`docs/design/engine-fix-list.md`).
 
@@ -21,7 +21,7 @@ Where Cain's answer is marked "by the floor", the item only matches real numbers
 
 **1. A personnel preference fits the play.** Cain: yes, after his note: "personnel is a preference but scheme should still decide the play". Nothing is forced either way: on 3rd and 1 in their territory, a 13 personnel group must not force a pass.
 - **The rule.** The situation and the scheme decide run, pass or play action first, as today. Then the group is picked to fit that play, with the plan's preference as a lean.
-- **Today.** A firm preference is applied without looking at the call (`calling.rs` `pick_personnel`, the guide's want on 55% of snaps that aren't hurry-up or short yardage). So a power team set to 13 throws 45% of the time from 13 (real 36%) and 34% from 12 (real 46%).
+- **Today.** A firm preference is applied without looking at the call (`calling.rs` `pick_personnel`: the guide's want replaces the group with chance 0.55 × its firmness, 47% for a firm want, on snaps that aren't hurry-up or short yardage). So a power team set to 13 throws 45% of the time from 13 (real 36%) and 34% from 12 (real 46%).
 - **After.** 13 comes out mostly on runs and play action, and a straight dropback more often from 12 or 11. A creative caller still throws from heavy sets to break his tendencies (the tell).
 - **Checks.** The real pass rates by group (11: 65%, 12: 46%, 13: 36%, 21: 40%) are only the season check, never a rule on a snap. Short yardage and the hurry-up keep their own picks.
 

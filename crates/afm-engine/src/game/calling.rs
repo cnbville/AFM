@@ -493,6 +493,16 @@ pub struct OffCtx {
     /// nothing for a team whose plan holds none (every AI team).
     #[serde(default)]
     pub lean: Lean,
+    /// Players a side under this game's rule book: 11, the CFL's 12 or
+    /// arena football's 8. The call is made in 11-man groups and the game
+    /// fields the book's own set for them (`Personnel::for_players`), so
+    /// the concept is picked among the ones that set can run (lane SF2).
+    #[serde(default = "eleven")]
+    pub players: u8,
+}
+
+fn eleven() -> u8 {
+    11
 }
 
 /// How the game plan leans the calls to keep your promises on usage
@@ -566,19 +576,29 @@ pub fn sheet_designs(prep: &super::roster::Prep) -> [Option<(u16, Personnel, Bac
 }
 
 fn weigh<T: Copy>(rng: &mut Rng, items: &[(T, f64)]) -> T {
+    weigh_where(rng, items, |_| true).expect("weigh: no positive weight")
+}
+
+/// `weigh` over only the items `keep` passes, as if they were copied out
+/// first: the same sum, the same draw and the same walk. None, with no
+/// draw taken, when none of them has a positive weight.
+fn weigh_where<T: Copy>(rng: &mut Rng, items: &[(T, f64)], keep: impl Fn(T) -> bool) -> Option<T> {
     // Rng::weighted over only the positive weights, without copying them
-    // out: the same sum, the same draw and the same walk.
-    let total: f64 = items.iter().filter(|x| x.1 > 0.0).map(|(_, w)| w).sum();
+    // out.
+    let total: f64 = items.iter().filter(|x| x.1 > 0.0 && keep(x.0)).map(|(_, w)| w).sum();
+    if total <= 0.0 {
+        return None;
+    }
     let mut roll = rng.next() * total;
     let mut last = None;
-    for &(item, w) in items.iter().filter(|x| x.1 > 0.0) {
+    for &(item, w) in items.iter().filter(|x| x.1 > 0.0 && keep(x.0)) {
         roll -= w;
         if roll < 0.0 {
-            return item;
+            return Some(item);
         }
         last = Some(item);
     }
-    last.expect("weigh: no positive weight")
+    last
 }
 
 /// What a memo is keyed on: the situation's slot in the caller's own list,
@@ -707,7 +727,12 @@ pub fn call_offense_memo(
     let mut fake = pass && rng.chance(p_fake);
     let drop = pass && !fake;
     let want = staff.guide.personnel.pull().or(ctx.lean.personnel.map(|p| (p, PERSONNEL_LEAN)));
-    let personnel = pick_personnel(scheme, short, hurry, drop, tell, ctx, want, rng);
+    // The group fits the call (lane SF2, item 1): the fake comes from the
+    // run's groups, not the dropback's. 2024 NFL on 1st and 10, screens,
+    // RPOs and sneaks left out: 12 personnel on 36% of runs, 37% of play
+    // action and 23% of straight dropbacks; 13 on 5.5%, 5.6% and 2.4%
+    // (nflverse with FTN charting).
+    let personnel = weigh(rng, Groups::of(scheme, short, hurry, drop, tell, ctx, want).all());
     let gun_lean = match scheme {
         OffScheme::AirRaid | OffScheme::SpreadOption => 0.92,
         OffScheme::WestCoast => 0.6,
@@ -910,87 +935,118 @@ fn call_why(staff: &Staff, mem: &Memory, sit: &Situation, call: &OffCall) -> &'s
     }
 }
 
-/// Personnel by scheme and situation, with the caller's tell: a
-/// predictable one goes heavy to run and light to throw. The head coach's
-/// personnel identity (update 2, G2) wins some of the normal downs by its
-/// firmness; short yardage and the hurry-up keep their own groups.
-#[allow(clippy::too_many_arguments)]
-fn pick_personnel(
-    scheme: OffScheme,
-    short: bool,
-    hurry: bool,
-    pass: bool,
-    tell: f64,
-    ctx: &OffCtx,
-    want: Option<(Personnel, f64)>,
-    rng: &mut Rng,
-) -> Personnel {
-    let has_fb = ctx.has_fb;
-    let heavy = 1.0 + if pass { -2.0 * tell } else { 2.0 * tell };
-    // The NFL rarely goes to four receivers: 10 personnel is 1.0% of real
-    // dropbacks, against 72% in 11 and 18% in 12 (nflverse participation
-    // 2023-24); college and high school spread teams live in it. NFL
-    // callers weigh it at a tenth and stay in 11 when they hurry (minor bug
-    // 137: 19% of NFL dropbacks came from 10 personnel; proposed, not
-    // confirmed).
-    let nfl = ctx.level == Level::NFL;
-    let p10 = if nfl { 0.1 } else { 1.0 };
-    let personnel = if hurry {
-        if rng.chance(if nfl { 0.95 } else { 0.7 }) { Personnel::P11 } else { Personnel::P10 }
-    } else if short {
-        weigh(
-            rng,
-            &[
-                (Personnel::P12, 3.0),
-                (Personnel::P22, if has_fb { 2.0 } else { 0.0 }),
-                (Personnel::P13, if ctx.te_count >= 3 { 1.5 } else { 0.0 }),
-                (Personnel::P21, if has_fb { 1.5 } else { 0.0 }),
-            ],
-        )
-    } else {
-        let h = heavy.max(0.2);
-        match scheme {
-            OffScheme::AirRaid => weigh(rng, &[(Personnel::P10, p10 * 4.0 / h), (Personnel::P11, 6.0)]),
-            OffScheme::WestCoast => weigh(
-                rng,
-                &[
-                    (Personnel::P11, 6.0),
-                    (Personnel::P12, 2.5 * h),
-                    (Personnel::P21, if has_fb { 1.5 * h } else { 0.0 }),
-                ],
-            ),
-            OffScheme::WideZone => weigh(
-                rng,
-                &[
-                    (Personnel::P11, 5.0),
-                    (Personnel::P12, 2.5 * h),
-                    (Personnel::P21, if has_fb { 2.5 * h } else { 0.0 }),
-                ],
-            ),
-            OffScheme::PowerGap => weigh(
-                rng,
-                &[
-                    (Personnel::P11, 4.0),
-                    (Personnel::P12, 3.5 * h),
-                    (Personnel::P21, if has_fb { 2.0 * h } else { 0.0 }),
-                    (Personnel::P22, if has_fb { 0.8 * h } else { 0.0 }),
-                ],
-            ),
-            OffScheme::SpreadOption => weigh(rng, &[(Personnel::P11, 6.0), (Personnel::P10, p10 * 3.0 / h)]),
-            OffScheme::WingT => weigh(
-                rng,
-                &[
-                    (Personnel::P21, if has_fb { 5.0 } else { 0.0 }),
-                    (Personnel::P22, if has_fb { 2.0 } else { 0.0 }),
-                    (Personnel::P12, 3.0),
-                ],
-            ),
+/// The groups a call draws its personnel from (lane SF2, item 1), each one
+/// the roster can field (`available`), with its weight: at most eight, on
+/// the stack, since every call works them out.
+struct Groups {
+    items: [(Personnel, f64); 8],
+    n: usize,
+}
+
+impl Groups {
+    /// The call's groups (lane SF2, item 1). Short yardage and the
+    /// hurry-up keep their own. On other downs: the scheme's weights, the
+    /// head coach's personnel identity (update 2, G2) or the group your
+    /// word needs as a lean on top (its firmness times the table's whole
+    /// weight), then each group's fit to the call. Each wide receiver a
+    /// group trades for a blocker (`Personnel::heavy_fit`) leans it toward
+    /// the run's looks, runs and throws off a run fake alike, by the
+    /// caller's tell, and away from a straight dropback (`drop`) by the
+    /// same: a predictable caller matches his groups to his calls, a
+    /// creative one shows the same looks for both. The fit is the fielded
+    /// group's, so a lean to 13 with two healthy tight ends fits like 12.
+    #[allow(clippy::too_many_arguments)]
+    fn of(
+        scheme: OffScheme,
+        short: bool,
+        hurry: bool,
+        drop: bool,
+        tell: f64,
+        ctx: &OffCtx,
+        want: Option<(Personnel, f64)>,
+    ) -> Groups {
+        let has_fb = ctx.has_fb;
+        let fb = |w: f64| if has_fb { w } else { 0.0 };
+        // The NFL rarely goes to four receivers: 10 personnel is 1.0% of real
+        // dropbacks, against 72% in 11 and 18% in 12 (nflverse participation
+        // 2023-24); college and high school spread teams live in it. NFL
+        // callers weigh it at a tenth and stay in 11 when they hurry (minor bug
+        // 137: 19% of NFL dropbacks came from 10 personnel; proposed, not
+        // confirmed).
+        let nfl = ctx.level == Level::NFL;
+        let p10 = if nfl { 0.1 } else { 1.0 };
+        if hurry {
+            let p11 = if nfl { 0.95 } else { 0.7 };
+            return Groups::new(&[(Personnel::P11, p11), (Personnel::P10, 1.0 - p11)], ctx);
         }
-    };
-    let personnel = match want {
-        Some((p, k)) if !hurry && !short && p != personnel && rng.chance(0.55 * k) => p,
-        _ => personnel,
-    };
+        if short {
+            let te3 = if ctx.te_count >= 3 { 1.5 } else { 0.0 };
+            return Groups::new(
+                &[(Personnel::P12, 3.0), (Personnel::P22, fb(2.0)), (Personnel::P13, te3), (Personnel::P21, fb(1.5))],
+                ctx,
+            );
+        }
+        let table: &[(Personnel, f64)] = match scheme {
+            OffScheme::AirRaid => &[(Personnel::P10, p10 * 4.0), (Personnel::P11, 6.0)],
+            OffScheme::WestCoast => &[(Personnel::P11, 6.0), (Personnel::P12, 2.5), (Personnel::P21, fb(1.5))],
+            OffScheme::WideZone => &[(Personnel::P11, 5.0), (Personnel::P12, 2.5), (Personnel::P21, fb(2.5))],
+            OffScheme::PowerGap => {
+                &[(Personnel::P11, 4.0), (Personnel::P12, 3.5), (Personnel::P21, fb(2.0)), (Personnel::P22, fb(0.8))]
+            }
+            OffScheme::SpreadOption => &[(Personnel::P11, 6.0), (Personnel::P10, p10 * 3.0)],
+            OffScheme::WingT => &[(Personnel::P21, fb(5.0)), (Personnel::P22, fb(2.0)), (Personnel::P12, 3.0)],
+        };
+        let mut g = Groups::new(table, ctx);
+        if let Some((p, k)) = want {
+            let total: f64 = table.iter().map(|x| x.1).sum();
+            g.add(available(p, ctx), k * total);
+        }
+        // The wing-T plays from its own sets whatever the call. For any
+        // other caller, a group's share of the straight dropbacks over its
+        // share of the runs and fakes, against 11's, is 0.43 for 12
+        // and 21, 0.28 for 13 and 0.18 for 22 when he is typical. Real 2024
+        // NFL on normal downs (no short yardage, two-minute drill or garbage
+        // time; nflverse with FTN charting), against 12's: 0.67 for 13 and
+        // 0.30 for 22 (1st and 10 alone: 0.85 and 0.46); here 0.65 and 0.43.
+        if scheme != OffScheme::WingT {
+            let h = (1.0 + if drop { -2.0 * tell } else { 2.0 * tell }).max(0.2);
+            for x in &mut g.items[..g.n] {
+                x.1 *= x.0.heavy_fit(h);
+            }
+        }
+        g
+    }
+
+    /// The table's groups as the roster can field them, the same group's
+    /// weights together.
+    fn new(table: &[(Personnel, f64)], ctx: &OffCtx) -> Groups {
+        let mut g = Groups { items: [(Personnel::P11, 0.0); 8], n: 0 };
+        for &(p, w) in table {
+            g.add(available(p, ctx), w);
+        }
+        g
+    }
+
+    fn add(&mut self, p: Personnel, w: f64) {
+        match self.items[..self.n].iter_mut().find(|x| x.0 == p) {
+            Some(x) => x.1 += w,
+            None => {
+                self.items[self.n] = (p, w);
+                self.n += 1;
+            }
+        }
+    }
+
+    fn all(&self) -> &[(Personnel, f64)] {
+        &self.items[..self.n]
+    }
+}
+
+/// The group the roster can field: fewer than two healthy tight ends make
+/// 12, 22 and 13 into 11, fewer than three make 13 into 12, and 21 and 22
+/// need a fullback.
+fn available(personnel: Personnel, ctx: &OffCtx) -> Personnel {
+    let has_fb = ctx.has_fb;
     let te = ctx.te_count;
     let personnel = if te < 2 && matches!(personnel, Personnel::P12 | Personnel::P22 | Personnel::P13) {
         Personnel::P11
@@ -1308,6 +1364,10 @@ fn sticks_depth(c: &PassConcept) -> f64 {
         .fold(0.0, f64::max)
 }
 
+/// The pass concept, among the concepts the group can run as the rule
+/// book fields it (lane SF2): at least one of its reads on the field (13
+/// and 22 personnel have no flanker for the tunnel screen; the CFL's and
+/// arena football's sets for them do).
 #[allow(clippy::too_many_arguments)]
 fn pick_concept(
     staff: &Staff,
@@ -1319,8 +1379,16 @@ fn pick_concept(
     rng: &mut Rng,
     memo: Option<(&mut CallMemo, usize)>,
 ) -> usize {
+    let fielded = Formation { personnel: f.personnel.for_players(ctx.players), ..*f };
+    // The library's concepts by their bits (every pass call reads them);
+    // designed plays as they are.
+    let library = readable_library(fielded.personnel);
+    let fits = |i: usize| {
+        if i < PASS_CONCEPTS.len() { (library >> i) & 1 == 1 } else { readable(pass_concept(i), &fielded) }
+    };
+    let draw = |rng: &mut Rng, w: &[(usize, f64)]| weigh_where(rng, w, fits).unwrap_or_else(|| weigh(rng, w));
     let Some((m, slot)) = memo else {
-        return weigh(rng, &concept_weights(staff, mem, sit, f, ctx, fake));
+        return draw(rng, &concept_weights(staff, mem, sit, f, ctx, fake));
     };
     // The weights read the formation only for a boot from the gun, an empty
     // set and, with designs on the sheet, the personnel.
@@ -1333,7 +1401,7 @@ fn pick_concept(
             m.concepts.len() - 1
         }
     };
-    weigh(rng, &m.concepts[k].1)
+    draw(rng, &m.concepts[k].1)
 }
 
 /// Each pass concept's weight on this snap, before `weigh` draws from them.

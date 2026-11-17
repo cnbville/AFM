@@ -269,6 +269,7 @@ fn main() {
                 favs: Vec::new(),
                 tells: film_tells(&teams[h].film),
                 designs: Vec::new(),
+                players: rules.code.players,
             };
             let card = kickoff_card(&teams[h], &inp);
             boxes += card.sheet.len();
