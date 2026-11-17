@@ -3587,12 +3587,15 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
     super::following::day(w, today);
 
     // --- NIL collectives and their warnings -------------------------------------------
+    // The fever lifts the collective's money too, once the drives live
+    // (Capital lane C3, CP9).
+    let fevers = if super::capital::live(w) { super::capital::fever::all(w) } else { vec![0.0; w.programs.len()] };
     for i in 0..n {
         let win = if results[i].games() > 0 { results[i].win_pct() } else { 0.5 };
         let before = w.programs[i].collective.boosters();
         let mut rng: Rng = w.rng.fork();
         let walk = super::folk::boss::booster_push(w, i);
-        let level = program::update_collective(&mut w.programs[i], win, year + 1, walk, &mut rng);
+        let level = program::update_collective(&mut w.programs[i], win, year + 1, walk, fevers[i], &mut rng);
         let p = &w.programs[i];
         // Collectives exist from July 2021 (11.5).
         if w.recording && level > 0 && p.division != Division::JUCO && super::ncaa::nil_era(year) {

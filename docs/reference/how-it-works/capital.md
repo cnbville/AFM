@@ -1,6 +1,6 @@
 # Capital: how it works today
 
-Checked against main 14d72d6c plus lanes C1 (the donors) and C2 (the rooms and the campus) on 2026-11-17.
+Checked against main e2d6a3d plus lane C3 (the money and the drive) on 2026-11-17.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`, `app/` or `data/`. Capital's spec is `docs/design/capital.md`; each lane adds its section here. Every size on this page is Claude's (proposed, not confirmed) unless the spec gives it.
 
@@ -18,7 +18,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`,
 - Who does an ex-pro remember? Every head coach and position coach he had at that school, warmth 0.63 and 0.08 more for each further season, to 0.9 (`expros.rs`, `ex_pro`).
 - Can two schools court one donor? Yes: 7% of new donors have ties to a second four-year school in their state ("made in Austin"), which pulls 20-60% of his giving; `donors::of` lists him for both (`donors.rs`, `second_school`, `TWO_SCHOOLS`, `Donor::schools`).
 - Do donors die? Yes, on a Gompertz curve near the SSA life table (0.3% a year at 50, 2% at 70, 5% at 80), times 0.8 for the wealthy; 3% of the rest drift off the list each year; the program fills back to its target (`donors.rs`, `year`).
-- Does the store change the world? No. Nothing reads it yet (lanes C3 and C4 will), and its draws are keyed on the seed and the donor (`world/capital/mod.rs`, `draw`); `tests/capital.rs`, `the_world_plays_the_same_with_the_donors`.
+- Does the store change the world? The donors alone don't: their draws are keyed on the seed and the donor (`world/capital/mod.rs`, `draw`; `tests/capital.rs`, `the_world_plays_the_same_with_the_donors`). From the handover season lane C3's drives read them and decide every program's buildings, so the world's future changes; its past stays the same per seed.
 
 ## The donors (lane C1)
 
@@ -109,6 +109,61 @@ What isn't built yet: more official visitors a weekend (the game has no weekend 
 ### Where the knobs are
 
 `world/capital/rooms.rs`: `Room::weight` (each room's share), `AGE_A_YEAR` 0.1, `built_level` ($4M a room reads 3, each doubling 0.83 more, 1.5-5), `optional_share`, `plots`, `renovation_cost` (the tier's building × the room's share / 0.85 × 0.4), `renovation_chance` (0.02 + 0.265 × levels behind, at most 0.7, 0.4 times with the department in the red, none under half a level), `TEMPORARY_MOOD` 0.04, each tool's slope and caps above, `campus_life_want` (0.02 + 0.14 × u³ − 0.02 × professionalism z, 0.01-0.22).
+
+## Lane C3: the money and the drive
+
+### Quick answers
+
+- What starts the fever? Big moments (CP7): a national title 1.0, the Heisman 0.75, a conference title and a top-10 pick 0.5 each (the pick is half a national title), the playoff 0.25, a bowl win 0.12, a rivalry win 0.08 (`world/capital/fever.rs`, `What::strength`). They are read off the college season once it is over (titles, the bracket, bowls, rivalry games, the Heisman) and off the draft on 15 May (its first ten picks, by the college each came from) (`fever::day`).
+- How does it fade and stack? Each moment counts (1 - months / 24)² of its strength, so it fades fast at first and is gone at two years; the fever is 1 - e^-sum, so a run stacks toward the top without passing it (`fade`, `fever_on`). A conference title alone reads 0.39 the day it is won and 0.056 by the spring after the next season; a title in 2027 and a title and the playoff in 2028 read 0.49 in March 2029 (`tests/capital_drive.rs`, `the_fever_starts_on_big_moments_stacks_and_fades`).
+- What does the fever do? A donor's yes chance x (1 + 0.5 x fever) and his gift x (1 + 0.4 x fever) (`gifts.rs`, `FEVER_CHANCE`, `FEVER_SIZE`); a drive starts more often (`drive.rs`, `START_FEVER`); and the collective's yearly growth gains 0.05 x fever once the drives live (`program.rs`, `COLLECTIVE_FEVER`, CP9). Your program's every moment is a news line ("Donors answer the title"), and the big ones at the Power 4.
+- What is the drive? Every program's capital campaign for one building, in its real stages: a five-month feasibility study, the quiet phase, the public phase and the close, the building going up on its own clock (`drive.rs`, `Drive`, `Stage`). On screen it is "the drive" (CP12). No screen shows it yet (lane CS3).
+- Who starts one? Each July once the rooms live, every program's AD on the same rule (CP27): 4% + 0.7 x (the AD's target over the facilities number) + 0.2 x fever + up to 10% for money in the bank (less in the red) + 5% for a big booster, at most 45%; not while a drive or a project is under way, nor for three years after a shelved one (`drive::year`). It replaces the ADs' old July decisions (`finance/college.rs`, `facility_decisions`), which still build the world's past. Asking your AD for a facility (`ask_facility`, the boss's facility ask) opens a study once the rooms live.
+- What building? The tier's: the Power 4 a football building ($140M in 2024 dollars), the rest of the FBS an operations center ($40M), FCS an indoor practice facility ($14M), below a weight room and locker room ($3M), each x 0.85-1.15 (`kind_for`). A size holds the full building's rooms, biggest first, to its share of their weight: the full complex, mid-size (0.75) or smaller (0.5) (`Size`, `rooms_for`).
+- What is the goal? The share of the cost the drive raises from donors: Power 4 0.75, the rest of the FBS 0.4, FCS 0.12, below 0.06; the department's bonds and the university carry the rest, more the smaller the program (`FUND_SHARE`, `goal_for`; fitted on the world check below so each level builds about as before).
+- What does the study say? What each donor would give (`gifts::expected`), plus what earlier pledges left and the small gifts, for each size; it advises the biggest size whose goal it covers nine tenths of, and names the lead donors (the three biggest gifts, each at least 8% of the goal) (`study`). An AI program shelves a drive the study can't advise; on a fever of 0.5 or more it goes a size bolder 30% of the time.
+- How does a donor say yes? Chance 0.45 + 0.6 x (affinity - 0.5) + 0.8 x (warmth toward the coach in the room - 0.5) + 0.4 x (last two seasons' win share - 0.5), within 0.03-0.9, then x the fever's lift, x 0.6-1.0 for a building with or without a room he wants, x (0.4 + 0.6 x his building side); his gift a share of his capacity: 0.6 x (0.5 + affinity) x the fever's lift x (0.3 + 0.7 x building side) x 1 or 0.6 for his room x (0.8 + 0.4 x the office) x (0.7 + 0.6 x warmth), times his school's pull (CP28) (`gifts::odds`). His building side is (1 + `nil_lean`) / 2.
+- Who asks whom? Each month the development office asks each donor of the stage's list with chance 0.25: the quiet phase the top half by capacity, the public phase everyone; a donor who gave is not asked again (`asks`, `OFFICE_PACE`). A lead gift needs the head coach in the room: an AI head coach meets each lead donor with chance 0.2 a month; your lead donors wait for you (lane C4's slots, or `gifts::ask`) when you work the drive yourself, and give the office only a courtesy gift (a quarter) when you leave it to the office (CP14, `COURTESY`). Your drive starts with the office running it.
+- When does it go public? At half the goal (CP16: real campaigns wait for about that), or after two quiet years with 35% in; short of that it drops a size and tries a year more, and at the smallest is shelved (`stage_checks`). You can go public earlier (`go_public`); an AI program does on a fever of 0.5 with a quarter in, half the time. A launch before half is early: if the next season is a losing one, the drive stalls in public (gifts at half the chance for a year, a news line, your AD's trust -0.04) (`stall_check`).
+- When does ground break? At four fifths of the goal, whatever the stage (`BREAK`, `break_ground`). The building goes in the books with what is pledged and opens the July after it is done (two years for a building, 15 months for an indoor field, 11 for a weight room and locker room).
+- When does it close? At the goal or after two public years; the small gifts come half at the launch and half at the close (8% of the goal x (1 + fever) x (0.7 + 0.6 x win share)). Short of the line for its size, the biggest size the money builds breaks ground; if none, it is shelved and its pledges wait for the next drive (`close`, `shelve`).
+- What does the goal cost me? At your program (CP15): a goal hit lifts the AD's trust 0.06 (0.1 for a goal bolder than the study's); a miss of 15% or more is in the papers and costs 0.05 (0.1 bold) (`TRUST_*`, `MISS`). You set the goal before it goes public (`set_goal`).
+- Can I borrow? Yes (CP11, `push_borrow`): with half the goal in, ask the AD to break ground now, or to build a size bigger; he says yes at 0.35 + 0.8 x (trust - 0.5) + the department's money (±0.2) + 0.2 x fever, once a money year. Bonds past his line cost the books 7.5% a year for 22 years, and half of that comes out of football's staff pool, at most a quarter of it: a $60M push at a $24M pool is about 9% (`staff_cut`, in `finance/college.rs`, `open_year`). An AI drive a year in with half its goal, the fever at 0.3 or money in the bank, pushes 30% of Julys.
+- What about the NIL pot? Each building gift from a donor who leans to NIL takes (1 - building side) x half a year's payment out of the collective's base, all of a year's when you pushed him past his lean (CP9, `NIL_DENT`, `NIL_DENT_PUSHED`). In your own ask (`gifts::ask`) a donor whose side is under 0.4 says he'd rather pay your players, and one over 0.6 he'd rather build, unless you push (his chance x (0.5 + his side), his warmth -0.04); a NIL yes adds a third of the gift a year to the collective. One NIL ask a donor a year.
+- What are catches? A gift's hidden strings (CP10): chance 0.6 x the donor's `collects`, the kind from his wants (his nephew's walk-on spot, a say in a coordinator hire, the sideline and the team plane, a look for a kid from his old high school, his name on the end zone), called a year to three later (`gifts::give`, `Catch`). The staff's read is "Likes to collect", "Likes to be thanked" or "Gives and lets go" through the office's error (`screen::catch_read`). An AI program's AD grants 60%; yours rings as a news line and waits 30 days for `answer_catch`, then the AD answers. Granted: his warmth +0.05 (a say in a hire costs your AD's trust 0.02); refused: -0.2, and he pulls the rest with chance `collects`.
+- What about overruns? 35% of buildings, 5-30% over, come up half a year after ground breaks (CP24). You choose (`fix_overrun`): cut rooms (the smallest go until their weight covers it), wait (it opens a year later and the drive reopens a year to raise it) or borrow (bonds with the staff pool cost). The AD waits 30 days, then waits; an AI program cuts rooms at 15% or more, borrows with money in the bank or a fever of 0.3, else waits (`building`, `apply_fix`).
+- What happens to a pulled pledge? Before ground breaks it is money the drive lacks; after, the books carry it as bonds, and one that leaves the building under four fifths of what broke ground sets it back a year (`building`, CP5).
+- What about estates? Lane C1's estate gifts go into the program's drive, one restricted to a room once a drive holds it, or after three years (`gifts::estates`). Pledges pay a year each July (`gifts::pay`).
+- Does it change the world? Yes, from the handover season: the drives decide every program's buildings, and the fever lifts the collectives. The past is the same per seed (the drives and the collective's lift wait for the rooms to live, `capital::live`).
+
+### Your calls (no screen yet; lane CS3)
+
+`drive::set_goal`, `go_public`, `hands_on`, `push_borrow`, `fix_overrun`; `gifts::ask` (building or NIL, pushed or not; lane C4's donor slots call it) and `answer_catch`. Each is the engine's; no `Game::call` command wraps them yet.
+
+### Where the knobs are
+
+- `world/capital/fever.rs`: `What::strength`, `FADE_MONTHS` 24.
+- `world/capital/gifts.rs`: `BASE_YES` 0.45, `YES_AFFINITY` 0.6, `YES_WARMTH` 0.8, `YES_WINS` 0.4, `FEVER_CHANCE` 0.5, `FEVER_SIZE` 0.4, `BASE_SHARE` 0.6, `OFF_ROOM` 0.6, `NIL_DENT` 0.5, `NIL_DENT_PUSHED` 1.0, `PUSH_WARMTH` -0.04, `RATHER` 0.4, `COURTESY` 0.25, `CATCH` 0.6, `AD_GRANTS` 0.6, `CATCH_KEPT` 0.05, `CATCH_REFUSED` -0.2, `CATCH_DAYS` 30; pledge years in `years_for`.
+- `world/capital/drive.rs`: `STUDY_MONTHS` 5, `LAUNCH` 0.5, `BREAK` 0.8, `PUSH_BREAK` 0.5, `QUIET_MAX` and `PUBLIC_MAX` 24, `ADVISE` 0.9, `LEAD_SHARE` 0.08, `LEADS` 3, `OFFICE_PACE` 0.25, `AI_MEET` 0.2, `CROWD` 0.08, `STALL` 0.5, `FUND_SHARE`, `OVERRUN` 0.35, `BOND_RATE` 0.075, `BOND_YEARS` 22, `STAFF_SHARE` 0.5, `STAFF_CUT_MAX` 0.25, `ANSWER_DAYS` 30, the `TRUST_*`, `MISS` 0.15, `START_BASE` 0.04, `START_GAP` 0.7, `START_FEVER` 0.2, `SHELVED_WAIT` 3; the buildings in `kind_for`, build times in `build_days`.
+- `world/program.rs`: `COLLECTIVE_FEVER` 0.05.
+
+### The world check
+
+Seed 181, 10 years of history, scale 0.05, every game on the stand-in, six seasons on (`facilities_check rooms 181 10 0.05 6`), against the same world on main before the lane (about 35 minutes each). The past is the same: both read the same at the handover (FBS mean 0.633). After six seasons:
+
+| Level | Facilities, before | Facilities, with drives | New buildings in six Julys, before | With drives |
+|---|---|---|---|---|
+| Power 4 | 0.743 | 0.732 | 41 | 43 |
+| Rest of the FBS | 0.501 | 0.493 | 28 | 27 |
+| FCS | 0.172 | 0.165 | 61 | 34 |
+| Division II | 0.083 | 0.084 | 37 | 28 |
+| Division III | 0.074 | 0.061 | 72 | 34 |
+| NAIA | 0.063 | 0.053 | 21 | 9 |
+
+- The FBS holds where the old decisions kept it (0.618 against 0.629). Below the FBS fewer buildings go up: three to five donors rarely carry a drive, so about 30 studies a year are shelved there. Before the lane Division III rose from 0.057 to 0.074 in six years; with drives it holds near 0.06.
+- In the sixth year: 57 studies opened, 35 buildings broke ground (20 full, 6 mid-size, 9 smaller), 44 campaigns closed and 34 hit their goal; raised against the goal 1.57 on average (lead gifts land in big pieces); 2 pushed to borrow, 10 overruns, 5 early launches; 136 catches waiting.
+- The Power 4 collectives run about 4% thinner (13.2M against 13.8M a year): building gifts from NIL-minded donors (CP9), partly met by the fever's lift.
+- The hottest programs each year are the champions (fever 0.7-0.85).
 
 ## Related pages
 

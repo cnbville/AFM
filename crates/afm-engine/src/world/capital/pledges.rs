@@ -31,6 +31,8 @@ pub struct Pledge {
     pub pulled: Option<Date>,
     /// The room it is for, in the spec's CP17 order.
     pub room: Option<u8>,
+    /// The drive it went to (lane C3; 0: waiting for the program's next).
+    pub drive: u32,
 }
 
 impl Pledge {
@@ -82,6 +84,7 @@ pub fn make(
         tied,
         pulled: None,
         room,
+        drive: 0,
     });
     id
 }

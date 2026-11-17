@@ -83,7 +83,7 @@ impl Room {
         Room::ALL.get(k as usize).copied()
     }
 
-    fn bit(self) -> u16 {
+    pub fn bit(self) -> u16 {
         1 << self as u16
     }
 
@@ -789,10 +789,16 @@ fn renovation_room(name: &str) -> Option<Room> {
 /// a level; a new building lifts its rooms to 4 or 5 by its money (each
 /// room's share in 2024 dollars, `built_level`), and goes on the map.
 pub fn open(w: &mut World, p: usize, name: &str, cost: f64, year: i32) {
+    let mask = project_rooms(&w.programs[p], name);
+    open_rooms(w, p, name, cost, year, mask);
+}
+
+/// A project opens with the rooms it holds (a drive's building after any
+/// rooms were cut, lane C3's CP24).
+pub fn open_rooms(w: &mut World, p: usize, name: &str, cost: f64, year: i32, mask: u16) {
     if !w.programs[p].campus.live {
         return;
     }
-    let mask = project_rooms(&w.programs[p], name);
     let money = cost / crate::world::finance::data::college_index(year).max(0.05);
     let prog = &mut w.programs[p];
     let c = &mut prog.campus;
@@ -817,8 +823,12 @@ pub fn open(w: &mut World, p: usize, name: &str, cost: f64, year: i32) {
 /// What a project would add to the number when it opens (its `step` in
 /// the books once the rooms live).
 pub fn rise(p: &Program, name: &str, cost: f64, year: i32) -> f64 {
+    rise_rooms(p, name, cost, year, project_rooms(p, name))
+}
+
+/// What a building holding `mask` would add to the number when it opens.
+pub fn rise_rooms(p: &Program, name: &str, cost: f64, year: i32, mask: u16) -> f64 {
     let mut q = p.campus.clone();
-    let mask = project_rooms(p, name);
     if let Some(r) = renovation_room(name) {
         let k = r as usize;
         q.level[k] = (q.level[k].max(1.0) + 1.0).min(5.0);

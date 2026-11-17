@@ -80,3 +80,20 @@ pub fn read(w: &World, p: usize, d: &Donor, met: u16) -> Read {
     let hi = band(est * sd.exp());
     Read { lo, hi, words: words(lo, hi) }
 }
+
+/// The staff's read on how much a donor likes to collect on a gift later
+/// (Capital lane C3, CP10): his hidden `collects` seen through the office's
+/// file on him (an error of 0.25 at the weakest office, less 0.15 x its
+/// quality, less 0.03 a meeting up to four, at least 0.05), in words.
+pub fn catch_read(w: &World, p: usize, d: &Donor, met: u16) -> &'static str {
+    let sd = (0.25 - 0.15 * office(w, p) - 0.03 * met.min(4) as f64).max(0.05);
+    let u1 = super::draw(w, 11, (d.id as u64) << 20 ^ p as u64).max(1e-9);
+    let u2 = super::draw(w, 12, (d.id as u64) << 20 ^ p as u64);
+    let z = (-2.0 * u1.ln()).sqrt() * (std::f64::consts::TAU * u2).cos();
+    let seen = d.collects as f64 + z * sd;
+    match seen {
+        x if x >= 0.45 => "Likes to collect.",
+        x if x >= 0.25 => "Likes to be thanked.",
+        _ => "Gives and lets go.",
+    }
+}
