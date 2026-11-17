@@ -159,7 +159,7 @@ Every kind of person has a list of real actions (the full list is 8.3). Whether 
 
 - **Your name with each group (built in parts):** the room, your recruiting trail name and the agents (P1 split `Mine.straight` three ways), your contacts' warmth (`Career.known`), your boss's trust (`boss.rs`), your public bar (`Mine.expectation`).
 - **Your record speaks (built):** your wins, your draft picks by position (`claims::Alumni`), your players developed. People check what you claim against it, as the recruit talks already do (lane 10).
-- **Your style (new):** what you do in talks builds how people see you. Blunt or soft, a screamer or calm, straight or a liar, a man who keeps his word or not. It fits some personalities and clashes with others: a coachable, competitive kid wants hard coaching, and a proud vet bristles at it. It reaches recruits through your players.
+- **Your style (new):** what you do in talks builds how people see you. Blunt or soft, a screamer or calm, straight or a liar, a man who keeps his word or not. It fits some personalities and clashes with others: a coachable, competitive kid wants hard coaching, and a proud vet bristles at it. It reaches recruits through your players. Designed in full and agreed 2026-11-17: `docs/design/coach-voice.md`.
 - **What you know (built):** your files, reads and notes. What people tell you goes into them.
 - **Your time (built):** talk hours, 10 a week in season and 16 out of it (`talks.rs`, `week_budget`). Each talk costs its real length (`dialogue.rs`, `TYPED_CHARS_A_MINUTE`). Calls and texts follow the NCAA rules of the era (`calendar/contact.rs`).
 
