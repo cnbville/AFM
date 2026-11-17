@@ -857,6 +857,8 @@ fn late(w: &mut World, d: Date) {
     timed("storylines", || super::storylines::day(w, d));
     // The systems to chase (update 2, lane 2) and the world's halls.
     timed("legacy", || super::legacy::day(w, d));
+    // Lane G9: every other staff works its ground (before your own road).
+    timed("ground ai", || super::ground::ai::day(w, d));
     timed("scouting", || super::scouting::day(w, d));
     // The hunts (SK67): yours, the AI's, the generational prospect.
     timed("hunt", || super::hunt::day(w, d));
