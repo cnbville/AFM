@@ -2,7 +2,7 @@
 
 Design, 2026-11-17, thread "Design coach and player bonds". Cain: "I want the players to have a more real life connection to the coach, i want the oppurtunity to build up to a father figure, everything should count, age difference, matching personalities."
 
-**Status: proposed, not confirmed.** Every size here is Claude's proposal. The seven questions in section 11 wait for Cain's yes or no. No game code.
+**Status: agreed 2026-11-17 20:13 UTC (Cain: "yes to all"), the design and the seven questions in section 11; `docs/handoff/decisions.md` section 28.** Every size not named in a question stays proposed, not confirmed. Not built.
 
 ## 1. What it does in the game
 
@@ -161,7 +161,7 @@ No number, as people topic 3 decided. On the player page, "You and him": the sta
 - **Memory.** One compact row per bond that has started, about 16 bytes plus up to 8 short moments: about 120,000 college and NFL players and high school rosters near your teams, 3-5 bonds each, about 10-20 MB. Measured against the memory diet (`docs/design/memory-diet.md`) in the build.
 - **Order.** After coach voice (built) and the world rebuild, as two world lanes on Opus high: B1 the store, growth, moments and the reads in section 7; B2 the downsides, the screens and the talk card. NFL position coaches' bonds wait for stored NFL staffs.
 
-## 11. Questions for Cain
+## 11. Questions for Cain (all agreed, 2026-11-17: "yes to all")
 
 **1. Should the age gap decide the kind of bond: a big brother under 12 years, a father figure from 12 to 40, a grandfather past 40?**
 Example: your 28-year-old receivers coach and a 19-year-old receiver become "like brothers" fast (a season to "In his corner"), but the receiver never calls him a father. You, at 52, take three seasons to get there, and can become "like a father". At 68 you're "like a grandfather": slowest to build, never breaks.
