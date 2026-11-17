@@ -16,7 +16,6 @@
  * slips. Every class is cpd- so the app's global names never restyle it. */
 "use strict";
 
-if (!NAV_SECS.some((s) => s[0] === "capital")) NAV_SECS.splice(NAV_SECS.findIndex((s) => s[0] === "team"), 0, ["capital", "Capital"]);
 I.cpdonor = '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M16 5a3.5 3.5 0 0 1 0 7M18 14.5c2.2.6 3.5 2.4 3.5 5.5"/>';
 navAdd({ go: "capitaldonors", label: "Donors", icon: "cpdonor", sec: "capital", seats: ["college"] });
 CRUMBS.capitaldonors = "Donors";
@@ -54,14 +53,14 @@ screens.capitaldonors = async (args) => {
   let v;
   try { v = await api("capital_donors", {}); } catch (e) {
     title("Donors", "Capital");
-    return `<div class="pad sl cpd"><section class="cpd-pb cpd-none"><div class="cpd-lab">Donors</div><b class="cpd-h">Donors are the head coach's to court.</b>
+    return `<div class="pad sl cpd">${capTabs("capitaldonors")}<section class="cpd-pb cpd-none"><div class="cpd-lab">Donors</div><b class="cpd-h">Donors are the head coach's to court.</b>
       <p>${esc(e.message || "You're not the head coach of a college program.")} At a program where you are, your donors appear here, with the fever after your big moments.</p></section></div>`;
   }
   if (args && args.id) { CPD.id = +args.id; delete args.id; }
   const all = v.donors;
   title("Donors", v.program);
   if (!all.length) {
-    return `<div class="pad sl cpd">${cpdTop(v, all)}${cpdFever(v.fever)}<section class="cpd-pb cpd-none"><div class="cpd-lab">No donors yet</div><b class="cpd-h">The development office has no names for you yet.</b>
+    return `<div class="pad sl cpd">${capTabs("capitaldonors")}${cpdTop(v, all)}${cpdFever(v.fever)}<section class="cpd-pb cpd-none"><div class="cpd-lab">No donors yet</div><b class="cpd-h">The development office has no names for you yet.</b>
       <p>Programs below the Power 4 keep fewer. Winning brings more, and your boosters in the talks are on this list when it fills.</p></section></div>`;
   }
   const list = cpdSort(all);
@@ -70,7 +69,7 @@ screens.capitaldonors = async (args) => {
   let wk = null;
   try { wk = await api("capital_week", {}); } catch (e) { wk = null; }
   setTimeout(cpdFaces, 30);
-  return `<div class="pad sl cpd">${cpdTop(v, all)}${cpdFever(v.fever)}
+  return `<div class="pad sl cpd">${capTabs("capitaldonors")}${cpdTop(v, all)}${cpdFever(v.fever)}
     <div class="cpd-grid"><div class="cpd-col">${cpdList(list)}</div>
       <div class="cpd-col side">${cpdPage(sel, v)}${cpdBook(sel, v, wk)}</div></div></div>`;
 };
