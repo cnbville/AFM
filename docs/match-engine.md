@@ -1193,6 +1193,59 @@ Still off:
 
 `fire_check` (`crates/afm-tools/src/bin/fire_check.rs`) is the lane's tool: `hits <level>` for the big hit's line and the fire counts a team game, `talks <level>` for the AI coaches' picks against main's, `run [games] [seed] [stakes]` for the rooms (stakes 0.8 for a playoff game).
 
+## Play action that works (scheme-fit lane SF1, item 3, 2026-11-17)
+
+Design: `docs/design/scheme-fit.md`, item 3 (Cain: yes, "result breaking"), and his pick on 2026-11-17, "fake on any dropback play": play action is a tag any dropback concept can carry, and the coaches' table learns each concept with and without it. How it works: `docs/reference/how-it-works/match-engine.md`, "Play action", and `play-calling.md`, "Play action". Real numbers are FTN charting with nflverse play-by-play (screens and RPOs left out): 2024 for the spec's targets, 2022-2025 for the call habit. Every size is Claude's, proposed, not confirmed.
+
+What was wrong:
+
+- **The fake was a straight drop with a pause.** The quarterback backed up for 0.35 s more with no back meeting him, the line pass-set as on any dropback, and only the readers' clocks moved. The rush came at once into a quarterback who was later to his set: 21.6% of play-action dropbacks were sacks (real 6.6%), worth -0.04 EPA a dropback on the test league (real +0.15).
+- **The boot ran into the rush.** It kept the standard protection, and the quarterback set 7 yards toward the strength side, where his tackle was already blocking: 47% sacked (real 5.7% on boots and rollouts).
+- **Only three concepts could fake** (the shot, the dig and the boot), so play action was 7.8% of NFL dropbacks (real 21.2%).
+- **Nobody counted the back.** He was faking when the protection was set, so every six- and seven-man play-action call was a blocker short.
+
+What changed (`game/scrimmage.rs`, `game/sim.rs`, `game/calling.rs`, `game/playbook.rs`, `game/sheet.rs`, `game/tables.rs`, `game/flow.rs`):
+
+- **The tag and the call.** Any dropback concept but the RPO halves and the three play-action concepts (which fake already) can carry the fake; screens too (27% of real screens come off a fake). It is decided with the throw, before the look, so a fake comes from the run's own personnel and backfield. How often: the league's real habit for the down, distance, score, clock and field (`data/real-world/nfl_play_action_rate.csv`), leaned on the odds by the scheme (wide zone 1.75, wing-T 1.6, power 1.35, West Coast 1.0, spread option 0.7, Air Raid 0.55), by your word to a player promised play action, and by what the coaches' table says the fake adds against the looks this defense shows. A throw off the call sheet fakes at the caller's own habit too (the opening script's throws used to take the fake of the call they replaced, which a run never has).
+- **The fake.** The back takes the run's path through the mesh (0.8 s under center, 0.7 in the pistol, 0.6 in the shotgun), the quarterback rides it and pulls it, and the back carries the fake 0.45 s into the line before he takes his job in the pass. The quarterback finishes his drop 2 yards past the mesh, 0.45 s later to his set than on a straight drop.
+- **Who it holds.** Everyone who keys the backfield plays the run he is shown until he reads the pass (his own read time, which the fake already lengthens by his Play Recognition, Discipline and Downhill habit and the passer's Ball Handling against his level's typical starter): the rushers, the zone defenders, and a man on a tight end or a back. A man on a wide receiver has his eyes on his man. A fooled rusher in a block plays it as the run: he gets no nearer the passer, and the block stands where it is until he reads the pass.
+- **The protection.** With the back in it, a half-slide: the guard and tackle on the side he fakes to block the down linemen over them (the tackle has the end), the center and the far side slide a gap away, and the back has the first rusher left on his side from the center out. He blocks a free rusher who comes into him on his path, and from the mesh on his own man if that man comes and he sees him (Football IQ and Pass Blocking against the blitzer's Blitzing); otherwise he carries the fake, then blocks or releases. When he runs a route, the standard protection.
+- **The hot throw.** Once his eyes are back from the mesh (0.2 s after it under center, at once in the shotgun and the pistol), a passer with a free man coming can throw before he sets, by his own poise and blitz reading (`urgent`); the hot read's window runs the fake's 0.45 s later.
+- **The boot.** The guard on the boot side pulls to the end man there; the blocker who had the end takes the guard's man, and if nobody had him, a lineman with no man of his own blocks back on him. The quarterback keeps rolling outside and back toward the line, eyes downfield, and a back lined up on the ball runs his route to the side the quarterback rolls to (the back who fakes the run away from the roll runs his later, from where the fake left him).
+- **The coaches' table** (`data/call_values.csv`, `call_values`) has a play-action row for every concept that can carry the fake, played from the shotgun against every look, and a caller weighs the fake against the look as he weighs the concept.
+
+The league's play action (`match_check`, 2,000 games at each level, seed 1, every team on its own staff and call sheet; main, then after; real is the NFL, and no college charting is on file):
+
+| | NFL | FBS | High school | Real |
+|---|---|---|---|---|
+| play action, share of dropbacks | 7.8% to 19.8% | 7.1% to 20.1% | 8.3% to 19.7% | 21.2% |
+| the same on 1st, 2nd, and 3rd and 4th down (after) | 30.9%, 20.6%, 3.6% | 31.8%, 19.9%, 2.8% | 31.9%, 19.2%, 2.7% | 36.6%, 20.8%, 4.2% |
+| EPA a dropback, play action | -0.041 to +0.207 | -0.266 to +0.093 | -0.451 to +0.063 | +0.149 |
+| EPA a dropback, straight drops | +0.122 to +0.126 | +0.060 to +0.073 | -0.077 to -0.096 | +0.031 |
+| play action over a straight drop | -0.163 to +0.081 | -0.326 to +0.020 | -0.374 to +0.159 | +0.118 |
+| sacked, play action | 21.6% to 3.8% | 20.8% to 4.4% | 26.6% to 5.6% | 6.6% |
+| sacked, straight drops | 4.7% to 4.4% | 5.7% to 5.4% | 8.7% to 8.8% | 7.3% |
+| sacked, the boot | 46.6% to 2.2% | 42.5% to 3.0% | 36.8% to 1.5% | 5.7% (every play action that leaves the pocket) |
+| the boot, share of play action | 33.6% to 2.2% | 29.1% to 2.1% | 41.8% to 5.4% | (36% leave the pocket, flushed passers too) |
+| pressured, play action against straight drops | 1.91 to 0.93 times | 1.75 to 0.92 | 1.58 to 0.77 | 1.19 |
+| time to throw, play action and straight (s) | 3.19 and 2.41 to 2.80 and 2.39 | 3.33 and 2.50 to 2.91 and 2.49 | 3.58 and 2.57 to 3.09 and 2.57 | 3.15 and 2.66 |
+| yards an attempt, play action and straight | 11.25 and 7.37 to 8.46 and 7.21 | 9.52 and 7.18 to 7.92 and 7.10 | 8.80 and 6.48 to 7.85 and 6.38 | 8.60 and 6.93 |
+| air yards a play-action attempt (after) | 11.5 | 11.1 | 9.8 | 9.2 |
+| play-action throws behind the line (after) | 5.4% | 6.6% | 6.6% | 14.8% |
+| sacks a team game | 2.05 to 1.48 | 2.04 to 1.68 | 2.20 to 1.84 | 2.41 (FBS 2.00) |
+
+@@FIT@@
+
+@@QB@@
+
+@@TOT@@
+
+@@W181@@
+
+Speed (`match_check`, 2,000 games, the machine otherwise quiet, main and after in turn): NFL 20.0 s on main against 19.4 after, FBS 20.4 against 20.4, high school 15.2 against 15.1. No change past the noise.
+
+@@STILL@@
+
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).
 - `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl2022|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, college only; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams.

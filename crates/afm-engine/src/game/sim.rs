@@ -2406,8 +2406,10 @@ impl<'a> Sim<'a> {
             // A rusher still fooled by a play fake (scheme-fit item 3) plays
             // the block as the run it shows: he holds his ground and gets no
             // nearer the passer until he reads the pass, and his rush starts
-            // from wherever the block stands then.
-            let fooled = e.pass && self.fake.is_some() && t < self.agents[d].fooled_until;
+            // from wherever the block stands then. The fake ends for him, as
+            // for every man in `defend`, once the quarterback throws or
+            // leaves the pocket (`qb` is his only while he holds it there).
+            let fooled = e.pass && qb.is_some() && self.fake.is_some() && t < self.agents[d].fooled_until;
             // A stalled rush: once a rep, the rusher goes to his counter
             // when his plan says it beats the set better (topic 1).
             if e.pass && !fooled && !e.countered && e.w < -0.2 && t - e.start > 0.8 {
