@@ -860,10 +860,12 @@ pub fn one_trust(w: &World, i: usize, t: usize) -> f64 {
     }
 }
 
-/// His closeness to the club's head coach (coach and player bonds). 0
-/// until the bonds build stores a pro's bond with his head coach.
-fn bond_close(_w: &World, _i: usize, _t: usize) -> f64 {
-    0.0
+/// His closeness to the club's head coach (coach and player bonds,
+/// `folk::bonds::close`): yours when it is your club, the AI head coach's
+/// otherwise. 0 with no head coach or no bond.
+fn bond_close(w: &World, i: usize, t: usize) -> f64 {
+    let coach = w.nfl.get(t).and_then(|c| c.head_coach);
+    crate::world::folk::bonds::close(w, w.people[i].player.id, coach) as f64
 }
 
 /// How much the club wins, as a player who wants to win reads it: last
