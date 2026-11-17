@@ -344,7 +344,9 @@ fn risk(w: &World, i: usize, book: &Rulebook, room: f32, base: f32) -> f32 {
         .clamp(0.2, 3.0)
         * (1.0 - 0.03 * (age - 20.0)).clamp(0.6, 1.25)
         * if warned { 0.6 } else { 1.0 };
-    base * f * (0.6 + 0.12 * book.load())
+    // A high-need kid whose father figure left this year (coach and
+    // player bonds, section 8).
+    base * f * (0.6 + 0.12 * book.load()) * super::bonds::loss_risk(w, p.player.id)
 }
 
 /// Whether a team's level is in its rules season (camp to the bowls, and
@@ -962,6 +964,15 @@ pub(crate) fn carry_out(
     let pp = &mut w.people[i];
     pp.trust = (pp.trust + dt).clamp(0.0, 1.0);
     talks::mood_event(w, id, Reason::Discipline, dm);
+    // You stood by him with a fair punishment: the bond's hard moment
+    // (coach and player bonds, section 6). A dismissal leaves him.
+    if let Some(me) = w.career.as_ref().map(|k| k.coach) {
+        if resp == Response::Dismiss {
+            super::bonds::left_him(w, id, Some(me), super::bonds::What::Cut);
+        } else if gap.abs() <= 1 && room_gap.abs() <= 1 {
+            super::bonds::stood_by(w, id, me);
+        }
+    }
     // A firm, fair answer from a respected coach raises professionalism
     // over time (topic 1).
     if room_gap.abs() <= 1

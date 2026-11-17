@@ -210,8 +210,14 @@ pub fn size(w: &World, h: &Hit, wants: &[Want], open: &Open, line: u8) -> Option
         return stake(w, h, open, id);
     }
     let (bt, bm) = base(w, h.on, h.how);
-    // His trust in you colours everything (today's landing rule).
-    let ear = 0.6 + 0.8 * trust_of(w, h.on);
+    // His trust in you colours everything (today's landing rule), and a
+    // player close to you hears more (coach and player bonds: + 0.3 x
+    // closeness).
+    let close = match h.on {
+        Them::Player(id) => folk::bonds::ear_you(w, id),
+        _ => 0.0,
+    };
+    let ear = 0.6 + 0.8 * trust_of(w, h.on) + close;
     // The same thing, the same way, again: it fades in a talk, and a point
     // you made in an earlier talk counts as `Talked::again` says.
     let times = open.times(h);
