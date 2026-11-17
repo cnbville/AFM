@@ -901,32 +901,58 @@ fn boss_view(w: &World, him: Them) -> Vec<Known> {
     let (won, lost) = crate::world::folk::facts::record_now(w, team);
     if won + lost > 0 {
         v.push(k(Topic::Football, None, Source::Himself, 20.0, format!("the team is {won}-{lost} this season")));
+    } else if let Some(s) = crate::world::folk::facts::seasons(w, team, 1).last() {
+        // No game played yet this season: he knows how the last one went
+        // (Cain 2026-11-17, every talk at the very start of a career).
+        let note = if s.note.is_empty() { String::new() } else { format!(", {}", s.note) };
+        v.push(k(
+            Topic::Football,
+            None,
+            Source::Himself,
+            20.0,
+            format!("last season, {}, the team went {}-{}{note}", s.year, s.wins, s.losses),
+        ));
     }
     v
 }
 
-/// A coach on his unit or the team, asked with no one named: his unit's
-/// year and the team's record since he came (`claims::rooms::unit`), and
-/// always his own read from the tape, which he gives in his own words.
+/// A coach on his unit or the team, asked with no one named: his season
+/// review from what the world recorded (`review::review`: the record, his
+/// side's numbers in the conference, the games that got away, his starters
+/// and who missed games, the heaviest first, as far as his football
+/// knowledge reaches), never "his own read in general terms" (Cain
+/// 2026-11-17: a new coordinator asked about a 2-10 year had nothing to
+/// say). A man hired after the season says so. With no season on file, his
+/// record since he came and what practice has shown him.
 fn unit_view(w: &World, him: Them) -> Vec<Known> {
     let Them::Coach(c) = him else { return Vec::new() };
+    let m = makeup::makeup(w, him);
+    if let Some(r) = super::review::review(w, c, &m) {
+        return r.lines().into_iter().map(|l| k(Topic::Football, None, Source::Tape, 20.0, l)).collect();
+    }
     let mut v = Vec::new();
-    if let Some(u) = claims::rooms::unit(w, c) {
-        if let Some(y) = u.year_words() {
-            v.push(k(Topic::Football, None, Source::Himself, 20.0, y.trim_end_matches('.').to_string()));
-        }
-        if let Some(r) = u.record_words() {
-            v.push(k(Topic::Football, None, Source::Himself, 20.0, format!("the team is {r} since he took the job")));
-        }
+    if let Some(u) = claims::rooms::unit(w, c)
+        && let Some(r) = u.record_words()
+    {
+        v.push(k(Topic::Football, None, Source::Himself, 20.0, format!("the team is {r} since he took the job")));
     }
     v.push(k(
         Topic::Football,
         None,
         Source::Tape,
         20.0,
-        "his own read of the unit from the tape and practice: what it does well and where it falls short, in general terms".into(),
+        "no games of his here on file to go on yet, only what he has seen in practice and meetings".into(),
     ));
     v
+}
+
+/// The question is a coach of yours asked about his own unit (`unit_view`):
+/// his answer is a season review, given heaviest first, the rest on a push.
+pub fn is_unit_view(w: &World, him: Them, topic: Topic, about: Option<Them>) -> bool {
+    topic == Topic::Football
+        && matches!(him, Them::Coach(_))
+        && about.is_none_or(|a| a == him)
+        && makeup::kind(w, him) == super::wants::Kind::Staff
 }
 
 /// His own job here (`Topic::Job`): a coach of yours makes his case from
@@ -1106,11 +1132,7 @@ pub fn knows(w: &World, him: Them, topic: Topic, about: Option<Them>) -> Vec<Kno
         // holding the unit back?"): what he knows of its year, never "he
         // doesn't know" (the talks audit, 2026-11-16: a coordinator of three
         // seasons said he hadn't had time with the group).
-        Topic::Football
-            if matches!(him, Them::Coach(_))
-                && about.is_none_or(|a| a == him)
-                && makeup::kind(w, him) == super::wants::Kind::Staff =>
-        {
+        Topic::Football if is_unit_view(w, him, topic, about) => {
             return unit_view(w, him);
         }
         Topic::Football => return super::football::knows(w, him, about, &m),

@@ -1581,7 +1581,9 @@ fn holdover_open(w: &mut World, s: &mut Scene, team: Team) {
     }
     let old = w.folk.takeover.as_ref().and_then(|t| t.old_coach);
     let role = facts::coach_role(w, c);
-    let years = coach.job.map_or(0, |j| w.year - j.since);
+    // The seasons he has coached here, from the games (`rooms::unit`): a
+    // man hired after the last season has none, whatever the calendar says.
+    let years = super::claims::rooms::unit(w, c).map_or(0, |u| u.years);
     let mentor_old = old.is_some_and(|o| coach.mentor == Some(o));
     let name = coach.name.clone();
     s.who.push(Who::Coach(c));
@@ -1594,7 +1596,7 @@ fn holdover_open(w: &mut World, s: &mut Scene, team: Team) {
         "{} has been the {role} here {}. {}",
         coach_link(w, c),
         match years {
-            0 => "less than a year".to_string(),
+            0 => "less than a year, hired after the last season, and he hasn't coached a game here yet".to_string(),
             1 => "one season".to_string(),
             n => format!("{n} seasons"),
         },

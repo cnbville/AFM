@@ -107,6 +107,13 @@ impl Open {
         self.asked.iter().filter(|x| **x == about).count().min(255) as u8
     }
 
+    /// How many times you already asked him about this in the talk, his own
+    /// unit asked plainly or by name counted as one.
+    pub fn times_asked(&self, topic: Topic, about: Option<Them>, him: Them) -> usize {
+        let same = |a: Option<Them>| a == about || (a.is_none_or(|x| x == him) && about.is_none_or(|x| x == him));
+        self.questions.iter().filter(|q| q.0 == topic && same(q.1)).count()
+    }
+
     /// Whether you already asked him this question in the talk.
     pub fn asked_before(&self, topic: Topic, about: Option<Them>) -> bool {
         self.questions.contains(&(topic, about))
