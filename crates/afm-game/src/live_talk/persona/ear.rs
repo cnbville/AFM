@@ -355,6 +355,26 @@ pub fn keep_open(mut r: Reading, line: &str) -> Reading {
     r
 }
 
+/// A goodbye the ear read in your line doesn't close the talk on its own
+/// (it was a bit too sensitive, Cain 2026-11-17): the line counts as said
+/// with the end taken out, and the page asks "What you just said wrapped
+/// the talk up. Do you want to continue?" (Continue keeps the talk open,
+/// End is `talk_wrap`). "End the talk" typed out is still no question.
+/// Returns the reading and whether to ask.
+pub fn ask_wrap(mut r: Reading, line: &str) -> (Reading, bool) {
+    let l = line.to_lowercase();
+    let said_so =
+        ["end the talk", "end this talk", "end the call", "end this call", "end the meeting", "end this meeting"]
+            .iter()
+            .any(|x| l.contains(x));
+    let ends = r.acts.iter().any(|a| matches!(a, Act::End));
+    if !ends || said_so {
+        return (r, false);
+    }
+    r.acts.retain(|a| !matches!(a, Act::End));
+    (r, true)
+}
+
 pub fn reply(v: &Value) -> Option<EarReply> {
     let mut v = v.clone();
     if let Some(acts) = v.get_mut("acts").and_then(Value::as_array_mut) {

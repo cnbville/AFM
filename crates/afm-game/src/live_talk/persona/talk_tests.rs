@@ -267,6 +267,9 @@ fn an_insult_heats_him_and_ending_closes_the_talk() {
     f.push(EAR, Ok(ear(vec![act("end", "", "none", "")], vec![], false)));
     f.push(VOICE, Ok(voice("Yeah. Later, Coach.", "")));
     assert_eq!(say(&mut g, id, "We're done here.")["state"], "done");
+    // The goodbye asks first; End closes it.
+    assert!(!scene_of(&g, id).done);
+    ok(&mut g, "talk_wrap", json!({ "id": id }));
     let w = g.world.as_ref().unwrap();
     assert!(scene_of(&g, id).done, "the talk ended");
     assert!(store::open(w, id).is_none(), "its open state went");
