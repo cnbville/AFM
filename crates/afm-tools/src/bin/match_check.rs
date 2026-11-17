@@ -1163,6 +1163,10 @@ fn main() {
     ] {
         row(&format!("  {k}"), g(k) / n, Some(real));
     }
+    // Targeting (coach fire): college and high school only, the NFL calls
+    // those hits unnecessary roughness. FBS 0.031-0.043 a team game in
+    // 2022-2025 (cfbfastR play-by-play); no high school count.
+    row("  targeting", g("targeting") / n, matches!(level, Level::FBS).then_some(0.037));
     // The officials and the toss, per game (both teams): the targets in
     // docs/match-engine.md, "Live games, officials and the toss" (NFL 2024:
     // 133 coach's challenges in 285 games, 50 won; booth reviews about 0.7

@@ -215,6 +215,8 @@ struct HsPlayed {
     /// and his school when it's yours, for the news).
     #[allow(clippy::type_complexity)]
     results: Option<(HashMap<u32, crate::results::Man>, HashMap<u32, (usize, Option<super::stories::TeamKey>)>)>,
+    /// The men thrown out for a flagrant hit (coach fire, item 4).
+    ejected: Vec<crate::game::stats::HitFlag>,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -1738,9 +1740,11 @@ fn engine_games(
                 (ev, ids)
             });
             let injuries = std::mem::take(&mut r.injuries);
+            let ejected = r.stats.hit_flags().into_iter().filter(|f| f.ejected).collect();
             Ok(HsPlayed {
                 results,
                 injuries,
+                ejected,
                 score: [ha.max(0) as u32, hb.max(0) as u32],
                 team: r.stats.team.clone(),
                 lines,
@@ -1823,6 +1827,17 @@ fn engine_games(
         // medical staff.
         let side = [h, a].iter().position(|&x| seat == Some(x));
         crate::training::seat::game_injuries(w, day, &g.injuries, [0.0; 2], side);
+        // A disqualification sits the next game (coach fire, item 4).
+        if !g.ejected.is_empty() {
+            use super::folk::Team;
+            super::folk::rules::game_flags(
+                w,
+                Level::HighSchool,
+                [Team::High(h), Team::High(a)],
+                &g.ejected,
+                [&[], &[]],
+            );
+        }
         // The record store's game marks (update 3, lane L20).
         super::marks::hs_game(w, [h, a], g.score, &g.lines, g.neutral);
         let game_key = g.data.and_then(|p| w.tally_game(p));
