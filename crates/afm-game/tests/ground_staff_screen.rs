@@ -31,6 +31,8 @@ fn the_staff_rail_reads_each_mans_ground() {
         let areas = m["areas"].as_array().unwrap();
         assert!(!areas.is_empty() && areas.len() <= 3, "{m}");
         assert!(m["mood"].is_string() && m["style"].is_string());
+        // His head for the screen: initials always, the recipe when drawn.
+        assert!(m["face"]["id"].is_u64() && m["face"]["initials"].is_string(), "{m}");
         for a in areas {
             assert!(a["level"].is_string() && a["why"].is_string());
         }
@@ -49,6 +51,12 @@ fn the_staff_rail_reads_each_mans_ground() {
     // His page, the carousel and a candidate's signs.
     let page = ok(&mut g, "ground_staff_man", json!({ "man": m }));
     assert_eq!(page["man"], m);
+    assert!(page["face"]["id"].is_u64(), "his head");
+    assert!(page["mood"]["words"].is_string(), "the mood in words");
+    assert!(page["mood"].get("value").is_none(), "never the number");
+    for p in page["people"].as_array().unwrap() {
+        assert!(p["key"]["kind"].is_string() && p["key"]["id"].is_u64(), "each person opens by his key: {p}");
+    }
     let c = ok(&mut g, "ground_carousel", json!({}));
     assert!(c["courted"].is_null(), "nobody is after your men today");
     assert!(g.call("ground_counter", &json!({ "man": m, "kind": "title" })).is_err(), "nothing to counter");
