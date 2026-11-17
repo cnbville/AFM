@@ -1,6 +1,6 @@
 # Capital: how it works today
 
-Checked against main e2d6a3d plus lane C3 (the money and the drive) on 2026-11-17.
+Checked against main a5d9e29 plus lane C5 (the race and the press) on 2026-11-17.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`, `app/` or `data/`. Capital's spec is `docs/design/capital.md`; each lane adds its section here. Every size on this page is Claude's (proposed, not confirmed) unless the spec gives it.
 
@@ -164,6 +164,25 @@ Seed 181, 10 years of history, scale 0.05, every game on the stand-in, six seaso
 - In the sixth year: 57 studies opened, 35 buildings broke ground (20 full, 6 mid-size, 9 smaller), 44 campaigns closed and 34 hit their goal; raised against the goal 1.57 on average (lead gifts land in big pieces); 2 pushed to borrow, 10 overruns, 5 early launches; 136 catches waiting.
 - The Power 4 collectives run about 4% thinner (13.2M against 13.8M a year): building gifts from NIL-minded donors (CP9), partly met by the fever's lift.
 - The hottest programs each year are the champions (fever 0.7-0.85).
+
+## Lane C5: the race and the press
+
+### Quick answers
+
+- Can a rival's new room cost me a recruit, and will I be told? Yes (CP29). On the why-line of a recruit you offered who chose another school, the rooms are their own reason: what the facilities grade gave each school in his decision (its 0.1 term, taken out of "the name") plus what the locker room and the recruiting lounge added to his visits there (taken out of the rest). Ranked with the other reasons, it can be one of the two shown: "Georgia's new weight room over ours" (`world/capital/race.rs`, `rooms_part`; `crates/afm-game/src/lane_help.rs`, `lost_why`). When we were better, "the facilities" joins "Where we were better".
+- Which room does the line name? A room the other school opened or renovated in the last three seasons that reads at least half a level over ours, picked by how much the kid cares about it, its share and the gap; failing that, its room furthest over ours that he cares about ("Georgia's stadium over ours"). How much he cares only picks the name: a lineman the weight room and nutrition, a quarterback the film room, the prestige-minded the stadium, the locker room and the trophy hall, an academics family the academic center, the money-minded the content studio, a kid who wants campus life the players' lounge (`race::cares`, `room_to_name`, `NEW_SEASONS` 3).
+- Do I see a rival's drive before it goes public? Only as a rumor from your own donors (CP30). No news line ever names a rival's study or quiet phase (lane C3 posts those only for your program); the public launch and after are in the news as before.
+- Who tells me? On the first of each month, at a college seat, for each rival drive (your conference, or your state at your level) in its study or quiet phase, once a stage (`race::rumors`): a donor of both schools whom the rival sounded out (the study interviews the big donors: its lead donors, and half the rest) or asked knows first hand and tells you with chance 0.3 x his warmth toward you (0.1-1 from 0.3 to 0.8) x (0.6 + 0.4 x his meddling / 20). Otherwise the grapevine: 0.012 for each donor the drive has asked (the study counts its leads, at least three), x 0.35 out of state, x your ear (your donors warm to you, 0.6 or more, over six, 0.15-1), at most 0.25 a month; the warmest of your donors passes it on (a keyed pick weighted by warmth).
+- What does a rumor say? The stage ("has consultants sounding out donors for", "is quietly raising money for"), the building (first hand always; the grapevine names it 70% of the time, else "a new building"), their progress in words ("just getting started" to "close to going public") read with an error of 0.08 of the goal first hand and 0.2 through the grapevine, and whether a lead gift is in (first hand only). It opens "In the suite before kickoff" from September to December, else over dinner or on the golf course. Never a false drive. It lands as a rumor in your news (`Kind::Whisper`) and in `Capital.rumors` (kept four years) with the truth beside what he said.
+- What can the Pecking order screen show of rivals' drives? `race::rivals_drives`: the public ones and the ones you heard of, nothing else (lane CS5).
+- Does the press rank facilities? Yes, each July (CP31): on the money year's day, after the rooms are read, every four-year conference of two or more programs is ranked on the press's score (`race::pecking`, `press_score`): each room's level weighted by what a writer tours and photographs (the stadium and the locker room 0.14 each, the weight room and the indoor field 0.12, the lounges and the film room 0.07, the trophy hall and recovery 0.06, sports science, nutrition and academics 0.04, the content studio 0.03), a room built or renovated in the last two seasons half a level higher (`SHINE`), out of 100. It reads the true levels: buildings are there to see.
+- Where is it? `Capital.pecking` (the last 30 years, every year of the world's past too): each conference's order, best first, with each program's score, its new rooms and its newest building; `race::standing` (this July's and last), `ranks` (your rank over the years) and `because` (why: "its new football building", "its renovated weight room", else its best room).
+- Is it in the news? Once the rooms live: your conference's order in full at your seat ("The press ranks the SEC's facilities: Georgia first, on its new football building; then 2 Alabama, 3 Texas. Mississippi State is 9th of 16, up two."), and each Power 4 conference's leader in a small line.
+- Does any of it change the world? No: rumors come only to a college seat and are text; the pecking order is a store and news lines. Every draw is keyed (`capital::draw`, tags 60-65).
+
+### Where the knobs are
+
+`world/capital/race.rs`: `NEW_SEASONS` 3, `cares`, `TELL_DIRECT` 0.3, `GRAPEVINE` 0.012, `GRAPEVINE_MAX` 0.25, `OUT_OF_STATE` 0.35, `EAR_DONORS` 6, `ERROR_DIRECT` 0.08, `ERROR_GRAPEVINE` 0.2, `NAMES_BUILDING` 0.7, `KEEP_YEARS` 4, `press_weight`, `SHINE` 0.5, `KEEP_PECKING` 30. `world/recruiting.rs`: `FACILITIES_GRADE` 0.1, `GAME_DAY_PULL` 0.004, `OFFICIAL_PULL` 0.02 (the decision's own, read here).
 
 ## Related pages
 

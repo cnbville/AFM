@@ -24,6 +24,11 @@
 //! future changes; its past stays the same per seed. Every draw here is keyed on the world's seed and the
 //! donor, never on a shared stream. Sizes are Claude's (proposed, not
 //! confirmed) unless the spec gives them.
+//!
+//! Lane C5, the race and the press (`race`): a rival's new room on a lost
+//! recruit's why-line (CP29), rivals' studies and quiet phases heard only as
+//! rumors from your own donors (CP30), and the press's facilities pecking
+//! order of every conference each July (CP31). News and text only.
 
 pub mod donors;
 pub mod drive;
@@ -31,6 +36,7 @@ pub mod expros;
 pub mod fever;
 pub mod gifts;
 pub mod pledges;
+pub mod race;
 pub mod rooms;
 pub mod screen;
 
@@ -42,6 +48,7 @@ pub use drive::{Drive, Fix, Size, Stage};
 pub use fever::{Moment, What};
 pub use gifts::{Answer, Catch, CatchKind, Side};
 pub use pledges::Pledge;
+pub use race::{Pecking, Placed, Rumor};
 
 /// The Capital store on `World.capital`.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -62,6 +69,12 @@ pub struct Capital {
     pub moments: Vec<Moment>,
     /// The catches gifts carried (CP10).
     pub catches: Vec<Catch>,
+    /// Rumors of rivals' drives your donors passed on (lane C5, CP30), the
+    /// last four years.
+    pub rumors: Vec<Rumor>,
+    /// The press's facilities pecking order of every conference each July
+    /// (lane C5, CP31), the last 30 years.
+    pub pecking: Vec<Pecking>,
     /// The college season and the draft year last looked at for moments.
     pub(crate) scanned: i32,
     pub(crate) drafted: i32,
@@ -108,12 +121,16 @@ pub(crate) fn day(w: &mut World, d: Date) {
         expros::year(w);
         w.capital.year = w.year;
     }
+    if d == w.dates.money_year {
+        race::pecking(w);
+    }
     pledges::day(w, d);
     fever::day(w, d);
     if live(w) {
         gifts::catches(w, d);
         if d.day() == 1 {
             drive::month(w, d);
+            race::rumors(w, d);
         }
     }
 }
