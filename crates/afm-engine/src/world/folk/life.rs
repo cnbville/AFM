@@ -318,6 +318,10 @@ fn players_week(w: &mut World, d: Date) {
         let st = w.people[i].bg.stability;
         let swing = (1.0 + 0.05 * (10.0 - st) as f32).clamp(0.6, 1.5);
         talks::mood_event(w, id, Reason::LifeEvent, e.mood() * swing);
+        // A death or a sick parent: the hard moment of every bond he has
+        // with a coach working with him.
+        super::bonds::life_event(w, id, e);
+        let tells = super::bonds::tells_you(w, id);
         let p = &mut w.people[i];
         if e.mood() < 0.0 {
             p.bg.stability = (p.bg.stability - 0.5).max(1.0);
@@ -325,8 +329,10 @@ fn players_week(w: &mut World, d: Date) {
             p.bg.stability = (p.bg.stability + 0.4).min(20.0);
         }
         p.note(line);
-        // A player who trusts you tells you (topic 6).
-        let told = p.trust >= 0.55;
+        // A player who trusts you tells you (topic 6), and so does one
+        // whose bond with you is at "Trusts you" or more, whatever his
+        // trust (coach and player bonds, section 7).
+        let told = p.trust >= 0.55 || tells;
         w.folk.life.events.push(Happening { id, event: e, date: d, told });
         // Absences: a birth in season can cost a game; a funeral a few days.
         let away = match e {

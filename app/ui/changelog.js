@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.611", date: "17 Nov", title: "Capital lane CS1: the Campus screen and 3 more",
+    notes: [
+      "The facilities race now has a voice. Rivals' new buildings can cost you recruits and you're told why, your donors pass on what rivals are quietly raising for, and every July the press ranks your conference's facilities.",
+      "When a recruit picks a rival, the reasons can name the rival's new weight room, locker room or other room over yours.",
+      "Your donors tell you, over dinner or in the suite before kickoff, when a rival is quietly raising money for a new building, and roughly how far along it is.",
+      "Rumors from a donor who was in the room are close to the truth. Word heard through friends is vaguer.",
+      "Each July the press publishes a facilities pecking order for every conference, with where you stand and how far you moved.",
+      "A school visit is now a scene you play: walk the stops, sit down with the head coach, and watch a new name's blanks fill as you go.",
+    ],
+  },
+  {
     v: "0.2.607", date: "17 Nov", title: "Capital lane C4: your week and scenes",
     notes: [
       "Your donors now live in your week. Dinners, the suite before kickoff and the spring caravan sit beside your other scenes, and you choose the rooms a recruit tours on his official visit.",

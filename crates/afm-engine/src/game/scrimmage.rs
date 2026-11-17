@@ -492,6 +492,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         screen: None,
         open_reach: SCRIMMAGE_REACH,
         press: 0.0,
+        designed_run: false,
         lane: None,
         bites: Vec::new(),
         two_gap: s.two_gap,
@@ -965,6 +966,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
             let aim_pt = v2(los + 1.0, by + aim_y * dir);
             aim = Some(aim_pt);
             sim.press = rc.press();
+            sim.designed_run = true;
             let mesh = match (rc, f.backfield) {
                 (RunConcept::Sneak, _) => sim.agents[qb].pos,
                 (_, Backfield::UnderCenter) => v2(los - 4.0, by + 0.6 * dir),
@@ -1235,6 +1237,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                                 sim.agents[i].job = Job::RunBlock { target: None, pull: false };
                                 res.passer = Some(sim.agents[qb].id);
                                 sim.notes.rpo_pulled = true;
+                                sim.designed_run = false;
                                 let q = sim.agents[qb].pos;
                                 pass = Some(Pass {
                                     reads,

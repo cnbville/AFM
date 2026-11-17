@@ -1506,6 +1506,21 @@
   "title": "Scheme fit lane SF0: fit_check, the audit's measuring tool",
   "tldr": ""
  },
+ "514": {
+  "auto": false,
+  "bullets": [
+   "The visit shows its stops in order, with the sign-in sheet of who came before you.",
+   "You see where the school's kids went and where you stand with the coach.",
+   "A new name appears with what the public thinks, what the coach says and five blanks to fill.",
+   "It shows who heard of him first.",
+   "Skip the visit and get its result line."
+  ],
+  "h": "ade332f08bbe",
+  "look": "open this week's scene on a road day from the week board.",
+  "players": true,
+  "title": "Ground lane S3: the school visit screen",
+  "tldr": "A school visit is now a scene you play: walk the stops, sit down with the head coach, and watch a new name's blanks fill as you go."
+ },
  "515": {
   "auto": false,
   "bullets": [
@@ -1573,6 +1588,20 @@
   "title": "Capital lane C3: the money and the drive",
   "tldr": "Winning now brings in money. Titles, a Heisman and top-10 picks set your donors giving, and every program raises its buildings through a real campaign with choices that matter."
  },
+ "521": {
+  "auto": false,
+  "bullets": [
+   "When a recruit picks a rival, the reasons can name the rival's new weight room, locker room or other room over yours.",
+   "Your donors tell you, over dinner or in the suite before kickoff, when a rival is quietly raising money for a new building, and roughly how far along it is.",
+   "Rumors from a donor who was in the room are close to the truth. Word heard through friends is vaguer.",
+   "Each July the press publishes a facilities pecking order for every conference, with where you stand and how far you moved."
+  ],
+  "h": "f7199a01759e",
+  "look": "your news on 1 July, and the why-lines on recruits you lost.",
+  "players": true,
+  "title": "Capital lane C5: the facilities race and the press",
+  "tldr": "The facilities race now has a voice. Rivals' new buildings can cost you recruits and you're told why, your donors pass on what rivals are quietly raising for, and every July the press ranks your conference's facilities."
+ },
  "522": {
   "auto": false,
   "bullets": [
@@ -1587,5 +1616,43 @@
   "players": true,
   "title": "Capital lane C4: your week and scenes",
   "tldr": "Your donors now live in your week. Dinners, the suite before kickoff and the spring caravan sit beside your other scenes, and you choose the rooms a recruit tours on his official visit."
+ },
+ "523": {
+  "auto": false,
+  "bullets": [
+   "High schools have a weight room, film room, locker room, turf field and stadium, each helping its own part of the program.",
+   "Stadium bonds go to the town's vote in May and November; your season and your nights at the Rotary club and the phone bank move the yes share.",
+   "A new district stadium is shared, so your crosstown rival plays in it too.",
+   "NFL clubs' rooms move the players' report card, and you ask the owner for one room a year; winning and other teams' interest make him hard to refuse."
+  ],
+  "h": "51d83df25981",
+  "look": "the owner meeting's room asks, and the boss meeting's facility ask at a high school.",
+  "players": true,
+  "title": "Capital lane C6: high school and NFL facilities",
+  "tldr": "Facilities now matter at every level: high school coaches can work a stadium bond through town, and NFL head coaches ask the owner for the room they need."
+ },
+ "524": {
+  "auto": false,
+  "bullets": [],
+  "h": "7e310af5aa1b",
+  "look": "",
+  "players": false,
+  "title": "CLAUDE.md: small fixes and docs merge on green (docs)",
+  "tldr": ""
+ },
+ "527": {
+  "auto": false,
+  "bullets": [
+   "See every building with its rooms and their levels",
+   "Gold squares show what a building under way or a summer renovation will add",
+   "Each room lists what it unlocks and how it reads against the conference's best",
+   "Ask your athletic director to renovate a room and see his answer",
+   "Compare your campus with your rival's"
+  ],
+  "h": "1e050c6c9985",
+  "look": "Capital, then Campus in the sidebar.",
+  "players": true,
+  "title": "Capital lane CS1: the Campus screen",
+  "tldr": "Your campus now has its own screen: a map of your buildings and rooms, how each one stacks up against your conference, and a button to ask your athletic director for a renovation."
  }
 }

@@ -3842,7 +3842,7 @@ impl<'a> Game<'a> {
                     if self.rng.chance(crate::tendencies::obey_chance(
                         p.trait20(Attr::Discipline, level),
                         p.personality.coachability,
-                        p.trust,
+                        p.obey_trust(),
                         self.sides[1 - o].team.staff.strictness,
                     )) =>
                 {
