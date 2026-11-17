@@ -184,6 +184,8 @@ Each lane is its own fresh thread. The coordinator starts them in the order belo
 | SF10 The roster shapes the call | 10, 11, 23 | SF4 to SF9 | Opus max | the calls, AI identity |
 | SF11 Fit scores job by job | 24 | SF10 | Opus max | the world (installs, recruiting) |
 
+**Engine gaps.** SF10 also takes item 10 of the engine gaps (designed quarterback runs). Lane EG6 (the red zone) starts after SF7, and EG7 (the quarterback off script) after SF4 and SF8 (`docs/design/engine-gaps.md`).
+
 **SF0, the measuring tool.** It commits the audit's tool to `afm-tools` as one bin, `fit_check`, so every lane measures the same way.
 - **Source.** Copies of the scratch tools are in the project folder, `afm/scheme-fit/tools/`: `fit_pass.rs.txt` for the arms and contexts, `fit_draws.rs.txt` for the as-recruited draws, `fit_wroster.rs.txt` for the world's NFL rosters, and `fit_pass.py.txt` with its helpers for the read-out.
 - **What it keeps.** The contexts (`wc`, `ar`, `wz`, `pg`, `so`, `pg12`, `pg13`, `wc21`, `q`, `mp`, `c34`, `c2`), the typical team through `change_one`, paired seeds, 40 blocks, four drawn men a band for as recruited, and world rosters through `AFM_AB_WORLD`, like `ab_check`. Its read-out prints the same tables as the report.
