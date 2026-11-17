@@ -259,7 +259,7 @@ function newSetup() {
     step: 1, reached: 1, world: open, loaded: open,
     first: "", last: "", pro: "he", born: `${y - 42}-06-15`, eth: "white",
     hometown: "", state: "TX", high_school: "", alma_mater: "", college_years: "", degree: "",
-    status: "Married", spouse: "", roots: "", children: [],
+    status: "Married", spouse: "", roots: "", raised: "", children: [],
     height: "6 ft 1", build: "Athletic", hair: "Short, dark", facial_hair: "Clean-shaven", photo: null,
     bg: "college_assistant", ratings: null, ratingsFor: null,
     style: { risk: 2, freedom: 2, physical: 2, ball_hunting: 2, mould: 2 }, manner: "",
@@ -510,7 +510,7 @@ async function refreshKnown() {
 // made, kept by the game outside any save when his career starts. A new
 // career can take him again as he is (straight to the job) or with
 // something changed (the steps open filled in with him).
-const COACH_KEEP = ["first", "last", "pro", "born", "eth", "hometown", "state", "high_school", "alma_mater", "college_years", "degree", "status", "spouse", "roots", "children", "height", "build", "hair", "facial_hair", "photo", "bg", "pos", "ratings", "ratingsFor", "style", "manner", "calls", "stops", "rdLevel"];
+const COACH_KEEP = ["first", "last", "pro", "born", "eth", "hometown", "state", "high_school", "alma_mater", "college_years", "degree", "status", "spouse", "roots", "raised", "children", "height", "build", "hair", "facial_hair", "photo", "bg", "pos", "ratings", "ratingsFor", "style", "manner", "calls", "stops", "rdLevel"];
 function coachRecord(st) {
   const r = {};
   for (const k of COACH_KEEP) if (st[k] !== undefined && st[k] !== null) r[k] = st[k];
@@ -564,6 +564,7 @@ async function stepYou(st) {
         ${f("status", "Status", sel("status", ["Married", "Single", "Divorced", "Widowed"]))}
         ${f("spouse", "Spouse", `<input id="pg-spouse" data-f="spouse" value="${esc(st.spouse)}" placeholder="${st.status === "Married" ? "Your spouse's name" : ""}" ${st.status === "Married" ? "" : "disabled"}>`)}
         ${f("roots", "Where your roots are", inp("roots", "Both sets of parents in your hometown"), "w2")}
+        ${f("raised", "How you grew up", sel("raised", [["", "Rather not say"], ["both parents", "Both parents"], ["single mother", "Single mother"], ["single father", "Single father"], ["grandparents", "Grandparents"], ["foster", "Foster care"], ["both parents, poor", "Both parents, money tight"], ["single mother, poor", "Single mother, money tight"], ["grandparents, poor", "Grandparents, money tight"]]), "w2", "a kid raised the way you were finds something in common with you")}
       </div>
       <div class="pg-kids" style="border-top:1px solid var(--pg-line)"><div class="h"><span>Children</span><span>Age</span><span>In school</span><span></span></div>${kids || '<div><span class="pg-dim">No children</span></div>'}</div>
       <div class="pg-acts-row" style="padding-top:12px"><button class="pg-btn s" data-pg="kid-add">Add a child</button></div></div>
@@ -1348,7 +1349,7 @@ function startArgs(st) {
     ratings: st.ratings, style, job: st.job, calls: callsOf(st), coach: coachRecord(st),
     profile: {
       born: st.born, hometown: st.hometown, high_school: st.high_school, alma_mater: st.alma_mater, college_years: st.college_years, degree: st.degree,
-      status: st.status, spouse: st.status === "Married" ? st.spouse : "", roots: st.roots, children: st.children.filter((c) => c.name.trim()),
+      status: st.status, spouse: st.status === "Married" ? st.spouse : "", roots: st.roots, raised: st.raised || "", children: st.children.filter((c) => c.name.trim()),
       height: st.height, build: st.build, hair: st.hair, facial_hair: st.facial_hair, photo: st.photo,
       manner: st.manner || "",
     },

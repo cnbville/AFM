@@ -79,6 +79,11 @@ pub struct GamePlayer {
     /// you): how much of a talk reaches him (dialogue D4).
     #[serde(default = "half")]
     pub belief: f32,
+    /// His closeness to his head coach, 0-1 (coach and player bonds): he
+    /// follows instructions more often, 0.08 x closeness on top of the
+    /// built trust part (`obey_trust`). 0 off the world.
+    #[serde(default)]
+    pub bond: f32,
     /// His strength staff's guard on muscle strains and backs (minor bug
     /// 303, `sim::strength_guard`): 1 changes nothing.
     #[serde(default = "no_prep")]
@@ -156,6 +161,7 @@ impl GamePlayer {
             prep: prep_of(p),
             mood: 0.0,
             belief: 0.5,
+            bond: 0.0,
             soft: 1.0,
             craft: p.craft.worn(),
         }
@@ -298,9 +304,16 @@ impl GamePlayer {
         rng.chance(crate::tendencies::obey_chance(
             self.trait20(Attr::Discipline, level),
             self.personality.coachability,
-            self.trust,
+            self.obey_trust(),
             strictness,
         ))
+    }
+
+    /// The trust `tendencies::obey_chance` reads: his trust, and his bond
+    /// with his head coach adding 0.08 x closeness to the chance (coach
+    /// and player bonds, section 7: the trust part weighs 0.12).
+    pub fn obey_trust(&self) -> f64 {
+        self.trust + 0.08 / 0.12 * self.bond as f64
     }
 }
 

@@ -2,7 +2,7 @@
 
 Design, 2026-11-17, thread "Design coach and player bonds". Cain: "I want the players to have a more real life connection to the coach, i want the oppurtunity to build up to a father figure, everything should count, age difference, matching personalities."
 
-**Status: agreed 2026-11-17 20:13 UTC (Cain: "yes to all"), the design and the seven questions in section 11; `docs/handoff/decisions.md` section 28.** Every size not named in a question stays proposed, not confirmed. Not built.
+**Status: agreed 2026-11-17 20:13 UTC (Cain: "yes to all"), the design and the seven questions in section 11; `docs/handoff/decisions.md` section 28.** Built the same day in one lane (thread "Build coach and player bonds"): how it works is in `docs/reference/how-it-works/people.md`, "Coach and player bonds". The build's own sizes (the weekly gain, the contact shares, the moments' sizes, the off-season shares) are Claude's, proposed, not confirmed. Not built yet: strength coaches' and NFL position coaches' bonds (they wait for support departments and stored NFL staffs), brothers as people, the hall of fame, summer visits, and naming a son (see `GAPS.md`).
 
 ## 1. What it does in the game
 
