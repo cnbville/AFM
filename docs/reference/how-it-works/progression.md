@@ -1,6 +1,6 @@
 # Progression: how it works today
 
-Checked against the progression update steps 1-2 branch over main 69db832 on 2026-11-15; step 3 (the strength split, the bench, the weight room by body knack) over c2f99ef the same day; step 3c (body projects) over c2baa49 on 2026-11-16; the thinned limit (step 4c) over main 66cf9e1 the same day, before it merged; slower closing near the top and the fitted trims (step 5) over main 1cc9d78 on 2026-11-17.
+Checked against the progression update steps 1-2 branch over main 69db832 on 2026-11-15; step 3 (the strength split, the bench, the weight room by body knack) over c2f99ef the same day; step 3c (body projects) over c2baa49 on 2026-11-16; the thinned limit (step 4c) over main 66cf9e1 the same day, before it merged; slower closing near the top and the fitted trims (step 5) over main 1cc9d78 on 2026-11-17; your own projects (the Development tab's projects block) over main 2ff4e5f the same day.
 
 The split ceiling: the limit, the knacks, everyday closing, breakouts that close room, skill projects and the trims (designs `docs/design/progression.md` and `docs/design/progression-everyday.md`). Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`. Everything here is in `progression.rs` unless named.
 
@@ -25,6 +25,7 @@ The split ceiling: the limit, the knacks, everyday closing, breakouts that close
 - What are the trims? Points taken off natural ceilings of 60+ in one skill at one position, the first year he plays that spot (age 22 or under). The size depends on his natural ceiling there: most in the 65-80 band, almost nothing near 60, and in most families little or nothing for a natural 85+. The limit stays where it was, so investment can win them back (`TRIMS`, `trim_at`, `land_trims`).
 - What is a body project? The strength staff rebuilding his body on its own leash: a strength project moves his upper and lower strength ceilings (up to 14 each) and balance (up to 3) and puts on weight; a speed project moves speed (1), burst (1.5 each for acceleration and jumping) and agility and hips (2 each). His body knack opens Φ(1.2 z) of each leash, so a typical responder gets about half and a big one nearly all (`BodyKind`, `body_share`, `body_leash`).
 - Can a body project and a skill project run together? Yes: the body side is the strength staff's time, the skill side the room's. A body project year adds 0.25 wear (`BODY_WEAR`).
+- Can you start a project yourself? Yes, on your player's Development tab, under Focus: "Start skill project" and "Start body project", with your staff's read before you confirm (`crates/afm-game/src/lane_training/projects.rs`; "Your own projects" below).
 - Is there a yearly growth limit? No. The old 12-point yearly cap is gone (physical study item 16; `development.rs`).
 
 ## The limit
@@ -55,6 +56,18 @@ The split ceiling: the limit, the knacks, everyday closing, breakouts that close
 - The staff's read: the room it sees, plus noise that shrinks with its eye (sd 9 − 0.3 × eye, from 2 to 9), times the pace it reads. Before any work, the read is coachability and a sharper staff sees more of the knack (`staff_read`, `best_bet`).
 - The class sim has no rooms. Each boy's chance a year is 0.03 in college or 0.02 × coaching / 10 in high school, × slots / 2 × his lean (`ai_single`; `career.rs`, `class_lean`).
 
+## Your own projects
+
+- Where: the Projects block under the Focus sub-tab of your player's Development tab (`app/ui/screens/training.js`, `dvProjects`), and a room-by-room count on the Training screen's Players tab (`trProjects`).
+- Commands: `player_dev_project_start` (`id`, `what` = the skill's key), `player_dev_project_end`, `player_dev_body_start` (`what` = `strength` or `speed`) and `player_dev_body_end`. Each returns the Development tab with a `said` line. `player_dev` carries `projects`; `practice` carries `projects` (each room's used and open slots) (`crates/afm-game/src/lane_training.rs`, `projects.rs`).
+- The rules are the AI's: `start_project` and `start_body` with `yours` set; a skill from the same pool an AI staff picks from (his position's limited skills it leans on at least half as much as its most-used one, `project_skills`); the room's slots (`Room::slots`), counting every project running in it, one he brought from his last staff too; one body project a room on your strength staff (`BODY_SLOTS`, as an AI strength staff runs it); one of each a player; a body project only to 25 (`BODY_UNTIL`); none for kickers, punters and snappers. Only someone whose job covers his position may set them (`World::may_plan`). One already running must be ended before another starts.
+- A project past his fourth pro season is refused: it would open nothing (`stage_mult` 0).
+- Ending one keeps what it built and frees the slot; a new one starts from year one (`end_project`, `end_body`). The screen asks first.
+- One you started never ends by itself, as an AI staff's would (`ai_keeps`); the screen warns when your staff's read sees little left. One inherited from a previous staff also runs until you end it (the AI no longer manages your team's rooms), and the screen marks it "set by his previous staff".
+- The read before you confirm is your staff's, never his room, knack or ceiling (`your_project_read`): the position coach's view at your sharpness (`staff_view`, the same draws as `staff_read`; `YOUR_SHARP`), the room it sees one spread either way (`room_noise`, sd 9 − 0.3 × eye, 2 to 9) and the knack it reads 0.75 either way, run over his seasons left (at most 4, a pro's next 4) as project years: what's left × 0.30 × pace × coach_mult(his teacher) × stage, plus a click's mean (0.25 × pace × 8), slowed near the top on the staff's read of the rating today (a middling 50 when not seen). The knack shows as a word: takes to new technique quickly, at a normal rate, or slowly (`tier`). The stream is fixed by your career, him, the skill and the year, so the read holds still inside a year. The spreads are Claude's, proposed, not confirmed.
+- The body read (`your_body_read`): before any year on it, a body knack anywhere from −1 to 1 (nobody knows how a body responds until it's worked); each year on it narrows it toward how he responded (centre z × years / (years + 1), half-width (1 + (10 − eye) / 20) / (years + 1)), read through `body_share`, `frame_room`, and `BODY_YEAR` × coach_mult(strength head) a year over the years left on his body clock; the pounds as a strength project carries them. The strength head is your program's or club's (a high school's coaches at a school). Proposed, not confirmed.
+- What the screen says it costs: 60 minutes a week of the position coach's one-on-one time and his other technique at 75% of its pace for a skill project, no wear; the strength staff's time and +0.25 wear a year for a body project (`PROJECT_COST`, `BODY_WEAR`).
+
 ## Body projects
 
 - One per player at most (`Prog.body`, `body_years`, `body_used`, `body_lbs`, `body_yours`). It runs at his checkpoint inside `develop_season`, after the normal weight room (`body_year`; `development.rs`).
@@ -74,9 +87,9 @@ The split ceiling: the limit, the knacks, everyday closing, breakouts that close
 
 ## What it does not do yet
 
-- The physical study's items 1-3 and 6-18 are step 4 of the build (4a bodies, 4b the drills and the split, 4c no 99 wall: see [ratings.md](ratings.md), "Past 99"). Your own strength staff's body projects have no command yet: `start_body` with `yours` set is the hook. The weight room inside the leashes, the body knack's own effect there and the strength split are built (step 3): see [body.md](body.md), "The normal weight room by body knack" and "Is strength one rating?".
-- The screens show none of it yet, apart from reads past 99 showing "99+" (step 6, [ratings.md](ratings.md)).
-- Your own staff's projects have no command yet: `start_project` with `yours` set is the hook.
+- The physical study's items 1-3 and 6-18 are step 4 of the build (4a bodies, 4b the drills and the split, 4c no 99 wall: see [ratings.md](ratings.md), "Past 99"). The weight room inside the leashes, the body knack's own effect there and the strength split are built (step 3): see [body.md](body.md), "The normal weight room by body knack" and "Is strength one rating?".
+- The screens show projects (above) and reads past 99 as "99+" (step 6, [ratings.md](ratings.md)), but not the knack clues in Reports yet.
+- A project doesn't take minutes from the rest of the room's individual time in the week's plan (design item 8 says the room gets a little less): the 60 minutes only set its pace (`development.rs`, `GrowthCtx::rate`).
 
 ## Measured (class sim, `prog_check 250000 progA`)
 
@@ -95,7 +108,7 @@ Projects run in 2-7% of college seasons by position. The design trims don't hold
 
 ## Where the knobs are
 
-- `progression.rs`: `LIMITED`, `spec`, `MARGIN` 4, `FIT_SAMPLE` 60,000, `DRIFT_SAMPLE` 24,000, `EVERYDAY` 0.10, `CLICK` (6, 10), `PROJECT` 0.30, `CLICK_CHANCE` 0.25, `PROJECT_COST` 0.25, `Room::slots`, `Lean`, `AI_SHARP` 0.6, `YOUR_SHARP` 1.0, `BET_FLOOR` 3, `BodyKind::ratings`, `BODY_YEAR` 0.45, `BODY_LBS` 25, `BODY_LBS_PER_POINT` 1.2, `BODY_UNTIL` 25, `BODY_WEAR` 0.25, `BODY_BET_FLOOR` 8, `BODY_SLOTS` 1, `SLOW_FROM` 55, `TOP_SLOW` 5, `TRIM_TABLE`, `TRIM_FROM` 60, `TRIM_STEEP` 75, `TRIM_UNTIL` 22.
+- `progression.rs`: `LIMITED`, `spec`, `MARGIN` 4, `FIT_SAMPLE` 60,000, `DRIFT_SAMPLE` 24,000, `EVERYDAY` 0.10, `CLICK` (6, 10), `PROJECT` 0.30, `CLICK_CHANCE` 0.25, `PROJECT_COST` 0.25, `Room::slots`, `Lean`, `AI_SHARP` 0.6, `YOUR_SHARP` 1.0, `BET_FLOOR` 3, `BodyKind::ratings`, `BODY_YEAR` 0.45, `BODY_LBS` 25, `BODY_LBS_PER_POINT` 1.2, `BODY_UNTIL` 25, `BODY_WEAR` 0.25, `BODY_BET_FLOOR` 8, `BODY_SLOTS` 1, `room_noise`, `SLOW_FROM` 55, `TOP_SLOW` 5, `TRIM_TABLE`, `TRIM_FROM` 60, `TRIM_STEEP` 75, `TRIM_UNTIL` 22.
 - Tooling switches: `set_enabled`, `set_parts` (everyday 1, breakouts 2, projects 4, trims 8, body 16), `set_trims`, `set_slow_from`, `set_top_slow`, `set_trim_limit_share`. `crates/afm-tools/src/bin/prog_check.rs` (`AFM_PROG_PARTS`, `AFM_TRIM_ALL`, `AFM_SLOW_FROM`, `AFM_TOP_SLOW`, `AFM_TRIM_LIMIT`, `fit`, `drift`).
 
 ## Related pages

@@ -1047,13 +1047,93 @@ impl Lean {
 /// reads the knack clues (an AI staff a bit less than yours, so it picks
 /// more on tools); `eye` 1-20 its evaluators.
 pub fn staff_read(p: &Player, a: Attr, sharp: f64, eye: f64, r: &mut Rng) -> f64 {
-    let room = room(p, a) + r.normal(0.0, clamp(9.0 - 0.3 * eye, 2.0, 9.0));
+    let (room, seen) = staff_view(p, a, sharp, eye, r);
+    room.max(0.0) * pace(seen)
+}
+
+/// The two halves of a staff's read (`staff_read`): the room it sees (it
+/// can be under 0) and the knack z it reads, with the same draws in the
+/// same order.
+pub fn staff_view(p: &Player, a: Attr, sharp: f64, eye: f64, r: &mut Rng) -> (f64, f64) {
+    let room = room(p, a) + r.normal(0.0, room_noise(eye));
     let cz = clamp((p.personality.coachability - 10.0) / 3.5, -3.0, 3.0);
     let k = knack(p, kind_of(a).unwrap());
     // Before any work on it, coachability is the clue he gives; a sharper
     // staff reads more of the rest.
     let seen = 0.35 * cz + sharp * 0.5 * (k - 0.35 * cz) + r.normal(0.0, 0.6);
-    room.max(0.0) * pace(seen)
+    (room, seen)
+}
+
+/// The spread of a staff's read of his room, by its eye (1-20).
+pub fn room_noise(eye: f64) -> f64 {
+    clamp(9.0 - 0.3 * eye, 2.0, 9.0)
+}
+
+/// The skills a staff weighs a project on for him: the limited skills his
+/// position leans on at least half as much as its most-used one (the pool
+/// `best_bet` picks from), most-used first.
+pub fn project_skills(p: &Player) -> Vec<Attr> {
+    let top = LIMITED.iter().map(|&a| weight(p.position, a)).fold(0.0, f64::max);
+    if top <= 0.0 {
+        return Vec::new();
+    }
+    let mut v: Vec<Attr> = LIMITED.iter().copied().filter(|&a| weight(p.position, a) >= 0.5 * top).collect();
+    v.sort_by(|x, y| weight(p.position, *y).total_cmp(&weight(p.position, *x)));
+    v
+}
+
+/// What a read of a project stands on: the eye reading him (1-20), his
+/// teacher's coaching (1-20), his level, the years it runs, and the
+/// staff's read of the rating today.
+#[derive(Clone, Copy, Debug)]
+pub struct ReadOn {
+    pub eye: f64,
+    pub coaching: f64,
+    pub level: Level,
+    pub years: u32,
+    pub seen_top: f64,
+}
+
+/// Your staff's read of a skill project for the screens: what it would
+/// open on that skill over `years`, low and high, and the knack z it
+/// reads. It is built on the staff's own view (`staff_view` at your
+/// sharpness), never the true room or knack: the room it sees one spread
+/// either way, the knack 0.75 either way, each project year closing
+/// `PROJECT` of what's left by that knack, the coach and his stage, plus
+/// a click's mean. `seen_top` is the staff's read of the rating today, so
+/// the slowing near the top reads its own number, not his ceiling. The
+/// spreads are Claude's, proposed, not confirmed.
+pub fn your_project_read(p: &Player, a: Attr, on: ReadOn, r: &mut Rng) -> (f64, f64, f64) {
+    let ReadOn { eye, coaching, level, years, seen_top } = on;
+    let (room, seen) = staff_view(p, a, YOUR_SHARP, eye, r);
+    let sd = room_noise(eye);
+    let pro_seasons = p.history.iter().filter(|h| h.level == Level::NFL).count();
+    let stage = |k: u32| -> f64 {
+        if level != Level::NFL {
+            return 1.0;
+        }
+        match pro_seasons + 1 + k as usize {
+            1 | 2 => 0.5,
+            3 | 4 => 0.2,
+            _ => 0.0,
+        }
+    };
+    let slow = near_top(seen_top);
+    let run = |room: f64, z: f64| -> f64 {
+        let pace = pace(z);
+        let mut left = room.max(0.0);
+        let mut total = 0.0;
+        for k in 0..years {
+            let s = stage(k);
+            let mut lift = left * PROJECT * pace * coach_mult(coaching) * s;
+            lift += CLICK_CHANCE * pace * s * 0.5 * (CLICK.0 + CLICK.1);
+            let lift = (lift * slow).min(left);
+            left -= lift;
+            total += lift;
+        }
+        total
+    };
+    (run(room - sd, seen - 0.75), run(room + sd, seen + 0.75), seen)
 }
 
 /// How sharply AI staffs read the knack clues against your staff (design
@@ -1403,6 +1483,42 @@ pub fn body_bet(p: &Player, eye: f64, r: &mut Rng) -> f64 {
         + 0.5 * (typ(Attr::LowerBody) - p.attributes.get(Attr::LowerBody));
     let err = r.normal(0.0, 6.0 * (1.5 - clamp(eye / 20.0, 0.0, 1.0)));
     ((gap + err) * frame_room(p)).max(0.0)
+}
+
+/// Your strength staff's read of a body project: each rating's gain (low,
+/// high) and the pounds (low, high).
+pub type BodyRead = (Vec<(Attr, f64, f64)>, (f64, f64));
+
+/// Your strength staff's read of a body project for the screens: for each
+/// rating it moves, what it could add over `years` (low, high), and the
+/// pounds a strength project would put on him. Nobody knows how a body
+/// responds until it is worked (design item 1), so before any years on it
+/// the read spans a body knack of -1 to 1; each year on it narrows the read
+/// toward how he has responded. The leash's share is `body_share`, the
+/// frame `frame_room`, a year closes `BODY_YEAR` of what's left by the
+/// staff. The spreads are Claude's, proposed, not confirmed.
+pub fn your_body_read(p: &Player, kind: BodyKind, eye: f64, staff: f64, years: u32) -> BodyRead {
+    let on = if p.prog.body_project() == Some(kind) { p.prog.body_years as f64 } else { 0.0 };
+    let z = body_knack(p);
+    let center = z * on / (on + 1.0);
+    let half = (1.0 + (10.0 - clamp(eye, 1.0, 20.0)) / 20.0) / (on + 1.0);
+    let frame = if kind == BodyKind::Strength { frame_room(p) } else { 1.0 };
+    let close = 1.0 - (1.0 - clamp(BODY_YEAR * coach_mult(staff), 0.0, 1.0)).powi(years as i32);
+    let mut out = Vec::new();
+    for (k, &(a, most)) in kind.ratings().iter().enumerate() {
+        let used = if on > 0.0 { p.prog.body_used[k] as f64 / 2.0 } else { 0.0 };
+        let left = |zz: f64| (most * body_share(zz) * frame - used).max(0.0) * close;
+        out.push((a, left(center - half), left(center + half)));
+    }
+    let lbs = if kind == BodyKind::Strength && out.len() >= 2 {
+        let done = if on > 0.0 { p.prog.body_lbs as f64 } else { 0.0 };
+        let built = if on > 0.0 { (p.prog.body_used[0] as f64 + p.prog.body_used[1] as f64) / 4.0 } else { 0.0 };
+        let to = |pts: f64| ((built + pts) * BODY_LBS_PER_POINT * p.body.frame_weight / 190.0).min(BODY_LBS) - done;
+        (to(0.5 * (out[0].1 + out[1].1)).max(0.0), to(0.5 * (out[0].2 + out[1].2)).max(0.0))
+    } else {
+        (0.0, 0.0)
+    };
+    (out, lbs)
 }
 
 /// A gap that's worth a strength project to an AI staff (proposed, not
