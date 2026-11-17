@@ -3112,6 +3112,9 @@ pub(crate) fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u
             ));
         }
     }
+    // Fire on the play (coach fire): the big hit and the sideline, what
+    // fire carried, footsteps, who was thrown out.
+    t.push_str(&fire_text(r, name));
     // A missed field goal or a punt hands the ball over without being a
     // turnover; a snap that does is one on downs.
     let scrimmage = matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble);
@@ -3120,6 +3123,40 @@ pub(crate) fn play_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u
     }
     if r.first_down && !r.touchdown {
         t.push_str(", first down");
+    }
+    t
+}
+
+/// What fire did on a play, in the play log's words (coach fire, item 8):
+/// a big hit and his sideline erupting, a play a man's fire carried ("he
+/// came downhill hot"), a receiver who heard footsteps, an ejection.
+/// Nothing shows a hidden number.
+pub(crate) fn fire_text(r: &afm_engine::game::stats::PlayRecord, name: &dyn Fn(u32) -> String) -> String {
+    use afm_engine::tendencies::Tend;
+    let f = &r.fire;
+    let mut t = String::new();
+    if let Some((h, m)) = f.big_hit {
+        t.push_str(&format!(". BIG HIT by {} on {}", name(h), name(m)));
+    }
+    for &(id, habit) in &f.hot {
+        let what = match habit {
+            Tend::BigHit => "came in hot",
+            Tend::Strip => "went for the ball hot",
+            Tend::JumpRoutes => "jumped the route hot",
+            Tend::Downhill => "came downhill hot",
+            Tend::SnapTiming => "jumped the count, too hot",
+            _ => "played it hot",
+        };
+        t.push_str(&format!(". {} {what}", name(id)));
+    }
+    if let Some(id) = f.footsteps {
+        t.push_str(&format!(". {} heard footsteps", name(id)));
+    }
+    if f.spark.is_some() && !r.nullified {
+        t.push_str(". His sideline erupts");
+    }
+    for &id in &f.ejected {
+        t.push_str(&format!(". {} is EJECTED", name(id)));
     }
     t
 }

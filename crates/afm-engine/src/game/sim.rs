@@ -300,6 +300,16 @@ pub struct Agent {
     /// range ones; 0 for everyone else.
     #[serde(default)]
     pub hit: f64,
+    /// Fire on the field (coach fire): the rating points of power and
+    /// effort already in his ratings (his Motor and his hit read them
+    /// too), the tendency points on the fire habits, and the Contact
+    /// points a big hit took from him (he hears footsteps).
+    #[serde(default)]
+    pub power: f64,
+    #[serde(default)]
+    pub habits: f64,
+    #[serde(default)]
+    pub flinch: f64,
 }
 
 impl Agent {
@@ -371,6 +381,39 @@ impl Agent {
             poise20: 0.0,
             heat: 0.0,
             hit: 0.0,
+            power: 0.0,
+            habits: 0.0,
+            flinch: 0.0,
+        }
+    }
+
+    /// The day's talks on him (dialogue D4-D6, coach fire): the power and
+    /// effort and the fine and thinking work fire moves go on those
+    /// ratings, with a little burst; the talks' focus (with the fine work's
+    /// cost on Discipline and Concentration), composure and heat, the fire
+    /// habits and a flinch are read where they act.
+    pub fn fire_up(&mut self, t: &super::talk::Pulse) {
+        self.focus20 = t.focus20();
+        self.poise20 = t.poise;
+        self.heat = t.heat;
+        self.power = t.power;
+        self.habits = t.habits;
+        self.flinch = t.flinch;
+        let bound = crate::attributes::RATING_BOUND;
+        if t.power != 0.0 {
+            for a in super::talk::POWER_WORK {
+                let r = &mut self.r[a.index()];
+                *r = clamp(*r + t.power, 1.0, bound);
+            }
+            // A little burst: 0.4% of his first step a point.
+            self.accel *= 1.0 + FIRE_BURST * t.power;
+            self.tau *= 1.0 - FIRE_BURST * t.power;
+        }
+        if t.fine != 0.0 {
+            for a in super::talk::FINE_WORK {
+                let r = &mut self.r[a.index()];
+                *r = clamp(*r + t.fine, 1.0, bound);
+            }
         }
     }
     /// How hard he can stop, yards per second squared: his grip and his
@@ -420,6 +463,9 @@ impl Agent {
             poise20: self.poise20,
             heat: self.heat,
             hit: self.hit,
+            power: self.power,
+            habits: self.habits,
+            flinch: self.flinch,
         }
     }
 
@@ -562,6 +608,11 @@ pub enum FoulKind {
     IneligibleDownfield,
     /// Taunting or an excessive celebration.
     UnsportsmanlikeConduct,
+    /// A high, helmet-led hit on a defenseless man under the college and
+    /// high school targeting rules (coach fire, item 4; the NFL calls it
+    /// unnecessary roughness): 15 yards and an automatic first down, with
+    /// an ejection where the rule has one (`rules::Targeting`).
+    Targeting,
 }
 
 impl FoulKind {
@@ -582,7 +633,16 @@ impl FoulKind {
             FoulKind::IntentionalGrounding => "intentional grounding",
             FoulKind::IneligibleDownfield => "ineligible man downfield",
             FoulKind::UnsportsmanlikeConduct => "unsportsmanlike conduct",
+            FoulKind::Targeting => "targeting",
         }
+    }
+    /// A personal foul: a hit the league office reviews for a fine, and
+    /// the play stands when it came after a gain.
+    pub fn personal(self) -> bool {
+        matches!(
+            self,
+            FoulKind::RoughingPasser | FoulKind::UnnecessaryRoughness | FoulKind::FaceMask | FoulKind::Targeting
+        )
     }
     /// Yards, and whether it is an automatic first down for the offense.
     pub fn yards(self) -> (f64, bool) {
@@ -590,7 +650,9 @@ impl FoulKind {
             FoulKind::OffensiveHolding | FoulKind::IllegalBlock | FoulKind::OffensivePassInterference => (10.0, false),
             FoulKind::DefensiveHolding => (5.0, true),
             FoulKind::PassInterference => (15.0, true),
-            FoulKind::RoughingPasser | FoulKind::UnnecessaryRoughness | FoulKind::FaceMask => (15.0, true),
+            FoulKind::RoughingPasser | FoulKind::UnnecessaryRoughness | FoulKind::FaceMask | FoulKind::Targeting => {
+                (15.0, true)
+            }
             FoulKind::FalseStart
             | FoulKind::Offside
             | FoulKind::DelayOfGame
@@ -828,10 +890,59 @@ pub struct Notes {
     pub stunt: Option<bool>,
     /// What the players' tendencies did this snap.
     pub tend: TendNotes,
+    /// What fire did this snap (coach fire).
+    #[serde(default)]
+    pub fire: FireNotes,
     /// The line chart (lane 9), on your games' snaps only: Some from the
     /// snap when the game keeps one.
     #[serde(default)]
     pub chart: Option<Box<super::chart::LineChart>>,
+}
+
+/// What fire did on a play (coach fire, `docs/design/coach-fire.md`): its
+/// hardest hit, whether that was a big hit, the men a fire habit carried,
+/// the man who heard footsteps and who was thrown out. Empty on almost
+/// every play, and then never written.
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct FireNotes {
+    /// The play's hardest hit: (the hitter, the man hit, its force in the
+    /// engine's pound-yards a second). Read when the play is resolved and
+    /// by the measuring tools; never stored.
+    #[serde(skip)]
+    pub hardest: Option<(u32, u32, f64)>,
+    /// A big hit, the level's top 3% (`BIG_HIT`): (the hitter, the man hit).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub big_hit: Option<(u32, u32)>,
+    /// The play sparked his team (a big hit, a forced fumble or a 4th down
+    /// stop): the man who did it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spark: Option<u32>,
+    /// Men a fire habit carried, past their own pitch ("he came downhill
+    /// hot"): (player, the habit).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hot: Vec<(u32, Tend)>,
+    /// He heard footsteps: a ball over the middle he short-armed with a
+    /// big hit still on his mind.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub footsteps: Option<u32>,
+    /// Thrown out of the game on this play (targeting, or a flagrant hit).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ejected: Vec<u32>,
+    /// Flagged for a hit on a defenseless man (a receiver at the catch, a
+    /// sliding quarterback): the league's dearer fine.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub defenseless: Vec<u32>,
+}
+
+impl FireNotes {
+    pub fn is_empty(&self) -> bool {
+        self.big_hit.is_none()
+            && self.spark.is_none()
+            && self.hot.is_empty()
+            && self.footsteps.is_none()
+            && self.ejected.is_empty()
+            && self.defenseless.is_empty()
+    }
 }
 
 /// What the players' tendencies did on a play (`docs/design/tendencies.md`),
@@ -995,6 +1106,8 @@ pub struct Sim<'a> {
     pub level: Level,
     /// What the game does to habits this snap (tendencies).
     pub mood: Mood,
+    /// The level's targeting rule (coach fire, item 4).
+    pub targeting: super::rules::Targeting,
     /// Each agent's tendencies this play (`Sim::tend`), worked out on first
     /// use: everything they read is fixed for the play. NaN until then.
     pub(crate) tend_memo: [[std::cell::Cell<f64>; crate::tendencies::TEND_COUNT]; MAX_AGENTS],
@@ -1213,6 +1326,33 @@ const SILENT_COUNT: f64 = 36.0;
 /// speed).
 pub const BURNER: f64 = 0.0125;
 
+/// Fire's little burst (coach fire, item 2): a point of power and effort
+/// adds 0.4% to his first step (his acceleration up, his time to speed
+/// down). A strong talk's 2 points take about 0.01 s off a ten-yard split.
+/// Proposed, not confirmed.
+const FIRE_BURST: f64 = 0.004;
+
+/// Fire in his hit (coach fire, item 2): a point of power and effort adds
+/// 1% to the force he brings. Proposed, not confirmed.
+const FIRE_HIT: f64 = 0.01;
+
+/// The share of hit fouls that are flagrant, for a typical man (coach
+/// fire, item 4): thrown out at every level. Proposed, not confirmed:
+/// fitted to about 6 NFL ejections for hits a season (21 ejections in all
+/// in 2023, fights and contact with officials among them; Football
+/// Zebras). At 0.025 the test league threw out 0.014 men a team game,
+/// about 7.6 a season; at 0.02, 0.009, about 5 (`fire_check hits nfl`,
+/// 400 games: small counts).
+const FLAGRANT: f64 = 0.02;
+
+/// The share of late and extra hits on a tackle that lead with the crown of
+/// the helmet: targeting under the college and high school rules (coach
+/// fire, item 4). Proposed, not confirmed: with the hits at the catch point
+/// and on a slide, fitted so FBS calls about 0.04 targeting fouls a team
+/// game (0.042 on `match_check` seeds 1-12; cfbfastR 2022-2025: 0.031 to
+/// 0.043).
+pub const HIGH_ON_TACKLE: f64 = 0.07;
+
 /// Print plays as they run (debug tooling only).
 pub static TRACE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
@@ -1378,7 +1518,11 @@ impl<'a> Sim<'a> {
         let poise = (gp.trait20(Attr::Composure, self.level) + a.poise20).clamp(1.0, 20.0);
         let stress = clamp(self.mood.stakes[a.side] + 0.8 * a.tired + 0.05 * (10.0 - poise), 0.0, 1.0);
         let gamble = if t.gamble() { self.mood.gamble[a.side] } else { 0.0 };
-        clamp(base + stress * (was - base) / 3.0 + gamble, 1.0, 20.0)
+        // Fire (coach fire, item 3): past his own pitch he goes for these
+        // more, cooled down less; a big hit he took makes him shy of
+        // contact for a stretch.
+        let fire = if t.fiery() { a.habits } else { 0.0 } - if t == Tend::Contact { a.flinch } else { 0.0 };
+        clamp(base + stress * (was - base) / 3.0 + gamble + fire, 1.0, 20.0)
     }
 
     /// His tendency as a lean, -1 at 1 to +1 at 20.
@@ -1416,6 +1560,9 @@ impl<'a> Sim<'a> {
         match a {
             Attr::Discipline | Attr::Concentration if ag.focus20 != 0.0 => (base + ag.focus20).clamp(1.0, 20.0),
             Attr::Composure if ag.poise20 != 0.0 => (base + ag.poise20).clamp(1.0, 20.0),
+            // Effort when chasing (coach fire): fire's power and effort,
+            // read on the 1-20 scale.
+            Attr::Motor if ag.power != 0.0 => (base + ag.power / super::rules::TRAIT_STEP).clamp(1.0, 20.0),
             _ => base,
         }
     }
@@ -2932,7 +3079,8 @@ impl<'a> Sim<'a> {
         let behind = (a.pos.x - cp.x) * self.goal < -4.0 && dist > 8.0;
         let mut effort = 1.0;
         if behind {
-            let motor = self.teams[a.side][a.p].trait20(Attr::Motor, self.level);
+            // Fire's effort counts here (coach fire).
+            let motor = self.trait20(i, Attr::Motor);
             if motor < 9.0 {
                 effort = 0.8 + 0.02 * motor;
             }
@@ -3207,6 +3355,9 @@ impl<'a> Sim<'a> {
 
     /// Contact: momentum exchange, fumble and injury checks.
     fn hit_effects(&mut self, c: usize, i: usize, share: f64) {
+        // A big hitter puts more into it (tendencies), and fire puts more
+        // in (coach fire: his power and effort).
+        let force = self.hit_force(i, c, share);
         let (r, d) = (self.agents[c].clone(), self.agents[i].clone());
         // Momentum along the runner's line: m*v of both.
         let along = if r.vel.len() > 0.1 { r.vel.norm() } else { v2(self.goal, 0.0) };
@@ -3214,10 +3365,8 @@ impl<'a> Sim<'a> {
         let pd = d.mass * d.vel.dot(along);
         let v = (pr + pd * share) / (r.mass + d.mass * share);
         self.agents[c].vel = along.scale(v.max(-1.0));
-        // A big hitter puts more into it (tendencies).
-        let force =
-            (r.mass * r.vel.len() + d.mass * d.vel.len()) * 0.5 * (1.0 + 0.2 * share * self.lean(i, Tend::BigHit));
         self.contact_force = self.contact_force.max(force);
+        self.note_hit(i, c, force);
         // Ball security against the hit (topic 2), read against the man
         // making it: his strength and tackling against the carrier's ball
         // security. It was read on its own, so NFL carriers, rated far above
@@ -3258,6 +3407,57 @@ impl<'a> Sim<'a> {
         // A runner who seeks contact takes more of it.
         self.injury_check(c, force, (1.0 + 0.4 * self.lean(c, Tend::Contact)).max(0.2));
         self.injury_check(i, force, 0.7);
+    }
+
+    /// How hard defender `i` hits man `c`: both men's momentum, a big
+    /// hitter's lean (on his share of a gang tackle) and his fire's power.
+    pub fn hit_force(&self, i: usize, c: usize, share: f64) -> f64 {
+        let (r, d) = (&self.agents[c], &self.agents[i]);
+        (r.mass * r.vel.len() + d.mass * d.vel.len())
+            * 0.5
+            * (1.0 + 0.2 * share * self.lean(i, Tend::BigHit))
+            * (1.0 + FIRE_HIT * d.power)
+    }
+
+    /// A hit on a man (coach fire): the play keeps its hardest, for the
+    /// big hit and the spark.
+    pub fn note_hit(&mut self, hitter: usize, hit: usize, force: f64) {
+        if self.notes.fire.hardest.is_none_or(|h| force > h.2) {
+            self.notes.fire.hardest = Some((self.agents[hitter].id, self.agents[hit].id, force));
+        }
+    }
+
+    /// A personal foul on a hit (coach fire, item 4): targeting where the
+    /// level's rule has it, unnecessary roughness at the NFL; thrown out
+    /// when the rule ejects for it, or the hit was flagrant. `high` is the
+    /// share of such hits that are high and led with the helmet;
+    /// `defenseless`, the man hit was (a receiver at the catch, a sliding
+    /// quarterback): the league's dearer fine.
+    pub fn hit_foul(&mut self, d: usize, at: f64, high: f64, defenseless: bool) {
+        use super::rules::Targeting;
+        let rule = self.targeting;
+        let (id, side) = (self.agents[d].id, self.agents[d].side);
+        let helmet = self.rng.chance(high);
+        let flagrant = self.rng.chance(FLAGRANT * self.temper(d));
+        let (kind, out) = match rule {
+            Targeting::Eject if helmet => (FoulKind::Targeting, true),
+            Targeting::Foul if helmet => (FoulKind::Targeting, flagrant),
+            _ => (FoulKind::UnnecessaryRoughness, flagrant),
+        };
+        self.notes.fouls.push(Foul { kind, side, player: id, at });
+        if defenseless && !self.notes.fire.defenseless.contains(&id) {
+            self.notes.fire.defenseless.push(id);
+        }
+        if out && !self.notes.fire.ejected.contains(&id) {
+            self.notes.fire.ejected.push(id);
+        }
+    }
+
+    /// His temper on a hit (coach fire, item 4): his hidden temperament and
+    /// the heat the day's talks put in him, 1 for a typical man.
+    pub fn temper(&self, i: usize) -> f64 {
+        let t = self.player(i).traits.temperament;
+        (1.0 + 0.04 * (10.0 - t)).max(0.4) * (1.0 + self.agents[i].heat).max(0.3)
     }
 
     fn fight_tick(&mut self, c: usize) {
@@ -3450,7 +3650,9 @@ impl<'a> Sim<'a> {
             if self.rng.chance(0.0087 * self.crew.personal * technique) {
                 self.notes.fouls.push(Foul { kind: FoulKind::FaceMask, side, player: id, at: x });
             } else if self.rng.chance(0.023 * self.crew.personal * temper) {
-                self.notes.fouls.push(Foul { kind: FoulKind::UnnecessaryRoughness, side, player: id, at: x });
+                // Some lead with the crown of the helmet: targeting where
+                // the level's rule has it (coach fire, item 4).
+                self.hit_foul(i, x, HIGH_ON_TACKLE, false);
             }
         }
         self.dead = true;

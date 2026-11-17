@@ -779,6 +779,15 @@ pub(crate) fn record(
     }
     // The record store's game marks (update 3, lane L20).
     crate::world::marks::nfl_game(w, teams, &r.stats, neutral);
+    // The hits the officials flagged, for the league office (coach fire).
+    use crate::world::folk::Team;
+    crate::world::folk::rules::game_flags(
+        w,
+        crate::calendar::Level::Nfl,
+        [Team::Nfl(teams[0]), Team::Nfl(teams[1])],
+        &r.stats.hit_flags(),
+        [&[], &[]],
+    );
     // By team, day by day (B1; see `record_preseason`).
     for &(team, ref inj) in &r.injuries {
         if inj.plays_on || team > 1 {

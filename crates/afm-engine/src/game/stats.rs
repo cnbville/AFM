@@ -210,6 +210,10 @@ pub struct PlayRecord {
     /// from results reads it for his throw-on-the-move rating.
     #[serde(default)]
     pub moving: bool,
+    /// What fire did on the play (coach fire): the big hit, the spark, the
+    /// men it carried, footsteps and ejections. Empty on most plays.
+    #[serde(default, skip_serializing_if = "super::sim::FireNotes::is_empty")]
+    pub fire: super::sim::FireNotes,
 }
 
 impl PlayRecord {
@@ -315,6 +319,7 @@ impl PlayRecord {
             pressure_at: 0.0,
             contact: Vec::new(),
             moving: false,
+            fire: Default::default(),
         }
     }
 
@@ -858,7 +863,40 @@ pub struct GameStats {
     pub level: Option<crate::player::Level>,
 }
 
+/// A hit the officials flagged in a game (coach fire, item 4): what the
+/// league office reads for fines and suspensions, and the college rule for
+/// the next game's first half.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct HitFlag {
+    /// 0 home, 1 away.
+    pub team: u8,
+    pub id: u32,
+    pub kind: FoulKind,
+    /// Thrown out of the game for it.
+    pub ejected: bool,
+    /// In the second half or overtime.
+    pub second_half: bool,
+    /// A hit on a defenseless man.
+    pub defenseless: bool,
+}
+
 impl GameStats {
+    /// The game's personal fouls on hits, taken or declined, with who was
+    /// thrown out (coach fire, item 4).
+    pub fn hit_flags(&self) -> Vec<HitFlag> {
+        let mut v = Vec::new();
+        for p in &self.plays {
+            for &(kind, team, id, _, _) in &p.penalties {
+                if kind.personal() && team < 2 {
+                    let ejected = p.fire.ejected.contains(&id);
+                    let defenseless = p.fire.defenseless.contains(&id);
+                    v.push(HitFlag { team: team as u8, id, kind, ejected, second_half: p.quarter >= 3, defenseless });
+                }
+            }
+        }
+        v
+    }
+
     pub fn line(&mut self, team: usize, id: u32) -> &mut StatLine {
         self.players[team].entry(id).or_default()
     }

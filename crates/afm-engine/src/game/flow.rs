@@ -1465,6 +1465,16 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
         };
         g.room_talk(k, super::talk::Moment::Pregame, pick, &tilts);
     }
+    // Sitting the first half (coach fire, item 4): a targeting ejection in
+    // the second half of his last game.
+    for k in 0..2 {
+        let team: &GameTeam = g.sides[k].team;
+        for id in &team.day.first_half {
+            if let Some(i) = team.players.iter().position(|p| p.id == *id) {
+                g.sides[k].out[i] = true;
+            }
+        }
+    }
     g.eye = live::draw_eye(&mut g.refs);
     g.challenges = [g.replay.challenges; 2];
     let drawn = if g.rng.chance(0.5) { 0 } else { 1 };
@@ -2055,6 +2065,15 @@ impl<'a> Game<'a> {
                     }
                     let margin = self.diff(k);
                     self.room_talk(k, super::talk::Moment::Halftime { margin }, None, &[]);
+                }
+                // Who sat the first half comes back (coach fire, item 4).
+                for k in 0..2 {
+                    let team: &'a GameTeam = self.sides[k].team;
+                    for id in &team.day.first_half {
+                        if let Some(i) = team.players.iter().position(|p| p.id == *id) {
+                            self.sides[k].out[i] = false;
+                        }
+                    }
                 }
                 self.quarter = 3;
                 self.clock = self.rules().quarter;
@@ -3777,7 +3796,7 @@ impl<'a> Game<'a> {
             // (1.28 a game against 1.06, cfbfastR 2023-24). Concentration
             // joins discipline, and decides how much the noise gets to him
             // (proposed, not confirmed).
-            let talk = self.sides[o].pulse[i].focus;
+            let talk = self.sides[o].pulse[i].focus20();
             let conc = (p.trait20(Attr::Concentration, level) + talk).clamp(1.0, 20.0);
             let focus = 0.6 * (p.trait20(Attr::Discipline, level) + talk).clamp(1.0, 20.0) + 0.4 * conc;
             let chance = 0.00162
@@ -3829,15 +3848,18 @@ impl<'a> Game<'a> {
                 {
                     v
                 }
-                _ => p.tend.get(crate::tendencies::Tend::SnapTiming),
+                // Fire (coach fire, item 3): past his own pitch he guesses
+                // the count more.
+                _ => (p.tend.get(crate::tendencies::Tend::SnapTiming) + self.sides[1 - o].pulse[i].habits)
+                    .clamp(1.0, 20.0),
             };
             let lean = (guess - crate::tendencies::MID) / 9.5;
             let guess = (1.0 + 1.1 * lean).max(0.1) * hard.powf(1.0 + 0.8 * lean.max(0.0)) / hard.max(1.0);
             // (0.0019 before tendencies: guessers are the less disciplined
             // men and a hard count now targets them, so 0.00172 keeps the
             // league's offside where it was.)
-            let disc =
-                (p.trait20(Attr::Discipline, self.s.rules.level) + self.sides[1 - o].pulse[i].focus).clamp(1.0, 20.0);
+            let disc = (p.trait20(Attr::Discipline, self.s.rules.level) + self.sides[1 - o].pulse[i].focus20())
+                .clamp(1.0, 20.0);
             let chance = 0.00172 * (1.6 - disc / 15.0).max(0.3) * jump * hard * guess * def_crew;
             if self.rng.chance(chance) {
                 return Some(Foul { kind: FoulKind::Offside, side: 1, player: p.id, at: self.x });
@@ -4275,23 +4297,14 @@ impl<'a> Game<'a> {
         // A man playing hurt loses what his injury limits (update 3, F7:
         // `sim::hampered`, read in `run_snap`), not a flat cut.
         // The words the staff gives before this snap (yours were given at
-        // the call), then the talks' lift rides on the momentum edge
-        // (dialogue D4-D6).
+        // the call). The talks no longer ride on the momentum edge: their
+        // fire works by the kind of work, read in `run_snap` (coach fire,
+        // `sim::Agent::fire_up`).
         self.settle_words();
-        let mut hurt_edge_o: Vec<f64> = self.sides[o]
-            .edge
-            .iter()
-            .zip(&self.sides[o].pulse)
-            .zip(&self.sides[o].form)
-            .map(|((e, p), f)| e + p.lift + f)
-            .collect();
-        let mut hurt_edge_d: Vec<f64> = self.sides[d]
-            .edge
-            .iter()
-            .zip(&self.sides[d].pulse)
-            .zip(&self.sides[d].form)
-            .map(|((e, p), f)| e + p.lift + f)
-            .collect();
+        let mut hurt_edge_o: Vec<f64> =
+            self.sides[o].edge.iter().zip(&self.sides[o].form).map(|(e, f)| e + f).collect();
+        let mut hurt_edge_d: Vec<f64> =
+            self.sides[d].edge.iter().zip(&self.sides[d].form).map(|(e, f)| e + f).collect();
         // A man at a spot he doesn't know plays below his rating there (3.3);
         // the punt units' jobs are their own. A man new to his job reads
         // later and busts more until he is listed there (L1).
@@ -4475,6 +4488,13 @@ impl<'a> Game<'a> {
         }
         r.why = format!("{} on #{} before the snap.", f.kind.name(), f.player);
         r.epa = ep_at(self.below_nfl(), self.down, self.togo, goal() - self.x) - r.ep_before;
+        // Jumped the count hot (coach fire, item 8).
+        if f.kind == FoulKind::Offside
+            && let Some(i) = self.sides[team].team.players.iter().position(|p| p.id == f.player)
+            && self.sides[team].pulse[i].habits >= super::talk::HOT
+        {
+            r.fire.hot.push((f.player, crate::tendencies::Tend::SnapTiming));
+        }
         self.edge_hit(team, f.player, -1.0);
         self.stats.book(&r);
         // A running clock starts again on the ready signal once the penalty
@@ -4510,6 +4530,137 @@ impl<'a> Game<'a> {
                 self.sides[team].out[i.p] = true;
             }
             self.res.injuries.push((team, i2));
+        }
+    }
+
+    /// The plays fire carried (coach fire, item 8), read on the snap's own
+    /// fire: the big hit (the level's top 3%, `talk::big_hit`), and a man
+    /// past his own pitch, his fire habits up by `talk::HOT` tendency points
+    /// or more, who made the play his habit goes for (the big hit, the
+    /// strip, the jumped route, the stop at the line coming downhill) or drew
+    /// the personal foul it costs.
+    fn hot_tags(&self, r: &mut PlayRecord, o: usize, d: usize) {
+        use crate::tendencies::Tend;
+        let level = self.s.rules.level;
+        if let Some((h, m, f)) = r.fire.hardest
+            && f >= super::talk::big_hit(level)
+        {
+            r.fire.big_hit = Some((h, m));
+        }
+        let at = |id: u32| -> Option<(usize, usize)> {
+            let k = if r.on_field[1].contains(&id) {
+                d
+            } else if r.on_field[0].contains(&id) {
+                o
+            } else {
+                return None;
+            };
+            self.sides[k].team.players.iter().position(|p| p.id == id).map(|i| (k, i))
+        };
+        let hot = |id: u32| at(id).is_some_and(|(k, i)| self.sides[k].pulse[i].habits >= super::talk::HOT);
+        let mut tags: Vec<(u32, Tend)> = Vec::new();
+        let mut tag = |id: u32, t: Tend| {
+            if !tags.iter().any(|x| x.0 == id) {
+                tags.push((id, t));
+            }
+        };
+        if let Some((h, _)) = r.fire.big_hit
+            && hot(h)
+        {
+            tag(h, Tend::BigHit);
+        }
+        if let Some(f) = r.forced_fumble
+            && hot(f)
+        {
+            tag(f, Tend::Strip);
+        }
+        if let Some((j, _)) = r.tend.jump
+            && hot(j)
+        {
+            tag(j, Tend::JumpRoutes);
+        }
+        for &(kind, _, id, _, _) in &r.penalties {
+            if kind.personal() && hot(id) {
+                tag(id, Tend::BigHit);
+            }
+        }
+        // Came downhill: a linebacker or safety who stopped a run at the
+        // line or behind it.
+        if r.kind == PlayType::Run
+            && !r.nullified
+            && r.yards <= 0.0
+            && let Some(&t) = r.tacklers.first()
+            && let Some((k, i)) = at(t)
+            && k == d
+            && matches!(self.sides[k].team.players[i].position, Position::LB | Position::S)
+            && hot(t)
+        {
+            tag(t, Tend::Downhill);
+        }
+        r.fire.hot = tags;
+    }
+
+    /// After a play (coach fire, items 4 and 5): who was thrown out sits
+    /// the rest of the game, whether the penalty is taken or not; the man a
+    /// big hit landed on hears footsteps, his Contact lean down by up to
+    /// `talk::FLINCH` points by his Toughness and Composure, fading; and a
+    /// big hit, a forced fumble or a 4th down stop sparks the man who made
+    /// it (+1 on the momentum scale) and his teammates on the field, up to
+    /// `talk::SPARK` points each by his own fire. One spark a play, none on
+    /// a play a penalty wiped out.
+    fn fire_after(&mut self, r: &mut PlayRecord, o: usize, d: usize, accepted_pen: bool) {
+        let level = self.s.rules.level;
+        let at = |s: &Self, id: u32| -> Option<(usize, usize)> {
+            let k = if r.on_field[1].contains(&id) {
+                d
+            } else if r.on_field[0].contains(&id) {
+                o
+            } else {
+                return None;
+            };
+            s.sides[k].team.players.iter().position(|p| p.id == id).map(|i| (k, i))
+        };
+        for &id in &r.fire.ejected {
+            if let Some((k, i)) = at(self, id) {
+                self.sides[k].out[i] = true;
+            }
+        }
+        if let Some((_, m)) = r.fire.big_hit
+            && let Some((k, i)) = at(self, m)
+        {
+            let p = &self.sides[k].team.players[i];
+            let steady = 0.5 * (p.trait20(Attr::Toughness, level) + p.composure(level));
+            let soft = ((15.0 - steady) / 10.0).clamp(0.0, 1.0);
+            let pulse = &mut self.sides[k].pulse[i];
+            pulse.flinch = (pulse.flinch + super::talk::FLINCH * soft).min(super::talk::FIRE_CAP);
+        }
+        if accepted_pen {
+            return;
+        }
+        let stop = r.down == 4
+            && matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble)
+            && !r.first_down
+            && !r.touchdown
+            && !r.turnover
+            && !r.safety;
+        let stopper = || r.sackers.first().or(r.tacklers.first()).copied().or(r.pbu).or(r.defender);
+        let spark = r.forced_fumble.or(r.fire.big_hit.map(|b| b.0)).or(if stop { stopper() } else { None });
+        let Some(id) = spark else {
+            return;
+        };
+        let Some((k, _)) = at(self, id) else { return };
+        r.fire.spark = Some(id);
+        self.edge_hit(k, id, 1.0);
+        let field = if k == o { 0 } else { 1 };
+        for &mate in &r.on_field[field] {
+            if mate == id {
+                continue;
+            }
+            if let Some(i) = self.sides[k].team.players.iter().position(|p| p.id == mate) {
+                let lift = super::talk::SPARK * self.sides[k].pulse[i].catches();
+                let e = &mut self.sides[k].edge[i];
+                *e = (*e + lift).min(2.0);
+            }
         }
     }
 
@@ -4589,6 +4740,7 @@ impl<'a> Game<'a> {
         r.craft = res.notes.craft.clone();
         r.line = res.notes.chart.clone();
         r.tend = res.notes.tend;
+        r.fire = res.notes.fire.clone();
         r.busts = res.notes.busts.clone();
         r.injuries = res.notes.injuries.clone();
         r.top_speed = res
@@ -4668,11 +4820,7 @@ impl<'a> Game<'a> {
                     let lim = if self.rules().level == Level::NFL { spot_dist } else { spot_dist.min(15.0) };
                     (los + lim).min(goal() - 1.0)
                 }
-                FoulKind::RoughingPasser | FoulKind::FaceMask | FoulKind::UnnecessaryRoughness
-                    if !turnover && gain > 0.0 =>
-                {
-                    res.spot + yds
-                }
+                k if k.personal() && !turnover && gain > 0.0 => res.spot + yds,
                 _ => los + yds,
             };
             let pen_x = if pen_x >= goal() { los + (goal() - los) / 2.0 } else { pen_x };
@@ -4688,10 +4836,7 @@ impl<'a> Game<'a> {
             let accept = pen_val > play_val;
             r.penalties.push((f.kind, d, f.player, if accept { pen_x - los } else { 0.0 }, accept));
             if accept {
-                stands =
-                    matches!(f.kind, FoulKind::RoughingPasser | FoulKind::FaceMask | FoulKind::UnnecessaryRoughness)
-                        && !turnover
-                        && gain > 0.0;
+                stands = f.kind.personal() && !turnover && gain > 0.0;
                 new_x = pen_x;
                 scored_td = false;
                 turnover = false;
@@ -4744,7 +4889,9 @@ impl<'a> Game<'a> {
         if r.interception && !accepted_pen {
             r.yards = 0.0;
         }
-        // Momentum and coordinator memory.
+        // Momentum and coordinator memory. The plays fire carried are read
+        // on the snap's own fire, before it fades (coach fire, item 8).
+        self.hot_tags(&mut r, o, d);
         self.decay_edges();
         if !accepted_pen {
             if r.interception {
@@ -4861,6 +5008,8 @@ impl<'a> Game<'a> {
         r.touchdown = scored_td;
         r.turnover = turnover;
         r.safety = safety;
+        // The spark, footsteps and ejections (coach fire, items 4 and 5).
+        self.fire_after(&mut r, o, d, accepted_pen);
         // Spot near the hash.
         let h = self.rules().hash;
         self.ball_y = clamp(res.spot_y, mid() - h, mid() + h);
@@ -6638,10 +6787,13 @@ impl<'a> Game<'a> {
         let cx = self.talk_cx(k, moment);
         let half = matches!(moment, super::talk::Moment::Halftime { .. });
         let seed = self.s.seed ^ 0x7A1C_0000 ^ ((k as u64) << 40) ^ ((half as u64) << 44);
-        let pick = pick.unwrap_or_else(|| super::talk::coach_pick(team, &cx, seed));
+        let pick = pick.or(team.day.room).unwrap_or_else(|| super::talk::coach_pick(team, &cx, seed));
         let ls = super::talk::room_tilted(team, &pick, &cx, tilts);
         for (i, l) in ls.iter().enumerate() {
+            // A flinch outlasts a talk (coach fire, item 5).
+            let flinch = self.sides[k].pulse[i].flinch;
             self.sides[k].pulse[i] = super::talk::Pulse::of(l);
+            self.sides[k].pulse[i].flinch = flinch;
         }
         self.res.talks.rooms.push(super::talk::note(team, &ls, k, half));
         if half {
@@ -6810,8 +6962,7 @@ impl<'a> Game<'a> {
                         }
                     }
                 } else {
-                    let personal =
-                        matches!(kind, F::PassInterference | F::RoughingPasser | F::UnnecessaryRoughness | F::FaceMask);
+                    let personal = kind == F::PassInterference || kind.personal();
                     if personal || (r.down >= 3 && yards + 0.01 >= r.togo) {
                         costly.push((id, M::ExtendedDrive, r.n));
                     } else {
