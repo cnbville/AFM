@@ -1157,12 +1157,7 @@ fn lost_why(w: &World, i: usize, chosen: usize, yours: usize) -> Vec<String> {
     let mut ks: Vec<usize> = (0..7).collect();
     ks.sort_by(|&x, &y| edge[y].total_cmp(&edge[x]));
     let mut v = vec![decider.to_string()];
-    v.extend(
-        ks.iter()
-            .filter(|&&k| edge[k] > 0.004 && (k < 6 || race::room_to_name(w, i, chosen, yours).is_some()))
-            .take(2)
-            .map(|&k| if k == 6 { room_fact() } else { fact(k) }),
-    );
+    v.extend(ks.iter().filter(|&&k| edge[k] > 0.004).take(2).map(|&k| if k == 6 { room_fact() } else { fact(k) }));
     if v.len() == 1 {
         v.push(format!("No single edge: {name} was simply the better fit to the family"));
     }
