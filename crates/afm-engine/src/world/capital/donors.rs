@@ -384,7 +384,10 @@ fn second_school(w: &World, p: usize, rng: &mut Rng) -> Option<usize> {
 /// `n` a key that makes him his own man.
 pub(crate) fn draw_donor(w: &World, p: usize, year: i32, joined: i32, n: u64) -> Donor {
     let key = (p as u64) << 32 ^ (joined as u64) << 16 ^ n;
-    let mut rng = Rng::new((w.options.seed as u64 ^ key.wrapping_mul(0x2545_F491_4F6C_DD1D) ^ 0xD0_0000) as u32);
+    // Fold the high half in before the seed is cut to 32 bits, so the
+    // program (bits 32 and up) makes each school's donors their own.
+    let h = (key ^ 0xD0_0000).wrapping_mul(0x2545_F491_4F6C_DD1D);
+    let mut rng = Rng::new(w.options.seed ^ (h ^ h >> 32) as u32);
     let money = if rng.chance(new_money_share(joined)) { Money::New } else { Money::Old };
     let alum = rng.chance(if money == Money::Old { 0.75 } else { 0.62 });
     let she = rng.chance(0.12);

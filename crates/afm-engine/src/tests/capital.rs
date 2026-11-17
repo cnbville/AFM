@@ -312,3 +312,21 @@ fn the_world_plays_the_same_with_the_donors() {
     assert_eq!(off.capital.donors.len(), kept);
     assert!(fp(&on) == fp(&off), "the world moved with the donors");
 }
+
+/// Two schools' donors drawn with the same year and place are their own
+/// men (the program is in the seed).
+#[test]
+fn each_school_draws_its_own_donors() {
+    let (w, _, _) = world();
+    let a = donors::draw_donor(&w, 0, w.year, w.year, 3);
+    let b = donors::draw_donor(&w, 1, w.year, w.year, 3);
+    assert!(a.name != b.name || a.capacity != b.capacity);
+    let same = (0..200)
+        .filter(|&n| {
+            let x = donors::draw_donor(&w, 0, w.year, w.year, n);
+            let y = donors::draw_donor(&w, 1, w.year, w.year, n);
+            x.capacity == y.capacity
+        })
+        .count();
+    assert_eq!(same, 0);
+}
