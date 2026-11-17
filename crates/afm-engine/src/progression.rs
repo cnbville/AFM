@@ -185,7 +185,11 @@ fn maps() -> &'static Vec<Option<RankMap>> {
                 .into_par_iter()
                 .map(|i| {
                     let mut rng = Rng::new(0x5EED_11A1u32 ^ i.wrapping_mul(0x9E37_79B1));
-                    let talent = clamp(crate::player::talent_from_z(rng.normal(0.0, 1.0)), 20.0, 99.0);
+                    let talent = clamp(
+                        crate::player::talent_from_z(rng.normal(0.0, 1.0)),
+                        20.0,
+                        crate::attributes::RATING_BOUND,
+                    );
                     let (ceilings, body, natural, _) = crate::athlete::create(&mut rng, talent);
                     (natural, ceilings, body.arm)
                 })
@@ -568,7 +572,15 @@ pub fn limit(p: &Player, a: Attr) -> Option<f64> {
     if !p.prog.drawn {
         return Some(p.ceilings.get(a));
     }
-    Some((mapped(p, a) + p.prog.over[li] as f64 / 2.0).max(p.ceilings.get(a)))
+    Some(limit_of(mapped(p, a), p.prog.over[li] as f64 / 2.0).max(p.ceilings.get(a)))
+}
+
+/// A limit from its rank map and its own part: the part counts as a rise
+/// from the map, so past the knee it thins like every other rise (physical
+/// study item 17). The map reads strength's fat top (rushing, blocking,
+/// tackling), and without this a strong man's limit ran to 150.
+fn limit_of(mapped: f64, over: f64) -> f64 {
+    crate::athlete::top_up(mapped, mapped + over)
 }
 
 /// The room between his limit and his everyday ceiling (0 for a skill with
@@ -674,11 +686,19 @@ pub const WEIGHT_ROOM: [(Attr, f64, f64); 8] = [
 
 /// How a knack z reads as a weight-room response: 0.8 a standard
 /// deviation, a non-responder at -1 (the typical gain less a whole leash),
-/// the typical man 0, a big responder up to his leash's most. Mean about 0
-/// over the class, so the class's average path (already real) holds.
+/// the typical man about 0. Mean 0 over the class, so the class's average
+/// path (already real) holds. The top is skewed (physical study item 3):
+/// real training response runs right-skewed, a few men gaining two or
+/// three times the typical man's strength, and those men make the 40-rep
+/// benchers. `RESPONSE_SKEW` a z squared past the typical man, less its
+/// mean (half of it).
 pub fn response(z: f64) -> f64 {
-    0.8 * z
+    0.8 * z + RESPONSE_SKEW * (z.max(0.0).powi(2) - 0.5)
 }
+
+/// The weight room response's skew (see `response`). Proposed, not
+/// confirmed.
+pub const RESPONSE_SKEW: f64 = 0.3;
 
 /// The share of the college weight room's work a year at this age does:
 /// front-loaded, most of it in the first two years (Jacobson et al. 2013),
@@ -720,16 +740,21 @@ pub(crate) fn weight_room(p: &mut Player, level: Level, trouble: bool) -> f64 {
         return 0.0;
     }
     ensure(p);
-    let r = response(body_knack(p));
+    let z = body_knack(p);
     let mut moved = 0.0;
     for &(a, leash, most) in WEIGHT_ROOM.iter() {
         let share = weight_room_share(p.age, a);
         if share <= 0.0 {
             continue;
         }
-        let d = clamp(r, -1.0, most / leash) * leash * share;
+        // The bench's fat top (item 3): upper-body strength takes the
+        // skewed response and a big responder is never held to the leash's
+        // most. The rest keep the plain response inside their leash (lower
+        // body too: a skewed squat ran verticals to 56 inches).
+        let (r, top) = if a == Attr::Strength { (response(z), f64::INFINITY) } else { (0.8 * z, most / leash) };
+        let d = clamp(r, -1.0, top) * leash * share;
         let (now, c) = (p.attributes.get(a), p.ceilings.get(a));
-        let to = (c + d).max(now);
+        let to = crate::athlete::top_up_attr(a, c, c + d).max(now);
         p.ceilings.set(a, to);
         moved += (to - c).abs();
     }
@@ -796,9 +821,14 @@ pub(crate) fn settle(p: &mut Player, before: &Attributes) {
         let c = p.ceilings.get(a);
         let rose = c - before.get(a);
         let over = p.prog.over[li] as f64 / 2.0;
-        let l = mapped(p, a).max(mapped_on(p, a, before, was)) + over;
+        let m = mapped(p, a).max(mapped_on(p, a, before, was));
+        let l = limit_of(m, over);
         if c > l && rose > 0.0 {
-            let need = over + (c - l).min(rose);
+            // The part that puts the limit at his new ceiling (or one
+            // year's rise past the old limit), on the draw's scale.
+            let to = c.min(l + rose);
+            let raw = crate::athlete::raw_top;
+            let need = (raw(to) - raw(m)).max(over);
             p.prog.over[li] = (need * 2.0).round().clamp(0.0, 255.0) as u8;
         }
     }
@@ -1303,7 +1333,7 @@ pub(crate) fn body_year(p: &mut Player, level: Level, strength_staff: f64, troub
         let used = p.prog.body_used[k] as f64 / 2.0;
         let left = (leash - used).max(0.0);
         let add = (left * pace).min(left);
-        p.ceilings.add(a, add);
+        crate::athlete::move_ceiling(&mut p.ceilings, a, add);
         p.prog.body_used[k] = ((used + add) * 2.0).round().clamp(0.0, 255.0) as u8;
         lift += add;
         left_all += left - add;

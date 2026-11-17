@@ -99,6 +99,10 @@ pub enum Kind {
     Sitdown,
     /// A reference call about a coach you might hire (question 10).
     Reference,
+    /// One of Ground's week scenes (lane G5): the school visit, the calls,
+    /// your campus and the coaches' side; its kind is `Scene.b`
+    /// (`ground::scenes::Kind`).
+    Ground,
 }
 
 impl Kind {
@@ -173,6 +177,7 @@ impl Kind {
             Kind::DraftTalk => "The draft side",
             Kind::Sitdown => "A sit-down",
             Kind::Reference => "A reference call",
+            Kind::Ground => "Ground",
         }
     }
 }
@@ -475,7 +480,7 @@ pub fn pen(w: &mut World, s: &Scene, k: u64) -> voice::Pen {
 /// asks for its new part this way, so it plays from its first merge and
 /// never says something its facts don't back (talk facts design, section
 /// 15, rule 3).
-pub(super) fn bank_line(
+pub(crate) fn bank_line(
     w: &mut World,
     s: &Scene,
     k: u64,
@@ -868,6 +873,7 @@ fn log_scene(w: &mut World, s: &Scene) {
         | Kind::DraftTalk => "recruiting",
         Kind::JobInterview => "network",
         Kind::StaffMeeting | Kind::Sitdown | Kind::Reference => "staff",
+        Kind::Ground => "recruiting",
         _ => "place",
     };
     super::note(w, topic, source, format!("{}: {text}", s.title), None);
@@ -904,6 +910,7 @@ fn dispatch_open(w: &mut World, s: &mut Scene) {
         | Kind::OfficialTalk => super::dialogue::open(w, s),
         Kind::DraftTalk => super::persona::draft::scene::open(w, s),
         Kind::Sitdown | Kind::Reference => super::persona::office::open(w, s),
+        Kind::Ground => crate::world::ground::scenes::open(w, s),
         _ => super::takeover::open(w, s),
     }
 }
@@ -939,6 +946,7 @@ fn dispatch_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         | Kind::OfficialTalk => super::dialogue::answer(w, s, code, picked),
         Kind::DraftTalk => super::persona::draft::scene::answer(w, s, code),
         Kind::Sitdown | Kind::Reference => super::persona::office::answer(w, s, code, picked),
+        Kind::Ground => crate::world::ground::scenes::answer(w, s, code),
         _ => super::takeover::answer(w, s, code, picked),
     }
 }
@@ -970,6 +978,7 @@ fn dispatch_hand(w: &mut World, s: &mut Scene) {
         | Kind::OfficialTalk => super::dialogue::hand(w, s),
         Kind::DraftTalk => super::persona::draft::scene::hand(w, s),
         Kind::Sitdown | Kind::Reference => super::persona::office::hand(w, s),
+        Kind::Ground => crate::world::ground::scenes::hand(w, s),
         _ => super::takeover::hand(w, s),
     }
 }

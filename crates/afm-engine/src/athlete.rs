@@ -14,7 +14,7 @@
 //! At a spot that suits him less, he is worse: a kid with a quarterback's arm
 //! stuck at safety, or a safety's eye wasted at receiver.
 
-use crate::attributes::{ATTRIBUTE_PROFILES, Attr, Attributes, MAX_RATING, MIN_RATING};
+use crate::attributes::{ATTRIBUTE_PROFILES, Attr, Attributes, MIN_RATING, RATING_BOUND};
 use crate::body::{Body, combine_size};
 use crate::player::Player;
 use crate::positions::{POSITION_COUNT, Position, elite_shape_value, overall_for, weight};
@@ -443,13 +443,15 @@ pub(crate) fn create(rng: &mut Rng, talent: f64) -> (Attributes, Body, Position,
     let (shape, (fh, fw), compete, explosive) = draw_shape(rng);
     let (natural, fit) = best_fit(&shape, (fh, fw));
     // Talent is his overall at his best spot. The skills that spot needs rise
-    // together: a great player is good at everything his position asks, so
-    // the higher his talent, the less room for uneven gifts (and none above 99).
+    // together, each about his talent as his leanings say.
     // Everything else scales with talent the way his leanings say.
     let scale = talent / fit;
-    let top_key =
-        Attr::ALL.iter().filter(|&&a| weight(natural, a) > 0.0).map(|&a| shape.get(a)).fold(fit + 1.0, f64::max);
-    let spread = (0.5 * scale).min((94.0 - talent).max(0.5) / (top_key - fit));
+    // Physical study item 21: the old "94 rule" squeezed an elite's key
+    // skills together so none passed 94 (a 99 wall's leftover). Real
+    // first-rounders' profiles are no more even than anyone's, so his
+    // leanings spread at every talent; the thin top and the shift below
+    // keep his overall at his talent.
+    let spread = 0.5 * scale;
     // Speed and burst are his own roll, not his football talent's (speed
     // update S1, S2): his explosiveness on top of what bodies like his run.
     // A spot that reads speed counts it in his talent, so there his roll
@@ -471,12 +473,21 @@ pub(crate) fn create(rng: &mut Rng, talent: f64) -> (Attributes, Body, Position,
         };
         base.set(a, v);
     }
-    // His skills make up what his speed doesn't, so his overall there is his talent.
+    // His skills make up what his speed doesn't, so his overall there is his
+    // talent, read after the thin top (a key past the knee counts for less,
+    // so an elite's skills carry a little more to make it up).
     if speed_share < 1.0 {
-        let short = (talent - overall_for(natural, &base)) / (1.0 - speed_share);
-        for a in Attr::ALL {
-            if weight(natural, a) > 0.0 && !matches!(a, Attr::Speed | Attr::Acceleration) {
-                base.add(a, short);
+        for _ in 0..8 {
+            let mut thinned = base;
+            thin_tops(&mut thinned);
+            let short = (talent - overall_for(natural, &thinned)) / (1.0 - speed_share);
+            if short.abs() < 0.01 {
+                break;
+            }
+            for a in Attr::ALL {
+                if weight(natural, a) > 0.0 && !matches!(a, Attr::Speed | Attr::Acceleration) {
+                    base.add(a, short);
+                }
             }
         }
     }
@@ -495,10 +506,10 @@ pub(crate) fn create(rng: &mut Rng, talent: f64) -> (Attributes, Body, Position,
         if a == Attr::Strength {
             strength_noise = n;
         }
-        ceilings.set(a, clamp(base.get(a) + n, MIN_RATING, MAX_RATING));
+        ceilings.set(a, clamp(base.get(a) + n, MIN_RATING, RATING_BOUND));
     }
     let n = lower_with(strength_noise, 4.0, base.get(Attr::LowerBody).to_bits() as u32);
-    ceilings.set(Attr::LowerBody, clamp(base.get(Attr::LowerBody) + n, MIN_RATING, MAX_RATING));
+    ceilings.set(Attr::LowerBody, clamp(base.get(Attr::LowerBody) + n, MIN_RATING, RATING_BOUND));
     // His best spot is his best spot: where another position would rate him
     // higher, the skills only that position uses are trimmed until it doesn't.
     let best = overall_for(natural, &ceilings) * 0.95;
@@ -534,7 +545,63 @@ pub(crate) fn create(rng: &mut Rng, talent: f64) -> (Attributes, Body, Position,
     if natural == Position::EDGE {
         edge_lean(&mut ceilings, body.height);
     }
+    thin_tops(&mut ceilings);
     (ceilings, body, natural, compete)
+}
+
+/// Where a rating or ceiling starts to thin out, and how fast it thins
+/// past it (physical study items 1, 17 and 18, Cain 2026-11-15: no 99
+/// wall, a thin top). With the wall gone the draw and the growth ran to
+/// 130-150 (`top_check`, eight classes). Past the knee each point of draw
+/// counts for less, on a log curve with no top, so a freak still stands
+/// out but 100+ is about as rare as a 4.25 forty: a drafted man's key skill
+/// past 100 about 0.1 to 0.7 a draft (real 4.25 forties 0.19). Strength and
+/// lower body keep a fat top (item 3). Proposed, not confirmed.
+pub const TOP_KNEE: f64 = 95.0;
+pub const TOP_ROOM: f64 = 3.0;
+
+/// A value past the knee, thinned (`TOP_KNEE`).
+pub fn thin_top(v: f64) -> f64 {
+    let (k, r) = (TOP_KNEE, TOP_ROOM);
+    if v <= k { v } else { k + r * (1.0 + (v - k) / r).ln() }
+}
+
+/// The draw a thinned value stands for (`thin_top` undone).
+pub fn raw_top(v: f64) -> f64 {
+    let (k, r) = (TOP_KNEE, TOP_ROOM);
+    if v <= k { v } else { k + r * (((v - k) / r).exp() - 1.0) }
+}
+
+/// A rating or ceiling that moved from `start` to `end`: a rise past the
+/// knee is taken on the draw's scale and thinned back, so it counts for
+/// less the nearer he is to the top, as at creation (physical study items 1
+/// and 17). A fall, or a rise that stays under the knee, is as it was.
+pub fn top_up(start: f64, end: f64) -> f64 {
+    if end <= start || end <= TOP_KNEE {
+        return end;
+    }
+    thin_top(raw_top(start) + (end - start))
+}
+
+/// `top_up` for one attribute: the strength pair keeps its fat top (item 3)
+/// and moves as it was.
+pub fn top_up_attr(a: Attr, start: f64, end: f64) -> f64 {
+    if matches!(a, Attr::Strength | Attr::LowerBody) { end } else { top_up(start, end) }
+}
+
+/// Raises (or lowers) one ceiling by `d` through `top_up_attr`.
+pub fn move_ceiling(c: &mut Attributes, a: Attr, d: f64) {
+    let was = c.get(a);
+    c.set(a, top_up_attr(a, was, was + d));
+}
+
+/// Every ceiling but the strength pair through `thin_top`.
+pub fn thin_tops(c: &mut Attributes) {
+    for a in Attr::ALL {
+        if !matches!(a, Attr::Strength | Attr::LowerBody) {
+            c.set(a, thin_top(c.get(a)));
+        }
+    }
 }
 
 /// Bug 330: a tall edge's skills stop trading rush for coverage and
@@ -562,10 +629,10 @@ fn edge_lean(c: &mut Attributes, height: f64) {
     let wf: f64 = from.iter().map(|&(a, f)| f * weight(Position::EDGE, a)).sum();
     let wt: f64 = to.iter().map(|&(a, f)| f * weight(Position::EDGE, a)).sum();
     for (a, f) in from {
-        c.set(a, clamp(c.get(a) - f * x, MIN_RATING, MAX_RATING));
+        c.set(a, clamp(c.get(a) - f * x, MIN_RATING, RATING_BOUND));
     }
     for (a, f) in to {
-        c.set(a, clamp(c.get(a) + f * x * wf / wt, MIN_RATING, MAX_RATING));
+        c.set(a, clamp(c.get(a) + f * x * wf / wt, MIN_RATING, RATING_BOUND));
     }
 }
 

@@ -3,7 +3,7 @@
 //! (W1 of the AFM calendar), after which the player is a year older.
 
 use crate::attributes::{
-    ATTRIBUTE_COUNT, ATTRIBUTE_PROFILES, Attr, AttributeGroup, Attributes, MAX_RATING, MIN_RATING,
+    ATTRIBUTE_COUNT, ATTRIBUTE_PROFILES, Attr, AttributeGroup, Attributes, MIN_RATING, RATING_BOUND,
 };
 use crate::player::{DevelopmentEvent as Ev, Events, Level, OptF64, Player, PlayingTime, SeasonRecord};
 use crate::positions::{Position, overall_for, weight};
@@ -583,7 +583,8 @@ pub(crate) fn grow_share(
     let given = FINISHING_STEP * rate * done.clamp(0.0, 1.0);
     let add = gap.min((gap + given) * prop + FINISHING_STEP * rate * share) + noise;
     let before = attrs.get(key);
-    let attr = clamp(before + add, MIN_RATING, MAX_RATING);
+    let attr = clamp(before + add, MIN_RATING, RATING_BOUND);
+    let attr = crate::athlete::top_up_attr(key, before, attr);
     attrs.set(key, attr);
     if attr > ceilings.get(key) {
         ceilings.set(key, attr);
@@ -1317,7 +1318,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
                 d = 0.0;
             }
             let current = player.ceilings.get(key);
-            delta.set(key, clamp(current + d, MIN_RATING, MAX_RATING) - current);
+            delta.set(key, clamp(current + d, MIN_RATING, RATING_BOUND) - current);
         }
         // A potential shift can move at most one band per checkpoint: no overnight stars.
         let shift = overall_for(position, &delta);
@@ -1366,7 +1367,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
                 0.0
             };
             if add > 0.0 {
-                player.ceilings.set(key, (player.ceilings.get(key) + add).min(MAX_RATING));
+                player.ceilings.set(key, (player.ceilings.get(key) + add).min(RATING_BOUND));
             }
         }
     }
@@ -1450,7 +1451,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
     if carries {
         for key in [Attr::Elusiveness, Attr::BallCarrierVision] {
             let c = player.ceilings.get(key);
-            player.ceilings.set(key, (c * 1.025).min(MAX_RATING));
+            player.ceilings.set(key, (c * 1.025).min(RATING_BOUND));
         }
     }
     let grown_from = player.attributes;
@@ -1635,8 +1636,15 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         if settling[i] && ceil > attr && !(rehab && Attr::ALL[i].profile().injury_sensitive) {
             ceil = attr + (ceil - attr) / 2.0;
         }
-        ceil = clamp(ceil, MIN_RATING, MAX_RATING);
-        attr = clamp(attr, MIN_RATING, MAX_RATING);
+        // The thin top (physical study items 1 and 17): a year's rise past
+        // the knee counts for less the nearer he is to the top, as at
+        // creation. Strength and the legs keep a fat top.
+        if !matches!(Attr::ALL[i], Attr::Strength | Attr::LowerBody) {
+            ceil = crate::athlete::top_up(ceilings_before.at(i), ceil);
+            attr = crate::athlete::top_up(attrs_before.at(i), attr);
+        }
+        ceil = clamp(ceil, MIN_RATING, RATING_BOUND);
+        attr = clamp(attr, MIN_RATING, RATING_BOUND);
         // Over-performing a ceiling means the ceiling was wrong, not the player.
         if attr > ceil {
             ceil = attr;
@@ -1693,7 +1701,7 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
         performance: if no_games {
             OptF64::NONE
         } else {
-            Some(clamp((overall_before + overall_after) / 2.0 + performance, MIN_RATING, MAX_RATING)).into()
+            Some(clamp((overall_before + overall_after) / 2.0 + performance, MIN_RATING, RATING_BOUND)).into()
         },
         level_rating: None,
         level_rating_end: None,

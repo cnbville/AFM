@@ -2021,7 +2021,7 @@ impl World {
         for x in Attr::ALL {
             let v = a.get(x);
             if built.contains(&x) {
-                a.set(x, (v + 6.0).min(99.0));
+                a.set(x, (v + 6.0).min(crate::attributes::RATING_BOUND));
             } else if !matches!(x.category(), Category::Physical | Category::Mental) {
                 // Football skills he never learned.
                 a.set(x, (v * 0.8).max(1.0));

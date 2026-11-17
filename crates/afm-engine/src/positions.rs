@@ -965,7 +965,20 @@ fn dot(w: &[f64; ATTRIBUTE_COUNT], a: &Attributes) -> f64 {
 /// Position overall: weighted mean of the attributes that matter at the position.
 #[inline]
 pub fn overall_for(position: Position, attrs: &Attributes) -> f64 {
-    dot(&DERIVED.weights[position.index()], attrs)
+    let w = &DERIVED.weights[position.index()];
+    let mut sum = dot(w, attrs);
+    // The strength pair is stored with its fat top (the bench, the line's
+    // physics), but it counts in an overall on the thin top like every other
+    // rating (physical study items 3 and 17), so a 130-strength man isn't
+    // rated a better tackle by four points: without it, drafted men ended
+    // their careers at tackle 19% of the time (real 8%).
+    for a in [Attr::Strength, Attr::LowerBody] {
+        let v = attrs.get(a);
+        if v > crate::athlete::TOP_KNEE {
+            sum += w[a.index()] * (crate::athlete::thin_top(v) - v);
+        }
+    }
+    sum
 }
 
 /// Normalised weight of an attribute at a position (0 if it doesn't count).
