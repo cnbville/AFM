@@ -28,6 +28,7 @@
 
 use super::super::Them;
 use super::super::ear::{Act, How, Item, Reading, Sized, Turn};
+use super::super::knows::Topic;
 use super::super::room::{Channel, Present, Room, Seat};
 use super::super::wants::{Kind, Want};
 use crate::world::World;
@@ -320,8 +321,27 @@ pub fn turn(w: &World, s: &Scene, reading: &Reading, t: &mut Turn) {
     }
     let belief = crate::world::scouting::hs::credibility(w, s.b as usize) - 0.15 * sharp(w, s);
     let worry = concern(s) > 0;
+    // Asked what his staff makes of the kid ("what's your staff thinking
+    // about him?"): they like his film enough to call, and where it goes
+    // waits on what he asked. Never "he doesn't know" (the talks audit,
+    // 2026-11-16).
+    let kid = Them::Player(s.a as u32);
+    let on_him = reading.acts.iter().any(|a| {
+        matches!(a, Act::Question { topic: Topic::Football | Topic::Pitches | Topic::ScoutFile | Topic::Wants | Topic::Market, about, .. }
+            if about.is_none_or(|x| x == kid))
+    });
+    if on_him {
+        t.say.released.retain(|x| x != "He doesn't know.");
+        let asked = ["his football", "his grades", "his character"][concern(s) as usize];
+        t.say.released.push(format!(
+            "His staff likes the kid's film enough to recruit him; where it goes from here waits on {asked}"
+        ));
+    }
     let r = &mut t.say.released;
-    if worry && ((x.cover > 0.0 && before.straight + x.straight > 0.0) || (x.straight > 0.0 && before.cover > 0.0)) {
+    // Only against an earlier line: your first line, covering for him in a
+    // respectful tone, came back as "that's not what you told me a minute
+    // ago" (the talks audit, 2026-11-16).
+    if worry && ((x.cover > 0.0 && before.straight > 0.0) || (x.straight > 0.0 && before.cover > 0.0)) {
         r.push("He notes that's not what you told him a minute ago.".into());
     }
     if x.cover > 0.0 {
@@ -336,9 +356,11 @@ pub fn turn(w: &World, s: &Scene, reading: &Reading, t: &mut Turn) {
     }
     if x.sold > 0.0 {
         r.push(if belief >= BELIEVED {
-            "He says they'll look harder at his film.".into()
+            // His own words, quoted: "so they'll look harder at his film on
+            // our end" (the talks audit, 2026-11-16).
+            "He says: \"We'll look harder at his film.\"".into()
         } else {
-            "He says the film will have to show him.".into()
+            "He says: \"The film will have to show me.\"".into()
         });
     }
     if r.is_empty() {

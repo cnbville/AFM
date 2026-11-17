@@ -502,6 +502,11 @@ pub fn check_promises(w: &mut World, d: Date) {
         if !kept && let (PromiseTo::Cast(r, term), PromiseKind::Booster(_)) = (p.to, p.kind) {
             super::backers::broken(w, r, term);
         }
+        // His donor remembers it, and a broken one spreads through his
+        // circle (Capital lane C1, CP4).
+        if let PromiseTo::Cast(r, term) = p.to {
+            crate::world::capital::donors::booster_word(w, r, term, kept);
+        }
         super::note(w, "talk", "Your promises".into(), text.clone(), None);
         super::post_mine(w, d, Loudness::Small, false, "people: promise", &text);
     }
@@ -1204,7 +1209,9 @@ fn one_on_one_open(w: &mut World, s: &mut Scene) {
     {
         topic = tp::subject_of(k).into();
     }
-    let asked = asked_to_leave(w, id);
+    // A man whose college career ends this year has no transfer to tell
+    // you about (`talk::standing`): his meeting is never the portal's.
+    let asked = asked_to_leave(w, id) && !super::persona::talk::standing::road(w, i).college_ends();
     // An exit meeting opens on why he is on your list (lane L9).
     let exit = s.c & EXIT != 0;
     // He raises what weighs on him himself (talk facts lane L4): an open
@@ -1242,7 +1249,9 @@ fn one_on_one_open(w: &mut World, s: &mut Scene) {
     } else if mood > 0.35 {
         "He walks in loose, says hello to the secretary by name and drops into the chair."
     } else {
-        "He sits down and waits for you to start."
+        // Not "waits for you to start": his own opening line follows (the
+        // talks audit, 2026-11-16).
+        "He sits down across from you."
     };
     if asked {
         s.narrate("He asked for this meeting.");
@@ -1285,7 +1294,14 @@ fn one_on_one_open(w: &mut World, s: &mut Scene) {
     } else if subject == Subject::Friend && tone == "good" {
         vec!["talk.open.friend".to_string()]
     } else {
-        vec![format!("talk.open.{tone}"), format!("talk.open.{}", subject.key())]
+        // His future when his college career ends this year is the draft,
+        // not the portal or next season (Cain 2026-11-16; `talk::standing`).
+        let about = if subject == Subject::Future && super::persona::talk::standing::road(w, i).college_ends() {
+            "draft"
+        } else {
+            subject.key()
+        };
+        vec![format!("talk.open.{tone}"), format!("talk.open.{about}")]
     };
     let keys: Vec<&str> = keys.iter().map(String::as_str).collect();
     // On a point, his own opening in his stance; until the bank has one,

@@ -165,6 +165,9 @@ pub struct Building {
     pub opened: i32,
     /// Where the figures come from (a Wikipedia article or a news page).
     pub source: String,
+    /// The data's note on what the project built (Capital lane C2 reads
+    /// its rooms from it, `capital::rooms`).
+    pub note: String,
     /// The project whose figure holds its cost, when the sources give one
     /// sum for both (Northwestern's Ryan Fieldhouse inside the Walter
     /// Athletics Center's $270M): the money is booked once, with that one.
@@ -210,6 +213,7 @@ fn parse(text: &str) -> BTreeMap<String, Vec<Building>> {
     let mut lines = text.lines().filter(|l| !l.trim().is_empty());
     let header = data::split_csv_line(lines.next().unwrap_or(""));
     let col = |n: &str| header.iter().position(|h| h == n).unwrap_or_else(|| panic!("missing column {n}"));
+    let note = header.iter().position(|h| h == "note");
     let (school, project, kind, team, home, cost, ground, opened, source) = (
         col("school"),
         col("project"),
@@ -243,6 +247,7 @@ fn parse(text: &str) -> BTreeMap<String, Vec<Building>> {
             groundbreak: ground,
             opened: open,
             source: r[source].trim().to_string(),
+            note: note.and_then(|c| r.get(c)).map(|c| c.trim().to_string()).unwrap_or_default(),
             cost_in: cost_in.and_then(|c| r.get(c)).map(|c| c.trim().to_string()).filter(|c| !c.is_empty()),
             value_2024: musd.map_or(0.0, |m| m / build_index(ground)),
         };

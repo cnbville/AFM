@@ -2315,9 +2315,9 @@ pub(crate) fn eligibility_gpa(gpa: f64, test: Option<u32>, sign_year: i32) -> f6
 }
 
 /// A school's academic support, 0-1: tutors, summer school, learning
-/// specialists. It follows the athletic department's resources.
+/// specialists: the academic center (Capital lane C2, CP19).
 fn academic_support(prog: &Program) -> f64 {
-    clamp(0.3 + 0.7 * prog.facilities, 0.0, 1.0)
+    clamp(0.3 + 0.7 * super::capital::rooms::academic(prog), 0.0, 1.0)
 }
 
 /// Real players per FBS roster by position, 2022-24 (fix list topic 1:
@@ -3483,6 +3483,9 @@ fn utility_fit(
     let mut u = 1.6 * lv * (0.5 + wants.prestige + wants.development)
         + (0.25 + wants.prestige) * brand * (0.4 + 0.6 * lv)
         + 0.1 * g(GradeCat::Facilities)
+        // Campus life, by how much this kid cares (Capital lane C2), read
+        // around a typical campus.
+        + super::capital::rooms::campus_life_want(p) * (g(GradeCat::CampusLife) - 0.77)
         + wants.prestige * prestige
         + money_w * money * 1.5
         + home * close_w * close
@@ -10610,8 +10613,16 @@ fn appeal_in(w: &World, i: usize, j: usize, nil: f64, field: &TopTwo) -> f64 {
     let official = p.cal.visits.iter().any(|v| v.0 == j && v.2 == super::Visit::Official);
     // The official visit's weekend; your athletic director's raises for
     // travel and visits host it better (people topic 12).
-    u += 0.004 * contact
-        + if official { OFFICIAL_PULL * (1.0 + super::folk::staffing::recruit_bonus(w, j)) } else { 0.0 };
+    // The locker room makes the official visit count for more, the
+    // recruiting lounge the game days (Capital lane C2, CP17). The raise
+    // and the room each add their own share of the weekend.
+    let unofficial = p.cal.visits.iter().filter(|v| v.0 == j && v.2 == super::Visit::Unofficial).count().min(5) as f64;
+    u += 0.004 * (contact + unofficial.min(contact) * super::capital::rooms::game_day_lift(prog))
+        + if official {
+            OFFICIAL_PULL * (1.0 + super::folk::staffing::recruit_bonus(w, j) + super::capital::rooms::visit_lift(prog))
+        } else {
+            0.0
+        };
     // What the head coach said in the living room (lane 14, D7).
     u += super::folk::dialogue::home_talk(p, j);
     if let Some(k) = p.cal.early_offers.iter().position(|o| o.0 == j) {
@@ -10681,6 +10692,7 @@ fn six_parts(
     let mut name = 1.6 * lv * (0.5 + wants.prestige + wants.development)
         + (0.25 + wants.prestige) * brand * (0.4 + 0.6 * lv)
         + 0.1 * g(GradeCat::Facilities)
+        + super::capital::rooms::campus_life_want(p) * (g(GradeCat::CampusLife) - 0.77)
         + wants.prestige * prestige;
     if p.stars == 5 {
         name += FIVE_STAR_PULL * brand.powi(3) * lv;

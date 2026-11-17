@@ -161,3 +161,59 @@ fn a_suspension_you_confirm_sits_him_once() {
     // The rest belong to their own lanes.
     assert!(decide::run(&mut w, him, Decision::Cut).is_none());
 }
+
+/// Put to the room, an ask about a man by name is the man's who answers to
+/// take on himself (a captain to mentor the freshman: it runs, and "He'll
+/// do it."), and one that names nobody is the room's ("They'll do it.", and
+/// nothing of his own runs).
+#[test]
+fn an_ask_put_to_the_room_runs_only_when_it_names_a_man() {
+    use crate::world::folk::persona::asks;
+    use crate::world::folk::persona::ear::{Act, Resolving};
+    use crate::world::folk::persona::talk::{Conversation, Parts, Said, store};
+    use crate::world::folk::persona::terms::Request;
+    use crate::world::folk::persona::wants::Willing;
+    use crate::world::folk::{person, ties};
+    let (mut w, ids) = team(8);
+    w.folk.rules.council = ids[..2].to_vec();
+    let (cap, kid) = (ids[0], ids[7]);
+    let (ci, ki) = (person(&w, cap).unwrap(), person(&w, kid).unwrap());
+    (w.people[ci].player.age, w.people[ki].player.age) = (22, 18);
+    w.people[ci].trust = 0.9;
+    {
+        let t = &mut w.people[ci].player.personality.traits;
+        (t.leadership, t.professionalism, t.ego) = (18, 15, 8);
+    }
+    w.people[ci].player.personality.work_ethic = 16.0;
+    let sid = group::start_council(&mut w).expect("it opens");
+    let s = scene::open(&mut w, sid).expect("it opens");
+    let room = group::room(&w, &s).expect("a room");
+    assert_eq!(room.channel, Channel::Group(Group::Council));
+    assert_eq!(room.present[0].who, Them::Player(cap), "the council's first man answers for it");
+    store::begin(&mut w, sid, room.clone());
+    assert!(asks::names_a_man(&Request::Mentor(kid)) && !asks::names_a_man(&Request::Class));
+    let reading = Reading { acts: vec![Act::Request(Request::Mentor(kid))], ..Reading::default() };
+    let conv = Conversation {
+        parts: Parts::today(),
+        said: Said { scene: sid, words: "Take the freshman under your wing.".into(), reading, promises: Vec::new() },
+    };
+    let t = conv.turn(&w, &room, &conv.said.reading);
+    assert_eq!(t.asked[0].1, Willing::Yes, "{:?}", t.asked);
+    assert!(t.say.released.iter().any(|l| l == "He'll do it."), "{:?}", t.say.released);
+    conv.apply(&mut w, &t);
+    assert_eq!(ties::mentor_of(&w, kid), Some(cap), "the captain who answered took him on");
+    // A room ask: the room takes it on, and the man who answers runs none of
+    // it as his own.
+    let reading = Reading { acts: vec![Act::Request(Request::Class)], ..Reading::default() };
+    let conv = Conversation {
+        parts: Parts::today(),
+        said: Said { scene: sid, words: "Every one of you goes to class.".into(), reading, promises: Vec::new() },
+    };
+    let t = conv.turn(&w, &room, &conv.said.reading);
+    assert_eq!(t.asked[0].1, Willing::Yes, "{:?}", t.asked);
+    assert!(t.say.released.iter().any(|l| l == "They'll do it."), "{:?}", t.say.released);
+    assert!(t.confirm.is_empty(), "{:?}", t.confirm);
+    conv.apply(&mut w, &t);
+    let s = w.folk.scenes.iter().find(|x| x.id == sid).unwrap();
+    assert!(!s.lines.iter().any(|l| l.text.contains("agreed to go to class")), "{:?}", s.lines);
+}

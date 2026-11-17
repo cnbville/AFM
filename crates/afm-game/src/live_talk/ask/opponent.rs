@@ -74,7 +74,7 @@ The spots:
     )
 }
 
-fn schema() -> Value {
+pub(crate) fn schema() -> Value {
     json!({
         "type": "object",
         "additionalProperties": false,

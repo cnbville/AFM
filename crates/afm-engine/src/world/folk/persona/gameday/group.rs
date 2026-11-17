@@ -67,8 +67,13 @@ pub fn room(w: &World, s: &Scene) -> Option<Room> {
         Kind::Council => (Group::Council, council(w, team), Vec::new()),
         _ => (Group::Team, takeover::captains_of(w, team), team.roster(w)),
     };
+    // The room is the men still on the team: a man whose college career is
+    // over (his last season played, or declared) is off getting ready for
+    // the draft, never the one who answers for the room (the talks audit,
+    // 2026-11-16: "this is a player with no eligibility left").
+    let gone = |i: usize| super::super::talk::standing::road(w, i) == super::super::talk::standing::Road::DraftBound;
     let mut present: Vec<Present> = Vec::new();
-    for i in lead.into_iter().chain(rest) {
+    for i in lead.into_iter().chain(rest).filter(|&i| !gone(i)) {
         let who = Them::Player(w.people[i].player.id);
         if !present.iter().any(|p| p.who == who) {
             present.push(Present { who, seat: Seat::Listener, speaks: false });
@@ -98,7 +103,7 @@ pub fn expand(room: &Room, mut r: Reading) -> Reading {
 
 /// How a group line went over: the man it moved most each way, by name,
 /// past 0.02 (the team talk's own `MOVED`).
-pub fn landed(w: &World, hits: &[Sized]) -> Option<String> {
+pub fn landed(w: &World, hits: &[Sized], speaker: Option<Them>) -> Option<String> {
     let mut by: Vec<(u32, f32)> = Vec::new();
     for h in hits {
         let Them::Player(id) = h.hit.on else { continue };
@@ -115,10 +120,19 @@ pub fn landed(w: &World, hits: &[Sized]) -> Option<String> {
     let worst = by.iter().copied().min_by(|a, b| a.1.total_cmp(&b.1)).filter(|x| x.1 < -0.02);
     let up = by.iter().filter(|x| x.1 > 0.01).count();
     let down = by.iter().filter(|x| x.1 < -0.01).count();
+    // The man who answers for the room is about to speak: he's never the
+    // one who "doesn't look up at all" (the talks audit, 2026-11-16).
+    let speaks = |id: u32| speaker == Some(Them::Player(id));
     Some(match (best, worst) {
+        (Some(b), Some(x)) if speaks(x.0) => {
+            format!("{} nods along; {} stares at the floor before he answers.", name(b.0), name(x.0))
+        }
         (Some(b), Some(x)) => format!("{} nods along; {} stares at the floor.", name(b.0), name(x.0)),
         (Some(b), None) if up > 2 * down => format!("It lands with the room. {} is the first to answer it.", name(b.0)),
         (Some(b), None) => format!("{} takes it best.", name(b.0)),
+        (None, Some(x)) if down > 2 * up && speaks(x.0) => {
+            format!("The room goes quiet. {} answers for them without looking up.", name(x.0))
+        }
         (None, Some(x)) if down > 2 * up => format!("The room goes quiet. {} doesn't look up at all.", name(x.0)),
         (None, Some(x)) => format!("{} takes it worst.", name(x.0)),
         (None, None) => "They take it in.".into(),

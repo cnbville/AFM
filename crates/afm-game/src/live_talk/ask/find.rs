@@ -9,7 +9,7 @@
 //! doesn't hold is refused, whole. The page takes the filters and runs the
 //! search (`ask.js`, `aiQueryFind`). Nothing here reads a hidden rating.
 
-use afm_ai::Request;
+use afm_ai::{Request, nullable_enum};
 use afm_engine::world::World;
 use afm_engine::world::folk::scene;
 use afm_engine::world::front_office::college as desk;
@@ -92,14 +92,10 @@ The fields:{list}"
     )
 }
 
-fn schema(seat: Seat, groups: &[(&'static str, Vec<Field>)]) -> Value {
+pub(super) fn schema(seat: Seat, groups: &[(&'static str, Vec<Field>)]) -> Value {
     let keys: Vec<&str> = groups.iter().flat_map(|(_, fs)| fs.iter().map(|f| f.k.as_str())).collect();
     let levels: &[&str] = if matches!(seat, Seat::College(_)) { &COLLEGE_LEVELS } else { &NFL_LEVELS };
-    let nullable = |vals: &[&str]| {
-        let mut all: Vec<Value> = vals.iter().map(|s| json!(s)).collect();
-        all.push(Value::Null);
-        json!({ "type": ["string", "null"], "enum": all })
-    };
+    let nullable = |vals: &[&str]| nullable_enum("string", vals.iter().map(|s| json!(s)).collect());
     json!({
         "type": "object",
         "additionalProperties": false,

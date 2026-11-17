@@ -68,7 +68,8 @@ pub fn crowd(room: &Room) -> f64 {
 /// Who answers this line, when it isn't the man across (5.6): with his
 /// agent in the room the agent talks money and terms; his high school
 /// coach answers the questions on his grades, his character and the
-/// schools; through someone else, that person answers.
+/// schools; a family that does the talking answers all but the kid's own
+/// football; through someone else, that person answers.
 pub fn speaker(room: &Room, reading: &Reading) -> Option<(Them, Seat)> {
     if let Channel::Through(x) = room.channel {
         return Some((x, room.present.iter().find(|p| p.who == x).map_or(Seat::Family, |p| p.seat)));
@@ -77,6 +78,23 @@ pub fn speaker(room: &Room, reading: &Reading) -> Option<(Them, Seat)> {
     let school = reading.acts.iter().any(|a| {
         matches!(a, Act::Question { topic: Topic::Grades | Topic::Character | Topic::Pitches, about: None, .. })
     });
+    // His decider is in the room only when the family decides, and then
+    // the family does the talking ("His parents do the talking"): they
+    // answer every line but one whose questions are all put to him on his
+    // own football, his health, his effort or how he feels. The kid
+    // answered every question his parents were there to answer, then "how's
+    // his year going?" in the first person, and "he'll get every chance to
+    // compete" with "that doesn't matter much to me" (the talks audit,
+    // 2026-11-16).
+    let to_him = |a: &Act| {
+        matches!(
+            a,
+            Act::Question { topic: Topic::Football | Topic::Injury | Topic::Effort | Topic::Mood, about: None, .. }
+        )
+    };
+    let his_own = reading.acts.iter().any(to_him)
+        && !reading.acts.iter().any(|a| matches!(a, Act::Question { .. }) && !to_him(a));
+    let family = !his_own;
     room.present
         .iter()
         .filter(|p| p.speaks)
@@ -85,7 +103,7 @@ pub fn speaker(room: &Room, reading: &Reading) -> Option<(Them, Seat)> {
                 || (p.seat == Seat::HsCoach && school)
                 // A recruit's decider answers the money and the deal, and
                 // what other schools have told the family (lane N5a).
-                || (p.seat == Seat::Decider && (deal || school))
+                || (p.seat == Seat::Decider && (deal || school || family))
         })
         .map(|p| (p.who, p.seat))
 }
@@ -163,12 +181,20 @@ pub fn name(w: &World, who: Them) -> String {
         Them::Kin(id, k) => folk::person(w, id).map_or_else(
             || "His family".into(),
             |i| {
-                use crate::world::background::Decider;
+                use crate::world::background::{Decider, FamilyStructure as F};
                 let first = w.people[i].name.split_whitespace().next().unwrap_or("His").to_string();
-                let who = match (k, w.people[i].family.decider) {
-                    (0, Decider::Parent) => "parent",
-                    (0, Decider::Grandparent) => "grandparent",
-                    (0, Decider::Handler) => "handler",
+                // Who they are to him, the way the family is made up (the
+                // parent's call's own words, `talks::parent_word`): the kid
+                // said "my parent's the one who keeps me on track" (the
+                // talks audit, 2026-11-16).
+                let family = w.people[i].family.structure;
+                let who = match (k, w.people[i].family.decider, family) {
+                    (0, Decider::Parent, F::TwoParents) => "parents",
+                    (0, Decider::Parent, F::SingleParent) => "mother",
+                    (0, Decider::Parent | Decider::Grandparent, F::Grandparents) => "grandmother",
+                    (0, Decider::Parent, F::Foster) => "guardian",
+                    (0, Decider::Grandparent, _) => "grandmother",
+                    (0, Decider::Handler, _) => "handler",
                     _ => "family",
                 };
                 format!("{first}'s {who}")
@@ -195,6 +221,39 @@ pub fn decision_words(d: Decision) -> &'static str {
         Decision::CoachLetGo => "his coach is let go",
         Decision::PositionMoved(_) => "he's moving positions",
         Decision::Redshirt => "he'll redshirt",
+    }
+}
+
+/// A decision on the man across, as he hears it (the voice reacts to it):
+/// before this the card said "You tell him: his coach is let go" to the
+/// coach being let go (Cain 2026-11-16).
+pub fn decision_to(d: Decision, him: Them) -> &'static str {
+    match d {
+        Decision::Benched => "you're benched",
+        Decision::Starting => "you're starting",
+        Decision::Suspended => "you're suspended",
+        Decision::Cut => "you're cut from the team",
+        Decision::Traded => "you're being traded",
+        Decision::OfferPulled => "your offer is pulled",
+        Decision::CoachLetGo if matches!(him, Them::Coach(_)) => "he's letting you go: you're fired",
+        Decision::CoachLetGo => "your coach is let go",
+        Decision::PositionMoved(_) => "you're moving to a new position",
+        Decision::Redshirt => "you'll redshirt this season",
+    }
+}
+
+/// A decision for the confirm card, naming the man it's on.
+pub fn decision_named(d: Decision, name: &str) -> String {
+    match d {
+        Decision::Benched => format!("{name} is benched"),
+        Decision::Starting => format!("{name} starts"),
+        Decision::Suspended => format!("{name} is suspended"),
+        Decision::Cut => format!("{name} is cut"),
+        Decision::Traded => format!("{name} is traded"),
+        Decision::OfferPulled => format!("the offer to {name} is pulled"),
+        Decision::CoachLetGo => format!("{name} is let go"),
+        Decision::PositionMoved(_) => format!("{name} moves to a new position"),
+        Decision::Redshirt => format!("{name} redshirts this season"),
     }
 }
 

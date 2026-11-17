@@ -509,6 +509,8 @@ fn office(w: &mut World, d: Date, y: &YearDates) {
     }
     // --- The books: every club's money, projects and the dated money days ------------
     timed("money", || super::finance::day(w, d));
+    // Capital's donors (lane C1): their store only.
+    super::capital::day(w, d);
     // Your front office's day: reminders, answers, calls (lane 10).
     super::front_office::day(w, d);
     // The spring portal window (2023-2025).

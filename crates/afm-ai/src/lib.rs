@@ -5,6 +5,7 @@
 //!   client on `ureq` and every way a call can fail.
 //! - `fake`: a client that plays recorded replies, for tests and for the
 //!   browser build (`AFM_AI_FAKE=1`). CI never calls the network.
+//! - `schema`: the check on structured-output schemas, and `nullable_enum`.
 //! - `spend`: the price table, and the month's spend book with the $50 cap.
 //! - `Client` (here): a model plus the spend book. Every call checks the
 //!   cap first and adds its cost after, whatever the reply was.
@@ -14,6 +15,7 @@
 
 pub mod client;
 pub mod fake;
+pub mod schema;
 pub mod spend;
 
 #[cfg(test)]
@@ -23,6 +25,7 @@ use std::sync::{Arc, Mutex};
 
 pub use client::{BASE_URL, Failure, Key, MODEL, Model, Real, Reply, Request, SCHEMA_TIMEOUT, TIMEOUT, Usage};
 pub use fake::Fake;
+pub use schema::{nullable_enum, schema_problems};
 pub use spend::{CAP_NANO, CAP_USD, MonthBook, Price, Spend, month_now};
 
 /// A model and the spend book it is counted in.

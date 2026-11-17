@@ -226,6 +226,15 @@ fn face(w: &World, who: Who, drawn: bool, saved: Option<String>) -> Value {
     }
 }
 
+/// His head for a screen that already holds the game (the staff rail, the
+/// desk): drawn from his recipe, or the one kept in the save's folder.
+pub(crate) fn face_of(g: &Game, w: &World, who: Who) -> Value {
+    let (fid, fkey) = face_ident(who);
+    let drawn = crate::lane_faces::drawn_on(g);
+    let saved = if drawn { crate::lane_faces::saved_drawn(g, fid as u32, &fkey) } else { None };
+    face(w, who, drawn, saved)
+}
+
 /// Your staff's read of him, in words (GR74): his eye and how straight he
 /// is from his record with you, his nature once he is Known. Never a number.
 fn staff_read(w: &World, who: Who, c: &card::Card, level: Level) -> Value {

@@ -316,7 +316,7 @@ pub fn people_say(g: &mut Game, args: &Value) -> Reply {
     let w = g.world.as_ref().ok_or("No world is loaded.")?;
     let s = w.folk.scenes.iter().find(|s| s.id == id).ok_or("No such meeting.")?;
     if s.done {
-        return Err("That meeting is over.".into());
+        return Err("That talk is over.".into());
     }
     if !scene::takes_typed(s) || super::persona::talk::nobody(g, s) {
         return Err("This talk takes no typed lines.".into());
