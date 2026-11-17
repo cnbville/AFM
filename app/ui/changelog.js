@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.591", date: "17 Nov", title: "Let updates skip a pending older version and 1 more",
+    notes: [
+      "Your athletic director now writes down what you commit to. Promise to keep the state's best player home or to win eight games, and it goes on his goals sheet, or he tells you why not.",
+      "Commitments to your boss become goals he judges you on, or he says they're already on his list, below his bar or not something he can measure.",
+      "Promises to a parent, a coach on your staff or your boss now count, not only promises to players.",
+      "\"Heard as\" now says how a line went with each person, on their own scale, and when you didn't answer their question.",
+      "People stop asking the same question over and over once you've answered.",
+      "Asked why he should keep his job, a coordinator makes his case.",
+    ],
+  },
+  {
     v: "0.2.588", date: "16 Nov", title: "College followers retuned so the biggest stars reach 500,000 and 2 more",
     notes: [
       "At the end of your first spring, Ground writes you a report: your goals as verdicts, the kids you found, where your ground grew and who outworked whom.",

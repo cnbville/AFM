@@ -385,7 +385,7 @@ fn last_year_own(w: &World, i: usize, a: Attr, now: (u8, u8)) -> Option<Value> {
     };
     Some(json!({
         "word": word,
-        "line": format!("At the end of the {season} season you read it about {m:.0}; today {}-{}.", now.0, now.1),
+        "line": format!("At the end of the {season} season you read it about {m:.0}; today {}.", crate::reads::pair(now.0, now.1)),
         "why": [],
         "season": season,
     }))
@@ -424,7 +424,11 @@ pub(crate) fn last_year(w: &World, i: usize, a: Attr, now: (u8, u8), own: bool) 
         let d = nm - (lo + hi) / 2.0;
         (
             Some([lo as u8, hi as u8]),
-            format!("At the end of the {season} season your staff read it {lo:.0}-{hi:.0}; today {}-{}.", now.0, now.1),
+            format!(
+                "At the end of the {season} season your staff read it {}; today {}.",
+                crate::reads::pair(lo as u8, hi as u8),
+                crate::reads::pair(now.0, now.1)
+            ),
             d,
         )
     } else if let Some(m) =
@@ -433,7 +437,10 @@ pub(crate) fn last_year(w: &World, i: usize, a: Attr, now: (u8, u8), own: bool) 
         // The season's middle for all 67 was kept: the move is this skill's own.
         (
             None,
-            format!("At the end of the {season} season your staff read it about {m:.0}; today {}-{}.", now.0, now.1),
+            format!(
+                "At the end of the {season} season your staff read it about {m:.0}; today {}.",
+                crate::reads::pair(now.0, now.1)
+            ),
             nm - m,
         )
     } else if let Some((name, m)) = was_fam {
@@ -682,7 +689,7 @@ pub(crate) fn read_at(w: &World, i: usize, pos: Position) -> Read {
 
 fn rr(r: Read) -> String {
     match r {
-        Read::Range(lo, hi) => format!("{lo}-{hi}"),
+        Read::Range(lo, hi) => crate::reads::pair(lo, hi),
         Read::NotSeen => "not seen".into(),
     }
 }

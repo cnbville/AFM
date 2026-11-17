@@ -8,6 +8,21 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.591 (17 Nov, shipped): CI: screen tests share each small world; retry runners that shut down (PR #495), live talks: your boss writes down what you commit to (PR #500), let updates skip a pending older version (PR #501)
+**TLDR:** 3 changes ship together. CI: screen tests share each small world; retry runners that shut down Your athletic director now writes down what you commit to. Promise to keep the state's best player home or to win eight games, and it goes on his goals sheet, or he tells you why not. Plus 1 more below.
+- CI: screen tests share each small world; retry runners that shut down (PR #495): no summary in the PR
+- Live talks: your boss writes down what you commit to (PR #500): Your athletic director now writes down what you commit to. Promise to keep the state's best player home or to win eight games, and it goes on his goals sheet, or he tells you why not.
+- Commitments to your boss become goals he judges you on, or he says they're already on his list, below his bar or not something he can measure. (PR #500)
+- Promises to a parent, a coach on your staff or your boss now count, not only promises to players. (PR #500)
+- "Heard as" now says how a line went with each person, on their own scale, and when you didn't answer their question. (PR #500)
+- People stop asking the same question over and over once you've answered. (PR #500)
+- Asked why he should keep his job, a coordinator makes his case. (PR #500)
+- Let updates skip a pending older version (PR #501): If you leave AFM open after an update downloads, it now keeps looking and swaps in any newer version, so one restart gets you the latest.
+- AFM keeps checking for updates while a restart is waiting. (PR #501)
+- A newer version replaces the waiting one, and the prompt names the newest version. (PR #501)
+- You still get the save-your-career prompt before restarting. (PR #501)
+- Look at: the athletic director's goals meeting, then tell him what you'll deliver this season. (PR #500) leave an update waiting, then check for updates again after a newer one ships. (PR #501)
+
 ## 0.2.588 (16 Nov, shipped): ground lane S8: the ground report screen (PR #496), progression step 4b part 2: the 10-yard split from his own run, with a first-step gift (PR #497), college followers retuned so the biggest stars reach 500,000 (PR #499)
 **TLDR:** 3 changes ship together. At the end of your first spring, Ground writes you a report: your goals as verdicts, the kids you found, where your ground grew and who outworked whom. The 10-yard split is now each player's own first step. Two men with the same forty can split 0.1 s apart, the way real quick-twitch players stand out. Plus 1 more below.
 - Ground lane S8: the ground report screen (PR #496): At the end of your first spring, Ground writes you a report: your goals as verdicts, the kids you found, where your ground grew and who outworked whom.

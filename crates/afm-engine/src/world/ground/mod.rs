@@ -20,6 +20,9 @@
 //! with `WorldOptions.favors`.
 //! Lane G5: the week's scenes played (`scenes`): the school visit, the
 //! calls, your campus and the coaches' side, on the built scenes.
+//! Lane G10: your staff's ground and the assistant seat (`staff`): your
+//! men's areas on the map, each man's ground and mood, losing a man,
+//! hiring for ground, and the assistant's desk.
 //!
 //! The store is sparse: only your seat's holders (your program, you and
 //! your staff's men) keep memories, and only with people someone has dealt
@@ -38,6 +41,7 @@ pub mod memory;
 pub mod news;
 pub mod people;
 pub mod scenes;
+pub mod staff;
 pub mod standing;
 pub mod stores;
 pub mod week;
@@ -105,6 +109,8 @@ pub struct Ground {
     pub favors: favors::Favors,
     /// The week's scenes played (lane G5).
     pub scenes: scenes::Book,
+    /// Your staff's ground and the assistant seat (lane G10).
+    pub staff: staff::StaffGround,
     /// Test switch: the seat's ground stands still (the same-world check).
     #[serde(skip)]
     pub(crate) off: bool,
@@ -195,6 +201,7 @@ pub(crate) fn day(w: &mut crate::world::World, d: crate::calendar::Date) {
     }
     word::day(w, d);
     jobs::day(w, d);
+    staff::day(w, d);
     favors::day(w, d);
     stores::sync(w);
     campaign::day(w, d);

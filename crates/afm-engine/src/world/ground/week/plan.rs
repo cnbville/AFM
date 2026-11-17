@@ -61,6 +61,7 @@ pub(crate) fn turn(w: &mut World, prog: usize, d: Date) {
     w.ground.week.monday = Some(monday);
     w.ground.week.handed = false;
     draft(w, prog, monday, d);
+    crate::world::ground::staff::desk::on_turn(w, monday);
     let board: Vec<u32> = {
         let mut v: Vec<u32> = dept::watch(w, prog).into_iter().map(|i| w.people[i].player.id).collect();
         v.sort_unstable();
@@ -276,10 +277,14 @@ fn draft_roads(w: &World, prog: usize, monday: Date, from: Date) -> Vec<Road> {
         .copied()
         .filter(|m| !picks.iter().any(|p| p.0 == *m))
         .map(|m| {
-            let mut v: Vec<u16> = his_states(w, prog, m)
-                .into_iter()
-                .flat_map(|st| areas::in_state(st as usize).iter().copied())
-                .collect();
+            // The map's areas (lane G10) when they're set, else his states.
+            let mut v: Vec<u16> = match crate::world::ground::staff::beats::his_areas(w, prog, m) {
+                Some(a) => a,
+                None => his_states(w, prog, m)
+                    .into_iter()
+                    .flat_map(|st| areas::in_state(st as usize).iter().copied())
+                    .collect(),
+            };
             v.sort_by(|a, b| need[*b as usize].total_cmp(&need[*a as usize]).then(a.cmp(b)));
             (m, v)
         })
@@ -548,6 +553,9 @@ pub fn set_road(w: &mut World, man: u32, area: u16, days: &[u32]) -> Result<Stri
     if bits == 0 {
         return Err("Pick his days.".into());
     }
+    // The assistant seat (lane G10): your own days, on your area, within
+    // your head coach's plan.
+    crate::world::ground::staff::desk::check_road(w, man, area, bits)?;
     for k in 0..7 {
         if bits & (1 << k) == 0 {
             continue;
@@ -601,6 +609,11 @@ pub fn set_road(w: &mut World, man: u32, area: u16, days: &[u32]) -> Result<Stri
 pub fn clear_road(w: &mut World, man: u32) -> Result<String, String> {
     let prog = seat_program(w).ok_or("Ground's week is for a college seat.")?;
     ensure(w, prog, w.today);
+    if let Some((_, you, _)) = crate::world::ground::staff::desk::seat(w)
+        && man != you as u32
+    {
+        return Err("Your head coach plans the other men's days.".into());
+    }
     let before = w.ground.week.roads.len();
     w.ground.week.roads.retain(|r| r.man != man);
     if w.ground.week.roads.len() == before {

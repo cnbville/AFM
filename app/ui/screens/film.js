@@ -33,7 +33,7 @@ const frBtn = (act, data, html, cls = "") => `<button class="st-btn small ${cls 
 // What your eye caught, one note a trait (Cain 2026-11-04: repeats build
 // up to something): what it came to, the line behind it, the downs, and
 // your read beside your staff's.
-const fmTraitRead = (r) => (r ? `${r[0]}-${r[1]}` : "not seen");
+const fmTraitRead = (r) => (r ? rpair(r) : "not seen");
 const fmTraits = (r) =>
   r.notes
     .map(
@@ -195,7 +195,7 @@ function frReads(r, speed) {
   if (!r) return "";
   const x = (v) => Math.max(0, Math.min(100, ((v - 20) / 79) * 100));
   const band = (rg, cls) => (rg ? `<i class="${cls}" style="left:${x(rg[0])}%;width:${Math.max(1.5, x(rg[1]) - x(rg[0]))}%"></i>` : "");
-  const row = (name, s, y, note) => `<div class="fm-read"><div><b>${esc(name)}</b><span class="fm-dim">Staff ${s ? `${s[0]}-${s[1]}` : "—"} · <span class="fm-gold">You ${y ? (y[0] === y[1] ? `${y[0]}` : `${y[0]}-${y[1]}`) : "not seen"}</span></span></div><div class="fm-track">${band(s, "s")}${band(y, "y")}</div>${note ? `<small class="fm-dim">${esc(note)}</small>` : ""}</div>`;
+  const row = (name, s, y, note) => `<div class="fm-read"><div><b>${esc(name)}</b><span class="fm-dim">Staff ${s ? rpair(s) : "—"} · <span class="fm-gold">You ${y ? (y[0] === y[1] ? `${rnum(y[0])}` : rpair(y)) : "not seen"}</span></span></div><div class="fm-track">${band(s, "s")}${band(y, "y")}</div>${note ? `<small class="fm-dim">${esc(note)}</small>` : ""}</div>`;
   const rows = [row("Overall now", r.staff_now, r.you_now)].concat(r.rows.map((a) => row(a.name, a.staff, a.you)));
   return frCard(`Two reads <span class="fm-r"><i class="fm-key s"></i>Your staff <i class="fm-key y"></i>You</span>`, `${rows.join("")}${speed ? `<div class="fm-cell"><div class="st-label">Game speed</div><span>${esc(speed)}</span></div>` : ""}<p class="fm-dim">Your read starts as a first impression. It narrows only with what your own eye catches.</p>`);
 }
@@ -390,7 +390,7 @@ function frReport(x) {
 function frMoved(r) {
   if (r.id == null || r.team || r.fresh == null) return "";
   const m = r.moved || [];
-  const rg = (x) => (x ? (x[0] === x[1] ? `${x[0]}` : `${x[0]}-${x[1]}`) : "not read");
+  const rg = (x) => (x ? (x[0] === x[1] ? `${rnum(x[0])}` : rpair(x)) : "not read");
   const first = m.filter((x) => !x.before).length;
   const parts = [];
   if (m.length - first) parts.push(`${m.length - first} of your ratings narrowed`);

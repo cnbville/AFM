@@ -41,7 +41,9 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
     let Some(w) = game.world.as_ref() else { return Some(Err("No world is loaded.".into())) };
     let num = |k: &str| args.get(k).and_then(Value::as_f64);
     let range = || match (num("lo"), num("hi")) {
-        (Some(lo), Some(hi)) => Ok((lo.round().clamp(1.0, 99.0) as u8, hi.round().clamp(1.0, 99.0) as u8)),
+        (Some(lo), Some(hi)) => {
+            Ok((lo.round().clamp(1.0, reads::SHOWN_TOP) as u8, hi.round().clamp(1.0, reads::SHOWN_TOP) as u8))
+        }
         _ => Err("Missing range.".to_string()),
     };
     let who = || {

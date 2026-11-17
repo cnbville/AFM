@@ -1,6 +1,6 @@
 # Ground: how it works today
 
-Checked against branch commit 28f13b8 on 2026-11-16 (lane G1a, areas and map data), main bf92e7d plus lane G1b on 2026-11-16 (standing and one memory), main d291de54 plus lane G3 on 2026-11-16 (your week and road days), branch lane S2 on 2026-11-16 (the meeting at the map), main fd85a4f9 plus lane G7 on 2026-11-16 (people in full), main plus lane G11a on 2026-11-16 (the high school chain reaction), main 6aed06fd plus lane G4 on 2026-11-16 (news in order, leads and finds), branch lane S5 on 2026-11-16 (the person screen) and main 256934ee plus lane G6 on 2026-11-16 (the campaign), main plus lane G8 on 2026-11-16 (a following and famous names), main 80ce85c plus lane G11b on 2026-11-16 (favors, switched off), branch lane S8 on 2026-11-16 (the ground report screen), main d64b44f plus the college followings retune on 2026-11-16 (storms reach college), and main plus lane G5 on 2026-11-16 (the scenes), and main plus lane S4 on 2026-11-17 (the lead card).
+Checked against branch commit 28f13b8 on 2026-11-16 (lane G1a, areas and map data), main bf92e7d plus lane G1b on 2026-11-16 (standing and one memory), main d291de54 plus lane G3 on 2026-11-16 (your week and road days), branch lane S2 on 2026-11-16 (the meeting at the map), main fd85a4f9 plus lane G7 on 2026-11-16 (people in full), main plus lane G11a on 2026-11-16 (the high school chain reaction), main 6aed06fd plus lane G4 on 2026-11-16 (news in order, leads and finds), branch lane S5 on 2026-11-16 (the person screen) and main 256934ee plus lane G6 on 2026-11-16 (the campaign), main plus lane G8 on 2026-11-16 (a following and famous names), main 80ce85c plus lane G11b on 2026-11-16 (favors, switched off), branch lane S8 on 2026-11-16 (the ground report screen), main d64b44f plus the college followings retune on 2026-11-16 (storms reach college), and main plus lane G5 on 2026-11-16 (the scenes), and main plus lane S4 on 2026-11-17 (the lead card), and main plus lane G10 on 2026-11-16 (your staff's ground and the assistant seat).
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`, `app/`, `data/` or `tools/`. Ground's spec is `docs/design/ground.md`; each lane adds its section here.
 
@@ -409,7 +409,7 @@ Every size here is the build's pick unless the spec gave it, proposed, not confi
 
 ### What it does not do yet
 
-- Lane G5 plays the scenes (below). The goals are lane G6's (the May list ranks by them); your men's own ground and areas on the map with lane G10, the AI's weeks with lane G9.
+- Lane G5 plays the scenes (below). The goals are lane G6's (the May list ranks by them); your men's own ground and areas on the map came with lane G10 (below), the AI's weeks with lane G9.
 - The 2027 recruiting model (one pool of 300 from January to May) isn't in the game's rule book; `road::pool` is where it goes.
 - FCS runs the FBS recruiting calendar (`recruiting_period` has one).
 
@@ -606,6 +606,71 @@ On June 15 the standouts (the top 3% of their state's age 15-17) weigh a move to
 
 - `world/following.rs`: `HYPE_SON` 0.35, `HYPE_NEPHEW` 0.18, `FAMOUS` 0.4, the tiers in `man_fame`, the odds in `kin`, the Jr. 12% and the nephew's name 65% in `names`, `LIFT_TOP` 3, `LIFT_DAYS` 365, `BIG_NEWS` 10, `NEWS_FLOOR` 10,000, `STORM_FOLLOWERS` 500,000.
 - `world/recruiting.rs`: `stage_weight`; the visibility's 0.15 in `recruit_visibility`.
+
+## Lane G10: your staff's ground and the assistant seat
+
+Every size here is the build's pick unless the spec gave it, proposed, not confirmed. Code: `crates/afm-engine/src/world/ground/staff/` (`mod.rs` the store `Ground.staff` and the day, `beats.rs` areas and ride-alongs, `men.rs` each man's ground, mood and a candidate's signs, `carousel.rs` a man courted and a man gone, `desk.rs` the assistant seat); game commands `crates/afm-game/src/lane_groundstaff.rs`. Only your own college seat has it: every hook returns nothing without a career, so a careerless world plays the same on every seed. In a seat world what moves is your own file (which of your men makes a look: the man on the area goes) and, with you acting, what you do; the world outside your seat doesn't (`tests/ground.rs`, `the_world_plays_the_same_with_the_ground`).
+
+### Areas for each man (GR68)
+
+- **Who works areas:** your on-field assistants, coordinators and position coaches, not the head coach (`staff::men`). Each keeps his position group too: the board's group, the film and the role pitch are the built ones.
+- **The coordinator's proposal** on the first day of a job and at the February meeting (the Monday after signing day, `february_meeting`): the areas worth most to your program (the board's need there, then the talent its schools control times how far you reach: your name in the state, the drive), each to the man with the best claim on it: his own standing with its head coaches, weighted by talent, plus 12 points on his home state, less 8 for each area he already has. Up to 3 areas a man; a man left with none goes as a second man on the area with the fewest men, biggest first. The rest stay empty and the letter names them ("Nobody on Gwinnett: what comes out of there, we'll hear about late.") (`beats::propose`, `apply`).
+- **Your changes, any Monday:** `set_areas` (the head coach's seat only, up to 4 areas a man), planned from the next Monday. The department's state command now moves every area of the state (`dept::set_area`, `beats::set_state`); its state screen reads the man who holds most of the state's areas (`dept::area_coach`, `beats::state_man`).
+- **What reads it:** the week's plan sends each man to his own areas, the neediest first (`week::plan`, `draft_roads`), and the man on a school's area who stands best with its head coach recruits its kids (`dept::recruiter_for`, `beats::recruiter_for_school`). Without areas set, both fall back on the built state split.
+- **A man who leaves:** his areas wait for Monday, when the coordinator gives each to the man with the fewest until you or the February meeting say otherwise (`beats::orphans`).
+- **The ride-along:** a younger man rides with an older one for up to 8 weeks. Each day the veteran is out, the head coaches and coordinators at his schools meet the young man too, as his own memory (a sat-in contact), so he keeps them when the veteran goes. It costs both men's road day (`beats::ride`, `ride_day`; `week/road.rs`).
+- **Credits and misses:** each Monday and signing day, each of your signees is credited to the man on his area; a 3-star or better from an area nobody of yours works who signs elsewhere is a miss, for the ground report (`beats::signees`).
+
+### Each man's ground (GR68, GR76)
+
+- **His page** (`men::ground`): his areas with his level there (from his own memories with the area's head coaches), his people at Known or better, his finds, his road days this season, his style and his mood.
+- **His style** from his makeup: a salesman (straight 8 or less, relationships 11 or more), a straight shooter (straight 14 or more), a closer (recruiting 14 or more, ambition 12 or more) or a grinder (`men::style`).
+- **His mood**, from 0.6: overruled more than twice in two years (−0.07 each past two, up to four), an area he didn't want (all new ground while another man works his home state, −0.08), a long spring (more than 30 days on the road, −0.08), passed over for coordinator in the last two years if he's ambitious (12 or more, −0.12), a promise you broke (−0.15); finds that bloomed (a 3-star or less of his who started or was drafted, +0.05 each, up to four), a title (+0.04), a raise this year (+0.04). The page shows the words and the reasons, never the number (`men::mood`).
+- **His mood in the carousel:** an offer to one of your men weighs 0.06 × (0.5 − mood) more or less, so a happy man stays and an unhappy one listens (`staff::weigh_offer_at`, `ground::staff::offer_pull`).
+- **What leaves with him:** each of his areas' level for your staff today and with him gone (the program's own ties and your other men stay) (`men::what_leaves`).
+- **Hiring for ground, in signs** (`men::signs`): a candidate's old jobs (public); where his ties are, named by area only where someone on your staff is Known there, else just "can't place" in the state; what the people you're Trusted with say about him; and for a high school coach, what his school's trust is worth and the hiring rule. Never his numbers.
+
+### The carousel for your men (GR76)
+
+- **The warning:** when another school's search reaches one of your men and he means to go, the job waits 3 days for your counter and your inbox has the warning with his line in the hallway (`carousel::courting`, read by `staff::fill_opening`). Only your own staff's men, never a move inside your own program.
+- **Your counter, one per offer:** a raise (what the new job pays over his, from 5% to 30%, out of your staff money; the room hears it), the assistant head coach title (the next hire wants one too), or a promise of the next coordinator job (tracked like hiring promises: break it and his trust goes). Each counter's reach is 0.5 + 4 × (what it's worth to him − what the job pulls) + 0.4 × (mood − 0.5) + 0.02 × (loyalty − 10), from 5% to 95%, shown in words ("a coin flip"). The title and the promise count for more with his ambition; all count half against a head job. The roll is fixed per man and day, so it doesn't move with the order of the day's work (`carousel::reach`, `counter`). `let_go` sends him at once; no answer by the third day and the search hires him.
+- **What keeps him:** what lifts his mood, his loyalty (13 or more), being home in your state, 4 years or more on your staff (`carousel::keeps_him`).
+- **The coordinator job:** when a coordinator job on your staff goes to someone else, a man you promised it to has it kept or broken, and an ambitious position coach left out is passed over (`carousel::roster`).
+
+### When a man goes (GR68)
+
+- **His ties go with him:** the memories are his, so your staff's level in his areas falls to what the program and your other men hold.
+- **The terms:** good (his mood 0.45 or more), grateful (0.7 or more, or a promise you kept), angry (a promise you broke, let go while unhappy, or his mood under 0.3) or neither (retired, or let go). Good or grateful, he's your coaching tree: Trusted (55) or Home (78) with you and the program wherever he lands. Angry, the people who know him well hear him run you down (−4 each, 4 to 14 days later) (`carousel::departed`).
+- **His commits waver:** each kid committed to you from his areas has a memo and a few days. Each holds unless a roll under 35% × his loyalty (from his love of the game and coachability) comes up, halved if you called him (`call_commit`, a one-line result, not yet a played scene), cut by 30% if your program is Known or better with his family. One who reopens follows the man 45% of the time when his new school is near your level and could reach him (`carousel::settle_waver`).
+- **A new man:** his page reads his ground the day he arrives; a high school coach hired for his area brings his old school's people at Trusted (`carousel::arrived`).
+
+### The assistant seat (GR69)
+
+- **Your area and group are yours:** your head coach's Monday plan gives you your road days; you set only your own row, on your own areas, inside his days (`desk::check_road`), and plan your route, the schools you go to first (`desk::route`).
+- **Up to 2 kids a week** (`desk::push`): from your area or your group, with your case. When the film is in, he decides: no room at the position (offers out at the cap), a kid out of the program's reach, or his read: (his staff's read − the position's line) / its spread, plus 2 × (his trust in your eye − 0.4). At zero or better he signs it and the offer goes out through the built offer chain; otherwise wait ("Wait for his junior tape", "Bring me more on him") (`desk::decide`). A kid he signs at 3 stars or less is your find.
+- **Push back or let it ride:** pushing back is his office in one line (not yet a played scene); his answer comes now, by his trust and the read (`push_back`, `let_ride`).
+- **His trust in your eye** starts at 0.35 (0.5 if he knows you), moves 0.04 with each step the world takes on a kid you pushed (a level-up offer, his stars rising) and 0.06 when the call settles three years on. The screen shows words, never the number (`desk::steps`, `trust_words`).
+- **The coach you told:** a high school coach whose kid you pushed and who heard "wait" remembers when the world catches up, and half of it reaches his ties (`desk::told_coach`, `word::spread_to`).
+- **Goals at the February meeting:** his two (commits from your areas, from your last three classes' pace, 1 to 4; and one for your group) and a ground goal you pick (`desk::set_goals`, `pick_goal`).
+- **The August verdict:** each goal met (+1) or short (−1), his word on your spring, and his staff review: a score of 2 or more makes letting you go 0.6 times as likely, 1 makes it 0.8, below zero 1.3, −2 or worse 1.6 (`desk::august`, `review_factor`, read by `staff::staff_review`).
+- **When you're courted:** if he trusts your eye (0.45 or more) or your verdict was good, he counters: assistant head coach, or first in line for the next coordinator job, kept if you stay (`desk::courted`).
+
+### The game's commands
+
+`ground_staff` (the staff rail: each man, his areas, mood, style), `ground_staff_man`, `ground_staff_areas`, `ground_staff_ride`, `ground_staff_ride_end`, `ground_carousel` (who's courted, the counters with their reach and side effect, what leaves with him, wavering commits), `ground_counter`, `ground_let_go`, `ground_waver_call`, `ground_signs`, `ground_desk` (the assistant's desk), `ground_push`, `ground_push_back`, `ground_let_ride`, `ground_desk_goal`, `ground_route` (`crates/afm-game/src/lane_groundstaff.rs`). The screens are lane S7.
+
+### What G10 does not do
+
+- AI staffs don't work areas yet; they get the same rules with lane G9.
+- The moments (a commit you call, the office when you push back, the staff room) are one-line results: lane G5's played scenes don't cover them yet. The hunt and the guided first offseason are lane G6's.
+
+### Where the knobs are
+
+- `staff/beats.rs`: `PER_MAN` 3, `HOME_STATE` 12, `RIDE_WEEKS` 8; the claim's −8 a held area; 4 areas a man for your changes.
+- `staff/men.rs`: `LONG_SPRING` 30 days; the mood sizes in `mood`; the style cut points in `style`.
+- `staff/carousel.rs`: `ANSWER_DAYS` 3, `BOND` 0.35, `FOLLOW` 0.45, `RUN_DOWN` 4; the counter's worth in `worth`, its reach in `reach`.
+- `staff/desk.rs`: `PER_WEEK` 2, `STEP` 0.04, `SETTLED` 0.06; trust's start 0.35 (0.5); the review factors (0.6, 0.8, 1.3, 1.6).
+- `staff/mod.rs`: the mood's pull in `offer_pull` (0.06).
 
 ## Related pages
 
