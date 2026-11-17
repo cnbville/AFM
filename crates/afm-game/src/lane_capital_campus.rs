@@ -44,7 +44,7 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             let r = args
                 .get("room")
                 .and_then(Value::as_u64)
-                .and_then(|r| Room::from_index(r as u8))
+                .and_then(|r| u8::try_from(r).ok().and_then(Room::from_index))
                 .ok_or("Which room?")?;
             let p = week::your_program(w).ok_or("Renovations are the head coach's to ask for.")?;
             let said = rooms::ask_renovation(w, p, r)?;
@@ -117,6 +117,15 @@ fn beside(w: &World, prog: usize) -> Option<(usize, Option<String>)> {
         .map(|p| (p.id, None))
 }
 
+/// A room's level on the screen's scale once it stands at `physical`: the
+/// read against the conference's best moves by the same number of levels,
+/// so the gold squares and the ivory ones are on one scale (a room already
+/// at the best stays at 5: the best rises with it).
+fn after(p: &afm_engine::world::program::Program, r: Room, physical: f64) -> u8 {
+    let k = r as usize;
+    (p.campus.read[k] as f64 + (physical - p.campus.level[k] as f64)).round().clamp(1.0, 5.0) as u8
+}
+
 /// A building under way: the rooms it holds, which are new and where the
 /// others move from, and where it stands.
 fn under_way(w: &World, prog: usize, x: &Project) -> Value {
@@ -144,7 +153,7 @@ fn under_way(w: &World, prog: usize, x: &Project) -> Value {
                 "new": new,
                 "from": if new { None } else { holder(r) },
                 "level": p.campus.shown(r),
-                "target": levels[r as usize].round().clamp(1.0, 5.0) as u8,
+                "target": after(p, r, levels[r as usize] as f64).max(p.campus.shown(r)),
             })
         })
         .collect();
@@ -209,12 +218,12 @@ fn campus_view(w: &World) -> Reply {
         let mut target = shown;
         let mut note: Option<String> = None;
         if renovating == Some(r) {
-            target = (shown + 1).min(5);
+            target = after(p, r, (p.campus.level(r).max(1.0) + 1.0).min(5.0)).max(shown);
             note = Some("renovation this summer".to_string());
         }
         for (name, mask, lv) in &building_masks {
             if mask & r.bit() != 0 {
-                target = target.max(lv[r as usize].round().clamp(1.0, 5.0) as u8);
+                target = target.max(after(p, r, lv[r as usize] as f64));
                 note = Some(format!("moves to the {}", name.to_lowercase()));
             }
         }
