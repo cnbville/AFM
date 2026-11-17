@@ -17,7 +17,7 @@ The first list (11 items, 15:00 UTC) was replaced by a list of 8 at 20:10 UTC. T
 | 3 | A college general manager from about 2023 | Waiting on Cain |
 | 4 | Coaches' agents | Waiting on Cain |
 | 5 | Private trainers, QB coaches and offseason camps | Waiting on Cain |
-| 6 | High schoolers' NIL deals | **Agreed** 22:12 UTC ("6. yes"); a short design round comes first. Below. |
+| 6 | High schoolers' NIL deals | **Agreed** 22:12 UTC ("6. yes"); its design round's 8 items agreed 22:37 UTC ("yes"). Below. |
 | 7 | Officiating crews kept for a whole season | **Agreed** 22:12 UTC ("7. yes"). Below. |
 | 8 | Travel and the body clock | Waiting on Cain (engine-side: after the scheme-fit lanes) |
 
@@ -57,7 +57,7 @@ AI high school position coaches (item 2), the support departments (their own spe
 
 ## Item 6. High schoolers' NIL deals
 
-Agreed in principle. The details come from a short design round in its own thread, before any build.
+Agreed in principle 22:12 UTC. Design round in the thread "Design high schoolers' NIL deals": 8 items posted 22:33 UTC, Cain 22:37 UTC: "yes" (all 8).
 
 ### What it does in the game
 
@@ -65,20 +65,32 @@ A high schooler in a state that allows it can sign NIL deals before he picks a c
 
 ### What exists
 
-- Each state's rule and year (`data/real-world/hs_states.csv`: `hs_nil_allowed` yes, limited or no; `hs_nil_from`; `hs_nil_scope`; `hs_nil_min_age`), turned on with a news line (`world/clock.rs`, `hs_nil_states`). See `docs/reference/how-it-works/recruiting.md`, "High school NIL by state".
-- No high schooler ever signs a deal: NIL pays college players only (`world/recruiting.rs`, `nil_payouts`).
-- Fame and Aura (`world/fame.rs`): followers, and NIL from fame for college players.
+The first version of this spec said no high schooler ever signs a deal. That was wrong: NIL update N3 (2026-11-05, PR #222) built high schoolers' brand deals.
 
-### What the design round settles
+- Each state's rule and year (`data/real-world/hs_states.csv`: `hs_nil_allowed` yes, limited or no; `hs_nil_from`; `hs_nil_scope`; `hs_nil_min_age`), turned on with a news line (`world/clock.rs`, `hs_nil_states`). Texas pays only after high school; Arkansas and Missouri only once he signs with a college in the state; five states bar it. See `docs/reference/how-it-works/recruiting.md`, "High school NIL by state".
+- Brand deals from fame and Aura, the family's say, who pays in words, the news over $100,000 and the payday over $250,000, set in February and on June 15 (`world/fame.rs`, `hs_nil_offered`, `takes_hs_deals`, `hs_nil_kinds`, `hs_nil_day`). See `docs/reference/how-it-works/people.md`, "High school NIL". On seed 68, 13 of 18 five-stars had deals (median $13,000, top $246,000; `docs/game.md`, "High school NIL"). N3's sizes are still proposed, not confirmed.
+- The high school transfer pull reads only the state's flag (x1.4 into an open state, `world/recruiting.rs`), never his money.
+- Missing: no college's backers ever reach a high schooler. College NIL starts at enrollment (an early enrollee from January).
 
-Each comes with a proposal backed by real cases:
+### Real rules the build follows
 
-1. Who offers deals: local businesses and brands, and where a college's collective may and may not reach a high schooler under each state's rule.
-2. How many and how big: from his fame, following and Aura, his market and his state's rule.
-3. What a deal changes: his money want before signing, his family's view, a deal from a college's backers swaying his pick, and the rule case when it crosses the line.
-4. His high school: eligibility rules (no school marks or uniform), and moves toward states that allow it.
-5. What you see at each seat: the recruit's file and the news, and your own players' deals at the high school seat.
-6. The AI on the same rules.
+- Before February 23, 2024 a backer's deal with a recruit is a recruiting inducement: the built rogue booster path with its NCAA cases (`world/ncaa.rs`). From that day the Tennessee and Virginia injunction stops the NCAA from punishing NIL talks with recruits.
+- From July 1, 2025 every third-party deal over $600 from the first day of his junior year is reported to NIL Go within two weeks of enrolling; an unreported deal costs eligibility, and NIL Go reviews a backer's deal like any collective deal ([Athletic Business](https://www.athleticbusiness.com/operations/governing-bodies/article/15770900/ncaa-college-sports-commission-codify-nil-rules-for-high-school-junior-college-athletes)).
+- Real cases: Nico Iamaleava's collective deal worth up to $8M, signed before he enrolled (2022, [CBS](https://www.cbssports.com/college-football/news/inducement-concerns-fuel-fears-for-coaches-administrators-amid-8-million-name-image-and-likeness-deal)); Jaden Rashada's $13.85M Gator Collective deal, $500,000-1M due around signing day, ended that December ([On3](https://www.on3.com:443/news/read-qb-jaden-rashadas-initial-13-85-million-contract/)).
+- A state whose rule bars deals tied to a college gets no backer deals. The build re-checks each state's bylaw for that clause (a new column in `hs_states.csv`). Texas and the barred states stay closed to backers; Arkansas and Missouri open only after he signs in the state.
+
+### Agreed (Cain 22:37 UTC, "yes"; every size proposed, not confirmed)
+
+1. **A signing-day payment.** A college deal can pay part of its first year on signing day, up to half (proposed). Money in hand counts in full with him; a promise counts by his trust in whoever makes it. Your desk and the AI's collectives both. Example: a Georgia five-star quarterback signs with you in December on $900,000 for his first year; up to $450,000 can reach him that day instead of next July.
+2. **Backers' deals before he commits, from February 2024.** A collective can sign a senior before he commits, paid while he is still in high school, ending if he goes elsewhere. AI collectives do it only for five-stars and the top four-stars, a handful a year (proposed). Example: in October a rival's collective signs your top quarterback target to $1.5M paid monthly; his lean swings hard to that school.
+3. **His own deals lower his money weight.** His high school deals lift his family's money read, so college money pulls less in his choice and playing time and the rest pull more. Example: a quarterback from a poor family with $250,000 a year in card deals.
+4. **High school deals run on into college until they end.** A card or apparel deal keeps paying for its term (usually 2 to 3 years, proposed); then the college formula takes over. Today it drops to the college rate (about $25,000 for a freshman) in his first college February. This fixes N3's doubt.
+5. **The move toward an NIL state reads his own money.** The high school transfer pull comes from what he would earn there, in place of the flat x1.4: nothing for a three-star, a real pull for a known five-star in a barred state.
+6. **Breaking the state's rule costs eligibility.** An ad in his school's uniform, or money to switch high schools: his association rules him out for some games. Rare, from his and his family's makeup (sizes proposed).
+7. **At the high school seat you see your players' deals and can't arrange them.** The school is told (most states require it): an inbox note, the roster and his page. School staff may not arrange deals.
+8. **At the college seat you hear rivals' backer deals only as staff rumors with a range.** "We hear Auburn's collective has him at $1-2M." Never the exact figure. Brand deals stay public.
+
+AI programs and collectives work on the same rules as your desk. Every system it touches updates its how-it-works page in the build PR (`people.md`, "High school NIL"; `recruiting.md`).
 
 ---
 

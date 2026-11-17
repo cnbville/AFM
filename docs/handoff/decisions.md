@@ -443,6 +443,7 @@ Cain, 2026-11-17 14:52 UTC: "Let's first look at additions before we finetune th
 - **Elsewhere:** support departments in full, agreed in `docs/design/support-departments.md`.
 - **Waiting on Cain:** AI high school position coaches, a college general manager, coaches' agents, private trainers and camps, travel and the body clock.
 - **Proposed, not confirmed:** every size and build note in the spec.
+- **High schoolers' NIL design round (thread "Design high schoolers' NIL deals", Cain 22:37 UTC: "yes" to all 8):** a signing-day payment (up to half of year one); backers' deals before he commits from February 2024; his own deals lower his money weight; high school deals run on into college until they end; the move toward an NIL state reads his own money; breaking the state's rule costs eligibility; at the high school seat you see your players' deals and can't arrange them; at the college seat rivals' backer deals reach you only as staff rumors with a range. Details in the spec, item 6. Sizes proposed, not confirmed.
 
 ## Superseded decisions
 
