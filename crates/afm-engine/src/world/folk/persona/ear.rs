@@ -269,6 +269,10 @@ pub struct Reading {
     pub dodged: bool,
     /// The line isn't a person talking (section 14): it does nothing.
     pub not_talk: bool,
+    /// How you said it (coach voice, section 1): none from a reading saved
+    /// before it, or when the ear gave none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub manner: Option<super::manner::Manner>,
 }
 
 /// A hit as the game sized it, from how much the item weighs for him and
@@ -374,6 +378,8 @@ pub struct Turn {
     pub dodged: bool,
     /// Each commitment and how he took it (`folk::commit`).
     pub committed: Vec<(crate::world::folk::commit::Commitment, crate::world::folk::commit::Took)>,
+    /// How each man in the room took your manner (coach voice), sized.
+    pub manner: Vec<(Them, super::manner::Took)>,
 }
 
 /// The game's side of a line (lane N4).

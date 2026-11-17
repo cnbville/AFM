@@ -295,6 +295,22 @@ pub struct EarReply {
     pub hits: Vec<EarHit>,
     pub dodged: bool,
     pub not_talk: bool,
+    /// How the coach said it (coach voice, section 1): five words, one a
+    /// dial. None from an answer without it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub manner: Option<EarManner>,
+}
+
+/// The ear's five words on the coach's manner (`persona::manner`'s
+/// `HEAT`, `LANGUAGE`, `AIM`, `CARE` and `SAY`).
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct EarManner {
+    pub heat: String,
+    pub language: String,
+    pub aim: String,
+    pub care: String,
+    pub say: String,
 }
 
 /// What the voice is given (3.7): who he is as behaviour, where, and what
@@ -356,6 +372,12 @@ pub struct VoiceCard {
     pub pressing: bool,
     /// How hot it is, in words, and what he does about it.
     pub heat: String,
+    /// How he took the coach's manner on this line (coach voice, section 7):
+    /// he answers in kind.
+    pub manner: String,
+    /// How the coach comes across to him, by what he has seen and heard
+    /// (coach voice, section 2): the words for the coach's read.
+    pub coach_read: String,
     /// His colour notebook (`memory::Colour`): details he said before.
     pub notebook: Vec<String>,
     pub so_far: Vec<Spoken>,

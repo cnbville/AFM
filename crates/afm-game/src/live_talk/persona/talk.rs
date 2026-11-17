@@ -241,7 +241,18 @@ fn stand_in(card: &super::EarCard) -> Value {
     if line.contains("bench") {
         acts.push(act("decision", "benched", "none", ""));
     }
-    let v = json!({ "acts": acts, "hits": [], "dodged": false, "not_talk": false });
+    // The manner (coach voice): a "!" or capitals is hot, a curse
+    // profane, and a curse with "you" in it aimed at the man.
+    let swore = ["fuck", "shit", "damn", "hell"].iter().any(|x| line.contains(x));
+    let hot = card.line.contains('!') || card.line.chars().filter(|c| c.is_ascii_uppercase()).count() > 8;
+    let manner = json!({
+        "heat": if hot { "hot" } else { "even" },
+        "language": if swore { "profane" } else { "clean" },
+        "aim": if swore && line.contains("you") { "man" } else { "out" },
+        "care": "neutral",
+        "say": if line.contains('?') { "ask" } else { "tell" },
+    });
+    let v = json!({ "acts": acts, "hits": [], "dodged": false, "not_talk": false, "manner": manner });
     afm_ai::fake::body(&v.to_string(), 900, 60)
 }
 
