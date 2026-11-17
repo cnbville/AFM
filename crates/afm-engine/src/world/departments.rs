@@ -612,16 +612,8 @@ fn hs_trainers(w: &mut World, rng: &mut Rng) {
             let name = super::folk::cast::person_name(eth, born, she, rng);
             let rating = clamp(rng.normal(8.5 + 3.0 * res + 1.5 * people::era_of(year), 2.8), 1.0, 20.0).round() as u8;
             let pay = (if share >= 1.0 { 52_000.0 } else { 18_000.0 }) * super::finance::data::coach_index(year);
-            w.high_schools[h].trainer = Some(Aide {
-                job: Job::Trainer,
-                name,
-                she,
-                rating,
-                born,
-                since: year,
-                pay: pay as f32,
-                share: share as f32,
-            });
+            w.high_schools[h].trainer =
+                Some(Aide { job: Job::Trainer, name, she, rating, born, since: year, pay: pay as f32, share });
         }
     }
 }

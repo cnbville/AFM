@@ -222,7 +222,8 @@ fn departments(w: &World) {
     println!(
         "\n  Reads by level: mean of the team reads against the mean head (headed areas: a head's 1-20 scale), p10-p90, FBS richest 20 against poorest 20 by staff line"
     );
-    let groups: [(&str, fn(&World, Who) -> bool); 5] = [
+    type Keep = fn(&World, Who) -> bool;
+    let groups: [(&str, Keep); 5] = [
         ("FBS", |w, who| matches!(who, Who::Prog(p) if w.programs[p].division == Division::FBS)),
         ("FCS", |w, who| matches!(who, Who::Prog(p) if w.programs[p].division == Division::FCS)),
         (
