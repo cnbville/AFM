@@ -10,7 +10,7 @@
  * letter, the ride-alongs, the men who left. A rail of all your men runs along
  * the bottom.
  *
- *   groundstaff   with {man}: that man (his warning if he is courted, else
+ *   groundstaff   with {man} (a link's {id}): that man (his warning if he is courted, else
  *                 his ground). Without: the first man courted, else the first.
  *
  * It reads `ground_staff`, `ground_carousel` and `ground_staff_man` (lane
@@ -57,7 +57,8 @@ screens.groundstaff = async (args) => {
   }
   GS.faces = [];
   GS.n = st.courted.length;
-  const want = args && args.man != null ? Number(args.man) : null;
+  // A link carries the man as `id` (the app's link arguments), a call as `man`.
+  const want = args && (args.man != null || args.id != null) ? Number(args.man != null ? args.man : args.id) : null;
   const car = await api("ground_carousel", want != null ? { man: want } : {}).catch(() => null);
   const warn = car && car.courted && car.courted.state === "waiting" ? car : null;
   const sel = want != null ? want : warn ? warn.courted.man : st.men.length ? st.men[0].man : null;
@@ -179,7 +180,7 @@ function gsRail(st, sel) {
     const hot = waiting.has(m.man);
     const best = m.areas.length ? m.areas.reduce((a, b) => ((GS_LV[b.level] || 0) > (GS_LV[a.level] || 0) ? b : a)) : null;
     const r = m.record;
-    return `<button class="gs-mn${m.man === sel ? " on" : ""}${hot ? " hot" : ""}" data-go="groundstaff" data-man="${m.man}"><span class="gs-mh">${gsFace(m.face, m.name, 30)}<span><b>${esc(m.name.split(" ").slice(-1)[0])}</b><small>${esc(m.role)}</small></span></span>
+    return `<button class="gs-mn${m.man === sel ? " on" : ""}${hot ? " hot" : ""}" data-go="groundstaff" data-id="${m.man}"><span class="gs-mh">${gsFace(m.face, m.name, 30)}<span><b>${esc(m.name.split(" ").slice(-1)[0])}</b><small>${esc(m.role)}</small></span></span>
       <small class="gs-ar1">${best ? `${esc(best.nickname)} · ${esc(best.level)}` : "No area"}${m.areas.length > 1 ? ` +${m.areas.length - 1}` : ""}</small>${best ? gsPips(GS_LV[best.level] || 0, 3) : ""}
       <span class="gs-mm ${hot ? "amb" : gsMood(m.mood)}"><i></i>${hot ? "May go" : esc(gsCap(m.mood).replace("Listening to other jobs", "Listening"))}</span><small class="gs-dim">${r.right} of ${r.offered + r.passed} right${m.ride ? " · riding" : ""}</small></button>`;
   };
