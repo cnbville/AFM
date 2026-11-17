@@ -942,11 +942,17 @@ pub(crate) fn call_for(w: &mut World, h: usize) -> Result<Date, String> {
     Ok(w.capital.bonds.iter().find(|b| b.id == id).map_or(w.today, |b| b.day))
 }
 
+/// The money year today falls in, by the year it starts: July to June.
+fn money_year(w: &World) -> i32 {
+    if w.today < w.dates.money_year { w.year - 1 } else { w.year }
+}
+
 /// You ask the superintendent and the board for a stadium bond (once a
 /// money year): their yes puts it on the next ballot at least 78 days out.
 pub fn ask_bond(w: &mut World) -> Result<String, String> {
     let h = your_school(w)?;
-    if w.capital.bond_asked == w.year {
+    let my = money_year(w);
+    if w.capital.bond_asked == my {
         return Err("You asked the board this year already; the answer stands until next summer.".into());
     }
     if !super::live(w) {
@@ -960,9 +966,9 @@ pub fn ask_bond(w: &mut World) -> Result<String, String> {
     if busy(w, &d) {
         return Err("A bond is already on the ballot or being built, or the town voted on one lately.".into());
     }
-    w.capital.bond_asked = w.year;
+    w.capital.bond_asked = my;
     let chance = ask_chance(w, h);
-    if super::draw(w, 70, (h as u64) << 16 ^ w.year as u64) >= chance {
+    if super::draw(w, 70, (h as u64) << 16 ^ my as u64) >= chance {
         let why = if stadium_need(w, &d) < 0.05 {
             "the stadium is in good shape, and the board has roofs to fix"
         } else {
@@ -1076,7 +1082,7 @@ pub fn seat_json(w: &World) -> Option<serde_json::Value> {
     Some(serde_json::json!({
         "rooms": rooms,
         "bond": bond,
-        "asked": w.capital.bond_asked == w.year,
+        "asked": w.capital.bond_asked == money_year(w),
         "district": district(w, h).into_iter().map(|o| w.school_name(o).to_string()).collect::<Vec<_>>(),
     }))
 }
