@@ -10614,13 +10614,12 @@ fn appeal_in(w: &World, i: usize, j: usize, nil: f64, field: &TopTwo) -> f64 {
     // The official visit's weekend; your athletic director's raises for
     // travel and visits host it better (people topic 12).
     // The locker room makes the official visit count for more, the
-    // recruiting lounge the game days (Capital lane C2, CP17).
+    // recruiting lounge the game days (Capital lane C2, CP17). The raise
+    // and the room each add their own share of the weekend.
     let unofficial = p.cal.visits.iter().filter(|v| v.0 == j && v.2 == super::Visit::Unofficial).count().min(5) as f64;
     u += 0.004 * (contact + unofficial.min(contact) * super::capital::rooms::game_day_lift(prog))
         + if official {
-            OFFICIAL_PULL
-                * (1.0 + super::folk::staffing::recruit_bonus(w, j))
-                * (1.0 + super::capital::rooms::visit_lift(prog))
+            OFFICIAL_PULL * (1.0 + super::folk::staffing::recruit_bonus(w, j) + super::capital::rooms::visit_lift(prog))
         } else {
             0.0
         };

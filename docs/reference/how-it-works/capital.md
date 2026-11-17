@@ -81,7 +81,7 @@ Each tool new with this lane reads its room against the division's typical room 
 
 | Room | What it does in the game | Where |
 |---|---|---|
-| Locker room | Official visit pull × (1 + 0.1 × read over typical), ±25%; the room's mood + 0.12 × value over typical | `visit_lift`, `world/recruiting.rs` (`OFFICIAL_PULL`); `mood_lift`, `world/people.rs`, `settle_room` |
+| Locker room | Official visit pull + 0.1 × read over typical of it (±25%), beside the AD's hosting raise; the room's mood + 0.12 × value over typical | `visit_lift`, `world/recruiting.rs` (`OFFICIAL_PULL`); `mood_lift`, `world/people.rs`, `settle_room` |
 | Weight room | 0.55 of the body's coaching part | `physical` |
 | Sports science lab | Soft-tissue share of game injuries × (1 − 0.3 × value over typical), 0.85-1.15, on top of the strength staff's guard; your staff sees load and risk at level 2.5 or more | `soft_tissue_guard`, `world/season.rs` (team build); `sees_load` |
 | Recovery center | 0.1 of the body's part, 0.2 of the rest; game injury days back: 2 × value over typical in the medical staff's units (12% each), ±1 | `recovery_days`, `world/college.rs` → `training::seat::game_injuries` |
