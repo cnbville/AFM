@@ -8,6 +8,16 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.603 (17 Nov, shipped): capital lane C2: the rooms and the campus (PR #516)
+**TLDR:** Your campus is now made of real rooms, from the locker room to the NFL wall, and each one does something. Build, renovate and watch rivals answer.
+- Thirteen rooms per program, each with a level, starting from every school's real buildings. (PR #516)
+- Rooms age and are read against the best in your conference, so a rival's new weight room makes yours look older. (PR #516)
+- Each room has its own effect: the weight room grows bodies, the recovery center gets hurt players back sooner, the content studio helps your players' deals, the locker room makes visits count. (PR #516)
+- In the year before a new building opens, your team works in temporary space. (PR #516)
+- Recruits now care about campus life, some of them a lot. (PR #516)
+- A crash a few seasons in, when the NFL added a team, is fixed. (PR #516)
+- Look at: your program's rooms once the Campus screen arrives. (PR #516)
+
 ## 0.2.602 (17 Nov, shipped): days wait for a running autosave instead of copying the world (PR #515), talks that know where they stand and what is between you (PR #507), progression step 5: slower closing near the top and fitted trims hold the star count (PR #518)
 **TLDR:** 3 changes ship together. The game no longer freezes for minutes when you press Continue while it autosaves. The people you talk to now know where they stand and what's between you: a senior talks about the draft, a player you met last week knows you're new, and one you've coached for years remembers your promises. Plus 1 more below.
 - Days wait for a running autosave instead of copying the world (PR #515): The game no longer freezes for minutes when you press Continue while it autosaves.
