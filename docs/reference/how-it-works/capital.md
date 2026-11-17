@@ -245,6 +245,15 @@ Every size here is the build's pick, proposed, not confirmed. Code: `world/capit
 
 Yes, from the season the world hands over (`capital::live`): the high school rooms' tools, the boosters' rooms, the bonds and the crowds; the clubs' rooms, renovations, report cards and their tools. Before that nothing reads them (an empty store reads neutral, and the clubs' card lines read the one number), so the past is the same per seed (`tests/capital.rs`, `the_world_plays_the_same_with_the_donors`). Tests: `tests/capital_seats.rs`.
 
+### The world check (seed 211)
+
+`facilities_check rooms 211 10 0.05 6` (10 years of history at scale 0.05, then six seasons, 2026-2031), once with the lane and once with `AFM_C6_OFF=1` (the high school tools and the clubs' rooms off). Its `seats_table` prints the HS, BONDS and NFL lines after each season.
+
+- **The rest of the world holds.** FBS facilities read 0.633, 0.638, 0.626, 0.612, 0.611, 0.618, 0.620 with the lane and 0.633, 0.638, 0.626, 0.612, 0.610, 0.616, 0.621 without. The drives, the fever and the college rooms move only by the small drift of a different world.
+- **High school rooms drift down.** The mean weight room goes from 2.38 to 1.93 in six years, film from 2.37 to 1.93, locker from 2.46 to 2.02, stadium from 2.81 to 2.45. Aging takes 0.1 a level a year from each room, and a booster club funds at most one project a year (chance up to 60%), usually the turf field, because it is furthest behind its target. Turf goes from a third of schools to 53%. The tools read around the typical room, so the effect on players stays neutral on average; only the levels a screen shows sink. Open for lane C7: a school's own upkeep budget renewing rooms, or boosters weighing the room's age.
+- **Bonds.** 14 to 20 called a year (of about 710 schools), 15 to 20 voted after the first year, 62% to 89% passed, a mean yes share of 0.56 to 0.62. From the second year 5 to 17 stadium jobs open a year. One shared district stadium opened (2031). Every bond was a renovation: none met the new-stadium line (need 0.25 and 1,500 students in the district or a football state). Open for lane C7: real districts build new about one time in four.
+- **NFL rooms.** The 32 clubs (34 after expansion) start near their facility number (about 3.9) and the owners renovate 3 to 9 rooms a year, mostly the report card's rooms: the locker and weight rooms rise to about 4.1, the rooms off the card (sports science, indoor field, families) drift to about 3.45. The report card's grade index reads 7.83 in 2026 and 8.55 in 2031 with the lane, 8.59 without, so the card's lines stay on the old scale.
+
 ### Where the knobs are
 
 - `world/capital/hs.rs`: `AGE_A_YEAR` 0.1, `WEIGHT_COACHING` 1.8, `FILM_STUDY` 3.5, `LOCKER_MOOD` 0.12, `STADIUM_CROWD` 0.3, `TURF_UPKEEP` 0.25, `DISTRICT_MAX` 6, `WORK_DAYS` 70, `ORDER_DAYS` 78, `NIGHT_SD` 0.06; `target`, `turf_chance`, `call_chance`, `package_for`, `expected_yes`, `needs`, `Work::size`, `coach_work`, `ask_chance`.
