@@ -1,6 +1,6 @@
 # Capital: how it works today
 
-Checked against main 7bc88f6 (lanes C1-C6, CS1 and CS3) plus lane CS2 (the Donors screen) on 2026-11-17.
+Checked against main 7bc88f6 (lanes C1-C6, CS1 and CS3) plus lanes CS2 (the Donors screen) and CS4 (the project screen) on 2026-11-17.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`, `app/` or `data/`. Capital's spec is `docs/design/capital.md`; each lane adds its section here. Every size on this page is Claude's (proposed, not confirmed) unless the spec gives it.
 
@@ -313,6 +313,22 @@ Yes, from the season the world hands over (`capital::live`): the high school roo
 
 - `capital_campus`: `program`, `conference`, `today`, `head`, `halls` (name, opened, dated, rooms with `level`, `target`, `note`, `temporary`), `buildings` (name, opens, status, rooms new or moving), `free_plots`, `rooms` (13, each with `read`, `tone`, `can`, `block`, `odds`, `renovating`), `rival`, `next`. College seats only; other seats get a plain error that their own screen answers (lane CS6).
 - `capital_renovate` {room 0-12}: as above.
+
+## Lane CS4: the project screen
+
+Code: `crates/afm-game/src/lane_capital_project.rs` (the commands), `app/ui/screens/capitalproject.js` and `.css` (screen `capitalproject`, the Project tab of the Capital row, college seats). Board 4 of the mock-ups.
+
+### Quick answers
+
+- What does it show? The one building going up for your program: the latest drive that has broken ground whose project in the books is not done (`drive::project_of`). Its name (a donor's if his name is up on the whole building, else its kind), the answer a cost overrun needs, the rooms it holds with their level today and when it opens, the timeline, the temporary space, how it is paid and the strings. With nothing going up it says so and links to the drive (`capital_project`, `view`). College seats only.
+- How does the overrun get to me? At the groundbreaking a drive draws a 35% chance of an overrun of 5-30% (`drive::break_ground`); the builder finds it 180 days later and your AD gives you `ANSWER_DAYS` (30) to answer (`drive::building`). The page shows it from the day it is found, with the date the AD takes the quiet answer (a year's wait). It shows the share over the cost, never dollars.
+- What are the three answers? Cut rooms (the smallest go to the open plot until the cut covers the overrun, one room always kept), wait (opens a year later and the drive reopens a year to raise it), or borrow (bonds, a smaller staff pool for years). Click one to see it first: cut greys the rooms it would drop (`drive::cut_preview`, the same rule `apply_fix` uses), wait stretches the timeline a year in amber; nothing changes until you press Confirm (`capital_overrun` {fix cut, wait, borrow}, `drive::fix_overrun`, unchanged). Only the head coach answers. After the answer the page keeps a line on what was done, and cut rooms stay on the list greyed.
+- How is the timeline made? From the day ground broke to the day the building is ready (`drive::build_days` by kind: 730 days, 330 for a weight and locker room, 450 for an indoor facility), a year later if the books say it opens later than that (a pulled pledge set it back, or you waited). A day's marker shows today and an amber pin the day the overrun was found.
+- What is temporary space? CP26: the rooms the building takes read a level lower for their tools and the room's mood dips a little (`Campus::temporary`, `rooms::TEMPORARY_MOOD`); the page names the rooms and says so in words.
+- What are the strings? Names up on the building and its rooms (`Capital.names` for this drive, taken down ones kept as a line), and each donor's gift to it, a call waiting for you first (`Capital.catches` that have rung and are unanswered), then granted, refused, pulled and the quiet ones. A quiet gift carries your development office's read of him (`screen::catch_read`): "Likes to collect" (expects a call within a year), "Likes to be thanked", or "Gives and lets go". The hidden catches that have not rung are never shown.
+- How do I answer a donor's call? Grant it or turn it down (`capital_catch` {id, yes}, `gifts::answer_catch`, unchanged): a yes warms him a little, a no cools him and a collector may pull the rest of his pledge. The page says before you choose if your office reads him as a collector, and that your AD will not like a donor picking coordinators. After `CATCH_DAYS` (30) your AD answers it for you.
+- Are there dollars on screen? No (CP39): shares of the cost or the goal and words (the test checks both replies have no `$`).
+- Does it change the world? No. `drive::cut_preview` is `apply_fix`'s own loop pulled out, so every answer plays the same.
 
 ## Related pages
 

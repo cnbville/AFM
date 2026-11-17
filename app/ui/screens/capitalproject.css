@@ -1,0 +1,78 @@
+/* Lane styles: Capital's project screen (lane CS4, board 4, CP24, CP26, CP37,
+   CP39). Ground's Press Box look: dark panels, ivory text, hairlines, one
+   gold for what a building adds, amber for the decision and what slips. No
+   dollar figures; no saturated fills. The page carries .sl so lane 1's
+   tokens (and the light theme) apply. Every class is cpj- so the app's
+   global names never restyle these. */
+
+.cpj { --cpj-panel: #101217; --cpj-gold: #d8b45a; --cpj-amber: #f7a25a; --cpj-ivory: #e8e6e0; --cpj-track: #2a2d35; padding-bottom: 48px; font-variant-numeric: tabular-nums; display: grid; gap: 16px; align-content: start; }
+:root[data-theme="light"] .cpj { --cpj-panel: #ffffff; --cpj-gold: #8f6d12; --cpj-amber: #b9611a; --cpj-ivory: #1d2026; --cpj-track: #dcdde1; }
+.cpj .amb, .cpj b.amb { color: var(--cpj-amber); }
+.cpj-dim { color: var(--sl-dim); }
+.cpj-dim.sm, .cpj .sm { font-size: 12px; }
+
+.cpj-top { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 18px; }
+.cpj-t { flex: 1 1 280px; display: grid; gap: 2px; }
+.cpj-t h1 { margin: 0; font-size: 28px; font-weight: 800; font-stretch: 80%; letter-spacing: -.01em; line-height: 1.1; }
+.cpj-k { font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--sl-dim); }
+.cpj-k.amb { color: var(--cpj-amber); }
+.cpj-said { padding: 10px 14px; border-radius: 14px; background: var(--cpj-panel); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--cpj-gold) 45%, transparent); font-size: 13.5px; }
+
+.cpj-card { background: var(--cpj-panel); border-radius: 18px; box-shadow: inset 0 0 0 1px var(--hair); padding: 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.cpj-card p { margin: 0; font-size: 13.5px; line-height: 1.45; }
+.cpj-empty { color: var(--sl-dim); max-width: 640px; }
+.cpj-link { align-self: flex-start; font: inherit; font-size: 13px; font-weight: 700; padding: 0; border: 0; background: none; color: var(--cpj-gold); cursor: pointer; }
+.cpj-link:hover { text-decoration: underline; }
+
+/* the decision */
+.cpj-dec { box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--cpj-amber) 55%, transparent); padding: 20px 22px; gap: 14px; }
+.cpj-dh { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; }
+.cpj-dh .cpj-dim { font-size: 13px; line-height: 1.45; }
+.cpj-opts { display: flex; flex-wrap: wrap; gap: 10px; }
+.cpj-opt { flex: 1 1 200px; min-width: 180px; min-height: 44px; font: inherit; color: inherit; text-align: left; border: 0; cursor: pointer; background: var(--fill-1); border-radius: 14px; box-shadow: inset 0 0 0 1px var(--hair); padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.cpj-opt:hover:not(:disabled) { background: var(--fill-2); }
+.cpj-opt:disabled { opacity: .5; cursor: default; }
+.cpj-opt.sel { box-shadow: inset 0 0 0 1.5px var(--cpj-amber); background: color-mix(in oklab, var(--cpj-amber) 9%, transparent); }
+.cpj-opt:focus-visible { outline: 2px solid var(--cpj-gold); outline-offset: 2px; }
+.cpj-opt b { font-size: 15px; }
+.cpj-opt span { font-size: 13px; line-height: 1.4; color: var(--fg2); }
+.cpj-opt small { font-size: 12px; line-height: 1.4; color: var(--sl-dim); }
+.cpj-go { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.cpj-confirm { box-shadow: inset 0 0 0 1px var(--cpj-amber); color: var(--cpj-amber); }
+.cpj-ans { gap: 4px; }
+
+.cpj-cols { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.cpj-rooms { flex: 999 1 620px; gap: 8px; }
+.cpj-side { flex: 1 1 360px; min-width: 0; display: grid; gap: 16px; }
+
+/* the rooms */
+.cpj-rm { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.3fr); gap: 14px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--fill-1); font-size: 13px; }
+.cpj-rm.cpj-hd { background: none; padding-top: 2px; padding-bottom: 2px; font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--sl-dim); }
+.cpj-rm .nm { display: grid; gap: 2px; min-width: 0; }
+.cpj-rm .nm small { font-size: 12px; color: var(--sl-dim); }
+.cpj-rm .gv { color: var(--fg2); line-height: 1.35; }
+.cpj-rm.gone { opacity: .45; }
+.cpj-rm.gone .nm b { text-decoration: line-through; }
+@media (max-width: 760px) { .cpj-rm { grid-template-columns: minmax(0, 1fr) auto; } .cpj-rm .gv { grid-column: 1 / -1; } .cpj-rm.cpj-hd > :nth-child(3) { display: none; } }
+
+/* the timeline */
+.cpj-tl { position: relative; height: 62px; margin-bottom: 4px; }
+.cpj-tl .lb { position: absolute; top: 0; font-size: 11px; color: var(--sl-dim); white-space: nowrap; }
+.cpj-tl .lb.t { transform: translateX(-50%); color: var(--cpj-gold); font-weight: 700; }
+.cpj-tl .bar { position: absolute; top: 22px; height: 12px; border-radius: 6px; }
+.cpj-tl .bar.done { background: var(--cpj-ivory); }
+.cpj-tl .bar.todo { background: var(--cpj-track); box-shadow: inset 0 0 0 1px var(--hair); }
+.cpj-tl .bar.late { background: repeating-linear-gradient(135deg, color-mix(in oklab, var(--cpj-amber) 55%, transparent) 0 6px, transparent 6px 12px); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--cpj-amber) 55%, transparent); }
+.cpj-tl .pin { position: absolute; top: 17px; width: 2px; height: 22px; background: var(--cpj-amber); border-radius: 2px; }
+.cpj-tl .tk { position: absolute; top: 42px; font-size: 11px; color: var(--sl-dim); }
+
+/* the strings */
+.cpj-gift { display: grid; gap: 4px; padding: 10px 12px; border-radius: 12px; background: var(--fill-1); }
+.cpj-gift b { font-size: 13.5px; }
+.cpj-gift small { display: block; font-size: 12px; color: var(--sl-dim); line-height: 1.4; margin-top: 2px; }
+.cpj-gift p { font-size: 13px; }
+.cpj-gift.call { box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--cpj-amber) 50%, transparent); }
+.cpj-gift.pulled { opacity: .75; }
+.cpj-cb { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+.cpj-cb .st-btn { padding: 6px 12px; font-size: 12.5px; }
+.cpj-cb .st-btn.gold { box-shadow: inset 0 0 0 1px var(--cpj-gold); color: var(--cpj-gold); }
