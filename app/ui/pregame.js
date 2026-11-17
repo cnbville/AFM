@@ -235,7 +235,18 @@ async function openSave(path) {
       S.keep.setup = newSetup();
       go("setup", {}, false);
     }
-  } catch (e) { hideBusy(); toast(e.message); }
+  } catch (e) { hideBusy(); toast(e.message); await afterFailedOpen(); }
+}
+// The game closes the world you had open before it reads another (two
+// 30-year worlds don't fit in 8 GB), so a file that won't open leaves none:
+// forget the closed career's status so no screen asks it for anything.
+async function afterFailedOpen(st) {
+  const h = await api("hello").catch(() => null);
+  if (h && h.loaded) return;
+  S.status = null;
+  PG.loaded = null;
+  if (st) st.loaded = null;
+  S.back = []; S.fwd = [];
 }
 
 // ---------- a new career ----------
@@ -1285,7 +1296,7 @@ async function openWorldFor(st) {
     // The closed career's screens are gone: Back can't lead to them.
     S.back = []; S.fwd = [];
     return true;
-  } catch (e) { hideBusy(); toast(e.message); return false; }
+  } catch (e) { hideBusy(); toast(e.message); await afterFailedOpen(st); return false; }
 }
 function toStep(st, k) {
   st.step = k;
