@@ -1,6 +1,6 @@
 # Capital: how it works today
 
-Checked against main cb3818f (lanes C4 to C6, CS1) plus lanes CS3 (the drive screen) and CS4 (the project screen) on 2026-11-17.
+Checked against main 7bc88f6 (lanes C1-C6, CS1 and CS3) plus lanes CS2 (the Donors screen) and CS4 (the project screen) on 2026-11-17.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`, `app/` or `data/`. Capital's spec is `docs/design/capital.md`; each lane adds its section here. Every size on this page is Claude's (proposed, not confirmed) unless the spec gives it.
 
@@ -9,7 +9,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`,
 - How many donors does a program have? The Power 4 22-30, the rest of the FBS 15-22, FCS 8-14, Division II, NAIA and Division III 3-5, by prestige; junior colleges none. The boosters the talks know are on top of that, and ex-pros join besides (`world/capital/donors.rs`, `target`).
 - Are the boosters in the talks the same people? Yes. Each booster slot the talks draw (`folk/cast.rs`, `Role::Booster`) is a donor with his name, age, traits, wants and business; a new man in a slot is a new donor and the old one stays on as a plain donor (`donors.rs`, `sync_boosters`, `from_booster`).
 - Where is a donor's wealth? Hidden: `Donor::capacity` is what he can truly give over a drive, `Donor::paper` what his assets show. About 12% are stretched thin: paper 2-4 times capacity (`donors.rs`, `draw_donor`, `STRETCHED`).
-- What does the player see of it? Only the development office's read, a range of words such as "Could name a room, maybe fund a whole building." It reads paper wealth, so a stretched man reads richer than he is (`world/capital/screen.rs`, `read`, `words`). No screen shows it yet (lane CS2).
+- What does the player see of it? Only the development office's read, a range of words such as "Could name a room, maybe fund a whole building." It reads paper wealth, so a stretched man reads richer than he is (`world/capital/screen.rs`, `read`, `words`). The Donors screen shows it (lane CS2, `app/ui/screens/capitaldonors.js`).
 - Old money or new? A new donor is new money 30% of the time in 1990, rising to 50% by 2026 (`donors.rs`, `new_money_share`); ex-pros are always new money.
 - Does a broken promise spread? Yes, through his circle: his own warmth toward you -0.25, each old-money friend in the circle -0.12, each new-money friend -0.02, times 0.6 in a new-money circle (`donors.rs`, `word`). A promise to a college booster in the talks reaches his donor when it is judged (`folk/talks.rs`, `check_promises`, calls `booster_word`).
 - Can a pledge be tied to me? Yes: a pledge the closing coach made while the donor's warmth toward him was 0.7 or more is tied to him (`world/capital/pledges.rs`, `make`, `TIE_WARMTH`). If he stops working at that school the rest is pulled that day (`pledges.rs`, `day`).
@@ -106,6 +106,13 @@ What isn't built yet: more official visitors a weekend (the game has no weekend 
 - A number moved by hand once the rooms live (a tool, a test, the boss's yes) moves every room in step (`sync_program`).
 - An old save fits its rooms from its number on load (`after_load`).
 
+### The Donors screen (lane CS2)
+
+- What is on it? `capitaldonors` (`app/ui/screens/capitaldonors.js`, sidebar: Capital, Donors; head coaches of a college program only). The fever across the top with its moments; the list of your program's donors (`donors::of`) sorted by what the office thinks is worth your time (a lead donor of an open drive first, then the richer read, then the warmer), or by closeness to you or by longest unseen; his page with what drives him (his wants and rooms), what he remembers of you (meetings, last day, promises kept and broken, broken ones heard through his circle), who he talks to, and the development director's read (the wealth range and the staff's read on strings); this week's donor slots; and a lunch or dinner you book on any weekday from tomorrow to eight weeks out, January to August (`capital_book`, `capital_unbook`).
+- Where does it read? `capital_donors` (`lane_capital.rs`, `donors_view`, `fever_view`) and `capital_week`. Wealth is the office's range in words (`screen::read`), never a number; his lean to NIL or buildings ("Buildings", "Both", "NIL only" from his hidden `nil_lean`: at least 0.4 or at most -0.4 is one side) shows only once you have met him (`met > 0` or a last day); hidden `capacity`, `paper`, `nil_lean` and `collects` never leave the engine.
+- The fever word? `fever_view`: under 0.05 Cold, under 0.2 Cool, under 0.4 Warm, under 0.65 Hot, else Blazing (proposed, not confirmed). The bar splits today's fever by each moment's share (strength x fade); "fades by" is the first day a fortnight's steps reach below 0.05 if nothing new happens.
+- No dollar figure is on it (CP39); loyalty is his warmth toward you, 0.5 a stranger (`donors::STRANGER`), shown as a bar and a word (devoted from 0.8, close 0.65, friendly 0.45, cool 0.3, else cold), amber under 0.35 once you have met.
+
 ### Where the knobs are
 
 `world/capital/rooms.rs`: `Room::weight` (each room's share), `AGE_A_YEAR` 0.1, `built_level` ($4M a room reads 3, each doubling 0.83 more, 1.5-5), `optional_share`, `plots`, `renovation_cost` (the tier's building × the room's share / 0.85 × 0.4), `renovation_chance` (0.02 + 0.265 × levels behind, at most 0.7, 0.4 times with the department in the red, none under half a level), `TEMPORARY_MOOD` 0.04, each tool's slope and caps above, `campus_life_want` (0.02 + 0.14 × u³ − 0.02 × professionalism z, 0.01-0.22).
@@ -187,13 +194,13 @@ Every size here is the build's pick, proposed, not confirmed. Code: `world/capit
 
 ### The commands (`crates/afm-game/src/lane_capital.rs`)
 
-`capital_week` (this week's donor slots with their scene, your bookings, the office's list with its reasons), `capital_book` {donor, date, dinner}, `capital_unbook` {donor, date}, `capital_tour` {kid} and `capital_tour_set` {kid, rooms}, `capital_names`, `capital_name_call` {id, down}, `capital_moments`. A donor scene plays on the people commands. No dollar figure is on any of them (CP39): a gift on the stage reads as its share of the goal.
+`capital_week` (this week's donor slots with their scene, your bookings, the office's list with its reasons), `capital_book` {donor, date, dinner}, `capital_unbook` {donor, date}, `capital_tour` {kid} and `capital_tour_set` {kid, rooms}, `capital_names`, `capital_name_call` {id, down}, `capital_moments`, and lane CS2's `capital_donors` (below). A donor scene plays on the people commands. No dollar figure is on any of them (CP39): a gift on the stage reads as its share of the goal.
 
 ### What it does not do yet
 
 - Typed lines in a donor scene land on its picks through the core reader; donors are not live talks v3 people (`persona`), so nobody "plays himself" yet.
 - The AI's donors have no week: an AI head coach meets his lead donors on lane C3's monthly chance, and AI programs' named donors have no scandals (they would change the world; a later lane with a world check).
-- The screens are lanes CS2 (donors) and CS7 (the big moments).
+- The screens still to come are CS7 (the big moments) and the others in the spec's table.
 
 ### Where the knobs are
 
