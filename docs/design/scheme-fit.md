@@ -167,22 +167,22 @@ Where Cain's answer is marked "by the floor", the item only matches real numbers
 
 Each lane is its own fresh thread. The coordinator starts them in the order below, and each one merges to main on green and sends one final reply (an agreed sequence).
 - **Order.** The order is Claude's, from the report's pick. Cain called items 2 and 3 game and result breaking, so they go first with 7, and he agreed that 24 goes last.
-- **Models.** Game code runs on Opus at high effort. The measuring tool runs on Sonnet at high effort.
+- **Models.** Every lane runs on Opus at max effort (Cain, 2026-11-17).
 
 | Lane | Items | Starts after | Model | Changes |
 |---|---|---|---|---|
-| SF0 The measuring tool | none | now | Sonnet high | no results (tooling) |
-| SF1 Play action | 3 | world rebuild, SF0 | Opus high | game results |
-| SF2 Personnel and tight ends | 1, 2 | world rebuild, SF0 | Opus high | game results |
-| SF3 Blocks decide runs | 7 | world rebuild, SF0 | Opus high | game results |
-| SF4 The QB's reads and the receivers | 5, 6, 25 | SF2 | Opus high | game results |
-| SF5 Where picks and breakups come from | 15, 16, 17 | SF1, SF2, SF3 | Opus high | game results |
-| SF6 The ballhawk safety | 4, 12, 13, 14 | SF5 | Opus high | game results |
-| SF7 Coverage jobs | 18, 19, 20 | SF1, SF2, SF3 | Opus high | game results |
-| SF8 The pass rush | 21, 22 | SF1, SF2, SF3 | Opus high | game results |
-| SF9 Short yardage and long runs | 8, 9 | SF3 | Opus high | game results |
-| SF10 The roster shapes the call | 10, 11, 23 | SF4 to SF9 | Opus high | the calls, AI identity |
-| SF11 Fit scores job by job | 24 | SF10 | Opus high | the world (installs, recruiting) |
+| SF0 The measuring tool | none | now | Opus max | no results (tooling) |
+| SF1 Play action | 3 | world rebuild, SF0 | Opus max | game results |
+| SF2 Personnel and tight ends | 1, 2 | world rebuild, SF0 | Opus max | game results |
+| SF3 Blocks decide runs | 7 | world rebuild, SF0 | Opus max | game results |
+| SF4 The QB's reads and the receivers | 5, 6, 25 | SF2 | Opus max | game results |
+| SF5 Where picks and breakups come from | 15, 16, 17 | SF1, SF2, SF3 | Opus max | game results |
+| SF6 The ballhawk safety | 4, 12, 13, 14 | SF5 | Opus max | game results |
+| SF7 Coverage jobs | 18, 19, 20 | SF1, SF2, SF3 | Opus max | game results |
+| SF8 The pass rush | 21, 22 | SF1, SF2, SF3 | Opus max | game results |
+| SF9 Short yardage and long runs | 8, 9 | SF3 | Opus max | game results |
+| SF10 The roster shapes the call | 10, 11, 23 | SF4 to SF9 | Opus max | the calls, AI identity |
+| SF11 Fit scores job by job | 24 | SF10 | Opus max | the world (installs, recruiting) |
 
 **SF0, the measuring tool.** It commits the audit's tool to `afm-tools` as one bin, `fit_check`, so every lane measures the same way.
 - **Source.** Copies of the scratch tools are in the project folder, `afm/scheme-fit/tools/`: `fit_pass.rs.txt` for the arms and contexts, `fit_draws.rs.txt` for the as-recruited draws, `fit_wroster.rs.txt` for the world's NFL rosters, and `fit_pass.py.txt` with its helpers for the read-out.
