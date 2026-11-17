@@ -5,8 +5,8 @@
 use crate::game::{OffScheme, synthetic::synthetic_team};
 use crate::player::Level;
 use crate::positions::Position;
-use crate::world::data::Division;
 use crate::tests::legacy::seat;
+use crate::world::data::Division;
 use crate::world::folk::bonds::{self, Bond, Kind, Met, Step, What};
 use crate::world::{Stage, World};
 
