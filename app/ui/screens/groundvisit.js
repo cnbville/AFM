@@ -201,7 +201,7 @@ function gvLead(s, g, newKids, card, open) {
   const filled = card.blanks.filter((b) => b.filled).length;
   const next = (b) => (b.key === "live" && (open(2) || open(4)) && !b.filled) || (b.key === "character" && false);
   const blanks = card.blanks.map((b, i) => `<div class="gv-blank${b.filled ? " done" : ""}${next(b) ? " now" : ""}"><span class="n">${b.filled ? "✓" : i + 1}</span><div><b>${esc(b.name)}</b><small>${b.filled ? `Filled ${esc(b.filled.date)}, ${esc(b.filled.by)}` : esc(b.fills)}</small></div><span class="d">${b.filled ? "" : esc(b.time)}</span></div>`).join("");
-  const goto = typeof screens.groundlead === "function" ? "groundlead" : "player";
+  const goto = "groundleads";
   return `<section class="gd-glass gv-lead"><div class="gv-lh">${gdIni(k.name, 40)}<div><div class="gd-lab2">A new lead</div><div class="gv-ln"><a data-go="${goto}" data-id="${k.id}">${esc(k.name)}</a></div><small>${esc(k.pos)} · class of ${k.class_of}</small></div></div>${tabs}
     <div class="gd-kv c2"><div><span>Public</span><b>${esc(pub)}</b><small>${esc(offers)}</small></div><div><span>The coach says</span><b>${esc(said)}</b><small>${l && l.said ? esc(l.said) : ""}</small></div></div>
     <div class="gd-lab2">Five blanks · ${filled ? `${filled} filled` : "none filled yet"}</div><div class="gv-blanks">${blanks}</div></section>`;

@@ -593,6 +593,39 @@ pub fn room(p: &Player, a: Attr) -> f64 {
 /// 1): a third of a project year's 0.30.
 pub const EVERYDAY: f64 = 0.10;
 
+/// Where closing starts to slow (see `near_top`): 55. A trial lever for
+/// `prog_check` (`AFM_SLOW_FROM`).
+static SLOW_FROM: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0x404B800000000000);
+
+pub fn set_slow_from(c: f64) {
+    SLOW_FROM.store(c.to_bits(), Ordering::Relaxed);
+}
+
+/// The span of the slowing past `SLOW_FROM`: 5 (0: no slowing). A trial
+/// lever for `prog_check` (`AFM_TOP_SLOW`).
+static TOP_SLOW: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0x4014000000000000);
+
+pub fn set_top_slow(span: f64) {
+    TOP_SLOW.store(span.to_bits(), Ordering::Relaxed);
+}
+
+/// How much of a year's closing a ceiling at `c` still gets (Cain's card
+/// 2026-11-17, "slow closing near the top"): the nearer the top, the harder
+/// each point, as in real skill learning. 1 up to `SLOW_FROM`, then 1 / (1 +
+/// past / span): a 60 closes at half pace, a 70 at a quarter, an 80 at a
+/// sixth. Never zero, so no one is capped. Everyday closing, breakouts and
+/// project years (clicks too) all take it; the weight room and natural
+/// rises don't. 55 and 5 are Claude's sizes from the class sim, proposed,
+/// not confirmed.
+pub fn near_top(c: f64) -> f64 {
+    let span = f64::from_bits(TOP_SLOW.load(Ordering::Relaxed));
+    if span <= 0.0 {
+        return 1.0;
+    }
+    let from = f64::from_bits(SLOW_FROM.load(Ordering::Relaxed));
+    1.0 / (1.0 + (c - from).max(0.0) / span)
+}
+
 /// How much the staff's coaching gets out of the room (design item 9):
 /// 0.5 + coaching / 20, so a 10 is 1.0 and a 20 is 1.5.
 pub fn coach_mult(coaching: f64) -> f64 {
@@ -660,7 +693,7 @@ pub(crate) fn everyday(p: &mut Player, coaching: f64, level: Level, pt: PlayingT
             continue;
         }
         let k = kind_of(a).unwrap();
-        let close = room * base * pace(knack(p, k));
+        let close = room * base * pace(knack(p, k)) * near_top(p.ceilings.get(a));
         p.ceilings.add(a, close);
         added += close;
     }
@@ -797,7 +830,7 @@ pub(crate) fn breakout(p: &mut Player, level: Level, hit: bool, mean: f64, teste
     } else {
         0.0
     };
-    let add = add.min(room(p, a));
+    let add = (add * near_top(p.ceilings.get(a))).min(room(p, a));
     if add > 0.0 {
         p.ceilings.add(a, add);
         return add;
@@ -934,6 +967,8 @@ pub(crate) fn project_year(p: &mut Player, coaching: f64, level: Level, trouble:
         click = r.range(CLICK.0, CLICK.1);
         lift += click;
     }
+    let slow = near_top(p.ceilings.get(a));
+    let (lift, click) = (lift * slow, click * slow);
     let lift = lift.min(room).max(0.0);
     let click = click.min(lift);
     p.ceilings.add(a, lift);
@@ -1383,57 +1418,98 @@ pub const BODY_SLOTS: usize = 1;
 // The trims (everyday item 11)
 // ---------------------------------------------------------------------------
 
-/// The points a family's natural ceilings of 60+ give up, so the world
-/// keeps today's number of stars with everything on (everyday item 11).
-/// The limit keeps them, so investment can win them back. A family is one
-/// limited skill at one position, never lumped. Sized on the class sim
-/// with every part on (`prog_check fit`); the build sizes them again on a
-/// world. Indexed [position][limited skill].
-static TRIMS: [[f32; LIMITED_COUNT]; POSITION_COUNT] = TRIM_TABLE;
+/// What a family's natural ceilings of 60+ give up, so the world keeps
+/// today's number of stars with everything on (everyday item 11). A family
+/// is one limited skill at one position, never lumped. `[a, b]` takes a
+/// points for each point past 60 and b more (most often less) for each
+/// point past 75 (`trim_at`, never under 0): the middle band of natural
+/// 65-80s gives up the most, a natural 62 almost nothing, and most families'
+/// natural 85s little or nothing, since slower closing near the top
+/// (`near_top`, Cain's card 2026-11-17) already holds the 80+ count. With
+/// both, the 70+ and 80+ counts hold (Claude's shape, proposed, not
+/// confirmed). The limit keeps the trimmed points, so investment can win
+/// them back. Sized on the class sim with every part on (`prog_check fit`);
+/// the build sizes them again on a world. Indexed [position][limited
+/// skill].
+static TRIMS: [[[f32; 2]; LIMITED_COUNT]; POSITION_COUNT] = TRIM_TABLE;
 
-/// The class-sim values from the design (everyday item 11), before the fit.
-const TRIM_TABLE: [[f32; LIMITED_COUNT]; POSITION_COUNT] = {
-    let mut t = [[0.0f32; LIMITED_COUNT]; POSITION_COUNT];
+/// The fitted slopes (`prog_check fit`, see `TRIMS`).
+const TRIM_TABLE: [[[f32; 2]; LIMITED_COUNT]; POSITION_COUNT] = {
+    let mut t = [[[0.0f32; 2]; LIMITED_COUNT]; POSITION_COUNT];
     // Order of `LIMITED`: man, zone, press, tackling, shedding, contested
     // catch, routes, release, power rush, finesse rush, pass blocking, run
     // blocking, footwork, leg drive, pursuit, blitzing, throw on the move.
     // Order of `Position::ALL`: QB, RB, WR, TE, OT, IOL, EDGE, DT, LB, CB,
     // S, K, P, LS.
-    t[0][12] = 3.5; // QB footwork
-    t[1][10] = 3.5; // RB pass blocking
-    t[2][6] = 4.0; // WR routes
-    t[3][11] = 5.0; // TE run blocking
-    t[4][10] = 5.0; // OT pass blocking
-    t[5][10] = 5.0; // IOL pass blocking
-    t[6][9] = 3.5; // EDGE finesse rush
-    t[7][8] = 2.0; // DT power rush
-    t[8][1] = 3.5; // LB zone coverage
-    t[9][0] = 3.5; // CB man coverage
-    t[10][3] = 5.0; // S tackling
+    // FITTED_TRIMS_BEGIN
+    t[0][12] = [0.11, -0.16]; // QB footwork
+    t[0][16] = [0.17, -0.68]; // QB throw on the move
+    t[1][10] = [0.07, -0.26]; // RB pass blocking
+    t[1][13] = [0.53, -1.13]; // RB leg drive
+    t[2][6] = [0.32, -0.92]; // WR routes
+    t[2][7] = [0.13, -0.37]; // WR release
+    t[3][6] = [0.23, -0.60]; // TE routes
+    t[3][11] = [0.28, -0.88]; // TE run blocking
+    t[4][10] = [0.59, -0.72]; // OT pass blocking
+    t[4][11] = [0.14, -0.22]; // OT run blocking
+    t[5][10] = [0.18, -0.78]; // IOL pass blocking
+    t[5][11] = [0.06, -0.20]; // IOL run blocking
+    t[6][4] = [0.29, -0.73]; // EDGE shedding
+    t[6][8] = [0.16, -0.45]; // EDGE power rush
+    t[6][9] = [0.09, 0.01]; // EDGE finesse rush
+    t[7][4] = [0.25, -0.81]; // DT shedding
+    t[7][8] = [0.13, 0.02]; // DT power rush
+    t[8][1] = [0.07, -0.65]; // LB zone coverage
+    t[8][3] = [0.14, -0.74]; // LB tackling
+    t[8][14] = [0.01, -0.07]; // LB pursuit
+    t[9][0] = [0.21, -0.31]; // CB man coverage
+    t[9][1] = [0.23, -0.78]; // CB zone coverage
+    t[10][1] = [0.09, -0.69]; // S zone coverage
+    t[10][3] = [0.09, -0.27]; // S tackling
+    // FITTED_TRIMS_END
     t
 };
 
 /// A trial override of the trims (`prog_check fit`).
-static TRIM_OVERRIDE: std::sync::RwLock<Option<Vec<[f32; LIMITED_COUNT]>>> = std::sync::RwLock::new(None);
+static TRIM_OVERRIDE: std::sync::RwLock<Option<Vec<[[f32; 2]; LIMITED_COUNT]>>> = std::sync::RwLock::new(None);
 
-pub fn set_trims(t: Option<Vec<[f32; LIMITED_COUNT]>>) {
+pub fn set_trims(t: Option<Vec<[[f32; 2]; LIMITED_COUNT]>>) {
     *TRIM_OVERRIDE.write().unwrap() = t;
 }
 
-pub fn trims() -> Vec<[f32; LIMITED_COUNT]> {
+pub fn trims() -> Vec<[[f32; 2]; LIMITED_COUNT]> {
     TRIM_OVERRIDE.read().unwrap().clone().unwrap_or_else(|| TRIMS.to_vec())
 }
 
-pub fn trim(pos: Position, a: Attr) -> f64 {
-    let Some(li) = limited_index(a) else { return 0.0 };
-    if let Some(t) = TRIM_OVERRIDE.read().unwrap().as_ref() {
-        return t[pos.index()][li] as f64;
-    }
-    TRIMS[pos.index()][li] as f64
+/// A family's two slopes (see `TRIMS`).
+pub fn trim(pos: Position, a: Attr) -> [f64; 2] {
+    let Some(li) = limited_index(a) else { return [0.0; 2] };
+    let t = match TRIM_OVERRIDE.read().unwrap().as_ref() {
+        Some(t) => t[pos.index()][li],
+        None => TRIMS[pos.index()][li],
+    };
+    [t[0] as f64, t[1] as f64]
+}
+
+/// The points a natural ceiling `c` gives up in a family (see `TRIMS`).
+pub fn trim_at(pos: Position, a: Attr, c: f64) -> f64 {
+    let [k, top] = trim(pos, a);
+    (k * (c - TRIM_FROM).max(0.0) + top * (c - TRIM_STEEP).max(0.0)).max(0.0)
+}
+
+/// The share of a trim the limit gives up too (0: the limit keeps every
+/// trimmed point). A trial lever for `prog_check` (`AFM_TRIM_LIMIT`).
+static TRIM_LIMIT_SHARE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+pub fn set_trim_limit_share(f: f64) {
+    TRIM_LIMIT_SHARE.store(f.to_bits(), Ordering::Relaxed);
 }
 
 /// The natural ceiling a trim starts from.
 pub const TRIM_FROM: f64 = 60.0;
+
+/// Where a trim's second slope starts (see `TRIMS`).
+pub const TRIM_STEEP: f64 = 75.0;
 
 /// The last age a pending trim lands (his school years).
 pub const TRIM_UNTIL: u32 = 22;
@@ -1469,17 +1545,19 @@ pub(crate) fn land_trims(p: &mut Player) {
         if p.prog.pending >> li & 1 == 0 {
             continue;
         }
-        let t = trim(p.position, a);
-        if t <= 0.0 {
+        if trim(p.position, a) == [0.0; 2] {
             continue;
         }
         p.prog.pending &= !(1 << li);
         let c = p.ceilings.get(a);
-        if c < TRIM_FROM {
+        let t = trim_at(p.position, a, c);
+        if t <= 0.0 {
             continue;
         }
-        // The limit stays where it was before the trim.
-        let keep = (p.prog.over[li] as f64 / 2.0).max(c - mapped(p, a));
+        // The limit stays where it was before the trim, less the share of
+        // the trim it gives up too (`TRIM_LIMIT_SHARE`, a trial lever).
+        let f = f64::from_bits(TRIM_LIMIT_SHARE.load(Ordering::Relaxed));
+        let keep = ((p.prog.over[li] as f64 / 2.0).max(c - mapped(p, a)) - f * t).max(c - t - mapped(p, a)).max(0.0);
         p.prog.over[li] = (keep * 2.0).ceil().clamp(0.0, 255.0) as u8;
         p.ceilings.set(a, c - t);
         if p.attributes.get(a) > c - t {

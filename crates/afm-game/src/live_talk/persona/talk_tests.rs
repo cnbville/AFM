@@ -372,6 +372,16 @@ fn a_line_to_the_team_reaches_every_man_in_the_room() {
     let after: Vec<f32> = roster.iter().map(|&id| trust(&g, id)).collect();
     let moved = before.iter().zip(&after).filter(|(a, b)| a != b).count();
     assert_eq!(moved, roster.len(), "every man heard it: {before:?} {after:?}");
+    // Asked of the room, the room answers: "we'll do it" from the man who
+    // answers for them, never "He'll do it." (the talks audit, 2026-11-16).
+    let mut a = act("request", "other", "", "");
+    a["words"] = json!("We go back to basics this week.");
+    f.push(EAR, Ok(ear(vec![a], vec![], false)));
+    f.push(VOICE, Ok(voice("Yes sir.", "")));
+    let v = say(&mut g, sid, "We go back to basics this week.");
+    assert_eq!(v["state"], "done", "{v}");
+    let (_, vc) = super::n7_tests::last_cards(&f);
+    assert!(vc.contains("- We'll do it.") && !vc.contains("He'll do it."), "{vc}");
     // The room's card names the room, not one man.
     let w = g.world.as_ref().unwrap();
     let s = scene_of(&g, sid);
@@ -475,4 +485,32 @@ fn a_typed_money_ask_to_your_boss_is_weighed_as_said() {
     } else {
         assert!(filed.iter().all(|x| !x.granted), "a yes waits on your confirm");
     }
+}
+
+/// How you talk (coach voice): the ear's five words ride on the reading, the
+/// line lands its manner on him, he keeps it, and the voice is told how he
+/// took it, to answer in kind. The schema asks for it on every line.
+#[test]
+fn the_ear_reads_your_manner_and_the_voice_hears_how_he_took_it() {
+    let schema = super::super::ear::schema();
+    assert!(schema["required"].as_array().unwrap().iter().any(|x| x == "manner"), "{schema}");
+    assert!(super::super::ear::EAR_RULES.contains("manner: how the coach said the line"));
+    let (mut g, f, him) = game("manner", true);
+    let f = f.unwrap();
+    let id = talk(&mut g, him, "role");
+    let v = json!({ "acts": [], "hits": [], "dodged": false, "not_talk": false,
+        "manner": { "heat": "hot", "language": "profane", "aim": "man", "care": "cold", "say": "tell" } });
+    f.push(EAR, Ok(body(&v.to_string(), 1200, 140)));
+    f.push(VOICE, Ok(voice("Yes sir.", "")));
+    let before = trust(&g, him);
+    let out = say(&mut g, id, "That was fucking soft. You embarrassed this whole room.");
+    assert_eq!(out["state"], "done", "{out}");
+    assert!(trust(&g, him) < before, "aimed at a backup who barely knows you, it costs trust");
+    let w = g.world.as_ref().unwrap();
+    let saved = &w.folk.live.persona.talks[0].lines[0].reading;
+    assert!(saved.manner.is_some_and(|m| m.aim > 0.8 && m.profane > 0.8), "{saved:?}");
+    assert!(w.folk.manner.seen.iter().any(|x| x.0 == Them::Player(him)), "he keeps it");
+    let asked = f.asked();
+    let vo = asked.iter().find(|r| r.label == VOICE).unwrap();
+    assert!(vo.user.contains("How you took the coach's manner on this line"), "{}", vo.user);
 }

@@ -655,20 +655,15 @@ pub struct DayWeather {
 }
 
 /// Whether your team has an indoor field (proposed, not confirmed: every
-/// NFL club; FBS programs past a modest facilities grade, FCS programs
-/// with good ones, the best-funded high schools).
+/// NFL club, the colleges whose campus has one (Capital lane C2, CP17), the
+/// best-funded high schools).
 pub fn indoor_field(w: &World, st: &SeatTeam) -> bool {
     let Some(seat) = w.seat else { return false };
     match st.tier {
         Tier::Pro => true,
-        Tier::College => seat.program.and_then(|p| w.programs.get(p)).is_some_and(|p| {
-            p.facilities
-                > match p.division {
-                    crate::world::data::Division::FBS => 0.35,
-                    crate::world::data::Division::FCS => 0.7,
-                    _ => 0.9,
-                }
-        }),
+        Tier::College => {
+            seat.program.and_then(|p| w.programs.get(p)).is_some_and(crate::world::capital::rooms::has_indoor)
+        }
         Tier::High => seat.program.and_then(|h| w.high_schools.get(h)).is_some_and(|h| h.resources > 0.85),
     }
 }
@@ -1547,6 +1542,15 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
     // about a seventh faster).
     let nut = |wk: &Week| minutes(wk, |p| p.kind == Kind::Nutrition);
     let fuel = clamp(1.0 + 0.15 * (nut(&pw.week) - nut(&pw.neutral)) / (nut(&pw.neutral) + 30.0), 0.9, 1.15);
+    // The nutrition center moves a body plan faster (Capital lane C2).
+    let kitchen = match st.tier {
+        Tier::College => w
+            .seat
+            .and_then(|s| s.program)
+            .and_then(|p| w.programs.get(p))
+            .map_or(1.0, crate::world::capital::rooms::body_plan_rate),
+        _ => 1.0,
+    };
     let mut absent_ids: Vec<u32> = Vec::new();
     let mut craft_minutes: HashMap<usize, (f64, f64)> = HashMap::new();
     for &i in &st.roster {
@@ -1725,7 +1729,8 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
             let gap = target as f64 - now;
             let rate = if gap > 0.0 { 1.5 } else { 1.2 }
                 * clamp(0.7 + 0.03 * p.player.personality.work_ethic, 0.7, 1.3)
-                * fuel;
+                * fuel
+                * kitchen;
             let step = gap.signum() * gap.abs().min(rate);
             if step.abs() > 0.05 {
                 body_change(&mut p.player, step);

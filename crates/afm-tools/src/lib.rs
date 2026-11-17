@@ -107,6 +107,7 @@ pub fn fingerprint(w: &afm_engine::world::World) -> u64 {
 
 pub mod ab;
 pub mod dashboard;
+pub mod fit;
 pub mod raw;
 pub mod stats;
 pub mod world_report;

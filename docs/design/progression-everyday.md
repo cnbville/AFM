@@ -31,6 +31,7 @@ Words used here: the **everyday ceiling** is today's per-skill ceiling (`Player.
 
 10. **The makeup part of the limit grows with him.** It reads his makeup ratings as they are now (toughness, hands, football IQ and the rest), the same way the body part reads his physical ceilings as they are now.
 11. **One small trim per skill family** off natural ceilings, so the world keeps today's number of stars with everything on (everyday closing, your projects, AI and high school projects). Class sim values with everything on: DT power rush 2; edge finesse rush, RB pass blocking, LB zone coverage, CB man coverage and QB footwork 3.5; WR routes about 4; OL pass blocking, TE run blocking and S tackling 5, each off ceilings of 60+. The limit keeps the trimmed points, so investment can win them back. The build sizes every family again on a world with the agreed AI room counts by style.
+   Built (step 5, 2026-11-17): no trim alone could hold the count, so Cain chose slower closing near the top ("Slow closing near the top") with the trims; the trims now ease off for the very top men. See `docs/decisions.md`, "Progression update step 5".
 12. **A project that hits moves his draft stock.** The build checks that a hit moves his draft grade the way real life does (a raw edge who learns to rush climbs boards). If it doesn't, scouts' grades lean more on the skills that matter most at his position.
 
 ## What was measured

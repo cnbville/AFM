@@ -2061,7 +2061,7 @@ screens.coach = async (a) => {
   if (tab === "Ratings") {
     body = c.your_staff ? await rrCoachTab(a.id) : typeof hrReadTab === "function" ? await hrReadTab(a.id) : "";
   } else if (tab === "Profile") {
-    body = `<div class="grid2"><div class="panel"><h2>Who ${he} is</h2><div class="kv"><dt>Age</dt><dd>${c.age}</dd><dt>Standing</dt><dd>${esc(c.reputation)}</dd>${c.renown ? `<dt>Name</dt><dd>${esc(c.renown)}</dd>` : ""}<dt>Came up as</dt><dd>${esc(c.came_up)}</dd><dt>As a player</dt><dd>${c.played ? esc(c.played.replace(/^Played: /, "")) : c.ex_pro ? "Played pro" : "Didn't play college football"}</dd><dt>Titles</dt><dd>${c.titles}</dd>${c.ats ? `<dt>Against the spread</dt><dd>${esc(c.ats)}</dd>` : ""}${c.mentor_line ? `<dt>Learned under</dt><dd>${rich(c.mentor_line)}</dd>` : ""}</div></div>
+    body = `<div class="grid2"><div class="panel"><h2>Who ${he} is</h2><div class="kv"><dt>Age</dt><dd>${c.age}</dd><dt>Standing</dt><dd>${esc(c.reputation)}</dd>${c.renown ? `<dt>Name</dt><dd>${esc(c.renown)}</dd>` : ""}<dt>Came up as</dt><dd>${esc(c.came_up)}</dd><dt>As a player</dt><dd>${c.played ? esc(c.played.replace(/^Played: /, "")) : c.ex_pro ? "Played pro" : "Didn't play college football"}</dd><dt>Titles</dt><dd>${c.titles}</dd>${c.ats ? `<dt>Against the spread</dt><dd>${esc(c.ats)}</dd>` : ""}${c.mentor_line ? `<dt>Learned under</dt><dd>${rich(c.mentor_line)}</dd>` : ""}${c.voice ? `<dt>How you come across</dt><dd>${esc(c.voice)}</dd>` : ""}</div></div>
       <div class="panel"><h2>Contract <small>as reported</small></h2>${c.contract ? `<div class="st-tiles"><div><b>${money(c.contract.salary)}</b><small>a year</small></div><div><b>${c.contract.through}</b><small>through</small></div><div><b>${c.contract.buyout > 0 ? money(c.contract.buyout) : "None"}</b><small>buyout now</small></div></div>` : '<div class="empty">No contract reported.</div>'}</div></div>`;
   } else if (tab === "Recruiting record") {
     // His calls on recruits for you (lane 7, SK30): whom he wanted, whom he
@@ -2237,7 +2237,7 @@ function tpTable(t) {
 // the talent in each class, the rest of the roster, where its players go and
 // its coach. A college seat sees where each player stands with it; every
 // other seat sees his college interest. Gold marks what is yours.
-const TP_RANGE = (r) => (r ? `${r[0]}–${r[1]}` : "–");
+const TP_RANGE = (r) => (r ? `${rnum(r[0])}–${rnum(r[1])}` : "–");
 const tpStand = (p) => `<span class="st-pill${p.kind === "mine" ? " gold" : ""}">${esc(p.stand)}</span>`;
 function tpHsProspects(t) {
   const h = t.hs;

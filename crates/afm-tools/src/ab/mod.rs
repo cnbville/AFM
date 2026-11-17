@@ -278,15 +278,22 @@ fn recruit(gp: &GamePlayer, part: Part, lo: f64, hi: f64, level: Level) -> Optio
         p.body.weight = q.body.weight;
         let ov = overall_for(gp.position, &p.attributes);
         aim = clamp(aim + 0.5 * (target - ov), 20.0, 99.0);
-        let b = body_now(&p);
+        // Measured as he will play: the game knows him by the old man's id,
+        // and his fill offset is drawn from it (`body::fill_offset`). Read on
+        // his own id, a college man could play pounds outside his band (an
+        // FBS defensive tackle drawn at 270-274 lb played at 292). A grown
+        // man's offset has faded, so the NFL's draws are the same either way.
+        let mut seen = p.clone();
+        seen.id = gp.id;
+        let b = body_now(&seen);
         let v = match part {
             Part::Height => b.height,
             Part::Weight => b.weight,
             Part::Arm => b.arm,
             Part::Forty => afm_engine::links::forty(&p.attributes, b.weight),
             Part::Split => afm_engine::links::ten_split(&p.attributes, b.weight),
-            Part::Cone => Drills::of(&p).expected().cone,
-            Part::Shuttle => Drills::of(&p).expected().shuttle,
+            Part::Cone => Drills::of(&seen).expected().cone,
+            Part::Shuttle => Drills::of(&seen).expected().shuttle,
             Part::Bench => bench_of(p.attributes.get(Attr::Strength), b.weight, b.arm),
         };
         if !(lo..=hi).contains(&v) {

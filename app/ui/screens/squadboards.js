@@ -359,7 +359,7 @@ function sbPlate(s, k, sel, pos, bk, cf) {
   // back, and the men who are of it glow.
   const hit = (m) => cf && cf !== "ALL" && m && m.grp === cf;
   const dim = cf && cf !== "ALL" && !s.picks.some(hit);
-  const rd = (m) => (m && m.read ? `<b class="sb-prr"${rrAttrs({ p: m.id, k: "ovr" }, m.read[0], m.read[1])}>${m.read[0]}-${m.read[1]}</b>` : "");
+  const rd = (m) => (m && m.read ? `<b class="sb-prr"${rrAttrs({ p: m.id, k: "ovr" }, m.read[0], m.read[1])}>${rpair(m.read)}</b>` : "");
   // What makes a place a drop target (n: 1 the starter, 2 and 3 behind him),
   // and the man in it something to pick up.
   const cell = (n, m) => ` data-cell="1" data-k="${k}" data-n="${n}" data-slot="${esc(s.slot)}" data-spos="${esc(s.pos)}"${bk ? "" : ' data-bk="0"'}` +

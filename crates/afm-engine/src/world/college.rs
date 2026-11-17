@@ -970,7 +970,11 @@ fn play_games(w: &mut World, date: Date, now: impl Fn(&Game) -> bool) {
             // Injuries outlast the game (update 3, A1).
             let seat = super::folk::Team::seat(w);
             let side = [home, away].iter().position(|&t| seat == Some(super::folk::Team::College(t)));
-            let med = [home, away].map(|t| super::people::Support::z(w.programs[t].support.medical.rating));
+            // The medical staff and the recovery center (Capital lane C2).
+            let med = [home, away].map(|t| {
+                super::people::Support::z(w.programs[t].support.medical.rating)
+                    + super::capital::rooms::recovery_days(&w.programs[t])
+            });
             crate::training::seat::game_injuries(w, date, &r.injuries, med, side);
             // Growth from results: his plays move his skills, his snaps land.
             if let Some((level, ev)) = results_part {
@@ -4202,7 +4206,7 @@ pub(crate) fn finals_week(w: &mut World) {
             return;
         }
         let Some(c) = p.college else { return };
-        let support = clamp(0.3 + 0.7 * programs[c].facilities, 0.0, 1.0);
+        let support = clamp(0.3 + 0.7 * super::capital::rooms::academic(&programs[c]), 0.0, 1.0);
         let effort = 0.006 * (p.player.personality.work_ethic - 10.0) + 0.03 * (support - 0.5);
         p.bg.gpa = clamp(p.bg.gpa + effort + p.rng.normal(0.0, 0.06), 0.0, 4.0);
         if p.bg.gpa < 2.2 && p.cal.lean > 0.0 {
@@ -4231,7 +4235,7 @@ pub(crate) fn spring_term_check(w: &mut World) {
             if prog.division == Division::JUCO {
                 return 0;
             }
-            let support = clamp(0.3 + 0.7 * prog.facilities, 0.0, 1.0);
+            let support = clamp(0.3 + 0.7 * super::capital::rooms::academic(prog), 0.0, 1.0);
             let risk = 0.06 * clamp((2.5 - p.bg.gpa) / 0.5, 0.0, 1.0) * (1.3 - support);
             if p.rng.chance(risk) {
                 p.cal.spring_ineligible = true;
@@ -4273,7 +4277,7 @@ fn fall_term_check(w: &mut World) {
             if prog.division == Division::JUCO {
                 return None;
             }
-            let support = clamp(0.3 + 0.7 * prog.facilities, 0.0, 1.0);
+            let support = clamp(0.3 + 0.7 * super::capital::rooms::academic(prog), 0.0, 1.0);
             let risk = 0.06 * clamp((2.5 - p.bg.gpa) / 0.5, 0.0, 1.0) * (1.3 - support);
             if key_uniform(seed, p.player.id as u64) >= risk {
                 return None;

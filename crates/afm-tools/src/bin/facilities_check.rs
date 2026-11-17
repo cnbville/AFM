@@ -17,6 +17,14 @@
 //!     each power conference plus Northwestern and the lowest in the SEC,
 //!     ACC and Big 12 (16). Each class's signees go to the out file, read
 //!     from the signed letter (`cal.signed`), then the college.
+//!   facilities_check rooms <seed> <history years> <scale> <seasons on>
+//!     Capital lane C2: builds the world the same way, prints the
+//!     facilities table and the rooms at the handover, then plays the
+//!     seasons on (every game on the stand-in) and prints the same each
+//!     July: the FBS spread, each room's mean level and read by tier, and
+//!     the year's new buildings and renovations; each level's facilities,
+//!     new buildings and boosters' money (LEVELS), and lane C3's drives by
+//!     stage and the hottest fevers (DRIVES, FEVER).
 //!   facilities_check pool <A file> <B or C file> <treated list>
 //!     is done in Python (`pooled.py` in the project folder's
 //!     afm/facilities/tools).
@@ -120,6 +128,135 @@ fn treated(w: &World) -> Vec<usize> {
     out
 }
 
+/// Capital lane C2: each room's mean level and read at FBS by tier, and
+/// last July's new buildings and renovations (the world stands in January,
+/// so last July is the season just played).
+fn rooms_table(w: &World) {
+    use afm_engine::world::capital::rooms::{ROOMS, Room};
+    let year = w.year;
+    let fbs: Vec<usize> = (0..w.programs.len())
+        .filter(|&j| w.programs[j].division == Division::FBS && w.programs[j].plays(year))
+        .collect();
+    for (label, power) in [("P4", true), ("G5", false)] {
+        let v: Vec<usize> = fbs.iter().copied().filter(|&j| w.programs[j].power_conference(year) == power).collect();
+        let n = v.len().max(1) as f64;
+        let mut line = format!("{label} rooms (level/read/share with one):");
+        for r in Room::ALL {
+            let k = r as usize;
+            let lv = v.iter().map(|&j| w.programs[j].campus.level[k] as f64).sum::<f64>() / n;
+            let rd = v.iter().map(|&j| w.programs[j].campus.read[k] as f64).sum::<f64>() / n;
+            let has = v.iter().filter(|&&j| w.programs[j].campus.level[k] > 0.0).count() as f64 / n;
+            line +=
+                &format!(" {}={lv:.2}/{rd:.2}/{:.0}%", r.words().split_whitespace().next().unwrap_or(""), 100.0 * has);
+        }
+        println!("{line}");
+    }
+    let _ = ROOMS;
+    let started = |reno: bool| {
+        w.finance
+            .projects
+            .iter()
+            .filter(|x| {
+                x.started == year - 1 && x.kind == ProjectKind::Facility && x.name.ends_with(" renovation") == reno
+            })
+            .filter(|x| matches!(x.owner, Owner::College(j) if w.programs[j].division == Division::FBS))
+            .count()
+    };
+    let temp = fbs.iter().filter(|&&j| w.programs[j].campus.in_temporary_space()).count();
+    println!(
+        "FBS projects started in July {}: {} new buildings, {} renovations; {temp} programs in temporary space",
+        year - 1,
+        started(false),
+        started(true)
+    );
+}
+
+/// Capital lane C3's world check: each level's facilities mean, the new
+/// buildings started last July and since the handover, and the boosters'
+/// money (the same lines on the code before the lane, for the baseline).
+fn levels_table(w: &World) {
+    let year = w.year;
+    let start = w.options.start_year;
+    let mut line = String::from("LEVELS");
+    for (label, d, power) in [
+        ("P4", Division::FBS, Some(true)),
+        ("G5", Division::FBS, Some(false)),
+        ("FCS", Division::FCS, None),
+        ("D2", Division::D2, None),
+        ("D3", Division::D3, None),
+        ("NAIA", Division::NAIA, None),
+    ] {
+        let v: Vec<usize> = (0..w.programs.len())
+            .filter(|&j| {
+                let p = &w.programs[j];
+                p.division == d && p.plays(year) && power.is_none_or(|x| p.power_conference(year) == x)
+            })
+            .collect();
+        let n = v.len().max(1) as f64;
+        let fac = v.iter().map(|&j| w.programs[j].facilities).sum::<f64>() / n;
+        let nil = v.iter().map(|&j| w.programs[j].collective.boosters()).sum::<f64>() / n / 1.0e6;
+        let built = |from: i32| {
+            w.finance
+                .projects
+                .iter()
+                .filter(|x| {
+                    x.started >= from
+                        && x.started < year
+                        && x.kind == ProjectKind::Facility
+                        && !x.name.ends_with(" renovation")
+                })
+                .filter(|x| matches!(x.owner, Owner::College(j) if v.contains(&j)))
+                .count()
+        };
+        line += &format!(
+            " | {label} n={} fac={fac:.3} new_last={} new_since={} nil={nil:.2}M",
+            v.len(),
+            built(year - 1),
+            built(start)
+        );
+    }
+    println!("{line}");
+}
+
+/// Capital lane C3: the drives by stage and what they raised.
+fn drives_table(w: &World) {
+    use afm_engine::world::capital::drive::{self, Stage};
+    let year = w.year;
+    let cap = &w.capital;
+    let by = |s: Stage| cap.drives.iter().filter(|d| d.stage == s && !d.shelved).count();
+    let started = cap.drives.iter().filter(|d| d.opened.is_some_and(|o| o.year() == year - 1)).count();
+    let ground = cap.drives.iter().filter(|d| d.ground == Some(year - 1)).count();
+    let shelved = cap.drives.iter().filter(|d| d.shelved && d.closed.is_some_and(|c| c.year() >= year - 1)).count();
+    let closed: Vec<_> =
+        cap.drives.iter().filter(|d| d.closed.is_some_and(|c| c.year() >= year - 1) && !d.shelved).collect();
+    let hit = closed.iter().filter(|d| d.hit == Some(true)).count();
+    let pushed = cap.drives.iter().filter(|d| d.borrowed > 0.0 && d.ground == Some(year - 1)).count();
+    let over = cap.drives.iter().filter(|d| d.ground == Some(year - 1) && d.overrun.is_some()).count();
+    let early = cap.drives.iter().filter(|d| d.early && d.public_on.is_some_and(|o| o.year() >= year - 1)).count();
+    let share: Vec<f64> = closed.iter().map(|d| drive::raised(cap, d) / d.goal.max(1.0)).collect();
+    let mean = share.iter().sum::<f64>() / share.len().max(1) as f64;
+    let sizes = |s: drive::Size| cap.drives.iter().filter(|d| d.ground == Some(year - 1) && d.size == s).count();
+    let fev = afm_engine::world::capital::fever::all(w);
+    let mut top: Vec<(f64, usize)> =
+        fev.iter().copied().enumerate().map(|(j, f)| (f, j)).filter(|x| x.0 > 0.0).collect();
+    top.sort_by(|a, b| b.0.total_cmp(&a.0));
+    let tops: Vec<String> = top.iter().take(5).map(|&(f, j)| format!("{} {f:.2}", w.programs[j].real_name)).collect();
+    let catches = cap.catches.len();
+    println!(
+        "DRIVES study={} quiet={} public={} started_last={started} ground_last={ground} (full {} mid {} small {}) shelved_last={shelved} closed_last={} hit={hit} mean_raised={mean:.2} pushed={pushed} overruns={over} early={early} pledges={} catches={catches} moments={}",
+        by(Stage::Study),
+        by(Stage::Quiet),
+        by(Stage::Public),
+        sizes(drive::Size::Full),
+        sizes(drive::Size::Mid),
+        sizes(drive::Size::Small),
+        closed.len(),
+        cap.pledges.len(),
+        cap.moments.len()
+    );
+    println!("FEVER top: {}", tops.join(", "));
+}
+
 fn main() {
     let a: Vec<String> = std::env::args().collect();
     match a.get(1).map(String::as_str) {
@@ -143,6 +280,36 @@ fn main() {
             if let Some(out) = a.get(5) {
                 afm_engine::save::write_world(&w, Path::new(out), "scratch", "facilities_check", None).expect("write");
                 eprintln!("written in {:.0} s in all", t.elapsed().as_secs_f64());
+            }
+        }
+        Some("rooms") => {
+            let seed: u32 = a[2].parse().unwrap();
+            let years: u32 = a[3].parse().unwrap();
+            let scale: f64 = a[4].parse().unwrap();
+            let on: u32 = a[5].parse().unwrap();
+            let opts = WorldOptions {
+                seed,
+                history_years: years,
+                scale,
+                engine_from: Some(2100),
+                hs_engine_years: Some(0),
+                ..Default::default()
+            };
+            let t = Instant::now();
+            let mut w = World::new_watched(opts, |w, s| {
+                eprintln!("season {} done in {:.0} s ({:.0} s in all)", w.year - 1, s, t.elapsed().as_secs_f64())
+            });
+            fac_table(&w);
+            rooms_table(&w);
+            levels_table(&w);
+            for _ in 0..on {
+                w.advance_year();
+                eprintln!("season {} done ({:.0} s in all)", w.year - 1, t.elapsed().as_secs_f64());
+                println!("== after season {} ==", w.year - 1);
+                fac_table(&w);
+                rooms_table(&w);
+                levels_table(&w);
+                drives_table(&w);
             }
         }
         Some("arm") => {

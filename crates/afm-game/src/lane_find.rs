@@ -276,9 +276,9 @@ fn who(ctx: &Ctx, i: usize) -> Value {
 pub fn now_range(ctx: &Ctx, i: usize) -> Option<String> {
     let r = ctx.read(i).filter(|r| r.now.0 > 0.0)?;
     let half = (r.now.1 as f64).max(1.0);
-    let lo = (r.now.0 as f64 - half).floor().clamp(1.0, 99.0);
-    let hi = (r.now.0 as f64 + half).ceil().clamp(1.0, 99.0);
-    Some(format!("{lo:.0}-{hi:.0}"))
+    let lo = (r.now.0 as f64 - half).floor().clamp(1.0, crate::reads::SHOWN_TOP) as u8;
+    let hi = (r.now.0 as f64 + half).ceil().clamp(1.0, crate::reads::SHOWN_TOP) as u8;
+    Some(format!("{}-{}", crate::reads::shown(lo), crate::reads::shown(hi)))
 }
 
 /// A date the way the search writes it: "21 Jan".

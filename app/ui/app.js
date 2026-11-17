@@ -93,6 +93,15 @@ function rateColor(v) {
   const c = a.map((x, i) => Math.round(x + (b[i] - x) * t));
   return `rgb(${c[0]},${c[1]},${c[2]})`;
 }
+// One end of a read: ratings have no 99 wall under the hood, but screens
+// keep 1-99 (Cain 2026-11-15): the game sends an end past 99 as 100,
+// written "99+" (`reads::SHOWN_TOP`).
+function rnum(v) {
+  return v >= 100 ? "99+" : v;
+}
+function rpair(r) {
+  return `${rnum(r[0])}-${rnum(r[1])}`;
+}
 // A staff read as a bar spanning low to high, with the numbers (topic 4).
 // `who` names whose read it is for the hover. `ctx` says whose rating it
 // is, so the range explains itself on hover against his level (update 2,
@@ -104,8 +113,8 @@ function range(r, who, ctx) {
   const [lo, hi] = r;
   const m = (lo + hi) / 2;
   const card = rrAttrs(ctx, lo, hi);
-  const tip = `Your staff's read: ${lo} to ${hi}${who ? ` · ${who}` : ""}. A narrow bar is a sure read; a wide one says your staff isn't sure.`;
-  return `<span class="rg${card ? " rr-on" : ""}"${card || ` title="${esc(tip)}"`}><span class="t"><i style="left:${lo}%;width:${Math.max(2, hi - lo)}%;background:${rateColor(m)}"></i></span><b>${lo}-${hi}</b></span>`;
+  const tip = `Your staff's read: ${rnum(lo)} to ${rnum(hi)}${who ? ` · ${who}` : ""}. A narrow bar is a sure read; a wide one says your staff isn't sure.`;
+  return `<span class="rg${card ? " rr-on" : ""}"${card || ` title="${esc(tip)}"`}><span class="t"><i style="left:${lo}%;width:${Math.max(2, hi - lo)}%;background:${rateColor(m)}"></i></span><b>${rpair(r)}</b></span>`;
 }
 // Your own read beside your staff's (lane 7, SK23): your own looks only,
 // or a first impression from what reached your desk until you have seen
@@ -114,9 +123,10 @@ function range(r, who, ctx) {
 function yourRange(r, looks, ctx) {
   if (!r) return `<span class="rg ns l7-yours" title="You have no read of your own on him"><span class="t"></span><b>-</b></span>`;
   const [lo, hi] = r;
-  const tip = looks == null ? `Your own read: ${lo} to ${hi}, from your own looks or your first impression.` : looks ? `Your own read: ${lo} to ${hi}, from ${looks} look${looks === 1 ? "" : "s"} of your own.` : `Your first impression: ${lo} to ${hi}. You haven't seen him yourself yet, so it can be well off.`;
+  const [a, b] = [rnum(lo), rnum(hi)];
+  const tip = looks == null ? `Your own read: ${a} to ${b}, from your own looks or your first impression.` : looks ? `Your own read: ${a} to ${b}, from ${looks} look${looks === 1 ? "" : "s"} of your own.` : `Your first impression: ${a} to ${b}. You haven't seen him yourself yet, so it can be well off.`;
   const card = rrAttrs(ctx && { ...ctx, own: true }, lo, hi);
-  return `<span class="rg l7-yours${looks === 0 ? " l7-first" : ""}${card ? " rr-on" : ""}"${card || ` title="${esc(tip)}"`}><span class="t"><i style="left:${lo}%;width:${Math.max(2, hi - lo)}%"></i></span><b>${lo}-${hi}</b></span>`;
+  return `<span class="rg l7-yours${looks === 0 ? " l7-first" : ""}${card ? " rr-on" : ""}"${card || ` title="${esc(tip)}"`}><span class="t"><i style="left:${lo}%;width:${Math.max(2, hi - lo)}%"></i></span><b>${rpair(r)}</b></span>`;
 }
 // Own potential (Cain 2026-11-13): a potential word is your own read from
 // your first own look of him, your staff's before; your staff's line
@@ -827,7 +837,9 @@ async function cont() {
   // Only the button and the bar change while the days play: drawing the
   // whole screen again would fetch it again and could land after the next one.
   const b = $(".continue");
-  if (b) { b.classList.add("busy"); b.textContent = "Playing…"; }
+  // A running autosave is written first: days played while it writes
+  // would copy half the world (autosave.rs).
+  if (b) { b.classList.add("busy"); b.textContent = AUTO.state === "saving" ? "Finishing the autosave…" : "Playing…"; }
   const top = $(".topbar");
   if (top && !top.querySelector(".progress")) top.insertAdjacentHTML("beforeend", '<div class="progress"><i></i></div>');
   document.documentElement.classList.add("running");

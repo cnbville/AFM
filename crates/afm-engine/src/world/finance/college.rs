@@ -422,7 +422,11 @@ pub(crate) fn open_year(w: &mut World, p: usize, year: i32) {
     // Your athletic director's raises to the staff pool come on top of the
     // usual support staff line (people topic 12).
     let pooled = 1.0 + crate::world::folk::staffing::staff_bonus(w, Team::College(p));
-    b.l[STAFF] = (earned * staff_share * push * pooled) as f32;
+    let staff = earned * staff_share * push * pooled;
+    // Bonds pushed for past the AD's line come out of it for years
+    // (Capital lane C3, CP11).
+    let cut = crate::world::capital::drive::staff_cut(w, p, year, staff);
+    b.l[STAFF] = (staff * (1.0 - cut)) as f32;
     // Your athletic director's raises for travel and visits (people topic
     // 12) come on top of the usual line.
     let raised = 1.0 + crate::world::folk::staffing::recruit_bonus(w, p);
@@ -619,6 +623,8 @@ pub(crate) fn month(w: &mut World, m: u32) {
 /// run on and renew; the ADs decide on facility projects; realignment.
 pub(crate) fn money_year(w: &mut World) {
     let year = w.year;
+    // The rooms age a year (Capital lane C2, CP22).
+    crate::world::capital::rooms::age(w);
     let n = w.finance.college.len().min(w.programs.len());
     for p in 0..n {
         close_year(w, p);
@@ -648,7 +654,16 @@ pub(crate) fn money_year(w: &mut World) {
         open_projects(w, p, year);
         open_year(w, p, year);
     }
-    facility_decisions(w, year);
+    // Once the rooms live, every program's drives decide its buildings
+    // (Capital lane C3, CP27); before that the ADs' old July decisions.
+    if crate::world::capital::live(w) {
+        crate::world::capital::drive::year(w);
+    } else if !(w.capital.off && year >= w.options.start_year) {
+        facility_decisions(w, year);
+    }
+    // The renovations, the rooms kept with the number and read against
+    // the conference (Capital lane C2).
+    crate::world::capital::rooms::settle(w);
     if year >= 2027 {
         realign(w, year);
     }
@@ -1029,6 +1044,9 @@ fn facility_decisions(w: &mut World, year: i32) {
             _ => ("weight room and locker room", 3.0e6),
         };
         let cost = base * (step / 0.12) * data::college_index(year);
+        // Once the rooms live, the number rises by what the building's
+        // rooms add (Capital lane C2).
+        let step = if prog.campus.live { crate::world::capital::rooms::rise(prog, kind, cost, year) } else { step };
         let pledged = cost * clamp(0.4 + 0.3 * nil_share + if big { 0.15 } else { 0.0 }, 0.2, 0.85);
         let opens = year + 2 + (draw(w, 0xFAC3, p as u64, year) < 0.4) as i32;
         w.finance.projects.push(Project {
@@ -1144,8 +1162,16 @@ fn open_projects(w: &mut World, p: usize, year: i32) {
     for k in ready {
         let x = w.finance.projects[k].clone();
         w.finance.projects[k].done = true;
+        if w.programs[p].campus.live {
+            // The rooms it built (Capital lane C2, CP18): a drive's building
+            // with the rooms it kept (lane C3, CP24).
+            let mask = crate::world::capital::drive::rooms_of_project(w, p, &x);
+            crate::world::capital::rooms::open_rooms(w, p, &x.name, x.cost as f64, year, mask);
+        } else {
+            let prog = &mut w.programs[p];
+            prog.facilities = real.unwrap_or(clamp(prog.facilities + x.step as f64, 0.02, 1.0));
+        }
         let prog = &mut w.programs[p];
-        prog.facilities = real.unwrap_or(clamp(prog.facilities + x.step as f64, 0.02, 1.0));
         if x.kind == ProjectKind::Stadium && x.capacity > 0 {
             prog.stadium = x.capacity;
         }
@@ -1492,6 +1518,9 @@ pub fn ask_facility(w: &mut World, p: usize) -> Result<String, String> {
     if w.finance.projects.iter().any(|x| x.owner == Owner::College(p) && !x.done) {
         return Err("A project is already under way.".into());
     }
+    if crate::world::capital::live(w) && crate::world::capital::drive::open_drive(&w.capital, p).is_some() {
+        return Err("A drive is already under way.".into());
+    }
     if w.finance.college.get(p).is_some_and(|d| d.asked == year) {
         return Err("You asked this year already.".into());
     }
@@ -1518,6 +1547,14 @@ pub fn ask_facility(w: &mut World, p: usize) -> Result<String, String> {
         };
         return Ok(format!("{ad}: \"Not this year.\" {why}"));
     }
+    // Once the rooms live a yes opens a drive's study (Capital lane C3).
+    if crate::world::capital::live(w) {
+        w.finance.college[p].asked = year;
+        crate::world::capital::drive::ask_drive(w, p)?;
+        return Ok(format!(
+            "{ad}: \"Let's run a drive.\" The development office opens a feasibility study this fall; you set the goal with me when it reports."
+        ));
+    }
     let step = clamp(0.06 + 0.4 * room * 0.3, 0.05, 0.16);
     let (kind, base) = match t {
         0 => ("football building", 140.0e6),
@@ -1526,6 +1563,7 @@ pub fn ask_facility(w: &mut World, p: usize) -> Result<String, String> {
         _ => ("weight room and locker room", 3.0e6),
     };
     let cost = base * (step / 0.12) * data::college_index(year);
+    let step = if prog.campus.live { crate::world::capital::rooms::rise(prog, kind, cost, year) } else { step };
     let pledged = cost * clamp(0.35 + 0.3 * nil_share, 0.2, 0.8);
     w.finance.projects.push(Project {
         owner: Owner::College(p),

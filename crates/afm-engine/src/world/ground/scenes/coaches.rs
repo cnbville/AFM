@@ -107,6 +107,7 @@ pub(super) fn slots(w: &World, prog: usize, monday: Date) -> Vec<(u8, Slot)> {
         who: None,
         school: None,
         line: None,
+        donor: None,
     };
     let end = monday.add(7);
     let within = |d: Date| d >= monday && d < end;

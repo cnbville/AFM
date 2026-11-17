@@ -25,6 +25,13 @@
 //! - Quiet: the child runs at a lower priority, and an autosave starts only
 //!   when something was done since the last save of any kind, and never while
 //!   a world is being built or downloaded.
+//! - No second world: a command that plays days (`PLAYS`) waits for a running
+//!   autosave to finish first. A day touches about half the world, and every
+//!   page the game changes while the child still shares it is copied: one
+//!   Continue during an autosave copied 1.9 GB and took 11.7 s instead of
+//!   0.2 to 1 s on the 30-year world (2026-11-17), which on an 8 GB Mac sends
+//!   the game into swap and froze the app for minutes. Screens that only read
+//!   change next to nothing and go on as before.
 //!
 //! The screens call `autosave_tick` about every 30 seconds while a career is
 //! open; the game decides whether 10 minutes have passed. Macs and Linux
@@ -42,6 +49,9 @@ use crate::{Game, Reply, depth_plan, notebook, setup, tallies, world_log};
 pub const EVERY: Duration = Duration::from_secs(600);
 /// A save that takes longer than this is ended (a child stuck in a lock).
 const STUCK: Duration = Duration::from_secs(20 * 60);
+/// The longest a command that plays days waits for an autosave before it
+/// ends it and plays on (a child stuck or crawling on a busy machine).
+const WAIT: Duration = Duration::from_secs(90);
 /// The child's niceness: the screens come first.
 #[cfg(unix)]
 const NICE: i32 = 10;
@@ -101,6 +111,11 @@ impl Default for Autosave {
             saved_at: 0,
         }
     }
+}
+
+/// Commands that play days: they wait for a running autosave (module notes).
+pub fn plays_days(cmd: &str) -> bool {
+    matches!(cmd, "continue" | "day" | "holiday")
 }
 
 /// Commands that change nothing and so don't count as play.
@@ -168,6 +183,26 @@ impl Autosave {
             s.token += 1;
             s.phase = Phase::Idle;
         }
+    }
+
+    /// Waits until a running autosave is written, so the days that follow
+    /// never change pages the child still shares (module notes). One that
+    /// takes longer than `WAIT` is ended, its old file kept, and the next
+    /// one comes after the usual 10 minutes. Answers how long it waited.
+    pub fn finish_first(&mut self) -> Duration {
+        let t = Instant::now();
+        while matches!(self.phase(), Phase::Saving { .. }) {
+            if t.elapsed() > WAIT {
+                self.cancel();
+                self.set(Phase::Failed {
+                    at: Instant::now(),
+                    note: "The autosave took too long and was stopped so the days could play.".into(),
+                });
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(25));
+        }
+        t.elapsed()
     }
 
     /// The answer the screens read.
@@ -323,6 +358,25 @@ mod tests {
         assert_ne!(a.activity, a.saved_at);
         a.saved_by_hand();
         assert_eq!(a.activity, a.saved_at);
+    }
+
+    #[test]
+    fn days_wait_for_a_running_autosave() {
+        let mut a = Autosave::default();
+        // Nothing running: no wait.
+        assert!(a.finish_first() < Duration::from_millis(20));
+        // Running: the wait lasts until the waiter marks it written.
+        a.set(Phase::Saving { pid: -1, since: Instant::now(), partial: PathBuf::new() });
+        let shared = a.shared.clone();
+        let done = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(200));
+            shared.lock().unwrap().phase = Phase::Saved { at: Instant::now(), took: 0.2 };
+        });
+        let waited = a.finish_first();
+        done.join().unwrap();
+        assert!(waited >= Duration::from_millis(180), "{waited:?}");
+        assert_eq!(a.status()["state"], "saved");
+        assert!(plays_days("continue") && plays_days("holiday") && !plays_days("dashboard"));
     }
 
     #[test]

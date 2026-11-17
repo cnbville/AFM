@@ -278,6 +278,10 @@ pub struct Program {
     pub tradition: f64,
     pub recent: f64,
     pub facilities: f64,
+    /// Its rooms and campus (Capital lane C2): the facilities number above
+    /// is worked out from them once they live.
+    #[serde(default)]
+    pub campus: super::capital::rooms::Campus,
     /// Why the program moved: facility projects, boosters, hires (note 15C).
     pub story: Vec<(i32, String)>,
     pub fans: f64,
@@ -636,6 +640,7 @@ pub fn program_from_row(id: usize, row: &CollegeRow, season: i32, seed: u32, rng
         tradition,
         recent,
         facilities,
+        campus: Default::default(),
         story: Vec::new(),
         fans,
         prestige: 0.0,
@@ -998,9 +1003,15 @@ pub fn fade_pipelines(p: &mut Program, year: i32) {
 /// for. Returns the warning level (0 = none).
 /// `walk` adds to the big booster's chance of leaving (his patience with
 /// your own program, `folk::boss::booster_push`).
-pub fn update_collective(p: &mut Program, win_pct: f64, next: i32, walk: f64, rng: &mut Rng) -> u32 {
+/// What the fever adds to the collective's yearly growth (Capital lane C3,
+/// CP9: the same moments lift NIL money a little; proposed, not confirmed).
+pub const COLLECTIVE_FEVER: f64 = 0.05;
+
+/// The booster base's year: `fever` is the program's fever on the day
+/// (Capital lane C3; 0 before the drives live).
+pub fn update_collective(p: &mut Program, win_pct: f64, next: i32, walk: f64, fever: f64, rng: &mut Rng) -> u32 {
     let before = p.collective.boosters();
-    let mood = (win_pct - 0.5) * 0.18 + (p.prestige - 0.5) * 0.04;
+    let mood = (win_pct - 0.5) * 0.18 + (p.prestige - 0.5) * 0.04 + COLLECTIVE_FEVER * fever;
     // Donations follow results, and drift back toward what the brand can raise.
     // The era of the season its conference is from: the one just played
     // (a move to a new conference lands with that season's realignment).

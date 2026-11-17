@@ -336,7 +336,11 @@ pub fn brand_money(w: &World, i: usize, fame: f64) -> f64 {
                 * (1.0 + 0.02 * (year - 2026).max(0) as f64);
             80e6 * appeal.powi(4) * era
         }
-        Stage::College | Stage::Declared if super::ncaa::nil_era(year) => 4e6 * appeal.powi(4),
+        // The content studio makes his deals better (Capital lane C2).
+        Stage::College | Stage::Declared if super::ncaa::nil_era(year) => {
+            let studio = p.college.and_then(|c| w.programs.get(c)).map_or(1.0, super::capital::rooms::nil_lift);
+            4e6 * appeal.powi(4) * studio
+        }
         Stage::HighSchool | Stage::PrepSchool => hs_nil_money(w, i, fame),
         Stage::Done => p.brand as f64 * 0.55,
         _ => 0.0,

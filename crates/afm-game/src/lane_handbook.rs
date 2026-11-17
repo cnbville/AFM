@@ -1755,14 +1755,14 @@ fn live_ratings(w: &World, t: TeamRef) -> Option<Value> {
                 Read::Range(l, h) => Some(format!(
                     "{} {}",
                     a.label().to_lowercase(),
-                    if l == h { l.to_string() } else { format!("{l}-{h}") }
+                    if l == h { crate::reads::shown(l) } else { crate::reads::pair(l, h) }
                 )),
                 Read::NotSeen => None,
             })
         })
         .collect();
     let (one, _) = pos_words(pos);
-    let mut line = format!("{} reads {lo}-{hi} at {one}", link(w, k));
+    let mut line = format!("{} reads {} at {one}", link(w, k), reads::pair(lo, hi));
     if let Some((q, v)) = others.first() {
         line += &format!(", about {:.0} at {}", v, pos_words(*q).0);
     }
@@ -1772,7 +1772,7 @@ fn live_ratings(w: &World, t: TeamRef) -> Option<Value> {
     line += ".";
     let lean = format!("At {one} your staff weighs {} most.", key_line.join(", "));
     Some(json!({
-        "name": link(w, k), "pos": pos_class(w, k), "big": format!("{lo}-{hi}"), "when": "your staff's read today",
+        "name": link(w, k), "pos": pos_class(w, k), "big": reads::pair(lo, hi), "when": "your staff's read today",
         "lines": [line, lean],
     }))
 }
@@ -1889,8 +1889,9 @@ fn field(w: &World, pos: Position, lv: &str, state: Option<usize>) -> Option<(St
 fn live_scouting(w: &World, t: TeamRef) -> Option<Value> {
     let &(k, (lo, hi)) = by_read(w, t).first()?;
     let mut lines = vec![format!(
-        "Your staff reads {} at {lo}-{hi}: {} points wide, because they see him every day.",
+        "Your staff reads {} at {}: {} points wide, because they see him every day.",
         link(w, k),
+        crate::reads::pair(lo, hi),
         hi - lo
     )];
     if let Some(g) = views::next_game(w, t)
@@ -1906,7 +1907,7 @@ fn live_scouting(w: &World, t: TeamRef) -> Option<Value> {
         ));
     }
     Some(
-        json!({ "name": link(w, k), "pos": pos_class(w, k), "big": format!("{lo}-{hi}"), "when": "your staff's read today", "lines": lines }),
+        json!({ "name": link(w, k), "pos": pos_class(w, k), "big": reads::pair(lo, hi), "when": "your staff's read today", "lines": lines }),
     )
 }
 
@@ -1937,7 +1938,7 @@ fn live_development(w: &World, t: TeamRef) -> Option<Value> {
         lines.push(format!("One thing they noticed: {h}."));
     }
     Some(
-        json!({ "name": link(w, k), "pos": pos_class(w, k), "big": format!("{lo}-{hi}"), "when": "your staff's words, not a number", "lines": lines }),
+        json!({ "name": link(w, k), "pos": pos_class(w, k), "big": reads::pair(lo, hi), "when": "your staff's words, not a number", "lines": lines }),
     )
 }
 

@@ -962,14 +962,18 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                     0.2 * hc
                         + 0.25 * unit
                         + 0.4 * (t_pc[group as usize] + s - t_s)
-                        + 0.15 * (6.0 + 12.0 * prog.facilities),
+                        // The weight room, nutrition, sports science and
+                        // recovery share out the facilities' part (Capital
+                        // lane C2, CP19).
+                        + 0.15 * (6.0 + 12.0 * super::capital::rooms::physical(prog)),
                 );
                 strength_dev = s - t_s;
                 (
                     division_level(prog.division),
                     // C57: position coach 0.4, coordinator 0.25, head coach
-                    // 0.2, facilities 0.15.
-                    0.2 * hc + 0.25 * unit + 0.4 * pc + 0.15 * (6.0 + 12.0 * prog.facilities),
+                    // 0.2, facilities 0.15 (the film rooms, the indoor field
+                    // and recovery: Capital lane C2, CP19).
+                    0.2 * hc + 0.25 * unit + 0.4 * pc + 0.15 * (6.0 + 12.0 * super::capital::rooms::teaching(prog)),
                     (prog.facilities - 0.5) * 0.15,
                     COLLEGE_TROUBLE,
                 )
@@ -1006,7 +1010,16 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                 }
                 _ => 1.0,
             }
-            * if helped.contains(&p.player.id) { 1.0 - super::folk::talk_points::HELP_CUT } else { 1.0 };
+            * if helped.contains(&p.player.id) { 1.0 - super::folk::talk_points::HELP_CUT } else { 1.0 }
+            // Campus life and the players' lounge (Capital lane C2).
+            * match p.college {
+                Some(c) if p.stage == Stage::College => {
+                    let prog = &programs[c];
+                    let life = prog.grades[super::program::GradeCat::CampusLife as usize] / 100.0;
+                    super::capital::rooms::trouble_factor(prog, life)
+                }
+                _ => 1.0,
+            };
         let mut trouble = None;
         if p.rng.chance(trouble_p) {
             p.incident = true;
@@ -1035,7 +1048,8 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             // Academic support (section 6 topic 10): the academic staff's
             // head beside the facilities.
             let acad = super::people::Support::z(prog.support.academic.rating);
-            let support = clamp(0.3 + 0.5 * prog.facilities + 0.2 * (0.5 + 0.5 * acad), 0.0, 1.0);
+            // The academic center (Capital lane C2, CP19).
+            let support = clamp(0.3 + 0.5 * super::capital::rooms::academic(prog) + 0.2 * (0.5 + 0.5 * acad), 0.0, 1.0);
             if p.academic_redshirt {
                 academic_sit = true;
                 p.academic_redshirt = false;
@@ -1601,7 +1615,8 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
     // Film study (topic 5.1): the coordinators' eye and the quality-control
     // staff a budget buys (proposed, not confirmed).
     let eye = |c: Option<usize>| ab(c.or(head)).map_or(9.0, |a| a.scheme);
-    let film_study = clamp(0.35 * (eye(prog.oc) + eye(prog.dc)) + 7.0 * prog.facilities, 1.0, 20.0);
+    // The film rooms stand where the facilities did (Capital lane C2).
+    let film_study = clamp(0.35 * (eye(prog.oc) + eye(prog.dc)) + 7.0 * super::capital::rooms::film(prog), 1.0, 20.0);
     let dc = dc_call;
     // The install (T6.2): the staff sizes the weekly plan to what its
     // players can absorb; a poor staff misjudges it, an aggressive one puts
@@ -1611,7 +1626,15 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
         let oc = caller(oc_call, inst.off);
         let who = oc_call.unwrap_or(usize::MAX) as u64;
         let miss = 0.15 * (1.0 - oc.skill / 20.0).max(0.0) * key_normal(0x1257 ^ w.year as u64, who);
-        clamp(crate::game::roster::absorb(aware) + miss + 0.01 * (oc.aggressiveness - 10.0), 0.35, 1.0)
+        // The film rooms put a little more of the plan in (Capital lane C2).
+        clamp(
+            crate::game::roster::absorb(aware)
+                + miss
+                + 0.01 * (oc.aggressiveness - 10.0)
+                + super::capital::rooms::install_lift(prog),
+            0.35,
+            1.0,
+        )
     };
     let mut team = GameTeam::new(
         prog.real_name.clone(),
@@ -1650,7 +1673,9 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
     team.film = prog.film.clone();
     team.line_chem = line_chem;
     // His strength staff's guard on muscle strains and backs (minor bug 303).
-    let guard = crate::game::sim::strength_guard(strength_head(prog), typical_strength(w, prog.division)) as f32;
+    // The sports science lab's guard on top (Capital lane C2, CP17).
+    let guard = (crate::game::sim::strength_guard(strength_head(prog), typical_strength(w, prog.division))
+        * super::capital::rooms::soft_tissue_guard(prog)) as f32;
     team.players.iter_mut().for_each(|g| g.soft = guard);
     super::chemistry::apply(w, &mut team, super::chemistry::Unit::College);
     team.novelty = super::trends::team_novelty(w, prog.division, &prog.film);

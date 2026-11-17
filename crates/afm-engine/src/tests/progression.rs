@@ -174,14 +174,27 @@ fn room_counts_are_cains() {
 #[test]
 fn trims_land_at_his_spot_and_keep_the_limit_where_it_was() {
     let mut checked = 0;
-    let t = progression::trim(Position::CB, Attr::ManCoverage);
-    assert!(t > 0.0);
+    assert!(progression::trim(Position::CB, Attr::ManCoverage)[0] > 0.0);
+    // Nothing at 60, something at 70, and a higher natural ceiling always
+    // keeps a higher trimmed one.
+    let at = |c| progression::trim_at(Position::CB, Attr::ManCoverage, c);
+    assert!(at(60.0) == 0.0 && at(70.0) > 0.0);
+    for pos in Position::ALL {
+        for a in progression::LIMITED {
+            let at = |c: f64| progression::trim_at(pos, a, c);
+            assert!((0..60).all(|i| {
+                let c = 50.0 + i as f64;
+                at(c) >= 0.0 && c + 1.0 - at(c + 1.0) > c - at(c)
+            }));
+        }
+    }
     for id in 0..2000u32 {
         let mut p = boy(9_700_000 + id, Position::CB);
         let (c, l) = (p.ceilings.get(Attr::ManCoverage), progression::limit(&p, Attr::ManCoverage).unwrap());
         progression::land_trims(&mut p);
-        if c >= progression::TRIM_FROM {
-            assert!((p.ceilings.get(Attr::ManCoverage) - (c - t)).abs() < 1e-9);
+        if c > progression::TRIM_FROM {
+            let t = at(c);
+            assert!((p.ceilings.get(Attr::ManCoverage) - (c - t)).abs() < 1e-4, "{c} less {t}");
             assert!(progression::limit(&p, Attr::ManCoverage).unwrap() >= l - 0.51);
             checked += 1;
         } else {
@@ -193,6 +206,14 @@ fn trims_land_at_his_spot_and_keep_the_limit_where_it_was() {
         assert_eq!(p.ceilings.get(Attr::ManCoverage), c1);
     }
     assert!(checked > 20);
+}
+
+#[test]
+fn closing_slows_near_the_top_and_never_stops() {
+    assert_eq!(progression::near_top(50.0), 1.0);
+    assert!((progression::near_top(60.0) - 0.5).abs() < 1e-9);
+    assert!(progression::near_top(80.0) < progression::near_top(70.0));
+    assert!(progression::near_top(140.0) > 0.0);
 }
 
 #[test]

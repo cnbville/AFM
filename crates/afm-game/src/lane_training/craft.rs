@@ -319,8 +319,8 @@ pub(super) fn project(w: &World, i: usize, eye: f64, code: u8) -> Result<Value, 
         };
         let fixed = if c.is_flaw() { (lo as f64, hi as f64) } else { (now_lo + gain, now_hi + gain) };
         v["situation"] = json!({
-            "now": [now_lo.round().max(1.0), now_hi.round().min(99.0)],
-            "fixed": [fixed.0.round().max(1.0), fixed.1.round().min(99.0)],
+            "now": [now_lo.round().max(1.0), now_hi.round().min(reads::SHOWN_TOP)],
+            "fixed": [fixed.0.round().max(1.0), fixed.1.round().min(reads::SHOWN_TOP)],
             "tell": c.info().tell,
         });
         // When it holds in games (topic 9c.4), on a copy of him as the
@@ -377,8 +377,8 @@ pub(super) fn project(w: &World, i: usize, eye: f64, code: u8) -> Result<Value, 
             reads::Read::Range(lo, hi) => {
                 let d = x - truth;
                 json!([
-                    (lo as f64 + d - grow).round().clamp(1.0, 99.0),
-                    (hi as f64 + d + grow).round().clamp(1.0, 99.0)
+                    (lo as f64 + d - grow).round().clamp(1.0, reads::SHOWN_TOP),
+                    (hi as f64 + d + grow).round().clamp(1.0, reads::SHOWN_TOP)
                 ])
             }
             reads::Read::NotSeen => Value::Null,

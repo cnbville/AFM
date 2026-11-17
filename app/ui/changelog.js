@@ -17,6 +17,70 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.602", date: "17 Nov", title: "Talks that know where they stand and what is between you and 1 more",
+    notes: [
+      "The game no longer freezes for minutes when you press Continue while it autosaves.",
+      "Pressing Continue during an autosave now waits a few seconds for the save to finish, then plays.",
+      "The button says \"Finishing the autosave…\" while it waits.",
+      "Macs with 8 GB of memory no longer run out of memory during an autosave.",
+      "The people you talk to now know where they stand and what's between you: a senior talks about the draft, a player you met last week knows you're new, and one you've coached for years remembers your promises.",
+      "Players know their eligibility, the draft and their place, and a man in his last season never talks about transferring.",
+    ],
+  },
+  {
+    v: "0.2.599", date: "17 Nov", title: "Ground lane S7: your men and your desk (the staff carousel and assistant desk screens)",
+    notes: [
+      "Your staff now has a home on the Ground menu: see who another school is after, counter before he walks, and see every man's ground, mood and record in one place. Assistants get their own desk.",
+      "A warning when another school wants one of your men, with his face, what pulls him each way and your read of him",
+      "Three counters (a raise, a title, a promise), each showing how far it reaches and what it costs",
+      "Who could take his area, and what your standing loses with him",
+      "Every man's areas, mood and record, and the areas nobody works",
+      "An assistant's desk: your list, his answers, his memory of you and your goals",
+    ],
+  },
+  {
+    v: "0.2.598", date: "17 Nov", title: "Fix the \"Ask in your words\" 400: nullable enums as anyOf, and a check on every schema and 3 more",
+    notes: [
+      "Ground has a Leads screen: open a kid someone told you about and see who told you, which of the five blanks are filled and by whom, who else is on him, and what to do next.",
+      "Your leads sit in a strip; pick one to open his card.",
+      "The five blanks show who filled each and when, with a button on the open ones.",
+      "A timeline shows who heard about him and who offered, against the day the services update.",
+      "Offer him, fill the open blank first, or let him go; each says what it risks.",
+      "Once he's your find, the card follows how he blooms.",
+    ],
+  },
+  {
+    v: "0.2.593", date: "17 Nov", title: "Ground lane G5: the week's scenes played",
+    notes: [
+      "Your recruiting week now plays out as real scenes: walk into a high school coach's office, run your own clinic, sit with families on junior day and take the call the morning a kid decides.",
+      "A school visit goes stop by stop: the sign-in sheet shows who was in before you, the coach's office gives you his list, and your eye can catch a kid in the weight room nobody listed.",
+      "Your clinic, open practices and the state coaches' convention warm many coaches at once, fastest with the ones who run your scheme, and the hallway is where the names come out.",
+      "Junior days, visit weekends and the spring game let you sit with families, hear from player hosts and offer on the spot; from 2027 the spring game is yours to hold or skip.",
+      "Every scene ends on one line of what you walked away with, and any scene you hand to your coordinator still comes back with his line.",
+    ],
+  },
+  {
+    v: "0.2.592", date: "17 Nov", title: "Progression step 4c: no 99 wall, a thin top past 99, the bench by body weight",
+    notes: [
+      "The best players can now go past 99 under the hood, so true freaks stand out from merely great players. Big men's bench numbers now follow their weight, as they do at the real combine.",
+      "Ratings no longer stop at 99. Past the mid-90s each extra point gets harder, so a 100+ arm is about as rare as a 4.25 forty.",
+      "Elite prospects are as uneven as anyone else. A top talent can have one standout tool and a weaker spot.",
+      "Bench press reps follow body weight, and the strongest men in the weight room can reach the 40-rep club.",
+      "Vertical jumps top out near the real record instead of running far past it.",
+    ],
+  },
+  {
+    v: "0.2.591", date: "17 Nov", title: "Let updates skip a pending older version and 1 more",
+    notes: [
+      "Your athletic director now writes down what you commit to. Promise to keep the state's best player home or to win eight games, and it goes on his goals sheet, or he tells you why not.",
+      "Commitments to your boss become goals he judges you on, or he says they're already on his list, below his bar or not something he can measure.",
+      "Promises to a parent, a coach on your staff or your boss now count, not only promises to players.",
+      "\"Heard as\" now says how a line went with each person, on their own scale, and when you didn't answer their question.",
+      "People stop asking the same question over and over once you've answered.",
+      "Asked why he should keep his job, a coordinator makes his case.",
+    ],
+  },
+  {
     v: "0.2.588", date: "16 Nov", title: "College followers retuned so the biggest stars reach 500,000 and 2 more",
     notes: [
       "At the end of your first spring, Ground writes you a report: your goals as verdicts, the kids you found, where your ground grew and who outworked whom.",

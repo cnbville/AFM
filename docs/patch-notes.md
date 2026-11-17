@@ -8,6 +8,86 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.602 (17 Nov, shipped): days wait for a running autosave instead of copying the world (PR #515), talks that know where they stand and what is between you (PR #507), progression step 5: slower closing near the top and fitted trims hold the star count (PR #518)
+**TLDR:** 3 changes ship together. The game no longer freezes for minutes when you press Continue while it autosaves. The people you talk to now know where they stand and what's between you: a senior talks about the draft, a player you met last week knows you're new, and one you've coached for years remembers your promises. Plus 1 more below.
+- Days wait for a running autosave instead of copying the world (PR #515): The game no longer freezes for minutes when you press Continue while it autosaves.
+- Pressing Continue during an autosave now waits a few seconds for the save to finish, then plays. (PR #515)
+- The button says "Finishing the autosave…" while it waits. (PR #515)
+- Macs with 8 GB of memory no longer run out of memory during an autosave. (PR #515)
+- Talks that know where they stand and what is between you (PR #507): The people you talk to now know where they stand and what's between you: a senior talks about the draft, a player you met last week knows you're new, and one you've coached for years remembers your promises.
+- Players know their eligibility, the draft and their place, and a man in his last season never talks about transferring. (PR #507)
+- Everyone knows their history with you and the time of year: how long you've been there, the games and promises between you, your last talk, and how far they trust you. (PR #507)
+- Your boss tells you his goals and how the money works, and writes down what you commit to without making you prove every sentence. (PR #507)
+- People you push argue with reasons, ask one thing at a time, and take a no once you make it final. (PR #507)
+- "Any questions?" gets a real question back, a thank-you no longer ends a talk, and calls end with a goodbye. (PR #507)
+- Progression step 5: slower closing near the top and fitted trims hold the star count (PR #518): no summary in the PR
+- Look at: press Continue a few times in a row over ten minutes of play. (PR #515) a one-on-one with a player in your first weeks, then your goals meeting with the athletic director. (PR #507)
+- Docs and tooling merged too, no game change: Scheme fit lane SF0: fit_check, the audit's measuring tool (PR #513).
+
+## 0.2.599 (17 Nov, shipped): ground lane S7: your men and your desk (the staff carousel and assistant desk screens) (PR #511)
+**TLDR:** Your staff now has a home on the Ground menu: see who another school is after, counter before he walks, and see every man's ground, mood and record in one place. Assistants get their own desk.
+- A warning when another school wants one of your men, with his face, what pulls him each way and your read of him (PR #511)
+- Three counters (a raise, a title, a promise), each showing how far it reaches and what it costs (PR #511)
+- Who could take his area, and what your standing loses with him (PR #511)
+- Every man's areas, mood and record, and the areas nobody works (PR #511)
+- An assistant's desk: your list, his answers, his memory of you and your goals (PR #511)
+- Look at: Ground, "Your men" (head coach) or "Your desk" (assistant) (PR #511)
+
+## 0.2.598 (17 Nov, shipped): ground lane S4: the lead card screen (PR #492), ground lane G10: your staff's ground and the assistant seat (PR #491), progression step 6: screens show "99+" where a read passes 99 (PR #503), and 2 more
+**TLDR:** 5 changes ship together. Ground has a Leads screen: open a kid someone told you about and see who told you, which of the five blanks are filled and by whom, who else is on him, and what to do next. Your assistants now have ground of their own: each works his own areas on the map, and losing one costs you the people he knew. As an assistant, you bring kids to your head coach and earn his trust in your eye. Plus 3 more below.
+- Ground lane S4: the lead card screen (PR #492): Ground has a Leads screen: open a kid someone told you about and see who told you, which of the five blanks are filled and by whom, who else is on him, and what to do next.
+- Your leads sit in a strip; pick one to open his card. (PR #492)
+- The five blanks show who filled each and when, with a button on the open ones. (PR #492)
+- A timeline shows who heard about him and who offered, against the day the services update. (PR #492)
+- Offer him, fill the open blank first, or let him go; each says what it risks. (PR #492)
+- Once he's your find, the card follows how he blooms. (PR #492)
+- Ground lane G10: your staff's ground and the assistant seat (PR #491): Your assistants now have ground of their own: each works his own areas on the map, and losing one costs you the people he knew. As an assistant, you bring kids to your head coach and earn his trust in your eye.
+- Your recruiting coordinator gives each assistant his areas by who he knows there, and you can move anyone on a Monday. (PR #491)
+- A young coach can ride along with a veteran and meet his high school coaches. (PR #491)
+- When another school wants one of your men, you get a few days to counter with a raise, a title or a promise. (PR #491)
+- A coach who leaves takes his ties with him, and the kids he recruited may waver until you call them. (PR #491)
+- As an assistant, bring your head coach two kids a week; he signs them or says wait, and his August verdict follows you. (PR #491)
+- Progression step 6: screens show "99+" where a read passes 99 (PR #503): When your staff thinks a player might be better than 99, his rating now says so: the range ends in "99+".
+- A range that reaches past the top reads like "97-99+". (PR #503)
+- Ranges below the top look the same as before. (PR #503)
+- Fix the "Ask in your words" 400: nullable enums as anyOf, and a check on every schema (PR #509): Asking in your own words works again: type a search like "safeties from South Carolina" and the board fills in the search for you.
+- The Find box no longer answers with an AI error on most questions. (PR #509)
+- The analyst's stat questions no longer fail the same way. (PR #509)
+- Capital lane C1: the donors (store only) (PR #510): no summary in the PR
+- Look at: open Leads after your staff has been to a few schools. (PR #492) your inbox after the first day of a new college job, for your coordinator's areas letter. (PR #491) the best athletes' speed or strength reads on your roster. (PR #503)
+- Docs and tooling merged too, no game change: Spec: how you talk, your coaching voice read and reacted to (PR #504); Scheme fit: the 25 agreed items and their lanes (docs) (PR #505); Coach fire on the field: the agreed spec (docs) (PR #506); Capital: the facilities layer spec and lane plan (PR #508).
+
+## 0.2.593 (17 Nov, shipped): ground lane G5: the week's scenes played (PR #494)
+**TLDR:** Your recruiting week now plays out as real scenes: walk into a high school coach's office, run your own clinic, sit with families on junior day and take the call the morning a kid decides.
+- A school visit goes stop by stop: the sign-in sheet shows who was in before you, the coach's office gives you his list, and your eye can catch a kid in the weight room nobody listed. (PR #494)
+- Your clinic, open practices and the state coaches' convention warm many coaches at once, fastest with the ones who run your scheme, and the hallway is where the names come out. (PR #494)
+- Junior days, visit weekends and the spring game let you sit with families, hear from player hosts and offer on the spot; from 2027 the spring game is yours to hold or skip. (PR #494)
+- Every scene ends on one line of what you walked away with, and any scene you hand to your coordinator still comes back with his line. (PR #494)
+- Look at: your next school visit or your spring clinic from the week's plan. (PR #494)
+
+## 0.2.592 (17 Nov, shipped): progression step 4c: no 99 wall, a thin top past 99, the bench by body weight (PR #502)
+**TLDR:** The best players can now go past 99 under the hood, so true freaks stand out from merely great players. Big men's bench numbers now follow their weight, as they do at the real combine.
+- Ratings no longer stop at 99. Past the mid-90s each extra point gets harder, so a 100+ arm is about as rare as a 4.25 forty. (PR #502)
+- Elite prospects are as uneven as anyone else. A top talent can have one standout tool and a weaker spot. (PR #502)
+- Bench press reps follow body weight, and the strongest men in the weight room can reach the 40-rep club. (PR #502)
+- Vertical jumps top out near the real record instead of running far past it. (PR #502)
+- Look at: the combine numbers of the biggest, strongest linemen in a draft class. (PR #502)
+
+## 0.2.591 (17 Nov, shipped): CI: screen tests share each small world; retry runners that shut down (PR #495), live talks: your boss writes down what you commit to (PR #500), let updates skip a pending older version (PR #501)
+**TLDR:** 3 changes ship together. CI: screen tests share each small world; retry runners that shut down Your athletic director now writes down what you commit to. Promise to keep the state's best player home or to win eight games, and it goes on his goals sheet, or he tells you why not. Plus 1 more below.
+- CI: screen tests share each small world; retry runners that shut down (PR #495): no summary in the PR
+- Live talks: your boss writes down what you commit to (PR #500): Your athletic director now writes down what you commit to. Promise to keep the state's best player home or to win eight games, and it goes on his goals sheet, or he tells you why not.
+- Commitments to your boss become goals he judges you on, or he says they're already on his list, below his bar or not something he can measure. (PR #500)
+- Promises to a parent, a coach on your staff or your boss now count, not only promises to players. (PR #500)
+- "Heard as" now says how a line went with each person, on their own scale, and when you didn't answer their question. (PR #500)
+- People stop asking the same question over and over once you've answered. (PR #500)
+- Asked why he should keep his job, a coordinator makes his case. (PR #500)
+- Let updates skip a pending older version (PR #501): If you leave AFM open after an update downloads, it now keeps looking and swaps in any newer version, so one restart gets you the latest.
+- AFM keeps checking for updates while a restart is waiting. (PR #501)
+- A newer version replaces the waiting one, and the prompt names the newest version. (PR #501)
+- You still get the save-your-career prompt before restarting. (PR #501)
+- Look at: the athletic director's goals meeting, then tell him what you'll deliver this season. (PR #500) leave an update waiting, then check for updates again after a newer one ships. (PR #501)
+
 ## 0.2.588 (16 Nov, shipped): ground lane S8: the ground report screen (PR #496), progression step 4b part 2: the 10-yard split from his own run, with a first-step gift (PR #497), college followers retuned so the biggest stars reach 500,000 (PR #499)
 **TLDR:** 3 changes ship together. At the end of your first spring, Ground writes you a report: your goals as verdicts, the kids you found, where your ground grew and who outworked whom. The 10-yard split is now each player's own first step. Two men with the same forty can split 0.1 s apart, the way real quick-twitch players stand out. Plus 1 more below.
 - Ground lane S8: the ground report screen (PR #496): At the end of your first spring, Ground writes you a report: your goals as verdicts, the kids you found, where your ground grew and who outworked whom.

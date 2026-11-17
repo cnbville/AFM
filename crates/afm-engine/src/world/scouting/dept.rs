@@ -1095,12 +1095,21 @@ pub fn evaluator_for(w: &World, prog: usize, i: usize) -> Option<usize> {
 /// The coach whose recruiting area holds a recruit's state: your set areas
 /// first, else by the coach's ties (his home state, then nearest).
 pub fn recruiter_for(w: &World, prog: usize, i: usize) -> Option<usize> {
+    // Your seat on Ground's map (lane G10): the man on his school's area.
+    if let Some(m) = crate::world::ground::staff::beats::recruiter_for_school(w, prog, w.people[i].hs) {
+        return Some(m);
+    }
     area_coach(w, prog, w.people[i].home_state as u8)
 }
 
 /// The coach who recruits a state for a program: the area you set, else
 /// the staff's own split (each state to one on-field assistant).
 pub fn area_coach(w: &World, prog: usize, st: u8) -> Option<usize> {
+    // Your seat on Ground's map (lane G10): the man who holds most of the
+    // state's areas.
+    if let Some(m) = crate::world::ground::staff::beats::state_man(w, prog, st as usize) {
+        return Some(m);
+    }
     if let Some((c, _)) = w.scouting.dept.areas.iter().find(|a| a.1.contains(&st)) {
         return Some(*c);
     }
@@ -1140,6 +1149,7 @@ pub fn set_area(w: &mut World, st: u8, coach: Option<usize>) {
         }
     }
     w.scouting.dept.areas.retain(|a| !a.1.is_empty());
+    crate::world::ground::staff::beats::set_state(w, st as usize, coach);
 }
 
 /// Prunes looks of players nobody will read again (signed elsewhere and

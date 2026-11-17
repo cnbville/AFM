@@ -36,7 +36,10 @@ pub fn iq_words(w: &World, i: usize) -> String {
         x if x >= 15.0 => "knows the whole call and why it was called",
         x if x >= 11.0 => "knows his job and the men around him",
         x if x >= 7.0 => "knows his own job",
-        _ => "still learning his own job",
+        // "who is still learning": "a high school player who still
+        // learning his own job" reached the voice (the talks audit,
+        // 2026-11-16).
+        _ => "is still learning his own job",
     };
     format!("{} who {band}", makeup::stage_words(w, i))
 }

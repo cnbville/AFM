@@ -110,8 +110,15 @@ pub fn start(w: &mut World, who: Them, about: Option<u32>) -> Result<u32, String
         }
         _ => {}
     }
-    s.place = if doctor::is_doctor(w, who) { "The training room".into() } else { "Your office".into() };
-    s.narrate(format!("{name} comes by {}.", s.place.to_lowercase()));
+    // You go to the doctor; anyone else comes to you ("Adrian Johnson
+    // comes by the training room", the talks audit of 2026-11-16).
+    let doctor = doctor::is_doctor(w, who);
+    s.place = if doctor { "The training room".into() } else { "Your office".into() };
+    s.narrate(if doctor {
+        format!("You stop by the training room to see {name}.")
+    } else {
+        format!("{name} comes by your office.")
+    });
     Ok(scene::add(w, s))
 }
 

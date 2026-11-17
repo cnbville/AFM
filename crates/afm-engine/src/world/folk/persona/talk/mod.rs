@@ -23,11 +23,13 @@
 //! - `store`: the open talk's state and the saved readings (3.6, 14).
 //! - `today`: the stand-in parts.
 
+pub mod between;
 pub mod channels;
 pub mod feel;
 pub mod hits;
 pub mod items;
 pub mod stakes;
+pub mod standing;
 pub mod store;
 pub mod today;
 pub mod who;
@@ -38,7 +40,7 @@ pub mod hs_call;
 pub mod recruit;
 
 use super::Them;
-use super::ear::{Act, Confirm, Ends, HisAsk, Item, Reading, Resolving, Say, Sized, Turn};
+use super::ear::{Act, ActKind, Confirm, Ends, HisAsk, Item, Reading, Resolving, Say, Sized, Turn};
 use super::knows::{Answer, Knows, TellParts, Tells, Topic};
 use super::memory::{HisLie, Line, Secret, Treated};
 use super::room::{Room, Seat};
@@ -218,8 +220,38 @@ impl Resolving for Conversation<'_> {
         let mut asked_now: Vec<(Topic, Option<Them>)> = Vec::new();
         let (mut answered, mut grind) = (false, false);
         let mut pushed_hits: Vec<usize> = Vec::new();
+        // You gave him the floor ("any questions?", "anything else?").
+        let mut open_floor = false;
+        // A talk to the whole team or a room.
+        let in_group = matches!(room.channel, super::room::Channel::Group(_));
+        // Your line gives him a role itself, as a promise or a claim on his
+        // own place (Cain 2026-11-16: "You're already my first pick at DT,
+        // but I need more pressures from you" had him do it for "a real
+        // role", then ask whether he had one).
+        let gives_role = {
+            let claimed: Vec<Stated> = reading
+                .acts
+                .iter()
+                .filter_map(|a| match a {
+                    Act::Claim(st) => Some(st.clone()),
+                    _ => None,
+                })
+                .collect();
+            let role = |k: &str| matches!(k, "start" | "role" | "ahead_of" | "touches" | "snaps");
+            self.said.promises.iter().any(|p| role(&p.kind))
+                || s.and_then(|s| self.standing(w, s, &claimed)).is_some_and(|p| role(&p.kind))
+        };
         for act in &reading.acts {
             match act {
+                // An open floor has nothing to look up: never "he doesn't
+                // know" (the talks audit, 2026-11-16: "Any questions?" to
+                // the team got "He doesn't know, sir"). He answers with
+                // what's on his mind, his own ask below, or that he has
+                // none.
+                Act::Question { topic: Topic::Nothing, .. } => {
+                    open_floor = true;
+                    answered = true;
+                }
                 Act::Question { topic, about, .. } => {
                     let again = open.asked_before(*topic, *about) || asked_now.contains(&(*topic, *about));
                     asked_now.push((*topic, *about));
@@ -347,7 +379,10 @@ impl Resolving for Conversation<'_> {
                     // A recruit's promise is the recruiting desk's (`pledge`),
                     // made in `apply`.
                     if let (Some(s), Some(p)) = (s, self.said.promises.get(promise_k)) {
-                        t.say.released.push(recruit::promise_released(w, s, p));
+                        let family = channels::speaker(room, reading)
+                            .filter(|(_, seat)| *seat == super::room::Seat::Decider)
+                            .map(|(x, _)| channels::name(w, x));
+                        t.say.released.push(recruit::promise_released(w, s, p, family.as_deref()));
                     }
                     promise_k += 1;
                 }
@@ -378,6 +413,26 @@ impl Resolving for Conversation<'_> {
                     }
                     let desk = own.is_some();
                     let wl = own.map_or_else(|| self.parts.acting.willing(w, him, r), |x| x.0);
+                    // Asked of the whole room, an ask that names nobody is
+                    // the team's to take: the man who answers for them names
+                    // no price of his own (the talks audit, 2026-11-16: "Do
+                    // I get a real role out of this, coach?" in front of the
+                    // team). One about a man by name (a captain to mentor
+                    // the freshman, your scout to look into a prospect) he
+                    // takes on himself, as in a one-on-one.
+                    let room_ask = in_group && !super::asks::names_a_man(r);
+                    let wl = match wl {
+                        Willing::If(_) if room_ask => Willing::Yes,
+                        // The role he'd want for it is in the same line.
+                        Willing::If(c)
+                            if gives_role
+                                && !c.gives.is_empty()
+                                && c.gives.iter().all(|g| matches!(g, super::terms::Give::Role(_))) =>
+                        {
+                            Willing::Yes
+                        }
+                        x => x,
+                    };
                     // His own reasons, where the game weighed them (your
                     // boss's and a booster's asks, a coordinator's plan
                     // ask), in place of the plain words.
@@ -388,11 +443,18 @@ impl Resolving for Conversation<'_> {
                         Willing::Yes => {
                             // One that costs you waits on your confirm; a
                             // favour of goodwill runs as he agrees (`apply`).
-                            if super::asks::costs_you(r) {
+                            // Told to the whole room, it's your word to the
+                            // team, nothing to confirm ("we go back to basics
+                            // this week" became "set the game plan", the talks
+                            // audit of 2026-11-16).
+                            if super::asks::costs_you(r) && !room_ask {
                                 t.confirm.push(Confirm::Request(r.clone()));
                             }
+                            // Asked of the room, the room answers ("Yes
+                            // sir, we'll do it. He'll do it.", the talks
+                            // audit of 2026-11-16).
                             if plain {
-                                t.say.released.push("He'll do it.".into());
+                                t.say.released.push(if room_ask { "They'll do it." } else { "He'll do it." }.into());
                             }
                             // Asked for his read on a man, he gives it now.
                             if let super::terms::Request::Evaluate(pid) = r {
@@ -403,10 +465,16 @@ impl Resolving for Conversation<'_> {
                             t.say.released.extend(c.asks.iter().cloned());
                             t.counter = Some(c.clone());
                         }
-                        Willing::Later(d) => t.say.released.push(format!("He'll let you know by {}.", d)),
+                        Willing::Later(d) => t.say.released.push(format!(
+                            "{} let you know by {}.",
+                            if room_ask { "They'll" } else { "He'll" },
+                            d
+                        )),
                         Willing::No => {
                             if plain {
-                                t.say.released.push("He won't do that.".into());
+                                t.say
+                                    .released
+                                    .push(if room_ask { "They won't do that." } else { "He won't do that." }.into());
                             }
                             if open.refused_before(r) {
                                 t.patience.0 -= feel::ASKED_AGAIN;
@@ -417,7 +485,13 @@ impl Resolving for Conversation<'_> {
                 }
                 Act::Decision(d) => {
                     t.confirm.push(Confirm::Decision(*d));
-                    t.say.released.push(format!("You tell him: {}.", channels::decision_words(*d)));
+                    // What he heard, to react to: his to take or to fight
+                    // with his reasons, since nothing is done until you
+                    // make it so.
+                    t.say.heard.push(format!(
+                        "He tells you his decision: {}. Nothing is done until he makes it so",
+                        channels::decision_to(*d, him)
+                    ));
                 }
                 Act::Threat { ultimatum, .. } => {
                     if *ultimatum {
@@ -455,7 +529,7 @@ impl Resolving for Conversation<'_> {
                     if !channels::can_show(room.channel, *sh) {
                         t.say.released.push("You can't show him that from here.".into());
                     } else {
-                        t.say.released.push(format!("You show him {}.", channels::show_words(*sh)));
+                        t.say.heard.push(format!("He shows you {}", channels::show_words(*sh)));
                     }
                 }
                 Act::Answer(_) => {}
@@ -505,11 +579,57 @@ impl Resolving for Conversation<'_> {
                 t.hits.push(sz);
             }
         }
-        // A dodge needs a question to dodge: his own last line asked one.
-        // The ear may hear a dodge of something he asked lines ago, or of a
-        // demand he never put to you (Cain 2026-11-16: "any other
-        // questions?" heard as doubting him).
-        if reading.dodged && s.is_some_and(asked_last) {
+        // How you said it (coach voice, section 4): each man takes your
+        // manner his own way, by what he wants from a coach, what he has
+        // with you and where it was said. It lands as one more hit, inside
+        // the same caps as the words: wording never beats the best chip.
+        if let Some(m) = reading.manner {
+            let set = super::manner::setting(w, room);
+            for p in &room.present {
+                // The man across, every man in a group, and on a home
+                // visit his decider (the grandmother on the couch).
+                if p.who != him && !in_group && p.seat != super::room::Seat::Decider {
+                    continue;
+                }
+                let mut tk = super::manner::took(w, p.who, &m, &set);
+                // The words already stung him: the delivery adds half its
+                // own harm, not all of it again.
+                let stung = reading
+                    .hits
+                    .iter()
+                    .any(|h| h.on == p.who && matches!(h.how, super::ear::How::Insulted | super::ear::How::Stung));
+                if stung && tk.trust < 0.0 {
+                    tk.trust *= 0.5;
+                    tk.mood *= 0.5;
+                }
+                if let Some(how) = tk.as_.how()
+                    && tk.trust.abs() + tk.mood.abs() > 0.002
+                {
+                    let item = if in_group { Item::Room } else { Item::Pride };
+                    t.hits.push(Sized {
+                        hit: super::ear::Hit { on: p.who, item, how },
+                        trust: tk.trust,
+                        mood: tk.mood,
+                        faded: false,
+                    });
+                }
+                t.manner.push((p.who, tk));
+            }
+        }
+        // A dodge needs a question to dodge: his own ask on the table (the
+        // one his last line raised), or his opening's question. The ear may
+        // hear a dodge of something he asked lines ago, or of a demand he
+        // never put to you (Cain 2026-11-16: "any other questions?" heard
+        // as doubting him); and a question he pressed again on his own made
+        // the next line a dodge too, so he pressed it on every line (the
+        // talks audit, 2026-11-16). And his last line has to have put it
+        // as a question: an ask he said he'd take up later ("once the staff
+        // is set I'd like to talk about where I fit in") asked nothing yet,
+        // so the coach's next line answered nothing it owed (the last
+        // replay, 2026-11-17).
+        let on_table =
+            (open.asking().is_some() && s.is_none_or(asked_last)) || (open.lines == 0 && s.is_some_and(asked_last));
+        if reading.dodged && on_table {
             t.dodged = true;
             t.hits.push(hits::dodged(w, him));
         }
@@ -519,7 +639,19 @@ impl Resolving for Conversation<'_> {
         match (facet, s) {
             (Facet::Recruit, Some(s)) => {
                 recruit::cap(w, s, &mut t.hits);
-                t.say.released.extend(recruit::released(w, s, &t.hits, &wants));
+                // His family's reaction when they answer the line.
+                let family = channels::speaker(room, reading)
+                    .filter(|(_, seat)| *seat == super::room::Seat::Decider)
+                    .map(|(x, _)| channels::name(w, x));
+                // A question, an invite or an ask makes no point about
+                // your school, so it draws no reaction to one: "That's
+                // exactly what I'm looking for" came back to "How was your
+                // game Friday?" (the talks audit, 2026-11-16).
+                let pitched = reading.acts.is_empty()
+                    || !reading.acts.iter().all(|a| {
+                        matches!(a.kind(), ActKind::Question | ActKind::Request | ActKind::Invite | ActKind::End)
+                    });
+                t.say.released.extend(recruit::released(w, s, &t.hits, &wants, family.as_deref(), pitched));
             }
             (Facet::HsCall, Some(_)) => {}
             (_, Some(s)) => hits::cap(w, s, room, &mut t.hits),
@@ -549,10 +681,28 @@ impl Resolving for Conversation<'_> {
                     | Act::Future { .. }
             )
         });
+        // Never in front of the whole team or a room: a man doesn't raise
+        // his role or his job before his teammates (the talks audit,
+        // 2026-11-16). Given the floor, he asks what's on his mind even
+        // when it weighs less.
+        let bar = if open_floor { OPEN_FLOOR_ASK } else { ASK_WEIGHT };
         if t.ends.is_none()
             && !put_to_him
-            && let Some(want) = wants.iter().find(|x| !x.met && x.weight >= ASK_WEIGHT && !open.raised(x.kind))
-            && line >= 1
+            && !in_group
+            && let Some(want) = wants
+                .iter()
+                .find(|x| !x.met && x.weight >= bar && !open.raised(x.kind) && !asked_about(reading, &open, x.kind))
+            && (line >= 1 || open_floor)
+            // One ask at a time: with his last ask still on the table he
+            // waits for your answer before he raises another (the talks
+            // audit, 2026-11-16: your trainer asked about his next step,
+            // then whether the team can win, on back-to-back lines).
+            && (open_floor || open.asking().is_none())
+            // A college coach calling about a player asks about the
+            // player, never about his own career ("what you think about
+            // my next step", to your high school coach, the talks audit of
+            // 2026-11-16): the call's questions are its own (`hs_call`).
+            && facet != Facet::HsCall
         {
             t.his_asks.push(HisAsk {
                 why: *want,
@@ -596,6 +746,12 @@ impl Resolving for Conversation<'_> {
                 t.say.released.push("He's done talking for today.".into());
             } else if line + 1 >= allows.lines.min(MAX_LINES) || talks::hours_left(w) <= 0.0 {
                 t.ends = Some(Ends::Time);
+                // The last exchange closes the talk: he answers and says
+                // goodbye, with no new question of his (the voice's card
+                // says so). Before this a call ran out on his new question
+                // and the next line found it over (the talks audit,
+                // 2026-11-16).
+                t.his_asks.clear();
             }
         }
         t.speaker = channels::speaker(room, reading);
@@ -735,8 +891,17 @@ impl Resolving for Conversation<'_> {
             claims::check::landed(w, id, &facts, before);
         }
         // A favour of goodwill he agreed to runs now (`Acting::run`); one
-        // that costs you waits on your confirm.
-        for (r, wl, _) in &t.asked {
+        // that costs you waits on your confirm. Put to the whole room, an
+        // ask that names nobody is the team's, and the man who answers for
+        // them runs nothing of his own ("He agreed to go back to basics",
+        // in front of the team), save keeping quiet what you told the room
+        // (kept on his word, as the secret is); one about a man by name (a
+        // captain to mentor the freshman) he takes on himself.
+        let in_group = matches!(room.channel, super::room::Channel::Group(_));
+        let runs = |r: &super::terms::Request| {
+            !in_group || super::asks::names_a_man(r) || matches!(r, super::terms::Request::KeepQuiet)
+        };
+        for (r, wl, _) in t.asked.iter().filter(|(r, _, _)| runs(r)) {
             if *wl == Willing::Yes && !super::asks::costs_you(r) {
                 let own = scene(w, id).cloned().and_then(|sc| recruit::run(w, &sc, r));
                 let done = own.unwrap_or_else(|| self.parts.acting.run(w, him, r).done);
@@ -796,6 +961,14 @@ impl Resolving for Conversation<'_> {
         // a GM's word, a family's answer for the file.
         super::draft::after_line(w, id, &self.said, t);
         talks::charge(w, t.minutes / 60.0);
+        // How you said it, kept (coach voice): every man in the room, your
+        // building's grapevine and your own read; a complaint when it
+        // comes to that. And pressure on a hurt man reaches the training
+        // room.
+        if let Some(mn) = self.said.reading.manner {
+            super::manner::said(w, &room, mn, &t.manner);
+        }
+        super::manner::pressure(w, him, &self.said.reading);
         if t.ends.is_some() {
             end(w, id);
         }
@@ -880,7 +1053,7 @@ fn loyalty(w: &World, him: Them, about: Option<Them>) -> f64 {
 /// His answer about his own life when nothing's stored on it: no news.
 pub fn own_nothing(topic: Topic) -> Option<&'static str> {
     Some(match topic {
-        Topic::Life => "Nothing new at home to tell: his people are doing fine, as far as he knows",
+        Topic::Life => "Nothing new at home to tell: his family is doing fine",
         Topic::Mood => "He's doing all right; nothing in particular on his mind",
         Topic::Injury => "He feels fine; nothing's bothering him",
         Topic::Wants | Topic::Portal | Topic::Grades | Topic::Effort => "Nothing new there to tell",
@@ -891,6 +1064,34 @@ pub fn own_nothing(topic: Topic) -> Option<&'static str> {
 /// A want heavy enough that he raises it himself. Proposed, not confirmed.
 pub const ASK_WEIGHT: f32 = 0.22;
 
+/// A want he raises when you give him the floor ("any questions?").
+/// Proposed, not confirmed.
+pub const OPEN_FLOOR_ASK: f32 = 0.1;
+
+/// The questions about a want of his.
+fn want_topics(k: WantKind) -> &'static [Topic] {
+    match k {
+        WantKind::Security => &[Topic::Job],
+        WantKind::Goals => &[Topic::Goals],
+        WantKind::Money | WantKind::Fee => &[Topic::Money, Topic::Market],
+        WantKind::Career => &[Topic::Jobs, Topic::Job],
+        WantKind::Role => &[Topic::Wants, Topic::Job],
+        WantKind::Draft => &[Topic::Market, Topic::ScoutFile],
+        _ => &[],
+    }
+}
+
+/// You already asked him about this want, in this line or earlier in the
+/// talk ("convince me to keep you" to a coach whose job is on the line):
+/// he answers it and doesn't ask it back ("How safe is my place here,
+/// anyway?", the talks audit of 2026-11-16).
+fn asked_about(reading: &Reading, open: &store::Open, k: WantKind) -> bool {
+    let topics = want_topics(k);
+    let now =
+        reading.acts.iter().any(|a| matches!(a, Act::Question { topic, about: None, .. } if topics.contains(topic)));
+    now || topics.iter().any(|t| open.asked_before(*t, None))
+}
+
 /// What he asks about a want of his.
 fn ask_topic(k: WantKind) -> Option<Topic> {
     Some(match k {
@@ -898,6 +1099,7 @@ fn ask_topic(k: WantKind) -> Option<Topic> {
         WantKind::Money | WantKind::Security | WantKind::Fee | WantKind::Club => Topic::Market,
         WantKind::Career => Topic::Jobs,
         WantKind::Goals => Topic::Goals,
+        WantKind::Draft => Topic::Market,
         _ => return None,
     })
 }
@@ -907,8 +1109,12 @@ fn ask_topic(k: WantKind) -> Option<Topic> {
 /// asks as `ask_words` says (Cain 2026-11-16: the athletic director asked
 /// the coach what he'd be judged on).
 pub fn ask_words_of(w: &World, him: Them, k: WantKind) -> String {
+    // Your boss sets the goals and judges you on them: the question a real
+    // athletic director asks across that desk is what you need from him to
+    // get there, once, never what you're judged on or "show me how" after
+    // every line (Cain 2026-11-16, the goals meeting).
     if k == WantKind::Goals && super::makeup::kind(w, him) == super::wants::Kind::Boss {
-        return "he goes through the goals he holds you to and asks how you'll meet them".into();
+        return "he asks what you need from him to get there".into();
     }
     ask_words(k)
 }
@@ -934,6 +1140,7 @@ pub fn ask_words(k: WantKind) -> String {
         WantKind::Goals => "he asks what you're being judged on",
         WantKind::Booster(_) => "he asks what his money is buying",
         WantKind::Kids => "he asks what this means for his kids",
+        WantKind::Draft => "he asks what you're hearing about him from the NFL scouts",
     }
     .into()
 }
@@ -973,22 +1180,52 @@ pub fn end(w: &mut World, id: u32) {
 
 /// His reply as the voice said it (or the fallback), on the scene and the
 /// saved talk; a detail the voice added goes in his notebook (question 5).
-pub fn reply(w: &mut World, id: u32, words: &str, tell: Option<String>, colour: Option<String>) {
+/// `by` is who answered the line (`Turn.speaker`) when it isn't him: his
+/// parents doing the talking, his agent on the money.
+pub fn reply(w: &mut World, id: u32, words: &str, by: Option<Them>, tell: Option<String>, colour: Option<String>) {
     let Some(s) = scene(w, id).cloned() else { return };
     let room = store::room(w, id).unwrap_or_else(|| channels::room_for(w, &s));
     let Some(him) = across(&room) else { return };
-    // The one who answered speaks the line (his decider, his agent).
-    let name = channels::name(w, him);
+    // The one who answered speaks the line, under his own name (the talks
+    // audit, 2026-11-16: his parent's answers showed under the kid's name,
+    // and the voice wrote "Andrew's parent:" into the line to say who).
+    let by = by.filter(|x| *x != him && room.present.iter().any(|p| p.who == *x));
+    let words = unlabel(w, &room, words);
+    let name = channels::name(w, by.unwrap_or(him));
     if let Some(sc) = w.folk.scenes.iter_mut().find(|x| x.id == id) {
+        // Your read shows when it catches something new: "He gives you
+        // nothing either way." stood under every reply of a talk with a DT
+        // (Cain 2026-11-16).
+        let shown = sc.lines.iter().rev().filter(|l| l.by == 2).find_map(|l| l.tell.clone());
+        let tell = tell.filter(|x| shown.as_ref() != Some(x));
         // A talk that ended on this line still shows his last words.
-        sc.them(&name, words.to_string(), tell);
+        match by {
+            Some(_) => sc.other(&name, words.clone()),
+            None => sc.them(&name, words.clone(), tell),
+        }
     }
     let today = w.today;
     let m = &mut w.folk.live.persona;
-    store::his_words(m, him, s.date, words);
+    store::his_words(m, him, s.date, &words);
     if let Some(c) = colour {
         store::note(m, him, today, c);
     }
+}
+
+/// A line without the names the voice put in front of anyone's words
+/// ("Andrew's parent: What we'd like to know..."): the screen shows who
+/// speaks.
+pub fn unlabel(w: &World, room: &Room, words: &str) -> String {
+    let mut out = words.to_string();
+    let mut cut = false;
+    for p in &room.present {
+        let label = format!("{}:", channels::name(w, p.who));
+        while let Some(k) = out.find(&label) {
+            out.replace_range(k..k + label.len(), "");
+            cut = true;
+        }
+    }
+    if cut { out.split_whitespace().collect::<Vec<_>>().join(" ") } else { out }
 }
 
 /// The voice's turn as words: everything it may say (`Say`), and his asks.
@@ -1049,7 +1286,30 @@ pub fn promise_home(w: &World, him: Them, p: &PromiseRead) -> Option<Home> {
     }
 }
 
-/// Whether the man's last line in the scene asked you something.
+/// Words that put an ask to you now, with no question mark: "tell me
+/// where I stand", "I need an answer".
+const ASK_NOW: [&str; 12] = [
+    "tell me",
+    "let me know",
+    "i'd like to know",
+    "i want to know",
+    "i need to know",
+    "i'd like to hear",
+    "i want to hear",
+    "i need to hear",
+    "answer me",
+    "an answer",
+    "waiting on you",
+    "be straight with me",
+];
+
+/// Whether the man's last line in the scene asked you something now: a
+/// question, or words that put it to you ("tell me where I stand"). An
+/// ask he said he'd take up later ("once the staff is set I'd like to
+/// talk about where I fit in") asks nothing yet.
 fn asked_last(s: &Scene) -> bool {
-    s.lines.iter().rev().find(|l| l.by != 0).is_some_and(|l| l.by != 1 && l.text.contains('?'))
+    s.lines.iter().rev().find(|l| l.by != 0).is_some_and(|l| {
+        let t = l.text.replace('\u{2019}', "'").to_lowercase();
+        l.by != 1 && (t.contains('?') || ASK_NOW.iter().any(|w| t.contains(w)))
+    })
 }

@@ -886,6 +886,14 @@ fn profile(args: &Value) -> Profile {
         hair: text(&p, "hair", 60),
         facial_hair: text(&p, "facial_hair", 60),
         photo,
+        // Your starting reputation for how you talk (coach voice): a
+        // prototype's key, or none.
+        manner: p
+            .get("manner")
+            .and_then(Value::as_str)
+            .filter(|k| afm_engine::world::folk::persona::manner::Prototype::from_key(k).is_some())
+            .unwrap_or("")
+            .to_string(),
     }
 }
 
