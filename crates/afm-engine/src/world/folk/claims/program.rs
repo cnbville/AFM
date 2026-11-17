@@ -534,7 +534,7 @@ fn support(c: &Ctx, j: usize) -> Option<(f32, Point)> {
             .get(&c.p.player.id)
             .is_some_and(|v| v.iter().any(|l| matches!(l.kind, Look::Transcript | Look::Call)));
     Some((
-        unit(0.3 + 0.7 * c.w.programs[j].facilities),
+        unit(0.3 + 0.7 * crate::world::capital::rooms::academic(&c.w.programs[j])),
         Point::new(Kind::Support).state("line", if gpa < line { "under" } else { "near" }).known_if(seen),
     ))
 }

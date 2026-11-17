@@ -9,6 +9,11 @@
 //! school's donors at their second contract (`expros`, CP6); and donors
 //! with ties to two schools (`Donor::also`, CP28).
 //!
+//! Lane C2, the rooms (`rooms`): thirteen rooms a program with levels 1-5
+//! that share out the facilities number and each unlock a tool (CP17-CP19),
+//! aging read against the conference (CP22, CP23), renovations and new
+//! buildings (CP18, CP21) and the build year in temporary space (CP26).
+//!
 //! The store only keeps people and their memory: nothing else in the world
 //! reads it yet (lanes C3 and C4 do), so every result of a world stays the
 //! same per seed. Every draw here is keyed on the world's seed and the
@@ -18,6 +23,7 @@
 pub mod donors;
 pub mod expros;
 pub mod pledges;
+pub mod rooms;
 pub mod screen;
 
 use crate::calendar::Date;

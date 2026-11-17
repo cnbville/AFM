@@ -619,6 +619,8 @@ pub(crate) fn month(w: &mut World, m: u32) {
 /// run on and renew; the ADs decide on facility projects; realignment.
 pub(crate) fn money_year(w: &mut World) {
     let year = w.year;
+    // The rooms age a year (Capital lane C2, CP22).
+    crate::world::capital::rooms::age(w);
     let n = w.finance.college.len().min(w.programs.len());
     for p in 0..n {
         close_year(w, p);
@@ -649,6 +651,9 @@ pub(crate) fn money_year(w: &mut World) {
         open_year(w, p, year);
     }
     facility_decisions(w, year);
+    // The renovations, the rooms kept with the number and read against
+    // the conference (Capital lane C2).
+    crate::world::capital::rooms::settle(w);
     if year >= 2027 {
         realign(w, year);
     }
@@ -1029,6 +1034,9 @@ fn facility_decisions(w: &mut World, year: i32) {
             _ => ("weight room and locker room", 3.0e6),
         };
         let cost = base * (step / 0.12) * data::college_index(year);
+        // Once the rooms live, the number rises by what the building's
+        // rooms add (Capital lane C2).
+        let step = if prog.campus.live { crate::world::capital::rooms::rise(prog, kind, cost, year) } else { step };
         let pledged = cost * clamp(0.4 + 0.3 * nil_share + if big { 0.15 } else { 0.0 }, 0.2, 0.85);
         let opens = year + 2 + (draw(w, 0xFAC3, p as u64, year) < 0.4) as i32;
         w.finance.projects.push(Project {
@@ -1144,8 +1152,14 @@ fn open_projects(w: &mut World, p: usize, year: i32) {
     for k in ready {
         let x = w.finance.projects[k].clone();
         w.finance.projects[k].done = true;
+        if w.programs[p].campus.live {
+            // The rooms it built (Capital lane C2, CP18).
+            crate::world::capital::rooms::open(w, p, &x.name, x.cost as f64, year);
+        } else {
+            let prog = &mut w.programs[p];
+            prog.facilities = real.unwrap_or(clamp(prog.facilities + x.step as f64, 0.02, 1.0));
+        }
         let prog = &mut w.programs[p];
-        prog.facilities = real.unwrap_or(clamp(prog.facilities + x.step as f64, 0.02, 1.0));
         if x.kind == ProjectKind::Stadium && x.capacity > 0 {
             prog.stadium = x.capacity;
         }
@@ -1526,6 +1540,7 @@ pub fn ask_facility(w: &mut World, p: usize) -> Result<String, String> {
         _ => ("weight room and locker room", 3.0e6),
     };
     let cost = base * (step / 0.12) * data::college_index(year);
+    let step = if prog.campus.live { crate::world::capital::rooms::rise(prog, kind, cost, year) } else { step };
     let pledged = cost * clamp(0.35 + 0.3 * nil_share, 0.2, 0.8);
     w.finance.projects.push(Project {
         owner: Owner::College(p),

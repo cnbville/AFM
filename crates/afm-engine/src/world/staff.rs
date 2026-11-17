@@ -3486,7 +3486,11 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
             // Facilities move in steps (note 15C): buildings age a little each
             // year, and a project lands when the money and the will line up.
             if real.is_none() {
-                p.facilities = (p.facilities - 0.006).max(0.02);
+                // Once the rooms live they age on their own (Capital lane
+                // C2, CP22: `capital::rooms::age`).
+                if !p.campus.live {
+                    p.facilities = (p.facilities - 0.006).max(0.02);
+                }
                 let gap = fac_target - p.facilities;
                 let booster = p.collective.big_booster.is_some();
                 let chance = clamp(0.03 + 0.6 * gap.max(0.0) + if booster { 0.05 } else { 0.0 }, 0.0, 0.4);
@@ -3507,6 +3511,9 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
         }
         p.prestige = program::prestige_of(p, hc_rep, conf_strength(p));
     }
+    // The rooms follow the year's number in the world's past (Capital lane
+    // C2, `capital::rooms::sync`).
+    super::capital::rooms::sync(w);
     for division in Division::ALL {
         // A fixed yardstick (11.9): the division leader's prestige when
         // recorded history began, so the leader no longer always reads 1.0.
@@ -3544,9 +3551,12 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
         } + if p.conference == "Ivy" { 0.4 } else { 0.0 };
         let titles_recent: f64 = p.seasons.iter().rev().take(2).filter(|s| s.conference_title).count() as f64;
         raw[i][GradeCat::Academics as usize] = academics;
-        raw[i][GradeCat::ProPipeline as usize] = picks;
+        // The trophy hall and NFL wall sharpen the pipeline and tradition
+        // pitch (Capital lane C2, CP17).
+        let pitch = super::capital::rooms::pitch_lift(p);
+        raw[i][GradeCat::ProPipeline as usize] = picks * pitch;
         raw[i][GradeCat::PlayingTime as usize] = open[i];
-        raw[i][GradeCat::Tradition as usize] = p.tradition;
+        raw[i][GradeCat::Tradition as usize] = p.tradition * pitch;
         raw[i][GradeCat::TitleChances as usize] = 0.02 * t.strength + (0.6 * titles_recent + win) * conf_strength(p);
         raw[i][GradeCat::CoachPrestige as usize] = hc_rep;
         raw[i][GradeCat::Facilities as usize] = fac_reads[i];
@@ -3556,8 +3566,10 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
         raw[i][GradeCat::BrandExposure as usize] =
             0.6 * p.fans + 0.2 * p.tradition + if p.power_conference(year) { 0.2 } else { 0.0 };
         raw[i][GradeCat::ConferenceStrength as usize] = conf_strength(p);
-        raw[i][GradeCat::StadiumAtmosphere as usize] =
-            (p.crowd_seats() as f64).sqrt() * (0.5 + p.fans) * (0.7 + 0.3 * p.recent);
+        raw[i][GradeCat::StadiumAtmosphere as usize] = (p.crowd_seats() as f64).sqrt()
+            * (0.5 + p.fans)
+            * (0.7 + 0.3 * p.recent)
+            * super::capital::rooms::atmosphere_lift(p);
         raw[i][GradeCat::CampusLife as usize] = (p.enrollment as f64).ln() + 0.3 * academics;
     }
     // The commitments' lifts come off while the grades move from their own

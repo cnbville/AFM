@@ -577,7 +577,7 @@ impl World {
         let v = match level {
             Level::College => {
                 let p = &self.programs[t];
-                0.35 * (eye(p.oc.or(p.head_coach)) + eye(p.dc.or(p.head_coach))) + 7.0 * p.facilities
+                0.35 * (eye(p.oc.or(p.head_coach)) + eye(p.dc.or(p.head_coach))) + 7.0 * super::capital::rooms::film(p)
             }
             Level::Nfl => {
                 let tm = &self.nfl[t];

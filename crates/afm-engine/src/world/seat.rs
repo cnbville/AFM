@@ -1661,6 +1661,15 @@ impl World {
             c.family.mood = 0.62;
         }
         super::finance::after_load(self);
+        super::capital::rooms::after_load(self);
+        // A save from after an expansion club joined may hold agents who
+        // don't know it yet.
+        let clubs = self.nfl.len();
+        for a in self.market.agents.iter_mut() {
+            if a.rel.len() < clubs {
+                a.rel.resize(clubs, 0.0);
+            }
+        }
         // NIL is always yours (Cain 2026-11-07): a desk from before is
         // brought up to the new rules once, and every player of yours gets
         // a deal.

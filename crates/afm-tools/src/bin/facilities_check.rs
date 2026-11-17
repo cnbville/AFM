@@ -17,6 +17,12 @@
 //!     each power conference plus Northwestern and the lowest in the SEC,
 //!     ACC and Big 12 (16). Each class's signees go to the out file, read
 //!     from the signed letter (`cal.signed`), then the college.
+//!   facilities_check rooms <seed> <history years> <scale> <seasons on>
+//!     Capital lane C2: builds the world the same way, prints the
+//!     facilities table and the rooms at the handover, then plays the
+//!     seasons on (every game on the stand-in) and prints the same each
+//!     July: the FBS spread, each room's mean level and read by tier, and
+//!     the year's new buildings and renovations.
 //!   facilities_check pool <A file> <B or C file> <treated list>
 //!     is done in Python (`pooled.py` in the project folder's
 //!     afm/facilities/tools).
@@ -120,6 +126,49 @@ fn treated(w: &World) -> Vec<usize> {
     out
 }
 
+/// Capital lane C2: each room's mean level and read at FBS by tier, and
+/// last July's new buildings and renovations (the world stands in January,
+/// so last July is the season just played).
+fn rooms_table(w: &World) {
+    use afm_engine::world::capital::rooms::{ROOMS, Room};
+    let year = w.year;
+    let fbs: Vec<usize> = (0..w.programs.len())
+        .filter(|&j| w.programs[j].division == Division::FBS && w.programs[j].plays(year))
+        .collect();
+    for (label, power) in [("P4", true), ("G5", false)] {
+        let v: Vec<usize> = fbs.iter().copied().filter(|&j| w.programs[j].power_conference(year) == power).collect();
+        let n = v.len().max(1) as f64;
+        let mut line = format!("{label} rooms (level/read/share with one):");
+        for r in Room::ALL {
+            let k = r as usize;
+            let lv = v.iter().map(|&j| w.programs[j].campus.level[k] as f64).sum::<f64>() / n;
+            let rd = v.iter().map(|&j| w.programs[j].campus.read[k] as f64).sum::<f64>() / n;
+            let has = v.iter().filter(|&&j| w.programs[j].campus.level[k] > 0.0).count() as f64 / n;
+            line +=
+                &format!(" {}={lv:.2}/{rd:.2}/{:.0}%", r.words().split_whitespace().next().unwrap_or(""), 100.0 * has);
+        }
+        println!("{line}");
+    }
+    let _ = ROOMS;
+    let started = |reno: bool| {
+        w.finance
+            .projects
+            .iter()
+            .filter(|x| {
+                x.started == year - 1 && x.kind == ProjectKind::Facility && x.name.ends_with(" renovation") == reno
+            })
+            .filter(|x| matches!(x.owner, Owner::College(j) if w.programs[j].division == Division::FBS))
+            .count()
+    };
+    let temp = fbs.iter().filter(|&&j| w.programs[j].campus.in_temporary_space()).count();
+    println!(
+        "FBS projects started in July {}: {} new buildings, {} renovations; {temp} programs in temporary space",
+        year - 1,
+        started(false),
+        started(true)
+    );
+}
+
 fn main() {
     let a: Vec<String> = std::env::args().collect();
     match a.get(1).map(String::as_str) {
@@ -143,6 +192,33 @@ fn main() {
             if let Some(out) = a.get(5) {
                 afm_engine::save::write_world(&w, Path::new(out), "scratch", "facilities_check", None).expect("write");
                 eprintln!("written in {:.0} s in all", t.elapsed().as_secs_f64());
+            }
+        }
+        Some("rooms") => {
+            let seed: u32 = a[2].parse().unwrap();
+            let years: u32 = a[3].parse().unwrap();
+            let scale: f64 = a[4].parse().unwrap();
+            let on: u32 = a[5].parse().unwrap();
+            let opts = WorldOptions {
+                seed,
+                history_years: years,
+                scale,
+                engine_from: Some(2100),
+                hs_engine_years: Some(0),
+                ..Default::default()
+            };
+            let t = Instant::now();
+            let mut w = World::new_watched(opts, |w, s| {
+                eprintln!("season {} done in {:.0} s ({:.0} s in all)", w.year - 1, s, t.elapsed().as_secs_f64())
+            });
+            fac_table(&w);
+            rooms_table(&w);
+            for _ in 0..on {
+                w.advance_year();
+                eprintln!("season {} done ({:.0} s in all)", w.year - 1, t.elapsed().as_secs_f64());
+                println!("== after season {} ==", w.year - 1);
+                fac_table(&w);
+                rooms_table(&w);
             }
         }
         Some("arm") => {
