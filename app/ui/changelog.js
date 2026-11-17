@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.598", date: "17 Nov", title: "Fix the \"Ask in your words\" 400: nullable enums as anyOf, and a check on every schema and 3 more",
+    notes: [
+      "Ground has a Leads screen: open a kid someone told you about and see who told you, which of the five blanks are filled and by whom, who else is on him, and what to do next.",
+      "Your leads sit in a strip; pick one to open his card.",
+      "The five blanks show who filled each and when, with a button on the open ones.",
+      "A timeline shows who heard about him and who offered, against the day the services update.",
+      "Offer him, fill the open blank first, or let him go; each says what it risks.",
+      "Once he's your find, the card follows how he blooms.",
+    ],
+  },
+  {
     v: "0.2.593", date: "17 Nov", title: "Ground lane G5: the week's scenes played",
     notes: [
       "Your recruiting week now plays out as real scenes: walk into a high school coach's office, run your own clinic, sit with families on junior day and take the call the morning a kid decides.",
