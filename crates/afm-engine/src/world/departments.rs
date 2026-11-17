@@ -768,8 +768,11 @@ fn shape(s: &Support, area: Area, lvl: usize, roster: usize, college: bool) -> S
 
 impl Shape {
     /// The people's part for a player with this share of a full program.
+    /// Their time is never worth less than no one's: a staff whose mean
+    /// sits under `LOW` reads `LOW` for everyone, so more of it never
+    /// reads worse (proposed, not confirmed).
     fn people(&self, s: f64) -> f64 {
-        s * self.q + (1.0 - s) * LOW
+        s * self.q.max(LOW) + (1.0 - s) * LOW
     }
     fn mean_share(&self) -> f64 {
         FLOOR + (1.0 - FLOOR) * (self.time / self.n).min(1.0)
@@ -924,7 +927,7 @@ pub fn tier_of(role: crate::player::PlayingTime) -> usize {
 /// part-time one half his and half no one's, none no one's.
 fn hs_work(s: &super::high_school::HighSchool) -> f64 {
     match &s.trainer {
-        Some(a) => a.share as f64 * a.rating as f64 + (1.0 - a.share as f64) * LOW,
+        Some(a) => a.share as f64 * (a.rating as f64).max(LOW) + (1.0 - a.share as f64) * LOW,
         None => LOW,
     }
 }
