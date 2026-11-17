@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.602", date: "17 Nov", title: "Talks that know where they stand and what is between you and 1 more",
+    notes: [
+      "The game no longer freezes for minutes when you press Continue while it autosaves.",
+      "Pressing Continue during an autosave now waits a few seconds for the save to finish, then plays.",
+      "The button says \"Finishing the autosave…\" while it waits.",
+      "Macs with 8 GB of memory no longer run out of memory during an autosave.",
+      "The people you talk to now know where they stand and what's between you: a senior talks about the draft, a player you met last week knows you're new, and one you've coached for years remembers your promises.",
+      "Players know their eligibility, the draft and their place, and a man in his last season never talks about transferring.",
+    ],
+  },
+  {
     v: "0.2.599", date: "17 Nov", title: "Ground lane S7: your men and your desk (the staff carousel and assistant desk screens)",
     notes: [
       "Your staff now has a home on the Ground menu: see who another school is after, counter before he walks, and see every man's ground, mood and record in one place. Assistants get their own desk.",

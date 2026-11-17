@@ -1424,6 +1424,21 @@
   "title": "Coach fire on the field: the agreed spec (docs)",
   "tldr": "The agreed design for how the coach's fire and a player's temperament carry into games (Cain's \"yes\" 2026-11-17 01:11 UTC)."
  },
+ "507": {
+  "auto": false,
+  "bullets": [
+   "Players know their eligibility, the draft and their place, and a man in his last season never talks about transferring.",
+   "Everyone knows their history with you and the time of year: how long you've been there, the games and promises between you, your last talk, and how far they trust you.",
+   "Your boss tells you his goals and how the money works, and writes down what you commit to without making you prove every sentence.",
+   "People you push argue with reasons, ask one thing at a time, and take a no once you make it final.",
+   "\"Any questions?\" gets a real question back, a thank-you no longer ends a talk, and calls end with a goodbye."
+  ],
+  "h": "819822f160fd",
+  "look": "a one-on-one with a player in your first weeks, then your goals meeting with the athletic director.",
+  "players": true,
+  "title": "Talks that know where they stand and what is between you",
+  "tldr": "The people you talk to now know where they stand and what's between you: a senior talks about the draft, a player you met last week knows you're new, and one you've coached for years remembers your promises."
+ },
  "508": {
   "auto": false,
   "bullets": [],
@@ -1468,5 +1483,36 @@
   "players": true,
   "title": "Ground lane S7: your men and your desk (the staff carousel and assistant desk screens)",
   "tldr": "Your staff now has a home on the Ground menu: see who another school is after, counter before he walks, and see every man's ground, mood and record in one place. Assistants get their own desk."
+ },
+ "513": {
+  "auto": false,
+  "bullets": [],
+  "h": "3c7296e02d9b",
+  "look": "",
+  "players": false,
+  "title": "Scheme fit lane SF0: fit_check, the audit's measuring tool",
+  "tldr": ""
+ },
+ "515": {
+  "auto": false,
+  "bullets": [
+   "Pressing Continue during an autosave now waits a few seconds for the save to finish, then plays.",
+   "The button says \"Finishing the autosave…\" while it waits.",
+   "Macs with 8 GB of memory no longer run out of memory during an autosave."
+  ],
+  "h": "2610ac5421a3",
+  "look": "press Continue a few times in a row over ten minutes of play.",
+  "players": true,
+  "title": "Days wait for a running autosave instead of copying the world",
+  "tldr": "The game no longer freezes for minutes when you press Continue while it autosaves."
+ },
+ "518": {
+  "auto": false,
+  "bullets": [],
+  "h": "b6c27d6b1d23",
+  "look": "",
+  "players": false,
+  "title": "Progression step 5: slower closing near the top and fitted trims hold the star count",
+  "tldr": ""
  }
 }
