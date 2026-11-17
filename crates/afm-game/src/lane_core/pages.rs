@@ -1616,6 +1616,21 @@ pub fn coach_page(w: &World, c: usize) -> Result<Value, String> {
     }));
     // Your read of him (update 2, Q2) comes with having him on your staff.
     v["your_staff"] = json!(afm_engine::world::staff_read::of_coach(w, c).is_some());
+    // His closest players today (coach and player bonds), as your staff
+    // sees them: for you and the men on your staff.
+    let yours = w.career.as_ref().is_some_and(|k| k.coach == c) || v["your_staff"] == json!(true);
+    v["closest"] = json!(if yours {
+        afm_engine::world::folk::bonds::closest(w, c, 8)
+            .into_iter()
+            .filter_map(|(id, step)| {
+                let k = views::person_index(w, id)?;
+                let p = &w.people[k];
+                Some(json!({ "id": id, "name": p.name, "pos": p.player.position.name(), "step": step }))
+            })
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    });
     v["mentor_line"] = json!(co.mentor.and_then(|m| w.coaches.get(m)).map(|m| links::coach(m.id, &m.name)));
     // How you come across (coach voice): the words for your read, from your
     // lines and the reputation you came in with. Yours only.
