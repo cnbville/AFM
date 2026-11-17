@@ -443,6 +443,7 @@ fn draft_slots(w: &World, prog: usize, monday: Date) -> Vec<Slot> {
         who: None,
         school: None,
         line: None,
+        donor: None,
     };
     v.push((9, slot(monday, 8 * 60, SlotKind::Meeting, "The meeting at the map".into(), "The week's one planner")));
     let mut days: Vec<(Date, usize, usize)> = (0..7).map(|k| (monday.add(k), 0, 0)).collect();
@@ -522,6 +523,9 @@ fn draft_slots(w: &World, prog: usize, monday: Date) -> Vec<Slot> {
     let game: Vec<Date> = coaches.iter().filter(|x| x.1.kind == SlotKind::SpringGame).map(|x| x.1.date).collect();
     v.retain(|x| !(x.1.kind == SlotKind::Unofficial && game.contains(&x.1.date)));
     v.extend(coaches);
+    // Capital lane C4: your donor slots (CP2) and, in season, the suite
+    // before a home game (CP13).
+    v.extend(crate::world::capital::week::slots(w, prog, monday));
     v.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.date.cmp(&b.1.date)));
     let n = v.len().min(YOURS.1);
     for (k, (_, s)) in v.iter_mut().enumerate() {

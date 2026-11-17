@@ -103,6 +103,10 @@ pub enum Kind {
     /// your campus and the coaches' side; its kind is `Scene.b`
     /// (`ground::scenes::Kind`).
     Ground,
+    /// Capital's scenes (lane C4): a lunch or dinner with a donor, a room of
+    /// donors, the call on a named donor's name; its kind is `Scene.b`
+    /// (`capital::scenes::Kind`).
+    Capital,
 }
 
 impl Kind {
@@ -178,6 +182,7 @@ impl Kind {
             Kind::Sitdown => "A sit-down",
             Kind::Reference => "A reference call",
             Kind::Ground => "Ground",
+            Kind::Capital => "Donors",
         }
     }
 }
@@ -874,6 +879,7 @@ fn log_scene(w: &mut World, s: &Scene) {
         Kind::JobInterview => "network",
         Kind::StaffMeeting | Kind::Sitdown | Kind::Reference => "staff",
         Kind::Ground => "recruiting",
+        Kind::Capital => "boosters",
         _ => "place",
     };
     super::note(w, topic, source, format!("{}: {text}", s.title), None);
@@ -911,6 +917,7 @@ fn dispatch_open(w: &mut World, s: &mut Scene) {
         Kind::DraftTalk => super::persona::draft::scene::open(w, s),
         Kind::Sitdown | Kind::Reference => super::persona::office::open(w, s),
         Kind::Ground => crate::world::ground::scenes::open(w, s),
+        Kind::Capital => crate::world::capital::scenes::open(w, s),
         _ => super::takeover::open(w, s),
     }
 }
@@ -947,6 +954,7 @@ fn dispatch_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         Kind::DraftTalk => super::persona::draft::scene::answer(w, s, code),
         Kind::Sitdown | Kind::Reference => super::persona::office::answer(w, s, code, picked),
         Kind::Ground => crate::world::ground::scenes::answer(w, s, code),
+        Kind::Capital => crate::world::capital::scenes::answer(w, s, code),
         _ => super::takeover::answer(w, s, code, picked),
     }
 }
@@ -979,6 +987,7 @@ fn dispatch_hand(w: &mut World, s: &mut Scene) {
         Kind::DraftTalk => super::persona::draft::scene::hand(w, s),
         Kind::Sitdown | Kind::Reference => super::persona::office::hand(w, s),
         Kind::Ground => crate::world::ground::scenes::hand(w, s),
+        Kind::Capital => crate::world::capital::scenes::hand(w, s),
         _ => super::takeover::hand(w, s),
     }
 }

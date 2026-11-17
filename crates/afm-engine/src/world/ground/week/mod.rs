@@ -85,6 +85,12 @@ pub enum SlotKind {
     OpenPractice,
     SpringGame,
     Convention,
+    /// Capital lane C4 (CP2, CP13): a lunch or dinner with a donor, and a
+    /// room of donors (the suite before a home game, the spring caravan's
+    /// dinner, the summer golf outing). Capital plays them
+    /// (`capital::scenes`), all year.
+    Donor,
+    DonorRoom,
 }
 
 impl SlotKind {
@@ -103,6 +109,8 @@ impl SlotKind {
             SlotKind::OpenPractice => "open_practice",
             SlotKind::SpringGame => "spring_game",
             SlotKind::Convention => "convention",
+            SlotKind::Donor => "donor",
+            SlotKind::DonorRoom => "donor_room",
         }
     }
 }
@@ -124,6 +132,9 @@ pub struct Slot {
     pub school: Option<u32>,
     /// Its one-line result once it has happened.
     pub line: Option<String>,
+    /// The donor it is with (Capital lane C4's donor slots).
+    #[serde(default)]
+    pub donor: Option<u32>,
 }
 
 /// What kind of thing happened.
