@@ -1179,6 +1179,9 @@ pub enum Change {
     Start(Attr),
     EndBody,
     StartBody(BodyKind),
+    /// A project your staff set, on a man who is now on this staff: it
+    /// becomes the staff's own.
+    Adopt,
 }
 
 /// An AI staff's projects for one room at the checkpoint (design items 8,
@@ -1195,8 +1198,14 @@ pub fn ai_room(members: &[&Player], room: Room, lean: Lean, eye: f64, scale: f64
     let mut r = Rng::new(seed ^ 0x4F0E_C7A1);
     let mut running = 0;
     for (i, p) in members.iter().enumerate() {
+        // A project your staff set on a man now on an AI staff (he moved, or
+        // you left) is that staff's to judge from here: it adopts it, and
+        // its own dead-end rule decides it like any other.
+        if p.prog.yours || p.prog.body_yours {
+            out.push((i, Change::Adopt));
+        }
         if p.prog.project().is_some() {
-            if p.prog.yours || ai_keeps(p) {
+            if ai_keeps(p) {
                 running += 1;
             } else {
                 out.push((i, Change::End));
@@ -1257,6 +1266,10 @@ pub fn apply(p: &mut Player, c: Change) {
             start_project(p, a, false);
         }
         Change::EndBody => end_body(p),
+        Change::Adopt => {
+            p.prog.yours = false;
+            p.prog.body_yours = false;
+        }
         Change::StartBody(k) => {
             start_body(p, k, false);
         }
@@ -1271,6 +1284,9 @@ pub fn ai_single(p: &mut Player, lean: Lean, eye: f64, hs: bool, coaching: f64) 
         return;
     }
     ensure(p);
+    // The class sim has no seat: nothing here is yours.
+    p.prog.yours = false;
+    p.prog.body_yours = false;
     let mut r = stream(p.id, 0x5E1 ^ p.age.wrapping_mul(0x3B));
     // A college strength staff's body project: about one a room at a time
     // (`BODY_SLOTS`), so a man's chance a year is about a room's share.
@@ -1284,7 +1300,7 @@ pub fn ai_single(p: &mut Player, lean: Lean, eye: f64, hs: bool, coaching: f64) 
         start_body(p, BodyKind::Strength, false);
     }
     if p.prog.project().is_some() {
-        if !(p.prog.yours || ai_keeps(p)) {
+        if !ai_keeps(p) {
             end_project(p);
         }
         return;

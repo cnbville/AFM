@@ -318,3 +318,20 @@ fn your_staffs_project_read_is_a_range_on_its_own_view() {
     let (_, hi, _) = progression::your_project_read(&p, Attr::RouteRunning, on(10.0, Level::NFL, 4), &mut Rng::new(1));
     assert_eq!(hi, 0.0);
 }
+
+#[test]
+fn an_ai_staff_adopts_a_project_your_staff_set() {
+    // A man who leaves your team with your project (a transfer, or you
+    // leave) is on an AI staff's rules from its next checkpoint: it adopts
+    // the project, and its dead-end rule judges it like its own.
+    let mut a = boy(9_500, Position::S);
+    progression::ensure(&mut a);
+    assert!(progression::start_project(&mut a, Attr::Tackling, true));
+    assert!(progression::start_body(&mut a, progression::BodyKind::Strength, true));
+    let out = progression::ai_room(&[&a], Room::S, progression::Lean::BALANCED, 10.0, 1.0, 3);
+    assert!(out.contains(&(0, progression::Change::Adopt)), "{out:?}");
+    for (_, c) in out {
+        progression::apply(&mut a, c);
+    }
+    assert!(!a.prog.yours && !a.prog.body_yours);
+}
