@@ -248,6 +248,35 @@ fn claims_settle_on_the_facts_and_a_false_one_costs_its_maker() {
 }
 
 #[test]
+fn a_job_claim_settles_on_the_coach_it_named() {
+    let (mut w, prog) = seat();
+    let d = Date::ymd(w.dates.season, 3, 2);
+    w.today = d;
+    let i = (0..w.people.len()).find(|&i| w.people[i].stage == Stage::HighSchool).unwrap();
+    let id = w.people[i].player.id;
+    let rival = (0..w.programs.len())
+        .find(|&j| j != prog && w.programs[j].plays(w.year) && w.programs[j].head_coach.is_some())
+        .unwrap();
+    // The rival changed coaches earlier this year: that doesn't make a
+    // claim about the new man true.
+    w.programs[rival].hc_changed = d.year();
+    race::claim(&mut w, id, rival as u32, Topic::Job).expect("a claim");
+    let x = w.ground.race.claims[0].clone();
+    assert_eq!(x.named, w.programs[rival].head_coach.map(|c| c as u32));
+    w.today = x.settles;
+    race::settle(&mut w, x.settles);
+    assert_eq!(w.ground.race.claims[0].held, Some(false), "the man it named is still there");
+    // A second claim, and the man leaves before it settles: it holds.
+    race::claim(&mut w, id, rival as u32, Topic::Depth).ok();
+    let k = w.ground.race.claims.len();
+    let t = w.today;
+    w.ground.race.claims.push(race::Claim { held: None, said: t, settles: t, ..x.clone() });
+    w.programs[rival].head_coach = None;
+    race::settle(&mut w, t);
+    assert_eq!(w.ground.race.claims[k].held, Some(true), "the man it named has gone");
+}
+
+#[test]
 fn the_ai_ground_saves_and_loads() {
     let (mut w, _) = seat();
     spring(&mut w);

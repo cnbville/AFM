@@ -87,6 +87,9 @@ pub struct Claim {
     /// True or false, once settled.
     pub held: Option<bool>,
     pub words: String,
+    /// The head coach a job claim named: the one in the job that day.
+    #[serde(default)]
+    pub named: Option<u32>,
 }
 
 /// A commit of yours with rival signs around him.
@@ -135,6 +138,15 @@ fn program_of(w: &World, man: u32) -> Option<usize> {
     }
 }
 
+/// The program a man's visit to a head coach was for: his program now, if
+/// that program's own tie with the coach was seen the same day (a man who
+/// moved since doesn't carry his old school's visits to the new one).
+fn visit_for(w: &World, coach: u32, man: u32, seen: Date) -> Option<usize> {
+    let p = program_of(w, man)?;
+    let t = w.ground.ai.ties.0.get(&ai::tie_key(coach, Holder::Program(p as u32)))?;
+    (t.seen == seen).then_some(p)
+}
+
 /// The rival men who visited a school's head coach since `since` (the
 /// sign-in sheet), newest first; your own staff left out.
 pub fn sheet(w: &World, school: usize, since: Date, to: Date) -> Vec<Visit> {
@@ -146,7 +158,7 @@ pub fn sheet(w: &World, school: usize, since: Date, to: Date) -> Vec<Visit> {
         .with(c)
         .filter_map(|(h, t)| match h {
             Holder::Coach(m) if t.seen >= since && t.seen <= to => {
-                let p = program_of(w, m)?;
+                let p = visit_for(w, c, m, t.seen)?;
                 (Some(p) != you).then(|| Visit {
                     program: p as u32,
                     school: w.programs[p].real_name.clone(),
@@ -672,6 +684,7 @@ pub fn claim(w: &mut World, id: u32, about: u32, topic: Topic) -> Result<String,
         settles: settle_day(topic, d),
         held: None,
         words: words.clone(),
+        named: w.programs[about as usize].head_coach.map(|c| c as u32),
     });
     let fam = people::family_of(w, i);
     let voice = people::family_voice(w, fam);
@@ -714,7 +727,7 @@ pub(crate) fn run_down(w: &mut World, d: Date) {
                 continue;
             }
             let man = w.ground.ai.with(c).find_map(|(h, t)| match h {
-                Holder::Coach(m) if t.seen >= year_start && program_of(w, m) == Some(p) => Some(m),
+                Holder::Coach(m) if t.seen >= year_start && visit_for(w, c, m, t.seen) == Some(p) => Some(m),
                 _ => None,
             });
             if let Some(m) = man
@@ -742,6 +755,7 @@ pub(crate) fn run_down(w: &mut World, d: Date) {
             settles: settle_day(topic, d),
             held: None,
             words: words.clone(),
+            named: w.programs[prog].head_coach.map(|c| c as u32),
         });
         // While it stands it weighs on the family's trust in you.
         let fam = people::family_of(w, i);
@@ -786,7 +800,9 @@ fn lower(s: &str) -> String {
 /// costs whoever made it with the family (and the kid's coach hears);
 /// a true one stands.
 pub(crate) fn settle(w: &mut World, d: Date) {
-    let Some(prog) = standing::seat_program(w) else { return };
+    if standing::seat_program(w).is_none() {
+        return;
+    }
     let due: Vec<usize> = (0..w.ground.race.claims.len())
         .filter(|&k| w.ground.race.claims[k].held.is_none() && w.ground.race.claims[k].settles <= d)
         .collect();
@@ -798,6 +814,7 @@ pub(crate) fn settle(w: &mut World, d: Date) {
         };
         let held = match x.topic {
             // A job claim holds if the head coach it named has gone.
+            Topic::Job if x.named.is_some() => w.programs[x.about as usize].head_coach.map(|c| c as u32) != x.named,
             Topic::Job => {
                 let named = w.coaches.iter().position(|c| {
                     c.job
@@ -811,8 +828,9 @@ pub(crate) fn settle(w: &mut World, d: Date) {
         let fam = people::family_of(w, i);
         let coach = people::head_coach_of(w, w.people[i].hs);
         let about = w.programs[x.about as usize].real_name.clone();
-        if x.by as usize == prog {
-            // Your own claim.
+        if x.man.is_none() {
+            // Your own claim: it costs the program that made it.
+            let prog = x.by as usize;
             if !held {
                 standing::grant(w, prog, fam, standing::WORD_BROKEN, Some(format!("You lied to us about {about}.")), d);
                 if let Some(c) = coach {
@@ -827,7 +845,9 @@ pub(crate) fn settle(w: &mut World, d: Date) {
                 }
             }
         } else if !held {
-            // A rival's claim about you, false: the family remembers who said it.
+            // A rival's claim about you, false: the family remembers who
+            // said it, and whom it was about.
+            let prog = x.about as usize;
             let by = w.programs[x.by as usize].real_name.clone();
             standing::grant(
                 w,
