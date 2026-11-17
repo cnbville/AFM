@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.599", date: "17 Nov", title: "Ground lane S7: your men and your desk (the staff carousel and assistant desk screens)",
+    notes: [
+      "Your staff now has a home on the Ground menu: see who another school is after, counter before he walks, and see every man's ground, mood and record in one place. Assistants get their own desk.",
+      "A warning when another school wants one of your men, with his face, what pulls him each way and your read of him",
+      "Three counters (a raise, a title, a promise), each showing how far it reaches and what it costs",
+      "Who could take his area, and what your standing loses with him",
+      "Every man's areas, mood and record, and the areas nobody works",
+      "An assistant's desk: your list, his answers, his memory of you and your goals",
+    ],
+  },
+  {
     v: "0.2.598", date: "17 Nov", title: "Fix the \"Ask in your words\" 400: nullable enums as anyOf, and a check on every schema and 3 more",
     notes: [
       "Ground has a Leads screen: open a kid someone told you about and see who told you, which of the five blanks are filled and by whom, who else is on him, and what to do next.",

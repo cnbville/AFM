@@ -1453,5 +1453,20 @@
   "players": false,
   "title": "Capital lane C1: the donors (store only)",
   "tldr": ""
+ },
+ "511": {
+  "auto": false,
+  "bullets": [
+   "A warning when another school wants one of your men, with his face, what pulls him each way and your read of him",
+   "Three counters (a raise, a title, a promise), each showing how far it reaches and what it costs",
+   "Who could take his area, and what your standing loses with him",
+   "Every man's areas, mood and record, and the areas nobody works",
+   "An assistant's desk: your list, his answers, his memory of you and your goals"
+  ],
+  "h": "01afcea531ab",
+  "look": "Ground, \"Your men\" (head coach) or \"Your desk\" (assistant)",
+  "players": true,
+  "title": "Ground lane S7: your men and your desk (the staff carousel and assistant desk screens)",
+  "tldr": "Your staff now has a home on the Ground menu: see who another school is after, counter before he walks, and see every man's ground, mood and record in one place. Assistants get their own desk."
  }
 }

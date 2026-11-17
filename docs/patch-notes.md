@@ -8,6 +8,15 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.599 (17 Nov, shipped): ground lane S7: your men and your desk (the staff carousel and assistant desk screens) (PR #511)
+**TLDR:** Your staff now has a home on the Ground menu: see who another school is after, counter before he walks, and see every man's ground, mood and record in one place. Assistants get their own desk.
+- A warning when another school wants one of your men, with his face, what pulls him each way and your read of him (PR #511)
+- Three counters (a raise, a title, a promise), each showing how far it reaches and what it costs (PR #511)
+- Who could take his area, and what your standing loses with him (PR #511)
+- Every man's areas, mood and record, and the areas nobody works (PR #511)
+- An assistant's desk: your list, his answers, his memory of you and your goals (PR #511)
+- Look at: Ground, "Your men" (head coach) or "Your desk" (assistant) (PR #511)
+
 ## 0.2.598 (17 Nov, shipped): ground lane S4: the lead card screen (PR #492), ground lane G10: your staff's ground and the assistant seat (PR #491), progression step 6: screens show "99+" where a read passes 99 (PR #503), and 2 more
 **TLDR:** 5 changes ship together. Ground has a Leads screen: open a kid someone told you about and see who told you, which of the five blanks are filled and by whom, who else is on him, and what to do next. Your assistants now have ground of their own: each works his own areas on the map, and losing one costs you the people he knew. As an assistant, you bring kids to your head coach and earn his trust in your eye. Plus 3 more below.
 - Ground lane S4: the lead card screen (PR #492): Ground has a Leads screen: open a kid someone told you about and see who told you, which of the five blanks are filled and by whom, who else is on him, and what to do next.
