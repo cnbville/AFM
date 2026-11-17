@@ -1064,8 +1064,8 @@ const SHED_SECOND_RANGE: f64 = 3.5;
 /// barely moved runs: on the NFL test rosters the backs' yards before
 /// contact rose 0.030 a carry a point of the line's edge (its five
 /// blockers' Run Blocking less the other side's four linemen's Block
-/// Shedding), now 0.064 (0.058 at 12). On world seed 1's NFL clubs their
-/// lasting spread from one 204-carry block to the next is 0.35 a carry
+/// Shedding), now 0.065 (0.058 at 12). On world seed 1's NFL clubs their
+/// lasting spread from one 204-carry block to the next is 0.37 a carry
 /// (0.32 before; real true spread 0.36 between backs' seasons, PFR
 /// 2018-25). Proposed, not confirmed.
 const SHED_EDGE: f64 = 9.0;

@@ -1116,27 +1116,31 @@ What changed (`game/sim.rs`; every size proposed, not confirmed):
 - **The runner's read** (`run_carrier`): a man on a block counts as 0.5 × (w + 1) / 2 of a free man: nothing sealed, a quarter on an even block, a half at the shed (0.15 to 0.5 before).
 - **Tools:** `match_check` prints who starts the tackle by his block at the hit (`sim::FIRST_TACKLE_BLOCK`), the line's edge against yards before contact and the backs' lasting spread before contact, and plays a world's 32 NFL clubs with `AFM_AB_WORLD`.
 
-4,000 `match_check nfl` games, main and after, on the test rosters (seed 11) and on world seed 1's NFL clubs (seed 1):
+4,000 `match_check nfl` games, main and after (with the call table's run rows rebuilt, below), on the test rosters (seed 11) and on world seed 1's NFL clubs (seed 1):
 
 | NFL | test, main | test, after | world, main | world, after | real |
 |---|---|---|---|---|---|
-| yards a carry | 4.45 | 4.50 | 4.46 | 4.52 | 4.50 |
-| designed runs for 0 or less | 18.4% | 19.4% | 18.7% | 19.3% | 18.2% |
-| inside / outside the tackles | 3.56 / 5.38 | 3.73 / 5.35 | 3.60 / 6.26 | 3.74 / 6.34 | 4.05 / 5.06 |
-| 8 or more in the box, a carry | 3.18 | 3.24 | 3.26 | 3.31 | 3.40 |
-| first tackle: line / linebackers / backs | 43.8 / 21.0 / 35.2% | 42.4 / 21.7 / 35.9% | 42.9 / 22.3 / 34.8% | 40.9 / 23.7 / 35.4% | 43.1 / 27.8 / 29.1% |
-| the hit that starts the tackle from a man on a block | 4.9% | 2.1% | 3.9% | 1.8% | – |
+| yards a carry | 4.45 | 4.50 | 4.46 | 4.50 | 4.50 |
+| designed runs for 0 or less | 18.4% | 19.3% | 18.7% | 19.5% | 18.2% |
+| inside / outside the tackles | 3.56 / 5.38 | 3.72 / 5.39 | 3.60 / 6.26 | 3.71 / 6.32 | 4.05 / 5.06 |
+| 8 or more in the box, a carry | 3.18 | 3.20 | 3.26 | 3.27 | 3.40 |
+| first tackle: line / linebackers / backs | 43.8 / 21.0 / 35.2% | 42.4 / 21.8 / 35.8% | 42.9 / 22.3 / 34.8% | 40.8 / 24.0 / 35.2% | 43.1 / 27.8 / 29.1% |
+| the hit that starts the tackle from a man on a block | 4.9% | 2.1% | 3.9% | 1.7% | – |
 | the same, a block he isn't winning | 0.5% | 0 | 0.4% | 0 | – |
-| backs' yards before contact a point of the line's edge | 0.030 | 0.064 | -0.006 | 0.025 | – |
-| backs' yards before contact, lasting spread (204-carry blocks) | 0.34 | 0.45 | 0.32 | 0.35 | 0.36 between seasons |
-| backs' yards a carry, sd over 204-carry blocks | 0.56 | 0.68 | 0.51 | 0.55 | 0.57 |
-| missed tackles a run | 0.143 | 0.126 | 0.118 | 0.104 | – |
-| points a team game | 24.0 | 24.1 | 26.2 | 26.2 | 22.5 |
-| points sd / games within 8 | 11.1 / 41.5% | 11.4 / 39.8% | 9.6 / 56.6% | 9.9 / 54.2% | 9.9 / 53.5% |
+| backs' yards before contact a point of the line's edge | 0.030 | 0.065 | -0.006 | 0.020 | – |
+| backs' yards before contact, lasting spread (204-carry blocks) | 0.34 | 0.45 | 0.32 | 0.37 | 0.36 between seasons |
+| backs' yards a carry, sd over 204-carry blocks | 0.56 | 0.68 | 0.51 | 0.56 | 0.57 |
+| missed tackles a run | 0.143 | 0.125 | 0.118 | 0.105 | – |
+| points a team game | 24.0 | 24.3 | 26.2 | 26.2 | 22.5 |
+| points sd / games within 8 | 11.1 / 41.5% | 11.4 / 40.1% | 9.6 / 56.6% | 9.9 / 52.9% | 9.9 / 53.5% |
 
-The lasting spread is the covariance of one back's consecutive 204-carry blocks (a real season's carries), so it is what stays with a back and his team. In `match_check` the rosters never change, so it keeps all of the line's part, where real seasons lose some to line changes. The test rosters are wider apart than the world's clubs or the real NFL (points sd 11.1, real 9.9; 41.5% of games within 8, real 53.5%), so the line's new reach shows larger there: their backs' yards a carry spread 0.68 over 204-carry blocks against real 0.57, where the world's clubs come to 0.55. On the world's clubs every row in the table moves toward real but the stuffs and the line's share of first tackles. Fewer missed tackles: a man on a block tried with an arm (the miss logit +1.5), and those tries are fewer.
+The lasting spread is the covariance of one back's consecutive 204-carry blocks (a real season's carries), so it is what stays with a back and his team. In `match_check` the rosters never change, so it keeps all of the line's part, where real seasons lose some to line changes. The test rosters are wider apart than the world's clubs or the real NFL (points sd 11.1, real 9.9; 41.5% of games within 8, real 53.5%), so the line's new reach shows larger there: their backs' yards a carry spread 0.68 over 204-carry blocks against real 0.57, where the world's clubs come to 0.56. On the world's clubs yards a carry, inside runs, the 8-man box, the linebackers' first tackles, both spreads and close games move toward real; the stuffs, outside runs (a little) and the line's share of first tackles move away. Fewer missed tackles: a man on a block tried with an arm (the miss logit +1.5), and those tries are fewer.
 
-FBS (4,000 games, seed 11): yards a carry 4.76 to 4.74, runs for 0 or less 16.4% to 18.0%, first tackles by the line 43.9% to 43.7%, the line's edge 0.037 to 0.078 a point, points 23.2 to 23.2, points sd 12.1 to 12.8 and games within 8 35.2% to 31.7%. High school (2,000 games): 5.74 to 5.76 a carry, the line's first tackles 44.2% to 44.8%, points 18.6 to 18.9, points sd 15.0 to 16.4. Kick and punt returns don't move (NFL 25.4 and 8.2 yards a return, both before and after).
+FBS (4,000 games, seed 11): yards a carry 4.76 to 4.76 (real 5.12), runs for 0 or less 16.4% to 17.9%, first tackles by the line 43.9% to 43.8%, the line's edge 0.037 to 0.080 a point, points 23.2 to 23.5 (real 27.0), points sd 12.1 to 12.9 and games within 8 35.2% to 31.5%. High school (2,000 games): 5.74 to 5.77 a carry, the line's first tackles 44.2% to 44.8%, points 18.6 to 18.8, points sd 15.0 to 16.3. Kick and punt returns don't move (NFL 25.4 and 8.2 yards a return before, 25.4 and 8.3 after).
+
+The coaches' call table (`call_values.csv`, `call_values 2000`, 2,000 snaps a cell): SF3 moves its run cells by -0.41 yards on average (spread 0.81, up to 3.2) and its pass cells by almost nothing (spread 0.06, up to 0.32), so its 15 run rows are rebuilt and the pass rows kept. The pass rows were already off on main: the tool's pass cells had drifted from the table by a spread of 3.3 yards a cell (up to 17.6), and in its two fixed teams Stick and Mesh into Cover1Robber come out at -9 and -13 (the table has +6 and +4) from a storm of picks that full games don't show (minor bug 405). The numbers above are on the new table; on the old one the league came out the same within noise (NFL test rosters 4.50 a carry and 24.1 points, world clubs 4.52 a carry).
+
+Speed: `match_check nfl 4000` takes 33.0 s against 32.0 s on main (two runs each, 4 cores, the same build), 3% more.
 
 `fit_check` (team 0 the typical team, each arm one change on the same games; FBS seed 151 at 3,000 games an arm and NFL seed 161 at 2,400; * past the noise), main and after:
 
