@@ -244,3 +244,18 @@ fn an_empty_store_is_not_written() {
     let back: bonds::Bonds = serde_json::from_str(&s).unwrap();
     assert_eq!(back.by.len(), w.folk.bonds.by.len());
 }
+
+#[test]
+fn a_talk_before_any_bond_is_still_saved() {
+    let mut w = world();
+    let (id, _) = {
+        weeks(&mut w, 1);
+        mine(&w)
+    };
+    w.folk.bonds.by.clear();
+    w.folk.bonds.moments.clear();
+    bonds::sat_down(&mut w, id);
+    assert!(!w.folk.bonds.is_empty(), "the talk's date is kept");
+    let v = serde_json::to_value(&w.folk).unwrap();
+    assert!(v.get("bonds").is_some());
+}

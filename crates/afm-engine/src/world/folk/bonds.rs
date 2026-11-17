@@ -307,7 +307,13 @@ pub struct Bonds {
 
 impl Bonds {
     pub fn is_empty(&self) -> bool {
-        self.by.is_empty() && self.moments.is_empty()
+        self.by.is_empty()
+            && self.moments.is_empty()
+            && self.waiting.is_empty()
+            && self.lost.is_empty()
+            && self.burned.is_empty()
+            && self.passed.is_empty()
+            && self.talked.is_empty()
     }
 
     pub fn get(&self, id: u32, coach: usize) -> Option<&Bond> {
@@ -1151,9 +1157,10 @@ pub(crate) fn coach_left(w: &mut World, coach: usize, employer: crate::world::co
             p.mood = (p.mood + hurt).clamp(-1.0, 1.0);
         }
         moment(w, id, coach, What::Left, 0.0);
+        // A coach who left him: guarded with the next one for a year.
+        w.folk.bonds.burned.insert(id, today);
         if need(&w.people[i]).0 >= 1.25 {
             w.folk.bonds.lost.insert(id, (today, c));
-            w.folk.bonds.burned.insert(id, today);
         }
     }
 }

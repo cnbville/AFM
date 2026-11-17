@@ -16,6 +16,7 @@ Gaps found while fixing bugs or building, so they carry over between threads (Ca
 - **No bonds with strength coaches or NFL position coaches** (medium). Strength coaches see a player more than anyone in the off-season, and NFL clubs store no position coaches. They wait for support departments and stored NFL staffs. Same thread.
 - **Your own effort in a bond is talks only** (low). `bonds::you_effort` is 1.0: what you do counts only as one-on-ones (a week of contact each) and your choices at the moments, not time you give him in your week (the design's funeral "a day of your week"). Same thread.
 - **The returns are not built** (low). A former player's summer visits, his hall of fame asking you to present him, naming a son after you, and a hometown discount in NFL free agency beyond the built "guys follow you" (design section 7). Same thread.
+- **A coach leaving doesn't shake a high-need kid's home stability** (low). The design's "loses stability (-0.5 x closeness)" isn't built: only his mood, a Left moment, a year guarded and a year of trouble risk. The stability field is his background, so it needs a call on whether a coach's leaving may change it. Same thread.
 - **No "I'm not going anywhere" promise** (low). A close player hurt by a coach leaving is the price of the bond, but you can't promise to stay. The promises lane has no kind for it. Same thread.
 
 ## UI
