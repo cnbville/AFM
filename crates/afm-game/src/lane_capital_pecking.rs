@@ -73,7 +73,7 @@ fn drive_cell(w: &World, p: usize, me: usize, seen: &[Seen]) -> Value {
                 cell("yours", format!("Yours, in {}", x.stage.words()), None)
             }
             Some(x) => match going_up(w, x) {
-                Some(o) => cell("yours", format!("Yours, building, opens {}", o + 1), None),
+                Some(o) => cell("yours", format!("Yours, building, opens {o}"), None),
                 None => cell("none", "None".into(), None),
             },
             None => cell("none", "None".into(), None),
@@ -87,7 +87,7 @@ fn drive_cell(w: &World, p: usize, me: usize, seen: &[Seen]) -> Value {
                     return cell("public", format!("Public, {sh}%"), Some(sh));
                 }
                 if let Some(o) = going_up(w, x) {
-                    return cell("building", format!("Building, opens {}", o + 1), None);
+                    return cell("building", format!("Building, opens {o}"), None);
                 }
             }
             Seen::Rumored(r) if r.about as usize == p => return cell("rumored", "Rumored".into(), None),
