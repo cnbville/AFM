@@ -113,7 +113,7 @@ fn view(w: &World) -> Reply {
     let over = x.overrun;
     let found = over.filter(|o| o.found <= today);
     let open_decision = found.filter(|o| o.fix.is_none());
-    let (kept, dropped) = open_decision.map_or((x.rooms, Vec::new()), |o| drive::cut_preview(x, o.share));
+    let dropped = open_decision.map_or_else(Vec::new, |o| drive::cut_preview(x, o.share).1);
 
     // The rooms it holds: new or moved, today's level and what it opens at.
     let mask = drive::rooms_of_project(w, prog, y);
@@ -146,7 +146,7 @@ fn view(w: &World) -> Reply {
 
     // The answer to a cost overrun, with what each would do.
     let decision = open_decision.map(|o| {
-        let several = kept.count_ones() > 1 && x.rooms.count_ones() > 1;
+        let several = x.rooms.count_ones() > 1;
         let cut_words: Vec<&str> = dropped.iter().map(|r| r.words()).collect();
         json!({
             "share": pct(o.share as f64),
