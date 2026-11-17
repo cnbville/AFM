@@ -1,6 +1,6 @@
 # Capital: how it works today
 
-Checked against main e2d6a3d plus lane C3 (the money and the drive) on 2026-11-17.
+Checked against main a5d9e29 plus lane C4 (your week and scenes) on 2026-11-17.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`, `app/` or `data/`. Capital's spec is `docs/design/capital.md`; each lane adds its section here. Every size on this page is Claude's (proposed, not confirmed) unless the spec gives it.
 
@@ -29,7 +29,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`,
 - **Wealth** (`draw_donor`, `median_capacity`): lognormal around a median by level (Power 4 $4M, other FBS $1.2M, FCS $0.35M, below $0.12M) times 0.6 + 0.8 x prestige and 3% a year from 2026 (`dollars`), sd 1.1 in logs (1.3 for new money), $25K to $3B. A booster's capacity is at least 30 years of his yearly gift (40 for the big giver).
 - **Age**: old money joins around 58, new money around 48 (sd 9).
 - **Circles** (`fill_circles`, `Circle`): one old-money circle per seven donors (at least one) and a new-money one past twelve (at most two), named ("the country club's Saturday foursome", "the tech founders' dinner"). Old money joins one 85% of the time, new money 40% (a quarter of those an old circle); ex-pros none.
-- **His memory of a coach** (`Bond`): warmth 0-1 (0.5 a stranger), meetings and the last day (lane C4's slots call `met`), promises kept and broken, broken ones heard through the circle, and whether the coach coached him.
+- **His memory of a coach** (`Bond`): warmth 0-1 (0.5 a stranger), meetings and the last day (lane C4's donor scenes call `met`), promises kept and broken, broken ones heard through the circle, and whether the coach coached him.
 - **Estate gifts** (`Estate`): when a donor dies, a gift with chance 0.2 + 0.5 x affinity, sized 0.15 + 0.35 x affinity of his capacity, restricted to his first room; kept for lane C3 to pay. The dead stay three years.
 
 ## The wealth read (lane C1, CP3)
@@ -97,7 +97,7 @@ Each tool new with this lane reads its room against the division's typical room 
 
 What still reads the number, not a room: prestige (0.12 × facilities), the recruit's facilities grade (ranked within the division, the groundbreaking pull), the support staffs' budget, scouting money, traditions, the takeover's building words and the turf.
 
-What isn't built yet: more official visitors a weekend (the game has no weekend host limit; lane C4's visit weekends), the tour of three rooms (CP20, lane C4), the gate and crowd noise from the stadium room (they follow seats and fans as before).
+What isn't built yet: more official visitors a weekend (the game has no weekend host limit; lane C4's visit weekends), the tour of three rooms (CP20, built in lane C4 below), the gate and crowd noise from the stadium room (they follow seats and fans as before).
 
 ### The year
 
@@ -164,6 +164,44 @@ Seed 181, 10 years of history, scale 0.05, every game on the stand-in, six seaso
 - In the sixth year: 57 studies opened, 35 buildings broke ground (20 full, 6 mid-size, 9 smaller), 44 campaigns closed and 34 hit their goal; raised against the goal 1.57 on average (lead gifts land in big pieces); 2 pushed to borrow, 10 overruns, 5 early launches; 136 catches waiting.
 - The Power 4 collectives run about 4% thinner (13.2M against 13.8M a year): building gifts from NIL-minded donors (CP9), partly met by the fever's lift.
 - The hottest programs each year are the champions (fever 0.7-0.85).
+
+## Lane C4: your week and scenes
+
+Every size here is the build's pick, proposed, not confirmed. Code: `world/capital/week.rs` (slots and bookings), `scenes.rs` (the folk scenes), `tour.rs` (CP20), `names.rs` (names and scandals, CP25), `ceremony.rs` (CP38's data); the game commands are `crates/afm-game/src/lane_capital.rs`. Only your seat has any of it: no other program reads it, so the world plays the same on every seed (names go up at every program, but they are words only).
+
+### Quick answers
+
+- Does meeting a donor take time? Yes, a slot in your week (CP2): Ground's meeting at the map ranks a donor slot with the visits, the calls and your road day for the five scenes that come to you (`ground/week/plan.rs`, `draft_slots`, reads `capital::week::slots`). Your booking ranks 8, the suite 7, a lead donor 6, the caravan's dinner and the golf outing 5, another donor 4 (the map's own: the meeting 9, officials 8, junior day 7, your road day 6, unofficials 4). A donor slot that isn't yours is the development office's: its man has the meal, no warmth and no lead gift come of it, and the slot's line says he had hoped for you (`scenes::office_line`).
+- Who does the office put on my week? From January to August, one donor a week, two while the drive is asking (quiet or public) and a lead donor hasn't been asked in this stage: the lead donors first, then the richest the office reads that you haven't seen in 120 days, the warmest among equals; nobody seen in the last 30 days. Thursday's dinner, then Tuesday's lunch, then Wednesday's dinner, from today on (`week::suggest`, `slots`).
+- Can I book my own? Yes (`week::book`): any donor of yours (or with ties to you, CP28), a weekday lunch (noon) or dinner (6:30 PM) from tomorrow to eight weeks out, one donor a day, not the same man twice within a month, not in your week off, not on a day you're on the road. A booking for a later week holds: when that week's plan is drafted, the coordinator keeps the head coach off the road that day (`ground/week/plan.rs`, `draft_roads`). In this week it takes one of your five: the scene that matters least (by the map's ranks, the latest first among equals) goes to your coordinator. `unbook` calls it off.
+- What about the fall? From September to December your only donor slot is the hour in a suite before each home game (CP13): two hours before your kickoff on your clock, 8 AM at the earliest (`week::slots`, `suite_minute`). A booking in season is refused.
+- Other donor events? The booster club's dinner on the spring caravan (the second Tuesday of May, 6:30 PM) and the golf outing (the last Friday of June, 8 AM): rooms of donors like the suite (`caravan_day`, `golf_day`). The suite gathers 6 donors, the caravan 10, golf 12: the drive's lead donors first, then the richest the office reads (`scenes::gathered`).
+- How does a meal play? A `scene::Kind::Capital` scene (Capital's kind in `Scene.b`), opened from the slot at 5 AM (`week::dawn`, after Ground's, all year). The office's file opens it: his business, the wealth read, the catch read, when you last met and how warm he is. Your eye can catch what the file misses (the film room's roll, `ground::scenes::notice`): a man stretched thin (how hard to see 0.6) or one who'll want something back (`collects` 0.45 or more, 0.5). Then two exchanges: ask him for the drive's building or for NIL money (`gifts::ask`: you are in the room, so the lead gift can come; asking in the quiet or public phase only, once a stage, NIL once a year), push him when he'd rather give to the other side, hear him out (his wants and his rooms in his words), thank him for what he has given, or show him the plans for the room he'd give to.
+- What warms him? Each moves his warmth toward you a share of the way to full: being there 0.06 (half within three weeks of the last meeting), hearing him out 0.08, thanking him 0.10, the plans 0.06 (0.10 for a man who wants his name on a building), the last three times 0.5 + ego / 20; a word in a room 0.03 (`scenes::warm`, `MEET`, `HEAR`, `THANK`, `PLANS`, `WORD`). Warmth is what a yes and a tied pledge read (lane C3's odds, C1's `TIE_WARMTH` 0.7). A meal counts as a meeting (the wealth read narrows, `donors::met`); an ask counts itself.
+- A room of donors? Work the room (a word with each) or sit with one (one exchange, the same picks). Handed, the athletic director hosts.
+- The tour (CP20)? On an official visit weekend you choose the three rooms a recruit tours (the Ground official visit scene, a free pick per kid, `ground/scenes/campus.rs`; or `tour::set`). His wants (`tour::wants`) come from his family's weights, his position and campus life: a big man the weight room, nutrition and the NFL wall, a quarterback, linebacker or safety the film rooms, a family that wants a degree the academic center, money the content studio, the name the locker room, the stadium and the trophy hall. A toured room counts its weight times how it reads against the division's typical room (two levels either way is the end); skipping the room he cares about most costs half its weight ("he asked where the academic center was"). The weekend's pull (`recruiting.rs`, `appeal_in`, `OFFICIAL_PULL`) gains the tour's lift: 1.0 times its fit over your staff's usual tour (the three rooms that read best), at most ±0.25, beside the AD's raise and the locker room's lift. No tour chosen adds nothing.
+- What tells me what he wants? Your staff's read on choosing (by his position), and his family's first want once you sat with them that weekend (`tour::staff_read`).
+- Whose names are on buildings (CP25)? At the handover, the richest three donors of each program who could name a room ($2M in 2026 dollars) have their name on a room they'd give to, half of them, up 1 to 15 years (`names::seed`). From then, when a drive breaks ground, the donor who pledged a quarter of its goal names the building ("the Hale Football Building") and each who pledged a twentieth names the room he gave to ("the Hale Weight Room") (`names::name_buildings`).
+- And a scandal? Only at your program: about 1 in 100 a year for each name up, one open at a time (`names::roll`, `SCANDAL_YEAR`): a slur on tape (how bad, 0.9), a harassment suit (0.8), a fraud charge (0.7), hidden losses (0.6), a tax case (0.5), a drunk-driving arrest (0.35). The news, and the AD's call in your inbox (a scene that waits a week). Take it down: his circle hears it as a betrayal (lane C1's `word`: him -0.25 and at most 0.1, each old-money friend -0.12, new money -0.02), his open pledges go with him at 60%, the press approves (the AD's trust +0.02). Keep it: him +0.1 of the way, each old-money friend +0.03, the AD's trust -0.02 now and -0.025 x how bad it is on the first of each month for six months, with the questions in the papers. Left a week, the university takes it down from 0.6 (`decide`, `university`). `names::call` is the screen's.
+- The big moments (CP38)? Your program's groundbreaking (the first Saturday within two weeks of the day ground breaks with recruits on campus, else the Saturday after), the reveal video (the day the drive goes public; it reaches your eight best recruits with your offer) and the ribbon cutting (the Friday before the first home game of the season it opens) are kept in `Capital.ceremonies` with the donors on the stage (the six biggest pledgers, the building's namer first), the recruits there and each one's reaction (the building's rooms read against his tour wants: "couldn't stop talking about" from 0.45, "liked" from 0.25, else polite), and the next day's headline in the news. Data and words only: the building's pull on recruits is the rooms' and the groundbreaking's, as built. Lane CS7 plays them on screen.
+
+### The commands (`crates/afm-game/src/lane_capital.rs`)
+
+`capital_week` (this week's donor slots with their scene, your bookings, the office's list with its reasons), `capital_book` {donor, date, dinner}, `capital_unbook` {donor, date}, `capital_tour` {kid} and `capital_tour_set` {kid, rooms}, `capital_names`, `capital_name_call` {id, down}, `capital_moments`. A donor scene plays on the people commands. No dollar figure is on any of them (CP39): a gift on the stage reads as its share of the goal.
+
+### What it does not do yet
+
+- Typed lines in a donor scene land on its picks through the core reader; donors are not live talks v3 people (`persona`), so nobody "plays himself" yet.
+- The AI's donors have no week: an AI head coach meets his lead donors on lane C3's monthly chance, and AI programs' named donors have no scandals (they would change the world; a later lane with a world check).
+- The screens are lanes CS2 (donors) and CS7 (the big moments).
+
+### Where the knobs are
+
+- `world/capital/week.rs`: `LUNCH`, `DINNER`, `BOOK_AHEAD` 56, `OFFICE_WEEK` 1, `OFFICE_LEADS` 2, `UNSEEN` 120, the `RANK_*`, `SUITE` 6, `CARAVAN` 10, `GOLF` 12; the days in `caravan_day`, `golf_day`, `suite_minute`.
+- `world/capital/scenes.rs`: `MEAL` 2, `SEAT` 1, `MEET` 0.06, `HEAR` 0.08, `THANK` 0.10, `PLANS` 0.06, `PLANS_BUILDING` 0.10, `WORD` 0.03, `RECENT` 21, `SEE_STRETCHED` 0.6, `SEE_COLLECTS` 0.5.
+- `world/capital/tour.rs`: `STOPS` 3, `SLOPE` 1.0, `MAX` 0.25, `SKIP` 0.5, `AHEAD` 21, `AFTER` 2; the weights in `wants`.
+- `world/capital/names.rs`: `BUILDING_SHARE` 0.25, `ROOM_SHARE` 0.05, `SEED_FLOOR` $2M, `SEED_MOST` 3, `SEED_CHANCE` 0.5, `SCANDAL_YEAR` 0.01, `UNIVERSITY_DOWN` 0.6, `DOWN_WARMTH` 0.1, `DOWN_PULLS` 0.6, `DOWN_TRUST` 0.02, `KEEP_WARMTH` 0.1, `KEEP_CIRCLE` 0.03, `KEEP_TRUST` -0.02, `QUESTIONS_TRUST` -0.025, `QUESTIONS_MONTHS` 6; the scandals in `SCANDALS`.
+- `world/capital/ceremony.rs`: `WAIT_FOR_VISITORS` 14, `STAGE` 6, `REVEAL_KIDS` 8.
 
 ## Related pages
 

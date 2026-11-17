@@ -486,6 +486,8 @@ fn dawn(w: &mut World, d: Date, y: &YearDates) {
     // them, so the world is the same on every seed.
     if w.seat.is_some() {
         super::ground::scenes::dawn(w, d);
+        // Capital's donor slots (lane C4), all year.
+        super::capital::week::dawn(w, d);
     }
 }
 
