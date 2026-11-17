@@ -1770,7 +1770,10 @@ fn camp(w: &mut World, d: Date) {
         let (physical_coaching, strength_dev) = match team {
             Some(t) => {
                 let dev = heads[t] - t_strength;
-                (Some(0.6 * w.nfl[t].coaching + 0.4 * (t_coach + dev)), dev)
+                // The body's rooms around the league's typical (Capital
+                // lane C6).
+                let rooms = crate::world::capital::nfl::physical_lift(&w.capital, t);
+                (Some(0.6 * w.nfl[t].coaching + 0.4 * (t_coach + dev) + rooms), dev)
             }
             None => (None, 0.0),
         };

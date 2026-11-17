@@ -8,6 +8,25 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.606 (17 Nov, shipped): speed lane: very fast players as rare as real ones (PR #512), coach voice: how you talk, read and reacted to (PR #519), capital lane C3: the money and the drive (PR #520)
+**TLDR:** 3 changes ship together. Burners are as rare as in real football now: a 4.2 forty is a once-a-draft event, not a handful every spring. How you talk now matters. Your players, staff, boss and recruits hear your heat, your language and who you aim it at, and they react the way real people would. Plus 1 more below.
+- Speed lane: very fast players as rare as real ones (PR #512): Burners are as rare as in real football now: a 4.2 forty is a once-a-draft event, not a handful every spring.
+- Very fast prospects at the combine come up about as often as in the real NFL draft. (PR #512)
+- A player's top speed comes from his body. Hard work in the weight room still trims a little, but no longer turns a 4.5 man into a 4.4 man. (PR #512)
+- Freaks still exist: the fastest men still run 4.2s, and big men who fly are as common as real ones. (PR #512)
+- Coach voice: how you talk, read and reacted to (PR #519): How you talk now matters. Your players, staff, boss and recruits hear your heat, your language and who you aim it at, and they react the way real people would.
+- Pick how you talk in your coach profile, then let your real words reshape your reputation over a season. (PR #519)
+- Fire aimed at the opponent reads as passion; aimed at a player with no trust behind it, it reads as abuse. (PR #519)
+- Players answer in kind, from "Hell yeah, coach" to going quiet. (PR #519)
+- A pattern of mistreatment brings complaints, an outside review and possibly a firing for cause. (PR #519)
+- AI coaches have their own styles, and their players and staff react by the same rules. (PR #519)
+- Capital lane C3: the money and the drive (PR #520): Winning now brings in money. Titles, a Heisman and top-10 picks set your donors giving, and every program raises its buildings through a real campaign with choices that matter.
+- Big moments set off a giving fever that builds over a run and fades over two years. (PR #520)
+- Each program's drive runs a feasibility study, a quiet phase, a public launch and a close, and rival schools run theirs on the same rules. (PR #520)
+- Donors choose between NIL and buildings one by one. Pushing a donor toward the building leaves less for NIL. (PR #520)
+- Some gifts come with strings that show up later. You can go public early, push your athletic director to borrow, or answer a cost overrun. (PR #520)
+- Look at: the combine results in your first draft class. (PR #512) your coach page's "How you come across" after a few heated talks. (PR #519) the news after a conference title or a top-10 pick. (PR #520)
+
 ## 0.2.603 (17 Nov, shipped): capital lane C2: the rooms and the campus (PR #516)
 **TLDR:** Your campus is now made of real rooms, from the locker room to the NFL wall, and each one does something. Build, renovate and watch rivals answer.
 - Thirteen rooms per program, each with a level, starting from every school's real buildings. (PR #516)

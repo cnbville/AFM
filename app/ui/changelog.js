@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.606", date: "17 Nov", title: "Capital lane C3: the money and the drive and 2 more",
+    notes: [
+      "Burners are as rare as in real football now: a 4.2 forty is a once-a-draft event, not a handful every spring.",
+      "Very fast prospects at the combine come up about as often as in the real NFL draft.",
+      "A player's top speed comes from his body. Hard work in the weight room still trims a little, but no longer turns a 4.5 man into a 4.4 man.",
+      "Freaks still exist: the fastest men still run 4.2s, and big men who fly are as common as real ones.",
+      "How you talk now matters. Your players, staff, boss and recruits hear your heat, your language and who you aim it at, and they react the way real people would.",
+      "Pick how you talk in your coach profile, then let your real words reshape your reputation over a season.",
+    ],
+  },
+  {
     v: "0.2.603", date: "17 Nov", title: "Capital lane C2: the rooms and the campus",
     notes: [
       "Your campus is now made of real rooms, from the locker room to the NFL wall, and each one does something. Build, renovate and watch rivals answer.",
