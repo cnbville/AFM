@@ -93,6 +93,8 @@ Aim matters most. Heat and cursing aimed at the opponent and the job read as pas
 
 Only things already built carry it: trust, mood (and through it up to 15% of growth), game-day fire, poise and focus, portal leans and who stays, staff loyalty and who leaves, the boss's trust, recruits' lean through your name. Real basis: pregame speeches move a team's confidence (Vargas-Tonsing and Bartholomew, 2006), but no study shows a reliable effect on results.
 
+Amended 2026-11-17 by `docs/design/coach-fire.md` (Cain's "yes"): the fire channel itself now works by the kind of work and through habits (big hits, strips, flags, a calm passer's accuracy), still with no flat bonus.
+
 ## 6. Wear
 
 The same heat every day loses its punch (built for team-talk chips; extended to typed lines). A calm coach's rare explosion lands hardest.
