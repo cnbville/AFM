@@ -2,6 +2,7 @@
 //! synthetic teams at a level and compare the averages to real football.
 //! Usage: match_check [nfl|fbs|hs] [games] [seed] [pbp]
 //! With `pbp`, prints the first game's play-by-play with its whys.
+//! AFM_AB_WORLD=<world file> (NFL only) plays a world's 32 clubs instead.
 
 extern crate afm_tools;
 use afm_engine::game::stats::PlayType;
@@ -136,9 +137,17 @@ fn main() {
     let games: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(200);
     let seed: u32 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(1);
     let pbp = args.get(4).is_some_and(|s| s == "pbp");
-    let (mut teams, sched) = match std::env::var("AFM_ROSTERS") {
-        Ok(path) => world_rosters(&path, level, seed),
-        Err(_) => (synthetic_league(level, 32, seed), Vec::new()),
+    // AFM_AB_WORLD=<world file> at the NFL: the world's 32 clubs as they
+    // would dress today, on the same schedule as the synthetic league (as
+    // `ab_check` and `fit_check` read it).
+    let (mut teams, sched) = match (std::env::var("AFM_ROSTERS"), std::env::var("AFM_AB_WORLD")) {
+        (Ok(path), _) => world_rosters(&path, level, seed),
+        (_, Ok(path)) if level == Level::NFL => {
+            let w = afm_tools::ab::world_nfl(&path);
+            assert_eq!(w.len(), 32, "a world with 32 NFL clubs");
+            (w.into_iter().map(|s| s.team).collect(), Vec::new())
+        }
+        _ => (synthetic_league(level, 32, seed), Vec::new()),
     };
     let pair = |g: usize| if sched.is_empty() { pair_of(g) } else { sched[g % sched.len()] };
     // AFM_DUMP=path writes the teams as a rosters file (the AFM_ROSTERS
@@ -1599,7 +1608,22 @@ fn main() {
     }
     if std::env::var("AFM_RUNDIAG").is_ok() {
         let pairs: Vec<(usize, usize)> = (0..games).map(pair).collect();
-        run_diag(&results, &pos_of, &pairs);
+        run_diag(&results, &pos_of, &pairs, &teams);
+        // Who starts the tackle on designed runs, by his block at the hit
+        // (scheme-fit item 7, `sim::FIRST_TACKLE_BLOCK`).
+        let h: Vec<f64> = afm_engine::game::sim::FIRST_TACKLE_BLOCK
+            .iter()
+            .map(|a| a.load(std::sync::atomic::Ordering::Relaxed) as f64)
+            .collect();
+        let n: f64 = h.iter().sum::<f64>().max(1.0);
+        println!(
+            "  the hit that starts the tackle on designed runs, by the tackler's block then: free {:.3}, on a block he isn't winning (w <= 0) {:.3}, winning it at w up to 0.3 {:.3}, 0.3-0.6 {:.3}, past 0.6 {:.3}",
+            h[0] / n,
+            h[1] / n,
+            h[2] / n,
+            h[3] / n,
+            h[4] / n
+        );
     }
     if !burners.is_empty() {
         println!(
@@ -1620,7 +1644,67 @@ fn run_diag(
     results: &[afm_engine::game::GameResult],
     pos_of: &std::collections::HashMap<u32, afm_engine::positions::Position>,
     pairs: &[(usize, usize)],
+    teams: &[afm_engine::game::GameTeam],
 ) {
+    // Each team's line on runs (scheme-fit item 7): its five best blockers'
+    // Run Blocking, and its four best linemen's Block Shedding.
+    use afm_engine::attributes::Attr;
+    let top = |t: &afm_engine::game::GameTeam, ps: &[afm_engine::positions::Position], a: Attr, n: usize| {
+        let mut v: Vec<f64> = t.players.iter().filter(|p| ps.contains(&p.position)).map(|p| p.attrs.get(a)).collect();
+        v.sort_by(|x, y| y.total_cmp(x));
+        v.truncate(n);
+        v.iter().sum::<f64>() / v.len().max(1) as f64
+    };
+    {
+        use afm_engine::positions::Position as Q;
+        let ol: Vec<f64> = teams.iter().map(|t| top(t, &[Q::OT, Q::IOL], Attr::RunBlocking, 5)).collect();
+        let dl: Vec<f64> = teams.iter().map(|t| top(t, &[Q::EDGE, Q::DT], Attr::BlockShedding, 4)).collect();
+        // Per team game: the backs' yards before contact a carry against
+        // the line's edge (its blockers' Run Blocking less the other side's
+        // shedders' Block Shedding), weighted by carries.
+        let (mut sw, mut sx, mut sy, mut sxx, mut sxy) = (0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64);
+        for (gi, r) in results.iter().enumerate() {
+            let (h, a) = pairs[gi];
+            for off in 0..2usize {
+                let (me, them) = if off == 0 { (h, a) } else { (a, h) };
+                let (mut n, mut y) = (0.0, 0.0);
+                for p in r.stats.plays.iter().filter(|p| !p.nullified && p.offense == off && p.kind == PlayType::Run) {
+                    if p.call.contains("kneel") || p.call.contains("sneak") {
+                        continue;
+                    }
+                    if !matches!(p.carrier.and_then(|c| pos_of.get(&c)), Some(Q::RB)) {
+                        continue;
+                    }
+                    n += 1.0;
+                    y += p.before_contact;
+                }
+                if n == 0.0 {
+                    continue;
+                }
+                let x = ol[me] - dl[them];
+                let yy = y / n;
+                sw += n;
+                sx += n * x;
+                sy += n * yy;
+                sxx += n * x * x;
+                sxy += n * x * yy;
+            }
+        }
+        let mx = sx / sw.max(1.0);
+        let my = sy / sw.max(1.0);
+        let slope = (sxy / sw.max(1.0) - mx * my) / (sxx / sw.max(1.0) - mx * mx).max(1e-9);
+        let sd = |v: &[f64]| {
+            let m = v.iter().sum::<f64>() / v.len().max(1) as f64;
+            (v.iter().map(|x| (x - m) * (x - m)).sum::<f64>() / (v.len().max(2) - 1) as f64).sqrt()
+        };
+        println!(
+            "  the line on runs: before contact {slope:.4} a point of the line's edge (its five blockers' Run Blocking less the other four linemen's Block Shedding); teams' blockers sd {:.2}, shedders sd {:.2}: the line's spread {:.3} a carry on offense, {:.3} on defense",
+            sd(&ol),
+            sd(&dl),
+            slope * sd(&ol),
+            slope * sd(&dl)
+        );
+    }
     // Each team's backs' designed runs in 17-game seasons: [runs, yards, games].
     let mut team_season = std::collections::HashMap::<usize, [f64; 3]>::new();
     let mut team_ypc: Vec<f64> = Vec::new();
@@ -1634,8 +1718,14 @@ fn run_diag(
     let mut box_sit = [[[0.0f64; 3]; 5]; 5];
     // Each back's carries in blocks of 204 (a real 120+ carry season's mean):
     // the spread of yards a carry across blocks, all and within one back.
-    let mut per_back = std::collections::HashMap::<u32, (f64, f64)>::new();
+    let mut per_back = std::collections::HashMap::<u32, (f64, f64, f64)>::new();
     let mut blocks: Vec<(u32, f64)> = Vec::new();
+    // The same blocks' yards before contact a carry (scheme-fit item 7):
+    // real backs' seasons have a true spread of 0.36 (PFR 2018-25), mostly
+    // the line's work.
+    let mut ybc_blocks: Vec<(u32, f64)> = Vec::new();
+    // First tackles: [all, by a man on a block he never shed, by one who shed]
+    let mut ftk_blk = [0.0f64; 3];
     // Broken tackles a carry in blocks of 182 carries (the real qualifying
     // season's mean, 100+ carries; minor bug 334): real sd 0.0301, season to
     // season r 0.209 (nflverse 2018-25, `results_real.json`, Broken).
@@ -1700,10 +1790,24 @@ fn run_diag(
                 let e = per_back.entry(c).or_default();
                 e.0 += 1.0;
                 e.1 += p.yards;
+                e.2 += p.before_contact;
                 if e.0 >= 204.0 {
                     blocks.push((c, e.1 / e.0));
-                    *e = (0.0, 0.0);
+                    ybc_blocks.push((c, e.2 / e.0));
+                    *e = (0.0, 0.0, 0.0);
                 }
+            }
+            // The first tackler's run blocks on record (scheme-fit item 7,
+            // the audit's count): one he never shed (still on it at the
+            // whistle, put down, or picked up by a blocker after his hit),
+            // one he shed, or none. Who was on a block at the hit itself is
+            // `sim::FIRST_TACKLE_BLOCK`.
+            if let Some(&d) = p.tacklers.first() {
+                let held = p.blocks.iter().any(|b| b.1 == d && !b.2 && b.3);
+                let shed = p.blocks.iter().any(|b| b.1 == d && !b.2 && !b.3);
+                ftk_blk[0] += 1.0;
+                ftk_blk[1] += f64::from(u8::from(held));
+                ftk_blk[2] += f64::from(u8::from(shed && !held));
             }
             let k = match p.tacklers.first().and_then(|t| pos_of.get(t)) {
                 Some(P::EDGE | P::DT) => 0,
@@ -1880,6 +1984,38 @@ fn run_diag(
         let vy: f64 = ys.iter().map(|y| (y - my) * (y - my)).sum();
         c / (vx * vy).sqrt().max(1e-9)
     };
+    // A spread's lasting part from consecutive blocks of one back: the
+    // covariance of block k and k+1 (noise doesn't carry over).
+    let lasting = |bl: &[(u32, f64)]| {
+        let (mut xs, mut ys) = (Vec::new(), Vec::new());
+        for id in &ids {
+            let v: Vec<f64> = bl.iter().filter(|b| b.0 == *id).map(|b| b.1).collect();
+            for w in v.windows(2) {
+                xs.push(w[0]);
+                ys.push(w[1]);
+            }
+        }
+        let k = xs.len().max(2) as f64;
+        let mx = xs.iter().sum::<f64>() / k;
+        let my = ys.iter().sum::<f64>() / k;
+        let c: f64 = xs.iter().zip(&ys).map(|(x, y)| (x - mx) * (y - my)).sum::<f64>() / (k - 1.0);
+        let vx: f64 = xs.iter().map(|x| (x - mx) * (x - mx)).sum::<f64>() / (k - 1.0);
+        let vy: f64 = ys.iter().map(|y| (y - my) * (y - my)).sum::<f64>() / (k - 1.0);
+        (c.max(0.0).sqrt(), c / (vx * vy).sqrt().max(1e-9), xs.len())
+    };
+    let ybc: Vec<f64> = ybc_blocks.iter().map(|b| b.1).collect();
+    let (ybc_true, ybc_r, ybc_n) = lasting(&ybc_blocks);
+    let (ypc_true, _, _) = lasting(&blocks);
+    println!(
+        "  backs' 204-carry blocks, before contact: mean {:.2}, sd {:.3}, consecutive r {ybc_r:.3} ({ybc_n} pairs), lasting spread {ybc_true:.3} (real true spread 0.36); yards a carry lasting spread {ypc_true:.3}",
+        ybc.iter().sum::<f64>() / ybc.len().max(1) as f64,
+        sd(&ybc)
+    );
+    println!(
+        "  first tackles on backs' runs, his blocks on record: one he never shed (on it at the whistle, put down, or picked up after the hit) {:.3}, one he shed {:.3}",
+        ftk_blk[1] / ftk_blk[0].max(1.0),
+        ftk_blk[2] / ftk_blk[0].max(1.0)
+    );
     println!("  team seasons (17 games): {} , backs' ypc sd {:.3} (real 0.448)", team_ypc.len(), sd(&team_ypc));
     println!("  backs' consecutive blocks: {} pairs, correlation {corr:.3} (real season to season 0.29)", xs.len());
     println!(

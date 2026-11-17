@@ -3658,6 +3658,9 @@ pub fn cut(w: &mut World, id: u32) -> Result<String, String> {
     let j = super::program(w).ok_or("You have no college job.")?;
     let i = super::index_of(w, id).ok_or("No such player.")?;
     let today = w.today;
+    // Cut by you: the bond takes the blow (coach and player bonds).
+    let me = w.career.as_ref().map(|k| k.coach);
+    crate::world::folk::bonds::left_him(w, id, me, crate::world::folk::bonds::What::Cut);
     let aid_kept = !w.people[i].walk_on && ncaa::aid_kept(&w.programs[j], w.dates.season);
     let school = w.program_name(j).to_string();
     let (name, pos, loud) = {

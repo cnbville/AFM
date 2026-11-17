@@ -168,6 +168,7 @@ pub fn award(w: &mut World, id: u32) -> Result<String, String> {
     };
     let starter = starter && in_two_deep(w, i, j);
     w.log.walk_on_scholarships += 1;
+    crate::world::folk::bonds::scholarship(w, id);
     if fbs && starter {
         let text = format!("{name} puts former walk-on {who} ({pos}) on scholarship.");
         let e = crate::calendar::Event::new(
