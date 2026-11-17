@@ -20,6 +20,23 @@ fn world() -> World {
     w
 }
 
+/// The test world has no players, and a department's reads are taken
+/// around the typical one over teams with players: give every college a
+/// stand-in 110-man roster and every high school 50, then the year's table.
+fn rostered() -> World {
+    let mut w = world();
+    let year = w.year;
+    for p in w.programs.iter_mut().filter(|p| p.plays(year)) {
+        p.roster = (0..110).collect();
+    }
+    for s in w.high_schools.iter_mut() {
+        s.roster = (0..50).collect();
+    }
+    w.support_market.typical.clear();
+    dp::ensure(&mut w);
+    w
+}
+
 fn count(w: &World, who: Who, job: Job) -> usize {
     dp::people_of(w, who).iter().filter(|a| a.job == job).count()
 }
@@ -81,7 +98,7 @@ fn departments_are_sized_by_level_and_money() {
 
 #[test]
 fn a_typical_department_reads_as_the_typical_head() {
-    let w = world();
+    let w = rostered();
     // Question 3: each level's mean read of a headed department is the
     // level's mean head, so the world's averages don't move.
     for d in [Division::FBS, Division::FCS, Division::D2, Division::D3] {
@@ -107,7 +124,7 @@ fn a_typical_department_reads_as_the_typical_head() {
 
 #[test]
 fn a_thin_staff_shortchanges_the_backups_and_money_buys_a_better_one() {
-    let w = world();
+    let w = rostered();
     // Tiers: starters first. With 30 starters, 30 in the rotation and 60
     // more, a staff covering fewer than all gives the starters more.
     let mut thin = 0;
@@ -154,21 +171,35 @@ fn the_new_reads_keep_their_agreed_sizes() {
 
 #[test]
 fn high_schools_have_trainers_at_the_catch_on_shares() {
-    let w = world();
-    let (mut full, mut part, mut none) = (0.0f64, 0.0f64, 0.0f64);
-    for s in w.high_schools.iter().filter(|s| !s.private) {
-        match &s.trainer {
-            Some(a) if a.share >= 1.0 => full += 1.0,
-            Some(_) => part += 1.0,
-            None => none += 1.0,
+    // The rule on many schools (the test world has about two a state):
+    // public 37% full-time, 32% part-time, 31% none; private 27%, 28%, 45%.
+    for (private, want) in [(false, [0.37, 0.32, 0.31]), (true, [0.27, 0.28, 0.45])] {
+        let mut got = [0.0f64; 3];
+        let n = 40_000;
+        for id in 0..n {
+            let resources = (id % 101) as f64 / 100.0;
+            let k = match dp::hs_share(id, resources, private) {
+                x if x >= 1.0 => 0,
+                x if x > 0.0 => 1,
+                _ => 2,
+            };
+            got[k] += 1.0 / n as f64;
+        }
+        for k in 0..3 {
+            assert!((got[k] - want[k]).abs() < 0.015, "private {private}: {got:?} against {want:?}");
         }
     }
-    let n = full + part + none;
-    assert!(n > 100.0);
-    // Public schools: 37% full-time, 32% part-time, 31% none.
-    assert!((full / n - 0.37).abs() < 0.08, "full-time {:.2}", full / n);
-    assert!((part / n - 0.32).abs() < 0.08, "part-time {:.2}", part / n);
-    assert!((none / n - 0.31).abs() < 0.08, "none {:.2}", none / n);
+    // The richer school leans to a trainer.
+    let rich = (0..20_000).filter(|&id| dp::hs_share(id, 0.9, false) > 0.0).count();
+    let poor = (0..20_000).filter(|&id| dp::hs_share(id, 0.1, false) > 0.0).count();
+    assert!(rich > poor, "rich {rich}, poor {poor}");
+    // Every school in the world keeps its rule's trainer.
+    let w = rostered();
+    assert!(!w.high_schools.is_empty());
+    for s in &w.high_schools {
+        let share = dp::hs_share(s.id, s.resources, s.private);
+        assert_eq!(s.trainer.as_ref().map_or(0.0, |a| a.share), share, "school {}", s.id);
+    }
     // A school with a full-time trainer reads better than one with none.
     let with = w.high_schools.iter().position(|s| s.trainer.as_ref().is_some_and(|a| a.share >= 1.0 && a.rating >= 8));
     let without = w.high_schools.iter().position(|s| s.trainer.is_none());

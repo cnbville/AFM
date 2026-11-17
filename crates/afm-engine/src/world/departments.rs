@@ -590,20 +590,27 @@ pub(crate) fn bring(w: &mut World, from: Who, to: Who, rng: &mut Rng, ys: &Yards
 /// 45%), the richer school more likely to have one; drawn once by the
 /// school's key, filled again when he retires or leaves (proposed, not
 /// confirmed: the money's pull).
+/// A high school's athletic trainer time (CATCH ON): full time, half time
+/// or none, held by the school (public 37% full, 32% part; private 27%
+/// and 28%), leaning to the richer schools.
+pub(crate) fn hs_share(id: usize, resources: f64, private: bool) -> f32 {
+    let u = key_uniform(0x4A75_7EA1, id as u64);
+    let score = clamp(u - 0.3 * (resources - 0.5), 0.0, 1.0);
+    let (full, part) = if private { (0.27, 0.55) } else { (0.37, 0.69) };
+    if score < full {
+        1.0
+    } else if score < part {
+        0.5
+    } else {
+        0.0
+    }
+}
+
 fn hs_trainers(w: &mut World, rng: &mut Rng) {
     let year = w.year;
     for h in 0..w.high_schools.len() {
         let s = &w.high_schools[h];
-        let u = key_uniform(0x4A75_7EA1, s.id as u64);
-        let score = clamp(u - 0.3 * (s.resources - 0.5), 0.0, 1.0);
-        let (full, part) = if s.private { (0.27, 0.55) } else { (0.37, 0.69) };
-        let share = if score < full {
-            1.0
-        } else if score < part {
-            0.5
-        } else {
-            0.0
-        };
+        let share = hs_share(s.id, s.resources, s.private);
         let keep = w.high_schools[h].trainer.as_ref().is_some_and(|a| {
             let age = year - a.born;
             a.share == share && !(age >= 70 || (age >= 60 && rng.chance(0.08)) || rng.chance(0.08))
