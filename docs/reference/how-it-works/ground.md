@@ -606,7 +606,7 @@ Board 3 (GR72, GR79) on lane G5's scene. Code: `app/ui/screens/groundvisit.js` a
 - **The right column.** The newest new name of the visit (a tab for each when there are several) with what the public thinks and what the coach said, five blanks that fill as stops go (the live look is marked while the weight room or practice is still open), who heard first with the level each program holds at this school, and your ground with the coach: his level, what this visit moved, his words from the newest moment and what the next level would get you.
 - **Never a hidden number.** Your eye is a word, the coach's nature a word from his record, the public's view stars and offers as everywhere else.
 - **Not built here.** The lead card's own page is lane S4's (the name's link goes to the player page until `groundlead` exists); the other 14 scenes keep the conversation page.
-- **Test.** `crates/afm-game/tests/ground_visit_screen.rs` plays a visit on a small world: the part's fields, the commands and the cards the page reads.
+- **Test.** `tests/ground_scenes.rs` (engine) plays a visit stop by stop and checks what the page reads: the hours, where the talk is, the eye's words. The page itself was checked on mock data in both states (between stops, finished).
 
 ## Related pages
 
