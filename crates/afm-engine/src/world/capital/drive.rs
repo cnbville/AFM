@@ -838,7 +838,7 @@ fn shelve(w: &mut World, k: usize) {
 }
 
 /// The months a building takes, by kind.
-fn build_days(kind: &str) -> i32 {
+pub fn build_days(kind: &str) -> i32 {
     match kind {
         "indoor practice facility" => 450,
         "weight room and locker room" => 330,
@@ -902,7 +902,7 @@ pub(crate) fn break_ground(w: &mut World, k: usize, pushed: bool) {
 }
 
 /// The project in the books for a drive's building.
-fn project_of(w: &World, x: &Drive) -> Option<usize> {
+pub fn project_of(w: &World, x: &Drive) -> Option<usize> {
     let g = x.ground?;
     w.finance.projects.iter().rposition(|y| {
         y.owner == Owner::College(x.program as usize)
@@ -968,6 +968,27 @@ fn building(w: &mut World, k: usize, d: Date, fever: f64) {
     apply_fix(w, k, fix);
 }
 
+/// The rooms an overrun of `share` would cut from a drive's building (the
+/// smallest first, until the cut covers it, at least one room kept): what is
+/// left and what goes. The screen shows it before you choose (CS4).
+pub fn cut_preview(x: &Drive, share: f32) -> (u16, Vec<Room>) {
+    let mut have: Vec<Room> = Room::ALL.into_iter().filter(|r| x.rooms & r.bit() != 0).collect();
+    have.sort_by(|a, b| a.weight().total_cmp(&b.weight()).then(b.cmp(a)));
+    let total: f64 = have.iter().map(|r| r.weight()).sum();
+    let mut rooms = x.rooms;
+    let mut cut = 0.0;
+    let mut dropped: Vec<Room> = Vec::new();
+    for r in have {
+        if cut >= share as f64 * total || rooms.count_ones() <= 1 {
+            break;
+        }
+        rooms &= !r.bit();
+        cut += r.weight();
+        dropped.push(r);
+    }
+    (rooms, dropped)
+}
+
 fn apply_fix(w: &mut World, k: usize, fix: Fix) -> String {
     let x = w.capital.drives[k].clone();
     let p = x.program as usize;
@@ -977,21 +998,8 @@ fn apply_fix(w: &mut World, k: usize, fix: Fix) -> String {
     let name = w.programs[p].name(w.options.names).to_string();
     let text = match fix {
         Fix::CutRooms => {
-            // Drop the smallest rooms until the cut covers the overrun.
-            let mut have: Vec<Room> = Room::ALL.into_iter().filter(|r| x.rooms & r.bit() != 0).collect();
-            have.sort_by(|a, b| a.weight().total_cmp(&b.weight()).then(b.cmp(a)));
-            let total: f64 = have.iter().map(|r| r.weight()).sum();
-            let mut rooms = x.rooms;
-            let mut cut = 0.0;
-            let mut dropped: Vec<&str> = Vec::new();
-            for r in have {
-                if cut >= o.share as f64 * total || rooms.count_ones() <= 1 {
-                    break;
-                }
-                rooms &= !r.bit();
-                cut += r.weight();
-                dropped.push(r.words());
-            }
+            let (rooms, dropped) = cut_preview(&x, o.share);
+            let dropped: Vec<&str> = dropped.iter().map(|r| r.words()).collect();
             w.capital.drives[k].rooms = rooms;
             let year = w.year;
             let cost = w.finance.projects[j].cost as f64;

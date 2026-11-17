@@ -8,6 +8,33 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.611 (17 Nov, shipped): capital lane C5: the facilities race and the press (PR #521), ground lane S3: the school visit screen (PR #514), capital lane C6: high school and NFL facilities (PR #523), and 1 more
+**TLDR:** 4 changes ship together. The facilities race now has a voice. Rivals' new buildings can cost you recruits and you're told why, your donors pass on what rivals are quietly raising for, and every July the press ranks your conference's facilities. A school visit is now a scene you play: walk the stops, sit down with the head coach, and watch a new name's blanks fill as you go. Plus 2 more below.
+- Capital lane C5: the facilities race and the press (PR #521): The facilities race now has a voice. Rivals' new buildings can cost you recruits and you're told why, your donors pass on what rivals are quietly raising for, and every July the press ranks your conference's facilities.
+- When a recruit picks a rival, the reasons can name the rival's new weight room, locker room or other room over yours. (PR #521)
+- Your donors tell you, over dinner or in the suite before kickoff, when a rival is quietly raising money for a new building, and roughly how far along it is. (PR #521)
+- Rumors from a donor who was in the room are close to the truth. Word heard through friends is vaguer. (PR #521)
+- Each July the press publishes a facilities pecking order for every conference, with where you stand and how far you moved. (PR #521)
+- Ground lane S3: the school visit screen (PR #514): A school visit is now a scene you play: walk the stops, sit down with the head coach, and watch a new name's blanks fill as you go.
+- The visit shows its stops in order, with the sign-in sheet of who came before you. (PR #514)
+- You see where the school's kids went and where you stand with the coach. (PR #514)
+- A new name appears with what the public thinks, what the coach says and five blanks to fill. (PR #514)
+- It shows who heard of him first. (PR #514)
+- Skip the visit and get its result line. (PR #514)
+- Capital lane C6: high school and NFL facilities (PR #523): Facilities now matter at every level: high school coaches can work a stadium bond through town, and NFL head coaches ask the owner for the room they need.
+- High schools have a weight room, film room, locker room, turf field and stadium, each helping its own part of the program. (PR #523)
+- Stadium bonds go to the town's vote in May and November; your season and your nights at the Rotary club and the phone bank move the yes share. (PR #523)
+- A new district stadium is shared, so your crosstown rival plays in it too. (PR #523)
+- NFL clubs' rooms move the players' report card, and you ask the owner for one room a year; winning and other teams' interest make him hard to refuse. (PR #523)
+- Capital lane CS1: the Campus screen (PR #527): Your campus now has its own screen: a map of your buildings and rooms, how each one stacks up against your conference, and a button to ask your athletic director for a renovation.
+- See every building with its rooms and their levels (PR #527)
+- Gold squares show what a building under way or a summer renovation will add (PR #527)
+- Each room lists what it unlocks and how it reads against the conference's best (PR #527)
+- Ask your athletic director to renovate a room and see his answer (PR #527)
+- Compare your campus with your rival's (PR #527)
+- Look at: your news on 1 July, and the why-lines on recruits you lost. (PR #521) open this week's scene on a road day from the week board. (PR #514) the owner meeting's room asks, and the boss meeting's facility ask at a high school. (PR #523)
+- Docs and tooling merged too, no game change: CLAUDE.md: small fixes and docs merge on green (docs) (PR #524).
+
 ## 0.2.607 (17 Nov, shipped): capital lane C4: your week and scenes (PR #522)
 **TLDR:** Your donors now live in your week. Dinners, the suite before kickoff and the spring caravan sit beside your other scenes, and you choose the rooms a recruit tours on his official visit.
 - Your development office puts donors worth your time on your week, each with a reason, and you can book your own dinners. (PR #522)
