@@ -340,6 +340,61 @@ pub struct Say {
     pub heard: Vec<String>,
 }
 
+/// How a line went over with the man across, as "Heard as" says it (the
+/// landing read, item 8 of the ear audit, agreed by Cain 2026-11-17):
+/// worked out by the game in `turn`, before the line lands.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Landing {
+    /// The line touched nothing of his (a task, news about someone else,
+    /// a goodbye): no landing words.
+    #[default]
+    Untouched,
+    /// It cleared his upper bar; a recruit's point moved your case at
+    /// least half of what your best point could right now.
+    Landed,
+    /// It moved him the right way, short of the bar.
+    Little,
+    /// It touched something of his and moved nothing (a repeat that
+    /// faded, a point a better one already covers).
+    Nothing,
+    /// It moved him the wrong way, short of the lower bar.
+    Cost,
+    /// It went past his lower bar; a recruit's line cost his trust past
+    /// the bar or cost your case.
+    Missed,
+    /// A recruit: the talk's exchanges for your points are spent.
+    Spent,
+    /// A recruit: nothing of yours backs what the line named.
+    Unbacked,
+}
+
+impl Landing {
+    /// The plain words, `object` for "him" (a recruit's family can be
+    /// "her" or "them"). Empty when the line touched nothing of his.
+    pub fn words(self, object: &str) -> String {
+        match self {
+            Landing::Untouched => String::new(),
+            Landing::Landed => "it landed".into(),
+            Landing::Little => "it helped a little".into(),
+            Landing::Nothing => format!("it didn't move {object}"),
+            Landing::Cost => "it cost you a little".into(),
+            Landing::Missed => "it didn't land".into(),
+            Landing::Spent => "you've made your case for today".into(),
+            Landing::Unbacked => "nothing of yours backs that up".into(),
+        }
+    }
+
+    /// The tell your read catches (`talks::read_tell`'s sign): it shows
+    /// only past one of his bars.
+    pub fn sign(self) -> i32 {
+        match self {
+            Landing::Landed => 1,
+            Landing::Missed => -1,
+            _ => 0,
+        }
+    }
+}
+
 /// The game's turn (5.3).
 #[derive(Clone, Debug, Default)]
 pub struct Turn {
@@ -380,6 +435,8 @@ pub struct Turn {
     pub committed: Vec<(crate::world::folk::commit::Commitment, crate::world::folk::commit::Took)>,
     /// How each man in the room took your manner (coach voice), sized.
     pub manner: Vec<(Them, super::manner::Took)>,
+    /// How the line went over with the man across ("Heard as").
+    pub landing: Landing,
 }
 
 /// The game's side of a line (lane N4).

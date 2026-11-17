@@ -35,7 +35,7 @@
 
 use super::super::Them;
 use super::super::deals::{self, Agreement};
-use super::super::ear::{Act, HisAsk, How, Item, Reading, Sized, Turn};
+use super::super::ear::{Act, HisAsk, Hit, How, Item, Landing, Reading, Sized, Turn};
 use super::super::makeup;
 use super::super::room::{Channel, Place, Present, Room, Seat};
 use super::super::stores;
@@ -73,6 +73,12 @@ pub const TRUST_FLOOR: f32 = -0.04;
 /// The most points his card lists that you could still make. Proposed, not
 /// confirmed.
 pub const MAX_POINTS: usize = 8;
+/// A line landed with him when its point moved your case at least this
+/// share of what your best point could right now (agreed by Cain
+/// 2026-11-17, the landing read).
+pub const LANDED_SHARE: f32 = 0.5;
+/// Less than this on your case, either way, is no move at all.
+const MOVED: f32 = 1e-5;
 
 /// Whether a scene is a recruit's talk.
 pub fn is_recruit(k: SceneKind) -> bool {
@@ -233,11 +239,24 @@ pub fn size(w: &World, s: &Scene, h: &super::super::ear::Hit, wants: &[Want], op
     Some(Sized { hit: h.clone(), trust: trust * fade, mood: lean * fade, faded: fade < 1.0 })
 }
 
+/// Whether a hit is on something your case can make a point of: a point,
+/// one of his wants, his family.
+fn on_point(item: &Item) -> bool {
+    matches!(item, Item::Point(_) | Item::Want(_) | Item::Family)
+}
+
 /// Holds a line inside the chips' caps: one point an exchange (the best
 /// positive pull, else the worst), none once the talk's exchanges are
-/// used, and each person's trust no lower than `TRUST_FLOOR`.
+/// used, and each person's trust no lower than `TRUST_FLOOR`. Only a point
+/// pulls: how you said it (your manner, on his pride) lands on his trust
+/// beside the point, never in its place. Before, a caring manner's lift
+/// was weighed against the point as if it were a pull, won, and left no
+/// point to land (the landing read, agreed by Cain 2026-11-17).
 pub fn cap(w: &World, s: &Scene, hits: &mut [Sized]) {
     let left = pitch::exchanges_left(w, s);
+    for h in hits.iter_mut().filter(|h| !on_point(&h.hit.item)) {
+        h.mood = 0.0;
+    }
     let best = (0..hits.len()).filter(|&k| hits[k].mood > 0.0).max_by(|&a, &b| hits[a].mood.total_cmp(&hits[b].mood));
     let worst = (0..hits.len()).filter(|&k| hits[k].mood < 0.0).min_by(|&a, &b| hits[a].mood.total_cmp(&hits[b].mood));
     let keep = best.or(worst);
@@ -257,6 +276,90 @@ pub fn cap(w: &World, s: &Scene, hits: &mut [Sized]) {
             }
         }
     }
+}
+
+/// The point a line makes on your case after `cap`, and the pull it lands
+/// at (never over the chip's own size): what `apply` lands and the landing
+/// read measures.
+fn kept(w: &World, s: &Scene, hits: &[Sized], wants: &[Want]) -> Option<(Typed, f32)> {
+    let h = hits.iter().find(|h| h.mood != 0.0)?;
+    let p = target(w, s, &h.hit.item, wants)?;
+    let lean = if h.mood > 0.0 { h.mood.min(p.lean.max(0.0)) } else { h.mood };
+    Some((p, lean))
+}
+
+/// The straight answer a line gives when it makes no point (the chip's "be
+/// straight"): his doubt on something in a group, with exchanges left.
+/// The group, and the point when the line named one.
+fn straight(w: &World, s: &Scene, hits: &[Sized], wants: &[Want]) -> Option<(Group, Option<claims::Kind>)> {
+    let h = hits.iter().find(|h| h.hit.how == How::Doubted)?;
+    let g = group_for(&h.hit.item, wants)?;
+    if pitch::exchanges_left(w, s) == 0 {
+        return None;
+    }
+    let kind = match &h.hit.item {
+        Item::Point(key) => claims::Kind::from_key(key),
+        _ => None,
+    };
+    Some((g, kind))
+}
+
+/// Whether you have something that backs what a hit named, made in this
+/// talk already or not.
+fn backed(w: &World, s: &Scene, item: &Item, wants: &[Want]) -> bool {
+    match item {
+        Item::Point(key) => pitch::typed_backed(w, s, claims::Kind::from_key(key), None),
+        _ => pitch::typed_backed(w, s, None, group_for(item, wants)),
+    }
+}
+
+/// A recruit's line read on your case, in the case's own size (the landing
+/// read, agreed by Cain 2026-11-17). It landed when its point moved your
+/// case at least `LANDED_SHARE` of what your best point could right now,
+/// and helped a little when it moved it less. It didn't land when it cost
+/// his trust past a player's lower bar (`hits::PLAYER_BARS`) or cost your
+/// case, and cost you a little when it cost his trust less. A line that
+/// named a point and moved nothing says when the talk's exchanges are
+/// spent or nothing of yours backs it; said again in the same talk, it
+/// moved nothing. With no point, a straight answer or a warm word that
+/// lifts his trust helps a little. Read in `turn` after `cap`, before
+/// anything lands.
+pub fn landing(w: &World, s: &Scene, room: &Room, reading: &Reading, hits: &[Sized], wants: &[Want]) -> Landing {
+    let Some(x) = with(w, s) else { return Landing::Untouched };
+    let here = |who: Them| on_case(&x, who) && room.present.iter().any(|p| p.who == who);
+    // What the line put to him as a point: warm words or flattery on
+    // something your case can make a point of.
+    let warm = |how: How| matches!(how, How::Reassured | How::Respected | How::Staked | How::Flattered);
+    let named: Vec<&Hit> = reading.hits.iter().filter(|h| here(h.on) && on_point(&h.item) && warm(h.how)).collect();
+    let mine: Vec<&Sized> = hits.iter().filter(|h| on_case(&x, h.hit.on)).collect();
+    if mine.is_empty() && named.is_empty() {
+        return Landing::Untouched;
+    }
+    let trust: f32 = mine.iter().map(|h| h.trust).sum();
+    let moved = kept(w, s, hits, wants).map_or(0.0, |(p, lean)| pitch::typed_moves(w, s, &p, lean));
+    let (up, down) = hits::PLAYER_BARS;
+    let small = hits::SMALL * up;
+    if trust < down || moved < -MOVED {
+        return Landing::Missed;
+    }
+    if moved > MOVED {
+        return if moved >= LANDED_SHARE * pitch::typed_best(w, s) { Landing::Landed } else { Landing::Little };
+    }
+    if trust < -small {
+        return Landing::Cost;
+    }
+    if straight(w, s, hits, wants).is_some() {
+        return Landing::Little;
+    }
+    if !named.is_empty() {
+        if pitch::exchanges_left(w, s) == 0 {
+            return Landing::Spent;
+        }
+        if !named.iter().any(|h| backed(w, s, &h.item, wants)) {
+            return Landing::Unbacked;
+        }
+    }
+    if trust > small { Landing::Little } else { Landing::Nothing }
 }
 
 /// How he takes the point that landed, in words for the voice: his own
@@ -558,10 +661,7 @@ pub fn apply(w: &mut World, id: u32, t: &Turn, promises: &[PromiseRead], wants: 
             stores::nudge_trust(w, h.hit.on, h.trust);
         }
     }
-    if let Some(h) = t.hits.iter().find(|h| h.mood != 0.0)
-        && let Some(p) = target(w, &s, &h.hit.item, wants)
-    {
-        let lean = if h.mood > 0.0 { h.mood.min(p.lean.max(0.0)) } else { h.mood };
+    if let Some((p, lean)) = kept(w, &s, &t.hits, wants) {
         let delta = pitch::land_typed(w, &mut s, &p, lean);
         s.f[0] += delta;
         s.outcome.push(format!(
@@ -574,14 +674,7 @@ pub fn apply(w: &mut World, id: u32, t: &Turn, promises: &[PromiseRead], wants: 
                 _ => "polite.",
             }
         ));
-    } else if let Some(h) = t.hits.iter().find(|h| h.hit.how == How::Doubted)
-        && let Some(g) = group_for(&h.hit.item, wants)
-        && pitch::exchanges_left(w, &s) > 0
-    {
-        let kind = match &h.hit.item {
-            Item::Point(key) => claims::Kind::from_key(key),
-            _ => None,
-        };
+    } else if let Some((g, kind)) = straight(w, &s, &t.hits, wants) {
         pitch::straight_typed(w, &mut s, g, kind);
         s.outcome.push(format!(
             "{}: you were straight with him. No pull, and he believes your word a little more.",

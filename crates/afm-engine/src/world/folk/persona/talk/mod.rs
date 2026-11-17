@@ -566,6 +566,8 @@ impl Resolving for Conversation<'_> {
         // Every hit on every listener, sized (question 1), then held inside
         // today's caps per person.
         let line = open.lines;
+        let first = t.hits.len();
+        let own_sizes = matches!((facet, s), (Facet::Recruit, Some(_)) | (Facet::HsCall, Some(_)));
         for h in &reading.hits {
             if !room.present.iter().any(|p| p.who == h.on) {
                 continue;
@@ -573,12 +575,13 @@ impl Resolving for Conversation<'_> {
             let sized = match (facet, s) {
                 (Facet::Recruit, Some(s)) => recruit::size(w, s, h, &wants, &open),
                 (Facet::HsCall, Some(s)) => hs_call::size(w, s, h),
-                _ => hits::size(w, h, &wants, &open, line),
+                _ => hits::size(w, h, &wants, &open),
             };
             if let Some(sz) = sized {
                 t.hits.push(sz);
             }
         }
+        let sized = first..t.hits.len();
         // How you said it (coach voice, section 4): each man takes your
         // manner his own way, by what he wants from a coach, what he has
         // with you and where it was said. It lands as one more hit, inside
@@ -635,6 +638,11 @@ impl Resolving for Conversation<'_> {
         }
         if facet == Facet::Other {
             hits::settle(&mut t.hits);
+        }
+        // His day, once a line on the words' hits (after `settle`, past the
+        // hits it emptied).
+        if !own_sizes {
+            hits::day(w, &open, line, &mut t.hits[sized]);
         }
         match (facet, s) {
             (Facet::Recruit, Some(s)) => {
@@ -760,8 +768,19 @@ impl Resolving for Conversation<'_> {
         {
             t.say.stance = tp::Stance::from_bits(s.c);
         }
+        // How the line went over ("Heard as"), from everything above: a
+        // recruit's on your case, a high school call's at its end, anyone
+        // else's on his own bars.
+        t.landing = match (facet, s) {
+            (Facet::Recruit, Some(s)) => recruit::landing(w, s, room, reading, &t.hits, &wants),
+            (Facet::HsCall, Some(_)) => hs_call::landing(him, &t.hits),
+            _ => {
+                let committed: Vec<f32> = t.committed.iter().map(|(_, k)| k.trust()).collect();
+                hits::landing(him, &t.hits, &committed)
+            }
+        };
         if t.say.tell.is_empty() {
-            t.say.tell = hits::tell(w, him, &t.hits);
+            t.say.tell = hits::tell(w, him, t.landing);
         }
         let _ = facts;
         t

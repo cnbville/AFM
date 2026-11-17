@@ -649,19 +649,12 @@ pub fn heard(w: &World, room: &Room, t: &Turn) -> String {
         }
     }
     parts.extend(bare);
-    // What moved with him: the hits, and a commitment he wrote down.
-    let net: f32 = t.hits.iter().filter(|h| h.hit.on == him).map(|h| h.trust + h.mood).sum::<f32>()
-        + t.committed.iter().map(|(_, k)| k.trust()).sum::<f32>();
-    // His own bars: a person in your building moves less in a line than a
-    // player does (`hits::landed_bars`).
-    let (up, down) = talk::hits::landed_bars(him);
-    let landed = if net > up {
-        "it landed"
-    } else if net < down {
-        "it didn't land"
-    } else {
-        "hard to tell how it landed"
-    };
-    parts.push(landed.into());
+    // How it went over, as the game read it (`Turn.landing`: a recruit's
+    // line on your case, anyone else's on his own bars); nothing when the
+    // line touched nothing of his ("Heard as a request.").
+    let landed = t.landing.words(channels::object(w, him));
+    if !landed.is_empty() {
+        parts.push(landed);
+    }
     parts.join("; ")
 }
