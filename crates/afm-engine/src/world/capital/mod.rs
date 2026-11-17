@@ -21,7 +21,18 @@
 //! overruns and the development office (`drive`, CP11, CP12, CP14-CP16,
 //! CP24), on the same rules for the AI (CP27). From the season the world
 //! hands over, drives replace the ADs' old July decisions, so the world's
-//! future changes; its past stays the same per seed. Every draw here is keyed on the world's seed and the
+//! future changes; its past stays the same per seed.
+//!
+//! Lane C4, your week and scenes: meeting a donor takes a slot in your
+//! week (`week`, CP2), all year but only the suite before a home game in
+//! season (CP13); the lunch, the dinner and the rooms of donors play as
+//! scenes (`scenes`); you choose the three rooms a recruit tours on his
+//! official visit (`tour`, CP20); names go up on buildings and rooms, and a
+//! named donor's scandal is your call (`names`, CP25); and the
+//! groundbreaking, the reveal video and the ribbon cutting keep their
+//! data for the big moments (`ceremony`, CP38). Only your seat has them.
+//!
+//! Every draw here is keyed on the world's seed and the
 //! donor, never on a shared stream. Sizes are Claude's (proposed, not
 //! confirmed) unless the spec gives them.
 //!
@@ -30,15 +41,20 @@
 //! rumors from your own donors (CP30), and the press's facilities pecking
 //! order of every conference each July (CP31). News and text only.
 
+pub mod ceremony;
 pub mod donors;
 pub mod drive;
 pub mod expros;
 pub mod fever;
 pub mod gifts;
+pub mod names;
 pub mod pledges;
 pub mod race;
 pub mod rooms;
+pub mod scenes;
 pub mod screen;
+pub mod tour;
+pub mod week;
 
 use crate::calendar::Date;
 use crate::world::World;
@@ -75,6 +91,18 @@ pub struct Capital {
     /// The press's facilities pecking order of every conference each July
     /// (lane C5, CP31), the last 30 years.
     pub pecking: Vec<Pecking>,
+    /// Lane C4: the donor meetings you booked (CP2), the tours you chose
+    /// (CP20, sorted by recruit), names on buildings and rooms and the
+    /// drives already named, named donors' scandals (CP25), your program's
+    /// big moments (CP38), and whether the names up at the handover were
+    /// set.
+    pub booked: Vec<week::Booked>,
+    pub tours: Vec<tour::Tour>,
+    pub names: Vec<names::Name>,
+    pub named: Vec<u32>,
+    pub scandals: Vec<names::Scandal>,
+    pub ceremonies: Vec<ceremony::Ceremony>,
+    pub seeded: bool,
     /// The college season and the draft year last looked at for moments.
     pub(crate) scanned: i32,
     pub(crate) drafted: i32,
@@ -132,6 +160,8 @@ pub(crate) fn day(w: &mut World, d: Date) {
             drive::month(w, d);
             race::rumors(w, d);
         }
+        names::day(w, d);
+        ceremony::day(w, d);
     }
 }
 

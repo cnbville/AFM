@@ -287,6 +287,10 @@ fn the_store_saves_and_an_old_file_loads_empty() {
 
 /// The world plays the same with the donors: they only write their own
 /// store.
+/// The people store's parts that are the seat's own (lane C4's donor
+/// scenes and names calls write only these).
+const SEAT_FOLK: &[&str] = &["mine", "scenes", "next_scene", "log", "heard", "shown", "said_on"];
+
 #[test]
 fn the_world_plays_the_same_with_the_donors() {
     let fp = |w: &World| -> Vec<serde_json::Value> {
@@ -294,7 +298,16 @@ fn the_world_plays_the_same_with_the_donors() {
             serde_json::to_value(&w.people).unwrap(),
             serde_json::to_value(&w.programs).unwrap(),
             serde_json::to_value(&w.coaches).unwrap(),
-            serde_json::to_value(&w.folk).unwrap(),
+            // Lane C4's donor scenes are the seat's own: your scenes, your
+            // log, what you said and the AD's trust in you. The rest of the
+            // people store must not move.
+            {
+                let mut f = serde_json::to_value(&w.folk).unwrap();
+                for k in SEAT_FOLK {
+                    f.as_object_mut().unwrap().remove(*k);
+                }
+                f
+            },
             serde_json::to_value(&w.finance).unwrap(),
         ]
     };
@@ -310,7 +323,13 @@ fn the_world_plays_the_same_with_the_donors() {
     }
     assert!(!on.capital.donors.is_empty() && on.capital.year == on.year);
     assert_eq!(off.capital.donors.len(), kept);
-    assert!(fp(&on) == fp(&off), "the world moved with the donors");
+    let names = ["people", "programs", "coaches", "folk", "finance"];
+    let (a, b) = (fp(&on), fp(&off));
+    let mut moved: Vec<String> = (0..a.len()).filter(|&k| a[k] != b[k]).map(|k| names[k].to_string()).collect();
+    if let (Some(x), Some(y)) = (a[3].as_object(), b[3].as_object()) {
+        moved.extend(x.keys().filter(|k| x.get(*k) != y.get(*k)).map(|k| format!("folk.{k}")));
+    }
+    assert!(moved.is_empty(), "the world moved with the donors: {moved:?}");
 }
 
 /// Two schools' donors drawn with the same year and place are their own

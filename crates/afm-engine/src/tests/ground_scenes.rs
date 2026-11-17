@@ -190,6 +190,7 @@ fn a_school_visit_goes_stop_by_stop_and_the_road_knows_it() {
         who: None,
         school: None,
         line: None,
+        donor: None,
     };
     let id = scenes::start(&mut w, prog, Kind::SchoolVisit, &slot).expect("a school on your road");
     let s = fscene::open(&mut w, id).unwrap();

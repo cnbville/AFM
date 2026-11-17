@@ -8,6 +8,22 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.602 (17 Nov, shipped): days wait for a running autosave instead of copying the world (PR #515), talks that know where they stand and what is between you (PR #507), progression step 5: slower closing near the top and fitted trims hold the star count (PR #518)
+**TLDR:** 3 changes ship together. The game no longer freezes for minutes when you press Continue while it autosaves. The people you talk to now know where they stand and what's between you: a senior talks about the draft, a player you met last week knows you're new, and one you've coached for years remembers your promises. Plus 1 more below.
+- Days wait for a running autosave instead of copying the world (PR #515): The game no longer freezes for minutes when you press Continue while it autosaves.
+- Pressing Continue during an autosave now waits a few seconds for the save to finish, then plays. (PR #515)
+- The button says "Finishing the autosave…" while it waits. (PR #515)
+- Macs with 8 GB of memory no longer run out of memory during an autosave. (PR #515)
+- Talks that know where they stand and what is between you (PR #507): The people you talk to now know where they stand and what's between you: a senior talks about the draft, a player you met last week knows you're new, and one you've coached for years remembers your promises.
+- Players know their eligibility, the draft and their place, and a man in his last season never talks about transferring. (PR #507)
+- Everyone knows their history with you and the time of year: how long you've been there, the games and promises between you, your last talk, and how far they trust you. (PR #507)
+- Your boss tells you his goals and how the money works, and writes down what you commit to without making you prove every sentence. (PR #507)
+- People you push argue with reasons, ask one thing at a time, and take a no once you make it final. (PR #507)
+- "Any questions?" gets a real question back, a thank-you no longer ends a talk, and calls end with a goodbye. (PR #507)
+- Progression step 5: slower closing near the top and fitted trims hold the star count (PR #518): no summary in the PR
+- Look at: press Continue a few times in a row over ten minutes of play. (PR #515) a one-on-one with a player in your first weeks, then your goals meeting with the athletic director. (PR #507)
+- Docs and tooling merged too, no game change: Scheme fit lane SF0: fit_check, the audit's measuring tool (PR #513).
+
 ## 0.2.599 (17 Nov, shipped): ground lane S7: your men and your desk (the staff carousel and assistant desk screens) (PR #511)
 **TLDR:** Your staff now has a home on the Ground menu: see who another school is after, counter before he walks, and see every man's ground, mood and record in one place. Assistants get their own desk.
 - A warning when another school wants one of your men, with his face, what pulls him each way and your read of him (PR #511)
