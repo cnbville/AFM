@@ -1129,8 +1129,11 @@ function leaveCareer() {
 // The desktop app updates itself: at start, and every few hours while it runs,
 // it asks the public downloads page for a newer build, downloads it in the
 // background and installs it. With no career open it restarts on its own;
-// with one open it asks first, so nothing unsaved is lost.
+// with one open it asks first, so nothing unsaved is lost. An installed update
+// waits for the restart, but the checks go on: a newer build found meanwhile
+// replaces it, so one restart lands on the latest.
 let updating = false;
+let pendingVer = null; // the version installed on disk and waiting for a restart
 function updateBar(html) {
   let b = $("#updatebar");
   if (!b) {
@@ -1151,7 +1154,10 @@ async function checkUpdate(manual) {
   if (typeof verPin === "function" && (await verPin())) return manual ? "paused" : null;
   let up = null;
   try { up = await T.updater.check(); } catch (e) { console.warn("update check", e); return false; }
-  if (!up) return null;
+  if (!up) return pendingVer ? "pending" : null;
+  // The running copy is still the old one, so the check keeps offering what is
+  // already installed: leave that alone, only a different version goes on top.
+  if (up.version === pendingVer) return "pending";
   updating = true;
   let got = 0, total = 0;
   updateBar(`<b>Updating AFM to version ${esc(up.version)}…</b><small id="upmb"></small>`);
@@ -1164,14 +1170,24 @@ async function checkUpdate(manual) {
     });
   } catch (e) {
     updating = false;
+    if (pendingVer) { await showPending(); return; }
     updateBar(`<b>The update didn't install.</b><small>${esc(e.message || e)}. AFM tries again next time it starts.</small><button class="st-btn small glass" data-act="updclose">Close</button>`);
     return;
   }
+  updating = false;
+  pendingVer = up.version;
   // A career open, or a world being built or downloaded: never cut off.
+  if (!(await updateBusy()).busy) return T.process.relaunch();
+  await showPending();
+}
+async function updateBusy() {
   const working = await api("job").then((j) => !!(j && !j.finished), () => false);
-  const busy = (S.status && S.status.you) || working;
-  if (!busy) return T.process.relaunch();
-  updateBar(`<b>Version ${esc(up.version)} is installed.</b><small>${working ? "Restart once the world you're building or downloading is ready." : "Save your career, then restart to use it."}</small><button class="st-btn small primary" data-act="updrestart">Restart now</button>`);
+  return { working, busy: !!((S.status && S.status.you) || working) };
+}
+// The prompt for the version waiting on disk.
+async function showPending() {
+  const { working } = await updateBusy();
+  updateBar(`<b>Version ${esc(pendingVer)} is installed.</b><small>${working ? "Restart once the world you're building or downloading is ready." : "Save your career, then restart to use it."}</small><button class="st-btn small primary" data-act="updrestart">Restart now</button>`);
 }
 document.addEventListener("click", (ev) => {
   const a = ev.target.closest("[data-act=updrestart],[data-act=updclose]");
@@ -1181,6 +1197,8 @@ document.addEventListener("click", (ev) => {
 });
 setTimeout(checkUpdate, 3000);
 setInterval(checkUpdate, 3 * 3600 * 1000);
+// With a restart pending, look more often: a newer build replaces the waiting one.
+setInterval(() => { if (pendingVer) checkUpdate(); }, 20 * 60 * 1000);
 
 // ---------- start ----------
 // A page opened in its own window (⌘-click) carries its route in the

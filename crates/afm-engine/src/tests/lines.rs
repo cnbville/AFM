@@ -391,6 +391,9 @@ fn asked() -> Vec<String> {
         v.push(format!("gameday.day.{k}"));
     }
     v.push("gameday.captain.day".into());
+    // Ground's scenes (lane G5, ground.txt).
+    v.push("ground.visit.greet".into());
+    v.push("ground.call.greet".into());
     v
 }
 

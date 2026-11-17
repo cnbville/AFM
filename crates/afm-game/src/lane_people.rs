@@ -404,7 +404,7 @@ fn scene_brief(w: &World, s: &Scene) -> Value {
     json!({
         "id": s.id,
         "kind": format!("{:?}", s.kind),
-        "kindName": s.kind.name(),
+        "kindName": afm_engine::world::ground::scenes::kind_of(s).map_or(s.kind.name(), |g| g.name()),
         "title": s.title,
         "date": s.date.0,
         "dateText": date_text(s.date),
@@ -494,7 +494,12 @@ fn scene(w: &mut World, id: u32) -> Reply {
     if s.kind == Kind::CombineTalk {
         v["clock"] = json!({ "left": s.c.max(0), "of": s.f[0] as i64 });
     }
-    v["docs"] = json!(s.docs);
+    // A ground scene's running state is a table the screens never show.
+    v["docs"] = json!(s.docs.iter().filter(|d| !afm_engine::world::ground::scenes::is_state(d)).collect::<Vec<_>>());
+    if let Some(g) = afm_engine::world::ground::scenes::kind_of(&s) {
+        v["kindName"] = json!(g.name());
+        v["ground"] = crate::lane_groundweek::scene_part(w, &s);
+    }
     v["step"] = json!(s.step);
     v["hours"] = json!(talks::hours_left(w));
     v["team"] = s.team.map_or(Value::Null, |t| team_json(w, t));

@@ -511,6 +511,12 @@ fn draft_slots(w: &World, prog: usize, monday: Date) -> Vec<Slot> {
         s.man = Some(r.man);
         v.push((6, s));
     }
+    // Lane G5: your clinic, open practices, the spring game and the
+    // convention. The spring game holds that Saturday's unofficial visits.
+    let coaches = super::super::scenes::coach_slots(w, prog, monday);
+    let game: Vec<Date> = coaches.iter().filter(|x| x.1.kind == SlotKind::SpringGame).map(|x| x.1.date).collect();
+    v.retain(|x| !(x.1.kind == SlotKind::Unofficial && game.contains(&x.1.date)));
+    v.extend(coaches);
     v.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.date.cmp(&b.1.date)));
     let n = v.len().min(YOURS.1);
     for (k, (_, s)) in v.iter_mut().enumerate() {

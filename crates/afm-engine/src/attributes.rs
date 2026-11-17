@@ -8,7 +8,14 @@
 //! injury proneness, recovery, longevity and temperament (`player.rs`).
 
 pub const MIN_RATING: f64 = 1.0;
+/// The top of the rating scale as screens and scouting reads show it: a
+/// number past it reads "99+" (physical study item 19).
 pub const MAX_RATING: f64 = 99.0;
+/// The bound a true rating or ceiling is held to (physical study items 1,
+/// 17 and 18, Cain 2026-11-15): no 99 wall under the hood, only a bound no
+/// man reaches, so a broken number can't run away. How rare a rating past
+/// 99 is comes from creation's thin top (`athlete::thin_top`).
+pub const RATING_BOUND: f64 = 150.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 #[repr(u8)]

@@ -53,7 +53,7 @@ pub mod table;
 
 use std::collections::HashMap;
 
-use crate::attributes::{ATTRIBUTE_COUNT, Attr, MAX_RATING, MIN_RATING};
+use crate::attributes::{ATTRIBUTE_COUNT, Attr, MIN_RATING, RATING_BOUND};
 use crate::game::sim::Move;
 use crate::game::stats::{GameStats, PlayRecord, PlayType, expected_completion_at};
 use crate::game::{GamePlayer, GameTeam};
@@ -950,7 +950,8 @@ pub fn apply_in(
         let t = target(level, read, p.position, e.n as f64, e.centred(), own, e.v as f64, mode);
         let a = read.attr();
         let was = p.attributes.get(a);
-        let now = clamp(was + t - e.applied as f64, MIN_RATING, MAX_RATING);
+        let now = clamp(was + t - e.applied as f64, MIN_RATING, RATING_BOUND);
+        let now = crate::athlete::top_up_attr(a, was, now);
         p.attributes.set(a, now);
         // What really moved (a rating at the scale's end moves less), so a
         // later fall in the target takes back only what was given.
@@ -962,7 +963,8 @@ pub fn apply_in(
         // grew back every unlucky one, a ratchet.
         let top_now = p.ceilings.get(a);
         let c = if top_now - was <= AT_TOP { top_now + (now - was) } else { top_now };
-        p.ceilings.set(a, clamp(c, now, MAX_RATING));
+        let c = crate::athlete::top_up_attr(a, top_now, c);
+        p.ceilings.set(a, clamp(c, now, RATING_BOUND));
         if top.is_none_or(|(_, v)| d.abs() > v.abs()) {
             top = Some((read, d));
         }
