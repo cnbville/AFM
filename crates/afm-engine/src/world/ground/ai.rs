@@ -57,6 +57,13 @@ pub const REACH_FLOOR: f64 = 0.15;
 /// built from kids who reach out; an FBS staff watches little of it.
 /// Proposed, not confirmed.
 pub const SENT_TAPE: [f64; 4] = [0.3, 0.6, 1.2, 1.6];
+/// A program this big works the country: the richest talent areas at its
+/// level are always on its plan, wherever its name draws (Notre Dame,
+/// Alabama and Ohio State in Texas, Florida and Georgia). Proposed, not
+/// confirmed (the G9 world check, 2026-11-17).
+pub const NATIONAL_PRESTIGE: f64 = 0.8;
+/// How many of the richest areas a national program always works.
+pub const NATIONAL_AREAS: usize = 5;
 /// A second man goes into an area worth this many times the last one
 /// picked (the AI's answer to an area that matters: GR65).
 pub const SECOND_MAN: f64 = 3.0;
@@ -377,7 +384,9 @@ fn men(w: &World, prog: usize) -> Vec<usize> {
 /// Plans every AI staff's areas for the season: each area is worth the
 /// talent its schools control at the staff's level times where the
 /// program's name draws (its footprint in the state: where it can win
-/// kids, from its region, its national reach and its pipelines). Each man
+/// kids, from its region, its national reach and its pipelines); a
+/// program at `NATIONAL_PRESTIGE` also always works the
+/// `NATIONAL_AREAS` richest areas at its level. Each man
 /// takes up to three areas (`staff::beats::PER_MAN`), the one he has the
 /// most ties in first; an area worth `SECOND_MAN` times the last one picked
 /// gets a second man.
@@ -395,6 +404,13 @@ pub(crate) fn plan(w: &mut World) {
             order[class][a] = v.into_iter().map(|x| x.1).collect();
         }
     }
+    let national: Vec<Vec<u16>> = (0..4)
+        .map(|class| {
+            let mut v: Vec<(f32, u16)> = (0..n_areas).map(|a| (area_talent[a][class], a as u16)).collect();
+            v.sort_by(|x, y| y.0.total_cmp(&x.0).then(x.1.cmp(&y.1)));
+            v.into_iter().take(NATIONAL_AREAS).map(|x| x.1).collect()
+        })
+        .collect();
     let table = super::areas::table();
     let mut beats: Vec<Beat> = Vec::new();
     for prog in 0..w.programs.len() {
@@ -407,7 +423,7 @@ pub(crate) fn plan(w: &mut World) {
             .map(|a| {
                 let st = table[a].state.min(50);
                 let f = p.footprint[st];
-                let v = if f >= REACH_FLOOR { area_talent[a][class] as f64 * f * f } else { 0.0 };
+                let v = if f >= REACH_FLOOR { area_talent[a][class] as f64 * f } else { 0.0 };
                 (v, a as u16)
             })
             .filter(|x| x.0 > 0.0)
@@ -420,9 +436,18 @@ pub(crate) fn plan(w: &mut World) {
             continue;
         }
         let slots = ms.len() * super::staff::beats::PER_MAN;
-        let mut picks: Vec<u16> = val.iter().take(slots).map(|x| x.1).collect();
+        // A national program's richest areas first, then the rest by value.
+        let mut picks: Vec<u16> = if p.prestige >= NATIONAL_PRESTIGE { national[class].clone() } else { Vec::new() };
+        for x in &val {
+            if picks.len() >= slots {
+                break;
+            }
+            if !picks.contains(&x.1) {
+                picks.push(x.1);
+            }
+        }
         // A second man where an area matters most.
-        let last = val.get(picks.len().saturating_sub(1)).map_or(0.0, |x| x.0);
+        let last = val.iter().rev().find(|x| picks.contains(&x.1)).map_or(0.0, |x| x.0);
         let extra: Vec<u16> = val.iter().take_while(|x| x.0 >= SECOND_MAN * last && last > 0.0).map(|x| x.1).collect();
         for a in extra {
             if picks.len() < slots + ms.len() {
