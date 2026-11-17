@@ -45,7 +45,7 @@ A deep, realistic American football management sim modelled on Football Manager:
 - **Everything realistic and dynamic.** Reason the way real football works, and derive outcomes from attributes, not flat rules.
 - **Every trial result explains why.** Each notable outcome gets a reason, so Raichel can judge it. Sanity-check results for contradictions before showing them.
 - **Keep token use low and write plainly.** Use short sentences and simple structure. One checker pass per trial, no big agent fan-outs.
-- **Don't push or merge without Raichel's OK.** Build threads have that OK: they merge to `main` and send one final reply.
+- **Small fixes and docs merge on green; big or new-design changes wait for Raichel's OK.** Any thread, research threads included, pushes a small fix or a docs change, opens the PR and merges it when CI is green (Cain, 2026-11-17: "why would you wait for my ok"). A big change or a new design needs Raichel's OK first. Build threads have that OK for their agreed lane: they merge to `main` and send one final reply.
 - **Mark what's unconfirmed.** In docs, label Claude's proposals that Raichel hasn't answered as "proposed, not confirmed". Don't invent decisions.
 - **Potential is hidden in the game.** The player-facing side never sees a true ceiling, only scouted estimates and hints. Exact potential is for trial and debug tooling only.
 
