@@ -8,6 +8,7 @@ mod bodies;
 mod capital;
 mod capital_drive;
 mod capital_rooms;
+mod capital_seats;
 mod carousel;
 mod cfl_draft;
 mod chain;

@@ -22,7 +22,13 @@
 //! CP24), on the same rules for the AI (CP27). From the season the world
 //! hands over, drives replace the ADs' old July decisions, so the world's
 //! future changes; its past stays the same per seed. Every draw here is keyed on the world's seed and the
-//! donor, never on a shared stream. Sizes are Claude's (proposed, not
+//! donor, never on a shared stream.
+//!
+//! Lane C6, high school and the NFL: five rooms a high school, the booster
+//! club's room list and the district's stadium bond with your work in town,
+//! the stadium shared across the district (`hs`, CP32-CP34); eight rooms a
+//! club that move the players' report card, your room asks of the owner and
+//! your leverage (`nfl`, CP35, CP36). Sizes are Claude's (proposed, not
 //! confirmed) unless the spec gives them.
 
 pub mod donors;
@@ -30,6 +36,8 @@ pub mod drive;
 pub mod expros;
 pub mod fever;
 pub mod gifts;
+pub mod hs;
+pub mod nfl;
 pub mod pledges;
 pub mod rooms;
 pub mod screen;
@@ -74,9 +82,36 @@ pub struct Capital {
     pub(crate) next: u32,
     /// The last year the donors were brought up to date.
     pub(crate) year: i32,
+    /// Every high school's rooms, by school (lane C6, CP33), and the
+    /// typical room's value this year.
+    pub hs: Vec<hs::HsCampus>,
+    pub hs_typical: [f32; hs::HS_ROOMS],
+    /// The districts' stadium bonds (CP32, CP34), oldest first.
+    pub bonds: Vec<hs::Bond>,
+    /// Your work in town before a vote.
+    pub town: Vec<hs::TownWork>,
+    /// The money year you last asked your board for a bond.
+    pub(crate) bond_asked: i32,
+    /// The July the high school rooms last aged.
+    pub(crate) hs_year: i32,
+    /// Every NFL club's rooms, by team (CP35), and the league's typical.
+    pub clubs: Vec<nfl::ClubRooms>,
+    pub nfl_typical: [f32; rooms::ROOMS],
+    /// Room renovations the owners pay for.
+    pub club_builds: Vec<nfl::ClubBuild>,
+    /// Your asks of the owner for a room.
+    pub room_asks: Vec<nfl::RoomAsk>,
+    /// The league year the club rooms last aged.
+    pub(crate) nfl_year: i32,
     /// Test switch: the store stands still (the same-world check).
     #[serde(skip)]
     pub(crate) off: bool,
+    /// Test and measure switches: the high school and NFL rooms read
+    /// neutral (lane C6's arm without it, `facilities_check`).
+    #[serde(skip)]
+    pub hs_off: bool,
+    #[serde(skip)]
+    pub nfl_off: bool,
 }
 
 impl Capital {
@@ -115,6 +150,13 @@ pub(crate) fn day(w: &mut World, d: Date) {
         if d.day() == 1 {
             drive::month(w, d);
         }
+        // Lane C6: the high school rooms age each July; the boards'
+        // windows, election nights and openings; the clubs' renovations.
+        if d == w.dates.money_year || w.capital.hs.is_empty() {
+            hs::year(w);
+        }
+        hs::day(w, d);
+        nfl::day(w, d);
     }
 }
 

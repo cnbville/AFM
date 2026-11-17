@@ -1,6 +1,6 @@
 # Capital: how it works today
 
-Checked against main e2d6a3d plus lane C3 (the money and the drive) on 2026-11-17.
+Checked against main a5d9e29 plus lane C6 (high school and NFL facilities) on 2026-11-17.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`, `app/` or `data/`. Capital's spec is `docs/design/capital.md`; each lane adds its section here. Every size on this page is Claude's (proposed, not confirmed) unless the spec gives it.
 
@@ -164,6 +164,53 @@ Seed 181, 10 years of history, scale 0.05, every game on the stand-in, six seaso
 - In the sixth year: 57 studies opened, 35 buildings broke ground (20 full, 6 mid-size, 9 smaller), 44 campaigns closed and 34 hit their goal; raised against the goal 1.57 on average (lead gifts land in big pieces); 2 pushed to borrow, 10 overruns, 5 early launches; 136 catches waiting.
 - The Power 4 collectives run about 4% thinner (13.2M against 13.8M a year): building gifts from NIL-minded donors (CP9), partly met by the fever's lift.
 - The hottest programs each year are the champions (fever 0.7-0.85).
+
+## Lane C6: high school and NFL facilities
+
+### Quick answers
+
+- What rooms does a high school have? Five (CP33's list and the stadium): weight room, film room, locker room, turf practice field, stadium, each 0 (none) to 5 (`world/capital/hs.rs`, `HsRoom`, `HsCampus` on `Capital.hs` by school). They are drawn the first live day around where the school's money keeps them (`target`: 0.8 + 3.4 x resources for the weight and film rooms, the locker room a little more for prestige, the stadium from the usual crowd), a keyed level either way; turf by `turf_chance` (0.02 + 0.4 x resources + 0.3 x enrollment / 2,500 + 0.1 x culture + 0.1 x the town's money - 0.1, within 0.03-0.95: about half of all schools).
+- Do they age? A tenth of a level each 1 July (CP22, `hs::year`), never below 0.1.
+- What does each one do? Each is read around the high schools' typical room this year (`Capital.hs_typical`, the mean value), so the level's totals stay where they were:
+
+| Room | What it does | Where |
+|---|---|---|
+| Weight room | The body's coaching + 1.8 x value over typical (in coaching points) | `hs::physical_lift`, `world/season.rs` (the high school step's `physical_coaching`) |
+| Film room | Film study + 3.5 x value over typical, in games and on your tape | `hs::film_lift`, `world/hs_year.rs` (`squad_team`), `world/tape.rs` |
+| Locker room | The room's mood + 0.12 x value over typical (±0.08) in development | `hs::mood_lift`, `world/season.rs` |
+| Turf field | Your practice on a wet grass field waits half an hour ("rain on grass") without one; the field's upkeep line 25% lower with one | `training/seat.rs`, `practice_weather`; `finance/hs.rs`, `budget` |
+| Stadium | The home crowd x (1 + 0.3 x value over typical), 0.8-1.25: the gate and the crowds | `hs::crowd_factor`, `finance/hs.rs`, `crowd` |
+
+- Who pays for the rooms? The booster club, from the shorter list (CP33): the racks and platforms lift the weight room a level, the locker room renovation the locker room, the meeting room with film screens the film room, the field house 0.6 each to the weight and locker rooms, the turf practice field builds turf to 5 (`hs::project_rooms`, the school desk's `PROJECTS`). The speed gear and the video tower stay equipment (the school's resources, as before). At your school your wish list decides (`front_office::school`, `booster_day`); each AI school's club takes the room furthest behind its target at the same prices, with chance 0.25 x levels behind (to 0.6) x twice the year's purchases over the price (to 1) (`hs::boosters`, CP27).
+- What is a district? The public schools of one town in one state, a big town's split into groups of six by id (`hs::district`, `DISTRICT_MAX`). Private schools have no bond.
+- When does a board call a stadium bond? In two windows: 1 February for the first Saturday in May, 1 August for November's general election day (the first Tuesday after the first Monday), at least 78 days before as Texas law asks (`election_days`, `next_election`, `ORDER_DAYS`). Each district with nothing under way weighs one with chance 0.002 + 0.25 x its need + 0.004 x culture, at most 0.2, where the need is how far its stadium trails the typical one and its own target (`call_chance`, `stadium_need`). Not after a passed bond for eight years, nor within a year of a failed one. Hawaii has no local votes.
+- What does a bond build? A new stadium (need 0.25 or more and 1,500 students or a football state) at about $3,300 a seat in 2012 dollars (Allen ISD's 18,000 seats for $60M), seats 1.5 x the biggest usual crowd (2,000-18,000); else a renovation at a quarter of that (`package_for`). It opens 1 August two years after a new stadium's vote, one after a renovation's.
+- How does the town vote? The expected yes share is 0.535 + 0.1 x (the district's win share - 0.5) + 0.03 for a state title + 0.02 x ln(crowds over the schools' size, ±0.03) + 0.04 x culture + 0.06 x (the town's money - 0.5) - 0.05 x (the tax bill against $25,000 a student - 1) + the coach's work; election night adds 0.06 x a keyed normal (`expected_yes`, `NIGHT_SD`). A November vote reads this season's record so far, a May vote last season's. It passes at the state's line: 50%, California 55%, Idaho two-thirds, Oklahoma, Iowa and Washington 60%, Missouri four-sevenths (`needs`).
+- What is my work in town? Within ten weeks of election day, one slot a week (CP2's slot, from your hours): a lunch talk at the Rotary club (2 hours, +1 point, three times), a night at the booster club's phone bank (3 hours, +0.8, four times), the district's community forum (2 hours, +1.2, once) (`town_work`, `Work::size`). An AI head coach does his own on the same rule: up to 7 points by his relationships rating, a keyed draw (`coach_work`).
+- Can I ask for a bond? Yes, once a money year (`ask_bond`): the board says yes at 0.08 + 1.2 x the need + 0.5 x (your principal's trust - 0.5) + 0.2 x (last season's win share - 0.5), within 0.03-0.85. The boss meeting's facility ask at a high school puts one on the ballot on his yes (`folk/boss.rs`, `grant`; `hs::call_for`). A bond you asked for that passes lifts his trust 0.04; one that fails costs 0.03.
+- Who gets the stadium? Every school in the district (CP34): a new one sets each school's stadium to 5, a renovation lifts it 1.5; the field is turf, so each school's turf is at least 4.5; a new stadium's field house lifts the first school's locker room to 4.5 (`hs::open`). Your crosstown rival's crowds rise with yours.
+- What do I see? News lines for your own district only: the board's call, election night with the share, the opening. `hs::seat_json` holds the rooms, the bond, its outlook in words ("It leans yes") and your work for lane CS6's screen.
+
+### The NFL
+
+- What rooms does a club have? Eight (`world/capital/nfl.rs`, `ROOMS_NFL`): locker room, weight room, sports science lab, training room, cafeteria and nutrition, film rooms, indoor field, family room and players' lounge, with shares 0.16, 0.18, 0.10, 0.14, 0.10, 0.14, 0.12, 0.06. The stadium stays the books' (`finance/nfl.rs`, `Home`). No donors: the owner pays (CP35).
+- Where do they start? The first live league year (the day after the Super Bowl, `nfl::year` called from `finance::nfl::year_start`), each room at 5 x the club's facility number, a keyed 0.4 of a level either way. Then each ages 0.1 a year (CP22) and the club's facility number is their weighted mean (`ClubRooms::number`).
+- What moves the report card (CP35)? Before the rooms live every line reads exactly as before (`nfl::card_lines`). Once they live: the locker room's line reads 0.7 x the locker room + 0.3 x the stadium's newness; the weight room's the weight room; the training room's half the training room and half the lab (with the medical staff as before); food and the nutritionist + 0.3 x the cafeteria over the league's typical; the treatment of families + 0.3 x the family room over typical (`card_line` names each room's line).
+- What do the rooms do? Read around the league's typical room (`Capital.nfl_typical`): the body's coaching + 1.8 x (the body's rooms over typical, the college mix 0.55 weight, 0.2 nutrition, 0.15 lab, 0.1 training room), ±0.9 (`physical_lift`, `world/pro/mod.rs`); game injury days back in the medical staff's units + 2 x the training room over typical (`recovery_units`, `world/pro/games.rs`); soft-tissue injuries in games x (1 - 0.3 x the lab over typical), 0.85-1.15 (`soft_tissue_guard`); film study + 7 x the film rooms over typical, ±2 (`film_lift`, games and your tape); the room's mood + 0.12 x locker room + 0.08 x family room over typical, ±0.1 (`mood_lift`, `world/people.rs`); your body plans x (1 + 0.4 x the cafeteria over typical) (`body_plan_rate`, `training/seat.rs`); the indoor field (every club has one).
+- Do owners renovate on their own? Yes, every club on one rule (CP27, `nfl::year`): the room furthest behind his target (5 x (0.55 + 0.45 x his spend level)), with the college ADs' chance (`rooms::renovation_chance`, 0.4 times after a year in the red). A renovation costs the room's share of a $160M (2024) building at half, grown with league revenue (`renovation_cost`), and opens 20 July (for camp if begun by June, else next year's) (`ClubBuild`, `nfl::day`).
+- What about a poor report card? A shamed owner (as before) now redoes the rooms the card names: one or two of the locker room, training room and weight room lines at D+ or worse and he renovates those rooms; all three and he builds a new training facility as before, which sets every room to 5 (`card_push`, `opened_building`).
+- How do I ask (CP35)? By room, once a league year (`ask_room`; the owner meeting offers the three rooms furthest behind, `rooms_to_ask`, `folk/boss.rs`, codes 60 + the room). His yes chance is his own facility chance (`folk::boss::chance`: his money, trust, the goals you met, his nature) x your leverage, + 0.06 a level the room trails his target, within 0.02-0.95. A typed facility ask that he grants redoes the room furthest behind (`grant_room`).
+- What is my leverage (CP36)? 0.5 + last season's win share, x 0.7 for a losing season, + 0.15 for the playoffs, + 0.35 if another team offered you a job this past year or you turned one down (`leverage`, `wanted`). In words: "Hard to refuse" at 1.3 or more, "A fair hearing" at 0.9, else "A long shot"; a winless year reads 0.35, a champion with offers 2.0. Leverage moves only the room asks; your other asks of the owner read as before.
+- What do I see? A news line when your club's renovation is ready for camp; `nfl::seat_json` holds each room's level, its card line and latest grade, your leverage in words, the build under way and the owner's words for lane CS6.
+
+### Does it change the world?
+
+Yes, from the season the world hands over (`capital::live`): the high school rooms' tools, the boosters' rooms, the bonds and the crowds; the clubs' rooms, renovations, report cards and their tools. Before that nothing reads them (an empty store reads neutral, and the clubs' card lines read the one number), so the past is the same per seed (`tests/capital.rs`, `the_world_plays_the_same_with_the_donors`). Tests: `tests/capital_seats.rs`.
+
+### Where the knobs are
+
+- `world/capital/hs.rs`: `AGE_A_YEAR` 0.1, `WEIGHT_COACHING` 1.8, `FILM_STUDY` 3.5, `LOCKER_MOOD` 0.12, `STADIUM_CROWD` 0.3, `TURF_UPKEEP` 0.25, `DISTRICT_MAX` 6, `WORK_DAYS` 70, `ORDER_DAYS` 78, `NIGHT_SD` 0.06; `target`, `turf_chance`, `call_chance`, `package_for`, `expected_yes`, `needs`, `Work::size`, `coach_work`, `ask_chance`.
+- `world/capital/nfl.rs`: `weight`, `owner_target`, `renovation_cost`, `leverage`, `ask_chance`, the tools' slopes and caps above.
 
 ## Related pages
 
