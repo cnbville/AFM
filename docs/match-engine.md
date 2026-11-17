@@ -1150,14 +1150,14 @@ Speed: `match_check nfl 4000` takes 33.0 s against 32.0 s on main (two runs each
 | the same: run blocks won, of 100 | +7.3 to +11.6 | +8.9 to +16.9 | +6.0 to +10.3 | +5.9 to +13.9 |
 | the same: team run success, points | -0.0 to +0.8 | +0.1 to +1.5 | -0.1 to +0.7 | +0.3 to +1.9 |
 | a tight end's Run Blocking: yards a carry | +0.01 to +0.06 | +0.06 to +0.08 | +0.01 to +0.10 | +0.03 to +0.16 |
-| a tackle's Block Shedding: yards a carry allowed | -0.02 to -0.01 (0 of 5*) | -0.15 to -0.06 (5 of 5*) | -0.03 to +0.01 (0 of 5*) | -0.11 to -0.08 (5 of 5*) |
+| a defensive tackle's Block Shedding: yards a carry allowed | -0.02 to -0.01 (0 of 5*) | -0.15 to -0.06 (5 of 5*) | -0.03 to +0.01 (0 of 5*) | -0.11 to -0.08 (5 of 5*) |
 | the same: his first tackles on runs a season | -2.8 to +2.0 | +0.8 to +7.2 | -6.9 to +2.1 | -1.6 to +7.2 |
 | an edge's Block Shedding: yards a carry allowed | -0.05 to -0.03 | -0.15 to -0.10 | -0.03 to -0.00 | -0.13 to -0.11 |
 | the Mike's Block Shedding: yards a carry allowed | -0.05 to -0.04 | -0.11 to -0.10 | -0.07 to -0.05 | -0.08 to -0.06 |
 | the back's Speed: yards a carry | +0.12 to +0.13 | +0.07 to +0.11 | +0.09 to +0.11 | +0.10 to +0.11 |
 | the back's Ball Carrier Vision: yards a carry | +0.03 to +0.11 | +0.00 to +0.05 | +0.02 to +0.06 | +0.02 to +0.04 |
 
-The arms are the center, left guard and left tackle in power gap, West Coast and wide zone, the right guard and right tackle in the first two, the tight ends in 12 and 13 personnel and West Coast, and the defensive tackles, edges and the Mike in the West Coast and 3-4 contexts (`fit_check list`). Points move little either way: a lineman's +15 is -0.2 to +0.6 points a game (2 of 26 past the noise) and a tackle's -0.9 to -0.2 allowed, since one man is a fifth of the line and runs are under half the snaps. The right tackle moves the least (+0.01 to +0.06 a carry). The back's own ratings keep about what they had: Speed is the same, and Ball Carrier Vision is small before and after (the wide zone arm's +0.11 at FBS was the largest before).
+The arms are the center, left guard and left tackle in power gap, West Coast and wide zone, the right guard and right tackle in the first two, the tight ends in 12 and 13 personnel and West Coast, and the defensive tackles, edges and the Mike in the West Coast and 3-4 contexts (`fit_check list`). Points move little either way: a lineman's +15 is -0.2 to +0.6 points a game (2 of 26 past the noise) and a defensive tackle's -0.9 to -0.2 allowed, since one man is a fifth of the line and runs are under half the snaps. The right tackle moves the least (+0.01 to +0.06 a carry). The back's own ratings keep about what they had: Speed is the same, and Ball Carrier Vision is small before and after (the wide zone arm's +0.11 at FBS was the largest before).
 
 Tried and dropped (NFL test rosters, seed 11):
 
