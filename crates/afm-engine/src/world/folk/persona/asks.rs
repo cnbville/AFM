@@ -184,7 +184,15 @@ fn price(w: &World, i: usize) -> Counter {
     } else {
         Give::Stay
     };
-    Counter { asks: vec![give.words()], gives: vec![give], terms: vec![], why: None }
+    // As he'd say it: the bare "a real role" was on his card as what he
+    // says, and came back as "is that a real role for me?" (the talks
+    // audit, 2026-11-16).
+    Counter {
+        asks: vec![format!("He'll do it if he gets {} for it", give.words())],
+        gives: vec![give],
+        terms: vec![],
+        why: None,
+    }
 }
 
 /// The odds he passes on something you asked him to keep quiet (10.3):
@@ -533,8 +541,7 @@ impl Acting for Asks {
                 ran.report.push("I'll let you know.".into());
             }
             (_, other) => {
-                ran.done
-                    .push(format!("He agreed to {}. It runs when its part of the game does.", request_words(other)));
+                ran.done.push(format!("He agreed to {}.", request_words(other)));
             }
         }
         ran

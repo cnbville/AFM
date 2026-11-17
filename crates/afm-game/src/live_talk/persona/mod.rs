@@ -319,6 +319,9 @@ pub struct VoiceCard {
     pub football: String,
     /// How long he's known you, and how it's gone.
     pub known_you: String,
+    /// Where he stands (`talk::standing`): the facts of his own situation he
+    /// knows without being told (eligibility, the draft, his deal, his job).
+    pub standing: Vec<String>,
     /// What the talk is to him (`talk::stakes`): who you are to him, what
     /// rides on it, what he wants from it, what he can point to.
     pub stakes: Vec<String>,
@@ -332,6 +335,8 @@ pub struct VoiceCard {
     pub may_name: Vec<Tagged>,
     /// What the game released this turn (`ear::Say::released`).
     pub released: Vec<String>,
+    /// What the coach just did, for him to react to (`ear::Say::heard`).
+    pub heard: Vec<String>,
     /// His stance on a hard topic, in words.
     pub stance: String,
     /// The tell your read caught.
@@ -342,6 +347,13 @@ pub struct VoiceCard {
     pub lie: String,
     /// His counter and his own asks, in words.
     pub asks: Vec<String>,
+    /// Who asks them this line when it isn't him (his parents doing the
+    /// talking): they ask for him.
+    pub asked_by: String,
+    /// His asks from earlier lines of this talk: never asked again.
+    pub asked_before: Vec<String>,
+    /// His last line raised an ask, which he may press once on this one.
+    pub pressing: bool,
     /// How hot it is, in words, and what he does about it.
     pub heat: String,
     /// His colour notebook (`memory::Colour`): details he said before.

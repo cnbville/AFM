@@ -263,18 +263,27 @@ pub fn words(w: &World, team: Team, c: &Commitment, t: Took) -> Vec<String> {
                 out.push("He holds the coach to this year's; next year's is for next year's goals meeting.".into());
             }
         }
-        Took::Already(g) => out.push(format!("That's already on his list: {}.", goal_words(w, g, level))),
+        // Each in the third person, as what he does: the voice says it as
+        // himself ("That's already on my list"), never word for word ("on
+        // his list", the talks audit of 2026-11-16).
+        Took::Already(g) => out.push(format!(
+            "He already has that on his sheet ({}), so nothing changes: he holds the coach to it.",
+            goal_words(w, g, level)
+        )),
         Took::Below { his, .. } => out.push(format!(
-            "That's less than his own goal ({}), which stays. Asking for time is how a bar comes down.",
+            "It asks less than his own goal ({}), which stays; he tells the coach that asking for time is how a bar comes down.",
             goal_words(w, his, level)
         )),
+        // The examples steered him to the class whatever was said (Cain's
+        // draft-picks line got "how you'll measure the class", the talks
+        // audit of 2026-11-16).
         Took::Vague => out.push(
-            "He can't hold the coach to that as said: he asks what he can measure it by (wins, the class's rank, the state's best players)."
+            "He can't hold the coach to that as said: he asks what he can measure it by, a number he can check when the season is over."
                 .into(),
         ),
         Took::NotHere => out.push("That isn't something he judges at this level.".into()),
         Took::Booster(x) => out.push(format!("He'll hold the coach to it: {}.", x.short())),
-        Took::NotHisWant => out.push("It isn't what he cares about.".into()),
+        Took::NotHisWant => out.push("He's glad to hear it, but it isn't what he's after from the coach.".into()),
     }
     out
 }

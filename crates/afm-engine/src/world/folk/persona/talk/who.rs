@@ -1,6 +1,7 @@
 //! Who he is, in words for the voice (section 3.7): his age, where he's
 //! from and how he grew up, his personality as behaviour in bands, his
-//! mood, his football in words, how long he's known you. Words only, in
+//! mood, his football in words, and his whole history with you
+//! (`between`). Words only, in
 //! bands: no number, rating or hidden trait value leaves the engine. The
 //! voice never sees race: his speech comes from his age, schooling,
 //! personality and football, never from his background's ethnicity.
@@ -8,7 +9,6 @@
 use super::super::Them;
 use super::super::makeup::{self, Makeup};
 use super::super::room::{Channel, Place, Room, Seat};
-use super::super::wants::Kind;
 use crate::attributes::Attr;
 use crate::calendar::born;
 use crate::player::Trait;
@@ -97,17 +97,7 @@ pub fn who(w: &World, him: Them, room: &Room) -> Who {
             n => format!("{n} years"),
         }
     );
-    let since = w.folk.mine.since.map_or(0, |d| d.days_to(w.today));
-    let trust = match p.trust {
-        x if x > 0.7 => "trusts you",
-        x if x > 0.45 => "is still making up his mind about you",
-        _ => "doesn't trust you",
-    };
-    let known_you = match since {
-        x if x < 60 => format!("you're new to him, and he {trust}"),
-        x if x < 400 => format!("he's known you under a year, and he {trust}"),
-        x => format!("he's known you {} years, and he {trust}", x / 365),
-    };
+    let known_you = known(w, him);
     // He swears when that man would, in that setting: never in front of his
     // family or on a letter.
     let family = room.present.iter().any(|x| matches!(x.seat, Seat::Decider | Seat::Family));
@@ -144,24 +134,11 @@ fn makeup_words(m: &Makeup) -> Vec<String> {
     out
 }
 
-/// How long he's known you and his trust in you, in words.
+/// His whole history with you, second person (`between`): before it the
+/// card said "you're new to him, and he is still making up his mind about
+/// you" to the player, the wrong way round (the talks audit, 2026-11-16).
 fn known(w: &World, him: Them) -> String {
-    let since = w.folk.mine.since.map_or(0, |d| d.days_to(w.today));
-    let trust = match makeup::trust(w, him) {
-        x if x > 0.7 => "trusts you",
-        x if x > 0.45 => "is still making up his mind about you",
-        _ => "doesn't trust you",
-    };
-    // Only someone in your building has known you since you came; anyone
-    // else knows you by what he's heard.
-    let building =
-        matches!(makeup::kind(w, him), Kind::Staff | Kind::Boss | Kind::Player | Kind::Family | Kind::Booster);
-    match since {
-        _ if !building => format!("he knows you mostly by what he's heard, and he {trust}"),
-        x if x < 60 => format!("you're new to him, and he {trust}"),
-        x if x < 400 => format!("he's known you under a year, and he {trust}"),
-        x => format!("he's known you {} years, and he {trust}", x / 365),
-    }
+    super::between::words(w, him).join(". ")
 }
 
 /// He swears when that man would, in that setting: never in front of a
@@ -178,17 +155,29 @@ fn coach(w: &World, c: usize, him: Them, room: &Room) -> Who {
     let co = &w.coaches[c];
     let m = makeup::makeup(w, him);
     let age = born::age_or(co.born, w.today, co.age);
-    let first = co.history.iter().map(|s| s.from).chain(co.job.map(|j| j.first)).min().unwrap_or(w.year);
-    let years = (w.year - first).max(0);
-    let mut background = format!(
-        "{age}, coaching {}; came up as a {}",
-        match years {
-            0 => "less than a year".to_string(),
-            1 => "one year".to_string(),
-            n => format!("{n} years"),
-        },
-        co.came_up.coach_title()
-    );
+    // A year never set (0) isn't when he started: "28, coaching 2025
+    // years" (the talks audit, 2026-11-16); nor is a start before he could
+    // have coached.
+    // His job's first season as the opening counts it (`first_season`,
+    // the job's own year when set, else from when he was hired): "59,
+    // coaching less than a year" said of a coordinator three seasons in
+    // (the talks audit, 2026-11-16).
+    let earliest = w.year - (age as i32 - 18).max(0);
+    let first = co
+        .history
+        .iter()
+        .map(|s| s.from)
+        .chain(co.job.map(|j| j.first_season()))
+        .filter(|&y| y > 0)
+        .min()
+        .unwrap_or(w.year)
+        .max(earliest);
+    let title = co.came_up.coach_title();
+    let a = if title.starts_with(['a', 'e', 'i', 'o', 'u']) { "an" } else { "a" };
+    let mut background = match (w.year - first + 1).max(1) {
+        1 => format!("{age}, in his first year of coaching; came up as {a} {title}"),
+        n => format!("{age}, coaching {n} years; came up as {a} {title}"),
+    };
     if co.ex_pro {
         background.push_str("; played in the pros");
     }

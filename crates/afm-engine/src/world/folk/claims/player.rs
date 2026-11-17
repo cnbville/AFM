@@ -904,7 +904,10 @@ fn draft(r: &Reader, m: &Man) -> Option<Point> {
         5..=7 => "late",
         _ => "undrafted",
     };
-    let mut pt = Point::new(Kind::Draft).state("round", round);
+    // Whether going is still his choice (`talk::standing::road`): a man
+    // whose college career ends this year doesn't ask "should I go?".
+    let choice = crate::world::folk::persona::talk::standing::road(w, m.i).has_choice();
+    let mut pt = Point::new(Kind::Draft).state("round", round).state("choice", yes_no(choice));
     if p.cal.declare_plan == Some(true) {
         pt = pt.hide("plans", "yes");
     }

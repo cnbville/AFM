@@ -124,6 +124,15 @@ impl Ai {
         f
     }
 
+    /// The real model with a client built by hand (a thread machine's
+    /// proxy), for the ignored replay tests only.
+    #[cfg(test)]
+    pub fn use_real_for_tests(&mut self, real: Arc<dyn afm_ai::Model>) {
+        self.fake = None;
+        self.generation += 1;
+        self.client = Some(Client::new(real, self.spend.clone()));
+    }
+
     /// The browser build's fake, when it is the client in use.
     pub fn browser_fake(&self) -> Option<Arc<Fake>> {
         self.fake.clone().filter(|_| self.browser)
