@@ -566,19 +566,29 @@ pub fn sheet_designs(prep: &super::roster::Prep) -> [Option<(u16, Personnel, Bac
 }
 
 fn weigh<T: Copy>(rng: &mut Rng, items: &[(T, f64)]) -> T {
+    weigh_where(rng, items, |_| true).expect("weigh: no positive weight")
+}
+
+/// `weigh` over only the items `keep` passes, as if they were copied out
+/// first: the same sum, the same draw and the same walk. None, with no
+/// draw taken, when none of them has a positive weight.
+fn weigh_where<T: Copy>(rng: &mut Rng, items: &[(T, f64)], keep: impl Fn(T) -> bool) -> Option<T> {
     // Rng::weighted over only the positive weights, without copying them
-    // out: the same sum, the same draw and the same walk.
-    let total: f64 = items.iter().filter(|x| x.1 > 0.0).map(|(_, w)| w).sum();
+    // out.
+    let total: f64 = items.iter().filter(|x| x.1 > 0.0 && keep(x.0)).map(|(_, w)| w).sum();
+    if total <= 0.0 {
+        return None;
+    }
     let mut roll = rng.next() * total;
     let mut last = None;
-    for &(item, w) in items.iter().filter(|x| x.1 > 0.0) {
+    for &(item, w) in items.iter().filter(|x| x.1 > 0.0 && keep(x.0)) {
         roll -= w;
         if roll < 0.0 {
-            return item;
+            return Some(item);
         }
         last = Some(item);
     }
-    last.expect("weigh: no positive weight")
+    last
 }
 
 /// What a memo is keyed on: the situation's slot in the caller's own list,
@@ -594,7 +604,8 @@ type CoverageKey = (usize, usize, Personnel, DefPersonnel);
 /// draws from the same list with or without it.
 #[derive(Default)]
 pub struct CallMemo {
-    concepts: Vec<(ConceptKey, Vec<(usize, f64)>)>,
+    /// The concept weights, and the library's play action share of them.
+    concepts: Vec<(ConceptKey, Vec<(usize, f64)>, f64)>,
     runs: Vec<(RunKey, Vec<(RunConcept, f64)>)>,
     coverages: Vec<(CoverageKey, [(Coverage, f64); COVERAGE_COUNT])>,
 }
@@ -696,7 +707,6 @@ pub fn call_offense_memo(
     // give the play away; a creative one shows the same looks for both.
     let tell = clamp(0.33 - 0.013 * c.creativity, 0.07, 0.33);
     let want = staff.guide.personnel.pull().or(ctx.lean.personnel.map(|p| (p, PERSONNEL_LEAN)));
-    let personnel = pick_personnel(scheme, short, hurry, pass, tell, ctx, want, rng);
     let gun_lean = match scheme {
         OffScheme::AirRaid | OffScheme::SpreadOption => 0.92,
         OffScheme::WestCoast => 0.6,
@@ -706,9 +716,7 @@ pub fn call_offense_memo(
     } + if ctx.level == Level::NFL { 0.0 } else { 0.08 }
         + ctx.lean.gun;
     let gun = rng.chance(clamp(gun_lean + if pass { tell } else { -tell } + if hurry { 0.3 } else { 0.0 }, 0.0, 0.98));
-    let backfield = if matches!(personnel, Personnel::P21 | Personnel::P22) && !hurry {
-        Backfield::UnderCenter
-    } else if gun {
+    let back = if gun {
         if matches!(scheme, OffScheme::WideZone | OffScheme::SpreadOption) && rng.chance(0.2) {
             Backfield::Pistol
         } else {
@@ -719,7 +727,26 @@ pub fn call_offense_memo(
     } else {
         Backfield::UnderCenter
     };
-    let set = pick_set(scheme, personnel, pass, short, year, rng);
+    // Play action is part of the call, made before the personnel (lane
+    // SF2, item 1): real play action comes from the run's groups, not the
+    // dropback's. 2024 NFL on 1st and 10: 12 personnel on 36% of runs, 37%
+    // of play action and 23% of straight dropbacks; 13 on 5.5%, 5.6% and
+    // 2.4% (nflverse with FTN charting). How often he calls it, and from
+    // which backfield, is still the concepts' weights at this backfield
+    // (`pa_share`). A spread pass goes empty as often as before, and play
+    // action never comes from empty. Without a memo the call keeps one for
+    // this snap, so play action's share and the concept read the same
+    // weights.
+    let had = memo.is_some();
+    let mut local = CallMemo::default();
+    let (m, slot) = memo.unwrap_or((&mut local, 0));
+    let empty = empty_chance(scheme, year);
+    let pa_p = if pass { pa_share(staff, mem, sit, back, ctx, m, slot) * (1.0 - empty) } else { 0.0 };
+    let mut pa = pass && rng.chance(pa_p);
+    let personnel = pick_personnel(scheme, short, hurry, pass && !pa, tell, ctx, want, rng);
+    let backfield =
+        if matches!(personnel, Personnel::P21 | Personnel::P22) && !hurry { Backfield::UnderCenter } else { back };
+    let set = pick_set(scheme, personnel, if pass && !pa { empty / (1.0 - pa_p) } else { 0.0 }, short, year, rng);
     let mut formation = Formation { personnel, backfield, set, strength, motion: Motion::None };
     // Self-scouting (topic 7.6): a creative caller who sees he has become
     // predictable from a look breaks it on purpose.
@@ -731,15 +758,18 @@ pub fn call_offense_memo(
         let flip = 0.45 * c.creativity / 20.0;
         if !pass && p_run >= 0.75 && rng.chance(flip) {
             pass = true;
+            // The run's set is never empty, so play action is open to him.
+            pa = rng.chance(pa_share(staff, mem, sit, formation.backfield, ctx, m, slot));
             why = "breaking our run tendency from this look";
         } else if pass && p_run <= 0.15 && rng.chance(flip) {
             pass = false;
+            pa = false;
             why = "breaking our pass tendency from this look";
         }
     }
     formation.motion = pick_motion(scheme, &formation, pass, year, ctx, rng);
     let mut call = if pass {
-        let concept = pick_concept(staff, mem, sit, &formation, ctx, rng, memo);
+        let concept = pick_concept(staff, mem, sit, &formation, ctx, rng, m, slot, pa);
         // A designed play runs from the set it was drawn in.
         if let Some(&(_, _, b, set)) = ctx.designs.iter().flatten().find(|d| d.0 as usize == concept) {
             formation.backfield = b;
@@ -773,7 +803,7 @@ pub fn call_offense_memo(
         if formation.set == Set::Empty {
             formation.set = Set::Trips;
         }
-        let rc = pick_run(staff, mem, sit, &mut formation, ctx, short, rng, memo);
+        let rc = pick_run(staff, mem, sit, &mut formation, ctx, short, rng, had.then_some((m, slot)));
         // A jet sweep goes the way the motion man runs: across, away from
         // where he lined up.
         let dir = if rc == RunConcept::JetSweep || rc == RunConcept::Counter || rng.chance(0.3) {
@@ -835,23 +865,28 @@ fn call_why(staff: &Staff, mem: &Memory, sit: &Situation, call: &OffCall) -> &'s
     }
 }
 
-/// Personnel by scheme and situation, with the caller's tell: a
-/// predictable one goes heavy to run and light to throw. The head coach's
-/// personnel identity (update 2, G2) wins some of the normal downs by its
-/// firmness; short yardage and the hurry-up keep their own groups.
+/// Personnel by scheme and situation, picked to fit the call (lane SF2,
+/// item 1). Each wide receiver a group trades for a blocker (`Personnel::
+/// heavy_fit`) leans it toward the run's looks, runs and play action alike, by
+/// the caller's tell, and away from a straight dropback by the same: a
+/// predictable caller matches his groups to his calls, a creative one
+/// shows the same looks for both. The head coach's personnel identity
+/// (update 2, G2), or the group your word needs, is a lean on top: it
+/// adds its firmness times the table's own weight to that group, and the
+/// fit still decides which calls he goes to it on. Short yardage and the
+/// hurry-up keep their own groups.
 #[allow(clippy::too_many_arguments)]
 fn pick_personnel(
     scheme: OffScheme,
     short: bool,
     hurry: bool,
-    pass: bool,
+    drop: bool,
     tell: f64,
     ctx: &OffCtx,
     want: Option<(Personnel, f64)>,
     rng: &mut Rng,
 ) -> Personnel {
     let has_fb = ctx.has_fb;
-    let heavy = 1.0 + if pass { -2.0 * tell } else { 2.0 * tell };
     // The NFL rarely goes to four receivers: 10 personnel is 1.0% of real
     // dropbacks, against 72% in 11 and 18% in 12 (nflverse participation
     // 2023-24); college and high school spread teams live in it. NFL
@@ -873,49 +908,78 @@ fn pick_personnel(
             ],
         )
     } else {
-        let h = heavy.max(0.2);
+        // Each receiver traded for a blocker (`Personnel::heavy_fit`) moves a
+        // group toward the run's looks by the tell. For a typical caller a
+        // group's share of the straight dropbacks over its share of the
+        // runs and play action, against 11's, is 0.43 for 12 and 21, 0.28
+        // for 13 and 0.18 for 22. Real 2024 NFL on normal downs (no short
+        // yardage, two-minute drill or garbage time; nflverse with FTN
+        // charting), against 12's: 0.67 for 13 and 0.30 for 22 (1st and 10
+        // alone: 0.85 and 0.46); here 0.65 and 0.43.
+        let h = (1.0 + if drop { -2.0 * tell } else { 2.0 * tell }).max(0.2);
+        let fit = |p: Personnel| p.heavy_fit(h);
+        let fb = |w: f64| if has_fb { w } else { 0.0 };
         match scheme {
-            OffScheme::AirRaid => weigh(rng, &[(Personnel::P10, p10 * 4.0 / h), (Personnel::P11, 6.0)]),
-            OffScheme::WestCoast => weigh(
+            OffScheme::AirRaid => lean_pick(&[(Personnel::P10, p10 * 4.0), (Personnel::P11, 6.0)], fit, want, rng),
+            OffScheme::WestCoast => {
+                lean_pick(&[(Personnel::P11, 6.0), (Personnel::P12, 2.5), (Personnel::P21, fb(1.5))], fit, want, rng)
+            }
+            OffScheme::WideZone => {
+                lean_pick(&[(Personnel::P11, 5.0), (Personnel::P12, 2.5), (Personnel::P21, fb(2.5))], fit, want, rng)
+            }
+            OffScheme::PowerGap => lean_pick(
+                &[(Personnel::P11, 4.0), (Personnel::P12, 3.5), (Personnel::P21, fb(2.0)), (Personnel::P22, fb(0.8))],
+                fit,
+                want,
                 rng,
-                &[
-                    (Personnel::P11, 6.0),
-                    (Personnel::P12, 2.5 * h),
-                    (Personnel::P21, if has_fb { 1.5 * h } else { 0.0 }),
-                ],
             ),
-            OffScheme::WideZone => weigh(
+            OffScheme::SpreadOption => lean_pick(&[(Personnel::P11, 6.0), (Personnel::P10, p10 * 3.0)], fit, want, rng),
+            // The wing-T plays from its own sets whatever the call.
+            OffScheme::WingT => lean_pick(
+                &[(Personnel::P21, fb(5.0)), (Personnel::P22, fb(2.0)), (Personnel::P12, 3.0)],
+                |_| 1.0,
+                want,
                 rng,
-                &[
-                    (Personnel::P11, 5.0),
-                    (Personnel::P12, 2.5 * h),
-                    (Personnel::P21, if has_fb { 2.5 * h } else { 0.0 }),
-                ],
-            ),
-            OffScheme::PowerGap => weigh(
-                rng,
-                &[
-                    (Personnel::P11, 4.0),
-                    (Personnel::P12, 3.5 * h),
-                    (Personnel::P21, if has_fb { 2.0 * h } else { 0.0 }),
-                    (Personnel::P22, if has_fb { 0.8 * h } else { 0.0 }),
-                ],
-            ),
-            OffScheme::SpreadOption => weigh(rng, &[(Personnel::P11, 6.0), (Personnel::P10, p10 * 3.0 / h)]),
-            OffScheme::WingT => weigh(
-                rng,
-                &[
-                    (Personnel::P21, if has_fb { 5.0 } else { 0.0 }),
-                    (Personnel::P22, if has_fb { 2.0 } else { 0.0 }),
-                    (Personnel::P12, 3.0),
-                ],
             ),
         }
     };
-    let personnel = match want {
-        Some((p, k)) if !hurry && !short && p != personnel && rng.chance(0.55 * k) => p,
-        _ => personnel,
-    };
+    available(personnel, ctx)
+}
+
+/// The normal-down pick: the scheme's weights, the head coach's lean added
+/// to his group (its firmness times the table's whole weight), then each
+/// group's fit to the call.
+fn lean_pick(
+    table: &[(Personnel, f64)],
+    fit: impl Fn(Personnel) -> f64,
+    want: Option<(Personnel, f64)>,
+    rng: &mut Rng,
+) -> Personnel {
+    let total: f64 = table.iter().map(|x| x.1).sum();
+    // On the stack: every call pays for this pick.
+    let mut items = [(Personnel::P11, 0.0); 8];
+    let mut n = table.len();
+    items[..n].copy_from_slice(table);
+    if let Some((p, k)) = want {
+        match items[..n].iter_mut().find(|x| x.0 == p) {
+            Some(x) => x.1 += k * total,
+            None => {
+                items[n] = (p, k * total);
+                n += 1;
+            }
+        }
+    }
+    for x in &mut items[..n] {
+        x.1 *= fit(x.0);
+    }
+    weigh(rng, &items[..n])
+}
+
+/// The group the roster can field: fewer than two healthy tight ends make
+/// 12, 22 and 13 into 11, fewer than three make 13 into 12, and 21 and 22
+/// need a fullback.
+fn available(personnel: Personnel, ctx: &OffCtx) -> Personnel {
+    let has_fb = ctx.has_fb;
     let te = ctx.te_count;
     let personnel = if te < 2 && matches!(personnel, Personnel::P12 | Personnel::P22 | Personnel::P13) {
         Personnel::P11
@@ -926,11 +990,19 @@ fn pick_personnel(
     if !has_fb && matches!(personnel, Personnel::P21 | Personnel::P22) { Personnel::P11 } else { personnel }
 }
 
+/// How often a pass from three or more wide receivers goes empty in this
+/// scheme and season: spread schemes only, more in the modern game.
+fn empty_chance(scheme: OffScheme, year: i32) -> f64 {
+    let spread = matches!(scheme, OffScheme::AirRaid | OffScheme::WestCoast | OffScheme::SpreadOption);
+    if spread { 0.06 + 0.06 * era(year, 2008, 14.0) } else { 0.0 }
+}
+
 /// The set (topic 1). Real 2020s NFL: trips on about a third of three-wide
 /// snaps, bunch and stack sets near a tenth, empty on about one dropback in
 /// twelve; wings with two tight ends in wide zone and gap schemes
-/// (proposed, not confirmed shares).
-fn pick_set(scheme: OffScheme, p: Personnel, pass: bool, short: bool, year: i32, rng: &mut Rng) -> Set {
+/// (proposed, not confirmed shares). `empty` is the chance this call goes
+/// empty from three or more wide receivers (none on a run or play action).
+fn pick_set(scheme: OffScheme, p: Personnel, empty: f64, short: bool, year: i32, rng: &mut Rng) -> Set {
     let wr = p.wide_receivers();
     let modern = era(year, 2008, 14.0);
     if short {
@@ -940,8 +1012,7 @@ fn pick_set(scheme: OffScheme, p: Personnel, pass: bool, short: bool, year: i32,
             Set::Doubles
         };
     }
-    let spread = matches!(scheme, OffScheme::AirRaid | OffScheme::WestCoast | OffScheme::SpreadOption);
-    let empty = if pass && wr >= 3 && spread { 0.06 + 0.06 * modern } else { 0.0 };
+    let empty = if wr >= 3 { empty } else { 0.0 };
     let bunch = if wr >= 3 || p == Personnel::P11 { 0.03 + 0.06 * modern } else { 0.0 };
     let stack = if wr >= 2 { 0.02 + 0.04 * modern } else { 0.0 };
     let trips = if wr >= 3 { 0.3 } else { 0.0 };
@@ -1225,6 +1296,11 @@ fn sticks_depth(c: &PassConcept) -> f64 {
         .fold(0.0, f64::max)
 }
 
+/// The pass concept, from the family the call already chose (play action
+/// or a straight dropback, `pa`) and among the concepts this group can run:
+/// at least one of its reads on the field (13 personnel has no flanker for
+/// the tunnel screen).
+#[allow(clippy::too_many_arguments)]
 fn pick_concept(
     staff: &Staff,
     mem: &Memory,
@@ -1232,23 +1308,74 @@ fn pick_concept(
     f: &Formation,
     ctx: &OffCtx,
     rng: &mut Rng,
-    memo: Option<(&mut CallMemo, usize)>,
+    m: &mut CallMemo,
+    slot: usize,
+    pa: bool,
 ) -> usize {
-    let Some((m, slot)) = memo else {
-        return weigh(rng, &concept_weights(staff, mem, sit, f, ctx));
+    let k = memo_weights(staff, mem, sit, f, ctx, m, slot);
+    let w = &m.concepts[k].1;
+    let library = readable_library(f.personnel);
+    let fits = |i: usize| {
+        let c = pass_concept(i);
+        c.play_action == pa && if i < PASS_CONCEPTS.len() { (library >> i) & 1 == 1 } else { readable(c, f) }
     };
-    // The weights read the formation only for a boot from the gun, an empty
-    // set and, with designs on the sheet, the personnel.
+    weigh_where(rng, w, fits).unwrap_or_else(|| weigh(rng, w))
+}
+
+/// Where the memo keeps the concept weights for this snap, working them out
+/// the first time. The weights read the formation only for a boot from the
+/// gun, an empty set and, with designs on the sheet, the personnel.
+fn memo_weights(
+    staff: &Staff,
+    mem: &Memory,
+    sit: &Situation,
+    f: &Formation,
+    ctx: &OffCtx,
+    m: &mut CallMemo,
+    slot: usize,
+) -> usize {
     let designs = ctx.designs.iter().any(|d| d.is_some());
     let key = (slot, f.backfield == Backfield::Shotgun, f.set == Set::Empty, designs.then_some(f.personnel));
-    let k = match m.concepts.iter().position(|x| x.0 == key) {
+    match m.concepts.iter().position(|x| x.0 == key) {
         Some(k) => k,
         None => {
-            m.concepts.push((key, concept_weights(staff, mem, sit, f, ctx)));
+            let w = concept_weights(staff, mem, sit, f, ctx);
+            let pa = pa_of(&w);
+            m.concepts.push((key, w, pa));
             m.concepts.len() - 1
         }
-    };
-    weigh(rng, &m.concepts[k].1)
+    }
+}
+
+/// How much of his passing a caller puts in play action on this snap: the
+/// library's play action concepts' share of his concept weights from this
+/// backfield (lane SF2). The call makes it before the personnel, so the
+/// group can fit it; the concepts' own weights (down, distance, the
+/// backfield, scheme, the hurry-up, your word) still set how often.
+fn pa_share(
+    staff: &Staff,
+    mem: &Memory,
+    sit: &Situation,
+    back: Backfield,
+    ctx: &OffCtx,
+    m: &mut CallMemo,
+    slot: usize,
+) -> f64 {
+    let f = Formation::plain(Personnel::P11, back, 1.0);
+    let k = memo_weights(staff, mem, sit, &f, ctx, m, slot);
+    m.concepts[k].2
+}
+
+/// The library's play action concepts' share of these concept weights.
+fn pa_of(w: &[(usize, f64)]) -> f64 {
+    let (mut pa, mut all) = (0.0, 0.0);
+    for &(i, x) in w.iter().filter(|x| x.0 < PASS_CONCEPTS.len()) {
+        all += x;
+        if PASS_CONCEPTS[i].play_action {
+            pa += x;
+        }
+    }
+    if all > 0.0 { pa / all } else { 0.0 }
 }
 
 /// Each pass concept's weight on this snap, before `weigh` draws from them.
