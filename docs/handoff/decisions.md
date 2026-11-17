@@ -417,6 +417,12 @@ Cain, 2026-11-16 23:41 UTC: "I'm naturaly a very intense guy, cursing and intens
 - **Agreed:** the ear reads five dials on every line (heat, language, aim at the job or the man, care, tell or ask); each person keeps what he has seen of you and what he heard; eight prototype words; aim matters most and the relationship buffers it; players, staff, trainers and doctors, bosses, boosters, press and recruits each react by their makeup, role and level; firing for cause only after a pattern of abuse, complaints and a review; no new on-field bonus, only built channels; wear on typed lines; your starting reputation picked in your profile; AI coaches on the same rules (measured on one small world); one Opus build lane after the relationship layer thread merges.
 - **Proposed, not confirmed:** every size (fades, weights, the rival's fire lift).
 
+## 26. Coach fire on the field (thread "Let coach fire carry onto the field", 2026-11-17)
+
+Cain, 2026-11-17 01:01 UTC: "if i'm a fired up coach, playing with a fired up safety, it should cause a pivotal play. Like a strong safety taking the head of a tight end i.e Brian Branch"; 01:02 UTC: "it could have a negative effect on a pocket passer, who'd be better of with an patient gentle coach". Spec: `docs/design/coach-fire.md`, Cain's "yes" on 01:11 UTC.
+- **Agreed:** each player's own best pitch of fire (position plus makeup); fire works by the kind of work (power and effort up, fine and thinking work down past his pitch) in place of the flat lift on every rating; caps of 3 points of power, 3 tendency points and 3 points of fine work; fire raises the BigHit, Strip, Downhill, Contact, SnapTiming and JumpRoutes leans; targeting and ejections added; a research-sized spark from big hits, forced fumbles and 4th down stops, shown on screen; one engine lane after the coach-voice lane and the world rebuild. Amends section 25's "no new on-field bonus": still no flat bonus, the built fire channel now reaches the field through the battles.
+- **Proposed, not confirmed:** every other size (sweet-spot shifts, the big-hit threshold, the spark's share and fade, targeting chances).
+
 ## Superseded decisions
 
 | Old | Replaced by | When |
