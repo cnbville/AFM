@@ -1777,8 +1777,10 @@ pub fn level_name(level: Level) -> &'static str {
 /// holding another run's settings is refused.
 pub fn run(setup: &Setup, out: &Path, list: &[Arm]) -> Result<(), String> {
     let Setup { level, games, seed } = *setup;
-    if games < NB {
-        return Err(format!("at least {NB} games an arm (one a block)"));
+    // Each block holds as many games, so a block's per-game measures and the
+    // bands paired on them read every block alike (`read::eval`).
+    if games < NB || games % NB != 0 {
+        return Err(format!("games an arm must be a multiple of {NB} (one or more a block), not {games}"));
     }
     std::fs::create_dir_all(out).map_err(|e| format!("{}: {e}", out.display()))?;
     let (base, world) = league(level, seed);

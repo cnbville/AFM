@@ -53,8 +53,11 @@ fn a_tiny_run_plays_reads_and_picks_up() {
     let again = read::Run::load(&dir).expect("read it again");
     assert_eq!(again.arms.len(), list.len());
     assert_eq!(again.arm("RB1-pg-heavy1").unwrap().x, drawn.x, "the replayed arm plays the same games");
-    // A folder holding another run's settings is refused.
+    // A folder holding another run's settings is refused, and so is a game
+    // count that would give the blocks uneven games.
     assert!(fit::run(&Setup { seed: 152, ..setup }, &dir, &list).is_err());
+    assert!(fit::run(&Setup { games: 100, ..setup }, &dir.join("uneven"), &list).is_err());
+    assert!(!dir.join("uneven").exists());
     let _ = std::fs::remove_dir_all(&dir);
 }
 

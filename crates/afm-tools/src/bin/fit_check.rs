@@ -13,7 +13,8 @@
 //! `run` plays the arms into a folder (default `fit-out/<level>-<seed>`; an
 //! arm already there is kept, so a stopped run picks up where it was).
 //! Defaults are the audit's: FBS 3,000 games an arm on seed 151, the NFL
-//! 2,400 on seed 161, high school and FCS 3,000 on seed 151. `arms` is a
+//! 2,400 on seed 161, high school and FCS 3,000 on seed 151; games must be a
+//! multiple of 40, so every block holds as many. `arms` is a
 //! comma-separated list of words: an arm is picked when its id holds any of
 //! them, `bases` picks the typical arms, `draws` the as-recruited ones and
 //! `repeat` the audit's repeat set (the arms it played again on FBS seed 171

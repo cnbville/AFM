@@ -1063,8 +1063,10 @@ fn items(run: &Run) -> String {
 }
 
 /// As recruited: each band pair's drawn men against each other, four a band
-/// (`draws.py`). Each side is the mean of its drawn men; its band adds the
-/// spread between the men to the games' noise, and a star is past that.
+/// (`draws.py`). Each side is the mean of its drawn men. "Games only" is the
+/// band from the 40 blocks of the two sides' difference. "With the men" is
+/// the audit's band, from the spread between the drawn men's own totals (each
+/// already carries its own games' noise); the z and the star are on it.
 fn recruited(run: &Run) -> String {
     let level = match run.level.as_str() {
         "NFL" => afm_engine::player::Level::NFL,
