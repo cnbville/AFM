@@ -1151,6 +1151,10 @@ pub struct World {
     /// on the four-level ladder (`ground`).
     #[serde(default)]
     pub ground: ground::Ground,
+    /// Capital, the facilities layer (`docs/design/capital.md`): lane C1's
+    /// donors, circles, pledges and estates (`capital`).
+    #[serde(default)]
+    pub capital: capital::Capital,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -1751,6 +1755,7 @@ impl World {
             nfl_units: Vec::new(),
             results: crate::results::Book::default(),
             ground: Default::default(),
+            capital: Default::default(),
         };
         // Every program's rooms from its number (Capital lane C2).
         capital::rooms::after_load(&mut w);
