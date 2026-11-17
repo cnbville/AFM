@@ -1062,12 +1062,13 @@ fn level_of(w: &World, co: &crate::world::coach::Coach) -> crate::world::coach::
 }
 
 /// A head coach's manner as his people meet it: yours from your read, an
-/// AI coach's from his traits.
-pub fn of_coach(w: &World, c: usize) -> Manner {
+/// AI coach's from his traits. None for you on a blank start before your
+/// first lines: nobody knows how you talk yet.
+pub fn of_coach(w: &World, c: usize) -> Option<Manner> {
     if w.career.as_ref().is_some_and(|k| k.coach == c) {
-        return your_read(w).map_or_else(|| ai(w, c), |x| x.0);
+        return your_read(w).map(|x| x.0);
     }
-    ai(w, c)
+    Some(ai(w, c))
 }
 
 /// How much a season of an AI head coach's manner moves one player's
@@ -1085,7 +1086,10 @@ pub fn ai_fit(w: &World, coach: Option<usize>, i: usize) -> f64 {
     }
     let p = &w.people[i];
     let m = ai(w, c);
-    let t = land(&m, &player_wants(p), p.trust, Some(m.heat), &Setting::default());
+    // A new head coach meets him at the camp read's fresh start, not at
+    // what he had with the last one.
+    let trust = if p.trust_in == c as u32 { p.trust } else { crate::world::people::fresh_trust(p) };
+    let t = land(&m, &player_wants(p), trust, Some(m.heat), &Setting::default());
     f64::from(AI_SEASON * t.trust)
 }
 
@@ -1094,7 +1098,7 @@ pub fn ai_fit(w: &World, coach: Option<usize>, i: usize) -> f64 {
 /// against what he wants from a coach. Noteworthy, never driving: -0.6 to
 /// +0.4 points on the 1-20 scale. Proposed, not confirmed.
 pub fn recruit_fit(w: &World, c: usize, p: &crate::world::Person) -> f64 {
-    let m = of_coach(w, c);
+    let Some(m) = of_coach(w, c) else { return 0.0 };
     let t = land(&m, &player_wants(p), 0.45, Some(m.heat), &Setting::default());
     f64::from(12.0 * t.trust).clamp(-0.6, 0.4)
 }

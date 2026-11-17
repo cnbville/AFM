@@ -294,3 +294,22 @@ fn ai_coaches_talk_from_their_traits_and_their_players_react_the_same_way() {
     let mine = w.programs[w.seat.and_then(|s| s.program).unwrap()].roster[0];
     assert_eq!(manner::ai_fit(&w, Some(you), mine), 0.0);
 }
+
+#[test]
+fn a_blank_start_gives_recruits_nothing_and_a_new_coach_meets_a_fresh_trust() {
+    let (mut w, id) = player();
+    let you = w.career.as_ref().unwrap().coach;
+    let i = w.people.iter().position(|p| p.player.id == id).unwrap();
+    // Nobody knows how you talk before your first lines.
+    assert!(manner::of_coach(&w, you).is_none());
+    assert_eq!(manner::recruit_fit(&w, you, &w.people[i]), 0.0);
+    // An AI coach new to him reads him at the camp read's fresh start,
+    // not at what he had with his last coach.
+    let c = w.programs.iter().filter_map(|p| p.head_coach).find(|&c| c != you).unwrap();
+    w.people[i].trust_in = you as u32;
+    w.people[i].trust = 0.0;
+    let low = manner::ai_fit(&w, Some(c), i);
+    w.people[i].trust = 1.0;
+    let high = manner::ai_fit(&w, Some(c), i);
+    assert_eq!(low, high, "the last coach's trust doesn't carry to a new one");
+}
