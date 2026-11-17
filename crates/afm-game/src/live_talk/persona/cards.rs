@@ -383,7 +383,9 @@ pub fn voice(w: &World, s: &Scene, room: &Room, parts: &Parts, t: &Turn, line: &
         mood,
         football,
         known_you,
-        standing: talk::standing::words(w, him),
+        // In front of the room he answers for the group, never his own
+        // situation: no "Where you stand" of the man who speaks.
+        standing: if group { Vec::new() } else { talk::standing::words(w, him) },
         stakes,
         room: room_words,
         swears,

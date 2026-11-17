@@ -413,12 +413,16 @@ impl Resolving for Conversation<'_> {
                     }
                     let desk = own.is_some();
                     let wl = own.map_or_else(|| self.parts.acting.willing(w, him, r), |x| x.0);
-                    // Asked of the whole room, it's the team's to take: the
-                    // man who answers for them names no price of his own
-                    // (the talks audit, 2026-11-16: "Do I get a real role
-                    // out of this, coach?" in front of the team).
+                    // Asked of the whole room, an ask that names nobody is
+                    // the team's to take: the man who answers for them names
+                    // no price of his own (the talks audit, 2026-11-16: "Do
+                    // I get a real role out of this, coach?" in front of the
+                    // team). One about a man by name (a captain to mentor
+                    // the freshman, your scout to look into a prospect) he
+                    // takes on himself, as in a one-on-one.
+                    let room_ask = in_group && !super::asks::names_a_man(r);
                     let wl = match wl {
-                        Willing::If(_) if in_group => Willing::Yes,
+                        Willing::If(_) if room_ask => Willing::Yes,
                         // The role he'd want for it is in the same line.
                         Willing::If(c)
                             if gives_role
@@ -443,14 +447,14 @@ impl Resolving for Conversation<'_> {
                             // team, nothing to confirm ("we go back to basics
                             // this week" became "set the game plan", the talks
                             // audit of 2026-11-16).
-                            if super::asks::costs_you(r) && !in_group {
+                            if super::asks::costs_you(r) && !room_ask {
                                 t.confirm.push(Confirm::Request(r.clone()));
                             }
                             // Asked of the room, the room answers ("Yes
                             // sir, we'll do it. He'll do it.", the talks
                             // audit of 2026-11-16).
                             if plain {
-                                t.say.released.push(if in_group { "They'll do it." } else { "He'll do it." }.into());
+                                t.say.released.push(if room_ask { "They'll do it." } else { "He'll do it." }.into());
                             }
                             // Asked for his read on a man, he gives it now.
                             if let super::terms::Request::Evaluate(pid) = r {
@@ -463,14 +467,14 @@ impl Resolving for Conversation<'_> {
                         }
                         Willing::Later(d) => t.say.released.push(format!(
                             "{} let you know by {}.",
-                            if in_group { "They'll" } else { "He'll" },
+                            if room_ask { "They'll" } else { "He'll" },
                             d
                         )),
                         Willing::No => {
                             if plain {
                                 t.say
                                     .released
-                                    .push(if in_group { "They won't do that." } else { "He won't do that." }.into());
+                                    .push(if room_ask { "They won't do that." } else { "He won't do that." }.into());
                             }
                             if open.refused_before(r) {
                                 t.patience.0 -= feel::ASKED_AGAIN;
@@ -850,11 +854,17 @@ impl Resolving for Conversation<'_> {
             claims::check::landed(w, id, &facts, before);
         }
         // A favour of goodwill he agreed to runs now (`Acting::run`); one
-        // that costs you waits on your confirm. Put to the whole room, it's
-        // the team's, and the man who answers for them runs nothing of his
-        // own ("He agreed to go back to basics", in front of the team).
+        // that costs you waits on your confirm. Put to the whole room, an
+        // ask that names nobody is the team's, and the man who answers for
+        // them runs nothing of his own ("He agreed to go back to basics",
+        // in front of the team), save keeping quiet what you told the room
+        // (kept on his word, as the secret is); one about a man by name (a
+        // captain to mentor the freshman) he takes on himself.
         let in_group = matches!(room.channel, super::room::Channel::Group(_));
-        for (r, wl, _) in t.asked.iter().filter(|_| !in_group) {
+        let runs = |r: &super::terms::Request| {
+            !in_group || super::asks::names_a_man(r) || matches!(r, super::terms::Request::KeepQuiet)
+        };
+        for (r, wl, _) in t.asked.iter().filter(|(r, _, _)| runs(r)) {
             if *wl == Willing::Yes && !super::asks::costs_you(r) {
                 let own = scene(w, id).cloned().and_then(|sc| recruit::run(w, &sc, r));
                 let done = own.unwrap_or_else(|| self.parts.acting.run(w, him, r).done);

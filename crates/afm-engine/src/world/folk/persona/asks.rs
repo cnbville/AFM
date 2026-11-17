@@ -235,6 +235,36 @@ pub fn confirm(act: &Act) -> Option<Confirm> {
     }
 }
 
+/// Whether an ask is about one man by name (a teammate to mentor, a
+/// recruit to host, a prospect to look into). Put to a whole room, the man
+/// who answers for it takes it on himself, at his own price and on your
+/// confirm; any other ask is the room's, with no price, no confirm and
+/// nothing of his own run (`talk::Conversation`).
+pub fn names_a_man(r: &Request) -> bool {
+    matches!(
+        r,
+        Request::Mentor(_)
+            | Request::TalkTo(_)
+            | Request::Recruit(_)
+            | Request::Host(_)
+            | Request::Steer(_)
+            | Request::NotOurDivision(_)
+            | Request::Scout(_)
+            | Request::FindOut(..)
+            | Request::Evaluate(_)
+            | Request::Plant(_)
+            | Request::Target(_)
+            | Request::WorkWith(_)
+            | Request::SecondOpinion(_)
+            | Request::Clear(_)
+            | Request::Waiver(_)
+            | Request::Appeal(_)
+            | Request::Calm(_)
+            | Request::TellMe(Some(_))
+            | Request::HeadsUp(Some(_))
+    )
+}
+
 /// A request that does something to your team or your money once he says
 /// yes.
 pub fn costs_you(r: &Request) -> bool {
