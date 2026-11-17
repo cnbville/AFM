@@ -24,6 +24,10 @@ fn expansion_clubs_draft_their_squads_and_play_a_full_schedule() {
     let new = nfl::award(&mut w, &markets[..2], year);
     assert_eq!(new.len(), 2);
     assert_eq!(franchise::active_teams_in(&w, year).len(), before + 2);
+    assert!(
+        w.market.agents.iter().all(|a| a.rel.len() == w.nfl.len()),
+        "every agent knows the new clubs (a bluff to one read past the end)"
+    );
     for &t in &new {
         let s = &w.clubs[t].support;
         assert!(

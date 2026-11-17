@@ -127,7 +127,8 @@ fn treated(w: &World) -> Vec<usize> {
 }
 
 /// Capital lane C2: each room's mean level and read at FBS by tier, and
-/// this July's new buildings and renovations.
+/// last July's new buildings and renovations (the world stands in January,
+/// so last July is the season just played).
 fn rooms_table(w: &World) {
     use afm_engine::world::capital::rooms::{ROOMS, Room};
     let year = w.year;
@@ -153,13 +154,16 @@ fn rooms_table(w: &World) {
         w.finance
             .projects
             .iter()
-            .filter(|x| x.started == year && x.kind == ProjectKind::Facility && x.name.ends_with(" renovation") == reno)
+            .filter(|x| {
+                x.started == year - 1 && x.kind == ProjectKind::Facility && x.name.ends_with(" renovation") == reno
+            })
             .filter(|x| matches!(x.owner, Owner::College(j) if w.programs[j].division == Division::FBS))
             .count()
     };
     let temp = fbs.iter().filter(|&&j| w.programs[j].campus.in_temporary_space()).count();
     println!(
-        "FBS projects started in {year}: {} new buildings, {} renovations; {temp} programs in temporary space",
+        "FBS projects started in July {}: {} new buildings, {} renovations; {temp} programs in temporary space",
+        year - 1,
         started(false),
         started(true)
     );
