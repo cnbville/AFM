@@ -98,6 +98,31 @@ fn donors_take_slots_in_your_week_and_only_the_suite_in_season() {
     }
 }
 
+/// A dinner booked weeks ahead holds: when that week's plan is drafted, the
+/// coordinator keeps the head coach off the road that day (January is a
+/// contact period, when the head coach travels).
+#[test]
+fn a_booked_dinner_keeps_you_off_the_road() {
+    let (mut w, mine) = world();
+    let monday = Date::ymd(w.year, 1, 19).on_or_after(Weekday::Mon);
+    w.today = monday.add(-21);
+    let list = donors::of(&w, mine);
+    let days: Vec<Date> = (1..5).map(|k| monday.add(k)).collect();
+    for (k, &d) in days.iter().enumerate() {
+        let id = w.capital.donors[list[k]].id;
+        week::book(&mut w, id, d, true).unwrap();
+    }
+    w.today = monday;
+    crate::world::ground::week::plan::ensure(&mut w, mine, monday);
+    let hc = w.programs[mine].head_coach.map(|c| c as u32);
+    for r in w.ground.week.roads.iter().filter(|r| Some(r.man) == hc) {
+        println!("head coach on the road: {:07b}", r.days);
+        assert_eq!(r.days & 0b11110, 0, "not on a booked day");
+    }
+    let v = week::slots(&w, mine, monday);
+    assert!(days.iter().all(|d| v.iter().any(|x| x.1.date == *d && x.0 == week::RANK_BOOKED)));
+}
+
 /// A booking in this week takes one of the scenes that are yours.
 #[test]
 fn a_booking_this_week_takes_a_slot_from_your_scenes() {

@@ -350,6 +350,11 @@ fn draft_roads(w: &World, prog: usize, monday: Date, from: Date) -> Vec<Road> {
             if per_day[k as usize] >= cap {
                 continue;
             }
+            // The head coach keeps the donor meetings you booked (Capital
+            // lane C4): the coordinator plans the road around them.
+            if Some(man) == hc && w.capital.booked.iter().any(|b| b.date == monday.add(k as i32)) {
+                continue;
+            }
             days |= 1 << k;
             per_day[k as usize] += 1;
             n += 1;
