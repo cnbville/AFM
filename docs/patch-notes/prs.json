@@ -1235,6 +1235,15 @@
   "title": "Ground lane G6: the offseason campaign",
   "tldr": "Your first college spring now has a shape: your AD sets his goals for the class the day after signing day, your coordinator brings his at the February meeting, and the verdict comes the week before your first game."
  },
+ "495": {
+  "auto": false,
+  "bullets": [],
+  "h": "713fe15f2a54",
+  "look": "",
+  "players": false,
+  "title": "CI: screen tests share each small world; retry runners that shut down",
+  "tldr": ""
+ },
  "496": {
   "auto": false,
   "bullets": [
@@ -1286,5 +1295,33 @@
   "players": true,
   "title": "College followers retuned so the biggest stars reach 500,000",
   "tldr": "The biggest college stars now build national followings, and a Heisman or an All-America season makes a player famous, so college players can now have social media storms."
+ },
+ "500": {
+  "auto": false,
+  "bullets": [
+   "Commitments to your boss become goals he judges you on, or he says they're already on his list, below his bar or not something he can measure.",
+   "Promises to a parent, a coach on your staff or your boss now count, not only promises to players.",
+   "\"Heard as\" now says how a line went with each person, on their own scale, and when you didn't answer their question.",
+   "People stop asking the same question over and over once you've answered.",
+   "Asked why he should keep his job, a coordinator makes his case."
+  ],
+  "h": "4130bb665740",
+  "look": "the athletic director's goals meeting, then tell him what you'll deliver this season.",
+  "players": true,
+  "title": "Live talks: your boss writes down what you commit to",
+  "tldr": "Your athletic director now writes down what you commit to. Promise to keep the state's best player home or to win eight games, and it goes on his goals sheet, or he tells you why not."
+ },
+ "501": {
+  "auto": false,
+  "bullets": [
+   "AFM keeps checking for updates while a restart is waiting.",
+   "A newer version replaces the waiting one, and the prompt names the newest version.",
+   "You still get the save-your-career prompt before restarting."
+  ],
+  "h": "00b32e5db5ff",
+  "look": "leave an update waiting, then check for updates again after a newer one ships.",
+  "players": true,
+  "title": "Let updates skip a pending older version",
+  "tldr": "If you leave AFM open after an update downloads, it now keeps looking and swaps in any newer version, so one restart gets you the latest."
  }
 }
