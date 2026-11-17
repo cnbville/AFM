@@ -8,6 +8,39 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.599 (17 Nov, shipped): ground lane S7: your men and your desk (the staff carousel and assistant desk screens) (PR #511)
+**TLDR:** Your staff now has a home on the Ground menu: see who another school is after, counter before he walks, and see every man's ground, mood and record in one place. Assistants get their own desk.
+- A warning when another school wants one of your men, with his face, what pulls him each way and your read of him (PR #511)
+- Three counters (a raise, a title, a promise), each showing how far it reaches and what it costs (PR #511)
+- Who could take his area, and what your standing loses with him (PR #511)
+- Every man's areas, mood and record, and the areas nobody works (PR #511)
+- An assistant's desk: your list, his answers, his memory of you and your goals (PR #511)
+- Look at: Ground, "Your men" (head coach) or "Your desk" (assistant) (PR #511)
+
+## 0.2.598 (17 Nov, shipped): ground lane S4: the lead card screen (PR #492), ground lane G10: your staff's ground and the assistant seat (PR #491), progression step 6: screens show "99+" where a read passes 99 (PR #503), and 2 more
+**TLDR:** 5 changes ship together. Ground has a Leads screen: open a kid someone told you about and see who told you, which of the five blanks are filled and by whom, who else is on him, and what to do next. Your assistants now have ground of their own: each works his own areas on the map, and losing one costs you the people he knew. As an assistant, you bring kids to your head coach and earn his trust in your eye. Plus 3 more below.
+- Ground lane S4: the lead card screen (PR #492): Ground has a Leads screen: open a kid someone told you about and see who told you, which of the five blanks are filled and by whom, who else is on him, and what to do next.
+- Your leads sit in a strip; pick one to open his card. (PR #492)
+- The five blanks show who filled each and when, with a button on the open ones. (PR #492)
+- A timeline shows who heard about him and who offered, against the day the services update. (PR #492)
+- Offer him, fill the open blank first, or let him go; each says what it risks. (PR #492)
+- Once he's your find, the card follows how he blooms. (PR #492)
+- Ground lane G10: your staff's ground and the assistant seat (PR #491): Your assistants now have ground of their own: each works his own areas on the map, and losing one costs you the people he knew. As an assistant, you bring kids to your head coach and earn his trust in your eye.
+- Your recruiting coordinator gives each assistant his areas by who he knows there, and you can move anyone on a Monday. (PR #491)
+- A young coach can ride along with a veteran and meet his high school coaches. (PR #491)
+- When another school wants one of your men, you get a few days to counter with a raise, a title or a promise. (PR #491)
+- A coach who leaves takes his ties with him, and the kids he recruited may waver until you call them. (PR #491)
+- As an assistant, bring your head coach two kids a week; he signs them or says wait, and his August verdict follows you. (PR #491)
+- Progression step 6: screens show "99+" where a read passes 99 (PR #503): When your staff thinks a player might be better than 99, his rating now says so: the range ends in "99+".
+- A range that reaches past the top reads like "97-99+". (PR #503)
+- Ranges below the top look the same as before. (PR #503)
+- Fix the "Ask in your words" 400: nullable enums as anyOf, and a check on every schema (PR #509): Asking in your own words works again: type a search like "safeties from South Carolina" and the board fills in the search for you.
+- The Find box no longer answers with an AI error on most questions. (PR #509)
+- The analyst's stat questions no longer fail the same way. (PR #509)
+- Capital lane C1: the donors (store only) (PR #510): no summary in the PR
+- Look at: open Leads after your staff has been to a few schools. (PR #492) your inbox after the first day of a new college job, for your coordinator's areas letter. (PR #491) the best athletes' speed or strength reads on your roster. (PR #503)
+- Docs and tooling merged too, no game change: Spec: how you talk, your coaching voice read and reacted to (PR #504); Scheme fit: the 25 agreed items and their lanes (docs) (PR #505); Coach fire on the field: the agreed spec (docs) (PR #506); Capital: the facilities layer spec and lane plan (PR #508).
+
 ## 0.2.593 (17 Nov, shipped): ground lane G5: the week's scenes played (PR #494)
 **TLDR:** Your recruiting week now plays out as real scenes: walk into a high school coach's office, run your own clinic, sit with families on junior day and take the call the morning a kid decides.
 - A school visit goes stop by stop: the sign-in sheet shows who was in before you, the coach's office gives you his list, and your eye can catch a kid in the weight room nobody listed. (PR #494)

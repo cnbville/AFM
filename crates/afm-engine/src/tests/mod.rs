@@ -63,6 +63,7 @@ mod live_money;
 mod live_one_on_one;
 mod live_recruit;
 mod live_rooms;
+mod manner;
 mod marks;
 mod matters_here;
 mod new_teams;

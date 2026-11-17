@@ -251,7 +251,7 @@ function newSetup() {
     status: "Married", spouse: "", roots: "", children: [],
     height: "6 ft 1", build: "Athletic", hair: "Short, dark", facial_hair: "Clean-shaven", photo: null,
     bg: "college_assistant", ratings: null, ratingsFor: null,
-    style: { risk: 2, freedom: 2, physical: 2, ball_hunting: 2, mould: 2 },
+    style: { risk: 2, freedom: 2, physical: 2, ball_hunting: 2, mould: 2 }, manner: "",
     level: "college", job: null, q: "",
     // Lane 10: your last stops, and the seat you start in (head coach, an
     // assistant's role, or out of work at a level).
@@ -499,7 +499,7 @@ async function refreshKnown() {
 // made, kept by the game outside any save when his career starts. A new
 // career can take him again as he is (straight to the job) or with
 // something changed (the steps open filled in with him).
-const COACH_KEEP = ["first", "last", "pro", "born", "eth", "hometown", "state", "high_school", "alma_mater", "college_years", "degree", "status", "spouse", "roots", "children", "height", "build", "hair", "facial_hair", "photo", "bg", "pos", "ratings", "ratingsFor", "style", "calls", "stops", "rdLevel"];
+const COACH_KEEP = ["first", "last", "pro", "born", "eth", "hometown", "state", "high_school", "alma_mater", "college_years", "degree", "status", "spouse", "roots", "children", "height", "build", "hair", "facial_hair", "photo", "bg", "pos", "ratings", "ratingsFor", "style", "manner", "calls", "stops", "rdLevel"];
 function coachRecord(st) {
   const r = {};
   for (const k of COACH_KEEP) if (st[k] !== undefined && st[k] !== null) r[k] = st[k];
@@ -930,16 +930,34 @@ function callsOf(st) {
   for (let i = 1; i < 8; i++) if ((r[i] || 0) > (r[top] || 0)) top = i;
   return top < 4 ? "offense" : top < 7 ? "defense" : "none";
 }
+// How you talk (coach voice): the reputation you come in with. Your staff
+// and the first recruit's family expect it on day one; after about a season
+// your real lines take over.
+const MANNERS = [
+  ["", "No reputation yet", "A blank start: people make up their minds from what you actually say."],
+  ["firebreather", "Firebreather", "Hot, often profane, aimed at the opponent and at effort. Most rooms read it as passion."],
+  ["drill_sergeant", "Drill Sergeant", "Hot, aimed at the man, cold. It works only where the trust is already there."],
+  ["needler", "Needler", "Low volume, aimed at the man on purpose, to provoke. Proud men bristle."],
+  ["ceo", "CEO", "Calm, clean, all business. Professionals like it; the shaky want more from you."],
+  ["players_coach", "Players' Coach", "Calm to warm, caring, you ask. The young and the shaky open up."],
+  ["preacher", "Preacher", "High energy, clean, caring, aimed out. Families tend to like it."],
+  ["showman", "Showman", "Loud in public, brash, aimed at rivals. Fans love it; the rival's room hears it."],
+  ["professor", "Professor", "Calm, you ask and explain. Veterans and thinkers respond to it."],
+];
 function stepStyle(st) {
   const p = st.style;
   const calls = callsOf(st);
+  const mannerOn = MANNERS.find((m) => m[0] === (st.manner || "")) || MANNERS[0];
+  const mannerSet = `<div class="pg-set"><div><h3>How you talk</h3><div class="poles">The reputation you come in with. Your staff and the first families expect it; within a season what you actually say takes over.</div></div>
+    <div class="pg-scale nine" role="group" aria-label="How you talk">${MANNERS.map(([k, t]) => `<button class="${(st.manner || "") === k ? "on" : ""}" data-pg="manner" data-k="${k}">${esc(t)}</button>`).join("")}</div>
+    <div class="pg-eff">${esc(mannerOn[2])}</div></div>`;
   const callSet = `<div class="pg-set"><div><h3>Who calls the plays</h3><div class="poles">Your play calling and in-game adaptation count on the side you call. At a high school you call both sides.</div></div>
     <div class="pg-scale four" role="group" aria-label="Who calls the plays">${CALLS.map(([k, t]) => `<button class="${calls === k ? "on" : ""}" data-pg="calls" data-k="${k}">${esc(t)}</button>`).join("")}</div>
     <div class="pg-eff">${esc(CALLS.find((c) => c[0] === calls)[2])}</div></div>`;
   const sets = STYLE_SETS.map((s) => `<div class="pg-set"><div><h3>${esc(s.name)}</h3><div class="poles">${esc(s.poles)}</div></div>
     <div class="pg-scale" role="group" aria-label="${esc(s.name)}">${s.labels.map((l, j) => `<button class="${p[s.key] === j ? "on" : ""}" data-pg="style" data-k="${s.key}" data-j="${j}">${esc(l)}</button>`).join("")}</div>
     <div class="pg-eff">${esc(p[s.key] <= 1 ? s.low : p[s.key] >= 3 ? s.high : s.mid)}</div></div>`).join("");
-  const body = `<div class="pg-body"><div class="pg-col"><div class="pg-panel">${sets}${callSet}</div></div>
+  const body = `<div class="pg-body"><div class="pg-col"><div class="pg-panel">${sets}${callSet}${mannerSet}</div></div>
     <aside class="pg-aside">
       <div class="pg-panel"><div class="pg-ph"><span>What the press will call you</span></div><div class="pg-pad" style="gap:6px">
         <span style="font-size:16px;font-weight:700">${esc(pressLabel(p))}</span><span class="pg-note">The media's name for you comes from what you do, not from these settings. This is where your choices point.</span></div></div>
@@ -951,7 +969,7 @@ function stepStyle(st) {
   return setupPage(st, {
     title: "Your coaching style",
     lede: "How your team plays and which habits you coach into players. Every setting is a real philosophy with winners at both ends; none is better. Players drift toward your style over a season, faster with a coach who moulds.",
-    body, sum: esc([...STYLE_SETS.map((s) => s.labels[p[s.key]]), "calls: " + CALLS.find((c) => c[0] === calls)[1].toLowerCase()].join(" · ")), next: "Next: Job",
+    body, sum: esc([...STYLE_SETS.map((s) => s.labels[p[s.key]]), "calls: " + CALLS.find((c) => c[0] === calls)[1].toLowerCase(), ...(st.manner ? [mannerOn[1]] : [])].join(" · ")), next: "Next: Job",
   });
 }
 
@@ -1321,6 +1339,7 @@ function startArgs(st) {
       born: st.born, hometown: st.hometown, high_school: st.high_school, alma_mater: st.alma_mater, college_years: st.college_years, degree: st.degree,
       status: st.status, spouse: st.status === "Married" ? st.spouse : "", roots: st.roots, children: st.children.filter((c) => c.name.trim()),
       height: st.height, build: st.build, hair: st.hair, facial_hair: st.facial_hair, photo: st.photo,
+      manner: st.manner || "",
     },
   };
 }
@@ -1492,6 +1511,7 @@ document.addEventListener("click", async (ev) => {
     }
     case "rate-reset": st.ratingsFor = null; render(); break;
     case "style": st.style[d.k] = Number(d.j); render(); break;
+    case "manner": st.manner = d.k; render(); break;
     case "level": st.level = d.k; st.sort = { k: null, desc: true }; render(); break;
     case "jf": {
       const f = st.f[st.level];

@@ -102,7 +102,10 @@ pub fn who(w: &World, him: Them, room: &Room) -> Who {
     // family or on a letter.
     let family = room.present.iter().any(|x| matches!(x.seat, Seat::Decider | Seat::Family));
     let setting = !matches!(room.channel, Channel::Letter | Channel::InPerson(Place::Home)) && !family;
-    let swears = setting && (tr.z(Trait::Temper) > 0.3 || (age >= 21 && tr.z(Trait::Professionalism) < 0.0));
+    // A room you curse in loosens his own (coach voice), but never a kid's
+    // with his elders: a high schooler keeps it clean with his coach.
+    let loose = age >= 18 && super::super::manner::loosens(w, him);
+    let swears = setting && (tr.z(Trait::Temper) > 0.3 || (age >= 21 && tr.z(Trait::Professionalism) < 0.0) || loose);
     Who { background, personality, mood, football, known_you, swears }
 }
 
@@ -149,6 +152,15 @@ fn swears_here(room: &Room, m: &Makeup) -> bool {
     setting && (m.temper >= 13.0 || m.professionalism < 9.0)
 }
 
+/// The same, leaning on yours (coach voice, section 7): a room you curse in
+/// loosens its own language, never in front of a family and never a man
+/// whose makeup won't (`manner::loosens`).
+fn swears_with(w: &World, him: Them, room: &Room, m: &Makeup) -> bool {
+    let family = room.present.iter().any(|x| matches!(x.seat, Seat::Decider | Seat::Family));
+    let setting = !matches!(room.channel, Channel::Letter | Channel::InPerson(Place::Home)) && !family;
+    swears_here(room, m) || (setting && super::super::manner::loosens(w, him))
+}
+
 /// A coach: his age, his years in coaching, where he came up, his makeup,
 /// his football, and you.
 fn coach(w: &World, c: usize, him: Them, room: &Room) -> Who {
@@ -193,7 +205,7 @@ fn coach(w: &World, c: usize, him: Them, room: &Room) -> Who {
         mood: String::new(),
         football,
         known_you: known(w, him),
-        swears: swears_here(room, &m),
+        swears: swears_with(w, him, room, &m),
     }
 }
 
@@ -201,5 +213,10 @@ fn coach(w: &World, c: usize, him: Them, room: &Room) -> Who {
 /// rest).
 fn other(w: &World, him: Them, room: &Room) -> Who {
     let m = makeup::makeup(w, him);
-    Who { personality: makeup_words(&m), known_you: known(w, him), swears: swears_here(room, &m), ..Who::default() }
+    Who {
+        personality: makeup_words(&m),
+        known_you: known(w, him),
+        swears: swears_with(w, him, room, &m),
+        ..Who::default()
+    }
 }

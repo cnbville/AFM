@@ -36,7 +36,8 @@ pub(crate) fn day_for(w: &World, team: Team, opp: Team, stakes: f32, rival: bool
         _ => Vec::new(),
     };
     let hurt = hurt(w, team, dressed);
-    let mut d = Day { stakes, rival, captains, hurt, ..Day::default() };
+    let provoked = super::persona::manner::provoked(w, team, opp);
+    let mut d = Day { stakes, rival, captains, hurt, provoked, ..Day::default() };
     if Team::seat(w) == Some(team) {
         yours(w, team, opp, &mut d);
     }
@@ -189,6 +190,7 @@ pub(crate) fn after_game(w: &mut World, talks: &Record, mine: usize) {
     for (pick, halftime) in [(talks.pregame[mine], false), (talks.halftime[mine], true)] {
         if let Some(pick) = pick {
             w.gameday.talks.push(Given { date: today, pick, halftime });
+            super::persona::manner::room_tone(w, super::persona::manner::Manner::of_tone(pick.tone));
         }
     }
     let n = w.gameday.talks.len();

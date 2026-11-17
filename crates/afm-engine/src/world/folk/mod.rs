@@ -451,6 +451,11 @@ pub struct Folk {
     pub media_policy: u8,
     /// The tones of your last team talks (a tone used too often wears out).
     pub mine_tones: Vec<u8>,
+    /// How you talk, as people have seen and heard it (coach voice,
+    /// `persona::manner::Book`): chips count too, so it lives beside the
+    /// talks' stores rather than in them.
+    #[serde(skip_serializing_if = "persona::manner::Book::is_empty")]
+    pub manner: persona::manner::Book,
     /// While a takeover files its meetings: they go out as one schedule on
     /// the welcome letter, not as a letter each.
     #[serde(skip)]
@@ -553,6 +558,7 @@ pub(crate) fn step(w: &mut World, d: Date, t: u16) {
             courts::day(w, d);
             rules::day(w, d);
             boss::day(w, d);
+            persona::manner::day(w, d);
             if w.seat.is_some() {
                 backers::day(w, d);
                 takeover::day(w, d);

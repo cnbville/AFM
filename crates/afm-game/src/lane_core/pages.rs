@@ -1617,6 +1617,15 @@ pub fn coach_page(w: &World, c: usize) -> Result<Value, String> {
     // Your read of him (update 2, Q2) comes with having him on your staff.
     v["your_staff"] = json!(afm_engine::world::staff_read::of_coach(w, c).is_some());
     v["mentor_line"] = json!(co.mentor.and_then(|m| w.coaches.get(m)).map(|m| links::coach(m.id, &m.name)));
+    // How you come across (coach voice): the words for your read, from your
+    // lines and the reputation you came in with. Yours only.
+    if w.career.as_ref().is_some_and(|k| k.coach == c) {
+        v["voice"] = json!(afm_engine::world::folk::persona::manner::your_read(w).map(|x| {
+            let mut words = x.1;
+            words[..1].make_ascii_uppercase();
+            words
+        }));
+    }
     v["record"] = rec_record(w, c);
     v["notes"] = json!(w.career.as_ref().map(|k| {
         k.desk

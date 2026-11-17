@@ -125,8 +125,11 @@ fn drafts_imperfectly_without_wild_first_round_reaches() {
     // and specialists sat on the board. Ranked as public boards rank, by
     // grade and position value without specialists, fifteen classes give
     // 2.5 with the draft unchanged, so the band is now the real one.
+    // Sixteen classes still left the mean about 0.5 wide: the speed lane
+    // (2026-11-17) read 3.2 on them where main read 2.2, while forty fresh
+    // classes gave 1.9 and 2.0. Thirty-two classes halve the noise.
     let mut n = s().draft.first_rounders_outside_top50 as f64;
-    let seeds: Vec<String> = (1..15).map(|k| format!("reach-{k}")).collect();
+    let seeds: Vec<String> = (1..32).map(|k| format!("reach-{k}")).collect();
     for seed in &seeds {
         n += summarize(&simulate_cohort(CohortOptions::new(250_000, seed.as_str()))).draft.first_rounders_outside_top50
             as f64;

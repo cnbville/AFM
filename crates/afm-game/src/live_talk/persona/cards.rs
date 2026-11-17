@@ -411,9 +411,34 @@ pub fn voice(w: &World, s: &Scene, room: &Room, parts: &Parts, t: &Turn, line: &
         asked_before,
         pressing,
         heat,
+        manner: manner_words(w, room, t, him),
+        coach_read: coach_read(w, him),
         notebook: store::notebook(w, him),
         so_far: so_far(s),
         line: quoted(line),
+    }
+}
+
+/// How he took your manner on this line (coach voice, section 7), for him
+/// to answer in kind.
+fn manner_words(w: &World, room: &Room, t: &Turn, him: Them) -> String {
+    let family = afm_engine::world::folk::persona::manner::setting(w, room).family;
+    t.manner.iter().find(|x| x.0 == him).map(|x| x.1.as_.voice(family).to_string()).unwrap_or_default()
+}
+
+/// How you come across to him (coach voice, section 2): by what he has
+/// seen of you, or only by your reputation while that's thin.
+fn coach_read(w: &World, him: Them) -> String {
+    use afm_engine::world::folk::persona::manner;
+    let Some(s) = manner::seen_of(w, him) else { return String::new() };
+    if s.weight < 1.0 {
+        return String::new();
+    }
+    let words = manner::words_for(&s.manner, None);
+    if s.own < 2.0 {
+        format!("you know him mostly by reputation, as {words}")
+    } else {
+        format!("from what you've seen and heard of him, {words}")
     }
 }
 
@@ -484,7 +509,9 @@ impl VoiceCard {
         }
         let names: Vec<String> = self.may_name.iter().map(|t| t.text.clone()).collect();
         put("The only people and teams you may name", &names.join("; "));
+        put("How the coach comes across to you", &self.coach_read);
         put("Heat", &self.heat);
+        put("How you took the coach's manner on this line (answer in kind)", &self.manner);
         put("Your stance on the hard topic", &self.stance);
         put("How you come across", &self.tell);
         if self.holding_back {

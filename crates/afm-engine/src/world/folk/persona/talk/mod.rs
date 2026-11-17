@@ -579,6 +579,43 @@ impl Resolving for Conversation<'_> {
                 t.hits.push(sz);
             }
         }
+        // How you said it (coach voice, section 4): each man takes your
+        // manner his own way, by what he wants from a coach, what he has
+        // with you and where it was said. It lands as one more hit, inside
+        // the same caps as the words: wording never beats the best chip.
+        if let Some(m) = reading.manner {
+            let set = super::manner::setting(w, room);
+            for p in &room.present {
+                // The man across, every man in a group, and on a home
+                // visit his decider (the grandmother on the couch).
+                if p.who != him && !in_group && p.seat != super::room::Seat::Decider {
+                    continue;
+                }
+                let mut tk = super::manner::took(w, p.who, &m, &set);
+                // The words already stung him: the delivery adds half its
+                // own harm, not all of it again.
+                let stung = reading
+                    .hits
+                    .iter()
+                    .any(|h| h.on == p.who && matches!(h.how, super::ear::How::Insulted | super::ear::How::Stung));
+                if stung && tk.trust < 0.0 {
+                    tk.trust *= 0.5;
+                    tk.mood *= 0.5;
+                }
+                if let Some(how) = tk.as_.how()
+                    && tk.trust.abs() + tk.mood.abs() > 0.002
+                {
+                    let item = if in_group { Item::Room } else { Item::Pride };
+                    t.hits.push(Sized {
+                        hit: super::ear::Hit { on: p.who, item, how },
+                        trust: tk.trust,
+                        mood: tk.mood,
+                        faded: false,
+                    });
+                }
+                t.manner.push((p.who, tk));
+            }
+        }
         // A dodge needs a question to dodge: his own ask on the table (the
         // one his last line raised), or his opening's question. The ear may
         // hear a dodge of something he asked lines ago, or of a demand he
@@ -924,6 +961,14 @@ impl Resolving for Conversation<'_> {
         // a GM's word, a family's answer for the file.
         super::draft::after_line(w, id, &self.said, t);
         talks::charge(w, t.minutes / 60.0);
+        // How you said it, kept (coach voice): every man in the room, your
+        // building's grapevine and your own read; a complaint when it
+        // comes to that. And pressure on a hurt man reaches the training
+        // room.
+        if let Some(mn) = self.said.reading.manner {
+            super::manner::said(w, &room, mn, &t.manner);
+        }
+        super::manner::pressure(w, him, &self.said.reading);
         if t.ends.is_some() {
             end(w, id);
         }
