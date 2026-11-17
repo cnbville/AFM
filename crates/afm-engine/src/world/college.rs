@@ -976,6 +976,17 @@ fn play_games(w: &mut World, date: Date, now: impl Fn(&Game) -> bool) {
                     + super::capital::rooms::recovery_days(&w.programs[t])
             });
             crate::training::seat::game_injuries(w, date, &r.injuries, med, side);
+            // The hits the officials flagged: targeting and its first half
+            // (coach fire, item 4).
+            let none: Vec<u32> = Vec::new();
+            let served = j.teams.as_ref().map_or([&none, &none], |(a, b)| [&a.day.first_half, &b.day.first_half]);
+            super::folk::rules::game_flags(
+                w,
+                CalLevel::College,
+                [super::folk::Team::College(home), super::folk::Team::College(away)],
+                &r.stats.hit_flags(),
+                [served[0].as_slice(), served[1].as_slice()],
+            );
             // Growth from results: his plays move his skills, his snaps land.
             if let Some((level, ev)) = results_part {
                 let mut ids: HashMap<u32, (usize, Option<super::stories::TeamKey>)> = HashMap::new();
