@@ -10594,7 +10594,11 @@ pub(crate) fn appeal(w: &World, i: usize, j: usize, nil: Option<f64>) -> f64 {
 }
 
 /// What an official visit adds to a school's appeal: the weekend on campus.
-const OFFICIAL_PULL: f64 = 0.02;
+pub(crate) const OFFICIAL_PULL: f64 = 0.02;
+/// A visit's pull a contact (`appeal_in`); Capital lane C5 reads it.
+pub(crate) const GAME_DAY_PULL: f64 = 0.004;
+/// The facilities grade's own term in a recruit's name part (`six_parts`).
+pub(crate) const FACILITIES_GRADE: f64 = 0.1;
 
 /// [`appeal`] with the money on his list read already ([`money_field`]).
 fn appeal_in(w: &World, i: usize, j: usize, nil: f64, field: &TopTwo) -> f64 {
@@ -10623,7 +10627,7 @@ fn appeal_in(w: &World, i: usize, j: usize, nil: f64, field: &TopTwo) -> f64 {
     // and the room each add their own share of the weekend, and so does
     // the tour you chose for him (lane C4, CP20; none chosen adds none).
     let unofficial = p.cal.visits.iter().filter(|v| v.0 == j && v.2 == super::Visit::Unofficial).count().min(5) as f64;
-    u += 0.004 * (contact + unofficial.min(contact) * super::capital::rooms::game_day_lift(prog))
+    u += GAME_DAY_PULL * (contact + unofficial.min(contact) * super::capital::rooms::game_day_lift(prog))
         + if official {
             OFFICIAL_PULL
                 * (1.0
@@ -10701,7 +10705,7 @@ fn six_parts(
     let lv = recruit_level(prog, w.year);
     let mut name = 1.6 * lv * (0.5 + wants.prestige + wants.development)
         + (0.25 + wants.prestige) * brand * (0.4 + 0.6 * lv)
-        + 0.1 * g(GradeCat::Facilities)
+        + FACILITIES_GRADE * g(GradeCat::Facilities)
         + super::capital::rooms::campus_life_want(p) * (g(GradeCat::CampusLife) - 0.77)
         + wants.prestige * prestige;
     if p.stars == 5 {

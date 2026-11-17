@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.603", date: "17 Nov", title: "Capital lane C2: the rooms and the campus",
+    notes: [
+      "Your campus is now made of real rooms, from the locker room to the NFL wall, and each one does something. Build, renovate and watch rivals answer.",
+      "Thirteen rooms per program, each with a level, starting from every school's real buildings.",
+      "Rooms age and are read against the best in your conference, so a rival's new weight room makes yours look older.",
+      "Each room has its own effect: the weight room grows bodies, the recovery center gets hurt players back sooner, the content studio helps your players' deals, the locker room makes visits count.",
+      "In the year before a new building opens, your team works in temporary space.",
+      "Recruits now care about campus life, some of them a lot.",
+    ],
+  },
+  {
     v: "0.2.602", date: "17 Nov", title: "Talks that know where they stand and what is between you and 1 more",
     notes: [
       "The game no longer freezes for minutes when you press Continue while it autosaves.",
