@@ -6,6 +6,9 @@
 //! since minor bug 135; at 400 one cell could be off by a yard or more):
 //! `cargo run --release --bin call_values -- 2000 > crates/afm-engine/data/call_values.csv`
 //! Each value is mean yards on the snap (capped at 40) minus 45 for a turnover.
+//! Every concept that can carry the run fake has a second row with it,
+//! "play-action <name>" (scheme-fit item 3), so a caller weighs the fake
+//! against the look as he weighs the concept.
 
 use afm_engine::game::flow::trace_snap_opt;
 use afm_engine::game::playbook::*;
@@ -39,8 +42,15 @@ fn main() {
     // with four rushers.
     let fronts = [FrontLook::Over, FrontLook::Under, FrontLook::Wide, FrontLook::Odd, FrontLook::Tite, FrontLook::Bear];
     let runs: Vec<RunConcept> = RUN_CONCEPTS.iter().copied().filter(|&r| r != RunConcept::Sneak).collect();
-    let plays: Vec<(String, PlayKind)> =
-        PASS_CONCEPTS.iter().enumerate().map(|(i, p)| (p.name.to_string(), PlayKind::Pass(i))).collect();
+    let mut plays: Vec<(String, PlayKind, bool)> =
+        PASS_CONCEPTS.iter().enumerate().map(|(i, p)| (p.name.to_string(), PlayKind::Pass(i), false)).collect();
+    plays.extend(
+        PASS_CONCEPTS
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| takes_fake(p))
+            .map(|(i, p)| (format!("play-action {}", p.name), PlayKind::Pass(i), true)),
+    );
     // AFM_CELL=concept:Coverage prints what happens on one cell (debug).
     if let Ok(cell) = std::env::var("AFM_CELL") {
         let (pn, cn) = cell.split_once(':').unwrap();
@@ -92,8 +102,9 @@ fn main() {
     let blank_fronts = vec![String::new(); fronts.len()];
     let mut rows: Vec<String> = plays
         .par_iter()
-        .map(|(name, kind)| {
-            let call = OffCall::new(Formation::plain(Personnel::P11, Backfield::Shotgun, 1.0), *kind, 1.0, false);
+        .map(|(name, kind, fake)| {
+            let mut call = OffCall::new(Formation::plain(Personnel::P11, Backfield::Shotgun, 1.0), *kind, 1.0, false);
+            call.fake = *fake;
             let cells: Vec<String> = looks
                 .iter()
                 .map(|&(coverage, pressure)| {

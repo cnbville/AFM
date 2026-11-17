@@ -879,6 +879,7 @@ fn run_return(
         help_on: None,
         chip: None,
         gap_run: None,
+        fake: None,
         stunt: None,
         level: rules.level,
         // The sim's side 0 is the return team.
