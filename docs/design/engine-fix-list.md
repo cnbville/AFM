@@ -16,3 +16,6 @@ Found with the same hover (`lane_help/roles.rs`, `UNREAD`), from the 800-game re
 - Anticipation for receivers and tight ends.
 - Motor, play recognition and communication for offensive tackles; leg drive, motor and play recognition for guards and centers.
 - A punter's kick trajectory, kick power, short kick accuracy and ball handling.
+
+## Scheme fit (lanes SF0-SF11)
+The 25 items Cain agreed on 2026-11-16 and 17 after the scheme-fit audit are in `docs/design/scheme-fit.md`, with their lanes. The same rule holds: the engine lanes start after the world rebuild. "Ball tracking for corners and safeties" above is part of item 14 there (lane SF6). E1 sits next to item 7 (lane SF3) and stays Cain's call.
