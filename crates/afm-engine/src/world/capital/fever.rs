@@ -93,6 +93,24 @@ pub fn fever_on(moments: &[Moment], p: usize, day: Date) -> f64 {
     1.0 - (-sum).exp()
 }
 
+/// The moment that is lifting a program's fever most on a day (its strength
+/// times its fade), if any is still worth a word: what brought a gift.
+pub fn brought(w: &World, p: usize, day: Date) -> Option<(What, Option<u32>)> {
+    w.capital
+        .moments
+        .iter()
+        .filter(|m| m.program == p as u32 && m.date <= day)
+        .map(|m| (m.what.strength() * fade(m.date.days_to(day)), m))
+        .filter(|(s, _)| *s >= BROUGHT_MIN)
+        .max_by(|a, b| a.0.total_cmp(&b.0))
+        .map(|(_, m)| (m.what, m.who))
+}
+
+/// A moment must still read at least this to be named as what brought a
+/// gift (proposed, not confirmed): a conference title is gone at about
+/// 18 months, a rivalry win after a few weeks.
+pub const BROUGHT_MIN: f64 = 0.04;
+
 /// Every program's fever today, by program.
 pub fn all(w: &World) -> Vec<f64> {
     let mut sum = vec![0.0f64; w.programs.len()];

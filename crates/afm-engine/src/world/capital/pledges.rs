@@ -33,6 +33,10 @@ pub struct Pledge {
     pub room: Option<u8>,
     /// The drive it went to (lane C3; 0: waiting for the program's next).
     pub drive: u32,
+    /// The moment that brought it (the strongest the fever still held the
+    /// day he said yes) and the player in it; None: no moment, plain work
+    /// (lane CS3 shows it beside the gift).
+    pub moment: Option<(super::fever::What, Option<u32>)>,
 }
 
 impl Pledge {
@@ -85,6 +89,7 @@ pub fn make(
         pulled: None,
         room,
         drive: 0,
+        moment: None,
     });
     id
 }

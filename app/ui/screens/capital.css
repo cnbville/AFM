@@ -1,0 +1,15 @@
+/* Capital's shared frame (lane CS1, CP39): Ground's Press Box look. Dark
+   panels, ivory text, hairlines, one gold, amber for what is slipping, no
+   saturated fills. The page carries .sl so lane 1's tokens (and the light
+   theme) apply; each Capital screen sets the --cp-* names on its own root. */
+
+.cap-tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+.cap-tab { font: inherit; font-size: 13px; font-weight: 600; color: var(--sl-dim); background: none; border: 0; border-radius: 999px; padding: 8px 12px; min-height: 36px; cursor: pointer; }
+.cap-tab:hover { color: var(--fg); background: var(--fill-1); }
+.cap-tab.on { color: var(--on-fg, #0a0c10); background: var(--cp-ivory, #e8e6e0); }
+.cap-tab:focus-visible { outline: 2px solid var(--cp-gold, #ffd60a); outline-offset: 2px; }
+
+.cap-pips { display: inline-flex; gap: 3px; vertical-align: middle; flex: none; }
+.cap-pips i { width: 9px; height: 9px; border-radius: 2px; background: var(--fill-2); display: block; }
+.cap-pips i.on { background: var(--cp-ivory, #e8e6e0); }
+.cap-pips i.up { background: var(--cp-gold, #ffd60a); }
