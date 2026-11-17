@@ -109,6 +109,12 @@ impl Game {
     /// errors in plain words.
     pub fn call(&mut self, cmd: &str, args: &Value) -> Reply {
         self.autosave.touch(cmd);
+        // Days never play while an autosave still shares the world's pages
+        // (autosave.rs, module notes). Continue waits in its own arm, once
+        // no meeting stops it.
+        if autosave::plays_days(cmd) && cmd != "continue" {
+            self.autosave.finish_first();
+        }
         let mut r = self.run(cmd, args);
         // The lines a screen showed you are heard: the same moment keeps
         // its words all day, and the next game day reaches for new ones
@@ -306,6 +312,10 @@ impl Game {
                         }));
                     }
                 }
+                // Only once the days will play: a meeting's answer above
+                // never waits for the autosave.
+                self.autosave.finish_first();
+                let w = self.wm()?;
                 let (from, filed) = (w.now(), views::desk_ids(w));
                 w.continue_until_needed();
                 lane_core::after_days(w);

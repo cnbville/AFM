@@ -837,7 +837,9 @@ async function cont() {
   // Only the button and the bar change while the days play: drawing the
   // whole screen again would fetch it again and could land after the next one.
   const b = $(".continue");
-  if (b) { b.classList.add("busy"); b.textContent = "Playing…"; }
+  // A running autosave is written first: days played while it writes
+  // would copy half the world (autosave.rs).
+  if (b) { b.classList.add("busy"); b.textContent = AUTO.state === "saving" ? "Finishing the autosave…" : "Playing…"; }
   const top = $(".topbar");
   if (top && !top.querySelector(".progress")) top.insertAdjacentHTML("beforeend", '<div class="progress"><i></i></div>');
   document.documentElement.classList.add("running");

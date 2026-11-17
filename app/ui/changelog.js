@@ -17,6 +17,16 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.592", date: "17 Nov", title: "Progression step 4c: no 99 wall, a thin top past 99, the bench by body weight",
+    notes: [
+      "The best players can now go past 99 under the hood, so true freaks stand out from merely great players. Big men's bench numbers now follow their weight, as they do at the real combine.",
+      "Ratings no longer stop at 99. Past the mid-90s each extra point gets harder, so a 100+ arm is about as rare as a 4.25 forty.",
+      "Elite prospects are as uneven as anyone else. A top talent can have one standout tool and a weaker spot.",
+      "Bench press reps follow body weight, and the strongest men in the weight room can reach the 40-rep club.",
+      "Vertical jumps top out near the real record instead of running far past it.",
+    ],
+  },
+  {
     v: "0.2.591", date: "17 Nov", title: "Let updates skip a pending older version and 1 more",
     notes: [
       "Your athletic director now writes down what you commit to. Promise to keep the state's best player home or to win eight games, and it goes on his goals sheet, or he tells you why not.",

@@ -125,6 +125,7 @@ fn main() {
     weigh("NFL book", &mut w, &|w| w.nfl_book = Default::default());
     weigh("record store", &mut w, &|w| w.marks = Default::default());
     weigh("ground (your seat only; the AI's is read when asked)", &mut w, &|w| w.ground = Default::default());
+    weigh("capital (every college's donors, circles and pledges)", &mut w, &|w| w.capital = Default::default());
     weigh("calendar logs", &mut w, &|w| w.log_history = Vec::new());
     weigh("event history", &mut w, &|w| w.event_history = Vec::new());
     weigh("calendar", &mut w, &|w| w.calendar = Default::default());

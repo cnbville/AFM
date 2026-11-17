@@ -502,6 +502,11 @@ pub fn check_promises(w: &mut World, d: Date) {
         if !kept && let (PromiseTo::Cast(r, term), PromiseKind::Booster(_)) = (p.to, p.kind) {
             super::backers::broken(w, r, term);
         }
+        // His donor remembers it, and a broken one spreads through his
+        // circle (Capital lane C1, CP4).
+        if let PromiseTo::Cast(r, term) = p.to {
+            crate::world::capital::donors::booster_word(w, r, term, kept);
+        }
         super::note(w, "talk", "Your promises".into(), text.clone(), None);
         super::post_mine(w, d, Loudness::Small, false, "people: promise", &text);
     }
