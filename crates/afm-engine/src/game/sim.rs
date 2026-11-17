@@ -1084,6 +1084,9 @@ pub struct Sim<'a> {
     /// On a designed run, the pace every back takes to the line until he
     /// commits to a crease (yards per second; 0 on other plays).
     pub press: f64,
+    /// A designed run whose ball is still the run's: from the call until
+    /// an RPO is pulled into a throw. Only `FIRST_TACKLE_BLOCK` reads it.
+    pub designed_run: bool,
     /// On a designed run, the lane the back chose when he read the hole
     /// (across the field), once he has read it.
     pub lane: Option<f64>,
@@ -1187,7 +1190,7 @@ const SHED_EDGE: f64 = 9.0;
 /// or below) has to shed it first (lane SF3, scheme-fit item 7). It was
 /// 0.25 + 0.3 × w from w -0.2 (0.55 at the shed, as now): 4.9% of the hits
 /// that start the tackle on NFL designed runs came from a man on a block,
-/// 0.5% from one he wasn't winning; now 2.1% and none (`match_check nfl
+/// 0.6% from one he wasn't winning; now 2.2% and none (`match_check nfl
 /// 4000`, test rosters; proposed, not confirmed).
 const ARM_OUT: f64 = 0.55;
 /// A run block's push fades: a man driven back goes back for 2 seconds at
@@ -1380,11 +1383,14 @@ pub const HIGH_ON_TACKLE: f64 = 0.07;
 /// Print plays as they run (debug tooling only).
 pub static TRACE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
-/// Debug counts of the hit that starts the tackle on a designed run, by the
+/// Debug counts of the hit that starts the tackle on a designed run (every
+/// run call, tosses, sweeps, sneaks and options too, but not an RPO pulled
+/// into a throw: `Sim::designed_run`), the offense carrying, by the
 /// tackler's block at that moment: free, on a block he isn't winning (w at
 /// 0 or below), and winning it at w up to 0.3, up to 0.6 and past it (read
-/// by `match_check` with `AFM_RUNDIAG`; lane SF3). The play log's blocks
-/// can't tell this: a block on record may have been picked up after the hit.
+/// by `match_check` with `AFM_RUNDIAG`; lane SF3). A play a flag later wipes
+/// out counts too. The play log's blocks can't tell this: a block on record
+/// may have been picked up after the hit.
 pub static FIRST_TACKLE_BLOCK: [std::sync::atomic::AtomicU64; 5] = [const { std::sync::atomic::AtomicU64::new(0) }; 5];
 
 /// Normal draw.
@@ -3230,7 +3236,7 @@ impl<'a> Sim<'a> {
                     Some(_) => 4,
                 };
                 self.first_hit(c, i, arm_only, lunge);
-                if self.press > 0.0 && self.fight.first() == Some(&i) {
+                if self.designed_run && self.agents[c].side == 0 && self.fight.first() == Some(&i) {
                     FIRST_TACKLE_BLOCK[block].fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 }
             } else {
