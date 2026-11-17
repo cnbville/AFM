@@ -158,8 +158,10 @@ pub(crate) fn give(
     let Some(d) = w.capital.donor(donor).cloned() else { return 0 };
     let years = years_for(amount, d.capacity);
     let id = super::pledges::make(w, donor, p as u32, amount, years, closer, room, day);
+    let moment = super::fever::brought(w, p, day);
     if let Some(x) = w.capital.pledges.iter_mut().rev().find(|x| x.id == id) {
         x.drive = drive;
+        x.moment = moment;
     }
     if let Some(x) = w.capital.drives.iter_mut().find(|x| x.id == drive) {
         x.asked.push((donor, super::drive::GAVE));
@@ -484,6 +486,7 @@ pub(crate) fn estates(w: &mut World) {
             pulled: None,
             room: e.room,
             drive,
+            moment: None,
         });
         w.capital.estates[k].paid = true;
     }

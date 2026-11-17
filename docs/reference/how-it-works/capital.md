@@ -1,6 +1,6 @@
 # Capital: how it works today
 
-Checked against main cb3818f (lanes C1-C6 and CS1) plus lane CS2 (the Donors screen) on 2026-11-17.
+Checked against main 7bc88f6 (lanes C1-C6, CS1 and CS3) plus lane CS2 (the Donors screen) on 2026-11-17.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`, `app/` or `data/`. Capital's spec is `docs/design/capital.md`; each lane adds its section here. Every size on this page is Claude's (proposed, not confirmed) unless the spec gives it.
 
@@ -124,7 +124,7 @@ What isn't built yet: more official visitors a weekend (the game has no weekend 
 - What starts the fever? Big moments (CP7): a national title 1.0, the Heisman 0.75, a conference title and a top-10 pick 0.5 each (the pick is half a national title), the playoff 0.25, a bowl win 0.12, a rivalry win 0.08 (`world/capital/fever.rs`, `What::strength`). They are read off the college season once it is over (titles, the bracket, bowls, rivalry games, the Heisman) and off the draft on 15 May (its first ten picks, by the college each came from) (`fever::day`).
 - How does it fade and stack? Each moment counts (1 - months / 24)² of its strength, so it fades fast at first and is gone at two years; the fever is 1 - e^-sum, so a run stacks toward the top without passing it (`fade`, `fever_on`). A conference title alone reads 0.39 the day it is won and 0.056 by the spring after the next season; a title in 2027 and a title and the playoff in 2028 read 0.49 in March 2029 (`tests/capital_drive.rs`, `the_fever_starts_on_big_moments_stacks_and_fades`).
 - What does the fever do? A donor's yes chance x (1 + 0.5 x fever) and his gift x (1 + 0.4 x fever) (`gifts.rs`, `FEVER_CHANCE`, `FEVER_SIZE`); a drive starts more often (`drive.rs`, `START_FEVER`); and the collective's yearly growth gains 0.05 x fever once the drives live (`program.rs`, `COLLECTIVE_FEVER`, CP9). Your program's every moment is a news line ("Donors answer the title"), and the big ones at the Power 4.
-- What is the drive? Every program's capital campaign for one building, in its real stages: a five-month feasibility study, the quiet phase, the public phase and the close, the building going up on its own clock (`drive.rs`, `Drive`, `Stage`). On screen it is "the drive" (CP12). No screen shows it yet (lane CS3).
+- What is the drive? Every program's capital campaign for one building, in its real stages: a five-month feasibility study, the quiet phase, the public phase and the close, the building going up on its own clock (`drive.rs`, `Drive`, `Stage`). On screen it is "the drive" (CP12). The drive screen shows it (lane CS3, below).
 - Who starts one? Each July once the rooms live, every program's AD on the same rule (CP27): 4% + 0.7 x (the AD's target over the facilities number) + 0.2 x fever + up to 10% for money in the bank (less in the red) + 5% for a big booster, at most 45%; not while a drive or a project is under way, nor for three years after a shelved one (`drive::year`). It replaces the ADs' old July decisions (`finance/college.rs`, `facility_decisions`), which still build the world's past. Asking your AD for a facility (`ask_facility`, the boss's facility ask) opens a study once the rooms live.
 - What building? The tier's: the Power 4 a football building ($140M in 2024 dollars), the rest of the FBS an operations center ($40M), FCS an indoor practice facility ($14M), below a weight room and locker room ($3M), each x 0.85-1.15 (`kind_for`). A size holds the full building's rooms, biggest first, to its share of their weight: the full complex, mid-size (0.75) or smaller (0.5) (`Size`, `rooms_for`).
 - What is the goal? The share of the cost the drive raises from donors: Power 4 0.75, the rest of the FBS 0.4, FCS 0.12, below 0.06; the department's bonds and the university carry the rest, more the smaller the program (`FUND_SHARE`, `goal_for`; fitted on the world check below so each level builds about as before).
@@ -143,9 +143,9 @@ What isn't built yet: more official visitors a weekend (the game has no weekend 
 - What about estates? Lane C1's estate gifts go into the program's drive, one restricted to a room once a drive holds it, or after three years (`gifts::estates`). Pledges pay a year each July (`gifts::pay`).
 - Does it change the world? Yes, from the handover season: the drives decide every program's buildings, and the fever lifts the collectives. The past is the same per seed (the drives and the collective's lift wait for the rooms to live, `capital::live`).
 
-### Your calls (no screen yet; lane CS3)
+### Your calls (the drive screen, lane CS3)
 
-`drive::set_goal`, `go_public`, `hands_on`, `push_borrow`, `fix_overrun`; `gifts::ask` (building or NIL, pushed or not; lane C4's donor slots call it) and `answer_catch`. Each is the engine's; no `Game::call` command wraps them yet.
+`drive::set_goal`, `go_public`, `hands_on`, `push_borrow`, `fix_overrun`; `gifts::ask` (building or NIL, pushed or not; lane C4's donor slots call it) and `answer_catch`. Each is the engine's. The drive screen wraps `set_goal`, `go_public`, `hands_on` and `push_borrow` as game commands (lane CS3, below); `fix_overrun` and `answer_catch` wait for the project screen (lane CS4).
 
 ### Where the knobs are
 
@@ -228,6 +228,18 @@ Every size here is the build's pick, proposed, not confirmed. Code: `world/capit
 ### Where the knobs are
 
 `world/capital/race.rs`: `NEW_SEASONS` 3, `cares`, `TELL_DIRECT` 0.3, `GRAPEVINE` 0.012, `GRAPEVINE_MAX` 0.25, `OUT_OF_STATE` 0.35, `EAR_DONORS` 6, `ERROR_DIRECT` 0.08, `ERROR_GRAPEVINE` 0.2, `NAMES_BUILDING` 0.7, `KEEP_YEARS` 4, `press_weight`, `SHINE` 0.5, `KEEP_PECKING` 30. `world/recruiting.rs`: `FACILITIES_GRADE` 0.1, `GAME_DAY_PULL` 0.004, `OFFICIAL_PULL` 0.02 (the decision's own, read here).
+## Lane CS3: the drive screen
+
+Code: `crates/afm-game/src/lane_capital_drive.rs` (the commands), `app/ui/screens/capitaldrive.js` and `.css` (the screen, route `capitaldrive`, in the Capital section of the sidebar for a college seat). Board 3 of the mock-ups.
+
+### Quick answers
+
+- What does the screen show? Your program's latest drive (`drive::latest`): the building and size as the title, the study's word against your goal as a story line, the share of the goal in (a big percent), the bar (paid in, pledged, pulled, still to raise), the four stages with dates, every pledge to it newest first with the moment that brought it, the lead donors who have not given (they wait for you), your AD's read, and your calls (`capital_drive`, `view`). Everything is a share of the goal or words: no dollar figure (CP39; the test checks the reply has no `$`).
+- How is the bar made? Paid in is every pledge's paid part plus the small gifts; pledged is what open pledges still owe; pulled is what donors who pulled took back (`Pledge::left`, `Drive::crowd`, `drive::raised`). The mock-up's "slipping" for a donor's bad year has no number in the engine, so the amber part is pulled pledges only.
+- What brought a gift? A pledge now keeps the moment the fever held the day he said yes (`Pledge::moment`, set in `gifts::give` from `fever::brought`: the moment with the biggest strength x fade that still reads 0.04 or more); "Carter Hale, top-10 pick", "Conference title". With no moment it is the stage: "Quiet phase" or "Public phase". The small gifts are one row, "Public launch". Pledges made before this lane have no moment and read as their stage.
+- What is the AD's word? Templated from the drive's real state (shelved, hit, missed, study, quiet under or over half, stalled, early, bold, plain), with his trust in a few words (`boss::trust_short`).
+- Which calls are on it? Only the ones open today: the goal's three sizes before it goes public (`capital_goal` {size small, mid, full}), going public (`capital_public`; "Go early" under half), hands on or off (`capital_hands` {on}), and the push to borrow once half is in (`capital_borrow` {bigger}). The overrun answer and a gift's catch are the project screen's.
+- Does it change the world? No. `Pledge::moment` is a stored note with a `#[serde(default)]`; no draw moves.
 
 ## Lane C6: high school and NFL facilities
 

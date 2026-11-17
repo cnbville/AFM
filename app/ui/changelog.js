@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.607", date: "17 Nov", title: "Capital lane C4: your week and scenes",
+    notes: [
+      "Your donors now live in your week. Dinners, the suite before kickoff and the spring caravan sit beside your other scenes, and you choose the rooms a recruit tours on his official visit.",
+      "Your development office puts donors worth your time on your week, each with a reason, and you can book your own dinners.",
+      "In season your only donor hour is the suite before a home game.",
+      "On an official visit you pick the three rooms he sees, and he notices what you skip.",
+      "When a donor whose name is on a building lands in scandal, you decide whether the name comes down.",
+      "Groundbreakings, reveal videos and ribbon cuttings keep who was on stage, how the recruits took it and the next day's headline.",
+    ],
+  },
+  {
     v: "0.2.606", date: "17 Nov", title: "Capital lane C3: the money and the drive and 2 more",
     notes: [
       "Burners are as rare as in real football now: a 4.2 forty is a once-a-draft event, not a handful every spring.",
