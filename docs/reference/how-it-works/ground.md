@@ -1,6 +1,6 @@
 # Ground: how it works today
 
-Checked against branch commit 28f13b8 on 2026-11-16 (lane G1a, areas and map data), main bf92e7d plus lane G1b on 2026-11-16 (standing and one memory), main d291de54 plus lane G3 on 2026-11-16 (your week and road days), branch lane S2 on 2026-11-16 (the meeting at the map), main fd85a4f9 plus lane G7 on 2026-11-16 (people in full), main plus lane G11a on 2026-11-16 (the high school chain reaction), main 6aed06fd plus lane G4 on 2026-11-16 (news in order, leads and finds), branch lane S5 on 2026-11-16 (the person screen) and main 256934ee plus lane G6 on 2026-11-16 (the campaign), main plus lane G8 on 2026-11-16 (a following and famous names), main 80ce85c plus lane G11b on 2026-11-16 (favors, switched off), branch lane S8 on 2026-11-16 (the ground report screen), main d64b44f plus the college followings retune on 2026-11-16 (storms reach college), and main plus lane G5 on 2026-11-16 (the scenes).
+Checked against branch commit 28f13b8 on 2026-11-16 (lane G1a, areas and map data), main bf92e7d plus lane G1b on 2026-11-16 (standing and one memory), main d291de54 plus lane G3 on 2026-11-16 (your week and road days), branch lane S2 on 2026-11-16 (the meeting at the map), main fd85a4f9 plus lane G7 on 2026-11-16 (people in full), main plus lane G11a on 2026-11-16 (the high school chain reaction), main 6aed06fd plus lane G4 on 2026-11-16 (news in order, leads and finds), branch lane S5 on 2026-11-16 (the person screen) and main 256934ee plus lane G6 on 2026-11-16 (the campaign), main plus lane G8 on 2026-11-16 (a following and famous names), main 80ce85c plus lane G11b on 2026-11-16 (favors, switched off), branch lane S8 on 2026-11-16 (the ground report screen), main d64b44f plus the college followings retune on 2026-11-16 (storms reach college), and main plus lane G5 on 2026-11-16 (the scenes), and branch lane S3 on 2026-11-17 (the school visit screen).
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`, `app/`, `data/` or `tools/`. Ground's spec is `docs/design/ground.md`; each lane adds its section here.
 
@@ -85,7 +85,7 @@ Screen: `app/ui/screens/groundweek.js` and `.css` ("The meeting" under Ground in
 - **The board** draws your state from `art/ground/<ST>.json` with the front areas lifted, a route from the campus to each front, numbered pins and a pill with the men and days. A front past the frame (a flight to another state) runs to the frame's edge and is listed under the map with its trip. Rivals' dotted lines and each front's sign-in sheet against its rival come with the race (lane G9); until then a front shows who you know there.
 - **The week by day:** each man on his days (a flight striped), the scenes at their hour (the ones that come to you in gold), the men still at home with the rule that keeps one home. Drag a man's chip to another day to move that day, or a man at home to a day to send him to the area picked beside his name; the × on a chip takes him off that day (his last day clears the road).
 - **The letter** shows its first line as the quote and what moved; the plan and the calls it repeats stay under "The whole letter".
-- **What it does not do yet:** the screen shows each scene's line; lane G5 plays them (each slot names its scene for the screens, and lane S3 builds the school visit's); the coordinator's one call is a call on your list (his goals are lane G6's, the race lane G9's).
+- **What it does not do yet:** the screen shows each scene's line; lane G5 plays them (each slot names its scene, and a scene of yours opens from its slot; the school visit has its own page, lane S3 below); the coordinator's one call is a call on your list (his goals are lane G6's, the race lane G9's).
 - Test: `crates/afm-game/tests/ground_week_screen.rs` (builds a small world).
 
 ## Lane S5: the person (the screen)
@@ -441,12 +441,12 @@ Every size here is the build's pick unless the spec gave it, proposed, not confi
 
 - `ground_week`: each slot carries `scene` (the folk scene to play) and `sceneKind`; its line is what the scene came to.
 - `ground_scenes`: the 15 scenes, the last 40 played (line, kids, new names, standing moved, stops, where he stands now), the spring game's date and whether it's your call, the clinic and the convention dates, the coaches you asked to the clinic.
-- `ground_scene` {id}: one scene's ground part for the school visit screen (lane S3): its kind, time, the person and his level, the school, your man, the minutes left, the stops so far, the kids with the new names marked, standing moved, the tables (the sign-in sheet, his list, who came) and the hand-off.
+- `ground_scene` {id}: one scene's ground part for the school visit screen (lane S3): its kind, time, the person and his level, the school, your man, the minutes left, the stops so far, the kids with the new names marked, standing moved, the tables (the sign-in sheet, his list, who came) and the hand-off. Lane S3 added for the visit's page: `at` (the stop the talk is in, "office" or empty), `start` (the minute it began), `minutesTotal` (240 for a visit), `eye` (`words`: sharp, good, fair or weak, and `tired`) and `manIsYou`.
 - `ground_spring_game` {hold}. A scene plays on the people commands (`people_scene`, `people_answer`, `people_hand`, a typed line).
 
 ### What it does not do yet
 
-- The screens for the scenes are lane S3's (the school visit) and the scene pages the game already has.
+- The school visit has its page (lane S3, below); the other scenes play on the scene pages the game already has.
 - The 2027 practice periods aren't in the calendar: the clinic and open practices use spring practice's dates every year.
 - The campaign's goals (lane G6) don't weigh which scenes come to you yet; the ranking is G3's.
 
@@ -595,6 +595,18 @@ On June 15 the standouts (the top 3% of their state's age 15-17) weigh a move to
 
 - `world/following.rs`: `HYPE_SON` 0.35, `HYPE_NEPHEW` 0.18, `FAMOUS` 0.4, the tiers in `man_fame`, the odds in `kin`, the Jr. 12% and the nephew's name 65% in `names`, `LIFT_TOP` 3, `LIFT_DAYS` 365, `BIG_NEWS` 10, `NEWS_FLOOR` 10,000, `STORM_FOLLOWERS` 500,000.
 - `world/recruiting.rs`: `stage_weight`; the visibility's 0.15 in `recruit_visibility`.
+
+## Lane S3: the school visit screen
+
+Board 3 (GR72, GR79) on lane G5's scene. Code: `app/ui/screens/groundvisit.js` and `.css` (every class `gv-`, the glass and rows of the school page's `gd-`); `people.js` hands a school visit scene to `gvScene` instead of the conversation page; `groundweek.js` opens a scene of yours from its slot.
+
+- **What it reads.** `people_scene` (the lines, the picks, the sign-in sheet, and its `ground` part), `ground_school` (its two colors, where its kids went, the head coach's first year), `ground_person` (the coach's face, his level, his standing with every staff, his record with you) and `ground_lead` (the new lead's blanks and the order the news went). It writes `people_answer` (a stop, a pick in his office), `people_hand` (the top bar's skip, with its result) and a typed line on live talks when a key is usable (`people_say`, only while the talk is in his office).
+- **The left column.** The stops in the order you play them, then the ones still open with the hour each would start (the sign-in sheet at the visit's first minute, then 60, 30 and 30 minutes, practice's 60 only on a day it is offered). A stop with no hours left reads "No time left for it". Under it, where the school's kids went (its first colleges, yours marked), from the school page's data.
+- **The middle.** The head coach with his drawn head (initials when he has none), his level with you and the highest other staff he is close to, then the talk: what you noticed in italics, your lines, his with the tell your read caught, how a typed line was heard under yours. Under the talk your picks as chips: the four exchanges in his office, the stops between them and heading out. When it ends, the one line you walk away with and the next scene waiting.
+- **The right column.** The newest new name of the visit (a tab for each when there are several) with what the public thinks and what the coach said, five blanks that fill as stops go (the live look is marked while the weight room or practice is still open), who heard first with the level each program holds at this school, and your ground with the coach: his level, what this visit moved, his words from the newest moment and what the next level would get you.
+- **Never a hidden number.** Your eye is a word, the coach's nature a word from his record, the public's view stars and offers as everywhere else.
+- **Not built here.** The lead card's own page is lane S4's (the name's link goes to the player page until `groundlead` exists); the other 14 scenes keep the conversation page.
+- **Test.** `crates/afm-game/tests/ground_visit_screen.rs` plays a visit on a small world: the part's fields, the commands and the cards the page reads.
 
 ## Related pages
 

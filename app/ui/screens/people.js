@@ -245,6 +245,11 @@ async function ppLog() {
 // ---------- the scene ----------
 screens.people_scene = async (a) => {
   const s = await api("people_scene", { id: a.id });
+  // Ground's school visit has its own page (lane S3, board 3).
+  if (s.ground && s.ground.kind === "school_visit" && !s.future && typeof gvScene === "function") {
+    setColors((S.status && S.status.mine && S.status.mine.colors) || ["#2b3140", "#11141b"]);
+    return gvScene(s);
+  }
   const lead = (s.who || [])[0];
   const pp = lead && lead.kind === "player" ? await api("people_player", { id: lead.id }).catch(() => null) : null;
   const cast = lead && lead.kind === "cast" && lead.tok ? await api("people_cast", { tok: lead.tok }).catch(() => null) : null;

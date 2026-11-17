@@ -184,7 +184,8 @@ function gwDays(x) {
     }).join("");
     const sl = (slotsBy[iso] || []).map((s) => {
       const done = s.line && !s.yours ? `<small>${esc(s.line)}</small>` : `<small>${esc(s.title)}</small>`;
-      return `<div class="gw-sn${s.yours ? " yours" : ""}" title="${esc(s.reason)}"><i></i><div><b>${esc(s.time)}</b>${done}</div></div>`;
+      const play = s.scene != null && s.yours ? ` data-go="people_scene" data-id="${s.scene}" style="cursor:pointer"` : "";
+      return `<div class="gw-sn${s.yours ? " yours" : ""}" title="${esc(s.reason)}"${play}><i></i><div><b>${esc(s.time)}</b>${done}</div></div>`;
     }).join("");
     const past = x.today && k < Math.round((new Date(x.today) - new Date(monday)) / 864e5) ? " past" : "";
     cols.push(`<div class="gw-day${slotsBy[iso] && slotsBy[iso].some((s) => s.yours) && !out.length ? " scene" : ""}${past}" data-k="${k}"><div class="gw-dh"><span>${d.getDate()}</span><div><b>${GW_DAYS[k]}</b><small>${out.length ? `${out.length} out` : slotsBy[iso] ? "At home" : "Open"}</small></div></div>${chips}${sl ? `<div class="gw-snw">${sl}</div>` : ""}</div>`);

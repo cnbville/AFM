@@ -622,6 +622,11 @@ pub fn scene_part(w: &World, s: &afm_engine::world::folk::scene::Scene) -> Value
         "school": st.school.map(|h| json!({ "id": h, "name": w.school_name(h as usize) })),
         "man": st.man.and_then(|c| w.coaches.get(c as usize)).map(|c| c.name.clone()),
         "minutesLeft": st.minutes,
+        "minutesTotal": (k == Some(scenes::Kind::SchoolVisit)).then_some(scenes::VISIT_MINUTES),
+        "at": st.at,
+        "start": s.minute,
+        "eye": { "words": scenes::eye_words(scenes::your_eye(w).0), "tired": scenes::your_eye(w).1 >= 0.5 },
+        "manIsYou": st.man.is_none_or(|c| scenes::is_you(w, c)),
         "stops": st.stops.iter().map(|x| json!({ "key": x.0, "text": x.1 })).collect::<Vec<_>>(),
         "kids": st.kids.iter().map(kid).collect::<Vec<_>>(),
         "levels": st.levels.iter().map(|x| json!({
