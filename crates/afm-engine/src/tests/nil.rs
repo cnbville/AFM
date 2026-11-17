@@ -756,6 +756,8 @@ fn the_roster_you_inherit_keeps_its_market_price() {
     // The sandbox's NIL Go switch, so every dollar clears and the sums read
     // plainly.
     w.set_sandbox_switch(crate::world::sandbox::Switch::NilGo, true);
+    // And no budget limit: fitting a short pot is its own test below.
+    w.set_sandbox_switch(crate::world::sandbox::Switch::NilBudget, true);
     let usual: Vec<(u32, f64)> = usual_deals(&w, j);
     let coll: std::collections::HashMap<u32, f64> = collective_deals(&w, j).into_iter().map(|x| (x.0, x.1)).collect();
     let split = |id: u32| usual.iter().find(|x| x.0 == id).unwrap().1 + coll.get(&id).copied().unwrap_or(0.0);

@@ -485,6 +485,18 @@ impl Market {
     /// last role, as December's keep-him offers always have.
     fn bid_read(&self, w: &World, i: usize, landed: bool) -> Option<(f64, f64, f64)> {
         let p = &w.people[i];
+        // An early or summer enrollee's latest row is still his high
+        // school's: no college play to price yet (as `recruiting::nil_read`).
+        if landed
+            && p.player
+                .history
+                .iter()
+                .rev()
+                .find(|h| h.playing_time != PlayingTime::Unsigned)
+                .is_none_or(|h| !h.level.is_college())
+        {
+            return None;
+        }
         let c = p.college?;
         let from = w.programs[c].division;
         let perf = p.last_performance?;
