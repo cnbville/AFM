@@ -985,7 +985,11 @@ fn item_list() -> Vec<Item> {
         item("6", "catch rate against man", t("o_cmp_man"), t("o_att_man"), 100.0, 1, "–"),
         item(
             "7",
-            "team 0's runs: first tackle by a man in a block he never shed",
+            // The play log's blocks: a block on record may have been put
+            // down earlier or picked up after his hit, so this is not who
+            // tackled from a block (`match_check` with `AFM_RUNDIAG` counts
+            // that at the hit; lane SF3).
+            "team 0's runs: first tackler with a run block on record he never shed",
             t("o_rtk_blk"),
             t("o_run"),
             100.0,

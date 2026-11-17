@@ -1475,8 +1475,11 @@ fn your_own_tape_reads_what_his_record_barely_tested() {
     assert!(!file.attrs[blocking].guess, "what his record tested reads on film");
     // More of his tape: once you have watched him on 60 routes, your film
     // reads his hands in your staff's file, and the card has nothing to
-    // explain.
-    for cut in tape::Cut::ALL {
+    // explain. A cut-up watched again pulls the snaps you haven't seen
+    // first, then his next games, so the watching goes round the cut-ups
+    // (three rounds at most) until he has run 60 routes on it: how many a
+    // round shows moves with the engine's calls.
+    for cut in tape::Cut::ALL.into_iter().cycle().take(3 * tape::Cut::ALL.len()) {
         if fm::roles_watched(&w, id, P::TE)[footage::ROUTES] as f64 >= footage::ROLE_MIN {
             break;
         }
