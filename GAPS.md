@@ -4,7 +4,11 @@ Gaps found while fixing bugs or building, so they carry over between threads (Ca
 
 ## Engine
 
-From the engine gaps audit (2026-11-17, thread "Find engine gaps beyond scheme fit"): real NFL play-by-play (nflverse 2021-25) and the repo's college targets against `match_check` on main, each code claim checked twice. Numbers, sources and code lines are in the project folder at `afm/engine-gaps/report.md` (items 1-30, proposed lanes EG1-EG7). None of it overlaps the scheme-fit items.
+- **The press ranks only finished rooms** (low). `race::press_score` reads `Campus.level` and `since`, so a building that has broken ground adds nothing until it opens, and the Pecking order screen can't say "read as 10th since the groundbreaking" as board 5 draws it. Recruits' groundbreaking pull (facilities lane #281) is separate. Found 2026-11-17 (thread "Build Capital screen CS5"); needs Cain's call on whether a building under way counts for the press.
+
+### The engine gaps audit (agreed)
+
+Cain agreed to all 30 on 2026-11-17 ("agreed"). What gets built and in which lane is in `docs/design/engine-gaps.md` (lanes EG1-EG7, item 10 in SF10, items 29 and 30 as small fixes); each lane removes its entries here when it merges. The audit (thread "Find engine gaps beyond scheme fit") checked real NFL play-by-play (nflverse 2021-25) and the repo's college targets against `match_check` on main, each code claim checked twice. Numbers, sources and code lines are in the project folder at `afm/engine-gaps/report.md` (items 1-30).
 
 - **Injuries only in tackles and sacks** (high). Blocks, the hit at the catch point and the hit on a throwing quarterback never roll one, so backs take 35% of game injuries (real about 8%) and offensive linemen 0.2% (real about 18%). Item 1.
 - **No non-contact injuries** (high). About 70% of NFL ACL tears come without contact, and hamstrings are sprinting injuries; the engine draws every injury at a hit. Item 2.
@@ -46,3 +50,5 @@ From the engine gaps audit (2026-11-17, thread "Find engine gaps beyond scheme f
 ## UI
 
 - **The holdover meeting shows no numbers for his unit** (medium). Without last season's points, yards and third downs on the narration you can't judge whether to keep him. Same cause as the first Logic gap.
+- **The Pecking order shows your conference only** (low). A state rival outside the conference has its rumors in "What your donors hear" but no row, and the table never ranks you against your state. Found in the same thread (CS5); the press order is built per conference (CP31).
+- **No pecking order for high school or NFL seats** (medium). The tab row reads "Your seat" for them (CS6), but nothing ranks a district's or an owner's rooms. Same thread.
