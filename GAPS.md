@@ -19,6 +19,10 @@ Gaps found while fixing bugs or building, so they carry over between threads (Ca
 - **The returns are not built** (low). A former player's summer visits, his hall of fame asking you to present him, naming a son after you, and a hometown discount in NFL free agency beyond the built "guys follow you" (design section 7). Same thread.
 - **A coach leaving doesn't shake a high-need kid's home stability** (low). The design's "loses stability (-0.5 x closeness)" isn't built: only his mood, a Left moment, a year guarded and a year of trouble risk. The stability field is his background, so it needs a call on whether a coach's leaving may change it. Same thread.
 - **No "I'm not going anywhere" promise** (low). A close player hurt by a coach leaving is the price of the bond, but you can't promise to stay. The promises lane has no kind for it. Same thread.
+- **The old hiring interview never names a candidate's scheme** (medium). Without a key, "Ask about his scheme" (`staffing.rs`, `interview_answer`, code 60) answers with how he talks ("He goes to the whiteboard...") and his record, never the system he'd run. The typed talk now gives it (`persona::coaching::scheme`); the chip could say the same. Found 2026-11-17 (thread "Make coaches answer with real specifics").
+- **Booster lines claim people who don't exist** (medium). "There's a local kid I've watched since he was nine" (`takeover.rs`, `want_fallback`, and the line bank's booster wants) names no real player, so asking "who?" has no answer. Same thread.
+- **The high school holdover staff room has nobody in it** (medium). Your high school assistants (`seat.rs`, `HsAssistant`) aren't coaches the talks can seat, so a typed line in "The holdover staff" still falls to a nameless one-on-one. The college room is fixed (`coaching::holdover_room`). Same thread.
+- **A holdover's pitch still makes unchecked claims** (low). "My guys are the most disciplined unit in the building. Pull the penalty numbers." and the like (`takeover.holdover.pitch`) play whatever his unit's numbers say; only the detail lines are gated on the world now. Same thread.
 
 ## UI
 

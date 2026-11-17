@@ -59,6 +59,7 @@ pub mod wants;
 
 // Lane N1, people: who he is, what he knows and tells, what he wants, heat
 // and patience, the stores, people coming to you.
+pub mod coaching;
 pub mod coming;
 pub mod feel;
 pub mod football;

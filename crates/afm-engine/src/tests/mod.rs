@@ -79,6 +79,7 @@ mod offer_days;
 mod one_on_ones;
 mod outside_talks;
 mod persona;
+mod persona_coaching;
 mod persona_deals;
 mod persona_draft;
 mod persona_evaluate;

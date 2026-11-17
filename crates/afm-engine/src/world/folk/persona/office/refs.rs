@@ -85,8 +85,9 @@ pub fn start(w: &mut World, c: usize, src: &str) -> Result<u32, String> {
 pub fn facets(w: &World, c: usize, topic: Topic) -> Vec<usize> {
     match topic {
         Topic::Football | Topic::Opponent => vec![8, 10, 9, w.coaches[c].came_up as usize],
+        Topic::Scheme => vec![8],
         Topic::Character | Topic::HisWord => vec![13, 12, 11],
-        Topic::Pitches | Topic::Nil => vec![14, 15],
+        Topic::Pitches | Topic::Nil | Topic::Recruiting => vec![14, 15],
         Topic::Effort => vec![11, 16],
         Topic::Jobs | Topic::Job | Topic::Wants | Topic::Market => vec![AMBITION],
         _ => Vec::new(),

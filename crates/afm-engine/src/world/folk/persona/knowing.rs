@@ -1114,6 +1114,26 @@ pub fn knows(w: &World, him: Them, topic: Topic, about: Option<Them>) -> Vec<Kno
             return unit_view(w, him);
         }
         Topic::Football => return super::football::knows(w, him, about, &m),
+        // A coach's system and his recruiting (Cain 2026-11-17); a player
+        // asked about the scheme talks about his own football.
+        Topic::Scheme if matches!(him, Them::Coach(_)) && about.is_none_or(|a| a == him) => {
+            return super::coaching::scheme(w, him);
+        }
+        Topic::Scheme => return knows(w, him, Topic::Football, about),
+        Topic::Recruiting if matches!(him, Them::Coach(_)) && about.is_none_or(|a| a == him) => {
+            return super::coaching::recruiting(w, him);
+        }
+        // A colleague's recruiting he knows from the staff room; another
+        // school's coach is a reference's to read (`office::refs`).
+        Topic::Recruiting => match (about, him) {
+            (Some(Them::Coach(x)), Them::Coach(c))
+                if makeup::coach_team(w, x).is_some() && makeup::coach_team(w, x) == makeup::coach_team(w, c) =>
+            {
+                return super::coaching::recruiting(w, Them::Coach(x));
+            }
+            (Some(Them::Coach(_)), _) => return Vec::new(),
+            _ => return knows(w, him, Topic::Pitches, about),
+        },
         Topic::Nothing => return Vec::new(),
         _ => {}
     }
