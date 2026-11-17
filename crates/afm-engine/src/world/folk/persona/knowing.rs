@@ -930,19 +930,44 @@ fn unit_view(w: &World, him: Them) -> Vec<Known> {
     if let Some(r) = super::review::review(w, c, &m) {
         return r.lines().into_iter().map(|l| k(Topic::Football, None, Source::Tape, 20.0, l)).collect();
     }
+    // No review: a man who hasn't coached a game here, a season too young
+    // for numbers, or a special teams coach. Each says only what is true.
     let mut v = Vec::new();
-    if let Some(u) = claims::rooms::unit(w, c)
-        && let Some(r) = u.record_words()
-    {
+    let u = claims::rooms::unit(w, c);
+    if let Some(r) = u.as_ref().and_then(|u| u.record_words()) {
         v.push(k(Topic::Football, None, Source::Himself, 20.0, format!("the team is {r} since he took the job")));
     }
-    v.push(k(
-        Topic::Football,
-        None,
-        Source::Tape,
-        20.0,
-        "no games of his here on file to go on yet, only what he has seen in practice and meetings".into(),
-    ));
+    let team = makeup::coach_team(w, c);
+    if let Some((season, s)) = team.and_then(|t| super::review::season_of(w, t)) {
+        let (made, tries) = (s.box_of(0, "fg_made"), s.box_of(0, "fg_att"));
+        if tries > 0.0 {
+            v.push(k(
+                Topic::Football,
+                None,
+                Source::Tape,
+                20.0,
+                format!("the {season} season: {made} of {tries} field goals made, {} punts", s.box_of(0, "punts")),
+            ));
+        }
+    }
+    if u.is_none_or(|u| u.years == 0) {
+        v.push(k(
+            Topic::Football,
+            None,
+            Source::Tape,
+            20.0,
+            "he hasn't coached a game here yet: only what he has seen in practice and meetings since he arrived".into(),
+        ));
+    } else if v.is_empty() {
+        v.push(k(
+            Topic::Football,
+            None,
+            Source::Tape,
+            20.0,
+            "the season is too young for the numbers to say much: what he has seen in practice and the games so far"
+                .into(),
+        ));
+    }
     v
 }
 

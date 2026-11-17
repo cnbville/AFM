@@ -102,7 +102,7 @@ enum Of {
 }
 
 impl Of {
-    fn of(role: Role) -> Option<Of> {
+    fn from_role(role: Role) -> Option<Of> {
         match role {
             Role::OffensiveCoordinator => Some(Of::Offense),
             Role::DefensiveCoordinator => Some(Of::Defense),
@@ -192,7 +192,7 @@ pub fn reach(m: &Makeup) -> usize {
 /// coach, a special teams coach) or no season on file.
 pub fn review(w: &World, c: usize, m: &Makeup) -> Option<Review> {
     let job = w.coaches.get(c)?.job?;
-    let of = Of::of(job.role)?;
+    let of = Of::from_role(job.role)?;
     let team = Team::from_employer(job.employer);
     let (season, mine) = season_of(w, team)?;
     let coached = job.first_season() <= season;
@@ -566,7 +566,7 @@ fn side_games(w: &World, team: Team, season: i32, mine: &Season) -> Vec<GameRow>
         return Vec::new();
     }
     let mut ids: Vec<(u32, u8)> = mine.starters.iter().map(|s| (s.0, s.1.max(s.2))).collect();
-    ids.sort_by(|a, b| b.1.cmp(&a.1));
+    ids.sort_by_key(|a| std::cmp::Reverse(a.1));
     ids.truncate(12);
     let ids: Vec<u32> = ids.into_iter().map(|x| x.0).collect();
     let rows = rows_of(w, level, season, &ids);

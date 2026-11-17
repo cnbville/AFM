@@ -57,6 +57,10 @@ pub struct Open {
     /// Requests he said no to.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub refused: Vec<Request>,
+    /// Season review points he has given you in this talk (a push gives
+    /// the next ones).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub reviewed: u8,
     /// The line count when he last raised an ask of his own: his ask is on
     /// the table only for the line right after it (Cain 2026-11-16: an ask
     /// raised once stayed "on the table" all talk, so every later line read
@@ -83,6 +87,7 @@ impl Open {
             asked: Vec::new(),
             questions: Vec::new(),
             refused: Vec::new(),
+            reviewed: 0,
             raised_at: 0,
             over: false,
         }
@@ -105,13 +110,6 @@ impl Open {
             return 0;
         }
         self.asked.iter().filter(|x| **x == about).count().min(255) as u8
-    }
-
-    /// How many times you already asked him about this in the talk, his own
-    /// unit asked plainly or by name counted as one.
-    pub fn times_asked(&self, topic: Topic, about: Option<Them>, him: Them) -> usize {
-        let same = |a: Option<Them>| a == about || (a.is_none_or(|x| x == him) && about.is_none_or(|x| x == him));
-        self.questions.iter().filter(|q| q.0 == topic && same(q.1)).count()
     }
 
     /// Whether you already asked him this question in the talk.
@@ -204,6 +202,7 @@ pub fn advance(w: &mut World, scene: u32, room: &Room, t: &Turn, said: &Said, po
         o.raised_at = o.lines;
     }
     o.hits.extend(t.hits.iter().map(|h| (h.hit.on, h.hit.item.clone(), h.hit.how)));
+    o.reviewed = o.reviewed.saturating_add(t.reviewed);
     for act in &said.reading.acts {
         if let Act::Question { topic, about, .. } = act {
             o.asked.push(*about);

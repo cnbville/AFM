@@ -174,15 +174,22 @@ fn the_first_answer_gives_the_heaviest_and_a_push_the_rest() {
     let c = coordinator(&mut w, 0);
     let known = People.knows(&w, Them::Coach(c), Topic::Football, None);
     let points = known.len() - 2;
-    let first = crate::world::folk::persona::talk::review_page(&known, true, 0).unwrap();
-    assert_eq!(first.len(), 2 + points.min(review::FIRST_POINTS), "{first:?}");
+    let page = crate::world::folk::persona::talk::review_page;
+    let (first, n) = page(&known, true, 0).unwrap();
+    assert_eq!(n, points.min(review::FIRST_POINTS));
+    assert_eq!(first.len(), 2 + n, "{first:?}");
     assert!(first[0].starts_with(HEADER) && first.last().unwrap().starts_with(FIX), "{first:?}");
-    let held = crate::world::folk::persona::talk::review_page(&known, false, 0).unwrap();
-    assert_eq!(held.len(), 2, "holding back: the header and one point: {held:?}");
-    let more = crate::world::folk::persona::talk::review_page(&known, true, 1);
-    if points > review::FIRST_POINTS {
-        let more = more.unwrap();
-        assert!(more.iter().all(|x| !first.contains(x)), "a push gives what he hadn't said: {more:?}");
+    // Held back: the header and one point; a push then starts at the second.
+    let (held, one) = page(&known, false, 0).unwrap();
+    assert_eq!((held.len(), one), (2, 1), "{held:?}");
+    if points > 1 {
+        let (next, _) = page(&known, true, 1).unwrap();
+        assert_eq!(next[0], known[2].words, "the push gives the second point: {next:?}");
+    }
+    // After the first three, a push gives what he hadn't said, or nothing.
+    match page(&known, true, n) {
+        Some((more, _)) => assert!(more.iter().all(|x| !first.contains(x)), "{more:?}"),
+        None => assert_eq!(n, points, "nothing left only when all were given"),
     }
 }
 
