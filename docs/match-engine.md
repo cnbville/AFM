@@ -1234,24 +1234,28 @@ FBS (4,000 games, seed 11): yards a carry 4.76 to 4.76 (real 5.12), runs for 0 o
 
 The coaches' call table (`call_values.csv`, `call_values 2000`, 2,000 snaps a cell): SF3 moves its run cells by -0.41 yards on average (spread 0.81, up to 3.2) and its pass cells by almost nothing (spread 0.06, up to 0.32), so its 15 run rows are rebuilt and the pass rows kept. The pass rows were already off on main: the tool's pass cells had drifted from the table by a spread of 3.3 yards a cell (up to 17.6), and in its two fixed teams Stick and Mesh into Cover1Robber come out at -9 and -13 (the table has +6 and +4) from a storm of picks that full games don't show (minor bug 405). The numbers above are on the new table; on the old one the league came out the same within noise (NFL test rosters 4.50 a carry and 24.1 points, world clubs 4.52 a carry).
 
-Speed: `match_check nfl 4000` takes 33.0 s against 32.0 s on main (two runs each, 4 cores, the same build), 3% more.
+Speed: the same within noise. `match_check nfl 4000` takes 29.6 s against 29.9 s on main after coach fire, and took 33.0 s against 32.0 s in a pair before it (two runs each, 4 cores, the same build).
+
+Every table above is over main b9fa58d, before coach fire merged. On main 010fd83, with coach fire, the same runs move the same way: the NFL test rosters 4.42 to 4.52 a carry, the line's edge 0.030 to 0.065 a point, points 23.8 to 24.1; world seed 1's clubs 4.46 to 4.50 a carry (real 4.50), the backs' lasting spread before contact 0.28 to 0.38 (real 0.36), yards a carry sd over 204-carry blocks 0.49 to 0.57 (real 0.57), points sd 9.6 to 9.9 (real 9.9) and games within 8 55.7% to 54.1% (real 53.5%); FBS 4.76 a carry both, the line's edge 0.037 to 0.080, points 23.5 to 23.3; high school 5.70 to 5.76 a carry, points 18.2 to 19.0, points sd 14.8 to 16.4. The call table's cells come out the same on it, cell for cell. `fit_check` on FBS seed 151 again (3,000 games an arm, main 010fd83 against this branch merged with it): a lineman's Run Blocking -0.02 to +0.07 a carry on main (3 of 13 arms past the noise) and +0.01 to +0.15 after (11 of 13), a defensive tackle's Block Shedding -0.04 to +0.02 allowed (1 of 5) and -0.12 to -0.08 (5 of 5), an edge's -0.05 to -0.03 and -0.12 to -0.11, the Mike's -0.06 to -0.04 and -0.11 to -0.07, and the back's Speed +0.08 to +0.10 and +0.07 to +0.11 a carry.
 
 `fit_check` (team 0 the typical team, each arm one change on the same games; FBS seed 151 at 3,000 games an arm and NFL seed 161 at 2,400; * past the noise), main and after:
 
 | +15 on team 0 | FBS 151, main | FBS 151, after | NFL 161, main | NFL 161, after |
 |---|---|---|---|---|
-| a lineman's Run Blocking: yards a carry | -0.00 to +0.08 (5 of 13 arms*) | +0.04 to +0.13 (12 of 13*) | -0.02 to +0.04 (0 of 13*) | +0.01 to +0.15 (10 of 13*) |
-| the same: run blocks won, of 100 | +7.3 to +11.6 | +8.9 to +16.9 | +6.0 to +10.3 | +5.9 to +13.9 |
-| the same: team run success, points | -0.0 to +0.8 | +0.1 to +1.5 | -0.1 to +0.7 | +0.3 to +1.9 |
-| a tight end's Run Blocking: yards a carry | +0.01 to +0.06 | +0.06 to +0.08 | +0.01 to +0.10 | +0.03 to +0.16 |
-| a defensive tackle's Block Shedding: yards a carry allowed | -0.02 to -0.01 (0 of 5*) | -0.15 to -0.06 (5 of 5*) | -0.03 to +0.01 (0 of 5*) | -0.11 to -0.08 (5 of 5*) |
-| the same: his first tackles on runs a season | -2.8 to +2.0 | +0.8 to +7.2 | -6.9 to +2.1 | -1.6 to +7.2 |
-| an edge's Block Shedding: yards a carry allowed | -0.05 to -0.03 | -0.15 to -0.10 | -0.03 to -0.00 | -0.13 to -0.11 |
-| the Mike's Block Shedding: yards a carry allowed | -0.05 to -0.04 | -0.11 to -0.10 | -0.07 to -0.05 | -0.08 to -0.06 |
-| the back's Speed: yards a carry | +0.12 to +0.13 | +0.07 to +0.11 | +0.09 to +0.11 | +0.10 to +0.11 |
-| the back's Ball Carrier Vision: yards a carry | +0.03 to +0.11 | +0.00 to +0.05 | +0.02 to +0.06 | +0.02 to +0.04 |
+| a lineman's Run Blocking: yards a carry | -0.00 to +0.08 (5 of 13 arms*) | +0.02 to +0.14 (8 of 13*) | -0.02 to +0.04 (0 of 13*) | -0.01 to +0.15 (10 of 13*) |
+| the same: run blocks won, of 100 | +7.3 to +11.6 | +8.4 to +16.9 | +6.0 to +10.3 | +5.9 to +14.1 |
+| the same: team run success, points | -0.0 to +0.8 | +0.5 to +1.7 | -0.1 to +0.7 | +0.4 to +1.6 |
+| a tight end's Run Blocking: yards a carry | +0.01 to +0.06 | +0.05 to +0.09 | +0.01 to +0.10 | +0.05 to +0.15 |
+| a defensive tackle's Block Shedding: yards a carry allowed | -0.02 to -0.01 (0 of 5*) | -0.12 to -0.08 (5 of 5*) | -0.03 to +0.01 (0 of 5*) | -0.13 to -0.06 (5 of 5*) |
+| the same: his first tackles on runs a season | -2.8 to +2.0 | -0.1 to +7.3 | -6.9 to +2.1 | -1.7 to +7.2 |
+| an edge's Block Shedding: yards a carry allowed | -0.05 to -0.03 | -0.13 to -0.09 | -0.03 to -0.00 | -0.14 to -0.13 |
+| the Mike's Block Shedding: yards a carry allowed | -0.05 to -0.04 | -0.11 to -0.09 | -0.07 to -0.05 | -0.10 to -0.07 |
+| the back's Speed: yards a carry | +0.12 to +0.13 | +0.07 to +0.11 | +0.09 to +0.11 | +0.12 to +0.14 |
+| the back's Ball Carrier Vision: yards a carry | +0.03 to +0.11 | +0.03 to +0.04 | +0.02 to +0.06 | +0.04 to +0.07 |
 
-The arms are the center, left guard and left tackle in power gap, West Coast and wide zone, the right guard and right tackle in the first two, the tight ends in 12 and 13 personnel and West Coast, and the defensive tackles, edges and the Mike in the West Coast and 3-4 contexts (`fit_check list`). Points move little either way: a lineman's +15 is -0.2 to +0.6 points a game (2 of 26 past the noise) and a defensive tackle's -0.9 to -0.2 allowed, since one man is a fifth of the line and runs are under half the snaps. The right tackle moves the least (+0.01 to +0.06 a carry). The back's own ratings keep about what they had: Speed is the same, and Ball Carrier Vision is small before and after (the wide zone arm's +0.11 at FBS was the largest before).
+The arms are the center, left guard and left tackle in power gap, West Coast and wide zone, the right guard and right tackle in the first two, the tight ends in 12 and 13 personnel and West Coast, and the defensive tackles, edges and the Mike in the West Coast and 3-4 contexts (`fit_check list`). Points move a little: a lineman's +15 is -0.1 to +0.8 points a game (8 of 26 arms past the noise, 1 before) and a defensive tackle's -0.6 to -0.3 allowed (-0.5 to +0.1 before), since one man is a fifth of the line and runs are under half the snaps. The right tackle moves the least (-0.01 to +0.09 a carry). On FBS seed 171, the repeat seed, the same: a lineman's Run Blocking -0.03 to +0.07 a carry before (5 of 13 past the noise) and +0.02 to +0.15 after (10 of 13), a defensive tackle's Block Shedding -0.03 to -0.00 allowed (0 of 5) and -0.11 to -0.05 (5 of 5).
+
+The back's own ratings keep what they had. Speed: +0.07 to +0.14 a carry. Ball Carrier Vision averages +0.04 a carry over its eight arms after (wide zone and power gap in four runs: FBS 151, FBS 171, NFL 161 and FBS 151 after coach fire) against +0.05 before, inside the noise: one arm's read carries about ±0.03 a carry, so two builds' reads of it differ by about 0.04. In wide zone it first read lower after (+0.04, -0.01 and +0.04 at FBS 151, FBS 171 and NFL 161, from +0.11, +0.06 and +0.06), but main itself fell from +0.11 to +0.03 at FBS 151 when coach fire merged, which doesn't touch the back's read, and on that main this change takes it to +0.06.
 
 Tried and dropped (NFL test rosters, seed 11):
 
@@ -1262,7 +1266,7 @@ Tried and dropped (NFL test rosters, seed 11):
 - **e^(edge / 6) and e^(edge / 12):** 0.070 and 0.058 a point, 20.2% and 19.0% of runs for 0 or less; 9 sits between.
 - **A blocker can't pick up a man already in the tackle** (minor bug 404): the play log's count falls from 37.5% to 24.8% and yards a carry rise to 4.47 with the pile and yards after contact, a change outside item 7, so it is left for its own call.
 
-Still off: inside runs 0.3 a carry short and outside runs 0.3 long (world clubs 1.3), linebackers make too few first tackles, and runs of 20+ are half of real (item 9, lane SF9). Short yardage (item 8) is measured again after this lane, as its spec asks: team 0's backs convert 77-78% of designed runs on 3rd and 4th and 2 or less at the NFL (78-80% before) and 81-83% at FBS (82-83% before), against 67% real, and its quarterbacks 88-93% (real 79%), so it stays lane SF9's. Runs of 20+ don't move (NFL 1.0-1.2% of the backs' carries, FBS 1.3-1.8%, real 2.2%).
+Still off: inside runs 0.3 a carry short and outside runs 0.3 long (world clubs 1.3), linebackers make too few first tackles, and runs of 20+ are half of real (item 9, lane SF9). Short yardage (item 8) is measured again after this lane, as its spec asks: team 0's backs convert 77-78% of designed runs on 3rd and 4th and 2 or less at the NFL (78-80% before) and 81-84% at FBS (82-84% before), against 67% real, and its quarterbacks 89-95% (real 79%), so it stays lane SF9's. Runs of 20+ don't move (NFL 0.9-1.2% of the backs' carries, FBS 1.3-1.8%, real 2.2%).
 
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).
