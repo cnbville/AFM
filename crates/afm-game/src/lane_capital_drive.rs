@@ -357,7 +357,7 @@ fn view(w: &World) -> Reply {
         "hands": stage != Stage::Closed,
         "handsOn": x.hands_on,
         "borrow": can_borrow,
-        "borrowBigger": can_borrow && x.size.up().is_some(),
+        "borrowBigger": can_borrow && x.size.up().is_some_and(|up| got >= drive::PUSH_BREAK * drive::goal_for(w, x, up)),
         "borrowBiggerWords": x.size.up().map(|s| s.words()),
     });
 

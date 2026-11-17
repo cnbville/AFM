@@ -29,7 +29,8 @@ function cdrNav() {
   return `<nav class="cdr-nav" aria-label="Capital screens">${here.map((n) => `<button class="${n[0] === "capitaldrive" ? "on" : ""}" data-go="${n[0]}">${n[1]}</button>`).join("")}</nav>`;
 }
 
-// The bar: paid in, pledged, pulled and slipping, then what is left to raise.
+// The bar: paid in, pledged, then what is left to raise, with the pledges
+// donors pulled marked inside that space (they were never raised).
 function cdrBar(d) {
   const p = d.pct;
   const seg = (v, cls) => (v > 0 ? `<i class="${cls}" style="width:${Math.min(v, 100)}%"></i>` : "");
@@ -40,7 +41,7 @@ function cdrBar(d) {
     p.pulled > 0 ? `<span><b class="amb">${p.pulled}% pulled</b>: a donor took the rest back</span>` : "",
     d.stage === "closed" ? "" : `<span>${p.toRaise}% still to raise</span>`,
   ].filter(Boolean).join("");
-  return `<div class="cdr-bar" role="img" aria-label="${p.paid}% paid in, ${p.pledged}% pledged, ${p.toRaise}% still to raise">${seg(p.paid, "in")}${seg(p.pledged, "gold")}${seg(p.pulled, "amb")}</div><div class="cdr-leg">${legend}</div>`;
+  return `<div class="cdr-bar" role="img" aria-label="${p.paid}% paid in, ${p.pledged}% pledged, ${p.toRaise}% still to raise">${seg(p.paid, "in")}${seg(p.pledged, "gold")}${seg(Math.min(p.pulled, p.toRaise), "amb")}</div><div class="cdr-leg">${legend}</div>`;
 }
 
 function cdrStages(d) {
