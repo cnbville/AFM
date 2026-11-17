@@ -1539,7 +1539,7 @@ impl<'a> Sim<'a> {
         let p = crate::tendencies::obey_chance(
             gp.trait20(Attr::Discipline, self.level),
             gp.personality.coachability,
-            gp.trust,
+            gp.obey_trust(),
             self.mood.strict[a.side],
         );
         let mut x = (a.id as u64) << 20 ^ ((self.los * 16.0) as i64 as u64) ^ 0x0BE1_D0E5;
