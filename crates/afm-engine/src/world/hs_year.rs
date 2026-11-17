@@ -2356,7 +2356,7 @@ fn all_state(w: &mut World, s: usize, d: Date) {
                     continue;
                 }
                 // Games missed count against him: voters reward a full season.
-                let perf = p.last_performance.unwrap_or(p.player.overall()) - 0.6 * p.cal.hs_grade_out as f64;
+                let perf = p.last_performance.get().unwrap_or(p.player.overall()) - 0.6 * p.cal.hs_grade_out as f64;
                 by_pos[p.player.position.index()].push((perf, i));
             }
         }
@@ -2770,7 +2770,7 @@ pub(crate) fn all_star_rosters(w: &mut World, name: &'static str) {
             })
             .map(|(i, p)| {
                 let stars = if pos.is_specialist() { p.camp_stars } else { p.stars } as f64;
-                let read = p.cal.service_read.unwrap_or(p.player.overall());
+                let read = p.cal.service_read.get().unwrap_or(p.player.overall());
                 let mut score = 10.0 * stars
                     + 0.25 * film_raw(p, &played)
                     + 0.75 * read

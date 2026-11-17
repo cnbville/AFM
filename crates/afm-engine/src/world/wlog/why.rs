@@ -278,7 +278,7 @@ pub(super) fn recruiting_since(w: &World, log: &WorldLog) {
 }
 
 /// A fingerprint of each store, as hex.
-pub(super) fn fingerprints(w: &World) -> Vec<(&'static str, String)> {
+pub fn fingerprints(w: &World) -> Vec<(&'static str, String)> {
     use super::fp::of;
     let hex = |v: u64| format!("{v:016x}");
     vec![

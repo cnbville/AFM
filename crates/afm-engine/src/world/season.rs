@@ -903,6 +903,8 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         let Some(role) = *role else { return };
         p.incident = false;
         p.cal.season_reset();
+        // A college part left blank by a write of nothing goes (memory diet).
+        p.later.tidy();
         let group = Group::of(p.player.position);
         // The unit's style pulls his habits (tendencies topic 3.5): the
         // head coach's, two-thirds of the way against his coordinator's.
@@ -1095,7 +1097,9 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         let (physical, medical) = super::people::support_ctx(prog.map(|g| &g.support), &p.player.personality);
         let ctx = SeasonContext {
             trouble,
-            adjustment: p.pending_dip.take().unwrap_or(0.0),
+            // Taken only where his college part is kept: a high schooler's
+            // never is, and taking would make it (memory diet, `stored`).
+            adjustment: p.later.stored_mut().and_then(|l| l.pending_dip.take()).unwrap_or(0.0),
             situation: clamp(team_situation + background::situation_push(&p.player, &p.bg), -1.0, 1.0),
             payday: std::mem::take(&mut p.cal.payday),
             style,
@@ -1149,12 +1153,16 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             };
             super::wlog::why::growth(log, when, p.player.id, &ctx, staff, &report);
         }
-        if let Some(gain) = p.cal.spring_gain_ahead.take() {
+        // Read and cleared only where his calendar's rest is kept: a
+        // high schooler's never is (memory diet, `stored`).
+        if let Some(gain) = p.cal.more.stored_mut().and_then(|m| m.spring_gain_ahead.take()) {
             crate::development::open_row_with_spring_step(&mut p.player, gain);
         }
         p.last_role = Some(role);
-        p.cal.nil_role = None;
-        p.last_performance = p.player.history.last().and_then(|h| h.performance.get());
+        if let Some(m) = p.cal.more.stored_mut() {
+            m.nil_role = None;
+        }
+        p.last_performance = p.player.history.last().and_then(|h| h.performance.get()).into();
         p.sit_out = 0.0;
         // JUCO classes: transferable credits and grades build back, or don't.
         if p.stage == Stage::College
@@ -1251,7 +1259,7 @@ pub(crate) fn team_strength(roster: &[usize], people: &[super::Person]) -> (f64,
         let camp =
             p.player.history.last().map_or(p.player.overall(), |h| h.overall_start + h.spring_open.unwrap_or(0.0));
         pre += camp;
-        sum += p.last_performance.unwrap_or(camp);
+        sum += p.last_performance.get().unwrap_or(camp);
         n += 1.0;
     }
     if n == 0.0 { (30.0, 30.0, incidents) } else { (sum / n, pre / n, incidents) }
@@ -1292,7 +1300,7 @@ pub(crate) fn record_lineups(w: &mut World) {
                 continue;
             }
             let h = q.player.history.last();
-            let v = q.last_performance.unwrap_or_else(|| h.map_or(q.player.overall(), |h| h.overall_start));
+            let v = q.last_performance.get().unwrap_or_else(|| h.map_or(q.player.overall(), |h| h.overall_start));
             sum[q.player.position.index()] += v;
             n[q.player.position.index()] += 1;
         }
@@ -1303,7 +1311,7 @@ pub(crate) fn record_lineups(w: &mut World) {
         for &i in &p.roster {
             let q = &w.people[i];
             let h = q.player.history.last();
-            let v = q.last_performance.unwrap_or_else(|| h.map_or(q.player.overall(), |h| h.overall_start));
+            let v = q.last_performance.get().unwrap_or_else(|| h.map_or(q.player.overall(), |h| h.overall_start));
             match q.last_role {
                 Some(PlayingTime::Rotation) => rot = (rot.0 + v, rot.1 + 1.0),
                 Some(PlayingTime::Starter) => {

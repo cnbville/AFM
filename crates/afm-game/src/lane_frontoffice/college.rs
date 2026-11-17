@@ -674,7 +674,7 @@ fn reason(w: &World, j: usize, i: usize, rival: Option<usize>) -> String {
             return "Your program's name carries weight with him.".into();
         }
     }
-    if known && p.childhood_team == Some(j) {
+    if known && p.childhood_team.map(usize::from) == Some(j) {
         return "He grew up cheering for you.".into();
     }
     if visited(j, Visit::Official) {
@@ -1695,7 +1695,7 @@ fn portal(w: &World, j: usize, args: &Value) -> Reply {
             desk::four_year_transfers(w, p),
         );
         let read = views::person_index(w, p.player.id).map_or(reads::Read::NotSeen, |k| reads::overall(w, k));
-        let key = p.last_performance.unwrap_or(p.player.overall()) * 0.0
+        let key = p.last_performance.get().unwrap_or(p.player.overall()) * 0.0
             + stars_of(p) as f64 * 10.0
             + if p.last_role == Some(PlayingTime::Starter) { 30.0 } else { 0.0 };
         entrants.push((

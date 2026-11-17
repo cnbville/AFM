@@ -2065,7 +2065,7 @@ pub fn standing(w: &World, i: usize) -> f64 {
         Some(PlayingTime::Backup) => 8.0,
         _ => 4.0,
     };
-    role + p.last_performance.unwrap_or(40.0) * 0.5 + p.stars as f64 * 3.0 + p.player.age as f64 * 0.3
+    role + p.last_performance.get().unwrap_or(40.0) * 0.5 + p.stars as f64 * 3.0 + p.player.age as f64 * 0.3
 }
 
 fn report_answer(w: &mut World, s: &mut Scene, team: Team, code: u32) {
@@ -2439,7 +2439,7 @@ fn flight_risks(w: &mut World, s: &mut Scene, team: Team) {
         let t = &p.player.personality.traits;
         let unhappy_role =
             matches!(p.last_role, Some(PlayingTime::Backup | PlayingTime::Rotation)) && t.get(Trait::Ambition) >= 12.0;
-        let courted = p.stars >= 4 || p.last_performance.unwrap_or(0.0) > 70.0;
+        let courted = p.stars >= 4 || p.last_performance.get().unwrap_or(0.0) > 70.0;
         let lean = p.cal.lean;
         let mut score = 0.0;
         let mut why = Vec::new();

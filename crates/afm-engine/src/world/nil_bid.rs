@@ -456,7 +456,7 @@ pub(crate) fn keep_offers(w: &mut World, label: i32) {
     // Each program's play at each spot, best first.
     let mut depth: Vec<[Vec<f64>; POSITION_COUNT]> = vec![Default::default(); pn];
     for p in w.people.iter().filter(|p| p.stage == Stage::College) {
-        if let (Some(j), Some(x)) = (p.college, p.last_performance) {
+        if let (Some(j), Some(x)) = (p.college, p.last_performance.get()) {
             depth[j][p.player.position.index()].push(x);
         }
     }
@@ -493,7 +493,7 @@ pub(crate) fn keep_offers(w: &mut World, label: i32) {
             if super::college::no_season_left(p, from, label) {
                 return None;
             }
-            let perf = p.last_performance?;
+            let perf = p.last_performance.get()?;
             let pos = p.player.position;
             let k = pos.index();
             let stars = super::recruiting::recruiting_stars(p);
