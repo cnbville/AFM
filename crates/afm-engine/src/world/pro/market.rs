@@ -689,6 +689,11 @@ pub struct Ideal {
     /// Wants a starting job.
     pub start: bool,
     pub opened: Date,
+    /// The best offer the market has put on the table for him since it
+    /// opened, a year (`decay`): once he is on the market, what it really
+    /// pays him. None before any offer.
+    #[serde(default)]
+    pub best: Option<f64>,
 }
 
 /// An offer on the table.
@@ -758,6 +763,7 @@ pub(crate) fn ideal(w: &World, i: usize, d: Date) -> Ideal {
         years: clamp(years.round(), 1.0, 5.0) as u32,
         start: g.role > 0.45 && view >= 70.0 && slots.starters > 0,
         opened: d,
+        best: None,
     }
 }
 
@@ -892,12 +898,23 @@ pub fn discount(w: &World, i: usize, t: usize, own: bool) -> Discount {
     Discount { bond, trust, win, home, money, made, total }
 }
 
-/// His market, a year: his ideal without what his own money goal adds
-/// (`ideal`'s money factor), never under the minimum.
+/// The share of his ideal the contract score already counts as his money
+/// in full (`raw_score`'s money part: an offer at 95% of his ideal after
+/// tax meets it): his ideal is his ask, with that room in it.
+pub const MARKET_SLACK: f64 = 0.95;
+
+/// His market, a year: what the market would really pay him. His ideal
+/// less its room (`MARKET_SLACK`) and what his own money goal adds
+/// (`ideal`'s money factor); once he is on the market, never above the
+/// best offer it has put on the table (`Ideal::best`). Never under the
+/// minimum. Before, his ideal without the money goal alone: a man who
+/// barely cared about money sat a few percent over the best offer his
+/// price came down to (`decay` stops 2% above it) and could never take it.
 pub fn market_apy(w: &World, i: usize, ideal: &Ideal) -> f64 {
     let g = goals(w, i);
     let credited = w.people[i].pro.as_ref().map_or(0, |c| c.credited);
-    (ideal.apy / (1.0 + 0.2 * (g.money - 0.5))).max(money::minimum(w.year, credited))
+    let read = ideal.apy * MARKET_SLACK / (1.0 + 0.2 * (g.money - 0.5));
+    read.min(ideal.best.unwrap_or(f64::INFINITY)).max(money::minimum(w.year, credited))
 }
 
 /// His lowest number for club `t`, a year: his market less his discount
@@ -1400,6 +1417,9 @@ fn decay(w: &mut World, i: usize, d: Date, best: Option<f64>) {
     // all spring, no club with a starter ever bid, and he retired unsigned
     // in September; 5% a market day after six weeks is proposed, not
     // confirmed).
+    if let Some(b) = best {
+        id.best = Some(id.best.map_or(b, |x| x.max(b)));
+    }
     id.apy = match best {
         Some(b) => (id.apy * 0.97).max(b * 1.02).min(id.apy),
         None if weeks > 6.0 => id.apy * 0.95,
