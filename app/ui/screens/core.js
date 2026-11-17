@@ -2237,7 +2237,7 @@ function tpTable(t) {
 // the talent in each class, the rest of the roster, where its players go and
 // its coach. A college seat sees where each player stands with it; every
 // other seat sees his college interest. Gold marks what is yours.
-const TP_RANGE = (r) => (r ? `${r[0]}–${r[1]}` : "–");
+const TP_RANGE = (r) => (r ? `${rnum(r[0])}–${rnum(r[1])}` : "–");
 const tpStand = (p) => `<span class="st-pill${p.kind === "mine" ? " gold" : ""}">${esc(p.stand)}</span>`;
 function tpHsProspects(t) {
   const h = t.hs;

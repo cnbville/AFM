@@ -155,7 +155,7 @@ screens.prospect = async (a) => {
   if (x.error) return `<div class="pad"><div class="empty">${esc(x.error)}</div></div>`;
   title(x.name, `${x.pos} · ${x.class}`);
   if (x.team && x.team.colors) setColors(x.team.colors);
-  const read = x.read && x.read.now ? `<div><small data-h8="StaffRange">Your staff's read</small><b>${x.read.now[0]}–${x.read.now[1]}</b><small>${esc(x.read.role || "")}${x.read.looks ? ` · ${x.read.looks} looks` : ""}</small></div>` : `<div><small data-h8="StaffRange">Your staff's read</small><b>–</b><small>${esc((x.read && x.read.role) || "Not seen")}</small></div>`;
+  const read = x.read && x.read.now ? `<div><small data-h8="StaffRange">Your staff's read</small><b>${rnum(x.read.now[0])}–${rnum(x.read.now[1])}</b><small>${esc(x.read.role || "")}${x.read.looks ? ` · ${x.read.looks} looks` : ""}</small></div>` : `<div><small data-h8="StaffRange">Your staff's read</small><b>–</b><small>${esc((x.read && x.read.role) || "Not seen")}</small></div>`;
   const head = pageHead({
     kicker: `Data · ${x.kind === "hs" ? "high school prospect" : "draft prospect"}`,
     title: `${playerLink(x.id, x.name)}`,

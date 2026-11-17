@@ -49,7 +49,7 @@ function rrBar(f, who, opts = {}) {
   const cls = weak ? "weak" : opts.on ? "gold" : "now";
   const start = opts.start !== undefined ? opts.start : f.start;
   const dn = !opts.noArrow && f.moved < 0 ? '<em title="Your read fell this season">↓</em>' : "";
-  return `<span class="rr-b"${rrAttrs({ s: who, k: f.key }, now[0], now[1])}><span class="rr-t"><u style="left:${p(10)}%"></u>${seg(start, "st")}${seg(now, cls)}</span><b>${now[0]}-${now[1]}${dn}</b></span>`;
+  return `<span class="rr-b"${rrAttrs({ s: who, k: f.key }, now[0], now[1])}><span class="rr-t"><u style="left:${p(10)}%"></u>${seg(start, "st")}${seg(now, cls)}</span><b>${rpair(now)}${dn}</b></span>`;
 }
 
 // ---------- the hover card (RR1-RR4) ----------
