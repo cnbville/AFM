@@ -8,6 +8,14 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.592 (17 Nov, shipped): progression step 4c: no 99 wall, a thin top past 99, the bench by body weight (PR #502)
+**TLDR:** The best players can now go past 99 under the hood, so true freaks stand out from merely great players. Big men's bench numbers now follow their weight, as they do at the real combine.
+- Ratings no longer stop at 99. Past the mid-90s each extra point gets harder, so a 100+ arm is about as rare as a 4.25 forty. (PR #502)
+- Elite prospects are as uneven as anyone else. A top talent can have one standout tool and a weaker spot. (PR #502)
+- Bench press reps follow body weight, and the strongest men in the weight room can reach the 40-rep club. (PR #502)
+- Vertical jumps top out near the real record instead of running far past it. (PR #502)
+- Look at: the combine numbers of the biggest, strongest linemen in a draft class. (PR #502)
+
 ## 0.2.591 (17 Nov, shipped): CI: screen tests share each small world; retry runners that shut down (PR #495), live talks: your boss writes down what you commit to (PR #500), let updates skip a pending older version (PR #501)
 **TLDR:** 3 changes ship together. CI: screen tests share each small world; retry runners that shut down Your athletic director now writes down what you commit to. Promise to keep the state's best player home or to win eight games, and it goes on his goals sheet, or he tells you why not. Plus 1 more below.
 - CI: screen tests share each small world; retry runners that shut down (PR #495): no summary in the PR
