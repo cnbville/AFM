@@ -3,11 +3,11 @@
 //! never forces the call, and the tight ends past the first run real routes
 //! the quarterback reads.
 
-use crate::game::calling::{CallMemo, Memory, OffCtx, Situation, call_offense, call_offense_memo};
+use crate::game::calling::{CallMemo, Lean, Memory, OffCtx, Situation, call_offense, call_offense_memo};
 use crate::game::guide::{Firm, Want};
 use crate::game::playbook::{
-    Backfield, Formation, ORole, PASS_CONCEPTS, Personnel, PlayKind, Route, concept, pass_concept, readable,
-    readable_library, reads_in, route_for, route_in,
+    Backfield, Formation, ORole, PASS_CONCEPTS, PLAY_ACTION_LIBRARY, Personnel, PlayKind, Route, concept, pass_concept,
+    readable, readable_library, reads_in, route_for, route_in,
 };
 use crate::game::{OffScheme, Staff};
 use crate::player::Level;
@@ -47,6 +47,7 @@ fn ctx() -> OffCtx {
         burner: 0.0,
         shots: 0.0,
         lean: Default::default(),
+        players: 11,
     }
 }
 
@@ -180,9 +181,8 @@ fn a_personnel_preference_never_moves_the_run_or_pass_call() {
 
 #[test]
 fn a_memo_draws_the_same_calls() {
-    // The call keeps its own memo for the snap (play action's share and the
-    // concept read the same weights), so a memo kept over many calls draws
-    // the same calls, draw for draw.
+    // Without a memo the call keeps its own for the snap, so a memo kept
+    // over many calls draws the same calls, draw for draw.
     let mut staff = wanting(OffScheme::WestCoast, Personnel::P12, 10.0);
     staff.offense.creativity = 14.0;
     let mem = Memory::default();
@@ -196,6 +196,60 @@ fn a_memo_draws_the_same_calls() {
         let y = call_offense_memo(&staff, &mem, s, &ctx, &mut b, Some((&mut memo, i % sits.len())));
         assert_eq!(x, y, "call {i}");
     }
+}
+
+#[test]
+fn short_yardage_play_action_reads_no_empty_set() {
+    // Short yardage never goes empty, so how often its passes are play
+    // action can't move with the empty set's era. With one healthy tight
+    // end its groups are mostly three-wide, the ones that go empty on
+    // other downs, and the promise of play action makes it common: a West
+    // Coast caller on 3rd and 1 draws the same calls in 2000 and 2026 up
+    // to the motion, and the same family of pass.
+    let old = Staff { year: 2000, ..Staff::average(OffScheme::WestCoast) };
+    let new = Staff { year: 2026, ..old };
+    let mem = Memory::default();
+    let ctx = OffCtx { te_count: 1, lean: Lean { play_action: 3.0, ..Default::default() }, ..ctx() };
+    let s = sit(3, 1.0, 40.0);
+    let (mut both, mut pa) = (0, 0);
+    for i in 0..8000u32 {
+        let x = call_offense(&old, &mem, &s, &ctx, &mut Rng::new(1000 + i));
+        let y = call_offense(&new, &mem, &s, &ctx, &mut Rng::new(1000 + i));
+        if let (PlayKind::Pass(p), PlayKind::Pass(q)) = (x.kind, y.kind) {
+            let (u, v) = (pass_concept(p).play_action, pass_concept(q).play_action);
+            assert_eq!(u, v, "call {i}");
+            both += 1;
+            pa += usize::from(u);
+        }
+    }
+    println!("3rd and 1: {both} passes in both years, {pa} of them play action");
+    assert!(both > 1000 && pa > 200, "{both} passes, {pa} play action");
+}
+
+#[test]
+fn the_rule_books_own_sets_run_their_own_concepts() {
+    // The call is made in 11-man groups and the game fields the rule
+    // book's own set for them. The tunnel screen is built for the flanker:
+    // 13 has none in the 11-man game, but the CFL's 12-man set and arena
+    // football's 8-man set for 13 do, so there it can come from a 13 call.
+    let staff = wanting(OffScheme::WideZone, Personnel::P13, 10.0);
+    let mem = Memory::default();
+    let tunnel = concept("tunnel screen");
+    let tunnels = |players: u8| {
+        let mut rng = Rng::new(21);
+        let ctx = OffCtx { players, ..ctx() };
+        (0..12_000)
+            .filter(|i| {
+                let (d, t, y) = NORMAL[i % NORMAL.len()];
+                let c = call_offense(&staff, &mem, &sit(d, t, y), &ctx, &mut rng);
+                c.formation.personnel == Personnel::P13 && c.kind == PlayKind::Pass(tunnel)
+            })
+            .count()
+    };
+    let (us, cfl, arena) = (tunnels(11), tunnels(12), tunnels(8));
+    println!("tunnel screens from 13: {us} in the 11-man game, {cfl} in the CFL, {arena} in arena football");
+    assert_eq!(us, 0);
+    assert!(cfl > 0 && arena > 0, "{cfl} in the CFL, {arena} in arena football");
 }
 
 #[test]
@@ -285,5 +339,8 @@ fn the_runnable_concepts_table_matches_the_reads() {
                 assert_eq!((mask >> i) & 1 == 1, readable(c, &f), "{} in {}", c.name, p.name());
             }
         }
+    }
+    for (i, c) in PASS_CONCEPTS.iter().enumerate() {
+        assert_eq!((PLAY_ACTION_LIBRARY >> i) & 1 == 1, c.play_action, "{}", c.name);
     }
 }

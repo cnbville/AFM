@@ -334,13 +334,13 @@ pub fn pro(level: Level) -> bool {
 /// How much more your league's play callers throw than the NFL's habits
 /// say (another league's book; 0 elsewhere).
 pub fn book_lean(w: &World) -> f64 {
-    match w.seat.filter(|s| s.level == Level::Other).and_then(|s| s.other) {
-        Some(t) => {
-            let book = super::pro::other::book(super::pro::other::league_of(t));
-            crate::game::Rules::for_book(book, w.today.year()).code.pass_lean
-        }
-        None => 0.0,
-    }
+    seat_book(w).map_or(0.0, |book| crate::game::Rules::for_book(book, w.today.year()).code.pass_lean)
+}
+
+/// Your league's own rule book when your seat is in another league.
+fn seat_book(w: &World) -> Option<crate::game::Book> {
+    let t = w.seat.filter(|s| s.level == Level::Other).and_then(|s| s.other)?;
+    Some(super::pro::other::book(super::pro::other::league_of(t)))
 }
 
 /// Your team as the engine would build it now (for drafting and reads).
@@ -966,15 +966,22 @@ pub fn draft_with(w: &World, team: &GameTeam, next: &Next, notes: [&[u8]; 2], ro
     // first quarterback).
     let qb_run = qb.and_then(|id| team.players.iter().find(|p| p.id == id)).map_or(0.0, crate::game::flow::qb_run);
     let level = level_of(next.level);
+    // The rule book the game is played under: another league's own (the
+    // CFL's 12 a side, arena football's 8), as its games set it up.
+    let rules = match seat_book(w).filter(|_| next.level == Level::Other) {
+        Some(book) => crate::game::Rules::for_book(book, w.today.year()),
+        None => crate::game::Rules::for_level(level),
+    };
     let inp = DraftIn {
         film: opp_film(w, next.level, next.opp),
         level,
-        two_from: crate::game::Rules::for_level(level).two_point_from,
+        two_from: rules.two_point_from,
         qb_run,
         seed: key_of(w, next.date, next.opp, round),
         favs: favourites(w, qb).into_iter().map(|x| x.0).collect(),
         tells: tells(w, false),
         designs,
+        players: rules.code.players,
     };
     let (off, def) = draft_sides(team, &inp, notes);
     let (oc, dc) = callers(w);
@@ -995,8 +1002,8 @@ pub fn draft_with(w: &World, team: &GameTeam, next: &Next, notes: [&[u8]; 2], ro
 /// What the coordinators draft from: the opponent's film, the level of
 /// play and where its two-point try is snapped, the starting
 /// quarterback's running as the game reads it, the draft's own random key,
-/// the quarterback's favourite concepts, the offense's tells and your
-/// designs going in (playbook slot, formation, how far in).
+/// the quarterback's favourite concepts, the offense's tells, your designs
+/// going in (playbook slot, formation, how far in) and the players a side.
 pub struct DraftIn {
     pub film: Film,
     pub level: crate::player::Level,
@@ -1006,6 +1013,8 @@ pub struct DraftIn {
     pub favs: Vec<usize>,
     pub tells: Vec<Tell>,
     pub designs: Vec<(u16, Formation, f32)>,
+    /// Players a side under the game's rule book (`OffCtx::players`).
+    pub players: u8,
 }
 
 /// Both sides of the coordinators' draft (G7-G13): the offense's boxes,
@@ -1029,6 +1038,7 @@ pub fn draft_sides(team: &GameTeam, inp: &DraftIn, notes: [&[u8]; 2]) -> (Vec<En
         burner: 0.0,
         shots: 0.0,
         lean: Default::default(),
+        players: inp.players,
     };
     let staff = team.staff;
     let two_from = inp.two_from;

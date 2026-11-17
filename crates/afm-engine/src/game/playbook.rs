@@ -994,13 +994,15 @@ fn own_route(c: &PassConcept) -> Option<Route> {
 
 /// A man's route in a pass concept as his group lines up (lane SF2, item
 /// 2). A tight end past the first who takes a missing receiver's place
-/// (`stand_in`) runs that receiver's route, except in the first inside
-/// place (the slot's): there he keeps the slot's route only when it is a
-/// tight end's own (the seam, the corner, the drag: real playbooks' Y-seam,
-/// Y-corner and mesh) and otherwise runs the concept's own short job for
-/// the second tight end, where it has one. So in 13 personnel, which lacks
-/// the flanker too, the first takes the flanker's route and the next the
-/// slot's place. Real second and third tight ends run short: 2024 NFL, 6.3
+/// (`stand_in`) runs that receiver's route, except the first of them in an
+/// inside place (the slot's or the second slot's): he keeps that route
+/// only when it is a tight end's own (the seam, the corner, the drag: real
+/// playbooks' Y-seam, Y-corner and mesh), and otherwise runs the concept's
+/// own job for the second tight end (`own_route`), where it draws him one
+/// (Texas doesn't). The places follow the concept's reads, so in 13
+/// personnel, which lacks the flanker too, the second tight end takes the
+/// flanker's place in some concepts and the slot's in others, and the
+/// third the next. Real second and third tight ends run short: 2024 NFL, 6.3
 /// air yards a target for the second in 12 personnel (the first 7.0), 6.5
 /// and 4.5 for the second and third in 13 (7.6), a third of their targets
 /// quick outs and flats, and a fifth corners, digs and seams (nflverse
@@ -1041,10 +1043,23 @@ pub fn readable(c: &PassConcept, f: &Formation) -> bool {
         || extra_ends(f.personnel).iter().any(|e| stand_in(c, f.personnel, *e).is_some())
 }
 
+/// The library's play action concepts, one bit a concept.
+pub const PLAY_ACTION_LIBRARY: u64 = {
+    assert!(PASS_CONCEPTS.len() <= 64);
+    let mut m = 0;
+    let mut i = 0;
+    while i < PASS_CONCEPTS.len() {
+        if PASS_CONCEPTS[i].play_action {
+            m |= 1 << i;
+        }
+        i += 1;
+    }
+    m
+};
+
 /// The library concepts the group can run (`readable`), one bit a concept,
 /// worked out once a group: the play caller reads it on every pass call.
 pub fn readable_library(p: Personnel) -> u64 {
-    const _: () = assert!(PASS_CONCEPTS.len() <= 64);
     static MASKS: [std::sync::OnceLock<u64>; 16] = [const { std::sync::OnceLock::new() }; 16];
     *MASKS[p as usize].get_or_init(|| {
         let f = Formation::plain(p, Backfield::Shotgun, 1.0);
