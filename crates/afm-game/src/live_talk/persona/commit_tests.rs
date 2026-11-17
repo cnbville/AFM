@@ -12,6 +12,7 @@
 use afm_engine::world::folk::boss::{self, GoalKind};
 use afm_engine::world::folk::persona::Them;
 use afm_engine::world::folk::persona::talk::stakes::{self, Holdover};
+use afm_engine::world::folk::persona::talk::store;
 use afm_engine::world::folk::scene::{self, Kind, Scene};
 use afm_engine::world::folk::talks::{PromiseKind, PromiseTo};
 use afm_engine::world::folk::{Team, commit, facts, takeover};
@@ -183,7 +184,7 @@ fn wins_above_his_bar_replace_his_and_below_it_or_vague_change_nothing() {
     );
     assert!(heard(&v).contains("below his own bar"), "{v}");
     assert!(goals_for(&g).1.iter().any(|x| x.kind == GoalKind::Wins(n)));
-    assert!(last_voice(&f).contains("Asking for time is how a bar comes down"));
+    assert!(last_voice(&f).contains("asking for time is how a bar comes down"));
     // A slogan: he asks what he can measure it by, nothing is written.
     let count = goals_for(&g).1.len();
     let v = line(
@@ -206,23 +207,54 @@ fn a_dodge_needs_his_own_question_on_his_last_line() {
     let id = goals_meeting(&mut g);
     let line_ok = |g: &mut Game, reading: Value, said: &str, text: &str| line(g, &f, id, reading, said, text);
     // His last line asked nothing: an answer the ear calls a dodge isn't one.
-    line_ok(
-        &mut g,
-        ear(vec![act("question", "", "Goals", "")], vec![], false),
-        "Those are the goals.",
-        "Walk me through them.",
-    );
+    // (A line that asks him about his goals would keep him from asking
+    // about them himself, `talk::asked_about`.)
+    line_ok(&mut g, ear(vec![], vec![], false), "Those are the goals.", "Good to meet you.");
     let w = g.world.as_ref().unwrap();
     let t0 = boss::trust(w, Team::seat(w).unwrap());
-    let v = line_ok(&mut g, dodging(vec![]), "Fine.", "Any other questions?");
+    // From here on his every line asks something, so whichever line the
+    // game raises his ask on puts it to you as a question.
+    let v = line_ok(&mut g, dodging(vec![]), "Fine. So how do you keep that kid home?", "Any other questions?");
     assert!(!heard(&v).contains("you didn't answer"), "{v}");
     assert!(!heard(&v).contains("doubted on what he told you"), "{v}");
     let w = g.world.as_ref().unwrap();
     assert!((boss::trust(w, Team::seat(w).unwrap()) - t0).abs() < 1e-6, "no cost for a dodge that wasn't");
-    // He asks; a line that ignores it is a dodge.
-    line_ok(&mut g, ear(vec![], vec![], false), "So how do you keep that kid home?", "It's a big year.");
+    // He asks: the game raises his ask on a line of its own choosing, one
+    // at a time (`store::Open::asking`), and the line after it that ignores
+    // it is a dodge.
+    let asking = |g: &Game| store::open(g.world.as_ref().unwrap(), id).is_some_and(|o| o.asking().is_some());
+    for text in ["It's a big year.", "We'll see.", "Fair enough."] {
+        if asking(&g) {
+            break;
+        }
+        line_ok(&mut g, ear(vec![], vec![], false), "So how do you keep that kid home?", text);
+    }
+    assert!(asking(&g), "he raises an ask");
     let v = line_ok(&mut g, dodging(vec![]), "Okay.", "Let's talk about the stadium.");
     assert!(heard(&v).contains("you didn't answer his question"), "{v}");
+}
+
+/// An ask he only said he'd raise later ("once the season starts I'd
+/// like to talk about the stadium") asks nothing yet: the next line that
+/// moves on is no dodge (the last replay, 2026-11-17: a doctor who said
+/// he'd like to talk about where he fits "once the staff is set").
+#[test]
+fn an_ask_put_off_for_later_is_no_question_to_dodge() {
+    let (mut g, f, _) = game("commit-later", true);
+    let f = f.unwrap();
+    let id = goals_meeting(&mut g);
+    let line_ok = |g: &mut Game, reading: Value, said: &str, text: &str| line(g, &f, id, reading, said, text);
+    let later = "Once the season starts, I'd like to talk about that.";
+    let asking = |g: &Game| store::open(g.world.as_ref().unwrap(), id).is_some_and(|o| o.asking().is_some());
+    for text in ["Good to meet you.", "It's a big year.", "We'll see.", "Fair enough."] {
+        line_ok(&mut g, ear(vec![], vec![], false), later, text);
+        if asking(&g) {
+            break;
+        }
+    }
+    assert!(asking(&g), "he raises an ask");
+    let v = line_ok(&mut g, dodging(vec![]), "Okay.", "Let's talk about the stadium.");
+    assert!(!heard(&v).contains("you didn't answer"), "{v}");
 }
 
 #[test]

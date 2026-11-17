@@ -230,8 +230,24 @@ pub fn tell(w: &World, him: Them, known: &[Known], parts: &TellParts) -> Told {
     // Football and what he saw on the tape, a man tells straight unless
     // it's touchy; nothing about football is a secret worth a lie.
     let answer = if topic == Topic::Football && answer == Answer::Lies { Answer::Partly } else { answer };
+    // Asked about his own game, he talks about it, if only the safe half
+    // (the talks audit, 2026-11-16: a recruit asked "how was your game
+    // Friday?" would rather not get into it).
+    let answer =
+        if topic == Topic::Football && !about_other && answer == Answer::Deflects { Answer::Partly } else { answer };
     // Asked about his own job, a man makes his case: he wants to keep it.
     let answer = if topic == Topic::Job && !about_other { Answer::Straight } else { answer };
+    // Your boss tells you the goals he holds you to, where you stand with
+    // him and how the money works: setting them is his job, never a secret
+    // (the talks audit, 2026-11-16: asked "what are you looking for from
+    // us this year?" in his goals meeting, he'd rather not get into it).
+    let boss = super::makeup::kind(w, him) == super::wants::Kind::Boss;
+    let answer =
+        if boss && matches!(topic, Topic::Goals | Topic::Money | Topic::Wants | Topic::Football) && !about_other {
+            Answer::Straight
+        } else {
+            answer
+        };
     let mut told = Told { answer, cost, ..Told::default() };
     match answer {
         Answer::Straight => told.released = known.iter().map(|k| k.words.clone()).collect(),

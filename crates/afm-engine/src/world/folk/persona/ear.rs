@@ -330,6 +330,10 @@ pub struct Say {
     pub holding_back: bool,
     /// When he lies, the voice gets the lie, never the truth.
     pub lie: Option<String>,
+    /// What the coach just did, in the man's own terms, for the voice to
+    /// react to (a decision on him, what he showed him): never words the
+    /// voice says as its own.
+    pub heard: Vec<String>,
 }
 
 /// The game's turn (5.3).

@@ -226,10 +226,10 @@ I took you at your word, Coach. Was I right to?
 @key talk.point.ask.draft
 What are you hearing about me, Coach? From the scouts?
 Be honest. Where do the scouts have me?
-Do you think I'm ready to go?
-What would you do, if you were me?
+Do you think I'm ready to go? ~ choice=yes
+What would you do, if you were me? ~ choice=yes
 Have teams been asking about me?
-Should I go, Coach?
+Should I go, Coach? ~ choice=yes
 
 @key talk.point.ask.your_job
 Can I ask you something, Coach? Are you going to be here next year?

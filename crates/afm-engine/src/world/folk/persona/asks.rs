@@ -184,7 +184,15 @@ fn price(w: &World, i: usize) -> Counter {
     } else {
         Give::Stay
     };
-    Counter { asks: vec![give.words()], gives: vec![give], terms: vec![], why: None }
+    // As he'd say it: the bare "a real role" was on his card as what he
+    // says, and came back as "is that a real role for me?" (the talks
+    // audit, 2026-11-16).
+    Counter {
+        asks: vec![format!("He'll do it if he gets {} for it", give.words())],
+        gives: vec![give],
+        terms: vec![],
+        why: None,
+    }
 }
 
 /// The odds he passes on something you asked him to keep quiet (10.3):
@@ -225,6 +233,36 @@ pub fn confirm(act: &Act) -> Option<Confirm> {
         Act::Request(r) if costs_you(r) => Some(Confirm::Request(r.clone())),
         _ => None,
     }
+}
+
+/// Whether an ask is about one man by name (a teammate to mentor, a
+/// recruit to host, a prospect to look into). Put to a whole room, the man
+/// who answers for it takes it on himself, at his own price and on your
+/// confirm; any other ask is the room's, with no price, no confirm and
+/// nothing of his own run (`talk::Conversation`).
+pub fn names_a_man(r: &Request) -> bool {
+    matches!(
+        r,
+        Request::Mentor(_)
+            | Request::TalkTo(_)
+            | Request::Recruit(_)
+            | Request::Host(_)
+            | Request::Steer(_)
+            | Request::NotOurDivision(_)
+            | Request::Scout(_)
+            | Request::FindOut(..)
+            | Request::Evaluate(_)
+            | Request::Plant(_)
+            | Request::Target(_)
+            | Request::WorkWith(_)
+            | Request::SecondOpinion(_)
+            | Request::Clear(_)
+            | Request::Waiver(_)
+            | Request::Appeal(_)
+            | Request::Calm(_)
+            | Request::TellMe(Some(_))
+            | Request::HeadsUp(Some(_))
+    )
 }
 
 /// A request that does something to your team or your money once he says
@@ -533,8 +571,7 @@ impl Acting for Asks {
                 ran.report.push("I'll let you know.".into());
             }
             (_, other) => {
-                ran.done
-                    .push(format!("He agreed to {}. It runs when its part of the game does.", request_words(other)));
+                ran.done.push(format!("He agreed to {}.", request_words(other)));
             }
         }
         ran

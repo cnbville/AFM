@@ -372,6 +372,16 @@ fn a_line_to_the_team_reaches_every_man_in_the_room() {
     let after: Vec<f32> = roster.iter().map(|&id| trust(&g, id)).collect();
     let moved = before.iter().zip(&after).filter(|(a, b)| a != b).count();
     assert_eq!(moved, roster.len(), "every man heard it: {before:?} {after:?}");
+    // Asked of the room, the room answers: "we'll do it" from the man who
+    // answers for them, never "He'll do it." (the talks audit, 2026-11-16).
+    let mut a = act("request", "other", "", "");
+    a["words"] = json!("We go back to basics this week.");
+    f.push(EAR, Ok(ear(vec![a], vec![], false)));
+    f.push(VOICE, Ok(voice("Yes sir.", "")));
+    let v = say(&mut g, sid, "We go back to basics this week.");
+    assert_eq!(v["state"], "done", "{v}");
+    let (_, vc) = super::n7_tests::last_cards(&f);
+    assert!(vc.contains("- We'll do it.") && !vc.contains("He'll do it."), "{vc}");
     // The room's card names the room, not one man.
     let w = g.world.as_ref().unwrap();
     let s = scene_of(&g, sid);

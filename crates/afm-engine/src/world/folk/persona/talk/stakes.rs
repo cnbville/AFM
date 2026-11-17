@@ -72,6 +72,25 @@ pub fn job_weight(w: &World, c: usize) -> f32 {
 
 /// A want of his in the second person, as the voice's card puts it.
 pub fn you_want(k: WantKind, staff: bool) -> String {
+    you_want_as(k, staff, false)
+}
+
+/// A want in the second person, and in a boss's own terms when he's the
+/// coach's boss (the program's budget, its name), so the card never reads
+/// like a list he recites ("the goals I set you and the budget we agreed
+/// on", Cain 2026-11-16).
+pub fn you_want_as(k: WantKind, staff: bool, boss: bool) -> String {
+    if boss {
+        match k {
+            WantKind::Goals => return "the coach meeting the goals you set him".into(),
+            WantKind::Money => return "a program that lives inside its budget".into(),
+            WantKind::Name => {
+                return "the program's good name: winning the right way, nothing that embarrasses the school".into();
+            }
+            WantKind::Winning => return "winning".into(),
+            _ => {}
+        }
+    }
     match k {
         WantKind::Role => "playing time, a real role".into(),
         WantKind::Money if staff => "your pay".into(),
@@ -94,6 +113,7 @@ pub fn you_want(k: WantKind, staff: bool) -> String {
         WantKind::Goals => "the goals you set him, the budget, the program's name".into(),
         WantKind::Booster(x) => format!("what your money buys: {}", x.short()),
         WantKind::Kids => "your kids' futures".into(),
+        WantKind::Draft => "the NFL draft: going as high as you can, and what the scouts hear about you".into(),
     }
 }
 
@@ -121,6 +141,9 @@ pub fn stakes(w: &World, s: &Scene, him: Them, wants: &[Want]) -> Vec<String> {
     if let Some(x) = this_talk(s, him, kind, hold) {
         out.push(x);
     }
+    if let Some(x) = college_call(w, s) {
+        out.push(x);
+    }
     if kind == Kind::Boss && matches!(s.kind, SceneKind::BossMeeting | SceneKind::BossFirst) {
         out.extend(boss_talk(w, s));
     }
@@ -129,12 +152,20 @@ pub fn stakes(w: &World, s: &Scene, him: Them, wants: &[Want]) -> Vec<String> {
         .iter()
         .take(MAX_WANTS)
         .map(|x| {
-            let w = you_want(x.kind, staff);
+            // Only a coach calls plays: your trainer's career is a bigger
+            // job one day.
+            let w = match (x.kind, him) {
+                (WantKind::Career, Them::Cast(..)) if staff => "your own career: a bigger job one day".to_string(),
+                _ => you_want_as(x.kind, staff, kind == Kind::Boss),
+            };
             if x.met { format!("{w} (he's given you that already)") } else { w }
         })
         .collect();
     if !named.is_empty() {
-        out.push(format!("What you want, most first: {}", named.join("; ")));
+        out.push(format!(
+            "What you care about, most first (what drives you, never a list to recite): {}",
+            named.join("; ")
+        ));
     }
     let on_trial = hold.is_some() || s.kind == SceneKind::Firing;
     if let (Them::Coach(c), Kind::Staff) = (him, kind) {
@@ -175,11 +206,12 @@ fn to_you(w: &World, him: Them, kind: Kind) -> Option<String> {
             format!("{you}, the man talking with you, is a coach on the same staff as you, not your boss")
         }
         Kind::Staff => format!(
-            "{you}, the man talking with you, is your boss, the {yours}: you work for him, and he decides whether you stay. You talk to him as a coach on his staff, not as a player"
+            "{you}, the man talking with you, is your boss, the {yours}: you work for him, and he decides whether you stay. You talk to him as {} on his staff, not as a player",
+            if matches!(him, Them::Coach(_)) { "a coach" } else { "a member of the support staff" }
         ),
         Kind::Boss => "You're his boss: you hired him, you judge his work and you decide his future".into(),
-        Kind::Player => "He's your coach: you play for him, and he decides your role".into(),
-        Kind::Recruit => "He's recruiting you: you haven't decided where you'll play, and he wants you".into(),
+        Kind::Player => player_to_you(w, him),
+        Kind::Recruit => recruit_to_you(w, him),
         Kind::Transfer => "You're in the transfer portal, and he wants you at his school".into(),
         Kind::Prospect => "His team may draft or sign you: he's sizing you up, and your future rides on it".into(),
         Kind::Family => {
@@ -205,6 +237,52 @@ fn to_you(w: &World, him: Them, kind: Kind) -> Option<String> {
         Kind::Compliance => "You enforce the rules: you answer to the rules, not to him".into(),
         Kind::Outside => "You're not part of his program: you have your own job to do".into(),
     })
+}
+
+/// Who your coach is to a player of his, by where the player is on his
+/// road (`standing::road`): a man whose college career is over has played
+/// his last game for him, and what the coach tells NFL scouts is what's
+/// left between them.
+fn player_to_you(w: &World, him: Them) -> String {
+    use super::standing::Road;
+    let road = match him {
+        Them::Player(id) => folk::person(w, id).map(|i| super::standing::road(w, i)),
+        _ => None,
+    };
+    match road {
+        Some(Road::DraftBound) => "He's your college coach. You've played your last game for him: what's left between you is the draft, and what he tells NFL scouts about you matters".into(),
+        Some(Road::LastSeason) => "He's your coach in your last college season: he decides your role, and what he tells NFL scouts about you matters".into(),
+        Some(Road::Deciding) => "He's your coach: you play for him and he decides your role, and you're weighing whether to stay or go to the draft".into(),
+        _ => "He's your coach: you play for him, and he decides your role".into(),
+    }
+}
+
+/// Who the coach recruiting him is to a recruit, by where he stands: still
+/// open, committed to this school, committed or signed somewhere else. The
+/// card said "you haven't decided where you'll play" to a recruit already
+/// committed to you (the audit of 2026-11-16).
+fn recruit_to_you(w: &World, him: Them) -> String {
+    let p = match him {
+        Them::Player(id) => folk::person(w, id).map(|i| &w.people[i]),
+        _ => None,
+    };
+    let ours = w.seat.and_then(|s| s.program);
+    let signed = p.and_then(|p| p.cal.signed.as_ref().map(|s| s.program));
+    let commit = p.and_then(|p| p.cal.commit.map(|c| c.0));
+    match (signed, commit) {
+        (Some(s), _) if Some(s) == ours => {
+            "You've signed with his school: he's your coach now, and he's getting you ready to come in".into()
+        }
+        (Some(s), _) => format!("You've signed with {}: he coaches at another school", w.program_name(s)),
+        (None, Some(c)) if Some(c) == ours => {
+            "You're committed to his school, though you haven't signed yet: he wants to keep you".into()
+        }
+        (None, Some(c)) => format!(
+            "You're committed to {}, though you haven't signed: he's trying to change your mind",
+            w.program_name(c)
+        ),
+        _ => "He's recruiting you: you haven't decided where you'll play, and he wants you".into(),
+    }
 }
 
 /// Your own job, in words: head coach unless you're an assistant.
@@ -247,6 +325,27 @@ fn this_talk(s: &Scene, him: Them, kind: Kind, hold: Option<Holdover>) -> Option
     })
 }
 
+/// Why a college coach called the high school coach (`talk::hs_call`): he
+/// called, about a player he's recruiting, to learn what the tape can't
+/// tell him. Before this the caller's card said only "a peer", and he
+/// answered your questions about your own player as if he coached him (the
+/// talks audit, 2026-11-16).
+fn college_call(w: &World, s: &Scene) -> Option<String> {
+    if !super::hs_call::is_call(s.kind) {
+        return None;
+    }
+    let you = folk::scene::your_name(w);
+    let kid = folk::person(w, s.a as u32).map(|i| w.people[i].name.clone()).unwrap_or_else(|| "his player".into());
+    let what = match s.c {
+        1 => "his grades and whether he'll qualify",
+        2 => "his character: how he is off the field, how he takes coaching",
+        _ => "what he's like beyond the film",
+    };
+    Some(format!(
+        "You called {you}, the high school coach, about his player {kid}, whom your school is recruiting. You want the truth about {what}, and a high school coach who'll steer the kid your way. {you} coaches {kid}: he knows him, you don't yet"
+    ))
+}
+
 /// What rides on a meeting with your boss, for him (Cain 2026-11-16: the
 /// athletic director asked the coach what he'd be judged on, in the meeting
 /// where he sets it): the meeting he called and the goals on the table, in
@@ -274,14 +373,18 @@ fn boss_talk(w: &World, s: &Scene) -> Vec<String> {
         0 => {
             let season = folk::boss::goal_season(w, team);
             out.push(format!(
-                "This is your goals meeting with {you}: you set his goals for the {season} season, the sheet in front of you both, and at the season's review you judge him on them. You lead with them, one by one, and why you want each"
+                "This is your goals meeting with {you}: you set his goals for the {season} season, the sheet in front of you both, and at the season's review you judge him on them. You lead with them and why you want each, then you listen and react the way a boss does: a result he commits to that you can judge, you take and write down; one you doubt, you say why, once; his plans for getting there are his job, so you react to them and don't make him prove every sentence"
             ));
             let g = goals_of(season);
             if !g.is_empty() {
                 out.push(format!("Your goals for {season}: {}", g.join("; ")));
             }
+            // What he commits to is weighed by the game, which tells the
+            // voice when there's nothing to measure (`commit::words`); a
+            // standing order to ask for a measure made the boss demand one
+            // after every line (the talks audit, 2026-11-16).
             out.push(format!(
-                "{you} may argue a goal down (he asks for time) or take on more: what he commits to that you can judge, you write down and hold him to. A plan or a slogan isn't a goal: ask him what you can measure it by"
+                "{you} may argue a goal down (he asks for time) or take on more; when he does, the card tells you what you did with it"
             ));
         }
         1 => {
@@ -369,18 +472,26 @@ fn his_case(w: &World, c: usize, on_trial: bool) -> Vec<String> {
     out
 }
 
-/// How he takes it going against him, from his makeup.
+/// How he fights for it and how he takes it going against him, from his
+/// makeup. A man whose job is on the line argues for it with reasons
+/// before anything else (Cain 2026-11-16: "I do want to have those people
+/// fight with reasoning more than deflecting"): his record, why it went
+/// the way it did, what he'd change. He gives up only once it's final.
 fn takes_a_no(m: &Makeup) -> String {
-    if m.temper >= 14.0 {
-        "If it goes against you, you take it hard, and he hears it, though you stay a pro about it".into()
+    // When he raises it: a coordinator in a sit-down about his unit asked
+    // where he stood on every line, whatever the coach said (the talks
+    // audit, 2026-11-16).
+    let fight = "When he raises your job or your work, you fight for it with reasons: what you can point to, why it went the way it did, and what you'd change with this group. Answer his charges one by one; don't deflect and don't give up while it's still open. When he's on something else, you're on it with him";
+    let then = if m.temper >= 14.0 {
+        "If he makes it final, you take it hard, and he hears it, though you stay a pro about it"
     } else if m.ego >= 14.0 {
-        "You won't beg: you make your case on your record, and if he lets you go you tell him he's making a mistake"
-            .into()
+        "You won't beg, but you argue on your record; if he makes it final, you tell him he's making a mistake"
     } else if m.loyalty >= 13.0 {
-        "If it goes against you, you ask about your players and your recruits before yourself".into()
+        "You argue through your players and recruits, what they need and what you've built with them; if he makes it final, you ask about them before yourself"
     } else {
-        "If it goes against you, you keep your dignity and ask what comes next: your deal, your players".into()
-    }
+        "If he makes it final, you keep your dignity and ask what comes next: your deal, your players"
+    };
+    format!("{fight}. {then}")
 }
 
 fn lower_first(s: &str) -> String {
@@ -417,15 +528,30 @@ pub fn situation(w: &World, s: &Scene, him: Them) -> Vec<String> {
             }
         }
         Them::Player(id) => {
+            use super::standing::{self, Road};
             let Some(i) = folk::person(w, id) else { return out };
             let p = &w.people[i];
-            if p.cal.portal.is_some() {
+            // Where he is on his road, the way his coach knows it: a man
+            // in his last season isn't weighing the draft, it's next.
+            let road = standing::road(w, i);
+            if p.cal.portal.is_some() && !road.college_ends() {
                 out.push("He's in the transfer portal.".to_string());
             }
-            match p.stage {
-                crate::world::Stage::Declared => out.push("He's declared for the draft.".to_string()),
-                crate::world::Stage::College if w.year + 1 - p.class_of >= 3 => {
-                    out.push("He's eligible for the next draft, so where he'd go is likely on his mind.".to_string())
+            match road {
+                Road::DraftBound if p.stage == crate::world::Stage::Declared => {
+                    out.push("He's declared for the draft.".to_string())
+                }
+                Road::DraftBound => {
+                    out.push("His college career is over: no eligibility left, and the draft is next.".to_string())
+                }
+                Road::LastSeason => out
+                    .push("This is his last college season: no eligibility after it, and the draft is next.".to_string()),
+                Road::Deciding => out.push(
+                    "He's eligible for the next draft and can declare by the deadline, so where he'd go is likely on his mind."
+                        .to_string(),
+                ),
+                Road::Returning => {
+                    out.push("He's back for another season: the deadline to declare has passed.".to_string())
                 }
                 _ => {}
             }
