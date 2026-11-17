@@ -435,6 +435,15 @@ Cain, 2026-11-17 19:58 UTC: "I want the players to have a more real life connect
 - **Agreed:** the bond design as written (closeness beside the built trust, a bond with every coach who works with him, the stages in words, growth from time, fit, what they share, need and hard moments, what it does through built channels, favoritism, betrayal and leaving costs), and its seven questions: 1 the age gap sets the kind (big brother under 12 years, father figure 12 to 40, grandfather past 40); 2 need up to 1.5 times as fast, a close father at home tops out at "Like family"; 3 no flat bonus on the field (instructions, talks and pregame fire only); 4 at most +3 coachability points with that coach; 5 a room that loved its old coach starts up to 0.15 colder with the new one, fading over a season; 6 AI coaches on the same rules (measured on a small world); 7 shared heritage as one small part of what they share.
 - **Proposed, not confirmed:** every other size (the weekly growth rule, contact shares, fit range, moment sizes, the read multipliers, the favoritism costs, fading) and the build order (two world lanes after the world rebuild).
 
+## 29. World additions (thread "Find what the world is still missing", 2026-11-17)
+
+Cain, 2026-11-17 14:52 UTC: "Let's first look at additions before we finetune the engine, additions to the world like facilities, the coach". Spec: `docs/design/world-additions.md`; the audit list in the project folder at `afm/world-additions/list.md`.
+- **Agreed (22:12 UTC, "1. yes 6. yes 7. yes"):** NFL assistants as people (position coaches, a special teams coordinator, an assistant head coach; NFL growth reads the position coach); high schoolers' NIL deals in the states that allow them, with the details from a short design round first; officiating crews kept for a whole season, with habits your staff reads from public counts.
+- **Held:** your own play calling, adaptation and negotiating growing (Q20) waits for Cain's individual ratings update (15:00 UTC: "I wanted a individual ratings update, so keep that memore").
+- **Elsewhere:** support departments in full, agreed in `docs/design/support-departments.md`.
+- **Waiting on Cain:** AI high school position coaches, a college general manager, coaches' agents, private trainers and camps, travel and the body clock.
+- **Proposed, not confirmed:** every size and build note in the spec.
+
 ## Superseded decisions
 
 | Old | Replaced by | When |
