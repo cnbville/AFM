@@ -479,6 +479,8 @@ pub(crate) fn season(w: &mut World) {
         let id = p.player.id;
         let ovr = p.player.overall() as f32;
         let trust = if p.trust_in == you as u32 { p.trust } else { 0.5 };
+        // The live bond drives this one too (coach and player bonds).
+        let close = crate::world::folk::bonds::close(w, id, Some(you));
         let starter = p.last_role == Some(crate::world::PlayingTime::Starter)
             || p.pro
                 .as_ref()
@@ -497,6 +499,7 @@ pub(crate) fn season(w: &mut World) {
                 g.ovr_out = ovr;
                 g.bond = (g.bond
                     + 0.25 * (trust - 0.5)
+                    + 0.3 * (close - 0.15)
                     + if starter { 0.08 } else { 0.0 }
                     + if grew >= 4.0 { 0.06 } else { 0.0 })
                 .clamp(-1.0, 1.0);
@@ -551,6 +554,7 @@ pub(crate) fn season(w: &mut World) {
                     ovr_out: ovr,
                     bond: (0.1
                         + 0.4 * (trust - 0.5)
+                        + 0.4 * close
                         + if starter { 0.1 } else { 0.0 }
                         + if how == 1 { 0.05 } else { 0.0 })
                     .clamp(-1.0, 1.0),
@@ -639,6 +643,8 @@ pub(crate) fn season(w: &mut World) {
         })
         .collect();
     for (k, why, by) in gone_early {
+        // The closer he was, the more it hurts (bonds section 8).
+        let by = by * crate::world::folk::bonds::betrayal(w, w.legacy.guys[k].id, Some(you));
         let g = &mut w.legacy.guys[k];
         g.bond = (g.bond + by).clamp(-1.0, 1.0);
         if g.sour.is_empty() {

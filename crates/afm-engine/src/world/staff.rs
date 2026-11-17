@@ -395,6 +395,8 @@ pub(crate) fn leave(w: &mut World, coach: usize, why: &'static str) {
         }
         Employer::Other(f) => super::pro::other::unseat(w, f, coach),
     }
+    // The players close to him feel it (coach and player bonds, section 8).
+    super::folk::bonds::coach_left(w, coach, job.employer);
     if market::is_you(w, coach) {
         market::left(w, why);
     }
@@ -1869,6 +1871,16 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
         && !market::is_you(w, c)
     {
         super::recruiting::follow_coach(w, a, b, c);
+    }
+    // An assistant who moved to another college: the players close to him
+    // may follow too (coach and player bonds).
+    if let (Some(Job { employer: Employer::College(a), role: from_role, .. }), Employer::College(b)) =
+        (left, o.employer)
+        && a != b
+        && from_role != Role::HeadCoach
+        && !market::is_you(w, c)
+    {
+        super::recruiting::follow_assistant(w, a, b, c);
     }
     // Where he came from, and why he came (11.13).
     let from = from_job.map_or("a new coach".to_string(), |(e, _)| match e {

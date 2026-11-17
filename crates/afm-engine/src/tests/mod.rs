@@ -5,6 +5,7 @@ mod ai_promises;
 mod assignments;
 mod board_fit;
 mod bodies;
+mod bonds;
 mod capital;
 mod capital_drive;
 mod capital_race;

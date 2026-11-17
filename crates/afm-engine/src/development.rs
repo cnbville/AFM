@@ -103,6 +103,11 @@ pub struct SeasonContext {
     /// class sim, a season on the stand-in): the yearly roll decides.
     #[serde(default)]
     pub hurt: Option<YearHurt>,
+    /// Coachability points his bond with the coach who teaches him adds to
+    /// how much of the coaching sticks (coach and player bonds, question
+    /// 4: up to 3, `world::folk::bonds::coachability_lift`).
+    #[serde(default)]
+    pub bond: f64,
 }
 
 /// The injuries a player really had since his last development step
@@ -227,6 +232,7 @@ impl SeasonContext {
             strength_dev: 0.0,
             results: None,
             hurt: None,
+            bond: 0.0,
         }
     }
 }
@@ -1409,7 +1415,9 @@ pub fn develop_season(player: &mut Player, ctx: &SeasonContext, rng: &mut Rng) -
 
     // --- Growth towards the ceiling --------------------------------------------
     let coaching_mult = 0.75 + ctx.coaching * 0.025; // 10 -> 1.0, 20 -> 1.25
-    let coachability_lean = 0.6 + personality.coachability * 0.04; // how much of coaching sticks
+    // How much of coaching sticks, a close bond with his teacher adding up
+    // to 3 points of coachability (coach and player bonds, question 4).
+    let coachability_lean = 0.6 + (personality.coachability + ctx.bond.clamp(0.0, 3.0)) * 0.04;
     let work_mult = 0.75 + personality.work_ethic * 0.025;
     let snaps_mult =
         ctx.snaps.map_or(playing_time_growth(pt), snaps_growth) * (0.7 + 0.3 * snaps_factor) * level_growth(ctx.level);

@@ -1008,7 +1008,8 @@ impl You {
 }
 
 /// Your profile (people topics 13 and 15). Kept and shown on your page; the
-/// world reads none of it yet beyond your home state.
+/// world reads your home state, and your high school and how you grew up
+/// for what you share with a player (coach and player bonds).
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 pub struct Profile {
@@ -1036,6 +1037,11 @@ pub struct Profile {
     /// answer 1): a prototype's key (`persona::manner::Prototype`), or
     /// empty for a blank start. Your real lines take over within a season.
     pub manner: String,
+    /// How you grew up (coach and player bonds, section 6): one of
+    /// `folk::bonds::RAISED`, ", poor" when money was tight; empty if
+    /// unsaid. A coach raised by his grandmother finds something with a kid
+    /// raised by his.
+    pub raised: String,
 }
 
 /// Where you start (section 8, topic 2).

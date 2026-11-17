@@ -1,6 +1,6 @@
 # Capital: how it works today
 
-Checked against main 7bc88f6 (lanes C1-C6, CS1 and CS3) plus lanes CS2 (the Donors screen) and CS4 (the project screen) on 2026-11-17.
+Checked against main 55d9dc1 (lanes C1-C6, CS1-CS4) plus lane CS5 (the Pecking order screen) on 2026-11-17.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/`, `app/` or `data/`. Capital's spec is `docs/design/capital.md`; each lane adds its section here. Every size on this page is Claude's (proposed, not confirmed) unless the spec gives it.
 
@@ -219,7 +219,7 @@ Every size here is the build's pick, proposed, not confirmed. Code: `world/capit
 - Do I see a rival's drive before it goes public? Only as a rumor from your own donors (CP30). No news line ever names a rival's study or quiet phase (lane C3 posts those only for your program); the public launch and after are in the news as before.
 - Who tells me? On the first of each month, at a college seat, for each rival drive (your conference, or your state at your level) in its study or quiet phase, once a stage (`race::rumors`): a donor of both schools whom the rival sounded out (the study interviews the big donors: its lead donors, and half the rest) or asked knows first hand and tells you with chance 0.3 x his warmth toward you (0.1-1 from 0.3 to 0.8) x (0.6 + 0.4 x his meddling / 20). Otherwise the grapevine: 0.012 for each donor the drive has asked (the study counts its leads, at least three), x 0.35 out of state, x your ear (your donors warm to you, 0.6 or more, over six, 0.15-1), at most 0.25 a month; the warmest of your donors passes it on (a keyed pick weighted by warmth).
 - What does a rumor say? The stage ("has consultants sounding out donors for", "is quietly raising money for"), the building (first hand always; the grapevine names it 70% of the time, else "a new building"), their progress in words ("just getting started" to "close to going public") read with an error of 0.08 of the goal first hand and 0.2 through the grapevine, and whether a lead gift is in (first hand only). It opens "In the suite before kickoff" from September to December, else over dinner or on the golf course. Never a false drive. It lands as a rumor in your news (`Kind::Whisper`) and in `Capital.rumors` (kept four years) with the truth beside what he said.
-- What can the Pecking order screen show of rivals' drives? `race::rivals_drives`: the public ones and the ones you heard of, nothing else (lane CS5).
+- What can the Pecking order screen show of rivals' drives? `race::rivals_drives`: the public ones and the ones you heard of, nothing else (lane CS5, built: see "Lane CS5").
 - Does the press rank facilities? Yes, each July (CP31): on the money year's day, after the rooms are read, every four-year conference of two or more programs is ranked on the press's score (`race::pecking`, `press_score`): each room's level weighted by what a writer tours and photographs (the stadium and the locker room 0.14 each, the weight room and the indoor field 0.12, the lounges and the film room 0.07, the trophy hall and recovery 0.06, sports science, nutrition and academics 0.04, the content studio 0.03), a room built or renovated in the last two seasons half a level higher (`SHINE`), out of 100. It reads the true levels: buildings are there to see.
 - Where is it? `Capital.pecking` (the last 30 years, every year of the world's past too): each conference's order, best first, with each program's score, its new rooms and its newest building; `race::standing` (this July's and last), `ranks` (your rank over the years) and `because` (why: "its new football building", "its renovated weight room", else its best room).
 - Is it in the news? Once the rooms live: your conference's order in full at your seat ("The press ranks the SEC's facilities: Georgia first, on its new football building; then 2 Alabama, 3 Texas. Mississippi State is 9th of 16, up two."), and each Power 4 conference's leader in a small line.
@@ -329,6 +329,19 @@ Code: `crates/afm-game/src/lane_capital_project.rs` (the commands), `app/ui/scre
 - How do I answer a donor's call? Grant it or turn it down (`capital_catch` {id, yes}, `gifts::answer_catch`, unchanged): a yes warms him a little, a no cools him and a collector may pull the rest of his pledge. The page says before you choose if your office reads him as a collector, and that your AD will not like a donor picking coordinators. After `CATCH_DAYS` (30) your AD answers it for you.
 - Are there dollars on screen? No (CP39): shares of the cost or the goal and words (the test checks both replies have no `$`).
 - Does it change the world? No. `drive::cut_preview` is `apply_fix`'s own loop pulled out, so every answer plays the same.
+
+## Lane CS5: the Pecking order screen
+
+Code: `crates/afm-game/src/lane_capital_pecking.rs` (the command), `app/ui/screens/capitalpecking.js` and `.css` (screen `capitalpecking`, the Pecking order tab of the Capital row, college seats). Board 5 of the mock-ups.
+
+### Quick answers
+
+- What does it show? Your conference's last July press order (`race::standing`): each program's rank, its move since the July before, its newest building and the year it opened, why the press puts it there (`race::because`, a line under the name) and the drive you know of. Your own row is outlined in gold. Beside it: your rank over the years (`race::ranks`, a line on a 1-to-N axis with the last July in gold) and what your donors hear (`capital_pecking`, `view`). College seats only; other seats get a plain error that their own screen answers (lane CS6).
+- What is the Drive column? For your own program, the stage of your latest drive or the building going up. For a rival, only what `race::rivals_drives` gives: a public drive ("Public, 55%": its raised share of its goal), a building going up from a public drive ("Building, opens 2029"), a rumor your donors told you ("Rumored"), else "None public". A quiet phase you did not hear of never leaves the engine (CP30).
+- What are the rumors? The newest eight from `race::rivals_drives` (`Seen::Rumored`): the headline a donor gave (`race::headline`), his name and the date, whether he was in the room or heard it from friends, how far along he says they are (`race::progress_words`, what he heard, not the truth) and a lead gift if he knew of one. The lines are the ones the first-of-the-month rumor writes (`race::rumors` now calls the same two helpers).
+- Does the move compare the same conference? Yes: last July counts only when the same conference and level was ranked; a program new to it reads "new".
+- Are there numbers I shouldn't see? No dollars (CP39, the test checks) and not the press's own score: ranks, moves, shares of a goal and words only.
+- Does it change the world? No. It only reads.
 
 ## Related pages
 
