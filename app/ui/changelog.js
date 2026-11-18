@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.619", date: "18 Nov", title: "Scheme-fit lane SF3: a blocked man is out of the play and 2 more",
+    notes: [
+      "Capital now has a Pecking order page: see where the press ranks your conference's facilities each July, how you have moved, and what your donors whisper about rivals' building plans.",
+      "Every program in your conference ranked on facilities, with its move since last July, its newest building and why the press rates it there",
+      "The drive you know of for each rival: public with how far along it is, a building going up, or a rumor",
+      "Your own rank over the years as a line",
+      "A list of what your donors have heard about rivals' quiet campaigns",
+      "Players now build a real bond with each coach who works with them, from a stranger up to someone who sees you like a big brother, a father or a grandfather. How you handle the hard moments counts most.",
+    ],
+  },
+  {
     v: "0.2.616", date: "18 Nov", title: "Opening a save closes the open world before reading the file",
     notes: [
       "Loading a save is lighter on memory now: the game lets go of the world you had open before it reads the next one, so big worlds load on an 8 GB Mac.",

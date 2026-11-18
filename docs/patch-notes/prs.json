@@ -1730,6 +1730,21 @@
   "title": "Capital lane CS4: the project screen",
   "tldr": "The Capital section now has a Project page for the building going up, with the rooms it holds, its timeline and the strings donors put on it. When costs run over, you see what each answer would do before you choose."
  },
+ "533": {
+  "auto": false,
+  "bullets": [
+   "A defender locked on a block can no longer reach out and drag the runner down: only one who is beating his blocker gets an arm on him.",
+   "As the back comes, the defender winning his block comes off it fast, and the one losing it stays stuck.",
+   "Run blocking on your line and block shedding on your front now show in yards a carry.",
+   "Backs read blocks the same way, so a walled-off defender no longer scares them out of a lane.",
+   "Coaches pick their runs against each front from the new results."
+  ],
+  "h": "4e1974385813",
+  "look": "your backs' yards before contact behind your best and worst lines, and a run defense with strong block-shedders up front.",
+  "players": true,
+  "title": "Scheme-fit lane SF3: a blocked man is out of the play",
+  "tldr": "Your offensive line now decides how far your backs get. A great line opens real lanes, a weak one leaves its backs meeting tacklers early, and a defender tied up on a block has to get free before he can make the tackle."
+ },
  "534": {
   "auto": true,
   "bullets": [],
@@ -1778,5 +1793,58 @@
   "players": true,
   "title": "Coach bonds: Cain agreed to the design and all 7 questions",
   "tldr": "Cain said \"yes to all\" on 2026-11-17 at 20:13 UTC."
+ },
+ "539": {
+  "auto": false,
+  "bullets": [
+   "Every program in your conference ranked on facilities, with its move since last July, its newest building and why the press rates it there",
+   "The drive you know of for each rival: public with how far along it is, a building going up, or a rumor",
+   "Your own rank over the years as a line",
+   "A list of what your donors have heard about rivals' quiet campaigns"
+  ],
+  "h": "633e84048b0b",
+  "look": "Capital, then Pecking order, after the July ranking.",
+  "players": true,
+  "title": "Capital lane CS5: the Pecking order screen",
+  "tldr": "Capital now has a Pecking order page: see where the press ranks your conference's facilities each July, how you have moved, and what your donors whisper about rivals' building plans."
+ },
+ "542": {
+  "auto": false,
+  "bullets": [
+   "Every player has a bond with you and with your staff that grows through the season, faster with the coaches he sees every day.",
+   "Being there after a death, an injury or a hard loss moves a bond more than months of practice.",
+   "Close players follow instructions more often, take your talks to heart, take coaching a little better and are slower to leave.",
+   "Bonds have a cost: favoritism the room notices, real hurt when a coach leaves, and a colder start for the coach who follows a beloved one.",
+   "Tell the game how you grew up in setup: a kid raised the same way finds something in common with you."
+  ],
+  "h": "c1f21234ed6e",
+  "look": "a player's People tab, \"His coaches\", and a coach's profile, \"Closest to him\".",
+  "players": true,
+  "title": "Coach and player bonds",
+  "tldr": "Players now build a real bond with each coach who works with them, from a stranger up to someone who sees you like a big brother, a father or a grandfather. How you handle the hard moments counts most."
+ },
+ "543": {
+  "auto": true,
+  "bullets": [
+   "What happens today on main, with the root cause: a flat money cap in the contract score, two separate trusts, a college price that reads neither the season nor your words.",
+   "Three numbers in every money talk: his market, his ask, his lowest number. True points talk him down to his market and never below; the relationship takes him below it."
+  ],
+  "h": "e0f7a1937d8a",
+  "look": "",
+  "players": true,
+  "title": "Negotiation that responds to arguments: the spec and lanes",
+  "tldr": "The spec for Cain's agreed negotiation overhaul (items 1, 2, 3a-c, 4, 5, 6, 7; college first): docs/design/negotiation-arguments.md, and its entry in CLAUDE.md's read-first list."
+ },
+ "548": {
+  "auto": true,
+  "bullets": [
+   "NFL assistants are people: position coaches, a special teams coordinator and an assistant head coach, with NFL growth reading the position coach (from people topic 10).",
+   "High schoolers' NIL deals in the states that allow them. A short design round settles the details before any build."
+  ],
+  "h": "3778df1cec1d",
+  "look": "",
+  "players": true,
+  "title": "World additions: spec for the agreed items 1, 6 and 7 (docs)",
+  "tldr": "Docs only."
  }
 }
