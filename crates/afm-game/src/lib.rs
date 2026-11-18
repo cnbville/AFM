@@ -20,6 +20,7 @@ pub mod lane_campaign;
 pub mod lane_capital;
 pub mod lane_capital_campus;
 pub mod lane_capital_drive;
+pub mod lane_capital_pecking;
 pub mod lane_capital_project;
 pub mod lane_cfl;
 pub mod lane_coaching;
@@ -456,6 +457,7 @@ impl Game {
                     lane_capital::call,
                     lane_capital_drive::call,
                     lane_capital_project::call,
+                    lane_capital_pecking::call,
                     lane_capital_campus::call,
                     lane_data::call,
                     notebook::call,

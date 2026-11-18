@@ -309,17 +309,8 @@ pub(crate) fn rumors(w: &mut World, d: Date) {
             _ => "On the golf course",
         };
         let how = if direct { "He was in the room for it" } else { "He heard it from friends" };
-        let what = match x.stage {
-            Stage::Study => format!("{them} has consultants sounding out donors for {building}"),
-            _ => format!("{them} is quietly raising money for {building}"),
-        };
-        let progress = heard.map(|h| match h {
-            h if h < 0.15 => "They are just getting started.".to_string(),
-            h if h < 0.35 => "They have a few big gifts in.".to_string(),
-            h if h < 0.6 => "They are near halfway.".to_string(),
-            h if h < 0.85 => "They are well past halfway.".to_string(),
-            _ => "They are close to going public.".to_string(),
-        });
+        let what = headline(x.stage, &them, &building);
+        let progress = heard.map(|h| progress_words(h).to_string());
         let lead = if lead_in { " A lead gift is in." } else { "" };
         let text = format!(
             "{opener}, {} tells you {what}. {how}.{}{lead}",
@@ -348,6 +339,25 @@ pub(crate) fn rumors(w: &mut World, d: Date) {
     }
     let year = w.year;
     w.capital.rumors.retain(|r| r.date.year() + KEEP_YEARS > year);
+}
+
+/// What a donor says a rival is up to, by the stage it was in.
+pub fn headline(stage: Stage, them: &str, building: &str) -> String {
+    match stage {
+        Stage::Study => format!("{them} has consultants sounding out donors for {building}"),
+        _ => format!("{them} is quietly raising money for {building}"),
+    }
+}
+
+/// How far along he says they are, from what he heard (a share of their goal).
+pub fn progress_words(heard: f32) -> &'static str {
+    match heard {
+        h if h < 0.15 => "They are just getting started.",
+        h if h < 0.35 => "They have a few big gifts in.",
+        h if h < 0.6 => "They are near halfway.",
+        h if h < 0.85 => "They are well past halfway.",
+        _ => "They are close to going public.",
+    }
 }
 
 /// What you know of a rival's drive (CP30): the public phase and after

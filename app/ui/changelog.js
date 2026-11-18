@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.615", date: "17 Nov", title: "Capital lane CS4: the project screen and 3 more",
+    notes: [
+      "Your capital campaign now has its own page: see how close the goal is, who gave and what moved them, and make the calls that are yours.",
+      "The drive page shows the goal, how much is paid in, pledged and still to raise, and the four stages of the campaign.",
+      "Every pledge is listed with the moment that brought it, like a top-10 pick or a conference title.",
+      "The lead donors who are waiting for you are named, with what they'd give to.",
+      "Your AD says where he stands, and you can set the goal, go public early, work the lead donors yourself or push him to borrow.",
+      "Capital's Donors screen shows who could fund your next building, how hot donors are for your program, and lets you book a lunch or dinner with one.",
+    ],
+  },
+  {
     v: "0.2.611", date: "17 Nov", title: "Capital lane CS1: the Campus screen and 3 more",
     notes: [
       "The facilities race now has a voice. Rivals' new buildings can cost you recruits and you're told why, your donors pass on what rivals are quietly raising for, and every July the press ranks your conference's facilities.",

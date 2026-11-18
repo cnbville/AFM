@@ -129,8 +129,23 @@ fn the_desk_files_answers_and_clears_its_mail() {
     photo.dedup();
     assert_eq!(photo.len(), all, "a player twice in the team photo: {c}");
     assert!(home["know"].as_array().is_some_and(|k| k.len() <= 3), "{}", home["know"]);
+    // The hover card names the season it shows by its year, and the season
+    // still being played (a college season is filed only when its title game
+    // finishes) is its own line, marked as so far.
+    let peek = ok(&mut g, "peek", json!({ "kind": "player", "id": pid }));
+    if let Some(label) = peek["last_label"].as_str() {
+        assert!(label.ends_with(" season") && label[..4].parse::<i32>().is_ok(), "{peek}");
+        assert!(peek["last"].as_str().is_some_and(|l| !l.starts_with("20")), "the year is in the label only: {peek}");
+    }
+    if let Some(label) = peek["now_label"].as_str() {
+        assert!(label.contains(", so far (") && peek["now"].is_string(), "{peek}");
+        if let Some(last) = peek["last_label"].as_str() {
+            assert!(last[..4] < label[..4], "the so-far season comes after the last filed one: {peek}");
+        }
+    }
+    let both = ok(&mut g, "compare", json!({ "ids": [pid] }));
+    assert_eq!(both["players"][0]["last_label"], peek["last_label"], "{both}");
     for (cmd, args) in [
-        ("peek", json!({ "kind": "player", "id": pid })),
         ("find", json!({ "q": "Te" })),
         ("leaders", json!({})),
         ("situations", json!({})),

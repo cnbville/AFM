@@ -725,6 +725,22 @@ fn player(w: &World, id: u32) -> Reply {
         // (what your position coach would tell you).
         "staffSays": if mine { Some(cap(&worry)) } else { None },
         "ear": ear,
+        // His bonds with his coaches (coach and player bonds): yours with
+        // what built it, your staff's in their words; for someone else's
+        // player only yours.
+        "bonds": folk::bonds::seen(w, i)
+            .into_iter()
+            .filter(|b| mine || b.name == "You")
+            .map(|b| json!({
+                "who": if b.name == "You" { "You".to_string() } else { folk::coach_link(w, b.coach) },
+                "role": b.role,
+                "step": b.step,
+                "sign": b.sign,
+                "met": b.met,
+                "moments": b.moments.iter().take(8).map(|(d, t)| json!({ "date": date_text(*d), "what": t })).collect::<Vec<_>>(),
+            }))
+            .collect::<Vec<_>>(),
+        "bondSays": if mine { folk::bonds::staff_words(w, i) } else { None },
         "subjects": talks::subjects_for(w, id).into_iter().map(|(key, name)| json!({ "key": key, "name": name })).collect::<Vec<_>>(),
         "hours": talks::hours_left(w),
     }))
