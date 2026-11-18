@@ -1625,6 +1625,9 @@ fn main() {
             h[4] / n
         );
     }
+    if std::env::var("AFM_RECDIAG").is_ok() {
+        rec_diag(&results, &teams);
+    }
     if !burners.is_empty() {
         println!(
             "\nBurner proof (AFM_BURNER): per team game, teammates' catches under 10 air yards {:.2}, their yards after the catch {:.2} a catch; the burner {:.2} targets, {:.2} catches, {:.1} yards; two-high on {:.1}% of passes",
@@ -2058,5 +2061,142 @@ fn run_diag(
     w.sort_by(|a, b| b.1.total_cmp(&a.1));
     for (k, v) in w.iter().take(12) {
         println!("  stuff: {k:<16} {:.3} of runs", v / n);
+    }
+}
+
+/// A rate's spread between men with `min` or more tries, the binomial noise
+/// of each man's count taken out: (men, pooled rate, true sd). Each row is
+/// (hits, tries).
+fn true_sd(rows: &[(f64, f64)], min: f64) -> (usize, f64, f64) {
+    let r: Vec<&(f64, f64)> = rows.iter().filter(|x| x.1 >= min).collect();
+    let n = r.len();
+    if n < 3 {
+        return (n, 0.0, 0.0);
+    }
+    let pb = r.iter().map(|x| x.0).sum::<f64>() / r.iter().map(|x| x.1).sum::<f64>();
+    let p: Vec<f64> = r.iter().map(|x| x.0 / x.1).collect();
+    let m = p.iter().sum::<f64>() / n as f64;
+    let var = p.iter().map(|x| (x - m).powi(2)).sum::<f64>() / (n - 1) as f64;
+    let noise = r.iter().map(|x| pb * (1.0 - pb) / x.1).sum::<f64>() / n as f64;
+    (n, pb, (var - noise).max(0.0).sqrt())
+}
+
+/// The slope of y on x and their correlation, over (x, y) rows.
+fn slope(rows: &[(f64, f64)]) -> (f64, f64) {
+    let n = rows.len().max(1) as f64;
+    let (mx, my) = (rows.iter().map(|r| r.0).sum::<f64>() / n, rows.iter().map(|r| r.1).sum::<f64>() / n);
+    let sxy: f64 = rows.iter().map(|r| (r.0 - mx) * (r.1 - my)).sum();
+    let sxx: f64 = rows.iter().map(|r| (r.0 - mx).powi(2)).sum();
+    let syy: f64 = rows.iter().map(|r| (r.1 - my).powi(2)).sum();
+    (sxy / sxx.max(1e-9), sxy / (sxx * syy).sqrt().max(1e-9))
+}
+
+/// AFM_RECDIAG=1: the spread between receivers (scheme-fit lane SF4, items
+/// 6 and 25). Every man with 40 or more targets (12 or more contested: under
+/// a yard of separation at the catch, picks left out), with the binomial
+/// noise of his counts taken out, beside the real NFL's receiver seasons
+/// (FTN charting 2022-24 joined to nflverse play by play and rosters, the
+/// same cuts), so read it at the NFL.
+fn rec_diag(results: &[afm_engine::game::GameResult], teams: &[afm_engine::game::GameTeam]) {
+    use afm_engine::attributes::Attr;
+    use afm_engine::positions::Position as P;
+    let who: std::collections::HashMap<u32, (P, f64, f64)> = teams
+        .iter()
+        .flat_map(|t| t.players.iter().map(|p| (p.id, (p.position, p.height, p.attrs.get(Attr::Speed)))))
+        .collect();
+    // Per man: [targets, catches, drops, contested, contested catches, and
+    // over the throws not picked (a pick keeps no separation) separation,
+    // its square and the throws].
+    let mut by = std::collections::HashMap::<u32, [f64; 8]>::new();
+    for r in results {
+        for p in &r.stats.plays {
+            if p.nullified || p.kind != PlayType::Pass || p.throw_away {
+                continue;
+            }
+            let Some(t) = p.target else { continue };
+            let e = by.entry(t).or_default();
+            e[0] += 1.0;
+            e[1] += f64::from(u8::from(p.complete));
+            e[2] += f64::from(u8::from(p.drop));
+            if p.separation < 1.0 && !p.interception {
+                e[3] += 1.0;
+                e[4] += f64::from(u8::from(p.complete));
+            }
+            if !p.interception {
+                e[5] += p.separation;
+                e[6] += p.separation * p.separation;
+                e[7] += 1.0;
+            }
+        }
+    }
+    println!(
+        "\nReceivers (AFM_RECDIAG): men with 40+ targets (12+ contested), each man's binomial noise taken out; real: NFL receiver seasons, FTN charting 2022-24 with nflverse"
+    );
+    // Real: contested share, contested catch rate, drops a target, and the
+    // true sd of the catch rate, contested catch rate (too few real backs
+    // reach 12 contested) and drops a target; the height slopes (an inch)
+    // of the contested catch rate and share.
+    let real = [
+        (P::WR, [0.170, 0.462, 0.0345, 0.0567, 0.0888, 0.0054], Some([0.0072, 0.0107])),
+        (P::TE, [0.137, 0.511, 0.0369, 0.0330, 0.1135, 0.0101], Some([-0.0157, 0.0128])),
+        (P::RB, [0.054, 0.513, 0.0487, 0.0358, f64::NAN, 0.0112], None),
+    ];
+    for (pos, r, ht) in real {
+        let men: Vec<(u32, [f64; 8])> = by.iter().filter(|(id, _)| who.get(id).map(|w| w.0) == Some(pos)).map(|(&id, &v)| (id, v)).collect();
+        let sum = |k: usize| men.iter().map(|m| m.1[k]).sum::<f64>();
+        let rows = |a: usize, b: usize| men.iter().map(|m| (m.1[a], m.1[b])).collect::<Vec<_>>();
+        let (n, _, sd_cat) = true_sd(&rows(1, 0), 40.0);
+        let (_, _, sd_drop) = true_sd(&rows(2, 0), 40.0);
+        let (nc, _, sd_cont) = true_sd(&rows(4, 3), 12.0);
+        println!(
+            "  {pos:?}: {n} men; contested {:.1}% of targets (real {:.1}), caught {:.1}% (real {:.1}); dropped {:.2}% of targets (real {:.2})",
+            100.0 * sum(3) / sum(0).max(1.0),
+            100.0 * r[0],
+            100.0 * sum(4) / sum(3).max(1.0),
+            100.0 * r[1],
+            100.0 * sum(2) / sum(0).max(1.0),
+            100.0 * r[2]
+        );
+        println!(
+            "      true sd between men: catch rate {:.1} pts (real {:.1}), contested catch rate {:.1} ({nc} men, real {}), drops a target {:.2} (real {:.2})",
+            100.0 * sd_cat,
+            100.0 * r[3],
+            100.0 * sd_cont,
+            if r[4].is_nan() { "too few".to_string() } else { format!("{:.1}", 100.0 * r[4]) },
+            100.0 * sd_drop,
+            100.0 * r[5]
+        );
+        let ht_of = |id: u32| who.get(&id).map(|w| w.1).unwrap_or(0.0);
+        let cc: Vec<(f64, f64)> = men.iter().filter(|m| m.1[3] >= 12.0).map(|m| (ht_of(m.0), m.1[4] / m.1[3])).collect();
+        let share: Vec<(f64, f64)> = men.iter().filter(|m| m.1[0] >= 40.0).map(|m| (ht_of(m.0), m.1[3] / m.1[0])).collect();
+        let sep: Vec<(f64, f64)> =
+            men.iter().filter(|m| m.1[7] >= 40.0).map(|m| (who.get(&m.0).map(|w| w.2).unwrap_or(0.0), m.1[5] / m.1[7])).collect();
+        // Separation's spread between men: the variance of their means less
+        // the mean of each man's own variance over his throws.
+        let (sep_m, sep_noise) = {
+            let k = sep.len().max(2) as f64;
+            let m = sep.iter().map(|x| x.1).sum::<f64>() / k;
+            let var = sep.iter().map(|x| (x.1 - m).powi(2)).sum::<f64>() / (k - 1.0);
+            let noise = men
+                .iter()
+                .filter(|m| m.1[7] >= 40.0)
+                .map(|m| (m.1[6] / m.1[7] - (m.1[5] / m.1[7]).powi(2)) / m.1[7])
+                .sum::<f64>()
+                / k;
+            (m, (var - noise).max(0.0).sqrt())
+        };
+        let real_ht = |k: usize| ht.map(|h| format!(" (real {:+.2})", 100.0 * h[k])).unwrap_or_default();
+        println!(
+            "      an inch of height: contested catch rate {:+.2} pts{}, contested share {:+.2}{}",
+            100.0 * slope(&cc).0,
+            real_ht(0),
+            100.0 * slope(&share).0,
+            real_ht(1),
+        );
+        println!(
+            "      separation at the catch {sep_m:.2} yd, true sd {sep_noise:.2} (real WR 0.42, Next Gen Stats 2018-25), {:+.3} yd a 10 points of Speed (correlation {:+.2}, real about none)",
+            10.0 * slope(&sep).0,
+            slope(&sep).1
+        );
     }
 }
