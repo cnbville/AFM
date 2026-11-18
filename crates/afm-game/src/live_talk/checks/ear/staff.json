@@ -119,6 +119,85 @@
      "act": "end"
     }
    ]
+  },
+  {
+   "text": "I want you to take a look at Hill, I want to decide if we should cut him",
+   "acts": [
+    {
+     "act": "request",
+     "what": "evaluate",
+     "about": "p2"
+    }
+   ]
+  },
+  {
+   "text": "Watch Hill's film this week and tell me whether he should keep starting.",
+   "acts": [
+    {
+     "act": "request",
+     "what": "evaluate",
+     "about": "p2"
+    }
+   ]
+  },
+  {
+   "text": "What's your honest read on Hill? Is he worth a roster spot?",
+   "acts": [
+    {
+     "act": "question|request",
+     "about": "p2"
+    }
+   ]
+  },
+  {
+   "text": "I'm thinking about benching Hill. What do you think?",
+   "acts": [
+    {
+     "act": "question|request",
+     "about": "p2"
+    }
+   ]
+  },
+  {
+   "text": "We're cutting Hill today. I wanted you to hear it from me.",
+   "may": [
+    {
+     "act": "confide"
+    },
+    {
+     "act": "claim"
+    }
+   ]
+  },
+  {
+   "text": "I think I'm going to have to let you go, Terrence.",
+   "acts": [
+    {
+     "act": "decision",
+     "what": "coach_let_go"
+    }
+   ]
+  },
+  {
+   "text": "I'm not sure this is working. I might have to make a change at coordinator.",
+   "may": [
+    {
+     "act": "threat"
+    }
+   ]
+  },
+  {
+   "text": "Convince me why I should let you stay OC.",
+   "acts": [
+    {
+     "act": "question",
+     "topic": "Job"
+    }
+   ]
+  },
+  {
+   "text": "You're awfully confident, aren't you?",
+   "acts": []
   }
  ],
  "exploits": [

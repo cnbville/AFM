@@ -21,7 +21,7 @@ pub fn want_words(k: WantKind) -> &'static str {
     match k {
         WantKind::Role => "his role: playing time, the job he sees for himself",
         WantKind::Money => "money: NIL, his pay",
-        WantKind::Security => "security: a spot that lasts",
+        WantKind::Security => "security: a spot or a job that lasts",
         WantKind::Winning => "winning, and being somewhere that matters",
         WantKind::Place => "being close to home",
         WantKind::Development => "getting better, a path to the next level",
@@ -37,6 +37,7 @@ pub fn want_words(k: WantKind) -> &'static str {
         WantKind::Goals => "his goals for you",
         WantKind::Booster(_) => "what his money buys",
         WantKind::Kids => "his kids' futures",
+        WantKind::Draft => "the draft",
     }
 }
 
@@ -48,6 +49,14 @@ pub fn items(w: &World, him: Them, wants: &[Want]) -> Vec<(Item, String)> {
         out.push((Item::Want(k as u8), format!("what he wants: {}{met}", want_words(x.kind))));
     }
     let Them::Player(id) = him else {
+        // A coach on your ground or a recruit's family: what is between
+        // you, from the one memory (Ground, GR62).
+        if let Some(s) = crate::world::ground::card::talk_standing(w, him) {
+            out.push((Item::HisWord, format!("where you stand with him: {s}")));
+        }
+        for (d, m) in crate::world::ground::card::talk_lines(w, him) {
+            out.push((Item::HisWord, format!("a moment he keeps ({}): \"{m}\"", claims::words::date_words(d))));
+        }
         out.push((Item::Pride, "his pride".into()));
         return out;
     };

@@ -5,7 +5,8 @@
 //! Every file starts the same way:
 //! - 8 bytes `AFMWORLD`, then the format version as a little-endian u32;
 //! - a little-endian u32 length, then that many bytes of UTF-8 JSON: seed,
-//!   history years, start year, git commit, date written, world date.
+//!   history years, start year, git commit, date written, world date, and
+//!   the writer's code time (`CODE_TIME`, since 2026-11-15).
 //!
 //! Format 1 (agreed with the section 8 build; every file before update 3):
 //! then the world as MessagePack with named fields, as one zstd level 3
@@ -49,6 +50,10 @@ use crate::world::World;
 pub const MAGIC: &[u8; 8] = b"AFMWORLD";
 /// The format this game writes. It reads this one and format 1.
 pub const FORMAT_VERSION: u32 = 2;
+/// The time of the commit this engine was built from ("2026-11-15 02:38
+/// UTC", `build.rs`); none in a build without git. Written into every
+/// world file's header as `code`.
+pub const CODE_TIME: Option<&str> = option_env!("AFM_CODE_TIME");
 
 /// The buffer between MessagePack and zstd, both ways: without it every
 /// small value is its own call into zstd.
@@ -88,6 +93,11 @@ pub struct WorldMeta {
     /// day it was first turned on. Load game shows it as a badge.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sandbox: Option<String>,
+    /// The writer's `CODE_TIME`: a game that can't read this world
+    /// compares it with its own to tell a newer game's world from a
+    /// damaged one. None in files written before it (2026-11-15).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub code: Option<String>,
 }
 
 thread_local! {
@@ -199,6 +209,7 @@ pub fn write_world(
         card,
         no_fire: w.career.as_ref().and_then(|c| c.no_fire_since).map(|d| d.to_string()),
         sandbox: w.career.as_ref().and_then(|c| c.sandbox.since).map(|d| d.to_string()),
+        code: CODE_TIME.map(str::to_string),
     };
     // The parts in table order; the biggest single parts come first, so
     // they start first.
@@ -324,11 +335,15 @@ pub fn read_world(path: &Path) -> std::io::Result<World> {
     };
     // The game keeps no trial game log.
     w.options.keep_game_log = false;
+    // Ground's areas come from the shared table, never the file.
+    crate::world::ground::areas::place_schools(&mut w.high_schools);
     // A file from before the contract books (update 2, lane 6): fill them.
     crate::world::deals::ensure(&mut w);
     // A file from before lane 18: real junior posts and high school
     // coordinators.
     crate::world::staff::ensure_lane18(&mut w);
+    // A file from before the new NIL scheme: this year's money refitted.
+    crate::world::nil_bid::ensure(&mut w);
     // A file from before individual practice: every player's flaws and
     // tools, drawn as a raw 14-year-old's and grown through his years.
     {

@@ -880,12 +880,22 @@ fn profile(args: &Value) -> Profile {
         status: text(&p, "status", 20),
         spouse: text(&p, "spouse", 60),
         roots: text(&p, "roots", 120),
+        // How you grew up (coach bonds): one of the setup's choices, or none.
+        raised: text(&p, "raised", 40),
         children,
         height: text(&p, "height", 20),
         build: text(&p, "build", 60),
         hair: text(&p, "hair", 60),
         facial_hair: text(&p, "facial_hair", 60),
         photo,
+        // Your starting reputation for how you talk (coach voice): a
+        // prototype's key, or none.
+        manner: p
+            .get("manner")
+            .and_then(Value::as_str)
+            .filter(|k| afm_engine::world::folk::persona::manner::Prototype::from_key(k).is_some())
+            .unwrap_or("")
+            .to_string(),
     }
 }
 

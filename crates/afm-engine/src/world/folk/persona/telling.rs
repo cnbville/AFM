@@ -43,6 +43,7 @@ pub fn touchy(t: Topic) -> f64 {
         Topic::Jobs | Topic::Grapevine | Topic::Opponent => 0.2,
         Topic::HisWord => 0.5,
         Topic::Rules | Topic::Football | Topic::Nothing => 0.0,
+        Topic::Job => 0.1,
         Topic::Effort => 0.2,
     }
 }
@@ -105,8 +106,14 @@ pub fn room_weight(room: &Room) -> f64 {
 /// What weighs on how he answers, from the world (3.2).
 pub fn parts(w: &World, him: Them, topic: Topic, about: Option<Them>, room: Option<&Room>, pushed: u8) -> TellParts {
     let m = makeup::makeup(w, him);
+    // A player close to you answers straight more often: openness + 0.3 x
+    // closeness, through the trust part's 1.2 (coach and player bonds).
+    let close = match him {
+        Them::Player(id) => f64::from(crate::world::folk::bonds::ear_you(w, id)) / 0.3 * 0.25,
+        _ => 0.0,
+    };
     TellParts {
-        trust: makeup::trust(w, him),
+        trust: makeup::trust(w, him) + close,
         professionalism: m.professionalism,
         loyalty: loyalty_to(w, him, about),
         interest: interest(w, him, topic, about),
@@ -229,6 +236,24 @@ pub fn tell(w: &World, him: Them, known: &[Known], parts: &TellParts) -> Told {
     // Football and what he saw on the tape, a man tells straight unless
     // it's touchy; nothing about football is a secret worth a lie.
     let answer = if topic == Topic::Football && answer == Answer::Lies { Answer::Partly } else { answer };
+    // Asked about his own game, he talks about it, if only the safe half
+    // (the talks audit, 2026-11-16: a recruit asked "how was your game
+    // Friday?" would rather not get into it).
+    let answer =
+        if topic == Topic::Football && !about_other && answer == Answer::Deflects { Answer::Partly } else { answer };
+    // Asked about his own job, a man makes his case: he wants to keep it.
+    let answer = if topic == Topic::Job && !about_other { Answer::Straight } else { answer };
+    // Your boss tells you the goals he holds you to, where you stand with
+    // him and how the money works: setting them is his job, never a secret
+    // (the talks audit, 2026-11-16: asked "what are you looking for from
+    // us this year?" in his goals meeting, he'd rather not get into it).
+    let boss = super::makeup::kind(w, him) == super::wants::Kind::Boss;
+    let answer =
+        if boss && matches!(topic, Topic::Goals | Topic::Money | Topic::Wants | Topic::Football) && !about_other {
+            Answer::Straight
+        } else {
+            answer
+        };
     let mut told = Told { answer, cost, ..Told::default() };
     match answer {
         Answer::Straight => told.released = known.iter().map(|k| k.words.clone()).collect(),

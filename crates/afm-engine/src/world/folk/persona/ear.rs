@@ -50,6 +50,8 @@ pub enum ActKind {
     Future,
     /// A change to a promise you made him.
     Amend,
+    /// A commitment to someone you answer to: a goal (`folk::commit`).
+    Commit,
 }
 
 /// What you can show (5.1): only real things.
@@ -143,6 +145,9 @@ pub enum Act {
     /// A change to a promise you made him (the promises design, sections
     /// 5 and 6).
     Amend(Amend),
+    /// A commitment to someone you answer to: a goal he can hold you to
+    /// (`folk::commit`).
+    Commit(crate::world::folk::commit::Commitment),
 }
 
 /// How a line changes a promise you made him.
@@ -187,6 +192,7 @@ impl Act {
             Act::Claim(_) => ActKind::Claim,
             Act::Offer(_) => ActKind::Offer,
             Act::Promise { .. } => ActKind::Promise,
+            Act::Commit(_) => ActKind::Commit,
             Act::Request(_) => ActKind::Request,
             Act::Decision(_) => ActKind::Decision,
             Act::Threat { .. } => ActKind::Threat,
@@ -239,6 +245,10 @@ pub enum How {
     Doubted,
     Flattered,
     Threatened,
+    /// You staked yourself on him, said straight ("you're my guy, you're
+    /// going to break records for us"): a commitment he weighs by how much
+    /// he believes you (agreed 2026-11-15; `talk::hits::stake_belief`).
+    Staked,
 }
 
 /// One hit: which real item, how, and on whom in the room.
@@ -259,6 +269,10 @@ pub struct Reading {
     pub dodged: bool,
     /// The line isn't a person talking (section 14): it does nothing.
     pub not_talk: bool,
+    /// How you said it (coach voice, section 1): none from a reading saved
+    /// before it, or when the ear gave none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub manner: Option<super::manner::Manner>,
 }
 
 /// A hit as the game sized it, from how much the item weighs for him and
@@ -320,6 +334,10 @@ pub struct Say {
     pub holding_back: bool,
     /// When he lies, the voice gets the lie, never the truth.
     pub lie: Option<String>,
+    /// What the coach just did, in the man's own terms, for the voice to
+    /// react to (a decision on him, what he showed him): never words the
+    /// voice says as its own.
+    pub heard: Vec<String>,
 }
 
 /// The game's turn (5.3).
@@ -356,6 +374,12 @@ pub struct Turn {
     /// Promises your line changes: (P1's index, the answer it is, a stat
     /// bar you named), made real through `talks::rework`.
     pub reworked: Vec<(u32, crate::world::folk::talks::PAct, Option<f32>)>,
+    /// You didn't answer the question his last line asked (5.4).
+    pub dodged: bool,
+    /// Each commitment and how he took it (`folk::commit`).
+    pub committed: Vec<(crate::world::folk::commit::Commitment, crate::world::folk::commit::Took)>,
+    /// How each man in the room took your manner (coach voice), sized.
+    pub manner: Vec<(Them, super::manner::Took)>,
 }
 
 /// The game's side of a line (lane N4).

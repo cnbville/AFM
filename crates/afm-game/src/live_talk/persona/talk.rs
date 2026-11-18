@@ -24,13 +24,13 @@ use afm_ai::{Failure, Request};
 use afm_engine::world::World;
 use afm_engine::world::folk;
 use afm_engine::world::folk::persona::Them;
-use afm_engine::world::folk::persona::ear::{Confirm, Resolving, Turn};
+use afm_engine::world::folk::persona::ear::{Confirm, Ends, Resolving, Turn};
 use afm_engine::world::folk::persona::gameday::{decide, group};
 use afm_engine::world::folk::persona::negotiate::{self, Played};
 use afm_engine::world::folk::persona::room::Room;
 use afm_engine::world::folk::persona::talk::{self, Conversation, Parts, Said, channels, store};
-use afm_engine::world::folk::persona::terms::{Request as Ask, Valuing, Weighed};
-use afm_engine::world::folk::persona::{deals, meetings, office};
+use afm_engine::world::folk::persona::terms::{Decision, Request as Ask, Valuing, Weighed};
+use afm_engine::world::folk::persona::{asks, deals, meetings, office};
 use afm_engine::world::folk::scene::{Kind, Scene};
 use serde_json::{Value, json};
 
@@ -142,6 +142,9 @@ struct Waiting {
     him: Them,
     /// Each item, until it's confirmed or dropped.
     items: Vec<Option<Confirm>>,
+    /// Each item's line as first drawn, read against the world then (a
+    /// redraw has no world to read).
+    words: Vec<String>,
     born: Instant,
 }
 
@@ -160,8 +163,9 @@ impl Waits {
             .flat_map(|(ticket, w)| {
                 w.items.iter().enumerate().filter_map(move |(k, c)| {
                     let c = c.as_ref()?;
+                    let text = w.words.get(k).cloned().unwrap_or_else(|| confirm_words(c));
                     Some(json!({ "cmd": "talk_confirm", "args": { "id": w.scene, "ticket": ticket, "k": k },
-                        "text": confirm_words(c) }))
+                        "text": text }))
                 })
             })
             .collect()
@@ -237,7 +241,18 @@ fn stand_in(card: &super::EarCard) -> Value {
     if line.contains("bench") {
         acts.push(act("decision", "benched", "none", ""));
     }
-    let v = json!({ "acts": acts, "hits": [], "dodged": false, "not_talk": false });
+    // The manner (coach voice): a "!" or capitals is hot, a curse
+    // profane, and a curse with "you" in it aimed at the man.
+    let swore = ["fuck", "shit", "damn", "hell"].iter().any(|x| line.contains(x));
+    let hot = card.line.contains('!') || card.line.chars().filter(|c| c.is_ascii_uppercase()).count() > 8;
+    let manner = json!({
+        "heat": if hot { "hot" } else { "even" },
+        "language": if swore { "profane" } else { "clean" },
+        "aim": if swore && line.contains("you") { "man" } else { "out" },
+        "care": "neutral",
+        "say": if line.contains('?') { "ask" } else { "tell" },
+    });
+    let v = json!({ "acts": acts, "hits": [], "dodged": false, "not_talk": false, "manner": manner });
     afm_ai::fake::body(&v.to_string(), 900, 60)
 }
 
@@ -275,7 +290,9 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
         .and_then(|pid| folk::person(w, pid))
         .map(|i| w.people[i].player.position);
         let tags = ear::Tags { today: w.today, pos };
-        let reading = tags.resolve(&er, &keys);
+        let reading = ear::keep_open(tags.resolve(&er, &keys), &words);
+        let reading =
+            if matches!(talk::across(&room), Some(Them::Player(_))) { ear::own_work(reading) } else { reading };
         let promises = tags.promises(&er, &keys);
         let is_group = group::is_group(&s);
         // A line to the whole room is one hit on each man in it (lane N5d).
@@ -297,7 +314,7 @@ fn ear_step(id: u32, at: usize, words: String, keys: super::EarKeys) -> Next {
         conv.apply(w, &t);
         negotiate::applied(w, played.facet, id, &t, &conv.said.promises);
         if is_group
-            && let Some(line) = group::landed(w, &t.hits)
+            && let Some(line) = group::landed(w, &t.hits, talk::across(&room))
             && let Some(sc) = w.folk.scenes.iter_mut().find(|x| x.id == id)
         {
             sc.narrate(line);
@@ -363,10 +380,27 @@ fn staff_notes(g: &mut Game, id: u32, notes: &[String]) {
 fn his_line(g: &mut Game, id: u32, vc: &VoiceCard, t: &Turn, said: Option<&Value>, card_text: &str) {
     let Some(w) = g.world.as_mut() else { return };
     let tell = Some(t.say.tell.clone()).filter(|x| !x.is_empty());
-    match said.and_then(|v| voice::read(v, card_text)) {
-        Some((line, colour)) => talk::reply(w, id, &line, tell, colour),
+    // Who answered: his parents doing the talking, his agent on the money.
+    let by = t.speaker.map(|(x, _)| x);
+    // What he asked earlier and let go stays let go: the card says so, and
+    // the voice still pressed it on every line after (`voice::let_go`).
+    let read = said.and_then(|v| voice::read(v, card_text));
+    let read = match read {
+        Some((line, colour)) if !vc.asked_before.is_empty() && !vc.pressing => {
+            voice::let_go(&line).map(|line| (line, colour))
+        }
+        x => x,
+    };
+    // His last line when time is up asks nothing new: the call ends right
+    // after it, with no line of yours to answer it.
+    let read = match read {
+        Some((line, colour)) if matches!(t.ends, Some(Ends::Time)) => Some((voice::no_new_question(&line), colour)),
+        x => x,
+    };
+    match read {
+        Some((line, colour)) => talk::reply(w, id, &line, by, tell, colour),
         None => {
-            talk::reply(w, id, &voice::fallback(vc, t), tell, None);
+            talk::reply(w, id, &voice::fallback(vc, t), by, tell, None);
             if let Some(s) = w.folk.scenes.iter_mut().find(|s| s.id == id) {
                 for r in &t.say.released {
                     s.narrate(folk::plain(r));
@@ -406,6 +440,16 @@ fn waits(g: &mut Game, id: u32, room: &Room, t: &Turn) -> Vec<Value> {
             (Confirm::Offer(o), Some((w, s))) => {
                 negotiate::confirm_words(w, negotiate::facet(w, s), o).unwrap_or_else(|| confirm_words(c))
             }
+            (Confirm::Request(r @ Ask::Money(_)), Some((w, _))) => {
+                format!("Go ahead: {}", asks::request_words_in(w, r))
+            }
+            // The man it's on, by name (Cain 2026-11-16: "his coach is let
+            // go" on the card for letting the coordinator himself go).
+            (Confirm::Decision(d), Some((w, _)))
+                if !matches!(d, Decision::CoachLetGo) || matches!(him, Them::Coach(_)) =>
+            {
+                format!("Make it so: {}", channels::decision_named(*d, &folk::plain(&channels::name(w, him))))
+            }
             _ => confirm_words(c),
         })
         .collect();
@@ -416,7 +460,7 @@ fn waits(g: &mut Game, id: u32, room: &Room, t: &Turn) -> Vec<Value> {
         .collect();
     g.ai.persona.map.insert(
         ticket,
-        Waiting { scene: id, him, items: t.confirm.iter().cloned().map(Some).collect(), born: Instant::now() },
+        Waiting { scene: id, him, items: t.confirm.iter().cloned().map(Some).collect(), words, born: Instant::now() },
     );
     list
 }
@@ -425,7 +469,7 @@ fn confirm_words(c: &Confirm) -> String {
     match c {
         Confirm::Request(Ask::Other(x)) if x == talk::recruit::VISIT => "Set his official visit".into(),
         Confirm::Offer(o) => format!("Make the offer: {}", folk::plain(&o.words)),
-        Confirm::Request(r) => format!("Go ahead: {r:?}"),
+        Confirm::Request(r) => format!("Go ahead: {}", asks::request_words(r)),
         Confirm::Decision(d) => format!("Make it so: {}", channels::decision_words(*d)),
     }
 }
@@ -456,6 +500,30 @@ pub fn confirm(g: &mut Game, args: &Value) -> Reply {
             }
         }
     }
+    g.run("people_scene", &json!({ "id": id }))
+}
+
+/// What a line to a talk that is over gets: the meeting waits on your
+/// decision.
+pub const OVER: &str = "The talk is over. What's left is your call.";
+
+/// `talk_wrap`: `{id}` ends the talk the way a goodbye does, with no cost
+/// for leaving (thread "Let talking end meetings cleanly"): a one-on-one
+/// lands as its end chip does, a meeting closes with what you didn't argue
+/// standing, and one that holds a decision keeps it as its own picks
+/// (`talk::wrap`). Only on a talk that plays v3.
+pub fn wrap(g: &mut Game, args: &Value) -> Reply {
+    let id = args.get("id").and_then(Value::as_u64).ok_or("Missing id.")? as u32;
+    let w = g.world.as_ref().ok_or("No world is loaded.")?;
+    let s = w.folk.scenes.iter().find(|s| s.id == id).ok_or("No such meeting.")?;
+    if s.done {
+        return Err("That talk is over.".into());
+    }
+    if !plays(g, s) {
+        return Err("This talk ends on its own picks.".into());
+    }
+    let w = g.world.as_mut().ok_or("No world is loaded.")?;
+    talk::end(w, id);
     g.run("people_scene", &json!({ "id": id }))
 }
 
@@ -553,5 +621,29 @@ mod future_tests;
 pub(crate) mod n7_tests;
 
 #[cfg(test)]
+#[path = "stake_tests.rs"]
+mod stake_tests;
+
+#[cfg(test)]
 #[path = "meetings_tests.rs"]
 mod meetings_tests;
+
+#[cfg(test)]
+#[path = "weighed_tests.rs"]
+mod weighed_tests;
+
+#[cfg(test)]
+#[path = "wrap_tests.rs"]
+mod wrap_tests;
+
+#[cfg(test)]
+#[path = "goals_tests.rs"]
+mod goals_tests;
+
+#[cfg(test)]
+#[path = "commit_tests.rs"]
+mod commit_tests;
+
+#[cfg(test)]
+#[path = "replay_tests.rs"]
+mod replay_tests;

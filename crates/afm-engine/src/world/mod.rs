@@ -15,9 +15,11 @@ pub mod analytics;
 pub mod background;
 pub mod broadcast;
 pub mod buildings;
+pub mod capital;
 pub mod charts;
 pub(crate) mod chemistry;
 pub(crate) mod clock;
+pub use clock::portal_windows_for;
 pub mod coach;
 pub(crate) mod college;
 pub mod craft_work;
@@ -30,11 +32,13 @@ pub mod ethnicity;
 pub mod fame;
 pub mod finance;
 pub mod folk;
+pub mod following;
 pub mod former;
 pub mod franchise;
 pub mod front_office;
 pub mod game_log;
 pub mod geo;
+pub mod ground;
 pub mod guide;
 pub mod help;
 pub mod high_school;
@@ -50,6 +54,7 @@ pub mod ncaa;
 pub mod new_teams;
 pub mod news;
 pub(crate) mod nfl_year;
+pub mod nil_bid;
 pub mod norms;
 pub use nfl_year::NflTeamSeason;
 pub use recruiting::DraftRun;
@@ -151,6 +156,12 @@ pub struct WorldOptions {
     /// A/B test's switches (items 14-16).
     #[serde(default)]
     pub results: crate::results::Mode,
+    /// Ground's favor economy (lane G11b, GR61): placing kids builds
+    /// standing. Off in every world until the 30-year trial (lane G12)
+    /// shows each tier gains while the top 10's share of the top 300
+    /// doesn't rise; with it off, placing a kid works as before.
+    #[serde(default)]
+    pub favors: bool,
 }
 
 impl Default for WorldOptions {
@@ -168,6 +179,7 @@ impl Default for WorldOptions {
             yearly_growth: false,
             stop_jan1: false,
             results: crate::results::Mode::default(),
+            favors: false,
         }
     }
 }
@@ -251,6 +263,12 @@ pub struct Person {
     /// with fame and Aura from the late 2000s.
     #[serde(default)]
     pub followers: u32,
+    /// His following as a share of his high school class's biggest, 0-1
+    /// (`following::class_tops`, set at the year's book): how much a
+    /// program's brand exposure weighs in his pick (GR45). 0 out of high
+    /// school.
+    #[serde(default)]
+    pub spotlight: f32,
     /// His yearly money from ads, brand NIL deals and endorsements, in
     /// dollars (`fame::brand_money`), last set at the year's book.
     #[serde(default)]
@@ -499,6 +517,24 @@ pub struct PersonCal {
     /// 100). Cleared at fall camp.
     #[serde(default)]
     pub nil_role: Option<(PlayingTime, f32)>,
+    /// His deal for the coming money year (the new NIL scheme, items 5 and
+    /// 9): what he signed for, landed on, or was offered to stay. Paid on
+    /// July 1, then cleared.
+    #[serde(default)]
+    pub nil_deal: Option<nil_bid::NilDeal>,
+    /// December's keep-him offer before the January window (item 9): (his
+    /// offer, the best rival's top bid for him). Cleared on July 1.
+    #[serde(default)]
+    pub nil_keep: Option<(f64, f64)>,
+    /// The buyout he carries into the portal from a multi-year deal (the
+    /// new NIL scheme, item 12): half of what it still owed him, which the
+    /// school that takes him pays his old one. Cleared when he lands or
+    /// goes back.
+    #[serde(default)]
+    pub nil_buyout: f64,
+    /// His school's revenue share in July's money (item 13: who is paid it).
+    #[serde(default)]
+    pub nil_school: f32,
     /// Cut from a college team (minor bug 60): it holds while he is still
     /// at that program (`Person::cut_here`), until the next window moves him.
     #[serde(default)]
@@ -869,6 +905,14 @@ pub struct World {
     /// both when it loads.
     #[serde(default)]
     pub(crate) mix_rev: u8,
+    /// The new NIL scheme's version of the money (`nil_bid::NIL_REV`): a
+    /// file from before reads 0 and refits its budgets when it loads.
+    #[serde(default)]
+    pub(crate) nil_rev: u8,
+    /// NIL Go's comparisons (the new NIL scheme, item 10): what similar
+    /// players cleared last July, by money level.
+    #[serde(default)]
+    pub nil_book: nil_bid::NilBook,
     /// The version of the pros' roles (`pro::role::PRO_ROLE_REV`): a file
     /// saved before code oddity 29's fix reads 0 and has every pro's role
     /// written from his seasons when it loads.
@@ -1070,6 +1114,11 @@ pub struct World {
     /// scheme, your guys, the Hall of Fame race and each level's five.
     #[serde(default)]
     pub legacy: legacy::Legacy,
+    /// A following and famous names (Ground, part I: GR42-GR46): the boys
+    /// who carry a famous name, each class's biggest followings and the
+    /// commitments lifting a program's brand exposure.
+    #[serde(default)]
+    pub following: following::Following,
     /// The deeper game plan (update 2, lane 5): your identity, standing
     /// game rules, call words, the staff's drafted call sheet and the
     /// week's plan beyond the matchups.
@@ -1103,6 +1152,14 @@ pub struct World {
     /// last checkpoint (`crate::results`).
     #[serde(default)]
     pub results: crate::results::Book,
+    /// Ground (lane G1b): one memory per person and holder, and standing
+    /// on the four-level ladder (`ground`).
+    #[serde(default)]
+    pub ground: ground::Ground,
+    /// Capital, the facilities layer (`docs/design/capital.md`): lane C1's
+    /// donors, circles, pledges and estates (`capital`).
+    #[serde(default)]
+    pub capital: capital::Capital,
 }
 
 /// What the dated systems did in one football year, for trials.
@@ -1200,6 +1257,37 @@ pub struct CalendarLog {
     pub portal_by_division: [u32; data::DIVISION_COUNT],
     pub portal_by_day: Vec<(crate::calendar::Date, u32)>,
     pub portal_landed: u32,
+    /// NIL Go's year (the new NIL scheme, item 10): third-party deals
+    /// reviewed and denied, their dollars, and the denied money that moved
+    /// into football's revenue share (item 11).
+    #[serde(default)]
+    pub nil_go_reviewed: u32,
+    #[serde(default)]
+    pub nil_go_denied: u32,
+    #[serde(default)]
+    pub nil_go_reviewed_money: f64,
+    #[serde(default)]
+    pub nil_go_denied_money: f64,
+    #[serde(default)]
+    pub nil_go_moved: f64,
+    /// Multi-year deals (the new NIL scheme, item 12): recruits signed on
+    /// one (and by stars), their whole money, terms cut short by the bound
+    /// on later budgets, transfers landed on one, multi-year deals raised
+    /// to keep a man, and buyouts paid when one transferred out.
+    #[serde(default)]
+    pub nil_multi: u32,
+    #[serde(default)]
+    pub nil_multi_stars: [u32; 6],
+    #[serde(default)]
+    pub nil_multi_money: f64,
+    #[serde(default)]
+    pub nil_multi_bound: u32,
+    #[serde(default)]
+    pub nil_multi_transfers: u32,
+    #[serde(default)]
+    pub nil_buyouts: u32,
+    #[serde(default)]
+    pub nil_buyout_money: f64,
     pub portal_returned: u32,
     pub whispers: u32,
     pub sit_out_transfers: u32,
@@ -1529,7 +1617,7 @@ impl World {
         let mut infos: Vec<StateInfo> = (0..51)
             .map(|i| StateInfo {
                 code: geo::STATE_CENTERS[i].0.to_string(),
-                transfer: TransferRule { sit_out: 0.5, free_once: false },
+                transfer: TransferRule { sit_out: 0.5, free_once: false, move_exempt: true },
                 hs_nil: false,
                 culture: 0.0,
                 class_share: 0.0,
@@ -1559,6 +1647,8 @@ impl World {
                 }
             };
         }
+        // Ground's areas, as staffs split their states (lane G1a).
+        ground::areas::place_schools(&mut high_schools);
         let overflow = overflow_by_state(&programs, year);
         let nfl = crate::league::make_league(&mut rng);
         let changes = crate::calendar::ChangeState::default();
@@ -1592,6 +1682,8 @@ impl World {
             marks: Default::default(),
             tallies: tally::Tallies::new(),
             mix_rev: MIX_REV,
+            nil_rev: nil_bid::NIL_REV,
+            nil_book: Default::default(),
             pro_role_rev: pro::role::PRO_ROLE_REV,
             system_norms: [[0.0; 11]; crate::positions::POSITION_COUNT],
             recruiting_log: RecruitingLog::default(),
@@ -1657,6 +1749,7 @@ impl World {
             level_scales: Vec::new(),
             storylines: Default::default(),
             legacy: Default::default(),
+            following: Default::default(),
             plans: Default::default(),
             deals: Vec::new(),
             prev_polls: Vec::new(),
@@ -1667,7 +1760,11 @@ impl World {
             hunt: Default::default(),
             nfl_units: Vec::new(),
             results: crate::results::Book::default(),
+            ground: Default::default(),
+            capital: Default::default(),
         };
+        // Every program's rooms from its number (Capital lane C2).
+        capital::rooms::after_load(&mut w);
         staff::staff_everyone(&mut w);
         pro::fill_league(&mut w);
         systems::spring_install(&mut w);
@@ -1841,7 +1938,10 @@ impl World {
     }
 
     fn add_class(&mut self) {
+        let start = self.people.len();
         self.add_class_aged(14);
+        // The famous men's sons and nephews among them (GR42).
+        following::names(self, start);
     }
 
     pub fn add_class_aged(&mut self, age: u32) {
@@ -1935,7 +2035,7 @@ impl World {
         for x in Attr::ALL {
             let v = a.get(x);
             if built.contains(&x) {
-                a.set(x, (v + 6.0).min(99.0));
+                a.set(x, (v + 6.0).min(crate::attributes::RATING_BOUND));
             } else if !matches!(x.category(), Category::Physical | Category::Mental) {
                 // Football skills he never learned.
                 a.set(x, (v * 0.8).max(1.0));
@@ -2373,6 +2473,7 @@ fn new_kid(
         class_of: year + 18 - age as i32 + years,
         born,
         followers: 0,
+        spotlight: 0.0,
         brand: 0.0,
         stars: 0,
         camp_stars: 0,

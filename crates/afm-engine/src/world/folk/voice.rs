@@ -109,6 +109,9 @@ const BANKS: &[&str] = &[
     // parent's real complaint and his answers, an exit meeting's reason,
     // and what about game day reaches your words.
     include_str!("../../../data/lines/team_rooms.txt"),
+    // Ground's scenes (lane G5): a high school coach greeting you in his
+    // office and on the phone.
+    include_str!("../../../data/lines/ground.txt"),
 ];
 
 /// The facts that gate a line which denies (`blameless`) or admits
@@ -117,6 +120,80 @@ const BANKS: &[&str] = &[
 /// calls that yet, so those lines are held back until the talks read the
 /// sheet.
 pub const CLAIM_FACTS: [&str; 2] = ["blameless", "at_fault"];
+
+/// Words a man in his last college season can't say about himself: the
+/// portal, a transfer, a redshirt, his next college season.
+const LAST_YEAR_NOT: [&str; 12] = [
+    "portal",
+    "transfer",
+    "redshirt",
+    "next year",
+    "next season",
+    "next fall",
+    "next spring",
+    "come back next",
+    "coming back next",
+    "scholarship renewal",
+    "two more years",
+    "another year",
+];
+
+fn not_for_last_year(text: &str) -> bool {
+    let t = text.to_lowercase();
+    LAST_YEAR_NOT.iter().any(|w| t.contains(w))
+}
+
+/// Words that look back on this year's spring practice (the OTAs in the
+/// NFL), so a man can't say them before it opens (`prespring`; the talks
+/// audit of 2026-11-16: a February opener asked "did spring settle it?").
+/// Only words that look back: "this spring" alone can be ahead ("Do I get
+/// my shot at the job this spring?").
+const SPRING_DONE: [&str; 12] = [
+    "since spring",
+    "did spring",
+    "spring settle",
+    "coming out of spring",
+    "after spring, where",
+    "graded me after spring",
+    "spring went",
+    "spring was",
+    "spring showed",
+    "spring didn't",
+    "so far this spring",
+    "from this spring",
+];
+
+/// Words that look back on this year's fall camp (training camp in the
+/// NFL), so a man can't say them before it opens (`precamp`). "In camp"
+/// alone can be ahead ("Will I get a fair shot in camp?").
+const CAMP_DONE: [&str; 21] = [
+    "since camp",
+    "after camp",
+    "camp settle",
+    "camp ended",
+    "than i was in camp",
+    "than we were in camp",
+    "where i was in camp",
+    "as it was in camp",
+    "halfway through camp",
+    "all through camp",
+    "you looked in camp",
+    "i did in camp",
+    "we built in camp",
+    "we took in camp",
+    "we practiced in camp",
+    "i made in camp",
+    "times in camp",
+    "my back in camp",
+    "heads in camp",
+    "kid from camp",
+    "did camp give",
+];
+
+fn looks_back(text: &str, words: &[&str]) -> bool {
+    let t = text.to_lowercase();
+    words.iter().any(|w| t.contains(w))
+}
 
 #[derive(Clone, Debug)]
 struct Frag {
@@ -187,6 +264,20 @@ impl Bank {
                         need.push(t.to_string());
                     } else {
                         not.push(t.to_string());
+                    }
+                }
+                // A man whose college career ends this year (`lastyear`,
+                // `talk::standing`) has no portal, no redshirt and no next
+                // college season to talk about (Cain 2026-11-16: a senior
+                // with no eligibility opened on the transfer window).
+                if not_for_last_year(text) && !not.iter().any(|t| t == "lastyear") {
+                    not.push("lastyear".to_string());
+                }
+                // A line that looks back on this year's spring or camp
+                // waits until it has opened (`Speaker::moment`).
+                for (words, tag) in [(&SPRING_DONE[..], "prespring"), (&CAMP_DONE[..], "precamp")] {
+                    if looks_back(text, words) && !not.iter().any(|t| t == tag) {
+                        not.push(tag.to_string());
                     }
                 }
                 let mut facts = Vec::new();
@@ -331,6 +422,25 @@ impl Speaker {
         self.tags.contains(&t)
     }
 
+    /// The time of year, for a speaker whose level is already in his tags:
+    /// `prespring` until this year's spring practice opens (the OTAs in the
+    /// NFL), `precamp` until fall camp opens (training camp in the NFL), so
+    /// a line that looks back on either waits for it. The football year's
+    /// dates turn over after the Super Bowl, so a January day is before
+    /// both.
+    pub(crate) fn moment(tags: &mut Vec<&'static str>, w: &World) {
+        let (t, d) = (w.today, &w.dates);
+        let (spring, camp) =
+            if tags.contains(&"nfl") { (d.otas.0, d.veterans_report) } else { (d.spring_practice.0, d.fall_camp) };
+        let ahead = t.year() > d.season;
+        if ahead || t < spring {
+            tags.push("prespring");
+        }
+        if ahead || t < camp {
+            tags.push("precamp");
+        }
+    }
+
     pub(crate) fn era(tags: &mut Vec<&'static str>, year: i32) {
         tags.push(if year < 2000 {
             "pre2000"
@@ -420,7 +530,12 @@ impl Speaker {
             },
             _ => "hs",
         });
-        if age < 23 {
+        // Young is under 23 and early in his career: a college man in his
+        // fourth year or his last isn't green, whatever his age ("I know
+        // I'm green", said by a senior, the talks audit of 2026-11-16).
+        let late_in_college = matches!(p.stage, crate::world::Stage::College | crate::world::Stage::Declared)
+            && (p.college_seasons >= 3 || super::persona::talk::standing::road(w, i).college_ends());
+        if age < 23 && !late_in_college {
             tags.push("young");
         }
         if age >= 28 {
@@ -502,6 +617,11 @@ impl Speaker {
                 }
             }
             crate::world::Stage::College | crate::world::Stage::Declared => {
+                // His college career ends this year: no portal, redshirt or
+                // next season in his lines.
+                if super::persona::talk::standing::road(w, i).college_ends() {
+                    tags.push("lastyear");
+                }
                 if p.college_seasons == 0 {
                     tags.push("freshman");
                 }
@@ -532,6 +652,7 @@ impl Speaker {
         }
         Self::region(&mut tags, w, Some(p.home_state));
         Self::era(&mut tags, w.year);
+        Self::moment(&mut tags, w);
         Speaker { key: 0x9_0000_0000 ^ p.player.id as u64, tags }
     }
 
@@ -581,6 +702,7 @@ impl Speaker {
         }
         Self::region(&mut tags, w, co.home_state);
         Self::era(&mut tags, w.year);
+        Self::moment(&mut tags, w);
         Speaker { key: super::coach_key(c), tags }
     }
 
@@ -649,6 +771,7 @@ impl Speaker {
         }
         Self::region(&mut tags, w, c.r.team.state(w));
         Self::era(&mut tags, w.year);
+        Self::moment(&mut tags, w);
         Speaker { key: c.key(), tags }
     }
 
@@ -665,6 +788,7 @@ impl Speaker {
                 super::Team::High(_) => "hs",
             });
         }
+        Self::moment(&mut tags, w);
         Speaker { key: 0x4000_0000_0000_0001, tags }
     }
 
@@ -680,6 +804,14 @@ impl Speaker {
         });
         Self::region(&mut tags, w, Some(p.home_state));
         Self::era(&mut tags, w.year);
+        Self::moment(&mut tags, w);
+        // His son's college career ends this year: no portal or next
+        // season in his lines either.
+        if matches!(p.stage, crate::world::Stage::College | crate::world::Stage::Declared)
+            && super::persona::talk::standing::road(w, i).college_ends()
+        {
+            tags.push("lastyear");
+        }
         Speaker { key: 0x7A_0000_0000 ^ p.player.id as u64, tags }
     }
 }

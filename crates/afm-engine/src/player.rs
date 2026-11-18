@@ -2,7 +2,7 @@
 
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use crate::attributes::{ATTRIBUTE_PROFILES, Attr, Attributes, MAX_RATING, MIN_RATING};
+use crate::attributes::{ATTRIBUTE_PROFILES, Attr, Attributes, MIN_RATING, RATING_BOUND};
 use crate::positions::{Position, elite_shape_overall, elite_shape_value, overall_for};
 use crate::rng::{Rng, clamp, round_half_up};
 
@@ -522,6 +522,10 @@ pub struct Player {
     /// staffs see what their eye finds.
     #[serde(default)]
     pub craft: crate::craft::Crafts,
+    /// The split ceiling's hidden state (`progression.rs`): his knacks and
+    /// each limit's own part. Hidden: staffs see only words.
+    #[serde(default)]
+    pub prog: crate::progression::Prog,
 }
 
 /// Hidden game-day traits on Football Manager's 1-20 scale (section 3). The
@@ -612,7 +616,7 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
         Some(z) => z,
         None => rng.normal(0.0, 1.0),
     };
-    let talent = clamp(talent_from_z(z), 20.0, 99.0);
+    let talent = clamp(talent_from_z(z), 20.0, RATING_BOUND);
     let id = opts.id.unwrap_or_else(|| NEXT_ID.fetch_add(1, Ordering::Relaxed));
 
     // Athlete first (topic 5.2): body, athletic traits and skill leanings come
@@ -627,11 +631,21 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
             let scale = talent / elite_shape_overall(position);
             let mut ceilings = Attributes::default();
             for key in Attr::ALL {
+                if key == Attr::LowerBody {
+                    continue;
+                }
                 ceilings.set(
                     key,
-                    clamp(elite_shape_value(position, key) * scale + rng.normal(0.0, 4.0), MIN_RATING, MAX_RATING),
+                    clamp(elite_shape_value(position, key) * scale + rng.normal(0.0, 4.0), MIN_RATING, RATING_BOUND),
                 );
             }
+            // The lower body from the upper (item 4b), with no draw of its own
+            // on this stream.
+            let upper = ceilings.get(Attr::Strength) - elite_shape_value(position, Attr::Strength) * scale;
+            let lower = elite_shape_value(position, Attr::LowerBody) * scale
+                + crate::athlete::lower_with(upper, 4.0, id ^ 0x4C0B);
+            ceilings.set(Attr::LowerBody, clamp(lower, MIN_RATING, RATING_BOUND));
+            crate::athlete::thin_tops(&mut ceilings);
             let potential = overall_for(position, &ceilings);
             // His build: how his strength and speed ceilings sit against his position's norm.
             let dev = |a: Attr| (ceilings.get(a) - elite_shape_value(position, a) * scale) / 4.0;
@@ -642,15 +656,25 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
 
     let bloom = clamp(rng.normal(0.0, 1.1), -2.5, 3.0);
     let mut attributes = Attributes::default();
+    let mut strength_maturity = 0.5;
     for key in Attr::ALL {
         let ceiling = ceilings.get(key);
         let profile = &ATTRIBUTE_PROFILES[key.index()];
         // Early bloomers arrive more physically mature; late bloomers less so.
-        let maturity = clamp(
-            profile.maturity_at_14 - 0.035 * bloom + 0.03 * (age as f64 - 14.0) + rng.normal(0.0, 0.05),
-            0.2,
-            0.98,
-        );
+        // The lower body matures with the upper (item 4b): it has no draw of
+        // its own, so no later draw moves.
+        let maturity = if key == Attr::LowerBody {
+            strength_maturity
+        } else {
+            clamp(
+                profile.maturity_at_14 - 0.035 * bloom + 0.03 * (age as f64 - 14.0) + rng.normal(0.0, 0.05),
+                0.2,
+                0.98,
+            )
+        };
+        if key == Attr::Strength {
+            strength_maturity = maturity;
+        }
         // Even the most gifted 14-year-old is still a boy: soften the top end.
         let raw = ceiling * maturity;
         attributes.set(key, clamp(if raw > 40.0 { 40.0 + (raw - 40.0) * 0.5 } else { raw }, MIN_RATING, ceiling));
@@ -695,9 +719,12 @@ pub fn generate_prospect(rng: &mut Rng, opts: ProspectOptions) -> Player {
         train: Default::default(),
         grow: 0.0,
         craft: Default::default(),
+        prog: Default::default(),
     };
     // His flaws and tools, from who he is (individual practice topic 3), on
     // his own keyed stream: no other draw moves.
     crate::craft::ensure(&mut p);
+    // His knacks and limits (the progression update), on their own stream.
+    crate::progression::ensure_new(&mut p);
     p
 }

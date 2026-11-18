@@ -161,7 +161,7 @@ fn base_on(w: &World, d: Date) -> (f32, f32) {
 /// What is left stays a real number (the hours used plus the week's normal
 /// hours, at least 12), so every check passes and the screens still add up.
 pub fn budget(w: &World) -> f32 {
-    if rested(w) {
+    if rested(w) || away(w) {
         return 0.0;
     }
     let b = budget_on(w, w.today, w.scouting.film.work);
@@ -187,8 +187,14 @@ fn week_work(w: &World) -> Work {
     }
 }
 
-/// Film hours spent this week.
+/// Hours spent this week from the week's free hours: film, and the
+/// ground time you chose (your calls, Ground lane G3: one ledger, GR50).
 pub fn used(w: &World) -> f32 {
+    film_used(w) + crate::world::ground::week::chosen_hours(w)
+}
+
+/// Film hours alone this week.
+pub fn film_used(w: &World) -> f32 {
     w.scouting.own.film_week.filter(|x| x.0 == monday(w.today)).map_or(0.0, |x| x.1)
 }
 
@@ -196,9 +202,16 @@ pub fn left(w: &World) -> f32 {
     (budget(w) - used(w)).max(0.0)
 }
 
-/// Film hours today.
-pub fn today(w: &World) -> f32 {
+/// Film hours alone today.
+pub fn film_today(w: &World) -> f32 {
     w.scouting.film.today.filter(|x| x.0 == w.today).map_or(0.0, |x| x.1)
+}
+
+/// Hours worked today on the one ledger: film, and your ground hours
+/// (calls, your road day, what you host: Ground lane G3, GR50), so a long
+/// day of either tires your eye.
+pub fn today(w: &World) -> f32 {
+    w.scouting.film.today.filter(|x| x.0 == w.today).map_or(0.0, |x| x.1) + crate::world::ground::week::hours_today(w)
 }
 
 /// Your work ethic (SK62), 1-20.
@@ -210,6 +223,11 @@ pub fn ethic(w: &World) -> f64 {
 /// Never with sandbox mode's fresh eye.
 pub fn rested(w: &World) -> bool {
     !w.sandbox(Switch::FreshEye) && w.scouting.film.rest_until.is_some_and(|d| w.today < d)
+}
+
+/// On your week off in July (Ground lane G3, GR58): no film either.
+pub fn away(w: &World) -> bool {
+    crate::world::ground::week::off_now(w)
 }
 
 /// How tired your eye is, 0-1 (SK59): nothing for the first 3 to 4 hours
@@ -246,6 +264,9 @@ pub fn can_watch(w: &World, mode: Mode) -> Result<(), String> {
     if rested(w) {
         return Err("You're home resting after wearing yourself out: no film until you're back.".into());
     }
+    if away(w) {
+        return Err("You're on your week off: no film until you're back.".into());
+    }
     if mode == Mode::Live {
         return Ok(());
     }
@@ -265,8 +286,8 @@ pub fn can_watch(w: &World, mode: Mode) -> Result<(), String> {
 
 /// Spends film hours: the week's ledger, the day, the position, the year.
 pub fn spend(w: &mut World, hours: f32, pos: Option<Position>) -> Result<(), String> {
-    if rested(w) {
-        return Err("You're home resting: no film until you're back.".into());
+    if rested(w) || away(w) {
+        return Err("You're home: no film until you're back.".into());
     }
     // In minutes: a snap is 20 or 36 seconds, so the old 0.01-hour slack
     // let a week with no hours left keep watching.
@@ -282,9 +303,9 @@ pub fn spend(w: &mut World, hours: f32, pos: Option<Position>) -> Result<(), Str
 pub fn charge(w: &mut World, hours: f32, pos: Option<Position>) {
     let d = w.today;
     let wk = monday(d);
-    let u = used(w);
+    let u = film_used(w);
     w.scouting.own.film_week = Some((wk, u + hours));
-    let t = today(w);
+    let t = film_today(w);
     let fr = &mut w.scouting.film;
     fr.today = Some((d, t + hours));
     if let Some(p) = pos {
@@ -364,7 +385,10 @@ pub(crate) fn week(w: &mut World, d: Date) {
     let e = ethic(w);
     // An ordinary ethic (12) carries a steady 65-hour week without wear.
     let cap = Work::Steady.hours() + 2.0 * (e as f32 - 12.0);
-    let hours = work.hours();
+    // The ground hours you host past what a week carries count too (one
+    // ledger, Ground lane G3); a week off counts none.
+    let off = crate::world::ground::week::off_now(w);
+    let hours = if off { 0.0 } else { work.hours() + crate::world::ground::week::booked_over(w, last) };
     let b = budget_on(w, last.add(6), work);
     // Sandbox mode's fresh eye: long weeks wear nothing (a worn eye still
     // recovers) and nobody is sent home.

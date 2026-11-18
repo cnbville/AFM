@@ -340,7 +340,7 @@ fn review_with(goals: &[GoalKind]) -> (World, u32, Scene, Team) {
     });
     w.folk.goals.clear();
     for kind in goals {
-        w.folk.goals.push(Goal { kind: *kind, season: year, deal: 0, met: None, set_on: today });
+        w.folk.goals.push(Goal { kind: *kind, season: year, deal: 0, met: None, set_on: today, talk: false });
     }
     let (id, s) = open_scene(&mut w, Kind::BossMeeting, 2, year as u64, team, "The season review");
     (w, id, s, team)

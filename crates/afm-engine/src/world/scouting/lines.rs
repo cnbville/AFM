@@ -73,7 +73,8 @@ pub fn attr_phrase(a: Attr, good: bool) -> &'static str {
         Speed => ("plays fast; real long speed", "lacks long speed"),
         Acceleration => ("explosive first step", "slow to build up speed"),
         Agility => ("sudden change of direction", "stiff when he has to redirect"),
-        Strength => ("strong at the point", "gets moved too easily"),
+        Strength => ("strong hands and upper body", "gets jolted by a punch"),
+        LowerBody => ("plays with a strong base; legs keep driving", "gets moved too easily"),
         Balance => ("stays on his feet through contact", "on the ground too much"),
         Flexibility => ("bends; loose hips", "tight hips"),
         Jumping => ("a lot of bounce", "plays below the rim"),
@@ -280,7 +281,7 @@ pub fn trait_note(k: usize, centre: f64, shade: super::file::Shade, key: u64, id
 }
 
 /// A family note (topic 5): the parents at games and online, who decides.
-pub fn family_notes(p: &crate::world::Person, key: u64) -> Vec<String> {
+pub fn family_notes(w: &crate::world::World, p: &crate::world::Person, key: u64) -> Vec<String> {
     use crate::world::background::{Bloodline, Decider, ParentStyle};
     let id = p.player.id as u64;
     let f = &p.family;
@@ -331,8 +332,15 @@ pub fn family_notes(p: &crate::world::Person, key: u64) -> Vec<String> {
         }
         .to_string(),
     );
+    // A famous name (GR42) is the first thing anyone says about him.
+    let famous = w.following.name_of(p.player.id);
+    if let Some(n) = famous {
+        v.push(n.line());
+    }
     if f.bloodline == Bloodline::NflPlayer {
-        v.push("His father played in the NFL.".to_string());
+        if famous.is_none_or(|n| n.nephew) {
+            v.push("His father played in the NFL.".to_string());
+        }
     } else if f.bloodline == Bloodline::CollegePlayer {
         v.push("His father played college football.".to_string());
     }

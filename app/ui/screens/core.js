@@ -634,7 +634,7 @@ function peekHtml(x) {
   if (x.kind === "depth") return dvCard(x.id);
   if (x.kind === "player") {
     return `<div class="pk-head">${face({ name: x.name, initials: x.initials, team: x.team }, 52)}<div><b>${esc(x.name)}</b><small>${esc(x.pos)}${x.jersey != null ? ` · #${x.jersey}` : ""} · ${x.team ? esc(x.team.name) : esc(x.where)}</small><small>${esc(x["class"])} · age ${x.age} · ${esc(x.ht)}, ${x.wt} lb ${stars(x.stars)}</small></div></div>
-      <div class="pk-body">${x.read ? `<div class="kvline"><span>Your staff's read</span>${range(x.read)}</div>` : ""}${x.yours ? `<div class="kvline"><span>Your own read</span>${yourRange(x.yours)}</div>` : ""}${x.level_rating ? `<div class="kvline"><span>Level</span><b data-h3="${x.id}" tabindex="0">${esc(x.level_rating)}</b></div>` : ""}${x.last ? `<div class="kvline"><span>Last season</span><b>${esc(x.last)}</b></div>` : ""}${x.status ? `<div class="kvline"><span>Status</span><b>${esc(x.status)}</b></div>` : ""}</div>
+      <div class="pk-body">${x.read ? `<div class="kvline"><span>Your staff's read</span>${range(x.read)}</div>` : ""}${x.yours ? `<div class="kvline"><span>Your own read</span>${yourRange(x.yours)}</div>` : ""}${x.level_rating ? `<div class="kvline"><span>Level</span><b data-h3="${x.id}" tabindex="0">${esc(x.level_rating)}</b></div>` : ""}${x.now ? `<div class="kvline"><span>${esc(x.now_label)}</span><b>${esc(x.now)}</b></div>` : ""}${x.last ? `<div class="kvline"><span>${esc(x.last_label || "Last season")}</span><b>${esc(x.last)}</b></div>` : ""}${x.status ? `<div class="kvline"><span>Status</span><b>${esc(x.status)}</b></div>` : ""}</div>
       ${(() => { const mv = peekMoves(x); return mv.length ? `<div class="pk-moves">${mv.map((m) => moveBtn(m, { id: x.id, name: x.name }, "st-btn small glass")).join("")}</div>` : ""; })()}
       <div class="pk-foot">${x.listed ? '<span class="st-pill">On my list</span>' : ""}${x.noted ? '<span class="st-pill">Has my note</span>' : ""}<span class="muted small">Click to open · shift-click beside · right-click for more</span></div>`;
   }
@@ -1964,10 +1964,17 @@ screens.player = async (a) => {
     <div class="phero-in">${face({ ...p, colors: c }, 132)}<div class="copy">
       <div class="st-label"><span class="pos" title="${esc(posHist || p.pos)}">${esc(p.pos)}</span> · ${esc(p.class)} · ${p.team ? logoIn(p.team) + teamA(p.team) : esc(p.where)}</div>
       <h1>${esc(p.name)}${p.nick ? ` <span class="pnick" title="The name he goes by">“${esc(p.nick)}”</span>` : ""}</h1>
-      <div class="meta"><span>Age <b>${p.age}</b></span><span><b>${esc(p.ht)}</b>, <b>${p.wt}</b> lb</span><span>${esc(p.home)}</span>${p.high_school ? `<span>${p.high_school_id != null ? `<a class="link team" data-go="team" data-kind="hs" data-id="${p.high_school_id}">${esc(hsName(p.high_school))}</a>` : esc(hsName(p.high_school))}</span>` : ""}${p.national ? `<span>${esc(p.national)} <span class="muted">U Sports, Canada</span></span>` : ""}${p.stars ? `<span>${stars(p.stars)}</span>` : ""}${p.status ? `<span class="st-pill live">${esc(p.status)}</span>` : ""}${lr}</div>
+      <div class="meta"><span>Age <b>${p.age}</b></span><span><b>${esc(p.ht)}</b>, <b>${p.wt}</b> lb</span><span>${esc(p.home)}</span>${p.high_school ? `<span>${p.high_school_id != null ? `<a class="link team" data-go="team" data-kind="hs" data-id="${p.high_school_id}">${esc(hsName(p.high_school))}</a>` : esc(hsName(p.high_school))}</span>` : ""}${p.national ? `<span>${esc(p.national)} <span class="muted">U Sports, Canada</span></span>` : ""}${p.stars ? `<span>${stars(p.stars)}</span>` : ""}${p.status ? `<span class="st-pill live">${esc(p.status)}</span>` : ""}${lr}</div>${joinLine(p.joining)}
       <div class="st-actions">${heroMoves(p, listBtn)}${l7Stake(p)}${typeof l11Hunt === "function" ? l11Hunt(p) : ""}</div></div></div></div>
     <div class="pad" data-hpos="${esc(p.pos)}">${gotoFor("player", a, p)}${tabs("ptab", list, tab)}<div class="tabbody">${body}</div></div>`;
 };
+// When he can sign with your team and his first day with it, or the first
+// day he is due once he has signed (Cain, 2026-11-15; `joining.rs`).
+function joinLine(j) {
+  if (!j) return "";
+  const can = j.can ? `<span class="pj-can"> · ${esc(j.can[0].toUpperCase() + j.can.slice(1))}</span>` : "";
+  return `<div class="pjoin"><b>${esc(j.head)}</b>, first day <b>${esc(j.first)}</b>${j.why ? ` <span class="pj-why">(${esc(j.why)})</span>` : ""}${j.or ? `, or ${esc(j.or)}` : ""}${can}</div>`;
+}
 // The hero's moves (minor bug 63): the main ones as buttons, the rest
 // under More with Dynamic Links, a note and Compare.
 function heroMoves(p, listBtn) {
@@ -2024,7 +2031,7 @@ screens.compare = async (a) => {
   ps.forEach((p, i) => p.groups.forEach((g) => g.attrs.forEach((t) => { const k = g.name + "|" + t.label; if (!attrs.has(k)) attrs.set(k, { g: g.name, label: t.label, key: t.key, reads: [] }); attrs.get(k).reads[i] = t.read; })));
   const head = `<tr><th class="l"></th>${ps.map((p) => `<th class="l cmp-h">${face(p, 44)}<div>${playerLink(p.id, p.name)}<small>${esc(p.pos)} · ${esc(p.class)}${p.team ? " · " + esc(p.team.name) : ""}</small></div><button class="st-icon-btn" data-act="cmpdrop" data-id="${p.id}" aria-label="Take out">×</button></th>`).join("")}</tr>`;
   const row = (label, cells) => `<tr><td class="l">${label}</td>${cells.map((c) => `<td class="l">${c}</td>`).join("")}</tr>`;
-  let body = row("Rating now", ps.map((p) => range(p.ovr, null, { p: p.id, k: "ovr" }))) + row("Your own read", ps.map((p) => yourRange(p.yours, undefined, { p: p.id, k: "ovr" }))) + row("Level", ps.map((p) => (p.level_rating ? `<span data-h3="${p.id}" tabindex="0">${esc(p.level_rating)}</span>` : ""))) + row("Size", ps.map((p) => `${esc(p.ht)}, ${p.wt} lb`)) + row("Age", ps.map((p) => p.age)) + row("Stars", ps.map((p) => stars(p.stars))) + row("Last season", ps.map((p) => esc(p.last || "")));
+  let body = row("Rating now", ps.map((p) => range(p.ovr, null, { p: p.id, k: "ovr" }))) + row("Your own read", ps.map((p) => yourRange(p.yours, undefined, { p: p.id, k: "ovr" }))) + row("Level", ps.map((p) => (p.level_rating ? `<span data-h3="${p.id}" tabindex="0">${esc(p.level_rating)}</span>` : ""))) + row("Size", ps.map((p) => `${esc(p.ht)}, ${p.wt} lb`)) + row("Age", ps.map((p) => p.age)) + row("Stars", ps.map((p) => stars(p.stars))) + (ps.some((p) => p.now) ? row("This season, so far", ps.map((p) => esc(p.now ? `${p.now_label.split(", so far")[0]}: ${p.now}` : ""))) : "") + row("Last season", ps.map((p) => esc(p.last ? `${p.last_label ? p.last_label.replace(" season", "") + ": " : ""}${p.last}` : "")));
   let g = null;
   for (const v of attrs.values()) {
     if (v.g !== g) { body += `<tr class="grouprow"><td class="l" colspan="${ps.length + 1}">${esc(v.g)}</td></tr>`; g = v.g; }
@@ -2054,7 +2061,8 @@ screens.coach = async (a) => {
   if (tab === "Ratings") {
     body = c.your_staff ? await rrCoachTab(a.id) : typeof hrReadTab === "function" ? await hrReadTab(a.id) : "";
   } else if (tab === "Profile") {
-    body = `<div class="grid2"><div class="panel"><h2>Who ${he} is</h2><div class="kv"><dt>Age</dt><dd>${c.age}</dd><dt>Standing</dt><dd>${esc(c.reputation)}</dd>${c.renown ? `<dt>Name</dt><dd>${esc(c.renown)}</dd>` : ""}<dt>Came up as</dt><dd>${esc(c.came_up)}</dd><dt>As a player</dt><dd>${c.played ? esc(c.played.replace(/^Played: /, "")) : c.ex_pro ? "Played pro" : "Didn't play college football"}</dd><dt>Titles</dt><dd>${c.titles}</dd>${c.ats ? `<dt>Against the spread</dt><dd>${esc(c.ats)}</dd>` : ""}${c.mentor_line ? `<dt>Learned under</dt><dd>${rich(c.mentor_line)}</dd>` : ""}</div></div>
+    body = `<div class="grid2"><div class="panel"><h2>Who ${he} is</h2><div class="kv"><dt>Age</dt><dd>${c.age}</dd><dt>Standing</dt><dd>${esc(c.reputation)}</dd>${c.renown ? `<dt>Name</dt><dd>${esc(c.renown)}</dd>` : ""}<dt>Came up as</dt><dd>${esc(c.came_up)}</dd><dt>As a player</dt><dd>${c.played ? esc(c.played.replace(/^Played: /, "")) : c.ex_pro ? "Played pro" : "Didn't play college football"}</dd><dt>Titles</dt><dd>${c.titles}</dd>${c.ats ? `<dt>Against the spread</dt><dd>${esc(c.ats)}</dd>` : ""}${c.mentor_line ? `<dt>Learned under</dt><dd>${rich(c.mentor_line)}</dd>` : ""}${c.voice ? `<dt>How you come across</dt><dd>${esc(c.voice)}</dd>` : ""}</div></div>
+      ${(c.closest || []).length ? `<div class="panel"><h2>Closest to ${him}</h2><div class="items">${c.closest.map((r) => `<div class="item"><span class="when">${esc(r.step)}</span><span>${playerLink(r.id, r.name)} <small class="sub">${esc(r.pos)}</small></span></div>`).join("")}</div></div>` : ""}
       <div class="panel"><h2>Contract <small>as reported</small></h2>${c.contract ? `<div class="st-tiles"><div><b>${money(c.contract.salary)}</b><small>a year</small></div><div><b>${c.contract.through}</b><small>through</small></div><div><b>${c.contract.buyout > 0 ? money(c.contract.buyout) : "None"}</b><small>buyout now</small></div></div>` : '<div class="empty">No contract reported.</div>'}</div></div>`;
   } else if (tab === "Recruiting record") {
     // His calls on recruits for you (lane 7, SK30): whom he wanted, whom he
@@ -2230,7 +2238,7 @@ function tpTable(t) {
 // the talent in each class, the rest of the roster, where its players go and
 // its coach. A college seat sees where each player stands with it; every
 // other seat sees his college interest. Gold marks what is yours.
-const TP_RANGE = (r) => (r ? `${r[0]}–${r[1]}` : "–");
+const TP_RANGE = (r) => (r ? `${rnum(r[0])}–${rnum(r[1])}` : "–");
 const tpStand = (p) => `<span class="st-pill${p.kind === "mine" ? " gold" : ""}">${esc(p.stand)}</span>`;
 function tpHsProspects(t) {
   const h = t.hs;
@@ -2544,6 +2552,7 @@ screens.settings = async () => {
     ${row("Hover delay", "How long to rest first", seg("hoverDelay", [["250", "Quick"], ["", "Normal"], ["900", "Slow"]], prefs.hoverDelay || ""))}</div></div>
     ${sb && sb.career ? sandboxPanel(sb, nf, row) : ""}
     ${await aiSettingsPanel()}
+    ${typeof verPanel === "function" ? await verPanel(row) : ""}
     <div class="panel"><h2>Logos</h2>${row("Logo packs", "AFM has no logos of its own: install a pack, the way Football Manager's work", linkTo("logos", {}, "Logos", "st-btn small"))}</div>
     <div class="panel"><h2>Keys and clicks</h2><div class="keys">${keys.map(([k, t]) => `<div><kbd>${esc(k)}</kbd><span>${esc(t)}</span></div>`).join("")}</div></div></div>`;
 };

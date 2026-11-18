@@ -305,7 +305,7 @@ fn your_eye(w: &World) -> f64 {
 
 /// Catches for a set of attributes watched in person: sharper than tape
 /// for what the eye sees whole (a practice in person reads best).
-fn watch(w: &mut World, id: u32, attrs: &[Attr], salt: u64) -> Vec<String> {
+pub(crate) fn watch(w: &mut World, id: u32, attrs: &[Attr], salt: u64) -> Vec<String> {
     let Some(i) = super::super::place(w, id) else { return Vec::new() };
     let e = your_eye(w);
     let d = w.today;
@@ -374,8 +374,12 @@ fn show(w: &mut World, id: u32, key: &str) -> String {
             line(v, "The team period goes by without him touching much.")
         }
         "testing" => {
-            let v =
-                watch(w, id, &[Attr::Speed, Attr::Acceleration, Attr::Strength, Attr::Jumping, Attr::Agility], 0x3A04);
+            let v = watch(
+                w,
+                id,
+                &[Attr::Speed, Attr::Acceleration, Attr::Strength, Attr::LowerBody, Attr::Jumping, Attr::Agility],
+                0x3A04,
+            );
             line(v, "The testing goes about as his tape said it would.")
         }
         "sideline" => {
@@ -492,6 +496,13 @@ pub fn camp_open(w: &mut World) -> Result<String, String> {
         .filter(|(_, v)| v.iter().any(|l| l.kind == crate::world::scouting::Kind::Camp && l.date == d))
         .map(|(&id, _)| id)
         .collect();
+    // In the morning, before the day's looks are written, the campers are
+    // the ones who came (`dept::campers`, keyed, so the same).
+    if campers.is_empty()
+        && let Some(Staff::Program(p)) = readers::seat_staff(w)
+    {
+        campers = crate::world::scouting::dept::campers(w, p, d).into_iter().map(|i| w.people[i].player.id).collect();
+    }
     campers.sort_unstable();
     if campers.is_empty() {
         return Err("Nobody on your board came to camp today.".into());

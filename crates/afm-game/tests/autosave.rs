@@ -7,6 +7,8 @@
 
 #![cfg(unix)]
 
+mod common;
+
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -50,7 +52,7 @@ fn the_autosave_is_the_world_at_the_tick_and_never_in_the_way() {
     let dir = std::env::temp_dir().join(format!("afm-autosave-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     let setup = ok(&mut g, "setup", json!({}));
     let ratings: Vec<f64> = setup["backgrounds"].as_array().unwrap()[0]["ratings"]
         .as_array()
@@ -82,7 +84,8 @@ fn the_autosave_is_the_world_at_the_tick_and_never_in_the_way() {
     assert_eq!(s["state"], "saving", "{s}");
     // A second tick while it writes starts nothing more.
     assert_eq!(ok(&mut g, "autosave_tick", json!({}))["state"], "saving");
-    // The game plays on at once; the file must still be the world at the tick.
+    // Days wait for the save to be written (they would copy half the world
+    // under the child), then play on; the file must be the world at the tick.
     for _ in 0..3 {
         ok(&mut g, "day", json!({}));
     }

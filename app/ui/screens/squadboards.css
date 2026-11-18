@@ -514,6 +514,11 @@ body.pd-active .sb-dr[data-cell].sb-over { box-shadow: inset 0 0 0 2px var(--sb-
 .sb-planrow { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; }
 .sb-planrow .sb-seg button small { font-weight: 500; opacity: .6; margin-left: 4px; }
 .sb-plan-priv { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sb-dim); }
+/* Committed, not signed yet (Cain, 2026-11-15): a * after the name. */
+.sb-star { flex: none; color: var(--sb-gold, var(--gold)); font-weight: 700; margin-left: 2px; cursor: help; }
+.sb-pb > .sb-pbs { display: flex; min-width: 0; }
+.sb-pbs > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.sb-pl .sb-star { margin-left: -.3em; }
 /* Projected test numbers: the dim projected number, the hollow ring and
    its line on the plot, the dashed weight line ahead. */
 .sb-projv { color: var(--sb-text2); font-style: italic; }

@@ -386,8 +386,12 @@ pub(crate) fn college_roles(w: &World) -> Vec<(usize, PlayingTime)> {
                         1 => 2.0 + 3.0 * prog.prestige,
                         _ => 0.0,
                     };
+                    // An AI head coach rates a man he's close to a little
+                    // higher, inside his read's noise (coach and player
+                    // bonds, section 8: the coach's guy).
                     let seen = p.player.overall() - 12.0 * p.pending_dip.unwrap_or(0.0) - blocked
-                        + 1.5 * key_normal(seed ^ year, p.player.id as u64);
+                        + 1.5 * key_normal(seed ^ year, p.player.id as u64)
+                        + super::folk::bonds::guy_bias(w, i);
                     (i, p.player.position, seen)
                 })
                 .collect();
@@ -740,6 +744,61 @@ pub(crate) fn club_strength_head(w: &World, t: usize) -> f64 {
     10.0 + 10.0 * super::people::Support::z(w.clubs[t].support.strength.rating)
 }
 
+/// The AI staffs' project changes this checkpoint, by person (the
+/// progression update): each college program's and high school's rooms
+/// (`progression::Room`), by the head coach's lean and the position
+/// coach's eye. Your seat's team is left to you.
+fn ai_projects(w: &World, role_of: &[Option<PlayingTime>]) -> HashMap<usize, Vec<crate::progression::Change>> {
+    use crate::progression::{Lean, Room, ai_room};
+    let mut rooms: HashMap<(bool, usize, Room), Vec<usize>> = HashMap::new();
+    for (i, p) in w.people.iter().enumerate() {
+        if role_of[i].is_none() {
+            continue;
+        }
+        let Some(room) = Room::of(p.player.position) else { continue };
+        let key = match p.stage {
+            Stage::College => match p.college {
+                Some(c) if !w.seat_program(c) => (true, c),
+                _ => continue,
+            },
+            Stage::HighSchool if w.seat_school() != Some(p.hs) => (false, p.hs),
+            _ => continue,
+        };
+        rooms.entry((key.0, key.1, room)).or_default().push(i);
+    }
+    let mut keys: Vec<(bool, usize, Room)> = rooms.keys().copied().collect();
+    keys.sort_by_key(|k| (k.0, k.1, k.2 as u8));
+    let out: Vec<Vec<(usize, crate::progression::Change)>> = keys
+        .par_iter()
+        .map(|k| {
+            let ids = &rooms[k];
+            let members: Vec<&crate::player::Player> = ids.iter().map(|&i| &w.people[i].player).collect();
+            let group = Group::of(members[0].position);
+            let (head, eye, scale) = if k.0 {
+                let prog = &w.programs[k.1];
+                (prog.head_coach, room_teaching(prog, &w.coaches, group), 1.0)
+            } else {
+                let s = &w.high_schools[k.1];
+                // A high school's smaller staff has less one-on-one time
+                // (design item 14: its coaching and staff size set what it
+                // gets out of it; proposed, not confirmed: 0.3 to 0.8).
+                (s.coach, s.coach.map_or(7.0, |c| w.coaches[c].teaching(group)), 0.3 + 0.5 * s.resources)
+            };
+            let lean = head.map_or(Lean::BALANCED, |c| {
+                let left = w.coaches[c].contract.as_ref().map_or(2.5, |ct| (ct.through - w.year) as f64);
+                Lean::of_coach(c, clamp((left - 2.5) / 2.5, -1.0, 1.0))
+            });
+            let seed = (w.year as u32).wrapping_mul(0x9E37) ^ (k.1 as u32).wrapping_mul(0x85EB) ^ (k.2 as u32) << 24;
+            ai_room(&members, k.2, lean, eye, scale, seed).into_iter().map(|(m, c)| (ids[m], c)).collect()
+        })
+        .collect();
+    let mut by: HashMap<usize, Vec<crate::progression::Change>> = HashMap::new();
+    for (i, c) in out.into_iter().flatten() {
+        by.entry(i).or_default().push(c);
+    }
+    by
+}
+
 pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
     super::coach::set_freedom_norms(w);
     let year = w.year as u64;
@@ -820,6 +879,9 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
     };
     // The men you got help for after trouble (talk facts lane L4).
     let helped = super::folk::talk_points::helped_ids(w);
+    // The AI staffs' skill projects (the progression update, design items
+    // 8 and 13-15), room by room; your own staff's are yours to set.
+    let projects = ai_projects(w, &role_of);
     // Each player's real injuries since his last step (audit item 1), for
     // a stage whose last season played on the engine.
     let real = [Stage::HighSchool, Stage::College].map(|s| real_hurts(w, s));
@@ -839,7 +901,17 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         })
         .collect();
     let rehab_due: std::sync::Mutex<Vec<u32>> = std::sync::Mutex::new(Vec::new());
+    // Each player's bond with the coach who teaches him (coach and player
+    // bonds, question 4), read before the step.
+    let bond_lift: Vec<f64> = {
+        let world: &World = w;
+        (0..world.people.len())
+            .into_par_iter()
+            .map(|i| if role_of[i].is_some() { super::folk::bonds::coachability_lift(world, i) } else { 0.0 })
+            .collect()
+    };
     let (people, schools, programs, coaches) = (&mut w.people, &w.high_schools, &w.programs, &w.coaches);
+    let capital = &w.capital;
     people.par_iter_mut().zip(role_of.par_iter()).enumerate().for_each(|(i, (p, role))| {
         let Some(role) = *role else { return };
         p.incident = false;
@@ -870,7 +942,14 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                 };
                 let staff = staff_of(p.hs, group)
                     .unwrap_or_else(|| coord.map_or(base, |c| 0.5 * coaches[c].teaching(group) + 0.5 * base));
-                (Level::HS, 0.6 * teach + 0.4 * staff, (s.resources - 0.5) * 0.1, 0.012)
+                let coaching = 0.6 * teach + 0.4 * staff;
+                // The weight room, read around the high schools' typical
+                // one (Capital lane C6, CP33).
+                let lift = super::capital::hs::physical_lift(capital, p.hs);
+                if lift != 0.0 {
+                    physical_coaching = Some(coaching + lift);
+                }
+                (Level::HS, coaching, (s.resources - 0.5) * 0.1, 0.012)
             }
             Stage::College => {
                 let prog = &programs[p.college.unwrap_or(0)];
@@ -904,14 +983,18 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                     0.2 * hc
                         + 0.25 * unit
                         + 0.4 * (t_pc[group as usize] + s - t_s)
-                        + 0.15 * (6.0 + 12.0 * prog.facilities),
+                        // The weight room, nutrition, sports science and
+                        // recovery share out the facilities' part (Capital
+                        // lane C2, CP19).
+                        + 0.15 * (6.0 + 12.0 * super::capital::rooms::physical(prog)),
                 );
                 strength_dev = s - t_s;
                 (
                     division_level(prog.division),
                     // C57: position coach 0.4, coordinator 0.25, head coach
-                    // 0.2, facilities 0.15.
-                    0.2 * hc + 0.25 * unit + 0.4 * pc + 0.15 * (6.0 + 12.0 * prog.facilities),
+                    // 0.2, facilities 0.15 (the film rooms, the indoor field
+                    // and recovery: Capital lane C2, CP19).
+                    0.2 * hc + 0.25 * unit + 0.4 * pc + 0.15 * (6.0 + 12.0 * super::capital::rooms::teaching(prog)),
                     (prog.facilities - 0.5) * 0.15,
                     COLLEGE_TROUBLE,
                 )
@@ -948,7 +1031,16 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                 }
                 _ => 1.0,
             }
-            * if helped.contains(&p.player.id) { 1.0 - super::folk::talk_points::HELP_CUT } else { 1.0 };
+            * if helped.contains(&p.player.id) { 1.0 - super::folk::talk_points::HELP_CUT } else { 1.0 }
+            // Campus life and the players' lounge (Capital lane C2).
+            * match p.college {
+                Some(c) if p.stage == Stage::College => {
+                    let prog = &programs[c];
+                    let life = prog.grades[super::program::GradeCat::CampusLife as usize] / 100.0;
+                    super::capital::rooms::trouble_factor(prog, life)
+                }
+                _ => 1.0,
+            };
         let mut trouble = None;
         if p.rng.chance(trouble_p) {
             p.incident = true;
@@ -977,7 +1069,8 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             // Academic support (section 6 topic 10): the academic staff's
             // head beside the facilities.
             let acad = super::people::Support::z(prog.support.academic.rating);
-            let support = clamp(0.3 + 0.5 * prog.facilities + 0.2 * (0.5 + 0.5 * acad), 0.0, 1.0);
+            // The academic center (Capital lane C2, CP19).
+            let support = clamp(0.3 + 0.5 * super::capital::rooms::academic(prog) + 0.2 * (0.5 + 0.5 * acad), 0.0, 1.0);
             if p.academic_redshirt {
                 academic_sit = true;
                 p.academic_redshirt = false;
@@ -1005,7 +1098,12 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         let snaps = reps_read(p.reps.take(), year as i32, p.stage, role, trouble.is_some(), p.player.position);
         // Section 6: his mood and his room's, his strength and medical staff.
         let prog = (p.stage == Stage::College).then(|| &programs[p.college.unwrap_or(0)]);
-        let room = prog.map_or(0.0, |g| g.team_mood);
+        let room = match prog {
+            Some(g) => g.team_mood,
+            // A high school's locker room (Capital lane C6).
+            None if p.stage == Stage::HighSchool => super::capital::hs::mood_lift(capital, p.hs) as f32,
+            None => 0.0,
+        };
         let morale = super::people::morale(p, room);
         let (physical, medical) = super::people::support_ctx(prog.map(|g| &g.support), &p.player.personality);
         let ctx = SeasonContext {
@@ -1033,6 +1131,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                 _ => None,
             },
             hurt: hurts[i].map(|h| hurt_for_step(&mut p.player, h, today)),
+            bond: bond_lift[i],
             ..SeasonContext::new(level, clamp(coaching, 1.0, 20.0), role)
         };
         // Last season's results name its row (growth from results).
@@ -1045,6 +1144,9 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         // (section 6b topic 12), so this row starts where he really is.
         let year_focus = ctx.focus.map(|a| crate::development::Focus::two(a, ctx.focus2, ctx.focus_minutes));
         crate::training::close_year(&mut p.player, year_focus);
+        for &c in projects.get(&i).into_iter().flatten() {
+            crate::progression::apply(&mut p.player, c);
+        }
         let report = develop_season(&mut p.player, &ctx, &mut p.rng);
         if ctx.hurt.is_some() && report.rehab_due {
             rehab_due.lock().unwrap().push(p.player.id);
@@ -1465,6 +1567,18 @@ pub(crate) fn game_mind(p: &super::Person, seat: bool, relationships: f64) -> (f
     (p.mood, belief)
 }
 
+/// His bond with the head coach on the sideline in a game (coach and
+/// player bonds, section 7): instructions followed more often
+/// (`GamePlayer::bond`) and a talk landing harder, the ear's 0.3 x
+/// closeness through his belief (the talk reads 0.75 x belief).
+pub(crate) fn bond_mind(w: &World, id: u32, head: Option<usize>, g: &mut GamePlayer) {
+    let close = super::folk::bonds::close(w, id, head);
+    if close > 0.0 {
+        g.bond = close;
+        g.belief = (g.belief + 0.4 * close).min(1.0);
+    }
+}
+
 /// The head coach's way with people, for `game_mind`.
 pub(crate) fn coach_relationships(w: &World, c: Option<usize>) -> f64 {
     c.map_or(10.0, |c| w.coaches[c].ability().relationships)
@@ -1499,6 +1613,7 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
             let know = clamp(0.78 + 0.05 * seasons, 0.0, 0.95) * (0.8 + 0.2 * side);
             let mut g = GamePlayer::from_player(&p.player, know, experience);
             (g.mood, g.belief) = game_mind(p, seat, rel);
+            bond_mind(w, p.player.id, head, &mut g);
             // Per family: reps by how much the playbook uses it, and the
             // understanding a sharp player builds faster (topic 4.2, 4.4;
             // proposed, not confirmed).
@@ -1540,7 +1655,8 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
     // Film study (topic 5.1): the coordinators' eye and the quality-control
     // staff a budget buys (proposed, not confirmed).
     let eye = |c: Option<usize>| ab(c.or(head)).map_or(9.0, |a| a.scheme);
-    let film_study = clamp(0.35 * (eye(prog.oc) + eye(prog.dc)) + 7.0 * prog.facilities, 1.0, 20.0);
+    // The film rooms stand where the facilities did (Capital lane C2).
+    let film_study = clamp(0.35 * (eye(prog.oc) + eye(prog.dc)) + 7.0 * super::capital::rooms::film(prog), 1.0, 20.0);
     let dc = dc_call;
     // The install (T6.2): the staff sizes the weekly plan to what its
     // players can absorb; a poor staff misjudges it, an aggressive one puts
@@ -1550,7 +1666,15 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
         let oc = caller(oc_call, inst.off);
         let who = oc_call.unwrap_or(usize::MAX) as u64;
         let miss = 0.15 * (1.0 - oc.skill / 20.0).max(0.0) * key_normal(0x1257 ^ w.year as u64, who);
-        clamp(crate::game::roster::absorb(aware) + miss + 0.01 * (oc.aggressiveness - 10.0), 0.35, 1.0)
+        // The film rooms put a little more of the plan in (Capital lane C2).
+        clamp(
+            crate::game::roster::absorb(aware)
+                + miss
+                + 0.01 * (oc.aggressiveness - 10.0)
+                + super::capital::rooms::install_lift(prog),
+            0.35,
+            1.0,
+        )
     };
     let mut team = GameTeam::new(
         prog.real_name.clone(),
@@ -1589,7 +1713,9 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
     team.film = prog.film.clone();
     team.line_chem = line_chem;
     // His strength staff's guard on muscle strains and backs (minor bug 303).
-    let guard = crate::game::sim::strength_guard(strength_head(prog), typical_strength(w, prog.division)) as f32;
+    // The sports science lab's guard on top (Capital lane C2, CP17).
+    let guard = (crate::game::sim::strength_guard(strength_head(prog), typical_strength(w, prog.division))
+        * super::capital::rooms::soft_tissue_guard(prog)) as f32;
     team.players.iter_mut().for_each(|g| g.soft = guard);
     super::chemistry::apply(w, &mut team, super::chemistry::Unit::College);
     team.novelty = super::trends::team_novelty(w, prog.division, &prog.film);

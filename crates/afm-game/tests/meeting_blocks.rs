@@ -1,6 +1,8 @@
 //! Cain 2026-11-15: with a meeting open, Continue must not carry on past it.
 //! You hold it or hand it to your staff first.
 
+mod common;
+
 use afm_engine::world::folk::scene::{self, Kind, Scene};
 use afm_game::Game;
 use serde_json::{Value, json};
@@ -16,7 +18,7 @@ fn ok(g: &mut Game, cmd: &str, args: Value) -> Value {
 fn an_open_meeting_stops_continue_until_it_is_held_or_handed_on() {
     let dir = std::env::temp_dir().join(format!("afm-meeting-blocks-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 12, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 12, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     let jobs = ok(&mut g, "jobs", json!({ "level": "college" }));
     let job = jobs["jobs"][0]["ref"].clone();
     ok(&mut g, "start_career", json!({ "name": "Test Coach", "job": job, "seed": 3 }));

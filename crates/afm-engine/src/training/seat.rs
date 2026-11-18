@@ -591,37 +591,52 @@ fn old_tests(w: &mut World, team: u32, roster: &[usize]) {
 /// A player's testing numbers today: the combine's expected results for his
 /// ratings and body with a test day's noise (keyed), the lifts from his
 /// bench max (his strength at 220 lb scaled by his weight to the two-thirds
-/// power; squat about 1.45 times it, the power clean about 0.88; proposed,
-/// not confirmed: strength staffs' usual ratios).
+/// power). The squat and the power clean read his lower body the same way
+/// (physical study item 4b): about 1.45 and 0.88 times the bench a man as
+/// strong in the legs as in the upper body would press (proposed, not
+/// confirmed: strength staffs' usual ratios).
 pub fn test_row(p: &crate::player::Player, key: u64) -> TestRow {
     let c = crate::body::Drills::of(p).expected();
+    let raw = crate::body::Drills::of(p).raw();
     let wt = crate::body::body_now(p).weight;
     let n = |k: u64, sd: f64| crate::world::season::key_normal(key ^ k, p.id as u64) * sd;
-    let reps = (c.bench + n(1, 1.5)).round().clamp(0.0, 50.0);
+    let reps = (c.bench + n(1, 1.5)).round().clamp(0.0, 99.0);
     // His max: the combine's reps are fitted at draft weights, so read his
     // strength at 220 lb and scale it by his weight to the two-thirds power
     // (the way strength goes with size; a 160 lb receiver doesn't press
     // what the fit gives a 200 lb one).
-    let at_220 = crate::body::Drills { weight: 220.0, ..crate::body::Drills::of(p) }.expected().bench + n(1, 1.5);
-    let strength = p.attributes.get(Attr::Strength);
-    let one = if at_220 >= 1.0 {
-        225.0 * (1.0 + at_220 / 30.0) * (wt.max(100.0) / 220.0).powf(0.67)
-    } else {
-        (wt * clamp(0.55 + 0.011 * (strength - 25.0), 0.45, 1.6)).min(220.0)
+    // The legs read the same way without the bench's own knack (his groove
+    // and arch on the press).
+    let max = |strength: f64, noise: f64, bench: bool| {
+        let base = crate::body::Drills::of(p);
+        let lift = if bench { base.lift } else { 0.0 };
+        let d = crate::body::Drills { weight: 220.0, strength, lift, ..base };
+        let at_220 = d.expected().bench + noise;
+        if at_220 >= 1.0 {
+            225.0 * (1.0 + at_220 / 30.0) * (wt.max(100.0) / 220.0).powf(0.67)
+        } else {
+            (wt * clamp(0.55 + 0.011 * (strength - 25.0), 0.45, 1.6)).min(220.0)
+        }
     };
+    let one = max(p.attributes.get(Attr::Strength), n(1, 1.5), true);
+    let legs = max(p.attributes.get(Attr::LowerBody), n(1, 1.5), false);
     let five = |x: f64| ((x / 5.0).round() * 5.0).clamp(0.0, 900.0) as u16;
     let bench = one * (1.0 + n(2, 0.02));
-    let forty = (c.forty + n(5, 0.03)).clamp(4.2, 6.5);
+    let forty = (c.forty + n(5, 0.03)).clamp(3.5, 9.0);
     TestRow {
         id: p.id,
         bench: five(bench),
         reps: reps as u8,
-        squat: five(bench * 1.45 * (1.0 + n(3, 0.04))),
-        clean: five(bench * 0.88 * (1.0 + n(4, 0.04))),
+        squat: five(legs * 1.45 * (1.0 + n(3, 0.04))),
+        clean: five(legs * 0.88 * (1.0 + n(4, 0.04))),
         forty: (forty * 100.0).round() as u16,
-        split: ((0.375 * forty - 0.15 + n(6, 0.015)) * 100.0).round() as u16,
-        shuttle: ((c.shuttle + crate::body::drill_knack(p).1 + n(7, 0.04)).clamp(3.8, 6.0) * 100.0).round() as u16,
-        vertical: ((c.vertical + n(8, 0.8)).clamp(14.0, 46.0) * 2.0).round() as u8,
+        split: ((crate::body::split_of(p, forty) + n(6, crate::body::SPLIT_DAY_SD)).clamp(1.0, 3.5) * 100.0).round()
+            as u16,
+        shuttle: ((crate::body::thin_shuttle(p.position, raw[5] + crate::body::drill_knack(p).1) + n(7, 0.04))
+            .clamp(3.0, 9.0)
+            * 100.0)
+            .round() as u16,
+        vertical: ((c.vertical + crate::body::jump_knack(p).0 + n(8, 0.8)).clamp(0.0, 70.0) * 2.0).round() as u8,
         weight: wt.round().clamp(0.0, 500.0) as u16,
     }
 }
@@ -634,26 +649,22 @@ pub struct DayWeather {
     /// "outside", "inside" (moved to the indoor field), "delayed" (a
     /// lightning hold took half an hour) or "lost" (the field work lost).
     pub place: &'static str,
-    /// What moved it: "rain", "snow", "cold", "wind", "lightning",
-    /// "severe weather", or "" for a normal day.
+    /// What moved it: "rain", "rain on grass" (a high school with no turf,
+    /// Capital lane C6), "snow", "cold", "wind", "lightning", "severe
+    /// weather", or "" for a normal day.
     pub why: &'static str,
 }
 
 /// Whether your team has an indoor field (proposed, not confirmed: every
-/// NFL club; FBS programs past a modest facilities grade, FCS programs
-/// with good ones, the best-funded high schools).
+/// NFL club, the colleges whose campus has one (Capital lane C2, CP17), the
+/// best-funded high schools).
 pub fn indoor_field(w: &World, st: &SeatTeam) -> bool {
     let Some(seat) = w.seat else { return false };
     match st.tier {
-        Tier::Pro => true,
-        Tier::College => seat.program.and_then(|p| w.programs.get(p)).is_some_and(|p| {
-            p.facilities
-                > match p.division {
-                    crate::world::data::Division::FBS => 0.35,
-                    crate::world::data::Division::FCS => 0.7,
-                    _ => 0.9,
-                }
-        }),
+        Tier::Pro => seat.nfl_team.is_none_or(|t| crate::world::capital::nfl::has_indoor(&w.capital, t)),
+        Tier::College => {
+            seat.program.and_then(|p| w.programs.get(p)).is_some_and(crate::world::capital::rooms::has_indoor)
+        }
         Tier::High => seat.program.and_then(|h| w.high_schools.get(h)).is_some_and(|h| h.resources > 0.85),
     }
 }
@@ -687,6 +698,10 @@ pub fn practice_weather(w: &World, st: &SeatTeam, monday: Date, wk: &Week) -> [O
     let Some((state, code, town)) = practice_town(w, st) else { return [None; 7] };
     let inside = indoor_field(w, st);
     let seed = w.options.seed as u64;
+    let grass = st.tier == Tier::High
+        && w.seat
+            .and_then(|s| s.program)
+            .is_some_and(|h| !w.capital.hs.is_empty() && !crate::world::capital::hs::has_turf(w, h));
     std::array::from_fn(|k| {
         let day = &wk.days[k];
         if day.game || !day.periods.iter().any(|p| p.kind.on_field() && !p.own()) {
@@ -712,7 +727,13 @@ pub fn practice_weather(w: &World, st: &SeatTeam, monday: Date, wk: &Week) -> [O
             (if inside { "inside" } else { "outside" }, "wind")
         } else if wx.rain {
             let moved = inside && crate::world::season::key_uniform(seed ^ 0x2A1, d.0 as u64) < 0.5;
-            (if moved { "inside" } else { "outside" }, "rain")
+            // A high school with no turf keeps its team off a wet grass
+            // field for a while (Capital lane C6, CP33).
+            if !moved && grass {
+                ("delayed", "rain on grass")
+            } else {
+                (if moved { "inside" } else { "outside" }, "rain")
+            }
         } else {
             ("outside", "")
         };
@@ -1532,6 +1553,19 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
     // about a seventh faster).
     let nut = |wk: &Week| minutes(wk, |p| p.kind == Kind::Nutrition);
     let fuel = clamp(1.0 + 0.15 * (nut(&pw.week) - nut(&pw.neutral)) / (nut(&pw.neutral) + 30.0), 0.9, 1.15);
+    // The nutrition center moves a body plan faster (Capital lane C2).
+    let kitchen = match st.tier {
+        Tier::College => w
+            .seat
+            .and_then(|s| s.program)
+            .and_then(|p| w.programs.get(p))
+            .map_or(1.0, crate::world::capital::rooms::body_plan_rate),
+        // The club's cafeteria and nutrition (Capital lane C6).
+        Tier::Pro => {
+            w.seat.and_then(|s| s.nfl_team).map_or(1.0, |t| crate::world::capital::nfl::body_plan_rate(&w.capital, t))
+        }
+        _ => 1.0,
+    };
     let mut absent_ids: Vec<u32> = Vec::new();
     let mut craft_minutes: HashMap<usize, (f64, f64)> = HashMap::new();
     for &i in &st.roster {
@@ -1710,7 +1744,8 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
             let gap = target as f64 - now;
             let rate = if gap > 0.0 { 1.5 } else { 1.2 }
                 * clamp(0.7 + 0.03 * p.player.personality.work_ethic, 0.7, 1.3)
-                * fuel;
+                * fuel
+                * kitchen;
             let step = gap.signum() * gap.abs().min(rate);
             if step.abs() > 0.05 {
                 body_change(&mut p.player, step);
@@ -1865,6 +1900,10 @@ pub(crate) fn game_injuries(
         let days = (inj.weeks * (1.0 - 0.12 * medical[*team]) * 7.0).ceil().max(1.0) as i32;
         let back = date.add(1 + days);
         w.training.log_hurt(inj.id, inj.kind, 1 + days as u32, date);
+        // Four weeks or more: a hard moment of his bonds with his coaches.
+        if days >= 28 {
+            crate::world::folk::bonds::injured(w, inj.id);
+        }
         if seat == Some(*team) {
             if w.training.hurt.iter().any(|h| h.id == inj.id && h.until >= back) {
                 continue;
@@ -2207,9 +2246,10 @@ pub fn staff_teaching(w: &World, st: &SeatTeam, i: usize) -> f64 {
 pub fn body_change(p: &mut crate::player::Player, lbs: f64) {
     let now = crate::body::body_now(p).weight.max(100.0);
     let k = p.body.weight / now;
-    p.body.weight = clamp(p.body.weight + lbs * k, 120.0, 400.0);
+    p.body.weight = clamp(p.body.weight + lbs * k, crate::athlete::WEIGHT_RANGE.0, crate::athlete::WEIGHT_RANGE.1);
     for (a, per) in [
         (Attr::Strength, 0.05),
+        (Attr::LowerBody, 0.05),
         (Attr::Anchor, 0.04),
         (Attr::Speed, -0.03),
         (Attr::Acceleration, -0.02),
@@ -2217,8 +2257,9 @@ pub fn body_change(p: &mut crate::player::Player, lbs: f64) {
         (Attr::Stamina, -0.02),
     ] {
         let dv = per * lbs;
-        p.attributes.add(a, dv);
-        p.ceilings.add(a, dv);
+        let was = p.attributes.get(a);
+        p.attributes.set(a, crate::athlete::top_up_attr(a, was, was + dv));
+        crate::athlete::move_ceiling(&mut p.ceilings, a, dv);
     }
 }
 

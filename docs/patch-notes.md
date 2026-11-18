@@ -8,6 +8,551 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.615 (17 Nov, shipped): capital lane CS3: the drive screen (PR #526), capital lane CS2: the Donors screen (PR #525), coach fire: fire by the kind of work, targeting and the spark (PR #530), and 1 more
+**TLDR:** 4 changes ship together. Your capital campaign now has its own page: see how close the goal is, who gave and what moved them, and make the calls that are yours. Capital's Donors screen shows who could fund your next building, how hot donors are for your program, and lets you book a lunch or dinner with one. Plus 2 more below.
+- Capital lane CS3: the drive screen (PR #526): Your capital campaign now has its own page: see how close the goal is, who gave and what moved them, and make the calls that are yours.
+- The drive page shows the goal, how much is paid in, pledged and still to raise, and the four stages of the campaign. (PR #526)
+- Every pledge is listed with the moment that brought it, like a top-10 pick or a conference title. (PR #526)
+- The lead donors who are waiting for you are named, with what they'd give to. (PR #526)
+- Your AD says where he stands, and you can set the goal, go public early, work the lead donors yourself or push him to borrow. (PR #526)
+- Capital lane CS2: the Donors screen (PR #525): Capital's Donors screen shows who could fund your next building, how hot donors are for your program, and lets you book a lunch or dinner with one.
+- A new Donors screen under Capital lists your donors with what the development office thinks they could give, how close each is to you and when you last met. (PR #525)
+- A fever bar shows how hot donors are after your big moments and when it will fade. (PR #525)
+- Each donor has a page: what drives them, what they remember of you, who they talk to and your development director's read. (PR #525)
+- Book a weekday lunch or dinner from the page, or call one off. (PR #525)
+- Coach fire: fire by the kind of work, targeting and the spark (PR #530): Your pregame and halftime words now reach the field the way real emotion does: a fired-up hitter hits harder and goes for the ball, but a pocket passer pushed past his best pitch gets jumpy and misses throws.
+- Every player has his own best pitch: a hot-tempered hitter plays best fired up, a calm pocket passer plays best calm. (PR #530)
+- Fire adds strength, effort and hitting power up to that pitch; past it he loses accuracy, reads and discipline, and takes more chances. (PR #530)
+- Big hits, forced fumbles and fourth-down stops lift the teammates on the field for a few snaps, and the man who got hit can hear footsteps over the middle. (PR #530)
+- College targeting is called by its era's rule, with ejections and the next game's first half; the NFL fines its hits from what happened in the games. (PR #530)
+- The play log shows it: big hits, players who came in hot, a receiver who heard footsteps, ejections. (PR #530)
+- Capital lane CS4: the project screen (PR #532): The Capital section now has a Project page for the building going up, with the rooms it holds, its timeline and the strings donors put on it. When costs run over, you see what each answer would do before you choose.
+- See the rooms a new building adds or moves, and what each one gives you (PR #532)
+- Answer a cost overrun by cutting rooms, waiting a year or borrowing, with a preview first (PR #532)
+- Grant or turn down a donor's call about his gift (PR #532)
+- See how the team practices while the building goes up (PR #532)
+- Look at: the Capital section's The drive, once your program has a campaign under way. (PR #526) Capital, Donors, in the sidebar when you coach a college program. (PR #525) give a fiery talk before a playoff game and read the play log for your hitters, then try a calm talk with your pocket passer. (PR #530)
+- Docs and tooling merged too, no game change: Design: support staff as full departments (proposed, not confirmed) (PR #528); Support departments: Cain agreed to all seven questions (PR #529); Memory diet: the research and the agreed items (docs) (PR #534); GAPS.md: start the gaps list with the coach-depth findings (PR #536).
+
+## 0.2.611 (17 Nov, shipped): capital lane C5: the facilities race and the press (PR #521), ground lane S3: the school visit screen (PR #514), capital lane C6: high school and NFL facilities (PR #523), and 1 more
+**TLDR:** 4 changes ship together. The facilities race now has a voice. Rivals' new buildings can cost you recruits and you're told why, your donors pass on what rivals are quietly raising for, and every July the press ranks your conference's facilities. A school visit is now a scene you play: walk the stops, sit down with the head coach, and watch a new name's blanks fill as you go. Plus 2 more below.
+- Capital lane C5: the facilities race and the press (PR #521): The facilities race now has a voice. Rivals' new buildings can cost you recruits and you're told why, your donors pass on what rivals are quietly raising for, and every July the press ranks your conference's facilities.
+- When a recruit picks a rival, the reasons can name the rival's new weight room, locker room or other room over yours. (PR #521)
+- Your donors tell you, over dinner or in the suite before kickoff, when a rival is quietly raising money for a new building, and roughly how far along it is. (PR #521)
+- Rumors from a donor who was in the room are close to the truth. Word heard through friends is vaguer. (PR #521)
+- Each July the press publishes a facilities pecking order for every conference, with where you stand and how far you moved. (PR #521)
+- Ground lane S3: the school visit screen (PR #514): A school visit is now a scene you play: walk the stops, sit down with the head coach, and watch a new name's blanks fill as you go.
+- The visit shows its stops in order, with the sign-in sheet of who came before you. (PR #514)
+- You see where the school's kids went and where you stand with the coach. (PR #514)
+- A new name appears with what the public thinks, what the coach says and five blanks to fill. (PR #514)
+- It shows who heard of him first. (PR #514)
+- Skip the visit and get its result line. (PR #514)
+- Capital lane C6: high school and NFL facilities (PR #523): Facilities now matter at every level: high school coaches can work a stadium bond through town, and NFL head coaches ask the owner for the room they need.
+- High schools have a weight room, film room, locker room, turf field and stadium, each helping its own part of the program. (PR #523)
+- Stadium bonds go to the town's vote in May and November; your season and your nights at the Rotary club and the phone bank move the yes share. (PR #523)
+- A new district stadium is shared, so your crosstown rival plays in it too. (PR #523)
+- NFL clubs' rooms move the players' report card, and you ask the owner for one room a year; winning and other teams' interest make him hard to refuse. (PR #523)
+- Capital lane CS1: the Campus screen (PR #527): Your campus now has its own screen: a map of your buildings and rooms, how each one stacks up against your conference, and a button to ask your athletic director for a renovation.
+- See every building with its rooms and their levels (PR #527)
+- Gold squares show what a building under way or a summer renovation will add (PR #527)
+- Each room lists what it unlocks and how it reads against the conference's best (PR #527)
+- Ask your athletic director to renovate a room and see his answer (PR #527)
+- Compare your campus with your rival's (PR #527)
+- Look at: your news on 1 July, and the why-lines on recruits you lost. (PR #521) open this week's scene on a road day from the week board. (PR #514) the owner meeting's room asks, and the boss meeting's facility ask at a high school. (PR #523)
+- Docs and tooling merged too, no game change: CLAUDE.md: small fixes and docs merge on green (docs) (PR #524).
+
+## 0.2.607 (17 Nov, shipped): capital lane C4: your week and scenes (PR #522)
+**TLDR:** Your donors now live in your week. Dinners, the suite before kickoff and the spring caravan sit beside your other scenes, and you choose the rooms a recruit tours on his official visit.
+- Your development office puts donors worth your time on your week, each with a reason, and you can book your own dinners. (PR #522)
+- In season your only donor hour is the suite before a home game. (PR #522)
+- On an official visit you pick the three rooms he sees, and he notices what you skip. (PR #522)
+- When a donor whose name is on a building lands in scandal, you decide whether the name comes down. (PR #522)
+- Groundbreakings, reveal videos and ribbon cuttings keep who was on stage, how the recruits took it and the next day's headline. (PR #522)
+- Look at: a spring week's schedule, then an official visit weekend. (PR #522)
+
+## 0.2.606 (17 Nov, shipped): speed lane: very fast players as rare as real ones (PR #512), coach voice: how you talk, read and reacted to (PR #519), capital lane C3: the money and the drive (PR #520)
+**TLDR:** 3 changes ship together. Burners are as rare as in real football now: a 4.2 forty is a once-a-draft event, not a handful every spring. How you talk now matters. Your players, staff, boss and recruits hear your heat, your language and who you aim it at, and they react the way real people would. Plus 1 more below.
+- Speed lane: very fast players as rare as real ones (PR #512): Burners are as rare as in real football now: a 4.2 forty is a once-a-draft event, not a handful every spring.
+- Very fast prospects at the combine come up about as often as in the real NFL draft. (PR #512)
+- A player's top speed comes from his body. Hard work in the weight room still trims a little, but no longer turns a 4.5 man into a 4.4 man. (PR #512)
+- Freaks still exist: the fastest men still run 4.2s, and big men who fly are as common as real ones. (PR #512)
+- Coach voice: how you talk, read and reacted to (PR #519): How you talk now matters. Your players, staff, boss and recruits hear your heat, your language and who you aim it at, and they react the way real people would.
+- Pick how you talk in your coach profile, then let your real words reshape your reputation over a season. (PR #519)
+- Fire aimed at the opponent reads as passion; aimed at a player with no trust behind it, it reads as abuse. (PR #519)
+- Players answer in kind, from "Hell yeah, coach" to going quiet. (PR #519)
+- A pattern of mistreatment brings complaints, an outside review and possibly a firing for cause. (PR #519)
+- AI coaches have their own styles, and their players and staff react by the same rules. (PR #519)
+- Capital lane C3: the money and the drive (PR #520): Winning now brings in money. Titles, a Heisman and top-10 picks set your donors giving, and every program raises its buildings through a real campaign with choices that matter.
+- Big moments set off a giving fever that builds over a run and fades over two years. (PR #520)
+- Each program's drive runs a feasibility study, a quiet phase, a public launch and a close, and rival schools run theirs on the same rules. (PR #520)
+- Donors choose between NIL and buildings one by one. Pushing a donor toward the building leaves less for NIL. (PR #520)
+- Some gifts come with strings that show up later. You can go public early, push your athletic director to borrow, or answer a cost overrun. (PR #520)
+- Look at: the combine results in your first draft class. (PR #512) your coach page's "How you come across" after a few heated talks. (PR #519) the news after a conference title or a top-10 pick. (PR #520)
+
+## 0.2.603 (17 Nov, shipped): capital lane C2: the rooms and the campus (PR #516)
+**TLDR:** Your campus is now made of real rooms, from the locker room to the NFL wall, and each one does something. Build, renovate and watch rivals answer.
+- Thirteen rooms per program, each with a level, starting from every school's real buildings. (PR #516)
+- Rooms age and are read against the best in your conference, so a rival's new weight room makes yours look older. (PR #516)
+- Each room has its own effect: the weight room grows bodies, the recovery center gets hurt players back sooner, the content studio helps your players' deals, the locker room makes visits count. (PR #516)
+- In the year before a new building opens, your team works in temporary space. (PR #516)
+- Recruits now care about campus life, some of them a lot. (PR #516)
+- A crash a few seasons in, when the NFL added a team, is fixed. (PR #516)
+- Look at: your program's rooms once the Campus screen arrives. (PR #516)
+
+## 0.2.602 (17 Nov, shipped): days wait for a running autosave instead of copying the world (PR #515), talks that know where they stand and what is between you (PR #507), progression step 5: slower closing near the top and fitted trims hold the star count (PR #518)
+**TLDR:** 3 changes ship together. The game no longer freezes for minutes when you press Continue while it autosaves. The people you talk to now know where they stand and what's between you: a senior talks about the draft, a player you met last week knows you're new, and one you've coached for years remembers your promises. Plus 1 more below.
+- Days wait for a running autosave instead of copying the world (PR #515): The game no longer freezes for minutes when you press Continue while it autosaves.
+- Pressing Continue during an autosave now waits a few seconds for the save to finish, then plays. (PR #515)
+- The button says "Finishing the autosave…" while it waits. (PR #515)
+- Macs with 8 GB of memory no longer run out of memory during an autosave. (PR #515)
+- Talks that know where they stand and what is between you (PR #507): The people you talk to now know where they stand and what's between you: a senior talks about the draft, a player you met last week knows you're new, and one you've coached for years remembers your promises.
+- Players know their eligibility, the draft and their place, and a man in his last season never talks about transferring. (PR #507)
+- Everyone knows their history with you and the time of year: how long you've been there, the games and promises between you, your last talk, and how far they trust you. (PR #507)
+- Your boss tells you his goals and how the money works, and writes down what you commit to without making you prove every sentence. (PR #507)
+- People you push argue with reasons, ask one thing at a time, and take a no once you make it final. (PR #507)
+- "Any questions?" gets a real question back, a thank-you no longer ends a talk, and calls end with a goodbye. (PR #507)
+- Progression step 5: slower closing near the top and fitted trims hold the star count (PR #518): no summary in the PR
+- Look at: press Continue a few times in a row over ten minutes of play. (PR #515) a one-on-one with a player in your first weeks, then your goals meeting with the athletic director. (PR #507)
+- Docs and tooling merged too, no game change: Scheme fit lane SF0: fit_check, the audit's measuring tool (PR #513).
+
+## 0.2.599 (17 Nov, shipped): ground lane S7: your men and your desk (the staff carousel and assistant desk screens) (PR #511)
+**TLDR:** Your staff now has a home on the Ground menu: see who another school is after, counter before he walks, and see every man's ground, mood and record in one place. Assistants get their own desk.
+- A warning when another school wants one of your men, with his face, what pulls him each way and your read of him (PR #511)
+- Three counters (a raise, a title, a promise), each showing how far it reaches and what it costs (PR #511)
+- Who could take his area, and what your standing loses with him (PR #511)
+- Every man's areas, mood and record, and the areas nobody works (PR #511)
+- An assistant's desk: your list, his answers, his memory of you and your goals (PR #511)
+- Look at: Ground, "Your men" (head coach) or "Your desk" (assistant) (PR #511)
+
+## 0.2.598 (17 Nov, shipped): ground lane S4: the lead card screen (PR #492), ground lane G10: your staff's ground and the assistant seat (PR #491), progression step 6: screens show "99+" where a read passes 99 (PR #503), and 2 more
+**TLDR:** 5 changes ship together. Ground has a Leads screen: open a kid someone told you about and see who told you, which of the five blanks are filled and by whom, who else is on him, and what to do next. Your assistants now have ground of their own: each works his own areas on the map, and losing one costs you the people he knew. As an assistant, you bring kids to your head coach and earn his trust in your eye. Plus 3 more below.
+- Ground lane S4: the lead card screen (PR #492): Ground has a Leads screen: open a kid someone told you about and see who told you, which of the five blanks are filled and by whom, who else is on him, and what to do next.
+- Your leads sit in a strip; pick one to open his card. (PR #492)
+- The five blanks show who filled each and when, with a button on the open ones. (PR #492)
+- A timeline shows who heard about him and who offered, against the day the services update. (PR #492)
+- Offer him, fill the open blank first, or let him go; each says what it risks. (PR #492)
+- Once he's your find, the card follows how he blooms. (PR #492)
+- Ground lane G10: your staff's ground and the assistant seat (PR #491): Your assistants now have ground of their own: each works his own areas on the map, and losing one costs you the people he knew. As an assistant, you bring kids to your head coach and earn his trust in your eye.
+- Your recruiting coordinator gives each assistant his areas by who he knows there, and you can move anyone on a Monday. (PR #491)
+- A young coach can ride along with a veteran and meet his high school coaches. (PR #491)
+- When another school wants one of your men, you get a few days to counter with a raise, a title or a promise. (PR #491)
+- A coach who leaves takes his ties with him, and the kids he recruited may waver until you call them. (PR #491)
+- As an assistant, bring your head coach two kids a week; he signs them or says wait, and his August verdict follows you. (PR #491)
+- Progression step 6: screens show "99+" where a read passes 99 (PR #503): When your staff thinks a player might be better than 99, his rating now says so: the range ends in "99+".
+- A range that reaches past the top reads like "97-99+". (PR #503)
+- Ranges below the top look the same as before. (PR #503)
+- Fix the "Ask in your words" 400: nullable enums as anyOf, and a check on every schema (PR #509): Asking in your own words works again: type a search like "safeties from South Carolina" and the board fills in the search for you.
+- The Find box no longer answers with an AI error on most questions. (PR #509)
+- The analyst's stat questions no longer fail the same way. (PR #509)
+- Capital lane C1: the donors (store only) (PR #510): no summary in the PR
+- Look at: open Leads after your staff has been to a few schools. (PR #492) your inbox after the first day of a new college job, for your coordinator's areas letter. (PR #491) the best athletes' speed or strength reads on your roster. (PR #503)
+- Docs and tooling merged too, no game change: Spec: how you talk, your coaching voice read and reacted to (PR #504); Scheme fit: the 25 agreed items and their lanes (docs) (PR #505); Coach fire on the field: the agreed spec (docs) (PR #506); Capital: the facilities layer spec and lane plan (PR #508).
+
+## 0.2.593 (17 Nov, shipped): ground lane G5: the week's scenes played (PR #494)
+**TLDR:** Your recruiting week now plays out as real scenes: walk into a high school coach's office, run your own clinic, sit with families on junior day and take the call the morning a kid decides.
+- A school visit goes stop by stop: the sign-in sheet shows who was in before you, the coach's office gives you his list, and your eye can catch a kid in the weight room nobody listed. (PR #494)
+- Your clinic, open practices and the state coaches' convention warm many coaches at once, fastest with the ones who run your scheme, and the hallway is where the names come out. (PR #494)
+- Junior days, visit weekends and the spring game let you sit with families, hear from player hosts and offer on the spot; from 2027 the spring game is yours to hold or skip. (PR #494)
+- Every scene ends on one line of what you walked away with, and any scene you hand to your coordinator still comes back with his line. (PR #494)
+- Look at: your next school visit or your spring clinic from the week's plan. (PR #494)
+
+## 0.2.592 (17 Nov, shipped): progression step 4c: no 99 wall, a thin top past 99, the bench by body weight (PR #502)
+**TLDR:** The best players can now go past 99 under the hood, so true freaks stand out from merely great players. Big men's bench numbers now follow their weight, as they do at the real combine.
+- Ratings no longer stop at 99. Past the mid-90s each extra point gets harder, so a 100+ arm is about as rare as a 4.25 forty. (PR #502)
+- Elite prospects are as uneven as anyone else. A top talent can have one standout tool and a weaker spot. (PR #502)
+- Bench press reps follow body weight, and the strongest men in the weight room can reach the 40-rep club. (PR #502)
+- Vertical jumps top out near the real record instead of running far past it. (PR #502)
+- Look at: the combine numbers of the biggest, strongest linemen in a draft class. (PR #502)
+
+## 0.2.591 (17 Nov, shipped): CI: screen tests share each small world; retry runners that shut down (PR #495), live talks: your boss writes down what you commit to (PR #500), let updates skip a pending older version (PR #501)
+**TLDR:** 3 changes ship together. CI: screen tests share each small world; retry runners that shut down Your athletic director now writes down what you commit to. Promise to keep the state's best player home or to win eight games, and it goes on his goals sheet, or he tells you why not. Plus 1 more below.
+- CI: screen tests share each small world; retry runners that shut down (PR #495): no summary in the PR
+- Live talks: your boss writes down what you commit to (PR #500): Your athletic director now writes down what you commit to. Promise to keep the state's best player home or to win eight games, and it goes on his goals sheet, or he tells you why not.
+- Commitments to your boss become goals he judges you on, or he says they're already on his list, below his bar or not something he can measure. (PR #500)
+- Promises to a parent, a coach on your staff or your boss now count, not only promises to players. (PR #500)
+- "Heard as" now says how a line went with each person, on their own scale, and when you didn't answer their question. (PR #500)
+- People stop asking the same question over and over once you've answered. (PR #500)
+- Asked why he should keep his job, a coordinator makes his case. (PR #500)
+- Let updates skip a pending older version (PR #501): If you leave AFM open after an update downloads, it now keeps looking and swaps in any newer version, so one restart gets you the latest.
+- AFM keeps checking for updates while a restart is waiting. (PR #501)
+- A newer version replaces the waiting one, and the prompt names the newest version. (PR #501)
+- You still get the save-your-career prompt before restarting. (PR #501)
+- Look at: the athletic director's goals meeting, then tell him what you'll deliver this season. (PR #500) leave an update waiting, then check for updates again after a newer one ships. (PR #501)
+
+## 0.2.588 (16 Nov, shipped): ground lane S8: the ground report screen (PR #496), progression step 4b part 2: the 10-yard split from his own run, with a first-step gift (PR #497), college followers retuned so the biggest stars reach 500,000 (PR #499)
+**TLDR:** 3 changes ship together. At the end of your first spring, Ground writes you a report: your goals as verdicts, the kids you found, where your ground grew and who outworked whom. The 10-yard split is now each player's own first step. Two men with the same forty can split 0.1 s apart, the way real quick-twitch players stand out. Plus 1 more below.
+- Ground lane S8: the ground report screen (PR #496): At the end of your first spring, Ground writes you a report: your goals as verdicts, the kids you found, where your ground grew and who outworked whom.
+- Your goals read as Met, Mostly, Partly or Missed, each with why (PR #496)
+- Your finds show with their faces and how far they have bloomed (PR #496)
+- Your ground by area, February to August, with lost ground marked (PR #496)
+- Who outworked whom in each area, counted in signs (PR #496)
+- The miss, a setback, your AD's word and the paper's (PR #496)
+- Progression step 4b part 2: the 10-yard split from his own run, with a first-step gift (PR #497): The 10-yard split is now each player's own first step. Two men with the same forty can split 0.1 s apart, the way real quick-twitch players stand out.
+- Every testing day's 10-yard split comes from the same run the player has on the field. (PR #497)
+- Some players have an explosive first step for life, and some start slowly, at the same forty. (PR #497)
+- Big men's splits follow the real curve by weight. (PR #497)
+- Players get going a touch slower on the field, in line with real tracking, so scoring and sacks sit a bit closer to the NFL's. (PR #497)
+- College followers retuned so the biggest stars reach 500,000 (PR #499): The biggest college stars now build national followings, and a Heisman or an All-America season makes a player famous, so college players can now have social media storms.
+- College honors such as All-America seasons, national awards and the Heisman now raise a player's fame and following. (PR #499)
+- The best-known college names now reach hundreds of thousands of followers, and a few reach close to a million. (PR #499)
+- A college star with a huge following can now get caught in a social media storm, just like a pro. (PR #499)
+- Most college players keep modest followings, the way they do in real life. (PR #499)
+- Look at: Ground, Ground report, after the week before your first game. (PR #496) your linemen's 10-yard splits on the Body and testing tab. (PR #497) the follower count on a Heisman winner's player page after the February update. (PR #499)
+- Docs and tooling merged too, no game change: Fix conflict markers in draft.md (PR #498).
+
+## 0.2.585 (16 Nov, shipped): live talks: every person plays toward his own goals, and stays on topic (PR #480), ground lane G8: a following and famous names (GR42-GR46) (PR #472), ground lane G11b: favors, switched off (PR #488)
+**TLDR:** 3 changes ship together. The people you talk to now know what the talk means to them, and they answer what you actually said. Famous NFL names now run in families, and a recruit's following matters: the hype kid makes national news, lifts your brand and weighs your stage when he picks. Plus 1 more below.
+- Live talks: every person plays toward his own goals, and stays on topic (PR #480): The people you talk to now know what the talk means to them, and they answer what you actually said.
+- A coordinator you inherit fights for his job: he makes his case from his record, asks where he stands and takes bad news his own way. (PR #480)
+- Everyone knows who you are in the room, so nobody mixes you up with the coach you replaced. (PR #480)
+- Small talk stays small: ask about the family and he tells you about his family. (PR #480)
+- An offer gets a real answer before he brings up his own worries. (PR #480)
+- The talk page now shows what's at stake before you start. (PR #480)
+- Ground lane G8: a following and famous names (GR42-GR46) (PR #472): Famous NFL names now run in families, and a recruit's following matters: the hype kid makes national news, lifts your brand and weighs your stage when he picks.
+- Sons and nephews of the world's Pro Bowlers and Hall of Famers come through high school with the family name and its hype. (PR #472)
+- The commitments of the class's best-known recruits make big news, and the biggest one leads the national news. (PR #472)
+- Landing a recruit with one of the class's biggest followings lifts your brand exposure for a year. (PR #472)
+- Recruits with big followings care more about a program's stage. (PR #472)
+- College players and recruits with huge followings can now land in a social media storm. (PR #472)
+- Ground lane G11b: favors, switched off (PR #488): no summary in the PR
+- Look at: meet a holdover coordinator in your first week and ask him why you should keep him. (PR #480) a recruit's family notes for a famous father, and the recruiting news when the class's biggest following commits. (PR #472)
+
+## 0.2.582 (16 Nov, shipped): progression step 4b: drills on real, a jump knack, thin fast 3-cone and shuttle, no printed limits (PR #490), ground lane S5: the person screen (PR #489), ground lane G6: the offseason campaign (PR #493)
+**TLDR:** 3 changes ship together. Combine numbers now look like a real combine: real jump averages by position, the odd explosive leaper, and agility records that are hard to touch. Every coach, trainer and family on your ground now has a page: his face, what he keeps of you in his own words, and what your standing gets you. Plus 1 more below.
+- Progression step 4b: drills on real, a jump knack, thin fast 3-cone and shuttle, no printed limits (PR #490): Combine numbers now look like a real combine: real jump averages by position, the odd explosive leaper, and agility records that are hard to touch.
+- The vertical and broad jump spread like real ones, and strong legs help. (PR #490)
+- Quarterbacks and backs no longer broad jump like receivers. (PR #490)
+- The very fastest 3-cones and shuttles are rare, as they are in real life. (PR #490)
+- Drill results are no longer capped, so a record-breaking day prints as it happened. (PR #490)
+- Ground lane S5: the person screen (PR #489): Every coach, trainer and family on your ground now has a page: his face, what he keeps of you in his own words, and what your standing gets you.
+- Open a coach from the map or a school to see his memory of you, dated, newest first. (PR #489)
+- See your staff's read of how good and how straight he is, and what kind of man he is. (PR #489)
+- See what Known gets you with him, and what Trusted would. (PR #489)
+- See where he stands with every other staff, and who he is tied to. (PR #489)
+- The new People page lists everyone you have dealt with. (PR #489)
+- Ground lane G6: the offseason campaign (PR #493): Your first college spring now has a shape: your AD sets his goals for the class the day after signing day, your coordinator brings his at the February meeting, and the verdict comes the week before your first game.
+- Talk your AD's goals down, take them bigger or ask why, and pick your own from a list of 63. (PR #493)
+- Every Monday you can change your own goal, and your coordinator warns you when one slips. (PR #493)
+- Long shots pay the most when you make them; sure things cost the most when you miss. (PR #493)
+- In your first offseason your coordinator walks you through your ground, three schools at a time, until you send him off. (PR #493)
+- After the verdict, a ground report sums up the spring: your goals, finds, areas and who outworked you. (PR #493)
+- Look at: a draft class's combine results. (PR #490) pick a coach on the map's "Who matters here" list. (PR #489) your coordinator's February meeting memo and the AD's office the day after signing day. (PR #493)
+
+## 0.2.579 (16 Nov, shipped): ground lane G7: people in full (PR #482), progression step 4a: real body sizes, arms, hands and wingspans, and placement's fractional need (PR #487), ground lane G11a: the high school chain reaction (PR #473), and 1 more
+**TLDR:** 4 changes ship together. The people on your recruiting ground now feel like people: coaches, families, counselors, trainers and 7v7 men each remember you, talk to each other and take what you built with them to their next job. Players now come in the real range of body shapes for their position, so you'll find short-armed tackles, long-armed corners, light receivers and the occasional huge guard. Plus 2 more below.
+- Ground lane G7: people in full (PR #482): The people on your recruiting ground now feel like people: coaches, families, counselors, trainers and 7v7 men each remember you, talk to each other and take what you built with them to their next job.
+- A recruit's family remembers you for his younger brother, and never forgets a lie. (PR #482)
+- Word gets around: what you do for one coach's kid reaches his staff and his area. (PR #482)
+- When a coach moves on, your standing goes with him, and his successor may already know you. (PR #482)
+- Each person tells you a new level in their own words, and their page shows why you stand where you do. (PR #482)
+- Progression step 4a: real body sizes, arms, hands and wingspans, and placement's fractional need (PR #487): Players now come in the real range of body shapes for their position, so you'll find short-armed tackles, long-armed corners, light receivers and the occasional huge guard.
+- Arm length, hand size and wingspan follow each position's real spread. (PR #487)
+- Receivers, backs and defensive backs vary in height and weight like real players. (PR #487)
+- Linemen have a long heavy side, so a few very big men show up. (PR #487)
+- High school coaches fill their rosters closer to real position shares. (PR #487)
+- Ground lane G11a: the high school chain reaction (PR #473): High schools now rise and fall on their players. A school that sends kids to college and the NFL grows its name, and one that stops producing slowly fades.
+- A school's name grows each summer with its former players who are in college and the NFL. (PR #473)
+- Rising schools get more exposure, so their kids get seen and recruited more. (PR #473)
+- Standouts transfer in to the risers, and families move into the district so their son can play right away where the state allows it. (PR #473)
+- Each state's transfer rule now decides how many kids move. (PR #473)
+- The news tells you when a school joins or drops out of its state's powerhouses. (PR #473)
+- Ground lane G4: news in order, leads, finds and your board from your ground (PR #484): The ground now feeds your recruiting board. Coaches you know call you first with news and point you to kids nobody rates yet, and the kids you find early pay back when they bloom.
+- News about a kid reaches the staffs his coach trusts first, and everyone else later. (PR #484)
+- High school coaches give you their list, and they tell you more the better they know you. (PR #484)
+- Each lead shows what you still don't know about the kid, and you can send your staff to fill it in. (PR #484)
+- Offer a kid the world rates low and he becomes your find. Every step he climbs lifts the coach who told you and your name as a finder. (PR #484)
+- Your board now shows the kids your own ground found, next to the ones everyone rates. (PR #484)
+- Look at: a high school coach you visit often, and the family of a recruit you call. (PR #482) the measurables on a college player's page. (PR #487) a high school's page and the June news. (PR #473)
+
+## 0.2.575 (16 Nov, shipped): ground lane S2: the meeting at the map (PR #486)
+**TLDR:** Monday's meeting is a screen: your coordinator's letter, a map of where he wants to send each man, and the week day by day, which you can change by dragging.
+- A new Ground screen, The meeting, with the road days and your free hours for the week. (PR #486)
+- Each place that wants a man is a numbered stop on the map, with who goes and where you stand there. (PR #486)
+- Your coordinator puts one call to you each week; make it or leave it to him. (PR #486)
+- Drag a man to another day to change his road, or hand the whole week to your coordinator. (PR #486)
+- Look at: open The meeting from the Ground section on a spring Monday. (PR #486)
+
+## 0.2.574 (16 Nov, shipped): ground lane G1b: standing and one memory (PR #474), weigh typed plan asks and college calls as said, not as a chip (PR #462), ground lane G3: your week and road days (PR #481), and 2 more
+**TLDR:** 5 changes ship together. The people around the kids now remember you. Every high school coach and counselor you deal with has a standing with your staff, from Stranger to Home, and it moves with the work you put in. Your coordinators and college recruiters now react to what you actually say. Ask for a lot or a little, give an order, or mix truth and spin on a call, and the answer follows. Plus 3 more below.
+- Ground lane G1b: standing and one memory (PR #474): The people around the kids now remember you. Every high school coach and counselor you deal with has a standing with your staff, from Stranger to Home, and it moves with the work you put in.
+- Your evaluation days, calls, camps and campus visits build standing with each kid's coach, his coordinators and his counselor. (PR #474)
+- When a coach moves up a level he tells you himself, in his own words, after lunch in his planning period. (PR #474)
+- Ground you stop working fades, and your staff warns you before a level slips, with who was there instead. (PR #474)
+- Pulling an offer or breaking a promise costs you with his coach for years. His kids starting, graduating and getting drafted with you pays. (PR #474)
+- Your own high school and hometown know you from day one. (PR #474)
+- Weigh typed plan asks and college calls as said, not as a chip (PR #462): Your coordinators and college recruiters now react to what you actually say. Ask for a lot or a little, give an order, or mix truth and spin on a call, and the answer follows.
+- A coordinator weighs your plan change against his own read of the last game and can push back or offer to meet you halfway. (PR #462)
+- Make it your call and he'll put it in, but he'll remember if it goes wrong. (PR #462)
+- On a college staff's call, every claim you make counts, and a bigger stretch of the truth costs more when it comes out. (PR #462)
+- A sharp recruiter notices when you tell him two different things. (PR #462)
+- Ground lane G3: your week and road days (PR #481): Your recruiting week now has a shape: a Monday letter from your coordinator, your staff out on the road day by day inside the real evaluation limits, and coaches who call you back when they're out of class.
+- Every week opens with one line on what matters, taken from the real recruiting calendar. (PR #481)
+- Your coordinator plans who goes where and why; you can change any man's days or hand the week over. (PR #481)
+- Road days come off the spring and fall limits as your coaches travel, and your budget decides who flies. (PR #481)
+- Calls to busy high school coaches leave a message, and they call back in their planning period; your men phone in from the road at night. (PR #481)
+- The May list arrives the day after Memorial Day, and you can take a week off in July. (PR #481)
+- Live talks: the ear reads asks and hedges as said, and a coach gives his read on a player (PR #485): Your staff now hear "take a look at him, I want to decide if we should cut him" as a request for their read, not as a cut, and they answer with what they actually think of the player.
+- Saying you're thinking about benching, cutting or moving someone no longer counts as having decided it. (PR #485)
+- Ask a coach for his read on a player and he tells you where that player stands at his spot, how high he could go, and whether he'd keep him. (PR #485)
+- If you tell a coach about a cut you've made to someone else, that cut no longer lands on the coach. (PR #485)
+- Softened announcements like "I think I'm going to have to let you go" still count as decisions. (PR #485)
+- Ground lane S1: the map screen and the school page (PR #483): Ground has a map: see which programs hold each recruiting area in your state, where you stand, and who the people are.
+- A new Ground section in the sidebar with The map. (PR #483)
+- Each recruiting area is shaded by who leads it, with your standing beside it and fog where you haven't worked yet. (PR #483)
+- Pick an area to see who leads it, where you stand and its head coaches by name. (PR #483)
+- Open any school for its coaches, where its kids went, its seasons and the players you've signed from it. (PR #483)
+- Look at: your inbox after a few spring evaluation weeks. (PR #474) a sit-down with your defensive coordinator, and the next college call about one of your players. (PR #462) the recruiting desk's Monday digest during the spring evaluation period. (PR #481)
+
+## 0.2.569 (16 Nov, shipped): ground lane G1a: areas and map data (PR #471), NIL lane B: multi-year deals (the new NIL scheme, item 12) (PR #476), settings: install an older version and go back to the latest (PR #475), and 5 more
+**TLDR:** 8 changes ship together. Ground lane G1a: areas and map data You can now sign recruits, transfers and your own players to NIL deals of up to four years. Locking in a star costs a buyout for anyone who wants to poach him. Plus 6 more below.
+- Ground lane G1a: areas and map data (PR #471): no summary in the PR
+- NIL lane B: multi-year deals (the new NIL scheme, item 12) (PR #476): You can now sign recruits, transfers and your own players to NIL deals of up to four years. Locking in a star costs a buyout for anyone who wants to poach him.
+- A Years box sits beside every NIL promise and portal offer, and a Term column is on the NIL desk. (PR #476)
+- Some players value a guaranteed deal and take less a year for it. Others would rather sign year to year and sell themselves again. (PR #476)
+- A player who transfers out of a multi-year deal owes half of what's left. The school that takes him pays it to you. (PR #476)
+- Rival schools now lock up their own blue-chips and top transfers, and renegotiate to keep them. (PR #476)
+- Settings: install an older version and go back to the latest (PR #475): If a new build is too buggy to play, Settings can now put an older one back, and your saves are copied aside first.
+- Settings has Other versions: every published build with its date and what changed, and an Install button. (PR #475)
+- Before it installs, AFM tells you which saves a newer build wrote, and keeps a copy of all of them. (PR #475)
+- While you stay on the older build AFM stops updating itself; Go back to the latest ends that. (PR #475)
+- Progression step 3c: body projects on their leashes, by body knack and frame (PR #478): Strength staffs can now rebuild a player's body over several years, and some bodies take to it far better than others.
+- College and pro strength staffs pick players whose bodies trail their position and put them on a strength program. (PR #478)
+- A player who takes to it can add a lot of strength and carry more weight. One who doesn't gains almost nothing. (PR #478)
+- Tall, light frames have the most room to fill. Short, heavy ones have less. (PR #478)
+- A rebuild costs a little speed for the added pounds and adds some wear. (PR #478)
+- World log: carry a person's testing days in his yearly row (PR #464): _Generated by Claude Code_
+- Weigh a typed ask to your boss or a booster as said, not on the meeting's chip (PR #479): When you ask your boss or a booster for something in your own words, they now weigh what you actually said and tell you why. Put something on the line, like a top-3 class or nine wins, and see if they buy it.
+- Asking your athletic director for NIL, staff or recruiting money in your own words is weighed on what you offer in return, your record, their trust in you and the budget, not a fixed answer. (PR #479)
+- If you put up a bar like a top-3 class or a bowl, a yes makes it a goal your boss holds you to, and the next goals meeting keeps it. (PR #479)
+- A yes stands for most of a year. Ask again for the same money before then and you'll hear why not. (PR #479)
+- A no comes with the real reason: the budget, a recent no, a record that doesn't back your promise, or not enough trust yet. (PR #479)
+- Asking for more time, for your boss to vouch for you with the big booster, or for a booster's money works the same way. (PR #479)
+- Draft boards grade prospects for the job they'd play in each club's scheme; clubs can pick their own sleepers (PR #466): NFL clubs now grade draft prospects for the job they'd do in their own scheme, so boards differ from club to club and a 3-4 team chases a different edge rusher than a 4-3 team.
+- A 3-4 club values the bendy stand-up rusher; a 4-3 club the power end who sets the edge. (PR #466)
+- Slot receivers and nickel corners grade higher with clubs that play three wide or a lot of nickel, lower with two-receiver offenses. (PR #466)
+- Single-high defenses look for a true deep safety and a box safety; two-high defenses want safeties who do both. (PR #466)
+- Clubs can now take a sleeper their own scouts love even when the public boards barely rank him. (PR #466)
+- Your war room's player card says what job your staff graded him for. (PR #466)
+- Playing time grade reads next fall's depth chart (PR #467): A school's playing time grade now comes from its real depth chart, so a struggling team with weak starters shows the openings recruits expect.
+- Playing time looks at every starting spot for next fall and how good the player holding it is. (PR #467)
+- Teams with weak starters grade higher on playing time, even if those starters are young. (PR #467)
+- Strong teams with good backups waiting behind their seniors grade lower. (PR #467)
+- Recruits and transfers weigh the new grade when they pick a school. (PR #467)
+- Look at: your NIL desk's Term column, and the Years box on a five-star's promise. (PR #476) Settings, Other versions (shows up after the next build is out). (PR #475) a lanky receiver's strength and weight over his college years. (PR #478)
+- Docs and tooling merged too, no game change: Docs: multi-year deals, five-star money decision (by proxy) (PR #477).
+
+## 0.2.561 (16 Nov, shipped): let a goodbye end a meeting cleanly (PR #463), every club's draft board reads scheme fit (PR #468), progression step 3: upper and lower body strength, the bench at the real slope, the weight room by body knack (PR #469)
+**TLDR:** 3 changes ship together. You can now end any meeting just by saying goodbye. Nothing is held against you for leaving, and anything you didn't argue stands as it was. Every NFL club now grades draft prospects for its own scheme, so boards split the way real ones do. Plus 1 more below.
+- Let a goodbye end a meeting cleanly (PR #463): You can now end any meeting just by saying goodbye. Nothing is held against you for leaving, and anything you didn't argue stands as it was.
+- Say goodbye, goodnight or "that's all" and the meeting wraps up, or press Wrap it up. (PR #463)
+- Your boss's goals stand as he set them when you don't argue them. (PR #463)
+- When a real call is still yours (keeping a holdover, a punishment, a release), the talk ends and that choice waits for you on the page. (PR #463)
+- The meeting's old answer buttons stay out of the way while you're talking. (PR #463)
+- Every club's draft board reads scheme fit (PR #468): Every NFL club now grades draft prospects for its own scheme, so boards split the way real ones do.
+- A 3-4 club and a 4-3 club now see the same edge rusher or tackle differently. (PR #468)
+- Clubs where the head coach has the final say lean hardest on fit; owners a little less than GMs. (PR #468)
+- Your own board reads fit too, and "Players who fit what we run" still leans on it more. (PR #468)
+- Progression step 3: upper and lower body strength, the bench at the real slope, the weight room by body knack (PR #469): Players now have separate upper and lower body strength, and the weight room builds some bodies far more than others.
+- A player's legs and his upper body are now rated apart: the squat and power clean read the legs, the bench the upper body. (PR #469)
+- Leg strength drives blocks, bull rushes and runs after contact, and hand strength wins the hand fight and sheds blocks. (PR #469)
+- College strength programs now show on the bench: a receiver can add a third to his max over four years. (PR #469)
+- Some players respond to the weight room far better than others, and it shows in their strength and testing numbers. (PR #469)
+- Look at: your boss's first meeting. Hear his goals, then say goodnight. (PR #463) your war room board against the mock drafts, for front-seven players. (PR #468) your strength coach's testing days over a player's first two college years. (PR #469)
+- Docs and tooling merged too, no game change: Ground: the spec and the round files (PR #470).
+
+## 0.2.558 (16 Nov, shipped): live talks: one strong line against generic praise (PR #435), the new NIL scheme, lane A: bidding, keep-him offers, NIL Go from the market, refit pots (PR #439), progression update steps 1-2: the split ceiling, knacks, skill projects, AI bets, no yearly cap (PR #456)
+**TLDR:** 3 changes ship together. When you tell a player he's your guy and mean it, he weighs it like a real commitment. Players who trust you take it to heart, and empty praise stops piling up. College money now works like a real market: schools bid for the players they want, and the best players go where they're wanted most. Plus 1 more below.
+- Live talks: one strong line against generic praise (PR #435): When you tell a player he's your guy and mean it, he weighs it like a real commitment. Players who trust you take it to heart, and empty praise stops piling up.
+- A line where you stake yourself on a player now counts for far more than a pile of compliments. (PR #435)
+- How much he buys it depends on his trust in you, the promises you've kept or broken with him, and where he sees himself on the team. (PR #435)
+- A player who doesn't trust you shrugs off the big line and trusts you a little less. (PR #435)
+- Saying it again right away adds nothing, and saying it again soon adds little. (PR #435)
+- Generic praise counts a little each time and stops adding up after three or four lines. (PR #435)
+- The new NIL scheme, lane A: bidding, keep-him offers, NIL Go from the market, refit pots (PR #439): College money now works like a real market: schools bid for the players they want, and the best players go where they're wanted most.
+- Every recruit and transfer gets the price that wins him, not a fixed rate for his position. (PR #439)
+- Schools make offers to keep their starters before the January window. (PR #439)
+- The biggest programs have real 2026 money, and Group of 5 and FCS schools share revenue by what they can afford. (PR #439)
+- NIL Go checks deals against what similar players are actually paid. (PR #439)
+- Progression update steps 1-2: the split ceiling, knacks, skill projects, AI bets, no yearly cap (PR #456): Raw players with the right tools can now be coached into real technicians, and every staff, yours and the AI's, bets on its own projects.
+- Every technique skill now has room above it that a player's body and makeup set, and coaching closes some of that room each year. (PR #456)
+- Some players pick up technique fast and some never do. Staffs only see hints of it. (PR #456)
+- Breakout years can lift a raw player's skill by a big jump. (PR #456)
+- Other staffs now run skill projects on raw players, by how much they like to develop and how safe their job is. (PR #456)
+- Growth no longer stops at 12 points in a year. (PR #456)
+- Look at: in a one-on-one with a starter who trusts you, tell him he's your guy once, then compare that with a few rounds of praise. (PR #435) a top quarterback in the January portal, and what his school offered to keep him. (PR #439) raw college corners and edge rushers with big tools, over a few seasons. (PR #456)
+
+## 0.2.555 (16 Nov, shipped): high school routes from his pass snaps, not 6 a catch (PR #459), recruiting: no staff cap on a class where the NCAA sets none (PR #460), a world from a newer game says "update the game", not a reader error (PR #461)
+**TLDR:** 3 changes ship together. A high school receiver's film now shows the routes he really ran, so a starting tight end's hands and route running read from his tape even when he caught few balls. Small colleges now sign classes the way real ones do: as many as their roster has room and need for. Plus 1 more below.
+- High school routes from his pass snaps, not 6 a catch (PR #459): A high school receiver's film now shows the routes he really ran, so a starting tight end's hands and route running read from his tape even when he caught few balls.
+- Routes on a high school record come from his snaps on pass plays, not his catches. (PR #459)
+- Tight ends who mostly block but start get their hands and routes read on film. (PR #459)
+- Backs and receivers are counted by how often each really runs a route. (PR #459)
+- A pass-heavy school's receivers show more routes than a run-heavy school's. (PR #459)
+- Recruiting: no staff cap on a class where the NCAA sets none (PR #460): Small colleges now sign classes the way real ones do: as many as their roster has room and need for.
+- Division II, NAIA, Division III and junior college staffs no longer stop at a fixed number of signees a year. (PR #460)
+- A Division III program with a lot of holes can now sign a class in the 50s. (PR #460)
+- A world from a newer game says "update the game", not a reader error (PR #461): If you open a world made by a newer version of the game, it now tells you plainly to update instead of showing a cryptic error.
+- A world your version of the game can't read says it was made by a newer version and asks you to update. (PR #461)
+- A world that is truly damaged says so instead. (PR #461)
+- The technical reason still shows at the end, short, for bug reports. (PR #461)
+- Look at: a high school tight end with few catches in your scouting file. (PR #459) the biggest small-college classes in a new world. (PR #460) nothing to try unless your game is behind; the message only shows when a world can't be read. (PR #461)
+
+## 0.2.552 (15 Nov, shipped): college spending from what it earns, support heads on a market (realism audit items 9 and 10) (PR #448), fill the star when a player is on my players (PR #453), injuries drive lost growth: the yearly step reads his real injuries (realism audit 1, 2, 14) (PR #450), and 8 more
+**TLDR:** 11 changes ship together. College programs now spend on their support staff from what they really earn, and strength coaches, trainers and other support heads move between jobs like real people. The star on a player's page now fills in once he's on your players, so you can tell at a glance. Plus 9 more below.
+- College spending from what it earns, support heads on a market (realism audit items 9 and 10) (PR #448): College programs now spend on their support staff from what they really earn, and strength coaches, trainers and other support heads move between jobs like real people.
+- The richest athletic departments spend the most on staff and recruiting, with no ceiling per level. (PR #448)
+- Support staff heads have an age and a salary, and the best get hired away by programs and clubs that pay more. (PR #448)
+- A new head coach usually brings his own strength coach with him. (PR #448)
+- An interim head coach leaves the support staff as it is. (PR #448)
+- Fill the star when a player is on my players (PR #453): The star on a player's page now fills in once he's on your players, so you can tell at a glance.
+- The star is solid when a player is on My players and an outline when he isn't. (PR #453)
+- Same star on the scouting file's button. (PR #453)
+- Clicking again still takes him off. (PR #453)
+- Injuries drive lost growth: the yearly step reads his real injuries (realism audit 1, 2, 14) (PR #450): Injuries now shape a player's growth the way they really happened, so a torn ACL in week 6 costs him, and a healthy season doesn't.
+- When a player tears an ACL or breaks a bone, the injury he actually had now decides the growth he loses and whether his burst comes back. (PR #450)
+- Shoulder, neck and concussion injuries cost a year's growth but never take a player's speed. (PR #450)
+- A few injuries hit complications and keep a player out far longer than usual. (PR #450)
+- A player who played every game no longer loses his burst to bad luck. (PR #450)
+- Recruiting: blue chips counted at signing, officials to the schools he likes best (PR #452): Recruits now take their official visits to the schools they like most, and many commit right after the visit to their favorite.
+- A recruit's official visits go to the schools at the top of his list, not to whoever offered first. (PR #452)
+- After his official visit to the school he leans to, he can commit as soon as it clearly leads. (PR #452)
+- More recruits commit in the spring and summer before their senior season. (PR #452)
+- Every team keeps its testing history; call your own testing day (PR #451): Take over a team and you now get its strength staff's testing records on every player, seasons of them. You can also call your own testing day whenever you want, at the cost of that day's training.
+- Every team at every level tests its players on its usual testing days, and the records stay with the team. (PR #451)
+- A new job comes with the team's testing history, and your staff still runs its own baseline in its first week. (PR #451)
+- Each player's Body and testing tab lists all his testing days at your team, with whose staff ran each one. (PR #451)
+- From the training screen, pick a coming day to test on. That day's practice goes. (PR #451)
+- Live talks: your word on his future and promise changes work when typed (PR #436): You can now tell a player where he stands for next year, and change a promise you made him, just by typing it in a conversation.
+- Typing "you don't have a future here", "you'd play more somewhere else" or "you'll be my last choice" to a backup, a benched starter or a man eyeing the portal now settles his year, the same way the old answer buttons did. (PR #436)
+- Naming one of his real strengths when you promise him a role makes him believe you more. If you name one that isn't really above his teammates, it sounds like a line. (PR #436)
+- You can take back a promise, push its date, add a condition, put it in writing or tell him the real reason it hasn't happened, all in your own words. (PR #436)
+- Recruiting: an open recruit spreads his official visits over his offers (PR #454): Recruits now plan their official visits around the schools that offered them, so more top recruits decide in the spring and summer before their senior season.
+- A recruit with several offers takes his official visits through the spring and June, not on a random weekend here and there. (PR #454)
+- Schools that offered him early get his visits too. (PR #454)
+- More blue chips are committed by the start of their senior season. (PR #454)
+- Plan ahead on By position, with signed and committed recruits (PR #455): Plan next season's depth chart position by position, with your incoming recruits already in it.
+- The By position tab now has the Plan ahead row: pick a future fall and set each position's order for it. (PR #455)
+- Signed recruits and committed recruits show up in the falls they arrive, ready to move up or down. (PR #455)
+- A gold * marks a recruit or transfer who has committed but not signed yet. (PR #455)
+- If a recruit backs out, he drops off your plan by himself. (PR #455)
+- The stadium's plan shows the same * on its spots. (PR #455)
+- Live talks: staff cards name the men they coach, and a draft-pick promise (PR #449): Talks with your staff and draft prospects now take you at your word. You can name the players a coach works with, and a promise to draft someone is judged on draft day.
+- Your coaches know the players they coach, so "work with him on his releases" lands on the right man. (PR #449)
+- Promising a prospect a round is now a real promise, kept or broken by your picks. (PR #449)
+- If another team takes him before your pick, or he goes back to school, the promise falls away and nobody holds it against you. (PR #449)
+- A broken draft promise costs his trust and your name with agents. (PR #449)
+- Fix red live core test on main (PR #457): no summary in the PR
+- Player page: when he can sign and his first day with you (PR #458): Every player page now tells you when he can sign with you and the first day he'd be with your team, or the day your signee arrives.
+- Recruits show the early period, signing day, and January or summer enrollment. (PR #458)
+- Transfers show the next portal window and when they'd arrive. (PR #458)
+- NFL players show the draft, minicamp, the offseason program, camp or trades. (PR #458)
+- Other leagues and high school seats get their own dates too. (PR #458)
+- Look at: a program that just changed head coach, and who runs its weight room now. (PR #448) open any player and press Add to my players. (PR #453) the development history on the page of a player coming off a long injury. (PR #450)
+
+## 0.2.541 (15 Nov, shipped): NFL pay: records can jump, the elite out-earn the top, real markets by era (realism audit 1, 3, 4) (PR #447)
+**TLDR:** The NFL's money now works like the real market: the very best at a position can set records far above everyone else, and clubs bid against each other for the top free agents.
+- An elite player is paid for how far he stands above the rest, so the best back costs much more than a good starter. (PR #447)
+- Free agents with several suitors see clubs top each other's offers, as far as each club's price and cap room go. (PR #447)
+- Each position's market follows its era: backs were paid far more in the late 90s, quarterbacks and receivers rose in the 2020s. (PR #447)
+- After today the markets move with the deals your league signs. (PR #447)
+- Look at: the biggest deals at each position after a free agency, and a record-setting extension. (PR #447)
+
+## 0.2.540 (15 Nov, shipped): keep recruits signed elsewhere off the inherited board (PR #392), college conference tables: the champion first, one order everywhere (PR #389), team page: Every season moves into the left column (PR #398), and 43 more
+**TLDR:** 46 changes ship together: keep recruits signed elsewhere off the inherited board; college conference tables: the champion first, one order everywhere; team page: Every season moves into the left column; read a high schooler's marks nationally, with his state as Near home; and 42 more.
+- Keep recruits signed elsewhere off the inherited board (PR #392): At a new college job the board you inherit still listed recruits who had already signed with another school, with or without the old staff's offers.
+- Verbal commitments elsewhere stay on the board as "committed elsewhere" (they can flip, and the daily scan reports flips); they leave when they sign, as before. (PR #392)
+- College conference tables: the champion first, one order everywhere (PR #389): Cain: "the placement on the college makes no sense".
+- The champion's row says "champions", and so does the place tile ("1st · SEC champions"). (PR #389)
+- Team page: Every season moves into the left column (PR #398): Cain: "look at the every season section, it has a massive/gap dead space".
+- Read a high schooler's marks nationally, with his state as Near home (PR #396): His overall headlines as a place in the class, in the services' steps: "About top 500 nationally at cornerback, class of 2027" (25, 50, 100, 300, 500, 1,000, 2,500, then a share).
+- The Attributes tab's tick marks and the Shape tab read the national pool too. (PR #396)
+- The squad boards still read a team against its state classification. (PR #396)
+- One-on-ones: a subject chip only selects, and "your grades" gets a fitting answer (PR #395): no summary in the PR
+- Early entrants: each underclassman weighs his whole situation; COVID decliners no longer withdraw (PR #377): His note says what weighed most ("Declared early ...
+- Bug fixed: seniors who passed on their extra COVID year could "withdraw" and go back to school. On the test world that was 4,388 in the 2024 draft year and 394 in 2025. (PR #377)
+- The calendar check's floor goes back to 40 (it was 30 after #333). (PR #377)
+- Full tests: stat book prints the same every run; day-one inbox tests allow the world's portal mail (PR #401): Two of the three red Full tests issues on main.
+- Live talks v3: shared types for N1, N3 and N4 (no behaviour) (PR #402): The contract every live talks v3 lane builds on, from docs/design/live-talks-persona.md (sections 3, 5, 8, 10, 11, 16.3).
+- Individual practice part 2: flaws and tools as an engine layer (PR #394): Every size is proposed, not confirmed.
+- Talk lane L8: discipline, booster promises, the four dead options (PR #356): Talk facts lane L8, items 14, 17 and 27 of afm/talk-facts/proposal.md (section 15).
+- Split position groups and show roles in recruiting and the Needs map (PR #374): Cain 2026-11-14: don't lump position groups at pivotal spots, mostly in recruiting and the maps.
+- Squad roster rail and stat leaders filter: one position each. (PR #374)
+- Live talks v3, lane N1: people (PR #406): Lane N1 of live talks v3 (docs/design/live-talks-persona.md).
+- Individual practice part 3: working on flaws and tools (PR #408): The tape book: every tagged rep of your players from games and practice, one row a player a game, kept two years.
+- Team page: the high school middle (PR #407): The middle of a high school's team page, built from the mock-up Cain approved (https://claude.ai/artifact/DR7xPtSwGjthzr13HeauGQ).
+- Top prospects: the three best reads on the roster, each with the ratings he is strongest and shortest in and where he stands with you. (PR #407)
+- Talent by class: a dot per player, placed by the read that judges (yours, else your staff's, else film). Gold is offered or committed to you, outlined is committed elsewhere. (PR #407)
+- SK77: CFL clubs scout their class and draft from their own reads (PR #378): SK77 from the missed-features list: a CFL club scouts players and makes its own draft picks.
+- Each club's department: director, head of Canadian scouting, a Canada West/AUS scout and an American scout, with their own eyes; fall school calls, winter film, spring coaches' film. (PR #378)
+- The Bureau's three top 20s (Sep, Jan, Apr), the invitational and national combines, NCAA pro days. (PR #378)
+- Usage promises for every position, judged on the play log (PR #404): Spot keys split: tailback, fullback, each guard, each DT, Sam, Mike, Will, each corner, nickel and dime.
+- Scouting: one "what matters at his position" cutoff for the file, the fit line and the team page (PR #411): no summary in the PR
+- Live talks v3, lane N3: deals and requests (PR #410): Your own college player: his portal lean.
+- Counters (question 3): built by the game from his heaviest want that the deal doesn't give. (PR #410)
+- Taking time: a family decider takes 3 days, a handler 5 and an agent 2. A deadline inside a week makes him answer now. (PR #410)
+- Each raise the AD already gave halves his next yes (PR #412): Before this, a yes to "a bigger recruiting budget" added a tenth with no ceiling.
+- Live talks v3, lane N6: the conversation screens (PR #415): Lane N6 of live talks v3 (docs/design/live-talks-persona.md, 16.3): the screens for the six boards Cain agreed on 2026-11-15.
+- Live talks v3, lane N4: the conversation (PR #409): Lane N4 of live talks v3 (docs/design/live-talks-persona.md, section 5), built on the shared contract (#402), lane N1's people (#406), lane N3's deals and requests and the usage promises (#404).
+- Make the AD's staff money raise count (PR #418): Staffs::pool_bonus (the boss's yes to "more money for your staff") was shown on the staff screen and read by nothing.
+- Live talks v3: wire the conversation page to N4 (PR #420): Heard as and marks: kept by scene in memory and put on your typed lines in the scene reply, so a reload still shows them.
+- The browser fake's ear also hears "promise" and "bench" lines, so marks and the confirm card can be tried with no key. (PR #420)
+- Live talks v3, lane N2: the rest of the promises (PR #419): no summary in the PR
+- Squad boards test: the Needs map has 26 spots (PR #426): Full tests on main at 5ed1d35 failed in squadboards (the_boards_at_every_seat, college: left: Some(26), right: Some(24)).
+- Live talks v3, lane N5c: staff, bosses and money (PR #425): Lane N5c of live talks v3 (docs/design/live-talks-persona.md 16.3, plus the section 17 Q10 items for the team doctor and coach references).
+- a job offer through the hiring talks; (PR #425)
+- a raise, more years, a title or the play-calling for your own assistant; (PR #425)
+- Live talks v3, lane N5e: scouting and the draft (PR #424): no summary in the PR
+- Live talks v3, lane N5b: negotiating (PR #422): Lane N5b of live talks v3 (docs/design/live-talks-persona.md, 16.3): agents, GMs, NIL, contracts, trades and the undrafted rush.
+- NIL and revenue share for your college player land through the NIL desk. (PR #422)
+- Requests: an agent's number, taking your offer to his client, holding other clubs off, getting a holdout to report, steering a client; a GM's heads-up and "not to your division". His own asks become real gives (question… (PR #422)
+- Individual practice part 4: the Development tab (PR #416): A slim strip (growth, the year, practice, load, role) above four sub-tabs.
+- Progress: each focus point with its stage ring, how often he lost the rep in its situation (his last four games against his first four), a chart from the tape book (games solid, practice dashed), weeks of work, minutes… (PR #416)
+- Focus (n/2): flaws his coaches have seen with their gain if fixed, new skills he could learn, or a plain rating; the one you pick shows its projection: the rating in that situation now and fixed, the rating by the… (PR #416)
+- Live talks v3, lane N5a: recruiting (PR #423): A promise counts as you say it (Q4), through the built pledges and portal promises, usage terms included.
+- Rooms: his decider speaks for money and the school's questions; a family call goes through the decider. (PR #423)
+- Live talks v3, lane N5d: game day and the room (PR #421): Your speech, man by man (6.12).
+- The leadership council meeting. Once a week, half an hour: "How's the room?" Each member tells what he sees of the unhappiest men by N1's rules (straight, partly, a lie, or won't say). Works with no key. (PR #421)
+- Your practice plan moves only on weeks with individual time (PR #427): Every block but the six quiet weeks gave a point the full 30 minutes, winter and summer included.
+- Live talks v3, lane N7: checks for the ear and the voice (PR #428): Lane N7 of live talks v3: the checks.
+- Talks: what you hand his coach is sized by the man at the seat today (bug 377 follow-up) (PR #318): PR #298 made the forecast on a one-on-one come from the man at the player's position coach seat today.
+- Live talks: a dodged or repeated question wears his patience, by your Relationships (PR #430): N7 finding 2, Cain's yes on 2026-11-15 ("Sounds good for now, we'll review the numbers later").
+- A line lands when a hit moves trust or mood, or a fresh question gets an answer (straight, partly or a lie). (PR #430)
+- Lines that go nowhere for other reasons keep N1's rate. Finding 1 (line weight) is not touched. (PR #430)
+- Stop Continue for an open meeting until you hold it or hand it on (PR #431): Playtest bug: with a meeting open, Continue skipped it.
+- Patch notes write themselves when a Mac build publishes (PR #432): no summary in the PR
+- Live talks checks: review fixes after lane N7 (PR #434): Labels: lines that fish for ratings, a scout grade or the depth chart take not talk or a quiet question, because the ear's rules call those not talk.
+- Settings: Compare keeps the last finished run beside the new one, so each row shows both models' scores. (PR #434)
+- Recruiting: AI offers and commitments on real days (PR #429): AI schools now offer and take commitments week by week through spring, summer and fall, not on five fixed dates. Each recruit commits on his own day, or sooner when one school clearly leads.
+- Live talks v3: the money desks' boxes play on the call with the man across (PR #437): You can now type straight to the man across the money desks: an agent on a contract, another club's GM on a trade, or a recruit about NIL money. He answers in his own words on a real call.
+- Typing on a contract page calls his agent, and your words go into that call. (PR #437)
+- Typing on the trade desk calls their GM about the man you're after. (PR #437)
+- Typing on a recruit's NIL promise calls him, and the usual contact rules apply. (PR #437)
+- The old "bring it up" fact buttons are gone, so nothing tells you what to say. (PR #437)
+- A real coaching market and firings during the season (realism audit 6, 7, 8, 12) (PR #438): Coaches now get paid what the market will bear, and nobody's job is safe mid-season. Hot names get bid up, schools fight to keep their stars, and a collapsing season can cost anyone their job.
+- A hot coach's pay is bid up by the schools and clubs that want him, and his own school can counter to keep him. (PR #438)
+- Winning coaches get raises and early extensions; NFL head coaches sign real deals that owners pay out when they fire them. (PR #438)
+- NFL owners can fire a head coach in season; a coordinator takes over as interim and may keep the job. (PR #438)
+- Coordinators and position coaches can be fired during the season at every level, high school included. (PR #438)
+- A head coach who keeps his job can now clean out as much of his staff as he wants. (PR #438)
+- Film reads what your tape showed: a skill his record barely tested, blocking in space (PR #440): Cain watched all of a tight end's tape and his catching stayed wide while other reads narrowed.
+- Hand-off projections: what each hand-off does, side by side (PR #441): Before you hand a meeting to your staff, you now see what each choice would do, side by side, and what you give up. Try handing a one-on-one or a recruit visit on, or opening the holiday dialog.
+- The hand button now names who takes the meeting, or says plainly that nobody goes. (PR #441)
+- A sheet compares handing it on with doing it yourself, using your staff's read of the coach. (PR #441)
+- The holiday dialog lists the meetings that fall inside it, and you can pick any to stop for. (PR #441)
+- Each standing duty shows who runs it and what its next two weeks look like. (PR #441)
+- Depth chart: a man who is out keeps the place you give him (PR #442): The flat Depth chart (views::depth, which the hover card's Move up and Move down use) listed the order the engine dresses for a game.
+- Recruiting: no AI transfer stop in any era, no class cap under the House limit (PR #444): Other college programs now build their rosters the way real ones do: a portal-heavy staff can bring in as many transfers as it has room for, and classes under the 105 limit are as big as the roster needs.
+- No more stop at ten transfers a year for other programs before 2025. (PR #444)
+- Under the 105 roster limit a class has no fixed top: holes at each position decide it. (PR #444)
+- The compliance office no longer quotes a signing cap that the rules don't have. (PR #444)
+- Live talks v3: the older meetings play on the conversation, not on chips (PR #445): Typing in the older meetings is now a real conversation with the person across, not a pick of one of the buttons.
+- A parent's call, a discipline meeting, the captains, the parents' meeting, a coach who calls you and your own job interviews all answer your words as themselves. (PR #445)
+- Ask them things and they tell you what they know, by how much they trust you. (PR #445)
+- In a job interview, how the committee takes your talk counts toward whether you get the job. (PR #445)
+- The meeting's own buttons are still there to finish it, and everything plays as before without an AI key. (PR #445)
+- Look at: a free agent's contract page, then type your offer and your reasons. (PR #437) the news during the season and the coaching carousel. (PR #438) open any meeting's hand button, then Go on holiday. (PR #441)
+- Docs and tooling merged too, no game change: Design: live talks v3, exhaustive, every person, talk, term and rule, and football talk… (PR #393); Live talks v3: promises for every position (proposed) (PR #397); Decisions 22: the 18-hour live talks build go-ahead and the N0 mock-ups (PR #399); Design: the split ceiling in all growth (with the projects spec from #391) (PR #400); Live talks v3, section 8.4: what the usage lane builds and what's left for N2 (PR #403); Docs: the recruiting budget raise is already read (PR #371) (PR #405); and 6 more.
+
 <!-- older entries below: hand-written, up to 0.2.492 -->
 
 ## 0.2.492 (15 Nov, shipped): live talks hear what a typed line said beyond its chip (PR #388)

@@ -152,8 +152,12 @@ pub(crate) fn bonds(w: &World) -> HashMap<(u32, usize), f64> {
     for s in &b.sold {
         m.insert((s.player, s.to), if s.ghost { 1.0 } else { s.bond as f64 });
     }
-    for s in &b.placed {
-        m.insert((s.player, s.to), s.bond as f64);
+    // With Ground's favors switched on, a placement is a look and nothing
+    // more (rule 3): it adds nothing to his choice and skips no depth check.
+    if !w.options.favors {
+        for s in &b.placed {
+            m.insert((s.player, s.to), s.bond as f64);
+        }
     }
     m
 }
@@ -599,6 +603,12 @@ fn football_budget(w: &World, j: usize) -> f64 {
 /// In the NFL, from ten days before cutdown day to cutdown day, it's a
 /// late-round pick swap with the friend's club instead of a release.
 pub fn place_player(w: &mut World, id: u32, coach: usize) -> Result<String, String> {
+    // Ground's favor economy (lane G11b), when the world has it switched on:
+    // any kid in any direction, for a real hole, and the call is a look you
+    // owe for (`ground::favors`).
+    if crate::world::ground::favors::on(w) {
+        return crate::world::ground::favors::place(w, id, coach, 1, None, None);
+    }
     let k = w.folk.network.contacts.iter().position(|x| x.coach_id() == Some(coach)).ok_or("You don't know him.")?;
     let warmth = w.folk.network.contacts[k].warmth;
     if warmth < 0.2 {

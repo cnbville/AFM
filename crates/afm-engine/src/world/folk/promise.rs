@@ -413,8 +413,10 @@ pub fn trust_part(w: &World, i: usize, h: Hearer) -> f64 {
             // A family that runs it reads you warier than the boy does.
             let family = if ear == Ear::Decider { -0.03 } else { 0.0 };
             let rel = you(w).map_or(10.0, |c| w.coaches[c].ability().relationships);
-            (0.5 + 0.25 * w.folk.mine.name(Name::Trail) as f64 + 0.01 * (rel - 10.0) + 2.0 * straight + family)
-                .clamp(0.1, 0.9)
+            // The trail's name is what a stranger reads; a family that
+            // knows you reads you from its own memory (Ground, GR62).
+            let name = crate::world::ground::stores::family_name(w, i).unwrap_or_else(|| w.folk.mine.name(Name::Trail));
+            (0.5 + 0.25 * name as f64 + 0.01 * (rel - 10.0) + 2.0 * straight + family).clamp(0.1, 0.9)
         }
     }
 }
@@ -535,6 +537,12 @@ pub fn likely_own(w: &World, i: usize, kind: PromiseKind, t: &Terms) -> f64 {
     let best = ahead.iter().filter_map(|&a| super::person(w, a)).map(|j| looks(w, j)).fold(f64::MIN, f64::max);
     let gap = if best == f64::MIN { 6.0 } else { me - best };
     let mut k = match kind {
+        // A pick by a round: how it sits against where the scouts project
+        // him (December's read), as he and his agent hear it.
+        PromiseKind::Draft(r) => {
+            let pr = p.cal.draft_read.map_or(8, |d| d.round) as f64;
+            if f64::from(r) >= pr { 0.9 } else { 0.9 - 0.15 * (pr - f64::from(r)) }
+        }
         k if needs_passing(k) => 0.65 + 0.06 * gap,
         PromiseKind::Snaps | PromiseKind::Touches | PromiseKind::Join(_) | PromiseKind::Recruit(1, _) => {
             0.8 + 0.05 * gap

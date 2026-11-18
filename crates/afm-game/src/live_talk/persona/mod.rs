@@ -295,6 +295,22 @@ pub struct EarReply {
     pub hits: Vec<EarHit>,
     pub dodged: bool,
     pub not_talk: bool,
+    /// How the coach said it (coach voice, section 1): five words, one a
+    /// dial. None from an answer without it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub manner: Option<EarManner>,
+}
+
+/// The ear's five words on the coach's manner (`persona::manner`'s
+/// `HEAT`, `LANGUAGE`, `AIM`, `CARE` and `SAY`).
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct EarManner {
+    pub heat: String,
+    pub language: String,
+    pub aim: String,
+    pub care: String,
+    pub say: String,
 }
 
 /// What the voice is given (3.7): who he is as behaviour, where, and what
@@ -319,6 +335,12 @@ pub struct VoiceCard {
     pub football: String,
     /// How long he's known you, and how it's gone.
     pub known_you: String,
+    /// Where he stands (`talk::standing`): the facts of his own situation he
+    /// knows without being told (eligibility, the draft, his deal, his job).
+    pub standing: Vec<String>,
+    /// What the talk is to him (`talk::stakes`): who you are to him, what
+    /// rides on it, what he wants from it, what he can point to.
+    pub stakes: Vec<String>,
     /// Who else is in the room and how they sit.
     pub room: Vec<String>,
     /// He'd swear, in this setting.
@@ -329,6 +351,8 @@ pub struct VoiceCard {
     pub may_name: Vec<Tagged>,
     /// What the game released this turn (`ear::Say::released`).
     pub released: Vec<String>,
+    /// What the coach just did, for him to react to (`ear::Say::heard`).
+    pub heard: Vec<String>,
     /// His stance on a hard topic, in words.
     pub stance: String,
     /// The tell your read caught.
@@ -339,8 +363,21 @@ pub struct VoiceCard {
     pub lie: String,
     /// His counter and his own asks, in words.
     pub asks: Vec<String>,
+    /// Who asks them this line when it isn't him (his parents doing the
+    /// talking): they ask for him.
+    pub asked_by: String,
+    /// His asks from earlier lines of this talk: never asked again.
+    pub asked_before: Vec<String>,
+    /// His last line raised an ask, which he may press once on this one.
+    pub pressing: bool,
     /// How hot it is, in words, and what he does about it.
     pub heat: String,
+    /// How he took the coach's manner on this line (coach voice, section 7):
+    /// he answers in kind.
+    pub manner: String,
+    /// How the coach comes across to him, by what he has seen and heard
+    /// (coach voice, section 2): the words for the coach's read.
+    pub coach_read: String,
     /// His colour notebook (`memory::Colour`): details he said before.
     pub notebook: Vec<String>,
     pub so_far: Vec<Spoken>,

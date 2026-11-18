@@ -205,12 +205,12 @@ fn lean(spot: Spot) -> &'static [(Attr, f64)] {
 
 /// How much a spot's lean moves the rating, per point of lean above his
 /// group's other spot.
-const LEAN: f64 = 0.35;
+pub(crate) const LEAN: f64 = 0.35;
 
 /// Rating points of Speed a pound of body costs at the same Speed rating:
 /// the forty's weight term over its speed term (`body::forty`, 0.0033 /
 /// 0.0124, Speed's 0.75 share), so the read below is his true speed.
-const SPEED_PER_LB: f64 = 0.0033 / (0.0124 * 0.75);
+pub(crate) const SPEED_PER_LB: f64 = 0.0033 / (0.0124 * 0.75);
 
 /// A staff reads the body as one input when it names a job (linebacker L1,
 /// corner C1, safety A; Cain 2026-11-07: the coach picks, nothing forces
@@ -221,7 +221,7 @@ const SPEED_PER_LB: f64 = 0.0033 / (0.0124 * 0.75);
 /// read as true speed about the job's typical weight. The sizes are
 /// proposed, not confirmed; the real check is the AI's picks across a
 /// league (`ab_check`, the job rows).
-fn lean_value(spot: Spot, a: &Attributes, weight: f64, height: f64) -> f64 {
+pub(crate) fn lean_value(spot: Spot, a: &Attributes, weight: f64, height: f64) -> f64 {
     let pivot = match spot {
         Spot::OLB | Spot::SAM | Spot::MLB => 235.0,
         Spot::CB | Spot::NB => 195.0,

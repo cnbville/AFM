@@ -3,7 +3,8 @@
 //! decider's wants (`decider_wants`), a college player his own
 //! (`own_wants`), a pro and a prospect the market's goals
 //! (`market::goals`), a booster his `cast::Want`s, a boss his goals for you
-//! (`boss.rs`); a coach, an agent and a GM want what their makeup says.
+//! (`boss.rs`); a coach, an agent and a GM want what their makeup says,
+//! and a coach on your staff wants to keep his job (`talk::stakes`).
 //! A want you've already met (an open or kept promise, a deal agreed) is
 //! marked, so what he asks next is what he wants most that you haven't
 //! given (question 3).
@@ -89,15 +90,46 @@ pub fn raw(w: &World, him: Them) -> Vec<(WantKind, f32)> {
                     out.push((WantKind::Loyalty, (0.6 * g.loyalty) as f32));
                 }
                 _ => {
-                    // A college or high school player: his own wants, his
-                    // role weighed by his ambition, and his friends.
-                    from_wants(&p.family.own_wants, 1.0, &mut out);
-                    out.push((WantKind::Role, 0.08 * (1.0 + z(m.ambition)).max(0.0)));
-                    out.push((WantKind::Loyalty, 0.06 * (1.0 + z(m.loyalty)).max(0.0)));
+                    use super::talk::standing::{self, Road};
+                    let road = standing::road(w, i);
                     let friends = crate::world::folk::ties::friends(w, p.player.id).len().min(4) as f32;
-                    out.push((WantKind::Friends, 0.025 * friends * (1.0 + z(m.loyalty)).max(0.0)));
-                    if kind == Kind::Transfer {
-                        out.push((WantKind::Role, 0.15));
+                    if road.college_ends() {
+                        // His college career ends this year (Cain
+                        // 2026-11-16: a senior with no eligibility asked
+                        // for a role): the draft is in front of him, not a
+                        // role next season or a school near home. What his
+                        // family weighed still colours it: the money, being
+                        // ready for the league, his degree.
+                        let o = &p.family.own_wants;
+                        out.push((WantKind::Draft, 0.45 + 0.15 * z(m.ambition)));
+                        out.push((WantKind::Money, 0.5 * o.money as f32));
+                        out.push((WantKind::Development, 0.05 + 0.5 * o.development as f32));
+                        out.push((WantKind::Academics, 0.5 * o.academics as f32));
+                        if road == Road::LastSeason {
+                            // Still playing: his last snaps are his tape,
+                            // and one more run with his teammates.
+                            out.push((WantKind::Role, 0.08 * (1.0 + z(m.ambition)).max(0.0)));
+                            out.push((WantKind::Winning, 0.08 + 0.3 * o.prestige as f32));
+                        }
+                        out.push((WantKind::Loyalty, 0.04 * (1.0 + z(m.loyalty)).max(0.0)));
+                        out.push((WantKind::Friends, 0.015 * friends * (1.0 + z(m.loyalty)).max(0.0)));
+                    } else {
+                        // A college or high school player: his own wants,
+                        // his role weighed by his ambition, and his friends.
+                        from_wants(&p.family.own_wants, 1.0, &mut out);
+                        out.push((WantKind::Role, 0.08 * (1.0 + z(m.ambition)).max(0.0)));
+                        out.push((WantKind::Loyalty, 0.06 * (1.0 + z(m.loyalty)).max(0.0)));
+                        out.push((WantKind::Friends, 0.025 * friends * (1.0 + z(m.loyalty)).max(0.0)));
+                        if kind == Kind::Transfer {
+                            out.push((WantKind::Role, 0.15));
+                        }
+                        // Free to declare: the draft weighs by his drive,
+                        // and more once the scouts' word says early.
+                        if road == Road::Deciding {
+                            let early =
+                                standing::scouts_word(w, i).is_some() && p.cal.draft_read.is_some_and(|r| r.round <= 3);
+                            out.push((WantKind::Draft, 0.12 + 0.08 * z(m.ambition) + if early { 0.2 } else { 0.0 }));
+                        }
                     }
                 }
             }
@@ -110,7 +142,7 @@ pub fn raw(w: &World, him: Them) -> Vec<(WantKind, f32)> {
             from_wants(&f.decider_wants, if slot == 0 { 1.0 } else { 0.7 }, &mut out);
             out.push((WantKind::Family, if slot == 0 { 0.12 } else { 0.3 }));
         }
-        Them::Coach(_) => match kind {
+        Them::Coach(c) => match kind {
             Kind::HsCoach => {
                 out.push((WantKind::Kids, 0.45 + 0.1 * z(m.warmth)));
                 out.push((WantKind::Name, 0.2 + 0.1 * z(m.ego)));
@@ -124,6 +156,11 @@ pub fn raw(w: &World, him: Them) -> Vec<(WantKind, f32)> {
                 out.push((WantKind::Winning, 0.2));
                 out.push((WantKind::Loyalty, 0.1 + 0.1 * z(m.loyalty)));
                 out.push((WantKind::Family, 0.08));
+                // A man on your staff wants to keep his job: most of all a
+                // holdover you haven't decided on (`talk::stakes`).
+                if kind == Kind::Staff {
+                    out.push((WantKind::Security, super::talk::stakes::job_weight(w, c)));
+                }
             }
         },
         Them::Cast(r, _) => match kind {
@@ -148,10 +185,22 @@ pub fn raw(w: &World, him: Them) -> Vec<(WantKind, f32)> {
                 out.push((WantKind::Winning, 0.25));
                 out.push((WantKind::Career, 0.15 + 0.1 * z(m.ambition)));
             }
+            // Your support staff (the trainer, the strength coach,
+            // academics, operations, the cap manager, personnel) and the
+            // outside: his own career and winning; the program's name is
+            // the communications director's job, a little anyone else's
+            // (the talks audit, 2026-11-16: the head trainer asked the
+            // head coach how the program is seen from the outside).
             _ => {
-                out.push((WantKind::Career, 0.4 + 0.2 * z(m.ambition)));
-                out.push((WantKind::Name, 0.3 + 0.1 * z(m.ego)));
-                out.push((WantKind::Winning, 0.2));
+                use crate::world::folk::cast::Role as CastRole;
+                let name = if r.role == CastRole::Comms { 0.3 + 0.1 * z(m.ego) } else { 0.05 + 0.05 * z(m.ego) };
+                out.push((WantKind::Career, 0.35 + 0.2 * z(m.ambition)));
+                out.push((WantKind::Name, name.max(0.0)));
+                out.push((WantKind::Winning, 0.25));
+                if kind == Kind::Staff {
+                    out.push((WantKind::Money, 0.1 + 0.1 * z(m.greed)));
+                    out.push((WantKind::Loyalty, 0.1 + 0.1 * z(m.loyalty)));
+                }
             }
         },
         Them::Agent(_) => {
@@ -247,5 +296,6 @@ pub fn want_words(k: WantKind) -> &'static str {
         WantKind::Goals => "his goals for you, the budget, the program's name",
         WantKind::Booster(x) => x.short(),
         WantKind::Kids => "his kids' futures",
+        WantKind::Draft => "the NFL draft: going as high as he can",
     }
 }

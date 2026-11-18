@@ -4,6 +4,8 @@
 //! with nothing held against you. Off the fresh start a pulled commitment
 //! still cools his high school, as before.
 
+mod common;
+
 use afm_engine::world::front_office::college::{self as desk, Source};
 use afm_engine::world::{Stage, World};
 use afm_game::Game;
@@ -75,7 +77,7 @@ fn start(g: &mut Game, job: &Value, no_offers: bool) {
 fn a_new_staff_resets_the_board() {
     let dir = std::env::temp_dir().join(format!("afm-fresh-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     let fresh = ok(&mut g, "save", json!({ "name": "fresh" }))["saved"].as_str().unwrap().to_string();
     // The first job down the list whose old staff left more offers out than
     // the test uses (`NEED`), else the one with the most. A small world's
@@ -229,7 +231,7 @@ fn signed_elsewhere_never_lands_on_the_inherited_board() {
     use afm_engine::world::Signed;
     let dir = std::env::temp_dir().join(format!("afm-fresh-signed-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 7, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     let fresh = ok(&mut g, "save", json!({ "name": "fresh" }))["saved"].as_str().unwrap().to_string();
     // A job whose old staff left at least three unsigned offers out.
     let jobs = ok(&mut g, "jobs", json!({ "level": "college" }))["jobs"].as_array().unwrap().clone();

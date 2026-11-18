@@ -3,6 +3,8 @@
 //! seat shows, a player's Story tab), a name you give sticks only to your
 //! own player and never to a legend's, and the uniform you pick holds.
 
+mod common;
+
 use afm_game::Game;
 use serde_json::{Value, json};
 
@@ -17,7 +19,7 @@ fn ok(g: &mut Game, cmd: &str, args: Value) -> Value {
 fn every_stories_page_answers_at_a_college_seat() {
     let dir = std::env::temp_dir().join(format!("afm-stories-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 12, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 12, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     let jobs = ok(&mut g, "jobs", json!({ "level": "college" }));
     let job = jobs["jobs"][0]["ref"].clone();
     ok(&mut g, "start_career", json!({ "name": "Test Coach", "job": job, "seed": 3 }));

@@ -48,6 +48,10 @@ pub enum GoalKind {
     /// A season term you bargained (lane N2; `terms.rs`): a rank, wins, a
     /// postseason, a title, a player's season.
     Measure(super::usage::Usage),
+    /// A recruiting goal from the list of 63 (Ground lane G6,
+    /// `ground::campaign::goals`): the one or two he holds you to in his
+    /// talk after signing day.
+    Campaign(crate::world::ground::campaign::goals::Aim),
 }
 
 impl GoalKind {
@@ -72,7 +76,24 @@ impl GoalKind {
             },
             GoalKind::Develop => "develop the young players".into(),
             GoalKind::Crowds => "fill the stadium".into(),
-            GoalKind::Measure(u) => super::terms::words(&u),
+            // A season term as a goal, said like the others ("reach at
+            // least 9 wins this season").
+            GoalKind::Measure(u) => {
+                let s = super::terms::words(&u);
+                match u.what {
+                    super::usage::What::Honor => s.replacen("makes ", "make ", 1),
+                    super::usage::What::Title => format!("win {s}"),
+                    super::usage::What::Rank => format!("finish {s}"),
+                    _ => format!("reach {s}"),
+                }
+            }
+            GoalKind::Campaign(a) => {
+                let d = a.def();
+                let name = d.name.replace("{n}", &a.n.to_string());
+                let mut c = name.chars();
+                let name = c.next().map_or(String::new(), |f| f.to_lowercase().collect::<String>() + c.as_str());
+                format!("meet the class goal you agreed: {name}")
+            }
         }
     }
 }
@@ -86,6 +107,11 @@ pub struct Goal {
     pub deal: i8,
     pub met: Option<bool>,
     pub set_on: Date,
+    /// A bar you put up yourself in a talk (live talks v3, `folk::asked`):
+    /// the goals meeting keeps it in place of its own goal of that kind.
+    /// False in a file from before it.
+    #[serde(default)]
+    pub talk: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -109,7 +135,7 @@ impl AskKind {
             AskKind::Extension => "an extension",
         }
     }
-    fn code(self) -> u32 {
+    pub(crate) fn code(self) -> u32 {
         match self {
             AskKind::StaffMoney => 0,
             AskKind::Facility => 1,
@@ -255,7 +281,7 @@ fn reply(w: &mut World, s: &Scene, b: &Cast, key: &str, f: &Facts, k: u64, fallb
 
 /// The goals that fit the team and the boss: his situation read from the
 /// team's last seasons, its level, and his own wants (topic 12).
-fn draft_goals(w: &World, team: Team) -> Vec<GoalKind> {
+pub(crate) fn draft_goals(w: &World, team: Team) -> Vec<GoalKind> {
     let level = team.level();
     let last = facts::seasons(w, team, 3);
     let games = last.last().map_or(12, |s| s.wins + s.losses).max(10) as f64;
@@ -288,7 +314,11 @@ fn draft_goals(w: &World, team: Team) -> Vec<GoalKind> {
             if avg_wp > 0.7 {
                 v.push(GoalKind::Title);
             }
-            v.push(GoalKind::Recruiting(if avg_wp > 0.6 { 3 } else { 6 }));
+            // His class goal came in his talk after signing day when he
+            // held you to one there (Ground lane G6).
+            if !crate::world::ground::campaign::ad_set(w, goal_season(w, team)) {
+                v.push(GoalKind::Recruiting(if avg_wp > 0.6 { 3 } else { 6 }));
+            }
             v.push(GoalKind::Grades);
         }
         _ => {
@@ -318,7 +348,7 @@ fn draft_goals(w: &World, team: Team) -> Vec<GoalKind> {
 }
 
 /// The season the goals are for: the next one before kickoff.
-fn goal_season(w: &World, team: Team) -> i32 {
+pub fn goal_season(w: &World, team: Team) -> i32 {
     let kickoff = match team {
         // Another league's opener (the CFL's June, a spring league's
         // March; minor bug B40).
@@ -403,6 +433,11 @@ fn meeting_open(w: &mut World, s: &mut Scene) {
             }
         }
         2 => review_open(w, s, team, &b, &mut pen, &mut f),
+        crate::world::ground::campaign::talk::CODE => {
+            pen.put(w);
+            crate::world::ground::campaign::talk::open(w, s, team);
+            return;
+        }
         3 => {
             // You asked for the meeting: he gives you the time and waits.
             s.narrate(format!(
@@ -422,8 +457,18 @@ fn meeting_open(w: &mut World, s: &mut Scene) {
             add_ask_picks(w, s, team);
         }
         _ => {
-            let goals = draft_goals(w, team);
             let season = goal_season(w, team);
+            // His lines name the season he sets the goals for, not the
+            // calendar year the meeting falls in (a December takeover sets
+            // next season's goals).
+            f.set("year", season.to_string());
+            // A bar you put up in a talk stays, in place of his own of that
+            // kind (`asked::hold`).
+            let same = |a: &GoalKind, b: &GoalKind| std::mem::discriminant(a) == std::mem::discriminant(b);
+            let kept: Vec<GoalKind> =
+                w.folk.goals.iter().filter(|g| g.season == season && g.talk).map(|g| g.kind).collect();
+            let goals: Vec<GoalKind> =
+                draft_goals(w, team).into_iter().filter(|g| !kept.iter().any(|k| same(k, g))).collect();
             s.narrate(format!(
                 "{} {}",
                 b.link(),
@@ -445,6 +490,12 @@ fn meeting_open(w: &mut World, s: &mut Scene) {
                 cols: vec!["Goal".into(), "Why he wants it".into()],
                 rows: Vec::new(),
             };
+            for g in &kept {
+                doc.rows.push(DocRow {
+                    pid: None,
+                    cells: vec![super::takeover::cap_first(&g.words(level)), "The bar you put up yourself.".into()],
+                });
+            }
             for g in &goals {
                 doc.rows.push(DocRow {
                     pid: None,
@@ -452,9 +503,9 @@ fn meeting_open(w: &mut World, s: &mut Scene) {
                 });
             }
             s.docs.push(doc);
-            w.folk.goals.retain(|g| g.season != season);
+            w.folk.goals.retain(|g| g.season != season || g.talk);
             for g in goals {
-                w.folk.goals.push(Goal { kind: g, season, deal: 0, met: None, set_on: w.today });
+                w.folk.goals.push(Goal { kind: g, season, deal: 0, met: None, set_on: w.today, talk: false });
             }
             s.pick(
                 20,
@@ -500,7 +551,7 @@ fn boss_tell(b: &Cast, t: f32) -> String {
     }
 }
 
-fn why_goal(w: &World, team: Team, g: GoalKind) -> String {
+pub(crate) fn why_goal(w: &World, team: Team, g: GoalKind) -> String {
     let last = facts::seasons(w, team, 1);
     match g {
         GoalKind::Wins(_) => {
@@ -523,6 +574,7 @@ fn why_goal(w: &World, team: Team, g: GoalKind) -> String {
         GoalKind::Develop => "A rebuild: he wants to see the young players grow.".into(),
         GoalKind::Crowds => "Empty seats are lost money, and he counts it.".into(),
         GoalKind::Measure(_) => "It's the bar you agreed with him.".into(),
+        GoalKind::Campaign(_) => "He set it the day after signing day.".into(),
     }
 }
 
@@ -613,6 +665,21 @@ fn review_open(w: &mut World, s: &mut Scene, team: Team, b: &Cast, pen: &mut sup
     add_ask_picks(w, s, team);
 }
 
+/// A program's recruiting class's place in its conference in a season
+/// (1 the best), from the classes' scores; None when it signed none.
+pub fn class_rank(w: &World, p: usize, season: i32) -> Option<u32> {
+    let conf = &w.programs[p].conference;
+    let mut scores: Vec<(usize, f64)> = w
+        .programs
+        .iter()
+        .enumerate()
+        .filter(|(_, q)| &q.conference == conf)
+        .filter_map(|(k, q)| q.class_scores.iter().find(|x| x.0 == season).map(|x| (k, x.1)))
+        .collect();
+    scores.sort_by(|a, b| b.1.total_cmp(&a.1));
+    scores.iter().position(|x| x.0 == p).map(|r| r as u32 + 1)
+}
+
 /// Whether a goal was met in a season, from the world's record.
 pub fn goal_met(w: &World, team: Team, k: GoalKind, season: i32) -> bool {
     let s = facts::seasons(w, team, 6).into_iter().find(|s| s.year == season);
@@ -632,18 +699,7 @@ pub fn goal_met(w: &World, team: Team, k: GoalKind, season: i32) -> bool {
         GoalKind::Title => s.note.contains("champion") || s.note.contains("won"),
         GoalKind::BeatRival => want_met(w, Want::BeatRival),
         GoalKind::Recruiting(n) => match team {
-            Team::College(p) => {
-                let conf = &w.programs[p].conference;
-                let mut scores: Vec<(usize, f64)> = w
-                    .programs
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, q)| &q.conference == conf)
-                    .filter_map(|(k, q)| q.class_scores.iter().find(|x| x.0 == season).map(|x| (k, x.1)))
-                    .collect();
-                scores.sort_by(|a, b| b.1.total_cmp(&a.1));
-                scores.iter().position(|x| x.0 == p).is_some_and(|r| r < n as usize)
-            }
+            Team::College(p) => class_rank(w, p, season).is_some_and(|r| r <= n as u32),
             _ => true,
         },
         GoalKind::Clean => !w
@@ -666,6 +722,7 @@ pub fn goal_met(w: &World, team: Team, k: GoalKind, season: i32) -> bool {
         GoalKind::Develop => true,
         GoalKind::Crowds => s.wins * 2 >= s.losses * 2,
         GoalKind::Measure(u) => super::terms::met(w, super::terms::Who::Team(team), &u, season) == Some(true),
+        GoalKind::Campaign(a) => crate::world::ground::campaign::met(w, team, &a),
     }
 }
 
@@ -707,6 +764,24 @@ fn add_ask_picks(w: &World, s: &mut Scene, team: Team) {
         if !k.at(level) || w.folk.asks.iter().any(|a| a.kind == k && a.date.days_to(w.today) < 300) {
             continue;
         }
+        // An NFL owner hears a room by name once the rooms live (Capital
+        // lane C6, CP35): the three furthest behind where he keeps them.
+        if k == AskKind::Facility
+            && let Team::Nfl(t) = team
+            && let Some(rooms) = crate::world::capital::nfl::rooms_to_ask(w, t)
+        {
+            let (_, lev) = crate::world::capital::nfl::leverage(w, t);
+            for r in rooms {
+                s.pick(
+                    ROOM_PICK + r as u32,
+                    format!("Ask for a new {}", crate::world::capital::nfl::words(r)),
+                    "Ask",
+                    "calm",
+                    &format!("{}. Your leverage: {}.", crate::world::capital::nfl::unlocks(r), lev.to_lowercase()),
+                );
+            }
+            continue;
+        }
         s.pick(
             40 + k.code(),
             format!("Ask for {}", k.words()),
@@ -723,6 +798,10 @@ fn meeting_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         s.end();
         return;
     };
+    if s.c == crate::world::ground::campaign::talk::CODE {
+        crate::world::ground::campaign::talk::answer(w, s, code, picked);
+        return;
+    }
     let b = boss(w, team);
     s.you(&scene::your_name(w), picked.label.clone());
     let season = goal_season(w, team);
@@ -873,8 +952,31 @@ fn meeting_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
             let line = reply(w, s, &b, key, &f, 2, line);
             s.them(&b.name, line, None);
         }
+        c if (ROOM_PICK..ROOM_PICK + crate::world::capital::rooms::ROOMS as u32).contains(&c) => {
+            let r = crate::world::capital::rooms::Room::from_index((c - ROOM_PICK) as u8);
+            let said = match r.map(|r| crate::world::capital::nfl::ask_room(w, r)) {
+                Some(Ok((_, words))) => words,
+                Some(Err(e)) => e,
+                None => "We've been over that one already.".into(),
+            };
+            s.them(&b.name, said.clone(), None);
+            s.outcome.push(format!("You asked for a room: {said}"));
+            add_ask_picks(w, s, team);
+            if s.picks.len() <= 1 || u64::from(s.step) >= 3 + s.a.min(2) {
+                s.end();
+            }
+            return;
+        }
         40..=45 => {
             let k = AskKind::from_code(code - 40);
+            // A pick still on the table after you asked it in words (or on
+            // another pick) gets no second answer.
+            if asked_lately(w, k) {
+                s.them(&b.name, "We've been over that one already.", None);
+                s.outcome.push(format!("You asked for {} again: {} had already answered.", k.words(), b.he()));
+                add_ask_picks(w, s, team);
+                return;
+            }
             ask(w, s, team, k);
             // A granted facility while you owe a booster your vote on its
             // name: he asks where you stand (talk facts lane L8).
@@ -919,6 +1021,10 @@ pub fn request_meeting(w: &mut World) -> Result<u32, String> {
     Ok(scene::add(w, s))
 }
 
+/// The meeting's codes for asking an NFL owner for one room (60 plus the
+/// room's index; Capital lane C6).
+pub(crate) const ROOM_PICK: u32 = 60;
+
 /// One yes to a bigger recruiting budget: a tenth more for travel and
 /// visits, from today (proposed, not confirmed).
 const RECRUIT_RAISE: f32 = 0.1;
@@ -930,7 +1036,7 @@ const STAFF_RAISE: f32 = 0.1;
 /// yes chance: half. A budget he has already stretched for you once is
 /// harder to stretch again, so the raises can't stack without end (a third
 /// yes comes at a quarter of the first's chance; proposed, not confirmed).
-const GIVEN_CUT: f64 = 0.5;
+pub(crate) const GIVEN_CUT: f64 = 0.5;
 
 /// His yes chance's share left after the raises of this kind he has
 /// already granted you in this job (the staff pool's and the recruiting
@@ -944,29 +1050,40 @@ pub(crate) fn given_cut(w: &World, k: AskKind) -> f64 {
     GIVEN_CUT.powf(given.max(0.0).round() as f64)
 }
 
-/// Whether he says yes to an ask today (topic 12): his money, his trust in
-/// you and his personality, through the day's keyed roll. The same answer
-/// whether you click it or say it (live talks lane N5c).
-pub fn ask_yes(w: &World, team: Team, k: AskKind) -> bool {
-    let b = boss(w, team);
-    let t = trust(w, team) as f64;
-    let rich = match team {
+/// His money as the asks read it: a college's budget against a big
+/// program's, the NFL's full, another league's thin, a high school's
+/// resources.
+pub(crate) fn rich(w: &World, team: Team) -> f64 {
+    match team {
         Team::College(p) => (crate::world::staff::program_budget(&w.programs[p]) / 80.0e6).min(1.5),
         Team::Nfl(_) => 1.0,
         Team::Other(_) => 0.4,
         Team::High(h) => w.high_schools[h].resources,
-    };
+    }
+}
+
+/// His yes chance for an ask today (topic 12): his money, his trust in you,
+/// the goals you've met and his personality.
+pub(crate) fn chance(w: &World, team: Team, k: AskKind) -> f64 {
+    let b = boss(w, team);
+    let t = trust(w, team) as f64;
+    let rich = rich(w, team);
     let goals_met = w.folk.goals.iter().filter(|g| g.met == Some(true)).count() as f64;
-    let p = (0.15 + 0.6 * (t - 0.4) + 0.2 * rich + 0.06 * goals_met - 0.03 * (b.tight - 10.0)
-        + 0.02 * (b.warmth - 10.0)
+    (0.15 + 0.6 * (t - 0.4) + 0.2 * rich + 0.06 * goals_met - 0.03 * (b.tight - 10.0) + 0.02 * (b.warmth - 10.0)
         - if k == AskKind::Extension && w.folk.mine.since.is_some_and(|d| d.days_to(w.today) < 500) {
             0.3
         } else {
             0.0
         })
     .clamp(0.03, 0.92)
-        * given_cut(w, k);
-    super::roll(w, 0xA5C0 ^ w.today.0 as u64, k.code() as u64) < p
+        * given_cut(w, k)
+}
+
+/// Whether he says yes to an ask from the meeting's picks today (topic 12):
+/// his chance through the day's keyed roll. A typed ask is weighed as said
+/// instead (`asked::money`).
+pub fn ask_yes(w: &World, team: Team, k: AskKind) -> bool {
+    super::roll(w, 0xA5C0 ^ w.today.0 as u64, k.code() as u64) < chance(w, team, k)
 }
 
 /// Whether you asked for this lately (the meeting offers it once in 300
@@ -982,47 +1099,7 @@ pub fn ask_now(w: &mut World, team: Team, k: AskKind) -> (bool, &'static str) {
     let b = boss(w, team);
     let yes = ask_yes(w, team, k);
     let words = if yes {
-        match k {
-            AskKind::StaffMoney => {
-                w.folk.staff.pool_bonus += STAFF_RAISE;
-                match team {
-                    Team::College(pg) => crate::world::finance::college::raise_staff(w, pg, STAFF_RAISE as f64),
-                    Team::Nfl(t) => crate::world::finance::nfl::raise_staff(w, t, STAFF_RAISE as f64),
-                    _ => {}
-                }
-                "Yes. Ten percent more for the staff pool, starting now."
-            }
-            AskKind::Facility => {
-                if let Team::College(pg) = team {
-                    w.programs[pg].facilities = (w.programs[pg].facilities + 0.03).min(1.0);
-                }
-                "Yes. We'll break ground after the season."
-            }
-            AskKind::RecruitingMoney => {
-                w.folk.staff.recruit_bonus += RECRUIT_RAISE;
-                if let Team::College(pg) = team {
-                    crate::world::finance::college::raise_recruiting(w, pg, RECRUIT_RAISE as f64);
-                }
-                "Yes. More travel money for the staff."
-            }
-            AskKind::NilMoney => {
-                if let Team::College(pg) = team {
-                    w.programs[pg].collective.base *= 1.08;
-                }
-                "I'll get the collective in a room. You'll see it."
-            }
-            AskKind::RosterSpots => "Yes. Keep the extra practice-squad guys.",
-            AskKind::Extension => {
-                let you = w.career.as_ref().map(|c| c.coach);
-                if let Some(c) = you
-                    && let Some(k) = w.coaches[c].contract.as_mut()
-                {
-                    k.through += 2;
-                    k.salary *= 1.12;
-                }
-                "Done. Two more years, and a raise."
-            }
-        }
+        grant(w, team, k)
     } else {
         match k {
             AskKind::Extension => "Not yet. Win and we'll talk.",
@@ -1038,25 +1115,103 @@ pub fn ask_now(w: &mut World, team: Team, k: AskKind) -> (bool, &'static str) {
     (yes, words)
 }
 
+/// What a yes does, and the meeting's words for it.
+pub(crate) fn grant(w: &mut World, team: Team, k: AskKind) -> &'static str {
+    match k {
+        AskKind::StaffMoney => {
+            w.folk.staff.pool_bonus += STAFF_RAISE;
+            match team {
+                Team::College(pg) => crate::world::finance::college::raise_staff(w, pg, STAFF_RAISE as f64),
+                Team::Nfl(t) => crate::world::finance::nfl::raise_staff(w, t, STAFF_RAISE as f64),
+                _ => {}
+            }
+            "Yes. Ten percent more for the staff pool, starting now."
+        }
+        AskKind::Facility => {
+            if let Team::College(pg) = team {
+                // Once the rooms live a yes opens a drive's study (Capital
+                // lane C3); before that the old lift.
+                if crate::world::capital::live(w) {
+                    if crate::world::capital::drive::ask_drive(w, pg).is_ok_and(|d| d.is_some()) {
+                        return "Yes. The development office opens a study this fall, and we set the drive's goal together.";
+                    }
+                    return "Not while a drive or a building is under way.";
+                }
+                w.programs[pg].facilities = (w.programs[pg].facilities + 0.03).min(1.0);
+            }
+            // Capital lane C6: a high school's yes puts a stadium bond on
+            // the ballot (CP32); an owner's redoes the room furthest behind
+            // (CP35).
+            if crate::world::capital::live(w) {
+                match team {
+                    Team::High(h) => {
+                        return match crate::world::capital::hs::call_for(w, h) {
+                            Ok(_) => {
+                                "Yes. The board will put a stadium bond on the next ballot. Now the town has to vote."
+                            }
+                            Err(_) => "Not now. Raise it with the booster club.",
+                        };
+                    }
+                    Team::Nfl(t) => {
+                        if crate::world::capital::nfl::grant_room(w, t) {
+                            return "Yes. We'll redo the room that needs it most this offseason.";
+                        }
+                        return "Not while a renovation is under way.";
+                    }
+                    _ => {}
+                }
+            }
+            "Yes. We'll break ground after the season."
+        }
+        AskKind::RecruitingMoney => {
+            w.folk.staff.recruit_bonus += RECRUIT_RAISE;
+            if let Team::College(pg) = team {
+                crate::world::finance::college::raise_recruiting(w, pg, RECRUIT_RAISE as f64);
+            }
+            "Yes. More travel money for the staff."
+        }
+        AskKind::NilMoney => {
+            if let Team::College(pg) = team {
+                w.programs[pg].collective.base *= 1.08;
+            }
+            "I'll get the collective in a room. You'll see it."
+        }
+        AskKind::RosterSpots => "Yes. Keep the extra practice-squad guys.",
+        AskKind::Extension => {
+            let you = w.career.as_ref().map(|c| c.coach);
+            if let Some(c) = you
+                && let Some(k) = w.coaches[c].contract.as_mut()
+            {
+                k.through += 2;
+                k.salary *= 1.12;
+            }
+            "Done. Two more years, and a raise."
+        }
+    }
+}
+
 /// You ask him for time (the goals meeting's "it's a rebuild"; live talks
 /// lane N5c's ask for time): a patient boss (11+) lowers this season's
 /// wins bar by two and drops a title or postseason goal; an impatient one
 /// keeps it and holds the asking against you. Returns whether he gave it.
 pub fn ask_time(w: &mut World, team: Team) -> bool {
     let b = boss(w, team);
-    let season = goal_season(w, team);
     let patient = b.patience >= 11.0;
+    settle_time(w, goal_season(w, team), patient);
+    w.folk.mine.nudge(b.key(), if patient { 0.0 } else { -0.05 });
+    patient
+}
+
+/// A season's goals after you asked for time: marked as asked, and when he
+/// gave it, the wins bar two lower and a title or postseason goal dropped.
+pub(crate) fn settle_time(w: &mut World, season: i32, gave: bool) {
     for g in w.folk.goals.iter_mut().filter(|g| g.season == season) {
         g.deal = -1;
-        if patient && let GoalKind::Wins(n) = g.kind {
+        if gave && let GoalKind::Wins(n) = g.kind {
             g.kind = GoalKind::Wins(n.saturating_sub(2).max(2));
         }
     }
-    w.folk
-        .goals
-        .retain(|g| !(g.season == season && patient && matches!(g.kind, GoalKind::Title | GoalKind::Postseason)));
-    w.folk.mine.nudge(b.key(), if patient { 0.0 } else { -0.05 });
-    patient
+    w.folk.goals.retain(|g| !(g.season == season && gave && matches!(g.kind, GoalKind::Title | GoalKind::Postseason)));
 }
 
 /// You ask for something in the meeting (topic 12).
@@ -1076,6 +1231,10 @@ pub(crate) fn answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
 }
 
 pub(crate) fn hand(w: &mut World, s: &mut Scene) {
+    if s.c == crate::world::ground::campaign::talk::CODE {
+        crate::world::ground::campaign::talk::hand(w, s);
+        return;
+    }
     let Some(team) = s.team.or(Team::seat(w)) else { return };
     let b = boss(w, team);
     w.folk.mine.nudge(b.key(), -0.06);

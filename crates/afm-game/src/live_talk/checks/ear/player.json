@@ -103,6 +103,15 @@
    ]
   },
   {
+   "text": "Man, I'm not going to fuck around here. You're my guy, you're going to break records for us.",
+   "hits": [
+    {
+     "item": "c1|c4",
+     "how": "staked"
+    }
+   ]
+  },
+  {
    "text": "What's going on back home? Is your family doing okay?",
    "acts": [
     {
@@ -223,6 +232,45 @@
   {
    "text": "asdf qwer zxcv",
    "not_talk": true
+  },
+  {
+   "text": "I'm thinking about benching you. Show me in practice I shouldn't.",
+   "may": [
+    {
+     "act": "threat"
+    },
+    {
+     "act": "request"
+    }
+   ]
+  },
+  {
+   "text": "I want to decide by Friday whether you start on Saturday.",
+   "may": [
+    {
+     "act": "threat"
+    },
+    {
+     "act": "deadline"
+    }
+   ]
+  },
+  {
+   "text": "I think I'm going to have to bench you this week.",
+   "acts": [
+    {
+     "act": "decision",
+     "what": "benched"
+    }
+   ]
+  },
+  {
+   "text": "I'm going to have Coach Reyes look at your film before I decide anything.",
+   "may": [
+    {
+     "act": "confide"
+    }
+   ]
   }
  ],
  "exploits": [

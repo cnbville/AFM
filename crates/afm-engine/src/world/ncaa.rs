@@ -102,21 +102,6 @@ pub fn scholarship_rules(d: Division, season: i32, opted_out: bool) -> (usize, O
     }
 }
 
-/// Where the NCAA sets no yearly cap below Division I (Division II, the NAIA,
-/// Division III and junior colleges), a staff still signs at most about 1.4
-/// normal classes (the world's earlier pick, proposed, not confirmed: classes
-/// of 28, 24, 30 and 40). The House limit has none (`roster_limits`).
-fn staff_cap(d: Division) -> usize {
-    match d {
-        Division::FBS => 39,
-        Division::FCS => 33,
-        Division::D2 => 42,
-        Division::NAIA => 42,
-        Division::D3 => 45,
-        Division::JUCO => 56,
-    }
-}
-
 /// A program's roster limit for a season, and the most new signees it may
 /// add, after any NCAA scholarship penalty. Every roster rule reads them here.
 pub fn roster_limits(prog: &Program, season: i32) -> (usize, usize) {
@@ -128,15 +113,13 @@ pub fn roster_limits(prog: &Program, season: i32) -> (usize, usize) {
     let opted_out = prog.division == Division::FCS && FCS_OPTED_OUT.contains(&prog.real_name.as_str());
     let (limit, yearly) = scholarship_rules(prog.division, season, opted_out);
     let cut = prog.era.cut_in(season) as usize;
-    // Under the House whole-roster limit nothing caps a class: the limit is
-    // the only bound (realism audit item 13, Cain 2026-11-15: "the 105
-    // roster limit is the only bound"). Before, a staff stopped at its 1.4
-    // normal classes there too, and the class plan at 30.
-    let yearly = match yearly {
-        Some(y) => y,
-        None if whole_roster_limit(prog, season) => limit,
-        None => staff_cap(prog.division),
-    };
+    // Where the NCAA sets no yearly cap (the House limit from 2025, Division
+    // II, the NAIA, Division III, junior colleges) nothing caps a class: the
+    // roster limit is the only bound, and the holes at each position decide
+    // the class (realism audit item 13, Cain 2026-11-15). Before, a staff
+    // stopped at about 1.4 normal classes (FBS 39, FCS 33, D2 and the NAIA
+    // 42, D3 45, junior colleges 56), a stand-in from the world's first build.
+    let yearly = yearly.unwrap_or(limit);
     (limit.saturating_sub(cut), yearly.saturating_sub(cut))
 }
 
@@ -199,32 +182,33 @@ pub fn aid_kept(prog: &Program, season: i32) -> bool {
 
 // --- NIL money (11.5, 11.7, 11.8) ---------------------------------------------------------
 
-/// The biggest NIL collectives raise about $20M a year: Ohio State's players
-/// got "around $20 million" in 2024, Notre Dame's collective took in $20.5M
-/// in 2023, the Texas One Fund spent $13.3M, and "very few collectives
-/// actually had $20 million dollars to spend a year" (Opendorse). No booster
-/// base gives more than this.
-pub const COLLECTIVE_CEILING: f64 = 20.0e6;
-
-/// How big the NIL market was each year against 2024 (Opendorse, Power 4
-/// totals: $393M in 2021, $667M in 2022, $840M in 2023, $1.0B in 2024).
-/// Collectives formed and grew over the first years (proposed, not
-/// confirmed: every collective follows the market).
+/// How big the third-party NIL market was each year against a donor base's
+/// money (Opendorse's Power 4 totals: $393M in 2021, $667M in 2022, $840M
+/// in 2023, $1.0B in 2024; collectives formed and grew over the first
+/// years). The 2026 refit (the new NIL scheme, item 1: Cain 2026-11-15)
+/// is the marketing partners' lift on top (`program::nil_lift`), so the
+/// years through 2025 keep their sizes. After 2026 the
+/// third-party pot grows about 5% a year (item 2; Opendorse puts the whole
+/// market at $4.5B in 2026-27 and over $5B by 2028-29), where the revenue
+/// cap grows 4% (proposed sizes, fitted on seed 41).
 pub fn nil_market(year: i32) -> f64 {
     match year {
         y if y < NIL_START => 0.0,
         2021 => 0.39,
         2022 => 0.67,
         2023 => 0.84,
-        _ => 1.0,
+        ..=2026 => 1.0,
+        y => MARKET_GROWTH.powi(y - 2026),
     }
 }
 
-/// Revenue a school shares with its football players from 2025-26 (House
-/// settlement): a $20.5M cap that grows 4% a year. Power 4 schools pay the
-/// full cap and give football about 75% (the Texas model, $15.37M). The
-/// Group of 5 uses the American's floor, $10M over three years. FCS and below
-/// share nothing (proposed, not confirmed: no published figures).
+/// The third-party pot's yearly growth after 2026 (item 2).
+pub const MARKET_GROWTH: f64 = 1.05;
+
+/// The share of a school's revenue share that goes to football: about 75%
+/// at the Power 4 (the Texas model, $15.37M of $20.5M).
+pub const FOOTBALL_SHARE: f64 = 0.75;
+
 /// The House settlement's yearly cap on what a school shares with its
 /// athletes: $20.5M in 2025-26, then the College Sports Commission's
 /// $21.58M for 2026-27, growing 4% a year (minor bug B17).
@@ -236,21 +220,70 @@ pub fn revenue_cap(season: i32) -> Option<f64> {
     }
 }
 
+/// Whether a school shares revenue with its athletes that year: every FBS
+/// school from 2025, and from 2026 the FCS programs that opted into the
+/// House settlement (item 4); below FCS none.
+pub fn shares_revenue(prog: &Program, year: i32) -> bool {
+    revenue_cap(year).is_some()
+        && match prog.division {
+            Division::FBS => true,
+            Division::FCS => year > HOUSE_START && !FCS_OPTED_OUT.contains(&prog.real_name.as_str()),
+            _ => false,
+        }
+}
+
+/// Football's revenue share for a year (House settlement). Power 4 schools
+/// pay the full cap and give football about 75% (the Texas model). In
+/// 2025 the Group of 5 used the American's floor, $10M over three years.
+/// From 2026 (the new NIL scheme, items 3 and 4) a Group of 5 school pays
+/// football from its own athletic money: $3M × (its athletic budget /
+/// $80M)³, held to $1-8M (on seed 41 $1.1-8M, median $3.4M, 76% under
+/// $5M; real 2026: $1-8M, most under $5M, The Athletic and CBS); an FCS
+/// program that opted in pays
+/// 2.5% of its athletic budget, held to $0.1-1M (thin evidence: no
+/// FCS-only figures, and the College Sports Commission's non-Power 4
+/// numbers include FCS). Sizes proposed, not confirmed, fitted on seed 41.
 pub fn revenue_share(prog: &Program, year: i32) -> f64 {
     let Some(cap) = revenue_cap(year) else { return 0.0 };
-    let paid = match prog.division {
-        Division::FBS if prog.power_four() => cap,
-        Division::FBS => 10.0e6 / 3.0,
-        _ => 0.0,
-    };
-    0.75 * paid
+    if !shares_revenue(prog, year) {
+        return 0.0;
+    }
+    let athletic = super::staff::program_budget(prog);
+    match prog.division {
+        Division::FBS if prog.power_four() => FOOTBALL_SHARE * cap,
+        Division::FBS if year == HOUSE_START => FOOTBALL_SHARE * 10.0e6 / 3.0,
+        Division::FBS => (G5_SHARE * (athletic / G5_AT).powi(3)).clamp(1.0e6, 8.0e6),
+        _ => (FCS_SHARE * athletic).clamp(0.1e6, 1.0e6),
+    }
+}
+
+/// A Group of 5 school's football revenue share at an $80M athletic
+/// budget (item 3), and how it moves with the budget.
+const G5_SHARE: f64 = 3.0e6;
+const G5_AT: f64 = 80.0e6;
+/// An opted-in FCS program's share of its athletic budget (item 4).
+const FCS_SHARE: f64 = 0.025;
+
+/// What denied third-party money could still move into football's
+/// revenue share this money year (item 11): the room under the cap. A
+/// Power 4 school already shares the whole cap (football's 75% and the
+/// other sports' 25%), so it has none; a Group of 5 or opted-in FCS school
+/// sharing far less has the rest of the cap, less what moved already.
+pub fn share_room(prog: &Program, year: i32) -> f64 {
+    let Some(cap) = revenue_cap(year) else { return 0.0 };
+    if !shares_revenue(prog, year) {
+        return 0.0;
+    }
+    (cap - prog.collective.school / FOOTBALL_SHARE - prog.collective.moved).max(0.0)
 }
 
 /// NIL money a program can pay its players in a year's offseason (the
-/// portal and signing day): its collective, within the ceiling and the
-/// market as it stood that year, plus revenue sharing. None before July 2021.
+/// portal and signing day): its third-party pot (the boosters and, from
+/// 2026, the school's marketing partners, `program::nil_lift`) at the
+/// market as it stood that year, plus revenue sharing. None before July
+/// 2021.
 pub fn nil_budget(prog: &Program, year: i32) -> f64 {
-    nil_market(year) * prog.collective.boosters() + revenue_share(prog, year)
+    nil_market(year) * super::program::third_party(prog, year) + revenue_share(prog, year)
 }
 
 /// Two pots from July 1, 2025, the House settlement's first day (B18): the
@@ -296,14 +329,12 @@ pub fn school_pot(prog: &Program, d: Date) -> f64 {
     s.clamp(0.0, prog.collective.budget.max(0.0))
 }
 
-/// The top of the real range for a starter at a major program (CBS via SI,
-/// 2024; `data/real-world/rates.json`): the going rate's top, which most
-/// schools pay within. It is no rule: a rising program whose money ranks
-/// well above its standing buys the blue-chips it wants most past it
-/// (recruiting, `buying`), and you can promise any sum your budget holds
-/// (minor bug 61). Tight ends and specialists aren't in the data
-/// (proposed, not confirmed: tight ends at the receivers' top, specialists
-/// at twice their market rate).
+/// The top of the real 2024 range for a starter at a major program (CBS
+/// via SI; `data/real-world/rates.json`), shown on the screens as a
+/// reference. Since the new NIL scheme (item 5, Cain 2026-11-15) it caps
+/// nothing: every player is priced by bidding (`nil_bid`). Tight ends and
+/// specialists aren't in the data (proposed, not confirmed: tight ends at
+/// the receivers' top, specialists at twice their market rate).
 pub fn position_nil_max(pos: Position) -> f64 {
     match pos {
         Position::QB => 800_000.0,

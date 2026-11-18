@@ -216,6 +216,12 @@ pub enum PromiseKind {
     /// How you'll use him: a term on the play log (`usage::Usage`, in
     /// `Terms::usage`; the promises on usage, agreed 2026-11-14).
     Usage,
+    /// A prospect before the draft: your club takes him by this round (1
+    /// to 7; 7 is "we'll draft you"). Judged when the draft is done: kept if
+    /// you took him by then, broken if he was still there at one of your
+    /// picks by then, void if he was gone before your first chance or never
+    /// entered the draft (Cain 2026-11-15).
+    Draft(u8),
 }
 
 impl PromiseKind {
@@ -243,6 +249,9 @@ impl PromiseKind {
                 )
             ),
             PromiseKind::Usage => "how you'd use him".into(),
+            PromiseKind::Draft(r) if r >= 7 => "that you'd draft him".into(),
+            PromiseKind::Draft(1) => "that you'd take him in the first round".into(),
+            PromiseKind::Draft(r) => format!("that you'd take him by round {r}"),
         }
     }
 }
@@ -433,6 +442,11 @@ fn promise_due(w: &World, kind: PromiseKind, seasons: u8) -> Date {
         PromiseKind::Stay | PromiseKind::Raise => today.add(330),
         PromiseKind::Booster(_) => end(w).max(today.add(60)),
         PromiseKind::Recruit(k, _) => super::pledge::due(w, k),
+        // The day after the draft's last night (the next one's, once it's done).
+        PromiseKind::Draft(_) => {
+            let d = w.dates.draft[2].date.add(1);
+            if d > today { d } else { d.add(365) }
+        }
     };
     base.add(
         365 * seasons.saturating_sub(1) as i32 * matches!(kind, PromiseKind::Booster(_) | PromiseKind::Stay) as i32,
@@ -444,7 +458,7 @@ fn promise_due(w: &World, kind: PromiseKind, seasons: u8) -> Date {
 /// healthy games, broken by the share missed, released when he missed his
 /// condition; the rest on their day as before. Keeping it pays more the
 /// more he doubted; breaking it costs by what he counted on.
-fn check_promises(w: &mut World, d: Date) {
+pub fn check_promises(w: &mut World, d: Date) {
     let due: Vec<usize> = (0..w.folk.promises.len())
         .filter(|&k| w.folk.promises[k].kept.is_none() && w.folk.promises[k].due <= d)
         .collect();
@@ -498,10 +512,19 @@ fn check_promises(w: &mut World, d: Date) {
         let text = format!("{} the promise of {} you made to {} on {}.", text, p.words(), p.who, p.made.pretty());
         let cost = if kept { 1.0 } else { scale * public };
         let p = w.folk.promises[k].clone();
-        settle_promise(w, &p, kept, cost);
+        if matches!(p.kind, PromiseKind::Draft(_)) {
+            settle_draft(w, &p, kept, cost);
+        } else {
+            settle_promise(w, &p, kept, cost);
+        }
         // A booster takes it further (talk facts lane L8).
         if !kept && let (PromiseTo::Cast(r, term), PromiseKind::Booster(_)) = (p.to, p.kind) {
             super::backers::broken(w, r, term);
+        }
+        // His donor remembers it, and a broken one spreads through his
+        // circle (Capital lane C1, CP4).
+        if let PromiseTo::Cast(r, term) = p.to {
+            crate::world::capital::donors::booster_word(w, r, term, kept);
         }
         super::note(w, "talk", "Your promises".into(), text.clone(), None);
         super::post_mine(w, d, Loudness::Small, false, "people: promise", &text);
@@ -550,7 +573,17 @@ fn settle(
     match to {
         PromiseTo::Player(id) => {
             if let Some(i) = super::person(w, id) {
-                let dt = if kept { super::promise::kept_trust(said) } else { -0.22 * cost };
+                // A broken promise costs more the closer he is to you (coach
+                // and player bonds: x (1 + closeness)).
+                let me = w.career.as_ref().map(|k| k.coach);
+                let dt = if kept {
+                    super::promise::kept_trust(said)
+                } else {
+                    -0.22 * cost * super::bonds::betrayal(w, id, me)
+                };
+                if !kept {
+                    super::bonds::broke_word(w, id, me);
+                }
                 let pp = &mut w.people[i];
                 pp.trust = (pp.trust + dt).clamp(0.0, 1.0);
                 mood_event(w, id, why, if kept { 0.1 * 1.4 } else { dt * 1.4 });
@@ -654,6 +687,7 @@ pub(crate) fn kept(w: &World, p: &Promise) -> bool {
                     })
                 }
                 PromiseKind::Stay => stayed(w),
+                PromiseKind::Draft(r) => draft_call(w, i, r, p.made) == DraftCall::Kept,
                 _ => true,
             }
         }
@@ -688,6 +722,9 @@ fn of_his_place(p: &Promise) -> Option<u32> {
 /// football. A club that cut or traded him (`sent_away`), or a program or
 /// school that dismissed him, broke it (`kept`).
 pub(crate) fn lapsed(w: &World, p: &Promise) -> bool {
+    if let (PromiseTo::Player(id), PromiseKind::Draft(r)) = (p.to, p.kind) {
+        return super::person(w, id).is_none_or(|i| draft_call(w, i, r, p.made) == DraftCall::Void);
+    }
     let Some(id) = of_his_place(p) else { return false };
     let Some(i) = super::person(w, id) else { return true };
     let Some(team) = Team::seat(w) else { return false };
@@ -792,6 +829,78 @@ pub(crate) fn job_taken(w: &mut World) {
     }
 }
 
+/// How a draft promise came out.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DraftCall {
+    Kept,
+    Broken,
+    /// He was gone before your first pick by that round, or he never
+    /// entered the draft: you never had the chance.
+    Void,
+}
+
+/// A draft promise (`PromiseKind::Draft`) against the draft that followed
+/// it: your club's picks by round `r` that year, and where he went.
+pub fn draft_call(w: &World, i: usize, r: u8, made: Date) -> DraftCall {
+    let Some(Team::Nfl(club)) = Team::seat(w) else { return DraftCall::Void };
+    let year = {
+        let d = w.dates.draft[2].date;
+        if d >= made { d.year() } else { d.year() + 1 }
+    };
+    let r = u32::from(r.clamp(1, 7));
+    // Your picks by that round, earliest first, as (round, pick).
+    let first_mine = w
+        .people
+        .iter()
+        .filter_map(|q| q.pro.as_ref()?.draft)
+        .filter(|&(y, round, _, t)| y == year && t == club && round <= r)
+        .map(|(_, round, pick, _)| (round, pick))
+        .min();
+    let his = w.people[i].pro.as_ref().and_then(|c| c.draft).filter(|d| d.0 == year);
+    match his {
+        Some((_, round, _, t)) if t == club && round <= r => DraftCall::Kept,
+        // Taken by another club before your first chance by that round.
+        Some((_, round, pick, _)) if round <= r && first_mine.is_none_or(|m| (round, pick) < m) => DraftCall::Void,
+        Some(_) => DraftCall::Broken,
+        // Undrafted: broken if he was in the draft (he's a pro now, or still
+        // waiting as a declared man); void if he went back to school.
+        None => {
+            if matches!(w.people[i].stage, Stage::Pro | Stage::Declared) {
+                DraftCall::Broken
+            } else {
+                DraftCall::Void
+            }
+        }
+    }
+}
+
+/// A draft promise kept or broken. With the man on your roster (you took
+/// him, or later than you said), it lands as any promise to your player
+/// does. With another club's man, what you broke is his trust in you, kept
+/// by his key, and your name with the agents; no grudge against his new
+/// club, which kept nothing from him.
+fn settle_draft(w: &mut World, p: &Promise, kept: bool, cost: f32) {
+    let PromiseTo::Player(id) = p.to else { return };
+    let Some(i) = super::person(w, id) else { return };
+    let yours = Team::seat(w).is_some_and(|t| t.roster(w).contains(&i));
+    if yours {
+        let names = [super::Name::Room, super::Name::Agents];
+        let why = if kept { Reason::PromiseKept } else { Reason::PromiseBroken };
+        // The club that gave its word: where you said it.
+        let club = match p.team.or(Team::seat(w)) {
+            Some(Team::Nfl(c)) => Some(c),
+            _ => None,
+        };
+        settle(w, p.to, kept, cost, why, p.said, &names, club);
+        return;
+    }
+    let key = super::persona::makeup::key(super::persona::Them::Player(id));
+    let now = w.folk.mine.trust_of(key).unwrap_or(0.5);
+    let dt = if kept { super::promise::kept_trust(p.said) } else { -0.22 * cost };
+    w.folk.mine.set_trust(key, now + dt);
+    w.folk.mine.word(super::Name::Agents, if kept { 0.04 } else { -0.08 * cost });
+}
+
 /// A starter as he sees it (the promises design, section 2): with the
 /// ones and starting in his last practice weeks and games, else last
 /// season's role. Never your chart.
@@ -824,6 +933,9 @@ pub enum Reason {
     ArrestShame,
     /// His arrest, for a man who takes it out on everyone.
     ArrestAnger,
+    /// A coach he was close to left for another job or was let go (coach
+    /// and player bonds, section 8).
+    CoachLeft,
     // Live talks (the core declares them; the lanes that use them fill the
     // sizes). Their codes sit apart from the list above, so a reason a chips
     // lane adds there never takes one of their numbers in a save.
@@ -854,6 +966,7 @@ impl Reason {
             13 => Reason::Practice,
             14 => Reason::ArrestShame,
             15 => Reason::ArrestAnger,
+            16 => Reason::CoachLeft,
             40 => Reason::LieSeen,
             41 => Reason::HardballHeard,
             42 => Reason::RecruitLie,
@@ -884,6 +997,7 @@ impl Reason {
             (Reason::Practice, false) => "the grind of the week: mat drills at dawn",
             (Reason::ArrestShame, _) => "ashamed of his arrest",
             (Reason::ArrestAnger, _) => "angry about his arrest",
+            (Reason::CoachLeft, _) => "a coach he was close to is gone",
             (Reason::LieSeen, _) => "found out something you told him wasn't true",
             (Reason::HardballHeard, _) => "heard what you said about him in his contract talks",
             (Reason::RecruitLie, _) => "what you told him when you recruited him wasn't true",
@@ -1252,7 +1366,9 @@ fn one_on_one_open(w: &mut World, s: &mut Scene) {
     {
         topic = tp::subject_of(k).into();
     }
-    let asked = asked_to_leave(w, id);
+    // A man whose college career ends this year has no transfer to tell
+    // you about (`talk::standing`): his meeting is never the portal's.
+    let asked = asked_to_leave(w, id) && !super::persona::talk::standing::road(w, i).college_ends();
     // An exit meeting opens on why he is on your list (lane L9).
     let exit = s.c & EXIT != 0;
     // He raises what weighs on him himself (talk facts lane L4): an open
@@ -1290,7 +1406,9 @@ fn one_on_one_open(w: &mut World, s: &mut Scene) {
     } else if mood > 0.35 {
         "He walks in loose, says hello to the secretary by name and drops into the chair."
     } else {
-        "He sits down and waits for you to start."
+        // Not "waits for you to start": his own opening line follows (the
+        // talks audit, 2026-11-16).
+        "He sits down across from you."
     };
     if asked {
         s.narrate("He asked for this meeting.");
@@ -1333,7 +1451,14 @@ fn one_on_one_open(w: &mut World, s: &mut Scene) {
     } else if subject == Subject::Friend && tone == "good" {
         vec!["talk.open.friend".to_string()]
     } else {
-        vec![format!("talk.open.{tone}"), format!("talk.open.{}", subject.key())]
+        // His future when his college career ends this year is the draft,
+        // not the portal or next season (Cain 2026-11-16; `talk::standing`).
+        let about = if subject == Subject::Future && super::persona::talk::standing::road(w, i).college_ends() {
+            "draft"
+        } else {
+            subject.key()
+        };
+        vec![format!("talk.open.{tone}"), format!("talk.open.{about}")]
     };
     let keys: Vec<&str> = keys.iter().map(String::as_str).collect();
     // On a point, his own opening in his stance; until the bank has one,
@@ -2011,8 +2136,9 @@ pub(crate) fn landing(w: &World, i: usize, m: Move, t: Tone, subject: Subject, r
         Tone::Calm => (0.01 + 0.02 * z(Trait::Temper).max(0.0), 0.0),
     };
     // His trust in you colours everything: a player who doesn't trust you
-    // hears less of it (topic 3).
-    let ear = 0.6 + 0.8 * p.trust;
+    // hears less of it (topic 3); one close to you hears more (coach and
+    // player bonds: + 0.3 x closeness).
+    let ear = 0.6 + 0.8 * p.trust + super::bonds::ear_you(w, p.player.id);
     let noise = (super::roll_n(w, seed, p.player.id as u64) as f32) * 0.025;
     ((dt + tt) * ear + noise - rest.cost, (dm + tm) * ear + noise)
 }
@@ -2030,7 +2156,7 @@ fn answer_landing(w: &World, i: usize, a: Answer, subject: Subject, rest: Rest, 
     }
     let p = &w.people[i];
     let (bt, bm) = tp::answer_landing(w, i, a).unwrap_or((0.0, 0.0));
-    let ear = 0.6 + 0.8 * p.trust;
+    let ear = 0.6 + 0.8 * p.trust + super::bonds::ear_you(w, p.player.id);
     let noise = (super::roll_n(w, seed, p.player.id as u64) as f32) * 0.025;
     (bt * ear + noise, bm * ear + noise)
 }
@@ -2162,6 +2288,31 @@ pub(crate) fn position_coach_now(w: &World, i: usize) -> Option<usize> {
     here(prog.position_coaches[group as usize]).or_else(|| here(coordinator)).or_else(|| here(prog.head_coach))
 }
 
+/// The men on your roster a coach on your staff coaches, by his job: a
+/// position coach his room, a coordinator his side of the ball (the rooms
+/// he covers and the ones he oversees), the head coach none (that's you,
+/// or the whole team). Player ids, in roster order. Empty for a coach not
+/// on your staff.
+pub fn coached_by(w: &World, c: usize) -> Vec<u32> {
+    use crate::world::coach::{Group, Role};
+    let Some(team) = Team::seat(w) else { return Vec::new() };
+    let Some(job) = w.coaches.get(c).and_then(|x| x.job) else { return Vec::new() };
+    if Team::from_employer(job.employer) != team {
+        return Vec::new();
+    }
+    let takes = |g: Group| match job.role {
+        Role::PositionCoach(x) => x == g,
+        Role::OffensiveCoordinator => g != Group::Specialists && g.offense(),
+        Role::DefensiveCoordinator => g != Group::Specialists && !g.offense(),
+        Role::HeadCoach => false,
+    };
+    team.roster(w)
+        .into_iter()
+        .filter(|&i| takes(Group::of(w.people[i].player.position)))
+        .map(|i| w.people[i].player.id)
+        .collect()
+}
+
 /// Whether a one-on-one takes typed lines (live talks lane 9): yes.
 pub const ONE_ON_ONE_TYPED: bool = true;
 
@@ -2285,14 +2436,40 @@ fn read_kind(w: &World, i: usize, p: &super::scene::PromiseRead) -> Option<Promi
         "contract" => PromiseKind::Contract,
         "stay" => PromiseKind::Stay,
         "usage" if p.usage.is_some() => PromiseKind::Usage,
+        // Only your NFL club, to a man in the coming draft, before it's done.
+        "draft" if draft_promise_open(w, i) => PromiseKind::Draft(draft_round(&p.condition_words)),
         _ => return None,
     })
+}
+
+/// Whether you can promise him a pick: you run an NFL club, he is in
+/// college or declared, and this year's draft isn't done yet.
+pub fn draft_promise_open(w: &World, i: usize) -> bool {
+    matches!(Team::seat(w), Some(Team::Nfl(_)))
+        && matches!(w.people[i].stage, Stage::College | Stage::Declared)
+        && w.today <= w.dates.draft[2].date
+}
+
+/// The round in a draft promise's words: a number or an ordinal ("1",
+/// "first", "2nd"), 7 (any round) when none is said.
+pub fn draft_round(words: &str) -> u8 {
+    let w = words.to_lowercase();
+    const ORD: [(&str, u8); 7] =
+        [("first", 1), ("second", 2), ("third", 3), ("fourth", 4), ("fifth", 5), ("sixth", 6), ("seventh", 7)];
+    let num = w
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .find_map(|x| x.trim_end_matches(|c: char| c.is_ascii_alphabetic()).parse::<u8>().ok());
+    num.or_else(|| ORD.iter().find(|(o, _)| w.contains(o)).map(|x| x.1)).map_or(7, |r| r.clamp(1, 7))
 }
 
 /// The terms a promise read from a typed line carries (the promise design,
 /// section 3): by when, on what condition, ahead of whom.
 fn read_terms(w: &World, i: usize, kind: PromiseKind, p: &super::scene::PromiseRead) -> super::promise::Terms {
     use super::promise::{By, Cond, Terms};
+    // A pick by a round carries no terms past its round (in the kind).
+    if matches!(kind, PromiseKind::Draft(_)) {
+        return Terms::default();
+    }
     let by = match p.by.as_str() {
         "midseason" => By::Midseason,
         "next_season" => By::NextSeason,
@@ -2511,6 +2688,12 @@ fn one_on_one_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
     let rest = tp::rest(w, i, &sheet, topic, m, revealed);
     let (rest, caught) = typed_against(w, s, i, m, rest);
     let (dt, dm) = landing(w, i, m, t, subject, rest, s.id as u64 ^ (s.step as u64) << 8);
+    // The chip's tone is how you said it (coach voice): he keeps it.
+    super::persona::manner::chip(
+        w,
+        super::persona::Them::Player(w.people[i].player.id),
+        super::persona::manner::Manner::of_talk(t),
+    );
     s.f[0] += dt;
     s.f[1] += dm;
     let p = &mut w.people[i];
@@ -3721,6 +3904,9 @@ fn keep_made(w: &mut World, s: &mut Scene, id: u32) {
 
 pub(crate) fn finish_talk(w: &mut World, s: &mut Scene, id: u32) {
     keep_made(w, s, id);
+    // A week of contact with you, and being there for a hard moment of his
+    // still waiting on you (coach and player bonds).
+    super::bonds::sat_down(w, id);
     let (dt, dm) = (s.f[0], s.f[1]);
     mood_event(w, id, Reason::Talk, dm);
     let name = super::person(w, id).map_or_else(String::new, |i| w.people[i].name.clone());
@@ -4007,6 +4193,7 @@ fn team_talk_answer(w: &mut World, s: &mut Scene, code: u32, picked: &Pick) {
         weight *= 0.5;
     }
     w.folk.mine_tones.push(t);
+    super::persona::manner::room_tone(w, super::persona::manner::Manner::of_talk(tone));
     if w.folk.mine_tones.len() > 8 {
         w.folk.mine_tones.remove(0);
     }
@@ -4425,6 +4612,7 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
                 // The man at his position coach's seat today has it, or the
                 // man covering an empty seat.
                 by = cover_words(covering(w, position_coach_now(w, i))).1;
+                super::bonds::staff_talk(w, id, position_coach_now(w, i));
                 let rel = position_coach_rel(w, i);
                 let d = 0.02 * (rel - 9.0) as f32 / 5.0;
                 w.people[i].trust = (w.people[i].trust + d * 0.5).clamp(0.0, 1.0);
@@ -4715,6 +4903,14 @@ fn chart_seen(w: &mut World) {
         let weeks: Vec<(Date, u8)> = super::seen::weeks(w, id).into_iter().filter(|x| x.0 >= made).collect();
         if super::seen::group_changed(w, id, made).is_some() {
             mood_event(w, id, Reason::from_u8(why), delta);
+            // Benched: told to his face (a one-on-one with you since the
+            // change, or just before it) or found out from the chart.
+            if Reason::from_u8(why) == Reason::Benched
+                && let Some(me) = w.career.as_ref().map(|k| k.coach)
+            {
+                let told = w.folk.bonds.talked.get(&id).is_some_and(|&d| d >= made.add(-3));
+                super::bonds::benched(w, id, me, told);
+            }
         } else if weeks.is_empty() && made.days_to(w.today) < 21 {
             keep.push((id, delta, why, made));
         }

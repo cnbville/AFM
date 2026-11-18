@@ -199,7 +199,8 @@ function sbDcTabs(cur, x) {
   // Plan ahead (Cain, 2026-11-13): the same board for the next three falls, a
   // private plan of who starts when you recruit. Base boards, broadcast view.
   let plan = "";
-  if (SB_DC_TABS.includes(cur) && x && x.plan_falls && view === "Broadcast") {
+  const byPos = cur === "By position";
+  if ((SB_DC_TABS.includes(cur) || byPos) && x && x.plan_falls && (view === "Broadcast" || byPos)) {
     const y = x.plan ? x.plan.offset : 0;
     plan = `<div class="sb-planrow"><span class="sb-lbl">Plan ahead</span><span class="sb-seg" aria-label="Plan ahead">${x.plan_falls.map((f, i) => `<button data-act="sbplan" data-v="${i}" aria-pressed="${i === y}">${i === 0 ? `Now <small>${f}</small>` : f}</button>`).join("")}</span><span class="sb-plan-priv"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Your private plan. Nothing in the game reads it.</span></div>`;
   }
@@ -234,6 +235,7 @@ screens.depth = async (a) => {
   if (cur === "Packages" || cur === "By position") {
     const html = await sbDepthBase({ ...a, tab: cur });
     k.t = cur;
+    if (cur === "By position") return sbByPos(html);
     return html.replace(/<div class="tabsline" role="tablist">[\s\S]*?<\/div>/, sbDcTabs(cur, null));
   }
   if (pid != null) delete keep("sbform", {})[cur];
@@ -273,6 +275,79 @@ screens.depth = async (a) => {
   }
   return sbDepthPage(x, cur);
 };
+// ---------- Plan ahead on the By position tab (Cain, 2026-11-15) ----------
+// The same falls as the stadium's pills, one position's whole order a fall
+// ahead: who is still with you then, with your signed and committed recruits
+// and committed transfers. Up and Down write the same private plan the
+// stadium does; Now is the chart as it is.
+const SB_POS_ALL = ["QB", "RB", "WR", "TE", "OT", "IOL", "EDGE", "DT", "LB", "CB", "S", "K", "P", "LS"];
+async function sbByPos(html) {
+  const tabsRe = /<div class="tabsline" role="tablist">[\s\S]*?<\/div>/;
+  const planK = keep("sbplan", { y: 0 });
+  const pos = keep("depthpos", { p: "QB" }).p;
+  let pp = null;
+  try {
+    pp = await sbGet("sb_plan_pos", { offset: planK.y > 0 ? planK.y : 0, pos });
+  } catch (e) {
+    // A position or seat the plan doesn't cover: the chart now.
+    if (planK.y > 0) {
+      planK.y = 0;
+      try { pp = await sbGet("sb_plan_pos", { offset: 0, pos }); } catch (e2) { pp = null; }
+    }
+  }
+  if (!pp) return html.replace(tabsRe, sbDcTabs("By position", null));
+  const row = `<div class="sb">${sbDcTabs("By position", { plan_falls: pp.falls, plan: pp.offset ? { offset: pp.offset } : null })}</div>`;
+  html = html.replace(tabsRe, () => row);
+  if (!pp.offset) return html;
+  // A fall to come: the position's planned order in place of the chart now.
+  const body = sbByPosPlan(pp);
+  const at = html.indexOf('<p class="sub">The order your team plays');
+  return at < 0 ? html : html.slice(0, at) + body + "</div></div>";
+}
+function sbByPosPlan(x) {
+  const ctl = x.controls !== false;
+  const n = x.rows.length;
+  const rows = x.rows.map((r, i) => {
+    const spot = x.slots[i] ? ` <small class="muted" title="The man in this row plays ${esc(x.slots[i])}">${esc(x.slots[i])}</small>` : "";
+    const num = (i < x.starters ? `<b>${i + 1}</b>` : `<span class="muted">${i + 1}</span>`) + spot;
+    const where = r.here ? esc(r.pos) : `<span class="st-pill gold" title="Listed at ${esc(r.pos)}: you planned him here too">${esc(r.pos)}</span>`;
+    return `<tr><td class="l">${num}</td><td class="l">${playerLink(r.id, r.name, "Development")}${sbStar(r)}</td><td class="l">${where}</td><td class="l">${esc(r.class)}</td><td>${range(r.ovr, null, { p: r.id, k: "ovr" })}</td><td class="l${r.commit ? "" : " muted"}">${esc(r.status)}</td>
+      <td><button class="st-btn small glass" data-act="sbpmove" data-i="${i}" data-d="-1" ${i === 0 || !ctl ? "disabled" : ""}>Up</button> <button class="st-btn small glass" data-act="sbpmove" data-i="${i}" data-d="1" ${i === n - 1 || !ctl ? "disabled" : ""}>Down</button></td></tr>`;
+  }).join("");
+  const gone = x.gone.length ? `<p class="sub">Gone by fall ${x.fall}: ${x.gone.map((g) => playerLink(g.id, g.name)).join(", ")}.</p>` : "";
+  const star = x.college ? ` <span class="sb-star">*</span> Committed, not signed yet: if he backs out, he drops off the plan.` : "";
+  return `<p class="sub">Fall ${x.fall}: everyone still with you then${x.college ? ", with your signed and committed recruits" : ""}. Move a man up or down to plan the order; the stadium's ${x.fall} plan reads the same list.${star}</p>
+    <div class="tabsline">${SB_POS_ALL.map((p) => `<button data-act="dpos" data-p="${p}" aria-selected="${p === x.pos}">${p}${x.set.includes(p) ? " ●" : ""}</button>`).join("")}</div>
+    <div class="panel warm"><h2>${esc(x.pos)} <small>${x.starters} start · fall ${x.fall} · ${x.yours ? "your plan" : "follows your chart"}${ctl ? "" : " · the head coach's call"}</small></h2>
+    <div class="tbl"><table><thead><tr><th class="l">#</th><th class="l">Name</th><th class="l">Listed at</th><th class="l">Class in ${x.fall}</th><th>Rating</th><th class="l">Status</th><th>Move</th></tr></thead><tbody>
+    ${rows || `<tr><td class="l" colspan="7"><div class="empty">Nobody at ${esc(x.pos)} is with you in fall ${x.fall} yet: a place to recruit.</div></td></tr>`}
+    </tbody></table></div>${gone}
+    <div style="display:flex;gap:10px">${x.yours && ctl ? '<button class="st-btn small glass" data-act="sbpreset">Reset this year to my chart</button>' : ""}</div></div>`;
+}
+async function sbPlanPos(el, change) {
+  const off = keep("sbplan", { y: 0 }).y;
+  const pos = keep("depthpos", { p: "QB" }).p;
+  try {
+    const x = await api("sb_plan_pos", { offset: off, pos });
+    const args = change(x);
+    const r = await api("sb_plan_pos_put", { offset: off, pos, ...args });
+    SB.cache = {};
+    toast(r && r.note ? r.note : "Plan saved.");
+  } catch (e) {
+    toast(e.message || String(e));
+  }
+  refresh(el);
+}
+Object.assign(CORE_MORE, {
+  sbpmove: (el) => sbPlanPos(el, (x) => {
+    const ids = x.rows.map((r) => r.id);
+    const i = Number(el.dataset.i), j = i + Number(el.dataset.d);
+    if (ids[i] != null && ids[j] != null) [ids[i], ids[j]] = [ids[j], ids[i]];
+    return { ids };
+  }),
+  sbpreset: (el) => sbPlanPos(el, () => ({ reset: true })),
+});
+
 // A spot is a plate: the starter on top, the two men behind him below. The
 // plate is the starter's place and each of the 2 and 3 rows is a place of its
 // own, so a man can be picked up from any of them and dropped into a backup
@@ -284,19 +359,23 @@ function sbPlate(s, k, sel, pos, bk, cf) {
   // back, and the men who are of it glow.
   const hit = (m) => cf && cf !== "ALL" && m && m.grp === cf;
   const dim = cf && cf !== "ALL" && !s.picks.some(hit);
-  const rd = (m) => (m && m.read ? `<b class="sb-prr"${rrAttrs({ p: m.id, k: "ovr" }, m.read[0], m.read[1])}>${m.read[0]}-${m.read[1]}</b>` : "");
+  const rd = (m) => (m && m.read ? `<b class="sb-prr"${rrAttrs({ p: m.id, k: "ovr" }, m.read[0], m.read[1])}>${rpair(m.read)}</b>` : "");
   // What makes a place a drop target (n: 1 the starter, 2 and 3 behind him),
   // and the man in it something to pick up.
   const cell = (n, m) => ` data-cell="1" data-k="${k}" data-n="${n}" data-slot="${esc(s.slot)}" data-spos="${esc(s.pos)}"${bk ? "" : ' data-bk="0"'}` +
     (m ? ` data-pid="${m.id}" data-mpos="${esc(m.pos)}" data-name="${esc(m.name)}"${s.controls ? ' data-drag="1"' : ""}` : "");
-  const back = s.picks.slice(1).map((b, i) => `<span class="sb-pb ${s.controls ? "" : "sb-lock"} ${hit(b) ? "cf-hit" : ""}"${cell(i + 2, b)}><i>${i + 2}</i><span>${b ? esc(b.last) : '<span class="sb-dim">Nobody</span>'}</span>${rd(b)}</span>`).join("");
+  const back = s.picks.slice(1).map((b, i) => `<span class="sb-pb ${s.controls ? "" : "sb-lock"} ${hit(b) ? "cf-hit" : ""}"${cell(i + 2, b)}><i>${i + 2}</i>${b && b.star ? `<span class="sb-pbs"><span>${esc(b.last)}</span>${sbStar(b)}</span>` : `<span>${b ? esc(b.last) : '<span class="sb-dim">Nobody</span>'}</span>`}${rd(b)}</span>`).join("");
   const tag = p && p.health === "out" ? '<span class="sb-tag bad">OUT</span>' : p && p.health === "limited" ? '<span class="sb-tag warn">Q</span>' : "";
   // Not a <button>: a button can't be dragged in every webview. Picked up with
   // pointer events (pointerdrag.js), so no `draggable`.
   return `<div class="sb-plate ${sel ? "on" : ""} ${p ? "" : "empty"} ${s.controls ? "" : "sb-lock"} ${dim ? "cf-dim" : ""} ${hit(p) ? "cf-hit" : ""}" role="button" tabindex="0" style="${sbAt(pos.x, pos.y)};--k:${pos.k.toFixed(3)}" data-act="sbspot" data-pos="${esc(s.pos)}"${cell(1, p)} aria-label="${esc(s.pos_full)}${p ? ", " + esc(p.name) : ""}${s.controls ? "" : ", the head coach's call"}">
     <span class="sb-pt"><span class="sb-pn">${p && p.num != null ? p.num : "–"}</span><span class="sb-ps">${esc(s.slot)}</span>${rd(p).replace('class="sb-prr"', 'class="sb-pr"')}</span>
-    <span class="sb-pl"><span class="sb-plt">${p ? esc(p.last) : "Open"}</span>${tag}</span>${back}${p && s.by ? `<span class="hp-by hp-pby ${s.by.toLowerCase()}" aria-hidden="true">${s.by}</span>` : ""}</div>`;
+    <span class="sb-pl"><span class="sb-plt">${p ? esc(p.last) : "Open"}</span>${sbStar(p)}${tag}</span>${back}${p && s.by ? `<span class="hp-by hp-pby ${s.by.toLowerCase()}" aria-hidden="true">${s.by}</span>` : ""}</div>`;
 }
+// A recruit or transfer who has committed and not signed yet carries a *
+// on a planned fall: he can still change his mind (Cain, 2026-11-15).
+const SB_STAR_TIP = "Committed, not signed yet: he can still change his mind";
+const sbStar = (m) => (m && m.star ? `<span class="sb-star" title="${SB_STAR_TIP}" aria-label="${SB_STAR_TIP}">*</span>` : "");
 function sbUnits(units, cf) {
   const on = cf && cf !== "ALL";
   return `<div class="sb-units">${units.map((u, i) => `<div class="sb-unit ${i === units.length - 1 ? "all" : ""}"><div class="sb-unit-h"><span class="sb-lbl">${esc(u.name)}</span><small>${u.rank ? `${esc(u.rank_words)} ${esc(u.among)}` : esc(u.among || "")}</small></div><div class="sb-unit-v"><span class="sb-grade">${esc(u.grade)}</span><b>${u.value != null ? u.value : "–"}</b></div><span class="sb-ubar"><i style="width:${u.pct != null ? u.pct : 0}%"></i></span>${on && u.cls && u.cls[cf] != null ? `<small class="cf-n">${u.cls[cf]} ${esc(cf)}</small>` : ""}</div>`).join("")}</div>`;
@@ -365,11 +444,11 @@ function sbSpotPanel(x, s, k) {
     const ready = i === 0 ? "Starter" : m.ready;
     const drag = s.controls ? ` data-drag="1" data-pid="${m.id}" data-pos="${esc(m.pos)}" data-name="${esc(m.name)}" title="Drag ${esc(m.name)} onto a spot"` : "";
     const cfOn = sbClass();
-    return `<div class="sb-dr ${i === 0 ? "first" : ""} ${s.controls ? "" : "sb-lock"} ${cfOn !== "ALL" ? (m.grp === cfOn ? "cf-hit" : "cf-dim") : ""}"${cellAt(i)}${drag}><span class="sb-di">${i + 1}</span><span class="sb-dn">${playerLink(m.id, m.name, "Development")}${hurt}<small>${esc(m.class)} · <span class="${/Needs|Out|Redshirt/.test(ready) ? "sb-warn" : ""}">${esc(ready)}</span>${m.pos !== s.pos ? ` · plays ${esc(m.pos)}` : ""}</small></span>${range(m.read, null, { p: m.id, k: "ovr" })}${up}</div>`;
+    return `<div class="sb-dr ${i === 0 ? "first" : ""} ${s.controls ? "" : "sb-lock"} ${cfOn !== "ALL" ? (m.grp === cfOn ? "cf-hit" : "cf-dim") : ""}"${cellAt(i)}${drag}><span class="sb-di">${i + 1}</span><span class="sb-dn">${playerLink(m.id, m.name, "Development")}${sbStar(m)}${hurt}<small>${esc(m.class)} · <span class="${/Needs|Out|Redshirt/.test(ready) ? "sb-warn" : ""}">${esc(ready)}</span>${m.pos !== s.pos ? ` · plays ${esc(m.pos)}` : ""}</small></span>${range(m.read, null, { p: m.id, k: "ovr" })}${up}</div>`;
   }).join("");
   const coach = d && d.coach ? `<div class="sb-coach"><span class="sb-ci">${esc(String(d.coach.name || "?").split(" ").map((w) => w[0]).slice(0, 2).join(""))}</span><div><div class="sb-cn">${d.coach.you ? "You" : coachLink(d.coach.id, d.coach.name || "")}, ${esc(d.coach.title)}</div><p>${esc(d.note)}</p></div></div>` : "";
   return `<span class="sb-bignum" aria-hidden="true">${p.num != null ? p.num : ""}</span>
-    <div class="sb-ph"><span class="sb-lbl gold">${esc(s.pos_full)} · Starter</span><span class="sb-first">${esc(p.first)}</span><span class="sb-last">${esc(p.last)}</span><span class="sb-meta">${p.num != null ? "#" + p.num + " · " : ""}${esc(p.class_full)} · ${esc(p.size)} · ${esc(p.home)}</span></div>
+    <div class="sb-ph"><span class="sb-lbl gold">${esc(s.pos_full)} · Starter</span><span class="sb-first">${esc(p.first)}</span><span class="sb-last">${esc(p.last)}${sbStar(p)}</span><span class="sb-meta">${p.num != null ? "#" + p.num + " · " : ""}${esc(p.class_full)} · ${esc(p.size)} · ${esc(p.home)}</span></div>
     <div class="sb-hero">${sbRing(p.read)}<div><div class="sb-lbl">Staff read</div>${range(p.read, "his position coach", { p: p.id, k: "ovr" })}${d && d.band ? `<div class="sb-bw">${esc(d.band.word)}</div><small class="sb-dim">${esc(d.band.line)}</small>` : ""}</div></div>
     <div class="sb-cells"><div><span class="sb-lbl">Snaps last game</span><b>${snaps}</b></div><div><span class="sb-lbl">Grade last game</span><b>${d && d.grade != null ? d.grade : "–"}</b></div></div>
     ${hpWhyHere(x, s, k)}
@@ -391,7 +470,7 @@ function hpWhyHere(x, s, k) {
   if (!w) return "";
   // A planned fall: only who else could play it (nobody put him there yet).
   if (w.plan) {
-    const pa = (w.alts || []).map((m) => `<div class="hp-alt"${s.controls ? ` data-drag="1" data-pid="${m.id}" data-pos="${esc(m.pos)}" data-name="${esc(m.name)}" title="Drag ${esc(m.name)} onto a spot"` : ""}><div>${playerLink(m.id, m.name)}<small>${esc(m.pos)} · ${esc(m.class)}${m.commit ? " · commit" : ""}</small><small>${esc(m.note)}</small></div>${range(m.read, null, { p: m.id, k: "ovr" })}</div>`).join("");
+    const pa = (w.alts || []).map((m) => `<div class="hp-alt"${s.controls ? ` data-drag="1" data-pid="${m.id}" data-pos="${esc(m.pos)}" data-name="${esc(m.name)}" title="Drag ${esc(m.name)} onto a spot"` : ""}><div>${playerLink(m.id, m.name)}${sbStar(m)}<small>${esc(m.pos)} · ${esc(m.class)}${m.commit ? (m.star ? " · committed" : " · signed") : ""}</small><small>${esc(m.note)}</small></div>${range(m.read, null, { p: m.id, k: "ovr" })}</div>`).join("");
     return pa ? `<div class="sb-sec hp-wh"><span class="sb-lbl">${esc(w.else_title)}</span><div class="hp-alts">${pa}</div></div>` : "";
   }
   const why = (w.why || []).map((r) => `<li><span><b>${esc(r.t)}</b>${rich(r.s)}</span></li>`).join("");

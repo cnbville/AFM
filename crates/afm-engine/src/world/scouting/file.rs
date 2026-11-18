@@ -150,7 +150,7 @@ pub struct Evidence {
 // --- What each look shows (topic 4) -------------------------------------------------------
 
 fn measured_attr(a: Attr) -> bool {
-    matches!(a, Attr::Speed | Attr::Acceleration | Attr::Agility | Attr::Strength | Attr::Jumping)
+    matches!(a, Attr::Speed | Attr::Acceleration | Attr::Agility | Attr::Strength | Attr::Jumping | Attr::LowerBody)
 }
 
 /// Technique a drill shows: footwork, hands, throws, kicks.
@@ -333,9 +333,13 @@ pub fn measures(kind: Kind, a: Attr) -> Option<f64> {
         Attr::Jumping => 2.0,
         Attr::Agility => 2.5,
         Attr::Strength => 2.5,
+        // The squat (item 4b): no combine or pro day tests it, so only a
+        // local testing day, a workout or a tryout reads it.
+        Attr::LowerBody => 2.5,
         _ => return None,
     };
     match kind {
+        Kind::Combine | Kind::ProDay | Kind::Camp | Kind::Showcase if a == Attr::LowerBody => None,
         Kind::Combine => Some(base),
         Kind::ProDay => Some(base + 1.0),
         // Camps time the 40, the shuttle and the jumps; few bench.

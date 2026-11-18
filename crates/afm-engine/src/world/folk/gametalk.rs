@@ -36,7 +36,17 @@ pub(crate) fn day_for(w: &World, team: Team, opp: Team, stakes: f32, rival: bool
         _ => Vec::new(),
     };
     let hurt = hurt(w, team, dressed);
-    let mut d = Day { stakes, rival, captains, hurt, ..Day::default() };
+    let provoked = super::persona::manner::provoked(w, team, opp);
+    // Who sits the first half: a college targeting ejection in the second
+    // half of his last college game (coach fire, item 4). It never follows
+    // him to the pros.
+    let first_half: Vec<u32> = if matches!(team, Team::College(_)) {
+        let out = &w.folk.discipline.half_out;
+        dressed.players.iter().map(|p| p.id).filter(|id| out.iter().any(|x| x.0 == *id)).collect()
+    } else {
+        Vec::new()
+    };
+    let mut d = Day { stakes, rival, captains, hurt, provoked, first_half, ..Day::default() };
     if Team::seat(w) == Some(team) {
         yours(w, team, opp, &mut d);
     }
@@ -189,6 +199,7 @@ pub(crate) fn after_game(w: &mut World, talks: &Record, mine: usize) {
     for (pick, halftime) in [(talks.pregame[mine], false), (talks.halftime[mine], true)] {
         if let Some(pick) = pick {
             w.gameday.talks.push(Given { date: today, pick, halftime });
+            super::persona::manner::room_tone(w, super::persona::manner::Manner::of_tone(pick.tone));
         }
     }
     let n = w.gameday.talks.len();

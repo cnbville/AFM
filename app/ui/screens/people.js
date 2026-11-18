@@ -245,6 +245,11 @@ async function ppLog() {
 // ---------- the scene ----------
 screens.people_scene = async (a) => {
   const s = await api("people_scene", { id: a.id });
+  // Ground's school visit has its own page (lane S3, board 3).
+  if (s.ground && s.ground.kind === "school_visit" && !s.future && typeof gvScene === "function") {
+    setColors((S.status && S.status.mine && S.status.mine.colors) || ["#2b3140", "#11141b"]);
+    return gvScene(s);
+  }
   const lead = (s.who || [])[0];
   const pp = lead && lead.kind === "player" ? await api("people_player", { id: lead.id }).catch(() => null) : null;
   const cast = lead && lead.kind === "cast" && lead.tok ? await api("people_cast", { tok: lead.tok }).catch(() => null) : null;
@@ -412,9 +417,14 @@ PLAYER_TABS.push({
       ? `<section class="panel"><h2>Talk to him <small>an hour · ${ppHours(x.hours)} left this week</small></h2><div class="pp-subjects">${x.subjects.map((s) => `<button class="st-btn small glass" data-act="pptalk" data-id="${p.id}" data-s="${s.key}">${esc(s.name)}</button>`).join("")}</div>
         <div><div class="st-label">Your line to his position coach</div><div class="seg wrap">${lines.map(([v, t]) => `<button data-act="ppline" data-id="${p.id}" data-v="${v}" aria-pressed="${cur === v}">${esc(t)}</button>`).join("")}</div></div></section>`
       : "";
+    // His coaches (coach and player bonds): the stage in words, never a
+    // number, and the moments that built it, newest first.
+    const bonds = (x.bonds || []).length
+      ? `${x.bondSays ? `<p class="small"><span class="st-label">Your staff says</span><br>${esc(x.bondSays)}</p>` : ""}<div class="items">${x.bonds.map((b) => `<div class="item"><span class="when">${esc(b.step)}</span><span>${rich(b.who)} <span class="muted">· ${esc(b.role)} · ${esc(b.met)}</span><br><span class="small muted">${esc(b.sign)}</span>${b.moments.length ? `<br><span class="small">${b.moments.map((m) => `${esc(m.date)}: ${esc(m.what)}`).join("<br>")}</span>` : ""}</span></div>`).join("")}</div>`
+      : '<div class="empty">No coach close to him yet.</div>';
     const promises = x.promises.length ? `<div class="items">${x.promises.map((q) => `<div class="item"><span class="when">${esc(q.due)}</span><span>${esc(ppCap(q.what))} ${q.kept === true ? '<span class="tag gold">Kept</span>' : q.kept === false ? '<span class="tag due">Broken</span>' : '<span class="tag soft">Open</span>'}</span></div>`).join("")}</div>` : "";
     return `<div class="grid2"><div class="col"><section class="panel"><h2>How he is</h2><p class="pp-mood">${ppMoodDot(x.mood.value)} ${esc(x.mood.words)}${x.trust ? ` · <span class="muted">${esc(x.trust.words)}</span>` : ""}</p>${x.staffSays ? `<p class="small"><span class="st-label">Your staff thinks</span><br>${esc(x.staffSays)}</p>` : ""}${reasons}${x.out ? `<p><span class="tag due">Sitting</span> ${esc(x.out)}</p>` : ""}${x.life ? `<p><span class="st-label">At home</span><br>${esc(ppCap(x.life))}</p>` : ""}${x.case ? `<p><span class="st-label">A case</span><br>${esc(x.case)}</p>` : ""}</section>${mine}</div>
-      <div class="col"><section class="panel"><h2>In his ear</h2>${ear}</section><section class="panel"><h2>Close ties</h2>${x.mentor ? `<p class="small">Mentor: ${rich(x.mentor)}</p>` : ""}${ties}</section>${promises ? `<section class="panel"><h2>Promises to him</h2>${promises}</section>` : ""}</div></div>`;
+      <div class="col"><section class="panel"><h2>His coaches</h2>${bonds}</section><section class="panel"><h2>In his ear</h2>${ear}</section><section class="panel"><h2>Close ties</h2>${x.mentor ? `<p class="small">Mentor: ${rich(x.mentor)}</p>` : ""}${ties}</section>${promises ? `<section class="panel"><h2>Promises to him</h2>${promises}</section>` : ""}</div></div>`;
   },
 });
 

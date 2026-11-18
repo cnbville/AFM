@@ -1,5 +1,5 @@
 use super::{career, context_for, mean, prospects};
-use crate::attributes::{Attr, MAX_RATING, MIN_RATING};
+use crate::attributes::{Attr, MIN_RATING, RATING_BOUND};
 use crate::development::{MAX_POTENTIAL_SHIFT, develop_season};
 use crate::player::{DevelopmentEvent as Ev, Player, PlayingTime, ProspectOptions, generate_prospect};
 use crate::positions::Position;
@@ -179,6 +179,14 @@ fn moves_potential_both_ways_and_mostly_before_24() {
     // 5.7% (4.5-6.9% over ten seeds of 1,500), so 1,500 put it within one
     // draw's noise of the 5% bar; a change to any position's generator
     // reshuffled it under (the safety and linebacker leanings, 2026-11-08).
+    // The split ceiling's everyday coaching closes part of the room each
+    // year, so a ceiling that fell wins some of it back: on this sample the
+    // share falling 5+ goes from 5.6% (progression off) to 4.9%, and the
+    // share rising 5+ from 13% to 16% (2026-11-15).
+    // Speed and burst no longer ride the yearly drive (the speed lane,
+    // 2026-11-17): two of a skill player's biggest ceilings now hold, so his
+    // overall ceiling moves less both ways: falling 5+ 4.9% to 3.3%, rising
+    // 5+ 16% to 14% on this sample. The bar for falls goes to 2.5%.
     for mut p in prospects(6000, "drift", 2.0) {
         let p14 = p.potential();
         career(&mut p, &mut rng, 18, |_| {});
@@ -190,13 +198,13 @@ fn moves_potential_both_ways_and_mostly_before_24() {
     }
     let share = |xs: &[f64], f: fn(f64) -> bool| xs.iter().filter(|&&d| f(d)).count() as f64 / xs.len() as f64;
     assert!(share(&teen, |d| d >= 5.0) > 0.1);
-    assert!(share(&teen, |d| d <= -5.0) > 0.05);
+    assert!(share(&teen, |d| d <= -5.0) > 0.025);
     // From 24 to 27 the ceiling barely rises.
     assert!(share(&late, |d| d >= 5.0) < 0.02);
 }
 
 #[test]
-fn keeps_every_rating_within_1_99_and_current_at_or_below_its_ceiling() {
+fn keeps_every_rating_within_bounds_and_current_at_or_below_its_ceiling() {
     let mut rng = Rng::new("bounds");
     let mut all = prospects(300, "bounds", 4.5);
     all.extend(prospects(300, "bounds-low", -2.0));
@@ -209,12 +217,19 @@ fn keeps_every_rating_within_1_99_and_current_at_or_below_its_ceiling() {
             for k in Attr::ALL {
                 let (a, c) = (p.attributes.get(k), p.ceilings.get(k));
                 assert!(
-                    a >= MIN_RATING && c <= MAX_RATING && a <= c,
+                    a >= MIN_RATING && c <= RATING_BOUND && a <= c,
                     "{} {} at age {}: {a} / {c}",
                     p.id,
                     k.key(),
                     p.age
                 );
+                // No 99 wall, but a thin top: past 95 nothing but the
+                // strength pair gets far. The curve has no top, and these
+                // 4.5-sigma prospects pass 105 (a draw of 176), but 110 is a
+                // draw of 540: only a rise left unthinned gets there.
+                if !matches!(k, Attr::Strength | Attr::LowerBody) {
+                    assert!(c < 110.0, "{} {} at age {}: ceiling {c}", p.id, k.key(), p.age);
+                }
             }
         }
     }

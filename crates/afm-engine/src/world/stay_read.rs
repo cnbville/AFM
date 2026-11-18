@@ -19,6 +19,8 @@
 //! - a promise his head coach broke (an AI head coach's too since the
 //!   promises lane P2);
 //! - trust in his current head coach, his mood today;
+//! - his bonds with his head coach and position coach, and being passed
+//!   over at camp for the coach's guy (coach and player bonds, 2026-11-17);
 //! - his NIL pay against the going rate at his level: an underpaid man
 //!   leans out, a well-paid one who wants out may stay for the money.
 //!
@@ -52,15 +54,22 @@ const PROMISE_OPEN: &str = "a promise from his head coach";
 const PROMISE_BROKEN: &str = "his head coach broke a promise";
 const TRUSTS: &str = "trusts his head coach";
 const DOUBTS: &str = "doesn't trust his head coach";
+/// Coach and player bonds (section 7): x (1 - 0.4 x closeness to the head
+/// coach) x (1 - 0.25 x closeness to his position coach).
+const CLOSE: &str = "close to his coaches";
+/// Favoritism (bonds section 8): passed over at camp for a man the head
+/// coach is close to.
+const PASSED: &str = "passed over for the coach's guy";
 const HAPPY: &str = "happy where he is";
 const UNHAPPY: &str = "unhappy where he is";
 const PAID: &str = "well paid where he is";
 const UNDERPAID: &str = "underpaid where he is";
+const CONTRACT: &str = "a multi-year NIL deal with a buyout";
 const LIMIT: &str = "the day's read held at its limit";
 pub(crate) const LEVEL: &str = "against every player's read at his level";
 
 /// Every lean event the day's read writes.
-const READS: [&str; 16] = [
+const READS: [&str; 19] = [
     READ_UNDO,
     OLD_ROLE_HALF,
     YOUR_WORD,
@@ -71,10 +80,13 @@ const READS: [&str; 16] = [
     PROMISE_BROKEN,
     TRUSTS,
     DOUBTS,
+    CLOSE,
+    PASSED,
     HAPPY,
     UNHAPPY,
     PAID,
     UNDERPAID,
+    CONTRACT,
     LIMIT,
     LEVEL,
 ];
@@ -98,6 +110,12 @@ const BROKEN_PUSH: f64 = 1.4;
 /// NIL (item 10): his money want, ×6 (six wants sum to 1), held to 0-2.
 const PAID_HOLD: f64 = 0.15;
 const UNDERPAID_PUSH: f64 = 0.2;
+/// A multi-year deal's buyout holds him (the new NIL scheme, item 12): up
+/// to this much less lean once the buyout reaches a year at his level's
+/// going rate. Courts haven't held these contracts binding (Duke couldn't
+/// keep Darian Mensah, January 2026), so it is a cost to leaving, not a
+/// lock (proposed, not confirmed).
+const CONTRACT_HOLD: f64 = 0.2;
 
 /// His place next fall as he guesses it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -448,6 +466,16 @@ fn raw(w: &World, ctx: &Ctx, i: usize) -> Vec<(&'static str, f64)> {
             parts.push((if f < 1.0 { TRUSTS } else { DOUBTS }, f));
         }
     }
+    // 7: his bonds with his head coach and position coach, and a man
+    // passed over for the coach's guy (coach and player bonds).
+    let f = super::folk::bonds::stay_factor(w, i);
+    if f < 0.99 {
+        parts.push((CLOSE, f));
+    }
+    let f = super::folk::bonds::passed_over(w, p.player.id);
+    if f > 1.0 {
+        parts.push((PASSED, f));
+    }
     // 8: his mood today.
     let f = (1.0 - 0.5 * p.mood as f64).clamp(0.75, 1.4);
     if (f - 1.0).abs() > 0.01 {
@@ -463,10 +491,22 @@ fn raw(w: &World, ctx: &Ctx, i: usize) -> Vec<(&'static str, f64)> {
     {
         let m = (6.0 * p.family.own_wants.money).clamp(0.0, 2.0);
         let wants_out = parts.iter().map(|x| x.1).product::<f64>() > 1.0 || p.mood < -0.15;
-        if p.nil_income < 0.5 * rate {
+        // His school's keep-him offer is his money now (the new NIL scheme,
+        // item 9); a richer school's top bid well past it pulls him out as
+        // being underpaid does (proposed, not confirmed: past 1.5 times).
+        let (keep, rival) = p.cal.nil_keep.unwrap_or((0.0, 0.0));
+        // A multi-year deal is his money now; a school taking him pays its
+        // buyout out of what it would give him (item 12).
+        let deal = p.cal.nil_deal.filter(|d| d.contract());
+        let buyout = deal.map_or(0.0, |d| d.buyout());
+        let money = p.nil_income.max(keep).max(deal.map_or(0.0, |d| d.amount));
+        if money < 0.5 * rate || rival - buyout > 1.5 * money.max(1.0) {
             parts.push((UNDERPAID, 1.0 + UNDERPAID_PUSH * m));
-        } else if p.nil_income >= rate && wants_out && m > 0.0 {
+        } else if money >= rate && wants_out && m > 0.0 {
             parts.push((PAID, 1.0 - PAID_HOLD * m));
+        }
+        if buyout > 0.0 {
+            parts.push((CONTRACT, 1.0 - CONTRACT_HOLD * (buyout / rate).min(1.0)));
         }
     }
     parts

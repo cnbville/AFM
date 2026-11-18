@@ -76,6 +76,12 @@ pub enum Topic {
     /// Something nobody in the world stores: "I don't know", or his own
     /// opinion if he'd have one.
     Nothing,
+    /// His own job here: how safe it is and his case for keeping it (a
+    /// coach of yours: his years, the team since he came, his unit, his
+    /// deal; your boss: where you stand with him). Before it, "why should
+    /// I keep you?" went to `Jobs`, the openings elsewhere (Cain
+    /// 2026-11-16).
+    Job,
 }
 
 /// How a fact reached him (3.1's "who knows it").

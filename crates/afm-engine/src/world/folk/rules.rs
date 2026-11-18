@@ -344,7 +344,9 @@ fn risk(w: &World, i: usize, book: &Rulebook, room: f32, base: f32) -> f32 {
         .clamp(0.2, 3.0)
         * (1.0 - 0.03 * (age - 20.0)).clamp(0.6, 1.25)
         * if warned { 0.6 } else { 1.0 };
-    base * f * (0.6 + 0.12 * book.load())
+    // A high-need kid whose father figure left this year (coach and
+    // player bonds, section 8).
+    base * f * (0.6 + 0.12 * book.load()) * super::bonds::loss_risk(w, p.player.id)
 }
 
 /// Whether a team's level is in its rules season (camp to the bowls, and
@@ -962,6 +964,15 @@ pub(crate) fn carry_out(
     let pp = &mut w.people[i];
     pp.trust = (pp.trust + dt).clamp(0.0, 1.0);
     talks::mood_event(w, id, Reason::Discipline, dm);
+    // You stood by him with a fair punishment: the bond's hard moment
+    // (coach and player bonds, section 6). A dismissal leaves him.
+    if let Some(me) = w.career.as_ref().map(|k| k.coach) {
+        if resp == Response::Dismiss {
+            super::bonds::left_him(w, id, Some(me), super::bonds::What::Cut);
+        } else if gap.abs() <= 1 && room_gap.abs() <= 1 {
+            super::bonds::stood_by(w, id, me);
+        }
+    }
     // A firm, fair answer from a respected coach raises professionalism
     // over time (topic 1).
     if room_gap.abs() <= 1
@@ -1344,6 +1355,92 @@ pub struct LeagueBook {
     /// (year, NFL fines, NFL suspensions for hits, college targeting
     /// ejections, high school ejections).
     pub years: Vec<(i32, u32, u32, u32, u32)>,
+    /// The week's flagged hits from games on the engine (coach fire, item
+    /// 4), for the league office's Tuesday.
+    pub flagged: Vec<Flagged>,
+    /// Games on the engine since the last Tuesday, NFL and college: the
+    /// rulings read their flags; a week of stand-in games keeps the old
+    /// draw.
+    pub engine: (bool, bool),
+    /// College players thrown out for targeting in a second half, with the
+    /// day: they sit their next college game's first half (dropped after
+    /// 400 days unserved: he left college football).
+    pub half_out: Vec<(u32, Date)>,
+    /// College targeting fouls this season: (year, player, count). From
+    /// 2019 a third sits his next game.
+    pub strikes: Vec<(i32, u32, u8)>,
+}
+
+/// A hit flagged in a game on the engine (coach fire, item 4).
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
+pub struct Flagged {
+    pub date: Date,
+    pub id: u32,
+    pub team: Team,
+    pub level: Level,
+    pub kind: crate::game::sim::FoulKind,
+    pub ejected: bool,
+    pub defenseless: bool,
+}
+
+/// After a game on the engine (coach fire, item 4): who sat a first half
+/// has served it, a college player thrown out for targeting in the second
+/// half sits the next game's first half, and the flagged hits wait for the
+/// league office's Tuesday (`GameStats::hit_flags`). `served`: each side's
+/// first-half sitters.
+pub(crate) fn game_flags(
+    w: &mut World,
+    level: Level,
+    teams: [Team; 2],
+    flags: &[crate::game::stats::HitFlag],
+    served: [&[u32]; 2],
+) {
+    let today = w.today;
+    let book = &mut w.folk.discipline;
+    for s in served {
+        book.half_out.retain(|x| !s.contains(&x.0));
+    }
+    match level {
+        Level::Nfl => book.engine.0 = true,
+        Level::College => book.engine.1 = true,
+        _ => {}
+    }
+    for &f in flags {
+        if level == Level::College && f.ejected && f.second_half && !book.half_out.iter().any(|x| x.0 == f.id) {
+            book.half_out.push((f.id, today));
+        }
+        // High school has no fines: only a disqualification counts.
+        if level == Level::HighSchool && !f.ejected {
+            continue;
+        }
+        book.flagged.push(Flagged {
+            date: today,
+            id: f.id,
+            team: teams[f.team as usize],
+            level,
+            kind: f.kind,
+            ejected: f.ejected,
+            defenseless: f.defenseless,
+        });
+    }
+}
+
+/// The share of flagged hits the NFL fines (coach fire, item 4): a hit on a
+/// defenseless man, roughing the passer and unnecessary roughness most of
+/// the time, a face mask less often, an ejection always. Fitted so the
+/// league fines about 250 to 350 hits a season (the real record); proposed,
+/// not confirmed.
+fn fine_share(f: &Flagged) -> f64 {
+    use crate::game::sim::FoulKind as K;
+    if f.ejected {
+        return 1.0;
+    }
+    match f.kind {
+        _ if f.defenseless => 0.9,
+        K::RoughingPasser => 0.8,
+        K::FaceMask => 0.4,
+        _ => 0.7,
+    }
 }
 
 /// The NFL's fine for an on-field foul (the league's schedule: 2025 first
@@ -1378,7 +1475,59 @@ fn league_week(w: &mut World, d: Date) {
     let mut counts = (0u32, 0u32, 0u32, 0u32);
     let seat = Team::seat(w);
     let mine: Vec<u32> = seat.map_or(Vec::new(), |t| t.roster(w).iter().map(|&i| w.people[i].player.id).collect());
-    if nfl_season {
+    // The week's flagged hits from games on the engine (coach fire, item
+    // 4): the rulings read them where the week's games ran there.
+    let flagged = std::mem::take(&mut w.folk.discipline.flagged);
+    let engine = std::mem::take(&mut w.folk.discipline.engine);
+    w.folk.discipline.half_out.retain(|x| x.1.add(400) > d);
+    if nfl_season && engine.0 {
+        // The league office reviews the week's flagged hits: most are fined
+        // on the schedule, doubled for a repeat, and a third hit on a
+        // defenseless man in a year costs a game.
+        for (k, f) in flagged.iter().filter(|f| f.level == Level::Nfl).enumerate() {
+            if super::roll(w, 0x41E2 ^ d.0 as u64, (f.id as u64) << 8 | k as u64) >= fine_share(f) {
+                continue;
+            }
+            use crate::game::sim::FoulKind as K;
+            let kind: u8 = if f.defenseless || f.ejected {
+                2
+            } else if f.kind == K::RoughingPasser {
+                1
+            } else {
+                0
+            };
+            let prior = w
+                .folk
+                .discipline
+                .recent
+                .iter()
+                .filter(|x| x.id == f.id && x.level == Level::Nfl && x.date.year() >= year - 1)
+                .count();
+            let amount = hit_fine(year, kind) * (1 + prior as u32).min(2);
+            let games = if prior >= 2 && kind == 2 { 1 } else { 0 };
+            let what = match kind {
+                0 if f.kind == K::FaceMask => "a face mask",
+                0 => "unnecessary roughness",
+                1 => "roughing the passer",
+                _ if f.ejected => "the hit that got him ejected",
+                _ => "a hit on a defenseless player",
+            };
+            entries.push(Fine {
+                date: d,
+                id: f.id,
+                level: Level::Nfl,
+                what: what.into(),
+                amount,
+                games,
+                appealed: false,
+                reduced: false,
+            });
+            counts.0 += 1;
+            if games > 0 {
+                counts.1 += 1;
+            }
+        }
+    } else if nfl_season {
         // About 16 hits fined a week across the league.
         for t in 0..w.clubs.len() {
             for &i in &w.clubs[t].roster.clone() {
@@ -1438,7 +1587,55 @@ fn league_week(w: &mut World, d: Date) {
             }
         }
     }
-    if cfb_season {
+    if cfb_season && engine.1 {
+        // Targeting from the games (coach fire, item 4): every ejection on
+        // the record; a second-half one already sits the next game's first
+        // half (`game_flags`). From 2019 a third targeting foul in a season
+        // sits his next game (NCAA rule).
+        for f in flagged.iter().filter(|f| f.level == Level::College && f.kind == crate::game::sim::FoulKind::Targeting)
+        {
+            let n = match w.folk.discipline.strikes.iter_mut().find(|x| x.0 == year && x.1 == f.id) {
+                Some(x) => {
+                    x.2 = x.2.saturating_add(1);
+                    x.2
+                }
+                None => {
+                    w.folk.discipline.strikes.push((year, f.id, 1));
+                    1
+                }
+            };
+            let third = year >= 2019 && n == 3;
+            if !f.ejected && !third {
+                continue;
+            }
+            if third {
+                let until = after_games(w, f.team, 1);
+                if mine.contains(&f.id) {
+                    w.folk.out.push((f.id, until, "suspended a game: a third targeting foul this season".into()));
+                } else {
+                    w.folk.ai_out.insert(f.id, until);
+                }
+            }
+            entries.push(Fine {
+                date: d,
+                id: f.id,
+                level: Level::College,
+                what: if third {
+                    "suspended a game for a third targeting foul".into()
+                } else {
+                    "ejected for targeting".into()
+                },
+                amount: 0,
+                games: third as u8,
+                appealed: false,
+                reduced: false,
+            });
+            if f.ejected {
+                counts.2 += 1;
+            }
+        }
+        w.folk.discipline.strikes.retain(|x| x.0 >= year);
+    } else if cfb_season {
         // Targeting: about 0.2 ejections a game. A second-half ejection
         // carries into the first half of the next game.
         let seat_prog = match seat {
@@ -1506,6 +1703,27 @@ fn league_week(w: &mut World, d: Date) {
             let id = w.people[r[k.min(r.len() - 1)]].player.id;
             let until = after_games(w, Team::High(h), 1);
             w.folk.ai_out.insert(id, until);
+        }
+    }
+    // High school disqualifications from the games (coach fire, item 4:
+    // NFHS targeting, a flagrant one): out the next game by rule, at every
+    // school; yours make the news.
+    for f in flagged.iter().filter(|f| f.level == Level::HighSchool && f.ejected) {
+        if mine.contains(&f.id) {
+            entries.push(Fine {
+                date: d,
+                id: f.id,
+                level: Level::HighSchool,
+                what: "ejected for a flagrant hit".into(),
+                amount: 0,
+                games: 1,
+                appealed: false,
+                reduced: false,
+            });
+            counts.3 += 1;
+        } else {
+            let until = after_games(w, f.team, 1);
+            w.folk.ai_out.insert(f.id, until);
         }
     }
     if let Some(Team::High(h)) = seat

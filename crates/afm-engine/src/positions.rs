@@ -905,6 +905,19 @@ pub const POSITION_PROFILES: [PositionProfile; POSITION_COUNT] = [
     },
 ];
 
+/// The lower body's share of a position's strength (physical study item
+/// 4b; proposed, not confirmed): the anchor, the drive block, the push and
+/// the run after contact are the legs, the hand fight, the press and the
+/// stiff arm the upper body.
+pub fn lower_share(pos: Position) -> f64 {
+    match pos {
+        Position::RB | Position::IOL | Position::DT => 0.6,
+        Position::OT | Position::LB => 0.55,
+        Position::WR | Position::CB => 0.4,
+        _ => 0.5,
+    }
+}
+
 struct Derived {
     /// Normalised weights per position, dense over every attribute.
     weights: [[f64; ATTRIBUTE_COUNT]; POSITION_COUNT],
@@ -923,9 +936,16 @@ static DERIVED: LazyLock<Derived> = LazyLock::new(|| {
         for &(a, w) in p.weights {
             weights[pos.index()][a.index()] = w / total;
         }
+        // Strength's weight splits between the upper and lower body (item 4b).
+        let st = weights[pos.index()][Attr::Strength.index()];
+        let low = lower_share(pos);
+        weights[pos.index()][Attr::Strength.index()] = st * (1.0 - low);
+        weights[pos.index()][Attr::LowerBody.index()] = st * low;
         for &(a, v) in p.elite_shape {
             elite_shape[pos.index()].set(a, v);
         }
+        let es = elite_shape[pos.index()].get(Attr::Strength);
+        elite_shape[pos.index()].set(Attr::LowerBody, es);
     }
     for pos in Position::ALL {
         elite_shape_overall[pos.index()] = dot(&weights[pos.index()], &elite_shape[pos.index()]);
@@ -945,7 +965,20 @@ fn dot(w: &[f64; ATTRIBUTE_COUNT], a: &Attributes) -> f64 {
 /// Position overall: weighted mean of the attributes that matter at the position.
 #[inline]
 pub fn overall_for(position: Position, attrs: &Attributes) -> f64 {
-    dot(&DERIVED.weights[position.index()], attrs)
+    let w = &DERIVED.weights[position.index()];
+    let mut sum = dot(w, attrs);
+    // The strength pair is stored with its fat top (the bench, the line's
+    // physics), but it counts in an overall on the thin top like every other
+    // rating (physical study items 3 and 17), so a 130-strength man isn't
+    // rated a better tackle by four points: without it, drafted men ended
+    // their careers at tackle 19% of the time (real 8%).
+    for a in [Attr::Strength, Attr::LowerBody] {
+        let v = attrs.get(a);
+        if v > crate::athlete::TOP_KNEE {
+            sum += w[a.index()] * (crate::athlete::thin_top(v) - v);
+        }
+    }
+    sum
 }
 
 /// Normalised weight of an attribute at a position (0 if it doesn't count).

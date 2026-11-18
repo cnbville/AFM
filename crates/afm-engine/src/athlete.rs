@@ -14,7 +14,7 @@
 //! At a spot that suits him less, he is worse: a kid with a quarterback's arm
 //! stuck at safety, or a safety's eye wasted at receiver.
 
-use crate::attributes::{ATTRIBUTE_PROFILES, Attr, Attributes, MAX_RATING, MIN_RATING};
+use crate::attributes::{ATTRIBUTE_PROFILES, Attr, Attributes, MIN_RATING, RATING_BOUND};
 use crate::body::{Body, combine_size};
 use crate::player::Player;
 use crate::positions::{POSITION_COUNT, Position, elite_shape_value, overall_for, weight};
@@ -68,6 +68,20 @@ const PHYSICAL: [Attr; 8] = [
     Attr::Stamina,
 ];
 
+/// How much the lower and upper body's own parts go together (physical
+/// study item 4b; proposed, not confirmed: bench and squat strength go
+/// together about 0.7 to 0.8 among trained athletes, McGuigan and
+/// Winchester 2008).
+pub const LOWER_TIE: f64 = 0.75;
+
+/// The lower body's own part given the upper body's (`upper`, drawn at
+/// spread `sd`): tied at `LOWER_TIE`, the rest drawn on a stream keyed to
+/// what is already drawn, so no other draw in the generator moves.
+pub(crate) fn lower_with(upper: f64, sd: f64, key: u32) -> f64 {
+    let z = Rng::new(key ^ (upper as f32).to_bits() ^ 0x10B0_D1E5).normal(0.0, 1.0);
+    LOWER_TIE * upper + (1.0 - LOWER_TIE * LOWER_TIE).sqrt() * sd * z
+}
+
 /// Standard normal cumulative distribution (Abramowitz and Stegun 7.1.26).
 pub fn phi(x: f64) -> f64 {
     let t = 1.0 / (1.0 + 0.3275911 * x.abs() / std::f64::consts::SQRT_2);
@@ -113,6 +127,69 @@ fn draw_frame(rng: &mut Rng) -> (f64, f64) {
     }
 }
 
+/// The heavy side of a tackle's, guard's or defensive tackle's weight
+/// against its light side (item 10): real linemen's heavy tail runs long
+/// (0.41% of FBS and FCS listings at 350+, drafted tackles' heaviest 1%
+/// 365 lb). It widens his weight once his spot is chosen (`fitted_size`),
+/// not his frame, so who becomes a lineman and where stays as drawn.
+/// Proposed, not confirmed: sized on `body_sizes`. One stretch can't give
+/// real's narrow middle and long tail: the placement's weight program
+/// takes a heavy boy 60% of the way back (at most 25 lb). At 1.6 drafted
+/// tackles weigh 315 (sd 15, real 13), their heaviest 1% 346 (real 365);
+/// at 2.0 the tail reaches 353 but the class sim then drafts tackles at
+/// 16% of picks (real 8%, its own 12% at 1.6).
+pub const HEAVY_SIDE: f64 = 1.6;
+
+/// The widest body a boy can be drawn with (physical study item 9: no
+/// creation limits inside what people are). Real combine men run 64 to 82
+/// in and up to 384 lb, real rosters list men past 400.
+pub const HEIGHT_RANGE: (f64, f64) = (58.0, 88.0);
+pub const WEIGHT_RANGE: (f64, f64) = (120.0, 480.0);
+
+/// Each position's size fit at creation, after his spot is chosen
+/// (physical study items 14 and 15, and the rest of the real combine's
+/// heights and weights): (inches added, the extra height spread's sd,
+/// pounds added, the weight spread's scale about the combine's mean; for
+/// tackles, guards and defensive tackles only on the light side, the heavy
+/// side taking `HEAVY_SIDE`).
+/// Without it the spots that share a frame squeeze each other's sizes:
+/// receivers' heights ran sd 1.51 (real 2.26) with no 5'8 man in a
+/// thousand drafts (real 3.7%), and receivers 7.6 lb, corners 3.5 and
+/// safeties 2.2 heavy. Fitted on `body_sizes` (four 250,000 classes,
+/// drafted men against the combine 2000-2026). Proposed, not confirmed.
+pub const SIZE_FIT: [(f64, f64, f64, f64); POSITION_COUNT] = [
+    (0.70, 0.0, -8.6, 0.84),    // QB
+    (-0.27, 1.29, 4.3, 1.07),   // RB
+    (-0.39, 1.68, -12.7, 0.95), // WR
+    (0.14, 0.0, -7.0, 0.57),    // TE
+    (0.16, 0.0, -6.8, 0.76),    // OT
+    (0.0, 0.0, -0.5, 0.64),     // IOL
+    (-0.05, 0.0, -2.6, 0.79),   // EDGE
+    (0.0, 0.0, -14.5, 0.83),    // DT
+    (-0.33, 1.13, -0.2, 0.92),  // LB
+    (0.26, 0.97, -6.2, 0.49),   // CB
+    (0.41, 1.25, -9.6, 0.65),   // S
+    (0.0, 0.0, 0.0, 1.0),       // K
+    (0.0, 0.0, 0.0, 1.0),       // P
+    (0.0, 0.0, 0.0, 1.0),       // LS
+];
+
+/// His height and weight after his spot's size fit (`SIZE_FIT`), from his
+/// frame and the talent's shrink. The extra height draw is on its own
+/// stream keyed by his frame, so no other draw moves.
+pub(crate) fn fitted_size(natural: Position, fh: f64, fw: f64, talent: f64) -> (f64, f64) {
+    let (dh, dw) = talent_size(talent);
+    let (fit_h, extra, fit_w, scale) = SIZE_FIT[natural.index()];
+    let mut r = Rng::new(fh.to_bits() as u32 ^ (fw.to_bits() >> 20) as u32 ^ 0x51_2E5F);
+    let height = clamp(fh + dh + fit_h + r.normal(0.0, extra), HEIGHT_RANGE.0, HEIGHT_RANGE.1);
+    let wm = combine_size(natural).2;
+    let w = lb_weight(natural, fw + dw + fit_w);
+    // An interior lineman's heavy side runs long (item 10).
+    let heavy = matches!(natural, Position::OT | Position::IOL | Position::DT) && w > wm;
+    let weight = clamp(wm + if heavy { HEAVY_SIDE } else { scale } * (w - wm), WEIGHT_RANGE.0, WEIGHT_RANGE.1);
+    (height, weight)
+}
+
 /// The athlete's shape: what each attribute would be if he became an elite
 /// player, before talent scales it. Returns the shape, the frame, his will
 /// to compete (a standard normal, which his personality shares) and his
@@ -135,7 +212,11 @@ fn draw_shape(rng: &mut Rng) -> (Attributes, (f64, f64), f64, f64) {
     shape.add(Acceleration, 4.0 * explosive + rng.normal(0.0, 3.0));
     shape.add(Jumping, 4.0 * explosive + rng.normal(0.0, 3.0));
     shape.add(Agility, 2.5 * explosive + rng.normal(0.0, 3.5));
-    shape.add(Strength, rng.normal(0.0, 5.0));
+    let own_strength = rng.normal(0.0, 5.0);
+    shape.add(Strength, own_strength);
+    // The lower body moves with the upper mostly, but men differ (physical
+    // study item 4b), on its own stream so no other draw moves.
+    shape.set(LowerBody, shape.get(Strength) - own_strength + lower_with(own_strength, 5.0, fh.to_bits() as u32));
     shape.add(Stamina, rng.normal(0.0, 5.0));
     // Balance and bend are their own gifts (proposed, not confirmed: about
     // as spread as agility).
@@ -255,10 +336,13 @@ const FBS_TALENT_SHARE: f64 = 0.13;
 /// eight classes with the `positions` tool: a spot that reads speed picks
 /// its fastest on the way to the draft, so its boys start slower than its
 /// pros run. Kickers and punters run like real kickers and punters
-/// (4.91). Quarterbacks stay about 0.1 s slower than the combine: the
-/// fastest boys with an arm suit receiver or safety better. Order:
+/// (4.91). Quarterbacks stay about 0.05 s slower than the combine: the
+/// fastest boys with an arm suit receiver or safety better. Refit by the
+/// speed lane (2026-11-17, `speed_levels`, eight classes) so each
+/// position's drafted average held when speed stopped drifting with the
+/// yearly drive and the fast end thinned (`thin_roll`). Order:
 /// `Position::ALL`.
-const SPEED_MIX: [f64; 14] = [54.1, 28.6, 39.6, 35.4, 35.8, 32.2, 23.5, 34.4, 36.6, 34.8, 36.6, 46.3, 50.8, 45.0];
+const SPEED_MIX: [f64; 14] = [61.0, 44.0, 47.9, 42.2, 40.0, 37.7, 42.5, 38.0, 32.5, 35.1, 50.2, 46.3, 50.8, 45.0];
 
 /// How much his speed roll leans toward his talent at a spot whose overall
 /// counts speed and burst at `share`: enough that among FBS players, the
@@ -273,6 +357,25 @@ fn speed_lean(share: f64) -> f64 {
     let (a, v) = (share * SPEED_SD, FBS_TALENT_SHARE);
     let b = TALENT_SD * v;
     clamp((-b + (b * b + 4.0 * a * a * (1.0 - v)).sqrt()) / (2.0 * a * (1.0 - v)), 0.0, 0.95)
+}
+
+/// Where a speed roll starts to thin, in sds, how much each sd past it
+/// counts, and the least lean a spot needs for it (the speed lane,
+/// physical study item 2: real speed tails are thinner than a bell). At a
+/// spot that reads speed, football talent leans his roll up, and with no
+/// end to it the best receivers, corners and backs ran 4.2s far more often
+/// than real ones: drafted men at 4.30 or faster 4.0 a draft, real 1.27.
+/// Past the knee each further sd of roll counts for `SPEED_THIN` of one, with
+/// no top, so a freak still runs a 4.2. Quarterbacks and linemen, whose
+/// rolls are mostly their own explosiveness, keep the bell: their fast men
+/// were already as common as real ones (300+ lb at 4.95 or faster). Fitted
+/// with `speed_levels`. Proposed, not confirmed.
+const SPEED_KNEE: f64 = 2.5;
+const SPEED_THIN: f64 = 0.4;
+const THIN_LEAN: f64 = 0.6;
+
+fn thin_roll(r: f64, lean: f64) -> f64 {
+    if lean < THIN_LEAN || r <= SPEED_KNEE { r } else { SPEED_KNEE + SPEED_THIN * (r - SPEED_KNEE) }
 }
 
 fn speed_mix(pos: Position) -> f64 {
@@ -362,13 +465,15 @@ pub(crate) fn create(rng: &mut Rng, talent: f64) -> (Attributes, Body, Position,
     let (shape, (fh, fw), compete, explosive) = draw_shape(rng);
     let (natural, fit) = best_fit(&shape, (fh, fw));
     // Talent is his overall at his best spot. The skills that spot needs rise
-    // together: a great player is good at everything his position asks, so
-    // the higher his talent, the less room for uneven gifts (and none above 99).
+    // together, each about his talent as his leanings say.
     // Everything else scales with talent the way his leanings say.
     let scale = talent / fit;
-    let top_key =
-        Attr::ALL.iter().filter(|&&a| weight(natural, a) > 0.0).map(|&a| shape.get(a)).fold(fit + 1.0, f64::max);
-    let spread = (0.5 * scale).min((94.0 - talent).max(0.5) / (top_key - fit));
+    // Physical study item 21: the old "94 rule" squeezed an elite's key
+    // skills together so none passed 94 (a 99 wall's leftover). Real
+    // first-rounders' profiles are no more even than anyone's, so his
+    // leanings spread at every talent; the thin top and the shift below
+    // keep his overall at his talent.
+    let spread = 0.5 * scale;
     // Speed and burst are his own roll, not his football talent's (speed
     // update S1, S2): his explosiveness on top of what bodies like his run.
     // A spot that reads speed counts it in his talent, so there his roll
@@ -376,7 +481,7 @@ pub(crate) fn create(rng: &mut Rng, talent: f64) -> (Attributes, Body, Position,
     // left between speed and skills among the players who make it.
     let speed_share = weight(natural, Attr::Speed) + weight(natural, Attr::Acceleration);
     let lean = speed_lean(speed_share);
-    let roll = lean * talent_z(talent) + (1.0 - lean * lean).sqrt() * explosive;
+    let roll = thin_roll(lean * talent_z(talent) + (1.0 - lean * lean).sqrt() * explosive, lean);
     let (mix, lead) = speed_base((fh, fw), natural);
     let speed = mix - 0.25 * lead + SPEED_SD * roll;
     let accel = mix + 0.75 * lead + SPEED_SD * roll;
@@ -390,12 +495,21 @@ pub(crate) fn create(rng: &mut Rng, talent: f64) -> (Attributes, Body, Position,
         };
         base.set(a, v);
     }
-    // His skills make up what his speed doesn't, so his overall there is his talent.
+    // His skills make up what his speed doesn't, so his overall there is his
+    // talent, read after the thin top (a key past the knee counts for less,
+    // so an elite's skills carry a little more to make it up).
     if speed_share < 1.0 {
-        let short = (talent - overall_for(natural, &base)) / (1.0 - speed_share);
-        for a in Attr::ALL {
-            if weight(natural, a) > 0.0 && !matches!(a, Attr::Speed | Attr::Acceleration) {
-                base.add(a, short);
+        for _ in 0..8 {
+            let mut thinned = base;
+            thin_tops(&mut thinned);
+            let short = (talent - overall_for(natural, &thinned)) / (1.0 - speed_share);
+            if short.abs() < 0.01 {
+                break;
+            }
+            for a in Attr::ALL {
+                if weight(natural, a) > 0.0 && !matches!(a, Attr::Speed | Attr::Acceleration) {
+                    base.add(a, short);
+                }
             }
         }
     }
@@ -405,9 +519,19 @@ pub(crate) fn create(rng: &mut Rng, talent: f64) -> (Attributes, Body, Position,
     // range and coverage, at the same overall.
     body_lean(&mut base, natural, talent, fw, roll, speed_share);
     let mut ceilings = Attributes::default();
+    let mut strength_noise = 0.0;
     for a in Attr::ALL {
-        ceilings.set(a, clamp(base.get(a) + rng.normal(0.0, 4.0), MIN_RATING, MAX_RATING));
+        if a == Attr::LowerBody {
+            continue;
+        }
+        let n = rng.normal(0.0, 4.0);
+        if a == Attr::Strength {
+            strength_noise = n;
+        }
+        ceilings.set(a, clamp(base.get(a) + n, MIN_RATING, RATING_BOUND));
     }
+    let n = lower_with(strength_noise, 4.0, base.get(Attr::LowerBody).to_bits() as u32);
+    ceilings.set(Attr::LowerBody, clamp(base.get(Attr::LowerBody) + n, MIN_RATING, RATING_BOUND));
     // His best spot is his best spot: where another position would rate him
     // higher, the skills only that position uses are trimmed until it doesn't.
     let best = overall_for(natural, &ceilings) * 0.95;
@@ -438,14 +562,68 @@ pub(crate) fn create(rng: &mut Rng, talent: f64) -> (Attributes, Body, Position,
             }
         }
     }
-    let (dh, dw) = talent_size(talent);
-    let height = clamp(fh + dh, 64.0, 82.0);
-    let weight = lb_weight(natural, clamp(fw + dw, 140.0, 380.0));
-    let body = Body::grown(height, weight, rng);
+    let (height, weight) = fitted_size(natural, fh, fw, talent);
+    let body = Body::grown(natural, height, weight, rng);
     if natural == Position::EDGE {
         edge_lean(&mut ceilings, body.height);
     }
+    thin_tops(&mut ceilings);
     (ceilings, body, natural, compete)
+}
+
+/// Where a rating or ceiling starts to thin out, and how fast it thins
+/// past it (physical study items 1, 17 and 18, Cain 2026-11-15: no 99
+/// wall, a thin top). With the wall gone the draw and the growth ran to
+/// 130-150 (`top_check`, eight classes). Past the knee each point of draw
+/// counts for less, on a log curve with no top, so a freak still stands
+/// out but 100+ is about as rare as a 4.25 forty: a drafted man's key skill
+/// past 100 about 0.1 to 0.7 a draft (real 4.25 forties 0.19). Strength and
+/// lower body keep a fat top (item 3). Proposed, not confirmed.
+pub const TOP_KNEE: f64 = 95.0;
+pub const TOP_ROOM: f64 = 3.0;
+
+/// A value past the knee, thinned (`TOP_KNEE`).
+pub fn thin_top(v: f64) -> f64 {
+    let (k, r) = (TOP_KNEE, TOP_ROOM);
+    if v <= k { v } else { k + r * (1.0 + (v - k) / r).ln() }
+}
+
+/// The draw a thinned value stands for (`thin_top` undone).
+pub fn raw_top(v: f64) -> f64 {
+    let (k, r) = (TOP_KNEE, TOP_ROOM);
+    if v <= k { v } else { k + r * (((v - k) / r).exp() - 1.0) }
+}
+
+/// A rating or ceiling that moved from `start` to `end`: a rise past the
+/// knee is taken on the draw's scale and thinned back, so it counts for
+/// less the nearer he is to the top, as at creation (physical study items 1
+/// and 17). A fall, or a rise that stays under the knee, is as it was.
+pub fn top_up(start: f64, end: f64) -> f64 {
+    if end <= start || end <= TOP_KNEE {
+        return end;
+    }
+    thin_top(raw_top(start) + (end - start))
+}
+
+/// `top_up` for one attribute: the strength pair keeps its fat top (item 3)
+/// and moves as it was.
+pub fn top_up_attr(a: Attr, start: f64, end: f64) -> f64 {
+    if matches!(a, Attr::Strength | Attr::LowerBody) { end } else { top_up(start, end) }
+}
+
+/// Raises (or lowers) one ceiling by `d` through `top_up_attr`.
+pub fn move_ceiling(c: &mut Attributes, a: Attr, d: f64) {
+    let was = c.get(a);
+    c.set(a, top_up_attr(a, was, was + d));
+}
+
+/// Every ceiling but the strength pair through `thin_top`.
+pub fn thin_tops(c: &mut Attributes) {
+    for a in Attr::ALL {
+        if !matches!(a, Attr::Strength | Attr::LowerBody) {
+            c.set(a, thin_top(c.get(a)));
+        }
+    }
 }
 
 /// Bug 330: a tall edge's skills stop trading rush for coverage and
@@ -473,10 +651,10 @@ fn edge_lean(c: &mut Attributes, height: f64) {
     let wf: f64 = from.iter().map(|&(a, f)| f * weight(Position::EDGE, a)).sum();
     let wt: f64 = to.iter().map(|&(a, f)| f * weight(Position::EDGE, a)).sum();
     for (a, f) in from {
-        c.set(a, clamp(c.get(a) - f * x, MIN_RATING, MAX_RATING));
+        c.set(a, clamp(c.get(a) - f * x, MIN_RATING, RATING_BOUND));
     }
     for (a, f) in to {
-        c.set(a, clamp(c.get(a) + f * x * wf / wt, MIN_RATING, MAX_RATING));
+        c.set(a, clamp(c.get(a) + f * x * wf / wt, MIN_RATING, RATING_BOUND));
     }
 }
 
@@ -513,16 +691,16 @@ const LEAN_LB_SLOW: f64 = 1.5;
 fn body_lean(base: &mut Attributes, natural: Position, talent: f64, fw: f64, roll: f64, speed_share: f64) {
     let (hit, range): (&[Attr], &[Attr]) = match natural {
         Position::S => (
-            &[Attr::Tackling, Attr::Strength, Attr::Physicality],
+            &[Attr::Tackling, Attr::Strength, Attr::LowerBody, Attr::Physicality],
             &[Attr::ZoneCoverage, Attr::ManCoverage, Attr::Pursuit],
         ),
         Position::LB => (
-            &[Attr::Tackling, Attr::BlockShedding, Attr::Strength],
+            &[Attr::Tackling, Attr::BlockShedding, Attr::Strength, Attr::LowerBody],
             &[Attr::ZoneCoverage, Attr::ManCoverage, Attr::Pursuit],
         ),
         _ => return,
     };
-    let w = lb_weight(natural, clamp(fw + talent_size(talent).1, 140.0, 380.0));
+    let w = fitted_size(natural, 0.0, fw, talent).1;
     let z = (w - combine_size(natural).2) / 10.0;
     let x = match natural {
         Position::S => LEAN_S * z,
@@ -745,14 +923,16 @@ pub fn place_class(players: &mut [&mut Player], eye: Eye) {
                 let score = |pos: Position| {
                     let k = pos.index();
                     let open = target[k] - filled[k];
-                    // An open spot pulls a little; an overfilled one pushes harder.
-                    let need = if open >= 0.5 {
-                        0.08
-                    } else if open > -0.5 {
-                        0.0
-                    } else {
-                        0.12 * open
-                    };
+                    // An open spot pulls a little, by how open it is; an
+                    // overfilled one pushes harder. A class is a quarter
+                    // of a roster, so a spot's share of 18 boys is a
+                    // fraction (tackles 1.5): with a flat pull to half a
+                    // boy open and no push until half a boy over, each
+                    // spot rounded to whole boys, which sent tackles to
+                    // two a class (11-12% of freshmen against a real 8.5%)
+                    // and left guards and centers at two of 2.2 (proposed,
+                    // not confirmed).
+                    let need = if open > 0.0 { 0.08 * open.min(1.0) } else { 0.12 * open };
                     fit[i][k] / scale + need + premium(pos)
                 };
                 score(a).total_cmp(&score(b))

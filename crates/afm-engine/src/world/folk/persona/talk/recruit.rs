@@ -217,7 +217,9 @@ pub fn size(w: &World, s: &Scene, h: &super::super::ear::Hit, wants: &[Want], op
     let ego = super::z(w, Them::Player(x.id), crate::player::Trait::Ego).max(0.0);
     let temper = super::z(w, Them::Player(x.id), crate::player::Trait::Temper).max(0.0);
     let (trust, lean) = match h.how {
-        How::Reassured | How::Respected => (0.0, pt.map_or(0.0, |p| p.lean)),
+        // A stake reads as reassurance on the recruiting desk, which
+        // prices its own pitch (`pitch`).
+        How::Reassured | How::Respected | How::Staked => (0.0, pt.map_or(0.0, |p| p.lean)),
         How::Flattered => (0.0, pt.map_or(0.0, |p| FLATTER * p.lean)),
         // A straight answer: no pull (applied as the chip's "be straight").
         How::Doubted => (0.0, 0.0),
@@ -257,27 +259,65 @@ pub fn cap(w: &World, s: &Scene, hits: &mut [Sized]) {
     }
 }
 
-/// How he takes the point that landed, in words for the voice.
-pub fn reaction_words(ev: Ev) -> &'static str {
+/// How he takes the point that landed, in words for the voice: his own
+/// words, quoted, or his family's (`family`, their name) when they do the
+/// talking. "He says that's exactly what he's looking for" came back as
+/// "He's exactly what I'm looking for", "He says that point doesn't matter
+/// much to him" as "you're right that it doesn't matter much to me", and
+/// with his parents answering, as "Andrew says... 'That doesn't matter
+/// much to me'" (the talks audit, 2026-11-16).
+pub fn reaction_words(ev: Ev, family: Option<&str>) -> String {
+    let (says, are, looking, me, believe) = match family {
+        Some(f) => {
+            let many = f.ends_with("parents");
+            (
+                format!("{f} {}", if many { "say" } else { "says" }),
+                format!("{f} {}", if many { "are" } else { "is" }),
+                "we're",
+                "us",
+                "we don't",
+            )
+        }
+        None => ("He says".to_string(), "He's".to_string(), "I'm", "me", "I don't"),
+    };
     match ev {
-        Ev::TookWell => "He says that's what he came for.",
-        Ev::Polite => "He's polite about it, no more.",
-        Ev::Cool => "He says it isn't his thing.",
-        Ev::Doubted => "It matters to him, and he doesn't believe you can back it up.",
-        _ => "",
+        // "Came for" on a call read as the coach's reason for calling ("that's
+        // what you came for, right?", the talks audit, 2026-11-16).
+        Ev::TookWell => format!("{says}: \"That's exactly what {looking} looking for.\""),
+        Ev::Polite => format!("{are} polite about it, no more."),
+        // "It isn't his thing" came back as "football's not really his thing
+        // to talk about" (the talks audit, 2026-11-16).
+        Ev::Cool => format!("{says}: \"That doesn't matter much to {me}.\""),
+        Ev::Doubted => format!("{says}: \"That matters to {me}, but {believe} believe you can back it up.\""),
+        _ => String::new(),
     }
 }
 
-/// What the voice may say about the point the line made (after `cap`).
-pub fn released(w: &World, s: &Scene, hits: &[Sized], wants: &[Want]) -> Vec<String> {
+/// What the voice may say about the point the line made (after `cap`);
+/// `family` is his family's name when they answer the line, and `pitched`
+/// whether the line made a point at all (a question or an invite doesn't).
+pub fn released(
+    w: &World,
+    s: &Scene,
+    hits: &[Sized],
+    wants: &[Want],
+    family: Option<&str>,
+    pitched: bool,
+) -> Vec<String> {
     let mut out = Vec::new();
-    if let Some(h) = hits.iter().find(|h| h.mood != 0.0)
+    if pitched
+        && let Some(h) = hits.iter().find(|h| h.mood != 0.0)
         && let Some(p) = target(w, s, &h.hit.item, wants)
         && let Some(ev) = pitch::typed_reaction(w, s, &p, h.mood)
     {
-        out.push(reaction_words(ev).to_string());
+        let words = reaction_words(ev, family);
+        if !words.is_empty() {
+            out.push(words);
+        }
     }
-    if pitch::exchanges_left(w, s) == 0 && hits.iter().any(|h| matches!(h.hit.how, How::Reassured | How::Respected)) {
+    if pitch::exchanges_left(w, s) == 0
+        && hits.iter().any(|h| matches!(h.hit.how, How::Reassured | How::Respected | How::Staked))
+    {
         out.push("He has heard your case for today.".into());
     }
     out
@@ -295,15 +335,35 @@ pub fn standing_promise(x: &With, facts: &[Stated]) -> Option<PromiseRead> {
     Some(PromiseRead { kind: kind.into(), claim: Some(f.clone()), ..PromiseRead::default() })
 }
 
-/// How a promise lands, for the voice, before it's made.
-pub fn promise_released(w: &World, s: &Scene, p: &PromiseRead) -> String {
+/// How a promise lands, for the voice, before it's made: his own words,
+/// quoted, or his family's (`family`, their name) when they do the
+/// talking. "They've heard promises before. They aren't sure they believe
+/// yours." came back word for word from his parents (the talks audit,
+/// 2026-11-16).
+pub fn promise_released(w: &World, s: &Scene, p: &PromiseRead, family: Option<&str>) -> String {
     if !pitch::can_promise_now(w, s) {
         return "You've made him a promise already, or your offer isn't out: this one adds nothing.".into();
     }
+    let (says, takes, we, have, are) = match family {
+        Some(f) => {
+            let many = f.ends_with("parents");
+            (
+                format!("{f} {}", if many { "say" } else { "says" }),
+                format!("{f} {}", if many { "take" } else { "takes" }),
+                "we",
+                "We've",
+                "We're",
+            )
+        }
+        None => ("He says".to_string(), "He takes".to_string(), "I", "I've", "I'm"),
+    };
+    let we_cap = if we == "I" { "I" } else { "We" };
     match pitch::promise_belief(w, s, &p.kind) {
-        Some(b) if b >= pledge::BELIEVES => "They believe you. It's what they wanted to hear.".into(),
-        Some(_) => "They've heard promises before. They aren't sure they believe yours.".into(),
-        None if p.kind == "usage" && p.usage.is_some() => "They take in how you'd use him.".into(),
+        Some(b) if b >= pledge::BELIEVES => {
+            format!("{says}: \"{we_cap} believe you. That's what {we} wanted to hear.\"")
+        }
+        Some(_) => format!("{says}: \"{have} heard promises before. {are} not sure {we} believe yours.\""),
+        None if p.kind == "usage" && p.usage.is_some() => format!("{takes} in how you'd use him."),
         None => "That isn't a promise this talk can make.".into(),
     }
 }
@@ -471,7 +531,12 @@ pub fn turn(w: &World, s: &Scene, reading: &Reading, t: &mut Turn) {
         if let Act::Invite(super::super::ear::Invite::Visit) = act {
             match visit_day(w, &x) {
                 Some(d) => {
-                    t.say.released.push(format!("You invite him to visit; the first open date is {}.", d));
+                    // What the coach did, from the recruit's side (it read
+                    // "You invite him", the talks audit of 2026-11-16).
+                    t.say.heard.push(format!("He invites you to an official visit; the first open date is {}", d));
+                    // The invite is his to take, not one he'll "hear more
+                    // about" (the general invite's words).
+                    t.say.released.retain(|x| x != "He'll hear more about that once it's set.");
                     t.confirm.push(super::super::ear::Confirm::Request(Request::Other(VISIT.into())));
                 }
                 None => t.say.released.push("There's no open date for a visit now.".into()),

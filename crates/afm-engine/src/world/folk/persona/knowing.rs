@@ -392,7 +392,9 @@ pub fn mood_words(w: &World, i: usize, why: bool) -> String {
     let band = match p.mood {
         x if x <= -0.5 => "in a bad place",
         x if x <= -0.15 => "down",
-        x if x < 0.15 => "about even",
+        // "About even" read as a stance ("about even on the draft", the
+        // talks audit of 2026-11-16).
+        x if x < 0.15 => "steady, neither up nor down",
         x if x < 0.5 => "in a good place",
         _ => "flying",
     };
@@ -419,6 +421,17 @@ fn portal_words(w: &World, i: usize) -> Option<String> {
     let p = &w.people[i];
     if p.stage != Stage::College {
         return None;
+    }
+    // His college career ends this year: there's no transfer for him to
+    // weigh (`talk::standing`).
+    match super::talk::standing::road(w, i) {
+        super::talk::standing::Road::LastSeason => {
+            return Some("done with college football after this season, so the portal isn't for him".into());
+        }
+        super::talk::standing::Road::DraftBound => {
+            return Some("done with college football, so the portal isn't for him".into());
+        }
+        _ => {}
     }
     if let Some(e) = &p.cal.portal {
         return Some(format!("in the portal since {}", claims::words::date_words(e.entered)));
@@ -653,6 +666,28 @@ fn wants_known(w: &World, i: usize, about: Option<Them>, m: &Makeup, s: &Stand) 
 /// and the GM who made one).
 fn market(w: &World, him: Them, i: usize, about: Option<Them>, m: &Makeup, s: &Stand) -> Vec<Known> {
     let mut v = from_sheet(w, him, i, Topic::Market, about, m, s);
+    // A college man with the draft in front of him hears the NFL scouts'
+    // word through his school (`talk::standing::scouts_word`), and so do
+    // his family and his agent: asked what the scouts say, he tells it, or
+    // that there's nothing solid yet (the talks audit, 2026-11-16).
+    let p = &w.people[i];
+    if matches!(p.stage, Stage::College | Stage::Declared)
+        && (s.own || s.family || s.agent)
+        && super::talk::standing::road(w, i).draft_near()
+    {
+        let from = if s.own {
+            Source::Himself
+        } else if s.family {
+            Source::Family
+        } else {
+            Source::Job
+        };
+        let words = match super::talk::standing::scouts_word(w, i) {
+            Some(word) => format!("what he hears from the NFL scouts through the school: {word}"),
+            None => "nothing solid from the NFL scouts yet".to_string(),
+        };
+        v.push(k(Topic::Market, about, from, eye(m, s), words));
+    }
     let gm_of = |t: usize| matches!(him, Them::Cast(r, _) if r.team == Team::Nfl(t) && r.role == crate::world::folk::cast::Role::Gm);
     for pd in w.market.pending.iter().filter(|x| x.person == i) {
         let from = if s.own {
@@ -792,22 +827,135 @@ pub fn habits(w: &World, team: Team, offense: bool, eye: f64) -> Option<String> 
 }
 
 /// What the man's boss knows about your job (3.1: "your boss's goals and
-/// trust in you"; `boss.rs`).
+/// trust in you"; `boss.rs`): the goals he set for the season they're for
+/// (the one his goals meeting sets, else the one being played), and where
+/// you stand with him.
 fn goals(w: &World, him: Them) -> Vec<Known> {
     if makeup::kind(w, him) != super::wants::Kind::Boss {
         return Vec::new();
     }
     let Some(team) = Team::seat(w) else { return Vec::new() };
     let mut v = Vec::new();
-    let season = w.dates.season;
-    let goals: Vec<String> =
-        w.folk.goals.iter().filter(|g| g.season == season).map(|g| g.kind.words(team.level())).collect();
+    let ahead = crate::world::folk::boss::goal_season(w, team);
+    let season = [ahead, w.dates.season]
+        .into_iter()
+        .find(|s| w.folk.goals.iter().any(|g| g.season == *s))
+        .unwrap_or(w.dates.season);
+    let goals: Vec<String> = w
+        .folk
+        .goals
+        .iter()
+        .filter(|g| g.season == season)
+        .map(|g| crate::world::folk::commit::goal_words(w, g.kind, team.level()))
+        .collect();
     if !goals.is_empty() {
-        v.push(k(Topic::Goals, None, Source::Himself, 20.0, format!("this season's goals: {}", goals.join(", "))));
+        v.push(k(Topic::Goals, None, Source::Himself, 20.0, format!("the goals for {season}: {}", goals.join(", "))));
     }
     let t = crate::world::folk::boss::trust(w, team);
     v.push(k(Topic::Goals, None, Source::Himself, 20.0, crate::world::folk::boss::trust_short(t).to_string()));
     v
+}
+
+/// Your boss on the money (`Topic::Money`, asked of him): how the
+/// program's money stands, in words and never a figure (`boss::rich`, his
+/// tight hand), and how more is found: a case, and the bar you put up for
+/// it (`asked::money`). Before this he didn't know, or deflected the
+/// budget he holds (the talks audit, 2026-11-16).
+fn budget(w: &World, him: Them) -> Vec<Known> {
+    if makeup::kind(w, him) != super::wants::Kind::Boss {
+        return Vec::new();
+    }
+    let Some(team) = Team::seat(w) else { return Vec::new() };
+    let b = crate::world::folk::boss::boss(w, team);
+    let rich = crate::world::folk::boss::rich(w, team);
+    let stands = if rich < 0.6 {
+        "money is tight here next to the big programs, so the budget is what it is"
+    } else if b.tight >= 13.0 {
+        "the money is there, but he keeps the budget tight"
+    } else {
+        "the budget for the season is set, and there's room when something earns it"
+    };
+    vec![k(
+        Topic::Money,
+        None,
+        Source::Himself,
+        20.0,
+        format!(
+            "{stands}: more for the staff, recruiting or the collective comes with a case, and the bar the coach puts up for it"
+        ),
+    )]
+}
+
+/// Your boss on how it's going (`Topic::Football` asked of him: "how do you
+/// think we're doing so far?"): where you stand with him and the season's
+/// record, never the tape he doesn't watch. Before this he had no idea
+/// (the talks audit, 2026-11-16).
+fn boss_view(w: &World, him: Them) -> Vec<Known> {
+    if makeup::kind(w, him) != super::wants::Kind::Boss {
+        return Vec::new();
+    }
+    let Some(team) = Team::seat(w) else { return Vec::new() };
+    let t = crate::world::folk::boss::trust(w, team);
+    let mut v =
+        vec![k(Topic::Football, None, Source::Himself, 20.0, crate::world::folk::boss::trust_short(t).to_lowercase())];
+    let (won, lost) = crate::world::folk::facts::record_now(w, team);
+    if won + lost > 0 {
+        v.push(k(Topic::Football, None, Source::Himself, 20.0, format!("the team is {won}-{lost} this season")));
+    }
+    v
+}
+
+/// A coach on his unit or the team, asked with no one named: his unit's
+/// year and the team's record since he came (`claims::rooms::unit`), and
+/// always his own read from the tape, which he gives in his own words.
+fn unit_view(w: &World, him: Them) -> Vec<Known> {
+    let Them::Coach(c) = him else { return Vec::new() };
+    let mut v = Vec::new();
+    if let Some(u) = claims::rooms::unit(w, c) {
+        if let Some(y) = u.year_words() {
+            v.push(k(Topic::Football, None, Source::Himself, 20.0, y.trim_end_matches('.').to_string()));
+        }
+        if let Some(r) = u.record_words() {
+            v.push(k(Topic::Football, None, Source::Himself, 20.0, format!("the team is {r} since he took the job")));
+        }
+    }
+    v.push(k(
+        Topic::Football,
+        None,
+        Source::Tape,
+        20.0,
+        "his own read of the unit from the tape and practice: what it does well and where it falls short, in general terms".into(),
+    ));
+    v
+}
+
+/// His own job here (`Topic::Job`): a coach of yours makes his case from
+/// what he can point to (his years, the team since he came, his unit, his
+/// deal; the facts `talk::stakes` puts on his card); your boss tells you
+/// where you stand with him (his goals and his trust). Nobody else holds a
+/// job of his you'd ask about.
+fn own_job(w: &World, him: Them, about: Option<Them>) -> Vec<Known> {
+    if about.is_some_and(|a| a != him) {
+        return Vec::new();
+    }
+    let kind = makeup::kind(w, him);
+    if kind == super::wants::Kind::Boss {
+        return goals(w, him)
+            .into_iter()
+            .map(|mut x| {
+                x.topic = Topic::Job;
+                x
+            })
+            .collect();
+    }
+    let Them::Coach(c) = him else { return Vec::new() };
+    if kind != super::wants::Kind::Staff {
+        return Vec::new();
+    }
+    super::talk::stakes::case_facts(w, c)
+        .into_iter()
+        .map(|words| k(Topic::Job, None, Source::Himself, 20.0, words))
+        .collect()
 }
 
 /// Jobs opening (3.1: coaches in the network, agents, ADs know).
@@ -863,7 +1011,22 @@ fn grapevine(w: &World, him: Them, about: Option<Them>) -> Vec<Known> {
 /// What he told you before, and whether it was true (10.2): he knows his
 /// own lies.
 fn his_word(w: &World, him: Them, about: Option<Them>) -> Vec<Known> {
-    w.folk
+    // What is between you, from the one memory (Ground, GR62): the moments
+    // he keeps, in his words.
+    let mut kept: Vec<Known> = if about.is_none() {
+        crate::world::ground::card::talk_lines(w, him)
+            .into_iter()
+            .map(|(d, m)| {
+                let mut kn = k(Topic::HisWord, None, Source::Himself, 20.0, format!("remembers \"{m}\""));
+                kn.day = Some(d);
+                kn
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let lies: Vec<Known> = w
+        .folk
         .live
         .persona
         .his_lies
@@ -880,7 +1043,9 @@ fn his_word(w: &World, him: Them, about: Option<Them>) -> Vec<Known> {
             kn.day = Some(l.said);
             kn
         })
-        .collect()
+        .collect();
+    kept.extend(lies);
+    kept
 }
 
 /// An injury as he feels it (3.1): the sheet's diagnosis for the trainer,
@@ -914,8 +1079,40 @@ pub fn knows(w: &World, him: Them, topic: Topic, about: Option<Them>) -> Vec<Kno
         Topic::Grapevine => return grapevine(w, him, about),
         Topic::HisWord => return his_word(w, him, about),
         Topic::Opponent => return opponent(w, him, about, &m),
+        // Asked his goals, a man with no goal sheet to set says what he
+        // wants: "what do you want to get done before the draft?" got "He
+        // doesn't know" from a senior (the talks audit, 2026-11-16).
+        Topic::Goals if makeup::kind(w, him) != super::wants::Kind::Boss => {
+            return knows(w, him, Topic::Wants, about);
+        }
         Topic::Goals => return goals(w, him),
+        Topic::Money if makeup::kind(w, him) == super::wants::Kind::Boss => return budget(w, him),
+        // Asked what he's looking for, your boss means his goals for you
+        // ("what are you looking for from us this year?" in his goals
+        // meeting got "nothing new there to tell", the talks audit of
+        // 2026-11-16).
+        Topic::Wants if makeup::kind(w, him) == super::wants::Kind::Boss && about.is_none_or(|a| a == him) => {
+            return goals(w, him);
+        }
         Topic::Jobs => return jobs(w, him, &m),
+        // A player's "job" is his place: what he wants and where he stands.
+        Topic::Job if matches!(him, Them::Player(_) | Them::Kin(..)) => return knows(w, him, Topic::Wants, about),
+        Topic::Job => return own_job(w, him, about),
+        // Asked how it's going, your boss tells you how he sees the season.
+        Topic::Football if makeup::kind(w, him) == super::wants::Kind::Boss && about.is_none_or(|a| a == him) => {
+            return boss_view(w, him);
+        }
+        // A coach of yours asked about his unit ("what's the biggest thing
+        // holding the unit back?"): what he knows of its year, never "he
+        // doesn't know" (the talks audit, 2026-11-16: a coordinator of three
+        // seasons said he hadn't had time with the group).
+        Topic::Football
+            if matches!(him, Them::Coach(_))
+                && about.is_none_or(|a| a == him)
+                && makeup::kind(w, him) == super::wants::Kind::Staff =>
+        {
+            return unit_view(w, him);
+        }
         Topic::Football => return super::football::knows(w, him, about, &m),
         Topic::Nothing => return Vec::new(),
         _ => {}

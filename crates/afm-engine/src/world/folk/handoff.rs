@@ -356,6 +356,24 @@ fn fixed(w: &World, s: &Scene) -> Fixed {
         Kind::DraftTalk => skip("Let it go", "You let it go for now.")
             .gets(&["What he tells you, and your answer."])
             .hold("Your read", "The talk goes into your board."),
+        Kind::Ground => Fixed::new(
+            Tone::Man,
+            &crate::world::ground::scenes::hand_label(w, s),
+            "Your staff has it",
+            "Your man plays it on his skill with people and his eye: the default stops, and one line back.",
+        )
+        .gives(&["Your own picks, your eye in the room and your name with the people there."])
+        .gets(&["What your man brings back, in one line."])
+        .hold("Your scene", "You hold it, and what happens in the room is yours."),
+        Kind::Capital => Fixed::new(
+            Tone::Standard,
+            crate::world::capital::scenes::hand_label(s),
+            "The office has it",
+            "The development office's man goes in your place: no lead gift comes of it, and he'd hoped for you.",
+        )
+        .gives(&["Your own asks, and your eye across the table."])
+        .gets(&["A line on how it went."])
+        .hold("Your time", "A slot of your week."),
         Kind::Sitdown | Kind::Reference => skip("Let it go", "You leave it to your staff, and nothing comes of it.")
             .gets(&["What they say to you, and your answer."])
             .hold("Your answer", "The sit-down is yours."),

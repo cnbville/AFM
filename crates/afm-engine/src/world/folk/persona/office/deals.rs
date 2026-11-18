@@ -3,18 +3,19 @@
 //! play-calling for one of your own, and your own extension with your
 //! boss. Each is weighed and made real by the built system that already
 //! prices it: the hiring talks (`hiring::weigh`, `would_take`, `offer`:
-//! C28-C34, C44-C56), the staff deals (`staffing::raise`), and the boss's
-//! asks (`boss::ask_yes`, `ask_now`). Anything else falls to lane N3's
-//! deals.
+//! C28-C34, C44-C56) and the staff deals (`staffing::raise`). Your
+//! extension is weighed as you put it (`folk::asked`), never on the boss
+//! meeting's pick. Anything else falls to lane N3's deals.
 
 use super::super::Them;
 use super::super::terms::{Best, Counter, DealKind, Give, Offer, Weighed};
 use crate::world::World;
 use crate::world::coach::Role;
-use crate::world::folk::boss::{self, AskKind};
+use crate::world::folk::asked::{self, Answer, Case, Said};
+use crate::world::folk::boss::{AskKind, GoalKind};
 use crate::world::folk::hiring::{self, PROMISE_CALLING, PROMISE_TITLE, Terms};
 use crate::world::folk::scene::Kind;
-use crate::world::folk::{Team, staffing};
+use crate::world::folk::{Team, cast, staffing};
 
 /// An offer that is about a coach's job: money, years, a title, the
 /// play-calling or the job itself.
@@ -165,19 +166,79 @@ pub fn weigh(w: &World, him: Them, o: &Offer) -> Option<Weighed> {
                 None => Weighed::No,
             })
         }
-        Them::Cast(r, _) if super::super::makeup::kind(w, him) == super::super::wants::Kind::Boss => {
-            let _ = r;
-            if o.kind != DealKind::Yours && !o.gives.iter().any(|g| matches!(g, Give::Years(_) | Give::Money(_))) {
+        Them::Cast(..) if super::super::makeup::kind(w, him) == super::super::wants::Kind::Boss => {
+            if !extension(o) {
                 return None;
             }
-            // Your extension (topic 12): his own answer, the day's roll.
-            if boss::asked_lately(w, AskKind::Extension) {
-                return Some(Weighed::No);
-            }
-            Some(if boss::ask_yes(w, team, AskKind::Extension) { Weighed::Yes } else { Weighed::No })
+            // Your extension (topic 12), weighed as you put it: what you put
+            // up for it, his trust, his budget and his nature
+            // (`folk::asked`).
+            let a = asked::money(w, team, AskKind::Extension, &case_of(team, o));
+            Some(if a.yes { Weighed::Yes } else { Weighed::No })
         }
         _ => None,
     }
+}
+
+/// An offer to your boss that isn't your extension: he doesn't weigh it as
+/// a deal (a plan for a recruit, "get me the money and I'll sign him").
+/// What you need from him is an ask (`folk::asked`), what you'll deliver a
+/// goal (`folk::commit`).
+pub fn not_a_deal(w: &World, him: Them, o: &Offer) -> bool {
+    your_boss_she(w, him).is_some() && !extension(o)
+}
+
+/// Whether an offer to your boss is your extension: your own deal, or a
+/// contract with years or money in it. An NIL deal, a scholarship or a
+/// trade is never your extension, whatever money is in it (Cain
+/// 2026-11-16: "we're gonna offer him more than Clemson" read as a deal).
+pub fn extension(o: &Offer) -> bool {
+    match o.kind {
+        DealKind::Yours => true,
+        DealKind::Contract | DealKind::Restructure | DealKind::Staff => {
+            o.gives.iter().any(|g| matches!(g, Give::Years(_) | Give::Money(_)))
+        }
+        _ => false,
+    }
+}
+
+/// What you put up for your extension: a bar in your words, else a season
+/// term on the offer (lane N2's terms: wins, a title, a rank).
+pub fn case_of(team: Team, o: &Offer) -> Case {
+    let case = Case::read(&o.words, team.level());
+    if case.bar.is_some() {
+        return case;
+    }
+    Case { bar: o.terms.iter().find(|u| u.season).map(|u| GoalKind::Measure(*u)) }
+}
+
+/// Your boss's answer to your extension in words, for the voice.
+pub fn why(w: &World, him: Them, o: &Offer) -> Vec<String> {
+    let Some(team) = Team::seat(w) else { return Vec::new() };
+    let Some(she) = your_boss_she(w, him) else { return Vec::new() };
+    if !extension(o) {
+        return Vec::new();
+    }
+    let a = asked::money(w, team, AskKind::Extension, &case_of(team, o));
+    asked::voice(&Said { level: team.level(), what: AskKind::Extension.words(), she }, &a)
+}
+
+/// Whether he is your boss across the table, the athletic director or the
+/// owner (not your head coach when you're his assistant), and his pronoun.
+pub fn your_boss_she(w: &World, him: Them) -> Option<bool> {
+    let Them::Cast(r, _) = him else { return None };
+    (super::super::makeup::kind(w, him) == super::super::wants::Kind::Boss).then(|| cast::get(w, r).she)
+}
+
+/// A no to your extension in the talk, kept on record with his reasons
+/// (`asked::refuse`). Returns the outcome line.
+pub fn refused(w: &mut World, team: Team, o: &Offer, she: bool) -> String {
+    let case = case_of(team, o);
+    let mut a = asked::money(w, team, AskKind::Extension, &case);
+    if a.yes {
+        a = Answer { yes: false, why: vec![asked::Why::Close] };
+    }
+    asked::refuse(w, team, AskKind::Extension, &case, &a, she)
 }
 
 /// One of your own assistants takes a raise, more years, a title or the
@@ -228,11 +289,12 @@ pub fn agree(w: &mut World, _id: u32, him: Them, o: &Offer) -> Option<Vec<String
             Some(out)
         }
         Them::Cast(..) if super::super::makeup::kind(w, him) == super::super::wants::Kind::Boss => {
-            if o.kind != DealKind::Yours && !o.gives.iter().any(|g| matches!(g, Give::Years(_) | Give::Money(_))) {
+            if !extension(o) {
                 return None;
             }
-            let (yes, words) = boss::ask_now(w, team, AskKind::Extension);
-            Some(vec![format!("You asked for an extension: {}", if yes { "granted." } else { "no." }), words.into()])
+            // He said yes in the talk; your confirm makes it real.
+            let she = your_boss_she(w, him).unwrap_or(false);
+            Some(asked::take(w, team, AskKind::Extension, &case_of(team, o), she))
         }
         _ => None,
     }

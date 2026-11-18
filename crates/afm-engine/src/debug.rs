@@ -194,9 +194,10 @@ pub fn recruit_money(w: &World, j: usize, i: usize) -> f64 {
     rec::offer_money(w, j, i)
 }
 
-/// The top of NIL Go's range for a collective's deal with recruit `i`.
-pub fn recruit_nil_go_top(w: &World, i: usize) -> f64 {
-    rec::nil_go_top_recruit(&w.people[i])
+/// The top of NIL Go's range for a collective's deal with recruit `i` at
+/// program `j` (the new NIL scheme: it reads the school's level).
+pub fn recruit_nil_go_top(w: &World, j: usize, i: usize) -> f64 {
+    rec::go_top_recruit(w, j, &w.people[i])
 }
 
 /// A portal entrant's race as his decision reads it today, as (program,
@@ -254,4 +255,24 @@ pub fn support_market_years(w: &mut crate::world::World, years: u32, change: f64
         w.year += 1;
         crate::world::people::staff_support(w);
     }
+}
+
+/// The clubs' draft boards as draft morning builds them (`role_board_check`;
+/// trial tooling only). Call it on draft morning before the day runs: it
+/// builds the draft's opening state the way the day does and keeps only
+/// the boards.
+pub fn draft_boards(w: &mut crate::world::World) -> Vec<crate::world::pro::scouts::Board> {
+    crate::world::recruiting::draft_begin(w).boards
+}
+
+/// A world saved with its draft set up but no pick made yet sets it up
+/// again on today's code (`role_board_check`; trial tooling only), so the
+/// boards are today's. True if it did.
+pub fn redo_draft_setup(w: &mut crate::world::World) -> bool {
+    if !w.draft_run.as_ref().is_some_and(|r| r.next == 1 && r.picked.is_empty()) {
+        return false;
+    }
+    let run = crate::world::recruiting::draft_begin(w);
+    w.draft_run = Some(run);
+    true
 }

@@ -404,7 +404,7 @@ fn scene_brief(w: &World, s: &Scene) -> Value {
     json!({
         "id": s.id,
         "kind": format!("{:?}", s.kind),
-        "kindName": s.kind.name(),
+        "kindName": afm_engine::world::ground::scenes::kind_of(s).map_or(s.kind.name(), |g| g.name()),
         "title": s.title,
         "date": s.date.0,
         "dateText": date_text(s.date),
@@ -494,7 +494,12 @@ fn scene(w: &mut World, id: u32) -> Reply {
     if s.kind == Kind::CombineTalk {
         v["clock"] = json!({ "left": s.c.max(0), "of": s.f[0] as i64 });
     }
-    v["docs"] = json!(s.docs);
+    // A ground scene's running state is a table the screens never show.
+    v["docs"] = json!(s.docs.iter().filter(|d| !afm_engine::world::ground::scenes::is_state(d)).collect::<Vec<_>>());
+    if let Some(g) = afm_engine::world::ground::scenes::kind_of(&s) {
+        v["kindName"] = json!(g.name());
+        v["ground"] = crate::lane_groundweek::scene_part(w, &s);
+    }
     v["step"] = json!(s.step);
     v["hours"] = json!(talks::hours_left(w));
     v["team"] = s.team.map_or(Value::Null, |t| team_json(w, t));
@@ -722,6 +727,22 @@ fn player(w: &World, id: u32) -> Reply {
         // (what your position coach would tell you).
         "staffSays": if mine { Some(cap(&worry)) } else { None },
         "ear": ear,
+        // His bonds with his coaches (coach and player bonds): yours with
+        // what built it, your staff's in their words; for someone else's
+        // player only yours.
+        "bonds": folk::bonds::seen(w, i)
+            .into_iter()
+            .filter(|b| mine || b.name == "You")
+            .map(|b| json!({
+                "who": if b.name == "You" { "You".to_string() } else { folk::coach_link(w, b.coach) },
+                "role": b.role,
+                "step": b.step,
+                "sign": b.sign,
+                "met": b.met,
+                "moments": b.moments.iter().take(8).map(|(d, t)| json!({ "date": date_text(*d), "what": t })).collect::<Vec<_>>(),
+            }))
+            .collect::<Vec<_>>(),
+        "bondSays": if mine { folk::bonds::staff_words(w, i) } else { None },
         "subjects": talks::subjects_for(w, id).into_iter().map(|(key, name)| json!({ "key": key, "name": name })).collect::<Vec<_>>(),
         "hours": talks::hours_left(w),
     }))

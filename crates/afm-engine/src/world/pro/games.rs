@@ -220,6 +220,7 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
             p.college_snaps as f64 / crate::world::season::SEASON_SNAPS as f64 + pro_snaps(p) / NFL_SEASON_SNAPS as f64;
         let mut g = GamePlayer::from_player(&p.player, know, experience);
         (g.mood, g.belief) = crate::world::season::game_mind(p, seat, rel);
+        crate::world::season::bond_mind(w, p.player.id, head, &mut g);
         let iq = 0.5 * (p.player.attributes.get(Attr::FootballIq) + p.player.attributes.get(Attr::PlayRecognition));
         let mind = clamp(0.92 + 0.08 * (iq - 60.0) / 25.0, 0.82, 1.04);
         for f in Family::ALL {
@@ -287,7 +288,12 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
     // takes the budget's place.
     let analytics = crate::world::people::Support::z(club.support.analytics.rating);
     let budget = clamp(0.85 + 0.15 * analytics, 0.7, 1.0);
-    let film_study = clamp(0.35 * (eye(tm.oc) + eye(tm.dc)) + 7.0 * budget, 1.0, 20.0);
+    // The film rooms around the league's typical (Capital lane C6).
+    let film_study = clamp(
+        0.35 * (eye(tm.oc) + eye(tm.dc)) + 7.0 * budget + crate::world::capital::nfl::film_lift(&w.capital, t),
+        1.0,
+        20.0,
+    );
     let oc_call = crate::world::season::play_caller(w, tm.oc, head, true);
     let dc_call = crate::world::season::play_caller(w, tm.dc, head, false);
     let dc = dc_call;
@@ -333,10 +339,11 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
     team.film = club.film.clone();
     team.line_chem = 0.25 + 0.15 * back as f64;
     // The strength staff's guard on muscle strains and backs (minor bug 303).
-    let guard = crate::game::sim::strength_guard(
+    // The sports science lab's guard too (Capital lane C6).
+    let guard = (crate::game::sim::strength_guard(
         crate::world::season::club_strength_head(w, t),
         crate::world::season::nfl_typical_strength(w),
-    ) as f32;
+    ) * crate::world::capital::nfl::soft_tissue_guard(&w.capital, t)) as f32;
     team.players.iter_mut().for_each(|g| g.soft = guard);
     super::super::chemistry::apply(w, &mut team, super::super::chemistry::Unit::Nfl);
     Some(Side { team, who })
@@ -637,6 +644,9 @@ pub(crate) fn record_preseason(w: &mut World, r: &GameResult, sides: &[Side; 2])
         let you = crate::world::front_office::reserve::you_decide(w, i);
         w.hurt_pros.0.push(w.people[i].player.id);
         w.training.log_hurt(inj.id, inj.kind, 1 + days, w.today);
+        if days >= 28 {
+            crate::world::folk::bonds::injured(w, inj.id);
+        }
         let Some(c) = w.people[i].pro.as_mut() else { continue };
         c.hurt_for(1 + days);
         if weeks >= 6 {
@@ -783,6 +793,15 @@ pub(crate) fn record(
     }
     // The record store's game marks (update 3, lane L20).
     crate::world::marks::nfl_game(w, teams, &r.stats, neutral);
+    // The hits the officials flagged, for the league office (coach fire).
+    use crate::world::folk::Team;
+    crate::world::folk::rules::game_flags(
+        w,
+        crate::calendar::Level::Nfl,
+        [Team::Nfl(teams[0]), Team::Nfl(teams[1])],
+        &r.stats.hit_flags(),
+        [&[], &[]],
+    );
     // By team, day by day (B1; see `record_preseason`).
     for &(team, ref inj) in &r.injuries {
         if inj.plays_on || team > 1 {
@@ -792,7 +811,9 @@ pub(crate) fn record(
         // The medical staff's head: a good one brings a player back sooner
         // (section 6 topic 10; proposed, not confirmed: up to 12%).
         let t = teams[team];
-        let med = w.clubs.get(t).map_or(0.0, |c| crate::world::people::Support::z(c.support.medical.rating));
+        // And the training room (Capital lane C6).
+        let med = w.clubs.get(t).map_or(0.0, |c| crate::world::people::Support::z(c.support.medical.rating))
+            + crate::world::capital::nfl::recovery_units(&w.capital, t);
         let days = (inj.weeks * (1.0 - 0.12 * med) * 7.0).ceil().max(1.0) as u32;
         let weeks = days.div_ceil(7);
         let ir = weeks >= ir_minimum(year);
@@ -801,6 +822,9 @@ pub(crate) fn record(
         let you = crate::world::front_office::reserve::you_decide(w, i);
         w.hurt_pros.0.push(w.people[i].player.id);
         w.training.log_hurt(inj.id, inj.kind, 1 + days, w.today);
+        if days >= 28 {
+            crate::world::folk::bonds::injured(w, inj.id);
+        }
         let Some(c) = w.people[i].pro.as_mut() else { continue };
         c.hurt_for(1 + days);
         if ir && you && c.status == Status::Roster {

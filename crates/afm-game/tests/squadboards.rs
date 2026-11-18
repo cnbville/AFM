@@ -6,6 +6,9 @@
 //! staff plays, and the reads kept at a season's end survive a save while
 //! a save from before them still loads.
 
+mod common;
+
+use afm_engine::attributes::ATTRIBUTE_COUNT;
 use afm_game::Game;
 use serde_json::{Value, json};
 
@@ -154,7 +157,9 @@ fn projected(level: &str, body: &Value) {
         assert_eq!(t["scores"].as_array().map(Vec::len), Some(3), "{level}");
         for r in rows {
             let Some(v) = r["value"].as_f64() else { continue };
-            assert!(v.is_finite() && v > 0.0, "{level}: {} {v}", r["key"]);
+            // A weak lifter can't put up 225 once: no reps is a real bench.
+            let least = if r["key"] == "reps" { 0.0 } else { f64::MIN_POSITIVE };
+            assert!(v.is_finite() && v >= least, "{level}: {} {v}", r["key"]);
         }
         let forty = rows.iter().find(|r| r["key"] == "forty").unwrap();
         let v = forty["value"].as_f64().expect("a projected forty");
@@ -178,7 +183,11 @@ fn quick_filter(level: &str, v: &Value) {
         .iter()
         .flat_map(|g| g["fields"].as_array().unwrap())
         .collect();
-    assert_eq!(fields.iter().filter(|f| f["kind"] == "read").count(), 68, "{level}: the rating and the 67 attributes");
+    assert_eq!(
+        fields.iter().filter(|f| f["kind"] == "read").count(),
+        1 + ATTRIBUTE_COUNT,
+        "{level}: the rating and every attribute"
+    );
     assert!(fields.iter().any(|f| f["label"] == "Speed"), "{level}");
     for f in &fields {
         let l = f["label"].as_str().unwrap().to_lowercase();
@@ -186,7 +195,7 @@ fn quick_filter(level: &str, v: &Value) {
     }
     for r in v["rows"].as_array().unwrap() {
         let a = r["attrs"].as_array().unwrap_or_else(|| panic!("{level}: {} has no attributes", r["name"]));
-        assert_eq!(a.len(), 67, "{level}");
+        assert_eq!(a.len(), ATTRIBUTE_COUNT, "{level}");
         for x in a.iter().filter(|x| !x.is_null()) {
             let (lo, hi) = (x[0].as_f64().unwrap(), x[1].as_f64().unwrap());
             let least = if lo <= 1.0 || hi >= 99.0 { 1.0 } else { 2.0 };
@@ -559,6 +568,115 @@ fn plan_ahead(g: &mut Game, rows: &[Value]) {
     assert!(!afm_game::depth_plan::read(&beside).years.contains_key(&(g.world.as_ref().unwrap().year + 1).to_string()));
 }
 
+/// Plan ahead on the By position tab (Cain, 2026-11-15): the same falls,
+/// one position's whole order a fall ahead with the recruits coming in, a
+/// committed and unsigned one starred, a decommit gone from the plan at once,
+/// and an order set there read by the stadium's plan.
+fn plan_by_position(g: &mut Game) {
+    use afm_engine::world::Stage;
+    let year = g.world.as_ref().unwrap().year;
+    let now = ok(g, "sb_plan_pos", json!({ "offset": 0, "pos": "WR" }));
+    assert_eq!(now["falls"], json!([year, year + 1, year + 2, year + 3]), "the falls roll with the year");
+    // Two recruits at receiver for next fall: one signed, one only committed.
+    let (signed, verbal) = {
+        let w = g.world.as_mut().unwrap();
+        let Some(afm_game::views::TeamRef::College(c)) = afm_game::views::mine(w) else { panic!("a college seat") };
+        let today = w.today;
+        let mut picks = w
+            .people
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| {
+                p.stage == Stage::HighSchool
+                    && p.class_of == year + 1
+                    && p.player.position == afm_engine::positions::Position::WR
+                    && p.cal.signed.is_none()
+            })
+            .map(|(i, _)| i);
+        let (a, b) = (picks.next().unwrap(), picks.next().unwrap());
+        w.people[a].cal.commit = Some((c, today, false));
+        w.people[a].cal.signed = Some(afm_engine::world::Signed {
+            program: c,
+            walk_on: false,
+            date: today,
+            early_enrollee: false,
+            flipped: false,
+            committed: Some(today),
+        });
+        w.people[b].cal.commit = Some((c, today, false));
+        (w.people[a].player.id as u64, w.people[b].player.id as u64)
+    };
+    let v = ok(g, "sb_plan_pos", json!({ "offset": 1, "pos": "WR" }));
+    assert_eq!(v["fall"].as_i64(), Some(year as i64 + 1));
+    let rows = v["rows"].as_array().unwrap().clone();
+    let row = |id: u64| rows.iter().find(|r| r["id"].as_u64() == Some(id)).cloned();
+    let s = row(signed).expect("the signed recruit is in next fall's list");
+    assert_eq!(
+        (s["commit"].clone(), s["star"].clone(), s["status"].clone()),
+        (json!(true), json!(false), json!("Signed"))
+    );
+    let c = row(verbal).expect("the committed recruit is in next fall's list");
+    assert_eq!(c["star"], true, "committed and not signed carries the *");
+    let mut seen = std::collections::HashSet::new();
+    assert!(rows.iter().all(|r| seen.insert(r["id"].as_u64().unwrap())), "every man once");
+    // Two falls out he is still coming; this fall he isn't here yet.
+    assert!(
+        ok(g, "sb_plan_pos", json!({ "offset": 2, "pos": "WR" }))["rows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|r| r["id"].as_u64() == Some(verbal))
+    );
+    // The stadium's planned fall offers him beside the men who could play it.
+    let st = board(g, "sb_depth", json!({ "tab": "offense", "form": "offense", "offset": 1 }));
+    let wr = st["slots"].as_array().unwrap().iter().find(|s| s["pos"] == "WR").unwrap().clone();
+    let alts = wr["why"]["alts"].as_array().unwrap();
+    assert!(alts.iter().any(|m| m["id"].as_u64() == Some(verbal) && m["star"] == true), "offered, starred: {alts:?}");
+    // Plan him first at receiver: the stadium's first receiver spot reads it.
+    let mut ids: Vec<u64> = rows.iter().map(|r| r["id"].as_u64().unwrap()).collect();
+    ids.retain(|&id| id != verbal);
+    ids.insert(0, verbal);
+    let after = ok(g, "sb_plan_pos_put", json!({ "offset": 1, "pos": "WR", "ids": ids }));
+    assert_eq!(after["yours"], true);
+    assert_eq!(after["rows"][0]["id"].as_u64(), Some(verbal));
+    let st = board(g, "sb_depth", json!({ "tab": "offense", "form": "offense", "offset": 1 }));
+    let wr = st["slots"].as_array().unwrap().iter().find(|s| s["pos"] == "WR").unwrap().clone();
+    assert_eq!(wr["picks"][0]["id"].as_u64(), Some(verbal), "the stadium's plan reads the list");
+    assert_eq!(wr["picks"][0]["star"], true);
+    // How long the list runs with him in it.
+    let len = ok(g, "sb_plan_pos", json!({ "offset": 1, "pos": "WR" }))["rows"].as_array().unwrap().len();
+    // He decommits: gone from the plan at once, the next man starts.
+    {
+        let w = g.world.as_mut().unwrap();
+        let i = w.people.iter().position(|p| p.player.id as u64 == verbal).unwrap();
+        w.people[i].cal.commit = None;
+    }
+    let gone = ok(g, "sb_plan_pos", json!({ "offset": 1, "pos": "WR" }));
+    assert!(gone["rows"].as_array().unwrap().iter().all(|r| r["id"].as_u64() != Some(verbal)), "a decommit drops out");
+    assert_eq!(gone["rows"].as_array().unwrap().len(), len - 1);
+    let st = board(g, "sb_depth", json!({ "tab": "offense", "form": "offense", "offset": 1 }));
+    assert!(
+        st["slots"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .flat_map(|s| s["picks"].as_array().unwrap().iter())
+            .all(|p| p["id"].as_u64() != Some(verbal)),
+        "and from the stadium's plan"
+    );
+    // A man who isn't coming can't be planned.
+    let e = g.call("sb_plan_pos_put", &json!({ "offset": 1, "pos": "WR", "ids": [verbal] })).unwrap_err();
+    assert!(e.contains("won't be with you"), "{e}");
+    // Given back, the position follows the chart again.
+    let back = ok(g, "sb_plan_pos_put", json!({ "offset": 1, "pos": "WR", "reset": true }));
+    assert_eq!(back["yours"], false);
+    let w = g.world.as_mut().unwrap();
+    if let Some(i) = w.people.iter().position(|p| p.player.id as u64 == signed) {
+        w.people[i].cal.signed = None;
+        w.people[i].cal.commit = None;
+    }
+}
+
 /// The class filter on the depth chart (Cain, 2026-11-14): every man on a spot
 /// carries his class key, the squad's tiles add up, each unit card counts its
 /// men by class once, and a planned fall reads each man's class then.
@@ -606,7 +724,7 @@ fn the_boards_at_every_seat() {
     let t = std::time::Instant::now();
     let dir = std::env::temp_dir().join(format!("afm-squadboards-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 17, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 17, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     println!("world built in {:.0}s", t.elapsed().as_secs_f64());
     let fresh = ok(&mut g, "save", json!({ "name": "fresh" }))["saved"].as_str().unwrap().to_string();
     let base =
@@ -676,6 +794,7 @@ fn the_boards_at_every_seat() {
     line_spots(&mut g);
     backup_spots(&mut g);
     plan_ahead(&mut g, &rows);
+    plan_by_position(&mut g);
     class_filter(&mut g);
 
     // The reads kept at a season's end: a career's first turn keeps none
@@ -754,7 +873,11 @@ fn the_boards_at_every_seat() {
         assert_eq!(rows.len(), 1, "the season's middles are kept with the read");
         let r = &rows[0];
         assert_eq!((r.season, r.pos), (kept.season, kept.pos));
-        assert_eq!((r.staff.len(), r.mine.len()), (67, 67), "one middle for each skill, both sources");
+        assert_eq!(
+            (r.staff.len(), r.mine.len()),
+            (ATTRIBUTE_COUNT, ATTRIBUTE_COUNT),
+            "one middle for each skill, both sources"
+        );
         assert!(r.staff.iter().any(|&m| m > 0), "the staff's read of a rostered player is kept");
         for k in kept.keys.iter().filter(|k| k[1] > 0) {
             let m = r.mid(false, k[0] as usize).expect("a kept key was seen");
@@ -783,7 +906,8 @@ fn the_boards_at_every_seat() {
         let c = w.career.as_mut().unwrap();
         let mut row = c.kept_attrs_of(id)[0].clone();
         let key0 = kept.keys[0][0] as usize;
-        let skill = (0..67).find(|a| !kept.keys.iter().any(|k| k[0] as usize == *a && k[1] > 0) && row.staff[*a] > 0);
+        let skill = (0..ATTRIBUTE_COUNT)
+            .find(|a| !kept.keys.iter().any(|k| k[0] as usize == *a && k[1] > 0) && row.staff[*a] > 0);
         if let Some(a) = skill {
             row.staff[a] = 20; // half points: a middle of 10, far below any real read
             c.keep_attrs(id, row);

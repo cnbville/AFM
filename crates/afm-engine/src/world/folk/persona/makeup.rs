@@ -412,10 +412,19 @@ pub fn trust(w: &World, him: Them) -> f64 {
             if let Some(t) = mine.trust_of(key(him)) {
                 return t as f64;
             }
+            // A family that knows you reads you from its own memory
+            // (Ground, GR62).
+            if let Some(t) = index(w, Them::Player(id)).and_then(|i| crate::world::ground::stores::family_trust(w, i)) {
+                return t;
+            }
             // A family trusts you as far as their son does, and a little
-            // less than him (they weren't in the room).
+            // less than him (they weren't in the room); more when he is
+            // close to you, since they hear it from him (coach and player
+            // bonds, section 7: + 0.2 x his closeness, proposed, not
+            // confirmed).
             let son = trust(w, Them::Player(id));
-            (0.9 * son + 0.03).clamp(0.15, 0.85)
+            let close = f64::from(crate::world::folk::bonds::ear_you(w, id)) / 0.3;
+            (0.9 * son + 0.03 + 0.2 * close).clamp(0.15, 0.9)
         }
         Them::Coach(c) => {
             if let Some(t) = mine.trust_of(crate::world::folk::coach_key(c)) {
@@ -424,7 +433,9 @@ pub fn trust(w: &World, him: Them) -> f64 {
             let warm = w.folk.network.contacts.iter().find(|x| x.coach_id() == Some(c)).map(|x| x.warmth as f64);
             match warm {
                 Some(x) => (0.35 + 0.5 * x).clamp(0.1, 0.95),
-                None => 0.45,
+                // A high school coach you never networked with: your
+                // staff's standing with him (Ground, GR62).
+                None => crate::world::ground::stores::coach_trust(w, c).unwrap_or(0.45),
             }
         }
         Them::Cast(r, term) => mine.trust_of(r.key(term)).map_or(0.5, |t| t as f64),

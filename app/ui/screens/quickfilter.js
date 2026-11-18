@@ -125,7 +125,7 @@ function qfCols(cols, st, fields, key) {
   for (const { f } of qfLive(st, fields)) {
     if (have.has(f.k) || have.has("qf:" + f.k)) continue;
     have.add("qf:" + f.k);
-    const csv = (r) => { const x = f.kind === "read" ? qfRead(r, f) : null; return f.kind === "read" ? (x ? `${x[0]}-${x[1]}` : "") : f.k === "ht" ? r.ht : qfVal(r, f) ?? ""; };
+    const csv = (r) => { const x = f.kind === "read" ? qfRead(r, f) : null; return f.kind === "read" ? (x ? rpair(x) : "") : f.k === "ht" ? r.ht : qfVal(r, f) ?? ""; };
     add.push({ k: "qf:" + f.k, t: f.label, tip: `${f.label} · ${f.kind === "read" ? "your staff's read" : f.group} · the quick filter's field`, div: true, v: (r) => qfVal(r, f), f: (r) => qfShow(f, r), csv });
   }
   if (key) qfTidy(key, [...cols, ...add]);
@@ -154,7 +154,7 @@ function qfHits(r, st, fields) {
   const seen = new Set();
   return qfLive(st, fields).filter(({ f }) => !seen.has(f.k) && seen.add(f.k)).map(({ f }) => {
     const x = f.kind === "read" ? qfRead(r, f) : null;
-    const val = f.kind === "read" ? (x ? `${x[0]}-${x[1]}` : "not seen") : f.k === "ht" ? r.ht : qfVal(r, f) == null ? "-" : qfFmt(f, qfVal(r, f));
+    const val = f.kind === "read" ? (x ? rpair(x) : "not seen") : f.k === "ht" ? r.ht : qfVal(r, f) == null ? "-" : qfFmt(f, qfVal(r, f));
     return `<span class="qf-hit" title="${esc(f.label)}${f.kind === "read" ? ": your staff's read" : ""}">${esc(f.label)} <b>${esc(val)}</b></span>`;
   }).join("");
 }

@@ -3,6 +3,8 @@
 //! in his first week, and can call a testing day that costs that day's
 //! training.
 
+mod common;
+
 use afm_game::Game;
 use serde_json::{Value, json};
 
@@ -18,7 +20,7 @@ fn a_new_coach_inherits_the_teams_testing_and_can_call_his_own() {
     let t = std::time::Instant::now();
     let dir = std::env::temp_dir().join(format!("afm-testing-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 13, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 13, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     println!("world built in {:.0}s", t.elapsed().as_secs_f64());
     let jobs = ok(&mut g, "jobs", json!({ "level": "college" }));
     let job = jobs["jobs"][0]["ref"].clone();

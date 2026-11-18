@@ -8,7 +8,9 @@
 //!    or: recruit_days play <world file> (plays a saved world through the
 //!        next signing day and prints, for the class signing then, when its
 //!        blue chips committed and why the rest waited: thread "Get blue
-//!        chips committing on time").
+//!        chips committing on time"). AFM_WHY=1 also prints, on each of
+//!        those days, why the open blue chips wait (his lead over his bar,
+//!        whether he has seen the leader, his timing).
 
 use afm_engine::world::data::Division;
 use afm_engine::world::{Stage, World, WorldOptions};
@@ -195,6 +197,9 @@ fn play(path: &str) {
                 blue.len(),
                 100.0 * c as f64 / blue.len().max(1) as f64
             );
+            if std::env::var("AFM_WHY").is_ok() {
+                why_open(&w, class);
+            }
             snaps.push((w.today, s));
         }
         w.advance_day();
@@ -258,5 +263,56 @@ fn play(path: &str) {
     println!("their commitment month (to where they signed): {by_month:?}");
     for (k, v) in rows {
         println!("  {v:5} {k}");
+    }
+}
+
+/// Why the open blue chips are open (debug): his timing, whether he has
+/// seen the leader (any visit, an official), and his lead over his bar.
+fn why_open(w: &World, class: i32) {
+    use afm_engine::world::front_office::college::{hs_bar, race_at};
+    let mut rows: BTreeMap<String, u32> = BTreeMap::new();
+    for i in 0..w.people.len() {
+        let p = &w.people[i];
+        if p.class_of != class
+            || p.stage != Stage::HighSchool
+            || p.stars < 4
+            || p.player.position.is_specialist()
+            || p.cal.commit.is_some()
+        {
+            continue;
+        }
+        let race = race_at(w, i);
+        let Some(top) = race.first() else {
+            *rows.entry("no race".into()).or_default() += 1;
+            continue;
+        };
+        let lead = race.get(1).map_or(0.06, |s| top.1 - s.1) / hs_bar(w, i).max(1e-6);
+        let any = p.cal.visits.iter().any(|v| v.0 == top.0);
+        let off = p.cal.visits.iter().any(|v| v.0 == top.0 && v.2 == afm_engine::world::Visit::Official);
+        let band = if lead >= 1.0 {
+            "lead >= bar"
+        } else if lead >= 0.5 {
+            "lead half to 1 bar"
+        } else {
+            "lead < half bar"
+        };
+        let seen = if off {
+            "official to leader"
+        } else if any {
+            "unofficial to leader"
+        } else {
+            "leader unseen"
+        };
+        let t = match p.cal.commit_timing {
+            Some(afm_engine::world::CommitTiming::Summer(n)) => format!("Summer({n})"),
+            x => format!("{x:?}"),
+        };
+        *rows.entry(format!("{band} | {seen}")).or_default() += 1;
+        *rows.entry(format!("timing {t}")).or_default() += 1;
+        *rows.entry(format!("offers {}", p.cal.offers.len())).or_default() += 1;
+    }
+    println!("{}: open blue chips", w.today.pretty());
+    for (k, v) in rows {
+        println!("    {v:5} {k}");
     }
 }

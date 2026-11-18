@@ -19,6 +19,7 @@ pub mod money;
 pub mod office;
 pub mod other;
 pub mod role;
+pub mod roles;
 pub mod scouts;
 pub mod squad;
 pub mod trades;
@@ -203,7 +204,7 @@ pub struct ProCareer {
 }
 
 impl ProCareer {
-    fn new(team: Option<usize>, status: Status, year: i32) -> ProCareer {
+    pub(crate) fn new(team: Option<usize>, status: Status, year: i32) -> ProCareer {
         ProCareer {
             team,
             status,
@@ -695,7 +696,7 @@ fn veteran(w: &mut World, pos: Position, rating: f64, age: u32, seed: u32) -> Pe
     let peak = rating + head;
     let pot = crate::positions::overall_for(pos, &player.ceilings).max(1.0);
     for a in crate::attributes::Attr::ALL {
-        player.ceilings.set(a, clamp(player.ceilings.get(a) * peak / pot, 20.0, 99.0));
+        player.ceilings.set(a, clamp(player.ceilings.get(a) * peak / pot, 20.0, crate::attributes::RATING_BOUND));
     }
     for _ in 0..3 {
         let now = player.overall().max(1.0);
@@ -750,6 +751,7 @@ fn veteran(w: &mut World, pos: Position, rating: f64, age: u32, seed: u32) -> Pe
         class_of: year - age as i32 + 18,
         born: crate::calendar::born::birth_date(super::born_key(w.options.seed, id), age, year),
         followers: 0,
+        spotlight: 0.0,
         brand: 0.0,
         stars: 0,
         camp_stars: 0,
@@ -1529,10 +1531,17 @@ pub(crate) fn release_with(w: &mut World, i: usize, d: Date, why: &str, june1: b
     c.wants_out = false;
     c.ideal = None;
     w.clubs[t].roster.retain(|&x| x != i);
-    if !expired && years_there >= 2.0 && !matches!(cause, DeadWhy::Retired) {
-        super::people::grudge(&mut w.people[i], t, (years_there / 4.0).min(1.0));
-    }
     let id = w.people[i].player.id;
+    if !expired && !matches!(cause, DeadWhy::Retired) {
+        // Cut by a head coach he was close to: it hurts more (coach and
+        // player bonds: x (1 + closeness)), and the bond takes the blow.
+        let head = w.nfl[t].head_coach;
+        if years_there >= 2.0 {
+            let hurt = (years_there / 4.0).min(1.0) * crate::world::folk::bonds::betrayal(w, id, head) as f64;
+            super::people::grudge(&mut w.people[i], t, hurt);
+        }
+        crate::world::folk::bonds::left_him(w, id, head, crate::world::folk::bonds::What::Cut);
+    }
     w.clubs[t].add_dead(year, dead.0.max(0.0), id, cause);
     w.clubs[t].add_dead(year + 1, dead.1, id, cause);
     let name = w.nfl[t].name;
@@ -1717,6 +1726,34 @@ fn camp(w: &mut World, d: Date) {
     let focus = w.focus_by_person();
     let seat_mine: std::collections::HashSet<usize> = w.seat_roster().iter().copied().collect();
     let defer = !w.options.yearly_growth;
+    // The clubs' skill projects (the progression update, design item 16):
+    // by pro season inside the step, the same room counts; your club's are
+    // yours to set. NFL staffs run them as balanced staffs (proposed, not
+    // confirmed).
+    let projects: std::collections::HashMap<usize, Vec<crate::progression::Change>> = {
+        use crate::progression::{Lean, Room, ai_room};
+        let mut rooms: std::collections::HashMap<(usize, Room), Vec<usize>> = Default::default();
+        for &i in &pros {
+            let p = &w.people[i];
+            let Some(t) = p.pro.as_ref().and_then(|c| c.team) else { continue };
+            let Some(room) = Room::of(p.player.position) else { continue };
+            if !w.seat_club(t) {
+                rooms.entry((t, room)).or_default().push(i);
+            }
+        }
+        let mut keys: Vec<(usize, Room)> = rooms.keys().copied().collect();
+        keys.sort_by_key(|k| (k.0, k.1 as u8));
+        let mut out = std::collections::HashMap::new();
+        for k in keys {
+            let ids = &rooms[&k];
+            let members: Vec<&crate::player::Player> = ids.iter().map(|&i| &w.people[i].player).collect();
+            let seed = (year as u32).wrapping_mul(0x51_7CC1) ^ (k.0 as u32).wrapping_mul(0x2F0B) ^ (k.1 as u32) << 24;
+            for (m, c) in ai_room(&members, k.1, Lean::BALANCED, w.nfl[k.0].coaching, 1.0, seed) {
+                out.entry(ids[m]).or_insert_with(Vec::new).push(c);
+            }
+        }
+        out
+    };
     // The league's typical staff and strength head (minor bug 302), so the
     // strength staff's share moves growth around the league's average.
     let heads: Vec<f64> =
@@ -1753,7 +1790,10 @@ fn camp(w: &mut World, d: Date) {
         let (physical_coaching, strength_dev) = match team {
             Some(t) => {
                 let dev = heads[t] - t_strength;
-                (Some(0.6 * w.nfl[t].coaching + 0.4 * (t_coach + dev)), dev)
+                // The body's rooms around the league's typical (Capital
+                // lane C6).
+                let rooms = crate::world::capital::nfl::physical_lift(&w.capital, t);
+                (Some(0.6 * w.nfl[t].coaching + 0.4 * (t_coach + dev) + rooms), dev)
             }
             None => (None, 0.0),
         };
@@ -1806,6 +1846,8 @@ fn camp(w: &mut World, d: Date) {
         // when last season played on the engine.
         let today = w.today;
         let hurt = crate::world::season::real_hurts(w, Stage::Pro).then(|| w.training.take_hurt(w.people[i].player.id));
+        // His bond with the coach who teaches him (coach and player bonds).
+        let bond = crate::world::folk::bonds::coachability_lift(w, i);
         let p = &mut w.people[i];
         let hurt = hurt.map(|h| crate::world::season::hurt_for_step(&mut p.player, h, today));
         let mut adjustment = 0.0;
@@ -1865,6 +1907,7 @@ fn camp(w: &mut World, d: Date) {
             defer,
             results,
             hurt,
+            bond,
             ..crate::development::SeasonContext::new(Level::NFL, clamp(coaching, 1.0, 20.0), role)
         };
         if let Some(l) = &closing {
@@ -1876,6 +1919,9 @@ fn camp(w: &mut World, d: Date) {
         let read_late = crate::development::reads_late(&p.player, Level::NFL);
         let year_focus = ctx.focus.map(|a| crate::development::Focus::two(a, ctx.focus2, ctx.focus_minutes));
         crate::training::close_year(&mut p.player, year_focus);
+        for &c in projects.get(&i).into_iter().flatten() {
+            crate::progression::apply(&mut p.player, c);
+        }
         let report = crate::development::develop_season(&mut p.player, &ctx, &mut p.rng);
         if ctx.hurt.is_some() && report.rehab_due {
             let id = p.player.id;

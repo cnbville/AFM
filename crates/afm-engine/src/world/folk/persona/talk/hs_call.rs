@@ -3,31 +3,37 @@
 //! staff calls you about one of your players and asks about his football,
 //! his grades or his character (`dialogue::college_calls`, D9). With a key
 //! you answer in your own words over the call's three exchanges, and the
-//! game reads what you did with them:
+//! game weighs each thing you said (`weigh`):
 //!
-//! - **Covered for him**: a claim on the worry they asked about that isn't
-//!   true ("he's a 3.5 student" when he's at 2.3), or reassuring them on it
-//!   when there is something there.
+//! - **Covering for him**: a claim on the worry they asked about that isn't
+//!   true ("he's a 3.5 student" when he's at 2.3), weighed by how far it is
+//!   from the truth, or reassuring them on it when there is something there.
 //! - **Straight**: a true claim that names the worry, or being straight
 //!   about it ("his grades need work").
-//! - **Sold him**: praise for his football, flattering him, or good words
-//!   on a part they didn't worry about.
+//! - **Selling him**: praise for his football, flattering him, or good
+//!   words on a part they didn't worry about.
 //! - Saying nothing on the worry they asked about is going around it, and
-//!   counts as covering; nothing at all with no worry is keeping it short.
+//!   weighs as half a cover (`DODGE`).
 //!
-//! Covering outweighs being straight, which outweighs selling. When the
-//! call ends your word lands as the chip's would (`dialogue::call_word`):
-//! his recruitment, the trail, and a year on your credibility with that
-//! staff (`settle_calls`). A claim about his grades or character reads
+//! Nothing is boiled down to one of the chip's three words: when the call
+//! ends, everything you said lands together (`dialogue::call_said`): how
+//! hard you pushed him reaches his recruitment, a sharp caller discounting
+//! what he can't see on film; the trail hears each part; two different
+//! things on the same worry are noticed by a sharp caller now; and a year
+//! on each part is settled against what came true (`settle_calls`). What
+//! the caller says back on each line comes from your credibility with that
+//! staff and his judgement. A claim about his grades or character reads
 //! "later": they find out when he's on their campus. Every size here is
 //! Claude's (proposed, not confirmed).
 
 use super::super::Them;
 use super::super::ear::{Act, How, Item, Reading, Sized, Turn};
+use super::super::knows::Topic;
 use super::super::room::{Channel, Present, Room, Seat};
 use super::super::wants::{Kind, Want};
 use crate::world::World;
 use crate::world::folk::claims::{Stated, Truth};
+use crate::world::folk::dialogue::CallSaid;
 use crate::world::folk::scene::{Kind as SceneKind, Scene, Who};
 use crate::world::folk::{self as folk, dialogue};
 
@@ -43,6 +49,21 @@ pub const ADDRESSED: u8 = 8;
 /// The scene's slot that keeps what your lines did (`Scene.f[2]`, unused by
 /// the call's chips).
 const SLOT: usize = 2;
+/// The slots that add up how much you covered, were straight and sold him
+/// (`Scene.f[0]`, `f[1]`, `f[3]`, unused by the call's chips).
+const COVER_AT: usize = 0;
+const STRAIGHT_AT: usize = 1;
+const SOLD_AT: usize = 3;
+
+/// Going around the worry they asked about, against a lie about it.
+/// Proposed, not confirmed.
+pub const DODGE: f32 = 0.5;
+/// What a line of wording alone (no claim) weighs against a claim.
+/// Proposed, not confirmed.
+pub const WORDING: f32 = 0.5;
+/// Your credibility with that staff, less his judgement's discount, at
+/// which he takes your word on the phone. Proposed, not confirmed.
+pub const BELIEVED: f64 = 0.4;
 
 /// The words that say something good, and something that isn't.
 const GOOD: [&str; 16] = [
@@ -215,7 +236,7 @@ pub fn marks(w: &World, s: &Scene, reading: &Reading) -> u8 {
     }
     for h in &reading.hits {
         match (&h.item, h.how) {
-            (Item::Friend(k), How::Flattered | How::Reassured) if *k == s.a as u32 => m |= SOLD,
+            (Item::Friend(k), How::Flattered | How::Reassured | How::Staked) if *k == s.a as u32 => m |= SOLD,
             (Item::Point(k), How::Reassured) if k == "hscall.ask" && worry > 0 => m |= COVER | ADDRESSED,
             (Item::Point(k), How::Respected | How::Doubted) if k == "hscall.ask" => m |= STRAIGHT | ADDRESSED,
             _ => {}
@@ -224,42 +245,127 @@ pub fn marks(w: &World, s: &Scene, reading: &Reading) -> u8 {
     m
 }
 
-/// Your word from everything the call's lines did: 0 sold, 1 straight, 2
-/// covered or kept short.
-pub fn word(marks: u8) -> u8 {
-    if marks & COVER != 0 {
-        2
-    } else if marks & STRAIGHT != 0 {
-        1
-    } else if marks & SOLD != 0 {
-        0
-    } else {
-        2
+/// How far a cover is from the truth: a grade point average said by how
+/// far above his (a half point over is 1, held between 0.5 and 1.5), any
+/// other cover 1.
+fn how_far(w: &World, s: &Scene, st: &Stated) -> f32 {
+    let Some(i) = folk::person(w, s.a as u32) else { return 1.0 };
+    match (topic(s, st), gpa_of(&st.value.to_lowercase())) {
+        (Some(1), Some(n)) => (((n - w.people[i].bg.gpa) / 0.5) as f32).clamp(0.5, 1.5),
+        _ => 1.0,
     }
 }
 
+/// What one line did, weighed as said: how much it covered for him, was
+/// straight and sold him.
+pub fn weigh(w: &World, s: &Scene, reading: &Reading) -> CallSaid {
+    let worry = concern(s);
+    let mut x = CallSaid::default();
+    for a in &reading.acts {
+        let Act::Claim(st) = a else { continue };
+        let Some(t) = topic(s, st) else { continue };
+        if t == 0 {
+            x.sold += 1.0;
+            continue;
+        }
+        let Some((good, truth)) = read(w, s, st) else { continue };
+        if t == worry {
+            match (good, truth) {
+                (true, false) => x.cover += how_far(w, s, st),
+                (true, true) => x.sold += 1.0,
+                // Running him down on what they asked: you told them, if
+                // not fairly. They weigh it as a straight word.
+                _ => x.straight += 1.0,
+            }
+        } else if good {
+            x.sold += 1.0;
+        }
+    }
+    for h in &reading.hits {
+        match (&h.item, h.how) {
+            (Item::Friend(k), How::Flattered | How::Reassured) if *k == s.a as u32 => x.sold += WORDING,
+            // One strong line on what he really is sells like a claim.
+            (Item::Friend(k), How::Staked) if *k == s.a as u32 => x.sold += 1.0,
+            (Item::Point(k), How::Reassured) if k == "hscall.ask" && worry > 0 => x.cover += WORDING,
+            (Item::Point(k), How::Respected | How::Doubted) if k == "hscall.ask" => x.straight += WORDING,
+            _ => {}
+        }
+    }
+    x
+}
+
+/// What the call's lines have added up to so far.
+fn so_far(s: &Scene) -> CallSaid {
+    CallSaid { cover: s.f[COVER_AT], straight: s.f[STRAIGHT_AT], sold: s.f[SOLD_AT] }
+}
+
+/// The caller's judgement, -1 to 1 around an ordinary man's.
+fn sharp(w: &World, s: &Scene) -> f64 {
+    super::super::makeup::Makeup::z(super::super::makeup::makeup(w, caller(s)).judgement)
+}
+
 /// The game's turn on a call, on top of lane N4's: what he takes from your
-/// line, in words for the voice. Hits move nothing on a call (no chip
-/// does): your word lands when the call ends.
+/// line, in words for the voice, from what it did and whether he believes
+/// you (your credibility with his staff, less his judgement's discount).
+/// Hits move nothing on a call (no chip does): your word lands when the
+/// call ends.
 pub fn turn(w: &World, s: &Scene, reading: &Reading, t: &mut Turn) {
     if !is_call(s.kind) {
         return;
     }
-    let m = marks(w, s, reading);
+    let x = weigh(w, s, reading);
+    let before = so_far(s);
     for h in &mut t.hits {
         h.trust = h.trust.clamp(-0.03, 0.0);
         h.mood = 0.0;
     }
-    let said = if m & COVER != 0 {
-        "He takes your word for it, for now."
-    } else if m & STRAIGHT != 0 {
-        "He thanks you for being straight with him. They'll weigh it with the film."
-    } else if m & SOLD != 0 {
-        "He says they'll look harder at his film."
-    } else {
-        "He notes it and asks if there's anything else he should know."
-    };
-    t.say.released.push(said.into());
+    let belief = crate::world::scouting::hs::credibility(w, s.b as usize) - 0.15 * sharp(w, s);
+    let worry = concern(s) > 0;
+    // Asked what his staff makes of the kid ("what's your staff thinking
+    // about him?"): they like his film enough to call, and where it goes
+    // waits on what he asked. Never "he doesn't know" (the talks audit,
+    // 2026-11-16).
+    let kid = Them::Player(s.a as u32);
+    let on_him = reading.acts.iter().any(|a| {
+        matches!(a, Act::Question { topic: Topic::Football | Topic::Pitches | Topic::ScoutFile | Topic::Wants | Topic::Market, about, .. }
+            if about.is_none_or(|x| x == kid))
+    });
+    if on_him {
+        t.say.released.retain(|x| x != "He doesn't know.");
+        let asked = ["his football", "his grades", "his character"][concern(s) as usize];
+        t.say.released.push(format!(
+            "His staff likes the kid's film enough to recruit him; where it goes from here waits on {asked}"
+        ));
+    }
+    let r = &mut t.say.released;
+    // Only against an earlier line: your first line, covering for him in a
+    // respectful tone, came back as "that's not what you told me a minute
+    // ago" (the talks audit, 2026-11-16).
+    if worry && ((x.cover > 0.0 && before.straight > 0.0) || (x.straight > 0.0 && before.cover > 0.0)) {
+        r.push("He notes that's not what you told him a minute ago.".into());
+    }
+    if x.cover > 0.0 {
+        r.push(if belief >= BELIEVED {
+            "He takes your word for it, for now.".into()
+        } else {
+            "He doesn't sound convinced. He says they'll check it themselves.".into()
+        });
+    }
+    if x.straight > 0.0 {
+        r.push("He thanks you for being straight with him. They'll weigh it with the film.".into());
+    }
+    if x.sold > 0.0 {
+        r.push(if belief >= BELIEVED {
+            // His own words, quoted: "so they'll look harder at his film on
+            // our end" (the talks audit, 2026-11-16).
+            "He says: \"We'll look harder at his film.\"".into()
+        } else {
+            "He says: \"The film will have to show me.\"".into()
+        });
+    }
+    if r.is_empty() {
+        r.push("He notes it and asks if there's anything else he should know.".into());
+    }
 }
 
 /// Keeps what this line did on the scene.
@@ -269,18 +375,26 @@ pub fn apply(w: &mut World, id: u32, reading: &Reading, t: &Turn) {
     }
     let Some(k) = w.folk.scenes.iter().position(|s| s.id == id) else { return };
     let m = marks(w, &w.folk.scenes[k], reading);
+    let x = weigh(w, &w.folk.scenes[k], reading);
     let s = &mut w.folk.scenes[k];
     s.f[SLOT] = f32::from(s.f[SLOT] as u8 | m);
+    s.f[COVER_AT] += x.cover;
+    s.f[STRAIGHT_AT] += x.straight;
+    s.f[SOLD_AT] += x.sold;
 }
 
-/// Ends the call: your word lands as the chip's would.
+/// Ends the call: everything you said lands together, weighed as said
+/// (`dialogue::call_said`). Going around the worry they asked about adds
+/// half a cover.
 pub fn end(w: &mut World, s: &mut Scene) {
     let m = s.f[SLOT] as u8;
     let worry = concern(s);
-    let wd = word(m);
-    // Nothing at all said with no worry asked is keeping it short.
-    let judged = if wd == 2 && m & COVER == 0 && worry == 0 { 0 } else { worry };
-    dialogue::call_word(w, s, wd, judged);
+    let mut said = so_far(s);
+    if worry > 0 && m & ADDRESSED == 0 {
+        said.cover += DODGE;
+    }
+    let sharp = sharp(w, s);
+    dialogue::call_said(w, s, said, worry, sharp);
     s.end();
 }
 

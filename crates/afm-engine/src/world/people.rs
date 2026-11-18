@@ -788,6 +788,45 @@ struct Parts {
     money: f64,
     life: f64,
     room: f64,
+    /// An AI head coach's manner on him over the season (coach voice,
+    /// `persona::manner::ai_fit`): a trust change. 0 under you, whose
+    /// lines land one by one.
+    coach_fit: f64,
+    /// His closeness to this head coach (coach and player bonds): a role
+    /// below what he wants hurts him less, x (1 - 0.3 x closeness).
+    close: f64,
+    /// A new head coach's colder start in a room that loved the old one
+    /// (bonds question 5): his fresh trust less this.
+    cold: f64,
+}
+
+/// The bond parts of one camp read: his closeness to this head coach, and
+/// the colder start a new one gets from a room close to the man he
+/// replaced (by the old coach, worked out once a room).
+fn bond_parts(
+    w: &World,
+    roster: &[usize],
+    coach: Option<usize>,
+    i: usize,
+    cold: &mut std::collections::HashMap<u32, f32>,
+) -> (f64, f64) {
+    let p = &w.people[i];
+    let close = super::folk::bonds::close(w, p.player.id, coach) as f64;
+    let cid = coach.map_or(u32::MAX, |c| c as u32);
+    let old = p.trust_in;
+    let c = if old != cid && old != u32::MAX {
+        *cold.entry(old).or_insert_with(|| super::folk::bonds::successor_cold(w, roster, old))
+    } else {
+        0.0
+    };
+    (close, c as f64)
+}
+
+/// A player's trust in a head coach he has just met, from his loyalty and
+/// adaptability (the camp read's fresh start; the manner fit reads it too).
+pub(crate) fn fresh_trust(p: &Person) -> f32 {
+    let t = p.player.personality.traits;
+    clamp(0.5 + 0.08 * t.z(Trait::Loyalty) + 0.08 * t.z(Trait::Adaptability), 0.2, 0.8) as f32
 }
 
 /// One mood read (topic 3): the parts weighted by what he is, then
@@ -800,10 +839,13 @@ fn read(p: &mut Person, coach: Option<usize>, coach_motivation: f64, parts: Part
     let cid = coach.map_or(u32::MAX, |c| c as u32);
     if p.trust_in != cid {
         p.trust_in = cid;
-        p.trust = clamp(0.5 + 0.08 * t.z(Trait::Loyalty) + 0.08 * t.z(Trait::Adaptability), 0.2, 0.8) as f32;
+        p.trust = (fresh_trust(p) as f64 - parts.cold).max(0.05) as f32;
     }
+    // A man close to his head coach takes a smaller role better.
+    let parts =
+        Parts { role: if parts.role < 0.0 { parts.role * (1.0 - 0.3 * parts.close) } else { parts.role }, ..parts };
     let fair = if parts.role >= 0.0 { 0.06 } else { 0.18 * parts.role };
-    let trust = clamp(p.trust as f64 + fair + 0.03 * (coach_motivation - 10.0) / 10.0, 0.0, 1.0);
+    let trust = clamp(p.trust as f64 + fair + 0.03 * (coach_motivation - 10.0) / 10.0 + parts.coach_fit, 0.0, 1.0);
     p.trust = trust as f32;
     let comp = (pers.competitiveness - 10.0) / 10.0;
     let greed = t.z(Trait::Greed);
@@ -875,6 +917,17 @@ fn starter_bars(w: &World, roster: &[usize]) -> [f64; crate::positions::POSITION
 /// settles its mood. Called before the year's development lands, which
 /// reads it.
 pub(crate) fn college_camp_mood(w: &mut World, roles: &[(usize, PlayingTime)]) {
+    // The room watches the chart for the coach's guys first (coach and
+    // player bonds, section 8), and a first start is a bond's moment.
+    super::folk::bonds::favoritism(w, roles);
+    let firsts: Vec<u32> = roles
+        .iter()
+        .filter(|&&(i, r)| r == PlayingTime::Starter && w.people[i].last_role != Some(PlayingTime::Starter))
+        .map(|&(i, _)| w.people[i].player.id)
+        .collect();
+    for id in firsts {
+        super::folk::bonds::first_start(w, id);
+    }
     let role_of: std::collections::HashMap<usize, PlayingTime> = roles.iter().copied().collect();
     for k in 0..w.programs.len() {
         let roster = w.programs[k].roster.clone();
@@ -887,8 +940,10 @@ pub(crate) fn college_camp_mood(w: &mut World, roles: &[(usize, PlayingTime)]) {
         let coach = w.programs[k].head_coach;
         let motivation = coach.map_or(10.0, |c| w.coaches[c].ability().motivation);
         let room = w.programs[k].team_mood as f64;
+        let mut colds = std::collections::HashMap::new();
         for &i in &roster {
             let Some(&role) = role_of.get(&i) else { continue };
+            let (close, cold) = bond_parts(w, &roster, coach, i, &mut colds);
             let p = &w.people[i];
             let first = p.college_seasons == 0;
             let exp =
@@ -900,6 +955,9 @@ pub(crate) fn college_camp_mood(w: &mut World, roles: &[(usize, PlayingTime)]) {
                 money: 0.0,
                 life: 0.5 * (p.bg.stability - 10.0) / 10.0,
                 room,
+                coach_fit: super::folk::persona::manner::ai_fit(w, coach, i),
+                close,
+                cold,
             };
             read(&mut w.people[i], coach, motivation, parts);
         }
@@ -932,8 +990,10 @@ pub(crate) fn hs_camp_mood(w: &mut World, schools: &[usize], roles: &[(usize, Pl
             let bars = starter_bars(world, roster);
             let coach = world.high_schools[s].coach;
             let motivation = coach.map_or(10.0, |c| world.coaches[c].ability().motivation);
+            let mut colds = std::collections::HashMap::new();
             for &i in roster {
                 let Some(&role) = role_of.get(&i) else { continue };
+                let (close, cold) = bond_parts(world, roster, coach, i, &mut colds);
                 let p = &world.people[i];
                 let parts = Parts {
                     role: clamp(
@@ -945,6 +1005,9 @@ pub(crate) fn hs_camp_mood(w: &mut World, schools: &[usize], roles: &[(usize, Pl
                     money: 0.0,
                     life: 0.5 * (p.bg.stability - 10.0) / 10.0,
                     room: 0.0,
+                    coach_fit: super::folk::persona::manner::ai_fit(world, coach, i),
+                    close,
+                    cold,
                 };
                 out.push((i, coach, motivation, parts));
             }
@@ -1052,7 +1115,9 @@ pub(crate) fn pro_mood(w: &mut World) {
         let motivation = coach.map_or(10.0, |c| w.coaches[c].ability().motivation);
         let room = w.clubs[t].team_mood as f64;
         let mut roles = std::collections::HashMap::new();
+        let mut colds = std::collections::HashMap::new();
         for &i in &roster {
+            let (close, cold) = bond_parts(w, &roster, coach, i, &mut colds);
             let p = &w.people[i];
             let c = p.pro.as_ref().unwrap();
             let role = match c.status {
@@ -1091,6 +1156,9 @@ pub(crate) fn pro_mood(w: &mut World) {
                 money,
                 life: 0.5 * (p.bg.stability - 10.0) / 10.0,
                 room,
+                coach_fit: super::folk::persona::manner::ai_fit(w, coach, i),
+                close,
+                cold,
             };
             let role = parts.role;
             read(&mut w.people[i], coach, motivation, parts);
@@ -1196,7 +1264,13 @@ fn settle_room(w: &mut World, room: Room, roster: &[usize], roles: &std::collect
             / captains.len().max(1) as f64;
         mood *= clamp(1.0 - 0.4 * lead, 0.6, 1.2);
     }
-    let mood = clamp(mood * 1.5, -1.0, 1.0) as f32;
+    // The locker room and the players' lounge, less a build year's
+    // temporary space (Capital lane C2).
+    let rooms = match room {
+        Room::College(k) => super::capital::rooms::mood_lift(&w.programs[k]),
+        Room::Club(t) => super::capital::nfl::mood_lift(&w.capital, t),
+    };
+    let mood = clamp(mood * 1.5 + rooms, -1.0, 1.0) as f32;
     match room {
         Room::College(k) => {
             w.programs[k].team_mood = mood;

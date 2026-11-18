@@ -43,8 +43,21 @@ pub fn flag(g: &Game, _cmd: &str, v: &mut Value) {
     if !crate::live_talk::persona::talk::plays(g, s) || s.kind == afm_engine::world::folk::scene::Kind::OneOnOne {
         return;
     }
-    if let Some(t) = talk_block(w, s) {
-        v["talk"] = t;
+    // A recruit's talk and a college staff's call get the whole block; any
+    // other talk only who is in the room. Before, this block replaced the
+    // page's own on every talk (thread "Let talking end meetings cleanly": a
+    // boss meeting's chips came back as ideas, and the confirm cards and the
+    // talk's end were lost). It is merged over what the page already holds.
+    use afm_engine::world::folk::persona::talk::{hs_call, recruit as facet};
+    let whole = facet::is_recruit(s.kind) || hs_call::is_call(s.kind);
+    let Some(Value::Object(mut t)) = talk_block(w, s) else { return };
+    if !whole {
+        t.retain(|k, _| k == "room");
+    }
+    match v.get_mut("talk").and_then(Value::as_object_mut) {
+        Some(have) => have.extend(t),
+        None if !t.is_empty() => v["talk"] = Value::Object(t),
+        None => {}
     }
 }
 
@@ -183,10 +196,10 @@ pub fn writer(w: &World, s: &Scene, heard: &Heard, card: &mut Card) {
 /// His reaction in words: what he shows, never why.
 pub fn reaction(ev: Ev) -> &'static str {
     match ev {
-        Ev::TookWell => "He says that's what he came for.",
+        Ev::TookWell => "He says: \"That's exactly what I'm looking for.\"",
         Ev::Polite => "He's polite about it, no more.",
-        Ev::Cool => "He says it isn't his thing.",
-        Ev::Doubted => "It matters to him, and he doesn't believe you can back it up.",
+        Ev::Cool => "He says: \"That doesn't matter much to me.\"",
+        Ev::Doubted => "He says: \"That matters to me, but I don't believe you can back it up.\"",
         _ => "",
     }
 }

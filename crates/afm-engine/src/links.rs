@@ -63,6 +63,8 @@ pub enum Part {
     Agility,
     Balance,
     Strength,
+    /// Lower body strength (physical study item 4b): the anchor's base.
+    Lower,
     Flexibility,
     Jumping,
     /// Jumping power, the broad jump.
@@ -168,7 +170,7 @@ impl Link {
             Link::BatteringRam => &[Weight, Speed, Strength],
             Link::Length => &[Arm, Wingspan, Hand],
             Link::BigMover => &[Weight, Acceleration, Agility],
-            Link::Anchor => &[Weight, Strength, Balance],
+            Link::Anchor => &[Weight, Lower, Balance],
             Link::GetOff => &[Acceleration, Explosion],
             Link::Bend => &[Flexibility, Balance, Speed],
             Link::Lungs => &[Stamina, Recovery],
@@ -331,8 +333,16 @@ static COMBINE: LazyLock<[Combine; POSITION_COUNT]> = LazyLock::new(|| {
 /// The athletic traits the combine has no test for, read against the
 /// position's combine class as the game makes it: draft prospects at about
 /// 22, near their grown ratings (the player model's own calibration).
-const NORM_ATTRS: [Attr; 7] =
-    [Attr::Acceleration, Attr::Agility, Attr::Balance, Attr::Strength, Attr::Flexibility, Attr::Jumping, Attr::Stamina];
+const NORM_ATTRS: [Attr; 8] = [
+    Attr::Acceleration,
+    Attr::Agility,
+    Attr::Balance,
+    Attr::Strength,
+    Attr::Flexibility,
+    Attr::Jumping,
+    Attr::Stamina,
+    Attr::LowerBody,
+];
 
 static NORMS: LazyLock<[[(f64, f64); NORM_ATTRS.len()]; POSITION_COUNT]> = LazyLock::new(|| {
     use crate::player::{ProspectOptions, generate_prospect};
@@ -423,6 +433,7 @@ pub fn part_z(part: Part, pos: Position, b: &Body, attrs: &Attributes, recovery:
         Part::Agility => norm_z(pos, Attr::Agility, attrs.get(Attr::Agility)),
         Part::Balance => norm_z(pos, Attr::Balance, attrs.get(Attr::Balance)),
         Part::Strength => norm_z(pos, Attr::Strength, attrs.get(Attr::Strength)),
+        Part::Lower => norm_z(pos, Attr::LowerBody, attrs.get(Attr::LowerBody)),
         Part::Flexibility => norm_z(pos, Attr::Flexibility, attrs.get(Attr::Flexibility)),
         Part::Jumping => norm_z(pos, Attr::Jumping, attrs.get(Attr::Jumping)),
         Part::Stamina => norm_z(pos, Attr::Stamina, attrs.get(Attr::Stamina)),
@@ -533,12 +544,13 @@ pub fn numbers(link: Link, b: &Body, attrs: &Attributes) -> String {
     parts.join(", ")
 }
 
-/// The ten-yard split (about 0.345 of the forty for a fast man, more for a
-/// slow starter), the shuttle, the three-cone and the bench, without the
-/// test-day noise (the combine's fits, `body::combine`).
+/// The ten-yard split his ratings give (about 0.345 of the forty), run as
+/// the engine runs him (`body::ten_split`) without his first-step gift or
+/// the test-day noise; then the shuttle, the three-cone and the bench (the
+/// combine's fits, `body::combine`).
 pub fn ten_split(attrs: &Attributes, weight: f64) -> f64 {
-    let tau = clamp(0.78 + 0.003 * (60.0 - attrs.get(Attr::Acceleration)) + 0.0006 * (weight - 220.0), 0.55, 1.0);
-    forty(attrs, weight) * (0.29 + 0.07 * tau)
+    let (f, acc) = (forty(attrs, weight), attrs.get(Attr::Acceleration));
+    crate::body::ten_split(f, crate::body::sprint_tau(acc, weight, 0.0, f), crate::body::grip(acc, weight))
 }
 
 fn shuttle(attrs: &Attributes, weight: f64) -> f64 {

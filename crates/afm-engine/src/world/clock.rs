@@ -476,10 +476,19 @@ fn dawn(w: &mut World, d: Date, y: &YearDates) {
         college::finals_week(w);
     }
     hs_year::dawn(w, d);
+    // The commitments lifting a brand exposure grade (GR44).
+    super::following::day(w, d);
     // The week's rhythm, for the record and the future screens (T6), and
     // the training blocks of every level (T7).
     timed("rhythm", || rhythm(w, d, y));
     nfl_year::training_blocks(w, d, y);
+    // Your seat's ground scenes for the day (lane G5): only the seat plays
+    // them, so the world is the same on every seed.
+    if w.seat.is_some() {
+        super::ground::scenes::dawn(w, d);
+        // Capital's donor slots (lane C4), all year.
+        super::capital::week::dawn(w, d);
+    }
 }
 
 /// 7:00 AM: staffs in early, and on Mondays every team's training week
@@ -502,6 +511,8 @@ fn office(w: &mut World, d: Date, y: &YearDates) {
     }
     // --- The books: every club's money, projects and the dated money days ------------
     timed("money", || super::finance::day(w, d));
+    // Capital's donors (lane C1): their store only.
+    super::capital::day(w, d);
     // Your front office's day: reminders, answers, calls (lane 10).
     super::front_office::day(w, d);
     // The spring portal window (2023-2025).
@@ -533,6 +544,9 @@ fn office(w: &mut World, d: Date, y: &YearDates) {
     }
     if d == hs_transfer_day(y) {
         hs_nil_states(w);
+        // The chain reaction (Ground GR21): schools climb or fall on their
+        // old players before the families decide.
+        timed("hs climb", || super::high_school::climb(w));
         timed("hs transfers", || recruiting::high_school_transfers(w));
         w.rebuild_rosters();
         // High schoolers' NIL deals follow the new rules and the moves (N3).
@@ -853,6 +867,13 @@ fn late(w: &mut World, d: Date) {
     // Update 2, lane 5: the call sheet drafted on plan day, the week's
     // keys, and the call words.
     timed("plans", || super::plans::day(w, d));
+}
+
+/// The regular portal windows of `season`'s offseason under its rule (the
+/// winter window, and the spring one in the eras that had it), for the
+/// screens: each window's first and last day.
+pub fn portal_windows_for(w: &World, season: i32) -> Vec<(Date, Date)> {
+    portal_windows(season, transfer_rule_of(w, season)).into_iter().map(|(open, close, _)| (open, close)).collect()
 }
 
 fn transfer_rule_of(w: &World, season: i32) -> TransferRule {

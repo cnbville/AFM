@@ -118,6 +118,7 @@ pub fn open(w: &mut World, parent: usize, opens: i32, rng: &mut Rng) -> usize {
         town: p.town.clone(),
         county: p.county.clone(),
         area: p.area,
+        ground_area: p.ground_area,
         name: name.clone(),
         fictional_name,
         real: false,
@@ -135,6 +136,7 @@ pub fn open(w: &mut World, parent: usize, opens: i32, rng: &mut Rng) -> usize {
         roster: Vec::new(),
         seasons: Vec::new(),
         state_titles: 0,
+        chain: crate::world::high_school::Chain::new(prestige),
     });
     w.high_schools[parent].enrollment = p.enrollment - enrollment;
     w.states[p.state].schools.push(id);

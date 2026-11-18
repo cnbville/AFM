@@ -20,7 +20,7 @@ const TAGS: &str = concat!(
     // a player's position
     "qb rb wr te ol dl lb db kicker snapper offense defense special skill cover rusher lineman ",
     // where he is in his career
-    "freshman sophomore junior senior redshirt transfer walkon rookie undrafted firstround psquad ",
+    "freshman sophomore junior senior redshirt transfer walkon rookie undrafted firstround psquad lastyear ",
     // coaches
     "climber old expro strict warm cold ",
     // your tone (game day talks)
@@ -34,7 +34,7 @@ const TAGS: &str = concat!(
     // parents
     "loud online absent ",
     // where and when
-    "texas south midwest northeast west pre2000 pre2010 social modern nil ",
+    "texas south midwest northeast west pre2000 pre2010 social modern nil prespring precamp ",
     // the fans (fans.rs): who they are and how they lean, the radio host, the crowd
     "fan crowd host ticket student alum local homer doomer ",
 );
@@ -70,7 +70,7 @@ const FACTS: &str = concat!(
     "line award injury life known promise days gap hold trade asked round pc parent prep forty bench squat ",
     "weight forty_before bench_before weight_before test phase grade won lost battles shape pounds position ",
     "stage names arrived change how system grasp picks tie out sport event meet school offers tag what his ",
-    "his_games finish margin ",
+    "his_games finish margin choice ",
     // the staff and scouting rooms (claims/rooms.rs, lane L11)
     "yours strong weak worst pick_name pick_round pick_year form allowed scored pressure big ypc run_share ahead ",
     // the bosses and the outside on the fact sheet (lane L10): the case's
@@ -103,6 +103,8 @@ fn asked() -> Vec<String> {
         v.push(format!("talk.open.{s}"));
         v.push(format!("talk.reveal.{s}"));
     }
+    // His future when his college career ends this year (`talk::standing`).
+    v.push("talk.open.draft".into());
     // His friend who just left (new bugs, Cain 2026-11-03).
     for o in ["good", "bad", "flat"] {
         v.push(format!("talk.reply.friend.{o}"));
@@ -389,6 +391,9 @@ fn asked() -> Vec<String> {
         v.push(format!("gameday.day.{k}"));
     }
     v.push("gameday.captain.day".into());
+    // Ground's scenes (lane G5, ground.txt).
+    v.push("ground.visit.greet".into());
+    v.push("ground.call.greet".into());
     v
 }
 

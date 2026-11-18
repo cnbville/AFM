@@ -371,8 +371,8 @@ pub fn row(ctx: &Ctx, i: usize) -> Value {
     let now = read.filter(|r| r.now.0 > 0.0).map(|r| {
         let half = (r.now.1 as f64).max(1.0);
         [
-            ((r.now.0 as f64) - half).floor().clamp(1.0, 99.0) as u8,
-            ((r.now.0 as f64) + half).ceil().clamp(1.0, 99.0) as u8,
+            ((r.now.0 as f64) - half).floor().clamp(1.0, crate::reads::SHOWN_TOP) as u8,
+            ((r.now.0 as f64) + half).ceil().clamp(1.0, crate::reads::SHOWN_TOP) as u8,
         ]
     });
     let proj = read.filter(|r| r.ceiling.0 > 0.0).map(|r| fields::PROJ[fields::tier(ctx, r.ceiling.0 as f64)]);

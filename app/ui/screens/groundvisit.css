@@ -1,0 +1,95 @@
+/* Lane styles: Ground's school visit (lane S3, board 3, GR72, GR79). The
+   glass look with the school's own two colors, on ground.css's gd- glass and
+   groundperson.css's gp- stats and monograms. Every class is gv- so the app's
+   global names never restyle it. */
+
+.gv-room { padding-bottom: 40px; }
+.gv-man { align-self: center; }
+.gv-body { display: grid; grid-template-columns: 288px minmax(0, 1fr) 318px; gap: 14px; align-items: start; }
+.gv-col { display: grid; gap: 14px; min-width: 0; align-content: start; }
+@media (max-width: 1150px) { .gv-body { grid-template-columns: 1fr; } }
+
+/* the stops */
+.gv-stops { gap: 4px; }
+.gv-stop { display: grid; grid-template-columns: 40px 12px minmax(0, 1fr); gap: 10px; align-items: start; padding: 6px 0; }
+.gv-stop .t { font-size: 12px; color: var(--fg2); text-align: right; font-variant-numeric: tabular-nums; padding-top: 1px; }
+.gv-stop .n { width: 11px; height: 11px; border-radius: 50%; margin-top: 4px; background: var(--fill-3); }
+.gv-stop .n.done { background: var(--fg); }
+.gv-stop .n.now { background: #fff; box-shadow: 0 0 0 4px rgba(255, 255, 255, .18); }
+.gv-stop b { font-size: 13.5px; display: block; }
+.gv-stop small { display: block; font-size: 12px; color: var(--fg2); line-height: 1.38; }
+.gv-stop.open[role="button"] { cursor: pointer; border-radius: 10px; }
+.gv-stop.open[role="button"]:hover { background: var(--fill-1); }
+.gv-stop.gone { opacity: .5; }
+.gv-sheet { display: grid; gap: 3px; margin-top: 6px; padding: 8px 10px; border-radius: 10px; background: rgba(255, 255, 255, .9); color: #1b1d22; font-size: 11.5px; line-height: 1.3; transform: rotate(-.6deg); }
+.gv-sheet div { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 6px; border-bottom: 1px solid rgba(0, 0, 0, .12); padding-bottom: 2px; }
+.gv-sheet div:last-child { border-bottom: 0; }
+.gv-sheet i { display: block; font-style: normal; color: #5b5f69; }
+.gv-sheet.blank { display: block; transform: none; background: var(--fill-1); color: var(--fg2); }
+
+/* where its kids went */
+.gv-went { display: grid; gap: 6px; }
+.gv-hb { display: grid; grid-template-columns: 110px minmax(0, 1fr) 22px; gap: 8px; align-items: center; font-size: 12px; }
+.gv-hb > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gv-hb .tr { height: 8px; border-radius: 5px; background: var(--fill-1); overflow: hidden; }
+.gv-hb .tr i { display: block; height: 100%; border-radius: 5px; background: var(--fg3); }
+.gv-hb b { text-align: right; font-variant-numeric: tabular-nums; }
+.gv-note { font-size: 12px; color: var(--fg2); line-height: 1.4; }
+
+/* the talk */
+.gv-talkbox { gap: 12px; min-height: 640px; }
+.gv-hd { display: flex; gap: 14px; align-items: flex-end; }
+.gv-pic { width: 112px; height: 108px; border-radius: 18px; overflow: hidden; flex: none; background: rgba(0, 0, 0, .25); box-shadow: inset 0 0 0 1px var(--edge); display: grid; place-items: center; }
+.gv-pic .gp-mono { font-size: 38px; }
+.gv-who { display: grid; gap: 5px; padding-bottom: 4px; min-width: 0; }
+.gv-who h1 { margin: 0; font-size: 24px; font-weight: 800; line-height: 1.05; }
+.gv-who h1 a { color: inherit; cursor: pointer; text-decoration: none; }
+.gv-lv { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.gv-lv small { font-size: 12px; color: var(--fg2); }
+.gv-talk { display: flex; flex-direction: column; gap: 9px; flex: 1; min-height: 240px; max-height: 520px; overflow-y: auto; padding-right: 4px; }
+.gv-him { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 8px; align-items: end; }
+.gv-av { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; background: var(--fill-2); display: grid; place-items: center; font-size: 11px; font-weight: 800; }
+.gv-av.gap { background: none; }
+.gv-him .b { display: grid; gap: 3px; justify-items: start; }
+.gv-him .who { font-size: 11px; color: var(--fg3); }
+.gv-him p { margin: 0; max-width: 88%; font-size: 14.5px; line-height: 1.42; padding: 10px 15px; border-radius: 18px 18px 18px 6px; background: var(--fill-2); box-shadow: inset 0 0 0 1px var(--hair); }
+.gv-him em { font-size: 12.5px; color: var(--fg2); }
+.gv-you { display: grid; justify-items: end; gap: 3px; }
+.gv-you p { margin: 0; max-width: 78%; font-size: 14.5px; line-height: 1.42; padding: 10px 15px; border-radius: 18px 18px 6px 18px; background: color-mix(in oklab, var(--c1) 55%, var(--fill-2)); box-shadow: inset 0 0 0 1px var(--hair); }
+.gv-tell { margin: 0; font-size: 13px; font-style: italic; color: var(--fg2); line-height: 1.4; }
+.gv-next { font-size: 12.5px; color: var(--fg2); }
+.gv-ideas { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.gv-idea { appearance: none; border: 0; outline-offset: 2px; text-align: left; padding: 10px 13px; border-radius: 14px; background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--hair); color: var(--fg); font: inherit; font-size: 13px; line-height: 1.3; cursor: pointer; display: grid; gap: 2px; }
+.gv-idea small { font-size: 11.5px; color: var(--fg2); }
+.gv-idea:hover { background: var(--fill-2); }
+.gv-idea.end { color: var(--fg2); }
+.gv-comp { margin-top: 2px; }
+.gv-end { display: grid; gap: 6px; padding: 12px 14px; border-radius: 16px; background: var(--fill-1); box-shadow: inset 3px 0 0 var(--sl-gold); }
+.gv-end p { margin: 0; font-size: 13.5px; line-height: 1.45; }
+.gv-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+
+/* the lead, who heard first, your ground */
+.gv-lead { gap: 9px; }
+.gv-lh { display: flex; gap: 10px; align-items: center; }
+.gv-ln { font-size: 17px; font-weight: 800; }
+.gv-ln a { color: inherit; cursor: pointer; text-decoration: none; }
+.gv-lh small { font-size: 12px; color: var(--fg2); }
+.gv-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.gv-tabs .gd-chip { cursor: pointer; border: 0; color: var(--fg); font: inherit; font-size: 12px; font-weight: 600; }
+.gv-blanks { display: grid; gap: 4px; }
+.gv-blank { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 7px 10px; border-radius: 12px; background: var(--fill-1); }
+.gv-blank .n { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; box-shadow: inset 0 0 0 1px var(--hair); }
+.gv-blank.done .n { background: var(--fg); color: var(--bg, #000); box-shadow: none; }
+.gv-blank b { font-size: 13px; display: block; }
+.gv-blank small { font-size: 11.5px; color: var(--fg2); }
+.gv-blank .d { font-size: 11px; color: var(--sl-dim); }
+.gv-blank.now { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .35); }
+.gv-ord { display: grid; grid-template-columns: 62px 10px minmax(0, 1fr); gap: 9px; align-items: start; padding: 4px 0; font-size: 13px; }
+.gv-ord .t { font-size: 12px; color: var(--fg2); text-align: right; }
+.gv-ord .dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 4px; background: var(--fg3); }
+.gv-ord .dot.you { background: var(--gd-you); }
+.gv-ord small { display: block; font-size: 12px; color: var(--fg2); }
+.gv-gl { display: flex; gap: 8px; align-items: center; }
+.gv-gl small { font-size: 12px; color: var(--fg2); }
+.gv-moved { font-size: 13px; }
+.gv-q { font-size: 12px; color: var(--fg); font-style: italic; line-height: 1.4; }

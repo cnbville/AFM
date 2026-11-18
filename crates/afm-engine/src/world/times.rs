@@ -125,6 +125,16 @@ fn spread(event: Event) -> f64 {
     }
 }
 
+/// How far a time sits from the mix of speed and burst it is read back to:
+/// the run's own spread, and on the split his first-step gift too
+/// (`body::KNACK_SPLIT_SD`), which a staff can't tell from burst.
+fn read_spread(event: Event) -> f64 {
+    match event {
+        Event::Split => (spread(event).powi(2) + crate::body::KNACK_SPLIT_SD.powi(2)).sqrt(),
+        _ => spread(event),
+    }
+}
+
 /// How fast a hand time runs (Mann et al., JSCR 2015: hand 4.90 against
 /// electronic 5.12 on 81 Division I players), and the extra spread.
 const HAND_FAST: f64 = 0.24;
@@ -161,6 +171,14 @@ fn run(w: &mut World, i: usize, event: Event, timed: Timed, at: At, d: Date, key
     let a = &p.player.attributes;
     let id = p.player.id as u64;
     let mut t = base(event, a.get(Attr::Speed), a.get(Attr::Acceleration), real) + spread(event) * key_normal(key, id);
+    // The split carries his first-step gift, the one the engine runs him
+    // with (`body::start_knack`).
+    if event == Event::Split {
+        t += crate::body::knack_split(
+            &p.player,
+            base(Event::Forty, a.get(Attr::Speed), a.get(Attr::Acceleration), real),
+        );
+    }
     let step = match timed {
         Timed::Hand => {
             t -= HAND_FAST + HAND_SD * key_normal(key ^ 0x4A2D, id);
@@ -629,8 +647,8 @@ pub fn seen(w: &World, p: &Person) -> Seen {
         let (mix, per) = shape(t.event);
         let (off, sd, wt) = match (t.timed, t.at) {
             (Timed::Hand, At::School) => (HAND_FAST + SCHOOL_FAST.0 + 0.5 * SCHOOL_FAST.1, 0.15, SCHOOL_WEIGHT),
-            (Timed::Hand, _) => (HAND_FAST, (spread(t.event).powi(2) + HAND_SD * HAND_SD).sqrt(), HAND_WEIGHT),
-            _ => (0.0, spread(t.event), 1.0),
+            (Timed::Hand, _) => (HAND_FAST, (read_spread(t.event).powi(2) + HAND_SD * HAND_SD).sqrt(), HAND_WEIGHT),
+            _ => (0.0, read_spread(t.event), 1.0),
         };
         timed |= t.timed != Timed::Hand;
         // The time back to the mix of speed and burst it measures.

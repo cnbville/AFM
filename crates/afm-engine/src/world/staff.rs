@@ -6,13 +6,14 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use super::coach::{
     Coach, CoachTier, Employer, Group, HiringNeeds, Job, Role, Stint, candidate_score, generate_coach, hiring_needs,
 };
-use super::data::{AcademicTier, Division};
+use super::data::{self, AcademicTier, Division};
 use super::ethnicity::{CoachPool, Ethnicity, coach_ethnicity, hiring_bias};
 use super::former::Want;
 use super::news::{self, Channel, NewsItem, NewsKind};
 use super::program::{self, GRADE_COUNT, GradeCat, NilTrend};
 use super::{Stage, World, names};
 use crate::player::PlayingTime;
+use crate::positions::{POSITION_COUNT, Position};
 use crate::rng::{Rng, clamp};
 
 use super::front_office::{market, school};
@@ -394,6 +395,8 @@ pub(crate) fn leave(w: &mut World, coach: usize, why: &'static str) {
         }
         Employer::Other(f) => super::pro::other::unseat(w, f, coach),
     }
+    // The players close to him feel it (coach and player bonds, section 8).
+    super::folk::bonds::coach_left(w, coach, job.employer);
     if market::is_you(w, coach) {
         market::left(w, why);
     }
@@ -963,6 +966,16 @@ fn weigh_offer_at(w: &mut World, c: usize, o: Opening, rank: usize) -> Option<(S
     let over = super::front_office::chain::overruled_recent(w, c);
     if over > 2 {
         parts.push((0.015 * (over - 2).min(4) as f64, "a head coach who keeps overruling him".to_string()));
+    }
+    // His mood on your staff (Ground lane G10): a happy man stays, an
+    // unhappy one listens.
+    if let Some((by, why)) = super::ground::staff::offer_pull(w, c) {
+        parts.push((by, why));
+    }
+    // How his head coach talks to him and his guys (coach voice): a man
+    // gone at takes the first good offer; one who gets on with it stays.
+    if let Some((by, why)) = super::folk::persona::manner::offer_pull(w, c) {
+        parts.push((by, why));
     }
     // A seat getting hot: a way out before he is pushed.
     if job.role == Role::HeadCoach {
@@ -1713,7 +1726,23 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
             market::offer(w, o.employer, o.role, o.prestige);
             return;
         }
+        // One of your men (Ground lane G10): his answer once you've had
+        // your chance to counter; the job waits for it.
+        if let Some(ans) = super::ground::staff::carousel::courted_answer(w, c, o.employer, o.role) {
+            match ans {
+                Some((reason, pay)) => {
+                    hired = Some(c);
+                    why = reason;
+                    price = Some(pay);
+                    break;
+                }
+                None => continue,
+            }
+        }
         if let Some((reason, pay)) = weigh_offer_at(w, c, o, rank) {
+            if super::ground::staff::carousel::courting(w, c, o.employer, o.role, o.prestige, &reason, pay) {
+                return;
+            }
             hired = Some(c);
             why = reason;
             price = Some(pay);
@@ -1842,6 +1871,16 @@ fn fill_opening(w: &mut World, o: Opening, moved: &mut HashSet<usize>, buzz: &[u
         && !market::is_you(w, c)
     {
         super::recruiting::follow_coach(w, a, b, c);
+    }
+    // An assistant who moved to another college: the players close to him
+    // may follow too (coach and player bonds).
+    if let (Some(Job { employer: Employer::College(a), role: from_role, .. }), Employer::College(b)) =
+        (left, o.employer)
+        && a != b
+        && from_role != Role::HeadCoach
+        && !market::is_you(w, c)
+    {
+        super::recruiting::follow_assistant(w, a, b, c);
     }
     // Where he came from, and why he came (11.13).
     let from = from_job.map_or("a new coach".to_string(), |(e, _)| match e {
@@ -2091,6 +2130,13 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
     // A "prove it" year: a third bad season ends it; a good one clears it.
     let mut fire = false;
     let mut why = "fired";
+    // An outside review of how he treats his players (coach voice, AI
+    // coaches on the same rules): a pattern ends it for cause.
+    if super::folk::persona::manner::for_cause(w, c, p) {
+        fire = true;
+        why = "fired for cause";
+        w.coaches[c].contract = None;
+    }
     match w.coaches[c].prove_it {
         Some(granted) if granted == year - 1 => {
             if !contending && (wp_last < 0.5 || (last < -0.08 && wp_last < 0.65)) {
@@ -2173,6 +2219,9 @@ fn college_review(w: &mut World, c: usize, p: usize, job: Job, openings: &mut Ve
             "not retained when his contract ran out" => {
                 format!("{name} lets head coach {coach_name}'s contract run out after {seasons}.")
             }
+            "fired for cause" => format!(
+                "{name} fires head coach {coach_name} for cause after an outside review of how his program treats its players."
+            ),
             _ => format!(
                 "{name} fires head coach {coach_name} after {} prove-it season ({seasons} in all).",
                 crate::world::pronoun::coach(w, c).his()
@@ -2271,7 +2320,9 @@ fn staff_review(w: &mut World, p: usize, form: f64, hot: bool, openings: &mut Ve
         }
         let coordinator = matches!(role, Role::OffensiveCoordinator | Role::DefensiveCoordinator);
         let seat = if hot && coordinator { 1.6 } else { 1.0 };
-        let weak = clamp((-0.15 * (quality(w, a, role) - mean)).exp(), 0.5, 2.0);
+        // Your August verdict at the assistant seat (Ground lane G10).
+        let weak = clamp((-0.15 * (quality(w, a, role) - mean)).exp(), 0.5, 2.0)
+            * super::ground::staff::desk::review_factor(w, a);
         let rate = STAFF_TURN * if coordinator { STAFF_TURN_COORDINATOR } else { 1.0 } * season * seat * weak;
         if w.rng.chance(clamp(rate, 0.0, 0.6)) {
             marked.push((role, a, weak));
@@ -3309,6 +3360,75 @@ fn candidate_pool(w: &mut World, o: Opening, moved: &HashSet<usize>, buzz: &[usi
     pool
 }
 
+/// How far a returning holder above the level's typical starter at his
+/// spot shuts a job to a newcomer: 4 points above leaves it about a quarter
+/// open, 4 below about three quarters (proposed, not confirmed).
+pub(crate) const HOLD_SPREAD: f64 = 4.0;
+
+/// One program's playing time read (Cain 2026-11-15, "play time ranked low
+/// on a 2-10 team"): for every starting spot at every position, the player
+/// who holds it next fall (the room's best returners, best first) against
+/// the level's typical starter at that position (`norm`). A spot with no
+/// returner is open; a holder at the typical starter's level leaves it
+/// half open; a better one shuts it, a weaker one opens it. The mean over
+/// the starting spots, kickers aside. `rooms` holds each position's
+/// returners' overalls, best first.
+pub(crate) fn open_spots(rooms: &[Vec<f64>; POSITION_COUNT], norm: &[f64; POSITION_COUNT]) -> f64 {
+    let (mut sum, mut spots) = (0.0f64, 0.0f64);
+    for pos in Position::ALL.into_iter().filter(|p| !p.is_specialist()) {
+        let k = pos.index();
+        for slot in 0..crate::game::roster::starters(pos) {
+            sum += rooms[k].get(slot).map_or(1.0, |&o| 1.0 / (1.0 + ((o - norm[k]) / HOLD_SPREAD).exp()));
+            spots += 1.0;
+        }
+    }
+    sum / spots.max(1.0)
+}
+
+/// Every program's playing time read at the year-end book (`open_spots`).
+/// Next fall's room is today's roster without the players who are going:
+/// out of eligibility after `season`, declared for the draft, or in the
+/// portal. The typical starter is this season's, each level's mean of its
+/// programs' starters by position. Before 2026-11-15 the grade counted
+/// only the share of starters in their third season or later, less a
+/// hundredth of team strength, so a losing team that started underclassmen
+/// read as having no openings at all.
+fn openings(w: &World, season: i32) -> Vec<f64> {
+    let n = w.programs.len();
+    let mut all = vec![[(); POSITION_COUNT].map(|_| Vec::<f64>::new()); n];
+    let mut back = vec![[(); POSITION_COUNT].map(|_| Vec::<f64>::new()); n];
+    for (j, prog) in w.programs.iter().enumerate() {
+        for &i in &prog.roster {
+            let p = &w.people[i];
+            if p.stage != Stage::College || p.college != Some(j) {
+                continue;
+            }
+            let (k, o) = (p.player.position.index(), p.player.overall());
+            all[j][k].push(o);
+            if p.cal.portal.is_none() && !super::eligibility::exhausted_after(p, prog.division, season) {
+                back[j][k].push(o);
+            }
+        }
+        for v in all[j].iter_mut().chain(back[j].iter_mut()) {
+            v.sort_by(|a, b| b.total_cmp(a));
+        }
+    }
+    let mut sums = [[(0.0f64, 0.0f64); POSITION_COUNT]; data::DIVISION_COUNT];
+    for (j, prog) in w.programs.iter().enumerate() {
+        for pos in Position::ALL {
+            let v = &all[j][pos.index()];
+            let s = crate::game::roster::starters(pos).min(v.len());
+            if s > 0 {
+                let e = &mut sums[prog.division as usize][pos.index()];
+                e.0 += v[..s].iter().sum::<f64>() / s as f64;
+                e.1 += 1.0;
+            }
+        }
+    }
+    let norm = sums.map(|d| d.map(|(t, c)| if c > 0.0 { t / c } else { 0.0 }));
+    (0..n).map(|j| open_spots(&back[j], &norm[w.programs[j].division as usize])).collect()
+}
+
 /// Prestige, grades, NIL and footprints after the season (topic 7, 8, 4).
 pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResult]) {
     let year = w.year;
@@ -3328,19 +3448,8 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
     // Raw values per grade, then graded within each division.
     let n = w.programs.len();
     let mut raw = vec![[0.0f64; GRADE_COUNT]; n];
-    // Playing time: starters about to leave open spots; a weak roster opens more.
-    let mut leaving = vec![(0.0f64, 0.0f64); n];
-    for p in w.people.iter() {
-        if p.stage == Stage::College
-            && let Some(c) = p.college
-            && p.last_role == Some(PlayingTime::Starter)
-        {
-            leaving[c].1 += 1.0;
-            if p.college_seasons >= 3 {
-                leaving[c].0 += 1.0;
-            }
-        }
-    }
+    // Playing time: how open next fall's depth chart is to a newcomer.
+    let open = openings(w, year);
     for i in 0..n {
         let t = &results[i];
         let win = if t.games() > 0 { t.win_pct() } else { 0.5 };
@@ -3389,7 +3498,11 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
             // Facilities move in steps (note 15C): buildings age a little each
             // year, and a project lands when the money and the will line up.
             if real.is_none() {
-                p.facilities = (p.facilities - 0.006).max(0.02);
+                // Once the rooms live they age on their own (Capital lane
+                // C2, CP22: `capital::rooms::age`).
+                if !p.campus.live {
+                    p.facilities = (p.facilities - 0.006).max(0.02);
+                }
                 let gap = fac_target - p.facilities;
                 let booster = p.collective.big_booster.is_some();
                 let chance = clamp(0.03 + 0.6 * gap.max(0.0) + if booster { 0.05 } else { 0.0 }, 0.0, 0.4);
@@ -3410,6 +3523,9 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
         }
         p.prestige = program::prestige_of(p, hc_rep, conf_strength(p));
     }
+    // The rooms follow the year's number in the world's past (Capital lane
+    // C2, `capital::rooms::sync`).
+    super::capital::rooms::sync(w);
     for division in Division::ALL {
         // A fixed yardstick (11.9): the division leader's prestige when
         // recorded history began, so the leader no longer always reads 1.0.
@@ -3439,7 +3555,6 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
                 _ => 1.0,
             })
             .sum();
-        let (leave, starters) = leaving[i];
         let academics = match p.academic_tier {
             AcademicTier::Aau => 0.9,
             AcademicTier::R1 => 0.7,
@@ -3448,9 +3563,12 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
         } + if p.conference == "Ivy" { 0.4 } else { 0.0 };
         let titles_recent: f64 = p.seasons.iter().rev().take(2).filter(|s| s.conference_title).count() as f64;
         raw[i][GradeCat::Academics as usize] = academics;
-        raw[i][GradeCat::ProPipeline as usize] = picks;
-        raw[i][GradeCat::PlayingTime as usize] = leave / starters.max(1.0) - 0.01 * t.strength;
-        raw[i][GradeCat::Tradition as usize] = p.tradition;
+        // The trophy hall and NFL wall sharpen the pipeline and tradition
+        // pitch (Capital lane C2, CP17).
+        let pitch = super::capital::rooms::pitch_lift(p);
+        raw[i][GradeCat::ProPipeline as usize] = picks * pitch;
+        raw[i][GradeCat::PlayingTime as usize] = open[i];
+        raw[i][GradeCat::Tradition as usize] = p.tradition * pitch;
         raw[i][GradeCat::TitleChances as usize] = 0.02 * t.strength + (0.6 * titles_recent + win) * conf_strength(p);
         raw[i][GradeCat::CoachPrestige as usize] = hc_rep;
         raw[i][GradeCat::Facilities as usize] = fac_reads[i];
@@ -3460,10 +3578,15 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
         raw[i][GradeCat::BrandExposure as usize] =
             0.6 * p.fans + 0.2 * p.tradition + if p.power_conference(year) { 0.2 } else { 0.0 };
         raw[i][GradeCat::ConferenceStrength as usize] = conf_strength(p);
-        raw[i][GradeCat::StadiumAtmosphere as usize] =
-            (p.crowd_seats() as f64).sqrt() * (0.5 + p.fans) * (0.7 + 0.3 * p.recent);
+        raw[i][GradeCat::StadiumAtmosphere as usize] = (p.crowd_seats() as f64).sqrt()
+            * (0.5 + p.fans)
+            * (0.7 + 0.3 * p.recent)
+            * super::capital::rooms::atmosphere_lift(p);
         raw[i][GradeCat::CampusLife as usize] = (p.enrollment as f64).ln() + 0.3 * academics;
     }
+    // The commitments' lifts come off while the grades move from their own
+    // reads, and go back on after (GR44).
+    super::following::strip(w);
     for division in Division::ALL {
         let ids: Vec<usize> = (0..n).filter(|&i| w.programs[i].division == division).collect();
         for cat in GradeCat::ALL {
@@ -3487,13 +3610,19 @@ pub(crate) fn update_programs(w: &mut World, results: &[super::season::TeamResul
         }
     }
 
+    let today = w.today;
+    super::following::day(w, today);
+
     // --- NIL collectives and their warnings -------------------------------------------
+    // The fever lifts the collective's money too, once the drives live
+    // (Capital lane C3, CP9).
+    let fevers = if super::capital::live(w) { super::capital::fever::all(w) } else { vec![0.0; w.programs.len()] };
     for i in 0..n {
         let win = if results[i].games() > 0 { results[i].win_pct() } else { 0.5 };
         let before = w.programs[i].collective.boosters();
         let mut rng: Rng = w.rng.fork();
         let walk = super::folk::boss::booster_push(w, i);
-        let level = program::update_collective(&mut w.programs[i], win, year + 1, walk, &mut rng);
+        let level = program::update_collective(&mut w.programs[i], win, year + 1, walk, fevers[i], &mut rng);
         let p = &w.programs[i];
         // Collectives exist from July 2021 (11.5).
         if w.recording && level > 0 && p.division != Division::JUCO && super::ncaa::nil_era(year) {

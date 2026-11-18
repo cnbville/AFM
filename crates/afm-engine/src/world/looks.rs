@@ -1507,14 +1507,20 @@ impl World {
     /// A coach's face today: nothing stored, read from his id.
     pub fn coach_face(&self, coach: usize) -> Option<Face> {
         let c = self.coaches.get(coach)?;
-        let looks = Looks::coach(self.options.seed, coach);
-        let genes = genes(looks, c.ethnicity);
+        Some(self.adult_face(Looks::coach(self.options.seed, coach), c.ethnicity, c.age as i32, c.ex_pro))
+    }
+
+    /// A grown man's face today from his looks number, heritage and age,
+    /// nothing stored: a coach, and the people on Ground who are drawn the
+    /// same way (a trainer, a 7v7 director, a prep school coach).
+    pub fn adult_face(&self, looks: Looks, ethnicity: Ethnicity, age: i32, ex_pro: bool) -> Face {
+        let genes = genes(looks, ethnicity);
         let year = self.dates.season;
-        let birth = year - c.age as i32;
+        let birth = year - age;
         // Coaches are often old players: a lineman's frame for some.
         let mut r = keyed(looks.0, T_GENES, 7);
         let height = r.normal(72.5, 2.6);
-        let bmi = r.normal(28.5, 3.2).clamp(22.0, 40.0) + if c.ex_pro { 1.0 } else { 0.0 };
+        let bmi = r.normal(28.5, 3.2).clamp(22.0, 40.0) + if ex_pro { 1.0 } else { 0.0 };
         let weight = bmi * height * height / 703.0;
         let appearance = appearance(
             self.options.seed,
@@ -1526,7 +1532,7 @@ impl World {
             |_| (height, weight),
             true,
         );
-        Some(Face { looks, genes, appearance, photo: None, photos: Vec::new() })
+        Face { looks, genes, appearance, photo: None, photos: Vec::new() }
     }
 
     /// Fills in what a world written before faces didn't keep: a looks

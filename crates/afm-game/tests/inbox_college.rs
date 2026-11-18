@@ -3,6 +3,8 @@
 //! a practice case found out, the Heisman finalists and the All-America
 //! teams, each with the names linked.
 
+mod common;
+
 use afm_engine::calendar::{Date, Event, Kind, Level as CalLevel, Loudness, Moment, Weekday};
 use afm_engine::training::seat::Case;
 use afm_engine::world::Stage;
@@ -45,7 +47,7 @@ fn news(kind: NewsKind, program: usize, date: Date, text: &str) -> NewsItem {
 fn a_college_seat_hears_the_carousel_the_ncaa_and_the_honors_in_its_inbox() {
     let dir = std::env::temp_dir().join(format!("afm-inbox-college-{}", std::process::id()));
     let mut g = Game::new(dir.clone());
-    ok(&mut g, "build_world", json!({ "seed": 12, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
+    common::build_world(&mut g, json!({ "seed": 12, "history_years": 1, "scale": 0.04, "engine_from": 2026 }));
     let jobs = ok(&mut g, "jobs", json!({ "level": "college" }));
     let job = jobs["jobs"][0]["ref"].clone();
     ok(&mut g, "start_career", json!({ "name": "Test Coach", "job": job, "seed": 3 }));

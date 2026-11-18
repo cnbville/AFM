@@ -1038,14 +1038,20 @@ fn asks_week(w: &mut World, d: Date) {
     if w.folk.scenes.iter().any(|s| s.kind == Kind::ReachOut && s.date.days_to(d) < 21) {
         return;
     }
-    let pick = w
-        .folk
-        .network
-        .contacts
-        .iter()
-        .filter(|x| x.warmth >= 0.25)
-        .filter_map(|x| x.coach_id())
-        .find(|&c| super::roll(w, 0xA5E ^ d.0 as u64, c as u64) < 0.04);
+    // Ground's favors (lane G11b, when switched on): a man you owe calls it
+    // in within about a year, ahead of anyone else's ask.
+    let debt = crate::world::ground::favors::creditors(w)
+        .into_iter()
+        .find(|&c| crate::world::ground::favors::calls_in(w, c, d));
+    let pick = debt.or_else(|| {
+        w.folk
+            .network
+            .contacts
+            .iter()
+            .filter(|x| x.warmth >= 0.25)
+            .filter_map(|x| x.coach_id())
+            .find(|&c| super::roll(w, 0xA5E ^ d.0 as u64, c as u64) < 0.04)
+    });
     let Some(c) = pick else { return };
     let what = (super::roll(w, 0xA5F ^ d.0 as u64, c as u64) * 3.0) as u64;
     let seat = Team::seat(w);
@@ -1074,6 +1080,9 @@ fn asks_week(w: &mut World, d: Date) {
     }
     s.stops = false;
     s.team = seat;
+    if debt == Some(c) {
+        s.f[3] = 1.0;
+    }
     scene::add(w, s);
 }
 
@@ -1110,6 +1119,8 @@ fn ask_open(w: &mut World, s: &mut Scene) {
     };
     s.place = "On the phone".into();
     s.narrate(format!("{} calls.", coach_link(w, c)));
+    // Calling in what you owe him (Ground's favors).
+    let line = if s.f[3] > 0.0 { format!("You owe me one, Coach. {line}") } else { line };
     s.them(&name, line, None);
     s.pick(85, "\"Of course. Send it over.\"", "Promise", "warm", "Costs some of your week; he owes you one.");
     s.pick(86, "\"I can't right now. I'm sorry.\"", "Tell him straight", "calm", "He understands, mostly.");
@@ -1138,7 +1149,11 @@ fn ask_answer(w: &mut World, s: &mut Scene, code: u32) {
             w.folk.network.clinics += 1;
         }
         trim_ledger(w);
-        s.outcome.push(format!("You said yes to {}. He owes you one.", w.coaches[c].name));
+        if s.f[3] > 0.0 {
+            s.outcome.push(format!("You said yes to {}. You've paid back what you owed him.", w.coaches[c].name));
+        } else {
+            s.outcome.push(format!("You said yes to {}. He owes you one.", w.coaches[c].name));
+        }
         // C14: the kid is a real kid, and his tape comes to your staff
         // (SK72); he goes on My players on the caller's word (SK71).
         if let Some(i) = kid {
@@ -1153,6 +1168,11 @@ fn ask_answer(w: &mut World, s: &mut Scene, code: u32) {
             w.folk.network.contacts[k].warmth = (w.folk.network.contacts[k].warmth - 0.04).max(0.0);
         }
         s.outcome.push("You said no.".into());
+        // A no to a man calling in what you owe him is a broken promise.
+        if s.f[3] > 0.0 {
+            crate::world::ground::favors::refused(w, c);
+            s.outcome.push("He called in what you owed him. He won't forget it.".into());
+        }
     }
     s.end();
 }
@@ -1204,6 +1224,9 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
             let c = s.a as usize;
             touch(w, c, -0.05);
             s.outcome.push("You never called him back.".into());
+            if s.b != 3 && s.f[3] > 0.0 {
+                crate::world::ground::favors::refused(w, c);
+            }
         }
         _ => s.outcome.push("You let the call go.".into()),
     }
@@ -1219,9 +1242,13 @@ pub(crate) fn day(w: &mut World, d: Date) {
     }
     if d.day() == 1 {
         let today = w.today;
-        for x in w.folk.network.contacts.iter_mut() {
+        // A person on your ground fades in his memory instead (Ground,
+        // GR24: `ground::stores`).
+        let skip: Vec<bool> =
+            w.folk.network.contacts.iter().map(|x| crate::world::ground::stores::fades_in_memory(w, x)).collect();
+        for (x, skip) in w.folk.network.contacts.iter_mut().zip(skip) {
             let quiet = x.last.is_none_or(|l| l.days_to(today) > 60);
-            if quiet && x.warmth > 0.12 {
+            if quiet && x.warmth > 0.12 && !skip {
                 x.warmth -= 0.01;
             }
         }

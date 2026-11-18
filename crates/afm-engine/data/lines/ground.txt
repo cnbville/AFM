@@ -1,0 +1,37 @@
+# The line bank: Ground's scenes (lane G5, `world/ground/scenes/`). Written
+# by hand for the scenes' openings; a bank run can add versions later. A
+# part with no line this speaker can say falls back to the scene's own.
+#
+# ground.visit.greet: a high school head coach as you walk into his office
+# on a school visit. ground.call.greet: the same coach picking up your call.
+#
+# Facts: you (your last name), name (his last name, the visit only), level
+# (where he stands with your staff: stranger, known, trusted, home).
+
+@key ground.visit.greet
+Coach. Come on in. What can I do for you? ~ level=stranger
+Come on in, Coach. Front office said you'd be by. ~ level=stranger
+You found us. Have a seat, the coffee's bad but it's hot. ~ level=stranger
+Coach {you}. I've seen you on TV. Come on in. ~ level=stranger
+Good to see you again. Sit down. ~ level=known
+Coach {you}, come on in. I've got a few minutes before my planning period ends. ~ level=known
+Back again. Good. Grab a chair. ~ level=known
+There you are. Shut the door, I've got some things for you. ~ level=trusted
+Coach {you}. Close the door. I want to talk to you before anybody else comes through. ~ level=trusted
+I was hoping you'd come by this week. Sit down. ~ level=trusted
+Get in here. You want coffee? I've got a name for you. ~ level=home
+Coach {you}. You're the first one in this spring, and that's on purpose. ~ level=home
+Shut the door. Nobody else has seen what I'm about to show you. ~ level=home
+
+@key ground.call.greet
+This is Coach. Who's this? ... Oh. What can I do for you? ~ level=stranger
+Coach {you}? Didn't expect that. What can I do for you? ~ level=stranger
+Hello? ... Coach {you}. Okay. I've got a minute. ~ level=stranger
+Coach, good to hear from you. ~ level=known
+Coach {you}. What do you need? ~ level=known
+Hey, Coach. I've got about ten minutes before seventh period. ~ level=known
+I was going to call you this week. ~ level=trusted
+Coach {you}. Good timing. I've been meaning to call you. ~ level=trusted
+Hey. You're going to want to hear this one. ~ level=trusted
+There you are. I've got something, and you're the first call. ~ level=home
+Coach {you}. I was just about to pick up the phone. ~ level=home

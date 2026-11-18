@@ -372,6 +372,16 @@ fn a_line_to_the_team_reaches_every_man_in_the_room() {
     let after: Vec<f32> = roster.iter().map(|&id| trust(&g, id)).collect();
     let moved = before.iter().zip(&after).filter(|(a, b)| a != b).count();
     assert_eq!(moved, roster.len(), "every man heard it: {before:?} {after:?}");
+    // Asked of the room, the room answers: "we'll do it" from the man who
+    // answers for them, never "He'll do it." (the talks audit, 2026-11-16).
+    let mut a = act("request", "other", "", "");
+    a["words"] = json!("We go back to basics this week.");
+    f.push(EAR, Ok(ear(vec![a], vec![], false)));
+    f.push(VOICE, Ok(voice("Yes sir.", "")));
+    let v = say(&mut g, sid, "We go back to basics this week.");
+    assert_eq!(v["state"], "done", "{v}");
+    let (_, vc) = super::n7_tests::last_cards(&f);
+    assert!(vc.contains("- We'll do it.") && !vc.contains("He'll do it."), "{vc}");
     // The room's card names the room, not one man.
     let w = g.world.as_ref().unwrap();
     let s = scene_of(&g, sid);
@@ -431,4 +441,76 @@ fn a_sit_down_with_the_team_doctor_plays_on_the_office_parts() {
     if !rush {
         assert!(v.get("confirm").is_none(), "a staff with good judgment never clears him: {v}");
     }
+}
+
+/// Cain's bug: a typed NIL ask to your boss was read onto the boss
+/// meeting's chip and settled by its roll and canned "I can't do it right
+/// now.", whatever you put up for it. Now it is weighed as said: the voice
+/// gets the game's answer with its reasons in place of the plain words, and
+/// neither the talk nor the outcome holds the chip's line.
+#[test]
+fn a_typed_money_ask_to_your_boss_is_weighed_as_said() {
+    use afm_engine::world::folk::Team;
+    use afm_engine::world::folk::boss::AskKind;
+    use afm_engine::world::folk::cast::{self, CastRef};
+    let (mut g, f, _) = game("boss-money", true);
+    let f = f.unwrap();
+    let token = {
+        let w = g.world.as_ref().unwrap();
+        let team = Team::seat(w).unwrap();
+        CastRef::new(team, cast::boss_role(team), 0).token()
+    };
+    let id = ok(&mut g, "people_sitdown", json!({ "cast": token }))["id"].as_u64().unwrap() as u32;
+    let mut a = act("request", "money", "", "");
+    a["value"] = json!("more NIL, for a top 3 class in the conference");
+    f.push(EAR, Ok(ear(vec![a], vec![], false)));
+    f.push(VOICE, Ok(voice("Let me think about how to put this.", "")));
+    let v = say(&mut g, id, "If you can get me more NIL, I'll be able to get a top 3 class in the conference");
+    assert_eq!(v["state"], "done", "{v}");
+    let (_, vc) = super::n7_tests::last_cards(&f);
+    assert!(vc.contains("to more NIL and revenue-sharing money."), "{vc}");
+    assert!(!vc.contains("He won't do that.") && !vc.contains("He'll do it."), "{vc}");
+    let s = scene_of(&g, id);
+    let all: Vec<String> = s.lines.iter().map(|l| l.text.clone()).chain(s.outcome.iter().cloned()).collect();
+    assert!(!all.iter().any(|l| l.contains("I can't do it right now")), "{all:?}");
+    // A no is kept with his reasons; a yes waits on your confirm.
+    let w = g.world.as_ref().unwrap();
+    let filed: Vec<_> = w.folk.asks.iter().filter(|x| x.date == w.today && x.kind == AskKind::NilMoney).collect();
+    if vc.contains("No to more NIL") {
+        assert!(
+            filed.iter().any(|x| !x.granted && x.words.starts_with("You asked for more NIL and revenue-sharing money")),
+            "{:?}",
+            filed.iter().map(|x| &x.words).collect::<Vec<_>>()
+        );
+    } else {
+        assert!(filed.iter().all(|x| !x.granted), "a yes waits on your confirm");
+    }
+}
+
+/// How you talk (coach voice): the ear's five words ride on the reading, the
+/// line lands its manner on him, he keeps it, and the voice is told how he
+/// took it, to answer in kind. The schema asks for it on every line.
+#[test]
+fn the_ear_reads_your_manner_and_the_voice_hears_how_he_took_it() {
+    let schema = super::super::ear::schema();
+    assert!(schema["required"].as_array().unwrap().iter().any(|x| x == "manner"), "{schema}");
+    assert!(super::super::ear::EAR_RULES.contains("manner: how the coach said the line"));
+    let (mut g, f, him) = game("manner", true);
+    let f = f.unwrap();
+    let id = talk(&mut g, him, "role");
+    let v = json!({ "acts": [], "hits": [], "dodged": false, "not_talk": false,
+        "manner": { "heat": "hot", "language": "profane", "aim": "man", "care": "cold", "say": "tell" } });
+    f.push(EAR, Ok(body(&v.to_string(), 1200, 140)));
+    f.push(VOICE, Ok(voice("Yes sir.", "")));
+    let before = trust(&g, him);
+    let out = say(&mut g, id, "That was fucking soft. You embarrassed this whole room.");
+    assert_eq!(out["state"], "done", "{out}");
+    assert!(trust(&g, him) < before, "aimed at a backup who barely knows you, it costs trust");
+    let w = g.world.as_ref().unwrap();
+    let saved = &w.folk.live.persona.talks[0].lines[0].reading;
+    assert!(saved.manner.is_some_and(|m| m.aim > 0.8 && m.profane > 0.8), "{saved:?}");
+    assert!(w.folk.manner.seen.iter().any(|x| x.0 == Them::Player(him)), "he keeps it");
+    let asked = f.asked();
+    let vo = asked.iter().find(|r| r.label == VOICE).unwrap();
+    assert!(vo.user.contains("How you took the coach's manner on this line"), "{}", vo.user);
 }

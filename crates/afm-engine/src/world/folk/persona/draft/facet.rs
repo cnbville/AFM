@@ -76,9 +76,11 @@ impl Knows for Facet {
             {
                 let name = &w.people[i].name;
                 let says = match (ask, super::smoke::gm_says(w, t, ask).is_some_and(|x| x.1)) {
-                    (Some(_), true) => format!("He says they like {name} a lot."),
-                    (Some(_), false) => format!("He says {name} isn't really their kind of player."),
-                    (None, _) => format!("He says they love {name}."),
+                    // His club, in his own words ("they" read as someone
+                    // else's, the talks audit of 2026-11-16).
+                    (Some(_), true) => format!("He says: \"We like {name} a lot.\""),
+                    (Some(_), false) => format!("He says: \"{name} isn't really our kind of player.\""),
+                    (None, _) => format!("He says: \"We love {name}.\""),
                 };
                 return vec![known(topic, Some(Them::Player(id)), 10.0, says)];
             }

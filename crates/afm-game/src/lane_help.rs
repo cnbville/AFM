@@ -89,8 +89,12 @@ fn words(a: Attr) -> (&'static str, &'static str) {
             "Cuts in the open field, breaks at the top of routes and mirrors a receiver in man coverage. It shows in the shuttle and the 3-cone.",
         ),
         Strength => (
-            "Raw strength, as the weight room measures it.",
-            "With balance, bend, hand use and his mass it decides how strong he plays: holding a block, shedding one, finishing a tackle, breaking an arm tackle. It shows in the bench press.",
+            "Upper body strength, as the weight room measures it.",
+            "The hands, the arms and the chest: the hand fight, the jam, a shed, a stiff arm, holding on at the catch point. It shows in the bench press.",
+        ),
+        LowerBody => (
+            "Lower body strength, as the weight room measures it.",
+            "The legs and the base: the anchor, the drive block, the bull rush's push, driving through a tackle, moving the pile. It shows in the squat and the power clean, never at the combine.",
         ),
         Balance => (
             "Staying on his feet through contact.",
@@ -381,7 +385,7 @@ fn last_year_own(w: &World, i: usize, a: Attr, now: (u8, u8)) -> Option<Value> {
     };
     Some(json!({
         "word": word,
-        "line": format!("At the end of the {season} season you read it about {m:.0}; today {}-{}.", now.0, now.1),
+        "line": format!("At the end of the {season} season you read it about {m:.0}; today {}.", crate::reads::pair(now.0, now.1)),
         "why": [],
         "season": season,
     }))
@@ -420,7 +424,11 @@ pub(crate) fn last_year(w: &World, i: usize, a: Attr, now: (u8, u8), own: bool) 
         let d = nm - (lo + hi) / 2.0;
         (
             Some([lo as u8, hi as u8]),
-            format!("At the end of the {season} season your staff read it {lo:.0}-{hi:.0}; today {}-{}.", now.0, now.1),
+            format!(
+                "At the end of the {season} season your staff read it {}; today {}.",
+                crate::reads::pair(lo as u8, hi as u8),
+                crate::reads::pair(now.0, now.1)
+            ),
             d,
         )
     } else if let Some(m) =
@@ -429,7 +437,10 @@ pub(crate) fn last_year(w: &World, i: usize, a: Attr, now: (u8, u8), own: bool) 
         // The season's middle for all 67 was kept: the move is this skill's own.
         (
             None,
-            format!("At the end of the {season} season your staff read it about {m:.0}; today {}-{}.", now.0, now.1),
+            format!(
+                "At the end of the {season} season your staff read it about {m:.0}; today {}.",
+                crate::reads::pair(now.0, now.1)
+            ),
             nm - m,
         )
     } else if let Some((name, m)) = was_fam {
@@ -678,7 +689,7 @@ pub(crate) fn read_at(w: &World, i: usize, pos: Position) -> Read {
 
 fn rr(r: Read) -> String {
     match r {
-        Read::Range(lo, hi) => format!("{lo}-{hi}"),
+        Read::Range(lo, hi) => crate::reads::pair(lo, hi),
         Read::NotSeen => "not seen".into(),
     }
 }
@@ -1126,15 +1137,32 @@ fn lost_why(w: &World, i: usize, chosen: usize, yours: usize) -> Vec<String> {
         Decider::Grandparent => "His grandparents made the call",
         Decider::Handler => "A trainer close to the family steered it",
     };
-    let mut ks: Vec<usize> = (0..6).collect();
-    ks.sort_by(|&x, &y| (a[y].0 - b[y].0).total_cmp(&(a[x].0 - b[x].0)));
+    // The rooms are their own reason (Capital lane C5, CP29): what the
+    // facilities grade and the rooms on his visits gave each school, taken
+    // out of the name and the rest, with the room his staff would name.
+    use afm_engine::world::capital::race;
+    let rooms = |prog: usize| {
+        let (g, v) = race::rooms_part(w, i, prog);
+        (g, g + v)
+    };
+    let (ra, rb) = (rooms(chosen), rooms(yours));
+    let mut edge: Vec<f64> = (0..6).map(|k| a[k].0 - b[k].0).collect();
+    edge[4] -= ra.0 - rb.0;
+    edge.push(ra.1 - rb.1);
+    let room_fact = || match race::room_to_name(w, i, chosen, yours) {
+        Some((r, true)) => format!("{name}'s new {} over ours", r.words()),
+        Some((r, false)) => format!("{name}'s {} over ours", r.words()),
+        None => format!("{name}'s facilities over ours"),
+    };
+    let mut ks: Vec<usize> = (0..7).collect();
+    ks.sort_by(|&x, &y| edge[y].total_cmp(&edge[x]));
     let mut v = vec![decider.to_string()];
-    v.extend(ks.iter().filter(|&&k| a[k].0 - b[k].0 > 0.004).take(2).map(|&k| fact(k)));
+    v.extend(ks.iter().filter(|&&k| edge[k] > 0.004).take(2).map(|&k| if k == 6 { room_fact() } else { fact(k) }));
     if v.len() == 1 {
         v.push(format!("No single edge: {name} was simply the better fit to the family"));
     }
-    let names = ["home", "playing time", "the money", "development", "the name", "academics"];
-    let better: Vec<&str> = (0..6).filter(|&k| b[k].0 - a[k].0 > 0.004).map(|k| names[k]).collect();
+    let names = ["home", "playing time", "the money", "development", "the name", "academics", "the facilities"];
+    let better: Vec<&str> = (0..7).filter(|&k| edge[k] < -0.004).map(|k| names[k]).collect();
     if !better.is_empty() {
         v.push(format!("Where we were better: {}", better.join(", ")));
     }

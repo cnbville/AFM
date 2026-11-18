@@ -752,9 +752,9 @@ fn life_events(r: &Reader, m: &Man) -> Vec<Point> {
 }
 
 /// A promise's topic, so two promises due the same day are two points.
-pub(super) const PROMISE_TOPICS: [&str; 12] = [
+pub(super) const PROMISE_TOPICS: [&str; 13] = [
     "start", "snaps", "contract", "stay", "booster", "raise", "place", "join", "recruit", "touches", "position",
-    "usage",
+    "usage", "draft",
 ];
 
 fn promise_topic(k: talks::PromiseKind) -> &'static str {
@@ -772,6 +772,7 @@ fn promise_topic(k: talks::PromiseKind) -> &'static str {
         P::Touches => 9,
         P::Position(_) => 10,
         P::Usage => 11,
+        P::Draft(_) => 12,
     }]
 }
 
@@ -903,7 +904,10 @@ fn draft(r: &Reader, m: &Man) -> Option<Point> {
         5..=7 => "late",
         _ => "undrafted",
     };
-    let mut pt = Point::new(Kind::Draft).state("round", round);
+    // Whether going is still his choice (`talk::standing::road`): a man
+    // whose college career ends this year doesn't ask "should I go?".
+    let choice = crate::world::folk::persona::talk::standing::road(w, m.i).has_choice();
+    let mut pt = Point::new(Kind::Draft).state("round", round).state("choice", yes_no(choice));
     if p.cal.declare_plan == Some(true) {
         pt = pt.hide("plans", "yes");
     }

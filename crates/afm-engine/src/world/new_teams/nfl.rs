@@ -250,6 +250,11 @@ fn add_club(w: &mut World, k: usize, div: u8, first: i32) -> usize {
         }
         w.market.fleece.resize(n, vec![0.0; n]);
     }
+    // Every agent's standing with each club gets the new club's place (an
+    // agent's bluff to the new club read past the end, seed 171 in 2030).
+    for a in w.market.agents.iter_mut() {
+        a.rel.resize(n, 0.0);
+    }
     for s in [w.nfl_season.as_mut(), w.nfl_prev.as_mut()].into_iter().flatten() {
         s.grow(n);
     }

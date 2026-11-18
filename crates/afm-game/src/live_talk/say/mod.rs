@@ -68,7 +68,7 @@ pub const TONES: [&str; 4] = ["fiery", "warm", "firm", "calm"];
 /// nothing from them yet.
 /// "early_chance" and "no_redshirt" are two of the five a recruit is
 /// promised (lane 10).
-pub const PROMISE_KINDS: [&str; 11] = [
+pub const PROMISE_KINDS: [&str; 12] = [
     "start",
     "role",
     "touches",
@@ -80,6 +80,7 @@ pub const PROMISE_KINDS: [&str; 11] = [
     "early_chance",
     "no_redshirt",
     "usage",
+    "draft",
 ];
 pub const PROMISE_BY: [&str; 6] = ["next_game", "opener", "midseason", "this_season", "next_season", "none"];
 pub const CONDITIONS: [&str; 7] = ["stat", "practice", "conduct", "grades", "body", "health", "none"];
@@ -315,7 +316,7 @@ pub fn people_say(g: &mut Game, args: &Value) -> Reply {
     let w = g.world.as_ref().ok_or("No world is loaded.")?;
     let s = w.folk.scenes.iter().find(|s| s.id == id).ok_or("No such meeting.")?;
     if s.done {
-        return Err("That meeting is over.".into());
+        return Err("That talk is over.".into());
     }
     if !scene::takes_typed(s) || super::persona::talk::nobody(g, s) {
         return Err("This talk takes no typed lines.".into());
@@ -325,6 +326,11 @@ pub fn people_say(g: &mut Game, args: &Value) -> Reply {
     }
     if text.chars().count() > scene::LIMIT {
         return Err(format!("A line is {} characters at most.", scene::LIMIT));
+    }
+    // A talk that ended on a meeting still waiting on your decision
+    // (`talk::wrap`): no more lines, the meeting's picks decide it.
+    if afm_engine::world::folk::persona::talk::store::is_over(w, id) {
+        return Err(super::persona::talk::OVER.into());
     }
     // Your one-on-ones play as live talks v3 (lane N4).
     if super::persona::talk::plays(g, s) {

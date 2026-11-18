@@ -387,7 +387,7 @@ function twDay(x, d, k, meta, edit) {
   const off = meta && meta.off ? `<div class="tw-off ${meta.off === "req" ? "req" : ""}"><b>${meta.off === "req" ? "Required day off" : "Day off"}</b><span>${esc(meta.off === "req" ? meta.off_why : "Your staff's choice")}</span></div>` : "";
   const none = !d.periods.length && !d.game && !off ? `<div class="tw-off"><b>${meta && meta.allowed && !meta.allowed.coaches ? "No coaches allowed" : "Nothing planned"}</b></div>` : "";
   const wx = meta && meta.weather && field ? meta.weather : null;
-  const wxText = wx ? `${wx.temp}°${wx.why ? ` · ${wx.why}` : ""}${wx.place === "inside" ? " · moved indoors" : wx.place === "lost" ? " · field work lost" : wx.place === "delayed" ? " · lightning hold" : ""}` : "";
+  const wxText = wx ? `${wx.temp}°${wx.why ? ` · ${wx.why}` : ""}${wx.place === "inside" ? " · moved indoors" : wx.place === "lost" ? " · field work lost" : wx.place === "delayed" ? (wx.why === "lightning" ? " · lightning hold" : " · held off the field") : ""}` : "";
   const add = edit && !d.game ? `<button class="tw-addp" data-act="tr-padd" data-d="${k}">+ Period</button>` : "";
   const foot = d.game ? "3 h counted" : `${twHm(counted)} counted${field ? ` · ${twHm(field)} on the field` : ""}`;
   return `<div class="tw-day ${meta && meta.today ? "today" : ""} ${meta && meta.past ? "past" : ""}"><div class="tw-dh"><b>${esc(meta ? meta.weekday : DAY_SHORT[k])}</b><span>${esc(meta ? String(meta.date).split(" ").slice(1, 3).join(" ") : "")}</span></div>${wxText ? `<div class="tw-wx ${wx.place !== "outside" ? "moved" : ""}">${esc(wxText)}</div>` : ""}${off}${none}${body}${add}<div class="tw-df"><span>${foot}</span></div></div>`;
@@ -857,7 +857,7 @@ function dvProgress(d) {
 function dvScale(r, cls) {
   if (!r) return '<span class="muted">Not seen</span>';
   const [lo, hi] = r, L = (v) => Math.max(0, Math.min(100, ((v - 40) / 60) * 100));
-  return `<span class="dv-scale"><i class="${cls || ""}" style="left:${L(lo)}%;width:${Math.max(2, L(hi) - L(lo))}%"></i></span><b class="${cls === "gold" ? "gold" : ""}">${lo}-${hi}</b>`;
+  return `<span class="dv-scale"><i class="${cls || ""}" style="left:${L(lo)}%;width:${Math.max(2, L(hi) - L(lo))}%"></i></span><b class="${cls === "gold" ? "gold" : ""}">${rpair(r)}</b>`;
 }
 function dvCand(c, on, pick) {
   const held = c.stage === 2;
@@ -1228,7 +1228,7 @@ function slotCard(s, k, b, sel, fr) {
   const prop = s.fill ? `<em title="Nobody is listed for this spot; the engine sends the best man left in the room">next man up</em>` : s.proposal && (!p || s.proposal.id !== p.id) ? `<em title="Your position coach would put ${esc(s.proposal.name)} here">Coach: ${esc(trLast(s.proposal.name))}</em>` : "";
   const drag = s.controls && p ? `data-drag="1" data-name="${esc(p.name)}"` : "";
   return `<div class="tr-slot ${sel ? "sel" : ""} ${p ? "" : "empty"} ${s.controls ? "" : "locked"} ${p && p.practice !== "full" ? "p-" + p.practice : ""}" style="left:${bdX(s.y)}%;top:${fr.y(s.x)}%" data-act="tr-slot" data-k="${k}" data-board="${esc(b.key)}" ${drag} ${p ? `data-pid="${p.id}"` : ""}>
-    <small>${esc(s.slot)}</small><b>${p ? esc(trLast(p.name)) : "Open"}</b>${p ? `<span class="tr-sr">${p.ovr ? `${p.ovr[0]}-${p.ovr[1]}` : "?"}${p.pos !== s.pos ? ` · ${esc(p.pos)}` : ""}</span>` : ""}${prop}</div>`;
+    <small>${esc(s.slot)}</small><b>${p ? esc(trLast(p.name)) : "Open"}</b>${p ? `<span class="tr-sr">${p.ovr ? rpair(p.ovr) : "?"}${p.pos !== s.pos ? ` · ${esc(p.pos)}` : ""}</span>` : ""}${prop}</div>`;
 }
 screens.depth = async (a) => {
   if (a.kind && !trMine(a)) return depthBase(a);

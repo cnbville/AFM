@@ -19,13 +19,21 @@ pub const VOICE_TOKENS: u32 = 300;
 pub const COLOUR_CHARS: usize = 120;
 
 /// The voice's fixed rules, for every talk (cached).
-pub const VOICE_RULES: &str = "You play one real person in a football management game, talking with a football coach. The card says who you are, where you are, and what the game decided you say this turn. You speak as yourself, in the first person, the way this man really talks: his age, his schooling, where he's from, his personality, his mood, his football. You never decide anything: the game already did.
+pub const VOICE_RULES: &str = "You play one real person in a football management game, talking with a football coach. The card says who you are, where you are, what this talk is to you, and what the game decided you say this turn. You speak as yourself, in the first person, the way this man really talks: his age, his schooling, where he's from, his personality, his mood, his football, his job. You never decide anything: the game already did.
 
 Rules:
-- Answer the coach's actual words. React to his specifics the way this man would.
+- The card's Coach is the man talking with you, by name. Keep who is who straight: never take him for anyone else on the card, never talk about him as if he weren't there, and never make up who did or said what.
+- You are what the card says you are: a coach, a parent, an agent, a boss or a player. Talk like that person in his position, never like someone else.
+- Keep straight whose place you're in: the card's setting says it. In the coach's office you're his visitor: never ask him in, offer him a seat or talk as if it were your place.
+- The card's Where you stand is your own situation, and you know all of it: never ask about it, and never say or want anything it rules out. A player whose college career is over never talks about transferring, a redshirt or next season in college; a boss never asks the coach what the coach is judged on, because the boss is the one who judges him.
+- Play toward what the talk is to you: what rides on it and what you want from it. Push for it the way this man would: make your case from what the card says you can point to, ask what you need to know, bargain. Never act surprised by what the card says you already know is at stake.
+- When the coach pushes back or puts you on the spot (your job, your role, a decision against you, a doubt about your work), argue with reasons the way a real professional does: what you've done, why it went the way it did, what you'd change, what you need. Your reasons come from the card (what you can point to, your football, the talk so far), never a number, score, game or stat it doesn't give you. Don't deflect, change the subject, threaten or give up while he's still talking it through. Take a no, with the grace or the edge this man has, once he makes it final.
+- When the card says what the coach just did, react to that first, in your own words: take it, or fight it with your reasons.
+- React to the coach's specifics the way this man would.
 - Say everything on the card's list of what you say this turn, in your own words, and add no fact, name, date, number, result, offer or promise that isn't on the card. If the coach asked for more than the list gives, you don't give it: deflect, hold back or say you don't know, as the card says.
 - When the card gives you a lie, say the lie, never the truth.
-- Ask the coach what the card says you ask, in your own words.
+- Answer what the coach actually said first, in your own situation: a question about your own life is about your own people, and you know them. Then ask what the card says you ask, in your own words, as a natural follow-on, never in place of an answer or as a change of subject.
+- Never ask again what you already asked in this talk. Once the coach has answered it, even briefly or in a way you don't like, react to his answer (take it, doubt it, or push on it once) and move on. If he doesn't answer it, press it once more at most, then let it go for this talk: no more words about it (\"I'd still like an answer on that\" is asking again), only a cooler tone. When the card gives you nothing to say this turn, react briefly to what he just said, the way this man would, and don't fill it with a demand.
 - Show your personality, mood and the heat through what you say and how, never by naming them. Past your point, you go quiet, raise your voice or walk out, as the card says.
 - Name only the people and teams the card lets you name. Never name a real person.
 - Never mention ratings, overalls, potential, ceilings, attributes, the depth chart as a list, or anything about the game itself.
@@ -50,8 +58,12 @@ pub fn schema() -> Value {
 /// His line and a colour note from the voice's JSON, each through the
 /// filter against the card. None when the line doesn't pass.
 pub fn read(v: &Value, card_text: &str) -> Option<(String, Option<String>)> {
-    let line = v.get("line").and_then(Value::as_str)?;
-    let line = filter::check(line, card_text).ok()?;
+    let line = unparrot(v.get("line").and_then(Value::as_str)?, card_text)?;
+    // A line with one bad sentence keeps the rest (`filter::salvage`).
+    let line = match filter::check(&line, card_text) {
+        Ok(l) => l,
+        Err(_) => filter::salvage(&line, card_text)?,
+    };
     let colour = v
         .get("colour")
         .and_then(Value::as_str)
@@ -60,6 +72,205 @@ pub fn read(v: &Value, card_text: &str) -> Option<(String, Option<String>)> {
         .and_then(|c| filter::check(c, card_text).ok())
         .filter(|c| !c.chars().any(|x| x.is_ascii_digit()));
     Some((line, colour))
+}
+
+/// The words a card line about him starts with that, said by him, give the
+/// copy away; a shorter line counts whole when it has at least
+/// `PARROT_SHORT` words ("He doesn't know.", said as "He doesn't know,
+/// Coach", the talks audit of 2026-11-16). Proposed, not confirmed.
+pub const PARROT_WORDS: usize = 4;
+pub const PARROT_SHORT: usize = 3;
+
+/// His line without the sentences that copy his card's own third-person
+/// lines word for word ("He writes it down: the goal is now to beat the
+/// rival", said by your boss, and "He asks about his money first, too.",
+/// the talks audit of 2026-11-16): a sentence that starts with a card
+/// line's first four words is the card read out, not him talking, and
+/// goes, unless it opens on "He'd" or "He'll" and can be said as himself
+/// (`as_himself`). None when nothing else is left.
+pub fn unparrot(line: &str, card_text: &str) -> Option<String> {
+    let key = |t: &str| -> Vec<String> {
+        t.split(|c: char| !(c.is_alphanumeric() || c == '\'' || c == '\u{2019}'))
+            .filter(|x| !x.is_empty())
+            .take(PARROT_WORDS)
+            .map(|x| x.replace('\u{2019}', "'").to_lowercase())
+            .collect()
+    };
+    // When his parents answer the line, "He'll be there" is them talking
+    // about their son, as they should: only a read-out ask is a copy then.
+    let theirs = card_text.contains("This line is answered by ");
+    let his: Vec<Vec<String>> = card_text
+        .lines()
+        .filter_map(|l| l.strip_prefix("- "))
+        // "He'll do it." and "He'd rather not get into it." too: both came
+        // back word for word (the talks audit, 2026-11-16).
+        .filter(|l| {
+            l.starts_with("he asks ")
+                || !theirs
+                    && (l.starts_with("He ")
+                        || l.starts_with("He'")
+                        || l.starts_with("He\u{2019}")
+                        || l.starts_with("His "))
+        })
+        .map(key)
+        .filter(|k| k.len() >= PARROT_SHORT)
+        .collect();
+    let all = filter::sentences(line);
+    let copied = |s: &str| {
+        let k = key(s);
+        his.iter().any(|h| k.len() >= h.len() && k[..h.len()] == h[..])
+    };
+    if !all.iter().any(|s| copied(s)) {
+        return Some(line.to_string());
+    }
+    let mut kept: Vec<String> = Vec::new();
+    for (k, s) in all.iter().enumerate() {
+        if !copied(s) {
+            kept.push(s.clone());
+            continue;
+        }
+        // "He'd rather not get into it, but yeah, I'm trying to hear what
+        // y'all can offer me" lost his question with the copy: a copy that
+        // opens on "He'd" or "He'll" is said as himself, unless it says
+        // the same as another of his sentences.
+        let Some(mine) = as_himself(s) else { continue };
+        let said = mine.trim_end_matches(['.', '!', '?']).to_lowercase();
+        let again =
+            all.iter().enumerate().any(|(j, o)| j != k && o.replace('\u{2019}', "'").to_lowercase().contains(&said));
+        if !again {
+            kept.push(mine);
+        }
+    }
+    (!kept.is_empty()).then(|| kept.join(" "))
+}
+
+/// The leads a copied card line may open on and still be said as himself.
+const HIS_LEADS: [(&str, &str); 6] = [
+    ("He'd ", "I'd "),
+    ("He'll ", "I'll "),
+    ("He won't ", "I won't "),
+    ("He can't ", "I can't "),
+    ("He would ", "I would "),
+    ("He will ", "I will "),
+];
+
+/// A copied card line said as himself: "He'd rather not get into it" is
+/// "I'd rather not get into it". None when it opens on anything else, or
+/// still talks of him as "he" after the lead, where a verb would have to
+/// change with it.
+fn as_himself(s: &str) -> Option<String> {
+    let plain = s.replace('\u{2019}', "'");
+    let (from, to) = HIS_LEADS.iter().find(|(f, _)| plain.starts_with(f))?;
+    let rest = &plain[from.len()..];
+    let third = rest.split(|c: char| !(c.is_alphanumeric() || c == '\'')).any(|w| {
+        matches!(w.to_ascii_lowercase().as_str(), "he" | "his" | "him" | "himself" | "he's" | "he'd" | "he'll")
+    });
+    (!third).then(|| format!("{to}{rest}"))
+}
+
+/// The words that press an ask again ("I'm still waiting on you to tell
+/// me where I stand", "a good week doesn't answer my question"), lowercase
+/// with a plain apostrophe. Each says the coach still owes him an answer,
+/// so "we're still waiting on the MRI" stays. Proposed, not confirmed.
+pub const PRESSES: &[&str] = &[
+    "still waiting on you",
+    "still waiting for you",
+    "still waiting to hear",
+    "still waiting on an answer",
+    "still waiting for an answer",
+    "still waiting on your answer",
+    "still waiting for your answer",
+    "i'm still asking",
+    "i am still asking",
+    "still want to know",
+    "still need to know",
+    "still like to know",
+    "still don't know where",
+    "still want an answer",
+    "still need an answer",
+    "still like an answer",
+    "still want a straight answer",
+    "still need a straight answer",
+    "still like a straight answer",
+    "still want to hear",
+    "still need to hear",
+    "still like to hear",
+    "still haven't",
+    "still not answered",
+    "still isn't answered",
+    "still hasn't been answered",
+    "haven't told me",
+    "haven't answered",
+    "haven't said where",
+    "you didn't answer",
+    "you never answered",
+    "answer my question",
+    "back to my question",
+    "back to what i asked",
+    "asked you about",
+    "asked you where",
+    "asked you how",
+    "asked you what",
+    "asked you if",
+    "asked you whether",
+    "i already asked",
+    "to know where i stand",
+    "tell me where i stand",
+    "tell me plain",
+    "tell me straight",
+    "give it to me straight",
+    "want a straight answer",
+    "need a straight answer",
+    "like a straight answer",
+    "get a straight answer",
+];
+
+/// His line without the sentences that press again an ask he already let
+/// go (the card's own rule, which the voice broke on three lines running:
+/// "Family's doing fine, Coach... and I'm still waiting on you to tell me
+/// where I stand", the talks audit of 2026-11-16). A press after a "but"
+/// keeps what came before it ("Appreciate that, Coach."). None when
+/// nothing else is left.
+pub fn let_go(line: &str) -> Option<String> {
+    let all = filter::sentences(line);
+    let mut kept: Vec<String> = Vec::new();
+    let mut cut_any = false;
+    for s in &all {
+        // ASCII lowercase keeps every byte where it was, for the cut.
+        let plain = s.replace('\u{2019}', "'");
+        let low = plain.to_ascii_lowercase();
+        let Some(at) = PRESSES.iter().filter_map(|p| low.find(p)).min() else {
+            kept.push(s.clone());
+            continue;
+        };
+        cut_any = true;
+        // The lead-in before ", but" or " but" stays when it says something.
+        let cut = [", but ", " but "].iter().filter_map(|b| low[..at].rfind(b)).max();
+        if let Some(c) = cut {
+            let head = plain[..c].trim_end_matches([',', ' ']).trim();
+            if head.split_whitespace().count() >= 2 {
+                kept.push(format!("{head}."));
+            }
+        }
+    }
+    if !cut_any {
+        return Some(line.to_string());
+    }
+    (!kept.is_empty()).then(|| kept.join(" "))
+}
+
+/// His last line of a talk whose time is up, without a new question (the
+/// card's own rule, which the voice broke on a call: "Is there anything
+/// else I should know about Thomas before we hang up?", and the call ended
+/// with nobody to answer it; the last replay, 2026-11-17). A question that
+/// is all he said stays.
+pub fn no_new_question(line: &str) -> String {
+    let all = filter::sentences(line);
+    let kept: Vec<&String> = all.iter().filter(|s| !s.trim_end().ends_with('?')).collect();
+    if kept.is_empty() || kept.len() == all.len() {
+        return line.to_string();
+    }
+    kept.into_iter().map(|s| s.as_str()).collect::<Vec<_>>().join(" ")
 }
 
 /// His line when the voice can't give one: short, by how it went, so the

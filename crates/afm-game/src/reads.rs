@@ -28,7 +28,23 @@ use afm_engine::world::scouting::readers::{self, Staff};
 use afm_engine::world::scouting::{file, yours};
 use afm_engine::world::{Stage, World};
 
-/// A read of one rating: low and high, or not seen.
+/// The top a read can show. Ratings have no 99 wall under the hood
+/// (physical study item 1), but screens keep 1-99 (item 19, Cain
+/// 2026-11-15): a read's end past 99 is sent as 100 and shown as "99+"
+/// (`shown`, and `rnum` on the screens).
+pub const SHOWN_TOP: f64 = 100.0;
+
+/// One end of a read as the screens write it: "99+" past 99.
+pub fn shown(v: u8) -> String {
+    if v as f64 >= SHOWN_TOP { "99+".to_string() } else { v.to_string() }
+}
+
+/// A read as the screens write it: "62-70", "97-99+".
+pub fn pair(lo: u8, hi: u8) -> String {
+    format!("{}-{}", shown(lo), shown(hi))
+}
+
+/// A read of one rating: low and high (100 is "99+"), or not seen.
 #[derive(Clone, Copy, Debug)]
 pub enum Read {
     Range(u8, u8),
@@ -313,8 +329,8 @@ fn lean(reader: u64, player: u32, attr: usize) -> f64 {
 /// A range around a true value, `half` wide each side, leaning by the reader.
 pub fn range(truth: f64, half: f64, reader: u64, player: u32, attr: usize) -> Read {
     let centre = truth + lean(reader, player, attr) * half * 0.6;
-    let lo = (centre - half).round().clamp(1.0, 99.0) as u8;
-    let hi = (centre + half).round().clamp(1.0, 99.0) as u8;
+    let lo = (centre - half).round().clamp(1.0, SHOWN_TOP) as u8;
+    let hi = (centre + half).round().clamp(1.0, SHOWN_TOP) as u8;
     Read::Range(lo, hi.max(lo))
 }
 
@@ -378,4 +394,22 @@ pub fn links(p: &Player, own: bool, measured: bool, eye: f64, reader: u64) -> Ve
 fn simple(p: &Player, eye: f64, reader: u64) -> Vec<(Attr, Read)> {
     let half = 2.0 + (20.0 - eye.clamp(1.0, 20.0)) * 0.12;
     Attr::ALL.iter().map(|&a| (a, range(p.attributes.get(a), half, reader, p.id, a.index()))).collect()
+}
+
+#[cfg(test)]
+mod shown_tests {
+    use super::*;
+
+    /// A read past 99 keeps the screens' 1-99 and says "99+" (Cain
+    /// 2026-11-15, physical study item 19); one below 99 is as it was.
+    #[test]
+    fn a_read_past_99_shows_99_plus() {
+        let Read::Range(lo, hi) = range(100.5, 3.0, 7, 1, 0) else { panic!("a range") };
+        assert!(hi as f64 == SHOWN_TOP && lo < hi, "{lo}-{hi}");
+        assert!(pair(lo, hi).ends_with("-99+"), "{}", pair(lo, hi));
+        let Read::Range(lo, hi) = range(200.0, 3.0, 7, 1, 0) else { panic!("a range") };
+        assert_eq!(pair(lo, hi), "99+-99+");
+        let Read::Range(lo, hi) = range(70.0, 3.0, 7, 1, 0) else { panic!("a range") };
+        assert!(hi < 99 && pair(lo, hi) == format!("{lo}-{hi}"));
+    }
 }

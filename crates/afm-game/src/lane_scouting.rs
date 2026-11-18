@@ -374,16 +374,17 @@ fn speak(p: &Person) -> file::Speak {
     }
 }
 
-/// A read window `c - half ..= c + half` on the 1..99 scale, at least 2 wide:
-/// a centre near or past an end shifts the window inside the scale rather
-/// than collapsing it to one number (a staff's read is never that sure).
+/// A read window `c - half ..= c + half` on the screens' 1..99 scale (100
+/// is "99+", `reads::SHOWN_TOP`), at least 2 wide: a centre near or past an
+/// end shifts the window inside the scale rather than collapsing it to one
+/// number (a staff's read is never that sure).
 fn read_window(c: f64, half: f64) -> [u8; 2] {
-    let lo = (c - half).floor().clamp(1.0, 99.0) as u8;
-    let hi = (c + half).ceil().clamp(1.0, 99.0) as u8;
+    let lo = (c - half).floor().clamp(1.0, crate::reads::SHOWN_TOP) as u8;
+    let hi = (c + half).ceil().clamp(1.0, crate::reads::SHOWN_TOP) as u8;
     if hi.saturating_sub(lo) >= 2 {
         [lo, hi]
     } else if hi >= 99 {
-        [97, 99]
+        [98, 100]
     } else {
         [lo.min(97), lo.min(97) + 2]
     }
@@ -648,7 +649,7 @@ pub fn scout_file(w: &World, id: u32) -> Reply {
                 .collect()
         })
         .unwrap_or_default();
-    let family: Vec<String> = if seen { lines::family_notes(p, key) } else { Vec::new() };
+    let family: Vec<String> = if seen { lines::family_notes(w, p, key) } else { Vec::new() };
     // Medical and academics.
     let medical = f.as_ref().map(|f| {
         json!({ "grade": f.medical.grade, "words": file::medical_words(f.medical.grade), "examined": f.medical.examined, "notes": f.medical.notes })
@@ -904,7 +905,7 @@ fn my_players(w: &World) -> Value {
             r["since"] = json!(date_text(l.since));
             r["why"] = json!(f.map_or("Added to My players", |f| f.why.as_str()));
             r["first"] = json!(f.map_or_else(
-                || if l.read.1 > 0 { format!("{}-{}", l.read.0, l.read.1) } else { "Not seen".into() },
+                || if l.read.1 > 0 { crate::reads::pair(l.read.0, l.read.1) } else { "Not seen".into() },
                 |f| f.first_read.clone()
             ));
             r["public_then"] = json!(f.map_or_else(
@@ -2062,7 +2063,7 @@ pub fn hs_side(w: &World) -> Reply {
             *staffs.entry(o).or_default() += 1;
         }
     }
-    for &c in w.scouting.hs.credibility.keys() {
+    for (c, _) in afm_engine::world::ground::stores::credits(w) {
         staffs.entry(c).or_default();
     }
     let mut staffs: Vec<(usize, u32)> = staffs.into_iter().collect();

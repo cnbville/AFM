@@ -161,12 +161,22 @@ fn effect_line(l: &Landing) -> String {
     if l.ear < 0.25 {
         v.push("It barely reaches him.");
     }
-    if l.lift > 0.25 && l.focus >= 0.0 {
-        v.push("Sharper off the ball.");
-    } else if l.lift > 0.25 {
-        v.push("Up for it, a touch loose.");
-    } else if l.lift < -0.25 {
+    // Fire by the kind of work (coach fire): his drive and effort, his
+    // reads and touch past his own pitch, how often he goes for the big play.
+    if l.power > 0.4 {
+        v.push("More drive and pursuit in him.");
+    } else if l.power < -0.4 {
         v.push("Less of him early on.");
+    }
+    if l.fine < -0.4 {
+        v.push("Too hot for his reads and touch.");
+    } else if l.fine > 0.4 {
+        v.push("Calmer, his reads come back.");
+    }
+    if l.habits > 0.6 {
+        v.push("He'll go for the big play more.");
+    } else if l.habits < -0.6 {
+        v.push("He'll play it safer.");
     }
     if l.focus < -0.4 {
         v.push("Likelier to jump the count or lose his man.");

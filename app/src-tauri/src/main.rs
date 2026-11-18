@@ -15,6 +15,12 @@ use serde_json::{Value, json};
 
 mod keychain;
 
+/// Where the older builds' signed updates are kept: each build's own release
+/// on the AFM repository (`app-<build>`), with a manifest (`downgrade.json`,
+/// written by .github/scripts/mac-publish.sh) that points at that release's
+/// own app file. The normal update manifest always points at the newest one.
+const RELEASES: &str = "https://github.com/cnbville/AFM/releases/download";
+
 struct Engine(Arc<Mutex<Game>>);
 
 #[tauri::command]
@@ -39,6 +45,45 @@ async fn call(engine: tauri::State<'_, Engine>, cmd: String, args: Value) -> Res
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// Installs build `build` of AFM over this one, newer or older (Settings,
+/// "Other versions"; app/ui/versions.js). The update is the one the build was
+/// published with, signed with the same key, so the updater checks it as it
+/// checks any update; only the rule "install it only if it is newer" is
+/// lifted, for this one call. Progress goes to the page as `version-progress`
+/// events. The app is not restarted here: the page does that once it has
+/// asked about any career or download in progress.
+#[tauri::command]
+async fn install_version(app: tauri::AppHandle, build: u32) -> Result<String, String> {
+    use tauri::Emitter;
+    use tauri_plugin_updater::UpdaterExt;
+    let url: tauri::Url =
+        format!("{RELEASES}/app-{build}/downgrade.json").parse().map_err(|e| format!("Not a build to install: {e}"))?;
+    let updater = app
+        .updater_builder()
+        .endpoints(vec![url])
+        .map_err(|e| e.to_string())?
+        .version_comparator(|current, release| release.version != current)
+        .build()
+        .map_err(|e| e.to_string())?;
+    let update = updater
+        .check()
+        .await
+        .map_err(|e| format!("Could not reach build {build}: {e}"))?
+        .ok_or_else(|| format!("This already is build {build}."))?;
+    let (mut got, tell) = (0u64, app.clone());
+    update
+        .download_and_install(
+            move |chunk, total| {
+                got += chunk as u64;
+                let _ = tell.emit("version-progress", json!({ "got": got, "total": total }));
+            },
+            || {},
+        )
+        .await
+        .map_err(|e| format!("Build {build} did not install: {e}"))?;
+    Ok(update.version.clone())
 }
 
 /// The live talks key follows the Keychain (live talks lane 1): a key pasted
@@ -118,7 +163,7 @@ fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .manage(Engine(Arc::new(Mutex::new(game))))
-        .invoke_handler(tauri::generate_handler![call])
+        .invoke_handler(tauri::generate_handler![call, install_version])
         .run(tauri::generate_context!())
         .expect("AFM could not start");
 }
