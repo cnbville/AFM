@@ -115,7 +115,14 @@ fn main() {
         "speed" => PlayKind::Run(RunConcept::SpeedOption),
         "triple" => PlayKind::Run(RunConcept::TripleOption),
         "jet" => PlayKind::Run(RunConcept::JetSweep),
-        "rpo" => PlayKind::Rpo(RunConcept::InsideZone, concept("RPO glance")),
+        // AFM_RPO=Power:RPO slant picks the run and the throw (default
+        // inside zone with the glance).
+        "rpo" => {
+            let v = std::env::var("AFM_RPO").unwrap_or_default();
+            let (rn, pn) = v.split_once(':').unwrap_or(("InsideZone", "RPO glance"));
+            let rc = RUN_CONCEPTS.iter().copied().find(|r| format!("{r:?}") == rn).unwrap_or(RunConcept::InsideZone);
+            PlayKind::Rpo(rc, concept(pn))
+        }
         "pass" => PlayKind::Pass(4),
         s => PlayKind::Pass(s.parse().unwrap_or(0)),
     };

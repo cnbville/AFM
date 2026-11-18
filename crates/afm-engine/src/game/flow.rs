@@ -5,6 +5,7 @@
 use super::books::Rouge;
 use super::calling::{self, FourthDown, Memory, Situation};
 use super::experiment;
+use super::fouls;
 use super::garbage;
 use super::geom::{FieldGuard, goal, mid, v2};
 use super::kicking::{self, KickTeams};
@@ -101,6 +102,46 @@ const EDGE_ALLOW: f64 = 600.0;
 /// The play clock after an administrative stoppage such as a penalty,
 /// from the ready signal (40 seconds otherwise, from the end of the play).
 const ADMIN_PLAY_CLOCK: f64 = 25.0;
+
+/// Pre-snap fouls (engine gaps lane EG5; proposed, not confirmed). The
+/// snap count on third and fourth down lifts the line's false starts by
+/// this share at home (real NFL 2021-25: x1.95 at home, x1.46 on the
+/// road, where a crowd puts half the line on a silent count).
+const CADENCE: f64 = 0.95;
+/// Of the defense's jumps, the share in the neutral zone before the snap
+/// (a dead ball: neutral zone infraction, encroachment), without and with
+/// a hard count; the rest are offside at the snap (real NFL 2021-25: 0.38
+/// of 0.61 flagged jumps a team game offside).
+const JUMP_EARLY: f64 = 0.3;
+const JUMP_EARLY_HARD: f64 = 0.55;
+/// The defense's twelfth man a snap (real NFL 0.083 flagged a team game),
+/// and the share the crew whistles dead before the snap (real 49%; the
+/// rest are on the field when it comes, a live ball).
+const TWELVE_MEN: f64 = 0.00105;
+const TWELVE_DEAD: f64 = 0.49;
+/// Delay of game a snap before the down's share (real NFL a snap 0.0014 on
+/// first down, 0.0022 on second, 0.0053 on third), and the offense's
+/// alignment fouls (real 0.353 flagged a team game together).
+const DELAY: f64 = 0.0033;
+const FORMATION: f64 = 0.0059;
+/// A coach punting from the other side's 30 to its 50 takes a delay of
+/// game first to give his punter room, the more the closer he is: half the
+/// time from the 33 in the NFL, the odds falling by e^0.2 a yard back (real
+/// NFL 2021-25: 50% of punts from the 30-35, 26% from the 36-40, 10% from
+/// the 41-45, 5% from the 46-50, 0.066 a team game). College and high
+/// school coaches, whose whole punt team may leave at the snap, do it at
+/// e^-0.8 the odds (real FBS 2023-24: 30%, 14%, 5% and 6%, 0.052 a team
+/// game). Read on his game management (EG5; proposed, not confirmed).
+const BACK_UP_MID: f64 = 33.0;
+const BACK_UP_SLOPE: f64 = 0.2;
+const BACK_UP_COLLEGE: f64 = 0.8;
+/// Unsportsmanlike conduct after a play's big moment (`after_play_conduct`):
+/// the chance a moment for a man of typical temper and no showman streak
+/// (each book's base times `CONDUCT_ANY`), a showman's ego adding its share
+/// (EG5; proposed, not confirmed).
+const CONDUCT_NFL: f64 = 0.004;
+const CONDUCT_COLLEGE: f64 = 0.03;
+const CONDUCT_ANY: f64 = 0.25;
 
 /// Everything needed to play one game.
 #[derive(Clone, Debug)]
@@ -2501,6 +2542,15 @@ impl<'a> Game<'a> {
                 format!("The kickoff goes through the end zone: no single, the ball at the {:.0}.", self.x)
             } else if kr.touchback {
                 "Touchback.".to_string()
+            } else if kr.out_of_bounds || kr.short {
+                // Booked as the kicking team's foul (EG5, item 28).
+                let kind = if kr.out_of_bounds { FoulKind::KickoffOutOfBounds } else { FoulKind::KickoffShort };
+                r.penalties.push((kind, team, r.kicker.unwrap_or(0), 0.0, true));
+                format!(
+                    "The kickoff {}: the receiving team's ball at its {:.0}.",
+                    if kr.out_of_bounds { "goes out of bounds" } else { "lands short of the landing zone" },
+                    self.x
+                )
             } else if onside {
                 "Onside kick recovered by the receiving team.".into()
             } else {
@@ -2694,8 +2744,7 @@ impl<'a> Game<'a> {
         } else {
             let mut r = self.new_record(PlayType::ExtraPoint);
             let dist = self.rules().xp_from + kick_add();
-            let fg = self.kick(team, dist, 0.1, &mut r);
-            if fg {
+            if self.kick(team, dist, 0.1, &mut r).made {
                 self.add_points(team, 1);
             }
             self.stats.book(&r);
@@ -2712,7 +2761,7 @@ impl<'a> Game<'a> {
     }
 
     /// A field goal or extra point try. Returns whether it was good.
-    fn kick(&mut self, team: usize, dist: f64, pressure: f64, r: &mut PlayRecord) -> bool {
+    fn kick(&mut self, team: usize, dist: f64, pressure: f64, r: &mut PlayRecord) -> kicking::FieldGoal {
         let side = &self.sides[team];
         let ps = &side.team.players;
         let k = side.fg_kicker();
@@ -2772,7 +2821,7 @@ impl<'a> Game<'a> {
             rush_on.iter().map(|&i| opp.team.players[i].id).collect(),
         ];
         r.duration = 3.0;
-        fg.made
+        fg
     }
 
     // ------------------------------------------------------------ scrimmage
@@ -2938,6 +2987,22 @@ impl<'a> Game<'a> {
                         return;
                     }
                     self.kick_look = look;
+                    // Room for the punter (EG5): from the other side's 30 to
+                    // its 50 a coach may take five yards on a delay of game
+                    // first, so the punt stays out of the end zone.
+                    let yl = goal() - self.x;
+                    let gm = self.sides[o].team.staff.game_management;
+                    let norm = super::rules::coach_norm(self.rules().level);
+                    let odds = BACK_UP_SLOPE * (yl - BACK_UP_MID)
+                        + if self.s.rules.foul_book() == fouls::Fouls::Nfl { 0.0 } else { BACK_UP_COLLEGE };
+                    let back = clamp(1.0 + 0.06 * (gm - norm), 0.4, 1.6) / (1.0 + odds.exp());
+                    if (30.0..=50.0).contains(&yl) && !self.clock_late() && self.rng.chance(back) {
+                        let id = self.sides[o].team.players[self.sides[o].punter()].id;
+                        let mut r = self.new_record(PlayType::NoPlay);
+                        r.call = "delay of game to back up the punt".into();
+                        let r = self.no_play(r, Foul { kind: FoulKind::DelayOfGame, side: 0, player: id, at: self.x });
+                        self.stats.plays.push(r);
+                    }
                     self.punt();
                     return;
                 }
@@ -3233,7 +3298,8 @@ impl<'a> Game<'a> {
             self.log(1 - o, format!("Timeout to ice the kicker ({left} left)."));
         }
         let pressure: f64 = pressure.min(1.0);
-        let good = self.kick(o, dist, pressure, &mut r);
+        let fg = self.kick(o, dist, pressure, &mut r);
+        let good = fg.made;
         self.tick(r.duration);
         self.running = false;
         let code = self.rules().code;
@@ -3279,8 +3345,19 @@ impl<'a> Game<'a> {
             self.stats.plays.push(r);
             self.change_possession(spot, false);
         } else {
-            // The other team takes over at the spot of the kick (or the 20).
-            let spot = (goal() - (self.x - 7.0)).max(20.0f64.min(goal() / 5.0));
+            // A miss nobody fields: the other team's ball where its level's
+            // rule puts it (EG5, item 25): the NFL's spot of the kick or
+            // the 20, college's line of scrimmage or the 20, and in high
+            // school a scrimmage kick, a touchback at the 20 from the end
+            // zone or the ball where a short one came down. A blocked kick
+            // still goes over at the spot of the kick (a live ball in EG3).
+            let kick_x = self.x - 7.0;
+            let spot = if r.blocked {
+                (goal() - kick_x).max(20.0f64.min(goal() / 5.0))
+            } else {
+                let landed = (fg.carry < dist).then_some(kick_x + fg.carry);
+                fouls::missed_fg_spot(&self.s.rules, self.x, kick_x, landed, goal())
+            };
             r.turnover = true;
             r.epa = -ep_at(self.below_nfl(), 1, 10.0, goal() - spot) - r.ep_before;
             self.stats.book(&r);
@@ -3777,14 +3854,26 @@ impl<'a> Game<'a> {
         (off, def)
     }
 
-    /// Pre-snap fouls (topic 4): jumping early, delay, formation. Discipline,
-    /// crowd noise, fatigue and knowing the playbook decide them.
+    /// Pre-snap fouls (topic 4): jumping early, delay, formation, the
+    /// defense's twelfth man. Discipline, crowd noise, fatigue, knowing the
+    /// playbook and the snap count decide them. Live-ball ones (the
+    /// defense's offside at the snap, its twelve men when the snap comes,
+    /// the offense's formation) let the play run (`fouls::live_at_snap`).
     fn pre_snap_foul(&mut self, off: &[(ORole, usize)], def: &[(DSlot, usize)]) -> Option<Foul> {
         let o = self.poss;
         let crowd = self.home_crowd(o);
+        let book = self.s.rules.foul_book();
         // The week's rules clinic (TR29) on each side.
         let crew = self.crew.pre_snap * self.sides[o].team.prep.rules;
         let def_crew = self.crew.pre_snap * self.sides[1 - o].team.prep.rules;
+        // The snap count on third and fourth down (EG5): the quarterback
+        // varies it to draw the defense, and his own line jumps with it.
+        // Real NFL 2021-25 false starts a snap: 0.013 on first and second
+        // down, on third 0.0255 at home and 0.021 on the road, the same at
+        // every distance: a road crowd puts the line on a silent count, so
+        // half of it goes (proposed, not confirmed).
+        let silent = 0.5 * crowd.min(1.0);
+        let cadence = if self.down >= 3 { 1.0 + CADENCE * (1.0 - silent) } else { 1.0 };
         for &(r, i) in off {
             if !(r.is_line() || r.is_receiver()) {
                 continue;
@@ -3804,24 +3893,29 @@ impl<'a> Game<'a> {
                 * (1.0 + 0.32 * crowd * clamp(1.5 - 0.05 * conc, 0.5, 1.5))
                 * crew
                 * (1.0 + tired)
-                * (1.25 - 0.25 * p.knowledge);
+                * (1.25 - 0.25 * p.knowledge)
+                * cadence;
             if self.rng.chance(chance) {
                 return Some(Foul { kind: FoulKind::FalseStart, side: 0, player: p.id, at: self.x });
             }
         }
         let qb = off.iter().find(|x| x.0 == ORole::QB).map(|x| x.1).unwrap_or(0);
         let qp = &self.sides[o].team.players[qb];
-        // The hard count on 3rd or 4th and short: a smart quarterback draws
-        // the defense offside (proposed, not confirmed).
+        // The hard count on third and fourth down: a smart quarterback
+        // draws the defense offside (proposed, not confirmed); a road crowd
+        // takes half of it, as for his own line. (It was only on third and
+        // fourth and short: real NFL jumps a snap run 0.007 on first and
+        // second down and 0.013 on third at every distance, EG5.)
         // Against a front of snap guessers the plan uses it on more downs
         // (tendencies topic 4.4).
         let vs = self.sides[o].mem.plan.vs.hard_count;
-        let hard = if self.down >= 3 && self.togo <= 2.0 || vs > 0.0 && (self.down >= 3 || self.togo <= 3.0) {
+        let hard = if self.down >= 3 || vs > 0.0 && self.togo <= 3.0 {
             // A hard count that draws flags (individual practice): the
             // tool's points on his football IQ, a quarter of a step each.
             let count = 0.25 * qp.craft_vs(crate::craft::Craft::HardCount, self.s.rules.level, 0.0);
-            clamp(1.5 + 0.05 * (qp.trait20(Attr::FootballIq, self.s.rules.level) + count - 10.0), 1.0, 2.5)
-                * (1.0 + 0.5 * vs)
+            let h = clamp(1.5 + 0.05 * (qp.trait20(Attr::FootballIq, self.s.rules.level) + count - 10.0), 1.0, 2.5)
+                * (1.0 + 0.5 * vs);
+            1.0 + (h - 1.0) * (1.0 - silent)
         } else {
             1.0
         };
@@ -3860,13 +3954,54 @@ impl<'a> Game<'a> {
             // league's offside where it was.)
             let disc = (p.trait20(Attr::Discipline, self.s.rules.level) + self.sides[1 - o].pulse[i].focus20())
                 .clamp(1.0, 20.0);
-            let chance = 0.00172 * (1.6 - disc / 15.0).max(0.3) * jump * hard * guess * def_crew;
+            // (0.00172 before EG5: jumps ran 12% short of real on the first
+            // three downs; proposed, not confirmed.)
+            let chance = 0.00182 * (1.6 - disc / 15.0).max(0.3) * jump * hard * guess * def_crew;
             if self.rng.chance(chance) {
-                return Some(Foul { kind: FoulKind::Offside, side: 1, player: p.id, at: self.x });
+                // Where he is when it is called (EG5): still in the neutral
+                // zone as the snap comes, offside and a live ball (the NFL
+                // and college); in it before the snap, drawing a flinch or
+                // a touch, a neutral zone infraction or encroachment and a
+                // dead ball, more often on a hard count he jumped (real NFL
+                // 2021-25: 0.38 of 0.61 flagged jumps a team game were
+                // offside). In high school any of it is encroachment, dead.
+                let early = if hard > 1.0 { JUMP_EARLY_HARD } else { JUMP_EARLY };
+                let kind = if book != super::fouls::Fouls::Nfhs && self.rng.chance(early) {
+                    FoulKind::NeutralZone
+                } else {
+                    FoulKind::Offside
+                };
+                return Some(Foul { kind, side: 1, player: p.id, at: self.x });
             }
         }
-        // Road delays: 34% more (0.34 a game against 0.26).
-        if self.rng.chance(0.0050 * (1.3 - qp.a(Attr::FootballIq) / 120.0) * (1.0 + 0.52 * crowd) * crew) {
+        // The defense's twelfth man (EG5, item 28; real NFL 0.083 flagged a
+        // team game): a substitution gone wrong, more often against a
+        // no-huddle offense and from a defense that knows its calls less.
+        // Half are caught before the snap, a dead ball; half are on the
+        // field when it comes (real 51%), a live ball.
+        let dknow =
+            def.iter().map(|x| self.sides[1 - o].team.players[x.1].knowledge).sum::<f64>() / def.len().max(1) as f64;
+        let twelve = TWELVE_MEN * def_crew * (1.3 - 0.3 * dknow) * if self.no_huddle { 1.8 } else { 1.0 };
+        if self.rng.chance(twelve) {
+            let id = def.first().map(|x| self.sides[1 - o].team.players[x.1].id).unwrap_or(0);
+            return Some(Foul { kind: FoulKind::TooManyMen, side: 1, player: id, at: self.x });
+        }
+        // Delay of game: the play clock runs out on the pre-snap work, the
+        // most of it on third down, when the defense disguises late and the
+        // quarterback checks (real NFL 2021-25 a snap: 0.0014 on first down,
+        // 0.0022 on second, 0.0053 on third; it ran 0.003 on each). Road
+        // delays: 34% more (0.34 a game against 0.26).
+        let by_down = match self.down {
+            1 => 0.7,
+            2 => 1.1,
+            _ => 2.6,
+        };
+        // His Football IQ is read about his level's typical starter, on the
+        // NFL's scale (EG5: on the raw rating college quarterbacks took 50%
+        // more delays a snap than real, FBS 2023-24 against the NFL).
+        let ts = |lv: Level| super::synthetic::typical_starter(lv, Position::QB, Attr::FootballIq);
+        let fiq = qp.a(Attr::FootballIq) - ts(self.s.rules.level) + ts(Level::NFL);
+        if self.rng.chance(DELAY * by_down * (1.3 - fiq / 120.0) * (1.0 + 0.52 * crowd) * crew) {
             // Your timeout rule (update 2, G4): a timeout instead of five
             // yards when the rule leaves one to spend.
             if self.timeout_saves_delay(o) {
@@ -3879,11 +4014,12 @@ impl<'a> Game<'a> {
             return Some(Foul { kind: FoulKind::DelayOfGame, side: 0, player: qp.id, at: self.x });
         }
         // Illegal formation stands for every 5-yard offensive alignment foul
-        // (shifts, motion, ineligible downfield, too many men): real about
-        // 0.6 a team game together (Claude's reading of 2023, proposed, not
-        // confirmed). False starts ran a fifth high, delay a quarter low.
-        // Lining up right is the quarterback's and the line's football IQ
-        // (proposed, not confirmed).
+        // at the snap (formation, shifts, motion, the offense's offside and
+        // its twelfth man): real NFL 0.353 flagged a team game together on
+        // scrimmage plays, 0.224 accepted (2021-25, EG5), a live ball. False
+        // starts ran a fifth high, delay a quarter low. Lining up right is
+        // the quarterback's and the line's football IQ (proposed, not
+        // confirmed).
         let callers: Vec<f64> = off
             .iter()
             .filter(|x| x.0.is_line() || x.0 == ORole::QB)
@@ -3891,7 +4027,7 @@ impl<'a> Game<'a> {
             .collect();
         let line_iq = callers.iter().sum::<f64>() / callers.len().max(1) as f64;
         let align = clamp(1.0 - 0.008 * (line_iq - 60.0), 0.6, 1.4);
-        if self.rng.chance(0.0078 * crew * (1.3 - qp.knowledge * 0.3) * align) {
+        if self.rng.chance(FORMATION * crew * (1.3 - qp.knowledge * 0.3) * align) {
             let id =
                 off.iter().find(|x| x.0.is_receiver()).map(|x| self.sides[o].team.players[x.1].id).unwrap_or(qp.id);
             return Some(Foul { kind: FoulKind::IllegalFormation, side: 0, player: id, at: self.x });
@@ -4272,11 +4408,20 @@ impl<'a> Game<'a> {
         r.personnel = call.formation.personnel.name().into();
         r.blitz = dcall.pressure.extra() > 0;
         r.coverage_man = dcall.coverage.is_man();
-        // Pre-snap foul: no play.
+        // A foul before the snap kills the play; one at the snap is a
+        // live-ball foul and the play runs with the flag down (EG5: the
+        // defense's offside in the NFL and college, its twelfth man, the
+        // offense's formation), the offended team taking the better.
+        let mut at_snap = None;
         if !matches!(call.kind, PlayKind::Kneel)
             && let Some(f) = self.pre_snap_foul(&off, &def)
         {
-            return self.no_play(r, f);
+            let live = fouls::live_at_snap(self.s.rules.foul_book(), f.kind)
+                && !(f.kind == FoulKind::TooManyMen && self.rng.chance(TWELVE_DEAD));
+            if !live {
+                return self.no_play(r, f);
+            }
+            at_snap = Some(f);
         }
         if from_script {
             self.sides[o].scripted[0] += 1;
@@ -4356,13 +4501,9 @@ impl<'a> Game<'a> {
             chem: self.sides[o].team.line_chem,
             novelty: self.sides[o].team.novelty[fam as usize],
             family: fam,
-            // Linemen downfield on a pass: NFL one yard, NCAA three, high
-            // school (NFHS) two.
-            downfield: match self.s.rules.level {
-                Level::NFL => 1.0,
-                Level::HS => 2.0,
-                _ => 3.0,
-            },
+            // Linemen downfield on a pass: NFL one yard, NCAA three (Texas
+            // and Massachusetts high schools on its book), NFHS two.
+            downfield: super::fouls::downfield(self.s.rules.foul_book()),
             // A call off the week's sheet was barely practiced: more
             // mental errors on it (game day topic 4; proposed, not
             // confirmed: as much as a third more of a plan to learn).
@@ -4412,8 +4553,11 @@ impl<'a> Game<'a> {
         };
         let res = scrimmage::run_snap(&snap, &mut self.rng);
         // The officials' ruling, and a review (topic 6).
-        let res =
+        let mut res =
             if matches!(call.kind, PlayKind::Kneel | PlayKind::Spike) { res } else { self.officiate(res, &mut r) };
+        if let Some(f) = at_snap {
+            res.notes.fouls.insert(0, f);
+        }
         if self.paused {
             return r;
         }
@@ -4465,7 +4609,7 @@ impl<'a> Game<'a> {
 
     fn no_play(&mut self, mut r: PlayRecord, f: Foul) -> PlayRecord {
         let o = self.poss;
-        let (yds, _) = f.kind.yards();
+        let yds = fouls::penalty(self.s.rules.foul_book(), self.s.rules.year, f.kind, f.side, false).yards;
         r.kind = PlayType::NoPlay;
         let team = if f.side == 0 { o } else { 1 - o };
         if f.side == 0 {
@@ -4489,7 +4633,7 @@ impl<'a> Game<'a> {
         r.why = format!("{} on #{} before the snap.", f.kind.name(), f.player);
         r.epa = ep_at(self.below_nfl(), self.down, self.togo, goal() - self.x) - r.ep_before;
         // Jumped the count hot (coach fire, item 8).
-        if f.kind == FoulKind::Offside
+        if matches!(f.kind, FoulKind::Offside | FoulKind::NeutralZone)
             && let Some(i) = self.sides[team].team.players.iter().position(|p| p.id == f.player)
             && self.sides[team].pulse[i].habits >= super::talk::HOT
         {
@@ -4582,6 +4726,10 @@ impl<'a> Game<'a> {
         for &(kind, _, id, _, _) in &r.penalties {
             if kind.personal() && hot(id) {
                 tag(id, Tend::BigHit);
+            }
+            // Jumped the count hot, the play run with the flag down (EG5).
+            if kind == FoulKind::Offside && hot(id) {
+                tag(id, Tend::SnapTiming);
             }
         }
         // Came downhill: a linebacker or safety who stopped a run at the
@@ -4690,6 +4838,48 @@ impl<'a> Game<'a> {
     }
 
     /// Enforce what happened: fouls, spot, downs, score, clock.
+    /// Unsportsmanlike conduct after the play (engine gaps lane EG5, item
+    /// 28): the man who made the play's big moment (a gain of 15 or more
+    /// short of a score, a sack, a run stopped for a loss, a big hit) loses
+    /// his head now and then: taunting, a ball spiked at a man, a word too
+    /// many. His ego and hidden temperament and the day's heat, against
+    /// each book: the NFL loosened its celebration rule in 2017 and fines
+    /// its men, and its taunting sits with unnecessary roughness in the
+    /// engine's count; college and high school flag taunting and any act
+    /// that draws attention. Real on scrimmage plays a team game: NFL
+    /// 0.025 with celebrations (nflverse 2021-25), FBS 0.143 (cfbfastR
+    /// 2023-24, FBS against FBS); high school is read as college (no
+    /// count). On its own keyed draw, so no other play changes. The side
+    /// that fouled (0 the offense) and the man. Proposed, not confirmed.
+    fn after_play_conduct(&self, r: &PlayRecord, o: usize, d: usize, gain: f64) -> Option<(usize, u32)> {
+        let year = if self.s.year == 0 { 2025 } else { self.s.year };
+        let base = match self.s.rules.foul_book() {
+            fouls::Fouls::Nfl if year < 2017 => 3.0 * CONDUCT_NFL,
+            fouls::Fouls::Nfl => CONDUCT_NFL,
+            _ => CONDUCT_COLLEGE,
+        };
+        let on = |team: usize, id: u32| self.sides[team].team.players.iter().position(|p| p.id == id);
+        let (side, id) = match r.kind {
+            PlayType::Run | PlayType::Scramble if gain >= 15.0 => (0, r.carrier?),
+            PlayType::Pass if r.complete && gain >= 15.0 => (0, r.target?),
+            PlayType::Sack => (1, *r.sackers.first()?),
+            _ => match r.fire.big_hit {
+                Some((h, _)) if on(d, h).is_some() => (1, h),
+                Some((h, _)) if on(o, h).is_some() => (0, h),
+                _ if r.kind == PlayType::Run && gain <= -1.0 => (1, *r.tacklers.first()?),
+                _ => return None,
+            },
+        };
+        let team = if side == 0 { o } else { d };
+        let i = on(team, id)?;
+        let p = &self.sides[team].team.players[i];
+        let showman = ((p.personality.traits.ego as f64 - 8.0).max(0.0) / 6.0).powi(2);
+        let temper =
+            (1.0 + 0.04 * (10.0 - p.traits.temperament)).max(0.4) * (1.0 + self.sides[team].pulse[i].heat).max(0.3);
+        let u = crate::world::season::key_uniform(self.s.seed ^ 0x5A7E_C0D3, (self.n as u64) << 8 | 9);
+        (u < base * (CONDUCT_ANY + showman) * temper).then_some((side, id))
+    }
+
     fn resolve(
         &mut self,
         mut r: PlayRecord,
@@ -4785,98 +4975,129 @@ impl<'a> Game<'a> {
         }
         let gain = res.spot - los;
         let mut new_x = res.spot;
-        let mut fouls: Vec<Foul> = res.notes.fouls.clone();
-        // One foul per team; both teams: offsetting.
-        fouls.dedup_by_key(|f| f.side);
-        let off_foul = fouls.iter().find(|f| f.side == 0).cloned();
-        let def_foul = fouls.iter().find(|f| f.side == 1).cloned();
         let mut replay = false;
-        // The play stands with the penalty added: a personal foul after a
-        // gain is marked off from where the play ended, and intentional
-        // grounding is an incomplete pass.
+        // The play stands with the penalty added: a defensive foul during a
+        // run that ended beyond the line is marked off from where it ended,
+        // and intentional grounding is an incomplete pass and a lost down.
         let mut stands = false;
         let mut auto_first = false;
-        let mut lose_down = false;
         let mut scored_td = res.touchdown;
         let mut turnover = res.turnover;
         let mut safety = res.safety;
+        let mut defense_td = res.defense_td;
+        // The offense's foul in its own end zone (EG5, item 24).
+        let mut foul_safety = false;
         let college = self.below_nfl();
         let ep = |down: u8, togo: f64, x: f64| ep_at(college, down, togo, goal() - x.clamp(1.0, goal() - 1.0));
-        if let (Some(of), Some(df)) = (off_foul.as_ref(), def_foul.as_ref()) {
+        // Each level's book marks the fouls off (engine gaps lane EG5,
+        // `fouls.rs`): its yards, spots and first downs, half the distance,
+        // and a foul in the offense's own end zone a safety. The offended
+        // team takes the better of the play and the best of the fouls.
+        let rules = self.s.rules;
+        let play = fouls::Play {
+            los,
+            end: res.spot,
+            goal: goal(),
+            run: matches!(res.result, R::Run | R::Scramble),
+            complete: res.result == R::Complete,
+            turnover,
+            crossed: matches!(res.result, R::Complete | R::Incomplete | R::Interception) && res.air_yards > 0.0,
+        };
+        let (down, downs, line_to_gain) = (self.down, self.rules().downs(), los + self.togo);
+        // A safety to the offense: two points, then the other team's ball
+        // after the free kick from the 20, about its own 40.
+        let safety_val = -2.0 - ep(1, 10.0, 40.0);
+        let play_val = if defense_td || scored_td && turnover {
+            -7.0
+        } else if scored_td {
+            7.0
+        } else if safety {
+            safety_val
+        } else if turnover {
+            -ep(1, 10.0, goal() - new_x)
+        } else {
+            self.value_after(gain, new_x)
+        };
+        // What a marked foul leaves the offense, valued, and whether it is
+        // a first down: the down again, the next one after a loss of down
+        // (on the last down the ball goes over), a first down when the
+        // defense's foul carries one or the ball ends past the line to gain.
+        let after = |m: &fouls::Marked, by_defense: bool| -> (f64, bool) {
+            if m.safety {
+                return (safety_val, false);
+            }
+            if (by_defense && m.first_down) || m.spot >= line_to_gain {
+                return (ep(1, 10.0f64.min(goal() - m.spot), m.spot), true);
+            }
+            let next = down + m.loss_of_down as u8;
+            if next > downs {
+                (-ep(1, 10.0, goal() - m.spot), false)
+            } else {
+                (ep(next, (line_to_gain - m.spot).max(0.5), m.spot), false)
+            }
+        };
+        let marked: Vec<(Foul, fouls::Marked, f64, bool)> = res
+            .notes
+            .fouls
+            .iter()
+            .cloned()
+            .map(|f| {
+                let m = if f.side == 1 { fouls::defense(&rules, &f, &play) } else { fouls::offense(&rules, &f, &play) };
+                let (v, first) = after(&m, f.side == 1);
+                (f, m, v, first)
+            })
+            .collect();
+        let team_of = |side: usize| if side == 0 { o } else { d };
+        let offsetting = marked.iter().any(|x| x.0.side == 0) && marked.iter().any(|x| x.0.side == 1);
+        if offsetting {
+            // Both teams fouled: the down is played again from the line.
             replay = true;
             new_x = los;
             scored_td = false;
             turnover = false;
             safety = false;
-            for f in [of, df] {
-                let team = if f.side == 0 { o } else { d };
-                r.penalties.push((f.kind, team, f.player, 0.0, true));
+            defense_td = false;
+            for (f, ..) in &marked {
+                r.penalties.push((f.kind, team_of(f.side), f.player, 0.0, false));
             }
-        } else if let Some(f) = def_foul {
-            let (yds, first) = f.kind.yards();
-            let pen_x = match f.kind {
-                FoulKind::PassInterference => {
-                    let spot_dist = (f.at - los).max(1.0);
-                    let lim = if self.rules().level == Level::NFL { spot_dist } else { spot_dist.min(15.0) };
-                    (los + lim).min(goal() - 1.0)
+        } else if !marked.is_empty() {
+            // One team fouled: the other takes the better of the play and the
+            // best of its fouls for itself, and declines the rest.
+            let by_defense = marked[0].0.side == 1;
+            let better = |a: f64, b: f64| if by_defense { a > b } else { a < b };
+            let mut best = 0;
+            for (k, x) in marked.iter().enumerate() {
+                if better(x.2, marked[best].2) {
+                    best = k;
                 }
-                k if k.personal() && !turnover && gain > 0.0 => res.spot + yds,
-                _ => los + yds,
-            };
-            let pen_x = if pen_x >= goal() { los + (goal() - los) / 2.0 } else { pen_x };
-            // The offense takes the better of the play and the penalty.
-            let play_val = if scored_td {
-                7.0
-            } else if turnover {
-                -ep(1, 10.0, goal() - new_x)
-            } else {
-                self.value_after(gain, new_x)
-            };
-            let pen_val = ep(1, 10.0f64.min(goal() - pen_x), pen_x);
-            let accept = pen_val > play_val;
-            r.penalties.push((f.kind, d, f.player, if accept { pen_x - los } else { 0.0 }, accept));
-            if accept {
-                stands = f.kind.personal() && !turnover && gain > 0.0;
-                new_x = pen_x;
-                scored_td = false;
-                turnover = false;
-                safety = false;
-                auto_first = first || pen_x - los >= self.togo;
-                replay = !auto_first;
-                self.edge_hit(d, f.player, -1.0);
             }
-        } else if let Some(f) = off_foul {
-            let (yds, _) = f.kind.yards();
-            let from = if f.kind == FoulKind::IntentionalGrounding { f.at.min(los) } else { los };
-            let pen_x = if f.kind == FoulKind::IntentionalGrounding {
-                (los - yds).min(from)
-            } else {
-                from - yds.min(from / 2.0)
-            };
-            let play_val = if scored_td {
-                7.0
-            } else if turnover {
-                -ep(1, 10.0, goal() - new_x)
-            } else {
-                self.value_after(gain, new_x)
-            };
-            let pen_val =
-                ep(self.down + (f.kind == FoulKind::IntentionalGrounding) as u8, self.togo + (los - pen_x), pen_x);
-            // The defense takes whichever is worse for the offense.
-            let accept = pen_val < play_val;
-            r.penalties.push((f.kind, o, f.player, if accept { los - pen_x } else { 0.0 }, accept));
-            if accept {
-                new_x = pen_x.max(1.0);
+            let accept = better(marked[best].2, play_val);
+            for (k, (f, m, _, first)) in marked.iter().enumerate() {
+                let take = accept && k == best;
+                let yds = if !take {
+                    0.0
+                } else if by_defense {
+                    m.spot - m.from
+                } else {
+                    m.from - m.spot
+                };
+                r.penalties.push((f.kind, team_of(f.side), f.player, yds, take));
+                if !take {
+                    continue;
+                }
                 scored_td = false;
                 turnover = false;
-                safety = false;
-                replay = f.kind != FoulKind::IntentionalGrounding;
-                lose_down = f.kind == FoulKind::IntentionalGrounding;
-                stands = f.kind == FoulKind::IntentionalGrounding;
-                self.edge_hit(o, f.player, -1.0);
+                defense_td = false;
+                safety = m.safety;
+                foul_safety = m.safety;
+                new_x = if m.safety { 0.0 } else { m.spot };
+                stands = m.stands;
+                auto_first = *first;
+                replay = !m.safety && !*first && !m.loss_of_down;
+                self.edge_hit(team_of(f.side), f.player, -1.0);
             }
         }
-        let accepted_pen = r.penalties.iter().any(|p| p.4);
+        let accepted_pen = offsetting || r.penalties.iter().any(|p| p.4);
         r.nullified = accepted_pen && !stands;
         r.yards = if r.nullified { 0.0 } else { gain };
         if !r.nullified {
@@ -4975,7 +5196,9 @@ impl<'a> Game<'a> {
                 let showman = ((ego - 8.0).max(0.0) / 6.0).powi(2);
                 let u = |k: u64| crate::world::season::key_uniform(self.s.seed ^ 0xCE1E_B8A7, (self.n as u64) << 8 | k);
                 let year = if self.s.year == 0 { 2025 } else { self.s.year };
-                let college = matches!(self.rules().level, Level::FBS | Level::FCS | Level::SmallCollege);
+                // The rule is the book's (Texas high schools play the
+                // NCAA's, EG5); how often men do it is the level's.
+                let college = self.s.rules.foul_book() == fouls::Fouls::Ncaa;
                 let foul_at = 100.0 - (2.0 + 5.0 * u(1)).round();
                 if college && year >= 2011 && gain >= 15.0 && u(2) < 0.0012 * showman {
                     scored_td = false;
@@ -4997,6 +5220,13 @@ impl<'a> Game<'a> {
                 }
             }
         }
+        // Unsportsmanlike conduct after the play (EG5, item 28), on its own
+        // keyed draw: marked once the down is settled, below.
+        let conduct = if !accepted_pen && !scored_td && !turnover && !safety && !self.trying {
+            self.after_play_conduct(&r, o, d, gain)
+        } else {
+            None
+        };
         // Down and distance.
         let mut first_down = false;
         let fumble_lost = turnover && !r.interception;
@@ -5018,6 +5248,11 @@ impl<'a> Game<'a> {
         }
         // Why (topic 1): the chain that decided it.
         r.why = self.why(&r, &res, label, &call, &dcall, accepted_pen);
+        if offsetting {
+            r.why.push_str(" Offsetting fouls: the down is played again.");
+        } else if foul_safety {
+            r.why.push_str(" The foul was in his own end zone: a safety.");
+        }
         // The tape (topic 5.1): every real snap goes on both teams' film.
         if matches!(r.kind, PlayType::Run | PlayType::Pass | PlayType::Sack | PlayType::Scramble) {
             self.res.film[o].offense(&call, r.down);
@@ -5085,7 +5320,7 @@ impl<'a> Game<'a> {
         // school, where the try ends when the defense has the ball.
         if self.trying {
             r.epa = 0.0;
-            if turnover && (scored_td || res.defense_td) || res.defense_td {
+            if turnover && (scored_td || defense_td) || defense_td {
                 r.turnover = true;
                 r.touchdown = false;
                 if self.rules().level != Level::HS {
@@ -5119,7 +5354,7 @@ impl<'a> Game<'a> {
             self.running = false;
             return r;
         }
-        if res.defense_td {
+        if defense_td {
             r.defense_td = true;
             r.epa = -6.95 - r.ep_before;
             self.add_points(d, 6);
@@ -5166,6 +5401,22 @@ impl<'a> Game<'a> {
             return r;
         }
         self.x = new_x.clamp(0.5, goal() - 0.5);
+        // The defense's dead-ball foul after the play: 15 yards from the
+        // succeeding spot, half the distance at most, and a first down in
+        // the NFL and college; under NFHS rules a first down only past the
+        // line to gain. The down counts.
+        let mut moved = 0.0;
+        if let Some((1, id)) = conduct {
+            let pen =
+                fouls::penalty(self.s.rules.foul_book(), self.s.rules.year, FoulKind::UnsportsmanlikeConduct, 1, false);
+            let to = self.x + pen.yards.min((goal() - self.x) / 2.0);
+            moved = to - self.x;
+            self.x = to;
+            r.penalties.push((FoulKind::UnsportsmanlikeConduct, d, id, moved, true));
+            if pen.first_down || self.x >= los + self.togo {
+                first_down = true;
+            }
+        }
         if first_down {
             self.down = 1;
             self.togo = 10.0f64.min(goal() - self.x);
@@ -5181,8 +5432,9 @@ impl<'a> Game<'a> {
                 ready = Some(BALL_SPOTTED);
             }
         } else {
-            self.down = self.down + 1 + lose_down as u8;
-            self.togo -= new_x - los;
+            // A loss of down (grounding) is this: the down counts.
+            self.down += 1;
+            self.togo -= new_x - los + moved;
             if self.down > self.rules().downs() {
                 // Turnover on downs.
                 r.epa = -ep(1, 10.0, goal() - self.x) - r.ep_before;
@@ -5191,6 +5443,15 @@ impl<'a> Game<'a> {
                 self.change_possession(goal() - self.x, false);
                 return r;
             }
+        }
+        // The offense's: 15 yards back from the succeeding spot (half the
+        // distance at most), the down already counted (1st and 25 after a
+        // gain that made the line to gain).
+        if let Some((0, id)) = conduct {
+            let back = 15.0f64.min(self.x / 2.0);
+            self.x -= back;
+            self.togo += back;
+            r.penalties.push((FoulKind::UnsportsmanlikeConduct, o, id, back, true));
         }
         r.epa = ep(self.down, self.togo, self.x) - r.ep_before;
         self.stats.book(&r);
