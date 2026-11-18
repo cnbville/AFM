@@ -181,23 +181,8 @@ pub fn name(w: &World, who: Them) -> String {
         Them::Kin(id, k) => folk::person(w, id).map_or_else(
             || "His family".into(),
             |i| {
-                use crate::world::background::{Decider, FamilyStructure as F};
                 let first = w.people[i].name.split_whitespace().next().unwrap_or("His").to_string();
-                // Who they are to him, the way the family is made up (the
-                // parent's call's own words, `talks::parent_word`): the kid
-                // said "my parent's the one who keeps me on track" (the
-                // talks audit, 2026-11-16).
-                let family = w.people[i].family.structure;
-                let who = match (k, w.people[i].family.decider, family) {
-                    (0, Decider::Parent, F::TwoParents) => "parents",
-                    (0, Decider::Parent, F::SingleParent) => "mother",
-                    (0, Decider::Parent | Decider::Grandparent, F::Grandparents) => "grandmother",
-                    (0, Decider::Parent, F::Foster) => "guardian",
-                    (0, Decider::Grandparent, _) => "grandmother",
-                    (0, Decider::Handler, _) => "handler",
-                    _ => "family",
-                };
-                format!("{first}'s {who}")
+                format!("{first}'s {}", kin_word(w, i, k))
             },
         ),
         Them::Drawn(super::super::wants::Kind::OtherCoach, prog) if (prog as usize) < w.programs.len() => {
@@ -206,6 +191,34 @@ pub fn name(w: &World, who: Them) -> String {
         _ => super::super::office::sit::name(w, who)
             .or_else(|| super::super::meetings::name(w, who))
             .unwrap_or_else(|| "He".into()),
+    }
+}
+
+/// Who a member of his family is to him, the way the family is made up
+/// (the parent's call's own words, `talks::parent_word`): the kid said "my
+/// parent's the one who keeps me on track" (the talks audit, 2026-11-16).
+fn kin_word(w: &World, i: usize, k: u8) -> &'static str {
+    use crate::world::background::{Decider, FamilyStructure as F};
+    match (k, w.people[i].family.decider, w.people[i].family.structure) {
+        (0, Decider::Parent, F::TwoParents) => "parents",
+        (0, Decider::Parent, F::SingleParent) => "mother",
+        (0, Decider::Parent | Decider::Grandparent, F::Grandparents) => "grandmother",
+        (0, Decider::Parent, F::Foster) => "guardian",
+        (0, Decider::Grandparent, _) => "grandmother",
+        (0, Decider::Handler, _) => "handler",
+        _ => "family",
+    }
+}
+
+/// A person as the object of a line ("it didn't move him"): his mother or
+/// grandmother "her", his parents or the rest of his family "them".
+pub fn object(w: &World, who: Them) -> &'static str {
+    match who {
+        Them::Kin(id, k) => match folk::person(w, id).map(|i| kin_word(w, i, k)) {
+            Some("mother" | "grandmother") => "her",
+            _ => "them",
+        },
+        _ => "him",
     }
 }
 
