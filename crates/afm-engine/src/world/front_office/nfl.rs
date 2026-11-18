@@ -86,7 +86,7 @@ impl Proposal {
     }
 
     fn offer(&self, team: usize) -> Offer {
-        Offer { team, apy: self.apy, years: self.years, gtd: self.gtd, start: self.start }
+        Offer { team, apy: self.apy, years: self.years, gtd: self.gtd, start: self.start, help: 0.0 }
     }
 
     /// The deal's layout, the way `terms_for` lays out the AI's (roster
@@ -317,6 +317,37 @@ pub fn negotiable(w: &World, i: usize) -> Option<TalkKind> {
 
 /// The player's ideal as the market code builds it (hidden from you).
 fn ideal_of(w: &World, i: usize, kind: TalkKind) -> Ideal {
+    ideal_argued(w, i, kind, 0.0)
+}
+
+/// [`ideal_of`], with the true points made this season and in the line
+/// that carries the offer (`argued`, `terms::Offer::argued`) moving his
+/// ideal toward the ideal his market meets (negotiation item 3a: B = M +
+/// (A - M) x (1 - pull)), his market pinned so the points never lower it.
+pub(crate) fn ideal_argued(w: &World, i: usize, kind: TalkKind, argued: f64) -> Ideal {
+    let mut id = ideal_plain(w, i, kind);
+    // A help promise you broke (negotiation item 4): his next deal with
+    // you costs more, until he signs again.
+    if let Some(c) = w.people[i].pro.as_ref()
+        && let Some((year, premium)) = c.help_owed
+        && c.contract.as_ref().is_none_or(|k| k.signed <= year)
+    {
+        id.apy *= 1.0 + premium as f64;
+    }
+    let pull =
+        (crate::world::folk::persona::negotiate::points::pull(w, w.people[i].player.id) + argued).clamp(0.0, 1.0);
+    if pull > 0.0 {
+        let m = market::market_apy(w, i, &id);
+        let at_m = m / market::MARKET_SLACK;
+        if at_m < id.apy {
+            id.market = Some(m);
+            id.apy -= pull * (id.apy - at_m);
+        }
+    }
+    id
+}
+
+fn ideal_plain(w: &World, i: usize, kind: TalkKind) -> Ideal {
     if let Some(id) = w.people[i].pro.as_ref().and_then(|c| c.ideal)
         && kind == TalkKind::FreeAgent
     {
@@ -358,10 +389,10 @@ fn offer_score(w: &World, i: usize, o: &Offer, ideal: &Ideal, own: Option<usize>
 /// The bar a player's own team must clear before the market, the same as
 /// the AI's talks: 85%, a little lower at the tag deadline, higher for a
 /// money-minded player with no tie to the club who wants to see the market.
-fn own_bar(w: &World, i: usize, kind: TalkKind) -> f64 {
+pub(crate) fn own_bar(w: &World, i: usize, kind: TalkKind) -> f64 {
     let g = market::goals(w, i);
     let deadline = w.today >= w.dates.tag_deadline.date.add(-2) && w.today <= w.dates.tag_deadline.date;
-    match kind {
+    let bar = match kind {
         TalkKind::Extension => {
             if deadline {
                 0.82
@@ -370,6 +401,21 @@ fn own_bar(w: &World, i: usize, kind: TalkKind) -> f64 {
             }
         }
         _ => (if deadline { 0.82 } else { 0.85 }) + 0.12 * g.money * (1.0 - g.loyalty),
+    };
+    bar + proud_test(w, i)
+}
+
+/// A proud man you made a true point to about his season wants to see what
+/// others think of him (negotiation item 3c): his bar to re-sign rises by
+/// `points::PROUD_LEAN` x his ego z (ego z over `points::PROUD`), while the
+/// point is kept.
+fn proud_test(w: &World, i: usize) -> f64 {
+    use crate::world::folk::persona::negotiate::points;
+    let ego = w.people[i].player.personality.traits.z(crate::player::Trait::Ego);
+    if ego > points::PROUD && points::named(w, w.people[i].player.id).is_some() {
+        points::PROUD_LEAN * ego
+    } else {
+        0.0
     }
 }
 
@@ -589,10 +635,48 @@ pub struct Judged {
     /// What he claims about other interest, in plain words, whether it is
     /// true, and your read of it in words.
     pub claim: Option<(String, bool, String)>,
+    /// A prove-it counter's stat term (negotiation item 3b): his ask's
+    /// incentives are paid on it.
+    pub prove_it: Option<crate::world::folk::usage::Usage>,
 }
 
 /// The agent's answer to an offer, without making it (`Judged`).
 pub fn judge(w: &World, id: u32, p: &Proposal) -> Result<Judged, String> {
+    judge_said(w, id, p, Said::default())
+}
+
+/// What a talk adds to a contract offer that the desk's boxes can't hold.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Said {
+    /// The pull of the true points made in the line that carries the offer
+    /// (`terms::Offer::argued`, negotiation item 3a).
+    pub argued: f64,
+    /// "Take less and I'll sign you help" (`terms::Give::Help`, item 4):
+    /// the position's index, `terms::HELP_ANY` for any.
+    pub help: Option<u8>,
+}
+
+/// The most your "I'll sign you help" adds to his discount: x his belief
+/// x his winning goal over half (negotiation item 4). Proposed, not
+/// confirmed.
+pub const HELP_DISCOUNT: f64 = 0.05;
+
+/// The part of his discount a help promise buys (item 4): `HELP_DISCOUNT`
+/// x his belief in it (P1's `belief_own`) x his winning goal over half.
+pub fn help_part(w: &World, i: usize, pos: u8) -> f64 {
+    let g = market::goals(w, i);
+    let want = ((g.winning - 0.5) / 0.5).clamp(0.0, 1.0);
+    if want <= 0.0 {
+        return 0.0;
+    }
+    let kind = crate::world::folk::talks::PromiseKind::Help(pos);
+    let belief = crate::world::folk::promise::belief_own(w, i, kind, &Default::default(), 0).clamp(0.0, 1.0);
+    HELP_DISCOUNT * belief * want
+}
+
+/// [`judge`], with what the talk said beside the offer (`Said`).
+pub fn judge_said(w: &World, id: u32, p: &Proposal, said: Said) -> Result<Judged, String> {
+    let argued = said.argued;
     let t = club(w)?;
     let i = person(w, id)?;
     let kind = negotiable(w, i).ok_or("He isn't someone you can talk terms with today.")?;
@@ -603,15 +687,21 @@ pub fn judge(w: &World, id: u32, p: &Proposal) -> Result<Judged, String> {
     {
         return Err(format!("His agent won't take your call until {}.", cold.pretty()));
     }
-    let ideal = ideal_of(w, i, kind);
+    let ideal = ideal_argued(w, i, kind, argued);
     let own = match kind {
         TalkKind::ReSign | TalkKind::Extension => Some(t),
         _ => w.people[i].pro.as_ref().and_then(|c| c.teams.last().copied()),
     };
-    let o = p.offer(t);
+    let mut o = p.offer(t);
+    o.help = said.help.map_or(0.0, |pos| help_part(w, i, pos)) as f32;
     let s = offer_score(w, i, &o, &ideal, own);
     let want = want_factor(w, i, t, kind);
     let ask = want_ask(w, i, t, kind, &ideal, own, want);
+    let prove = prove_it(w, i, t, p, &ask, &ideal, own);
+    let (ask, prove_it) = match prove {
+        Some((a, u)) => (a, Some(u)),
+        None => (ask, None),
+    };
     let g = market::goals(w, i);
     let mut verdict = Verdict::Counter;
     match kind {
@@ -660,7 +750,60 @@ pub fn judge(w: &World, id: u32, p: &Proposal) -> Result<Judged, String> {
     let speaks = verdict != Verdict::Signed && verdict != Verdict::Broken;
     let claim =
         if speaks { claim_parts(w, i, t, kind, s, &ideal).map(|c| (c.plain, c.true_claim, c.read)) } else { None };
-    Ok(Judged { kind, verdict, score: s, ask: speaks.then_some(ask), gap: gap_words(s), patience, claim })
+    let prove_it = prove_it.filter(|_| speaks);
+    Ok(Judged { kind, verdict, score: s, ask: speaks.then_some(ask), gap: gap_words(s), patience, claim, prove_it })
+}
+
+/// "Earn it back" (negotiation item 3b): once a true performance point has
+/// landed this season (`points::named`) and his ask still sits above your
+/// offer, his agent counters with a prove-it deal: one year (two under
+/// 27), the guarantee at most half his ideal's share, a base at your number
+/// (at least his lowest), and the rest of his ask as incentives on the
+/// stat you named, at his last season's number 15% better
+/// (`points::earn_back`). A man who wants security (over 0.6) with a small
+/// ego takes half the gap in his base and his guarantee back. None
+/// otherwise.
+fn prove_it(
+    w: &World,
+    i: usize,
+    t: usize,
+    p: &Proposal,
+    ask: &Proposal,
+    ideal: &Ideal,
+    own: Option<usize>,
+) -> Option<(Proposal, crate::world::folk::usage::Usage)> {
+    use crate::world::folk::persona::negotiate::points;
+    if p.apy >= ask.apy {
+        return None;
+    }
+    let s = points::named(w, w.people[i].player.id)?;
+    let u = points::earn_back(w, i, s)?;
+    let g = market::goals(w, i);
+    let low = market::lowest(w, i, t, ideal, own == Some(t));
+    let floor = p.apy.max(low).min(ask.apy);
+    let ego = w.people[i].player.personality.traits.z(crate::player::Trait::Ego);
+    let safe = g.security > 0.6 && ego < 0.5;
+    let base = round_q(if safe { floor + 0.5 * (ask.apy - floor) } else { floor });
+    let extra = round_q((ask.apy - base).max(0.0));
+    if extra <= 0.0 {
+        return None;
+    }
+    let gtd = if safe { ask.gtd } else { ask.gtd.min(0.5 * ideal.gtd) };
+    let gtd = (gtd * 20.0).round() / 20.0;
+    let years = if w.people[i].player.age < 27 { 2 } else { 1 };
+    let a = Proposal {
+        years,
+        apy: base,
+        gtd,
+        bonus: ask.bonus.min(gtd),
+        void_years: 0,
+        incentives: extra,
+        no_trade: false,
+        start: ask.start,
+        ramp: 0.0,
+        low_first: false,
+    };
+    Some((a, u))
 }
 
 /// The agent's ask today, without an offer (live talks v3, lane N5b): his

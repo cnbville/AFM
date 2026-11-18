@@ -823,6 +823,14 @@ pub fn is_rpo_half(c: &PassConcept) -> bool {
     c.name.starts_with("RPO")
 }
 
+/// A concept that can carry the run fake as a tag (scheme-fit item 3):
+/// every dropback concept but the RPO halves and the play-action concepts,
+/// which fake already. Screens too (real NFL 2022-2025: 27% of screens come
+/// off a run fake, FTN charting).
+pub fn takes_fake(c: &PassConcept) -> bool {
+    !c.play_action && !is_rpo_half(c)
+}
+
 /// A concept's index by name.
 /// Plays built in the designer (topic 8), numbered after the library.
 static DESIGNED: std::sync::RwLock<Vec<&'static PassConcept>> = std::sync::RwLock::new(Vec::new());
@@ -1196,17 +1204,32 @@ pub struct OffCall {
     /// Why the caller chose it (topic 6.6), in a few words.
     #[serde(deserialize_with = "crate::save::leaked")]
     pub why: crate::save::Text,
+    /// A run fake before the throw (scheme-fit item 3): any dropback
+    /// concept can carry it (Cain, 2026-11-17), mostly from under center.
+    /// The library's own play-action concepts always fake.
+    #[serde(default)]
+    pub fake: bool,
 }
 
 impl OffCall {
     pub fn new(formation: Formation, kind: PlayKind, dir: f64, tempo: bool) -> OffCall {
-        OffCall { formation, kind, dir, tempo, alt: None, why: "" }
+        OffCall { formation, kind, dir, tempo, alt: None, why: "", fake: false }
+    }
+    /// A throw off a run fake: the tag, or a play-action concept.
+    pub fn play_action(&self) -> bool {
+        match self.kind {
+            PlayKind::Pass(i) => self.fake || pass_concept(i).play_action,
+            _ => false,
+        }
     }
     pub fn describe(&self) -> String {
         let m = self.formation.motion;
         let pre = if m == Motion::None { String::new() } else { format!("{}, ", m.name()) };
         let body = match self.kind {
             PlayKind::Run(r) => format!("{} {}", r.name(), if self.dir > 0.0 { "left" } else { "right" }),
+            PlayKind::Pass(i) if self.fake && !pass_concept(i).play_action => {
+                format!("play-action {}", pass_concept(i).name)
+            }
             PlayKind::Pass(i) => pass_concept(i).name.to_string(),
             PlayKind::Rpo(r, i) => format!("{} with {}", r.name(), pass_concept(i).name),
             PlayKind::Kneel => "kneel".into(),

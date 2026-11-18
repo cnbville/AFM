@@ -197,3 +197,30 @@ My pick: yes.
 Example: a Samoan linebacker from Carson and a Samoan linebackers coach start with a little more in common, as two men from Mobile would. It never decides a bond; time and moments do.
 In games: a slightly faster start for a few pairs; nothing else.
 My pick: yes, small.
+
+## 12. World measure (2026-11-18, seed 261)
+
+One quarter-scale world (`bond_check 0.25 4 261`, 4 years of history, games on the stand-in) built twice on the same seed: main before bonds, and with bonds. A first run with bonds as merged found two things that read wrong; both were fixed (Cain's full proxy, 2026-11-18) and the world built again. The sizes in the fixes are proposed, not confirmed.
+
+| | Before bonds | Bonds as merged | With the fixes |
+|---|---|---|---|
+| Portal entries 2025 | 22,315 | 21,620 | 22,337 |
+| Portal landings 2023 / 2025 | 12,015 / 17,886 | 10,676 / 14,773 | 10,530 / 17,820 |
+| Followed a head coach / a position coach | 270 / 0 | 131 / 12 | 223 / 25 |
+| College mean mood | 0.062 | 0.036 | 0.030 |
+| Transferred at least once | 30.8% | 29.0% | 30.8% |
+| Mean overall, 3rd-year players | 45.61 | 45.75 | 45.66 |
+| 3rd-year players at Trusts you or above with the position coach | | 8.1% | 22.6% |
+| Bonds at In his corner / Family | | 423 / 7 | 3,069 / 18 |
+
+**Fix 1: an assistant's trust grows with time together** (`TRUST_TIME`, up to +0.12 over two years). Why: an assistant's trust drifted to 0.5 ± 0.15 by his relationships alone, so it held near 0.53 for good, under Trusts you's 0.55. Position coach bonds stopped at Knows you however long they lasted (8% of third-year players past it). Real players come to trust the man who coaches them every day. With the fix, 19-20% of second and third-year players trust their position coach and 3% have him in their corner; closeness, not trust, is now what holds the rest back.
+
+**Fix 2: the follow tie adds closeness to the built tie** (`follow_tie`, 0.75 x the built tie + 0.75 x closeness). Why: the merged formula blended the two, so a player with a strong built tie but a young bond counted less than before bonds, and head-coach followers halved (270 to 131). Now they are 223, plus 25 who follow a position coach (none could before), 248 in all against 270.
+
+**Left as they are, with why:**
+- Mood is 0.03 lower (on -1 to 1). Coaches leave often (138,000 Left moments in four years), and favoritism and the colder room for a new coach cost a little. Transfers are the same (30.8%), so it doesn't move what players do.
+- Portal landings in 2023 dipped in both bond runs and came back by 2025. One seed can't tell noise from cause; the next world trial reads it.
+- Half the bonds are Just met, even in the third year. The snapshot falls just after the coaching carousel, and many players have a new position coach. Real assistant turnover is high too.
+- Family is rare (18 of 965,000): it needs closeness 0.75, trust 0.75 and a hard moment shared, which a few years of history rarely give. Longer worlds will show more.
+- Growth by class is the same (within 0.15 of a point).
+- The store is about 38 MB here, so roughly 150 MB at full scale, against the 10-20 MB the design guessed. In `GAPS.md` for the memory diet.

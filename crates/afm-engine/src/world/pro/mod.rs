@@ -208,6 +208,11 @@ pub struct ProCareer {
     /// roster stands. Day 0 before.
     #[serde(default, skip_serializing_if = "unset")]
     pub role_from: crate::calendar::Date,
+    /// "I'll sign you help" broken (negotiation item 4): the league year it
+    /// broke and the premium his next deal with your club carries (5% x
+    /// his winning goal), until he signs again.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub help_owed: Option<(i32, f32)>,
 }
 
 fn unset(d: &crate::calendar::Date) -> bool {
@@ -258,6 +263,7 @@ impl ProCareer {
             other: Vec::new(),
             case: None,
             role_from: crate::calendar::Date(0),
+            help_owed: None,
         }
     }
 
