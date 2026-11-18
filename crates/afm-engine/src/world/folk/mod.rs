@@ -23,6 +23,7 @@ pub mod backchannel;
 pub mod backers;
 pub mod bonds;
 pub mod boss;
+pub mod captain;
 pub mod case;
 pub mod cast;
 pub mod claims;

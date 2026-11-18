@@ -442,6 +442,12 @@ Cain, 2026-11-17 19:49 UTC: "what other engine parts might need to get improved 
 - **Decided under Cain's proxy, 2026-11-18** (Cain asleep: "you have full proxy and are expected to push forward, when given a chose make the most realistic choice"; for his morning look): EG1-EG5 and the small fixes start at once, with the hand-offs between lanes named in the spec (items 12 and 16 build on EG2's loose ball; items 20 and 22 read EG5's rules); bug 403 joins EG3 (return fouls enforced, sized to real kicks by kind); EG4 tunes the rest of S6.2 (the wide run's path toward the sideline and the short outs) with item 18; bug 407 joins EG4; illegal blocks in the back (about ten times real on scrimmage plays, found in the last review) join EG5, which also moves `match_check`'s penalty column to the real kinds; the shared measure is `AFM_GAPS=1 match_check`, and a lane adds a count it lacks first; lanes take the most realistic option at night and list it in their final reply.
 - **Proposed, not confirmed:** every mechanic and size beyond the real targets and the rule books.
 
+## 31. Captain promises (thread "Make captain promises count", 2026-11-18)
+
+- **Asked:** the coordinator, from GAPS ("You'll be a captain" bound you to nothing), Opus, with Cain asleep on full proxy ("make the most realistic choice").
+- **Decided under Cain's proxy, 2026-11-18** (for his morning look; every size proposed, not confirmed): "You'll be a captain" is a promise, judged the day your room names its captains (college fall camp, the NFL's veterans report), never on games. The vote runs as always; voted in, kept. Left out, you name him beside the vote (a head coach has the last say), and the room pays by how far down its vote he was: your name with the room, and the first men passed over lose a little trust and mood; half for a coach who picks his own. The agenda's promise plan turns that off, and then the vote stands and breaks it. A missed condition releases you. His belief reads the vote as he sees it. The room can hear you promised it before the vote. Only at college and in the NFL (the world names no high school captains).
+- **Built:** the same night (`world/folk/captain.rs`; how it works in `docs/reference/how-it-works/people.md`, "Captain promises").
+
 ## Superseded decisions
 
 | Old | Replaced by | When |
