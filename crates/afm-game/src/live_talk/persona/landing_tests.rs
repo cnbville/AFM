@@ -4,9 +4,10 @@
 //! a recruit's point said with care still moves your case, and once the
 //! talk's exchanges are spent the read says so; a line that touches three
 //! things swings no further with his day than a line that touches one.
-//! A greeting is no dodge and gets no landing words, how you said it is
-//! never one of his things, and his tell shows only past a bar (Cain's
-//! screenshot, 2026-11-18).
+//! A greeting is no dodge and gets no landing words (a goodbye held back
+//! to ask first is no greeting), how you said it is never one of his
+//! things, and his tell shows only past a bar (Cain's screenshot,
+//! 2026-11-18).
 
 use std::sync::Arc;
 
@@ -344,6 +345,16 @@ fn a_line_that_touches_three_things_swings_no_further_with_his_day() {
 const OPENING: &str =
     "Walked in with a coffee and a sore back. Ready. Tell me what I'm getting paid and how it's figured.";
 
+/// His opening asks you something (Cain's screenshot, word for word).
+fn he_opens_asking(g: &mut Game, sid: u32) {
+    let w = g.world.as_mut().unwrap();
+    let sc = w.folk.scenes.iter_mut().find(|x| x.id == sid).unwrap();
+    match sc.lines.iter_mut().rev().find(|l| l.by == 2) {
+        Some(l) => l.text = OPENING.into(),
+        None => sc.them("Jalon Perry", OPENING, None),
+    }
+}
+
 #[test]
 fn a_greeting_is_no_dodge_and_says_nothing_of_how_it_landed() {
     // "First time meeting, nice to meet you", said to an opening that
@@ -355,14 +366,7 @@ fn a_greeting_is_no_dodge_and_says_nothing_of_how_it_landed() {
     let (mut g, f, him) = tt::game("landing-greeting", true);
     let f = f.unwrap();
     let sid = tt::talk(&mut g, him, "role");
-    {
-        let w = g.world.as_mut().unwrap();
-        let sc = w.folk.scenes.iter_mut().find(|x| x.id == sid).unwrap();
-        match sc.lines.iter_mut().rev().find(|l| l.by == 2) {
-            Some(l) => l.text = OPENING.into(),
-            None => sc.them("Jalon Perry", OPENING, None),
-        }
-    }
+    he_opens_asking(&mut g, sid);
     let care = warm_manner(&g, sid).expect("a warm manner he takes well");
     let t0 = tt::trust(&g, him);
     let greeting = json!({ "acts": [], "hits": [], "dodged": true, "not_talk": false, "manner": care });
@@ -390,6 +394,21 @@ fn a_greeting_is_no_dodge_and_says_nothing_of_how_it_landed() {
     let v = line(&mut g, &f, sid, "Your family raised a good one.", vec![], vec![hit(&family, "respected")], care);
     assert!(heard(&v).starts_with("respected on his family"), "{v}");
     assert!(!heard(&v).contains("pride") && !heard(&v).contains("how you said it"), "{v}");
+}
+
+#[test]
+fn a_goodbye_to_his_opening_question_is_no_greeting() {
+    // The game holds a goodbye back to ask "Do you want to continue?", so
+    // the line reaches the turn with no act left; it still made one, and
+    // said first to his opening question it can dodge it.
+    let (mut g, f, him) = tt::game("landing-goodbye", true);
+    let f = f.unwrap();
+    let sid = tt::talk(&mut g, him, "role");
+    he_opens_asking(&mut g, sid);
+    let bye = json!({ "acts": [{ "act": "end" }], "hits": [], "dodged": true, "not_talk": false });
+    let v = said(&mut g, &f, sid, "Okay, that's all for now.", bye, "Alright, Coach.");
+    assert!(heard(&v).contains("you didn't answer his question"), "{v}");
+    assert!(g.ai.persona.wrap_asked(sid), "the page asks whether to wrap up");
 }
 
 #[test]

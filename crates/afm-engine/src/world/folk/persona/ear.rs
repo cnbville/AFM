@@ -279,6 +279,11 @@ pub struct Reading {
     /// before it, or when the ear gave none.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub manner: Option<super::manner::Manner>,
+    /// The ear read a goodbye in your line, and the game took the end out
+    /// to ask you first ("Do you want to continue?"): the line still made
+    /// an act, so it is never a greeting (`Turn::greeting`).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub wrapped: bool,
 }
 
 /// A hit as the game sized it, from how much the item weighs for him and

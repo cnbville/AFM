@@ -375,6 +375,8 @@ pub fn ask_wrap(mut r: Reading, line: &str) -> (Reading, bool) {
         return (r, false);
     }
     r.acts.retain(|a| !matches!(a, Act::End));
+    // Still a goodbye, never a hello (`Reading::wrapped`).
+    r.wrapped = true;
     (r, true)
 }
 
@@ -775,7 +777,7 @@ impl Resolve for Tags {
             }
         }
         let manner = reply.manner.as_ref().map(|m| Manner::from_words(&m.heat, &m.language, &m.aim, &m.care, &m.say));
-        Reading { acts, hits, dodged: reply.dodged, not_talk: false, manner }
+        Reading { acts, hits, dodged: reply.dodged, not_talk: false, manner, wrapped: false }
     }
 }
 
@@ -832,5 +834,6 @@ mod ask_wrap_tests {
         assert!(ask_wrap(ends(), "I don't want to end this talk yet").1);
         assert!(ask_wrap(ends(), "Okay, that's all for now.").1);
         assert!(ask_wrap(ends(), "Okay, that's all for now.").0.acts.is_empty());
+        assert!(ask_wrap(ends(), "Okay, that's all for now.").0.wrapped, "still a goodbye, never a hello");
     }
 }

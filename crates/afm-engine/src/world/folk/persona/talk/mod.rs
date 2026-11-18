@@ -637,8 +637,9 @@ impl Resolving for Conversation<'_> {
         // line that makes no act and touches nothing of anyone's only says
         // hello first. His opening's question waits for the next line, which
         // owes the answer if he asks it again; one hello, not a string of
-        // them.
-        t.greeting = open.lines == 0 && reading.acts.is_empty() && sized.is_empty();
+        // them. A goodbye the game held back to ask about first still made
+        // its act (`Reading::wrapped`): it can dodge his question.
+        t.greeting = open.lines == 0 && reading.acts.is_empty() && !reading.wrapped && sized.is_empty();
         let opening = open.lines == 0 || (open.greeted && open.lines == 1);
         let on_table = !t.greeting
             && ((open.asking().is_some() && s.is_none_or(asked_last)) || (opening && s.is_some_and(asked_last)));
