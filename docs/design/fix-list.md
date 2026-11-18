@@ -1,6 +1,6 @@
 # Fix list for the section 6 build
 
-Cain's answers to the open items of the trial 8 fixes, 2026-10-19 (thread "Full build and trial 7"). Cain: "btw don't tune them immediately, add them to a fix list i'll include with the building of section 6". Nothing here is built. Each item says what Cain said, what the game does today (traced in the code where it says so, numbers from `match_check` and trial 8's raw export at `afm/trials-8/`), and what the fix changes. The details in each fix are Claude's proposals, not confirmed.
+Cain's answers to the open items of the trial 8 fixes, 2026-10-19 (thread "Full build and trial 7"). Cain: "btw don't tune them immediately, add them to a fix list i'll include with the building of section 6". Build 9 built them (PR #59, `docs/design/build9-plan.md`), except S6.1's linebacker fits, which were tried and dropped, and the rest of S6.2 (its "Where it stands"). Each item says what Cain said, what the game did on 2026-10-19 (traced in the code where it says so, numbers from `match_check` and trial 8's raw export at `afm/trials-8/`), and what the fix changes. The details in each fix are Claude's proposals, not confirmed.
 
 Not on this list, by Cain's answer the same day: NFL passing on world-like rosters (7.9 yards an attempt, real 7.05; "keep it like this for now") and FBS scoring (24.5 points a team game, real 27.0; "Keep it for now, we'l tune later").
 
@@ -24,7 +24,7 @@ The fix (proposed, not confirmed):
 - Read the real share of plays ending out of bounds from nflverse's play by play (its out-of-bounds flag), by play type and time left, and tune toward it.
 - Check after: that share, the snap-to-snap times in `match_check` and plays a game.
 
-Where it stands: partly built in build 9 and minor bugs 137, 138 and 141 (`docs/match-engine.md`, "Fix list S6.1 and S6.2"). The rest (a wide run's path to the sideline, short outs) goes into engine gaps lane EG4 with item 18, protecting a late lead (Claude's call under Cain's proxy, 2026-11-18; `docs/design/engine-gaps.md`).
+Where it stands: partly built in build 9 and minor bugs 137, 138 and 141 (`docs/match-engine.md`, "Fix list S6.1 and S6.2" and "Passing, the sideline and the pocket"). The rest (a wide run's path to the sideline, short outs) goes into engine gaps lane EG4 with item 18, protecting a late lead (Claude's call under Cain's proxy, 2026-11-18; `docs/design/engine-gaps.md`).
 
 ## S6.3 Bonus money paid twice (the $251M contract)
 Cain: "251 m a year seems broken right ?"
