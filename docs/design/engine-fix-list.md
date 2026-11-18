@@ -19,3 +19,6 @@ Found with the same hover (`lane_help/roles.rs`, `UNREAD`), from the 800-game re
 
 ## Scheme fit (lanes SF0-SF11)
 The 25 items Cain agreed on 2026-11-16 and 17 after the scheme-fit audit are in `docs/design/scheme-fit.md`, with their lanes. The same rule holds: the engine lanes start after the world rebuild. "Ball tracking for corners and safeties" above is part of item 14 there (lane SF6). E1 sits next to item 7 (lane SF3) and stays Cain's call.
+
+## Engine gaps (lanes EG1-EG7)
+The 30 items Cain agreed on 2026-11-17 after the engine gaps audit (injuries, ball security, the kicking game, the end of halves and game management, each level's rule book and the flags, the red zone, the quarterback off script, and three that go elsewhere) are in `docs/design/engine-gaps.md`, with their lanes. The world rebuild this list waited for is done (seed 181, 2026-11-17), so EG1-EG5 start beside the scheme-fit chain; EG6 waits for SF7, and EG7 for SF4 and SF8.
