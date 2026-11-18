@@ -592,6 +592,11 @@ fn a_sheet_throw_fakes_as_often_as_the_calls_that_draw_its_look() {
     // lean hard to the call, and a West Coast caller with no preference,
     // whose drops go to empty at times.
     use std::collections::HashMap;
+    // A look and concept, or a group, backfield and set; and its tally:
+    // throws, fakes and the read-back.
+    type Look = (Personnel, Backfield, Set, usize);
+    type Group = (Personnel, Backfield, Set);
+    type Tally = (f64, f64, f64);
     for (staff, seed) in
         [(wanting(OffScheme::PowerGap, Personnel::P12, 14.0), 21), (Staff::average(OffScheme::WestCoast), 22)]
     {
@@ -601,8 +606,8 @@ fn a_sheet_throw_fakes_as_often_as_the_calls_that_draw_its_look() {
         let mut rng = Rng::new(seed);
         // Each look and concept: throws, fakes, the read-back. Each group,
         // backfield and set: throws, fakes, the read-backs summed.
-        let mut looks: HashMap<(Personnel, Backfield, Set, usize), (f64, f64, f64)> = HashMap::new();
-        let mut sets: HashMap<(Personnel, Backfield, Set), (f64, f64, f64)> = HashMap::new();
+        let mut looks: HashMap<Look, Tally> = HashMap::new();
+        let mut sets: HashMap<Group, Tally> = HashMap::new();
         for _ in 0..100_000 {
             let c = call_offense(&staff, &mem, &s, &ctx, &mut rng);
             let PlayKind::Pass(i) = c.kind else { continue };
