@@ -201,15 +201,17 @@ pub struct ProCareer {
     /// person's index moves when the world is compacted.
     #[serde(default)]
     pub case: Option<super::people::PastCase>,
-    /// The season his `Person::last_role` was read from (code oddity 29,
-    /// `role::write`): a later write from an older season leaves it, so
-    /// another league's season he sat out on its roster stands. 0 before.
-    #[serde(default, skip_serializing_if = "is_zero")]
-    pub role_year: i32,
+    /// Where the season his `Person::last_role` was read from sits in time
+    /// (code oddity 29, `role::write`: an NFL season at its Super Bowl,
+    /// another league's at its opening day): a later write from an older
+    /// season leaves it, so another league's season he sat out on its
+    /// roster stands. Day 0 before.
+    #[serde(default, skip_serializing_if = "unset")]
+    pub role_from: crate::calendar::Date,
 }
 
-fn is_zero(x: &i32) -> bool {
-    *x == 0
+fn unset(d: &crate::calendar::Date) -> bool {
+    d.0 == 0
 }
 
 impl ProCareer {
@@ -255,7 +257,7 @@ impl ProCareer {
             exempt: 0,
             other: Vec::new(),
             case: None,
-            role_year: 0,
+            role_from: crate::calendar::Date(0),
         }
     }
 

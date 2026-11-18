@@ -336,8 +336,8 @@ pub struct Promise {
     /// cleared once he is back on your roster (`back_with_you`).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub sent: bool,
-    /// It closed because you left the job it was made at (`close_quietly`),
-    /// not because he left or let you off.
+    /// It closed because you left the job it was made at while he was
+    /// still there (`close_quietly`), not because he left or let you off.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub job_closed: bool,
 }
@@ -797,77 +797,134 @@ pub(crate) fn let_go(w: &mut World, i: usize, club: usize) {
     }
 }
 
-/// You leave a job (`market::left`): each promise still open learns the
-/// team you made it at. Taken from you (fired, a school that dropped
-/// football), you can keep none of them, so they close quietly; for
-/// another job, `job_taken` settles them once you are there (a promotion
-/// at the same club keeps them). Proposed, not confirmed.
+/// You leave a job (`market::left`): what is settled already is judged
+/// (`judge_settled`), and each promise still open learns the team you made
+/// it at. Taken from you (fired, a school that dropped football), you can
+/// keep none of them, so they close quietly; for another job, `job_taken`
+/// settles them once you are there (a promotion at the same club keeps
+/// them). Proposed, not confirmed.
 pub(crate) fn job_left(w: &mut World, why: &str) {
     let Some(old) = Team::seat(w) else { return };
-    judge_played_out(w, old);
+    judge_settled(w, old);
     let gone = why != "left for another job";
     let today = w.today;
-    for p in w.folk.promises.iter_mut().filter(|p| p.kept.is_none()) {
+    for k in 0..w.folk.promises.len() {
+        if w.folk.promises[k].kept.is_some() {
+            continue;
+        }
+        let made_at = w.folk.promises[k].team.unwrap_or(old);
+        let still = gone && still_with(w, &w.folk.promises[k], made_at);
+        let p = &mut w.folk.promises[k];
         p.team.get_or_insert(old);
         if gone {
-            close_quietly(p, today);
+            close_quietly(p, today, still);
         }
     }
 }
 
 /// A promise that ends with nothing to judge: closed today, released.
-fn close_quietly(p: &mut Promise, today: Date) {
+/// `job`: it closed because you left the job it was made at, with him
+/// still there; else he had left first (`Promise::job_closed`).
+fn close_quietly(p: &mut Promise, today: Date, job: bool) {
     p.kept = Some(true);
     p.released = true;
-    p.job_closed = true;
+    p.job_closed = job;
     p.due = today;
 }
 
+/// Whether the man (or coach) a promise was made to is still with the team
+/// it was made at: on its books (a pro club's practice squad and reserve
+/// lists too), a recruit still in high school for a college, a coach still
+/// on that staff. One who had already left has nothing to hold you to.
+fn still_with(w: &World, p: &Promise, team: Team) -> bool {
+    match p.to {
+        PromiseTo::Player(id) => super::person(w, id).is_some_and(|i| {
+            team.roster(w).contains(&i) || matches!(team, Team::College(_)) && w.people[i].stage == Stage::HighSchool
+        }),
+        PromiseTo::Coach(c) => {
+            w.coaches.get(c).and_then(|x| x.job.as_ref()).is_some_and(|j| Team::from_employer(j.employer) == team)
+        }
+        PromiseTo::Cast(..) => true,
+    }
+}
+
 /// How far ahead a playing-time promise's day can be and still be played
-/// out when you leave (`judge_played_out`): past a season's last game and
+/// out when you leave (`judge_settled`): past a season's last game and
 /// before its promises fall due. A promise for next season is further off.
 /// Proposed, not confirmed.
 pub(crate) const PLAYED_OUT_DAYS: i32 = 60;
 
-/// You leave a job with a season played out (the college carousel fires
-/// the day after the regular season, three days before its promises fall
-/// due; Black Monday's firings come before its promises are judged): a
-/// promise judged over the games whose team has no game left before its
-/// day is judged now, at the team you made it at, as on its day. One with
-/// games still to play closes with the rest. Proposed, not confirmed.
-fn judge_played_out(w: &mut World, old: Team) {
+/// You leave a job with some of its promises settled already: each is
+/// judged now, at the team you made it at, as on its day.
+///
+/// - A season played out (the college carousel fires the day after the
+///   regular season, three days before its promises fall due; Black
+///   Monday's firings come before its promises are judged): a promise
+///   judged over the games whose team has no game left before its day
+///   (`games_left`). One with games still to play closes with the rest.
+/// - A man your club cut or traded who is playing on elsewhere
+///   (`sent_away`): broken in full whatever was left of it, as on its day;
+///   with you gone he can't be back with you.
+///
+/// Proposed, not confirmed.
+fn judge_settled(w: &mut World, old: Team) {
     let today = w.today;
-    let ahead = |p: &Promise| {
-        p.kept.is_none()
-            && super::promise::over_games(p.kind)
-            && p.team.is_none_or(|t| t == old)
-            && p.due <= today.add(PLAYED_OUT_DAYS)
-    };
-    if !w.folk.promises.iter().any(ahead) {
-        return;
-    }
-    let games = super::facts::team_games(w, old);
-    let mut any = false;
-    for p in w.folk.promises.iter_mut().filter(|p| ahead(p)) {
-        if !games.iter().any(|g| g.0 >= today && g.0 <= p.due) {
-            p.due = p.due.min(today);
-            any = true;
+    let mine = |p: &Promise| p.kept.is_none() && p.team.is_none_or(|t| t == old);
+    let ahead = |p: &Promise| mine(p) && super::promise::over_games(p.kind) && p.due <= today.add(PLAYED_OUT_DAYS);
+    let games = if w.folk.promises.iter().any(ahead) { super::facts::team_games(w, old) } else { Vec::new() };
+    let mut settled = Vec::new();
+    for (k, p) in w.folk.promises.iter().enumerate() {
+        if mine(p) && (sent_away(w, p) || ahead(p) && !games_left(w, old, &games, today, p.due)) {
+            settled.push(k);
         }
     }
-    if any {
-        check_promises(w, today);
+    if settled.is_empty() {
+        return;
+    }
+    for k in settled {
+        let p = &mut w.folk.promises[k];
+        p.due = p.due.min(today);
+    }
+    check_promises(w, today);
+}
+
+/// Whether a team still has a game between today and `due`: on its
+/// schedule (`facts::team_games`), or in a playoff it is still in. A high
+/// school's and another league's playoff games aren't on those schedules:
+/// a school still in its state's bracket, or before the bracket is drawn,
+/// plays on to the rounds inside the window; a club in another league plays
+/// on while its season runs and it is alive in it (its promises fall due
+/// the week after the title game, `promise::league_end`). A college's bowl
+/// and an NFL club's playoffs come after their promises fall due.
+fn games_left(w: &World, team: Team, games: &[(Date, Team, bool)], today: Date, due: Date) -> bool {
+    let within = |d: Date| today <= d && d <= due;
+    if games.iter().any(|g| within(g.0)) {
+        return true;
+    }
+    match team {
+        Team::High(h) => w.hs_weeks(h).is_some_and(|(_, rounds, done)| {
+            !done && (w.hs_alive(h) || rounds.first().is_some_and(|&d| today < d)) && rounds.iter().any(|&d| within(d))
+        }),
+        Team::Other(f) => {
+            let k = crate::world::pro::other::league_of(f);
+            w.others.live.iter().any(|l| l.league == k && !l.done && (l.round == 0 || l.alive.contains(&(f as u16))))
+        }
+        Team::College(_) | Team::Nfl(_) => false,
     }
 }
 
 /// A man your club let go (`let_go`) who is back on its roster: the cut is
-/// behind you, so a later exit on his own terms lapses (`sent_away`).
+/// behind you, so a later exit on his own terms lapses (`sent_away`). Its
+/// practice squad isn't back: a cut to it is the demotion itself, and a
+/// club that signs him off it took a man your club let go.
 fn back_with_you(w: &mut World) {
     let Some(team) = Team::seat(w) else { return };
     if !w.folk.promises.iter().any(|p| p.sent && p.kept.is_none()) {
         return;
     }
-    let roster = team.roster(w);
-    let ids: Vec<u32> = roster.iter().map(|&i| w.people[i].player.id).collect();
+    let squad =
+        |i: usize| w.people[i].pro.as_ref().is_some_and(|c| c.status == crate::world::pro::Status::PracticeSquad);
+    let ids: Vec<u32> = team.roster(w).iter().filter(|&&i| !squad(i)).map(|&i| w.people[i].player.id).collect();
     for p in w.folk.promises.iter_mut().filter(|p| p.sent && p.kept.is_none() && p.team.is_none_or(|t| t == team)) {
         if of_his_place(p).is_some_and(|id| ids.contains(&id)) {
             p.sent = false;
@@ -877,31 +934,20 @@ fn back_with_you(w: &mut World) {
 
 /// You start at a new job (`market::hired`): a promise made at another
 /// team can't be kept here. One that you'd stay is broken, judged today
-/// (`kept`); the rest close quietly, as when he leaves on his own.
-/// Proposed, not confirmed.
+/// (`kept`), if he was still there (`still_with`); the rest close quietly,
+/// as when he leaves on his own. Proposed, not confirmed.
 pub(crate) fn job_taken(w: &mut World) {
     let now = Team::seat(w);
     let today = w.today;
     for k in 0..w.folk.promises.len() {
         let p = &w.folk.promises[k];
         let Some(old) = p.team.filter(|&t| p.kept.is_none() && Some(t) != now) else { continue };
-        // A man who had already left that team has nothing to hold you to;
-        // a recruit still in high school does.
-        let still = match p.to {
-            PromiseTo::Player(id) => super::person(w, id).is_some_and(|i| {
-                old.roster(w).contains(&i) || matches!(old, Team::College(_)) && w.people[i].stage == Stage::HighSchool
-            }),
-            // A coach who had already left that staff.
-            PromiseTo::Coach(c) => {
-                w.coaches.get(c).and_then(|x| x.job.as_ref()).is_some_and(|j| Team::from_employer(j.employer) == old)
-            }
-            PromiseTo::Cast(..) => true,
-        };
+        let still = still_with(w, p, old);
         let p = &mut w.folk.promises[k];
         if p.kind == PromiseKind::Stay && still {
             p.due = today;
         } else {
-            close_quietly(p, today);
+            close_quietly(p, today, still);
         }
     }
 }

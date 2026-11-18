@@ -258,6 +258,47 @@ fn your_roots_are_ground_on_day_one_and_your_own_ties_go_with_you() {
     assert!(w.ground.get(who, yh).is_some(), "your own ties go with you");
 }
 
+/// A promise judged reaches the kid's high school coach from the program
+/// it was made at: one made here pays your program and you; one made at
+/// another program you coached pays only your own word, which goes with
+/// you; one made at a pro job is no word to him.
+#[test]
+fn a_promise_reaches_his_coach_from_the_program_it_was_made_at() {
+    use crate::world::folk::Team;
+    use crate::world::folk::talks::{Promise, PromiseKind, PromiseTo};
+    let (mut w, prog, you, h) = world();
+    let d = if w.today.parts().2 == 1 { w.today.add(1) } else { w.today };
+    standing::day(&mut w, d);
+    let kids: Vec<usize> = (0..w.people.len()).filter(|&i| w.people[i].hs == h).take(3).collect();
+    assert_eq!(kids.len(), 3, "three kids from his school");
+    let who = hc(&w, h);
+    let (ph, yh) = (Holder::Program(prog as u32), Holder::Coach(you as u32));
+    let other = (0..w.programs.len()).find(|&p| p != prog).unwrap();
+    // Both start well above the floor, so each loss shows.
+    for holder in [ph, yh] {
+        let m = w.ground.entry(who, holder, || crate::world::ground::Memory::new(who, holder, 0.0, d));
+        m.points = 60.0;
+    }
+    let broken = |w: &mut World, n: usize, team: Team| {
+        let mut p = Promise::blank(PromiseTo::Player(w.people[kids[n]].player.id), PromiseKind::Snaps);
+        p.made = d.add(-100 - n as i32);
+        p.due = d.add(-1);
+        p.kept = Some(false);
+        p.team = Some(team);
+        w.folk.promises.push(p);
+        standing::day(w, d);
+        (standing::points(w, who, ph), standing::points(w, who, yh))
+    };
+    let (p0, y0) = (standing::points(&w, who, ph), standing::points(&w, who, yh));
+    let (p1, y1) = broken(&mut w, 0, Team::College(other));
+    assert_eq!(p1, p0, "this program never gave it");
+    assert!(y1 < y0, "your own word goes with you: {y0} to {y1}");
+    let (p2, y2) = broken(&mut w, 1, Team::Nfl(0));
+    assert_eq!((p2, y2), (p1, y1), "a pro job's promise is no word to him");
+    let (p3, y3) = broken(&mut w, 2, Team::College(prog));
+    assert!(p3 < p2 && y3 < y2, "made here: your program and you");
+}
+
 #[test]
 fn an_areas_level_weights_its_people_by_the_talent_they_control() {
     let (mut w, prog, _, h) = world();

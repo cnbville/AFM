@@ -14,6 +14,7 @@
 //! sees the chart (Cain 2026-11-13; `folk::seen`). The sizes are Claude's
 //! (proposed, not confirmed).
 
+use crate::calendar::Date;
 use crate::player::PlayingTime;
 use crate::world::college::real_role;
 use crate::world::{Stage, World};
@@ -53,8 +54,8 @@ pub(crate) fn season_role(w: &World, i: usize) -> Option<PlayingTime> {
 /// None when he has no such pro season (a rookie keeps his college role,
 /// which his college games gave him).
 ///
-/// With the year of the season it read.
-fn season_of(w: &World, i: usize) -> Option<(PlayingTime, i32)> {
+/// With the season's place in time (`nfl_at`, `league_at`).
+fn season_of(w: &World, i: usize) -> Option<(PlayingTime, Date)> {
     let p = &w.people[i];
     let c = p.pro.as_ref()?;
     let pos = p.player.position;
@@ -62,43 +63,58 @@ fn season_of(w: &World, i: usize) -> Option<(PlayingTime, i32)> {
     let roster = |s: &super::ProSeason| s.full_pay_weeks.saturating_sub(s.ir_weeks);
     let nfl = c.seasons.iter().rev().find(|s| s.games_all() > 0 || s.ps_weeks > 0 || roster(s) > 0);
     let other = c.other.iter().rev().find(|s| s.games > 0);
-    // The newer season; in one year an NFL season ends after the others'.
+    // The newer season: in one year an NFL season ends after the others'.
     let other_newer = match (nfl, other) {
-        (Some(n), Some(o)) => o.year > n.year,
+        (Some(n), Some(o)) => league_at(o.league, o.year) > nfl_at(n.year),
         (None, Some(_)) => true,
         _ => false,
     };
     if other_newer {
         let s = other?;
+        let at = league_at(s.league, s.year);
         if pos.is_specialist() {
-            return Some((PlayingTime::Starter, s.year));
+            return Some((PlayingTime::Starter, at));
         }
         let full = super::other::format(s.league, s.year).map_or(0, |f| f.games as u32);
         let games = s.games as u32;
-        return Some((real_role(s.starts as u32, games, full.max(games), 0.0), s.year));
+        return Some((real_role(s.starts as u32, games, full.max(games), 0.0), at));
     }
     let s = nfl?;
-    let year = s.year;
+    let at = nfl_at(s.year);
     let games = s.games_all();
     if games == 0 {
-        return Some((if roster(s) > s.ps_weeks { PlayingTime::Backup } else { PlayingTime::PracticeSquad }, year));
+        return Some((if roster(s) > s.ps_weeks { PlayingTime::Backup } else { PlayingTime::PracticeSquad }, at));
     }
     if pos.is_specialist() {
-        return Some((PlayingTime::Starter, year));
+        return Some((PlayingTime::Starter, at));
     }
     let season = w.changes.rules(s.year).nfl_games.max(1);
     if w.options.engine_from.is_some_and(|from| s.year < from) {
-        return Some((real_role(s.starts_all(), games, season.max(games), 0.0), year));
+        return Some((real_role(s.starts_all(), games, season.max(games), 0.0), at));
     }
     let off = crate::world::folk::seen::offense(pos);
     let playoff = s.playoffs.as_ref().map_or(0, |l| if off { l.snaps_off } else { l.snaps_def });
     let snaps = s.snaps[if off { 0 } else { 1 }] + playoff;
     let full = NFL_SEASON_SNAPS as f64 / season as f64 * games as f64;
-    Some((real_role(0, games, 0, snaps as f64 / full), year))
+    Some((real_role(0, games, 0, snaps as f64 / full), at))
+}
+
+/// Where an NFL season sits in time, against another league's: at its
+/// Super Bowl, early in February of the next year, after every other
+/// league's season that opened in its year and before any spring league's
+/// next opening day (the AAF opened February 9, the XFL February 8).
+fn nfl_at(year: i32) -> Date {
+    Date::ymd(year + 1, 2, 1)
+}
+
+/// Where another league's season sits in time: its opening day that year
+/// (one man's seasons never overlap, so their openings order them).
+fn league_at(league: u8, year: i32) -> Date {
+    super::other::format(league, year).map_or_else(|| Date::ymd(year, 1, 1), |f| f.start)
 }
 
 /// Writes the role of each of these pros from the season he last played.
-/// A role read from a newer season stands (`ProCareer::role_year`):
+/// A role read from a newer season stands (`ProCareer::role_from`):
 /// another league's season he sat out on its roster keeps no row, so the
 /// year's end would otherwise read the one before it.
 pub(crate) fn write(w: &mut World, people: &[usize]) {
@@ -106,32 +122,36 @@ pub(crate) fn write(w: &mut World, people: &[usize]) {
         if w.people[i].stage != Stage::Pro {
             continue;
         }
-        let Some((r, year)) = season_of(w, i) else { continue };
+        let Some((r, at)) = season_of(w, i) else { continue };
         let p = &mut w.people[i];
         let Some(c) = p.pro.as_mut() else { continue };
-        if year >= c.role_year {
-            c.role_year = year;
+        if at >= c.role_from {
+            c.role_from = at;
             p.last_role = Some(r);
         }
     }
 }
 
-/// Writes the role of each man on another league's roster as its `year`
-/// ends: the season he played, or a backup when he was on it and never
-/// dressed (that league keeps no row without a game).
-pub(crate) fn write_league(w: &mut World, men: &[usize], year: i32) {
+/// Writes the role of each man on another league's roster as its season
+/// (`league`, `year`) ends: the season he played there, or a backup when
+/// he was on it and never dressed (that league keeps no row without a
+/// game). Games for another league earlier that year are not this season.
+pub(crate) fn write_league(w: &mut World, men: &[usize], league: u8, year: i32) {
     for &i in men {
         if w.people[i].stage != Stage::Pro {
             continue;
         }
-        let dressed = w.people[i].pro.as_ref().is_some_and(|c| c.other.iter().any(|s| s.year == year && s.games > 0));
+        let dressed = w.people[i]
+            .pro
+            .as_ref()
+            .is_some_and(|c| c.other.iter().any(|s| s.year == year && s.league == league && s.games > 0));
         if dressed {
             write(w, &[i]);
         } else {
             let p = &mut w.people[i];
             p.last_role = Some(PlayingTime::Backup);
             if let Some(c) = p.pro.as_mut() {
-                c.role_year = c.role_year.max(year);
+                c.role_from = c.role_from.max(league_at(league, year));
             }
         }
     }

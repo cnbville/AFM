@@ -2002,7 +2002,7 @@ fn finish(w: &mut World, d: Date, li: usize, f: &Format, note: &'static str) {
         // before the league lets him go.
         let men: Vec<usize> = roster.iter().map(|&i| i as usize).collect();
         let row_year = w.year;
-        super::role::write_league(w, &men, row_year);
+        super::role::write_league(w, &men, k, row_year);
         let mut keep = Vec::new();
         for i in roster {
             let i = i as usize;
