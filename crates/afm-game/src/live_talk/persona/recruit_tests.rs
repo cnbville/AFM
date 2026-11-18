@@ -346,6 +346,8 @@ fn covering_for_his_grades_in_words_is_the_covering_word() {
         "He's a 3.6 student, grades are no problem.",
         ear(vec![claim("3.6 GPA"), act("end", "", "", "")], vec![]),
     );
+    // The goodbye asks first; End closes the call and settles the word.
+    ok(&mut g, "talk_wrap", json!({ "id": sid }));
     assert_eq!(v["state"], "done", "{v}");
     let w = g.world.as_ref().unwrap();
     let c = w.folk.dialogue.calls.iter().rev().find(|c| c.id == id).expect("the call's word");
@@ -366,6 +368,8 @@ fn being_straight_about_his_grades_in_words_is_the_straight_word() {
         "His grades need work, I won't lie.",
         ear(vec![claim("grades need work"), act("end", "", "", "")], vec![]),
     );
+    // The goodbye asks first; End closes the call and settles the word.
+    ok(&mut g, "talk_wrap", json!({ "id": sid }));
     let w = g.world.as_ref().unwrap();
     let c = w.folk.dialogue.calls.iter().rev().find(|c| c.id == id).expect("the call's word");
     assert_eq!((c.word, c.concern), (1, 1), "you were straight");
@@ -403,6 +407,8 @@ fn a_college_call_keeps_everything_you_said_weighed() {
         "He's a 3.6 student. Well, honestly his grades need work.",
         ear(vec![claim("3.6 GPA"), claim("grades need work"), act("end", "", "", "")], vec![]),
     );
+    // The goodbye asks first; End closes the call and settles the word.
+    ok(&mut g, "talk_wrap", json!({ "id": sid }));
     let w = g.world.as_ref().unwrap();
     let c = w.folk.dialogue.calls.iter().rev().find(|c| c.id == id).expect("the call's word");
     let said = c.said.expect("weighed as said");
