@@ -20,6 +20,11 @@ Gaps found while fixing bugs or building, so they carry over between threads (Ca
 - **A coach leaving doesn't shake a high-need kid's home stability** (low). The design's "loses stability (-0.5 x closeness)" isn't built: only his mood, a Left moment, a year guarded and a year of trouble risk. The stability field is his background, so it needs a call on whether a coach's leaving may change it. Same thread.
 - **No "I'm not going anywhere" promise** (low). A close player hurt by a coach leaving is the price of the bond, but you can't promise to stay. The promises lane has no kind for it. Same thread.
 
+- **Few NFL players re-sign before free agency** (medium). Main re-signs about 23% of expiring veterans before the market opens (91 of 395 on seed 1, 2026); NG4 lowers it to 19% (76 of 393), since a club that values him under his market no longer gets a free 18% off. Real clubs keep more of their own: their offers before free agency read the same `make_offer` as a stranger's, with no premium for knowing the man. Found 2026-11-18 (thread "Make negotiation respond to arguments").
+- **Good veterans left unsigned at cutdown** (medium). 71 players rated 78+ on main (85 with NG4), most 30 or older. The market's first offers open at 88% of his ideal (`make_offer`, `climb`), and once clubs fill their room nobody bids on a capable 31-year-old. Same thread.
+- **The guarantee floor is still a flat cliff** (low). `raw_score` caps any offer at 0.84 when the guarantee is under 75% of his ask and his security goal is over half, whoever he is. Item 1 replaced only the money cliff. Same thread.
+- **No pro trusts an AI head coach** (low). One trust (item 2) at an AI club is his trust in the club alone; only the bond part reads the AI head coach. Same thread.
+
 ## UI
 
 - **The holdover meeting shows no numbers for his unit** (medium). Without last season's points, yards and third downs on the narration you can't judge whether to keep him. Same cause as the first Logic gap.

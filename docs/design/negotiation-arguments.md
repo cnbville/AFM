@@ -133,6 +133,7 @@ Agreed: "Recruits: points come from his tape and your depth chart. They only low
 
 - Each lane's tests: a player with a bad season priced lower in the portal, a staying player's lowball upsetting him on the day, a true point moving the counter and stopping at his market, a cherry-picked point caught, a prove-it counter, a proud and a professional man, the help promise kept and broken, a recruit's point capped at his other offers.
 - **A world check** (lanes NG1 and NG4 change the world): re-signings before free agency, re-sign prices against market, portal prices by season, against main on one seed. It needs Cain's yes with the cost stated first.
+- **NG4 measured** (2026-11-18, Cain's yes on "Measure first"; seed 1's shipped world played one season with `play_on`, stand-in games): re-signed before free agency main 91, NG4 76; unrestricted free agents 304 and 317; players rated 78+ unsigned at cutdown 71 and 85; median dead money $37.6M and $34.6M; trades 39 and 39. The first build gave 69 re-signs and 100 unsigned: in free agency his price stopped 2% above the best offer and his market read his ideal, so a man who barely cared about money could never take the best offer. His market now takes out the room the score already allows and is capped at the best offer once he is on the market (`MARKET_SLACK`, `Ideal::best`).
 
 ## The lanes
 
