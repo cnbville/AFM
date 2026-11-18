@@ -2443,7 +2443,8 @@ fn rec_diag(results: &[afm_engine::game::GameResult], teams: &[afm_engine::game:
         (P::RB, [0.054, 0.513, 0.0487, 0.0358, f64::NAN, 0.0112], None),
     ];
     for (pos, r, ht) in real {
-        let men: Vec<(u32, [f64; 8])> = by.iter().filter(|(id, _)| who.get(id).map(|w| w.0) == Some(pos)).map(|(&id, &v)| (id, v)).collect();
+        let men: Vec<(u32, [f64; 8])> =
+            by.iter().filter(|(id, _)| who.get(id).map(|w| w.0) == Some(pos)).map(|(&id, &v)| (id, v)).collect();
         let sum = |k: usize| men.iter().map(|m| m.1[k]).sum::<f64>();
         let rows = |a: usize, b: usize| men.iter().map(|m| (m.1[a], m.1[b])).collect::<Vec<_>>();
         let (n, _, sd_cat) = true_sd(&rows(1, 0), 40.0);
@@ -2468,10 +2469,15 @@ fn rec_diag(results: &[afm_engine::game::GameResult], teams: &[afm_engine::game:
             100.0 * r[5]
         );
         let ht_of = |id: u32| who.get(&id).map(|w| w.1).unwrap_or(0.0);
-        let cc: Vec<(f64, f64)> = men.iter().filter(|m| m.1[3] >= 12.0).map(|m| (ht_of(m.0), m.1[4] / m.1[3])).collect();
-        let share: Vec<(f64, f64)> = men.iter().filter(|m| m.1[0] >= 40.0).map(|m| (ht_of(m.0), m.1[3] / m.1[0])).collect();
-        let sep: Vec<(f64, f64)> =
-            men.iter().filter(|m| m.1[7] >= 40.0).map(|m| (who.get(&m.0).map(|w| w.2).unwrap_or(0.0), m.1[5] / m.1[7])).collect();
+        let cc: Vec<(f64, f64)> =
+            men.iter().filter(|m| m.1[3] >= 12.0).map(|m| (ht_of(m.0), m.1[4] / m.1[3])).collect();
+        let share: Vec<(f64, f64)> =
+            men.iter().filter(|m| m.1[0] >= 40.0).map(|m| (ht_of(m.0), m.1[3] / m.1[0])).collect();
+        let sep: Vec<(f64, f64)> = men
+            .iter()
+            .filter(|m| m.1[7] >= 40.0)
+            .map(|m| (who.get(&m.0).map(|w| w.2).unwrap_or(0.0), m.1[5] / m.1[7]))
+            .collect();
         // Separation's spread between men: the variance of their means less
         // the mean of each man's own variance over his throws.
         let (sep_m, sep_noise) = {
