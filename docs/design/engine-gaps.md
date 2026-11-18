@@ -257,7 +257,7 @@ Every EG lane:
 - updates `docs/match-engine.md` and the how-it-works pages it touches (`docs/reference/how-it-works/`) in the same PR, and bumps their commit lines;
 - carries a `## Patch note`, because players see the change;
 - reports `match_check`'s time against main, so a slower engine is never a surprise;
-- rebases and measures again before it merges, if another engine lane (SF or EG) merged first.
+- merges main in and measures again before it merges, if another engine lane (SF or EG) merged first.
 
 ## Decided under Cain's proxy (2026-11-18)
 

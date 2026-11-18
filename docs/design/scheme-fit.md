@@ -207,6 +207,6 @@ Every game lane:
 - updates `docs/match-engine.md` and the how-it-works pages it touches (`docs/reference/how-it-works/`) in the same PR, and bumps their commit lines;
 - carries a `## Patch note`, because players see the change;
 - reports `match_check`'s time against main, so a slower engine is never a surprise;
-- rebases and measures again before it merges, if another engine lane (SF or EG) merged first.
+- merges main in and measures again before it merges, if another engine lane (SF or EG) merged first.
 
 **SF11** changes the world: programs install and recruit by fit. So it checks a world against real (installs, fit by school and class, recruiting), and its cost is asked first.
