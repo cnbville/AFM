@@ -70,6 +70,9 @@ Cain agreed to all 30 on 2026-11-17 ("agreed"). What gets built and in which lan
 - **The guarantee floor is still a flat cliff** (low). `raw_score` caps any offer at 0.84 when the guarantee is under 75% of his ask and his security goal is over half, whoever he is. Item 1 replaced only the money cliff. Same thread.
 - **No pro trusts an AI head coach** (low). One trust (item 2) at an AI club is his trust in the club alone; only the bond part reads the AI head coach. Same thread.
 
+- **A college player reads your points at a flat 0.5** (low). `points::skill` gives an agent's skill to a pro's side, but a college player answering for himself, his family decider or his handler all read a cherry-pick at a middling 0.5, whoever they are. Found 2026-11-18 (thread "Make negotiation respond to arguments").
+- **True points only in your college player's money talk** (low). A stat said to a pro's agent, a recruit or a GM counts nothing yet; lanes NG3 (recruits) and NG5 (the NFL) are agreed and not built. Same thread.
+
 ## UI
 
 - **The Pecking order shows your conference only** (low). A state rival outside the conference has its rumors in "What your donors hear" but no row, and the table never ranks you against your state. Found in the same thread (CS5); the press order is built per conference (CP31).
