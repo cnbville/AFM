@@ -207,7 +207,7 @@ fn now_words(w: &World, side: Side, ys: &Years) -> Option<String> {
             date_words(f.winter)
         ),
         (Tier::College, Block::Winter) => {
-            "Winter workouts: lifting, running and conditioning with the strength staff, and some film. No practice, no depth chart".into()
+            "Winter workouts: lifting, running and conditioning with the strength staff, and some film, with no practice".into()
         }
         (Tier::College, Block::Spring) => {
             "Spring practice: the first practices since last season, where the coaches get a first look at who works with the starters".into()
@@ -425,7 +425,10 @@ pub fn place_off(w: &World, i: usize, who: Who) -> Option<Vec<String>> {
 /// weeks with you, else his role that season.
 fn last_season(w: &World, i: usize, who: Who, last: i32) -> Option<String> {
     let p = &w.people[i];
-    if p.stage == Stage::College && p.college_seasons == 0 && p.last_role.is_none() {
+    // A season counts on January 2 (`college::settle_eligibility`): until
+    // then a freshman who played this fall still has none on his count.
+    let counting = last == w.dates.season && w.today < Date::ymd(last + 1, 1, 2);
+    if p.stage == Stage::College && p.college_seasons == 0 && !counting {
         return Some(format!(
             "{} played a college snap yet",
             if who == Who::You { "You haven't" } else { "He hasn't" }
@@ -462,12 +465,12 @@ fn next_place(w: &World, f: &Frame) -> String {
             let camp = format!("fall camp, from {}, is where the jobs are won", date_words(f.camp));
             match f.spring {
                 Some((a, end)) if today < a => format!(
-                    "{opening}. Winter workouts are lifting and conditioning, with no practice. Spring practice, from {} to the spring game on {}, is the first look at who works with the starters, and the depth chart coming out of it is a first read; {camp}",
+                    "{opening}. Winter workouts are lifting and conditioning, with no practice. Spring practice, from {} to the spring game on {}, is the coaches' first look at who works with the starters; {camp}",
                     date_words(a),
                     date_words(end)
                 ),
                 Some((_, end)) if b == Block::Spring => format!(
-                    "{opening}. Spring practice, to the spring game on {}, is the coaches' first look, and the depth chart coming out of it is a first read; {camp}",
+                    "{opening}. Spring practice, to the spring game on {}, is the coaches' first look at who works with the starters; {camp}",
                     date_words(end)
                 ),
                 _ => format!("{opening}. {}", cap(&camp)),
