@@ -48,7 +48,7 @@ fn expiring(w: &mut World, t: usize) -> usize {
 
 /// An offer from club `t` at `apy`, on his ideal's other terms.
 fn at(t: usize, ideal: &market::Ideal, apy: f64) -> Offer {
-    Offer { team: t, apy, years: ideal.years, gtd: ideal.gtd, start: ideal.start }
+    Offer { team: t, apy, years: ideal.years, gtd: ideal.gtd, start: ideal.start, help: 0.0 }
 }
 
 fn season(w: &mut World, t: usize, wins: u32, losses: u32) {

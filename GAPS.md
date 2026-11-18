@@ -75,6 +75,15 @@ Cain agreed to all 30 on 2026-11-17 ("agreed"). What gets built and in which lan
 - **A player's major, girlfriends and breakups, and a second sport are not real life parts** (medium). The people design (topic 6) has them; personal talk draws a major and a girlfriend as flavour only, so a breakup can't move his mood or portal lean and a high school basketball season takes no training time. Same thread; needs Cain's yes.
 - **Personal talk has no line bank without a key** (low). Typed personal questions need the AI; the picks without a key still deflect ("Coach, I'm fine. Can we talk about football?", `talk.deflect`). Same thread.
 
+- **A college player reads your points at a flat 0.5** (low). `points::skill` gives an agent's skill to a pro's side, but a college player answering for himself, his family decider or his handler all read a cherry-pick at a middling 0.5, whoever they are. Found 2026-11-18 (thread "Make negotiation respond to arguments").
+- **A GM hears no true points** (low). Stats count in your college and pro players' money talks (and with a pro's agent), and film and depth count with a recruit; a stat said to another club's GM in a trade talk counts nothing. Same thread.
+
+- **A recruit's hard truth doesn't cost your case a playing-time point** (low). Item 7 says your case loses one when you tell a recruit he'd be behind; only his trust moves (`points::recruit_land`). The case's playing-time point already reads the depth chart, so the truth told changes nothing there. Found 2026-11-18 (thread "Make negotiation respond to arguments").
+- **Points are found by words** (low). A film or depth point to a recruit and a stat point to a player are matched on the words of the ear's claim (`points::recruit_read`, `stat_for`), so a point said in other words counts nothing. Same thread.
+- **A help promise's "new man" is this league year's** (low). `talks::help_kept` reads `ProCareer::new_team` and this year's first two rounds, not the day you made the promise, so a man signed before you said it counts. Same thread.
+
+- **A season's tape barely moves a college price** (medium). NG1's season read adds 0.3 x his tape, but the tape is shrunk for credibility as growth shrinks it, so on seed 1's 2026 season 90% of players move less than 0.13 points (under half a percent of price) and only 16 of 47,659 move more than half a point. A season of interceptions still costs little in the portal. A stronger read (less shrink for the market than for growth, or the stat line itself) needs Cain's call. Found 2026-11-18 (thread "Make negotiation respond to arguments").
+
 ## UI
 
 - **The Pecking order shows your conference only** (low). A state rival outside the conference has its rumors in "What your donors hear" but no row, and the table never ranks you against your state. Found in the same thread (CS5); the press order is built per conference (CP31).

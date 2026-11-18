@@ -385,7 +385,7 @@ pub(crate) fn roster(w: &mut World, prog: usize, d: Date) {
 fn keep_moment(w: &mut World, who: Who, words: &str, good: bool, d: Date) {
     let Some(you) = w.career.as_ref().map(|c| c.coach as u32) else { return };
     let holder = Holder::Coach(you);
-    let start = standing::derived(w, who, holder);
+    let start = standing::base(w, who, holder);
     let m = standing::entry(&mut w.ground, start.max(40.0), who, holder, d);
     m.keep(crate::world::ground::Moment {
         date: d,

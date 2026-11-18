@@ -252,6 +252,21 @@ pub struct Memory {
     /// (personal talk, item 7).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub shared: Vec<Shared>,
+    /// True points you made about his season in a money talk (the
+    /// negotiation overhaul, item 3a), kept a money season: the desk that
+    /// prices him reads them (`negotiate::points::pull`).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub points: Vec<Point>,
+}
+
+/// A true point about his season that landed in a money talk: the stat it
+/// named and the share of the way from his ask to his number it pulls.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Point {
+    pub with: Them,
+    pub day: crate::calendar::Date,
+    pub key: String,
+    pub pull: f32,
 }
 
 /// A contract offer with your own pro's agent (lane N5b): the day he
@@ -270,6 +285,7 @@ pub struct Ready {
 impl Memory {
     pub fn is_empty(&self) -> bool {
         self.his_lies.is_empty()
+            && self.points.is_empty()
             && self.grapevine.is_empty()
             && self.notebook.is_empty()
             && self.unseen.is_empty()

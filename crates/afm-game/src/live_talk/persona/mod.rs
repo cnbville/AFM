@@ -180,7 +180,7 @@ impl EarTerm {
 
 /// The things a deal can hold (`terms::Give`), by their keys in the ear's
 /// schema.
-pub const GIVE_KEYS: [&str; 34] = [
+pub const GIVE_KEYS: [&str; 35] = [
     "scholarship",
     "scholarship_for",
     "money",
@@ -216,6 +216,8 @@ pub const GIVE_KEYS: [&str; 34] = [
     "revenue_share",
     "title",
     "play_calling",
+    // Negotiation item 4: "take less and I'll sign you help".
+    "help",
 ];
 
 /// One thing in a deal as the ear reads it: its key, the number you said,
@@ -275,6 +277,7 @@ impl EarGive {
             "revenue_share" => Give::RevenueShare(n?.max(0.0)),
             "title" => Give::Title,
             "play_calling" => Give::Calling,
+            "help" => Give::Help(n.map_or(afm_engine::world::folk::persona::terms::HELP_ANY, small)),
             _ => return None,
         })
     }
