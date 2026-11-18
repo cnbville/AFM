@@ -8,6 +8,14 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.616 (18 Nov, shipped): opening a save closes the open world before reading the file (PR #535)
+**TLDR:** Loading a save is lighter on memory now: the game lets go of the world you had open before it reads the next one, so big worlds load on an 8 GB Mac.
+- Loading a save while a career or world is open no longer holds two worlds in memory. (PR #535)
+- Big worlds' saves and autosaves load again on 8 GB Macs. (PR #535)
+- If a file can't be opened, you land back on the start page instead of a broken career. (PR #535)
+- Look at: load your latest save from the Load page. (PR #535)
+- Docs and tooling merged too, no game change: Design: coach and player bonds (proposed, not confirmed) (PR #537); Coach bonds: Cain agreed to the design and all 7 questions (PR #538).
+
 ## 0.2.615 (17 Nov, shipped): capital lane CS3: the drive screen (PR #526), capital lane CS2: the Donors screen (PR #525), coach fire: fire by the kind of work, targeting and the spark (PR #530), and 1 more
 **TLDR:** 4 changes ship together. Your capital campaign now has its own page: see how close the goal is, who gave and what moved them, and make the calls that are yours. Capital's Donors screen shows who could fund your next building, how hot donors are for your program, and lets you book a lunch or dinner with one. Plus 2 more below.
 - Capital lane CS3: the drive screen (PR #526): Your capital campaign now has its own page: see how close the goal is, who gave and what moved them, and make the calls that are yours.
