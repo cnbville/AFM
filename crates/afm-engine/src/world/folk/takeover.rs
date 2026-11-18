@@ -274,17 +274,20 @@ fn first_impressions(w: &mut World, team: Team, old: Option<usize>, fit: f32) {
     }
 }
 
-/// How close a player is to the man you replaced, 0-1: years under him, and
-/// whether he recruited him.
+/// How close a player is to the man you replaced, 0-1: years under him and
+/// whether he recruited him (half of it), and his bond with him.
 pub fn tie_to_old(w: &World, i: usize, old: Option<usize>) -> f32 {
     let Some(o) = old else { return 0.0 };
     let p = &w.people[i];
     let years = p.college_staff.iter().filter(|x| x.2 == Some(o)).count() as f32;
     let recruited = p.college_staff.first().is_some_and(|x| x.2 == Some(o));
     let pro = p.pro.as_ref().is_some_and(|c| c.seasons.len() >= 2) as u8 as f32;
-    ((0.18 * years + if recruited { 0.3 } else { 0.0 } + 0.2 * pro)
+    let built = ((0.18 * years + if recruited { 0.3 } else { 0.0 } + 0.2 * pro)
         * (0.6 + 0.04 * p.player.personality.traits.get(Trait::Loyalty) as f32))
-        .clamp(0.0, 1.0)
+        .clamp(0.0, 1.0);
+    // Coach and player bonds (section 7, "Following"): half the years'
+    // tie with his closeness to the man.
+    super::bonds::follow_tie(w, p.player.id, o, built)
 }
 
 /// The roles you meet in your first weeks, by level.

@@ -880,6 +880,8 @@ fn profile(args: &Value) -> Profile {
         status: text(&p, "status", 20),
         spouse: text(&p, "spouse", 60),
         roots: text(&p, "roots", 120),
+        // How you grew up (coach bonds): one of the setup's choices, or none.
+        raised: text(&p, "raised", 40),
         children,
         height: text(&p, "height", 20),
         build: text(&p, "build", 60),

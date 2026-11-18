@@ -1347,6 +1347,7 @@ pub(crate) fn squad_team(
             let know = clamp(0.72 + 0.04 * years + head, 0.0, 0.9) * (0.8 + 0.2 * side);
             let mut g = GamePlayer::from_player(p, know, 0.7 * years);
             (g.mood, g.belief) = season::game_mind(&w.people[i], seat_mind, rel_mind);
+            season::bond_mind(w, w.people[i].player.id, w.high_schools[h].coach, &mut g);
             g
         })
         .collect();

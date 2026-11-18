@@ -734,9 +734,12 @@ pub(crate) fn package(w: &World, buyer: usize, seller: usize, ask: f64) -> Optio
 /// cut since he keeps his deal (proposed, not confirmed: three quarters of
 /// a cut's hurt). Read before the move.
 pub(crate) fn trade_hurt(w: &World, i: usize, from: usize) -> f64 {
+    // Dealt by a head coach he was close to: x (1 + closeness) (coach and
+    // player bonds).
+    let close = crate::world::folk::bonds::betrayal(w, w.people[i].player.id, w.nfl[from].head_coach) as f64;
     w.people[i].pro.as_ref().map_or(0.0, |c| {
         let years = c.seasons.iter().filter(|s| s.team == Some(from)).count() as f64;
-        if c.wants_out || years < 2.0 { 0.0 } else { 0.75 * (years / 4.0).min(1.0) }
+        if c.wants_out || years < 2.0 { 0.0 } else { 0.75 * (years / 4.0).min(1.0) * close }
     })
 }
 
@@ -811,6 +814,8 @@ fn execute(
     w.market.fleece[buyer][seller] += (got - consensus_given).max(0.0);
     // Named with the team he played for (trial 7 finding 17).
     let hurt = trade_hurt(w, i, seller);
+    let (id, head) = (w.people[i].player.id, w.nfl[seller].head_coach);
+    crate::world::folk::bonds::left_him(w, id, head, crate::world::folk::bonds::What::Traded);
     super::transfer(w, i, buyer, "traded");
     crate::world::people::grudge(&mut w.people[i], seller, hurt);
     for &j in &back {

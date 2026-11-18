@@ -4,7 +4,10 @@ Gaps found while fixing bugs or building, so they carry over between threads (Ca
 
 ## Engine
 
-(none yet)
+- **The engine's instructions read a freelance trust, not his trust in the coach** (medium). `GamePlayer.trust` is 0.5 for every player the world sends to a game, so `tendencies::obey_chance` never sees how much he believes his own coach; only the new bond part (`GamePlayer.bond`, `obey_trust`) reaches it. The built `Person::trust` could feed it directly. Found 2026-11-17 (thread "Build coach and player bonds").
+- **The press ranks only finished rooms** (low). `race::press_score` reads `Campus.level` and `since`, so a building that has broken ground adds nothing until it opens, and the Pecking order screen can't say "read as 10th since the groundbreaking" as board 5 draws it. Recruits' groundbreaking pull (facilities lane #281) is separate. Found 2026-11-17 (thread "Build Capital screen CS5"); needs Cain's call on whether a building under way counts for the press.
+- **Projects follow the player, not the staff that set them** (high). A skill or body project is stored on the player and nothing ends it when he changes team: a high school project rides into college, a portal transfer or a drafted man carries his old staff's project to the new one. Rooms then run past their slots (a scale 0.03 test world: your new college's rooms held 16 skill projects on 14 slots, RB 2 of 1, D-line 3 of 2, S 3 of 1, and a QB in year 5 of his). The AI's own rooms are hit the same way (`ai_room` counts them as running, so it only stops starting new ones). Real staffs decide their own projects, so the fix is to end a project when he moves to a new staff and let that staff pick at its next checkpoint. It changes world results. Found 2026-11-17 (thread "Let me start development projects").
+- **A project's minutes don't come out of the room's week** (medium). Design item 8 says a project takes the position coach's one-on-one minutes, so the rest of the room gets a little less. Today the 60 minutes only set the project's pace (`development.rs`, `GrowthCtx::rate`); nobody else's individual time shrinks, for you or the AI. Same thread.
 
 ## Logic
 
@@ -17,6 +20,19 @@ Gaps found while fixing bugs or building, so they carry over between threads (Ca
 - **A coach hired after last season reads as "one season" here** (medium). `rooms::unit` sets `years` to `(w.year - first_season + 1).max(1)`, so a man who hasn't coached a game here gets 1, and his card says he's been the coordinator "one season". Robert Leonard, hired after a 2-10 year, took the blame for it. Same thread.
 - **A position coach's year is only a growth read** (medium). His room's own numbers on the field (the depth counts of his players) never reach his talk. Same thread.
 
+- **Brothers are not people to each other** (medium). `Family::older_brother_at` names a program, not a person, so a younger brother can't commit to the coach his brother was close to, and the bond's "his little brother commits to you" (`docs/design/coach-bonds.md`, section 7) isn't built. Same thread.
+- **No bonds with strength coaches or NFL position coaches** (medium). Strength coaches see a player more than anyone in the off-season, and NFL clubs store no position coaches. They wait for support departments and stored NFL staffs. Same thread.
+- **Your own effort in a bond is talks only** (low). `bonds::you_effort` is 1.0: what you do counts only as one-on-ones (a week of contact each) and your choices at the moments, not time you give him in your week (the design's funeral "a day of your week"). Same thread.
+- **The returns are not built** (low). A former player's summer visits, his hall of fame asking you to present him, naming a son after you, and a hometown discount in NFL free agency beyond the built "guys follow you" (design section 7). Same thread.
+- **A coach leaving doesn't shake a high-need kid's home stability** (low). The design's "loses stability (-0.5 x closeness)" isn't built: only his mood, a Left moment, a year guarded and a year of trouble risk. The stability field is his background, so it needs a call on whether a coach's leaving may change it. Same thread.
+- **No "I'm not going anywhere" promise** (low). A close player hurt by a coach leaving is the price of the bond, but you can't promise to stay. The promises lane has no kind for it. Same thread.
+- **No word when a project clicks, stalls or is dropped** (medium). A click, a dead end your staff would see, or a project dropped because he moved to a position that doesn't work the skill (`progression::project_year`) sends no note to the inbox or the staff notes. Same thread ("Let me start development projects").
+- **The knack clues in Reports** (medium). The progression design puts the knack's vague clues on the Reports sub-tab; only the one-word read on the projects block exists. Same thread.
+- **Projects a player brings from his last staff run until you end them** (low). The AI's dead-end rule (`ai_keeps`) doesn't run on your team, so an inherited project keeps costing his other technique a quarter of its growth. The screens mark it as his last staff's and a room past its slots, but no note tells you. Same thread.
+
 ## UI
 
 - **The holdover meeting shows no numbers for his unit** (medium). Without last season's points, yards and third downs on the narration you can't judge whether to keep him. Same cause as the first Logic gap.
+- **The Pecking order shows your conference only** (low). A state rival outside the conference has its rumors in "What your donors hear" but no row, and the table never ranks you against your state. Found in the same thread (CS5); the press order is built per conference (CP31).
+- **No pecking order for high school or NFL seats** (medium). The tab row reads "Your seat" for them (CS6), but nothing ranks a district's or an owner's rooms. Same thread.
+- **No project column on the Squad's Development view** (low). You see who is on a project only on the Training screen's room count or each player's own tab. Same thread ("Let me start development projects").

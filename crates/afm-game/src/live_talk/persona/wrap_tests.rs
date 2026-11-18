@@ -40,7 +40,48 @@ fn goodbye(g: &mut Game, f: &afm_ai::Fake, id: u32, words: &str, reply: &str) ->
     f.push(EAR, Ok(ear(vec![act("end", "", "none", "")], vec![], false)));
     f.push(VOICE, Ok(voice(reply, "")));
     let t = ok(g, "people_say", json!({ "id": id, "text": words }))["ticket"].as_u64().unwrap();
-    finish(g, t)
+    let v = finish(g, t);
+    // The line counts as said, and the page asks before it wraps up.
+    assert!(!scene_of(g, id).done, "the goodbye alone doesn't close the talk");
+    assert_eq!(ok(g, "people_scene", json!({ "id": id }))["talk"]["wrap_ask"], true);
+    ok(g, "talk_wrap", json!({ "id": id }));
+    v
+}
+
+#[test]
+fn continue_keeps_the_talk_open_and_the_line_counts() {
+    let (mut g, f, him) = game("wrap-continue", true);
+    let f = f.unwrap();
+    let id = meeting(&mut g, Kind::ParentCall, him);
+    f.push(EAR, Ok(ear(vec![act("end", "", "none", "")], vec![], false)));
+    f.push(VOICE, Ok(voice("Alright, Coach.", "")));
+    let t =
+        ok(&mut g, "people_say", json!({ "id": id, "text": "Okay, that's all for now." }))["ticket"].as_u64().unwrap();
+    assert_eq!(finish(&mut g, t)["state"], "done");
+    let v = ok(&mut g, "people_scene", json!({ "id": id }));
+    assert_eq!(v["talk"]["wrap_ask"], true, "{}", v["talk"]);
+    assert!(scene_of(&g, id).lines.iter().any(|l| l.by == 1), "the line still counts as said");
+    // Continue: the ask goes away and the talk is open as if it hadn't ended.
+    let v = ok(&mut g, "talk_wrap", json!({ "id": id, "keep": true }));
+    assert!(v["talk"].get("wrap_ask").is_none(), "{}", v["talk"]);
+    assert!(!scene_of(&g, id).done);
+    f.push(EAR, Ok(ear(vec![act("question", "", "Mood", "")], vec![], false)));
+    f.push(VOICE, Ok(voice("Still worried, Coach.", "")));
+    let t = ok(&mut g, "people_say", json!({ "id": id, "text": "How is he at home?" }))["ticket"].as_u64().unwrap();
+    assert_eq!(finish(&mut g, t)["state"], "done");
+    assert!(!scene_of(&g, id).done);
+}
+
+#[test]
+fn saying_end_the_talk_is_no_question() {
+    let (mut g, f, him) = game("wrap-explicit", true);
+    let f = f.unwrap();
+    let id = meeting(&mut g, Kind::ParentCall, him);
+    f.push(EAR, Ok(ear(vec![act("end", "", "none", "")], vec![], false)));
+    f.push(VOICE, Ok(voice("Alright.", "")));
+    let t = ok(&mut g, "people_say", json!({ "id": id, "text": "End the talk." }))["ticket"].as_u64().unwrap();
+    assert_eq!(finish(&mut g, t)["state"], "done");
+    assert!(scene_of(&g, id).done, "said outright, it ends");
 }
 
 #[test]

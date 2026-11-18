@@ -418,9 +418,13 @@ pub fn trust(w: &World, him: Them) -> f64 {
                 return t;
             }
             // A family trusts you as far as their son does, and a little
-            // less than him (they weren't in the room).
+            // less than him (they weren't in the room); more when he is
+            // close to you, since they hear it from him (coach and player
+            // bonds, section 7: + 0.2 x his closeness, proposed, not
+            // confirmed).
             let son = trust(w, Them::Player(id));
-            (0.9 * son + 0.03).clamp(0.15, 0.85)
+            let close = f64::from(crate::world::folk::bonds::ear_you(w, id)) / 0.3;
+            (0.9 * son + 0.03 + 0.2 * close).clamp(0.15, 0.9)
         }
         Them::Coach(c) => {
             if let Some(t) = mine.trust_of(crate::world::folk::coach_key(c)) {

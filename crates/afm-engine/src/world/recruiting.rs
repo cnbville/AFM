@@ -2519,6 +2519,8 @@ pub(crate) fn camp_walk_ons(w: &mut World) {
                 .school_link(j, &name);
             w.calendar.post(e);
         }
+        let id = w.people[i].player.id;
+        super::folk::bonds::scholarship(w, id);
     }
     // Open tryouts: the best new graduates in each state who never signed.
     let mut by_state: Vec<Vec<(f64, usize)>> = vec![Vec::new(); w.states.len()];
@@ -8230,6 +8232,8 @@ const FOLLOW_TIE: f32 = 0.4;
 const FOLLOW_LEAN: f64 = 3.0;
 /// The lean event of a head coach's call to come along.
 const FOLLOW: &str = "his old head coach wants him at his new school";
+/// The lean event of an assistant's call to come along.
+const FOLLOW_ASSISTANT: &str = "his old position coach wants him at his new school";
 
 /// A head coach leaves program `a` for the head job at program `b` (minor
 /// bug 86): the players he is close to who would start or rotate at `b`
@@ -8239,6 +8243,23 @@ const FOLLOW: &str = "his old head coach wants him at his new school";
 /// Alabama (2024); Princewill Umanmielen and Devin Harper followed Lane
 /// Kiffin from Ole Miss to LSU (2026); most moves take a few players.
 pub(crate) fn follow_coach(w: &mut World, a: usize, b: usize, coach: usize) {
+    follow(w, a, b, coach, false);
+}
+
+/// A college position coach or coordinator leaves program `a` for a job
+/// at program `b` (coach and player bonds, section 7; people topic 2's
+/// "following his recruiter, position coach or head coach"): the players
+/// close to him lean toward following, by their bond and loyalty, at 0.6
+/// of a head coach's pull (proposed, not confirmed). Real: position
+/// coaches bring a player or two with them in the portal era.
+pub(crate) fn follow_assistant(w: &mut World, a: usize, b: usize, coach: usize) {
+    follow(w, a, b, coach, true);
+}
+
+/// How much of a head coach's pull an assistant's call carries.
+const ASSISTANT_PULL: f64 = 0.6;
+
+fn follow(w: &mut World, a: usize, b: usize, coach: usize, assistant: bool) {
     let label = if w.today < w.dates.fall_camp { w.year - 1 } else { w.year };
     let (div_a, div_b) = (w.programs[a].division, w.programs[b].division);
     // Players follow a coach up or across, not down a level: a coach who
@@ -8271,7 +8292,12 @@ pub(crate) fn follow_coach(w: &mut World, a: usize, b: usize, coach: usize) {
         {
             continue;
         }
-        let tie = super::folk::takeover::tie_to_old(w, i, Some(coach));
+        let tie = if assistant {
+            let loyal = p.player.personality.traits.get(crate::player::Trait::Loyalty) as f32;
+            super::folk::bonds::close(w, p.player.id, Some(coach)) * (0.6 + 0.04 * loyal)
+        } else {
+            super::folk::takeover::tie_to_old(w, i, Some(coach))
+        };
         if tie < FOLLOW_TIE {
             continue;
         }
@@ -8287,12 +8313,18 @@ pub(crate) fn follow_coach(w: &mut World, a: usize, b: usize, coach: usize) {
     }
     for (i, tie, place) in follows {
         let p = &mut w.people[i];
+        let pull = if assistant { ASSISTANT_PULL } else { 1.0 };
         if p.cal.portal.is_none() {
-            super::college::lean_push(p, today, FOLLOW, 1.0 + FOLLOW_LEAN * tie as f64 * place);
+            let why = if assistant { FOLLOW_ASSISTANT } else { FOLLOW };
+            super::college::lean_push(p, today, why, 1.0 + FOLLOW_LEAN * pull * tie as f64 * place);
         }
         let id = p.player.id;
+        // A head coach's call wins over an assistant's.
+        if assistant && w.coach_follows.iter().any(|f| f.0 == id) {
+            continue;
+        }
         w.coach_follows.retain(|f| f.0 != id);
-        w.coach_follows.push((id, b, 0.08 + 0.08 * tie));
+        w.coach_follows.push((id, b, (0.08 + 0.08 * tie) * pull as f32));
     }
 }
 
@@ -9604,6 +9636,10 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         super::folk::backchannel::settled(w, id);
         // His old head coach's new school (minor bug 86), asked until he decides.
         let followed = w.coach_follows.iter().find(|f| f.0 == id).map(|f| f.1);
+        // Whom he followed: the new school's head coach if they have a bond,
+        // else an assistant who moved there (coach and player bonds).
+        let followed_head = followed
+            .is_some_and(|j| w.programs[j].head_coach.is_some_and(|c| super::folk::bonds::bond(w, id, c).is_some()));
         // His move is made: last season's reasons to leave are spent, so a
         // later window this offseason (spring, or a coaching change where he
         // landed) doesn't draw him again.
@@ -9822,8 +9858,9 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         }
         p.note(format!("Entered the portal at {age} {what} and moved from {from_name} to {to_name} ({}).", to.name()));
         if followed == Some(j) {
-            p.note_again("He followed his old head coach there.".to_string(), || {
-                "Again he followed his old head coach there.".to_string()
+            let who = if followed_head { "head coach" } else { "position coach" };
+            p.note_again(format!("He followed his old {who} there."), || {
+                format!("Again he followed his old {who} there.")
             });
         }
         // His new collective's deal starts when he lands, on the place he

@@ -386,8 +386,12 @@ pub(crate) fn college_roles(w: &World) -> Vec<(usize, PlayingTime)> {
                         1 => 2.0 + 3.0 * prog.prestige,
                         _ => 0.0,
                     };
+                    // An AI head coach rates a man he's close to a little
+                    // higher, inside his read's noise (coach and player
+                    // bonds, section 8: the coach's guy).
                     let seen = p.player.overall() - 12.0 * p.pending_dip.unwrap_or(0.0) - blocked
-                        + 1.5 * key_normal(seed ^ year, p.player.id as u64);
+                        + 1.5 * key_normal(seed ^ year, p.player.id as u64)
+                        + super::folk::bonds::guy_bias(w, i);
                     (i, p.player.position, seen)
                 })
                 .collect();
@@ -897,6 +901,15 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         })
         .collect();
     let rehab_due: std::sync::Mutex<Vec<u32>> = std::sync::Mutex::new(Vec::new());
+    // Each player's bond with the coach who teaches him (coach and player
+    // bonds, question 4), read before the step.
+    let bond_lift: Vec<f64> = {
+        let world: &World = w;
+        (0..world.people.len())
+            .into_par_iter()
+            .map(|i| if role_of[i].is_some() { super::folk::bonds::coachability_lift(world, i) } else { 0.0 })
+            .collect()
+    };
     let (people, schools, programs, coaches) = (&mut w.people, &w.high_schools, &w.programs, &w.coaches);
     let capital = &w.capital;
     people.par_iter_mut().zip(role_of.par_iter()).enumerate().for_each(|(i, (p, role))| {
@@ -1122,6 +1135,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                 _ => None,
             },
             hurt: hurts[i].map(|h| hurt_for_step(&mut p.player, h, today)),
+            bond: bond_lift[i],
             ..SeasonContext::new(level, clamp(coaching, 1.0, 20.0), role)
         };
         // Last season's results name its row (growth from results).
@@ -1561,6 +1575,18 @@ pub(crate) fn game_mind(p: &super::Person, seat: bool, relationships: f64) -> (f
     (p.mood, belief)
 }
 
+/// His bond with the head coach on the sideline in a game (coach and
+/// player bonds, section 7): instructions followed more often
+/// (`GamePlayer::bond`) and a talk landing harder, the ear's 0.3 x
+/// closeness through his belief (the talk reads 0.75 x belief).
+pub(crate) fn bond_mind(w: &World, id: u32, head: Option<usize>, g: &mut GamePlayer) {
+    let close = super::folk::bonds::close(w, id, head);
+    if close > 0.0 {
+        g.bond = close;
+        g.belief = (g.belief + 0.4 * close).min(1.0);
+    }
+}
+
 /// The head coach's way with people, for `game_mind`.
 pub(crate) fn coach_relationships(w: &World, c: Option<usize>) -> f64 {
     c.map_or(10.0, |c| w.coaches[c].ability().relationships)
@@ -1595,6 +1621,7 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
             let know = clamp(0.78 + 0.05 * seasons, 0.0, 0.95) * (0.8 + 0.2 * side);
             let mut g = GamePlayer::from_player(&p.player, know, experience);
             (g.mood, g.belief) = game_mind(p, seat, rel);
+            bond_mind(w, p.player.id, head, &mut g);
             // Per family: reps by how much the playbook uses it, and the
             // understanding a sharp player builds faster (topic 4.2, 4.4;
             // proposed, not confirmed).
