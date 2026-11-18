@@ -1098,11 +1098,14 @@ impl Groups {
         }
         // The wing-T plays from its own sets whatever the call. For any
         // other caller, a group's share of the straight dropbacks over its
-        // share of the runs and fakes, against 11's, is 0.43 for 12
-        // and 21, 0.28 for 13 and 0.18 for 22 when he is typical. Real 2024
-        // NFL on normal downs (no short yardage, two-minute drill or garbage
-        // time; nflverse with FTN charting), against 12's: 0.67 for 13 and
-        // 0.30 for 22 (1st and 10 alone: 0.85 and 0.46); here 0.65 and 0.43.
+        // share of the runs and fakes, against 11's, is 0.47 for 12 and
+        // 21, 0.34 for 13 and 0.19 for 22 for the NFL's typical caller
+        // (creativity 14, tell 0.15). Real 2024 NFL on first and ten, where
+        // the down doesn't pick the group (nflverse with FTN charting;
+        // screens, RPOs and sneaks left out): 0.46 for 12, 0.47 for 21,
+        // 0.34 for 13 and 0.20 for 22. Over every normal down real teams
+        // also line up light to run on passing downs (0.31, 0.22, 0.19 and
+        // 0.09), which the fit doesn't read (minor bug 418).
         if scheme != OffScheme::WingT {
             let h = (1.0 + if drop { -2.0 * tell } else { 2.0 * tell }).max(0.2);
             for x in &mut g.items[..g.n] {
