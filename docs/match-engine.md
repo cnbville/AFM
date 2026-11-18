@@ -1268,9 +1268,109 @@ Tried and dropped (NFL test rosters, seed 11):
 
 Still off: inside runs 0.3 a carry short and outside runs 0.3 long (world clubs 1.3), linebackers make too few first tackles, and runs of 20+ are half of real (item 9, lane SF9). Short yardage (item 8) is measured again after this lane, as its spec asks: team 0's backs convert 77-78% of designed runs on 3rd and 4th and 2 or less at the NFL (78-80% before) and 81-84% at FBS (82-84% before), against 67% real, and its quarterbacks 89-95% (real 79%), so it stays lane SF9's. Runs of 20+ don't move (NFL 0.9-1.2% of the backs' carries, FBS 1.3-1.8%, real 2.2%).
 
+## Injuries on every collision, strains and the sideline (engine gaps lane EG1, 2026-11-18)
+
+Engine gaps items 1-3 (`docs/design/engine-gaps.md`, Cain's yes 2026-11-17): every collision can hurt both men by its force, men get hurt with nobody touching them, and a hurt man goes to the sideline and comes back after a few snaps, a series or not at all, with the concussion rules of his level and era. The targets: each position's share of the injuries that cost a week or more near real (nflverse game-status reports 2012-2025: offensive linemen 17.7%, backs 7.4%), the total where main has it (1.081 a team game in the NFL; real about 1.10), the body parts kept at nflverse's, and about a quarter of injuries with nobody touching him (the mix's own non-contact shares).
+
+What was wrong on main (`AFM_GAPS=1 match_check`, NFL and FBS 2,000 games, high school 1,000, the default seeds):
+
+- **Only the tackle and the sack hurt anyone**: the man taken down, his tacklers and the sacked quarterback. Backs took 35.3% of the NFL's week-plus injuries (real 7.4%) and offensive linemen 0.1% (real 17.7%). The hit at the catch point, the hit on a throw, the sacker, a late hitter, the pile and blocks were never checked, nor a tackle that forced a fumble or an arm tackle the runner broke.
+- **Nobody got hurt with nobody touching him**: hamstrings, groins and calves came only from hits, and there was no torn Achilles.
+- **A hurt man played on or was out for the game**, and the world dropped every injury a man finished the game on. Concussions had one rule at every level and era.
+
+What changed (every size proposed, not confirmed; how it works, with every size, in `docs/reference/how-it-works/injuries.md`, "In games"):
+
+- **Every collision checks both men** (`game/sim.rs`, `injury_check`, each with a `Cause`): the tackle (before the fumble roll), an arm tackle the runner breaks at 0.6 of the force, the sack and the sacker, the hit as he throws and a late hit on a slide (flagged or not), the hit at the catch point that knocks the ball loose, the pile (every man within 1.5 yards of a man going down, either side, by the weight going down), a block as it starts and a pancake. Each kind has its share of a hit's chance (`CARRIER_SHARE` 0.18, `TACKLER_SHARE` 0.26 and the rest).
+- **The block's grind** (`Agent::grind`, `Sim::wear`): each man's seconds in blocks and the weight on him, rolled at the play's end. Without it the line stayed near half its real share.
+- **Strains and plants with nobody touching him** (`Agent::sprint`, `plant`, from `Agent::steer`; `Sim::wear`): seconds near top speed, and the speed braked, turned and pushed off with, by his momentum at top speed (big fast men load their legs more), tired legs (1 + 1.2 × tired) and turf (× 1.45, now on these only: contact injuries are about even on turf, Mack et al. 2019). The mix is split by each kind's real non-contact part (`non_contact_share`: hamstrings 95%, groins and calves 85%, ACLs 70%), with a torn Achilles as its own kind.
+- **Each collision leans the kind** (`Cause::lean`): piles knees and ankles, blocks hands, shoulders and backs, tacklers heads, necks and shoulders, read against the average collision (`lean_norm` on `CAUSE_SHARES`), so the body parts stay at nflverse's.
+- **The sideline** (`game/flow.rs`, `apply_injuries`, `sideline_returns`): he plays on hurt as before, or goes off and comes back after a few plays to a series or two by how bad it is and his toughness, or is done; a torn ACL, a torn Achilles or a broken bone never comes back. Back in, he plays hampered.
+- **Concussions by level and era** (`game/rules.rs`, `Concussion::for_year`): out for the day from the NFL's 2009 rule and college's and high school's 2010; before them about half went back in and their time out was shorter (Pellman et al. 2005, Casson et al. 2010). Men pulled for a check and cleared come back after about 13 plays (high school sits them); the NFL's count is sized to 2025's 538 in-game evaluations for 168 game concussions.
+- **The world** keeps every game injury after the game, one he finished the game on too (`world/pro/games.rs`, `record`, `record_preseason`; `world/pro/other.rs`; `training/seat.rs`, `game_injuries`), and a torn Achilles is always a major injury that heals worse than a torn ACL (`development.rs`, `hurt_class`, `major_heal`).
+- **Tools**: `AFM_GAPS=1 match_check` prints each position's week-plus share against nflverse, a position by cause grid, injuries by cause, the body parts against nflverse, the sideline, and concussions and checks (`injury_counts`); the world log's injury rows keep `back` and `cause` (`world/wlog/games.rs`); the World Reader shows "back in after N plays"; game day's halftime line says when a man came back in.
+
+`AFM_GAPS=1 match_check`, 2,000 NFL games on the default seed, main (fe3e2b3) and after:
+
+| NFL, a team game | main | after | real |
+|---|---|---|---|
+| injuries costing a week or more | 1.081 | 1.084 | about 1.10 |
+| all injuries | 2.050 | 1.994 | – |
+| of the week-plus ones: offensive line | 0.1% | 17.6% | 17.7% |
+| backs | 35.3% | 8.0% | 7.4% |
+| receivers / tight ends | 16.9 / 4.4% | 12.2 / 5.8% | 13.2 / 7.4% |
+| quarterbacks | 4.1% | 3.0% | 3.1% |
+| interior line / edges | 3.0 / 4.8% | 9.9 / 11.4% | 8.9 / 8.0% |
+| linebackers | 11.9% | 12.0% | 10.7% |
+| corners / safeties | 9.2 / 9.6% | 11.1 / 8.5% | 13.7 / 9.1% |
+| with nobody touching him, of all | 0 | 25.3% | 24.6% (the mix's shares) |
+| knee / ankle / hamstring, of the week-plus | 16.1 / 13.8 / 13.6% | 17.8 / 13.9 / 13.1% | 17.2 / 14.3 / 12.9% |
+| concussion / shoulder | 10.6 / 6.0% | 10.9 / 5.6% | 11.1 / 5.6% |
+| of all injuries: played on / back in / out for the game | 33.4 / 0 / 66.6% | 33.8 / 11.7 / 54.5% | – |
+| men back in the same game | 0 | 0.233, after 12.3 plays | – |
+| concussions a game (caught) | 0.446 (92.7%) | 0.437 (92.0%) | 0.45 in 2024, 0.59 in 2025 |
+| concussion evaluations a game concussion | 0.93 | 3.23 | 3.2 (2025: 538 for 168) |
+| points | 24.73 | 24.84 | 22.5 |
+
+Where the NFL's week-plus injuries come from after, a team game: blocks 0.350 (the grind most of it), plants 0.213, sprints 0.174, tackling 0.147, the man tackled 0.100, piles 0.081, the passer 0.019, the hit at the catch point under 0.001. The line's come from blocks (0.129 of its 0.190), plants (0.035) and sprints (0.015); the backs' from being tackled (0.061 of 0.087); the receivers' from sprints (0.054 of 0.133); the defensive line's from blocks (0.076 of 0.107 inside, 0.056 of 0.123 on the edge).
+
+FBS (2,000 games) and high school (1,000), main and after:
+
+| a team game | FBS main | FBS after | HS main | HS after |
+|---|---|---|---|---|
+| injuries costing a week or more | 0.956 | 0.957 | 0.558 | 0.588 |
+| of them: offensive line / backs | 0.2 / 38.6% | 17.4 / 6.1% | 1.3 / 37.6% | 18.6 / 7.9% |
+| with nobody touching him, of all | 0 | 24.0% | 0 | 23.1% |
+| men back in the same game | 0 | 0.256 | 0 | 0.157 |
+| concussion checks cleared a game | 0 | 0.336 | 0 | 0.075 (all sit the day) |
+| points | 23.32 | 23.59 | 18.21 | 18.33 |
+
+Games missed by position on a small world, seed 271 (new; scale 0.05, three years of history with the log on from 2023 and one season on; the same seed on main fe3e2b3 and after). Counted from each regular-season NFL game's injuries, 2023-2026: every game of his team inside the time he is out (his weeks × 7 days from the day after, the medical staff's work left out), for player-seasons of 4 or more games, as nflverse counts them. The real count takes in practice, illness and every other cause too, so it sits above what game injuries alone should give.
+
+| NFL world, games missed a player-season | main | after | real (every cause) |
+|---|---|---|---|
+| offensive line | 0.01 | 0.86 | 1.48 |
+| backs | 3.09 | 0.79 | 1.32 |
+| receivers / tight ends | 1.07 / 0.59 | 0.82 / 0.69 | 1.36 / 1.38 |
+| quarterbacks | 0.87 | 0.65 | 1.38 |
+| interior line / edges | 0.24 / 0.27 | 0.89 / 0.92 | 0.96 / 1.16 |
+| linebackers | 0.76 | 0.86 | 1.22 |
+| corners / safeties | 0.81 / 1.01 | 0.98 / 1.13 | 1.50 / 1.21 |
+| kickers / punters | 0.08 / 0.03 | 0.10 / 0.06 | 0.56 / 0.25 |
+| all | 0.72 | 0.83 | 1.2 |
+| injuries that cost a game, a player-season | 0.31 | 0.32 | about 0.42 |
+| game injuries costing a week or more, a team game | 0.897 | 0.984 | about 1.10 |
+
+Main's world put the games missed on the backs (3.09 a player-season, 2.3 times real) and almost none on the line. After, every position but the kickers and punters sits at 47-94% of its real count: quarterbacks (47%), tight ends (50%) and the line (58%) farthest under, the interior line and safeties (93%) closest. The world's NFL games run fewer injuries than the test league on both builds (0.984 a team game after, against 1.084). The world's own season rows give 0.37 games missed a player-season on main and 0.39 after: they leave out games on injured reserve, which nflverse's count keeps (minor bug 415).
+
+The world's college and high school games rise more than the test leagues. Week-plus injuries a team game: college 0.963 to 1.103 and high school 0.664 to 0.792, where the FBS test league went 0.956 to 0.957 and the high school one 0.558 to 0.588. Measured on the college games, about 60% of the rise is on grass and 40% the turf's lean:
+
+- **On grass**, main's world ran 5% under the FBS test league (0.910 a team game, all of it the man tackled) and the world after runs 4% over it (0.991). Its piles hurt 0.25 men a team game against the test league's 0.18, on the same 67 plays a team game; every other cause is within 4%. Why the world's piles run higher is not measured yet (`GAPS.md`).
+- **On turf** (60% of the world's college games; `match_check` plays every game on grass), week-plus injuries run 1.19 times grass after, against 1.10 on main: strains and plants, about 36% of them on grass, take the whole 1.45. All injuries run 1.13 times grass after and 1.11 on main, the total the move kept.
+
+Speed: `match_check`'s games take 2-4% longer in the NFL and FBS and 10% longer in high school. Two runs each on an idle machine (4 cores, the same build settings): 2,000 NFL games 13.75 s on main and 14.3 s after, 2,000 FBS games 14.7 s and 15.05 s, 1,000 high school games 5.05 s and 5.55 s; the whole NFL run 16.6 s and 17.1 s.
+
+Tried and dropped:
+
+- **The first sizes** gave 1.56 week-plus injuries a team game in the NFL: plants, summed over every cut of a play, outweighed everything, the man tackled was rolled again in his own pile, and the line still came short. The man himself left his own pile, strains and plants went on his momentum at top speed, and the block's grind came in; then the shares were sized down to main's total.
+- **A hit's force on the change of speed or on the lighter man's side**: lighter, slower high school players would take more of it, where real high school rates run below college's, so a hit's force stays both men's momentum.
+- **A pile at every pancake**: almost no weight goes down there, so it changed nothing worth its code.
+- **Strains on speed alone**: high school legs would strain as often as the NFL's; his momentum at top speed keeps the levels in order.
+
+Still off:
+
+- Edges take 11.4% of the NFL's week-plus injuries (real 8.0%), corners 11.1% (13.7%) and tight ends 5.8% (7.4%). Part may be the real side: nflverse lists many edge rushers as linebackers, and the real share weighs each position's rate by an unsourced estimate of how many men a team plays there (`match_check`). A share for one position would be a fudge, so none was added.
+- Knees 17.8% of the week-plus ones (real 17.2%).
+- High school week-plus injuries rose 5% (0.558 to 0.588), most of it piles, where more men are around the ball (0.088 a team game, against 0.081 in the NFL).
+- In the world, college and high school week-plus injuries rose 15% and 19% (above): turf, and piles that run higher than the test league's.
+- The world's NFL season rows read 0.39 games missed a player-season against nflverse's 1.2, as they leave out games on injured reserve (minor bug 415).
+- The hit at the catch point almost never hurts anyone (under 0.001 a team game): the engine rarely knocks a ball loose with a hit, and a catch held on to is a tackle.
+- The NFL's game concussions are 0.44 a game (real 0.45 in 2024, 0.59 in 2025).
+- The sideline's sizes (11.7% of injuries back in, after about 12 plays) have no real count on file to check against.
+- Playing on hurt or back in costs nothing past the game, the sideline reads only the injury and his toughness, and its play count runs through halftime (`GAPS.md`).
+
 ## Debug tools
 - `cargo run --release --bin tendency_check -- nfl|fbs|fcs|small|hs [games per arm] [seed] [spread|ends|fit|orders|levels|all|drift|centers] [keys]`: the tendency proofs; `drift` shows which tendency moves the league average (a comma list of keys runs one arm with those at the spread).
-- `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl2022|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, college only; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams, `AFM_AB_WORLD=<world file>` plays a world's 32 NFL clubs (NFL only), and `AFM_RUNDIAG=1` adds the run diagnostic (lane SF3: who starts the tackle by his block at the hit, the line's edge against yards before contact, the backs' lasting spread).
+- `cargo run --release --bin match_check -- nfl|fbs|hs|cfl|arena|nfle|xfl2001|xfl|aaf|usfl1983|usfl2022|ufl2009|ufl [games] [seed] [pbp]`: averages against real data (the other leagues' books against their own real averages); `pbp` prints the first game play by play with its whys. `AFM_ROSTERS=file.json` plays a trial's exported rosters (`python3 tools/rosters/export_rosters.py <raw dir> <out.json> [division]`, college only; the raw files must be unzipped), `AFM_DUMP=file.json` writes the synthetic teams, `AFM_AB_WORLD=<world file>` plays a world's 32 NFL clubs (NFL only), `AFM_RUNDIAG=1` adds the run diagnostic (lane SF3: who starts the tackle by his block at the hit, the line's edge against yards before contact, the backs' lasting spread), and `AFM_GAPS=1` the engine gaps audit's counts (since lane EG1 injuries by position, cause and body part against nflverse, the sideline and concussion checks).
 - `cargo run --release --bin dynasty_check -- value [games] [seed]`: what each position and the play callers are worth (`AFM_LEVEL`, `AFM_ONLY`). `cargo run --release --bin call_values -- 400`: rebuilds the coaches' what-beats-what table (`AFM_CELL=concept:Coverage` shows one cell's outcomes).
 - `cargo run --release --bin fit_check -- run <fbs|nfl|hs> [games] [seed] [out] [arms]`: the scheme-fit check (`docs/design/scheme-fit.md`, lane SF0): does a man's skill pay inside his team's scheme? Team 0 is the level's typical team; each arm changes one thing on it (a rating, a body number, a drawn man, the scheme) and replays the same games as its context's typical arm. `fit_check read <dir>` writes the tables (each job's measures, the items' measures against real, as recruited, personnel, where men lined up, ratings nothing reads, the world's fit weights against what +15 moved); `fit_check repeat` compares runs on the claims behind the items.
 - `cargo run --release --bin fire_check -- hits <nfl|fbs|fcs|hs> [games] [seed]`, `talks <level> [seed]`, `run [games] [seed] [stakes]`: coach fire ("Coach fire" above): the big hit's line and the fire counts a team game; the AI coaches' pregame picks against main's; each prototype room's landing on a Branch-type safety and a calm pocket passer, then the two men under each room, A/B on the same seeds against their coach's own read (stakes 0.8 for playoff games).
