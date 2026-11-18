@@ -222,6 +222,10 @@ pub enum PromiseKind {
     /// picks by then, void if he was gone before your first chance or never
     /// entered the draft (Cain 2026-11-15).
     Draft(u8),
+    /// "Take less and I'll sign you help" (negotiation item 4): your club
+    /// adds a starter at this position (its index; 255 any) who starts
+    /// next season's opener.
+    Help(u8),
     /// He'll be a captain: judged the day your room names its captains
     /// (college fall camp, the NFL's veterans report), kept by the vote or
     /// by you naming him beside it (`captain`, 2026-11-18).
@@ -256,6 +260,11 @@ impl PromiseKind {
             PromiseKind::Draft(r) if r >= 7 => "that you'd draft him".into(),
             PromiseKind::Draft(1) => "that you'd take him in the first round".into(),
             PromiseKind::Draft(r) => format!("that you'd take him by round {r}"),
+            PromiseKind::Help(u8::MAX) => "that you'd sign him help".into(),
+            PromiseKind::Help(p) => crate::positions::Position::ALL.get(p as usize).map_or_else(
+                || "that you'd sign him help".into(),
+                |p| format!("that you'd sign him help at {}", p.name()),
+            ),
             PromiseKind::Captain => "that he'd be a captain".into(),
         }
     }
@@ -439,6 +448,11 @@ fn promise_due(w: &World, kind: PromiseKind, seasons: u8) -> Date {
             let d = w.dates.draft[2].date.add(1);
             if d > today { d } else { d.add(365) }
         }
+        // The Monday after next season's opener (the Thursday kickoff).
+        PromiseKind::Help(_) => {
+            let d = w.dates.nfl_kickoff.add(4);
+            if d > today { d } else { d.add(364) }
+        }
         // The day your room names its captains (`captain::named` judges it
         // then); a few days' grace for a room that never voted.
         PromiseKind::Captain => super::captain::next_naming(w).map_or(today.add(330), |d| d.add(super::captain::GRACE)),
@@ -505,6 +519,9 @@ pub fn check_promises(w: &mut World, d: Date) {
             settle_draft(w, &p, kept, cost);
         } else {
             settle_promise(w, &p, kept, cost);
+        }
+        if let (PromiseTo::Player(id), PromiseKind::Help(_)) = (p.to, p.kind) {
+            help_settled(w, id, kept);
         }
         // A booster takes it further (talk facts lane L8).
         if !kept && let (PromiseTo::Cast(r, term), PromiseKind::Booster(_)) = (p.to, p.kind) {
@@ -649,6 +666,7 @@ pub(crate) fn kept(w: &World, p: &Promise) -> bool {
                     })
                 }
                 PromiseKind::Draft(r) => draft_call(w, i, r, p.made) == DraftCall::Kept,
+                PromiseKind::Help(pos) => help_kept(w, pos),
                 PromiseKind::Captain => {
                     here && Team::seat(w).is_some_and(|t| super::takeover::captains_of(w, t).contains(&i))
                 }
@@ -659,6 +677,46 @@ pub(crate) fn kept(w: &World, p: &Promise) -> bool {
         (_, PromiseKind::Booster(want)) => super::backers::kept(w, p.to, p.made, want),
         (PromiseTo::Coach(c), PromiseKind::Raise) => w.folk.staff.raised_since(c, p.made),
         _ => true,
+    }
+}
+
+/// "I'll sign you help" (negotiation item 4) kept: a man new to your club
+/// this league year (signed or traded for, `ProCareer::new_team`) or
+/// drafted this year in the first two rounds, at the position (any for
+/// 255), who started the opener (a start this season with your club).
+pub fn help_kept(w: &World, pos: u8) -> bool {
+    let Some(Team::Nfl(t)) = Team::seat(w) else { return true };
+    let year = w.year;
+    w.clubs[t].roster.iter().any(|&j| {
+        let q = &w.people[j];
+        let Some(c) = q.pro.as_ref() else { return false };
+        let at = pos == u8::MAX || q.player.position.index() == pos as usize;
+        let new = c.new_team || c.draft.is_some_and(|(y, r, _, club)| y == year && r <= 2 && club == t);
+        let started = c.seasons.iter().any(|s| s.year == year && s.team == Some(t) && s.starts > 0);
+        at && new && started
+    })
+}
+
+/// Your club's side of "I'll sign you help" (negotiation item 4): kept,
+/// his trust in the club rises `HELP_KEPT_CLUB`; broken, it falls 0.3 as
+/// a broken promise of the club's does (`pro::market`), and his next deal
+/// with you carries a premium of 5% x his winning goal
+/// (`ProCareer::help_owed`). His trust in you moves as any promise's does.
+/// Proposed, not confirmed.
+pub const HELP_KEPT_CLUB: f64 = 0.05;
+pub const HELP_BROKEN_CLUB: f64 = 0.3;
+pub const HELP_PREMIUM: f64 = 0.05;
+
+fn help_settled(w: &mut World, id: u32, kept: bool) {
+    let Some(i) = super::person(w, id) else { return };
+    let winning = crate::world::pro::market::goals(w, i).winning;
+    let year = w.year;
+    let Some(c) = w.people[i].pro.as_mut() else { return };
+    if kept {
+        c.trust = (c.trust + HELP_KEPT_CLUB).min(1.0);
+    } else {
+        c.trust = (c.trust - HELP_BROKEN_CLUB).max(0.0);
+        c.help_owed = Some((year, (HELP_PREMIUM * winning) as f32));
     }
 }
 

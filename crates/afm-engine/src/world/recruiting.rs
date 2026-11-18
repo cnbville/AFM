@@ -8827,7 +8827,7 @@ struct MarketRooms {
 
 fn market_rooms(w: &World, leaving: &std::collections::HashSet<usize>) -> MarketRooms {
     let pn = w.programs.len();
-    let perf_of = |p: &Person| p.last_performance.unwrap_or(p.player.overall());
+    let perf_of = |p: &Person| super::nil_bid::season_read(w, p).unwrap_or(p.player.overall());
     let mut open = vec![[0usize; POSITION_COUNT]; pn];
     let mut backups_best = vec![[f64::NEG_INFINITY; POSITION_COUNT]; pn];
     let mut depth: Vec<Vec<Vec<f64>>> = vec![vec![Vec::new(); POSITION_COUNT]; pn];
@@ -8952,7 +8952,7 @@ fn suitors(
     let from = w.programs[c].division;
     let pos = p0.player.position;
     let k = pos.index();
-    let perf = p0.last_performance.unwrap_or(p0.player.overall());
+    let perf = super::nil_bid::season_read(w, p0).unwrap_or(p0.player.overall());
     let (medians, floors) = (mk.medians, mk.floors);
     let median = |d: Division| medians[d as usize][k];
     let floor = |d: Division| floors[d as usize][k];
@@ -9231,7 +9231,7 @@ fn transfer_money(w: &World, mk: &PortalMarket, i: usize) -> f64 {
     let p = &w.people[i];
     let from = p.college.map_or(Division::FBS, |c| w.programs[c].division);
     let median = mk.medians[Division::FBS as usize][p.player.position.index()];
-    let play = p.last_performance.unwrap_or(p.player.overall()) - competition_discount(from);
+    let play = super::nil_bid::season_read(w, p).unwrap_or(p.player.overall()) - competition_discount(from);
     let left = portal_left(w, mk, i);
     transfer_more(left, median.is_finite().then_some(play - median), from == Division::FBS)
 }
@@ -9288,7 +9288,8 @@ fn place_at(
     let pos = p.player.position;
     let k = pos.index();
     let d = w.programs[j].division;
-    let perf = p.last_performance.unwrap_or(p.player.overall()) - competition_discount(from) + competition_discount(d);
+    let perf = super::nil_bid::season_read(w, p).unwrap_or(p.player.overall()) - competition_discount(from)
+        + competition_discount(d);
     let ahead = mk.depth[j][k].iter().take_while(|&&v| v >= perf).count();
     let role = role_at(ahead, crate::league::depth_slots(pos).starters);
     let edge = perf - mk.medians[d as usize][k];
@@ -9554,15 +9555,17 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
         w.portal_market = Some(market);
         return;
     }
-    let perf_of = |p: &Person| p.last_performance.unwrap_or(p.player.overall());
     // Your program wants only the entrants you offered (lane 10).
     let pwant = fo::college::portal_wants(w);
     // Those who told you yes sign first: the places they were promised
-    // are theirs before anyone else's decision takes one.
+    // are theirs before anyone else's decision takes one. Then the best
+    // first, by his season as the market reads it.
+    let read: std::collections::HashMap<usize, f64> = due
+        .iter()
+        .map(|&i| (i, super::nil_bid::season_read(w, &w.people[i]).unwrap_or(w.people[i].player.overall())))
+        .collect();
     let yes = |i: usize| yours_in(pwant.as_ref(), w.people[i].player.id).1.is_some();
-    due.sort_by(|&a, &b| {
-        yes(b).cmp(&yes(a)).then(perf_of(&w.people[b]).total_cmp(&perf_of(&w.people[a]))).then(a.cmp(&b))
-    });
+    due.sort_by(|&a, &b| yes(b).cmp(&yes(a)).then(read[&b].total_cmp(&read[&a])).then(a.cmp(&b)));
     let pn = w.programs.len();
     let season = market.season;
     let one_time = w.changes.rules(season).one_time_transfer;
@@ -9620,7 +9623,7 @@ pub(crate) fn portal_day(w: &mut World, force: bool) {
                 });
             }
         };
-        let perf = perf_of(&w.people[i]);
+        let perf = read[&i];
         let serious = market.serious.contains(&i);
         w.people[i].cal.portal = None;
         // A placement is read on this, his decision day, then spent (minor
@@ -10340,7 +10343,7 @@ pub(crate) fn portal_usual(w: &World, j: usize, i: usize) -> (f64, f64) {
     let div = w.programs[j].division;
     let from = p.college.map_or(div, |c| w.programs[c].division);
     let m = medians[div as usize][p.player.position.index()];
-    let edge = match p.last_performance {
+    let edge = match super::nil_bid::season_read(w, p) {
         Some(x) if m.is_finite() => x - competition_discount(from) + competition_discount(div) - m,
         _ => 0.0,
     };
@@ -10358,7 +10361,7 @@ pub(crate) fn portal_top(w: &World, j: usize, i: usize) -> f64 {
     let div = w.programs[j].division;
     let from = p.college.map_or(div, |c| w.programs[c].division);
     let m = medians[div as usize][p.player.position.index()];
-    let edge = match p.last_performance {
+    let edge = match super::nil_bid::season_read(w, p) {
         Some(x) if m.is_finite() => x - competition_discount(from) + competition_discount(div) - m,
         _ => 0.0,
     };
@@ -10451,9 +10454,14 @@ pub(crate) fn nil_payouts(w: &mut World) {
                     }
                     let share = d.1.get(&id).copied().unwrap_or(0.0);
                     let money = share + cleared;
+                    // A deal he agreed to with you in a talk this money year
+                    // is his own yes, never a July upset; an offer under his
+                    // number upset him the day you made it (negotiation
+                    // item 5, `deals::offered`).
+                    let agreed = super::folk::persona::deals::agreed_money(w, id, today.add(-365));
                     let p = &mut w.people[i];
                     p.cal.nil_school = share as f32;
-                    if fair >= 25_000.0 && money < 0.5 * fair && p.college_seasons < 4 {
+                    if !agreed && fair >= 25_000.0 && money < 0.5 * fair && p.college_seasons < 4 {
                         p.cal.lean = clamp(p.cal.lean * 1.35 + 0.01, 0.0, 0.95);
                         p.cal.lean_events.push((today, "his NIL deal fell short of his worth", 1.35));
                         short.push((p.player.id, money, fair));
@@ -10642,18 +10650,26 @@ pub(crate) fn recruit_top(w: &World, j: usize, i: usize) -> f64 {
     let prog = &w.programs[j];
     let p = &w.people[i];
     let pos = p.player.position;
+    let ahead = ahead_of_recruit(w, j, i);
+    let chance = super::nil_bid::play_chance(ahead, crate::game::roster::starters(pos));
+    super::nil_bid::top_bid(prog.collective.budget, pos, super::nil_bid::star_bid(recruiting_stars(p)) * chance)
+        * super::legacy::college::split_q(w, j, 2)
+}
+
+/// The men on program `j` at recruit `i`'s spot within two years of him
+/// who'd still be ahead of him when he arrives (`recruit_top`'s count).
+pub(crate) fn ahead_of_recruit(w: &World, j: usize, i: usize) -> usize {
+    let p = &w.people[i];
+    let pos = p.player.position;
     let me = p.player.overall() + 6.0;
-    let ahead = prog
+    w.programs[j]
         .roster
         .iter()
         .filter(|&&x| {
             let q = &w.people[x];
             x != i && q.player.position == pos && q.college_seasons <= 2 && q.player.overall() + 2.0 > me
         })
-        .count();
-    let chance = super::nil_bid::play_chance(ahead, crate::game::roster::starters(pos));
-    super::nil_bid::top_bid(prog.collective.budget, pos, super::nil_bid::star_bid(recruiting_stars(p)) * chance)
-        * super::legacy::college::split_q(w, j, 2)
+        .count()
 }
 
 /// The NIL money a recruit weighs from program `j` today: from your own

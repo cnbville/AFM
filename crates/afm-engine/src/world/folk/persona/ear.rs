@@ -453,6 +453,12 @@ pub struct Turn {
     pub committed: Vec<(crate::world::folk::commit::Commitment, crate::world::folk::commit::Took)>,
     /// How each man in the room took your manner (coach voice), sized.
     pub manner: Vec<(Them, super::manner::Took)>,
+    /// The stat points made in a money talk and what his season says of
+    /// each (negotiation item 3a), kept in `apply`.
+    pub points: Vec<super::negotiate::points::Read>,
+    /// The true points made to a recruit about his film or his place
+    /// (negotiation item 7), kept in `apply`.
+    pub recruit_points: Vec<super::negotiate::points::RecruitPoint>,
     /// How the line went over with the man across ("Heard as").
     pub landing: Landing,
 }
