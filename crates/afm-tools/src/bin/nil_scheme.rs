@@ -10,7 +10,12 @@
 //!        nil_scheme market <world file> <until year>: plays the world on
 //!        to July 2 of that year and, at each July's payday, compares
 //!        every AI college player's pay with his market price the day
-//!        before (thread "Pay inherited players their market price").
+//!        before (thread "Pay inherited players their market price") and
+//!        with the roster split your desk would show at his school.
+//!        Both modes play every game on the match engine, as the game does;
+//!        `quick` as the last argument plays them on the stand-in instead,
+//!        which spreads play wider than the engine, so every price read
+//!        after the first season runs high (quick checks only).
 
 use afm_engine::player::PlayingTime;
 use afm_engine::positions::Position;
@@ -29,7 +34,7 @@ fn main() {
         }
         Some("run") => {
             let mut w = afm_engine::save::read_world(Path::new(&args[2])).expect("read the world");
-            w.options.engine_from = Some(2100);
+            quick(&mut w, &args);
             let until: i32 = args[3].parse().expect("a year");
             let month: u32 = args[4].parse().expect("a month");
             eprintln!("read, {:?}", w.today);
@@ -58,6 +63,7 @@ fn main() {
                 }
                 if m == 3 && d == 1 && classes.insert(w.today.year()) {
                     offers(&w, w.today.year());
+                    signees(&w);
                     transfers(&landed);
                     denials(&w);
                     multi(&w);
@@ -97,27 +103,133 @@ fn main() {
         }
         Some("market") => {
             let mut w = afm_engine::save::read_world(Path::new(&args[2])).expect("read the world");
-            w.options.engine_from = Some(2100);
+            quick(&mut w, &args);
             let until: i32 = args[3].parse().expect("a year");
             eprintln!("read, {:?}", w.today);
             let mut before: HashMap<u32, Priced> = HashMap::new();
+            let mut split: HashMap<u32, (usize, f64)> = HashMap::new();
             while w.today.year() < until || w.today.month() < 7 || w.today.day() < 2 {
                 w.advance_day();
                 let (m, d) = (w.today.month(), w.today.day());
                 if m == 6 && d == 30 {
                     before = priced(&w);
+                    split = roster_splits(&w);
                     eprintln!("{:?}: {} players priced", w.today, before.len());
                 }
                 if m == 7 && d == 2 && !before.is_empty() {
                     payday(&w);
                     against_market(&w, &before);
                     scales(&w, &before);
+                    against_split(&w, &split);
                 }
             }
         }
         _ => eprintln!(
             "usage: nil_scheme pots <world> | run <world> <until year> <until month> | market <world> <until year>"
         ),
+    }
+}
+
+/// Games on the stand-in only with `quick` as the last argument (`GAPS.md`:
+/// the stand-in spreads play wider than the engine).
+fn quick(w: &mut World, args: &[String]) {
+    if args.last().is_some_and(|a| a == "quick") {
+        w.options.engine_from = Some(2100);
+        eprintln!("games on the stand-in (quick)");
+    }
+}
+
+/// The roster split your desk would show at every AI FBS and FCS school
+/// the day before July 1 (`front_office::college::splits_for`), for each
+/// player without a deal for the year: (school, his split in both pots).
+fn roster_splits(w: &World) -> HashMap<u32, (usize, f64)> {
+    let year = w.today.year();
+    let mut out = HashMap::new();
+    for j in (0..w.programs.len()).filter(|&j| level(w, j).is_some() && w.programs[j].collective.budget > 0.0) {
+        let at: HashMap<u32, usize> = w.programs[j].roster.iter().map(|&i| (w.people[i].player.id, i)).collect();
+        for (id, s, c, _) in afm_engine::world::front_office::college::splits_for(w, j, year) {
+            let Some(&i) = at.get(&id) else { continue };
+            if w.people[i].cal.nil_deal.is_some_and(|d| d.pays(year)) {
+                continue;
+            }
+            out.insert(id, (j, s + c));
+        }
+    }
+    out
+}
+
+/// July's pay against the roster split read the day before, for everyone
+/// without a deal still at the same school: the desk's going rate should
+/// be what an AI school pays (before 2026-11-18 it read 0.6 of it).
+fn against_split(w: &World, split: &HashMap<u32, (usize, f64)>) {
+    println!("== July {}: AI pay against the desk's roster split (the day before) ==", w.today.year());
+    for g in ["P4", "G5", "FCS"] {
+        for (name, want) in [("starters", 0), ("rotation", 1), ("the rest", 2)] {
+            let mut v: Vec<f64> = Vec::new();
+            for p in w.people.iter().filter(|p| p.stage == Stage::College) {
+                let Some(&(j, x)) = split.get(&p.player.id) else { continue };
+                if p.college != Some(j) || level(w, j) != Some(g) || x < 1_000.0 {
+                    continue;
+                }
+                let r = match p.last_role {
+                    Some(PlayingTime::Starter) => 0,
+                    Some(PlayingTime::Rotation) => 1,
+                    _ => 2,
+                };
+                if r == want {
+                    v.push(p.cal.nil_paid as f64 / x);
+                }
+            }
+            if v.is_empty() {
+                continue;
+            }
+            let n = v.len();
+            println!(
+                "  {g} {name}: n {n}  pay/split p10 {:.2} p25 {:.2} median {:.2} p75 {:.2} p90 {:.2}",
+                q(&mut v, 0.1),
+                q(&mut v, 0.25),
+                q(&mut v, 0.5),
+                q(&mut v, 0.75),
+                q(&mut v, 0.9)
+            );
+        }
+    }
+}
+
+/// The class that just signed, every signee (paid or not), by level and
+/// stars: the share with a deal, and the deals' spread (real: Group of 5
+/// signees are paid five figures when paid at all, Bleacher Report on The
+/// Athletic's reporting, 2026).
+fn signees(w: &World) {
+    use afm_engine::world::nil_bid::DealKind;
+    println!("== the class just signed: share with a deal and its spread, by level and stars ==");
+    let mut by: HashMap<(&'static str, u8), (usize, Vec<f64>)> = HashMap::new();
+    for p in w.people.iter() {
+        let j = match (p.cal.signed, p.stage) {
+            (Some(s), _) if !s.walk_on => s.program,
+            (None, Stage::College) if !p.walk_on && !played(p) && p.college_seasons == 0 => {
+                let Some(j) = p.college else { continue };
+                j
+            }
+            _ => continue,
+        };
+        let Some(g) = level(w, j) else { continue };
+        let e = by.entry((g, p.stars.clamp(1, 5))).or_default();
+        e.0 += 1;
+        if let Some(d) = p.cal.nil_deal.filter(|d| d.kind == DealKind::Signed && d.amount > 0.0) {
+            e.1.push(d.amount);
+        }
+    }
+    for g in ["P4", "G5", "FCS"] {
+        for stars in (2..=5).rev() {
+            let Some((n, v)) = by.get_mut(&(g, stars)) else { continue };
+            let k = v.len();
+            println!(
+                "  {g} {stars}★: {n} signed, {:.0}% with a deal: {}",
+                100.0 * k as f64 / (*n).max(1) as f64,
+                spread(v)
+            );
+        }
     }
 }
 

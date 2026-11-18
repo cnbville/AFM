@@ -38,6 +38,9 @@ fn college(house: bool) -> (World, usize) {
     // NIL Go's book, as July 2025's payday would have read it.
     if house {
         w.nil_book = crate::world::nil_bid::NilBook::from_pots(&w);
+        // The room AI schools paid their arrivals last July (a class and
+        // transfers), which your roster split keeps for yours to come.
+        w.nil_book.new_share = [0.3; 4];
     }
     (w, j)
 }
@@ -97,11 +100,12 @@ fn your_money_is_the_schools_revenue_share() {
     assert!(b.two_pots);
     assert!((b.yours - 12.0e6).abs() < 1.0, "the school's pot is yours: {}", b.yours);
     assert!((b.collective - 8.0e6).abs() < 1.0);
-    // The going rate keeps 0.6 of the collective too, each deal rounded to
-    // the nearest $500.
+    // The going rate is an AI school's split, keeping room for a class and
+    // transfers to come (0.3 of the money here), each deal rounded to the
+    // nearest $500.
     let deals_n = collective_deals(&w, j).len() as f64;
     assert!(
-        b.collective_roster > 0.0 && b.collective_roster <= 0.6 * 8.0e6 + 500.0 * deals_n,
+        b.collective_roster > 0.0 && b.collective_roster <= 0.7 * 8.0e6 + 500.0 * deals_n,
         "{}",
         b.collective_roster
     );
@@ -839,4 +843,74 @@ fn inherited_deals_fit_the_pot_raises_first() {
     assert_eq!(fit(175.0, false, &rows), vec![100.0, 50.0, 25.0]);
     // Less than the signed deal: only it stands.
     assert_eq!(fit(50.0, false, &rows), vec![100.0, 0.0, 0.0]);
+}
+
+/// 2026-11-18: your desk's roster split is the split an AI school's July 1
+/// makes (before, a flat 0.6 of it): at an AI program, every player
+/// without a deal is paid exactly the split read the day before.
+#[test]
+fn the_roster_split_is_what_an_ai_school_pays() {
+    use crate::world::front_office::college::splits_for;
+    let (mut w, j) = college(true);
+    w.rebuild_rosters();
+    let k =
+        (0..w.programs.len()).find(|&k| k != j && w.programs[k].division == crate::world::data::Division::FBS).unwrap();
+    // A world with no history has no college players: young pros go back
+    // to the AI school too, as `college` does for yours.
+    let pros: Vec<usize> = (0..w.people.len()).filter(|&i| w.people[i].stage == Stage::Pro).take(60).collect();
+    for (n, &i) in pros.iter().enumerate() {
+        let p = &mut w.people[i];
+        p.stage = Stage::College;
+        p.pro = None;
+        p.college = Some(k);
+        p.college_seasons = 1;
+        p.last_role = Some(match n % 3 {
+            0 => crate::player::PlayingTime::Starter,
+            1 => crate::player::PlayingTime::Rotation,
+            _ => crate::player::PlayingTime::Backup,
+        });
+    }
+    w.rebuild_rosters();
+    let c = &mut w.programs[k].collective;
+    c.budget = 20.0e6;
+    c.school = 12.0e6;
+    let year = w.today.year();
+    let split: std::collections::HashMap<u32, f64> =
+        splits_for(&w, k, year).into_iter().map(|x| (x.0, x.1 + x.2)).collect();
+    let free: Vec<u32> = w.programs[k]
+        .roster
+        .iter()
+        .map(|&i| &w.people[i])
+        .filter(|p| p.cal.nil_deal.is_none_or(|d| !d.pays(year)))
+        .map(|p| p.player.id)
+        .collect();
+    assert!(free.len() > 20, "{}", free.len());
+    rec::nil_payouts(&mut w);
+    let mut paid_some = 0;
+    for id in free {
+        let p = w.people.iter().find(|p| p.player.id == id).unwrap();
+        let s = split.get(&id).copied().unwrap_or(0.0);
+        assert!((p.cal.nil_paid as f64 - s).abs() <= 1.0 + 1e-6 * s, "{id}: paid {} against {s}", p.cal.nil_paid);
+        paid_some += (s > 1_000.0) as usize;
+    }
+    assert!(paid_some > 10, "{paid_some}");
+}
+
+/// 2026-11-18: a recruit's stars are read at the school's money level, its
+/// starters' stars under the Power 4's (the Group of 5 signee fix).
+#[test]
+fn a_recruits_stars_read_at_the_schools_level() {
+    use crate::world::nil_bid::{star_at, star_bid, star_bid_at, star_lifts};
+    for s in 1..=5u8 {
+        assert!((star_bid_at(s as f64) - star_bid(s)).abs() < 1e-12, "{s}");
+    }
+    assert!(star_bid_at(3.5) > star_bid(3) && star_bid_at(3.5) < star_bid(4));
+    let (mut w, _) = college(true);
+    let lift = star_lifts(&w);
+    assert_eq!(lift[0], 0.0, "the scale is the Power 4's");
+    assert!(lift.iter().all(|&x| (0.0..3.0).contains(&x)), "{lift:?}");
+    w.nil_book.star_lift = [0.0, 1.0, 1.5, 2.0];
+    assert!((star_at(&w, 0, 3) - star_bid(3)).abs() < 1e-12);
+    assert!((star_at(&w, 1, 3) - star_bid(4)).abs() < 1e-12, "a Group of 5 three-star as its own four-star");
+    assert!((star_at(&w, 1, 5) - star_bid(5)).abs() < 1e-12, "never past a five-star");
 }

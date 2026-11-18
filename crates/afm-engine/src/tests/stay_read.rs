@@ -338,3 +338,45 @@ fn a_typed_change_to_a_promise_reworks_it() {
     assert!(talks::rework(&mut w, i, k, pa, None).gone);
     assert!(w.people[i].trust < trust, "taking it back costs a little trust");
 }
+
+/// 2026-11-18: his money in the stay read is what schools and collectives
+/// pay, never his own brand deals, and at your program next year's deal on
+/// your desk, so a raise in the spring holds him before July 1 pays it.
+#[test]
+fn his_money_is_next_years_deal_and_never_his_own_brand() {
+    let (mut w, i) = yours(PlayingTime::Starter, 1);
+    assert!(crate::world::ncaa::nil_era(w.year), "{}", w.year);
+    // Nine more starters at his spot and school, paid $100K each: the
+    // going rate.
+    let c = w.people[i].college.unwrap();
+    let pos = w.people[i].player.position;
+    let more: Vec<usize> =
+        (0..w.people.len()).filter(|&k| k != i && w.people[k].stage == Stage::HighSchool).take(9).collect();
+    for &k in &more {
+        let q = &mut w.people[k];
+        q.stage = Stage::College;
+        q.college = Some(c);
+        q.player.position = pos;
+        q.last_role = Some(PlayingTime::Starter);
+        q.college_seasons = 1;
+        q.cal.nil_paid = 100_000.0;
+        w.programs[c].roster.push(k);
+    }
+    let p = &mut w.people[i];
+    p.cal.nil_paid = 0.0;
+    p.cal.nil_school = 0.0;
+    p.nil_income = 2.0e6;
+    p.brand = 2.0e6;
+    p.family.own_wants.money = 0.3;
+    let underpaid = |parts: &[(&'static str, f64)]| parts.iter().any(|x| x.0 == "underpaid where he is");
+    let ctx = Ctx::new(&w, w.year);
+    let parts = stay_read::read(&w, &ctx, i);
+    assert!(underpaid(&parts), "his own brand money isn't pay: {parts:?}");
+    // A raise on your desk for next year holds him now.
+    crate::world::front_office::college::fill_deals(&mut w);
+    let id = w.people[i].player.id;
+    crate::world::front_office::college::set_deal(&mut w, id, Some(150_000.0), None).unwrap();
+    let ctx = Ctx::new(&w, w.year);
+    let parts = stay_read::read(&w, &ctx, i);
+    assert!(!underpaid(&parts), "next year's deal: {parts:?}");
+}

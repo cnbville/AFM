@@ -622,6 +622,28 @@ pub fn deals_now(w: &World, j: usize) -> Option<(Deals, Deals)> {
     Some((school, coll))
 }
 
+/// Each of your players' money next year as July 1 will pay it (the stay
+/// read, 2026-11-18): his revenue share and his collective deal as NIL Go
+/// clears it, by id; a player with no deal is paid nothing. Empty when the
+/// desk doesn't pay program `j`.
+pub fn next_year_pay(w: &World, j: usize) -> HashMap<u32, f64> {
+    let Some((school, coll)) = deals_now(w, j) else { return HashMap::new() };
+    let two = ncaa::two_pots(w.today);
+    let medians = rec::nil_medians(w);
+    let mut pay = HashMap::new();
+    for &i in &w.programs[j].roster {
+        let p = &w.people[i];
+        if p.stage != Stage::College || p.college != Some(j) {
+            continue;
+        }
+        let id = p.player.id;
+        let c = coll.get(&id).copied().unwrap_or(0.0);
+        let c = if two && c > 0.0 { rec::nil_go_at(w, j, c, rec::go_top_now(w, j, p, &medians)) } else { c };
+        pay.insert(id, school.get(&id).copied().unwrap_or(0.0) + c);
+    }
+    pay
+}
+
 /// $500 steps for a going rate; the collective's rounds down when NIL Go
 /// holds some of it back, so the going rate never sits above his range.
 fn round_rate(x: f64) -> f64 {
@@ -2648,15 +2670,38 @@ pub fn budget(w: &World, j: usize) -> Budget {
     }
 }
 
-/// Each player's usual money this money year, the split `nil_payouts`
-/// makes on July 1 (minor bug 100): (id, the part you hand out, the
-/// collective's own deal as NIL Go clears it, what NIL Go holds back). In
-/// two pots (B18) the first is the school's revenue share and the
-/// collective pays the second itself; before, the first is all of it.
+/// Each player's usual money this money year, the roster split an AI
+/// school's July 1 makes (`rec::roster_split`): (id, the part you hand
+/// out, the collective's own deal as NIL Go clears it, what NIL Go holds
+/// back). In two pots (B18) the first is the school's revenue share and
+/// the collective pays the second itself; before, the first is all of it.
 fn splits(w: &World, j: usize) -> Vec<(u32, f64, f64, f64)> {
+    split_rows(w, j, deals_year(w), true)
+}
+
+/// [`splits`] for money year `year` as July 1 makes it, the class and
+/// transfers all signed (the payday's own read; the tools).
+pub fn splits_for(w: &World, j: usize, year: i32) -> Vec<(u32, f64, f64, f64)> {
+    split_rows(w, j, year, false)
+}
+
+/// The roster split for money year `year`.
+///
+/// The money is the whole year's, as an AI school's (2026-11-18; before,
+/// 0.6 of it, the room kept for your offers, so a starter's roster split
+/// read well under what the same man earned at a rival). The deals that
+/// stand take their room first, the way an AI school's do (`your_holds`):
+/// a deal he signed or landed on, a multi-year deal, the deal an arrival
+/// of yours came on, and the signees not on the roster yet. Ahead of July
+/// 1 (`ahead`) at your program, a class and transfers still to come keep
+/// their room too: the share of the year's money AI schools at your money
+/// level paid their arrivals last July (`NilBook::new_share`), less what
+/// your arrivals and signees already hold. Each man's going rate is his own
+/// split of what is left, a deal holder's too, so a number you set never
+/// moves his own going rate.
+fn split_rows(w: &World, j: usize, year: i32, ahead: bool) -> Vec<(u32, f64, f64, f64)> {
     let prog = &w.programs[j];
-    let money = prog.collective.budget * crate::world::legacy::college::split_q(w, j, 0);
-    let budget = money * rec::NIL_ROSTER;
+    let two = ncaa::two_pots(w.today);
     let roster: Vec<usize> = prog
         .roster
         .iter()
@@ -2664,39 +2709,87 @@ fn splits(w: &World, j: usize) -> Vec<(u32, f64, f64, f64)> {
         .filter(|&i| w.people[i].stage == Stage::College && w.people[i].college == Some(j))
         .collect();
     let medians = rec::nil_medians(w);
-    let value = |i: usize| rec::nil_value(&w.people[i], prog.division, &medians, ncaa::two_pots(w.today));
-    let total: f64 = roster.iter().map(|&i| value(i)).sum();
-    let shares: f64 = roster.iter().map(|&i| rec::share_value(&w.people[i])).sum();
-    let two = ncaa::two_pots(w.today);
     let s = if two && prog.collective.budget > 0.0 {
         (ncaa::school_pot(prog, w.today) / prog.collective.budget).clamp(0.0, 1.0)
     } else {
         0.0
     };
+    let (holds, held_new, waiting) = your_holds(w, j, &roster, year);
+    let year_money = prog.collective.budget * crate::world::legacy::college::split_q(w, j, 0) + prog.collective.buyouts;
+    let to_come = if ahead && deals_now(w, j).is_some() {
+        let share = w.nil_book.new_share[crate::world::nil_bid::level(prog)];
+        (share * year_money - held_new - waiting).max(0.0)
+    } else {
+        0.0
+    };
+    let money = (year_money - waiting - to_come).max(0.0);
+    let rows = rec::roster_split(w, j, &roster, money, s, two, &medians, |_, i| {
+        holds.get(&i).copied().unwrap_or(rec::NilHeld::None)
+    });
     // Sandbox mode's NIL Go switch: nothing held back from your roster.
     let free = rec::nil_go_free(w) == Some(j);
-    roster
-        .iter()
-        .map(|&i| {
+    let mut room = if two { ncaa::share_room(prog, year) } else { 0.0 };
+    rows.into_iter()
+        .map(|row| {
+            let id = w.people[row.i].player.id;
             if !two {
-                return (w.people[i].player.id, budget * value(i) / total.max(1e-9), 0.0, 0.0);
+                return (id, row.school + row.coll, 0.0, 0.0);
             }
-            // The school spreads its share over the roster (minor bug 336).
-            // Your going rate hands out 0.6 of it the same way: your offers
-            // to signees and transfers and the hunt's reserve come out of
-            // the same pot in the year (`budget`), so the rest stays for
-            // them (proposed, not confirmed). The AI pays its whole share
-            // on July 1. The collective's going rate keeps the same room
-            // (the new NIL scheme: NIL Go's range no longer trims it).
-            let (school, meant) =
-                rec::july_split(money, s, (rec::share_value(&w.people[i]), shares), (value(i), total), two);
-            let school = school * rec::NIL_ROSTER;
-            let meant = meant * rec::NIL_ROSTER;
-            let coll =
-                if free { meant } else { rec::nil_go(w.today, meant, rec::go_top_now(w, j, &w.people[i], &medians)) };
-            (w.people[i].player.id, school, coll, meant - coll)
+            // NIL Go clears the collective's part to the top of his range
+            // and moves what it denies into the revenue share while the cap
+            // has room, as on an AI school's July 1.
+            let top = rec::go_top_now(w, j, &w.people[row.i], &medians);
+            let r = crate::world::nil_bid::review(w.today, row.coll, top, room, free);
+            room -= r.moved;
+            (id, row.school + r.moved, r.cleared, (row.coll - r.cleared - r.moved).max(0.0))
         })
         .collect()
+}
+
+/// What each of your players holds going into the roster split, by index,
+/// what your arrivals' deals hold of it, and what the signees not on the
+/// roster yet take of the year's money:
+/// a deal he holds on his file (`rec::ai_held`: signed, landed on, a
+/// multi-year deal, an old staff's keep-him offer), else the deal you gave
+/// an arrival who hasn't played a season here (a recruit who signed with
+/// you, a transfer you took), where it pays him something. Everyone else
+/// is on his split.
+fn your_holds(w: &World, j: usize, roster: &[usize], year: i32) -> (HashMap<usize, rec::NilHeld>, f64, f64) {
+    let div = w.programs[j].division;
+    let medians = rec::nil_medians(w);
+    let two = ncaa::two_pots(w.today);
+    let mine = deals_now(w, j);
+    let at = |id: u32| -> f64 {
+        let Some((school, coll)) = mine.as_ref() else { return 0.0 };
+        let c = coll.get(&id).copied().unwrap_or(0.0);
+        school.get(&id).copied().unwrap_or(0.0) + if two { coll_cleared(w, j, id, c) } else { c }
+    };
+    let mut holds = HashMap::new();
+    let mut held_new = 0.0;
+    for &i in roster {
+        let p = &w.people[i];
+        let arrival = rec::arrival(p, div, &medians);
+        let h = match rec::ai_held(p, year) {
+            rec::NilHeld::None if arrival => {
+                let x = at(p.player.id);
+                if x > 0.5 { rec::NilHeld::Fixed(x) } else { rec::NilHeld::None }
+            }
+            h => h,
+        };
+        if let (true, rec::NilHeld::Fixed(x)) = (arrival, h) {
+            held_new += x;
+        }
+        if h != rec::NilHeld::None {
+            holds.insert(i, h);
+        }
+    }
+    let on: std::collections::HashSet<u32> = roster.iter().map(|&i| w.people[i].player.id).collect();
+    let waiting = if mine.is_some() {
+        w.front_office.college.signed.iter().filter(|x| !on.contains(&x.0)).map(|x| x.1 + x.2).sum()
+    } else {
+        0.0
+    };
+    (holds, held_new, waiting)
 }
 
 /// Each of program `j`'s players' market price a year (Cain 2026-11-17):
