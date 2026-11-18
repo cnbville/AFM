@@ -1145,11 +1145,19 @@ impl Family {
 
 /// The family of a pass concept.
 pub fn pass_family(c: &PassConcept) -> Family {
+    faked_family(c, false)
+}
+
+/// The family of a pass concept thrown off a run fake or not (minor bug
+/// 412): a faked throw is play action whatever its routes (a faked flood is
+/// play action, not a flood), as a screen stays a screen, like the
+/// library's own play-action concepts.
+pub fn faked_family(c: &PassConcept, fake: bool) -> Family {
     if is_rpo_half(c) {
         Family::Rpo
     } else if c.depth == PassDepth::Screen {
         Family::Screen
-    } else if c.play_action {
+    } else if c.play_action || fake {
         Family::PlayAction
     } else if c.depth == PassDepth::Quick {
         Family::Quick
@@ -1220,6 +1228,15 @@ impl OffCall {
         match self.kind {
             PlayKind::Pass(i) => self.fake || pass_concept(i).play_action,
             _ => false,
+        }
+    }
+    /// The concept family this call counts as for the film, the ideas that
+    /// spread, a new idea's surprise and how well a man knows his job: a
+    /// throw off a run fake is play action (minor bug 412).
+    pub fn family(&self) -> Family {
+        match self.kind {
+            PlayKind::Pass(i) => faked_family(pass_concept(i), self.fake),
+            k => call_family(k),
         }
     }
     pub fn describe(&self) -> String {

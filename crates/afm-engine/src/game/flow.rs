@@ -4232,7 +4232,7 @@ impl<'a> Game<'a> {
                 }
             }
         }
-        let fam = call_family(call.kind);
+        let fam = call.family();
         let (belief_run, sure) = self.sides[d].mem.belief(call.formation.look());
         let mut r = self.new_record(match call.kind {
             PlayKind::Run(_) | PlayKind::Rpo(..) => PlayType::Run,
