@@ -858,16 +858,15 @@ impl<'a> Side<'a> {
             }
         }
         if n < rs.len() {
-            // The tackles are picked first: the men your order names inside
-            // stay there, so a backup tackle you put at guard isn't taken
-            // to spell a tackle. An AI staff names nobody: nothing held.
-            let held: Vec<usize> = if pos == Position::OT {
-                (0..self.line.len())
-                    .filter(|&i| self.line[i].is_some_and(|r| !rs.contains(&r)) && !used.contains(&i))
-                    .collect()
-            } else {
-                Vec::new()
-            };
+            // The men your order names at the line's other spots stay
+            // there: a backup tackle you put at guard isn't taken to spell
+            // a tackle, and a named tackle resting a snap isn't pulled
+            // inside when the center or a guard is out (a thin roster takes
+            // a man nobody named first). An AI staff names nobody: nothing
+            // held.
+            let held: Vec<usize> = (0..self.line.len())
+                .filter(|&i| self.line[i].is_some_and(|r| !rs.contains(&r)) && !used.contains(&i))
+                .collect();
             used.extend(held.iter().copied());
             let got = self.pick(pos, rs.len() - n, used);
             used.retain(|i| !held.contains(i));

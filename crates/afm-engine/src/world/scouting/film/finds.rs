@@ -40,7 +40,7 @@ pub struct Watch<'a> {
     /// His games in the snaps you watched: on tape, each is a film look of
     /// him (`yours::cut_ups`).
     pub games: usize,
-    /// From the stands: his look is the trip's, in person, not tape.
+    /// From the stands: his look is the trip's, one in person, not tape.
     pub live: bool,
 }
 
@@ -153,11 +153,12 @@ fn read(w: &mut World, id: u32, on: u32, watch: &Watch) {
     // The man you watched: each rating your eye caught, from this watch
     // alone, the tightest first. On tape each game is a film look of him,
     // which your catches join. From the stands his look is the trip's, in
-    // person: it stands where the wide guess does, apart from your eye.
+    // person, one look however many games the snaps came from: it stands
+    // where the wide guess does, apart from your eye.
     let wide_on = file::GUESS_SD * file::visibility(w, i);
     let eye_on = super::session::lasting_eye(w, w.people[i].player.position);
-    let kind_on = if watch.live { Kind::Game } else { super::session::film_kind(w, i) };
-    let look_on = yours::tape_sd(w, staff, on, kind_on, watch.games);
+    let (kind_on, looks_on) = if watch.live { (Kind::Game, 1) } else { (super::session::film_kind(w, i), watch.games) };
+    let look_on = yours::tape_sd(w, staff, on, kind_on, looks_on);
     let mut eyed: Vec<&Catch> =
         watch.caught.iter().filter(|c| c.id == on && c.by == 0 && (c.attr as usize) < ATTRIBUTE_COUNT).collect();
     eyed.sort_by_key(|c| (c.attr, c.game));

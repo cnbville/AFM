@@ -1324,6 +1324,8 @@ FBS (2,000 games) and high school (1,000), main and after:
 | concussion checks cleared a game | 0 | 0.336 | 0 | 0.075 (all sit the day) |
 | points | 23.32 | 23.59 | 18.21 | 18.33 |
 
+On four seeds (the default and 2-4, the same games on both builds) the default seed is the branch's best in the NFL. Week-plus injuries a team game, main (fe3e2b3) and after: NFL 1.091 and 1.061 (2.7% fewer), FBS 0.947 and 0.981 (3.6% more), high school 0.544 and 0.584 (7.3% more). The levels draw together: after, the NFL runs 1.08 times FBS (main 1.15) and FBS 1.68 times high school (main 1.74), where real college games run 2.5 times high school's (Kerr et al. 2018: 32.1 and 12.7 injuries costing a day per 1,000 players a game). On main the levels' order came from the man tackled alone, which falls with lighter, slower men (seed 2: FBS 0.85 of the NFL's week-plus injuries, high school 0.50). After, blocks and piles carry about 40% of them, and piles fall least: on the default seed FBS piles run 1.14 times the NFL's and high school's 1.09 (1.31 a play, as more men reach the ball), against 0.90 and 0.47 for blocks. No share was sized for one level, which would be a fudge (`GAPS.md`).
+
 Games missed by position on a small world, seed 271 (new; scale 0.05, three years of history with the log on from 2023 and one season on; the same seed on main fe3e2b3 and after). Counted from each regular-season NFL game's injuries, 2023-2026: every game of his team inside the time he is out (his weeks × 7 days from the day after, the medical staff's work left out), for player-seasons of 4 or more games, as nflverse counts them. The real count takes in practice, illness and every other cause too, so it sits above what game injuries alone should give.
 
 | NFL world, games missed a player-season | main | after | real (every cause) |
@@ -1360,7 +1362,8 @@ Still off:
 
 - Edges take 11.4% of the NFL's week-plus injuries (real 8.0%), corners 11.1% (13.7%) and tight ends 5.8% (7.4%). Part may be the real side: nflverse lists many edge rushers as linebackers, and the real share weighs each position's rate by an unsourced estimate of how many men a team plays there (`match_check`). A share for one position would be a fudge, so none was added.
 - Knees 17.8% of the week-plus ones (real 17.2%).
-- High school week-plus injuries rose 5% (0.558 to 0.588), most of it piles, where more men are around the ball (0.088 a team game, against 0.081 in the NFL).
+- High school week-plus injuries rose 5% on the default seed (0.558 to 0.588) and 7% on four, most of it piles, where more men are around the ball (0.088 a team game, against 0.081 in the NFL).
+- The levels draw together on four seeds (the NFL 1.08 times FBS after, 1.15 on main; FBS 1.68 times high school, 1.74 on main; real college games 2.5 times high school's): piles fall least from level to level.
 - In the world, college and high school week-plus injuries rose 15% and 19% (above): turf, and piles that run higher than the test league's.
 - The world's NFL season rows read 0.39 games missed a player-season against nflverse's 1.2, as they leave out games on injured reserve (minor bug 415).
 - The hit at the catch point almost never hurts anyone (under 0.001 a team game): the engine rarely knocks a ball loose with a hit, and a catch held on to is a tackle.
