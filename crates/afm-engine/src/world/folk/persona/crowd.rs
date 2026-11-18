@@ -932,8 +932,15 @@ pub fn read(w: &World, room: &Room, hits: &[Sized], speaker: Option<Them>) -> Re
         stand.push((b, v, how));
     }
     // The aimed groups first, then the furthest from the room.
+    // A side before its rooms, so "Defense, ..." tagged on the defense and
+    // its linebackers reads as the defense alone.
+    let side = |x: Bloc| matches!(x, Bloc::Offense | Bloc::Defense);
     stand.sort_by(|a, b| {
-        aimed.contains(&b.0).cmp(&aimed.contains(&a.0)).then((b.1 - mean).abs().total_cmp(&(a.1 - mean).abs()))
+        aimed
+            .contains(&b.0)
+            .cmp(&aimed.contains(&a.0))
+            .then(side(b.0).cmp(&side(a.0)))
+            .then((b.1 - mean).abs().total_cmp(&(a.1 - mean).abs()))
     });
     // A side covers its rooms: keep a room only when its side isn't named.
     let mut named: Vec<(Bloc, f32, Option<How>)> = Vec::new();

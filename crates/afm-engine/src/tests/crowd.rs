@@ -284,6 +284,11 @@ fn a_line_that_calls_out_a_group_goes_to_it() {
         assert!(!Pos::of(w.people[i].player.position).offense(), "{h:?} reached the offense");
         assert_eq!(h.item, Bloc::Defense.item());
     }
+    // The ear tagging the linebackers too still reads as the defense.
+    let mut r = r;
+    for h in r.hits.clone() {
+        r.hits.push(Hit { on: h.on, item: Bloc::Room(Pos::LB).item(), how: h.how });
+    }
     // The read names the defense, not its rooms.
     let conv = said(sid, "Defense, you were flying around.", r);
     let t = conv.turn(&w, &room, &conv.said.reading);
