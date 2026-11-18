@@ -202,6 +202,23 @@ fn a_hairs_lead_is_strong_and_only_your_program_has_your_word() {
     let word = s.get(Kind::YourWord).expect("five broken promises are a record");
     assert!(word.is("record", "poor"));
     assert_eq!(word.tier(), Some(Tier::Weak), "{word:?}");
+    assert_eq!(word.get("kept"), Some("1"));
+    // A promise closed with nothing to judge (it lapsed, let you off, or
+    // closed when you left the job) is no word kept.
+    for k in 0..3 {
+        w.folk.promises.push(crate::world::folk::talks::Promise {
+            made: w.today.add(-200),
+            due: w.today.add(-100),
+            kept: Some(true),
+            released: true,
+            ..crate::world::folk::talks::Promise::blank(
+                crate::world::folk::talks::PromiseTo::Player(900_100 + k),
+                crate::world::folk::talks::PromiseKind::Start,
+            )
+        });
+    }
+    let s = claims::recruit(&w, i, p, Ear::Himself);
+    assert_eq!(s.get(Kind::YourWord).and_then(|x| x.get("kept")), Some("1"), "quiet ones aren't kept");
 }
 
 #[test]

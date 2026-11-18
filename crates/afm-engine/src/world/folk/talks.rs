@@ -257,11 +257,13 @@ impl PromiseKind {
 }
 
 impl Promise {
-    /// Closed with nothing to judge: it lapsed (he left on his own), he
-    /// missed his condition and let you off, or it closed when you left the
-    /// job (`close_quietly`). Stored as kept, but neither a word you held
-    /// nor one you broke: P1's record (`promise::record`) skips it, and so
-    /// do a stake's belief and Ground's word.
+    /// Closed with nothing to judge: it lapsed (he left on his own, or was
+    /// hurt all its term), he missed his condition and let you off, or it
+    /// closed when you left the job (`close_quietly`, `job_closed`). Stored
+    /// as kept, but neither a word you held nor one you broke: P1's record
+    /// (`promise::record`) skips it, and so do a stake's belief, Ground's
+    /// word, the recruit's "your word" point, the wants he still has, the
+    /// ear's and the voice's cards and the people screens.
     pub fn quiet(&self) -> bool {
         self.kept == Some(true) && self.released
     }
@@ -330,9 +332,14 @@ pub struct Promise {
     /// before, until you leave that job (`job_left`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub team: Option<Team>,
-    /// Your NFL club cut or traded him while it was open (`let_go`).
+    /// Your NFL club cut or traded him while it was open (`let_go`);
+    /// cleared once he is back on your roster (`back_with_you`).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub sent: bool,
+    /// It closed because you left the job it was made at (`close_quietly`),
+    /// not because he left or let you off.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub job_closed: bool,
 }
 
 impl Promise {
@@ -359,6 +366,7 @@ impl Promise {
             released: false,
             team: None,
             sent: false,
+            job_closed: false,
         }
     }
 }
@@ -796,6 +804,7 @@ pub(crate) fn let_go(w: &mut World, i: usize, club: usize) {
 /// at the same club keeps them). Proposed, not confirmed.
 pub(crate) fn job_left(w: &mut World, why: &str) {
     let Some(old) = Team::seat(w) else { return };
+    judge_played_out(w, old);
     let gone = why != "left for another job";
     let today = w.today;
     for p in w.folk.promises.iter_mut().filter(|p| p.kept.is_none()) {
@@ -810,7 +819,60 @@ pub(crate) fn job_left(w: &mut World, why: &str) {
 fn close_quietly(p: &mut Promise, today: Date) {
     p.kept = Some(true);
     p.released = true;
+    p.job_closed = true;
     p.due = today;
+}
+
+/// How far ahead a playing-time promise's day can be and still be played
+/// out when you leave (`judge_played_out`): past a season's last game and
+/// before its promises fall due. A promise for next season is further off.
+/// Proposed, not confirmed.
+pub(crate) const PLAYED_OUT_DAYS: i32 = 60;
+
+/// You leave a job with a season played out (the college carousel fires
+/// the day after the regular season, three days before its promises fall
+/// due; Black Monday's firings come before its promises are judged): a
+/// promise judged over the games whose team has no game left before its
+/// day is judged now, at the team you made it at, as on its day. One with
+/// games still to play closes with the rest. Proposed, not confirmed.
+fn judge_played_out(w: &mut World, old: Team) {
+    let today = w.today;
+    let ahead = |p: &Promise| {
+        p.kept.is_none()
+            && super::promise::over_games(p.kind)
+            && p.team.is_none_or(|t| t == old)
+            && p.due <= today.add(PLAYED_OUT_DAYS)
+    };
+    if !w.folk.promises.iter().any(ahead) {
+        return;
+    }
+    let games = super::facts::team_games(w, old);
+    let mut any = false;
+    for p in w.folk.promises.iter_mut().filter(|p| ahead(p)) {
+        if !games.iter().any(|g| g.0 >= today && g.0 <= p.due) {
+            p.due = p.due.min(today);
+            any = true;
+        }
+    }
+    if any {
+        check_promises(w, today);
+    }
+}
+
+/// A man your club let go (`let_go`) who is back on its roster: the cut is
+/// behind you, so a later exit on his own terms lapses (`sent_away`).
+fn back_with_you(w: &mut World) {
+    let Some(team) = Team::seat(w) else { return };
+    if !w.folk.promises.iter().any(|p| p.sent && p.kept.is_none()) {
+        return;
+    }
+    let roster = team.roster(w);
+    let ids: Vec<u32> = roster.iter().map(|&i| w.people[i].player.id).collect();
+    for p in w.folk.promises.iter_mut().filter(|p| p.sent && p.kept.is_none() && p.team.is_none_or(|t| t == team)) {
+        if of_his_place(p).is_some_and(|id| ids.contains(&id)) {
+            p.sent = false;
+        }
+    }
 }
 
 /// You start at a new job (`market::hired`): a promise made at another
@@ -829,7 +891,11 @@ pub(crate) fn job_taken(w: &mut World) {
             PromiseTo::Player(id) => super::person(w, id).is_some_and(|i| {
                 old.roster(w).contains(&i) || matches!(old, Team::College(_)) && w.people[i].stage == Stage::HighSchool
             }),
-            _ => true,
+            // A coach who had already left that staff.
+            PromiseTo::Coach(c) => {
+                w.coaches.get(c).and_then(|x| x.job.as_ref()).is_some_and(|j| Team::from_employer(j.employer) == old)
+            }
+            PromiseTo::Cast(..) => true,
         };
         let p = &mut w.folk.promises[k];
         if p.kind == PromiseKind::Stay && still {
@@ -4930,6 +4996,7 @@ fn chart_seen(w: &mut World) {
 }
 
 pub(crate) fn day(w: &mut World, d: Date) {
+    back_with_you(w);
     check_promises(w, d);
     super::terms::day(w, d);
     super::usage::warn(w, d);

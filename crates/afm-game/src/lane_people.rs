@@ -574,7 +574,7 @@ fn agenda(w: &World) -> Value {
             // A promise on usage: its words, what keeps it, and whether you
             // turned its plan setting off (lane N2).
             let plan = p.terms.usage.map(|u| json!({ "kept_by": folk::usage::kept_by(&u), "off": p.terms.off }));
-            json!({ "index": k, "who": p.who, "what": p.words(), "made": date_text(p.made), "due": date_text(p.due), "kept": p.kept, "public": p.public, "plan": plan })
+            json!({ "index": k, "who": p.who, "what": p.words(), "made": date_text(p.made), "due": date_text(p.due), "kept": p.kept, "quiet": p.quiet(), "public": p.public, "plan": plan })
         })
         .collect();
     let due: Vec<Value> =
@@ -680,7 +680,7 @@ fn player(w: &World, id: u32) -> Reply {
         .promises
         .iter()
         .filter(|x| matches!(x.to, PromiseTo::Player(pid) if pid == id))
-        .map(|x| json!({ "what": x.kind.words(), "due": date_text(x.due), "kept": x.kept }))
+        .map(|x| json!({ "what": x.kind.words(), "due": date_text(x.due), "kept": x.kept, "quiet": x.quiet() }))
         .collect();
     let (_, worry) = talks::concern(w, i);
     let trust = (Some(p.trust_in) == you).then_some(p.trust);

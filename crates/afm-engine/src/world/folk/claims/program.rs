@@ -706,13 +706,14 @@ fn hs_coach_tie(c: &Ctx, j: usize) -> Option<(f32, Point)> {
 
 /// Your name for keeping your word: the promises of yours the world has
 /// judged. The world keeps them for you alone, so only your program has
-/// the point.
+/// the point. One closed with nothing to judge (it lapsed, let you off, or
+/// closed when you left the job, `Promise::quiet`) is neither.
 fn your_word(c: &Ctx, j: usize) -> Option<(f32, Point)> {
     if !c.mine(j) {
         return None;
     }
     let p = &c.w.folk.promises;
-    let kept = p.iter().filter(|x| x.kept == Some(true)).count();
+    let kept = p.iter().filter(|x| x.kept == Some(true) && !x.quiet()).count();
     let broken = p.iter().filter(|x| x.kept == Some(false)).count();
     if kept + broken == 0 {
         return None;

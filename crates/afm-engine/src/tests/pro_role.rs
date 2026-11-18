@@ -427,36 +427,164 @@ fn only_your_clubs_own_call_lets_him_down() {
 
 /// A promise closed with nothing to judge (it lapsed, or closed when you
 /// left the job) is neither a word held nor one broken: P1's record, a
-/// stake's belief and his card on you all skip it.
+/// stake's belief, the wants he still has and his cards on you all skip it.
 #[test]
 fn a_promise_closed_quietly_is_no_word_kept() {
     use crate::world::folk::persona::Them;
-    use crate::world::folk::persona::talk::{between, hits};
+    use crate::world::folk::persona::talk::{between, hits, items};
+    use crate::world::folk::persona::wanting;
+    use crate::world::folk::persona::wants::WantKind;
     let (mut w, club, i) = club_man(Position::LB);
     let id = w.people[i].player.id;
     let before = hits::stake_belief(&w, id);
+    assert!(before.is_some());
     talks::promise(&mut w, PromiseTo::Player(id), PromiseKind::Start, 0);
     let k = w.folk.promises.len() - 1;
+    assert!(wanting::met(&w, Them::Player(id), WantKind::Role), "an open promise covers his role");
     // He left on his own: it lapses on its day, quietly.
     w.clubs[club].roster.retain(|&x| x != i);
     let due = w.folk.promises[k].due;
     talks::check_promises(&mut w, due);
     let p = w.folk.promises[k].clone();
     assert_eq!(p.kept, Some(true));
-    assert!(p.released && p.quiet(), "lapsed: closed with nothing to judge");
+    assert!(p.released && p.quiet() && !p.job_closed, "lapsed: closed with nothing to judge");
     w.clubs[club].roster.push(i);
     assert_eq!(hits::stake_belief(&w, id), before, "no kept promise in his record");
-    // Closed when you left the job: his card says so, not that you kept it.
-    let p = &mut w.folk.promises[k];
-    p.team = Some(Team::Nfl((club + 1) % w.clubs.len()));
+    assert!(!wanting::met(&w, Them::Player(id), WantKind::Role), "a lapsed promise gives him nothing");
+    let card = items::items(&w, Them::Player(id), &[]);
+    assert!(card.iter().any(|x| x.1.contains("(no longer stands)")) && !card.iter().any(|x| x.1.contains("(kept)")));
+    // It lapsed while you were there: his card on you says it no longer
+    // stands, even after you have moved on.
+    w.folk.promises[k].team = Some(Team::Nfl((club + 1) % w.clubs.len()));
     let words = between::words(&w, Them::Player(id)).join(". ");
-    assert!(words.contains("it ended when the coach left that job") && !words.contains("he kept it"), "{words}");
+    assert!(words.contains("it no longer stands") && !words.contains("he kept it"), "{words}");
+    // Closed when you left the job: it says so.
+    w.folk.promises[k].job_closed = true;
+    let words = between::words(&w, Them::Player(id)).join(". ");
+    assert!(words.contains("it ended when the coach left that job"), "{words}");
     // A promise he saw you keep still reads as kept.
     let p = &mut w.folk.promises[k];
     p.released = false;
+    p.job_closed = false;
     assert!(!p.quiet());
     let words = between::words(&w, Them::Player(id)).join(". ");
     assert!(words.contains("he kept it"), "{words}");
+}
+
+/// Fired with the season played out (the carousel comes the day after the
+/// last game, before the promises fall due): his promise is judged on his
+/// games, not closed. With games still to play it closes quietly.
+#[test]
+fn a_season_played_out_is_judged_when_you_leave() {
+    use crate::world::folk::facts;
+    let (mut w, club, i) = club_man(Position::WR);
+    let id = w.people[i].player.id;
+    let opp = (club + 1) % w.clubs.len();
+    let today = w.today;
+    w.training.arrived.push((id, today.add(-300)));
+    let c = w.people[i].pro.as_mut().unwrap();
+    c.out_days = 0;
+    c.out_weeks = 0;
+    talks::promise(&mut w, PromiseTo::Player(id), PromiseKind::Start, 0);
+    let k = w.folk.promises.len() - 1;
+    // Its window: three games he sat in, then two days to its day with no
+    // game of yours left.
+    w.folk.promises[k].made = today.add(-30);
+    w.folk.promises[k].due = today.add(2);
+    assert!(
+        !facts::team_games(&w, Team::Nfl(club)).iter().any(|g| g.0 >= today && g.0 <= today.add(2)),
+        "no game left before its day"
+    );
+    for d in [today.add(-21), today.add(-14), today.add(-7)] {
+        let lines = [
+            (id, StatLine { snaps_off: 4, games: 1, ..Default::default() }),
+            (7, StatLine { snaps_off: 64, games: 1, ..Default::default() }),
+        ];
+        kept_game(&mut w, d, [club, opp], &lines, Some(0));
+    }
+    talks::job_left(&mut w, "fired");
+    let p = w.folk.promises[k].clone();
+    assert_eq!(p.kept, Some(false), "the season is in: you broke it");
+    assert!(!p.job_closed);
+    // A promise for next season, or one with games still to play, closes.
+    talks::promise(&mut w, PromiseTo::Player(id), PromiseKind::Start, 0);
+    let k = w.folk.promises.len() - 1;
+    w.folk.promises[k].due = today.add(talks::PLAYED_OUT_DAYS + 30);
+    talks::job_left(&mut w, "fired");
+    assert!(w.folk.promises[k].quiet() && w.folk.promises[k].job_closed);
+}
+
+/// A man your club cut and took back, who then leaves on his own terms,
+/// lapses the promise: the cut is behind you.
+#[test]
+fn a_man_cut_and_taken_back_is_judged_as_one_who_left_on_his_own() {
+    let (mut w, club, i) = club_man(Position::LB);
+    let id = w.people[i].player.id;
+    talks::promise(&mut w, PromiseTo::Player(id), PromiseKind::Snaps, 0);
+    let k = w.folk.promises.len() - 1;
+    talks::let_go(&mut w, i, club);
+    assert!(w.folk.promises[k].sent);
+    // Back on your roster (the practice squad) the next day.
+    let today = w.today;
+    talks::day(&mut w, today);
+    assert!(!w.folk.promises[k].sent, "back with you");
+    // Then another club signs him off your squad: it lapses.
+    w.clubs[club].roster.retain(|&x| x != i);
+    let p = w.folk.promises[k].clone();
+    assert!(talks::lapsed(&w, &p) && !talks::sent_away(&w, &p));
+}
+
+/// A promise that you'd stay, to a coach who had already left your staff,
+/// closes quietly when you take another job; to one still there, it breaks.
+#[test]
+fn a_stay_promise_to_a_coach_who_left_first_closes_quietly() {
+    let (mut w, club, _) = club_man(Position::LB);
+    let staff: Vec<usize> = (0..w.coaches.len())
+        .filter(|&c| {
+            w.coaches[c].job.as_ref().is_some_and(|j| {
+                Team::from_employer(j.employer) == Team::Nfl(club) && Some(c) != w.nfl[club].head_coach
+            })
+        })
+        .take(2)
+        .collect();
+    assert_eq!(staff.len(), 2, "two assistants on your staff");
+    for &c in &staff {
+        talks::promise(&mut w, PromiseTo::Coach(c), PromiseKind::Stay, 0);
+    }
+    let n = w.folk.promises.len();
+    let (gone, here) = (n - 2, n - 1);
+    // The first takes a job elsewhere before you go.
+    let other = (club + 1) % w.clubs.len();
+    w.coaches[staff[0]].job.as_mut().unwrap().employer = Team::Nfl(other).employer();
+    talks::job_left(&mut w, "left for another job");
+    w.seat = Some(Seat { level: Level::Nfl, nfl_team: Some((club + 2) % w.clubs.len()), program: None, other: None });
+    talks::job_taken(&mut w);
+    assert!(w.folk.promises[gone].quiet(), "he left first: nothing to hold you to");
+    let p = w.folk.promises[here].clone();
+    assert!(p.kept.is_none() && p.due == w.today && !talks::kept(&w, &p), "still there: you left him");
+}
+
+/// Another league's season he sat out on its roster stands at the year's
+/// end, over the season before it.
+#[test]
+fn a_season_sat_out_in_another_league_stands_at_the_years_end() {
+    use crate::world::pro::other::OtherSeason as Row;
+    let (mut w, _, i) = club_man(Position::QB);
+    let y = w.year;
+    let c = w.people[i].pro.as_mut().unwrap();
+    c.other.push(Row { year: y - 1, league: crate::world::pro::other::CFL, games: 18, starts: 16, ..Row::default() });
+    role::write(&mut w, &[i]);
+    assert_eq!(w.people[i].last_role, Some(PlayingTime::Starter));
+    // This year on a roster without a game: a backup, and it stands.
+    role::write_league(&mut w, &[i], y);
+    assert_eq!(w.people[i].last_role, Some(PlayingTime::Backup));
+    role::write_all(&mut w);
+    assert_eq!(w.people[i].last_role, Some(PlayingTime::Backup), "the year's end keeps the newer season");
+    // A newer season played is read.
+    let c = w.people[i].pro.as_mut().unwrap();
+    c.other.push(Row { year: y + 1, league: crate::world::pro::other::CFL, games: 18, starts: 17, ..Row::default() });
+    role::write_all(&mut w);
+    assert_eq!(w.people[i].last_role, Some(PlayingTime::Starter));
 }
 
 #[test]

@@ -24,6 +24,12 @@ use super::games::NFL_SEASON_SNAPS;
 /// reads 0 and has them written when it loads.
 pub(crate) const PRO_ROLE_REV: u8 = 1;
 
+/// His role in the newest season he played (`season_of`).
+#[cfg(test)]
+pub(crate) fn season_role(w: &World, i: usize) -> Option<PlayingTime> {
+    season_of(w, i).map(|x| x.0)
+}
+
 /// His role in the newest season he played, NFL or another league's: the
 /// one he saw on the field.
 ///
@@ -46,7 +52,9 @@ pub(crate) const PRO_ROLE_REV: u8 = 1;
 ///
 /// None when he has no such pro season (a rookie keeps his college role,
 /// which his college games gave him).
-pub(crate) fn season_role(w: &World, i: usize) -> Option<PlayingTime> {
+///
+/// With the year of the season it read.
+fn season_of(w: &World, i: usize) -> Option<(PlayingTime, i32)> {
     let p = &w.people[i];
     let c = p.pro.as_ref()?;
     let pos = p.player.position;
@@ -63,39 +71,47 @@ pub(crate) fn season_role(w: &World, i: usize) -> Option<PlayingTime> {
     if other_newer {
         let s = other?;
         if pos.is_specialist() {
-            return Some(PlayingTime::Starter);
+            return Some((PlayingTime::Starter, s.year));
         }
         let full = super::other::format(s.league, s.year).map_or(0, |f| f.games as u32);
         let games = s.games as u32;
-        return Some(real_role(s.starts as u32, games, full.max(games), 0.0));
+        return Some((real_role(s.starts as u32, games, full.max(games), 0.0), s.year));
     }
     let s = nfl?;
+    let year = s.year;
     let games = s.games_all();
     if games == 0 {
-        return Some(if roster(s) > s.ps_weeks { PlayingTime::Backup } else { PlayingTime::PracticeSquad });
+        return Some((if roster(s) > s.ps_weeks { PlayingTime::Backup } else { PlayingTime::PracticeSquad }, year));
     }
     if pos.is_specialist() {
-        return Some(PlayingTime::Starter);
+        return Some((PlayingTime::Starter, year));
     }
     let season = w.changes.rules(s.year).nfl_games.max(1);
     if w.options.engine_from.is_some_and(|from| s.year < from) {
-        return Some(real_role(s.starts_all(), games, season.max(games), 0.0));
+        return Some((real_role(s.starts_all(), games, season.max(games), 0.0), year));
     }
     let off = crate::world::folk::seen::offense(pos);
     let playoff = s.playoffs.as_ref().map_or(0, |l| if off { l.snaps_off } else { l.snaps_def });
     let snaps = s.snaps[if off { 0 } else { 1 }] + playoff;
     let full = NFL_SEASON_SNAPS as f64 / season as f64 * games as f64;
-    Some(real_role(0, games, 0, snaps as f64 / full))
+    Some((real_role(0, games, 0, snaps as f64 / full), year))
 }
 
 /// Writes the role of each of these pros from the season he last played.
+/// A role read from a newer season stands (`ProCareer::role_year`):
+/// another league's season he sat out on its roster keeps no row, so the
+/// year's end would otherwise read the one before it.
 pub(crate) fn write(w: &mut World, people: &[usize]) {
     for &i in people {
         if w.people[i].stage != Stage::Pro {
             continue;
         }
-        if let Some(r) = season_role(w, i) {
-            w.people[i].last_role = Some(r);
+        let Some((r, year)) = season_of(w, i) else { continue };
+        let p = &mut w.people[i];
+        let Some(c) = p.pro.as_mut() else { continue };
+        if year >= c.role_year {
+            c.role_year = year;
+            p.last_role = Some(r);
         }
     }
 }
@@ -112,7 +128,11 @@ pub(crate) fn write_league(w: &mut World, men: &[usize], year: i32) {
         if dressed {
             write(w, &[i]);
         } else {
-            w.people[i].last_role = Some(PlayingTime::Backup);
+            let p = &mut w.people[i];
+            p.last_role = Some(PlayingTime::Backup);
+            if let Some(c) = p.pro.as_mut() {
+                c.role_year = c.role_year.max(year);
+            }
         }
     }
 }

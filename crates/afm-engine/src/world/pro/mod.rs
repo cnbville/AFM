@@ -201,6 +201,15 @@ pub struct ProCareer {
     /// person's index moves when the world is compacted.
     #[serde(default)]
     pub case: Option<super::people::PastCase>,
+    /// The season his `Person::last_role` was read from (code oddity 29,
+    /// `role::write`): a later write from an older season leaves it, so
+    /// another league's season he sat out on its roster stands. 0 before.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub role_year: i32,
+}
+
+fn is_zero(x: &i32) -> bool {
+    *x == 0
 }
 
 impl ProCareer {
@@ -246,6 +255,7 @@ impl ProCareer {
             exempt: 0,
             other: Vec::new(),
             case: None,
+            role_year: 0,
         }
     }
 

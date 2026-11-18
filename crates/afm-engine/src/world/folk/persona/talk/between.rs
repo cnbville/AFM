@@ -665,10 +665,8 @@ fn promises(w: &World, to: impl Fn(&PromiseTo) -> bool, v: Voice, none: bool, ou
     for p in mine.iter().rev().take(MAX_PROMISES) {
         let stands = match p.kept {
             // Closed with nothing to judge (`Promise::quiet`): when the coach
-            // left the team he made it at, or before it was tested.
-            Some(true) if p.quiet() && p.team.is_some_and(|t| Some(t) != crate::world::folk::Team::seat(w)) => {
-                "it ended when the coach left that job".to_string()
-            }
+            // left the job he made it at, or it lapsed or let him off.
+            Some(true) if p.quiet() && p.job_closed => "it ended when the coach left that job".to_string(),
             Some(true) if p.quiet() => "it no longer stands".to_string(),
             Some(true) => "he kept it".to_string(),
             Some(false) => "he broke it".to_string(),
