@@ -321,17 +321,59 @@ fn your_staffs_project_read_is_a_range_on_its_own_view() {
 
 #[test]
 fn an_ai_staff_adopts_a_project_your_staff_set() {
-    // A man who leaves your team with your project (a transfer, or you
-    // leave) is on an AI staff's rules from its next checkpoint: it adopts
-    // the project, and its dead-end rule judges it like its own.
+    // You leave the seat and an AI staff takes your team: from its next
+    // checkpoint it adopts the projects, and its dead-end rule judges them
+    // like its own.
+    let staff = progression::staff_code(progression::StaffAt::College, 7);
     let mut a = boy(9_500, Position::S);
     progression::ensure(&mut a);
     assert!(progression::start_project(&mut a, Attr::Tackling, true));
     assert!(progression::start_body(&mut a, progression::BodyKind::Strength, true));
-    let out = progression::ai_room(&[&a], Room::S, progression::Lean::BALANCED, 10.0, 1.0, 3);
+    a.prog.staff = staff;
+    let out = progression::ai_room(&[&a], Room::S, progression::Lean::BALANCED, 10.0, 1.0, staff, 3);
     assert!(out.contains(&(0, progression::Change::Adopt)), "{out:?}");
     for (_, c) in out {
         progression::apply(&mut a, c);
     }
     assert!(!a.prog.yours && !a.prog.body_yours);
+}
+
+#[test]
+fn a_project_ends_when_he_moves_to_a_new_staff() {
+    // A project is his staff's plan: a man who moves (a signing, a
+    // transfer, the draft) brings none, holds no slot, and his new staff
+    // picks at its next checkpoint like anyone else's.
+    let old = progression::staff_code(progression::StaffAt::HighSchool, 3);
+    let new = progression::staff_code(progression::StaffAt::College, 3);
+    assert_ne!(old, new);
+    let mut a = boy(9_600, Position::S);
+    progression::ensure(&mut a);
+    assert!(progression::start_project(&mut a, Attr::Tackling, false));
+    assert!(progression::start_body(&mut a, progression::BodyKind::Strength, false));
+    a.prog.staff = old;
+    assert!(a.prog.left_behind(new) && !a.prog.left_behind(old));
+    let out = progression::ai_room(&[&a], Room::S, progression::Lean::DEVELOPER, 10.0, 1.0, new, 3);
+    assert!(out.contains(&(0, progression::Change::End)), "{out:?}");
+    assert!(out.contains(&(0, progression::Change::EndBody)), "{out:?}");
+    assert!(!out.iter().any(|c| matches!(c.1, progression::Change::Start(_) | progression::Change::StartBody(_))));
+    for (_, c) in out {
+        progression::apply(&mut a, c);
+    }
+    assert!(a.prog.project().is_none() && a.prog.body_project().is_none());
+    assert_eq!(a.prog.staff, new);
+    // On his old staff it would have run on.
+    let mut b = boy(9_601, Position::S);
+    progression::ensure(&mut b);
+    assert!(progression::start_project(&mut b, Attr::Tackling, false));
+    b.prog.staff = old;
+    assert!(progression::moved(&b, old).is_empty());
+    // An older save's project (no staff yet) is taken as this staff's.
+    let mut c = boy(9_602, Position::S);
+    progression::ensure(&mut c);
+    assert!(progression::start_project(&mut c, Attr::Tackling, false));
+    assert_eq!(progression::moved(&c, new), vec![progression::Change::Staff(new)]);
+    // The class sim: a new level is a new staff.
+    progression::ai_single(&mut b, progression::Lean::BALANCED, 10.0, false, 10.0, new);
+    assert_eq!(b.prog.staff, new);
+    assert!(b.prog.project() != Some(Attr::Tackling) || b.prog.project_years == 0);
 }

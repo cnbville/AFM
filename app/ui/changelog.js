@@ -17,6 +17,15 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.616", date: "18 Nov", title: "Opening a save closes the open world before reading the file",
+    notes: [
+      "Loading a save is lighter on memory now: the game lets go of the world you had open before it reads the next one, so big worlds load on an 8 GB Mac.",
+      "Loading a save while a career or world is open no longer holds two worlds in memory.",
+      "Big worlds' saves and autosaves load again on 8 GB Macs.",
+      "If a file can't be opened, you land back on the start page instead of a broken career.",
+    ],
+  },
+  {
     v: "0.2.615", date: "17 Nov", title: "Capital lane CS4: the project screen and 3 more",
     notes: [
       "Your capital campaign now has its own page: see how close the goal is, who gave and what moved them, and make the calls that are yours.",

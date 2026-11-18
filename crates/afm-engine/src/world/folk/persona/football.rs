@@ -324,8 +324,17 @@ pub fn knows(w: &World, him: Them, about: Option<Them>, m: &Makeup) -> Vec<Known
     if lines.is_empty() {
         return v;
     }
-    let words =
+    let mut words =
         format!("{} {}: {} games, {} starts; {}", year, spot(d, pos), season.games, season.starts, lines.join("; "));
+    // His coaches know where his numbers stand among the conference's
+    // starters at his spot (Cain 2026-11-17: "i want coaches to be aware
+    // of team stats and player stats too, for in depth conversations").
+    if s.coach
+        && matches!(him, Them::Coach(_))
+        && let Some(place) = super::review::player_place(w, i)
+    {
+        words.push_str(&format!("; {place}"));
+    }
     v.push(Known {
         topic: Topic::Football,
         about,

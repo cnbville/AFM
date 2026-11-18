@@ -1739,6 +1739,19 @@
   "title": "Memory diet: the research and the agreed items (docs)",
   "tldr": "The memory research's spec, docs/design/memory-diet.md, plus its line in CLAUDE.md's read-first list."
  },
+ "535": {
+  "auto": false,
+  "bullets": [
+   "Loading a save while a career or world is open no longer holds two worlds in memory.",
+   "Big worlds' saves and autosaves load again on 8 GB Macs.",
+   "If a file can't be opened, you land back on the start page instead of a broken career."
+  ],
+  "h": "178efe66412b",
+  "look": "load your latest save from the Load page.",
+  "players": true,
+  "title": "Opening a save closes the open world before reading the file",
+  "tldr": "Loading a save is lighter on memory now: the game lets go of the world you had open before it reads the next one, so big worlds load on an 8 GB Mac."
+ },
  "536": {
   "auto": false,
   "bullets": [],
@@ -1747,5 +1760,23 @@
   "players": false,
   "title": "GAPS.md: start the gaps list with the coach-depth findings",
   "tldr": ""
+ },
+ "537": {
+  "auto": true,
+  "bullets": [],
+  "h": "e12974fbbd92",
+  "look": "",
+  "players": true,
+  "title": "Design: coach and player bonds (proposed, not confirmed)",
+  "tldr": "A design spec, docs/design/coach-bonds.md, for Cain's ask: players build real bonds with their coaches, up to a father figure, with everything counting (age gap, matching personalities, background, need, time, promises, recruiting, hard moments)."
+ },
+ "538": {
+  "auto": true,
+  "bullets": [],
+  "h": "3a9fde8e91c0",
+  "look": "",
+  "players": true,
+  "title": "Coach bonds: Cain agreed to the design and all 7 questions",
+  "tldr": "Cain said \"yes to all\" on 2026-11-17 at 20:13 UTC."
  }
 }
