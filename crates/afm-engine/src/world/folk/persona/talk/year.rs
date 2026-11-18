@@ -85,7 +85,14 @@ fn seat_side(w: &World) -> Option<Side> {
 fn frame(w: &World, side: Side, y: &YearDates) -> Option<Frame> {
     match side {
         Side::College(c) => Some(division_frame(y, w.programs.get(c)?.division)),
-        Side::Nfl(_) | Side::Draft => Some(Frame::pro(y, false)),
+        // A club with a new head coach starts its offseason program two
+        // weeks early (CBA Article 21): a coach hired for this season has
+        // the season before as his `since` (`coach::Job::since`).
+        Side::Nfl(Some(t)) => {
+            let since = w.nfl.get(t)?.head_coach.and_then(|c| w.coaches.get(c)?.job.as_ref().map(|j| j.since));
+            Some(Frame::pro(y, since == Some(y.season - 1)))
+        }
+        Side::Nfl(None) | Side::Draft => Some(Frame::pro(y, false)),
         Side::High(h) => {
             let s = w.high_schools.get(h)?.state;
             let code = &w.states.get(s)?.code;
@@ -495,9 +502,13 @@ fn next_place(w: &World, f: &Frame) -> String {
                 Some((a, _)) if today < a => format!("Spring ball from {} is a first look. ", date_words(a)),
                 _ => String::new(),
             };
+            let summer = if today < f.summer {
+                format!("Summer workouts and 7-on-7 start {}", date_words(f.summer))
+            } else {
+                "Summer workouts and 7-on-7 are under way".to_string()
+            };
             format!(
-                "{opening}. {spring}Summer workouts and 7-on-7 start {}; practice opens {}, and that's where the jobs are won",
-                date_words(f.summer.max(today)),
+                "{opening}. {spring}{summer}; practice opens {}, and that's where the jobs are won",
                 date_words(f.camp)
             )
         }
