@@ -777,7 +777,9 @@ fn family_home(w: &mut World, prog: usize, fam: Who, d: Date, id: u32, last: &st
 /// pulled, is a big moment he holds for years.
 fn word(w: &mut World, prog: usize, d: Date) {
     let mut todo: Vec<(u64, u32, bool, String)> = Vec::new();
-    for p in &w.folk.promises {
+    // A promise closed with nothing to judge (it lapsed, or closed when you
+    // left the job) is no word held or broken.
+    for p in w.folk.promises.iter().filter(|p| !p.quiet()) {
         if let (Some(kept), crate::world::folk::talks::PromiseTo::Player(id)) = (p.kept, p.to) {
             let k = key(&[0x9A0B, id as u64, p.made.0 as u64, p.due.0 as u64]);
             if w.ground.done.binary_search(&k).is_err() {

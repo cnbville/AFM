@@ -2401,6 +2401,7 @@ pub(crate) fn clear_room(w: &mut World, t: usize, d: Date, before_league_year: b
             line.push(')');
             told.push((i, line));
         }
+        super::club_lets_go(w, i);
         release_with(
             w,
             i,
@@ -2634,6 +2635,7 @@ pub(crate) fn claims(w: &mut World, d: Date) {
             continue;
         };
         if let Some(j) = drop {
+            super::club_lets_go(w, j);
             release_with(w, j, d, "let go after a waiver claim", false, false, DeadWhy::Released);
             w.people[j].pro.as_mut().unwrap().on_waivers = false;
         }

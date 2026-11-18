@@ -358,8 +358,8 @@ fn a_man_you_cut_or_traded_was_let_down() {
     let k = w.folk.promises.len() - 1;
     let p = w.folk.promises[k].clone();
     assert!(!talks::sent_away(&w, &p) && !talks::lapsed(&w, &p), "still yours");
-    // Gone on his own (his deal ran out, another club took him off your
-    // practice squad): it lapses.
+    // Gone on his own (another club took him off your practice squad): it
+    // lapses.
     w.clubs[club].roster.retain(|&x| x != i);
     assert!(!talks::sent_away(&w, &p));
     assert!(talks::lapsed(&w, &p), "left on his own");
@@ -384,6 +384,79 @@ fn a_man_you_cut_or_traded_was_let_down() {
     let other = (club + 1) % w.clubs.len();
     talks::let_go(&mut w, i, other);
     assert!(!w.folk.promises.last().unwrap().sent);
+}
+
+/// Only your club's own call marks its word: a cut (the cutdown, a cap
+/// casualty, your front office) or a trade. A deal that runs out, a
+/// practice squad deal that ends, an offer sheet left unmatched and an
+/// expansion draft go through the same release or move and mark nothing.
+#[test]
+fn only_your_clubs_own_call_lets_him_down() {
+    use crate::world::pro::{self, DeadWhy};
+    let (mut w, club, _) = club_man(Position::LB);
+    let men: Vec<usize> = w.clubs[club].roster.iter().copied().take(4).collect();
+    let d = w.today;
+    let promised = |w: &mut World, i: usize| {
+        let id = w.people[i].player.id;
+        talks::promise(w, PromiseTo::Player(id), PromiseKind::Start, 0);
+        w.folk.promises.len() - 1
+    };
+    // His deal ran out.
+    let k = promised(&mut w, men[0]);
+    pro::release_with(&mut w, men[0], d, "his contract ran out", false, false, DeadWhy::Released);
+    let p = w.folk.promises[k].clone();
+    assert!(!p.sent && !w.clubs[club].roster.contains(&men[0]));
+    assert!(talks::lapsed(&w, &p) && !talks::sent_away(&w, &p), "his deal ran out: it lapses");
+    // Taken in an expansion draft.
+    let k = promised(&mut w, men[1]);
+    let other = (club + 1) % w.clubs.len();
+    pro::transfer(&mut w, men[1], other, "taken in the expansion draft");
+    assert!(!w.folk.promises[k].sent, "an expansion draft is no call of yours");
+    // Cut at the cutdown.
+    let k = promised(&mut w, men[2]);
+    pro::cut_by_club(&mut w, men[2], d, "cut at the final cutdown");
+    let p = w.folk.promises[k].clone();
+    assert!(p.sent && talks::sent_away(&w, &p), "you cut him");
+    // Traded.
+    let k = promised(&mut w, men[3]);
+    pro::club_lets_go(&mut w, men[3]);
+    pro::transfer(&mut w, men[3], other, "traded");
+    let p = w.folk.promises[k].clone();
+    assert!(p.sent && talks::sent_away(&w, &p), "you traded him");
+}
+
+/// A promise closed with nothing to judge (it lapsed, or closed when you
+/// left the job) is neither a word held nor one broken: P1's record, a
+/// stake's belief and his card on you all skip it.
+#[test]
+fn a_promise_closed_quietly_is_no_word_kept() {
+    use crate::world::folk::persona::Them;
+    use crate::world::folk::persona::talk::{between, hits};
+    let (mut w, club, i) = club_man(Position::LB);
+    let id = w.people[i].player.id;
+    let before = hits::stake_belief(&w, id);
+    talks::promise(&mut w, PromiseTo::Player(id), PromiseKind::Start, 0);
+    let k = w.folk.promises.len() - 1;
+    // He left on his own: it lapses on its day, quietly.
+    w.clubs[club].roster.retain(|&x| x != i);
+    let due = w.folk.promises[k].due;
+    talks::check_promises(&mut w, due);
+    let p = w.folk.promises[k].clone();
+    assert_eq!(p.kept, Some(true));
+    assert!(p.released && p.quiet(), "lapsed: closed with nothing to judge");
+    w.clubs[club].roster.push(i);
+    assert_eq!(hits::stake_belief(&w, id), before, "no kept promise in his record");
+    // Closed when you left the job: his card says so, not that you kept it.
+    let p = &mut w.folk.promises[k];
+    p.team = Some(Team::Nfl((club + 1) % w.clubs.len()));
+    let words = between::words(&w, Them::Player(id)).join(". ");
+    assert!(words.contains("it ended when the coach left that job") && !words.contains("he kept it"), "{words}");
+    // A promise he saw you keep still reads as kept.
+    let p = &mut w.folk.promises[k];
+    p.released = false;
+    assert!(!p.quiet());
+    let words = between::words(&w, Them::Player(id)).join(". ");
+    assert!(words.contains("he kept it"), "{words}");
 }
 
 #[test]

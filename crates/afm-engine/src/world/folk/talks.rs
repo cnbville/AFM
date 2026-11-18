@@ -257,6 +257,15 @@ impl PromiseKind {
 }
 
 impl Promise {
+    /// Closed with nothing to judge: it lapsed (he left on his own), he
+    /// missed his condition and let you off, or it closed when you left the
+    /// job (`close_quietly`). Stored as kept, but neither a word you held
+    /// nor one you broke: P1's record (`promise::record`) skips it, and so
+    /// do a stake's belief and Ground's word.
+    pub fn quiet(&self) -> bool {
+        self.kept == Some(true) && self.released
+    }
+
     /// What you promised, in words, with a usage term's own words.
     pub fn words(&self) -> String {
         match self.terms.usage {
@@ -467,6 +476,7 @@ pub fn check_promises(w: &mut World, d: Date) {
         // A promise of his place lapses, quietly, once he left on his own.
         if lapsed(w, &p) {
             w.folk.promises[k].kept = Some(true);
+            w.folk.promises[k].released = true;
             continue;
         }
         // A pro your club cut or traded: broken, whatever his games with
@@ -762,9 +772,10 @@ pub(crate) fn sent_away(w: &World, p: &Promise) -> bool {
     w.people[i].stage == Stage::Pro && !team.roster(w).contains(&i)
 }
 
-/// Your NFL club lets a man go, cut or traded (`pro::release_with`,
-/// `pro::transfer`): each open promise of his place made there is marked,
-/// so it is broken when it falls due unless he is back (`sent_away`).
+/// Your NFL club lets a man go by its own call, cut or traded
+/// (`pro::club_lets_go`): each open promise of his place made there is
+/// marked, so it is broken when it falls due unless he is back
+/// (`sent_away`).
 pub(crate) fn let_go(w: &mut World, i: usize, club: usize) {
     let team = Team::Nfl(club);
     if Team::seat(w) != Some(team) {

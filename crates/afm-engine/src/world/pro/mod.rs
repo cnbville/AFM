@@ -992,8 +992,6 @@ pub(crate) fn after_draft(w: &mut World) {
 /// pick, a franchise move).
 pub(crate) fn transfer(w: &mut World, i: usize, to: usize, why: &str) {
     let Some(from) = w.people[i].pro.as_ref().and_then(|c| c.team) else { return };
-    // Your club's word to him (code oddity 29).
-    crate::world::folk::talks::let_go(w, i, from);
     w.clubs[from].roster.retain(|&x| x != i);
     w.clubs[to].roster.push(i);
     let name = w.nfl[to].name;
@@ -1465,6 +1463,28 @@ pub(crate) fn release(w: &mut World, i: usize, d: Date, why: &str) {
     release_with(w, i, d, why, false, true, DeadWhy::Released);
 }
 
+/// A cut by the club's own football call (the final cutdown, room for a
+/// man back from injured reserve): its word to him is marked first
+/// (`club_lets_go`).
+pub(crate) fn cut_by_club(w: &mut World, i: usize, d: Date, why: &str) {
+    club_lets_go(w, i);
+    release(w, i, d, why);
+}
+
+/// Your NFL club lets a man go by its own call, cut or traded (code
+/// oddity 29): each open promise of his place made there is marked
+/// (`talks::let_go`). Called before he leaves the roster. A deal that runs
+/// out, an offer sheet left unmatched, a practice squad deal that ends,
+/// an expansion draft, a franchise that moves or goes dark, and a man
+/// released for his own conduct (team rules, a suspension) mark nothing:
+/// he left on his own terms, and the promise lapses. Proposed, not
+/// confirmed.
+pub(crate) fn club_lets_go(w: &mut World, i: usize) {
+    if let Some(t) = w.people[i].pro.as_ref().and_then(|c| c.team) {
+        crate::world::folk::talks::let_go(w, i, t);
+    }
+}
+
 /// From June 1 to the Super Bowl a release splits its dead money over
 /// two league years by itself (real).
 pub fn after_june1(w: &World, d: Date) -> bool {
@@ -1483,10 +1503,6 @@ pub(crate) fn release_with(w: &mut World, i: usize, d: Date, why: &str, june1: b
             if waivers { "released (waivers)" } else { "released" },
             why,
         ));
-    }
-    // Your club's word to him (code oddity 29).
-    if let Some(t) = w.people[i].pro.as_ref().and_then(|c| c.team) {
-        crate::world::folk::talks::let_go(w, i, t);
     }
     let year = w.year;
     let june1 = june1 || after_june1(w, d);
@@ -2281,7 +2297,7 @@ pub(crate) fn cutdown(w: &mut World, d: Date) {
         }
         for i in cut {
             squad::settle_injury(w, t, i);
-            release(w, i, d, "cut at the final cutdown");
+            cut_by_club(w, i, d, "cut at the final cutdown");
         }
     }
 }
@@ -2482,7 +2498,7 @@ fn back_from_reserve(w: &mut World, i: usize, t: usize, pup: bool, d: Date) {
             .filter(|&j| j != i && w.people[j].pro.as_ref().is_some_and(|c| c.status == Status::Roster))
             .min_by(|&a, &b| grade(w, t, a).total_cmp(&grade(w, t, b)));
         if let Some(j) = cut {
-            release(w, j, d, "cut to make room for a player back from injured reserve");
+            cut_by_club(w, j, d, "cut to make room for a player back from injured reserve");
         }
     }
 }
