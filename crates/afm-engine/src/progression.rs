@@ -1295,7 +1295,9 @@ pub fn ai_room(
             let best = members
                 .iter()
                 .enumerate()
-                .filter(|(_, p)| p.prog.drawn && p.prog.body_project().is_none() && p.age <= BODY_UNTIL - 2)
+                .filter(|(i, p)| {
+                    !gone[*i] && p.prog.drawn && p.prog.body_project().is_none() && p.age <= BODY_UNTIL - 2
+                })
                 .map(|(i, p)| (i, body_bet(p, eye, &mut r)))
                 .filter(|c| c.1 >= BODY_BET_FLOOR)
                 .max_by(|a, b| a.1.total_cmp(&b.1));
@@ -1314,7 +1316,7 @@ pub fn ai_room(
     let mut cands: Vec<(usize, Attr, f64)> = members
         .iter()
         .enumerate()
-        .filter(|(_, p)| p.prog.drawn && p.prog.project().is_none())
+        .filter(|(i, p)| !gone[*i] && p.prog.drawn && p.prog.project().is_none())
         .filter_map(|(i, p)| best_bet(p, AI_SHARP, eye, &mut r).map(|(a, v)| (i, a, v)))
         .filter(|c| c.2 >= BET_FLOOR)
         .collect();
