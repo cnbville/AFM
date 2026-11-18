@@ -716,6 +716,53 @@ fn room_teaching(prog: &super::program::Program, coaches: &[super::coach::Coach]
     }
 }
 
+/// A student under this GPA gets the academic staff's time first (support
+/// departments; proposed, not confirmed).
+const AT_RISK_GPA: f64 = 2.5;
+
+/// A program's support departments as the season step reads them
+/// (support departments): each read by priority tier.
+pub(crate) struct DeptReads {
+    pub strength: [f64; 3],
+    pub strength_typ: f64,
+    pub medical: [f64; 3],
+    pub diet: [f64; 3],
+    /// The students at risk, then the rest.
+    pub academic: [f64; 2],
+    pub engagement: f64,
+}
+
+/// Each program's departments for the season step: its players counted by
+/// tier from their roles this year.
+fn college_depts(w: &World, role_of: &[Option<PlayingTime>]) -> Vec<DeptReads> {
+    use super::departments::{self as dp, Area};
+    use super::people::Who;
+    let mut counts = vec![([0usize; 3], [0usize; 2]); w.programs.len()];
+    for (i, p) in w.people.iter().enumerate() {
+        let (Some(role), Stage::College, Some(c)) = (role_of[i], p.stage, p.college) else { continue };
+        if let Some(e) = counts.get_mut(c) {
+            e.0[dp::tier_of(role)] += 1;
+            e.1[usize::from(p.bg.gpa >= AT_RISK_GPA)] += 1;
+        }
+    }
+    (0..w.programs.len())
+        .map(|k| {
+            let who = Who::Prog(k);
+            let (c, a) = counts[k];
+            let ac = dp::tiers(w, who, Area::Academic, [a[0], a[1], 0]);
+            DeptReads {
+                strength: dp::tiers(w, who, Area::Strength, c),
+                strength_typ: dp::typical_head(w, who, Area::Strength)
+                    .unwrap_or_else(|| typical_strength(w, w.programs[k].division)),
+                medical: dp::tiers(w, who, Area::Medical, c),
+                diet: dp::tiers(w, who, Area::Diet, c),
+                academic: [ac[0], ac[1]],
+                engagement: dp::team(w, who, Area::Engagement),
+            }
+        })
+        .collect()
+}
+
 /// A program's strength head, 1-20 (an empty post reads as average).
 pub(crate) fn strength_head(prog: &super::program::Program) -> f64 {
     10.0 + 10.0 * super::people::Support::z(prog.support.strength.rating)
@@ -732,25 +779,14 @@ pub(crate) fn typical_strength(w: &World, d: Division) -> f64 {
     if n > 0.0 { sum / n } else { 10.0 }
 }
 
-/// The league's typical strength head (minor bugs 302 and 303), over the
-/// clubs playing this year.
-pub(crate) fn nfl_typical_strength(w: &World) -> f64 {
-    let live: Vec<usize> = (0..w.nfl.len()).filter(|&t| super::franchise::active_in(w, t, w.year)).collect();
-    live.iter().map(|&t| club_strength_head(w, t)).sum::<f64>() / live.len().max(1) as f64
-}
-
-/// A club's strength head, 1-20.
-pub(crate) fn club_strength_head(w: &World, t: usize) -> f64 {
-    10.0 + 10.0 * super::people::Support::z(w.clubs[t].support.strength.rating)
-}
-
 /// The AI staffs' project changes this checkpoint, by person (the
 /// progression update): each college program's and high school's rooms
 /// (`progression::Room`), by the head coach's lean and the position
 /// coach's eye. Your seat's team is left to you.
 fn ai_projects(w: &World, role_of: &[Option<PlayingTime>]) -> HashMap<usize, Vec<crate::progression::Change>> {
-    use crate::progression::{Lean, Room, ai_room};
+    use crate::progression::{Lean, Room, StaffAt, ai_room, moved, staff_code};
     let mut rooms: HashMap<(bool, usize, Room), Vec<usize>> = HashMap::new();
+    let mut by: HashMap<usize, Vec<crate::progression::Change>> = HashMap::new();
     for (i, p) in w.people.iter().enumerate() {
         if role_of[i].is_none() {
             continue;
@@ -758,12 +794,23 @@ fn ai_projects(w: &World, role_of: &[Option<PlayingTime>]) -> HashMap<usize, Vec
         let Some(room) = Room::of(p.player.position) else { continue };
         let key = match p.stage {
             Stage::College => match p.college {
-                Some(c) if !w.seat_program(c) => (true, c),
+                Some(c) => (true, c),
                 _ => continue,
             },
-            Stage::HighSchool if w.seat_school() != Some(p.hs) => (false, p.hs),
+            Stage::HighSchool => (false, p.hs),
             _ => continue,
         };
+        let yours = if key.0 { w.seat_program(key.1) } else { w.seat_school() == Some(key.1) };
+        if yours {
+            // Your rooms are yours to fill, but a project he brought from
+            // his last staff ends here as on any staff.
+            let staff = staff_code(if key.0 { StaffAt::College } else { StaffAt::HighSchool }, key.1);
+            let m = moved(&p.player, staff);
+            if !m.is_empty() {
+                by.insert(i, m);
+            }
+            continue;
+        }
         rooms.entry((key.0, key.1, room)).or_default().push(i);
     }
     let mut keys: Vec<(bool, usize, Room)> = rooms.keys().copied().collect();
@@ -789,10 +836,10 @@ fn ai_projects(w: &World, role_of: &[Option<PlayingTime>]) -> HashMap<usize, Vec
                 Lean::of_coach(c, clamp((left - 2.5) / 2.5, -1.0, 1.0))
             });
             let seed = (w.year as u32).wrapping_mul(0x9E37) ^ (k.1 as u32).wrapping_mul(0x85EB) ^ (k.2 as u32) << 24;
-            ai_room(&members, k.2, lean, eye, scale, seed).into_iter().map(|(m, c)| (ids[m], c)).collect()
+            let staff = staff_code(if k.0 { StaffAt::College } else { StaffAt::HighSchool }, k.1);
+            ai_room(&members, k.2, lean, eye, scale, staff, seed).into_iter().map(|(m, c)| (ids[m], c)).collect()
         })
         .collect();
-    let mut by: HashMap<usize, Vec<crate::progression::Change>> = HashMap::new();
     for (i, c) in out.into_iter().flatten() {
         by.entry(i).or_default().push(c);
     }
@@ -901,6 +948,11 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         })
         .collect();
     let rehab_due: std::sync::Mutex<Vec<u32>> = std::sync::Mutex::new(Vec::new());
+    // The support departments' reads (support departments): each program's
+    // by priority tier (starters, the rotation, everyone else; academics:
+    // the students at risk first), and each high school's trainer.
+    let depts = college_depts(w, &role_of);
+    let hs_med: Vec<f64> = (0..w.high_schools.len()).map(|h| super::departments::hs_medical(w, h)).collect();
     // Each player's bond with the coach who teaches him (coach and player
     // bonds, question 4), read before the step.
     let bond_lift: Vec<f64> = {
@@ -919,6 +971,9 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         // A college part left blank by a write of nothing goes (memory diet).
         p.later.tidy();
         let group = Group::of(p.player.position);
+        // His place in his departments' time (support departments).
+        let tier = super::departments::tier_of(role);
+        let at_risk = usize::from(p.bg.gpa >= AT_RISK_GPA);
         // The unit's style pulls his habits (tendencies topic 3.5): the
         // head coach's, two-thirds of the way against his coordinator's.
         let mut style = None;
@@ -979,8 +1034,11 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
                 // strength staff takes the position coach's share, read
                 // around the level's typical room and strength head so the
                 // level's average growth stays where it was.
-                let (t_pc, t_s) = typical[prog.division as usize];
-                let s = strength_head(prog);
+                let (t_pc, _) = typical[prog.division as usize];
+                // The strength department's read for him, around the
+                // division's typical department (support departments).
+                let dep = &depts[p.college.unwrap_or(0)];
+                let (s, t_s) = (dep.strength[tier], dep.strength_typ);
                 physical_coaching = Some(
                     0.2 * hc
                         + 0.25 * unit
@@ -1028,9 +1086,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             // A good player engagement staff makes trouble a little rarer
             // (update 2, Q4; proposed, not confirmed: 12% at either end).
             * match p.college {
-                Some(c) if p.stage == Stage::College => {
-                    1.0 - 0.12 * super::people::Support::z(programs[c].support.engagement.rating)
-                }
+                Some(c) if p.stage == Stage::College => 1.0 - 0.12 * super::people::Support::zf(depts[c].engagement),
                 _ => 1.0,
             }
             * if helped.contains(&p.player.id) { 1.0 - super::folk::talk_points::HELP_CUT } else { 1.0 }
@@ -1068,9 +1124,10 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
         let mut academic_sit = false;
         if p.stage == Stage::College && trouble.is_none() {
             let prog = &programs[p.college.unwrap_or(0)];
-            // Academic support (section 6 topic 10): the academic staff's
-            // head beside the facilities.
-            let acad = super::people::Support::z(prog.support.academic.rating);
+            // Academic support (section 6 topic 10): the academic staff
+            // beside the facilities, the students at risk first (support
+            // departments).
+            let acad = super::people::Support::zf(depts[p.college.unwrap_or(0)].academic[at_risk]);
             // The academic center (Capital lane C2, CP19).
             let support = clamp(0.3 + 0.5 * super::capital::rooms::academic(prog) + 0.2 * (0.5 + 0.5 * acad), 0.0, 1.0);
             if p.academic_redshirt {
@@ -1107,7 +1164,12 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             None => 0.0,
         };
         let morale = super::people::morale(p, room);
-        let (physical, medical) = super::people::support_ctx(prog.map(|g| &g.support), &p.player.personality);
+        let dep = prog.map(|_| &depts[p.college.unwrap_or(0)]);
+        let (physical, medical) = super::people::support_ctx(
+            dep.map(|d| (d.strength[tier], d.medical[tier])),
+            if p.stage == Stage::HighSchool { hs_med.get(p.hs).copied().unwrap_or(-0.3) } else { -0.3 },
+            &p.player.personality,
+        );
         let ctx = SeasonContext {
             trouble,
             // Taken only where his college part is kept: a high schooler's
@@ -1121,6 +1183,7 @@ pub(crate) fn develop(w: &mut World, roles: &[(usize, PlayingTime)]) {
             morale,
             physical,
             medical,
+            diet: dep.map_or(0.0, |d| d.diet[tier]),
             physical_coaching,
             strength_dev,
             focus: focus.get(&i).map(|x| x.0),
@@ -1663,8 +1726,15 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
     // Film study (topic 5.1): the coordinators' eye and the quality-control
     // staff a budget buys (proposed, not confirmed).
     let eye = |c: Option<usize>| ab(c.or(head)).map_or(9.0, |a| a.scheme);
-    // The film rooms stand where the facilities did (Capital lane C2).
-    let film_study = clamp(0.35 * (eye(prog.oc) + eye(prog.dc)) + 7.0 * super::capital::rooms::film(prog), 1.0, 20.0);
+    // The film rooms stand where the facilities did (Capital lane C2); the
+    // analysts and quality control do the budget's part around the
+    // division's typical staff (support departments).
+    let film_study = clamp(
+        0.35 * (eye(prog.oc) + eye(prog.dc))
+            + 7.0 * super::capital::rooms::film(prog) * super::departments::film_budget(w, prog.id),
+        1.0,
+        20.0,
+    );
     let dc = dc_call;
     // The install (T6.2): the staff sizes the weekly plan to what its
     // players can absorb; a poor staff misjudges it, an aggressive one puts
@@ -1720,9 +1790,11 @@ pub(crate) fn game_team(w: &World, prog: &super::program::Program) -> Option<Gam
     }
     team.film = prog.film.clone();
     team.line_chem = line_chem;
-    // His strength staff's guard on muscle strains and backs (minor bug 303).
-    // The sports science lab's guard on top (Capital lane C2, CP17).
-    let guard = (crate::game::sim::strength_guard(strength_head(prog), typical_strength(w, prog.division))
+    // His strength staff's guard on muscle strains and backs (minor bug 303)
+    // with the sports scientists' (support departments, question 5). The
+    // sports science lab's guard on top (Capital lane C2, CP17).
+    let lab = prog.campus.level(super::capital::rooms::Room::SportsScience);
+    let guard = (super::departments::game_guard(w, super::people::Who::Prog(prog.id), lab)
         * super::capital::rooms::soft_tissue_guard(prog)) as f32;
     team.players.iter_mut().for_each(|g| g.soft = guard);
     super::chemistry::apply(w, &mut team, super::chemistry::Unit::College);

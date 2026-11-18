@@ -64,6 +64,7 @@ pub use season::{key_normal, key_uniform, level_from_read, level_pool};
 pub(crate) fn nfl_year_order(w: &World) -> Option<Vec<usize>> {
     nfl_year::draft_order(w)
 }
+pub mod departments;
 pub mod people;
 mod person_form;
 pub mod plans;

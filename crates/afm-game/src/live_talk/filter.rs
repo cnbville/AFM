@@ -25,8 +25,9 @@ pub const BANNED: [&str; 16] = [
     "prompt",
 ];
 
-/// The longest reply kept, in characters (three short sentences).
-pub const MAX_CHARS: usize = 600;
+/// The longest reply kept, in characters (six sentences: a coach walking
+/// you through his season review). Proposed, not confirmed.
+pub const MAX_CHARS: usize = 900;
 
 /// Why a reply was dropped.
 #[derive(Clone, Debug, PartialEq, Eq)]

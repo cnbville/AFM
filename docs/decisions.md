@@ -179,6 +179,9 @@ Everyday item 11 (one trim per family so the world keeps today's number of stars
 - Backs' pass blocking keeps a trim though it isn't one of the backs' key skills (the design had one); the fit sizes every family that has a trim.
 Measured on two fresh classes (seeds fitC and fitD, `prog_check`, every part on): collegians reaching 70 in a key family 2,805 today to 2,888 (+3%), 80 378 to 348 (−8%); single families move by about their noise (tackles' pass blocking 84 to 83 and 10 to 7, corners' man coverage 191 to 201 and 27 to 19). The elite-tools, bad-technique men still gain most where they have the knack (corners' man coverage 48.9 to 56.0 at their best college season, against 51.9 to 53.6 with no knack). focus_check: year one +4.02 with no focus, +1.71 extra at 30 minutes, +3.33 at 60 (main +4.13, +1.75, +3.42).
 
+### A project belongs to his staff (2026-11-18, on Cain's proxy)
+Cain, 2026-11-18, before sleeping: full proxy, "when given a chose make the most realistic choice". A skill or body project ends when he moves to a new staff (a signing, a transfer, the draft, a trade, a cut) and holds no slot there; his new staff picks at its next checkpoint like anyone else's. Real staffs set their own projects. It changes world results (before it, the scale 0.03 test world had your new college's rooms holding 16 skill projects on 14 slots). How it works: `docs/reference/how-it-works/progression.md`, "A project belongs to his staff".
+
 ## Assumed, not yet confirmed
 - The rest of `docs/design/season-calendar-and-pacing.md` (week-by-week calendar, tension tiers, climax budget) is a draft for section 4.
 
