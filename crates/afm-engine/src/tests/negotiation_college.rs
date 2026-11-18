@@ -234,3 +234,39 @@ fn a_proud_man_takes_a_point_worse_than_a_professional() {
     let (pro_not_his, _) = points::makeup_cost(&w, i, &points::Read { on_him: 0.4, ..rd });
     assert!(pro_not_his < 0.0);
 }
+
+/// Lane NG1's world read (ignored): on a world file (`AFM_MEASURE_WORLD`),
+/// how far the tape moves each college player's season read and so his
+/// price (`nil_bid::BID_PLAY` a point), by how many players carry tape.
+#[test]
+#[ignore]
+fn season_read_measure() {
+    let Ok(path) = std::env::var("AFM_MEASURE_WORLD") else { return };
+    let w = crate::save::read_world(std::path::Path::new(&path)).unwrap();
+    let mut shifts: Vec<f64> = Vec::new();
+    let (mut college, mut with_perf) = (0, 0);
+    for p in w.people.iter().filter(|p| p.stage == Stage::College) {
+        college += 1;
+        let (Some(perf), Some(read)) = (p.last_performance, crate::world::nil_bid::season_read(&w, p)) else { continue };
+        with_perf += 1;
+        if crate::world::nil_bid::tape(&w, p).is_some() {
+            shifts.push(read - perf);
+        }
+    }
+    shifts.sort_by(f64::total_cmp);
+    let q = |f: f64| shifts.get(((shifts.len() as f64 - 1.0) * f) as usize).copied().unwrap_or(0.0);
+    let down = shifts.iter().filter(|&&x| x < -0.5).count();
+    let up = shifts.iter().filter(|&&x| x > 0.5).count();
+    println!(
+        "NG1 {} {}: college {college}, with a season read {with_perf}, with tape {}; shift p5 {:.2} p25 {:.2} p50 {:.2} p75 {:.2} p95 {:.2}; down over half a point {down}, up {up}; price at {}% a point",
+        w.year,
+        w.today.pretty(),
+        shifts.len(),
+        q(0.05),
+        q(0.25),
+        q(0.5),
+        q(0.75),
+        q(0.95),
+        crate::world::nil_bid::BID_PLAY * 100.0
+    );
+}

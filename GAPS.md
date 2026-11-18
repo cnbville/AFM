@@ -77,6 +77,8 @@ Cain agreed to all 30 on 2026-11-17 ("agreed"). What gets built and in which lan
 - **Points are found by words** (low). A film or depth point to a recruit and a stat point to a player are matched on the words of the ear's claim (`points::recruit_read`, `stat_for`), so a point said in other words counts nothing. Same thread.
 - **A help promise's "new man" is this league year's** (low). `talks::help_kept` reads `ProCareer::new_team` and this year's first two rounds, not the day you made the promise, so a man signed before you said it counts. Same thread.
 
+- **A season's tape barely moves a college price** (medium). NG1's season read adds 0.3 x his tape, but the tape is shrunk for credibility as growth shrinks it, so on seed 1's 2026 season 90% of players move less than 0.13 points (under half a percent of price) and only 16 of 47,659 move more than half a point. A season of interceptions still costs little in the portal. A stronger read (less shrink for the market than for growth, or the stat line itself) needs Cain's call. Found 2026-11-18 (thread "Make negotiation respond to arguments").
+
 ## UI
 
 - **The Pecking order shows your conference only** (low). A state rival outside the conference has its rumors in "What your donors hear" but no row, and the table never ranks you against your state. Found in the same thread (CS5); the press order is built per conference (CP31).
