@@ -57,6 +57,11 @@ Cain agreed to all 30 on 2026-11-17 ("agreed"). What gets built and in which lan
 - **The knack clues in Reports** (medium). The progression design puts the knack's vague clues on the Reports sub-tab; only the one-word read on the projects block exists. Same thread.
 - **Projects the staff before you set run until you end them** (low). The AI's dead-end rule (`ai_keeps`) doesn't run on your team, so a holdover project keeps costing his other technique a quarter of its growth. The screens mark it "set before you", but no note tells you. Same thread.
 
+- **Few NFL players re-sign before free agency** (medium). Main re-signs about 23% of expiring veterans before the market opens (91 of 395 on seed 1, 2026); NG4 lowers it to 21% (83 of 394), since a club that values him well under what other clubs would pay no longer gets a free 18% off. Real clubs keep more of their own: their offers before free agency read the same `make_offer` as a stranger's, with no premium for knowing the man. Found 2026-11-18 (thread "Make negotiation respond to arguments").
+- **Good veterans left unsigned at cutdown** (medium). 71 players rated 78+ on main (80 with NG4), most 30 or older. The market's first offers open at 88% of his ideal (`make_offer`, `climb`), and once clubs fill their room nobody bids on a capable 31-year-old. Same thread.
+- **The guarantee floor is still a flat cliff** (low). `raw_score` caps any offer at 0.84 when the guarantee is under 75% of his ask and his security goal is over half, whoever he is. Item 1 replaced only the money cliff. Same thread.
+- **No pro trusts an AI head coach** (low). One trust (item 2) at an AI club is his trust in the club alone; only the bond part reads the AI head coach. Same thread.
+
 ## UI
 
 - **The Pecking order shows your conference only** (low). A state rival outside the conference has its rumors in "What your donors hear" but no row, and the table never ranks you against your state. Found in the same thread (CS5); the press order is built per conference (CP31).
