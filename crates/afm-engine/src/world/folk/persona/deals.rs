@@ -10,7 +10,7 @@
 //! What a deal is worth comes from the systems that already price him:
 //!
 //! - **A pro** (`ProCareer`): his market price (`people::pay_and_worth`),
-//!   asked up by greed and ego, down by loyalty when he's already yours.
+//!   asked up by greed and ego, down by his own discount for your club.
 //!   His agent takes a day or two unless he negotiates alone (`goals`).
 //! - **A recruit** (a high school player, or a transfer you recruit): each
 //!   school's appeal on his own signing-day sums (`recruiting::appeal`),
@@ -48,11 +48,10 @@ pub const STAY_LEAN: f64 = 0.25;
 /// A deal takes at most this share off his lean: three quarters (one
 /// promise at most halves it, as built). Proposed, not confirmed.
 pub const DEAL_CUT: f64 = 0.75;
-/// A pro asks his price up by greed and ego, down by loyalty to a club
-/// that's already his. Proposed, not confirmed.
+/// A pro asks his price up by greed and ego, down by his own discount
+/// for your club (`pro::market::discount`). Proposed, not confirmed.
 pub const ASK_GREED: f64 = 0.12;
 pub const ASK_EGO: f64 = 0.05;
-pub const HOME_DISCOUNT: f64 = 0.06;
 /// A pro calls an offer under this share of his ask a lowball.
 /// Proposed, not confirmed.
 pub const LOWBALL: f64 = 0.75;
@@ -313,10 +312,12 @@ fn money_bar(w: &World, who: Who) -> f64 {
     match who {
         Who::Pro(i, _) => crate::world::people::pay_and_worth(w, i).map_or(1.0, |x| x.1.max(x.0)),
         Who::Recruit(i, j) => crate::world::recruiting::usual_nil_offer(w, j, i).max(1.0),
+        // One of yours: his market price (what a rival would pay to take
+        // him) or what his school and collective paid him last July, the
+        // higher; his own brand deals are not your money (Cain 2026-11-17).
         Who::Own(i) => {
-            let p = &w.people[i];
-            let market = p.college.map_or(0.0, |j| crate::world::recruiting::usual_nil_offer(w, j, i));
-            market.max(p.nil_income).max(1.0)
+            let market = crate::world::front_office::college::market_price(w, i).unwrap_or(0.0);
+            market.max(w.people[i].nil_paid()).max(1.0)
         }
         Who::Other => 1.0,
     }
@@ -494,7 +495,12 @@ impl Deals<'_> {
     /// A pro: your money against his ask.
     fn pro(&self, w: &World, him: Them, i: usize, mine: bool, wants: &[Want], offer: &Offer) -> Weighed {
         let worth = money_bar(w, Who::Pro(i, mine));
-        let home = if mine { HOME_DISCOUNT * z(w, i, Trait::Loyalty) } else { 0.0 };
+        // His own discount for your club (the negotiation overhaul, item
+        // 1): the market's lowest number, the same the desk signs on.
+        let home = match Team::seat(w) {
+            Some(Team::Nfl(t)) => crate::world::pro::market::discount(w, i, t, mine).total,
+            _ => 0.0,
+        };
         let ask = worth * (1.0 + ASK_GREED * z(w, i, Trait::Greed) + ASK_EGO * z(w, i, Trait::Ego) - home);
         let ask = anchored(w, him, ask) * deadline_factor(w, Some(i), offer);
         let Some(apy) = offer_money(offer) else {

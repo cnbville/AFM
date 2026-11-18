@@ -361,6 +361,16 @@ fn a_project_ends_when_he_moves_to_a_new_staff() {
     }
     assert!(a.prog.project().is_none() && a.prog.body_project().is_none());
     assert_eq!(a.prog.staff, new);
+    // One who brought only a body project isn't picked for a skill one at
+    // the same checkpoint either: his new staff picks from the next.
+    let mut d = boy(9_603, Position::S);
+    progression::ensure(&mut d);
+    assert!(progression::start_body(&mut d, progression::BodyKind::Strength, false));
+    d.prog.staff = old;
+    for seed in 0..40 {
+        let out = progression::ai_room(&[&d], Room::S, progression::Lean::DEVELOPER, 20.0, 1.0, new, seed);
+        assert!(!out.iter().any(|c| matches!(c.1, progression::Change::Start(_))), "{out:?}");
+    }
     // On his old staff it would have run on.
     let mut b = boy(9_601, Position::S);
     progression::ensure(&mut b);
