@@ -6,7 +6,6 @@ Gaps found while fixing bugs or building, so they carry over between threads (Ca
 
 - **The engine's instructions read a freelance trust, not his trust in the coach** (medium). `GamePlayer.trust` is 0.5 for every player the world sends to a game, so `tendencies::obey_chance` never sees how much he believes his own coach; only the new bond part (`GamePlayer.bond`, `obey_trust`) reaches it. The built `Person::trust` could feed it directly. Found 2026-11-17 (thread "Build coach and player bonds").
 - **The press ranks only finished rooms** (low). `race::press_score` reads `Campus.level` and `since`, so a building that has broken ground adds nothing until it opens, and the Pecking order screen can't say "read as 10th since the groundbreaking" as board 5 draws it. Recruits' groundbreaking pull (facilities lane #281) is separate. Found 2026-11-17 (thread "Build Capital screen CS5"); needs Cain's call on whether a building under way counts for the press.
-- **A project's minutes don't come out of the room's week** (medium). Design item 8 says a project takes the position coach's one-on-one minutes, so the rest of the room gets a little less. Today the 60 minutes only set the project's pace (`development.rs`, `GrowthCtx::rate`); nobody else's individual time shrinks, for you or the AI. Same thread.
 
 ### The engine gaps audit (agreed)
 
@@ -53,12 +52,10 @@ Cain agreed to all 30 on 2026-11-17 ("agreed"). What gets built and in which lan
 - **The returns are not built** (low). A former player's summer visits, his hall of fame asking you to present him, naming a son after you, and a hometown discount in NFL free agency beyond the built "guys follow you" (design section 7). Same thread.
 - **A coach leaving doesn't shake a high-need kid's home stability** (low). The design's "loses stability (-0.5 x closeness)" isn't built: only his mood, a Left moment, a year guarded and a year of trouble risk. The stability field is his background, so it needs a call on whether a coach's leaving may change it. Same thread.
 - **No "I'm not going anywhere" promise** (low). A close player hurt by a coach leaving is the price of the bond, but you can't promise to stay. The promises lane has no kind for it. Same thread.
-- **No word when a project clicks, stalls or is dropped** (medium). A click, a dead end your staff would see, or a project dropped because he moved to a position that doesn't work the skill (`progression::project_year`) sends no note to the inbox or the staff notes. Same thread ("Let me start development projects").
-- **The knack clues in Reports** (medium). The progression design puts the knack's vague clues on the Reports sub-tab; only the one-word read on the projects block exists. Same thread.
-- **Projects the staff before you set run until you end them** (low). The AI's dead-end rule (`ai_keeps`) doesn't run on your team, so a holdover project keeps costing his other technique a quarter of its growth. The screens mark it "set before you", but no note tells you. Same thread.
+- **How fast his past focuses took is no knack clue** (low). The progression design's clue list has it, but no history of a man's focuses is kept, so Reports reads the knack from his coachability, a running project, his high school years and the testing days only. Found 2026-11-18 (thread "Finish development projects follow-ups").
+- **A project's room cost reads at the checkpoint only** (low). The rest of the room's lost one-on-one time is read from the projects running when the year opens (`progression::room_time`), so one started or ended mid-year changes nothing until the next checkpoint, as the project's own year does. Same thread.
 
 ## UI
 
 - **The Pecking order shows your conference only** (low). A state rival outside the conference has its rumors in "What your donors hear" but no row, and the table never ranks you against your state. Found in the same thread (CS5); the press order is built per conference (CP31).
 - **No pecking order for high school or NFL seats** (medium). The tab row reads "Your seat" for them (CS6), but nothing ranks a district's or an owner's rooms. Same thread.
-- **No project column on the Squad's Development view** (low). You see who is on a project only on the Training screen's room count or each player's own tab. Same thread ("Let me start development projects").

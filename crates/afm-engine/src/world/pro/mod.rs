@@ -1750,6 +1750,32 @@ fn camp(w: &mut World, d: Date) {
         }
         out
     };
+    // A project takes the position coach's one-on-one minutes, so the rest
+    // of the room gets a little less (design item 8): each club's rooms,
+    // yours too, once this camp's changes land.
+    let room_time: std::collections::HashMap<usize, f64> = {
+        use crate::progression::{Room, room_time, runs_after};
+        let mut rooms: std::collections::HashMap<(usize, Room), (usize, usize)> = Default::default();
+        let mut keyed = Vec::new();
+        for &i in &pros {
+            let p = &w.people[i];
+            let Some(t) = p.pro.as_ref().and_then(|c| c.team) else { continue };
+            let Some(room) = Room::of(p.player.position) else { continue };
+            let on = runs_after(&p.player, projects.get(&i).map_or(&[][..], |v| &v[..]));
+            let e = rooms.entry((t, room)).or_default();
+            e.0 += 1;
+            e.1 += usize::from(on);
+            keyed.push((i, (t, room), on));
+        }
+        keyed
+            .into_iter()
+            .filter(|x| !x.2)
+            .map(|(i, k, _)| {
+                let (n, on) = rooms[&k];
+                (i, room_time(n, on))
+            })
+            .collect()
+    };
     // His role on the depth chart.
     let role_of = |w: &World, i: usize| -> PlayingTime {
         let c = w.people[i].pro.as_ref().unwrap();
@@ -1937,6 +1963,7 @@ fn camp(w: &mut World, d: Date) {
             results,
             hurt,
             bond,
+            room_time: room_time.get(&i).copied().unwrap_or(1.0),
             ..crate::development::SeasonContext::new(Level::NFL, clamp(coaching, 1.0, 20.0), role)
         };
         if let Some(l) = &closing {
@@ -1951,7 +1978,17 @@ fn camp(w: &mut World, d: Date) {
         for &c in projects.get(&i).into_iter().flatten() {
             crate::progression::apply(&mut p.player, c);
         }
+        let before = (p.player.prog.project(), p.player.prog.body_project());
         let report = crate::development::develop_season(&mut p.player, &ctx, &mut p.rng);
+        // Your staff's word on his projects (a click, a dead end, one
+        // dropped, a body project done).
+        if ctx.seat_plan {
+            for n in crate::progression::news(before.0, before.1, &p.player, report.project_click) {
+                let (dept, text) = n.words();
+                let id = p.player.id;
+                w.training.note(today, id, dept, format!("[[p:{id}|{}]] {text}.", p.name));
+            }
+        }
         if ctx.hurt.is_some() && report.rehab_due {
             let id = p.player.id;
             w.training
