@@ -293,6 +293,7 @@ const CAL_FIELDS: &[&str] = &[
     "nil_keep",
     "nil_buyout",
     "nil_school",
+    "nil_paid",
     "cut",
     "late",
     "home_talks",

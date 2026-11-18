@@ -565,6 +565,10 @@ pub struct CalMore {
     pub nil_buyout: f64,
     /// His school's revenue share in July's money (item 13: who is paid it).
     pub nil_school: f32,
+    /// What his school and collective paid him in July's money, his own
+    /// brand deals apart (`Person::nil_income` counts both). 0 in a world
+    /// from before it was kept (`Person::nil_paid`).
+    pub nil_paid: f32,
     /// Cut from a college team (minor bug 60): it holds while he is still
     /// at that program (`Person::cut_here`), until the next window moves him.
     pub cut: Option<CollegeCut>,
@@ -650,6 +654,16 @@ impl Person {
     /// roster, out of its games and waiting for the next transfer window.
     pub fn cut_here(&self) -> Option<CollegeCut> {
         self.cal.cut.filter(|c| self.stage == Stage::College && self.college == Some(c.program as usize))
+    }
+    /// What his school and collective paid him last July 1, apart from his
+    /// own brand deals. A world from before it was kept reads it from his
+    /// whole NIL income less this year's brand money (set each February,
+    /// so a year's change in his brand shows in it).
+    pub fn nil_paid(&self) -> f64 {
+        if self.cal.nil_paid > 0.0 {
+            return self.cal.nil_paid as f64;
+        }
+        (self.nil_income - self.brand as f64).max(self.cal.nil_school as f64).max(0.0)
     }
     pub fn note(&mut self, s: impl Into<String>) {
         // Exact room, for the note and the list (memory: notes are kept

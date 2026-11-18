@@ -146,6 +146,8 @@ pub(crate) mod file {
         #[serde(default)]
         pub(crate) nil_school: f32,
         #[serde(default)]
+        pub(crate) nil_paid: f32,
+        #[serde(default)]
         pub(crate) cut: Option<CollegeCut>,
         #[serde(default)]
         pub(crate) late: bool,
@@ -266,6 +268,7 @@ pub(crate) mod view {
         pub(crate) nil_keep: &'a Option<(f64, f64)>,
         pub(crate) nil_buyout: &'a f64,
         pub(crate) nil_school: &'a f32,
+        pub(crate) nil_paid: &'a f32,
         pub(crate) cut: &'a Option<CollegeCut>,
         pub(crate) late: &'a bool,
         pub(crate) home_talks: &'a Vec<(usize, f32)>,
@@ -571,6 +574,7 @@ impl From<file::PersonCal> for PersonCal {
             nil_keep,
             nil_buyout,
             nil_school,
+            nil_paid,
             cut,
             late,
             home_talks,
@@ -621,6 +625,7 @@ impl From<file::PersonCal> for PersonCal {
                 nil_keep,
                 nil_buyout,
                 nil_school,
+                nil_paid,
                 cut,
                 home_talks,
                 cases,
@@ -679,6 +684,7 @@ impl PersonCal {
             nil_keep,
             nil_buyout,
             nil_school,
+            nil_paid,
             cut,
             home_talks,
             cases,
@@ -726,6 +732,7 @@ impl PersonCal {
             nil_keep,
             nil_buyout,
             nil_school,
+            nil_paid,
             cut,
             late,
             home_talks,
