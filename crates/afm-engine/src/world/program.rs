@@ -724,11 +724,21 @@ pub fn nil_target(d: Division, p4: bool, fans: f64, recent: f64) -> f64 {
 /// the Big 12 $2-6M, the richest $30-38M. Each program keeps its own
 /// place against its donor base's target (a rich base), so the lift is the
 /// refit target over the old one, and it lifts the wider base only: one
-/// big booster's money is his own (`third_party`). 1 below the Power 4 and
-/// before 2026. Sizes proposed, not confirmed, fitted on seed 41.
+/// big booster's money is his own (`third_party`). Sizes proposed, not
+/// confirmed, fitted on seed 41.
+///
+/// The Group of 5's pot from 2026 is [`G5_POT`] of its booster base (the
+/// 2b fit, a proxy decision for Cain 2026-11-18: realism over item 1's
+/// sizes): outside the Power 4 third-party deals are small change, the
+/// College Sports Commission's non-Power 4 medians about $1,500 a player
+/// against $16-31K of revenue share. A big booster's money stays his own.
+/// 1 before 2026 and below FBS.
 pub fn nil_lift(p: &Program, year: i32) -> f64 {
-    if year < 2026 || p.division != Division::FBS || !p.power_four() {
+    if year < 2026 || p.division != Division::FBS {
         return 1.0;
+    }
+    if !p.power_four() {
+        return G5_POT;
     }
     let refit = POT_TOP / (1.0 + (-(p.fans - POT_MID) / POT_SPREAD).exp()) * (0.75 + 0.35 * p.recent);
     refit / nil_target(p.division, true, p.fans, p.recent).max(1.0)
@@ -742,6 +752,9 @@ pub fn nil_lift(p: &Program, year: i32) -> f64 {
 /// Ten $11-15M, ACC $5-9M, Big 12 $2-6M, the richest $30-38M). At $32M the
 /// richest budgets ran past The Athletic's top seven ($40-54M).
 pub const POT_TOP: f64 = 30.0e6;
+/// The Group of 5's booster base kept from 2026 (`nil_lift`): on the seed 1
+/// world its pots went from a median $1.6M to about $110K.
+pub const G5_POT: f64 = 0.07;
 pub const POT_MID: f64 = 0.83;
 pub const POT_SPREAD: f64 = 0.12;
 
