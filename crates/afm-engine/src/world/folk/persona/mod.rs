@@ -74,6 +74,7 @@ pub mod wanting;
 // Lane N5c: staff, bosses and money (the facet's people, the team doctor,
 // references, staff contracts, your own deal, boosters, compliance).
 pub mod office;
+pub mod review;
 
 use super::cast::CastRef;
 

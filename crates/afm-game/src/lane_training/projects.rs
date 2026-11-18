@@ -95,6 +95,17 @@ fn strength_head(w: &World, t: TeamRef, i: usize) -> f64 {
     }
 }
 
+/// Your staff's code for `Prog::staff`: a project he brought from another
+/// staff is not running here (`Prog::left_behind`).
+fn staff_of(t: TeamRef) -> u32 {
+    match t {
+        TeamRef::Nfl(c) => pg::staff_code(pg::StaffAt::Nfl, c),
+        TeamRef::College(c) => pg::staff_code(pg::StaffAt::College, c),
+        TeamRef::HighSchool(c) => pg::staff_code(pg::StaffAt::HighSchool, c),
+        TeamRef::Other(c) => u32::MAX - c as u32,
+    }
+}
+
 /// The years a project has with you: his seasons left (at most four), a
 /// pro's next four.
 fn years_left(w: &World, i: usize) -> u32 {
@@ -113,8 +124,9 @@ fn read_rng(w: &World, id: u32, k: u32) -> Rng {
     )
 }
 
-/// Who is on a project in each of your rooms (yours or one he brought
-/// from his last staff), by index.
+/// Who is on a project in each of your rooms (yours, or one the staff
+/// before you set), by index. One he brought from another staff ended
+/// when he moved and holds no slot.
 struct Rooms {
     skill: Vec<(Room, Vec<usize>)>,
     body: Vec<(Room, Vec<usize>)>,
@@ -122,6 +134,7 @@ struct Rooms {
 
 fn rooms(w: &World, t: TeamRef) -> Rooms {
     let roster = roster_people(w, t);
+    let staff = staff_of(t);
     let of = |body: bool| {
         ROOMS
             .iter()
@@ -132,7 +145,8 @@ fn rooms(w: &World, t: TeamRef) -> Rooms {
                     .filter(|&k| Room::of(w.people[k].player.position) == Some(r))
                     .filter(|&k| {
                         let pr = &w.people[k].player.prog;
-                        if body { pr.body_project().is_some() } else { pr.project().is_some() }
+                        !pr.left_behind(staff)
+                            && if body { pr.body_project().is_some() } else { pr.project().is_some() }
                     })
                     .collect();
                 (r, on)
@@ -233,7 +247,10 @@ pub(super) fn tab(w: &World, t: TeamRef, i: usize) -> Value {
             "little": hi < 2.0,
         })
     };
-    let running = p.player.prog.project();
+    // What he brought from his last staff ended when he moved: it shows as
+    // a note, holds no slot and leaves him free to start.
+    let left = p.player.prog.left_behind(staff_of(t));
+    let running = p.player.prog.project().filter(|_| !left);
     let skills: Vec<Value> = pg::project_skills(&p.player).into_iter().map(read_skill).collect();
     let skill = json!({
         "on": running.map(|a| {
@@ -243,6 +260,7 @@ pub(super) fn tab(w: &World, t: TeamRef, i: usize) -> Value {
             v
         }),
         "options": skills,
+        "left": p.player.prog.project().filter(|_| left).map(|a| a.label()),
         "room": room_label(room),
         "slots": room.slots(),
         "used": skill_used,
@@ -274,7 +292,7 @@ pub(super) fn tab(w: &World, t: TeamRef, i: usize) -> Value {
             "little": total < 1.0,
         })
     };
-    let body_on = p.player.prog.body_project();
+    let body_on = p.player.prog.body_project().filter(|_| !left);
     let body = json!({
         "on": body_on.map(|k| {
             let mut v = read_body(k);
@@ -284,6 +302,7 @@ pub(super) fn tab(w: &World, t: TeamRef, i: usize) -> Value {
             v
         }),
         "options": [read_body(BodyKind::Strength), read_body(BodyKind::Speed)],
+        "left": p.player.prog.body_project().filter(|_| left).map(kind_label),
         "slots": pg::BODY_SLOTS,
         "used": body_used,
         "others": others_body(&rs.body[k].1),
@@ -326,7 +345,8 @@ pub(super) fn start_skill(w: &mut World, id: u32, key: &str) -> Result<String, S
     let a = Attr::ALL.iter().copied().find(|a| a.key() == key).ok_or("No such skill.")?;
     let p = &w.people[i].player;
     let room = Room::of(p.position).ok_or("His room has no project slots.")?;
-    if let Some(on) = p.prog.project() {
+    let staff = staff_of(t);
+    if let Some(on) = p.prog.project().filter(|_| !p.prog.left_behind(staff)) {
         return Err(format!("He is already on a {} project. End it first.", on.label().to_lowercase()));
     }
     if !pg::project_skills(p).contains(&a) {
@@ -341,10 +361,20 @@ pub(super) fn start_skill(w: &mut World, id: u32, key: &str) -> Result<String, S
         return Err(format!("The {} room has no free slot: end a project there first.", room_label(room)));
     }
     let p = &mut w.people[i].player;
+    settle(p, staff);
     if !pg::start_project(p, a, true) {
         return Err("That skill isn't one his position builds a project on.".into());
     }
     Ok(format!("{} project started. Its first year counts at his next growth checkpoint.", a.label()))
+}
+
+/// Before you start one: what he brought from his last staff ends, and his
+/// projects are your staff's from here.
+fn settle(p: &mut afm_engine::player::Player, staff: u32) {
+    for c in pg::moved(p, staff) {
+        pg::apply(p, c);
+    }
+    p.prog.staff = staff;
 }
 
 pub(super) fn end_skill(w: &mut World, id: u32) -> Result<String, String> {
@@ -362,7 +392,8 @@ pub(super) fn start_body(w: &mut World, id: u32, kind: &str) -> Result<String, S
     let kind = kind_of(kind).ok_or("No such body project.")?;
     let p = &w.people[i].player;
     let room = Room::of(p.position).ok_or("Specialists have no body projects.")?;
-    if let Some(on) = p.prog.body_project() {
+    let staff = staff_of(t);
+    if let Some(on) = p.prog.body_project().filter(|_| !p.prog.left_behind(staff)) {
         return Err(format!("He is already on a {}. End it first.", kind_label(on).to_lowercase()));
     }
     if p.age > pg::BODY_UNTIL {
@@ -377,6 +408,7 @@ pub(super) fn start_body(w: &mut World, id: u32, kind: &str) -> Result<String, S
         ));
     }
     let p = &mut w.people[i].player;
+    settle(p, staff);
     if !pg::start_body(p, kind, true) {
         return Err("He can't start a body project.".into());
     }
