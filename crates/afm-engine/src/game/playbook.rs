@@ -1010,6 +1010,21 @@ fn strong_side(f: &Formation, role: ORole) -> bool {
     (align(&still, role, 0.0, mid).y - mid) * f.strength > 0.0
 }
 
+/// Where the men the rule across the ball compares line up (`route_in`),
+/// one bit each for the outside receivers and the extra tight ends, when
+/// the group lacks an outside receiver and so an extra tight end can take
+/// his place (13 and 22 personnel): 22's second tight end is on the
+/// strong side only on the wing. 0 for a group with both outside
+/// receivers, whose extra tight ends take only inside places. The call's
+/// memo keys third down's weights on it (`sticks_depth` reads the routes).
+pub(crate) fn outside_sides(f: &Formation) -> u8 {
+    let p = f.personnel;
+    if p.has(X) && p.has(Z) {
+        return 0;
+    }
+    [X, Z].iter().chain(extra_ends(p)).fold(0, |m, &e| m << 1 | strong_side(f, e) as u8)
+}
+
 /// A man's route in a pass concept as his group lines up (lane SF2, item
 /// 2). A tight end past the first who takes a missing receiver's place
 /// (`stand_in`) runs that receiver's route, with two exceptions, where he

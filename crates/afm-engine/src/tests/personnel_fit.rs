@@ -212,6 +212,36 @@ fn a_memo_draws_the_same_calls() {
 }
 
 #[test]
+fn a_memo_draws_the_same_calls_on_third_down_in_heavy_sets() {
+    // Third down's check of the routes that reach the sticks reads how the
+    // group lines up: in 22 the second tight end takes the flanker's place
+    // in drive, and runs the flanker's 12-yard in from the wing (a power
+    // gap, wide zone or wing-T set) but his own flat from across the ball.
+    // So the memo keeps those weights apart, and draws the same calls as
+    // working them out each time, on every down that reads the sticks.
+    use crate::game::calling::sticks_depth;
+    let drive = pass_concept(concept("drive"));
+    let doubles = Formation::plain(Personnel::P22, Backfield::UnderCenter, 1.0);
+    let wing = Formation { set: Set::Wing, ..doubles };
+    assert_eq!(sticks_depth(drive, &wing), 12.0);
+    assert_eq!(sticks_depth(drive, &doubles), 2.0);
+    for (want, seed) in [(Personnel::P22, 31), (Personnel::P13, 32)] {
+        let staff = wanting(OffScheme::PowerGap, want, 10.0);
+        let mem = Memory::default();
+        let ctx = ctx();
+        let sits = [sit(3, 6.0, 40.0), sit(3, 9.0, 55.0), sit(4, 5.0, 35.0), sit(3, 4.0, 9.0)];
+        let mut memo = CallMemo::default();
+        let (mut a, mut b) = (Rng::new(seed), Rng::new(seed));
+        for i in 0..4000 {
+            let s = &sits[i % sits.len()];
+            let x = call_offense(&staff, &mem, s, &ctx, &mut a);
+            let y = call_offense_memo(&staff, &mem, s, &ctx, &mut b, Some((&mut memo, i % sits.len())));
+            assert_eq!(x, y, "{} personnel, call {i}", want.name());
+        }
+    }
+}
+
+#[test]
 fn the_rule_books_own_sets_run_their_own_concepts() {
     // The call is made in 11-man groups and the game fields the rule
     // book's own set for them. The tunnel screen is built for the flanker:

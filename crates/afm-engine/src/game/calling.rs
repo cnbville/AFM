@@ -603,7 +603,7 @@ fn weigh_where<T: Copy>(rng: &mut Rng, items: &[(T, f64)], keep: impl Fn(T) -> b
 
 /// What a memo is keyed on: the situation's slot in the caller's own list,
 /// then only what the weights read of the snap.
-type ConceptKey = (usize, bool, bool, Option<Personnel>, bool);
+type ConceptKey = (usize, bool, bool, Option<Personnel>, u8, bool);
 type RunKey = (usize, bool, bool, bool);
 type CoverageKey = (usize, usize, Personnel, DefPersonnel);
 
@@ -1406,10 +1406,15 @@ fn pick_concept(
     };
     // The weights read the formation only for a boot from the gun, an empty
     // set and, with designs on the sheet or on third and fourth down (the
-    // routes that reach the sticks), the personnel.
+    // routes that reach the sticks), the personnel; on those downs also
+    // where an extra tight end who can take an outside receiver's place
+    // lines up (`outside_sides`: 22's second tight end runs the flanker's
+    // route from the wing, his own from across the ball).
     let designs = ctx.designs.iter().any(|d| d.is_some());
-    let group = (designs || reads_sticks(sit)).then_some(f.personnel);
-    let key = (slot, f.backfield == Backfield::Shotgun, f.set == Set::Empty, group, fake);
+    let sticks = reads_sticks(sit);
+    let group = (designs || sticks).then_some(f.personnel);
+    let sides = if sticks { outside_sides(&fielded) } else { 0 };
+    let key = (slot, f.backfield == Backfield::Shotgun, f.set == Set::Empty, group, sides, fake);
     let k = match m.concepts.iter().position(|x| x.0 == key) {
         Some(k) => k,
         None => {
