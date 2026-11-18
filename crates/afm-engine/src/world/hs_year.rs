@@ -3080,21 +3080,29 @@ impl World {
         self.hs_season.as_ref().is_some_and(|hs| hs.brackets.iter().any(|b| b.alive(h as u32)))
     }
 
-    /// Whether a school has a playoff game still to play: alive in its
-    /// state's bracket, or, before the state draws its brackets (on its
+    /// The date of a school's next playoff game: its round in its state's
+    /// bracket (the next one after a bye; a bracket that starts late starts
+    /// at its own round), or, before the state draws its brackets (on its
     /// first round's morning), in the field its results will draw
-    /// (`hs_playoffs::build`, as `seed_playoffs` draws it).
-    pub(crate) fn hs_plays_on(&self, h: usize) -> bool {
-        let Some(hs) = self.hs_season.as_ref() else { return false };
-        let Some(s) = self.high_schools.get(h).map(|x| x.state) else { return false };
-        let Some(st) = hs.states.get(s).filter(|st| !st.done) else { return false };
+    /// (`hs_playoffs::build`, as `seed_playoffs` draws it). None out of the
+    /// field, or crowned without a game.
+    pub(crate) fn hs_next_round(&self, h: usize) -> Option<Date> {
+        let hs = self.hs_season.as_ref()?;
+        let s = self.high_schools.get(h)?.state;
+        let st = hs.states.get(s).filter(|st| !st.done)?;
+        let me = h as u32;
+        let next = |b: &super::hs_playoffs::Bracket| -> Option<Date> {
+            if !b.alive(me) {
+                return None;
+            }
+            let plays = b.games().iter().any(|&(x, y)| x == me || y == me);
+            st.rounds.get(b.round as usize + usize::from(!plays)).copied()
+        };
         if hs.brackets.iter().any(|b| b.state as usize == s) {
-            return self.hs_alive(h);
+            return hs.brackets.iter().filter(|b| b.state as usize == s).find_map(next);
         }
         let opps = super::hs_playoffs::opponents(self.high_schools.len(), &hs.played);
-        super::hs_playoffs::build(self, s, &hs.results, &hs.district, &opps, st.rounds.len())
-            .iter()
-            .any(|b| b.alive(h as u32))
+        super::hs_playoffs::build(self, s, &hs.results, &hs.district, &opps, st.rounds.len()).iter().find_map(next)
     }
 
     /// The day this year's new class joins the high school rosters.

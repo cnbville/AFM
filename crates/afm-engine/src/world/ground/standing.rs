@@ -383,12 +383,13 @@ pub fn seat_program(w: &World) -> Option<usize> {
 
 /// A cousin's family starts from the family it knows, a level lower
 /// (GR62): its points less one level's width, as old acquaintances.
-fn from_cousin(w: &mut World, prog: usize, fam: Who, cousin: Who, d: Date) {
+pub(crate) fn from_cousin(w: &mut World, prog: usize, fam: Who, cousin: Who, d: Date) {
     let hs: Vec<Holder> = holders(w, prog);
     for holder in hs {
         let Some(c) = w.ground.get(cousin, holder) else { continue };
         let pts = (c.points - COUSIN_DROP).max(0.0);
-        if pts <= 0.0 {
+        // A family you broke your word with knows you for itself.
+        if pts <= 0.0 || w.ground.get(fam, holder).is_some_and(|m| m.broken.is_some()) {
             continue;
         }
         let met = c.met;
@@ -811,7 +812,9 @@ fn word(w: &mut World, prog: usize, d: Date) {
         yours.push(you);
     }
     /// One word owed: its key, the kid, kept or not, what it was, who
-    /// holds it, and whether his high school coach hears it.
+    /// holds it, whether his high school coach hears it, and the day it
+    /// was judged (a word from a job away from college waits for your next
+    /// college seat, and is dated when it happened).
     struct Owed {
         k: u64,
         id: u32,
@@ -819,6 +822,7 @@ fn word(w: &mut World, prog: usize, d: Date) {
         what: String,
         to: Vec<Holder>,
         coach: bool,
+        on: Date,
     }
     let mut todo: Vec<Owed> = Vec::new();
     // A promise closed with nothing to judge (it lapsed, or closed when you
@@ -841,7 +845,7 @@ fn word(w: &mut World, prog: usize, d: Date) {
                 } else {
                     "promise"
                 };
-                todo.push(Owed { k, id, kept, what: what.into(), to, coach });
+                todo.push(Owed { k, id, kept, what: what.into(), to, coach, on: p.due.min(d) });
             }
         }
     }
@@ -849,11 +853,19 @@ fn word(w: &mut World, prog: usize, d: Date) {
         if let Some(pd) = t.pulled {
             let k = key(&[0x9B11, t.id as u64, pd.0 as u64]);
             if w.ground.done.binary_search(&k).is_err() {
-                todo.push(Owed { k, id: t.id, kept: false, what: "pulled".into(), to: here.clone(), coach: true });
+                todo.push(Owed {
+                    k,
+                    id: t.id,
+                    kept: false,
+                    what: "pulled".into(),
+                    to: here.clone(),
+                    coach: true,
+                    on: pd.min(d),
+                });
             }
         }
     }
-    for Owed { k, id, kept, what, to: hs_to, coach } in todo {
+    for Owed { k, id, kept, what, to: hs_to, coach, on: d } in todo {
         w.ground.once(k);
         let Some(i) = crate::world::scouting::place(w, id) else { continue };
         let hs = w.people[i].hs;

@@ -304,6 +304,20 @@ fn a_promise_reaches_his_coach_from_the_program_it_was_made_at() {
     assert_eq!((p2, y2), (p1, y1), "a pro job's promise is no word to him");
     assert!(standing::points(&w, fam, yh) < fy, "his family remembers");
     assert_eq!(standing::points(&w, fam, ph), fp, "not the program's");
+    // Dated the day it was judged, not the day the word reached Ground.
+    let lie = w.ground.get(fam, yh).and_then(|m| m.moments.iter().find(|x| x.words == "You lied to us.")).cloned();
+    assert_eq!(lie.map(|m| m.date), Some(d.add(-1)), "the day it was judged");
+    // The family holds it against you though the program's memory is the
+    // better one: your own word is your staff's.
+    assert!(standing::points(&w, fam, ph) > standing::points(&w, fam, yh));
+    assert_eq!(crate::world::ground::stores::family_name(&w, kids[1]), Some(-1.0), "held against you");
+    // A cousin's good word doesn't lift a family you lied to.
+    let cousin = (0..w.people.len()).map(|j| people::family_of(&w, j)).find(|&f| f != fam).unwrap();
+    let m = w.ground.entry(cousin, yh, || crate::world::ground::Memory::new(cousin, yh, 0.0, d));
+    m.points = 90.0;
+    let before = standing::points(&w, fam, yh);
+    standing::from_cousin(&mut w, prog, fam, cousin, d);
+    assert_eq!(standing::points(&w, fam, yh), before, "it knows you for itself");
     // An assistant's own word: a promise made here reaches you as well as
     // the program and your head coach.
     let boss = (0..w.coaches.len()).find(|&c| c != you).unwrap();

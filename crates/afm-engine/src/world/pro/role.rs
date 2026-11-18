@@ -106,7 +106,7 @@ fn season_of(w: &World, i: usize) -> Option<(PlayingTime, Date)> {
 /// case reads wrong: the UFL of 2009-2012 played in the NFL's own fall, so
 /// a man on an NFL club's books in its first weeks, cut, then a UFL
 /// starter that fall reads the NFL row as his newer season (history years
-/// only; minor bug 410).
+/// only; minor bug 414).
 fn nfl_at(year: i32) -> Date {
     Date::ymd(year + 1, 2, 1)
 }

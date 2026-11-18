@@ -1438,11 +1438,12 @@ fn next_pairs(live: &Live, f: &Format) -> Vec<(u16, u16)> {
     playoff_pairs(live, f)
 }
 
-/// Whether a club has a game still to play this season: a regular week
-/// still to come, or a place in the playoffs, drawn or (between the last
-/// regular week and the seeding, as `next_pairs` reads it) the field the
-/// table will draw. None once the season stopped short, in a league
-/// without playoffs, or out of them.
+/// Whether a club has a game still to play this season: a game in the
+/// regular weeks still to come; with none left, a place in the field the
+/// table will draw (whichever way the other clubs' last games go, each a
+/// win either way; ties left out), before the seeding as `next_pairs`
+/// reads it; or a place in the playoffs once drawn. None once the season
+/// stopped short, in a league without playoffs, or out of them.
 pub(crate) fn plays_on(w: &World, fr: usize) -> bool {
     let k = league_of(fr);
     let me = fr as u16;
@@ -1450,18 +1451,36 @@ pub(crate) fn plays_on(w: &World, fr: usize) -> bool {
         let Some(f) = format(k, l.year) else { return false };
         let wk = l.week as usize;
         let stop = f.stop_after.map_or(l.weeks.len(), |s| (s as usize).min(l.weeks.len()));
-        if wk < stop {
+        let left: Vec<(u16, u16)> = l.weeks.get(wk..stop).unwrap_or_default().iter().flatten().copied().collect();
+        if left.iter().any(|&(h, a)| h == me || a == me) {
             return true;
         }
         if l.round > 0 {
             return l.alive.contains(&me);
         }
-        if f.stop_after.is_some_and(|s| wk >= s as usize) || f.playoff == Playoff::None {
+        if f.stop_after.is_some() || f.playoff == Playoff::None {
             return false;
         }
-        let mut field = Live { league: l.league, year: l.year, table: l.table.clone(), ..Live::default() };
-        seed_playoffs(&mut field, &f);
-        field.alive.contains(&me)
+        // Too many games left to try every way: it may still get in.
+        if left.len() > 12 {
+            return true;
+        }
+        (0..1u32 << left.len()).any(|ways| {
+            let mut table = l.table.clone();
+            for (g, &(h, a)) in left.iter().enumerate() {
+                let (won, lost) = if ways >> g & 1 == 1 { (h, a) } else { (a, h) };
+                for r in table.iter_mut() {
+                    if r.fr == won {
+                        r.w += 1;
+                    } else if r.fr == lost {
+                        r.l += 1;
+                    }
+                }
+            }
+            let mut field = Live { league: l.league, year: l.year, table, ..Live::default() };
+            seed_playoffs(&mut field, &f);
+            field.alive.contains(&me)
+        })
     })
 }
 

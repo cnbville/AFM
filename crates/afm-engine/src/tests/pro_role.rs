@@ -740,7 +740,9 @@ fn a_promise_from_before_is_stamped_with_the_job_you_leave() {
 
 /// Between another league's last regular week and its seeding, a club the
 /// table puts in the field still has games, and one it leaves out is
-/// played out. In the regular season every club plays on.
+/// played out. In the regular season a club with a game left plays on;
+/// one whose games are done and that no result left can put in the field
+/// doesn't (the CFL's ragged last week).
 #[test]
 fn another_leagues_table_says_who_plays_on_before_the_seeding() {
     use crate::world::pro::other::{self, CFL, Live, Row};
@@ -751,15 +753,22 @@ fn another_leagues_table_says_who_plays_on_before_the_seeding() {
     let table: Vec<Row> = teams
         .iter()
         .enumerate()
-        .map(|(k, &f)| Row { fr: f as u16, w: (n - k) as u8, l: k as u8, ..Row::default() })
+        .map(|(k, &f)| Row { fr: f as u16, w: (2 * (n - k)) as u8, l: (2 * k) as u8, ..Row::default() })
         .collect();
     w.others.live.retain(|l| l.league != CFL);
     w.others.live.push(Live { league: CFL, year, weeks: vec![Vec::new(); 3], week: 3, table, ..Live::default() });
     let (best, worst) = (teams[0], teams[n - 1]);
     assert!(other::plays_on(&w, best), "the table's best is in the field");
     assert!(!other::plays_on(&w, worst), "its worst is out");
-    w.others.live.last_mut().unwrap().week = 2;
-    assert!(other::plays_on(&w, worst), "a regular week to play");
+    // A last regular week: a game of its own to play, then one between two
+    // other clubs that can't lift it into the field.
+    let l = w.others.live.last_mut().unwrap();
+    l.week = 2;
+    l.weeks[2] = vec![(worst as u16, best as u16)];
+    assert!(other::plays_on(&w, worst), "a game of its own to play");
+    w.others.live.last_mut().unwrap().weeks[2] = vec![(teams[1] as u16, teams[2] as u16)];
+    assert!(!other::plays_on(&w, worst), "its games done, out whatever happens");
+    assert!(other::plays_on(&w, best), "in whatever happens");
 }
 
 /// A high school after its last regular Friday: before its state draws
@@ -795,15 +804,56 @@ fn a_school_before_the_playoff_draw_plays_on_only_in_its_field() {
     let (best, last) = (schools[0], schools[n - 1]);
     let hs = w.hs_season.as_ref().unwrap();
     assert!(!hs.states[s].done && !hs.states[s].rounds.is_empty());
+    let rounds = w.hs_season.as_ref().unwrap().states[s].rounds.clone();
     season(&mut w, None);
-    assert!(w.hs_plays_on(best) && w.hs_plays_on(last), "both in the field their results draw");
+    assert!(w.hs_next_round(best).is_some() && w.hs_next_round(last).is_some(), "both in the field");
+    if n == 2 {
+        // A two-team bracket starts at the state's last round, its final.
+        assert_eq!(w.hs_next_round(best), rounds.last().copied(), "its own round, not the state's first");
+    }
     season(&mut w, Some(last));
-    assert!(!w.hs_plays_on(last), "no season, no field");
-    assert_eq!(w.hs_plays_on(best), n > 2, "alone in its class it plays no game");
+    assert_eq!(w.hs_next_round(last), None, "no season, no field");
+    assert_eq!(w.hs_next_round(best).is_some(), n > 2, "alone in its class it plays no game");
     season(&mut w, None);
     let hs = w.hs_season.as_mut().unwrap();
-    let rounds = hs.states[s].rounds.len();
-    hs.brackets.push(Bracket::new(s, "Drawn".into(), schools[1..].iter().map(|&h| h as u32).collect(), rounds, false));
-    assert!(!w.hs_plays_on(best), "drawn without it");
-    assert_eq!(w.hs_plays_on(last), n > 2, "drawn with it (alone, crowned)");
+    let seeds: Vec<u32> = schools[1..].iter().map(|&h| h as u32).collect();
+    hs.brackets.push(Bracket::new(s, "Drawn".into(), seeds, rounds.len(), false));
+    assert_eq!(w.hs_next_round(best), None, "drawn without it");
+    assert_eq!(w.hs_next_round(last).is_some(), n > 2, "drawn with it (alone, crowned)");
+}
+
+/// Taking another job at your own club (a promotion) keeps every promise
+/// open, a cut man's too: he can still come back while you're there.
+/// Taking one at another club judges what is settled, as when you're fired.
+#[test]
+fn a_move_at_your_own_club_keeps_a_cut_mans_promise_open() {
+    use crate::world::coach::{Employer, Role};
+    let (mut w, club, _) = club_man(Position::LB);
+    let i = w.clubs[club].roster[1];
+    let id = w.people[i].player.id;
+    talks::promise(&mut w, PromiseTo::Player(id), PromiseKind::Snaps, 0);
+    let k = w.folk.promises.len() - 1;
+    talks::let_go(&mut w, i, club);
+    w.clubs[club].roster.retain(|&x| x != i);
+    talks::leaving_for(&mut w, Team::Nfl(club));
+    assert_eq!(w.folk.promises[k].kept, None, "a move at the same club judges nothing");
+    let other = (0..w.clubs.len()).find(|&t| t != club && crate::world::franchise::active_in(&w, t, w.year)).unwrap();
+    crate::world::staff::take_job(&mut w, Employer::Nfl(other), Role::OffensiveCoordinator);
+    assert_eq!(w.folk.promises[k].kept, Some(false), "another club: the cut is judged as you go");
+}
+
+/// A promise whose day has come is judged when you're fired that morning,
+/// whatever else is open, not closed quietly.
+#[test]
+fn a_promise_due_the_day_you_leave_is_judged() {
+    let (mut w, _, i) = club_man(Position::LB);
+    let id = w.people[i].player.id;
+    let pos = w.people[i].player.position as u8;
+    talks::promise(&mut w, PromiseTo::Player(id), PromiseKind::Position(pos), 0);
+    let k = w.folk.promises.len() - 1;
+    w.folk.promises[k].due = w.today;
+    talks::job_left(&mut w, "fired");
+    let p = &w.folk.promises[k];
+    assert_eq!(p.kept, Some(true), "{p:?}");
+    assert!(!p.quiet(), "judged, not closed: {p:?}");
 }
