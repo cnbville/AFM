@@ -22,7 +22,7 @@ fn fumble_rules_by_level() {
     assert!(!Rules::for_year(Level::HS, 2020, false).fumble_rule().forward_back);
     assert!(Rules::for_year(Level::HS, 2025, false).fumble_rule().forward_back);
     assert_eq!(Rules::high_school_on_college_rules().fumble_rule(), FumbleRule::NCAA);
-    assert!(FumbleRule::NFL.late && !FumbleRule::NCAA.late && !FumbleRule::NFHS.fourth_down);
+    const { assert!(FumbleRule::NFL.late && !FumbleRule::NCAA.late && !FumbleRule::NFHS.fourth_down) };
 }
 
 /// Fumbles play out: some go back for a score, some go out of bounds, the
