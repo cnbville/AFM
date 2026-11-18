@@ -19,6 +19,7 @@ use serde_json::{Value, json};
 
 use super::links::{self, Linker};
 use super::mail::{self, tidy};
+use super::textfind::{Best, has_ci, starts_ci};
 use super::{desk, people, tables};
 use crate::reads;
 use crate::views::{self, TeamRef};
@@ -961,49 +962,51 @@ const SCREENS: &[(&str, &str)] = &[
     ("Settings", "settings"),
 ];
 
+/// How many players the bar lists, and how many matches it only counts.
+const FIND_PLAYERS: usize = 12;
+
 pub fn find(w: &World, q: &str) -> Value {
     let q = q.trim();
     if q.chars().count() < 2 {
         return json!({ "groups": [] });
     }
     let ql = q.to_lowercase();
-    let hit = |s: &str| s.to_lowercase().contains(&ql);
-    let starts = |s: &str| {
-        s.to_lowercase().split_whitespace().any(|wd| wd.starts_with(&ql)) || s.to_lowercase().starts_with(&ql)
-    };
+    let hit = |s: &str| has_ci(s, &ql);
     let mut groups = Vec::new();
-    // Players: active first, then by stars and age.
-    let mut ps: Vec<(i32, usize)> = w
-        .people
-        .iter()
-        .enumerate()
-        .filter(|(_, p)| hit(&p.name))
-        .map(|(k, p)| {
-            let mut s = if p.stage == Stage::Done { 0 } else { 100 };
-            if starts(&p.name) {
-                s += 50;
-            }
-            if views::team_of(w, p).is_some_and(|t| views::is_mine(w, t)) {
-                s += 200;
-            }
-            if desk::is_listed(w, p.player.id) {
-                s += 150;
-            }
-            s += p.stars as i32 * 5;
-            (s, k)
-        })
-        .collect();
-    ps.sort_by_key(|x| std::cmp::Reverse(x.0));
-    let players: Vec<Value> = ps
-        .iter()
-        .take(12)
-        .map(|&(_, k)| {
+    // Players: active first, then by stars and age. Every person in the
+    // world is looked at on each keystroke (over a million in a full world),
+    // so nothing here allocates per person and only the best twelve are kept
+    // (`textfind`), where it once lower-cased every name three times and
+    // sorted every match.
+    let mut best = Best::new(FIND_PLAYERS);
+    for (k, p) in w.people.iter().enumerate() {
+        if !hit(&p.name) {
+            continue;
+        }
+        let mut s = if p.stage == Stage::Done { 0 } else { 100 };
+        if starts_ci(&p.name, &ql) {
+            s += 50;
+        }
+        if views::team_of(w, p).is_some_and(|t| views::is_mine(w, t)) {
+            s += 200;
+        }
+        if desk::is_listed(w, p.player.id) {
+            s += 150;
+        }
+        s += p.stars as i32 * 5;
+        best.offer(s, k);
+    }
+    let matched = best.seen();
+    let players: Vec<Value> = best
+        .into_items()
+        .into_iter()
+        .map(|k| {
             let p = &w.people[k];
             json!({ "kind": "player", "id": p.player.id, "name": p.name, "sub": format!("{} · {} · {}", p.player.position.name(), views::where_now(w, p), views::class_text(w, p)) })
         })
         .collect();
     if !players.is_empty() {
-        groups.push(json!({ "name": "Players", "items": players, "more": ps.len().saturating_sub(12) }));
+        groups.push(json!({ "name": "Players", "items": players, "more": matched.saturating_sub(FIND_PLAYERS) }));
     }
     let coaches: Vec<Value> = w
         .coaches
@@ -1075,8 +1078,9 @@ pub fn find(w: &World, q: &str) -> Value {
             break;
         }
         let Scope::Division(d) = scope else { continue };
+        let book_hit = hit(&book_name(*book));
         for e in list.iter().take(3) {
-            if hit(&e.name) || book_name(*book).to_lowercase().contains(&ql) {
+            if book_hit || hit(&e.name) {
                 records.push(json!({ "kind": "history", "name": format!("{} · {}", e.name, book_name(*book)), "sub": format!("{} record · {} in {}", d.name(), fmt_book(*book, e.value), e.year), "args": { "tab": "records", "division": d.name() } }));
                 break;
             }
@@ -1104,11 +1108,9 @@ pub fn find(w: &World, q: &str) -> Value {
     if !notes.is_empty() {
         groups.push(json!({ "name": "Your notes", "items": notes }));
     }
-    let mails: Vec<Value> = desk::list(w, &json!({ "q": q }))["rows"]
-        .as_array()
+    // Newest first, stopping at the fifth (not the whole inbox's list).
+    let mails: Vec<Value> = desk::find(w, q, 5)
         .into_iter()
-        .flatten()
-        .take(5)
         .map(|m| json!({ "kind": "mail", "id": m["id"], "name": m["subject"], "sub": format!("{} · {}", m["from"].as_str().unwrap_or(""), m["day"].as_str().unwrap_or("")) }))
         .collect();
     if !mails.is_empty() {

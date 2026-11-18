@@ -1685,6 +1685,8 @@ impl World {
         }
         super::finance::after_load(self);
         super::capital::rooms::after_load(self);
+        // A file from before the support departments staffs them once.
+        super::departments::ensure(self);
         // A save from after an expansion club joined may hold agents who
         // don't know it yet.
         let clubs = self.nfl.len();

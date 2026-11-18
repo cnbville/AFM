@@ -119,6 +119,9 @@ pub(crate) fn ties_q(w: &World, i: usize, t: usize) -> f64 {
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Staffer {
     pub name: String,
+    /// A woman (an assistant who stepped up; support departments).
+    #[serde(default)]
+    pub she: bool,
     pub rating: u8,
     pub since: i32,
     /// His birth year (0 in older saves until the market's next year).
@@ -134,9 +137,10 @@ pub struct Staffer {
 
 /// The support staff's heads (topic 10): strength and conditioning,
 /// medical (the head athletic trainer), analytics and quality control,
-/// and academics (college). Their assistants are counted in their rating
-/// through the budget. Player engagement (update 2, Q4): life skills, money
-/// and trouble, which a good one makes a little rarer.
+/// and academics (college). Player engagement (update 2, Q4): life skills,
+/// money and trouble, which a good one makes a little rarer. Each head runs
+/// a department of stored people (`people`, support departments,
+/// `departments.rs`).
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Support {
     pub strength: Staffer,
@@ -151,12 +155,27 @@ pub struct Support {
     pub boss: Option<usize>,
     #[serde(default)]
     pub seen: bool,
+    /// Everyone in the departments below the heads (support departments).
+    #[serde(default)]
+    pub people: Vec<super::departments::Aide>,
+    /// A college's junior analysts and quality control and their mean
+    /// scheme, counted at the year's market (C36; film study's analysts).
+    #[serde(default)]
+    pub ops: [u8; 2],
+    /// The departments have been staffed (an older file's are filled once
+    /// on load).
+    #[serde(default)]
+    pub staffed: bool,
 }
 
 impl Support {
     /// -1 to 1 around an average head.
     pub fn z(r: u8) -> f64 {
         if r == 0 { 0.0 } else { (r as f64 - 10.0) / 10.0 }
+    }
+    /// The same for a department's read on a head's scale.
+    pub fn zf(r: f64) -> f64 {
+        (r - 10.0) / 10.0
     }
 }
 
@@ -206,7 +225,7 @@ impl Dept {
     /// At a college, paid from football's support staff line and hired by
     /// the head coach; the head athletic trainer and the academic head are
     /// the athletic department's (people topic 10).
-    fn football(self) -> bool {
+    pub(crate) fn football(self) -> bool {
         matches!(self, Dept::Strength | Dept::Analytics | Dept::Engagement)
     }
     /// What a typical head is paid at each level in 2024 dollars: Power 4,
@@ -216,7 +235,7 @@ impl Dept {
     /// 2019, most Power 5 heads $200-500K; head trainers, analytics,
     /// academic and engagement directors from job postings); proposed, not
     /// confirmed.
-    fn going_rate(self, level: usize) -> f64 {
+    pub(crate) fn going_rate(self, level: usize) -> f64 {
         let r: [f64; 6] = match self {
             Dept::Strength => [400e3, 150e3, 80e3, 45e3, 40e3, 350e3],
             Dept::Medical => [200e3, 85e3, 65e3, 50e3, 48e3, 250e3],
@@ -262,6 +281,15 @@ pub struct MarketYear {
     pub retired: u16,
     /// Left football (another field, family, health).
     pub left: u16,
+    /// Heads' posts filled by the team's own assistant stepping up.
+    pub stepped_up: u16,
+    /// Heads' posts filled by an assistant from another team.
+    pub moved_up: u16,
+    /// Department people hired, and gone (retired, left or let go).
+    pub aides_hired: u16,
+    pub aides_gone: u16,
+    /// Assistants a new strength head brought with him.
+    pub aides_brought: u16,
 }
 
 /// The support staff market (item 10): the men out of work and each
@@ -271,10 +299,13 @@ pub struct MarketYear {
 pub struct SupportMarket {
     pub free: Vec<Free>,
     pub years: Vec<MarketYear>,
+    /// Each level's typical department this year, (head, work) by area
+    /// (`departments`): the divisions, the NFL, the high schools.
+    pub typical: Vec<[(f32, f32); super::departments::AREAS]>,
 }
 
 impl SupportMarket {
-    fn row(&mut self, year: i32) -> &mut MarketYear {
+    pub(crate) fn row(&mut self, year: i32) -> &mut MarketYear {
         if self.years.last().is_none_or(|y| y.year != year) {
             self.years.push(MarketYear { year, ..Default::default() });
         }
@@ -284,19 +315,19 @@ impl SupportMarket {
 
 /// A team with support heads: a program or an NFL club.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Who {
+pub enum Who {
     Prog(usize),
     Club(usize),
 }
 
-fn support_of(w: &World, who: Who) -> &Support {
+pub(crate) fn support_of(w: &World, who: Who) -> &Support {
     match who {
         Who::Prog(p) => &w.programs[p].support,
         Who::Club(t) => &w.clubs[t].support,
     }
 }
 
-fn support_mut(w: &mut World, who: Who) -> &mut Support {
+pub(crate) fn support_mut(w: &mut World, who: Who) -> &mut Support {
     match who {
         Who::Prog(p) => &mut w.programs[p].support,
         Who::Club(t) => &mut w.clubs[t].support,
@@ -313,7 +344,7 @@ fn boss_of(w: &World, who: Who) -> Option<usize> {
 /// The head coach the market reads: none while an interim has the job (a
 /// college's interim isn't its head coach; an NFL club's in-season interim
 /// is, until Black Monday decides), so an interim changes nothing.
-fn permanent_boss(w: &World, who: Who) -> Option<usize> {
+pub(crate) fn permanent_boss(w: &World, who: Who) -> Option<usize> {
     let b = boss_of(w, who)?;
     match who {
         Who::Club(t) if w.folk.staff.interims.iter().any(|x| x.0 as usize == t && x.1 as usize == b) => None,
@@ -321,12 +352,12 @@ fn permanent_boss(w: &World, who: Who) -> Option<usize> {
     }
 }
 
-fn era_of(year: i32) -> f64 {
+pub(crate) fn era_of(year: i32) -> f64 {
     clamp((year - 1996) as f64 / 30.0, 0.0, 1.0)
 }
 
 /// Every team with support heads this year.
-fn teams(w: &World) -> Vec<Who> {
+pub(crate) fn teams(w: &World) -> Vec<Who> {
     let year = w.year;
     let progs = (0..w.programs.len()).filter(|&k| w.programs[k].plays(year)).map(Who::Prog);
     let clubs = (0..w.clubs.len()).filter(|&t| super::franchise::active_in(w, t, year)).map(Who::Club);
@@ -343,7 +374,7 @@ fn depts(who: Who) -> &'static [Dept] {
 /// The level a team hires new heads at, 0-1: a program's budget follows its
 /// facilities, division and books; an NFL club's its owner. A fresh hire is
 /// drawn around it (`hire`).
-fn hire_level(w: &World, who: Who) -> f64 {
+pub(crate) fn hire_level(w: &World, who: Who) -> f64 {
     match who {
         Who::Prog(k) => {
             let prog = &w.programs[k];
@@ -369,14 +400,14 @@ fn hire_level(w: &World, who: Who) -> f64 {
 
 /// Each college level's median football staff line and athletic budget
 /// this year, the yardstick a program's offers are read against.
-struct Yardstick {
-    staff: [f64; 5],
-    athletic: [f64; 5],
+pub(crate) struct Yardstick {
+    pub(crate) staff: [f64; 5],
+    pub(crate) athletic: [f64; 5],
 }
 
 /// A program's pay level: Power 4, Group of 5, FCS, Division II with the
 /// NAIA and junior colleges, Division III.
-fn pay_level(w: &World, k: usize) -> usize {
+pub(crate) fn pay_level(w: &World, k: usize) -> usize {
     match super::finance::college::tier(w, k, w.year) {
         t @ 0..=2 => t as usize,
         _ if w.programs[k].division == super::data::Division::D3 => 4,
@@ -384,7 +415,7 @@ fn pay_level(w: &World, k: usize) -> usize {
     }
 }
 
-fn yardstick(w: &World) -> Yardstick {
+pub(crate) fn yardstick(w: &World) -> Yardstick {
     use super::finance::college;
     let mut staff: [Vec<f64>; 5] = Default::default();
     let mut ath: [Vec<f64>; 5] = Default::default();
@@ -417,20 +448,29 @@ fn yardstick(w: &World) -> Yardstick {
 /// football staff line for the head coach's hires, its athletic budget for
 /// the department's; an NFL club's spending level), in the year's dollars.
 /// Proposed, not confirmed.
-fn offer(w: &World, who: Who, d: Dept, ys: &Yardstick) -> f64 {
+pub(crate) fn offer(w: &World, who: Who, d: Dept, ys: &Yardstick) -> f64 {
     let idx = super::finance::data::coach_index(w.year);
+    match who {
+        Who::Prog(k) => d.going_rate(pay_level(w, k)) * clamp(money_ratio(w, who, d, ys), 0.35, 10.0).powf(0.8) * idx,
+        Who::Club(_) => d.going_rate(5) * money_ratio(w, who, d, ys).powf(0.8) * idx,
+    }
+}
+
+/// A team's money against its level's median for a department (item 10):
+/// a college's football staff line for the head coach's hires, its
+/// athletic budget for the department's; an NFL club's spending level.
+pub(crate) fn money_ratio(w: &World, who: Who, d: Dept, ys: &Yardstick) -> f64 {
     match who {
         Who::Prog(k) => {
             use super::finance::college;
             let t = pay_level(w, k);
-            let ratio = match w.finance.college.get(k).filter(|x| x.budget.year != 0) {
+            match w.finance.college.get(k).filter(|x| x.budget.year != 0) {
                 Some(x) if d.football() && ys.staff[t] > 0.0 => x.budget.l[college::STAFF] as f64 / ys.staff[t],
                 Some(x) if ys.athletic[t] > 0.0 => college::Dept::costs(&x.budget) / ys.athletic[t],
                 _ => 1.0,
-            };
-            d.going_rate(t) * clamp(ratio, 0.35, 10.0).powf(0.8) * idx
+            }
         }
-        Who::Club(_) => d.going_rate(5) * (hire_level(w, who) / 0.55).powf(0.8) * idx,
+        Who::Club(_) => hire_level(w, who) / 0.55,
     }
 }
 
@@ -439,7 +479,7 @@ fn offer(w: &World, who: Who, d: Dept, ys: &Yardstick) -> f64 {
 /// away, so a fresh man sits a little under the old single draw
 /// (`FRESH_SHIFT`): the lower levels hold where they were before the
 /// market (measured with `support_check`; proposed, not confirmed).
-fn fresh_mean(budget: f64, era: f64) -> f64 {
+pub(crate) fn fresh_mean(budget: f64, era: f64) -> f64 {
     5.5 + 7.0 * budget + 2.0 * era - FRESH_SHIFT
 }
 
@@ -449,13 +489,23 @@ fn fresh_mean(budget: f64, era: f64) -> f64 {
 /// (FBS strength 11.9 to 13.7, NFL 10.2 to 13.4, flat by the last years).
 const FRESH_SHIFT: f64 = 1.0;
 
-fn hire(rng: &mut Rng, year: i32, budget: f64, era: f64) -> Staffer {
+fn hire(rng: &mut Rng, year: i32, budget: f64, era: f64, d: Dept) -> Staffer {
     // Minor bug 19: support staff of every background, as the scouts.
     let eth = super::pro::scouts::staff_ethnicity(rng, year);
     let born = year - rng.int(28, 58);
-    let name = super::names::person_name(eth, born, rng);
+    // Support departments: heads are women at the professions' shares
+    // (proposed, not confirmed: few in a football weight room, about half
+    // of academic heads).
+    let she = rng.chance(match d {
+        Dept::Strength => 0.03,
+        Dept::Medical => 0.15,
+        Dept::Analytics => 0.1,
+        Dept::Academic => 0.55,
+        Dept::Engagement => 0.35,
+    });
+    let name = super::folk::cast::person_name(eth, born, she, rng);
     let rating = clamp(rng.normal(fresh_mean(budget, era), 2.8), 1.0, 20.0).round() as u8;
-    Staffer { name, rating, since: year, born, pay: 0.0, coach: None }
+    Staffer { name, she, rating, since: year, born, pay: 0.0, coach: None }
 }
 
 /// A raise big enough to move a head to another team (item 10; proposed,
@@ -487,8 +537,17 @@ fn fill(w: &mut World, rng: &mut Rng, mut open: Vec<(Who, Dept)>, ys: &Yardstick
             break;
         }
         done.push((who, d));
-        let fresh = hire(rng, year, hire_level(w, who), era);
+        let fresh = hire(rng, year, hire_level(w, who), era, d);
         let mut best = (fresh.rating, 0u8, None::<usize>, None::<Who>);
+        // Support departments: his own staff's best assistant on the head's
+        // ladder is the first man up (an assistant trainer for the head
+        // trainer's job; proposed, not confirmed: yes 85% of the time).
+        if let Some((k, r)) = super::departments::best_ladder(w, who, d)
+            && r > best.0
+            && rng.chance(0.85)
+        {
+            best = (r, 3, Some(k), None);
+        }
         // The men out of work who'd take it (at least 70% of what they had).
         if let Some((k, f)) = w
             .support_market
@@ -522,6 +581,15 @@ fn fill(w: &mut World, rng: &mut Rng, mut open: Vec<(Who, Dept)>, ys: &Yardstick
                 break;
             }
         }
+        // An assistant elsewhere the post moves up: an assistant trainer you
+        // raised becomes someone else's head trainer (support departments;
+        // proposed, not confirmed: up to three asked, yes 60% of the time).
+        for (r, o, k) in super::departments::ladder_elsewhere(w, who, d, &all, best.0) {
+            if rng.chance(0.6) {
+                best = (r, 4, Some(k), Some(o));
+                break;
+            }
+        }
         let mut man = match best {
             (_, 1, Some(k), _) => {
                 w.support_market.row(year).rehired += 1;
@@ -533,7 +601,20 @@ fn fill(w: &mut World, rng: &mut Rng, mut open: Vec<(Who, Dept)>, ys: &Yardstick
                 if !open.contains(&(o, d)) {
                     open.push((o, d));
                 }
+                // A strength head brings one or two of his assistants.
+                if d == Dept::Strength {
+                    let n = super::departments::bring(w, o, who, rng, ys);
+                    w.support_market.row(year).aides_brought += n;
+                }
                 old
+            }
+            (_, 3, Some(k), _) => {
+                w.support_market.row(year).stepped_up += 1;
+                super::departments::take(w, who, k, rng, ys).as_head(year)
+            }
+            (_, 4, Some(k), Some(o)) => {
+                w.support_market.row(year).moved_up += 1;
+                super::departments::take(w, o, k, rng, ys).as_head(year)
             }
             _ => {
                 w.support_market.row(year).fresh += 1;
@@ -612,6 +693,8 @@ pub(crate) fn staff_support(w: &mut World) {
         }
     }
     fill(w, &mut rng, open, &ys);
+    // The departments below the heads (support departments).
+    super::departments::yearly(w, &mut rng, &ys, grow);
 }
 
 /// A new head coach brings his own strength coach (item 10; real life: a
@@ -685,6 +768,11 @@ pub(crate) fn support_bosses(w: &mut World) {
             man.since = year;
             support_mut(w, who).strength = man;
             w.support_market.row(year).brought += 1;
+            // He brings one or two of his assistants (support departments).
+            if let (None, Some(o)) = (free, there) {
+                let n = super::departments::bring(w, o, who, &mut rng, &ys);
+                w.support_market.row(year).aides_brought += n;
+            }
         } else {
             open.push((who, Dept::Strength));
         }
@@ -711,17 +799,22 @@ pub(crate) fn first_hires(w: &mut World, club: Option<usize>, program: usize) {
     let s = support_mut(w, who);
     s.seen = true;
     s.boss = boss;
+    // Its departments (support departments).
+    super::departments::ensure(w);
 }
 
 /// The development inputs the staff and the person give: (physical,
-/// medical), each -1 to 1 (`SeasonContext`).
-pub(crate) fn support_ctx(s: Option<&Support>, pers: &Personality) -> (f64, f64) {
+/// medical), each -1 to 1 (`SeasonContext`). `dept` is his strength and
+/// medical departments' reads on a head's 1-20 scale (support
+/// departments, `departments::tiers`), none at a high school, where
+/// `hs_medical` is his school's trainer (`departments::hs_medical`).
+pub(crate) fn support_ctx(dept: Option<(f64, f64)>, hs_medical: f64, pers: &Personality) -> (f64, f64) {
     let prof = pers.traits.z(Trait::Professionalism);
-    match s {
-        Some(s) => (0.6 * Support::z(s.strength.rating) + 0.4 * prof, Support::z(s.medical.rating)),
+    match dept {
+        Some((s, m)) => (0.6 * Support::zf(s) + 0.4 * prof, Support::zf(m)),
         // No staff (high school): his own habits, and most schools have a
         // trainer part time or none (the CATCH ON study).
-        None => (0.4 * prof - 0.2, -0.3),
+        None => (0.4 * prof - 0.2, hs_medical),
     }
 }
 

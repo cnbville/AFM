@@ -1,6 +1,6 @@
 # Support staff as full departments
 
-World additions item 4 (thread "Find what the world is still missing", 2026-11-17). Proposal for Cain, 2026-11-17. **Agreed in full 2026-11-17** (Cain, 16:53 UTC: "agree on all", all seven questions below). Not built: one lane after the world rebuild.
+World additions item 4 (thread "Find what the world is still missing", 2026-11-17). Proposal for Cain, 2026-11-17. **Agreed in full 2026-11-17** (Cain, 16:53 UTC: "agree on all", all seven questions below). Built 2026-11-17 (`crates/afm-engine/src/world/departments.rs`; how it works in `docs/reference/how-it-works/staff-and-coaches.md`, "Support departments", with the sizes the build picked marked proposed, not confirmed). Not built yet: in-game fatigue (an engine change after the scheme-fit and coach fire lanes), the dietitian's in-season hold (no in-season weight loss in the game yet), the sports scientist's per-player load read on a screen.
 
 ## What it does in the game
 

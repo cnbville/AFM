@@ -28,18 +28,36 @@ pub fn seasons(w: &World, team: Team, n: usize) -> Vec<Season> {
         Team::College(p) => w.programs[p]
             .seasons
             .iter()
-            .map(|s| Season {
-                year: s.year,
-                wins: s.wins,
-                losses: s.losses,
-                coach: s.coach,
-                note: if s.national_title {
-                    "national champions".into()
-                } else if s.conference_title {
-                    "conference champions".into()
-                } else {
-                    String::new()
-                },
+            .map(|s| {
+                // The season's row is written after the regular season and
+                // filled in only when the whole postseason closes in
+                // January: until then the open season's results hold its
+                // bowl and title games (a career started between the two
+                // heard one record from the AD and another from his
+                // coaches' season review).
+                let live = [w.college.as_ref(), w.college_prev.as_ref()]
+                    .into_iter()
+                    .flatten()
+                    .find(|cs| cs.year == s.year)
+                    .and_then(|cs| cs.results.get(p))
+                    .filter(|r| r.games() > s.wins + s.losses);
+                let (wins, losses, conference, national) = match live {
+                    Some(r) => (r.wins, r.losses, r.conference_title, r.national_title),
+                    None => (s.wins, s.losses, s.conference_title, s.national_title),
+                };
+                Season {
+                    year: s.year,
+                    wins,
+                    losses,
+                    coach: s.coach,
+                    note: if national {
+                        "national champions".into()
+                    } else if conference {
+                        "conference champions".into()
+                    } else {
+                        String::new()
+                    },
+                }
             })
             .collect(),
         Team::High(h) => w.high_schools[h]

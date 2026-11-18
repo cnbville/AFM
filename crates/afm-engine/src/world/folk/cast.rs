@@ -590,7 +590,7 @@ pub fn get(w: &World, r: CastRef) -> Cast {
             };
             if !st.name.is_empty() {
                 kept(&st.name, st.since, &mut name, &mut since, &mut term);
-                she = false;
+                she = st.she;
             }
         }
         (Team::Nfl(t), Role::Gm) => {
@@ -604,7 +604,7 @@ pub fn get(w: &World, r: CastRef) -> Cast {
                 let st = if r.role == Role::Trainer { &c.support.medical } else { &c.support.strength };
                 if !st.name.is_empty() {
                     kept(&st.name, st.since, &mut name, &mut since, &mut term);
-                    she = false;
+                    she = st.she;
                 }
             }
         }

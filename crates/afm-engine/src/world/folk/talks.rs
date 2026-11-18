@@ -1108,22 +1108,38 @@ pub fn mood_event(w: &mut World, id: u32, why: Reason, delta: f32) {
 /// What is left of his dated reasons today: each fades by a quarter a month.
 pub fn residual(w: &World, id: u32) -> f32 {
     let today = w.today;
-    w.folk.moods.iter().find(|x| x.0 == id).map_or(0.0, |x| felt(&x.1, today))
+    let k = super::person(w, id).map_or(1.0, |i| crate::world::departments::clinic_for(w, i)) as f32;
+    w.folk.moods.iter().find(|x| x.0 == id).map_or(0.0, |x| felt(&x.1, today, k))
+}
+
+/// A hard event (a death in the family, a public benching, his arrest):
+/// what a behavioral health clinician helps him back from (support
+/// departments, question 6).
+fn hard(why: u8, v: i8) -> bool {
+    v < 0 && matches!(Reason::from_u8(why), Reason::LifeEvent | Reason::Benched | Reason::ArrestShame)
+}
+
+/// The share of a reason's weight left after `days`: a quarter fades a
+/// month, a hard event `k` times as fast with a clinician (`clinic_for`).
+fn left(why: u8, v: i8, days: i32, k: f32) -> f32 {
+    let speed = if hard(why, v) { k } else { 1.0 };
+    v as f32 / 100.0 * 0.75f32.powf(days.max(0) as f32 / 30.0 * speed)
 }
 
 /// What's left today of a person's dated reasons, summed (`residual`).
-fn felt(notes: &[super::MoodNote], today: Date) -> f32 {
-    notes.iter().map(|&(d, _, v)| v as f32 / 100.0 * 0.75f32.powf(d.days_to(today).max(0) as f32 / 30.0)).sum()
+fn felt(notes: &[super::MoodNote], today: Date, k: f32) -> f32 {
+    notes.iter().map(|&(d, r, v)| left(r, v, d.days_to(today), k)).sum()
 }
 
 /// His dated reasons still felt, newest first, in words.
 pub fn reasons(w: &World, id: u32) -> Vec<(Date, String, f32)> {
     let today = w.today;
+    let k = super::person(w, id).map_or(1.0, |i| crate::world::departments::clinic_for(w, i)) as f32;
     let mut v: Vec<(Date, String, f32)> = w.folk.moods.iter().find(|x| x.0 == id).map_or(Vec::new(), |x| {
         x.1.iter()
             .map(|&(d, r, v)| {
-                let left = v as f32 / 100.0 * 0.75f32.powf(d.days_to(today).max(0) as f32 / 30.0);
-                (d, Reason::from_u8(r).words(v > 0).to_string(), left)
+                let rest = left(r, v, d.days_to(today), k);
+                (d, Reason::from_u8(r).words(v > 0).to_string(), rest)
             })
             .filter(|x| x.2.abs() >= 0.02)
             .collect()
@@ -1149,8 +1165,13 @@ pub(crate) fn reapply(w: &mut World, read: &[usize]) {
     for (k, x) in moods.iter().enumerate() {
         first.entry(x.0).or_insert(k);
     }
-    let ids: Vec<(u32, f32)> =
-        moods.par_iter().with_min_len(256).map(|x| (x.0, felt(&moods[first[&x.0]].1, today))).collect();
+    // Each team's clinician (support departments, question 6).
+    let clinic = crate::world::departments::ClinicTable::new(w);
+    let ids: Vec<(u32, f32)> = moods
+        .par_iter()
+        .with_min_len(256)
+        .map(|x| (x.0, felt(&moods[first[&x.0]].1, today, clinic.of(w, x.0))))
+        .collect();
     for (id, r) in ids {
         if r.abs() < 0.01 {
             continue;

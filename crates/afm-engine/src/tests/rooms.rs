@@ -58,6 +58,9 @@ fn game(w: &mut World, days_ago: i32, score: [i32; 2]) -> usize {
     let (_, mine) = w.seat_team().unwrap();
     let opp = (0..w.programs.len()).find(|&j| j != mine).unwrap();
     let stats = GameStats { score, ..Default::default() };
+    // The world's season tallies hold every game played (a unit's year
+    // reads them, not only the games kept for your seat).
+    super::review::tally(w, mine, opp, score, days_ago);
     w.seat_games.push(SeatGame {
         date: w.today.add(-days_ago),
         level: Level::College,
@@ -448,7 +451,10 @@ fn games(w: &mut World, allowed: i32) {
 fn coordinator(w: &mut World) -> usize {
     let team = Team::seat(w).unwrap();
     let (c, _) = facts::assistants(w, team).into_iter().next().expect("the program has a staff");
-    w.coaches[c].job.as_mut().unwrap().role = Role::DefensiveCoordinator;
+    let job = w.coaches[c].job.as_mut().unwrap();
+    job.role = Role::DefensiveCoordinator;
+    // He coached the season on file.
+    job.first = w.year;
     c
 }
 
