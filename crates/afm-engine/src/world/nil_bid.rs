@@ -445,7 +445,12 @@ pub(crate) struct Market {
     depth: Vec<[Vec<f64>; POSITION_COUNT]>,
     rivals: Vec<usize>,
     medians: [[f64; POSITION_COUNT]; super::data::DIVISION_COUNT],
+    lifts: Lifts,
 }
+
+/// Each money level's lift over its division at each spot, by `level`
+/// (`recruiting::bid_lifts`): what a bid takes off a man's play.
+pub type Lifts = [[f64; POSITION_COUNT]; 4];
 
 impl Market {
     pub(crate) fn new(w: &World) -> Market {
@@ -467,7 +472,7 @@ impl Market {
                 matches!(p.division, Division::FBS | Division::FCS) && p.collective.budget > 0.0
             })
             .collect();
-        Market { depth, rivals, medians: super::recruiting::nil_medians(w) }
+        Market { depth, rivals, medians: super::recruiting::nil_medians(w), lifts: super::recruiting::bid_lifts(w) }
     }
 
     /// What wins college player `i` from the rest of the market (item 9):
@@ -511,10 +516,12 @@ impl Market {
             Some((role, edge)) => (role, edge as f64),
             None => (p.last_role.unwrap_or(PlayingTime::Backup), perf - medians[from as usize][k]),
         };
+        // Each bid reads him against the starters at its school's level.
+        let read = if own_edge.is_finite() { own_edge } else { 0.0 };
         let own = top_bid(
             w.programs[c].collective.budget,
             pos,
-            bid_talent(Some(own_role), stars, if own_edge.is_finite() { own_edge } else { 0.0 }),
+            bid_talent(Some(own_role), stars, read - self.lifts[level(&w.programs[c])][k]),
         );
         let mut rival = 0.0f64;
         for &r in self.rivals.iter().filter(|&&r| r != c) {
@@ -527,12 +534,41 @@ impl Market {
                 continue;
             }
             let m = medians[d as usize][k];
-            let edge = if m.is_finite() { at - m } else { 0.0 };
+            let edge = if m.is_finite() { at - m } else { 0.0 } - self.lifts[level(prog)][k];
             rival = rival.max(top_bid(prog.collective.budget, pos, bid_talent(Some(role), stars, edge)));
         }
         let keep = own.min(rival);
         (keep > 0.0).then_some((keep, rival, own_edge))
     }
+}
+
+/// Every college player's market price today (`Market::bid`), for the
+/// tools: (his index, the price, his play over his level's starters at his
+/// spot), for each player at an FBS or FCS program
+/// with money who has a season left and isn't leaving (the draft, the
+/// portal, a cut).
+pub fn market_all(w: &World) -> Vec<(usize, f64, f64)> {
+    let market = Market::new(w);
+    let label = if w.today < w.dates.fall_camp { w.year - 1 } else { w.year };
+    (0..w.people.len())
+        .into_par_iter()
+        .filter_map(|i| {
+            let p = &w.people[i];
+            let c = p.college?;
+            let prog = &w.programs[c];
+            if p.stage != Stage::College
+                || !matches!(prog.division, Division::FBS | Division::FCS)
+                || prog.collective.budget <= 0.0
+                || p.cal.portal.is_some()
+                || p.cut_here().is_some()
+                || p.cal.declare_plan == Some(true)
+                || super::college::no_season_left(p, prog.division, label)
+            {
+                return None;
+            }
+            market.bid(w, i).map(|b| (i, b.0, b.2))
+        })
+        .collect()
 }
 
 /// December's keep-him offers before the January window (item 9): each AI
@@ -631,7 +667,8 @@ pub fn ensure(w: &mut World) {
 }
 
 /// The new NIL scheme's version of a world's money (`ensure`).
-pub(crate) const NIL_REV: u8 = 1;
+/// 2: the Group of 5's money refit to real payments (2b, 2026-11-18).
+pub(crate) const NIL_REV: u8 = 2;
 
 /// July 1's book (item 10): NIL Go's comparisons for the coming year,
 /// read from the third-party money each player cleared today.
