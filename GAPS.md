@@ -8,6 +8,12 @@ Gaps found while fixing bugs or building, so they carry over between threads (Ca
 - **The press ranks only finished rooms** (low). `race::press_score` reads `Campus.level` and `since`, so a building that has broken ground adds nothing until it opens, and the Pecking order screen can't say "read as 10th since the groundbreaking" as board 5 draws it. Recruits' groundbreaking pull (facilities lane #281) is separate. Found 2026-11-17 (thread "Build Capital screen CS5"); needs Cain's call on whether a building under way counts for the press.
 - **A project's minutes don't come out of the room's week** (medium). Design item 8 says a project takes the position coach's one-on-one minutes, so the rest of the room gets a little less. Today the 60 minutes only set the project's pace (`development.rs`, `GrowthCtx::rate`); nobody else's individual time shrinks, for you or the AI. Same thread.
 
+- **A ball off target costs nothing after the catch** (medium). Real yards after the catch fall 0.37 a catch in rain and 0.28 in a 15-19 mph wind (nflverse 2021-25), as receivers reach back or stop for a wet or blown ball; the engine's rise a little (5.06 to 5.18 in rain): placement reads only whether he catches it (`game/scrimmage.rs`, `catch_point`), and the cleaner throws are the ones caught. It moves every pass, not only the weather's, so it needs its own measure. Found 2026-11-18 (thread "Fix DL rotation and weather size"); a slower first step after a wet catch was tried there and did nothing.
+- **Footing is read nowhere** (low). Rain, snow and mud don't touch a man's burst or cuts. Cutting both sides' burst and cut 10% on a wet field raised yards after the catch by 0.5 a catch in this engine (real -0.37), because tacklers lose their closing burst more than a carrier loses his cut; footing needs the open-field tackle's angle read first. Same thread.
+- **No edges inside on passing downs** (low). Real 4-3 teams line up 1.83 inside men a snap (nflverse snap counts 2023-24) as edges slide inside on third and long; the engine's fronts always field two tackles (three in a 3-4 base), so the second tackle plays 63% of snaps (real 54% on 4-3 teams) after the staff's rotation (item 29). An AI pass-rush package would close it. Same thread.
+- **Edges' third and fourth men still play only on fatigue** (low). The inside line rotates by plan since item 29; edges keep bug 358's fatigue rotation, so the top two play 78% and 71% of snaps a game (real 67% and 45%, PFR labels, some off-ball linebackers among them). Bug 368's edge side. Same thread.
+- **Heat is read nowhere** (low). A hot, humid game tires nobody faster (`Conditions.temperature` reads only kicks and cold). Item 30's note; same thread.
+
 ### The engine gaps audit (agreed)
 
 Cain agreed to all 30 on 2026-11-17 ("agreed"). What gets built and in which lane is in `docs/design/engine-gaps.md` (lanes EG1-EG7, item 10 in SF10, items 29 and 30 as small fixes); each lane removes its entries here when it merges. The audit (thread "Find engine gaps beyond scheme fit") checked real NFL play-by-play (nflverse 2021-25) and the repo's college targets against `match_check` on main, each code claim checked twice. Numbers, sources and code lines are in the project folder at `afm/engine-gaps/report.md` (items 1-30).
@@ -40,8 +46,6 @@ Cain agreed to all 30 on 2026-11-17 ("agreed"). What gets built and in which lan
 - **Ineligible man downfield called about four times too often** (medium, a bug). 0.383 a team game (real 0.106), all on RPOs; minor bug 406. Item 26.
 - **Pass interference short** (medium). 0.352 a team game at 12.5 yards (real 0.507 at 15.8). Item 27.
 - **Fouls missing or off** (low). The defense's too many men, illegal contact, illegal use of hands and live-ball offside don't exist; kickoffs out of bounds or short of the landing zone are played but never flagged; grounding 0.015 a team game (real 0.080); false starts and delay of game short, the formation group long, and illegal blocks in the back about ten times real on scrimmage plays. Item 28.
-- **Interior linemen rotate too little** (low-medium). The top two DTs play 78% of snaps (real 68% and 50%). Item 29.
-- **Rain and wind a little small** (low). Rain costs 1.9 points a team (real 3.4), 17 mph wind 2.0 (2.8). Item 30.
 
 ## Logic
 
