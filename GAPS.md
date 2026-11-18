@@ -19,6 +19,7 @@ Gaps found while fixing bugs or building, so they carry over between threads (Ca
 - **The returns are not built** (low). A former player's summer visits, his hall of fame asking you to present him, naming a son after you, and a hometown discount in NFL free agency beyond the built "guys follow you" (design section 7). Same thread.
 - **A coach leaving doesn't shake a high-need kid's home stability** (low). The design's "loses stability (-0.5 x closeness)" isn't built: only his mood, a Left moment, a year guarded and a year of trouble risk. The stability field is his background, so it needs a call on whether a coach's leaving may change it. Same thread.
 - **No "I'm not going anywhere" promise** (low). A close player hurt by a coach leaving is the price of the bond, but you can't promise to stay. The promises lane has no kind for it. Same thread.
+- **Bonds are bigger in memory than the design said** (medium). On a quarter-scale world (seed 261, 4 years) the store holds about 965,000 bonds and 669,000 moments, about 38 MB, so roughly 150 MB at full scale against the design's 10-20 MB. Most rows are Just met pairs with coaches who never got close. Candidate for the memory diet: drop a Just met bond once the pair parts, cap moments sooner. Found 2026-11-18 (thread "Build coach and player bonds", the world measure).
 
 ## UI
 
