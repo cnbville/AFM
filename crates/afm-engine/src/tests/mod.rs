@@ -115,6 +115,7 @@ mod stay_read;
 mod stories;
 mod storylines;
 mod strength_split;
+mod support_departments;
 mod support_market;
 mod tactics;
 mod talk_adviser;
