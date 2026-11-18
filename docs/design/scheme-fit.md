@@ -184,7 +184,7 @@ Each lane is its own fresh thread. The coordinator starts them in the order belo
 | SF10 The roster shapes the call | 10, 11, 23 | SF4 to SF9 | Opus max | the calls, AI identity |
 | SF11 Fit scores job by job | 24 | SF10 | Opus max | the world (installs, recruiting) |
 
-**Engine gaps.** SF10 also takes item 10 of the engine gaps (designed quarterback runs). Lane EG6 (the red zone) starts after SF7, and EG7 (the quarterback off script) after SF4 and SF8 (`docs/design/engine-gaps.md`).
+**Engine gaps.** SF10 also takes item 10 of the engine gaps (designed quarterback runs). Lane EG6 (the red zone) starts after SF7, and EG7 (the quarterback off script) after SF4 and SF8 (`docs/design/engine-gaps.md`). Some SF lanes share code with an EG lane running beside them: SF5 shares the catch point with engine gaps item 27 (pass interference, EG5), SF9 the open field with item 13 (return breakaways, EG3) and the run paths with the rest of S6.2 (EG4), SF4 the routes with S6.2's short outs (EG4), and SF4 and SF5 the red zone with item 8 (EG6). Whichever lane merges second measures the other's numbers again (an EG lane with `fit_check`, an SF lane with `AFM_GAPS=1 match_check`).
 
 **SF0, the measuring tool.** It commits the audit's tool to `afm-tools` as one bin, `fit_check`, so every lane measures the same way.
 - **Source.** Copies of the scratch tools are in the project folder, `afm/scheme-fit/tools/`: `fit_pass.rs.txt` for the arms and contexts, `fit_draws.rs.txt` for the as-recruited draws, `fit_wroster.rs.txt` for the world's NFL rosters, and `fit_pass.py.txt` with its helpers for the read-out.
@@ -207,6 +207,6 @@ Every game lane:
 - updates `docs/match-engine.md` and the how-it-works pages it touches (`docs/reference/how-it-works/`) in the same PR, and bumps their commit lines;
 - carries a `## Patch note`, because players see the change;
 - reports `match_check`'s time against main, so a slower engine is never a surprise;
-- rebases and measures again before it merges, if another SF lane merged first.
+- rebases and measures again before it merges, if another engine lane (SF or EG) merged first.
 
 **SF11** changes the world: programs install and recruit by fit. So it checks a world against real (installs, fit by school and class, recruiting), and its cost is asked first.
