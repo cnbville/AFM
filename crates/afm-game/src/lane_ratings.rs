@@ -575,6 +575,13 @@ fn runs(m: &Member) -> String {
         Job::RecruitingDirector => "Runs visits and the recruiting calendar".into(),
         Job::Academic => "Keeps players eligible and on track to graduate".into(),
         Job::Engagement => "Life skills, money and the players' lives away from football".into(),
+        Job::StrengthIntern => "Helps run lifts and conditioning".into(),
+        Job::SportsScientist => "Reads each player's load and flags the strain risk".into(),
+        Job::Clinician => "Counsels players through hard times".into(),
+        Job::PainSpecialist => "Manages pain care with the doctors".into(),
+        Job::Adviser => "Plans each player's classes and checks on the ones at risk".into(),
+        Job::Tutor => "Tutors players in their classes".into(),
+        Job::Development => "Life skills, careers and money".into(),
     }
 }
 

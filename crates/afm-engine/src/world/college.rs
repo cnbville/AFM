@@ -971,9 +971,14 @@ fn play_games(w: &mut World, date: Date, now: impl Fn(&Game) -> bool) {
             let seat = super::folk::Team::seat(w);
             let side = [home, away].iter().position(|&t| seat == Some(super::folk::Team::College(t)));
             // The medical staff and the recovery center (Capital lane C2).
+            // The medical department, the injured first (support
+            // departments).
             let med = [home, away].map(|t| {
-                super::people::Support::z(w.programs[t].support.medical.rating)
-                    + super::capital::rooms::recovery_days(&w.programs[t])
+                super::people::Support::zf(super::departments::first(
+                    w,
+                    super::people::Who::Prog(t),
+                    super::departments::Area::Medical,
+                )) + super::capital::rooms::recovery_days(&w.programs[t])
             });
             crate::training::seat::game_injuries(w, date, &r.injuries, med, side);
             // The hits the officials flagged: targeting and its first half

@@ -734,8 +734,18 @@ function playersTab(x) {
     { k: "sport", t: "Other sport", l: true, hide: x.tier !== "hs", v: (r) => r.sport || "" },
   ];
   const set = x.players.filter((r) => r.plan.focus).length;
-  return `<p class="sub">Every player's plan. A main focus takes the bigger share of his individual periods; how much sticks depends on his coachability and who teaches him. Open a player's Development tab for his habit, body, a new position, extra work and rest. ${set} of ${x.players.length} have a focus you set.</p>
+  return `${trProjects(x.projects)}<p class="sub">Every player's plan. A main focus takes the bigger share of his individual periods; how much sticks depends on his coachability and who teaches him. Open a player's Development tab for his habit, body, a new position, extra work and rest. ${set} of ${x.players.length} have a focus you set.</p>
     ${table("trplayers", cols, x.players, { groupBy: (r) => r.pos })}`;
+}
+// Development projects by room: the skill slots each position room has and
+// the strength staff's one body project a room (start them on a player's
+// Development tab, under Focus).
+function trProjects(pj) {
+  if (!pj || !pj.rooms) return "";
+  const names = (v) => v.map((o) => `${playerLink(o.id, o.name, "Development")} <small class="muted">${esc(o.what || "")}${o.yours ? "" : " · set before you"}</small>`).join("<br>");
+  const over = pj.rooms.some((r) => r.used > r.slots || r.body_used > r.body_slots);
+  const cells = pj.rooms.map((r) => `<div class="tr-pjroom"><span class="st-label">${esc(r.room)}</span><b class="${r.used > r.slots ? "amber" : r.used === r.slots ? "gold" : ""}">${r.used}/${r.slots}</b><small class="muted">skill${r.body_used ? ` · body ${r.body_used}/${r.body_slots}` : ""}</small>${r.on.length || r.body_on.length ? `<span class="tr-pjwho">${names(r.on.concat(r.body_on))}</span>` : ""}</div>`).join("");
+  return `<div class="panel warm tr-pj"><div class="dv-ch"><h2>Development projects <small>${pj.used} of ${pj.slots} skill slots · ${pj.body_used} body ${pj.body_used === 1 ? "project" : "projects"}</small></h2><span class="muted">Start one on a player's Development tab, under Focus</span></div><div class="tr-pjrooms">${cells}</div>${over ? '<span class="muted">A room past its slots holds projects the staff before you set. They run until you end them, and the room takes no new one until it is back under its count.</span>' : ""}</div>`;
 }
 function templatesTab(x) {
   const k = keep("trtpl", { slot: x.slot });
@@ -882,7 +892,75 @@ async function dvFocus(d) {
     try { x = await api("player_dev_project", { id: d.id, code: pk.code }); } catch (e) { x = null; }
     if (x) proj = dvProjection(d, x, onOf(x.code), coach);
   }
-  return `<div class="dv-focus">${list}${proj}</div>`;
+  return `<div class="dv-focus">${list}${proj}</div>${dvProjects(d)}`;
+}
+// Development projects (the progression update): a skill project with his
+// position room and a body project with the strength staff, each on your
+// staff's read as a range. Nobody sees his room, knack or ceiling.
+const dvGain = (g) => (g[1] > g[0] ? `+${g[0]} to +${g[1]}` : `+${g[0]}`);
+function dvProjects(d) {
+  const pj = d.projects;
+  if (!pj) return "";
+  if (pj.none) return `<div class="panel warm dv-pj"><h2>Development projects</h2><div class="empty">${esc(pj.none)}</div></div>`;
+  const st = keep("devproj:" + d.id, { open: null, pick: null });
+  const dis = pj.may_plan ? "" : 'disabled title="The head coach plans him"';
+  const coach = d.craft.teacher.name ? trLast(d.craft.teacher.name) : "His coach";
+  return `<div class="panel warm dv-pj"><h2>Development projects <small>a bet on more than he shows today, on your staff's read</small></h2><div class="dv-two">${dvSkillProj(d, pj.skill, st, dis, coach, pj.eye)}${dvBodyProj(d, pj.body, st, dis)}</div></div>`;
+}
+function dvSlots(used, on, slots, others, label) {
+  const n = used + (on ? 1 : 0);
+  const who = others.length ? ` · ${others.map((o) => `${playerLink(o.id, o.name, "Development")} <small class="muted">${esc(o.what || "")}${o.yours ? "" : " · set before you"}</small>`).join(", ")}` : "";
+  return `<span class="muted">${esc(label)}: <b class="${n > slots ? "amber" : n === slots ? "gold" : ""}">${n} of ${slots}</b> in use${who}</span>`;
+}
+function dvSkillProj(d, s, st, dis, coach, eye) {
+  const head = `<div class="dv-ch"><span class="st-label">Skill project · ${esc(s.room)} room</span>${dvSlots(s.used, s.on, s.slots, s.others, "Slots")}</div>`;
+  if (s.on) {
+    const o = s.on;
+    const year = o.years ? `Year ${o.years + 1} of work` : "Starts at his next growth checkpoint";
+    return `<div class="dv-card">${head}<b class="dv-when">${esc(o.label)}</b><span class="muted">${year} · set by ${o.yours ? "you" : "the staff before you"} · ${s.minutes} min a week with ${esc(coach)}</span>
+      <div class="dv-rrow"><span class="muted">Still to come</span><span class="dv-gain gold">${dvGain(o.gain)}<small>by ${trPlural(s.years, "season")} from now</small></span><span></span></div>
+      <span class="muted">${esc(coach)} thinks he ${esc(o.knack)}.</span>${o.little ? `<span class="dv-warn">Your staff sees little left to open here. It may be time to end it.</span>` : ""}
+      <div class="dv-acts"><span class="muted">His other technique grows at ${s.cost}% of its pace while it runs.</span><button class="st-btn glass" data-act="tr-pjend" data-id="${d.id}" data-kind="skill" ${dis}>End the project</button></div></div>`;
+  }
+  if (st.open !== "skill") {
+    return `<div class="dv-card">${head}${s.left ? `<span class="muted">His last staff's ${esc(s.left.toLowerCase())} project ended when he moved.</span>` : ""}<span class="muted">The position room works one skill past where he is heading on his own: ${s.minutes} minutes a week of ${esc(coach)}'s one-on-one time, at the cost of his other technique.</span>${s.blocked ? `<span class="b">${esc(s.blocked)}</span>` : ""}<div class="dv-acts"><button class="st-btn primary" data-act="tr-pjopen" data-kind="skill" ${s.blocked || !s.options.length ? "disabled" : dis}>Start skill project</button></div></div>`;
+  }
+  const pick = s.options.find((o) => o.key === st.pick) || s.options[0];
+  const list = s.options.map((o) => `<button class="dv-cand ${o.key === pick.key ? "on" : ""}" data-act="tr-pjpick" data-k="${o.key}"><span><b>${esc(o.label)}</b><small class="muted">Today ${o.read ? rpair(o.read) : "not seen"} · ${esc(coach)} thinks he ${esc(o.knack)}</small></span><span class="dv-gain ${o.key === pick.key ? "gold" : ""}">${dvGain(o.gain)}<small>staff read</small></span></button>`).join("");
+  const proj = `<div class="dv-card"><span class="st-label gold">${esc(pick.label)} · before you confirm</span>
+    <div class="kv"><dt>Staff read</dt><dd><b>${dvGain(pick.gain)}</b> on his ${esc(pick.label.toLowerCase())} by ${trPlural(s.years, "season")} from now</dd>
+    <dt>Practice time</dt><dd>${s.minutes} min a week of ${esc(coach)}'s one-on-one time</dd>
+    <dt>The cost</dt><dd>His other technique grows at ${s.cost}% of its pace</dd>
+    <dt>Wear</dt><dd>None: it is the room's time, not his body's</dd>
+    <dt>How sure</dt><dd>A guess. ${esc(coach)}'s eye: ${esc(eye)}. Nobody knows how a player takes to it until he works at it.</dd></div>
+    ${pick.little ? `<span class="dv-warn">Your staff sees little to gain here.</span>` : ""}</div>`;
+  return `<div class="dv-card">${head}${list}${proj}<div class="dv-acts"><button class="st-btn glass" data-act="tr-pjcancel">Cancel</button><button class="st-btn primary" data-act="tr-pjstart" data-id="${d.id}" data-kind="skill" data-k="${pick.key}" ${dis}>Confirm the ${esc(pick.label.toLowerCase())} project</button></div></div>`;
+}
+function dvBodyRows(o) {
+  const rows = o.rows.filter((r) => r.gain[1] > 0).map((r) => `<dt>${esc(r.label)}</dt><dd>${dvGain(r.gain)}</dd>`).join("");
+  return `${rows}${o.lbs ? `<dt>Weight</dt><dd>${o.lbs[1] > o.lbs[0] ? `${o.lbs[0]} to ${o.lbs[1]}` : o.lbs[0]} lb more</dd>` : ""}`;
+}
+function dvBodyProj(d, b, st, dis) {
+  const head = `<div class="dv-ch"><span class="st-label">Body project · strength staff</span>${dvSlots(b.used, b.on, b.slots, b.others, "His room")}</div>`;
+  const wear = `${b.wear} a year, about 1/${Math.round(1.5 / b.wear)} of what a major injury leaves: more injury risk now and an earlier decline later`;
+  if (b.on) {
+    const o = b.on;
+    return `<div class="dv-card">${head}<b class="dv-when">${esc(o.label)}</b><span class="muted">${o.years ? `Year ${o.years + 1} of work` : "Starts at his next growth checkpoint"} · set by ${o.yours ? "you" : "the staff before you"}${o.lbs_on ? ` · ${o.lbs_on} lb on so far` : ""}</span>
+      <div class="kv"><dt class="muted">Still to come</dt><dd class="muted">by ${trPlural(b.years, "year")} from now</dd>${dvBodyRows(o)}</div>${o.little ? `<span class="dv-warn">Your strength staff sees little left in it. It may be time to end it.</span>` : ""}
+      <div class="dv-acts"><span class="muted">Extra wear ${esc(wear)}.</span><button class="st-btn glass" data-act="tr-pjend" data-id="${d.id}" data-kind="body" ${dis}>End the project</button></div></div>`;
+  }
+  if (st.open !== "body") {
+    return `<div class="dv-card">${head}${b.left ? `<span class="muted">His last staff's ${esc(b.left.toLowerCase())} ended when he moved.</span>` : ""}<span class="muted">The strength staff rebuilds his body past where it is heading on its own. It runs beside a skill project, on the body's clock (to ${b.until}).${b.hs_note ? " At your school it is your coaches' own time in the weight room." : ""}</span>${b.blocked ? `<span class="b">${esc(b.blocked)}</span>` : ""}<div class="dv-acts"><button class="st-btn primary" data-act="tr-pjopen" data-kind="body" ${b.blocked ? "disabled" : dis}>Start body project</button></div></div>`;
+  }
+  const pick = b.options.find((o) => o.key === st.pick) || b.options[0];
+  const list = b.options.map((o) => `<button class="dv-cand ${o.key === pick.key ? "on" : ""}" data-act="tr-pjpick" data-k="${o.key}"><span><b>${esc(o.label)}</b><small class="muted">${esc(o.what)}</small></span><span class="dv-gain ${o.key === pick.key ? "gold" : ""}">${dvGain(o.rows[0].gain)}<small>${esc(o.rows[0].label.toLowerCase())}</small></span></button>`).join("");
+  const proj = `<div class="dv-card"><span class="st-label gold">${esc(pick.label)} · before you confirm</span>
+    <div class="kv"><dt class="muted">Staff read</dt><dd class="muted">by ${trPlural(b.years, "year")} from now</dd>${dvBodyRows(pick)}
+    <dt>Practice time</dt><dd>The strength staff's, not the position room's</dd>
+    <dt>Extra wear</dt><dd>${esc(wear)}</dd>
+    <dt>How sure</dt><dd>Wide: nobody knows how a body responds until it's worked</dd></div>
+    ${pick.little ? `<span class="dv-warn">Your strength staff sees little to gain here.</span>` : ""}</div>`;
+  return `<div class="dv-card">${head}${list}${proj}<div class="dv-acts"><button class="st-btn glass" data-act="tr-pjcancel">Cancel</button><button class="st-btn primary" data-act="tr-pjstart" data-id="${d.id}" data-kind="body" data-k="${pick.key}" ${dis}>Confirm the ${esc(pick.label.toLowerCase())}</button></div></div>`;
 }
 function dvProjection(d, x, on, coach) {
   const dis = d.may_plan ? "" : 'disabled title="The head coach plans him"';
@@ -1467,6 +1545,29 @@ document.addEventListener("click", async (ev) => {
       const rest = mine.filter((c) => c !== code);
       const codes = d.n === "1" ? [code, ...rest].slice(0, 2) : [rest[0], code].filter((c) => c != null).slice(0, 2);
       await dvSetPoints(el, codes);
+      break;
+    }
+    case "tr-pjopen":
+    case "tr-pjpick":
+    case "tr-pjcancel": {
+      const id = Number(el.closest(".dv").dataset.pid);
+      const st = keep("devproj:" + id, { open: null, pick: null });
+      if (d.act === "tr-pjopen") { st.open = d.kind; st.pick = null; }
+      else if (d.act === "tr-pjpick") st.pick = d.k;
+      else st.open = null;
+      refresh(el);
+      break;
+    }
+    case "tr-pjstart": {
+      const id = Number(d.id);
+      const r = await trDo(d.kind === "body" ? "player_dev_body_start" : "player_dev_project_start", { id, what: d.k }, (x) => x.said);
+      if (r) { keep("devproj:" + id, {}).open = null; refresh(el); }
+      break;
+    }
+    case "tr-pjend": {
+      if (!(await sure("End this project?", "What it has built stays. A new project starts from year one.", "End it"))) break;
+      const r = await trDo(d.kind === "body" ? "player_dev_body_end" : "player_dev_project_end", { id: Number(d.id) }, (x) => x.said);
+      if (r) refresh(el);
       break;
     }
     case "tr-dvoff": {
