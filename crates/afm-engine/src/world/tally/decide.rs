@@ -22,6 +22,9 @@
 //! seconds each choice takes, overtime in college and high school left
 //! unweighed, a clear call as one point of win chance.
 
+// Fitted tables: a refit can land a value near a named constant.
+#![allow(clippy::approx_constant)]
+
 use crate::game::playbook::{PASS_CONCEPTS, RUN_CONCEPTS};
 use crate::game::stats::{PlayRecord, PlayType, TeamStats};
 use crate::game::win_chance::{Params, State, chance};
