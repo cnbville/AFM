@@ -714,6 +714,14 @@ See [recruiting.md](recruiting.md), "How a staff builds its board": his coach te
 - The AI doesn't plan areas by its class plan's needs, hire a local high school coach for his ground, or play scenes; its men's style shows only in run-downs.
 - Your call to a wavering commit and the claims are one-line results, not played scenes. The services' predictions are the built insiders (`scouting/services.rs`). Money outside the rules in the NIL era goes through the collectives (built).
 
+### The world check (2026-11-17)
+
+Measured on stand-in games against main bfbec55b; the reports and the table are in the project folder at `afm/ground-g9/` (`check.md`).
+- Seed 171 at full scale: in-state share of FBS classes median 36%, p10 18%, p90 74% (main 33/14/65, real 37/15/65); five-star spread, star draft rates and the FCS share of picks as on main; a season about 7% slower (seed 171, 2008-2025: 356 s against 333 s), memory after the history 0.1-0.2 GB more.
+- Titles: one seed's count swings by chance (seed 171 at full scale: main 8 champions in 15 years, G9 13-14). Averaged over seeds 171, 231, 241 and 251 at tenth size, G9 has 10.25 champions in 15 years and main 11.0, with 2.75 unbeaten each. The target is about 9 to 10 (Cain's call, NIL era, 2026-11-17: a bit more spread than real history's 8, from healthy competition, not from top programs collapsing).
+- Class strength by prestige tier (`world_trial`, "class strength by prestige tier"; four seeds, tenth size): the top 10 produce 0.65 draft picks per program a year (main 0.71) and the 11-25 tier 0.43 (main 0.50); 26-65 0.22 (main 0.20). The top 10 sign 45% of their class out of state (main 55%). A mild squeeze at the top, with the top 10 still the strongest classes; neither main's early offers nor main's board alone undoes it.
+- The first build weighed footprint squared with no national tier; seed 171 at full scale had in-state 38% (19-74), so the plan now weighs footprint once and gives programs at prestige 0.8 or more the five richest areas (`NATIONAL_PRESTIGE`, `NATIONAL_AREAS`, proposed, not confirmed).
+
 ### Where the knobs are (G9)
 
 - `ai.rs`: `LIST_DAYS` 400, `REVISIT_DAYS` 28, `CALL_GAP` 90, `ROAD_SHARE`, `AREA_FLOOR` 0.1, `REACH_FLOOR` 0.15, `NATIONAL_PRESTIGE` 0.8, `NATIONAL_AREAS` 5, `SECOND_MAN` 3, `SENT_TAPE` [0.3, 0.6, 1.2, 1.6], `TALENT`, `PRUNE` 1.
