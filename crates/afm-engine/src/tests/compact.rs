@@ -151,7 +151,16 @@ fn a_stored_part_is_kept_only_once_it_holds_something() {
 #[test]
 fn people_keep_their_file_shape_and_only_the_parts_they_use() {
     use crate::world::{Person, Stage};
-    let w = crate::tests::legacy::seat("college");
+    // The empty world has no players: two high school classes, and a few
+    // of them sent on to college so both kinds of person go through a file.
+    let mut w = crate::tests::legacy::seat("college");
+    w.add_class_aged(16);
+    w.add_class_aged(17);
+    for p in w.people.iter_mut().take(6) {
+        p.stage = Stage::College;
+        p.college_seasons = 1;
+        p.walk_on = true;
+    }
     let p = &w.people[0];
     let names: Keys = rmp_serde::from_slice(&rmp_serde::to_vec_named(p).unwrap()).unwrap();
     assert_eq!(names.0, PERSON_FIELDS);
@@ -177,6 +186,8 @@ fn people_keep_their_file_shape_and_only_the_parts_they_use() {
         }
     }
     let hs = w.people.iter().filter(|p| p.stage == Stage::HighSchool).count();
+    assert!(hs > 100, "{hs} high schoolers");
+    assert!(w.people.iter().filter(|p| p.later.stored().is_some()).count() >= 6);
     assert!(kept * 4 < hs, "{kept} of {hs} high schoolers keep a college part");
 }
 
