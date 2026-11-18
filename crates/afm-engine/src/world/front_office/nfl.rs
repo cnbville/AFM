@@ -329,6 +329,14 @@ fn ideal_of(w: &World, i: usize, kind: TalkKind) -> Ideal {
         // An early deal's security costs a little (as the AI's talks).
         id.apy *= 1.0 - 0.04 * (k.last_year() - w.year).max(0) as f64;
     }
+    // Before the market, his agent reads what the other clubs would pay
+    // (`market::agent_read`), as in the AI's talks.
+    if matches!(kind, TalkKind::ReSign | TalkKind::Extension)
+        && let Some(t) = w.people[i].pro.as_ref().and_then(|c| c.team)
+    {
+        let cap_year = if kind == TalkKind::Extension { w.year + 1 } else { w.year };
+        id.best = Some(market::agent_read(w, i, t, &id, cap_year));
+    }
     id
 }
 

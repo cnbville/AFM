@@ -742,10 +742,10 @@ function playersTab(x) {
 // Development tab, under Focus).
 function trProjects(pj) {
   if (!pj || !pj.rooms) return "";
-  const names = (v) => v.map((o) => `${playerLink(o.id, o.name, "Development")} <small class="muted">${esc(o.what || "")}${o.yours ? "" : " · his last staff's"}</small>`).join("<br>");
+  const names = (v) => v.map((o) => `${playerLink(o.id, o.name, "Development")} <small class="muted">${esc(o.what || "")}${o.yours ? "" : " · set before you"}</small>`).join("<br>");
   const over = pj.rooms.some((r) => r.used > r.slots || r.body_used > r.body_slots);
   const cells = pj.rooms.map((r) => `<div class="tr-pjroom"><span class="st-label">${esc(r.room)}</span><b class="${r.used > r.slots ? "amber" : r.used === r.slots ? "gold" : ""}">${r.used}/${r.slots}</b><small class="muted">skill${r.body_used ? ` · body ${r.body_used}/${r.body_slots}` : ""}</small>${r.on.length || r.body_on.length ? `<span class="tr-pjwho">${names(r.on.concat(r.body_on))}</span>` : ""}</div>`).join("");
-  return `<div class="panel warm tr-pj"><div class="dv-ch"><h2>Development projects <small>${pj.used} of ${pj.slots} skill slots · ${pj.body_used} body ${pj.body_used === 1 ? "project" : "projects"}</small></h2><span class="muted">Start one on a player's Development tab, under Focus</span></div><div class="tr-pjrooms">${cells}</div>${over ? '<span class="muted">A room past its slots holds projects players brought from their last staff. They run until you end them, and the room takes no new one until it is back under its count.</span>' : ""}</div>`;
+  return `<div class="panel warm tr-pj"><div class="dv-ch"><h2>Development projects <small>${pj.used} of ${pj.slots} skill slots · ${pj.body_used} body ${pj.body_used === 1 ? "project" : "projects"}</small></h2><span class="muted">Start one on a player's Development tab, under Focus</span></div><div class="tr-pjrooms">${cells}</div>${over ? '<span class="muted">A room past its slots holds projects the staff before you set. They run until you end them, and the room takes no new one until it is back under its count.</span>' : ""}</div>`;
 }
 function templatesTab(x) {
   const k = keep("trtpl", { slot: x.slot });
@@ -909,7 +909,7 @@ function dvProjects(d) {
 }
 function dvSlots(used, on, slots, others, label) {
   const n = used + (on ? 1 : 0);
-  const who = others.length ? ` · ${others.map((o) => `${playerLink(o.id, o.name, "Development")} <small class="muted">${esc(o.what || "")}${o.yours ? "" : " · his last staff's"}</small>`).join(", ")}` : "";
+  const who = others.length ? ` · ${others.map((o) => `${playerLink(o.id, o.name, "Development")} <small class="muted">${esc(o.what || "")}${o.yours ? "" : " · set before you"}</small>`).join(", ")}` : "";
   return `<span class="muted">${esc(label)}: <b class="${n > slots ? "amber" : n === slots ? "gold" : ""}">${n} of ${slots}</b> in use${who}</span>`;
 }
 function dvSkillProj(d, s, st, dis, coach, eye) {
@@ -917,13 +917,13 @@ function dvSkillProj(d, s, st, dis, coach, eye) {
   if (s.on) {
     const o = s.on;
     const year = o.years ? `Year ${o.years + 1} of work` : "Starts at his next growth checkpoint";
-    return `<div class="dv-card">${head}<b class="dv-when">${esc(o.label)}</b><span class="muted">${year} · set by ${o.yours ? "you" : "his previous staff"} · ${s.minutes} min a week with ${esc(coach)}</span>
+    return `<div class="dv-card">${head}<b class="dv-when">${esc(o.label)}</b><span class="muted">${year} · set by ${o.yours ? "you" : "the staff before you"} · ${s.minutes} min a week with ${esc(coach)}</span>
       <div class="dv-rrow"><span class="muted">Still to come</span><span class="dv-gain gold">${dvGain(o.gain)}<small>by ${trPlural(s.years, "season")} from now</small></span><span></span></div>
       <span class="muted">${esc(coach)} thinks he ${esc(o.knack)}.</span>${o.little ? `<span class="dv-warn">Your staff sees little left to open here. It may be time to end it.</span>` : ""}
       <div class="dv-acts"><span class="muted">His other technique grows at ${s.cost}% of its pace while it runs.</span><button class="st-btn glass" data-act="tr-pjend" data-id="${d.id}" data-kind="skill" ${dis}>End the project</button></div></div>`;
   }
   if (st.open !== "skill") {
-    return `<div class="dv-card">${head}<span class="muted">The position room works one skill past where he is heading on his own: ${s.minutes} minutes a week of ${esc(coach)}'s one-on-one time, at the cost of his other technique.</span>${s.blocked ? `<span class="b">${esc(s.blocked)}</span>` : ""}<div class="dv-acts"><button class="st-btn primary" data-act="tr-pjopen" data-kind="skill" ${s.blocked || !s.options.length ? "disabled" : dis}>Start skill project</button></div></div>`;
+    return `<div class="dv-card">${head}${s.left ? `<span class="muted">His last staff's ${esc(s.left.toLowerCase())} project ended when he moved.</span>` : ""}<span class="muted">The position room works one skill past where he is heading on his own: ${s.minutes} minutes a week of ${esc(coach)}'s one-on-one time, at the cost of his other technique.</span>${s.blocked ? `<span class="b">${esc(s.blocked)}</span>` : ""}<div class="dv-acts"><button class="st-btn primary" data-act="tr-pjopen" data-kind="skill" ${s.blocked || !s.options.length ? "disabled" : dis}>Start skill project</button></div></div>`;
   }
   const pick = s.options.find((o) => o.key === st.pick) || s.options[0];
   const list = s.options.map((o) => `<button class="dv-cand ${o.key === pick.key ? "on" : ""}" data-act="tr-pjpick" data-k="${o.key}"><span><b>${esc(o.label)}</b><small class="muted">Today ${o.read ? rpair(o.read) : "not seen"} · ${esc(coach)} thinks he ${esc(o.knack)}</small></span><span class="dv-gain ${o.key === pick.key ? "gold" : ""}">${dvGain(o.gain)}<small>staff read</small></span></button>`).join("");
@@ -945,12 +945,12 @@ function dvBodyProj(d, b, st, dis) {
   const wear = `${b.wear} a year, about 1/${Math.round(1.5 / b.wear)} of what a major injury leaves: more injury risk now and an earlier decline later`;
   if (b.on) {
     const o = b.on;
-    return `<div class="dv-card">${head}<b class="dv-when">${esc(o.label)}</b><span class="muted">${o.years ? `Year ${o.years + 1} of work` : "Starts at his next growth checkpoint"} · set by ${o.yours ? "you" : "his previous staff"}${o.lbs_on ? ` · ${o.lbs_on} lb on so far` : ""}</span>
+    return `<div class="dv-card">${head}<b class="dv-when">${esc(o.label)}</b><span class="muted">${o.years ? `Year ${o.years + 1} of work` : "Starts at his next growth checkpoint"} · set by ${o.yours ? "you" : "the staff before you"}${o.lbs_on ? ` · ${o.lbs_on} lb on so far` : ""}</span>
       <div class="kv"><dt class="muted">Still to come</dt><dd class="muted">by ${trPlural(b.years, "year")} from now</dd>${dvBodyRows(o)}</div>${o.little ? `<span class="dv-warn">Your strength staff sees little left in it. It may be time to end it.</span>` : ""}
       <div class="dv-acts"><span class="muted">Extra wear ${esc(wear)}.</span><button class="st-btn glass" data-act="tr-pjend" data-id="${d.id}" data-kind="body" ${dis}>End the project</button></div></div>`;
   }
   if (st.open !== "body") {
-    return `<div class="dv-card">${head}<span class="muted">The strength staff rebuilds his body past where it is heading on its own. It runs beside a skill project, on the body's clock (to ${b.until}).${b.hs_note ? " At your school it is your coaches' own time in the weight room." : ""}</span>${b.blocked ? `<span class="b">${esc(b.blocked)}</span>` : ""}<div class="dv-acts"><button class="st-btn primary" data-act="tr-pjopen" data-kind="body" ${b.blocked ? "disabled" : dis}>Start body project</button></div></div>`;
+    return `<div class="dv-card">${head}${b.left ? `<span class="muted">His last staff's ${esc(b.left.toLowerCase())} ended when he moved.</span>` : ""}<span class="muted">The strength staff rebuilds his body past where it is heading on its own. It runs beside a skill project, on the body's clock (to ${b.until}).${b.hs_note ? " At your school it is your coaches' own time in the weight room." : ""}</span>${b.blocked ? `<span class="b">${esc(b.blocked)}</span>` : ""}<div class="dv-acts"><button class="st-btn primary" data-act="tr-pjopen" data-kind="body" ${b.blocked ? "disabled" : dis}>Start body project</button></div></div>`;
   }
   const pick = b.options.find((o) => o.key === st.pick) || b.options[0];
   const list = b.options.map((o) => `<button class="dv-cand ${o.key === pick.key ? "on" : ""}" data-act="tr-pjpick" data-k="${o.key}"><span><b>${esc(o.label)}</b><small class="muted">${esc(o.what)}</small></span><span class="dv-gain ${o.key === pick.key ? "gold" : ""}">${dvGain(o.rows[0].gain)}<small>${esc(o.rows[0].label.toLowerCase())}</small></span></button>`).join("");
