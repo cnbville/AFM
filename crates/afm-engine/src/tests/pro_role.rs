@@ -721,7 +721,8 @@ fn a_promise_from_before_is_stamped_with_the_job_you_leave() {
     let men: Vec<usize> = w.clubs[club].roster.iter().copied().take(2).collect();
     let mut ks = Vec::new();
     for &i in &men {
-        talks::promise(&mut w, PromiseTo::Player(w.people[i].player.id), PromiseKind::Start, 0);
+        let id = w.people[i].player.id;
+        talks::promise(&mut w, PromiseTo::Player(id), PromiseKind::Start, 0);
         let k = w.folk.promises.len() - 1;
         w.folk.promises[k].team = None;
         ks.push(k);
@@ -762,8 +763,9 @@ fn another_leagues_table_says_who_plays_on_before_the_seeding() {
 }
 
 /// A high school after its last regular Friday: before its state draws
-/// the brackets, a school its results put in the field plays on and one
-/// with no season to show doesn't; once drawn, the bracket says.
+/// the brackets, a school its results put in the field plays on, and one
+/// with no season to show doesn't (nor one left alone in its class, crowned
+/// without a game); once drawn, the bracket says.
 #[test]
 fn a_school_before_the_playoff_draw_plays_on_only_in_its_field() {
     use crate::world::hs_playoffs::Bracket;
@@ -772,22 +774,36 @@ fn a_school_before_the_playoff_draw_plays_on_only_in_its_field() {
     let schools = w.states[s].schools.clone();
     assert!(schools.len() >= 2, "{} schools", schools.len());
     w.hs_season = Some(crate::world::hs_year::new_season(&w));
-    let (n, out) = (schools.len(), schools[schools.len() - 1]);
-    let hs = w.hs_season.as_mut().unwrap();
-    for (k, &h) in schools.iter().enumerate() {
-        let r = &mut hs.results[h];
-        let played = h != out;
-        r.roster = if played { 40 } else { 0 };
-        r.wins = if played { (n - k) as u32 } else { 0 };
-        r.losses = if played { k as u32 + 1 } else { 0 };
+    // One class of public schools, so the tiny world's few schools share a
+    // bracket.
+    for &h in &schools {
+        w.high_schools[h].classification = 0;
+        w.high_schools[h].private = false;
     }
-    let best = schools[0];
+    let n = schools.len();
+    let season = |w: &mut World, out: Option<usize>| {
+        let hs = w.hs_season.as_mut().unwrap();
+        for (k, &h) in schools.iter().enumerate() {
+            let r = &mut hs.results[h];
+            let played = Some(h) != out;
+            r.roster = if played { 40 } else { 0 };
+            r.wins = if played { (n - k) as u32 } else { 0 };
+            r.losses = if played { k as u32 + 1 } else { 0 };
+            (r.conf_wins, r.conf_losses) = (r.wins, r.losses);
+        }
+    };
+    let (best, last) = (schools[0], schools[n - 1]);
+    let hs = w.hs_season.as_ref().unwrap();
     assert!(!hs.states[s].done && !hs.states[s].rounds.is_empty());
-    assert!(w.hs_plays_on(best), "in the field its results draw");
-    assert!(!w.hs_plays_on(out), "no season, no field");
+    season(&mut w, None);
+    assert!(w.hs_plays_on(best) && w.hs_plays_on(last), "both in the field their results draw");
+    season(&mut w, Some(last));
+    assert!(!w.hs_plays_on(last), "no season, no field");
+    assert_eq!(w.hs_plays_on(best), n > 2, "alone in its class it plays no game");
+    season(&mut w, None);
     let hs = w.hs_season.as_mut().unwrap();
     let rounds = hs.states[s].rounds.len();
-    hs.brackets.push(Bracket::new(s, "Drawn".into(), vec![schools[1] as u32, out as u32], rounds, false));
+    hs.brackets.push(Bracket::new(s, "Drawn".into(), schools[1..].iter().map(|&h| h as u32).collect(), rounds, false));
     assert!(!w.hs_plays_on(best), "drawn without it");
-    assert!(w.hs_plays_on(schools[1]) || schools[1] == out, "drawn with it");
+    assert_eq!(w.hs_plays_on(last), n > 2, "drawn with it (alone, crowned)");
 }

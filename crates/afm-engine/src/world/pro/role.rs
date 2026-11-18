@@ -102,7 +102,11 @@ fn season_of(w: &World, i: usize) -> Option<(PlayingTime, Date)> {
 /// Where an NFL season sits in time, against another league's: at its
 /// Super Bowl, early in February of the next year, after every other
 /// league's season that opened in its year and before any spring league's
-/// next opening day (the AAF opened February 9, the XFL February 8).
+/// next opening day (the AAF opened February 9, the XFL February 8). One
+/// case reads wrong: the UFL of 2009-2012 played in the NFL's own fall, so
+/// a man on an NFL club's books in its first weeks, cut, then a UFL
+/// starter that fall reads the NFL row as his newer season (history years
+/// only; minor bug 410).
 fn nfl_at(year: i32) -> Date {
     Date::ymd(year + 1, 2, 1)
 }
