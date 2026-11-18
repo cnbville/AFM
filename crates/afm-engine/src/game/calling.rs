@@ -727,8 +727,8 @@ pub fn call_offense_memo(
     let want = wanted(staff, ctx);
     // The group fits the call (lane SF2, item 1): the fake comes from the
     // run's groups, not the dropback's. 2024 NFL on 1st and 10, screens,
-    // RPOs and sneaks left out: 12 personnel on 36% of runs, 37% of play
-    // action and 23% of straight dropbacks; 13 on 5.5%, 5.6% and 2.4%
+    // RPOs and sneaks left out: 12 personnel on 34% of runs, 37% of play
+    // action and 24% of straight dropbacks; 13 on 5.5%, 5.8% and 2.9%
     // (nflverse with FTN charting).
     let personnel = weigh(rng, Groups::of(scheme, short, hurry, drop, tell, ctx, want).all());
     let gun = rng.chance(gun_chance(scheme, ctx, drop, tell, hurry));
