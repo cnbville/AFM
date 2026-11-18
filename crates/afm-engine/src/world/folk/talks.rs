@@ -534,7 +534,17 @@ fn settle(w: &mut World, to: PromiseTo, kept: bool, cost: f32, why: Reason, said
     match to {
         PromiseTo::Player(id) => {
             if let Some(i) = super::person(w, id) {
-                let dt = if kept { super::promise::kept_trust(said) } else { -0.22 * cost };
+                // A broken promise costs more the closer he is to you (coach
+                // and player bonds: x (1 + closeness)).
+                let me = w.career.as_ref().map(|k| k.coach);
+                let dt = if kept {
+                    super::promise::kept_trust(said)
+                } else {
+                    -0.22 * cost * super::bonds::betrayal(w, id, me)
+                };
+                if !kept {
+                    super::bonds::broke_word(w, id, me);
+                }
                 let pp = &mut w.people[i];
                 pp.trust = (pp.trust + dt).clamp(0.0, 1.0);
                 mood_event(w, id, why, if kept { 0.1 * 1.4 } else { dt * 1.4 });
@@ -781,6 +791,9 @@ pub enum Reason {
     ArrestShame,
     /// His arrest, for a man who takes it out on everyone.
     ArrestAnger,
+    /// A coach he was close to left for another job or was let go (coach
+    /// and player bonds, section 8).
+    CoachLeft,
     // Live talks (the core declares them; the lanes that use them fill the
     // sizes). Their codes sit apart from the list above, so a reason a chips
     // lane adds there never takes one of their numbers in a save.
@@ -811,6 +824,7 @@ impl Reason {
             13 => Reason::Practice,
             14 => Reason::ArrestShame,
             15 => Reason::ArrestAnger,
+            16 => Reason::CoachLeft,
             40 => Reason::LieSeen,
             41 => Reason::HardballHeard,
             42 => Reason::RecruitLie,
@@ -841,6 +855,7 @@ impl Reason {
             (Reason::Practice, false) => "the grind of the week: mat drills at dawn",
             (Reason::ArrestShame, _) => "ashamed of his arrest",
             (Reason::ArrestAnger, _) => "angry about his arrest",
+            (Reason::CoachLeft, _) => "a coach he was close to is gone",
             (Reason::LieSeen, _) => "found out something you told him wasn't true",
             (Reason::HardballHeard, _) => "heard what you said about him in his contract talks",
             (Reason::RecruitLie, _) => "what you told him when you recruited him wasn't true",
@@ -2002,8 +2017,9 @@ pub(crate) fn landing(w: &World, i: usize, m: Move, t: Tone, subject: Subject, r
         Tone::Calm => (0.01 + 0.02 * z(Trait::Temper).max(0.0), 0.0),
     };
     // His trust in you colours everything: a player who doesn't trust you
-    // hears less of it (topic 3).
-    let ear = 0.6 + 0.8 * p.trust;
+    // hears less of it (topic 3); one close to you hears more (coach and
+    // player bonds: + 0.3 x closeness).
+    let ear = 0.6 + 0.8 * p.trust + super::bonds::ear_you(w, p.player.id);
     let noise = (super::roll_n(w, seed, p.player.id as u64) as f32) * 0.025;
     ((dt + tt) * ear + noise - rest.cost, (dm + tm) * ear + noise)
 }
@@ -2021,7 +2037,7 @@ fn answer_landing(w: &World, i: usize, a: Answer, subject: Subject, rest: Rest, 
     }
     let p = &w.people[i];
     let (bt, bm) = tp::answer_landing(w, i, a).unwrap_or((0.0, 0.0));
-    let ear = 0.6 + 0.8 * p.trust;
+    let ear = 0.6 + 0.8 * p.trust + super::bonds::ear_you(w, p.player.id);
     let noise = (super::roll_n(w, seed, p.player.id as u64) as f32) * 0.025;
     (bt * ear + noise, bm * ear + noise)
 }
@@ -3769,6 +3785,9 @@ fn keep_made(w: &mut World, s: &mut Scene, id: u32) {
 
 pub(crate) fn finish_talk(w: &mut World, s: &mut Scene, id: u32) {
     keep_made(w, s, id);
+    // A week of contact with you, and being there for a hard moment of his
+    // still waiting on you (coach and player bonds).
+    super::bonds::sat_down(w, id);
     let (dt, dm) = (s.f[0], s.f[1]);
     mood_event(w, id, Reason::Talk, dm);
     let name = super::person(w, id).map_or_else(String::new, |i| w.people[i].name.clone());
@@ -4474,6 +4493,7 @@ pub(crate) fn hand(w: &mut World, s: &mut Scene) {
                 // The man at his position coach's seat today has it, or the
                 // man covering an empty seat.
                 by = cover_words(covering(w, position_coach_now(w, i))).1;
+                super::bonds::staff_talk(w, id, position_coach_now(w, i));
                 let rel = position_coach_rel(w, i);
                 let d = 0.02 * (rel - 9.0) as f32 / 5.0;
                 w.people[i].trust = (w.people[i].trust + d * 0.5).clamp(0.0, 1.0);
@@ -4764,6 +4784,14 @@ fn chart_seen(w: &mut World) {
         let weeks: Vec<(Date, u8)> = super::seen::weeks(w, id).into_iter().filter(|x| x.0 >= made).collect();
         if super::seen::group_changed(w, id, made).is_some() {
             mood_event(w, id, Reason::from_u8(why), delta);
+            // Benched: told to his face (a one-on-one with you since the
+            // change, or just before it) or found out from the chart.
+            if Reason::from_u8(why) == Reason::Benched
+                && let Some(me) = w.career.as_ref().map(|k| k.coach)
+            {
+                let told = w.folk.bonds.talked.get(&id).is_some_and(|&d| d >= made.add(-3));
+                super::bonds::benched(w, id, me, told);
+            }
         } else if weeks.is_empty() && made.days_to(w.today) < 21 {
             keep.push((id, delta, why, made));
         }

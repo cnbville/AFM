@@ -1506,6 +1506,21 @@
   "title": "Scheme fit lane SF0: fit_check, the audit's measuring tool",
   "tldr": ""
  },
+ "514": {
+  "auto": false,
+  "bullets": [
+   "The visit shows its stops in order, with the sign-in sheet of who came before you.",
+   "You see where the school's kids went and where you stand with the coach.",
+   "A new name appears with what the public thinks, what the coach says and five blanks to fill.",
+   "It shows who heard of him first.",
+   "Skip the visit and get its result line."
+  ],
+  "h": "ade332f08bbe",
+  "look": "open this week's scene on a road day from the week board.",
+  "players": true,
+  "title": "Ground lane S3: the school visit screen",
+  "tldr": "A school visit is now a scene you play: walk the stops, sit down with the head coach, and watch a new name's blanks fill as you go."
+ },
  "515": {
   "auto": false,
   "bullets": [
@@ -1573,6 +1588,20 @@
   "title": "Capital lane C3: the money and the drive",
   "tldr": "Winning now brings in money. Titles, a Heisman and top-10 picks set your donors giving, and every program raises its buildings through a real campaign with choices that matter."
  },
+ "521": {
+  "auto": false,
+  "bullets": [
+   "When a recruit picks a rival, the reasons can name the rival's new weight room, locker room or other room over yours.",
+   "Your donors tell you, over dinner or in the suite before kickoff, when a rival is quietly raising money for a new building, and roughly how far along it is.",
+   "Rumors from a donor who was in the room are close to the truth. Word heard through friends is vaguer.",
+   "Each July the press publishes a facilities pecking order for every conference, with where you stand and how far you moved."
+  ],
+  "h": "f7199a01759e",
+  "look": "your news on 1 July, and the why-lines on recruits you lost.",
+  "players": true,
+  "title": "Capital lane C5: the facilities race and the press",
+  "tldr": "The facilities race now has a voice. Rivals' new buildings can cost you recruits and you're told why, your donors pass on what rivals are quietly raising for, and every July the press ranks your conference's facilities."
+ },
  "522": {
   "auto": false,
   "bullets": [
@@ -1587,5 +1616,136 @@
   "players": true,
   "title": "Capital lane C4: your week and scenes",
   "tldr": "Your donors now live in your week. Dinners, the suite before kickoff and the spring caravan sit beside your other scenes, and you choose the rooms a recruit tours on his official visit."
+ },
+ "523": {
+  "auto": false,
+  "bullets": [
+   "High schools have a weight room, film room, locker room, turf field and stadium, each helping its own part of the program.",
+   "Stadium bonds go to the town's vote in May and November; your season and your nights at the Rotary club and the phone bank move the yes share.",
+   "A new district stadium is shared, so your crosstown rival plays in it too.",
+   "NFL clubs' rooms move the players' report card, and you ask the owner for one room a year; winning and other teams' interest make him hard to refuse."
+  ],
+  "h": "51d83df25981",
+  "look": "the owner meeting's room asks, and the boss meeting's facility ask at a high school.",
+  "players": true,
+  "title": "Capital lane C6: high school and NFL facilities",
+  "tldr": "Facilities now matter at every level: high school coaches can work a stadium bond through town, and NFL head coaches ask the owner for the room they need."
+ },
+ "524": {
+  "auto": false,
+  "bullets": [],
+  "h": "7e310af5aa1b",
+  "look": "",
+  "players": false,
+  "title": "CLAUDE.md: small fixes and docs merge on green (docs)",
+  "tldr": ""
+ },
+ "525": {
+  "auto": false,
+  "bullets": [
+   "A new Donors screen under Capital lists your donors with what the development office thinks they could give, how close each is to you and when you last met.",
+   "A fever bar shows how hot donors are after your big moments and when it will fade.",
+   "Each donor has a page: what drives them, what they remember of you, who they talk to and your development director's read.",
+   "Book a weekday lunch or dinner from the page, or call one off."
+  ],
+  "h": "175f9df660fd",
+  "look": "Capital, Donors, in the sidebar when you coach a college program.",
+  "players": true,
+  "title": "Capital lane CS2: the Donors screen",
+  "tldr": "Capital's Donors screen shows who could fund your next building, how hot donors are for your program, and lets you book a lunch or dinner with one."
+ },
+ "526": {
+  "auto": false,
+  "bullets": [
+   "The drive page shows the goal, how much is paid in, pledged and still to raise, and the four stages of the campaign.",
+   "Every pledge is listed with the moment that brought it, like a top-10 pick or a conference title.",
+   "The lead donors who are waiting for you are named, with what they'd give to.",
+   "Your AD says where he stands, and you can set the goal, go public early, work the lead donors yourself or push him to borrow."
+  ],
+  "h": "fe71d424881b",
+  "look": "the Capital section's The drive, once your program has a campaign under way.",
+  "players": true,
+  "title": "Capital lane CS3: the drive screen",
+  "tldr": "Your capital campaign now has its own page: see how close the goal is, who gave and what moved them, and make the calls that are yours."
+ },
+ "527": {
+  "auto": false,
+  "bullets": [
+   "See every building with its rooms and their levels",
+   "Gold squares show what a building under way or a summer renovation will add",
+   "Each room lists what it unlocks and how it reads against the conference's best",
+   "Ask your athletic director to renovate a room and see his answer",
+   "Compare your campus with your rival's"
+  ],
+  "h": "1e050c6c9985",
+  "look": "Capital, then Campus in the sidebar.",
+  "players": true,
+  "title": "Capital lane CS1: the Campus screen",
+  "tldr": "Your campus now has its own screen: a map of your buildings and rooms, how each one stacks up against your conference, and a button to ask your athletic director for a renovation."
+ },
+ "528": {
+  "auto": true,
+  "bullets": [],
+  "h": "850e9e946e23",
+  "look": "",
+  "players": true,
+  "title": "Design: support staff as full departments (proposed, not confirmed)",
+  "tldr": "Adds docs/design/support-departments.md: world additions item 4."
+ },
+ "529": {
+  "auto": true,
+  "bullets": [],
+  "h": "20f2365aaa4f",
+  "look": "",
+  "players": true,
+  "title": "Support departments: Cain agreed to all seven questions",
+  "tldr": "Records Cain's \"agree on all\" (2026-11-17) on the seven questions in docs/design/support-departments.md, and updates its CLAUDE.md line."
+ },
+ "530": {
+  "auto": false,
+  "bullets": [
+   "Every player has his own best pitch: a hot-tempered hitter plays best fired up, a calm pocket passer plays best calm.",
+   "Fire adds strength, effort and hitting power up to that pitch; past it he loses accuracy, reads and discipline, and takes more chances.",
+   "Big hits, forced fumbles and fourth-down stops lift the teammates on the field for a few snaps, and the man who got hit can hear footsteps over the middle.",
+   "College targeting is called by its era's rule, with ejections and the next game's first half; the NFL fines its hits from what happened in the games.",
+   "The play log shows it: big hits, players who came in hot, a receiver who heard footsteps, ejections."
+  ],
+  "h": "ac41daa0309e",
+  "look": "give a fiery talk before a playoff game and read the play log for your hitters, then try a calm talk with your pocket passer.",
+  "players": true,
+  "title": "Coach fire: fire by the kind of work, targeting and the spark",
+  "tldr": "Your pregame and halftime words now reach the field the way real emotion does: a fired-up hitter hits harder and goes for the ball, but a pocket passer pushed past his best pitch gets jumpy and misses throws."
+ },
+ "532": {
+  "auto": false,
+  "bullets": [
+   "See the rooms a new building adds or moves, and what each one gives you",
+   "Answer a cost overrun by cutting rooms, waiting a year or borrowing, with a preview first",
+   "Grant or turn down a donor's call about his gift",
+   "See how the team practices while the building goes up"
+  ],
+  "h": "fe34f36c7049",
+  "look": "Capital, Project",
+  "players": true,
+  "title": "Capital lane CS4: the project screen",
+  "tldr": "The Capital section now has a Project page for the building going up, with the rooms it holds, its timeline and the strings donors put on it. When costs run over, you see what each answer would do before you choose."
+ },
+ "534": {
+  "auto": true,
+  "bullets": [],
+  "h": "173379028160",
+  "look": "",
+  "players": true,
+  "title": "Memory diet: the research and the agreed items (docs)",
+  "tldr": "The memory research's spec, docs/design/memory-diet.md, plus its line in CLAUDE.md's read-first list."
+ },
+ "536": {
+  "auto": false,
+  "bullets": [],
+  "h": "17c69692cb3b",
+  "look": "",
+  "players": false,
+  "title": "GAPS.md: start the gaps list with the coach-depth findings",
+  "tldr": ""
  }
 }

@@ -19,6 +19,8 @@
 //! - a promise his head coach broke (an AI head coach's too since the
 //!   promises lane P2);
 //! - trust in his current head coach, his mood today;
+//! - his bonds with his head coach and position coach, and being passed
+//!   over at camp for the coach's guy (coach and player bonds, 2026-11-17);
 //! - his NIL pay against the going rate at his level: an underpaid man
 //!   leans out, a well-paid one who wants out may stay for the money.
 //!
@@ -52,6 +54,12 @@ const PROMISE_OPEN: &str = "a promise from his head coach";
 const PROMISE_BROKEN: &str = "his head coach broke a promise";
 const TRUSTS: &str = "trusts his head coach";
 const DOUBTS: &str = "doesn't trust his head coach";
+/// Coach and player bonds (section 7): x (1 - 0.4 x closeness to the head
+/// coach) x (1 - 0.25 x closeness to his position coach).
+const CLOSE: &str = "close to his coaches";
+/// Favoritism (bonds section 8): passed over at camp for a man the head
+/// coach is close to.
+const PASSED: &str = "passed over for the coach's guy";
 const HAPPY: &str = "happy where he is";
 const UNHAPPY: &str = "unhappy where he is";
 const PAID: &str = "well paid where he is";
@@ -61,7 +69,7 @@ const LIMIT: &str = "the day's read held at its limit";
 pub(crate) const LEVEL: &str = "against every player's read at his level";
 
 /// Every lean event the day's read writes.
-const READS: [&str; 17] = [
+const READS: [&str; 19] = [
     READ_UNDO,
     OLD_ROLE_HALF,
     YOUR_WORD,
@@ -72,6 +80,8 @@ const READS: [&str; 17] = [
     PROMISE_BROKEN,
     TRUSTS,
     DOUBTS,
+    CLOSE,
+    PASSED,
     HAPPY,
     UNHAPPY,
     PAID,
@@ -455,6 +465,16 @@ fn raw(w: &World, ctx: &Ctx, i: usize) -> Vec<(&'static str, f64)> {
         if (f - 1.0).abs() > 0.01 {
             parts.push((if f < 1.0 { TRUSTS } else { DOUBTS }, f));
         }
+    }
+    // 7: his bonds with his head coach and position coach, and a man
+    // passed over for the coach's guy (coach and player bonds).
+    let f = super::folk::bonds::stay_factor(w, i);
+    if f < 0.99 {
+        parts.push((CLOSE, f));
+    }
+    let f = super::folk::bonds::passed_over(w, p.player.id);
+    if f > 1.0 {
+        parts.push((PASSED, f));
     }
     // 8: his mood today.
     let f = (1.0 - 0.5 * p.mood as f64).clamp(0.75, 1.4);

@@ -13,6 +13,9 @@
 //!   `capital_tour_set` {kid, rooms [three room indexes, 0-12]}.
 //! - `capital_names`: the names up on your buildings and rooms, and the
 //!   scandals with their calls; `capital_name_call` {id, down}.
+//! - `capital_donors` (lane CS2): the fever and your program's donors for the
+//!   Donors screen: the office's range in words, loyalty, his lean once met,
+//!   wants, circle and when you last met.
 //! - `capital_moments`: your program's groundbreakings, reveal videos and
 //!   ribbon cuttings, with the donors on stage, the recruits there and
 //!   their reactions, and the headline.
@@ -75,6 +78,7 @@ pub fn call(game: &mut Game, cmd: &str, args: &Value) -> Option<Reply> {
             Ok(v)
         }),
         "capital_moments" => game.w().map(moments_view),
+        "capital_donors" => game.w().and_then(donors_view),
         _ => return None,
     })
 }
@@ -252,4 +256,149 @@ fn moments_view(w: &World) -> Value {
         })
         .collect();
     json!({ "moments": list })
+}
+
+// --- The Donors screen (lane CS2) -------------------------------------------------------------
+
+/// `capital_donors`: the fever and the donors of your program, as the
+/// Donors screen shows them. Wealth is the development office's range in
+/// words, never a number (CP3, CP39); his lean to NIL or buildings shows
+/// once you have met him.
+fn donors_view(w: &World) -> Reply {
+    let prog = week::your_program(w).ok_or("Donors are the head coach's to court.")?;
+    let you = w.career.as_ref().map(|c| c.coach as u32).unwrap_or(u32::MAX);
+    let open = afm_engine::world::capital::drive::open_drive(&w.capital, prog).map(|k| &w.capital.drives[k]);
+    let mut rows: Vec<(f64, Value)> = afm_engine::world::capital::donors::of(w, prog)
+        .into_iter()
+        .map(|k| {
+            let d = &w.capital.donors[k];
+            let b = d.bond(you);
+            let met = b.map_or(0, |b| b.met);
+            let read = screen::read(w, prog, d, met);
+            let warmth = d.warmth_to(you);
+            let mates: Vec<&str> = d
+                .in_circle()
+                .map(|c| {
+                    w.capital
+                        .donors
+                        .iter()
+                        .filter(|x| x.alive() && x.id != d.id && x.in_circle() == Some(c))
+                        .map(|x| x.name.as_str())
+                        .collect()
+                })
+                .unwrap_or_default();
+            let circle = d.in_circle().and_then(|c| w.capital.circle(c));
+            let side = (met > 0 || b.is_some_and(|b| b.last.is_some())).then(|| match d.nil_lean {
+                x if x >= 0.4 => "Buildings",
+                x if x <= -0.4 => "NIL only",
+                _ => "Both",
+            });
+            let rooms: Vec<&str> = d
+                .rooms
+                .iter()
+                .filter_map(|&r| afm_engine::world::capital::donors::ROOMS.get(r as usize).copied())
+                .collect();
+            let lead = open.is_some_and(|x| x.lead.contains(&d.id));
+            let pledging = w.capital.pledges.iter().any(|p| p.donor == d.id && p.program == prog as u32 && p.open());
+            let also = d
+                .schools()
+                .into_iter()
+                .find(|s| s.0 != prog as u32)
+                .and_then(|s| w.programs.get(s.0 as usize))
+                .map(|p| p.name(w.options.names).to_string());
+            let seen_days = b.and_then(|b| b.last).map(|l| l.days_to(w.today));
+            let v = json!({
+                "id": d.id,
+                "name": d.name,
+                "she": d.she,
+                "age": d.age(w.year),
+                "business": d.business,
+                "alum": d.alum,
+                "pro": d.pro,
+                "money": match d.money { afm_engine::world::capital::Money::Old => "Old guard", _ => "New money" },
+                "read": read.words,
+                "band": [read.lo, read.hi],
+                "met": met,
+                "withYou": if met == 0 && b.is_none_or(|b| b.last.is_none()) { "You haven't met" } else { cscenes::warmth_words(warmth) },
+                "warmth": warmth,
+                "last": b.and_then(|b| b.last).map(iso),
+                "seenDays": seen_days,
+                "side": side,
+                "wants": d.wants.iter().map(|x| x.short()).collect::<Vec<_>>(),
+                "wantsLong": d.wants.iter().map(|x| x.words()).collect::<Vec<_>>(),
+                "rooms": rooms,
+                "catch": screen::catch_read(w, prog, d, met),
+                "kept": b.map_or(0, |b| b.kept),
+                "broken": b.map_or(0, |b| b.broken),
+                "heard": b.map_or(0, |b| b.heard),
+                "coached": b.is_some_and(|b| b.coached),
+                "circle": circle.map(|c| json!({ "name": c.name, "old": c.old, "mates": mates })),
+                "also": also,
+                "lead": lead,
+                "pledging": pledging,
+                "tied": w.capital.pledges.iter().any(|p| p.donor == d.id && p.program == prog as u32 && p.open() && p.tied == Some(you)),
+            });
+            // Most worth your attention first: a lead donor, then what the office reads.
+            let rank = if lead { 100.0 } else { 0.0 } + (read.hi + read.lo) as f64 + warmth as f64;
+            (rank, v)
+        })
+        .collect();
+    rows.sort_by(|a, b| b.0.total_cmp(&a.0));
+    Ok(json!({
+        "today": iso(w.today),
+        "program": w.programs[prog].name(w.options.names),
+        "fever": fever_view(w, prog),
+        "donors": rows.into_iter().map(|r| r.1).collect::<Vec<_>>(),
+        "booked": w.capital.booked.iter().map(|b| json!({ "date": iso(b.date), "minute": b.minute, "donor": b.donor })).collect::<Vec<_>>(),
+    }))
+}
+
+/// The fever in words, its moments with how much each still counts, and the
+/// day it will have faded if nothing new happens.
+fn fever_view(w: &World, prog: usize) -> Value {
+    use afm_engine::world::capital::fever;
+    let now = fever::fever(w, prog);
+    let mut parts: Vec<(f64, &afm_engine::world::capital::Moment)> = w
+        .capital
+        .moments
+        .iter()
+        .filter(|m| m.program == prog as u32 && m.date <= w.today)
+        .map(|m| (m.what.strength() * fever::fade(m.date.days_to(w.today)), m))
+        .filter(|x| x.0 > 0.0)
+        .collect();
+    parts.sort_by(|a, b| b.0.total_cmp(&a.0));
+    let sum: f64 = parts.iter().map(|x| x.0).sum();
+    let word = match now {
+        x if x < 0.05 => "Cold",
+        x if x < 0.2 => "Cool",
+        x if x < 0.4 => "Warm",
+        x if x < 0.65 => "Hot",
+        _ => "Blazing",
+    };
+    let moments: Vec<Value> = parts
+        .iter()
+        .take(4)
+        .map(|(s, m)| {
+            json!({
+                "what": m.what.words(),
+                "date": iso(m.date),
+                // Its share of today's fever, 0-1.
+                "share": if sum > 0.0 { now * s / sum } else { 0.0 },
+                "who": m.who.and_then(|id| afm_engine::world::marks::name_of(w, id)),
+            })
+        })
+        .collect();
+    // The first day it reads below a cool 0.05, stepping a fortnight.
+    let mut fades = None;
+    if now >= 0.05 {
+        let mut day = w.today;
+        for _ in 0..60 {
+            day = day.add(15);
+            if fever::fever_on(&w.capital.moments, prog, day) < 0.05 {
+                fades = Some(iso(day));
+                break;
+            }
+        }
+    }
+    json!({ "value": now, "word": word, "moments": moments, "fades": fades })
 }

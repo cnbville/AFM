@@ -1909,6 +1909,10 @@ pub(crate) fn game_injuries(
         let days = (inj.weeks * (1.0 - 0.12 * medical[*team]) * 7.0).ceil().max(1.0) as i32;
         let back = date.add(1 + days);
         w.training.log_hurt(inj.id, inj.kind, 1 + days as u32, date);
+        // Four weeks or more: a hard moment of his bonds with his coaches.
+        if days >= 28 {
+            crate::world::folk::bonds::injured(w, inj.id);
+        }
         if seat == Some(*team) {
             if w.training.hurt.iter().any(|h| h.id == inj.id && h.until >= back) {
                 continue;

@@ -106,8 +106,14 @@ pub fn room_weight(room: &Room) -> f64 {
 /// What weighs on how he answers, from the world (3.2).
 pub fn parts(w: &World, him: Them, topic: Topic, about: Option<Them>, room: Option<&Room>, pushed: u8) -> TellParts {
     let m = makeup::makeup(w, him);
+    // A player close to you answers straight more often: openness + 0.3 x
+    // closeness, through the trust part's 1.2 (coach and player bonds).
+    let close = match him {
+        Them::Player(id) => f64::from(crate::world::folk::bonds::ear_you(w, id)) / 0.3 * 0.25,
+        _ => 0.0,
+    };
     TellParts {
-        trust: makeup::trust(w, him),
+        trust: makeup::trust(w, him) + close,
         professionalism: m.professionalism,
         loyalty: loyalty_to(w, him, about),
         interest: interest(w, him, topic, about),

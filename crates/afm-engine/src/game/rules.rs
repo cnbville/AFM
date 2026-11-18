@@ -90,6 +90,27 @@ pub struct Rules {
     /// default, which changes nothing.
     #[serde(default)]
     pub code: super::books::Code,
+    /// The targeting rule of the level and season (coach fire).
+    #[serde(default)]
+    pub targeting: Targeting,
+}
+
+/// The targeting rule (coach fire, item 4): a forcible hit to the head or
+/// neck of a defenseless man, or one led with the crown of the helmet.
+/// College: a 15-yard personal foul from 2008, with an ejection from 2013
+/// (in the second half he also sits the next game's first half). High
+/// school (NFHS): a 15-yard personal foul from 2013, disqualification only
+/// when flagrant. The NFL has no targeting foul: the same hits are
+/// unnecessary roughness, ejected when flagrant.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum Targeting {
+    /// No targeting foul: such a hit is unnecessary roughness.
+    #[default]
+    None,
+    /// A 15-yard targeting foul; disqualified only when flagrant.
+    Foul,
+    /// A 15-yard targeting foul and an ejection.
+    Eject,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -122,6 +143,7 @@ impl Rules {
                 play_clock: 40.0,
                 down_on_fall: false,
                 code: Default::default(),
+                targeting: Targeting::None,
             },
             Level::HS => Rules {
                 level,
@@ -143,6 +165,7 @@ impl Rules {
                 play_clock: 40.0,
                 down_on_fall: true,
                 code: Default::default(),
+                targeting: Targeting::Foul,
             },
             // FBS, FCS, D2 and below play NCAA rules.
             _ => Rules {
@@ -167,6 +190,7 @@ impl Rules {
                 play_clock: 40.0,
                 down_on_fall: true,
                 code: Default::default(),
+                targeting: Targeting::Eject,
             },
         }
     }
@@ -202,7 +226,12 @@ impl Rules {
                     _ => Overtime::NflPeriod,
                 };
             }
-            Level::HS => {}
+            Level::HS => {
+                // NFHS targeting from 2013.
+                if year < 2013 {
+                    r.targeting = Targeting::None;
+                }
+            }
             _ => {
                 // Kickoffs from the 35, the 30 in 2007-2011, the 35 again
                 // from 2012 with the touchback at the 25 (the 20 before);
@@ -219,6 +248,13 @@ impl Rules {
                 // minutes from 2023 (NCAA rule changes, April 2024 and 2023).
                 r.two_minute_warning = year >= 2024;
                 r.first_down_stop = if year <= 2022 { FirstDownStop::Always } else { FirstDownStop::LastTwoMinutes };
+                // Targeting a 15-yard foul from 2008, with an ejection from
+                // 2013 (NCAA rule changes, 2008 and 2013).
+                r.targeting = match year {
+                    ..=2007 => Targeting::None,
+                    2008..=2012 => Targeting::Foul,
+                    _ => Targeting::Eject,
+                };
                 r.overtime = match year {
                     ..=2018 => Overtime::CollegeEra { two_from: 3, shootout_from: 99 },
                     2019..=2020 => Overtime::CollegeEra { two_from: 3, shootout_from: 5 },

@@ -178,6 +178,18 @@ impl Tend {
         !matches!(self, Tend::Patience | Tend::Contact | Tend::HandsUp)
     }
 
+    /// A habit fire moves (coach fire, item 3): how often he goes for the
+    /// knockout and the strip, comes downhill, seeks contact, guesses the
+    /// count and jumps a route. Fire past his own pitch raises them and a
+    /// cooled man takes fewer; the built checks give the payoff and the
+    /// cost (`docs/design/coach-fire.md`).
+    pub fn fiery(self) -> bool {
+        matches!(
+            self,
+            Tend::BigHit | Tend::Strip | Tend::Downhill | Tend::Contact | Tend::SnapTiming | Tend::JumpRoutes
+        )
+    }
+
     /// The positions that own it (topic 2): the rest still carry it for
     /// the rare play (a lineman with a fumble, a kicker making a tackle),
     /// but the player page shows it only where it is his.

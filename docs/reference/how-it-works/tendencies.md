@@ -1,6 +1,6 @@
 # Tendencies: how it works today
 
-Checked against main at 2a6e50c with update 3 lanes 1 (the age-14 centres) and 3 on 2026-10-28. The Scramble habit in the spy (minor bug 289) checked over main 460d534 on 2026-11-07. The scouted read's film count (minor bug 382) checked over main 2ecb250 on 2026-11-13.
+Checked against main at 2a6e50c with update 3 lanes 1 (the age-14 centres) and 3 on 2026-10-28. The Scramble habit in the spy (minor bug 289) checked over main 460d534 on 2026-11-07. The scouted read's film count (minor bug 382) checked over main 2ecb250 on 2026-11-13. Coach fire's habits and the flinch (`docs/design/coach-fire.md`) checked over main b9fa58d on 2026-11-17, before it merged.
 
 Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` or `app/`.
 
@@ -20,6 +20,7 @@ Paths are relative to `crates/afm-engine/src/` unless they start with `crates/` 
 - Where does an AI coach's style come from? His traits and ability: risk = ambition, freedom from discipline against his level, physical from temper, mould from relationships, plus keyed noise (`world/coach.rs`, `Coach::style`). Your own style is `style_set` when set.
 - Does the scouted read show the true number? No. A range on 1-20 and a word, widened by little film and a weak eye (`tendencies.rs`, `scout`). The true number is debug only.
 - What counts as "film" for that read? Every look in the file that watched him: the looks log's "Live and school" and "Film and charting" families (`Kind::watched`, `world/scouting/mod.rs`; school, practice, game, all-star, coach, workout and tryout looks, film of every kind, cross-checks, director and GM looks, and the analysts' numbers). Calls, visits, camps, medicals and the combine do not. The count is `scout`'s `games` at 1.5 a look, and the Find tool's "Scouted habit" shows "Not seen" until it is above 0 (`lane_find/staff.rs`, `read_one`; `lane_scouting.rs`; before minor bug 382 the test named the wrong families, so the count was always 0).
+- Does a game day talk change habits? Yes, six of them, the fire habits (`Tend::fiery`: Contact, Snap timing, Strip, Big hit, Downhill, Jump routes; coach fire, 2026-11-17): a talk that lifts his fire moves them up 4 tendency points a unit of fire up to his own best pitch and 12 past it, a cooling talk down the same way, at most 3 points, fading with the talk (`game/talk.rs`, `fire_work`; read in `Sim::tend`). A big hit he takes makes him shy of contact for a stretch: up to 3 points off Contact by his Toughness and Composure, keeping 0.95 of it a snap (`talk::FLINCH`, `FLINCH_KEEP`). Sizes proposed, not confirmed. The whole of it: [match-engine.md](match-engine.md), "Fire on the field".
 - Does a major injury change contact willingness? Yes: +U(2, 4) to a dip taken off Contact, which keeps 40% each year (`develop_year`; read in `Tendencies::get`).
 - Does losing speed change habits? Yes: Scramble, Bounce and Return risk each drop 0.25 per rating point of speed lost that year (`develop_year`).
 
@@ -134,11 +135,12 @@ For each tendency with an ideal: `gap = ideal - centre - v`; `beyond = max(|gap|
 
 `game/sim.rs`, `Sim::tend`:
 
-`tend = clamp(base + stress * (was - base) / 3 + gamble, 1, 20)`, unless an instruction sets this tendency and he obeys (then the set number, nothing else).
+`tend = clamp(base + stress * (was - base) / 3 + gamble + fire, 1, 20)`, unless an instruction sets this tendency and he obeys (then the set number, nothing else).
 
 - `stress = clamp(stakes + 0.8 * tired + 0.05 * (10 - composure20), 0, 1)`.
 - `gamble` applies only to gamble tendencies (`Tend::gamble`). From `game/flow.rs`, `mood`, with `late = clamp((quarter - game_left) / (0.67 * quarter), 0, 1)`: down 9+ → +2.5 late; behind with under a third of a quarter left → +1.5 late; up 9+ → -2.0 late; ahead with under a third left → -1.5 late.
 - `stakes` = 0.5 in a playoff game + 0.4 * late when within 8 points with under 0.55 of a quarter left.
+- `fire` applies only to the fire habits (`Tend::fiery`): the day's talks' habit points (`Agent.habits`, from `Pulse.habits`), and for Contact less the flinch a big hit left (`Agent.flinch`). The offside check reads Snap timing outside a tracked play, with the same habit points (`game/flow.rs`, `pre_snap_foul`).
 - Outside tracked plays (kicks) the same formula without the order check: `GamePlayer::tend_now` (`game/roster.rs`), with tiredness = 1 - energy.
 
 Where each is read (all through `lean` unless noted):
@@ -187,6 +189,7 @@ Where each is read (all through `lean` unless noted):
 - `game/roster.rs`: `give_orders` thresholds, `tend_now`.
 - `game/flow.rs`: `mood` (gamble and stakes sizes).
 - `game/sim.rs`: `Sim::tend` (stress weights, the 1/3 slip back), each check's lean multiplier.
+- `game/talk.rs`: `HABITS_UNDER` (4), `HABITS_OVER` (12), `FIRE_CAP` (3), `FLINCH` (3), `FLINCH_KEEP` (0.95), `HOT` (1, the play log's fire tag).
 - `world/coach.rs`: `Coach::style`.
 - `training/seat.rs`: `habit_rate`.
 

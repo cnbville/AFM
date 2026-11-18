@@ -1518,10 +1518,17 @@ pub(crate) fn release_with(w: &mut World, i: usize, d: Date, why: &str, june1: b
     c.wants_out = false;
     c.ideal = None;
     w.clubs[t].roster.retain(|&x| x != i);
-    if !expired && years_there >= 2.0 && !matches!(cause, DeadWhy::Retired) {
-        super::people::grudge(&mut w.people[i], t, (years_there / 4.0).min(1.0));
-    }
     let id = w.people[i].player.id;
+    if !expired && !matches!(cause, DeadWhy::Retired) {
+        // Cut by a head coach he was close to: it hurts more (coach and
+        // player bonds: x (1 + closeness)), and the bond takes the blow.
+        let head = w.nfl[t].head_coach;
+        if years_there >= 2.0 {
+            let hurt = (years_there / 4.0).min(1.0) * crate::world::folk::bonds::betrayal(w, id, head) as f64;
+            super::people::grudge(&mut w.people[i], t, hurt);
+        }
+        crate::world::folk::bonds::left_him(w, id, head, crate::world::folk::bonds::What::Cut);
+    }
     w.clubs[t].add_dead(year, dead.0.max(0.0), id, cause);
     w.clubs[t].add_dead(year + 1, dead.1, id, cause);
     let name = w.nfl[t].name;
@@ -1858,6 +1865,8 @@ fn camp(w: &mut World, d: Date) {
         // when last season played on the engine.
         let today = w.today;
         let hurt = crate::world::season::real_hurts(w, Stage::Pro).then(|| w.training.take_hurt(w.people[i].player.id));
+        // His bond with the coach who teaches him (coach and player bonds).
+        let bond = crate::world::folk::bonds::coachability_lift(w, i);
         let p = &mut w.people[i];
         let hurt = hurt.map(|h| crate::world::season::hurt_for_step(&mut p.player, h, today));
         let mut adjustment = 0.0;
@@ -1918,6 +1927,7 @@ fn camp(w: &mut World, d: Date) {
             defer,
             results,
             hurt,
+            bond,
             ..crate::development::SeasonContext::new(Level::NFL, clamp(coaching, 1.0, 20.0), role)
         };
         if let Some(l) = &closing {

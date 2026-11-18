@@ -220,6 +220,7 @@ fn build_side(w: &World, t: usize, list: Vec<(usize, bool)>) -> Option<Side> {
             p.college_snaps as f64 / crate::world::season::SEASON_SNAPS as f64 + pro_snaps(p) / NFL_SEASON_SNAPS as f64;
         let mut g = GamePlayer::from_player(&p.player, know, experience);
         (g.mood, g.belief) = crate::world::season::game_mind(p, seat, rel);
+        crate::world::season::bond_mind(w, p.player.id, head, &mut g);
         let iq = 0.5 * (p.player.attributes.get(Attr::FootballIq) + p.player.attributes.get(Attr::PlayRecognition));
         let mind = clamp(0.92 + 0.08 * (iq - 60.0) / 25.0, 0.82, 1.04);
         for f in Family::ALL {
@@ -646,6 +647,9 @@ pub(crate) fn record_preseason(w: &mut World, r: &GameResult, sides: &[Side; 2])
         let you = crate::world::front_office::reserve::you_decide(w, i);
         w.hurt_pros.0.push(w.people[i].player.id);
         w.training.log_hurt(inj.id, inj.kind, 1 + days, w.today);
+        if days >= 28 {
+            crate::world::folk::bonds::injured(w, inj.id);
+        }
         let Some(c) = w.people[i].pro.as_mut() else { continue };
         c.hurt_for(1 + days);
         if weeks >= 6 {
@@ -782,6 +786,15 @@ pub(crate) fn record(
     }
     // The record store's game marks (update 3, lane L20).
     crate::world::marks::nfl_game(w, teams, &r.stats, neutral);
+    // The hits the officials flagged, for the league office (coach fire).
+    use crate::world::folk::Team;
+    crate::world::folk::rules::game_flags(
+        w,
+        crate::calendar::Level::Nfl,
+        [Team::Nfl(teams[0]), Team::Nfl(teams[1])],
+        &r.stats.hit_flags(),
+        [&[], &[]],
+    );
     // By team, day by day (B1; see `record_preseason`).
     for &(team, ref inj) in &r.injuries {
         if inj.plays_on || team > 1 {
@@ -810,6 +823,9 @@ pub(crate) fn record(
         let you = crate::world::front_office::reserve::you_decide(w, i);
         w.hurt_pros.0.push(w.people[i].player.id);
         w.training.log_hurt(inj.id, inj.kind, 1 + days, w.today);
+        if days >= 28 {
+            crate::world::folk::bonds::injured(w, inj.id);
+        }
         let Some(c) = w.people[i].pro.as_mut() else { continue };
         c.hurt_for(1 + days);
         if ir && you && c.status == Status::Roster {

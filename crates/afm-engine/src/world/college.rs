@@ -981,6 +981,17 @@ fn play_games(w: &mut World, date: Date, now: impl Fn(&Game) -> bool) {
                 )) + super::capital::rooms::recovery_days(&w.programs[t])
             });
             crate::training::seat::game_injuries(w, date, &r.injuries, med, side);
+            // The hits the officials flagged: targeting and its first half
+            // (coach fire, item 4).
+            let none: Vec<u32> = Vec::new();
+            let served = j.teams.as_ref().map_or([&none, &none], |(a, b)| [&a.day.first_half, &b.day.first_half]);
+            super::folk::rules::game_flags(
+                w,
+                CalLevel::College,
+                [super::folk::Team::College(home), super::folk::Team::College(away)],
+                &r.stats.hit_flags(),
+                [served[0].as_slice(), served[1].as_slice()],
+            );
             // Growth from results: his plays move his skills, his snaps land.
             if let Some((level, ev)) = results_part {
                 let mut ids: HashMap<u32, (usize, Option<super::stories::TeamKey>)> = HashMap::new();
@@ -3311,6 +3322,14 @@ pub(crate) fn finish(w: &mut World) {
     let credited = cs.credited.clone();
     let title_credited = cs.title_credited.clone();
     let champions = cs.champions;
+    // A losing year or a title, come through together (coach and player
+    // bonds, section 6).
+    for (p, t) in results.iter().enumerate() {
+        if t.games() > 0 && p < w.programs.len() {
+            let share = t.wins as f64 / t.games() as f64;
+            super::folk::bonds::season_end(w, p, share, t.conference_title || t.national_title);
+        }
+    }
     if w.recording {
         for p in 0..w.programs.len() {
             let t = &results[p];
@@ -4353,6 +4372,7 @@ pub(crate) fn may_graduation(w: &mut World) {
     let year = w.year;
     let seed = w.options.seed as u64 ^ (year as u64) << 20 ^ 0x3A76;
     let mut n = 0;
+    let mut grads: Vec<u32> = Vec::new();
     for p in w.people.iter_mut() {
         if p.stage != Stage::College || p.cal.graduated || p.college.is_none() {
             continue;
@@ -4370,9 +4390,12 @@ pub(crate) fn may_graduation(w: &mut World) {
         p.cal.may_graduate = true;
         let age = p.row_age();
         p.note(format!("Graduated in May at {age}."));
+        grads.push(p.player.id);
         n += 1;
     }
     w.log.graduates += n;
+    // The coaches who come to see him walk (coach and player bonds).
+    super::folk::bonds::graduation(w, &grads);
 }
 
 /// Your college game today as the day will play it (section 9): both
