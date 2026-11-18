@@ -8,6 +8,7 @@ use serde_json::{Value, json};
 
 use super::links;
 use super::mail::{self, KEYWORDS};
+use super::textfind::has_ci;
 use crate::reads;
 use crate::views;
 
@@ -59,8 +60,13 @@ fn matches(m: &Mail, q: &str) -> bool {
     if q.is_empty() {
         return true;
     }
-    let q = q.to_lowercase();
-    let hay = |s: &str| links::strip(s).to_lowercase().contains(&q);
+    matches_lc(m, &q.to_lowercase())
+}
+
+/// `matches` with the search already lower case. A line with no link in it
+/// is searched where it stands, with no copy.
+fn matches_lc(m: &Mail, q: &str) -> bool {
+    let hay = |s: &str| if s.contains("[[") { has_ci(&links::strip(s), q) } else { has_ci(s, q) };
     hay(&m.subject)
         || hay(&m.from)
         || hay(&m.org)
@@ -205,6 +211,15 @@ pub fn list(w: &World, args: &Value) -> Value {
         "keywords": KEYWORDS.iter().zip(counts).map(|(k, n)| json!({ "name": k, "count": n })).collect::<Vec<_>>(),
         "notes": notes_count(w),
     })
+}
+
+/// The first `limit` letters, newest first, whose words hold `q` (the ⌘K
+/// bar). Only those are written out: the inbox list builds a row for every
+/// letter it keeps, which a bar showing five never needs.
+pub fn find(w: &World, q: &str, limit: usize) -> Vec<Value> {
+    let Some(c) = &w.career else { return Vec::new() };
+    let q = q.trim().to_lowercase();
+    c.desk.mails.iter().rev().filter(|m| shown(w, m) && matches_lc(m, &q)).take(limit).map(|m| row(w, m)).collect()
 }
 
 fn about_name(w: &World, about: Option<(u8, u32)>) -> Option<Value> {

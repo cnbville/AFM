@@ -413,13 +413,11 @@ pub fn case_facts(w: &World, c: usize) -> Vec<String> {
     let mut out = Vec::new();
     let role = facts::coach_role(w, c);
     if let Some(u) = rooms::unit(w, c) {
-        out.push(format!(
-            "he has been the {role} here {}",
-            match u.years {
-                1 => "one season".to_string(),
-                n => format!("{n} seasons"),
-            }
-        ));
+        out.push(match u.years {
+            0 => format!("he is the {role} here, hired after the last season: he hasn't coached a game here yet"),
+            1 => format!("he has been the {role} here one season"),
+            n => format!("he has been the {role} here {n} seasons"),
+        });
         if let Some(r) = u.record_words() {
             out.push(format!("the team is {r} since he took the job"));
         }
@@ -442,13 +440,13 @@ fn his_case(w: &World, c: usize, on_trial: bool) -> Vec<String> {
     let mut out = Vec::new();
     let role = facts::coach_role(w, c);
     if let Some(u) = rooms::unit(w, c) {
-        let mut case = format!(
-            "What you can point to: you've been the {role} here {}",
-            match u.years {
-                1 => "one season".to_string(),
-                n => format!("{n} seasons"),
-            }
-        );
+        let mut case = match u.years {
+            0 => format!(
+                "What you can point to: you're the {role} here, hired after the last season, so you haven't coached a game here yet and its results aren't yours"
+            ),
+            1 => format!("What you can point to: you've been the {role} here one season"),
+            n => format!("What you can point to: you've been the {role} here {n} seasons"),
+        };
         if let Some(r) = u.record_words() {
             case += &format!("; the team is {r} since you took the job");
         }

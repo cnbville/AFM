@@ -226,11 +226,15 @@ pub(super) fn staff(w: &World, tier: Tier) -> Value {
             json!({ "name": if tier == Tier::High { "The school's teachers" } else { "The academic staff" }, "title": "Academics" })
         }),
     );
+    // The behavioral health clinician where there is one (support
+    // departments).
     map.insert(
         "psy".into(),
-        json!({
-            "name": "The sports psychologist",
-            "title": match tier { Tier::College => "Hired by the athletic department", _ => "On the club's medical staff" },
+        support(Job::Clinician).unwrap_or_else(|| {
+            json!({
+                "name": "The sports psychologist",
+                "title": match tier { Tier::College => "Hired by the athletic department", _ => "On the club's medical staff" },
+            })
         }),
     );
     map.insert(

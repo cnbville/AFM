@@ -1,6 +1,6 @@
 # Memory diet: the season under about 4.25 GB
 
-Research thread "Find what makes the game memory heavy", 2026-11-17. Cain: "fresh thread to do bloated memory research ... It's starting to consistently lag behind on clicks". He agreed the same evening to items 1-11 and 13 (no to 12): "okay build a proposal but wait until all the engine changes are done. The coordinator or i will remind/wake you". **Not built. Wait until the engine lanes (scheme fit SF1-SF11, coach fire) are done**, then re-measure, since they change the stores.
+Research thread "Find what makes the game memory heavy", 2026-11-17. Cain: "fresh thread to do bloated memory research ... It's starting to consistently lag behind on clicks". He agreed the same evening to items 1-11 and 13 (no to 12): "okay build a proposal but wait until all the engine changes are done. The coordinator or i will remind/wake you". **Not built. Wait until the engine lanes (scheme fit SF1-SF11, coach fire, engine gaps EG1-EG7) are done**, then re-measure, since they change the stores.
 
 The measurements, raw output and tools are in the project folder at `afm/memory-research/` (`report.md`; `mem_weigh.rs`, a copy of `memory_season` that drops every store of the world, with modes `open`, `season`, `counts`, `lean`, `hs`, `sizes`; `mem_sizes.rs`, an engine test that prints every person, player, calendar and coach field's size).
 

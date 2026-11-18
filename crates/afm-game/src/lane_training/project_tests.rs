@@ -1,6 +1,6 @@
 //! Your development projects from the Development tab (the progression
-//! update): the room's slots, one body project a room, ending one, and no
-//! true number on the screen.
+//! update): the room's slots, one body project a room, ending one, a
+//! project from his last staff, and no true number on the screen.
 
 use afm_engine::progression::Room;
 use afm_engine::world::coach::Role;
@@ -93,6 +93,19 @@ fn your_projects_keep_the_rooms_slots_and_show_only_reads() {
     }
     let k = first_skill(&mut g, c[2]);
     assert!(g.call("player_dev_project_start", &json!({ "id": c[2], "what": k })).is_err());
+    // A project he brought from another staff ended when he moved: it
+    // holds no slot, shows as a note, and the third corner fits.
+    {
+        let w = g.wm().unwrap();
+        let i = crate::views::person_index(w, c[0]).unwrap();
+        let pr = &mut w.people[i].player.prog;
+        pr.staff = afm_engine::progression::staff_code(afm_engine::progression::StaffAt::College, 0xFF_0000);
+        pr.yours = false;
+    }
+    let d = g.call("player_dev", &json!({ "id": c[0] })).unwrap();
+    assert!(d["projects"]["skill"]["on"].is_null());
+    assert!(d["projects"]["skill"]["left"].is_string());
+    g.call("player_dev_project_start", &json!({ "id": c[2], "what": k })).unwrap();
     // A skill his position doesn't build is refused.
     assert!(g.call("player_dev_project_start", &json!({ "id": s[0], "what": "throwOnMove" })).is_err());
     // No true room, knack or ceiling reaches the page.
