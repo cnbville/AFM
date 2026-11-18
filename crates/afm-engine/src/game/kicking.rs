@@ -885,6 +885,7 @@ fn run_return(
         // The sim's side 0 is the return team.
         mood: k.mood.swap(),
         targeting: rules.targeting,
+        concussion: rules.concussion,
         tend_memo: super::sim::tend_memo(),
         reach_memo: super::sim::reach_memo(),
     };
@@ -1035,6 +1036,9 @@ fn run_return(
         }
     }
     sim.close_blocks();
+    // The play's work: time in blocks, and strains and plants with nobody
+    // touching him (engine gaps items 1 and 2).
+    sim.wear();
     res.duration = hang + sim.t;
     let end = sim.progress;
     if let Some((side, _)) = sim.notes.recovered {

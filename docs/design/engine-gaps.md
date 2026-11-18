@@ -2,7 +2,7 @@
 
 On 2026-11-17 Cain asked what other parts of the match engine need work beyond the update already running (scheme fit): "what other engine parts might need to get improved other then the update we already have running?" The engine gaps audit measured the engine against real NFL play-by-play and the repo's college targets and found 30 gaps. Its report is `afm/engine-gaps/report.md` in the project folder, with the tools in `tools/` and the raw numbers in `raw/` beside it. Where the report and this file differ, this file is right (it was checked once more before it merged).
 
-Cain agreed to all 30 and to the lanes the same evening (22:09 UTC, "agreed"). The question was: "Should all 30 go on the engine fix list as lanes EG1-EG7? Say 'yes to all', or the numbers to leave out. My pick: yes to all, with EG1-EG5 beside the scheme-fit chain and EG6 and EG7 after their SF lanes." This file says what gets built and in which lane. None of it is built.
+Cain agreed to all 30 and to the lanes the same evening (22:09 UTC, "agreed"). The question was: "Should all 30 go on the engine fix list as lanes EG1-EG7? Say 'yes to all', or the numbers to leave out. My pick: yes to all, with EG1-EG5 beside the scheme-fit chain and EG6 and EG7 after their SF lanes." This file says what gets built and in which lane. EG1 (injuries) was built on 2026-11-18 (`docs/match-engine.md`, "Injuries on every collision, strains and the sideline"); the rest isn't built.
 
 Cain's engine rule (2026-11-14: nothing in the engine before the next world builds are done, `docs/design/engine-fix-list.md`) is met: the seed 181 world was built on 2026-11-17. So EG1-EG5 can start now.
 

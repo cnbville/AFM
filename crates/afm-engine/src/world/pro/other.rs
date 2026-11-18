@@ -1917,9 +1917,10 @@ fn record(w: &mut World, k: u8, teams: [u16; 2], r: &GameResult, who: [&HashMap<
             c.sharpness = (c.sharpness + 0.34).min(1.0);
         }
     }
-    // By team, day by day from the day after the game (B1).
+    // By team, day by day from the day after the game (B1), the ones he
+    // finished the game on too (engine gaps item 3).
     for &(team, ref inj) in &r.injuries {
-        if inj.plays_on || team > 1 {
+        if team > 1 {
             continue;
         }
         let Some(&i) = who[team].get(&inj.id) else { continue };

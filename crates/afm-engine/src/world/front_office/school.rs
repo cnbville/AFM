@@ -1100,6 +1100,8 @@ fn sub_games(w: &mut World, h: usize, week: usize, friday: Date, d: Date) {
         } else {
             crate::game::Rules::for_level(crate::player::Level::HS)
         };
+        // The year's concussion rules (engine gaps item 3).
+        setup.rules.concussion = crate::game::rules::Concussion::for_year(crate::player::Level::HS, w.year);
         setup.rules.quarter = 600.0;
         setup.cond = crate::game::Conditions {
             temperature: wx.temperature,

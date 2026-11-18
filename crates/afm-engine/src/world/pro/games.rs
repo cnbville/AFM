@@ -632,9 +632,11 @@ pub(crate) fn record_preseason(w: &mut World, r: &GameResult, sides: &[Side; 2])
     }
     // Injuries by the team he plays for, not his side on the snap (B1: a
     // defender hurt on a snap read the offense's list and never carried),
-    // out day by day from the day after the game, as in college.
+    // out day by day from the day after the game, as in college. One he
+    // finished the game on, playing on or back in, heals its weeks too
+    // (engine gaps item 3).
     for &(team, ref inj) in &r.injuries {
-        if inj.plays_on || team > 1 {
+        if team > 1 {
             continue;
         }
         let Some(&(i, _)) = sides[team].who.get(&inj.id) else { continue };
@@ -794,7 +796,7 @@ pub(crate) fn record(
     );
     // By team, day by day (B1; see `record_preseason`).
     for &(team, ref inj) in &r.injuries {
-        if inj.plays_on || team > 1 {
+        if team > 1 {
             continue;
         }
         let Some(&(i, _)) = sides[team].who.get(&inj.id) else { continue };

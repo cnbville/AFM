@@ -161,14 +161,16 @@ impl YearHurt {
 /// Days out from which a real injury is minor, moderate and major for his
 /// growth (realism audit item 1; proposed, not confirmed): under a week is
 /// a knock that costs nothing, a week to three minor, three to eight
-/// moderate, eight weeks or more major. A torn ACL is always major.
+/// moderate, eight weeks or more major. A torn ACL or Achilles is always
+/// major.
 pub const HURT_MINOR_DAYS: u32 = 7;
 pub const HURT_MODERATE_DAYS: u32 = 21;
 pub const HURT_MAJOR_DAYS: u32 = 56;
 
 /// A real injury's class for growth: 0 a knock, 1 minor, 2 moderate, 3 major.
 pub fn hurt_class(kind: crate::game::sim::InjuryKind, days: u32) -> u8 {
-    if kind == crate::game::sim::InjuryKind::Acl || days >= HURT_MAJOR_DAYS {
+    use crate::game::sim::InjuryKind as K;
+    if matches!(kind, K::Acl | K::Achilles) || days >= HURT_MAJOR_DAYS {
         3
     } else if days >= HURT_MODERATE_DAYS {
         2
@@ -185,12 +187,16 @@ pub fn hurt_class(kind: crate::game::sim::InjuryKind, days: u32) -> u8 {
 /// None: it doesn't touch his legs (a shoulder, a neck, a concussion), so
 /// it costs the year's growth and no burst. A torn ACL keeps the roll's
 /// split (62-74% of NFL players back after a repair, fewer starts after);
-/// another leg injury long enough to be major (a broken bone, a Lisfranc
-/// foot, a bad high ankle) heals fully far more often.
+/// a torn Achilles heals worse (engine gaps item 2: about a third of NFL
+/// players never come back from one, and the rest lose some of their
+/// explosion; proposed, not confirmed: 0.45 and 0.75); another leg injury
+/// long enough to be major (a broken bone, a Lisfranc foot, a bad high
+/// ankle) heals fully far more often.
 pub fn major_heal(kind: crate::game::sim::InjuryKind) -> Option<(f64, f64)> {
     use crate::game::sim::InjuryKind as K;
     match kind {
         K::Acl => Some((0.55, 0.85)),
+        K::Achilles => Some((0.45, 0.75)),
         K::Fracture => Some((0.8, 0.96)),
         K::Knee
         | K::AnkleSprain

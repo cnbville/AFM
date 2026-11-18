@@ -15,7 +15,7 @@ use super::playbook::*;
 use super::roster::*;
 use super::rules::{FirstDownStop, Overtime, Rules};
 use super::scrimmage::{self, DSlot, KeepSnap, Snap, SnapResult};
-use super::sim::{Conditions, Crew, Foul, FoulKind, Frame, Injury, InjuryKind, Mood};
+use super::sim::{Conditions, Crew, Foul, FoulKind, Frame, Injury, InjuryKind, Mood, Notes};
 use super::stats::*;
 use super::tables;
 use crate::attributes::Attr;
@@ -172,6 +172,11 @@ impl<'a> GameSetup<'a> {
 pub struct GameResult {
     pub stats: GameStats,
     pub injuries: Vec<(usize, Injury)>,
+    /// Men pulled for a concussion check who were cleared (engine gaps item
+    /// 3): (team, player id, the game's plays he was off for; None when he
+    /// sat the rest of the game).
+    #[serde(default)]
+    pub checks: Vec<(usize, u32, Option<u16>)>,
     /// (team, player id, trust change)
     pub trust: Vec<(usize, u32, f64)>,
     pub frames: Vec<(u32, Vec<Frame>)>,
@@ -197,6 +202,35 @@ pub struct GameResult {
     pub talks: super::talk::Record,
 }
 
+/// The staff's call on a hurt man who comes off (engine gaps item 3): the
+/// chance it sends him back in, a logistic of `BACK_A` less `BACK_B` a week
+/// he will miss, `BACK_TOUGH` a toughness point over 10 (the player's wish
+/// to go back); 0.95 for a knock that costs nothing, 70% at three days,
+/// half at four, 12% at a week. Back in after one play (the rule for a man the
+/// trainers came out to) and an exponential draw of `OFF_BASE` plays and
+/// `OFF_WEEKS` a week he will miss on average: about four plays for a
+/// knock, a series or two at three days. A man pulled for a concussion
+/// check is back after `CHECK_OFF` plays and a draw of five on average
+/// (the NFL's sideline exam takes eight to twelve minutes, about nine
+/// plays). Proposed, not confirmed: every size.
+pub const BACK_A: f64 = 3.0;
+pub const BACK_B: f64 = 5.0;
+pub const BACK_TOUGH: f64 = 0.1;
+pub const OFF_BASE: f64 = 3.0;
+pub const OFF_WEEKS: f64 = 40.0;
+pub const CHECK_OFF: f64 = 8.0;
+
+/// A man off the field being looked at who goes back in (engine gaps item
+/// 3): he goes back in after the game's play `at`; he came off after play
+/// `from`; his entry in the game's injury list, or its concussion checks.
+#[derive(Clone, Copy, Debug)]
+struct Sideline {
+    at: u32,
+    from: u32,
+    injury: Option<usize>,
+    check: Option<usize>,
+}
+
 struct Side<'a> {
     team: &'a GameTeam,
     depth: Depth,
@@ -217,6 +251,9 @@ struct Side<'a> {
     trust: Vec<f64>,
     out: Vec<bool>,
     hurt: Vec<Option<InjuryKind>>,
+    /// Men off the field being looked at, who go back in (engine gaps
+    /// item 3).
+    sideline: Vec<Option<Sideline>>,
     timeouts: u8,
     mem: Memory,
     /// The head coach's read of a decided game, and who sits because of it.
@@ -400,6 +437,7 @@ impl<'a> Side<'a> {
             trust: team.players.iter().map(|p| p.trust).collect(),
             out: vec![false; n],
             hurt: vec![None; n],
+            sideline: vec![None; n],
             timeouts,
             mem: Memory::default(),
             coach: garbage::Coach::default(),
@@ -1488,6 +1526,7 @@ pub fn play_game_ctl(setup: &GameSetup, ctl: Control) -> (GameResult, Control, V
         if g.paused {
             break;
         }
+        g.sideline_returns();
         match g.next {
             Next::Kickoff { team, from, onside } => g.kickoff(team, from, onside),
             Next::Pat(team) => g.pat(team),
@@ -2413,7 +2452,7 @@ impl<'a> Game<'a> {
         let mut rules = self.s.rules;
         rules.kickoff_from = from;
         let along = self.wind_along(team);
-        let kr = kicking::kickoff(
+        let mut kr = kicking::kickoff(
             &kt,
             &rules,
             &self.s.cond,
@@ -2438,12 +2477,12 @@ impl<'a> Game<'a> {
         r.hang = kr.hang as f32;
         r.tacklers = kr.notes.tacklers.clone();
         r.missed_tackles = kr.notes.missed.clone();
+        // On a return the returning team is side 0 and the kicking team side 1.
+        self.apply_injuries(&mut kr.notes, [rec, team]);
         r.injuries = kr.notes.injuries.clone();
         r.tend = kr.notes.tend;
         r.tend.start = Some(kr.spot);
         r.call = if onside { "onside kick".into() } else { "kickoff".into() };
-        // On a return the returning team is side 0 and the kicking team side 1.
-        self.apply_injuries(&kr.notes.injuries, [rec, team]);
         let elapsed = if kr.returned || onside { kr.duration } else { 0.0 };
         if self.clock > 0.0 && !(self.ot && !self.ot_timed()) {
             self.tick(elapsed);
@@ -3447,7 +3486,7 @@ impl<'a> Game<'a> {
             surprise: false,
         };
         let along = self.wind_along(o);
-        let kr = kicking::punt(
+        let mut kr = kicking::punt(
             &kt,
             self.x,
             &self.s.rules,
@@ -3475,11 +3514,11 @@ impl<'a> Game<'a> {
         r.hang = kr.hang as f32;
         r.tacklers = kr.notes.tacklers.clone();
         r.missed_tackles = kr.notes.missed.clone();
+        self.apply_injuries(&mut kr.notes, [d, o]);
         r.injuries = kr.notes.injuries.clone();
         r.tend = kr.notes.tend;
         r.tend.muffed = kr.muffed;
         r.tend.start = Some(kr.spot);
-        self.apply_injuries(&kr.notes.injuries, [d, o]);
         self.tick(kr.duration);
         self.running = false;
         r.why = if kr.blocked {
@@ -4412,7 +4451,7 @@ impl<'a> Game<'a> {
         };
         let res = scrimmage::run_snap(&snap, &mut self.rng);
         // The officials' ruling, and a review (topic 6).
-        let res =
+        let mut res =
             if matches!(call.kind, PlayKind::Kneel | PlayKind::Spike) { res } else { self.officiate(res, &mut r) };
         if self.paused {
             return r;
@@ -4456,7 +4495,7 @@ impl<'a> Game<'a> {
                 side.energy[i] = (side.energy[i] + rec).min(1.0);
             }
         }
-        self.apply_injuries(&res.notes.injuries, [o, d]);
+        self.apply_injuries(&mut res.notes, [o, d]);
         if let Some(f) = res.frames.clone() {
             self.res.frames.push((r.n, f));
         }
@@ -4510,26 +4549,111 @@ impl<'a> Game<'a> {
         r
     }
 
-    fn apply_injuries(&mut self, inj: &[Injury], teams: [usize; 2]) {
-        for i in inj {
-            let team = teams[i.side];
-            // Concussion protocol per level (topic 6): spotters in the NFL,
-            // trainers in college, and some high schools have nobody.
-            let mut i2 = i.clone();
-            if i.kind == InjuryKind::Concussion {
-                let caught = match self.rules().level {
-                    Level::NFL => 0.92,
-                    Level::HS => 0.6,
-                    _ => 0.8,
-                };
-                i2.plays_on = !self.rng.chance(caught);
+    /// The sideline's call on each man hurt on the play (topic 6; engine
+    /// gaps item 3), written on the play's own list (`Notes::injuries`) and
+    /// the game's. A concussion follows the level's protocol by era
+    /// (`Concussion`): caught at its rate, a caught one is out for the day
+    /// once the rule is in, and before it about half went back in the same
+    /// game, a third of those straight back; one nobody caught plays on
+    /// hurt. A torn ACL, a torn Achilles or a broken bone is out. Anything
+    /// else: he plays on hurt, never leaving the field (his toughness
+    /// against how bad it is), or goes off to be looked at; the staff sends
+    /// him back in when it can, a few plays to a series or two later by how
+    /// bad it is (a tough man pushes to go back), or he is out for the game.
+    /// The staff's own call for every team until game day's injuries are
+    /// yours (`docs/design/game-day.md`, topic 7). Then the men pulled for
+    /// a concussion check: cleared and back after the exam, or out for the
+    /// day where the law sits any man removed (high school).
+    fn apply_injuries(&mut self, notes: &mut Notes, teams: [usize; 2]) {
+        let c = self.s.rules.concussion;
+        let level = self.s.rules.level;
+        let n = self.n;
+        for inj in notes.injuries.iter_mut() {
+            let team = teams[inj.side];
+            let tough = self.sides[team].team.players[inj.p].trait20(Attr::Toughness, level);
+            let w = inj.weeks;
+            // The plays he sits before he goes back in; None out for the game.
+            let mut off: Option<f64> = None;
+            match inj.kind {
+                InjuryKind::Concussion => {
+                    if !self.rng.chance(c.caught) {
+                        inj.plays_on = true;
+                    } else if !c.no_same_day && self.rng.chance(super::rules::Concussion::BACK_BEFORE.0) {
+                        off = Some(if self.rng.chance(super::rules::Concussion::BACK_BEFORE.1) {
+                            1.0 + self.exp(2.0)
+                        } else {
+                            6.0 + self.exp(12.0)
+                        });
+                    }
+                }
+                InjuryKind::Acl | InjuryKind::Achilles | InjuryKind::Fracture => {}
+                _ => {
+                    if self.rng.chance(clamp(0.15 + 0.035 * tough - 0.12 * w, 0.0, 0.95)) {
+                        inj.plays_on = true;
+                    } else {
+                        let logit = BACK_A - BACK_B * w + BACK_TOUGH * (tough - 10.0);
+                        if self.rng.chance(1.0 / (1.0 + (-logit).exp())) {
+                            off = Some(1.0 + self.exp(OFF_BASE + OFF_WEEKS * w));
+                        }
+                    }
+                }
             }
-            if i2.plays_on {
-                self.sides[team].hurt[i.p] = Some(i.kind);
+            let side = &mut self.sides[team];
+            if inj.plays_on {
+                side.hurt[inj.p] = Some(inj.kind);
             } else {
-                self.sides[team].out[i.p] = true;
+                side.out[inj.p] = true;
+                if let Some(off) = off {
+                    let at = n + off.min(9999.0) as u32;
+                    let entry = Some(self.res.injuries.len());
+                    side.sideline[inj.p] = Some(Sideline { at, from: n, injury: entry, check: None });
+                }
             }
-            self.res.injuries.push((team, i2));
+            self.res.injuries.push((team, inj.clone()));
+        }
+        for &(sd, p, id) in &notes.checks {
+            let team = teams[sd];
+            if notes.injuries.iter().any(|x| x.id == id) || self.sides[team].out[p] {
+                continue;
+            }
+            let entry = self.res.checks.len();
+            self.res.checks.push((team, id, None));
+            self.sides[team].out[p] = true;
+            if !c.removal_sits {
+                let at = n + (CHECK_OFF + self.exp(5.0)) as u32;
+                self.sides[team].sideline[p] = Some(Sideline { at, from: n, injury: None, check: Some(entry) });
+            }
+        }
+    }
+
+    /// An exponential draw with mean `mean`, from the game's stream.
+    fn exp(&mut self, mean: f64) -> f64 {
+        -mean * (1.0 - self.rng.next()).max(1e-12).ln()
+    }
+
+    /// The men whose time on the sideline is up go back in (engine gaps
+    /// item 3), before the next snap: hurt, he plays on what he has
+    /// (`InjuryKind::hampers`); cleared after a concussion check, whole.
+    fn sideline_returns(&mut self) {
+        let n = self.n;
+        for k in 0..2 {
+            for i in 0..self.sides[k].sideline.len() {
+                let Some(s) = self.sides[k].sideline[i] else { continue };
+                if n < s.at {
+                    continue;
+                }
+                self.sides[k].sideline[i] = None;
+                self.sides[k].out[i] = false;
+                let plays = Some((n - s.from).min(u16::MAX as u32) as u16);
+                if let Some(e) = s.injury {
+                    let inj = &mut self.res.injuries[e].1;
+                    inj.back = plays;
+                    self.sides[k].hurt[i] = Some(inj.kind);
+                }
+                if let Some(e) = s.check {
+                    self.res.checks[e].2 = plays;
+                }
+            }
         }
     }
 
@@ -4623,6 +4747,7 @@ impl<'a> Game<'a> {
         for &id in &r.fire.ejected {
             if let Some((k, i)) = at(self, id) {
                 self.sides[k].out[i] = true;
+                self.sides[k].sideline[i] = None;
             }
         }
         if let Some((_, m)) = r.fire.big_hit
@@ -6557,6 +6682,7 @@ pub fn practice_snaps(off: &GameTeam, def: &GameTeam, level: Level, snaps: &[Pra
             side.energy.clone_from(e);
             side.out.iter_mut().for_each(|o| *o = false);
             side.hurt.iter_mut().for_each(|h| *h = None);
+            side.sideline.iter_mut().for_each(|x| *x = None);
         }
         g.rng = Rng::new((seed as u32) ^ (k as u32).wrapping_mul(0x9E37_79B9));
         g.poss = 0;

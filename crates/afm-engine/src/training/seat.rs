@@ -1874,8 +1874,9 @@ pub(crate) fn week(w: &mut World, d: Date, frames: &Frames) -> Vec<usize> {
 }
 
 /// Game injuries that outlast the game (update 3, A1): a college or high
-/// school player hurt in a game, who didn't play through it, misses the
-/// games until he heals, as an NFL player does. The medical staff's head
+/// school player hurt in a game misses the games until he heals, as an NFL
+/// player does, whether or not he finished the game on it (engine gaps
+/// item 3). The medical staff's head
 /// brings him back sooner (up to 12%, the NFL's figure; high schools have
 /// none). Yours go on your trainers' list with a note, everyone else's on
 /// the world's. `injuries` are the game's, by its team (0 home); `seat`
@@ -1893,8 +1894,10 @@ pub(crate) fn game_injuries(
         w.training.others_hurt.retain(|_, x| x.0 > date);
         w.training.others_floor = Some(date);
     }
+    // One he finished the game on, playing on hurt or back in after the
+    // sideline looked at him, heals its weeks too (engine gaps item 3).
     for (team, inj) in injuries {
-        if inj.plays_on || *team > 1 {
+        if *team > 1 {
             continue;
         }
         let days = (inj.weeks * (1.0 - 0.12 * medical[*team]) * 7.0).ceil().max(1.0) as i32;

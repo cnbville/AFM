@@ -449,6 +449,9 @@ impl Rules {
         }
         code.field.downs = code.field.downs.max(3);
         r.code = code;
+        // Concussion rules came to the other leagues with the NFL's (engine
+        // gaps item 3; proposed, not confirmed).
+        r.concussion = super::rules::Concussion::for_year(Level::NFL, year);
         r
     }
 

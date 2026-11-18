@@ -503,6 +503,7 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         level: s.rules.level,
         mood: super::sim::Mood { line: Some(s.los + s.togo), snap_y: s.ball_y, ..s.mood },
         targeting: s.rules.targeting,
+        concussion: s.rules.concussion,
         tend_memo: super::sim::tend_memo(),
         reach_memo: super::sim::reach_memo(),
     };
@@ -1739,6 +1740,9 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
         sim.dead = true;
     }
     sim.close_blocks();
+    // The play's work: time in blocks, and strains and plants with nobody
+    // touching him (engine gaps items 1 and 2).
+    sim.wear();
 
     // ---------------------------------------------------------- result
     let p = pass.as_ref();
@@ -3679,7 +3683,8 @@ fn late_on_slide(sim: &mut Sim, c: usize) {
         let force = sim.hit_force(d, c, 1.0);
         sim.note_hit(d, c, force);
         sim.hit_foul(d, me.x, HIGH_ON_SLIDE, true);
-        sim.injury_check(c, force, 1.0);
+        sim.injury_check(c, force, super::sim::PASSER_SHARE, Cause::Passer);
+        sim.injury_check(d, force, super::sim::TACKLER_SHARE, Cause::Tackling);
     }
 }
 
@@ -5023,6 +5028,10 @@ fn throw(
         ps.hit = true;
         let id = sim.agents[d].id;
         sim.notes.hits.push(id);
+        // The hit on him as he throws, both men (engine gaps item 1).
+        let force = sim.hit_force(d, qb, 1.0);
+        sim.injury_check(qb, force, super::sim::PASSER_SHARE, Cause::Passer);
+        sim.injury_check(d, force, super::sim::TACKLER_SHARE, Cause::Tackling);
         let disc = sim.trait20(d, Attr::Discipline);
         let base = if contact > 0.4 { 0.1 } else { 0.015 };
         if sim.rng.chance(base * (1.5 - disc / 20.0) * sim.crew.personal) {
@@ -5391,7 +5400,13 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
         sim.dead = true;
         sim.ball = Ball::Dead(me);
     }
-    sim.injury_check(qb, force, if seen { 0.8 } else { 1.3 });
+    // The passer, the man who sacks him and the pile where he goes down
+    // (engine gaps item 1).
+    let passer = super::sim::PASSER_SHARE * if seen { 0.8 } else { 1.3 };
+    sim.injury_check(qb, force, passer, Cause::Passer);
+    sim.injury_check(d, hit, super::sim::TACKLER_SHARE, Cause::Tackling);
+    let mass = sim.agents[qb].mass + sim.agents[d].mass;
+    sim.pile_checks(qb, mass, force / mass);
 }
 
 // ------------------------------------------------------------- defense
@@ -6365,6 +6380,9 @@ fn catch_point(
             if p_hit > 0.0 && sim.rng.chance(p_hit) {
                 let force = sim.hit_force(d, r, 1.0);
                 sim.note_hit(d, r, force);
+                // Both men (engine gaps item 1): the receiver is defenseless.
+                sim.injury_check(r, force, super::sim::CATCH_SHARE, Cause::Catch);
+                sim.injury_check(d, force, super::sim::CATCH_HITTER_SHARE, Cause::Catch);
                 // A hit on a defenseless receiver can draw a flag, read
                 // from his Discipline like the other personal fouls, and
                 // his temper (coach fire, item 4): targeting where the

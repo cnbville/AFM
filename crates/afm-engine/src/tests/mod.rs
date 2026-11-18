@@ -33,6 +33,7 @@ mod finder;
 mod following;
 mod foundations;
 mod front_office;
+mod game_injuries;
 mod game_stats;
 mod gameday_room;
 mod gameplan;
