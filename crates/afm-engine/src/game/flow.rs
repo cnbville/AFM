@@ -4734,6 +4734,8 @@ impl<'a> Game<'a> {
         r.contact = res.notes.contact.iter().map(|&(id, t)| (id, t as f32)).collect();
         r.forced_fumble = res.notes.forced_fumble;
         r.fumbled = res.notes.fumbled;
+        r.fumble = res.notes.fumble;
+        r.recovered = res.notes.recovered.map(|x| x.1);
         r.blocks = res.notes.blocks.clone();
         r.rush_wins = res.notes.rush_wins.clone();
         r.rush_moves = res.notes.rush_moves.clone();

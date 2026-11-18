@@ -862,6 +862,11 @@ pub struct Notes {
     pub forced_fumble: Option<u32>,
     pub fumbled: Option<u32>,
     pub recovered: Option<(usize, u32)>,
+    /// The play's first fumble (engine gaps items 4-7): how the ball came
+    /// out, how far the man who came up with it took it, whether it went
+    /// out of bounds first.
+    #[serde(default)]
+    pub fumble: Option<FumbleNote>,
     /// Blocks: (blocker, defender, pass, won, time held, gave up pressure).
     pub blocks: Vec<(u32, u32, bool, bool, f64, bool)>,
     /// Rush wins inside 2.5 s, with the move.
@@ -897,6 +902,43 @@ pub struct Notes {
     /// snap when the game keeps one.
     #[serde(default)]
     pub chart: Option<Box<super::chart::LineChart>>,
+}
+
+/// How the ball came out on a fumble (engine gaps items 4-7, for the play
+/// log and the counts read against real by kind).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FumbleHow {
+    /// Knocked loose by a hit (a tackle or a man joining it).
+    #[default]
+    Hit,
+    /// Reaching the ball out for the line.
+    Reach,
+    /// Stripped on a sack.
+    Sack,
+    /// Out of his hand as he threw: hit in his motion.
+    Throw,
+    /// The snap on the ground: the exchange with the center under center,
+    /// a shotgun snap he couldn't handle, or a snap that never got to him
+    /// (nflverse calls these aborted plays).
+    Snap,
+    /// A bad handoff between the quarterback and the back.
+    Exchange,
+    /// A pitch on the ground.
+    Pitch,
+}
+
+/// A fumble on a play (engine gaps items 4-7). The man who came up with it
+/// is `Notes::recovered`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct FumbleNote {
+    pub how: FumbleHow,
+    /// Yards the man who came up with it took it, his own way (0 when he
+    /// fell on it).
+    #[serde(default)]
+    pub ran: f32,
+    /// It went out of bounds before anyone had it.
+    #[serde(default)]
+    pub out: bool,
 }
 
 /// What fire did on a play (coach fire, `docs/design/coach-fire.md`): its
@@ -3456,6 +3498,7 @@ impl<'a> Sim<'a> {
         if self.notes.fumbled.is_none() && self.rng.chance(p) {
             self.notes.fumbled = Some(r.id);
             self.notes.forced_fumble = Some(d.id);
+            self.notes.fumble = Some(FumbleNote { how: FumbleHow::Hit, ..Default::default() });
             self.fumble(c);
             return;
         }
@@ -3650,6 +3693,7 @@ impl<'a> Sim<'a> {
             self.notes.fumbled = Some(self.agents[c].id);
             self.notes.forced_fumble = Some(self.agents[i].id);
             self.agents[c].pos.x = x + arm.min(short + 0.3);
+            self.notes.fumble = Some(FumbleNote { how: FumbleHow::Reach, ..Default::default() });
             self.fumble(c);
             return true;
         }

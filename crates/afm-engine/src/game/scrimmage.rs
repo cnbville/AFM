@@ -1306,6 +1306,10 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                                 + 0.35 * sim.agents[qb].a(Attr::BallHandling);
                             if sim.rng.chance(0.0025 * (1.6 - hands / 100.0)) {
                                 sim.notes.fumbled = Some(sim.agents[i].id);
+                                sim.notes.fumble = Some(super::sim::FumbleNote {
+                                    how: super::sim::FumbleHow::Exchange,
+                                    ..Default::default()
+                                });
                                 sim.fumble(i);
                             }
                         }
@@ -1553,6 +1557,8 @@ pub fn run_snap(s: &Snap, rng: &mut Rng) -> SnapResult {
                     let carry = sim.agents[pm].a(Attr::Catching);
                     if sim.rng.chance(0.012 * (1.6 - carry / 100.0)) {
                         sim.notes.fumbled = Some(sim.agents[pm].id);
+                        sim.notes.fumble =
+                            Some(super::sim::FumbleNote { how: super::sim::FumbleHow::Pitch, ..Default::default() });
                         sim.fumble(pm);
                     }
                 }
@@ -5382,6 +5388,7 @@ fn sack_check(sim: &mut Sim, qb: usize, ps: &mut Pass, los: f64) {
     if sim.rng.chance(p_fumble) {
         sim.notes.fumbled = Some(sim.agents[qb].id);
         sim.notes.forced_fumble = Some(sim.agents[d].id);
+        sim.notes.fumble = Some(super::sim::FumbleNote { how: super::sim::FumbleHow::Sack, ..Default::default() });
         sim.fumble(qb);
     } else {
         sim.progress = me.x.min(los);

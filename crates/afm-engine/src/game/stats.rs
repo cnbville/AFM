@@ -214,6 +214,14 @@ pub struct PlayRecord {
     /// men it carried, footsteps and ejections. Empty on most plays.
     #[serde(default, skip_serializing_if = "super::sim::FireNotes::is_empty")]
     pub fire: super::sim::FireNotes,
+    /// The play's first fumble (engine gaps items 4-7): how the ball came
+    /// out, how far the man who came up with it took it and whether it
+    /// went out of bounds; `recovered` is who came up with it. None on
+    /// almost every play.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fumble: Option<super::sim::FumbleNote>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovered: Option<u32>,
 }
 
 impl PlayRecord {
@@ -320,6 +328,8 @@ impl PlayRecord {
             contact: Vec::new(),
             moving: false,
             fire: Default::default(),
+            fumble: None,
+            recovered: None,
         }
     }
 
