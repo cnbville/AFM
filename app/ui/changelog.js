@@ -17,6 +17,17 @@
 const CHANGELOG = [
   // auto:start (written by .github/scripts/patch_notes.py, do not edit by hand)
   {
+    v: "0.2.632", date: "18 Nov", title: "Talks: \"Heard as\" says how a line really went (the landing read) and 5 more",
+    notes: [
+      "Development projects now belong to the staff that set them, so a player who arrives on your team brings no one else's project and your rooms keep their real number of slots.",
+      "A player who transfers, signs or is drafted starts fresh with his new staff.",
+      "His last staff's project shows as a note on his Development tab and takes no slot.",
+      "Every staff in the world follows the same rule, so rooms never run past their slots.",
+      "The people you talk to now know what time of year it is. In January a player talks about winter workouts, spring practice and the portal window, not the next game.",
+      "Every conversation knows where your team is in its year and what's coming next.",
+    ],
+  },
+  {
     v: "0.2.625", date: "18 Nov", title: "Coaches walk you through the season from the world's records",
     notes: [
       "Your coaches now really break down a season when you ask them, with the numbers, the games that slipped away and the players who struggled.",

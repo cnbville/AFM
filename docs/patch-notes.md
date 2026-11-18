@@ -8,6 +8,41 @@ its changes land in the next one. Do not edit above the marker by hand: change t
 `## Patch note` section or `docs/patch-notes/curated.json` and run the workflow again.
 The app number is 0.2.<Mac app run>. Entries from 0.2.492 and older are hand-written.
 
+## 0.2.632 (18 Nov, shipped): end a development project when he moves to a new staff (PR #557), talks know the time of year (PR #558), a moved man isn't picked for either project at his first checkpoint (PR #562), and 4 more
+**TLDR:** 7 changes ship together. Development projects now belong to the staff that set them, so a player who arrives on your team brings no one else's project and your rooms keep their real number of slots. The people you talk to now know what time of year it is. In January a player talks about winter workouts, spring practice and the portal window, not the next game. Plus 5 more below.
+- End a development project when he moves to a new staff (PR #557): Development projects now belong to the staff that set them, so a player who arrives on your team brings no one else's project and your rooms keep their real number of slots.
+- A player who transfers, signs or is drafted starts fresh with his new staff. (PR #557)
+- His last staff's project shows as a note on his Development tab and takes no slot. (PR #557)
+- Every staff in the world follows the same rule, so rooms never run past their slots. (PR #557)
+- Talks know the time of year (PR #558): The people you talk to now know what time of year it is. In January a player talks about winter workouts, spring practice and the portal window, not the next game.
+- Every conversation knows where your team is in its year and what's coming next. (PR #558)
+- Players know when their place gets decided: spring practice, fall camp, OTAs or training camp. (PR #558)
+- College players know when the transfer window opens and closes. (PR #558)
+- Asking for proof, a player names the next real moment, not a game that isn't coming. (PR #558)
+- A moved man isn't picked for either project at his first checkpoint (PR #562): no summary in the PR
+- Negotiation lane NG4: each player's own lowest number and one trust (PR #546): Every pro now has his own lowest number, so a player who trusts you, plays for a winner or comes home will take a little less, and a lowball no longer slips past a man who claims not to care about money.
+- Each player's lowest number reads his trust, his bond with the head coach, your club's winning, his home state and how much money matters to him. (PR #546)
+- Before free agency his agent knows what other clubs would pay, and he takes a little less for a sure deal now. (PR #546)
+- A talk that builds his trust in you now counts toward his contract too. (PR #546)
+- Offers under his lowest number fall short, whatever else they promise. (PR #546)
+- Coach bonds: the world measure and its two fixes (PR #564): Players now come to trust the position coach who works with them every day, and more of them follow a coach they were close to when he moves.
+- Trust with an assistant grows over two years together. (PR #564)
+- Close bonds ("in his corner") with position coaches are far more common. (PR #564)
+- Players follow a close head coach or position coach to his new school about as often as before bonds, now for the bond's own reasons. (PR #564)
+- NIL at market price: inherited deals, bids read at the school's level, Group of 5 money fitted to real pay (PR #544): College money now looks like the real market: your inherited stars keep what the market pays them, and every school pays at its own level.
+- The roster you inherit keeps each player's market price or last year's pay, where that beats the roster split. (PR #544)
+- The NIL desk marks the old staff's deals and shows each player's market price beside the roster split. (PR #544)
+- Power conference starters are priced near real starter pay at every position. (PR #544)
+- Group of 5 budgets and pay are now at real levels, with the quarterback paid the most. (PR #544)
+- "Paid last year" counts only school and collective money, not his own brand deals. (PR #544)
+- Talks: "Heard as" says how a line really went (the landing read) (PR #547): Heard as" under your typed lines now tells you plainly how each line went. A recruit's best point now lands on your case even when you say it with care, and a hello is just a hello.
+- Each line reads as landed, helped a little, didn't move him, cost you a little or didn't land, instead of "hard to tell how it landed". (PR #547)
+- With a recruit, the read is about your case with him. It also tells you when you've made your case for the day, or when nothing of yours backs up what you named. (PR #547)
+- Saying your best point warmly to a recruit no longer cancels it. (PR #547)
+- A greeting, a task, news about someone else or a goodbye gets no guess at how it landed, and a greeting is never taken as dodging his question. (PR #547)
+- A warm word to one of your players can land now, and how he's taking things that day counts once a line. (PR #547)
+- Look at: a transfer's Development tab, Focus, then Development projects. (PR #557) a one-on-one with a player in January or February. (PR #558) re-signing a veteran after a winning season, then after a losing one. (PR #546)
+
 ## 0.2.625 (18 Nov, shipped): coaches walk you through the season from the world's records (PR #540)
 **TLDR:** Your coaches now really break down a season when you ask them, with the numbers, the games that slipped away and the players who struggled.
 - Ask a coordinator how the year went and he walks you through it: points and yards against the conference, third downs, red zone, big plays, takeaways. (PR #540)
