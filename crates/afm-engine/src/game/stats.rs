@@ -1366,6 +1366,13 @@ impl GameStats {
                 self.team[team].fumbles_lost += 1;
                 self.team[team].turnovers += 1;
             }
+            // The man of the other side who came up with it (engine gaps
+            // item 4: it was never counted).
+            if let Some(rid) = r.recovered
+                && side(rid, d) != team
+            {
+                self.line(side(rid, d), rid).fumble_rec += 1;
+            }
         }
         // A turnover in the box score is an interception or a lost fumble
         // (above); a missed field goal, a turnover on downs or an onside
