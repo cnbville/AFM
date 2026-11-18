@@ -5,6 +5,7 @@
 
 use std::collections::{HashMap, HashSet};
 
+use crate::game::flow::CHECK_OFF;
 use crate::game::rules::{Concussion, Rules};
 use crate::game::sim::{Cause, InjuryKind};
 use crate::game::synthetic::synthetic_league;
@@ -69,7 +70,13 @@ fn hurt_men_come_back_but_never_from_a_torn_ligament_or_a_concussion() {
     let (res, _) = games(Level::NFL, 24, None);
     let mut back = 0;
     for r in &res {
+        // A man can be hurt twice in a game: the nth injury of his is on the
+        // nth play that hurt him.
+        let mut seen: HashMap<u32, usize> = HashMap::new();
         for (team, i) in &r.injuries {
+            let nth = seen.entry(i.id).or_default();
+            let k = *nth;
+            *nth += 1;
             let Some(b) = i.back else { continue };
             back += 1;
             assert!(b >= 1, "he sits at least a play");
@@ -83,12 +90,19 @@ fn hurt_men_come_back_but_never_from_a_torn_ligament_or_a_concussion() {
                 i.kind
             );
             // He is on the field again after the play he was hurt on.
-            let side = r.stats.plays.iter().position(|p| p.injuries.iter().any(|x| x.id == i.id)).unwrap();
+            let side = (r.stats.plays.iter().enumerate())
+                .filter(|(_, p)| p.injuries.iter().any(|x| x.id == i.id))
+                .nth(k)
+                .map(|(n, _)| n)
+                .unwrap();
             let later = r.stats.plays[side + 1..].iter().any(|p| p.on_field.iter().any(|f| f.contains(&i.id)));
             assert!(later, "team {team}: {} back after {b} plays but never on the field", i.id);
         }
+        // A man cleared by a concussion check sits the exam out first.
         for (_, id, b) in &r.checks {
-            assert!(r.injuries.iter().all(|(_, i)| i.id != *id) || b.is_none(), "a cleared check is not an injury");
+            if let Some(b) = b {
+                assert!(*b as f64 >= CHECK_OFF, "{id} back {b} plays after a check");
+            }
         }
     }
     assert!(back >= 5, "only {back} men came back in 24 games");

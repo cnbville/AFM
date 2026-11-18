@@ -123,8 +123,8 @@ pub struct Concussion {
     pub caught: f64,
     /// Men pulled for a check on his signs who turn out clear, for each
     /// concussion caught. The NFL ran 538 in-game concussion evaluations in
-    /// 2025 for 168 concussions in games, about 3.2 a concussion; 3.0 clear
-    /// for each one caught gives about that from the spotters on, as a
+    /// 2025 for 168 concussions in games, about 3.2 a concussion; 3.4 clear
+    /// for each one caught gives that from the spotters on, as a
     /// concussion nobody caught or one from the trench draws no check.
     /// Proposed, not confirmed: 1.0 in 2009-10, 1.5 in college and 0.75 in
     /// high school (trainers at fewer games), none before the rules.
@@ -151,7 +151,7 @@ impl Concussion {
     pub fn for_year(level: Level, year: i32) -> Concussion {
         let year = if year == 0 { 9999 } else { year };
         let (rule_from, checks, caught) = match level {
-            Level::NFL if year >= 2011 => (2009, 3.0, 0.92),
+            Level::NFL if year >= 2011 => (2009, 3.4, 0.92),
             Level::NFL => (2009, 1.0, 0.85),
             Level::HS => (2010, 0.75, 0.6),
             _ => (2010, 1.5, 0.8),
