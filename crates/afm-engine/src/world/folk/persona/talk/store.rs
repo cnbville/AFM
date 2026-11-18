@@ -75,6 +75,10 @@ pub struct Open {
     /// his tag in the room list): signed, with the way it hit him hardest.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub takes: Vec<(Them, f32, How)>,
+    /// The first line only said hello (`Turn::greeting`): his opening's
+    /// question is on the table for the line after it too.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub greeted: bool,
 }
 
 impl Open {
@@ -95,6 +99,7 @@ impl Open {
             raised_at: 0,
             over: false,
             takes: Vec::new(),
+            greeted: false,
         }
     }
 
@@ -198,6 +203,7 @@ pub fn advance(w: &mut World, scene: u32, room: &Room, t: &Turn, said: &Said, po
     o.room = Room { channel: room.channel, present: people };
     o.heat = t.heat;
     o.patience = t.patience;
+    o.greeted |= t.greeting;
     o.lines = o.lines.saturating_add(1);
     if boiled.is_some() {
         o.boiled = boiled;

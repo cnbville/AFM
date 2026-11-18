@@ -536,7 +536,7 @@ fn takes(w: &World, room: &Room, reading: &Reading, open: &Open) -> Vec<(Them, f
     let mut out: Vec<(Them, f32)> = listeners(room).map(|x| (x, 0.0)).collect();
     for h in &reading.hits {
         let Some(x) = out.iter_mut().find(|x| x.0 == h.on) else { continue };
-        if let Some(sz) = hits::size(w, h, &[], open, open.lines) {
+        if let Some(sz) = hits::size(w, h, &[], open) {
             x.1 += sz.trust + sz.mood;
         }
     }

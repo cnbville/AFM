@@ -424,12 +424,13 @@ fn a_stay_to_your_staff_and_a_promise_to_a_parent_are_kept() {
 
 #[test]
 fn heard_as_says_how_it_went_on_his_own_scale() {
-    use afm_engine::world::folk::persona::talk::hits::landed_bars;
-    use afm_engine::world::folk::talk_points::LANDED;
-    // A player moves on his own scale; someone in your building on his
-    // meeting's (an office line moves trust at most 0.02).
+    use afm_engine::world::folk::persona::talk::hits::{PLAYER_BARS, landed_bars};
+    // A player moves on his own scale, the same size each way (the landing
+    // read, 2026-11-17); someone in your building on his meeting's (an
+    // office line moves trust at most 0.02).
     let (pu, pd) = landed_bars(Them::Player(1));
-    assert!((pu - LANDED).abs() < 1e-6 && pd < 0.0);
+    assert_eq!((pu, pd), PLAYER_BARS);
+    assert!((pu + pd).abs() < 1e-6 && pu > 0.0, "a player's bars are even: {pu} {pd}");
     let (cu, cd) = landed_bars(Them::Coach(1));
     assert!(cu > 0.0 && cu < pu && cd < 0.0, "{cu} {cd}");
     // A commitment he writes down and believes lands with him.
