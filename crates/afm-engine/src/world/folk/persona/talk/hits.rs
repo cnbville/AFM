@@ -8,7 +8,7 @@
 //! Every size here is proposed, not confirmed.
 
 use super::super::Them;
-use super::super::ear::{Hit, How, Item, Sized};
+use super::super::ear::{Hit, How, Item, Landing, Sized};
 use super::super::room::Room;
 use super::super::wants::Want;
 use super::store::Open;
@@ -208,6 +208,9 @@ pub fn weight(w: &World, on: Them, item: &Item, wants: &[Want]) -> Option<f32> {
         }
         // One of the room: a line to the whole team (lane N5d).
         Item::Room => super::super::gameday::group::ROOM_WEIGHT,
+        // Your manner is sized by how he took it (`manner::took`), never
+        // by the ear: no card holds it.
+        Item::Manner => return None,
     })
 }
 
@@ -224,8 +227,9 @@ pub const OPENS_COMMON: f32 = 0.5;
 pub const GREET_WEIGHT: f32 = 0.3;
 
 /// One hit, sized. None when the item isn't real for him (section 14: a
-/// hit that names nothing real counts for nothing).
-pub fn size(w: &World, h: &Hit, wants: &[Want], open: &Open, line: u8) -> Option<Sized> {
+/// hit that names nothing real counts for nothing). His day is the line's,
+/// added once by `day`.
+pub fn size(w: &World, h: &Hit, wants: &[Want], open: &Open) -> Option<Sized> {
     let wt = weight(w, h.on, &h.item, wants)?;
     if let (How::Staked, Them::Player(id)) = (h.how, h.on) {
         return stake(w, h, open, id);
@@ -239,8 +243,16 @@ pub fn size(w: &World, h: &Hit, wants: &[Want], open: &Open, line: u8) -> Option
         _ => 0.0,
     };
     let ear = 0.6 + 0.8 * trust_of(w, h.on) + close;
-    // The same thing, the same way, again: it fades in a talk, and a point
-    // you made in an earlier talk counts as `Talked::again` says.
+    let fade = fade(w, h, open);
+    let k = wt * ear * fade;
+    Some(Sized { hit: h.clone(), trust: bt * k, mood: bm * k, faded: fade < 1.0 })
+}
+
+/// How much of a hit counts (1 in full): the same thing, the same way,
+/// again fades in a talk, a point you made in an earlier talk counts as
+/// `Talked::again` says, and generic praise counts a little each and stops
+/// adding up after three or four lines of it.
+fn fade(w: &World, h: &Hit, open: &Open) -> f32 {
     let times = open.times(h);
     let mut fade = AGAIN_IN_TALK.powi(times as i32);
     if let (Item::Point(key), Them::Player(id)) = (&h.item, h.on)
@@ -254,18 +266,50 @@ pub fn size(w: &World, h: &Hit, wants: &[Want], open: &Open, line: u8) -> Option
         // the words are new; nothing at all only in the same talk.
         fade = again.max(0.25);
     }
-    let noise = match h.on {
-        Them::Player(id) => folk::roll_n(w, open.scene as u64 ^ (u64::from(line) << 20), u64::from(id)) as f32 * 0.02,
-        _ => 0.0,
-    };
     // Generic praise: a little each, and it stops adding up after three or
     // four lines of it in a talk.
     if praise(h) {
         let before = open.hits.iter().filter(|x| x.0 == h.on && x.1 == Item::Pride && praise_how(x.2)).count();
         fade *= PRAISE * PRAISE_TAPER.get(before).copied().unwrap_or(0.0);
     }
-    let k = wt * ear * fade;
-    Some(Sized { hit: h.clone(), trust: bt * k + noise * fade, mood: bm * k + noise * fade, faded: fade < 1.0 })
+    fade
+}
+
+/// How a player is taking things today, as a chip draws it: this much
+/// times a draw a line, on his trust and on his mood. Proposed, not
+/// confirmed (the size the typed line has had since lane N4).
+pub const DAY: f32 = 0.02;
+
+/// His day, drawn once a line for each player and added to the freshest
+/// hit on him (not a stake, which his belief alone sizes), at that hit's
+/// fade: a line of repeats moves him little either way. Before this the
+/// draw went on every hit, so a line that touched three things carried his
+/// day three times over (the landing read, agreed by Cain 2026-11-17).
+/// Runs after `settle`, past the hits it emptied.
+pub fn day(w: &World, open: &Open, line: u8, hits: &mut [Sized]) {
+    let mut players: Vec<Them> = Vec::new();
+    for h in hits.iter() {
+        if matches!(h.hit.on, Them::Player(_)) && !players.contains(&h.hit.on) {
+            players.push(h.hit.on);
+        }
+    }
+    for on in players {
+        let Them::Player(id) = on else { continue };
+        let mut fresh: Option<(usize, f32)> = None;
+        for (j, h) in hits.iter().enumerate() {
+            if h.hit.on != on || h.hit.how == How::Staked || (h.trust == 0.0 && h.mood == 0.0) {
+                continue;
+            }
+            let f = fade(w, &h.hit, open);
+            if fresh.is_none_or(|(_, b)| f > b) {
+                fresh = Some((j, f));
+            }
+        }
+        let Some((j, f)) = fresh else { continue };
+        let draw = folk::roll_n(w, open.scene as u64 ^ (u64::from(line) << 20), u64::from(id)) as f32 * DAY * f;
+        hits[j].trust += draw;
+        hits[j].mood += draw;
+    }
 }
 
 fn praise_how(how: How) -> bool {
@@ -379,33 +423,76 @@ pub fn chip_range(w: &World, i: usize, topic: Topic, seed: u64) -> ((f32, f32), 
     (t, m)
 }
 
-/// What a line must move him by to read as landed, and as not landing:
-/// a player's chips move him far more than anyone else's can (a person in
-/// your building is held between -0.05 and +0.02 a line, a parent between
-/// -0.06 and +0.04), so the bars are his own: half the most a line can do
-/// for him, and two-fifths of the worst. Before this one bar (0.06) read
+/// A player's two bars, the same size each way (the landing read, agreed by
+/// Cain 2026-11-17): before, landing took +0.06 (the chips' bar,
+/// `talk_points::LANDED`) against -0.03 for not landing, so a warm typed
+/// line, smaller than a chip, almost never landed.
+pub const PLAYER_BARS: (f32, f32) = (0.03, -0.03);
+
+/// A move under this share of his upper bar, either way, moved nothing.
+/// Proposed, not confirmed.
+pub const SMALL: f32 = 0.2;
+
+/// What a line must move him by to read as landed, and as not landing.
+/// A player's are `PLAYER_BARS`. Anyone else moves less in a line (a person
+/// in your building is held between -0.05 and +0.02 a line, a parent
+/// between -0.06 and +0.04), so his bars are his own: half the most a line
+/// can do for him, and two-fifths of the worst. Before this one bar read
 /// everyone, so no line to your boss could ever land (Cain 2026-11-16).
 /// Proposed, not confirmed.
 pub fn landed_bars(him: Them) -> (f32, f32) {
     match him {
-        Them::Player(_) => (tp::LANDED, -0.03),
+        Them::Player(_) => PLAYER_BARS,
         Them::Kin(..) => (0.5 * super::super::meetings::PARENT_UP, 0.4 * super::super::meetings::PARENT_DOWN),
         _ => (0.5 * super::super::office::CAP_UP, 0.4 * super::super::office::CAP_DOWN),
     }
 }
 
+/// How a line went over with him (anyone but a recruit, whose line is read
+/// on your case, `recruit::landing`): what it moved him by, his trust and
+/// mood from every hit on him and the trust of a commitment he took,
+/// against his own bars. A line with nothing on him touched nothing of his.
+pub fn landing(him: Them, hits: &[Sized], committed: &[f32]) -> Landing {
+    let on: Vec<&Sized> = hits.iter().filter(|h| h.hit.on == him).collect();
+    // How you said it touches nothing of his: a greeting or a task said
+    // warmly gets no landing words (Cain 2026-11-18). It still counts in
+    // how a line that touched him went over.
+    if !on.iter().any(|h| h.hit.item != Item::Manner) && committed.is_empty() {
+        return Landing::Untouched;
+    }
+    let net = on.iter().map(|h| h.trust + h.mood).sum::<f32>() + committed.iter().sum::<f32>();
+    read(net, landed_bars(him))
+}
+
+/// A move against a pair of bars: past either is landed or didn't land,
+/// short of them a little either way, and under `SMALL` of the upper bar
+/// nothing.
+pub fn read(net: f32, (up, down): (f32, f32)) -> Landing {
+    let small = SMALL * up;
+    if net > up {
+        Landing::Landed
+    } else if net < down {
+        Landing::Missed
+    } else if net > small {
+        Landing::Little
+    } else if net < -small {
+        Landing::Cost
+    } else {
+        Landing::Nothing
+    }
+}
+
 /// What your read catches from how the line went over, when nothing else
-/// set a tell: the way a chip's answer reads him (`talks::read_tell`).
-pub fn tell(w: &World, him: Them, hits: &[Sized]) -> String {
+/// set a tell: the way a chip's answer reads him (`talks::read_tell`), on
+/// the landing read's own bars. Short of them there's nothing past his
+/// words for your read to catch, so no tell: "He gives you nothing either
+/// way" stood under "Nice to meet you too, Coach. Appreciate you making
+/// time" (Cain 2026-11-18).
+pub fn tell(w: &World, him: Them, landing: Landing) -> String {
+    if landing.sign() == 0 {
+        return String::new();
+    }
     let Them::Player(id) = him else { return String::new() };
     let Some(i) = folk::person(w, id) else { return String::new() };
-    let net: f32 = hits.iter().filter(|h| h.hit.on == him).map(|h| h.trust + h.mood).sum();
-    let sign = if net > tp::LANDED {
-        1
-    } else if net < -0.03 {
-        -1
-    } else {
-        0
-    };
-    talks::read_tell(w, i, sign).unwrap_or_default()
+    talks::read_tell(w, i, landing.sign()).unwrap_or_default()
 }

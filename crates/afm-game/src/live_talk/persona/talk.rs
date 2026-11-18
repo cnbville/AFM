@@ -677,5 +677,9 @@ mod commit_tests;
 mod replay_tests;
 
 #[cfg(test)]
+#[path = "landing_tests.rs"]
+mod landing_tests;
+
+#[cfg(test)]
 #[path = "personal_tests.rs"]
 mod personal_tests;

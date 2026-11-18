@@ -38,6 +38,9 @@ pub const TIME_TOP: f32 = 0.70;
 /// Closeness held under his trust: he can't be close to a man he doesn't
 /// trust.
 pub const OVER_TRUST: f32 = 0.15;
+/// The trust an assistant earns from two years together (proposed, not
+/// confirmed).
+pub const TRUST_TIME: f32 = 0.12;
 /// Apart, closeness fades a tenth a year, never below half its best.
 pub const FADE_YEAR: f32 = 0.9;
 /// Moments kept a bond: the ones that moved it most.
@@ -759,7 +762,12 @@ pub(crate) fn week(w: &mut World, d: Date) {
                         } else {
                             let r = co.ability().relationships as f32;
                             let fair = if p.mood_why == crate::world::people::Why::Role as u8 { -0.1 } else { 0.03 };
-                            let target = (0.5 + 0.15 * (r - 10.0) / 10.0 + fair).clamp(0.2, 0.85);
+                            // Time together earns it: up to +0.12 after two
+                            // years with him (the world measure, 2026-11-18:
+                            // without it an assistant's trust held near 0.53,
+                            // under Trusts you's 0.55, for good).
+                            let together = TRUST_TIME * (b.weeks as f32 / 104.0).min(1.0);
+                            let target = (0.5 + 0.15 * (r - 10.0) / 10.0 + fair + together).clamp(0.2, 0.85);
                             b.trust += 0.02 * contact.min(1.5) * (target - b.trust);
                         }
                         let rel = rel_factor(co.ability().relationships)
@@ -1129,11 +1137,14 @@ pub fn guy_bias(w: &World, i: usize) -> f64 {
 }
 
 /// A pro's or a player's tie to a coach for the built following reads:
-/// what the old tie gave (years under him, recruited, a pro's seasons),
-/// half of it, with his closeness (section 7, "Following"; proposed, not
-/// confirmed: half the old tie plus his closeness).
+/// what the old tie gave (years under him, recruited, a pro's seasons) and
+/// his closeness, three quarters of each (section 7, "Following"; proposed,
+/// not confirmed). The world measure (2026-11-18) found half the old tie
+/// plus closeness halved the head coach followers; at three quarters a man
+/// the coach recruited and connected with follows as before, and one he
+/// never connected with falls under the bar.
 pub fn follow_tie(w: &World, id: u32, c: usize, built: f32) -> f32 {
-    (0.5 * built + close(w, id, Some(c))).clamp(0.0, 1.0)
+    (0.75 * built + 0.75 * close(w, id, Some(c))).clamp(0.0, 1.0)
 }
 
 /// The trust a new head coach starts with in a room that loved the old one

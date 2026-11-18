@@ -604,7 +604,7 @@ impl Resolving for Conversation<'_> {
                     let item = Item::Life;
                     let hit = super::ear::Hit { on: him, item: item.clone(), how: super::ear::How::Respected };
                     if let (Some(mut sz), Some(wt)) =
-                        (hits::size(w, &hit, &wants, &open, open.lines), hits::weight(w, him, &item, &wants))
+                        (hits::size(w, &hit, &wants, &open), hits::weight(w, him, &item, &wants))
                     {
                         let common = f32::from(super::home::common(w, him));
                         let k = hits::OPENS_WEIGHT * (1.0 + hits::OPENS_COMMON * common) / wt.max(0.1);
@@ -623,7 +623,7 @@ impl Resolving for Conversation<'_> {
                     let item = Item::Life;
                     let hit = super::ear::Hit { on: him, item: item.clone(), how: super::ear::How::Respected };
                     if let (Some(mut sz), Some(wt)) =
-                        (hits::size(w, &hit, &wants, &open, open.lines), hits::weight(w, him, &item, &wants))
+                        (hits::size(w, &hit, &wants, &open), hits::weight(w, him, &item, &wants))
                     {
                         let k = hits::GREET_WEIGHT * super::home::openness(w, him) as f32 / wt.max(0.1);
                         sz.trust *= k;
@@ -670,6 +670,8 @@ impl Resolving for Conversation<'_> {
         // Every hit on every listener, sized (question 1), then held inside
         // today's caps per person.
         let line = open.lines;
+        let first = t.hits.len();
+        let own_sizes = matches!((facet, s), (Facet::Recruit, Some(_)) | (Facet::HsCall, Some(_)));
         for h in &reading.hits {
             if !room.present.iter().any(|p| p.who == h.on) {
                 continue;
@@ -677,12 +679,13 @@ impl Resolving for Conversation<'_> {
             let sized = match (facet, s) {
                 (Facet::Recruit, Some(s)) => recruit::size(w, s, h, &wants, &open),
                 (Facet::HsCall, Some(s)) => hs_call::size(w, s, h),
-                _ => hits::size(w, h, &wants, &open, line),
+                _ => hits::size(w, h, &wants, &open),
             };
             if let Some(sz) = sized {
                 t.hits.push(sz);
             }
         }
+        let sized = first..t.hits.len();
         // You remembered something he told you about his life (personal
         // talk, item 7): a talk where it lands counts for the bond.
         if !in_group
@@ -722,9 +725,10 @@ impl Resolving for Conversation<'_> {
                 if let Some(how) = tk.as_.how()
                     && tk.trust.abs() + tk.mood.abs() > 0.002
                 {
-                    let item = if in_group { Item::Room } else { Item::Pride };
+                    // Its own item, never his pride or the room: how you said
+                    // it is not one of his things (Cain 2026-11-18).
                     t.hits.push(Sized {
-                        hit: super::ear::Hit { on: p.who, item, how },
+                        hit: super::ear::Hit { on: p.who, item: Item::Manner, how },
                         trust: tk.trust,
                         mood: tk.mood,
                         faded: false,
@@ -744,18 +748,32 @@ impl Resolving for Conversation<'_> {
         // is set I'd like to talk about where I fit in") asked nothing yet,
         // so the coach's next line answered nothing it owed (the last
         // replay, 2026-11-17).
-        let on_table =
-            (open.asking().is_some() && s.is_none_or(asked_last)) || (open.lines == 0 && s.is_some_and(asked_last));
-        // A hello on his first line before business is never a dodge
-        // (personal talk, first meetings): Cain 2026-11-17, "first time
-        // meeting, nice to meet you" was heard as not answering him.
-        let hello = open.lines == 0 && reading.acts.iter().any(|a| matches!(a, Act::Greet));
-        if reading.dodged && on_table && !hello {
+        // A greeting is no dodge (Cain 2026-11-18: "First time meeting,
+        // nice to meet you", said to an opening that asked what he'd be
+        // paid, was heard as "you didn't answer his question"): a first
+        // line that makes no act and touches nothing of anyone's, or only
+        // greets him (the ear's `greet`, personal talk), only says hello
+        // first. His opening's question waits for the next line, which owes
+        // the answer if he asks it again; one hello, not a string of them. A
+        // goodbye the game held back to ask about first still made its act
+        // (`Reading::wrapped`): it can dodge his question.
+        let greet_only = !reading.acts.is_empty() && reading.acts.iter().all(|a| matches!(a, Act::Greet));
+        t.greeting =
+            open.lines == 0 && !reading.wrapped && ((reading.acts.is_empty() && sized.is_empty()) || greet_only);
+        let opening = open.lines == 0 || (open.greeted && open.lines == 1);
+        let on_table = !t.greeting
+            && ((open.asking().is_some() && s.is_none_or(asked_last)) || (opening && s.is_some_and(asked_last)));
+        if reading.dodged && on_table {
             t.dodged = true;
             t.hits.push(hits::dodged(w, him));
         }
         if facet == Facet::Other {
             hits::settle(&mut t.hits);
+        }
+        // His day, once a line on the words' hits (after `settle`, past the
+        // hits it emptied).
+        if !own_sizes {
+            hits::day(w, &open, line, &mut t.hits[sized]);
         }
         match (facet, s) {
             (Facet::Recruit, Some(s)) => {
@@ -891,8 +909,19 @@ impl Resolving for Conversation<'_> {
         {
             t.say.stance = tp::Stance::from_bits(s.c);
         }
+        // How the line went over ("Heard as"), from everything above: a
+        // recruit's on your case, a high school call's at its end, anyone
+        // else's on his own bars.
+        t.landing = match (facet, s) {
+            (Facet::Recruit, Some(s)) => recruit::landing(w, s, room, reading, &t.hits, &wants),
+            (Facet::HsCall, Some(_)) => hs_call::landing(him, &t.hits),
+            _ => {
+                let committed: Vec<f32> = t.committed.iter().map(|(_, k)| k.trust()).collect();
+                hits::landing(him, &t.hits, &committed)
+            }
+        };
         if t.say.tell.is_empty() {
-            t.say.tell = hits::tell(w, him, &t.hits);
+            t.say.tell = hits::tell(w, him, t.landing);
         }
         let _ = facts;
         t
@@ -1265,7 +1294,7 @@ fn home_turn(
         // ear may have heard it too).
         let ear_has = heard.iter().any(|h| h.on == him && matches!(h.item, Item::Life | Item::Family));
         let hit = super::ear::Hit { on: him, item: Item::Life, how: super::ear::How::Reassured };
-        if !ear_has && let Some(sz) = hits::size(w, &hit, wants, open, open.lines) {
+        if !ear_has && let Some(sz) = hits::size(w, &hit, wants, open) {
             t.hits.push(sz);
         }
         t.shared.extend(a.new);
