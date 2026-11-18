@@ -24,8 +24,8 @@ use crate::world::scouting::file::SourceSays;
 /// (section 9) and "I don't know" for what nobody stores (8.1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Topic {
-    /// A birth, a wedding, a parent ill or dying, a divorce, money trouble,
-    /// homesick (`folk/life.rs`).
+    /// His troubles at home: a birth, a wedding, a parent ill or dying, a
+    /// divorce, money trouble, homesick (`folk/life.rs`).
     Life,
     /// His mood and why (`talks::Reason`).
     Mood,
@@ -73,6 +73,10 @@ pub enum Topic {
     /// Football at his level (section 9): his own snaps, the play log, the
     /// scheme.
     Football,
+    /// His life away from football, the small talk (personal talk,
+    /// `home.rs`): home, family, where he's from, school, his day off, his
+    /// kids. Open to anyone, in layers by how far he opens up.
+    Home,
     /// Something nobody in the world stores: "I don't know", or his own
     /// opinion if he'd have one.
     Nothing,

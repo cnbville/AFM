@@ -303,6 +303,9 @@ pub struct Bonds {
     pub passed: BTreeMap<u32, f32>,
     /// His last one-on-one with you (a benching told to his face).
     pub talked: BTreeMap<u32, Date>,
+    /// His last talk with you where something personal landed (personal
+    /// talk, item 8): it counts once a week.
+    pub personal: BTreeMap<u32, Date>,
 }
 
 impl Bonds {
@@ -314,6 +317,7 @@ impl Bonds {
             && self.burned.is_empty()
             && self.passed.is_empty()
             && self.talked.is_empty()
+            && self.personal.is_empty()
     }
 
     pub fn get(&self, id: u32, coach: usize) -> Option<&Bond> {
@@ -498,7 +502,7 @@ pub fn need(p: &crate::world::Person) -> (f32, bool) {
 /// How open he is to a coach (section 5): loyalty and coachability open
 /// him up, ego and a guarded temper close him, and a man burned by a coach
 /// in the last year starts guarded.
-fn openness(w: &World, p: &crate::world::Person) -> f32 {
+pub(crate) fn openness_of(w: &World, p: &crate::world::Person) -> f32 {
     let t = &p.player.personality.traits;
     let z = |x: Trait| t.z(x) as f32;
     let coach = (p.player.personality.coachability as f32 - 10.0) / 10.0;
@@ -695,7 +699,7 @@ pub(crate) fn week(w: &mut World, d: Date) {
             }
             let ph = phase(world, p.stage, d);
             let (need, _) = need(p);
-            let open = openness(world, p);
+            let open = openness_of(world, p);
             let mut bonds: Vec<Bond> = had.cloned().unwrap_or_default();
             let mut seeds = Vec::new();
             for &(c, seat) in &now {
@@ -868,6 +872,22 @@ pub(crate) fn sat_down(w: &mut World, id: u32) {
     w.folk.bonds.waiting.retain(|x| x.id != id);
     for x in due {
         moment(w, x.id, x.coach as usize, x.there, x.up);
+    }
+}
+
+/// A one-on-one with you where something personal landed (personal talk,
+/// item 8): one more week of contact with you, on top of the sit-down's own,
+/// once a week at most. The caps stay: four extra weeks owed, and time alone
+/// stops at `TIME_TOP` without a hard moment.
+pub(crate) fn personal(w: &mut World, id: u32) {
+    let Some(me) = you(w) else { return };
+    let today = w.today;
+    if w.folk.bonds.personal.get(&id).is_some_and(|d| d.days_to(today) < 7) {
+        return;
+    }
+    w.folk.bonds.personal.insert(id, today);
+    if let Some(b) = w.folk.bonds.get_mut(id, me) {
+        b.extra = b.extra.saturating_add(1).min(4);
     }
 }
 

@@ -120,6 +120,10 @@ impl SetVoice {
             manner: String::new(),
             coach_read: String::new(),
             notebook: self.notebook.clone(),
+            life: Vec::new(),
+            told_coach: Vec::new(),
+            coach_told: Vec::new(),
+            coach_life: Vec::new(),
             so_far: self.so_far.iter().map(|s| Spoken { who: s.who.clone(), text: s.text.clone() }).collect(),
             line: quoted(line),
         }

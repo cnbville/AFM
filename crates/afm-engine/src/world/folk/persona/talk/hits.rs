@@ -197,10 +197,31 @@ pub fn weight(w: &World, on: Them, item: &Item, wants: &[Want]) -> Option<f32> {
             0.6 + wants.iter().find(|x| x.kind == super::super::wants::WantKind::Family).map_or(0.2, |x| x.weight)
         }
         Item::HisWord => 0.7,
+        // His life away from football (personal talk): a kind question
+        // 0.7; once he has told you of it, you remembering counts 1.1.
+        Item::Life => {
+            if super::store::told_keys(w, on).is_empty() {
+                LIFE_WEIGHT
+            } else {
+                LIFE_REMEMBERED
+            }
+        }
         // One of the room: a line to the whole team (lane N5d).
         Item::Room => super::super::gameday::group::ROOM_WEIGHT,
     })
 }
+
+/// What a hit on his life weighs, and once he has told you of it (you
+/// remembering). Proposed, not confirmed.
+pub const LIFE_WEIGHT: f32 = 0.7;
+pub const LIFE_REMEMBERED: f32 = 1.1;
+/// You opening up: its weight, times 1 + this for each thing you really
+/// share (`home::common`).
+pub const OPENS_WEIGHT: f32 = 0.6;
+pub const OPENS_COMMON: f32 = 0.5;
+/// A hello and a little small talk early in a talk: its weight on his
+/// life, times his openness. Proposed, not confirmed.
+pub const GREET_WEIGHT: f32 = 0.3;
 
 /// One hit, sized. None when the item isn't real for him (section 14: a
 /// hit that names nothing real counts for nothing).

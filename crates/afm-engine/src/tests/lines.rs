@@ -98,6 +98,8 @@ fn asked() -> Vec<String> {
     for m in ["sour", "good", "flat"] {
         v.push(format!("talk.open.{m}"));
         v.push(format!("talk.open.portal.{m}"));
+        // The first time he sits down with you (personal talk).
+        v.push(format!("talk.open.meet.{m}"));
     }
     for s in ["role", "usage", "money", "behavior", "life", "team", "future", "friend"] {
         v.push(format!("talk.open.{s}"));

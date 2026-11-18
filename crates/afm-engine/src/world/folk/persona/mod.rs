@@ -48,6 +48,7 @@ pub mod evaluate;
 pub mod fake;
 pub mod knows;
 // How you talk (coach voice): your manner read, kept and reacted to.
+pub mod home;
 pub mod manner;
 pub mod meetings;
 pub mod memory;

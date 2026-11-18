@@ -20,6 +20,10 @@ Gaps found while fixing bugs or building, so they carry over between threads (Ca
 - **A coach leaving doesn't shake a high-need kid's home stability** (low). The design's "loses stability (-0.5 x closeness)" isn't built: only his mood, a Left moment, a year guarded and a year of trouble risk. The stability field is his background, so it needs a call on whether a coach's leaving may change it. Same thread.
 - **No "I'm not going anywhere" promise** (low). A close player hurt by a coach leaving is the price of the bond, but you can't promise to stay. The promises lane has no kind for it. Same thread.
 
+- **The voice's small details feed nothing and may not touch family** (medium). The colour notebook (`memory::Colour`) is saved and read back only by the voice, and its rule bans family details, so what he mentions on his own never reaches the bond, the ear or his file. Found 2026-11-17 (thread "Let talks get personal"); needs Cain's yes.
+- **A player's major, girlfriends and breakups, and a second sport are not real life parts** (medium). The people design (topic 6) has them; personal talk draws a major and a girlfriend as flavour only, so a breakup can't move his mood or portal lean and a high school basketball season takes no training time. Same thread; needs Cain's yes.
+- **Personal talk has no line bank without a key** (low). Typed personal questions need the AI; the picks without a key still deflect ("Coach, I'm fine. Can we talk about football?", `talk.deflect`). Same thread.
+
 ## UI
 
 - **The holdover meeting shows no numbers for his unit** (medium). Without last season's points, yards and third downs on the narration you can't judge whether to keep him. Same cause as the first Logic gap.

@@ -252,6 +252,55 @@ impl Resolving for Conversation<'_> {
                     open_floor = true;
                     answered = true;
                 }
+                // His life away from football (personal talk): the small
+                // talk is open to anyone, in layers by how far he opens up
+                // with you; his troubles asked too soon close him for the
+                // talk. Asked of the whole room it's the room's to answer.
+                Act::Question { topic: Topic::Home | Topic::Life, about, words }
+                    if !in_group && about.is_none_or(|a| a == him) && {
+                        let topic = act_topic(act);
+                        topic == Topic::Home
+                            || (super::home::too_deep(w, him) && !knows_trouble(w, him))
+                            || self.parts.knows.knows(w, him, Topic::Life, None).is_empty()
+                    } =>
+                {
+                    let topic = act_topic(act);
+                    // A question he closed on told you nothing, so it
+                    // doesn't make the next one "asking again".
+                    let closed = open.closed || t.closed;
+                    let asked = [Topic::Home, Topic::Life].iter().any(|x| {
+                        (*x == Topic::Home || !closed)
+                            && (open.asked_before(*x, None) || asked_now.contains(&(*x, None)))
+                    });
+                    asked_now.push((topic, None));
+                    // Asking takes time like any question (`telling::tells`).
+                    t.minutes += super::telling::ASK_MINUTES;
+                    if topic == Topic::Life && super::home::too_deep(w, him) && !knows_trouble(w, him) {
+                        // Too deep, too soon: he goes short.
+                        t.say.released.push("He'd rather keep that to himself for now".into());
+                        t.hits.push(Sized {
+                            hit: super::ear::Hit { on: him, item: Item::Life, how: super::ear::How::Stung },
+                            trust: -super::home::too_deep_cost(w, him),
+                            mood: 0.0,
+                            faded: false,
+                        });
+                        t.closed = true;
+                        grind = true;
+                    } else if home_turn(
+                        w,
+                        him,
+                        &format!("{words} {}", self.said.words),
+                        asked,
+                        &open,
+                        &wants,
+                        &reading.hits,
+                        &mut t,
+                    ) {
+                        answered = true;
+                    } else {
+                        grind = true;
+                    }
+                }
                 Act::Question { topic, about, .. } => {
                     let again = open.asked_before(*topic, *about) || asked_now.contains(&(*topic, *about));
                     asked_now.push((*topic, *about));
@@ -533,6 +582,45 @@ impl Resolving for Conversation<'_> {
                     }
                 }
                 Act::Answer(_) => {}
+                // You tell him about your own life (personal talk, item 6):
+                // it lands on his life, more for what you really share.
+                Act::Opens(words) if !in_group => {
+                    let item = Item::Life;
+                    let hit = super::ear::Hit { on: him, item: item.clone(), how: super::ear::How::Respected };
+                    if let (Some(mut sz), Some(wt)) =
+                        (hits::size(w, &hit, &wants, &open, open.lines), hits::weight(w, him, &item, &wants))
+                    {
+                        let common = f32::from(super::home::common(w, him));
+                        let k = hits::OPENS_WEIGHT * (1.0 + hits::OPENS_COMMON * common) / wt.max(0.1);
+                        sz.trust *= k;
+                        sz.mood *= k;
+                        t.hits.push(sz);
+                    }
+                    t.say.heard.push(format!("He tells you about his own life: {}", folk::plain(words)));
+                    t.personal = true;
+                }
+                Act::Opens(_) => {}
+                // A hello and a little small talk (personal talk, first
+                // meetings): early in a talk it lands a little on his life,
+                // by how open he is, and he says it back his own way.
+                Act::Greet if !in_group && open.lines <= 1 => {
+                    let item = Item::Life;
+                    let hit = super::ear::Hit { on: him, item: item.clone(), how: super::ear::How::Respected };
+                    if let (Some(mut sz), Some(wt)) =
+                        (hits::size(w, &hit, &wants, &open, open.lines), hits::weight(w, him, &item, &wants))
+                    {
+                        let k = hits::GREET_WEIGHT * super::home::openness(w, him) as f32 / wt.max(0.1);
+                        sz.trust *= k;
+                        sz.mood *= k;
+                        t.hits.push(sz);
+                    }
+                    t.say.released.push(if matches!(him, Them::Player(id) if super::home::first_meeting(w, id)) {
+                        "The first time you two sit down: you say hello back your own way, a word or two about yourself if that's you, before anything else.".into()
+                    } else {
+                        "You say hello back your own way.".into()
+                    });
+                }
+                Act::Greet => {}
                 Act::End => t.ends = Some(Ends::You),
                 // Your word on his future (playtest bug 15): the picks'
                 // outcome and odds, decided now, made real in `apply`.
@@ -578,6 +666,19 @@ impl Resolving for Conversation<'_> {
             if let Some(sz) = sized {
                 t.hits.push(sz);
             }
+        }
+        // You remembered something he told you about his life (personal
+        // talk, item 7): a talk where it lands counts for the bond.
+        if !in_group
+            && !store::told_keys(w, him).is_empty()
+            && t.hits.iter().any(|h| {
+                h.hit.on == him
+                    && h.hit.item == Item::Life
+                    && matches!(h.hit.how, super::ear::How::Respected | super::ear::How::Reassured)
+                    && h.trust + h.mood > 0.0
+            })
+        {
+            t.personal = true;
         }
         // How you said it (coach voice, section 4): each man takes your
         // manner his own way, by what he wants from a coach, what he has
@@ -629,7 +730,11 @@ impl Resolving for Conversation<'_> {
         // replay, 2026-11-17).
         let on_table =
             (open.asking().is_some() && s.is_none_or(asked_last)) || (open.lines == 0 && s.is_some_and(asked_last));
-        if reading.dodged && on_table {
+        // A hello on his first line before business is never a dodge
+        // (personal talk, first meetings): Cain 2026-11-17, "first time
+        // meeting, nice to meet you" was heard as not answering him.
+        let hello = open.lines == 0 && reading.acts.iter().any(|a| matches!(a, Act::Greet));
+        if reading.dodged && on_table && !hello {
             t.dodged = true;
             t.hits.push(hits::dodged(w, him));
         }
@@ -686,6 +791,16 @@ impl Resolving for Conversation<'_> {
         // 2026-11-16). Given the floor, he asks what's on his mind even
         // when it weighs less.
         let bar = if open_floor { OPEN_FLOOR_ASK } else { ASK_WEIGHT };
+        // Asked about his life, or told about yours, he stays on it: only a
+        // want that presses on him comes up in the same breath (personal
+        // talk, item 5).
+        let personal_line = reading.acts.iter().any(|a| {
+            matches!(
+                a,
+                Act::Question { topic: Topic::Home | Topic::Life, about: None, .. } | Act::Opens(_) | Act::Greet
+            )
+        });
+        let bar = if personal_line { bar.max(super::home::PRESSING) } else { bar };
         if t.ends.is_none()
             && !put_to_him
             && !in_group
@@ -915,6 +1030,18 @@ impl Resolving for Conversation<'_> {
         let today = w.today;
         let m = &mut w.folk.live.persona;
         m.his_lies.extend(t.lies.iter().cloned());
+        // What he told you about his life, and what you told him about
+        // yours (personal talk, item 7).
+        for (k, words) in &t.shared {
+            store::share(m, him, today, false, *k, words.clone());
+        }
+        for act in &self.said.reading.acts {
+            if let Act::Opens(words) = act
+                && !words.trim().is_empty()
+            {
+                store::share(m, him, today, true, 0, words.chars().take(160).collect());
+            }
+        }
         for act in &self.said.reading.acts {
             match act {
                 Act::Confide(words) => m.secrets.push(Secret {
@@ -957,6 +1084,12 @@ impl Resolving for Conversation<'_> {
             Line { you: self.said.words.clone(), reading: self.said.reading.clone(), his: String::new() },
         );
         store::advance(w, id, &room, t, &self.said, point);
+        if (t.personal || t.closed)
+            && let Some(o) = w.folk.live.persona.open.iter_mut().find(|o| o.scene == id)
+        {
+            o.personal |= t.personal;
+            o.closed |= t.closed;
+        }
         // The draft side's rooms (lane N5e): the interview clock, a press,
         // a GM's word, a family's answer for the file.
         super::draft::after_line(w, id, &self.said, t);
@@ -1048,6 +1181,71 @@ fn loyalty(w: &World, him: Them, about: Option<Them>) -> f64 {
         return 0.0;
     }
     w.folk.ties.of_id(a).filter(|t| t.a == b || t.b == b).map(|t| f64::from(t.strength) / 100.0).fold(0.0, f64::max)
+}
+
+/// A question's topic.
+fn act_topic(a: &Act) -> Topic {
+    match a {
+        Act::Question { topic, .. } => *topic,
+        _ => Topic::Nothing,
+    }
+}
+
+/// You already know of a trouble at home of his: he told you, or it's on
+/// his sheet as known to you. Asking after it is caring, not prying.
+fn knows_trouble(w: &World, him: Them) -> bool {
+    let Them::Player(id) = him else { return false };
+    let today = w.today;
+    if w.folk.life.events.iter().any(|e| e.id == id && e.told && e.date.days_to(today) < 365) {
+        return true;
+    }
+    folk::person(w, id).is_some_and(|i| claims::player(w, i).points.iter().any(|p| p.known && p.kind.is_life()))
+}
+
+/// His answer to a question about his life (personal talk): what he tells
+/// you at his layer, a kind question landing on his life when he told you
+/// something new, a small cost when you ask again what he already told
+/// you. True when he answered something.
+#[allow(clippy::too_many_arguments)]
+fn home_turn(
+    w: &World,
+    him: Them,
+    words: &str,
+    asked: bool,
+    open: &store::Open,
+    wants: &[Want],
+    heard: &[super::ear::Hit],
+    t: &mut Turn,
+) -> bool {
+    let mut told = store::told_keys(w, him);
+    let mut recent = store::told_since(w, him, super::home::AGAIN_DAYS);
+    told.extend(t.shared.iter().map(|x| x.0));
+    recent.extend(t.shared.iter().map(|x| x.0));
+    let q = super::home::Asked { told: &told, recent: &recent, asked, closed: open.closed || t.closed };
+    let a = super::home::answer(w, him, words, q);
+    t.say.released.extend(a.released);
+    if a.again {
+        // He told you that already: you weren't listening.
+        t.hits.push(Sized {
+            hit: super::ear::Hit { on: him, item: Item::Life, how: super::ear::How::Doubted },
+            trust: -super::home::ASKED_AGAIN,
+            mood: 0.0,
+            faded: false,
+        });
+        return false;
+    }
+    if !a.new.is_empty() {
+        t.personal = true;
+        // A kind question at his layer lands on his life, once a line (the
+        // ear may have heard it too).
+        let ear_has = heard.iter().any(|h| h.on == him && matches!(h.item, Item::Life | Item::Family));
+        let hit = super::ear::Hit { on: him, item: Item::Life, how: super::ear::How::Reassured };
+        if !ear_has && let Some(sz) = hits::size(w, &hit, wants, open, open.lines) {
+            t.hits.push(sz);
+        }
+        t.shared.extend(a.new);
+    }
+    true
 }
 
 /// His answer about his own life when nothing's stored on it: no news.
@@ -1156,6 +1354,11 @@ pub fn end(w: &mut World, id: u32) {
     match Facet::of(&s) {
         _ if s.kind == SceneKind::OneOnOne => {
             let pid = s.a as u32;
+            // Something personal landed: one more week of contact with you
+            // (personal talk, item 8).
+            if store::open(w, id).is_some_and(|o| o.personal) {
+                folk::bonds::personal(w, pid);
+            }
             talks::finish_talk(w, &mut s, pid);
         }
         Facet::Recruit => recruit::end(w, &mut s),

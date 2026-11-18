@@ -6,6 +6,51 @@
 # subject (talk.open.<subject>). Mood parts stay short and never name a
 # subject; subject parts never assume a mood.
 
+# The first time he sits down with you (personal talk, first meetings): a
+# hello in his own way, before any business. No subject part follows.
+@key talk.open.meet.good
+Coach! Good to finally sit down with you.
+Hey, Coach. Nice to meet you for real. The guys have been talking about you.
+Coach. Glad you made time for me.
+Nice to meet you, Coach. I've been looking forward to this.
+Hey Coach. Good to finally meet you one on one.
+Coach, good to meet you. You need anything, I'm around. ~ humble
+Yes {coach_sir}. Nice to meet you. ~ south
+What's good, Coach? Good to finally put a face to it. ~ young modern
+Coach! Man, my mom's gonna ask me all about this. ~ young hs
+Hey, Coach. Heard a lot about you. Good things, mostly. ~ loose
+Coach. Firm handshake, I like that. ~ loose competitor
+Good to meet you, Coach. Looking forward to working with you. ~ pro
+Coach. Good to meet you. I'll make this easy on you. ~ vet
+Nice to meet you, Coach. I already know who I am around here, so ask me anything. ~ ego
+
+@key talk.open.meet.flat
+Hey, Coach. Nice to meet you.
+Coach. Good to meet you.
+Nice to meet you, Coach.
+Hey Coach. First time in here.
+Good to meet you, Coach. How's it going?
+Hey. Nice to finally meet you.
+Yes {coach_sir}. Nice to meet you. ~ south
+Coach. ~ quiet
+Nice to meet you, Coach. I'm not much of a talker, so bear with me. ~ quiet
+Hey Coach. Good to meet you. My mom said to tell you hi. ~ hs young
+Hey Coach. Nice to meet you. They said you wanted to see everybody. ~ college
+Good to meet you, Coach. I've got about twenty minutes before meetings, but I'm good. ~ nfl
+Coach. Heard a lot. Good to meet you. ~ vet
+Nice to meet you, Coach. I'll keep it short, I know you're busy. ~ humble
+
+@key talk.open.meet.sour
+Coach.
+Hey. Nice to meet you, I guess.
+Coach. Good to meet you. Honestly, it's been a rough week.
+Nice to meet you, Coach. Not the best day, just so you know.
+Hey Coach. Sorry, I'm a little off today. Nice to meet you though. ~ humble
+Yeah. Hey. Good to meet you. ~ quiet
+I've met a few coaches in this office. Nice to meet you. ~ vet
+Coach. Let's see how this goes. ~ brash
+Hey Coach. I'll be honest, I didn't sleep much. But nice to meet you. ~ young
+
 @key talk.open.sour
 I'll be honest, Coach, I'm not in the best mood.
 Coach.

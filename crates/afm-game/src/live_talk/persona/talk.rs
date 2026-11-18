@@ -647,3 +647,7 @@ mod commit_tests;
 #[cfg(test)]
 #[path = "replay_tests.rs"]
 mod replay_tests;
+
+#[cfg(test)]
+#[path = "personal_tests.rs"]
+mod personal_tests;

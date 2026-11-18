@@ -8,7 +8,7 @@
 use super::super::Them;
 use super::super::ear::{Act, Hit, How, Item, Turn};
 use super::super::knows::Topic;
-use super::super::memory::{Colour, Line, Memory, Saved, Treated, Treatment};
+use super::super::memory::{Colour, Line, Memory, Saved, Shared, Treated, Treatment};
 use super::super::room::{Present, Room};
 use super::super::terms::Request;
 use super::super::wants::{Boil, Heat, Patience, WantKind, Willing};
@@ -67,6 +67,14 @@ pub struct Open {
     /// (`wrap::decides`): no more lines, the meeting's picks decide it.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub over: bool,
+    /// Something personal landed in this talk (personal talk, item 8): it
+    /// counts as one more week of contact with you.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub personal: bool,
+    /// He went short on a question about his troubles asked too soon: the
+    /// surface only for the rest of the talk.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub closed: bool,
 }
 
 impl Open {
@@ -85,6 +93,8 @@ impl Open {
             refused: Vec::new(),
             raised_at: 0,
             over: false,
+            personal: false,
+            closed: false,
         }
     }
 
@@ -299,6 +309,43 @@ pub fn note(m: &mut Memory, who: Them, day: Date, note: String) {
     if mine.len() > KEEP_COLOUR {
         m.notebook.remove(mine[0]);
     }
+}
+
+/// Keeps something told about a life (personal talk, item 7), the newest
+/// `home::KEEP_SHARED` a person.
+pub fn share(m: &mut Memory, who: Them, day: Date, yours: bool, key: u16, words: String) {
+    if m.shared.iter().any(|x| x.who == who && x.yours == yours && x.key == key && x.words == words) {
+        return;
+    }
+    m.shared.push(Shared { who, day, yours, key, words });
+    let mine: Vec<usize> = (0..m.shared.len()).filter(|&k| m.shared[k].who == who).collect();
+    if mine.len() > super::super::home::KEEP_SHARED {
+        m.shared.remove(mine[0]);
+    }
+}
+
+/// What he has told you about his life, by kind.
+pub fn told_keys(w: &World, who: Them) -> Vec<u16> {
+    w.folk.live.persona.shared.iter().filter(|x| x.who == who && !x.yours).map(|x| x.key).collect()
+}
+
+/// What he has told you about his life in the last `days` days.
+pub fn told_since(w: &World, who: Them, days: i32) -> Vec<u16> {
+    let today = w.today;
+    w.folk
+        .live
+        .persona
+        .shared
+        .iter()
+        .filter(|x| x.who == who && !x.yours && x.day.days_to(today) <= days)
+        .map(|x| x.key)
+        .collect()
+}
+
+/// What he has told you about his life, and what you told him about yours,
+/// oldest first: (yours, words).
+pub fn shared(w: &World, who: Them) -> Vec<(bool, String)> {
+    w.folk.live.persona.shared.iter().filter(|x| x.who == who).map(|x| (x.yours, x.words.clone())).collect()
 }
 
 /// His notebook, oldest first, for the voice.

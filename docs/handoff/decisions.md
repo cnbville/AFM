@@ -435,6 +435,14 @@ Cain, 2026-11-17 19:58 UTC: "I want the players to have a more real life connect
 - **Agreed:** the bond design as written (closeness beside the built trust, a bond with every coach who works with him, the stages in words, growth from time, fit, what they share, need and hard moments, what it does through built channels, favoritism, betrayal and leaving costs), and its seven questions: 1 the age gap sets the kind (big brother under 12 years, father figure 12 to 40, grandfather past 40); 2 need up to 1.5 times as fast, a close father at home tops out at "Like family"; 3 no flat bonus on the field (instructions, talks and pregame fire only); 4 at most +3 coachability points with that coach; 5 a room that loved its old coach starts up to 0.15 colder with the new one, fading over a season; 6 AI coaches on the same rules (measured on a small world); 7 shared heritage as one small part of what they share.
 - **Proposed, not confirmed:** every other size (the weekly growth rule, contact shares, fit range, moment sizes, the read multipliers, the favoritism costs, fading) and the build order (two world lanes after the world rebuild).
 
+## 29. Personal talk (thread "Let talks get personal", 2026-11-17)
+
+Cain, 2026-11-17 23:15 UTC: "let's add a little bit of personal talk to convo's when i ask about families i keep getting 'They're good, but let's talk about football'. Multiple personal questions just get the same few lines, there needs to be more interpersonal guidelines." Spec: `docs/design/personal-talk.md`; Cain's "yes to all" at 23:25 UTC.
+- **Agreed:** all nine items: his people on the card; small details drawn, not stored; layers, not a secret (a Home topic beside Life); openness from his makeup and your bond; he answers and stays on it; you opening up counts; he remembers, both ways; a good personal talk feeds the bond; the same for coaches, staff, bosses and parents.
+- **First meetings (Cain, 2026-11-17 23:56 UTC, with a screenshot of a first meeting where the player opened on his pay and the coach's "nice to meet you" read as not answering him):** "also this ruins all personal feleing you get to players, there needs to be more personal conversations". Built with the nine items: the first sit-down opens on his own hello, your hello is never a dodge, and he stays on it.
+- **Not agreed:** the two gaps raised with it (the voice's colour notes touching family and feeding something; the major, girlfriends and breakups, and a second sport as real life parts). They are in `GAPS.md`.
+- **Proposed, not confirmed:** every size (openness, the depth bars, how many things an answer, the drawn shares, the hits, the hello's 0.3, the 14 days, the extra week).
+
 ## Superseded decisions
 
 | Old | Replaced by | When |

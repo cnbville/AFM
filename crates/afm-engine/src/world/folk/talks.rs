@@ -1300,7 +1300,14 @@ fn one_on_one_open(w: &mut World, s: &mut Scene) {
     // own opening in his mood says why he came, never a mood part that
     // assumes you called him in.
     let good = point.as_ref().is_some_and(tp::is_good);
-    let keys = if asked && point.is_none() {
+    // The first time he sits down with you he says hello his own way
+    // before any business (personal talk, first meetings; Cain
+    // 2026-11-17: "this ruins all personal feeling"): unless he asked for
+    // the meeting, it's an exit meeting, or a point weighs on him.
+    let meet = !asked && !exit && point.is_none() && super::persona::home::first_meeting(w, id);
+    let keys = if meet {
+        vec![format!("talk.open.meet.{tone}")]
+    } else if asked && point.is_none() {
         vec![format!("talk.open.portal.{tone}")]
     } else if good {
         // Good news: no subject line fits it ("Is this about where I'm at
@@ -1342,6 +1349,10 @@ fn one_on_one_open(w: &mut World, s: &mut Scene) {
             let own = pen.line(&[k], &spk, &f);
             if own.is_empty() { pen.line(&keys, &spk, &f) } else { own }
         }
+        _ if meet => {
+            let own = pen.line(&keys, &spk, &f);
+            if own.is_empty() { pen.line(&[&format!("talk.open.{tone}")], &spk, &f) } else { own }
+        }
         _ => pen.line(&keys, &spk, &f),
     };
     let line = match (line.is_empty(), asked && point.is_none()) {
@@ -1364,7 +1375,7 @@ fn one_on_one_open(w: &mut World, s: &mut Scene) {
     // A point with a question comes as one; any of them asks once a season
     // if you're staying when your name is in a job story.
     let q = point.as_ref().and_then(|p| tp::question(w, i, p)).map(|q| (q, false)).or_else(|| {
-        if asked || point.as_ref().is_some_and(|p| p.kind.is_trouble() || p.kind.is_life()) {
+        if asked || meet || point.as_ref().is_some_and(|p| p.kind.is_trouble() || p.kind.is_life()) {
             None
         } else {
             tp::job_question(w, i).map(|q| (q, true))
